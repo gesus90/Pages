@@ -1,0 +1,35 @@
+{
+  "account": {
+    "menu": "Account menu",
+    "signOut": "Sign out"
+  },
+  "dashboard": {
+    "eyebrow": "Dashboard",
+    "greeting": {
+      "morning": "Good morning, {{name}}.",
+      "day": "Good day, {{name}}.",
+      "evening": "Good evening, {{name}}."
+    }
+  },
+  "login": {
+    "title": "Welcome back",
+    "subtitle": "Sign in to access Pages.",
+    "username": "Username",
+    "password": "Password",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "submit": "Sign in",
+    "submitting": "Signing in …",
+    "error": {
+      "invalidCredentials": "Username or password is incorrect.",
+      "unavailable": "Sign-in is currently unavailable. Please try again later."
+    }
+  },
+  "navigation": {
+    "close": "Close navigation",
+    "dashboard": "Dashboard",
+    "label": "Main navigation",
+    "menu": "Open navigation",
+    "settings": "Settings"
+  }
+}

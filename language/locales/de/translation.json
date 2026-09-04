@@ -1,0 +1,35 @@
+{
+  "account": {
+    "menu": "Kontomenü",
+    "signOut": "Abmelden"
+  },
+  "dashboard": {
+    "eyebrow": "Dashboard",
+    "greeting": {
+      "morning": "Guten Morgen, {{name}}.",
+      "day": "Guten Tag, {{name}}.",
+      "evening": "Guten Abend, {{name}}."
+    }
+  },
+  "login": {
+    "title": "Willkommen zurück",
+    "subtitle": "Melde dich an, um auf Pages zuzugreifen.",
+    "username": "Benutzername",
+    "password": "Passwort",
+    "showPassword": "Passwort anzeigen",
+    "hidePassword": "Passwort verbergen",
+    "submit": "Anmelden",
+    "submitting": "Wird angemeldet …",
+    "error": {
+      "invalidCredentials": "Benutzername oder Passwort ist falsch.",
+      "unavailable": "Anmeldung derzeit nicht möglich. Bitte später erneut versuchen."
+    }
+  },
+  "navigation": {
+    "close": "Navigation schließen",
+    "dashboard": "Dashboard",
+    "label": "Hauptnavigation",
+    "menu": "Navigation öffnen",
+    "settings": "Einstellungen"
+  }
+}
