@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { LANGUAGE, resolveLanguage } from "@/language/Language";
+import { isLanguage, LANGUAGE, resolveLanguage } from "@/language/Language";
 
 describe("resolveLanguage", () => {
   it("defaults to English when no preference is given", () => {
@@ -63,4 +63,24 @@ describe("resolveLanguage", () => {
   it("treats whitespace-only preferences as unsupported", () => {
     expect(resolveLanguage("   ")).toBe(LANGUAGE.ENGLISH);
   });
+});
+
+describe("isLanguage", () => {
+  it("accepts every documented language", () => {
+    expect(isLanguage("de")).toBe(true);
+    expect(isLanguage("en")).toBe(true);
+  });
+
+  it("rejects unknown language codes", () => {
+    expect(isLanguage("fr")).toBe(false);
+    expect(isLanguage("")).toBe(false);
+    expect(isLanguage("DE")).toBe(false);
+  });
+
+  it.each([null, undefined, 0, 1, true, false, {}, []])(
+    "rejects non-string value %p",
+    (value) => {
+      expect(isLanguage(value)).toBe(false);
+    },
+  );
 });

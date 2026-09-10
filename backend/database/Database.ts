@@ -1,27 +1,30 @@
 import { mkdir, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 
-import { DuckDBInstance } from "@duckdb/node-api";
+import SqliteDatabase from "better-sqlite3";
 
-import type { DuckDBConnection, DuckDBValue } from "@duckdb/node-api";
+import { recordDatabaseQuery } from "./DatabaseStats";
+
+import type { Database as SqliteConnection } from "better-sqlite3";
+
+/** A single column value as stored and returned by SQLite. */
+export type DatabaseValue = string | number | bigint | Buffer | null;
 
 /** Named values bound to a parameterized statement. */
 export type SqlParameters = Readonly<
-  Record<string, string | number | bigint | boolean | null>
+  Record<string, string | number | bigint | boolean | Buffer | null>
 >;
 
 /** Provides the central server-side connection and migration runner. */
 export class Database {
-  private readonly instance: DuckDBInstance;
-  private readonly connection: DuckDBConnection;
+  private readonly connection: SqliteConnection;
 
-  private constructor(instance: DuckDBInstance, connection: DuckDBConnection) {
-    this.instance = instance;
+  private constructor(connection: SqliteConnection) {
     this.connection = connection;
   }
 
   /**
-   * Opens a DuckDB database, creating its parent directory when needed.
+   * Opens a SQLite database, creating its parent directory when needed.
    *
    * @param databasePath - File system path for the database.
    * @returns An open database connection.
@@ -29,16 +32,16 @@ export class Database {
   public static async create(databasePath: string): Promise<Database> {
     await mkdir(path.dirname(databasePath), { recursive: true });
 
-    const instance = await DuckDBInstance.create(databasePath);
-    const connection = await instance.connect();
+    const connection = new SqliteDatabase(databasePath);
+    connection.pragma("journal_mode = WAL");
+    connection.pragma("foreign_keys = ON");
 
-    return new Database(instance, connection);
+    return new Database(connection);
   }
 
-  /** Releases the connection and the underlying database file. */
+  /** Releases the underlying database connection. */
   public close(): void {
-    this.connection.closeSync();
-    this.instance.closeSync();
+    this.connection.close();
   }
 
   /**
@@ -47,14 +50,28 @@ export class Database {
    * @param migrationsPath - Directory containing SQL migration files.
    */
   public async migrate(migrationsPath: string): Promise<void> {
-    await this.connection.run(`
+    // Table rebuilds (e.g. widened CHECK constraints) cannot run with
+    // enforced foreign keys because SQLite validates implicit deletes on
+    // DROP TABLE. Migrations run at startup before any request is served,
+    // so constraints are lifted here and restored afterwards.
+    this.connection.pragma("foreign_keys = OFF");
+
+    try {
+      await this.applyPendingMigrations(migrationsPath);
+    } finally {
+      this.connection.pragma("foreign_keys = ON");
+    }
+  }
+
+  private async applyPendingMigrations(migrationsPath: string): Promise<void> {
+    this.connection.exec(`
       CREATE TABLE IF NOT EXISTS schema_migrations (
-          name VARCHAR PRIMARY KEY,
-          applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+          name TEXT PRIMARY KEY,
+          applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
     `);
 
-    const appliedMigrations = await this.getAppliedMigrations();
+    const appliedMigrations = this.getAppliedMigrations();
     const directoryEntries = await readdir(migrationsPath, {
       withFileTypes: true,
     });
@@ -73,7 +90,7 @@ export class Database {
         "utf8",
       );
 
-      await this.applyMigration(migrationName, migrationSql);
+      this.applyMigration(migrationName, migrationSql);
     }
   }
 
@@ -87,11 +104,17 @@ export class Database {
     statement: string,
     parameters: SqlParameters = {},
   ): Promise<void> {
-    await this.connection.run(statement, { ...parameters });
+    const startedAt = performance.now();
+
+    try {
+      this.connection.prepare(statement).run(this.toBindings(parameters));
+    } finally {
+      recordDatabaseQuery(statement, performance.now() - startedAt);
+    }
   }
 
   /**
-   * Runs a query and returns its rows as native DuckDB values.
+   * Runs a query and returns its rows as raw positional column values.
    *
    * @param statement - SQL owned by a repository.
    * @param parameters - Values bound to the statement placeholders.
@@ -100,24 +123,29 @@ export class Database {
   public async query(
     statement: string,
     parameters: SqlParameters = {},
-  ): Promise<readonly DuckDBValue[][]> {
-    const reader = await this.connection.runAndReadAll(statement, {
-      ...parameters,
-    });
+  ): Promise<readonly DatabaseValue[][]> {
+    const startedAt = performance.now();
 
-    return reader.getRows();
+    try {
+      const rows = this.connection
+        .prepare(statement)
+        .raw()
+        .all(this.toBindings(parameters));
+
+      return rows as DatabaseValue[][];
+    } finally {
+      recordDatabaseQuery(statement, performance.now() - startedAt);
+    }
   }
 
-  private async getAppliedMigrations(): Promise<Set<string>> {
-    const reader = await this.connection.runAndReadAll(`
-      SELECT
-          name
-      FROM schema_migrations
-      ORDER BY name;
-    `);
+  private getAppliedMigrations(): Set<string> {
+    const rows = this.connection
+      .prepare("SELECT name FROM schema_migrations ORDER BY name;")
+      .raw()
+      .all() as DatabaseValue[][];
     const appliedMigrations = new Set<string>();
 
-    for (const row of reader.getRows()) {
+    for (const row of rows) {
       const migrationName = row[0];
 
       if (typeof migrationName !== "string") {
@@ -130,28 +158,42 @@ export class Database {
     return appliedMigrations;
   }
 
-  private async applyMigration(name: string, sql: string): Promise<void> {
-    await this.connection.run("BEGIN TRANSACTION;");
+  private applyMigration(name: string, sql: string): void {
+    const runMigration = this.connection.transaction(() => {
+      this.connection.exec(sql);
+      this.connection
+        .prepare(
+          `
+            INSERT INTO schema_migrations (
+                name
+            )
+            VALUES (
+                $name
+            );
+          `,
+        )
+        .run({ name });
+    });
 
     try {
-      await this.connection.run(sql);
-      await this.connection.run(
-        `
-          INSERT INTO schema_migrations (
-              name
-          )
-          VALUES (
-              $name
-          );
-        `,
-        { name },
-      );
-      await this.connection.run("COMMIT;");
+      runMigration();
     } catch (error: unknown) {
-      await this.connection.run("ROLLBACK;");
       throw new Error(`Failed to apply database migration "${name}".`, {
         cause: error,
       });
     }
+  }
+
+  private toBindings(
+    parameters: SqlParameters,
+  ): Record<string, string | number | bigint | Buffer | null> {
+    const bindings: Record<string, string | number | bigint | Buffer | null> =
+      {};
+
+    for (const [key, value] of Object.entries(parameters)) {
+      bindings[key] = typeof value === "boolean" ? Number(value) : value;
+    }
+
+    return bindings;
   }
 }

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 
 import { createI18n } from "@/app/lib/i18n";
@@ -9,7 +10,7 @@ describe("createI18n", () => {
 
     expect(i18n.t("login.title")).toBe("Willkommen zurück");
     expect(i18n.t("login.username")).toBe("Benutzername");
-    expect(i18n.t("account.signOut")).toBe("Abmelden");
+    expect(i18n.t("account.signOut")).toBe("Logout");
   });
 
   it("translates the English login screen", () => {
@@ -17,7 +18,7 @@ describe("createI18n", () => {
 
     expect(i18n.t("login.title")).toBe("Welcome back");
     expect(i18n.t("login.username")).toBe("Username");
-    expect(i18n.t("account.signOut")).toBe("Sign out");
+    expect(i18n.t("account.signOut")).toBe("Log out");
   });
 
   it("interpolates dashboard names", () => {

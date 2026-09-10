@@ -6,15 +6,17 @@ import type { ButtonHTMLAttributes } from "react";
 import type { VariantProps } from "class-variance-authority";
 
 const buttonVariants = cva(
-  "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-base font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:pointer-events-none disabled:opacity-70",
+  "inline-flex min-h-11 select-none items-center justify-center gap-2 rounded-lg px-4 text-base font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:pointer-events-none disabled:opacity-70 xl:min-h-9 xl:gap-1.5 xl:px-3 xl:text-sm",
   {
     defaultVariants: {
       variant: "default",
     },
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-[#fca974]",
+        default:
+          "bg-primary text-primary-foreground shadow-xs hover:bg-primary-hover",
         ghost: "bg-transparent text-foreground hover:bg-muted",
+        outline: "bg-surface text-foreground shadow-xs hover:bg-surface-hover",
       },
     },
   },

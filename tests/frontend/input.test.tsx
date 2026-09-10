@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -29,7 +30,7 @@ describe("Input", () => {
     render(<Input aria-label="Feld" className="custom-field" />);
 
     expect(screen.getByLabelText("Feld").className).toContain("custom-field");
-    expect(screen.getByLabelText("Feld").className).toContain("rounded-lg");
+    expect(screen.getByLabelText("Feld").className).toContain("rounded-xl");
   });
 
   it("forwards change events", async () => {

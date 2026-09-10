@@ -75,9 +75,16 @@ pnpm run dev
 Pages is then available at <http://localhost:5173>.
 
 Use `pnpm run build` to create a production build and `pnpm run start` to serve
-it. Use `pnpm test` and `pnpm run test:coverage` to verify the unit test suite.
-The remaining maintenance commands are `pnpm run check`, `pnpm run format`,
-and `pnpm run clean`.
+it. Use `pnpm test` to verify the unit test suite, always with coverage.
+`pnpm run test:frontend` and `pnpm run test:backend` verify a single scope
+through the `VITEST_FRONTEND` and `VITEST_BACKEND` environment flags, also
+with coverage. Suites below `tests/frontend/` verify everything below
+`app/`, suites below `tests/backend/` verify `backend/`, `definition/`,
+and `language/`. Each scope is held at 100% coverage on its own files, so
+a run fails individually as well as together. New files below `tests/` and
+new source directories are picked up automatically.
+The remaining maintenance commands are `pnpm run check`, `pnpm run lint`,
+`pnpm run format`, and `pnpm run clean`.
 
 Coding conventions are defined in [`GUIDELINES.md`](./GUIDELINES.md).
 

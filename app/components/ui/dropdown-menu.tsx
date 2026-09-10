@@ -17,13 +17,39 @@ export function DropdownMenuContent({
     <DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.Content
         className={cn(
-          "z-50 min-w-44 rounded-lg border bg-background p-1 shadow-[0_0.75rem_2rem_rgb(28_22_18_/_8%)]",
+          "z-50 min-w-44 rounded-xl bg-surface p-1 shadow-panel outline-none",
           className,
         )}
         sideOffset={sideOffset}
         {...properties}
       />
     </DropdownMenuPrimitive.Portal>
+  );
+}
+
+/** Renders a non-interactive heading inside a Radix dropdown. */
+export function DropdownMenuLabel({
+  className,
+  ...properties
+}: ComponentProps<typeof DropdownMenuPrimitive.Label>): React.ReactElement {
+  return (
+    <DropdownMenuPrimitive.Label
+      className={cn("px-3 py-2", className)}
+      {...properties}
+    />
+  );
+}
+
+/** Renders a thin divider between groups of Radix dropdown items. */
+export function DropdownMenuSeparator({
+  className,
+  ...properties
+}: ComponentProps<typeof DropdownMenuPrimitive.Separator>): React.ReactElement {
+  return (
+    <DropdownMenuPrimitive.Separator
+      className={cn("my-1 h-px bg-border", className)}
+      {...properties}
+    />
   );
 }
 

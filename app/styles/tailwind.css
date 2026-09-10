@@ -1,34 +1,72 @@
 @import "tailwindcss";
 
-@theme inline {
-  --color-background: var(--background);
-  --color-border: var(--border);
-  --color-card: var(--card);
-  --color-destructive: var(--destructive);
-  --color-foreground: var(--foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-hover: var(--sidebar-hover);
+@theme {
   --font-sans:
     Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
+
+  --color-background: #f2f4f7;
+  --color-surface: #ffffff;
+  --color-card: #ffffff;
+  --color-sidebar: #f2f4f7;
+  --color-sidebar-hover: #e8ebf0;
+  --color-muted: #eef0f4;
+  --color-foreground: #171717;
+  --color-muted-foreground: #6d7482;
+  --color-border: #e9ebf0;
+  --color-primary: #f97316;
+  --color-primary-hover: #ea580c;
+  --color-primary-subtle: #fdf4ee;
+  --color-primary-foreground: #ffffff;
+  --color-destructive: #c5322b;
+  --color-ring: #f97316;
+
+  --color-column-backlog: #eef1f5;
+  --color-column-todo: #eaf2fd;
+  --color-column-progress: #fdf1e7;
+  --color-column-review: #f1ecfb;
+  --color-column-done: #e7f5ee;
+
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+
+  --shadow-card:
+    0 1px 2px rgb(23 23 23 / 3%), 0 12px 32px -8px rgb(23 23 23 / 8%);
+  --shadow-floating:
+    0 4px 12px rgb(23 23 23 / 6%), 0 16px 40px rgb(23 23 23 / 10%);
+  --shadow-panel: 0 8px 28px rgb(23 23 23 / 10%), 0 2px 8px rgb(23 23 23 / 6%);
+  --shadow-column: 0 1px 2px rgb(23 23 23 / 3%), 0 8px 24px rgb(23 23 23 / 4%);
 }
 
 :root {
-  --background: #fefefe;
-  --border: #eef0f4;
-  --card: #fafbfd;
-  --destructive: #c5322b;
+  --background: #f2f4f7;
+  --surface: #ffffff;
+  --surface-hover: #f6f7f9;
+  --card: #ffffff;
+  --sidebar: #f2f4f7;
+  --sidebar-hover: #e8ebf0;
+  --muted: #eef0f4;
   --foreground: #171717;
-  --muted: #f4f5f7;
-  --muted-foreground: #7b7f8c;
+  --muted-foreground: #6d7482;
+  --border: #e9ebf0;
   --primary: #f97316;
-  --primary-foreground: #171717;
-  --sidebar: #fbfbfb;
-  --sidebar-hover: #f4f5f7;
+  --primary-hover: #ea580c;
+  --primary-subtle: #fdf4ee;
+  --primary-foreground: #ffffff;
+  --destructive: #c5322b;
+  --background-channels: 242 244 247;
+  --panel-body-channels: 247 248 250;
+
+  /* Standardfarbe aller Scroll-Fades; einzelne Container überschreiben sie. */
+  --scroll-fade-channels: var(--background-channels);
+  --scrollbar-thumb: #d5dae2;
+  --scrollbar-thumb-hover: #c2c9d4;
+  --space-small: 0.5rem;
+  --space-medium: 1rem;
+  --space-large: 1.5rem;
 }
 
 @layer base {
@@ -46,10 +84,149 @@
     color: var(--foreground);
     background: var(--background);
     font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
   }
 
   button,
-  input {
+  input,
+  select,
+  textarea {
     font: inherit;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  .pages-content-card {
+    background: var(--surface);
+    border-radius: 1.25rem;
+    box-shadow:
+      0 1px 2px rgb(23 23 23 / 3%),
+      0 12px 32px -8px rgb(23 23 23 / 8%);
+  }
+
+  .pages-floating-panel {
+    background: var(--surface);
+    border-radius: 1rem;
+    box-shadow:
+      0 8px 28px rgb(23 23 23 / 10%),
+      0 2px 8px rgb(23 23 23 / 6%);
+  }
+
+  /* Dezente Scrollbar, damit horizontales Scrollen sichtbar bleibt,
+     ohne die massive Standard-Scrollbar des Browsers zu zeigen. */
+  .pages-thin-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+
+  .pages-thin-scrollbar::-webkit-scrollbar {
+    height: 0.5rem;
+    width: 0.5rem;
+  }
+
+  .pages-thin-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .pages-thin-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 999px;
+  }
+
+  .pages-thin-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+  }
+
+  .pages-hover-scrollbar {
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+  }
+
+  .pages-hover-scrollbar::-webkit-scrollbar {
+    width: 0.5rem;
+    height: 0.5rem;
+  }
+
+  .pages-hover-scrollbar::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  .pages-hover-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .pages-hover-scrollbar::-webkit-scrollbar-thumb {
+    background-color: transparent;
+    background-clip: padding-box;
+    border: 0.125rem solid transparent;
+    border-radius: 999px;
+    transition: background-color 200ms ease-in;
+  }
+
+  .pages-hover-scrollbar:hover::-webkit-scrollbar-thumb,
+  .pages-hover-scrollbar:focus-within::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb);
+    transition-timing-function: ease-out;
+  }
+
+  .pages-hover-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-thumb-hover);
+  }
+
+  @supports not selector(::-webkit-scrollbar) {
+    .pages-hover-scrollbar {
+      scrollbar-color: transparent transparent;
+    }
+
+    .pages-hover-scrollbar:hover,
+    .pages-hover-scrollbar:focus-within {
+      scrollbar-color: var(--scrollbar-thumb) transparent;
+    }
+  }
+
+  /* Scrollbarer Inhalt darf nie hart abgeschnitten enden. Jeder Container
+     setzt --scroll-fade-channels auf seine eigene Hintergrundfarbe, damit
+     der Verlauf farblich exakt in die Fläche darunter übergeht. */
+  .pages-scroll-fade-start {
+    background: linear-gradient(
+      to right,
+      rgb(var(--scroll-fade-channels) / 100%) 0%,
+      rgb(var(--scroll-fade-channels) / 72%) 42%,
+      rgb(var(--scroll-fade-channels) / 0%) 100%
+    );
+  }
+
+  .pages-scroll-fade-end {
+    background: linear-gradient(
+      to left,
+      rgb(var(--scroll-fade-channels) / 100%) 0%,
+      rgb(var(--scroll-fade-channels) / 72%) 42%,
+      rgb(var(--scroll-fade-channels) / 0%) 100%
+    );
+  }
+
+  .pages-scroll-fade-top {
+    background: linear-gradient(
+      to bottom,
+      rgb(var(--scroll-fade-channels) / 100%) 0%,
+      rgb(var(--scroll-fade-channels) / 72%) 42%,
+      rgb(var(--scroll-fade-channels) / 0%) 100%
+    );
+  }
+
+  .pages-scroll-fade-bottom {
+    background: linear-gradient(
+      to top,
+      rgb(var(--scroll-fade-channels) / 100%) 0%,
+      rgb(var(--scroll-fade-channels) / 72%) 42%,
+      rgb(var(--scroll-fade-channels) / 0%) 100%
+    );
   }
 }

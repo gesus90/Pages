@@ -7,6 +7,7 @@ import {
   SESSION_LIFETIME_SECONDS,
   SessionService,
 } from "@/backend/auth/SessionService";
+import { ROLE } from "@/definition/Role";
 
 import type { SessionRepository } from "@/backend/database/repositories/SessionRepository";
 import type { UserService } from "@/backend/service/UserService";
@@ -57,9 +58,9 @@ describe("SessionService", () => {
     service = new SessionService(doubles.repository, doubles.users);
   });
 
-  it("exposes a thirty-day session lifetime", () => {
-    expect(SESSION_LIFETIME_DAYS).toBe(30);
-    expect(SESSION_LIFETIME_SECONDS).toBe(30 * 24 * 60 * 60);
+  it("exposes a fourteen-day session lifetime", () => {
+    expect(SESSION_LIFETIME_DAYS).toBe(14);
+    expect(SESSION_LIFETIME_SECONDS).toBe(14 * 24 * 60 * 60);
   });
 
   it("creates a session and stores only its hash", async () => {
@@ -98,6 +99,8 @@ describe("SessionService", () => {
     const user: User = {
       displayName: "Admin",
       id: "user-1",
+      isActive: true,
+      role: ROLE.ADMIN,
       username: "admin",
     };
     doubles.repository.findUserIdByTokenHash.mockResolvedValue("user-1");
@@ -136,6 +139,22 @@ describe("SessionService", () => {
   it("returns null when the session owner no longer exists", async () => {
     doubles.repository.findUserIdByTokenHash.mockResolvedValue("user-1");
     doubles.users.getById.mockResolvedValue(null);
+
+    await expect(service.authenticate("token")).resolves.toBeNull();
+
+    expect(doubles.repository.markUsed).not.toHaveBeenCalled();
+  });
+
+  it("returns null when the session owner was deactivated", async () => {
+    const user: User = {
+      displayName: "Admin",
+      id: "user-1",
+      isActive: false,
+      role: ROLE.ADMIN,
+      username: "admin",
+    };
+    doubles.repository.findUserIdByTokenHash.mockResolvedValue("user-1");
+    doubles.users.getById.mockResolvedValue(user);
 
     await expect(service.authenticate("token")).resolves.toBeNull();
 

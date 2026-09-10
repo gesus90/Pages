@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 
 import routes from "@/app/routes";
@@ -22,7 +23,7 @@ describe("route configuration", () => {
       expect.arrayContaining([
         "dashboard",
         "settings",
-        "projects",
+        "projekte",
         "tasks",
         "wiki",
       ]),
@@ -33,6 +34,15 @@ describe("route configuration", () => {
     const layout = routes.find((entry) => !entry.path && entry.children);
     const childPaths = (layout?.children ?? []).map((child) => child.path);
 
-    expect(childPaths).toContain("projects/:projectId");
+    expect(childPaths).toContain("projekte/:projectId");
+    expect(childPaths).toContain("projekte/:projectId/icon");
+  });
+
+  it("exposes addressable ticket detail routes", () => {
+    const layout = routes.find((entry) => !entry.path && entry.children);
+    const childPaths = (layout?.children ?? []).map((child) => child.path);
+
+    expect(childPaths).toContain("aufgaben/:ticketKey");
+    expect(childPaths).toContain("tasks/:ticketKey");
   });
 });

@@ -17,7 +17,7 @@ export class SessionRepository {
   /**
    * Creates a session repository.
    *
-   * @param database - Central DuckDB access.
+   * @param database - Central database access.
    */
   public constructor(database: Database) {
     this.database = database;
@@ -38,17 +38,17 @@ export class SessionRepository {
             expires_at
         )
         VALUES (
-            CAST($id AS UUID),
-            CAST($user_id AS UUID),
+            $id,
+            $user_id,
             $token_hash,
-            CURRENT_TIMESTAMP + INTERVAL ($lifetime_days) DAY
+            datetime(CURRENT_TIMESTAMP, $lifetime_modifier)
         );
       `,
       {
         id: session.id,
         user_id: session.userId,
         token_hash: session.tokenHash,
-        lifetime_days: session.lifetimeDays,
+        lifetime_modifier: `+${session.lifetimeDays} days`,
       },
     );
   }
@@ -65,7 +65,7 @@ export class SessionRepository {
     const rows = await this.database.query(
       `
         SELECT
-            CAST(user_id AS VARCHAR) AS user_id
+            user_id
         FROM sessions
         WHERE token_hash = $token_hash
             AND expires_at > CURRENT_TIMESTAMP;

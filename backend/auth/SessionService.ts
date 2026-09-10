@@ -7,7 +7,7 @@ import type { User } from "@/definition/User";
 const SESSION_TOKEN_BYTES = 32;
 
 /** Number of days a login session stays valid. */
-export const SESSION_LIFETIME_DAYS = 30;
+export const SESSION_LIFETIME_DAYS = 14;
 
 /** Number of seconds a login session stays valid. */
 export const SESSION_LIFETIME_SECONDS = SESSION_LIFETIME_DAYS * 24 * 60 * 60;
@@ -59,7 +59,7 @@ export class SessionService {
    *
    * @param token - Token sent by the browser.
    * @returns The authenticated user, or `null` for missing, unknown, or
-   * expired sessions.
+   * expired sessions, or when the user has since been deactivated.
    */
   public async authenticate(token: string | null): Promise<User | null> {
     if (!token) {
@@ -76,7 +76,7 @@ export class SessionService {
 
     const user = await this.userService.getById(userId);
 
-    if (!user) {
+    if (!user || !user.isActive) {
       return null;
     }
 

@@ -27,7 +27,7 @@ describe("resolveDatabasePath", () => {
     mockedHomedir.mockReturnValue("/home/pages-user");
 
     expect(resolveDatabasePath()).toBe(
-      path.join("/home/pages-user", ".pages", "data", "pages.duckdb"),
+      path.join("/home/pages-user", ".pages", "data", "pages.db"),
     );
   });
 
@@ -36,15 +36,15 @@ describe("resolveDatabasePath", () => {
 
     const resolved = resolveDatabasePath();
 
-    expect(resolved.endsWith("pages.duckdb")).toBe(true);
+    expect(resolved.endsWith("pages.db")).toBe(true);
     expect(resolved).toContain(".pages");
     expect(resolved).toContain("data");
   });
 
   it("prefers an explicitly configured database path", () => {
-    process.env.PAGES_DATABASE_PATH = "./custom/pages.duckdb";
+    process.env.PAGES_DATABASE_PATH = "./custom/pages.db";
 
-    expect(resolveDatabasePath().endsWith("pages.duckdb")).toBe(true);
+    expect(resolveDatabasePath().endsWith("pages.db")).toBe(true);
     expect(resolveDatabasePath()).toContain("custom");
   });
 

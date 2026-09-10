@@ -1,2 +1,11 @@
 allowBuilds:
+  better-sqlite3: true
   esbuild: true
+
+# Supply-chain protection: only install package versions published at least
+# 10 days (14400 minutes) ago. Compromised releases are usually discovered
+# and withdrawn quickly, so they never reach us. Applies to transitive
+# dependencies as well. Setting this explicitly enables strict mode: if no
+# version in the requested range meets the minimum age, resolution fails
+# instead of falling back to a younger version.
+minimumReleaseAge: 14400

@@ -8,6 +8,19 @@ export const LANGUAGE = {
 export type Language = (typeof LANGUAGE)[keyof typeof LANGUAGE];
 
 /**
+ * Narrows unknown data to a supported language.
+ *
+ * @param value - Value received from an untrusted source.
+ * @returns Whether the value is a supported language.
+ */
+export function isLanguage(value: unknown): value is Language {
+  return (
+    typeof value === "string" &&
+    (Object.values(LANGUAGE) as readonly string[]).includes(value)
+  );
+}
+
+/**
  * Selects the first supported language from an HTTP language preference.
  *
  * @param preference - An `Accept-Language` value or a language code.

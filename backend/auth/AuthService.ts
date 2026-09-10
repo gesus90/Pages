@@ -20,7 +20,7 @@ export class AuthService {
    *
    * @param userService - User business-logic boundary.
    * @param sessionService - Session business-logic boundary.
-   * @param passwordHasher - Argon2id password hashing.
+   * @param passwordHasher - scrypt password hashing.
    */
   public constructor(
     userService: UserService,

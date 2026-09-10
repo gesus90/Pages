@@ -33,7 +33,7 @@ describe("SessionRepository", () => {
 
     await repository.insert({
       id: "session-1",
-      lifetimeDays: 30,
+      lifetimeDays: 14,
       tokenHash: "token-hash",
       userId: "user-1",
     });
@@ -47,7 +47,7 @@ describe("SessionRepository", () => {
     expect(statement).toContain("INSERT INTO sessions");
     expect(parameters).toEqual({
       id: "session-1",
-      lifetime_days: 30,
+      lifetime_modifier: "+14 days",
       token_hash: "token-hash",
       user_id: "user-1",
     });
@@ -118,7 +118,7 @@ describe("SessionRepository", () => {
     await expect(
       repository.insert({
         id: "session-1",
-        lifetimeDays: 30,
+        lifetimeDays: 14,
         tokenHash: "hash",
         userId: "user-1",
       }),

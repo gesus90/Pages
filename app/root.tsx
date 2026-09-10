@@ -8,9 +8,12 @@ import {
   useLoaderData,
 } from "react-router";
 
+import { getAuthenticatedUser } from "@/app/lib/auth.server";
 import { createI18n } from "@/app/lib/i18n";
+import { resolveAnonymousLanguage } from "@/app/lib/language.server";
+import { getApplicationServices } from "@/app/lib/services.server";
 import stylesheet from "@/app/styles/tailwind.css?url";
-import { resolveLanguage } from "@/language/Language";
+import { LANGUAGE } from "@/language/Language";
 
 import type { ReactNode } from "react";
 import type {
@@ -20,14 +23,26 @@ import type {
 } from "react-router";
 import type { Language } from "@/language/Language";
 
-/** Selects the document language from the visitor's request. */
-export function loader({ request }: LoaderFunctionArgs): {
+/**
+ * Selects the document language.
+ *
+ * @remarks
+ * Signed-in visitors use their persisted personal language setting.
+ * Everyone else falls back to their browser's `Accept-Language` preference.
+ */
+export async function loader({ request }: LoaderFunctionArgs): Promise<{
   language: Language;
-} {
-  const languagePreference =
-    request.headers.get("Accept-Language") ?? undefined;
+}> {
+  const user = await getAuthenticatedUser(request);
 
-  return { language: resolveLanguage(languagePreference) };
+  if (user) {
+    const services = await getApplicationServices();
+    const settings = await services.settingsService.getUserSettings(user.id);
+
+    return { language: settings.language };
+  }
+
+  return { language: await resolveAnonymousLanguage(request) };
 }
 
 /** Registers the global Tailwind stylesheet. */
@@ -38,13 +53,22 @@ export const links: LinksFunction = () => [
 /** Defines the document metadata shared by Pages routes. */
 export const meta: MetaFunction = () => [{ title: "Pages" }];
 
-/** Provides the HTML document and request-scoped localization provider. */
+/**
+ * Provides the HTML document and request-scoped localization provider.
+ *
+ * @remarks
+ * Also renders around thrown-response error pages (for example a 403 from
+ * a permission check), where the router does not provide this route's own
+ * loader data, so a default language is used instead.
+ */
 export function Layout({
   children,
 }: {
   children: ReactNode;
 }): React.ReactElement {
-  const { language } = useLoaderData<typeof loader>();
+  const loaderData = useLoaderData<typeof loader>() as
+    { language: Language } | undefined;
+  const language = loaderData?.language ?? LANGUAGE.GERMAN;
   const i18n = createI18n(language);
 
   return (

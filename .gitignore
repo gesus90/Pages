@@ -1,8 +1,12 @@
 node_modules/
-build/
 dist/
+build/
+coverage/
 .react-router/
 data/
-coverage/
+
 .env
+.env.*
+!.env.example
+
 *.log

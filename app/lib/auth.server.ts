@@ -1,9 +1,13 @@
 import { createContext, redirect } from "react-router";
 
-import { getSessionToken } from "@/app/lib/session.server";
+import {
+  destroySessionCookie,
+  getSessionToken,
+} from "@/app/lib/session.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 
 import type { MiddlewareFunction } from "react-router";
+import type { Permission } from "@/definition/Role";
 import type { User } from "@/definition/User";
 
 const MAXIMUM_USERNAME_LENGTH = 200;
@@ -54,6 +58,17 @@ export function parseCredentials(formData: FormData): Credentials | null {
   return { username: trimmedUsername, password };
 }
 
+/**
+ * Builds a redirect to the login page that also removes a stale or invalid
+ * session cookie so the browser stops presenting it on every following
+ * request.
+ */
+async function loginRedirect(): Promise<Response> {
+  return redirect("/login", {
+    headers: { "Set-Cookie": await destroySessionCookie() },
+  });
+}
+
 /** Blocks anonymous visitors before protected loaders and actions execute. */
 export const requireAuthenticatedUser: MiddlewareFunction = async (
   { context, request },
@@ -62,10 +77,41 @@ export const requireAuthenticatedUser: MiddlewareFunction = async (
   const user = await getAuthenticatedUser(request);
 
   if (!user) {
-    throw redirect("/login");
+    throw await loginRedirect();
   }
 
   context.set(authenticatedUserContext, user);
 
   return next();
 };
+
+/**
+ * Creates middleware that additionally requires a specific permission.
+ *
+ * @param permission - Operation the authenticated user must be allowed to perform.
+ *
+ * @remarks
+ * Keeps every authorization decision server-side and centralized in the
+ * permission service, instead of scattering role comparisons across routes.
+ */
+export function requirePermission(permission: Permission): MiddlewareFunction {
+  return async ({ context, request }, next) => {
+    const user =
+      context.get(authenticatedUserContext) ??
+      (await getAuthenticatedUser(request));
+
+    if (!user) {
+      throw await loginRedirect();
+    }
+
+    const services = await getApplicationServices();
+
+    if (!services.permissionService.hasPermission(user.role, permission)) {
+      throw new Response("Forbidden", { status: 403 });
+    }
+
+    context.set(authenticatedUserContext, user);
+
+    return next();
+  };
+}

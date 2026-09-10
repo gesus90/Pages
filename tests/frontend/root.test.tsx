@@ -1,5 +1,6 @@
+// @vitest-environment jsdom
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("react-router", async (importOriginal) => {
   const actual = await importOriginal<typeof import("react-router")>();
@@ -14,6 +15,25 @@ vi.mock("react-router", async (importOriginal) => {
   };
 });
 
+vi.mock("@/app/lib/auth.server", () => ({
+  authenticatedUserContext: {},
+  getAuthenticatedUser: vi.fn(),
+  parseCredentials: vi.fn(),
+  requireAuthenticatedUser: vi.fn(),
+}));
+
+vi.mock("@/app/lib/services.server", () => ({
+  getApplicationServices: vi.fn(),
+}));
+
+vi.mock("@/app/lib/language.server", () => ({
+  languageCookie: {
+    parse: vi.fn(),
+    serialize: vi.fn(),
+  },
+  resolveAnonymousLanguage: vi.fn(),
+}));
+
 import { I18nextProvider } from "react-i18next";
 import {
   createMemoryRouter,
@@ -21,11 +41,18 @@ import {
   useLoaderData,
 } from "react-router";
 
+import { getAuthenticatedUser } from "@/app/lib/auth.server";
+import { resolveAnonymousLanguage } from "@/app/lib/language.server";
+import { getApplicationServices } from "@/app/lib/services.server";
 import { createI18n } from "@/app/lib/i18n";
+import { ROLE } from "@/definition/Role";
 import { LANGUAGE } from "@/language/Language";
 import Root, { Layout, links, loader, meta } from "@/app/root";
 
 const mockedLoaderData = vi.mocked(useLoaderData);
+const mockedGetUser = vi.mocked(getAuthenticatedUser);
+const mockedServices = vi.mocked(getApplicationServices);
+const mockedAnonymousLanguage = vi.mocked(resolveAnonymousLanguage);
 
 function createLoaderRequest(acceptLanguage: string | null): Request {
   const headers = new Headers();
@@ -38,22 +65,51 @@ function createLoaderRequest(acceptLanguage: string | null): Request {
 }
 
 describe("root loader", () => {
-  it("selects German from the request preference", () => {
-    expect(
-      loader({
-        params: {},
-        request: createLoaderRequest("de-DE,de;q=0.9"),
-      } as unknown as Parameters<typeof loader>[0]),
-    ).toEqual({ language: "de" });
+  beforeEach(() => {
+    mockedGetUser.mockReset();
+    mockedServices.mockReset();
+    mockedAnonymousLanguage.mockReset();
   });
 
-  it("defaults to English without a language header", () => {
-    expect(
+  it("selects the stored language for authenticated visitors", async () => {
+    const user = {
+      displayName: "Admin",
+      id: "user-1",
+      isActive: true,
+      role: ROLE.ADMIN,
+      username: "admin",
+    };
+    const getUserSettings = vi.fn().mockResolvedValue({ language: "de" });
+    mockedGetUser.mockResolvedValue(user);
+    mockedServices.mockResolvedValue({
+      settingsService: { getUserSettings },
+    } as unknown as Awaited<ReturnType<typeof mockedServices>>);
+
+    const request = createLoaderRequest("en");
+
+    await expect(
       loader({
         params: {},
-        request: createLoaderRequest(null),
+        request,
       } as unknown as Parameters<typeof loader>[0]),
-    ).toEqual({ language: "en" });
+    ).resolves.toEqual({ language: "de" });
+    expect(getUserSettings).toHaveBeenCalledWith("user-1");
+    expect(mockedAnonymousLanguage).not.toHaveBeenCalled();
+  });
+
+  it("selects the anonymous language for visitors without a session", async () => {
+    mockedGetUser.mockResolvedValue(null);
+    mockedAnonymousLanguage.mockResolvedValue(LANGUAGE.GERMAN);
+
+    const request = createLoaderRequest("de-DE,de;q=0.9");
+
+    await expect(
+      loader({
+        params: {},
+        request,
+      } as unknown as Parameters<typeof loader>[0]),
+    ).resolves.toEqual({ language: "de" });
+    expect(mockedAnonymousLanguage).toHaveBeenCalledWith(request);
   });
 });
 
@@ -125,5 +181,21 @@ describe("Layout", () => {
     );
 
     expect(screen.getByText("Application content")).toBeInTheDocument();
+  });
+
+  it("falls back to German without loader data", () => {
+    mockedLoaderData.mockReturnValue(undefined);
+    const i18n = createI18n(LANGUAGE.GERMAN);
+
+    render(
+      <I18nextProvider i18n={i18n}>
+        <Layout>
+          <p>Anwendungsinhalt</p>
+        </Layout>
+      </I18nextProvider>,
+    );
+
+    expect(screen.getByText("Anwendungsinhalt")).toBeInTheDocument();
+    expect(document.documentElement.lang).toBe("de");
   });
 });

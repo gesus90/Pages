@@ -1,28 +1,39 @@
 import { describe, expect, it } from "vitest";
 
 import { isUser } from "@/definition/User";
+import { ROLE } from "@/definition/Role";
+
+function createUser(): Record<string, unknown> {
+  return {
+    displayName: "Admin",
+    id: "user-1",
+    isActive: true,
+    role: ROLE.ADMIN,
+    username: "admin",
+  };
+}
 
 describe("isUser", () => {
   it("accepts a complete user object", () => {
-    expect(
-      isUser({ displayName: "Admin", id: "user-1", username: "admin" }),
-    ).toBe(true);
+    expect(isUser(createUser())).toBe(true);
+  });
+
+  it("accepts an inactive user object", () => {
+    expect(isUser({ ...createUser(), isActive: false })).toBe(true);
+  });
+
+  it("accepts every documented role", () => {
+    expect(isUser({ ...createUser(), role: ROLE.MANAGER })).toBe(true);
+    expect(isUser({ ...createUser(), role: ROLE.EMPLOYEE })).toBe(true);
   });
 
   it("accepts a user with additional unknown properties", () => {
-    expect(
-      isUser({
-        displayName: "Admin",
-        extra: "ignored",
-        id: "user-1",
-        username: "admin",
-      }),
-    ).toBe(true);
+    expect(isUser({ ...createUser(), extra: "ignored" })).toBe(true);
   });
 
   it("accepts unicode display names", () => {
     expect(
-      isUser({ displayName: "Müller 🚀", id: "user-2", username: "müller" }),
+      isUser({ ...createUser(), displayName: "Müller 🚀", id: "user-2" }),
     ).toBe(true);
   });
 
@@ -43,24 +54,77 @@ describe("isUser", () => {
   });
 
   it("rejects a user without an id", () => {
-    expect(isUser({ displayName: "Admin", username: "admin" })).toBe(false);
+    expect(
+      isUser({
+        displayName: "Admin",
+        isActive: true,
+        role: ROLE.ADMIN,
+        username: "admin",
+      }),
+    ).toBe(false);
   });
 
   it("rejects a user without a username", () => {
-    expect(isUser({ displayName: "Admin", id: "user-1" })).toBe(false);
+    expect(
+      isUser({
+        displayName: "Admin",
+        id: "user-1",
+        isActive: true,
+        role: ROLE.ADMIN,
+      }),
+    ).toBe(false);
   });
 
   it("rejects a user without a display name", () => {
-    expect(isUser({ id: "user-1", username: "admin" })).toBe(false);
+    expect(
+      isUser({
+        id: "user-1",
+        isActive: true,
+        role: ROLE.ADMIN,
+        username: "admin",
+      }),
+    ).toBe(false);
+  });
+
+  it("rejects a user without a role", () => {
+    expect(
+      isUser({
+        displayName: "Admin",
+        id: "user-1",
+        isActive: true,
+        username: "admin",
+      }),
+    ).toBe(false);
+  });
+
+  it("rejects a user with an unsupported role", () => {
+    expect(isUser({ ...createUser(), role: "owner" })).toBe(false);
+    expect(isUser({ ...createUser(), role: "project_manager" })).toBe(false);
+  });
+
+  it("rejects a user without an active flag", () => {
+    expect(
+      isUser({
+        displayName: "Admin",
+        id: "user-1",
+        role: ROLE.ADMIN,
+        username: "admin",
+      }),
+    ).toBe(false);
+  });
+
+  it("rejects a user with a non-boolean active flag", () => {
+    expect(isUser({ ...createUser(), isActive: "yes" })).toBe(false);
+    expect(isUser({ ...createUser(), isActive: 1 })).toBe(false);
   });
 
   it.each([
-    [{ displayName: "Admin", id: 1, username: "admin" }],
-    [{ displayName: "Admin", id: "user-1", username: 7 }],
-    [{ displayName: null, id: "user-1", username: "admin" }],
-    [{ displayName: "Admin", id: "user-1", username: undefined }],
-    [{ displayName: ["Admin"], id: "user-1", username: "admin" }],
-    [{ displayName: "Admin", id: "user-1", username: { value: "admin" } }],
+    [{ ...createUser(), id: 1 }],
+    [{ ...createUser(), username: 7 }],
+    [{ ...createUser(), displayName: null }],
+    [{ ...createUser(), username: undefined }],
+    [{ ...createUser(), displayName: ["Admin"] }],
+    [{ ...createUser(), username: { value: "admin" } }],
   ])("rejects a user with mistyped fields %p", (value) => {
     expect(isUser(value)).toBe(false);
   });

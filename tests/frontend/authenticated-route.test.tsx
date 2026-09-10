@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -19,6 +20,7 @@ import {
 } from "react-router";
 
 import { createI18n } from "@/app/lib/i18n";
+import { ROLE } from "@/definition/Role";
 import { LANGUAGE } from "@/language/Language";
 import AuthenticatedRoute from "@/app/routes/authenticated";
 
@@ -27,12 +29,22 @@ import type { User } from "@/definition/User";
 const mockedLoaderData = vi.mocked(useLoaderData);
 
 function createUser(): User {
-  return { displayName: "Admin", id: "user-1", username: "admin" };
+  return {
+    displayName: "Admin",
+    id: "user-1",
+    isActive: true,
+    role: ROLE.ADMIN,
+    username: "admin",
+  };
 }
 
 describe("AuthenticatedRoute", () => {
   it("renders the workspace shell for the loader user", () => {
-    mockedLoaderData.mockReturnValue({ user: createUser() });
+    mockedLoaderData.mockReturnValue({
+      canViewProjects: true,
+      canViewUsers: true,
+      user: createUser(),
+    });
     const i18n = createI18n(LANGUAGE.GERMAN);
     const router = createMemoryRouter(
       [
@@ -51,7 +63,7 @@ describe("AuthenticatedRoute", () => {
       </I18nextProvider>,
     );
 
-    expect(screen.getByText("Admin")).toBeInTheDocument();
+    expect(screen.getByText("A")).toBeInTheDocument();
     expect(screen.getByText("Kindroute")).toBeInTheDocument();
   });
 });

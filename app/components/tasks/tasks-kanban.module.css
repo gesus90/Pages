@@ -1,0 +1,72 @@
+.ticketScrollArea {
+  position: relative;
+
+  min-height: 0;
+  flex: 1;
+  margin-right: -0.25rem;
+  margin-left: -0.25rem;
+}
+
+.ticketViewport {
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+
+  overscroll-behavior-y: contain;
+}
+
+.ticketList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+
+  min-height: min-content;
+  padding: 0.25rem 0.875rem 0.5rem 0.25rem;
+}
+
+.fade {
+  pointer-events: none;
+  position: absolute;
+  right: 0.75rem;
+  left: 0;
+  z-index: 10;
+
+  height: 2.5rem;
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.fadeVisible {
+  opacity: 1;
+}
+
+.fadeTop {
+  top: 0;
+}
+
+.fadeBottom {
+  bottom: 0;
+}
+
+/* Jede Spalte färbt ihren Fade auf die eigene Pastellfläche ein, damit der
+   Übergang unsichtbar in den Spaltenhintergrund läuft. */
+.backlog {
+  --scroll-fade-channels: 238 241 245;
+}
+
+.todo {
+  --scroll-fade-channels: 234 242 253;
+}
+
+.progress {
+  --scroll-fade-channels: 253 241 231;
+}
+
+.review {
+  --scroll-fade-channels: 241 236 251;
+}
+
+.done {
+  --scroll-fade-channels: 231 245 238;
+}

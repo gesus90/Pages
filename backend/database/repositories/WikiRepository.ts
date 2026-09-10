@@ -7,7 +7,7 @@ export class WikiRepository {
   /**
    * Creates a wiki repository.
    *
-   * @param database - Central DuckDB access.
+   * @param database - Central database access.
    */
   public constructor(database: Database) {
     this.database = database;

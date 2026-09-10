@@ -1,3 +1,7 @@
+import { isRole } from "@/definition/Role";
+
+import type { Role } from "@/definition/Role";
+
 /**
  * A user as exposed to the client.
  *
@@ -8,6 +12,8 @@ export interface User {
   readonly id: string;
   readonly username: string;
   readonly displayName: string;
+  readonly role: Role;
+  readonly isActive: boolean;
 }
 
 /**
@@ -26,6 +32,8 @@ export function isUser(value: unknown): value is User {
   return (
     typeof candidate.id === "string" &&
     typeof candidate.username === "string" &&
-    typeof candidate.displayName === "string"
+    typeof candidate.displayName === "string" &&
+    isRole(candidate.role) &&
+    typeof candidate.isActive === "boolean"
   );
 }

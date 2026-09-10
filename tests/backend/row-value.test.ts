@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { readCountColumn, readTextColumn } from "@/backend/database/RowValue";
+import {
+  readBlobColumn,
+  readBooleanColumn,
+  readCountColumn,
+  readTextColumn,
+} from "@/backend/database/RowValue";
 
-import type { DuckDBValue } from "@duckdb/node-api";
+import type { DatabaseValue } from "@/backend/database/Database";
 
 describe("readTextColumn", () => {
   it("returns the text value at the given index", () => {
@@ -27,7 +32,7 @@ describe("readTextColumn", () => {
     { value: "admin" },
     ["admin"],
   ])("throws for non-textual value %p", (value) => {
-    const row = [value as unknown as DuckDBValue];
+    const row = [value as unknown as DatabaseValue];
 
     expect(() => readTextColumn(row, 0, "username")).toThrow(
       'Database returned an invalid value for "username".',
@@ -46,6 +51,60 @@ describe("readTextColumn", () => {
   it("mentions the requested column in the error", () => {
     expect(() => readTextColumn([null], 0, "display_name")).toThrow(
       'Database returned an invalid value for "display_name".',
+    );
+  });
+});
+
+describe("readBlobColumn", () => {
+  it("returns binary data at the given index", () => {
+    const image = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+
+    expect(readBlobColumn(["project-1", image], 1, "data")).toBe(image);
+  });
+
+  it.each([undefined, null, "image", 0, 1n, true, {}, []])(
+    "throws for non-binary value %p",
+    (value) => {
+      const row = [value as unknown as DatabaseValue];
+
+      expect(() => readBlobColumn(row, 0, "data")).toThrow(
+        'Database returned an invalid value for "data".',
+      );
+    },
+  );
+
+  it("throws when the index is out of bounds", () => {
+    expect(() => readBlobColumn([], 0, "data")).toThrow(
+      'Database returned an invalid value for "data".',
+    );
+  });
+});
+
+describe("readBooleanColumn", () => {
+  it("reads SQLite integers as booleans", () => {
+    expect(readBooleanColumn([1], 0, "is_active")).toBe(true);
+    expect(readBooleanColumn([0], 0, "is_active")).toBe(false);
+  });
+
+  it("reads the value at the given index", () => {
+    expect(readBooleanColumn(["user-1", 1], 1, "is_active")).toBe(true);
+    expect(readBooleanColumn(["user-1", 0], 1, "is_active")).toBe(false);
+  });
+
+  it.each([null, undefined, "1", "true", 2, -1, 1.5, 10n, true, false])(
+    "throws for non-binary value %p",
+    (value) => {
+      const row = [value as unknown as DatabaseValue];
+
+      expect(() => readBooleanColumn(row, 0, "is_active")).toThrow(
+        'Database returned an invalid value for "is_active".',
+      );
+    },
+  );
+
+  it("throws when the index is out of bounds", () => {
+    expect(() => readBooleanColumn([], 0, "is_active")).toThrow(
+      'Database returned an invalid value for "is_active".',
     );
   });
 });
@@ -73,7 +132,7 @@ describe("readCountColumn", () => {
   it.each(["1", "", null, undefined, true, { count: 1 }])(
     "throws for non-numeric value %p",
     (value) => {
-      const row = [value as unknown as DuckDBValue];
+      const row = [value as unknown as DatabaseValue];
 
       expect(() => readCountColumn(row, 0, "user_count")).toThrow(
         'Database returned an invalid count for "user_count".',

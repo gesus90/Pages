@@ -3,10 +3,10 @@ import path from "node:path";
 
 const PAGES_DIRECTORY_NAME = ".pages";
 const DATA_DIRECTORY_NAME = "data";
-const DATABASE_FILE_NAME = "pages.duckdb";
+const DATABASE_FILE_NAME = "pages.db";
 
 /**
- * Resolves the DuckDB file Pages should use.
+ * Resolves the SQLite file Pages should use.
  *
  * @returns The configured database path, defaulting to the Pages data
  * directory inside the current user's home directory.

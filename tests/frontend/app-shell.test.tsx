@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -16,6 +17,7 @@ import { createMemoryRouter, RouterProvider, useSubmit } from "react-router";
 
 import { AppShell } from "@/app/components/common/app-shell";
 import { createI18n } from "@/app/lib/i18n";
+import { ROLE } from "@/definition/Role";
 import { LANGUAGE } from "@/language/Language";
 
 import type { User } from "@/definition/User";
@@ -26,12 +28,19 @@ function createUser(overrides: Partial<User> = {}): User {
   return {
     displayName: "Admin",
     id: "user-1",
+    isActive: true,
+    role: ROLE.ADMIN,
     username: "admin",
     ...overrides,
   };
 }
 
-function renderShell(user: User, initialPath = "/dashboard"): void {
+function renderShell(
+  user: User,
+  canViewUsers = true,
+  initialPath = "/dashboard",
+  canViewProjects = false,
+): void {
   const submit = vi.fn().mockResolvedValue(undefined);
   mockedUseSubmit.mockReturnValue(submit);
 
@@ -43,7 +52,13 @@ function renderShell(user: User, initialPath = "/dashboard"): void {
           { element: <p>Dashboard-Inhalt</p>, path: "dashboard" },
           { element: <p>Einstellungen</p>, path: "settings" },
         ],
-        element: <AppShell user={user} />,
+        element: (
+          <AppShell
+            canViewProjects={canViewProjects}
+            canViewUsers={canViewUsers}
+            user={user}
+          />
+        ),
         path: "/",
       },
     ],
@@ -55,8 +70,6 @@ function renderShell(user: User, initialPath = "/dashboard"): void {
       <RouterProvider router={router} />
     </I18nextProvider>,
   );
-
-  return undefined;
 }
 
 function getSubmitMock(): ReturnType<typeof vi.fn> {
@@ -76,11 +89,42 @@ describe("AppShell", () => {
     expect(screen.getByText("Dashboard-Inhalt")).toBeInTheDocument();
   });
 
-  it("shows the display name and its initial", () => {
+  it("shows project and task links to users with project access", () => {
+    renderShell(createUser(), true, "/dashboard", true);
+
+    expect(
+      screen.getAllByRole("link", { name: "Projekte" }).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByRole("link", { name: "Aufgaben" }).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("shows the user management link to permitted viewers", () => {
+    renderShell(createUser(), true);
+
+    expect(
+      screen.getAllByRole("link", { name: "Benutzerverwaltung" }).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("hides the user management link without viewing rights", () => {
+    renderShell(createUser({ role: ROLE.EMPLOYEE }), false);
+
+    expect(
+      screen.queryByRole("link", { name: "Benutzerverwaltung" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows the display name and its initial", async () => {
+    const user = userEvent.setup();
     renderShell(createUser({ displayName: "Müller", username: "mueller" }));
 
-    expect(screen.getByText("Müller")).toBeInTheDocument();
     expect(screen.getByText("M")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Kontomenü" }));
+
+    expect(await screen.findByText("Müller")).toBeInTheDocument();
   });
 
   it("falls back to the username for a blank display name", () => {
@@ -102,13 +146,27 @@ describe("AppShell", () => {
     renderShell(createUser());
 
     await user.click(screen.getByRole("button", { name: "Kontomenü" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Abmelden" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Logout" }));
 
     await waitFor(() => {
       expect(getSubmitMock()).toHaveBeenCalledWith(
         {},
         { action: "/logout", method: "post" },
       );
+    });
+  });
+
+  it("opens the settings from the account menu", async () => {
+    const user = userEvent.setup();
+    renderShell(createUser());
+
+    await user.click(screen.getByRole("button", { name: "Kontomenü" }));
+    await user.click(
+      await screen.findByRole("menuitem", { name: "Einstellungen" }),
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByText("Dashboard-Inhalt")).not.toBeInTheDocument();
     });
   });
 
@@ -119,7 +177,7 @@ describe("AppShell", () => {
     getSubmitMock().mockRejectedValueOnce(new Error("Network broken"));
 
     await user.click(screen.getByRole("button", { name: "Kontomenü" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Abmelden" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Logout" }));
 
     await waitFor(() => {
       expect(error).toHaveBeenCalledWith(

@@ -1,14 +1,70 @@
 {
   "account": {
     "menu": "Account menu",
-    "signOut": "Sign out"
+    "signOut": "Log out"
   },
   "dashboard": {
-    "eyebrow": "Dashboard",
     "greeting": {
       "morning": "Good morning, {{name}}.",
       "day": "Good day, {{name}}.",
       "evening": "Good evening, {{name}}."
+    },
+    "subtitle": "Here is your overview for today.",
+    "kpi": {
+      "openTickets": "Open tickets",
+      "overdue": "Overdue",
+      "inProgress": "In progress",
+      "projects": "Projects",
+      "sinceLastWeek": "since last week",
+      "sinceYesterday": "since yesterday",
+      "sinceLastMonth": "since last month"
+    },
+    "myTasks": {
+      "title": "My tasks",
+      "allTasks": "All tasks",
+      "overdueBadge": "Overdue",
+      "today": "Today",
+      "noDueDate": "No due date",
+      "empty": "No tasks yet.",
+      "columns": {
+        "task": "Task",
+        "project": "Project",
+        "due": "Due"
+      }
+    },
+    "projectOverview": {
+      "title": "Project overview",
+      "allProjects": "All projects",
+      "taskCount": "{{done}} of {{total}} tasks",
+      "empty": "No projects yet.",
+      "columns": {
+        "project": "Project",
+        "progress": "Progress"
+      }
+    },
+    "recentlyEdited": {
+      "title": "Recently edited",
+      "showAll": "Show all",
+      "editedAgo": "{{relative}}",
+      "empty": "Nothing edited yet.",
+      "columns": {
+        "title": "Title",
+        "project": "Project",
+        "edited": "Edited"
+      }
+    },
+    "deadlines": {
+      "title": "Upcoming deadlines",
+      "showAll": "Show all",
+      "today": "Today",
+      "inDays": "in {{count}} days",
+      "empty": "No upcoming deadlines.",
+      "columns": {
+        "date": "Date",
+        "task": "Task",
+        "project": "Project",
+        "in": "In"
+      }
     }
   },
   "login": {
@@ -23,6 +79,13 @@
     "error": {
       "invalidCredentials": "Username or password is incorrect.",
       "unavailable": "Sign-in is currently unavailable. Please try again later."
+    },
+    "setup": {
+      "title": "First start?",
+      "description": "Pages automatically sets up your local workspace on first start. You don't need to do anything else."
+    },
+    "footer": {
+      "tagline": "Simple. Organized. Productive."
     }
   },
   "navigation": {
@@ -30,6 +93,583 @@
     "dashboard": "Dashboard",
     "label": "Main navigation",
     "menu": "Open navigation",
-    "settings": "Settings"
+    "projects": "Projects",
+    "settings": "Settings",
+    "tasks": "Tasks",
+    "users": "User management"
+  },
+  "role": {
+    "admin": "Administrator",
+    "manager": "Manager",
+    "employee": "Employee"
+  },
+  "projects": {
+    "title": "Projects",
+    "subtitle": "Create projects and keep an eye on their progress.",
+    "search": "Search projects …",
+    "sort": {
+      "label": "Sort",
+      "updatedDesc": "Last updated",
+      "updatedAsc": "Oldest first",
+      "nameAsc": "Name: A–Z",
+      "nameDesc": "Name: Z–A",
+      "statusAsc": "Active first",
+      "statusDesc": "Completed first"
+    },
+    "overview": "Overview",
+    "details": "Details",
+    "description": "Description",
+    "noDescription": "No description has been added.",
+    "progress": "Progress",
+    "createdAt": "Created at",
+    "updatedAt": "Last updated",
+    "updated": "Last updated: {{date}}",
+    "filters": {
+      "all": "All",
+      "planned": "Planned",
+      "active": "Active",
+      "paused": "Paused",
+      "completed": "Completed"
+    },
+    "status": {
+      "planned": "Planned",
+      "active": "Active",
+      "paused": "Paused",
+      "completed": "Completed"
+    },
+    "fields": {
+      "name": "Name *",
+      "description": "Description",
+      "status": "Status",
+      "progress": "Progress in %"
+    },
+    "create": {
+      "trigger": "New project",
+      "title": "New project",
+      "submit": "Create project",
+      "submitting": "Creating …"
+    },
+    "edit": {
+      "title": "Edit project",
+      "submit": "Save",
+      "submitting": "Saving …"
+    },
+    "icon": {
+      "title": "Project icon",
+      "upload": "Upload icon"
+    },
+    "actions": {
+      "cancel": "Cancel",
+      "edit": "Edit",
+      "archive": "Archive",
+      "archiving": "Archiving …",
+      "open": "Open project →"
+    },
+    "empty": {
+      "title": "No projects yet",
+      "description": "Create your first project and bring your idea to life."
+    },
+    "noMatches": "No projects match this filter.",
+    "error": {
+      "invalidInput": "Please check the name, description, and progress.",
+      "forbidden": "You are not allowed to perform this action.",
+      "projectNotFound": "This project could not be found."
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "language": {
+      "label": "Language",
+      "de": "Deutsch",
+      "en": "English"
+    }
+  },
+  "users": {
+    "title": "User management",
+    "create": {
+      "trigger": "Create user",
+      "title": "Create user",
+      "name": "Name",
+      "username": "Username",
+      "password": "Password",
+      "role": "Role",
+      "submit": "Create",
+      "submitting": "Creating …",
+      "cancel": "Cancel"
+    },
+    "columns": {
+      "user": "User",
+      "username": "Username",
+      "role": "Role",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "actions": {
+      "activate": "Activate",
+      "deactivate": "Deactivate"
+    },
+    "error": {
+      "usernameTaken": "This username is already taken.",
+      "invalidInput": "Please check your input (password at least 8 characters).",
+      "forbidden": "You are not allowed to perform this action.",
+      "lastAdministrator": "The last active administrator cannot be deactivated.",
+      "userNotFound": "This user could not be found."
+    }
+  },
+  "tasks": {
+    "title": "Tasks",
+    "subtitle": "Keep track of your tasks across all projects.",
+    "search": "Search tasks …",
+    "create": {
+      "trigger": "New Task",
+      "title": "New Task",
+      "submit": "Create Task",
+      "submitting": "Creating …"
+    },
+    "edit": {
+      "trigger": "Edit",
+      "title": "Edit Task",
+      "submit": "Save",
+      "submitting": "Saving …"
+    },
+    "actions": {
+      "archive": "Archive",
+      "archiving": "Archiving …",
+      "cancel": "Cancel",
+      "clearSearch": "Clear search",
+      "close": "Close",
+      "createSubtask": "Subtask",
+      "edit": "Edit",
+      "editTitle": "Edit title",
+      "open": "Open",
+      "save": "Save"
+    },
+    "view": {
+      "label": "View",
+      "kanban": "Kanban",
+      "list": "List",
+      "hierarchy": "Hierarchy",
+      "milestones": "Milestones",
+      "github": "GitHub",
+      "showMore": "Show {{count}} more"
+    },
+    "filter": {
+      "scope": "Task scope",
+      "myTasks": "My Tasks",
+      "allTasks": "All Tasks",
+      "project": "Project",
+      "allProjects": "All Projects",
+      "type": "Type",
+      "allTypes": "All Types",
+      "status": "Status",
+      "allStatuses": "All Statuses",
+      "priority": "Priority",
+      "allPriorities": "All Priorities",
+      "milestone": "Milestone",
+      "allMilestones": "All Milestones",
+      "assignee": "Assignee",
+      "allAssignees": "All Assignees",
+      "archived": "Archive state",
+      "active": "Active",
+      "archivedTickets": "Archived",
+      "all": "All"
+    },
+    "sort": {
+      "updated": "Last updated",
+      "priority": "Priority",
+      "dueDate": "Due date",
+      "project": "Project",
+      "status": "Status"
+    },
+    "columns": {
+      "type": "Type",
+      "key": "Key",
+      "project": "Project",
+      "title": "Title",
+      "status": "Status",
+      "priority": "Priority",
+      "assignee": "Assignee",
+      "labels": "Labels",
+      "dueAt": "Due at",
+      "actions": "Actions"
+    },
+    "type": {
+      "epic": "Epic",
+      "task": "Task",
+      "subtask": "Subtask",
+      "initiative": "Initiative"
+    },
+    "priority": {
+      "low": "Low",
+      "normal": "Normal",
+      "high": "High",
+      "urgent": "Urgent"
+    },
+    "status": {
+      "backlog": "Backlog",
+      "todo": "To Do",
+      "in_progress": "In Progress",
+      "review": "Review",
+      "done": "Done"
+    },
+    "fields": {
+      "type": "Type *",
+      "project": "Project *",
+      "title": "Title *",
+      "description": "Description",
+      "status": "Status",
+      "priority": "Priority",
+      "assignee": "Assigned to",
+      "reporter": "Reporter",
+      "milestone": "Milestone",
+      "labels": "Labels",
+      "dueAt": "Due at",
+      "startAt": "Start date",
+      "parent": "Parent element",
+      "parentEpic": "Select Epic (optional)",
+      "parentTask": "Parent Task *",
+      "parentInitiative": "Select initiative (optional)"
+    },
+    "unassigned": "Unassigned",
+    "none": "None",
+    "tabs": {
+      "description": "Description",
+      "subtasks": "Subtasks",
+      "activity": "Activity"
+    },
+    "progress": "Progress",
+    "empty": {
+      "title": "No tasks yet",
+      "description": "Create your first task and start planning."
+    },
+    "noMatches": "No tasks match this filter.",
+    "history": {
+      "created": "{{user}} created the task.",
+      "status_changed": "{{user}} changed the status: {{oldValue}} → {{newValue}}",
+      "priority_changed": "{{user}} changed the priority: {{oldValue}} → {{newValue}}",
+      "assignee_changed": "{{user}} changed the assignment: {{oldValue}} → {{newValue}}",
+      "reporter_changed": "{{user}} changed the reporter: {{oldValue}} → {{newValue}}",
+      "project_changed": "{{user}} moved the ticket: {{oldValue}} → {{newValue}}",
+      "label_added": "{{user}} added the label {{newValue}}.",
+      "label_removed": "{{user}} removed the label {{oldValue}}.",
+      "parent_changed": "{{user}} changed the parent: {{oldValue}} → {{newValue}}",
+      "milestone_changed": "{{user}} changed the milestone: {{oldValue}} → {{newValue}}",
+      "due_at_changed": "{{user}} changed the due date: {{oldValue}} → {{newValue}}",
+      "title_changed": "{{user}} changed the title.",
+      "description_changed": "{{user}} changed the description.",
+      "archived": "{{user}} archived the task.",
+      "restored": "{{user}} restored the task.",
+      "github_sync": "{{user}} synchronized with GitHub ({{newValue}}).",
+      "github_conflict": "{{user}} reported a GitHub conflict.",
+      "github_sync_failed": "{{user}}: GitHub synchronization failed: {{newValue}}",
+      "github_unlinked": "{{user}} unlinked GitHub reference {{oldValue}}."
+    },
+    "error": {
+      "invalidInput": "Please check your inputs.",
+      "forbidden": "You are not authorized to perform this action.",
+      "notFound": "This task was not found.",
+      "hierarchy": "The task hierarchy is invalid.",
+      "githubSyncFailed": "GitHub synchronization failed."
+    },
+    "hierarchy": {
+      "expandAll": "Expand all",
+      "collapseAll": "Collapse all"
+    },
+    "milestones": {
+      "empty": "No milestones yet.",
+      "noDueDate": "No due date",
+      "tasks": "tasks",
+      "noTasks": "No tasks assigned."
+    },
+    "github": {
+      "import": "Import as task",
+      "link": "Link",
+      "linkTask": "Select task …",
+      "ignore": "Ignore",
+      "assignTask": "Assign task …",
+      "unassigned": "Unassigned",
+      "externalIssues": "New GitHub issues",
+      "pullRequests": "Pull requests",
+      "noExternalIssues": "No new issues detected.",
+      "noPullRequests": "No pull requests detected.",
+      "noProjects": "No projects available.",
+      "section": "GitHub",
+      "notLinked": "Not linked to GitHub.",
+      "synchronized": "Synchronized",
+      "conflict": "Conflict: Pages and GitHub differ.",
+      "keepPages": "Keep Pages",
+      "useGitHub": "Apply GitHub",
+      "lastSync": "Last synchronization:",
+      "syncNow": "Sync now",
+      "issue": "Issue",
+      "stateOpen": "Open",
+      "stateClosed": "Closed",
+      "stateMerged": "Merged",
+      "statusSynced": "Synchronized",
+      "statusPending": "Local changes",
+      "statusFailed": "Sync failed",
+      "statusUnlinked": "Not linked",
+      "noIssueHint": "No GitHub issue linked yet. New tasks synchronize automatically.",
+      "syncFailed": "Synchronization failed.",
+      "retry": "Retry",
+      "open": "Open on GitHub"
+    },
+    "archived": {
+      "badge": "Archived",
+      "restore": "Restore",
+      "banner": "This ticket is archived and hidden until restored."
+    },
+    "labels": {
+      "pickerTitle": "Select labels",
+      "search": "Search labels …",
+      "editLabels": "Edit labels",
+      "name": "Name",
+      "namePlaceholder": "e.g. API",
+      "color": "Color",
+      "hue": "Hue",
+      "hex": "HEX",
+      "preview": "Preview",
+      "currentColor": "Current color",
+      "customColor": "Custom color",
+      "createTitle": "Create new label",
+      "create": "Create",
+      "save": "Save",
+      "edit": "Edit label",
+      "delete": "Delete label",
+      "deleteSubmit": "Delete",
+      "deleteConfirm": "Delete label “{{name}}”? It is used by {{count}} tickets and will be removed there.",
+      "usage": "{{count}} tickets",
+      "noMatches": "No labels found."
+    },
+    "move": {
+      "title": "Move ticket to another project?",
+      "target": "Target project",
+      "choose": "Select project …",
+      "droppedHint": "The following relations are removed or need reassignment:",
+      "keepsAll": "All relations are kept.",
+      "submit": "Move",
+      "open": "Move"
+    },
+    "detail": {
+      "breadcrumb": "Ticket",
+      "back": "Back",
+      "details": "Details",
+      "keyDetails": "Key Details",
+      "metadata": "Additional details",
+      "dates": "Dates",
+      "createdAt": "Created at",
+      "updatedAt": "Updated at",
+      "containedEpics": "Contained epics",
+      "containedTasks": "Contained tasks",
+      "createEpic": "Create epic",
+      "doneSuffix": "done",
+      "doubleClickHint": "Double-click to edit",
+      "editDescription": "Edit description",
+      "gitStatus": "Git Status"
+    },
+    "path": {
+      "title": "Path"
+    },
+    "checklist": {
+      "title": "Acceptance Criteria",
+      "add": "Add",
+      "addPlaceholder": "New criterion …",
+      "remove": "Remove"
+    },
+    "links": {
+      "section": "Links",
+      "none": "No links yet",
+      "emptyHint": "Link this task to epics, requirements, or other tasks.",
+      "add": "Add",
+      "remove": "Remove",
+      "selectType": "Link type",
+      "selectTicket": "Select ticket",
+      "selectTicketPlaceholder": "Choose ticket …",
+      "type": {
+        "blocks": "Blocks",
+        "blockedBy": "Blocked by",
+        "relatesTo": "Relates to",
+        "duplicates": "Duplicates",
+        "duplicatedBy": "Duplicated by"
+      }
+    },
+    "development": {
+      "section": "Development",
+      "none": "No development data yet"
+    },
+    "automation": {
+      "section": "Automation",
+      "none": "No automation rules configured"
+    }
+  },
+  "projectDetail": {
+    "breadcrumb": "Projects",
+    "notFound": "This project could not be found.",
+    "changeStatus": "Change project status",
+    "editName": "Edit project name",
+    "statusError": "The status could not be saved.",
+    "tabs": {
+      "general": "General",
+      "team": "Team",
+      "planning": "Planning",
+      "integrations": "Integrations",
+      "activity": "Activity"
+    },
+    "general": {
+      "description": "Project description",
+      "overview": "Project overview",
+      "descriptionCounter": "{{count}} / 5000 characters",
+      "edit": "Edit",
+      "goals": "Project goals",
+      "goalsEmpty": "No goals yet.",
+      "addGoal": "+ Add goal",
+      "goalOpen": "Open",
+      "goalDone": "Done",
+      "progress": "Progress",
+      "progressHint": "Share of completed tasks in the project.",
+      "tasksDone": "Completed tasks",
+      "milestonesDone": "Completed milestones",
+      "openSubtasks": "Open subtasks",
+      "nextDates": "Upcoming dates",
+      "showAllDates": "Show all",
+      "noDates": "No upcoming dates.",
+      "icon": "Project icon",
+      "changeIcon": "Change icon",
+      "details": "Project details",
+      "status": "Status",
+      "manager": "Project manager",
+      "noManager": "Unassigned",
+      "startDate": "Start date",
+      "targetDate": "Target date",
+      "projectId": "Project ID",
+      "createdAt": "Created at",
+      "updatedAt": "Last updated",
+      "quickActions": "Quick actions",
+      "newTask": "New task",
+      "planEvent": "Plan event",
+      "manageTeam": "Manage team",
+      "tags": "Tags",
+      "addTag": "+ Add tag",
+      "notes": "Notes",
+      "notesEmptyHint": "Store key information, links, or remarks about the project here.",
+      "notesPlaceholder": "Key decisions and notes about the project …",
+      "noNotes": "No notes yet.",
+      "editTitle": "Edit project"
+    },
+    "team": {
+      "managers": "Project managers",
+      "members": "Members",
+      "viewers": "Viewers",
+      "addManager": "+ Add project manager",
+      "addMember": "+ Add member",
+      "addViewer": "+ Add viewer",
+      "selectPerson": "Select a person …",
+      "add": "Add",
+      "remove": "Remove",
+      "role": "Role",
+      "manager": "Project manager",
+      "member": "Member",
+      "viewer": "Viewer",
+      "empty": "No people in this project yet.",
+      "manageTitle": "Manage team",
+      "manageSubtitle": "Manage this project's members and their roles.",
+      "searchMembers": "Search members …",
+      "name": "Name",
+      "username": "Username",
+      "joinedAt": "Added on",
+      "status": "Status",
+      "actions": "Actions",
+      "active": "Active",
+      "invited": "Invited",
+      "actionsFor": "Actions for {{name}}",
+      "viewProfile": "View profile",
+      "changeRole": "Change role",
+      "setAsManager": "Set as project manager",
+      "resendInvitation": "Resend invitation",
+      "withdrawInvitation": "Withdraw invitation",
+      "removeMember": "Remove from project",
+      "removeTitle": "Remove member?",
+      "removeDescription": "{{name}} will be removed from this project.",
+      "cancel": "Cancel",
+      "lastManagerHint": "The project must have at least one project manager.",
+      "noMatches": "No members found.",
+      "pageSize": "Rows per page",
+      "previousPage": "Previous page",
+      "nextPage": "Next page",
+      "rangeOfTotal": "{{from}}–{{to}} of {{total}}",
+      "roleDescriptions": {
+        "manager": "Full access to all project settings.",
+        "member": "Can collaborate on the project.",
+        "viewer": "Can view the project but not edit it."
+      }
+    },
+    "planning": {
+      "milestones": "Milestones",
+      "dates": "Dates",
+      "structure": "Task structure",
+      "newMilestone": "New milestone",
+      "milestoneName": "Name *",
+      "milestoneDescription": "Description",
+      "milestoneDue": "Due date (YYYY-MM-DD)",
+      "create": "Create",
+      "tasks": "tasks",
+      "noMilestones": "No milestones yet.",
+      "noTasks": "No tasks in this project.",
+      "newDate": "New date",
+      "dateTitle": "Title *",
+      "dateValue": "Date (YYYY-MM-DD) *",
+      "dateTime": "Time (optional)",
+      "dateType": "Type",
+      "noDates": "No dates yet."
+    },
+    "integrations": {
+      "title": "Integrations",
+      "github": "GitHub",
+      "repoUrl": "Repository address",
+      "repoPlaceholder": "https://github.com/user/pages.git",
+      "token": "GitHub API key / personal access token",
+      "tokenSet": "✓ API key stored",
+      "replaceToken": "Replace API key",
+      "test": "Test connection",
+      "testing": "Testing …",
+      "sync": "Synchronization",
+      "syncIssues": "Sync issues",
+      "syncStatus": "Sync status",
+      "syncComments": "Sync comments",
+      "syncPullRequests": "Sync pull requests",
+      "syncCommits": "Sync commits",
+      "direction": "Sync direction",
+      "directionBidirectional": "Bidirectional",
+      "directionPush": "Push",
+      "directionPull": "Pull",
+      "save": "Save integration",
+      "saving": "Saving …",
+      "connected": "Connected",
+      "notConnected": "Not connected",
+      "repository": "Repository:",
+      "lastSync": "Last sync:",
+      "never": "Never",
+      "syncNow": "Sync now",
+      "disconnect": "Disconnect",
+      "interval": "Refresh interval",
+      "intervalManual": "Manual",
+      "intervalMinutes": "Every {{count}} minutes",
+      "nextSync": "Next synchronization:",
+      "scheduled": "Scheduled automatically"
+    },
+    "activity": {
+      "allActivities": "All activities",
+      "allPeople": "All people",
+      "tasks": "Tasks",
+      "planning": "Planning",
+      "team": "Team",
+      "integrations": "Integrations",
+      "project": "Project",
+      "empty": "No activities in this project yet."
+    }
   }
 }

@@ -1,0 +1,83 @@
+.backdrop {
+  pointer-events: auto;
+  position: fixed;
+  inset: 4.75rem 0 0;
+  z-index: 30;
+
+  background: rgb(23 23 23 / 13%);
+  backdrop-filter: blur(1.5px);
+  animation: backdropIn 200ms ease-out both;
+}
+
+.positioner {
+  pointer-events: none;
+  position: fixed;
+  inset: 5.75rem 1.5rem 1.5rem;
+  z-index: 40;
+
+  display: flex;
+  justify-content: center;
+}
+
+.panel {
+  width: 100%;
+  max-width: 72rem;
+  animation: panelIn 220ms ease-out both;
+  transform-origin: top center;
+}
+
+/* Die Arbeitsfläche liegt als eigene, ruhige Ebene unter den Sektionskarten.
+   Die Scroll-Fades beider Spalten greifen exakt diese Farbe auf. */
+.body {
+  --scroll-fade-channels: var(--panel-body-channels);
+
+  background: rgb(var(--panel-body-channels));
+}
+
+@keyframes backdropIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes panelIn {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (min-width: 48rem) {
+  .positioner {
+    left: 19.5rem;
+  }
+}
+
+@media (min-width: 80rem) {
+  .positioner {
+    right: 2.5rem;
+    left: 16rem;
+  }
+}
+
+@media (max-width: 47.999rem) {
+  .positioner {
+    inset: 5.25rem 0.75rem 0.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backdrop,
+  .panel {
+    animation-duration: 1ms;
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+
+  "watcher": {
+    "ignore": [
+      "node_modules/**",
+      "dist/**",
+      "build/**",
+      "coverage/**",
+      ".react-router/**",
+      ".git/**",
+      "data/**",
+      "*.log"
+    ]
+  },
+
+  "permission": {
+    "read": {
+      "*": "allow",
+
+      "node_modules/**": "deny",
+      "dist/**": "deny",
+      "build/**": "deny",
+      "coverage/**": "deny",
+      ".react-router/**": "deny",
+      ".git/**": "deny",
+      "data/**": "deny",
+
+      "*.env": "deny",
+      "*.env.*": "deny",
+      "*.env.example": "allow"
+    }
+  }
+}

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AuthService } from "@/backend/auth/AuthService";
+import { ROLE } from "@/definition/Role";
 
 import type { PasswordHasher } from "@/backend/auth/PasswordHasher";
 import type { SessionService } from "@/backend/auth/SessionService";
@@ -44,7 +45,13 @@ function createDoubles(): AuthDoubles {
 }
 
 function createUser(): User {
-  return { displayName: "Admin", id: "user-1", username: "admin" };
+  return {
+    displayName: "Admin",
+    id: "user-1",
+    isActive: true,
+    role: ROLE.ADMIN,
+    username: "admin",
+  };
 }
 
 describe("AuthService", () => {
