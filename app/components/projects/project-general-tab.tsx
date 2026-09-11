@@ -5,8 +5,8 @@ import {
   ChartColumn,
   CircleAlert,
   Clock,
+  Fingerprint,
   Flag,
-  Hash,
   History,
   Pencil,
   Plus,
@@ -879,7 +879,7 @@ export function ProjectGeneralTab({
             </div>
             <div className="flex items-center justify-between gap-3  pt-3">
               <dt className="inline-flex select-none items-center gap-2 text-muted-foreground">
-                <Hash className="size-4 shrink-0" aria-hidden="true" />
+                <Fingerprint className="size-4 shrink-0" aria-hidden="true" />
                 {t("projectDetail.general.projectId")}
               </dt>
               <dd className="text-muted-foreground">

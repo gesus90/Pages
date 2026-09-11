@@ -13,6 +13,7 @@ vi.mock("react-router", async (importOriginal) => {
     useLoaderData: vi.fn(),
     useNavigation: vi.fn(),
     useSearchParams: vi.fn(),
+    useSubmit: vi.fn(),
   };
 });
 
@@ -23,6 +24,7 @@ import {
   useLoaderData,
   useNavigation,
   useSearchParams,
+  useSubmit,
 } from "react-router";
 
 import ProjectDetailRoute from "@/app/routes/project-detail";
@@ -35,6 +37,7 @@ import type { Milestone, WorkItemDetail } from "@/definition/Task";
 const mockedLoaderData = vi.mocked(useLoaderData);
 const mockedSearchParams = vi.mocked(useSearchParams);
 const mockedNavigation = vi.mocked(useNavigation);
+const mockedSubmit = vi.mocked(useSubmit);
 
 function createProject(overrides: Partial<Project> = {}): Project {
   return {
@@ -537,6 +540,144 @@ describe("ProjectDetailRoute general tab states", () => {
 
     expect(
       screen.queryByRole("button", { name: "Bearbeiten" }),
+    ).not.toBeInTheDocument();
+  });
+});
+
+describe("ProjectDetailRoute header description editing", () => {
+  function headerDescription(): HTMLElement {
+    return screen.getAllByText(
+      "Central platform for internal tools.",
+    )[0] as HTMLElement;
+  }
+
+  function mockSubmit(): ReturnType<typeof vi.fn> {
+    const submitForm = vi.fn();
+    mockedSubmit.mockReturnValue(
+      submitForm as unknown as ReturnType<typeof useSubmit>,
+    );
+
+    return submitForm;
+  }
+
+  it("opens the header editor on double-click and saves with the save button", async () => {
+    const user = userEvent.setup();
+    const submitForm = mockSubmit();
+    renderDetail(createLoaderData());
+
+    await user.dblClick(headerDescription());
+
+    const editor = screen.getByRole("textbox", {
+      name: "Projektbeschreibung",
+    });
+    expect(editor).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Speichern" }),
+    ).toBeInTheDocument();
+
+    await user.clear(editor);
+    await user.type(editor, "Aktualisierte Beschreibung");
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+
+    expect(submitForm).toHaveBeenCalledOnce();
+    const formData = submitForm.mock.calls[0]?.[0] as FormData;
+    expect(formData.get("intent")).toBe("update-description");
+    expect(formData.get("description")).toBe("Aktualisierte Beschreibung");
+    expect(
+      screen.queryByRole("textbox", { name: "Projektbeschreibung" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("opens the header editor with Enter or the pencil button", async () => {
+    const user = userEvent.setup();
+    mockSubmit();
+    renderDetail(createLoaderData());
+
+    fireEvent.keyDown(headerDescription(), { key: "a" });
+    expect(
+      screen.queryByRole("textbox", { name: "Projektbeschreibung" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.keyDown(headerDescription(), { key: "Enter" });
+    expect(
+      screen.getByRole("textbox", { name: "Projektbeschreibung" }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Abbrechen" }));
+    expect(
+      screen.queryByRole("textbox", { name: "Projektbeschreibung" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "Projektbeschreibung" }),
+    );
+    expect(
+      screen.getByRole("textbox", { name: "Projektbeschreibung" }),
+    ).toBeInTheDocument();
+  });
+
+  it("closes unchanged header drafts without submitting", async () => {
+    const user = userEvent.setup();
+    const submitForm = mockSubmit();
+    renderDetail(createLoaderData());
+
+    await user.dblClick(headerDescription());
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+
+    expect(submitForm).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("textbox", { name: "Projektbeschreibung" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("cancels header editing with Escape", async () => {
+    const user = userEvent.setup();
+    mockSubmit();
+    renderDetail(createLoaderData());
+
+    await user.dblClick(headerDescription());
+
+    const editor = screen.getByRole("textbox", {
+      name: "Projektbeschreibung",
+    });
+    fireEvent.keyDown(editor, { key: "Escape" });
+
+    expect(
+      screen.queryByRole("textbox", { name: "Projektbeschreibung" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps overlong header drafts open instead of submitting", async () => {
+    const user = userEvent.setup();
+    const submitForm = mockSubmit();
+    renderDetail(createLoaderData());
+
+    await user.dblClick(headerDescription());
+
+    const editor = screen.getByRole("textbox", {
+      name: "Projektbeschreibung",
+    });
+    fireEvent.change(editor, { target: { value: "x".repeat(5001) } });
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+
+    expect(submitForm).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("textbox", { name: "Projektbeschreibung" }),
+    ).toBeInTheDocument();
+  });
+
+  it("hides header description editing from readers", async () => {
+    const user = userEvent.setup();
+    renderDetail(createLoaderData({ canWrite: false }));
+
+    expect(
+      screen.queryByRole("button", { name: "Projektbeschreibung" }),
+    ).not.toBeInTheDocument();
+
+    await user.dblClick(headerDescription());
+
+    expect(
+      screen.queryByRole("textbox", { name: "Projektbeschreibung" }),
     ).not.toBeInTheDocument();
   });
 });

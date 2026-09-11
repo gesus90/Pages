@@ -12,6 +12,8 @@ interface HorizontalScrollAreaProps {
   readonly className?: string;
   readonly viewportClassName?: string;
   readonly contentClassName?: string;
+  readonly viewportRef?: { readonly current: HTMLDivElement | null };
+  readonly onViewportScroll?: (viewport: HTMLDivElement) => void;
 }
 
 /**
@@ -21,16 +23,22 @@ interface HorizontalScrollAreaProps {
  * Der Fade macht abgeschnittene Inhalte sichtbar, statt sie hart am Rand
  * enden zu lassen: links erscheint er, sobald gescrollt wurde, rechts
  * solange weiterer Inhalt folgt. Beide Overlays sind klickdurchlässig,
- * damit Drag & Drop und Buttons darunter erreichbar bleiben.
+ * damit Drag & Drop und Buttons darunter erreichbar bleiben. Über
+ * `viewportRef` und `onViewportScroll` können Aufrufer zusätzlich auf
+ * Scrollpositionen reagieren, etwa für quasi-endlos nachladende Inhalte.
  */
 export function HorizontalScrollArea({
   children,
   className,
   viewportClassName,
   contentClassName,
+  viewportRef: externalViewportRef,
+  onViewportScroll,
 }: HorizontalScrollAreaProps): React.ReactElement {
   const viewportRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const scrollCallbackRef = useRef(onViewportScroll);
+  scrollCallbackRef.current = onViewportScroll;
   const [hasStartFade, setHasStartFade] = useState(false);
   const [hasEndFade, setHasEndFade] = useState(false);
 
@@ -39,6 +47,11 @@ export function HorizontalScrollArea({
   useEffect(() => {
     const viewport = viewportRef.current as HTMLDivElement;
 
+    if (externalViewportRef) {
+      (externalViewportRef as { current: HTMLDivElement | null }).current =
+        viewport;
+    }
+
     function updateFades(): void {
       const maxScrollLeft = viewport.scrollWidth - viewport.clientWidth;
 
@@ -46,6 +59,7 @@ export function HorizontalScrollArea({
       setHasEndFade(
         viewport.scrollLeft < maxScrollLeft - SCROLL_EDGE_TOLERANCE,
       );
+      scrollCallbackRef.current?.(viewport);
     }
 
     updateFades();

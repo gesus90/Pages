@@ -6,6 +6,9 @@ import {
 import { isRole } from "@/definition/Role";
 import {
   isGitHubIssueState,
+  isMilestoneColor,
+  isMilestoneIcon,
+  isMilestoneLinkType,
   isWorkItemLinkType,
   isWorkItemPriority,
   isWorkItemType,
@@ -14,6 +17,10 @@ import {
 import type { Database, DatabaseValue } from "@/backend/database/Database";
 import type {
   Milestone,
+  MilestoneColor,
+  MilestoneDependency,
+  MilestoneIcon,
+  MilestoneLinkType,
   ProjectLabel,
   WorkItemChecklistItem,
   WorkItemDetail,
@@ -32,7 +39,11 @@ export interface NewMilestone {
   readonly projectId: string;
   readonly name: string;
   readonly description: string;
+  readonly startAt?: string | null;
   readonly dueAt: string | null;
+  readonly colorKey?: MilestoneColor | null;
+  readonly iconKey?: MilestoneIcon | null;
+  readonly colorCustom?: string | null;
 }
 
 /** Values that can be changed on a milestone. */
@@ -40,7 +51,11 @@ export interface MilestoneUpdate {
   readonly name: string;
   readonly description: string;
   readonly status: "open" | "completed" | "archived";
+  readonly startAt?: string | null;
   readonly dueAt: string | null;
+  readonly colorKey?: MilestoneColor | null;
+  readonly iconKey?: MilestoneIcon | null;
+  readonly colorCustom?: string | null;
 }
 
 /** Values required to persist a new work item. */
@@ -236,7 +251,10 @@ export class TaskRepository {
             created_at,
             updated_at,
             completed_at,
-            archived_at
+            archived_at,
+            color_key,
+            icon_key,
+            color_custom
         FROM milestones
         WHERE project_id IN (${placeholders})
             AND archived_at IS NULL
@@ -263,7 +281,10 @@ export class TaskRepository {
             created_at,
             updated_at,
             completed_at,
-            archived_at
+            archived_at,
+            color_key,
+            icon_key,
+            color_custom
         FROM milestones
         WHERE id = $id
             AND archived_at IS NULL;
@@ -285,7 +306,11 @@ export class TaskRepository {
             name,
             description,
             status,
+            start_at,
             due_at,
+            color_key,
+            icon_key,
+            color_custom,
             updated_at
         )
         VALUES (
@@ -294,7 +319,11 @@ export class TaskRepository {
             $name,
             $description,
             'open',
+            $start_at,
             $due_at,
+            $color_key,
+            $icon_key,
+            $color_custom,
             CURRENT_TIMESTAMP
         );
       `,
@@ -303,7 +332,11 @@ export class TaskRepository {
         project_id: milestone.projectId,
         name: milestone.name,
         description: milestone.description,
+        start_at: milestone.startAt ?? null,
         due_at: milestone.dueAt,
+        color_key: milestone.colorKey ?? null,
+        icon_key: milestone.iconKey ?? null,
+        color_custom: milestone.colorCustom ?? null,
       },
     );
   }
@@ -320,7 +353,11 @@ export class TaskRepository {
             name = $name,
             description = $description,
             status = $status,
+            start_at = $start_at,
             due_at = $due_at,
+            color_key = $color_key,
+            icon_key = $icon_key,
+            color_custom = $color_custom,
             completed_at = CASE WHEN $status = 'completed' THEN CURRENT_TIMESTAMP ELSE NULL END,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = $id
@@ -331,9 +368,143 @@ export class TaskRepository {
         name: milestone.name,
         description: milestone.description,
         status: milestone.status,
+        start_at: milestone.startAt ?? null,
         due_at: milestone.dueAt,
+        color_key: milestone.colorKey ?? null,
+        icon_key: milestone.iconKey ?? null,
+        color_custom: milestone.colorCustom ?? null,
       },
     );
+  }
+
+  /** Soft-deletes a milestone without removing its row. */
+  public async archiveMilestone(id: string): Promise<void> {
+    await this.database.execute(
+      `
+        UPDATE milestones
+        SET
+            archived_at = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $id
+            AND archived_at IS NULL;
+      `,
+      { id },
+    );
+  }
+
+  /** Returns every dependency of the given projects. */
+  public async findDependenciesByProjectIds(
+    projectIds: readonly string[],
+  ): Promise<MilestoneDependency[]> {
+    if (projectIds.length === 0) {
+      return [];
+    }
+
+    const placeholders = projectIds
+      .map((_, index) => `$project_id_${index}`)
+      .join(", ");
+    const parameters: Record<string, string> = {};
+
+    for (const [index, projectId] of projectIds.entries()) {
+      parameters[`project_id_${index}`] = projectId;
+    }
+
+    const rows = await this.database.query(
+      `
+        SELECT
+            id,
+            project_id,
+            source_id,
+            target_id,
+            link_type,
+            created_at
+        FROM milestone_dependencies
+        WHERE project_id IN (${placeholders})
+        ORDER BY created_at ASC;
+      `,
+      parameters,
+    );
+
+    return rows.map((row) => this.toMilestoneDependency(row));
+  }
+
+  /** Persists a directed dependency between two milestones. */
+  public async insertDependency(dependency: {
+    readonly id: string;
+    readonly projectId: string;
+    readonly sourceId: string;
+    readonly targetId: string;
+    readonly linkType: MilestoneLinkType;
+  }): Promise<void> {
+    await this.database.execute(
+      `
+        INSERT INTO milestone_dependencies (
+            id,
+            project_id,
+            source_id,
+            target_id,
+            link_type
+        )
+        VALUES (
+            $id,
+            $project_id,
+            $source_id,
+            $target_id,
+            $link_type
+        );
+      `,
+      {
+        id: dependency.id,
+        project_id: dependency.projectId,
+        source_id: dependency.sourceId,
+        target_id: dependency.targetId,
+        link_type: dependency.linkType,
+      },
+    );
+  }
+
+  /** Removes a single dependency by its identifier. */
+  public async deleteDependency(id: string): Promise<void> {
+    await this.database.execute(
+      `
+        DELETE FROM milestone_dependencies
+        WHERE id = $id;
+      `,
+      { id },
+    );
+  }
+
+  /** Removes every dependency touching the given milestone. */
+  public async deleteDependenciesByMilestone(
+    milestoneId: string,
+  ): Promise<void> {
+    await this.database.execute(
+      `
+        DELETE FROM milestone_dependencies
+        WHERE source_id = $milestone_id
+            OR target_id = $milestone_id;
+      `,
+      { milestone_id: milestoneId },
+    );
+  }
+
+  private toMilestoneDependency(
+    row: readonly DatabaseValue[],
+  ): MilestoneDependency {
+    const linkType = readTextColumn(row, 4, "link_type");
+
+    if (!isMilestoneLinkType(linkType)) {
+      throw new Error("Database returned an invalid milestone link type.");
+    }
+
+    return {
+      createdAt: readTextColumn(row, 5, "created_at"),
+      id: readTextColumn(row, 0, "id"),
+      linkType,
+      projectId: readTextColumn(row, 1, "project_id"),
+      sourceId: readTextColumn(row, 2, "source_id"),
+      targetId: readTextColumn(row, 3, "target_id"),
+    };
   }
 
   /** Returns work item history across all tasks of one project, newest last. */
@@ -1905,6 +2076,12 @@ export class TaskRepository {
   private toMilestone(row: readonly DatabaseValue[]): Milestone {
     const startAt = row[5] === null ? null : readTextColumn(row, 5, "start_at");
     const dueAt = row[6] === null ? null : readTextColumn(row, 6, "due_at");
+    const colorValue =
+      row[11] === null ? null : readTextColumn(row, 11, "color_key");
+    const iconValue =
+      row[12] === null ? null : readTextColumn(row, 12, "icon_key");
+    const customValue =
+      row[13] === null ? null : readTextColumn(row, 13, "color_custom");
     const completedAt =
       row[9] === null ? null : readTextColumn(row, 9, "completed_at");
     const archivedAt =
@@ -1913,10 +2090,18 @@ export class TaskRepository {
 
     return {
       archivedAt,
+      colorCustom:
+        customValue !== null && /^#[0-9a-fA-F]{6}$/.test(customValue)
+          ? customValue
+          : null,
+      colorKey:
+        colorValue !== null && isMilestoneColor(colorValue) ? colorValue : null,
       completedAt,
       createdAt: readTextColumn(row, 7, "created_at"),
       description: readTextColumn(row, 3, "description"),
       dueAt,
+      iconKey:
+        iconValue !== null && isMilestoneIcon(iconValue) ? iconValue : null,
       id: readTextColumn(row, 0, "id"),
       name: readTextColumn(row, 2, "name"),
       projectId: readTextColumn(row, 1, "project_id"),

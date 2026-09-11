@@ -1,6 +1,9 @@
 import { randomUUID } from "node:crypto";
 
 import {
+  isMilestoneColor,
+  isMilestoneIcon,
+  isMilestoneLinkType,
   isWorkItemLinkType,
   isWorkItemPriority,
   isWorkItemType,
@@ -27,6 +30,10 @@ import type { GitHubSyncService } from "@/backend/service/GitHubSyncService";
 import type { ProjectService } from "@/backend/service/ProjectService";
 import type {
   Milestone,
+  MilestoneColor,
+  MilestoneDependency,
+  MilestoneIcon,
+  MilestoneLinkType,
   ProjectLabel,
   WorkItemChecklistItem,
   WorkItemDetail,
@@ -76,7 +83,11 @@ export interface CreateMilestoneInput {
   readonly projectId: string;
   readonly name: string;
   readonly description?: string;
+  readonly startAt?: string | null;
   readonly dueAt?: string | null;
+  readonly colorKey?: MilestoneColor | null;
+  readonly iconKey?: MilestoneIcon | null;
+  readonly colorCustom?: string | null;
 }
 
 /** Values that can be changed on a milestone. */
@@ -84,7 +95,11 @@ export interface UpdateMilestoneInput {
   readonly name: string;
   readonly description: string;
   readonly status: "open" | "completed" | "archived";
+  readonly startAt?: string | null;
   readonly dueAt: string | null;
+  readonly colorKey?: MilestoneColor | null;
+  readonly iconKey?: MilestoneIcon | null;
+  readonly colorCustom?: string | null;
 }
 
 /** Values required to create a new work item. */
@@ -281,11 +296,18 @@ export class TaskService {
 
     const name = input.name.trim();
     const description = (input.description ?? "").trim();
+    const startAt = input.startAt?.trim() || null;
     const dueAt = input.dueAt?.trim() || null;
 
     if (!name || name.length > 200) {
       throw new WorkItemValidationError(
         "Milestone name must be between 1 and 200 characters.",
+      );
+    }
+
+    if (startAt && !/^\d{4}-\d{2}-\d{2}$/.test(startAt)) {
+      throw new WorkItemValidationError(
+        "Milestone start date must use the format YYYY-MM-DD.",
       );
     }
 
@@ -295,14 +317,54 @@ export class TaskService {
       );
     }
 
+    if (startAt && dueAt && startAt > dueAt) {
+      throw new WorkItemValidationError(
+        "Milestone start date must not be after its due date.",
+      );
+    }
+
+    if (
+      input.colorKey !== undefined &&
+      input.colorKey !== null &&
+      !isMilestoneColor(input.colorKey)
+    ) {
+      throw new WorkItemValidationError(
+        "Milestone color must be a supported color type.",
+      );
+    }
+
+    if (
+      input.iconKey !== undefined &&
+      input.iconKey !== null &&
+      !isMilestoneIcon(input.iconKey)
+    ) {
+      throw new WorkItemValidationError(
+        "Milestone icon must be a supported symbol.",
+      );
+    }
+
+    if (
+      input.colorCustom !== undefined &&
+      input.colorCustom !== null &&
+      !/^#[0-9a-fA-F]{6}$/.test(input.colorCustom)
+    ) {
+      throw new WorkItemValidationError(
+        "Milestone custom color must use the format #RRGGBB.",
+      );
+    }
+
     const id = randomUUID();
 
     await this.taskRepository.insertMilestone({
+      colorCustom: input.colorCustom ?? null,
+      colorKey: input.colorKey ?? null,
       description,
       dueAt,
+      iconKey: input.iconKey ?? null,
       id,
       name,
       projectId: input.projectId,
+      startAt,
     });
     this.cache.invalidateWorkItems();
 
@@ -336,6 +398,8 @@ export class TaskService {
     }
 
     const name = input.name.trim();
+    const startAt = input.startAt?.trim() || null;
+    const dueAt = input.dueAt?.trim() || null;
 
     if (!name || name.length > 200) {
       throw new WorkItemValidationError(
@@ -343,9 +407,51 @@ export class TaskService {
       );
     }
 
-    if (input.dueAt && !/^\d{4}-\d{2}-\d{2}$/.test(input.dueAt)) {
+    if (dueAt && !/^\d{4}-\d{2}-\d{2}$/.test(dueAt)) {
       throw new WorkItemValidationError(
         "Milestone due date must use the format YYYY-MM-DD.",
+      );
+    }
+
+    if (startAt && !/^\d{4}-\d{2}-\d{2}$/.test(startAt)) {
+      throw new WorkItemValidationError(
+        "Milestone start date must use the format YYYY-MM-DD.",
+      );
+    }
+
+    if (startAt && dueAt && startAt > dueAt) {
+      throw new WorkItemValidationError(
+        "Milestone start date must not be after its due date.",
+      );
+    }
+
+    if (
+      input.colorKey !== undefined &&
+      input.colorKey !== null &&
+      !isMilestoneColor(input.colorKey)
+    ) {
+      throw new WorkItemValidationError(
+        "Milestone color must be a supported color type.",
+      );
+    }
+
+    if (
+      input.iconKey !== undefined &&
+      input.iconKey !== null &&
+      !isMilestoneIcon(input.iconKey)
+    ) {
+      throw new WorkItemValidationError(
+        "Milestone icon must be a supported symbol.",
+      );
+    }
+
+    if (
+      input.colorCustom !== undefined &&
+      input.colorCustom !== null &&
+      !/^#[0-9a-fA-F]{6}$/.test(input.colorCustom)
+    ) {
+      throw new WorkItemValidationError(
+        "Milestone custom color must use the format #RRGGBB.",
       );
     }
 
@@ -358,9 +464,13 @@ export class TaskService {
     }
 
     await this.taskRepository.updateMilestone(id, {
+      colorCustom: input.colorCustom ?? null,
+      colorKey: input.colorKey ?? null,
       description: input.description.trim(),
-      dueAt: input.dueAt?.trim() || null,
+      dueAt,
+      iconKey: input.iconKey ?? null,
       name,
+      startAt,
       status: input.status,
     });
     this.cache.invalidateWorkItems();
@@ -372,6 +482,143 @@ export class TaskService {
     }
 
     return updated;
+  }
+
+  /** Soft-deletes a milestone together with its dependencies. */
+  public async deleteMilestone(actor: User, id: string): Promise<void> {
+    const existing = await this.taskRepository.findMilestoneById(id);
+
+    if (!existing) {
+      throw new WorkItemValidationError("Selected milestone does not exist.");
+    }
+
+    await this.projectService.getById(actor, existing.projectId);
+
+    if (
+      !(await this.projectService.canWriteProject(actor, existing.projectId))
+    ) {
+      throw new WorkItemAccessDeniedError();
+    }
+
+    await this.taskRepository.deleteDependenciesByMilestone(id);
+    await this.taskRepository.archiveMilestone(id);
+    this.cache.invalidateWorkItems();
+  }
+
+  /** Returns every dependency of the given projects. */
+  public async findDependencies(
+    actor: User,
+    projectIds: readonly string[],
+  ): Promise<MilestoneDependency[]> {
+    const accessibleProjects = await this.projectService.findAll(actor);
+    const accessibleIds = new Set(
+      accessibleProjects.map((project) => project.id),
+    );
+    const validProjectIds = projectIds.filter((id) => accessibleIds.has(id));
+
+    return this.taskRepository.findDependenciesByProjectIds(validProjectIds);
+  }
+
+  /** Links two milestones of one project with a directed dependency. */
+  public async addDependency(
+    actor: User,
+    input: {
+      readonly projectId: string;
+      readonly sourceId: string;
+      readonly targetId: string;
+      readonly linkType: MilestoneLinkType;
+    },
+  ): Promise<MilestoneDependency> {
+    await this.projectService.getById(actor, input.projectId);
+
+    if (!(await this.projectService.canWriteProject(actor, input.projectId))) {
+      throw new WorkItemAccessDeniedError();
+    }
+
+    if (!isMilestoneLinkType(input.linkType)) {
+      throw new WorkItemValidationError("Unsupported dependency type.");
+    }
+
+    if (input.sourceId === input.targetId) {
+      throw new WorkItemValidationError("A milestone cannot depend on itself.");
+    }
+
+    const milestones = await this.taskRepository.findMilestonesByProjectIds([
+      input.projectId,
+    ]);
+    const source = milestones.find(
+      (milestone) => milestone.id === input.sourceId,
+    );
+    const target = milestones.find(
+      (milestone) => milestone.id === input.targetId,
+    );
+
+    if (!source || !target) {
+      throw new WorkItemValidationError(
+        "Dependencies require two milestones of the same project.",
+      );
+    }
+
+    const existing = await this.taskRepository.findDependenciesByProjectIds([
+      input.projectId,
+    ]);
+
+    if (
+      existing.some(
+        (dependency) =>
+          (dependency.sourceId === input.sourceId &&
+            dependency.targetId === input.targetId) ||
+          (dependency.sourceId === input.targetId &&
+            dependency.targetId === input.sourceId),
+      )
+    ) {
+      throw new WorkItemValidationError("These milestones are already linked.");
+    }
+
+    const id = randomUUID();
+
+    await this.taskRepository.insertDependency({
+      id,
+      linkType: input.linkType,
+      projectId: input.projectId,
+      sourceId: input.sourceId,
+      targetId: input.targetId,
+    });
+    this.cache.invalidateWorkItems();
+
+    const created = (
+      await this.taskRepository.findDependenciesByProjectIds([input.projectId])
+    ).find((dependency) => dependency.id === id);
+
+    if (!created) {
+      throw new Error("Created dependency could not be retrieved.");
+    }
+
+    return created;
+  }
+
+  /** Removes a single dependency after verifying write permission. */
+  public async removeDependency(
+    actor: User,
+    projectId: string,
+    dependencyId: string,
+  ): Promise<void> {
+    await this.projectService.getById(actor, projectId);
+
+    if (!(await this.projectService.canWriteProject(actor, projectId))) {
+      throw new WorkItemAccessDeniedError();
+    }
+
+    const existing = await this.taskRepository.findDependenciesByProjectIds([
+      projectId,
+    ]);
+
+    if (!existing.some((dependency) => dependency.id === dependencyId)) {
+      throw new WorkItemValidationError("Selected dependency does not exist.");
+    }
+
+    await this.taskRepository.deleteDependency(dependencyId);
+    this.cache.invalidateWorkItems();
   }
 
   /** Returns work item history across all tasks of one project. */

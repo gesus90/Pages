@@ -93,6 +93,32 @@ export interface WorkflowStatus {
   readonly isDone: boolean;
 }
 
+/** Color types supported by milestone markers. */
+export const MILESTONE_COLOR = {
+  STANDARD: "standard",
+  RELEASE: "release",
+  REVIEW: "review",
+  MARKETING: "marketing",
+  TEAM: "team",
+} as const;
+
+/** A color type assigned to a milestone marker. */
+export type MilestoneColor =
+  (typeof MILESTONE_COLOR)[keyof typeof MILESTONE_COLOR];
+
+/**
+ * Narrows an unknown value to a supported milestone color type.
+ *
+ * @param value - Value received from an untrusted source.
+ * @returns Whether the value is a valid milestone color type.
+ */
+export function isMilestoneColor(value: unknown): value is MilestoneColor {
+  return (
+    typeof value === "string" &&
+    (Object.values(MILESTONE_COLOR) as readonly string[]).includes(value)
+  );
+}
+
 /** A milestone used to group project deliverables. */
 export interface Milestone {
   readonly id: string;
@@ -102,10 +128,111 @@ export interface Milestone {
   readonly status: "open" | "completed" | "archived";
   readonly startAt: string | null;
   readonly dueAt: string | null;
+  readonly colorKey?: MilestoneColor | null;
+  readonly iconKey?: MilestoneIcon | null;
+  readonly colorCustom?: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly completedAt: string | null;
   readonly archivedAt: string | null;
+}
+
+/** Symbols supported by milestone markers. */
+export const MILESTONE_ICON = {
+  DIAMOND: "diamond",
+  ROCKET: "rocket",
+  FLAG: "flag",
+  TARGET: "target",
+  SPARKLES: "sparkles",
+  CALENDAR: "calendar",
+  PACKAGE: "package",
+  COG: "cog",
+  USERS: "users",
+  LINK: "link",
+  MEGAPHONE: "megaphone",
+  SHIELD: "shield",
+  BELL: "bell",
+  BUG: "bug",
+  FLASK: "flask",
+  STAR: "star",
+  CHECK: "check",
+  BOOKMARK: "bookmark",
+  CLIPBOARD: "clipboard",
+  WRENCH: "wrench",
+  LAYERS: "layers",
+  GLOBE: "globe",
+  LIGHTBULB: "lightbulb",
+  MONITOR: "monitor",
+  SERVER: "server",
+  FOLDER: "folder",
+  BRIEFCASE: "briefcase",
+  PEN: "pen",
+  PALETTE: "palette",
+  ZAP: "zap",
+  HEART: "heart",
+  AWARD: "award",
+  PUZZLE: "puzzle",
+  SEARCH: "search",
+  LOCK: "lock",
+  KEY: "key",
+  CPU: "cpu",
+  DATABASE: "database",
+  MESSAGE: "message",
+  FILE: "file",
+} as const;
+
+/** A symbol assigned to a milestone marker. */
+export type MilestoneIcon =
+  (typeof MILESTONE_ICON)[keyof typeof MILESTONE_ICON];
+
+/**
+ * Narrows an unknown value to a supported milestone symbol.
+ *
+ * @param value - Value received from an untrusted source.
+ * @returns Whether the value is a valid milestone symbol.
+ */
+export function isMilestoneIcon(value: unknown): value is MilestoneIcon {
+  return (
+    typeof value === "string" &&
+    (Object.values(MILESTONE_ICON) as readonly string[]).includes(value)
+  );
+}
+
+/** Relationship types supported by milestone dependencies. */
+export const MILESTONE_LINK_TYPE = {
+  PREREQUISITE: "prerequisite",
+  FOLLOWS: "follows",
+  BLOCKS: "blocks",
+  RELATES_TO: "relates_to",
+} as const;
+
+/** A relationship type stored on a milestone dependency. */
+export type MilestoneLinkType =
+  (typeof MILESTONE_LINK_TYPE)[keyof typeof MILESTONE_LINK_TYPE];
+
+/**
+ * Narrows an unknown value to a supported milestone relationship type.
+ *
+ * @param value - Value received from an untrusted source.
+ * @returns Whether the value is a valid milestone relationship type.
+ */
+export function isMilestoneLinkType(
+  value: unknown,
+): value is MilestoneLinkType {
+  return (
+    typeof value === "string" &&
+    (Object.values(MILESTONE_LINK_TYPE) as readonly string[]).includes(value)
+  );
+}
+
+/** A directed dependency between two milestones of one project. */
+export interface MilestoneDependency {
+  readonly id: string;
+  readonly projectId: string;
+  readonly sourceId: string;
+  readonly targetId: string;
+  readonly linkType: MilestoneLinkType;
+  readonly createdAt: string;
 }
 
 /** A single persisted work item in SQLite. */

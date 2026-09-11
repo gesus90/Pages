@@ -24,6 +24,7 @@ import {
 } from "@/app/components/ui/dropdown-menu";
 import { Input } from "@/app/components/ui/input";
 import { Tabs } from "@/app/components/ui/tabs";
+import { Textarea } from "@/app/components/ui/textarea";
 import { VerticalScrollArea } from "@/app/components/ui/vertical-scroll-area";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
@@ -42,6 +43,11 @@ import {
   isProjectStatus,
   PROJECT_STATUS,
 } from "@/definition/Project";
+import {
+  isMilestoneColor,
+  isMilestoneIcon,
+  isMilestoneLinkType,
+} from "@/definition/Task";
 
 import type { ProjectMember } from "@/definition/Project";
 import type { Project } from "@/definition/Project";
@@ -52,6 +58,10 @@ import type { ProjectGoal } from "@/definition/Project";
 import type { ProjectIntegration } from "@/definition/Project";
 import type {
   Milestone,
+  MilestoneColor,
+  MilestoneDependency,
+  MilestoneIcon,
+  MilestoneLinkType,
   WorkItemDetail,
   WorkItemHistory,
   WorkflowStatus,
@@ -70,6 +80,8 @@ const DETAIL_TABS = [
 
 type DetailTab = (typeof DETAIL_TABS)[number];
 
+const MAXIMUM_DESCRIPTION_LENGTH = 5000;
+
 type ProjectDetailActionResult =
   { readonly ok: true } | { readonly ok: false; readonly error: string };
 
@@ -81,6 +93,7 @@ interface ProjectDetailLoaderData {
   readonly tags: readonly string[];
   readonly events: readonly ProjectEvent[];
   readonly milestones: readonly Milestone[];
+  readonly milestoneLinks: readonly MilestoneDependency[];
   readonly statuses: readonly WorkflowStatus[];
   readonly workItems: readonly WorkItemDetail[];
   readonly integration: ProjectIntegration | null;
@@ -112,6 +125,81 @@ function getString(formData: FormData, key: string): string {
   const value = formData.get(key);
 
   return typeof value === "string" ? value : "";
+}
+
+function getMilestoneColor(formData: FormData): MilestoneColor | null {
+  const value = getString(formData, "colorKey").trim();
+
+  return isMilestoneColor(value) ? value : null;
+}
+
+function getMilestoneIcon(formData: FormData): MilestoneIcon | null {
+  const value = getString(formData, "iconKey").trim();
+
+  return isMilestoneIcon(value) ? value : null;
+}
+
+interface MilestoneLinkChange {
+  readonly targetId: string;
+  readonly linkType: MilestoneLinkType;
+}
+
+function getMilestoneLinkChanges(formData: FormData): {
+  readonly added: readonly MilestoneLinkChange[];
+  readonly removedIds: readonly string[];
+} | null {
+  let added: readonly MilestoneLinkChange[] = [];
+  let removedIds: readonly string[] = [];
+
+  try {
+    const rawAdded = getString(formData, "addLinks").trim();
+    const rawRemoved = getString(formData, "removeLinks").trim();
+
+    if (rawAdded) {
+      const parsed: unknown = JSON.parse(rawAdded);
+
+      if (!Array.isArray(parsed)) {
+        return null;
+      }
+
+      added = parsed.map((entry: unknown) => {
+        if (
+          typeof entry !== "object" ||
+          entry === null ||
+          !("targetId" in entry) ||
+          !("linkType" in entry)
+        ) {
+          throw new Error("Invalid dependency payload.");
+        }
+
+        const targetId = (entry as { readonly targetId: unknown }).targetId;
+        const linkType = (entry as { readonly linkType: unknown }).linkType;
+
+        if (typeof targetId !== "string" || !isMilestoneLinkType(linkType)) {
+          throw new Error("Invalid dependency payload.");
+        }
+
+        return { linkType, targetId };
+      });
+    }
+
+    if (rawRemoved) {
+      const parsed: unknown = JSON.parse(rawRemoved);
+
+      if (
+        !Array.isArray(parsed) ||
+        !parsed.every((entry) => typeof entry === "string")
+      ) {
+        return null;
+      }
+
+      removedIds = parsed as readonly string[];
+    }
+  } catch {
+    return null;
+  }
+
+  return { added, removedIds };
 }
 
 /** Loads the full project detail aggregate for server-side rendering. */
@@ -146,6 +234,7 @@ export async function loader({
       integration,
       activity,
       milestones,
+      milestoneLinks,
       workItems,
       taskHistory,
       canWrite,
@@ -170,6 +259,9 @@ export async function loader({
         : Promise.resolve([]),
       needsGeneral || needsPlanning
         ? services.taskService.findMilestones(actor, [projectId])
+        : Promise.resolve([]),
+      needsPlanning
+        ? services.taskService.findDependencies(actor, [projectId])
         : Promise.resolve([]),
       needsGeneral || needsPlanning
         ? services.taskService.findAll(actor, { projectIds: [projectId] })
@@ -203,6 +295,7 @@ export async function loader({
       integration,
       members,
       milestones,
+      milestoneLinks,
       project,
       statuses: [],
       tags,
@@ -523,11 +616,158 @@ export async function action({
 
     if (intent === "create-milestone") {
       await services.taskService.createMilestone(actor, {
+        colorCustom: getString(formData, "customColor").trim() || null,
+        colorKey: getMilestoneColor(formData),
         description: getString(formData, "description"),
         dueAt: getString(formData, "dueAt").trim() || null,
+        iconKey: getMilestoneIcon(formData),
         name: getString(formData, "name"),
         projectId,
+        startAt: getString(formData, "startAt").trim() || null,
       });
+
+      return data<ProjectDetailActionResult>({ ok: true });
+    }
+
+    if (intent === "save-milestone") {
+      const milestoneId = getString(formData, "milestoneId").trim();
+      const status = getString(formData, "status");
+
+      if (
+        status !== "open" &&
+        status !== "completed" &&
+        status !== "archived"
+      ) {
+        return data<ProjectDetailActionResult>(
+          { error: "invalidInput", ok: false },
+          { status: 400 },
+        );
+      }
+
+      if (milestoneId) {
+        const milestones = await services.taskService.findMilestones(actor, [
+          projectId,
+        ]);
+        const milestone = milestones.find((entry) => entry.id === milestoneId);
+
+        if (!milestone) {
+          return data<ProjectDetailActionResult>(
+            { error: "invalidInput", ok: false },
+            { status: 400 },
+          );
+        }
+
+        // Validate the dependency payload before the first mutation so a
+        // rejected save never leaves a partially persisted milestone behind.
+        const linkChanges = getMilestoneLinkChanges(formData);
+
+        if (!linkChanges) {
+          return data<ProjectDetailActionResult>(
+            { error: "invalidInput", ok: false },
+            { status: 400 },
+          );
+        }
+
+        await services.taskService.updateMilestone(actor, milestone.id, {
+          colorCustom:
+            getString(formData, "customColor").trim() ||
+            milestone.colorCustom ||
+            null,
+          colorKey: getMilestoneColor(formData) ?? milestone.colorKey ?? null,
+          description: getString(formData, "description"),
+          dueAt: getString(formData, "dueAt").trim() || null,
+          iconKey: getMilestoneIcon(formData) ?? milestone.iconKey ?? null,
+          name: getString(formData, "name"),
+          startAt: getString(formData, "startAt").trim() || milestone.startAt,
+          status,
+        });
+
+        // Link application stays idempotent: repeated submissions of the same
+        // payload (for example rapid retries) converge on the stored state
+        // instead of failing on unique constraints or missing rows.
+        const liveLinks = async (): Promise<readonly MilestoneDependency[]> =>
+          services.taskService.findDependencies(actor, [projectId]);
+
+        for (const removedId of linkChanges.removedIds) {
+          if (!(await liveLinks()).some((link) => link.id === removedId)) {
+            continue;
+          }
+
+          try {
+            await services.taskService.removeDependency(
+              actor,
+              projectId,
+              removedId,
+            );
+          } catch (error: unknown) {
+            if (!(error instanceof WorkItemValidationError)) {
+              throw error;
+            }
+
+            const alreadyGone = !(await liveLinks()).some(
+              (link) => link.id === removedId,
+            );
+
+            if (!alreadyGone) {
+              throw error;
+            }
+          }
+        }
+
+        for (const added of linkChanges.added) {
+          const isStored = (link: MilestoneDependency): boolean =>
+            link.sourceId === milestone.id &&
+            link.targetId === added.targetId &&
+            link.linkType === added.linkType;
+
+          if ((await liveLinks()).some(isStored)) {
+            continue;
+          }
+
+          try {
+            await services.taskService.addDependency(actor, {
+              linkType: added.linkType,
+              projectId,
+              sourceId: milestone.id,
+              targetId: added.targetId,
+            });
+          } catch (error: unknown) {
+            if (!(error instanceof WorkItemValidationError)) {
+              throw error;
+            }
+
+            if (!(await liveLinks()).some(isStored)) {
+              throw error;
+            }
+          }
+        }
+      } else {
+        await services.taskService.createMilestone(actor, {
+          colorCustom: getString(formData, "customColor").trim() || null,
+          colorKey: getMilestoneColor(formData),
+          description: getString(formData, "description"),
+          dueAt: getString(formData, "dueAt").trim() || null,
+          iconKey: getMilestoneIcon(formData),
+          name: getString(formData, "name"),
+          projectId,
+          startAt: getString(formData, "startAt").trim() || null,
+        });
+      }
+
+      return data<ProjectDetailActionResult>({ ok: true });
+    }
+
+    if (intent === "delete-milestone") {
+      const milestoneId = getString(formData, "milestoneId").trim();
+
+      if (!milestoneId) {
+        return data<ProjectDetailActionResult>(
+          { error: "invalidInput", ok: false },
+          { status: 400 },
+        );
+      }
+
+      await services.taskService.deleteMilestone(actor, milestoneId);
 
       return data<ProjectDetailActionResult>({ ok: true });
     }
@@ -552,9 +792,13 @@ export async function action({
       }
 
       await services.taskService.updateMilestone(actor, milestone.id, {
+        colorCustom: milestone.colorCustom ?? null,
+        colorKey: milestone.colorKey ?? null,
         description: milestone.description,
         dueAt: milestone.dueAt,
+        iconKey: milestone.iconKey ?? null,
         name: milestone.name,
+        startAt: milestone.startAt,
         status,
       });
 
@@ -771,6 +1015,134 @@ function ProjectNameHeading({
   );
 }
 
+interface ProjectDescriptionProps {
+  readonly description: string;
+  readonly canWrite: boolean;
+}
+
+/**
+ * Renders the header description with double-click inline editing.
+ *
+ * @remarks
+ * Editing is only offered to writers (administrators, managers, and project
+ * managers); everyone else sees plain text. Saving reuses the existing
+ * `update-description` action, so the server-side permission check still applies.
+ */
+function ProjectDescription({
+  description,
+  canWrite,
+}: ProjectDescriptionProps): React.ReactElement {
+  const { t } = useTranslation();
+  const submit = useSubmit();
+  const [isEditing, setIsEditing] = useState(false);
+  const [draft, setDraft] = useState(description);
+
+  function handleStartEdit(): void {
+    setDraft(description);
+    setIsEditing(true);
+  }
+
+  function handleCancel(): void {
+    setIsEditing(false);
+  }
+
+  function handleSave(): void {
+    if (draft === description) {
+      setIsEditing(false);
+      return;
+    }
+
+    if (draft.length > MAXIMUM_DESCRIPTION_LENGTH) {
+      return;
+    }
+
+    const formData = new FormData();
+    formData.set("intent", "update-description");
+    formData.set("description", draft);
+    void submit(formData, { method: "post" });
+    setIsEditing(false);
+  }
+
+  function handleDraftChange(event: ChangeEvent<HTMLTextAreaElement>): void {
+    setDraft(event.currentTarget.value);
+  }
+
+  function handleInputKeyDown(event: KeyboardEvent<HTMLTextAreaElement>): void {
+    if (event.key === "Escape") {
+      handleCancel();
+    }
+  }
+
+  function handleTextKeyDown(event: KeyboardEvent<HTMLParagraphElement>): void {
+    if (event.key === "Enter") {
+      handleStartEdit();
+    }
+  }
+
+  if (!canWrite) {
+    return (
+      <p className="mt-1 line-clamp-2 max-w-3xl text-sm text-muted-foreground">
+        {description || t("projects.noDescription")}
+      </p>
+    );
+  }
+
+  if (isEditing) {
+    return (
+      <div className="mt-1 max-w-3xl">
+        <Textarea
+          className="min-h-20 resize-y text-sm leading-relaxed"
+          name="description"
+          value={draft}
+          maxLength={MAXIMUM_DESCRIPTION_LENGTH}
+          autoFocus
+          onChange={handleDraftChange}
+          onKeyDown={handleInputKeyDown}
+          aria-label={t("projectDetail.general.description")}
+        />
+        <div className="mt-2 flex items-center justify-end gap-2">
+          <Button
+            className="h-8 shrink-0 px-3 text-xs"
+            variant="ghost"
+            type="button"
+            onClick={handleCancel}
+          >
+            {t("projects.actions.cancel")}
+          </Button>
+          <Button
+            className="h-8 shrink-0 px-3 text-xs"
+            type="button"
+            onClick={handleSave}
+          >
+            {t("projects.edit.submit")}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <span className="group mt-1 flex max-w-3xl items-start gap-2">
+      <p
+        className="line-clamp-2 cursor-text text-sm text-muted-foreground outline-none"
+        onDoubleClick={handleStartEdit}
+        onKeyDown={handleTextKeyDown}
+        tabIndex={0}
+      >
+        {description || t("projects.noDescription")}
+      </p>
+      <button
+        className="inline-flex shrink-0 items-center justify-center rounded-md p-1 text-muted-foreground opacity-0 transition-opacity outline-none hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-primary group-hover:opacity-100"
+        type="button"
+        aria-label={t("projectDetail.general.description")}
+        onClick={handleStartEdit}
+      >
+        <Pencil className="size-4" aria-hidden="true" />
+      </button>
+    </span>
+  );
+}
+
 /** Dot colors for the project statuses selectable in the header. */
 const PROJECT_STATUS_DOT: Record<ProjectStatus, string> = {
   planned: "bg-emerald-500",
@@ -936,9 +1308,10 @@ export default function ProjectDetailRoute(): React.ReactElement {
                 canWrite={loaderData.canWrite}
               />
             </h1>
-            <p className="mt-1 line-clamp-2 max-w-3xl text-sm text-muted-foreground">
-              {loaderData.project.description || t("projects.noDescription")}
-            </p>
+            <ProjectDescription
+              description={loaderData.project.description}
+              canWrite={loaderData.canWrite}
+            />
           </div>
         </div>
 
@@ -982,8 +1355,7 @@ export default function ProjectDetailRoute(): React.ReactElement {
           {activeTab === "planning" ? (
             <ProjectPlanningTab
               milestones={loaderData.milestones}
-              events={loaderData.events}
-              workItems={loaderData.workItems}
+              milestoneLinks={loaderData.milestoneLinks}
               canWrite={loaderData.canWrite}
             />
           ) : null}
