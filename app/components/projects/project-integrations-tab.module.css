@@ -1,0 +1,87 @@
+.overlay {
+  position: fixed;
+  top: 6rem;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 40;
+
+  display: flex;
+  width: min(30rem, calc(100vw - 2rem));
+
+  animation: overlayIn 200ms ease-out both;
+}
+
+.panel {
+  display: flex;
+  min-height: 0;
+  width: 100%;
+  flex-direction: column;
+  overflow: hidden;
+
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  box-shadow:
+    -24px 32px 80px -24px rgb(23 23 23 / 28%),
+    -8px 12px 32px -8px rgb(23 23 23 / 12%),
+    0 8px 28px rgb(23 23 23 / 8%);
+
+  animation: panelIn 220ms ease-out both;
+  transform-origin: top right;
+}
+
+.body {
+  --scroll-fade-channels: 255 255 255;
+}
+
+@keyframes overlayIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes panelIn {
+  from {
+    opacity: 0;
+    transform: translateX(1rem) scale(0.99);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@media (min-width: 48rem) {
+  .overlay {
+    right: 1.5rem;
+    bottom: 1.5rem;
+  }
+}
+
+@media (min-width: 80rem) {
+  .overlay {
+    right: 2.5rem;
+  }
+}
+
+@media (max-width: 47.999rem) {
+  .overlay {
+    top: 5.25rem;
+    right: 0.75rem;
+    bottom: 0.75rem;
+    left: 0.75rem;
+    width: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay,
+  .panel {
+    animation-duration: 1ms;
+  }
+}

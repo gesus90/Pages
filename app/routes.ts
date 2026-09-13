@@ -17,6 +17,7 @@ export default [
     route("projekte", "routes/projects.tsx"),
     route("projekte/:projectId", "routes/project-detail.tsx"),
     route("projekte/:projectId/icon", "routes/project-icon.ts"),
+    route("users/:userId/avatar", "routes/user-avatar.ts"),
     route("aufgaben", "routes/tasks.tsx", { id: "aufgaben" }),
     route("tasks", "routes/tasks.tsx", { id: "tasks" }),
     route("aufgaben/:ticketKey", "routes/task-detail.tsx", {

@@ -1361,8 +1361,10 @@ export default function ProjectDetailRoute(): React.ReactElement {
           ) : null}
           {activeTab === "integrations" ? (
             <ProjectIntegrationsTab
+              key={loaderData.project.id}
               integration={loaderData.integration}
               canWrite={loaderData.canWrite}
+              projectId={loaderData.project.id}
             />
           ) : null}
           {activeTab === "activity" ? (

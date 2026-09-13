@@ -87,6 +87,7 @@ export async function action({
   const loginResult = await services.authService.login(
     credentials.username,
     credentials.password,
+    request.headers.get("user-agent"),
   );
 
   if (!loginResult) {

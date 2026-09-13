@@ -1,13 +1,13 @@
-import { LANGUAGE } from "@/language/Language";
+import {
+  DEFAULT_USER_SETTINGS,
+  isUserDateFormat,
+  isUserTimezone,
+  isUserWeekStart,
+} from "@/definition/Settings";
 
 import type { UserSettingsRepository } from "@/backend/database/repositories/UserSettingsRepository";
 import type { UserSettings } from "@/definition/Settings";
 import type { Language } from "@/language/Language";
-
-/** Default settings applied until a user chooses their own. */
-const DEFAULT_USER_SETTINGS: UserSettings = {
-  language: LANGUAGE.GERMAN,
-};
 
 /**
  * Establishes the business-logic boundary for personal user settings.
@@ -35,10 +35,64 @@ export class SettingsService {
    * @param userId - User identifier.
    */
   public async getUserSettings(userId: string): Promise<UserSettings> {
-    const language =
-      await this.userSettingsRepository.findLanguageByUserId(userId);
+    const stored = await this.userSettingsRepository.findByUserId(userId);
 
-    return { language: language ?? DEFAULT_USER_SETTINGS.language };
+    return {
+      language: stored?.language ?? DEFAULT_USER_SETTINGS.language,
+      timezone:
+        stored?.timezone && isUserTimezone(stored.timezone)
+          ? stored.timezone
+          : DEFAULT_USER_SETTINGS.timezone,
+      dateFormat:
+        stored?.dateFormat && isUserDateFormat(stored.dateFormat)
+          ? stored.dateFormat
+          : DEFAULT_USER_SETTINGS.dateFormat,
+      weekStart:
+        stored?.weekStart && isUserWeekStart(stored.weekStart)
+          ? stored.weekStart
+          : DEFAULT_USER_SETTINGS.weekStart,
+      notifications: {
+        email: stored?.notifyEmail ?? DEFAULT_USER_SETTINGS.notifications.email,
+        desktop:
+          stored?.notifyDesktop ?? DEFAULT_USER_SETTINGS.notifications.desktop,
+        mentions:
+          stored?.notifyMentions ??
+          DEFAULT_USER_SETTINGS.notifications.mentions,
+        assignments:
+          stored?.notifyAssignments ??
+          DEFAULT_USER_SETTINGS.notifications.assignments,
+        dueDates:
+          stored?.notifyDueDates ??
+          DEFAULT_USER_SETTINGS.notifications.dueDates,
+        weeklySummary:
+          stored?.notifyWeeklySummary ??
+          DEFAULT_USER_SETTINGS.notifications.weeklySummary,
+      },
+    };
+  }
+
+  /**
+   * Replaces the settings a user has chosen.
+   *
+   * @param userId - User identifier.
+   * @param settings - Validated settings to persist.
+   */
+  public async updateSettings(
+    userId: string,
+    settings: UserSettings,
+  ): Promise<void> {
+    await this.userSettingsRepository.upsert(userId, {
+      language: settings.language,
+      timezone: settings.timezone,
+      dateFormat: settings.dateFormat,
+      weekStart: settings.weekStart,
+      notifyEmail: settings.notifications.email,
+      notifyDesktop: settings.notifications.desktop,
+      notifyMentions: settings.notifications.mentions,
+      notifyAssignments: settings.notifications.assignments,
+      notifyDueDates: settings.notifications.dueDates,
+      notifyWeeklySummary: settings.notifications.weeklySummary,
+    });
   }
 
   /**

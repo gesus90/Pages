@@ -19,6 +19,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Form } from "react-router";
 
+import { UserAvatar } from "@/app/components/common/user-avatar";
 import { Button } from "@/app/components/ui/button";
 import {
   Dialog,
@@ -224,12 +225,7 @@ function TeamMemberRow({
     <tr className="transition-colors hover:bg-muted/40">
       <td className="py-3 pr-2 pl-4 align-middle">
         <span className="flex items-center gap-3">
-          <span
-            className="inline-flex size-9 shrink-0 select-none items-center justify-center rounded-full bg-muted text-sm font-semibold text-foreground"
-            aria-hidden="true"
-          >
-            {member.displayName.trim().charAt(0).toLocaleUpperCase()}
-          </span>
+          <UserAvatar user={member} />
           <span className="flex min-w-0 items-center gap-2">
             <span
               className="min-w-0 truncate text-sm font-medium text-foreground"

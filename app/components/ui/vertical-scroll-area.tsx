@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { cn } from "@/app/lib/cn";
 
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 // Sub-Pixel-Rundungen der Browser sollen am Scroll-Ende keinen Fade erzwingen.
 const SCROLL_EDGE_TOLERANCE = 2;
@@ -12,6 +12,9 @@ interface VerticalScrollAreaProps {
   readonly className?: string;
   readonly viewportClassName?: string;
   readonly contentClassName?: string;
+  /** Extra styling for both fade overlays, for example a z-index bump. */
+  readonly fadeClassName?: string;
+  readonly style?: CSSProperties;
 }
 
 /**
@@ -31,6 +34,8 @@ export function VerticalScrollArea({
   className,
   viewportClassName,
   contentClassName,
+  fadeClassName,
+  style,
 }: VerticalScrollAreaProps): React.ReactElement {
   const viewportRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -71,7 +76,10 @@ export function VerticalScrollArea({
   }, []);
 
   return (
-    <div className={cn("relative flex min-h-0 min-w-0 flex-col", className)}>
+    <div
+      style={style}
+      className={cn("relative flex min-h-0 min-w-0 flex-col", className)}
+    >
       <div
         ref={viewportRef}
         className={cn(
@@ -88,6 +96,7 @@ export function VerticalScrollArea({
         aria-hidden="true"
         className={cn(
           "pages-scroll-fade-top pointer-events-none absolute top-0 right-0 left-0 h-8 transition-opacity duration-200",
+          fadeClassName,
           hasTopFade ? "opacity-100" : "opacity-0",
         )}
       />
@@ -95,6 +104,7 @@ export function VerticalScrollArea({
         aria-hidden="true"
         className={cn(
           "pages-scroll-fade-bottom pointer-events-none absolute right-0 bottom-0 left-0 h-8 transition-opacity duration-200",
+          fadeClassName,
           hasBottomFade ? "opacity-100" : "opacity-0",
         )}
       />

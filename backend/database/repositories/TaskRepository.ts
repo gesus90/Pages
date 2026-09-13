@@ -1,9 +1,11 @@
 import {
   readBooleanColumn,
   readCountColumn,
+  readNullableTextColumn,
   readTextColumn,
 } from "@/backend/database/RowValue";
 import { isRole } from "@/definition/Role";
+import { isUserAvatarType } from "@/definition/User";
 import {
   isGitHubIssueState,
   isMilestoneColor,
@@ -1872,7 +1874,11 @@ export class TaskRepository {
             users.username,
             users.display_name,
             users.role,
-            users.is_active
+            users.is_active,
+            users.avatar_type,
+            users.avatar_icon,
+            users.avatar_color,
+            users.avatar_image_url
         FROM users
         WHERE users.is_active = 1
             AND (
@@ -1931,6 +1937,10 @@ export class TaskRepository {
             users.display_name,
             users.role,
             users.is_active,
+            users.avatar_type,
+            users.avatar_icon,
+            users.avatar_color,
+            users.avatar_image_url,
             members.project_id AS member_project_id
         FROM users
         LEFT JOIN project_members AS members
@@ -1947,8 +1957,8 @@ export class TaskRepository {
     );
 
     for (const row of rows) {
-      const user = this.toUser(row.slice(0, 5));
-      const memberProjectId = row[5];
+      const user = this.toUser(row.slice(0, 9));
+      const memberProjectId = row[9];
       const targetProjectIds =
         user.role === "admin" || user.role === "manager"
           ? projectIds
@@ -2316,9 +2326,16 @@ export class TaskRepository {
 
   private toUser(row: readonly DatabaseValue[]): User {
     const role = readTextColumn(row, 3, "role");
+    const avatarType = readTextColumn(row, 5, "avatar_type");
 
     if (!isRole(role)) {
       throw new Error(`Database returned an unsupported role "${role}".`);
+    }
+
+    if (!isUserAvatarType(avatarType)) {
+      throw new Error(
+        `Database returned an unsupported avatar type "${avatarType}".`,
+      );
     }
 
     return {
@@ -2327,6 +2344,10 @@ export class TaskRepository {
       isActive: readBooleanColumn(row, 4, "is_active"),
       role,
       username: readTextColumn(row, 1, "username"),
+      avatarType,
+      avatarIcon: readNullableTextColumn(row, 6, "avatar_icon"),
+      avatarColor: readNullableTextColumn(row, 7, "avatar_color"),
+      avatarImageUrl: readNullableTextColumn(row, 8, "avatar_image_url"),
     };
   }
 }

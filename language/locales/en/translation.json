@@ -178,6 +178,119 @@
   },
   "settings": {
     "title": "Settings",
+    "personal": {
+      "title": "Personal area"
+    },
+    "system": {
+      "title": "System area",
+      "description": "Manage system-wide configurations and global settings.",
+      "placeholder": "System-wide settings will be prepared here."
+    },
+    "profile": {
+      "title": "Profile",
+      "description": "Manage your personal information.",
+      "displayName": "Full name",
+      "username": "Username",
+      "email": "Email",
+      "notProvided": "Not provided",
+      "position": "Position / role",
+      "editAction": "Edit",
+      "cancelAction": "Cancel",
+      "saveAction": "Save changes",
+      "savingAction": "Saving …",
+      "changeAvatar": "Change profile picture",
+      "avatarFormatHint": "JPG, PNG, or WebP (max. 5 MB)",
+      "emailPlaceholder": "admin@pages.local",
+      "errors": {
+        "invalidInput": "Please check your input.",
+        "invalidAvatar": "Invalid image file (only JPG, PNG, or WebP up to 5 MB).",
+        "usernameTaken": "This username is already taken.",
+        "emailTaken": "This email address is already taken.",
+        "forbidden": "You are not allowed to perform this action.",
+        "lastAdministrator": "The administrator role cannot be removed from the last active administrator.",
+        "general": "The profile could not be saved."
+      }
+    },
+    "notifications": {
+      "title": "Notifications",
+      "description": "Choose how you are informed about activity.",
+      "email": {
+        "title": "Email notifications",
+        "description": "Receive important updates by email."
+      },
+      "desktop": {
+        "title": "Desktop notifications",
+        "description": "Show notifications in the browser."
+      },
+      "mentions": {
+        "title": "Mentions",
+        "description": "When you are mentioned in comments."
+      },
+      "assignments": {
+        "title": "Task assignments",
+        "description": "When a task is assigned to you."
+      },
+      "dueDates": {
+        "title": "Due dates",
+        "description": "Reminders for upcoming and overdue tasks."
+      },
+      "weeklySummary": {
+        "title": "Weekly summary",
+        "description": "An email overview of your activity."
+      }
+    },
+    "security": {
+      "title": "Security",
+      "description": "Manage your password and active sessions.",
+      "password": {
+        "title": "Password",
+        "description": "Change your password to keep your account safe.",
+        "action": "Change password",
+        "dialogTitle": "Change password",
+        "currentPassword": "Current password",
+        "newPassword": "New password",
+        "confirmPassword": "Confirm new password",
+        "cancel": "Cancel",
+        "changing": "Changing …",
+        "errors": {
+          "invalidInput": "Invalid input.",
+          "invalidCurrent": "The current password is incorrect.",
+          "mismatch": "The new passwords do not match.",
+          "tooShort": "The new password must be at least 8 characters long.",
+          "unchanged": "The new password matches the current one."
+        }
+      },
+      "sessions": {
+        "title": "Active sessions",
+        "description": "Devices you are currently signed in on.",
+        "current": "Current session",
+        "unknownDevice": "Unknown device",
+        "menu": "Session menu",
+        "revoke": "End session",
+        "endOthers": "Sign out of other sessions",
+        "endOthersTitle": "Sign out of other sessions?",
+        "endOthersText": "You will be signed out on all other devices. Your current session stays active.",
+        "endOthersConfirm": "Sign out sessions",
+        "revoking": "Signing out …",
+        "cancel": "Cancel",
+        "activity": {
+          "now": "Now",
+          "minutesAgo": "{{count}} minutes ago",
+          "hoursAgo": "{{count}} hours ago"
+        }
+      }
+    },
+    "region": {
+      "title": "Language & region",
+      "description": "Adjust language and regional display options.",
+      "language": "Language",
+      "timezone": "Time zone",
+      "timezoneNotSet": "Not set",
+      "dateFormat": "Date format",
+      "weekStart": "Start of week",
+      "weekStartMonday": "Monday",
+      "weekStartSunday": "Sunday"
+    },
     "language": {
       "label": "Language",
       "de": "Deutsch",
@@ -191,6 +304,7 @@
       "title": "Create user",
       "name": "Name",
       "username": "Username",
+      "email": "Email (optional)",
       "password": "Password",
       "role": "Role",
       "submit": "Create",
@@ -200,9 +314,14 @@
     "columns": {
       "user": "User",
       "username": "Username",
+      "email": "Email",
       "role": "Role",
       "status": "Status",
       "actions": "Actions"
+    },
+    "search": {
+      "placeholder": "Search users …",
+      "empty": "No users found."
     },
     "status": {
       "active": "Active",
@@ -212,11 +331,55 @@
       "activate": "Activate",
       "deactivate": "Deactivate"
     },
+    "menu": {
+      "trigger": "Actions for {{name}}",
+      "edit": "Edit",
+      "changeRole": "Change role",
+      "resetPassword": "Reset password"
+    },
+    "edit": {
+      "title": "Edit user",
+      "name": "Name",
+      "username": "Username",
+      "email": "Email",
+      "submit": "Save",
+      "submitting": "Saving …",
+      "cancel": "Cancel"
+    },
+    "changeRole": {
+      "title": "Change role",
+      "role": "Role",
+      "submit": "Save",
+      "submitting": "Saving …",
+      "cancel": "Cancel"
+    },
+    "reset": {
+      "title": "Reset password",
+      "text": "A temporary one-time password will be created for this user.",
+      "cancel": "Cancel",
+      "confirm": "Reset",
+      "resetting": "Resetting …",
+      "resultTitle": "One-time password created",
+      "temporaryPassword": "Temporary one-time password",
+      "copy": "Copy",
+      "copied": "Copied",
+      "emailHint": "This password can be sent by email later, once email is configured.",
+      "close": "Close"
+    },
+    "deactivate": {
+      "title": "Deactivate user?",
+      "text": "The user will no longer be able to sign in.",
+      "cancel": "Cancel",
+      "confirm": "Deactivate",
+      "deactivating": "Deactivating …"
+    },
     "error": {
       "usernameTaken": "This username is already taken.",
+      "emailTaken": "This email address is already in use.",
       "invalidInput": "Please check your input (password at least 8 characters).",
       "forbidden": "You are not allowed to perform this action.",
       "lastAdministrator": "The last active administrator cannot be deactivated.",
+      "demoteLastAdministrator": "The administrator role cannot be removed from the last active administrator.",
       "userNotFound": "This user could not be found."
     }
   },
@@ -516,7 +679,7 @@
       "general": "General",
       "team": "Team",
       "planning": "Planning",
-      "integrations": "Integrations",
+      "integrations": "Interfaces",
       "activity": "Activity"
     },
     "general": {
@@ -802,6 +965,116 @@
       "intervalMinutes": "Every {{count}} minutes",
       "nextSync": "Next synchronization:",
       "scheduled": "Scheduled automatically"
+    },
+    "interfaces": {
+      "availableTitle": "Available interfaces",
+      "availableSubtitle": "Connect external services to this project to improve collaboration and sync data.",
+      "aboutTitle": "About project interfaces",
+      "aboutText": "Interfaces are project-specific and can be configured individually. Connect the services relevant to you to exchange information, receive notifications, and automate workflows.",
+      "learnMore": "Learn more",
+      "settingsTitle": "Interface settings",
+      "settingsSubtitle": "Project-specific settings for {{name}}.",
+      "closePanel": "Close panel",
+      "openSettings": "Open settings for {{name}}",
+      "readOnlyHint": "You have read access to this project. Interfaces can only be configured by admins and project managers.",
+      "githubName": "GitHub",
+      "githubDescription": "Sync repositories, issues, and pull requests.",
+      "githubCardDescription": "Sync issues, pull requests, and commits with this project.",
+      "calendarName": "Google Calendar",
+      "calendarDescription": "Sync dates and releases in this project.",
+      "discordName": "Discord",
+      "discordDescription": "Send notifications to a Discord server.",
+      "webhooksName": "Webhooks",
+      "webhooksDescription": "Configure custom webhooks for events in this project.",
+      "emailName": "Email",
+      "emailDescription": "Send and receive notifications by email.",
+      "restApiName": "REST API",
+      "restApiDescription": "Manage access via our REST API for this project.",
+      "authentication": "Authentication",
+      "tokenHelp": "The token enables repository synchronization as well as creating issues and pull requests from Pages.",
+      "showToken": "Show token",
+      "hideToken": "Hide token",
+      "repositoryLabel": "GitHub repository",
+      "repositoryPlaceholder": "e.g. joon/pages",
+      "branchLabel": "Default branch",
+      "createFromPages": "Create from Pages",
+      "allowCreateIssues": "Create GitHub issues from Pages",
+      "allowCreateIssuesHint": "Allows creating new GitHub issues directly from Pages.",
+      "allowCreatePullRequests": "Create pull requests from Pages",
+      "allowCreatePullRequestsHint": "Allows creating new pull requests directly from Pages.",
+      "syncIssuesHint": "Import new and updated issues.",
+      "syncPullRequestsHint": "Import and update pull requests.",
+      "syncCommitsLabel": "Show commits",
+      "syncCommitsHint": "Show commits in the activity history.",
+      "webhookUrlLabel": "Webhook URL (optional)",
+      "webhookCopy": "Copy webhook URL",
+      "webhookCopied": "Copied",
+      "connectionOk": "Connection successful.",
+      "connectionFailed": "Connection failed. Check the token and repository.",
+      "savedLocally": "Changes applied. They only apply to this project.",
+      "calendarConnect": "Connect",
+      "calendarConnectHint": "Link a Google account to sync calendars.",
+      "calendarSelect": "Select calendar",
+      "calendarSelectPlaceholder": "Choose a calendar …",
+      "calendarImport": "Import dates",
+      "calendarImportHint": "Import dates from Google Calendar into Pages.",
+      "calendarExport": "Export Pages dates",
+      "calendarExportHint": "Transfer dates from Pages to Google Calendar.",
+      "calendarDirection": "Sync direction",
+      "calendarDirectionImport": "Import only",
+      "calendarDirectionExport": "Export only",
+      "calendarDirectionBoth": "Both directions",
+      "discordWebhook": "Webhook URL",
+      "discordWebhookPlaceholder": "https://discord.com/api/webhooks/…",
+      "discordWebhookHint": "Webhook URL of the Discord channel for this project.",
+      "discordChannel": "Channel",
+      "discordChannelPlaceholder": "# general",
+      "discordEvents": "Events",
+      "discordEventTask": "New task",
+      "discordEventTaskHint": "Notify on newly created tasks.",
+      "discordEventStatus": "Status change",
+      "discordEventStatusHint": "Notify on task status changes.",
+      "discordEventMilestone": "Milestone reached",
+      "discordEventMilestoneHint": "Notify on completed milestones.",
+      "discordEventActivity": "Project activity",
+      "discordEventActivityHint": "Notify on other project activity.",
+      "webhookTarget": "Target URL",
+      "webhookTargetPlaceholder": "https://example.com/hooks/pages",
+      "webhookSecret": "Secret",
+      "webhookMethod": "HTTP method",
+      "webhookEvents": "Events",
+      "webhookActive": "Active",
+      "webhookActiveHint": "This webhook receives events from this project.",
+      "emailHost": "SMTP host",
+      "emailHostPlaceholder": "mail.example.com",
+      "emailPort": "Port",
+      "emailUsername": "Username",
+      "emailPassword": "Password",
+      "emailTls": "Use TLS",
+      "emailTlsHint": "Encrypt the connection to the SMTP server.",
+      "emailSender": "Sender",
+      "emailSenderPlaceholder": "pages@example.com",
+      "emailRules": "Notification rules",
+      "emailRuleTask": "New task",
+      "emailRuleTaskHint": "Notify by email on newly created tasks.",
+      "emailRuleStatus": "Status change",
+      "emailRuleStatusHint": "Notify by email on status changes.",
+      "emailRuleMilestone": "Milestone reached",
+      "emailRuleMilestoneHint": "Notify by email on completed milestones.",
+      "apiEnable": "Enable project API",
+      "apiEnableHint": "Allow API access exclusively for this project.",
+      "apiToken": "API token",
+      "apiTokenHint": "The token only grants access to this project.",
+      "apiCreate": "Create token",
+      "apiRenew": "Renew token",
+      "apiCopy": "Copy token",
+      "apiRevoke": "Deactivate token",
+      "apiScopes": "Permissions",
+      "apiScopeReadProjects": "Read projects",
+      "apiScopeReadTasks": "Read tasks",
+      "apiScopeWriteTasks": "Write tasks",
+      "apiScopeReadMilestones": "Read milestones",
+      "apiScopeWriteMilestones": "Write milestones"
     },
     "activity": {
       "allActivities": "All activities",

@@ -2,6 +2,7 @@ import {
   readBlobColumn,
   readBooleanColumn,
   readCountColumn,
+  readNullableTextColumn,
   readTextColumn,
 } from "@/backend/database/RowValue";
 import {
@@ -9,6 +10,7 @@ import {
   isProjectRole,
   isProjectStatus,
 } from "@/definition/Project";
+import { isUserAvatarType } from "@/definition/User";
 
 import type { Database, DatabaseValue } from "@/backend/database/Database";
 import type {
@@ -453,6 +455,10 @@ export class ProjectRepository {
             users.id,
             users.username,
             users.display_name,
+            users.avatar_type,
+            users.avatar_icon,
+            users.avatar_color,
+            users.avatar_image_url,
             project_members.role,
             project_members.joined_at,
             users.is_active
@@ -1187,11 +1193,18 @@ export class ProjectRepository {
   }
 
   private toProjectMember(row: readonly DatabaseValue[]): ProjectMember {
-    const role = readTextColumn(row, 3, "role");
+    const projectRole = readTextColumn(row, 7, "role");
+    const avatarType = readTextColumn(row, 3, "avatar_type");
 
-    if (!isProjectRole(role)) {
+    if (!isProjectRole(projectRole)) {
       throw new Error(
-        `Database returned an unsupported project role "${role}".`,
+        `Database returned an unsupported project role "${projectRole}".`,
+      );
+    }
+
+    if (!isUserAvatarType(avatarType)) {
+      throw new Error(
+        `Database returned an unsupported avatar type "${avatarType}".`,
       );
     }
 
@@ -1199,9 +1212,13 @@ export class ProjectRepository {
       userId: readTextColumn(row, 0, "user_id"),
       username: readTextColumn(row, 1, "username"),
       displayName: readTextColumn(row, 2, "display_name"),
-      projectRole: role,
-      joinedAt: readTextColumn(row, 4, "joined_at"),
-      isActive: readBooleanColumn(row, 5, "is_active"),
+      avatarType,
+      avatarIcon: readNullableTextColumn(row, 4, "avatar_icon"),
+      avatarColor: readNullableTextColumn(row, 5, "avatar_color"),
+      avatarImageUrl: readNullableTextColumn(row, 6, "avatar_image_url"),
+      projectRole,
+      joinedAt: readTextColumn(row, 8, "joined_at"),
+      isActive: readBooleanColumn(row, 9, "is_active"),
     };
   }
 

@@ -24,8 +24,34 @@ export function readTextColumn(
 }
 
 /**
- * Reads a binary column from a database result row.
+ * Reads an optional text column from a database result row.
  *
+ * @param row - Row returned by a query.
+ * @param index - Zero-based column position.
+ * @param column - Column name used in error messages.
+ * @returns The column value as text, or `null` when the column is `NULL`.
+ * @throws When the column is missing or neither text nor `NULL`.
+ */
+export function readNullableTextColumn(
+  row: readonly DatabaseValue[],
+  index: number,
+  column: string,
+): string | null {
+  const value = row[index];
+
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (typeof value !== "string") {
+    throw new Error(`Database returned an invalid value for "${column}".`);
+  }
+
+  return value;
+}
+
+/**
+ * Reads a binary column from a database result row.
  * @param row - Row returned by a query.
  * @param index - Zero-based column position.
  * @param column - Column name used in error messages.
@@ -65,6 +91,33 @@ export function readBooleanColumn(
   column: string,
 ): boolean {
   const value = row[index];
+
+  if (value !== 0 && value !== 1) {
+    throw new Error(`Database returned an invalid value for "${column}".`);
+  }
+
+  return value === 1;
+}
+
+/**
+ * Reads a nullable boolean column from a database result row.
+ *
+ * @param row - Row returned by a query.
+ * @param index - Zero-based column position.
+ * @param column - Column name used in error messages.
+ * @returns The column value as a boolean, or `null` when the column is `NULL`.
+ * @throws When the column is missing or neither `NULL` nor a SQLite `0`/`1` integer.
+ */
+export function readNullableBooleanColumn(
+  row: readonly DatabaseValue[],
+  index: number,
+  column: string,
+): boolean | null {
+  const value = row[index];
+
+  if (value === null || value === undefined) {
+    return null;
+  }
 
   if (value !== 0 && value !== 1) {
     throw new Error(`Database returned an invalid value for "${column}".`);

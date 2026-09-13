@@ -178,6 +178,119 @@
   },
   "settings": {
     "title": "Einstellungen",
+    "personal": {
+      "title": "Persönlicher Bereich"
+    },
+    "system": {
+      "title": "Systembereich",
+      "description": "Verwalten Sie systemweite Konfigurationen und globale Einstellungen.",
+      "placeholder": "Systemweite Einstellungen werden hier vorbereitet."
+    },
+    "profile": {
+      "title": "Profil",
+      "description": "Verwalten Sie Ihre persönlichen Informationen.",
+      "displayName": "Vollständiger Name",
+      "username": "Benutzername",
+      "email": "E-Mail",
+      "notProvided": "Nicht hinterlegt",
+      "position": "Position / Rolle",
+      "editAction": "Bearbeiten",
+      "cancelAction": "Abbrechen",
+      "saveAction": "Änderungen speichern",
+      "savingAction": "Wird gespeichert …",
+      "changeAvatar": "Profilbild ändern",
+      "avatarFormatHint": "JPG, PNG oder WebP (max. 5 MB)",
+      "emailPlaceholder": "admin@pages.local",
+      "errors": {
+        "invalidInput": "Bitte überprüfen Sie Ihre Eingaben.",
+        "invalidAvatar": "Ungültige Bilddatei (nur JPG, PNG oder WebP bis 5 MB).",
+        "usernameTaken": "Dieser Benutzername ist bereits vergeben.",
+        "emailTaken": "Diese E-Mail-Adresse ist bereits vergeben.",
+        "forbidden": "Du bist nicht berechtigt, diese Aktion auszuführen.",
+        "lastAdministrator": "Dem letzten aktiven Administrator kann die Administratorrolle nicht entzogen werden.",
+        "general": "Das Profil konnte nicht gespeichert werden."
+      }
+    },
+    "notifications": {
+      "title": "Benachrichtigungen",
+      "description": "Legen Sie fest, wie Sie über Aktivitäten informiert werden.",
+      "email": {
+        "title": "E-Mail-Benachrichtigungen",
+        "description": "Wichtige Updates per E-Mail erhalten."
+      },
+      "desktop": {
+        "title": "Desktop-Benachrichtigungen",
+        "description": "Benachrichtigungen im Browser anzeigen."
+      },
+      "mentions": {
+        "title": "Erwähnungen",
+        "description": "Wenn Sie in Kommentaren erwähnt werden."
+      },
+      "assignments": {
+        "title": "Aufgaben-Zuweisungen",
+        "description": "Wenn Ihnen eine Aufgabe zugewiesen wird."
+      },
+      "dueDates": {
+        "title": "Fälligkeiten",
+        "description": "Erinnerungen an anstehende und überfällige Aufgaben."
+      },
+      "weeklySummary": {
+        "title": "Wochenzusammenfassung",
+        "description": "Eine Übersicht Ihrer Aktivitäten per E-Mail."
+      }
+    },
+    "security": {
+      "title": "Sicherheit",
+      "description": "Verwalten Sie Ihr Passwort und Ihre aktiven Sitzungen.",
+      "password": {
+        "title": "Passwort",
+        "description": "Ändern Sie Ihr Passwort, um Ihr Konto zu schützen.",
+        "action": "Passwort ändern",
+        "dialogTitle": "Passwort ändern",
+        "currentPassword": "Aktuelles Passwort",
+        "newPassword": "Neues Passwort",
+        "confirmPassword": "Neues Passwort bestätigen",
+        "cancel": "Abbrechen",
+        "changing": "Wird geändert …",
+        "errors": {
+          "invalidInput": "Ungültige Eingabe.",
+          "invalidCurrent": "Das aktuelle Passwort ist falsch.",
+          "mismatch": "Die neuen Passwörter stimmen nicht überein.",
+          "tooShort": "Das neue Passwort muss mindestens 8 Zeichen lang sein.",
+          "unchanged": "Das neue Passwort entspricht dem aktuellen."
+        }
+      },
+      "sessions": {
+        "title": "Aktive Sitzungen",
+        "description": "Geräte, auf denen Sie derzeit angemeldet sind.",
+        "current": "Aktuelle Sitzung",
+        "unknownDevice": "Unbekanntes Gerät",
+        "menu": "Sitzungsmenü",
+        "revoke": "Sitzung beenden",
+        "endOthers": "Alle anderen Sitzungen beenden",
+        "endOthersTitle": "Alle anderen Sitzungen beenden?",
+        "endOthersText": "Sie werden auf allen anderen Geräten abgemeldet. Ihre aktuelle Sitzung bleibt aktiv.",
+        "endOthersConfirm": "Sitzungen beenden",
+        "revoking": "Wird beendet …",
+        "cancel": "Abbrechen",
+        "activity": {
+          "now": "Jetzt",
+          "minutesAgo": "Vor {{count}} Minuten",
+          "hoursAgo": "Vor {{count}} Stunden"
+        }
+      }
+    },
+    "region": {
+      "title": "Sprache & Region",
+      "description": "Passen Sie Sprache und regionale Darstellung an.",
+      "language": "Sprache",
+      "timezone": "Zeitzone",
+      "timezoneNotSet": "Nicht festgelegt",
+      "dateFormat": "Datumsformat",
+      "weekStart": "Wochenstart",
+      "weekStartMonday": "Montag",
+      "weekStartSunday": "Sonntag"
+    },
     "language": {
       "label": "Sprache",
       "de": "Deutsch",
@@ -191,6 +304,7 @@
       "title": "Benutzer erstellen",
       "name": "Name",
       "username": "Benutzername",
+      "email": "E-Mail (optional)",
       "password": "Passwort",
       "role": "Rolle",
       "submit": "Erstellen",
@@ -200,9 +314,14 @@
     "columns": {
       "user": "Benutzer",
       "username": "Username",
+      "email": "E-Mail",
       "role": "Rolle",
       "status": "Status",
       "actions": "Aktionen"
+    },
+    "search": {
+      "placeholder": "Benutzer suchen …",
+      "empty": "Keine Benutzer gefunden."
     },
     "status": {
       "active": "Aktiv",
@@ -212,11 +331,55 @@
       "activate": "Aktivieren",
       "deactivate": "Deaktivieren"
     },
+    "menu": {
+      "trigger": "Aktionen für {{name}}",
+      "edit": "Bearbeiten",
+      "changeRole": "Rolle ändern",
+      "resetPassword": "Passwort zurücksetzen"
+    },
+    "edit": {
+      "title": "Benutzer bearbeiten",
+      "name": "Name",
+      "username": "Benutzername",
+      "email": "E-Mail",
+      "submit": "Speichern",
+      "submitting": "Wird gespeichert …",
+      "cancel": "Abbrechen"
+    },
+    "changeRole": {
+      "title": "Rolle ändern",
+      "role": "Rolle",
+      "submit": "Speichern",
+      "submitting": "Wird gespeichert …",
+      "cancel": "Abbrechen"
+    },
+    "reset": {
+      "title": "Passwort zurücksetzen",
+      "text": "Für diesen Benutzer wird ein temporäres Einmalpasswort erstellt.",
+      "cancel": "Abbrechen",
+      "confirm": "Zurücksetzen",
+      "resetting": "Wird zurückgesetzt …",
+      "resultTitle": "Einmalpasswort erstellt",
+      "temporaryPassword": "Temporäres Einmalpasswort",
+      "copy": "Kopieren",
+      "copied": "Kopiert",
+      "emailHint": "Dieses Passwort kann später per E-Mail verschickt werden, sobald E-Mail eingerichtet ist.",
+      "close": "Schließen"
+    },
+    "deactivate": {
+      "title": "Benutzer deaktivieren?",
+      "text": "Der Benutzer kann sich danach nicht mehr anmelden.",
+      "cancel": "Abbrechen",
+      "confirm": "Deaktivieren",
+      "deactivating": "Wird deaktiviert …"
+    },
     "error": {
       "usernameTaken": "Dieser Benutzername ist bereits vergeben.",
+      "emailTaken": "Diese E-Mail-Adresse wird bereits verwendet.",
       "invalidInput": "Bitte überprüfe deine Eingaben (Passwort mindestens 8 Zeichen).",
       "forbidden": "Du bist nicht berechtigt, diese Aktion auszuführen.",
       "lastAdministrator": "Der letzte aktive Administrator kann nicht deaktiviert werden.",
+      "demoteLastAdministrator": "Dem letzten aktiven Administrator kann die Administratorrolle nicht entzogen werden.",
       "userNotFound": "Dieser Benutzer wurde nicht gefunden."
     }
   },
@@ -516,7 +679,7 @@
       "general": "Allgemein",
       "team": "Team",
       "planning": "Planung",
-      "integrations": "Integrationen",
+      "integrations": "Schnittstellen",
       "activity": "Aktivität"
     },
     "general": {
@@ -802,6 +965,116 @@
       "intervalMinutes": "Alle {{count}} Minuten",
       "nextSync": "Nächste Synchronisation:",
       "scheduled": "Automatisch geplant"
+    },
+    "interfaces": {
+      "availableTitle": "Verfügbare Schnittstellen",
+      "availableSubtitle": "Verbinde externe Dienste mit diesem Projekt, um die Zusammenarbeit zu verbessern und Daten zu synchronisieren.",
+      "aboutTitle": "Über Schnittstellen in Projekten",
+      "aboutText": "Schnittstellen sind projektspezifisch und können individuell konfiguriert werden. Verbinde die für dich relevanten Dienste, um Informationen auszutauschen, Benachrichtigungen zu erhalten und Arbeitsabläufe zu automatisieren.",
+      "learnMore": "Mehr erfahren",
+      "settingsTitle": "Schnittstellen-Einstellungen",
+      "settingsSubtitle": "Projektspezifische Einstellungen für {{name}}.",
+      "closePanel": "Panel schließen",
+      "openSettings": "Einstellungen für {{name}} öffnen",
+      "readOnlyHint": "Du hast Leserechte für dieses Projekt. Schnittstellen können nur von Admins und Projektmanagern konfiguriert werden.",
+      "githubName": "GitHub",
+      "githubDescription": "Repositories, Issues und Pull Requests synchronisieren.",
+      "githubCardDescription": "Issues, Pull Requests und Commits mit diesem Projekt synchronisieren.",
+      "calendarName": "Google Kalender",
+      "calendarDescription": "Termine und Releases in diesem Projekt synchronisieren.",
+      "discordName": "Discord",
+      "discordDescription": "Benachrichtigungen in einen Discord-Server senden.",
+      "webhooksName": "Webhooks",
+      "webhooksDescription": "Eigene Webhooks für Ereignisse in diesem Projekt konfigurieren.",
+      "emailName": "E-Mail",
+      "emailDescription": "Benachrichtigungen per E-Mail senden und empfangen.",
+      "restApiName": "REST API",
+      "restApiDescription": "Zugriff über unsere REST API für dieses Projekt verwalten.",
+      "authentication": "Authentifizierung",
+      "tokenHelp": "Der Token ermöglicht die Synchronisierung von Repositories sowie das Erstellen von Issues und Pull Requests aus Pages.",
+      "showToken": "Token anzeigen",
+      "hideToken": "Token verbergen",
+      "repositoryLabel": "GitHub Repository",
+      "repositoryPlaceholder": "z. B. joon/pages",
+      "branchLabel": "Standard-Branch",
+      "createFromPages": "Erstellen aus Pages",
+      "allowCreateIssues": "GitHub Issues aus Pages erstellen",
+      "allowCreateIssuesHint": "Ermöglicht das Erstellen neuer GitHub Issues direkt aus Pages.",
+      "allowCreatePullRequests": "Pull Requests aus Pages erstellen",
+      "allowCreatePullRequestsHint": "Ermöglicht das Erstellen neuer Pull Requests direkt aus Pages.",
+      "syncIssuesHint": "Neue und aktualisierte Issues importieren.",
+      "syncPullRequestsHint": "Pull Requests importieren und aktualisieren.",
+      "syncCommitsLabel": "Commits anzeigen",
+      "syncCommitsHint": "Commits in der Aktivitätshistorie anzeigen.",
+      "webhookUrlLabel": "Webhook-URL (optional)",
+      "webhookCopy": "Webhook-URL kopieren",
+      "webhookCopied": "Kopiert",
+      "connectionOk": "Verbindung erfolgreich.",
+      "connectionFailed": "Verbindung fehlgeschlagen. Prüfe Token und Repository.",
+      "savedLocally": "Änderungen übernommen. Sie gelten nur für dieses Projekt.",
+      "calendarConnect": "Verbindung herstellen",
+      "calendarConnectHint": "Google-Konto verknüpfen, um Kalender zu synchronisieren.",
+      "calendarSelect": "Kalender auswählen",
+      "calendarSelectPlaceholder": "Kalender wählen …",
+      "calendarImport": "Termine importieren",
+      "calendarImportHint": "Termine aus Google Kalender in Pages übernehmen.",
+      "calendarExport": "Pages-Termine exportieren",
+      "calendarExportHint": "Termine aus Pages in Google Kalender übertragen.",
+      "calendarDirection": "Synchronisationsrichtung",
+      "calendarDirectionImport": "Nur importieren",
+      "calendarDirectionExport": "Nur exportieren",
+      "calendarDirectionBoth": "Beide Richtungen",
+      "discordWebhook": "Webhook-URL",
+      "discordWebhookPlaceholder": "https://discord.com/api/webhooks/…",
+      "discordWebhookHint": "Webhook-URL des Discord-Kanals für dieses Projekt.",
+      "discordChannel": "Channel",
+      "discordChannelPlaceholder": "# allgemein",
+      "discordEvents": "Ereignisse",
+      "discordEventTask": "Neue Aufgabe",
+      "discordEventTaskHint": "Bei neu erstellten Aufgaben benachrichtigen.",
+      "discordEventStatus": "Statusänderung",
+      "discordEventStatusHint": "Bei Statusänderungen von Aufgaben benachrichtigen.",
+      "discordEventMilestone": "Meilenstein erreicht",
+      "discordEventMilestoneHint": "Bei abgeschlossenen Meilensteinen benachrichtigen.",
+      "discordEventActivity": "Projektaktivität",
+      "discordEventActivityHint": "Bei sonstiger Projektaktivität benachrichtigen.",
+      "webhookTarget": "Ziel-URL",
+      "webhookTargetPlaceholder": "https://example.com/hooks/pages",
+      "webhookSecret": "Secret",
+      "webhookMethod": "HTTP-Methode",
+      "webhookEvents": "Ereignisse",
+      "webhookActive": "Aktiv",
+      "webhookActiveHint": "Dieser Webhook empfängt Ereignisse aus diesem Projekt.",
+      "emailHost": "SMTP-Host",
+      "emailHostPlaceholder": "mail.example.com",
+      "emailPort": "Port",
+      "emailUsername": "Benutzername",
+      "emailPassword": "Passwort",
+      "emailTls": "TLS verwenden",
+      "emailTlsHint": "Verbindung zum SMTP-Server verschlüsseln.",
+      "emailSender": "Absender",
+      "emailSenderPlaceholder": "pages@example.com",
+      "emailRules": "Benachrichtigungsregeln",
+      "emailRuleTask": "Neue Aufgabe",
+      "emailRuleTaskHint": "Bei neu erstellten Aufgaben per E-Mail benachrichtigen.",
+      "emailRuleStatus": "Statusänderung",
+      "emailRuleStatusHint": "Bei Statusänderungen per E-Mail benachrichtigen.",
+      "emailRuleMilestone": "Meilenstein erreicht",
+      "emailRuleMilestoneHint": "Bei abgeschlossenen Meilensteinen per E-Mail benachrichtigen.",
+      "apiEnable": "Projekt-API aktivieren",
+      "apiEnableHint": "API-Zugriff ausschließlich für dieses Projekt erlauben.",
+      "apiToken": "API-Token",
+      "apiTokenHint": "Der Token erhält nur Zugriff auf dieses Projekt.",
+      "apiCreate": "Token erstellen",
+      "apiRenew": "Token erneuern",
+      "apiCopy": "Token kopieren",
+      "apiRevoke": "Token deaktivieren",
+      "apiScopes": "Berechtigungen",
+      "apiScopeReadProjects": "Projekte lesen",
+      "apiScopeReadTasks": "Aufgaben lesen",
+      "apiScopeWriteTasks": "Aufgaben schreiben",
+      "apiScopeReadMilestones": "Meilensteine lesen",
+      "apiScopeWriteMilestones": "Meilensteine schreiben"
     },
     "activity": {
       "allActivities": "Alle Aktivitäten",

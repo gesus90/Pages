@@ -1,3 +1,5 @@
+import type { UserAvatarType } from "@/definition/User";
+
 /** Status values supported by project planning and tracking. */
 export const PROJECT_STATUS = {
   PLANNED: "planned",
@@ -62,6 +64,10 @@ export interface ProjectMember {
   readonly displayName: string;
   readonly projectRole: ProjectRole;
   readonly joinedAt: string;
+  readonly avatarType?: UserAvatarType;
+  readonly avatarIcon?: string | null;
+  readonly avatarColor?: string | null;
+  readonly avatarImageUrl?: string | null;
   /**
    * Whether the underlying user account is active.
    *

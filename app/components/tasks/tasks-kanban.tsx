@@ -12,6 +12,7 @@ import {
 import { Fragment, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { UserAvatar } from "@/app/components/common/user-avatar";
 import {
   TaskPriorityBadge,
   TaskTypeBadge,
@@ -301,11 +302,17 @@ function KanbanTicketGhost({
               </span>
             ) : null}
 
-            <span className="inline-flex size-6 items-center justify-center rounded-full bg-primary/15 text-[11px] font-semibold text-primary select-none">
-              {item.assigneeName
-                ? item.assigneeName.trim().charAt(0).toUpperCase()
-                : "?"}
-            </span>
+            {item.assigneeName ? (
+              <UserAvatar
+                name={item.assigneeName}
+                size="xs"
+                className="bg-primary/15 text-primary"
+              />
+            ) : (
+              <span className="inline-flex size-6 items-center justify-center rounded-full bg-primary/15 text-[11px] font-semibold text-primary select-none">
+                ?
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -579,14 +586,21 @@ export function TasksKanban({
                             </span>
                           ) : null}
 
-                          <span
-                            className="inline-flex size-6 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-muted-foreground select-none"
-                            title={item.assigneeName ?? t("tasks.unassigned")}
-                          >
-                            {item.assigneeName
-                              ? item.assigneeName.trim().charAt(0).toUpperCase()
-                              : "?"}
-                          </span>
+                          {item.assigneeName ? (
+                            <UserAvatar
+                              name={item.assigneeName}
+                              size="xs"
+                              className="bg-muted text-muted-foreground"
+                              title={item.assigneeName}
+                            />
+                          ) : (
+                            <span
+                              className="inline-flex size-6 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-muted-foreground select-none"
+                              title={t("tasks.unassigned")}
+                            >
+                              ?
+                            </span>
+                          )}
                         </div>
                       </div>
                     </article>

@@ -1,13 +1,23 @@
 import {
+  readBlobColumn,
   readBooleanColumn,
   readCountColumn,
+  readNullableTextColumn,
   readTextColumn,
 } from "@/backend/database/RowValue";
 import { isRole } from "@/definition/Role";
+import { isUserAvatarType } from "@/definition/User";
 
 import type { Database, DatabaseValue } from "@/backend/database/Database";
 import type { Role } from "@/definition/Role";
-import type { User } from "@/definition/User";
+import type { User, UserAvatarType } from "@/definition/User";
+
+/** A user's binary avatar as stored in the database. */
+export interface StoredUserAvatar {
+  readonly mimeType: string;
+  readonly filename: string;
+  readonly data: Buffer;
+}
 
 /** A user together with the credentials required for authentication. */
 export interface UserCredentials {
@@ -34,6 +44,13 @@ export interface NewUser {
 export class UsernameTakenError extends Error {
   public constructor(username: string) {
     super(`The username "${username}" is already taken.`);
+  }
+}
+
+/** Thrown when an email address is already taken by another user. */
+export class EmailTakenError extends Error {
+  public constructor(email: string) {
+    super(`The email address "${email}" is already taken.`);
   }
 }
 
@@ -80,7 +97,11 @@ export class UserRepository {
             username,
             display_name,
             role,
-            is_active
+            is_active,
+            avatar_type,
+            avatar_icon,
+            avatar_color,
+            avatar_image_url
         FROM users
         WHERE id = $id;
       `,
@@ -106,12 +127,94 @@ export class UserRepository {
           username,
           display_name,
           role,
-          is_active
+          is_active,
+          avatar_type,
+          avatar_icon,
+          avatar_color,
+          avatar_image_url
       FROM users
       ORDER BY display_name;
     `);
 
     return rows.map((row) => this.toUser(row));
+  }
+
+  /**
+   * Returns the user carrying the given email address.
+   *
+   * @param email - Email address to look up.
+   * @returns The user, or `null` when no user uses the address.
+   */
+  public async findByEmail(email: string): Promise<User | null> {
+    const rows = await this.database.query(
+      `
+        SELECT
+            id,
+            username,
+            display_name,
+            role,
+            is_active,
+            avatar_type,
+            avatar_icon,
+            avatar_color,
+            avatar_image_url
+        FROM users
+        WHERE email = $email;
+      `,
+      { email },
+    );
+
+    const row = rows[0];
+
+    return row ? this.toUser(row) : null;
+  }
+
+  /**
+   * Returns the stored email address for each requested user.
+   *
+   * @remarks
+   * Kept as a separate lookup so the shared user mapping used by the
+   * authentication paths stays untouched. Only the user-management screen
+   * needs email addresses in bulk.
+   *
+   * @param ids - Identifiers of the users to look up.
+   * @returns Email addresses keyed by user identifier, `null` when unset.
+   */
+  public async findEmailsByUserIds(
+    ids: readonly string[],
+  ): Promise<ReadonlyMap<string, string | null>> {
+    if (ids.length === 0) {
+      return new Map();
+    }
+
+    const placeholders = ids.map((_, index) => `$id_${index}`).join(", ");
+    const parameters: { [key: string]: string } = {};
+
+    ids.forEach((id, index) => {
+      parameters[`id_${index}`] = id;
+    });
+
+    const rows = await this.database.query(
+      `
+        SELECT
+            id,
+            email
+        FROM users
+        WHERE id IN (${placeholders});
+      `,
+      parameters,
+    );
+
+    const emails = new Map<string, string | null>();
+
+    for (const row of rows) {
+      emails.set(
+        readTextColumn(row, 0, "id"),
+        readNullableTextColumn(row, 1, "email"),
+      );
+    }
+
+    return emails;
   }
 
   /**
@@ -131,6 +234,10 @@ export class UserRepository {
             display_name,
             role,
             is_active,
+            avatar_type,
+            avatar_icon,
+            avatar_color,
+            avatar_image_url,
             password_hash
         FROM users
         WHERE username = $username;
@@ -146,7 +253,7 @@ export class UserRepository {
 
     return {
       user: this.toUser(row),
-      passwordHash: readTextColumn(row, 5, "password_hash"),
+      passwordHash: readTextColumn(row, 9, "password_hash"),
     };
   }
 
@@ -223,6 +330,183 @@ export class UserRepository {
   }
 
   /**
+   * Replaces the basic profile values of a user.
+   *
+   * @param id - User identifier.
+   * @param profile - New display name, username, email, and optional avatar info.
+   * @throws {UsernameTakenError} When the username is already in use.
+   * @throws {EmailTakenError} When the email address is already in use.
+   */
+  public async updateProfile(
+    id: string,
+    profile: {
+      readonly displayName: string;
+      readonly username: string;
+      readonly email: string | null;
+      readonly avatarType?: UserAvatarType;
+      readonly avatarImageUrl?: string | null;
+    },
+  ): Promise<void> {
+    try {
+      await this.database.execute(
+        `
+          UPDATE users
+          SET
+              display_name = $display_name,
+              username = $username,
+              email = $email,
+              avatar_type = COALESCE($avatar_type, avatar_type),
+              avatar_image_url = COALESCE($avatar_image_url, avatar_image_url),
+              updated_at = CURRENT_TIMESTAMP
+          WHERE id = $id;
+        `,
+        {
+          id,
+          display_name: profile.displayName,
+          username: profile.username,
+          email: profile.email,
+          avatar_type: profile.avatarType ?? null,
+          avatar_image_url: profile.avatarImageUrl ?? null,
+        },
+      );
+    } catch (error: unknown) {
+      if (this.isUsernameConstraintViolation(error)) {
+        throw new UsernameTakenError(profile.username);
+      }
+
+      if (this.isEmailConstraintViolation(error)) {
+        throw new EmailTakenError(profile.email ?? "");
+      }
+
+      throw error;
+    }
+  }
+
+  /**
+   * Replaces the avatar reference columns of a user.
+   *
+   * @param id - User identifier.
+   * @param avatar - New avatar presentation type and image URL.
+   */
+  public async updateAvatarReference(
+    id: string,
+    avatar: {
+      readonly avatarType: UserAvatarType;
+      readonly avatarImageUrl: string | null;
+    },
+  ): Promise<void> {
+    await this.database.execute(
+      `
+        UPDATE users
+        SET
+            avatar_type = $avatar_type,
+            avatar_image_url = $avatar_image_url,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $id;
+      `,
+      {
+        id,
+        avatar_type: avatar.avatarType,
+        avatar_image_url: avatar.avatarImageUrl,
+      },
+    );
+  }
+
+  /**
+   * Returns the stored custom avatar image of a user.
+   *
+   * @param userId - User identifier.
+   * @returns The stored avatar record, or `null` when none exists.
+   */
+  public async findAvatarByUserId(
+    userId: string,
+  ): Promise<StoredUserAvatar | null> {
+    const rows = await this.database.query(
+      `
+        SELECT
+            mime_type,
+            filename,
+            data
+        FROM user_avatars
+        WHERE user_id = $user_id;
+      `,
+      { user_id: userId },
+    );
+
+    const row = rows[0];
+
+    if (!row) {
+      return null;
+    }
+
+    return {
+      mimeType: readTextColumn(row, 0, "mime_type"),
+      filename: readTextColumn(row, 1, "filename"),
+      data: readBlobColumn(row, 2, "data"),
+    };
+  }
+
+  /**
+   * Creates or replaces the custom avatar image of a user.
+   *
+   * @param userId - User identifier.
+   * @param avatar - New avatar image values.
+   */
+  public async upsertAvatar(
+    userId: string,
+    avatar: StoredUserAvatar,
+  ): Promise<void> {
+    await this.database.execute(
+      `
+        INSERT INTO user_avatars (
+            user_id,
+            mime_type,
+            filename,
+            data,
+            updated_at
+        )
+        VALUES (
+            $user_id,
+            $mime_type,
+            $filename,
+            $data,
+            CURRENT_TIMESTAMP
+        )
+        ON CONFLICT (user_id) DO UPDATE SET
+            mime_type = excluded.mime_type,
+            filename = excluded.filename,
+            data = excluded.data,
+            updated_at = CURRENT_TIMESTAMP;
+      `,
+      {
+        user_id: userId,
+        mime_type: avatar.mimeType,
+        filename: avatar.filename,
+        data: avatar.data,
+      },
+    );
+  }
+
+  /**
+   * Replaces the role of a user.
+   *
+   * @param id - User identifier.
+   * @param role - New role to assign.
+   */
+  public async updateRole(id: string, role: Role): Promise<void> {
+    await this.database.execute(
+      `
+        UPDATE users
+        SET
+            role = $role,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $id;
+      `,
+      { id, role },
+    );
+  }
+
+  /**
    * Replaces the stored password hash for a user.
    *
    * @param id - User identifier.
@@ -270,11 +554,26 @@ export class UserRepository {
     );
   }
 
+  private isEmailConstraintViolation(error: unknown): boolean {
+    return (
+      error instanceof Error &&
+      error.message.includes("UNIQUE constraint failed") &&
+      error.message.includes("users.email")
+    );
+  }
+
   private toUser(row: readonly DatabaseValue[]): User {
     const role = readTextColumn(row, 3, "role");
+    const avatarType = readTextColumn(row, 5, "avatar_type");
 
     if (!isRole(role)) {
       throw new Error(`Database returned an unsupported role "${role}".`);
+    }
+
+    if (!isUserAvatarType(avatarType)) {
+      throw new Error(
+        `Database returned an unsupported avatar type "${avatarType}".`,
+      );
     }
 
     return {
@@ -283,6 +582,10 @@ export class UserRepository {
       displayName: readTextColumn(row, 2, "display_name"),
       role,
       isActive: readBooleanColumn(row, 4, "is_active"),
+      avatarType,
+      avatarIcon: readNullableTextColumn(row, 6, "avatar_icon"),
+      avatarColor: readNullableTextColumn(row, 7, "avatar_color"),
+      avatarImageUrl: readNullableTextColumn(row, 8, "avatar_image_url"),
     };
   }
 }

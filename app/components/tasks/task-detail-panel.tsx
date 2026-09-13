@@ -18,6 +18,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Form, useSubmit } from "react-router";
 
+import { UserAvatar } from "@/app/components/common/user-avatar";
 import { Button } from "@/app/components/ui/button";
 import { FloatingPanel } from "@/app/components/ui/card";
 import { Input } from "@/app/components/ui/input";
@@ -447,14 +448,21 @@ export function TaskDetailPanel({
                 >
                   {child.title}
                 </span>
-                <span
-                  className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-muted-foreground select-none"
-                  title={child.assigneeName ?? t("tasks.unassigned")}
-                >
-                  {child.assigneeName
-                    ? child.assigneeName.trim().charAt(0).toUpperCase()
-                    : "?"}
-                </span>
+                {child.assigneeName ? (
+                  <UserAvatar
+                    name={child.assigneeName}
+                    size="xs"
+                    className="bg-muted text-muted-foreground"
+                    title={child.assigneeName}
+                  />
+                ) : (
+                  <span
+                    className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-muted-foreground select-none"
+                    title={t("tasks.unassigned")}
+                  >
+                    ?
+                  </span>
+                )}
                 <span className="w-16 shrink-0 text-right text-xs font-medium text-muted-foreground">
                   {child.dueAt ?? ""}
                 </span>

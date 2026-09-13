@@ -2,11 +2,33 @@ import { isRole } from "@/definition/Role";
 
 import type { Role } from "@/definition/Role";
 
+/** Avatar presentation modes supported for a user. */
+export const USER_AVATAR_TYPE = {
+  INITIALS: "initials",
+  ICON: "icon",
+  IMAGE: "image",
+} as const;
+
+/** A presentation mode assigned to a user's avatar. */
+export type UserAvatarType =
+  (typeof USER_AVATAR_TYPE)[keyof typeof USER_AVATAR_TYPE];
+
+/** Narrows an unknown value to a supported user avatar type. */
+export function isUserAvatarType(value: unknown): value is UserAvatarType {
+  return (
+    typeof value === "string" &&
+    (Object.values(USER_AVATAR_TYPE) as readonly string[]).includes(value)
+  );
+}
+
 /**
  * A user as exposed to the client.
  *
  * @remarks
- * This shape never contains credentials or session data.
+ * This shape never contains credentials or session data. Avatar values are
+ * optional for compatibility with existing snapshots; the database uses the
+ * initials fallback for every account unless a later profile change sets a
+ * different value.
  */
 export interface User {
   readonly id: string;
@@ -14,6 +36,10 @@ export interface User {
   readonly displayName: string;
   readonly role: Role;
   readonly isActive: boolean;
+  readonly avatarType?: UserAvatarType;
+  readonly avatarIcon?: string | null;
+  readonly avatarColor?: string | null;
+  readonly avatarImageUrl?: string | null;
 }
 
 /**
@@ -28,6 +54,13 @@ export function isUser(value: unknown): value is User {
   }
 
   const candidate = value as Record<string, unknown>;
+
+  if (
+    candidate.avatarType !== undefined &&
+    !isUserAvatarType(candidate.avatarType)
+  ) {
+    return false;
+  }
 
   return (
     typeof candidate.id === "string" &&
