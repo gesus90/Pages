@@ -7,7 +7,8 @@ vi.mock("@/backend/database/Database", () => ({
 }));
 
 vi.mock("@/backend/database/DatabasePath", () => ({
-  resolveDatabasePath: vi.fn(() => "/mocked/pages.db"),
+  createLegacyDatabaseWarning: vi.fn(() => null),
+  resolveDatabasePath: vi.fn(() => "/mocked/pages.duckdb"),
 }));
 
 vi.mock("@/backend/database/repositories/SessionRepository", () => ({
@@ -45,10 +46,12 @@ vi.mock("@/backend/github/GitHubTokenKey", () => ({
 import { AuthService } from "@/backend/auth/AuthService";
 import { SessionService } from "@/backend/auth/SessionService";
 import { Database } from "@/backend/database/Database";
+import { createLegacyDatabaseWarning } from "@/backend/database/DatabasePath";
 import { SetupService } from "@/backend/setup/SetupService";
 import { getApplicationServices } from "@/app/lib/services.server";
 
 const mockedDatabaseCreate = vi.mocked(Database.create);
+const mockedLegacyWarning = vi.mocked(createLegacyDatabaseWarning);
 const mockedSetup = vi.mocked(SetupService);
 const mockedSession = vi.mocked(SessionService);
 const mockedAuth = vi.mocked(AuthService);
@@ -58,7 +61,7 @@ function createDatabase(): {
   migrate: ReturnType<typeof vi.fn>;
 } {
   return {
-    close: vi.fn(),
+    close: vi.fn().mockResolvedValue(undefined),
     migrate: vi.fn().mockResolvedValue(undefined),
   };
 }
@@ -116,48 +119,76 @@ describe("getApplicationServices", () => {
 
   it("initializes services and reports a created administrator", async () => {
     const { ensureDefaultAdministrator } = stubSetup(true);
-    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
 
     const services = await getApplicationServices();
 
-    expect(mockedDatabaseCreate).toHaveBeenCalledWith("/mocked/pages.db");
+    expect(mockedDatabaseCreate).toHaveBeenCalledWith("/mocked/pages.duckdb");
     expect(ensureDefaultAdministrator).toHaveBeenCalledTimes(1);
-    expect(log).toHaveBeenCalledWith(
+    expect(info).toHaveBeenCalledWith(
       expect.stringContaining('Created the default administrator "admin"'),
     );
     expect(services.authService).toBeDefined();
     expect(services.sessionService).toBeDefined();
     expect(mockedAuth).toHaveBeenCalledTimes(1);
 
-    log.mockRestore();
+    info.mockRestore();
+    resetServiceGlobals();
+  });
+
+  it("warns about a SQLite database that was left behind", async () => {
+    mockedLegacyWarning.mockReturnValue(
+      "[pages] Found the former SQLite database",
+    );
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await getApplicationServices();
+
+    expect(mockedLegacyWarning).toHaveBeenCalledWith("/mocked/pages.duckdb");
+    expect(warn).toHaveBeenCalledWith(
+      "[pages] Found the former SQLite database",
+    );
+
+    warn.mockRestore();
+    resetServiceGlobals();
+  });
+
+  it("stays quiet without a leftover SQLite database", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await getApplicationServices();
+
+    expect(warn).not.toHaveBeenCalled();
+
+    warn.mockRestore();
     resetServiceGlobals();
   });
 
   it("reports a migrated legacy administrator", async () => {
     stubSetup(false, true);
-    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
 
     await getApplicationServices();
 
-    expect(log).toHaveBeenCalledWith(
+    expect(info).toHaveBeenCalledWith(
       expect.stringContaining("Migrated the default administrator"),
     );
 
-    log.mockRestore();
+    info.mockRestore();
     resetServiceGlobals();
   });
 
   it("skips the creation message when the administrator exists", async () => {
     stubSetup(false);
-    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
 
     await getApplicationServices();
 
-    expect(log).not.toHaveBeenCalledWith(
+    expect(info).not.toHaveBeenCalledWith(
       expect.stringContaining("Created the default administrator"),
     );
 
-    log.mockRestore();
+    info.mockRestore();
     resetServiceGlobals();
   });
 
@@ -257,11 +288,53 @@ describe("getApplicationServices", () => {
 
     handlers.get("SIGTERM")?.();
 
+    await vi.waitFor(() => {
+      expect(exit).toHaveBeenCalledWith(0);
+    });
     expect(database.close).toHaveBeenCalledTimes(1);
-    expect(exit).toHaveBeenCalledWith(0);
 
     once.mockRestore();
     exit.mockRestore();
+    resetServiceGlobals();
+  });
+
+  it("exits with an error code when closing the database fails", async () => {
+    const handlers = new Map<string, () => void>();
+    const once = vi.spyOn(process, "once").mockImplementation(((
+      event: string,
+      handler: () => void,
+    ) => {
+      handlers.set(event, handler);
+
+      return process;
+    }) as typeof process.once);
+    const exit = vi
+      .spyOn(process, "exit")
+      .mockImplementation(() => undefined as never);
+    const logError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const database = createDatabase();
+    database.close.mockRejectedValue(new Error("Disk full"));
+    mockedDatabaseCreate.mockResolvedValue(
+      database as unknown as Awaited<ReturnType<typeof mockedDatabaseCreate>>,
+    );
+    stubSetup(false);
+
+    await getApplicationServices();
+
+    handlers.get("SIGINT")?.();
+
+    await vi.waitFor(() => {
+      expect(exit).toHaveBeenCalledWith(1);
+    });
+    expect(exit).not.toHaveBeenCalledWith(0);
+    expect(logError).toHaveBeenCalledWith(
+      expect.stringContaining("Closing the database failed"),
+      expect.any(Error),
+    );
+
+    once.mockRestore();
+    exit.mockRestore();
+    logError.mockRestore();
     resetServiceGlobals();
   });
 });

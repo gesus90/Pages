@@ -2,28 +2,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ServerCache } from "@/backend/cache/ServerCache";
 import { PERMISSION, ROLE } from "@/definition/Role";
+import { ProjectService } from "@/backend/service/ProjectService";
+
+import { createUser } from "../helpers/factories";
 import {
   ProjectAccessDeniedError,
   ProjectManagementDeniedError,
   ProjectNotFoundError,
-  ProjectService,
-} from "@/backend/service/ProjectService";
+} from "@/backend/error/ProjectErrors";
 
 import type { PermissionService } from "@/backend/auth/PermissionService";
 import type { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import type { Project } from "@/definition/Project";
-import type { User } from "@/definition/User";
-
-function createUser(overrides: Partial<User> = {}): User {
-  return {
-    displayName: "Admin",
-    id: "user-1",
-    isActive: true,
-    role: ROLE.ADMIN,
-    username: "admin",
-    ...overrides,
-  };
-}
 
 function createProject(): Project {
   return {

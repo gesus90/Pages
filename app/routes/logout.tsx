@@ -5,13 +5,10 @@ import {
   getSessionToken,
 } from "@/app/lib/session.server";
 import { getApplicationServices } from "@/app/lib/services.server";
-
-import type { ActionFunctionArgs } from "react-router";
+import type { Route } from "./+types/logout";
 
 /** Revokes the active session and removes its browser cookie. */
-export async function action({
-  request,
-}: ActionFunctionArgs): Promise<Response> {
+export async function action({ request }: Route.ActionArgs): Promise<Response> {
   if (request.method !== "POST") {
     throw new Response("Method Not Allowed", {
       headers: { Allow: "POST" },

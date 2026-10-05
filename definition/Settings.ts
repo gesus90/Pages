@@ -21,7 +21,7 @@ export function isUserDateFormat(value: unknown): value is UserDateFormat {
 }
 
 /** Week start days a user can select. */
-export const USER_WEEK_STARTS = ["monday", "sunday"] as const;
+const USER_WEEK_STARTS = ["monday", "sunday"] as const;
 
 /** A week start day a user can select. */
 export type UserWeekStart = (typeof USER_WEEK_STARTS)[number];
@@ -63,7 +63,7 @@ export function isUserTimezone(value: unknown): value is UserTimezone {
 }
 
 /** Notification channels and events a user can toggle individually. */
-export interface UserNotifications {
+interface UserNotifications {
   readonly email: boolean;
   readonly desktop: boolean;
   readonly mentions: boolean;
@@ -115,13 +115,3 @@ export const USER_NOTIFICATION_KEYS = [
 
 /** A notification preference key a user can toggle. */
 export type UserNotificationKey = (typeof USER_NOTIFICATION_KEYS)[number];
-
-/** Narrows an unknown value to a supported user notification key. */
-export function isUserNotificationKey(
-  value: unknown,
-): value is UserNotificationKey {
-  return (
-    typeof value === "string" &&
-    (USER_NOTIFICATION_KEYS as readonly string[]).includes(value)
-  );
-}

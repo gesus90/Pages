@@ -343,6 +343,26 @@ describe("TaskMoveDialog", () => {
     expect(screen.getByText("Admin")).toBeInTheDocument();
   });
 
+  it("drops the assignee when the target project lists no assignees", async () => {
+    const user = userEvent.setup();
+    renderDialog({ assigneesByProject: {} });
+
+    await user.click(screen.getByLabelText("Zielprojekt"));
+    await user.click(await screen.findByRole("option", { name: "AstroLab" }));
+
+    expect(screen.getByText("Admin")).toBeInTheDocument();
+  });
+
+  it("closes the dialog through the cancel button", async () => {
+    const user = userEvent.setup();
+    const onOpenChange = vi.fn();
+    renderDialog({ onOpenChange });
+
+    await user.click(screen.getByRole("button", { name: "Abbrechen" }));
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
   it("disables the move action while submitting", () => {
     renderDialog({ isSubmitting: true });
 

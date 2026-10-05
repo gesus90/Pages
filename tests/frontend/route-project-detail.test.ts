@@ -7,29 +7,19 @@ vi.mock("@/app/lib/services.server", () => ({
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { action, loader } from "@/app/routes/project-detail";
+
+import { createUser } from "../helpers/factories";
 import {
   ProjectManagementDeniedError,
   ProjectNotFoundError,
-} from "@/backend/service/ProjectService";
-import { WorkItemValidationError } from "@/backend/service/TaskService";
-import { ROLE } from "@/definition/Role";
+} from "@/backend/error/ProjectErrors";
+import { WorkItemValidationError } from "@/backend/error/WorkItemErrors";
 
 import type { Project } from "@/definition/Project";
-import type { User } from "@/definition/User";
-import type { LoaderFunctionArgs } from "react-router";
+
+type LoaderArguments = Parameters<typeof loader>[0];
 
 const mockedServices = vi.mocked(getApplicationServices);
-
-function createUser(overrides: Partial<User> = {}): User {
-  return {
-    displayName: "Admin",
-    id: "user-1",
-    isActive: true,
-    role: ROLE.ADMIN,
-    username: "admin",
-    ...overrides,
-  };
-}
 
 function createProject(overrides: Partial<Project> = {}): Project {
   return {
@@ -87,6 +77,7 @@ function createServices(overrides: Record<string, unknown> = {}) {
       createMilestone: vi.fn(),
       findAll: vi.fn().mockResolvedValue([]),
       findAllStatuses: vi.fn().mockResolvedValue([]),
+      findDependencies: vi.fn().mockResolvedValue([]),
       findEligibleAssignees: vi.fn().mockResolvedValue([]),
       findHistoryByProject: vi.fn().mockResolvedValue([]),
       findMilestones: vi.fn().mockResolvedValue([
@@ -138,7 +129,7 @@ describe("project detail route loader", () => {
         context,
         params: { projectId: "project-1" },
         request,
-      } as unknown as LoaderFunctionArgs),
+      } as unknown as LoaderArguments),
     ).rejects.toThrow("Authenticated middleware did not provide a user.");
   });
 
@@ -152,7 +143,7 @@ describe("project detail route loader", () => {
       context,
       params: { projectId: "project-1" },
       request,
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
 
     expect(result.project.id).toBe("project-1");
     expect(result.activeTab).toBe("team");
@@ -168,7 +159,7 @@ describe("project detail route loader", () => {
         context,
         params: {},
         request,
-      } as unknown as LoaderFunctionArgs),
+      } as unknown as LoaderArguments),
     ).rejects.toMatchObject({ status: 404 });
   });
 
@@ -182,7 +173,7 @@ describe("project detail route loader", () => {
       context,
       params: { projectId: "project-1" },
       request,
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
 
     expect(result.activeTab).toBe("general");
   });
@@ -195,7 +186,7 @@ describe("project detail route loader", () => {
       context,
       params: { projectId: "project-1" },
       request,
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
 
     expect(result.activeTab).toBe("general");
   });
@@ -212,11 +203,42 @@ describe("project detail route loader", () => {
         context,
         params: { projectId: "project-1" },
         request,
-      } as unknown as LoaderFunctionArgs);
+      } as unknown as LoaderArguments);
 
       expect(result.activeTab).toBe(tab);
     },
   );
+
+  it("loads milestone dependencies only for the planning tab", async () => {
+    const services = createServices();
+    mockedServices.mockResolvedValue(services);
+    const user = createUser();
+    const context = new Map([[authenticatedUserContext, user]]);
+    const taskService = services.taskService as unknown as {
+      findDependencies: ReturnType<typeof vi.fn>;
+    };
+
+    await loader({
+      context,
+      params: { projectId: "project-1" },
+      request: new Request("http://pages.invalid/projekte/project-1?tab=team"),
+    } as unknown as LoaderArguments);
+
+    expect(taskService.findDependencies).not.toHaveBeenCalled();
+
+    await loader({
+      context,
+      params: { projectId: "project-1" },
+      request: new Request(
+        "http://pages.invalid/projekte/project-1?tab=planning",
+      ),
+    } as unknown as LoaderArguments);
+
+    expect(taskService.findDependencies).toHaveBeenCalledTimes(1);
+    expect(taskService.findDependencies).toHaveBeenCalledWith(user, [
+      "project-1",
+    ]);
+  });
 
   it("continues without assignable users when lookup fails", async () => {
     mockedServices.mockResolvedValue(
@@ -241,14 +263,14 @@ describe("project detail route loader", () => {
       context,
       params: { projectId: "project-1" },
       request,
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
 
     expect(result.eligibleUsers).toEqual([]);
   });
 
   it("maps inaccessible projects to a 403 response", async () => {
     const { ProjectAccessDeniedError } =
-      await import("@/backend/service/ProjectService");
+      await import("@/backend/error/ProjectErrors");
     mockedServices.mockResolvedValue(
       createServices({
         projectService: {
@@ -264,7 +286,7 @@ describe("project detail route loader", () => {
         context,
         params: { projectId: "project-1" },
         request,
-      } as unknown as LoaderFunctionArgs),
+      } as unknown as LoaderArguments),
     ).rejects.toMatchObject({ status: 403 });
   });
 
@@ -284,7 +306,7 @@ describe("project detail route loader", () => {
         context,
         params: { projectId: "project-1" },
         request,
-      } as unknown as LoaderFunctionArgs),
+      } as unknown as LoaderArguments),
     ).rejects.toThrow("Boom");
   });
 
@@ -304,7 +326,7 @@ describe("project detail route loader", () => {
         context,
         params: { projectId: "missing" },
         request,
-      } as unknown as LoaderFunctionArgs),
+      } as unknown as LoaderArguments),
     ).rejects.toMatchObject({ status: 404 });
   });
 });
@@ -332,7 +354,7 @@ describe("project detail route action", () => {
       context,
       params: { projectId: "project-1" },
       request,
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
 
     expect(result).toMatchObject({ data: { ok: true } });
   });
@@ -349,7 +371,7 @@ describe("project detail route action", () => {
       context,
       params: { projectId: "project-1" },
       request,
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
 
     expect(result).toMatchObject({
       data: { ok: false },
@@ -379,7 +401,7 @@ describe("project detail route action", () => {
       context,
       params: { projectId: "project-1" },
       request,
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
 
     expect(result).toMatchObject({
       data: { ok: false },
@@ -404,7 +426,7 @@ describe("project detail route action", () => {
       context,
       params: { projectId: "project-1" },
       request,
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
 
     expect(result).toMatchObject({ data: { ok: true } });
 
@@ -418,7 +440,7 @@ describe("project detail route action", () => {
         syncIntervalMinutes: "0",
         token: "",
       }),
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
 
     expect(pushResult).toMatchObject({ data: { ok: true } });
 
@@ -431,7 +453,7 @@ describe("project detail route action", () => {
         syncIntervalMinutes: "42",
         token: "",
       }),
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
 
     expect(invalidInterval).toMatchObject({
       data: { ok: false },
@@ -450,7 +472,7 @@ describe("project detail route action", () => {
         context: authenticated,
         params: { projectId: "project-1" },
         request: getRequest,
-      } as unknown as LoaderFunctionArgs),
+      } as unknown as LoaderArguments),
     ).rejects.toMatchObject({ status: 405 });
 
     const postRequest = createPostRequest({ intent: "save-integration" });
@@ -460,7 +482,7 @@ describe("project detail route action", () => {
         context: new Map(),
         params: { projectId: "project-1" },
         request: postRequest,
-      } as unknown as LoaderFunctionArgs),
+      } as unknown as LoaderArguments),
     ).rejects.toMatchObject({ status: 403 });
   });
 
@@ -485,7 +507,7 @@ describe("project detail route action", () => {
       context,
       params: { projectId: "project-1" },
       request: createPostRequest(valid),
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
     expect(notFound).toMatchObject({
       data: { ok: false },
       init: { status: 404 },
@@ -504,7 +526,7 @@ describe("project detail route action", () => {
       context,
       params: { projectId: "project-1" },
       request: createPostRequest(valid),
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
     expect(invalid).toMatchObject({
       data: { ok: false },
       init: { status: 400 },
@@ -525,7 +547,7 @@ describe("project detail route action", () => {
       context,
       params: { projectId: "project-1" },
       request: createPostRequest(valid),
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
     expect(validation).toMatchObject({
       data: { ok: false },
       init: { status: 400 },
@@ -544,21 +566,21 @@ describe("project detail route action", () => {
       context,
       params: { projectId: "project-1" },
       request: createPostRequest({ intent: "create-goal", title: "Ship MVP" }),
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
     expect(created).toMatchObject({ data: { ok: true } });
 
     const toggled = await action({
       context,
       params: { projectId: "project-1" },
       request: createPostRequest({ goalId: "goal-1", intent: "toggle-goal" }),
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
     expect(toggled).toMatchObject({ data: { ok: true } });
 
     const missing = await action({
       context,
       params: { projectId: "project-1" },
       request: createPostRequest({ goalId: "missing", intent: "toggle-goal" }),
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
     expect(missing).toMatchObject({
       data: { ok: false },
       init: { status: 400 },
@@ -568,14 +590,14 @@ describe("project detail route action", () => {
       context,
       params: { projectId: "project-1" },
       request: createPostRequest({ goalId: "goal-1", intent: "delete-goal" }),
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
     expect(deleted).toMatchObject({ data: { ok: true } });
 
     const tagged = await action({
       context,
       params: { projectId: "project-1" },
       request: createPostRequest({ intent: "set-tags", tags: "Web, Intern" }),
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
     expect(tagged).toMatchObject({ data: { ok: true } });
   });
 
@@ -590,7 +612,7 @@ describe("project detail route action", () => {
         role: "member",
         userId: "user-2",
       }),
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
     expect(added).toMatchObject({ data: { ok: true } });
 
     const invalidRole = await action({
@@ -601,7 +623,7 @@ describe("project detail route action", () => {
         role: "superadmin",
         userId: "user-2",
       }),
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
     expect(invalidRole).toMatchObject({
       data: { ok: false },
       init: { status: 400 },
@@ -615,7 +637,7 @@ describe("project detail route action", () => {
         role: "viewer",
         userId: "user-2",
       }),
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
     expect(roleUpdated).toMatchObject({ data: { ok: true } });
 
     const invalidUpdate = await action({
@@ -626,7 +648,7 @@ describe("project detail route action", () => {
         role: "superadmin",
         userId: "user-2",
       }),
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
     expect(invalidUpdate).toMatchObject({
       data: { ok: false },
       init: { status: 400 },
@@ -636,7 +658,7 @@ describe("project detail route action", () => {
       context,
       params: { projectId: "project-1" },
       request: createPostRequest({ intent: "remove-member", userId: "user-2" }),
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
     expect(removed).toMatchObject({ data: { ok: true } });
   });
 
@@ -652,7 +674,7 @@ describe("project detail route action", () => {
         intent: "create-milestone",
         name: "MVP",
       }),
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
     expect(created).toMatchObject({ data: { ok: true } });
 
     const createdWithoutDate = await action({
@@ -662,7 +684,7 @@ describe("project detail route action", () => {
         intent: "create-milestone",
         name: "Backlog item",
       }),
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
     expect(createdWithoutDate).toMatchObject({ data: { ok: true } });
 
     const updated = await action({
@@ -673,7 +695,7 @@ describe("project detail route action", () => {
         milestoneId: "milestone-1",
         status: "completed",
       }),
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
     expect(updated).toMatchObject({ data: { ok: true } });
 
     const missing = await action({
@@ -684,7 +706,7 @@ describe("project detail route action", () => {
         milestoneId: "missing",
         status: "completed",
       }),
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
     expect(missing).toMatchObject({
       data: { ok: false },
       init: { status: 400 },
@@ -698,7 +720,7 @@ describe("project detail route action", () => {
         milestoneId: "milestone-1",
         status: "bogus",
       }),
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
     expect(invalidStatus).toMatchObject({
       data: { ok: false },
       init: { status: 400 },
@@ -718,7 +740,7 @@ describe("project detail route action", () => {
         title: "MVP",
         type: "milestone",
       }),
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
     expect(created).toMatchObject({ data: { ok: true } });
 
     const createdMinimal = await action({
@@ -729,7 +751,7 @@ describe("project detail route action", () => {
         intent: "create-event",
         title: "Kickoff",
       }),
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
     expect(createdMinimal).toMatchObject({ data: { ok: true } });
 
     const archived = await action({
@@ -739,7 +761,7 @@ describe("project detail route action", () => {
         eventId: "event-1",
         intent: "archive-event",
       }),
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
     expect(archived).toMatchObject({ data: { ok: true } });
   });
 
@@ -750,7 +772,7 @@ describe("project detail route action", () => {
       context,
       params: { projectId: "project-1" },
       request: createPostRequest({ intent: "test-integration" }),
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
     expect(tested).toMatchObject({ data: { ok: true } });
 
     mockedServices.mockResolvedValue(
@@ -765,7 +787,7 @@ describe("project detail route action", () => {
       context,
       params: { projectId: "project-1" },
       request: createPostRequest({ intent: "test-integration" }),
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
     expect(failed).toMatchObject({
       data: { ok: false },
       init: { status: 400 },
@@ -777,21 +799,21 @@ describe("project detail route action", () => {
       context,
       params: { projectId: "project-1" },
       request: createPostRequest({ intent: "sync-integration" }),
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
     expect(synced).toMatchObject({ data: { ok: true } });
 
     const disconnected = await action({
       context,
       params: { projectId: "project-1" },
       request: createPostRequest({ intent: "disconnect-integration" }),
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
     expect(disconnected).toMatchObject({ data: { ok: true } });
 
     const unknown = await action({
       context,
       params: { projectId: "project-1" },
       request: createPostRequest({ intent: "bogus-intent" }),
-    } as unknown as LoaderFunctionArgs);
+    } as unknown as LoaderArguments);
     expect(unknown).toMatchObject({
       data: { ok: false },
       init: { status: 400 },
@@ -818,7 +840,7 @@ describe("project detail route action", () => {
           name: "Pages",
           status: "active",
         }),
-      } as unknown as LoaderFunctionArgs),
+      } as unknown as LoaderArguments),
     ).rejects.toBe("boom-string");
   });
 });

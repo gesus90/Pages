@@ -1,11 +1,8 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
-
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { PasswordHasher } from "@/backend/auth/PasswordHasher";
-import { Database } from "@/backend/database/Database";
+import { Database, IN_MEMORY_DATABASE_PATH } from "@/backend/database/Database";
+import { DATABASE_MIGRATIONS } from "@/backend/database/Migrations";
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import { SessionRepository } from "@/backend/database/repositories/SessionRepository";
 import { TaskRepository } from "@/backend/database/repositories/TaskRepository";
@@ -14,35 +11,28 @@ import { UserSettingsRepository } from "@/backend/database/repositories/UserSett
 import { ROLE } from "@/definition/Role";
 import { LANGUAGE } from "@/language/Language";
 
-describe("SQLite persistence", () => {
-  let directory = "";
+describe("DuckDB persistence", () => {
   let database: Database | null = null;
 
   beforeEach(async () => {
-    directory = await mkdtemp(path.join(tmpdir(), "pages-sqlite-"));
-    database = await Database.create(path.join(directory, "pages.db"));
-    await database.migrate(
-      path.join(process.cwd(), "backend", "database", "migrations"),
-    );
+    database = await Database.create(IN_MEMORY_DATABASE_PATH);
+    await database.migrate(DATABASE_MIGRATIONS);
   });
 
   afterEach(async () => {
-    database?.close();
+    await database?.close();
     database = null;
-
-    if (directory) {
-      await rm(directory, { force: true, recursive: true });
-    }
   });
 
   it("applies the initial schema with every expected table", async () => {
     const rows = await database?.query(
-      "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name;",
+      "SELECT table_name FROM information_schema.tables WHERE table_schema = 'main' ORDER BY table_name;",
     );
 
     expect(rows?.map((row) => row[0]).sort()).toEqual([
       "github_external_issues",
       "github_pull_requests",
+      "milestone_dependencies",
       "milestones",
       "project_activity",
       "project_events",
@@ -57,6 +47,7 @@ describe("SQLite persistence", () => {
       "schema_migrations",
       "sessions",
       "tasks",
+      "user_avatars",
       "user_settings",
       "users",
       "wiki_pages",

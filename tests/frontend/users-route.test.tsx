@@ -11,6 +11,7 @@ vi.mock("react-router", async (importOriginal) => {
     useActionData: vi.fn(),
     useLoaderData: vi.fn(),
     useNavigation: vi.fn(),
+    useSubmit: vi.fn(),
   };
 });
 
@@ -21,6 +22,7 @@ import {
   useActionData,
   useLoaderData,
   useNavigation,
+  useSubmit,
 } from "react-router";
 
 import { createI18n } from "@/app/lib/i18n";
@@ -31,6 +33,7 @@ import UsersRoute from "@/app/routes/users";
 const mockedActionData = vi.mocked(useActionData);
 const mockedLoaderData = vi.mocked(useLoaderData);
 const mockedNavigation = vi.mocked(useNavigation);
+const mockedSubmit = vi.mocked(useSubmit);
 
 interface TestUser {
   readonly canManage: boolean;
@@ -87,9 +90,11 @@ function renderUsers(
   ],
   actionData: unknown = undefined,
   submitting: Record<string, string> | null = null,
+  submit: ReturnType<typeof useSubmit> = vi.fn(),
 ): void {
   mockedLoaderData.mockReturnValue({ assignableRoles, users });
   mockedActionData.mockReturnValue(actionData);
+  mockedSubmit.mockReturnValue(submit);
 
   if (submitting) {
     mockSubmittingNavigation(submitting);
@@ -274,31 +279,78 @@ describe("CreateUserDialog", () => {
 });
 
 describe("UserRow", () => {
-  it("offers deactivation for active manageable users", () => {
+  it("offers deactivation for active manageable users", async () => {
+    const user = userEvent.setup();
     renderUsers([MANAGEABLE_ADMIN]);
 
+    await user.click(
+      screen.getByRole("button", { name: "Aktionen für Admin" }),
+    );
+
     expect(
-      screen.getByRole("button", { name: "Deaktivieren" }),
+      await screen.findByRole("menuitem", { name: "Deaktivieren" }),
     ).toBeInTheDocument();
-  });
-
-  it("offers activation for inactive manageable users", () => {
-    renderUsers([{ ...LOCKED_EMPLOYEE, canManage: true }]);
-
     expect(
-      screen.getByRole("button", { name: "Aktivieren" }),
-    ).toBeInTheDocument();
-  });
-
-  it("hides the toggle for users outside the actor scope", () => {
-    renderUsers([LOCKED_EMPLOYEE]);
-
-    expect(
-      screen.queryByRole("button", { name: "Aktivieren" }),
+      screen.queryByRole("menuitem", { name: "Aktivieren" }),
     ).not.toBeInTheDocument();
   });
 
-  it("disables the toggle of the user being changed", () => {
+  it("asks for confirmation before deactivating a user", async () => {
+    const user = userEvent.setup();
+    const submit = vi.fn();
+    renderUsers(
+      [MANAGEABLE_ADMIN],
+      [ROLE.ADMIN],
+      undefined,
+      null,
+      submit as ReturnType<typeof useSubmit>,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Aktionen für Admin" }),
+    );
+    await user.click(
+      await screen.findByRole("menuitem", { name: "Deaktivieren" }),
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Benutzer deaktivieren?" }),
+    ).toBeInTheDocument();
+    expect(submit).not.toHaveBeenCalled();
+  });
+
+  it("offers activation for inactive manageable users and submits it directly", async () => {
+    const user = userEvent.setup();
+    const submit = vi.fn();
+    renderUsers(
+      [{ ...LOCKED_EMPLOYEE, canManage: true }],
+      [ROLE.ADMIN],
+      undefined,
+      null,
+      submit as ReturnType<typeof useSubmit>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Aktionen für Sam" }));
+    await user.click(
+      await screen.findByRole("menuitem", { name: "Aktivieren" }),
+    );
+
+    expect(submit).toHaveBeenCalledWith(
+      { intent: "set-active", isActive: "true", userId: "user-2" },
+      { method: "post" },
+    );
+  });
+
+  it("hides the actions for users outside the actor scope", () => {
+    renderUsers([LOCKED_EMPLOYEE]);
+
+    expect(
+      screen.queryByRole("button", { name: "Aktionen für Sam" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("disables the deactivation confirmation while the change is submitted", async () => {
+    const user = userEvent.setup();
     renderUsers(
       [MANAGEABLE_ADMIN, { ...LOCKED_EMPLOYEE, canManage: true }],
       [ROLE.ADMIN, ROLE.MANAGER, ROLE.EMPLOYEE],
@@ -306,9 +358,25 @@ describe("UserRow", () => {
       { intent: "set-active", userId: MANAGEABLE_ADMIN.id },
     );
 
-    expect(screen.getByRole("button", { name: "Deaktivieren" })).toBeDisabled();
+    await user.click(
+      screen.getByRole("button", { name: "Aktionen für Admin" }),
+    );
+    await user.click(
+      await screen.findByRole("menuitem", { name: "Deaktivieren" }),
+    );
+
     expect(
-      screen.getByRole("button", { name: "Aktivieren" }),
-    ).not.toBeDisabled();
+      await screen.findByRole("button", { name: "Wird deaktiviert …" }),
+    ).toBeDisabled();
+  });
+
+  it("shows failed state changes of the directory above the table", () => {
+    renderUsers([MANAGEABLE_ADMIN], [ROLE.ADMIN], {
+      error: "userNotFound",
+      intent: "reset-password",
+      ok: false,
+    });
+
+    expect(screen.getByRole("alert")).toBeInTheDocument();
   });
 });

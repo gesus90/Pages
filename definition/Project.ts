@@ -156,6 +156,15 @@ export const PROJECT_ACTIVITY_CATEGORY = {
 export type ProjectActivityCategory =
   (typeof PROJECT_ACTIVITY_CATEGORY)[keyof typeof PROJECT_ACTIVITY_CATEGORY];
 
+/** Narrows an unknown value to a supported project activity category. */
+export function isProjectActivityCategory(
+  value: unknown,
+): value is ProjectActivityCategory {
+  return Object.values(PROJECT_ACTIVITY_CATEGORY).some(
+    (category) => category === value,
+  );
+}
+
 /** A single chronological entry of the project activity log. */
 export interface ProjectActivity {
   readonly id: string;
@@ -167,3 +176,6 @@ export interface ProjectActivity {
   readonly message: string;
   readonly createdAt: string;
 }
+
+/** Longest project description the detail page accepts, in characters. */
+export const MAXIMUM_PROJECT_DESCRIPTION_LENGTH = 5000;

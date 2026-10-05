@@ -1,12 +1,15 @@
-import path from "node:path";
-
 import { AuthService } from "@/backend/auth/AuthService";
+import { LoginThrottle } from "@/backend/auth/LoginThrottle";
 import { PasswordHasher } from "@/backend/auth/PasswordHasher";
 import { PermissionService } from "@/backend/auth/PermissionService";
 import { SessionService } from "@/backend/auth/SessionService";
 import { ServerCache } from "@/backend/cache/ServerCache";
 import { Database } from "@/backend/database/Database";
-import { resolveDatabasePath } from "@/backend/database/DatabasePath";
+import {
+  createLegacyDatabaseWarning,
+  resolveDatabasePath,
+} from "@/backend/database/DatabasePath";
+import { DATABASE_MIGRATIONS } from "@/backend/database/Migrations";
 import { GitHubSyncScheduler } from "@/backend/github/GitHubSyncScheduler";
 import { resolveGitHubTokenKey } from "@/backend/github/GitHubTokenKey";
 import { SessionRepository } from "@/backend/database/repositories/SessionRepository";
@@ -20,7 +23,6 @@ import { GitHubSyncService } from "@/backend/service/GitHubSyncService";
 import { ProjectService } from "@/backend/service/ProjectService";
 import { TaskService } from "@/backend/service/TaskService";
 import { UserService } from "@/backend/service/UserService";
-import { DemoDataService } from "@/backend/setup/DemoDataService";
 import { SetupService } from "@/backend/setup/SetupService";
 
 /** Server-only service instances shared by React Router loaders and actions. */
@@ -43,9 +45,9 @@ declare global {
 }
 
 /**
- * Closes the database on process shutdown so SQLite checkpoints its
- * write-ahead log instead of leaving it for an unreliable replay on the
- * next start.
+ * Closes the database on process shutdown so DuckDB finishes queued
+ * statements and checkpoints its write-ahead log instead of leaving it for
+ * a replay on the next start.
  *
  * @param database - Central database access to close on shutdown.
  */
@@ -56,29 +58,32 @@ function registerShutdownHandler(database: Database): void {
 
   globalThis.pagesShutdownHandlerRegistered = true;
 
-  const shutdown = (): void => {
-    database.close();
-    process.exit(0);
+  const shutdown = async (): Promise<void> => {
+    try {
+      await database.close();
+      process.exit(0);
+    } catch (error: unknown) {
+      console.error("[pages] Closing the database failed.", error);
+      process.exit(1);
+    }
   };
 
-  process.once("SIGINT", shutdown);
-  process.once("SIGTERM", shutdown);
+  process.once("SIGINT", () => void shutdown());
+  process.once("SIGTERM", () => void shutdown());
 }
 
 async function initializeServices(): Promise<ApplicationServices> {
   const databasePath = resolveDatabasePath();
+  const legacyDatabaseWarning = createLegacyDatabaseWarning(databasePath);
   const database = await Database.create(databasePath);
+
+  if (legacyDatabaseWarning) {
+    console.warn(legacyDatabaseWarning);
+  }
 
   registerShutdownHandler(database);
 
-  const migrationsPath = path.join(
-    process.cwd(),
-    "backend",
-    "database",
-    "migrations",
-  );
-
-  await database.migrate(migrationsPath);
+  await database.migrate(DATABASE_MIGRATIONS);
 
   const passwordHasher = new PasswordHasher();
   const permissionService = new PermissionService();
@@ -120,32 +125,24 @@ async function initializeServices(): Promise<ApplicationServices> {
   const setupService = new SetupService(userRepository, passwordHasher);
 
   if (await setupService.ensureDefaultAdministrator()) {
-    console.log(
+    console.info(
       '[pages] Created the default administrator "admin". Change its password after the first login.',
     );
   } else if (await setupService.migrateLegacyBootstrapAdministrator()) {
-    console.log(
+    console.info(
       '[pages] Migrated the default administrator "admin" to the current password hashing algorithm.',
-    );
-  }
-
-  const demoDataService = new DemoDataService(
-    userRepository,
-    projectRepository,
-    passwordHasher,
-  );
-  const seededDemoUsers = await demoDataService.ensureDemoTeam();
-
-  if (seededDemoUsers > 0) {
-    console.log(
-      `[pages] Seeded ${seededDemoUsers} demo users for the local Pages project.`,
     );
   }
 
   await sessionService.removeExpiredSessions();
 
   return {
-    authService: new AuthService(userService, sessionService, passwordHasher),
+    authService: new AuthService(
+      userService,
+      sessionService,
+      passwordHasher,
+      new LoginThrottle(),
+    ),
     gitHubSyncService,
     passwordHasher,
     permissionService,

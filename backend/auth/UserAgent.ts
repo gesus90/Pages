@@ -7,9 +7,11 @@ export interface UserAgentInfo {
 /** Known operating system user-agent markers checked in a fixed order. */
 const OPERATING_SYSTEM_MARKERS = [
   { name: "Windows", pattern: /Windows NT/u },
+  // iOS agents also contain "like Mac OS X", so iOS has to be checked first.
+  { name: "iOS", pattern: /iPhone|iPad|iPod/u },
   { name: "macOS", pattern: /Mac OS X|Macintosh/u },
   { name: "ChromeOS", pattern: /CrOS/u },
-  { name: "iOS", pattern: /iPhone|iPad|iPod/u },
+  // Android agents also contain "Linux".
   { name: "Android", pattern: /Android/u },
   { name: "Linux", pattern: /Linux/u },
 ] as const;

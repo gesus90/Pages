@@ -416,6 +416,22 @@ describe("TasksGitHub", () => {
     ).toBeInTheDocument();
   });
 
+  it("omits the last synchronization line before the first sync", () => {
+    renderGitHub([
+      {
+        externalIssues: [],
+        integration: { ...createIntegration(), lastSyncAt: null },
+        project: createProject(),
+        pullRequests: [],
+      },
+    ]);
+
+    expect(screen.getByText(/Verbunden/)).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Letzte Synchronisation/),
+    ).not.toBeInTheDocument();
+  });
+
   it("renders an empty state without projects", () => {
     renderGitHub([]);
 

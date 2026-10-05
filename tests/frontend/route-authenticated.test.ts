@@ -10,21 +10,11 @@ import {
 } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { loader, middleware } from "@/app/routes/authenticated";
-import { PERMISSION, ROLE } from "@/definition/Role";
+import { PERMISSION } from "@/definition/Role";
 
-import type { User } from "@/definition/User";
+import { createUser } from "../helpers/factories";
 
 const mockedGetServices = vi.mocked(getApplicationServices);
-
-function createUser(): User {
-  return {
-    displayName: "Admin",
-    id: "user-1",
-    isActive: true,
-    role: ROLE.ADMIN,
-    username: "admin",
-  };
-}
 
 function mockPermissions(hasPermission: boolean): void {
   mockedGetServices.mockResolvedValue({

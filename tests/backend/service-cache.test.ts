@@ -3,20 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ServerCache } from "@/backend/cache/ServerCache";
 import { ProjectService } from "@/backend/service/ProjectService";
 import { TaskService } from "@/backend/service/TaskService";
-import { ROLE } from "@/definition/Role";
+
+import { createUser } from "../helpers/factories";
 
 import type { Project } from "@/definition/Project";
-import type { User } from "@/definition/User";
-
-function createUser(): User {
-  return {
-    displayName: "Admin",
-    id: "user-1",
-    isActive: true,
-    role: ROLE.ADMIN,
-    username: "admin",
-  };
-}
 
 function createProject(): Project {
   return {

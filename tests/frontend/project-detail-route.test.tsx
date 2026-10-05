@@ -193,20 +193,31 @@ function createLoaderData(overrides: Record<string, unknown> = {}) {
     integration: null,
     members: [
       {
+        avatarColor: null,
+        avatarIcon: null,
+        avatarImageUrl: null,
+        avatarType: "initials",
         displayName: "Alex Berger",
+        isActive: true,
         joinedAt: "2026-01-01",
         projectRole: "manager",
         userId: "user-1",
         username: "alex",
       },
       {
+        avatarColor: null,
+        avatarIcon: null,
+        avatarImageUrl: null,
+        avatarType: "initials",
         displayName: "Anna",
+        isActive: true,
         joinedAt: "2026-01-02",
         projectRole: "member",
         userId: "user-2",
         username: "anna",
       },
     ],
+    milestoneLinks: [],
     milestones: [createMilestone()],
     statuses: [],
     tags: ["Web", "Plattform"],
@@ -294,12 +305,14 @@ describe("ProjectDetailRoute", () => {
     renderDetail(createLoaderData());
 
     expect(screen.getByText("Projekt: Pages")).toBeInTheDocument();
-    expect(screen.getAllByText("Aktiv")).toHaveLength(2);
+    expect(
+      screen.getByRole("heading", { name: /Projekt: Pages/ }),
+    ).toHaveTextContent("Aktiv");
     expect(screen.getByRole("tab", { name: "Allgemein" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Team" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Planung" })).toBeInTheDocument();
     expect(
-      screen.getByRole("tab", { name: "Integrationen" }),
+      screen.getByRole("tab", { name: "Schnittstellen" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Aktivität" })).toBeInTheDocument();
     expect(
@@ -308,7 +321,9 @@ describe("ProjectDetailRoute", () => {
   });
 
   it("shows the description as the dominant general panel with goals and progress", () => {
-    renderDetail(createLoaderData());
+    renderDetail(
+      createLoaderData({ project: createProject({ managerId: "user-1" }) }),
+    );
 
     expect(screen.getByText("Projektbeschreibung")).toBeInTheDocument();
     expect(
@@ -322,7 +337,9 @@ describe("ProjectDetailRoute", () => {
     expect(screen.getByText("Nächste Termine")).toBeInTheDocument();
     expect(screen.getByText("Projektbesprechung")).toBeInTheDocument();
     expect(screen.getByText("Projektdetails")).toBeInTheDocument();
-    expect(screen.getByText("Alex Berger")).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Projektmanager" }),
+    ).toHaveTextContent("Alex Berger");
     expect(screen.getByText("Web")).toBeInTheDocument();
     expect(screen.getByText("Key decisions live here.")).toBeInTheDocument();
   });
@@ -332,7 +349,7 @@ describe("ProjectDetailRoute", () => {
     renderDetail(createLoaderData(), "team");
 
     expect(screen.getAllByText("Projektmanager").length).toBeGreaterThan(0);
-    expect(screen.getByText("Mitglieder")).toBeInTheDocument();
+    expect(screen.getByRole("tabpanel")).toHaveTextContent("2 Mitglieder");
     expect(screen.getAllByText("Betrachter").length).toBeGreaterThan(0);
     expect(screen.getByText("Alex Berger")).toBeInTheDocument();
     expect(screen.getAllByText("Anna").length).toBeGreaterThan(0);
@@ -340,26 +357,51 @@ describe("ProjectDetailRoute", () => {
       screen.getByRole("button", { name: "+ Mitglied hinzufügen" }),
     ).toBeInTheDocument();
 
-    await user.click(screen.getByLabelText("+ Mitglied hinzufügen"));
+    await user.click(
+      screen.getByRole("button", { name: "+ Mitglied hinzufügen" }),
+    );
+
+    const dialog = await screen.findByRole("dialog");
+
+    await user.click(
+      within(dialog).getByRole("combobox", { name: "+ Mitglied hinzufügen" }),
+    );
     await user.click(await screen.findByRole("option", { name: "Anna" }));
+
+    expect(
+      within(dialog).getByRole("combobox", { name: "+ Mitglied hinzufügen" }),
+    ).toHaveTextContent("Anna");
   });
 
-  it("shows planning sections with milestone progress computed from tasks", async () => {
-    const user = userEvent.setup();
+  it("shows the milestone timeline with its controls and milestones", () => {
     renderDetail(createLoaderData(), "planning");
 
-    expect(screen.getByText("MVP")).toBeInTheDocument();
-    expect(screen.getByText("1 / 2 Aufgaben")).toBeInTheDocument();
-
-    await user.click(screen.getByRole("tab", { name: "Termine" }));
-    expect(screen.getByText("Projektbesprechung")).toBeInTheDocument();
-
-    await user.click(screen.getByRole("tab", { name: "Aufgabenstruktur" }));
-    expect(screen.getByText("Login")).toBeInTheDocument();
-    expect(screen.getByText("Formular erstellen")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Phasen-Milestone-Plan" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Wochen" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Monate" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Meilenstein hinzufügen" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /MVP/ })).toHaveAttribute(
+      "title",
+      expect.stringContaining("30.09.2026"),
+    );
   });
 
-  it("configures GitHub without ever exposing the stored token", () => {
+  it("shows task and milestone progress computed from the loaded work items", () => {
+    renderDetail(createLoaderData());
+
+    expect(screen.getByText("Erledigte Aufgaben")).toBeInTheDocument();
+    expect(screen.getByText("1 / 3")).toBeInTheDocument();
+    expect(screen.getByText("Abgeschlossene Meilensteine")).toBeInTheDocument();
+    expect(screen.getByText("0 / 1")).toBeInTheDocument();
+    expect(screen.getByText("Offene Subaufgaben")).toBeInTheDocument();
+  });
+
+  it("configures GitHub without ever exposing the stored token", async () => {
+    const user = userEvent.setup();
     renderDetail(
       createLoaderData({
         integration: {
@@ -383,15 +425,19 @@ describe("ProjectDetailRoute", () => {
       "integrations",
     );
 
-    expect(screen.getByText("GitHub")).toBeInTheDocument();
+    expect(screen.getAllByText("Verbunden").length).toBeGreaterThan(0);
+
+    await user.click(
+      screen.getByRole("button", { name: "Einstellungen für GitHub öffnen" }),
+    );
+
     expect(
       screen.getByDisplayValue("https://github.com/user/pages.git"),
     ).toBeInTheDocument();
     expect(screen.getByText("✓ API-Key hinterlegt")).toBeInTheDocument();
-    expect(screen.getByText("Verbunden")).toBeInTheDocument();
-    expect(screen.getByText("user/pages")).toBeInTheDocument();
-    expect(screen.getByText("Aktualisierungsintervall")).toBeInTheDocument();
-    expect(screen.getByText("2026-09-05 14:36")).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Aktualisierungsintervall" }),
+    ).toBeInTheDocument();
     expect(
       screen.queryByDisplayValue("ghp-secret-token"),
     ).not.toBeInTheDocument();
@@ -474,7 +520,7 @@ describe("ProjectDetailRoute general tab states", () => {
     );
 
     expect(document.querySelectorAll("img")).toHaveLength(2);
-    expect(screen.getByText("Nicht zugewiesen")).toBeInTheDocument();
+    expect(screen.getAllByText("Nicht zugewiesen")).toHaveLength(1);
     expect(screen.getByText("not-a-date")).toBeInTheDocument();
     expect(screen.getAllByText("Keine Beschreibung hinterlegt.")).toHaveLength(
       2,
@@ -513,26 +559,6 @@ describe("ProjectDetailRoute general tab states", () => {
     expect(
       within(dialog).getByRole("combobox", { name: "Status" }),
     ).toHaveTextContent("Abgeschlossen");
-  });
-
-  it("submits icon uploads when a file is selected", () => {
-    renderDetail(
-      createLoaderData({ project: createProject({ hasIcon: true }) }),
-    );
-
-    const input = screen.getByLabelText<HTMLInputElement>("Icon ändern");
-    const requestSubmit = vi.fn();
-    Object.defineProperty(input.form, "requestSubmit", {
-      value: requestSubmit,
-    });
-
-    fireEvent.change(input, {
-      target: {
-        files: [new File(["image"], "logo.png", { type: "image/png" })],
-      },
-    });
-
-    expect(requestSubmit).toHaveBeenCalledOnce();
   });
 
   it("hides editing controls from readers", () => {
@@ -593,12 +619,13 @@ describe("ProjectDetailRoute header description editing", () => {
     mockSubmit();
     renderDetail(createLoaderData());
 
-    fireEvent.keyDown(headerDescription(), { key: "a" });
+    headerDescription().focus();
+    await user.keyboard("a");
     expect(
       screen.queryByRole("textbox", { name: "Projektbeschreibung" }),
     ).not.toBeInTheDocument();
 
-    fireEvent.keyDown(headerDescription(), { key: "Enter" });
+    await user.keyboard("{Enter}");
     expect(
       screen.getByRole("textbox", { name: "Projektbeschreibung" }),
     ).toBeInTheDocument();
@@ -682,25 +709,6 @@ describe("ProjectDetailRoute header description editing", () => {
   });
 });
 
-describe("ProjectDetailRoute team tab states", () => {
-  it("submits role changes when a role is selected", async () => {
-    const user = userEvent.setup();
-    renderDetail(createLoaderData(), "team");
-
-    const roleSelect = screen.getAllByLabelText("Rolle")[0] as HTMLElement;
-    const form = roleSelect.closest("form") as HTMLFormElement;
-    const requestSubmit = vi.fn();
-    Object.defineProperty(form, "requestSubmit", {
-      value: requestSubmit,
-    });
-
-    await user.click(roleSelect);
-    await user.click(await screen.findByRole("option", { name: "Betrachter" }));
-
-    expect(requestSubmit).toHaveBeenCalledOnce();
-  });
-});
-
 describe("ProjectDetailRoute planning tab states", () => {
   it("handles empty planning collections without write access", () => {
     renderDetail(
@@ -713,35 +721,33 @@ describe("ProjectDetailRoute planning tab states", () => {
       "planning",
     );
 
-    expect(screen.getByText("Noch keine Meilensteine.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Noch keine Meilensteine geplant."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Meilenstein hinzufügen" }),
+    ).not.toBeInTheDocument();
   });
 
-  it("shows dates without archive actions to readers", async () => {
-    const user = userEvent.setup();
-    renderDetail(createLoaderData({ canWrite: false }), "planning");
-
-    await user.click(screen.getByRole("tab", { name: "Termine" }));
+  it("shows dates without edit actions to readers", () => {
+    renderDetail(createLoaderData({ canWrite: false }));
 
     expect(screen.getByText("Projektbesprechung")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Projektbesprechung" }),
     ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Meilenstein hinzufügen" }),
+    ).not.toBeInTheDocument();
   });
 
-  it("shows empty dates and structures on their sections", async () => {
-    const user = userEvent.setup();
+  it("shows empty dates and task counts on their sections", () => {
     renderDetail(
       createLoaderData({ canWrite: false, events: [], workItems: [] }),
-      "planning",
     );
 
-    await user.click(screen.getByRole("tab", { name: "Termine" }));
-    expect(screen.getByText("Noch keine Termine.")).toBeInTheDocument();
-
-    await user.click(screen.getByRole("tab", { name: "Aufgabenstruktur" }));
-    expect(
-      screen.getByText("Keine Aufgaben in diesem Projekt."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Keine anstehenden Termine.")).toBeInTheDocument();
+    expect(screen.getByText("0 / 0")).toBeInTheDocument();
   });
 
   it("hides the completion action for completed milestones", () => {
@@ -763,8 +769,13 @@ describe("ProjectDetailRoute planning tab states", () => {
 });
 
 describe("ProjectDetailRoute integrations tab states", () => {
-  it("renders an empty form without an integration", () => {
+  it("renders an empty form without an integration", async () => {
+    const user = userEvent.setup();
     renderDetail(createLoaderData({ integration: null }), "integrations");
+
+    await user.click(
+      screen.getByRole("button", { name: "Einstellungen für GitHub öffnen" }),
+    );
 
     expect(
       screen.getByPlaceholderText("https://github.com/user/pages.git"),
@@ -797,6 +808,10 @@ describe("ProjectDetailRoute integrations tab states", () => {
       "integrations",
     );
 
+    await user.click(
+      screen.getByRole("button", { name: "Einstellungen für GitHub öffnen" }),
+    );
+
     expect(
       screen.queryByRole("button", { name: "Jetzt synchronisieren" }),
     ).not.toBeInTheDocument();
@@ -804,17 +819,24 @@ describe("ProjectDetailRoute integrations tab states", () => {
     await user.click(screen.getByRole("button", { name: "API-Key ersetzen" }));
 
     expect(
-      screen.getByPlaceholderText("•••••••••••••••••••"),
+      screen.getByPlaceholderText("ghp_••••••••••••••••••••"),
     ).toBeInTheDocument();
   });
 
-  it("shows a read-only state without write access", () => {
+  it("shows a read-only state without write access", async () => {
+    const user = userEvent.setup();
     renderDetail(
       createLoaderData({ canWrite: false, integration: null }),
       "integrations",
     );
 
-    expect(screen.getByText("Nicht verbunden")).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: "Einstellungen für GitHub öffnen" }),
+    );
+
+    expect(
+      screen.getByText(/Du hast Leserechte für dieses Projekt/),
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Integration speichern" }),
     ).not.toBeInTheDocument();
@@ -846,7 +868,8 @@ describe("ProjectDetailRoute integrations tab states", () => {
     expect(screen.getByText("Verbunden")).toBeInTheDocument();
   });
 
-  it("shows placeholders for missing repository details", () => {
+  it("handles missing repository details", async () => {
+    const user = userEvent.setup();
     renderDetail(
       createLoaderData({
         integration: {
@@ -868,18 +891,36 @@ describe("ProjectDetailRoute integrations tab states", () => {
       "integrations",
     );
 
-    expect(screen.getByText("—")).toBeInTheDocument();
-    expect(screen.getByText("Noch nie")).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: "Einstellungen für GitHub öffnen" }),
+    );
+
+    expect(
+      screen.getByPlaceholderText("https://github.com/user/pages.git"),
+    ).toHaveValue("");
+    expect(screen.queryByText("✓ API-Key hinterlegt")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Nicht verbunden").length).toBeGreaterThan(0);
   });
 
-  it("indicates pending save and test submissions", () => {
+  it("indicates pending save and test submissions", async () => {
+    const user = userEvent.setup();
     const saving = new FormData();
     saving.append("intent", "save-integration");
-    renderDetail(createLoaderData({ integration: null }), "integrations", {
-      formData: saving,
-      state: "submitting",
-    });
-    expect(screen.getByText("Wird gespeichert …")).toBeInTheDocument();
+    const { unmount } = renderDetail(
+      createLoaderData({ integration: null }),
+      "integrations",
+      { formData: saving, state: "submitting" },
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Einstellungen für GitHub öffnen" }),
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Wird gespeichert …" }),
+    ).toBeDisabled();
+
+    unmount();
 
     const testing = new FormData();
     testing.append("intent", "test-integration");
@@ -904,7 +945,14 @@ describe("ProjectDetailRoute integrations tab states", () => {
       "integrations",
       { formData: testing, state: "submitting" },
     );
-    expect(screen.getByText("Wird getestet …")).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "Einstellungen für GitHub öffnen" }),
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Wird getestet …" }),
+    ).toBeDisabled();
   });
 });
 

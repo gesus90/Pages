@@ -739,6 +739,8 @@ describe("TaskDetailPanel", () => {
 
     const textarea = screen.getByRole("textbox", { name: "" });
 
+    expect(textarea).toHaveFocus();
+
     fireEvent.change(textarea, { target: { value: "New description" } });
 
     await user.click(screen.getByRole("button", { name: "Speichern" }));
@@ -772,6 +774,8 @@ describe("TaskDetailPanel", () => {
     await user.dblClick(title);
 
     const titleInput = screen.getByDisplayValue("Kanban Board implementieren");
+
+    expect(titleInput).toHaveFocus();
 
     fireEvent.change(titleInput, { target: { value: "Refactor the title" } });
 

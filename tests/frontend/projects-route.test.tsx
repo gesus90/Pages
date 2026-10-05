@@ -270,6 +270,23 @@ describe("ProjectsRoute", () => {
     expect(getCardTitles()).toEqual(["Charlie", "Beta", "Alpha"]);
   });
 
+  it("ignores sort values that are not supported", async () => {
+    const user = userEvent.setup();
+    renderProjects({
+      projects: [
+        createProject({ id: "p1", name: "Charlie", updatedAt: "2026-01-01" }),
+        createProject({ id: "p2", name: "Alpha", updatedAt: "2026-01-01" }),
+      ],
+    });
+
+    const sortSelect = screen.getByRole("combobox", { name: "Sortierung" });
+
+    await user.selectOptions(sortSelect, "nameAsc");
+    fireEvent.change(sortSelect, { target: { value: "unsupported" } });
+
+    expect(getCardTitles()).toEqual(["Alpha", "Charlie"]);
+  });
+
   it("sorts cards by recency in both directions", async () => {
     const user = userEvent.setup();
     renderProjects({

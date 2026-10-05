@@ -78,6 +78,7 @@
     "submitting": "Signing in …",
     "error": {
       "invalidCredentials": "Username or password is incorrect.",
+      "tooManyAttempts": "Too many sign-in attempts. Please try again later.",
       "unavailable": "Sign-in is currently unavailable. Please try again later."
     },
     "setup": {
@@ -87,6 +88,21 @@
     "footer": {
       "tagline": "Simple. Organized. Productive."
     }
+  },
+  "errorPage": {
+    "forbidden": {
+      "title": "Access denied",
+      "message": "You don't have permission to view this page."
+    },
+    "notFound": {
+      "title": "Page not found",
+      "message": "The page you are looking for doesn't exist or has been moved."
+    },
+    "generic": {
+      "title": "Something went wrong",
+      "message": "An unexpected error occurred. Please try again later."
+    },
+    "backToStart": "Back to the start page"
   },
   "navigation": {
     "close": "Close navigation",
@@ -715,8 +731,6 @@
       "newTask": "New task",
       "planEvent": "Plan event",
       "manageTeam": "Manage team",
-      "tags": "Tags",
-      "addTag": "+ Add tag",
       "notes": "Notes",
       "notesEmptyHint": "Store key information, links, or remarks about the project here.",
       "notesPlaceholder": "Key decisions and notes about the project …",
@@ -932,9 +946,6 @@
       }
     },
     "integrations": {
-      "title": "Integrations",
-      "github": "GitHub",
-      "repoUrl": "Repository address",
       "repoPlaceholder": "https://github.com/user/pages.git",
       "token": "GitHub API key / personal access token",
       "tokenSet": "✓ API key stored",
@@ -943,14 +954,7 @@
       "testing": "Testing …",
       "sync": "Synchronization",
       "syncIssues": "Sync issues",
-      "syncStatus": "Sync status",
-      "syncComments": "Sync comments",
       "syncPullRequests": "Sync pull requests",
-      "syncCommits": "Sync commits",
-      "direction": "Sync direction",
-      "directionBidirectional": "Bidirectional",
-      "directionPush": "Push",
-      "directionPull": "Pull",
       "save": "Save integration",
       "saving": "Saving …",
       "connected": "Connected",
@@ -963,8 +967,7 @@
       "interval": "Refresh interval",
       "intervalManual": "Manual",
       "intervalMinutes": "Every {{count}} minutes",
-      "nextSync": "Next synchronization:",
-      "scheduled": "Scheduled automatically"
+      "nextSync": "Next synchronization:"
     },
     "interfaces": {
       "availableTitle": "Available interfaces",
@@ -995,7 +998,6 @@
       "showToken": "Show token",
       "hideToken": "Hide token",
       "repositoryLabel": "GitHub repository",
-      "repositoryPlaceholder": "e.g. joon/pages",
       "branchLabel": "Default branch",
       "createFromPages": "Create from Pages",
       "allowCreateIssues": "Create GitHub issues from Pages",
@@ -1008,73 +1010,9 @@
       "syncCommitsHint": "Show commits in the activity history.",
       "webhookUrlLabel": "Webhook URL (optional)",
       "webhookCopy": "Copy webhook URL",
-      "webhookCopied": "Copied",
       "connectionOk": "Connection successful.",
       "connectionFailed": "Connection failed. Check the token and repository.",
-      "savedLocally": "Changes applied. They only apply to this project.",
-      "calendarConnect": "Connect",
-      "calendarConnectHint": "Link a Google account to sync calendars.",
-      "calendarSelect": "Select calendar",
-      "calendarSelectPlaceholder": "Choose a calendar …",
-      "calendarImport": "Import dates",
-      "calendarImportHint": "Import dates from Google Calendar into Pages.",
-      "calendarExport": "Export Pages dates",
-      "calendarExportHint": "Transfer dates from Pages to Google Calendar.",
-      "calendarDirection": "Sync direction",
-      "calendarDirectionImport": "Import only",
-      "calendarDirectionExport": "Export only",
-      "calendarDirectionBoth": "Both directions",
-      "discordWebhook": "Webhook URL",
-      "discordWebhookPlaceholder": "https://discord.com/api/webhooks/…",
-      "discordWebhookHint": "Webhook URL of the Discord channel for this project.",
-      "discordChannel": "Channel",
-      "discordChannelPlaceholder": "# general",
-      "discordEvents": "Events",
-      "discordEventTask": "New task",
-      "discordEventTaskHint": "Notify on newly created tasks.",
-      "discordEventStatus": "Status change",
-      "discordEventStatusHint": "Notify on task status changes.",
-      "discordEventMilestone": "Milestone reached",
-      "discordEventMilestoneHint": "Notify on completed milestones.",
-      "discordEventActivity": "Project activity",
-      "discordEventActivityHint": "Notify on other project activity.",
-      "webhookTarget": "Target URL",
-      "webhookTargetPlaceholder": "https://example.com/hooks/pages",
-      "webhookSecret": "Secret",
-      "webhookMethod": "HTTP method",
-      "webhookEvents": "Events",
-      "webhookActive": "Active",
-      "webhookActiveHint": "This webhook receives events from this project.",
-      "emailHost": "SMTP host",
-      "emailHostPlaceholder": "mail.example.com",
-      "emailPort": "Port",
-      "emailUsername": "Username",
-      "emailPassword": "Password",
-      "emailTls": "Use TLS",
-      "emailTlsHint": "Encrypt the connection to the SMTP server.",
-      "emailSender": "Sender",
-      "emailSenderPlaceholder": "pages@example.com",
-      "emailRules": "Notification rules",
-      "emailRuleTask": "New task",
-      "emailRuleTaskHint": "Notify by email on newly created tasks.",
-      "emailRuleStatus": "Status change",
-      "emailRuleStatusHint": "Notify by email on status changes.",
-      "emailRuleMilestone": "Milestone reached",
-      "emailRuleMilestoneHint": "Notify by email on completed milestones.",
-      "apiEnable": "Enable project API",
-      "apiEnableHint": "Allow API access exclusively for this project.",
-      "apiToken": "API token",
-      "apiTokenHint": "The token only grants access to this project.",
-      "apiCreate": "Create token",
-      "apiRenew": "Renew token",
-      "apiCopy": "Copy token",
-      "apiRevoke": "Deactivate token",
-      "apiScopes": "Permissions",
-      "apiScopeReadProjects": "Read projects",
-      "apiScopeReadTasks": "Read tasks",
-      "apiScopeWriteTasks": "Write tasks",
-      "apiScopeReadMilestones": "Read milestones",
-      "apiScopeWriteMilestones": "Write milestones"
+      "planned": "Planned"
     },
     "activity": {
       "allActivities": "All activities",

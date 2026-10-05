@@ -1,27 +1,21 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
-import {
-  UsernameTakenError,
-  UserRepository,
-} from "@/backend/database/repositories/UserRepository";
+import { UserRepository } from "@/backend/database/repositories/UserRepository";
 import { ROLE } from "@/definition/Role";
 
-import type { Database } from "@/backend/database/Database";
+import { createDatabase } from "../helpers/factories";
+import { UsernameTakenError } from "@/backend/error/UserErrors";
 
-function createDatabase(): Database & {
-  execute: ReturnType<typeof vi.fn>;
-  query: ReturnType<typeof vi.fn>;
-} {
-  return {
-    close: vi.fn(),
-    execute: vi.fn(),
-    migrate: vi.fn(),
-    query: vi.fn(),
-  } as unknown as Database & {
-    execute: ReturnType<typeof vi.fn>;
-    query: ReturnType<typeof vi.fn>;
-  };
-}
+/** Avatar columns of a user row for an account that keeps its initials avatar. */
+const AVATAR_COLUMNS = ["initials", null, null, null] as const;
+
+/** The user fields those avatar columns map to. */
+const INITIALS_AVATAR = {
+  avatarColor: null,
+  avatarIcon: null,
+  avatarImageUrl: null,
+  avatarType: "initials",
+} as const;
 
 describe("UserRepository", () => {
   let database: ReturnType<typeof createDatabase>;
@@ -59,10 +53,11 @@ describe("UserRepository", () => {
 
   it("returns the user for a known identifier", async () => {
     database.query.mockResolvedValue([
-      ["user-1", "admin", "Admin", "admin", 1],
+      ["user-1", "admin", "Admin", "admin", 1, ...AVATAR_COLUMNS],
     ]);
 
     await expect(repository.findById("user-1")).resolves.toEqual({
+      ...INITIALS_AVATAR,
       displayName: "Admin",
       id: "user-1",
       isActive: true,
@@ -77,10 +72,11 @@ describe("UserRepository", () => {
 
   it("returns inactive users with their flag", async () => {
     database.query.mockResolvedValue([
-      ["user-2", "mueller", "Müller", "employee", 0],
+      ["user-2", "mueller", "Müller", "employee", 0, ...AVATAR_COLUMNS],
     ]);
 
     await expect(repository.findById("user-2")).resolves.toEqual({
+      ...INITIALS_AVATAR,
       displayName: "Müller",
       id: "user-2",
       isActive: false,
@@ -97,7 +93,7 @@ describe("UserRepository", () => {
 
   it("throws for rows with an unsupported role", async () => {
     database.query.mockResolvedValue([
-      ["user-1", "admin", "Admin", "owner", 1],
+      ["user-1", "admin", "Admin", "owner", 1, ...AVATAR_COLUMNS],
     ]);
 
     await expect(repository.findById("user-1")).rejects.toThrow(
@@ -105,9 +101,19 @@ describe("UserRepository", () => {
     );
   });
 
+  it("throws for rows with an unsupported avatar type", async () => {
+    database.query.mockResolvedValue([
+      ["user-1", "admin", "Admin", "admin", 1, "hologram", null, null, null],
+    ]);
+
+    await expect(repository.findById("user-1")).rejects.toThrow(
+      'Database returned an unsupported avatar type "hologram".',
+    );
+  });
+
   it("throws for rows with a non-binary active flag", async () => {
     database.query.mockResolvedValue([
-      ["user-1", "admin", "Admin", "admin", "yes"],
+      ["user-1", "admin", "Admin", "admin", "yes", ...AVATAR_COLUMNS],
     ]);
 
     await expect(repository.findById("user-1")).rejects.toThrow(
@@ -117,14 +123,15 @@ describe("UserRepository", () => {
 
   it("returns every user ordered by display name", async () => {
     database.query.mockResolvedValue([
-      ["user-1", "admin", "Admin", "admin", 1],
-      ["user-2", "mueller", "Müller", "employee", 0],
+      ["user-1", "admin", "Admin", "admin", 1, ...AVATAR_COLUMNS],
+      ["user-2", "mueller", "Müller", "employee", 0, ...AVATAR_COLUMNS],
     ]);
 
     const users = await repository.findAll();
 
     expect(users).toHaveLength(2);
     expect(users[0]).toEqual({
+      ...INITIALS_AVATAR,
       displayName: "Admin",
       id: "user-1",
       isActive: true,
@@ -138,7 +145,15 @@ describe("UserRepository", () => {
 
   it("returns credentials for a known username", async () => {
     database.query.mockResolvedValue([
-      ["user-1", "admin", "Admin", "admin", 1, "stored-hash"],
+      [
+        "user-1",
+        "admin",
+        "Admin",
+        "admin",
+        1,
+        ...AVATAR_COLUMNS,
+        "stored-hash",
+      ],
     ]);
 
     await expect(
@@ -146,6 +161,7 @@ describe("UserRepository", () => {
     ).resolves.toEqual({
       passwordHash: "stored-hash",
       user: {
+        ...INITIALS_AVATAR,
         displayName: "Admin",
         id: "user-1",
         isActive: true,
@@ -186,8 +202,11 @@ describe("UserRepository", () => {
 
     expect(statement).toContain("INSERT INTO users");
     expect(parameters).toEqual({
+      created_at: null,
       display_name: "Admin",
+      email: null,
       id: "user-1",
+      is_active: true,
       password_hash: "stored-hash",
       role: "admin",
       username: "admin",
@@ -196,7 +215,9 @@ describe("UserRepository", () => {
 
   it("translates username conflicts into a UsernameTakenError", async () => {
     database.execute.mockRejectedValue(
-      new Error("UNIQUE constraint failed: users.username"),
+      new Error(
+        'Constraint Error: Duplicate key "username: admin" violates unique constraint.',
+      ),
     );
 
     const failure = await repository
@@ -215,7 +236,9 @@ describe("UserRepository", () => {
 
   it("rethrows unrelated constraint violations", async () => {
     database.execute.mockRejectedValue(
-      new Error("UNIQUE constraint failed: users.email"),
+      new Error(
+        'Constraint Error: Duplicate key "email: a@example.invalid" violates unique constraint.',
+      ),
     );
 
     await expect(
@@ -226,7 +249,7 @@ describe("UserRepository", () => {
         role: ROLE.ADMIN,
         username: "admin",
       }),
-    ).rejects.toThrow("UNIQUE constraint failed: users.email");
+    ).rejects.toThrow('Duplicate key "email: a@example.invalid"');
   });
 
   it("rethrows non-error rejections while inserting", async () => {

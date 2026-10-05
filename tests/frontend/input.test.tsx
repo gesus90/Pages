@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { Input } from "@/app/components/ui/input";
+import { focusOnMount } from "@/app/lib/focus-on-mount";
 
 describe("Input", () => {
   it("renders a labelled text field", async () => {
@@ -66,5 +67,11 @@ describe("Input", () => {
 
     expect(field).toHaveAttribute("placeholder", "Benutzername");
     expect(field).toHaveAttribute("autocomplete", "username");
+  });
+
+  it("hands the native input to a ref", () => {
+    render(<Input aria-label="Feld" ref={focusOnMount} />);
+
+    expect(screen.getByLabelText("Feld")).toHaveFocus();
   });
 });

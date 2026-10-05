@@ -1,22 +1,18 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { GitHubRepository } from "@/backend/database/repositories/GitHubRepository";
 
-import type { Database } from "@/backend/database/Database";
+import { createDatabase as createDatabaseDouble } from "../helpers/factories";
 
-function createDatabase(): Database & {
-  execute: ReturnType<typeof vi.fn>;
-  query: ReturnType<typeof vi.fn>;
-} {
-  return {
-    close: vi.fn(),
-    execute: vi.fn().mockResolvedValue(undefined),
-    migrate: vi.fn(),
-    query: vi.fn().mockResolvedValue([]),
-  } as unknown as Database & {
-    execute: ReturnType<typeof vi.fn>;
-    query: ReturnType<typeof vi.fn>;
-  };
+import type { DatabaseDouble } from "../helpers/factories";
+
+function createDatabase(): DatabaseDouble {
+  const database = createDatabaseDouble();
+
+  database.execute.mockResolvedValue(undefined);
+  database.query.mockResolvedValue([]);
+
+  return database;
 }
 
 function createExternalRow(): unknown[] {

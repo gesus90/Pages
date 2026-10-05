@@ -1,9 +1,9 @@
 import { cn } from "@/app/lib/cn";
 
-import type { TextareaHTMLAttributes } from "react";
+import type { ComponentProps } from "react";
 
 /** Props accepted by the shared Pages textarea. */
-export type TextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement>;
+export type TextareaProps = ComponentProps<"textarea">;
 
 /** Renders a Pages-styled native textarea. */
 export function Textarea({

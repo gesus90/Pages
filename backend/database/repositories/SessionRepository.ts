@@ -58,7 +58,7 @@ export class SessionRepository {
             $user_id,
             $token_hash,
             $user_agent,
-            datetime(CURRENT_TIMESTAMP, $lifetime_modifier)
+            utc_after(to_days($lifetime_days))
         );
       `,
       {
@@ -66,7 +66,7 @@ export class SessionRepository {
         user_id: session.userId,
         token_hash: session.tokenHash,
         user_agent: session.userAgent ?? null,
-        lifetime_modifier: `+${session.lifetimeDays} days`,
+        lifetime_days: session.lifetimeDays,
       },
     );
   }
@@ -86,7 +86,7 @@ export class SessionRepository {
             user_id
         FROM sessions
         WHERE token_hash = $token_hash
-            AND expires_at > CURRENT_TIMESTAMP;
+            AND expires_at > utc_now();
       `,
       { token_hash: tokenHash },
     );
@@ -109,11 +109,11 @@ export class SessionRepository {
     await this.database.execute(
       `
         UPDATE sessions
-        SET last_used_at = CURRENT_TIMESTAMP
+        SET last_used_at = utc_now()
         WHERE token_hash = $token_hash
             AND (
                 last_used_at IS NULL
-                OR last_used_at < datetime(CURRENT_TIMESTAMP, '-1 minute')
+                OR last_used_at < utc_after(to_minutes(-1))
             );
       `,
       { token_hash: tokenHash },
@@ -147,7 +147,7 @@ export class SessionRepository {
             END AS is_current
         FROM sessions
         WHERE user_id = $user_id
-            AND expires_at > CURRENT_TIMESTAMP
+            AND expires_at > utc_now()
         ORDER BY is_current DESC, last_used_at DESC;
       `,
       { token_hash: currentTokenHash, user_id: userId },
@@ -174,7 +174,7 @@ export class SessionRepository {
         FROM sessions
         WHERE id = $session_id
             AND user_id = $user_id
-            AND expires_at > CURRENT_TIMESTAMP;
+            AND expires_at > utc_now();
       `,
       { session_id: sessionId, user_id: userId },
     );
@@ -225,6 +225,21 @@ export class SessionRepository {
   }
 
   /**
+   * Removes every session of a user, invalidating all of their tokens.
+   *
+   * @param userId - Identifier of the session owner.
+   */
+  public async deleteAllByUserId(userId: string): Promise<void> {
+    await this.database.execute(
+      `
+        DELETE FROM sessions
+        WHERE user_id = $user_id;
+      `,
+      { user_id: userId },
+    );
+  }
+
+  /**
    * Removes a single session, invalidating its token.
    *
    * @param tokenHash - Hash of the token sent by the browser.
@@ -243,7 +258,7 @@ export class SessionRepository {
   public async deleteExpired(): Promise<void> {
     await this.database.execute(`
       DELETE FROM sessions
-      WHERE expires_at <= CURRENT_TIMESTAMP;
+      WHERE expires_at <= utc_now();
     `);
   }
 

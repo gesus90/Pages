@@ -79,7 +79,7 @@ export function HorizontalScrollArea({
       viewport.removeEventListener("scroll", updateFades);
       observer.disconnect();
     };
-  }, []);
+  }, [externalViewportRef]);
 
   return (
     <div className={cn("relative min-w-0", className)}>

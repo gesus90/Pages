@@ -1,9 +1,9 @@
 import { cn } from "@/app/lib/cn";
 
-import type { InputHTMLAttributes } from "react";
+import type { ComponentProps } from "react";
 
 /** Props accepted by the shared Pages text input. */
-export type InputProps = InputHTMLAttributes<HTMLInputElement>;
+export type InputProps = ComponentProps<"input">;
 
 /** Renders a Pages-styled native input. */
 export function Input({

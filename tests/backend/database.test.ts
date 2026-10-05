@@ -1,351 +1,340 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
-vi.mock("better-sqlite3", () => ({
-  default: vi.fn(),
-}));
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-vi.mock("node:fs/promises", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("node:fs/promises")>();
+import {
+  Database,
+  IN_MEMORY_DATABASE_PATH,
+  isUniqueViolationOn,
+} from "@/backend/database/Database";
+import {
+  MigrationChecksumError,
+  UnknownMigrationError,
+} from "@/backend/database/Migration";
 
-  return {
-    ...actual,
-    mkdir: vi.fn(),
-    readFile: vi.fn(),
-    readdir: vi.fn(),
-  };
-});
-
-import { mkdir, readFile, readdir } from "node:fs/promises";
-
-import SqliteDatabase from "better-sqlite3";
-
-import { Database } from "@/backend/database/Database";
-
-const MockedSqliteDatabase = vi.mocked(SqliteDatabase);
-const mockedMkdir = vi.mocked(mkdir);
-const mockedReadFile = vi.mocked(readFile);
-const mockedReaddir = vi.mocked(readdir);
-
-interface MockStatement {
-  all: ReturnType<typeof vi.fn>;
-  raw: ReturnType<typeof vi.fn>;
-  run: ReturnType<typeof vi.fn>;
-}
-
-interface MockConnection {
-  close: ReturnType<typeof vi.fn>;
-  exec: ReturnType<typeof vi.fn>;
-  pragma: ReturnType<typeof vi.fn>;
-  prepare: ReturnType<typeof vi.fn>;
-  transaction: ReturnType<typeof vi.fn>;
-}
-
-function createStatement(): MockStatement {
-  const statement: MockStatement = {
-    all: vi.fn().mockReturnValue([]),
-    raw: vi.fn(),
-    run: vi.fn(),
-  };
-  statement.raw.mockReturnValue(statement);
-
-  return statement;
-}
-
-function createConnection(): MockConnection {
-  const connection: MockConnection = {
-    close: vi.fn(),
-    exec: vi.fn(),
-    pragma: vi.fn(),
-    prepare: vi.fn(),
-    transaction: vi.fn((callback: () => void) => callback),
-  };
-  connection.prepare.mockImplementation(() => createStatement());
-
-  return connection;
-}
-
-function createDirent(name: string, isFile: boolean): never {
-  return {
-    isFile: () => isFile,
-    name,
-  } as unknown as never;
-}
+const CREATE_ITEMS = "CREATE TABLE items (id INTEGER PRIMARY KEY, label TEXT);";
 
 describe("Database", () => {
-  let connection: MockConnection;
+  let database: Database;
+  let directory: string;
 
-  beforeEach(() => {
-    connection = createConnection();
-    MockedSqliteDatabase.mockImplementation(function () {
-      return connection as unknown as InstanceType<typeof SqliteDatabase>;
-    });
-    mockedMkdir.mockResolvedValue(undefined);
-    mockedReaddir.mockResolvedValue([]);
-    mockedReadFile.mockResolvedValue("");
+  beforeEach(async () => {
+    directory = await mkdtemp(path.join(tmpdir(), "pages-duckdb-"));
+    database = await Database.create(IN_MEMORY_DATABASE_PATH);
   });
 
-  it("creates parent directories before opening the database", async () => {
-    const database = await Database.create("/data/pages/pages.db");
-
-    expect(mockedMkdir).toHaveBeenCalledWith("/data/pages", {
-      recursive: true,
-    });
-    expect(MockedSqliteDatabase).toHaveBeenCalledWith("/data/pages/pages.db");
-
-    database.close();
+  afterEach(async () => {
+    await database.close();
+    await rm(directory, { force: true, recursive: true });
   });
 
-  it("enables WAL mode and foreign keys on new connections", async () => {
-    const database = await Database.create("/data/pages.db");
+  describe("opening and closing", () => {
+    it("creates missing parent directories and keeps data across restarts", async () => {
+      const filePath = path.join(directory, "nested", "pages.duckdb");
+      const fileDatabase = await Database.create(filePath);
 
-    expect(connection.pragma).toHaveBeenCalledWith("journal_mode = WAL");
-    expect(connection.pragma).toHaveBeenCalledWith("foreign_keys = ON");
+      await fileDatabase.execute(CREATE_ITEMS);
+      await fileDatabase.execute("INSERT INTO items VALUES (1, 'kept');");
+      await fileDatabase.close();
 
-    database.close();
-  });
+      const reopened = await Database.create(filePath);
 
-  it("propagates directory creation failures", async () => {
-    mockedMkdir.mockRejectedValueOnce(new Error("Permission denied"));
-
-    await expect(Database.create("/restricted/pages.db")).rejects.toThrow(
-      "Permission denied",
-    );
-  });
-
-  it("releases the connection when closing", async () => {
-    const database = await Database.create("/data/pages.db");
-
-    database.close();
-
-    expect(connection.close).toHaveBeenCalledTimes(1);
-  });
-
-  it("executes statements with bound parameters", async () => {
-    const database = await Database.create("/data/pages.db");
-
-    await database.execute("DELETE FROM sessions WHERE id = $id", {
-      id: "session-1",
+      await expect(reopened.query("SELECT label FROM items;")).resolves.toEqual(
+        [["kept"]],
+      );
+      await reopened.close();
     });
 
-    expect(connection.prepare).toHaveBeenCalledWith(
-      "DELETE FROM sessions WHERE id = $id",
-    );
+    it("finishes queued statements before it closes", async () => {
+      const filePath = path.join(directory, "pages.duckdb");
+      const fileDatabase = await Database.create(filePath);
 
-    const statement = connection.prepare.mock.results[0]
-      ?.value as MockStatement;
+      await fileDatabase.execute(CREATE_ITEMS);
+      const pendingInsert = fileDatabase.execute(
+        "INSERT INTO items VALUES (1, 'queued');",
+      );
+      await fileDatabase.close();
+      await pendingInsert;
 
-    expect(statement.run).toHaveBeenCalledWith({ id: "session-1" });
+      const reopened = await Database.create(filePath);
 
-    database.close();
-  });
-
-  it("executes statements without parameters using an empty binding", async () => {
-    const database = await Database.create("/data/pages.db");
-
-    await database.execute("DELETE FROM sessions");
-
-    const statement = connection.prepare.mock.results[0]
-      ?.value as MockStatement;
-
-    expect(statement.run).toHaveBeenCalledWith({});
-
-    database.close();
-  });
-
-  it("converts boolean bindings to SQLite integers", async () => {
-    const database = await Database.create("/data/pages.db");
-
-    await database.execute("UPDATE users SET is_active = $is_active", {
-      is_active: true,
+      await expect(reopened.query("SELECT label FROM items;")).resolves.toEqual(
+        [["queued"]],
+      );
+      await reopened.close();
     });
 
-    const enabled = connection.prepare.mock.results[0]?.value as MockStatement;
+    it("sorts NULL values like SQLite did", async () => {
+      await database.execute(
+        "CREATE TABLE ranks (id INTEGER, rank INTEGER); INSERT INTO ranks VALUES (1, 2), (2, NULL), (3, 1);",
+      );
 
-    expect(enabled.run).toHaveBeenCalledWith({ is_active: 1 });
-
-    await database.execute("UPDATE users SET is_active = $is_active", {
-      is_active: false,
+      await expect(
+        database.query("SELECT id FROM ranks ORDER BY rank ASC, id;"),
+      ).resolves.toEqual([[2], [3], [1]]);
+      await expect(
+        database.query("SELECT id FROM ranks ORDER BY rank DESC, id;"),
+      ).resolves.toEqual([[1], [3], [2]]);
     });
 
-    const disabled = connection.prepare.mock.results[1]?.value as MockStatement;
+    it("offers utc_after to compute times relative to now", async () => {
+      const [[past, future]] = await database.query(
+        "SELECT utc_after(to_minutes(-1)), utc_after(to_days(14));",
+      );
+      const [[now]] = await database.query("SELECT utc_now();");
 
-    expect(disabled.run).toHaveBeenCalledWith({ is_active: 0 });
-
-    database.close();
-  });
-
-  it("propagates execution failures", async () => {
-    const database = await Database.create("/data/pages.db");
-    connection.prepare.mockImplementation(() => {
-      throw new Error("Bad SQL");
+      expect(String(past) < String(now)).toBe(true);
+      expect(String(future) > String(now)).toBe(true);
     });
 
-    await expect(database.execute("BROKEN SQL")).rejects.toThrow("Bad SQL");
+    it("offers the utc_now function in the stored timestamp format", async () => {
+      const [[timestamp]] = await database.query("SELECT utc_now();");
 
-    database.close();
+      expect(timestamp).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/u);
+    });
   });
 
-  it("returns rows from queries with bound parameters", async () => {
-    const database = await Database.create("/data/pages.db");
-    const statement = createStatement();
-    statement.all.mockReturnValue([["user-1"]]);
-    connection.prepare.mockReturnValue(statement);
-
-    const rows = await database.query("SELECT id FROM users WHERE id = $id", {
-      id: "user-1",
+  describe("statements", () => {
+    beforeEach(async () => {
+      await database.execute(
+        "CREATE TABLE items (id INTEGER PRIMARY KEY, label TEXT, flag INTEGER, payload BLOB);",
+      );
     });
 
-    expect(rows).toEqual([["user-1"]]);
-    expect(statement.raw).toHaveBeenCalledTimes(1);
-    expect(statement.all).toHaveBeenCalledWith({ id: "user-1" });
+    it("binds named parameters of every supported type", async () => {
+      await database.execute(
+        "INSERT INTO items VALUES ($id, $label, $flag, $payload);",
+        { flag: true, id: 1, label: "first", payload: Buffer.from([1, 2, 3]) },
+      );
+      await database.execute(
+        "INSERT INTO items VALUES ($id, $label, $flag, $payload);",
+        { flag: false, id: 2, label: null, payload: null },
+      );
 
-    database.close();
-  });
-
-  it("runs parameterless queries with an empty binding", async () => {
-    const database = await Database.create("/data/pages.db");
-    const statement = createStatement();
-    connection.prepare.mockReturnValue(statement);
-
-    await database.query("SELECT COUNT(*) FROM users");
-
-    expect(statement.all).toHaveBeenCalledWith({});
-
-    database.close();
-  });
-
-  it("propagates query failures", async () => {
-    const database = await Database.create("/data/pages.db");
-    connection.prepare.mockImplementation(() => {
-      throw new Error("Bad query");
+      await expect(
+        database.query(
+          "SELECT id, label, flag, payload FROM items ORDER BY id;",
+        ),
+      ).resolves.toEqual([
+        [1, "first", 1, Buffer.from([1, 2, 3])],
+        [2, null, 0, null],
+      ]);
     });
 
-    await expect(database.query("BROKEN QUERY")).rejects.toThrow("Bad query");
+    it("returns counts as plain numbers and keeps unsafe integers as bigint", async () => {
+      await expect(
+        database.query(
+          "SELECT COUNT(*), 9007199254740993::BIGINT, CAST(SUM(id) AS BIGINT) FROM items;",
+        ),
+      ).resolves.toEqual([[0, 9007199254740993n, null]]);
+    });
 
-    database.close();
+    it("returns boolean results as 0 or 1", async () => {
+      await expect(database.query("SELECT TRUE, FALSE;")).resolves.toEqual([
+        [1, 0],
+      ]);
+    });
+
+    it("rejects values of types repositories do not read", async () => {
+      await expect(database.query("SELECT DATE '2026-01-01';")).rejects.toThrow(
+        "unsupported type",
+      );
+    });
+
+    it("runs several statements without parameters in one call", async () => {
+      await database.execute(
+        "INSERT INTO items (id) VALUES (1); INSERT INTO items (id) VALUES (2);",
+      );
+
+      await expect(
+        database.query("SELECT COUNT(*) FROM items;"),
+      ).resolves.toEqual([[2]]);
+    });
+
+    it("rejects parameters the statement does not use", async () => {
+      await expect(
+        database.query("SELECT 1;", { unused: "value" }),
+      ).rejects.toThrow();
+    });
+
+    it("keeps working after a statement failed", async () => {
+      await expect(
+        database.execute("INSERT INTO missing VALUES (1);"),
+      ).rejects.toThrow("missing");
+
+      await database.execute("INSERT INTO items (id) VALUES (1);");
+
+      await expect(
+        database.query("SELECT COUNT(*) FROM items;"),
+      ).resolves.toEqual([[1]]);
+    });
+
+    it("runs parallel calls one after another in call order", async () => {
+      await Promise.all(
+        Array.from({ length: 50 }, (_, index) =>
+          database.execute("INSERT INTO items (id) VALUES ($id);", {
+            id: index,
+          }),
+        ),
+      );
+
+      await expect(
+        database.query("SELECT COUNT(*), MIN(id), MAX(id) FROM items;"),
+      ).resolves.toEqual([[50, 0, 49]]);
+    });
   });
 
-  it("applies pending migrations in lexical order", async () => {
-    const database = await Database.create("/data/pages.db");
-    mockedReaddir.mockResolvedValue([
-      createDirent("002_second.sql", true),
-      createDirent("001_first.sql", true),
-      createDirent("notes.txt", false),
-      createDirent("README.md", true),
-    ]);
-    mockedReadFile.mockImplementation(
-      async (file: unknown) => `sql:${String(file)}`,
-    );
+  describe("unique violations", () => {
+    it("names the column whose constraint rejected a value", async () => {
+      await database.execute(
+        "CREATE TABLE people (id INTEGER PRIMARY KEY, email TEXT UNIQUE);",
+      );
+      await database.execute(
+        "INSERT INTO people VALUES (1, 'a@example.invalid');",
+      );
 
-    await database.migrate("/migrations");
+      const failure = await database
+        .execute("INSERT INTO people VALUES (2, 'a@example.invalid');")
+        .catch((error: unknown) => error);
 
-    const readNames = mockedReadFile.mock.calls.map((call) => String(call[0]));
-    expect(readNames[0]).toContain("001_first.sql");
-    expect(readNames[1]).toContain("002_second.sql");
-    expect(connection.transaction).toHaveBeenCalledTimes(2);
-    expect(connection.exec).toHaveBeenCalledWith(
-      expect.stringContaining("CREATE TABLE IF NOT EXISTS schema_migrations"),
-    );
+      expect(isUniqueViolationOn(failure, "email")).toBe(true);
+      expect(isUniqueViolationOn(failure, "id")).toBe(false);
+    });
 
-    database.close();
+    it("ignores other errors and values that are no errors", () => {
+      expect(isUniqueViolationOn(new Error("Disk full"), "email")).toBe(false);
+      expect(isUniqueViolationOn("Duplicate key", "email")).toBe(false);
+    });
   });
 
-  it("records applied migrations in the schema table", async () => {
-    const database = await Database.create("/data/pages.db");
-    mockedReaddir.mockResolvedValue([createDirent("001_first.sql", true)]);
-    mockedReadFile.mockResolvedValue("CREATE TABLE example (id TEXT);");
-    const inserts: unknown[] = [];
-    connection.prepare.mockImplementation((statement: unknown) => {
-      const created = createStatement();
-      created.run.mockImplementation((bindings: unknown) => {
-        if (
-          typeof statement === "string" &&
-          statement.includes("INSERT INTO schema_migrations")
-        ) {
-          inserts.push(bindings);
-        }
+  describe("transactions", () => {
+    beforeEach(async () => {
+      await database.execute(CREATE_ITEMS);
+    });
 
-        return undefined;
+    it("commits the work and returns its result", async () => {
+      const result = await database.transaction(async (transaction) => {
+        await transaction.execute("INSERT INTO items VALUES (1, 'a');");
+
+        return transaction.query("SELECT COUNT(*) FROM items;");
       });
 
-      return created;
+      expect(result).toEqual([[1]]);
+      await expect(
+        database.query("SELECT COUNT(*) FROM items;"),
+      ).resolves.toEqual([[1]]);
     });
 
-    await database.migrate("/migrations");
+    it("rolls back and rethrows when the work fails", async () => {
+      await expect(
+        database.transaction(async (transaction) => {
+          await transaction.execute("INSERT INTO items VALUES (1, 'a');");
 
-    expect(inserts).toEqual([{ name: "001_first.sql" }]);
+          throw new Error("work failed");
+        }),
+      ).rejects.toThrow("work failed");
 
-    database.close();
-  });
-
-  it("skips migrations that were already applied", async () => {
-    const database = await Database.create("/data/pages.db");
-    const applied = createStatement();
-    applied.all.mockReturnValue([["001_first.sql"]]);
-    const fresh = createStatement();
-    connection.prepare.mockImplementation((statement: unknown) =>
-      typeof statement === "string" &&
-      statement.includes("FROM schema_migrations")
-        ? applied
-        : fresh,
-    );
-    mockedReaddir.mockResolvedValue([
-      createDirent("001_first.sql", true),
-      createDirent("002_second.sql", true),
-    ]);
-
-    await database.migrate("/migrations");
-
-    expect(mockedReadFile).toHaveBeenCalledTimes(1);
-    expect(String(mockedReadFile.mock.calls[0]?.[0])).toContain(
-      "002_second.sql",
-    );
-
-    database.close();
-  });
-
-  it("applies no migration when the directory holds no SQL files", async () => {
-    const database = await Database.create("/data/pages.db");
-    mockedReaddir.mockResolvedValue([
-      createDirent("notes.txt", true),
-      createDirent("archive", false),
-    ]);
-
-    await database.migrate("/migrations");
-
-    expect(mockedReadFile).not.toHaveBeenCalled();
-    expect(connection.transaction).not.toHaveBeenCalled();
-
-    database.close();
-  });
-
-  it("throws when a migration name has an unexpected type", async () => {
-    const database = await Database.create("/data/pages.db");
-    const applied = createStatement();
-    applied.all.mockReturnValue([[42]]);
-    connection.prepare.mockReturnValue(applied);
-
-    await expect(database.migrate("/migrations")).rejects.toThrow(
-      "Database returned an invalid migration name.",
-    );
-
-    database.close();
-  });
-
-  it("reports a failing migration with its file name", async () => {
-    const database = await Database.create("/data/pages.db");
-    mockedReaddir.mockResolvedValue([createDirent("001_broken.sql", true)]);
-    mockedReadFile.mockResolvedValue("BROKEN SQL");
-    connection.exec.mockImplementation((statement: unknown) => {
-      if (typeof statement === "string" && statement.includes("BROKEN")) {
-        throw new Error("Syntax error");
-      }
+      await expect(
+        database.query("SELECT COUNT(*) FROM items;"),
+      ).resolves.toEqual([[0]]);
     });
 
-    await expect(database.migrate("/migrations")).rejects.toThrow(
-      'Failed to apply database migration "001_broken.sql".',
-    );
+    it("keeps other callers out until the transaction ended", async () => {
+      const failingTransaction = database.transaction(async (transaction) => {
+        await transaction.execute("INSERT INTO items VALUES (1, 'a');");
+        await new Promise((resolve) => setTimeout(resolve, 20));
 
-    database.close();
+        throw new Error("rolled back");
+      });
+      const concurrentCount = database.query("SELECT COUNT(*) FROM items;");
+
+      await expect(failingTransaction).rejects.toThrow("rolled back");
+      await expect(concurrentCount).resolves.toEqual([[0]]);
+    });
+  });
+
+  describe("migrations", () => {
+    const FIRST = { name: "001_items.sql", sql: CREATE_ITEMS };
+    const SECOND = {
+      name: "002_seed.sql",
+      sql: "INSERT INTO items VALUES (1, 'seeded');",
+    };
+
+    it("applies migrations in name order and records them", async () => {
+      await database.migrate([SECOND, FIRST]);
+
+      await expect(database.query("SELECT label FROM items;")).resolves.toEqual(
+        [["seeded"]],
+      );
+      await expect(
+        database.query("SELECT name FROM schema_migrations ORDER BY name;"),
+      ).resolves.toEqual([["001_items.sql"], ["002_seed.sql"]]);
+    });
+
+    it("skips migrations that were applied before", async () => {
+      await database.migrate([FIRST, SECOND]);
+      await database.migrate([FIRST, SECOND]);
+
+      await expect(
+        database.query("SELECT COUNT(*) FROM items;"),
+      ).resolves.toEqual([[1]]);
+    });
+
+    it("applies only the new migrations on a later start", async () => {
+      await database.migrate([FIRST]);
+      await database.migrate([FIRST, SECOND]);
+
+      await expect(
+        database.query("SELECT COUNT(*) FROM schema_migrations;"),
+      ).resolves.toEqual([[2]]);
+    });
+
+    it("refuses an applied migration that was edited", async () => {
+      await database.migrate([FIRST]);
+
+      await expect(
+        database.migrate([{ ...FIRST, sql: `${CREATE_ITEMS} -- edited` }]),
+      ).rejects.toBeInstanceOf(MigrationChecksumError);
+    });
+
+    it("refuses a database that is ahead of the known migrations", async () => {
+      await database.migrate([FIRST, SECOND]);
+
+      await expect(database.migrate([FIRST])).rejects.toBeInstanceOf(
+        UnknownMigrationError,
+      );
+    });
+
+    it("rolls a failing migration back completely", async () => {
+      const failing = {
+        name: "002_broken.sql",
+        sql: "CREATE TABLE half_done (id INTEGER); SELECT * FROM missing_table;",
+      };
+
+      await database.migrate([FIRST]);
+
+      await expect(database.migrate([FIRST, failing])).rejects.toMatchObject({
+        cause: expect.any(Error),
+        message: 'Failed to apply database migration "002_broken.sql".',
+      });
+      await expect(
+        database.query("SELECT COUNT(*) FROM schema_migrations;"),
+      ).resolves.toEqual([[1]]);
+      await expect(database.query("SELECT * FROM half_done;")).rejects.toThrow(
+        "half_done",
+      );
+    });
+
+    it("stamps applied migrations in the stored timestamp format", async () => {
+      await database.migrate([FIRST]);
+
+      const [[appliedAt]] = await database.query(
+        "SELECT applied_at FROM schema_migrations;",
+      );
+
+      expect(appliedAt).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/u);
+    });
   });
 });

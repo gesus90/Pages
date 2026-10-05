@@ -29,9 +29,10 @@ import {
 
 import TaskDetailRoute from "@/app/routes/task-detail";
 import { createI18n } from "@/app/lib/i18n";
-import { ROLE } from "@/definition/Role";
 import { WORK_ITEM_PRIORITY, WORK_ITEM_TYPE } from "@/definition/Task";
 import { LANGUAGE } from "@/language/Language";
+
+import { createUser } from "../helpers/factories";
 
 import type { Project } from "@/definition/Project";
 import type {
@@ -40,24 +41,12 @@ import type {
   WorkItemDetail,
   WorkflowStatus,
 } from "@/definition/Task";
-import type { User } from "@/definition/User";
 
 const mockedActionData = vi.mocked(useActionData);
 const mockedLoaderData = vi.mocked(useLoaderData);
 const mockedNavigate = vi.mocked(useNavigate);
 const mockedNavigation = vi.mocked(useNavigation);
 const mockedSubmit = vi.mocked(useSubmit);
-
-function createUser(overrides: Partial<User> = {}): User {
-  return {
-    displayName: "Admin",
-    id: "user-1",
-    isActive: true,
-    role: ROLE.ADMIN,
-    username: "admin",
-    ...overrides,
-  };
-}
 
 function createProject(overrides: Partial<Project> = {}): Project {
   return {
@@ -494,6 +483,65 @@ describe("TaskDetailRoute", () => {
     expect(
       screen.getByRole("heading", { name: "Neue Aufgabe" }),
     ).toBeInTheDocument();
+  });
+
+  it("assigns an initiative to an epic through the sidebar", async () => {
+    const user = userEvent.setup();
+    const submit = vi.fn();
+    mockedSubmit.mockReturnValue(submit);
+    renderDetail({
+      projectWorkItems: [
+        createTicket({
+          id: "init-2",
+          key: "PAGE-2",
+          title: "Zweite Initiative",
+          type: WORK_ITEM_TYPE.INITIATIVE,
+        }),
+      ],
+      ticket: createTicket({
+        id: "epic-1",
+        key: "EPIC-1",
+        parentId: null,
+        parentKey: null,
+        parentTitle: null,
+        type: WORK_ITEM_TYPE.EPIC,
+      }),
+    });
+
+    await user.click(screen.getByLabelText("Initiative auswählen (optional)"));
+    await user.click(
+      await screen.findByRole("option", { name: "PAGE-2: Zweite Initiative" }),
+    );
+
+    expect(submit).toHaveBeenCalledWith(
+      expect.objectContaining({ intent: "update-task", parentId: "init-2" }),
+      { method: "post" },
+    );
+  });
+
+  it("submits the quick selects of the header", async () => {
+    const user = userEvent.setup();
+    const submit = vi.fn();
+    mockedSubmit.mockReturnValue(submit);
+    renderDetail();
+
+    await user.click(screen.getAllByLabelText("Priorität")[0] as HTMLElement);
+    await user.click(await screen.findByRole("option", { name: "Dringend" }));
+    await user.click(
+      screen.getAllByLabelText("Zugewiesen an")[0] as HTMLElement,
+    );
+    await user.click(
+      await screen.findByRole("option", { name: "Max Mustermann" }),
+    );
+
+    expect(submit).toHaveBeenCalledWith(
+      expect.objectContaining({ intent: "update-task", priority: "urgent" }),
+      { method: "post" },
+    );
+    expect(submit).toHaveBeenCalledWith(
+      expect.objectContaining({ assigneeId: "user-2", intent: "update-task" }),
+      { method: "post" },
+    );
   });
 
   it("renders initiative views with contained epics", async () => {

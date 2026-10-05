@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/app/lib/services.server", () => ({
   getApplicationServices: vi.fn(),
@@ -117,6 +117,10 @@ function mockServices(): void {
   } as unknown as Awaited<ReturnType<typeof mockedServices>>);
 }
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 describe("dashboard route loader", () => {
   it("returns the display name and current hour", async () => {
     mockServices();
@@ -170,6 +174,10 @@ describe("dashboard route loader", () => {
   });
 
   it("maps rich task, project, and deadline data across every branch", async () => {
+    // A fixed clock keeps "today" stable around midnight.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 8, 15, 12, 0, 0));
+
     const now = new Date();
     const pad = (part: number): string => String(part).padStart(2, "0");
     const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;

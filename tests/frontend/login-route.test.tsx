@@ -75,7 +75,10 @@ describe("LoginRoute", () => {
   it("renders the setup hint and version footer", () => {
     renderLogin();
 
-    expect(screen.getByText("Erstmalige Einrichtung?")).toBeInTheDocument();
+    expect(screen.getByText("Erster Start?")).toBeInTheDocument();
+    expect(
+      screen.getByText(/richtet beim ersten Start automatisch/),
+    ).toBeInTheDocument();
     expect(screen.getByText("Pages v0.1.0")).toBeInTheDocument();
     expect(
       screen.getByText("Einfach. Organisiert. Produktiv."),
@@ -114,6 +117,25 @@ describe("LoginRoute", () => {
     expect(screen.getByLabelText("Passwort").getAttribute("type")).toBe(
       "password",
     );
+  });
+
+  it("skips restoring the focus when the password field is gone", async () => {
+    const frames: FrameRequestCallback[] = [];
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      frames.push(callback);
+
+      return frames.length;
+    });
+    const user = userEvent.setup();
+    renderLogin();
+
+    await user.click(screen.getByRole("button", { name: "Passwort anzeigen" }));
+    const passwordInput = screen.getByLabelText("Passwort");
+    passwordInput.setAttribute("id", "renamed-password");
+
+    expect(frames).toHaveLength(1);
+    expect(() => frames[0]?.(0)).not.toThrow();
+    expect(passwordInput).not.toHaveFocus();
   });
 
   it("shows the server-side credential error", () => {

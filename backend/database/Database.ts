@@ -1,13 +1,22 @@
-import { mkdir, readFile, readdir } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
-import SqliteDatabase from "better-sqlite3";
+import { DuckDBBlobValue, DuckDBInstance } from "@duckdb/node-api";
+
+import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 
 import { recordDatabaseQuery } from "./DatabaseStats";
+import {
+  createMigrationChecksum,
+  MigrationChecksumError,
+  UnknownMigrationError,
+} from "./Migration";
+import { readTextColumn } from "./RowValue";
 
-import type { Database as SqliteConnection } from "better-sqlite3";
+import type { DuckDBConnection, DuckDBValue } from "@duckdb/node-api";
+import type { Migration } from "./Migration";
 
-/** A single column value as stored and returned by SQLite. */
+/** A single column value as returned by DuckDB. */
 export type DatabaseValue = string | number | bigint | Buffer | null;
 
 /** Named values bound to a parameterized statement. */
@@ -15,102 +24,160 @@ export type SqlParameters = Readonly<
   Record<string, string | number | bigint | boolean | Buffer | null>
 >;
 
-/** Provides the central server-side connection and migration runner. */
-export class Database {
-  private readonly connection: SqliteConnection;
+/**
+ * Tells whether an error means a UNIQUE or PRIMARY KEY constraint rejected a
+ * value of the given column.
+ *
+ * @param error - Error thrown by a statement.
+ * @param column - Column name of the constraint.
+ * @returns Whether `error` is such a violation.
+ *
+ * @remarks
+ * DuckDB reports the offending key as `Duplicate key "column: value"`, so the
+ * message is the only place that names the column.
+ */
+export function isUniqueViolationOn(error: unknown, column: string): boolean {
+  return (
+    error instanceof Error &&
+    error.message.includes(`Duplicate key "${column}: `)
+  );
+}
 
-  private constructor(connection: SqliteConnection) {
+/** Database path that opens a private in-memory database. */
+export const IN_MEMORY_DATABASE_PATH = ":memory:";
+
+/**
+ * Session setup every connection runs first.
+ *
+ * - `utc_now()` is the current UTC time and `utc_after(time_shift)` the time
+ *   `time_shift` (an interval) from now, both as `YYYY-MM-DD HH:MM:SS` text,
+ *   the format all timestamp columns store.
+ * - NULL values sort first in ascending and last in descending order, like
+ *   they did in SQLite, so existing `ORDER BY` clauses keep their meaning.
+ */
+const CONNECTION_SETUP = `
+  SET default_null_order = 'nulls_first_on_asc_last_on_desc';
+  CREATE OR REPLACE MACRO utc_after(time_shift) AS
+      strftime((now() AT TIME ZONE 'UTC') + time_shift, '%Y-%m-%d %H:%M:%S');
+  CREATE OR REPLACE MACRO utc_now() AS
+      utc_after(INTERVAL 0 DAY);
+`;
+
+const CREATE_MIGRATIONS_TABLE = `
+  CREATE TABLE IF NOT EXISTS schema_migrations (
+      name TEXT PRIMARY KEY,
+      checksum TEXT NOT NULL,
+      applied_at TEXT NOT NULL DEFAULT utc_now()
+  );
+`;
+
+/** Statement access that is bound to one open transaction. */
+export interface DatabaseTransaction {
+  /** Runs a statement without returning rows. */
+  execute(statement: string, parameters?: SqlParameters): Promise<void>;
+  /** Runs a query and returns its rows as positional column values. */
+  query(
+    statement: string,
+    parameters?: SqlParameters,
+  ): Promise<readonly DatabaseValue[][]>;
+}
+
+/**
+ * Provides the central server-side DuckDB connection.
+ *
+ * @remarks
+ * DuckDB allows one writing process per database file and runs one
+ * statement at a time on a connection. Statements of concurrent requests
+ * are therefore queued and executed in call order, and a transaction holds
+ * the queue until it finished so no other request can join it.
+ */
+export class Database {
+  private readonly instance: DuckDBInstance;
+  private readonly connection: DuckDBConnection;
+  private readonly queue = new SerialQueue();
+
+  private constructor(instance: DuckDBInstance, connection: DuckDBConnection) {
+    this.instance = instance;
     this.connection = connection;
   }
 
   /**
-   * Opens a SQLite database, creating its parent directory when needed.
+   * Opens a DuckDB database, creating its parent directory when needed.
    *
-   * @param databasePath - File system path for the database.
-   * @returns An open database connection.
+   * @param databasePath - File system path, or {@link IN_MEMORY_DATABASE_PATH}.
+   * @returns An open database.
    */
   public static async create(databasePath: string): Promise<Database> {
-    await mkdir(path.dirname(databasePath), { recursive: true });
+    if (databasePath !== IN_MEMORY_DATABASE_PATH) {
+      await mkdir(path.dirname(databasePath), { recursive: true });
+    }
 
-    const connection = new SqliteDatabase(databasePath);
-    connection.pragma("journal_mode = WAL");
-    connection.pragma("foreign_keys = ON");
+    const instance = await DuckDBInstance.create(databasePath);
+    const connection = await instance.connect();
 
-    return new Database(connection);
+    await connection.run(CONNECTION_SETUP);
+
+    return new Database(instance, connection);
   }
 
-  /** Releases the underlying database connection. */
-  public close(): void {
-    this.connection.close();
+  /** Waits for queued statements, then releases the database. */
+  public async close(): Promise<void> {
+    await this.queue.idle();
+
+    this.connection.closeSync();
+    this.instance.closeSync();
   }
 
   /**
-   * Applies each migration file once in lexical file-name order.
+   * Applies every migration that the database has not seen yet.
    *
-   * @param migrationsPath - Directory containing SQL migration files.
+   * @param migrations - All known migrations; they run in name order.
+   * @throws {MigrationChecksumError} When an applied migration was edited.
+   * @throws {UnknownMigrationError} When the database is ahead of the code.
+   * @throws When a migration fails; it is rolled back completely.
    */
-  public async migrate(migrationsPath: string): Promise<void> {
-    // Table rebuilds (e.g. widened CHECK constraints) cannot run with
-    // enforced foreign keys because SQLite validates implicit deletes on
-    // DROP TABLE. Migrations run at startup before any request is served,
-    // so constraints are lifted here and restored afterwards.
-    this.connection.pragma("foreign_keys = OFF");
+  public async migrate(migrations: readonly Migration[]): Promise<void> {
+    await this.execute(CREATE_MIGRATIONS_TABLE);
 
-    try {
-      await this.applyPendingMigrations(migrationsPath);
-    } finally {
-      this.connection.pragma("foreign_keys = ON");
-    }
-  }
+    const appliedChecksums = await this.readAppliedChecksums();
+    const knownNames = new Set(migrations.map((migration) => migration.name));
 
-  private async applyPendingMigrations(migrationsPath: string): Promise<void> {
-    this.connection.exec(`
-      CREATE TABLE IF NOT EXISTS schema_migrations (
-          name TEXT PRIMARY KEY,
-          applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    const appliedMigrations = this.getAppliedMigrations();
-    const directoryEntries = await readdir(migrationsPath, {
-      withFileTypes: true,
-    });
-    const migrationNames = directoryEntries
-      .filter((entry) => entry.isFile() && entry.name.endsWith(".sql"))
-      .map((entry) => entry.name)
-      .sort();
-
-    for (const migrationName of migrationNames) {
-      if (appliedMigrations.has(migrationName)) {
-        continue;
+    for (const appliedName of appliedChecksums.keys()) {
+      if (!knownNames.has(appliedName)) {
+        throw new UnknownMigrationError(appliedName);
       }
+    }
 
-      const migrationSql = await readFile(
-        path.join(migrationsPath, migrationName),
-        "utf8",
-      );
+    const orderedMigrations = [...migrations].sort((first, second) =>
+      first.name.localeCompare(second.name),
+    );
 
-      this.applyMigration(migrationName, migrationSql);
+    for (const migration of orderedMigrations) {
+      const checksum = createMigrationChecksum(migration.sql);
+      const appliedChecksum = appliedChecksums.get(migration.name);
+
+      if (appliedChecksum === undefined) {
+        await this.applyMigration(migration, checksum);
+      } else if (appliedChecksum !== checksum) {
+        throw new MigrationChecksumError(migration.name);
+      }
     }
   }
 
   /**
    * Runs a persistence statement without returning rows.
    *
-   * @param statement - SQL owned by a repository.
+   * @param statement - SQL owned by a repository. Without parameters it may
+   * hold several statements, which migrations rely on.
    * @param parameters - Values bound to the statement placeholders.
    */
   public async execute(
     statement: string,
     parameters: SqlParameters = {},
   ): Promise<void> {
-    const startedAt = performance.now();
-
-    try {
-      this.connection.prepare(statement).run(this.toBindings(parameters));
-    } finally {
-      recordDatabaseQuery(statement, performance.now() - startedAt);
-    }
+    await this.queue.run(() =>
+      runStatement(this.connection, statement, parameters),
+    );
   }
 
   /**
@@ -124,76 +191,190 @@ export class Database {
     statement: string,
     parameters: SqlParameters = {},
   ): Promise<readonly DatabaseValue[][]> {
-    const startedAt = performance.now();
+    return this.queue.run(() =>
+      readRows(this.connection, statement, parameters),
+    );
+  }
 
+  /**
+   * Runs several statements atomically.
+   *
+   * @param work - Receives statement access bound to the transaction. It
+   * must not call the database itself, because the database is busy until
+   * the transaction ends.
+   * @returns Whatever `work` returns once the transaction committed.
+   * @throws Whatever `work` throws, after the transaction was rolled back.
+   */
+  public async transaction<Result>(
+    work: (transaction: DatabaseTransaction) => Promise<Result>,
+  ): Promise<Result> {
+    return this.queue.run(() => runInTransaction(this.connection, work));
+  }
+
+  private async readAppliedChecksums(): Promise<ReadonlyMap<string, string>> {
+    const rows = await this.query(
+      "SELECT name, checksum FROM schema_migrations ORDER BY name;",
+    );
+
+    return new Map(
+      rows.map(
+        (row) =>
+          [
+            readTextColumn(row, 0, "name"),
+            readTextColumn(row, 1, "checksum"),
+          ] as const,
+      ),
+    );
+  }
+
+  private async applyMigration(
+    migration: Migration,
+    checksum: string,
+  ): Promise<void> {
     try {
-      const rows = this.connection
-        .prepare(statement)
-        .raw()
-        .all(this.toBindings(parameters));
-
-      return rows as DatabaseValue[][];
-    } finally {
-      recordDatabaseQuery(statement, performance.now() - startedAt);
-    }
-  }
-
-  private getAppliedMigrations(): Set<string> {
-    const rows = this.connection
-      .prepare("SELECT name FROM schema_migrations ORDER BY name;")
-      .raw()
-      .all() as DatabaseValue[][];
-    const appliedMigrations = new Set<string>();
-
-    for (const row of rows) {
-      const migrationName = row[0];
-
-      if (typeof migrationName !== "string") {
-        throw new Error("Database returned an invalid migration name.");
-      }
-
-      appliedMigrations.add(migrationName);
-    }
-
-    return appliedMigrations;
-  }
-
-  private applyMigration(name: string, sql: string): void {
-    const runMigration = this.connection.transaction(() => {
-      this.connection.exec(sql);
-      this.connection
-        .prepare(
+      await this.transaction(async (transaction) => {
+        await transaction.execute(migration.sql);
+        await transaction.execute(
           `
             INSERT INTO schema_migrations (
-                name
+                name,
+                checksum
             )
             VALUES (
-                $name
+                $name,
+                $checksum
             );
           `,
-        )
-        .run({ name });
+          { checksum, name: migration.name },
+        );
+      });
+    } catch (error: unknown) {
+      throw new Error(
+        `Failed to apply database migration "${migration.name}".`,
+        {
+          cause: error,
+        },
+      );
+    }
+  }
+}
+
+async function runInTransaction<Result>(
+  connection: DuckDBConnection,
+  work: (transaction: DatabaseTransaction) => Promise<Result>,
+): Promise<Result> {
+  await connection.run("BEGIN TRANSACTION;");
+
+  try {
+    const result = await work({
+      execute: (statement, parameters = {}) =>
+        runStatement(connection, statement, parameters),
+      query: (statement, parameters = {}) =>
+        readRows(connection, statement, parameters),
     });
 
-    try {
-      runMigration();
-    } catch (error: unknown) {
-      throw new Error(`Failed to apply database migration "${name}".`, {
-        cause: error,
-      });
-    }
+    await connection.run("COMMIT;");
+
+    return result;
+  } catch (error: unknown) {
+    await connection.run("ROLLBACK;");
+
+    throw error;
+  }
+}
+
+async function runStatement(
+  connection: DuckDBConnection,
+  statement: string,
+  parameters: SqlParameters,
+): Promise<void> {
+  const startedAt = performance.now();
+
+  try {
+    await connection.run(statement, toBindings(parameters));
+  } finally {
+    recordDatabaseQuery(statement, performance.now() - startedAt);
+  }
+}
+
+async function readRows(
+  connection: DuckDBConnection,
+  statement: string,
+  parameters: SqlParameters,
+): Promise<readonly DatabaseValue[][]> {
+  const startedAt = performance.now();
+
+  try {
+    const reader = await connection.runAndReadAll(
+      statement,
+      toBindings(parameters),
+    );
+
+    return reader.getRows().map((row) => row.map(toDatabaseValue));
+  } finally {
+    recordDatabaseQuery(statement, performance.now() - startedAt);
+  }
+}
+
+/**
+ * Converts repository parameters to DuckDB values.
+ *
+ * @returns `undefined` without parameters, because DuckDB only runs several
+ * statements in one call when nothing is bound.
+ */
+function toBindings(
+  parameters: SqlParameters,
+): Record<string, DuckDBValue> | undefined {
+  const entries = Object.entries(parameters);
+
+  if (entries.length === 0) {
+    return undefined;
   }
 
-  private toBindings(
-    parameters: SqlParameters,
-  ): Record<string, string | number | bigint | Buffer | null> {
-    const bindings: Record<string, string | number | bigint | Buffer | null> =
-      {};
+  return Object.fromEntries(
+    entries.map(([name, value]) => [name, toBinding(value)]),
+  );
+}
 
-    for (const [key, value] of Object.entries(parameters)) {
-      bindings[key] = typeof value === "boolean" ? Number(value) : value;
-    }
-
-    return bindings;
+function toBinding(value: SqlParameters[string]): DuckDBValue {
+  if (typeof value === "boolean") {
+    return value ? 1 : 0;
   }
+
+  if (Buffer.isBuffer(value)) {
+    return new DuckDBBlobValue(value);
+  }
+
+  return value;
+}
+
+/**
+ * Converts a DuckDB value to the value types repositories read.
+ *
+ * @remarks
+ * `COUNT` and `SUM` return `BIGINT`; those values become plain numbers while
+ * they fit, so repositories read them like any other integer.
+ */
+function toDatabaseValue(value: DuckDBValue): DatabaseValue {
+  if (value === null || typeof value === "string") {
+    return value;
+  }
+
+  if (typeof value === "number") {
+    return value;
+  }
+
+  if (typeof value === "bigint") {
+    return Number.isSafeInteger(Number(value)) ? Number(value) : value;
+  }
+
+  if (typeof value === "boolean") {
+    return value ? 1 : 0;
+  }
+
+  if (value instanceof DuckDBBlobValue) {
+    return Buffer.from(value.bytes);
+  }
+
+  throw new Error("Database returned a value of an unsupported type.");
 }

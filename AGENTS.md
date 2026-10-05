@@ -32,6 +32,8 @@ The coding rules in `GUIDELINES.md` are not optional recommendations. They are t
 
 If generated code conflicts with `GUIDELINES.md`, the code must be changed to comply with it.
 
+The rules that a tool can check are enforced by `pnpm check` and `pnpm lint` (ESLint, no warnings allowed). Chapter 18 of `GUIDELINES.md` lists them. Do not switch a rule off, relax a limit, or add suppression comments to make code pass; change the code instead.
+
 Do not weaken, bypass, reinterpret, or ignore the coding guidelines for convenience.
 
 If an existing implementation conflicts with `GUIDELINES.md`, prefer the guidelines for new code unless the task explicitly requires preserving the existing pattern.
@@ -122,6 +124,8 @@ For frontend work:
 - Keep desktop, tablet, and mobile behavior in mind.
 - Keep user-facing text compatible with i18next.
 - Preserve SSR compatibility.
+- Style with Tailwind utility classes; use a CSS Module only for what utilities cannot express.
+- Split a component that grows beyond the size limits of `GUIDELINES.md` into section components and hooks.
 
 Do not introduce a new UI pattern when an existing project pattern already solves the same problem.
 
@@ -138,6 +142,7 @@ For backend work:
 - Validate external input before use.
 - Keep authorization checks server-side.
 - Do not expose backend-only data to the client.
+- Split a repository or service that grows beyond the size limits of `GUIDELINES.md` into one small class per aggregate; the original class stays as a facade when other code depends on its public API.
 
 ---
 
@@ -146,7 +151,10 @@ For backend work:
 For database work:
 
 - Follow all SQL formatting and structure rules from `GUIDELINES.md`.
-- Add a new migration for schema changes.
+- Add a new migration for schema changes, as a numbered `.sql` file in
+  `backend/database/migrations-duckdb/`. The SQLite migrations in
+  `backend/database/migrations/` are frozen; they only describe the old file
+  that `pnpm db:transfer` reads.
 - Do not rewrite previously applied migrations.
 - Keep SQL explicit and readable.
 - Parameterize dynamic values.
@@ -203,6 +211,7 @@ Before considering a task complete:
 
 - Confirm the requested behavior is implemented.
 - Confirm changed code follows `GUIDELINES.md`.
+- Run `pnpm check`, `pnpm lint`, and `pnpm test`; all three must pass. `pnpm test` requires 100 % statement, branch, function, and line coverage for every file, without coverage-ignore comments and without new coverage exclusions.
 - Confirm no unrelated code was changed.
 - Confirm types and interfaces match the implementation.
 - Update documentation only when documented behavior changed.

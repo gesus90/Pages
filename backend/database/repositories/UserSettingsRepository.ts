@@ -89,7 +89,7 @@ export class UserSettingsRepository {
         VALUES (
             $user_id,
             $language,
-            CURRENT_TIMESTAMP
+            utc_now()
         )
         ON CONFLICT (user_id) DO UPDATE SET
             language = excluded.language,
@@ -170,7 +170,7 @@ export class UserSettingsRepository {
             $notify_assignments,
             $notify_due_dates,
             $notify_weekly_summary,
-            CURRENT_TIMESTAMP
+            utc_now()
         )
         ON CONFLICT (user_id) DO UPDATE SET
             language = excluded.language,

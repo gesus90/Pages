@@ -34,7 +34,7 @@ export function readDatabaseStats(): DatabaseStats {
  *
  * @remarks
  * Counting stays always on because two additions per query are negligible
- * next to SQLite itself. Individual statements are only logged in
+ * next to DuckDB itself. Individual statements are only logged in
  * development when they exceed `PAGES_SLOW_QUERY_MS` (default 50ms), so
  * production logs stay clean.
  *

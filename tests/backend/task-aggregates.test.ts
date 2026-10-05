@@ -1,15 +1,11 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
-
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { Database } from "@/backend/database/Database";
+import { Database, IN_MEMORY_DATABASE_PATH } from "@/backend/database/Database";
+import { DATABASE_MIGRATIONS } from "@/backend/database/Migrations";
 import { GitHubRepository } from "@/backend/database/repositories/GitHubRepository";
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import { TaskRepository } from "@/backend/database/repositories/TaskRepository";
 
-let directory = "";
 let database: Database | null = null;
 
 async function seed(): Promise<void> {
@@ -60,22 +56,14 @@ async function seed(): Promise<void> {
 }
 
 beforeEach(async () => {
-  directory = await mkdtemp(path.join(tmpdir(), "pages-aggregates-"));
-  database = await Database.create(path.join(directory, "pages.db"));
-  await database.migrate(
-    path.join(process.cwd(), "backend", "database", "migrations"),
-  );
+  database = await Database.create(IN_MEMORY_DATABASE_PATH);
+  await database.migrate(DATABASE_MIGRATIONS);
   await seed();
 });
 
 afterEach(async () => {
-  database?.close();
+  await database?.close();
   database = null;
-
-  if (directory) {
-    await rm(directory, { force: true, recursive: true });
-    directory = "";
-  }
 });
 
 describe("task aggregates", () => {

@@ -36,7 +36,6 @@ import {
 import TasksRoute from "@/app/routes/tasks";
 import { createI18n } from "@/app/lib/i18n";
 import { GITHUB_SYNC_INTERVAL } from "@/definition/Project";
-import { ROLE } from "@/definition/Role";
 import {
   WORK_ITEM_PRIORITY,
   WORK_ITEM_TYPE,
@@ -44,26 +43,16 @@ import {
 } from "@/definition/Task";
 import { LANGUAGE } from "@/language/Language";
 
+import { createUser } from "../helpers/factories";
+
 import type { Project, ProjectIntegration } from "@/definition/Project";
 import type { WorkItemDetail, WorkflowStatus } from "@/definition/Task";
-import type { User } from "@/definition/User";
 
 const mockedActionData = vi.mocked(useActionData);
 const mockedLoaderData = vi.mocked(useLoaderData);
 const mockedNavigate = vi.mocked(useNavigate);
 const mockedNavigation = vi.mocked(useNavigation);
 const mockedSubmit = vi.mocked(useSubmit);
-
-function createUser(overrides: Partial<User> = {}): User {
-  return {
-    displayName: "Admin",
-    id: "user-1",
-    isActive: true,
-    role: ROLE.ADMIN,
-    username: "admin",
-    ...overrides,
-  };
-}
 
 function createProject(): Project {
   return {

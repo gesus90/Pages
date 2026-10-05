@@ -5,7 +5,7 @@ import {
 } from "@/app/components/dashboard/dashboard-icons";
 
 /** Visual tone of a KPI delta line. */
-export type DashboardKpiTone = "accent" | "muted" | "positive";
+type DashboardKpiTone = "accent" | "muted" | "positive";
 
 interface DashboardKpiCardProps {
   readonly label: string;

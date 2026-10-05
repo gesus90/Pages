@@ -9,3 +9,10 @@ allowBuilds:
 # version in the requested range meets the minimum age, resolution fails
 # instead of falling back to a younger version.
 minimumReleaseAge: 14400
+
+# Transitive dependencies of @react-router/serve with published advisories
+# (qs: GHSA-x5fp-wj9c-mxmx, GHSA-4mjr-xmp4-gh2g; morgan: GHSA-jxfw-x594-9x9m).
+# Remove once @react-router/serve depends on the fixed versions itself.
+overrides:
+  morgan: ">=1.12.1 <2"
+  qs: ">=6.16.0 <7"

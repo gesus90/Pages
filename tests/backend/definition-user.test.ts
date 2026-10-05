@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isUser } from "@/definition/User";
+import { isUser, USER_AVATAR_TYPE } from "@/definition/User";
 import { ROLE } from "@/definition/Role";
 
 function createUser(): Record<string, unknown> {
@@ -25,6 +25,16 @@ describe("isUser", () => {
   it("accepts every documented role", () => {
     expect(isUser({ ...createUser(), role: ROLE.MANAGER })).toBe(true);
     expect(isUser({ ...createUser(), role: ROLE.EMPLOYEE })).toBe(true);
+  });
+
+  it("accepts every supported avatar type", () => {
+    for (const avatarType of Object.values(USER_AVATAR_TYPE)) {
+      expect(isUser({ ...createUser(), avatarType })).toBe(true);
+    }
+  });
+
+  it("rejects an unsupported avatar type", () => {
+    expect(isUser({ ...createUser(), avatarType: "animated" })).toBe(false);
   });
 
   it("accepts a user with additional unknown properties", () => {

@@ -11,29 +11,18 @@ import {
   parseGitHubRepository,
 } from "@/backend/service/GitHubSyncService";
 import { GitHubApiClient } from "@/backend/github/GitHubApiClient";
-import { ProjectManagementDeniedError } from "@/backend/service/ProjectService";
-import { WorkItemValidationError } from "@/backend/service/TaskService";
-import { ROLE } from "@/definition/Role";
 import { WORK_ITEM_PRIORITY, WORK_ITEM_TYPE } from "@/definition/Task";
+
+import { createUser } from "../helpers/factories";
+import { ProjectManagementDeniedError } from "@/backend/error/ProjectErrors";
+import { WorkItemValidationError } from "@/backend/error/WorkItemErrors";
 
 import type { ProjectIntegration } from "@/definition/Project";
 import type { WorkItemDetail, WorkflowStatus } from "@/definition/Task";
-import type { User } from "@/definition/User";
 
 type MockMap = { [key: string]: ReturnType<typeof vi.fn> };
 
 const NOW = "2026-09-05T14:21:00.000Z";
-
-function createUser(overrides: Partial<User> = {}): User {
-  return {
-    displayName: "Admin",
-    id: "user-1",
-    isActive: true,
-    role: ROLE.ADMIN,
-    username: "admin",
-    ...overrides,
-  };
-}
 
 function createIntegration(
   overrides: Partial<ProjectIntegration> = {},

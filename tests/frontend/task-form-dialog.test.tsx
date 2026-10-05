@@ -7,7 +7,6 @@ import { createMemoryRouter, RouterProvider } from "react-router";
 
 import { TaskFormDialog } from "@/app/components/tasks/task-form-dialog";
 import { createI18n } from "@/app/lib/i18n";
-import { ROLE } from "@/definition/Role";
 import {
   WORK_ITEM_PRIORITY,
   WORK_ITEM_TYPE,
@@ -15,13 +14,14 @@ import {
 } from "@/definition/Task";
 import { LANGUAGE } from "@/language/Language";
 
+import { createUser } from "../helpers/factories";
+
 import type { Project } from "@/definition/Project";
 import type {
   Milestone,
   WorkItemDetail,
   WorkflowStatus,
 } from "@/definition/Task";
-import type { User } from "@/definition/User";
 
 function createProject(): Project {
   return {
@@ -77,16 +77,6 @@ function createMilestone(): Milestone {
     startAt: "2026-01-01",
     status: "open",
     updatedAt: "2026-01-02",
-  };
-}
-
-function createUser(): User {
-  return {
-    displayName: "Admin",
-    id: "user-1",
-    isActive: true,
-    role: ROLE.ADMIN,
-    username: "admin",
   };
 }
 
@@ -392,6 +382,70 @@ describe("TaskFormDialog", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("PAGE-1: Platform")).toBeInTheDocument();
     expect(screen.queryByText("PAGE-9: Self")).not.toBeInTheDocument();
+  });
+
+  it("selects an epic as the parent of a task", async () => {
+    const user = userEvent.setup();
+    renderDialog({ mode: "create" });
+
+    const parentSelect = screen.getByLabelText("Epic auswählen (optional)");
+    await user.click(parentSelect);
+    await user.click(
+      await screen.findByRole("option", { name: "PAGE-2: Epic 1" }),
+    );
+
+    expect(parentSelect).toHaveTextContent("PAGE-2: Epic 1");
+  });
+
+  it("changes the reporter of an edited task", async () => {
+    const user = userEvent.setup();
+    renderDialog({
+      assignees: [
+        createUser(),
+        { ...createUser(), displayName: "Erika", id: "user-2" },
+      ],
+      initialTask: createWorkItem(),
+      mode: "edit",
+    });
+
+    const reporterSelect = screen.getByLabelText("Reporter");
+    await user.click(reporterSelect);
+    await user.click(await screen.findByRole("option", { name: "Erika" }));
+
+    expect(reporterSelect).toHaveTextContent("Erika");
+  });
+
+  it("offers no parent for an initiative", async () => {
+    const user = userEvent.setup();
+    renderDialog({ mode: "create" });
+
+    await user.click(screen.getByLabelText("Typ *"));
+    await user.click(await screen.findByRole("option", { name: "Initiative" }));
+
+    expect(
+      screen.queryByLabelText("Epic auswählen (optional)"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Initiative auswählen (optional)"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders nothing while the dialog is closed", () => {
+    renderDialog({ isOpen: false, mode: "create" });
+
+    expect(screen.queryByLabelText("Typ *")).not.toBeInTheDocument();
+  });
+
+  it("starts in the default project when it is available", () => {
+    renderDialog({ defaultProjectId: "project-2", mode: "create" });
+
+    expect(screen.getByLabelText("Projekt *")).toHaveTextContent("AstroLab");
+  });
+
+  it("starts in the first project when the default project is unknown", () => {
+    renderDialog({ defaultProjectId: "project-9", mode: "create" });
+
+    expect(screen.getByLabelText("Projekt *")).toHaveTextContent("Pages");
   });
 
   it("switches project to update available milestones and parents", async () => {

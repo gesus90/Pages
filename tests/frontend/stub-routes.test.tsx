@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("react-router", async (importOriginal) => {
@@ -19,6 +19,7 @@ import {
   createMemoryRouter,
   RouterProvider,
   useLoaderData,
+  useNavigation,
 } from "react-router";
 
 import { createI18n } from "@/app/lib/i18n";
@@ -27,7 +28,10 @@ import ProjectRoute from "@/app/routes/project";
 import SettingsRoute from "@/app/routes/settings";
 import WikiRoute from "@/app/routes/wiki";
 
+import { createSettingsLoaderData } from "../helpers/settings-loader-data";
+
 const mockedLoaderData = vi.mocked(useLoaderData);
+const mockedNavigation = vi.mocked(useNavigation);
 
 function renderWithRouter(element: React.ReactElement): void {
   const i18n = createI18n(LANGUAGE.GERMAN);
@@ -44,10 +48,16 @@ function renderWithRouter(element: React.ReactElement): void {
 
 describe("future route boundaries", () => {
   it("renders the settings screen with its language options", () => {
-    mockedLoaderData.mockReturnValue({ language: LANGUAGE.GERMAN });
+    mockedLoaderData.mockReturnValue(createSettingsLoaderData());
+    mockedNavigation.mockReturnValue({
+      state: "idle",
+    } as ReturnType<typeof useNavigation>);
     renderWithRouter(<SettingsRoute />);
 
-    expect(document.querySelector('[role="heading"], h1')).not.toBeNull();
+    expect(
+      screen.getByRole("heading", { name: "Einstellungen" }),
+    ).toBeVisible();
+    expect(screen.getByRole("combobox", { name: "Sprache" })).toBeVisible();
   });
 
   it("renders an empty project shell", () => {

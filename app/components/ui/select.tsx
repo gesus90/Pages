@@ -5,8 +5,8 @@ import { cn } from "@/app/lib/cn";
 
 import type { ReactNode } from "react";
 
-interface SelectOption {
-  readonly value: string;
+interface SelectOption<Value extends string = string> {
+  readonly value: Value;
   readonly label: string;
   readonly disabled?: boolean;
   /** Optional leading icon shown in the trigger and the option row. */
@@ -20,10 +20,10 @@ interface SelectOption {
   readonly description?: string;
 }
 
-interface SelectProps {
-  readonly value: string;
-  readonly onValueChange: (value: string) => void;
-  readonly options: readonly SelectOption[];
+interface SelectProps<Value extends string = string> {
+  readonly value: Value;
+  readonly onValueChange: (value: Value) => void;
+  readonly options: readonly SelectOption<Value>[];
   readonly placeholder?: string;
   readonly ariaLabel?: string;
   readonly disabled?: boolean;
@@ -59,7 +59,7 @@ function fromRadixValue(value: string): string {
  * `Select.Root` direkt zu nutzen oder native `select`-Elemente
  * mit duplizierten Klassen zu pflegen.
  */
-export function Select({
+export function Select<Value extends string = string>({
   value,
   onValueChange,
   options,
@@ -68,9 +68,10 @@ export function Select({
   disabled = false,
   className,
   id,
-}: SelectProps): React.ReactElement {
+}: SelectProps<Value>): React.ReactElement {
   function handleValueChange(nextValue: string): void {
-    onValueChange(fromRadixValue(nextValue));
+    // Radix only reports values of the rendered options, which are `Value`s.
+    onValueChange(fromRadixValue(nextValue) as Value);
   }
 
   const selectedIcon = options.find(

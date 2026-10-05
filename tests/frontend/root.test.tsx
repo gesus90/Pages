@@ -11,7 +11,7 @@ vi.mock("react-router", async (importOriginal) => {
     Meta: () => null,
     Scripts: () => null,
     ScrollRestoration: () => null,
-    useLoaderData: vi.fn(),
+    useRouteLoaderData: vi.fn(),
   };
 });
 
@@ -38,7 +38,7 @@ import { I18nextProvider } from "react-i18next";
 import {
   createMemoryRouter,
   RouterProvider,
-  useLoaderData,
+  useRouteLoaderData,
 } from "react-router";
 
 import { getAuthenticatedUser } from "@/app/lib/auth.server";
@@ -47,9 +47,18 @@ import { getApplicationServices } from "@/app/lib/services.server";
 import { createI18n } from "@/app/lib/i18n";
 import { ROLE } from "@/definition/Role";
 import { LANGUAGE } from "@/language/Language";
-import Root, { Layout, links, loader, meta } from "@/app/root";
+import Root, {
+  ErrorBoundary,
+  Layout,
+  headers,
+  links,
+  loader,
+  meta,
+} from "@/app/root";
 
-const mockedLoaderData = vi.mocked(useLoaderData);
+import type { Language } from "@/language/Language";
+
+const mockedLoaderData = vi.mocked(useRouteLoaderData);
 const mockedGetUser = vi.mocked(getAuthenticatedUser);
 const mockedServices = vi.mocked(getApplicationServices);
 const mockedAnonymousLanguage = vi.mocked(resolveAnonymousLanguage);
@@ -197,5 +206,111 @@ describe("Layout", () => {
 
     expect(screen.getByText("Anwendungsinhalt")).toBeInTheDocument();
     expect(document.documentElement.lang).toBe("de");
+  });
+});
+
+function renderErrorBoundary(
+  thrown: Response | Error,
+  language: Language = LANGUAGE.GERMAN,
+): void {
+  const router = createMemoryRouter(
+    [
+      {
+        ErrorBoundary,
+        Component: Root,
+        loader: () => {
+          throw thrown;
+        },
+        path: "/",
+      },
+    ],
+    { initialEntries: ["/"] },
+  );
+
+  render(
+    <I18nextProvider i18n={createI18n(language)}>
+      <RouterProvider router={router} />
+    </I18nextProvider>,
+  );
+}
+
+describe("ErrorBoundary", () => {
+  it("explains a forbidden response", async () => {
+    renderErrorBoundary(new Response("Forbidden", { status: 403 }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Zugriff verweigert" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Du hast keine Berechtigung, diese Seite anzusehen."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("403")).toBeInTheDocument();
+  });
+
+  it("explains a missing page in English", async () => {
+    renderErrorBoundary(
+      new Response("Not Found", { status: 404 }),
+      LANGUAGE.ENGLISH,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Page not found" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "The page you are looking for doesn't exist or has been moved.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("404")).toBeInTheDocument();
+  });
+
+  it("shows the generic copy and status for other responses", async () => {
+    renderErrorBoundary(new Response("Method Not Allowed", { status: 405 }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Etwas ist schiefgelaufen" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("405")).toBeInTheDocument();
+  });
+
+  it("hides the details of an unexpected error", async () => {
+    renderErrorBoundary(new Error("connection to /srv/pages/secret.db failed"));
+
+    expect(
+      await screen.findByRole("heading", { name: "Etwas ist schiefgelaufen" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/secret\.db/u)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^\d{3}$/u)).not.toBeInTheDocument();
+  });
+
+  it("links back to the start page", async () => {
+    renderErrorBoundary(new Response("Forbidden", { status: 403 }));
+
+    expect(
+      await screen.findByRole("link", { name: "Zur Startseite" }),
+    ).toHaveAttribute("href", "/");
+  });
+
+  it("renders the translated link in English", async () => {
+    renderErrorBoundary(new Error("boom"), LANGUAGE.ENGLISH);
+
+    expect(
+      await screen.findByRole("link", { name: "Back to the start page" }),
+    ).toHaveAttribute("href", "/");
+  });
+});
+
+describe("root headers", () => {
+  it("sends the security headers with every document", () => {
+    const result = headers({
+      actionHeaders: new Headers(),
+      errorHeaders: undefined,
+      loaderHeaders: new Headers(),
+      parentHeaders: new Headers(),
+    }) as Record<string, string>;
+
+    expect(result["X-Frame-Options"]).toBe("DENY");
+    expect(result["X-Content-Type-Options"]).toBe("nosniff");
+    expect(result["Content-Security-Policy"]).toContain("default-src 'self'");
   });
 });

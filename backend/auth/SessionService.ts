@@ -171,6 +171,15 @@ export class SessionService {
   }
 
   /**
+   * Invalidates every session of a user, including the current browser's.
+   *
+   * @param userId - Identifier of the session owner.
+   */
+  public async revokeAllSessions(userId: string): Promise<void> {
+    await this.sessionRepository.deleteAllByUserId(userId);
+  }
+
+  /**
    * Invalidates a session so its token stops working.
    *
    * @param token - Token sent by the browser.

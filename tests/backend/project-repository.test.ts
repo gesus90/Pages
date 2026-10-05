@@ -1,24 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import { PROJECT_STATUS } from "@/definition/Project";
 
-import type { Database } from "@/backend/database/Database";
-
-function createDatabase(): Database & {
-  execute: ReturnType<typeof vi.fn>;
-  query: ReturnType<typeof vi.fn>;
-} {
-  return {
-    close: vi.fn(),
-    execute: vi.fn(),
-    migrate: vi.fn(),
-    query: vi.fn(),
-  } as unknown as Database & {
-    execute: ReturnType<typeof vi.fn>;
-    query: ReturnType<typeof vi.fn>;
-  };
-}
+import { createDatabase } from "../helpers/factories";
 
 function createRow(overrides: readonly unknown[] = []): readonly unknown[] {
   return [
@@ -188,7 +173,7 @@ describe("ProjectRepository", () => {
       },
     );
     expect(database.execute).toHaveBeenLastCalledWith(
-      expect.stringContaining("archived_at = CURRENT_TIMESTAMP"),
+      expect.stringContaining("archived_at = utc_now()"),
       { id: "project-1" },
     );
   });

@@ -1,24 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { UserSettingsRepository } from "@/backend/database/repositories/UserSettingsRepository";
 import { LANGUAGE } from "@/language/Language";
 
-import type { Database } from "@/backend/database/Database";
-
-function createDatabase(): Database & {
-  execute: ReturnType<typeof vi.fn>;
-  query: ReturnType<typeof vi.fn>;
-} {
-  return {
-    close: vi.fn(),
-    execute: vi.fn(),
-    migrate: vi.fn(),
-    query: vi.fn(),
-  } as unknown as Database & {
-    execute: ReturnType<typeof vi.fn>;
-    query: ReturnType<typeof vi.fn>;
-  };
-}
+import { createDatabase } from "../helpers/factories";
 
 describe("UserSettingsRepository", () => {
   let database: ReturnType<typeof createDatabase>;
@@ -60,6 +45,16 @@ describe("UserSettingsRepository", () => {
 
     await expect(repository.findLanguageByUserId("user-1")).rejects.toThrow(
       'Database returned an unsupported language "fr".',
+    );
+  });
+
+  it("throws for a complete settings row with an unsupported language", async () => {
+    database.query.mockResolvedValue([
+      ["fr", null, null, null, null, null, null, null, null, null],
+    ]);
+
+    await expect(repository.findByUserId("user-1")).rejects.toThrow(
+      'unsupported language "fr"',
     );
   });
 

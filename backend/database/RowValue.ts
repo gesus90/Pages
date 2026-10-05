@@ -56,7 +56,7 @@ export function readNullableTextColumn(
  * @param index - Zero-based column position.
  * @param column - Column name used in error messages.
  * @returns The column value as binary data.
- * @throws When the column is missing or not a SQLite BLOB.
+ * @throws When the column is missing or not a BLOB.
  */
 export function readBlobColumn(
   row: readonly DatabaseValue[],
@@ -79,11 +79,11 @@ export function readBlobColumn(
  * @param index - Zero-based column position.
  * @param column - Column name used in error messages.
  * @returns The column value as a boolean.
- * @throws When the column is missing or not a SQLite `0`/`1` integer.
+ * @throws When the column is missing or not a `0`/`1` integer.
  *
  * @remarks
- * SQLite has no native boolean type, so boolean columns are stored and
- * returned as the integers `0` and `1`.
+ * Boolean columns are stored as the integers `0` and `1`, and the database
+ * facade returns boolean expressions in the same form.
  */
 export function readBooleanColumn(
   row: readonly DatabaseValue[],
@@ -106,7 +106,7 @@ export function readBooleanColumn(
  * @param index - Zero-based column position.
  * @param column - Column name used in error messages.
  * @returns The column value as a boolean, or `null` when the column is `NULL`.
- * @throws When the column is missing or neither `NULL` nor a SQLite `0`/`1` integer.
+ * @throws When the column is missing or neither `NULL` nor a `0`/`1` integer.
  */
 export function readNullableBooleanColumn(
   row: readonly DatabaseValue[],

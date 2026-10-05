@@ -8,6 +8,11 @@ import {
   ServerCache,
   stableIdKey,
 } from "@/backend/cache/ServerCache";
+import {
+  ProjectAccessDeniedError,
+  ProjectManagementDeniedError,
+  ProjectNotFoundError,
+} from "@/backend/error/ProjectErrors";
 
 import type { PermissionService } from "@/backend/auth/PermissionService";
 import type {
@@ -26,7 +31,6 @@ import type {
   GitHubSyncInterval,
   Project,
   ProjectActivity,
-  ProjectActivityCategory,
   ProjectEvent,
   ProjectGoal,
   ProjectIntegration,
@@ -34,27 +38,6 @@ import type {
   ProjectRole,
 } from "@/definition/Project";
 import type { User } from "@/definition/User";
-
-/** Thrown when a project does not exist or has already been archived. */
-export class ProjectNotFoundError extends Error {
-  public constructor() {
-    super("The requested project does not exist.");
-  }
-}
-
-/** Thrown when an actor may not read a project they are not assigned to. */
-export class ProjectAccessDeniedError extends Error {
-  public constructor() {
-    super("This user is not allowed to access the requested project.");
-  }
-}
-
-/** Thrown when an actor may not create or change projects. */
-export class ProjectManagementDeniedError extends Error {
-  public constructor() {
-    super("This user is not allowed to manage projects.");
-  }
-}
 
 /** Establishes the business-logic boundary for projects. */
 export class ProjectService {
@@ -232,13 +215,11 @@ export class ProjectService {
       notes,
     });
     this.cache.invalidateProject(projectId);
-    await this.recordActivity(
-      actor,
-      projectId,
-      "project",
-      "project_updated",
-      `Project details were updated.`,
-    );
+    await this.recordActivity(actor, projectId, {
+      action: "project_updated",
+      category: "project",
+      message: `Project details were updated.`,
+    });
 
     const updated = await this.projectRepository.findById(projectId);
 
@@ -275,13 +256,11 @@ export class ProjectService {
 
     await this.projectRepository.addMember(projectId, userId, role);
     this.cache.invalidateProjectMembership();
-    await this.recordActivity(
-      actor,
-      projectId,
-      "team",
-      "member_added",
-      `A person was added to the project as ${role}.`,
-    );
+    await this.recordActivity(actor, projectId, {
+      action: "member_added",
+      category: "team",
+      message: `A person was added to the project as ${role}.`,
+    });
   }
 
   /** Changes the project role of an assigned person. */
@@ -300,13 +279,11 @@ export class ProjectService {
 
     await this.projectRepository.updateMemberRole(projectId, userId, role);
     this.cache.invalidateProjectMembership();
-    await this.recordActivity(
-      actor,
-      projectId,
-      "team",
-      "role_changed",
-      `A project role was changed to ${role}.`,
-    );
+    await this.recordActivity(actor, projectId, {
+      action: "role_changed",
+      category: "team",
+      message: `A project role was changed to ${role}.`,
+    });
   }
 
   /** Removes a person from the project. */
@@ -319,13 +296,11 @@ export class ProjectService {
     await this.getById(actor, projectId);
     await this.projectRepository.removeMember(projectId, userId);
     this.cache.invalidateProjectMembership();
-    await this.recordActivity(
-      actor,
-      projectId,
-      "team",
-      "member_removed",
-      `A person was removed from the project.`,
-    );
+    await this.recordActivity(actor, projectId, {
+      action: "member_removed",
+      category: "team",
+      message: `A person was removed from the project.`,
+    });
   }
 
   /** Returns whether the actor may write in the project context. */
@@ -374,13 +349,11 @@ export class ProjectService {
     };
 
     await this.projectRepository.insertGoal(goal);
-    await this.recordActivity(
-      actor,
-      projectId,
-      "planning",
-      "goal_created",
-      `Goal "${trimmed}" was created.`,
-    );
+    await this.recordActivity(actor, projectId, {
+      action: "goal_created",
+      category: "planning",
+      message: `Goal "${trimmed}" was created.`,
+    });
   }
 
   /** Updates a goal. */
@@ -388,9 +361,10 @@ export class ProjectService {
     actor: User,
     projectId: string,
     goalId: string,
-    title: string,
-    isDone: boolean,
+    changes: { readonly title: string; readonly isDone: boolean },
   ): Promise<void> {
+    const { title, isDone } = changes;
+
     await this.requireProjectWrite(actor, projectId);
     await this.getById(actor, projectId);
 
@@ -470,19 +444,17 @@ export class ProjectService {
     await this.projectRepository.insertEvent({
       description: event.description.trim(),
       eventDate: event.eventDate,
-      eventTime: event.eventTime?.trim() || null,
+      eventTime: normalizeEventTime(event.eventTime),
       id: randomUUID(),
       projectId,
       title,
       type: event.type.trim().slice(0, 40) || "general",
     });
-    await this.recordActivity(
-      actor,
-      projectId,
-      "planning",
-      "event_created",
-      `Date "${title}" was created for ${event.eventDate}.`,
-    );
+    await this.recordActivity(actor, projectId, {
+      action: "event_created",
+      category: "planning",
+      message: `Date "${title}" was created for ${event.eventDate}.`,
+    });
   }
 
   /** Updates a planning date. */
@@ -508,7 +480,7 @@ export class ProjectService {
     await this.projectRepository.updateEvent(eventId, {
       description: event.description.trim(),
       eventDate: event.eventDate,
-      eventTime: event.eventTime?.trim() || null,
+      eventTime: normalizeEventTime(event.eventTime),
       title,
       type: event.type.trim().slice(0, 40) || "general",
     });
@@ -623,13 +595,11 @@ export class ProjectService {
 
     await this.projectRepository.upsertIntegration(projectId, integration);
     this.cache.invalidateGitHub();
-    await this.recordActivity(
-      actor,
-      projectId,
-      "integrations",
-      "integration_saved",
-      `GitHub integration settings were saved.`,
-    );
+    await this.recordActivity(actor, projectId, {
+      action: "integration_saved",
+      category: "integrations",
+      message: `GitHub integration settings were saved.`,
+    });
 
     return this.projectRepository.findIntegration(projectId);
   }
@@ -642,13 +612,11 @@ export class ProjectService {
     await this.requireProjectWrite(actor, projectId);
     await this.projectRepository.deleteIntegration(projectId);
     this.cache.invalidateGitHub();
-    await this.recordActivity(
-      actor,
-      projectId,
-      "integrations",
-      "integration_disconnected",
-      `GitHub connection was removed.`,
-    );
+    await this.recordActivity(actor, projectId, {
+      action: "integration_disconnected",
+      category: "integrations",
+      message: `GitHub connection was removed.`,
+    });
   }
 
   /** Returns the chronological activity log of a project. */
@@ -701,15 +669,11 @@ export class ProjectService {
   private async recordActivity(
     actor: User,
     projectId: string,
-    category: ProjectActivityCategory,
-    action: string,
-    message: string,
+    activity: Pick<NewProjectActivity, "action" | "category" | "message">,
   ): Promise<void> {
     const entry: NewProjectActivity = {
-      action,
-      category,
+      ...activity,
       id: randomUUID(),
-      message,
       projectId,
       userId: actor.id,
     };
@@ -734,4 +698,11 @@ function extractRepoName(repoUrl: string): string | null {
   );
 
   return match?.[1] ?? null;
+}
+
+// A blank time means the date has no time, so an empty string must not be stored.
+function normalizeEventTime(eventTime: string | null): string | null {
+  const trimmedTime = eventTime?.trim();
+
+  return trimmedTime === undefined || trimmedTime === "" ? null : trimmedTime;
 }

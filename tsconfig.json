@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "allowImportingTsExtensions": false,
+    "erasableSyntaxOnly": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,
@@ -10,11 +11,15 @@
     "moduleResolution": "Bundler",
     "noEmit": true,
     "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
     "resolveJsonModule": true,
+    "rootDirs": [".", "./.react-router/types"],
     "skipLibCheck": true,
     "strict": true,
     "target": "ES2023",
     "types": ["node", "vite/client"],
+    "verbatimModuleSyntax": true,
     "paths": {
       "@/*": ["./*"]
     }
@@ -24,9 +29,11 @@
     "backend",
     "definition",
     "language",
+    "scripts",
     "tests",
     "react-router.config.ts",
     "vite.config.ts",
-    "vitest.config.ts"
+    "vitest.config.ts",
+    ".react-router/types/**/*"
   ]
 }

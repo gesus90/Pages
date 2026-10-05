@@ -253,6 +253,39 @@ describe("TasksKanban", () => {
     expect(onQuickCreate).toHaveBeenCalledWith("status-backlog");
   });
 
+  it("selects a ticket with Enter or Space and ignores other keys", async () => {
+    const user = userEvent.setup();
+    const onSelectTask = vi.fn();
+
+    render(
+      <I18nextProvider i18n={createI18n(LANGUAGE.GERMAN)}>
+        <TasksKanban
+          onMoveTask={vi.fn()}
+          onOpenTask={vi.fn()}
+          onQuickCreate={vi.fn()}
+          onSelectTask={onSelectTask}
+          selectedTaskId={null}
+          statuses={createStatuses()}
+          workItems={[createWorkItem()]}
+        />
+      </I18nextProvider>,
+    );
+
+    const card = screen.getByRole("button", { name: /Kanban implementieren/ });
+
+    card.focus();
+    await user.keyboard("a");
+
+    expect(onSelectTask).not.toHaveBeenCalled();
+
+    await user.keyboard("{Enter}");
+    await user.keyboard(" ");
+
+    expect(card).toHaveFocus();
+    expect(onSelectTask).toHaveBeenCalledTimes(2);
+    expect(onSelectTask).toHaveBeenCalledWith("PAGE-12");
+  });
+
   it("handles HTML5 drag and drop between columns", () => {
     const onMoveTask = vi.fn();
     const i18n = createI18n(LANGUAGE.GERMAN);
@@ -279,7 +312,9 @@ describe("TasksKanban", () => {
       </I18nextProvider>,
     );
 
-    const card = screen.getByText("Kanban implementieren").closest("article")!;
+    const card = screen
+      .getByText("Kanban implementieren")
+      .closest("[data-ticket-item]")!;
     const inProgressColumn = screen.getByText("In Arbeit").closest(".w-80")!;
     const backlogColumn = screen.getByText("Backlog").closest(".w-80")!;
 
@@ -445,7 +480,7 @@ describe("TasksKanban", () => {
     );
 
     const cards = screen.getAllByText("Kanban implementieren");
-    const card = cards[0]?.closest("article");
+    const card = cards[0]?.closest("[data-ticket-item]");
 
     if (!card) {
       return;
@@ -596,7 +631,7 @@ describe("TasksKanban", () => {
     );
 
     const cards = screen.getAllByText("Kanban implementieren");
-    const card = cards[0]?.closest("article");
+    const card = cards[0]?.closest("[data-ticket-item]");
 
     if (!card) {
       return;
@@ -677,7 +712,9 @@ describe("TasksKanban", () => {
       </I18nextProvider>,
     );
 
-    const card = screen.getByText("Kanban implementieren").closest("article")!;
+    const card = screen
+      .getByText("Kanban implementieren")
+      .closest("[data-ticket-item]")!;
     const backlogColumn = screen.getByText("Backlog").closest(".w-80")!;
 
     const { transfer } = createDataTransfer();
@@ -721,7 +758,9 @@ describe("TasksKanban", () => {
       </I18nextProvider>,
     );
 
-    const card = screen.getByText("Kanban implementieren").closest("article")!;
+    const card = screen
+      .getByText("Kanban implementieren")
+      .closest("[data-ticket-item]")!;
     const inProgressColumn = screen.getByText("In Arbeit").closest(".w-80")!;
 
     const { transfer } = createDataTransfer();
@@ -905,7 +944,7 @@ describe("TasksKanban", () => {
 
     const taskCard = screen
       .getByText("TASK-1")
-      .closest("article") as HTMLElement;
+      .closest("[data-ticket-item]") as HTMLElement;
     fireEvent.dragStart(taskCard, { dataTransfer: transfer });
 
     const todoColumn = screen
@@ -924,7 +963,7 @@ describe("TasksKanban", () => {
 
     const initCard = screen
       .getByText("INI-1")
-      .closest("article") as HTMLElement;
+      .closest("[data-ticket-item]") as HTMLElement;
     fireEvent.dragStart(initCard, { dataTransfer: transfer });
 
     const inProgressColumn = screen
@@ -945,7 +984,7 @@ describe("TasksKanban", () => {
 
     const epicCard = screen
       .getByText("EPIC-1")
-      .closest("article") as HTMLElement;
+      .closest("[data-ticket-item]") as HTMLElement;
     fireEvent.dragStart(epicCard, { dataTransfer: transfer });
 
     const reviewColumn = screen
@@ -988,10 +1027,10 @@ describe("TasksKanban", () => {
 
     const firstCard = screen
       .getByText("PAGE-12")
-      .closest("article") as HTMLElement;
+      .closest("[data-ticket-item]") as HTMLElement;
     const secondCard = screen
       .getByText("ASTRO-31")
-      .closest("article") as HTMLElement;
+      .closest("[data-ticket-item]") as HTMLElement;
     const todoColumn = screen
       .getByText("To Do")
       .closest(".w-80") as HTMLElement;
@@ -1124,7 +1163,7 @@ describe("TasksKanban", () => {
 
     const firstCard = screen
       .getByText("PAGE-12")
-      .closest("article") as HTMLElement;
+      .closest("[data-ticket-item]") as HTMLElement;
     const todoColumn = screen
       .getByText("To Do")
       .closest(".w-80") as HTMLElement;
@@ -1147,5 +1186,35 @@ describe("TasksKanban", () => {
     fireEvent.dragOver(todoColumn, { dataTransfer: transfer });
 
     expect(container.querySelector("[data-drop-ghost]")).toBeNull();
+  });
+
+  it("clears the drop target when the pointer leaves the page", () => {
+    const i18n = createI18n(LANGUAGE.GERMAN);
+
+    render(
+      <I18nextProvider i18n={i18n}>
+        <TasksKanban
+          onMoveTask={vi.fn()}
+          onOpenTask={vi.fn()}
+          onQuickCreate={vi.fn()}
+          onSelectTask={vi.fn()}
+          selectedTaskId={null}
+          statuses={createStatuses()}
+          workItems={[createWorkItem()]}
+        />
+      </I18nextProvider>,
+    );
+
+    const todoColumn = screen
+      .getByText("To Do")
+      .closest(".w-80") as HTMLElement;
+    const { transfer } = createDataTransfer();
+
+    fireEvent.dragOver(todoColumn, { dataTransfer: transfer });
+    expect(todoColumn.className).toContain("ring-primary/30");
+
+    fireEvent.dragLeave(todoColumn);
+
+    expect(todoColumn.className).not.toContain("ring-primary/30");
   });
 });

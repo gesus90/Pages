@@ -70,3 +70,25 @@ export function isUser(value: unknown): value is User {
     typeof candidate.isActive === "boolean"
   );
 }
+
+/** Largest avatar image a user may upload, in bytes. */
+export const MAXIMUM_AVATAR_BYTES = 5 * 1024 * 1024;
+
+/** Image types accepted as avatar uploads. */
+export const SUPPORTED_AVATAR_MIME_TYPES: ReadonlySet<string> = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
+
+/** Shape every stored email address has to match. */
+export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Fewest characters a new password needs. */
+export const MINIMUM_PASSWORD_LENGTH = 8;
+
+/** A user as listed in the directory, with what the viewer may do with them. */
+export interface UserListItem extends User {
+  readonly canManage: boolean;
+  readonly email: string | null;
+}

@@ -13,30 +13,19 @@ vi.mock("@/app/lib/services.server", () => ({
 }));
 
 import { getApplicationServices } from "@/app/lib/services.server";
-import { UsernameTakenError } from "@/backend/database/repositories/UserRepository";
+import { action, loader, middleware } from "@/app/routes/users";
+import { ROLE } from "@/definition/Role";
+
+import { createUser } from "../helpers/factories";
 import {
   LastAdministratorError,
   RoleAssignmentDeniedError,
   UserManagementDeniedError,
   UserNotFoundError,
-} from "@/backend/service/UserService";
-import { action, loader, middleware } from "@/app/routes/users";
-import { ROLE } from "@/definition/Role";
-
-import type { User } from "@/definition/User";
+  UsernameTakenError,
+} from "@/backend/error/UserErrors";
 
 const mockedServices = vi.mocked(getApplicationServices);
-
-function createUser(overrides: Partial<User> = {}): User {
-  return {
-    displayName: "Admin",
-    id: "user-1",
-    isActive: true,
-    role: ROLE.ADMIN,
-    username: "admin",
-    ...overrides,
-  };
-}
 
 function createServices(
   overrides: Record<string, unknown> = {},
@@ -49,6 +38,7 @@ function createServices(
     userService: {
       createUser: vi.fn().mockResolvedValue(undefined),
       findAll: vi.fn().mockResolvedValue([]),
+      findEmailAddresses: vi.fn().mockResolvedValue(new Map()),
       setActive: vi.fn().mockResolvedValue(undefined),
     },
     ...overrides,
@@ -126,6 +116,9 @@ describe("users route loader", () => {
               createUser({ id: "user-2", username: "second" }),
               createUser({ id: "user-3", username: "third" }),
             ]),
+          findEmailAddresses: vi
+            .fn()
+            .mockResolvedValue(new Map([["user-2", "second@example.invalid"]])),
         },
       }),
     );
@@ -138,8 +131,11 @@ describe("users route loader", () => {
     } as unknown as Parameters<typeof loader>[0]);
 
     expect(result.users).toHaveLength(2);
-    expect(result.users[0]).toMatchObject({ canManage: true });
-    expect(result.users[1]).toMatchObject({ canManage: false });
+    expect(result.users[0]).toMatchObject({
+      canManage: true,
+      email: "second@example.invalid",
+    });
+    expect(result.users[1]).toMatchObject({ canManage: false, email: null });
     expect(canManageUser).toHaveBeenCalledWith(actor.role, "admin");
   });
 });
@@ -544,5 +540,91 @@ describe("users route action", () => {
         }),
       } as unknown as Parameters<typeof action>[0]),
     ).rejects.toThrow("Disk broken");
+  });
+
+  describe("reset-password", () => {
+    function createResetRequest(userId = "user-2"): Request {
+      return createPostRequest({ intent: "reset-password", userId });
+    }
+
+    it("resets the password and signs the user out everywhere", async () => {
+      const resetPassword = vi
+        .fn()
+        .mockResolvedValue({ temporaryPassword: "temporary-secret" });
+      const revokeAllSessions = vi.fn().mockResolvedValue(undefined);
+      const hash = vi.fn();
+      mockedServices.mockResolvedValue(
+        createServices({
+          passwordHasher: { hash },
+          sessionService: { revokeAllSessions },
+          userService: { resetPassword },
+        }),
+      );
+      const actor = createUser();
+
+      const result = (await action({
+        context: { get: vi.fn().mockReturnValue(actor) },
+        params: {},
+        request: createResetRequest(),
+      } as unknown as Parameters<typeof action>[0])) as unknown as {
+        data: Record<string, unknown>;
+      };
+
+      expect(result.data).toEqual({
+        intent: "reset-password",
+        ok: true,
+        temporaryPassword: "temporary-secret",
+        userId: "user-2",
+      });
+      expect(resetPassword).toHaveBeenCalledWith(actor, "user-2", { hash });
+      expect(revokeAllSessions).toHaveBeenCalledWith("user-2");
+    });
+
+    it("keeps every session when the reset is forbidden", async () => {
+      const revokeAllSessions = vi.fn();
+      mockedServices.mockResolvedValue(
+        createServices({
+          sessionService: { revokeAllSessions },
+          userService: {
+            resetPassword: vi
+              .fn()
+              .mockRejectedValue(new UserManagementDeniedError()),
+          },
+        }),
+      );
+
+      const result = (await action({
+        context: { get: vi.fn().mockReturnValue(createUser()) },
+        params: {},
+        request: createResetRequest(),
+      } as unknown as Parameters<typeof action>[0])) as unknown as {
+        data: Record<string, unknown>;
+        init?: { status?: number };
+      };
+
+      expect(result.init?.status).toBe(403);
+      expect(result.data).toMatchObject({ error: "forbidden" });
+      expect(revokeAllSessions).not.toHaveBeenCalled();
+    });
+
+    it("rejects a missing user identifier", async () => {
+      mockedServices.mockResolvedValue(createServices());
+
+      const result = (await action({
+        context: { get: vi.fn().mockReturnValue(createUser()) },
+        params: {},
+        request: createPostRequest({ intent: "reset-password" }),
+      } as unknown as Parameters<typeof action>[0])) as unknown as {
+        data: Record<string, unknown>;
+        init?: { status?: number };
+      };
+
+      expect(result.init?.status).toBe(400);
+      expect(result.data).toMatchObject({
+        error: "invalidInput",
+        intent: "reset-password",
+        ok: false,
+      });
+    });
   });
 });

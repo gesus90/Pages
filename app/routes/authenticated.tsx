@@ -8,8 +8,9 @@ import {
 import { getApplicationServices } from "@/app/lib/services.server";
 import { PERMISSION } from "@/definition/Role";
 
-import type { LoaderFunctionArgs, MiddlewareFunction } from "react-router";
+import type { MiddlewareFunction } from "react-router";
 import type { User } from "@/definition/User";
+import type { Route } from "./+types/authenticated";
 
 /** Applies persistent-session authentication to all nested workspace routes. */
 export const middleware: MiddlewareFunction[] = [requireAuthenticatedUser];
@@ -23,7 +24,7 @@ interface AuthenticatedLoaderData {
 /** Returns the authenticated user and their navigation permissions. */
 export async function loader({
   context,
-}: LoaderFunctionArgs): Promise<AuthenticatedLoaderData> {
+}: Route.LoaderArgs): Promise<AuthenticatedLoaderData> {
   const user = context.get(authenticatedUserContext);
 
   if (!user) {

@@ -3,16 +3,16 @@ import { cn } from "@/app/lib/cn";
 import type { ReactNode } from "react";
 
 /** A single choice of a segmented control. */
-export interface SegmentedControlOption {
-  readonly value: string;
+export interface SegmentedControlOption<Value extends string = string> {
+  readonly value: Value;
   readonly label: string;
   readonly icon?: ReactNode;
 }
 
-interface SegmentedControlProps {
-  readonly value: string;
-  readonly onValueChange: (value: string) => void;
-  readonly options: readonly SegmentedControlOption[];
+interface SegmentedControlProps<Value extends string> {
+  readonly value: Value;
+  readonly onValueChange: (value: Value) => void;
+  readonly options: readonly SegmentedControlOption<Value>[];
   readonly ariaLabel: string;
   readonly className?: string;
 }
@@ -27,13 +27,13 @@ interface SegmentedControlProps {
  * entspricht bewusst der Höhe von `Input` und `Select`, damit die
  * Filterzeile exakt auf einer Linie liegt.
  */
-export function SegmentedControl({
+export function SegmentedControl<Value extends string>({
   value,
   onValueChange,
   options,
   ariaLabel,
   className,
-}: SegmentedControlProps): React.ReactElement {
+}: SegmentedControlProps<Value>): React.ReactElement {
   return (
     <div
       aria-label={ariaLabel}

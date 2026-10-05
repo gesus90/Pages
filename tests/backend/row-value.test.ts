@@ -4,6 +4,8 @@ import {
   readBlobColumn,
   readBooleanColumn,
   readCountColumn,
+  readNullableBooleanColumn,
+  readNullableTextColumn,
   readTextColumn,
 } from "@/backend/database/RowValue";
 
@@ -143,6 +145,41 @@ describe("readCountColumn", () => {
   it("throws when the index is out of bounds", () => {
     expect(() => readCountColumn([], 0, "user_count")).toThrow(
       'Database returned an invalid count for "user_count".',
+    );
+  });
+});
+
+describe("readNullableTextColumn", () => {
+  it("returns the text value at the given index", () => {
+    expect(readNullableTextColumn(["a", "b"], 1, "label")).toBe("b");
+  });
+
+  it("returns null for NULL and for missing columns", () => {
+    expect(readNullableTextColumn([null], 0, "label")).toBeNull();
+    expect(readNullableTextColumn([], 0, "label")).toBeNull();
+  });
+
+  it("throws for values that are no text", () => {
+    expect(() => readNullableTextColumn([5], 0, "label")).toThrow(
+      'invalid value for "label"',
+    );
+  });
+});
+
+describe("readNullableBooleanColumn", () => {
+  it("reads the integers 0 and 1 as booleans", () => {
+    expect(readNullableBooleanColumn([1, 0], 0, "flag")).toBe(true);
+    expect(readNullableBooleanColumn([1, 0], 1, "flag")).toBe(false);
+  });
+
+  it("returns null for NULL and for missing columns", () => {
+    expect(readNullableBooleanColumn([null], 0, "flag")).toBeNull();
+    expect(readNullableBooleanColumn([], 0, "flag")).toBeNull();
+  });
+
+  it.each([[2], ["1"], [-1]])("throws for the value %p", (value) => {
+    expect(() => readNullableBooleanColumn([value], 0, "flag")).toThrow(
+      'invalid value for "flag"',
     );
   });
 });

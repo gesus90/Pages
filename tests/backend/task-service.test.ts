@@ -1,20 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ServerCache } from "@/backend/cache/ServerCache";
-import {
-  generateProjectKey,
-  TaskService,
-  WorkItemAccessDeniedError,
-  WorkItemHierarchyError,
-  WorkItemNotFoundError,
-  WorkItemValidationError,
-} from "@/backend/service/TaskService";
+import { generateProjectKey, TaskService } from "@/backend/service/TaskService";
 import { ROLE } from "@/definition/Role";
 import {
   WORK_ITEM_PRIORITY,
   WORK_ITEM_TYPE,
   WORKFLOW_STATUS_KEY,
 } from "@/definition/Task";
+import {
+  WorkItemAccessDeniedError,
+  WorkItemHierarchyError,
+  WorkItemNotFoundError,
+  WorkItemValidationError,
+} from "@/backend/error/WorkItemErrors";
 
 import type { PermissionService } from "@/backend/auth/PermissionService";
 import type { TaskRepository } from "@/backend/database/repositories/TaskRepository";
@@ -327,6 +326,19 @@ describe("TaskService", () => {
       1,
     );
     await expect(service.getHistory(actor, "item-1")).resolves.toEqual([]);
+  });
+
+  it("returns project history after verifying project access", async () => {
+    const actor = createUser();
+    projectService.getById.mockResolvedValue(createProject());
+    repository.findHistoryByProjectId = vi.fn().mockResolvedValue([]);
+
+    await expect(
+      service.findHistoryByProject(actor, "project-1"),
+    ).resolves.toEqual([]);
+
+    expect(projectService.getById).toHaveBeenCalledWith(actor, "project-1");
+    expect(repository.findHistoryByProjectId).toHaveBeenCalledWith("project-1");
   });
 
   it("creates a work item successfully and records history", async () => {
@@ -1811,6 +1823,23 @@ describe("TaskService restore, moves, labels, and sync state", () => {
         projectIds: ["project-1"],
       }),
     );
+  });
+
+  it("caches work item queries per accessible project scope", async () => {
+    const actor = createUser();
+    const cachedService = new TaskService(
+      repository as unknown as TaskRepository,
+      projectService as unknown as ProjectService,
+      permissionService as unknown as PermissionService,
+      new ServerCache(),
+    );
+    projectService.findAll.mockResolvedValue([createProject()]);
+    repository.findAll.mockResolvedValue([createWorkItem()]);
+
+    await expect(cachedService.findAll(actor)).resolves.toHaveLength(1);
+    await expect(cachedService.findAll(actor)).resolves.toHaveLength(1);
+
+    expect(repository.findAll).toHaveBeenCalledTimes(1);
   });
 
   it("caches statuses, assignees, labels, and usage reads", async () => {

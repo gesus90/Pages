@@ -31,11 +31,11 @@ import { getAuthenticatedUser, parseCredentials } from "@/app/lib/auth.server";
 import { resolveAnonymousLanguage } from "@/app/lib/language.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { sessionCookie } from "@/app/lib/session.server";
+import { TooManyLoginAttemptsError } from "@/backend/auth/LoginThrottle";
 import { action, loader } from "@/app/routes/login";
-import { ROLE } from "@/definition/Role";
 import { LANGUAGE } from "@/language/Language";
 
-import type { User } from "@/definition/User";
+import { createUser } from "../helpers/factories";
 
 const mockedGetUser = vi.mocked(getAuthenticatedUser);
 const mockedParse = vi.mocked(parseCredentials);
@@ -43,20 +43,22 @@ const mockedServices = vi.mocked(getApplicationServices);
 const mockedSerialize = vi.mocked(sessionCookie.serialize);
 const mockedLanguage = vi.mocked(resolveAnonymousLanguage);
 
-function createUser(): User {
-  return {
-    displayName: "Admin",
-    id: "user-1",
-    isActive: true,
-    role: ROLE.ADMIN,
-    username: "admin",
-  };
-}
+function createPostRequest(userAgent?: string, forwardedFor?: string): Request {
+  const headers = new Headers({
+    "Content-Type": "application/x-www-form-urlencoded",
+  });
 
-function createPostRequest(): Request {
+  if (userAgent) {
+    headers.set("User-Agent", userAgent);
+  }
+
+  if (forwardedFor) {
+    headers.set("X-Forwarded-For", forwardedFor);
+  }
+
   return new Request("http://pages.invalid/login", {
     body: new URLSearchParams({ password: "secret", username: "admin" }),
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    headers,
     method: "POST",
   });
 }
@@ -161,13 +163,76 @@ describe("login route action", () => {
 
     const response = (await action({
       params: {},
-      request: createPostRequest(),
+      request: createPostRequest("Mozilla/5.0 Firefox/130.0"),
     } as unknown as Parameters<typeof action>[0])) as Response;
 
-    expect(login).toHaveBeenCalledWith("admin", "secret");
+    expect(login).toHaveBeenCalledWith(
+      "admin",
+      "secret",
+      "Mozilla/5.0 Firefox/130.0",
+      null,
+    );
     expect(mockedSerialize).toHaveBeenCalledWith("token");
     expect(response.status).toBe(302);
     expect(response.headers.get("Location")).toBe("/dashboard");
     expect(response.headers.get("Set-Cookie")).toContain("pages_session=token");
+  });
+  it("passes the client address reported by a proxy to the login", async () => {
+    const login = vi.fn().mockResolvedValue(null);
+    mockedParse.mockReturnValue({ password: "secret", username: "admin" });
+    mockedServices.mockResolvedValue({
+      authService: { login },
+      sessionService: {},
+    } as unknown as Awaited<ReturnType<typeof mockedServices>>);
+
+    await action({
+      params: {},
+      request: createPostRequest("Mozilla/5.0", "203.0.113.7, 10.0.0.1"),
+    } as unknown as Parameters<typeof action>[0]);
+
+    expect(login).toHaveBeenCalledWith(
+      "admin",
+      "secret",
+      "Mozilla/5.0",
+      "203.0.113.7",
+    );
+  });
+
+  it("answers throttled attempts with 429 and a retry hint", async () => {
+    const login = vi.fn().mockRejectedValue(new TooManyLoginAttemptsError(840));
+    mockedParse.mockReturnValue({ password: "secret", username: "admin" });
+    mockedServices.mockResolvedValue({
+      authService: { login },
+      sessionService: {},
+    } as unknown as Awaited<ReturnType<typeof mockedServices>>);
+
+    const result = (await action({
+      params: {},
+      request: createPostRequest(),
+    } as unknown as Parameters<typeof action>[0])) as unknown as {
+      data: { error: string };
+      init?: { headers?: Record<string, string>; status?: number };
+    };
+
+    expect(result.init?.status).toBe(429);
+    expect(result.init?.headers?.["Retry-After"]).toBe("840");
+    expect(result.data).toEqual({ error: "tooManyAttempts" });
+    expect(mockedSerialize).not.toHaveBeenCalled();
+  });
+
+  it("rethrows unexpected login failures", async () => {
+    const login = vi.fn().mockRejectedValue(new Error("Database unavailable"));
+    mockedParse.mockReturnValue({ password: "secret", username: "admin" });
+    mockedServices.mockResolvedValue({
+      authService: { login },
+      sessionService: {},
+    } as unknown as Awaited<ReturnType<typeof mockedServices>>);
+
+    await expect(
+      action({
+        params: {},
+        request: createPostRequest(),
+      } as unknown as Parameters<typeof action>[0]),
+    ).rejects.toThrow("Database unavailable");
   });
 });

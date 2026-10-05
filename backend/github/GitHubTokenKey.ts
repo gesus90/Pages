@@ -9,7 +9,7 @@ const TOKEN_KEY_BYTES = 32;
 /**
  * Resolves the server-side key used to encrypt GitHub tokens at rest.
  *
- * @param databasePath - Resolved SQLite path; the key file lives next to it.
+ * @param databasePath - Resolved database path; the key file lives next to it.
  * @returns A 32-byte encryption key.
  *
  * @remarks

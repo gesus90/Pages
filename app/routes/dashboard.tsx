@@ -1,13 +1,8 @@
 import { useTranslation } from "react-i18next";
 import { useLoaderData } from "react-router";
 
-import { DashboardKpiCard } from "@/app/components/dashboard/dashboard-kpi-card";
-import {
-  DashboardClockIcon,
-  DashboardDocumentIcon,
-  DashboardFolderIcon,
-  DashboardRefreshIcon,
-} from "@/app/components/dashboard/dashboard-icons";
+import { DashboardHeader } from "@/app/components/dashboard/dashboard-header";
+import { DashboardKpiRow } from "@/app/components/dashboard/dashboard-kpi-row";
 import { DashboardMyTasks } from "@/app/components/dashboard/dashboard-my-tasks";
 import { DashboardPanel } from "@/app/components/dashboard/dashboard-panel";
 import { DashboardProjectOverview } from "@/app/components/dashboard/dashboard-project-overview";
@@ -24,7 +19,7 @@ import type { DashboardRecentItem } from "@/app/components/dashboard/dashboard-r
 import type { ProjectWorkItemCounts } from "@/backend/database/repositories/TaskRepository";
 import type { Project } from "@/definition/Project";
 import type { WorkItemDetail } from "@/definition/Task";
-import type { LoaderFunctionArgs } from "react-router";
+import type { Route } from "./+types/dashboard";
 
 /** Dashboard numbers shown in the top KPI row. */
 export interface DashboardLoaderData {
@@ -41,18 +36,6 @@ export interface DashboardLoaderData {
   readonly projectOverview: readonly DashboardProjectEntry[];
   readonly recentlyEdited: readonly DashboardRecentItem[];
   readonly upcomingDeadlines: readonly DashboardDeadline[];
-}
-
-function getGreetingKey(hour: number): string {
-  if (hour < 12) {
-    return "dashboard.greeting.morning";
-  }
-
-  if (hour < 18) {
-    return "dashboard.greeting.day";
-  }
-
-  return "dashboard.greeting.evening";
 }
 
 function startOfToday(now: number): number {
@@ -91,14 +74,6 @@ function isSameDay(first: number, second: number): boolean {
     firstDay.getMonth() === secondDay.getMonth() &&
     firstDay.getDate() === secondDay.getDate()
   );
-}
-
-function formatDelta(value: number): string {
-  if (value === 0) {
-    return "±0";
-  }
-
-  return `+${value}`;
 }
 
 function compareByUpdatedAtDesc(first: Project, second: Project): number {
@@ -180,7 +155,7 @@ function toDashboardDeadline(
  */
 export async function loader({
   context,
-}: LoaderFunctionArgs): Promise<DashboardLoaderData> {
+}: Route.LoaderArgs): Promise<DashboardLoaderData> {
   const user = context.get(authenticatedUserContext);
 
   if (!user) {
@@ -293,58 +268,18 @@ export default function DashboardRoute(): React.ReactElement {
 
   return (
     <section className="flex h-[calc(100dvh-8.5rem)] min-h-0 flex-col overflow-hidden">
-      <header className="shrink-0 px-1 pt-1 pb-5">
-        <h1 className="select-none text-3xl font-bold tracking-tight text-foreground xl:text-4xl">
-          {t(getGreetingKey(hour), { name: displayName })}
-        </h1>
-        <p className="mt-1 text-base text-muted-foreground select-none">
-          {t("dashboard.subtitle")}
-        </p>
-      </header>
+      <DashboardHeader displayName={displayName} hour={hour} />
 
       <DashboardScrollArea>
-        <div className="grid grid-cols-12 gap-5">
-          <div className="col-span-12 sm:col-span-6 xl:col-span-3">
-            <DashboardKpiCard
-              label={t("dashboard.kpi.openTickets")}
-              value={openTickets}
-              deltaValue={formatDelta(openDelta)}
-              deltaSuffix={t("dashboard.kpi.sinceLastWeek")}
-              tone="accent"
-              icon={<DashboardDocumentIcon />}
-            />
-          </div>
-          <div className="col-span-12 sm:col-span-6 xl:col-span-3">
-            <DashboardKpiCard
-              label={t("dashboard.kpi.overdue")}
-              value={overdueTickets}
-              deltaValue={formatDelta(overdueDelta)}
-              deltaSuffix={t("dashboard.kpi.sinceYesterday")}
-              tone="accent"
-              icon={<DashboardClockIcon />}
-            />
-          </div>
-          <div className="col-span-12 sm:col-span-6 xl:col-span-3">
-            <DashboardKpiCard
-              label={t("dashboard.kpi.inProgress")}
-              value={inProgressTickets}
-              deltaValue={formatDelta(0)}
-              deltaSuffix={t("dashboard.kpi.sinceLastWeek")}
-              tone="muted"
-              icon={<DashboardRefreshIcon />}
-            />
-          </div>
-          <div className="col-span-12 sm:col-span-6 xl:col-span-3">
-            <DashboardKpiCard
-              label={t("dashboard.kpi.projects")}
-              value={projectCount}
-              deltaValue={formatDelta(newProjects)}
-              deltaSuffix={t("dashboard.kpi.sinceLastMonth")}
-              tone="positive"
-              icon={<DashboardFolderIcon />}
-            />
-          </div>
-        </div>
+        <DashboardKpiRow
+          openTickets={openTickets}
+          openDelta={openDelta}
+          overdueTickets={overdueTickets}
+          overdueDelta={overdueDelta}
+          inProgressTickets={inProgressTickets}
+          projectCount={projectCount}
+          newProjects={newProjects}
+        />
 
         <div className="grid grid-cols-12 gap-5">
           <DashboardPanel

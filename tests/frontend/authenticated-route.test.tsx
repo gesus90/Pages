@@ -20,23 +20,12 @@ import {
 } from "react-router";
 
 import { createI18n } from "@/app/lib/i18n";
-import { ROLE } from "@/definition/Role";
 import { LANGUAGE } from "@/language/Language";
 import AuthenticatedRoute from "@/app/routes/authenticated";
 
-import type { User } from "@/definition/User";
+import { createUser } from "../helpers/factories";
 
 const mockedLoaderData = vi.mocked(useLoaderData);
-
-function createUser(): User {
-  return {
-    displayName: "Admin",
-    id: "user-1",
-    isActive: true,
-    role: ROLE.ADMIN,
-    username: "admin",
-  };
-}
 
 describe("AuthenticatedRoute", () => {
   it("renders the workspace shell for the loader user", () => {

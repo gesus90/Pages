@@ -193,4 +193,18 @@ describe("HorizontalScrollArea", () => {
     expect(container.querySelector(".viewport-class")).not.toBeNull();
     expect(container.querySelector(".content-class")).not.toBeNull();
   });
+
+  it("hands the scrollable viewport to an external reference", () => {
+    const viewportRef: { current: HTMLDivElement | null } = { current: null };
+
+    const { container } = render(
+      <HorizontalScrollArea viewportRef={viewportRef}>
+        <p>Content</p>
+      </HorizontalScrollArea>,
+    );
+
+    expect(viewportRef.current).toBe(
+      container.querySelector(".pages-thin-scrollbar"),
+    );
+  });
 });

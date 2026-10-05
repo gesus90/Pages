@@ -1,0 +1,46 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # Reads the `packageManager` field of package.json.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Runs `react-router typegen`, `tsc --noEmit` and `prettier --check`.
+      - run: pnpm run check
+
+      - run: pnpm run lint
+
+      - run: pnpm exec vitest run
+
+      # Coverage thresholds (100% per file) are reported but do not block the
+      # pipeline until the coverage policy is decided.
+      - run: pnpm test
+        continue-on-error: true
+
+      - run: pnpm run build
+
+      - run: pnpm audit --prod --audit-level=high

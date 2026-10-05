@@ -6,9 +6,10 @@ import {
   ProjectAccessDeniedError,
   ProjectManagementDeniedError,
   ProjectNotFoundError,
-} from "@/backend/service/ProjectService";
+} from "@/backend/error/ProjectErrors";
 
-import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
+import type { User } from "@/definition/User";
+import type { Route } from "./+types/project-icon";
 
 const MAXIMUM_ICON_SIZE = 2 * 1024 * 1024;
 
@@ -23,8 +24,8 @@ function getProjectId(projectId: string | undefined): string {
 }
 
 function getActor(
-  context: LoaderFunctionArgs["context"] | ActionFunctionArgs["context"],
-) {
+  context: Route.LoaderArgs["context"] | Route.ActionArgs["context"],
+): User {
   const user = context.get(authenticatedUserContext);
 
   if (!user) {
@@ -39,7 +40,7 @@ export async function loader({
   context,
   params,
   request,
-}: LoaderFunctionArgs): Promise<Response> {
+}: Route.LoaderArgs): Promise<Response> {
   if (request.method !== "GET") {
     throw new Response("Method Not Allowed", {
       headers: { Allow: "GET" },
@@ -82,7 +83,7 @@ export async function action({
   context,
   params,
   request,
-}: ActionFunctionArgs): Promise<Response> {
+}: Route.ActionArgs): Promise<Response> {
   if (request.method !== "POST") {
     throw new Response("Method Not Allowed", {
       headers: { Allow: "POST" },

@@ -1,33 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { UserService } from "@/backend/service/UserService";
+import { ROLE } from "@/definition/Role";
+
+import { createUser } from "../helpers/factories";
 import {
+  EmailTakenError,
   LastAdministratorError,
   RoleAssignmentDeniedError,
   UserManagementDeniedError,
   UserNotFoundError,
-  UserService,
-} from "@/backend/service/UserService";
-import { ROLE } from "@/definition/Role";
+} from "@/backend/error/UserErrors";
 
 import type { PermissionService } from "@/backend/auth/PermissionService";
 import type { UserRepository } from "@/backend/database/repositories/UserRepository";
 import type { Role } from "@/definition/Role";
-import type { User } from "@/definition/User";
-
-function createUser(overrides: Partial<User> = {}): User {
-  return {
-    displayName: "Admin",
-    id: "user-1",
-    isActive: true,
-    role: ROLE.ADMIN,
-    username: "admin",
-    ...overrides,
-  };
-}
 
 function createRepository(): UserRepository & {
   countActiveAdministrators: ReturnType<typeof vi.fn>;
   findAll: ReturnType<typeof vi.fn>;
+  findByEmail: ReturnType<typeof vi.fn>;
   findById: ReturnType<typeof vi.fn>;
   findCredentialsByUsername: ReturnType<typeof vi.fn>;
   insert: ReturnType<typeof vi.fn>;
@@ -36,6 +28,7 @@ function createRepository(): UserRepository & {
   return {
     countActiveAdministrators: vi.fn(),
     findAll: vi.fn(),
+    findByEmail: vi.fn(),
     findById: vi.fn(),
     findCredentialsByUsername: vi.fn(),
     hasUsers: vi.fn(),
@@ -44,6 +37,7 @@ function createRepository(): UserRepository & {
   } as unknown as UserRepository & {
     countActiveAdministrators: ReturnType<typeof vi.fn>;
     findAll: ReturnType<typeof vi.fn>;
+    findByEmail: ReturnType<typeof vi.fn>;
     findById: ReturnType<typeof vi.fn>;
     findCredentialsByUsername: ReturnType<typeof vi.fn>;
     insert: ReturnType<typeof vi.fn>;
@@ -153,6 +147,42 @@ describe("UserService", () => {
 
     expect(repository.insert).toHaveBeenCalledTimes(1);
     expect(repository.insert).toHaveBeenCalledWith(input);
+  });
+
+  it("creates users whose email address is still free", async () => {
+    repository.findByEmail.mockResolvedValue(null);
+    repository.insert.mockResolvedValue(undefined);
+    const input = {
+      displayName: "Newcomer",
+      email: "newcomer@example.invalid",
+      id: "user-2",
+      passwordHash: "encoded-hash",
+      role: ROLE.EMPLOYEE as Role,
+      username: "newcomer",
+    };
+
+    await service.createUser(createUser(), input);
+
+    expect(repository.findByEmail).toHaveBeenCalledWith(
+      "newcomer@example.invalid",
+    );
+    expect(repository.insert).toHaveBeenCalledWith(input);
+  });
+
+  it("rejects users whose email address belongs to someone else", async () => {
+    repository.findByEmail.mockResolvedValue(createUser({ id: "user-9" }));
+
+    await expect(
+      service.createUser(createUser(), {
+        displayName: "Newcomer",
+        email: "taken@example.invalid",
+        id: "user-2",
+        passwordHash: "hash",
+        role: ROLE.EMPLOYEE,
+        username: "newcomer",
+      }),
+    ).rejects.toThrow(EmailTakenError);
+    expect(repository.insert).not.toHaveBeenCalled();
   });
 
   it("denies user creation without management rights", async () => {

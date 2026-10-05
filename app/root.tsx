@@ -1,15 +1,21 @@
-import { I18nextProvider } from "react-i18next";
+import { I18nextProvider, useTranslation } from "react-i18next";
 import {
+  isRouteErrorResponse,
+  Link,
   Links,
   Meta,
   Outlet,
   Scripts,
   ScrollRestoration,
-  useLoaderData,
+  useRouteError,
+  useRouteLoaderData,
 } from "react-router";
 
+import { buttonVariants } from "@/app/components/ui/button";
 import { getAuthenticatedUser } from "@/app/lib/auth.server";
+import { cn } from "@/app/lib/cn";
 import { createI18n } from "@/app/lib/i18n";
+import { createSecurityHeaders } from "@/app/lib/security-headers";
 import { resolveAnonymousLanguage } from "@/app/lib/language.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import stylesheet from "@/app/styles/tailwind.css?url";
@@ -17,11 +23,28 @@ import { LANGUAGE } from "@/language/Language";
 
 import type { ReactNode } from "react";
 import type {
+  HeadersFunction,
   LinksFunction,
-  LoaderFunctionArgs,
   MetaFunction,
 } from "react-router";
 import type { Language } from "@/language/Language";
+import type { Route } from "./+types/root";
+
+/** Which translated copy the error page shows. */
+type ErrorKind = "forbidden" | "generic" | "notFound";
+
+const ERROR_KIND_BY_STATUS: Readonly<Partial<Record<number, ErrorKind>>> = {
+  403: "forbidden",
+  404: "notFound",
+};
+
+function resolveErrorKind(error: unknown): ErrorKind {
+  if (!isRouteErrorResponse(error)) {
+    return "generic";
+  }
+
+  return ERROR_KIND_BY_STATUS[error.status] ?? "generic";
+}
 
 /**
  * Selects the document language.
@@ -30,7 +53,7 @@ import type { Language } from "@/language/Language";
  * Signed-in visitors use their persisted personal language setting.
  * Everyone else falls back to their browser's `Accept-Language` preference.
  */
-export async function loader({ request }: LoaderFunctionArgs): Promise<{
+export async function loader({ request }: Route.LoaderArgs): Promise<{
   language: Language;
 }> {
   const user = await getAuthenticatedUser(request);
@@ -53,6 +76,9 @@ export const links: LinksFunction = () => [
 /** Defines the document metadata shared by Pages routes. */
 export const meta: MetaFunction = () => [{ title: "Pages" }];
 
+/** Sends the security headers with every HTML document. */
+export const headers: HeadersFunction = () => createSecurityHeaders();
+
 /**
  * Provides the HTML document and request-scoped localization provider.
  *
@@ -66,8 +92,7 @@ export function Layout({
 }: {
   children: ReactNode;
 }): React.ReactElement {
-  const loaderData = useLoaderData<typeof loader>() as
-    { language: Language } | undefined;
+  const loaderData = useRouteLoaderData<typeof loader>("root");
   const language = loaderData?.language ?? LANGUAGE.GERMAN;
   const i18n = createI18n(language);
 
@@ -93,4 +118,36 @@ export function Layout({
 /** Renders the active framework route. */
 export default function Root(): React.ReactElement {
   return <Outlet />;
+}
+
+/**
+ * Renders the error page for thrown responses and unexpected errors.
+ *
+ * @remarks
+ * The copy depends on the status only. The message and stack of an
+ * unexpected error are never shown, so no internal details reach visitors.
+ */
+export function ErrorBoundary(): React.ReactElement {
+  const { t } = useTranslation();
+  const error = useRouteError();
+  const kind = resolveErrorKind(error);
+
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-background px-4 py-16 sm:px-6">
+      <section className="w-full max-w-md rounded-3xl bg-surface p-6 text-center shadow-floating sm:p-8">
+        {isRouteErrorResponse(error) ? (
+          <p className="text-sm font-semibold text-primary">{error.status}</p>
+        ) : null}
+        <h1 className="mt-2 text-2xl leading-tight font-bold tracking-tight text-foreground sm:text-[1.875rem]">
+          {t(`errorPage.${kind}.title`)}
+        </h1>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground sm:text-base">
+          {t(`errorPage.${kind}.message`)}
+        </p>
+        <Link className={cn(buttonVariants(), "mt-8")} to="/">
+          {t("errorPage.backToStart")}
+        </Link>
+      </section>
+    </main>
+  );
 }

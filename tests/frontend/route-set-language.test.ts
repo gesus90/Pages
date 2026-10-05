@@ -103,6 +103,34 @@ describe("set-language route action", () => {
     expect(response.headers.get("Location")).toBe("/");
   });
 
+  it.each(["//evil.example/login", "/\\evil.example"])(
+    "falls back to the start page for the host-relative target %s",
+    async (redirectTo) => {
+      mockedSerialize.mockResolvedValue("pages_language=de; Path=/");
+
+      const response = await action({
+        params: {},
+        request: createPostRequest({ language: "de", redirectTo }),
+      } as unknown as Parameters<typeof action>[0]);
+
+      expect(response.headers.get("Location")).toBe("/");
+    },
+  );
+
+  it("keeps local paths with a query string", async () => {
+    mockedSerialize.mockResolvedValue("pages_language=de; Path=/");
+
+    const response = await action({
+      params: {},
+      request: createPostRequest({
+        language: "de",
+        redirectTo: "/projekte?tab=team",
+      }),
+    } as unknown as Parameters<typeof action>[0]);
+
+    expect(response.headers.get("Location")).toBe("/projekte?tab=team");
+  });
+
   it("falls back to the start page without a redirect target", async () => {
     mockedSerialize.mockResolvedValue("pages_language=en; Path=/");
 

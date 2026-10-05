@@ -39,15 +39,6 @@ export interface NewGitHubPullRequest {
   readonly branch: string | null;
 }
 
-/** Values that can change on stored pull request metadata. */
-export interface GitHubPullRequestUpdate {
-  readonly title: string;
-  readonly url: string;
-  readonly state: "open" | "closed";
-  readonly merged: boolean;
-  readonly branch: string | null;
-}
-
 /** Establishes the persistence boundary for GitHub sync metadata. */
 export class GitHubRepository {
   private readonly database: Database;
@@ -230,13 +221,13 @@ export class GitHubRepository {
             $title,
             $url,
             $state,
-            CURRENT_TIMESTAMP
+            utc_now()
         )
         ON CONFLICT (project_id, issue_number) DO UPDATE SET
             title = excluded.title,
             url = excluded.url,
             state = excluded.state,
-            updated_at = CURRENT_TIMESTAMP;
+            updated_at = utc_now();
       `,
       {
         id: issue.id,
@@ -261,7 +252,7 @@ export class GitHubRepository {
             title = $title,
             url = $url,
             state = $state,
-            updated_at = CURRENT_TIMESTAMP
+            updated_at = utc_now()
         WHERE id = $id;
       `,
       { id, title: issue.title, url: issue.url, state: issue.state },
@@ -275,7 +266,7 @@ export class GitHubRepository {
         UPDATE github_external_issues
         SET
             dismissed = 1,
-            updated_at = CURRENT_TIMESTAMP
+            updated_at = utc_now()
         WHERE id = $id;
       `,
       { id },
@@ -292,7 +283,7 @@ export class GitHubRepository {
         UPDATE github_external_issues
         SET
             imported_work_item_id = $work_item_id,
-            updated_at = CURRENT_TIMESTAMP
+            updated_at = utc_now()
         WHERE id = $id;
       `,
       { id, work_item_id: workItemId },
@@ -482,7 +473,7 @@ export class GitHubRepository {
             $state,
             $merged,
             $branch,
-            CURRENT_TIMESTAMP
+            utc_now()
         )
         ON CONFLICT (project_id, number) DO UPDATE SET
             title = excluded.title,
@@ -490,7 +481,7 @@ export class GitHubRepository {
             state = excluded.state,
             merged = excluded.merged,
             branch = excluded.branch,
-            synced_at = CURRENT_TIMESTAMP;
+            synced_at = utc_now();
       `,
       {
         id: pullRequest.id,
@@ -515,7 +506,7 @@ export class GitHubRepository {
         UPDATE github_pull_requests
         SET
             work_item_id = $work_item_id,
-            synced_at = CURRENT_TIMESTAMP
+            synced_at = utc_now()
         WHERE id = $id;
       `,
       { id, work_item_id: workItemId },

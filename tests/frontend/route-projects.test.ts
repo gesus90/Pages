@@ -7,25 +7,17 @@ vi.mock("@/app/lib/services.server", () => ({
 
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
-import { ProjectManagementDeniedError } from "@/backend/service/ProjectService";
-import { ProjectNotFoundError } from "@/backend/service/ProjectService";
 import { action, loader } from "@/app/routes/projects";
-import { ROLE } from "@/definition/Role";
+
+import { createUser } from "../helpers/factories";
+import {
+  ProjectManagementDeniedError,
+  ProjectNotFoundError,
+} from "@/backend/error/ProjectErrors";
 
 import type { Project } from "@/definition/Project";
-import type { User } from "@/definition/User";
 
 const mockedServices = vi.mocked(getApplicationServices);
-
-function createUser(): User {
-  return {
-    displayName: "Admin",
-    id: "user-1",
-    isActive: true,
-    role: ROLE.ADMIN,
-    username: "admin",
-  };
-}
 
 function createProject(overrides: Partial<Project> = {}): Project {
   return {

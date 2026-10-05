@@ -98,6 +98,12 @@ export function hsvToHex(color: HsvColor): string {
   return `#${channelToHex(red + lift)}${channelToHex(green + lift)}${channelToHex(blue + lift)}`;
 }
 
+function linearizeChannel(channel: number): number {
+  return channel <= 0.04045
+    ? channel / 12.92
+    : Math.pow((channel + 0.055) / 1.055, 2.4);
+}
+
 /**
  * Derives a readable text color for a label pill filled with the color.
  *
@@ -109,12 +115,6 @@ export function hsvToHex(color: HsvColor): string {
  * @param hex - Label color accepted by the backend.
  * @returns Text color keeping the pill legible.
  */
-function linearizeChannel(channel: number): number {
-  return channel <= 0.04045
-    ? channel / 12.92
-    : Math.pow((channel + 0.055) / 1.055, 2.4);
-}
-
 export function getLabelTextColor(hex: string): string {
   const normalized = normalizeHexColorCode(hex) ?? "#000000";
   const red = linearizeChannel(parseInt(normalized.slice(1, 3), 16) / 255);

@@ -1,0 +1,112 @@
+import { useEffect, useRef, useState } from "react";
+import { useSubmit } from "react-router";
+
+import { DEFAULT_LABEL_COLOR } from "@/definition/Task";
+
+import type { ProjectLabel } from "@/definition/Task";
+
+/** What the creation form needs to know about the ticket and its project. */
+export interface LabelCreationOptions {
+  readonly projectId: string;
+  readonly workItemId: string;
+  readonly projectLabels: readonly ProjectLabel[];
+  readonly assignedLabelIds: ReadonlySet<string>;
+}
+
+/** The new-label form state and the actions that drive it. */
+export interface LabelCreation {
+  readonly isCreating: boolean;
+  readonly newName: string;
+  readonly newColor: string;
+  readonly setNewName: (name: string) => void;
+  readonly setNewColor: (color: string) => void;
+  readonly startCreating: () => void;
+  /** Discards the draft and closes the form. */
+  readonly closeForm: () => void;
+  readonly createLabel: () => void;
+  /** Stops waiting for a created label to appear in the catalog. */
+  readonly cancelPendingAssign: () => void;
+}
+
+/**
+ * Keeps the new-label form and assigns a freshly created label to the ticket.
+ *
+ * @remarks
+ * A freshly created label is selected for the current ticket once the
+ * revalidated catalog contains it. Only ids unseen at creation time qualify,
+ * so an unrelated label with the same name can never match.
+ */
+export function useLabelCreation({
+  projectId,
+  workItemId,
+  projectLabels,
+  assignedLabelIds,
+}: LabelCreationOptions): LabelCreation {
+  const submit = useSubmit();
+  const [isCreating, setIsCreating] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newColor, setNewColor] = useState<string>(DEFAULT_LABEL_COLOR);
+  const [pendingAssignName, setPendingAssignName] = useState<string | null>(
+    null,
+  );
+  const knownLabelIds = useRef<ReadonlySet<string>>(new Set());
+
+  useEffect(() => {
+    if (!pendingAssignName) {
+      return;
+    }
+
+    const created = projectLabels.find(
+      (label) =>
+        label.name.toLowerCase() === pendingAssignName.toLowerCase() &&
+        !knownLabelIds.current.has(label.id) &&
+        !assignedLabelIds.has(label.id),
+    );
+
+    if (created) {
+      setPendingAssignName(null);
+      void submit(
+        { intent: "label-assign", labelId: created.id, workItemId },
+        { method: "post" },
+      );
+    }
+  }, [pendingAssignName, projectLabels, assignedLabelIds, submit, workItemId]);
+
+  function startCreating(): void {
+    setIsCreating(true);
+  }
+
+  function closeForm(): void {
+    setIsCreating(false);
+    setNewName("");
+    setNewColor(DEFAULT_LABEL_COLOR);
+  }
+
+  function createLabel(): void {
+    const name = newName.trim();
+
+    knownLabelIds.current = new Set(projectLabels.map((label) => label.id));
+    void submit(
+      { color: newColor, intent: "label-create", name, projectId },
+      { method: "post" },
+    );
+    setPendingAssignName(name);
+    closeForm();
+  }
+
+  function cancelPendingAssign(): void {
+    setPendingAssignName(null);
+  }
+
+  return {
+    cancelPendingAssign,
+    closeForm,
+    createLabel,
+    isCreating,
+    newColor,
+    newName,
+    setNewColor,
+    setNewName,
+    startCreating,
+  };
+}

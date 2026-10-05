@@ -5,9 +5,43 @@ import {
   isUserWeekStart,
 } from "@/definition/Settings";
 
-import type { UserSettingsRepository } from "@/backend/database/repositories/UserSettingsRepository";
+import type {
+  StoredUserSettings,
+  UserSettingsRepository,
+} from "@/backend/database/repositories/UserSettingsRepository";
 import type { UserSettings } from "@/definition/Settings";
 import type { Language } from "@/language/Language";
+
+/**
+ * Keeps a stored value only when it is still a supported choice.
+ *
+ * @param value - The stored value; empty values count as missing.
+ * @param isValid - Tells whether the value is a supported choice.
+ * @param fallback - What to use when the value is missing or unsupported.
+ */
+function pickValid<Value extends string, Fallback>(
+  value: string | null | undefined,
+  isValid: (candidate: unknown) => candidate is Value,
+  fallback: Fallback,
+): Value | Fallback {
+  return value && isValid(value) ? value : fallback;
+}
+
+/** Fills the stored notification choices up with the defaults. */
+function toNotifications(
+  stored: StoredUserSettings | null,
+): UserSettings["notifications"] {
+  const defaults = DEFAULT_USER_SETTINGS.notifications;
+
+  return {
+    assignments: stored?.notifyAssignments ?? defaults.assignments,
+    desktop: stored?.notifyDesktop ?? defaults.desktop,
+    dueDates: stored?.notifyDueDates ?? defaults.dueDates,
+    email: stored?.notifyEmail ?? defaults.email,
+    mentions: stored?.notifyMentions ?? defaults.mentions,
+    weeklySummary: stored?.notifyWeeklySummary ?? defaults.weeklySummary,
+  };
+}
 
 /**
  * Establishes the business-logic boundary for personal user settings.
@@ -36,38 +70,22 @@ export class SettingsService {
    */
   public async getUserSettings(userId: string): Promise<UserSettings> {
     const stored = await this.userSettingsRepository.findByUserId(userId);
+    const defaults = DEFAULT_USER_SETTINGS;
 
     return {
-      language: stored?.language ?? DEFAULT_USER_SETTINGS.language,
-      timezone:
-        stored?.timezone && isUserTimezone(stored.timezone)
-          ? stored.timezone
-          : DEFAULT_USER_SETTINGS.timezone,
-      dateFormat:
-        stored?.dateFormat && isUserDateFormat(stored.dateFormat)
-          ? stored.dateFormat
-          : DEFAULT_USER_SETTINGS.dateFormat,
-      weekStart:
-        stored?.weekStart && isUserWeekStart(stored.weekStart)
-          ? stored.weekStart
-          : DEFAULT_USER_SETTINGS.weekStart,
-      notifications: {
-        email: stored?.notifyEmail ?? DEFAULT_USER_SETTINGS.notifications.email,
-        desktop:
-          stored?.notifyDesktop ?? DEFAULT_USER_SETTINGS.notifications.desktop,
-        mentions:
-          stored?.notifyMentions ??
-          DEFAULT_USER_SETTINGS.notifications.mentions,
-        assignments:
-          stored?.notifyAssignments ??
-          DEFAULT_USER_SETTINGS.notifications.assignments,
-        dueDates:
-          stored?.notifyDueDates ??
-          DEFAULT_USER_SETTINGS.notifications.dueDates,
-        weeklySummary:
-          stored?.notifyWeeklySummary ??
-          DEFAULT_USER_SETTINGS.notifications.weeklySummary,
-      },
+      dateFormat: pickValid(
+        stored?.dateFormat,
+        isUserDateFormat,
+        defaults.dateFormat,
+      ),
+      language: stored?.language ?? defaults.language,
+      notifications: toNotifications(stored),
+      timezone: pickValid(stored?.timezone, isUserTimezone, defaults.timezone),
+      weekStart: pickValid(
+        stored?.weekStart,
+        isUserWeekStart,
+        defaults.weekStart,
+      ),
     };
   }
 

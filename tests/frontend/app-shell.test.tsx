@@ -20,20 +20,11 @@ import { createI18n } from "@/app/lib/i18n";
 import { ROLE } from "@/definition/Role";
 import { LANGUAGE } from "@/language/Language";
 
+import { createUser } from "../helpers/factories";
+
 import type { User } from "@/definition/User";
 
 const mockedUseSubmit = vi.mocked(useSubmit);
-
-function createUser(overrides: Partial<User> = {}): User {
-  return {
-    displayName: "Admin",
-    id: "user-1",
-    isActive: true,
-    role: ROLE.ADMIN,
-    username: "admin",
-    ...overrides,
-  };
-}
 
 function renderShell(
   user: User,

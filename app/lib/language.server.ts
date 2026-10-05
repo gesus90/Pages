@@ -1,5 +1,6 @@
 import { createCookie } from "react-router";
 
+import { resolveCookieSecure } from "@/app/lib/cookie-security.server";
 import { isLanguage, resolveLanguage } from "@/language/Language";
 
 import type { Language } from "@/language/Language";
@@ -13,7 +14,7 @@ export const languageCookie = createCookie(LANGUAGE_COOKIE_NAME, {
   maxAge: LANGUAGE_COOKIE_LIFETIME_SECONDS,
   path: "/",
   sameSite: "lax",
-  secure: process.env.NODE_ENV === "production",
+  secure: resolveCookieSecure(),
 });
 
 /**

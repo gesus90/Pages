@@ -1,14 +1,12 @@
 import { redirect } from "react-router";
 
 import { languageCookie } from "@/app/lib/language.server";
+import { resolveLocalRedirect } from "@/app/lib/redirect.server";
 import { isLanguage } from "@/language/Language";
-
-import type { ActionFunctionArgs } from "react-router";
+import type { Route } from "./+types/set-language";
 
 /** Persists the language an anonymous visitor selected and returns them to their page. */
-export async function action({
-  request,
-}: ActionFunctionArgs): Promise<Response> {
+export async function action({ request }: Route.ActionArgs): Promise<Response> {
   if (request.method !== "POST") {
     throw new Response("Method Not Allowed", {
       headers: { Allow: "POST" },
@@ -24,12 +22,7 @@ export async function action({
     throw new Response("Bad Request", { status: 400 });
   }
 
-  const target =
-    typeof redirectTo === "string" && redirectTo.startsWith("/")
-      ? redirectTo
-      : "/";
-
-  return redirect(target, {
+  return redirect(resolveLocalRedirect(redirectTo), {
     headers: {
       "Set-Cookie": await languageCookie.serialize(language),
     },

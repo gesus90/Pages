@@ -1,3 +1,4 @@
+import { isUniqueViolationOn } from "@/backend/database/Database";
 import {
   readBlobColumn,
   readBooleanColumn,
@@ -7,6 +8,10 @@ import {
 } from "@/backend/database/RowValue";
 import { isRole } from "@/definition/Role";
 import { isUserAvatarType } from "@/definition/User";
+import {
+  EmailTakenError,
+  UsernameTakenError,
+} from "@/backend/error/UserErrors";
 
 import type { Database, DatabaseValue } from "@/backend/database/Database";
 import type { Role } from "@/definition/Role";
@@ -38,20 +43,6 @@ export interface NewUser {
   readonly isActive?: boolean;
   /** Creation timestamp; defaults to the database clock. */
   readonly createdAt?: string;
-}
-
-/** Thrown when a username is already taken by another user. */
-export class UsernameTakenError extends Error {
-  public constructor(username: string) {
-    super(`The username "${username}" is already taken.`);
-  }
-}
-
-/** Thrown when an email address is already taken by another user. */
-export class EmailTakenError extends Error {
-  public constructor(email: string) {
-    super(`The email address "${email}" is already taken.`);
-  }
 }
 
 /** Owns persistence operations for users. */
@@ -286,8 +277,8 @@ export class UserRepository {
               $email,
               $role,
               $is_active,
-              COALESCE($created_at, CURRENT_TIMESTAMP),
-              CURRENT_TIMESTAMP
+              COALESCE($created_at, utc_now()),
+              utc_now()
           );
         `,
         {
@@ -322,7 +313,7 @@ export class UserRepository {
         UPDATE users
         SET
             is_active = $is_active,
-            updated_at = CURRENT_TIMESTAMP
+            updated_at = utc_now()
         WHERE id = $id;
       `,
       { id, is_active: isActive },
@@ -357,7 +348,7 @@ export class UserRepository {
               email = $email,
               avatar_type = COALESCE($avatar_type, avatar_type),
               avatar_image_url = COALESCE($avatar_image_url, avatar_image_url),
-              updated_at = CURRENT_TIMESTAMP
+              updated_at = utc_now()
           WHERE id = $id;
         `,
         {
@@ -374,8 +365,8 @@ export class UserRepository {
         throw new UsernameTakenError(profile.username);
       }
 
-      if (this.isEmailConstraintViolation(error)) {
-        throw new EmailTakenError(profile.email ?? "");
+      if (profile.email !== null && this.isEmailConstraintViolation(error)) {
+        throw new EmailTakenError(profile.email);
       }
 
       throw error;
@@ -401,7 +392,7 @@ export class UserRepository {
         SET
             avatar_type = $avatar_type,
             avatar_image_url = $avatar_image_url,
-            updated_at = CURRENT_TIMESTAMP
+            updated_at = utc_now()
         WHERE id = $id;
       `,
       {
@@ -470,13 +461,13 @@ export class UserRepository {
             $mime_type,
             $filename,
             $data,
-            CURRENT_TIMESTAMP
+            utc_now()
         )
         ON CONFLICT (user_id) DO UPDATE SET
             mime_type = excluded.mime_type,
             filename = excluded.filename,
             data = excluded.data,
-            updated_at = CURRENT_TIMESTAMP;
+            updated_at = utc_now();
       `,
       {
         user_id: userId,
@@ -499,7 +490,7 @@ export class UserRepository {
         UPDATE users
         SET
             role = $role,
-            updated_at = CURRENT_TIMESTAMP
+            updated_at = utc_now()
         WHERE id = $id;
       `,
       { id, role },
@@ -521,7 +512,7 @@ export class UserRepository {
         UPDATE users
         SET
             password_hash = $password_hash,
-            updated_at = CURRENT_TIMESTAMP
+            updated_at = utc_now()
         WHERE id = $id;
       `,
       { id, password_hash: passwordHash },
@@ -547,19 +538,11 @@ export class UserRepository {
   }
 
   private isUsernameConstraintViolation(error: unknown): boolean {
-    return (
-      error instanceof Error &&
-      error.message.includes("UNIQUE constraint failed") &&
-      error.message.includes("users.username")
-    );
+    return isUniqueViolationOn(error, "username");
   }
 
   private isEmailConstraintViolation(error: unknown): boolean {
-    return (
-      error instanceof Error &&
-      error.message.includes("UNIQUE constraint failed") &&
-      error.message.includes("users.email")
-    );
+    return isUniqueViolationOn(error, "email");
   }
 
   private toUser(row: readonly DatabaseValue[]): User {

@@ -1,0 +1,19 @@
+import { useTranslation } from "react-i18next";
+
+const PAGES_VERSION = "0.1.0";
+
+/** Renders the version and tagline at the bottom of the login page. */
+export function LoginFooter(): React.ReactElement {
+  const { t } = useTranslation();
+
+  return (
+    <footer className="absolute inset-x-0 bottom-0 px-6 py-6 text-xs sm:px-10">
+      <p className="select-none font-semibold text-foreground">
+        Pages v{PAGES_VERSION}
+      </p>
+      <p className="mt-0.5 select-none text-muted-foreground">
+        {t("login.footer.tagline")}
+      </p>
+    </footer>
+  );
+}

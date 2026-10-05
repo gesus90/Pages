@@ -56,12 +56,8 @@ export const WORKFLOW_STATUS_KEY = {
   DONE: "done",
 } as const;
 
-/** A status key recognized across the kanban columns. */
-export type WorkflowStatusKey =
-  (typeof WORKFLOW_STATUS_KEY)[keyof typeof WORKFLOW_STATUS_KEY];
-
 /** Remote states supported by GitHub issues. */
-export const GITHUB_ISSUE_STATE = {
+const GITHUB_ISSUE_STATE = {
   OPEN: "open",
   CLOSED: "closed",
 } as const;
@@ -135,6 +131,18 @@ export interface Milestone {
   readonly updatedAt: string;
   readonly completedAt: string | null;
   readonly archivedAt: string | null;
+}
+
+/**
+ * Narrows an unknown value to a supported milestone status.
+ *
+ * @param value - Value received from an untrusted source.
+ * @returns Whether the value is a valid milestone status.
+ */
+export function isMilestoneStatus(
+  value: unknown,
+): value is Milestone["status"] {
+  return value === "open" || value === "completed" || value === "archived";
 }
 
 /** Symbols supported by milestone markers. */
@@ -235,8 +243,8 @@ export interface MilestoneDependency {
   readonly createdAt: string;
 }
 
-/** A single persisted work item in SQLite. */
-export interface WorkItem {
+/** A single persisted work item. */
+interface WorkItem {
   readonly id: string;
   readonly projectId: string;
   readonly key: string;
@@ -306,7 +314,7 @@ export function isWorkItemLinkType(value: unknown): value is WorkItemLinkType {
  * A link is stored once from the source ticket's perspective; each side
  * sees the relation from its own point of view via this direction.
  */
-export type WorkItemLinkDirection = "outgoing" | "incoming";
+type WorkItemLinkDirection = "outgoing" | "incoming";
 
 /** A relation between the current work item and another one. */
 export interface WorkItemLink {
@@ -408,7 +416,7 @@ const HEX_COLOR_PATTERN = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
  * @param value - Value received from an untrusted source.
  * @returns Whether the value can be stored as a label color.
  */
-export function isHexColorCode(value: unknown): value is string {
+function isHexColorCode(value: unknown): value is string {
   return typeof value === "string" && HEX_COLOR_PATTERN.test(value);
 }
 
@@ -442,7 +450,7 @@ export type GitHubSyncState = "synced" | "pending" | "failed" | "unlinked";
  * Derives the compact GitHub synchronization state of a ticket.
  *
  * @remarks
- * Only local SQLite values are inspected, so the state is available
+ * Only local database values are inspected, so the state is available
  * instantly without contacting GitHub. A ticket counts as pending when
  * it changed after its last successful synchronization.
  *

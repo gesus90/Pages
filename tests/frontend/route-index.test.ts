@@ -9,21 +9,10 @@ vi.mock("@/app/lib/auth.server", () => ({
 
 import { getAuthenticatedUser } from "@/app/lib/auth.server";
 import { loader } from "@/app/routes/index";
-import { ROLE } from "@/definition/Role";
 
-import type { User } from "@/definition/User";
+import { createUser } from "../helpers/factories";
 
 const mockedGetUser = vi.mocked(getAuthenticatedUser);
-
-function createUser(): User {
-  return {
-    displayName: "Admin",
-    id: "user-1",
-    isActive: true,
-    role: ROLE.ADMIN,
-    username: "admin",
-  };
-}
 
 describe("index route loader", () => {
   beforeEach(() => {

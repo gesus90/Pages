@@ -3,9 +3,12 @@ import { describe, expect, it } from "vitest";
 import {
   getWorkItemGitHubSyncState,
   isLabelColor,
+  isMilestoneLinkType,
   isWorkItemPriority,
   isWorkItemType,
   LABEL_COLORS,
+  MILESTONE_LINK_TYPE,
+  normalizeHexColorCode,
   WORK_ITEM_PRIORITY,
   WORK_ITEM_TYPE,
   WORKFLOW_STATUS_KEY,
@@ -173,5 +176,35 @@ describe("getWorkItemGitHubSyncState", () => {
         updatedAt: "2026-09-05T14:00:00.000Z",
       }),
     ).toBe("synced");
+  });
+});
+
+describe("isMilestoneLinkType", () => {
+  it.each(Object.values(MILESTONE_LINK_TYPE))(
+    "accepts the supported type %s",
+    (value) => {
+      expect(isMilestoneLinkType(value)).toBe(true);
+    },
+  );
+
+  it.each(["", "depends_on", "BLOCKS", 3, null, undefined, {}])(
+    "rejects the unsupported value %p",
+    (value) => {
+      expect(isMilestoneLinkType(value)).toBe(false);
+    },
+  );
+});
+
+describe("normalizeHexColorCode", () => {
+  it.each([
+    ["#FFAA00", "#ffaa00"],
+    ["#abc", "#aabbcc"],
+    ["#A1b", "#aa11bb"],
+  ])("normalizes %s to %s", (value, expected) => {
+    expect(normalizeHexColorCode(value)).toBe(expected);
+  });
+
+  it.each(["abc", "#abcd", "#ggg", "", 7, null])("rejects %p", (value) => {
+    expect(normalizeHexColorCode(value)).toBeNull();
   });
 });

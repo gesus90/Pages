@@ -64,6 +64,12 @@ describe("LabelEditor", () => {
     expect(screen.getByText("Bug")).toBeInTheDocument();
   });
 
+  it("focuses the name input when the editor opens", () => {
+    renderEditor();
+
+    expect(screen.getByLabelText("Name")).toHaveFocus();
+  });
+
   it("shows the placeholder when no name is provided", () => {
     renderEditor({ color: "#f97316", name: "" });
 

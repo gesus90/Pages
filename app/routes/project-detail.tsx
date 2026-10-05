@@ -1,74 +1,40 @@
-import { ArrowLeft, Check, ChevronDown, Pencil } from "lucide-react";
-import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  data,
-  Link,
-  useActionData,
-  useLoaderData,
-  useSearchParams,
-  useSubmit,
-} from "react-router";
+import { useLoaderData, useSearchParams } from "react-router";
 
 import { ProjectActivityTab } from "@/app/components/projects/project-activity-tab";
+import { ProjectHeader } from "@/app/components/projects/project-header";
 import { ProjectGeneralTab } from "@/app/components/projects/project-general-tab";
 import { ProjectIntegrationsTab } from "@/app/components/projects/project-integrations-tab";
 import { ProjectPlanningTab } from "@/app/components/projects/project-planning-tab";
 import { ProjectTeamTab } from "@/app/components/projects/project-team-tab";
-import { Button } from "@/app/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/app/components/ui/dropdown-menu";
-import { Input } from "@/app/components/ui/input";
 import { Tabs } from "@/app/components/ui/tabs";
-import { Textarea } from "@/app/components/ui/textarea";
 import { VerticalScrollArea } from "@/app/components/ui/vertical-scroll-area";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
+import { toActionError } from "@/app/lib/project-actions/project-action-support.server";
+import { handleProjectAction } from "@/app/lib/project-actions/project-actions.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import {
   ProjectAccessDeniedError,
-  ProjectManagementDeniedError,
   ProjectNotFoundError,
-} from "@/backend/service/ProjectService";
-import {
-  WorkItemAccessDeniedError,
-  WorkItemValidationError,
-} from "@/backend/service/TaskService";
-import {
-  isGitHubSyncInterval,
-  isProjectRole,
-  isProjectStatus,
-  PROJECT_STATUS,
-} from "@/definition/Project";
-import {
-  isMilestoneColor,
-  isMilestoneIcon,
-  isMilestoneLinkType,
-} from "@/definition/Task";
+} from "@/backend/error/ProjectErrors";
 
+import type { ApplicationServices } from "@/app/lib/services.server";
+import type { ProjectActionResponse } from "@/app/lib/project-actions/project-action-support.server";
 import type { ProjectMember } from "@/definition/Project";
 import type { Project } from "@/definition/Project";
-import type { ProjectStatus } from "@/definition/Project";
 import type { ProjectActivity } from "@/definition/Project";
 import type { ProjectEvent } from "@/definition/Project";
 import type { ProjectGoal } from "@/definition/Project";
 import type { ProjectIntegration } from "@/definition/Project";
 import type {
   Milestone,
-  MilestoneColor,
   MilestoneDependency,
-  MilestoneIcon,
-  MilestoneLinkType,
   WorkItemDetail,
   WorkItemHistory,
   WorkflowStatus,
 } from "@/definition/Task";
 import type { User } from "@/definition/User";
-import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import type { ChangeEvent, KeyboardEvent } from "react";
+import type { Route } from "./+types/project-detail";
 
 const DETAIL_TABS = [
   "general",
@@ -79,11 +45,6 @@ const DETAIL_TABS = [
 ] as const;
 
 type DetailTab = (typeof DETAIL_TABS)[number];
-
-const MAXIMUM_DESCRIPTION_LENGTH = 5000;
-
-type ProjectDetailActionResult =
-  { readonly ok: true } | { readonly ok: false; readonly error: string };
 
 interface ProjectDetailLoaderData {
   readonly project: Project;
@@ -103,7 +64,7 @@ interface ProjectDetailLoaderData {
   readonly activeTab: DetailTab;
 }
 
-function getProjectId(params: LoaderFunctionArgs["params"]): string {
+function getProjectId(params: Route.LoaderArgs["params"]): string {
   const projectId = params.projectId;
 
   if (!projectId) {
@@ -121,85 +82,114 @@ function getActiveTab(request: Request): DetailTab {
     : "general";
 }
 
-function getString(formData: FormData, key: string): string {
-  const value = formData.get(key);
+type TabData = Pick<
+  ProjectDetailLoaderData,
+  | "activity"
+  | "canWrite"
+  | "events"
+  | "goals"
+  | "integration"
+  | "members"
+  | "milestoneLinks"
+  | "milestones"
+  | "tags"
+  | "taskHistory"
+  | "workItems"
+>;
 
-  return typeof value === "string" ? value : "";
+/**
+ * Loads only the data the selected tab shows, so switching tabs stays cheap.
+ *
+ * @param services - Application services of the request.
+ * @param actor - The signed-in user.
+ * @param projectId - Project being viewed.
+ * @param activeTab - The selected tab.
+ * @returns The data of that tab; everything else stays empty.
+ */
+async function loadTabData(
+  services: ApplicationServices,
+  actor: User,
+  projectId: string,
+  activeTab: DetailTab,
+): Promise<TabData> {
+  const needsGeneral = activeTab === "general";
+  const needsTeam = activeTab === "team";
+  const needsPlanning = activeTab === "planning";
+  const needsIntegrations = activeTab === "integrations";
+  const needsActivity = activeTab === "activity";
+
+  const [
+    members,
+    goals,
+    tags,
+    events,
+    integration,
+    activity,
+    milestones,
+    milestoneLinks,
+    workItems,
+    taskHistory,
+    canWrite,
+  ] = await Promise.all([
+    needsGeneral || needsTeam
+      ? services.projectService.findMembers(actor, projectId)
+      : Promise.resolve([]),
+    needsGeneral
+      ? services.projectService.findGoals(actor, projectId)
+      : Promise.resolve([]),
+    needsGeneral
+      ? services.projectService.findTags(actor, projectId)
+      : Promise.resolve([]),
+    needsGeneral || needsPlanning
+      ? services.projectService.findEvents(actor, projectId)
+      : Promise.resolve([]),
+    needsIntegrations
+      ? services.projectService.findIntegration(actor, projectId)
+      : Promise.resolve(null),
+    needsActivity
+      ? services.projectService.findActivity(actor, projectId)
+      : Promise.resolve([]),
+    needsGeneral || needsPlanning
+      ? services.taskService.findMilestones(actor, [projectId])
+      : Promise.resolve([]),
+    needsPlanning
+      ? services.taskService.findDependencies(actor, [projectId])
+      : Promise.resolve([]),
+    needsGeneral || needsPlanning
+      ? services.taskService.findAll(actor, { projectIds: [projectId] })
+      : Promise.resolve([]),
+    needsActivity
+      ? services.taskService.findHistoryByProject(actor, projectId)
+      : Promise.resolve([]),
+    services.projectService.canWriteProject(actor, projectId),
+  ]);
+
+  return {
+    activity,
+    canWrite,
+    events,
+    goals,
+    integration,
+    members,
+    milestoneLinks,
+    milestones,
+    tags,
+    taskHistory,
+    workItems,
+  };
 }
 
-function getMilestoneColor(formData: FormData): MilestoneColor | null {
-  const value = getString(formData, "colorKey").trim();
-
-  return isMilestoneColor(value) ? value : null;
-}
-
-function getMilestoneIcon(formData: FormData): MilestoneIcon | null {
-  const value = getString(formData, "iconKey").trim();
-
-  return isMilestoneIcon(value) ? value : null;
-}
-
-interface MilestoneLinkChange {
-  readonly targetId: string;
-  readonly linkType: MilestoneLinkType;
-}
-
-function getMilestoneLinkChanges(formData: FormData): {
-  readonly added: readonly MilestoneLinkChange[];
-  readonly removedIds: readonly string[];
-} | null {
-  let added: readonly MilestoneLinkChange[] = [];
-  let removedIds: readonly string[] = [];
-
+/** Looks up who may be added to the team; a failed lookup offers nobody. */
+async function findAssignableUsers(
+  services: ApplicationServices,
+  actor: User,
+  projectId: string,
+): Promise<User[]> {
   try {
-    const rawAdded = getString(formData, "addLinks").trim();
-    const rawRemoved = getString(formData, "removeLinks").trim();
-
-    if (rawAdded) {
-      const parsed: unknown = JSON.parse(rawAdded);
-
-      if (!Array.isArray(parsed)) {
-        return null;
-      }
-
-      added = parsed.map((entry: unknown) => {
-        if (
-          typeof entry !== "object" ||
-          entry === null ||
-          !("targetId" in entry) ||
-          !("linkType" in entry)
-        ) {
-          throw new Error("Invalid dependency payload.");
-        }
-
-        const targetId = (entry as { readonly targetId: unknown }).targetId;
-        const linkType = (entry as { readonly linkType: unknown }).linkType;
-
-        if (typeof targetId !== "string" || !isMilestoneLinkType(linkType)) {
-          throw new Error("Invalid dependency payload.");
-        }
-
-        return { linkType, targetId };
-      });
-    }
-
-    if (rawRemoved) {
-      const parsed: unknown = JSON.parse(rawRemoved);
-
-      if (
-        !Array.isArray(parsed) ||
-        !parsed.every((entry) => typeof entry === "string")
-      ) {
-        return null;
-      }
-
-      removedIds = parsed as readonly string[];
-    }
+    return await services.taskService.findEligibleAssignees(actor, projectId);
   } catch {
-    return null;
+    return [];
   }
-
-  return { added, removedIds };
 }
 
 /** Loads the full project detail aggregate for server-side rendering. */
@@ -207,7 +197,7 @@ export async function loader({
   context,
   params,
   request,
-}: LoaderFunctionArgs): Promise<ProjectDetailLoaderData> {
+}: Route.LoaderArgs): Promise<ProjectDetailLoaderData> {
   const actor = context.get(authenticatedUserContext);
 
   if (!actor) {
@@ -220,87 +210,18 @@ export async function loader({
     const services = await getApplicationServices();
     const project = await services.projectService.getById(actor, projectId);
     const activeTab = getActiveTab(request);
-    const needsGeneral = activeTab === "general";
-    const needsTeam = activeTab === "team";
-    const needsPlanning = activeTab === "planning";
-    const needsIntegrations = activeTab === "integrations";
-    const needsActivity = activeTab === "activity";
-
-    const [
-      members,
-      goals,
-      tags,
-      events,
-      integration,
-      activity,
-      milestones,
-      milestoneLinks,
-      workItems,
-      taskHistory,
-      canWrite,
-    ] = await Promise.all([
-      needsGeneral || needsTeam
-        ? services.projectService.findMembers(actor, projectId)
-        : Promise.resolve([]),
-      needsGeneral
-        ? services.projectService.findGoals(actor, projectId)
-        : Promise.resolve([]),
-      needsGeneral
-        ? services.projectService.findTags(actor, projectId)
-        : Promise.resolve([]),
-      needsGeneral || needsPlanning
-        ? services.projectService.findEvents(actor, projectId)
-        : Promise.resolve([]),
-      needsIntegrations
-        ? services.projectService.findIntegration(actor, projectId)
-        : Promise.resolve(null),
-      needsActivity
-        ? services.projectService.findActivity(actor, projectId)
-        : Promise.resolve([]),
-      needsGeneral || needsPlanning
-        ? services.taskService.findMilestones(actor, [projectId])
-        : Promise.resolve([]),
-      needsPlanning
-        ? services.taskService.findDependencies(actor, [projectId])
-        : Promise.resolve([]),
-      needsGeneral || needsPlanning
-        ? services.taskService.findAll(actor, { projectIds: [projectId] })
-        : Promise.resolve([]),
-      needsActivity
-        ? services.taskService.findHistoryByProject(actor, projectId)
-        : Promise.resolve([]),
-      services.projectService.canWriteProject(actor, projectId),
-    ]);
-
-    let eligibleUsers: User[] = [];
-
-    if (needsTeam) {
-      try {
-        eligibleUsers = await services.taskService.findEligibleAssignees(
-          actor,
-          projectId,
-        );
-      } catch {
-        eligibleUsers = [];
-      }
-    }
+    const tabData = await loadTabData(services, actor, projectId, activeTab);
+    const eligibleUsers =
+      activeTab === "team"
+        ? await findAssignableUsers(services, actor, projectId)
+        : [];
 
     return {
-      activity,
+      ...tabData,
       activeTab,
-      canWrite,
       eligibleUsers,
-      events,
-      goals,
-      integration,
-      members,
-      milestones,
-      milestoneLinks,
       project,
       statuses: [],
-      tags,
-      taskHistory,
-      workItems,
     };
   } catch (error: unknown) {
     if (error instanceof ProjectNotFoundError) {
@@ -315,50 +236,12 @@ export async function loader({
   }
 }
 
-function toActionError(
-  error: unknown,
-): ReturnType<typeof data<ProjectDetailActionResult>> {
-  if (
-    error instanceof ProjectManagementDeniedError ||
-    error instanceof ProjectAccessDeniedError ||
-    error instanceof WorkItemAccessDeniedError
-  ) {
-    return data<ProjectDetailActionResult>(
-      { error: "forbidden", ok: false },
-      { status: 403 },
-    );
-  }
-
-  if (
-    error instanceof ProjectNotFoundError ||
-    error instanceof WorkItemValidationError
-  ) {
-    const status = error instanceof ProjectNotFoundError ? 404 : 400;
-
-    return data<ProjectDetailActionResult>(
-      { error: "invalidInput", ok: false },
-      { status },
-    );
-  }
-
-  if (error instanceof Error) {
-    return data<ProjectDetailActionResult>(
-      { error: "invalidInput", ok: false },
-      { status: 400 },
-    );
-  }
-
-  throw error;
-}
-
 /** Applies project detail mutations through the persistent service layer. */
 export async function action({
   context,
   params,
   request,
-}: ActionFunctionArgs): Promise<
-  ReturnType<typeof data<ProjectDetailActionResult>>
-> {
+}: Route.ActionArgs): Promise<ProjectActionResponse> {
   if (request.method !== "POST") {
     throw new Response("Method Not Allowed", {
       headers: { Allow: "POST" },
@@ -374,877 +257,17 @@ export async function action({
 
   const projectId = getProjectId(params);
   const formData = await request.formData();
-  const intent = formData.get("intent");
 
   try {
-    const services = await getApplicationServices();
-
-    if (intent === "update-details") {
-      const status = getString(formData, "status");
-
-      if (!isProjectStatus(status)) {
-        return data<ProjectDetailActionResult>(
-          { error: "invalidInput", ok: false },
-          { status: 400 },
-        );
-      }
-
-      const managerId = getString(formData, "managerId").trim() || null;
-      const startDate = getString(formData, "startDate").trim() || null;
-      const targetDate = getString(formData, "targetDate").trim() || null;
-      const current = await services.projectService.getById(actor, projectId);
-
-      await services.projectService.updateDetails(actor, projectId, {
-        description: getString(formData, "description"),
-        managerId,
-        name: getString(formData, "name"),
-        notes: getString(formData, "notes"),
-        progress: current.progress,
-        startDate,
-        status,
-        targetDate,
-      });
-
-      return data<ProjectDetailActionResult>({ ok: true });
-    }
-
-    if (intent === "update-status") {
-      const status = getString(formData, "status");
-
-      if (!isProjectStatus(status)) {
-        return data<ProjectDetailActionResult>(
-          { error: "invalidInput", ok: false },
-          { status: 400 },
-        );
-      }
-
-      const current = await services.projectService.getById(actor, projectId);
-
-      await services.projectService.updateDetails(actor, projectId, {
-        description: current.description,
-        managerId: current.managerId,
-        name: current.name,
-        notes: current.notes,
-        progress: current.progress,
-        startDate: current.startDate,
-        status,
-        targetDate: current.targetDate,
-      });
-
-      return data<ProjectDetailActionResult>({ ok: true });
-    }
-
-    if (intent === "update-description") {
-      const description = getString(formData, "description");
-
-      if (description.length > 5000) {
-        return data<ProjectDetailActionResult>(
-          { error: "invalidInput", ok: false },
-          { status: 400 },
-        );
-      }
-
-      const current = await services.projectService.getById(actor, projectId);
-
-      await services.projectService.updateDetails(actor, projectId, {
-        description,
-        managerId: current.managerId,
-        name: current.name,
-        notes: current.notes,
-        progress: current.progress,
-        startDate: current.startDate,
-        status: current.status,
-        targetDate: current.targetDate,
-      });
-
-      return data<ProjectDetailActionResult>({ ok: true });
-    }
-
-    if (intent === "update-manager") {
-      const current = await services.projectService.getById(actor, projectId);
-
-      await services.projectService.updateDetails(actor, projectId, {
-        description: current.description,
-        managerId: getString(formData, "managerId").trim() || null,
-        name: current.name,
-        notes: current.notes,
-        progress: current.progress,
-        startDate: current.startDate,
-        status: current.status,
-        targetDate: current.targetDate,
-      });
-
-      return data<ProjectDetailActionResult>({ ok: true });
-    }
-
-    if (intent === "update-dates") {
-      const current = await services.projectService.getById(actor, projectId);
-
-      await services.projectService.updateDetails(actor, projectId, {
-        description: current.description,
-        managerId: current.managerId,
-        name: current.name,
-        notes: current.notes,
-        progress: current.progress,
-        startDate: getString(formData, "startDate").trim() || null,
-        status: current.status,
-        targetDate: getString(formData, "targetDate").trim() || null,
-      });
-
-      return data<ProjectDetailActionResult>({ ok: true });
-    }
-
-    if (intent === "update-name") {
-      const current = await services.projectService.getById(actor, projectId);
-
-      await services.projectService.updateDetails(actor, projectId, {
-        description: current.description,
-        managerId: current.managerId,
-        name: getString(formData, "name"),
-        notes: current.notes,
-        progress: current.progress,
-        startDate: current.startDate,
-        status: current.status,
-        targetDate: current.targetDate,
-      });
-
-      return data<ProjectDetailActionResult>({ ok: true });
-    }
-
-    if (intent === "create-goal") {
-      await services.projectService.createGoal(
-        actor,
-        projectId,
-        getString(formData, "title"),
-      );
-
-      return data<ProjectDetailActionResult>({ ok: true });
-    }
-
-    if (intent === "toggle-goal") {
-      const goalId = getString(formData, "goalId");
-      const goals = await services.projectService.findGoals(actor, projectId);
-      const goal = goals.find((entry) => entry.id === goalId);
-
-      if (!goal) {
-        return data<ProjectDetailActionResult>(
-          { error: "invalidInput", ok: false },
-          { status: 400 },
-        );
-      }
-
-      await services.projectService.updateGoal(
-        actor,
-        projectId,
-        goalId,
-        goal.title,
-        !goal.isDone,
-      );
-
-      return data<ProjectDetailActionResult>({ ok: true });
-    }
-
-    if (intent === "delete-goal") {
-      await services.projectService.deleteGoal(
-        actor,
-        projectId,
-        getString(formData, "goalId"),
-      );
-
-      return data<ProjectDetailActionResult>({ ok: true });
-    }
-
-    if (intent === "set-tags") {
-      await services.projectService.setTags(
-        actor,
-        projectId,
-        getString(formData, "tags").split(","),
-      );
-
-      return data<ProjectDetailActionResult>({ ok: true });
-    }
-
-    if (intent === "add-member") {
-      const role = getString(formData, "role");
-
-      if (!isProjectRole(role)) {
-        return data<ProjectDetailActionResult>(
-          { error: "invalidInput", ok: false },
-          { status: 400 },
-        );
-      }
-
-      await services.projectService.addMember(
-        actor,
-        projectId,
-        getString(formData, "userId"),
-        role,
-      );
-
-      return data<ProjectDetailActionResult>({ ok: true });
-    }
-
-    if (intent === "update-member-role") {
-      const role = getString(formData, "role");
-
-      if (!isProjectRole(role)) {
-        return data<ProjectDetailActionResult>(
-          { error: "invalidInput", ok: false },
-          { status: 400 },
-        );
-      }
-
-      await services.projectService.updateMemberRole(
-        actor,
-        projectId,
-        getString(formData, "userId"),
-        role,
-      );
-
-      return data<ProjectDetailActionResult>({ ok: true });
-    }
-
-    if (intent === "remove-member") {
-      await services.projectService.removeMember(
-        actor,
-        projectId,
-        getString(formData, "userId"),
-      );
-
-      return data<ProjectDetailActionResult>({ ok: true });
-    }
-
-    if (intent === "create-milestone") {
-      await services.taskService.createMilestone(actor, {
-        colorCustom: getString(formData, "customColor").trim() || null,
-        colorKey: getMilestoneColor(formData),
-        description: getString(formData, "description"),
-        dueAt: getString(formData, "dueAt").trim() || null,
-        iconKey: getMilestoneIcon(formData),
-        name: getString(formData, "name"),
-        projectId,
-        startAt: getString(formData, "startAt").trim() || null,
-      });
-
-      return data<ProjectDetailActionResult>({ ok: true });
-    }
-
-    if (intent === "save-milestone") {
-      const milestoneId = getString(formData, "milestoneId").trim();
-      const status = getString(formData, "status");
-
-      if (
-        status !== "open" &&
-        status !== "completed" &&
-        status !== "archived"
-      ) {
-        return data<ProjectDetailActionResult>(
-          { error: "invalidInput", ok: false },
-          { status: 400 },
-        );
-      }
-
-      if (milestoneId) {
-        const milestones = await services.taskService.findMilestones(actor, [
-          projectId,
-        ]);
-        const milestone = milestones.find((entry) => entry.id === milestoneId);
-
-        if (!milestone) {
-          return data<ProjectDetailActionResult>(
-            { error: "invalidInput", ok: false },
-            { status: 400 },
-          );
-        }
-
-        // Validate the dependency payload before the first mutation so a
-        // rejected save never leaves a partially persisted milestone behind.
-        const linkChanges = getMilestoneLinkChanges(formData);
-
-        if (!linkChanges) {
-          return data<ProjectDetailActionResult>(
-            { error: "invalidInput", ok: false },
-            { status: 400 },
-          );
-        }
-
-        await services.taskService.updateMilestone(actor, milestone.id, {
-          colorCustom:
-            getString(formData, "customColor").trim() ||
-            milestone.colorCustom ||
-            null,
-          colorKey: getMilestoneColor(formData) ?? milestone.colorKey ?? null,
-          description: getString(formData, "description"),
-          dueAt: getString(formData, "dueAt").trim() || null,
-          iconKey: getMilestoneIcon(formData) ?? milestone.iconKey ?? null,
-          name: getString(formData, "name"),
-          startAt: getString(formData, "startAt").trim() || milestone.startAt,
-          status,
-        });
-
-        // Link application stays idempotent: repeated submissions of the same
-        // payload (for example rapid retries) converge on the stored state
-        // instead of failing on unique constraints or missing rows.
-        const liveLinks = async (): Promise<readonly MilestoneDependency[]> =>
-          services.taskService.findDependencies(actor, [projectId]);
-
-        for (const removedId of linkChanges.removedIds) {
-          if (!(await liveLinks()).some((link) => link.id === removedId)) {
-            continue;
-          }
-
-          try {
-            await services.taskService.removeDependency(
-              actor,
-              projectId,
-              removedId,
-            );
-          } catch (error: unknown) {
-            if (!(error instanceof WorkItemValidationError)) {
-              throw error;
-            }
-
-            const alreadyGone = !(await liveLinks()).some(
-              (link) => link.id === removedId,
-            );
-
-            if (!alreadyGone) {
-              throw error;
-            }
-          }
-        }
-
-        for (const added of linkChanges.added) {
-          const isStored = (link: MilestoneDependency): boolean =>
-            link.sourceId === milestone.id &&
-            link.targetId === added.targetId &&
-            link.linkType === added.linkType;
-
-          if ((await liveLinks()).some(isStored)) {
-            continue;
-          }
-
-          try {
-            await services.taskService.addDependency(actor, {
-              linkType: added.linkType,
-              projectId,
-              sourceId: milestone.id,
-              targetId: added.targetId,
-            });
-          } catch (error: unknown) {
-            if (!(error instanceof WorkItemValidationError)) {
-              throw error;
-            }
-
-            if (!(await liveLinks()).some(isStored)) {
-              throw error;
-            }
-          }
-        }
-      } else {
-        await services.taskService.createMilestone(actor, {
-          colorCustom: getString(formData, "customColor").trim() || null,
-          colorKey: getMilestoneColor(formData),
-          description: getString(formData, "description"),
-          dueAt: getString(formData, "dueAt").trim() || null,
-          iconKey: getMilestoneIcon(formData),
-          name: getString(formData, "name"),
-          projectId,
-          startAt: getString(formData, "startAt").trim() || null,
-        });
-      }
-
-      return data<ProjectDetailActionResult>({ ok: true });
-    }
-
-    if (intent === "delete-milestone") {
-      const milestoneId = getString(formData, "milestoneId").trim();
-
-      if (!milestoneId) {
-        return data<ProjectDetailActionResult>(
-          { error: "invalidInput", ok: false },
-          { status: 400 },
-        );
-      }
-
-      await services.taskService.deleteMilestone(actor, milestoneId);
-
-      return data<ProjectDetailActionResult>({ ok: true });
-    }
-
-    if (intent === "update-milestone-status") {
-      const milestones = await services.taskService.findMilestones(actor, [
-        projectId,
-      ]);
-      const milestone = milestones.find(
-        (entry) => entry.id === getString(formData, "milestoneId"),
-      );
-      const status = getString(formData, "status");
-
-      if (
-        !milestone ||
-        (status !== "open" && status !== "completed" && status !== "archived")
-      ) {
-        return data<ProjectDetailActionResult>(
-          { error: "invalidInput", ok: false },
-          { status: 400 },
-        );
-      }
-
-      await services.taskService.updateMilestone(actor, milestone.id, {
-        colorCustom: milestone.colorCustom ?? null,
-        colorKey: milestone.colorKey ?? null,
-        description: milestone.description,
-        dueAt: milestone.dueAt,
-        iconKey: milestone.iconKey ?? null,
-        name: milestone.name,
-        startAt: milestone.startAt,
-        status,
-      });
-
-      return data<ProjectDetailActionResult>({ ok: true });
-    }
-
-    if (intent === "create-event") {
-      await services.projectService.createEvent(actor, projectId, {
-        description: getString(formData, "description"),
-        eventDate: getString(formData, "eventDate").trim(),
-        eventTime: getString(formData, "eventTime").trim() || null,
-        title: getString(formData, "title"),
-        type: getString(formData, "type").trim() || "general",
-      });
-
-      return data<ProjectDetailActionResult>({ ok: true });
-    }
-
-    if (intent === "archive-event") {
-      await services.projectService.archiveEvent(
-        actor,
-        projectId,
-        getString(formData, "eventId"),
-      );
-
-      return data<ProjectDetailActionResult>({ ok: true });
-    }
-
-    if (intent === "save-integration") {
-      const direction = getString(formData, "syncDirection");
-      const interval = Number(getString(formData, "syncIntervalMinutes"));
-
-      if (!isGitHubSyncInterval(interval)) {
-        return data<ProjectDetailActionResult>(
-          { error: "invalidInput", ok: false },
-          { status: 400 },
-        );
-      }
-
-      await services.projectService.saveIntegration(actor, projectId, {
-        repoUrl: getString(formData, "repoUrl"),
-        syncComments: formData.get("syncComments") === "on",
-        syncCommits: formData.get("syncCommits") === "on",
-        syncDirection:
-          direction === "push" || direction === "pull"
-            ? direction
-            : "bidirectional",
-        syncIntervalMinutes: interval,
-        syncIssues: formData.get("syncIssues") === "on",
-        syncPullRequests: formData.get("syncPullRequests") === "on",
-        syncStatus: formData.get("syncStatus") === "on",
-        token: getString(formData, "token"),
-      });
-
-      return data<ProjectDetailActionResult>({ ok: true });
-    }
-
-    if (intent === "test-integration") {
-      const connected = await services.gitHubSyncService.testConnection(
-        actor,
-        projectId,
-      );
-
-      if (!connected) {
-        return data<ProjectDetailActionResult>(
-          { error: "invalidInput", ok: false },
-          { status: 400 },
-        );
-      }
-
-      return data<ProjectDetailActionResult>({ ok: true });
-    }
-
-    if (intent === "sync-integration") {
-      await services.gitHubSyncService.syncProjectNow(actor, projectId);
-
-      return data<ProjectDetailActionResult>({ ok: true });
-    }
-
-    if (intent === "disconnect-integration") {
-      await services.projectService.disconnectIntegration(actor, projectId);
-
-      return data<ProjectDetailActionResult>({ ok: true });
-    }
-
-    return data<ProjectDetailActionResult>(
-      { error: "invalidInput", ok: false },
-      { status: 400 },
-    );
+    return await handleProjectAction(formData.get("intent"), {
+      actor,
+      formData,
+      projectId,
+      services: await getApplicationServices(),
+    });
   } catch (error: unknown) {
     return toActionError(error);
   }
-}
-
-interface ProjectNameHeadingProps {
-  readonly name: string;
-  readonly canWrite: boolean;
-}
-
-/**
- * Renders the project title with hover and double-click inline editing.
- *
- * @remarks
- * Editing is only offered to writers (administrators, managers, and project
- * managers); everyone else sees plain text. Saving reuses the existing
- * `update-name` action, so the server-side permission check still applies.
- */
-function ProjectNameHeading({
-  name,
-  canWrite,
-}: ProjectNameHeadingProps): React.ReactElement {
-  const { t } = useTranslation();
-  const submit = useSubmit();
-  const [isEditing, setIsEditing] = useState(false);
-  const [draft, setDraft] = useState(name);
-
-  function handleStartEdit(): void {
-    setDraft(name);
-    setIsEditing(true);
-  }
-
-  function handleCancel(): void {
-    setIsEditing(false);
-  }
-
-  function handleSave(): void {
-    if (draft === name || draft.trim() === "") {
-      return;
-    }
-
-    const formData = new FormData();
-    formData.set("intent", "update-name");
-    formData.set("name", draft);
-    void submit(formData, { method: "post" });
-    setIsEditing(false);
-  }
-
-  function handleDraftChange(event: ChangeEvent<HTMLInputElement>): void {
-    setDraft(event.currentTarget.value);
-  }
-
-  function handleInputKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
-    if (event.key === "Enter") {
-      handleSave();
-    } else if (event.key === "Escape") {
-      handleCancel();
-    }
-  }
-
-  function handleTitleKeyDown(event: KeyboardEvent<HTMLSpanElement>): void {
-    if (event.key === "Enter") {
-      handleStartEdit();
-    }
-  }
-
-  if (!canWrite) {
-    return <span className="select-none">Projekt: {name}</span>;
-  }
-
-  if (isEditing) {
-    return (
-      <span className="inline-flex min-w-0 flex-1 flex-wrap items-center gap-2">
-        <span className="select-none">Projekt:</span>
-        <Input
-          className="h-10 min-w-36 max-w-sm flex-1 text-xl font-semibold"
-          name="name"
-          value={draft}
-          maxLength={200}
-          autoFocus
-          onChange={handleDraftChange}
-          onKeyDown={handleInputKeyDown}
-          aria-label={t("projectDetail.editName")}
-        />
-        {draft !== name && draft.trim() !== "" ? (
-          <Button
-            className="h-8 shrink-0 px-3 text-xs"
-            type="button"
-            onClick={handleSave}
-          >
-            {t("projects.edit.submit")}
-          </Button>
-        ) : null}
-        <Button
-          className="h-8 shrink-0 px-3 text-xs"
-          variant="ghost"
-          type="button"
-          onClick={handleCancel}
-        >
-          {t("projects.actions.cancel")}
-        </Button>
-      </span>
-    );
-  }
-
-  return (
-    <span className="group inline-flex select-none items-center gap-2">
-      <span
-        className="cursor-text outline-none"
-        onDoubleClick={handleStartEdit}
-        onKeyDown={handleTitleKeyDown}
-        tabIndex={0}
-      >
-        Projekt: {name}
-      </span>
-      <button
-        className="inline-flex shrink-0 items-center justify-center rounded-md p-1 text-muted-foreground opacity-0 transition-opacity outline-none hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-primary group-hover:opacity-100"
-        type="button"
-        aria-label={t("projectDetail.editName")}
-        onClick={handleStartEdit}
-      >
-        <Pencil className="size-4" aria-hidden="true" />
-      </button>
-    </span>
-  );
-}
-
-interface ProjectDescriptionProps {
-  readonly description: string;
-  readonly canWrite: boolean;
-}
-
-/**
- * Renders the header description with double-click inline editing.
- *
- * @remarks
- * Editing is only offered to writers (administrators, managers, and project
- * managers); everyone else sees plain text. Saving reuses the existing
- * `update-description` action, so the server-side permission check still applies.
- */
-function ProjectDescription({
-  description,
-  canWrite,
-}: ProjectDescriptionProps): React.ReactElement {
-  const { t } = useTranslation();
-  const submit = useSubmit();
-  const [isEditing, setIsEditing] = useState(false);
-  const [draft, setDraft] = useState(description);
-
-  function handleStartEdit(): void {
-    setDraft(description);
-    setIsEditing(true);
-  }
-
-  function handleCancel(): void {
-    setIsEditing(false);
-  }
-
-  function handleSave(): void {
-    if (draft === description) {
-      setIsEditing(false);
-      return;
-    }
-
-    if (draft.length > MAXIMUM_DESCRIPTION_LENGTH) {
-      return;
-    }
-
-    const formData = new FormData();
-    formData.set("intent", "update-description");
-    formData.set("description", draft);
-    void submit(formData, { method: "post" });
-    setIsEditing(false);
-  }
-
-  function handleDraftChange(event: ChangeEvent<HTMLTextAreaElement>): void {
-    setDraft(event.currentTarget.value);
-  }
-
-  function handleInputKeyDown(event: KeyboardEvent<HTMLTextAreaElement>): void {
-    if (event.key === "Escape") {
-      handleCancel();
-    }
-  }
-
-  function handleTextKeyDown(event: KeyboardEvent<HTMLParagraphElement>): void {
-    if (event.key === "Enter") {
-      handleStartEdit();
-    }
-  }
-
-  if (!canWrite) {
-    return (
-      <p className="mt-1 line-clamp-2 max-w-3xl text-sm text-muted-foreground">
-        {description || t("projects.noDescription")}
-      </p>
-    );
-  }
-
-  if (isEditing) {
-    return (
-      <div className="mt-1 max-w-3xl">
-        <Textarea
-          className="min-h-20 resize-y text-sm leading-relaxed"
-          name="description"
-          value={draft}
-          maxLength={MAXIMUM_DESCRIPTION_LENGTH}
-          autoFocus
-          onChange={handleDraftChange}
-          onKeyDown={handleInputKeyDown}
-          aria-label={t("projectDetail.general.description")}
-        />
-        <div className="mt-2 flex items-center justify-end gap-2">
-          <Button
-            className="h-8 shrink-0 px-3 text-xs"
-            variant="ghost"
-            type="button"
-            onClick={handleCancel}
-          >
-            {t("projects.actions.cancel")}
-          </Button>
-          <Button
-            className="h-8 shrink-0 px-3 text-xs"
-            type="button"
-            onClick={handleSave}
-          >
-            {t("projects.edit.submit")}
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <span className="group mt-1 flex max-w-3xl items-start gap-2">
-      <p
-        className="line-clamp-2 cursor-text text-sm text-muted-foreground outline-none"
-        onDoubleClick={handleStartEdit}
-        onKeyDown={handleTextKeyDown}
-        tabIndex={0}
-      >
-        {description || t("projects.noDescription")}
-      </p>
-      <button
-        className="inline-flex shrink-0 items-center justify-center rounded-md p-1 text-muted-foreground opacity-0 transition-opacity outline-none hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-primary group-hover:opacity-100"
-        type="button"
-        aria-label={t("projectDetail.general.description")}
-        onClick={handleStartEdit}
-      >
-        <Pencil className="size-4" aria-hidden="true" />
-      </button>
-    </span>
-  );
-}
-
-/** Dot colors for the project statuses selectable in the header. */
-const PROJECT_STATUS_DOT: Record<ProjectStatus, string> = {
-  planned: "bg-emerald-500",
-  active: "bg-blue-500",
-  paused: "bg-amber-500",
-  completed: "bg-emerald-700",
-};
-
-interface ProjectStatusPillProps {
-  readonly status: ProjectStatus;
-  readonly canWrite: boolean;
-}
-
-/** Renders the project status as a pill that writers can change inline. */
-function ProjectStatusPill({
-  status,
-  canWrite,
-}: ProjectStatusPillProps): React.ReactElement {
-  const { t } = useTranslation();
-  const submit = useSubmit();
-  const actionData = useActionData<typeof action>();
-  const [lastSubmittedStatus, setLastSubmittedStatus] =
-    useState<ProjectStatus | null>(null);
-
-  useEffect(() => {
-    if (actionData?.ok) {
-      setLastSubmittedStatus(null);
-    }
-  }, [actionData]);
-
-  function handleSelect(nextStatus: ProjectStatus): void {
-    setLastSubmittedStatus(nextStatus);
-
-    const formData = new FormData();
-    formData.set("intent", "update-status");
-    formData.set("status", nextStatus);
-    void submit(formData, { method: "post" });
-  }
-
-  const showError =
-    lastSubmittedStatus !== null && actionData !== undefined && !actionData.ok;
-
-  if (!canWrite) {
-    return (
-      <span className="inline-flex items-center gap-2 rounded-full bg-muted/60 px-3 py-1 text-xs font-medium text-foreground">
-        <span
-          className={`size-2 shrink-0 rounded-full ${PROJECT_STATUS_DOT[status]}`}
-          aria-hidden="true"
-        />
-        {t(`projects.status.${status}`)}
-      </span>
-    );
-  }
-
-  return (
-    <span className="inline-flex flex-col items-start gap-1">
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-muted/60 px-3 py-1 text-xs font-medium text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-primary"
-            type="button"
-            aria-label={t("projectDetail.changeStatus")}
-          >
-            <span
-              className={`size-2 shrink-0 rounded-full ${PROJECT_STATUS_DOT[status]}`}
-              aria-hidden="true"
-            />
-            {t(`projects.status.${status}`)}
-            <ChevronDown
-              className="size-3.5 shrink-0 text-muted-foreground"
-              aria-hidden="true"
-            />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-56">
-          {Object.values(PROJECT_STATUS).map((option) => (
-            <DropdownMenuItem
-              key={option}
-              onSelect={() => handleSelect(option)}
-            >
-              <span
-                className={`mr-2 size-2 shrink-0 rounded-full ${PROJECT_STATUS_DOT[option]}`}
-                aria-hidden="true"
-              />
-              {t(`projects.status.${option}`)}
-              {option === status ? (
-                <Check
-                  className="ml-auto size-4 shrink-0 text-primary"
-                  aria-hidden="true"
-                />
-              ) : null}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-      {showError ? (
-        <span className="text-xs text-destructive" role="alert">
-          {t("projectDetail.statusError")}
-        </span>
-      ) : null}
-    </span>
-  );
 }
 
 /** Renders the project detail page with its five configuration tabs. */
@@ -1272,48 +295,10 @@ export default function ProjectDetailRoute(): React.ReactElement {
   return (
     <section className="mx-auto flex h-[calc(100dvh-8.5rem)] min-h-0 max-w-[92rem] flex-col">
       <div className="shrink-0">
-        <Link
-          to="/projekte"
-          prefetch="intent"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="size-4" aria-hidden="true" />
-          {t("projectDetail.breadcrumb")} › {loaderData.project.name}
-        </Link>
-
-        <div className="mt-4 flex items-start gap-4">
-          {loaderData.project.hasIcon ? (
-            <img
-              className="size-16 shrink-0 rounded-2xl object-cover"
-              src={`/projekte/${loaderData.project.id}/icon`}
-              alt=""
-            />
-          ) : (
-            <span
-              className="inline-flex size-16 shrink-0 select-none items-center justify-center rounded-2xl text-3xl font-semibold text-foreground"
-              style={{ backgroundColor: loaderData.project.placeholderColor }}
-              aria-hidden="true"
-            >
-              {loaderData.project.name.trim().charAt(0).toLocaleUpperCase()}
-            </span>
-          )}
-          <div className="min-w-0">
-            <h1 className="flex flex-wrap items-center gap-3 text-2xl font-semibold tracking-tight text-foreground">
-              <ProjectNameHeading
-                name={loaderData.project.name}
-                canWrite={loaderData.canWrite}
-              />
-              <ProjectStatusPill
-                status={loaderData.project.status}
-                canWrite={loaderData.canWrite}
-              />
-            </h1>
-            <ProjectDescription
-              description={loaderData.project.description}
-              canWrite={loaderData.canWrite}
-            />
-          </div>
-        </div>
+        <ProjectHeader
+          project={loaderData.project}
+          canWrite={loaderData.canWrite}
+        />
 
         <div className="mt-6">
           <Tabs

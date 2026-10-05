@@ -6,6 +6,8 @@ Coding conventions for source code only.
 
 These rules define how code should be written and structured. They do **not** define project workflows, build commands, testing commands, architecture decisions, deployment, or repository processes.
 
+Every rule that a tool can check is enforced as an **error** by `pnpm check` (TypeScript, Prettier) or `pnpm lint` (ESLint, no warnings allowed). Chapter 18 lists which rule is enforced by which tool. All other rules are checked in code review.
+
 ## 1. General Style
 
 - Prefer clear and explicit code over clever code.
@@ -50,6 +52,14 @@ interface Project {}
 type ProjectStatus = "active" | "archived";
 ```
 
+Files use the name style of their folder:
+
+```text
+app/                         kebab-case    task-form-dialog.tsx, use-task-form.ts
+backend/                     PascalCase    TaskRepository.ts, ProjectErrors.ts
+definition/, language/       PascalCase    Task.ts, Language.ts
+```
+
 Boolean names should read like conditions:
 
 ```ts
@@ -59,7 +69,7 @@ canEdit
 shouldReload
 ```
 
-Avoid:
+Avoid these names for variables, functions, and parameters:
 
 ```ts
 flag
@@ -86,6 +96,17 @@ function createProject(input: CreateProjectInput): Project {
 ```
 
 Avoid functions that mix unrelated responsibilities.
+
+Size limits for every function and method, React components included:
+
+```text
+100 lines of code     blank lines and comments do not count
+complexity 15         cyclomatic complexity
+nesting depth 3
+4 parameters
+```
+
+A function that exceeds a limit is split by responsibility. A component splits into section components and hooks. The limits are realistic for the code base: every function fits them, so they stay errors without exceptions.
 
 Prefer guard clauses over deep nesting:
 
@@ -180,6 +201,8 @@ Avoid:
 ```ts
 const project = value as Project;
 ```
+
+Allowed are `as const` and an assertion for a fact the compiler cannot see, such as an element returned by a query. An assertion on an object literal and the non-null assertion `!` are errors.
 
 Prefer:
 
@@ -288,6 +311,8 @@ Rules:
 - Use `readonly` when a dependency should not be reassigned.
 - Do not create classes for simple stateless utility functions.
 - Avoid large classes with unrelated responsibilities.
+- A file has at most 600 lines of code (blank lines and comments do not count). A class that grows beyond that is split into one small class per aggregate; the original class stays as a thin facade when other code depends on its public API.
+- Member order, explicit accessibility on every member, and `readonly` for fields that are never reassigned are checked by ESLint.
 
 ---
 
@@ -302,6 +327,8 @@ Document:
 - public methods
 - exported interfaces/types when their purpose is not obvious
 - non-obvious public properties
+
+A missing comment on an exported function or class or on a public method is an error. `@param` names must match the parameters, and tags must not repeat types. Properties of a destructured props parameter do not need their own `@param` tag.
 
 Do not document trivial private implementation details.
 
@@ -388,6 +415,8 @@ Use `import type` for type-only imports.
 
 Prefer named exports unless a default export is clearly more appropriate.
 
+`import type` is enforced. The order itself is checked in code review.
+
 Avoid circular dependencies.
 
 ---
@@ -399,11 +428,14 @@ A file should have one clear primary purpose.
 Good:
 
 ```text
-ProjectService.ts
-ProjectRepository.ts
-ProjectCard.tsx
-ProjectCard.module.css
+backend/service/ProjectService.ts
+backend/database/repositories/ProjectRepository.ts
+app/components/projects/project-card.tsx
+app/components/projects/project-card/project-card-actions.tsx
+app/components/projects/project-card/use-project-card.ts
 ```
+
+A component that outgrows the size limits becomes a folder next to its file. The original file keeps the exported component as a composition of the section components and hooks in the folder, so imports of it stay valid.
 
 Avoid generic dumping grounds:
 
@@ -456,7 +488,7 @@ If fire-and-forget behavior is intentional, make it explicit:
 void sendMetric();
 ```
 
-The called function must handle its own errors.
+The called function must handle its own errors. Unhandled and misused promises are errors.
 
 ---
 
@@ -472,13 +504,15 @@ try {
 }
 ```
 
-Avoid empty catches.
+Avoid empty catches. Empty blocks are errors.
 
 ```ts
 catch {
   // ignored
 }
 ```
+
+Use `console.error` and `console.warn` for diagnostics, `console.info` for operator notices, and `console.debug` only for traces that are switched on explicitly. `console.log` is not allowed.
 
 Catch errors only when the current function can:
 
@@ -538,6 +572,8 @@ Rules:
 - Split large components by responsibility.
 - Avoid `useMemo` and `useCallback` unless they solve a real problem.
 - Use semantic HTML elements.
+- Hooks follow the rules of hooks, and effects list every value they read.
+- Replace a nested ternary with a small component, an early return, or a lookup table.
 
 Avoid:
 
@@ -559,14 +595,16 @@ function handleSave(): void {
 
 ## 13. CSS
 
-Prefer component-scoped CSS Modules.
+Style components with Tailwind utility classes in the JSX. Shared design values are theme tokens and CSS custom properties, not repeated literals.
+
+Use a component-scoped CSS Module only for what utility classes cannot express, such as scrollbar styling, drag states, or animations:
 
 ```text
-ProjectCard.tsx
-ProjectCard.module.css
+kanban-scroll-area.tsx
+kanban-scroll-area.module.css
 ```
 
-Use readable class names:
+Use readable class names in CSS Modules:
 
 ```css
 .projectCard {}
@@ -657,6 +695,9 @@ Rules:
 - Keep conditions one per line when several are present.
 - Prefer explicit column lists in `INSERT`.
 - Always parameterize values.
+- Interpolate only fixed fragments, such as a column list or a placeholder list, never a value.
+
+`SELECT *` is an error. The other SQL rules are checked in code review.
 
 Good:
 
@@ -734,6 +775,10 @@ unnecessary abstractions
 unnecessary useEffect
 unnecessary useMemo/useCallback
 business logic inside JSX
+nested ternaries
+console.log
+the non-null assertion !
+unhandled promises
 deep CSS selector chains
 !important as a normal solution
 SELECT *
@@ -755,3 +800,34 @@ maintainability
 ```
 
 Shorter code is only better when it is also easier to understand.
+
+---
+
+## 18. Enforcement
+
+`pnpm check` runs the TypeScript compiler (`strict`, `noImplicitOverride`, `noImplicitReturns`, `noFallthroughCasesInSwitch`, `verbatimModuleSyntax`) and Prettier. `pnpm lint` runs ESLint with `--max-warnings=0`. Both must pass without exceptions. Suppression comments such as `eslint-disable` are not honoured, and `any`, `@ts-ignore`, and coverage-ignore comments are not used.
+
+```text
+Chapter  Rule                                         Tool
+2        naming of variables, functions, types        @typescript-eslint/naming-convention
+2        vague names                                  @typescript-eslint/naming-convention
+3        function size, complexity, depth, params     max-lines-per-function, complexity, max-depth, max-params
+3        explicit return types                        explicit-function-return-type, explicit-module-boundary-types
+4        no any, no @ts-ignore                        typescript-eslint recommended
+4        interface for object contracts               consistent-type-definitions
+4        assertions                                   consistent-type-assertions, no-non-null-assertion, no-unnecessary-type-assertion
+6        class member order and accessibility         member-ordering, explicit-member-accessibility, prefer-readonly
+6        file size                                    max-lines
+7        TypeDoc                                      jsdoc/require-jsdoc, jsdoc/check-param-names, jsdoc/no-types
+8        import type                                  consistent-type-imports
+10       promises                                     no-floating-promises, no-misused-promises
+11       empty catch, console.log                     no-empty, no-console
+11       unknown in catch                             useUnknownInCatchVariables, use-unknown-in-catch-callback-variable
+12       hooks                                        react-hooks/rules-of-hooks, react-hooks/exhaustive-deps
+16       nested ternaries                             no-nested-ternary
+14       SELECT *                                     no-restricted-syntax
+```
+
+Checked in code review, because no tool can decide them: names that explain the purpose, import order, semantic HTML and accessibility, comments that explain why, unnecessary abstractions, unnecessary effects, and the SQL layout.
+
+`eslint-plugin-jsx-a11y` is not used because its newest release (6.10.2) does not declare support for ESLint 10. Accessibility is checked in review until it does.

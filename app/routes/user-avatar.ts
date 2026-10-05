@@ -1,12 +1,11 @@
 import { getApplicationServices } from "@/app/lib/services.server";
-
-import type { LoaderFunctionArgs } from "react-router";
+import type { Route } from "./+types/user-avatar";
 
 /** Returns a user's custom avatar image as a binary response. */
 export async function loader({
   params,
   request,
-}: LoaderFunctionArgs): Promise<Response> {
+}: Route.LoaderArgs): Promise<Response> {
   if (request.method !== "GET") {
     throw new Response("Method Not Allowed", {
       headers: { Allow: "GET" },
@@ -29,8 +28,9 @@ export async function loader({
 
   return new Response(new Uint8Array(avatar.data), {
     headers: {
-      "Cache-Control": "public, max-age=300",
+      "Cache-Control": "private, max-age=300",
       "Content-Type": avatar.mimeType,
+      "X-Content-Type-Options": "nosniff",
     },
   });
 }

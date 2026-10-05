@@ -1,5 +1,6 @@
 import { createCookie } from "react-router";
 
+import { resolveCookieSecure } from "@/app/lib/cookie-security.server";
 import { SESSION_LIFETIME_SECONDS } from "@/backend/auth/SessionService";
 
 const SESSION_COOKIE_NAME = "pages_session";
@@ -10,7 +11,7 @@ export const sessionCookie = createCookie(SESSION_COOKIE_NAME, {
   maxAge: SESSION_LIFETIME_SECONDS,
   path: "/",
   sameSite: "lax",
-  secure: process.env.NODE_ENV === "production",
+  secure: resolveCookieSecure(),
 });
 
 /** Reads a valid session token from an incoming request. */

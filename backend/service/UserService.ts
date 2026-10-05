@@ -1,10 +1,14 @@
 import { randomBytes } from "node:crypto";
 
+import { PERMISSION, ROLE } from "@/definition/Role";
 import {
   EmailTakenError,
+  LastAdministratorError,
+  RoleAssignmentDeniedError,
+  UserManagementDeniedError,
+  UserNotFoundError,
   UsernameTakenError,
-} from "@/backend/database/repositories/UserRepository";
-import { PERMISSION, ROLE } from "@/definition/Role";
+} from "@/backend/error/UserErrors";
 
 import type { PermissionService } from "@/backend/auth/PermissionService";
 import type { PasswordHasher } from "@/backend/auth/PasswordHasher";
@@ -16,34 +20,6 @@ import type {
 } from "@/backend/database/repositories/UserRepository";
 import type { Role } from "@/definition/Role";
 import type { User, UserAvatarType } from "@/definition/User";
-
-/** Thrown when an actor lacks the permission to manage users at all. */
-export class UserManagementDeniedError extends Error {
-  public constructor() {
-    super("This user is not allowed to manage users.");
-  }
-}
-
-/** Thrown when an actor tries to assign or keep a role beyond their reach. */
-export class RoleAssignmentDeniedError extends Error {
-  public constructor() {
-    super("This user is not allowed to assign the requested role.");
-  }
-}
-
-/** Thrown when a referenced user does not exist. */
-export class UserNotFoundError extends Error {
-  public constructor() {
-    super("The requested user does not exist.");
-  }
-}
-
-/** Thrown when an action would leave Pages without an active administrator. */
-export class LastAdministratorError extends Error {
-  public constructor() {
-    super("The last active administrator cannot be deactivated.");
-  }
-}
 
 /** Characters used for generated passwords, without ambiguous glyphs. */
 const TEMPORARY_PASSWORD_ALPHABET =
@@ -214,11 +190,9 @@ export class UserService {
         throw new RoleAssignmentDeniedError();
       }
 
-      if (
-        user.isActive &&
-        user.role === ROLE.ADMIN &&
-        profile.role !== ROLE.ADMIN
-      ) {
+      // The role differs from the stored one here, so an administrator who
+      // is edited always leaves the administrator role.
+      if (user.isActive && user.role === ROLE.ADMIN) {
         const activeAdministrators =
           await this.userRepository.countActiveAdministrators();
 
@@ -358,21 +332,7 @@ export class UserService {
     targetUserId: string,
     isActive: boolean,
   ): Promise<void> {
-    if (
-      !this.permissionService.hasPermission(actor.role, PERMISSION.MANAGE_USERS)
-    ) {
-      throw new UserManagementDeniedError();
-    }
-
-    const target = await this.userRepository.findById(targetUserId);
-
-    if (!target) {
-      throw new UserNotFoundError();
-    }
-
-    if (!this.permissionService.canManageUser(actor.role, target.role)) {
-      throw new UserManagementDeniedError();
-    }
+    const target = await this.requireManageableTarget(actor, targetUserId);
 
     if (!isActive && target.role === ROLE.ADMIN) {
       const activeAdministrators =
@@ -406,21 +366,7 @@ export class UserService {
       readonly email: string | null;
     },
   ): Promise<void> {
-    if (
-      !this.permissionService.hasPermission(actor.role, PERMISSION.MANAGE_USERS)
-    ) {
-      throw new UserManagementDeniedError();
-    }
-
-    const target = await this.userRepository.findById(targetUserId);
-
-    if (!target) {
-      throw new UserNotFoundError();
-    }
-
-    if (!this.permissionService.canManageUser(actor.role, target.role)) {
-      throw new UserManagementDeniedError();
-    }
+    await this.requireManageableTarget(actor, targetUserId);
 
     if (profile.email) {
       const owner = await this.userRepository.findByEmail(profile.email);
@@ -451,21 +397,7 @@ export class UserService {
     targetUserId: string,
     role: Role,
   ): Promise<void> {
-    if (
-      !this.permissionService.hasPermission(actor.role, PERMISSION.MANAGE_USERS)
-    ) {
-      throw new UserManagementDeniedError();
-    }
-
-    const target = await this.userRepository.findById(targetUserId);
-
-    if (!target) {
-      throw new UserNotFoundError();
-    }
-
-    if (!this.permissionService.canManageUser(actor.role, target.role)) {
-      throw new UserManagementDeniedError();
-    }
+    const target = await this.requireManageableTarget(actor, targetUserId);
 
     if (!this.permissionService.canAssignRole(actor.role, role)) {
       throw new RoleAssignmentDeniedError();
@@ -502,6 +434,30 @@ export class UserService {
     targetUserId: string,
     passwordHasher: PasswordHasher,
   ): Promise<{ readonly temporaryPassword: string }> {
+    await this.requireManageableTarget(actor, targetUserId);
+
+    const temporaryPassword = generateTemporaryPassword();
+    const passwordHash = await passwordHasher.hash(temporaryPassword);
+
+    await this.userRepository.updatePasswordHash(targetUserId, passwordHash);
+
+    return { temporaryPassword };
+  }
+
+  /**
+   * Loads the user an actor wants to change and checks the actor may do so.
+   *
+   * @param actor - User performing the change.
+   * @param targetUserId - Identifier of the user being changed.
+   * @returns The target user.
+   * @throws {UserManagementDeniedError} When the actor may not manage users or
+   * this target.
+   * @throws {UserNotFoundError} When the target user does not exist.
+   */
+  private async requireManageableTarget(
+    actor: User,
+    targetUserId: string,
+  ): Promise<User> {
     if (
       !this.permissionService.hasPermission(actor.role, PERMISSION.MANAGE_USERS)
     ) {
@@ -518,11 +474,6 @@ export class UserService {
       throw new UserManagementDeniedError();
     }
 
-    const temporaryPassword = generateTemporaryPassword();
-    const passwordHash = await passwordHasher.hash(temporaryPassword);
-
-    await this.userRepository.updatePasswordHash(targetUserId, passwordHash);
-
-    return { temporaryPassword };
+    return target;
   }
 }

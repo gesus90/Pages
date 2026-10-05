@@ -7,31 +7,22 @@ vi.mock("@/app/lib/services.server", () => ({
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { action, loader, parseDetailView } from "@/app/routes/task-detail";
-import { ProjectAccessDeniedError } from "@/backend/service/ProjectService";
+import { WORK_ITEM_PRIORITY, WORK_ITEM_TYPE } from "@/definition/Task";
+
+import { createUser } from "../helpers/factories";
+import { ProjectAccessDeniedError } from "@/backend/error/ProjectErrors";
 import {
   WorkItemNotFoundError,
   WorkItemValidationError,
-} from "@/backend/service/TaskService";
-import { ROLE } from "@/definition/Role";
-import { WORK_ITEM_PRIORITY, WORK_ITEM_TYPE } from "@/definition/Task";
+} from "@/backend/error/WorkItemErrors";
 
 import type { Project } from "@/definition/Project";
 import type { WorkItemDetail } from "@/definition/Task";
-import type { User } from "@/definition/User";
-import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
+
+type LoaderArguments = Parameters<typeof loader>[0];
+type ActionArguments = Parameters<typeof action>[0];
 
 const mockedServices = vi.mocked(getApplicationServices);
-
-function createUser(overrides: Partial<User> = {}): User {
-  return {
-    displayName: "Admin",
-    id: "user-1",
-    isActive: true,
-    role: ROLE.ADMIN,
-    username: "admin",
-    ...overrides,
-  };
-}
 
 function createProject(overrides: Partial<Project> = {}): Project {
   return {
@@ -139,17 +130,14 @@ function createServices(
   } as unknown as Awaited<ReturnType<typeof mockedServices>>;
 }
 
-function createLoaderArgs(
-  ticketKey?: string,
-  from?: string,
-): LoaderFunctionArgs {
+function createLoaderArgs(ticketKey?: string, from?: string): LoaderArguments {
   const url = `http://pages.invalid/aufgaben${ticketKey ? `/${ticketKey}` : ""}${from ? `?from=${from}` : ""}`;
 
   return {
     context: new Map([[authenticatedUserContext, createUser()]]),
     params: ticketKey ? { ticketKey } : {},
     request: new Request(url),
-  } as unknown as LoaderFunctionArgs;
+  } as unknown as LoaderArguments;
 }
 
 describe("task detail route action", () => {
@@ -168,7 +156,7 @@ describe("task detail route action", () => {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         method: "POST",
       }),
-    } as unknown as ActionFunctionArgs)) as unknown as {
+    } as unknown as ActionArguments)) as unknown as {
       data: Record<string, unknown>;
     };
 
@@ -204,7 +192,7 @@ describe("task detail route loader", () => {
         context: new Map(),
         params: { ticketKey: "PAGE-14" },
         request: new Request("http://pages.invalid/aufgaben/PAGE-14"),
-      } as unknown as LoaderFunctionArgs),
+      } as unknown as LoaderArguments),
     ).rejects.toThrow("Authenticated middleware did not provide a user.");
   });
 
@@ -214,7 +202,7 @@ describe("task detail route loader", () => {
         context: new Map([[authenticatedUserContext, createUser()]]),
         params: {},
         request: new Request("http://pages.invalid/aufgaben"),
-      } as unknown as LoaderFunctionArgs),
+      } as unknown as LoaderArguments),
     ).rejects.toMatchObject({ status: 404 });
   });
 
@@ -350,7 +338,7 @@ describe("task detail route loader", () => {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         method: "POST",
       }),
-    } as unknown as ActionFunctionArgs)) as unknown as {
+    } as unknown as ActionArguments)) as unknown as {
       data: Record<string, unknown>;
       init?: { status?: number };
     };

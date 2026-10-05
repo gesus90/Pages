@@ -77,6 +77,9 @@ export default defineConfig({
   },
   test: {
     clearMocks: true,
+    // Coverage instrumentation makes the longest jsdom interaction tests take
+    // several seconds, so the default of five seconds fails them on busy machines.
+    testTimeout: 20_000,
     // Suites below `tests/frontend/` declare `// @vitest-environment jsdom`
     // at the top of the file; everything else runs in Node.
     environment: "node",

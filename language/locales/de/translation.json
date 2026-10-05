@@ -78,6 +78,7 @@
     "submitting": "Wird angemeldet …",
     "error": {
       "invalidCredentials": "Benutzername oder Passwort ist falsch.",
+      "tooManyAttempts": "Zu viele Anmeldeversuche. Bitte später erneut versuchen.",
       "unavailable": "Anmeldung derzeit nicht möglich. Bitte später erneut versuchen."
     },
     "setup": {
@@ -87,6 +88,21 @@
     "footer": {
       "tagline": "Einfach. Organisiert. Produktiv."
     }
+  },
+  "errorPage": {
+    "forbidden": {
+      "title": "Zugriff verweigert",
+      "message": "Du hast keine Berechtigung, diese Seite anzusehen."
+    },
+    "notFound": {
+      "title": "Seite nicht gefunden",
+      "message": "Die gesuchte Seite existiert nicht oder wurde verschoben."
+    },
+    "generic": {
+      "title": "Etwas ist schiefgelaufen",
+      "message": "Es ist ein unerwarteter Fehler aufgetreten. Bitte versuche es später erneut."
+    },
+    "backToStart": "Zur Startseite"
   },
   "navigation": {
     "close": "Navigation schließen",
@@ -715,8 +731,6 @@
       "newTask": "Neue Aufgabe",
       "planEvent": "Termin planen",
       "manageTeam": "Team verwalten",
-      "tags": "Tags",
-      "addTag": "+ Tag hinzufügen",
       "notes": "Notizen",
       "notesEmptyHint": "Hier können wichtige Informationen, Links oder Anmerkungen zum Projekt gespeichert werden.",
       "notesPlaceholder": "Wichtige Entscheidungen und Hinweise zum Projekt …",
@@ -932,9 +946,6 @@
       }
     },
     "integrations": {
-      "title": "Integrationen",
-      "github": "GitHub",
-      "repoUrl": "Repository-Adresse",
       "repoPlaceholder": "https://github.com/user/pages.git",
       "token": "GitHub API Key / Personal Access Token",
       "tokenSet": "✓ API-Key hinterlegt",
@@ -943,14 +954,7 @@
       "testing": "Wird getestet …",
       "sync": "Synchronisation",
       "syncIssues": "Issues synchronisieren",
-      "syncStatus": "Status synchronisieren",
-      "syncComments": "Kommentare synchronisieren",
       "syncPullRequests": "Pull Requests synchronisieren",
-      "syncCommits": "Commits synchronisieren",
-      "direction": "Synchronisationsrichtung",
-      "directionBidirectional": "Bidirektional",
-      "directionPush": "Push",
-      "directionPull": "Pull",
       "save": "Integration speichern",
       "saving": "Wird gespeichert …",
       "connected": "Verbunden",
@@ -963,8 +967,7 @@
       "interval": "Aktualisierungsintervall",
       "intervalManual": "Manuell",
       "intervalMinutes": "Alle {{count}} Minuten",
-      "nextSync": "Nächste Synchronisation:",
-      "scheduled": "Automatisch geplant"
+      "nextSync": "Nächste Synchronisation:"
     },
     "interfaces": {
       "availableTitle": "Verfügbare Schnittstellen",
@@ -995,7 +998,6 @@
       "showToken": "Token anzeigen",
       "hideToken": "Token verbergen",
       "repositoryLabel": "GitHub Repository",
-      "repositoryPlaceholder": "z. B. joon/pages",
       "branchLabel": "Standard-Branch",
       "createFromPages": "Erstellen aus Pages",
       "allowCreateIssues": "GitHub Issues aus Pages erstellen",
@@ -1008,73 +1010,9 @@
       "syncCommitsHint": "Commits in der Aktivitätshistorie anzeigen.",
       "webhookUrlLabel": "Webhook-URL (optional)",
       "webhookCopy": "Webhook-URL kopieren",
-      "webhookCopied": "Kopiert",
       "connectionOk": "Verbindung erfolgreich.",
       "connectionFailed": "Verbindung fehlgeschlagen. Prüfe Token und Repository.",
-      "savedLocally": "Änderungen übernommen. Sie gelten nur für dieses Projekt.",
-      "calendarConnect": "Verbindung herstellen",
-      "calendarConnectHint": "Google-Konto verknüpfen, um Kalender zu synchronisieren.",
-      "calendarSelect": "Kalender auswählen",
-      "calendarSelectPlaceholder": "Kalender wählen …",
-      "calendarImport": "Termine importieren",
-      "calendarImportHint": "Termine aus Google Kalender in Pages übernehmen.",
-      "calendarExport": "Pages-Termine exportieren",
-      "calendarExportHint": "Termine aus Pages in Google Kalender übertragen.",
-      "calendarDirection": "Synchronisationsrichtung",
-      "calendarDirectionImport": "Nur importieren",
-      "calendarDirectionExport": "Nur exportieren",
-      "calendarDirectionBoth": "Beide Richtungen",
-      "discordWebhook": "Webhook-URL",
-      "discordWebhookPlaceholder": "https://discord.com/api/webhooks/…",
-      "discordWebhookHint": "Webhook-URL des Discord-Kanals für dieses Projekt.",
-      "discordChannel": "Channel",
-      "discordChannelPlaceholder": "# allgemein",
-      "discordEvents": "Ereignisse",
-      "discordEventTask": "Neue Aufgabe",
-      "discordEventTaskHint": "Bei neu erstellten Aufgaben benachrichtigen.",
-      "discordEventStatus": "Statusänderung",
-      "discordEventStatusHint": "Bei Statusänderungen von Aufgaben benachrichtigen.",
-      "discordEventMilestone": "Meilenstein erreicht",
-      "discordEventMilestoneHint": "Bei abgeschlossenen Meilensteinen benachrichtigen.",
-      "discordEventActivity": "Projektaktivität",
-      "discordEventActivityHint": "Bei sonstiger Projektaktivität benachrichtigen.",
-      "webhookTarget": "Ziel-URL",
-      "webhookTargetPlaceholder": "https://example.com/hooks/pages",
-      "webhookSecret": "Secret",
-      "webhookMethod": "HTTP-Methode",
-      "webhookEvents": "Ereignisse",
-      "webhookActive": "Aktiv",
-      "webhookActiveHint": "Dieser Webhook empfängt Ereignisse aus diesem Projekt.",
-      "emailHost": "SMTP-Host",
-      "emailHostPlaceholder": "mail.example.com",
-      "emailPort": "Port",
-      "emailUsername": "Benutzername",
-      "emailPassword": "Passwort",
-      "emailTls": "TLS verwenden",
-      "emailTlsHint": "Verbindung zum SMTP-Server verschlüsseln.",
-      "emailSender": "Absender",
-      "emailSenderPlaceholder": "pages@example.com",
-      "emailRules": "Benachrichtigungsregeln",
-      "emailRuleTask": "Neue Aufgabe",
-      "emailRuleTaskHint": "Bei neu erstellten Aufgaben per E-Mail benachrichtigen.",
-      "emailRuleStatus": "Statusänderung",
-      "emailRuleStatusHint": "Bei Statusänderungen per E-Mail benachrichtigen.",
-      "emailRuleMilestone": "Meilenstein erreicht",
-      "emailRuleMilestoneHint": "Bei abgeschlossenen Meilensteinen per E-Mail benachrichtigen.",
-      "apiEnable": "Projekt-API aktivieren",
-      "apiEnableHint": "API-Zugriff ausschließlich für dieses Projekt erlauben.",
-      "apiToken": "API-Token",
-      "apiTokenHint": "Der Token erhält nur Zugriff auf dieses Projekt.",
-      "apiCreate": "Token erstellen",
-      "apiRenew": "Token erneuern",
-      "apiCopy": "Token kopieren",
-      "apiRevoke": "Token deaktivieren",
-      "apiScopes": "Berechtigungen",
-      "apiScopeReadProjects": "Projekte lesen",
-      "apiScopeReadTasks": "Aufgaben lesen",
-      "apiScopeWriteTasks": "Aufgaben schreiben",
-      "apiScopeReadMilestones": "Meilensteine lesen",
-      "apiScopeWriteMilestones": "Meilensteine schreiben"
+      "planned": "In Planung"
     },
     "activity": {
       "allActivities": "Alle Aktivitäten",

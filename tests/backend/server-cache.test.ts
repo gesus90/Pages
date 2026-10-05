@@ -23,9 +23,11 @@ describe("ServerCache", () => {
 
     expect(cache.get("brief")).toEqual({ n: 1 });
 
-    await new Promise((resolve) => setTimeout(resolve, 30));
-
-    expect(cache.get("brief")).toBeUndefined();
+    // Waits for the real expiry instead of a fixed pause that could be too short.
+    await vi.waitFor(() => expect(cache.get("brief")).toBeUndefined(), {
+      interval: 5,
+      timeout: 2000,
+    });
   });
 
   it("bounds the number of entries with LRU eviction", () => {

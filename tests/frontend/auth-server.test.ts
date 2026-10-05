@@ -28,23 +28,15 @@ import {
   getSessionToken,
 } from "@/app/lib/session.server";
 import { getApplicationServices } from "@/app/lib/services.server";
-import { PERMISSION, ROLE } from "@/definition/Role";
+import { PERMISSION } from "@/definition/Role";
+
+import { createUser } from "../helpers/factories";
 
 import type { User } from "@/definition/User";
 
 const mockedGetSessionToken = vi.mocked(getSessionToken);
 const mockedDestroySessionCookie = vi.mocked(destroySessionCookie);
 const mockedGetServices = vi.mocked(getApplicationServices);
-
-function createUser(): User {
-  return {
-    displayName: "Admin",
-    id: "user-1",
-    isActive: true,
-    role: ROLE.ADMIN,
-    username: "admin",
-  };
-}
 
 function createServices(
   user: User | null,

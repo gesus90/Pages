@@ -8,22 +8,7 @@ import {
   WORKFLOW_STATUS_KEY,
 } from "@/definition/Task";
 
-import type { Database } from "@/backend/database/Database";
-
-function createDatabase(): Database & {
-  execute: ReturnType<typeof vi.fn>;
-  query: ReturnType<typeof vi.fn>;
-} {
-  return {
-    close: vi.fn(),
-    execute: vi.fn(),
-    migrate: vi.fn(),
-    query: vi.fn(),
-  } as unknown as Database & {
-    execute: ReturnType<typeof vi.fn>;
-    query: ReturnType<typeof vi.fn>;
-  };
-}
+import { createDatabase } from "../helpers/factories";
 
 function createStatusRow(
   overrides: readonly unknown[] = [],
@@ -44,6 +29,9 @@ function createStatusRow(
   return row;
 }
 
+/** Avatar columns of a user row for an account that keeps its initials avatar. */
+const AVATAR_COLUMNS = ["initials", null, null, null] as const;
+
 function createMilestoneRow(
   overrides: readonly unknown[] = [],
 ): readonly unknown[] {
@@ -57,6 +45,9 @@ function createMilestoneRow(
     "2026-02-01",
     "2026-01-01",
     "2026-01-02",
+    null,
+    null,
+    null,
     null,
     null,
   ];
@@ -345,7 +336,7 @@ describe("TaskRepository", () => {
     await repository.archive("item-1");
 
     expect(database.execute).toHaveBeenCalledWith(
-      expect.stringContaining("archived_at = CURRENT_TIMESTAMP"),
+      expect.stringContaining("archived_at = utc_now()"),
       { id: "item-1" },
     );
   });
@@ -376,10 +367,48 @@ describe("TaskRepository", () => {
     expect(history[0]?.userDisplayName).toBe("Admin");
   });
 
+  it("finds the history of all work items of a project", async () => {
+    database.query.mockResolvedValue([createHistoryRow()]);
+
+    const history = await repository.findHistoryByProjectId("project-1");
+
+    expect(history).toHaveLength(1);
+    expect(history[0]?.action).toBe("status_changed");
+    expect(database.query).toHaveBeenCalledWith(
+      expect.stringContaining("INNER JOIN work_items"),
+      { project_id: "project-1" },
+    );
+  });
+
+  it("treats an unknown milestone status as open", async () => {
+    database.query.mockResolvedValue([
+      createMilestoneRow([
+        "milestone-1",
+        "project-1",
+        "Release v1.0",
+        "First deliverable",
+        "paused",
+      ]),
+    ]);
+
+    const milestones = await repository.findMilestonesByProjectIds([
+      "project-1",
+    ]);
+
+    expect(milestones[0]?.status).toBe("open");
+  });
+
   it("finds eligible assignees for a project", async () => {
     database.query.mockResolvedValue([
-      ["user-1", "admin", "Admin User", ROLE.ADMIN, 1],
-      ["user-2", "employee", "Team Member", ROLE.EMPLOYEE, 1],
+      ["user-1", "admin", "Admin User", ROLE.ADMIN, 1, ...AVATAR_COLUMNS],
+      [
+        "user-2",
+        "employee",
+        "Team Member",
+        ROLE.EMPLOYEE,
+        1,
+        ...AVATAR_COLUMNS,
+      ],
     ]);
 
     const assignees = await repository.findEligibleAssignees("project-1");
@@ -476,12 +505,42 @@ describe("TaskRepository", () => {
 
   it("rejects invalid user role from row", async () => {
     database.query.mockResolvedValueOnce([
-      ["user-1", "admin", "Admin User", "superadmin", 1],
+      ["user-1", "admin", "Admin User", "superadmin", 1, ...AVATAR_COLUMNS],
     ]);
 
     await expect(repository.findEligibleAssignees("project-1")).rejects.toThrow(
       'unsupported role "superadmin"',
     );
+  });
+
+  it("rejects an invalid avatar type from a user row", async () => {
+    database.query.mockResolvedValueOnce([
+      [
+        "user-1",
+        "admin",
+        "Admin User",
+        "admin",
+        1,
+        "hologram",
+        null,
+        null,
+        null,
+      ],
+    ]);
+
+    await expect(repository.findEligibleAssignees("project-1")).rejects.toThrow(
+      'unsupported avatar type "hologram"',
+    );
+  });
+
+  it("rejects an invalid link type from a milestone dependency row", async () => {
+    database.query.mockResolvedValueOnce([
+      ["dependency-1", "project-1", "m-1", "m-2", "depends_on", "2026-01-01"],
+    ]);
+
+    await expect(
+      repository.findDependenciesByProjectIds(["project-1"]),
+    ).rejects.toThrow("invalid milestone link type");
   });
 
   it("maps milestone, work item, and history rows with null vs non-null branches", async () => {
@@ -700,7 +759,15 @@ describe("TaskRepository", () => {
 
   it("groups eligible assignees by project with the fallback branch", async () => {
     database.query.mockResolvedValue([
-      ["user-3", "viewer", "Viewer User", ROLE.EMPLOYEE, 1, null],
+      [
+        "user-3",
+        "viewer",
+        "Viewer User",
+        ROLE.EMPLOYEE,
+        1,
+        ...AVATAR_COLUMNS,
+        null,
+      ],
     ]);
 
     const result = await repository.findEligibleAssigneesByProjectIds([

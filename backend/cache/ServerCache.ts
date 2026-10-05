@@ -48,10 +48,10 @@ function estimateSizeInBytes(value: unknown): number {
 }
 
 /**
- * Provides the bounded server-side memory cache between services and SQLite.
+ * Provides the bounded server-side memory cache between services and the database.
  *
  * @remarks
- * SQLite remains the source of truth: entries carry short TTLs and mutations
+ * The database remains the source of truth: entries carry short TTLs and mutations
  * invalidate their groups granularly through the helpers below. The cache
  * never stores unbounded collections under a single key scheme like
  * `database:everything`.

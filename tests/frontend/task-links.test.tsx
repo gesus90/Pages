@@ -6,6 +6,7 @@ import { I18nextProvider } from "react-i18next";
 import { createMemoryRouter, RouterProvider } from "react-router";
 
 import { TaskLinks } from "@/app/components/tasks/task-links";
+import { parseLinkType } from "@/app/components/tasks/task-links/link-type";
 import { createI18n } from "@/app/lib/i18n";
 import { LANGUAGE } from "@/language/Language";
 import { WORK_ITEM_LINK_TYPE } from "@/definition/Task";
@@ -341,5 +342,15 @@ describe("TaskLinks", () => {
     await user.click(screen.getByRole("button", { name: "Abbrechen" }));
 
     expect(onAddFormOpenChange).toHaveBeenCalledWith(false);
+  });
+});
+
+describe("parseLinkType", () => {
+  it("keeps a value that names a link type", () => {
+    expect(parseLinkType("blocks")).toBe(WORK_ITEM_LINK_TYPE.BLOCKS);
+  });
+
+  it("falls back to relates-to for a value that names no link type", () => {
+    expect(parseLinkType("unknown")).toBe(WORK_ITEM_LINK_TYPE.RELATES_TO);
   });
 });

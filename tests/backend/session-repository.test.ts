@@ -1,23 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { SessionRepository } from "@/backend/database/repositories/SessionRepository";
 
-import type { Database } from "@/backend/database/Database";
-
-function createDatabase(): Database & {
-  execute: ReturnType<typeof vi.fn>;
-  query: ReturnType<typeof vi.fn>;
-} {
-  return {
-    close: vi.fn(),
-    execute: vi.fn(),
-    migrate: vi.fn(),
-    query: vi.fn(),
-  } as unknown as Database & {
-    execute: ReturnType<typeof vi.fn>;
-    query: ReturnType<typeof vi.fn>;
-  };
-}
+import { createDatabase } from "../helpers/factories";
 
 describe("SessionRepository", () => {
   let database: ReturnType<typeof createDatabase>;
@@ -47,9 +32,32 @@ describe("SessionRepository", () => {
     expect(statement).toContain("INSERT INTO sessions");
     expect(parameters).toEqual({
       id: "session-1",
-      lifetime_modifier: "+14 days",
+      lifetime_days: 14,
       token_hash: "token-hash",
+      user_agent: null,
       user_id: "user-1",
+    });
+  });
+
+  it("stores the user agent of the browser that started the session", async () => {
+    database.execute.mockResolvedValue(undefined);
+
+    await repository.insert({
+      id: "session-2",
+      lifetimeDays: 7,
+      tokenHash: "other-hash",
+      userAgent: "Mozilla/5.0 Firefox/130",
+      userId: "user-1",
+    });
+
+    const [, parameters] = database.execute.mock.calls[0] as [
+      string,
+      Record<string, string | number>,
+    ];
+
+    expect(parameters).toMatchObject({
+      lifetime_days: 7,
+      user_agent: "Mozilla/5.0 Firefox/130",
     });
   });
 
@@ -60,7 +68,7 @@ describe("SessionRepository", () => {
       "user-1",
     );
     expect(database.query).toHaveBeenCalledWith(
-      expect.stringContaining("expires_at > CURRENT_TIMESTAMP"),
+      expect.stringContaining("expires_at > utc_now()"),
       { token_hash: "token-hash" },
     );
   });
@@ -95,6 +103,17 @@ describe("SessionRepository", () => {
     );
   });
 
+  it("deletes every session of a user", async () => {
+    database.execute.mockResolvedValue(undefined);
+
+    await repository.deleteAllByUserId("user-1");
+
+    expect(database.execute).toHaveBeenCalledWith(
+      expect.stringContaining("DELETE FROM sessions"),
+      { user_id: "user-1" },
+    );
+  });
+
   it("deletes expired sessions without parameters", async () => {
     database.execute.mockResolvedValue(undefined);
 
@@ -102,7 +121,7 @@ describe("SessionRepository", () => {
 
     expect(database.execute).toHaveBeenCalledTimes(1);
     expect(database.execute.mock.calls[0]?.[0]).toContain(
-      "expires_at <= CURRENT_TIMESTAMP",
+      "expires_at <= utc_now()",
     );
   });
 

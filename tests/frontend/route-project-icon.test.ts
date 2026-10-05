@@ -6,27 +6,18 @@ vi.mock("@/app/lib/services.server", () => ({
 
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
+import { action, loader } from "@/app/routes/project-icon";
+
+import { createUser } from "../helpers/factories";
 import {
   ProjectAccessDeniedError,
   ProjectManagementDeniedError,
   ProjectNotFoundError,
-} from "@/backend/service/ProjectService";
-import { action, loader } from "@/app/routes/project-icon";
-import { ROLE } from "@/definition/Role";
+} from "@/backend/error/ProjectErrors";
 
 import type { User } from "@/definition/User";
 
 const mockedServices = vi.mocked(getApplicationServices);
-
-function createUser(): User {
-  return {
-    displayName: "Admin",
-    id: "user-1",
-    isActive: true,
-    role: ROLE.ADMIN,
-    username: "admin",
-  };
-}
 
 function createContext(user: User | null): { get: ReturnType<typeof vi.fn> } {
   return { get: vi.fn().mockReturnValue(user) };

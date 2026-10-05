@@ -14,18 +14,19 @@ import {
 } from "@/app/routes/tasks";
 import { GitHubApiError } from "@/backend/github/GitHubApiClient";
 import {
-  WorkItemAccessDeniedError,
-  WorkItemHierarchyError,
-  WorkItemNotFoundError,
-  WorkItemValidationError,
-} from "@/backend/service/TaskService";
-import { ROLE } from "@/definition/Role";
-import {
   WORK_ITEM_LINK_TYPE,
   WORK_ITEM_PRIORITY,
   WORK_ITEM_TYPE,
   WORKFLOW_STATUS_KEY,
 } from "@/definition/Task";
+
+import { createUser } from "../helpers/factories";
+import {
+  WorkItemAccessDeniedError,
+  WorkItemHierarchyError,
+  WorkItemNotFoundError,
+  WorkItemValidationError,
+} from "@/backend/error/WorkItemErrors";
 
 import type { Project } from "@/definition/Project";
 import type {
@@ -33,21 +34,9 @@ import type {
   WorkItemDetail,
   WorkflowStatus,
 } from "@/definition/Task";
-import type { User } from "@/definition/User";
 import type { LoaderFunctionArgs } from "react-router";
 
 const mockedServices = vi.mocked(getApplicationServices);
-
-function createUser(overrides: Partial<User> = {}): User {
-  return {
-    displayName: "Admin",
-    id: "user-1",
-    isActive: true,
-    role: ROLE.ADMIN,
-    username: "admin",
-    ...overrides,
-  };
-}
 
 function createProject(overrides: Partial<Project> = {}): Project {
   return {
@@ -489,7 +478,7 @@ describe("tasks route action", () => {
     expect(missing.selectedItem).toBeNull();
 
     const { ProjectAccessDeniedError } =
-      await import("@/backend/service/ProjectService");
+      await import("@/backend/error/ProjectErrors");
     (
       services.taskService.getByKey as ReturnType<typeof vi.fn>
     ).mockRejectedValueOnce(new ProjectAccessDeniedError());

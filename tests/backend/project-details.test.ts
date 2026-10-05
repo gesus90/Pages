@@ -11,26 +11,24 @@ import { TaskService } from "@/backend/service/TaskService";
 import { PROJECT_STATUS } from "@/definition/Project";
 import { PERMISSION, ROLE } from "@/definition/Role";
 
-import type { Database } from "@/backend/database/Database";
+import {
+  createDatabase as createDatabaseDouble,
+  createUser,
+} from "../helpers/factories";
+
 import type { ProjectRepository as ProjectRepositoryType } from "@/backend/database/repositories/ProjectRepository";
 import type { TaskRepository as TaskRepositoryType } from "@/backend/database/repositories/TaskRepository";
 import type { ProjectService as ProjectServiceType } from "@/backend/service/ProjectService";
 import type { Project } from "@/definition/Project";
-import type { User } from "@/definition/User";
+import type { DatabaseDouble } from "../helpers/factories";
 
-function createDatabase(): Database & {
-  execute: ReturnType<typeof vi.fn>;
-  query: ReturnType<typeof vi.fn>;
-} {
-  return {
-    close: vi.fn(),
-    execute: vi.fn().mockResolvedValue(undefined),
-    migrate: vi.fn(),
-    query: vi.fn().mockResolvedValue([]),
-  } as unknown as Database & {
-    execute: ReturnType<typeof vi.fn>;
-    query: ReturnType<typeof vi.fn>;
-  };
+function createDatabase(): DatabaseDouble {
+  const database = createDatabaseDouble();
+
+  database.execute.mockResolvedValue(undefined);
+  database.query.mockResolvedValue([]);
+
+  return database;
 }
 
 function createProjectRow(): unknown[] {
@@ -53,17 +51,6 @@ function createProjectRow(): unknown[] {
   ];
 }
 
-function createUser(overrides: Partial<User> = {}): User {
-  return {
-    displayName: "Admin",
-    id: "user-1",
-    isActive: true,
-    role: ROLE.ADMIN,
-    username: "admin",
-    ...overrides,
-  };
-}
-
 function createProject(overrides: Partial<Project> = {}): Project {
   return {
     createdAt: "2026-01-01",
@@ -83,6 +70,31 @@ function createProject(overrides: Partial<Project> = {}): Project {
     updatedAt: "2026-01-02",
     ...overrides,
   };
+}
+
+/**
+ * Builds a project member row in the column order of the member query:
+ * user, avatar columns, project role, join date, and active flag.
+ */
+function createMemberRow(
+  userId: string,
+  username: string,
+  displayName: string,
+  projectRole: string,
+  joinedAt: string,
+): unknown[] {
+  return [
+    userId,
+    username,
+    displayName,
+    "initials",
+    null,
+    null,
+    null,
+    projectRole,
+    joinedAt,
+    1,
+  ];
 }
 
 describe("ProjectRepository project details", () => {
@@ -139,14 +151,25 @@ describe("ProjectRepository project details", () => {
 
   it("manages project members with roles", async () => {
     database.query.mockResolvedValue([
-      ["user-1", "alex", "Alex Berger", "manager", "2026-01-01"],
-      ["user-2", "anna", "Anna", "member", "2026-01-02"],
+      createMemberRow("user-1", "alex", "Alex Berger", "manager", "2026-01-01"),
+      createMemberRow("user-2", "anna", "Anna", "member", "2026-01-02"),
     ]);
 
     const members = await repository.findMembers("project-1");
 
     expect(members).toHaveLength(2);
-    expect(members[0]).toMatchObject({ projectRole: "manager" });
+    expect(members[0]).toEqual({
+      avatarColor: null,
+      avatarIcon: null,
+      avatarImageUrl: null,
+      avatarType: "initials",
+      displayName: "Alex Berger",
+      isActive: true,
+      joinedAt: "2026-01-01",
+      projectRole: "manager",
+      userId: "user-1",
+      username: "alex",
+    });
 
     await repository.addMember("project-1", "user-3", "viewer");
     expect(database.execute).toHaveBeenCalledWith(
@@ -169,11 +192,33 @@ describe("ProjectRepository project details", () => {
 
   it("rejects members with unsupported roles", async () => {
     database.query.mockResolvedValue([
-      ["user-1", "alex", "Alex Berger", "superadmin", "2026-01-01"],
+      createMemberRow(
+        "user-1",
+        "alex",
+        "Alex Berger",
+        "superadmin",
+        "2026-01-01",
+      ),
     ]);
 
     await expect(repository.findMembers("project-1")).rejects.toThrow(
       'unsupported project role "superadmin"',
+    );
+  });
+
+  it("rejects members with unsupported avatar types", async () => {
+    const row = createMemberRow(
+      "user-1",
+      "alex",
+      "Alex Berger",
+      "member",
+      "2026-01-01",
+    );
+    row[3] = "hologram";
+    database.query.mockResolvedValue([row]);
+
+    await expect(repository.findMembers("project-1")).rejects.toThrow(
+      'unsupported avatar type "hologram"',
     );
   });
 
@@ -307,7 +352,7 @@ describe("ProjectRepository project details", () => {
 
     await repository.archiveEvent("event-1");
     expect(database.execute).toHaveBeenCalledWith(
-      expect.stringContaining("archived_at = CURRENT_TIMESTAMP"),
+      expect.stringContaining("archived_at = utc_now()"),
       { id: "event-1" },
     );
   });
@@ -751,6 +796,25 @@ describe("ProjectRepository project details", () => {
       'invalid value for "user_display_name"',
     );
   });
+
+  it("rejects activity entries with unsupported categories", async () => {
+    database.query.mockResolvedValue([
+      [
+        "activity-1",
+        "project-1",
+        "user-1",
+        "Alex",
+        "unknown",
+        "member_added",
+        "Anna was added.",
+        "2026-09-05",
+      ],
+    ]);
+
+    await expect(repository.findActivity("project-1")).rejects.toThrow(
+      'unsupported activity category "unknown"',
+    );
+  });
 });
 
 type MockMap = { [key: string]: ReturnType<typeof vi.fn> };
@@ -1059,14 +1123,20 @@ describe("ProjectService project details", () => {
       "between 1 and 200 characters",
     );
 
-    await service.updateGoal(actor, "project-1", "goal-1", "Ship it", true);
+    await service.updateGoal(actor, "project-1", "goal-1", {
+      isDone: true,
+      title: "Ship it",
+    });
     expect(repository.updateGoal).toHaveBeenCalledWith(
       "goal-1",
       "Ship it",
       true,
     );
     await expect(
-      service.updateGoal(actor, "project-1", "goal-1", "", false),
+      service.updateGoal(actor, "project-1", "goal-1", {
+        isDone: false,
+        title: "",
+      }),
     ).rejects.toThrow("between 1 and 200 characters");
 
     await service.deleteGoal(actor, "project-1", "goal-1");

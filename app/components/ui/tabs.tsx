@@ -21,8 +21,7 @@ interface TabsProps {
  * Renders a segmented tab control built on Radix Tabs.
  *
  * @remarks
- * Verwendet für kompakte Ansichts- und Filterumschalter sowie
- * für Inhalts-Tabs mit eigenem Content über `TabsContent`.
+ * Used for compact view and filter switches.
  */
 export function Tabs({
   value,
@@ -61,5 +60,3 @@ export function Tabs({
     </TabsPrimitive.Root>
   );
 }
-
-export const TabsContent = TabsPrimitive.Content;

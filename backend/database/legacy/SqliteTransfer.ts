@@ -1,0 +1,376 @@
+import { existsSync } from "node:fs";
+import { rm } from "node:fs/promises";
+
+import SqliteDatabase from "better-sqlite3";
+
+import { Database } from "@/backend/database/Database";
+import { readCountColumn, readTextColumn } from "@/backend/database/RowValue";
+
+import type {
+  DatabaseTransaction,
+  SqlParameters,
+} from "@/backend/database/Database";
+import type { Migration } from "@/backend/database/Migration";
+
+/** A value as SQLite stores it, read with exact integers. */
+type SqliteValue = string | number | bigint | Buffer | null;
+
+/** Rows are copied in batches of this size. */
+const ROWS_PER_INSERT = 100;
+
+/** The table holding the default workflow statuses of a fresh baseline. */
+const SEEDED_TABLE = "workflow_statuses";
+
+/** Inputs of a one-time transfer from the former SQLite file to DuckDB. */
+export interface TransferOptions {
+  /** SQLite database file; it is opened read-only and never changed. */
+  readonly sourcePath: string;
+  /** DuckDB database file; it is created when it does not exist. */
+  readonly targetPath: string;
+  /** DuckDB migrations that give the target its schema. */
+  readonly migrations: readonly Migration[];
+  /** Names of the SQLite migrations the source must have applied. */
+  readonly legacyMigrationNames: readonly string[];
+}
+
+/** Row counts of one table on both sides of the transfer. */
+interface TableTransferResult {
+  readonly table: string;
+  readonly sourceRows: number;
+  readonly targetRows: number;
+}
+
+/** Outcome of a completed transfer. */
+export interface TransferResult {
+  /** `copied` when rows were written, `already-transferred` when none were. */
+  readonly status: "copied" | "already-transferred";
+  readonly tables: readonly TableTransferResult[];
+}
+
+/** Raised when the transfer cannot or must not proceed. */
+export class TransferError extends Error {
+  public constructor(message: string) {
+    super(message);
+    this.name = "TransferError";
+  }
+}
+
+/**
+ * Copies every table of a SQLite Pages database into a DuckDB database.
+ *
+ * @param options - Source, target and the schema definitions to use.
+ * @returns Row counts per table and whether anything was copied.
+ * @throws {TransferError} When the source is unusable, the target holds other
+ * data, or the row counts differ after the copy.
+ *
+ * @remarks
+ * Safe to repeat: when the target already holds exactly the rows of the
+ * source, nothing is written. All rows are copied in one transaction, so a
+ * failure leaves the target without partial data, and a target that this call
+ * created is removed again.
+ */
+export async function transferSqliteToDuckDb(
+  options: TransferOptions,
+): Promise<TransferResult> {
+  const source = openSource(options.sourcePath);
+
+  try {
+    verifyLegacySchema(source, options.legacyMigrationNames);
+
+    return await transferInto(source, options);
+  } finally {
+    source.close();
+  }
+}
+
+async function transferInto(
+  source: SqliteDatabase.Database,
+  options: TransferOptions,
+): Promise<TransferResult> {
+  const targetExisted = existsSync(options.targetPath);
+
+  try {
+    const target = await Database.create(options.targetPath);
+
+    try {
+      await target.migrate(options.migrations);
+
+      return await copyMissingRows(source, target, targetExisted);
+    } finally {
+      await target.close();
+    }
+  } catch (error: unknown) {
+    if (!targetExisted) {
+      await removeDatabaseFiles(options.targetPath);
+    }
+
+    throw error;
+  }
+}
+
+/** What the transfer knows about one table before it copies anything. */
+interface TablePlan extends TableTransferResult {
+  readonly columns: readonly string[];
+}
+
+async function copyMissingRows(
+  source: SqliteDatabase.Database,
+  target: Database,
+  targetExisted: boolean,
+): Promise<TransferResult> {
+  const plans = await planTables(source, target);
+
+  if (!targetExisted || isBlank(plans)) {
+    await target.transaction((transaction) =>
+      copyAllTables(source, transaction, plans),
+    );
+
+    return {
+      status: "copied",
+      tables: plans.map((plan) => toResult(plan, plan.sourceRows)),
+    };
+  }
+
+  if (plans.every((plan) => plan.sourceRows === plan.targetRows)) {
+    return {
+      status: "already-transferred",
+      tables: plans.map((plan) => toResult(plan, plan.targetRows)),
+    };
+  }
+
+  throw new TransferError(
+    "The target database already holds data that differs from the source. Use a new target file.",
+  );
+}
+
+function toResult(plan: TablePlan, targetRows: number): TableTransferResult {
+  return { sourceRows: plan.sourceRows, table: plan.table, targetRows };
+}
+
+async function planTables(
+  source: SqliteDatabase.Database,
+  target: Database,
+): Promise<TablePlan[]> {
+  const plans: TablePlan[] = [];
+
+  for (const [table, columns] of await readTargetColumns(target)) {
+    plans.push({
+      columns,
+      sourceRows: countSourceRows(source, table),
+      table,
+      targetRows: await countRows(target, table),
+    });
+  }
+
+  return plans;
+}
+
+/** A target is blank when only the seeded default rows are present. */
+function isBlank(plans: readonly TablePlan[]): boolean {
+  return plans.every(
+    (plan) => plan.table === SEEDED_TABLE || plan.targetRows === 0,
+  );
+}
+
+async function copyAllTables(
+  source: SqliteDatabase.Database,
+  transaction: DatabaseTransaction,
+  plans: readonly TablePlan[],
+): Promise<void> {
+  for (const plan of plans) {
+    verifySourceColumns(source, plan.table, plan.columns);
+
+    await transaction.execute(`DELETE FROM ${quoteIdentifier(plan.table)};`);
+    await copyTable(source, transaction, plan.table, plan.columns);
+
+    const copiedRows = await countRows(transaction, plan.table);
+
+    if (copiedRows !== plan.sourceRows) {
+      throw new TransferError(
+        `Table "${plan.table}" has ${copiedRows} rows after the copy, expected ${plan.sourceRows}.`,
+      );
+    }
+  }
+}
+
+async function copyTable(
+  source: SqliteDatabase.Database,
+  transaction: DatabaseTransaction,
+  table: string,
+  columns: readonly string[],
+): Promise<void> {
+  const columnList = columns.map(quoteIdentifier).join(", ");
+  const rows = source
+    .prepare(`SELECT ${columnList} FROM ${quoteIdentifier(table)};`)
+    .raw()
+    .safeIntegers(true)
+    .iterate() as IterableIterator<SqliteValue[]>;
+  let batch: SqliteValue[][] = [];
+
+  for (const row of rows) {
+    batch.push(row);
+
+    if (batch.length === ROWS_PER_INSERT) {
+      await insertBatch(transaction, table, columns, batch);
+      batch = [];
+    }
+  }
+
+  if (batch.length > 0) {
+    await insertBatch(transaction, table, columns, batch);
+  }
+}
+
+async function insertBatch(
+  transaction: DatabaseTransaction,
+  table: string,
+  columns: readonly string[],
+  batch: readonly SqliteValue[][],
+): Promise<void> {
+  const parameters: Record<string, SqlParameters[string]> = {};
+  const tuples = batch.map((row, rowIndex) => {
+    const placeholders = row.map((value, columnIndex) => {
+      const name = `value_${rowIndex}_${columnIndex}`;
+
+      parameters[name] = value;
+
+      return `$${name}`;
+    });
+
+    return `(${placeholders.join(", ")})`;
+  });
+
+  await transaction.execute(
+    `INSERT INTO ${quoteIdentifier(table)} (${columns.map(quoteIdentifier).join(", ")}) VALUES ${tuples.join(", ")};`,
+    parameters,
+  );
+}
+
+function openSource(sourcePath: string): SqliteDatabase.Database {
+  if (!existsSync(sourcePath)) {
+    throw new TransferError(`The SQLite file "${sourcePath}" does not exist.`);
+  }
+
+  return new SqliteDatabase(sourcePath, {
+    fileMustExist: true,
+    readonly: true,
+  });
+}
+
+function verifyLegacySchema(
+  source: SqliteDatabase.Database,
+  legacyMigrationNames: readonly string[],
+): void {
+  const hasMigrationTable = source
+    .prepare(
+      "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'schema_migrations';",
+    )
+    .pluck()
+    .get() as number;
+  const applied = new Set(
+    hasMigrationTable === 0
+      ? []
+      : (source
+          .prepare("SELECT name FROM schema_migrations;")
+          .pluck()
+          .all() as string[]),
+  );
+  const missing = legacyMigrationNames.filter((name) => !applied.has(name));
+
+  if (missing.length > 0) {
+    throw new TransferError(
+      `The SQLite database does not have the current schema (missing ${missing.join(", ")}). Start the previous Pages version once so it migrates the file, then transfer.`,
+    );
+  }
+}
+
+function verifySourceColumns(
+  source: SqliteDatabase.Database,
+  table: string,
+  columns: readonly string[],
+): void {
+  const present = new Set(
+    (
+      source.prepare(`PRAGMA table_info(${quoteIdentifier(table)});`).all() as {
+        name: string;
+      }[]
+    ).map((column) => column.name),
+  );
+  const missing = columns.filter((column) => !present.has(column));
+
+  if (missing.length > 0) {
+    throw new TransferError(
+      `The SQLite table "${table}" lacks the columns ${missing.join(", ")}.`,
+    );
+  }
+}
+
+async function readTargetColumns(
+  target: Database,
+): Promise<ReadonlyMap<string, readonly string[]>> {
+  const rows = await target.query(
+    `
+      SELECT
+          table_name,
+          column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'main'
+          AND table_name <> 'schema_migrations'
+      ORDER BY table_name, ordinal_position;
+    `,
+  );
+  const columnsByTable = new Map<string, string[]>();
+
+  for (const row of rows) {
+    const table = readTextColumn(row, 0, "table_name");
+
+    columnsByTable.set(table, [
+      ...(columnsByTable.get(table) ?? []),
+      readTextColumn(row, 1, "column_name"),
+    ]);
+  }
+
+  return columnsByTable;
+}
+
+function countSourceRows(
+  source: SqliteDatabase.Database,
+  table: string,
+): number {
+  const hasTable = source
+    .prepare(
+      "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?;",
+    )
+    .pluck()
+    .get(table) as number;
+
+  if (hasTable === 0) {
+    throw new TransferError(`The SQLite database has no table "${table}".`);
+  }
+
+  return source
+    .prepare(`SELECT COUNT(*) FROM ${quoteIdentifier(table)};`)
+    .pluck()
+    .get() as number;
+}
+
+async function countRows(
+  database: Pick<DatabaseTransaction, "query">,
+  table: string,
+): Promise<number> {
+  const rows = await database.query(
+    `SELECT COUNT(*) FROM ${quoteIdentifier(table)};`,
+  );
+
+  return readCountColumn(rows.flat(), 0, `count of ${table}`);
+}
+
+/** Quotes a table or column name that comes from a database catalog. */
+function quoteIdentifier(identifier: string): string {
+  return `"${identifier.replaceAll('"', '""')}"`;
+}
+
+async function removeDatabaseFiles(databasePath: string): Promise<void> {
+  await rm(databasePath, { force: true });
+  await rm(`${databasePath}.wal`, { force: true });
+}
