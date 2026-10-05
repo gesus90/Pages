@@ -26,31 +26,6 @@ describe("UserRepository", () => {
     repository = new UserRepository(database);
   });
 
-  it("reports whether users exist", async () => {
-    database.query.mockResolvedValue([[1n]]);
-
-    await expect(repository.hasUsers()).resolves.toBe(true);
-    expect(database.query).toHaveBeenCalledTimes(1);
-
-    database.query.mockResolvedValue([[0n]]);
-
-    await expect(repository.hasUsers()).resolves.toBe(false);
-  });
-
-  it("supports numeric counts returned as numbers", async () => {
-    database.query.mockResolvedValue([[3]]);
-
-    await expect(repository.hasUsers()).resolves.toBe(true);
-  });
-
-  it("throws when the user count row is missing", async () => {
-    database.query.mockResolvedValue([]);
-
-    await expect(repository.hasUsers()).rejects.toThrow(
-      "Database returned no user count.",
-    );
-  });
-
   it("returns the user for a known identifier", async () => {
     database.query.mockResolvedValue([
       ["user-1", "admin", "Admin", "admin", 1, ...AVATAR_COLUMNS],
@@ -315,7 +290,6 @@ describe("UserRepository", () => {
   it("propagates database failures", async () => {
     database.query.mockRejectedValue(new Error("Query failed"));
 
-    await expect(repository.hasUsers()).rejects.toThrow("Query failed");
     await expect(repository.findById("user-1")).rejects.toThrow("Query failed");
 
     database.execute.mockRejectedValue(new Error("Insert failed"));

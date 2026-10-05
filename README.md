@@ -89,11 +89,42 @@ The remaining maintenance commands are `pnpm run check`, `pnpm run lint`
 
 Coding conventions are defined in [`GUIDELINES.md`](./GUIDELINES.md).
 
+## First start and configuration
+
+Pages keeps its settings in `~/.pages/config.toml` (TOML). The file is
+created on the first start; values added by hand are kept when Pages
+rewrites it. Start parameters win over the file, the file wins over the
+defaults:
+
+```sh
+pnpm start --port 8080                     # port, stored in the configuration
+pnpm start --config /srv/pages/config.toml # another configuration file
+```
+
+The default port is 3000. If the port is taken, Pages names it and stops
+instead of moving to another one. Administrators can change the stored port
+under *Settings → System*; it applies after the next restart.
+
+While `firstRun = true`, every page leads to the setup wizard. Pages prints a
+one-time setup link with a token to the server console, for example
+`http://localhost:3000/setup?token=…`; without the link the wizard asks for
+the token. The wizard asks for the company name, the main administrator, and
+the database file, then signs the administrator in. Only then does Pages
+create the database and set `firstRun = false`. A cancelled setup leaves
+nothing behind and starts over on the next visit. The development server
+(`pnpm dev`) prints the link with its own port.
+
+To run the setup again, stop Pages, set `firstRun = true`, and start it.
+Existing data stays: choosing the existing database keeps all projects,
+tasks, and accounts, the company name is replaced, and an administrator
+with the entered username is updated (another account with that name is
+never turned into an administrator).
+
 ## Data
 
 Pages stores everything in one [DuckDB](https://duckdb.org) file, by default
-`~/.pages/data/pages.duckdb` (override with `PAGES_DATABASE_PATH`, see
-[`.env.example`](./.env.example)). The schema is created and updated
+`~/.pages/data/pages.duckdb`; the setup wizard chooses the path and stores it
+as `databasePath` in the configuration. The schema is created and updated
 automatically on start by the migrations in
 `backend/database/migrations-duckdb/`; an applied migration must never be
 edited, add a new one instead.
@@ -115,9 +146,11 @@ anymore. To carry the data over once:
 
 1. Stop Pages and copy `pages.db` (plus `pages.db-wal` and `pages.db-shm` if
    present) to a temporary folder. Work on that copy.
-2. Make sure no `pages.duckdb` exists at the new location (remove the empty one
-   a first start of the new version created).
+2. Make sure no `pages.duckdb` exists at the new location.
 3. Run `pnpm db:transfer --source <copy>/pages.db --target <path>/pages.duckdb`.
+4. Start Pages. Without a configuration file it adopts a transferred database
+   at the default path that has an administrator; otherwise choose the file
+   in the setup wizard, which keeps its data.
 
 The source is opened read-only, the copy runs in one transaction, and every
 table's row count is compared. Running the command again changes nothing.

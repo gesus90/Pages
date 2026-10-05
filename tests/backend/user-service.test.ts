@@ -31,7 +31,6 @@ function createRepository(): UserRepository & {
     findByEmail: vi.fn(),
     findById: vi.fn(),
     findCredentialsByUsername: vi.fn(),
-    hasUsers: vi.fn(),
     insert: vi.fn(),
     setActive: vi.fn(),
   } as unknown as UserRepository & {

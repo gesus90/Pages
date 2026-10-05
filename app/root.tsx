@@ -1,3 +1,4 @@
+import "@fontsource-variable/inter";
 import { I18nextProvider, useTranslation } from "react-i18next";
 import {
   isRouteErrorResponse,
@@ -16,8 +17,15 @@ import { getAuthenticatedUser } from "@/app/lib/auth.server";
 import { cn } from "@/app/lib/cn";
 import { createI18n } from "@/app/lib/i18n";
 import { createSecurityHeaders } from "@/app/lib/security-headers";
-import { resolveAnonymousLanguage } from "@/app/lib/language.server";
+import {
+  resolveAnonymousLanguage,
+  resolveSetupLanguage,
+} from "@/app/lib/language.server";
 import { getApplicationServices } from "@/app/lib/services.server";
+import {
+  isSetupPending,
+  requireFinishedSetup,
+} from "@/app/lib/setup-gate.server";
 import stylesheet from "@/app/styles/tailwind.css?url";
 import { LANGUAGE } from "@/language/Language";
 
@@ -26,6 +34,7 @@ import type {
   HeadersFunction,
   LinksFunction,
   MetaFunction,
+  MiddlewareFunction,
 } from "react-router";
 import type { Language } from "@/language/Language";
 import type { Route } from "./+types/root";
@@ -46,16 +55,25 @@ function resolveErrorKind(error: unknown): ErrorKind {
   return ERROR_KIND_BY_STATUS[error.status] ?? "generic";
 }
 
+/** Keeps every route but the setup wizard closed until the setup finished. */
+export const middleware: MiddlewareFunction[] = [requireFinishedSetup];
+
 /**
  * Selects the document language.
  *
  * @remarks
  * Signed-in visitors use their persisted personal language setting.
  * Everyone else falls back to their browser's `Accept-Language` preference.
+ * The setup wizard starts in German unless the visitor chose a language;
+ * it never touches the services, because no database exists yet.
  */
 export async function loader({ request }: Route.LoaderArgs): Promise<{
   language: Language;
 }> {
+  if (await isSetupPending()) {
+    return { language: await resolveSetupLanguage(request) };
+  }
+
   const user = await getAuthenticatedUser(request);
 
   if (user) {

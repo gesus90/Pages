@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   languageCookie,
   resolveAnonymousLanguage,
+  resolveSetupLanguage,
 } from "@/app/lib/language.server";
 import { LANGUAGE } from "@/language/Language";
 
@@ -96,5 +97,23 @@ describe("languageCookie", () => {
     expect(header).toContain("Path=/");
     expect(header).toContain("HttpOnly");
     expect(header).toContain("SameSite=Lax");
+  });
+});
+
+describe("resolveSetupLanguage", () => {
+  it("starts the setup in German, whatever the browser prefers", async () => {
+    const request = new Request("http://pages.invalid/setup", {
+      headers: { "Accept-Language": "en-US" },
+    });
+
+    await expect(resolveSetupLanguage(request)).resolves.toBe(LANGUAGE.GERMAN);
+  });
+
+  it("keeps the language the visitor selected", async () => {
+    const header = await languageCookie.serialize(LANGUAGE.ENGLISH);
+
+    await expect(
+      resolveSetupLanguage(createRequest(header.split(";")[0] ?? "")),
+    ).resolves.toBe(LANGUAGE.ENGLISH);
   });
 });

@@ -58,22 +58,6 @@ export class UserRepository {
     this.database = database;
   }
 
-  /** Returns whether the application contains at least one user. */
-  public async hasUsers(): Promise<boolean> {
-    const rows = await this.database.query(`
-      SELECT
-          COUNT(id) AS user_count
-      FROM users;
-    `);
-    const row = rows[0];
-
-    if (!row) {
-      throw new Error("Database returned no user count.");
-    }
-
-    return readCountColumn(row, 0, "user_count") > 0;
-  }
-
   /**
    * Returns the user with the given identifier.
    *

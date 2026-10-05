@@ -2,8 +2,8 @@
 
 @theme {
   --font-sans:
-    Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+    "Inter Variable", Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
 
   --color-background: #f2f4f7;
   --color-surface: #ffffff;
@@ -19,7 +19,17 @@
   --color-primary-subtle: #fdf4ee;
   --color-primary-foreground: #ffffff;
   --color-destructive: #c5322b;
+  --color-success: #047857;
+  --color-warning: #b45309;
   --color-ring: #f97316;
+
+  /* Auth-Bereich (Login, Setup-Wizard), DESIGN.md §14.1 */
+  --color-auth-glow-warm: #ffe8d6;
+  --color-auth-glow-cool: #dbe7ff;
+  --color-auth-button-from: #ffa25e;
+  --color-field: #f8f9fb;
+  --color-field-border: #e5e8ee;
+  --color-field-border-hover: #d3d8e0;
 
   --color-column-backlog: #eef1f5;
   --color-column-todo: #eaf2fd;
@@ -39,6 +49,7 @@
     0 4px 12px rgb(23 23 23 / 6%), 0 16px 40px rgb(23 23 23 / 10%);
   --shadow-panel: 0 8px 28px rgb(23 23 23 / 10%), 0 2px 8px rgb(23 23 23 / 6%);
   --shadow-column: 0 1px 2px rgb(23 23 23 / 3%), 0 8px 24px rgb(23 23 23 / 4%);
+  --shadow-auth-button: 0 10px 24px -8px rgb(249 115 22 / 45%);
 }
 
 :root {
@@ -94,6 +105,14 @@
     font: inherit;
   }
 
+  /* Eingaben bleiben markierbar, auch in nicht markierbaren Bereichen. */
+  input,
+  textarea,
+  [contenteditable="true"] {
+    user-select: text;
+    -webkit-touch-callout: default;
+  }
+
   :focus-visible {
     outline: 2px solid var(--primary);
     outline-offset: 2px;
@@ -101,6 +120,40 @@
 }
 
 @layer utilities {
+  /* Inhalt des Nutzers in einem nicht markierbaren Bereich (DESIGN.md §10.1). */
+  .pages-selectable {
+    user-select: text;
+    -webkit-touch-callout: default;
+    cursor: text;
+  }
+
+  /* Primäraktion des Auth-Bereichs; der Verlauf gilt nur dort (§14.1). */
+  .pages-auth-button {
+    background-image: linear-gradient(
+      to right,
+      var(--color-auth-button-from),
+      var(--color-primary)
+    );
+    box-shadow: var(--shadow-auth-button);
+    transition: translate 150ms ease-out;
+  }
+
+  .pages-auth-button:hover:not(:disabled) {
+    translate: 0 -1px;
+  }
+
+  .pages-auth-button:active:not(:disabled) {
+    translate: 0 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pages-auth-button,
+    .pages-auth-button:hover:not(:disabled) {
+      transition: none;
+      translate: 0 0;
+    }
+  }
+
   .pages-content-card {
     background: var(--surface);
     border-radius: 1.25rem;

@@ -9,6 +9,7 @@ import {
   handleUpdateAvatar,
   handleUpdateProfile,
 } from "./settings-profile-actions.server";
+import { handleUpdatePort } from "./settings-system-actions.server";
 
 import type {
   SettingsActionContext,
@@ -21,6 +22,7 @@ const SETTINGS_ACTION_HANDLERS = {
   "revoke-other-sessions": handleRevokeOtherSessions,
   "revoke-session": handleRevokeSession,
   "update-avatar": handleUpdateAvatar,
+  "update-port": handleUpdatePort,
   "update-profile": handleUpdateProfile,
   "update-settings": handleUpdateSettings,
 } satisfies Record<string, SettingsActionHandler>;

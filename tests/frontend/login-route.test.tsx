@@ -76,9 +76,7 @@ describe("LoginRoute", () => {
     renderLogin();
 
     expect(screen.getByText("Erster Start?")).toBeInTheDocument();
-    expect(
-      screen.getByText(/richtet beim ersten Start automatisch/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/einmaligen Setup-Link/)).toBeInTheDocument();
     expect(screen.getByText("Pages v0.1.0")).toBeInTheDocument();
     expect(
       screen.getByText("Einfach. Organisiert. Produktiv."),

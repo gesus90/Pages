@@ -83,7 +83,7 @@
     },
     "setup": {
       "title": "Erster Start?",
-      "description": "Pages richtet beim ersten Start automatisch deinen lokalen Arbeitsbereich ein. Du musst nichts weiter tun."
+      "description": "Eine neue Instanz wird über den einmaligen Setup-Link eingerichtet, den Pages beim Start in der Server-Konsole ausgibt."
     },
     "footer": {
       "tagline": "Einfach. Organisiert. Produktiv."
@@ -200,7 +200,18 @@
     "system": {
       "title": "Systembereich",
       "description": "Verwalten Sie systemweite Konfigurationen und globale Einstellungen.",
-      "placeholder": "Systemweite Einstellungen werden hier vorbereitet."
+      "server": {
+        "title": "Server",
+        "description": "Port, auf dem Pages erreichbar ist.",
+        "portLabel": "Port",
+        "save": "Speichern",
+        "restartHint": "Ein neuer Port gilt nach dem nächsten Neustart von Pages. Ein beim Start angegebener --port hat Vorrang.",
+        "saved": "Gespeichert. Der neue Port gilt nach dem nächsten Neustart.",
+        "error": {
+          "invalidPort": "Bitte eine ganze Zahl von 1 bis 65535 angeben.",
+          "general": "Der Port konnte nicht gespeichert werden."
+        }
+      }
     },
     "profile": {
       "title": "Profil",
@@ -1023,6 +1034,77 @@
       "integrations": "Integrationen",
       "project": "Projekt",
       "empty": "Noch keine Aktivitäten in diesem Projekt."
+    }
+  },
+  "setup": {
+    "progress": "Schritt {{current}} von {{total}}",
+    "progressLabel": "Fortschritt der Einrichtung",
+    "back": "Zurück",
+    "next": "Weiter",
+    "token": {
+      "title": "Einrichtung freischalten",
+      "subtitle": "Geben Sie den Setup-Token ein. Pages gibt ihn beim Start zusammen mit dem Setup-Link in der Server-Konsole aus.",
+      "label": "Setup-Token",
+      "placeholder": "Token aus der Konsole …",
+      "submit": "Freischalten",
+      "submitting": "Wird geprüft …",
+      "invalid": "Dieser Token ist nicht gültig. Nach einem Neustart von Pages gilt nur der neu ausgegebene Link.",
+      "expired": "Der Setup-Zugang ist nicht mehr gültig, zum Beispiel nach einem Neustart von Pages. Bitte den neuen Token aus der Konsole eingeben – Ihre Eingaben bleiben erhalten."
+    },
+    "welcome": {
+      "title": "Willkommen bei Pages",
+      "subtitle": "In wenigen Schritten ist Ihre Instanz bereit: Firmenname, Administrator-Konto und Speicherort der Datenbank.",
+      "start": "Loslegen"
+    },
+    "company": {
+      "title": "Ihr Unternehmen",
+      "subtitle": "Unter diesem Namen läuft Ihre Pages-Instanz.",
+      "label": "Firmenname",
+      "placeholder": "Name des Unternehmens …"
+    },
+    "administrator": {
+      "title": "Administrator-Konto",
+      "subtitle": "Dieses Konto hat alle Rechte. Weitere Konten lassen sich später in Pages anlegen.",
+      "username": "Benutzername",
+      "usernamePlaceholder": "Benutzername …",
+      "password": "Passwort",
+      "passwordPlaceholder": "Mindestens 8 Zeichen …",
+      "email": "E-Mail (optional)",
+      "emailPlaceholder": "name@beispiel.de …"
+    },
+    "database": {
+      "title": "Speicherort der Datenbank",
+      "subtitle": "Pages speichert alle Daten in dieser DuckDB-Datei. Der Vorschlag passt für die meisten Installationen.",
+      "label": "Datenbankpfad",
+      "checking": "Pfad wird geprüft …",
+      "checkFailed": "Der Pfad konnte nicht geprüft werden. Bitte Verbindung prüfen.",
+      "status": {
+        "empty": "Bitte Pfad angeben",
+        "invalid": "Kein gültiger Pfad",
+        "notWritable": "Keine Schreibrechte unter diesem Pfad – bitte ein beschreibbares Verzeichnis wählen",
+        "existing": "Bestehende Datenbank wird geöffnet",
+        "foreign": "Dort liegt eine andere Datei – bitte anderen Pfad wählen",
+        "available": "Speicherort verfügbar"
+      },
+      "finish": "Fertig",
+      "finishing": "Wird eingerichtet …"
+    },
+    "fieldError": {
+      "required": "Bitte ausfüllen.",
+      "tooLong": "Der Eintrag ist zu lang.",
+      "tooShort": "Das Passwort braucht mindestens 8 Zeichen.",
+      "invalidEmail": "Keine gültige E-Mail-Adresse.",
+      "usernameTaken": "Dieser Benutzername gehört zu einem Konto ohne Administratorrechte. Bitte einen anderen wählen.",
+      "emailTaken": "Diese E-Mail-Adresse verwendet bereits ein anderes Konto."
+    },
+    "error": {
+      "network": "Keine Verbindung zum Server. Bitte Verbindung prüfen und erneut versuchen.",
+      "failed": "Die Einrichtung konnte nicht abgeschlossen werden. Pages bleibt im Einrichtungsmodus, ein erneuter Versuch ist möglich. Details stehen in der Server-Konsole."
+    },
+    "completed": {
+      "title": "Pages ist eingerichtet",
+      "subtitle": "Die Einrichtung ist abgeschlossen. Die Anmeldung erfolgt mit dem Administrator-Konto.",
+      "signIn": "Zur Anmeldung"
     }
   }
 }

@@ -305,6 +305,13 @@ function verifySourceColumns(
   }
 }
 
+/**
+ * Reads the tables the transfer fills.
+ *
+ * @remarks
+ * `instance_settings` came after the SQLite version, so the former file
+ * has no such table; it stays empty until the setup wizard fills it.
+ */
 async function readTargetColumns(
   target: Database,
 ): Promise<ReadonlyMap<string, readonly string[]>> {
@@ -315,7 +322,7 @@ async function readTargetColumns(
           column_name
       FROM information_schema.columns
       WHERE table_schema = 'main'
-          AND table_name <> 'schema_migrations'
+          AND table_name NOT IN ('schema_migrations', 'instance_settings')
       ORDER BY table_name, ordinal_position;
     `,
   );

@@ -7,9 +7,10 @@ import {
   useNavigation,
 } from "react-router";
 
-import iconUrl from "@/assets/icon.png";
+import { AuthFooter } from "@/app/components/auth/auth-footer";
+import { AuthHeading } from "@/app/components/auth/auth-heading";
+import { AuthLayout } from "@/app/components/auth/auth-layout";
 import { LanguageSwitcher } from "@/app/components/login/language-switcher";
-import { LoginFooter } from "@/app/components/login/login-footer";
 import { LoginForm } from "@/app/components/login/login-form";
 import { LoginSetupHint } from "@/app/components/login/login-setup-hint";
 import { getAuthenticatedUser, parseCredentials } from "@/app/lib/auth.server";
@@ -122,40 +123,13 @@ export default function LoginRoute(): React.ReactElement {
   const isSubmitting = navigation.state === "submitting";
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-24 sm:px-6 sm:py-16">
-      <div
-        className="pointer-events-none absolute -top-32 left-[8%] size-[20rem] rounded-full bg-[#ffe8d6]/60 blur-3xl"
-        aria-hidden="true"
-      />
-      <div
-        className="pointer-events-none absolute -right-32 -bottom-40 size-[24rem] rounded-full bg-[#dbe7ff]/60 blur-3xl"
-        aria-hidden="true"
-      />
-
-      <header className="absolute inset-x-0 top-0 flex items-center justify-end px-4 py-5 sm:px-10 sm:py-6">
-        <LanguageSwitcher language={language} />
-      </header>
-
-      <section className="relative z-10 w-full max-w-md rounded-3xl bg-surface p-6 shadow-floating sm:p-8">
-        <img
-          className="mx-auto h-auto w-[140px] select-none sm:w-[160px]"
-          src={iconUrl}
-          alt="Pages"
-          draggable={false}
-        />
-
-        <h1 className="mt-8 text-center text-2xl leading-tight font-bold tracking-tight text-foreground sm:text-[1.875rem]">
-          {t("login.title")}
-        </h1>
-        <p className="mt-2 text-center text-sm leading-relaxed text-muted-foreground sm:text-base">
-          {t("login.subtitle")}
-        </p>
-
-        <LoginForm error={actionData?.error} isSubmitting={isSubmitting} />
-        <LoginSetupHint />
-      </section>
-
-      <LoginFooter />
-    </main>
+    <AuthLayout
+      header={<LanguageSwitcher language={language} redirectTo="/login" />}
+      footer={<AuthFooter />}
+    >
+      <AuthHeading title={t("login.title")} subtitle={t("login.subtitle")} />
+      <LoginForm error={actionData?.error} isSubmitting={isSubmitting} />
+      <LoginSetupHint />
+    </AuthLayout>
   );
 }

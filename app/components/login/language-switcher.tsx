@@ -9,11 +9,14 @@ import type { Language } from "@/language/Language";
 
 interface LanguageSwitcherProps {
   readonly language: Language;
+  /** Local path the visitor returns to after the change. */
+  readonly redirectTo: string;
 }
 
 /** Renders a compact language switcher that persists its choice for anonymous visitors. */
 export function LanguageSwitcher({
   language: initialLanguage,
+  redirectTo,
 }: LanguageSwitcherProps): React.ReactElement {
   const { t } = useTranslation();
   const submit = useSubmit();
@@ -23,7 +26,7 @@ export function LanguageSwitcher({
     setLanguage(nextLanguage);
 
     const formData = new FormData();
-    formData.set("redirectTo", "/login");
+    formData.set("redirectTo", redirectTo);
     formData.set("language", nextLanguage);
     void submit(formData, { action: "/set-language", method: "post" });
   }

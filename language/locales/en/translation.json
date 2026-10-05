@@ -83,7 +83,7 @@
     },
     "setup": {
       "title": "First start?",
-      "description": "Pages automatically sets up your local workspace on first start. You don't need to do anything else."
+      "description": "A new instance is set up through the one-time setup link that Pages prints to the server console when it starts."
     },
     "footer": {
       "tagline": "Simple. Organized. Productive."
@@ -200,7 +200,18 @@
     "system": {
       "title": "System area",
       "description": "Manage system-wide configurations and global settings.",
-      "placeholder": "System-wide settings will be prepared here."
+      "server": {
+        "title": "Server",
+        "description": "Port Pages can be reached on.",
+        "portLabel": "Port",
+        "save": "Save",
+        "restartHint": "A new port applies after Pages restarts. A --port given at start takes precedence.",
+        "saved": "Saved. The new port applies after the next restart.",
+        "error": {
+          "invalidPort": "Please enter a whole number from 1 to 65535.",
+          "general": "The port could not be saved."
+        }
+      }
     },
     "profile": {
       "title": "Profile",
@@ -1023,6 +1034,77 @@
       "integrations": "Integrations",
       "project": "Project",
       "empty": "No activities in this project yet."
+    }
+  },
+  "setup": {
+    "progress": "Step {{current}} of {{total}}",
+    "progressLabel": "Setup progress",
+    "back": "Back",
+    "next": "Continue",
+    "token": {
+      "title": "Unlock the setup",
+      "subtitle": "Enter the setup token. Pages prints it together with the setup link to the server console when it starts.",
+      "label": "Setup token",
+      "placeholder": "Token from the console …",
+      "submit": "Unlock",
+      "submitting": "Checking …",
+      "invalid": "This token is not valid. After Pages restarts, only the newly printed link is valid.",
+      "expired": "The setup access is no longer valid, for example after Pages restarted. Enter the new token from the console – your entries are kept."
+    },
+    "welcome": {
+      "title": "Welcome to Pages",
+      "subtitle": "Your instance is ready in a few steps: company name, administrator account, and database location.",
+      "start": "Get started"
+    },
+    "company": {
+      "title": "Your company",
+      "subtitle": "Your Pages instance runs under this name.",
+      "label": "Company name",
+      "placeholder": "Company name …"
+    },
+    "administrator": {
+      "title": "Administrator account",
+      "subtitle": "This account has all permissions. More accounts can be added later in Pages.",
+      "username": "Username",
+      "usernamePlaceholder": "Username …",
+      "password": "Password",
+      "passwordPlaceholder": "At least 8 characters …",
+      "email": "Email (optional)",
+      "emailPlaceholder": "name@example.com …"
+    },
+    "database": {
+      "title": "Database location",
+      "subtitle": "Pages keeps all data in this DuckDB file. The suggestion fits most installations.",
+      "label": "Database path",
+      "checking": "Checking path …",
+      "checkFailed": "The path could not be checked. Please check the connection.",
+      "status": {
+        "empty": "Please enter a path",
+        "invalid": "Not a valid path",
+        "notWritable": "No write permission at this path – please choose a writable directory",
+        "existing": "The existing database will be opened",
+        "foreign": "Another file is there – please choose another path",
+        "available": "Location available"
+      },
+      "finish": "Finish",
+      "finishing": "Setting up …"
+    },
+    "fieldError": {
+      "required": "Please fill in this field.",
+      "tooLong": "This entry is too long.",
+      "tooShort": "The password needs at least 8 characters.",
+      "invalidEmail": "Not a valid email address.",
+      "usernameTaken": "This username belongs to an account without administrator rights. Please choose another one.",
+      "emailTaken": "Another account already uses this email address."
+    },
+    "error": {
+      "network": "No connection to the server. Please check the connection and try again.",
+      "failed": "The setup could not be finished. Pages stays in setup mode, so you can try again. The server console has the details."
+    },
+    "completed": {
+      "title": "Pages is set up",
+      "subtitle": "The setup is finished. Sign in with the administrator account.",
+      "signIn": "Go to sign-in"
     }
   }
 }

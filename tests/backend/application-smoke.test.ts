@@ -1,5 +1,4 @@
-import { existsSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -11,16 +10,22 @@ import {
   requireAuthenticatedUser,
 } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
+import { requireFinishedSetup } from "@/app/lib/setup-gate.server";
 import { action as loginAction } from "@/app/routes/login";
 import { action as logoutAction } from "@/app/routes/logout";
+import { action as setupAction } from "@/app/routes/setup";
 import { headers as rootHeaders } from "@/app/root";
+import {
+  initializePagesRuntime,
+  SetupPendingError,
+} from "@/backend/runtime/PagesRuntime";
 
 import type { ActionFunctionArgs } from "react-router";
 
 /**
- * Exercises the real composition root against a temporary database: startup,
- * migrations, default administrator, login, session middleware, throttling
- * and logout. Only the process-wide singletons are reset between runs.
+ * Exercises the real composition root against a temporary instance: start in
+ * setup mode, setup wizard, migrations, login, session middleware,
+ * throttling and logout. Only the process-wide singletons are reset.
  */
 const SLOW_SCRYPT_TEST_TIMEOUT_MS = 60_000;
 
@@ -32,6 +37,7 @@ vi.hoisted(() => {
 let databaseDirectory = "";
 
 function resetServiceGlobals(): void {
+  delete globalThis.pagesRuntime;
   delete globalThis.pagesServices;
   delete globalThis.pagesShutdownHandlerRegistered;
   delete globalThis.pagesSyncSchedulerStarted;
@@ -74,37 +80,75 @@ function readSessionCookie(response: Response): string {
 describe("application smoke test", () => {
   beforeAll(async () => {
     databaseDirectory = await mkdtemp(path.join(tmpdir(), "pages-smoke-"));
-    // Not `vi.stubEnv`: the configuration discards stubs before each test.
-    process.env.PAGES_DATABASE_PATH = path.join(
-      databaseDirectory,
-      "pages.duckdb",
-    );
     vi.spyOn(console, "info").mockImplementation(() => {});
     resetServiceGlobals();
+    await initializePagesRuntime(path.join(databaseDirectory, "config.toml"));
   });
 
   afterAll(async () => {
     resetServiceGlobals();
-    delete process.env.PAGES_DATABASE_PATH;
     delete process.env.PAGES_COOKIE_SECURE;
     vi.restoreAllMocks();
     await rm(databaseDirectory, { force: true, recursive: true });
   });
 
-  it("starts on an empty database with the default administrator", async () => {
-    const services = await getApplicationServices();
-    const credentials =
-      await services.userService.findCredentialsByUsername("admin");
+  it("starts in setup mode without any database", async () => {
+    await expect(getApplicationServices()).rejects.toThrow(SetupPendingError);
+    expect(await readdir(path.join(databaseDirectory, "data"))).toEqual([]);
 
-    expect(existsSync(path.join(databaseDirectory, "pages.duckdb"))).toBe(true);
-    expect(credentials?.user.role).toBe("admin");
-    expect(credentials?.user.isActive).toBe(true);
+    const failure = await captureFailure(() =>
+      requireFinishedSetup(
+        {
+          context: new RouterContextProvider(),
+          params: {},
+          request: new Request("http://pages.invalid/dashboard"),
+        } as never,
+        vi.fn(),
+      ),
+    );
+
+    expect((failure as Response).headers.get("Location")).toBe("/setup");
   });
+
+  it(
+    "finishes the setup and signs the administrator in",
+    async () => {
+      const runtime = await initializePagesRuntime("/unused.toml");
+      const response = (await setupAction({
+        params: {},
+        request: new Request("http://pages.invalid/setup", {
+          body: new URLSearchParams({
+            companyName: "Smoke GmbH",
+            databasePath: runtime.getSuggestedDatabasePath(),
+            email: "",
+            intent: "complete",
+            password: "admin-password",
+            token: runtime.getSetupToken() ?? "",
+            username: "admin",
+          }),
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          method: "POST",
+        }),
+      } as unknown as ActionFunctionArgs)) as Response;
+
+      expect(response.status).toBe(302);
+      expect(response.headers.get("Location")).toBe("/dashboard");
+      expect(response.headers.get("Set-Cookie")).toContain("HttpOnly");
+      expect(runtime.isSetupPending()).toBe(false);
+
+      const services = await getApplicationServices();
+      const credentials =
+        await services.userService.findCredentialsByUsername("admin");
+
+      expect(credentials?.user.role).toBe("admin");
+    },
+    SLOW_SCRYPT_TEST_TIMEOUT_MS,
+  );
 
   it(
     "signs in, authenticates later requests and signs out",
     async () => {
-      const response = (await login("admin", "admin")) as Response;
+      const response = (await login("admin", "admin-password")) as Response;
 
       expect(response.status).toBe(302);
       expect(response.headers.get("Location")).toBe("/dashboard");

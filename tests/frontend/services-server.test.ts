@@ -6,9 +6,9 @@ vi.mock("@/backend/database/Database", () => ({
   },
 }));
 
-vi.mock("@/backend/database/DatabasePath", () => ({
-  createLegacyDatabaseWarning: vi.fn(() => null),
-  resolveDatabasePath: vi.fn(() => "/mocked/pages.duckdb"),
+vi.mock("@/backend/runtime/PagesRuntime", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/backend/runtime/PagesRuntime")>()),
+  getPagesRuntime: vi.fn(),
 }));
 
 vi.mock("@/backend/database/repositories/SessionRepository", () => ({
@@ -46,12 +46,20 @@ vi.mock("@/backend/github/GitHubTokenKey", () => ({
 import { AuthService } from "@/backend/auth/AuthService";
 import { SessionService } from "@/backend/auth/SessionService";
 import { Database } from "@/backend/database/Database";
-import { createLegacyDatabaseWarning } from "@/backend/database/DatabasePath";
+import { resolveGitHubTokenKey } from "@/backend/github/GitHubTokenKey";
+import {
+  getPagesRuntime,
+  SetupPendingError,
+} from "@/backend/runtime/PagesRuntime";
 import { SetupService } from "@/backend/setup/SetupService";
-import { getApplicationServices } from "@/app/lib/services.server";
+import {
+  activateApplicationServices,
+  getApplicationServices,
+} from "@/app/lib/services.server";
+
+import type { PagesRuntime } from "@/backend/runtime/PagesRuntime";
 
 const mockedDatabaseCreate = vi.mocked(Database.create);
-const mockedLegacyWarning = vi.mocked(createLegacyDatabaseWarning);
 const mockedSetup = vi.mocked(SetupService);
 const mockedSession = vi.mocked(SessionService);
 const mockedAuth = vi.mocked(AuthService);
@@ -66,25 +74,23 @@ function createDatabase(): {
   };
 }
 
-function stubSetup(
-  ensures: boolean,
-  migrates = false,
-): {
-  ensureDefaultAdministrator: ReturnType<typeof vi.fn>;
-  migrateLegacyBootstrapAdministrator: ReturnType<typeof vi.fn>;
-} {
-  const ensureDefaultAdministrator = vi.fn().mockResolvedValue(ensures);
+function stubSetup(migrates = false): ReturnType<typeof vi.fn> {
   const migrateLegacyBootstrapAdministrator = vi
     .fn()
     .mockResolvedValue(migrates);
   mockedSetup.mockImplementation(function (this: unknown) {
     return {
-      ensureDefaultAdministrator,
       migrateLegacyBootstrapAdministrator,
     } as unknown as InstanceType<typeof mockedSetup>;
   });
 
-  return { ensureDefaultAdministrator, migrateLegacyBootstrapAdministrator };
+  return migrateLegacyBootstrapAdministrator;
+}
+
+function stubRuntime(getDatabasePath: () => string): void {
+  vi.mocked(getPagesRuntime).mockResolvedValue({
+    getDatabasePath,
+  } as unknown as PagesRuntime);
 }
 
 function stubSessionCleanup(): ReturnType<typeof vi.fn> {
@@ -113,59 +119,56 @@ describe("getApplicationServices", () => {
         ReturnType<typeof mockedDatabaseCreate>
       >,
     );
-    stubSetup(false);
+    stubSetup();
     stubSessionCleanup();
+    stubRuntime(() => "/mocked/pages.duckdb");
+    vi.mocked(resolveGitHubTokenKey).mockReturnValue(Buffer.alloc(32));
   });
 
-  it("initializes services and reports a created administrator", async () => {
-    const { ensureDefaultAdministrator } = stubSetup(true);
-    const info = vi.spyOn(console, "info").mockImplementation(() => {});
-
+  it("opens the configured database and builds the services", async () => {
     const services = await getApplicationServices();
 
     expect(mockedDatabaseCreate).toHaveBeenCalledWith("/mocked/pages.duckdb");
-    expect(ensureDefaultAdministrator).toHaveBeenCalledTimes(1);
-    expect(info).toHaveBeenCalledWith(
-      expect.stringContaining('Created the default administrator "admin"'),
-    );
+    expect(resolveGitHubTokenKey).toHaveBeenCalledWith("/mocked/pages.duckdb");
     expect(services.authService).toBeDefined();
     expect(services.sessionService).toBeDefined();
     expect(mockedAuth).toHaveBeenCalledTimes(1);
 
-    info.mockRestore();
     resetServiceGlobals();
   });
 
-  it("warns about a SQLite database that was left behind", async () => {
-    mockedLegacyWarning.mockReturnValue(
-      "[pages] Found the former SQLite database",
-    );
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  it("opens no database while the setup is pending and retries later", async () => {
+    stubRuntime(() => {
+      throw new SetupPendingError();
+    });
 
-    await getApplicationServices();
+    await expect(getApplicationServices()).rejects.toThrow(SetupPendingError);
+    expect(mockedDatabaseCreate).not.toHaveBeenCalled();
+    expect(globalThis.pagesServices).toBeUndefined();
 
-    expect(mockedLegacyWarning).toHaveBeenCalledWith("/mocked/pages.duckdb");
-    expect(warn).toHaveBeenCalledWith(
-      "[pages] Found the former SQLite database",
-    );
+    stubRuntime(() => "/mocked/pages.duckdb");
 
-    warn.mockRestore();
+    await expect(getApplicationServices()).resolves.toBeDefined();
     resetServiceGlobals();
   });
 
-  it("stays quiet without a leftover SQLite database", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  it("starts the services on the database a finished setup prepared", async () => {
+    const database = createDatabase();
+    const services = await activateApplicationServices(
+      database as unknown as Database,
+      "/setup/pages.duckdb",
+    );
 
-    await getApplicationServices();
+    expect(mockedDatabaseCreate).not.toHaveBeenCalled();
+    expect(database.migrate).toHaveBeenCalledTimes(1);
+    expect(resolveGitHubTokenKey).toHaveBeenCalledWith("/setup/pages.duckdb");
+    await expect(getApplicationServices()).resolves.toBe(services);
 
-    expect(warn).not.toHaveBeenCalled();
-
-    warn.mockRestore();
     resetServiceGlobals();
   });
 
   it("reports a migrated legacy administrator", async () => {
-    stubSetup(false, true);
+    stubSetup(true);
     const info = vi.spyOn(console, "info").mockImplementation(() => {});
 
     await getApplicationServices();
@@ -178,23 +181,18 @@ describe("getApplicationServices", () => {
     resetServiceGlobals();
   });
 
-  it("skips the creation message when the administrator exists", async () => {
-    stubSetup(false);
+  it("stays quiet when no legacy administrator needed a migration", async () => {
     const info = vi.spyOn(console, "info").mockImplementation(() => {});
 
     await getApplicationServices();
 
-    expect(info).not.toHaveBeenCalledWith(
-      expect.stringContaining("Created the default administrator"),
-    );
+    expect(info).not.toHaveBeenCalled();
 
     info.mockRestore();
     resetServiceGlobals();
   });
 
   it("reuses the initialized services for later callers", async () => {
-    stubSetup(false);
-
     const first = await getApplicationServices();
     const second = await getApplicationServices();
 
@@ -206,8 +204,6 @@ describe("getApplicationServices", () => {
   });
 
   it("starts the sync scheduler only once per process", async () => {
-    stubSetup(false);
-
     await getApplicationServices();
 
     expect(globalThis.pagesSyncSchedulerStarted).toBe(true);
@@ -221,7 +217,6 @@ describe("getApplicationServices", () => {
   });
 
   it("removes expired sessions during initialization", async () => {
-    stubSetup(false);
     const removeExpiredSessions = stubSessionCleanup();
 
     await getApplicationServices();
@@ -235,6 +230,7 @@ describe("getApplicationServices", () => {
     mockedDatabaseCreate.mockRejectedValue(new Error("Disk unavailable"));
 
     await expect(getApplicationServices()).rejects.toThrow("Disk unavailable");
+    expect(globalThis.pagesServices).toBeUndefined();
 
     resetServiceGlobals();
   });
@@ -250,7 +246,6 @@ describe("getApplicationServices", () => {
       return process;
     }) as typeof process.once);
 
-    stubSetup(false);
     await getApplicationServices();
 
     expect(handlers.has("SIGINT")).toBe(true);
@@ -282,7 +277,6 @@ describe("getApplicationServices", () => {
     mockedDatabaseCreate.mockResolvedValue(
       database as unknown as Awaited<ReturnType<typeof mockedDatabaseCreate>>,
     );
-    stubSetup(false);
 
     await getApplicationServices();
 
@@ -317,7 +311,6 @@ describe("getApplicationServices", () => {
     mockedDatabaseCreate.mockResolvedValue(
       database as unknown as Awaited<ReturnType<typeof mockedDatabaseCreate>>,
     );
-    stubSetup(false);
 
     await getApplicationServices();
 

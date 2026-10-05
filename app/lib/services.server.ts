@@ -5,10 +5,6 @@ import { PermissionService } from "@/backend/auth/PermissionService";
 import { SessionService } from "@/backend/auth/SessionService";
 import { ServerCache } from "@/backend/cache/ServerCache";
 import { Database } from "@/backend/database/Database";
-import {
-  createLegacyDatabaseWarning,
-  resolveDatabasePath,
-} from "@/backend/database/DatabasePath";
 import { DATABASE_MIGRATIONS } from "@/backend/database/Migrations";
 import { GitHubSyncScheduler } from "@/backend/github/GitHubSyncScheduler";
 import { resolveGitHubTokenKey } from "@/backend/github/GitHubTokenKey";
@@ -23,6 +19,7 @@ import { GitHubSyncService } from "@/backend/service/GitHubSyncService";
 import { ProjectService } from "@/backend/service/ProjectService";
 import { TaskService } from "@/backend/service/TaskService";
 import { UserService } from "@/backend/service/UserService";
+import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 import { SetupService } from "@/backend/setup/SetupService";
 
 /** Server-only service instances shared by React Router loaders and actions. */
@@ -72,15 +69,10 @@ function registerShutdownHandler(database: Database): void {
   process.once("SIGTERM", () => void shutdown());
 }
 
-async function initializeServices(): Promise<ApplicationServices> {
-  const databasePath = resolveDatabasePath();
-  const legacyDatabaseWarning = createLegacyDatabaseWarning(databasePath);
-  const database = await Database.create(databasePath);
-
-  if (legacyDatabaseWarning) {
-    console.warn(legacyDatabaseWarning);
-  }
-
+async function initializeServices(
+  database: Database,
+  databasePath: string,
+): Promise<ApplicationServices> {
   registerShutdownHandler(database);
 
   await database.migrate(DATABASE_MIGRATIONS);
@@ -124,11 +116,7 @@ async function initializeServices(): Promise<ApplicationServices> {
   const sessionService = new SessionService(sessionRepository, userService);
   const setupService = new SetupService(userRepository, passwordHasher);
 
-  if (await setupService.ensureDefaultAdministrator()) {
-    console.info(
-      '[pages] Created the default administrator "admin". Change its password after the first login.',
-    );
-  } else if (await setupService.migrateLegacyBootstrapAdministrator()) {
+  if (await setupService.migrateLegacyBootstrapAdministrator()) {
     console.info(
       '[pages] Migrated the default administrator "admin" to the current password hashing algorithm.',
     );
@@ -172,9 +160,44 @@ function startGitHubSyncScheduler(gitHubSyncService: GitHubSyncService): void {
   new GitHubSyncScheduler(gitHubSyncService).start();
 }
 
-/** Returns the initialized server-side services for the current Pages process. */
+async function openConfiguredServices(): Promise<ApplicationServices> {
+  const runtime = await getPagesRuntime();
+  const databasePath = runtime.getDatabasePath();
+
+  return initializeServices(await Database.create(databasePath), databasePath);
+}
+
+/**
+ * Returns the initialized server-side services for the current Pages process.
+ *
+ * @throws {SetupPendingError} While the setup is pending; no database is
+ * opened or created before the setup finished.
+ */
 export function getApplicationServices(): Promise<ApplicationServices> {
-  globalThis.pagesServices ??= initializeServices();
+  globalThis.pagesServices ??= openConfiguredServices().catch(
+    (error: unknown) => {
+      // Keep no failed start, so a later request can try again.
+      globalThis.pagesServices = undefined;
+
+      throw error;
+    },
+  );
+
+  return globalThis.pagesServices;
+}
+
+/**
+ * Starts the services on the database a finished setup just prepared.
+ *
+ * @param database - Open database of the finished setup.
+ * @param databasePath - Path of that database.
+ * @returns The services, which later requests receive as well.
+ */
+export function activateApplicationServices(
+  database: Database,
+  databasePath: string,
+): Promise<ApplicationServices> {
+  globalThis.pagesServices = initializeServices(database, databasePath);
 
   return globalThis.pagesServices;
 }

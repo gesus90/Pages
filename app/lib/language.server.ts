@@ -1,7 +1,7 @@
 import { createCookie } from "react-router";
 
 import { resolveCookieSecure } from "@/app/lib/cookie-security.server";
-import { isLanguage, resolveLanguage } from "@/language/Language";
+import { isLanguage, LANGUAGE, resolveLanguage } from "@/language/Language";
 
 import type { Language } from "@/language/Language";
 
@@ -27,13 +27,30 @@ export const languageCookie = createCookie(LANGUAGE_COOKIE_NAME, {
 export async function resolveAnonymousLanguage(
   request: Request,
 ): Promise<Language> {
+  return (
+    (await readSelectedLanguage(request)) ??
+    resolveLanguage(request.headers.get("Accept-Language") ?? undefined)
+  );
+}
+
+/**
+ * Resolves the language of the setup wizard.
+ *
+ * @param request - Incoming request.
+ * @returns The language the visitor selected, otherwise German.
+ */
+export async function resolveSetupLanguage(
+  request: Request,
+): Promise<Language> {
+  return (await readSelectedLanguage(request)) ?? LANGUAGE.GERMAN;
+}
+
+async function readSelectedLanguage(
+  request: Request,
+): Promise<Language | null> {
   const cookieValue: unknown = await languageCookie
     .parse(request.headers.get("Cookie"))
     .catch(() => null);
 
-  if (isLanguage(cookieValue)) {
-    return cookieValue;
-  }
-
-  return resolveLanguage(request.headers.get("Accept-Language") ?? undefined);
+  return isLanguage(cookieValue) ? cookieValue : null;
 }

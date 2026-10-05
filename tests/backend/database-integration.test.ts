@@ -32,6 +32,7 @@ describe("DuckDB persistence", () => {
     expect(rows?.map((row) => row[0]).sort()).toEqual([
       "github_external_issues",
       "github_pull_requests",
+      "instance_settings",
       "milestone_dependencies",
       "milestones",
       "project_activity",
@@ -78,7 +79,6 @@ describe("DuckDB persistence", () => {
       username: "admin",
     });
 
-    await expect(users.hasUsers()).resolves.toBe(true);
     await expect(
       users.findCredentialsByUsername("admin"),
     ).resolves.toMatchObject({ passwordHash: expect.any(String) });

@@ -49,6 +49,16 @@ export type SettingsActionData =
       readonly ok: false;
       readonly error: AvatarUpdateErrorCode;
     }
+  | {
+      readonly intent: "update-port";
+      readonly ok: true;
+      readonly port: number;
+    }
+  | {
+      readonly intent: "update-port";
+      readonly ok: false;
+      readonly error: "invalidPort" | "general";
+    }
   | { readonly intent: "revoke-other-sessions" }
   | { readonly intent: "revoke-session" };
 

@@ -342,14 +342,14 @@ describe("transferSqliteToDuckDb", { timeout: 30_000 }, () => {
       const originalTransaction = Database.prototype.transaction;
       let transactionCount = 0;
 
-      // The first transaction applies the baseline, the second one copies.
+      // One transaction per migration builds the schema, the next one copies.
       vi.spyOn(Database.prototype, "transaction").mockImplementation(function (
         this: Database,
         work,
       ) {
         transactionCount += 1;
 
-        if (transactionCount === 2) {
+        if (transactionCount === DATABASE_MIGRATIONS.length + 1) {
           concurrentWriter.exec(
             "INSERT INTO project_tags (project_id, tag) VALUES ('p1', 'late');",
           );

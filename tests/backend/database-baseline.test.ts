@@ -96,16 +96,22 @@ describe("DuckDB baseline migration", () => {
 
   beforeEach(async () => {
     database = await Database.create(IN_MEMORY_DATABASE_PATH);
-    await database.migrate(DATABASE_MIGRATIONS);
+    // Only the baseline mirrors the SQLite schema; later migrations add to it.
+    await database.migrate(
+      DATABASE_MIGRATIONS.filter(
+        (migration) => migration.name === "001_baseline.sql",
+      ),
+    );
   });
 
   afterEach(async () => {
     await database.close();
   });
 
-  it("embeds the baseline script by its file name", () => {
+  it("embeds the migration scripts by their file names", () => {
     expect(DATABASE_MIGRATIONS.map((migration) => migration.name)).toEqual([
       "001_baseline.sql",
+      "002_instance_settings.sql",
     ]);
   });
 

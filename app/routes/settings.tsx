@@ -16,6 +16,7 @@ import { VerticalScrollArea } from "@/app/components/ui/vertical-scroll-area";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { handleSettingsAction } from "@/app/lib/settings-actions/settings-actions.server";
+import { createServerSettingsService } from "@/app/lib/settings-actions/settings-system-actions.server";
 import { getSessionToken } from "@/app/lib/session.server";
 import { ROLE } from "@/definition/Role";
 
@@ -33,6 +34,8 @@ interface SettingsLoaderData {
   readonly sessions: readonly SessionSummary[];
   readonly canEditProfile: boolean;
   readonly assignableRoles: readonly Role[];
+  /** Port stored for the next start, only for users who may change it. */
+  readonly serverPort: number | null;
 }
 
 /** Loads the personal settings and profile context of the authenticated visitor. */
@@ -56,6 +59,7 @@ export async function loader({
     ),
   ]);
   const canEditProfile = user.role === ROLE.ADMIN;
+  const serverSettings = await createServerSettingsService({ services });
 
   return {
     assignableRoles: canEditProfile
@@ -63,6 +67,9 @@ export async function loader({
       : [],
     canEditProfile,
     email,
+    serverPort: serverSettings.canManage(user)
+      ? await serverSettings.readPort()
+      : null,
     sessions,
     settings,
     user,
@@ -107,6 +114,7 @@ export default function SettingsRoute(): React.ReactElement {
     sessions,
     canEditProfile,
     assignableRoles,
+    serverPort,
   } = useLoaderData<typeof loader>();
   const submit = useSubmit();
   const { settings, persistSettings, toggleNotification } =
@@ -163,7 +171,7 @@ export default function SettingsRoute(): React.ReactElement {
             </div>
           </div>
 
-          {user.role === ROLE.ADMIN ? <SystemSection /> : null}
+          {serverPort === null ? null : <SystemSection port={serverPort} />}
         </div>
       </VerticalScrollArea>
 

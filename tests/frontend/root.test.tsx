@@ -32,6 +32,12 @@ vi.mock("@/app/lib/language.server", () => ({
     serialize: vi.fn(),
   },
   resolveAnonymousLanguage: vi.fn(),
+  resolveSetupLanguage: vi.fn(),
+}));
+
+vi.mock("@/app/lib/setup-gate.server", () => ({
+  isSetupPending: vi.fn(),
+  requireFinishedSetup: vi.fn(),
 }));
 
 import { I18nextProvider } from "react-i18next";
@@ -42,7 +48,14 @@ import {
 } from "react-router";
 
 import { getAuthenticatedUser } from "@/app/lib/auth.server";
-import { resolveAnonymousLanguage } from "@/app/lib/language.server";
+import {
+  resolveAnonymousLanguage,
+  resolveSetupLanguage,
+} from "@/app/lib/language.server";
+import {
+  isSetupPending,
+  requireFinishedSetup,
+} from "@/app/lib/setup-gate.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { createI18n } from "@/app/lib/i18n";
 import { ROLE } from "@/definition/Role";
@@ -54,6 +67,7 @@ import Root, {
   links,
   loader,
   meta,
+  middleware,
 } from "@/app/root";
 
 import type { Language } from "@/language/Language";
@@ -78,6 +92,28 @@ describe("root loader", () => {
     mockedGetUser.mockReset();
     mockedServices.mockReset();
     mockedAnonymousLanguage.mockReset();
+    vi.mocked(isSetupPending).mockResolvedValue(false);
+  });
+
+  it("keeps every route closed until the setup finished", () => {
+    expect(middleware).toEqual([requireFinishedSetup]);
+  });
+
+  it("uses the setup language and no services while the setup is pending", async () => {
+    vi.mocked(isSetupPending).mockResolvedValue(true);
+    vi.mocked(resolveSetupLanguage).mockResolvedValue(LANGUAGE.ENGLISH);
+
+    const request = createLoaderRequest("de");
+
+    await expect(
+      loader({
+        params: {},
+        request,
+      } as unknown as Parameters<typeof loader>[0]),
+    ).resolves.toEqual({ language: "en" });
+    expect(resolveSetupLanguage).toHaveBeenCalledWith(request);
+    expect(mockedGetUser).not.toHaveBeenCalled();
+    expect(mockedServices).not.toHaveBeenCalled();
   });
 
   it("selects the stored language for authenticated visitors", async () => {

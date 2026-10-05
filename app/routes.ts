@@ -10,6 +10,7 @@ export default [
   route("login", "routes/login.tsx"),
   route("logout", "routes/logout.tsx"),
   route("set-language", "routes/set-language.tsx"),
+  route("setup", "routes/setup.tsx"),
   layout("routes/authenticated.tsx", [
     route("dashboard", "routes/dashboard.tsx"),
     route("users", "routes/users.tsx"),

@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { resolveDatabasePath } from "@/backend/database/DatabasePath";
+import { resolveDefaultConfigPath } from "@/backend/config/PagesConfig";
 
 describe("test isolation", () => {
   it("runs every suite with a throwaway home directory", () => {
@@ -11,7 +11,7 @@ describe("test isolation", () => {
     expect(path.basename(homedir())).toMatch(/^pages-test-home-/u);
   });
 
-  it("keeps the default database of a suite inside that home directory", () => {
-    expect(resolveDatabasePath().startsWith(homedir())).toBe(true);
+  it("keeps the default configuration of a suite inside that home directory", () => {
+    expect(resolveDefaultConfigPath().startsWith(homedir())).toBe(true);
   });
 });

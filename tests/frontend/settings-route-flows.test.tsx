@@ -240,6 +240,7 @@ describe("settings screen flows", () => {
       renderSettings({
         assignableRoles: [],
         canEditProfile: false,
+        serverPort: null,
         user: EMPLOYEE,
       });
 
