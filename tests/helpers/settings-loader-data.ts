@@ -1,5 +1,7 @@
 import { ROLE } from "@/definition/Role";
 import { DEFAULT_USER_SETTINGS } from "@/definition/Settings";
+import { createAccess } from "./authorization";
+import type { AccountAccess } from "@/definition/Authorization";
 
 import type { Role } from "@/definition/Role";
 import type { SessionSummary } from "@/definition/Session";
@@ -8,6 +10,7 @@ import type { User } from "@/definition/User";
 
 /** Loader payload of the settings route as the screen consumes it. */
 export interface SettingsLoaderFixture {
+  readonly account: AccountAccess;
   readonly user: User;
   readonly email: string | null;
   readonly settings: UserSettings;
@@ -27,6 +30,12 @@ export function createSettingsLoaderData(
   overrides: Partial<SettingsLoaderFixture> = {},
 ): SettingsLoaderFixture {
   return {
+    account: createAccess({
+      userId: "user-1",
+      isAdmin: true,
+      mode: "admin",
+      role: null,
+    }),
     assignableRoles: [ROLE.ADMIN, ROLE.MANAGER, ROLE.EMPLOYEE],
     canEditProfile: true,
     email: "admin@example.invalid",
@@ -41,6 +50,7 @@ export function createSettingsLoaderData(
       displayName: "Admin",
       id: "user-1",
       isActive: true,
+      mustChangePassword: false,
       role: ROLE.ADMIN,
       username: "admin",
     },

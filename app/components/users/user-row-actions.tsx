@@ -6,17 +6,24 @@ import { DeactivateDialog } from "@/app/components/users/deactivate-dialog";
 import { EditUserDialog } from "@/app/components/users/edit-user-dialog";
 import { ResetPasswordDialog } from "@/app/components/users/reset-password-dialog";
 import { UserActionsMenu } from "@/app/components/users/user-actions-menu";
+import { UserAccessDialog } from "@/app/components/users/user-access-dialog";
+import type { UserAccessDialogKind } from "@/app/components/users/user-access-dialog";
 
-import type { Role } from "@/definition/Role";
-import type { UserListItem } from "@/definition/User";
+import type {
+  AdministrationPageData,
+  UserRole,
+  ManagedUser,
+} from "@/definition/Authorization";
 
 interface UserRowActionsProps {
-  readonly user: UserListItem;
-  readonly assignableRoles: readonly Role[];
+  readonly directory: AdministrationPageData;
+  readonly user: ManagedUser;
+  readonly assignableRoles: readonly UserRole[];
 }
 
 /** Renders the action menu of a user row together with the dialogs it opens. */
 export function UserRowActions({
+  directory,
   user,
   assignableRoles,
 }: UserRowActionsProps): React.ReactElement | null {
@@ -25,6 +32,9 @@ export function UserRowActions({
   const [isRoleOpen, setIsRoleOpen] = useState(false);
   const [isResetOpen, setIsResetOpen] = useState(false);
   const [isDeactivateOpen, setIsDeactivateOpen] = useState(false);
+  const [accessDialog, setAccessDialog] = useState<UserAccessDialogKind | null>(
+    null,
+  );
 
   if (!user.canManage) {
     return null;
@@ -53,9 +63,25 @@ export function UserRowActions({
     );
   }
 
+  function handleMemberships(): void {
+    setAccessDialog("memberships");
+  }
+  function handleScope(): void {
+    setAccessDialog("scope");
+  }
+  function handleAdmin(): void {
+    setAccessDialog("admin");
+  }
+  function closeAccess(): void {
+    setAccessDialog(null);
+  }
+
   return (
     <>
       <UserActionsMenu
+        onMemberships={handleMemberships}
+        onScope={handleScope}
+        onAdmin={handleAdmin}
         onActivate={handleActivate}
         onChangeRole={handleChangeRole}
         onDeactivate={handleDeactivate}
@@ -84,6 +110,12 @@ export function UserRowActions({
         user={user}
         open={isDeactivateOpen}
         onOpenChange={setIsDeactivateOpen}
+      />
+      <UserAccessDialog
+        user={user}
+        directory={directory}
+        kind={accessDialog}
+        onClose={closeAccess}
       />
     </>
   );

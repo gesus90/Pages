@@ -856,14 +856,22 @@ function createServiceDependencies(): {
     updateGoal: vi.fn(),
     updateMemberRole: vi.fn(),
   } as unknown as MockMap;
+  const permissionCheck = vi.fn(
+    (_role: unknown, permission: string) =>
+      permission === PERMISSION.MANAGE_PROJECTS ||
+      permission === PERMISSION.PARTICIPATE_IN_PROJECTS,
+  );
   const permissions = {
-    hasPermission: vi.fn(
-      (_role: unknown, permission: string) =>
-        permission === PERMISSION.MANAGE_PROJECTS ||
-        permission === PERMISSION.PARTICIPATE_IN_PROJECTS,
-    ),
+    hasPermission: permissionCheck,
   } as unknown as MockMap;
 
+  permissions.hasCapability = vi.fn(async (actor: { role: string }) =>
+    permissionCheck(actor.role, PERMISSION.MANAGE_PROJECTS),
+  );
+  permissions.allows = vi.fn(
+    async (actor: { role: string }, permission: string) =>
+      permissionCheck(actor.role, permission),
+  );
   return {
     permissions,
     repository,
@@ -1012,7 +1020,7 @@ describe("ProjectService project details", () => {
     ).rejects.toThrow("not allowed to manage projects");
   });
 
-  it("allows project managers to write without global permission", async () => {
+  it("preserves project-manager editing until A3 changes project roles", async () => {
     const { permissions, repository, service } = dependencies;
     permissions.hasPermission.mockImplementation(
       (_role: unknown, permission: string) =>
@@ -1021,10 +1029,8 @@ describe("ProjectService project details", () => {
     repository.isProjectManager.mockResolvedValue(true);
     repository.findMembers.mockResolvedValue([]);
 
-    await service.updateDetails(
-      createUser({ role: ROLE.EMPLOYEE }),
-      "project-1",
-      {
+    await expect(
+      service.updateDetails(createUser({ role: ROLE.EMPLOYEE }), "project-1", {
         description: "",
         managerId: null,
         name: "Pages",
@@ -1033,8 +1039,8 @@ describe("ProjectService project details", () => {
         startDate: null,
         status: "active",
         targetDate: null,
-      },
-    );
+      }),
+    ).resolves.toBeDefined();
 
     expect(repository.updateDetails).toHaveBeenCalled();
   });

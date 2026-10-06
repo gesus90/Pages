@@ -21,6 +21,8 @@ import { ROLE } from "@/definition/Role";
 import { LANGUAGE } from "@/language/Language";
 
 import { createUser } from "../helpers/factories";
+import { createAccess } from "../helpers/authorization";
+import { directoryRoles } from "../helpers/administration-page";
 
 import type { User } from "@/definition/User";
 
@@ -45,6 +47,10 @@ function renderShell(
         ],
         element: (
           <AppShell
+            account={createAccess({
+              userId: user.id,
+              role: directoryRoles([user.role])[0] ?? null,
+            })}
             canViewProjects={canViewProjects}
             canViewUsers={canViewUsers}
             user={user}
@@ -68,6 +74,30 @@ function getSubmitMock(): ReturnType<typeof vi.fn> {
 }
 
 describe("AppShell", () => {
+  it("shows connectivity state and an unassigned role in the account menu", async () => {
+    const router = createMemoryRouter([
+      {
+        path: "/",
+        element: (
+          <AppShell
+            user={createUser()}
+            account={createAccess({ role: null })}
+            canViewUsers={false}
+            canViewProjects={false}
+            isOffline
+          />
+        ),
+      },
+    ]);
+    render(
+      <I18nextProvider i18n={createI18n("de")}>
+        <RouterProvider router={router} />
+      </I18nextProvider>,
+    );
+    expect(screen.getByRole("status")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Kontomenü" }));
+    expect(screen.getByText("—")).toBeInTheDocument();
+  });
   it("renders workspace navigation with localized labels", () => {
     renderShell(createUser());
 

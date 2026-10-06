@@ -11,22 +11,21 @@ import { useProfileSubmission } from "@/app/components/settings/profile/use-prof
 import { SettingsCard } from "@/app/components/settings/settings-layout";
 import { USER_AVATAR_TYPE } from "@/definition/User";
 
-import type { Role } from "@/definition/Role";
 import type { User } from "@/definition/User";
 
 interface ProfileCardProps {
+  readonly roleName?: string | null;
   readonly user: User;
   readonly email: string | null;
   readonly canEditProfile: boolean;
-  readonly assignableRoles: readonly Role[];
 }
 
 /** Renders the personal profile with administrator editing and avatar upload. */
 export function ProfileCard({
+  roleName,
   user,
   email,
   canEditProfile,
-  assignableRoles,
 }: ProfileCardProps): React.ReactElement {
   const { t } = useTranslation();
   const editing = useProfileEditing({ email, user });
@@ -75,17 +74,15 @@ export function ProfileCard({
           {canEditProfile && editing.isEditing ? (
             <ProfileEditForm
               draft={editing.draft}
-              assignableRoles={assignableRoles}
               error={editing.error}
               canSave={editing.canSave}
               isSubmitting={submission.isProfileSubmitting}
               onChange={editing.changeDraft}
-              onRoleChange={editing.changeRole}
               onCancel={editing.cancelEdit}
               onSave={submission.saveProfile}
             />
           ) : (
-            <ProfileDetails user={user} email={email} />
+            <ProfileDetails user={user} email={email} roleName={roleName} />
           )}
         </div>
       </div>

@@ -39,6 +39,58 @@ describe("UserRepository on DuckDB", () => {
     return repository;
   }
 
+  describe("usernames", () => {
+    it("finds credentials whatever the case of the entered name", async () => {
+      const repository = await createRepository();
+
+      await expect(
+        repository.findCredentialsByUsername("ANNA"),
+      ).resolves.toMatchObject({ user: { id: "user-1", username: "anna" } });
+    });
+
+    it("returns null for a name nobody uses", async () => {
+      const repository = await createRepository();
+
+      await expect(repository.findCredentialsByUsername("carl")).resolves.toBe(
+        null,
+      );
+    });
+
+    it("rejects a new user whose name differs only by case", async () => {
+      const repository = await createRepository();
+
+      await expect(
+        repository.insert(createNewUser({ id: "user-3", username: "Anna" })),
+      ).rejects.toBeInstanceOf(UsernameTakenError);
+    });
+
+    it("rejects renaming a user to a name that differs only by case", async () => {
+      const repository = await createRepository();
+
+      await expect(
+        repository.updateProfile("user-2", {
+          displayName: "Bob",
+          email: null,
+          username: "ANNA",
+        }),
+      ).rejects.toBeInstanceOf(UsernameTakenError);
+    });
+
+    it("lets a user change the case of their own name", async () => {
+      const repository = await createRepository();
+
+      await repository.updateProfile("user-1", {
+        displayName: "Anna Schmidt",
+        email: null,
+        username: "Anna",
+      });
+
+      await expect(repository.findById("user-1")).resolves.toMatchObject({
+        username: "Anna",
+      });
+    });
+  });
+
   describe("email lookups", () => {
     it("finds the user that owns an address", async () => {
       const repository = await createRepository();
@@ -180,6 +232,29 @@ describe("UserRepository on DuckDB", () => {
   });
 
   describe("account changes", () => {
+    it("persists the password-change requirement until replacing the password", async () => {
+      const repository = new UserRepository(getDatabase());
+      await repository.insert(createNewUser({ mustChangePassword: true }));
+
+      await expect(repository.findById("user-1")).resolves.toMatchObject({
+        mustChangePassword: true,
+      });
+      await expect(repository.findAll()).resolves.toEqual([
+        expect.objectContaining({ mustChangePassword: true }),
+      ]);
+      await expect(
+        repository.findCredentialsByUsername("anna"),
+      ).resolves.toMatchObject({
+        user: { mustChangePassword: true },
+      });
+      await repository.updatePasswordHash("user-1", "chosen-hash");
+      await expect(
+        repository.findCredentialsByUsername("anna"),
+      ).resolves.toMatchObject({
+        passwordHash: "chosen-hash",
+        user: { mustChangePassword: false },
+      });
+    });
     it("replaces the avatar reference", async () => {
       const repository = await createRepository();
 

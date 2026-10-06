@@ -173,6 +173,21 @@ describe("handleSetupAction", () => {
     });
   });
 
+  it("sets a secure session cookie when the wizard runs over HTTPS", async () => {
+    stubCompletion({ sessionToken: "session", status: "completed" });
+
+    const response = (await handleSetupAction(
+      createRuntime(),
+      new Request("https://pages.invalid/setup", {
+        body: new URLSearchParams(VALID_SETUP),
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        method: "POST",
+      }),
+    )) as Response;
+
+    expect(response.headers.get("Set-Cookie")).toContain("Secure");
+  });
+
   it("finishes the setup and signs the administrator in", async () => {
     const complete = stubCompletion({
       sessionToken: "session",
@@ -186,6 +201,7 @@ describe("handleSetupAction", () => {
     expect(response.status).toBe(302);
     expect(response.headers.get("Location")).toBe("/dashboard");
     expect(response.headers.get("Set-Cookie")).toContain("pages_session=");
+    expect(response.headers.get("Set-Cookie")).not.toContain("Secure");
     expect(SetupWizardService).toHaveBeenCalledWith({
       activateServices: activateApplicationServices,
       passwordHasher: expect.any(PasswordHasher),

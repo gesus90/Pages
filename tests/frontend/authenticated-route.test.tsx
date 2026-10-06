@@ -24,12 +24,15 @@ import { LANGUAGE } from "@/language/Language";
 import AuthenticatedRoute from "@/app/routes/authenticated";
 
 import { createUser } from "../helpers/factories";
+import { createAccess } from "../helpers/authorization";
 
 const mockedLoaderData = vi.mocked(useLoaderData);
 
 describe("AuthenticatedRoute", () => {
   it("renders the workspace shell for the loader user", () => {
     mockedLoaderData.mockReturnValue({
+      account: createAccess(),
+      authorizationVersion: "initial",
       canViewProjects: true,
       canViewUsers: true,
       user: createUser(),

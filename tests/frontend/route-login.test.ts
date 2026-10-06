@@ -172,7 +172,7 @@ describe("login route action", () => {
       "Mozilla/5.0 Firefox/130.0",
       null,
     );
-    expect(mockedSerialize).toHaveBeenCalledWith("token");
+    expect(mockedSerialize).toHaveBeenCalledWith("token", { secure: false });
     expect(response.status).toBe(302);
     expect(response.headers.get("Location")).toBe("/dashboard");
     expect(response.headers.get("Set-Cookie")).toContain("pages_session=token");

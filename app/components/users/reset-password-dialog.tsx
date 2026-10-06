@@ -1,9 +1,9 @@
-import { Check, Copy } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Form } from "react-router";
 
 import { Button } from "@/app/components/ui/button";
+import { TemporaryPasswordResult } from "@/app/components/users/temporary-password-result";
 import {
   Dialog,
   DialogClose,
@@ -16,61 +16,6 @@ import {
 } from "@/app/components/users/use-users-action";
 
 import type { UserListItem } from "@/definition/User";
-
-interface CopyButtonProps {
-  readonly value: string;
-}
-
-/** Renders a button that copies a value and confirms it for two seconds. */
-function CopyButton({ value }: CopyButtonProps): React.ReactElement {
-  const { t } = useTranslation();
-  const [isCopied, setIsCopied] = useState(false);
-
-  function handleCopy(): void {
-    if (!navigator.clipboard) {
-      return;
-    }
-
-    navigator.clipboard
-      .writeText(value)
-      .then(() => {
-        setIsCopied(true);
-      })
-      .catch(() => {
-        setIsCopied(false);
-      });
-  }
-
-  useEffect(() => {
-    if (!isCopied) {
-      return;
-    }
-
-    const timeout = window.setTimeout(() => {
-      setIsCopied(false);
-    }, 2000);
-
-    return () => {
-      window.clearTimeout(timeout);
-    };
-  }, [isCopied]);
-
-  return (
-    <Button
-      className="h-9 shrink-0 gap-1.5 px-3 text-xs"
-      onClick={handleCopy}
-      type="button"
-      variant="outline"
-    >
-      {isCopied ? (
-        <Check className="size-4 text-emerald-600" aria-hidden="true" />
-      ) : (
-        <Copy className="size-4" aria-hidden="true" />
-      )}
-      {isCopied ? t("users.reset.copied") : t("users.reset.copy")}
-    </Button>
-  );
-}
 
 interface ResetPasswordDialogProps {
   readonly user: UserListItem;
@@ -118,31 +63,10 @@ export function ResetPasswordDialog({
         </DialogTitle>
 
         {shownPassword ? (
-          <div className="mt-5 flex flex-col gap-3">
-            <label
-              className="select-none text-sm font-medium text-foreground"
-              htmlFor={`temporary-password-${user.id}`}
-            >
-              {t("users.reset.temporaryPassword")}
-            </label>
-            <div className="flex items-center gap-2">
-              <p
-                id={`temporary-password-${user.id}`}
-                className="min-w-0 flex-1 truncate rounded-xl bg-muted px-4 py-3 font-mono text-sm font-semibold text-foreground"
-              >
-                {shownPassword}
-              </p>
-              <CopyButton value={shownPassword} />
-            </div>
-            <p className="text-xs leading-relaxed text-muted-foreground">
-              {t("users.reset.emailHint")}
-            </p>
-            <div className="mt-2 flex justify-end">
-              <DialogClose asChild>
-                <Button type="button">{t("users.reset.close")}</Button>
-              </DialogClose>
-            </div>
-          </div>
+          <TemporaryPasswordResult
+            password={shownPassword}
+            onClose={handleClose}
+          />
         ) : (
           <Form className="mt-5 flex flex-col gap-3" method="post">
             <input name="intent" type="hidden" value="reset-password" />

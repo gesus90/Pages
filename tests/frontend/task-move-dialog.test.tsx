@@ -119,6 +119,7 @@ function createUser(overrides: Partial<User> = {}): User {
     displayName: "Admin",
     id: "user-1",
     isActive: true,
+    mustChangePassword: false,
     role: "admin",
     username: "admin",
     ...overrides,

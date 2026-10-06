@@ -13,6 +13,7 @@ import {
 } from "react-router";
 
 import { buttonVariants } from "@/app/components/ui/button";
+import { Toaster } from "@/app/components/ui/toast";
 import { getAuthenticatedUser } from "@/app/lib/auth.server";
 import { cn } from "@/app/lib/cn";
 import { createI18n } from "@/app/lib/i18n";
@@ -125,7 +126,10 @@ export function Layout({
         <Links />
       </head>
       <body>
-        <I18nextProvider i18n={i18n}>{children}</I18nextProvider>
+        <I18nextProvider i18n={i18n}>
+          {children}
+          <Toaster />
+        </I18nextProvider>
         <ScrollRestoration />
         <Scripts />
       </body>

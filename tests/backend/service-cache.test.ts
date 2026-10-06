@@ -42,6 +42,7 @@ describe("service cache behavior", () => {
     };
     const permissions = {
       hasPermission: vi.fn().mockReturnValue(true),
+      hasCapability: vi.fn().mockResolvedValue(true),
     };
     const service = new ProjectService(
       repository as never,
@@ -75,6 +76,7 @@ describe("service cache behavior", () => {
     };
     const permissions = {
       hasPermission: vi.fn().mockReturnValue(true),
+      hasCapability: vi.fn().mockResolvedValue(true),
     };
     const service = new ProjectService(
       repository as never,
@@ -113,7 +115,10 @@ describe("service cache behavior", () => {
     const service = new TaskService(
       repository as never,
       projectService as never,
-      { hasPermission: vi.fn() } as never,
+      {
+        hasPermission: vi.fn(),
+        hasCapability: vi.fn().mockResolvedValue(true),
+      } as never,
       cache,
     );
     const actor = createUser();
@@ -142,7 +147,10 @@ describe("service cache behavior", () => {
     const service = new TaskService(
       repository as never,
       projectService as never,
-      { hasPermission: vi.fn() } as never,
+      {
+        hasPermission: vi.fn(),
+        hasCapability: vi.fn().mockResolvedValue(true),
+      } as never,
       cache,
     );
     const actor = createUser();

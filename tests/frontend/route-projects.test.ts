@@ -46,7 +46,7 @@ function createServices(
   return {
     projectService: {
       archive: vi.fn(),
-      canManageProjects: vi.fn().mockReturnValue(true),
+      canCreateProjects: vi.fn().mockResolvedValue(true),
       create: vi.fn(),
       findAll: vi.fn().mockResolvedValue([]),
       update: vi.fn(),
@@ -92,7 +92,9 @@ describe("projects route loader", () => {
     const findAll = vi.fn().mockResolvedValue([createProject()]);
     const canManageProjects = vi.fn().mockReturnValue(true);
     mockedServices.mockResolvedValue(
-      createServices({ projectService: { canManageProjects, findAll } }),
+      createServices({
+        projectService: { canCreateProjects: canManageProjects, findAll },
+      }),
     );
     const context = { get: vi.fn().mockReturnValue(createUser()) };
 

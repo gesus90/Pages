@@ -21,7 +21,7 @@ export async function action({ request }: Route.ActionArgs): Promise<Response> {
 
   return redirect("/login", {
     headers: {
-      "Set-Cookie": await destroySessionCookie(),
+      "Set-Cookie": await destroySessionCookie(request),
     },
   });
 }

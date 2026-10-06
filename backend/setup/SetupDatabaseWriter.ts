@@ -5,6 +5,7 @@ import { SessionService } from "@/backend/auth/SessionService";
 import { InstanceSettingsRepository } from "@/backend/database/repositories/InstanceSettingsRepository";
 import { SessionRepository } from "@/backend/database/repositories/SessionRepository";
 import { UserRepository } from "@/backend/database/repositories/UserRepository";
+import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { UserSettingsRepository } from "@/backend/database/repositories/UserSettingsRepository";
 import { UserService } from "@/backend/service/UserService";
 import { ROLE } from "@/definition/Role";
@@ -48,6 +49,7 @@ export class SetupDatabaseWriter {
   private readonly sessions: SessionService;
   private readonly instanceSettings: InstanceSettingsRepository;
   private readonly userSettings: UserSettingsRepository;
+  private readonly authorization: AuthorizationRepository;
 
   /**
    * Creates a writer for one database.
@@ -56,6 +58,7 @@ export class SetupDatabaseWriter {
    */
   public constructor(database: Database) {
     this.users = new UserRepository(database);
+    this.authorization = new AuthorizationRepository(database);
     this.sessionRepository = new SessionRepository(database);
     this.sessions = new SessionService(
       this.sessionRepository,
@@ -82,7 +85,10 @@ export class SetupDatabaseWriter {
       record.username,
     );
 
-    if (existing && existing.user.role !== ROLE.ADMIN) {
+    const access = (await this.authorization.snapshot()).accounts.find(
+      (account) => account.userId === existing?.user.id,
+    );
+    if (existing && !access?.isAdmin) {
       return { status: "usernameTaken" };
     }
 
@@ -155,6 +161,8 @@ export class SetupDatabaseWriter {
     await this.users.updatePasswordHash(user.id, record.passwordHash);
     await this.users.setActive(user.id, true);
     await this.sessionRepository.deleteAllByUserId(user.id);
+    await this.authorization.activateAdministrator(user.id);
+    await this.users.updateRole(user.id, ROLE.ADMIN);
 
     return user.id;
   }

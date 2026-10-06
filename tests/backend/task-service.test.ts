@@ -32,6 +32,7 @@ function createUser(overrides: Partial<User> = {}): User {
     displayName: "Admin User",
     id: "user-1",
     isActive: true,
+    mustChangePassword: false,
     role: ROLE.ADMIN,
     username: "admin",
     ...overrides,
@@ -231,6 +232,7 @@ describe("TaskService", () => {
 
     permissionService = {
       hasPermission: vi.fn(),
+      hasCapability: vi.fn().mockResolvedValue(true),
     } as unknown as typeof permissionService;
 
     service = new TaskService(
@@ -1277,6 +1279,7 @@ describe("TaskService restore, moves, labels, and sync state", () => {
 
     permissionService = {
       hasPermission: vi.fn(),
+      hasCapability: vi.fn().mockResolvedValue(true),
     } as unknown as typeof permissionService;
 
     service = new TaskService(

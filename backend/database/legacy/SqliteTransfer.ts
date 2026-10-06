@@ -95,7 +95,12 @@ async function transferInto(
     try {
       await target.migrate(options.migrations);
 
-      return await copyMissingRows(source, target, targetExisted);
+      return await copyMissingRows(source, target, {
+        targetExisted,
+        authorizationBackfill: options.migrations.find(
+          (migration) => migration.name === "006_legacy_user_roles.sql",
+        ),
+      });
     } finally {
       await target.close();
     }
@@ -116,14 +121,20 @@ interface TablePlan extends TableTransferResult {
 async function copyMissingRows(
   source: SqliteDatabase.Database,
   target: Database,
-  targetExisted: boolean,
+  options: {
+    readonly targetExisted: boolean;
+    readonly authorizationBackfill: Migration | undefined;
+  },
 ): Promise<TransferResult> {
   const plans = await planTables(source, target);
 
-  if (!targetExisted || isBlank(plans)) {
-    await target.transaction((transaction) =>
-      copyAllTables(source, transaction, plans),
-    );
+  if (!options.targetExisted || isBlank(plans)) {
+    await target.transaction(async (transaction) => {
+      await copyAllTables(source, transaction, plans);
+      if (options.authorizationBackfill) {
+        await transaction.execute(options.authorizationBackfill.sql);
+      }
+    });
 
     return {
       status: "copied",
@@ -311,6 +322,8 @@ function verifySourceColumns(
  * @remarks
  * `instance_settings` came after the SQLite version, so the former file
  * has no such table; it stays empty until the setup wizard fills it.
+ * Likewise, migrated passwords are already chosen: the new password-change
+ * column keeps its database default instead of requiring it in frozen SQLite.
  */
 async function readTargetColumns(
   target: Database,
@@ -322,7 +335,11 @@ async function readTargetColumns(
           column_name
       FROM information_schema.columns
       WHERE table_schema = 'main'
-          AND table_name NOT IN ('schema_migrations', 'instance_settings')
+          AND table_name NOT IN (
+              'schema_migrations', 'instance_settings', 'roles', 'role_permissions',
+              'departments', 'user_authorization', 'department_members', 'managed_departments'
+          )
+          AND NOT (table_name = 'users' AND column_name = 'must_change_password')
       ORDER BY table_name, ordinal_position;
     `,
   );

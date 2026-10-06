@@ -79,11 +79,20 @@ describe("getSessionToken", () => {
 
 describe("destroySessionCookie", () => {
   it("creates an immediately expired cookie", async () => {
-    const header = await destroySessionCookie();
+    const header = await destroySessionCookie(createRequest(null));
 
     expect(header).toContain("pages_session=");
     expect(header).toContain("Max-Age=0");
     expect(header).toContain("Path=/");
     expect(header).toContain("HttpOnly");
+    expect(header).not.toContain("Secure");
+  });
+
+  it("marks the expired cookie secure for HTTPS requests", async () => {
+    const header = await destroySessionCookie(
+      new Request("https://pages.invalid/logout"),
+    );
+
+    expect(header).toContain("Secure");
   });
 });

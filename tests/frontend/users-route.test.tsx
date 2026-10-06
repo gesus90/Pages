@@ -29,6 +29,11 @@ import { createI18n } from "@/app/lib/i18n";
 import { ROLE } from "@/definition/Role";
 import { LANGUAGE } from "@/language/Language";
 import UsersRoute from "@/app/routes/users";
+import {
+  administrationPage,
+  directoryRoles,
+  managedUser,
+} from "../helpers/administration-page";
 
 const mockedActionData = vi.mocked(useActionData);
 const mockedLoaderData = vi.mocked(useLoaderData);
@@ -92,7 +97,12 @@ function renderUsers(
   submitting: Record<string, string> | null = null,
   submit: ReturnType<typeof useSubmit> = vi.fn(),
 ): void {
-  mockedLoaderData.mockReturnValue({ assignableRoles, users });
+  mockedLoaderData.mockReturnValue(
+    administrationPage(
+      users.map((user) => managedUser(user)),
+      directoryRoles(assignableRoles),
+    ),
+  );
   mockedActionData.mockReturnValue(actionData);
   mockedSubmit.mockReturnValue(submit);
 
@@ -168,9 +178,10 @@ describe("CreateUserDialog", () => {
     );
 
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
-    expect(screen.getByLabelText("Name")).toBeInTheDocument();
+    expect(screen.getByLabelText("Vorname")).toBeInTheDocument();
+    expect(screen.getByLabelText("Nachname")).toBeRequired();
     expect(screen.getByLabelText("Benutzername")).toBeInTheDocument();
-    expect(screen.getByLabelText("Passwort")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Passwort")).not.toBeInTheDocument();
   });
 
   it("offers every assignable role to administrators", async () => {
@@ -193,7 +204,7 @@ describe("CreateUserDialog", () => {
     expect(roleSelect).toHaveTextContent("Administrator");
   });
 
-  it("hides the role selection from managers", async () => {
+  it("shows the sole role and the roleless administrator exception", async () => {
     const user = userEvent.setup();
     renderUsers([MANAGEABLE_ADMIN], [ROLE.EMPLOYEE]);
 
@@ -203,7 +214,7 @@ describe("CreateUserDialog", () => {
 
     await screen.findByRole("dialog");
 
-    expect(screen.queryByLabelText("Rolle")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Rolle")).toBeInTheDocument();
   });
 
   it("shows creation errors inside the dialog", async () => {
@@ -237,7 +248,7 @@ describe("CreateUserDialog", () => {
     );
 
     const submit = await screen.findByRole("button", {
-      name: "Wird erstellt …",
+      name: "Erstellen",
     });
 
     expect(submit).toBeDisabled();

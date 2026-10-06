@@ -7,11 +7,19 @@ import { badRequest } from "./settings-action-support.server";
 import { parseSettingsForm } from "./settings-form.server";
 
 import type {
+  PasswordChangeOutcome,
+  SettingsActionContext,
   SettingsActionData,
   SettingsActionHandler,
 } from "./settings-action-support.server";
 
 const MAXIMUM_PASSWORD_LENGTH = 1000;
+
+/** Response shared by voluntary and mandatory password replacement. */
+export interface PasswordChangeActionData {
+  readonly intent: "change-password";
+  readonly outcome: PasswordChangeOutcome;
+}
 
 /** Saves the personal preferences; the form reloads without a message. */
 export const handleUpdateSettings: SettingsActionHandler = async ({
@@ -31,12 +39,14 @@ export const handleUpdateSettings: SettingsActionHandler = async ({
 };
 
 /** Changes the password of the signed-in user. */
-export const handleChangePassword: SettingsActionHandler = async ({
+export async function handleChangePassword({
   user,
   request,
   formData,
   services,
-}) => {
+}: SettingsActionContext): Promise<
+  ReturnType<typeof data<PasswordChangeActionData>>
+> {
   const currentPassword = formData.get("currentPassword");
   const newPassword = formData.get("newPassword");
   const passwordConfirmation = formData.get("passwordConfirmation");
@@ -47,21 +57,21 @@ export const handleChangePassword: SettingsActionHandler = async ({
     typeof passwordConfirmation !== "string" ||
     newPassword.length >= MAXIMUM_PASSWORD_LENGTH
   ) {
-    return data<SettingsActionData>(
+    return data<PasswordChangeActionData>(
       { intent: "change-password", outcome: "invalidInput" },
       { status: 400 },
     );
   }
 
   if (newPassword.length < MINIMUM_PASSWORD_LENGTH) {
-    return data<SettingsActionData>(
+    return data<PasswordChangeActionData>(
       { intent: "change-password", outcome: "tooShort" },
       { status: 400 },
     );
   }
 
   if (newPassword !== passwordConfirmation) {
-    return data<SettingsActionData>(
+    return data<PasswordChangeActionData>(
       { intent: "change-password", outcome: "mismatch" },
       { status: 400 },
     );
@@ -74,11 +84,11 @@ export const handleChangePassword: SettingsActionHandler = async ({
     await getSessionToken(request),
   );
 
-  return data<SettingsActionData>(
+  return data<PasswordChangeActionData>(
     { intent: "change-password", outcome },
     { status: outcome === "success" ? 200 : 400 },
   );
-};
+}
 
 /** Signs out one other session of the user. */
 export const handleRevokeSession: SettingsActionHandler = async ({

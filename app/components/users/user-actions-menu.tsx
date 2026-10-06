@@ -16,10 +16,13 @@ import {
   DropdownMenuTrigger,
 } from "@/app/components/ui/dropdown-menu";
 
-import type { UserListItem } from "@/definition/User";
+import type { ManagedUser } from "@/definition/Authorization";
 
 interface UserActionsMenuProps {
-  readonly user: UserListItem;
+  readonly onMemberships: () => void;
+  readonly onScope: () => void;
+  readonly onAdmin: () => void;
+  readonly user: ManagedUser;
   readonly onEdit: () => void;
   readonly onChangeRole: () => void;
   readonly onResetPassword: () => void;
@@ -29,6 +32,9 @@ interface UserActionsMenuProps {
 
 /** Renders the menu with the actions available for a user. */
 export function UserActionsMenu({
+  onMemberships,
+  onScope,
+  onAdmin,
   user,
   onEdit,
   onChangeRole,
@@ -50,42 +56,68 @@ export function UserActionsMenu({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuItem className="gap-2.5" onSelect={onEdit}>
-          <Pencil className="size-4 text-muted-foreground" aria-hidden="true" />
-          {t("users.menu.edit")}
-        </DropdownMenuItem>
-        <DropdownMenuItem className="gap-2.5" onSelect={onChangeRole}>
-          <ShieldCheck
-            className="size-4 text-muted-foreground"
-            aria-hidden="true"
-          />
-          {t("users.menu.changeRole")}
-        </DropdownMenuItem>
-        <DropdownMenuItem className="gap-2.5" onSelect={onResetPassword}>
-          <KeyRound
-            className="size-4 text-muted-foreground"
-            aria-hidden="true"
-          />
-          {t("users.menu.resetPassword")}
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        {user.isActive ? (
-          <DropdownMenuItem
-            className="gap-2.5 text-destructive hover:text-destructive focus:text-destructive"
-            onSelect={onDeactivate}
-          >
-            <TriangleAlert className="size-4" aria-hidden="true" />
-            {t("users.actions.deactivate")}
+        {user.canManageMemberships ? (
+          <DropdownMenuItem onSelect={onMemberships}>
+            {t("users.access.memberships")}
           </DropdownMenuItem>
-        ) : (
-          <DropdownMenuItem className="gap-2.5" onSelect={onActivate}>
-            <Check
+        ) : null}
+        {user.canManageScope ? (
+          <>
+            <DropdownMenuItem onSelect={onScope}>
+              {t("users.access.scope")}
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={onAdmin}>
+              {t("users.personalAdmin")}
+            </DropdownMenuItem>
+          </>
+        ) : null}
+        {user.canEditProfile ? (
+          <DropdownMenuItem className="gap-2.5" onSelect={onEdit}>
+            <Pencil
               className="size-4 text-muted-foreground"
               aria-hidden="true"
             />
-            {t("users.actions.activate")}
+            {t("users.menu.edit")}
           </DropdownMenuItem>
-        )}
+        ) : null}
+        {user.canEditProfile ? (
+          <DropdownMenuItem className="gap-2.5" onSelect={onChangeRole}>
+            <ShieldCheck
+              className="size-4 text-muted-foreground"
+              aria-hidden="true"
+            />
+            {t("users.menu.changeRole")}
+          </DropdownMenuItem>
+        ) : null}
+        {user.canManageAccess ? (
+          <>
+            <DropdownMenuItem className="gap-2.5" onSelect={onResetPassword}>
+              <KeyRound
+                className="size-4 text-muted-foreground"
+                aria-hidden="true"
+              />
+              {t("users.menu.resetPassword")}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            {user.isActive ? (
+              <DropdownMenuItem
+                className="gap-2.5 text-destructive hover:text-destructive focus:text-destructive"
+                onSelect={onDeactivate}
+              >
+                <TriangleAlert className="size-4" aria-hidden="true" />
+                {t("users.actions.deactivate")}
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem className="gap-2.5" onSelect={onActivate}>
+                <Check
+                  className="size-4 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                {t("users.actions.activate")}
+              </DropdownMenuItem>
+            )}
+          </>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );

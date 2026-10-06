@@ -49,6 +49,20 @@ describe("inspectPagesDatabase", () => {
     });
   });
 
+  it("recognizes the administrator in a pre-A2 schema without changing it", async () => {
+    const filePath = path.join(directory, "legacy.duckdb");
+    await createDuckDbFile(filePath, [
+      "CREATE TABLE schema_migrations (name TEXT);",
+      "INSERT INTO schema_migrations VALUES ('001_baseline.sql');",
+      "CREATE TABLE users (id TEXT, role TEXT, is_active INTEGER);",
+      "INSERT INTO users VALUES ('admin', 'admin', 1);",
+    ]);
+    expect(await inspectPagesDatabase(filePath)).toEqual({
+      kind: "pages",
+      hasActiveAdministrator: true,
+    });
+  });
+
   it("recognizes a Pages database without an active administrator", async () => {
     const filePath = path.join(directory, "pages.duckdb");
 

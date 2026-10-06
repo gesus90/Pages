@@ -15,7 +15,14 @@ import { ROLE } from "@/definition/Role";
 import type { User } from "@/definition/User";
 
 function createUser(role: User["role"]): User {
-  return { displayName: "A", id: "u1", isActive: true, role, username: "a" };
+  return {
+    displayName: "A",
+    id: "u1",
+    isActive: true,
+    mustChangePassword: false,
+    role,
+    username: "a",
+  };
 }
 
 describe("ServerSettingsService", () => {
@@ -33,9 +40,9 @@ describe("ServerSettingsService", () => {
     await rm(directory, { force: true, recursive: true });
   });
 
-  it("lets only administrators manage the server", () => {
-    expect(service.canManage(createUser(ROLE.ADMIN))).toBe(true);
-    expect(service.canManage(createUser(ROLE.MANAGER))).toBe(false);
+  it("lets only administrators manage the server", async () => {
+    expect(await service.canManage(createUser(ROLE.ADMIN))).toBe(true);
+    expect(await service.canManage(createUser(ROLE.MANAGER))).toBe(false);
   });
 
   it("reads the stored port or the default", async () => {

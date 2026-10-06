@@ -1,28 +1,20 @@
-import { ROLE, isRole } from "@/definition/Role";
-import { EMAIL_PATTERN, MINIMUM_PASSWORD_LENGTH } from "@/definition/User";
+import { EMAIL_PATTERN } from "@/definition/User";
 
-import type { Role } from "@/definition/Role";
+import type {
+  AccountCreateInput,
+  AccountProfileInput,
+} from "@/definition/Authorization";
 
 const MAXIMUM_NAME_LENGTH = 200;
 const MAXIMUM_USERNAME_LENGTH = 200;
 const MAXIMUM_EMAIL_LENGTH = 320;
-const MAXIMUM_PASSWORD_LENGTH = 1000;
 
 /** The validated fields of the create user form. */
-export interface CreateUserInput {
-  readonly displayName: string;
-  readonly username: string;
-  readonly email: string | null;
-  readonly password: string;
-  readonly role: Role;
-}
+export type CreateUserInput = AccountCreateInput;
 
 /** The validated fields of the edit user form. */
-export interface UpdateUserInput {
+export interface UpdateUserInput extends AccountProfileInput {
   readonly userId: string;
-  readonly displayName: string;
-  readonly username: string;
-  readonly email: string | null;
 }
 
 function getTrimmedString(formData: FormData, key: string): string {
@@ -57,51 +49,41 @@ function isValidEmail(email: string): boolean {
  * Reads the create user form.
  *
  * @param formData - The submitted form.
- * @param actorRole - Role of the user creating the account; only administrators
- * choose a role, everybody else creates employees.
  * @returns The input, or `null` when a field is missing, empty or too long.
  */
 export function parseCreateUserInput(
   formData: FormData,
-  actorRole: Role,
 ): CreateUserInput | null {
-  const displayName = getTrimmedString(formData, "displayName");
-  const username = getTrimmedString(formData, "username");
-  const password = formData.get("password");
-  const requestedRole = formData.get("role");
-  const email = normalizeEmail(formData, "email");
-
-  if (
-    !displayName ||
-    !username ||
-    typeof password !== "string" ||
-    password.length < MINIMUM_PASSWORD_LENGTH ||
-    password.length > MAXIMUM_PASSWORD_LENGTH
-  ) {
+  const profile = readProfile(formData);
+  if (!profile || !profile.firstName || !profile.lastName) {
     return null;
   }
-
-  if (
-    displayName.length > MAXIMUM_NAME_LENGTH ||
-    username.length > MAXIMUM_USERNAME_LENGTH
-  ) {
-    return null;
-  }
-
-  if (email !== null && !isValidEmail(email)) {
-    return null;
-  }
-
   return {
-    displayName,
-    email,
-    password,
-    role:
-      actorRole === ROLE.ADMIN && isRole(requestedRole)
-        ? requestedRole
-        : ROLE.EMPLOYEE,
-    username,
+    ...profile,
+    roleId: getTrimmedString(formData, "role") || null,
+    isAdmin: formData.get("isAdmin") === "true",
+    departments: formData
+      .getAll("department")
+      .filter((entry): entry is string => typeof entry === "string"),
   };
+}
+
+function readProfile(formData: FormData): AccountProfileInput | null {
+  const firstName = getTrimmedString(formData, "firstName");
+  const lastName = getTrimmedString(formData, "lastName");
+  const username = getTrimmedString(formData, "username");
+  const email = normalizeEmail(formData, "email");
+  if (
+    (!firstName && !lastName) ||
+    !username ||
+    firstName.length > MAXIMUM_NAME_LENGTH ||
+    lastName.length > MAXIMUM_NAME_LENGTH ||
+    username.length > MAXIMUM_USERNAME_LENGTH ||
+    (email !== null && !isValidEmail(email))
+  ) {
+    return null;
+  }
+  return { firstName, lastName, username, email };
 }
 
 /**
@@ -114,24 +96,9 @@ export function parseUpdateUserInput(
   formData: FormData,
 ): UpdateUserInput | null {
   const userId = readUserId(formData);
-  const displayName = getTrimmedString(formData, "displayName");
-  const username = getTrimmedString(formData, "username");
-  const email = normalizeEmail(formData, "email");
-
-  if (userId === null || !displayName || !username) {
+  const profile = readProfile(formData);
+  if (userId === null || !profile) {
     return null;
   }
-
-  if (
-    displayName.length > MAXIMUM_NAME_LENGTH ||
-    username.length > MAXIMUM_USERNAME_LENGTH
-  ) {
-    return null;
-  }
-
-  if (email !== null && !isValidEmail(email)) {
-    return null;
-  }
-
-  return { displayName, email, userId, username };
+  return { ...profile, userId };
 }

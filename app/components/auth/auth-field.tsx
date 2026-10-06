@@ -6,7 +6,7 @@ import type { ComponentProps, ReactNode } from "react";
 
 interface AuthFieldProps extends Omit<
   ComponentProps<"input">,
-  "className" | "id" | "name"
+  "className" | "id" | "name" | "size"
 > {
   /** Used as element id and as form field name. */
   readonly name: string;

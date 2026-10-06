@@ -121,6 +121,7 @@ describe("root loader", () => {
       displayName: "Admin",
       id: "user-1",
       isActive: true,
+      mustChangePassword: false,
       role: ROLE.ADMIN,
       username: "admin",
     };
@@ -278,7 +279,7 @@ describe("ErrorBoundary", () => {
       await screen.findByRole("heading", { name: "Zugriff verweigert" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Du hast keine Berechtigung, diese Seite anzusehen."),
+      screen.getByText("Sie haben keine Berechtigung, diese Seite anzusehen."),
     ).toBeInTheDocument();
     expect(screen.getByText("403")).toBeInTheDocument();
   });

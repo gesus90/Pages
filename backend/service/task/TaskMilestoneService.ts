@@ -90,7 +90,7 @@ export class TaskMilestoneService {
     actor: User,
     input: CreateMilestoneInput,
   ): Promise<Milestone> {
-    await this.access.requireWritableProject(actor, input.projectId);
+    await this.access.requirePlanningProject(actor, input.projectId);
 
     const fields = validateMilestoneInput(input);
     const description = (input.description ?? "").trim();
@@ -170,7 +170,7 @@ export class TaskMilestoneService {
     actor: User,
     input: AddMilestoneDependencyInput,
   ): Promise<MilestoneDependency> {
-    await this.access.requireWritableProject(actor, input.projectId);
+    await this.access.requirePlanningProject(actor, input.projectId);
 
     if (!isMilestoneLinkType(input.linkType)) {
       throw new WorkItemValidationError("Unsupported dependency type.");
@@ -211,7 +211,7 @@ export class TaskMilestoneService {
     projectId: string,
     dependencyId: string,
   ): Promise<void> {
-    await this.access.requireWritableProject(actor, projectId);
+    await this.access.requirePlanningProject(actor, projectId);
 
     const existing = await this.taskRepository.findDependenciesByProjectIds([
       projectId,
@@ -235,7 +235,7 @@ export class TaskMilestoneService {
       throw new WorkItemValidationError("Selected milestone does not exist.");
     }
 
-    await this.access.requireWritableProject(actor, existing.projectId);
+    await this.access.requirePlanningProject(actor, existing.projectId);
   }
 
   private async requireMilestonePair(

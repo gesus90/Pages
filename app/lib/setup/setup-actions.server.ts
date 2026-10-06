@@ -1,5 +1,6 @@
 import { data, redirect } from "react-router";
 
+import { resolveCookieSecure } from "@/app/lib/cookie-security.server";
 import { readText } from "@/app/lib/form-fields.server";
 import { resolveSetupLanguage } from "@/app/lib/language.server";
 import { activateApplicationServices } from "@/app/lib/services.server";
@@ -90,12 +91,15 @@ async function checkDatabasePath({
 async function answerCompletion(
   result: SetupCompletionResult,
   databasePathInput: string,
+  request: Request,
 ): Promise<SetupActionResult> {
   switch (result.status) {
     case "completed":
       return redirect("/dashboard", {
         headers: {
-          "Set-Cookie": await sessionCookie.serialize(result.sessionToken),
+          "Set-Cookie": await sessionCookie.serialize(result.sessionToken, {
+            secure: resolveCookieSecure(request),
+          }),
         },
       });
     case "databaseLocation":
@@ -164,7 +168,7 @@ async function completeSetup({
     readToken(formData),
   );
 
-  return answerCompletion(result, form.input.databasePath);
+  return answerCompletion(result, form.input.databasePath, request);
 }
 
 const SETUP_ACTION_HANDLERS = {

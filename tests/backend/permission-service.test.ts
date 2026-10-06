@@ -2,8 +2,51 @@ import { describe, expect, it } from "vitest";
 
 import { PermissionService } from "@/backend/auth/PermissionService";
 import { PERMISSION, ROLE } from "@/definition/Role";
+import { CAPABILITY } from "@/definition/Authorization";
+import { createAccess, createRole } from "../helpers/authorization";
+import { createUser } from "../helpers/factories";
 
 describe("PermissionService", () => {
+  it("evaluates every route permission from current facts even for stale admin callers", async () => {
+    let account = createAccess({ role: createRole({ permissions: [] }) });
+    const service = new PermissionService(async () => account);
+    const actor = createUser({ role: ROLE.ADMIN });
+    expect(await service.allows(actor, PERMISSION.MANAGE_APPLICATION)).toBe(
+      false,
+    );
+    expect(await service.allows(actor, PERMISSION.VIEW_USERS)).toBe(false);
+    expect(await service.allows(actor, PERMISSION.MANAGE_USERS)).toBe(false);
+    expect(await service.allows(actor, PERMISSION.MANAGE_PROJECTS)).toBe(false);
+    expect(
+      await service.allows(actor, PERMISSION.PARTICIPATE_IN_PROJECTS),
+    ).toBe(true);
+    account = createAccess({
+      role: createRole({
+        permissions: [CAPABILITY.MANAGE_USERS, CAPABILITY.MANAGE_PROJECTS],
+      }),
+    });
+    expect(await service.allows(actor, PERMISSION.VIEW_USERS)).toBe(true);
+    expect(await service.allows(actor, PERMISSION.MANAGE_USERS)).toBe(true);
+    expect(await service.allows(actor, PERMISSION.MANAGE_PROJECTS)).toBe(true);
+    account = createAccess({ role: null });
+    expect(
+      await service.allows(actor, PERMISSION.PARTICIPATE_IN_PROJECTS),
+    ).toBe(false);
+    account = createAccess({ role: null, isAdmin: true, mode: "admin" });
+    for (const permission of Object.values(PERMISSION)) {
+      expect(await service.allows(actor, permission)).toBe(true);
+    }
+    account = { ...account, isActive: false };
+    expect(
+      await service.allows(actor, PERMISSION.PARTICIPATE_IN_PROJECTS),
+    ).toBe(false);
+    expect(
+      await new PermissionService().allows(
+        actor,
+        PERMISSION.MANAGE_APPLICATION,
+      ),
+    ).toBe(true);
+  });
   it("grants every permission to administrators", () => {
     const service = new PermissionService();
 

@@ -274,6 +274,7 @@
         "description": "Change your password to keep your account safe.",
         "action": "Change password",
         "dialogTitle": "Change password",
+        "requiredChange": "Please replace your temporary password before using Pages.",
         "currentPassword": "Current password",
         "newPassword": "New password",
         "confirmPassword": "Confirm new password",
@@ -325,6 +326,61 @@
     }
   },
   "users": {
+    "fields": {
+      "firstName": "First name",
+      "lastName": "Last name"
+    },
+    "noRoles": "No roles have been created yet.",
+    "noDepartments": "No departments are available yet.",
+    "sections": {
+      "users": "Users",
+      "roles": "Roles",
+      "departments": "Departments"
+    },
+    "access": {
+      "memberships": "Assign departments",
+      "scope": "Management scope",
+      "admin": "Personal administrator eligibility"
+    },
+    "allDepartments": "Manage all departments",
+    "allProjects": "Manage all projects",
+    "permissions": {
+      "read": "Read (always enabled)",
+      "write": "Write",
+      "create_projects": "Create projects",
+      "manage_projects": "Manage projects",
+      "milestones": "Milestones",
+      "manage_users": "Create/deactivate users",
+      "manage_departments": "Manage departments",
+      "manage_roles": "Manage roles"
+    },
+    "catalog": {
+      "name": "Name",
+      "rank": "Hierarchy rank",
+      "actions": "Actions",
+      "departmentBound": "Department binding",
+      "a3Hint": "Department binding for projects, tickets and milestones takes effect with A3. Their existing behavior is preserved until then.",
+      "addRole": "Create role",
+      "editRole": "Edit role",
+      "addDepartment": "Create department",
+      "editDepartment": "Edit department",
+      "editNamed": "Edit {{name}}",
+      "deleteNamed": "Delete {{name}}?",
+      "delete": "Delete",
+      "roleDeleteHint": "The role will be deleted. Assign its users to another role first.",
+      "departmentDeleteHint": "The department and its assignments will be removed. Users losing their final department are retained without a department and can be assigned again."
+    },
+    "personalAdmin": "Personal administrator eligibility",
+    "mode": {
+      "title": "Authorization mode",
+      "description": "The selected mode applies to all your signed-in devices.",
+      "admin": "Administrator mode",
+      "role": "Role mode",
+      "toRole": "Switch to role mode",
+      "toAdmin": "Switch to administrator mode",
+      "needsRole": "Assign a normal role to your account in user management first.",
+      "offline": "Connection lost. This view will refresh automatically."
+    },
     "title": "User management",
     "create": {
       "trigger": "Create user",
@@ -348,7 +404,8 @@
     },
     "search": {
       "placeholder": "Search users …",
-      "empty": "No users found."
+      "empty": "No users found.",
+      "reset": "Reset filter"
     },
     "status": {
       "active": "Active",
@@ -391,6 +448,7 @@
       "copy": "Copy",
       "copied": "Copied",
       "emailHint": "This password can be sent by email later, once email is configured.",
+      "deliveryHint": "This password is shown only once. Give it directly to the account owner. It must be changed at the next login.",
       "close": "Close"
     },
     "deactivate": {
@@ -403,12 +461,18 @@
     "error": {
       "usernameTaken": "This username is already taken.",
       "emailTaken": "This email address is already in use.",
-      "invalidInput": "Please check your input (password at least 8 characters).",
+      "invalidInput": "Please check your input.",
+      "inUse": "The role is still assigned to users and cannot be deleted.",
+      "lastMembership": "The final department membership cannot be removed directly.",
       "forbidden": "You are not allowed to perform this action.",
       "lastAdministrator": "The last active administrator cannot be deactivated.",
       "demoteLastAdministrator": "The administrator role cannot be removed from the last active administrator.",
       "userNotFound": "This user could not be found."
-    }
+    },
+    "saved": "Saved",
+    "discardChanges": "Discard unsaved changes?",
+    "unassignedRole": "No role (administrator account)",
+    "loading": "Loading user management …"
   },
   "tasks": {
     "title": "Tasks",

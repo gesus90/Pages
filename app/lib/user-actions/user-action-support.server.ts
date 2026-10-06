@@ -1,4 +1,5 @@
 import { data } from "react-router";
+import { AdministrationError } from "@/backend/error/AdministrationError";
 import {
   EmailTakenError,
   LastAdministratorError,
@@ -10,6 +11,18 @@ import {
 
 import type { ApplicationServices } from "@/app/lib/services.server";
 import type { User } from "@/definition/User";
+import type { AdministrationErrorCode } from "@/backend/error/AdministrationError";
+
+const ADMINISTRATION_ERROR_STATUS: Readonly<
+  Record<AdministrationErrorCode, number>
+> = {
+  forbidden: 403,
+  invalidInput: 400,
+  notFound: 404,
+  inUse: 409,
+  lastAdministrator: 409,
+  lastMembership: 409,
+};
 
 /** Why a user directory action failed, as the client shows it. */
 export type UsersErrorCode =
@@ -19,17 +32,35 @@ export type UsersErrorCode =
   | "forbidden"
   | "lastAdministrator"
   | "demoteLastAdministrator"
+  | "inUse"
+  | "lastMembership"
   | "userNotFound";
 
 /** The directory actions a form can ask for. */
 export type UsersIntent =
-  "create-user" | "set-active" | "update-user" | "set-role" | "reset-password";
+  | "create-user"
+  | "set-active"
+  | "update-user"
+  | "set-role"
+  | "reset-password"
+  | "save-role"
+  | "delete-role"
+  | "save-department"
+  | "delete-department"
+  | "set-memberships"
+  | "set-scope"
+  | "set-admin";
 
 /** What the user directory receives after a submitted form. */
 export type UsersActionData =
   | {
       readonly ok: true;
-      readonly intent: Exclude<UsersIntent, "reset-password">;
+      readonly intent: Exclude<UsersIntent, "reset-password" | "create-user">;
+    }
+  | {
+      readonly ok: true;
+      readonly intent: "create-user";
+      readonly temporaryPassword: string;
     }
   | {
       readonly ok: true;
@@ -78,6 +109,15 @@ export function toActionError(
   error: unknown,
   intent: UsersIntent,
 ): UsersActionResult {
+  if (error instanceof AdministrationError) {
+    const errorCode = error.code === "notFound" ? "userNotFound" : error.code;
+    return data<UsersActionData>(
+      { ok: false, intent, error: errorCode },
+      {
+        status: ADMINISTRATION_ERROR_STATUS[error.code],
+      },
+    );
+  }
   if (error instanceof UserNotFoundError) {
     return data<UsersActionData>(
       { error: "userNotFound", intent, ok: false },

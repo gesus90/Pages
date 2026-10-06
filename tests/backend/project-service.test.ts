@@ -66,8 +66,15 @@ function createRepository(): ProjectRepository & MockProjectRepository {
 function createPermissions(): PermissionService & {
   hasPermission: ReturnType<typeof vi.fn>;
 } {
+  const hasPermission = vi.fn().mockReturnValue(true);
   return {
-    hasPermission: vi.fn().mockReturnValue(true),
+    hasPermission,
+    allows: vi.fn(async (actor: { role: string }, permission: string) =>
+      hasPermission(actor.role, permission),
+    ),
+    hasCapability: vi.fn(async (actor: { role: string }) =>
+      hasPermission(actor.role, PERMISSION.MANAGE_PROJECTS),
+    ),
   } as unknown as PermissionService & {
     hasPermission: ReturnType<typeof vi.fn>;
   };
@@ -229,10 +236,10 @@ describe("ProjectService", () => {
     ).rejects.toThrow(ProjectManagementDeniedError);
   });
 
-  it("checks project management permissions", () => {
+  it("checks project management permissions", async () => {
     const actor = createUser();
 
-    expect(service.canManageProjects(actor)).toBe(true);
+    expect(await service.canManageProjects(actor)).toBe(true);
     expect(permissions.hasPermission).toHaveBeenCalledWith(
       actor.role,
       PERMISSION.MANAGE_PROJECTS,

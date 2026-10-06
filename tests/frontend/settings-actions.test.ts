@@ -5,6 +5,7 @@ import { handleSettingsAction } from "@/app/lib/settings-actions/settings-action
 import { parseSettingsForm } from "@/app/lib/settings-actions/settings-form.server";
 import { USER_NOTIFICATION_KEYS } from "@/definition/Settings";
 
+import { createAccess } from "../helpers/authorization";
 import { createUser } from "../helpers/factories";
 
 import type { SettingsActionContext } from "@/app/lib/settings-actions/settings-action-support.server";
@@ -125,6 +126,11 @@ describe("handleSettingsAction", () => {
       formData,
       request: new Request("http://pages.invalid/settings", { method: "POST" }),
       services: {
+        administrationService: {
+          getContext: vi
+            .fn()
+            .mockResolvedValue(createAccess({ isAdmin: true, mode: "admin" })),
+        },
         settingsService: { updateSettings: vi.fn() },
         userService: {
           updateOwnAvatar: vi.fn(),

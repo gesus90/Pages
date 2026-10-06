@@ -43,6 +43,10 @@ vi.mock("@/backend/github/GitHubTokenKey", () => ({
   resolveGitHubTokenKey: vi.fn(() => Buffer.alloc(32)),
 }));
 
+import { AdministrationService } from "@/backend/service/AdministrationService";
+import { createAccess } from "../helpers/authorization";
+import { createUser } from "../helpers/factories";
+import { PERMISSION } from "@/definition/Role";
 import { AuthService } from "@/backend/auth/AuthService";
 import { SessionService } from "@/backend/auth/SessionService";
 import { Database } from "@/backend/database/Database";
@@ -133,6 +137,15 @@ describe("getApplicationServices", () => {
     expect(services.authService).toBeDefined();
     expect(services.sessionService).toBeDefined();
     expect(mockedAuth).toHaveBeenCalledTimes(1);
+    vi.spyOn(AdministrationService.prototype, "getContext").mockResolvedValue(
+      createAccess(),
+    );
+    expect(
+      await services.permissionService.allows(
+        createUser(),
+        PERMISSION.MANAGE_APPLICATION,
+      ),
+    ).toBe(false);
 
     resetServiceGlobals();
   });

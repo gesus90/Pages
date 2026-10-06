@@ -63,9 +63,9 @@ export function parseCredentials(formData: FormData): Credentials | null {
  * session cookie so the browser stops presenting it on every following
  * request.
  */
-async function loginRedirect(): Promise<Response> {
+async function loginRedirect(request: Request): Promise<Response> {
   return redirect("/login", {
-    headers: { "Set-Cookie": await destroySessionCookie() },
+    headers: { "Set-Cookie": await destroySessionCookie(request) },
   });
 }
 
@@ -77,7 +77,11 @@ export const requireAuthenticatedUser: MiddlewareFunction = async (
   const user = await getAuthenticatedUser(request);
 
   if (!user) {
-    throw await loginRedirect();
+    throw await loginRedirect(request);
+  }
+
+  if (user.mustChangePassword) {
+    throw redirect("/change-password");
   }
 
   context.set(authenticatedUserContext, user);
@@ -101,12 +105,16 @@ export function requirePermission(permission: Permission): MiddlewareFunction {
       (await getAuthenticatedUser(request));
 
     if (!user) {
-      throw await loginRedirect();
+      throw await loginRedirect(request);
+    }
+
+    if (user.mustChangePassword) {
+      throw redirect("/change-password");
     }
 
     const services = await getApplicationServices();
 
-    if (!services.permissionService.hasPermission(user.role, permission)) {
+    if (!(await services.permissionService.allows(user, permission))) {
       throw new Response("Forbidden", { status: 403 });
     }
 
@@ -115,3 +123,25 @@ export function requirePermission(permission: Permission): MiddlewareFunction {
     return next();
   };
 }
+
+/** Requires the A2 entry capability and preserves the mandatory-password gate. */
+export const requireUserManagement: MiddlewareFunction = async (
+  { context, request },
+  next,
+) => {
+  const user =
+    context.get(authenticatedUserContext) ??
+    (await getAuthenticatedUser(request));
+  if (!user) {
+    throw await loginRedirect(request);
+  }
+  if (user.mustChangePassword) {
+    throw redirect("/change-password");
+  }
+  const services = await getApplicationServices();
+  if (!(await services.administrationService.canEnter(user.id))) {
+    throw new Response("Forbidden", { status: 403 });
+  }
+  context.set(authenticatedUserContext, user);
+  return next();
+};

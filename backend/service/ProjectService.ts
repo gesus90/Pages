@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 
 import { PERMISSION } from "@/definition/Role";
+import { CAPABILITY } from "@/definition/Authorization";
 import { isGitHubSyncInterval, isProjectRole } from "@/definition/Project";
 import { encryptGitHubToken } from "@/backend/github/GitHubTokenCrypto";
 import {
@@ -68,27 +69,26 @@ export class ProjectService {
 
   /** Returns every non-archived project that the actor may access. */
   public async findAll(actor: User): Promise<Project[]> {
-    const cacheKey = `projects:list:u:${actor.id}`;
+    const canManage = await this.canManageProjects(actor);
+    if (
+      !canManage &&
+      !(await this.permissionService.allows(
+        actor,
+        PERMISSION.PARTICIPATE_IN_PROJECTS,
+      ))
+    ) {
+      throw new ProjectAccessDeniedError();
+    }
+    const cacheKey = `projects:list:u:${actor.id}:${canManage}`;
     const cached = this.cache.get<Project[]>(cacheKey);
 
     if (cached) {
       return cached;
     }
 
-    let projects: Project[];
-
-    if (this.canManageProjects(actor)) {
-      projects = await this.projectRepository.findAll();
-    } else if (
-      !this.permissionService.hasPermission(
-        actor.role,
-        PERMISSION.PARTICIPATE_IN_PROJECTS,
-      )
-    ) {
-      throw new ProjectAccessDeniedError();
-    } else {
-      projects = await this.projectRepository.findByMemberId(actor.id);
-    }
+    const projects = canManage
+      ? await this.projectRepository.findAll()
+      : await this.projectRepository.findByMemberId(actor.id);
 
     this.cache.set(cacheKey, projects, CACHE_TTLS.projectsList);
 
@@ -108,15 +108,15 @@ export class ProjectService {
 
     this.cache.set(cacheKey, project, CACHE_TTLS.project);
 
-    if (this.canManageProjects(actor)) {
+    if (await this.canManageProjects(actor)) {
       return project;
     }
 
     if (
-      !this.permissionService.hasPermission(
-        actor.role,
+      !(await this.permissionService.allows(
+        actor,
         PERMISSION.PARTICIPATE_IN_PROJECTS,
-      ) ||
+      )) ||
       !(await this.projectRepository.isMember(projectId, actor.id))
     ) {
       throw new ProjectAccessDeniedError();
@@ -127,7 +127,8 @@ export class ProjectService {
 
   /** Creates a project owned by the authorized actor. */
   public async create(actor: User, project: NewProject): Promise<void> {
-    this.requireProjectManagement(actor);
+    if (!(await this.canCreateProjects(actor)))
+      throw new ProjectManagementDeniedError();
     await this.projectRepository.insert(project);
     this.cache.invalidateProjectsList();
   }
@@ -138,7 +139,7 @@ export class ProjectService {
     projectId: string,
     project: ProjectUpdate,
   ): Promise<void> {
-    this.requireProjectManagement(actor);
+    await this.requireProjectManagement(actor);
     await this.getById(actor, projectId);
     await this.projectRepository.update(projectId, project);
     this.cache.invalidateProject(projectId);
@@ -146,7 +147,7 @@ export class ProjectService {
 
   /** Archives a project without deleting it. */
   public async archive(actor: User, projectId: string): Promise<void> {
-    this.requireProjectManagement(actor);
+    await this.requireProjectManagement(actor);
     await this.getById(actor, projectId);
     await this.projectRepository.archive(projectId);
     this.cache.invalidateProject(projectId);
@@ -167,17 +168,25 @@ export class ProjectService {
     projectId: string,
     icon: ProjectIcon,
   ): Promise<void> {
-    this.requireProjectManagement(actor);
+    await this.requireProjectManagement(actor);
     await this.getById(actor, projectId);
     await this.projectRepository.upsertIcon(projectId, icon);
     this.cache.invalidateProject(projectId);
   }
 
   /** Returns whether the actor is allowed to create and edit projects. */
-  public canManageProjects(actor: User): boolean {
-    return this.permissionService.hasPermission(
-      actor.role,
-      PERMISSION.MANAGE_PROJECTS,
+  public async canManageProjects(actor: User): Promise<boolean> {
+    return this.permissionService.hasCapability(
+      actor,
+      CAPABILITY.MANAGE_PROJECTS,
+    );
+  }
+
+  /** Project management includes creation, while create-only roles cannot manage existing projects. */
+  public async canCreateProjects(actor: User): Promise<boolean> {
+    return this.permissionService.hasCapability(
+      actor,
+      CAPABILITY.CREATE_PROJECTS,
     );
   }
 
@@ -308,7 +317,7 @@ export class ProjectService {
     actor: User,
     projectId: string,
   ): Promise<boolean> {
-    if (this.canManageProjects(actor)) {
+    if (await this.canManageProjects(actor)) {
       return true;
     }
 
@@ -629,8 +638,8 @@ export class ProjectService {
     return this.projectRepository.findActivity(projectId);
   }
 
-  private requireProjectManagement(actor: User): void {
-    if (!this.canManageProjects(actor)) {
+  private async requireProjectManagement(actor: User): Promise<void> {
+    if (!(await this.canManageProjects(actor))) {
       throw new ProjectManagementDeniedError();
     }
   }
@@ -639,15 +648,9 @@ export class ProjectService {
     actor: User,
     projectId: string,
   ): Promise<void> {
-    if (this.canManageProjects(actor)) {
-      return;
+    if (!(await this.canWriteProject(actor, projectId))) {
+      throw new ProjectManagementDeniedError();
     }
-
-    if (await this.projectRepository.isProjectManager(projectId, actor.id)) {
-      return;
-    }
-
-    throw new ProjectManagementDeniedError();
   }
 
   /**

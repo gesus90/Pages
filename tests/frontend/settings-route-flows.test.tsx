@@ -28,11 +28,13 @@ import {
 
 import { createI18n } from "@/app/lib/i18n";
 import SettingsRoute from "@/app/routes/settings";
+import { ProfileDetails } from "@/app/components/settings/profile/profile-details";
 import { ROLE } from "@/definition/Role";
 import { DEFAULT_USER_SETTINGS } from "@/definition/Settings";
 import { LANGUAGE } from "@/language/Language";
 
 import { createSettingsLoaderData } from "../helpers/settings-loader-data";
+import { createUser } from "../helpers/factories";
 
 import type { SettingsLoaderFixture } from "../helpers/settings-loader-data";
 import type { SessionSummary } from "@/definition/Session";
@@ -164,6 +166,7 @@ const EMPLOYEE = {
   displayName: "Erika",
   id: "user-2",
   isActive: true,
+  mustChangePassword: false,
   role: ROLE.EMPLOYEE,
   username: "erika",
 } as const;
@@ -443,7 +446,7 @@ describe("settings screen flows", () => {
 
       expect(screen.getByText("Nicht hinterlegt")).toBeInTheDocument();
       expect(screen.getByText("@admin")).toBeInTheDocument();
-      expect(screen.getByText("Administrator")).toBeInTheDocument();
+      expect(screen.getAllByText("—").length).toBeGreaterThan(0);
     });
 
     it("shows the hint for a blank email as well", () => {
@@ -503,21 +506,17 @@ describe("settings screen flows", () => {
       });
     });
 
-    it("lets the administrator pick another role", async () => {
+    it("separates role assignment from personal settings and requires a role before switching mode", async () => {
       const { submit } = renderSettings();
 
       await startEditing();
-      await userEvent.click(
-        screen.getByRole("combobox", { name: "Position / Rolle" }),
-      );
-      await userEvent.click(
-        await screen.findByRole("option", { name: "Manager" }),
-      );
-      await userEvent.click(
-        screen.getByRole("button", { name: "Änderungen speichern" }),
-      );
-
-      expect(submittedFields(submit)).toMatchObject({ role: "manager" });
+      expect(
+        screen.queryByRole("combobox", { name: "Position / Rolle" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Zum Rollenmodus wechseln" }),
+      ).toBeDisabled();
+      expect(submit).not.toHaveBeenCalled();
     });
 
     it.each([
@@ -860,5 +859,26 @@ describe("settings screen flows", () => {
         "Deutsch",
       ),
     ).toBeInTheDocument();
+  });
+});
+
+describe("profile role label compatibility", () => {
+  it("uses legacy labels only for callers without current account facts", () => {
+    const view = render(
+      <I18nextProvider i18n={createI18n("de")}>
+        <ProfileDetails user={createUser({ role: "admin" })} email={null} />
+      </I18nextProvider>,
+    );
+    expect(screen.getByText("Administrator")).toBeInTheDocument();
+    view.rerender(
+      <I18nextProvider i18n={createI18n("de")}>
+        <ProfileDetails
+          user={createUser({ role: "admin" })}
+          email={null}
+          roleName={null}
+        />
+      </I18nextProvider>,
+    );
+    expect(screen.getByText("—")).toBeInTheDocument();
   });
 });

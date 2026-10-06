@@ -7,10 +7,11 @@ import { createDatabase } from "../helpers/factories";
 import { UsernameTakenError } from "@/backend/error/UserErrors";
 
 /** Avatar columns of a user row for an account that keeps its initials avatar. */
-const AVATAR_COLUMNS = ["initials", null, null, null] as const;
+const AVATAR_COLUMNS = ["initials", null, null, null, 0] as const;
 
 /** The user fields those avatar columns map to. */
 const INITIALS_AVATAR = {
+  mustChangePassword: false,
   avatarColor: null,
   avatarIcon: null,
   avatarImageUrl: null,
@@ -145,7 +146,7 @@ describe("UserRepository", () => {
       },
     });
     expect(database.query).toHaveBeenCalledWith(
-      expect.stringContaining("WHERE username"),
+      expect.stringContaining("WHERE lower(username) = lower($username)"),
       { username: "admin" },
     );
   });
@@ -169,7 +170,7 @@ describe("UserRepository", () => {
       username: "admin",
     });
 
-    expect(database.execute).toHaveBeenCalledTimes(1);
+    expect(database.execute).toHaveBeenCalledTimes(2);
     const [statement, parameters] = database.execute.mock.calls[0] as [
       string,
       Record<string, string>,
@@ -182,6 +183,7 @@ describe("UserRepository", () => {
       email: null,
       id: "user-1",
       is_active: true,
+      must_change_password: false,
       password_hash: "stored-hash",
       role: "admin",
       username: "admin",
@@ -207,6 +209,24 @@ describe("UserRepository", () => {
 
     expect(failure).toBeInstanceOf(UsernameTakenError);
     expect((failure as Error).message).toContain("admin");
+  });
+
+  it("translates case-insensitive username conflicts into a UsernameTakenError", async () => {
+    database.execute.mockRejectedValue(
+      new Error(
+        'Constraint Error: Duplicate key "lower(username): admin" violates unique constraint.',
+      ),
+    );
+
+    await expect(
+      repository.insert({
+        displayName: "Admin",
+        id: "user-1",
+        passwordHash: "hash",
+        role: ROLE.ADMIN,
+        username: "ADMIN",
+      }),
+    ).rejects.toBeInstanceOf(UsernameTakenError);
   });
 
   it("rethrows unrelated constraint violations", async () => {

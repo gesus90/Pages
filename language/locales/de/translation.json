@@ -92,7 +92,7 @@
   "errorPage": {
     "forbidden": {
       "title": "Zugriff verweigert",
-      "message": "Du hast keine Berechtigung, diese Seite anzusehen."
+      "message": "Sie haben keine Berechtigung, diese Seite anzusehen."
     },
     "notFound": {
       "title": "Seite nicht gefunden",
@@ -233,7 +233,7 @@
         "invalidAvatar": "Ungültige Bilddatei (nur JPG, PNG oder WebP bis 5 MB).",
         "usernameTaken": "Dieser Benutzername ist bereits vergeben.",
         "emailTaken": "Diese E-Mail-Adresse ist bereits vergeben.",
-        "forbidden": "Du bist nicht berechtigt, diese Aktion auszuführen.",
+        "forbidden": "Sie sind nicht berechtigt, diese Aktion auszuführen.",
         "lastAdministrator": "Dem letzten aktiven Administrator kann die Administratorrolle nicht entzogen werden.",
         "general": "Das Profil konnte nicht gespeichert werden."
       }
@@ -274,6 +274,7 @@
         "description": "Ändern Sie Ihr Passwort, um Ihr Konto zu schützen.",
         "action": "Passwort ändern",
         "dialogTitle": "Passwort ändern",
+        "requiredChange": "Bitte ersetzen Sie Ihr Einmalpasswort, bevor Sie Pages verwenden.",
         "currentPassword": "Aktuelles Passwort",
         "newPassword": "Neues Passwort",
         "confirmPassword": "Neues Passwort bestätigen",
@@ -325,6 +326,61 @@
     }
   },
   "users": {
+    "fields": {
+      "firstName": "Vorname",
+      "lastName": "Nachname"
+    },
+    "noRoles": "Noch keine Rollen angelegt.",
+    "noDepartments": "Noch keine Abteilungen verfügbar.",
+    "sections": {
+      "users": "Benutzer",
+      "roles": "Rollen",
+      "departments": "Abteilungen"
+    },
+    "access": {
+      "memberships": "Abteilungen zuordnen",
+      "scope": "Verwaltungsbereich",
+      "admin": "Persönliche Admin-Berechtigung"
+    },
+    "allDepartments": "Alle Abteilungen verwalten",
+    "allProjects": "Alle Projekte verwalten",
+    "permissions": {
+      "read": "Lesen (immer aktiv)",
+      "write": "Schreiben",
+      "create_projects": "Projekte erstellen",
+      "manage_projects": "Projekte verwalten",
+      "milestones": "Meilensteine",
+      "manage_users": "Benutzer erstellen/deaktivieren",
+      "manage_departments": "Abteilungen verwalten",
+      "manage_roles": "Rollen verwalten"
+    },
+    "catalog": {
+      "name": "Name",
+      "rank": "Hierarchierang",
+      "actions": "Aktionen",
+      "departmentBound": "Abteilungsbindung",
+      "a3Hint": "Die Abteilungsbindung für Projekte, Tickets und Meilensteine wird mit A3 wirksam. Bis dahin bleibt deren bisheriges Verhalten bestehen.",
+      "addRole": "Rolle anlegen",
+      "editRole": "Rolle bearbeiten",
+      "addDepartment": "Abteilung anlegen",
+      "editDepartment": "Abteilung bearbeiten",
+      "editNamed": "{{name}} bearbeiten",
+      "deleteNamed": "{{name}} löschen?",
+      "delete": "Löschen",
+      "roleDeleteHint": "Die Rolle wird gelöscht. Zugewiesene Benutzer müssen zuvor eine andere Rolle erhalten.",
+      "departmentDeleteHint": "Die Abteilung und ihre Zuordnungen werden entfernt. Benutzer, deren letzte Abteilung dies ist, bleiben als abteilungslose Benutzer erhalten und können neu zugeordnet werden."
+    },
+    "personalAdmin": "Persönliche Admin-Berechtigung",
+    "mode": {
+      "title": "Berechtigungsmodus",
+      "description": "Der gewählte Modus gilt für alle Ihre angemeldeten Geräte.",
+      "admin": "Admin-Modus",
+      "role": "Rollenmodus",
+      "toRole": "Zum Rollenmodus wechseln",
+      "toAdmin": "Zum Admin-Modus wechseln",
+      "needsRole": "Weisen Sie Ihrem Konto zuerst eine normale Rolle in der Benutzerverwaltung zu.",
+      "offline": "Verbindung unterbrochen. Die Ansicht wird automatisch aktualisiert."
+    },
     "title": "Benutzerverwaltung",
     "create": {
       "trigger": "Benutzer erstellen",
@@ -348,7 +404,8 @@
     },
     "search": {
       "placeholder": "Benutzer suchen …",
-      "empty": "Keine Benutzer gefunden."
+      "empty": "Keine Benutzer gefunden.",
+      "reset": "Filter zurücksetzen"
     },
     "status": {
       "active": "Aktiv",
@@ -391,6 +448,7 @@
       "copy": "Kopieren",
       "copied": "Kopiert",
       "emailHint": "Dieses Passwort kann später per E-Mail verschickt werden, sobald E-Mail eingerichtet ist.",
+      "deliveryHint": "Dieses Passwort wird nur einmal angezeigt. Übermitteln Sie es der Person direkt. Bei der nächsten Anmeldung muss es geändert werden.",
       "close": "Schließen"
     },
     "deactivate": {
@@ -403,12 +461,18 @@
     "error": {
       "usernameTaken": "Dieser Benutzername ist bereits vergeben.",
       "emailTaken": "Diese E-Mail-Adresse wird bereits verwendet.",
-      "invalidInput": "Bitte überprüfe deine Eingaben (Passwort mindestens 8 Zeichen).",
-      "forbidden": "Du bist nicht berechtigt, diese Aktion auszuführen.",
+      "invalidInput": "Bitte überprüfen Sie Ihre Eingaben.",
+      "forbidden": "Sie sind nicht berechtigt, diese Aktion auszuführen.",
+      "inUse": "Die Rolle ist noch Benutzern zugewiesen und kann nicht gelöscht werden.",
+      "lastMembership": "Die letzte Abteilungsmitgliedschaft darf nicht direkt entfernt werden.",
       "lastAdministrator": "Der letzte aktive Administrator kann nicht deaktiviert werden.",
       "demoteLastAdministrator": "Dem letzten aktiven Administrator kann die Administratorrolle nicht entzogen werden.",
       "userNotFound": "Dieser Benutzer wurde nicht gefunden."
-    }
+    },
+    "saved": "Gespeichert",
+    "discardChanges": "Ungespeicherte Änderungen verwerfen?",
+    "unassignedRole": "Keine Rolle (Admin-Konto)",
+    "loading": "Benutzerverwaltung wird geladen …"
   },
   "tasks": {
     "title": "Aufgaben",

@@ -113,6 +113,20 @@ describe("AuthService", () => {
     expect(doubles.session.createSession).not.toHaveBeenCalled();
   });
 
+  it("rejects a deactivated account even with its correct password", async () => {
+    doubles.users.findCredentialsByUsername.mockResolvedValue({
+      passwordHash: "stored-hash",
+      user: createUser({ isActive: false }),
+    });
+    doubles.hasher.verify.mockResolvedValue(true);
+    expect(await service.login("admin", "correct-password")).toBeNull();
+    expect(doubles.hasher.verify).toHaveBeenCalledWith(
+      "stored-hash",
+      "correct-password",
+    );
+    expect(doubles.session.createSession).not.toHaveBeenCalled();
+  });
+
   it("verifies unknown usernames against a decoy hash so timing does not reveal them", async () => {
     doubles.users.findCredentialsByUsername.mockResolvedValue(null);
     doubles.hasher.hash.mockResolvedValue("decoy-hash");

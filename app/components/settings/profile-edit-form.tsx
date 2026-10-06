@@ -2,7 +2,6 @@ import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
-import { Select } from "@/app/components/ui/select";
 
 import type { Role } from "@/definition/Role";
 
@@ -16,12 +15,10 @@ export interface ProfileDraft {
 
 interface ProfileEditFormProps {
   readonly draft: ProfileDraft;
-  readonly assignableRoles: readonly Role[];
   readonly error: string | null;
   readonly canSave: boolean;
   readonly isSubmitting: boolean;
   readonly onChange: (changes: Partial<ProfileDraft>) => void;
-  readonly onRoleChange: (role: Role) => void;
   readonly onCancel: () => void;
   readonly onSave: () => void;
 }
@@ -29,12 +26,10 @@ interface ProfileEditFormProps {
 /** Renders the editable profile fields with their save and cancel buttons. */
 export function ProfileEditForm({
   draft,
-  assignableRoles,
   error,
   canSave,
   isSubmitting,
   onChange,
-  onRoleChange,
   onCancel,
   onSave,
 }: ProfileEditFormProps): React.ReactElement {
@@ -44,7 +39,7 @@ export function ProfileEditForm({
     <div className="flex flex-col gap-4">
       <div>
         <label
-          className="mb-1.5 block select-none text-sm font-medium text-foreground"
+          className="mb-1.5 block text-sm font-medium text-foreground"
           htmlFor="settings-profile-display-name"
         >
           {t("settings.profile.displayName")}
@@ -59,7 +54,7 @@ export function ProfileEditForm({
 
       <div>
         <label
-          className="mb-1.5 block select-none text-sm font-medium text-foreground"
+          className="mb-1.5 block text-sm font-medium text-foreground"
           htmlFor="settings-profile-username"
         >
           {t("settings.profile.username")}
@@ -74,7 +69,7 @@ export function ProfileEditForm({
 
       <div>
         <label
-          className="mb-1.5 block select-none text-sm font-medium text-foreground"
+          className="mb-1.5 block text-sm font-medium text-foreground"
           htmlFor="settings-profile-email"
         >
           {t("settings.profile.email")}
@@ -89,29 +84,7 @@ export function ProfileEditForm({
         />
       </div>
 
-      <div>
-        <label
-          className="mb-1.5 block select-none text-sm font-medium text-foreground"
-          htmlFor="settings-profile-position"
-        >
-          {t("settings.profile.position")}
-        </label>
-        <Select
-          ariaLabel={t("settings.profile.position")}
-          className="w-full"
-          id="settings-profile-position"
-          onValueChange={onRoleChange}
-          options={assignableRoles.map((role) => ({
-            value: role,
-            label: t(`role.${role}`),
-          }))}
-          value={draft.role}
-        />
-      </div>
-
-      {error ? (
-        <p className="select-none text-sm text-destructive">{error}</p>
-      ) : null}
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
       <div className="mt-2 flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={onCancel}>

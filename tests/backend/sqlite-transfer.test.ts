@@ -86,6 +86,17 @@ describe("transferSqliteToDuckDb", { timeout: 30_000 }, () => {
   });
 
   describe("copying", () => {
+    it("can still target the historical schema without authorization migrations", async () => {
+      createSource();
+      const result = await transferSqliteToDuckDb({
+        ...createOptions(),
+        migrations: DATABASE_MIGRATIONS.filter(
+          (migration) => migration.name < "005",
+        ),
+      });
+      expect(result.status).toBe("copied");
+    });
+
     it("copies every row of every table and reports matching counts", async () => {
       createSource();
 
@@ -93,6 +104,19 @@ describe("transferSqliteToDuckDb", { timeout: 30_000 }, () => {
 
       expect(result.status).toBe("copied");
       expect(result.tables).toHaveLength(TABLE_COUNT);
+      const target = await Database.create(targetPath);
+      try {
+        expect(
+          await target.query("SELECT COUNT(*) FROM user_authorization;"),
+        ).toEqual([[2]]);
+        expect(
+          await target.query(
+            "SELECT COUNT(*) FROM role_permissions WHERE permission = 'manage_roles';",
+          ),
+        ).toEqual([[0]]);
+      } finally {
+        await target.close();
+      }
 
       for (const table of result.tables) {
         expect(table.sourceRows, table.table).toBeGreaterThan(0);
@@ -115,11 +139,10 @@ describe("transferSqliteToDuckDb", { timeout: 30_000 }, () => {
       const target = await Database.create(targetPath);
 
       for (const table of tables) {
-        const columnRows = await target.query(
-          "SELECT column_name FROM information_schema.columns WHERE table_name = $table ORDER BY ordinal_position;",
-          { table },
-        );
-        const columns = columnRows.map((row) => String(row[0])).join(", ");
+        const columnRows = legacy
+          .prepare(`PRAGMA table_info(${table});`)
+          .all() as { name: string }[];
+        const columns = columnRows.map((row) => row.name).join(", ");
         const expected = legacy
           .prepare(`SELECT ${columns} FROM ${table};`)
           .raw()
@@ -133,6 +156,9 @@ describe("transferSqliteToDuckDb", { timeout: 30_000 }, () => {
         expect(actual, `rows of ${table}`).toEqual(expected);
       }
 
+      expect(
+        await target.query("SELECT must_change_password FROM users;"),
+      ).toEqual([[0], [0]]);
       await target.close();
       legacy.close();
     });

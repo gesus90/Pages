@@ -4,7 +4,10 @@ import { ROLE } from "@/definition/Role";
 
 import { recordForDialectContract } from "./dialect-contract";
 
-import type { Database } from "@/backend/database/Database";
+import type {
+  Database,
+  DatabaseTransaction,
+} from "@/backend/database/Database";
 import type { User } from "@/definition/User";
 
 /**
@@ -18,6 +21,7 @@ export function createUser(overrides: Partial<User> = {}): User {
     displayName: "Admin",
     id: "user-1",
     isActive: true,
+    mustChangePassword: false,
     role: ROLE.ADMIN,
     username: "admin",
     ...overrides,
@@ -43,6 +47,9 @@ export function createDatabase(): DatabaseDouble {
     execute: vi.fn(),
     migrate: vi.fn(),
     query: vi.fn(),
+    transaction: async <Result>(
+      work: (transaction: DatabaseTransaction) => Promise<Result>,
+    ): Promise<Result> => work(database),
   } as unknown as DatabaseDouble;
 
   recordForDialectContract(database);

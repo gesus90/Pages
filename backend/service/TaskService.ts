@@ -87,7 +87,11 @@ export class TaskService {
     permissionService: PermissionService,
     cache: ServerCache = ServerCache.disabled(),
   ) {
-    const access = new TaskAccessGuard(taskRepository, projectService);
+    const access = new TaskAccessGuard(
+      taskRepository,
+      projectService,
+      permissionService,
+    );
     const history = new TaskHistoryRecorder(taskRepository);
     const validator = new WorkItemReferenceValidator(taskRepository);
     const numbering = new WorkItemNumbering(taskRepository);

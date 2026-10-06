@@ -32,7 +32,7 @@ export async function loader({
   const projects = await services.projectService.findAll(actor);
 
   return {
-    canManageProjects: services.projectService.canManageProjects(actor),
+    canManageProjects: await services.projectService.canCreateProjects(actor),
     projects,
   };
 }
@@ -73,10 +73,10 @@ export default function ProjectsRoute(): React.ReactElement {
       <div className="min-w-0">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="select-none text-3xl font-semibold tracking-tight text-foreground xl:text-2xl">
+            <h1 className="text-3xl font-semibold tracking-tight text-foreground xl:text-2xl">
               {t("projects.title")}
             </h1>
-            <p className="mt-1.5 select-none text-sm text-muted-foreground">
+            <p className="mt-1.5 text-sm text-muted-foreground">
               {t("projects.subtitle")}
             </p>
           </div>

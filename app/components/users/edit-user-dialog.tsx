@@ -17,10 +17,10 @@ import {
   useUsersError,
 } from "@/app/components/users/use-users-action";
 
-import type { UserListItem } from "@/definition/User";
+import type { ManagedUser } from "@/definition/Authorization";
 
 interface EditUserDialogProps {
-  readonly user: UserListItem;
+  readonly user: ManagedUser;
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
 }
@@ -46,7 +46,7 @@ export function EditUserDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogTitle className="select-none text-lg font-semibold text-foreground">
+        <DialogTitle className="text-lg font-semibold text-foreground">
           {t("users.edit.title")}
         </DialogTitle>
 
@@ -56,11 +56,19 @@ export function EditUserDialog({
 
           <UserField
             id={`edit-name-${user.id}`}
-            label={t("users.edit.name")}
-            name="displayName"
+            label={t("users.fields.firstName")}
+            name="firstName"
             type="text"
-            defaultValue={user.displayName}
+            defaultValue={user.account.firstName}
             required
+          />
+
+          <UserField
+            id={`edit-last-name-${user.id}`}
+            label={t("users.fields.lastName")}
+            name="lastName"
+            type="text"
+            defaultValue={user.account.lastName}
           />
 
           <UserField

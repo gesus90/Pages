@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { CAPABILITY } from "@/definition/Authorization";
 
 import {
   isWorkItemPriority,
@@ -111,6 +112,7 @@ export class TaskWriteService {
     input: CreateWorkItemInput,
   ): Promise<WorkItemDetail> {
     const project = await this.access.requireProject(actor, input.projectId);
+    await this.access.requireCapability(actor, CAPABILITY.WRITE);
 
     const title = input.title.trim();
     const description = (input.description ?? "").trim();
@@ -182,6 +184,7 @@ export class TaskWriteService {
     input: UpdateWorkItemInput,
   ): Promise<WorkItemDetail> {
     const existing = await this.access.requireWorkItem(actor, id);
+    await this.access.requireCapability(actor, CAPABILITY.WRITE);
     const values = await this.validateUpdate(existing, input);
 
     await this.taskRepository.update(id, {
@@ -219,6 +222,7 @@ export class TaskWriteService {
     sortOrder: number,
   ): Promise<WorkItemDetail> {
     const existing = await this.access.requireWorkItem(actor, id);
+    await this.access.requireCapability(actor, CAPABILITY.WRITE);
     const status = await this.taskRepository.findStatusById(statusId);
 
     if (!status) {
@@ -249,6 +253,7 @@ export class TaskWriteService {
   /** Marks a work item as archived without physical deletion. */
   public async archive(actor: User, id: string): Promise<void> {
     await this.access.requireWorkItem(actor, id);
+    await this.access.requireCapability(actor, CAPABILITY.WRITE);
     await this.taskRepository.archive(id);
     this.cache.invalidateWorkItems();
 

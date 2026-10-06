@@ -8,12 +8,22 @@ function createUser(): Record<string, unknown> {
     displayName: "Admin",
     id: "user-1",
     isActive: true,
+    mustChangePassword: false,
     role: ROLE.ADMIN,
     username: "admin",
   };
 }
 
 describe("isUser", () => {
+  it("requires an explicit boolean password-change state", () => {
+    expect(isUser({ ...createUser(), mustChangePassword: true })).toBe(true);
+    expect(isUser({ ...createUser(), mustChangePassword: undefined })).toBe(
+      false,
+    );
+    expect(isUser({ ...createUser(), mustChangePassword: "false" })).toBe(
+      false,
+    );
+  });
   it("accepts a complete user object", () => {
     expect(isUser(createUser())).toBe(true);
   });

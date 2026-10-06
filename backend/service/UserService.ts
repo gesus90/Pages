@@ -1,5 +1,4 @@
-import { randomBytes } from "node:crypto";
-
+import { generateTemporaryPassword } from "@/backend/auth/TemporaryPassword";
 import { PERMISSION, ROLE } from "@/definition/Role";
 import {
   EmailTakenError,
@@ -20,50 +19,29 @@ import type {
 } from "@/backend/database/repositories/UserRepository";
 import type { Role } from "@/definition/Role";
 import type { User, UserAvatarType } from "@/definition/User";
-
-/** Characters used for generated passwords, without ambiguous glyphs. */
-const TEMPORARY_PASSWORD_ALPHABET =
-  "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789";
-
-const TEMPORARY_PASSWORD_LENGTH = 12;
-
-/**
- * Generates a readable temporary password grouped for easy transcription.
- *
- * @returns A password such as `k7Rq-9mZ2-x4Tp`.
- */
-function generateTemporaryPassword(): string {
-  const bytes = randomBytes(TEMPORARY_PASSWORD_LENGTH);
-  const characters = Array.from(
-    bytes,
-    (byte) =>
-      TEMPORARY_PASSWORD_ALPHABET[byte % TEMPORARY_PASSWORD_ALPHABET.length],
-  );
-
-  return [
-    characters.slice(0, 4).join(""),
-    characters.slice(4, 8).join(""),
-    characters.slice(8, 12).join(""),
-  ].join("-");
-}
+import type { AdministrationService } from "./AdministrationService";
 
 /** Establishes the business-logic boundary for users. */
 export class UserService {
   private readonly userRepository: UserRepository;
   private readonly permissionService: PermissionService;
+  private readonly administration: AdministrationService | undefined;
 
   /**
    * Creates a user service.
    *
    * @param userRepository - User persistence boundary.
    * @param permissionService - Role and permission authorization boundary.
+   * @param administration - Current configurable-role policies used by the running application.
    */
   public constructor(
     userRepository: UserRepository,
     permissionService: PermissionService,
+    administration?: AdministrationService,
   ) {
     this.userRepository = userRepository;
     this.permissionService = permissionService;
+    this.administration = administration;
   }
 
   /**
@@ -83,6 +61,20 @@ export class UserService {
    * @throws {UserManagementDeniedError} When the actor may not view users.
    */
   public async findAll(actor: User): Promise<User[]> {
+    if (this.administration) {
+      return (await this.administration.listUsers(actor.id)).map((user) => ({
+        id: user.id,
+        username: user.username,
+        displayName: user.displayName,
+        role: user.role,
+        isActive: user.isActive,
+        mustChangePassword: user.mustChangePassword,
+        avatarType: user.avatarType,
+        avatarIcon: user.avatarIcon,
+        avatarColor: user.avatarColor,
+        avatarImageUrl: user.avatarImageUrl,
+      }));
+    }
     if (
       !this.permissionService.hasPermission(actor.role, PERMISSION.VIEW_USERS)
     ) {
@@ -104,6 +96,14 @@ export class UserService {
     actor: User,
     userIds: readonly string[],
   ): Promise<ReadonlyMap<string, string | null>> {
+    if (this.administration) {
+      const visible = await this.administration.listUsers(actor.id);
+      return new Map(
+        visible
+          .filter((user) => userIds.includes(user.id))
+          .map((user) => [user.id, user.email]),
+      );
+    }
     if (
       !this.permissionService.hasPermission(actor.role, PERMISSION.VIEW_USERS)
     ) {
@@ -157,6 +157,10 @@ export class UserService {
       readonly role: Role;
     },
   ): Promise<void> {
+    if (this.administration) {
+      await this.administration.updateOwnDisplayProfile(actor.id, profile);
+      return;
+    }
     if (actor.role !== ROLE.ADMIN) {
       throw new UserManagementDeniedError();
     }
@@ -295,6 +299,8 @@ export class UserService {
    * @throws {UsernameTakenError} When the username is already in use.
    */
   public async createUser(actor: User, user: NewUser): Promise<void> {
+    // Fixed-role creation cannot represent A2 role IDs or generated onboarding credentials.
+    if (this.administration) throw new UserManagementDeniedError();
     if (
       !this.permissionService.hasPermission(actor.role, PERMISSION.MANAGE_USERS)
     ) {
@@ -316,6 +322,21 @@ export class UserService {
     await this.userRepository.insert(user);
   }
 
+  /** Creates a directory account with a generated password that must be replaced. */
+  public async createWithTemporaryPassword(
+    actor: User,
+    user: Omit<NewUser, "passwordHash" | "mustChangePassword">,
+    passwordHasher: PasswordHasher,
+  ): Promise<{ readonly temporaryPassword: string }> {
+    const temporaryPassword = generateTemporaryPassword();
+    await this.createUser(actor, {
+      ...user,
+      mustChangePassword: true,
+      passwordHash: await passwordHasher.hash(temporaryPassword),
+    });
+    return { temporaryPassword };
+  }
+
   /**
    * Activates or deactivates a user on behalf of an authorized actor.
    *
@@ -332,6 +353,10 @@ export class UserService {
     targetUserId: string,
     isActive: boolean,
   ): Promise<void> {
+    if (this.administration) {
+      await this.administration.setActive(actor.id, targetUserId, isActive);
+      return;
+    }
     const target = await this.requireManageableTarget(actor, targetUserId);
 
     if (!isActive && target.role === ROLE.ADMIN) {
@@ -366,6 +391,14 @@ export class UserService {
       readonly email: string | null;
     },
   ): Promise<void> {
+    if (this.administration) {
+      await this.administration.updateProfile(actor.id, targetUserId, {
+        ...profile,
+        firstName: profile.displayName,
+        lastName: "",
+      });
+      return;
+    }
     await this.requireManageableTarget(actor, targetUserId);
 
     if (profile.email) {
@@ -397,6 +430,8 @@ export class UserService {
     targetUserId: string,
     role: Role,
   ): Promise<void> {
+    // Configurable role assignment goes through AdministrationService.assignRole.
+    if (this.administration) throw new RoleAssignmentDeniedError();
     const target = await this.requireManageableTarget(actor, targetUserId);
 
     if (!this.permissionService.canAssignRole(actor.role, role)) {
@@ -434,12 +469,14 @@ export class UserService {
     targetUserId: string,
     passwordHasher: PasswordHasher,
   ): Promise<{ readonly temporaryPassword: string }> {
+    if (this.administration)
+      return this.administration.resetPassword(actor.id, targetUserId);
     await this.requireManageableTarget(actor, targetUserId);
 
     const temporaryPassword = generateTemporaryPassword();
     const passwordHash = await passwordHasher.hash(temporaryPassword);
 
-    await this.userRepository.updatePasswordHash(targetUserId, passwordHash);
+    await this.userRepository.resetPasswordHash(targetUserId, passwordHash);
 
     return { temporaryPassword };
   }

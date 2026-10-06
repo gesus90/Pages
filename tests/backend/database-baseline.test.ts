@@ -112,6 +112,10 @@ describe("DuckDB baseline migration", () => {
     expect(DATABASE_MIGRATIONS.map((migration) => migration.name)).toEqual([
       "001_baseline.sql",
       "002_instance_settings.sql",
+      "003_username_case_insensitive.sql",
+      "004_password_change_required.sql",
+      "005_user_authorization.sql",
+      "006_legacy_user_roles.sql",
     ]);
   });
 

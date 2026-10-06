@@ -1,9 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-
 import { handleUsersAction } from "@/app/lib/user-actions/user-actions.server";
-import { ROLE } from "@/definition/Role";
-
-import { createUser } from "../helpers/factories";
+import { AdministrationError } from "@/backend/error/AdministrationError";
 import {
   EmailTakenError,
   LastAdministratorError,
@@ -12,156 +9,199 @@ import {
   UserNotFoundError,
   UsernameTakenError,
 } from "@/backend/error/UserErrors";
-
+import { createUser } from "../helpers/factories";
 import type { ApplicationServices } from "@/app/lib/services.server";
-import type { Role } from "@/definition/Role";
 
-interface Outcome {
-  readonly data: Record<string, unknown>;
-  readonly status: number | undefined;
-}
+const VALID_CREATE = {
+  intent: "create-user",
+  firstName: "New",
+  lastName: "Person",
+  username: "new",
+  role: "junior",
+};
+const VALID_UPDATE = {
+  intent: "update-user",
+  firstName: "New",
+  lastName: "Name",
+  username: "new",
+  userId: "target",
+  email: "new@test.invalid",
+};
 
-function createFormData(fields: Record<string, string | File>): FormData {
-  const formData = new FormData();
-
-  for (const [key, value] of Object.entries(fields)) {
-    formData.append(key, value);
-  }
-
-  return formData;
-}
-
-function createServices(
-  userService: Record<string, unknown> = {},
-): ApplicationServices {
+function doubles(): Record<string, ReturnType<typeof vi.fn>> {
   return {
-    passwordHasher: { hash: vi.fn().mockResolvedValue("encoded-hash") },
-    sessionService: { revokeAllSessions: vi.fn() },
-    userService: {
-      createUser: vi.fn().mockResolvedValue(undefined),
-      setActive: vi.fn().mockResolvedValue(undefined),
-      setRole: vi.fn().mockResolvedValue(undefined),
-      updateUser: vi.fn().mockResolvedValue(undefined),
-      ...userService,
-    },
-  } as unknown as ApplicationServices;
+    createUser: vi.fn().mockResolvedValue({ temporaryPassword: "generated" }),
+    resetPassword: vi.fn().mockResolvedValue({ temporaryPassword: "reset" }),
+    updateProfile: vi.fn(),
+    setActive: vi.fn(),
+    assignRole: vi.fn(),
+    saveRole: vi.fn(),
+    deleteRole: vi.fn(),
+    saveDepartment: vi.fn(),
+    deleteDepartment: vi.fn(),
+    setMemberships: vi.fn(),
+    setScope: vi.fn(),
+    setAdministrator: vi.fn(),
+  };
 }
 
 async function run(
-  fields: Record<string, string | File>,
-  services: ApplicationServices = createServices(),
-  actorRole: Role = ROLE.ADMIN,
-): Promise<Outcome> {
-  const result = (await handleUsersAction(fields.intent ?? null, {
-    actor: createUser({ role: actorRole }),
-    formData: createFormData(fields),
-    services,
-  })) as unknown as {
-    data: Record<string, unknown>;
-    init?: { status?: number };
-  };
-
-  return { data: result.data, status: result.init?.status };
+  fields: Record<string, string | File | readonly string[] | undefined>,
+  administration = doubles(),
+): Promise<Awaited<ReturnType<typeof handleUsersAction>>> {
+  const formData = new FormData();
+  for (const [name, entry] of Object.entries(fields)) {
+    if (entry === undefined) continue;
+    if (Array.isArray(entry))
+      for (const item of entry) formData.append(name, item);
+    else formData.append(name, entry as string | File);
+  }
+  return handleUsersAction(formData.get("intent"), {
+    actor: createUser(),
+    formData,
+    services: {
+      administrationService: administration,
+    } as unknown as ApplicationServices,
+  });
 }
 
-const VALID_CREATE = {
-  displayName: "Newcomer",
-  intent: "create-user",
-  password: "long-enough-secret",
-  username: "newcomer",
-};
-
-const VALID_UPDATE = {
-  displayName: "New Name",
-  email: "new@example.com",
-  intent: "update-user",
-  userId: "user-2",
-  username: "newname",
-};
-
-describe("handleUsersAction", () => {
-  it.each([null, "rename-user", "toString", "__proto__", ""])(
-    "answers the intent %j like an invalid create form",
+describe("directory action validation", () => {
+  it.each(["", "unknown", "__proto__", "toString"])(
+    "rejects unknown intent %s",
     async (intent) => {
-      const result = await handleUsersAction(intent, {
-        actor: createUser(),
-        formData: new FormData(),
-        services: createServices(),
-      });
-
-      expect(result).toMatchObject({
-        data: { error: "invalidInput", intent: "create-user", ok: false },
-        init: { status: 400 },
+      expect((await run({ intent })).data).toMatchObject({
+        ok: false,
+        error: "invalidInput",
       });
     },
   );
-});
+  it("rejects a missing intent", async () => {
+    expect((await run({})).init?.status).toBe(400);
+  });
 
-describe("create-user", () => {
   it.each([
-    ["without a name", { displayName: "" }],
-    ["with a blank name", { displayName: "   " }],
-    ["without a username", { username: "" }],
-    ["with a short password", { password: "1234567" }],
-    ["with a long password", { password: "p".repeat(1001) }],
-    ["with a long name", { displayName: "n".repeat(201) }],
-    ["with a long username", { username: "u".repeat(201) }],
-    ["with a malformed email", { email: "nobody" }],
-    ["with a long email", { email: `${"e".repeat(320)}@example.com` }],
-  ])("rejects a form %s", async (_label, override) => {
-    const services = createServices();
+    { firstName: "" },
+    { firstName: " " },
+    { lastName: "" },
+    { username: "" },
+    { firstName: "x".repeat(201) },
+    { lastName: "x".repeat(201) },
+    { username: "x".repeat(201) },
+    { email: "bad" },
+    { email: `${"e".repeat(320)}@a.co` },
+    { firstName: new File([], "name") },
+  ])("rejects malformed onboarding %j", async (override) => {
+    const services = doubles();
     const result = await run({ ...VALID_CREATE, ...override }, services);
-
-    expect(result.status).toBe(400);
-    expect(result.data).toEqual({
-      error: "invalidInput",
-      intent: "create-user",
-      ok: false,
-    });
-    expect(services.userService.createUser).not.toHaveBeenCalled();
+    expect(result.init?.status).toBe(400);
+    expect(services.createUser).not.toHaveBeenCalled();
   });
 
-  it("rejects fields that are no text", async () => {
-    const result = await run({
-      ...VALID_CREATE,
-      password: new File(["secret"], "secret.txt"),
-    });
-
-    expect(result.status).toBe(400);
-  });
-
-  it("trims names and keeps a valid email", async () => {
-    const services = createServices();
+  it("trims names, keeps optional email and delegates role checks without coercion", async () => {
+    const services = doubles();
     const result = await run(
-      { ...VALID_CREATE, displayName: "  Newcomer ", email: " a@b.co " },
+      {
+        ...VALID_CREATE,
+        firstName: " New ",
+        email: " a@b.co ",
+        department: ["frontend", "backend"],
+      },
       services,
     );
-
-    expect(result.data).toEqual({ intent: "create-user", ok: true });
-    expect(services.userService.createUser).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({
-        displayName: "Newcomer",
-        email: "a@b.co",
-        passwordHash: "encoded-hash",
-      }),
+    expect(result.data).toEqual({
+      intent: "create-user",
+      ok: true,
+      temporaryPassword: "generated",
+    });
+    expect(services.createUser).toHaveBeenCalledWith("user-1", {
+      firstName: "New",
+      lastName: "Person",
+      username: "new",
+      email: "a@b.co",
+      roleId: "junior",
+      isAdmin: false,
+      departments: ["frontend", "backend"],
+    });
+    expect(result.init?.headers).toEqual({ "Cache-Control": "no-store" });
+    await run({ ...VALID_CREATE, role: "", isAdmin: "true" }, services);
+    expect(services.createUser).toHaveBeenLastCalledWith(
+      "user-1",
+      expect.objectContaining({ roleId: null, isAdmin: true, email: null }),
     );
   });
 
+  it("passes profile fields, not password or personal-admin overrides", async () => {
+    const services = doubles();
+    expect(
+      (
+        await run(
+          { ...VALID_UPDATE, firstName: " New ", isAdmin: "true" },
+          services,
+        )
+      ).data,
+    ).toEqual({ intent: "update-user", ok: true });
+    expect(services.updateProfile).toHaveBeenCalledWith("user-1", "target", {
+      firstName: "New",
+      lastName: "Name",
+      username: "new",
+      email: "new@test.invalid",
+      userId: "target",
+    });
+  });
+
   it.each([
-    ["administrators choose a valid role", ROLE.ADMIN, "manager", "manager"],
-    ["administrators fall back without a role", ROLE.ADMIN, "", "employee"],
-    ["administrators ignore an unknown role", ROLE.ADMIN, "root", "employee"],
-    ["managers always create employees", ROLE.MANAGER, "admin", "employee"],
-  ])("%s", async (_label, actorRole, requested, expected) => {
-    const services = createServices();
+    { userId: "" },
+    { userId: " " },
+    { firstName: "", lastName: "" },
+    { username: " " },
+    { email: "bad" },
+    { firstName: "x".repeat(201) },
+  ])("rejects invalid profile fields %j", async (override) => {
+    expect((await run({ ...VALID_UPDATE, ...override })).data).toMatchObject({
+      ok: false,
+      error: "invalidInput",
+    });
+  });
 
-    await run({ ...VALID_CREATE, role: requested }, services, actorRole);
+  it.each([
+    { intent: "set-active", isActive: "true" },
+    { intent: "set-active", userId: new File([], "id"), isActive: "true" },
+    { intent: "set-active", userId: "target", isActive: "unknown" },
+    { intent: "set-role", role: "junior" },
+    { intent: "set-role", userId: " " },
+    { intent: "set-role", userId: "target", role: "" },
+    { intent: "reset-password" },
+  ])("rejects malformed account operations %j", async (fields) => {
+    expect((await run(fields)).init?.status).toBe(400);
+  });
 
-    expect(services.userService.createUser).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({ email: null, role: expected }),
+  it("delegates activation, role assignment and password reset to the authorized service", async () => {
+    const services = doubles();
+    await run(
+      { intent: "set-active", userId: "target", isActive: "false" },
+      services,
     );
+    expect(services.setActive).toHaveBeenCalledWith("user-1", "target", false);
+    await run(
+      { intent: "set-role", userId: "target", role: "custom-role" },
+      services,
+    );
+    expect(services.assignRole).toHaveBeenCalledWith(
+      "user-1",
+      "target",
+      "custom-role",
+    );
+    const reset = await run(
+      { intent: "reset-password", userId: "target" },
+      services,
+    );
+    expect(reset.data).toEqual({
+      intent: "reset-password",
+      ok: true,
+      userId: "target",
+      temporaryPassword: "reset",
+    });
+    expect(reset.init?.headers).toEqual({ "Cache-Control": "no-store" });
   });
 
   it.each([
@@ -171,178 +211,167 @@ describe("create-user", () => {
     [new RoleAssignmentDeniedError(), 403, "forbidden"],
     [new UserNotFoundError(), 404, "userNotFound"],
     [new LastAdministratorError(), 409, "lastAdministrator"],
-  ])("maps %s to a response", async (failure, status, code) => {
-    const result = await run(
-      VALID_CREATE,
-      createServices({ createUser: vi.fn().mockRejectedValue(failure) }),
-    );
-
-    expect(result.status).toBe(status);
-    expect(result.data).toEqual({
-      error: code,
-      intent: "create-user",
-      ok: false,
-    });
-  });
-
-  it("rethrows unexpected failures", async () => {
-    const failure = new Error("disk full");
-
-    await expect(
-      run(
-        VALID_CREATE,
-        createServices({ createUser: vi.fn().mockRejectedValue(failure) }),
-      ),
-    ).rejects.toBe(failure);
-  });
-});
-
-describe("update-user", () => {
-  it("saves trimmed values", async () => {
-    const services = createServices();
-    const result = await run(
-      {
-        ...VALID_UPDATE,
-        displayName: " New Name ",
-        email: " new@example.com ",
-        username: " newname ",
-      },
-      services,
-    );
-
-    expect(result.data).toEqual({ intent: "update-user", ok: true });
-    expect(services.userService.updateUser).toHaveBeenCalledWith(
-      expect.anything(),
-      "user-2",
-      {
-        displayName: "New Name",
-        email: "new@example.com",
-        username: "newname",
-      },
-    );
-  });
-
-  it("clears the email address when the field is empty", async () => {
-    const services = createServices();
-
-    await run({ ...VALID_UPDATE, email: "" }, services);
-
-    expect(services.userService.updateUser).toHaveBeenCalledWith(
-      expect.anything(),
-      "user-2",
-      expect.objectContaining({ email: null }),
-    );
-  });
+    [new AdministrationError("forbidden"), 403, "forbidden"],
+    [new AdministrationError("notFound"), 404, "userNotFound"],
+  ])(
+    "translates rejected management operations %s",
+    async (error, status, code) => {
+      const services = doubles();
+      services.createUser.mockRejectedValue(error);
+      const result = await run(VALID_CREATE, services);
+      expect(result.init?.status).toBe(status);
+      expect(result.data).toMatchObject({ ok: false, error: code });
+    },
+  );
 
   it.each([
-    ["without a user", { userId: "" }],
-    ["with a blank user", { userId: "  " }],
-    ["without a name", { displayName: "" }],
-    ["without a username", { username: " " }],
-    ["with a long name", { displayName: "n".repeat(201) }],
-    ["with a long username", { username: "u".repeat(201) }],
-    ["with a malformed email", { email: "nobody@" }],
-  ])("rejects a form %s", async (_label, override) => {
-    const services = createServices();
-    const result = await run({ ...VALID_UPDATE, ...override }, services);
-
-    expect(result.status).toBe(400);
-    expect(result.data).toEqual({
-      error: "invalidInput",
-      intent: "update-user",
-      ok: false,
-    });
-    expect(services.userService.updateUser).not.toHaveBeenCalled();
-  });
-
-  it.each([
-    [new UsernameTakenError("x"), 409, "usernameTaken"],
-    [new EmailTakenError("x"), 409, "emailTaken"],
-    [new UserNotFoundError(), 404, "userNotFound"],
-  ])("maps %s to a response", async (failure, status, code) => {
-    const result = await run(
-      VALID_UPDATE,
-      createServices({ updateUser: vi.fn().mockRejectedValue(failure) }),
-    );
-
-    expect(result.status).toBe(status);
-    expect(result.data).toMatchObject({ error: code, intent: "update-user" });
-  });
-});
-
-describe("set-role", () => {
-  it("assigns the requested role", async () => {
-    const services = createServices();
-    const result = await run(
-      { intent: "set-role", role: "manager", userId: "user-2" },
-      services,
-    );
-
-    expect(result.data).toEqual({ intent: "set-role", ok: true });
-    expect(services.userService.setRole).toHaveBeenCalledWith(
-      expect.anything(),
-      "user-2",
-      "manager",
-    );
-  });
-
-  it.each([
-    ["without a user", { role: "manager" }],
-    ["with a blank user", { role: "manager", userId: "  " }],
-    ["without a role", { userId: "user-2" }],
-    ["with an unknown role", { role: "root", userId: "user-2" }],
-  ])("rejects a form %s", async (_label, fields) => {
-    const result = await run({ intent: "set-role", ...fields });
-
-    expect(result.status).toBe(400);
-    expect(result.data).toEqual({
-      error: "invalidInput",
-      intent: "set-role",
-      ok: false,
-    });
-  });
-
-  it("explains that the last administrator keeps the role", async () => {
-    const result = await run(
-      { intent: "set-role", role: "employee", userId: "user-1" },
-      createServices({
-        setRole: vi.fn().mockRejectedValue(new LastAdministratorError()),
-      }),
-    );
-
-    expect(result.status).toBe(409);
-    expect(result.data).toMatchObject({ error: "demoteLastAdministrator" });
-  });
-
-  it("forbids roles beyond the actor scope", async () => {
-    const result = await run(
-      { intent: "set-role", role: "admin", userId: "user-2" },
-      createServices({
-        setRole: vi.fn().mockRejectedValue(new RoleAssignmentDeniedError()),
-      }),
-    );
-
-    expect(result.status).toBe(403);
-    expect(result.data).toMatchObject({ error: "forbidden" });
-  });
-});
-
-describe("set-active", () => {
-  it.each([
-    ["without a user", { isActive: "true" }],
+    ["update-user", "updateProfile", VALID_UPDATE],
     [
-      "with a user that is no text",
-      { isActive: "true", userId: new File([], "x") },
+      "set-active",
+      "setActive",
+      { intent: "set-active", userId: "target", isActive: "true" },
     ],
-    ["without a state", { userId: "user-2" }],
-    ["with an unknown state", { isActive: "maybe", userId: "user-2" }],
-  ])("rejects a form %s", async (_label, fields) => {
-    const result = await run({ intent: "set-active", ...fields });
+    [
+      "reset-password",
+      "resetPassword",
+      { intent: "reset-password", userId: "target" },
+    ],
+  ] as const)(
+    "handles service rejections for %s",
+    async (_intent, method, fields) => {
+      const services = doubles();
+      services[method].mockRejectedValue(new UserNotFoundError());
+      expect((await run(fields, services)).data).toMatchObject({
+        error: "userNotFound",
+      });
+    },
+  );
 
-    expect(result.status).toBe(400);
-    expect(result.data).toMatchObject({
+  it("preserves the last-admin error distinction and propagates unexpected failures", async () => {
+    const services = doubles();
+    services.assignRole.mockRejectedValue(new LastAdministratorError());
+    expect(
+      (await run({ intent: "set-role", role: "r", userId: "target" }, services))
+        .data,
+    ).toMatchObject({ error: "demoteLastAdministrator" });
+    services.createUser.mockRejectedValue(new Error("disk full"));
+    await expect(run(VALID_CREATE, services)).rejects.toThrow("disk full");
+  });
+});
+
+describe("role, department and scope action validation", () => {
+  it("passes validated role and department fields", async () => {
+    const services = doubles();
+    await run(
+      {
+        intent: "save-role",
+        entityId: "",
+        name: "Junior",
+        rank: "10",
+        permission: ["write"],
+        departmentBound: "true",
+      },
+      services,
+    );
+    expect(services.saveRole).toHaveBeenCalledWith(
+      "user-1",
+      expect.objectContaining({
+        id: expect.any(String),
+        name: "Junior",
+        rank: 10,
+        permissions: ["write"],
+        departmentBound: true,
+      }),
+    );
+    await run(
+      { intent: "save-role", entityId: "role", name: "Reader", rank: "0" },
+      services,
+    );
+    expect(services.saveRole).toHaveBeenLastCalledWith(
+      "user-1",
+      expect.objectContaining({ id: "role", departmentBound: false }),
+    );
+    await run(
+      { intent: "save-department", entityId: "", name: "HR" },
+      services,
+    );
+    await run(
+      { intent: "save-department", entityId: "hr", name: "HR" },
+      services,
+    );
+    expect(services.saveDepartment).toHaveBeenLastCalledWith("user-1", {
+      id: "hr",
+      name: "HR",
+    });
+    await run({ intent: "delete-role", entityId: "role" }, services);
+    await run({ intent: "delete-department", entityId: "hr" }, services);
+    expect(services.deleteRole).toHaveBeenCalledWith("user-1", "role");
+    expect(services.deleteDepartment).toHaveBeenCalledWith("user-1", "hr");
+  });
+
+  it("delegates membership changes and explicit personal grants separately", async () => {
+    const services = doubles();
+    await run(
+      { intent: "set-memberships", userId: "target", department: ["hr"] },
+      services,
+    );
+    expect(services.setMemberships).toHaveBeenCalledWith("user-1", "target", [
+      "hr",
+    ]);
+    await run(
+      {
+        intent: "set-scope",
+        userId: "target",
+        allDepartments: "true",
+        allProjects: "true",
+        department: [],
+      },
+      services,
+    );
+    expect(services.setScope).toHaveBeenCalledWith("user-1", "target", {
+      allDepartments: true,
+      allProjects: true,
+      managedDepartments: [],
+    });
+    await run({ intent: "set-scope", userId: "target" }, services);
+    await run(
+      { intent: "set-admin", userId: "target", isAdmin: "true" },
+      services,
+    );
+    expect(services.setAdministrator).toHaveBeenCalledWith(
+      "user-1",
+      "target",
+      true,
+    );
+    await run({ intent: "set-admin", userId: "target" }, services);
+    expect(services.setAdministrator).toHaveBeenLastCalledWith(
+      "user-1",
+      "target",
+      false,
+    );
+  });
+
+  it.each([
+    { intent: "save-role", entityId: "", name: "R", rank: "" },
+    {
+      intent: "save-role",
+      entityId: "",
+      name: "R",
+      rank: "1",
+      permission: ["unknown"],
+    },
+    {
+      intent: "save-role",
+      entityId: "",
+      name: "R",
+      rank: "1",
+      permission: new File([], "permission"),
+    },
+    { intent: "delete-role" },
+  ])("rejects malformed catalog requests %j", async (fields) => {
+    expect((await run(fields)).data).toMatchObject({
+      ok: false,
       error: "invalidInput",
-      intent: "set-active",
     });
   });
 });

@@ -21,6 +21,7 @@ function createUser(displayName = "Admin"): User {
     displayName,
     id: "user-1",
     isActive: true,
+    mustChangePassword: false,
     role: ROLE.ADMIN,
     username: "admin",
   };

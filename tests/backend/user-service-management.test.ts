@@ -31,6 +31,7 @@ const REPOSITORY_METHODS = [
   "findEmailsByUserIds",
   "updateAvatarReference",
   "updatePasswordHash",
+  "resetPasswordHash",
   "updateProfile",
   "updateRole",
   "upsertAvatar",
@@ -418,7 +419,7 @@ describe("UserService profile and role management", () => {
       expect(result.temporaryPassword).toMatch(
         /^[a-zA-Z2-9]{4}-[a-zA-Z2-9]{4}-[a-zA-Z2-9]{4}$/u,
       );
-      expect(repository.updatePasswordHash).toHaveBeenCalledWith(
+      expect(repository.resetPasswordHash).toHaveBeenCalledWith(
         "user-3",
         `hash-of-${result.temporaryPassword}`,
       );

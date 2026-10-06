@@ -36,6 +36,8 @@ export interface User {
   readonly displayName: string;
   readonly role: Role;
   readonly isActive: boolean;
+  /** Only password replacement is allowed until this requirement is cleared. */
+  readonly mustChangePassword: boolean;
   readonly avatarType?: UserAvatarType;
   readonly avatarIcon?: string | null;
   readonly avatarColor?: string | null;
@@ -67,7 +69,8 @@ export function isUser(value: unknown): value is User {
     typeof candidate.username === "string" &&
     typeof candidate.displayName === "string" &&
     isRole(candidate.role) &&
-    typeof candidate.isActive === "boolean"
+    typeof candidate.isActive === "boolean" &&
+    typeof candidate.mustChangePassword === "boolean"
   );
 }
 

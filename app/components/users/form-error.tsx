@@ -17,7 +17,7 @@ export function FormError({
   }
 
   return (
-    <p className="text-sm text-destructive" role="alert">
+    <p className="pages-selectable text-sm text-destructive" role="alert">
       {t(`users.error.${error}`)}
     </p>
   );

@@ -16,7 +16,8 @@ const BASELINE_MIGRATION_NAME = "001_baseline.sql";
 const COUNT_PAGES_TABLES = `
   SELECT
       COUNT(*) FILTER (WHERE table_name = 'schema_migrations') AS migration_tables,
-      COUNT(*) FILTER (WHERE table_name = 'users') AS user_tables
+      COUNT(*) FILTER (WHERE table_name = 'users') AS user_tables,
+      COUNT(*) FILTER (WHERE table_name = 'user_authorization') AS authorization_tables
   FROM information_schema.tables
   WHERE table_schema = 'main';
 `;
@@ -32,6 +33,14 @@ const COUNT_ACTIVE_ADMINISTRATORS = `
   FROM users
   WHERE role = 'admin'
       AND is_active = 1;
+`;
+
+const COUNT_PERSONAL_ADMINISTRATORS = `
+  SELECT COUNT(*) AS active_administrators
+  FROM users
+  INNER JOIN user_authorization AS access ON access.user_id = users.id
+  WHERE access.is_admin = 1
+      AND users.is_active = 1;
 `;
 
 type Connection = Awaited<ReturnType<DuckDBInstance["connect"]>>;
@@ -55,7 +64,7 @@ function isLockError(error: unknown): boolean {
 async function inspectOpenDatabase(
   connection: Connection,
 ): Promise<PagesDatabaseInspection> {
-  const [migrationTables, userTables] = await readCount(
+  const [migrationTables, userTables, authorizationTables] = await readCount(
     connection,
     COUNT_PAGES_TABLES,
   );
@@ -76,7 +85,9 @@ async function inspectOpenDatabase(
 
   const [activeAdministrators] = await readCount(
     connection,
-    COUNT_ACTIVE_ADMINISTRATORS,
+    authorizationTables === 1
+      ? COUNT_PERSONAL_ADMINISTRATORS
+      : COUNT_ACTIVE_ADMINISTRATORS,
   );
 
   return {

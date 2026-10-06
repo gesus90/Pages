@@ -2,7 +2,7 @@ import * as TabsPrimitive from "@radix-ui/react-tabs";
 
 import { cn } from "@/app/lib/cn";
 
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 
 interface TabOption {
   readonly value: string;
@@ -10,6 +10,7 @@ interface TabOption {
 }
 
 interface TabsProps {
+  readonly children?: ReactNode;
   readonly value: string;
   readonly onValueChange: (value: string) => void;
   readonly tabs: readonly TabOption[];
@@ -24,6 +25,7 @@ interface TabsProps {
  * Used for compact view and filter switches.
  */
 export function Tabs({
+  children,
   value,
   onValueChange,
   tabs,
@@ -38,25 +40,30 @@ export function Tabs({
     <TabsPrimitive.Root
       value={value}
       onValueChange={handleValueChange}
-      className={cn(
-        "flex items-center gap-1 rounded-xl bg-muted/60 p-1",
-        className,
-      )}
+      className={cn("flex min-h-0 flex-col", className)}
     >
       <TabsPrimitive.List
         aria-label={ariaLabel}
-        className="flex w-full flex-wrap items-center gap-1"
+        className="inline-flex h-9 w-fit shrink-0 items-center gap-0.5 rounded-xl bg-muted/70 p-1"
       >
         {tabs.map((tab) => (
           <TabsPrimitive.Trigger
             key={tab.value}
             value={tab.value}
-            className="inline-flex min-h-8 flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium whitespace-nowrap text-muted-foreground outline-none transition-colors select-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary data-[state=active]:bg-primary-subtle data-[state=active]:text-foreground data-[state=active]:shadow-xs"
+            className="inline-flex h-7 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-medium whitespace-nowrap text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary data-[state=active]:bg-surface data-[state=active]:text-foreground data-[state=active]:shadow-xs"
           >
             {tab.label}
           </TabsPrimitive.Trigger>
         ))}
       </TabsPrimitive.List>
+      {children}
     </TabsPrimitive.Root>
   );
+}
+
+/** Accessible panel linked to a shared Tabs trigger. */
+export function TabsContent(
+  properties: ComponentProps<typeof TabsPrimitive.Content>,
+): React.ReactElement {
+  return <TabsPrimitive.Content {...properties} tabIndex={-1} />;
 }

@@ -17,6 +17,7 @@ const ADMIN: User = {
   displayName: "Admin",
   id: "u1",
   isActive: true,
+  mustChangePassword: false,
   role: ROLE.ADMIN,
   username: "admin",
 };

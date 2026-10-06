@@ -1,10 +1,7 @@
 import { data } from "react-router";
 
-import { ROLE, isRole } from "@/definition/Role";
-import { EMAIL_PATTERN, USER_AVATAR_TYPE } from "@/definition/User";
-
-import { parseAvatarUpload } from "./avatar-upload.server";
-import { forbidden } from "./settings-action-support.server";
+import { UserPolicyService } from "@/backend/auth/UserPolicyService";
+import { AdministrationError } from "@/backend/error/AdministrationError";
 import {
   EmailTakenError,
   LastAdministratorError,
@@ -12,6 +9,10 @@ import {
   UserManagementDeniedError,
   UsernameTakenError,
 } from "@/backend/error/UserErrors";
+import { EMAIL_PATTERN, USER_AVATAR_TYPE } from "@/definition/User";
+
+import { parseAvatarUpload } from "./avatar-upload.server";
+import { forbidden } from "./settings-action-support.server";
 
 import type { AvatarUpload } from "./avatar-upload.server";
 import type {
@@ -20,7 +21,6 @@ import type {
   SettingsActionHandler,
   SettingsActionResult,
 } from "./settings-action-support.server";
-import type { Role } from "@/definition/Role";
 import type { ApplicationServices } from "@/app/lib/services.server";
 
 const MAXIMUM_NAME_LENGTH = 200;
@@ -31,7 +31,6 @@ interface ProfileForm {
   readonly displayName: string;
   readonly username: string;
   readonly email: string | null;
-  readonly role: Role;
 }
 
 /** Statuses of the profile failures that are not plain bad input. */
@@ -67,6 +66,7 @@ function toProfileErrorCode(error: unknown): ProfileUpdateErrorCode {
   }
 
   if (
+    (error instanceof AdministrationError && error.code === "forbidden") ||
     error instanceof UserManagementDeniedError ||
     error instanceof RoleAssignmentDeniedError
   ) {
@@ -86,13 +86,8 @@ function readProfileForm(formData: FormData): ProfileForm | null {
   const displayName = formData.get("displayName");
   const rawUsername = formData.get("username");
   const rawEmail = formData.get("email");
-  const role = formData.get("role");
 
-  if (
-    typeof displayName !== "string" ||
-    typeof rawUsername !== "string" ||
-    !isRole(role)
-  ) {
+  if (typeof displayName !== "string" || typeof rawUsername !== "string") {
     return null;
   }
 
@@ -112,7 +107,7 @@ function readProfileForm(formData: FormData): ProfileForm | null {
     (email.length <= MAXIMUM_EMAIL_LENGTH && EMAIL_PATTERN.test(email));
 
   return hasValidNames && hasValidEmail
-    ? { displayName: trimmedDisplayName, email, role, username }
+    ? { displayName: trimmedDisplayName, email, username }
     : null;
 }
 
@@ -135,10 +130,12 @@ export const handleUpdateProfile: SettingsActionHandler = async ({
   formData,
   services,
 }) => {
-  // Text and role changes are an administrative operation, even when an
-  // administrator edits their own profile. Ordinary users are rejected here
-  // instead of trusting the hidden client-side edit button.
-  if (user.role !== ROLE.ADMIN) {
+  // Profile editing never changes the reusable role or personal admin eligibility.
+  if (
+    !new UserPolicyService().isAdministrator(
+      await services.administrationService.getContext(user.id),
+    )
+  ) {
     throw forbidden();
   }
 
@@ -159,7 +156,11 @@ export const handleUpdateProfile: SettingsActionHandler = async ({
   }
 
   try {
-    await services.userService.updateOwnProfile(user, profile);
+    await services.administrationService.updateOwnDisplayProfile(user.id, {
+      displayName: profile.displayName,
+      username: profile.username,
+      email: profile.email,
+    });
 
     return data<SettingsActionData>({ intent: "update-profile", ok: true });
   } catch (error: unknown) {

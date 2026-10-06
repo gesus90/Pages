@@ -9,7 +9,6 @@ import { useAvatarSelection } from "@/app/components/settings/use-avatar-selecti
 
 import type { ProfileDraft } from "@/app/components/settings/profile-edit-form";
 import type { AvatarSelection } from "@/app/components/settings/use-avatar-selection";
-import type { Role } from "@/definition/Role";
 import type { User } from "@/definition/User";
 
 interface ProfileEditingOptions {
@@ -31,7 +30,6 @@ export interface ProfileEditing {
   readonly cancelEdit: () => void;
   readonly cancelAvatar: () => void;
   readonly changeDraft: (changes: Partial<ProfileDraft>) => void;
-  readonly changeRole: (role: Role) => void;
 }
 
 /**
@@ -73,10 +71,6 @@ export function useProfileEditing({
     setDraft((current) => ({ ...current, ...changes }));
   }
 
-  function changeRole(role: Role): void {
-    setDraft((current) => ({ ...current, role }));
-  }
-
   useProfileFeedback({
     onAvatarSaved: cancelAvatar,
     onFailed: setError,
@@ -89,7 +83,6 @@ export function useProfileEditing({
     cancelEdit,
     canSave: hasProfileChanges(draft, user, email) || avatar.file !== null,
     changeDraft,
-    changeRole,
     draft,
     error,
     isEditing,

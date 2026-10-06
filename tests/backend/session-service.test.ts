@@ -100,6 +100,7 @@ describe("SessionService", () => {
       displayName: "Admin",
       id: "user-1",
       isActive: true,
+      mustChangePassword: false,
       role: ROLE.ADMIN,
       username: "admin",
     };
@@ -150,6 +151,7 @@ describe("SessionService", () => {
       displayName: "Admin",
       id: "user-1",
       isActive: false,
+      mustChangePassword: false,
       role: ROLE.ADMIN,
       username: "admin",
     };

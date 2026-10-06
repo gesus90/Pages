@@ -30,7 +30,7 @@ function createStatusRow(
 }
 
 /** Avatar columns of a user row for an account that keeps its initials avatar. */
-const AVATAR_COLUMNS = ["initials", null, null, null] as const;
+const AVATAR_COLUMNS = ["initials", null, null, null, 0] as const;
 
 function createMilestoneRow(
   overrides: readonly unknown[] = [],

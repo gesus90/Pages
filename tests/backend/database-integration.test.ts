@@ -30,9 +30,12 @@ describe("DuckDB persistence", () => {
     );
 
     expect(rows?.map((row) => row[0]).sort()).toEqual([
+      "department_members",
+      "departments",
       "github_external_issues",
       "github_pull_requests",
       "instance_settings",
+      "managed_departments",
       "milestone_dependencies",
       "milestones",
       "project_activity",
@@ -45,9 +48,12 @@ describe("DuckDB persistence", () => {
       "project_members",
       "project_tags",
       "projects",
+      "role_permissions",
+      "roles",
       "schema_migrations",
       "sessions",
       "tasks",
+      "user_authorization",
       "user_avatars",
       "user_settings",
       "users",

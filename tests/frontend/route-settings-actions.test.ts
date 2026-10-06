@@ -16,7 +16,9 @@ import { getApplicationServices } from "@/app/lib/services.server";
 import { sessionCookie } from "@/app/lib/session.server";
 import { action } from "@/app/routes/settings";
 import { ROLE } from "@/definition/Role";
+import { AdministrationError } from "@/backend/error/AdministrationError";
 
+import { createAccess } from "../helpers/authorization";
 import { createUser } from "../helpers/factories";
 import {
   EmailTakenError,
@@ -42,6 +44,10 @@ function createContext(user: User | null): { get: ReturnType<typeof vi.fn> } {
 }
 
 function createServices(overrides: Record<string, unknown> = {}): {
+  administrationService: {
+    getContext: ReturnType<typeof vi.fn>;
+    updateOwnDisplayProfile: ReturnType<typeof vi.fn>;
+  };
   authService: { changePassword: ReturnType<typeof vi.fn> };
   sessionService: {
     revokeOtherSessions: ReturnType<typeof vi.fn>;
@@ -53,6 +59,12 @@ function createServices(overrides: Record<string, unknown> = {}): {
   };
 } {
   const services = {
+    administrationService: {
+      getContext: vi
+        .fn()
+        .mockResolvedValue(createAccess({ isAdmin: true, mode: "admin" })),
+      updateOwnDisplayProfile: vi.fn().mockResolvedValue(undefined),
+    },
     authService: { changePassword: vi.fn().mockResolvedValue("success") },
     sessionService: {
       revokeOtherSessions: vi.fn().mockResolvedValue(undefined),
@@ -124,10 +136,11 @@ describe("settings route: update-profile", () => {
     const result = await submit(PROFILE_ENTRIES, user);
 
     expect(result.data).toEqual({ intent: "update-profile", ok: true });
-    expect(services.userService.updateOwnProfile).toHaveBeenCalledWith(user, {
+    expect(
+      services.administrationService.updateOwnDisplayProfile,
+    ).toHaveBeenCalledWith(user.id, {
       displayName: "Root",
       email: "root@example.invalid",
-      role: "admin",
       username: "root",
     });
     expect(services.userService.updateOwnAvatar).not.toHaveBeenCalled();
@@ -153,16 +166,22 @@ describe("settings route: update-profile", () => {
 
     await submit({ ...PROFILE_ENTRIES, email: "  " });
 
-    expect(services.userService.updateOwnProfile).toHaveBeenCalledWith(
+    expect(
+      services.administrationService.updateOwnDisplayProfile,
+    ).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ email: null }),
     );
   });
 
   it.each([
+    [
+      "a display name sent as a file",
+      { displayName: new File(["x"], "x.txt") },
+    ],
+    ["a username sent as a file", { username: new File(["x"], "x.txt") }],
     ["a missing display name", { displayName: "   " }],
     ["a missing username", { username: "@" }],
-    ["an invalid role", { role: "owner" }],
     ["an invalid email address", { email: "not-an-email" }],
     ["a too long display name", { displayName: "x".repeat(201) }],
   ])("rejects %s", async (_label, override) => {
@@ -172,7 +191,9 @@ describe("settings route: update-profile", () => {
 
     expect(result.init?.status).toBe(400);
     expect(result.data).toMatchObject({ error: "invalidInput", ok: false });
-    expect(services.userService.updateOwnProfile).not.toHaveBeenCalled();
+    expect(
+      services.administrationService.updateOwnDisplayProfile,
+    ).not.toHaveBeenCalled();
   });
 
   it("rejects an avatar that is not a supported image", async () => {
@@ -193,9 +214,17 @@ describe("settings route: update-profile", () => {
     [new LastAdministratorError(), "lastAdministrator", 409],
     [new UserManagementDeniedError(), "forbidden", 403],
     [new RoleAssignmentDeniedError(), "forbidden", 403],
+    [new AdministrationError("forbidden"), "forbidden", 403],
+    [new AdministrationError("invalidInput"), "general", 400],
     [new Error("Database unavailable"), "general", 400],
   ])("maps %s to %s", async (failure, error, status) => {
     createServices({
+      administrationService: {
+        getContext: vi
+          .fn()
+          .mockResolvedValue(createAccess({ isAdmin: true, mode: "admin" })),
+        updateOwnDisplayProfile: vi.fn().mockRejectedValue(failure),
+      },
       userService: {
         updateOwnAvatar: vi.fn(),
         updateOwnProfile: vi.fn().mockRejectedValue(failure),

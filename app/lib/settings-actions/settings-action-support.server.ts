@@ -27,6 +27,7 @@ type AvatarUpdateErrorCode = "invalidInput" | "invalidAvatar" | "general";
 
 /** What the settings screen receives after a submitted form. */
 export type SettingsActionData =
+  | { readonly intent: "set-mode"; readonly ok: boolean }
   | {
       readonly intent: "change-password";
       readonly outcome: PasswordChangeOutcome;

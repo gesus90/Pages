@@ -73,7 +73,7 @@ export class AuthService {
       password,
     );
 
-    if (!credentials || !isPasswordValid) {
+    if (!credentials || !isPasswordValid || !credentials.user.isActive) {
       this.loginThrottle.recordFailure(username, clientAddress);
 
       return null;

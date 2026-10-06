@@ -14,7 +14,7 @@ vi.mock("@/app/lib/services.server", () => ({
   getApplicationServices: vi.fn(),
 }));
 
-import { redirect } from "react-router";
+import { RouterContextProvider, redirect } from "react-router";
 
 import {
   authenticatedUserContext,
@@ -22,6 +22,7 @@ import {
   parseCredentials,
   requireAuthenticatedUser,
   requirePermission,
+  requireUserManagement,
 } from "@/app/lib/auth.server";
 import {
   destroySessionCookie,
@@ -48,8 +49,11 @@ function createServices(
       login: vi.fn(),
       logout: vi.fn(),
     },
+    administrationService: {
+      canEnter: vi.fn().mockResolvedValue(hasPermission),
+    },
     permissionService: {
-      hasPermission: vi.fn().mockReturnValue(hasPermission),
+      allows: vi.fn().mockReturnValue(hasPermission),
     },
     sessionService: {
       removeExpiredSessions: vi.fn(),
@@ -172,6 +176,40 @@ describe("getAuthenticatedUser", () => {
 });
 
 describe("requireAuthenticatedUser", () => {
+  it.each([
+    "/dashboard",
+    "/users",
+    "/settings",
+    "/wiki",
+    "/tasks",
+    "/projekte/p/icon",
+    "/users/u/avatar",
+  ])(
+    "blocks workspace loaders and actions at %s until password replacement",
+    async (pathname) => {
+      mockedGetServices.mockResolvedValue(
+        createServices(createUser({ mustChangePassword: true })),
+      );
+      const next = vi.fn();
+      const failure = await Promise.resolve(
+        requireAuthenticatedUser(
+          {
+            context: { get: vi.fn(), set: vi.fn() },
+            params: {},
+            request: new Request(`http://pages.invalid${pathname}`, {
+              method: "POST",
+            }),
+          } as unknown as Parameters<typeof requireAuthenticatedUser>[0],
+          next,
+        ),
+      ).catch((error: unknown) => error);
+      expect(failure).toBeInstanceOf(Response);
+      expect((failure as Response).headers.get("Location")).toBe(
+        "/change-password",
+      );
+      expect(next).not.toHaveBeenCalled();
+    },
+  );
   beforeEach(() => {
     mockedGetSessionToken.mockResolvedValue("session-token");
   });
@@ -257,6 +295,26 @@ describe("requireAuthenticatedUser", () => {
 });
 
 describe("requirePermission", () => {
+  it("does not let a permission bypass a mandatory password replacement", async () => {
+    const user = createUser({ mustChangePassword: true });
+    mockedGetServices.mockResolvedValue(createServices(user));
+    const { context } = createContext(user);
+    const next = vi.fn();
+    const failure = await Promise.resolve(
+      requirePermission(PERMISSION.VIEW_USERS)(
+        {
+          context,
+          params: {},
+          request: new Request("http://pages.invalid/users"),
+        } as unknown as Parameters<ReturnType<typeof requirePermission>>[0],
+        next,
+      ),
+    ).catch((error: unknown) => error);
+    expect((failure as Response).headers.get("Location")).toBe(
+      "/change-password",
+    );
+    expect(next).not.toHaveBeenCalled();
+  });
   beforeEach(() => {
     mockedGetSessionToken.mockResolvedValue("session-token");
   });
@@ -375,4 +433,80 @@ describe("requirePermission", () => {
     expect(failure).toBeInstanceOf(Response);
     expect((failure as unknown as Response).status).toBe(403);
   });
+});
+
+describe("requireUserManagement", () => {
+  it.each([
+    {
+      user: null,
+      permitted: false,
+      stored: false,
+      status: 302,
+      location: "/login",
+    },
+    {
+      user: createUser({ mustChangePassword: true }),
+      permitted: true,
+      stored: true,
+      status: 302,
+      location: "/change-password",
+    },
+    {
+      user: createUser(),
+      permitted: false,
+      stored: true,
+      status: 403,
+      location: null,
+    },
+  ])(
+    "rejects an ineligible management request %j",
+    async ({ user, permitted, stored, status, location }) => {
+      mockedGetServices.mockResolvedValue(createServices(user, permitted));
+      const context = new RouterContextProvider();
+      if (stored) context.set(authenticatedUserContext, user);
+      const next = vi.fn();
+      const failure = await Promise.resolve(
+        requireUserManagement(
+          {
+            context,
+            params: {},
+            request: new Request("http://pages.invalid/users"),
+            url: new URL("http://pages.invalid/users"),
+            pattern: "/users",
+          },
+          next,
+        ),
+      ).catch((error: unknown) => error);
+      expect(failure).toBeInstanceOf(Response);
+      if (!(failure instanceof Response))
+        throw new Error("Expected middleware rejection");
+      expect(failure.status).toBe(status);
+      expect(failure.headers.get("Location")).toBe(location);
+      expect(next).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([true, false])(
+    "authorizes identity using current policies with cached context %s",
+    async (stored) => {
+      const user = createUser();
+      mockedGetServices.mockResolvedValue(createServices(user));
+      const context = new RouterContextProvider();
+      if (stored) context.set(authenticatedUserContext, user);
+      const next = vi.fn().mockResolvedValue("permitted");
+      expect(
+        await requireUserManagement(
+          {
+            context,
+            params: {},
+            request: new Request("http://pages.invalid/users"),
+            url: new URL("http://pages.invalid/users"),
+            pattern: "/users",
+          },
+          next,
+        ),
+      ).toBe("permitted");
+      expect(context.get(authenticatedUserContext)).toEqual(user);
+    },
+  );
 });

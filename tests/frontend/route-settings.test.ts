@@ -20,6 +20,7 @@ import { getApplicationServices } from "@/app/lib/services.server";
 import { action, loader } from "@/app/routes/settings";
 import { PermissionService } from "@/backend/auth/PermissionService";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
+import { createAccess } from "../helpers/authorization";
 
 import type { PagesRuntime } from "@/backend/runtime/PagesRuntime";
 
@@ -34,6 +35,7 @@ function createUser(role: User["role"] = "admin"): User {
     displayName: "Admin",
     id: "user-1",
     isActive: true,
+    mustChangePassword: false,
     role,
     username: "admin",
   };
@@ -43,6 +45,13 @@ function createServices(
   overrides: Record<string, unknown> = {},
 ): Awaited<ReturnType<typeof mockedServices>> {
   return {
+    administrationService: {
+      getContext: vi
+        .fn()
+        .mockImplementation(async (id: string) =>
+          createAccess({ userId: id, isAdmin: true, mode: "admin" }),
+        ),
+    },
     permissionService: new PermissionService(),
     sessionService: {
       getSessionSummaries: vi.fn().mockResolvedValue([]),
@@ -123,7 +132,7 @@ describe("settings route loader", () => {
     } as unknown as Parameters<typeof loader>[0]);
 
     expect(result).toEqual({
-      assignableRoles: ["admin", "manager", "employee"],
+      account: createAccess({ userId: user.id, isAdmin: true, mode: "admin" }),
       canEditProfile: true,
       email: "admin@example.invalid",
       serverPort: 4100,
@@ -134,7 +143,13 @@ describe("settings route loader", () => {
   });
 
   it("keeps the profile read-only for non-administrators", async () => {
-    mockedServices.mockResolvedValue(createServices());
+    mockedServices.mockResolvedValue(
+      createServices({
+        administrationService: {
+          getContext: vi.fn().mockResolvedValue(createAccess()),
+        },
+      }),
+    );
 
     const result = await loader({
       context: createContext(createUser("employee")),
@@ -143,7 +158,7 @@ describe("settings route loader", () => {
     } as unknown as Parameters<typeof loader>[0]);
 
     expect(result.canEditProfile).toBe(false);
-    expect(result.assignableRoles).toEqual([]);
+    expect(result).not.toHaveProperty("assignableRoles");
     expect(result.serverPort).toBeNull();
   });
 
@@ -290,7 +305,13 @@ describe("settings route action", () => {
   });
 
   it("restricts profile edits to administrators", async () => {
-    mockedServices.mockResolvedValue(createServices());
+    mockedServices.mockResolvedValue(
+      createServices({
+        administrationService: {
+          getContext: vi.fn().mockResolvedValue(createAccess()),
+        },
+      }),
+    );
 
     const failure = await action({
       context: createContext(createUser("employee")),

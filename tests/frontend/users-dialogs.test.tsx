@@ -30,6 +30,11 @@ import { createI18n } from "@/app/lib/i18n";
 import UsersRoute from "@/app/routes/users";
 import { ROLE } from "@/definition/Role";
 import { LANGUAGE } from "@/language/Language";
+import {
+  administrationPage,
+  directoryRoles,
+  managedUser,
+} from "../helpers/administration-page";
 
 import type { UsersActionData } from "@/app/lib/user-actions/user-action-support.server";
 import type { Role } from "@/definition/Role";
@@ -49,6 +54,7 @@ function createListItem(overrides: Partial<UserListItem> = {}): UserListItem {
     email: "anna@example.com",
     id: "user-1",
     isActive: true,
+    mustChangePassword: false,
     role: ROLE.MANAGER,
     username: "anna",
     ...overrides,
@@ -70,7 +76,12 @@ function renderUsers(
 ): Harness {
   let forceRender: () => void = () => {};
 
-  mockedLoaderData.mockReturnValue({ assignableRoles, users });
+  mockedLoaderData.mockReturnValue(
+    administrationPage(
+      users.map((user) => managedUser(user)),
+      directoryRoles(assignableRoles),
+    ),
+  );
   mockedSubmit.mockReturnValue(vi.fn());
   mockedNavigation.mockReturnValue(
     (initial.navigation ?? { state: "idle" }) as ReturnType<
@@ -199,7 +210,7 @@ describe("user directory search and rows", () => {
 });
 
 describe("CreateUserDialog", () => {
-  it("closes after a successful creation", async () => {
+  it("shows the generated password once and clears it before reopening", async () => {
     const user = userEvent.setup();
     const { update } = renderUsers();
 
@@ -209,9 +220,22 @@ describe("CreateUserDialog", () => {
 
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
 
-    update({ actionData: { intent: "create-user", ok: true } });
+    update({
+      actionData: {
+        intent: "create-user",
+        ok: true,
+        temporaryPassword: "one-time-secret",
+      },
+    });
+
+    expect(screen.getByText("one-time-secret")).toBeInTheDocument();
+    await user.click(screen.getByText("Schließen", { selector: "button" }));
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: "Benutzer erstellen" }),
+    );
+    expect(screen.queryByText("one-time-secret")).not.toBeInTheDocument();
   });
 
   it("stays open for the success of another action", async () => {
@@ -227,6 +251,7 @@ describe("CreateUserDialog", () => {
   });
 
   it("submits the chosen role and falls back to employee when reopened", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
 
     renderUsers();
@@ -252,7 +277,7 @@ describe("CreateUserDialog", () => {
     expect(hiddenValue(dialog, "role")).toBe("employee");
   });
 
-  it("requires a password of the minimum length", async () => {
+  it("does not accept an administrator-chosen password", async () => {
     const user = userEvent.setup();
 
     renderUsers();
@@ -260,10 +285,7 @@ describe("CreateUserDialog", () => {
       screen.getByRole("button", { name: "Benutzer erstellen" }),
     );
 
-    expect(await screen.findByLabelText("Passwort")).toHaveAttribute(
-      "minlength",
-      "8",
-    );
+    expect(screen.queryByLabelText("Passwort")).not.toBeInTheDocument();
     expect(screen.getByLabelText("E-Mail (optional)")).toHaveAttribute(
       "type",
       "email",
@@ -279,7 +301,7 @@ describe("EditUserDialog", () => {
 
     const dialog = await openMenuItem(user, "Bearbeiten");
 
-    expect(within(dialog).getByLabelText("Name")).toHaveValue("Anna Berger");
+    expect(within(dialog).getByLabelText("Vorname")).toHaveValue("Anna Berger");
     expect(within(dialog).getByLabelText("Benutzername")).toHaveValue("anna");
     expect(within(dialog).getByLabelText("E-Mail")).toHaveValue(
       "anna@example.com",

@@ -72,7 +72,7 @@ describe("set-language route action", () => {
       request: createPostRequest({ language: "de", redirectTo: "/login" }),
     } as unknown as Parameters<typeof action>[0]);
 
-    expect(mockedSerialize).toHaveBeenCalledWith("de");
+    expect(mockedSerialize).toHaveBeenCalledWith("de", { secure: false });
     expect(response.status).toBe(302);
     expect(response.headers.get("Location")).toBe("/login");
     expect(response.headers.get("Set-Cookie")).toContain("pages_language=de");

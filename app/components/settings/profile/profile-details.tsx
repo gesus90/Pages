@@ -5,12 +5,14 @@ import { ProfileRow } from "@/app/components/settings/settings-layout";
 import type { User } from "@/definition/User";
 
 interface ProfileDetailsProps {
+  readonly roleName?: string | null;
   readonly user: User;
   readonly email: string | null;
 }
 
 /** The read-only profile values of someone who may not edit them. */
 export function ProfileDetails({
+  roleName,
   user,
   email,
 }: ProfileDetailsProps): React.ReactElement {
@@ -35,7 +37,7 @@ export function ProfileDetails({
         )}
       </ProfileRow>
       <ProfileRow label={t("settings.profile.position")}>
-        {t(`role.${user.role}`)}
+        {roleName === undefined ? t(`role.${user.role}`) : (roleName ?? "—")}
       </ProfileRow>
     </dl>
   );

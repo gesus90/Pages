@@ -10,6 +10,7 @@ import {
   handleUpdateProfile,
 } from "./settings-profile-actions.server";
 import { handleUpdatePort } from "./settings-system-actions.server";
+import { handleSetMode } from "./settings-mode-action.server";
 
 import type {
   SettingsActionContext,
@@ -18,6 +19,7 @@ import type {
 } from "./settings-action-support.server";
 
 const SETTINGS_ACTION_HANDLERS = {
+  "set-mode": handleSetMode,
   "change-password": handleChangePassword,
   "revoke-other-sessions": handleRevokeOtherSessions,
   "revoke-session": handleRevokeSession,

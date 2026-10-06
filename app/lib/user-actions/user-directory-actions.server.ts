@@ -1,8 +1,4 @@
-import { randomUUID } from "node:crypto";
-
 import { data } from "react-router";
-
-import { isRole } from "@/definition/Role";
 
 import { invalidInput, toActionError } from "./user-action-support.server";
 import {
@@ -22,28 +18,24 @@ export const handleCreateUser: UsersActionHandler = async ({
   formData,
   services,
 }) => {
-  const input = parseCreateUserInput(formData, actor.role);
+  const input = parseCreateUserInput(formData);
 
   if (!input) {
     return invalidInput("create-user");
   }
 
   try {
-    const passwordHash = await services.passwordHasher.hash(input.password);
-
-    await services.userService.createUser(actor, {
-      displayName: input.displayName,
-      email: input.email,
-      id: randomUUID(),
-      passwordHash,
-      role: input.role,
-      username: input.username,
-    });
+    const { temporaryPassword } =
+      await services.administrationService.createUser(actor.id, input);
+    return data<UsersActionData>(
+      { intent: "create-user", ok: true, temporaryPassword },
+      {
+        headers: { "Cache-Control": "no-store" },
+      },
+    );
   } catch (error: unknown) {
     return toActionError(error, "create-user");
   }
-
-  return data<UsersActionData>({ intent: "create-user", ok: true });
 };
 
 /** Activates or deactivates an account. */
@@ -63,7 +55,11 @@ export const handleSetActive: UsersActionHandler = async ({
   }
 
   try {
-    await services.userService.setActive(actor, userId, isActive === "true");
+    await services.administrationService.setActive(
+      actor.id,
+      userId,
+      isActive === "true",
+    );
   } catch (error: unknown) {
     return toActionError(error, "set-active");
   }
@@ -84,11 +80,11 @@ export const handleUpdateUser: UsersActionHandler = async ({
   }
 
   try {
-    await services.userService.updateUser(actor, input.userId, {
-      displayName: input.displayName,
-      email: input.email,
-      username: input.username,
-    });
+    await services.administrationService.updateProfile(
+      actor.id,
+      input.userId,
+      input,
+    );
   } catch (error: unknown) {
     return toActionError(error, "update-user");
   }
@@ -105,12 +101,12 @@ export const handleSetRole: UsersActionHandler = async ({
   const userId = readUserId(formData);
   const role = formData.get("role");
 
-  if (userId === null || !isRole(role)) {
+  if (userId === null || typeof role !== "string" || role.trim() === "") {
     return invalidInput("set-role");
   }
 
   try {
-    await services.userService.setRole(actor, userId, role);
+    await services.administrationService.assignRole(actor.id, userId, role);
   } catch (error: unknown) {
     return toActionError(error, "set-role");
   }
@@ -137,20 +133,18 @@ export const handleResetPassword: UsersActionHandler = async ({
   }
 
   try {
-    const { temporaryPassword } = await services.userService.resetPassword(
-      actor,
-      userId,
-      services.passwordHasher,
+    const { temporaryPassword } =
+      await services.administrationService.resetPassword(actor.id, userId);
+
+    return data<UsersActionData>(
+      {
+        intent: "reset-password",
+        ok: true,
+        temporaryPassword,
+        userId,
+      },
+      { headers: { "Cache-Control": "no-store" } },
     );
-
-    await services.sessionService.revokeAllSessions(userId);
-
-    return data<UsersActionData>({
-      intent: "reset-password",
-      ok: true,
-      temporaryPassword,
-      userId,
-    });
   } catch (error: unknown) {
     return toActionError(error, "reset-password");
   }

@@ -15,6 +15,7 @@ import { LoginForm } from "@/app/components/login/login-form";
 import { LoginSetupHint } from "@/app/components/login/login-setup-hint";
 import { getAuthenticatedUser, parseCredentials } from "@/app/lib/auth.server";
 import { getClientAddress } from "@/app/lib/client-address.server";
+import { resolveCookieSecure } from "@/app/lib/cookie-security.server";
 import { resolveAnonymousLanguage } from "@/app/lib/language.server";
 import { sessionCookie } from "@/app/lib/session.server";
 import { getApplicationServices } from "@/app/lib/services.server";
@@ -109,7 +110,9 @@ export async function action({
 
   return redirect("/dashboard", {
     headers: {
-      "Set-Cookie": await sessionCookie.serialize(loginResult.sessionToken),
+      "Set-Cookie": await sessionCookie.serialize(loginResult.sessionToken, {
+        secure: resolveCookieSecure(request),
+      }),
     },
   });
 }

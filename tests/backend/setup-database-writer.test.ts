@@ -63,6 +63,16 @@ describe("SetupDatabaseWriter", () => {
     ).toMatchObject({ id: userId });
   });
 
+  it("does not treat a legacy projection without personal authorization as an administrator", async () => {
+    await getDatabase().execute(`
+      INSERT INTO users (id, username, display_name, password_hash, role)
+      VALUES ('orphan', 'chef', 'Chef', 'hash', 'admin');
+    `);
+    expect(await new SetupDatabaseWriter(getDatabase()).write(RECORD)).toEqual({
+      status: "usernameTaken",
+    });
+  });
+
   it("updates an existing administrator with the same username", async () => {
     const users = new UserRepository(getDatabase());
 
@@ -105,6 +115,27 @@ describe("SetupDatabaseWriter", () => {
     ).resolves.toEqual({
       companyName: "Neu AG",
       primaryAdministratorId: "admin-1",
+    });
+  });
+
+  it("treats a username that differs only by case as the same administrator", async () => {
+    const users = new UserRepository(getDatabase());
+
+    await users.insert({
+      displayName: "Die Chefin",
+      id: "admin-1",
+      passwordHash: "scrypt$old",
+      role: ROLE.ADMIN,
+      username: "Chef",
+    });
+
+    const result = await new SetupDatabaseWriter(getDatabase()).write(RECORD);
+
+    expect(result.status).toBe("written");
+    await expect(users.findAll()).resolves.toHaveLength(1);
+    await expect(users.findCredentialsByUsername("CHEF")).resolves.toEqual({
+      passwordHash: "scrypt$new",
+      user: expect.objectContaining({ id: "admin-1" }),
     });
   });
 

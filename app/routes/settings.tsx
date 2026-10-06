@@ -6,6 +6,7 @@ import { useLoaderData, useSubmit } from "react-router";
 import { ChangePasswordDialog } from "@/app/components/settings/change-password-dialog";
 import { NotificationsCard } from "@/app/components/settings/notifications-card";
 import { ProfileCard } from "@/app/components/settings/profile-card";
+import { AccountModeCard } from "@/app/components/settings/account-mode-card";
 import { RegionCard } from "@/app/components/settings/region-card";
 import { RevokeOtherSessionsDialog } from "@/app/components/settings/revoke-other-sessions-dialog";
 import { SecurityCard } from "@/app/components/settings/security-card";
@@ -18,22 +19,22 @@ import { getApplicationServices } from "@/app/lib/services.server";
 import { handleSettingsAction } from "@/app/lib/settings-actions/settings-actions.server";
 import { createServerSettingsService } from "@/app/lib/settings-actions/settings-system-actions.server";
 import { getSessionToken } from "@/app/lib/session.server";
-import { ROLE } from "@/definition/Role";
+import { UserPolicyService } from "@/backend/auth/UserPolicyService";
 
 import type { SettingsActionResult } from "@/app/lib/settings-actions/settings-action-support.server";
-import type { Role } from "@/definition/Role";
 import type { SessionSummary } from "@/definition/Session";
 import type { UserSettings } from "@/definition/Settings";
 import type { User } from "@/definition/User";
+import type { AccountAccess } from "@/definition/Authorization";
 import type { Route } from "./+types/settings";
 
 interface SettingsLoaderData {
+  readonly account: AccountAccess;
   readonly user: User;
   readonly email: string | null;
   readonly settings: UserSettings;
   readonly sessions: readonly SessionSummary[];
   readonly canEditProfile: boolean;
-  readonly assignableRoles: readonly Role[];
   /** Port stored for the next start, only for users who may change it. */
   readonly serverPort: number | null;
 }
@@ -58,16 +59,15 @@ export async function loader({
       await getSessionToken(request),
     ),
   ]);
-  const canEditProfile = user.role === ROLE.ADMIN;
+  const account = await services.administrationService.getContext(user.id);
+  const canEditProfile = new UserPolicyService().isAdministrator(account);
   const serverSettings = await createServerSettingsService({ services });
 
   return {
-    assignableRoles: canEditProfile
-      ? [ROLE.ADMIN, ROLE.MANAGER, ROLE.EMPLOYEE]
-      : [],
+    account,
     canEditProfile,
     email,
-    serverPort: serverSettings.canManage(user)
+    serverPort: (await serverSettings.canManage(user))
       ? await serverSettings.readPort()
       : null,
     sessions,
@@ -108,12 +108,12 @@ export async function action({
 export default function SettingsRoute(): React.ReactElement {
   const { t } = useTranslation();
   const {
+    account,
     user,
     email,
     settings: loadedSettings,
     sessions,
     canEditProfile,
-    assignableRoles,
     serverPort,
   } = useLoaderData<typeof loader>();
   const submit = useSubmit();
@@ -130,8 +130,8 @@ export default function SettingsRoute(): React.ReactElement {
   }
 
   return (
-    <section className="flex h-[calc(100dvh-8.5rem)] min-h-80 w-full flex-col">
-      <h1 className="shrink-0 select-none text-2xl font-semibold tracking-tight text-foreground xl:text-xl">
+    <section className="pages-page-fill mx-auto flex w-full max-w-6xl flex-col">
+      <h1 className="shrink-0 text-2xl font-semibold tracking-tight text-foreground">
         {t("settings.title")}
       </h1>
 
@@ -140,6 +140,7 @@ export default function SettingsRoute(): React.ReactElement {
         contentClassName="pr-4 sm:pr-6 md:pr-8 xl:pr-12 pb-12"
         fadeClassName="z-20"
       >
+        <AccountModeCard account={account} />
         <div className="w-full max-w-6xl">
           <SettingsSectionHeader
             icon={<UserRound className="size-4" aria-hidden="true" />}
@@ -149,10 +150,10 @@ export default function SettingsRoute(): React.ReactElement {
           <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
             <div className="flex flex-col gap-4">
               <ProfileCard
+                roleName={account.role?.name ?? null}
                 user={user}
                 email={email}
                 canEditProfile={canEditProfile}
-                assignableRoles={assignableRoles}
               />
               <NotificationsCard
                 notifications={settings.notifications}

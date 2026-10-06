@@ -35,6 +35,7 @@ function buildReporterOptions(
       displayName: task.reporterName ?? task.createdBy,
       id: task.createdBy,
       isActive: true,
+      mustChangePassword: false,
       role: "employee",
       username: task.createdBy,
     },

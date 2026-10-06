@@ -13,13 +13,21 @@ import { loader, middleware } from "@/app/routes/authenticated";
 import { PERMISSION } from "@/definition/Role";
 
 import { createUser } from "../helpers/factories";
+import { createAccess } from "../helpers/authorization";
 
 const mockedGetServices = vi.mocked(getApplicationServices);
 
 function mockPermissions(hasPermission: boolean): void {
   mockedGetServices.mockResolvedValue({
+    administrationService: {
+      navigation: vi.fn().mockResolvedValue({
+        canViewUsers: hasPermission,
+        version: "version",
+        account: createAccess(),
+      }),
+    },
     permissionService: {
-      hasPermission: vi.fn().mockReturnValue(hasPermission),
+      allows: vi.fn().mockReturnValue(hasPermission),
     },
   } as unknown as Awaited<ReturnType<typeof mockedGetServices>>);
 }
@@ -48,7 +56,13 @@ describe("authenticated layout loader", () => {
     } as unknown as Parameters<typeof loader>[0]);
 
     expect(context.get).toHaveBeenCalledWith(authenticatedUserContext);
-    expect(result).toEqual({ canViewProjects: true, canViewUsers: true, user });
+    expect(result).toEqual({
+      canViewProjects: true,
+      canViewUsers: true,
+      user,
+      authorizationVersion: "version",
+      account: createAccess(),
+    });
   });
 
   it("reports missing navigation permissions", async () => {
@@ -66,16 +80,26 @@ describe("authenticated layout loader", () => {
 
     expect(result).toEqual({
       canViewProjects: false,
+      account: createAccess(),
+      authorizationVersion: "version",
       canViewUsers: false,
       user,
     });
   });
 
-  it("checks the view-users permission of the stored user", async () => {
+  it("checks management entry by account identity and retains project participation", async () => {
     const user = createUser();
     const hasPermission = vi.fn().mockReturnValue(true);
+    const navigation = vi.fn().mockResolvedValue({
+      canViewUsers: true,
+      version: "version",
+      account: createAccess(),
+    });
     mockedGetServices.mockResolvedValue({
-      permissionService: { hasPermission },
+      administrationService: {
+        navigation,
+      },
+      permissionService: { allows: hasPermission },
     } as unknown as Awaited<ReturnType<typeof mockedGetServices>>);
     const context = {
       get: vi.fn().mockReturnValue(user),
@@ -87,12 +111,9 @@ describe("authenticated layout loader", () => {
       request: new Request("http://pages.invalid/dashboard"),
     } as unknown as Parameters<typeof loader>[0]);
 
+    expect(navigation).toHaveBeenCalledWith(user.id);
     expect(hasPermission).toHaveBeenCalledWith(
-      user.role,
-      PERMISSION.VIEW_USERS,
-    );
-    expect(hasPermission).toHaveBeenCalledWith(
-      user.role,
+      user,
       PERMISSION.PARTICIPATE_IN_PROJECTS,
     );
   });

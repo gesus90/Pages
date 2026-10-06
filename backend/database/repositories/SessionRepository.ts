@@ -53,12 +53,17 @@ export class SessionRepository {
             user_agent,
             expires_at
         )
-        VALUES (
+        SELECT
             $id,
             $user_id,
             $token_hash,
             $user_agent,
             utc_after(to_days($lifetime_days))
+        WHERE EXISTS (
+            SELECT 1
+            FROM users
+            WHERE id = $user_id
+                AND is_active = 1
         );
       `,
       {

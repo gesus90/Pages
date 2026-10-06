@@ -1,5 +1,6 @@
 import { redirect } from "react-router";
 
+import { resolveCookieSecure } from "@/app/lib/cookie-security.server";
 import { languageCookie } from "@/app/lib/language.server";
 import { resolveLocalRedirect } from "@/app/lib/redirect.server";
 import { isLanguage } from "@/language/Language";
@@ -24,7 +25,9 @@ export async function action({ request }: Route.ActionArgs): Promise<Response> {
 
   return redirect(resolveLocalRedirect(redirectTo), {
     headers: {
-      "Set-Cookie": await languageCookie.serialize(language),
+      "Set-Cookie": await languageCookie.serialize(language, {
+        secure: resolveCookieSecure(request),
+      }),
     },
   });
 }

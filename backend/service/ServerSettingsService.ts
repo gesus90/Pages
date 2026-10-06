@@ -43,11 +43,8 @@ export class ServerSettingsService {
    *
    * @param actor - The signed-in user.
    */
-  public canManage(actor: User): boolean {
-    return this.permissionService.hasPermission(
-      actor.role,
-      PERMISSION.MANAGE_APPLICATION,
-    );
+  public async canManage(actor: User): Promise<boolean> {
+    return this.permissionService.allows(actor, PERMISSION.MANAGE_APPLICATION);
   }
 
   /** Returns the port stored for the next start. */
@@ -64,7 +61,7 @@ export class ServerSettingsService {
    * @throws {ServerSettingsDeniedError} When the actor may not change it.
    */
   public async updatePort(actor: User, port: number): Promise<boolean> {
-    if (!this.canManage(actor)) {
+    if (!(await this.canManage(actor))) {
       throw new ServerSettingsDeniedError();
     }
 

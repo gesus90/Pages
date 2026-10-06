@@ -6,6 +6,7 @@ import {
   handleUpdateUser,
 } from "./user-directory-actions.server";
 import { invalidInput } from "./user-action-support.server";
+import { ADMINISTRATION_ACTION_HANDLERS } from "./administration-actions.server";
 
 import type {
   UsersActionContext,
@@ -14,6 +15,7 @@ import type {
 } from "./user-action-support.server";
 
 const USERS_ACTION_HANDLERS = {
+  ...ADMINISTRATION_ACTION_HANDLERS,
   "create-user": handleCreateUser,
   "reset-password": handleResetPassword,
   "set-active": handleSetActive,

@@ -12,7 +12,7 @@ import type { Database, DatabaseValue } from "@/backend/database/Database";
 import type { User } from "@/definition/User";
 
 /** Columns of the user part of an assignee row, before the project membership column. */
-const USER_COLUMN_COUNT = 9;
+const USER_COLUMN_COUNT = 10;
 
 function toUser(row: readonly DatabaseValue[]): User {
   const role = readTextColumn(row, 3, "role");
@@ -32,6 +32,7 @@ function toUser(row: readonly DatabaseValue[]): User {
     displayName: readTextColumn(row, 2, "display_name"),
     id: readTextColumn(row, 0, "id"),
     isActive: readBooleanColumn(row, 4, "is_active"),
+    mustChangePassword: readBooleanColumn(row, 9, "must_change_password"),
     role,
     username: readTextColumn(row, 1, "username"),
     avatarType,
@@ -117,7 +118,8 @@ export class EligibleAssigneeRepository {
             users.avatar_type,
             users.avatar_icon,
             users.avatar_color,
-            users.avatar_image_url
+            users.avatar_image_url,
+            users.must_change_password
         FROM users
         WHERE users.is_active = 1
             AND (
@@ -169,6 +171,7 @@ export class EligibleAssigneeRepository {
             users.avatar_icon,
             users.avatar_color,
             users.avatar_image_url,
+            users.must_change_password,
             members.project_id AS member_project_id
         FROM users
         LEFT JOIN project_members AS members

@@ -9,6 +9,8 @@ import { DATABASE_MIGRATIONS } from "@/backend/database/Migrations";
 import { GitHubSyncScheduler } from "@/backend/github/GitHubSyncScheduler";
 import { resolveGitHubTokenKey } from "@/backend/github/GitHubTokenKey";
 import { SessionRepository } from "@/backend/database/repositories/SessionRepository";
+import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
+import { AdministrationService } from "@/backend/service/AdministrationService";
 import { GitHubRepository } from "@/backend/database/repositories/GitHubRepository";
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import { TaskRepository } from "@/backend/database/repositories/TaskRepository";
@@ -24,6 +26,7 @@ import { SetupService } from "@/backend/setup/SetupService";
 
 /** Server-only service instances shared by React Router loaders and actions. */
 export interface ApplicationServices {
+  readonly administrationService: AdministrationService;
   readonly authService: AuthService;
   readonly sessionService: SessionService;
   readonly userService: UserService;
@@ -78,17 +81,28 @@ async function initializeServices(
   await database.migrate(DATABASE_MIGRATIONS);
 
   const passwordHasher = new PasswordHasher();
-  const permissionService = new PermissionService();
+  const serverCache = new ServerCache();
+  const administrationService = new AdministrationService(
+    new AuthorizationRepository(database),
+    serverCache,
+    passwordHasher,
+  );
+  const permissionService = new PermissionService((id) =>
+    administrationService.getContext(id),
+  );
   const userRepository = new UserRepository(database);
   const projectRepository = new ProjectRepository(database);
   const taskRepository = new TaskRepository(database);
   const gitHubRepository = new GitHubRepository(database);
   const userSettingsRepository = new UserSettingsRepository(database);
   const sessionRepository = new SessionRepository(database);
-  const userService = new UserService(userRepository, permissionService);
+  const userService = new UserService(
+    userRepository,
+    permissionService,
+    administrationService,
+  );
   const settingsService = new SettingsService(userSettingsRepository);
   const tokenKey = resolveGitHubTokenKey(databasePath);
-  const serverCache = new ServerCache();
   const projectService = new ProjectService(
     projectRepository,
     permissionService,
@@ -125,6 +139,7 @@ async function initializeServices(
   await sessionService.removeExpiredSessions();
 
   return {
+    administrationService,
     authService: new AuthService(
       userService,
       sessionService,

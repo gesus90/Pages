@@ -8,6 +8,7 @@ import {
 } from "@/backend/database/RowValue";
 import { isRole } from "@/definition/Role";
 import { isUserAvatarType } from "@/definition/User";
+import { provisionAccount } from "./LegacyAccountProvisioning";
 import {
   EmailTakenError,
   UsernameTakenError,
@@ -16,6 +17,7 @@ import {
 import type { Database, DatabaseValue } from "@/backend/database/Database";
 import type { Role } from "@/definition/Role";
 import type { User, UserAvatarType } from "@/definition/User";
+import type { AccountInitialization } from "@/definition/Authorization";
 
 /** A user's binary avatar as stored in the database. */
 export interface StoredUserAvatar {
@@ -32,6 +34,8 @@ export interface UserCredentials {
 
 /** Values required to persist a new user. */
 export interface NewUser {
+  /** Explicit A2 authorization; absent only for legacy callers and fixtures. */
+  readonly authorization?: AccountInitialization;
   readonly id: string;
   readonly username: string;
   readonly displayName: string;
@@ -41,20 +45,27 @@ export interface NewUser {
   readonly email?: string | null;
   /** Whether the account may sign in; defaults to active. */
   readonly isActive?: boolean;
+  /** Whether the first authenticated request must replace the password. */
+  readonly mustChangePassword?: boolean;
   /** Creation timestamp; defaults to the database clock. */
   readonly createdAt?: string;
 }
 
 /** Owns persistence operations for users. */
 export class UserRepository {
-  private readonly database: Database;
+  private readonly database: Pick<
+    Database,
+    "query" | "execute" | "transaction"
+  >;
 
   /**
    * Creates a user repository.
    *
    * @param database - Central database access.
    */
-  public constructor(database: Database) {
+  public constructor(
+    database: Pick<Database, "query" | "execute" | "transaction">,
+  ) {
     this.database = database;
   }
 
@@ -76,7 +87,8 @@ export class UserRepository {
             avatar_type,
             avatar_icon,
             avatar_color,
-            avatar_image_url
+            avatar_image_url,
+            must_change_password
         FROM users
         WHERE id = $id;
       `,
@@ -106,7 +118,8 @@ export class UserRepository {
           avatar_type,
           avatar_icon,
           avatar_color,
-          avatar_image_url
+          avatar_image_url,
+          must_change_password
       FROM users
       ORDER BY display_name;
     `);
@@ -132,7 +145,8 @@ export class UserRepository {
             avatar_type,
             avatar_icon,
             avatar_color,
-            avatar_image_url
+            avatar_image_url,
+            must_change_password
         FROM users
         WHERE email = $email;
       `,
@@ -197,6 +211,9 @@ export class UserRepository {
    *
    * @param username - Username entered during login.
    * @returns The credentials, or `null` when no user exists.
+   *
+   * @remarks
+   * Usernames are compared without regard to case.
    */
   public async findCredentialsByUsername(
     username: string,
@@ -213,9 +230,10 @@ export class UserRepository {
             avatar_icon,
             avatar_color,
             avatar_image_url,
+            must_change_password,
             password_hash
         FROM users
-        WHERE username = $username;
+        WHERE lower(username) = lower($username);
       `,
       { username },
     );
@@ -228,7 +246,7 @@ export class UserRepository {
 
     return {
       user: this.toUser(row),
-      passwordHash: readTextColumn(row, 9, "password_hash"),
+      passwordHash: readTextColumn(row, 10, "password_hash"),
     };
   }
 
@@ -240,8 +258,9 @@ export class UserRepository {
    */
   public async insert(user: NewUser): Promise<void> {
     try {
-      await this.database.execute(
-        `
+      await this.database.transaction(async (transaction) => {
+        await transaction.execute(
+          `
           INSERT INTO users (
               id,
               username,
@@ -250,6 +269,7 @@ export class UserRepository {
               email,
               role,
               is_active,
+              must_change_password,
               created_at,
               updated_at
           )
@@ -261,21 +281,25 @@ export class UserRepository {
               $email,
               $role,
               $is_active,
+              $must_change_password,
               COALESCE($created_at, utc_now()),
               utc_now()
           );
         `,
-        {
-          id: user.id,
-          username: user.username,
-          display_name: user.displayName,
-          password_hash: user.passwordHash,
-          email: user.email ?? null,
-          role: user.role,
-          is_active: user.isActive ?? true,
-          created_at: user.createdAt ?? null,
-        },
-      );
+          {
+            id: user.id,
+            username: user.username,
+            display_name: user.displayName,
+            password_hash: user.passwordHash,
+            email: user.email ?? null,
+            role: user.role,
+            is_active: user.isActive ?? true,
+            must_change_password: user.mustChangePassword ?? false,
+            created_at: user.createdAt ?? null,
+          },
+        );
+        await provisionAccount(transaction, user);
+      });
     } catch (error: unknown) {
       if (this.isUsernameConstraintViolation(error)) {
         throw new UsernameTakenError(user.username);
@@ -292,16 +316,23 @@ export class UserRepository {
    * @param isActive - Whether the user should be able to sign in.
    */
   public async setActive(id: string, isActive: boolean): Promise<void> {
-    await this.database.execute(
-      `
+    await this.database.transaction(async (transaction) => {
+      await transaction.execute(
+        `
         UPDATE users
         SET
             is_active = $is_active,
             updated_at = utc_now()
         WHERE id = $id;
       `,
-      { id, is_active: isActive },
-    );
+        { id, is_active: isActive },
+      );
+      if (!isActive) {
+        await transaction.execute("DELETE FROM sessions WHERE user_id = $id;", {
+          id,
+        });
+      }
+    });
   }
 
   /**
@@ -496,6 +527,7 @@ export class UserRepository {
         UPDATE users
         SET
             password_hash = $password_hash,
+            must_change_password = 0,
             updated_at = utc_now()
         WHERE id = $id;
       `,
@@ -503,14 +535,38 @@ export class UserRepository {
     );
   }
 
+  /** Stores a temporary password and invalidates all sessions in one transaction. */
+  public async resetPasswordHash(
+    id: string,
+    passwordHash: string,
+  ): Promise<void> {
+    await this.database.transaction(async (transaction) => {
+      await transaction.execute(
+        `
+        UPDATE users
+        SET
+            password_hash = $password_hash,
+            must_change_password = 1,
+            updated_at = utc_now()
+        WHERE id = $id;
+      `,
+        { id, password_hash: passwordHash },
+      );
+      await transaction.execute("DELETE FROM sessions WHERE user_id = $id;", {
+        id,
+      });
+    });
+  }
+
   /** Returns the number of administrators who can currently sign in. */
   public async countActiveAdministrators(): Promise<number> {
     const rows = await this.database.query(`
       SELECT
-          COUNT(id) AS admin_count
+          COUNT(users.id) AS admin_count
       FROM users
-      WHERE role = 'admin'
-          AND is_active = 1;
+      INNER JOIN user_authorization AS access ON access.user_id = users.id
+      WHERE access.is_admin = 1
+          AND users.is_active = 1;
     `);
     const row = rows[0];
 
@@ -522,7 +578,12 @@ export class UserRepository {
   }
 
   private isUsernameConstraintViolation(error: unknown): boolean {
-    return isUniqueViolationOn(error, "username");
+    // The plain constraint names the column, the case-insensitive index the
+    // expression it covers.
+    return (
+      isUniqueViolationOn(error, "username") ||
+      isUniqueViolationOn(error, "lower(username)")
+    );
   }
 
   private isEmailConstraintViolation(error: unknown): boolean {
@@ -549,6 +610,7 @@ export class UserRepository {
       displayName: readTextColumn(row, 2, "display_name"),
       role,
       isActive: readBooleanColumn(row, 4, "is_active"),
+      mustChangePassword: readBooleanColumn(row, 9, "must_change_password"),
       avatarType,
       avatarIcon: readNullableTextColumn(row, 6, "avatar_icon"),
       avatarColor: readNullableTextColumn(row, 7, "avatar_color"),

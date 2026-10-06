@@ -58,6 +58,14 @@ describe("SessionRepository on DuckDB", () => {
     );
   });
 
+  it("does not persist a session if the account was deactivated during login", async () => {
+    const repository = await createRepository();
+    await new UserRepository(getDatabase()).setActive("user-1", false);
+    await repository.insert(createSession());
+    await new UserRepository(getDatabase()).setActive("user-1", true);
+    expect(await repository.findUserIdByTokenHash("hash-1")).toBeNull();
+  });
+
   it("stamps the creation time in the stored text format", async () => {
     const repository = await createRepository();
 

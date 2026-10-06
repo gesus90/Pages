@@ -1,6 +1,5 @@
 import { createCookie } from "react-router";
 
-import { resolveCookieSecure } from "@/app/lib/cookie-security.server";
 import { isLanguage, LANGUAGE, resolveLanguage } from "@/language/Language";
 
 import type { Language } from "@/language/Language";
@@ -8,13 +7,18 @@ import type { Language } from "@/language/Language";
 const LANGUAGE_COOKIE_NAME = "pages_language";
 const LANGUAGE_COOKIE_LIFETIME_SECONDS = 60 * 60 * 24 * 365;
 
-/** Cookie that remembers the language an anonymous visitor selected. */
+/**
+ * Cookie that remembers the language an anonymous visitor selected.
+ *
+ * @remarks
+ * The `Secure` attribute depends on the request, so callers pass
+ * `{ secure: resolveCookieSecure(request) }` to `serialize`.
+ */
 export const languageCookie = createCookie(LANGUAGE_COOKIE_NAME, {
   httpOnly: true,
   maxAge: LANGUAGE_COOKIE_LIFETIME_SECONDS,
   path: "/",
   sameSite: "lax",
-  secure: resolveCookieSecure(),
 });
 
 /**

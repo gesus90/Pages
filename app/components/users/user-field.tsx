@@ -4,9 +4,11 @@ interface UserFieldProps {
   readonly id: string;
   readonly label: string;
   readonly name: string;
-  readonly type: "text" | "email" | "password";
+  readonly type: "text" | "email" | "password" | "number";
   readonly autoComplete?: string;
-  readonly defaultValue?: string;
+  readonly defaultValue?: string | number;
+  readonly min?: number;
+  readonly step?: number;
   readonly minLength?: number;
   readonly required?: boolean;
 }
@@ -19,10 +21,7 @@ export function UserField({
 }: UserFieldProps): React.ReactElement {
   return (
     <>
-      <label
-        className="select-none text-sm font-medium text-foreground"
-        htmlFor={id}
-      >
+      <label className="text-sm font-medium text-foreground" htmlFor={id}>
         {label}
       </label>
       <Input id={id} {...inputProps} />

@@ -17,12 +17,11 @@ import {
   useUsersError,
 } from "@/app/components/users/use-users-action";
 
-import type { Role } from "@/definition/Role";
-import type { UserListItem } from "@/definition/User";
+import type { UserRole, ManagedUser } from "@/definition/Authorization";
 
 interface ChangeRoleDialogProps {
-  readonly user: UserListItem;
-  readonly assignableRoles: readonly Role[];
+  readonly user: ManagedUser;
+  readonly assignableRoles: readonly UserRole[];
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
 }
@@ -36,14 +35,14 @@ export function ChangeRoleDialog({
 }: ChangeRoleDialogProps): React.ReactElement {
   const { t } = useTranslation();
   const actionData = useUsersActionData();
-  const [selectedRole, setSelectedRole] = useState<Role>(user.role);
+  const [selectedRole, setSelectedRole] = useState(user.account.role?.id ?? "");
   const isSubmitting = useIsSubmitting("set-role");
 
   useEffect(() => {
     if (open) {
-      setSelectedRole(user.role);
+      setSelectedRole(user.account.role?.id ?? "");
     }
-  }, [open, user.role]);
+  }, [open, user.account.role]);
 
   useEffect(() => {
     if (actionData?.intent === "set-role" && actionData.ok) {
@@ -56,7 +55,7 @@ export function ChangeRoleDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogTitle className="select-none text-lg font-semibold text-foreground">
+        <DialogTitle className="text-lg font-semibold text-foreground">
           {t("users.changeRole.title")}
         </DialogTitle>
 
@@ -65,9 +64,6 @@ export function ChangeRoleDialog({
           <input name="userId" type="hidden" value={user.id} />
           <input name="role" type="hidden" value={selectedRole} />
 
-          <span className="select-none text-sm font-medium text-foreground">
-            {t("users.changeRole.role")}
-          </span>
           <RoleSelect
             className="w-full"
             id={`change-role-${user.id}`}

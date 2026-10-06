@@ -21,6 +21,7 @@ interface SelectOption<Value extends string = string> {
 }
 
 interface SelectProps<Value extends string = string> {
+  readonly size?: "default" | "sm";
   readonly value: Value;
   readonly onValueChange: (value: Value) => void;
   readonly options: readonly SelectOption<Value>[];
@@ -60,6 +61,7 @@ function fromRadixValue(value: string): string {
  * mit duplizierten Klassen zu pflegen.
  */
 export function Select<Value extends string = string>({
+  size = "sm",
   value,
   onValueChange,
   options,
@@ -88,7 +90,10 @@ export function Select<Value extends string = string>({
         id={id}
         aria-label={ariaLabel}
         className={cn(
-          "inline-flex h-9 max-w-full items-center justify-between gap-2 rounded-lg bg-card px-2.5 text-xs font-medium text-foreground shadow-xs outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-60",
+          "inline-flex max-w-full items-center justify-between gap-2 bg-surface font-medium text-foreground shadow-xs outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-60",
+          size === "default"
+            ? "h-11 rounded-xl px-4 text-base xl:h-9 xl:px-3 xl:text-sm"
+            : "h-9 rounded-lg px-2.5 text-xs",
           className,
         )}
       >
@@ -122,7 +127,7 @@ export function Select<Value extends string = string>({
                 value={toRadixValue(option.value)}
                 disabled={option.disabled}
                 className={cn(
-                  "flex min-h-8 cursor-pointer items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-foreground outline-none select-none data-disabled:pointer-events-none data-disabled:opacity-50 data-highlighted:bg-muted",
+                  "flex min-h-8 cursor-pointer items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-foreground outline-none data-disabled:pointer-events-none data-disabled:opacity-50 data-highlighted:bg-muted",
                   option.description && "items-start py-2",
                 )}
               >

@@ -7,6 +7,7 @@
 
   --color-background: #f2f4f7;
   --color-surface: #ffffff;
+  --color-surface-hover: #f6f7f9;
   --color-card: #ffffff;
   --color-sidebar: #f2f4f7;
   --color-sidebar-hover: #e8ebf0;
@@ -20,6 +21,10 @@
   --color-primary-foreground: #ffffff;
   --color-destructive: #c5322b;
   --color-success: #047857;
+  --color-success-dot: #10b981;
+  --color-success-subtle: #ecfdf5;
+  --color-info: #1d4ed8;
+  --color-warning-subtle: #fffbeb;
   --color-warning: #b45309;
   --color-ring: #f97316;
 
@@ -42,6 +47,8 @@
   --radius-lg: 0.75rem;
   --radius-xl: 1rem;
   --radius-2xl: 1.25rem;
+  --radius-3xl: 1.5rem;
+  --shadow-xs: 0 1px 2px rgb(23 23 23 / 5%);
 
   --shadow-card:
     0 1px 2px rgb(23 23 23 / 3%), 0 12px 32px -8px rgb(23 23 23 / 8%);
@@ -69,6 +76,7 @@
   --primary-foreground: #ffffff;
   --destructive: #c5322b;
   --background-channels: 242 244 247;
+  --surface-channels: 255 255 255;
   --panel-body-channels: 247 248 250;
 
   /* Standardfarbe aller Scroll-Fades; einzelne Container überschreiben sie. */
@@ -90,6 +98,8 @@
   }
 
   body {
+    user-select: none;
+    -webkit-touch-callout: none;
     min-height: 100vh;
     margin: 0;
     color: var(--foreground);
@@ -120,6 +130,10 @@
 }
 
 @layer utilities {
+  .pages-page-fill {
+    height: calc(100dvh - 8.5rem);
+    min-height: 20rem;
+  }
   /* Inhalt des Nutzers in einem nicht markierbaren Bereich (DESIGN.md §10.1). */
   .pages-selectable {
     user-select: text;
@@ -155,19 +169,15 @@
   }
 
   .pages-content-card {
-    background: var(--surface);
-    border-radius: 1.25rem;
-    box-shadow:
-      0 1px 2px rgb(23 23 23 / 3%),
-      0 12px 32px -8px rgb(23 23 23 / 8%);
+    background: var(--color-surface);
+    border-radius: var(--radius-2xl);
+    box-shadow: var(--shadow-card);
   }
 
   .pages-floating-panel {
-    background: var(--surface);
-    border-radius: 1rem;
-    box-shadow:
-      0 8px 28px rgb(23 23 23 / 10%),
-      0 2px 8px rgb(23 23 23 / 6%);
+    background: var(--color-surface);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-panel);
   }
 
   /* Dezente Scrollbar, damit horizontales Scrollen sichtbar bleibt,

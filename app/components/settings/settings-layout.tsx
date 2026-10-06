@@ -32,7 +32,7 @@ export function SettingsSectionHeader({
   readonly description?: string;
 }): React.ReactElement {
   return (
-    <div className="sticky top-0 z-10 -mx-2 mb-4 bg-gradient-to-b from-background from-55% via-background/90 via-78% to-transparent px-2 pt-3 pb-2 select-none">
+    <div className="sticky top-0 z-10 -mx-2 mb-4 bg-gradient-to-b from-background from-55% via-background/90 via-78% to-transparent px-2 pt-3 pb-2">
       <div className="flex items-center gap-3">
         <span
           className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary-subtle text-primary"
@@ -78,10 +78,8 @@ export function SettingsCard({
             {icon}
           </span>
           <div className="min-w-0">
-            <h3 className="select-none text-base font-semibold text-foreground">
-              {title}
-            </h3>
-            <p className="mt-0.5 select-none text-sm leading-relaxed text-muted-foreground">
+            <h3 className="text-base font-semibold text-foreground">{title}</h3>
+            <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">
               {description}
             </p>
           </div>
@@ -101,8 +99,8 @@ export function ProfileRow({
 }: ProfileRowProps): React.ReactElement {
   return (
     <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
-      <dt className="select-none text-sm text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 text-sm font-medium text-foreground">
+      <dt className="text-sm text-muted-foreground">{label}</dt>
+      <dd className="pages-selectable min-w-0 text-sm font-medium text-foreground">
         {children}
       </dd>
     </div>
@@ -116,7 +114,7 @@ export function ControlRow({
 }: ControlRowProps): React.ReactElement {
   return (
     <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
-      <span className="select-none text-sm text-muted-foreground">{label}</span>
+      <span className="text-sm text-muted-foreground">{label}</span>
       <div className="min-w-0 sm:w-64 sm:max-w-full">{children}</div>
     </div>
   );
