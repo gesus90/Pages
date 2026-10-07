@@ -2,6 +2,7 @@ import { CalendarDays, MoreHorizontal, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 
+import { useRegionFormatter } from "@/app/components/common/region-provider";
 import { ProjectIcon } from "@/app/components/projects/overview/project-icon";
 import { ProjectStatusBadge } from "@/app/components/projects/overview/project-status-badge";
 import { ProjectDepartmentChips } from "@/app/components/projects/project-department-chips";
@@ -15,6 +16,7 @@ interface ProjectCardProps {
 /** Renders a project of the overview as a card that links to its page. */
 export function ProjectCard({ project }: ProjectCardProps): React.ReactElement {
   const { t } = useTranslation();
+  const { formatDate, formatDateTime } = useRegionFormatter();
 
   return (
     <article className="relative rounded-2xl bg-surface p-6 shadow-card transition-shadow hover:shadow-floating">
@@ -58,7 +60,7 @@ export function ProjectCard({ project }: ProjectCardProps): React.ReactElement {
           <ProjectStatusBadge status={project.status} />
           <span className="shrink-0 text-right text-xs leading-snug text-muted-foreground">
             <span className="block">{t("projects.updatedAt")}</span>
-            <span className="block">{project.updatedAt}</span>
+            <span className="block">{formatDateTime(project.updatedAt)}</span>
           </span>
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border/60 pt-3 text-xs text-muted-foreground">
@@ -70,7 +72,7 @@ export function ProjectCard({ project }: ProjectCardProps): React.ReactElement {
           ) : null}
           <span className="inline-flex items-center gap-1.5">
             <CalendarDays className="size-3.5 shrink-0" aria-hidden="true" />
-            {t("projects.createdAt")} {project.createdAt}
+            {t("projects.createdAt")} {formatDate(project.createdAt)}
           </span>
         </div>
       </div>

@@ -15,7 +15,17 @@ function renderSection(
 ): void {
   const Stub = createRoutesStub([
     {
-      Component: () => <SystemSection port={3000} />,
+      Component: () => (
+        <SystemSection
+          branding={{ companyName: "Muster GmbH", logoUrl: null }}
+          port={3000}
+          status={{
+            databasePath: "/data/pages.duckdb",
+            startedAt: "2026-10-07T08:00:00.000Z",
+            version: "9.9.9",
+          }}
+        />
+      ),
       action: async ({ request }) =>
         respond(String((await request.formData()).get("port"))),
       path: "/settings",

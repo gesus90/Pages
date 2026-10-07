@@ -10,6 +10,7 @@ import {
 import { AuthFooter } from "@/app/components/auth/auth-footer";
 import { AuthHeading } from "@/app/components/auth/auth-heading";
 import { AuthLayout } from "@/app/components/auth/auth-layout";
+import { InstanceBrand } from "@/app/components/common/instance-brand";
 import { LanguageSwitcher } from "@/app/components/login/language-switcher";
 import { LoginForm } from "@/app/components/login/login-form";
 import { LoginSetupHint } from "@/app/components/login/login-setup-hint";
@@ -23,6 +24,7 @@ import { TooManyLoginAttemptsError } from "@/backend/auth/LoginThrottle";
 
 import type { LoginFormError } from "@/app/components/login/login-form";
 import type { LoginResult } from "@/backend/auth/AuthService";
+import type { InstanceBranding } from "@/definition/Instance";
 
 import type { Language } from "@/language/Language";
 import type { Route } from "./+types/login";
@@ -30,6 +32,8 @@ import type { Route } from "./+types/login";
 /** Data the login page needs when it renders instead of redirecting. */
 interface LoginLoaderData {
   readonly language: Language;
+  /** Company name and logo, shown to visitors without a session. */
+  readonly branding: InstanceBranding;
 }
 
 interface LoginActionData {
@@ -54,7 +58,12 @@ export async function loader({
     return redirect("/dashboard");
   }
 
-  return { language: await resolveAnonymousLanguage(request) };
+  const services = await getApplicationServices();
+
+  return {
+    branding: await services.instanceSettingsService.getBranding(),
+    language: await resolveAnonymousLanguage(request),
+  };
 }
 
 /** Validates credentials and creates a persistent browser session. */
@@ -120,7 +129,7 @@ export async function action({
 /** Renders the Pages sign-in form backed by the route action. */
 export default function LoginRoute(): React.ReactElement {
   const { t } = useTranslation();
-  const { language } = useLoaderData<typeof loader>();
+  const { branding, language } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
@@ -130,6 +139,7 @@ export default function LoginRoute(): React.ReactElement {
       header={<LanguageSwitcher language={language} redirectTo="/login" />}
       footer={<AuthFooter />}
     >
+      <InstanceBrand branding={branding} className="mb-6" isCentered />
       <AuthHeading title={t("login.title")} subtitle={t("login.subtitle")} />
       <LoginForm error={actionData?.error} isSubmitting={isSubmitting} />
       <LoginSetupHint />

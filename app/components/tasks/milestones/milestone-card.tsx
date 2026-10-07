@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 
+import { useRegionFormatter } from "@/app/components/common/region-provider";
 import { getMilestoneProgress } from "@/app/components/projects/project-progress";
 
 import { MilestoneTaskList } from "./milestone-task-list";
@@ -25,6 +26,7 @@ export function MilestoneCard({
   onShowMore,
 }: MilestoneCardProps): React.ReactElement {
   const { t } = useTranslation();
+  const { formatDate } = useRegionFormatter();
   const progress = getMilestoneProgress(milestone.id, workItems);
   const assignedTasks = workItems.filter(
     (item) => item.milestoneId === milestone.id,
@@ -38,7 +40,9 @@ export function MilestoneCard({
             {milestone.name}
           </h2>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {milestone.dueAt ?? t("tasks.milestones.noDueDate")}
+            {milestone.dueAt
+              ? formatDate(milestone.dueAt)
+              : t("tasks.milestones.noDueDate")}
           </p>
         </div>
         <span className="shrink-0 text-lg font-bold text-foreground">

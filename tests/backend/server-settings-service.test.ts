@@ -11,6 +11,7 @@ import {
   ServerSettingsService,
 } from "@/backend/service/ServerSettingsService";
 import { ROLE } from "@/definition/Role";
+import { PAGES_VERSION } from "@/definition/Version";
 
 import type { User } from "@/definition/User";
 
@@ -77,5 +78,27 @@ describe("ServerSettingsService", () => {
     await expect(
       service.updatePort(createUser(ROLE.EMPLOYEE), 8080),
     ).rejects.toThrow(ServerSettingsDeniedError);
+  });
+
+  it("reports version, database file, and start time", async () => {
+    await configFile.write({
+      databasePath: "/data/pages.duckdb",
+      firstRun: false,
+      port: 3000,
+    });
+
+    const status = await service.readStatus();
+
+    expect(status.version).toBe(PAGES_VERSION);
+    expect(status.databasePath).toBe("/data/pages.duckdb");
+    expect(new Date(status.startedAt).getTime()).toBeLessThanOrEqual(
+      Date.now(),
+    );
+  });
+
+  it("reports no database file before the setup", async () => {
+    await expect(service.readStatus()).resolves.toMatchObject({
+      databasePath: null,
+    });
   });
 });

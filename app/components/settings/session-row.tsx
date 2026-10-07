@@ -1,6 +1,7 @@
 import { Laptop, MoreHorizontal, Smartphone } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { useRegionFormatter } from "@/app/components/common/region-provider";
 import { Button } from "@/app/components/ui/button";
 import {
   DropdownMenu,
@@ -9,27 +10,25 @@ import {
   DropdownMenuTrigger,
 } from "@/app/components/ui/dropdown-menu";
 
+import { parseInstant } from "@/app/lib/region-format";
+
+import type { RegionFormatter } from "@/app/components/common/region-provider";
 import type { SessionSummary } from "@/definition/Session";
 import type { TFunction } from "i18next";
 
-/** Converts a stored UTC timestamp (`utc_now()` text) into a JavaScript date. */
-function parseDatabaseTimestamp(value: string): Date {
-  return new Date(
-    value.includes("T") ? `${value}Z` : `${value.replace(" ", "T")}Z`,
-  );
-}
-
-/** Formats the last activity of a session in the visitor's language. */
+/** Formats the last activity of a session: how long ago, or the date of an older use. */
 function formatSessionActivity(
   value: string,
   translate: TFunction,
-  locale: string,
+  formatDateTime: RegionFormatter["formatDateTime"],
   now: Date,
 ): string {
-  const date = parseDatabaseTimestamp(value);
-  const minutes = Math.floor((now.getTime() - date.getTime()) / 60000);
+  const date = parseInstant(value);
+  const minutes = date
+    ? Math.floor((now.getTime() - date.getTime()) / 60000)
+    : 0;
 
-  if (!Number.isFinite(minutes) || minutes < 1) {
+  if (minutes < 1) {
     return translate("settings.security.sessions.activity.now");
   }
 
@@ -45,13 +44,7 @@ function formatSessionActivity(
     });
   }
 
-  return new Intl.DateTimeFormat(locale, {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
+  return formatDateTime(value);
 }
 
 /** One signed-in session with its device, last use and the way to revoke it. */
@@ -62,7 +55,8 @@ export function SessionRow({
   readonly session: SessionSummary;
   readonly onRevoke: () => void;
 }): React.ReactElement {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const { formatDateTime } = useRegionFormatter();
   const deviceLabel = [session.browser, session.operatingSystem]
     .filter((part): part is string => part !== null)
     .join(" · ");
@@ -88,7 +82,7 @@ export function SessionRow({
               {deviceLabel || t("settings.security.sessions.unknownDevice")}
             </span>
             {session.isCurrent ? (
-              <span className="inline-flex select-none items-center gap-1.5 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
                 <span
                   className="size-1.5 rounded-full bg-emerald-500"
                   aria-hidden="true"
@@ -103,7 +97,7 @@ export function SessionRow({
               : formatSessionActivity(
                   session.lastUsedAt,
                   t,
-                  i18n.language,
+                  formatDateTime,
                   new Date(),
                 )}
           </p>

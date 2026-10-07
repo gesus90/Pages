@@ -3,7 +3,7 @@ import {
   SUPPORTED_AVATAR_MIME_TYPES,
 } from "@/definition/User";
 
-const MINIMUM_IMAGE_BYTES = 12;
+import { hasImageSignature } from "./image-signature.server";
 
 /** An uploaded avatar image validated in memory, before persistence. */
 export interface AvatarUpload {
@@ -16,32 +16,6 @@ export interface AvatarUpload {
 export type AvatarUploadResult =
   | { readonly status: "ready"; readonly avatar: AvatarUpload }
   | { readonly status: "missing" | "invalid" };
-
-/** Validates that an image buffer begins with the magic bytes for its MIME type. */
-function isValidImageBytes(buffer: Buffer, mimeType: string): boolean {
-  if (buffer.length < MINIMUM_IMAGE_BYTES) {
-    return false;
-  }
-
-  if (mimeType === "image/jpeg") {
-    return buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
-  }
-
-  if (mimeType === "image/png") {
-    return (
-      buffer[0] === 0x89 &&
-      buffer[1] === 0x50 &&
-      buffer[2] === 0x4e &&
-      buffer[3] === 0x47
-    );
-  }
-
-  return (
-    mimeType === "image/webp" &&
-    buffer.toString("ascii", 0, 4) === "RIFF" &&
-    buffer.toString("ascii", 8, 12) === "WEBP"
-  );
-}
 
 /** Strips dangerous characters from an uploaded image filename. */
 function sanitizeFilename(name: string): string {
@@ -70,7 +44,7 @@ export async function parseAvatarUpload(
 
   const buffer = Buffer.from(await value.arrayBuffer());
 
-  if (!isValidImageBytes(buffer, value.type)) {
+  if (!hasImageSignature(buffer, value.type)) {
     return { status: "invalid" };
   }
 

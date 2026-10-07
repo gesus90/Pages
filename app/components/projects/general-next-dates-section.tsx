@@ -2,7 +2,7 @@ import { Calendar } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 
-import { formatDate } from "@/app/lib/project-format";
+import { useRegionFormatter } from "@/app/components/common/region-provider";
 
 import type { ProjectEvent } from "@/definition/Project";
 
@@ -17,6 +17,7 @@ export function GeneralNextDatesSection({
   events,
 }: GeneralNextDatesSectionProps): React.ReactElement {
   const { t } = useTranslation();
+  const { formatDate } = useRegionFormatter();
   const upcomingEvents = events.slice(0, MAXIMUM_LISTED_EVENTS);
 
   return (

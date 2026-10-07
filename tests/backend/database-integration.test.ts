@@ -34,6 +34,7 @@ describe("DuckDB persistence", () => {
       "departments",
       "github_external_issues",
       "github_pull_requests",
+      "instance_logo",
       "instance_settings",
       "labels",
       "managed_departments",

@@ -127,6 +127,7 @@ describe("DuckDB baseline migration", () => {
       "015_github_sync_switch.sql",
       "016_user_board_preferences.sql",
       "017_ticket_number_counter.sql",
+      "018_instance_logo.sql",
     ]);
   });
 

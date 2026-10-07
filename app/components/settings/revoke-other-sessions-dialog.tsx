@@ -39,7 +39,7 @@ export function RevokeOtherSessionsDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogTitle className="select-none text-lg font-semibold text-foreground">
+        <DialogTitle className="text-lg font-semibold text-foreground">
           {t("settings.security.sessions.endOthersTitle")}
         </DialogTitle>
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">

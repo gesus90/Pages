@@ -67,6 +67,7 @@ describe("login route loader", () => {
   beforeEach(() => {
     mockedGetUser.mockReset();
     mockedLanguage.mockReset();
+    mockedServices.mockReset();
   });
 
   it("redirects visitors with an active session", async () => {
@@ -85,6 +86,13 @@ describe("login route loader", () => {
     mockedGetUser.mockResolvedValue(null);
     mockedLanguage.mockResolvedValue(LANGUAGE.GERMAN);
 
+    const branding = { companyName: "Muster GmbH", logoUrl: null };
+    mockedServices.mockResolvedValue({
+      instanceSettingsService: {
+        getBranding: vi.fn().mockResolvedValue(branding),
+      },
+    } as unknown as Awaited<ReturnType<typeof getApplicationServices>>);
+
     const request = new Request("http://pages.invalid/login");
 
     await expect(
@@ -92,7 +100,7 @@ describe("login route loader", () => {
         params: {},
         request,
       } as unknown as Parameters<typeof loader>[0]),
-    ).resolves.toEqual({ language: LANGUAGE.GERMAN });
+    ).resolves.toEqual({ branding, language: LANGUAGE.GERMAN });
     expect(mockedLanguage).toHaveBeenCalledWith(request);
   });
 });

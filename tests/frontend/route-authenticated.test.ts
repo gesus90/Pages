@@ -11,9 +11,12 @@ import {
 import { getApplicationServices } from "@/app/lib/services.server";
 import { loader, middleware } from "@/app/routes/authenticated";
 import { PERMISSION } from "@/definition/Role";
+import { DEFAULT_USER_SETTINGS } from "@/definition/Settings";
 
 import { createUser } from "../helpers/factories";
 import { createAccess } from "../helpers/authorization";
+
+const BRANDING = { companyName: "Muster GmbH", logoUrl: null };
 
 const mockedGetServices = vi.mocked(getApplicationServices);
 
@@ -28,6 +31,15 @@ function mockPermissions(hasPermission: boolean): void {
     },
     permissionService: {
       allows: vi.fn().mockReturnValue(hasPermission),
+    },
+    instanceSettingsService: {
+      getBranding: vi.fn().mockResolvedValue(BRANDING),
+    },
+    settingsService: {
+      getUserSettings: vi.fn().mockResolvedValue({
+        ...DEFAULT_USER_SETTINGS,
+        timezone: "Europe/Berlin",
+      }),
     },
   } as unknown as Awaited<ReturnType<typeof mockedGetServices>>);
 }
@@ -59,6 +71,8 @@ describe("authenticated layout loader", () => {
     expect(result).toEqual({
       canViewProjects: true,
       canViewUsers: true,
+      branding: BRANDING,
+      region: { dateFormat: "DD.MM.YYYY", timezone: "Europe/Berlin" },
       user,
       authorizationVersion: "version",
       account: createAccess(),
@@ -83,6 +97,8 @@ describe("authenticated layout loader", () => {
       account: createAccess(),
       authorizationVersion: "version",
       canViewUsers: false,
+      branding: BRANDING,
+      region: { dateFormat: "DD.MM.YYYY", timezone: "Europe/Berlin" },
       user,
     });
   });
@@ -100,6 +116,12 @@ describe("authenticated layout loader", () => {
         navigation,
       },
       permissionService: { allows: hasPermission },
+      instanceSettingsService: {
+        getBranding: vi.fn().mockResolvedValue(BRANDING),
+      },
+      settingsService: {
+        getUserSettings: vi.fn().mockResolvedValue(DEFAULT_USER_SETTINGS),
+      },
     } as unknown as Awaited<ReturnType<typeof mockedGetServices>>);
     const context = {
       get: vi.fn().mockReturnValue(user),

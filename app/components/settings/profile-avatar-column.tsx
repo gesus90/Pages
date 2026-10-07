@@ -64,7 +64,7 @@ export function ProfileAvatarColumn({
       </div>
 
       {isEditingProfile || !canEditProfile ? (
-        <div className="mt-3 text-center select-none">
+        <div className="mt-3 text-center">
           {!canEditProfile && error ? (
             <p className="mb-2 text-xs text-destructive">{error}</p>
           ) : null}

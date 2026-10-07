@@ -122,7 +122,22 @@ pnpm start --config /srv/pages/config.toml # another configuration file
 
 The default port is 3000. If the port is taken, Pages names it and stops
 instead of moving to another one. Administrators can change the stored port
-under *Settings → System*; it applies after the next restart.
+under *Settings → System*; it applies after the next restart. A port given
+with `--port` replaces the stored one for good.
+
+*Settings → System* is open to administrators in the admin mode. Besides the
+port it holds the company name and logo (JPEG, PNG, WebP, or SVG up to 2 MB;
+SVG files with scripts or outside references are rejected), which Pages shows
+in the navigation and on the sign-in page, and a read-only status with the
+version, the database file, and the start time. The sign-in page and the logo
+are reachable without a session, so restrict who may open Pages with your
+firewall or reverse proxy.
+
+Reverse proxies and uptime monitors can poll `/health` without signing in. It
+answers `200` with `{"status":"ok"}` while the database responds,
+`{"status":"setup"}` while the setup is pending, and `503` with
+`{"status":"unavailable"}` when the database fails or takes longer than three
+seconds. It names neither a version nor a path.
 
 While `firstRun = true`, every page leads to the setup wizard. Pages prints a
 one-time setup link with a token to the server console, for example

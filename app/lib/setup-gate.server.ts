@@ -6,8 +6,9 @@ import type { MiddlewareFunction } from "react-router";
 
 /** Paths that stay reachable while the setup is pending. */
 const PATHS_DURING_SETUP: ReadonlySet<string> = new Set([
-  "/setup",
+  "/health",
   "/set-language",
+  "/setup",
 ]);
 
 const DATA_REQUEST_SUFFIX = ".data";

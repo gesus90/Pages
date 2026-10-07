@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigation, useSubmit } from "react-router";
 
+import { showSuccessToast } from "@/app/components/ui/toast";
 import { USER_NOTIFICATION_KEYS } from "@/definition/Settings";
 
 import type { UserNotificationKey, UserSettings } from "@/definition/Settings";
@@ -39,14 +41,27 @@ function createSettingsFormData(settings: UserSettings): FormData {
  *
  * @remarks
  * Changes show immediately; the stored settings replace them as soon as the
- * navigation is idle again, which also reverts a rejected change.
+ * navigation is idle again, which also reverts a rejected change. A stored
+ * change is announced once, so screen reader users learn about it as well.
  */
 export function useUserSettings(
   loadedSettings: UserSettings,
 ): UserSettingsState {
   const submit = useSubmit();
   const navigation = useNavigation();
+  const { t } = useTranslation();
   const [settings, setSettings] = useState<UserSettings>(loadedSettings);
+  const wasSaving = useRef(false);
+  const isSaving = navigation.formData?.get("intent") === "update-settings";
+
+  useEffect(() => {
+    if (isSaving) {
+      wasSaving.current = true;
+    } else if (wasSaving.current && navigation.state === "idle") {
+      wasSaving.current = false;
+      showSuccessToast(t("settings.saved"));
+    }
+  }, [isSaving, navigation.state, t]);
 
   useEffect(() => {
     if (navigation.state === "idle") {

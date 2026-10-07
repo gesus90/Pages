@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 
+import { useRegionFormatter } from "@/app/components/common/region-provider";
 import {
   TaskPriorityBadge,
   TaskStatusBadge,
@@ -26,6 +27,7 @@ export function TasksListRow({
   onOpenTask,
 }: TasksListRowProps): React.ReactElement {
   const { t } = useTranslation();
+  const { formatDate } = useRegionFormatter();
 
   return (
     <tr
@@ -70,7 +72,7 @@ export function TasksListRow({
         <TaskLabelList labels={labels} maxVisible={2} />
       </td>
       <td className="px-3 py-3 whitespace-nowrap text-muted-foreground">
-        {item.dueAt ?? "—"}
+        {item.dueAt ? formatDate(item.dueAt) : "—"}
       </td>
     </tr>
   );

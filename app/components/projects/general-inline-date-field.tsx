@@ -1,9 +1,9 @@
 import { Calendar } from "lucide-react";
 import { useState } from "react";
 
+import { useRegionFormatter } from "@/app/components/common/region-provider";
 import { Input } from "@/app/components/ui/input";
 import { focusOnMount } from "@/app/lib/focus-on-mount";
-import { formatDate } from "@/app/lib/project-format";
 
 import type { ChangeEvent, KeyboardEvent } from "react";
 
@@ -19,6 +19,7 @@ export function InlineDateField({
   label,
   onCommit,
 }: InlineDateFieldProps): React.ReactElement {
+  const { formatDate } = useRegionFormatter();
   const [isEditing, setIsEditing] = useState(false);
 
   function handleOpen(): void {

@@ -12,11 +12,17 @@ export default [
   route("logout", "routes/logout.tsx"),
   route("set-language", "routes/set-language.tsx"),
   route("setup", "routes/setup.tsx"),
+  route("health", "routes/health.ts"),
+  route("instance-logo", "routes/instance-logo.ts"),
   layout("routes/authenticated.tsx", [
     route("account-version", "routes/account-version.ts"),
     route("dashboard", "routes/dashboard.tsx"),
     route("users", "routes/users.tsx"),
-    route("settings", "routes/settings.tsx"),
+    route("settings", "routes/settings.tsx", [
+      index("routes/settings-index.ts"),
+      route("profile", "routes/settings-profile.tsx"),
+      route("system", "routes/settings-system.tsx"),
+    ]),
     route("projekte", "routes/projects.tsx"),
     route("projekte/:projectId", "routes/project-detail.tsx"),
     route("projekte/:projectId/icon", "routes/project-icon.ts"),

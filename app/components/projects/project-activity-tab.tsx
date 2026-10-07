@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { useRegionFormatter } from "@/app/components/common/region-provider";
+
 import { ActivityFilters } from "./activity/activity-filters";
 import {
   ALL_ACTIVITIES,
@@ -24,6 +26,7 @@ export function ProjectActivityTab({
   taskHistory,
 }: ProjectActivityTabProps): React.ReactElement {
   const { t } = useTranslation();
+  const { formatDateTime } = useRegionFormatter();
   const [filter, setFilter] = useState<ActivityFilter>({
     category: ALL_ACTIVITIES,
     person: ALL_ACTIVITIES,
@@ -47,8 +50,8 @@ export function ProjectActivityTab({
               key={entry.id}
               className="flex gap-4 rounded-xl bg-surface px-4 py-3 text-sm shadow-card"
             >
-              <span className="w-28 shrink-0 text-xs text-muted-foreground">
-                {entry.createdAt}
+              <span className="w-32 shrink-0 text-xs text-muted-foreground">
+                {formatDateTime(entry.createdAt)}
               </span>
               <span className="min-w-0">
                 {entry.userName ? (

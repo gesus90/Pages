@@ -12,6 +12,7 @@ import { SessionRepository } from "@/backend/database/repositories/SessionReposi
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { AdministrationService } from "@/backend/service/AdministrationService";
 import { GroupAdministrationService } from "@/backend/service/GroupAdministrationService";
+import { InstanceSettingsRepository } from "@/backend/database/repositories/InstanceSettingsRepository";
 import { GitHubRepository } from "@/backend/database/repositories/GitHubRepository";
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import { TaskRepository } from "@/backend/database/repositories/TaskRepository";
@@ -20,6 +21,8 @@ import { UserRepository } from "@/backend/database/repositories/UserRepository";
 import { UserBoardPreferencesRepository } from "@/backend/database/repositories/UserBoardPreferencesRepository";
 import { UserSettingsRepository } from "@/backend/database/repositories/UserSettingsRepository";
 import { BoardPreferencesService } from "@/backend/service/BoardPreferencesService";
+import { HealthService } from "@/backend/service/HealthService";
+import { InstanceSettingsService } from "@/backend/service/InstanceSettingsService";
 import { SettingsService } from "@/backend/service/SettingsService";
 import { GitHubSyncService } from "@/backend/service/GitHubSyncService";
 import { ProjectService } from "@/backend/service/ProjectService";
@@ -37,6 +40,8 @@ export interface ApplicationServices {
   readonly sessionService: SessionService;
   readonly userService: UserService;
   readonly boardPreferencesService: BoardPreferencesService;
+  readonly healthService: HealthService;
+  readonly instanceSettingsService: InstanceSettingsService;
   readonly settingsService: SettingsService;
   readonly projectService: ProjectService;
   readonly taskService: TaskService;
@@ -170,6 +175,11 @@ async function initializeServices(
     boardPreferencesService,
     gitHubSyncService,
     groupAdministrationService,
+    healthService: new HealthService(database),
+    instanceSettingsService: new InstanceSettingsService(
+      new InstanceSettingsRepository(database),
+      permissionService,
+    ),
     passwordHasher,
     permissionService,
     projectService,

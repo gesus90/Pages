@@ -401,6 +401,7 @@ function verifySourceColumns(
  * The project-wide GitHub switch came with A4; transferred connections stay active.
  * The ticket number counter came with the A4 follow-up; it starts at 0 after
  * the copy and rises with the tickets on the first allocation.
+ * The company logo came with A5; SQLite has none.
  */
 async function readTargetColumns(
   target: Database,
@@ -419,7 +420,8 @@ async function readTargetColumns(
               'project_template_tags', 'user_groups', 'user_group_members',
               'work_item_templates', 'work_item_template_departments',
               'work_item_template_projects', 'work_item_template_labels',
-              'work_item_template_checklist_items', 'user_board_preferences'
+              'work_item_template_checklist_items', 'user_board_preferences',
+              'instance_logo'
           )
           AND NOT (table_name = 'users' AND column_name = 'must_change_password')
           AND NOT (table_name = 'work_items' AND column_name = 'department_id')

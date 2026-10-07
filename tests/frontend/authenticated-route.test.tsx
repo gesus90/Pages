@@ -33,8 +33,10 @@ describe("AuthenticatedRoute", () => {
     mockedLoaderData.mockReturnValue({
       account: createAccess(),
       authorizationVersion: "initial",
+      branding: { companyName: "Muster GmbH", logoUrl: null },
       canViewProjects: true,
       canViewUsers: true,
+      region: { dateFormat: "DD.MM.YYYY", timezone: null },
       user: createUser(),
     });
     const i18n = createI18n(LANGUAGE.GERMAN);

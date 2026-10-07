@@ -248,12 +248,48 @@
         "description": "Port, auf dem Pages erreichbar ist.",
         "portLabel": "Port",
         "save": "Speichern",
-        "restartHint": "Ein neuer Port gilt nach dem nächsten Neustart von Pages. Ein beim Start angegebener --port hat Vorrang.",
+        "restartHint": "Ein neuer Port gilt nach dem nächsten Neustart von Pages. Wird Pages mit --port gestartet, ersetzt dieser Wert den gespeicherten Port dauerhaft.",
         "saved": "Gespeichert. Der neue Port gilt nach dem nächsten Neustart.",
         "error": {
           "invalidPort": "Bitte eine ganze Zahl von 1 bis 65535 angeben.",
           "general": "Der Port konnte nicht gespeichert werden."
         }
+      },
+      "adminModeRequired": {
+        "title": "Admin-Modus erforderlich",
+        "description": "Die Systemeinstellungen sind nur im Admin-Modus verfügbar. Ihr Konto ist derzeit im Rollenmodus."
+      },
+      "instance": {
+        "title": "Instanz",
+        "description": "Name und Logo Ihrer Organisation. Beides erscheint in der Navigation und auf der Anmeldeseite und gilt sofort.",
+        "companyName": "Firmenname",
+        "save": "Name speichern",
+        "nameSaved": "Der Firmenname wurde gespeichert.",
+        "nameError": {
+          "invalidName": "Bitte einen Namen mit höchstens 200 Zeichen angeben.",
+          "general": "Der Firmenname konnte nicht gespeichert werden."
+        },
+        "logo": "Firmenlogo",
+        "logoPreview": "Aktuelles Firmenlogo",
+        "noLogo": "Noch kein Logo hochgeladen.",
+        "upload": "Logo hochladen",
+        "removeLogo": "Logo entfernen",
+        "logoHint": "JPEG, PNG, WebP oder SVG, höchstens {{size}} MB. SVG-Dateien mit Skripten oder Verweisen nach außen werden abgelehnt.",
+        "logoSaved": "Das Logo wurde gespeichert.",
+        "logoRemoved": "Das Logo wurde entfernt.",
+        "logoError": {
+          "missing": "Bitte zuerst eine Datei auswählen.",
+          "invalidLogo": "Die Datei ist kein gültiges Logo (JPEG, PNG, WebP oder sicheres SVG bis {{size}} MB).",
+          "general": "Das Logo konnte nicht gespeichert werden."
+        }
+      },
+      "status": {
+        "title": "Status",
+        "description": "Angaben zur laufenden Instanz. Sie lassen sich hier nicht ändern.",
+        "version": "Version",
+        "databasePath": "Datenbankdatei",
+        "startedAt": "Läuft seit",
+        "unknown": "Unbekannt"
       }
     },
     "profile": {
@@ -279,7 +315,8 @@
         "forbidden": "Sie sind nicht berechtigt, diese Aktion auszuführen.",
         "lastAdministrator": "Dem letzten aktiven Administrator kann die Administratorrolle nicht entzogen werden.",
         "general": "Das Profil konnte nicht gespeichert werden."
-      }
+      },
+      "adminModeHint": "Zum Bearbeiten wechseln Sie oben in den Admin-Modus."
     },
     "notifications": {
       "title": "Benachrichtigungen",
@@ -307,7 +344,8 @@
       "weeklySummary": {
         "title": "Wochenzusammenfassung",
         "description": "Eine Übersicht Ihrer Aktivitäten per E-Mail."
-      }
+      },
+      "deliveryPending": "Der Versand folgt in einer späteren Version. Ihre Auswahl wird schon jetzt gespeichert."
     },
     "security": {
       "title": "Sicherheit",
@@ -360,13 +398,20 @@
       "dateFormat": "Datumsformat",
       "weekStart": "Wochenstart",
       "weekStartMonday": "Montag",
-      "weekStartSunday": "Sonntag"
+      "weekStartSunday": "Sonntag",
+      "weekStartPending": "Der Wochenstart wird gespeichert und wirkt in einer späteren Version, sobald die Planung ihn nutzt."
     },
     "language": {
       "label": "Sprache",
       "de": "Deutsch",
       "en": "English"
-    }
+    },
+    "navigation": {
+      "label": "Einstellungsbereiche",
+      "personal": "Persönlich",
+      "system": "System"
+    },
+    "saved": "Einstellungen gespeichert."
   },
   "users": {
     "fields": {

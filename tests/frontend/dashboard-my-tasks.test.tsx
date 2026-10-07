@@ -4,22 +4,27 @@ import { describe, expect, it } from "vitest";
 
 import { I18nextProvider } from "react-i18next";
 
+import { RegionProvider } from "@/app/components/common/region-provider";
 import { createI18n } from "@/app/lib/i18n";
 import { LANGUAGE } from "@/language/Language";
 import { DashboardMyTasks } from "@/app/components/dashboard/dashboard-my-tasks";
 
+import type { RegionPreferences } from "@/app/components/common/region-provider";
 import type { Language } from "@/language/Language";
 import type { DashboardMyTask } from "@/app/components/dashboard/dashboard-my-tasks";
 
 function renderTasks(
   tasks: readonly DashboardMyTask[],
   language: Language = LANGUAGE.GERMAN,
+  region: RegionPreferences = { dateFormat: "DD.MM.YYYY", timezone: "UTC" },
 ): void {
   const i18n = createI18n(language);
 
   render(
     <I18nextProvider i18n={i18n}>
-      <DashboardMyTasks tasks={tasks} />
+      <RegionProvider region={region}>
+        <DashboardMyTasks tasks={tasks} />
+      </RegionProvider>
     </I18nextProvider>,
   );
 }
@@ -62,19 +67,19 @@ describe("DashboardMyTasks", () => {
     expect(screen.getByText("Atlas")).toBeInTheDocument();
   });
 
-  it("formats due dates in the german locale for non-today tasks", () => {
-    renderTasks([createTask({ dueAt: "2026-03-15T10:00:00.000Z" })]);
+  it("writes due dates in the date format of the user", () => {
+    renderTasks([createTask({ dueAt: "2026-03-15" })]);
 
-    expect(screen.getByText("15. März 2026")).toBeInTheDocument();
+    expect(screen.getByText("15.03.2026")).toBeInTheDocument();
   });
 
-  it("formats due dates in the english locale when language is en", () => {
-    renderTasks(
-      [createTask({ dueAt: "2026-03-15T10:00:00.000Z" })],
-      LANGUAGE.ENGLISH,
-    );
+  it("follows another date format whatever the language is", () => {
+    renderTasks([createTask({ dueAt: "2026-03-15" })], LANGUAGE.ENGLISH, {
+      dateFormat: "MM/DD/YYYY",
+      timezone: "UTC",
+    });
 
-    expect(screen.getByText("15 Mar 2026")).toBeInTheDocument();
+    expect(screen.getByText("03/15/2026")).toBeInTheDocument();
   });
 
   it("shows the today label for tasks due today", () => {

@@ -21,10 +21,7 @@ export function PasswordField({
   return (
     <>
       <label
-        className={cn(
-          labelClassName,
-          "select-none text-sm font-medium text-foreground",
-        )}
+        className={cn(labelClassName, "text-sm font-medium text-foreground")}
         htmlFor={id}
       >
         {label}

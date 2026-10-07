@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 
+import { useRegionFormatter } from "@/app/components/common/region-provider";
 import { cn } from "@/app/lib/cn";
 
 /** A single task row shown in the "My tasks" panel. */
@@ -25,17 +26,8 @@ interface DashboardMyTasksProps {
 export function DashboardMyTasks({
   tasks,
 }: DashboardMyTasksProps): React.ReactElement {
-  const { t, i18n } = useTranslation();
-
-  function formatDueDate(dueAt: string): string {
-    const locale = i18n.language === "en" ? "en-GB" : "de-DE";
-
-    return new Intl.DateTimeFormat(locale, {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    }).format(new Date(dueAt));
-  }
+  const { t } = useTranslation();
+  const { formatDate } = useRegionFormatter();
 
   function formatDueLabel(task: DashboardMyTask): string {
     if (task.dueAt === null) {
@@ -46,7 +38,7 @@ export function DashboardMyTasks({
       return t("dashboard.myTasks.today");
     }
 
-    return formatDueDate(task.dueAt);
+    return formatDate(task.dueAt);
   }
 
   if (tasks.length === 0) {

@@ -25,7 +25,7 @@ import {
 import { createI18n } from "@/app/lib/i18n";
 import { LANGUAGE } from "@/language/Language";
 import ProjectRoute from "@/app/routes/project";
-import SettingsRoute from "@/app/routes/settings";
+import SettingsRoute from "@/app/routes/settings-profile";
 import WikiRoute from "@/app/routes/wiki";
 
 import { createSettingsLoaderData } from "../helpers/settings-loader-data";
@@ -55,7 +55,7 @@ describe("future route boundaries", () => {
     renderWithRouter(<SettingsRoute />);
 
     expect(
-      screen.getByRole("heading", { name: "Einstellungen" }),
+      screen.getByRole("heading", { name: "Persönlicher Bereich" }),
     ).toBeVisible();
     expect(screen.getByRole("combobox", { name: "Sprache" })).toBeVisible();
   });

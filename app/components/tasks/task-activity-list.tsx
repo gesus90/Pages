@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
 
+import { useRegionFormatter } from "@/app/components/common/region-provider";
+
 import type { WorkItemHistory } from "@/definition/Task";
 
 interface TaskActivityListProps {
@@ -11,6 +13,7 @@ export function TaskActivityList({
   history,
 }: TaskActivityListProps): React.ReactElement {
   const { t } = useTranslation();
+  const { formatDateTime } = useRegionFormatter();
 
   if (history.length === 0) {
     return (
@@ -33,7 +36,7 @@ export function TaskActivityList({
             })}
           </p>
           <span className="mt-1 block text-[11px] text-muted-foreground">
-            {record.createdAt}
+            {formatDateTime(record.createdAt)}
           </span>
         </li>
       ))}

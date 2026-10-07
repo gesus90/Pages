@@ -16,6 +16,11 @@ vi.mock("react-router", async (importOriginal) => {
   };
 });
 
+vi.mock("@/app/components/ui/toast", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/app/components/ui/toast")>()),
+  showSuccessToast: vi.fn(),
+}));
+
 import { I18nextProvider } from "react-i18next";
 import {
   createMemoryRouter,
@@ -26,13 +31,15 @@ import {
   useSubmit,
 } from "react-router";
 
+import { showSuccessToast } from "@/app/components/ui/toast";
 import { createI18n } from "@/app/lib/i18n";
-import SettingsRoute from "@/app/routes/settings";
+import SettingsRoute from "@/app/routes/settings-profile";
 import { ProfileDetails } from "@/app/components/settings/profile/profile-details";
 import { ROLE } from "@/definition/Role";
 import { DEFAULT_USER_SETTINGS } from "@/definition/Settings";
 import { LANGUAGE } from "@/language/Language";
 
+import { createAccess } from "../helpers/authorization";
 import { createSettingsLoaderData } from "../helpers/settings-loader-data";
 import { createUser } from "../helpers/factories";
 
@@ -233,21 +240,67 @@ describe("settings screen flows", () => {
       expect(submittedFields(submit)).toMatchObject({ timezone: "" });
     });
 
-    it("shows the system section to administrators only", () => {
+    it("says that the week start follows later", () => {
       renderSettings();
 
-      expect(screen.getByText("Systembereich")).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /Der Wochenstart wird gespeichert und wirkt in einer späteren Version/,
+        ),
+      ).toBeInTheDocument();
     });
 
-    it("hides the system section from everyone else", () => {
-      renderSettings({
-        assignableRoles: [],
-        canEditProfile: false,
-        serverPort: null,
-        user: EMPLOYEE,
-      });
+    it("keeps the system settings out of the personal area", () => {
+      renderSettings();
 
       expect(screen.queryByText("Systembereich")).toBeNull();
+    });
+
+    it("points an administrator in the role mode to the admin mode for editing", () => {
+      renderSettings({
+        account: createAccess({ isAdmin: true, mode: "role" }),
+        canEditProfile: false,
+      });
+
+      expect(
+        screen.getByText(/wechseln Sie oben in den Admin-Modus/),
+      ).toBeInTheDocument();
+    });
+
+    it("gives the switches a description a screen reader reads", () => {
+      renderSettings();
+
+      const [firstSwitch] = screen.getAllByRole("switch");
+
+      expect(firstSwitch).toHaveAccessibleDescription(
+        "Wichtige Updates per E-Mail erhalten.",
+      );
+    });
+
+    it("says that the notification delivery follows later", () => {
+      renderSettings();
+
+      expect(
+        screen.getByText(/Der Versand folgt in einer späteren Version/),
+      ).toBeInTheDocument();
+    });
+
+    it("announces stored preferences once", () => {
+      const harness = renderSettings();
+
+      harness.update({
+        navigation: {
+          formData: new URLSearchParams({ intent: "update-settings" }),
+          state: "submitting",
+        },
+      });
+      harness.update({ navigation: { state: "idle" } });
+      harness.update({ navigation: { state: "idle" } });
+
+      expect(showSuccessToast).toHaveBeenCalledTimes(1);
+      expect(showSuccessToast).toHaveBeenCalledWith(
+        "Einstellungen gespeichert.",
+      );
     });
   });
 

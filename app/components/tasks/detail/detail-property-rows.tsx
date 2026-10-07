@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { useRegionFormatter } from "@/app/components/common/region-provider";
 import { useAssigneeOptions } from "@/app/components/tasks/assignee-options";
 import { GitHubSyncBadge } from "@/app/components/tasks/github-sync-badge";
 import { TicketDepartmentSelect } from "@/app/components/tasks/ticket-department-select";
@@ -177,6 +178,7 @@ export function StatusRows({
   isSyncing,
 }: StatusRowsProps): React.ReactElement {
   const { t } = useTranslation();
+  const { formatDateTime } = useRegionFormatter();
 
   return (
     <>
@@ -211,11 +213,15 @@ export function StatusRows({
       </div>
       <div className="flex items-center justify-between gap-3">
         <dt className="text-muted-foreground">{t("tasks.detail.createdAt")}</dt>
-        <dd className="font-medium text-foreground">{task.createdAt}</dd>
+        <dd className="font-medium text-foreground">
+          {formatDateTime(task.createdAt)}
+        </dd>
       </div>
       <div className="flex items-center justify-between gap-3">
         <dt className="text-muted-foreground">{t("tasks.detail.updatedAt")}</dt>
-        <dd className="font-medium text-foreground">{task.updatedAt}</dd>
+        <dd className="font-medium text-foreground">
+          {formatDateTime(task.updatedAt)}
+        </dd>
       </div>
     </>
   );

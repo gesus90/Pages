@@ -60,6 +60,23 @@ export type SettingsActionData =
       readonly ok: false;
       readonly error: "invalidPort" | "general";
     }
+  | {
+      readonly intent: "update-company-name";
+      readonly ok: true;
+    }
+  | {
+      readonly intent: "update-company-name";
+      readonly ok: false;
+      readonly error: "invalidName" | "general";
+    }
+  | { readonly intent: "update-logo"; readonly ok: true }
+  | {
+      readonly intent: "update-logo";
+      readonly ok: false;
+      readonly error: "missing" | "invalidLogo" | "general";
+    }
+  | { readonly intent: "remove-logo"; readonly ok: true }
+  | { readonly intent: "remove-logo"; readonly ok: false }
   | { readonly intent: "revoke-other-sessions" }
   | { readonly intent: "revoke-session" };
 
@@ -89,4 +106,25 @@ export function badRequest(): Response {
 /** Rejects a request the signed-in user may not make. */
 export function forbidden(): Response {
   return new Response("Forbidden", { status: 403 });
+}
+
+/**
+ * Runs the handler a submitted intent names.
+ *
+ * @param handlers - Handlers by intent, the intents this route accepts.
+ * @param intent - The `intent` field of the submitted form.
+ * @param context - User, request, form fields and services of the request.
+ * @returns The response for the client.
+ * @throws A `400` response for an intent the handlers do not know.
+ */
+export async function runSettingsAction(
+  handlers: Readonly<Record<string, SettingsActionHandler>>,
+  intent: FormDataEntryValue | null,
+  context: SettingsActionContext,
+): Promise<SettingsActionResult> {
+  if (typeof intent !== "string" || !Object.hasOwn(handlers, intent)) {
+    throw badRequest();
+  }
+
+  return handlers[intent](context);
 }

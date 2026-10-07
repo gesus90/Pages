@@ -18,6 +18,8 @@ interface ProfileCardProps {
   readonly user: User;
   readonly email: string | null;
   readonly canEditProfile: boolean;
+  /** Whether the account may edit the profile after switching to the admin mode. */
+  readonly needsAdminMode?: boolean;
 }
 
 /** Renders the personal profile with administrator editing and avatar upload. */
@@ -26,6 +28,7 @@ export function ProfileCard({
   user,
   email,
   canEditProfile,
+  needsAdminMode = false,
 }: ProfileCardProps): React.ReactElement {
   const { t } = useTranslation();
   const editing = useProfileEditing({ email, user });
@@ -84,6 +87,11 @@ export function ProfileCard({
           ) : (
             <ProfileDetails user={user} email={email} roleName={roleName} />
           )}
+          {needsAdminMode ? (
+            <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+              {t("settings.profile.adminModeHint")}
+            </p>
+          ) : null}
         </div>
       </div>
     </SettingsCard>

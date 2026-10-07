@@ -69,7 +69,7 @@ export function ChangePasswordDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogTitle className="select-none text-lg font-semibold text-foreground">
+        <DialogTitle className="text-lg font-semibold text-foreground">
           {t("settings.security.password.dialogTitle")}
         </DialogTitle>
 
@@ -98,9 +98,7 @@ export function ChangePasswordDialog({
           />
 
           {errorMessage ? (
-            <p className="select-none text-sm text-destructive">
-              {errorMessage}
-            </p>
+            <p className="text-sm text-destructive">{errorMessage}</p>
           ) : null}
 
           <div className="mt-3 flex justify-end gap-2">

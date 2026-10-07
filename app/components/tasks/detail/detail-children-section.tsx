@@ -1,6 +1,7 @@
 import { CheckCircle2, Circle, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { useRegionFormatter } from "@/app/components/common/region-provider";
 import { AssigneeAvatar } from "@/app/components/tasks/assignee-avatar";
 import { DetailSection } from "@/app/components/tasks/detail-section";
 import { Button } from "@/app/components/ui/button";
@@ -28,6 +29,7 @@ export function DetailChildrenSection({
   onOpenTask,
 }: DetailChildrenSectionProps): React.ReactElement {
   const { t } = useTranslation();
+  const { formatDate } = useRegionFormatter();
   const isEpic = task.type === WORK_ITEM_TYPE.EPIC;
 
   return (
@@ -94,8 +96,8 @@ export function DetailChildrenSection({
                   {child.title}
                 </span>
                 <AssigneeAvatar item={child} />
-                <span className="w-16 shrink-0 text-right text-xs font-medium text-muted-foreground">
-                  {child.dueAt ?? ""}
+                <span className="w-20 shrink-0 text-right text-xs font-medium text-muted-foreground">
+                  {child.dueAt ? formatDate(child.dueAt) : ""}
                 </span>
               </button>
             </li>

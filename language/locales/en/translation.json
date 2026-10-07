@@ -248,12 +248,48 @@
         "description": "Port Pages can be reached on.",
         "portLabel": "Port",
         "save": "Save",
-        "restartHint": "A new port applies after Pages restarts. A --port given at start takes precedence.",
+        "restartHint": "A new port applies after Pages restarts. When Pages is started with --port, that value replaces the stored port permanently.",
         "saved": "Saved. The new port applies after the next restart.",
         "error": {
           "invalidPort": "Please enter a whole number from 1 to 65535.",
           "general": "The port could not be saved."
         }
+      },
+      "adminModeRequired": {
+        "title": "Admin mode required",
+        "description": "The system settings are only available in the admin mode. Your account is currently in the role mode."
+      },
+      "instance": {
+        "title": "Instance",
+        "description": "Name and logo of your organization. Both appear in the navigation and on the sign-in page and apply at once.",
+        "companyName": "Company name",
+        "save": "Save name",
+        "nameSaved": "The company name was saved.",
+        "nameError": {
+          "invalidName": "Please enter a name of up to 200 characters.",
+          "general": "The company name could not be saved."
+        },
+        "logo": "Company logo",
+        "logoPreview": "Current company logo",
+        "noLogo": "No logo uploaded yet.",
+        "upload": "Upload logo",
+        "removeLogo": "Remove logo",
+        "logoHint": "JPEG, PNG, WebP or SVG, up to {{size}} MB. SVG files with scripts or references to the outside are rejected.",
+        "logoSaved": "The logo was saved.",
+        "logoRemoved": "The logo was removed.",
+        "logoError": {
+          "missing": "Please choose a file first.",
+          "invalidLogo": "The file is not a valid logo (JPEG, PNG, WebP or a safe SVG up to {{size}} MB).",
+          "general": "The logo could not be saved."
+        }
+      },
+      "status": {
+        "title": "Status",
+        "description": "Details of the running instance. They cannot be changed here.",
+        "version": "Version",
+        "databasePath": "Database file",
+        "startedAt": "Running since",
+        "unknown": "Unknown"
       }
     },
     "profile": {
@@ -279,7 +315,8 @@
         "forbidden": "You are not allowed to perform this action.",
         "lastAdministrator": "The administrator role cannot be removed from the last active administrator.",
         "general": "The profile could not be saved."
-      }
+      },
+      "adminModeHint": "Switch to the admin mode above to edit it."
     },
     "notifications": {
       "title": "Notifications",
@@ -307,7 +344,8 @@
       "weeklySummary": {
         "title": "Weekly summary",
         "description": "An email overview of your activity."
-      }
+      },
+      "deliveryPending": "Delivery follows in a later version. Your choices are already stored."
     },
     "security": {
       "title": "Security",
@@ -360,13 +398,20 @@
       "dateFormat": "Date format",
       "weekStart": "Start of week",
       "weekStartMonday": "Monday",
-      "weekStartSunday": "Sunday"
+      "weekStartSunday": "Sunday",
+      "weekStartPending": "The week start is stored and takes effect in a later version, once planning uses it."
     },
     "language": {
       "label": "Language",
       "de": "Deutsch",
       "en": "English"
-    }
+    },
+    "navigation": {
+      "label": "Settings areas",
+      "personal": "Personal",
+      "system": "System"
+    },
+    "saved": "Settings saved."
   },
   "users": {
     "fields": {

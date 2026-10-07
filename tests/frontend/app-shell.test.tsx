@@ -24,15 +24,19 @@ import { createUser } from "../helpers/factories";
 import { createAccess } from "../helpers/authorization";
 import { directoryRoles } from "../helpers/administration-page";
 
+import type { InstanceBranding } from "@/definition/Instance";
 import type { User } from "@/definition/User";
 
 const mockedUseSubmit = vi.mocked(useSubmit);
+
+const NO_BRANDING: InstanceBranding = { companyName: null, logoUrl: null };
 
 function renderShell(
   user: User,
   canViewUsers = true,
   initialPath = "/dashboard",
   canViewProjects = false,
+  branding: InstanceBranding = NO_BRANDING,
 ): void {
   const submit = vi.fn().mockResolvedValue(undefined);
   mockedUseSubmit.mockReturnValue(submit);
@@ -51,6 +55,7 @@ function renderShell(
               userId: user.id,
               role: directoryRoles([user.role])[0] ?? null,
             })}
+            branding={branding}
             canViewProjects={canViewProjects}
             canViewUsers={canViewUsers}
             user={user}
@@ -82,6 +87,7 @@ describe("AppShell", () => {
           <AppShell
             user={createUser()}
             account={createAccess({ role: null })}
+            branding={NO_BRANDING}
             canViewUsers={false}
             canViewProjects={false}
             isOffline
@@ -271,5 +277,29 @@ describe("AppShell", () => {
     expect(
       screen.getAllByRole("link", { name: "Einstellungen" })[0],
     ).toHaveAttribute("aria-current", "page");
+  });
+
+  it("shows the company name and logo in the sidebar and the mobile menu", async () => {
+    renderShell(createUser(), true, "/dashboard", false, {
+      companyName: "Muster GmbH",
+      logoUrl: "/instance-logo?v=1",
+    });
+
+    expect(screen.getByText("Muster GmbH")).toBeInTheDocument();
+    expect(
+      document.querySelector('img[src="/instance-logo?v=1"]'),
+    ).not.toBeNull();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Navigation öffnen" }),
+    );
+
+    expect(screen.getAllByText("Muster GmbH")).toHaveLength(2);
+  });
+
+  it("shows nothing about the company without name and logo", () => {
+    renderShell(createUser());
+
+    expect(document.querySelector('img[src^="/instance-logo"]')).toBeNull();
   });
 });

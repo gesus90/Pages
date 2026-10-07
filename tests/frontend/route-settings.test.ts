@@ -12,17 +12,10 @@ vi.mock("@/app/lib/services.server", () => ({
   getApplicationServices: vi.fn(),
 }));
 
-vi.mock("@/backend/runtime/PagesRuntime", () => ({
-  getPagesRuntime: vi.fn(),
-}));
-
 import { getApplicationServices } from "@/app/lib/services.server";
-import { action, loader } from "@/app/routes/settings";
+import { action, loader } from "@/app/routes/settings-profile";
 import { PermissionService } from "@/backend/auth/PermissionService";
-import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 import { createAccess } from "../helpers/authorization";
-
-import type { PagesRuntime } from "@/backend/runtime/PagesRuntime";
 
 import { DEFAULT_USER_SETTINGS } from "@/definition/Settings";
 
@@ -105,15 +98,6 @@ function createPostRequest(entries: Record<string, string>): Request {
 describe("settings route loader", () => {
   beforeEach(() => {
     mockedServices.mockReset();
-    vi.mocked(getPagesRuntime).mockResolvedValue({
-      configFile: {
-        read: vi.fn().mockResolvedValue({
-          databasePath: "/data/pages.duckdb",
-          firstRun: false,
-          port: 4100,
-        }),
-      },
-    } as unknown as PagesRuntime);
   });
 
   it("returns the stored settings and profile of the authenticated user", async () => {
@@ -135,7 +119,6 @@ describe("settings route loader", () => {
       account: createAccess({ userId: user.id, isAdmin: true, mode: "admin" }),
       canEditProfile: true,
       email: "admin@example.invalid",
-      serverPort: 4100,
       sessions: [],
       settings: stored,
       user,
@@ -159,7 +142,6 @@ describe("settings route loader", () => {
 
     expect(result.canEditProfile).toBe(false);
     expect(result).not.toHaveProperty("assignableRoles");
-    expect(result.serverPort).toBeNull();
   });
 
   it("throws when the middleware did not provide a user", async () => {

@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 
-const PAGES_VERSION = "0.1.0";
+import { PAGES_VERSION } from "@/definition/Version";
 
 /** Renders the version and tagline at the bottom of the login and setup pages. */
 export function AuthFooter(): React.ReactElement {

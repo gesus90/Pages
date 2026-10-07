@@ -17,7 +17,6 @@ export interface SettingsLoaderFixture {
   readonly sessions: readonly SessionSummary[];
   readonly canEditProfile: boolean;
   readonly assignableRoles: readonly Role[];
-  readonly serverPort: number | null;
 }
 
 /**
@@ -39,7 +38,6 @@ export function createSettingsLoaderData(
     assignableRoles: [ROLE.ADMIN, ROLE.MANAGER, ROLE.EMPLOYEE],
     canEditProfile: true,
     email: "admin@example.invalid",
-    serverPort: 3000,
     sessions: [],
     settings: DEFAULT_USER_SETTINGS,
     user: {

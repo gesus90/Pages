@@ -51,6 +51,7 @@ describe("setup gate", () => {
     "http://pages.invalid/setup?token=x",
     "http://pages.invalid/setup.data",
     "http://pages.invalid/set-language",
+    "http://pages.invalid/health",
   ])("lets %s through while the setup is pending", async (url) => {
     await expect(runGate(url)).resolves.toBe("next");
   });

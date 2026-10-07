@@ -1,5 +1,6 @@
 import { DEFAULT_PORT, isValidPort } from "@/backend/config/PagesConfig";
 import { PERMISSION } from "@/definition/Role";
+import { PAGES_VERSION } from "@/definition/Version";
 
 import type { PermissionService } from "@/backend/auth/PermissionService";
 import type { ConfigFile } from "@/backend/config/ConfigFile";
@@ -11,6 +12,15 @@ export class ServerSettingsDeniedError extends Error {
     super("This user is not allowed to change the server settings.");
     this.name = "ServerSettingsDeniedError";
   }
+}
+
+/** What an administrator sees about the running instance. */
+export interface ServerStatus {
+  readonly version: string;
+  /** Database file in use; it cannot be changed here. */
+  readonly databasePath: string | null;
+  /** When this process started, as an ISO timestamp. */
+  readonly startedAt: string;
 }
 
 /**
@@ -50,6 +60,15 @@ export class ServerSettingsService {
   /** Returns the port stored for the next start. */
   public async readPort(): Promise<number> {
     return (await this.configFile.read())?.port ?? DEFAULT_PORT;
+  }
+
+  /** Returns version, database file and start time of the running process. */
+  public async readStatus(): Promise<ServerStatus> {
+    return {
+      databasePath: (await this.configFile.read())?.databasePath ?? null,
+      startedAt: new Date(Date.now() - process.uptime() * 1000).toISOString(),
+      version: PAGES_VERSION,
+    };
   }
 
   /**

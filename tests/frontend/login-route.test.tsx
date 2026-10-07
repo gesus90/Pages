@@ -28,17 +28,24 @@ import {
 import { createI18n } from "@/app/lib/i18n";
 import { LANGUAGE } from "@/language/Language";
 import LoginRoute from "@/app/routes/login";
+import { PAGES_VERSION } from "@/definition/Version";
+
+import type { InstanceBranding } from "@/definition/Instance";
 
 const mockedActionData = vi.mocked(useActionData);
 const mockedLoaderData = vi.mocked(useLoaderData);
 const mockedNavigation = vi.mocked(useNavigation);
 const mockedSubmit = vi.mocked(useSubmit);
 
-function renderLogin(actionError?: string, submitting = false): void {
+function renderLogin(
+  actionError?: string,
+  submitting = false,
+  branding: InstanceBranding = { companyName: null, logoUrl: null },
+): void {
   mockedActionData.mockReturnValue(
     actionError ? { error: actionError } : undefined,
   );
-  mockedLoaderData.mockReturnValue({ language: LANGUAGE.GERMAN });
+  mockedLoaderData.mockReturnValue({ branding, language: LANGUAGE.GERMAN });
   mockedNavigation.mockReturnValue({
     location: undefined,
     state: submitting ? "submitting" : "idle",
@@ -72,12 +79,24 @@ describe("LoginRoute", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows the company name and logo above the sign-in form", () => {
+    renderLogin(undefined, false, {
+      companyName: "Muster GmbH",
+      logoUrl: "/instance-logo?v=1",
+    });
+
+    expect(screen.getByText("Muster GmbH")).toBeInTheDocument();
+    expect(
+      document.querySelector('img[src="/instance-logo?v=1"]'),
+    ).not.toBeNull();
+  });
+
   it("renders the setup hint and version footer", () => {
     renderLogin();
 
     expect(screen.getByText("Erster Start?")).toBeInTheDocument();
     expect(screen.getByText(/einmaligen Setup-Link/)).toBeInTheDocument();
-    expect(screen.getByText("Pages v0.1.0")).toBeInTheDocument();
+    expect(screen.getByText(`Pages v${PAGES_VERSION}`)).toBeInTheDocument();
     expect(
       screen.getByText("Einfach. Organisiert. Produktiv."),
     ).toBeInTheDocument();
@@ -154,7 +173,10 @@ describe("LoginRoute", () => {
 
   it("preselects the loader language in the switcher", () => {
     mockedActionData.mockReturnValue(undefined);
-    mockedLoaderData.mockReturnValue({ language: LANGUAGE.ENGLISH });
+    mockedLoaderData.mockReturnValue({
+      branding: { companyName: null, logoUrl: null },
+      language: LANGUAGE.ENGLISH,
+    });
     mockedNavigation.mockReturnValue({
       location: undefined,
       state: "idle",
@@ -182,7 +204,10 @@ describe("LoginRoute", () => {
     const user = userEvent.setup();
     const submit = vi.fn();
     mockedActionData.mockReturnValue(undefined);
-    mockedLoaderData.mockReturnValue({ language: LANGUAGE.GERMAN });
+    mockedLoaderData.mockReturnValue({
+      branding: { companyName: null, logoUrl: null },
+      language: LANGUAGE.GERMAN,
+    });
     mockedNavigation.mockReturnValue({
       location: undefined,
       state: "idle",

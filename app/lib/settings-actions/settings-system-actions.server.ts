@@ -7,11 +7,18 @@ import {
 } from "@/backend/service/ServerSettingsService";
 import { readText } from "@/app/lib/form-fields.server";
 
-import { forbidden } from "./settings-action-support.server";
+import { forbidden, runSettingsAction } from "./settings-action-support.server";
+import {
+  handleRemoveLogo,
+  handleUpdateCompanyName,
+  handleUpdateLogo,
+} from "./settings-instance-actions.server";
+import { handleSetMode } from "./settings-mode-action.server";
 
 import type {
   SettingsActionContext,
   SettingsActionData,
+  SettingsActionHandler,
   SettingsActionResult,
 } from "./settings-action-support.server";
 
@@ -72,4 +79,28 @@ export async function handleUpdatePort(
   }
 
   return data<SettingsActionData>({ intent: "update-port", ok: true, port });
+}
+
+const SYSTEM_ACTION_HANDLERS = {
+  "remove-logo": handleRemoveLogo,
+  "set-mode": handleSetMode,
+  "update-company-name": handleUpdateCompanyName,
+  "update-logo": handleUpdateLogo,
+  "update-port": handleUpdatePort,
+} satisfies Record<string, SettingsActionHandler>;
+
+/**
+ * Runs the system settings action a form submission asks for.
+ *
+ * @param intent - The `intent` field of the submitted form.
+ * @param context - User, request, form fields and services of the request.
+ * @returns The response for the client.
+ * @throws A `400` response for an unknown intent, plus whatever the handler
+ * rejects with.
+ */
+export async function handleSystemSettingsAction(
+  intent: FormDataEntryValue | null,
+  context: SettingsActionContext,
+): Promise<SettingsActionResult> {
+  return runSettingsAction(SYSTEM_ACTION_HANDLERS, intent, context);
 }

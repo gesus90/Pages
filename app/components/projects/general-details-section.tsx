@@ -11,11 +11,11 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSubmit } from "react-router";
 
+import { useRegionFormatter } from "@/app/components/common/region-provider";
 import { EditDetailsDialog } from "@/app/components/projects/general-edit-details-dialog";
 import { InlineDateField } from "@/app/components/projects/general-inline-date-field";
 import { Button } from "@/app/components/ui/button";
 import { Select } from "@/app/components/ui/select";
-import { formatDate } from "@/app/lib/project-format";
 import { PROJECT_STATUS } from "@/definition/Project";
 
 import type {
@@ -154,6 +154,7 @@ function DateDetail({
   canWrite,
 }: DateDetailProps): React.ReactElement {
   const { t } = useTranslation();
+  const { formatDate } = useRegionFormatter();
   const submit = useSubmit();
   const label = t(`projectDetail.general.${field}`);
   const Icon = field === "startDate" ? Calendar : Flag;
@@ -203,6 +204,7 @@ export function GeneralDetailsSection({
   canWrite,
 }: GeneralDetailsSectionProps): React.ReactElement {
   const { t } = useTranslation();
+  const { formatDateTime } = useRegionFormatter();
   const [isEditOpen, setIsEditOpen] = useState(false);
 
   function handleOpenEdit(): void {
@@ -247,13 +249,17 @@ export function GeneralDetailsSection({
           icon={<Clock className="size-4 shrink-0" aria-hidden="true" />}
           label={t("projectDetail.general.createdAt")}
         >
-          <span className="text-muted-foreground">{project.createdAt}</span>
+          <span className="text-muted-foreground">
+            {formatDateTime(project.createdAt)}
+          </span>
         </DetailRow>
         <DetailRow
           icon={<History className="size-4 shrink-0" aria-hidden="true" />}
           label={t("projectDetail.general.updatedAt")}
         >
-          <span className="text-muted-foreground">{project.updatedAt}</span>
+          <span className="text-muted-foreground">
+            {formatDateTime(project.updatedAt)}
+          </span>
         </DetailRow>
       </dl>
       <EditDetailsDialog

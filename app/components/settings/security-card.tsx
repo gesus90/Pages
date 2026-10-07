@@ -41,10 +41,10 @@ export function SecurityCard({
               <KeyRound className="size-4" aria-hidden="true" />
             </span>
             <div className="min-w-0">
-              <p className="select-none text-sm font-medium text-foreground">
+              <p className="text-sm font-medium text-foreground">
                 {t("settings.security.password.title")}
               </p>
-              <p className="mt-0.5 select-none text-xs leading-relaxed text-muted-foreground">
+              <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
                 {t("settings.security.password.description")}
               </p>
             </div>
@@ -67,10 +67,10 @@ export function SecurityCard({
               <Monitor className="size-4" aria-hidden="true" />
             </span>
             <div className="min-w-0">
-              <p className="select-none text-sm font-medium text-foreground">
+              <p className="text-sm font-medium text-foreground">
                 {t("settings.security.sessions.title")}
               </p>
-              <p className="mt-0.5 select-none text-xs leading-relaxed text-muted-foreground">
+              <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
                 {t("settings.security.sessions.description")}
               </p>
             </div>

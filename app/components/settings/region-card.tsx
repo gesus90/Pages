@@ -108,6 +108,9 @@ export function RegionCard({
             value={settings.weekStart}
           />
         </ControlRow>
+        <p className="-mt-2 text-xs leading-relaxed text-muted-foreground">
+          {t("settings.region.weekStartPending")}
+        </p>
       </div>
     </SettingsCard>
   );

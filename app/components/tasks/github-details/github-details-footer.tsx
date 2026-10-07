@@ -2,6 +2,7 @@ import { ExternalLink, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Form } from "react-router";
 
+import { useRegionFormatter } from "@/app/components/common/region-provider";
 import { Button } from "@/app/components/ui/button";
 
 import type { WorkItemDetail } from "@/definition/Task";
@@ -17,12 +18,15 @@ export function GitHubDetailsFooter({
   isSyncing,
 }: GitHubDetailsFooterProps): React.ReactElement {
   const { t } = useTranslation();
+  const { formatDateTime } = useRegionFormatter();
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 pt-3">
       <span className="font-medium text-muted-foreground">
         {t("tasks.github.lastSync")}{" "}
-        {task.githubLastSyncAt ?? t("projectDetail.integrations.never")}
+        {task.githubLastSyncAt
+          ? formatDateTime(task.githubLastSyncAt)
+          : t("projectDetail.integrations.never")}
       </span>
       <div className="flex items-center gap-2">
         {task.githubIssueUrl ? (

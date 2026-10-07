@@ -29,9 +29,11 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/app/components/ui/sheet";
+import { InstanceBrand } from "@/app/components/common/instance-brand";
 import { UserAvatar } from "@/app/components/common/user-avatar";
 import { cn } from "@/app/lib/cn";
 
+import type { InstanceBranding } from "@/definition/Instance";
 import type { User } from "@/definition/User";
 import type { AccountAccess } from "@/definition/Authorization";
 
@@ -41,6 +43,7 @@ interface AppShellProps {
   readonly user: User;
   readonly canViewProjects?: boolean;
   readonly canViewUsers: boolean;
+  readonly branding: InstanceBranding;
 }
 
 interface NavigationLinksProps {
@@ -206,9 +209,11 @@ function AccountMenu({
 function MobileNavigation({
   canViewProjects,
   canViewUsers,
+  branding,
 }: {
   readonly canViewProjects: boolean;
   readonly canViewUsers: boolean;
+  readonly branding: InstanceBranding;
 }): React.ReactElement {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
@@ -248,6 +253,7 @@ function MobileNavigation({
             </Button>
           </SheetClose>
         </div>
+        <InstanceBrand branding={branding} className="-mt-3 mb-6" />
         <NavigationLinks
           canViewProjects={canViewProjects}
           canViewUsers={canViewUsers}
@@ -265,6 +271,7 @@ export function AppShell({
   user,
   canViewProjects = false,
   canViewUsers,
+  branding,
 }: AppShellProps): React.ReactElement {
   const { t } = useTranslation();
   return (
@@ -276,7 +283,8 @@ export function AppShell({
           alt="Pages"
           draggable={false}
         />
-        <div className="mt-12 flex flex-1 xl:mt-8">
+        <InstanceBrand branding={branding} className="mt-6 xl:mt-4" />
+        <div className="mt-8 flex flex-1 xl:mt-6">
           <NavigationLinks
             canViewProjects={canViewProjects}
             canViewUsers={canViewUsers}
@@ -287,6 +295,7 @@ export function AppShell({
       <header className="fixed inset-x-0 top-0 z-20 flex min-h-19 items-center justify-between bg-background/85 backdrop-blur px-5 md:bg-transparent md:backdrop-blur-none md:pl-[18.25rem] xl:pl-56">
         <div className="justify-self-start md:hidden">
           <MobileNavigation
+            branding={branding}
             canViewProjects={canViewProjects}
             canViewUsers={canViewUsers}
           />

@@ -354,7 +354,7 @@ describe("GeneralNextDatesSection", () => {
     expect(screen.getByText("10:30")).toBeInTheDocument();
     expect(screen.getByText("Fourth")).toBeInTheDocument();
     expect(screen.queryByText("Fifth")).toBeNull();
-    expect(screen.getAllByText("12.9.2026")).toHaveLength(4);
+    expect(screen.getAllByText("12.09.2026")).toHaveLength(4);
   });
 
   it("says so without dates", () => {

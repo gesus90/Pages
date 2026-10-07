@@ -14,7 +14,7 @@ vi.mock("@/app/lib/services.server", () => ({
 
 import { getApplicationServices } from "@/app/lib/services.server";
 import { sessionCookie } from "@/app/lib/session.server";
-import { action } from "@/app/routes/settings";
+import { action } from "@/app/routes/settings-profile";
 import { ROLE } from "@/definition/Role";
 import { AdministrationError } from "@/backend/error/AdministrationError";
 

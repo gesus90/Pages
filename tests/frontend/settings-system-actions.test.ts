@@ -4,7 +4,7 @@ vi.mock("@/backend/runtime/PagesRuntime", () => ({
   getPagesRuntime: vi.fn(),
 }));
 
-import { handleSettingsAction } from "@/app/lib/settings-actions/settings-actions.server";
+import { handleSystemSettingsAction } from "@/app/lib/settings-actions/settings-system-actions.server";
 import { PermissionService } from "@/backend/auth/PermissionService";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 import { ROLE } from "@/definition/Role";
@@ -31,7 +31,7 @@ function submit(port: string | null, user: User = ADMIN): Promise<unknown> {
     formData.set("port", port);
   }
 
-  return handleSettingsAction("update-port", {
+  return handleSystemSettingsAction("update-port", {
     formData,
     request: new Request("http://pages.invalid/settings", { method: "POST" }),
     services: {
@@ -83,5 +83,47 @@ describe("update-port settings action", () => {
       "[pages] The port could not be stored.",
       expect.any(Error),
     );
+  });
+});
+
+describe("system settings action router", () => {
+  function context(): Parameters<typeof handleSystemSettingsAction>[1] {
+    return {
+      formData: new FormData(),
+      request: new Request("http://pages.invalid/settings/system", {
+        method: "POST",
+      }),
+      services: {} as unknown as ApplicationServices,
+      user: ADMIN,
+    };
+  }
+
+  it.each([[null], ["unknown"], ["update-profile"], ["constructor"]])(
+    "answers the intent %p with 400",
+    async (intent) => {
+      const failure = await handleSystemSettingsAction(intent, context()).catch(
+        (error: unknown) => error,
+      );
+
+      expect((failure as Response).status).toBe(400);
+    },
+  );
+
+  it("accepts the mode switch of administrators in the role mode", async () => {
+    const setMode = vi.fn().mockResolvedValue(undefined);
+    const formData = new FormData();
+
+    formData.set("mode", "admin");
+
+    await expect(
+      handleSystemSettingsAction("set-mode", {
+        ...context(),
+        formData,
+        services: {
+          administrationService: { setMode },
+        } as unknown as ApplicationServices,
+      }),
+    ).resolves.toMatchObject({ data: { intent: "set-mode", ok: true } });
+    expect(setMode).toHaveBeenCalledWith(ADMIN.id, "admin");
   });
 });
