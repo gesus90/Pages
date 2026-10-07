@@ -27,15 +27,13 @@ function parseLabelInput(input: LabelInput): LabelInput {
   const name = input.name.trim().slice(0, MAXIMUM_LABEL_NAME_LENGTH);
 
   if (!name) {
-    throw new WorkItemValidationError(
-      "Label name must be between 1 and 40 characters.",
-    );
+    throw new WorkItemValidationError("labelNameLength");
   }
 
   const color = normalizeHexColorCode(input.color);
 
   if (!color) {
-    throw new WorkItemValidationError("Unsupported label color.");
+    throw new WorkItemValidationError("labelColorUnsupported");
   }
 
   return { color, name };
@@ -200,7 +198,7 @@ export class TaskLabelService {
     const label = await this.taskRepository.findLabelById(labelId);
 
     if (!label) {
-      throw new WorkItemValidationError("Selected label does not exist.");
+      throw new WorkItemValidationError("labelNotFound");
     }
 
     await this.taskRepository.assignLabel(workItemId, labelId);
@@ -231,7 +229,7 @@ export class TaskLabelService {
     const label = await this.taskRepository.findLabelById(labelId);
 
     if (!label) {
-      throw new WorkItemValidationError("Selected label does not exist.");
+      throw new WorkItemValidationError("labelNotFound");
     }
 
     return label;
@@ -244,9 +242,7 @@ export class TaskLabelService {
     const existing = await this.taskRepository.findLabelByName(name);
 
     if (existing && existing.id !== ownLabelId) {
-      throw new WorkItemValidationError(
-        "A label with this name already exists.",
-      );
+      throw new WorkItemValidationError("labelNameTaken");
     }
   }
 }

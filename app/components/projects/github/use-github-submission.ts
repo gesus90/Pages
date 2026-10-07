@@ -28,7 +28,9 @@ function isDetailActionResult(
  *
  * @remarks
  * The result only shows for the last submitted form, so saving afterwards
- * hides the outcome of an earlier test.
+ * hides the outcome of an earlier test. A test stores its outcome on the
+ * integration, which replaces the panel; call this hook above the panel so
+ * the outcome survives that.
  */
 export function useGitHubSubmission(): GitHubSubmission {
   const navigation = useNavigation();

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { filterWorkItems, toTaskFilters } from "@/app/lib/task-filters";
+import {
+  countActiveFilters,
+  filterWorkItems,
+  toTaskFilters,
+} from "@/app/lib/task-filters";
 import { DEFAULT_BOARD_PREFERENCES } from "@/definition/BoardPreferences";
 import { createWorkItem } from "../helpers/factories";
 
@@ -127,5 +131,36 @@ describe("filterWorkItems", () => {
       }).type,
     ).toBe("epic");
     expect(toTaskFilters(DEFAULT_BOARD_PREFERENCES).type).toBe("work");
+  });
+});
+
+describe("countActiveFilters", () => {
+  it("counts nothing for the defaults and ignores the search text", () => {
+    expect(
+      countActiveFilters(
+        { ...DEFAULT_BOARD_PREFERENCES, search: "login" },
+        "active",
+      ),
+    ).toBe(0);
+  });
+
+  it("counts every filter that narrows the board down", () => {
+    expect(
+      countActiveFilters(
+        {
+          ...DEFAULT_BOARD_PREFERENCES,
+          assignee: "user-1",
+          department: "none",
+          labelIds: ["label-1", "label-2"],
+          milestone: "milestone-1",
+          priority: "high",
+          project: "project-1",
+          scope: "mine",
+          status: "status-1",
+          type: "epic",
+        },
+        "archived",
+      ),
+    ).toBe(10);
   });
 });

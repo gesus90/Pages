@@ -54,9 +54,7 @@ function parseName(name: string): string {
   const trimmed = name.trim();
 
   if (trimmed === "" || trimmed.length > MAXIMUM_TEMPLATE_NAME_LENGTH) {
-    throw new WorkItemValidationError(
-      "Template name must be between 1 and 80 characters.",
-    );
+    throw new WorkItemValidationError("templateNameLength");
   }
 
   return trimmed;
@@ -264,13 +262,11 @@ export class TaskTemplateService {
       (sharing.scope === TEMPLATE_SCOPE.PROJECTS &&
         sharing.projectIds.length === 0)
     ) {
-      throw new WorkItemValidationError(
-        "Select at least one department or project to share with.",
-      );
+      throw new WorkItemValidationError("templateShareTargetMissing");
     }
 
     if (!sharing.departmentIds.every((id) => knownDepartments.has(id))) {
-      throw new WorkItemValidationError("Selected department does not exist.");
+      throw new WorkItemValidationError("departmentNotFound");
     }
 
     if (!this.policy.canShare(scope.facts.account, sharing, scope.projectIds)) {

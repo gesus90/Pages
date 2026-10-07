@@ -1,17 +1,19 @@
-import { Flag, Kanban, List, Network, Plus, Search } from "lucide-react";
+import { useState } from "react";
+import { Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import { TemplateManagerDialog } from "@/app/components/tasks/templates/template-manager-dialog";
-import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { SegmentedControl } from "@/app/components/ui/segmented-control";
 import { ToolbarFilterSelects } from "@/app/components/tasks/board/toolbar-filter-selects";
+import { ToolbarFilterToggle } from "@/app/components/tasks/board/toolbar-filter-toggle";
 import { ToolbarPeopleFilters } from "@/app/components/tasks/board/toolbar-people-filters";
+import { ToolbarTitle } from "@/app/components/tasks/board/toolbar-title";
 import { ToolbarViewOptions } from "@/app/components/tasks/board/toolbar-view-options";
+import { ToolbarViewSwitch } from "@/app/components/tasks/board/toolbar-view-switch";
+import { cn } from "@/app/lib/cn";
+import { countActiveFilters } from "@/app/lib/task-filters";
 
 import type { ToolbarFilterSelectsProps } from "@/app/components/tasks/board/toolbar-filter-selects";
-import type { SegmentedControlOption } from "@/app/components/ui/segmented-control";
-import type { BoardView } from "@/definition/BoardPreferences";
 import type { Label } from "@/definition/Task";
 import type { User } from "@/definition/User";
 import type { WorkItemTemplateView } from "@/definition/WorkItemTemplate";
@@ -23,59 +25,35 @@ interface TasksToolbarProps extends ToolbarFilterSelectsProps {
   readonly templates: readonly WorkItemTemplateView[];
 }
 
+/**
+ * Lays the content of a toolbar row out like the row itself on wide screens
+ * and as its own wrapped row on phones, where it can be folded away.
+ *
+ * @param isOpen - Whether the phone-sized toolbar shows its filters.
+ */
+function foldableRow(isOpen: boolean): string {
+  return cn(
+    "max-md:order-3 max-md:w-full max-md:flex-wrap max-md:gap-2.5 md:contents",
+    isOpen ? "max-md:flex" : "max-md:hidden",
+  );
+}
+
 /** Renders the page title, the filters and the switch between task views. */
 export function TasksToolbar(props: TasksToolbarProps): React.ReactElement {
   const { t } = useTranslation();
-  const { board, onCreate, templates } = props;
+  const { archivedFilter, board, onCreate, templates } = props;
   const { preferences, update } = board;
-  const viewOptions: SegmentedControlOption<BoardView>[] = [
-    {
-      icon: <Kanban className="size-3.5" aria-hidden="true" />,
-      label: t("tasks.view.kanban"),
-      value: "kanban",
-    },
-    {
-      icon: <List className="size-3.5" aria-hidden="true" />,
-      label: t("tasks.view.list"),
-      value: "list",
-    },
-    {
-      icon: <Network className="size-3.5" aria-hidden="true" />,
-      label: t("tasks.view.hierarchy"),
-      value: "hierarchy",
-    },
-    {
-      icon: <Flag className="size-3.5" aria-hidden="true" />,
-      label: t("tasks.view.milestones"),
-      value: "milestones",
-    },
-    { label: t("tasks.view.github"), value: "github" },
-  ];
+  // Below the medium breakpoint the filters fold away to leave the board room.
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   return (
     <>
-      <div className="flex shrink-0 flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="select-none text-3xl font-semibold tracking-tight text-foreground xl:text-2xl">
-            {t("tasks.title")}
-          </h1>
-          <p className="mt-1.5 select-none text-sm text-muted-foreground">
-            {t("tasks.subtitle")}
-          </p>
-        </div>
+      <ToolbarTitle onCreate={onCreate} templates={templates} />
 
-        <div className="flex flex-wrap items-center gap-2">
-          <TemplateManagerDialog templates={templates} />
-          <Button className="gap-2" onClick={onCreate} type="button">
-            <Plus className="size-4" aria-hidden="true" />
-            {t("tasks.create.trigger")}
-          </Button>
-        </div>
-      </div>
-
-      <div className="mt-7 flex shrink-0 flex-wrap items-center gap-2.5">
+      <div className="mt-4 flex shrink-0 flex-wrap items-center gap-2.5 md:mt-7">
         <SegmentedControl
           ariaLabel={t("tasks.filter.scope")}
+          className={cn("max-md:order-2", !isFilterOpen && "max-md:hidden")}
           onValueChange={(scope) => update({ scope })}
           options={[
             { label: t("tasks.filter.allTasks"), value: "all" },
@@ -97,22 +75,30 @@ export function TasksToolbar(props: TasksToolbarProps): React.ReactElement {
           />
         </div>
 
-        <ToolbarFilterSelects {...props} />
-        <ToolbarPeopleFilters
-          assignees={props.assignees}
-          board={board}
-          labels={props.labels}
+        <ToolbarFilterToggle
+          activeCount={countActiveFilters(preferences, archivedFilter)}
+          isOpen={isFilterOpen}
+          onToggle={() => setIsFilterOpen((isOpen) => !isOpen)}
         />
+
+        <div className={foldableRow(isFilterOpen)}>
+          <ToolbarFilterSelects {...props} />
+          <ToolbarPeopleFilters
+            assignees={props.assignees}
+            board={board}
+            labels={props.labels}
+          />
+        </div>
       </div>
 
       <div className="mt-3 flex shrink-0 flex-wrap items-center gap-2.5">
-        <SegmentedControl
-          ariaLabel={t("tasks.view.label")}
-          onValueChange={(view) => update({ view })}
-          options={viewOptions}
-          value={preferences.view}
+        <ToolbarViewSwitch
+          onViewChange={(view) => update({ view })}
+          view={preferences.view}
         />
-        <ToolbarViewOptions board={board} />
+        <div className={foldableRow(isFilterOpen)}>
+          <ToolbarViewOptions board={board} />
+        </div>
       </div>
     </>
   );

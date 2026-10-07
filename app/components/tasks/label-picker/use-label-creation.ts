@@ -63,6 +63,10 @@ export function useLabelCreation({
 
     if (created) {
       setPendingAssignName(null);
+      // The form stays open until the label exists, so a rejected name can be corrected.
+      setIsCreating(false);
+      setNewName("");
+      setNewColor(DEFAULT_LABEL_COLOR);
       void submit(
         { intent: "label-assign", labelId: created.id, workItemId },
         { method: "post" },
@@ -89,7 +93,6 @@ export function useLabelCreation({
       { method: "post" },
     );
     setPendingAssignName(name);
-    closeForm();
   }
 
   function cancelPendingAssign(): void {

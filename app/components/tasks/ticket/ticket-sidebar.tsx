@@ -153,7 +153,10 @@ function PeopleRows({
 }: PeopleRowsProps): React.ReactElement {
   const { t } = useTranslation();
   const priorityOptions = usePriorityOptions();
-  const assigneeOptions = useAssigneeOptions(assignees, ticket.assigneeGroupId);
+  const assigneeOptions = useAssigneeOptions(assignees, {
+    currentGroupId: ticket.assigneeGroupId,
+    projectId: ticket.projectId,
+  });
 
   return (
     <>
@@ -367,6 +370,8 @@ function ScheduleRows({
 
 interface TicketSidebarProps extends PeopleRowsProps, PlacementRowsProps {
   readonly pullRequests: readonly GitHubPullRequest[];
+  /** Whether new tasks of the project reach GitHub without further action. */
+  readonly publishesNewTasks: boolean;
   readonly isArchiving: boolean;
   readonly isSyncing: boolean;
   readonly redirectTo: string;
@@ -390,6 +395,7 @@ export function TicketSidebar(props: TicketSidebarProps): React.ReactElement {
 
       <TaskGitHubDetails
         isSyncing={props.isSyncing}
+        publishesNewTasks={props.publishesNewTasks}
         pullRequests={props.pullRequests}
         task={ticket}
       />

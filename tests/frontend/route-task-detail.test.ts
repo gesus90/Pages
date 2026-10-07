@@ -104,6 +104,7 @@ function createServices(
     },
     projectService: {
       findAll: vi.fn().mockResolvedValue([createProject()]),
+      findIntegration: vi.fn().mockResolvedValue(null),
       getById: vi.fn().mockResolvedValue(createProject()),
     },
     taskTemplateService: {
@@ -122,6 +123,7 @@ function createServices(
       deleteLabel: vi.fn(),
       findAll: vi.fn().mockResolvedValue([]),
       findAllStatuses: vi.fn().mockResolvedValue([]),
+      findAssigneeGroupIdsByProject: vi.fn().mockResolvedValue({}),
       findAssigneeGroups: vi.fn().mockResolvedValue([]),
       findEligibleAssignees: vi.fn().mockResolvedValue([createUser()]),
       findLabels: vi.fn().mockResolvedValue([]),
@@ -280,6 +282,25 @@ describe("task detail route loader", () => {
     expect(result.permissions).toEqual({ canDelete: true, canWrite: true });
     expect(result.departmentChoices).toEqual({ available: [] });
     expect(result.templates).toEqual([]);
+    expect(result.publishesNewTasks).toBe(false);
+  });
+
+  it("reports whether new tasks reach GitHub on their own", async () => {
+    const services = createServices();
+    (
+      services.projectService.findIntegration as ReturnType<typeof vi.fn>
+    ).mockResolvedValue({
+      hasToken: true,
+      repoUrl: "https://github.com/example/repo",
+      syncDirection: "bidirectional",
+      syncEnabled: true,
+      syncIssues: true,
+    });
+    mockedServices.mockResolvedValue(services);
+
+    const result = await loader(createLoaderArgs("PAGE-14"));
+
+    expect(result.publishesNewTasks).toBe(true);
   });
 
   it("hides inaccessible parents instead of failing", async () => {
@@ -337,7 +358,7 @@ describe("task detail route loader", () => {
     const services = createServices();
     (
       services.taskService.createLabel as ReturnType<typeof vi.fn>
-    ).mockRejectedValueOnce(new WorkItemValidationError("Nope"));
+    ).mockRejectedValueOnce(new WorkItemValidationError("titleLength"));
     mockedServices.mockResolvedValue(services);
 
     const formData = new URLSearchParams();

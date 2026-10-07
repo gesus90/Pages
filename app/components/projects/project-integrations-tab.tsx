@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { GitHubPanel } from "@/app/components/projects/github-integration-panel";
+import { useGitHubSubmission } from "@/app/components/projects/github/use-github-submission";
 import {
   IntegrationCard,
   PlannedIntegrationCard,
@@ -65,6 +66,7 @@ export function ProjectIntegrationsTab({
 }: ProjectIntegrationsTabProps): React.ReactElement {
   const { t } = useTranslation();
   const [isGitHubOpen, setIsGitHubOpen] = useState(false);
+  const submission = useGitHubSubmission();
 
   return (
     <div className="flex flex-col gap-4">
@@ -128,6 +130,7 @@ export function ProjectIntegrationsTab({
           integration={integration}
           onClose={() => setIsGitHubOpen(false)}
           projectId={projectId}
+          submission={submission}
         />
       ) : null}
     </div>

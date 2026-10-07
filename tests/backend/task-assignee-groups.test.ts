@@ -293,6 +293,26 @@ describe("ticket assignment to a person or a group", () => {
     ]);
   });
 
+  it("offers per project only groups with a member who can work in it", async () => {
+    const { database, tasks } = await setup();
+    await database.execute(`
+      INSERT INTO user_groups (id, name)
+      VALUES ('outside', 'Outside');
+      INSERT INTO user_group_members (group_id, user_id)
+      VALUES ('outside', 'outsider');
+    `);
+    const assignees = await tasks.findAssigneesByProjects(["p1", "p2"]);
+
+    // Team has bob, who works in both projects; Outside has only an account
+    // without project access; Ghosts has nobody.
+    await expect(
+      tasks.findAssigneeGroupIdsByProject(ALICE, Object.fromEntries(assignees)),
+    ).resolves.toEqual({ p1: ["team"], p2: ["team"] });
+    await expect(
+      tasks.findAssigneeGroupIdsByProject(ALICE, { p3: [] }),
+    ).resolves.toEqual({ p3: [] });
+  });
+
   it("counts group tickets as assigned to every member", async () => {
     const { tasks } = await setup();
     await tasks.create(ALICE, { ...NEW_TASK, assigneeGroupId: "team" });

@@ -42,6 +42,12 @@ export default defineConfig({
       },
     },
   },
+  // The dependency optimizer follows imports of server modules into the
+  // browser scan and fails on the native DuckDB binaries (`.node` files).
+  // Server code never runs in the browser, so the optimizer leaves them out.
+  optimizeDeps: {
+    exclude: ["@duckdb/node-api", "@duckdb/node-bindings"],
+  },
   plugins: [tailwindcss(), reactRouter(), pagesDevelopmentRuntime()],
   resolve: {
     alias: {

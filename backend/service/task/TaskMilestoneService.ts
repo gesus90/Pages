@@ -125,7 +125,7 @@ export class TaskMilestoneService {
     const fields = validateMilestoneInput(input);
 
     if (!isMilestoneStatus(input.status)) {
-      throw new WorkItemValidationError("Unsupported milestone status.");
+      throw new WorkItemValidationError("milestoneStatusUnsupported");
     }
 
     await this.taskRepository.updateMilestone(id, {
@@ -173,11 +173,11 @@ export class TaskMilestoneService {
     await this.access.requirePlanningProject(actor, input.projectId);
 
     if (!isMilestoneLinkType(input.linkType)) {
-      throw new WorkItemValidationError("Unsupported dependency type.");
+      throw new WorkItemValidationError("dependencyTypeUnsupported");
     }
 
     if (input.sourceId === input.targetId) {
-      throw new WorkItemValidationError("A milestone cannot depend on itself.");
+      throw new WorkItemValidationError("dependencySelf");
     }
 
     await this.requireMilestonePair(input);
@@ -218,7 +218,7 @@ export class TaskMilestoneService {
     ]);
 
     if (!existing.some((dependency) => dependency.id === dependencyId)) {
-      throw new WorkItemValidationError("Selected dependency does not exist.");
+      throw new WorkItemValidationError("dependencyNotFound");
     }
 
     await this.taskRepository.deleteDependency(dependencyId);
@@ -232,7 +232,7 @@ export class TaskMilestoneService {
     const existing = await this.taskRepository.findMilestoneById(id);
 
     if (!existing) {
-      throw new WorkItemValidationError("Selected milestone does not exist.");
+      throw new WorkItemValidationError("milestoneNotFound");
     }
 
     await this.access.requirePlanningProject(actor, existing.projectId);
@@ -252,9 +252,7 @@ export class TaskMilestoneService {
     );
 
     if (!hasSource || !hasTarget) {
-      throw new WorkItemValidationError(
-        "Dependencies require two milestones of the same project.",
-      );
+      throw new WorkItemValidationError("dependencyPairInvalid");
     }
   }
 
@@ -273,7 +271,7 @@ export class TaskMilestoneService {
     );
 
     if (isLinked) {
-      throw new WorkItemValidationError("These milestones are already linked.");
+      throw new WorkItemValidationError("dependencyExists");
     }
   }
 }

@@ -14,6 +14,8 @@ import type { WorkItemDetail } from "@/definition/Task";
 interface TaskGitHubDetailsProps {
   readonly task: WorkItemDetail;
   readonly pullRequests: readonly GitHubPullRequest[];
+  /** Whether new tasks of the project reach GitHub without further action. */
+  readonly publishesNewTasks: boolean;
   readonly isSyncing?: boolean;
 }
 
@@ -21,6 +23,7 @@ interface TaskGitHubDetailsProps {
 export function TaskGitHubDetails({
   task,
   pullRequests,
+  publishesNewTasks,
   isSyncing = false,
 }: TaskGitHubDetailsProps): React.ReactElement {
   const { t } = useTranslation();
@@ -41,7 +44,7 @@ export function TaskGitHubDetails({
         />
       </div>
 
-      <GitHubDetailsIssue task={task} />
+      <GitHubDetailsIssue publishesNewTasks={publishesNewTasks} task={task} />
 
       {pullRequests.length > 0 ? (
         <GitHubDetailsPullRequests pullRequests={pullRequests} />

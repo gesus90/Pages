@@ -74,9 +74,7 @@ export class GitHubExternalIssueTriage {
       external.importedWorkItemId ||
       (await this.isKnownLocalIssue(projectId, external.issueNumber))
     ) {
-      throw new WorkItemValidationError(
-        "This GitHub issue cannot be imported.",
-      );
+      throw new WorkItemValidationError("githubIssueNotImportable");
     }
 
     const sync = await this.contextLoader.requireContext(projectId);
@@ -147,15 +145,11 @@ export class GitHubExternalIssueTriage {
     const item = await this.accessGuard.requireWritableTask(actor, workItemId);
 
     if (item.type !== WORK_ITEM_TYPE.TASK) {
-      throw new WorkItemValidationError(
-        "Only tasks can be linked to a GitHub issue.",
-      );
+      throw new WorkItemValidationError("githubOnlyTasksLinkable");
     }
 
     if (item.githubIssueNumber !== null) {
-      throw new WorkItemValidationError(
-        "This task is already linked to a GitHub issue.",
-      );
+      throw new WorkItemValidationError("githubTaskAlreadyLinked");
     }
 
     const external =
@@ -168,7 +162,7 @@ export class GitHubExternalIssueTriage {
       external.importedWorkItemId ||
       (await this.isKnownLocalIssue(item.projectId, external.issueNumber))
     ) {
-      throw new WorkItemValidationError("This GitHub issue cannot be linked.");
+      throw new WorkItemValidationError("githubIssueNotLinkable");
     }
 
     const sync = await this.contextLoader.requireContext(item.projectId);
@@ -215,9 +209,7 @@ export class GitHubExternalIssueTriage {
       await this.gitHubRepository.findExternalIssueById(externalId);
 
     if (!external) {
-      throw new WorkItemValidationError(
-        "This GitHub issue cannot be dismissed.",
-      );
+      throw new WorkItemValidationError("githubIssueNotDismissable");
     }
 
     await this.accessGuard.requireWritableProject(actor, external.projectId);

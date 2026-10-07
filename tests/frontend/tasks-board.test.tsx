@@ -126,6 +126,7 @@ function renderBoard(
   mocks.loaderData.mockReturnValue({
     actor: createUser(),
     archivedFilter: "active",
+    assigneeGroupIdsByProject: { "project-1": ["group-1"] },
     assigneeGroups: [{ id: "group-1", memberCount: 2, name: "Design" }],
     assignees: [
       createUser(),
@@ -443,6 +444,45 @@ describe("tasks board", () => {
     expect(
       screen.getByRole("heading", { level: 2, name: /^Nicht zugewiesen/ }),
     ).toBeInTheDocument();
+  });
+
+  it("folds the filters behind a toggle that counts the active ones", async () => {
+    const user = userEvent.setup();
+
+    renderBoard({ board: { priority: "high", scope: "mine" } });
+
+    const toggle = screen.getByRole("button", { name: /^Filter/ });
+
+    expect(within(toggle).getByLabelText("2 aktiv")).toHaveTextContent("2");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("shows no count while no filter narrows the board down", () => {
+    renderBoard();
+
+    expect(screen.getByRole("button", { name: "Filter" })).toBeInTheDocument();
+  });
+
+  it("offers the grouping only where the board applies it", async () => {
+    const user = userEvent.setup();
+
+    renderBoard();
+
+    expect(
+      screen.getByRole("combobox", { name: "Gruppierung" }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Liste" }));
+
+    expect(
+      screen.queryByRole("combobox", { name: "Gruppierung" }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows the ungrouped board again", async () => {

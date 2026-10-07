@@ -116,7 +116,7 @@ export class GitHubSyncContextLoader {
    *
    * @param projectId - Project owning the integration.
    * @throws {WorkItemValidationError} When the synchronization is switched off.
-   * @throws {Error} When the project has no usable connected integration.
+   * @throws {WorkItemValidationError} When the project has no usable connected integration.
    */
   public async requireContext(projectId: string): Promise<GitHubSyncContext> {
     const sync = await this.findContext(projectId);
@@ -130,11 +130,9 @@ export class GitHubSyncContextLoader {
     });
 
     if (disabled) {
-      throw new WorkItemValidationError(
-        "GitHub synchronization is switched off for this project.",
-      );
+      throw new WorkItemValidationError("githubSyncSwitchedOff");
     }
 
-    throw new Error("GitHub integration is not connected.");
+    throw new WorkItemValidationError("githubNotConnected");
   }
 }

@@ -2,6 +2,7 @@ import { Settings, X } from "lucide-react";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 
+import { cn } from "@/app/lib/cn";
 import { VerticalScrollArea } from "@/app/components/ui/vertical-scroll-area";
 import { WHITE_SCROLL_FADE_STYLE } from "@/app/lib/scroll-fade-style";
 
@@ -11,6 +12,8 @@ interface PanelShellProps {
   readonly serviceName: string;
   readonly onClose: () => void;
   readonly footer: React.ReactNode;
+  /** Outcome of the last action; it stays in view while the content scrolls. */
+  readonly notice?: React.ReactNode;
   readonly children: React.ReactNode;
 }
 
@@ -25,6 +28,7 @@ export function PanelShell({
   serviceName,
   onClose,
   footer,
+  notice = null,
   children,
 }: PanelShellProps): React.ReactElement {
   const { t } = useTranslation();
@@ -91,7 +95,16 @@ export function PanelShell({
           </VerticalScrollArea>
         </div>
 
-        <footer className="flex shrink-0 items-center justify-end gap-2 border-t bg-surface px-6 py-4">
+        {notice ? (
+          <div className="shrink-0 border-t bg-surface px-6 pt-3">{notice}</div>
+        ) : null}
+
+        <footer
+          className={cn(
+            "flex shrink-0 items-center justify-end gap-2 bg-surface px-6 py-4",
+            !notice && "border-t",
+          )}
+        >
           {footer}
         </footer>
       </div>

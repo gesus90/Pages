@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { findDefaultStatusId } from "@/app/components/tasks/form/default-status";
 import { toAssigneeValue } from "@/app/lib/assignee-value";
 import { WORK_ITEM_PRIORITY } from "@/definition/Task";
 
@@ -8,6 +9,7 @@ import type {
   WorkItemDetail,
   WorkItemPriority,
   WorkItemType,
+  WorkflowStatus,
 } from "@/definition/Task";
 
 /** Values of the form's selects, which are posted as hidden inputs. */
@@ -30,6 +32,7 @@ export interface TaskFormSelections {
 export interface TaskFormDefaults {
   readonly initialTask: WorkItemDetail | null;
   readonly projects: readonly Project[];
+  readonly statuses: readonly WorkflowStatus[];
   readonly defaultProjectId: string | null;
   readonly defaultParentId: string | null;
   readonly defaultType: WorkItemType;
@@ -89,7 +92,8 @@ function buildSelections(defaults: TaskFormDefaults): TaskFormSelections {
     priority: WORK_ITEM_PRIORITY.NORMAL,
     projectId: resolveProjectId(defaults),
     reporterId: "",
-    statusId: defaults.defaultStatusId ?? "",
+    statusId:
+      defaults.defaultStatusId ?? findDefaultStatusId(defaults.statuses),
     templateId: "",
     type: defaults.defaultType,
   };
@@ -110,6 +114,7 @@ export function useTaskFormSelections(
   const {
     initialTask,
     projects,
+    statuses,
     defaultProjectId,
     defaultParentId,
     defaultType,
@@ -126,6 +131,7 @@ export function useTaskFormSelections(
           defaultType,
           initialTask,
           projects,
+          statuses,
         }),
       );
     }
@@ -133,6 +139,7 @@ export function useTaskFormSelections(
     isOpen,
     initialTask,
     projects,
+    statuses,
     defaultProjectId,
     defaultParentId,
     defaultType,

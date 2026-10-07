@@ -241,6 +241,7 @@ function renderTasks(loaderOverrides: Record<string, unknown> = {}): void {
     selectedPullRequests: [],
     selectedSubtasks: [],
     githubStates: [],
+    assigneeGroupIdsByProject: { "project-1": ["group-1"] },
     assigneeGroups: [
       { id: "group-1", memberCount: 2, name: "Design" },
       { id: "group-2", memberCount: 0, name: "Leer" },

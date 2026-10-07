@@ -139,11 +139,11 @@ export class TaskWriteService {
     validateWorkItemText(title, description);
 
     if (!isWorkItemType(input.type)) {
-      throw new WorkItemValidationError("Unsupported work item type.");
+      throw new WorkItemValidationError("typeUnsupported");
     }
 
     if (!isWorkItemPriority(priority)) {
-      throw new WorkItemValidationError("Unsupported work item priority.");
+      throw new WorkItemValidationError("priorityUnsupported");
     }
 
     const status = await this.taskRepository.findStatusById(input.statusId);
@@ -152,7 +152,7 @@ export class TaskWriteService {
       !status ||
       (status.projectId !== null && status.projectId !== input.projectId)
     ) {
-      throw new WorkItemValidationError("Selected status does not exist.");
+      throw new WorkItemValidationError("statusNotFound");
     }
 
     await this.validator.validateReferences({
@@ -271,7 +271,7 @@ export class TaskWriteService {
       !status ||
       (status.projectId !== null && status.projectId !== existing.projectId)
     ) {
-      throw new WorkItemValidationError("Target status does not exist.");
+      throw new WorkItemValidationError("targetStatusNotFound");
     }
 
     await this.taskRepository.updateStatusAndOrder(
@@ -312,7 +312,7 @@ export class TaskWriteService {
     validateWorkItemText(title, description);
 
     if (!isWorkItemPriority(input.priority)) {
-      throw new WorkItemValidationError("Unsupported work item priority.");
+      throw new WorkItemValidationError("priorityUnsupported");
     }
 
     const newStatus = await this.taskRepository.findStatusById(input.statusId);
@@ -322,7 +322,7 @@ export class TaskWriteService {
       (newStatus.projectId !== null &&
         newStatus.projectId !== existing.projectId)
     ) {
-      throw new WorkItemValidationError("Selected status does not exist.");
+      throw new WorkItemValidationError("statusNotFound");
     }
 
     await this.validator.validateReferences({
@@ -338,7 +338,7 @@ export class TaskWriteService {
     });
 
     if (!reporterId) {
-      throw new WorkItemValidationError("A reporter must be selected.");
+      throw new WorkItemValidationError("reporterRequired");
     }
 
     await this.validator.validateAssignee(reporterId, existing.projectId);
@@ -363,7 +363,7 @@ export class TaskWriteService {
     project: Project,
     draft: WorkItemDraft,
   ): Promise<string> {
-    return this.numbering.run(project, async (sequence) => {
+    return this.numbering.run(project, 1, async (sequence) => {
       const id = randomUUID();
 
       await this.taskRepository.insert({

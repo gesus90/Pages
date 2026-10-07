@@ -274,6 +274,7 @@ function createWorkItems(): WorkItemDetail[] {
 
 const WRITER_ACCESS: TicketAccess = {
   projects: [],
+  assigneeGroupIdsByProject: {},
   assigneeGroups: [],
   canDelete: false,
   canWrite: true,

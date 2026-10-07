@@ -44,8 +44,9 @@ export function KanbanGroupSection({
           {section.items.length}
         </span>
       </h2>
-      <div className="pages-hover-scrollbar h-[34rem] overflow-x-auto overflow-y-hidden pb-2">
-        <div className="flex h-full w-max min-w-full items-stretch gap-4 px-1 md:gap-5">
+      {/* The lane is as tall as its fullest column up to a cap, and every column stretches to it; taller columns scroll inside. */}
+      <div className="pages-hover-scrollbar overflow-x-auto overflow-y-hidden pb-2">
+        <div className="flex max-h-[34rem] w-max min-w-full items-stretch gap-4 px-1 md:gap-5 [&>section]:h-auto">
           {children}
         </div>
       </div>

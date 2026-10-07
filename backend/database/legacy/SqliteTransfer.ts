@@ -399,6 +399,8 @@ function verifySourceColumns(
  * Global labels replace `project_labels`; their copy is merged by `LegacyLabels`.
  * Ticket templates came with A4; none exist in SQLite.
  * The project-wide GitHub switch came with A4; transferred connections stay active.
+ * The ticket number counter came with the A4 follow-up; it starts at 0 after
+ * the copy and rises with the tickets on the first allocation.
  */
 async function readTargetColumns(
   target: Database,
@@ -424,6 +426,7 @@ async function readTargetColumns(
           AND NOT (table_name = 'work_items' AND column_name = 'assignee_group_id')
           AND NOT (table_name = 'project_activity' AND column_name = 'work_item_id')
           AND NOT (table_name = 'project_integrations' AND column_name = 'sync_enabled')
+          AND NOT (table_name = 'project_keys' AND column_name = 'last_number')
       ORDER BY table_name, ordinal_position;
     `,
   );

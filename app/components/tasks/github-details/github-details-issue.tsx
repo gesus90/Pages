@@ -5,17 +5,26 @@ import type { WorkItemDetail } from "@/definition/Task";
 
 interface GitHubDetailsIssueProps {
   readonly task: WorkItemDetail;
+  /** Whether new tasks of the project reach GitHub without further action. */
+  readonly publishesNewTasks: boolean;
 }
 
-/** Renders the linked GitHub issue of a ticket, or the hint to link one. */
+/** Renders the linked GitHub issue of a ticket, or the hint that none is linked. */
 export function GitHubDetailsIssue({
   task,
+  publishesNewTasks,
 }: GitHubDetailsIssueProps): React.ReactElement {
   const { t } = useTranslation();
 
   if (task.githubIssueNumber === null || !task.githubIssueUrl) {
     return (
-      <p className="text-muted-foreground">{t("tasks.github.noIssueHint")}</p>
+      <p className="text-muted-foreground">
+        {t(
+          publishesNewTasks
+            ? "tasks.github.noIssueHint"
+            : "tasks.github.noIssue",
+        )}
+      </p>
     );
   }
 

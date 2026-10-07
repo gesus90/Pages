@@ -113,7 +113,7 @@ export class GitHubConflictResolver {
     const item = await this.accessGuard.requireWritableTask(actor, workItemId);
 
     if (!item.githubConflict || item.githubIssueNumber === null) {
-      throw new WorkItemValidationError("This task has no sync conflict.");
+      throw new WorkItemValidationError("githubNoConflict");
     }
 
     const sync = await this.contextLoader.requireContext(item.projectId);

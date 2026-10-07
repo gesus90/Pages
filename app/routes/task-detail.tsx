@@ -12,12 +12,14 @@ import { TicketAccessProvider } from "@/app/components/tasks/ticket-access";
 import { PageContent } from "@/app/components/ui/card";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
+import { publishesNewTasks } from "@/definition/Project";
 import { WORK_ITEM_TYPE } from "@/definition/Task";
 
 import { action } from "./tasks";
 import { ProjectAccessDeniedError } from "@/backend/error/ProjectErrors";
 import { WorkItemNotFoundError } from "@/backend/error/WorkItemErrors";
 
+import type { ApplicationServices } from "@/app/lib/services.server";
 import type { GitHubPullRequest } from "@/definition/GitHub";
 import type { Project } from "@/definition/Project";
 import type {
@@ -65,14 +67,45 @@ interface TaskDetailLoaderData {
   readonly milestones: readonly Milestone[];
   readonly assignees: readonly User[];
   readonly assigneeGroups: readonly GroupSummary[];
+  readonly assigneeGroupIdsByProject: Readonly<
+    Record<string, readonly string[]>
+  >;
   readonly assigneesByProject: Readonly<Record<string, readonly User[]>>;
   readonly labels: readonly Label[];
   readonly taskLabels: readonly Label[];
   readonly labelUsage: Readonly<Record<string, number>>;
   readonly fromView: DetailViewMode;
   readonly permissions: TaskActionPermissions;
+  /** Whether new tasks of the ticket's project reach GitHub without further action. */
+  readonly publishesNewTasks: boolean;
   readonly departmentChoices: TicketDepartmentChoices;
   readonly templates: readonly WorkItemTemplateView[];
+}
+
+/** Loads the parent of a ticket; a parent the visitor may not open stays hidden. */
+async function loadParent(
+  services: ApplicationServices,
+  actor: User,
+  parentId: string | null,
+): Promise<WorkItemDetail | null> {
+  if (parentId === null) {
+    return null;
+  }
+
+  try {
+    return await services.taskService.getById(actor, parentId);
+  } catch (error: unknown) {
+    // A parent from an inaccessible project stays hidden instead of
+    // failing the whole ticket view.
+    if (
+      error instanceof WorkItemNotFoundError ||
+      error instanceof ProjectAccessDeniedError
+    ) {
+      return null;
+    }
+
+    throw error;
+  }
 }
 
 /** Loads one ticket with every relation from the database for instant display. */
@@ -129,24 +162,7 @@ export async function loader({
     ticket.projectId,
   );
 
-  let parent: WorkItemDetail | null = null;
-
-  if (ticket.parentId !== null) {
-    try {
-      parent = await services.taskService.getById(actor, ticket.parentId);
-    } catch (error: unknown) {
-      // A parent from an inaccessible project stays hidden instead of
-      // failing the whole ticket view.
-      if (
-        error instanceof WorkItemNotFoundError ||
-        error instanceof ProjectAccessDeniedError
-      ) {
-        parent = null;
-      } else {
-        throw error;
-      }
-    }
-  }
+  const parent = await loadParent(services, actor, ticket.parentId);
 
   const assigneesByProject: Record<string, readonly User[]> = {};
 
@@ -167,6 +183,11 @@ export async function loader({
 
   return {
     actor,
+    assigneeGroupIdsByProject:
+      await services.taskService.findAssigneeGroupIdsByProject(
+        actor,
+        assigneesByProject,
+      ),
     assigneeGroups: await services.taskService.findAssigneeGroups(actor),
     assignees,
     assigneesByProject,
@@ -180,6 +201,9 @@ export async function loader({
     parent,
     permissions: await services.taskService.actionPermissions(actor),
     project,
+    publishesNewTasks: publishesNewTasks(
+      await services.projectService.findIntegration(actor, ticket.projectId),
+    ),
     projectWorkItems,
     projects,
     pullRequests,
@@ -293,6 +317,7 @@ function TaskDetailView({
             onOpenTicket={handleOpenTicket}
             parent={loaderData.parent}
             project={project}
+            publishesNewTasks={loaderData.publishesNewTasks}
             pullRequests={loaderData.pullRequests}
             statuses={statuses}
             taskLabels={loaderData.taskLabels}
@@ -334,6 +359,7 @@ export default function TaskDetailRoute(): React.ReactElement {
     <TicketAccessProvider
       value={{
         ...loaderData.permissions,
+        assigneeGroupIdsByProject: loaderData.assigneeGroupIdsByProject,
         assigneeGroups: loaderData.assigneeGroups,
         departments: loaderData.departmentChoices.available,
         projects: loaderData.projects,

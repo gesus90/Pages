@@ -9,6 +9,7 @@ import {
 } from "@/backend/error/WorkItemErrors";
 
 import type { ApplicationServices } from "@/app/lib/services.server";
+import type { WorkItemErrorCode } from "@/backend/error/WorkItemErrors";
 import type { User } from "@/definition/User";
 
 /** Every ticket action the task routes understand. */
@@ -42,6 +43,14 @@ export type TaskActionIntent =
   | "github-assign-pr"
   | "github-resolve-conflict";
 
+/** Why a ticket action failed; the client translates it as `tasks.error.<code>`. */
+export type TaskActionErrorCode =
+  | WorkItemErrorCode
+  | "invalidInput"
+  | "forbidden"
+  | "notFound"
+  | "githubSyncFailed";
+
 /** What the client receives after a ticket action. */
 type TaskActionResult =
   | {
@@ -52,7 +61,7 @@ type TaskActionResult =
   | {
       readonly ok: false;
       readonly intent: TaskActionIntent;
-      readonly error: string;
+      readonly error: TaskActionErrorCode;
     };
 
 /** The response an action handler returns to React Router; a redirect leaves the page of a removed ticket. */
@@ -178,7 +187,7 @@ function handleTaskActionError(
     error instanceof WorkItemValidationError
   ) {
     return data<TaskActionResult>(
-      { error: error.message, intent, ok: false },
+      { error: error.code, intent, ok: false },
       { status: 400 },
     );
   }

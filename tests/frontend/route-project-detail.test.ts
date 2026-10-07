@@ -568,7 +568,7 @@ describe("project detail route action", () => {
           getById: vi.fn().mockResolvedValue(createProject()),
           updateDetails: vi
             .fn()
-            .mockRejectedValue(new WorkItemValidationError("Bad")),
+            .mockRejectedValue(new WorkItemValidationError("titleLength")),
         },
       }),
     );

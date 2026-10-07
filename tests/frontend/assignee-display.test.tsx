@@ -9,16 +9,17 @@ import { TicketAccessProvider } from "@/app/components/tasks/ticket-access";
 import { createI18n } from "@/app/lib/i18n";
 import { createUser } from "../helpers/factories";
 
+import type { AssigneeScope } from "@/app/components/tasks/assignee-options";
 import type { TicketAccess } from "@/app/components/tasks/ticket-access";
 
 function OptionList({
-  currentGroupId,
+  scope,
 }: {
-  readonly currentGroupId: string | null;
+  readonly scope?: AssigneeScope;
 }): React.ReactElement {
   const options = useAssigneeOptions(
     [createUser({ id: "u1", displayName: "Anna" })],
-    currentGroupId,
+    scope,
   );
 
   return (
@@ -33,6 +34,7 @@ function OptionList({
 }
 
 const ACCESS: TicketAccess = {
+  assigneeGroupIdsByProject: { open: ["full"], quiet: [] },
   projects: [],
   assigneeGroups: [
     { id: "full", memberCount: 2, name: "Platform" },
@@ -74,7 +76,7 @@ describe("assignee options", () => {
   it("lists nobody, people and assignable groups", () => {
     renderWithI18n(
       <TicketAccessProvider value={ACCESS}>
-        <OptionList currentGroupId={null} />
+        <OptionList />
       </TicketAccessProvider>,
     );
 
@@ -87,7 +89,7 @@ describe("assignee options", () => {
   it("keeps the current group selectable and marks it as empty", () => {
     renderWithI18n(
       <TicketAccessProvider value={ACCESS}>
-        <OptionList currentGroupId="empty" />
+        <OptionList scope={{ currentGroupId: "empty" }} />
       </TicketAccessProvider>,
     );
 
@@ -97,8 +99,34 @@ describe("assignee options", () => {
     expect(screen.queryByText(/Others/)).not.toBeInTheDocument();
   });
 
+  it("offers a project only the groups with a member who can work in it", () => {
+    renderWithI18n(
+      <TicketAccessProvider value={ACCESS}>
+        <OptionList scope={{ projectId: "open" }} />
+        <OptionList scope={{ projectId: "quiet" }} />
+        <OptionList scope={{ projectId: "unknown" }} />
+      </TicketAccessProvider>,
+    );
+
+    expect(
+      screen.getAllByRole("listitem").map((item) => item.dataset.value),
+    ).toEqual(["", "u1", "group:full", "", "u1", "", "u1"]);
+  });
+
+  it("keeps the current group of a ticket even when the project has no member of it", () => {
+    renderWithI18n(
+      <TicketAccessProvider value={ACCESS}>
+        <OptionList scope={{ currentGroupId: "full", projectId: "quiet" }} />
+      </TicketAccessProvider>,
+    );
+
+    expect(
+      screen.getAllByRole("listitem").map((item) => item.dataset.value),
+    ).toEqual(["", "u1", "group:full"]);
+  });
+
   it("offers no groups without a provider", () => {
-    renderWithI18n(<OptionList currentGroupId={null} />);
+    renderWithI18n(<OptionList />);
 
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
   });

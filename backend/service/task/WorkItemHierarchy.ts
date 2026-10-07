@@ -1,44 +1,45 @@
 import { WORK_ITEM_TYPE } from "@/definition/Task";
 import { WorkItemHierarchyError } from "@/backend/error/WorkItemErrors";
 
+import type { WorkItemErrorCode } from "@/backend/error/WorkItemErrors";
 import type { WorkItemDetail, WorkItemType } from "@/definition/Task";
 
 /** Rules for the parent of each work item type that can have one. */
 export interface ParentRule {
   readonly parentType: WorkItemType;
-  readonly requiredMessage: string | null;
-  readonly selfMessage: string;
-  readonly missingMessage: string;
-  readonly typeMessage: string;
-  readonly projectMessage: string;
+  readonly requiredCode: WorkItemErrorCode | null;
+  readonly selfCode: WorkItemErrorCode;
+  readonly missingCode: WorkItemErrorCode;
+  readonly typeCode: WorkItemErrorCode;
+  readonly projectCode: WorkItemErrorCode;
 }
 
 const PARENT_RULES: Readonly<
   Record<Exclude<WorkItemType, "initiative">, ParentRule>
 > = {
   epic: {
-    missingMessage: "The specified Initiative does not exist.",
+    missingCode: "initiativeMissing",
     parentType: WORK_ITEM_TYPE.INITIATIVE,
-    projectMessage: "Parent Initiative must belong to the same project.",
-    requiredMessage: null,
-    selfMessage: "An Epic cannot be its own parent.",
-    typeMessage: "An Epic can only belong to an Initiative.",
+    projectCode: "initiativeOtherProject",
+    requiredCode: null,
+    selfCode: "epicSelfParent",
+    typeCode: "epicParentType",
   },
   subtask: {
-    missingMessage: "The specified parent task does not exist.",
+    missingCode: "parentTaskMissing",
     parentType: WORK_ITEM_TYPE.TASK,
-    projectMessage: "Parent task must belong to the same project.",
-    requiredMessage: "A Subtask must have an associated parent task.",
-    selfMessage: "A Subtask cannot be its own parent.",
-    typeMessage: "A Subtask can only be attached to a Task.",
+    projectCode: "parentTaskOtherProject",
+    requiredCode: "subtaskParentRequired",
+    selfCode: "subtaskSelfParent",
+    typeCode: "subtaskParentType",
   },
   task: {
-    missingMessage: "The specified Epic does not exist.",
+    missingCode: "epicMissing",
     parentType: WORK_ITEM_TYPE.EPIC,
-    projectMessage: "Parent Epic must belong to the same project.",
-    requiredMessage: null,
-    selfMessage: "A Task cannot be its own parent.",
-    typeMessage: "A Task can only have an Epic as its parent.",
+    projectCode: "epicOtherProject",
+    requiredCode: null,
+    selfCode: "taskSelfParent",
+    typeCode: "taskParentType",
   },
 };
 
@@ -65,9 +66,7 @@ export function selectParentLookup(
 ): ParentLookup | null {
   if (type === WORK_ITEM_TYPE.INITIATIVE) {
     if (parentId !== null) {
-      throw new WorkItemHierarchyError(
-        "An Initiative cannot have a parent work item.",
-      );
+      throw new WorkItemHierarchyError("initiativeNoParent");
     }
 
     return null;
@@ -76,15 +75,15 @@ export function selectParentLookup(
   const rule = PARENT_RULES[type];
 
   if (!parentId) {
-    if (rule.requiredMessage !== null) {
-      throw new WorkItemHierarchyError(rule.requiredMessage);
+    if (rule.requiredCode !== null) {
+      throw new WorkItemHierarchyError(rule.requiredCode);
     }
 
     return null;
   }
 
   if (selfId && parentId === selfId) {
-    throw new WorkItemHierarchyError(rule.selfMessage);
+    throw new WorkItemHierarchyError(rule.selfCode);
   }
 
   return { parentId, rule };
@@ -104,14 +103,14 @@ export function assertParentFits(
   projectId: string,
 ): void {
   if (!parent) {
-    throw new WorkItemHierarchyError(rule.missingMessage);
+    throw new WorkItemHierarchyError(rule.missingCode);
   }
 
   if (parent.type !== rule.parentType) {
-    throw new WorkItemHierarchyError(rule.typeMessage);
+    throw new WorkItemHierarchyError(rule.typeCode);
   }
 
   if (parent.projectId !== projectId) {
-    throw new WorkItemHierarchyError(rule.projectMessage);
+    throw new WorkItemHierarchyError(rule.projectCode);
   }
 }

@@ -97,9 +97,7 @@ export class GitHubPullRequestService {
     );
 
     if (!pullRequest) {
-      throw new WorkItemValidationError(
-        "This pull request cannot be assigned.",
-      );
+      throw new WorkItemValidationError("githubPullRequestNotAssignable");
     }
 
     await this.accessGuard.requireWritableProject(actor, pullRequest.projectId);
@@ -108,9 +106,7 @@ export class GitHubPullRequestService {
       const item = await this.taskService.getById(actor, workItemId);
 
       if (item.projectId !== pullRequest.projectId) {
-        throw new WorkItemValidationError(
-          "Pull requests can only reference tasks of the same project.",
-        );
+        throw new WorkItemValidationError("githubPullRequestOtherProject");
       }
     }
 

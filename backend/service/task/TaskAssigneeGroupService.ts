@@ -36,6 +36,40 @@ export class TaskAssigneeGroupService {
   }
 
   /**
+   * Returns, per project, the groups that have a member who can work in it.
+   *
+   * @remarks
+   * Only group ids leave the service, so the answer does not reveal who
+   * belongs to a group. A group without such a member cannot do the ticket's
+   * work, so assignment controls leave it out.
+   *
+   * @param actor - Signed-in user; must still be an active account.
+   * @param assigneesByProject - The people with access to each project.
+   * @returns The group ids by project id, in group name order.
+   */
+  public async findGroupIdsByProject(
+    actor: User,
+    assigneesByProject: Readonly<Record<string, readonly User[]>>,
+  ): Promise<Record<string, string[]>> {
+    await this.access.authorizationFacts(actor);
+
+    const groups = await this.taskRepository.findAssigneeGroupsWithMembers();
+
+    return Object.fromEntries(
+      Object.entries(assigneesByProject).map(([projectId, assignees]) => {
+        const assigneeIds = new Set(assignees.map((assignee) => assignee.id));
+        const groupIds = groups
+          .filter((group) =>
+            group.memberIds.some((memberId) => assigneeIds.has(memberId)),
+          )
+          .map((group) => group.id);
+
+        return [projectId, groupIds];
+      }),
+    );
+  }
+
+  /**
    * Returns the ids of the groups the actor belongs to, for "my tickets" views.
    *
    * @param actor - Signed-in user; must still be an active account.

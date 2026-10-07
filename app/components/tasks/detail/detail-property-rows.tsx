@@ -39,10 +39,10 @@ export function PeopleRows({
   onChangeReporter: handleReporterChange,
 }: PeopleRowsProps): React.ReactElement {
   const { t } = useTranslation();
-  const assigneeOptions = useAssigneeOptions(
-    projectAssignees,
-    task.assigneeGroupId,
-  );
+  const assigneeOptions = useAssigneeOptions(projectAssignees, {
+    currentGroupId: task.assigneeGroupId,
+    projectId: task.projectId,
+  });
 
   return (
     <>

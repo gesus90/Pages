@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("react-router", async (importOriginal) => {
@@ -60,6 +61,8 @@ interface Rendered {
   readonly submissions: Record<string, string>[];
   /** Changes what the panel sees as action data, then renders again. */
   readonly rerender: (actionData: unknown) => void;
+  /** Stores another integration, as a connection test does, which replaces the panel. */
+  readonly replaceIntegration: (integration: ProjectIntegration) => void;
 }
 
 function renderTab(
@@ -80,22 +83,25 @@ function renderTab(
     return null;
   }
 
-  const router = createMemoryRouter(
-    [
-      {
-        action,
-        element: (
-          <ProjectIntegrationsTab
-            canWrite={canWrite}
-            integration={integration}
-            projectId="project-1"
-          />
-        ),
-        path: "/",
-      },
-    ],
-    { initialEntries: ["/"] },
-  );
+  let replaceIntegration: (next: ProjectIntegration) => void = () => {};
+
+  function Tab(): React.ReactElement {
+    const [stored, setStored] = useState(integration);
+
+    replaceIntegration = setStored;
+
+    return (
+      <ProjectIntegrationsTab
+        canWrite={canWrite}
+        integration={stored}
+        projectId="project-1"
+      />
+    );
+  }
+
+  const router = createMemoryRouter([{ action, element: <Tab />, path: "/" }], {
+    initialEntries: ["/"],
+  });
 
   const view = render(
     <I18nextProvider i18n={createI18n(LANGUAGE.GERMAN)}>
@@ -114,6 +120,7 @@ function renderTab(
         ),
       );
     },
+    replaceIntegration: (next) => act(() => replaceIntegration(next)),
     submissions,
   };
 }
@@ -685,7 +692,26 @@ describe("GitHubPanel pending and result states", () => {
 
     rerender({ ok: false });
 
-    expect(screen.getByRole("status")).toHaveTextContent(
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Verbindung fehlgeschlagen",
+    );
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("keeps the result of a connection test when the stored result replaces the panel", async () => {
+    const user = userEvent.setup();
+    const { rerender, replaceIntegration } = renderTab(createIntegration());
+
+    await openGitHub(user);
+    await user.click(screen.getByRole("button", { name: "Verbindung testen" }));
+
+    // The test saves its outcome, so the integration changes and the panel starts over.
+    replaceIntegration(
+      createIntegration({ isConnected: false, updatedAt: "2026-09-06" }),
+    );
+    rerender({ error: "invalidInput", ok: false });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
       "Verbindung fehlgeschlagen",
     );
   });

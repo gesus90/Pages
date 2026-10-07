@@ -211,7 +211,7 @@ describe("TaskService", () => {
       findOrCreateProjectKey: vi.fn().mockResolvedValue("PAGE"),
       findStatusById: vi.fn().mockResolvedValue(createStatus()),
       findSubtasks: vi.fn().mockResolvedValue([]),
-      getNextNumber: vi.fn().mockResolvedValue(1),
+      reserveNumbers: vi.fn().mockResolvedValue(1),
       insert: vi.fn().mockResolvedValue(undefined),
       insertChecklistItem: vi.fn().mockResolvedValue(undefined),
       insertHistory: vi.fn().mockResolvedValue(undefined),
@@ -384,7 +384,7 @@ describe("TaskService", () => {
     repository.findMilestoneById.mockResolvedValue(createMilestone());
     repository.findEligibleAssignees.mockResolvedValue([actor]);
     repository.findOrCreateProjectKey.mockResolvedValue("PAGE");
-    repository.getNextNumber.mockResolvedValue(5);
+    repository.reserveNumbers.mockResolvedValue(5);
     repository.findById.mockResolvedValue(createWorkItem({ key: "PAGE-5" }));
 
     const created = await service.create(actor, {
@@ -769,7 +769,7 @@ describe("TaskService", () => {
     projectService.getById.mockResolvedValue(createProject());
     repository.findStatusById.mockResolvedValue(createStatus());
     repository.findOrCreateProjectKey.mockResolvedValue("PAGE");
-    repository.getNextNumber.mockResolvedValue(1);
+    repository.reserveNumbers.mockResolvedValue(1);
 
     repository.findById
       .mockResolvedValueOnce(
@@ -805,7 +805,7 @@ describe("TaskService", () => {
     projectService.getById.mockResolvedValue(createProject());
     repository.findStatusById.mockResolvedValue(createStatus());
     repository.findOrCreateProjectKey.mockResolvedValue("PAGE");
-    repository.getNextNumber.mockResolvedValue(1);
+    repository.reserveNumbers.mockResolvedValue(1);
 
     repository.findById.mockResolvedValue(
       createWorkItem({ id: "created", type: WORK_ITEM_TYPE.INITIATIVE }),
@@ -905,7 +905,7 @@ describe("TaskService", () => {
     projectService.getById.mockResolvedValue(createProject());
     repository.findStatusById.mockResolvedValue(createStatus());
     repository.findOrCreateProjectKey.mockResolvedValue("PAGE");
-    repository.getNextNumber.mockResolvedValue(1);
+    repository.reserveNumbers.mockResolvedValue(1);
     repository.findById.mockResolvedValue(createWorkItem());
 
     await service.create(actor, {
@@ -1076,7 +1076,7 @@ describe("TaskService", () => {
     projectService.getById.mockResolvedValue(createProject());
     repository.findStatusById.mockResolvedValue(createStatus());
     repository.findOrCreateProjectKey.mockResolvedValue("PAGE");
-    repository.getNextNumber.mockResolvedValue(1);
+    repository.reserveNumbers.mockResolvedValue(1);
     repository.findEligibleAssignees.mockResolvedValue([actor]);
     repository.findById.mockResolvedValueOnce(null);
 
@@ -1302,7 +1302,7 @@ describe("TaskService restore, moves, labels, and sync state", () => {
       findOrCreateProjectKey: vi.fn().mockResolvedValue("PAGE"),
       findStatusById: vi.fn().mockResolvedValue(createStatus()),
       findSubtasks: vi.fn().mockResolvedValue([]),
-      getNextNumber: vi.fn().mockResolvedValue(1),
+      reserveNumbers: vi.fn().mockResolvedValue(1),
       insert: vi.fn().mockResolvedValue(undefined),
       insertChecklistItem: vi.fn().mockResolvedValue(undefined),
       insertHistory: vi.fn().mockResolvedValue(undefined),
@@ -1384,7 +1384,7 @@ describe("TaskService restore, moves, labels, and sync state", () => {
       createProject({ id: "project-2", name: "AstroLab" }),
     );
     repository.findOrCreateProjectKey.mockResolvedValue("ASTRO");
-    repository.getNextNumber.mockResolvedValue(5);
+    repository.reserveNumbers.mockResolvedValue(5);
     repository.findEligibleAssignees.mockResolvedValue([]);
 
     const moved = await service.moveToProject(actor, "item-1", "project-2");
@@ -1440,7 +1440,7 @@ describe("TaskService restore, moves, labels, and sync state", () => {
       createProject({ id: "project-2", name: "AstroLab" }),
     );
     repository.findOrCreateProjectKey.mockResolvedValue("ASTRO");
-    repository.getNextNumber.mockResolvedValue(2);
+    repository.reserveNumbers.mockResolvedValue(2);
     repository.findSubtasks.mockResolvedValueOnce([child]);
     repository.findMilestoneById.mockResolvedValue(
       createMilestone({ projectId: "project-2" }),
@@ -1765,7 +1765,7 @@ describe("TaskService restore, moves, labels, and sync state", () => {
     projectService.getById.mockResolvedValue(createProject());
     repository.findStatusById.mockResolvedValue(createStatus());
     repository.findOrCreateProjectKey.mockResolvedValue("PAGE");
-    repository.getNextNumber.mockResolvedValue(1);
+    repository.reserveNumbers.mockResolvedValue(1);
 
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
 
@@ -1845,7 +1845,7 @@ describe("TaskService restore, moves, labels, and sync state", () => {
     projectService.getById.mockResolvedValue(createProject());
     repository.findStatusById.mockResolvedValue(createStatus());
     repository.findOrCreateProjectKey.mockResolvedValue("PAGE");
-    repository.getNextNumber.mockResolvedValue(1);
+    repository.reserveNumbers.mockResolvedValue(1);
     repository.findById.mockResolvedValue(
       createWorkItem({ githubLastError: "Old error" }),
     );

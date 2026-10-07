@@ -10,7 +10,7 @@ interface ToolbarViewOptionsProps {
   readonly board: BoardPreferencesState;
 }
 
-/** Renders the sort order, its direction and the grouping of the board. */
+/** Renders the sort order and its direction, and the grouping that only the kanban board applies. */
 export function ToolbarViewOptions({
   board,
 }: ToolbarViewOptionsProps): React.ReactElement {
@@ -42,15 +42,17 @@ export function ToolbarViewOptions({
         <DirectionIcon className="size-4" aria-hidden="true" />
       </button>
 
-      <Select
-        ariaLabel={t("tasks.group.title")}
-        value={preferences.group}
-        onValueChange={(group) => update({ group })}
-        options={BOARD_GROUPS.map((value) => ({
-          value,
-          label: t(`tasks.group.${value}`),
-        }))}
-      />
+      {preferences.view === "kanban" ? (
+        <Select
+          ariaLabel={t("tasks.group.title")}
+          value={preferences.group}
+          onValueChange={(group) => update({ group })}
+          options={BOARD_GROUPS.map((value) => ({
+            value,
+            label: t(`tasks.group.${value}`),
+          }))}
+        />
+      ) : null}
     </>
   );
 }

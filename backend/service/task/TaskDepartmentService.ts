@@ -122,7 +122,7 @@ export class TaskDepartmentService {
     if (
       !facts.departments.some((department) => department.id === departmentId)
     ) {
-      throw new WorkItemValidationError("Selected department does not exist.");
+      throw new WorkItemValidationError("departmentNotFound");
     }
 
     if (!this.policy.canSelect(facts.account, departmentId)) {

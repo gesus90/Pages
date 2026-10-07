@@ -91,6 +91,7 @@ function renderWithAction(
     <I18nextProvider i18n={createI18n(LANGUAGE.GERMAN)}>
       <TicketAccessProvider
         value={{
+          assigneeGroupIdsByProject: {},
           assigneeGroups: [],
           canDelete: false,
           canWrite: true,

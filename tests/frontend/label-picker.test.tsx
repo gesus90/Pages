@@ -10,7 +10,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { I18nextProvider } from "react-i18next";
-import { createMemoryRouter, RouterProvider } from "react-router";
+import { createMemoryRouter, data, RouterProvider } from "react-router";
 
 import { LabelPicker } from "@/app/components/tasks/label-picker";
 import { createI18n } from "@/app/lib/i18n";
@@ -539,5 +539,121 @@ describe("LabelPicker", () => {
     fireEvent.keyDown(document.body, { key: "Escape" });
 
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+});
+
+describe("LabelPicker failures", () => {
+  function renderFailing(result: unknown): void {
+    function Harness(): React.ReactElement {
+      const [isOpen, setIsOpen] = React.useState(true);
+
+      return (
+        <>
+          <button onClick={() => setIsOpen(true)} type="button">
+            Dialog öffnen
+          </button>
+          <LabelPicker
+            assignedLabelIds={new Set()}
+            isOpen={isOpen}
+            labelUsage={{}}
+            labels={[createLabel({ id: "label-1", name: "Frontend" })]}
+            onOpenChange={setIsOpen}
+            workItemId="item-1"
+          />
+        </>
+      );
+    }
+
+    const router = createMemoryRouter(
+      [
+        {
+          action: () => result,
+          element: <Harness />,
+          path: "/",
+        },
+      ],
+      { initialEntries: ["/"] },
+    );
+
+    render(
+      <I18nextProvider i18n={createI18n(LANGUAGE.GERMAN)}>
+        <RouterProvider router={router} />
+      </I18nextProvider>,
+    );
+  }
+
+  async function submitDuplicateName(
+    user: ReturnType<typeof userEvent.setup>,
+  ): Promise<void> {
+    await user.click(
+      screen.getByRole("button", { name: "Neues Label erstellen" }),
+    );
+    await user.type(screen.getByPlaceholderText("z. B. API"), "frontend");
+    await user.click(screen.getByRole("button", { name: "Erstellen" }));
+  }
+
+  it("shows the translated reason and keeps the rejected name in the form", async () => {
+    const user = userEvent.setup();
+
+    renderFailing(
+      data(
+        { error: "labelNameTaken", intent: "label-create", ok: false },
+        { status: 400 },
+      ),
+    );
+    await submitDuplicateName(user);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Ein Label mit diesem Namen existiert bereits.",
+    );
+    expect(screen.getByPlaceholderText("z. B. API")).toHaveValue("frontend");
+  });
+
+  it("forgets the reason when the dialog is closed and opened again", async () => {
+    const user = userEvent.setup();
+
+    renderFailing(
+      data(
+        { error: "labelNameTaken", intent: "label-create", ok: false },
+        { status: 400 },
+      ),
+    );
+    await submitDuplicateName(user);
+    await screen.findByRole("alert");
+
+    await user.keyboard("{Escape}");
+    await user.click(screen.getByRole("button", { name: "Dialog öffnen" }));
+
+    expect(await screen.findByText("Labels auswählen")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("ignores failures of other actions and successful answers", async () => {
+    const user = userEvent.setup();
+
+    renderFailing(
+      data(
+        { error: "titleLength", intent: "create-task", ok: false },
+        { status: 400 },
+      ),
+    );
+    await submitDuplicateName(user);
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Erstellen" })).toBeEnabled(),
+    );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("shows nothing after a successful action", async () => {
+    const user = userEvent.setup();
+
+    renderFailing(data({ intent: "label-create", ok: true }));
+    await submitDuplicateName(user);
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Erstellen" })).toBeEnabled(),
+    );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });

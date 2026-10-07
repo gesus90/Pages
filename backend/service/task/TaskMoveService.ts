@@ -87,18 +87,20 @@ export class TaskMoveService {
     );
 
     if (existing.projectId === targetProjectId) {
-      throw new WorkItemValidationError(
-        "The ticket already belongs to the selected project.",
-      );
+      throw new WorkItemValidationError("moveSameProject");
     }
 
     const subtree = await this.collectSubtree(actor, existing.id);
 
     // Renumbering the subtree must not interleave with other requests that
     // allocate numbers in the target project.
-    await this.numbering.run(targetProject, async (sequence) => {
-      await this.moveSubtree(actor, { subtree, targetProject }, sequence);
-    });
+    await this.numbering.run(
+      targetProject,
+      subtree.length,
+      async (sequence) => {
+        await this.moveSubtree(actor, { subtree, targetProject }, sequence);
+      },
+    );
 
     this.cache.invalidateWorkItems();
     // Moving changes which projects count a ticket, so usage counts go stale.

@@ -68,23 +68,48 @@ export class WorkItemKeyRepository {
     return readTextColumn(confirmedRow, 0, "key");
   }
 
-  /** Returns the next sequential ticket number for the given project. */
-  public async getNextNumber(projectId: string): Promise<number> {
+  /**
+   * Reserves consecutive ticket numbers of a project and returns the first.
+   *
+   * @remarks
+   * The project counter only grows. A number is therefore never handed out
+   * twice, even after its ticket was deleted or moved to another project.
+   * Tickets that carry a higher number than the counter (data from before the
+   * counter existed) raise the counter first.
+   *
+   * @param projectId - Project the numbers belong to; it needs a stored key.
+   * @param count - How many consecutive numbers to reserve.
+   * @returns The first reserved number.
+   */
+  public async reserveNumbers(
+    projectId: string,
+    count: number,
+  ): Promise<number> {
     const rows = await this.database.query(
       `
-        SELECT
-            COALESCE(MAX(number), 0) + 1 AS next_number
-        FROM work_items
-        WHERE project_id = $project_id;
+        UPDATE project_keys
+        SET last_number = GREATEST(
+            COALESCE(last_number, 0),
+            COALESCE(
+                (
+                    SELECT MAX(work_items.number)
+                    FROM work_items
+                    WHERE work_items.project_id = project_keys.project_id
+                ),
+                0
+            )
+        ) + $count
+        WHERE project_id = $project_id
+        RETURNING last_number;
       `,
-      { project_id: projectId },
+      { count, project_id: projectId },
     );
     const row = rows[0];
 
     if (!row) {
-      return 1;
+      throw new Error(`Project "${projectId}" has no ticket key.`);
     }
 
-    return readCountColumn(row, 0, "next_number");
+    return readCountColumn(row, 0, "last_number") - count + 1;
   }
 }

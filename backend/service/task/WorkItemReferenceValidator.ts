@@ -71,9 +71,7 @@ export class WorkItemReferenceValidator {
     projectId: string,
   ): Promise<void> {
     if (!(await this.isEligibleAssignee(userId, projectId))) {
-      throw new WorkItemValidationError(
-        "Selected assignee does not have access to this project.",
-      );
+      throw new WorkItemValidationError("assigneeNoProjectAccess");
     }
   }
 
@@ -93,9 +91,7 @@ export class WorkItemReferenceValidator {
     references: WorkItemReferences,
   ): Promise<void> {
     if (references.assigneeId && references.assigneeGroupId) {
-      throw new WorkItemValidationError(
-        "A ticket is assigned to a person or to a group, not to both.",
-      );
+      throw new WorkItemValidationError("assigneeAndGroup");
     }
 
     if (references.assigneeId) {
@@ -114,13 +110,13 @@ export class WorkItemReferenceValidator {
     const group = await this.taskRepository.findAssigneeGroupById(groupId);
 
     if (!group) {
-      throw new WorkItemValidationError("Selected group does not exist.");
+      throw new WorkItemValidationError("groupNotFound");
     }
 
     // Group members need no project access (accepted special case); an empty
     // group would leave the ticket without anyone responsible.
     if (group.memberCount === 0) {
-      throw new WorkItemValidationError("Selected group has no members.");
+      throw new WorkItemValidationError("groupEmpty");
     }
   }
 
@@ -153,13 +149,11 @@ export class WorkItemReferenceValidator {
     const milestone = await this.taskRepository.findMilestoneById(milestoneId);
 
     if (!milestone) {
-      throw new WorkItemValidationError("Selected milestone does not exist.");
+      throw new WorkItemValidationError("milestoneNotFound");
     }
 
     if (milestone.projectId !== projectId) {
-      throw new WorkItemValidationError(
-        "Milestone does not belong to the selected project.",
-      );
+      throw new WorkItemValidationError("milestoneOtherProject");
     }
   }
 }

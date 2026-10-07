@@ -183,6 +183,7 @@ function createServices(
       deleteLabel: vi.fn(),
       findAll: vi.fn().mockResolvedValue([createWorkItem()]),
       findAllStatuses: vi.fn().mockResolvedValue([createStatus()]),
+      findAssigneeGroupIdsByProject: vi.fn().mockResolvedValue({}),
       findAssigneeGroups: vi.fn().mockResolvedValue([]),
       findMemberGroupIds: vi.fn().mockResolvedValue([]),
       findAssigneesByProjects: vi
@@ -634,7 +635,7 @@ describe("tasks route action", () => {
 
     (
       services.taskService.create as ReturnType<typeof vi.fn>
-    ).mockRejectedValueOnce(new WorkItemHierarchyError("Invalid hierarchy"));
+    ).mockRejectedValueOnce(new WorkItemHierarchyError("epicSelfParent"));
     mockedServices.mockResolvedValueOnce(services);
 
     const hierarchyResponse = getActionData(
@@ -985,7 +986,7 @@ describe("tasks route action", () => {
       services.gitHubSyncService.dismissExternalIssue as ReturnType<
         typeof vi.fn
       >
-    ).mockRejectedValueOnce(new WorkItemValidationError("Nope"));
+    ).mockRejectedValueOnce(new WorkItemValidationError("titleLength"));
     mockedServices.mockResolvedValueOnce(services);
 
     const response = getActionData(
@@ -998,7 +999,7 @@ describe("tasks route action", () => {
       } as unknown as LoaderFunctionArgs),
     );
 
-    expect(response.data).toMatchObject({ error: "Nope", ok: false });
+    expect(response.data).toMatchObject({ error: "titleLength", ok: false });
     expect(response.init?.status).toBe(400);
   });
 
@@ -1078,7 +1079,7 @@ describe("tasks route action", () => {
       assignServices.gitHubSyncService.assignPullRequest as ReturnType<
         typeof vi.fn
       >
-    ).mockRejectedValueOnce(new WorkItemValidationError("Nope"));
+    ).mockRejectedValueOnce(new WorkItemValidationError("titleLength"));
     mockedServices.mockResolvedValueOnce(assignServices);
 
     const assignFailure = getActionData(
@@ -1129,7 +1130,7 @@ describe("tasks route action", () => {
       importServices.gitHubSyncService.importExternalIssue as ReturnType<
         typeof vi.fn
       >
-    ).mockRejectedValueOnce(new WorkItemValidationError("Nope"));
+    ).mockRejectedValueOnce(new WorkItemValidationError("titleLength"));
     mockedServices.mockResolvedValueOnce(importServices);
 
     const importFailure = getActionData(
@@ -1153,7 +1154,7 @@ describe("tasks route action", () => {
       linkServices.gitHubSyncService.linkExternalIssue as ReturnType<
         typeof vi.fn
       >
-    ).mockRejectedValueOnce(new WorkItemValidationError("Nope"));
+    ).mockRejectedValueOnce(new WorkItemValidationError("titleLength"));
     mockedServices.mockResolvedValueOnce(linkServices);
 
     const linkFailure = getActionData(
@@ -1225,7 +1226,7 @@ describe("tasks route action", () => {
     const updateServices = createServices();
     (
       updateServices.taskService.update as ReturnType<typeof vi.fn>
-    ).mockRejectedValueOnce(new WorkItemValidationError("Bad"));
+    ).mockRejectedValueOnce(new WorkItemValidationError("titleLength"));
     mockedServices.mockResolvedValueOnce(updateServices);
 
     const updateFailure = getActionData(
@@ -1506,7 +1507,7 @@ describe("tasks route action", () => {
       createServicesWithError.taskService.createLabel as ReturnType<
         typeof vi.fn
       >
-    ).mockRejectedValueOnce(new WorkItemValidationError("Nope"));
+    ).mockRejectedValueOnce(new WorkItemValidationError("titleLength"));
     mockedServices.mockResolvedValueOnce(createServicesWithError);
 
     const failedCreate = getActionData(
@@ -1551,7 +1552,7 @@ describe("tasks route action", () => {
       updateServicesWithError.taskService.updateLabel as ReturnType<
         typeof vi.fn
       >
-    ).mockRejectedValueOnce(new WorkItemValidationError("Nope"));
+    ).mockRejectedValueOnce(new WorkItemValidationError("titleLength"));
     mockedServices.mockResolvedValueOnce(updateServicesWithError);
 
     const failedUpdate = getActionData(
@@ -1591,7 +1592,7 @@ describe("tasks route action", () => {
       deleteServicesWithError.taskService.deleteLabel as ReturnType<
         typeof vi.fn
       >
-    ).mockRejectedValueOnce(new WorkItemValidationError("Nope"));
+    ).mockRejectedValueOnce(new WorkItemValidationError("titleLength"));
     mockedServices.mockResolvedValueOnce(deleteServicesWithError);
 
     const failedDelete = getActionData(
@@ -1633,7 +1634,7 @@ describe("tasks route action", () => {
       assignServicesWithError.taskService.assignLabel as ReturnType<
         typeof vi.fn
       >
-    ).mockRejectedValueOnce(new WorkItemValidationError("Nope"));
+    ).mockRejectedValueOnce(new WorkItemValidationError("titleLength"));
     mockedServices.mockResolvedValueOnce(assignServicesWithError);
 
     const failedAssign = getActionData(
@@ -1676,7 +1677,7 @@ describe("tasks route action", () => {
       unassignServicesWithError.taskService.unassignLabel as ReturnType<
         typeof vi.fn
       >
-    ).mockRejectedValueOnce(new WorkItemValidationError("Nope"));
+    ).mockRejectedValueOnce(new WorkItemValidationError("titleLength"));
     mockedServices.mockResolvedValueOnce(unassignServicesWithError);
 
     const failedUnassign = getActionData(
@@ -1860,7 +1861,7 @@ describe("tasks route action", () => {
       addChecklistServices.taskService.addChecklistItem as ReturnType<
         typeof vi.fn
       >
-    ).mockRejectedValueOnce(new WorkItemValidationError("Nope"));
+    ).mockRejectedValueOnce(new WorkItemValidationError("titleLength"));
     mockedServices.mockResolvedValueOnce(addChecklistServices);
 
     const addChecklistFailure = getActionData(
@@ -1880,7 +1881,7 @@ describe("tasks route action", () => {
       toggleServices.taskService.setChecklistItemDone as ReturnType<
         typeof vi.fn
       >
-    ).mockRejectedValueOnce(new WorkItemValidationError("Nope"));
+    ).mockRejectedValueOnce(new WorkItemValidationError("titleLength"));
     mockedServices.mockResolvedValueOnce(toggleServices);
 
     const toggleFailure = getActionData(
@@ -1914,7 +1915,7 @@ describe("tasks route action", () => {
     const addLinkServices = createServices();
     (
       addLinkServices.taskService.addLink as ReturnType<typeof vi.fn>
-    ).mockRejectedValueOnce(new WorkItemValidationError("Nope"));
+    ).mockRejectedValueOnce(new WorkItemValidationError("titleLength"));
     mockedServices.mockResolvedValueOnce(addLinkServices);
 
     const addLinkFailure = getActionData(

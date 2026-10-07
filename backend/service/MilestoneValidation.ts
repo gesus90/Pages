@@ -1,6 +1,7 @@
 import { isMilestoneColor, isMilestoneIcon } from "@/definition/Task";
 import { WorkItemValidationError } from "@/backend/error/WorkItemErrors";
 
+import type { WorkItemErrorCode } from "@/backend/error/WorkItemErrors";
 import type { MilestoneColor, MilestoneIcon } from "@/definition/Task";
 
 const MAXIMUM_NAME_LENGTH = 200;
@@ -29,7 +30,7 @@ export interface ValidMilestoneFields {
 
 function parseDate(
   value: string | null | undefined,
-  label: string,
+  errorCode: WorkItemErrorCode,
 ): string | null {
   const date = value?.trim();
 
@@ -38,9 +39,7 @@ function parseDate(
   }
 
   if (!DATE_PATTERN.test(date)) {
-    throw new WorkItemValidationError(
-      `Milestone ${label} date must use the format YYYY-MM-DD.`,
-    );
+    throw new WorkItemValidationError(errorCode);
   }
 
   return date;
@@ -49,14 +48,14 @@ function parseDate(
 function requireOptional<Value>(
   value: Value | null | undefined,
   isValid: (candidate: unknown) => boolean,
-  message: string,
+  errorCode: WorkItemErrorCode,
 ): Value | null {
   if (value === undefined || value === null) {
     return null;
   }
 
   if (!isValid(value)) {
-    throw new WorkItemValidationError(message);
+    throw new WorkItemValidationError(errorCode);
   }
 
   return value;
@@ -73,19 +72,15 @@ export function validateMilestoneInput(
   input: MilestoneFields,
 ): ValidMilestoneFields {
   const name = input.name.trim();
-  const startAt = parseDate(input.startAt, "start");
-  const dueAt = parseDate(input.dueAt, "due");
+  const startAt = parseDate(input.startAt, "milestoneStartDateFormat");
+  const dueAt = parseDate(input.dueAt, "milestoneDueDateFormat");
 
   if (!name || name.length > MAXIMUM_NAME_LENGTH) {
-    throw new WorkItemValidationError(
-      "Milestone name must be between 1 and 200 characters.",
-    );
+    throw new WorkItemValidationError("milestoneNameLength");
   }
 
   if (startAt && dueAt && startAt > dueAt) {
-    throw new WorkItemValidationError(
-      "Milestone start date must not be after its due date.",
-    );
+    throw new WorkItemValidationError("milestoneDateOrder");
   }
 
   return {
@@ -93,18 +88,18 @@ export function validateMilestoneInput(
       input.colorCustom,
       (candidate) =>
         typeof candidate === "string" && HEX_COLOR_PATTERN.test(candidate),
-      "Milestone custom color must use the format #RRGGBB.",
+      "milestoneCustomColorFormat",
     ),
     colorKey: requireOptional(
       input.colorKey,
       isMilestoneColor,
-      "Milestone color must be a supported color type.",
+      "milestoneColorUnsupported",
     ),
     dueAt,
     iconKey: requireOptional(
       input.iconKey,
       isMilestoneIcon,
-      "Milestone icon must be a supported symbol.",
+      "milestoneIconUnsupported",
     ),
     name,
     startAt,

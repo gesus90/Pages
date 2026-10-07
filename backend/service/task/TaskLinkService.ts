@@ -52,7 +52,7 @@ export class TaskLinkService {
     const item = await this.access.requireWritableWorkItem(actor, workItemId);
 
     if (!isWorkItemLinkType(linkType)) {
-      throw new WorkItemValidationError("Unsupported link type.");
+      throw new WorkItemValidationError("linkTypeUnsupported");
     }
 
     const target = await this.findLinkTarget(actor, item, targetKey);
@@ -85,9 +85,7 @@ export class TaskLinkService {
       link.workItemId !== item.id &&
       link.linkedWorkItemId !== item.id
     ) {
-      throw new WorkItemValidationError(
-        "Selected link does not belong to this ticket.",
-      );
+      throw new WorkItemValidationError("linkNotOfTicket");
     }
 
     await this.taskRepository.deleteLink(linkId);
@@ -112,11 +110,11 @@ export class TaskLinkService {
       : null;
 
     if (!target) {
-      throw new WorkItemValidationError("Selected ticket does not exist.");
+      throw new WorkItemValidationError("linkTargetNotFound");
     }
 
     if (target.id === item.id) {
-      throw new WorkItemValidationError("A ticket cannot be linked to itself.");
+      throw new WorkItemValidationError("linkSelf");
     }
 
     return target;

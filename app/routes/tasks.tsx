@@ -70,6 +70,9 @@ interface TasksLoaderData {
   readonly milestones: readonly Milestone[];
   readonly assignees: readonly User[];
   readonly assigneeGroups: readonly GroupSummary[];
+  readonly assigneeGroupIdsByProject: Readonly<
+    Record<string, readonly string[]>
+  >;
   readonly memberGroupIds: readonly string[];
   readonly assigneesByProject: Readonly<Record<string, readonly User[]>>;
   readonly workItems: readonly WorkItemDetail[];
@@ -302,9 +305,15 @@ export async function loader({
     }
   }
 
+  const assignees = await loadAssignees(services, projects);
   const references = {
-    ...(await loadAssignees(services, projects)),
+    ...assignees,
     ...(await loadLabels(services, actor)),
+    assigneeGroupIdsByProject:
+      await services.taskService.findAssigneeGroupIdsByProject(
+        actor,
+        assignees.assigneesByProject,
+      ),
     assigneeGroups: await services.taskService.findAssigneeGroups(actor),
     departmentChoices: await services.taskService.departmentChoices(actor),
     milestones: await services.taskService.findMilestones(actor, projectIds),
@@ -442,6 +451,7 @@ export default function TasksRoute(): React.ReactElement {
     <TicketAccessProvider
       value={{
         ...loaderData.permissions,
+        assigneeGroupIdsByProject: loaderData.assigneeGroupIdsByProject,
         assigneeGroups: loaderData.assigneeGroups,
         departments: loaderData.departmentChoices.available,
         projects,
@@ -451,7 +461,7 @@ export default function TasksRoute(): React.ReactElement {
         className={cn(
           "flex flex-col",
           viewMode === "kanban"
-            ? "h-[calc(100dvh-8.5rem)] min-h-0 overflow-hidden"
+            ? "md:h-[calc(100dvh-8.5rem)] md:min-h-0 md:overflow-hidden"
             : "min-h-[calc(100vh-theme(spacing.20))]",
         )}
       >
@@ -480,7 +490,11 @@ export default function TasksRoute(): React.ReactElement {
             <div
               className={cn(
                 "relative mt-5 flex min-h-0 flex-1 flex-col",
-                viewMode === "kanban" && "overflow-hidden",
+                // On phones the page scrolls and the board keeps a height of
+                // its own, so cards stay whole instead of sharing what the
+                // filters leave over.
+                viewMode === "kanban" &&
+                  "h-[max(30rem,calc(100dvh-18rem))] flex-none md:h-auto md:flex-1 md:overflow-hidden",
               )}
             >
               <TasksContent

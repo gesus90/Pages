@@ -25,7 +25,7 @@ import type {
   WorkItemVisibility,
   WorkflowStatus,
 } from "@/definition/Task";
-import type { GroupSummary } from "@/definition/UserGroup";
+import type { GroupSummary, UserGroup } from "@/definition/UserGroup";
 import type { User } from "@/definition/User";
 import type { NewMilestoneDependency } from "./task/MilestoneDependencyRepository";
 import type { MilestoneUpdate, NewMilestone } from "./task/MilestoneRepository";
@@ -192,9 +192,12 @@ export class TaskRepository {
     return this.keys.findOrCreateProjectKey(projectId, defaultKey);
   }
 
-  /** Returns the next sequential ticket number for the given project. */
-  public async getNextNumber(projectId: string): Promise<number> {
-    return this.keys.getNextNumber(projectId);
+  /** Reserves consecutive ticket numbers of a project and returns the first. */
+  public async reserveNumbers(
+    projectId: string,
+    count: number,
+  ): Promise<number> {
+    return this.keys.reserveNumbers(projectId, count);
   }
 
   /** Returns non-archived work items matching the given filters. */
@@ -537,6 +540,11 @@ export class TaskRepository {
   /** Returns every user group with its member count, ordered by name. */
   public async findAssigneeGroups(): Promise<GroupSummary[]> {
     return this.groups.findSummaries();
+  }
+
+  /** Returns every user group with its members, ordered by name. */
+  public async findAssigneeGroupsWithMembers(): Promise<UserGroup[]> {
+    return this.groups.findAll();
   }
 
   /** Returns one user group with its member count, or `null` when it does not exist. */

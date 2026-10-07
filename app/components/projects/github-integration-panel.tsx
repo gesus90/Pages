@@ -10,17 +10,19 @@ import {
   GitHubSyncSections,
 } from "@/app/components/projects/github/github-sync-sections";
 import { GitHubTokenField } from "@/app/components/projects/github/github-token-field";
-import { useGitHubSubmission } from "@/app/components/projects/github/use-github-submission";
 import { ServiceIdentity } from "@/app/components/projects/integration-fields";
 import { PanelShell } from "@/app/components/projects/integration-panel-shell";
 import { cn } from "@/app/lib/cn";
 
+import type { GitHubSubmission } from "@/app/components/projects/github/use-github-submission";
 import type { ProjectIntegration } from "@/definition/Project";
 
 interface GitHubPanelProps {
   readonly integration: ProjectIntegration | null;
   readonly canWrite: boolean;
   readonly projectId: string;
+  /** Kept by the tab: a test stores its result, which replaces the panel. */
+  readonly submission: GitHubSubmission;
   readonly onClose: () => void;
 }
 
@@ -64,13 +66,9 @@ function ReadOnlyGitHubPanel({
 function TestResult({
   testPassed,
 }: {
-  readonly testPassed: boolean | null;
-}): React.ReactElement | null {
+  readonly testPassed: boolean;
+}): React.ReactElement {
   const { t } = useTranslation();
-
-  if (testPassed === null) {
-    return null;
-  }
 
   return (
     <p
@@ -80,7 +78,7 @@ function TestResult({
           ? "bg-emerald-50 text-emerald-700"
           : "bg-red-50 text-destructive",
       )}
-      role="status"
+      role={testPassed ? "status" : "alert"}
     >
       {testPassed
         ? t("projectDetail.interfaces.connectionOk")
@@ -91,11 +89,11 @@ function TestResult({
 
 function EditableGitHubPanel({
   integration,
+  submission,
   onClose,
 }: Omit<GitHubPanelProps, "canWrite">): React.ReactElement {
   const { t } = useTranslation();
   const { change, isDirty, values } = useGitHubFormValues(integration);
-  const submission = useGitHubSubmission();
 
   const syncDirection =
     values.allowCreateIssues || values.allowCreatePullRequests
@@ -111,6 +109,11 @@ function EditableGitHubPanel({
           isTesting={submission.isTesting}
           onTestSubmit={submission.markTestSubmitted}
         />
+      }
+      notice={
+        submission.testPassed === null ? null : (
+          <TestResult testPassed={submission.testPassed} />
+        )
       }
       onClose={onClose}
       serviceName={t("projectDetail.interfaces.githubName")}
@@ -176,8 +179,6 @@ function EditableGitHubPanel({
           syncIntervalMinutes={values.syncIntervalMinutes}
         />
       </Form>
-
-      <TestResult testPassed={submission.testPassed} />
 
       {integration ? <GitHubConnectionCard integration={integration} /> : null}
     </PanelShell>

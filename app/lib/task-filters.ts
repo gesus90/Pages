@@ -1,8 +1,10 @@
 import {
   BOARD_FILTER_ALL,
   BOARD_FILTER_NONE,
+  DEFAULT_BOARD_PREFERENCES,
 } from "@/definition/BoardPreferences";
 
+import type { ArchivedFilter } from "@/app/lib/tasks-view";
 import type { BoardPreferences } from "@/definition/BoardPreferences";
 import type { Label, WorkItemDetail } from "@/definition/Task";
 
@@ -139,4 +141,35 @@ export function filterWorkItems(
       matchesLabels(item, viewer, filters.labelIds) &&
       matchesSearch(item, filters.search),
   );
+}
+
+/**
+ * Counts the filters of the toolbar that differ from the defaults.
+ *
+ * @remarks
+ * The search text is not counted because it stays visible on every screen.
+ *
+ * @param preferences - What the visitor chose.
+ * @param archivedFilter - The archive state the page shows.
+ * @returns How many filters narrow the board down.
+ */
+export function countActiveFilters(
+  preferences: BoardPreferences,
+  archivedFilter: ArchivedFilter,
+): number {
+  const defaults = DEFAULT_BOARD_PREFERENCES;
+  const changes = [
+    preferences.scope !== defaults.scope,
+    preferences.project !== defaults.project,
+    preferences.type !== defaults.type,
+    preferences.status !== defaults.status,
+    preferences.priority !== defaults.priority,
+    preferences.milestone !== defaults.milestone,
+    preferences.assignee !== defaults.assignee,
+    preferences.department !== defaults.department,
+    preferences.labelIds.length > 0,
+    archivedFilter !== "active",
+  ];
+
+  return changes.filter(Boolean).length;
 }

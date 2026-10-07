@@ -65,6 +65,7 @@ export function TaskFormDialog({
     defaultType,
     initialTask,
     projects,
+    statuses,
   });
 
   return (

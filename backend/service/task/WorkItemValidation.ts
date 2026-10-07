@@ -11,14 +11,10 @@ export function trimOrNull(value: string | null | undefined): string | null {
 /** Checks the title and description of a work item against their limits. */
 export function validateWorkItemText(title: string, description: string): void {
   if (!title || title.length > MAXIMUM_TITLE_LENGTH) {
-    throw new WorkItemValidationError(
-      "Title must be between 1 and 200 characters.",
-    );
+    throw new WorkItemValidationError("titleLength");
   }
 
   if (description.length > MAXIMUM_DESCRIPTION_LENGTH) {
-    throw new WorkItemValidationError(
-      "Description must not exceed 10,000 characters.",
-    );
+    throw new WorkItemValidationError("descriptionTooLong");
   }
 }

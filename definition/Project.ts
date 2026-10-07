@@ -177,6 +177,28 @@ export interface ProjectIntegration {
   readonly syncEnabled: boolean;
 }
 
+/**
+ * Tells whether new tasks of a project are published to GitHub on their own.
+ *
+ * @remarks
+ * That needs a stored repository and token, the synchronization switched on,
+ * issues in the synchronized scope and a direction that lets Pages write.
+ *
+ * @param integration - The GitHub integration of the project, or `null` without one.
+ */
+export function publishesNewTasks(
+  integration: ProjectIntegration | null,
+): boolean {
+  return (
+    integration !== null &&
+    integration.repoUrl !== "" &&
+    integration.hasToken &&
+    integration.syncEnabled &&
+    integration.syncIssues &&
+    integration.syncDirection !== "pull"
+  );
+}
+
 /** Categories available for filtering the project activity log. */
 export const PROJECT_ACTIVITY_CATEGORY = {
   TASKS: "tasks",

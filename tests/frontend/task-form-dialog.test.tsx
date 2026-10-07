@@ -202,6 +202,7 @@ function renderDialog(
       <TicketAccessProvider
         value={{
           projects: [],
+          assigneeGroupIdsByProject: {},
           assigneeGroups: [],
           canDelete: false,
           canWrite: true,
@@ -353,6 +354,23 @@ describe("TaskFormDialog", () => {
       screen.getByLabelText("Initiative auswählen (optional)"),
     ).toBeInTheDocument();
     expect(screen.getByText("PAGE-1: Platform")).toBeInTheDocument();
+  });
+
+  it("starts a new ticket in the default status unless the board names one", () => {
+    renderDialog({ mode: "create" });
+
+    expect(screen.getByLabelText("Status")).toHaveTextContent("To Do");
+    expect(document.querySelector('input[name="statusId"]')).toHaveValue(
+      "status-todo",
+    );
+  });
+
+  it("starts a new ticket in the status of the column it was created from", () => {
+    renderDialog({ defaultStatusId: "status-done", mode: "create" });
+
+    expect(document.querySelector('input[name="statusId"]')).toHaveValue(
+      "status-done",
+    );
   });
 
   it("handles empty projects and statuses", () => {

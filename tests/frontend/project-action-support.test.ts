@@ -54,7 +54,7 @@ describe("toActionError", () => {
   });
 
   it.each([
-    ["a validation failure", new WorkItemValidationError("too long")],
+    ["a validation failure", new WorkItemValidationError("titleLength")],
     ["any other error", new Error("Rejected")],
   ])("answers %s with 400", (_label, error) => {
     expect(describeResponse(error)).toEqual({

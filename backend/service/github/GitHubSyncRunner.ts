@@ -195,9 +195,7 @@ export class GitHubSyncRunner {
     const item = await this.accessGuard.requireWritableTask(actor, workItemId);
 
     if (item.githubIssueNumber === null) {
-      throw new WorkItemValidationError(
-        "This task is not linked to a GitHub issue.",
-      );
+      throw new WorkItemValidationError("githubTaskNotLinked");
     }
 
     const sync = await this.contextLoader.requireContext(item.projectId);

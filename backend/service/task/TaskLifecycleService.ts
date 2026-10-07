@@ -98,9 +98,7 @@ export class TaskLifecycleService {
     );
 
     if (visibleIds.length !== ids.length) {
-      throw new WorkItemValidationError(
-        "The ticket has descendants that are not visible to you.",
-      );
+      throw new WorkItemValidationError("descendantsHidden");
     }
 
     return ids;

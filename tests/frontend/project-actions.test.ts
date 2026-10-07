@@ -627,7 +627,7 @@ describe("handleProjectAction", () => {
             .mockResolvedValueOnce([createLink({ id: "link-1" })])
             .mockResolvedValueOnce([]);
           services.taskService.removeDependency.mockRejectedValue(
-            new WorkItemValidationError("gone"),
+            new WorkItemValidationError("titleLength"),
           );
 
           await expect(
@@ -637,7 +637,7 @@ describe("handleProjectAction", () => {
 
         it("rethrows a rejected removal of a link that is still stored", async () => {
           const services = createServices();
-          const rejection = new WorkItemValidationError("rejected");
+          const rejection = new WorkItemValidationError("titleLength");
 
           services.taskService.findDependencies.mockResolvedValue([
             createLink({ id: "link-1" }),
@@ -717,7 +717,7 @@ describe("handleProjectAction", () => {
             .mockResolvedValueOnce([])
             .mockResolvedValueOnce([createLink({})]);
           services.taskService.addDependency.mockRejectedValue(
-            new WorkItemValidationError("already linked"),
+            new WorkItemValidationError("titleLength"),
           );
 
           await expect(run("save-milestone", ADD, services)).resolves.toEqual(
@@ -727,7 +727,7 @@ describe("handleProjectAction", () => {
 
         it("rethrows a rejected addition that left no link behind", async () => {
           const services = createServices();
-          const rejection = new WorkItemValidationError("rejected");
+          const rejection = new WorkItemValidationError("titleLength");
 
           services.taskService.addDependency.mockRejectedValue(rejection);
 

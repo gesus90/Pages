@@ -92,6 +92,7 @@ function renderDetails(
         },
         element: (
           <TaskGitHubDetails
+            publishesNewTasks={false}
             pullRequests={[]}
             task={createTask()}
             {...properties}
@@ -147,8 +148,9 @@ describe("TaskGitHubDetails", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders unlinked tickets with a hint", () => {
+  it("renders unlinked tickets with the hint on automatic synchronization of an active connection", () => {
     renderDetails({
+      publishesNewTasks: true,
       task: createTask({
         githubIssueNumber: null,
         githubIssueUrl: null,
@@ -158,11 +160,27 @@ describe("TaskGitHubDetails", () => {
 
     expect(screen.getByText("Nicht verknüpft")).toBeInTheDocument();
     expect(
-      screen.getByText(/Noch kein GitHub Issue verknüpft/),
+      screen.getByText(
+        "Noch kein GitHub Issue verknüpft. Neue Tasks werden automatisch synchronisiert.",
+      ),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Jetzt synchronisieren" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("makes no promise of automatic synchronization without an active connection", () => {
+    renderDetails({
+      publishesNewTasks: false,
+      task: createTask({
+        githubIssueNumber: null,
+        githubIssueUrl: null,
+        githubLastSyncAt: null,
+      }),
+    });
+
+    expect(screen.getByText("Noch kein GitHub Issue verknüpft.")).toBeVisible();
+    expect(screen.queryByText(/automatisch/)).not.toBeInTheDocument();
   });
 
   it("renders sync errors with a retry action", () => {

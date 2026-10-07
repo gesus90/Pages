@@ -198,10 +198,10 @@ function PeopleAndDateFields({
 }: SectionProps): React.ReactElement {
   const { t } = useTranslation();
   const { departments } = useTicketAccess();
-  const assigneeOptions = useAssigneeOptions(
-    assignees,
-    initialTask?.assigneeGroupId ?? null,
-  );
+  const assigneeOptions = useAssigneeOptions(assignees, {
+    currentGroupId: initialTask?.assigneeGroupId ?? null,
+    projectId: selections.projectId,
+  });
 
   return (
     <>

@@ -30,7 +30,10 @@ export function TicketQuickSelects({
 }: TicketQuickSelectsProps): React.ReactElement {
   const { t } = useTranslation();
   const priorityOptions = usePriorityOptions();
-  const assigneeOptions = useAssigneeOptions(assignees, ticket.assigneeGroupId);
+  const assigneeOptions = useAssigneeOptions(assignees, {
+    currentGroupId: ticket.assigneeGroupId,
+    projectId: ticket.projectId,
+  });
 
   return (
     <div className="mt-4 flex flex-wrap items-center gap-2">

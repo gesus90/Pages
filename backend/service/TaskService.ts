@@ -253,6 +253,19 @@ export class TaskService {
     return this.assigneeGroups.findGroups(actor);
   }
 
+  /**
+   * Returns, per project, the ids of the groups with a member who can work in it.
+   *
+   * @param actor - Signed-in user.
+   * @param assigneesByProject - The people with access to each project.
+   */
+  public async findAssigneeGroupIdsByProject(
+    actor: User,
+    assigneesByProject: Readonly<Record<string, readonly User[]>>,
+  ): Promise<Record<string, string[]>> {
+    return this.assigneeGroups.findGroupIdsByProject(actor, assigneesByProject);
+  }
+
   /** Returns the ids of the groups the actor belongs to. */
   public async findMemberGroupIds(actor: User): Promise<string[]> {
     return this.assigneeGroups.findMemberGroupIds(actor);

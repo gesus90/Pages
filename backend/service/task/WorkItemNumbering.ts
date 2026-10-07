@@ -34,14 +34,18 @@ export class WorkItemNumbering {
    *
    * @remarks
    * Number allocation and insert must not interleave between requests, or
-   * two tickets created at the same moment would claim the same key.
+   * two tickets created at the same moment would claim the same key. The
+   * numbers are reserved for good: a key is not handed out again when the
+   * work fails or when its ticket is deleted or moved away later.
    *
    * @param project - Project whose key sequence the work continues.
+   * @param count - How many consecutive numbers the work consumes.
    * @param work - Work receiving the sequence to continue from.
    * @returns The result of the work.
    */
   public async run<Result>(
     project: NumberedProject,
+    count: number,
     work: (sequence: KeySequence) => Promise<Result>,
   ): Promise<Result> {
     return this.queue.run(async () => {
@@ -50,7 +54,10 @@ export class WorkItemNumbering {
         project.id,
         defaultPrefix,
       );
-      const firstNumber = await this.taskRepository.getNextNumber(project.id);
+      const firstNumber = await this.taskRepository.reserveNumbers(
+        project.id,
+        count,
+      );
 
       return work({ firstNumber, projectKey });
     });

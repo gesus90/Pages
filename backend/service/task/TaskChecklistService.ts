@@ -48,9 +48,7 @@ export class TaskChecklistService {
       .slice(0, MAXIMUM_CHECKLIST_ITEM_TITLE_LENGTH);
 
     if (!trimmedTitle) {
-      throw new WorkItemValidationError(
-        "Checklist item title must not be empty.",
-      );
+      throw new WorkItemValidationError("checklistTitleEmpty");
     }
 
     const id = randomUUID();
@@ -113,9 +111,7 @@ export class TaskChecklistService {
       await this.taskRepository.findChecklistItemById(checklistItemId);
 
     if (!existing) {
-      throw new WorkItemValidationError(
-        "Selected checklist item does not exist.",
-      );
+      throw new WorkItemValidationError("checklistItemNotFound");
     }
 
     await this.access.requireWritableWorkItem(actor, existing.workItemId);

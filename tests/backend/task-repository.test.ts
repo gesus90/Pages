@@ -214,11 +214,17 @@ describe("TaskRepository", () => {
     ).resolves.toBe("ANI");
   });
 
-  it("gets the next sequential ticket number for a project", async () => {
-    database.query.mockResolvedValueOnce([[12]]).mockResolvedValueOnce([]);
+  it("reserves consecutive ticket numbers and returns the first one", async () => {
+    database.query.mockResolvedValueOnce([[14]]).mockResolvedValueOnce([]);
 
-    await expect(repository.getNextNumber("project-1")).resolves.toBe(12);
-    await expect(repository.getNextNumber("project-2")).resolves.toBe(1);
+    await expect(repository.reserveNumbers("project-1", 3)).resolves.toBe(12);
+    expect(database.query).toHaveBeenCalledWith(
+      expect.stringContaining("UPDATE project_keys"),
+      { count: 3, project_id: "project-1" },
+    );
+    await expect(repository.reserveNumbers("project-2", 1)).rejects.toThrow(
+      'Project "project-2" has no ticket key.',
+    );
   });
 
   it("returns all work items matching various filter options", async () => {
