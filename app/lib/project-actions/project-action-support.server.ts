@@ -1,6 +1,7 @@
 import { data } from "react-router";
 import {
   ProjectAccessDeniedError,
+  ProjectDepartmentError,
   ProjectManagementDeniedError,
   ProjectNotFoundError,
 } from "@/backend/error/ProjectErrors";
@@ -61,6 +62,14 @@ export function invalidInput(): ProjectActionResponse {
  * @throws The original value when it is no `Error`.
  */
 export function toActionError(error: unknown): ProjectActionResponse {
+  if (error instanceof ProjectDepartmentError) {
+    return data<ProjectDetailActionResult>(
+      { error: error.code, ok: false },
+      {
+        status: error.code === "departmentOutOfScope" ? 403 : 400,
+      },
+    );
+  }
   if (
     error instanceof ProjectManagementDeniedError ||
     error instanceof ProjectAccessDeniedError ||

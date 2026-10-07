@@ -151,7 +151,7 @@ describe("AdministrationService on DuckDB", () => {
   });
 
   it("creates departments in the manager scope and enforces the final membership exception", async () => {
-    const { service } = await setup();
+    const { service, cache } = await setup();
     await service.saveDepartment("manager", { id: "new", name: "New" });
     expect((await service.getContext("manager")).managedDepartments).toContain(
       "new",
@@ -167,7 +167,17 @@ describe("AdministrationService on DuckDB", () => {
       service.setMemberships("admin", "target", ["missing"]),
     ).rejects.toThrow("invalidInput");
     await service.setMemberships("manager", "target", ["frontend", "backend"]);
+    for (const key of [
+      "workitems:q:scope",
+      "labels:usage:scope",
+      "github:prs:scope",
+    ]) {
+      cache.set(key, ["department-restricted data"], 60_000);
+    }
     await service.deleteDepartment("manager", "frontend");
+    expect(cache.get("workitems:q:scope")).toBeUndefined();
+    expect(cache.get("labels:usage:scope")).toBeUndefined();
+    expect(cache.get("github:prs:scope")).toBeUndefined();
     await service.deleteDepartment("manager", "backend");
     expect(await service.getContext("target")).toMatchObject({
       departments: [],

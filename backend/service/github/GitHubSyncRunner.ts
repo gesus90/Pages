@@ -95,14 +95,19 @@ export class GitHubSyncRunner {
     actor: User,
     projectId: string,
   ): Promise<GitHubSyncSummary> {
+    await this.accessGuard.requireWritableProject(actor, projectId);
+    const visibility = await this.accessGuard.visibility(actor);
     const sync = await this.contextLoader.requireContext(projectId);
     const summary = createEmptySyncCounters();
     const timestamp = this.now();
     const tasks = await this.taskRepository.findAll({
       projectIds: [projectId],
       type: WORK_ITEM_TYPE.TASK,
+      visibility,
     });
-    const statuses = await this.taskRepository.findAllStatuses();
+    const statuses = (await this.taskRepository.findAllStatuses()).filter(
+      (status) => status.projectId === null || status.projectId === projectId,
+    );
     const remoteIssues = sync.integration.syncIssues
       ? await sync.client.listIssues(sync.repo.owner, sync.repo.repo, "all")
       : [];
@@ -134,6 +139,7 @@ export class GitHubSyncRunner {
         sync,
         projectId,
         summary,
+        visibility,
       );
     }
 
@@ -260,7 +266,10 @@ export class GitHubSyncRunner {
       sync.repo.repo,
       item.githubIssueNumber,
     );
-    const statuses = await this.taskRepository.findAllStatuses();
+    const statuses = (await this.taskRepository.findAllStatuses()).filter(
+      (status) =>
+        status.projectId === null || status.projectId === item.projectId,
+    );
 
     await this.conflictResolver.reconcile(
       {

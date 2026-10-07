@@ -2,7 +2,7 @@ import { readBooleanColumn, readTextColumn } from "@/backend/database/RowValue";
 import { isGitHubSyncInterval } from "@/definition/Project";
 
 import type {
-  Database,
+  DatabaseTransaction,
   DatabaseValue,
   SqlParameters,
 } from "@/backend/database/Database";
@@ -136,14 +136,14 @@ function toProjectIntegration(
 
 /** Owns persistence operations for the GitHub integration of a project. */
 export class ProjectIntegrationRepository {
-  private readonly database: Database;
+  private readonly database: DatabaseTransaction;
 
   /**
    * Creates a project integration repository.
    *
    * @param database - Central database access.
    */
-  public constructor(database: Database) {
+  public constructor(database: DatabaseTransaction) {
     this.database = database;
   }
 

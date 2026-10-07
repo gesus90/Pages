@@ -145,7 +145,8 @@
       "planned": "Planned",
       "active": "Active",
       "paused": "Paused",
-      "completed": "Completed"
+      "completed": "Completed",
+      "label": "Project status"
     },
     "status": {
       "planned": "Planned",
@@ -189,7 +190,49 @@
     "error": {
       "invalidInput": "Please check the name, description, and progress.",
       "forbidden": "You are not allowed to perform this action.",
-      "projectNotFound": "This project could not be found."
+      "projectNotFound": "This project could not be found.",
+      "departmentRequired": "Select at least one department.",
+      "invalidDepartment": "A selected department no longer exists. Please reload the page.",
+      "departmentOutOfScope": "The selected departments are outside your project management scope."
+    },
+    "departments": {
+      "label": "Departments",
+      "requiredLabel": "Departments (required)",
+      "none": "No department",
+      "lastRequired": "At least one department must remain assigned. Select another before removing the last one.",
+      "emptyCatalog": "No departments have been created yet. The project can initially be created without an assignment.",
+      "noAvailable": "No departments are available within your project management scope.",
+      "required": "Select at least one department.",
+      "outOfScope": "The selected departments are outside your project management scope.",
+      "filterLabel": "Filter by department",
+      "all": "All departments",
+      "edit": "Edit departments",
+      "editTitle": "Edit project departments",
+      "completeScopeHint": "Changing assignments and archiving require responsibility for every project department or global project scope.",
+      "reassignmentRequired": "Assign at least one department before saving project details."
+    },
+    "searchLabel": "Search projects",
+    "resetFilters": "Reset filters",
+    "lifecycle": {
+      "view": "Project view",
+      "active": "Active projects",
+      "archiveView": "Archive",
+      "archive": "Archive",
+      "delete": "Delete permanently",
+      "archiveTitle": "Archive “{{name}}”?",
+      "deleteTitle": "Permanently delete “{{name}}”?",
+      "archiveHint": "The project leaves active views. Its data remains in the archive.",
+      "deleteHint": "The project and its tickets, goals, dates, integrations and wiki content will be permanently removed. This action cannot be undone.",
+      "archiveEmpty": "No archived projects match this selection."
+    },
+    "templates": {
+      "label": "Project template",
+      "none": "Without template",
+      "save": "Save as template",
+      "saved": "Project template saved.",
+      "copyHint": "Description, status, goals and tags are copied. Choose a new name and the departments.",
+      "tags": "Tags: {{tags}}",
+      "noTags": "No tags"
     }
   },
   "settings": {
@@ -347,8 +390,8 @@
     "permissions": {
       "read": "Read (always enabled)",
       "write": "Write",
-      "create_projects": "Create projects",
-      "manage_projects": "Manage projects",
+      "manage_projects": "Create and manage projects",
+      "archive_projects": "Archive projects",
       "milestones": "Milestones",
       "manage_users": "Create/deactivate users",
       "manage_departments": "Manage departments",

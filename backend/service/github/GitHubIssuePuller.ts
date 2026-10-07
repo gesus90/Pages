@@ -39,7 +39,7 @@ export class GitHubIssuePuller {
     const statusId = resolvePulledStatusId(item, remote, statuses);
     const timestamp = this.now();
 
-    await this.taskRepository.update(
+    await this.taskRepository.updateFromGitHub(
       item.id,
       buildWorkItemUpdateFromRemote(item, remote, statusId),
     );

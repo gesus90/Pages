@@ -1,3 +1,4 @@
+import { workItemScopeKey } from "@/backend/cache/WorkItemScopeKey";
 import {
   CACHE_TTLS,
   ServerCache,
@@ -176,7 +177,7 @@ export class GitHubSyncService {
   ): Promise<GitHubSyncSummary> {
     await this.accessGuard.requireWritableProject(actor, projectId);
 
-    return this.runner.runProject(actor, projectId);
+    return this.mutate(() => this.runner.runProject(actor, projectId));
   }
 
   /**
@@ -185,7 +186,7 @@ export class GitHubSyncService {
    * @returns Completed and failed run counters; failures never abort the batch.
    */
   public async runScheduledSyncs(): Promise<ScheduledSyncResult> {
-    return this.runner.runDue();
+    return this.mutate(() => this.runner.runDue());
   }
 
   /**
@@ -199,7 +200,7 @@ export class GitHubSyncService {
     actor: User,
     workItemId: string,
   ): Promise<GitHubSyncSummary> {
-    return this.runner.runSingleTask(actor, workItemId);
+    return this.mutate(() => this.runner.runSingleTask(actor, workItemId));
   }
 
   /**
@@ -212,7 +213,8 @@ export class GitHubSyncService {
     actor: User,
     item: WorkItemDetail,
   ): Promise<void> {
-    return this.pusher.publishTaskUpdate(actor, item);
+    const current = await this.taskService.getById(actor, item.id);
+    return this.mutate(() => this.pusher.publishTaskUpdate(actor, current));
   }
 
   /**
@@ -228,7 +230,9 @@ export class GitHubSyncService {
     projectId: string,
     issueNumber: number,
   ): Promise<WorkItemDetail> {
-    return this.externalIssueTriage.importIssue(actor, projectId, issueNumber);
+    return this.mutate(() =>
+      this.externalIssueTriage.importIssue(actor, projectId, issueNumber),
+    );
   }
 
   /**
@@ -243,7 +247,9 @@ export class GitHubSyncService {
     workItemId: string,
     externalId: string,
   ): Promise<WorkItemDetail> {
-    return this.externalIssueTriage.linkIssue(actor, workItemId, externalId);
+    return this.mutate(() =>
+      this.externalIssueTriage.linkIssue(actor, workItemId, externalId),
+    );
   }
 
   /**
@@ -256,7 +262,9 @@ export class GitHubSyncService {
     actor: User,
     externalId: string,
   ): Promise<void> {
-    return this.externalIssueTriage.dismissIssue(actor, externalId);
+    return this.mutate(() =>
+      this.externalIssueTriage.dismissIssue(actor, externalId),
+    );
   }
 
   /**
@@ -271,7 +279,9 @@ export class GitHubSyncService {
     pullRequestId: string,
     workItemId: string | null,
   ): Promise<void> {
-    return this.pullRequestService.assign(actor, pullRequestId, workItemId);
+    return this.mutate(() =>
+      this.pullRequestService.assign(actor, pullRequestId, workItemId),
+    );
   }
 
   /**
@@ -286,7 +296,9 @@ export class GitHubSyncService {
     workItemId: string,
     resolution: "pages" | "github",
   ): Promise<WorkItemDetail> {
-    return this.conflictResolver.resolve(actor, workItemId, resolution);
+    return this.mutate(() =>
+      this.conflictResolver.resolve(actor, workItemId, resolution),
+    );
   }
 
   /**
@@ -316,7 +328,10 @@ export class GitHubSyncService {
   ): Promise<GitHubPullRequest[]> {
     await this.projectService.getById(actor, projectId);
 
-    return this.gitHubRepository.findPullRequestsByProject(projectId);
+    return this.gitHubRepository.findPullRequestsByProject(
+      projectId,
+      await this.projectService.workItemVisibility(actor),
+    );
   }
 
   /**
@@ -347,16 +362,20 @@ export class GitHubSyncService {
   }
 
   /**
-   * Returns pull requests for already access-checked projects.
+   * Returns pull requests within the actor's current project and ticket scope.
    *
    * @remarks
    * Callers must only pass project ids the actor may access (the tasks
    * overview passes its already filtered project list).
    */
   public async findPullRequestsByProjects(
+    actor: User,
     projectIds: readonly string[],
   ): Promise<ReadonlyMap<string, readonly GitHubPullRequest[]>> {
-    const cacheKey = `github:pull-requests:${stableIdKey(projectIds)}`;
+    const visibility = await this.projectService.workItemVisibility(actor);
+    const accessible = new Set(visibility.projectIds);
+    const effectiveIds = projectIds.filter((id) => accessible.has(id));
+    const cacheKey = `github:pull-requests:${workItemScopeKey(actor.id, visibility)}:${JSON.stringify([...effectiveIds].sort())}`;
     const cached =
       this.cache.get<ReadonlyMap<string, readonly GitHubPullRequest[]>>(
         cacheKey,
@@ -367,7 +386,10 @@ export class GitHubSyncService {
     }
 
     const pullRequests =
-      await this.gitHubRepository.findPullRequestsByProjectIds(projectIds);
+      await this.gitHubRepository.findPullRequestsByProjectIds(
+        effectiveIds,
+        visibility,
+      );
     this.cache.set(cacheKey, pullRequests, CACHE_TTLS.github);
 
     return pullRequests;
@@ -385,7 +407,10 @@ export class GitHubSyncService {
   ): Promise<GitHubPullRequest[]> {
     await this.taskService.getById(actor, workItemId);
 
-    return this.gitHubRepository.findPullRequestsByWorkItem(workItemId);
+    return this.gitHubRepository.findPullRequestsByWorkItem(
+      workItemId,
+      await this.projectService.workItemVisibility(actor),
+    );
   }
 
   /**
@@ -400,5 +425,13 @@ export class GitHubSyncService {
     projectId: string,
   ): Promise<boolean> {
     return this.connectionTester.testConnection(actor, projectId);
+  }
+  private async mutate<T>(operation: () => Promise<T>): Promise<T> {
+    try {
+      return await operation();
+    } finally {
+      this.cache.invalidateGitHub();
+      this.cache.invalidateWorkItems();
+    }
   }
 }

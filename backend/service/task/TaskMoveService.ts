@@ -95,7 +95,7 @@ export class TaskMoveService {
       );
     }
 
-    const subtree = await this.collectSubtree(existing.id);
+    const subtree = await this.collectSubtree(actor, existing.id);
 
     // Renumbering the subtree must not interleave with other requests that
     // allocate numbers in the target project.
@@ -106,7 +106,10 @@ export class TaskMoveService {
     this.cache.invalidateWorkItems();
     this.cache.invalidateLabels();
 
-    const moved = await this.taskRepository.findById(existing.id);
+    const moved = await this.taskRepository.findById(
+      existing.id,
+      await this.access.visibility(actor),
+    );
 
     if (!moved) {
       throw new Error("Moved work item could not be retrieved.");
@@ -115,7 +118,10 @@ export class TaskMoveService {
     return moved;
   }
 
-  private async collectSubtree(rootId: string): Promise<WorkItemDetail[]> {
+  private async collectSubtree(
+    actor: User,
+    rootId: string,
+  ): Promise<WorkItemDetail[]> {
     const root = await this.taskRepository.findById(rootId);
 
     if (!root) {
@@ -130,6 +136,7 @@ export class TaskMoveService {
       const children = await this.taskRepository.findSubtasks(current.id);
 
       for (const child of children) {
+        await this.access.requireWorkItem(actor, child.id);
         collected.push(child);
         queue.push(child);
       }

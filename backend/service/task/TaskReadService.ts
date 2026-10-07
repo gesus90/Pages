@@ -1,5 +1,10 @@
+import { createHash } from "node:crypto";
+
 import { CACHE_TTLS, stableIdKey } from "@/backend/cache/ServerCache";
+import { workItemScopeKey } from "@/backend/cache/WorkItemScopeKey";
 import { WorkItemNotFoundError } from "@/backend/error/WorkItemErrors";
+
+import { visibleTaskHistory } from "./TaskHistoryVisibility";
 
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type {
@@ -34,20 +39,15 @@ function stableWorkItemsKey(
   options: FindWorkItemsOptions,
   effectiveProjectIds: readonly string[],
 ): string {
-  const parts = [
-    `projects:${stableIdKey(effectiveProjectIds)}`,
-    `assignee:${options.assigneeId ?? ""}`,
-    `type:${options.type ?? ""}`,
-    `status:${options.statusId ?? ""}`,
-    `priority:${options.priority ?? ""}`,
-    `milestone:${options.milestoneId ?? ""}`,
-    `search:${options.search?.trim().toLowerCase() ?? ""}`,
-    `archived:${options.archived ?? "active"}`,
-    `order:${options.orderBy ?? "board"}`,
-    `limit:${options.limit ?? ""}`,
-  ];
-
-  return `workitems:q:${parts.join("|")}`;
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        ...options,
+        projectIds: [...effectiveProjectIds].sort(),
+        search: options.search?.trim().toLowerCase(),
+      }),
+    )
+    .digest("hex");
 }
 
 /** Reads work items, statuses, assignees, history and dashboard counters. */
@@ -74,18 +74,26 @@ export class TaskReadService {
   }
 
   /** Returns all available workflow statuses. */
-  public async findAllStatuses(): Promise<WorkflowStatus[]> {
+  public async findAllStatuses(actor: User): Promise<WorkflowStatus[]> {
+    const visibility = await this.access.visibility(actor);
+    const accessibleIds = new Set(visibility.projectIds);
     const cacheKey = "statuses:all";
     const cached = this.cache.get<WorkflowStatus[]>(cacheKey);
 
     if (cached) {
-      return cached;
+      return cached.filter(
+        (status) =>
+          status.projectId === null || accessibleIds.has(status.projectId),
+      );
     }
 
     const statuses = await this.taskRepository.findAllStatuses();
     this.cache.set(cacheKey, statuses, CACHE_TTLS.statuses);
 
-    return statuses;
+    return statuses.filter(
+      (status) =>
+        status.projectId === null || accessibleIds.has(status.projectId),
+    );
   }
 
   /** Returns work item history across all tasks of one project. */
@@ -95,7 +103,12 @@ export class TaskReadService {
   ): Promise<WorkItemHistory[]> {
     await this.access.requireProject(actor, projectId);
 
-    return this.taskRepository.findHistoryByProjectId(projectId);
+    const visibility = await this.access.visibility(actor);
+    return visibleTaskHistory(
+      this.taskRepository,
+      await this.taskRepository.findHistoryByProjectId(projectId, visibility),
+      visibility,
+    );
   }
 
   /** Returns active users eligible for assignment in a project. */
@@ -105,7 +118,12 @@ export class TaskReadService {
   ): Promise<User[]> {
     await this.access.requireProject(actor, projectId);
 
-    return this.taskRepository.findEligibleAssignees(projectId);
+    const candidates =
+      await this.taskRepository.findEligibleAssignees(projectId);
+    const eligible = await this.access.filterAssignees(
+      new Map([[projectId, candidates]]),
+    );
+    return [...(eligible.get(projectId) ?? [])];
   }
 
   /**
@@ -123,14 +141,14 @@ export class TaskReadService {
       this.cache.get<ReadonlyMap<string, readonly User[]>>(cacheKey);
 
     if (cached) {
-      return cached;
+      return this.access.filterAssignees(cached);
     }
 
     const assignees =
       await this.taskRepository.findEligibleAssigneesByProjectIds(projectIds);
     this.cache.set(cacheKey, assignees, CACHE_TTLS.assignees);
 
-    return assignees;
+    return this.access.filterAssignees(assignees);
   }
 
   /** Returns non-archived work items across projects the actor has access to. */
@@ -138,16 +156,17 @@ export class TaskReadService {
     actor: User,
     options: FindWorkItemsOptions = {},
   ): Promise<WorkItemDetail[]> {
-    const effectiveProjectIds = await this.access.resolveAccessibleProjectIds(
-      actor,
-      options.projectIds,
+    const visibility = await this.access.visibility(actor);
+    const requested = new Set(options.projectIds);
+    const effectiveProjectIds = (visibility.projectIds ?? []).filter(
+      (id) => options.projectIds === undefined || requested.has(id),
     );
-
     if (effectiveProjectIds.length === 0) {
       return [];
     }
 
-    const cacheKey = stableWorkItemsKey(options, effectiveProjectIds);
+    const scopedOptions = { ...options, visibility };
+    const cacheKey = `workitems:q:${workItemScopeKey(actor.id, visibility)}:${stableWorkItemsKey(scopedOptions, effectiveProjectIds)}`;
     const cached = this.cache.get<WorkItemDetail[]>(cacheKey);
 
     if (cached) {
@@ -155,7 +174,7 @@ export class TaskReadService {
     }
 
     const items = await this.taskRepository.findAll({
-      ...options,
+      ...scopedOptions,
       projectIds: effectiveProjectIds,
     });
     this.cache.set(cacheKey, items, CACHE_TTLS.workItems);
@@ -170,7 +189,10 @@ export class TaskReadService {
 
   /** Returns a single work item by its public key (e.g. PAGE-12). */
   public async getByKey(actor: User, key: string): Promise<WorkItemDetail> {
-    const item = await this.taskRepository.findByKey(key);
+    const item = await this.taskRepository.findByKey(
+      key,
+      await this.access.visibility(actor),
+    );
 
     if (!item) {
       throw new WorkItemNotFoundError();
@@ -188,7 +210,10 @@ export class TaskReadService {
   ): Promise<WorkItemDetail[]> {
     const parent = await this.getById(actor, parentId);
 
-    return this.taskRepository.findSubtasks(parent.id);
+    return this.taskRepository.findSubtasks(
+      parent.id,
+      await this.access.visibility(actor),
+    );
   }
 
   /** Returns change history for a work item. */
@@ -198,30 +223,45 @@ export class TaskReadService {
   ): Promise<WorkItemHistory[]> {
     await this.getById(actor, workItemId);
 
-    return this.taskRepository.findHistoryByWorkItemId(workItemId);
+    return visibleTaskHistory(
+      this.taskRepository,
+      await this.taskRepository.findHistoryByWorkItemId(workItemId),
+      await this.access.visibility(actor),
+    );
   }
 
   /**
-   * Returns dashboard counters for already access-checked projects.
+   * Returns dashboard counters for projects within the current account scope.
    *
-   * @param projectIds - Project ids the actor may access.
+   * @param actor - Account whose current ticket scope is enforced.
+   * @param projectIds - Requested projects, restricted to current actor access.
    * @param scope - Actor id, day boundaries, and the seven-day lower bound.
    */
   public async countWorkItemsOverview(
+    actor: User,
     projectIds: readonly string[],
     scope: WorkItemsOverviewScope,
   ): Promise<WorkItemsOverview> {
-    return this.taskRepository.countWorkItemsOverview(projectIds, scope);
+    return this.taskRepository.countWorkItemsOverview(
+      projectIds,
+      { ...scope, userId: actor.id },
+      await this.access.visibility(actor),
+    );
   }
 
   /**
    * Returns done/total counters per already access-checked project.
    *
-   * @param projectIds - Project ids the actor may access.
+   * @param actor - Account whose current ticket scope is enforced.
+   * @param projectIds - Requested projects, restricted to current actor access.
    */
   public async countWorkItemsByProject(
+    actor: User,
     projectIds: readonly string[],
   ): Promise<ReadonlyMap<string, ProjectWorkItemCounts>> {
-    return this.taskRepository.countWorkItemsByProject(projectIds);
+    return this.taskRepository.countWorkItemsByProject(
+      projectIds,
+      await this.access.visibility(actor),
+    );
   }
 }

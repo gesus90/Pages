@@ -1,6 +1,6 @@
 import { readBlobColumn, readTextColumn } from "@/backend/database/RowValue";
 
-import type { Database } from "@/backend/database/Database";
+import type { DatabaseTransaction } from "@/backend/database/Database";
 
 /** Stored icon metadata and binary image content. */
 export interface ProjectIcon {
@@ -11,14 +11,14 @@ export interface ProjectIcon {
 
 /** Owns persistence operations for custom project icons. */
 export class ProjectIconRepository {
-  private readonly database: Database;
+  private readonly database: DatabaseTransaction;
 
   /**
    * Creates a project icon repository.
    *
    * @param database - Central database access.
    */
-  public constructor(database: Database) {
+  public constructor(database: DatabaseTransaction) {
     this.database = database;
   }
 

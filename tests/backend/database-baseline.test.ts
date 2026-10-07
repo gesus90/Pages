@@ -116,6 +116,11 @@ describe("DuckDB baseline migration", () => {
       "004_password_change_required.sql",
       "005_user_authorization.sql",
       "006_legacy_user_roles.sql",
+      "007_project_departments.sql",
+      "008_project_permissions.sql",
+      "009_work_item_departments.sql",
+      "010_project_templates.sql",
+      "011_project_activity_work_items.sql",
     ]);
   });
 

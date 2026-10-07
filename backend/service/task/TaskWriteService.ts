@@ -1,17 +1,15 @@
 import { randomUUID } from "node:crypto";
-import { CAPABILITY } from "@/definition/Authorization";
-
-import {
-  isWorkItemPriority,
-  isWorkItemType,
-  WORK_ITEM_PRIORITY,
-} from "@/definition/Task";
-
 import { WorkItemValidationError } from "@/backend/error/WorkItemErrors";
 import {
   trimOrNull,
   validateWorkItemText,
 } from "@/backend/service/task/WorkItemValidation";
+import { CAPABILITY } from "@/definition/Authorization";
+import {
+  isWorkItemPriority,
+  isWorkItemType,
+  WORK_ITEM_PRIORITY,
+} from "@/definition/Task";
 
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type {
@@ -31,6 +29,7 @@ import type {
   WorkItemDetail,
   WorkItemPriority,
   WorkItemType,
+  WorkItemVisibility,
 } from "@/definition/Task";
 import type { User } from "@/definition/User";
 
@@ -73,6 +72,11 @@ export interface TaskWriteServiceDependencies {
   readonly history: TaskHistoryRecorder;
   readonly gitHubPublisher: TaskGitHubPublisher;
   readonly cache: ServerCache;
+}
+
+interface UpdateReferenceScope {
+  readonly visibility: WorkItemVisibility;
+  readonly preservedParentId: string | null;
 }
 
 /** The values of a new work item that the caller decides, before it is numbered. */
@@ -133,7 +137,10 @@ export class TaskWriteService {
 
     const status = await this.taskRepository.findStatusById(input.statusId);
 
-    if (!status) {
+    if (
+      !status ||
+      (status.projectId !== null && status.projectId !== input.projectId)
+    ) {
       throw new WorkItemValidationError("Selected status does not exist.");
     }
 
@@ -144,6 +151,7 @@ export class TaskWriteService {
       projectId: input.projectId,
       selfId: null,
       type: input.type,
+      visibility: await this.access.visibility(actor),
     });
 
     const id = await this.insertNumbered(actor, project, {
@@ -166,6 +174,7 @@ export class TaskWriteService {
     const created = await this.requireStored(
       id,
       "Created work item could not be retrieved.",
+      actor,
     );
 
     if (!input.skipGitHubSync) {
@@ -185,7 +194,20 @@ export class TaskWriteService {
   ): Promise<WorkItemDetail> {
     const existing = await this.access.requireWorkItem(actor, id);
     await this.access.requireCapability(actor, CAPABILITY.WRITE);
-    const values = await this.validateUpdate(existing, input);
+    const hiddenParent =
+      existing.parentId === null
+        ? await this.taskRepository.findParentReference(id)
+        : null;
+    const original = hiddenParent
+      ? { ...existing, parentId: hiddenParent.id, parentKey: hiddenParent.key }
+      : existing;
+    const values = await this.validateUpdate(original, input, {
+      visibility: await this.access.visibility(actor),
+      preservedParentId:
+        hiddenParent && trimOrNull(input.parentId) === null
+          ? hiddenParent.id
+          : null,
+    });
 
     await this.taskRepository.update(id, {
       assigneeId: values.assigneeId,
@@ -201,11 +223,12 @@ export class TaskWriteService {
     });
     this.cache.invalidateWorkItems();
 
-    await this.history.recordUpdate(actor, existing, values);
+    await this.history.recordUpdate(actor, original, values);
 
     const updated = await this.requireStored(
       id,
       "Updated work item could not be retrieved.",
+      actor,
     );
 
     // Local-first: the stored update is already visible; GitHub follows async.
@@ -225,7 +248,10 @@ export class TaskWriteService {
     await this.access.requireCapability(actor, CAPABILITY.WRITE);
     const status = await this.taskRepository.findStatusById(statusId);
 
-    if (!status) {
+    if (
+      !status ||
+      (status.projectId !== null && status.projectId !== existing.projectId)
+    ) {
       throw new WorkItemValidationError("Target status does not exist.");
     }
 
@@ -242,6 +268,7 @@ export class TaskWriteService {
     const updated = await this.requireStored(
       id,
       "Work item could not be retrieved after status update.",
+      actor,
     );
 
     // Local-first: kanban moves stay instant while GitHub syncs in background.
@@ -272,10 +299,11 @@ export class TaskWriteService {
   private async validateUpdate(
     existing: WorkItemDetail,
     input: UpdateWorkItemInput,
+    scope: UpdateReferenceScope,
   ): Promise<WorkItemUpdateValues> {
     const title = input.title.trim();
     const description = input.description.trim();
-    const parentId = trimOrNull(input.parentId);
+    const parentId = trimOrNull(input.parentId) ?? scope.preservedParentId;
     const milestoneId = trimOrNull(input.milestoneId);
     const assigneeId = trimOrNull(input.assigneeId);
     const reporterId = input.reporterId.trim();
@@ -288,7 +316,11 @@ export class TaskWriteService {
 
     const newStatus = await this.taskRepository.findStatusById(input.statusId);
 
-    if (!newStatus) {
+    if (
+      !newStatus ||
+      (newStatus.projectId !== null &&
+        newStatus.projectId !== existing.projectId)
+    ) {
       throw new WorkItemValidationError("Selected status does not exist.");
     }
 
@@ -299,6 +331,7 @@ export class TaskWriteService {
       projectId: existing.projectId,
       selfId: existing.id,
       type: existing.type,
+      ...scope,
     });
 
     if (!reporterId) {
@@ -345,8 +378,12 @@ export class TaskWriteService {
   private async requireStored(
     id: string,
     failureMessage: string,
+    actor: User,
   ): Promise<WorkItemDetail> {
-    const stored = await this.taskRepository.findById(id);
+    const stored = await this.taskRepository.findById(
+      id,
+      await this.access.visibility(actor),
+    );
 
     if (!stored) {
       throw new Error(failureMessage);

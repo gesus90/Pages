@@ -7,6 +7,36 @@ import { createAccess, createRole } from "../helpers/authorization";
 import { createUser } from "../helpers/factories";
 
 describe("PermissionService", () => {
+  it("does not infer archiving from legacy project management", async () => {
+    const service = new PermissionService();
+    expect(
+      await service.hasCapability(
+        createUser({ role: ROLE.MANAGER }),
+        CAPABILITY.MANAGE_PROJECTS,
+      ),
+    ).toBe(true);
+    expect(
+      await service.hasCapability(
+        createUser({ role: ROLE.EMPLOYEE }),
+        CAPABILITY.MANAGE_PROJECTS,
+      ),
+    ).toBe(false);
+    expect(
+      await service.hasCapability(createUser(), CAPABILITY.ARCHIVE_PROJECTS),
+    ).toBe(true);
+    expect(
+      await service.hasCapability(
+        createUser({ role: ROLE.MANAGER }),
+        CAPABILITY.ARCHIVE_PROJECTS,
+      ),
+    ).toBe(false);
+    expect(
+      await service.hasCapability(
+        createUser({ isActive: false }),
+        CAPABILITY.ARCHIVE_PROJECTS,
+      ),
+    ).toBe(false);
+  });
   it("evaluates every route permission from current facts even for stale admin callers", async () => {
     let account = createAccess({ role: createRole({ permissions: [] }) });
     const service = new PermissionService(async () => account);

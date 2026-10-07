@@ -116,11 +116,14 @@ async function loadAssignees(
 async function loadProjectLabels(
   services: ApplicationServices,
   projects: readonly Project[],
+  actor: User,
 ): Promise<Pick<TasksLoaderData, "labelsByProject" | "labelUsageByProject">> {
   const projectIds = projects.map((project) => project.id);
   const labels = await services.taskService.findLabelsByProjects(projectIds);
-  const usage =
-    await services.taskService.countLabelUsageByProjects(projectIds);
+  const usage = await services.taskService.countLabelUsageByProjects(
+    actor,
+    projectIds,
+  );
   const labelsByProject: Record<string, readonly ProjectLabel[]> = {};
   const labelUsageByProject: Record<
     string,
@@ -253,9 +256,9 @@ export async function loader({
     ...(await loadAssignees(services, projects)),
     githubStates:
       parseViewMode(url.searchParams.get("view")) === "github"
-        ? await findGitHubStates(services, projects)
+        ? await findGitHubStates(services, projects, actor)
         : [],
-    ...(await loadProjectLabels(services, projects)),
+    ...(await loadProjectLabels(services, projects, actor)),
     labelsByWorkItem,
     milestones: await services.taskService.findMilestones(actor, projectIds),
     projects,
@@ -265,7 +268,7 @@ export async function loader({
       selectedKey: url.searchParams.get("item"),
       workItems,
     })),
-    statuses: await services.taskService.findAllStatuses(),
+    statuses: await services.taskService.findAllStatuses(actor),
     workItems,
   };
 }
@@ -303,17 +306,19 @@ async function findSelectedWorkItem(
  *
  * @param services - Initialized server-side services.
  * @param projects - Projects the actor may access.
+ * @param actor - Account whose ticket visibility restricts pull requests.
  */
 async function findGitHubStates(
   services: ApplicationServices,
   projects: readonly Project[],
+  actor: User,
 ): Promise<TasksGitHubProjectState[]> {
   const projectIds = projects.map((project) => project.id);
   const [integrations, externalIssuesByProject, pullRequestsByProject] =
     await Promise.all([
       services.projectService.findIntegrationsByProjects(projectIds),
       services.gitHubSyncService.findExternalIssuesByProjects(projectIds),
-      services.gitHubSyncService.findPullRequestsByProjects(projectIds),
+      services.gitHubSyncService.findPullRequestsByProjects(actor, projectIds),
     ]);
 
   return projects.map((project) => ({

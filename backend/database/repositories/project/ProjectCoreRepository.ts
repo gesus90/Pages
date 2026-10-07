@@ -5,8 +5,15 @@ import {
 } from "@/backend/database/RowValue";
 import { isProjectStatus } from "@/definition/Project";
 
-import type { Database, DatabaseValue } from "@/backend/database/Database";
-import type { Project, ProjectStatus } from "@/definition/Project";
+import type {
+  DatabaseTransaction,
+  DatabaseValue,
+} from "@/backend/database/Database";
+import type {
+  ArchivedProject,
+  Project,
+  ProjectStatus,
+} from "@/definition/Project";
 
 /** Values required to persist a new project. */
 export interface NewProject {
@@ -16,6 +23,7 @@ export interface NewProject {
   readonly ownerId: string;
   readonly placeholderColor: string;
   readonly status: ProjectStatus;
+  readonly departmentIds?: readonly string[];
 }
 
 /** Values that can be changed after a project is created. */
@@ -103,6 +111,7 @@ function toProject(row: readonly DatabaseValue[]): Project {
   }
 
   return {
+    departments: [],
     id: readTextColumn(row, 0, "id"),
     parentId,
     name: readTextColumn(row, 2, "name"),
@@ -121,16 +130,23 @@ function toProject(row: readonly DatabaseValue[]): Project {
   };
 }
 
+function toArchivedProject(row: readonly DatabaseValue[]): ArchivedProject {
+  return {
+    ...toProject(row),
+    archivedAt: readTextColumn(row, 15, "archived_at"),
+  };
+}
+
 /** Owns persistence operations for the project records themselves. */
 export class ProjectCoreRepository {
-  private readonly database: Database;
+  private readonly database: DatabaseTransaction;
 
   /**
    * Creates a project core repository.
    *
    * @param database - Central database access.
    */
-  public constructor(database: Database) {
+  public constructor(database: DatabaseTransaction) {
     this.database = database;
   }
 
@@ -146,6 +162,49 @@ export class ProjectCoreRepository {
     `);
 
     return rows.map(toProject);
+  }
+
+  /** Returns live active identifiers before a cached project list is authorized. */
+  public async findActiveIds(): Promise<string[]> {
+    const rows = await this.database.query(`
+      SELECT id
+      FROM projects
+      WHERE archived_at IS NULL
+      ORDER BY id;
+    `);
+    return rows.map((row) => readTextColumn(row, 0, "id"));
+  }
+
+  /** Returns retained archived projects without placing them in active queries. */
+  public async findArchived(): Promise<ArchivedProject[]> {
+    const rows = await this.database.query(`
+      SELECT
+          ${PROJECT_COLUMNS},
+          projects.archived_at
+      FROM projects
+      ${PROJECT_JOIN_MANAGER}
+      WHERE projects.archived_at IS NOT NULL
+      ORDER BY projects.archived_at DESC, projects.name;
+    `);
+    return rows.map(toArchivedProject);
+  }
+
+  /** Returns one archived project for an explicitly authorized archive operation. */
+  public async findArchivedById(id: string): Promise<ArchivedProject | null> {
+    const rows = await this.database.query(
+      `
+      SELECT
+          ${PROJECT_COLUMNS},
+          projects.archived_at
+      FROM projects
+      ${PROJECT_JOIN_MANAGER}
+      WHERE projects.id = $id
+          AND projects.archived_at IS NOT NULL;
+    `,
+      { id },
+    );
+    const row = rows[0];
+    return row ? toArchivedProject(row) : null;
   }
 
   /** Returns the non-archived projects that include the given member. */

@@ -1,17 +1,17 @@
 import { readTextColumn } from "@/backend/database/RowValue";
 
-import type { Database } from "@/backend/database/Database";
+import type { DatabaseTransaction } from "@/backend/database/Database";
 
 /** Owns persistence operations for project tags. */
 export class ProjectTagRepository {
-  private readonly database: Database;
+  private readonly database: DatabaseTransaction;
 
   /**
    * Creates a project tag repository.
    *
    * @param database - Central database access.
    */
-  public constructor(database: Database) {
+  public constructor(database: DatabaseTransaction) {
     this.database = database;
   }
 

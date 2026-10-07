@@ -102,7 +102,7 @@ export async function loader({
     ticket.projectId,
   );
   const projects = await services.projectService.findAll(actor);
-  const statuses = await services.taskService.findAllStatuses();
+  const statuses = await services.taskService.findAllStatuses(actor);
   const milestones = await services.taskService.findMilestones(actor, [
     ticket.projectId,
   ]);

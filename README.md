@@ -63,6 +63,25 @@ React Router renders Pages server-side and hydrates it in the browser. Route
 middleware verifies persisted, HttpOnly sessions before protected loaders and
 actions run.
 
+## Projects and department access
+
+Projects can belong to several departments. Department-bound roles need a
+shared own department to read them; unbound roles can read all projects.
+Projects without departments are visible to every active account. Project
+membership alone does not extend a bound role's access.
+
+Creating and managing projects uses the assigned management departments or an
+explicit global project scope. Changing all department assignments and archiving
+require responsibility for the whole project; archiving also needs its separate
+permission. Only active administrator mode can permanently delete a project.
+The overview supports department/status filters, search, an archive, and reusable
+project templates. A project needs at least one department when the catalog is
+not empty; a fresh instance can create projects before departments exist.
+
+Within accessible projects, tickets are visible in the account's own departments
+or without a department. This restriction also applies to unbound roles and
+global project managers; active administrator mode can read all tickets.
+
 ## Development
 
 Pages needs Node.js 22.22 or newer and pnpm 10 or newer. Install dependencies
@@ -137,7 +156,8 @@ edited, add a new one instead.
   file if one exists) together with the `github-token.key` next to it.
 - **No foreign keys.** DuckDB cannot update indexed columns of rows that other
   tables reference and has no `ON DELETE` actions, so the schema has none; the
-  services check references and rows are archived rather than deleted.
+  services check references. Project archiving retains its data; permanent
+  project deletion cleans up its related records in one transaction.
 
 ### Moving from the SQLite version
 

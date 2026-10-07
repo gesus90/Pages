@@ -4,7 +4,10 @@ import {
   readTextColumn,
 } from "@/backend/database/RowValue";
 
-import type { Database, DatabaseValue } from "@/backend/database/Database";
+import type {
+  DatabaseTransaction,
+  DatabaseValue,
+} from "@/backend/database/Database";
 import type { ProjectGoal } from "@/definition/Project";
 
 /** Values required to persist a project goal. */
@@ -27,14 +30,14 @@ function toProjectGoal(row: readonly DatabaseValue[]): ProjectGoal {
 
 /** Owns persistence operations for project goals. */
 export class ProjectGoalRepository {
-  private readonly database: Database;
+  private readonly database: DatabaseTransaction;
 
   /**
    * Creates a project goal repository.
    *
    * @param database - Central database access.
    */
-  public constructor(database: Database) {
+  public constructor(database: DatabaseTransaction) {
     this.database = database;
   }
 

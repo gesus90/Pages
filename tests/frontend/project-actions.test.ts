@@ -14,6 +14,7 @@ const ACTOR = createUser();
 const PROJECT: Project = {
   createdAt: "2026-01-01",
   description: "Stored description",
+  departments: [],
   hasIcon: false,
   id: "project-1",
   managerId: "user-9",
@@ -79,6 +80,7 @@ function createServices() {
       getById: vi.fn().mockResolvedValue(PROJECT),
       removeMember: vi.fn(),
       saveIntegration: vi.fn(),
+      saveTemplate: vi.fn(),
       setTags: vi.fn(),
       updateDetails: vi.fn(),
       updateGoal: vi.fn(),
@@ -137,6 +139,15 @@ describe("handleProjectAction", () => {
       async (intent) => {
         await expect(run(intent)).resolves.toEqual(INVALID);
       },
+    );
+  });
+
+  it("saves the current project template", async () => {
+    const services = createServices();
+    await expect(run("save-template", {}, services)).resolves.toEqual(OK);
+    expect(services.projectService.saveTemplate).toHaveBeenCalledWith(
+      ACTOR,
+      "project-1",
     );
   });
 

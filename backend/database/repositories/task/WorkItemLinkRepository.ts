@@ -1,8 +1,14 @@
 import { readBooleanColumn, readTextColumn } from "@/backend/database/RowValue";
 import { isWorkItemLinkType } from "@/definition/Task";
 
+import { createWorkItemVisibility } from "./WorkItemVisibility";
+
 import type { Database, DatabaseValue } from "@/backend/database/Database";
-import type { WorkItemLink, WorkItemLinkType } from "@/definition/Task";
+import type {
+  WorkItemLink,
+  WorkItemLinkType,
+  WorkItemVisibility,
+} from "@/definition/Task";
 
 /** A stored link between two work items, without the data of the linked item. */
 export interface StoredWorkItemLink {
@@ -99,7 +105,11 @@ export class WorkItemLinkRepository {
    * of view (outgoing rows stored on it, plus incoming rows stored on the
    * other side of the relation).
    */
-  public async findByWorkItemId(workItemId: string): Promise<WorkItemLink[]> {
+  public async findByWorkItemId(
+    workItemId: string,
+    visibility?: WorkItemVisibility,
+  ): Promise<WorkItemLink[]> {
+    const scope = createWorkItemVisibility(visibility);
     const rows = await this.database.query(
       `
         SELECT
@@ -118,6 +128,7 @@ export class WorkItemLinkRepository {
         INNER JOIN workflow_statuses
             ON workflow_statuses.id = work_items.status_id
         WHERE work_item_links.work_item_id = $work_item_id
+            AND ${scope.condition}
 
         UNION ALL
 
@@ -136,9 +147,10 @@ export class WorkItemLinkRepository {
             ON work_items.id = work_item_links.work_item_id
         INNER JOIN workflow_statuses
             ON workflow_statuses.id = work_items.status_id
-        WHERE work_item_links.linked_work_item_id = $work_item_id;
+        WHERE work_item_links.linked_work_item_id = $work_item_id
+            AND ${scope.condition};
       `,
-      { work_item_id: workItemId },
+      { work_item_id: workItemId, ...scope.parameters },
     );
 
     return rows.map(toWorkItemLink);

@@ -1,6 +1,9 @@
 import { readTextColumn } from "@/backend/database/RowValue";
 
-import type { Database, DatabaseValue } from "@/backend/database/Database";
+import type {
+  DatabaseTransaction,
+  DatabaseValue,
+} from "@/backend/database/Database";
 import type { ProjectEvent } from "@/definition/Project";
 
 /** Values required to persist a project planning date. */
@@ -45,14 +48,14 @@ function toProjectEvent(row: readonly DatabaseValue[]): ProjectEvent {
 
 /** Owns persistence operations for project planning dates. */
 export class ProjectEventRepository {
-  private readonly database: Database;
+  private readonly database: DatabaseTransaction;
 
   /**
    * Creates a project event repository.
    *
    * @param database - Central database access.
    */
-  public constructor(database: Database) {
+  public constructor(database: DatabaseTransaction) {
     this.database = database;
   }
 

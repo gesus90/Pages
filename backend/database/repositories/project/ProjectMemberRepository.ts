@@ -7,7 +7,10 @@ import {
 import { isProjectRole } from "@/definition/Project";
 import { isUserAvatarType } from "@/definition/User";
 
-import type { Database, DatabaseValue } from "@/backend/database/Database";
+import type {
+  DatabaseTransaction,
+  DatabaseValue,
+} from "@/backend/database/Database";
 import type { ProjectMember, ProjectRole } from "@/definition/Project";
 
 function toProjectMember(row: readonly DatabaseValue[]): ProjectMember {
@@ -42,14 +45,14 @@ function toProjectMember(row: readonly DatabaseValue[]): ProjectMember {
 
 /** Owns persistence operations for project memberships. */
 export class ProjectMemberRepository {
-  private readonly database: Database;
+  private readonly database: DatabaseTransaction;
 
   /**
    * Creates a project member repository.
    *
    * @param database - Central database access.
    */
-  public constructor(database: Database) {
+  public constructor(database: DatabaseTransaction) {
     this.database = database;
   }
 

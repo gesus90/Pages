@@ -26,6 +26,7 @@ function createProject(overrides: Partial<Project> = {}): Project {
   return {
     createdAt: "2026-01-01",
     description: "Central platform.",
+    departments: [],
     hasIcon: false,
     id: "abcdef123456",
     managerId: "user-1",
@@ -122,6 +123,13 @@ function renderTab(props: TabProps = {}): Rendered {
         action,
         element: (
           <ProjectGeneralTab
+            permissions={{
+              canEditGeneral: props.canWrite ?? true,
+              canChangeDepartments: false,
+              canArchive: false,
+              canDelete: false,
+            }}
+            departmentChoices={{ available: [], selectionRequired: false }}
             canWrite={props.canWrite ?? true}
             events={props.events ?? []}
             goals={props.goals ?? []}

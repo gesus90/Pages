@@ -15,12 +15,13 @@ export const PROJECT_SORT_FIELDS = [
 /** A sort order selectable on the project overview. */
 export type ProjectSortField = (typeof PROJECT_SORT_FIELDS)[number];
 
-/** The status filters of the project overview; completed projects have none. */
+/** The project overview offers all supported status values. */
 export const PROJECT_STATUS_FILTERS = [
   "all",
   PROJECT_STATUS.PLANNED,
   PROJECT_STATUS.ACTIVE,
   PROJECT_STATUS.PAUSED,
+  PROJECT_STATUS.COMPLETED,
 ] as const;
 
 /** Lets every project through (`"all"`) or only those with one status. */
@@ -28,6 +29,7 @@ export type ProjectStatusFilter = "all" | ProjectStatus;
 
 /** What the visitor chose to see on the project overview. */
 export interface ProjectListView {
+  readonly departmentId: string;
   readonly filter: ProjectStatusFilter;
   readonly search: string;
   readonly sortField: ProjectSortField;
@@ -76,7 +78,10 @@ function matchesSearch(project: Project, query: string): boolean {
   return (
     !query ||
     project.name.toLocaleLowerCase().includes(query) ||
-    project.description.toLocaleLowerCase().includes(query)
+    project.description.toLocaleLowerCase().includes(query) ||
+    project.departments.some((department) =>
+      department.name.toLocaleLowerCase().includes(query),
+    )
   );
 }
 
@@ -97,6 +102,13 @@ export function listVisibleProjects(
     .filter(
       (project) =>
         matchesFilter(project, view.filter) && matchesSearch(project, query),
+    )
+    .filter(
+      (project) =>
+        !view.departmentId ||
+        project.departments.some(
+          (department) => department.id === view.departmentId,
+        ),
     )
     .sort(PROJECT_SORT_COMPARISONS[view.sortField]);
 }

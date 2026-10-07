@@ -4,12 +4,15 @@ import { data } from "react-router";
 
 import {
   ProjectManagementDeniedError,
+  ProjectAccessDeniedError,
+  ProjectDepartmentError,
   ProjectNotFoundError,
 } from "@/backend/error/ProjectErrors";
 import { isProjectStatus } from "@/definition/Project";
 
 import type { ApplicationServices } from "@/app/lib/services.server";
 import type { ProjectStatus } from "@/definition/Project";
+import type { ProjectDepartmentErrorCode } from "@/backend/error/ProjectErrors";
 import type { User } from "@/definition/User";
 
 const MAXIMUM_DESCRIPTION_LENGTH = 10_000;
@@ -24,7 +27,7 @@ const PLACEHOLDER_COLORS = [
 
 /** Why creating a project failed. */
 export type ProjectActionError =
-  "forbidden" | "invalidInput" | "projectNotFound";
+  "forbidden" | "invalidInput" | "projectNotFound" | ProjectDepartmentErrorCode;
 
 /** What the client receives after a project overview action. */
 export type ProjectActionResult =
@@ -32,6 +35,7 @@ export type ProjectActionResult =
       readonly ok: true;
       readonly intent: "create-project";
       readonly projectId: string;
+      readonly canOpen?: boolean;
     }
   | {
       readonly ok: false;
@@ -52,9 +56,11 @@ export interface ProjectOverviewActionContext {
 }
 
 interface ProjectInput {
+  readonly templateId: string | null;
   readonly name: string;
   readonly description: string;
   readonly status: ProjectStatus;
+  readonly departmentIds: readonly string[];
 }
 
 function getPlaceholderColor(projectId: string): string {
@@ -70,11 +76,15 @@ function getProjectInput(formData: FormData): ProjectInput | null {
   const name = formData.get("name");
   const description = formData.get("description");
   const status = formData.get("status");
+  const departmentIds = formData.getAll("departmentIds");
+  const templateId = formData.get("templateId");
 
   if (
     typeof name !== "string" ||
     typeof description !== "string" ||
-    !isProjectStatus(status)
+    !isProjectStatus(status) ||
+    (templateId !== null && typeof templateId !== "string") ||
+    !departmentIds.every((id): id is string => typeof id === "string")
   ) {
     return null;
   }
@@ -91,9 +101,11 @@ function getProjectInput(formData: FormData): ProjectInput | null {
   }
 
   return {
+    templateId,
     description: trimmedDescription,
     name: trimmedName,
     status,
+    departmentIds,
   };
 }
 
@@ -108,7 +120,16 @@ function failed(
 }
 
 function getProjectActionError(error: unknown): ProjectActionResponse {
-  if (error instanceof ProjectManagementDeniedError) {
+  if (error instanceof ProjectDepartmentError) {
+    return failed(
+      error.code,
+      error.code === "departmentOutOfScope" ? 403 : 400,
+    );
+  }
+  if (
+    error instanceof ProjectManagementDeniedError ||
+    error instanceof ProjectAccessDeniedError
+  ) {
     return failed("forbidden", 403);
   }
 
@@ -131,16 +152,25 @@ async function createProject({
   }
 
   const id = randomUUID();
+  let canOpen: boolean;
 
   try {
-    await services.projectService.create(actor, {
+    const project = {
       description: input.description,
+      departmentIds: input.departmentIds,
       id,
       name: input.name,
       ownerId: actor.id,
       placeholderColor: getPlaceholderColor(id),
       status: input.status,
-    });
+    };
+    canOpen = input.templateId
+      ? await services.projectService.createFromTemplate(
+          actor,
+          input.templateId,
+          project,
+        )
+      : await services.projectService.create(actor, project);
   } catch (error: unknown) {
     return getProjectActionError(error);
   }
@@ -149,6 +179,7 @@ async function createProject({
     intent: "create-project",
     ok: true,
     projectId: id,
+    ...(canOpen === false ? { canOpen } : {}),
   });
 }
 

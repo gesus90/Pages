@@ -110,6 +110,17 @@ describe("transferSqliteToDuckDb", { timeout: 30_000 }, () => {
           await target.query("SELECT COUNT(*) FROM user_authorization;"),
         ).toEqual([[2]]);
         expect(
+          await target.query("SELECT COUNT(*) FROM project_departments;"),
+        ).toEqual([[0]]);
+        expect(await target.query("SELECT COUNT(*) FROM departments;")).toEqual(
+          [[0]],
+        );
+        expect(
+          await target.query(
+            "SELECT COUNT(*) FROM role_permissions WHERE permission IN ('create_projects', 'archive_projects');",
+          ),
+        ).toEqual([[0]]);
+        expect(
           await target.query(
             "SELECT COUNT(*) FROM role_permissions WHERE permission = 'manage_roles';",
           ),

@@ -18,3 +18,18 @@ export class ProjectManagementDeniedError extends Error {
     super("This user is not allowed to manage projects.");
   }
 }
+
+/** Validation failures of a project department selection. */
+export type ProjectDepartmentErrorCode =
+  "departmentRequired" | "invalidDepartment" | "departmentOutOfScope";
+
+/** Preserves a field-specific error for project creation and reassignment. */
+export class ProjectDepartmentError extends Error {
+  public readonly code: ProjectDepartmentErrorCode;
+
+  /** Records a validated selection failure without exposing account facts. */
+  public constructor(code: ProjectDepartmentErrorCode) {
+    super(code);
+    this.code = code;
+  }
+}

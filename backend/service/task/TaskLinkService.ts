@@ -36,7 +36,10 @@ export class TaskLinkService {
   ): Promise<WorkItemLink[]> {
     await this.access.requireWorkItem(actor, workItemId);
 
-    return this.taskRepository.findLinksByWorkItemId(workItemId);
+    return this.taskRepository.findLinksByWorkItemId(
+      workItemId,
+      await this.access.visibility(actor),
+    );
   }
 
   /** Creates a link from a work item to another ticket identified by key. */
@@ -52,7 +55,7 @@ export class TaskLinkService {
       throw new WorkItemValidationError("Unsupported link type.");
     }
 
-    const target = await this.findLinkTarget(item, targetKey);
+    const target = await this.findLinkTarget(actor, item, targetKey);
 
     await this.access.requireProject(actor, target.projectId);
     await this.taskRepository.insertLink({
@@ -62,7 +65,10 @@ export class TaskLinkService {
       workItemId: item.id,
     });
 
-    return this.taskRepository.findLinksByWorkItemId(item.id);
+    return this.taskRepository.findLinksByWorkItemId(
+      item.id,
+      await this.access.visibility(actor),
+    );
   }
 
   /** Removes a link that involves the given work item, in either direction. */
@@ -86,16 +92,23 @@ export class TaskLinkService {
 
     await this.taskRepository.deleteLink(linkId);
 
-    return this.taskRepository.findLinksByWorkItemId(item.id);
+    return this.taskRepository.findLinksByWorkItemId(
+      item.id,
+      await this.access.visibility(actor),
+    );
   }
 
   private async findLinkTarget(
+    actor: User,
     item: WorkItemDetail,
     targetKey: string,
   ): Promise<WorkItemDetail> {
     const trimmedKey = targetKey.trim();
     const target = trimmedKey
-      ? await this.taskRepository.findByKey(trimmedKey)
+      ? await this.taskRepository.findByKey(
+          trimmedKey,
+          await this.access.visibility(actor),
+        )
       : null;
 
     if (!target) {

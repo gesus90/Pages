@@ -93,7 +93,7 @@ export class TaskService {
       permissionService,
     );
     const history = new TaskHistoryRecorder(taskRepository);
-    const validator = new WorkItemReferenceValidator(taskRepository);
+    const validator = new WorkItemReferenceValidator(taskRepository, access);
     const numbering = new WorkItemNumbering(taskRepository);
 
     this.gitHubPublisher = new TaskGitHubPublisher(
@@ -135,8 +135,8 @@ export class TaskService {
   }
 
   /** Returns all available workflow statuses. */
-  public async findAllStatuses(): Promise<WorkflowStatus[]> {
-    return this.reader.findAllStatuses();
+  public async findAllStatuses(actor: User): Promise<WorkflowStatus[]> {
+    return this.reader.findAllStatuses(actor);
   }
 
   /** Returns non-archived milestones for projects accessible to the actor. */
@@ -348,37 +348,43 @@ export class TaskService {
   /**
    * Returns label usage counts for several projects with one query.
    *
-   * @param projectIds - Project ids already verified as accessible, or a
+   * @param actor - Account whose current ticket scope is enforced.
+   * @param projectIds - Project ids requested by the caller, or a
    * single project after the usual access check by the caller.
    */
   public async countLabelUsageByProjects(
+    actor: User,
     projectIds: readonly string[],
   ): Promise<ReadonlyMap<string, ReadonlyMap<string, number>>> {
-    return this.labels.countLabelUsageByProjects(projectIds);
+    return this.labels.countLabelUsageByProjects(actor, projectIds);
   }
 
   /**
-   * Returns dashboard counters for already access-checked projects.
+   * Returns dashboard counters for projects within the current account scope.
    *
-   * @param projectIds - Project ids the actor may access.
+   * @param actor - Account whose current ticket scope is enforced.
+   * @param projectIds - Requested projects, restricted to current actor access.
    * @param scope - Actor id, day boundaries, and the seven-day lower bound.
    */
   public async countWorkItemsOverview(
+    actor: User,
     projectIds: readonly string[],
     scope: WorkItemsOverviewScope,
   ): Promise<WorkItemsOverview> {
-    return this.reader.countWorkItemsOverview(projectIds, scope);
+    return this.reader.countWorkItemsOverview(actor, projectIds, scope);
   }
 
   /**
    * Returns done/total counters per already access-checked project.
    *
-   * @param projectIds - Project ids the actor may access.
+   * @param actor - Account whose current ticket scope is enforced.
+   * @param projectIds - Requested projects, restricted to current actor access.
    */
   public async countWorkItemsByProject(
+    actor: User,
     projectIds: readonly string[],
   ): Promise<ReadonlyMap<string, ProjectWorkItemCounts>> {
-    return this.reader.countWorkItemsByProject(projectIds);
+    return this.reader.countWorkItemsByProject(actor, projectIds);
   }
 
   /**

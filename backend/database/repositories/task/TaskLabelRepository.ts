@@ -1,9 +1,10 @@
 import { readCountColumn, readTextColumn } from "@/backend/database/RowValue";
 
 import { createInClause } from "./InClause";
+import { createWorkItemVisibility } from "./WorkItemVisibility";
 
 import type { Database, DatabaseValue } from "@/backend/database/Database";
-import type { ProjectLabel } from "@/definition/Task";
+import type { ProjectLabel, WorkItemVisibility } from "@/definition/Task";
 
 /** Values required to persist a label in the catalog of a project. */
 export interface NewProjectLabel {
@@ -141,15 +142,22 @@ export class TaskLabelRepository {
   }
 
   /** Returns how many tickets currently use a label. */
-  public async countUsage(labelId: string): Promise<number> {
+  public async countUsage(
+    labelId: string,
+    visibility?: WorkItemVisibility,
+  ): Promise<number> {
+    const scope = createWorkItemVisibility(visibility);
     const rows = await this.database.query(
       `
         SELECT
             COUNT(*) AS usage_count
         FROM work_item_labels
-        WHERE label_id = $label_id;
+        INNER JOIN work_items
+            ON work_items.id = work_item_labels.work_item_id
+        WHERE label_id = $label_id
+            AND ${scope.condition};
       `,
-      { label_id: labelId },
+      { label_id: labelId, ...scope.parameters },
     );
     const row = rows[0];
 
@@ -167,6 +175,7 @@ export class TaskLabelRepository {
    */
   public async countUsageByProjectIds(
     projectIds: readonly string[],
+    visibility?: WorkItemVisibility,
   ): Promise<ReadonlyMap<string, ReadonlyMap<string, number>>> {
     const usageByProject = new Map<string, Map<string, number>>();
 
@@ -178,6 +187,7 @@ export class TaskLabelRepository {
       "usage_project_id",
       projectIds,
     );
+    const scope = createWorkItemVisibility(visibility);
     const rows = await this.database.query(
       `
         SELECT
@@ -187,10 +197,13 @@ export class TaskLabelRepository {
         FROM work_item_labels
         INNER JOIN project_labels
             ON project_labels.id = work_item_labels.label_id
+        INNER JOIN work_items
+            ON work_items.id = work_item_labels.work_item_id
         WHERE project_labels.project_id IN (${placeholders})
+            AND ${scope.condition}
         GROUP BY project_labels.project_id, work_item_labels.label_id;
       `,
-      parameters,
+      { ...parameters, ...scope.parameters },
     );
 
     for (const row of rows) {

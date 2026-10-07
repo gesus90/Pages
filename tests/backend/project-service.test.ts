@@ -4,7 +4,8 @@ import { ServerCache } from "@/backend/cache/ServerCache";
 import { PERMISSION, ROLE } from "@/definition/Role";
 import { ProjectService } from "@/backend/service/ProjectService";
 
-import { createUser } from "../helpers/factories";
+import { createDatabase, createUser } from "../helpers/factories";
+import { createAccess, createRole } from "../helpers/authorization";
 import {
   ProjectAccessDeniedError,
   ProjectManagementDeniedError,
@@ -12,13 +13,14 @@ import {
 } from "@/backend/error/ProjectErrors";
 
 import type { PermissionService } from "@/backend/auth/PermissionService";
-import type { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
+import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import type { Project } from "@/definition/Project";
 
 function createProject(): Project {
   return {
     createdAt: "2026-01-01",
     description: "New public website",
+    departments: [],
     hasIcon: false,
     id: "project-1",
     managerId: null,
@@ -49,18 +51,58 @@ interface MockProjectRepository {
 }
 
 function createRepository(): ProjectRepository & MockProjectRepository {
-  return {
-    archive: vi.fn(),
-    findAll: vi.fn(),
-    findById: vi.fn(),
-    findByMemberId: vi.fn(),
-    findIconByProjectId: vi.fn(),
-    findIntegrationsByProjectIds: vi.fn().mockResolvedValue(new Map()),
-    insert: vi.fn(),
-    isMember: vi.fn(),
-    update: vi.fn(),
-    upsertIcon: vi.fn(),
-  } as unknown as ProjectRepository & MockProjectRepository;
+  const repository = new ProjectRepository(createDatabase());
+  vi.spyOn(repository, "transaction").mockImplementation(async (operation) =>
+    operation(repository),
+  );
+  const authorization = repository.authorization();
+  vi.spyOn(authorization, "snapshot").mockResolvedValue({
+    departments: [],
+    roles: [],
+    accounts: [
+      createAccess({
+        userId: "user-1",
+        isAdmin: true,
+        mode: "admin",
+        role: null,
+      }),
+    ],
+  });
+  vi.spyOn(repository, "authorization").mockReturnValue(authorization);
+  vi.spyOn(repository, "findActiveIds").mockResolvedValue(["project-1"]);
+  vi.spyOn(repository, "findDepartmentsByProjects").mockResolvedValue(
+    new Map(),
+  );
+  vi.spyOn(repository, "isProjectManager").mockResolvedValue(false);
+  const mocked = Object.assign(repository, {
+    archive: vi.spyOn(repository, "archive").mockResolvedValue(undefined),
+    findAll: vi.spyOn(repository, "findAll"),
+    findById: vi.spyOn(repository, "findById"),
+    findByMemberId: vi.spyOn(repository, "findByMemberId"),
+    findIconByProjectId: vi.spyOn(repository, "findIconByProjectId"),
+    findIntegrationsByProjectIds: vi
+      .spyOn(repository, "findIntegrationsByProjectIds")
+      .mockResolvedValue(new Map()),
+    insert: vi.spyOn(repository, "insert").mockResolvedValue(undefined),
+    isMember: vi.spyOn(repository, "isMember"),
+    update: vi.spyOn(repository, "update").mockResolvedValue(undefined),
+    upsertIcon: vi.spyOn(repository, "upsertIcon").mockResolvedValue(undefined),
+  });
+  return mocked;
+}
+
+function setAccount(
+  repository: ProjectRepository,
+  account = createAccess({
+    userId: "user-1",
+    role: createRole({ departmentBound: false, permissions: [] }),
+  }),
+): void {
+  vi.mocked(repository.authorization().snapshot).mockResolvedValue({
+    departments: [],
+    roles: [],
+    accounts: [account],
+  });
 }
 
 function createPermissions(): PermissionService & {
@@ -91,28 +133,36 @@ describe("ProjectService", () => {
     service = new ProjectService(repository, permissions);
   });
 
+  it("returns current department choices through the project facade", async () => {
+    await expect(service.departmentChoices(createUser())).resolves.toEqual({
+      available: [],
+      selectionRequired: false,
+    });
+  });
+
   it("returns every project to managers", async () => {
     const projects = [createProject()];
     repository.findAll.mockResolvedValue(projects);
 
-    await expect(service.findAll(createUser())).resolves.toBe(projects);
+    await expect(service.findAll(createUser())).resolves.toEqual(projects);
     expect(repository.findAll).toHaveBeenCalledOnce();
   });
 
-  it("returns only member projects to participating employees", async () => {
+  it("returns public projects to active employees independently of membership", async () => {
     const actor = createUser({ role: ROLE.EMPLOYEE });
     const projects = [createProject()];
     permissions.hasPermission.mockImplementation(
       (_role, permission) => permission === PERMISSION.PARTICIPATE_IN_PROJECTS,
     );
-    repository.findByMemberId.mockResolvedValue(projects);
+    repository.findAll.mockResolvedValue(projects);
+    setAccount(repository);
 
-    await expect(service.findAll(actor)).resolves.toBe(projects);
-    expect(repository.findByMemberId).toHaveBeenCalledWith(actor.id);
+    await expect(service.findAll(actor)).resolves.toEqual(projects);
+    expect(repository.findByMemberId).not.toHaveBeenCalled();
   });
 
-  it("denies the project list without participation rights", async () => {
-    permissions.hasPermission.mockReturnValue(false);
+  it("denies the project list for an inactive current account", async () => {
+    setAccount(repository, createAccess({ userId: "user-1", isActive: false }));
 
     await expect(service.findAll(createUser())).rejects.toThrow(
       ProjectAccessDeniedError,
@@ -129,7 +179,7 @@ describe("ProjectService", () => {
     expect(repository.isMember).not.toHaveBeenCalled();
   });
 
-  it("gets a project for participating members", async () => {
+  it("gets a public project without using project membership", async () => {
     const actor = createUser({ role: ROLE.EMPLOYEE });
     const project = createProject();
     permissions.hasPermission.mockImplementation(
@@ -139,7 +189,7 @@ describe("ProjectService", () => {
     repository.isMember.mockResolvedValue(true);
 
     await expect(service.getById(actor, project.id)).resolves.toBe(project);
-    expect(repository.isMember).toHaveBeenCalledWith(project.id, actor.id);
+    expect(repository.isMember).not.toHaveBeenCalled();
   });
 
   it("reports missing and inaccessible projects", async () => {
@@ -151,18 +201,25 @@ describe("ProjectService", () => {
       ProjectNotFoundError,
     );
 
-    permissions.hasPermission.mockReturnValue(false);
+    setAccount(repository, createAccess({ userId: "user-1", isActive: false }));
     await expect(
       service.getById(createUser({ role: ROLE.EMPLOYEE }), "project-1"),
     ).rejects.toThrow(ProjectAccessDeniedError);
   });
 
-  it("denies non-members with participation rights", async () => {
+  it("denies a bound account without a common department even with membership", async () => {
     permissions.hasPermission.mockImplementation(
       (_role, permission) => permission === PERMISSION.PARTICIPATE_IN_PROJECTS,
     );
-    repository.findById.mockResolvedValue(createProject());
-    repository.isMember.mockResolvedValue(false);
+    setAccount(
+      repository,
+      createAccess({ userId: "user-1", departments: ["frontend"] }),
+    );
+    repository.findById.mockResolvedValue({
+      ...createProject(),
+      departments: [{ id: "backend", name: "Backend" }],
+    });
+    repository.isMember.mockResolvedValue(true);
 
     await expect(
       service.getById(createUser({ role: ROLE.EMPLOYEE }), "project-1"),
@@ -181,7 +238,10 @@ describe("ProjectService", () => {
     repository.insert.mockResolvedValue(undefined);
 
     await service.create(createUser(), input);
-    expect(repository.insert).toHaveBeenCalledWith(input);
+    expect(repository.insert).toHaveBeenCalledWith({
+      ...input,
+      departmentIds: [],
+    });
   });
 
   it("updates and archives existing projects for managers", async () => {
@@ -219,12 +279,20 @@ describe("ProjectService", () => {
   });
 
   it("denies management operations without permission", async () => {
-    permissions.hasPermission.mockReturnValue(false);
+    setAccount(repository);
+    repository.findById.mockResolvedValue(createProject());
     const actor = createUser({ role: ROLE.EMPLOYEE });
 
-    await expect(service.create(actor, {} as never)).rejects.toThrow(
-      ProjectManagementDeniedError,
-    );
+    await expect(
+      service.create(actor, {
+        id: "new",
+        name: "New",
+        description: "",
+        status: "planned",
+        ownerId: actor.id,
+        placeholderColor: "#FCE3D3",
+      }),
+    ).rejects.toThrow(ProjectManagementDeniedError);
     await expect(
       service.update(actor, "project-1", {} as never),
     ).rejects.toThrow(ProjectManagementDeniedError);

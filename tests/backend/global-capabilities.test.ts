@@ -14,7 +14,7 @@ import { createRole } from "../helpers/authorization";
 import { useMigratedDatabase } from "../helpers/test-database";
 import type { Capability } from "@/definition/Authorization";
 
-describe("live global capabilities before A3 department enforcement", () => {
+describe("live capabilities during department enforcement", () => {
   const getDatabase = useMigratedDatabase();
   const actor = createUser({ id: "actor" }); // Deliberately stale legacy admin projection.
   const project = {
@@ -90,16 +90,15 @@ describe("live global capabilities before A3 department enforcement", () => {
     };
   }
 
-  it("create-only roles can create but cannot manage existing projects or write tickets", async () => {
-    const { projects, tasks } = await setup([CAPABILITY.CREATE_PROJECTS]);
+  it("project management grants creation without granting ticket writes", async () => {
+    const { projects, tasks } = await setup([CAPABILITY.MANAGE_PROJECTS]);
     expect(await projects.canCreateProjects(actor)).toBe(true);
-    expect(await projects.canManageProjects(actor)).toBe(false);
+    expect(await projects.canManageProjects(actor)).toBe(true);
     await projects.create(actor, {
       ...project,
       id: "created",
       ownerId: "actor",
     });
-    await expect(projects.archive(actor, "project")).rejects.toThrow();
     await expect(
       tasks.create(actor, {
         projectId: "project",
@@ -115,7 +114,7 @@ describe("live global capabilities before A3 department enforcement", () => {
       CAPABILITY.MANAGE_PROJECTS,
     ]);
     expect(
-      await permissions.hasCapability(actor, CAPABILITY.CREATE_PROJECTS),
+      await permissions.hasCapability(actor, CAPABILITY.MANAGE_PROJECTS),
     ).toBe(true);
     expect(await permissions.hasCapability(actor, CAPABILITY.WRITE)).toBe(
       false,
@@ -136,7 +135,9 @@ describe("live global capabilities before A3 department enforcement", () => {
         statusId: "status-todo",
       }),
     ).rejects.toThrow();
-    await projects.archive(actor, "project");
+    await expect(projects.archive(actor, "project")).rejects.toThrow(
+      "not allowed",
+    );
   });
 
   it("checks the current role again after a role change, not the caller's cached projection", async () => {
@@ -155,7 +156,7 @@ describe("live global capabilities before A3 department enforcement", () => {
       createRole({ id: "profile", permissions: [] }),
     );
     expect(
-      await permissions.hasCapability(actor, CAPABILITY.CREATE_PROJECTS),
+      await permissions.hasCapability(actor, CAPABILITY.MANAGE_PROJECTS),
     ).toBe(false);
     await expect(
       tasks.updateStatusAndOrder(actor, item.id, "status-done", 1),
@@ -166,7 +167,7 @@ describe("live global capabilities before A3 department enforcement", () => {
     );
   });
 
-  it("does not reuse a management listing after rights change outside this process's cache", async () => {
+  it("does not reuse project visibility after memberships change outside this process's cache", async () => {
     const { projects } = await setup([CAPABILITY.MANAGE_PROJECTS]);
     await new ProjectRepository(getDatabase()).insert({
       ...project,
@@ -175,9 +176,11 @@ describe("live global capabilities before A3 department enforcement", () => {
     expect((await projects.findAll(actor)).map((entry) => entry.id)).toContain(
       "foreign",
     );
-    await new AuthorizationRepository(getDatabase()).saveRole(
-      createRole({ id: "profile", permissions: [] }),
-    );
+    const authorization = new AuthorizationRepository(getDatabase());
+    await authorization.saveDepartment({ id: "backend", name: "Backend" });
+    await new ProjectRepository(getDatabase()).setDepartments("foreign", [
+      "backend",
+    ]);
     expect((await projects.findAll(actor)).map((entry) => entry.id)).toEqual([
       "project",
     ]);

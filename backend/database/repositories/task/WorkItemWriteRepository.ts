@@ -236,6 +236,31 @@ export class WorkItemWriteRepository {
     );
   }
 
+  /** Writes GitHub's synchronized fields while preserving all local relationships. */
+  public async updateFromGitHub(
+    id: string,
+    update: Pick<WorkItemUpdate, "title" | "description" | "statusId">,
+  ): Promise<void> {
+    await this.database.execute(
+      `
+      UPDATE work_items
+      SET
+          title = $title,
+          description = $description,
+          status_id = $status_id,
+          updated_at = utc_now()
+      WHERE id = $id
+          AND archived_at IS NULL;
+    `,
+      {
+        id,
+        title: update.title,
+        description: update.description,
+        status_id: update.statusId,
+      },
+    );
+  }
+
   /** Updates the workflow status, ordering, and completion timestamp of a work item. */
   public async updateStatusAndOrder(
     id: string,

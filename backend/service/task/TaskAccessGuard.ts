@@ -9,7 +9,7 @@ import type { PermissionService } from "@/backend/auth/PermissionService";
 import type { TaskRepository } from "@/backend/database/repositories/TaskRepository";
 import type { ProjectService } from "@/backend/service/ProjectService";
 import type { Project } from "@/definition/Project";
-import type { WorkItemDetail } from "@/definition/Task";
+import type { WorkItemVisibility, WorkItemDetail } from "@/definition/Task";
 import type { User } from "@/definition/User";
 
 /** Verifies that an actor may reach, and change, projects and their work items. */
@@ -86,7 +86,10 @@ export class TaskAccessGuard {
     actor: User,
     workItemId: string,
   ): Promise<WorkItemDetail> {
-    const item = await this.taskRepository.findById(workItemId);
+    const item = await this.taskRepository.findById(
+      workItemId,
+      await this.visibility(actor),
+    );
 
     if (!item) {
       throw new WorkItemNotFoundError();
@@ -97,7 +100,19 @@ export class TaskAccessGuard {
     return item;
   }
 
-  /** Preserves existing planning access until A3 defines the milestone capability. */
+  /** Resolves current account facts and accessible projects for every ticket read. */
+  public async visibility(actor: User): Promise<WorkItemVisibility> {
+    return this.projectService.workItemVisibility(actor);
+  }
+
+  /** Keeps assignment candidates within their own current project read access. */
+  public async filterAssignees(
+    candidates: ReadonlyMap<string, readonly User[]>,
+  ): Promise<ReadonlyMap<string, readonly User[]>> {
+    return this.projectService.filterAssignees(candidates);
+  }
+
+  /** Verifies project-level planning access without adding milestone department rules. */
   public async requirePlanningProject(
     actor: User,
     projectId: string,

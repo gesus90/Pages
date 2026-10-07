@@ -145,7 +145,8 @@
       "planned": "Geplant",
       "active": "Aktiv",
       "paused": "Pausiert",
-      "completed": "Abgeschlossen"
+      "completed": "Abgeschlossen",
+      "label": "Projektstatus"
     },
     "status": {
       "planned": "Geplant",
@@ -189,7 +190,49 @@
     "error": {
       "invalidInput": "Bitte überprüfe Name, Beschreibung und Fortschritt.",
       "forbidden": "Du bist nicht berechtigt, diese Aktion auszuführen.",
-      "projectNotFound": "Dieses Projekt wurde nicht gefunden."
+      "projectNotFound": "Dieses Projekt wurde nicht gefunden.",
+      "departmentRequired": "Wählen Sie mindestens eine Abteilung.",
+      "invalidDepartment": "Eine ausgewählte Abteilung existiert nicht mehr. Bitte laden Sie die Seite neu.",
+      "departmentOutOfScope": "Die Abteilungswahl liegt außerhalb Ihres Projekt-Verwaltungsbereichs."
+    },
+    "departments": {
+      "label": "Abteilungen",
+      "requiredLabel": "Abteilungen (Pflichtfeld)",
+      "none": "Ohne Abteilung",
+      "lastRequired": "Mindestens eine Abteilung bleibt zugeordnet. Wählen Sie eine weitere, bevor Sie die letzte entfernen.",
+      "emptyCatalog": "Es sind noch keine Abteilungen vorhanden. Das Projekt kann zunächst ohne Zuordnung angelegt werden.",
+      "noAvailable": "In Ihrem Projekt-Verwaltungsbereich sind keine Abteilungen verfügbar.",
+      "required": "Wählen Sie mindestens eine Abteilung.",
+      "outOfScope": "Die Abteilungswahl liegt außerhalb Ihres Projekt-Verwaltungsbereichs.",
+      "filterLabel": "Nach Abteilung filtern",
+      "all": "Alle Abteilungen",
+      "edit": "Abteilungen bearbeiten",
+      "editTitle": "Projektabteilungen bearbeiten",
+      "completeScopeHint": "Änderungen an der Zuordnung und Archivierung erfordern Zuständigkeit für alle Projektabteilungen oder globale Projektzuständigkeit.",
+      "reassignmentRequired": "Bitte ordne mindestens eine Abteilung zu, bevor du Projektangaben speicherst."
+    },
+    "searchLabel": "Projekte durchsuchen",
+    "resetFilters": "Filter zurücksetzen",
+    "lifecycle": {
+      "view": "Projektansicht",
+      "active": "Laufende Projekte",
+      "archiveView": "Archiv",
+      "archive": "Archivieren",
+      "delete": "Endgültig löschen",
+      "archiveTitle": "„{{name}}“ archivieren?",
+      "deleteTitle": "„{{name}}“ endgültig löschen?",
+      "archiveHint": "Das Projekt verschwindet aus den laufenden Ansichten. Seine Daten bleiben im Archiv erhalten.",
+      "deleteHint": "Das Projekt und alle zugehörigen Tickets, Ziele, Termine, Integrationen und Wiki-Inhalte werden dauerhaft entfernt. Diese Aktion kann nicht rückgängig gemacht werden.",
+      "archiveEmpty": "Keine archivierten Projekte entsprechen dieser Auswahl."
+    },
+    "templates": {
+      "label": "Projektvorlage",
+      "none": "Ohne Vorlage",
+      "save": "Als Vorlage speichern",
+      "saved": "Projektvorlage gespeichert.",
+      "copyHint": "Beschreibung, Status, Ziele und Tags werden übernommen. Wähle einen neuen Namen und die Abteilungen.",
+      "tags": "Tags: {{tags}}",
+      "noTags": "Keine Tags"
     }
   },
   "settings": {
@@ -347,8 +390,8 @@
     "permissions": {
       "read": "Lesen (immer aktiv)",
       "write": "Schreiben",
-      "create_projects": "Projekte erstellen",
-      "manage_projects": "Projekte verwalten",
+      "manage_projects": "Projekte erstellen und verwalten",
+      "archive_projects": "Projekte archivieren",
       "milestones": "Meilensteine",
       "manage_users": "Benutzer erstellen/deaktivieren",
       "manage_departments": "Abteilungen verwalten",

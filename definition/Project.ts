@@ -1,3 +1,4 @@
+import type { Department } from "@/definition/Authorization";
 import type { UserAvatarType } from "@/definition/User";
 
 /** Status values supported by project planning and tracking. */
@@ -15,6 +16,7 @@ export type ProjectStatus =
 /** A project exposed to the project overview and detail panel. */
 export interface Project {
   readonly id: string;
+  readonly departments: readonly Department[];
   readonly parentId: string | null;
   readonly name: string;
   readonly description: string;
@@ -29,6 +31,36 @@ export interface Project {
   readonly notes: string;
   readonly createdAt: string;
   readonly updatedAt: string;
+}
+
+/** A retained project in the archive, with the time it left the active list. */
+export interface ArchivedProject extends Project {
+  readonly archivedAt: string;
+}
+
+/** Department choices filtered by current project management responsibility. */
+export interface ProjectDepartmentChoices {
+  readonly available: readonly Department[];
+  readonly selectionRequired: boolean;
+}
+
+/** Server hints evaluated again from current facts for every project mutation. */
+export interface ProjectActionPermissions {
+  readonly canEditGeneral: boolean;
+  readonly canChangeDepartments: boolean;
+  readonly canArchive: boolean;
+  readonly canDelete: boolean;
+}
+
+/** A reusable snapshot of general project information, bound to current access to its source. */
+export interface ProjectTemplate {
+  readonly id: string;
+  readonly projectId: string;
+  readonly name: string;
+  readonly description: string;
+  readonly status: ProjectStatus;
+  readonly goals: readonly string[];
+  readonly tags: readonly string[];
 }
 
 /** Narrows an unknown value to a supported project status. */

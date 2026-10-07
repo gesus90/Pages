@@ -393,6 +393,7 @@ export class AdministrationService {
         ...scope,
       });
     });
+    this.cache.invalidateProjectMembership();
   }
 
   /** Saves a shared role through its delegation boundary. */
@@ -420,6 +421,8 @@ export class AdministrationService {
       userId,
       input,
     );
+    this.cache.invalidatePrefix("project:");
+    this.cache.invalidateProjectsList();
   }
 
   /** Deletes a department, permitting its former members to become departmentless. */
@@ -431,6 +434,11 @@ export class AdministrationService {
       userId,
       departmentId,
     );
+    this.cache.invalidatePrefix("project:");
+    this.cache.invalidateProjectMembership();
+    this.cache.invalidateWorkItems();
+    this.cache.invalidateLabels();
+    this.cache.invalidateGitHub();
   }
 
   /** Applies a membership change with before-state scope checks. */
@@ -456,6 +464,7 @@ export class AdministrationService {
       }
       await repository.saveAccount({ ...target, departments });
     });
+    this.cache.invalidateProjectMembership();
   }
 
   /** Switches the whole account's active mode; a normal role must exist first. */

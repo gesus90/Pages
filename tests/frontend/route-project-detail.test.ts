@@ -25,6 +25,7 @@ function createProject(overrides: Partial<Project> = {}): Project {
   return {
     createdAt: "2026-01-01",
     description: "Pages Project",
+    departments: [],
     hasIcon: false,
     id: "project-1",
     managerId: null,
@@ -45,6 +46,12 @@ function createProject(overrides: Partial<Project> = {}): Project {
 function createServices(overrides: Record<string, unknown> = {}) {
   return {
     projectService: {
+      permissions: vi.fn().mockResolvedValue({
+        canEditGeneral: true,
+        canChangeDepartments: false,
+        canArchive: false,
+        canDelete: false,
+      }),
       addMember: vi.fn(),
       archive: vi.fn(),
       archiveEvent: vi.fn(),
@@ -148,6 +155,29 @@ describe("project detail route loader", () => {
     expect(result.project.id).toBe("project-1");
     expect(result.activeTab).toBe("team");
     expect(result.canWrite).toBe(true);
+  });
+
+  it("loads assignment choices only when the current hints allow changing all departments", async () => {
+    const services = createServices();
+    vi.mocked(services.projectService.permissions).mockResolvedValue({
+      canEditGeneral: true,
+      canChangeDepartments: true,
+      canArchive: false,
+      canDelete: false,
+    });
+    const departmentChoices = vi.fn().mockResolvedValue({
+      available: [{ id: "frontend", name: "Frontend" }],
+      selectionRequired: true,
+    });
+    services.projectService.departmentChoices = departmentChoices;
+    mockedServices.mockResolvedValue(services);
+    const result = await loader({
+      context: new Map([[authenticatedUserContext, createUser()]]),
+      params: { projectId: "project-1" },
+      request: new Request("http://pages.invalid/projekte/project-1"),
+    } as unknown as LoaderArguments);
+    expect(result.departmentChoices.selectionRequired).toBe(true);
+    expect(result.permissions.canChangeDepartments).toBe(true);
   });
 
   it("maps missing project identifiers to 404", async () => {

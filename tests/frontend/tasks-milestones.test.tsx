@@ -15,6 +15,7 @@ function createWorkItem(
   overrides: Partial<WorkItemDetail> = {},
 ): WorkItemDetail {
   return {
+    departmentId: null,
     archivedAt: null,
     assigneeId: null,
     assigneeName: null,

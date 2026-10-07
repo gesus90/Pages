@@ -4,6 +4,7 @@ import { Link } from "react-router";
 
 import { ProjectIcon } from "@/app/components/projects/overview/project-icon";
 import { ProjectStatusBadge } from "@/app/components/projects/overview/project-status-badge";
+import { ProjectDepartmentChips } from "@/app/components/projects/project-department-chips";
 
 import type { Project } from "@/definition/Project";
 
@@ -39,6 +40,9 @@ export function ProjectCard({ project }: ProjectCardProps): React.ReactElement {
         <p className="mt-1 line-clamp-2 min-h-10 text-sm leading-relaxed text-muted-foreground">
           {project.description || t("projects.noDescription")}
         </p>
+        <div className="mt-3">
+          <ProjectDepartmentChips departments={project.departments} />
+        </div>
         <div className="mt-5 flex items-center gap-3">
           <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
             <div

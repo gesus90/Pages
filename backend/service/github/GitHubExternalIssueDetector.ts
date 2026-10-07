@@ -39,12 +39,8 @@ export class GitHubExternalIssueDetector {
     remoteByNumber: ReadonlyMap<number, GitHubIssueData>,
     summary: GitHubSyncCounters,
   ): Promise<void> {
-    const linkedNumbers = new Set(
-      (await this.taskRepository.findLinkedWorkItems(projectId)).flatMap(
-        (item) =>
-          item.githubIssueNumber === null ? [] : [item.githubIssueNumber],
-      ),
-    );
+    const linkedNumbers =
+      await this.taskRepository.findKnownGitHubIssueNumbers(projectId);
 
     for (const remote of remoteByNumber.values()) {
       if (linkedNumbers.has(remote.number)) {

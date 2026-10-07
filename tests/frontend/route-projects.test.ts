@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { RouterContextProvider } from "react-router";
 
 vi.mock("node:crypto", () => ({ randomUUID: vi.fn(() => "project-1") }));
 vi.mock("@/app/lib/services.server", () => ({
@@ -12,6 +13,8 @@ import { action, loader } from "@/app/routes/projects";
 import { createUser } from "../helpers/factories";
 import {
   ProjectManagementDeniedError,
+  ProjectAccessDeniedError,
+  ProjectDepartmentError,
   ProjectNotFoundError,
 } from "@/backend/error/ProjectErrors";
 
@@ -23,6 +26,7 @@ function createProject(overrides: Partial<Project> = {}): Project {
   return {
     createdAt: "2026-01-01",
     description: "New public website",
+    departments: [],
     hasIcon: false,
     id: "project-1",
     managerId: null,
@@ -46,9 +50,15 @@ function createServices(
   return {
     projectService: {
       archive: vi.fn(),
+      findArchived: vi.fn().mockResolvedValue([]),
+      canDeleteProjects: vi.fn().mockResolvedValue(false),
       canCreateProjects: vi.fn().mockResolvedValue(true),
+      departmentChoices: vi
+        .fn()
+        .mockResolvedValue({ available: [], selectionRequired: false }),
       create: vi.fn(),
       findAll: vi.fn().mockResolvedValue([]),
+      findTemplates: vi.fn().mockResolvedValue([]),
       update: vi.fn(),
     },
     ...overrides,
@@ -73,6 +83,19 @@ function createPostRequest(
   });
 }
 
+/** Builds a real authenticated request context for the template route cases. */
+function templateActionArgs(request: Request): Parameters<typeof action>[0] {
+  const context = new RouterContextProvider();
+  context.set(authenticatedUserContext, createUser());
+  return {
+    context,
+    params: {},
+    request,
+    url: new URL(request.url),
+    pattern: "/projekte",
+  };
+}
+
 function getActionData(result: unknown): {
   data: Record<string, unknown>;
   init?: { status?: number };
@@ -93,7 +116,16 @@ describe("projects route loader", () => {
     const canManageProjects = vi.fn().mockReturnValue(true);
     mockedServices.mockResolvedValue(
       createServices({
-        projectService: { canCreateProjects: canManageProjects, findAll },
+        projectService: {
+          canCreateProjects: canManageProjects,
+          findArchived: vi.fn().mockResolvedValue([]),
+          canDeleteProjects: vi.fn().mockResolvedValue(false),
+          findAll,
+          findTemplates: vi.fn().mockResolvedValue([]),
+          departmentChoices: vi
+            .fn()
+            .mockResolvedValue({ available: [], selectionRequired: false }),
+        },
       }),
     );
     const context = { get: vi.fn().mockReturnValue(createUser()) };
@@ -105,7 +137,11 @@ describe("projects route loader", () => {
 
     expect(result).toEqual({
       canManageProjects: true,
+      archivedProjects: [],
+      canDeleteProjects: false,
+      departmentChoices: { available: [], selectionRequired: false },
       projects: [createProject()],
+      templates: [],
     });
     expect(context.get).toHaveBeenCalledWith(authenticatedUserContext);
   });
@@ -173,12 +209,79 @@ describe("projects route action", () => {
     });
     expect(create).toHaveBeenCalledWith(actor, {
       description: "New public website",
+      departmentIds: [],
       id: "project-1",
       name: "Website refresh",
       ownerId: "user-1",
       placeholderColor: "#EEE4F8",
       status: "planned",
     });
+  });
+
+  it("uses a selected template and reports creation without subsequent read access", async () => {
+    const createFromTemplate = vi.fn().mockResolvedValue(false);
+    mockedServices.mockResolvedValue(
+      createServices({ projectService: { createFromTemplate } }),
+    );
+    const result = getActionData(
+      await action(
+        templateActionArgs(
+          createPostRequest({
+            intent: "create-project",
+            name: "New name",
+            description: "",
+            status: "active",
+            templateId: "template",
+          }),
+        ),
+      ),
+    );
+    expect(createFromTemplate).toHaveBeenCalledWith(
+      createUser(),
+      "template",
+      expect.objectContaining({ name: "New name", departmentIds: [] }),
+    );
+    expect(result.data).toMatchObject({ ok: true, canOpen: false });
+  });
+
+  it("rejects template files and current source access denial", async () => {
+    const createFromTemplate = vi
+      .fn()
+      .mockRejectedValue(new ProjectAccessDeniedError());
+    const services = createServices({ projectService: { createFromTemplate } });
+    mockedServices.mockResolvedValue(services);
+    const form = new FormData();
+    for (const [key, value] of Object.entries({
+      intent: "create-project",
+      name: "New name",
+      description: "",
+      status: "planned",
+    }))
+      form.set(key, value);
+    form.set("templateId", new Blob(["invalid"]), "invalid.txt");
+    const request = new Request("http://pages.invalid/projekte", {
+      method: "POST",
+      body: form,
+    });
+    expect(
+      getActionData(await action(templateActionArgs(request))).init?.status,
+    ).toBe(400);
+    expect(createFromTemplate).not.toHaveBeenCalled();
+    const result = getActionData(
+      await action(
+        templateActionArgs(
+          createPostRequest({
+            intent: "create-project",
+            name: "New name",
+            description: "",
+            status: "planned",
+            templateId: "template",
+          }),
+        ),
+      ),
+    );
+    expect(result.init?.status).toBe(403);
+    expect(result.data).toMatchObject({ error: "forbidden" });
   });
 
   it.each([
@@ -293,6 +396,79 @@ describe("projects route action", () => {
       intent: "create-project",
       ok: false,
     });
+  });
+
+  it.each([
+    ["departmentRequired", 400],
+    ["invalidDepartment", 400],
+    ["departmentOutOfScope", 403],
+  ] as const)("maps department selection error %s", async (code, status) => {
+    mockedServices.mockResolvedValue(
+      createServices({
+        projectService: {
+          create: vi.fn().mockRejectedValue(new ProjectDepartmentError(code)),
+        },
+      }),
+    );
+    const result = getActionData(
+      await action({
+        context: { get: vi.fn().mockReturnValue(createUser()) },
+        params: {},
+        request: createPostRequest({
+          intent: "create-project",
+          name: "Name",
+          description: "",
+          status: "planned",
+        }),
+      } as unknown as Parameters<typeof action>[0]),
+    );
+    expect(result.init?.status).toBe(status);
+    expect(result.data).toMatchObject({ ok: false, error: code });
+  });
+
+  it("reads repeated department IDs and rejects file values", async () => {
+    const create = vi.fn();
+    mockedServices.mockResolvedValue(
+      createServices({ projectService: { create } }),
+    );
+    const form = new FormData();
+    for (const [key, value] of Object.entries({
+      intent: "create-project",
+      name: "Name",
+      description: "",
+      status: "planned",
+    }))
+      form.set(key, value);
+    form.append("departmentIds", "frontend");
+    form.append("departmentIds", "backend");
+    const args = {
+      context: { get: vi.fn().mockReturnValue(createUser()) },
+      params: {},
+    };
+    await action({
+      ...args,
+      request: new Request("http://pages.invalid/projekte", {
+        method: "POST",
+        body: form,
+      }),
+    } as unknown as Parameters<typeof action>[0]);
+    expect(create).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ departmentIds: ["frontend", "backend"] }),
+    );
+    create.mockClear();
+    form.append("departmentIds", new Blob(["invalid"]), "invalid.txt");
+    const result = getActionData(
+      await action({
+        ...args,
+        request: new Request("http://pages.invalid/projekte", {
+          method: "POST",
+          body: form,
+        }),
+      } as unknown as Parameters<typeof action>[0]),
+    );
+    expect(result.init?.status).toBe(400);
+    expect(create).not.toHaveBeenCalled();
   });
 
   it("propagates unexpected service failures", async () => {

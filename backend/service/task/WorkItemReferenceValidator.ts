@@ -5,11 +5,15 @@ import {
 } from "@/backend/service/task/WorkItemHierarchy";
 
 import type { TaskRepository } from "@/backend/database/repositories/TaskRepository";
-import type { WorkItemType } from "@/definition/Task";
+import type { WorkItemType, WorkItemVisibility } from "@/definition/Task";
+import type { TaskAccessGuard } from "./TaskAccessGuard";
 
 /** The records a work item points to, which must exist and fit its project. */
 export interface WorkItemReferences {
   readonly type: WorkItemType;
+  readonly visibility?: WorkItemVisibility;
+  /** Trusted unchanged hidden parent; never taken from external input. */
+  readonly preservedParentId?: string | null;
   readonly projectId: string;
   readonly selfId: string | null;
   readonly parentId: string | null;
@@ -20,14 +24,17 @@ export interface WorkItemReferences {
 /** Checks that the parent, milestone and assignee of a work item are usable. */
 export class WorkItemReferenceValidator {
   private readonly taskRepository: TaskRepository;
+  private readonly access: TaskAccessGuard;
 
   /**
    * Creates a reference validator.
    *
    * @param taskRepository - Task persistence boundary.
+   * @param access - Current project access used to validate assignment candidates.
    */
-  public constructor(taskRepository: TaskRepository) {
+  public constructor(taskRepository: TaskRepository, access: TaskAccessGuard) {
     this.taskRepository = taskRepository;
+    this.access = access;
   }
 
   /**
@@ -74,9 +81,12 @@ export class WorkItemReferenceValidator {
     userId: string,
     projectId: string,
   ): Promise<boolean> {
-    const eligible = await this.taskRepository.findEligibleAssignees(projectId);
-
-    return eligible.some((user) => user.id === userId);
+    const candidates =
+      await this.taskRepository.findEligibleAssignees(projectId);
+    const eligible = await this.access.filterAssignees(
+      new Map([[projectId, candidates]]),
+    );
+    return (eligible.get(projectId) ?? []).some((user) => user.id === userId);
   }
 
   private async validateHierarchy(
@@ -92,7 +102,11 @@ export class WorkItemReferenceValidator {
       return;
     }
 
-    const parent = await this.taskRepository.findById(lookup.parentId);
+    if (references.preservedParentId === lookup.parentId) return;
+    const parent = await this.taskRepository.findById(
+      lookup.parentId,
+      references.visibility,
+    );
 
     assertParentFits(parent, lookup.rule, references.projectId);
   }

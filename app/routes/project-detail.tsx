@@ -8,10 +8,12 @@ import { ProjectIntegrationsTab } from "@/app/components/projects/project-integr
 import { ProjectPlanningTab } from "@/app/components/projects/project-planning-tab";
 import { ProjectTeamTab } from "@/app/components/projects/project-team-tab";
 import { Tabs } from "@/app/components/ui/tabs";
+import { HorizontalScrollArea } from "@/app/components/ui/horizontal-scroll-area";
 import { VerticalScrollArea } from "@/app/components/ui/vertical-scroll-area";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { toActionError } from "@/app/lib/project-actions/project-action-support.server";
 import { handleProjectAction } from "@/app/lib/project-actions/project-actions.server";
+import { handleProjectScopeAction } from "@/app/lib/project-actions/project-scope-actions.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import {
   ProjectAccessDeniedError,
@@ -22,6 +24,10 @@ import type { ApplicationServices } from "@/app/lib/services.server";
 import type { ProjectActionResponse } from "@/app/lib/project-actions/project-action-support.server";
 import type { ProjectMember } from "@/definition/Project";
 import type { Project } from "@/definition/Project";
+import type {
+  ProjectActionPermissions,
+  ProjectDepartmentChoices,
+} from "@/definition/Project";
 import type { ProjectActivity } from "@/definition/Project";
 import type { ProjectEvent } from "@/definition/Project";
 import type { ProjectGoal } from "@/definition/Project";
@@ -47,6 +53,8 @@ const DETAIL_TABS = [
 type DetailTab = (typeof DETAIL_TABS)[number];
 
 interface ProjectDetailLoaderData {
+  readonly permissions: ProjectActionPermissions;
+  readonly departmentChoices: ProjectDepartmentChoices;
   readonly project: Project;
   readonly members: readonly ProjectMember[];
   readonly eligibleUsers: readonly User[];
@@ -209,6 +217,13 @@ export async function loader({
   try {
     const services = await getApplicationServices();
     const project = await services.projectService.getById(actor, projectId);
+    const permissions = await services.projectService.permissions(
+      actor,
+      projectId,
+    );
+    const departmentChoices = permissions.canChangeDepartments
+      ? await services.projectService.departmentChoices(actor)
+      : { available: [], selectionRequired: false };
     const activeTab = getActiveTab(request);
     const tabData = await loadTabData(services, actor, projectId, activeTab);
     const eligibleUsers =
@@ -221,6 +236,8 @@ export async function loader({
       activeTab,
       eligibleUsers,
       project,
+      permissions,
+      departmentChoices,
       statuses: [],
     };
   } catch (error: unknown) {
@@ -241,7 +258,7 @@ export async function action({
   context,
   params,
   request,
-}: Route.ActionArgs): Promise<ProjectActionResponse> {
+}: Route.ActionArgs): Promise<ProjectActionResponse | Response> {
   if (request.method !== "POST") {
     throw new Response("Method Not Allowed", {
       headers: { Allow: "POST" },
@@ -259,12 +276,15 @@ export async function action({
   const formData = await request.formData();
 
   try {
-    return await handleProjectAction(formData.get("intent"), {
+    const actionContext = {
       actor,
       formData,
       projectId,
       services: await getApplicationServices(),
-    });
+    };
+    const intent = formData.get("intent");
+    const scopeResult = await handleProjectScopeAction(intent, actionContext);
+    return scopeResult ?? (await handleProjectAction(intent, actionContext));
   } catch (error: unknown) {
     return toActionError(error);
   }
@@ -293,14 +313,17 @@ export default function ProjectDetailRoute(): React.ReactElement {
   }
 
   return (
-    <section className="mx-auto flex h-[calc(100dvh-8.5rem)] min-h-0 max-w-[92rem] flex-col">
-      <div className="shrink-0">
+    <section className="mx-auto flex h-[calc(100dvh-8.5rem)] min-h-0 min-w-0 max-w-[92rem] flex-col">
+      <div className="min-w-0 shrink-0">
         <ProjectHeader
           project={loaderData.project}
           canWrite={loaderData.canWrite}
         />
 
-        <div className="mt-6">
+        <HorizontalScrollArea
+          className="mt-6"
+          contentClassName="w-max pr-14 pb-2"
+        >
           <Tabs
             value={activeTab}
             onValueChange={handleTabValueChange}
@@ -310,16 +333,18 @@ export default function ProjectDetailRoute(): React.ReactElement {
               label: t(`projectDetail.tabs.${tab}`),
             }))}
           />
-        </div>
+        </HorizontalScrollArea>
       </div>
 
       <VerticalScrollArea
-        className="mt-6 min-h-0 flex-1"
+        className="mt-6 min-h-0 flex-1 overflow-hidden"
         contentClassName="min-w-0 pr-4 pb-2"
       >
         <div role="tabpanel">
           {activeTab === "general" ? (
             <ProjectGeneralTab
+              permissions={loaderData.permissions}
+              departmentChoices={loaderData.departmentChoices}
               project={loaderData.project}
               members={loaderData.members}
               goals={loaderData.goals}

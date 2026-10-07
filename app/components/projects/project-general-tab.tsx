@@ -6,16 +6,21 @@ import { GeneralNextDatesSection } from "@/app/components/projects/general-next-
 import { GeneralNotesSection } from "@/app/components/projects/general-notes-section";
 import { GeneralProgressSection } from "@/app/components/projects/general-progress-section";
 import { GeneralQuickActionsSection } from "@/app/components/projects/general-quick-actions-section";
+import { ProjectManagementSection } from "@/app/components/projects/project-management-section";
 
 import type {
   Project,
   ProjectEvent,
   ProjectGoal,
   ProjectMember,
+  ProjectActionPermissions,
+  ProjectDepartmentChoices,
 } from "@/definition/Project";
 import type { Milestone, WorkItemDetail } from "@/definition/Task";
 
 interface ProjectGeneralTabProps {
+  readonly permissions: ProjectActionPermissions;
+  readonly departmentChoices: ProjectDepartmentChoices;
   readonly project: Project;
   readonly members: readonly ProjectMember[];
   readonly goals: readonly ProjectGoal[];
@@ -28,6 +33,8 @@ interface ProjectGeneralTabProps {
 
 /** Renders the general overview tab with description focus and a slim side column. */
 export function ProjectGeneralTab({
+  permissions,
+  departmentChoices,
   project,
   members,
   goals,
@@ -57,6 +64,11 @@ export function ProjectGeneralTab({
 
       <div className="flex min-w-0 flex-col gap-4">
         <GeneralIconSection canWrite={canWrite} project={project} />
+        <ProjectManagementSection
+          project={project}
+          permissions={permissions}
+          departmentChoices={departmentChoices}
+        />
         <GeneralDetailsSection
           canWrite={canWrite}
           members={members}

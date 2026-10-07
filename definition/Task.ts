@@ -247,6 +247,7 @@ export interface MilestoneDependency {
 interface WorkItem {
   readonly id: string;
   readonly projectId: string;
+  readonly departmentId: string | null;
   readonly key: string;
   readonly number: number;
   readonly type: WorkItemType;
@@ -273,6 +274,13 @@ interface WorkItem {
   readonly githubLastSyncAt: string | null;
   readonly githubLastError: string | null;
   readonly startAt: string | null;
+}
+
+/** Current own departments limiting ticket reads; null permits every department. */
+export interface WorkItemVisibility {
+  readonly departmentIds: readonly string[] | null;
+  /** Accessible projects also restrict parent, child and cross-project link data. */
+  readonly projectIds?: readonly string[];
 }
 
 /** A single checklist entry used for ticket acceptance criteria. */

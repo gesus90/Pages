@@ -1,8 +1,10 @@
 import { readCountColumn, readTextColumn } from "@/backend/database/RowValue";
 
 import { createInClause } from "./InClause";
+import { createWorkItemVisibility } from "./WorkItemVisibility";
 
 import type { Database, DatabaseValue } from "@/backend/database/Database";
+import type { WorkItemVisibility } from "@/definition/Task";
 
 /** Dashboard counters computed directly in the database. */
 export interface WorkItemsOverview {
@@ -96,6 +98,7 @@ export class WorkItemCountRepository {
   public async countOverview(
     projectIds: readonly string[],
     scope: WorkItemsOverviewScope,
+    visibility?: WorkItemVisibility,
   ): Promise<WorkItemsOverview> {
     if (projectIds.length === 0) {
       return createEmptyOverview();
@@ -105,6 +108,7 @@ export class WorkItemCountRepository {
       "overview_project_id",
       projectIds,
     );
+    const departmentScope = createWorkItemVisibility(visibility);
     const rows = await this.database.query(
       `
         SELECT
@@ -118,10 +122,12 @@ export class WorkItemCountRepository {
         INNER JOIN workflow_statuses AS statuses
             ON statuses.id = work_items.status_id
         WHERE work_items.project_id IN (${placeholders})
+            AND ${departmentScope.condition}
             AND work_items.archived_at IS NULL;
       `,
       {
         ...parameters,
+        ...departmentScope.parameters,
         today_date: scope.todayDate,
         user_id: scope.userId,
         week_ago_start: scope.weekAgoStart,
@@ -140,6 +146,7 @@ export class WorkItemCountRepository {
    */
   public async countByProject(
     projectIds: readonly string[],
+    visibility?: WorkItemVisibility,
   ): Promise<ReadonlyMap<string, ProjectWorkItemCounts>> {
     const countsByProject = new Map<string, ProjectWorkItemCounts>();
 
@@ -151,6 +158,7 @@ export class WorkItemCountRepository {
       "counts_project_id",
       projectIds,
     );
+    const departmentScope = createWorkItemVisibility(visibility);
     const rows = await this.database.query(
       `
         SELECT
@@ -161,10 +169,11 @@ export class WorkItemCountRepository {
         INNER JOIN workflow_statuses AS statuses
             ON statuses.id = work_items.status_id
         WHERE work_items.project_id IN (${placeholders})
+            AND ${departmentScope.condition}
             AND work_items.archived_at IS NULL
         GROUP BY work_items.project_id, statuses.is_done;
       `,
-      parameters,
+      { ...parameters, ...departmentScope.parameters },
     );
 
     for (const row of rows) {

@@ -1,6 +1,11 @@
 import { createInClause } from "./InClause";
+import { createWorkItemVisibility } from "./WorkItemVisibility";
 
-import type { WorkItemPriority, WorkItemType } from "@/definition/Task";
+import type {
+  WorkItemPriority,
+  WorkItemType,
+  WorkItemVisibility,
+} from "@/definition/Task";
 
 /** Sort orders supported when querying work items. */
 type WorkItemsOrder = "board" | "updated_desc" | "due_asc" | "due_nulls_last";
@@ -10,6 +15,7 @@ type ArchivedScope = "active" | "archived" | "all";
 
 /** Optional filters for querying work items. */
 export interface FindWorkItemsOptions {
+  readonly visibility?: WorkItemVisibility;
   readonly projectIds?: readonly string[];
   readonly assigneeId?: string;
   readonly type?: WorkItemType;
@@ -26,6 +32,7 @@ export interface FindWorkItemsOptions {
 
 /** SQL fragments and bound values derived from {@link FindWorkItemsOptions}. */
 export interface WorkItemFilter {
+  readonly visibility?: WorkItemVisibility;
   /** Empty, or one `WHERE` clause joining all conditions. */
   readonly whereClause: string;
   readonly orderClause: string;
@@ -202,6 +209,9 @@ export function buildWorkItemFilter(
   }
 
   const fragments = [
+    ...(options.visibility
+      ? [createWorkItemVisibility(options.visibility)]
+      : []),
     ...createProjectFragments(options.projectIds),
     ...createEqualityFragments(options),
     ...createSearchFragments(options.search),
@@ -222,6 +232,7 @@ export function buildWorkItemFilter(
   }
 
   return {
+    visibility: options.visibility,
     limitClause: options.limit === undefined ? "" : "LIMIT $limit;",
     orderClause: ORDER_CLAUSES[options.orderBy ?? "board"],
     parameters,

@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { normalizeHexColorCode } from "@/definition/Task";
 
 import { CACHE_TTLS, stableIdKey } from "@/backend/cache/ServerCache";
+import { workItemScopeKey } from "@/backend/cache/WorkItemScopeKey";
 import { WorkItemValidationError } from "@/backend/error/WorkItemErrors";
 
 import type { ServerCache } from "@/backend/cache/ServerCache";
@@ -82,7 +83,9 @@ export class TaskLabelService {
     projectId: string,
   ): Promise<ReadonlyMap<string, number>> {
     await this.access.requireProject(actor, projectId);
-    const usageByProject = await this.countLabelUsageByProjects([projectId]);
+    const usageByProject = await this.countLabelUsageByProjects(actor, [
+      projectId,
+    ]);
 
     return usageByProject.get(projectId) ?? new Map<string, number>();
   }
@@ -114,13 +117,16 @@ export class TaskLabelService {
   /**
    * Returns label usage counts for several projects with one query.
    *
-   * @param projectIds - Project ids already verified as accessible, or a
+   * @param actor - Account whose current ticket scope is enforced.
+   * @param projectIds - Project ids requested by the caller, or a
    * single project after the usual access check by the caller.
    */
   public async countLabelUsageByProjects(
+    actor: User,
     projectIds: readonly string[],
   ): Promise<ReadonlyMap<string, ReadonlyMap<string, number>>> {
-    const cacheKey = `labels:usage:${stableIdKey(projectIds)}`;
+    const visibility = await this.access.visibility(actor);
+    const cacheKey = `labels:usage:${workItemScopeKey(actor.id, visibility)}:${JSON.stringify([...projectIds].sort())}`;
     const cached =
       this.cache.get<ReadonlyMap<string, ReadonlyMap<string, number>>>(
         cacheKey,
@@ -130,8 +136,10 @@ export class TaskLabelService {
       return cached;
     }
 
-    const usage =
-      await this.taskRepository.countLabelUsageByProjectIds(projectIds);
+    const usage = await this.taskRepository.countLabelUsageByProjectIds(
+      projectIds,
+      visibility,
+    );
     this.cache.set(cacheKey, usage, CACHE_TTLS.labelUsage);
 
     return usage;

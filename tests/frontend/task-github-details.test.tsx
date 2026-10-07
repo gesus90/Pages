@@ -14,6 +14,7 @@ import type { WorkItemDetail } from "@/definition/Task";
 
 function createTask(overrides: Partial<WorkItemDetail> = {}): WorkItemDetail {
   return {
+    departmentId: null,
     archivedAt: null,
     assigneeId: null,
     assigneeName: null,

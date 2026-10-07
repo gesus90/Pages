@@ -14,15 +14,15 @@ const inputVariants = cva(
       size: "default",
     },
     variants: {
-      size: {
-        default: "",
-        sm: "h-9 rounded-lg px-3 text-xs xl:h-9 xl:text-xs",
-      },
       variant: {
         default:
           "h-11 bg-surface px-4 text-base shadow-xs xl:h-9 xl:px-3 xl:text-sm",
         // Fields of the login and setup pages with a leading icon (DESIGN.md §14.1).
         auth: "h-12 border border-field-border bg-field pr-4 pl-12 text-base hover:border-field-border-hover focus-visible:border-primary aria-invalid:ring-2 aria-invalid:ring-destructive/60 sm:h-14",
+      },
+      size: {
+        default: "",
+        sm: "h-9 rounded-lg px-3 text-xs xl:h-9 xl:text-xs",
       },
     },
   },

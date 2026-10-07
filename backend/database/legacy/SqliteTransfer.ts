@@ -97,8 +97,8 @@ async function transferInto(
 
       return await copyMissingRows(source, target, {
         targetExisted,
-        authorizationBackfill: options.migrations.find(
-          (migration) => migration.name === "006_legacy_user_roles.sql",
+        authorizationBackfill: authorizationBackfillForSchema(
+          options.migrations,
         ),
       });
     } finally {
@@ -123,7 +123,7 @@ async function copyMissingRows(
   target: Database,
   options: {
     readonly targetExisted: boolean;
-    readonly authorizationBackfill: Migration | undefined;
+    readonly authorizationBackfill: string | undefined;
   },
 ): Promise<TransferResult> {
   const plans = await planTables(source, target);
@@ -132,7 +132,7 @@ async function copyMissingRows(
     await target.transaction(async (transaction) => {
       await copyAllTables(source, transaction, plans);
       if (options.authorizationBackfill) {
-        await transaction.execute(options.authorizationBackfill.sql);
+        await transaction.execute(options.authorizationBackfill);
       }
     });
 
@@ -152,6 +152,23 @@ async function copyMissingRows(
   throw new TransferError(
     "The target database already holds data that differs from the source. Use a new target file.",
   );
+}
+
+/** Adapts the frozen A2 backfill to the merged A3 capability catalog. */
+function authorizationBackfillForSchema(
+  migrations: readonly Migration[],
+): string | undefined {
+  const backfill = migrations.find(
+    (migration) => migration.name === "006_legacy_user_roles.sql",
+  )?.sql;
+  if (
+    !migrations.some(
+      (migration) => migration.name === "008_project_permissions.sql",
+    )
+  ) {
+    return backfill;
+  }
+  return backfill?.replaceAll("'create_projects'", "'manage_projects'");
 }
 
 function toResult(plan: TablePlan, targetRows: number): TableTransferResult {
@@ -324,6 +341,7 @@ function verifySourceColumns(
  * has no such table; it stays empty until the setup wizard fills it.
  * Likewise, migrated passwords are already chosen: the new password-change
  * column keeps its database default instead of requiring it in frozen SQLite.
+ * Ticket departments were added for A3; legacy tickets remain unassigned.
  */
 async function readTargetColumns(
   target: Database,
@@ -337,9 +355,13 @@ async function readTargetColumns(
       WHERE table_schema = 'main'
           AND table_name NOT IN (
               'schema_migrations', 'instance_settings', 'roles', 'role_permissions',
-              'departments', 'user_authorization', 'department_members', 'managed_departments'
+              'departments', 'user_authorization', 'department_members', 'managed_departments',
+              'project_departments', 'project_templates', 'project_template_goals',
+              'project_template_tags'
           )
           AND NOT (table_name = 'users' AND column_name = 'must_change_password')
+          AND NOT (table_name = 'work_items' AND column_name = 'department_id')
+          AND NOT (table_name = 'project_activity' AND column_name = 'work_item_id')
       ORDER BY table_name, ordinal_position;
     `,
   );

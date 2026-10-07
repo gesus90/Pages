@@ -89,3 +89,41 @@ describe("A2 authorization migration", () => {
     }
   });
 });
+
+describe("A3 project capability migration", () => {
+  it("merges old creation grants and does not automatically grant archiving", async () => {
+    const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+    try {
+      await database.migrate(
+        DATABASE_MIGRATIONS.filter((migration) => migration.name < "008"),
+      );
+      await database.execute(`
+        INSERT INTO roles (id, name, hierarchy_rank) VALUES ('manager', 'Manager', 20);
+        INSERT INTO role_permissions (role_id, permission)
+        VALUES ('manager', 'create_projects'), ('manager', 'manage_projects');
+      `);
+      await database.migrate(DATABASE_MIGRATIONS);
+      await database.migrate(DATABASE_MIGRATIONS);
+      expect(
+        await database.query(
+          "SELECT role_id, permission FROM role_permissions;",
+        ),
+      ).toEqual([["manager", "manage_projects"]]);
+      await expect(
+        database.execute(
+          "INSERT INTO role_permissions (role_id, permission) VALUES ('manager', 'create_projects');",
+        ),
+      ).rejects.toThrow("CHECK");
+      await database.execute(
+        "INSERT INTO role_permissions (role_id, permission) VALUES ('manager', 'archive_projects');",
+      );
+      expect(
+        await database.query(
+          "SELECT COUNT(*) FROM role_permissions WHERE permission = 'archive_projects';",
+        ),
+      ).toEqual([[1]]);
+    } finally {
+      await database.close();
+    }
+  });
+});

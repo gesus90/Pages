@@ -43,6 +43,7 @@ function createProject(overrides: Partial<Project> = {}): Project {
   return {
     createdAt: "2026-01-01",
     description: "Central platform for internal tools.",
+    departments: [],
     hasIcon: false,
     id: "project-1",
     managerId: null,
@@ -64,6 +65,7 @@ function createWorkItem(
   overrides: Partial<WorkItemDetail> = {},
 ): WorkItemDetail {
   return {
+    departmentId: null,
     archivedAt: null,
     assigneeId: null,
     assigneeName: null,
@@ -140,6 +142,13 @@ function createLoaderData(overrides: Record<string, unknown> = {}) {
         userId: "user-1",
       },
     ],
+    permissions: {
+      canEditGeneral: true,
+      canChangeDepartments: false,
+      canArchive: false,
+      canDelete: false,
+    },
+    departmentChoices: { available: [], selectionRequired: false },
     canWrite: true,
     eligibleUsers: [
       {

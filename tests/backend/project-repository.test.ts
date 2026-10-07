@@ -32,11 +32,12 @@ describe("ProjectRepository", () => {
 
   beforeEach(() => {
     database = createDatabase();
+    database.query.mockResolvedValue([]);
     repository = new ProjectRepository(database);
   });
 
   it("returns all non-archived projects", async () => {
-    database.query.mockResolvedValue([createRow(), createRow()]);
+    database.query.mockResolvedValueOnce([createRow(), createRow()]);
 
     await expect(repository.findAll()).resolves.toHaveLength(2);
     expect(database.query).toHaveBeenCalledWith(
@@ -45,7 +46,7 @@ describe("ProjectRepository", () => {
   });
 
   it("returns projects belonging to a member", async () => {
-    database.query.mockResolvedValue([createRow()]);
+    database.query.mockResolvedValueOnce([createRow()]);
 
     await expect(repository.findByMemberId("user-1")).resolves.toEqual([
       expect.objectContaining({ id: "project-1" }),
@@ -56,12 +57,23 @@ describe("ProjectRepository", () => {
     );
   });
 
+  it("rejects archived rows without a valid archive timestamp", async () => {
+    database.query.mockResolvedValueOnce([createRow([null])]);
+    await expect(repository.findArchived()).rejects.toThrow("archived_at");
+    database.query.mockResolvedValueOnce([createRow([1])]);
+    await expect(repository.findArchivedById("project-1")).rejects.toThrow(
+      "archived_at",
+    );
+  });
+
   it("returns a project by identifier or null", async () => {
     database.query
       .mockResolvedValueOnce([createRow()])
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
 
     await expect(repository.findById("project-1")).resolves.toEqual({
+      departments: [],
       createdAt: "2026-01-01",
       description: "New public website",
       hasIcon: true,
@@ -88,7 +100,7 @@ describe("ProjectRepository", () => {
   it("preserves a parent project identifier", async () => {
     const row = [...createRow()];
     row[1] = "parent-1";
-    database.query.mockResolvedValue([row]);
+    database.query.mockResolvedValueOnce([row]);
 
     await expect(repository.findById("project-1")).resolves.toMatchObject({
       parentId: "parent-1",
@@ -111,7 +123,7 @@ describe("ProjectRepository", () => {
   });
 
   it("throws when the membership count is missing", async () => {
-    database.query.mockResolvedValue([]);
+    database.query.mockResolvedValueOnce([]);
 
     await expect(repository.isMember("project-1", "user-1")).rejects.toThrow(
       "Database returned no membership count.",
@@ -223,7 +235,7 @@ describe("ProjectRepository", () => {
   ])("rejects invalid project column %i", async (index, value) => {
     const row = [...createRow()];
     row[index] = value;
-    database.query.mockResolvedValue([row]);
+    database.query.mockResolvedValueOnce([row]);
 
     await expect(repository.findById("project-1")).rejects.toThrow();
   });

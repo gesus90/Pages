@@ -7,6 +7,7 @@ import type { GitHubSyncAccessGuard } from "@/backend/service/github/GitHubSyncA
 import type { GitHubSyncContext } from "@/backend/service/github/GitHubSyncContextLoader";
 import type { GitHubSyncCounters } from "@/backend/service/github/GitHubSyncRun";
 import type { TaskService } from "@/backend/service/TaskService";
+import type { WorkItemVisibility } from "@/definition/Task";
 import type { User } from "@/definition/User";
 
 /** Stores GitHub pull requests and assigns them to Pages tasks. */
@@ -38,11 +39,13 @@ export class GitHubPullRequestService {
    * @param sync - Resolved repository, token, and client.
    * @param projectId - Project receiving the pull requests.
    * @param summary - Counters of the current run.
+   * @param visibility - Current scope used to count only visible pull requests.
    */
   public async storeRemotePullRequests(
     sync: GitHubSyncContext,
     projectId: string,
     summary: GitHubSyncCounters,
+    visibility: WorkItemVisibility,
   ): Promise<void> {
     const remotePullRequests = await sync.client.listPullRequests(
       sync.repo.owner,
@@ -63,7 +66,17 @@ export class GitHubPullRequestService {
       });
     }
 
-    summary.pullRequests += remotePullRequests.length;
+    const visibleNumbers = new Set(
+      (
+        await this.gitHubRepository.findPullRequestsByProject(
+          projectId,
+          visibility,
+        )
+      ).map((request) => request.number),
+    );
+    summary.pullRequests += remotePullRequests.filter((request) =>
+      visibleNumbers.has(request.number),
+    ).length;
   }
 
   /**
@@ -78,8 +91,10 @@ export class GitHubPullRequestService {
     pullRequestId: string,
     workItemId: string | null,
   ): Promise<void> {
-    const pullRequest =
-      await this.gitHubRepository.findPullRequestById(pullRequestId);
+    const pullRequest = await this.gitHubRepository.findPullRequestById(
+      pullRequestId,
+      await this.accessGuard.visibility(actor),
+    );
 
     if (!pullRequest) {
       throw new WorkItemValidationError(

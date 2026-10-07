@@ -17,6 +17,7 @@ import { createUser } from "../helpers/factories";
 import { ProjectManagementDeniedError } from "@/backend/error/ProjectErrors";
 import { WorkItemValidationError } from "@/backend/error/WorkItemErrors";
 
+import type { User } from "@/definition/User";
 import type { ProjectIntegration } from "@/definition/Project";
 import type { WorkItemDetail, WorkflowStatus } from "@/definition/Task";
 
@@ -51,6 +52,7 @@ function createWorkItem(
   overrides: Partial<WorkItemDetail> = {},
 ): WorkItemDetail {
   return {
+    departmentId: null,
     archivedAt: null,
     assigneeId: null,
     assigneeName: null,
@@ -166,9 +168,10 @@ function createDependencies(cache?: ServerCache) {
     findAllStatuses: vi.fn().mockResolvedValue(createStatuses()),
     findById: vi.fn(),
     findLinkedWorkItems: vi.fn().mockResolvedValue([]),
+    findKnownGitHubIssueNumbers: vi.fn().mockResolvedValue(new Set()),
     insertHistory: vi.fn(),
     setGitHubConflict: vi.fn(),
-    update: vi.fn(),
+    updateFromGitHub: vi.fn(),
     updateGitHubLink: vi.fn(),
   } as unknown as MockMap;
   const projectRepository = {
@@ -200,10 +203,15 @@ function createDependencies(cache?: ServerCache) {
   } as unknown as MockMap;
   const projectService = {
     canWriteProject: vi.fn().mockResolvedValue(true),
+    workItemVisibility: vi.fn().mockResolvedValue({
+      departmentIds: null,
+      projectIds: ["project-1", "project-2"],
+    }),
     getById: vi.fn().mockImplementation((actor: unknown, projectId: string) =>
       Promise.resolve({
         createdAt: "2026-01-01",
         description: "",
+        departments: [],
         hasIcon: false,
         id: projectId,
         managerId: null,
@@ -362,7 +370,7 @@ describe("GitHubSyncService project runs", () => {
 
     expect(summary).toMatchObject({ pushed: 0, pulled: 0, created: 0 });
     expect(client.updateIssue).not.toHaveBeenCalled();
-    expect(taskRepository.update).not.toHaveBeenCalled();
+    expect(taskRepository.updateFromGitHub).not.toHaveBeenCalled();
   });
 
   it("pushes local changes with minimal patches", async () => {
@@ -419,7 +427,7 @@ describe("GitHubSyncService project runs", () => {
 
     const summary = await service.syncProjectNow(createUser(), "project-1");
 
-    expect(taskRepository.update).toHaveBeenCalledWith(
+    expect(taskRepository.updateFromGitHub).toHaveBeenCalledWith(
       "item-1",
       expect.objectContaining({ statusId: "status-done" }),
     );
@@ -439,7 +447,7 @@ describe("GitHubSyncService project runs", () => {
 
     await service.syncProjectNow(createUser(), "project-1");
 
-    expect(taskRepository.update).toHaveBeenCalledWith(
+    expect(taskRepository.updateFromGitHub).toHaveBeenCalledWith(
       "item-1",
       expect.objectContaining({
         description: "Changed remotely",
@@ -467,7 +475,7 @@ describe("GitHubSyncService project runs", () => {
       true,
     );
     expect(client.updateIssue).not.toHaveBeenCalled();
-    expect(taskRepository.update).not.toHaveBeenCalled();
+    expect(taskRepository.updateFromGitHub).not.toHaveBeenCalled();
   });
 
   it("skips conflicted items until manual resolution", async () => {
@@ -546,18 +554,7 @@ describe("GitHubSyncService project runs", () => {
   it("detects external issues without touching linked ones", async () => {
     const { client, gitHubRepository, service, taskRepository } = dependencies;
     taskRepository.findAll.mockResolvedValue([]);
-    taskRepository.findLinkedWorkItems.mockResolvedValue([
-      createWorkItem(),
-      createWorkItem({
-        githubContentHash: null,
-        githubIssueNumber: null,
-        githubIssueState: null,
-        githubIssueUpdatedAt: null,
-        githubIssueUrl: null,
-        githubLastSyncAt: null,
-        id: "item-legacy",
-      }),
-    ]);
+    taskRepository.findKnownGitHubIssueNumbers.mockResolvedValue(new Set([82]));
     client.listIssues.mockResolvedValue([
       createRemoteIssue(),
       createRemoteIssue({
@@ -639,6 +636,9 @@ describe("GitHubSyncService project runs", () => {
       },
     ]);
 
+    gitHubRepository.findPullRequestsByProject.mockResolvedValue([
+      { number: 91 },
+    ]);
     const summary = await service.syncProjectNow(createUser(), "project-1");
 
     expect(gitHubRepository.upsertPullRequest).toHaveBeenCalledWith(
@@ -707,7 +707,7 @@ describe("GitHubSyncService project runs", () => {
     const summary = await service.syncProjectNow(createUser(), "project-1");
 
     expect(summary).toMatchObject({ pushed: 0, pulled: 0 });
-    expect(taskRepository.update).not.toHaveBeenCalled();
+    expect(taskRepository.updateFromGitHub).not.toHaveBeenCalled();
   });
 
   it("pushes title-only and state-only changes", async () => {
@@ -767,7 +767,7 @@ describe("GitHubSyncService project runs", () => {
 
     await service.syncProjectNow(createUser(), "project-1");
 
-    expect(taskRepository.update).toHaveBeenCalledWith(
+    expect(taskRepository.updateFromGitHub).toHaveBeenCalledWith(
       "item-1",
       expect.objectContaining({ statusId: "status-backlog" }),
     );
@@ -927,6 +927,16 @@ describe("GitHubSyncService single task runs", () => {
   });
 });
 
+/** Mirrors the stored task in publication tests so the service reauthorizes a fresh row. */
+async function publishStored(
+  dependencies: ReturnType<typeof createDependencies>,
+  actor: User,
+  item: WorkItemDetail,
+): Promise<void> {
+  dependencies.taskService.getById.mockResolvedValue(item);
+  await dependencies.service.publishTaskUpdate(actor, item);
+}
+
 describe("GitHubSyncService publishing", () => {
   let dependencies: ReturnType<typeof createDependencies>;
 
@@ -935,34 +945,37 @@ describe("GitHubSyncService publishing", () => {
   });
 
   it("ignores non-tasks, conflicts, and disconnected projects", async () => {
-    const { client, projectRepository, service } = dependencies;
+    const { client, projectRepository } = dependencies;
     const actor = createUser();
 
-    await service.publishTaskUpdate(
+    await publishStored(
+      dependencies,
       actor,
       createWorkItem({ type: WORK_ITEM_TYPE.EPIC }),
     );
-    await service.publishTaskUpdate(
+    await publishStored(
+      dependencies,
       actor,
       createWorkItem({ githubConflict: true }),
     );
 
     projectRepository.findIntegration.mockResolvedValue(null);
-    await service.publishTaskUpdate(actor, createWorkItem());
+    await publishStored(dependencies, actor, createWorkItem());
 
     projectRepository.findIntegration.mockResolvedValue(
       createIntegration({ syncDirection: "pull" }),
     );
-    await service.publishTaskUpdate(actor, createWorkItem());
+    await publishStored(dependencies, actor, createWorkItem());
 
     expect(client.getIssue).not.toHaveBeenCalled();
     expect(client.createIssue).not.toHaveBeenCalled();
   });
 
   it("creates missing remote issues for new tasks", async () => {
-    const { client, service, taskRepository } = dependencies;
+    const { client, taskRepository } = dependencies;
 
-    await service.publishTaskUpdate(
+    await publishStored(
+      dependencies,
       createUser(),
       createWorkItem({
         githubContentHash: null,
@@ -985,12 +998,13 @@ describe("GitHubSyncService publishing", () => {
   });
 
   it("skips issue creation when issue sync is disabled", async () => {
-    const { client, projectRepository, service } = dependencies;
+    const { client, projectRepository } = dependencies;
     projectRepository.findIntegration.mockResolvedValue(
       createIntegration({ syncIssues: false }),
     );
 
-    await service.publishTaskUpdate(
+    await publishStored(
+      dependencies,
       createUser(),
       createWorkItem({
         githubContentHash: null,
@@ -1006,9 +1020,10 @@ describe("GitHubSyncService publishing", () => {
   });
 
   it("pushes linked tasks to existing issues", async () => {
-    const { client, service } = dependencies;
+    const { client } = dependencies;
 
-    await service.publishTaskUpdate(
+    await publishStored(
+      dependencies,
       createUser(),
       createWorkItem({ description: "Changed locally" }),
     );
@@ -1141,7 +1156,7 @@ describe("GitHubSyncService external issue triage", () => {
 
     await service.syncProjectNow(createUser(), "project-1");
 
-    expect(taskRepository.update).toHaveBeenCalledWith(
+    expect(taskRepository.updateFromGitHub).toHaveBeenCalledWith(
       "item-1",
       expect.objectContaining({ statusId: "status-done" }),
     );
@@ -1244,7 +1259,7 @@ describe("GitHubSyncService external issue triage", () => {
       "external-104",
     );
 
-    expect(taskRepository.update).toHaveBeenCalledWith(
+    expect(taskRepository.updateFromGitHub).toHaveBeenCalledWith(
       "item-1",
       expect.objectContaining({ title: "External title" }),
     );
@@ -1457,11 +1472,13 @@ describe("GitHubSyncService pull requests", () => {
     await service.findPullRequests(actor, "project-1");
     expect(gitHubRepository.findPullRequestsByProject).toHaveBeenCalledWith(
       "project-1",
+      { departmentIds: null, projectIds: ["project-1", "project-2"] },
     );
 
     await service.findPullRequestsForTask(actor, "item-1");
     expect(gitHubRepository.findPullRequestsByWorkItem).toHaveBeenCalledWith(
       "item-1",
+      { departmentIds: null, projectIds: ["project-1", "project-2"] },
     );
 
     await service.findExternalIssues(actor, "project-1");
@@ -1494,7 +1511,7 @@ describe("GitHubSyncService conflicts and connections", () => {
     expect(client.updateIssue).toHaveBeenCalled();
 
     await service.resolveConflict(actor, "item-1", "github");
-    expect(taskRepository.update).toHaveBeenCalled();
+    expect(taskRepository.updateFromGitHub).toHaveBeenCalled();
     expect(taskRepository.setGitHubConflict).toHaveBeenCalledWith(
       "item-1",
       false,
@@ -1612,8 +1629,12 @@ describe("GitHubSyncService cached batch reads", () => {
       dependencies.gitHubRepository.findExternalIssuesByProjectIds,
     ).toHaveBeenCalledTimes(1);
 
-    await dependencies.service.findPullRequestsByProjects(["project-1"]);
-    await dependencies.service.findPullRequestsByProjects(["project-1"]);
+    await dependencies.service.findPullRequestsByProjects(createUser(), [
+      "project-1",
+    ]);
+    await dependencies.service.findPullRequestsByProjects(createUser(), [
+      "project-1",
+    ]);
     expect(
       dependencies.gitHubRepository.findPullRequestsByProjectIds,
     ).toHaveBeenCalledTimes(1);

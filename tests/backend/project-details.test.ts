@@ -8,6 +8,7 @@ import {
   ProjectService,
 } from "@/backend/service/ProjectService";
 import { TaskService } from "@/backend/service/TaskService";
+import { createAccess, createRole } from "../helpers/authorization";
 import { PROJECT_STATUS } from "@/definition/Project";
 import { PERMISSION, ROLE } from "@/definition/Role";
 
@@ -19,6 +20,7 @@ import {
 import type { ProjectRepository as ProjectRepositoryType } from "@/backend/database/repositories/ProjectRepository";
 import type { TaskRepository as TaskRepositoryType } from "@/backend/database/repositories/TaskRepository";
 import type { ProjectService as ProjectServiceType } from "@/backend/service/ProjectService";
+import type { User } from "@/definition/User";
 import type { Project } from "@/definition/Project";
 import type { DatabaseDouble } from "../helpers/factories";
 
@@ -55,6 +57,7 @@ function createProject(overrides: Partial<Project> = {}): Project {
   return {
     createdAt: "2026-01-01",
     description: "Pages Project",
+    departments: [],
     hasIcon: false,
     id: "project-1",
     managerId: null,
@@ -107,7 +110,9 @@ describe("ProjectRepository project details", () => {
   });
 
   it("reads extended project columns with manager names", async () => {
-    database.query.mockResolvedValue([createProjectRow()]);
+    database.query
+      .mockResolvedValueOnce([createProjectRow()])
+      .mockResolvedValue([]);
 
     await expect(repository.findById("project-1")).resolves.toMatchObject({
       managerId: "user-1",
@@ -819,12 +824,8 @@ describe("ProjectRepository project details", () => {
 
 type MockMap = { [key: string]: ReturnType<typeof vi.fn> };
 
-function createServiceDependencies(): {
-  repository: MockMap;
-  permissions: MockMap;
-  service: ProjectService;
-} {
-  const repository = {
+function createServiceDependencies() {
+  const repository = Object.assign(new ProjectRepository(createDatabase()), {
     addMember: vi.fn(),
     archive: vi.fn(),
     archiveEvent: vi.fn(),
@@ -855,7 +856,7 @@ function createServiceDependencies(): {
     updateEvent: vi.fn(),
     updateGoal: vi.fn(),
     updateMemberRole: vi.fn(),
-  } as unknown as MockMap;
+  });
   const permissionCheck = vi.fn(
     (_role: unknown, permission: string) =>
       permission === PERMISSION.MANAGE_PROJECTS ||
@@ -872,11 +873,32 @@ function createServiceDependencies(): {
     async (actor: { role: string }, permission: string) =>
       permissionCheck(actor.role, permission),
   );
+  vi.spyOn(repository, "transaction").mockImplementation(async (operation) =>
+    operation(repository),
+  );
+  const authorization = repository.authorization();
+  vi.spyOn(authorization, "snapshot").mockImplementation(async () => ({
+    departments: [],
+    roles: [],
+    accounts: [
+      createAccess({
+        userId: "user-1",
+        allProjects: true,
+        role: createRole({
+          departmentBound: false,
+          permissions: permissionCheck("manager", PERMISSION.MANAGE_PROJECTS)
+            ? ["manage_projects"]
+            : [],
+        }),
+      }),
+    ],
+  }));
+  vi.spyOn(repository, "authorization").mockReturnValue(authorization);
   return {
     permissions,
     repository,
     service: new ProjectService(
-      repository as unknown as ProjectRepositoryType,
+      repository,
       permissions as unknown as PermissionService,
       Buffer.alloc(32, 7),
     ),
@@ -986,6 +1008,7 @@ describe("ProjectService project details", () => {
     });
 
     repository.findById.mockResolvedValueOnce(createProject());
+    repository.findById.mockResolvedValueOnce(createProject());
     repository.findById.mockResolvedValueOnce(null);
 
     await expect(
@@ -1020,7 +1043,7 @@ describe("ProjectService project details", () => {
     ).rejects.toThrow("not allowed to manage projects");
   });
 
-  it("preserves project-manager editing until A3 changes project roles", async () => {
+  it("permits a project manager to edit with current project access", async () => {
     const { permissions, repository, service } = dependencies;
     permissions.hasPermission.mockImplementation(
       (_role: unknown, permission: string) =>
@@ -1112,7 +1135,10 @@ describe("ProjectService project details", () => {
     expect(repository.findGoals).toHaveBeenCalledWith("project-1");
     expect(repository.findTags).toHaveBeenCalledWith("project-1");
     expect(repository.findEvents).toHaveBeenCalledWith("project-1");
-    expect(repository.findActivity).toHaveBeenCalledWith("project-1");
+    expect(repository.findActivity).toHaveBeenCalledWith("project-1", {
+      departmentIds: ["frontend"],
+      projectIds: [],
+    });
     expect(repository.findIntegration).toHaveBeenCalledWith("project-1");
   });
 
@@ -1129,6 +1155,7 @@ describe("ProjectService project details", () => {
       "between 1 and 200 characters",
     );
 
+    repository.findGoals.mockResolvedValue([{ id: "goal-1" }]);
     await service.updateGoal(actor, "project-1", "goal-1", {
       isDone: true,
       title: "Ship it",
@@ -1215,6 +1242,7 @@ describe("ProjectService project details", () => {
       }),
     ).rejects.toThrow("YYYY-MM-DD");
 
+    repository.findEvents.mockResolvedValue([{ id: "event-1" }]);
     await service.updateEvent(actor, "project-1", "event-1", {
       description: "",
       eventDate: "2026-09-30",
@@ -1467,6 +1495,14 @@ function createTaskServiceDependencies(): {
     updateMilestone: vi.fn(),
   } as unknown as MockMap;
   const projectService = {
+    filterAssignees: vi
+      .fn()
+      .mockImplementation(
+        async (candidates: ReadonlyMap<string, readonly User[]>) => candidates,
+      ),
+    workItemVisibility: vi
+      .fn()
+      .mockResolvedValue({ departmentIds: null, projectIds: ["project-1"] }),
     canWriteProject: vi.fn().mockResolvedValue(true),
     getById: vi.fn().mockResolvedValue(createProject()),
   } as unknown as MockMap;
@@ -1648,6 +1684,9 @@ describe("TaskService milestones", () => {
     await service.findHistoryByProject(actor, "project-1");
 
     expect(projectService.getById).toHaveBeenCalledWith(actor, "project-1");
-    expect(repository.findHistoryByProjectId).toHaveBeenCalledWith("project-1");
+    expect(repository.findHistoryByProjectId).toHaveBeenCalledWith(
+      "project-1",
+      { departmentIds: null, projectIds: ["project-1"] },
+    );
   });
 });

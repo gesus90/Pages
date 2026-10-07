@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { toActionError } from "@/app/lib/project-actions/project-action-support.server";
 import {
   ProjectAccessDeniedError,
+  ProjectDepartmentError,
   ProjectManagementDeniedError,
   ProjectNotFoundError,
 } from "@/backend/error/ProjectErrors";
@@ -24,6 +25,16 @@ function describeResponse(error: unknown): {
 }
 
 describe("toActionError", () => {
+  it.each([
+    "departmentRequired",
+    "invalidDepartment",
+    "departmentOutOfScope",
+  ] as const)("preserves the department error %s", (code) => {
+    expect(describeResponse(new ProjectDepartmentError(code))).toEqual({
+      body: { ok: false, error: code },
+      status: code === "departmentOutOfScope" ? 403 : 400,
+    });
+  });
   it.each([
     ["a management denial", new ProjectManagementDeniedError()],
     ["an access denial", new ProjectAccessDeniedError()],

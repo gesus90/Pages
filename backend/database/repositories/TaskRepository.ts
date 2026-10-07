@@ -20,6 +20,7 @@ import type {
   WorkItemDetail,
   WorkItemHistory,
   WorkItemLink,
+  WorkItemVisibility,
   WorkflowStatus,
 } from "@/definition/Task";
 import type { User } from "@/definition/User";
@@ -174,8 +175,9 @@ export class TaskRepository {
   /** Returns work item history across all tasks of one project, newest last. */
   public async findHistoryByProjectId(
     projectId: string,
+    visibility?: WorkItemVisibility,
   ): Promise<WorkItemHistory[]> {
-    return this.history.findByProjectId(projectId);
+    return this.history.findByProjectId(projectId, visibility);
   }
 
   /** Returns the prefix key stored for a project or registers a newly generated one. */
@@ -209,8 +211,9 @@ export class TaskRepository {
   public async countWorkItemsOverview(
     projectIds: readonly string[],
     scope: WorkItemsOverviewScope,
+    visibility?: WorkItemVisibility,
   ): Promise<WorkItemsOverview> {
-    return this.counts.countOverview(projectIds, scope);
+    return this.counts.countOverview(projectIds, scope, visibility);
   }
 
   /**
@@ -220,30 +223,56 @@ export class TaskRepository {
    */
   public async countWorkItemsByProject(
     projectIds: readonly string[],
+    visibility?: WorkItemVisibility,
   ): Promise<ReadonlyMap<string, ProjectWorkItemCounts>> {
-    return this.counts.countByProject(projectIds);
+    return this.counts.countByProject(projectIds, visibility);
   }
 
   /** Returns one non-archived work item by identifier. */
-  public async findById(id: string): Promise<WorkItemDetail | null> {
-    return this.queries.findById(id);
+  public async findById(
+    id: string,
+    visibility?: WorkItemVisibility,
+  ): Promise<WorkItemDetail | null> {
+    return this.queries.findById(id, visibility);
   }
 
   /** Returns one non-archived work item by its key (e.g. PAGE-12). */
-  public async findByKey(key: string): Promise<WorkItemDetail | null> {
-    return this.queries.findByKey(key);
+  public async findByKey(
+    key: string,
+    visibility?: WorkItemVisibility,
+  ): Promise<WorkItemDetail | null> {
+    return this.queries.findByKey(key, visibility);
+  }
+
+  /** Returns the stored relation for server-side preservation after authorizing the child. */
+  public async findParentReference(
+    id: string,
+  ): Promise<{ readonly id: string; readonly key: string | null } | null> {
+    return this.queries.findParentReference(id);
+  }
+
+  /** Resolves only currently visible ticket keys for historical references. */
+  public async findVisibleKeys(
+    keys: readonly string[],
+    visibility: WorkItemVisibility,
+  ): Promise<ReadonlySet<string>> {
+    return this.queries.findVisibleKeys(keys, visibility);
   }
 
   /** Returns all non-archived subtasks belonging to a parent item. */
-  public async findSubtasks(parentId: string): Promise<WorkItemDetail[]> {
-    return this.queries.findSubtasks(parentId);
+  public async findSubtasks(
+    parentId: string,
+    visibility?: WorkItemVisibility,
+  ): Promise<WorkItemDetail[]> {
+    return this.queries.findSubtasks(parentId, visibility);
   }
 
   /** Returns non-archived tasks of a project linked to a GitHub issue. */
   public async findLinkedWorkItems(
     projectId: string,
+    visibility?: WorkItemVisibility,
   ): Promise<WorkItemDetail[]> {
-    return this.queries.findLinkedWorkItems(projectId);
+    return this.queries.findLinkedWorkItems(projectId, visibility);
   }
 
   /** Replaces the GitHub linkage stored on a work item. */
@@ -264,9 +293,24 @@ export class TaskRepository {
     return this.writes.insert(item);
   }
 
+  /** Returns known GitHub links without exposing any ticket details to an actor. */
+  public async findKnownGitHubIssueNumbers(
+    projectId: string,
+  ): Promise<ReadonlySet<number>> {
+    return this.queries.findKnownGitHubIssueNumbers(projectId);
+  }
+
   /** Updates fields on an existing work item. */
   public async update(id: string, update: WorkItemUpdate): Promise<void> {
     return this.writes.update(id, update);
+  }
+
+  /** Updates synchronized content without overwriting redacted local relationships. */
+  public async updateFromGitHub(
+    id: string,
+    update: Pick<WorkItemUpdate, "title" | "description" | "statusId">,
+  ): Promise<void> {
+    return this.writes.updateFromGitHub(id, update);
   }
 
   /** Updates the workflow status, ordering, and completion timestamp of a work item. */
@@ -329,8 +373,11 @@ export class TaskRepository {
   }
 
   /** Returns how many tickets currently use a label. */
-  public async countLabelUsage(labelId: string): Promise<number> {
-    return this.labels.countUsage(labelId);
+  public async countLabelUsage(
+    labelId: string,
+    visibility?: WorkItemVisibility,
+  ): Promise<number> {
+    return this.labels.countUsage(labelId, visibility);
   }
 
   /**
@@ -340,8 +387,9 @@ export class TaskRepository {
    */
   public async countLabelUsageByProjectIds(
     projectIds: readonly string[],
+    visibility?: WorkItemVisibility,
   ): Promise<ReadonlyMap<string, ReadonlyMap<string, number>>> {
-    return this.labels.countUsageByProjectIds(projectIds);
+    return this.labels.countUsageByProjectIds(projectIds, visibility);
   }
 
   /** Inserts a label into the shared catalog of a project. */
@@ -426,8 +474,9 @@ export class TaskRepository {
    */
   public async findLinksByWorkItemId(
     workItemId: string,
+    visibility?: WorkItemVisibility,
   ): Promise<WorkItemLink[]> {
-    return this.links.findByWorkItemId(workItemId);
+    return this.links.findByWorkItemId(workItemId, visibility);
   }
 
   /** Returns a single link by its identifier. */

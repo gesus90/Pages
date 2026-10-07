@@ -91,6 +91,16 @@ export const handleUpdateName: ProjectActionHandler = async (context) => {
   return succeeded();
 };
 
+/** Saves or refreshes the current project's reusable general snapshot. */
+export const handleSaveTemplate: ProjectActionHandler = async ({
+  actor,
+  projectId,
+  services,
+}) => {
+  await services.projectService.saveTemplate(actor, projectId);
+  return succeeded();
+};
+
 /** Adds a goal to the project. */
 export const handleCreateGoal: ProjectActionHandler = async ({
   actor,

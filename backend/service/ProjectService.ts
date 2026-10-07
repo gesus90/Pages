@@ -1,19 +1,19 @@
 import { createHash, randomUUID } from "node:crypto";
 
-import { PERMISSION } from "@/definition/Role";
-import { CAPABILITY } from "@/definition/Authorization";
-import { isGitHubSyncInterval, isProjectRole } from "@/definition/Project";
-import { encryptGitHubToken } from "@/backend/github/GitHubTokenCrypto";
 import {
   CACHE_TTLS,
   ServerCache,
   stableIdKey,
 } from "@/backend/cache/ServerCache";
-import {
-  ProjectAccessDeniedError,
-  ProjectManagementDeniedError,
-  ProjectNotFoundError,
-} from "@/backend/error/ProjectErrors";
+import { ProjectManagementDeniedError } from "@/backend/error/ProjectErrors";
+import { encryptGitHubToken } from "@/backend/github/GitHubTokenCrypto";
+import { CAPABILITY } from "@/definition/Authorization";
+import { isGitHubSyncInterval, isProjectRole } from "@/definition/Project";
+
+import { ProjectCreationService } from "./project/ProjectCreationService";
+import { ProjectAccessService } from "./project/ProjectAccessService";
+import { ProjectManagementService } from "./project/ProjectManagementService";
+import { ProjectTemplateService } from "./project/ProjectTemplateService";
 
 import type { PermissionService } from "@/backend/auth/PermissionService";
 import type {
@@ -30,14 +30,19 @@ import type {
 } from "@/backend/database/repositories/ProjectRepository";
 import type {
   GitHubSyncInterval,
+  ArchivedProject,
   Project,
+  ProjectActionPermissions,
+  ProjectDepartmentChoices,
   ProjectActivity,
   ProjectEvent,
   ProjectGoal,
   ProjectIntegration,
   ProjectMember,
   ProjectRole,
+  ProjectTemplate,
 } from "@/definition/Project";
+import type { WorkItemVisibility } from "@/definition/Task";
 import type { User } from "@/definition/User";
 
 /** Establishes the business-logic boundary for projects. */
@@ -46,6 +51,10 @@ export class ProjectService {
   private readonly permissionService: PermissionService;
   private readonly tokenKey: Buffer | null;
   private readonly cache: ServerCache;
+  private readonly creation: ProjectCreationService;
+  private readonly access: ProjectAccessService;
+  private readonly management: ProjectManagementService;
+  private readonly templates: ProjectTemplateService;
 
   /**
    * Creates a project service.
@@ -65,72 +74,98 @@ export class ProjectService {
     this.permissionService = permissionService;
     this.tokenKey = tokenKey;
     this.cache = cache;
+    this.creation = new ProjectCreationService(projectRepository, cache);
+    this.access = new ProjectAccessService(projectRepository, cache);
+    this.management = new ProjectManagementService(projectRepository, cache);
+    this.templates = new ProjectTemplateService(projectRepository, cache);
   }
 
   /** Returns every non-archived project that the actor may access. */
   public async findAll(actor: User): Promise<Project[]> {
-    const canManage = await this.canManageProjects(actor);
-    if (
-      !canManage &&
-      !(await this.permissionService.allows(
-        actor,
-        PERMISSION.PARTICIPATE_IN_PROJECTS,
-      ))
-    ) {
-      throw new ProjectAccessDeniedError();
-    }
-    const cacheKey = `projects:list:u:${actor.id}:${canManage}`;
-    const cached = this.cache.get<Project[]>(cacheKey);
-
-    if (cached) {
-      return cached;
-    }
-
-    const projects = canManage
-      ? await this.projectRepository.findAll()
-      : await this.projectRepository.findByMemberId(actor.id);
-
-    this.cache.set(cacheKey, projects, CACHE_TTLS.projectsList);
-
-    return projects;
+    return this.access.findAll(actor);
   }
 
   /** Returns one project after applying project-level access rules. */
   public async getById(actor: User, projectId: string): Promise<Project> {
-    const cacheKey = `project:${projectId}`;
-    const cached = this.cache.get<Project>(cacheKey);
-    const project =
-      cached ?? (await this.projectRepository.findById(projectId));
-
-    if (!project) {
-      throw new ProjectNotFoundError();
-    }
-
-    this.cache.set(cacheKey, project, CACHE_TTLS.project);
-
-    if (await this.canManageProjects(actor)) {
-      return project;
-    }
-
-    if (
-      !(await this.permissionService.allows(
-        actor,
-        PERMISSION.PARTICIPATE_IN_PROJECTS,
-      )) ||
-      !(await this.projectRepository.isMember(projectId, actor.id))
-    ) {
-      throw new ProjectAccessDeniedError();
-    }
-
-    return project;
+    return this.access.getById(actor, projectId);
   }
 
-  /** Creates a project owned by the authorized actor. */
-  public async create(actor: User, project: NewProject): Promise<void> {
-    if (!(await this.canCreateProjects(actor)))
-      throw new ProjectManagementDeniedError();
-    await this.projectRepository.insert(project);
-    this.cache.invalidateProjectsList();
+  /** Creates a project owned by the authorized actor and returns its read grant. */
+  public async create(actor: User, project: NewProject): Promise<boolean> {
+    return this.creation.create(actor, project);
+  }
+
+  /** Returns the department choices allowed by the current account's project scope. */
+  public async departmentChoices(
+    actor: User,
+  ): Promise<ProjectDepartmentChoices> {
+    return this.creation.choices(actor);
+  }
+
+  /** Returns the current server-only ticket visibility within accessible active projects. */
+  public async workItemVisibility(actor: User): Promise<WorkItemVisibility> {
+    return (await this.access.scope(actor)).visibility;
+  }
+
+  /** Filters backend candidate catalogs by each user's current project read access. */
+  public async filterAssignees(
+    candidates: ReadonlyMap<string, readonly User[]>,
+  ): Promise<ReadonlyMap<string, readonly User[]>> {
+    return this.access.filterAssignees(candidates);
+  }
+
+  /** Returns current per-project action hints. */
+  public async permissions(
+    actor: User,
+    projectId: string,
+  ): Promise<ProjectActionPermissions> {
+    return this.management.permissions(actor, projectId);
+  }
+
+  /** Changes assignments after complete current scope validation. */
+  public async setDepartments(
+    actor: User,
+    projectId: string,
+    departmentIds: readonly string[],
+  ): Promise<void> {
+    await this.management.setDepartments(actor, projectId, departmentIds);
+  }
+
+  /** Returns archive metadata accessible to the current account. */
+  public async findArchived(actor: User): Promise<ArchivedProject[]> {
+    return this.management.findArchived(actor);
+  }
+
+  /** Returns the current administrator-mode hint for archive deletion controls. */
+  public async canDeleteProjects(actor: User): Promise<boolean> {
+    return this.management.canDelete(actor);
+  }
+
+  /** Returns reusable snapshots with current access to their source projects. */
+  public async findTemplates(actor: User): Promise<ProjectTemplate[]> {
+    return this.templates.findAll(actor);
+  }
+
+  /** Saves or refreshes the general project snapshot available as a template. */
+  public async saveTemplate(actor: User, projectId: string): Promise<void> {
+    await this.templates.save(actor, projectId);
+  }
+
+  /** Creates from an accessible template with explicit assignments and returns its read grant. */
+  public async createFromTemplate(
+    actor: User,
+    templateId: string,
+    input: NewProject,
+  ): Promise<boolean> {
+    return this.templates.create(actor, templateId, input);
+  }
+
+  /** Permanently removes the complete project aggregate in administrator mode. */
+  public async deletePermanently(
+    actor: User,
+    projectId: string,
+  ): Promise<void> {
+    await this.management.deletePermanently(actor, projectId);
   }
 
   /** Updates a project after verifying management permission and its existence. */
@@ -139,18 +174,12 @@ export class ProjectService {
     projectId: string,
     project: ProjectUpdate,
   ): Promise<void> {
-    await this.requireProjectManagement(actor);
-    await this.getById(actor, projectId);
-    await this.projectRepository.update(projectId, project);
-    this.cache.invalidateProject(projectId);
+    await this.management.update(actor, projectId, project);
   }
 
   /** Archives a project without deleting it. */
   public async archive(actor: User, projectId: string): Promise<void> {
-    await this.requireProjectManagement(actor);
-    await this.getById(actor, projectId);
-    await this.projectRepository.archive(projectId);
-    this.cache.invalidateProject(projectId);
+    await this.management.archive(actor, projectId);
   }
 
   /** Returns a stored icon after applying project-level access rules. */
@@ -168,10 +197,7 @@ export class ProjectService {
     projectId: string,
     icon: ProjectIcon,
   ): Promise<void> {
-    await this.requireProjectManagement(actor);
-    await this.getById(actor, projectId);
-    await this.projectRepository.upsertIcon(projectId, icon);
-    this.cache.invalidateProject(projectId);
+    await this.management.replaceIcon(actor, projectId, icon);
   }
 
   /** Returns whether the actor is allowed to create and edit projects. */
@@ -182,11 +208,11 @@ export class ProjectService {
     );
   }
 
-  /** Project management includes creation, while create-only roles cannot manage existing projects. */
+  /** Project creation and management share the same capability. */
   public async canCreateProjects(actor: User): Promise<boolean> {
     return this.permissionService.hasCapability(
       actor,
-      CAPABILITY.CREATE_PROJECTS,
+      CAPABILITY.MANAGE_PROJECTS,
     );
   }
 
@@ -196,47 +222,7 @@ export class ProjectService {
     projectId: string,
     update: ProjectDetailsUpdate,
   ): Promise<Project> {
-    await this.requireProjectWrite(actor, projectId);
-    await this.getById(actor, projectId);
-
-    const name = update.name.trim();
-    const notes = update.notes.trim();
-
-    if (!name || name.length > 200) {
-      throw new Error("Project name must be between 1 and 200 characters.");
-    }
-
-    if (notes.length > 10_000) {
-      throw new Error("Project notes must not exceed 10,000 characters.");
-    }
-
-    if (update.managerId) {
-      const members = await this.projectRepository.findMembers(projectId);
-
-      if (!members.some((member) => member.userId === update.managerId)) {
-        throw new Error("The project manager must be a member of the project.");
-      }
-    }
-
-    await this.projectRepository.updateDetails(projectId, {
-      ...update,
-      name,
-      notes,
-    });
-    this.cache.invalidateProject(projectId);
-    await this.recordActivity(actor, projectId, {
-      action: "project_updated",
-      category: "project",
-      message: `Project details were updated.`,
-    });
-
-    const updated = await this.projectRepository.findById(projectId);
-
-    if (!updated) {
-      throw new ProjectNotFoundError();
-    }
-
-    return updated;
+    return this.management.updateDetails(actor, projectId, update);
   }
 
   /** Returns every person assigned to the project. */
@@ -317,11 +303,7 @@ export class ProjectService {
     actor: User,
     projectId: string,
   ): Promise<boolean> {
-    if (await this.canManageProjects(actor)) {
-      return true;
-    }
-
-    return this.projectRepository.isProjectManager(projectId, actor.id);
+    return this.access.canWrite(actor, projectId);
   }
 
   /** Returns the goals of a project. */
@@ -376,6 +358,7 @@ export class ProjectService {
 
     await this.requireProjectWrite(actor, projectId);
     await this.getById(actor, projectId);
+    await this.requireGoal(projectId, goalId);
 
     const trimmed = title.trim();
 
@@ -394,6 +377,7 @@ export class ProjectService {
   ): Promise<void> {
     await this.requireProjectWrite(actor, projectId);
     await this.getById(actor, projectId);
+    await this.requireGoal(projectId, goalId);
     await this.projectRepository.deleteGoal(goalId);
   }
 
@@ -475,6 +459,7 @@ export class ProjectService {
   ): Promise<void> {
     await this.requireProjectWrite(actor, projectId);
     await this.getById(actor, projectId);
+    await this.requireEvent(projectId, eventId);
 
     const title = event.title.trim();
 
@@ -503,6 +488,7 @@ export class ProjectService {
   ): Promise<void> {
     await this.requireProjectWrite(actor, projectId);
     await this.getById(actor, projectId);
+    await this.requireEvent(projectId, eventId);
     await this.projectRepository.archiveEvent(eventId);
   }
 
@@ -635,13 +621,31 @@ export class ProjectService {
   ): Promise<ProjectActivity[]> {
     await this.getById(actor, projectId);
 
-    return this.projectRepository.findActivity(projectId);
+    return this.projectRepository.findActivity(
+      projectId,
+      await this.workItemVisibility(actor),
+    );
   }
 
-  private async requireProjectManagement(actor: User): Promise<void> {
-    if (!(await this.canManageProjects(actor))) {
+  private async requireGoal(projectId: string, goalId: string): Promise<void> {
+    if (
+      !(await this.projectRepository.findGoals(projectId)).some(
+        (goal) => goal.id === goalId,
+      )
+    )
       throw new ProjectManagementDeniedError();
-    }
+  }
+
+  private async requireEvent(
+    projectId: string,
+    eventId: string,
+  ): Promise<void> {
+    if (
+      !(await this.projectRepository.findEvents(projectId)).some(
+        (event) => event.id === eventId,
+      )
+    )
+      throw new ProjectManagementDeniedError();
   }
 
   private async requireProjectWrite(

@@ -102,6 +102,7 @@ function createWorkItemRow(
     "Reporter Müller",
     "2026-02-01",
     "Forbidden",
+    null,
     ...overrides,
   ];
 }
@@ -621,12 +622,14 @@ describe("TaskRepository", () => {
       "Reporter Name",
       "2026-02-01",
       null,
+      "frontend",
     ];
 
     database.query.mockResolvedValueOnce([fullItemRow]);
 
     const fullItem = await repository.findById("item-full");
     expect(fullItem?.progressPercentage).toBe(100);
+    expect(fullItem?.departmentId).toBe("frontend");
     expect(fullItem?.parentId).toBe("parent-id");
     expect(fullItem?.parentKey).toBe("PAGE-1");
     expect(fullItem?.assigneeName).toBe("User Name");
@@ -685,6 +688,7 @@ describe("TaskRepository", () => {
       null,
       null,
       null,
+      null,
     ];
 
     database.query.mockResolvedValueOnce([nullItemRow]);
@@ -694,6 +698,7 @@ describe("TaskRepository", () => {
     expect(nullItem?.reporterName).toBeNull();
     expect(nullItem?.startAt).toBeNull();
     expect(nullItem?.githubLastError).toBeNull();
+    expect(nullItem?.departmentId).toBeNull();
     expect(nullItem?.parentId).toBeNull();
     expect(nullItem?.assigneeId).toBeNull();
     expect(nullItem?.githubIssueNumber).toBeNull();

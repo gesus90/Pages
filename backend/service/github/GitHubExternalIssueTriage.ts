@@ -68,7 +68,12 @@ export class GitHubExternalIssueTriage {
       issueNumber,
     );
 
-    if (!external || external.dismissed || external.importedWorkItemId) {
+    if (
+      !external ||
+      external.dismissed ||
+      external.importedWorkItemId ||
+      (await this.isKnownLocalIssue(projectId, external.issueNumber))
+    ) {
       throw new WorkItemValidationError(
         "This GitHub issue cannot be imported.",
       );
@@ -80,7 +85,9 @@ export class GitHubExternalIssueTriage {
       sync.repo.repo,
       external.issueNumber,
     );
-    const statuses = await this.taskRepository.findAllStatuses();
+    const statuses = (await this.taskRepository.findAllStatuses()).filter(
+      (status) => status.projectId === null || status.projectId === projectId,
+    );
     const openStatus = findOpenWorkflowStatus(statuses) ?? statuses[0];
 
     if (!openStatus) {
@@ -113,7 +120,10 @@ export class GitHubExternalIssueTriage {
       buildSyncHistoryEntry(actor.id, created.id, remote.number),
     );
 
-    const linked = await this.taskRepository.findById(created.id);
+    const linked = await this.taskRepository.findById(
+      created.id,
+      await this.accessGuard.visibility(actor),
+    );
 
     if (!linked) {
       throw new Error("Imported task could not be retrieved.");
@@ -155,7 +165,8 @@ export class GitHubExternalIssueTriage {
       !external ||
       external.projectId !== item.projectId ||
       external.dismissed ||
-      external.importedWorkItemId
+      external.importedWorkItemId ||
+      (await this.isKnownLocalIssue(item.projectId, external.issueNumber))
     ) {
       throw new WorkItemValidationError("This GitHub issue cannot be linked.");
     }
@@ -168,7 +179,7 @@ export class GitHubExternalIssueTriage {
     );
     const timestamp = this.now();
 
-    await this.taskRepository.update(
+    await this.taskRepository.updateFromGitHub(
       item.id,
       buildWorkItemUpdateFromRemote(item, remote, item.statusId),
     );
@@ -181,7 +192,10 @@ export class GitHubExternalIssueTriage {
       buildSyncHistoryEntry(actor.id, item.id, remote.number),
     );
 
-    const linked = await this.taskRepository.findById(item.id);
+    const linked = await this.taskRepository.findById(
+      item.id,
+      await this.accessGuard.visibility(actor),
+    );
 
     if (!linked) {
       throw new Error("Linked task could not be retrieved.");
@@ -208,5 +222,13 @@ export class GitHubExternalIssueTriage {
 
     await this.accessGuard.requireWritableProject(actor, external.projectId);
     await this.gitHubRepository.dismissExternalIssue(external.id);
+  }
+  private async isKnownLocalIssue(
+    projectId: string,
+    issueNumber: number,
+  ): Promise<boolean> {
+    return (
+      await this.taskRepository.findKnownGitHubIssueNumbers(projectId)
+    ).has(issueNumber);
   }
 }

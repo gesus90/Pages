@@ -43,6 +43,7 @@ function createProject(overrides: Partial<Project> = {}): Project {
   return {
     createdAt: "2026-01-01",
     description: "Pages Project",
+    departments: [],
     hasIcon: false,
     id: "project-1",
     managerId: null,
@@ -93,6 +94,7 @@ function createWorkItem(
   overrides: Partial<WorkItemDetail> = {},
 ): WorkItemDetail {
   return {
+    departmentId: null,
     archivedAt: null,
     assigneeId: "user-1",
     assigneeName: "Admin User",
@@ -192,6 +194,7 @@ describe("TaskService", () => {
       findEligibleAssignees: vi.fn().mockResolvedValue([]),
       findEligibleAssigneesByProjectIds: vi.fn().mockResolvedValue(new Map()),
       findById: vi.fn(),
+      findParentReference: vi.fn().mockResolvedValue(null),
       findByKey: vi.fn(),
       findHistoryByWorkItemId: vi.fn().mockResolvedValue([]),
       findLabelById: vi.fn().mockResolvedValue(null),
@@ -224,9 +227,24 @@ describe("TaskService", () => {
       updateStatusAndOrder: vi.fn().mockResolvedValue(undefined),
     } as unknown as typeof repository;
 
+    const findProjects = vi
+      .fn<() => Promise<readonly Project[]>>()
+      .mockResolvedValue([createProject()]);
     projectService = {
       canWriteProject: vi.fn().mockResolvedValue(true),
-      findAll: vi.fn(),
+      findAll: findProjects,
+      filterAssignees: vi
+        .fn()
+        .mockImplementation(
+          async (candidates: ReadonlyMap<string, readonly User[]>) =>
+            candidates,
+        ),
+      workItemVisibility: vi.fn().mockImplementation(async () => ({
+        departmentIds: null,
+        projectIds: (await findProjects()).map(
+          (project: Project) => project.id,
+        ),
+      })),
       getById: vi.fn(),
     } as unknown as typeof projectService;
 
@@ -250,7 +268,9 @@ describe("TaskService", () => {
       createMilestone(),
     ]);
 
-    await expect(service.findAllStatuses()).resolves.toHaveLength(1);
+    await expect(service.findAllStatuses(createUser())).resolves.toHaveLength(
+      1,
+    );
     await expect(
       service.findMilestones(actor, ["project-1", "foreign-project"]),
     ).resolves.toHaveLength(1);
@@ -293,6 +313,14 @@ describe("TaskService", () => {
     projectService.findAll.mockResolvedValueOnce([]);
 
     await expect(service.findAll(actor)).resolves.toEqual([]);
+  });
+
+  it("fails closed when a server scope has no accessible project IDs", async () => {
+    projectService.workItemVisibility.mockResolvedValue({
+      departmentIds: null,
+    });
+    await expect(service.findAll(createUser())).resolves.toEqual([]);
+    expect(repository.findAll).not.toHaveBeenCalled();
   });
 
   it("gets work items by id and key with project authorization", async () => {
@@ -340,7 +368,10 @@ describe("TaskService", () => {
     ).resolves.toEqual([]);
 
     expect(projectService.getById).toHaveBeenCalledWith(actor, "project-1");
-    expect(repository.findHistoryByProjectId).toHaveBeenCalledWith("project-1");
+    expect(repository.findHistoryByProjectId).toHaveBeenCalledWith(
+      "project-1",
+      { departmentIds: null, projectIds: ["project-1"] },
+    );
   });
 
   it("creates a work item successfully and records history", async () => {
@@ -1241,6 +1272,7 @@ describe("TaskService restore, moves, labels, and sync state", () => {
       findEligibleAssignees: vi.fn().mockResolvedValue([]),
       findEligibleAssigneesByProjectIds: vi.fn().mockResolvedValue(new Map()),
       findById: vi.fn(),
+      findParentReference: vi.fn().mockResolvedValue(null),
       findByKey: vi.fn(),
       findHistoryByWorkItemId: vi.fn().mockResolvedValue([]),
       findLabelById: vi.fn().mockResolvedValue(null),
@@ -1271,9 +1303,24 @@ describe("TaskService restore, moves, labels, and sync state", () => {
       updateStatusAndOrder: vi.fn().mockResolvedValue(undefined),
     } as unknown as typeof repository;
 
+    const findProjects = vi
+      .fn<() => Promise<readonly Project[]>>()
+      .mockResolvedValue([createProject()]);
     projectService = {
       canWriteProject: vi.fn().mockResolvedValue(true),
-      findAll: vi.fn(),
+      findAll: findProjects,
+      filterAssignees: vi
+        .fn()
+        .mockImplementation(
+          async (candidates: ReadonlyMap<string, readonly User[]>) =>
+            candidates,
+        ),
+      workItemVisibility: vi.fn().mockImplementation(async () => ({
+        departmentIds: null,
+        projectIds: (await findProjects()).map(
+          (project: Project) => project.id,
+        ),
+      })),
       getById: vi.fn(),
     } as unknown as typeof projectService;
 
@@ -1864,8 +1911,8 @@ describe("TaskService restore, moves, labels, and sync state", () => {
       new Map([["item-1", []]]),
     );
 
-    await cachedService.findAllStatuses();
-    await cachedService.findAllStatuses();
+    await cachedService.findAllStatuses(createUser());
+    await cachedService.findAllStatuses(createUser());
     expect(repository.findAllStatuses).toHaveBeenCalledTimes(1);
 
     await cachedService.findAssigneesByProjects(["project-1"]);
@@ -1878,8 +1925,8 @@ describe("TaskService restore, moves, labels, and sync state", () => {
     await cachedService.findLabelsByProjects(["project-1"]);
     expect(repository.findLabelsByProjectIds).toHaveBeenCalledTimes(1);
 
-    await cachedService.countLabelUsageByProjects(["project-1"]);
-    await cachedService.countLabelUsageByProjects(["project-1"]);
+    await cachedService.countLabelUsageByProjects(createUser(), ["project-1"]);
+    await cachedService.countLabelUsageByProjects(createUser(), ["project-1"]);
     expect(repository.countLabelUsageByProjectIds).toHaveBeenCalledTimes(1);
 
     await cachedService.findLabelsForWorkItems(["item-1"]);
@@ -1895,16 +1942,18 @@ describe("TaskService restore, moves, labels, and sync state", () => {
       yesterdayDate: "2026-09-06",
     };
 
-    await service.countWorkItemsOverview(["project-1"], scope);
+    await service.countWorkItemsOverview(createUser(), ["project-1"], scope);
     expect(repository.countWorkItemsOverview).toHaveBeenCalledWith(
       ["project-1"],
       scope,
+      { departmentIds: null, projectIds: ["project-1"] },
     );
 
-    await service.countWorkItemsByProject(["project-1"]);
-    expect(repository.countWorkItemsByProject).toHaveBeenCalledWith([
-      "project-1",
-    ]);
+    await service.countWorkItemsByProject(createUser(), ["project-1"]);
+    expect(repository.countWorkItemsByProject).toHaveBeenCalledWith(
+      ["project-1"],
+      { departmentIds: null, projectIds: ["project-1"] },
+    );
   });
 
   it("falls back to an empty usage map for unknown projects", async () => {

@@ -52,12 +52,10 @@ export class PermissionService {
     if (this.resolveAccount) {
       const account = await this.resolveAccount(actor.id);
       const policy = new UserPolicyService();
-      return (
-        policy.has(account, capability) ||
-        (capability === CAPABILITY.CREATE_PROJECTS &&
-          policy.has(account, CAPABILITY.MANAGE_PROJECTS))
-      );
+      return policy.has(account, capability);
     }
+    if (capability === CAPABILITY.ARCHIVE_PROJECTS)
+      return actor.isActive && actor.role === ROLE.ADMIN;
     const permission =
       capability === CAPABILITY.WRITE
         ? PERMISSION.PARTICIPATE_IN_PROJECTS

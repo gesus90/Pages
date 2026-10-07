@@ -61,12 +61,12 @@ export function ProjectGridScrollArea({
   }, []);
 
   return (
-    <div className="relative mt-8 min-h-0">
+    <div className="relative mt-8 min-h-0 flex-1">
       <div
         ref={viewportRef}
-        className="pages-hover-scrollbar max-h-[calc(100dvh-18rem)] overflow-x-hidden overflow-y-auto overscroll-contain"
+        className="pages-hover-scrollbar h-full overflow-x-hidden overflow-y-auto overscroll-contain"
       >
-        <div className="pr-4 pb-2">{children}</div>
+        <div className="pt-2 pr-4 pb-8 pl-2">{children}</div>
       </div>
       <div
         aria-hidden="true"

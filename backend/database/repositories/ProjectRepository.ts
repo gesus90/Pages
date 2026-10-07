@@ -1,5 +1,9 @@
 import { ProjectActivityRepository } from "./project/ProjectActivityRepository";
 import { ProjectCoreRepository } from "./project/ProjectCoreRepository";
+import { ProjectDepartmentRepository } from "./project/ProjectDepartmentRepository";
+import { ProjectLifecycleRepository } from "./project/ProjectLifecycleRepository";
+import { ProjectTemplateRepository } from "./project/ProjectTemplateRepository";
+import { AuthorizationRepository } from "./AuthorizationRepository";
 import { ProjectEventRepository } from "./project/ProjectEventRepository";
 import { ProjectGoalRepository } from "./project/ProjectGoalRepository";
 import { ProjectIconRepository } from "./project/ProjectIconRepository";
@@ -7,8 +11,15 @@ import { ProjectIntegrationRepository } from "./project/ProjectIntegrationReposi
 import { ProjectMemberRepository } from "./project/ProjectMemberRepository";
 import { ProjectTagRepository } from "./project/ProjectTagRepository";
 
-import type { Database } from "@/backend/database/Database";
 import type {
+  Database,
+  DatabaseTransaction,
+} from "@/backend/database/Database";
+import type { WorkItemVisibility } from "@/definition/Task";
+import type { Department } from "@/definition/Authorization";
+
+import type {
+  ArchivedProject,
   Project,
   ProjectActivity,
   ProjectEvent,
@@ -16,6 +27,7 @@ import type {
   ProjectIntegration,
   ProjectMember,
   ProjectRole,
+  ProjectTemplate,
 } from "@/definition/Project";
 import type { NewProjectActivity } from "./project/ProjectActivityRepository";
 import type {
@@ -53,14 +65,20 @@ export type {
   ProjectSyncSchedule,
 } from "./project/ProjectIntegrationRepository";
 
+/** Supports both database-owned and already locked project transactions. */
+type ProjectDatabase = Pick<Database, "execute" | "query" | "transaction">;
+
 /**
  * Establishes the persistence boundary for projects.
  *
  * @remarks
- * A facade over one repository per aggregate in `./project/`; it only
- * forwards and holds no persistence logic of its own.
+ * Coordinates the project aggregates and their shared transaction.
  */
 export class ProjectRepository {
+  private readonly database: ProjectDatabase;
+  private readonly departments: ProjectDepartmentRepository;
+  private readonly lifecycle: ProjectLifecycleRepository;
+  private readonly templates: ProjectTemplateRepository;
   private readonly projects: ProjectCoreRepository;
   private readonly members: ProjectMemberRepository;
   private readonly icons: ProjectIconRepository;
@@ -75,7 +93,11 @@ export class ProjectRepository {
    *
    * @param database - Central database access.
    */
-  public constructor(database: Database) {
+  public constructor(database: ProjectDatabase) {
+    this.database = database;
+    this.departments = new ProjectDepartmentRepository(database);
+    this.lifecycle = new ProjectLifecycleRepository(database);
+    this.templates = new ProjectTemplateRepository(database);
     this.projects = new ProjectCoreRepository(database);
     this.members = new ProjectMemberRepository(database);
     this.icons = new ProjectIconRepository(database);
@@ -88,17 +110,94 @@ export class ProjectRepository {
 
   /** Returns every non-archived project ordered by most recent change. */
   public async findAll(): Promise<Project[]> {
-    return this.projects.findAll();
+    return this.withDepartments(await this.projects.findAll());
+  }
+
+  /** Returns live identifiers before consulting cached project rows. */
+  public async findActiveIds(): Promise<string[]> {
+    return this.projects.findActiveIds();
+  }
+
+  /** Reads template snapshots before service-side current source access checks. */
+  public async findTemplates(): Promise<ProjectTemplate[]> {
+    return this.templates.findAll();
+  }
+
+  /** Saves a validated source snapshot inside the caller's transaction. */
+  public async saveTemplate(template: ProjectTemplate): Promise<void> {
+    await this.templates.save(template);
+  }
+
+  /** Returns live assignments for authorization of an entire active listing. */
+  public async findDepartmentsByProjects(
+    projectIds: readonly string[],
+  ): Promise<ReadonlyMap<string, Department[]>> {
+    return this.departments.findByProjectIds(projectIds);
+  }
+
+  /** Returns archived projects with their current department assignments. */
+  public async findArchived(): Promise<ArchivedProject[]> {
+    return this.withDepartments(await this.projects.findArchived());
+  }
+
+  /** Returns an archived project for authorized retention or deletion actions. */
+  public async findArchivedById(id: string): Promise<ArchivedProject | null> {
+    const project = await this.projects.findArchivedById(id);
+    if (!project) return null;
+    return {
+      ...project,
+      departments: await this.departments.findByProjectId(id),
+    };
   }
 
   /** Returns the non-archived projects that include the given member. */
   public async findByMemberId(memberId: string): Promise<Project[]> {
-    return this.projects.findByMemberId(memberId);
+    return this.withDepartments(await this.projects.findByMemberId(memberId));
   }
 
   /** Returns a non-archived project by identifier. */
   public async findById(id: string): Promise<Project | null> {
-    return this.projects.findById(id);
+    const project = await this.projects.findById(id);
+    if (!project) return null;
+    return {
+      ...project,
+      departments: await this.departments.findByProjectId(id),
+    };
+  }
+
+  /** Runs project policy reads and writes atomically with current account facts. */
+  public async transaction<Result>(
+    work: (repository: ProjectRepository) => Promise<Result>,
+  ): Promise<Result> {
+    return this.database.transaction((transaction) =>
+      work(
+        new ProjectRepository({
+          query: transaction.query.bind(transaction),
+          execute: transaction.execute.bind(transaction),
+          transaction: async <Nested>(
+            operation: (scope: DatabaseTransaction) => Promise<Nested>,
+          ): Promise<Nested> => operation(transaction),
+        }),
+      ),
+    );
+  }
+
+  /** Provides current authorization inside the project transaction. */
+  public authorization(): AuthorizationRepository {
+    return new AuthorizationRepository(this.database);
+  }
+
+  /** Returns the live department assignments. */
+  public async findDepartments(projectId: string): Promise<Department[]> {
+    return this.departments.findByProjectId(projectId);
+  }
+
+  /** Replaces department assignments after service validation. */
+  public async setDepartments(
+    projectId: string,
+    departmentIds: readonly string[],
+  ): Promise<void> {
+    await this.departments.replace(projectId, departmentIds);
   }
 
   /** Returns whether the user belongs to the project. */
@@ -116,7 +215,10 @@ export class ProjectRepository {
 
   /** Inserts a project and its owner membership. */
   public async insert(project: NewProject): Promise<void> {
-    await this.projects.insert(project);
+    await this.transaction(async (repository) => {
+      await repository.projects.insert(project);
+      await repository.setDepartments(project.id, project.departmentIds ?? []);
+    });
   }
 
   /** Updates the editable values of a non-archived project. */
@@ -135,6 +237,11 @@ export class ProjectRepository {
   /** Marks a project as archived without deleting persisted data. */
   public async archive(id: string): Promise<void> {
     await this.projects.archive(id);
+  }
+
+  /** Permanently removes the project aggregate inside one transaction. */
+  public async deletePermanently(id: string): Promise<void> {
+    await this.transaction((repository) => repository.lifecycle.delete(id));
   }
 
   /** Returns the custom icon attached to a project. */
@@ -300,12 +407,27 @@ export class ProjectRepository {
   }
 
   /** Returns the chronological activity log of a project, newest last. */
-  public async findActivity(projectId: string): Promise<ProjectActivity[]> {
-    return this.activity.findByProjectId(projectId);
+  public async findActivity(
+    projectId: string,
+    visibility?: WorkItemVisibility,
+  ): Promise<ProjectActivity[]> {
+    return this.activity.findByProjectId(projectId, visibility);
   }
 
   /** Records an entry in the chronological project activity log. */
   public async insertActivity(entry: NewProjectActivity): Promise<void> {
     await this.activity.insert(entry);
+  }
+
+  private async withDepartments<Details extends Project>(
+    projects: Details[],
+  ): Promise<Details[]> {
+    const assignments = await this.departments.findByProjectIds(
+      projects.map((project) => project.id),
+    );
+    return projects.map((project) => ({
+      ...project,
+      departments: assignments.get(project.id) ?? [],
+    }));
   }
 }

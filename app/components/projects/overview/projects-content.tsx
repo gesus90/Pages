@@ -4,14 +4,22 @@ import { useTranslation } from "react-i18next";
 import { CreateProjectDialog } from "@/app/components/projects/overview/create-project-dialog";
 import { ProjectCard } from "@/app/components/projects/overview/project-card";
 import { ProjectGridScrollArea } from "@/app/components/projects/overview/project-grid-scroll-area";
+import { Button } from "@/app/components/ui/button";
 
-import type { Project } from "@/definition/Project";
+import type {
+  Project,
+  ProjectDepartmentChoices,
+  ProjectTemplate,
+} from "@/definition/Project";
 
 interface ProjectsContentProps {
   readonly visibleProjects: readonly Project[];
   /** Whether the visitor may see any project, before filtering. */
   readonly hasProjects: boolean;
   readonly canManageProjects: boolean;
+  readonly departmentChoices: ProjectDepartmentChoices;
+  readonly onResetFilters: () => void;
+  readonly templates?: readonly ProjectTemplate[];
 }
 
 /**
@@ -25,6 +33,9 @@ export function ProjectsContent({
   visibleProjects,
   hasProjects,
   canManageProjects,
+  departmentChoices,
+  onResetFilters,
+  templates = [],
 }: ProjectsContentProps): React.ReactElement {
   const { t } = useTranslation();
 
@@ -44,6 +55,9 @@ export function ProjectsContent({
     return (
       <div className="mt-8 rounded-2xl bg-muted/40 p-10 text-center text-sm text-muted-foreground">
         {t("projects.noMatches")}
+        <Button className="mt-3" variant="link" onClick={onResetFilters}>
+          {t("projects.resetFilters")}
+        </Button>
       </div>
     );
   }
@@ -58,7 +72,11 @@ export function ProjectsContent({
         {t("projects.empty.description")}
       </p>
       <div className="mt-5">
-        <CreateProjectDialog canManageProjects={canManageProjects} />
+        <CreateProjectDialog
+          canManageProjects={canManageProjects}
+          departmentChoices={departmentChoices}
+          templates={templates}
+        />
       </div>
     </div>
   );

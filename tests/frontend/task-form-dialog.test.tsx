@@ -27,6 +27,7 @@ function createProject(): Project {
   return {
     createdAt: "2026-01-01",
     description: "Pages Project",
+    departments: [],
     hasIcon: false,
     id: "project-1",
     managerId: null,
@@ -82,6 +83,7 @@ function createMilestone(): Milestone {
 
 function createWorkItem(): WorkItemDetail {
   return {
+    departmentId: null,
     archivedAt: null,
     assigneeId: "user-1",
     assigneeName: "Admin",

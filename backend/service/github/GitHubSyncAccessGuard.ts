@@ -2,7 +2,7 @@ import { ProjectManagementDeniedError } from "@/backend/error/ProjectErrors";
 
 import type { ProjectService } from "@/backend/service/ProjectService";
 import type { TaskService } from "@/backend/service/TaskService";
-import type { WorkItemDetail } from "@/definition/Task";
+import type { WorkItemDetail, WorkItemVisibility } from "@/definition/Task";
 import type { User } from "@/definition/User";
 
 /** Verifies that an actor may change the GitHub synchronization of a project. */
@@ -48,6 +48,11 @@ export class GitHubSyncAccessGuard {
     await this.requireWriteAccess(actor, item.projectId);
 
     return item;
+  }
+
+  /** Resolves the current account's ticket scope for sync reads and returned metadata. */
+  public async visibility(actor: User): Promise<WorkItemVisibility> {
+    return this.projectService.workItemVisibility(actor);
   }
 
   private async requireWriteAccess(

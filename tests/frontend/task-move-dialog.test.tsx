@@ -22,6 +22,7 @@ function createProject(overrides: Partial<Project> = {}): Project {
   return {
     createdAt: "2026-01-01",
     description: "Pages",
+    departments: [],
     hasIcon: false,
     id: "project-1",
     managerId: null,
@@ -41,6 +42,7 @@ function createProject(overrides: Partial<Project> = {}): Project {
 
 function createTask(overrides: Partial<WorkItemDetail> = {}): WorkItemDetail {
   return {
+    departmentId: null,
     archivedAt: null,
     assigneeId: "user-1",
     assigneeName: "Admin",

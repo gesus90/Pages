@@ -20,6 +20,7 @@ import type { Project } from "@/definition/Project";
 const PROJECT: Project = {
   createdAt: "2026-01-01",
   description: "",
+  departments: [],
   hasIcon: false,
   id: "project-1",
   managerId: null,

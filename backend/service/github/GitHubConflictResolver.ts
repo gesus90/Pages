@@ -134,7 +134,10 @@ export class GitHubConflictResolver {
     await this.applyResolution(run, resolution);
     await this.taskRepository.setGitHubConflict(item.id, false);
 
-    const resolved = await this.taskRepository.findById(item.id);
+    const resolved = await this.taskRepository.findById(
+      item.id,
+      await this.accessGuard.visibility(actor),
+    );
 
     if (!resolved) {
       throw new Error("Resolved task could not be retrieved.");
@@ -154,6 +157,7 @@ export class GitHubConflictResolver {
       message: `Task ${item.key} changed in Pages and on GitHub and needs a manual decision.`,
       projectId: item.projectId,
       userId: actor.id,
+      workItemId: item.id,
     });
     summary.conflicts += 1;
   }
@@ -167,7 +171,10 @@ export class GitHubConflictResolver {
       return;
     }
 
-    const statuses = await this.taskRepository.findAllStatuses();
+    const statuses = (await this.taskRepository.findAllStatuses()).filter(
+      (status) =>
+        status.projectId === null || status.projectId === run.item.projectId,
+    );
 
     await this.puller.pullRemoteState(run, statuses);
   }

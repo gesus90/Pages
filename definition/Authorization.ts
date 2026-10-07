@@ -3,8 +3,8 @@ import type { UserListItem } from "@/definition/User";
 /** Configurable capabilities; reading is always enabled within the permitted scope. */
 export const CAPABILITY = {
   WRITE: "write",
-  CREATE_PROJECTS: "create_projects",
   MANAGE_PROJECTS: "manage_projects",
+  ARCHIVE_PROJECTS: "archive_projects",
   MILESTONES: "milestones",
   MANAGE_USERS: "manage_users",
   MANAGE_DEPARTMENTS: "manage_departments",

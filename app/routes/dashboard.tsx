@@ -171,6 +171,7 @@ export async function loader({
   const projectIds = projects.map((project) => project.id);
 
   const overview = await services.taskService.countWorkItemsOverview(
+    user,
     projectIds,
     {
       todayDate: formatUtcDate(todayStart),
@@ -179,8 +180,10 @@ export async function loader({
       yesterdayDate: formatUtcDate(todayStart - 86_400_000),
     },
   );
-  const countsByProject =
-    await services.taskService.countWorkItemsByProject(projectIds);
+  const countsByProject = await services.taskService.countWorkItemsByProject(
+    user,
+    projectIds,
+  );
 
   const assignedTop = await services.taskService.findAll(user, {
     archived: "active",

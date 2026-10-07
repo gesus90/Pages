@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 
 import { ProjectDescription } from "@/app/components/projects/project-description";
+import { ProjectDepartmentChips } from "@/app/components/projects/project-department-chips";
 import { ProjectNameHeading } from "@/app/components/projects/project-name-heading";
 import { ProjectStatusPill } from "@/app/components/projects/project-status-pill";
 
@@ -56,6 +57,9 @@ export function ProjectHeader({
             description={project.description}
             canWrite={canWrite}
           />
+          <div className="mt-3">
+            <ProjectDepartmentChips departments={project.departments} />
+          </div>
         </div>
       </div>
     </>

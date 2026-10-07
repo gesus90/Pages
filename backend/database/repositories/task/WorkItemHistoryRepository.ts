@@ -1,9 +1,10 @@
 import { readTextColumn } from "@/backend/database/RowValue";
 
 import { readOptionalTextColumn } from "./OptionalColumn";
+import { createWorkItemVisibility } from "./WorkItemVisibility";
 
 import type { Database, DatabaseValue } from "@/backend/database/Database";
-import type { WorkItemHistory } from "@/definition/Task";
+import type { WorkItemHistory, WorkItemVisibility } from "@/definition/Task";
 
 /** Entry to record in the audit trail. */
 export interface NewWorkItemHistory {
@@ -44,7 +45,11 @@ export class WorkItemHistoryRepository {
   }
 
   /** Returns work item history across all tasks of one project, newest last. */
-  public async findByProjectId(projectId: string): Promise<WorkItemHistory[]> {
+  public async findByProjectId(
+    projectId: string,
+    visibility?: WorkItemVisibility,
+  ): Promise<WorkItemHistory[]> {
+    const scope = createWorkItemVisibility(visibility);
     const rows = await this.database.query(
       `
         SELECT
@@ -63,10 +68,11 @@ export class WorkItemHistoryRepository {
         LEFT JOIN users
             ON users.id = work_item_history.user_id
         WHERE work_items.project_id = $project_id
+            AND ${scope.condition}
         ORDER BY work_item_history.created_at DESC
         LIMIT 200;
       `,
-      { project_id: projectId },
+      { project_id: projectId, ...scope.parameters },
     );
 
     return rows.map(toWorkItemHistory);

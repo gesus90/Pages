@@ -18,7 +18,6 @@ const LEGACY_PROFILES: Readonly<Record<Role, UserRole | null>> = {
     departmentBound: false,
     permissions: [
       CAPABILITY.WRITE,
-      CAPABILITY.CREATE_PROJECTS,
       CAPABILITY.MANAGE_PROJECTS,
       CAPABILITY.MILESTONES,
       CAPABILITY.MANAGE_USERS,

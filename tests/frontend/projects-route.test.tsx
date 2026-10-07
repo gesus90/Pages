@@ -27,9 +27,14 @@ import {
 
 import { createI18n } from "@/app/lib/i18n";
 import { LANGUAGE } from "@/language/Language";
+import { isProjectSortField } from "@/app/lib/project-list-view";
 import ProjectsRoute from "@/app/routes/projects";
 
-import type { Project } from "@/definition/Project";
+import type {
+  Project,
+  ProjectDepartmentChoices,
+  ProjectTemplate,
+} from "@/definition/Project";
 
 const mockedActionData = vi.mocked(useActionData);
 const mockedLoaderData = vi.mocked(useLoaderData);
@@ -84,6 +89,7 @@ function createProject(overrides: Partial<Project> = {}): Project {
   return {
     createdAt: "2026-01-01",
     description: "New public website",
+    departments: [],
     hasIcon: false,
     id: "project-1",
     managerId: null,
@@ -133,14 +139,24 @@ function renderProjects({
   canManageProjects = true,
   navigation = null,
   projects = [createProject()],
+  archivedProjects = [],
+  templates = [],
+  departmentChoices = { available: [], selectionRequired: false },
 }: {
   readonly actionData?: unknown;
   readonly canManageProjects?: boolean;
   readonly navigation?: Record<string, string> | null;
   readonly projects?: readonly Project[];
+  readonly archivedProjects?: readonly Project[];
+  readonly templates?: readonly ProjectTemplate[];
+  readonly departmentChoices?: ProjectDepartmentChoices;
 } = {}): ReturnType<typeof render> {
   mockedLoaderData.mockReturnValue({
     canManageProjects,
+    templates,
+    archivedProjects,
+    canDeleteProjects: false,
+    departmentChoices,
     projects,
   });
   mockedActionData.mockReturnValue(actionData);
@@ -164,6 +180,22 @@ function renderProjects({
 }
 
 describe("ProjectsRoute", () => {
+  it("switches between active projects and searchable archive metadata", async () => {
+    const user = userEvent.setup();
+    renderProjects({
+      archivedProjects: [
+        createProject({ id: "archived", name: "Retained project" }),
+      ],
+    });
+    await user.click(screen.getByRole("button", { name: "Archiv" }));
+    expect(
+      screen.getByRole("heading", { name: "Retained project" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Retained project/ })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Laufende Projekte" }));
+    expect(screen.getByText("Website refresh")).toBeInTheDocument();
+  });
+
   it("renders project cards with placeholders and their current status", () => {
     renderProjects();
 
@@ -251,6 +283,62 @@ describe("ProjectsRoute", () => {
     expect(screen.getByText("Mobile app")).toBeInTheDocument();
   });
 
+  it("filters by accessible project departments, deduplicates choices and searches department names", async () => {
+    const user = userEvent.setup();
+    const frontend = { id: "frontend", name: "Frontend" };
+    const backend = { id: "backend", name: "Backend" };
+    renderProjects({
+      projects: [
+        createProject({
+          id: "p1",
+          name: "Shared",
+          departments: [frontend, backend],
+        }),
+        createProject({
+          id: "p2",
+          name: "Backend only",
+          departments: [backend],
+        }),
+        createProject({
+          id: "p3",
+          name: "Departmentless",
+          status: "completed",
+        }),
+      ],
+    });
+    const select = screen.getByRole("combobox", {
+      name: "Nach Abteilung filtern",
+    });
+    await user.click(select);
+    expect(
+      screen.getAllByRole("option").map((option) => option.textContent),
+    ).toEqual(["Alle Abteilungen", "Backend", "Frontend"]);
+    await user.click(screen.getByRole("option", { name: "Frontend" }));
+    expect(getCardTitles()).toEqual(["Shared"]);
+    await user.click(select);
+    await user.click(screen.getByRole("option", { name: "Alle Abteilungen" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "Projekte durchsuchen" }),
+      " FRONTEND ",
+    );
+    expect(getCardTitles()).toEqual(["Shared"]);
+    await user.clear(
+      screen.getByRole("textbox", { name: "Projekte durchsuchen" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Abgeschlossen" }));
+    expect(getCardTitles()).toEqual(["Departmentless"]);
+    await user.click(select);
+    await user.click(screen.getByRole("option", { name: "Frontend" }));
+    expect(
+      screen.getByText("Keine Projekte entsprechen diesem Filter."),
+    ).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: "Filter zurücksetzen" }),
+    );
+    expect(getCardTitles()).toHaveLength(3);
+    expect(select).toHaveTextContent("Alle Abteilungen");
+  });
+
   it("sorts cards alphabetically in both directions", async () => {
     const user = userEvent.setup();
     renderProjects({
@@ -263,10 +351,12 @@ describe("ProjectsRoute", () => {
 
     const sortSelect = screen.getByRole("combobox", { name: "Sortierung" });
 
-    await user.selectOptions(sortSelect, "nameAsc");
+    await user.click(sortSelect);
+    await user.click(screen.getByRole("option", { name: "Name: A–Z" }));
     expect(getCardTitles()).toEqual(["Alpha", "Beta", "Charlie"]);
 
-    await user.selectOptions(sortSelect, "nameDesc");
+    await user.click(sortSelect);
+    await user.click(screen.getByRole("option", { name: "Name: Z–A" }));
     expect(getCardTitles()).toEqual(["Charlie", "Beta", "Alpha"]);
   });
 
@@ -281,8 +371,10 @@ describe("ProjectsRoute", () => {
 
     const sortSelect = screen.getByRole("combobox", { name: "Sortierung" });
 
-    await user.selectOptions(sortSelect, "nameAsc");
-    fireEvent.change(sortSelect, { target: { value: "unsupported" } });
+    await user.click(sortSelect);
+    await user.click(screen.getByRole("option", { name: "Name: A–Z" }));
+    expect(isProjectSortField("unsupported")).toBe(false);
+    expect(isProjectSortField("nameAsc")).toBe(true);
 
     expect(getCardTitles()).toEqual(["Alpha", "Charlie"]);
   });
@@ -299,10 +391,8 @@ describe("ProjectsRoute", () => {
 
     expect(getCardTitles()).toEqual(["Newest", "Middle", "Oldest"]);
 
-    await user.selectOptions(
-      screen.getByRole("combobox", { name: "Sortierung" }),
-      "updatedAsc",
-    );
+    await user.click(screen.getByRole("combobox", { name: "Sortierung" }));
+    await user.click(screen.getByRole("option", { name: "Älteste zuerst" }));
     expect(getCardTitles()).toEqual(["Oldest", "Middle", "Newest"]);
   });
 
@@ -333,10 +423,14 @@ describe("ProjectsRoute", () => {
 
     const sortSelect = screen.getByRole("combobox", { name: "Sortierung" });
 
-    await user.selectOptions(sortSelect, "statusAsc");
+    await user.click(sortSelect);
+    await user.click(screen.getByRole("option", { name: "Aktive zuerst" }));
     expect(getCardTitles()).toEqual(["Running", "Waiting", "Done"]);
 
-    await user.selectOptions(sortSelect, "statusDesc");
+    await user.click(sortSelect);
+    await user.click(
+      screen.getByRole("option", { name: "Abgeschlossene zuerst" }),
+    );
     expect(getCardTitles()).toEqual(["Done", "Waiting", "Running"]);
   });
 
@@ -476,6 +570,47 @@ describe("project dialogs", () => {
     );
   });
 
+  it("requires a department, retains the last choice and submits all chosen IDs", async () => {
+    const user = userEvent.setup();
+    renderProjects({
+      departmentChoices: {
+        available: [
+          { id: "frontend", name: "Frontend" },
+          { id: "backend", name: "Backend" },
+        ],
+        selectionRequired: true,
+      },
+    });
+    await user.click(screen.getByRole("button", { name: "Neues Projekt" }));
+    const submit = screen.getByRole("button", { name: "Projekt erstellen" });
+    expect(submit).toBeDisabled();
+    await user.click(screen.getByRole("checkbox", { name: "Frontend" }));
+    expect(submit).toBeEnabled();
+    expect(screen.getByRole("checkbox", { name: "Frontend" })).toBeDisabled();
+    await user.click(screen.getByRole("checkbox", { name: "Backend" }));
+    const form = submit.closest("form");
+    if (!form) throw new Error("Missing project form");
+    expect(new FormData(form).getAll("departmentIds")).toEqual([
+      "frontend",
+      "backend",
+    ]);
+  });
+
+  it("shows a translated department validation error", async () => {
+    const user = userEvent.setup();
+    renderProjects({
+      actionData: {
+        intent: "create-project",
+        ok: false,
+        error: "departmentRequired",
+      },
+    });
+    await user.click(screen.getByRole("button", { name: "Neues Projekt" }));
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Wählen Sie mindestens eine Abteilung.",
+    );
+  });
+
   it("disables the create dialog only for its own submission", async () => {
     const user = userEvent.setup();
     renderProjects({ navigation: { intent: "create-project" } });
@@ -483,8 +618,81 @@ describe("project dialogs", () => {
     await user.click(screen.getByRole("button", { name: "Neues Projekt" }));
 
     expect(
-      await screen.findByRole("button", { name: "Wird erstellt …" }),
+      await screen.findByRole("button", { name: "Projekt erstellen" }),
     ).toBeDisabled();
+    expect(
+      screen
+        .getByRole("button", { name: "Projekt erstellen" })
+        .querySelector("svg"),
+    ).toHaveClass("animate-spin");
+  });
+
+  it("previews saved templates while keeping the new name and assignments explicit", async () => {
+    const user = userEvent.setup();
+    renderProjects({
+      templates: [
+        {
+          id: "template",
+          projectId: "source",
+          name: "Source template",
+          description: "Saved description",
+          status: "active",
+          goals: ["Release"],
+          tags: ["web"],
+        },
+        {
+          id: "empty",
+          projectId: "other",
+          name: "Empty template",
+          description: "",
+          status: "completed",
+          goals: [],
+          tags: [],
+        },
+      ],
+    });
+    await user.click(screen.getByRole("button", { name: "Neues Projekt" }));
+    await user.click(screen.getByRole("combobox", { name: "Projektvorlage" }));
+    await user.click(screen.getByRole("option", { name: "Source template" }));
+    expect(screen.getByLabelText("Name *")).toHaveValue("");
+    expect(screen.getByLabelText("Beschreibung")).toHaveValue(
+      "Saved description",
+    );
+    expect(screen.getByLabelText("Beschreibung")).toHaveAttribute("readonly");
+    expect(screen.getByRole("combobox", { name: "Status" })).toBeDisabled();
+    expect(screen.getByText("Release")).toBeInTheDocument();
+    expect(screen.getByText("Tags: web")).toBeInTheDocument();
+    const form = screen
+      .getByRole("button", { name: "Projekt erstellen" })
+      .closest("form");
+    if (!form) throw new Error("Missing form");
+    expect(new FormData(form).get("templateId")).toBe("template");
+    expect(new FormData(form).get("status")).toBe("active");
+    await user.click(screen.getByRole("combobox", { name: "Projektvorlage" }));
+    await user.click(screen.getByRole("option", { name: "Empty template" }));
+    expect(screen.getByText("Tags: Keine Tags")).toBeInTheDocument();
+    expect(screen.queryByText("Release")).toBeNull();
+    await user.click(screen.getByRole("combobox", { name: "Projektvorlage" }));
+    await user.click(screen.getByRole("option", { name: "Ohne Vorlage" }));
+    expect(screen.getByLabelText("Beschreibung")).not.toHaveAttribute(
+      "readonly",
+    );
+    expect(screen.getByRole("combobox", { name: "Status" })).toBeEnabled();
+    expect(new FormData(form).get("status")).toBe("planned");
+  });
+
+  it("returns to the overview after creating outside the actor's own departments", () => {
+    renderProjects({
+      actionData: {
+        intent: "create-project",
+        ok: true,
+        projectId: "managed",
+        canOpen: false,
+      },
+    });
+    expect(mockedNavigate.mock.results[0]?.value).toHaveBeenCalledWith(
+      "/projekte",
+    );
   });
 
   it("navigates to successfully created projects", () => {

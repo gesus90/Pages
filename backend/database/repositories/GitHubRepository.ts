@@ -4,11 +4,37 @@ import {
   readTextColumn,
 } from "@/backend/database/RowValue";
 
+import { createInClause } from "./task/InClause";
+import { createWorkItemVisibility } from "./task/WorkItemVisibility";
+
 import type { Database, DatabaseValue } from "@/backend/database/Database";
 import type {
   GitHubExternalIssue,
   GitHubPullRequest,
 } from "@/definition/GitHub";
+import type { WorkItemVisibility } from "@/definition/Task";
+import type { WorkItemVisibilityFragment } from "./task/WorkItemVisibility";
+
+function createPullRequestVisibility(
+  visibility: WorkItemVisibility | undefined,
+): WorkItemVisibilityFragment {
+  const scope = createWorkItemVisibility(visibility);
+  let condition = visibility
+    ? `(github_pull_requests.work_item_id IS NULL OR (work_items.id IS NOT NULL AND ${scope.condition}))`
+    : "1 = 1";
+  const parameters = { ...scope.parameters };
+  if (visibility?.projectIds !== undefined) {
+    if (visibility.projectIds.length === 0)
+      return { condition: "1 = 0", parameters: {} };
+    const projects = createInClause(
+      "pull_scope_project",
+      visibility.projectIds,
+    );
+    condition += ` AND github_pull_requests.project_id IN (${projects.placeholders})`;
+    Object.assign(parameters, projects.parameters);
+  }
+  return { condition, parameters };
+}
 
 /** Values required to persist a detected external GitHub issue. */
 export interface NewGitHubExternalIssue {
@@ -74,6 +100,12 @@ export class GitHubRepository {
         WHERE project_id = $project_id
             AND ($include_dismissed = 1 OR dismissed = 0)
             AND imported_work_item_id IS NULL
+            AND NOT EXISTS (
+                SELECT 1
+                FROM work_items
+                WHERE work_items.project_id = github_external_issues.project_id
+                    AND work_items.github_issue_number = github_external_issues.issue_number
+            )
         ORDER BY issue_number DESC;
       `,
       {
@@ -124,6 +156,12 @@ export class GitHubRepository {
         WHERE project_id IN (${placeholders})
             AND ($include_dismissed = 1 OR dismissed = 0)
             AND imported_work_item_id IS NULL
+            AND NOT EXISTS (
+                SELECT 1
+                FROM work_items
+                WHERE work_items.project_id = github_external_issues.project_id
+                    AND work_items.github_issue_number = github_external_issues.issue_number
+            )
         ORDER BY issue_number DESC;
       `,
       parameters,
@@ -304,7 +342,9 @@ export class GitHubRepository {
   /** Returns stored pull requests of a project, newest first. */
   public async findPullRequestsByProject(
     projectId: string,
+    visibility?: WorkItemVisibility,
   ): Promise<GitHubPullRequest[]> {
+    const scope = createPullRequestVisibility(visibility);
     const rows = await this.database.query(
       `
         SELECT
@@ -323,9 +363,10 @@ export class GitHubRepository {
         LEFT JOIN work_items
             ON work_items.id = github_pull_requests.work_item_id
         WHERE github_pull_requests.project_id = $project_id
+            AND ${scope.condition}
         ORDER BY github_pull_requests.number DESC;
       `,
-      { project_id: projectId },
+      { project_id: projectId, ...scope.parameters },
     );
 
     return rows.map((row) => this.toPullRequest(row));
@@ -334,6 +375,7 @@ export class GitHubRepository {
   /** Returns the pull requests of several projects ordered by number. */
   public async findPullRequestsByProjectIds(
     projectIds: readonly string[],
+    visibility?: WorkItemVisibility,
   ): Promise<ReadonlyMap<string, readonly GitHubPullRequest[]>> {
     const pullRequestsByProject = new Map<string, GitHubPullRequest[]>();
 
@@ -344,7 +386,8 @@ export class GitHubRepository {
     const placeholders = projectIds
       .map((_, index) => `$pull_request_project_id_${index}`)
       .join(", ");
-    const parameters: Record<string, string> = {};
+    const scope = createPullRequestVisibility(visibility);
+    const parameters: Record<string, string> = { ...scope.parameters };
 
     for (const [index, projectId] of projectIds.entries()) {
       parameters[`pull_request_project_id_${index}`] = projectId;
@@ -368,6 +411,7 @@ export class GitHubRepository {
         LEFT JOIN work_items
             ON work_items.id = github_pull_requests.work_item_id
         WHERE github_pull_requests.project_id IN (${placeholders})
+            AND ${scope.condition}
         ORDER BY github_pull_requests.number DESC;
       `,
       parameters,
@@ -390,7 +434,9 @@ export class GitHubRepository {
   /** Returns the pull requests assigned to a work item. */
   public async findPullRequestsByWorkItem(
     workItemId: string,
+    visibility?: WorkItemVisibility,
   ): Promise<GitHubPullRequest[]> {
+    const scope = createPullRequestVisibility(visibility);
     const rows = await this.database.query(
       `
         SELECT
@@ -409,9 +455,10 @@ export class GitHubRepository {
         LEFT JOIN work_items
             ON work_items.id = github_pull_requests.work_item_id
         WHERE github_pull_requests.work_item_id = $work_item_id
+            AND ${scope.condition}
         ORDER BY github_pull_requests.number DESC;
       `,
-      { work_item_id: workItemId },
+      { work_item_id: workItemId, ...scope.parameters },
     );
 
     return rows.map((row) => this.toPullRequest(row));
@@ -420,7 +467,9 @@ export class GitHubRepository {
   /** Returns a stored pull request by its identifier. */
   public async findPullRequestById(
     id: string,
+    visibility?: WorkItemVisibility,
   ): Promise<GitHubPullRequest | null> {
+    const scope = createPullRequestVisibility(visibility);
     const rows = await this.database.query(
       `
         SELECT
@@ -438,9 +487,10 @@ export class GitHubRepository {
         FROM github_pull_requests
         LEFT JOIN work_items
             ON work_items.id = github_pull_requests.work_item_id
-        WHERE github_pull_requests.id = $id;
+        WHERE github_pull_requests.id = $id
+            AND ${scope.condition};
       `,
-      { id },
+      { id, ...scope.parameters },
     );
     const row = rows[0];
 

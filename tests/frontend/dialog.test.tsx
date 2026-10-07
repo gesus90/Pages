@@ -60,6 +60,24 @@ describe("DialogContent", () => {
     expect(dialog.className).toContain("custom-surface");
   });
 
+  it.each(["md", "lg"] as const)(
+    "uses the shared %s width and viewport height limit",
+    (size) => {
+      render(
+        <Dialog open>
+          <DialogContent size={size}>
+            <DialogTitle>Dialog title</DialogTitle>
+            <DialogDescription>Description</DialogDescription>
+          </DialogContent>
+        </Dialog>,
+      );
+      expect(screen.getByRole("dialog").className).toContain(
+        size === "md" ? "32rem" : "38rem",
+      );
+      expect(screen.getByRole("dialog").className).toContain("max-h-[90dvh]");
+    },
+  );
+
   it("closes the modal through its close control", async () => {
     const user = userEvent.setup();
 
