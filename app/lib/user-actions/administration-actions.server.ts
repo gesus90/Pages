@@ -84,6 +84,22 @@ export const ADMINISTRATION_ACTION_HANDLERS = {
       );
     },
   ),
+  "save-group": handler("save-group", async ({ actor, formData, services }) => {
+    await services.groupAdministrationService.saveGroup(actor.id, {
+      id: text(formData, "entityId") || randomUUID(),
+      memberIds: strings(formData, "member"),
+      name: text(formData, "name"),
+    });
+  }),
+  "delete-group": handler(
+    "delete-group",
+    async ({ actor, formData, services }) => {
+      await services.groupAdministrationService.deleteGroup(
+        actor.id,
+        text(formData, "entityId"),
+      );
+    },
+  ),
   "set-memberships": handler(
     "set-memberships",
     async ({ actor, formData, services }) => {

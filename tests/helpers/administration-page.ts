@@ -70,5 +70,6 @@ export function administrationPage(
     editableRoleIds: roles.map((role) => role.id),
     manageableDepartmentIds: [],
     adoptableDepartmentIds: [],
+    groups: { canManage: true, groups: [] },
   };
 }

@@ -6,6 +6,13 @@ import SqliteDatabase from "better-sqlite3";
 import { Database } from "@/backend/database/Database";
 import { readCountColumn, readTextColumn } from "@/backend/database/RowValue";
 
+import {
+  LEGACY_LABEL_COLUMNS,
+  LEGACY_LABEL_TABLE,
+  createLegacyLabelTable,
+  mergeLegacyLabels,
+} from "./LegacyLabels";
+
 import type {
   DatabaseTransaction,
   SqlParameters,
@@ -116,6 +123,8 @@ async function transferInto(
 /** What the transfer knows about one table before it copies anything. */
 interface TablePlan extends TableTransferResult {
   readonly columns: readonly string[];
+  /** True for the former label table, which exists only while copying. */
+  readonly isLegacyLabels: boolean;
 }
 
 async function copyMissingRows(
@@ -130,7 +139,18 @@ async function copyMissingRows(
 
   if (!options.targetExisted || isBlank(plans)) {
     await target.transaction(async (transaction) => {
+      const mergesLabels = plans.some((plan) => plan.isLegacyLabels);
+
+      if (mergesLabels) {
+        await createLegacyLabelTable(transaction);
+      }
+
       await copyAllTables(source, transaction, plans);
+
+      if (mergesLabels) {
+        await mergeLegacyLabels(transaction);
+      }
+
       if (options.authorizationBackfill) {
         await transaction.execute(options.authorizationBackfill);
       }
@@ -142,7 +162,14 @@ async function copyMissingRows(
     };
   }
 
-  if (plans.every((plan) => plan.sourceRows === plan.targetRows)) {
+  // Merging labels changes their row counts, so they cannot be compared.
+  const mergesLabels = plans.some((plan) => plan.isLegacyLabels);
+
+  if (
+    plans
+      .filter((plan) => !isRewrittenByLabelMerge(plan, mergesLabels))
+      .every((plan) => plan.sourceRows === plan.targetRows)
+  ) {
     return {
       status: "already-transferred",
       tables: plans.map((plan) => toResult(plan, plan.targetRows)),
@@ -171,6 +198,16 @@ function authorizationBackfillForSchema(
   return backfill?.replaceAll("'create_projects'", "'manage_projects'");
 }
 
+/** The plans whose rows the label merge rewrites instead of copying 1:1. */
+function isRewrittenByLabelMerge(
+  plan: TablePlan,
+  mergesLabels: boolean,
+): boolean {
+  return (
+    mergesLabels && (plan.isLegacyLabels || plan.table === "work_item_labels")
+  );
+}
+
 function toResult(plan: TablePlan, targetRows: number): TableTransferResult {
   return { sourceRows: plan.sourceRows, table: plan.table, targetRows };
 }
@@ -181,12 +218,28 @@ async function planTables(
 ): Promise<TablePlan[]> {
   const plans: TablePlan[] = [];
 
-  for (const [table, columns] of await readTargetColumns(target)) {
+  const targetColumns = await readTargetColumns(target);
+
+  // Labels became global in the target; the former table is merged in.
+  const hasGlobalLabels = targetColumns.delete("labels");
+
+  for (const [table, columns] of targetColumns) {
     plans.push({
       columns,
+      isLegacyLabels: false,
       sourceRows: countSourceRows(source, table),
       table,
       targetRows: await countRows(target, table),
+    });
+  }
+
+  if (hasGlobalLabels) {
+    plans.push({
+      columns: LEGACY_LABEL_COLUMNS,
+      isLegacyLabels: true,
+      sourceRows: countSourceRows(source, LEGACY_LABEL_TABLE),
+      table: LEGACY_LABEL_TABLE,
+      targetRows: await countRows(target, "labels"),
     });
   }
 
@@ -342,10 +395,14 @@ function verifySourceColumns(
  * Likewise, migrated passwords are already chosen: the new password-change
  * column keeps its database default instead of requiring it in frozen SQLite.
  * Ticket departments were added for A3; legacy tickets remain unassigned.
+ * Groups (and group assignments of tickets) came with A4; none exist in SQLite.
+ * Global labels replace `project_labels`; their copy is merged by `LegacyLabels`.
+ * Ticket templates came with A4; none exist in SQLite.
+ * The project-wide GitHub switch came with A4; transferred connections stay active.
  */
 async function readTargetColumns(
   target: Database,
-): Promise<ReadonlyMap<string, readonly string[]>> {
+): Promise<Map<string, readonly string[]>> {
   const rows = await target.query(
     `
       SELECT
@@ -357,11 +414,16 @@ async function readTargetColumns(
               'schema_migrations', 'instance_settings', 'roles', 'role_permissions',
               'departments', 'user_authorization', 'department_members', 'managed_departments',
               'project_departments', 'project_templates', 'project_template_goals',
-              'project_template_tags'
+              'project_template_tags', 'user_groups', 'user_group_members',
+              'work_item_templates', 'work_item_template_departments',
+              'work_item_template_projects', 'work_item_template_labels',
+              'work_item_template_checklist_items', 'user_board_preferences'
           )
           AND NOT (table_name = 'users' AND column_name = 'must_change_password')
           AND NOT (table_name = 'work_items' AND column_name = 'department_id')
+          AND NOT (table_name = 'work_items' AND column_name = 'assignee_group_id')
           AND NOT (table_name = 'project_activity' AND column_name = 'work_item_id')
+          AND NOT (table_name = 'project_integrations' AND column_name = 'sync_enabled')
       ORDER BY table_name, ordinal_position;
     `,
   );

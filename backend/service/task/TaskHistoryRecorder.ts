@@ -18,6 +18,7 @@ export interface WorkItemUpdateValues {
   readonly priority: WorkItemPriority;
   readonly newStatus: WorkflowStatus;
   readonly assigneeId: string | null;
+  readonly assigneeGroupId: string | null;
   readonly reporterId: string;
   readonly parentId: string | null;
   readonly milestoneId: string | null;
@@ -131,6 +132,20 @@ export class TaskHistoryRecorder {
   /** Records that an archived work item was restored. */
   public async recordRestored(actor: User, workItemId: string): Promise<void> {
     await this.record(actor, workItemId, plainChange("restored"));
+  }
+
+  /** Records that a work item moved to another department or lost its department. */
+  public async recordDepartmentChanged(
+    actor: User,
+    workItemId: string,
+    names: { readonly oldName: string | null; readonly newName: string | null },
+  ): Promise<void> {
+    await this.record(actor, workItemId, {
+      action: "department_changed",
+      field: "department",
+      newValue: names.newName,
+      oldValue: names.oldName,
+    });
   }
 
   /** Records a status move, unless the work item already had the status. */
@@ -248,15 +263,15 @@ export class TaskHistoryRecorder {
   ): Promise<HistoryChange[]> {
     const changes: HistoryChange[] = [];
 
-    if (existing.assigneeId !== update.assigneeId) {
+    if (
+      existing.assigneeId !== update.assigneeId ||
+      existing.assigneeGroupId !== update.assigneeGroupId
+    ) {
       changes.push({
         action: "assignee_changed",
         field: "assignee",
-        newValue: await this.findPersonName(
-          existing.projectId,
-          update.assigneeId,
-        ),
-        oldValue: existing.assigneeName,
+        newValue: await this.findAssigneeName(update),
+        oldValue: existing.assigneeName ?? existing.assigneeGroupName,
       });
     }
 
@@ -264,10 +279,7 @@ export class TaskHistoryRecorder {
       changes.push({
         action: "reporter_changed",
         field: "reporter",
-        newValue: await this.findPersonName(
-          existing.projectId,
-          update.reporterId,
-        ),
+        newValue: await this.findPersonName(update.reporterId),
         oldValue: existing.reporterName,
       });
     }
@@ -301,12 +313,24 @@ export class TaskHistoryRecorder {
     return changes;
   }
 
-  private async findPersonName(
-    projectId: string,
-    userId: string | null,
+  private async findAssigneeName(
+    update: WorkItemUpdateValues,
   ): Promise<string | null> {
-    const eligibleUsers =
-      await this.taskRepository.findEligibleAssignees(projectId);
+    if (update.assigneeGroupId) {
+      return (
+        (
+          await this.taskRepository.findAssigneeGroupById(
+            update.assigneeGroupId,
+          )
+        )?.name ?? null
+      );
+    }
+
+    return this.findPersonName(update.assigneeId);
+  }
+
+  private async findPersonName(userId: string | null): Promise<string | null> {
+    const eligibleUsers = await this.taskRepository.findEligibleAssignees();
 
     return (
       eligibleUsers.find((user) => user.id === userId)?.displayName ?? null

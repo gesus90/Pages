@@ -378,7 +378,8 @@
     "sections": {
       "users": "Benutzer",
       "roles": "Rollen",
-      "departments": "Abteilungen"
+      "departments": "Abteilungen",
+      "groups": "Gruppen"
     },
     "access": {
       "memberships": "Abteilungen zuordnen",
@@ -411,7 +412,8 @@
       "deleteNamed": "{{name}} löschen?",
       "delete": "Löschen",
       "roleDeleteHint": "Die Rolle wird gelöscht. Zugewiesene Benutzer müssen zuvor eine andere Rolle erhalten.",
-      "departmentDeleteHint": "Die Abteilung und ihre Zuordnungen werden entfernt. Benutzer, deren letzte Abteilung dies ist, bleiben als abteilungslose Benutzer erhalten und können neu zugeordnet werden."
+      "departmentDeleteHint": "Die Abteilung und ihre Zuordnungen werden entfernt. Benutzer, deren letzte Abteilung dies ist, bleiben als abteilungslose Benutzer erhalten und können neu zugeordnet werden.",
+      "groupDeleteHint": "Die Gruppe wird gelöscht. Tickets, die ihr zugewiesen sind, sind danach nicht mehr zugewiesen."
     },
     "personalAdmin": "Persönliche Admin-Berechtigung",
     "mode": {
@@ -515,7 +517,17 @@
     "saved": "Gespeichert",
     "discardChanges": "Ungespeicherte Änderungen verwerfen?",
     "unassignedRole": "Keine Rolle (Admin-Konto)",
-    "loading": "Benutzerverwaltung wird geladen …"
+    "loading": "Benutzerverwaltung wird geladen …",
+    "groups": {
+      "add": "Gruppe anlegen",
+      "edit": "Gruppe bearbeiten",
+      "members": "Mitglieder",
+      "membersHint": "Eine Gruppe braucht mindestens ein Mitglied, damit Tickets ihr zugewiesen werden können.",
+      "noCandidates": "Keine aktiven Benutzer verfügbar.",
+      "none": "Noch keine Gruppen angelegt.",
+      "empty": "Leer – nicht zuweisbar",
+      "memberCount": "Mitglieder: {{total}}"
+    }
   },
   "tasks": {
     "title": "Aufgaben",
@@ -573,14 +585,34 @@
       "archived": "Archiv-Status",
       "active": "Aktiv",
       "archivedTickets": "Archiviert",
-      "all": "Alle"
+      "all": "Alle",
+      "department": "Abteilung",
+      "allDepartments": "Alle Abteilungen",
+      "noDepartment": "Ohne Abteilung",
+      "labels": "Labels",
+      "allLabels": "Alle Labels",
+      "labelsSelected": "{{count}} Labels",
+      "noLabels": "Noch keine Labels.",
+      "typeOption": {
+        "work": "Tasks & Subtasks",
+        "all": "Alle Typen",
+        "initiative": "Initiative",
+        "epic": "Epic",
+        "task": "Task",
+        "subtask": "Subtask"
+      }
     },
     "sort": {
       "updated": "Zuletzt aktualisiert",
       "priority": "Priorität",
       "dueDate": "Fälligkeitsdatum",
       "project": "Projekt",
-      "status": "Status"
+      "status": "Status",
+      "label": "Sortierung",
+      "manual": "Manuell",
+      "title": "Titel",
+      "ascending": "Aufsteigend sortiert, zum Umkehren klicken",
+      "descending": "Absteigend sortiert, zum Umkehren klicken"
     },
     "columns": {
       "type": "Typ",
@@ -602,7 +634,7 @@
     },
     "priority": {
       "low": "Niedrig",
-      "normal": "Normal",
+      "normal": "Mittel",
       "high": "Hoch",
       "urgent": "Dringend"
     },
@@ -629,8 +661,10 @@
       "parent": "Übergeordnetes Element",
       "parentEpic": "Epic auswählen (optional)",
       "parentTask": "Übergeordneter Task *",
-      "parentInitiative": "Initiative auswählen (optional)"
+      "parentInitiative": "Initiative auswählen (optional)",
+      "department": "Abteilung"
     },
+    "descriptionHint": "Markdown wird unterstützt.",
     "unassigned": "Nicht zugewiesen",
     "none": "Keine",
     "tabs": {
@@ -654,6 +688,7 @@
       "label_added": "{{user}} fügte das Label {{newValue}} hinzu.",
       "label_removed": "{{user}} entfernte das Label {{oldValue}}.",
       "parent_changed": "{{user}} änderte das übergeordnete Element: {{oldValue}} → {{newValue}}",
+      "department_changed": "{{user}} änderte die Abteilung: {{oldValue}} → {{newValue}}",
       "milestone_changed": "{{user}} änderte den Meilenstein: {{oldValue}} → {{newValue}}",
       "due_at_changed": "{{user}} änderte das Fälligkeitsdatum: {{oldValue}} → {{newValue}}",
       "title_changed": "{{user}} änderte den Titel.",
@@ -801,6 +836,73 @@
     "automation": {
       "section": "Automatisierung",
       "none": "Keine Automatisierungsregeln konfiguriert"
+    },
+    "department": {
+      "none": "Keine Abteilung"
+    },
+    "permissions": {
+      "readOnly": "Du hast nur Leserechte für dieses Ticket. Archivieren und Bearbeiten sind nicht möglich."
+    },
+    "delete": {
+      "action": "Endgültig löschen",
+      "title": "{{key}} endgültig löschen?",
+      "hint": "Das Ticket wird mit allen Unterelementen, Verlauf, Checkliste, Label-Zuordnungen und Verknüpfungen unwiderruflich gelöscht. Dies ist nur im Administratormodus möglich.",
+      "confirm": "Endgültig löschen"
+    },
+    "assignee": {
+      "group": "Gruppe: {{name}}",
+      "emptyGroup": "Gruppe: {{name}} (keine Mitglieder)"
+    },
+    "templates": {
+      "saveAction": "Als Vorlage speichern",
+      "saveTitle": "{{key}} als Vorlage speichern",
+      "saveHint": "Die Vorlage übernimmt Typ, Titel, Beschreibung, Priorität, Labels und Checkliste. Bearbeiter, Meilenstein, Termine und Abteilung werden nicht gespeichert.",
+      "name": "Name der Vorlage",
+      "save": "Vorlage speichern",
+      "saved": "Vorlage gespeichert.",
+      "fromTemplate": "Aus Vorlage",
+      "none": "Keine Vorlage",
+      "applyHint": "Labels ({{labels}}) und Checklistenpunkte ({{items}}) der Vorlage werden zum neuen Ticket hinzugefügt.",
+      "manage": "Vorlagen",
+      "manageTitle": "Vorlagen verwalten",
+      "manageHint": "Hier stehen die Vorlagen, die du angelegt hast. Administratoren sehen alle Vorlagen.",
+      "edit": "Vorlage {{name}} bearbeiten",
+      "delete": "Vorlage {{name}} löschen",
+      "deleteHint": "Vorlage „{{name}}“ löschen? Bereits aus ihr erstellte Tickets bleiben unverändert.",
+      "deleteConfirm": "Vorlage löschen",
+      "close": "Schließen",
+      "scope": {
+        "label": "Freigegeben für",
+        "private": "Nur ich",
+        "all": "Alle",
+        "departments": "Abteilungen",
+        "projects": "Projekte"
+      },
+      "sharing": {
+        "departments": "Abteilungen",
+        "projects": "Projekte",
+        "noDepartments": "Du kannst nur für Abteilungen freigeben, denen du angehörst oder die du verwaltest. Keine verfügbar.",
+        "noProjects": "Kein Projekt verfügbar."
+      }
+    },
+    "group": {
+      "label": "Nach Label",
+      "none": "Keine Gruppierung",
+      "project": "Nach Projekt",
+      "priority": "Nach Priorität",
+      "assignee": "Nach Bearbeiter",
+      "department": "Nach Abteilung",
+      "title": "Gruppierung"
+    },
+    "groupEmpty": {
+      "project": "Ohne Projekt",
+      "priority": "Ohne Priorität",
+      "assignee": "Nicht zugewiesen",
+      "department": "Ohne Abteilung",
+      "label": "Ohne Label"
+    },
+    "card": {
+      "status": "Status von {{key}} ändern"
     }
   },
   "projectDetail": {
@@ -1080,6 +1182,10 @@
       "repository": "Repository:",
       "lastSync": "Letzte Synchronisation:",
       "never": "Noch nie",
+      "syncEnabled": "GitHub-Synchronisierung aktiv",
+      "syncEnabledHint": "Pausiert die automatische und manuelle Synchronisierung. Repository und Token bleiben gespeichert.",
+      "syncStateOn": "Synchronisierung ist aktiv.",
+      "syncStateOff": "Synchronisierung ist ausgeschaltet.",
       "syncNow": "Jetzt synchronisieren",
       "disconnect": "Verbindung trennen",
       "interval": "Aktualisierungsintervall",
@@ -1124,9 +1230,6 @@
       "allowCreatePullRequestsHint": "Ermöglicht das Erstellen neuer Pull Requests direkt aus Pages.",
       "syncIssuesHint": "Neue und aktualisierte Issues importieren.",
       "syncPullRequestsHint": "Pull Requests importieren und aktualisieren.",
-      "syncCommitsLabel": "Commits anzeigen",
-      "syncCommitsHint": "Commits in der Aktivitätshistorie anzeigen.",
-      "webhookUrlLabel": "Webhook-URL (optional)",
       "webhookCopy": "Webhook-URL kopieren",
       "connectionOk": "Verbindung erfolgreich.",
       "connectionFailed": "Verbindung fehlgeschlagen. Prüfe Token und Repository.",
@@ -1213,5 +1316,9 @@
       "subtitle": "Die Einrichtung ist abgeschlossen. Die Anmeldung erfolgt mit dem Administrator-Konto.",
       "signIn": "Zur Anmeldung"
     }
+  },
+  "markdown": {
+    "wikiLink": "Wiki-Seite",
+    "externalLink": "Externer Link"
   }
 }

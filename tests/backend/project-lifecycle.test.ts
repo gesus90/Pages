@@ -29,7 +29,6 @@ const OWNED_TABLES = [
   "github_pull_requests",
   "milestone_dependencies",
   "milestones",
-  "project_labels",
   "tasks",
   "wiki_pages",
   "work_items",

@@ -2,17 +2,13 @@ import { LabelPicker } from "@/app/components/tasks/label-picker";
 import { TaskMoveDialog } from "@/app/components/tasks/task-move-dialog";
 
 import type { Project } from "@/definition/Project";
-import type {
-  Milestone,
-  ProjectLabel,
-  WorkItemDetail,
-} from "@/definition/Task";
+import type { Milestone, Label, WorkItemDetail } from "@/definition/Task";
 import type { User } from "@/definition/User";
 
 interface DetailDialogsProps {
   readonly task: WorkItemDetail;
-  readonly taskLabels: readonly ProjectLabel[];
-  readonly projectLabels: readonly ProjectLabel[];
+  readonly taskLabels: readonly Label[];
+  readonly labels: readonly Label[];
   readonly labelUsage: Readonly<Record<string, number>> | undefined;
   readonly projects: readonly Project[];
   readonly milestones: readonly Milestone[];
@@ -30,7 +26,7 @@ interface DetailDialogsProps {
 export function DetailDialogs({
   task,
   taskLabels,
-  projectLabels,
+  labels,
   labelUsage,
   projects,
   milestones,
@@ -51,10 +47,7 @@ export function DetailDialogs({
         isSubmitting={isSyncing}
         labelUsage={labelUsage ?? {}}
         onOpenChange={onLabelPickerOpenChange}
-        projectId={task.projectId}
-        projectLabels={projectLabels.filter(
-          (label) => label.projectId === task.projectId,
-        )}
+        labels={labels}
         workItemId={task.id}
       />
 

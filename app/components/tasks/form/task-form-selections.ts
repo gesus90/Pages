@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { toAssigneeValue } from "@/app/lib/assignee-value";
 import { WORK_ITEM_PRIORITY } from "@/definition/Task";
 
 import type { Project } from "@/definition/Project";
@@ -15,10 +16,14 @@ export interface TaskFormSelections {
   readonly type: WorkItemType;
   readonly statusId: string;
   readonly priority: WorkItemPriority;
-  readonly assigneeId: string;
+  /** A user id, `group:<id>` or empty; see `toAssigneeValue`. */
+  readonly assignee: string;
+  readonly departmentId: string;
   readonly milestoneId: string;
   readonly parentId: string;
   readonly reporterId: string;
+  /** The template a new ticket starts from, or empty. */
+  readonly templateId: string;
 }
 
 /** What the form starts with when it opens. */
@@ -63,25 +68,29 @@ function buildSelections(defaults: TaskFormDefaults): TaskFormSelections {
 
   if (initialTask) {
     return {
-      assigneeId: initialTask.assigneeId ?? "",
+      assignee: toAssigneeValue(initialTask),
+      departmentId: initialTask.departmentId ?? "",
       milestoneId: initialTask.milestoneId ?? "",
       parentId: initialTask.parentId ?? "",
       priority: initialTask.priority,
       projectId: initialTask.projectId,
       reporterId: initialTask.createdBy,
       statusId: initialTask.statusId,
+      templateId: "",
       type: initialTask.type,
     };
   }
 
   return {
-    assigneeId: "",
+    assignee: "",
+    departmentId: "",
     milestoneId: "",
     parentId: defaults.defaultParentId ?? "",
     priority: WORK_ITEM_PRIORITY.NORMAL,
     projectId: resolveProjectId(defaults),
     reporterId: "",
     statusId: defaults.defaultStatusId ?? "",
+    templateId: "",
     type: defaults.defaultType,
   };
 }

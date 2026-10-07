@@ -19,11 +19,11 @@ import {
 interface CatalogDeleteDialogProps {
   readonly id: string;
   readonly name: string;
-  readonly kind: "role" | "department";
+  readonly kind: "role" | "department" | "group";
   readonly disabled: boolean;
 }
 
-/** Requires explicit confirmation and explains the department-orphan exception. */
+/** Requires explicit confirmation and explains what deleting the entry leaves behind. */
 export function CatalogDeleteDialog({
   id,
   name,
@@ -32,7 +32,7 @@ export function CatalogDeleteDialog({
 }: CatalogDeleteDialogProps): React.ReactElement {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const intent = kind === "role" ? "delete-role" : "delete-department";
+  const intent = `delete-${kind}` as const;
   const error = useUsersError(intent);
   const pending = useIsSubmitting(intent);
   function close(): void {

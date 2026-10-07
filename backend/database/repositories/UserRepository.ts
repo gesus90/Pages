@@ -331,6 +331,12 @@ export class UserRepository {
         await transaction.execute("DELETE FROM sessions WHERE user_id = $id;", {
           id,
         });
+        // A deactivated person cannot work on tickets; a group left without
+        // members stays but cannot be assigned until someone joins it.
+        await transaction.execute(
+          "DELETE FROM user_group_members WHERE user_id = $id;",
+          { id },
+        );
       }
     });
   }

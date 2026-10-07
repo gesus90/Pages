@@ -15,7 +15,6 @@ const OWNED_PROJECT_DELETIONS = [
   "DELETE FROM milestone_dependencies WHERE project_id = $project_id;",
   "DELETE FROM milestones WHERE project_id = $project_id;",
   "DELETE FROM workflow_statuses WHERE project_id = $project_id;",
-  "DELETE FROM project_labels WHERE project_id = $project_id;",
   "DELETE FROM tasks WHERE project_id = $project_id;",
   "DELETE FROM wiki_pages WHERE project_id = $project_id;",
   "DELETE FROM work_items WHERE project_id = $project_id;",
@@ -107,8 +106,6 @@ export class ProjectLifecycleRepository {
       DELETE FROM work_item_labels
       WHERE work_item_id IN (
           SELECT id FROM work_items WHERE project_id = $project_id
-      ) OR label_id IN (
-          SELECT id FROM project_labels WHERE project_id = $project_id
       );
     `,
       { project_id: projectId },

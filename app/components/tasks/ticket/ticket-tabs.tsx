@@ -2,6 +2,7 @@ import { Plus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { MarkdownText } from "@/app/components/markdown/markdown-text";
 import {
   TaskStatusBadge,
   TaskTypeBadge,
@@ -150,7 +151,7 @@ export function TicketTabs({
         {activeTab === "description" ? (
           <div className="rounded-xl bg-muted/40 p-5 text-sm leading-relaxed text-muted-foreground">
             {ticket.description ? (
-              <p className="whitespace-pre-wrap">{ticket.description}</p>
+              <MarkdownText source={ticket.description} />
             ) : (
               <p className="italic text-muted-foreground/70">
                 {t("tasks.none")}

@@ -18,10 +18,15 @@ export interface FindWorkItemsOptions {
   readonly visibility?: WorkItemVisibility;
   readonly projectIds?: readonly string[];
   readonly assigneeId?: string;
+  readonly assigneeGroupId?: string;
+  /** A person's own tickets: assigned to them or to any group they belong to. */
+  readonly assignedToUserId?: string;
   readonly type?: WorkItemType;
   readonly statusId?: string;
   readonly priority?: WorkItemPriority;
   readonly milestoneId?: string;
+  /** Tickets that carry at least one of these labels; empty means no label filter. */
+  readonly labelIds?: readonly string[];
   readonly search?: string;
   readonly archived?: ArchivedScope;
   readonly openOnly?: boolean;
@@ -51,7 +56,12 @@ interface FilterFragment {
 
 /** Options that filter by comparing one column with the given value. */
 type EqualityOption =
-  "assigneeId" | "type" | "statusId" | "priority" | "milestoneId";
+  | "assigneeId"
+  | "assigneeGroupId"
+  | "type"
+  | "statusId"
+  | "priority"
+  | "milestoneId";
 
 interface EqualityFilter {
   readonly option: EqualityOption;
@@ -92,6 +102,11 @@ const EQUALITY_FILTERS: readonly EqualityFilter[] = [
     condition: "work_items.assignee_id = $assignee_id",
     option: "assigneeId",
     parameter: "assignee_id",
+  },
+  {
+    condition: "work_items.assignee_group_id = $assignee_group_id",
+    option: "assigneeGroupId",
+    parameter: "assignee_group_id",
   },
   {
     condition: "work_items.type = $type",
@@ -146,6 +161,47 @@ function createEqualityFragments(
   }
 
   return fragments;
+}
+
+function createLabelFragments(
+  labelIds: readonly string[] | undefined,
+): FilterFragment[] {
+  if (!labelIds || labelIds.length === 0) {
+    return [];
+  }
+
+  const { parameters, placeholders } = createInClause("label_id", labelIds);
+
+  return [
+    {
+      condition: `work_items.id IN (
+              SELECT work_item_labels.work_item_id
+              FROM work_item_labels
+              WHERE work_item_labels.label_id IN (${placeholders})
+          )`,
+      parameters,
+    },
+  ];
+}
+
+function createAssignedToFragments(
+  assignedToUserId: string | undefined,
+): FilterFragment[] {
+  if (!assignedToUserId) {
+    return [];
+  }
+
+  return [
+    {
+      condition: `(work_items.assignee_id = $assigned_to_user_id
+              OR work_items.assignee_group_id IN (
+                  SELECT user_group_members.group_id
+                  FROM user_group_members
+                  WHERE user_group_members.user_id = $assigned_to_user_id
+              ))`,
+      parameters: { assigned_to_user_id: assignedToUserId },
+    },
+  ];
 }
 
 function createSearchFragments(search: string | undefined): FilterFragment[] {
@@ -214,6 +270,8 @@ export function buildWorkItemFilter(
       : []),
     ...createProjectFragments(options.projectIds),
     ...createEqualityFragments(options),
+    ...createAssignedToFragments(options.assignedToUserId),
+    ...createLabelFragments(options.labelIds),
     ...createSearchFragments(options.search),
     ...createFlagFragments(options),
   ];

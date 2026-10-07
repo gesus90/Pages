@@ -6,6 +6,7 @@ import { I18nextProvider } from "react-i18next";
 import { createMemoryRouter, RouterProvider } from "react-router";
 
 import { TaskDetailPanel } from "@/app/components/tasks/task-detail-panel";
+import { TicketAccessProvider } from "@/app/components/tasks/ticket-access";
 import { createI18n } from "@/app/lib/i18n";
 import {
   WORK_ITEM_PRIORITY,
@@ -14,10 +15,11 @@ import {
 } from "@/definition/Task";
 import { LANGUAGE } from "@/language/Language";
 
+import type { TicketAccess } from "@/app/components/tasks/ticket-access";
 import type { Project } from "@/definition/Project";
 import type {
   Milestone,
-  ProjectLabel,
+  Label,
   WorkItemDetail,
   WorkItemHistory,
   WorkflowStatus,
@@ -52,7 +54,9 @@ function createWorkItem(
     departmentId: null,
     archivedAt: null,
     assigneeId: "user-1",
+    assigneeGroupId: null,
     assigneeName: "Admin",
+    assigneeGroupName: null,
     reporterName: "Alex Berger",
     completedAt: null,
     createdAt: "2026-01-01",
@@ -214,13 +218,12 @@ function createProjects(): Project[] {
   ];
 }
 
-function createLabel(overrides: Partial<ProjectLabel> = {}): ProjectLabel {
+function createLabel(overrides: Partial<Label> = {}): Label {
   return {
     color: "#3b82f6",
     createdAt: "2026-01-01",
     id: "label-1",
     name: "Feature",
-    projectId: "project-1",
     updatedAt: "2026-01-02",
     ...overrides,
   };
@@ -269,8 +272,20 @@ function createWorkItems(): WorkItemDetail[] {
   ];
 }
 
+const WRITER_ACCESS: TicketAccess = {
+  projects: [],
+  assigneeGroups: [],
+  canDelete: false,
+  canWrite: true,
+  departments: [
+    { id: "department-1", name: "Entwicklung" },
+    { id: "department-2", name: "Support" },
+  ],
+};
+
 function renderPanel(
   properties: Partial<Parameters<typeof TaskDetailPanel>[0]> = {},
+  access: TicketAccess = WRITER_ACCESS,
 ): {
   onClose: ReturnType<typeof vi.fn>;
   onCreateSubtask: ReturnType<typeof vi.fn>;
@@ -302,7 +317,7 @@ function renderPanel(
             onEdit={onEdit}
             onOpenTask={onOpenTask}
             onSelectTask={onSelectTask}
-            projectLabels={[
+            labels={[
               createLabel(),
               createLabel({
                 color: "#22c55e",
@@ -313,7 +328,6 @@ function renderPanel(
                 color: "#6b7280",
                 id: "label-9",
                 name: "Docs",
-                projectId: "project-2",
               }),
             ]}
             projects={createProjects()}
@@ -350,11 +364,58 @@ function renderPanel(
 
   render(
     <I18nextProvider i18n={i18n}>
-      <RouterProvider router={router} />
+      <TicketAccessProvider value={access}>
+        <RouterProvider router={router} />
+      </TicketAccessProvider>
     </I18nextProvider>,
   );
 
   return { onClose, onCreateSubtask, onEdit, onOpenTask, onSelectTask };
+}
+
+/** Renders the panel with an action that records every submission and then fails. */
+function renderPanelCapturing(
+  submissions: FormData[],
+  access: TicketAccess = WRITER_ACCESS,
+  entry = "/",
+): void {
+  const router = createMemoryRouter(
+    [
+      {
+        async action({ request }) {
+          submissions.push(await request.formData());
+
+          return { error: "forbidden", intent: "delete-task", ok: false };
+        },
+        element: (
+          <TaskDetailPanel
+            assignees={createAssignees()}
+            history={[]}
+            milestones={createMilestones()}
+            onClose={vi.fn()}
+            onCreateSubtask={vi.fn()}
+            onEdit={vi.fn()}
+            onOpenTask={vi.fn()}
+            onSelectTask={vi.fn()}
+            projects={createProjects()}
+            statuses={createStatuses()}
+            subtasks={[]}
+            task={createWorkItem()}
+          />
+        ),
+        path: "/",
+      },
+    ],
+    { initialEntries: [entry] },
+  );
+
+  render(
+    <I18nextProvider i18n={createI18n(LANGUAGE.GERMAN)}>
+      <TicketAccessProvider value={access}>
+        <RouterProvider router={router} />
+      </TicketAccessProvider>
+    </I18nextProvider>,
+  );
 }
 
 describe("TaskDetailPanel", () => {
@@ -399,6 +460,18 @@ describe("TaskDetailPanel", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("renders the description as markdown", () => {
+    renderPanel({
+      task: createWorkItem({ description: "- first\n- [x](/wiki/a)" }),
+    });
+
+    expect(screen.getAllByRole("listitem").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByRole("link", { name: /x/ })).toHaveAttribute(
+      "data-link-kind",
+      "wiki",
+    );
+  });
+
   it("opens subtasks from their rows with click and double click", async () => {
     const user = userEvent.setup();
     const { onSelectTask, onOpenTask } = renderPanel();
@@ -428,7 +501,9 @@ describe("TaskDetailPanel", () => {
       subtasks: [],
       task: createWorkItem({
         assigneeId: null,
+        assigneeGroupId: null,
         assigneeName: null,
+        assigneeGroupName: null,
         reporterName: null,
         description: "",
         dueAt: null,
@@ -531,7 +606,7 @@ describe("TaskDetailPanel", () => {
     expect(screen.getAllByText("Archiviert").length).toBeGreaterThan(0);
     expect(
       screen.getAllByRole("button", { name: "Wiederherstellen" }),
-    ).toHaveLength(1);
+    ).toHaveLength(2);
     expect(screen.getByLabelText("Status")).toBeDisabled();
     expect(
       screen.queryByRole("button", { name: "Bearbeiten" }),
@@ -539,6 +614,73 @@ describe("TaskDetailPanel", () => {
     expect(
       screen.queryByRole("button", { name: "Unteraufgabe" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("hides restore and archive controls and explains read-only access", () => {
+    renderPanel(
+      { task: createWorkItem({ archivedAt: "2026-09-05" }) },
+      { ...WRITER_ACCESS, canWrite: false },
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Wiederherstellen" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText(/nur Leserechte/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Abteilung")).toBeDisabled();
+  });
+
+  it("reassigns the department through its own intent", async () => {
+    const user = userEvent.setup();
+    const submissions: FormData[] = [];
+    renderPanelCapturing(submissions);
+
+    await user.click(screen.getByLabelText("Abteilung"));
+    await user.click(screen.getByRole("option", { name: "Support" }));
+
+    expect(submissions).toHaveLength(1);
+    expect(Object.fromEntries(submissions[0] ?? [])).toMatchObject({
+      departmentId: "department-2",
+      id: "item-1",
+      intent: "set-department",
+    });
+  });
+
+  it("confirms permanent deletion for administrators and shows errors", async () => {
+    const user = userEvent.setup();
+    const submissions: FormData[] = [];
+    renderPanelCapturing(submissions, {
+      ...WRITER_ACCESS,
+      canDelete: true,
+    });
+
+    await user.click(screen.getByRole("button", { name: "Endgültig löschen" }));
+    expect(screen.getByText("PAGE-12 endgültig löschen?")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Endgültig löschen" }));
+
+    expect(Object.fromEntries(submissions[0] ?? [])).toMatchObject({
+      id: "item-1",
+      intent: "delete-task",
+      redirectTo: "/",
+    });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Du bist nicht berechtigt",
+    );
+  });
+
+  it("leaves the selected ticket of the board address after deleting it", async () => {
+    const user = userEvent.setup();
+    renderPanelCapturing(
+      [],
+      { ...WRITER_ACCESS, canDelete: true },
+      "/?item=PAGE-12&view=list",
+    );
+
+    await user.click(screen.getByRole("button", { name: "Endgültig löschen" }));
+
+    expect(document.querySelector('input[name="redirectTo"]')).toHaveAttribute(
+      "value",
+      "/?view=list",
+    );
   });
 
   it("shows the compact GitHub state for linked tickets", () => {
@@ -641,7 +783,9 @@ describe("TaskDetailPanel", () => {
       subtasks: [],
       task: createWorkItem({
         assigneeId: null,
+        assigneeGroupId: null,
         assigneeName: null,
+        assigneeGroupName: null,
         dueAt: null,
         milestoneId: null,
         milestoneName: null,
@@ -914,7 +1058,7 @@ describe("TaskDetailPanel", () => {
               onEdit={vi.fn()}
               onOpenTask={vi.fn()}
               onSelectTask={vi.fn()}
-              projectLabels={[
+              labels={[
                 createLabel(),
                 createLabel({
                   color: "#22c55e",
@@ -1020,6 +1164,7 @@ describe("TaskDetailPanel", () => {
         {
           ...createWorkItem(),
           assigneeName: null,
+          assigneeGroupName: null,
           dueAt: null,
           id: "sub-1",
           isDone: false,
@@ -1160,7 +1305,7 @@ describe("TaskDetailPanel", () => {
               onEdit={vi.fn()}
               onOpenTask={vi.fn()}
               onSelectTask={vi.fn()}
-              projectLabels={[createLabel()]}
+              labels={[createLabel()]}
               projects={createProjects()}
               statuses={createStatuses()}
               subtasks={[]}
@@ -1281,7 +1426,7 @@ describe("TaskDetailPanel", () => {
               onEdit={vi.fn()}
               onOpenTask={vi.fn()}
               onSelectTask={vi.fn()}
-              projectLabels={[createLabel()]}
+              labels={[createLabel()]}
               projects={createProjects()}
               statuses={createStatuses()}
               subtasks={[]}

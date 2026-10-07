@@ -7,17 +7,17 @@ import { Select } from "@/app/components/ui/select";
 import { WORK_ITEM_PRIORITY } from "@/definition/Task";
 
 import type {
-  ProjectLabel,
+  Label,
   WorkItemDetail,
   WorkItemPriority,
 } from "@/definition/Task";
 
 interface DetailKeyDetailsSectionProps {
   readonly task: WorkItemDetail;
-  readonly taskLabels: readonly ProjectLabel[];
+  readonly taskLabels: readonly Label[];
   readonly isArchived: boolean;
   readonly onChangePriority: (priority: WorkItemPriority) => void;
-  readonly onRemoveLabel: (label: ProjectLabel) => void;
+  readonly onRemoveLabel: (label: Label) => void;
   readonly onEditLabels: () => void;
 }
 

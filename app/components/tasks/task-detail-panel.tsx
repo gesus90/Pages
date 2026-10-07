@@ -12,7 +12,7 @@ import type { GitHubPullRequest } from "@/definition/GitHub";
 import type { Project } from "@/definition/Project";
 import type {
   Milestone,
-  ProjectLabel,
+  Label,
   WorkItemChecklistItem,
   WorkItemDetail,
   WorkItemHistory,
@@ -33,8 +33,8 @@ interface TaskDetailPanelProps {
   readonly milestones?: readonly Milestone[];
   readonly projects?: readonly Project[];
   readonly workItems?: readonly WorkItemDetail[];
-  readonly projectLabels?: readonly ProjectLabel[];
-  readonly taskLabels?: readonly ProjectLabel[];
+  readonly labels?: readonly Label[];
+  readonly taskLabels?: readonly Label[];
   readonly labelUsage?: Readonly<Record<string, number>>;
   readonly assigneesByProject?: Readonly<Record<string, readonly User[]>>;
   readonly onClose: () => void;
@@ -57,7 +57,7 @@ export function TaskDetailPanel({
   milestones = [],
   projects = [],
   workItems = [],
-  projectLabels = [],
+  labels = [],
   taskLabels = [],
   labelUsage,
   assigneesByProject = {},
@@ -128,7 +128,7 @@ export function TaskDetailPanel({
             onLabelPickerOpenChange={dialogs.setIsLabelPickerOpen}
             onMoveDialogClose={dialogs.closeMoveDialog}
             pendingProjectId={dialogs.pendingProjectId}
-            projectLabels={projectLabels}
+            labels={labels}
             projects={projects}
             task={task}
             taskLabels={taskLabels}

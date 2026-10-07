@@ -1,3 +1,4 @@
+import { WorkItemValidationError } from "@/backend/error/WorkItemErrors";
 import { decryptGitHubToken } from "@/backend/github/GitHubTokenCrypto";
 
 import type { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
@@ -20,6 +21,8 @@ export interface GitHubSyncContext {
 /** Options controlling which integrations resolve to a sync context. */
 export interface FindSyncContextOptions {
   readonly allowTokenless?: boolean;
+  /** Resolves integrations whose project-wide synchronization is switched off. */
+  readonly includeDisabled?: boolean;
 }
 
 /**
@@ -69,8 +72,8 @@ export class GitHubSyncContextLoader {
    * Resolves the sync context of a project.
    *
    * @param projectId - Project owning the integration.
-   * @param options - Whether integrations without a stored token still resolve.
-   * @returns The context, or `null` when the project is not connected.
+   * @param options - Whether integrations without a token or with the sync switched off still resolve.
+   * @returns The context, or `null` when the project is not connected or its sync is off.
    */
   public async findContext(
     projectId: string,
@@ -79,6 +82,10 @@ export class GitHubSyncContextLoader {
     const integration = await this.projectRepository.findIntegration(projectId);
 
     if (!integration || !integration.repoUrl) {
+      return null;
+    }
+
+    if (!integration.syncEnabled && !options.includeDisabled) {
       return null;
     }
 
@@ -108,15 +115,26 @@ export class GitHubSyncContextLoader {
    * Resolves the sync context of a project that must be connected.
    *
    * @param projectId - Project owning the integration.
+   * @throws {WorkItemValidationError} When the synchronization is switched off.
    * @throws {Error} When the project has no usable connected integration.
    */
   public async requireContext(projectId: string): Promise<GitHubSyncContext> {
     const sync = await this.findContext(projectId);
 
-    if (!sync) {
-      throw new Error("GitHub integration is not connected.");
+    if (sync) {
+      return sync;
     }
 
-    return sync;
+    const disabled = await this.findContext(projectId, {
+      includeDisabled: true,
+    });
+
+    if (disabled) {
+      throw new WorkItemValidationError(
+        "GitHub synchronization is switched off for this project.",
+      );
+    }
+
+    throw new Error("GitHub integration is not connected.");
   }
 }

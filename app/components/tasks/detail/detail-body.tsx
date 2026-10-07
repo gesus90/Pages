@@ -10,7 +10,7 @@ import type { TaskPanelActions } from "@/app/components/tasks/detail/use-task-pa
 import type { Project } from "@/definition/Project";
 import type {
   Milestone,
-  ProjectLabel,
+  Label,
   WorkItemChecklistItem,
   WorkItemDetail,
   WorkItemLink,
@@ -47,7 +47,7 @@ interface DetailBodyProps {
   readonly subtasks: readonly WorkItemDetail[];
   readonly checklist: readonly WorkItemChecklistItem[];
   readonly links: readonly WorkItemLink[];
-  readonly taskLabels: readonly ProjectLabel[];
+  readonly taskLabels: readonly Label[];
   readonly assignees: readonly User[];
   readonly assigneesByProject: Readonly<Record<string, readonly User[]>>;
   readonly projects: readonly Project[];

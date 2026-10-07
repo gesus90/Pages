@@ -62,6 +62,22 @@ export const handleSyncIntegration: ProjectActionHandler = async ({
   return succeeded();
 };
 
+/** Switches the GitHub synchronization of the project on or off. */
+export const handleSetIntegrationSync: ProjectActionHandler = async ({
+  actor,
+  formData,
+  projectId,
+  services,
+}) => {
+  const integration = await services.projectService.setIntegrationSyncEnabled(
+    actor,
+    projectId,
+    formData.get("syncEnabled") === "on",
+  );
+
+  return integration ? succeeded() : invalidInput();
+};
+
 /** Removes the GitHub connection of the project. */
 export const handleDisconnectIntegration: ProjectActionHandler = async ({
   actor,

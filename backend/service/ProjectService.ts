@@ -42,6 +42,7 @@ import type {
   ProjectRole,
   ProjectTemplate,
 } from "@/definition/Project";
+import type { AuthorizationFacts } from "./project/ProjectAccessService";
 import type { WorkItemVisibility } from "@/definition/Task";
 import type { User } from "@/definition/User";
 
@@ -105,6 +106,11 @@ export class ProjectService {
   /** Returns the current server-only ticket visibility within accessible active projects. */
   public async workItemVisibility(actor: User): Promise<WorkItemVisibility> {
     return (await this.access.scope(actor)).visibility;
+  }
+
+  /** Returns the live account and department catalog for ticket department decisions. */
+  public async authorizationFacts(actor: User): Promise<AuthorizationFacts> {
+    return this.access.authorizationFacts(actor);
   }
 
   /** Filters backend candidate catalogs by each user's current project read access. */
@@ -594,6 +600,45 @@ export class ProjectService {
       action: "integration_saved",
       category: "integrations",
       message: `GitHub integration settings were saved.`,
+    });
+
+    return this.projectRepository.findIntegration(projectId);
+  }
+
+  /**
+   * Switches the GitHub synchronization of a project on or off.
+   *
+   * @param actor - User performing the change; must hold write permission.
+   * @param projectId - Project the integration belongs to.
+   * @param isEnabled - Whether scheduled and manual synchronization runs.
+   * @returns The stored integration, or `null` when the project has none.
+   *
+   * @remarks
+   * Repository and token stay stored while the switch is off.
+   */
+  public async setIntegrationSyncEnabled(
+    actor: User,
+    projectId: string,
+    isEnabled: boolean,
+  ): Promise<ProjectIntegration | null> {
+    await this.requireProjectWrite(actor, projectId);
+    await this.getById(actor, projectId);
+
+    if (!(await this.projectRepository.findIntegration(projectId))) {
+      return null;
+    }
+
+    await this.projectRepository.setIntegrationSyncEnabled(
+      projectId,
+      isEnabled,
+    );
+    this.cache.invalidateGitHub();
+    await this.recordActivity(actor, projectId, {
+      action: "integration_sync_switched",
+      category: "integrations",
+      message: isEnabled
+        ? "GitHub synchronization was switched on."
+        : "GitHub synchronization was switched off.",
     });
 
     return this.projectRepository.findIntegration(projectId);

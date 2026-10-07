@@ -3,12 +3,13 @@ import { useTranslation } from "react-i18next";
 import { Tabs, TabsContent } from "@/app/components/ui/tabs";
 import { UserDirectory } from "@/app/components/users/user-directory";
 import { RoleCatalog } from "@/app/components/users/role-catalog";
+import { GroupCatalog } from "@/app/components/users/group-catalog";
 import { DepartmentCatalog } from "@/app/components/users/department-catalog";
 import { ManagementFeedback } from "@/app/components/users/management-feedback";
 
 import type { AdministrationPageData } from "@/definition/Authorization";
 
-/** The three management sections share the page layout and accessible tab pattern. */
+/** The management sections share the page layout and accessible tab pattern. */
 export function ManagementWorkspace({
   directory,
 }: {
@@ -21,6 +22,8 @@ export function ManagementWorkspace({
     tabs.push({ value: "roles", label: t("users.sections.roles") });
   if (directory.canManageDepartments)
     tabs.push({ value: "departments", label: t("users.sections.departments") });
+  if (directory.groups.canManage)
+    tabs.push({ value: "groups", label: t("users.sections.groups") });
   const current = tabs.some((tab) => tab.value === section) ? section : "users";
   return (
     <section className="pages-page-fill mx-auto flex w-full max-w-6xl flex-col">
@@ -51,6 +54,11 @@ export function ManagementWorkspace({
         {directory.canManageDepartments ? (
           <TabsContent value="departments" className="mt-6 min-h-0 flex-1">
             <DepartmentCatalog directory={directory} />
+          </TabsContent>
+        ) : null}
+        {directory.groups.canManage ? (
+          <TabsContent value="groups" className="mt-6 min-h-0 flex-1">
+            <GroupCatalog directory={directory} />
           </TabsContent>
         ) : null}
       </Tabs>

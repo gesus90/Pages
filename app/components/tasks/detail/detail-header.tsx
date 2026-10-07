@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Form } from "react-router";
 
 import { TaskTypeBadge } from "@/app/components/tasks/task-badges";
+import { useTicketAccess } from "@/app/components/tasks/ticket-access";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Select } from "@/app/components/ui/select";
@@ -220,25 +221,28 @@ function ArchivedBanner({
   isArchiving,
 }: ArchivedBannerProps): React.ReactElement {
   const { t } = useTranslation();
+  const { canWrite } = useTicketAccess();
 
   return (
     <div className="mt-4 flex items-center justify-between gap-2 rounded-xl bg-orange-50 px-4 py-2 text-xs">
       <span className="font-semibold text-foreground">
         {t("tasks.archived.banner")}
       </span>
-      <Form method="post">
-        <input name="intent" type="hidden" value="restore-task" />
-        <input name="id" type="hidden" value={workItemId} />
-        <Button
-          className="h-8 gap-1.5 px-3 text-xs"
-          disabled={isArchiving}
-          type="submit"
-          variant="ghost"
-        >
-          <RotateCcw className="size-3.5" aria-hidden="true" />
-          {t("tasks.archived.restore")}
-        </Button>
-      </Form>
+      {canWrite ? (
+        <Form method="post">
+          <input name="intent" type="hidden" value="restore-task" />
+          <input name="id" type="hidden" value={workItemId} />
+          <Button
+            className="h-8 gap-1.5 px-3 text-xs"
+            disabled={isArchiving}
+            type="submit"
+            variant="ghost"
+          >
+            <RotateCcw className="size-3.5" aria-hidden="true" />
+            {t("tasks.archived.restore")}
+          </Button>
+        </Form>
+      ) : null}
     </div>
   );
 }

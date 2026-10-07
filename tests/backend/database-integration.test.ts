@@ -35,6 +35,7 @@ describe("DuckDB persistence", () => {
       "github_external_issues",
       "github_pull_requests",
       "instance_settings",
+      "labels",
       "managed_departments",
       "milestone_dependencies",
       "milestones",
@@ -45,7 +46,6 @@ describe("DuckDB persistence", () => {
       "project_icons",
       "project_integrations",
       "project_keys",
-      "project_labels",
       "project_members",
       "project_tags",
       "project_template_goals",
@@ -59,6 +59,9 @@ describe("DuckDB persistence", () => {
       "tasks",
       "user_authorization",
       "user_avatars",
+      "user_board_preferences",
+      "user_group_members",
+      "user_groups",
       "user_settings",
       "users",
       "wiki_pages",
@@ -66,6 +69,11 @@ describe("DuckDB persistence", () => {
       "work_item_history",
       "work_item_labels",
       "work_item_links",
+      "work_item_template_checklist_items",
+      "work_item_template_departments",
+      "work_item_template_labels",
+      "work_item_template_projects",
+      "work_item_templates",
       "work_items",
       "workflow_statuses",
     ]);
@@ -232,7 +240,9 @@ describe("DuckDB persistence", () => {
 
     await tasks.insert({
       assigneeId: null,
+      assigneeGroupId: null,
       createdBy: "user-1",
+      departmentId: null,
       description: "",
       dueAt: null,
       id: "item-1",
@@ -253,7 +263,6 @@ describe("DuckDB persistence", () => {
       color: "#3b82f6",
       id: "label-1",
       name: "Feature",
-      projectId: "project-1",
     });
     await tasks.assignLabel("item-1", "label-1");
 
@@ -269,7 +278,7 @@ describe("DuckDB persistence", () => {
     expect(labels.get("item-1")).toMatchObject([{ name: "Feature" }]);
     expect(await tasks.countLabelUsage("label-1")).toBe(1);
 
-    await tasks.archive("item-1");
+    await tasks.archiveMany(["item-1"]);
     await expect(
       tasks.findAll({ projectIds: ["project-1"] }),
     ).resolves.toHaveLength(0);
@@ -286,7 +295,7 @@ describe("DuckDB persistence", () => {
     });
     expect(everything).toHaveLength(1);
 
-    await tasks.restore("item-1");
+    await tasks.restoreMany(["item-1"]);
     await tasks.setGitHubError("item-1", "Forbidden");
     await expect(tasks.findById("item-1")).resolves.toMatchObject({
       githubLastError: "Forbidden",

@@ -56,7 +56,7 @@ describe("TaskPriorityBadge", () => {
 
   it("renders normal priority", () => {
     renderWithI18n(<TaskPriorityBadge priority={WORK_ITEM_PRIORITY.NORMAL} />);
-    expect(screen.getByText("Normal")).toBeInTheDocument();
+    expect(screen.getByText("Mittel")).toBeInTheDocument();
   });
 });
 

@@ -9,11 +9,7 @@ import { Button } from "@/app/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/app/components/ui/dialog";
 
 import type { Project } from "@/definition/Project";
-import type {
-  Milestone,
-  ProjectLabel,
-  WorkItemDetail,
-} from "@/definition/Task";
+import type { Milestone, Label, WorkItemDetail } from "@/definition/Task";
 import type { User } from "@/definition/User";
 
 interface TaskMoveDialogProps {
@@ -23,7 +19,7 @@ interface TaskMoveDialogProps {
   readonly projects: readonly Project[];
   readonly workItems: readonly WorkItemDetail[];
   readonly milestones: readonly Milestone[];
-  readonly taskLabels: readonly ProjectLabel[];
+  readonly taskLabels: readonly Label[];
   readonly assigneesByProject: Readonly<Record<string, readonly User[]>>;
   readonly initialTargetProjectId?: string;
   readonly isSubmitting?: boolean;

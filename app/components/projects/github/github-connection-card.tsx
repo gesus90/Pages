@@ -1,6 +1,7 @@
 import { Form } from "react-router";
 import { useTranslation } from "react-i18next";
 
+import { GitHubSyncSwitch } from "@/app/components/projects/github/github-sync-switch";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/lib/cn";
 
@@ -35,15 +36,22 @@ function IntentButton({
   intent,
   label,
   className,
+  disabled = false,
 }: {
   readonly intent: string;
   readonly label: string;
   readonly className: string;
+  readonly disabled?: boolean;
 }): React.ReactElement {
   return (
     <Form method="post">
       <input name="intent" type="hidden" value={intent} />
-      <Button className={className} type="submit" variant="ghost">
+      <Button
+        className={className}
+        disabled={disabled}
+        type="submit"
+        variant="ghost"
+      >
         {label}
       </Button>
     </Form>
@@ -92,10 +100,12 @@ export function GitHubConnectionCard({
           }
         />
       </dl>
+      <GitHubSyncSwitch isEnabled={integration.syncEnabled} />
       <div className="flex flex-wrap gap-2">
         {integration.isConnected ? (
           <IntentButton
             className="h-8 px-3 text-xs"
+            disabled={!integration.syncEnabled}
             intent="sync-integration"
             label={t("projectDetail.integrations.syncNow")}
           />

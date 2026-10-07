@@ -1,4 +1,4 @@
-import { data } from "react-router";
+import { data, redirect } from "react-router";
 
 import { GitHubApiError } from "@/backend/github/GitHubApiClient";
 import {
@@ -15,9 +15,14 @@ import type { User } from "@/definition/User";
 export type TaskActionIntent =
   | "archive-task"
   | "restore-task"
+  | "delete-task"
+  | "set-department"
   | "move-project"
   | "create-task"
+  | "save-template"
+  | "delete-template"
   | "move-task"
+  | "save-board-preferences"
   | "update-task"
   | "label-create"
   | "label-update"
@@ -50,8 +55,9 @@ type TaskActionResult =
       readonly error: string;
     };
 
-/** The response an action handler returns to React Router. */
-export type TaskActionResponse = ReturnType<typeof data<TaskActionResult>>;
+/** The response an action handler returns to React Router; a redirect leaves the page of a removed ticket. */
+export type TaskActionResponse =
+  ReturnType<typeof data<TaskActionResult>> | Response;
 
 /** Everything a ticket action handler needs from the request. */
 export interface TaskActionContext {
@@ -93,6 +99,28 @@ export async function runTaskAction(
     await work();
 
     return data<TaskActionResult>({ intent, ok: true });
+  } catch (error: unknown) {
+    return handleTaskActionError(error, intent);
+  }
+}
+
+/**
+ * Runs the service call of a ticket action after which the current page is gone.
+ *
+ * @param intent - The action being run.
+ * @param work - Calls the service; its result is ignored.
+ * @param target - Local path the client is sent to after success.
+ * @returns A redirect, or the failure `handleTaskActionError` maps.
+ */
+export async function runTaskActionThenRedirect(
+  intent: TaskActionIntent,
+  work: () => Promise<unknown>,
+  target: string,
+): Promise<TaskActionResponse> {
+  try {
+    await work();
+
+    return redirect(target);
   } catch (error: unknown) {
     return handleTaskActionError(error, intent);
   }

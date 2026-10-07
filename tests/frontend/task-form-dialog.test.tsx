@@ -6,6 +6,7 @@ import { I18nextProvider } from "react-i18next";
 import { createMemoryRouter, RouterProvider } from "react-router";
 
 import { TaskFormDialog } from "@/app/components/tasks/task-form-dialog";
+import { TicketAccessProvider } from "@/app/components/tasks/ticket-access";
 import { createI18n } from "@/app/lib/i18n";
 import {
   WORK_ITEM_PRIORITY,
@@ -22,6 +23,7 @@ import type {
   WorkItemDetail,
   WorkflowStatus,
 } from "@/definition/Task";
+import type { WorkItemTemplateView } from "@/definition/WorkItemTemplate";
 
 function createProject(): Project {
   return {
@@ -86,7 +88,9 @@ function createWorkItem(): WorkItemDetail {
     departmentId: null,
     archivedAt: null,
     assigneeId: "user-1",
+    assigneeGroupId: null,
     assigneeName: "Admin",
+    assigneeGroupName: null,
     reporterName: "Reporter",
     completedAt: null,
     createdAt: "2026-01-01",
@@ -124,6 +128,29 @@ function createWorkItem(): WorkItemDetail {
     title: "Kanban Task",
     type: WORK_ITEM_TYPE.TASK,
     updatedAt: "2026-01-02",
+  };
+}
+
+function createTemplate(
+  overrides: Partial<WorkItemTemplateView> = {},
+): WorkItemTemplateView {
+  return {
+    canManage: true,
+    checklist: ["Reproduzieren", "Beheben"],
+    createdAt: "2026-01-01",
+    departmentIds: [],
+    description: "Schritte zum Nachstellen",
+    id: "template-1",
+    labelIds: ["label-1"],
+    name: "Fehlerbericht",
+    ownerId: "user-1",
+    priority: WORK_ITEM_PRIORITY.URGENT,
+    projectIds: [],
+    scope: "private",
+    title: "Fehler: ",
+    type: WORK_ITEM_TYPE.EPIC,
+    updatedAt: "2026-01-01",
+    ...overrides,
   };
 }
 
@@ -172,7 +199,17 @@ function renderDialog(
 
   render(
     <I18nextProvider i18n={i18n}>
-      <RouterProvider router={router} />
+      <TicketAccessProvider
+        value={{
+          projects: [],
+          assigneeGroups: [],
+          canDelete: false,
+          canWrite: true,
+          departments: [{ id: "department-1", name: "Entwicklung" }],
+        }}
+      >
+        <RouterProvider router={router} />
+      </TicketAccessProvider>
     </I18nextProvider>,
   );
 }
@@ -189,6 +226,14 @@ describe("TaskFormDialog", () => {
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Titel *")).toBeInTheDocument();
     expect(screen.getByLabelText("Projekt *")).toBeInTheDocument();
+  });
+
+  it("hints that the description supports markdown", () => {
+    renderDialog({ mode: "create" });
+
+    expect(screen.getByLabelText("Beschreibung")).toHaveAccessibleDescription(
+      "Markdown wird unterstützt.",
+    );
   });
 
   it("renders in edit mode with prepopulated task details", () => {
@@ -237,6 +282,7 @@ describe("TaskFormDialog", () => {
       initialTask: {
         ...createWorkItem(),
         assigneeId: null,
+        assigneeGroupId: null,
         milestoneId: null,
         parentId: null,
       },
@@ -334,6 +380,32 @@ describe("TaskFormDialog", () => {
     await user.click(screen.getByLabelText("Meilenstein"));
     await user.click(await screen.findByRole("option", { name: "v1.0" }));
     expect(screen.getByLabelText("Meilenstein")).toHaveTextContent("v1.0");
+  });
+
+  it("offers an optional department only when creating", async () => {
+    const user = userEvent.setup();
+    renderDialog({ mode: "create" });
+
+    expect(screen.getByLabelText("Abteilung")).toHaveTextContent(
+      "Keine Abteilung",
+    );
+    await user.click(screen.getByLabelText("Abteilung"));
+    await user.click(
+      await screen.findByRole("option", { name: "Entwicklung" }),
+    );
+
+    expect(document.querySelector('input[name="departmentId"]')).toHaveValue(
+      "department-1",
+    );
+  });
+
+  it("does not offer the department while editing", () => {
+    renderDialog({ initialTask: createWorkItem(), mode: "edit" });
+
+    expect(screen.queryByLabelText("Abteilung")).not.toBeInTheDocument();
+    expect(
+      document.querySelector('input[name="departmentId"]'),
+    ).not.toBeInTheDocument();
   });
 
   it("shows submitting progress when creating", () => {
@@ -459,5 +531,73 @@ describe("TaskFormDialog", () => {
     await user.click(await screen.findByRole("option", { name: "AstroLab" }));
 
     expect(projectSelect).toHaveTextContent("AstroLab");
+  });
+
+  it("offers no template field without templates or while editing", () => {
+    renderDialog({ mode: "create" });
+    expect(screen.queryByLabelText("Aus Vorlage")).not.toBeInTheDocument();
+  });
+
+  it("does not offer templates while editing", () => {
+    renderDialog({
+      initialTask: createWorkItem(),
+      mode: "edit",
+      templates: [createTemplate()],
+    });
+
+    expect(screen.queryByLabelText("Aus Vorlage")).not.toBeInTheDocument();
+    expect(
+      document.querySelector('input[name="templateId"]'),
+    ).not.toBeInTheDocument();
+  });
+
+  it("presets a new ticket from the chosen template", async () => {
+    const user = userEvent.setup();
+    renderDialog({ mode: "create", templates: [createTemplate()] });
+
+    await user.click(screen.getByLabelText("Aus Vorlage"));
+    await user.click(
+      await screen.findByRole("option", { name: "Fehlerbericht" }),
+    );
+
+    expect(screen.getByLabelText("Titel *")).toHaveValue("Fehler: ");
+    expect(screen.getByLabelText("Beschreibung")).toHaveValue(
+      "Schritte zum Nachstellen",
+    );
+    expect(screen.getByLabelText("Priorität")).toHaveTextContent("Dringend");
+    expect(document.querySelector('input[name="type"]')).toHaveValue("epic");
+    expect(document.querySelector('input[name="templateId"]')).toHaveValue(
+      "template-1",
+    );
+    expect(
+      screen.getByText(/Labels \(1\) und Checklistenpunkte \(2\)/),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByLabelText("Aus Vorlage"));
+    await user.click(
+      await screen.findByRole("option", { name: "Keine Vorlage" }),
+    );
+
+    expect(screen.getByLabelText("Titel *")).toHaveValue("");
+    expect(document.querySelector('input[name="templateId"]')).toHaveValue("");
+    expect(screen.queryByText(/Checklistenpunkte/)).not.toBeInTheDocument();
+  });
+
+  it("keeps the type of a ticket created below a parent", async () => {
+    const user = userEvent.setup();
+    renderDialog({
+      defaultParentId: "epic-1",
+      defaultType: WORK_ITEM_TYPE.TASK,
+      mode: "create",
+      templates: [createTemplate()],
+    });
+
+    await user.click(screen.getByLabelText("Aus Vorlage"));
+    await user.click(
+      await screen.findByRole("option", { name: "Fehlerbericht" }),
+    );
+
+    expect(document.querySelector('input[name="type"]')).toHaveValue("task");
+    expect(screen.getByLabelText("Titel *")).toHaveValue("Fehler: ");
   });
 });

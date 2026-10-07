@@ -7,11 +7,11 @@ import {
 } from "@/app/components/tasks/task-badges";
 import { TaskLabelList } from "@/app/components/tasks/task-labels";
 
-import type { ProjectLabel, WorkItemDetail } from "@/definition/Task";
+import type { Label, WorkItemDetail } from "@/definition/Task";
 
 interface TasksListRowProps {
   readonly item: WorkItemDetail;
-  readonly labels: readonly ProjectLabel[];
+  readonly labels: readonly Label[];
   readonly isSelected: boolean;
   readonly onSelectTask: (key: string) => void;
   readonly onOpenTask: (key: string) => void;
@@ -64,7 +64,7 @@ export function TasksListRow({
         <TaskPriorityBadge priority={item.priority} />
       </td>
       <td className="px-3 py-3 whitespace-nowrap text-muted-foreground">
-        {item.assigneeName ?? t("tasks.unassigned")}
+        {item.assigneeName ?? item.assigneeGroupName ?? t("tasks.unassigned")}
       </td>
       <td className="max-w-48 px-3 py-3">
         <TaskLabelList labels={labels} maxVisible={2} />

@@ -1,15 +1,15 @@
 import { LabelListItem } from "@/app/components/tasks/label-picker/label-list-item";
 
 import type { LabelEditing } from "@/app/components/tasks/label-picker/use-label-editing";
-import type { ProjectLabel } from "@/definition/Task";
+import type { Label } from "@/definition/Task";
 
 interface LabelListProps {
-  readonly labels: readonly ProjectLabel[];
+  readonly labels: readonly Label[];
   readonly assignedLabelIds: ReadonlySet<string>;
   readonly labelUsage: Readonly<Record<string, number>>;
   readonly isSubmitting: boolean;
   readonly editing: LabelEditing;
-  readonly onToggle: (label: ProjectLabel) => void;
+  readonly onToggle: (label: Label) => void;
 }
 
 /** Renders the scrollable list of catalog labels. */

@@ -1,4 +1,5 @@
 import { EligibleAssigneeRepository } from "./task/EligibleAssigneeRepository";
+import { UserGroupRepository } from "./UserGroupRepository";
 import { MilestoneDependencyRepository } from "./task/MilestoneDependencyRepository";
 import { MilestoneRepository } from "./task/MilestoneRepository";
 import { TaskLabelRepository } from "./task/TaskLabelRepository";
@@ -7,6 +8,7 @@ import { WorkItemChecklistRepository } from "./task/WorkItemChecklistRepository"
 import { WorkItemCountRepository } from "./task/WorkItemCountRepository";
 import { WorkItemHistoryRepository } from "./task/WorkItemHistoryRepository";
 import { WorkItemKeyRepository } from "./task/WorkItemKeyRepository";
+import { WorkItemLifecycleRepository } from "./task/WorkItemLifecycleRepository";
 import { WorkItemLinkRepository } from "./task/WorkItemLinkRepository";
 import { WorkItemQueryRepository } from "./task/WorkItemQueryRepository";
 import { WorkItemWriteRepository } from "./task/WorkItemWriteRepository";
@@ -15,7 +17,7 @@ import type { Database } from "@/backend/database/Database";
 import type {
   Milestone,
   MilestoneDependency,
-  ProjectLabel,
+  Label,
   WorkItemChecklistItem,
   WorkItemDetail,
   WorkItemHistory,
@@ -23,13 +25,11 @@ import type {
   WorkItemVisibility,
   WorkflowStatus,
 } from "@/definition/Task";
+import type { GroupSummary } from "@/definition/UserGroup";
 import type { User } from "@/definition/User";
 import type { NewMilestoneDependency } from "./task/MilestoneDependencyRepository";
 import type { MilestoneUpdate, NewMilestone } from "./task/MilestoneRepository";
-import type {
-  NewProjectLabel,
-  ProjectLabelUpdate,
-} from "./task/TaskLabelRepository";
+import type { NewLabel, LabelUpdate } from "./task/TaskLabelRepository";
 import type {
   ChecklistItemUpdate,
   NewChecklistItem,
@@ -81,10 +81,12 @@ export class TaskRepository {
   private readonly queries: WorkItemQueryRepository;
   private readonly counts: WorkItemCountRepository;
   private readonly writes: WorkItemWriteRepository;
+  private readonly lifecycle: WorkItemLifecycleRepository;
   private readonly labels: TaskLabelRepository;
   private readonly checklist: WorkItemChecklistRepository;
   private readonly links: WorkItemLinkRepository;
   private readonly assignees: EligibleAssigneeRepository;
+  private readonly groups: UserGroupRepository;
 
   /**
    * Creates a task repository.
@@ -100,10 +102,12 @@ export class TaskRepository {
     this.queries = new WorkItemQueryRepository(database);
     this.counts = new WorkItemCountRepository(database);
     this.writes = new WorkItemWriteRepository(database);
+    this.lifecycle = new WorkItemLifecycleRepository(database);
     this.labels = new TaskLabelRepository(database);
     this.checklist = new WorkItemChecklistRepository(database);
     this.links = new WorkItemLinkRepository(database);
     this.assignees = new EligibleAssigneeRepository(database);
+    this.groups = new UserGroupRepository(database);
   }
 
   /** Returns all workflow statuses ordered by position. */
@@ -323,14 +327,35 @@ export class TaskRepository {
     return this.writes.updateStatusAndOrder(id, statusId, sortOrder, isDone);
   }
 
-  /** Marks a work item as archived without deleting its row. */
-  public async archive(id: string): Promise<void> {
-    return this.writes.archive(id);
+  /** Assigns a work item to a department, or clears the assignment with `null`. */
+  public async setDepartment(
+    id: string,
+    departmentId: string | null,
+  ): Promise<void> {
+    return this.writes.setDepartment(id, departmentId);
   }
 
-  /** Restores an archived work item keeping its original workflow status. */
-  public async restore(id: string): Promise<void> {
-    return this.writes.restore(id);
+  /** Returns the ids of a work item and its descendants, optionally limited to a visible scope. */
+  public async findSubtreeIds(
+    rootId: string,
+    visibility?: WorkItemVisibility,
+  ): Promise<string[]> {
+    return this.lifecycle.findSubtreeIds(rootId, visibility);
+  }
+
+  /** Marks the given work items as archived without deleting their rows. */
+  public async archiveMany(ids: readonly string[]): Promise<void> {
+    return this.lifecycle.archiveMany(ids);
+  }
+
+  /** Restores the given archived work items keeping their workflow status. */
+  public async restoreMany(ids: readonly string[]): Promise<void> {
+    return this.lifecycle.restoreMany(ids);
+  }
+
+  /** Permanently removes a work item with its descendants and every dependent row. */
+  public async deleteSubtree(rootId: string): Promise<string[]> {
+    return this.lifecycle.deleteSubtree(rootId);
   }
 
   /** Stores or clears the last GitHub synchronization error of a work item. */
@@ -353,22 +378,18 @@ export class TaskRepository {
     return this.writes.moveToProject(id, move);
   }
 
-  /** Returns the shared label catalog of a project ordered by name. */
-  public async findLabelsByProjectId(
-    projectId: string,
-  ): Promise<ProjectLabel[]> {
-    return this.labels.findByProjectId(projectId);
+  /** Returns the global label catalog ordered by name. */
+  public async findLabels(): Promise<Label[]> {
+    return this.labels.findAll();
   }
 
-  /** Returns the shared label catalogs of several projects ordered by name. */
-  public async findLabelsByProjectIds(
-    projectIds: readonly string[],
-  ): Promise<ReadonlyMap<string, readonly ProjectLabel[]>> {
-    return this.labels.findByProjectIds(projectIds);
+  /** Returns the label with this name, ignoring case. */
+  public async findLabelByName(name: string): Promise<Label | null> {
+    return this.labels.findByName(name);
   }
 
-  /** Returns a project label by its identifier. */
-  public async findLabelById(id: string): Promise<ProjectLabel | null> {
+  /** Returns a label by its identifier. */
+  public async findLabelById(id: string): Promise<Label | null> {
     return this.labels.findById(id);
   }
 
@@ -381,31 +402,27 @@ export class TaskRepository {
   }
 
   /**
-   * Returns label usage counts for several projects with a single query.
+   * Returns how many tickets use each label.
    *
-   * @returns Usage counts grouped by project id, then by label id.
+   * @returns Usage counts by label id; labels without tickets are absent.
    */
-  public async countLabelUsageByProjectIds(
-    projectIds: readonly string[],
+  public async countLabelUsageByLabel(
     visibility?: WorkItemVisibility,
-  ): Promise<ReadonlyMap<string, ReadonlyMap<string, number>>> {
-    return this.labels.countUsageByProjectIds(projectIds, visibility);
+  ): Promise<ReadonlyMap<string, number>> {
+    return this.labels.countUsageByLabel(visibility);
   }
 
-  /** Inserts a label into the shared catalog of a project. */
-  public async insertLabel(label: NewProjectLabel): Promise<void> {
+  /** Inserts a label into the global catalog. */
+  public async insertLabel(label: NewLabel): Promise<void> {
     return this.labels.insert(label);
   }
 
-  /** Renames or recolors a project label; tickets reference it by id. */
-  public async updateLabel(
-    id: string,
-    label: ProjectLabelUpdate,
-  ): Promise<void> {
+  /** Renames or recolors a label; tickets reference it by id. */
+  public async updateLabel(id: string, label: LabelUpdate): Promise<void> {
     return this.labels.update(id, label);
   }
 
-  /** Deletes a project label and all of its ticket assignments. */
+  /** Deletes a label and all of its ticket assignments. */
   public async deleteLabel(id: string): Promise<void> {
     return this.labels.delete(id);
   }
@@ -413,26 +430,21 @@ export class TaskRepository {
   /** Returns the labels of the given work items mapped by work item id. */
   public async findLabelsForWorkItemIds(
     workItemIds: readonly string[],
-  ): Promise<ReadonlyMap<string, readonly ProjectLabel[]>> {
+  ): Promise<ReadonlyMap<string, readonly Label[]>> {
     return this.labels.findByWorkItemIds(workItemIds);
   }
 
-  /** Assigns a project label to a work item. */
+  /** Assigns a label to a work item. */
   public async assignLabel(workItemId: string, labelId: string): Promise<void> {
     return this.labels.assign(workItemId, labelId);
   }
 
-  /** Removes a project label from a work item. */
+  /** Removes a label from a work item. */
   public async unassignLabel(
     workItemId: string,
     labelId: string,
   ): Promise<void> {
     return this.labels.unassign(workItemId, labelId);
-  }
-
-  /** Removes every label assignment from a work item. */
-  public async removeAllLabelsFromWorkItem(workItemId: string): Promise<void> {
-    return this.labels.removeAllFromWorkItem(workItemId);
   }
 
   /** Returns the checklist items of a work item, in their persisted order. */
@@ -506,23 +518,34 @@ export class TaskRepository {
     return this.history.findByWorkItemId(workItemId);
   }
 
-  /** Returns all active users eligible to be assigned to work items in a project. */
-  public async findEligibleAssignees(projectId: string): Promise<User[]> {
-    return this.assignees.findByProjectId(projectId);
+  /** Returns all active users who are candidates for assignment; project access is filtered by the service. */
+  public async findEligibleAssignees(): Promise<User[]> {
+    return this.assignees.findCandidates();
   }
 
   /**
-   * Returns eligible assignees for several projects with a single query.
+   * Returns the assignment candidates under each of several projects.
    *
-   * @remarks
-   * Administrators and managers are eligible in every requested project,
-   * members only in their own projects, mirroring {@link findEligibleAssignees}.
-   *
-   * @returns Eligible users grouped by project id, ordered by display name.
+   * @returns The candidates, ordered by display name, grouped by project id.
    */
   public async findEligibleAssigneesByProjectIds(
     projectIds: readonly string[],
   ): Promise<ReadonlyMap<string, readonly User[]>> {
     return this.assignees.findByProjectIds(projectIds);
+  }
+
+  /** Returns every user group with its member count, ordered by name. */
+  public async findAssigneeGroups(): Promise<GroupSummary[]> {
+    return this.groups.findSummaries();
+  }
+
+  /** Returns one user group with its member count, or `null` when it does not exist. */
+  public async findAssigneeGroupById(id: string): Promise<GroupSummary | null> {
+    return this.groups.findSummaryById(id);
+  }
+
+  /** Returns the ids of the user groups a user belongs to. */
+  public async findGroupIdsByMember(userId: string): Promise<string[]> {
+    return this.groups.findIdsByMember(userId);
   }
 }

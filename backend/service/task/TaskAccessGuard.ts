@@ -8,6 +8,7 @@ import type { PermissionService } from "@/backend/auth/PermissionService";
 
 import type { TaskRepository } from "@/backend/database/repositories/TaskRepository";
 import type { ProjectService } from "@/backend/service/ProjectService";
+import type { AuthorizationFacts } from "@/backend/service/project/ProjectAccessService";
 import type { Project } from "@/definition/Project";
 import type { WorkItemVisibility, WorkItemDetail } from "@/definition/Task";
 import type { User } from "@/definition/User";
@@ -52,29 +53,23 @@ export class TaskAccessGuard {
   }
 
   /**
-   * Verifies that the actor may change work in a project.
+   * Verifies that the actor may see a project and change tickets in it.
+   *
+   * @remarks
+   * The single write rule of tickets: current project access plus the global
+   * `write` capability. Department scope is enforced where a concrete ticket
+   * is loaded, see {@link TaskAccessGuard.requireWritableWorkItem}.
    *
    * @throws {WorkItemAccessDeniedError} When the actor lacks write permission.
    */
-  public async requireWriteAccess(
-    actor: User,
-    projectId: string,
-    capability: Capability = CAPABILITY.WRITE,
-  ): Promise<void> {
-    await this.requireCapability(actor, capability);
-    if (!(await this.projectService.canWriteProject(actor, projectId))) {
-      throw new WorkItemAccessDeniedError();
-    }
-  }
-
-  /** Verifies that the actor may see a project and change work in it. */
   public async requireWritableProject(
     actor: User,
     projectId: string,
-    capability: Capability = CAPABILITY.WRITE,
-  ): Promise<void> {
-    await this.requireProject(actor, projectId);
-    await this.requireWriteAccess(actor, projectId, capability);
+  ): Promise<Project> {
+    const project = await this.requireProject(actor, projectId);
+    await this.requireCapability(actor, CAPABILITY.WRITE);
+
+    return project;
   }
 
   /**
@@ -129,10 +124,24 @@ export class TaskAccessGuard {
     workItemId: string,
   ): Promise<WorkItemDetail> {
     const item = await this.requireWorkItem(actor, workItemId);
-
-    await this.requireWriteAccess(actor, item.projectId);
+    await this.requireCapability(actor, CAPABILITY.WRITE);
 
     return item;
+  }
+
+  /** Tells whether the actor currently holds the global write capability. */
+  public async canWrite(actor: User): Promise<boolean> {
+    return this.permissions.hasCapability(actor, CAPABILITY.WRITE);
+  }
+
+  /** Tells whether the actor may permanently delete tickets: active administrator mode only. */
+  public async canDelete(actor: User): Promise<boolean> {
+    return this.projectService.canDeleteProjects(actor);
+  }
+
+  /** Returns the live account and department catalog for department decisions. */
+  public async authorizationFacts(actor: User): Promise<AuthorizationFacts> {
+    return this.projectService.authorizationFacts(actor);
   }
 
   /**

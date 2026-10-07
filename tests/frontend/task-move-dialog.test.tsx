@@ -11,11 +11,7 @@ import { WORK_ITEM_PRIORITY, WORK_ITEM_TYPE } from "@/definition/Task";
 import { LANGUAGE } from "@/language/Language";
 
 import type { Project } from "@/definition/Project";
-import type {
-  Milestone,
-  ProjectLabel,
-  WorkItemDetail,
-} from "@/definition/Task";
+import type { Milestone, Label, WorkItemDetail } from "@/definition/Task";
 import type { User } from "@/definition/User";
 
 function createProject(overrides: Partial<Project> = {}): Project {
@@ -45,7 +41,9 @@ function createTask(overrides: Partial<WorkItemDetail> = {}): WorkItemDetail {
     departmentId: null,
     archivedAt: null,
     assigneeId: "user-1",
+    assigneeGroupId: null,
     assigneeName: "Admin",
+    assigneeGroupName: null,
     reporterName: "Alex Berger",
     completedAt: null,
     createdAt: "2026-01-01",
@@ -104,13 +102,12 @@ function createMilestone(overrides: Partial<Milestone> = {}): Milestone {
   };
 }
 
-function createLabel(overrides: Partial<ProjectLabel> = {}): ProjectLabel {
+function createLabel(overrides: Partial<Label> = {}): Label {
   return {
     color: "#3b82f6",
     createdAt: "2026-01-01",
     id: "label-1",
     name: "Feature",
-    projectId: "project-1",
     updatedAt: "2026-01-02",
     ...overrides,
   };
@@ -259,7 +256,9 @@ describe("TaskMoveDialog", () => {
       ],
       task: createTask({
         assigneeId: null,
+        assigneeGroupId: null,
         assigneeName: null,
+        assigneeGroupName: null,
         githubIssueNumber: null,
         githubIssueUrl: null,
         milestoneId: "m-2",
@@ -297,6 +296,7 @@ describe("TaskMoveDialog", () => {
       ],
       task: createTask({
         assigneeName: null,
+        assigneeGroupName: null,
         parentTitle: null,
       }),
       workItems: [],

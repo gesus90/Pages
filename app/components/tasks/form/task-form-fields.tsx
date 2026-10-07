@@ -1,5 +1,9 @@
 import { useTranslation } from "react-i18next";
 
+import { useAssigneeOptions } from "@/app/components/tasks/assignee-options";
+import { useTicketAccess } from "@/app/components/tasks/ticket-access";
+
+import { TaskFormTemplateField } from "./task-form-template-field";
 import { TaskFormSelectField } from "./task-form-select-field";
 import { TaskFormTextField } from "./task-form-text-field";
 import {
@@ -18,6 +22,10 @@ import type {
 } from "@/definition/Task";
 import type { User } from "@/definition/User";
 import type {
+  WorkItemTemplate,
+  WorkItemTemplateView,
+} from "@/definition/WorkItemTemplate";
+import type {
   TaskFormSelectionState,
   TaskFormSelections,
 } from "./task-form-selections";
@@ -29,6 +37,7 @@ interface TaskFormChoices {
   readonly milestones: readonly Milestone[];
   readonly assignees: readonly User[];
   readonly existingWorkItems: readonly WorkItemDetail[];
+  readonly templates: readonly WorkItemTemplateView[];
 }
 
 interface TaskFormFieldsProps extends TaskFormChoices, TaskFormSelectionState {
@@ -100,13 +109,19 @@ function ClassificationFields({
 
 function TextFields({
   initialTask,
-}: Pick<SectionProps, "initialTask">): React.ReactElement {
+  template,
+}: Pick<SectionProps, "initialTask"> & {
+  readonly template: WorkItemTemplate | null;
+}): React.ReactElement {
   const { t } = useTranslation();
+  // A new key starts the uncontrolled fields over with the chosen template's text.
+  const fieldKey = template?.id ?? "none";
 
   return (
     <>
       <TaskFormTextField
-        defaultValue={initialTask?.title ?? ""}
+        key={`title-${fieldKey}`}
+        defaultValue={initialTask?.title ?? template?.title ?? ""}
         id="task-title"
         isRequired
         label={t("tasks.fields.title")}
@@ -114,7 +129,9 @@ function TextFields({
         name="title"
       />
       <TaskFormTextField
-        defaultValue={initialTask?.description ?? ""}
+        key={`description-${fieldKey}`}
+        defaultValue={initialTask?.description ?? template?.description ?? ""}
+        hint={t("tasks.descriptionHint")}
         id="task-description"
         label={t("tasks.fields.description")}
         maxLength={10000}
@@ -180,6 +197,11 @@ function PeopleAndDateFields({
   selections,
 }: SectionProps): React.ReactElement {
   const { t } = useTranslation();
+  const { departments } = useTicketAccess();
+  const assigneeOptions = useAssigneeOptions(
+    assignees,
+    initialTask?.assigneeGroupId ?? null,
+  );
 
   return (
     <>
@@ -187,15 +209,9 @@ function PeopleAndDateFields({
         <TaskFormSelectField
           id="task-assignee"
           label={t("tasks.fields.assignee")}
-          value={selections.assigneeId}
-          onValueChange={(value) => select("assigneeId", value)}
-          options={[
-            { value: "", label: t("tasks.unassigned") },
-            ...assignees.map((assignee) => ({
-              value: assignee.id,
-              label: assignee.displayName,
-            })),
-          ]}
+          value={selections.assignee}
+          onValueChange={(value) => select("assignee", value)}
+          options={assigneeOptions}
         />
         <TaskFormSelectField
           id="task-milestone"
@@ -224,6 +240,21 @@ function PeopleAndDateFields({
             options={reporterOptions(initialTask, assignees)}
           />
         ) : null}
+        {mode === "create" ? (
+          <TaskFormSelectField
+            id="task-department"
+            label={t("tasks.fields.department")}
+            value={selections.departmentId}
+            onValueChange={(value) => select("departmentId", value)}
+            options={[
+              { value: "", label: t("tasks.department.none") },
+              ...departments.map((department) => ({
+                value: department.id,
+                label: department.name,
+              })),
+            ]}
+          />
+        ) : null}
         <TaskFormTextField
           defaultValue={initialTask?.startAt ?? ""}
           id="task-start-at"
@@ -240,8 +271,22 @@ function PeopleAndDateFields({
 export function TaskFormFields(props: TaskFormFieldsProps): React.ReactElement {
   return (
     <>
+      {props.mode === "create" ? (
+        <TaskFormTemplateField
+          select={props.select}
+          selections={props.selections}
+          templates={props.templates}
+        />
+      ) : null}
       <ClassificationFields {...props} />
-      <TextFields initialTask={props.initialTask} />
+      <TextFields
+        initialTask={props.initialTask}
+        template={
+          props.templates.find(
+            (template) => template.id === props.selections.templateId,
+          ) ?? null
+        }
+      />
       <WorkflowFields
         select={props.select}
         selections={props.selections}

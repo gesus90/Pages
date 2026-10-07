@@ -2,6 +2,7 @@ import { Edit3 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { MarkdownText } from "@/app/components/markdown/markdown-text";
 import { DetailSection } from "@/app/components/tasks/detail-section";
 import { Button } from "@/app/components/ui/button";
 import { Textarea } from "@/app/components/ui/textarea";
@@ -30,9 +31,7 @@ function DescriptionText({
   }
 
   return (
-    <p className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">
-      {description}
-    </p>
+    <MarkdownText className="text-muted-foreground" source={description} />
   );
 }
 

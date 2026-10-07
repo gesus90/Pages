@@ -1,4 +1,4 @@
-import type { ProjectLabel } from "@/definition/Task";
+import type { Label } from "@/definition/Task";
 
 /**
  * Narrows the project labels to those whose name contains the search text.
@@ -8,9 +8,9 @@ import type { ProjectLabel } from "@/definition/Task";
  * @returns All labels for a blank query, otherwise the matching ones.
  */
 export function filterLabels(
-  labels: readonly ProjectLabel[],
+  labels: readonly Label[],
   query: string,
-): readonly ProjectLabel[] {
+): readonly Label[] {
   const normalizedQuery = query.trim().toLowerCase();
 
   if (!normalizedQuery) {

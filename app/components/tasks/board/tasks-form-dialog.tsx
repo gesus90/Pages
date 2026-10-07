@@ -37,6 +37,7 @@ export function TasksFormDialog({
       onOpenChange={dialog.setOpen}
       projects={loaderData.projects}
       statuses={loaderData.statuses}
+      templates={loaderData.templates}
     />
   );
 }

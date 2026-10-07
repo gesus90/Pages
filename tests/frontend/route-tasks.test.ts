@@ -10,8 +10,9 @@ import {
   action,
   loader,
   parseArchivedFilter,
-  parseViewMode,
+  shouldRevalidate,
 } from "@/app/routes/tasks";
+import { DEFAULT_BOARD_PREFERENCES } from "@/definition/BoardPreferences";
 import { GitHubApiError } from "@/backend/github/GitHubApiClient";
 import {
   WORK_ITEM_LINK_TYPE,
@@ -94,7 +95,9 @@ function createWorkItem(
     departmentId: null,
     archivedAt: null,
     assigneeId: "user-1",
+    assigneeGroupId: null,
     assigneeName: "Admin",
+    assigneeGroupName: null,
     reporterName: "Reporter",
     completedAt: null,
     createdAt: "2026-01-01",
@@ -140,11 +143,22 @@ function createServices(
   overrides: Record<string, unknown> = {},
 ): Awaited<ReturnType<typeof mockedServices>> {
   return {
+    boardPreferencesService: {
+      find: vi.fn().mockResolvedValue(DEFAULT_BOARD_PREFERENCES),
+      save: vi.fn().mockResolvedValue(DEFAULT_BOARD_PREFERENCES),
+    },
     projectService: {
       findAll: vi.fn().mockResolvedValue([createProject()]),
       findIntegration: vi.fn().mockResolvedValue(null),
       findIntegrationsByProjects: vi.fn().mockResolvedValue(new Map()),
       getById: vi.fn().mockResolvedValue(createProject()),
+    },
+    taskTemplateService: {
+      createFromTemplate: vi.fn().mockResolvedValue(createWorkItem()),
+      delete: vi.fn(),
+      findVisible: vi.fn().mockResolvedValue([]),
+      saveFromTicket: vi.fn(),
+      update: vi.fn(),
     },
     taskService: {
       addChecklistItem: vi.fn(),
@@ -155,12 +169,22 @@ function createServices(
       countLabelUsageByProjects: vi
         .fn()
         .mockResolvedValue(new Map([["project-1", new Map()]])),
+      actionPermissions: vi
+        .fn()
+        .mockResolvedValue({ canDelete: false, canWrite: true }),
       create: vi.fn().mockResolvedValue(createWorkItem()),
       createLabel: vi.fn(),
+      deletePermanently: vi.fn(),
+      departmentChoices: vi
+        .fn()
+        .mockResolvedValue({ available: [{ id: "dept", name: "Dept" }] }),
+      setDepartment: vi.fn(),
       deleteChecklistItem: vi.fn(),
       deleteLabel: vi.fn(),
       findAll: vi.fn().mockResolvedValue([createWorkItem()]),
       findAllStatuses: vi.fn().mockResolvedValue([createStatus()]),
+      findAssigneeGroups: vi.fn().mockResolvedValue([]),
+      findMemberGroupIds: vi.fn().mockResolvedValue([]),
       findAssigneesByProjects: vi
         .fn()
         .mockResolvedValue(new Map([["project-1", [createUser()]]])),
@@ -263,6 +287,8 @@ describe("tasks route loader", () => {
     expect(result.workItems).toHaveLength(1);
     expect(result.assignees).toHaveLength(1);
     expect(result.selectedItem).toBeNull();
+    expect(result.permissions).toEqual({ canDelete: false, canWrite: true });
+    expect(result.departmentChoices.available).toHaveLength(1);
   });
 
   it("loads deep-linked task item with subtasks and history", async () => {
@@ -394,18 +420,11 @@ describe("tasks route action", () => {
     expect(response.init?.status).toBe(400);
   });
 
-  it("parses archived filters and board views", () => {
+  it("parses archived filters", () => {
     expect(parseArchivedFilter("archived")).toBe("archived");
     expect(parseArchivedFilter("all")).toBe("all");
     expect(parseArchivedFilter("active")).toBe("active");
     expect(parseArchivedFilter(null)).toBe("active");
-    expect(parseViewMode("kanban")).toBe("kanban");
-    expect(parseViewMode("list")).toBe("list");
-    expect(parseViewMode("hierarchy")).toBe("hierarchy");
-    expect(parseViewMode("milestones")).toBe("milestones");
-    expect(parseViewMode("github")).toBe("github");
-    expect(parseViewMode("board")).toBe("kanban");
-    expect(parseViewMode(null)).toBe("kanban");
   });
 
   it("loads archived tickets when requested", async () => {
@@ -1286,6 +1305,128 @@ describe("tasks route action", () => {
     expect(missing.init?.status).toBe(404);
   });
 
+  it("passes the optional department when creating a task", async () => {
+    const services = createServices();
+    mockedServices.mockResolvedValueOnce(services);
+
+    await action({
+      context: new Map([[authenticatedUserContext, createUser()]]),
+      request: createPostRequest({
+        departmentId: "dept",
+        intent: "create-task",
+        projectId: "project-1",
+        statusId: "status-todo",
+        title: "With department",
+        type: WORK_ITEM_TYPE.TASK,
+      }),
+    } as unknown as LoaderFunctionArgs);
+
+    expect(services.taskService.create).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ departmentId: "dept" }),
+    );
+  });
+
+  it("sets and clears departments through their own intent", async () => {
+    const context = new Map([[authenticatedUserContext, createUser()]]);
+    const services = createServices();
+    mockedServices.mockResolvedValue(services);
+
+    const assigned = getActionData(
+      await action({
+        context,
+        request: createPostRequest({
+          departmentId: "dept",
+          id: "item-1",
+          intent: "set-department",
+        }),
+      } as unknown as LoaderFunctionArgs),
+    );
+    expect(assigned.data).toMatchObject({ intent: "set-department", ok: true });
+    expect(services.taskService.setDepartment).toHaveBeenCalledWith(
+      expect.anything(),
+      "item-1",
+      "dept",
+    );
+
+    await action({
+      context,
+      request: createPostRequest({
+        departmentId: "",
+        id: "item-1",
+        intent: "set-department",
+      }),
+    } as unknown as LoaderFunctionArgs);
+    expect(services.taskService.setDepartment).toHaveBeenLastCalledWith(
+      expect.anything(),
+      "item-1",
+      "",
+    );
+
+    for (const entries of [
+      { id: "item-1", intent: "set-department" },
+      { departmentId: "dept", intent: "set-department" },
+    ]) {
+      const invalid = getActionData(
+        await action({
+          context,
+          request: createPostRequest(entries),
+        } as unknown as LoaderFunctionArgs),
+      );
+      expect(invalid.init?.status).toBe(400);
+    }
+  });
+
+  it("deletes tickets permanently and redirects to a local target", async () => {
+    const context = new Map([[authenticatedUserContext, createUser()]]);
+    const services = createServices();
+    mockedServices.mockResolvedValue(services);
+
+    const redirected = (await action({
+      context,
+      request: createPostRequest({
+        id: "item-1",
+        intent: "delete-task",
+        redirectTo: "/aufgaben?view=list",
+      }),
+    } as unknown as LoaderFunctionArgs)) as unknown as Response;
+    expect(redirected.status).toBe(302);
+    expect(redirected.headers.get("Location")).toBe("/aufgaben?view=list");
+    expect(services.taskService.deletePermanently).toHaveBeenCalledWith(
+      expect.anything(),
+      "item-1",
+    );
+
+    const fallback = (await action({
+      context,
+      request: createPostRequest({
+        id: "item-1",
+        intent: "delete-task",
+        redirectTo: "https://evil.invalid",
+      }),
+    } as unknown as LoaderFunctionArgs)) as unknown as Response;
+    expect(fallback.headers.get("Location")).toBe("/aufgaben");
+
+    const invalid = getActionData(
+      await action({
+        context,
+        request: createPostRequest({ intent: "delete-task" }),
+      } as unknown as LoaderFunctionArgs),
+    );
+    expect(invalid.init?.status).toBe(400);
+
+    (
+      services.taskService.deletePermanently as ReturnType<typeof vi.fn>
+    ).mockRejectedValueOnce(new WorkItemAccessDeniedError());
+    const denied = getActionData(
+      await action({
+        context,
+        request: createPostRequest({ id: "item-1", intent: "delete-task" }),
+      } as unknown as LoaderFunctionArgs),
+    );
+    expect(denied.init?.status).toBe(403);
+  });
+
   it("moves tickets to another project through actions", async () => {
     const context = new Map([[authenticatedUserContext, createUser()]]);
 
@@ -1806,5 +1947,339 @@ describe("tasks route action", () => {
       } as unknown as LoaderFunctionArgs),
     );
     expect(removeFailure.init?.status).toBe(404);
+  });
+});
+
+describe("tasks route template actions", () => {
+  const context = new Map([[authenticatedUserContext, createUser()]]);
+
+  async function run(
+    entries: Record<string, string | undefined>,
+    services = createServices(),
+  ): Promise<ReturnType<typeof getActionData>> {
+    mockedServices.mockResolvedValue(services);
+
+    return getActionData(
+      await action({
+        context,
+        request: createPostRequest(entries),
+      } as unknown as LoaderFunctionArgs),
+    );
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("loads the visible templates", async () => {
+    const templates = [{ id: "template-1" }];
+    const services = createServices();
+    (
+      services.taskTemplateService.findVisible as ReturnType<typeof vi.fn>
+    ).mockResolvedValue(templates);
+    mockedServices.mockResolvedValue(services);
+
+    const result = await loader({
+      context,
+      request: new Request("http://pages.invalid/aufgaben"),
+    } as unknown as LoaderFunctionArgs);
+
+    expect(result.templates).toEqual(templates);
+  });
+
+  it("creates a ticket from a template with its labels and checklist", async () => {
+    const services = createServices();
+    const response = await run(
+      {
+        intent: "create-task",
+        projectId: "project-1",
+        statusId: "status-todo",
+        templateId: "template-1",
+        title: "New",
+        type: WORK_ITEM_TYPE.TASK,
+      },
+      services,
+    );
+
+    expect(response.data).toMatchObject({ intent: "create-task", ok: true });
+    expect(
+      services.taskTemplateService.createFromTemplate,
+    ).toHaveBeenCalledWith(
+      expect.anything(),
+      "template-1",
+      expect.objectContaining({ projectId: "project-1", title: "New" }),
+    );
+    expect(services.taskService.create).not.toHaveBeenCalled();
+  });
+
+  it("saves a ticket as a template", async () => {
+    const services = createServices();
+    const response = await run(
+      {
+        intent: "save-template",
+        name: "Bug",
+        scope: "departments",
+        ticketId: "item-1",
+      },
+      services,
+    );
+
+    expect(response.data).toMatchObject({ intent: "save-template", ok: true });
+    expect(services.taskTemplateService.saveFromTicket).toHaveBeenCalledWith(
+      expect.anything(),
+      "item-1",
+      { departmentIds: [], name: "Bug", projectIds: [], scope: "departments" },
+    );
+  });
+
+  it("changes a template's name and audience", async () => {
+    const services = createServices();
+    const formData = new URLSearchParams([
+      ["intent", "save-template"],
+      ["name", "Bug"],
+      ["scope", "projects"],
+      ["templateId", "template-1"],
+      ["projectIds", "project-1"],
+      ["projectIds", "project-2"],
+    ]);
+    mockedServices.mockResolvedValue(services);
+
+    await action({
+      context,
+      request: new Request("http://pages.invalid/aufgaben", {
+        body: formData,
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        method: "POST",
+      }),
+    } as unknown as LoaderFunctionArgs);
+
+    expect(services.taskTemplateService.update).toHaveBeenCalledWith(
+      expect.anything(),
+      "template-1",
+      {
+        departmentIds: [],
+        name: "Bug",
+        projectIds: ["project-1", "project-2"],
+        scope: "projects",
+      },
+    );
+  });
+
+  it("ignores file uploads in the sharing lists", async () => {
+    const services = createServices();
+    const formData = new FormData();
+    formData.append("intent", "save-template");
+    formData.append("name", "Bug");
+    formData.append("scope", "projects");
+    formData.append("templateId", "template-1");
+    formData.append("projectIds", new Blob(["x"]), "x.txt");
+    mockedServices.mockResolvedValue(services);
+
+    await action({
+      context,
+      request: new Request("http://pages.invalid/aufgaben", {
+        body: formData,
+        method: "POST",
+      }),
+    } as unknown as LoaderFunctionArgs);
+
+    expect(services.taskTemplateService.update).toHaveBeenCalledWith(
+      expect.anything(),
+      "template-1",
+      expect.objectContaining({ projectIds: [] }),
+    );
+  });
+
+  it.each([
+    { name: undefined, scope: "all", ticketId: "item-1" },
+    { name: "Bug", scope: "everyone", ticketId: "item-1" },
+    { name: "Bug", scope: "all" },
+    { name: "Bug", scope: "all", templateId: "t", ticketId: "item-1" },
+  ])("rejects an incomplete template form %#", async (entries) => {
+    const response = await run({ intent: "save-template", ...entries });
+
+    expect(response.init?.status).toBe(400);
+  });
+
+  it("deletes a template and reports a refusal", async () => {
+    const services = createServices();
+    const deleted = await run(
+      { intent: "delete-template", templateId: "template-1" },
+      services,
+    );
+
+    expect(deleted.data).toMatchObject({ intent: "delete-template", ok: true });
+    expect(services.taskTemplateService.delete).toHaveBeenCalledWith(
+      expect.anything(),
+      "template-1",
+    );
+
+    (
+      services.taskTemplateService.delete as ReturnType<typeof vi.fn>
+    ).mockRejectedValueOnce(new WorkItemAccessDeniedError());
+
+    const refused = await run(
+      { intent: "delete-template", templateId: "template-1" },
+      services,
+    );
+
+    expect(refused.init?.status).toBe(403);
+    expect((await run({ intent: "delete-template" })).init?.status).toBe(400);
+  });
+});
+
+describe("tasks route board preferences", () => {
+  const context = new Map([[authenticatedUserContext, createUser()]]);
+
+  async function load(
+    query: string,
+    saved: Record<string, unknown> = {},
+  ): Promise<Awaited<ReturnType<typeof loader>>> {
+    mockedServices.mockResolvedValue(
+      createServices({
+        boardPreferencesService: {
+          find: vi
+            .fn()
+            .mockResolvedValue({ ...DEFAULT_BOARD_PREFERENCES, ...saved }),
+        },
+      }),
+    );
+
+    return loader({
+      context,
+      request: new Request(`http://pages.invalid/aufgaben${query}`),
+    } as unknown as LoaderFunctionArgs);
+  }
+
+  it("loads the saved board view when the address carries none", async () => {
+    const result = await load("?item=PAGE-12", {
+      group: "project",
+      project: "project-1",
+      view: "list",
+    });
+
+    expect(result.board).toMatchObject({
+      group: "project",
+      project: "project-1",
+      view: "list",
+    });
+  });
+
+  it("lets the address override the saved view and ignores invalid values", async () => {
+    const result = await load("?view=hierarchy&scope=nobody&group=label", {
+      scope: "mine",
+      view: "list",
+    });
+
+    expect(result.board).toMatchObject({
+      group: "label",
+      scope: "all",
+      view: "hierarchy",
+    });
+  });
+
+  it("drops saved filters that point to vanished things", async () => {
+    const result = await load("", {
+      assignee: "user-gone",
+      department: "department-gone",
+      labelIds: ["label-gone"],
+      milestone: "milestone-gone",
+      project: "project-gone",
+      status: "status-gone",
+    });
+
+    expect(result.board).toEqual(DEFAULT_BOARD_PREFERENCES);
+  });
+
+  it("loads GitHub states when the saved view is GitHub", async () => {
+    const result = await load("", { view: "github" });
+
+    expect(result.githubStates).toHaveLength(1);
+  });
+
+  it("saves the board view posted by the client", async () => {
+    const save = vi.fn().mockResolvedValue(DEFAULT_BOARD_PREFERENCES);
+
+    mockedServices.mockResolvedValue(
+      createServices({ boardPreferencesService: { save } }),
+    );
+
+    const response = getActionData(
+      await action({
+        context,
+        request: createPostRequest({
+          intent: "save-board-preferences",
+          preferences: JSON.stringify({ view: "list" }),
+        }),
+      } as unknown as LoaderFunctionArgs),
+    );
+
+    expect(response.data).toMatchObject({
+      intent: "save-board-preferences",
+      ok: true,
+    });
+    expect(save).toHaveBeenCalledWith("user-1", { view: "list" });
+  });
+
+  it("rejects a missing or damaged preferences body", async () => {
+    const save = vi.fn();
+
+    mockedServices.mockResolvedValue(
+      createServices({ boardPreferencesService: { save } }),
+    );
+
+    for (const preferences of [undefined, "{broken"]) {
+      const response = getActionData(
+        await action({
+          context,
+          request: createPostRequest({
+            intent: "save-board-preferences",
+            preferences,
+          }),
+        } as unknown as LoaderFunctionArgs),
+      );
+
+      expect(response.init?.status).toBe(400);
+    }
+
+    expect(save).not.toHaveBeenCalled();
+  });
+});
+
+describe("tasks route revalidation", () => {
+  function decide(from: string, to: string, formData?: FormData): boolean {
+    return shouldRevalidate({
+      currentUrl: new URL(`http://pages.invalid/aufgaben${from}`),
+      defaultShouldRevalidate: true,
+      formData,
+      nextUrl: new URL(`http://pages.invalid/aufgaben${to}`),
+    } as unknown as Parameters<typeof shouldRevalidate>[0]);
+  }
+
+  it("keeps the loaded data when only the board view changed", () => {
+    expect(decide("", "?view=list&q=a")).toBe(false);
+    expect(decide("?view=list&item=PAGE-1", "?view=kanban&item=PAGE-1")).toBe(
+      false,
+    );
+  });
+
+  it("reloads when something else in the address changed", () => {
+    expect(decide("?view=list", "?view=list&item=PAGE-1")).toBe(true);
+    expect(decide("?view=list", "?view=list&archived=all")).toBe(true);
+  });
+
+  it("reloads for an address without board parameters, which asks for the saved view", () => {
+    expect(decide("?view=list", "")).toBe(true);
+  });
+
+  it("does not reload after saving the view but does after other actions", () => {
+    const saving = new FormData();
+    const archiving = new FormData();
+
+    saving.set("intent", "save-board-preferences");
+    archiving.set("intent", "archive-task");
+
+    expect(decide("?view=list", "?view=list", saving)).toBe(false);
+    expect(decide("?view=list", "?view=list", archiving)).toBe(true);
   });
 });

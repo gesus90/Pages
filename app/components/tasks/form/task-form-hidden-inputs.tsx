@@ -1,3 +1,5 @@
+import { splitAssigneeValue } from "@/app/lib/assignee-value";
+
 import type { TaskFormSelections } from "./task-form-selections";
 
 interface TaskFormHiddenInputsProps {
@@ -12,6 +14,8 @@ export function TaskFormHiddenInputs({
   editedItemId,
   selections,
 }: TaskFormHiddenInputsProps): React.ReactElement {
+  const assignee = splitAssigneeValue(selections.assignee);
+
   return (
     <>
       <input
@@ -26,12 +30,30 @@ export function TaskFormHiddenInputs({
       <input name="projectId" type="hidden" value={selections.projectId} />
       <input name="statusId" type="hidden" value={selections.statusId} />
       <input name="priority" type="hidden" value={selections.priority} />
-      <input name="assigneeId" type="hidden" value={selections.assigneeId} />
+      <input name="assigneeId" type="hidden" value={assignee.assigneeId} />
+      <input
+        name="assigneeGroupId"
+        type="hidden"
+        value={assignee.assigneeGroupId}
+      />
       <input name="milestoneId" type="hidden" value={selections.milestoneId} />
       <input name="parentId" type="hidden" value={selections.parentId} />
       {mode === "edit" ? (
         <input name="reporterId" type="hidden" value={selections.reporterId} />
-      ) : null}
+      ) : (
+        <>
+          <input
+            name="departmentId"
+            type="hidden"
+            value={selections.departmentId}
+          />
+          <input
+            name="templateId"
+            type="hidden"
+            value={selections.templateId}
+          />
+        </>
+      )}
     </>
   );
 }

@@ -1,9 +1,12 @@
 import { ServerCache } from "@/backend/cache/ServerCache";
+import { TaskAssigneeGroupService } from "@/backend/service/task/TaskAssigneeGroupService";
 import { TaskAccessGuard } from "@/backend/service/task/TaskAccessGuard";
 import { TaskChecklistService } from "@/backend/service/task/TaskChecklistService";
+import { TaskDepartmentService } from "@/backend/service/task/TaskDepartmentService";
 import { TaskGitHubPublisher } from "@/backend/service/task/TaskGitHubPublisher";
 import { TaskHistoryRecorder } from "@/backend/service/task/TaskHistoryRecorder";
 import { TaskLabelService } from "@/backend/service/task/TaskLabelService";
+import { TaskLifecycleService } from "@/backend/service/task/TaskLifecycleService";
 import { TaskLinkService } from "@/backend/service/task/TaskLinkService";
 import { TaskMilestoneService } from "@/backend/service/task/TaskMilestoneService";
 import { TaskMoveService } from "@/backend/service/task/TaskMoveService";
@@ -35,7 +38,9 @@ import type {
 import type {
   Milestone,
   MilestoneDependency,
-  ProjectLabel,
+  Label,
+  TaskActionPermissions,
+  TicketDepartmentChoices,
   WorkItemChecklistItem,
   WorkItemDetail,
   WorkItemHistory,
@@ -43,6 +48,7 @@ import type {
   WorkItemLinkType,
   WorkflowStatus,
 } from "@/definition/Task";
+import type { GroupSummary } from "@/definition/UserGroup";
 import type { User } from "@/definition/User";
 
 export { generateProjectKey } from "@/backend/service/task/ProjectKey";
@@ -65,6 +71,10 @@ export type {
 export class TaskService {
   private readonly reader: TaskReadService;
   private readonly writer: TaskWriteService;
+  private readonly lifecycle: TaskLifecycleService;
+  private readonly departments: TaskDepartmentService;
+  private readonly access: TaskAccessGuard;
+  private readonly assigneeGroups: TaskAssigneeGroupService;
   private readonly mover: TaskMoveService;
   private readonly labels: TaskLabelService;
   private readonly checklists: TaskChecklistService;
@@ -101,10 +111,25 @@ export class TaskService {
       history,
       cache,
     );
+    this.access = access;
+    this.assigneeGroups = new TaskAssigneeGroupService(taskRepository, access);
+    this.departments = new TaskDepartmentService(
+      taskRepository,
+      access,
+      history,
+      cache,
+    );
+    this.lifecycle = new TaskLifecycleService(
+      taskRepository,
+      access,
+      history,
+      cache,
+    );
     this.reader = new TaskReadService(taskRepository, access, cache);
     this.writer = new TaskWriteService({
       access,
       cache,
+      departments: this.departments,
       gitHubPublisher: this.gitHubPublisher,
       history,
       numbering,
@@ -223,6 +248,16 @@ export class TaskService {
     return this.reader.findAssigneesByProjects(projectIds);
   }
 
+  /** Returns the user groups a ticket can be assigned to, with member counts. */
+  public async findAssigneeGroups(actor: User): Promise<GroupSummary[]> {
+    return this.assigneeGroups.findGroups(actor);
+  }
+
+  /** Returns the ids of the groups the actor belongs to. */
+  public async findMemberGroupIds(actor: User): Promise<string[]> {
+    return this.assigneeGroups.findMemberGroupIds(actor);
+  }
+
   /** Returns non-archived work items across projects the actor has access to. */
   public async findAll(
     actor: User,
@@ -284,14 +319,45 @@ export class TaskService {
     return this.writer.updateStatusAndOrder(actor, id, statusId, sortOrder);
   }
 
-  /** Marks a work item as archived without physical deletion. */
+  /** Marks a work item and its descendants as archived without physical deletion. */
   public async archive(actor: User, id: string): Promise<void> {
-    return this.writer.archive(actor, id);
+    return this.lifecycle.archive(actor, id);
   }
 
-  /** Restores an archived work item keeping its original workflow status. */
+  /** Restores an archived work item and its descendants keeping their workflow status. */
   public async restore(actor: User, id: string): Promise<void> {
-    return this.writer.restore(actor, id);
+    return this.lifecycle.restore(actor, id);
+  }
+
+  /** Permanently deletes a work item, its descendants and all data tied to them; administrator mode only. */
+  public async deletePermanently(actor: User, id: string): Promise<void> {
+    return this.lifecycle.deletePermanently(actor, id);
+  }
+
+  /** Reassigns a work item to a department, or clears it, apart from content edits. */
+  public async setDepartment(
+    actor: User,
+    id: string,
+    departmentId: string | null,
+  ): Promise<void> {
+    return this.departments.setDepartment(actor, id, departmentId);
+  }
+
+  /** Returns the departments the actor may select for tickets. */
+  public async departmentChoices(
+    actor: User,
+  ): Promise<TicketDepartmentChoices> {
+    return this.departments.choices(actor);
+  }
+
+  /** Returns the current ticket mutation hints used to show or hide controls. */
+  public async actionPermissions(actor: User): Promise<TaskActionPermissions> {
+    const [canWrite, canDelete] = await Promise.all([
+      this.access.canWrite(actor),
+      this.access.canDelete(actor),
+    ]);
+
+    return { canDelete, canWrite };
   }
 
   /**
@@ -316,47 +382,21 @@ export class TaskService {
     return this.mover.moveToProject(actor, id, targetProjectId);
   }
 
-  /** Returns the shared label catalog of a project. */
-  public async findLabels(
-    actor: User,
-    projectId: string,
-  ): Promise<ProjectLabel[]> {
-    return this.labels.findLabels(actor, projectId);
-  }
-
-  /** Returns label usage counts mapped by label id for a project. */
-  public async countLabelUsage(
-    actor: User,
-    projectId: string,
-  ): Promise<ReadonlyMap<string, number>> {
-    return this.labels.countLabelUsage(actor, projectId);
+  /** Returns the global label catalog ordered by name. */
+  public async findLabels(): Promise<Label[]> {
+    return this.labels.findLabels();
   }
 
   /**
-   * Returns label catalogs for several already access-checked projects.
-   *
-   * @remarks
-   * Callers must only pass project ids the actor may access (loaders pass
-   * their already filtered project list).
-   */
-  public async findLabelsByProjects(
-    projectIds: readonly string[],
-  ): Promise<ReadonlyMap<string, readonly ProjectLabel[]>> {
-    return this.labels.findLabelsByProjects(projectIds);
-  }
-
-  /**
-   * Returns label usage counts for several projects with one query.
+   * Returns how many tickets use each label, counting only tickets the actor
+   * may see.
    *
    * @param actor - Account whose current ticket scope is enforced.
-   * @param projectIds - Project ids requested by the caller, or a
-   * single project after the usual access check by the caller.
    */
-  public async countLabelUsageByProjects(
+  public async countLabelUsage(
     actor: User,
-    projectIds: readonly string[],
-  ): Promise<ReadonlyMap<string, ReadonlyMap<string, number>>> {
-    return this.labels.countLabelUsageByProjects(actor, projectIds);
+  ): Promise<ReadonlyMap<string, number>> {
+    return this.labels.countLabelUsage(actor);
   }
 
   /**
@@ -400,34 +440,30 @@ export class TaskService {
    */
   public async findLabelsForWorkItems(
     workItemIds: readonly string[],
-  ): Promise<ReadonlyMap<string, readonly ProjectLabel[]>> {
+  ): Promise<ReadonlyMap<string, readonly Label[]>> {
     return this.labels.findLabelsForWorkItems(workItemIds);
   }
 
-  /** Creates a label in the shared catalog of a project. */
-  public async createLabel(
-    actor: User,
-    projectId: string,
-    input: LabelInput,
-  ): Promise<ProjectLabel> {
-    return this.labels.createLabel(actor, projectId, input);
+  /** Creates a label in the global catalog. */
+  public async createLabel(actor: User, input: LabelInput): Promise<Label> {
+    return this.labels.createLabel(actor, input);
   }
 
-  /** Renames or recolors a project label; tickets pick it up by id. */
+  /** Renames or recolors a label; tickets pick it up by id. */
   public async updateLabel(
     actor: User,
     labelId: string,
     input: LabelInput,
-  ): Promise<ProjectLabel> {
+  ): Promise<Label> {
     return this.labels.updateLabel(actor, labelId, input);
   }
 
-  /** Deletes a project label after removing it from every ticket. */
+  /** Deletes a label after removing it from every ticket. */
   public async deleteLabel(actor: User, labelId: string): Promise<void> {
     return this.labels.deleteLabel(actor, labelId);
   }
 
-  /** Assigns a project label to a work item and records the change. */
+  /** Assigns a label to a work item and records the change. */
   public async assignLabel(
     actor: User,
     workItemId: string,
@@ -436,7 +472,7 @@ export class TaskService {
     return this.labels.assignLabel(actor, workItemId, labelId);
   }
 
-  /** Removes a project label from a work item and records the change. */
+  /** Removes a label from a work item and records the change. */
   public async unassignLabel(
     actor: User,
     workItemId: string,

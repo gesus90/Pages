@@ -10,26 +10,24 @@ import { useLabelCreation } from "@/app/components/tasks/label-picker/use-label-
 import { useLabelEditing } from "@/app/components/tasks/label-picker/use-label-editing";
 import { Dialog, DialogContent, DialogTitle } from "@/app/components/ui/dialog";
 
-import type { ProjectLabel } from "@/definition/Task";
+import type { Label } from "@/definition/Task";
 
 interface LabelPickerProps {
   readonly isOpen: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly workItemId: string;
-  readonly projectId: string;
-  readonly projectLabels: readonly ProjectLabel[];
+  readonly labels: readonly Label[];
   readonly assignedLabelIds: ReadonlySet<string>;
   readonly labelUsage: Readonly<Record<string, number>>;
   readonly isSubmitting?: boolean;
 }
 
-/** Picks project labels for a ticket and manages the project catalog. */
+/** Picks labels for a ticket and manages the global label catalog. */
 export function LabelPicker({
   isOpen,
   onOpenChange,
   workItemId,
-  projectId,
-  projectLabels,
+  labels,
   assignedLabelIds,
   labelUsage,
   isSubmitting = false,
@@ -39,20 +37,19 @@ export function LabelPicker({
   const [query, setQuery] = useState("");
   const creation = useLabelCreation({
     assignedLabelIds,
-    projectId,
-    projectLabels,
+    labels,
     workItemId,
   });
   const editing = useLabelEditing();
 
-  const visibleLabels = filterLabels(projectLabels, query);
+  const visibleLabels = filterLabels(labels, query);
 
   function handleOpenChange(open: boolean): void {
     creation.cancelPendingAssign();
     onOpenChange(open);
   }
 
-  function handleToggle(label: ProjectLabel): void {
+  function handleToggle(label: Label): void {
     void submit(
       {
         intent: assignedLabelIds.has(label.id)

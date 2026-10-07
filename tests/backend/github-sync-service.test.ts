@@ -39,6 +39,7 @@ function createIntegration(
     syncComments: true,
     syncCommits: false,
     syncDirection: "bidirectional",
+    syncEnabled: true,
     syncIntervalMinutes: 15,
     syncIssues: true,
     syncPullRequests: true,
@@ -55,7 +56,9 @@ function createWorkItem(
     departmentId: null,
     archivedAt: null,
     assigneeId: null,
+    assigneeGroupId: null,
     assigneeName: null,
+    assigneeGroupName: null,
     reporterName: null,
     completedAt: null,
     createdAt: "2026-09-01",
@@ -358,6 +361,21 @@ describe("GitHubSyncService project runs", () => {
     await expect(
       service.syncProjectNow(createUser(), "project-1"),
     ).rejects.toThrow("not connected");
+  });
+
+  it("refuses manual runs while the synchronization is switched off", async () => {
+    const { client, projectRepository, service } = dependencies;
+    projectRepository.findIntegration.mockResolvedValue(
+      createIntegration({ syncEnabled: false }),
+    );
+
+    await expect(
+      service.syncProjectNow(createUser(), "project-1"),
+    ).rejects.toThrow(WorkItemValidationError);
+    await expect(
+      service.syncProjectNow(createUser(), "project-1"),
+    ).rejects.toThrow("switched off");
+    expect(client.listIssues).not.toHaveBeenCalled();
   });
 
   it("skips unchanged links without remote writes", async () => {
@@ -844,6 +862,24 @@ describe("GitHubSyncService scheduled runs", () => {
     log.mockRestore();
   });
 
+  it("does not touch GitHub for a project that was switched off meanwhile", async () => {
+    const { client, projectRepository, service } = dependencies;
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    projectRepository.findDueSyncIntegrations.mockResolvedValue([
+      { ownerId: "user-1", projectId: "project-1" },
+    ]);
+    projectRepository.findIntegration.mockResolvedValue(
+      createIntegration({ syncEnabled: false }),
+    );
+
+    await expect(service.runScheduledSyncs()).resolves.toEqual({
+      completed: 0,
+      failed: 1,
+    });
+    expect(client.listIssues).not.toHaveBeenCalled();
+    log.mockRestore();
+  });
+
   it("skips projects without an active owner", async () => {
     const { projectRepository, service, userRepository } = dependencies;
     projectRepository.findDueSyncIntegrations.mockResolvedValue([
@@ -892,6 +928,17 @@ describe("GitHubSyncService single task runs", () => {
     await expect(
       service.syncSingleTask(createUser(), "item-1"),
     ).rejects.toThrow(WorkItemValidationError);
+  });
+
+  it("refuses single runs while the synchronization is switched off", async () => {
+    const { projectRepository, service } = dependencies;
+    projectRepository.findIntegration.mockResolvedValue(
+      createIntegration({ syncEnabled: false }),
+    );
+
+    await expect(
+      service.syncSingleTask(createUser(), "item-1"),
+    ).rejects.toThrow("switched off");
   });
 
   it("refuses runs without a connected integration", async () => {
@@ -966,6 +1013,16 @@ describe("GitHubSyncService publishing", () => {
       createIntegration({ syncDirection: "pull" }),
     );
     await publishStored(dependencies, actor, createWorkItem());
+
+    projectRepository.findIntegration.mockResolvedValue(
+      createIntegration({ syncEnabled: false }),
+    );
+    await publishStored(dependencies, actor, createWorkItem());
+    await publishStored(
+      dependencies,
+      actor,
+      createWorkItem({ githubIssueNumber: null }),
+    );
 
     expect(client.getIssue).not.toHaveBeenCalled();
     expect(client.createIssue).not.toHaveBeenCalled();
@@ -1590,6 +1647,18 @@ describe("GitHubSyncService conflicts and connections", () => {
     await expect(
       service.testConnection(createUser(), "project-1"),
     ).rejects.toThrow(ProjectManagementDeniedError);
+  });
+
+  it("still tests the connection while the synchronization is switched off", async () => {
+    const { client, projectRepository, service } = dependencies;
+    projectRepository.findIntegration.mockResolvedValue(
+      createIntegration({ syncEnabled: false }),
+    );
+
+    await expect(
+      service.testConnection(createUser(), "project-1"),
+    ).resolves.toBe(true);
+    expect(client.getRepository).toHaveBeenCalledWith("user", "pages");
   });
 
   it("reports missing integrations as failed connections", async () => {

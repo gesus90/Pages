@@ -1,4 +1,5 @@
 import type { UserListItem } from "@/definition/User";
+import type { GroupPageData } from "@/definition/UserGroup";
 
 /** Configurable capabilities; reading is always enabled within the permitted scope. */
 export const CAPABILITY = {
@@ -108,4 +109,5 @@ export interface AdministrationPageData {
   readonly editableRoleIds: readonly string[];
   readonly manageableDepartmentIds: readonly string[];
   readonly adoptableDepartmentIds: readonly string[];
+  readonly groups: GroupPageData;
 }

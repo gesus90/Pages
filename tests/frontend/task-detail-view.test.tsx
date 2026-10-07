@@ -37,7 +37,7 @@ import { createUser } from "../helpers/factories";
 import type { Project } from "@/definition/Project";
 import type {
   Milestone,
-  ProjectLabel,
+  Label,
   WorkItemDetail,
   WorkflowStatus,
 } from "@/definition/Task";
@@ -96,7 +96,9 @@ function createTicket(overrides: Partial<WorkItemDetail> = {}): WorkItemDetail {
     departmentId: null,
     archivedAt: null,
     assigneeId: "user-1",
+    assigneeGroupId: null,
     assigneeName: "Admin",
+    assigneeGroupName: null,
     reporterName: "Alex Berger",
     completedAt: null,
     createdAt: "2026-01-01",
@@ -154,13 +156,12 @@ function createMilestone(): Milestone {
   };
 }
 
-function createLabel(): ProjectLabel {
+function createLabel(): Label {
   return {
     color: "#3b82f6",
     createdAt: "2026-01-01",
     id: "label-1",
     name: "Feature",
-    projectId: "project-1",
     updatedAt: "2026-01-02",
   };
 }
@@ -180,6 +181,10 @@ function createEpicTask(): WorkItemDetail {
 function renderDetail(loaderOverrides: Record<string, unknown> = {}): void {
   mockedLoaderData.mockReturnValue({
     actor: createUser(),
+    assigneeGroups: [
+      { id: "group-1", memberCount: 2, name: "Design" },
+      { id: "group-2", memberCount: 0, name: "Leer" },
+    ],
     assignees: [
       createUser(),
       createUser({ displayName: "Max Mustermann", id: "user-2" }),
@@ -199,7 +204,15 @@ function renderDetail(loaderOverrides: Record<string, unknown> = {}): void {
         type: WORK_ITEM_TYPE.SUBTASK,
       }),
     ],
+    departmentChoices: {
+      available: [
+        { id: "department-1", name: "Entwicklung" },
+        { id: "department-2", name: "Support" },
+      ],
+    },
     fromView: "kanban",
+    permissions: { canDelete: false, canWrite: true },
+    templates: [],
     history: [],
     labelUsage: { "label-1": 1 },
     milestones: [createMilestone()],
@@ -213,7 +226,7 @@ function renderDetail(loaderOverrides: Record<string, unknown> = {}): void {
       type: WORK_ITEM_TYPE.EPIC,
     }),
     project: createProject(),
-    projectLabels: [createLabel()],
+    labels: [createLabel()],
     projectWorkItems: [
       createEpicTask(),
       createTicket({
@@ -384,7 +397,9 @@ describe("TaskDetailRoute", () => {
     renderDetail({
       ticket: createTicket({
         assigneeId: null,
+        assigneeGroupId: null,
         assigneeName: null,
+        assigneeGroupName: null,
         dueAt: null,
         milestoneId: null,
         milestoneName: null,
@@ -401,6 +416,7 @@ describe("TaskDetailRoute", () => {
     expect(submit).toHaveBeenCalledWith(
       expect.objectContaining({
         assigneeId: "",
+        assigneeGroupId: "",
         dueAt: "",
         intent: "update-task",
         milestoneId: "",
@@ -586,7 +602,9 @@ describe("TaskDetailRoute", () => {
       parent: createTicket(),
       ticket: createTicket({
         assigneeId: null,
+        assigneeGroupId: null,
         assigneeName: null,
+        assigneeGroupName: null,
         dueAt: null,
         id: "sub-1",
         key: "PAGE-14.1",
@@ -694,6 +712,52 @@ describe("TaskDetailRoute", () => {
     expect(
       screen.queryByRole("button", { name: "Unteraufgabe" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("hides restore controls and explains read-only access on archived tickets", () => {
+    mockedNavigate.mockReturnValue(vi.fn());
+    renderDetail({
+      permissions: { canDelete: false, canWrite: false },
+      ticket: createTicket({ archivedAt: "2026-09-05" }),
+    });
+
+    expect(
+      screen.queryByRole("button", { name: "Wiederherstellen" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText(/nur Leserechte/)).toBeInTheDocument();
+  });
+
+  it("offers permanent deletion alone to administrators without write access", async () => {
+    const user = userEvent.setup();
+    mockedNavigate.mockReturnValue(vi.fn());
+    mockedActionData.mockReturnValue({
+      error: "invalidInput",
+      intent: "create-task",
+      ok: false,
+    });
+    renderDetail({ permissions: { canDelete: true, canWrite: false } });
+
+    expect(
+      screen.queryByRole("button", { name: "Archivieren" }),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Endgültig löschen" }));
+
+    expect(document.querySelector('input[name="redirectTo"]')).toHaveAttribute(
+      "value",
+      "/aufgaben?view=kanban",
+    );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("ignores successful outcomes inside the delete dialog", async () => {
+    const user = userEvent.setup();
+    mockedNavigate.mockReturnValue(vi.fn());
+    mockedActionData.mockReturnValue({ intent: "delete-task", ok: true });
+    renderDetail({ permissions: { canDelete: true, canWrite: true } });
+
+    await user.click(screen.getByRole("button", { name: "Endgültig löschen" }));
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("opens editors and the label picker", async () => {
@@ -820,6 +884,23 @@ describe("TaskDetailRoute", () => {
     await user.click(screen.getByRole("button", { name: "Unteraufgabe" }));
 
     expect(screen.getByRole("alert")).toBeInTheDocument();
+  });
+
+  it("renders the ticket description as markdown with a Wiki hotlink", async () => {
+    const user = userEvent.setup();
+    renderDetail({
+      ticket: createTicket({
+        description: "## Plan\n\nSee [idea](/wiki/ideas) and **more**.",
+      }),
+    });
+
+    await user.click(screen.getByRole("tab", { name: "Beschreibung" }));
+
+    expect(screen.getByRole("heading", { name: "Plan" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /idea/ })).toHaveAttribute(
+      "href",
+      "/wiki/ideas",
+    );
   });
 
   it("renders empty description and children states", async () => {

@@ -118,8 +118,7 @@ export class TaskReadService {
   ): Promise<User[]> {
     await this.access.requireProject(actor, projectId);
 
-    const candidates =
-      await this.taskRepository.findEligibleAssignees(projectId);
+    const candidates = await this.taskRepository.findEligibleAssignees();
     const eligible = await this.access.filterAssignees(
       new Map([[projectId, candidates]]),
     );

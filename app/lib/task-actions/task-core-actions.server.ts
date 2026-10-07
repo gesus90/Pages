@@ -4,6 +4,7 @@ import {
   readText,
   readTextOrEmpty,
 } from "@/app/lib/form-fields.server";
+import { resolveLocalRedirect } from "@/app/lib/redirect.server";
 import {
   isWorkItemPriority,
   isWorkItemType,
@@ -13,6 +14,7 @@ import {
 import {
   invalidInput,
   runTaskAction,
+  runTaskActionThenRedirect,
   runTicketAction,
 } from "./task-action-support.server";
 
@@ -39,22 +41,34 @@ export const handleCreateTask: TaskActionHandler = async ({
     return invalidInput("create-task");
   }
 
+  const input = {
+    assigneeGroupId: readOptionalText(formData, "assigneeGroupId"),
+    assigneeId: readOptionalText(formData, "assigneeId"),
+    departmentId: readOptionalText(formData, "departmentId"),
+    description: readTextOrEmpty(formData, "description"),
+    dueAt: readOptionalText(formData, "dueAt"),
+    milestoneId: readOptionalText(formData, "milestoneId"),
+    parentId: readOptionalText(formData, "parentId"),
+    priority: isWorkItemPriority(priority)
+      ? priority
+      : WORK_ITEM_PRIORITY.NORMAL,
+    projectId,
+    startAt: readOptionalText(formData, "startAt"),
+    statusId,
+    title,
+    type,
+  };
+  // A template adds its labels and checklist to the ticket after creation.
+  const templateId = readOptionalText(formData, "templateId");
+
   return runTicketAction("create-task", () =>
-    services.taskService.create(actor, {
-      assigneeId: readOptionalText(formData, "assigneeId"),
-      description: readTextOrEmpty(formData, "description"),
-      dueAt: readOptionalText(formData, "dueAt"),
-      milestoneId: readOptionalText(formData, "milestoneId"),
-      parentId: readOptionalText(formData, "parentId"),
-      priority: isWorkItemPriority(priority)
-        ? priority
-        : WORK_ITEM_PRIORITY.NORMAL,
-      projectId,
-      startAt: readOptionalText(formData, "startAt"),
-      statusId,
-      title,
-      type,
-    }),
+    templateId === null
+      ? services.taskService.create(actor, input)
+      : services.taskTemplateService.createFromTemplate(
+          actor,
+          templateId,
+          input,
+        ),
   );
 };
 
@@ -82,6 +96,7 @@ export const handleUpdateTask: TaskActionHandler = async ({
 
   return runTicketAction("update-task", () =>
     services.taskService.update(actor, id, {
+      assigneeGroupId: readOptionalText(formData, "assigneeGroupId"),
       assigneeId: readOptionalText(formData, "assigneeId"),
       description: readTextOrEmpty(formData, "description"),
       dueAt: readOptionalText(formData, "dueAt"),
@@ -151,6 +166,44 @@ export const handleRestoreTask: TaskActionHandler = async ({
 
   return runTaskAction("restore-task", () =>
     services.taskService.restore(actor, id),
+  );
+};
+
+/** Permanently deletes a ticket with its subtree; administrator mode only. */
+export const handleDeleteTask: TaskActionHandler = async ({
+  actor,
+  formData,
+  services,
+}) => {
+  const id = readRequiredText(formData, "id");
+
+  if (id === null) {
+    return invalidInput("delete-task");
+  }
+
+  return runTaskActionThenRedirect(
+    "delete-task",
+    () => services.taskService.deletePermanently(actor, id),
+    resolveLocalRedirect(formData.get("redirectTo"), "/aufgaben"),
+  );
+};
+
+/** Assigns a ticket to a department, or clears its department; separate from content edits. */
+export const handleSetDepartment: TaskActionHandler = async ({
+  actor,
+  formData,
+  services,
+}) => {
+  const id = readRequiredText(formData, "id");
+  // An empty value clears the department, so the field itself must be present.
+  const departmentId = readText(formData, "departmentId");
+
+  if (id === null || departmentId === null) {
+    return invalidInput("set-department");
+  }
+
+  return runTaskAction("set-department", () =>
+    services.taskService.setDepartment(actor, id, departmentId),
   );
 };
 

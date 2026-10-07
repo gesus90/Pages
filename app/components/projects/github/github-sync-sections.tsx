@@ -1,10 +1,6 @@
 import { useTranslation } from "react-i18next";
 
-import {
-  CopyField,
-  FieldLabel,
-  ToggleRow,
-} from "@/app/components/projects/integration-fields";
+import { ToggleRow } from "@/app/components/projects/integration-fields";
 import { Select } from "@/app/components/ui/select";
 
 import type { GitHubFormValues, GitHubValueChange } from "./github-form-values";
@@ -41,12 +37,6 @@ export function GitHubSyncSections({
           onChange={(checked) => onChange("syncPullRequests", checked)}
           title={t("projectDetail.integrations.syncPullRequests")}
         />
-        <ToggleRow
-          checked={values.syncCommits}
-          hint={t("projectDetail.interfaces.syncCommitsHint")}
-          onChange={(checked) => onChange("syncCommits", checked)}
-          title={t("projectDetail.interfaces.syncCommitsLabel")}
-        />
       </section>
 
       <section className="flex flex-col gap-4">
@@ -70,13 +60,11 @@ export function GitHubSyncSections({
   );
 }
 
-/** The webhook address to register on GitHub and the sync interval. */
-export function GitHubWebhookAndInterval({
-  webhookUrl,
+/** The sync interval of the scheduled runs. */
+export function GitHubIntervalField({
   syncIntervalMinutes,
   onIntervalChange,
 }: {
-  readonly webhookUrl: string;
   readonly syncIntervalMinutes: string;
   readonly onIntervalChange: (minutes: string) => void;
 }): React.ReactElement {
@@ -90,26 +78,17 @@ export function GitHubWebhookAndInterval({
   ];
 
   return (
-    <>
-      <section className="flex flex-col gap-1.5">
-        <FieldLabel htmlFor="github-webhook">
-          {t("projectDetail.interfaces.webhookUrlLabel")}
-        </FieldLabel>
-        <CopyField id="github-webhook" value={webhookUrl} />
-      </section>
-
-      <section className="flex flex-col gap-1.5">
-        <span className="select-none text-xs font-semibold text-foreground">
-          {t("projectDetail.integrations.interval")}
-        </span>
-        <Select
-          ariaLabel={t("projectDetail.integrations.interval")}
-          className="w-full"
-          onValueChange={onIntervalChange}
-          options={intervalOptions}
-          value={syncIntervalMinutes}
-        />
-      </section>
-    </>
+    <section className="flex flex-col gap-1.5">
+      <span className="select-none text-xs font-semibold text-foreground">
+        {t("projectDetail.integrations.interval")}
+      </span>
+      <Select
+        ariaLabel={t("projectDetail.integrations.interval")}
+        className="w-full"
+        onValueChange={onIntervalChange}
+        options={intervalOptions}
+        value={syncIntervalMinutes}
+      />
+    </section>
   );
 }

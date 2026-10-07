@@ -11,15 +11,14 @@ import {
 import { createI18n } from "@/app/lib/i18n";
 import { LANGUAGE } from "@/language/Language";
 
-import type { ProjectLabel } from "@/definition/Task";
+import type { Label } from "@/definition/Task";
 
-function createLabel(overrides: Partial<ProjectLabel> = {}): ProjectLabel {
+function createLabel(overrides: Partial<Label> = {}): Label {
   return {
     color: "#3b82f6",
     createdAt: "2026-01-01",
     id: "label-1",
     name: "Feature",
-    projectId: "project-1",
     updatedAt: "2026-01-02",
     ...overrides,
   };

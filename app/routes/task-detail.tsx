@@ -8,6 +8,7 @@ import { TicketSidebar } from "@/app/components/tasks/ticket/ticket-sidebar";
 import { TicketTabs } from "@/app/components/tasks/ticket/ticket-tabs";
 import { TicketTop } from "@/app/components/tasks/ticket/ticket-top";
 import { useTicketDialogs } from "@/app/components/tasks/ticket/use-ticket-dialogs";
+import { TicketAccessProvider } from "@/app/components/tasks/ticket-access";
 import { PageContent } from "@/app/components/ui/card";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
@@ -21,11 +22,15 @@ import type { GitHubPullRequest } from "@/definition/GitHub";
 import type { Project } from "@/definition/Project";
 import type {
   Milestone,
-  ProjectLabel,
+  Label,
+  TaskActionPermissions,
+  TicketDepartmentChoices,
   WorkItemDetail,
   WorkItemHistory,
   WorkflowStatus,
 } from "@/definition/Task";
+import type { WorkItemTemplateView } from "@/definition/WorkItemTemplate";
+import type { GroupSummary } from "@/definition/UserGroup";
 import type { User } from "@/definition/User";
 import type { Route } from "./+types/task-detail";
 
@@ -59,11 +64,15 @@ interface TaskDetailLoaderData {
   readonly statuses: readonly WorkflowStatus[];
   readonly milestones: readonly Milestone[];
   readonly assignees: readonly User[];
+  readonly assigneeGroups: readonly GroupSummary[];
   readonly assigneesByProject: Readonly<Record<string, readonly User[]>>;
-  readonly projectLabels: readonly ProjectLabel[];
-  readonly taskLabels: readonly ProjectLabel[];
+  readonly labels: readonly Label[];
+  readonly taskLabels: readonly Label[];
   readonly labelUsage: Readonly<Record<string, number>>;
   readonly fromView: DetailViewMode;
+  readonly permissions: TaskActionPermissions;
+  readonly departmentChoices: TicketDepartmentChoices;
+  readonly templates: readonly WorkItemTemplateView[];
 }
 
 /** Loads one ticket with every relation from the database for instant display. */
@@ -146,36 +155,37 @@ export async function loader({
       await services.taskService.findEligibleAssignees(actor, candidate.id);
   }
 
-  const projectLabels = await services.taskService.findLabels(
-    actor,
-    ticket.projectId,
-  );
+  const labels = await services.taskService.findLabels();
   const taskLabels =
     (await services.taskService.findLabelsForWorkItems([ticket.id])).get(
       ticket.id,
     ) ?? [];
   const labelUsage = Object.fromEntries(
-    await services.taskService.countLabelUsage(actor, ticket.projectId),
+    await services.taskService.countLabelUsage(actor),
   );
   const url = new URL(request.url);
 
   return {
     actor,
+    assigneeGroups: await services.taskService.findAssigneeGroups(actor),
     assignees,
     assigneesByProject,
     children,
+    departmentChoices: await services.taskService.departmentChoices(actor),
     fromView: parseDetailView(url.searchParams.get("from")),
     history,
     labelUsage,
+    labels,
     milestones,
     parent,
+    permissions: await services.taskService.actionPermissions(actor),
     project,
-    projectLabels,
     projectWorkItems,
     projects,
     pullRequests,
     statuses,
     taskLabels,
+    templates: await services.taskTemplateService.findVisible(actor),
     ticket,
   };
 }
@@ -206,9 +216,14 @@ function isSubmittingIntent(
   );
 }
 
+interface TaskDetailViewProps {
+  readonly loaderData: TaskDetailLoaderData;
+}
+
 /** Renders the full ticket view inside the regular tasks content area. */
-export default function TaskDetailRoute(): React.ReactElement {
-  const loaderData = useLoaderData<typeof loader>();
+function TaskDetailView({
+  loaderData,
+}: TaskDetailViewProps): React.ReactElement {
   const { ticket, project, statuses, assignees, milestones } = loaderData;
   const navigate = useNavigate();
   const navigation = useNavigation();
@@ -272,6 +287,7 @@ export default function TaskDetailRoute(): React.ReactElement {
             isArchiving={isArchiving}
             isSyncing={isSyncing}
             milestones={milestones}
+            redirectTo={backTarget}
             onEditLabels={() => dialogs.setIsLabelPickerOpen(true)}
             onMoveProject={() => dialogs.setIsMoveDialogOpen(true)}
             onOpenTicket={handleOpenTicket}
@@ -307,5 +323,23 @@ export default function TaskDetailRoute(): React.ReactElement {
         />
       </div>
     </PageContent>
+  );
+}
+
+/** Provides the access hints of the loader to the ticket view. */
+export default function TaskDetailRoute(): React.ReactElement {
+  const loaderData = useLoaderData<typeof loader>();
+
+  return (
+    <TicketAccessProvider
+      value={{
+        ...loaderData.permissions,
+        assigneeGroups: loaderData.assigneeGroups,
+        departments: loaderData.departmentChoices.available,
+        projects: loaderData.projects,
+      }}
+    >
+      <TaskDetailView loaderData={loaderData} />
+    </TicketAccessProvider>
   );
 }

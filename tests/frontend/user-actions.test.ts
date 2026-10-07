@@ -45,6 +45,11 @@ function doubles(): Record<string, ReturnType<typeof vi.fn>> {
   };
 }
 
+const groupService = {
+  saveGroup: vi.fn(),
+  deleteGroup: vi.fn(),
+};
+
 async function run(
   fields: Record<string, string | File | readonly string[] | undefined>,
   administration = doubles(),
@@ -61,6 +66,7 @@ async function run(
     formData,
     services: {
       administrationService: administration,
+      groupAdministrationService: groupService,
     } as unknown as ApplicationServices,
   });
 }
@@ -307,6 +313,33 @@ describe("role, department and scope action validation", () => {
     await run({ intent: "delete-department", entityId: "hr" }, services);
     expect(services.deleteRole).toHaveBeenCalledWith("user-1", "role");
     expect(services.deleteDepartment).toHaveBeenCalledWith("user-1", "hr");
+  });
+
+  it("saves and deletes groups with their complete member list", async () => {
+    await run({
+      intent: "save-group",
+      entityId: "team",
+      name: " Team ",
+      member: ["a", "b"],
+    });
+    expect(groupService.saveGroup).toHaveBeenLastCalledWith("user-1", {
+      id: "team",
+      memberIds: ["a", "b"],
+      name: "Team",
+    });
+    await run({
+      intent: "save-group",
+      entityId: "",
+      name: "New",
+      member: ["a"],
+    });
+    expect(groupService.saveGroup).toHaveBeenLastCalledWith("user-1", {
+      id: expect.stringMatching(/^[0-9a-f-]{36}$/),
+      memberIds: ["a"],
+      name: "New",
+    });
+    await run({ intent: "delete-group", entityId: "team" });
+    expect(groupService.deleteGroup).toHaveBeenCalledWith("user-1", "team");
   });
 
   it("delegates membership changes and explicit personal grants separately", async () => {

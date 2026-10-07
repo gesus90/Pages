@@ -9,24 +9,24 @@ import { KanbanTicketGhost } from "./kanban-ticket-ghost";
 import { KanbanTicketViewport } from "./kanban-ticket-viewport";
 
 import type { KanbanDrag } from "./use-kanban-drag";
-import type {
-  ProjectLabel,
-  WorkItemDetail,
-  WorkflowStatus,
-} from "@/definition/Task";
+import type { Label, WorkItemDetail, WorkflowStatus } from "@/definition/Task";
 
 interface KanbanColumnProps {
+  /** Unique on the board; one status has one column per group. */
+  readonly columnId: string;
   readonly status: WorkflowStatus;
+  readonly statuses: readonly WorkflowStatus[];
   readonly items: readonly WorkItemDetail[];
   readonly visibleCount: number;
   readonly selectedTaskId: string | null;
   readonly draggedItem: WorkItemDetail | null;
   readonly drag: KanbanDrag;
-  readonly labelsByWorkItem?: Readonly<Record<string, readonly ProjectLabel[]>>;
+  readonly labelsByWorkItem?: Readonly<Record<string, readonly Label[]>>;
   readonly onSelectTask: (key: string) => void;
   readonly onOpenTask: (key: string) => void;
   readonly onQuickCreate: (statusId: string) => void;
   readonly onShowMore: () => void;
+  readonly onChangeStatus: (taskId: string, statusId: string) => void;
 }
 
 function getColumnBgClass(key: string): string {
@@ -51,7 +51,9 @@ function getColumnBgClass(key: string): string {
 
 /** Renders one workflow column with its tickets and the drop ghost. */
 export function KanbanColumn({
+  columnId,
   status,
+  statuses,
   items,
   visibleCount,
   selectedTaskId,
@@ -62,11 +64,13 @@ export function KanbanColumn({
   onOpenTask,
   onQuickCreate,
   onShowMore,
+  onChangeStatus,
 }: KanbanColumnProps): React.ReactElement {
   const { t } = useTranslation();
   const visibleItems = items.slice(0, visibleCount);
   const hiddenCount = items.length - visibleItems.length;
-  const isTarget = drag.dragOverStatusId === status.id;
+  const isTarget = drag.dragOverColumnId === columnId;
+  const dropTarget = { id: columnId, items, statusId: status.id };
   const ghostItem = isTarget ? draggedItem : null;
   const ghostLabels = ghostItem ? (labelsByWorkItem?.[ghostItem.id] ?? []) : [];
 
@@ -77,9 +81,9 @@ export function KanbanColumn({
         getColumnBgClass(status.key),
         isTarget && "ring-2 ring-primary/30",
       )}
-      onDragLeave={(event) => drag.handleDragLeave(event, status.id)}
-      onDragOver={(event) => drag.handleDragOver(event, status.id)}
-      onDrop={(event) => drag.handleDrop(event, status.id)}
+      onDragLeave={(event) => drag.handleDragLeave(event, dropTarget)}
+      onDragOver={(event) => drag.handleDragOver(event, dropTarget)}
+      onDrop={(event) => drag.handleDrop(event, dropTarget)}
     >
       <KanbanColumnHeader
         itemCount={items.length}
@@ -102,8 +106,10 @@ export function KanbanColumn({
               labels={labelsByWorkItem?.[item.id] ?? []}
               onDragEnd={drag.handleDragEnd}
               onDragStart={drag.handleDragStart}
+              onChangeStatus={onChangeStatus}
               onOpenTask={onOpenTask}
               onSelectTask={onSelectTask}
+              statuses={statuses}
             />
           </Fragment>
         ))}

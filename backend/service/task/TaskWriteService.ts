@@ -4,7 +4,6 @@ import {
   trimOrNull,
   validateWorkItemText,
 } from "@/backend/service/task/WorkItemValidation";
-import { CAPABILITY } from "@/definition/Authorization";
 import {
   isWorkItemPriority,
   isWorkItemType,
@@ -22,6 +21,7 @@ import type {
   TaskHistoryRecorder,
   WorkItemUpdateValues,
 } from "@/backend/service/task/TaskHistoryRecorder";
+import type { TaskDepartmentService } from "@/backend/service/task/TaskDepartmentService";
 import type { WorkItemNumbering } from "@/backend/service/task/WorkItemNumbering";
 import type { WorkItemReferenceValidator } from "@/backend/service/task/WorkItemReferenceValidator";
 import type { Project } from "@/definition/Project";
@@ -42,6 +42,9 @@ export interface CreateWorkItemInput {
   readonly statusId: string;
   readonly priority?: WorkItemPriority;
   readonly assigneeId?: string | null;
+  /** Alternative to `assigneeId`; a ticket is assigned to a person or a group. */
+  readonly assigneeGroupId?: string | null;
+  readonly departmentId?: string | null;
   readonly parentId?: string | null;
   readonly milestoneId?: string | null;
   readonly dueAt?: string | null;
@@ -56,6 +59,8 @@ export interface UpdateWorkItemInput {
   readonly statusId: string;
   readonly priority: WorkItemPriority;
   readonly assigneeId: string | null;
+  /** Absent clears a group assignment like `null`. */
+  readonly assigneeGroupId?: string | null;
   readonly reporterId: string;
   readonly parentId: string | null;
   readonly milestoneId: string | null;
@@ -70,6 +75,7 @@ export interface TaskWriteServiceDependencies {
   readonly validator: WorkItemReferenceValidator;
   readonly numbering: WorkItemNumbering;
   readonly history: TaskHistoryRecorder;
+  readonly departments: TaskDepartmentService;
   readonly gitHubPublisher: TaskGitHubPublisher;
   readonly cache: ServerCache;
 }
@@ -85,13 +91,14 @@ type WorkItemDraft = Omit<
   "createdBy" | "id" | "key" | "number" | "sortOrder"
 >;
 
-/** Creates, changes, archives and restores work items. */
+/** Creates and changes work items. */
 export class TaskWriteService {
   private readonly taskRepository: TaskRepository;
   private readonly access: TaskAccessGuard;
   private readonly validator: WorkItemReferenceValidator;
   private readonly numbering: WorkItemNumbering;
   private readonly history: TaskHistoryRecorder;
+  private readonly departments: TaskDepartmentService;
   private readonly gitHubPublisher: TaskGitHubPublisher;
   private readonly cache: ServerCache;
 
@@ -106,6 +113,7 @@ export class TaskWriteService {
     this.validator = dependencies.validator;
     this.numbering = dependencies.numbering;
     this.history = dependencies.history;
+    this.departments = dependencies.departments;
     this.gitHubPublisher = dependencies.gitHubPublisher;
     this.cache = dependencies.cache;
   }
@@ -115,8 +123,10 @@ export class TaskWriteService {
     actor: User,
     input: CreateWorkItemInput,
   ): Promise<WorkItemDetail> {
-    const project = await this.access.requireProject(actor, input.projectId);
-    await this.access.requireCapability(actor, CAPABILITY.WRITE);
+    const project = await this.access.requireWritableProject(
+      actor,
+      input.projectId,
+    );
 
     const title = input.title.trim();
     const description = (input.description ?? "").trim();
@@ -124,6 +134,7 @@ export class TaskWriteService {
     const parentId = trimOrNull(input.parentId);
     const milestoneId = trimOrNull(input.milestoneId);
     const assigneeId = trimOrNull(input.assigneeId);
+    const assigneeGroupId = trimOrNull(input.assigneeGroupId);
 
     validateWorkItemText(title, description);
 
@@ -145,6 +156,7 @@ export class TaskWriteService {
     }
 
     await this.validator.validateReferences({
+      assigneeGroupId,
       assigneeId,
       milestoneId,
       parentId,
@@ -154,8 +166,14 @@ export class TaskWriteService {
       visibility: await this.access.visibility(actor),
     });
 
+    const departmentId = await this.departments.resolve(
+      actor,
+      input.departmentId,
+    );
     const id = await this.insertNumbered(actor, project, {
+      assigneeGroupId,
       assigneeId,
+      departmentId,
       description,
       dueAt: trimOrNull(input.dueAt),
       milestoneId,
@@ -174,7 +192,9 @@ export class TaskWriteService {
     const created = await this.requireStored(
       id,
       "Created work item could not be retrieved.",
-      actor,
+      // The creator may have chosen a department outside their own scope;
+      // the new ticket is still theirs to receive back.
+      null,
     );
 
     if (!input.skipGitHubSync) {
@@ -192,8 +212,7 @@ export class TaskWriteService {
     id: string,
     input: UpdateWorkItemInput,
   ): Promise<WorkItemDetail> {
-    const existing = await this.access.requireWorkItem(actor, id);
-    await this.access.requireCapability(actor, CAPABILITY.WRITE);
+    const existing = await this.access.requireWritableWorkItem(actor, id);
     const hiddenParent =
       existing.parentId === null
         ? await this.taskRepository.findParentReference(id)
@@ -210,6 +229,7 @@ export class TaskWriteService {
     });
 
     await this.taskRepository.update(id, {
+      assigneeGroupId: values.assigneeGroupId,
       assigneeId: values.assigneeId,
       description: values.description,
       dueAt: values.dueAt,
@@ -244,8 +264,7 @@ export class TaskWriteService {
     statusId: string,
     sortOrder: number,
   ): Promise<WorkItemDetail> {
-    const existing = await this.access.requireWorkItem(actor, id);
-    await this.access.requireCapability(actor, CAPABILITY.WRITE);
+    const existing = await this.access.requireWritableWorkItem(actor, id);
     const status = await this.taskRepository.findStatusById(statusId);
 
     if (
@@ -277,25 +296,6 @@ export class TaskWriteService {
     return updated;
   }
 
-  /** Marks a work item as archived without physical deletion. */
-  public async archive(actor: User, id: string): Promise<void> {
-    await this.access.requireWorkItem(actor, id);
-    await this.access.requireCapability(actor, CAPABILITY.WRITE);
-    await this.taskRepository.archive(id);
-    this.cache.invalidateWorkItems();
-
-    await this.history.recordArchived(actor, id);
-  }
-
-  /** Restores an archived work item keeping its original workflow status. */
-  public async restore(actor: User, id: string): Promise<void> {
-    await this.access.requireWritableWorkItem(actor, id);
-    await this.taskRepository.restore(id);
-    this.cache.invalidateWorkItems();
-
-    await this.history.recordRestored(actor, id);
-  }
-
   private async validateUpdate(
     existing: WorkItemDetail,
     input: UpdateWorkItemInput,
@@ -306,6 +306,7 @@ export class TaskWriteService {
     const parentId = trimOrNull(input.parentId) ?? scope.preservedParentId;
     const milestoneId = trimOrNull(input.milestoneId);
     const assigneeId = trimOrNull(input.assigneeId);
+    const assigneeGroupId = trimOrNull(input.assigneeGroupId);
     const reporterId = input.reporterId.trim();
 
     validateWorkItemText(title, description);
@@ -325,9 +326,11 @@ export class TaskWriteService {
     }
 
     await this.validator.validateReferences({
+      assigneeGroupId,
       assigneeId,
       milestoneId,
       parentId,
+      preservedGroupId: existing.assigneeGroupId,
       projectId: existing.projectId,
       selfId: existing.id,
       type: existing.type,
@@ -341,6 +344,7 @@ export class TaskWriteService {
     await this.validator.validateAssignee(reporterId, existing.projectId);
 
     return {
+      assigneeGroupId,
       assigneeId,
       description,
       dueAt: trimOrNull(input.dueAt),
@@ -378,11 +382,11 @@ export class TaskWriteService {
   private async requireStored(
     id: string,
     failureMessage: string,
-    actor: User,
+    actor: User | null,
   ): Promise<WorkItemDetail> {
     const stored = await this.taskRepository.findById(
       id,
-      await this.access.visibility(actor),
+      actor ? await this.access.visibility(actor) : undefined,
     );
 
     if (!stored) {

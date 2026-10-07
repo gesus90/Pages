@@ -378,7 +378,8 @@
     "sections": {
       "users": "Users",
       "roles": "Roles",
-      "departments": "Departments"
+      "departments": "Departments",
+      "groups": "Groups"
     },
     "access": {
       "memberships": "Assign departments",
@@ -411,7 +412,8 @@
       "deleteNamed": "Delete {{name}}?",
       "delete": "Delete",
       "roleDeleteHint": "The role will be deleted. Assign its users to another role first.",
-      "departmentDeleteHint": "The department and its assignments will be removed. Users losing their final department are retained without a department and can be assigned again."
+      "departmentDeleteHint": "The department and its assignments will be removed. Users losing their final department are retained without a department and can be assigned again.",
+      "groupDeleteHint": "The group will be deleted. Tickets assigned to it become unassigned."
     },
     "personalAdmin": "Personal administrator eligibility",
     "mode": {
@@ -515,7 +517,17 @@
     "saved": "Saved",
     "discardChanges": "Discard unsaved changes?",
     "unassignedRole": "No role (administrator account)",
-    "loading": "Loading user management …"
+    "loading": "Loading user management …",
+    "groups": {
+      "add": "Create group",
+      "edit": "Edit group",
+      "members": "Members",
+      "membersHint": "A group needs at least one member before tickets can be assigned to it.",
+      "noCandidates": "No active users available.",
+      "none": "No groups created yet.",
+      "empty": "Empty – cannot be assigned",
+      "memberCount": "Members: {{total}}"
+    }
   },
   "tasks": {
     "title": "Tasks",
@@ -573,14 +585,34 @@
       "archived": "Archive state",
       "active": "Active",
       "archivedTickets": "Archived",
-      "all": "All"
+      "all": "All",
+      "department": "Department",
+      "allDepartments": "All departments",
+      "noDepartment": "No department",
+      "labels": "Labels",
+      "allLabels": "All labels",
+      "labelsSelected": "{{count}} labels",
+      "noLabels": "No labels yet.",
+      "typeOption": {
+        "work": "Tasks & subtasks",
+        "all": "All types",
+        "initiative": "Initiative",
+        "epic": "Epic",
+        "task": "Task",
+        "subtask": "Subtask"
+      }
     },
     "sort": {
       "updated": "Last updated",
       "priority": "Priority",
       "dueDate": "Due date",
       "project": "Project",
-      "status": "Status"
+      "status": "Status",
+      "label": "Sort order",
+      "manual": "Manual",
+      "title": "Title",
+      "ascending": "Sorted ascending, click to reverse",
+      "descending": "Sorted descending, click to reverse"
     },
     "columns": {
       "type": "Type",
@@ -602,7 +634,7 @@
     },
     "priority": {
       "low": "Low",
-      "normal": "Normal",
+      "normal": "Medium",
       "high": "High",
       "urgent": "Urgent"
     },
@@ -629,8 +661,10 @@
       "parent": "Parent element",
       "parentEpic": "Select Epic (optional)",
       "parentTask": "Parent Task *",
-      "parentInitiative": "Select initiative (optional)"
+      "parentInitiative": "Select initiative (optional)",
+      "department": "Department"
     },
+    "descriptionHint": "Markdown is supported.",
     "unassigned": "Unassigned",
     "none": "None",
     "tabs": {
@@ -654,6 +688,7 @@
       "label_added": "{{user}} added the label {{newValue}}.",
       "label_removed": "{{user}} removed the label {{oldValue}}.",
       "parent_changed": "{{user}} changed the parent: {{oldValue}} → {{newValue}}",
+      "department_changed": "{{user}} changed the department: {{oldValue}} → {{newValue}}",
       "milestone_changed": "{{user}} changed the milestone: {{oldValue}} → {{newValue}}",
       "due_at_changed": "{{user}} changed the due date: {{oldValue}} → {{newValue}}",
       "title_changed": "{{user}} changed the title.",
@@ -801,6 +836,73 @@
     "automation": {
       "section": "Automation",
       "none": "No automation rules configured"
+    },
+    "department": {
+      "none": "No department"
+    },
+    "permissions": {
+      "readOnly": "You have read-only access to this ticket. Archiving and editing are not possible."
+    },
+    "delete": {
+      "action": "Delete permanently",
+      "title": "Delete {{key}} permanently?",
+      "hint": "The ticket is deleted irrevocably together with all child items, history, checklist, label assignments and links. This is only possible in administrator mode.",
+      "confirm": "Delete permanently"
+    },
+    "assignee": {
+      "group": "Group: {{name}}",
+      "emptyGroup": "Group: {{name}} (no members)"
+    },
+    "templates": {
+      "saveAction": "Save as template",
+      "saveTitle": "Save {{key}} as template",
+      "saveHint": "The template keeps type, title, description, priority, labels and checklist. Assignee, milestone, dates and department are not saved.",
+      "name": "Template name",
+      "save": "Save template",
+      "saved": "Template saved.",
+      "fromTemplate": "From template",
+      "none": "No template",
+      "applyHint": "Labels ({{labels}}) and checklist items ({{items}}) of the template are added to the new ticket.",
+      "manage": "Templates",
+      "manageTitle": "Manage templates",
+      "manageHint": "Templates you created are listed here. Administrators see all templates.",
+      "edit": "Edit template {{name}}",
+      "delete": "Delete template {{name}}",
+      "deleteHint": "Delete the template “{{name}}”? Tickets already created from it stay as they are.",
+      "deleteConfirm": "Delete template",
+      "close": "Close",
+      "scope": {
+        "label": "Shared with",
+        "private": "Only me",
+        "all": "Everyone",
+        "departments": "Departments",
+        "projects": "Projects"
+      },
+      "sharing": {
+        "departments": "Departments",
+        "projects": "Projects",
+        "noDepartments": "You can only share with departments you belong to or manage. None is available.",
+        "noProjects": "No project is available."
+      }
+    },
+    "group": {
+      "label": "By label",
+      "none": "No grouping",
+      "project": "By project",
+      "priority": "By priority",
+      "assignee": "By assignee",
+      "department": "By department",
+      "title": "Grouping"
+    },
+    "groupEmpty": {
+      "project": "No project",
+      "priority": "No priority",
+      "assignee": "Unassigned",
+      "department": "No department",
+      "label": "No label"
+    },
+    "card": {
+      "status": "Change status of {{key}}"
     }
   },
   "projectDetail": {
@@ -1080,6 +1182,10 @@
       "repository": "Repository:",
       "lastSync": "Last sync:",
       "never": "Never",
+      "syncEnabled": "GitHub synchronization active",
+      "syncEnabledHint": "Pauses automatic and manual synchronization. Repository and token stay stored.",
+      "syncStateOn": "Synchronization is active.",
+      "syncStateOff": "Synchronization is switched off.",
       "syncNow": "Sync now",
       "disconnect": "Disconnect",
       "interval": "Refresh interval",
@@ -1124,9 +1230,6 @@
       "allowCreatePullRequestsHint": "Allows creating new pull requests directly from Pages.",
       "syncIssuesHint": "Import new and updated issues.",
       "syncPullRequestsHint": "Import and update pull requests.",
-      "syncCommitsLabel": "Show commits",
-      "syncCommitsHint": "Show commits in the activity history.",
-      "webhookUrlLabel": "Webhook URL (optional)",
       "webhookCopy": "Copy webhook URL",
       "connectionOk": "Connection successful.",
       "connectionFailed": "Connection failed. Check the token and repository.",
@@ -1213,5 +1316,9 @@
       "subtitle": "The setup is finished. Sign in with the administrator account.",
       "signIn": "Go to sign-in"
     }
+  },
+  "markdown": {
+    "wikiLink": "Wiki page",
+    "externalLink": "External link"
   }
 }

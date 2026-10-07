@@ -5,7 +5,7 @@ import {
   buildWorkItemUpdateFromRemote,
   findOpenWorkflowStatus,
 } from "@/backend/service/github/GitHubIssueMapping";
-import { WORK_ITEM_TYPE } from "@/definition/Task";
+import { WORK_ITEM_PRIORITY, WORK_ITEM_TYPE } from "@/definition/Task";
 
 import type { GitHubRepository } from "@/backend/database/repositories/GitHubRepository";
 import type { TaskRepository } from "@/backend/database/repositories/TaskRepository";
@@ -99,7 +99,7 @@ export class GitHubExternalIssueTriage {
       dueAt: null,
       milestoneId: null,
       parentId: null,
-      priority: "normal",
+      priority: WORK_ITEM_PRIORITY.NORMAL,
       projectId,
       statusId: openStatus.id,
       title: remote.title,

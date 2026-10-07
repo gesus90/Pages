@@ -1,7 +1,7 @@
 import { CheckCircle2, Circle, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import { UserAvatar } from "@/app/components/common/user-avatar";
+import { AssigneeAvatar } from "@/app/components/tasks/assignee-avatar";
 import { DetailSection } from "@/app/components/tasks/detail-section";
 import { Button } from "@/app/components/ui/button";
 import { WORK_ITEM_TYPE } from "@/definition/Task";
@@ -93,21 +93,7 @@ export function DetailChildrenSection({
                 >
                   {child.title}
                 </span>
-                {child.assigneeName ? (
-                  <UserAvatar
-                    name={child.assigneeName}
-                    size="xs"
-                    className="bg-muted text-muted-foreground"
-                    title={child.assigneeName}
-                  />
-                ) : (
-                  <span
-                    className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-muted-foreground select-none"
-                    title={t("tasks.unassigned")}
-                  >
-                    ?
-                  </span>
-                )}
+                <AssigneeAvatar item={child} />
                 <span className="w-16 shrink-0 text-right text-xs font-medium text-muted-foreground">
                   {child.dueAt ?? ""}
                 </span>

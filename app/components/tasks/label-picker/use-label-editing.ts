@@ -3,7 +3,7 @@ import { useSubmit } from "react-router";
 
 import { DEFAULT_LABEL_COLOR } from "@/definition/Task";
 
-import type { ProjectLabel } from "@/definition/Task";
+import type { Label } from "@/definition/Task";
 
 /** The edit form and delete confirmation of one label row at a time. */
 export interface LabelEditing {
@@ -13,11 +13,11 @@ export interface LabelEditing {
   readonly confirmDeleteId: string | null;
   readonly setEditName: (name: string) => void;
   readonly setEditColor: (color: string) => void;
-  readonly startEdit: (label: ProjectLabel) => void;
-  readonly saveEdit: (label: ProjectLabel) => void;
+  readonly startEdit: (label: Label) => void;
+  readonly saveEdit: (label: Label) => void;
   readonly cancelEdit: () => void;
   /** Asks for confirmation first and deletes the label on the second call. */
-  readonly deleteLabel: (label: ProjectLabel) => void;
+  readonly deleteLabel: (label: Label) => void;
   readonly cancelDelete: () => void;
 }
 
@@ -29,14 +29,14 @@ export function useLabelEditing(): LabelEditing {
   const [editColor, setEditColor] = useState<string>(DEFAULT_LABEL_COLOR);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
-  function startEdit(label: ProjectLabel): void {
+  function startEdit(label: Label): void {
     setEditingId(label.id);
     setEditName(label.name);
     setEditColor(label.color);
     setConfirmDeleteId(null);
   }
 
-  function saveEdit(label: ProjectLabel): void {
+  function saveEdit(label: Label): void {
     const name = editName.trim();
 
     void submit(
@@ -51,7 +51,7 @@ export function useLabelEditing(): LabelEditing {
     setConfirmDeleteId(null);
   }
 
-  function deleteLabel(label: ProjectLabel): void {
+  function deleteLabel(label: Label): void {
     if (confirmDeleteId !== label.id) {
       setConfirmDeleteId(label.id);
       return;

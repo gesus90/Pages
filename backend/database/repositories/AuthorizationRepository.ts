@@ -5,6 +5,7 @@ import {
   readTextColumn,
 } from "@/backend/database/RowValue";
 import { isCapability } from "@/definition/Authorization";
+import { UserGroupRepository } from "./UserGroupRepository";
 import { UserRepository } from "./UserRepository";
 
 import type {
@@ -59,6 +60,11 @@ export class AuthorizationRepository {
   /** Shares user persistence inside the current aggregate transaction. */
   public users(): UserRepository {
     return new UserRepository(this.database);
+  }
+
+  /** Shares group persistence inside the current aggregate transaction. */
+  public groups(): UserGroupRepository {
+    return new UserGroupRepository(this.database);
   }
 
   /** Restores admin mode for a personally authorized setup account without altering its role. */

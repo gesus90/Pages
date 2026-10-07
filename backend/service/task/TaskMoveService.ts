@@ -67,7 +67,7 @@ export class TaskMoveService {
    * @remarks
    * The internal id stays stable while every moved item receives a new
    * project-specific key. Project-bound relations that cannot travel
-   * (parent outside the target, milestones, labels, GitHub links, and
+   * (parent outside the target, milestones, GitHub links, and
    * ineligible assignees) are cleared and recorded in the history.
    *
    * @param actor - User moving the ticket; must hold write permission twice.
@@ -81,13 +81,10 @@ export class TaskMoveService {
     targetProjectId: string,
   ): Promise<WorkItemDetail> {
     const existing = await this.access.requireWorkItem(actor, id);
-    const targetProject = await this.access.requireProject(
+    const targetProject = await this.access.requireWritableProject(
       actor,
       targetProjectId,
     );
-
-    await this.access.requireWriteAccess(actor, existing.projectId);
-    await this.access.requireWriteAccess(actor, targetProjectId);
 
     if (existing.projectId === targetProjectId) {
       throw new WorkItemValidationError(
@@ -104,6 +101,7 @@ export class TaskMoveService {
     });
 
     this.cache.invalidateWorkItems();
+    // Moving changes which projects count a ticket, so usage counts go stale.
     this.cache.invalidateLabels();
 
     const moved = await this.taskRepository.findById(
@@ -189,7 +187,6 @@ export class TaskMoveService {
       parentId: keepParent ? item.parentId : null,
       projectId: targetProject.id,
     });
-    await this.taskRepository.removeAllLabelsFromWorkItem(item.id);
     await this.history.recordProjectMove(actor, item, targetProject.name);
   }
 

@@ -9,7 +9,6 @@ export interface GitHubFormValues {
   readonly token: string;
   readonly syncIssues: boolean;
   readonly syncPullRequests: boolean;
-  readonly syncCommits: boolean;
   readonly allowCreateIssues: boolean;
   readonly allowCreatePullRequests: boolean;
   readonly syncIntervalMinutes: string;
@@ -34,7 +33,6 @@ const SETTING_KEYS = [
   "repoUrl",
   "syncIssues",
   "syncPullRequests",
-  "syncCommits",
   "allowCreateIssues",
   "allowCreatePullRequests",
   "syncIntervalMinutes",
@@ -57,7 +55,6 @@ function initialGitHubValues(
     allowCreateIssues: allowsPushing,
     allowCreatePullRequests: allowsPushing,
     repoUrl: integration?.repoUrl ?? "",
-    syncCommits: integration?.syncCommits ?? true,
     syncIntervalMinutes: String(
       integration?.syncIntervalMinutes ?? DEFAULT_SYNC_INTERVAL_MINUTES,
     ),

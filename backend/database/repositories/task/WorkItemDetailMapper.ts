@@ -28,6 +28,7 @@ type WorkItemRow = readonly DatabaseValue[];
 type WorkItemCore = Pick<
   WorkItemDetail,
   | "archivedAt"
+  | "assigneeGroupId"
   | "assigneeId"
   | "completedAt"
   | "createdAt"
@@ -66,6 +67,7 @@ type WorkItemGitHubColumns = Pick<
 /** Display names and keys joined from related rows. */
 type WorkItemJoinedNames = Pick<
   WorkItemDetail,
+  | "assigneeGroupName"
   | "assigneeName"
   | "milestoneName"
   | "parentKey"
@@ -113,6 +115,7 @@ function readGitHubIssueState(row: WorkItemRow): GitHubIssueState | null {
 function readWorkItemCore(row: WorkItemRow): WorkItemCore {
   return {
     archivedAt: readOptionalTextColumn(row, 18, "archived_at"),
+    assigneeGroupId: readOptionalTextColumn(row, 40, "assignee_group_id"),
     assigneeId: readOptionalTextColumn(row, 10, "assignee_id"),
     completedAt: readOptionalTextColumn(row, 17, "completed_at"),
     createdAt: readTextColumn(row, 15, "created_at"),
@@ -155,6 +158,7 @@ function readWorkItemGitHubColumns(row: WorkItemRow): WorkItemGitHubColumns {
 
 function readWorkItemJoinedNames(row: WorkItemRow): WorkItemJoinedNames {
   return {
+    assigneeGroupName: readOptionalTextColumn(row, 41, "assignee_group_name"),
     assigneeName: readOptionalTextColumn(row, 23, "assignee_name"),
     milestoneName: readOptionalTextColumn(row, 24, "milestone_name"),
     parentKey: readOptionalTextColumn(row, 26, "parent_key"),

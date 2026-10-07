@@ -74,6 +74,7 @@ function createServices() {
       createGoal: vi.fn(),
       deleteGoal: vi.fn(),
       disconnectIntegration: vi.fn(),
+      setIntegrationSyncEnabled: vi.fn().mockResolvedValue({}),
       findGoals: vi
         .fn()
         .mockResolvedValue([{ id: "goal-1", isDone: false, title: "Release" }]),
@@ -924,6 +925,30 @@ describe("handleProjectAction", () => {
         ACTOR,
         "project-1",
       );
+    });
+
+    it.each([
+      ["on", true],
+      ["", false],
+    ])("switches the synchronization (%j)", async (field, isEnabled) => {
+      const services = createServices();
+
+      await expect(
+        run("set-integration-sync", { syncEnabled: field }, services),
+      ).resolves.toEqual(OK);
+      expect(
+        services.projectService.setIntegrationSyncEnabled,
+      ).toHaveBeenCalledWith(ACTOR, "project-1", isEnabled);
+    });
+
+    it("rejects switching a project without an integration", async () => {
+      const services = createServices();
+
+      services.projectService.setIntegrationSyncEnabled.mockResolvedValue(null);
+
+      await expect(
+        run("set-integration-sync", { syncEnabled: "on" }, services),
+      ).resolves.toEqual(INVALID);
     });
 
     it("disconnects the project", async () => {

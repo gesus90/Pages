@@ -1,3 +1,5 @@
+import type { Department } from "@/definition/Authorization";
+
 /** Work item types supported by the task management foundation. */
 export const WORK_ITEM_TYPE = {
   INITIATIVE: "initiative",
@@ -257,6 +259,8 @@ interface WorkItem {
   readonly statusId: string;
   readonly priority: WorkItemPriority;
   readonly assigneeId: string | null;
+  /** A ticket is assigned to a person or to a group, never to both. */
+  readonly assigneeGroupId: string | null;
   readonly createdBy: string;
   readonly milestoneId: string | null;
   readonly dueAt: string | null;
@@ -281,6 +285,17 @@ export interface WorkItemVisibility {
   readonly departmentIds: readonly string[] | null;
   /** Accessible projects also restrict parent, child and cross-project link data. */
   readonly projectIds?: readonly string[];
+}
+
+/** Departments the actor may assign to a ticket; also names every department of a visible ticket. */
+export interface TicketDepartmentChoices {
+  readonly available: readonly Department[];
+}
+
+/** Server hints for ticket mutation controls; every mutation is authorized again. */
+export interface TaskActionPermissions {
+  readonly canWrite: boolean;
+  readonly canDelete: boolean;
 }
 
 /** A single checklist entry used for ticket acceptance criteria. */
@@ -357,6 +372,7 @@ export interface WorkItemDetail extends WorkItem {
   readonly statusName: string;
   readonly isDone: boolean;
   readonly assigneeName: string | null;
+  readonly assigneeGroupName: string | null;
   readonly reporterName: string | null;
   readonly milestoneName: string | null;
   readonly parentTitle: string | null;
@@ -366,10 +382,9 @@ export interface WorkItemDetail extends WorkItem {
   readonly progressPercentage: number;
 }
 
-/** A project-wide label from the shared project label catalog. */
-export interface ProjectLabel {
+/** A label from the global label catalog, usable on tickets of every project. */
+export interface Label {
   readonly id: string;
-  readonly projectId: string;
   readonly name: string;
   readonly color: string;
   readonly createdAt: string;

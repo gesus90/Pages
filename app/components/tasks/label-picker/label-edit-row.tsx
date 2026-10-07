@@ -4,10 +4,10 @@ import { LabelEditor } from "@/app/components/tasks/label-editor";
 import { LabelDeleteControl } from "@/app/components/tasks/label-picker/label-delete-control";
 
 import type { LabelEditing } from "@/app/components/tasks/label-picker/use-label-editing";
-import type { ProjectLabel } from "@/definition/Task";
+import type { Label } from "@/definition/Task";
 
 interface LabelEditRowProps {
-  readonly label: ProjectLabel;
+  readonly label: Label;
   readonly usage: number;
   readonly isSubmitting: boolean;
   readonly editing: LabelEditing;

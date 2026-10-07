@@ -62,7 +62,9 @@ function createWorkItemDetailStatement(
           reporter.display_name AS reporter_name,
           work_items.start_at,
           work_items.github_last_error,
-          work_items.department_id
+          work_items.department_id,
+          work_items.assignee_group_id,
+          assignee_group.name AS assignee_group_name
       FROM work_items
       INNER JOIN projects
           ON projects.id = work_items.project_id
@@ -70,6 +72,8 @@ function createWorkItemDetailStatement(
           ON workflow_statuses.id = work_items.status_id
       LEFT JOIN users AS assignee
           ON assignee.id = work_items.assignee_id
+      LEFT JOIN user_groups AS assignee_group
+          ON assignee_group.id = work_items.assignee_group_id
       LEFT JOIN users AS reporter
           ON reporter.id = work_items.created_by
       LEFT JOIN milestones

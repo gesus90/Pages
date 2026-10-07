@@ -6,8 +6,8 @@ import { useGitHubFormValues } from "@/app/components/projects/github/github-for
 import { GitHubPanelFooter } from "@/app/components/projects/github/github-panel-footer";
 import { GitHubRepositoryField } from "@/app/components/projects/github/github-repository-field";
 import {
+  GitHubIntervalField,
   GitHubSyncSections,
-  GitHubWebhookAndInterval,
 } from "@/app/components/projects/github/github-sync-sections";
 import { GitHubTokenField } from "@/app/components/projects/github/github-token-field";
 import { useGitHubSubmission } from "@/app/components/projects/github/use-github-submission";
@@ -47,6 +47,13 @@ function ReadOnlyGitHubPanel({
         id="github"
         name={t("projectDetail.interfaces.githubName")}
       />
+      {integration ? (
+        <p className="text-xs font-medium text-foreground" role="status">
+          {integration.syncEnabled
+            ? t("projectDetail.integrations.syncStateOn")
+            : t("projectDetail.integrations.syncStateOff")}
+        </p>
+      ) : null}
       <p className="rounded-xl bg-muted/60 px-4 py-3 text-xs leading-relaxed text-muted-foreground">
         {t("projectDetail.interfaces.readOnlyHint")}
       </p>
@@ -84,7 +91,6 @@ function TestResult({
 
 function EditableGitHubPanel({
   integration,
-  projectId,
   onClose,
 }: Omit<GitHubPanelProps, "canWrite">): React.ReactElement {
   const { t } = useTranslation();
@@ -147,7 +153,7 @@ function EditableGitHubPanel({
         <input
           name="syncCommits"
           type="hidden"
-          value={toFormFlag(values.syncCommits)}
+          value={toFormFlag(integration?.syncCommits ?? true)}
         />
         <input
           name="syncIntervalMinutes"
@@ -165,10 +171,9 @@ function EditableGitHubPanel({
           repoUrl={values.repoUrl}
         />
         <GitHubSyncSections onChange={change} values={values} />
-        <GitHubWebhookAndInterval
+        <GitHubIntervalField
           onIntervalChange={(minutes) => change("syncIntervalMinutes", minutes)}
           syncIntervalMinutes={values.syncIntervalMinutes}
-          webhookUrl={`https://pages.example.com/api/webhooks/github/${projectId}`}
         />
       </Form>
 

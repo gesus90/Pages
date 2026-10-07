@@ -10,6 +10,8 @@ interface TaskFormTextFieldProps {
   readonly maxLength?: number;
   readonly type?: "text" | "date" | "textarea";
   readonly isRequired?: boolean;
+  /** Short usage hint shown below a textarea. */
+  readonly hint?: string;
 }
 
 /** A labelled text, date or multi-line field of the work item form. */
@@ -21,6 +23,7 @@ export function TaskFormTextField({
   maxLength,
   type = "text",
   isRequired = false,
+  hint,
 }: TaskFormTextFieldProps): React.ReactElement {
   return (
     <div>
@@ -32,6 +35,7 @@ export function TaskFormTextField({
       </label>
       {type === "textarea" ? (
         <Textarea
+          aria-describedby={hint ? `${id}-hint` : undefined}
           className="mt-1 resize-y"
           defaultValue={defaultValue}
           id={id}
@@ -49,6 +53,11 @@ export function TaskFormTextField({
           type={type}
         />
       )}
+      {hint ? (
+        <p className="mt-1 text-xs text-muted-foreground" id={`${id}-hint`}>
+          {hint}
+        </p>
+      ) : null}
     </div>
   );
 }

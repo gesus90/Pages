@@ -15,6 +15,7 @@ vi.mock("react-router", async (importOriginal) => {
   return {
     ...actual,
     useActionData: vi.fn(),
+    useFetcher: () => ({ data: undefined, state: "idle", submit: vi.fn() }),
     useLoaderData: vi.fn(),
     useNavigate: vi.fn(),
     useNavigation: vi.fn(),
@@ -35,6 +36,7 @@ import {
 
 import TasksRoute from "@/app/routes/tasks";
 import { createI18n } from "@/app/lib/i18n";
+import { DEFAULT_BOARD_PREFERENCES } from "@/definition/BoardPreferences";
 import { GITHUB_SYNC_INTERVAL } from "@/definition/Project";
 import {
   WORK_ITEM_PRIORITY,
@@ -87,6 +89,7 @@ function createIntegration(): ProjectIntegration {
     syncComments: false,
     syncCommits: false,
     syncDirection: "bidirectional",
+    syncEnabled: true,
     syncIntervalMinutes: GITHUB_SYNC_INTERVAL.EVERY_15_MINUTES,
     syncIssues: true,
     syncPullRequests: true,
@@ -147,7 +150,9 @@ function createWorkItem(
     departmentId: null,
     archivedAt: null,
     assigneeId: "user-1",
+    assigneeGroupId: null,
     assigneeName: "Admin",
+    assigneeGroupName: null,
     reporterName: "Reporter",
     completedAt: null,
     createdAt: "2026-01-01",
@@ -204,6 +209,8 @@ function renderTasks(loaderOverrides: Record<string, unknown> = {}): void {
   mockedLoaderData.mockReturnValue({
     actor: createUser(),
     archivedFilter: "active",
+    board: DEFAULT_BOARD_PREFERENCES,
+    labels: [],
     assignees: [createUser()],
     assigneesByProject: {},
     milestones: [
@@ -234,6 +241,19 @@ function renderTasks(loaderOverrides: Record<string, unknown> = {}): void {
     selectedPullRequests: [],
     selectedSubtasks: [],
     githubStates: [],
+    assigneeGroups: [
+      { id: "group-1", memberCount: 2, name: "Design" },
+      { id: "group-2", memberCount: 0, name: "Leer" },
+    ],
+    memberGroupIds: ["group-1"],
+    departmentChoices: {
+      available: [
+        { id: "department-1", name: "Entwicklung" },
+        { id: "department-2", name: "Support" },
+      ],
+    },
+    permissions: { canDelete: false, canWrite: true },
+    templates: [],
     labelUsageByProject: {},
     labelsByProject: {},
     labelsByWorkItem: {},
@@ -242,6 +262,7 @@ function renderTasks(loaderOverrides: Record<string, unknown> = {}): void {
       createWorkItem(),
       createWorkItem({
         assigneeId: "user-2",
+        assigneeGroupId: null,
         id: "item-2",
         key: "ASTRO-31",
         milestoneId: null,
@@ -274,7 +295,7 @@ describe("TasksRoute", () => {
     } as unknown as ReturnType<typeof useNavigation>);
   });
 
-  it("renders header and default kanban view with user tasks", () => {
+  it("renders header and default kanban view with every task", () => {
     renderTasks();
 
     expect(
@@ -290,17 +311,17 @@ describe("TasksRoute", () => {
     ).toBeInTheDocument();
 
     expect(screen.getByText("PAGE-12")).toBeInTheDocument();
-    expect(screen.queryByText("ASTRO-31")).not.toBeInTheDocument();
+    expect(screen.getByText("ASTRO-31")).toBeInTheDocument();
   });
 
-  it("switches filter scope to all tasks", async () => {
+  it("narrows the scope to the own tasks", async () => {
     const user = userEvent.setup();
     renderTasks();
 
-    await user.click(screen.getByRole("button", { name: "Alle Aufgaben" }));
+    await user.click(screen.getByRole("button", { name: "Meine Aufgaben" }));
 
     expect(screen.getByText("PAGE-12")).toBeInTheDocument();
-    expect(screen.getByText("ASTRO-31")).toBeInTheDocument();
+    expect(screen.queryByText("ASTRO-31")).not.toBeInTheDocument();
   });
 
   it("switches view mode between kanban and list", async () => {
@@ -892,7 +913,7 @@ describe("TasksRoute", () => {
 
     renderTasks({ milestones: [] });
 
-    expect(screen.getAllByRole("combobox")).toHaveLength(5);
+    expect(screen.getAllByRole("combobox")).toHaveLength(11);
   });
 
   it("prefills the project when creating from a filtered board", async () => {

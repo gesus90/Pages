@@ -45,7 +45,7 @@ export function DetailPropertiesSection({
         <PeopleRows
           assignees={assignees}
           isArchived={isArchived}
-          onChangeAssignee={(assigneeId) => actions.update({ assigneeId })}
+          onChangeAssignee={(assignee) => actions.update({ assignee })}
           onChangeReporter={(reporterId) => actions.update({ reporterId })}
           reporters={reporters}
           task={task}

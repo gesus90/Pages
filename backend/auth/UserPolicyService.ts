@@ -148,4 +148,34 @@ export class UserPolicyService {
       [...removed, ...added].every((id) => this.canManageDepartment(actor, id))
     );
   }
+
+  /** Groups are managed by everyone who may manage users. */
+  public canManageGroups(actor: AccountAccess): boolean {
+    return this.has(actor, CAPABILITY.MANAGE_USERS);
+  }
+
+  /** A group is listed when it is empty or has a member within the actor's directory scope. */
+  public canSeeGroup(
+    actor: AccountAccess,
+    members: readonly AccountAccess[],
+  ): boolean {
+    return (
+      this.canManageGroups(actor) &&
+      (this.isAdministrator(actor) ||
+        members.length === 0 ||
+        members.some((member) => this.canSee(actor, member)))
+    );
+  }
+
+  /** Changing a group needs every involved member, old and new, within the actor's scope. */
+  public canChangeGroup(
+    actor: AccountAccess,
+    members: readonly AccountAccess[],
+  ): boolean {
+    return (
+      this.canManageGroups(actor) &&
+      (this.isAdministrator(actor) ||
+        members.every((member) => this.canSee(actor, member)))
+    );
+  }
 }

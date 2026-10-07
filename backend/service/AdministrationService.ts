@@ -19,6 +19,7 @@ import {
 } from "./LegacyProjectAuthorization";
 import { RoleAdministrationService } from "./RoleAdministrationService";
 import { DepartmentAdministrationService } from "./DepartmentAdministrationService";
+import { GroupAdministrationService } from "./GroupAdministrationService";
 
 import type {
   AuthorizationRepository,
@@ -119,6 +120,10 @@ export class AdministrationService {
         )
           ? manageableDepartmentIds
           : actor.departments,
+        groups: await new GroupAdministrationService(
+          repository,
+          this.cache,
+        ).pageData(userId),
         canCreate: this.policy.has(actor, CAPABILITY.MANAGE_USERS),
         canManageRoles: this.policy.has(actor, CAPABILITY.MANAGE_ROLES),
         canManageDepartments: this.policy.has(
@@ -551,6 +556,9 @@ export class AdministrationService {
       await repository.users().setActive(targetId, isActive);
     });
     this.cache.invalidateUsers();
+    // Deactivation removes the user from every group, which changes whose
+    // tickets "assigned to me" lists.
+    this.cache.invalidateWorkItems();
   }
 
   private requireLastAdministrator(

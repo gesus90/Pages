@@ -431,6 +431,7 @@ describe("ProjectRepository project details", () => {
         "2026-09-05",
         "2026-09-05T14:36:00.000Z",
         "2026-09-05",
+        1,
       ],
     ]);
 
@@ -541,6 +542,7 @@ describe("ProjectRepository project details", () => {
         null,
         null,
         "2026-09-05",
+        1,
       ],
     ]);
 
@@ -583,6 +585,7 @@ describe("ProjectRepository project details", () => {
         null,
         null,
         "2026-09-05",
+        1,
       ],
     ]);
 
@@ -613,6 +616,7 @@ describe("ProjectRepository project details", () => {
         null,
         null,
         "2026-09-05",
+        1,
       ],
     ]);
 
@@ -637,6 +641,7 @@ describe("ProjectRepository project details", () => {
         null,
         null,
         "2026-09-05",
+        1,
       ],
     ]);
 
@@ -661,6 +666,7 @@ describe("ProjectRepository project details", () => {
         42,
         null,
         "2026-09-05",
+        1,
       ],
     ]);
 
@@ -685,6 +691,7 @@ describe("ProjectRepository project details", () => {
         null,
         42,
         "2026-09-05",
+        1,
       ],
     ]);
 
@@ -739,6 +746,27 @@ describe("ProjectRepository project details", () => {
     expect(database.execute).toHaveBeenCalledWith(
       expect.stringContaining("next_sync_at = $next_sync_at"),
       expect.objectContaining({ project_id: "project-1" }),
+    );
+  });
+
+  it("switches the sync flag and limits due runs to enabled projects", async () => {
+    await repository.setIntegrationSyncEnabled("project-1", false);
+    expect(database.execute).toHaveBeenLastCalledWith(
+      expect.stringContaining("sync_enabled = $sync_enabled"),
+      { project_id: "project-1", sync_enabled: 0 },
+    );
+
+    await repository.setIntegrationSyncEnabled("project-1", true);
+    expect(database.execute).toHaveBeenLastCalledWith(expect.anything(), {
+      project_id: "project-1",
+      sync_enabled: 1,
+    });
+
+    database.query.mockResolvedValue([]);
+    await repository.findDueSyncIntegrations("2026-09-05T14:21:00.000Z");
+    expect(database.query).toHaveBeenLastCalledWith(
+      expect.stringContaining("sync_enabled = 1"),
+      expect.anything(),
     );
   });
 
@@ -848,6 +876,7 @@ function createServiceDependencies() {
     isMember: vi.fn().mockResolvedValue(true),
     isProjectManager: vi.fn().mockResolvedValue(false),
     removeMember: vi.fn(),
+    setIntegrationSyncEnabled: vi.fn(),
     setTags: vi.fn(),
     upsertIcon: vi.fn(),
     upsertIntegration: vi.fn(),
@@ -1389,6 +1418,42 @@ describe("ProjectService project details", () => {
 
     await service.disconnectIntegration(actor, "project-1");
     expect(repository.deleteIntegration).toHaveBeenCalledWith("project-1");
+  });
+
+  it("switches the integration sync and records the change", async () => {
+    const { repository, service } = dependencies;
+    const actor = createUser();
+
+    await expect(
+      service.setIntegrationSyncEnabled(actor, "project-1", false),
+    ).resolves.toBeNull();
+    expect(repository.setIntegrationSyncEnabled).not.toHaveBeenCalled();
+
+    repository.findIntegration.mockResolvedValue({ projectId: "project-1" });
+
+    await service.setIntegrationSyncEnabled(actor, "project-1", false);
+    await service.setIntegrationSyncEnabled(actor, "project-1", true);
+
+    expect(repository.setIntegrationSyncEnabled).toHaveBeenNthCalledWith(
+      1,
+      "project-1",
+      false,
+    );
+    expect(repository.setIntegrationSyncEnabled).toHaveBeenNthCalledWith(
+      2,
+      "project-1",
+      true,
+    );
+    expect(repository.insertActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: "GitHub synchronization was switched off.",
+      }),
+    );
+    expect(repository.insertActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: "GitHub synchronization was switched on.",
+      }),
+    );
   });
 
   it("hashes integration tokens deterministically", () => {

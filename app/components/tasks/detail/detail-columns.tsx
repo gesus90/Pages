@@ -1,4 +1,3 @@
-import { DetailArchiveForm } from "@/app/components/tasks/detail/detail-archive-form";
 import { DetailChecklistSection } from "@/app/components/tasks/detail/detail-checklist-section";
 import { DetailChildrenSection } from "@/app/components/tasks/detail/detail-children-section";
 import { DetailDescriptionSection } from "@/app/components/tasks/detail/detail-description-section";
@@ -6,6 +5,7 @@ import { DetailKeyDetailsSection } from "@/app/components/tasks/detail/detail-ke
 import { DetailLinksSection } from "@/app/components/tasks/detail/detail-links-section";
 import { DetailPathSection } from "@/app/components/tasks/detail/detail-path-section";
 import { DetailPropertiesSection } from "@/app/components/tasks/detail/detail-properties-section";
+import { TicketLifecycleControls } from "@/app/components/tasks/ticket-lifecycle-controls";
 import { VerticalScrollArea } from "@/app/components/ui/vertical-scroll-area";
 import { WORK_ITEM_TYPE } from "@/definition/Task";
 
@@ -13,7 +13,7 @@ import type { TaskPanelActions } from "@/app/components/tasks/detail/use-task-pa
 import type { Project } from "@/definition/Project";
 import type {
   Milestone,
-  ProjectLabel,
+  Label,
   WorkItemChecklistItem,
   WorkItemDetail,
   WorkItemLink,
@@ -77,7 +77,7 @@ export function DetailMainColumn({
 interface DetailSideColumnProps {
   readonly task: WorkItemDetail;
   readonly actions: TaskPanelActions;
-  readonly taskLabels: readonly ProjectLabel[];
+  readonly taskLabels: readonly Label[];
   readonly assignees: readonly User[];
   readonly reporters: readonly User[];
   readonly projects: readonly Project[];
@@ -149,9 +149,7 @@ export function DetailSideColumn({
         task={task}
         workItems={workItems}
       />
-      {!isArchived ? (
-        <DetailArchiveForm isArchiving={isArchiving} workItemId={task.id} />
-      ) : null}
+      <TicketLifecycleControls isArchiving={isArchiving} ticket={task} />
     </VerticalScrollArea>
   );
 }

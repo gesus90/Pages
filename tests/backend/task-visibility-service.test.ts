@@ -76,7 +76,7 @@ describe("current account ticket visibility through services", () => {
           ('parent-new-hidden', 'child', 'actor', 'parent_changed', 'parent', NULL, 'PAGE-2'),
           ('description', 'child', 'actor', 'description_changed', 'description', NULL, 'PAGE-2'),
           ('hidden-history', 'hidden', 'actor', 'created', NULL, NULL, NULL);
-      INSERT INTO project_labels (id, project_id, name, color) VALUES ('label', 'p1', 'Shared label', '#3b82f6');
+      INSERT INTO labels (id, name, color) VALUES ('label', 'Shared label', '#3b82f6');
       INSERT INTO work_item_labels (work_item_id, label_id) VALUES ('front', 'label'), ('back', 'label');
       INSERT INTO work_item_links (id, work_item_id, linked_work_item_id, link_type)
       VALUES ('front-link', 'root', 'front', 'relates_to'), ('back-link', 'root', 'back', 'blocks'), ('foreign-link', 'root', 'foreign', 'blocks');
@@ -217,12 +217,8 @@ describe("current account ticket visibility through services", () => {
         weekAgoStart: "2026-10-01",
       }),
     ).toMatchObject({ open: 2, overdue: 1 });
-    expect((await tasks.countLabelUsage(ACTOR, "p1")).get("label")).toBe(1);
-    expect(
-      (await tasks.countLabelUsageByProjects(OTHER, ["p1"]))
-        .get("p1")
-        ?.get("label"),
-    ).toBe(1);
+    expect((await tasks.countLabelUsage(ACTOR)).get("label")).toBe(1);
+    expect((await tasks.countLabelUsage(OTHER)).get("label")).toBe(1);
     expect(
       (await tasks.findAllStatuses(ACTOR)).map((status) => status.id),
     ).toContain("local");

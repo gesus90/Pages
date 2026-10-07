@@ -24,7 +24,7 @@ async function seed(): Promise<void> {
     "INSERT INTO milestones (id, project_id, name) VALUES ('m1', 'p1', 'M1');",
   );
   await db.execute(
-    "INSERT INTO project_labels (id, project_id, name) VALUES ('l1', 'p1', 'Bug'), ('l2', 'p1', 'Feature'), ('l3', 'p2', 'Bug');",
+    "INSERT INTO labels (id, name) VALUES ('l1', 'Bug'), ('l2', 'Feature');",
   );
 
   const items = [
@@ -42,7 +42,7 @@ async function seed(): Promise<void> {
   }
 
   await db.execute(
-    "INSERT INTO work_item_labels (work_item_id, label_id) VALUES ('w1', 'l1'), ('w1', 'l2'), ('w3', 'l1'), ('w4', 'l3');",
+    "INSERT INTO work_item_labels (work_item_id, label_id) VALUES ('w1', 'l1'), ('w1', 'l2'), ('w3', 'l1'), ('w4', 'l1');",
   );
   await db.execute(
     "INSERT INTO project_integrations (project_id, repo_url, is_connected, repo_name, sync_interval_minutes) VALUES ('p1', 'https://github.com/acme/alpha', 1, 'acme/alpha', 0);",
@@ -140,29 +140,36 @@ describe("task aggregates", () => {
     expect(openDated.map((item) => item.id)).toEqual(["w1", "w3"]);
   });
 
-  it("loads label catalogs for several projects at once", async () => {
+  it("loads the global label catalog ordered by name", async () => {
     const repository = new TaskRepository(database as Database);
 
-    const catalogs = await repository.findLabelsByProjectIds(["p1", "p2"]);
+    const labels = await repository.findLabels();
 
-    expect(catalogs.get("p1")?.map((label) => label.name)).toEqual([
-      "Bug",
-      "Feature",
-    ]);
-    expect(catalogs.get("p2")?.map((label) => label.name)).toEqual(["Bug"]);
-    expect(await repository.findLabelsByProjectIds([])).toEqual(new Map());
+    expect(labels.map((label) => label.name)).toEqual(["Bug", "Feature"]);
   });
 
-  it("counts label usage for several projects at once", async () => {
+  it("counts label usage across all projects", async () => {
     const repository = new TaskRepository(database as Database);
 
-    const usage = await repository.countLabelUsageByProjectIds(["p1", "p2"]);
+    const usage = await repository.countLabelUsageByLabel();
 
-    expect(Object.fromEntries(usage.get("p1") ?? [])).toEqual({
-      l1: 2,
-      l2: 1,
-    });
-    expect(Object.fromEntries(usage.get("p2") ?? [])).toEqual({ l3: 1 });
+    expect(Object.fromEntries(usage)).toEqual({ l1: 3, l2: 1 });
+  });
+
+  it("filters work items by label", async () => {
+    const repository = new TaskRepository(database as Database);
+
+    const withFeature = await repository.findAll({ labelIds: ["l2"] });
+    const withEither = await repository.findAll({ labelIds: ["l1", "l2"] });
+    const unfiltered = await repository.findAll({ labelIds: [] });
+
+    expect(withFeature.map((item) => item.id)).toEqual(["w1"]);
+    expect(withEither.map((item) => item.id).sort()).toEqual([
+      "w1",
+      "w3",
+      "w4",
+    ]);
+    expect(unfiltered.length).toBeGreaterThan(withEither.length);
   });
 
   it("resolves assignees for several projects at once", async () => {
@@ -173,11 +180,14 @@ describe("task aggregates", () => {
       "p2",
     ]);
 
+    // Project access is decided by the service from current account facts;
+    // the repository offers every active user, never by legacy role.
     expect(assignees.get("p1")?.map((user) => user.id)).toEqual([
       "u-admin",
+      "u-out",
       "u-member",
     ]);
-    expect(assignees.get("p2")?.map((user) => user.id)).toEqual(["u-admin"]);
+    expect(assignees.get("p2")).toEqual(assignees.get("p1"));
   });
 
   it("loads integrations, issues, and pull requests per project", async () => {

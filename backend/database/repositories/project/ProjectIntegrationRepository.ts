@@ -55,7 +55,8 @@ const INTEGRATION_COLUMNS = `
     repo_name,
     last_sync_at,
     next_sync_at,
-    updated_at
+    updated_at,
+    sync_enabled
 `;
 
 function toFlag(isEnabled: boolean): 0 | 1 {
@@ -131,6 +132,7 @@ function toProjectIntegration(
     lastSyncAt,
     nextSyncAt,
     updatedAt: readTextColumn(row, 14, "updated_at"),
+    syncEnabled: readBooleanColumn(row, 15, "sync_enabled"),
   };
 }
 
@@ -245,6 +247,7 @@ export class ProjectIntegrationRepository {
             ON projects.id = project_integrations.project_id
         WHERE project_integrations.is_connected = 1
             AND project_integrations.has_token = 1
+            AND project_integrations.sync_enabled = 1
             AND project_integrations.sync_interval_minutes > 0
             AND (
                 project_integrations.next_sync_at IS NULL
@@ -280,6 +283,23 @@ export class ProjectIntegrationRepository {
         last_sync_at: schedule.lastSyncAt,
         next_sync_at: schedule.nextSyncAt,
       },
+    );
+  }
+
+  /** Switches the scheduled and manual synchronization of a project on or off. */
+  public async setSyncEnabled(
+    projectId: string,
+    isEnabled: boolean,
+  ): Promise<void> {
+    await this.database.execute(
+      `
+        UPDATE project_integrations
+        SET
+            sync_enabled = $sync_enabled,
+            updated_at = utc_now()
+        WHERE project_id = $project_id;
+      `,
+      { project_id: projectId, sync_enabled: toFlag(isEnabled) },
     );
   }
 

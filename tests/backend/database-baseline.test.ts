@@ -121,6 +121,11 @@ describe("DuckDB baseline migration", () => {
       "009_work_item_departments.sql",
       "010_project_templates.sql",
       "011_project_activity_work_items.sql",
+      "012_user_groups.sql",
+      "013_global_labels.sql",
+      "014_work_item_templates.sql",
+      "015_github_sync_switch.sql",
+      "016_user_board_preferences.sql",
     ]);
   });
 

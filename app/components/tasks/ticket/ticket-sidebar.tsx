@@ -1,13 +1,15 @@
 import { Calendar, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Form } from "react-router";
 
+import { useAssigneeOptions } from "@/app/components/tasks/assignee-options";
 import { TaskGitHubDetails } from "@/app/components/tasks/task-github-details";
 import { TaskTypeBadge } from "@/app/components/tasks/task-badges";
 import { TaskLabelPill } from "@/app/components/tasks/task-labels";
+import { TicketDepartmentSelect } from "@/app/components/tasks/ticket-department-select";
+import { TicketLifecycleControls } from "@/app/components/tasks/ticket-lifecycle-controls";
 import { usePriorityOptions } from "@/app/components/tasks/priority-options";
-import { Button } from "@/app/components/ui/button";
 import { Select } from "@/app/components/ui/select";
+import { toAssigneeValue } from "@/app/lib/assignee-value";
 import { WORK_ITEM_TYPE } from "@/definition/Task";
 
 import type { TaskPanelActions } from "@/app/components/tasks/detail/use-task-panel-actions";
@@ -15,7 +17,7 @@ import type { GitHubPullRequest } from "@/definition/GitHub";
 import type { Project } from "@/definition/Project";
 import type {
   Milestone,
-  ProjectLabel,
+  Label,
   WorkItemDetail,
   WorkflowStatus,
 } from "@/definition/Task";
@@ -151,6 +153,7 @@ function PeopleRows({
 }: PeopleRowsProps): React.ReactElement {
   const { t } = useTranslation();
   const priorityOptions = usePriorityOptions();
+  const assigneeOptions = useAssigneeOptions(assignees, ticket.assigneeGroupId);
 
   return (
     <>
@@ -181,16 +184,10 @@ function PeopleRows({
       <Row label={t("tasks.fields.assignee")} labelId="detail-assignee">
         <Select
           ariaLabel={t("tasks.fields.assignee")}
-          value={ticket.assigneeId ?? ""}
-          onValueChange={(assigneeId) => actions.update({ assigneeId })}
+          value={toAssigneeValue(ticket)}
+          onValueChange={(assignee) => actions.update({ assignee })}
           disabled={isArchived}
-          options={[
-            { value: "", label: t("tasks.unassigned") },
-            ...assignees.map((assignee) => ({
-              value: assignee.id,
-              label: assignee.displayName,
-            })),
-          ]}
+          options={assigneeOptions}
         />
       </Row>
       <Row label={t("tasks.fields.reporter")} labelId="detail-reporter">
@@ -213,7 +210,7 @@ interface PlacementRowsProps extends SidebarProps {
   readonly project: Project;
   readonly parent: WorkItemDetail | null;
   readonly milestones: readonly Milestone[];
-  readonly taskLabels: readonly ProjectLabel[];
+  readonly taskLabels: readonly Label[];
   readonly epicOptions: readonly WorkItemDetail[];
   readonly initiativeOptions: readonly WorkItemDetail[];
   readonly onOpenTicket: (key: string) => void;
@@ -253,6 +250,9 @@ function PlacementRows({
             </button>
           ) : null}
         </span>
+      </Row>
+      <Row label={t("tasks.fields.department")}>
+        <TicketDepartmentSelect ticket={ticket} />
       </Row>
       {parent ? (
         <Row label={t(PARENT_LABEL_KEYS[ticket.type])}>
@@ -369,11 +369,11 @@ interface TicketSidebarProps extends PeopleRowsProps, PlacementRowsProps {
   readonly pullRequests: readonly GitHubPullRequest[];
   readonly isArchiving: boolean;
   readonly isSyncing: boolean;
+  readonly redirectTo: string;
 }
 
-/** Renders the fields, progress, GitHub details and archive button of a ticket. */
+/** Renders the fields, progress, GitHub details and lifecycle controls of a ticket. */
 export function TicketSidebar(props: TicketSidebarProps): React.ReactElement {
-  const { t } = useTranslation();
   const { ticket, isArchived } = props;
 
   return (
@@ -394,32 +394,11 @@ export function TicketSidebar(props: TicketSidebarProps): React.ReactElement {
         task={ticket}
       />
 
-      <Form method="post">
-        <input
-          name="intent"
-          type="hidden"
-          value={isArchived ? "restore-task" : "archive-task"}
-        />
-        <input name="id" type="hidden" value={ticket.id} />
-        <Button
-          className={
-            isArchived
-              ? "w-full gap-1.5"
-              : "w-full gap-1.5 text-destructive hover:text-destructive"
-          }
-          disabled={props.isArchiving}
-          type="submit"
-          variant={isArchived ? "outline" : "ghost"}
-        >
-          {isArchived
-            ? t("tasks.archived.restore")
-            : t(
-                props.isArchiving
-                  ? "tasks.actions.archiving"
-                  : "tasks.actions.archive",
-              )}
-        </Button>
-      </Form>
+      <TicketLifecycleControls
+        isArchiving={props.isArchiving}
+        redirectTo={props.redirectTo}
+        ticket={ticket}
+      />
     </aside>
   );
 }

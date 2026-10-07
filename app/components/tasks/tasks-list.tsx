@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { sortWorkItems } from "./list/tasks-list-sorting";
 import { TasksListHead } from "./list/tasks-list-head";
 import { TasksListRow } from "./list/tasks-list-row";
 
-import type { ProjectLabel, WorkItemDetail } from "@/definition/Task";
+import type { Label, WorkItemDetail } from "@/definition/Task";
 import type {
   TaskSortDirection,
   TaskSortField,
@@ -16,18 +15,22 @@ export type { TaskSortField } from "./list/tasks-list-sorting";
 interface TasksListProps {
   readonly workItems: readonly WorkItemDetail[];
   readonly selectedTaskId: string | null;
-  readonly labelsByWorkItem?: Readonly<Record<string, readonly ProjectLabel[]>>;
+  readonly labelsByWorkItem?: Readonly<Record<string, readonly Label[]>>;
   readonly onSelectTask: (key: string) => void;
   readonly onOpenTask: (key: string) => void;
   readonly sortField: TaskSortField;
-  readonly onSortChange: (field: TaskSortField) => void;
+  readonly sortDirection: TaskSortDirection;
+  readonly onSortChange: (
+    field: TaskSortField,
+    direction: TaskSortDirection,
+  ) => void;
 }
 
-// Rows rendered before progressive disclosure; sorting always applies to
-// the full item list first so order stays correct while expanding.
+// Rows rendered before progressive disclosure; the items arrive sorted, so
+// the order stays correct while expanding.
 const LIST_ROW_PAGE_SIZE = 100;
 
-/** Renders a compact, sortable table representation of work items. */
+/** Renders a compact table of work items, in the order given; the column heads change the sort order. */
 export function TasksList({
   workItems,
   selectedTaskId,
@@ -35,22 +38,20 @@ export function TasksList({
   onSelectTask,
   onOpenTask,
   sortField,
+  sortDirection,
   onSortChange,
 }: TasksListProps): React.ReactElement {
   const { t } = useTranslation();
-  const [sortDirection, setSortDirection] = useState<TaskSortDirection>("desc");
   const [visibleRowCount, setVisibleRowCount] =
     useState<number>(LIST_ROW_PAGE_SIZE);
-  const sortedItems = sortWorkItems(workItems, sortField, sortDirection);
-  const visibleItems = sortedItems.slice(0, visibleRowCount);
-  const hiddenCount = sortedItems.length - visibleItems.length;
+  const visibleItems = workItems.slice(0, visibleRowCount);
+  const hiddenCount = workItems.length - visibleItems.length;
 
   function handleHeaderClick(field: TaskSortField): void {
     if (sortField === field) {
-      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+      onSortChange(field, sortDirection === "asc" ? "desc" : "asc");
     } else {
-      onSortChange(field);
-      setSortDirection("asc");
+      onSortChange(field, "asc");
     }
   }
 

@@ -18,7 +18,9 @@ function createWorkItem(
     departmentId: null,
     archivedAt: null,
     assigneeId: "user-1",
+    assigneeGroupId: null,
     assigneeName: "Admin User",
+    assigneeGroupName: null,
     reporterName: "Reporter User",
     completedAt: null,
     createdAt: "2026-01-01",
@@ -71,6 +73,7 @@ describe("TasksList", () => {
     render(
       <I18nextProvider i18n={i18n}>
         <TasksList
+          sortDirection="asc"
           labelsByWorkItem={{
             "item-1": [
               {
@@ -78,7 +81,6 @@ describe("TasksList", () => {
                 createdAt: "2026-01-01",
                 id: "label-1",
                 name: "Feature",
-                projectId: "project-1",
                 updatedAt: "2026-01-02",
               },
             ],
@@ -121,53 +123,35 @@ describe("TasksList", () => {
     expect(onOpenTask).toHaveBeenCalledWith("ASTRO-31");
 
     await user.click(screen.getByText("Projekt"));
-    expect(onSortChange).toHaveBeenCalledWith("project");
+    expect(onSortChange).toHaveBeenCalledWith("project", "asc");
 
     await user.click(screen.getByText("Titel"));
-    expect(onSortChange).toHaveBeenCalledWith("title");
+    expect(onSortChange).toHaveBeenCalledWith("title", "asc");
 
     await user.click(screen.getByText("Status"));
-    expect(onSortChange).toHaveBeenCalledWith("status");
+    expect(onSortChange).toHaveBeenCalledWith("status", "asc");
 
     await user.click(screen.getByText("Priorität"));
-    expect(onSortChange).toHaveBeenCalledWith("priority");
+    expect(onSortChange).toHaveBeenCalledWith("priority", "asc");
 
     await user.click(screen.getByText("Fällig am"));
-    expect(onSortChange).toHaveBeenCalledWith("dueDate");
+    expect(onSortChange).toHaveBeenCalledWith("dueDate", "asc");
   });
 
-  it("handles sorting across all sort fields and directions", async () => {
+  it("flips the direction of the sorted column and starts others ascending", async () => {
     const user = userEvent.setup();
     const i18n = createI18n(LANGUAGE.GERMAN);
-
-    const items = [
-      createWorkItem({
-        dueAt: "2026-01-01",
-        id: "1",
-        priority: WORK_ITEM_PRIORITY.LOW,
-        projectName: "Alpha",
-        statusName: "Backlog",
-        title: "Apple",
-        updatedAt: "2026-01-01",
-      }),
-      createWorkItem({
-        dueAt: "2026-02-01",
-        id: "2",
-        priority: WORK_ITEM_PRIORITY.URGENT,
-        projectName: "Beta",
-        statusName: "Done",
-        title: "Banana",
-        updatedAt: "2026-01-02",
-      }),
-    ];
+    const onSortChange = vi.fn();
+    const items = [createWorkItem({ id: "1", title: "Apple" })];
 
     const { rerender } = render(
       <I18nextProvider i18n={i18n}>
         <TasksList
           onOpenTask={vi.fn()}
           onSelectTask={vi.fn()}
-          onSortChange={vi.fn()}
+          onSortChange={onSortChange}
           selectedTaskId={null}
+          sortDirection="asc"
           sortField="priority"
           workItems={items}
         />
@@ -175,61 +159,56 @@ describe("TasksList", () => {
     );
 
     await user.click(screen.getByText("Priorität"));
-    expect(screen.getByText("Dringend")).toBeInTheDocument();
-    await user.click(screen.getByText("Priorität"));
-
-    const itemsWithNulls = [
-      createWorkItem({
-        assigneeName: null,
-        reporterName: null,
-        dueAt: null,
-        id: "1",
-        title: "Apple",
-      }),
-      createWorkItem({
-        assigneeName: "Admin User",
-        reporterName: "Reporter User",
-        dueAt: "2026-03-01",
-        id: "2",
-        title: "Banana",
-      }),
-    ];
+    expect(onSortChange).toHaveBeenLastCalledWith("priority", "desc");
 
     rerender(
       <I18nextProvider i18n={i18n}>
         <TasksList
           onOpenTask={vi.fn()}
           onSelectTask={vi.fn()}
-          onSortChange={vi.fn()}
+          onSortChange={onSortChange}
           selectedTaskId={null}
-          sortField="dueDate"
-          workItems={itemsWithNulls}
+          sortDirection="desc"
+          sortField="priority"
+          workItems={items}
         />
       </I18nextProvider>,
     );
-    expect(screen.getByText("Nicht zugewiesen")).toBeInTheDocument();
 
-    for (const field of [
-      "updated",
-      "dueDate",
-      "project",
-      "status",
-      "title",
-    ] as const) {
-      rerender(
-        <I18nextProvider i18n={i18n}>
-          <TasksList
-            onOpenTask={vi.fn()}
-            onSelectTask={vi.fn()}
-            onSortChange={vi.fn()}
-            selectedTaskId={null}
-            sortField={field}
-            workItems={items}
-          />
-        </I18nextProvider>,
-      );
-      expect(screen.getByText("Apple")).toBeInTheDocument();
-    }
+    await user.click(screen.getByText("Priorität"));
+    expect(onSortChange).toHaveBeenLastCalledWith("priority", "asc");
+
+    await user.click(screen.getByText("Titel"));
+    expect(onSortChange).toHaveBeenLastCalledWith("title", "asc");
+  });
+
+  it("renders the items in the order it receives them", () => {
+    const i18n = createI18n(LANGUAGE.GERMAN);
+
+    render(
+      <I18nextProvider i18n={i18n}>
+        <TasksList
+          onOpenTask={vi.fn()}
+          onSelectTask={vi.fn()}
+          onSortChange={vi.fn()}
+          selectedTaskId={null}
+          sortDirection="asc"
+          sortField="title"
+          workItems={[
+            createWorkItem({ id: "1", title: "Zebra" }),
+            createWorkItem({ id: "2", title: "Apple" }),
+          ]}
+        />
+      </I18nextProvider>,
+    );
+
+    const titles = screen
+      .getAllByRole("row")
+      .slice(1)
+      .map((row) => row.textContent);
+
+    expect(titles[0]).toContain("Zebra");
+    expect(titles[1]).toContain("Apple");
   });
 
   it("shows the show-more button when the page size is exceeded", async () => {
@@ -247,6 +226,7 @@ describe("TasksList", () => {
     render(
       <I18nextProvider i18n={i18n}>
         <TasksList
+          sortDirection="asc"
           onOpenTask={vi.fn()}
           onSelectTask={vi.fn()}
           onSortChange={vi.fn()}

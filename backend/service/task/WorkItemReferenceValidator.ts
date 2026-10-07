@@ -19,6 +19,9 @@ export interface WorkItemReferences {
   readonly parentId: string | null;
   readonly milestoneId: string | null;
   readonly assigneeId: string | null;
+  readonly assigneeGroupId: string | null;
+  /** Trusted unchanged group of the stored ticket; it may have lost its members since. */
+  readonly preservedGroupId?: string | null;
 }
 
 /** Checks that the parent, milestone and assignee of a work item are usable. */
@@ -55,9 +58,7 @@ export class WorkItemReferenceValidator {
       );
     }
 
-    if (references.assigneeId) {
-      await this.validateAssignee(references.assigneeId, references.projectId);
-    }
+    await this.validateAssignment(references);
   }
 
   /**
@@ -81,12 +82,46 @@ export class WorkItemReferenceValidator {
     userId: string,
     projectId: string,
   ): Promise<boolean> {
-    const candidates =
-      await this.taskRepository.findEligibleAssignees(projectId);
+    const candidates = await this.taskRepository.findEligibleAssignees();
     const eligible = await this.access.filterAssignees(
       new Map([[projectId, candidates]]),
     );
     return (eligible.get(projectId) ?? []).some((user) => user.id === userId);
+  }
+
+  private async validateAssignment(
+    references: WorkItemReferences,
+  ): Promise<void> {
+    if (references.assigneeId && references.assigneeGroupId) {
+      throw new WorkItemValidationError(
+        "A ticket is assigned to a person or to a group, not to both.",
+      );
+    }
+
+    if (references.assigneeId) {
+      await this.validateAssignee(references.assigneeId, references.projectId);
+    }
+
+    if (
+      references.assigneeGroupId &&
+      references.assigneeGroupId !== references.preservedGroupId
+    ) {
+      await this.validateGroup(references.assigneeGroupId);
+    }
+  }
+
+  private async validateGroup(groupId: string): Promise<void> {
+    const group = await this.taskRepository.findAssigneeGroupById(groupId);
+
+    if (!group) {
+      throw new WorkItemValidationError("Selected group does not exist.");
+    }
+
+    // Group members need no project access (accepted special case); an empty
+    // group would leave the ticket without anyone responsible.
+    if (group.memberCount === 0) {
+      throw new WorkItemValidationError("Selected group has no members.");
+    }
   }
 
   private async validateHierarchy(

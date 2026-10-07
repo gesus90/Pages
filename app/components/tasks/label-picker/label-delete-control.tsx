@@ -2,14 +2,14 @@ import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
 
-import type { ProjectLabel } from "@/definition/Task";
+import type { Label } from "@/definition/Task";
 
 interface LabelDeleteControlProps {
-  readonly label: ProjectLabel;
+  readonly label: Label;
   readonly usage: number;
   readonly isConfirming: boolean;
   readonly isSubmitting: boolean;
-  readonly onDelete: (label: ProjectLabel) => void;
+  readonly onDelete: (label: Label) => void;
   readonly onCancel: () => void;
 }
 

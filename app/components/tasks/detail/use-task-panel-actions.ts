@@ -1,7 +1,9 @@
 import { useSubmit } from "react-router";
 
+import { splitAssigneeValue, toAssigneeValue } from "@/app/lib/assignee-value";
+
 import type {
-  ProjectLabel,
+  Label,
   WorkItemDetail,
   WorkItemPriority,
 } from "@/definition/Task";
@@ -10,7 +12,8 @@ import type {
 interface PanelUpdate {
   readonly title?: string;
   readonly priority?: WorkItemPriority;
-  readonly assigneeId?: string;
+  /** A user id, `group:<id>` or empty; see `toAssigneeValue`. */
+  readonly assignee?: string;
   readonly reporterId?: string;
   readonly milestoneId?: string;
   readonly parentId?: string;
@@ -23,7 +26,7 @@ interface PanelUpdate {
 export interface TaskPanelActions {
   readonly update: (changes: PanelUpdate) => void;
   readonly changeStatus: (statusId: string) => void;
-  readonly removeLabel: (label: ProjectLabel) => void;
+  readonly removeLabel: (label: Label) => void;
 }
 
 /**
@@ -37,7 +40,7 @@ export function useTaskPanelActions(task: WorkItemDetail): TaskPanelActions {
   function update(changes: PanelUpdate): void {
     void submit(
       {
-        assigneeId: changes.assigneeId ?? task.assigneeId ?? "",
+        ...splitAssigneeValue(changes.assignee ?? toAssigneeValue(task)),
         description: changes.description ?? task.description,
         dueAt: changes.dueAt ?? task.dueAt ?? "",
         id: task.id,
@@ -66,7 +69,7 @@ export function useTaskPanelActions(task: WorkItemDetail): TaskPanelActions {
     );
   }
 
-  function removeLabel(label: ProjectLabel): void {
+  function removeLabel(label: Label): void {
     void submit(
       { intent: "label-unassign", labelId: label.id, workItemId: task.id },
       { method: "post" },

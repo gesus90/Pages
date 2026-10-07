@@ -173,6 +173,8 @@ export interface ProjectIntegration {
   readonly lastSyncAt: string | null;
   readonly nextSyncAt: string | null;
   readonly updatedAt: string;
+  /** Whether scheduled and manual synchronization runs; off keeps token and repository. */
+  readonly syncEnabled: boolean;
 }
 
 /** Categories available for filtering the project activity log. */

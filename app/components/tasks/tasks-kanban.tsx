@@ -1,21 +1,24 @@
 import { useState } from "react";
 
 import { KanbanScrollArea } from "@/app/components/tasks/kanban-scroll-area";
+import { groupWorkItems } from "@/app/lib/board-groups";
 
-import { KanbanColumn } from "./kanban/kanban-column";
+import { KanbanGroupSection } from "./kanban/kanban-group-section";
+import { KanbanStatusColumns } from "./kanban/kanban-status-columns";
 import { useKanbanDrag } from "./kanban/use-kanban-drag";
 
-import type {
-  ProjectLabel,
-  WorkItemDetail,
-  WorkflowStatus,
-} from "@/definition/Task";
+import type { BoardGroupLookups } from "@/app/lib/board-groups";
+import type { BoardGroup } from "@/definition/BoardPreferences";
+import type { Label, WorkItemDetail, WorkflowStatus } from "@/definition/Task";
 
 interface TasksKanbanProps {
   readonly statuses: readonly WorkflowStatus[];
+  /** The tickets of the board in display order. */
   readonly workItems: readonly WorkItemDetail[];
+  readonly group: BoardGroup;
+  readonly groupLookups: BoardGroupLookups;
   readonly selectedTaskId: string | null;
-  readonly labelsByWorkItem?: Readonly<Record<string, readonly ProjectLabel[]>>;
+  readonly labelsByWorkItem?: Readonly<Record<string, readonly Label[]>>;
   readonly onSelectTask: (key: string) => void;
   readonly onOpenTask: (key: string) => void;
   readonly onQuickCreate: (statusId: string) => void;
@@ -30,10 +33,12 @@ interface TasksKanbanProps {
 // headers always show the true totals from the full item list.
 const KANBAN_COLUMN_PAGE_SIZE = 50;
 
-/** Renders the drag-and-drop Kanban board spanning all five standard workflow phases. */
+/** Renders the drag-and-drop Kanban board spanning all five standard workflow phases, optionally in sections per group. */
 export function TasksKanban({
   statuses,
   workItems,
+  group,
+  groupLookups,
   selectedTaskId,
   labelsByWorkItem,
   onSelectTask,
@@ -41,7 +46,7 @@ export function TasksKanban({
   onQuickCreate,
   onMoveTask,
 }: TasksKanbanProps): React.ReactElement {
-  const drag = useKanbanDrag(workItems, onMoveTask);
+  const drag = useKanbanDrag(onMoveTask);
   const [visibleColumnCount, setVisibleColumnCount] = useState<number>(
     KANBAN_COLUMN_PAGE_SIZE,
   );
@@ -52,24 +57,50 @@ export function TasksKanban({
     setVisibleColumnCount((count) => count + KANBAN_COLUMN_PAGE_SIZE);
   }
 
-  return (
-    <KanbanScrollArea>
-      {statuses.map((status) => (
-        <KanbanColumn
-          key={status.id}
-          drag={drag}
-          draggedItem={draggedItem}
-          items={workItems.filter((item) => item.statusId === status.id)}
-          labelsByWorkItem={labelsByWorkItem}
-          onOpenTask={onOpenTask}
-          onQuickCreate={onQuickCreate}
-          onSelectTask={onSelectTask}
-          onShowMore={handleShowMore}
-          selectedTaskId={selectedTaskId}
-          status={status}
-          visibleCount={visibleColumnCount}
+  // The select of a card moves the ticket to the end of the target column.
+  function handleChangeStatus(taskId: string, statusId: string): void {
+    const targetItems = workItems.filter((item) => item.statusId === statusId);
+
+    onMoveTask(taskId, statusId, targetItems.length + 1);
+  }
+
+  const columnProps = {
+    drag,
+    draggedItem,
+    labelsByWorkItem,
+    onChangeStatus: handleChangeStatus,
+    onOpenTask,
+    onQuickCreate,
+    onSelectTask,
+    onShowMore: handleShowMore,
+    selectedTaskId,
+    statuses,
+    visibleCount: visibleColumnCount,
+  };
+
+  if (group === "none") {
+    return (
+      <KanbanScrollArea>
+        <KanbanStatusColumns
+          {...columnProps}
+          groupKey="all"
+          items={workItems}
         />
+      </KanbanScrollArea>
+    );
+  }
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto pr-1">
+      {groupWorkItems(workItems, group, groupLookups).map((section) => (
+        <KanbanGroupSection key={section.key} section={section}>
+          <KanbanStatusColumns
+            {...columnProps}
+            groupKey={section.key}
+            items={section.items}
+          />
+        </KanbanGroupSection>
       ))}
-    </KanbanScrollArea>
+    </div>
   );
 }

@@ -17,6 +17,7 @@ import type {
   WorkflowStatus,
 } from "@/definition/Task";
 import type { User } from "@/definition/User";
+import type { WorkItemTemplateView } from "@/definition/WorkItemTemplate";
 
 interface TaskFormDialogProps {
   readonly isOpen: boolean;
@@ -34,6 +35,7 @@ interface TaskFormDialogProps {
   readonly existingWorkItems: readonly WorkItemDetail[];
   readonly isSubmitting: boolean;
   readonly error?: string | null;
+  readonly templates?: readonly WorkItemTemplateView[];
 }
 
 /** Modal dialog for creating and editing work items with server-enforced hierarchy rules. */
@@ -53,6 +55,7 @@ export function TaskFormDialog({
   existingWorkItems,
   isSubmitting,
   error = null,
+  templates = [],
 }: TaskFormDialogProps): React.ReactElement {
   const { t } = useTranslation();
   const { select, selections } = useTaskFormSelections(isOpen, {
@@ -87,6 +90,7 @@ export function TaskFormDialog({
             select={select}
             selections={selections}
             statuses={statuses}
+            templates={templates}
           />
           <TaskFormFooter
             error={error}

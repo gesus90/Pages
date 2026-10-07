@@ -3,13 +3,12 @@ import { useSubmit } from "react-router";
 
 import { DEFAULT_LABEL_COLOR } from "@/definition/Task";
 
-import type { ProjectLabel } from "@/definition/Task";
+import type { Label } from "@/definition/Task";
 
-/** What the creation form needs to know about the ticket and its project. */
+/** What the creation form needs to know about the ticket and the catalog. */
 export interface LabelCreationOptions {
-  readonly projectId: string;
   readonly workItemId: string;
-  readonly projectLabels: readonly ProjectLabel[];
+  readonly labels: readonly Label[];
   readonly assignedLabelIds: ReadonlySet<string>;
 }
 
@@ -37,9 +36,8 @@ export interface LabelCreation {
  * so an unrelated label with the same name can never match.
  */
 export function useLabelCreation({
-  projectId,
   workItemId,
-  projectLabels,
+  labels,
   assignedLabelIds,
 }: LabelCreationOptions): LabelCreation {
   const submit = useSubmit();
@@ -56,7 +54,7 @@ export function useLabelCreation({
       return;
     }
 
-    const created = projectLabels.find(
+    const created = labels.find(
       (label) =>
         label.name.toLowerCase() === pendingAssignName.toLowerCase() &&
         !knownLabelIds.current.has(label.id) &&
@@ -70,7 +68,7 @@ export function useLabelCreation({
         { method: "post" },
       );
     }
-  }, [pendingAssignName, projectLabels, assignedLabelIds, submit, workItemId]);
+  }, [pendingAssignName, labels, assignedLabelIds, submit, workItemId]);
 
   function startCreating(): void {
     setIsCreating(true);
@@ -85,9 +83,9 @@ export function useLabelCreation({
   function createLabel(): void {
     const name = newName.trim();
 
-    knownLabelIds.current = new Set(projectLabels.map((label) => label.id));
+    knownLabelIds.current = new Set(labels.map((label) => label.id));
     void submit(
-      { color: newColor, intent: "label-create", name, projectId },
+      { color: newColor, intent: "label-create", name },
       { method: "post" },
     );
     setPendingAssignName(name);

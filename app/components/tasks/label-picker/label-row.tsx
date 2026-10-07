@@ -1,14 +1,14 @@
 import { Check, Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import type { ProjectLabel } from "@/definition/Task";
+import type { Label } from "@/definition/Task";
 
 interface LabelRowProps {
-  readonly label: ProjectLabel;
+  readonly label: Label;
   readonly isAssigned: boolean;
   readonly usage: number;
-  readonly onToggle: (label: ProjectLabel) => void;
-  readonly onEdit: (label: ProjectLabel) => void;
+  readonly onToggle: (label: Label) => void;
+  readonly onEdit: (label: Label) => void;
 }
 
 /** Renders a label that can be toggled on the ticket or opened for editing. */

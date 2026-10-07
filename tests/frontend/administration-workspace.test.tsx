@@ -214,6 +214,109 @@ describe("management catalogs", () => {
     ).toBeInTheDocument();
   });
 
+  it("lists groups, creates them with members and confirms deletion", async () => {
+    const user = userEvent.setup();
+    const harness = renderWorkspace({
+      ...directory(),
+      users: [
+        managedUser({ id: "anna", displayName: "Anna" }),
+        managedUser({ id: "ben", displayName: "Ben" }),
+        {
+          ...managedUser({ id: "gone", displayName: "Gone" }),
+          account: createAccess({ userId: "gone", isActive: false }),
+        },
+      ],
+      groups: {
+        canManage: true,
+        groups: [
+          {
+            canEdit: true,
+            id: "team",
+            memberCount: 1,
+            memberIds: ["anna"],
+            name: "Team",
+          },
+          {
+            canEdit: false,
+            id: "mixed",
+            memberCount: 3,
+            memberIds: [],
+            name: "Mixed",
+          },
+          {
+            canEdit: true,
+            id: "empty",
+            memberCount: 0,
+            memberIds: [],
+            name: "Empty",
+          },
+        ],
+      },
+    });
+    await user.click(screen.getByRole("tab", { name: "Gruppen" }));
+    expect(screen.getByText("Mitglieder: 1")).toBeInTheDocument();
+    expect(screen.getByText("Leer – nicht zuweisbar")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Mixed bearbeiten" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Mixed löschen?" }),
+    ).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "Gruppe anlegen" }));
+    const panel = screen.getByRole("dialog");
+    expect(
+      within(panel).getByRole("checkbox", { name: "Anna" }),
+    ).not.toBeChecked();
+    expect(
+      within(panel).queryByRole("checkbox", { name: "Gone" }),
+    ).not.toBeInTheDocument();
+    await user.type(within(panel).getByLabelText("Name"), "Platform");
+    await user.click(within(panel).getByRole("checkbox", { name: "Ben" }));
+    const form = panel.querySelector("form");
+    if (!form) throw new Error("Missing group form");
+    expect(new FormData(form).getAll("member")).toEqual(["ben"]);
+    harness.update({ intent: "save-group", ok: false, error: "invalidInput" });
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    harness.update({ intent: "save-group", ok: true });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Team bearbeiten" }));
+    expect(screen.getByLabelText("Name")).toHaveValue("Team");
+    expect(screen.getByRole("checkbox", { name: "Anna" })).toBeChecked();
+    await user.click(screen.getByRole("button", { name: "Abbrechen" }));
+
+    await user.click(screen.getByRole("button", { name: "Team löschen?" }));
+    expect(screen.getByRole("dialog")).toHaveTextContent(
+      "nicht mehr zugewiesen",
+    );
+    harness.update({ intent: "delete-group", ok: true });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    harness.update(undefined, {
+      ...directory(),
+      users: [],
+      groups: { canManage: true, groups: [] },
+    });
+    expect(
+      screen.getByText("Noch keine Gruppen angelegt."),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Gruppe anlegen" }));
+    expect(
+      screen.getByText("Keine aktiven Benutzer verfügbar."),
+    ).toBeInTheDocument();
+  });
+
+  it("hides the group section without the right to manage users", () => {
+    renderWorkspace({
+      ...directory(),
+      groups: { canManage: false, groups: [] },
+    });
+    expect(
+      screen.queryByRole("tab", { name: "Gruppen" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("hides unauthorized sections and returns to users if role management is revoked", async () => {
     const user = userEvent.setup();
     const harness = renderWorkspace(directory());

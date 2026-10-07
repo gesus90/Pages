@@ -5,22 +5,21 @@ import { invalidInput, runTaskAction } from "./task-action-support.server";
 
 import type { TaskActionHandler } from "./task-action-support.server";
 
-/** Creates a label in a project. */
+/** Creates a label in the global catalog. */
 export const handleCreateLabel: TaskActionHandler = async ({
   actor,
   formData,
   services,
 }) => {
-  const projectId = readRequiredText(formData, "projectId");
   const name = readText(formData, "name");
   const color = readText(formData, "color");
 
-  if (projectId === null || name === null || color === null) {
+  if (name === null || color === null) {
     return invalidInput("label-create");
   }
 
   return runTaskAction("label-create", async () => {
-    await services.taskService.createLabel(actor, projectId, { color, name });
+    await services.taskService.createLabel(actor, { color, name });
   });
 };
 

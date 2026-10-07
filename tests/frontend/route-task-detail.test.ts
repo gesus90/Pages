@@ -51,7 +51,9 @@ function createTicket(overrides: Partial<WorkItemDetail> = {}): WorkItemDetail {
     departmentId: null,
     archivedAt: null,
     assigneeId: "user-1",
+    assigneeGroupId: null,
     assigneeName: "Admin",
+    assigneeGroupName: null,
     reporterName: "Alex Berger",
     completedAt: null,
     createdAt: "2026-01-01",
@@ -104,7 +106,14 @@ function createServices(
       findAll: vi.fn().mockResolvedValue([createProject()]),
       getById: vi.fn().mockResolvedValue(createProject()),
     },
+    taskTemplateService: {
+      findVisible: vi.fn().mockResolvedValue([]),
+    },
     taskService: {
+      actionPermissions: vi
+        .fn()
+        .mockResolvedValue({ canDelete: true, canWrite: true }),
+      departmentChoices: vi.fn().mockResolvedValue({ available: [] }),
       archive: vi.fn(),
       assignLabel: vi.fn(),
       countLabelUsage: vi.fn().mockResolvedValue(new Map()),
@@ -113,6 +122,7 @@ function createServices(
       deleteLabel: vi.fn(),
       findAll: vi.fn().mockResolvedValue([]),
       findAllStatuses: vi.fn().mockResolvedValue([]),
+      findAssigneeGroups: vi.fn().mockResolvedValue([]),
       findEligibleAssignees: vi.fn().mockResolvedValue([createUser()]),
       findLabels: vi.fn().mockResolvedValue([]),
       findLabelsForWorkItems: vi.fn().mockResolvedValue(new Map()),
@@ -267,6 +277,9 @@ describe("task detail route loader", () => {
     expect(result.children).toHaveLength(1);
     expect(result.fromView).toBe("list");
     expect(result.taskLabels).toEqual([]);
+    expect(result.permissions).toEqual({ canDelete: true, canWrite: true });
+    expect(result.departmentChoices).toEqual({ available: [] });
+    expect(result.templates).toEqual([]);
   });
 
   it("hides inaccessible parents instead of failing", async () => {

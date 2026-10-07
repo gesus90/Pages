@@ -43,6 +43,7 @@ export function TicketDialogs({
         onOpenChange={dialogs.setFormDialogOpen}
         projects={loaderData.projects}
         statuses={statuses}
+        templates={loaderData.templates}
       />
 
       <LabelPicker
@@ -53,8 +54,7 @@ export function TicketDialogs({
         isSubmitting={isSyncing}
         labelUsage={loaderData.labelUsage}
         onOpenChange={dialogs.setIsLabelPickerOpen}
-        projectId={ticket.projectId}
-        projectLabels={loaderData.projectLabels}
+        labels={loaderData.labels}
         workItemId={ticket.id}
       />
 

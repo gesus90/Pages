@@ -185,23 +185,15 @@ export async function loader({
     projectIds,
   );
 
-  const assignedTop = await services.taskService.findAll(user, {
+  // Own tickets only: assigned to me or to one of my groups. Without any, the
+  // panel shows its empty state instead of other people's tickets.
+  const myTaskItems = await services.taskService.findAll(user, {
     archived: "active",
-    assigneeId: user.id,
+    assignedToUserId: user.id,
     limit: 5,
     openOnly: true,
     orderBy: "due_nulls_last",
   });
-  let myTaskItems = assignedTop;
-
-  if (assignedTop.length === 0) {
-    myTaskItems = await services.taskService.findAll(user, {
-      archived: "active",
-      limit: 5,
-      openOnly: true,
-      orderBy: "due_nulls_last",
-    });
-  }
 
   const myTasks: DashboardMyTask[] = myTaskItems.map((item) =>
     toDashboardMyTask(item, now, todayStart),

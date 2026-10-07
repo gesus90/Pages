@@ -1,6 +1,7 @@
 import { vi } from "vitest";
 
 import { ROLE } from "@/definition/Role";
+import { WORK_ITEM_PRIORITY, WORK_ITEM_TYPE } from "@/definition/Task";
 
 import { recordForDialectContract } from "./dialect-contract";
 
@@ -8,6 +9,7 @@ import type {
   Database,
   DatabaseTransaction,
 } from "@/backend/database/Database";
+import type { WorkItemDetail } from "@/definition/Task";
 import type { User } from "@/definition/User";
 
 /**
@@ -55,4 +57,61 @@ export function createDatabase(): DatabaseDouble {
   recordForDialectContract(database);
 
   return database;
+}
+
+/**
+ * Builds an unassigned-by-group task of the Pages project.
+ *
+ * @param overrides - Values replacing the defaults.
+ * @returns A work item that satisfies the `WorkItemDetail` contract.
+ */
+export function createWorkItem(
+  overrides: Partial<WorkItemDetail> = {},
+): WorkItemDetail {
+  return {
+    archivedAt: null,
+    assigneeGroupId: null,
+    assigneeGroupName: null,
+    assigneeId: "user-1",
+    assigneeName: "Admin User",
+    completedAt: null,
+    createdAt: "2026-01-01",
+    createdBy: "user-1",
+    departmentId: null,
+    description: "Work item description",
+    dueAt: "2026-04-01",
+    githubConflict: false,
+    githubContentHash: null,
+    githubIssueNumber: null,
+    githubIssueState: null,
+    githubIssueUpdatedAt: null,
+    githubIssueUrl: null,
+    githubLastError: null,
+    githubLastSyncAt: null,
+    id: "item-1",
+    isDone: false,
+    key: "PAGE-1",
+    milestoneId: null,
+    milestoneName: null,
+    number: 1,
+    parentId: null,
+    parentKey: null,
+    parentTitle: null,
+    priority: WORK_ITEM_PRIORITY.NORMAL,
+    progressPercentage: 0,
+    projectId: "project-1",
+    projectName: "Pages",
+    reporterName: "Reporter User",
+    sortOrder: 1,
+    startAt: null,
+    statusId: "status-todo",
+    statusKey: "todo",
+    statusName: "To Do",
+    subtaskCompleted: 0,
+    subtaskTotal: 0,
+    title: "Setup Task",
+    type: WORK_ITEM_TYPE.TASK,
+    updatedAt: "2026-01-02",
+    ...overrides,
+  };
 }

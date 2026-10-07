@@ -48,6 +48,7 @@ export class GitHubConnectionTester {
 
     const sync = await this.contextLoader.findContext(projectId, {
       allowTokenless: true,
+      includeDisabled: true,
     });
 
     if (!sync) {

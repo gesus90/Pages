@@ -47,6 +47,8 @@ export type UsersIntent =
   | "delete-role"
   | "save-department"
   | "delete-department"
+  | "save-group"
+  | "delete-group"
   | "set-memberships"
   | "set-scope"
   | "set-admin";

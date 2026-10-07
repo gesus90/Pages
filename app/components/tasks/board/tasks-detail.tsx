@@ -29,7 +29,8 @@ export function TasksDetail({
       history={loaderData.selectedHistory}
       isArchiving={isArchiving}
       isSyncing={isSyncing}
-      labelUsage={loaderData.labelUsageByProject[selectedItem.projectId] ?? {}}
+      labels={loaderData.labels}
+      labelUsage={loaderData.labelUsage}
       links={loaderData.selectedLinks}
       milestones={loaderData.milestones}
       onClose={dialog.closeDetail}
@@ -37,7 +38,6 @@ export function TasksDetail({
       onEdit={dialog.editTask}
       onOpenTask={dialog.openTask}
       onSelectTask={dialog.openTask}
-      projectLabels={loaderData.labelsByProject[selectedItem.projectId] ?? []}
       projects={loaderData.projects}
       pullRequests={loaderData.selectedPullRequests}
       statuses={loaderData.statuses}

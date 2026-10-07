@@ -388,6 +388,14 @@ export class ProjectRepository {
     await this.integrations.updateSyncSchedule(projectId, schedule);
   }
 
+  /** Switches the GitHub synchronization of a project on or off. */
+  public async setIntegrationSyncEnabled(
+    projectId: string,
+    isEnabled: boolean,
+  ): Promise<void> {
+    await this.integrations.setSyncEnabled(projectId, isEnabled);
+  }
+
   /**
    * Creates or replaces the integration settings without ever returning the secret.
    *

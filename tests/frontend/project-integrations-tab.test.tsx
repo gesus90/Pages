@@ -46,6 +46,7 @@ function createIntegration(
     syncComments: true,
     syncCommits: true,
     syncDirection: "bidirectional",
+    syncEnabled: true,
     syncIntervalMinutes: 15,
     syncIssues: true,
     syncPullRequests: true,
@@ -241,6 +242,83 @@ describe("GitHubPanel read-only", () => {
   });
 });
 
+describe("GitHubPanel sync switch", () => {
+  const SWITCH_NAME = "GitHub-Synchronisierung aktiv";
+
+  it("posts the new state when the switch is toggled", async () => {
+    const user = userEvent.setup();
+    const { submissions } = renderTab(createIntegration());
+
+    await openGitHub(user);
+    await user.click(screen.getByRole("switch", { name: SWITCH_NAME }));
+    await vi.waitFor(() => expect(submissions).toHaveLength(1));
+
+    expect(submissions[0]).toEqual({
+      intent: "set-integration-sync",
+      syncEnabled: "",
+    });
+  });
+
+  it("switches back on and disables the manual sync while off", async () => {
+    const user = userEvent.setup();
+    const { submissions } = renderTab(
+      createIntegration({ syncEnabled: false }),
+    );
+
+    await openGitHub(user);
+
+    expect(screen.getByRole("switch", { name: SWITCH_NAME })).not.toBeChecked();
+    expect(
+      screen.getByRole("button", { name: "Jetzt synchronisieren" }),
+    ).toBeDisabled();
+
+    await user.click(screen.getByRole("switch", { name: SWITCH_NAME }));
+    await vi.waitFor(() => expect(submissions).toHaveLength(1));
+
+    expect(submissions[0]).toEqual({
+      intent: "set-integration-sync",
+      syncEnabled: "on",
+    });
+  });
+
+  it("keeps the manual sync available while on", async () => {
+    const user = userEvent.setup();
+    renderTab(createIntegration());
+
+    await openGitHub(user);
+
+    expect(
+      screen.getByRole("button", { name: "Jetzt synchronisieren" }),
+    ).toBeEnabled();
+  });
+
+  it.each([
+    [true, "Synchronisierung ist aktiv."],
+    [false, "Synchronisierung ist ausgeschaltet."],
+  ])(
+    "shows the state read-only without write access (%s)",
+    async (isEnabled, text) => {
+      const user = userEvent.setup();
+      renderTab(createIntegration({ syncEnabled: isEnabled }), false);
+
+      await openGitHub(user);
+
+      expect(screen.getByRole("status")).toHaveTextContent(text);
+      expect(screen.queryByRole("switch")).not.toBeInTheDocument();
+    },
+  );
+
+  it("hides the options without effect", async () => {
+    const user = userEvent.setup();
+    renderTab(createIntegration());
+
+    await openGitHub(user);
+
+    expect(screen.queryByText(/Webhook-URL/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Commits anzeigen")).not.toBeInTheDocument();
+  });
+});
+
 describe("GitHubPanel read-only without a stored integration", () => {
   it("explains the missing permission for a project that is not connected", async () => {
     const user = userEvent.setup();
@@ -324,7 +402,6 @@ describe("GitHubPanel without a stored integration", () => {
   it.each([
     ["Issues synchronisieren", "syncIssues"],
     ["Pull Requests synchronisieren", "syncPullRequests"],
-    ["Commits anzeigen", "syncCommits"],
   ])("tracks the %s switch in the form", async (name, field) => {
     const user = userEvent.setup();
     renderTab(null);

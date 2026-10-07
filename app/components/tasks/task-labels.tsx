@@ -1,9 +1,9 @@
 import { X } from "lucide-react";
 
-import type { ProjectLabel } from "@/definition/Task";
+import type { Label } from "@/definition/Task";
 
 interface TaskLabelPillProps {
-  readonly label: ProjectLabel;
+  readonly label: Label;
   readonly onRemove?: () => void;
 }
 
@@ -33,7 +33,7 @@ export function TaskLabelPill({
 }
 
 interface TaskLabelListProps {
-  readonly labels: readonly ProjectLabel[];
+  readonly labels: readonly Label[];
   readonly maxVisible?: number;
 }
 

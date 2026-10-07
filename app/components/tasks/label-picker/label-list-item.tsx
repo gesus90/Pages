@@ -3,15 +3,15 @@ import { LabelRow } from "@/app/components/tasks/label-picker/label-row";
 import { cn } from "@/app/lib/cn";
 
 import type { LabelEditing } from "@/app/components/tasks/label-picker/use-label-editing";
-import type { ProjectLabel } from "@/definition/Task";
+import type { Label } from "@/definition/Task";
 
 interface LabelListItemProps {
-  readonly label: ProjectLabel;
+  readonly label: Label;
   readonly isAssigned: boolean;
   readonly usage: number;
   readonly isSubmitting: boolean;
   readonly editing: LabelEditing;
-  readonly onToggle: (label: ProjectLabel) => void;
+  readonly onToggle: (label: Label) => void;
 }
 
 /** Renders one catalog label as a row, or as its edit form while editing. */

@@ -153,14 +153,21 @@ describe("transferSqliteToDuckDb", { timeout: 30_000 }, () => {
         const columnRows = legacy
           .prepare(`PRAGMA table_info(${table});`)
           .all() as { name: string }[];
-        const columns = columnRows.map((row) => row.name).join(", ");
+        // Project labels became the global `labels` table, without the project.
+        const targetTable = table === "project_labels" ? "labels" : table;
+        const targetColumns = columnRows
+          .filter((row) => targetTable === table || row.name !== "project_id")
+          .map((row) => row.name)
+          .join(", ");
         const expected = legacy
-          .prepare(`SELECT ${columns} FROM ${table};`)
+          .prepare(`SELECT ${targetColumns} FROM ${table};`)
           .raw()
           .all()
           .map((row) => JSON.stringify((row as unknown[]).map(normalize)))
           .sort();
-        const actual = (await target.query(`SELECT ${columns} FROM ${table};`))
+        const actual = (
+          await target.query(`SELECT ${targetColumns} FROM ${targetTable};`)
+        )
           .map((row) => JSON.stringify(row.map(normalize)))
           .sort();
 
@@ -172,6 +179,28 @@ describe("transferSqliteToDuckDb", { timeout: 30_000 }, () => {
       ).toEqual([[0], [0]]);
       await target.close();
       legacy.close();
+    });
+
+    it("merges project labels with the same name into one global label", async () => {
+      createSource((legacy) => {
+        fillLegacyDatabase(legacy);
+        legacy.exec(`
+          INSERT INTO project_labels (id, project_id, name, color)
+          VALUES ('lb2', 'p1', 'bug', '#000000');
+          INSERT INTO work_item_labels (work_item_id, label_id)
+          VALUES ('w1', 'lb2'), ('w2', 'lb2');
+        `);
+      });
+
+      await transferSqliteToDuckDb(createOptions());
+
+      expect(await readTargetRows("labels")).toEqual([
+        ["lb1", "Bug", "#ef4444", expect.any(String), expect.any(String)],
+      ]);
+      expect((await readTargetRows("work_item_labels")).length).toBe(2);
+      await expect(
+        transferSqliteToDuckDb(createOptions()),
+      ).resolves.toMatchObject({ status: "already-transferred" });
     });
 
     it("replaces the default workflow statuses with the ones of the source", async () => {

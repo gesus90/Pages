@@ -97,7 +97,9 @@ function createWorkItem(
     departmentId: null,
     archivedAt: null,
     assigneeId: "user-1",
+    assigneeGroupId: null,
     assigneeName: "Admin User",
+    assigneeGroupName: null,
     reporterName: "Reporter User",
     completedAt: null,
     createdAt: "2026-01-01",
@@ -171,10 +173,11 @@ describe("TaskService", () => {
 
   beforeEach(() => {
     repository = {
-      archive: vi.fn().mockResolvedValue(undefined),
+      archiveMany: vi.fn().mockResolvedValue(undefined),
+      findSubtreeIds: vi.fn().mockResolvedValue(["item-1"]),
       assignLabel: vi.fn().mockResolvedValue(undefined),
       countLabelUsage: vi.fn().mockResolvedValue(0),
-      countLabelUsageByProjectIds: vi.fn().mockResolvedValue(new Map()),
+      countLabelUsageByLabel: vi.fn().mockResolvedValue(new Map()),
       countWorkItemsByProject: vi.fn().mockResolvedValue(new Map()),
       countWorkItemsOverview: vi.fn().mockResolvedValue({
         assigned: 0,
@@ -198,8 +201,8 @@ describe("TaskService", () => {
       findByKey: vi.fn(),
       findHistoryByWorkItemId: vi.fn().mockResolvedValue([]),
       findLabelById: vi.fn().mockResolvedValue(null),
-      findLabelsByProjectId: vi.fn().mockResolvedValue([]),
-      findLabelsByProjectIds: vi.fn().mockResolvedValue(new Map()),
+      findLabelByName: vi.fn().mockResolvedValue(null),
+      findLabels: vi.fn().mockResolvedValue([]),
       findLabelsForWorkItemIds: vi.fn().mockResolvedValue(new Map()),
       findLinkById: vi.fn().mockResolvedValue(null),
       findLinksByWorkItemId: vi.fn().mockResolvedValue([]),
@@ -215,8 +218,7 @@ describe("TaskService", () => {
       insertLabel: vi.fn().mockResolvedValue(undefined),
       insertLink: vi.fn().mockResolvedValue(undefined),
       moveToProject: vi.fn().mockResolvedValue(undefined),
-      removeAllLabelsFromWorkItem: vi.fn().mockResolvedValue(undefined),
-      restore: vi.fn().mockResolvedValue(undefined),
+      restoreMany: vi.fn().mockResolvedValue(undefined),
       setGitHubConflict: vi.fn().mockResolvedValue(undefined),
       setGitHubError: vi.fn().mockResolvedValue(undefined),
       unassignLabel: vi.fn().mockResolvedValue(undefined),
@@ -608,6 +610,7 @@ describe("TaskService", () => {
     await expect(
       service.create(actor, {
         assigneeId: "unauthorized-user",
+        assigneeGroupId: null,
         milestoneId: "milestone-1",
         projectId: "project-1",
         statusId: "status-todo",
@@ -648,6 +651,7 @@ describe("TaskService", () => {
 
     const updated = await service.update(actor, "item-1", {
       assigneeId: "user-2",
+      assigneeGroupId: null,
       description: "New description",
       dueAt: "2026-05-01",
       milestoneId: "milestone-2",
@@ -677,6 +681,7 @@ describe("TaskService", () => {
     await expect(
       service.update(actor, "item-1", {
         assigneeId: null,
+        assigneeGroupId: null,
         description: "",
         dueAt: null,
         milestoneId: null,
@@ -698,6 +703,7 @@ describe("TaskService", () => {
     await expect(
       service.update(actor, "sub-1", {
         assigneeId: null,
+        assigneeGroupId: null,
         description: "",
         dueAt: null,
         milestoneId: null,
@@ -752,7 +758,7 @@ describe("TaskService", () => {
 
     await service.archive(actor, "item-1");
 
-    expect(repository.archive).toHaveBeenCalledWith("item-1");
+    expect(repository.archiveMany).toHaveBeenCalledWith(["item-1"]);
     expect(repository.insertHistory).toHaveBeenCalledWith(
       expect.objectContaining({ action: "archived" }),
     );
@@ -860,6 +866,7 @@ describe("TaskService", () => {
     await expect(
       service.update(actor, "epic-1", {
         assigneeId: null,
+        assigneeGroupId: null,
         description: "",
         dueAt: null,
         milestoneId: null,
@@ -956,6 +963,7 @@ describe("TaskService", () => {
 
     await service.update(actor, "item-1", {
       assigneeId: null,
+      assigneeGroupId: null,
       description: existing.description,
       dueAt: null,
       milestoneId: null,
@@ -980,6 +988,7 @@ describe("TaskService", () => {
     const actor = createUser();
     const existing = createWorkItem({
       assigneeId: "user-1",
+      assigneeGroupId: null,
       description: "Same desc",
       dueAt: "2026-05-01",
       milestoneId: "milestone-1",
@@ -1007,6 +1016,7 @@ describe("TaskService", () => {
 
     await service.update(actor, "item-1", {
       assigneeId: "user-1",
+      assigneeGroupId: null,
       description: "Same desc",
       dueAt: "2026-05-01",
       milestoneId: "milestone-1",
@@ -1027,6 +1037,7 @@ describe("TaskService", () => {
 
     await service.update(actor, "item-1", {
       assigneeId: null,
+      assigneeGroupId: null,
       description: "Same desc",
       dueAt: null,
       milestoneId: null,
@@ -1085,6 +1096,7 @@ describe("TaskService", () => {
     await expect(
       service.update(actor, "item-1", {
         assigneeId: null,
+        assigneeGroupId: null,
         description: "",
         dueAt: null,
         milestoneId: null,
@@ -1105,6 +1117,7 @@ describe("TaskService", () => {
     await expect(
       service.update(actor, "item-1", {
         assigneeId: null,
+        assigneeGroupId: null,
         description: "",
         dueAt: null,
         milestoneId: null,
@@ -1150,6 +1163,7 @@ describe("TaskService", () => {
 
     await service.update(actor, "item-1", {
       assigneeId: null,
+      assigneeGroupId: null,
       description: existing.description,
       dueAt: null,
       milestoneId: "milestone-1",
@@ -1178,6 +1192,7 @@ describe("TaskService", () => {
     await expect(
       service.update(actor, "item-1", {
         assigneeId: null,
+        assigneeGroupId: null,
         description: "Valid",
         dueAt: null,
         milestoneId: null,
@@ -1193,6 +1208,7 @@ describe("TaskService", () => {
     await expect(
       service.update(actor, "item-1", {
         assigneeId: null,
+        assigneeGroupId: null,
         description: "a".repeat(10_001),
         dueAt: null,
         milestoneId: null,
@@ -1208,6 +1224,7 @@ describe("TaskService", () => {
     await expect(
       service.update(actor, "item-1", {
         assigneeId: null,
+        assigneeGroupId: null,
         description: "Valid",
         dueAt: null,
         milestoneId: null,
@@ -1228,12 +1245,11 @@ describe("TaskService restore, moves, labels, and sync state", () => {
   let permissionService: { [key: string]: ReturnType<typeof vi.fn> };
   let service: TaskService;
 
-  function createProjectLabel(overrides: Record<string, unknown> = {}): {
+  function createCatalogLabel(overrides: Record<string, unknown> = {}): {
     color: string;
     createdAt: string;
     id: string;
     name: string;
-    projectId: string;
     updatedAt: string;
   } {
     return {
@@ -1241,7 +1257,6 @@ describe("TaskService restore, moves, labels, and sync state", () => {
       createdAt: "2026-01-01",
       id: "label-1",
       name: "Feature",
-      projectId: "project-1",
       updatedAt: "2026-01-02",
       ...overrides,
     };
@@ -1249,10 +1264,11 @@ describe("TaskService restore, moves, labels, and sync state", () => {
 
   beforeEach(() => {
     repository = {
-      archive: vi.fn().mockResolvedValue(undefined),
+      archiveMany: vi.fn().mockResolvedValue(undefined),
+      findSubtreeIds: vi.fn().mockResolvedValue(["item-1"]),
       assignLabel: vi.fn().mockResolvedValue(undefined),
       countLabelUsage: vi.fn().mockResolvedValue(0),
-      countLabelUsageByProjectIds: vi.fn().mockResolvedValue(new Map()),
+      countLabelUsageByLabel: vi.fn().mockResolvedValue(new Map()),
       countWorkItemsByProject: vi.fn().mockResolvedValue(new Map()),
       countWorkItemsOverview: vi.fn().mockResolvedValue({
         assigned: 0,
@@ -1276,8 +1292,8 @@ describe("TaskService restore, moves, labels, and sync state", () => {
       findByKey: vi.fn(),
       findHistoryByWorkItemId: vi.fn().mockResolvedValue([]),
       findLabelById: vi.fn().mockResolvedValue(null),
-      findLabelsByProjectId: vi.fn().mockResolvedValue([]),
-      findLabelsByProjectIds: vi.fn().mockResolvedValue(new Map()),
+      findLabelByName: vi.fn().mockResolvedValue(null),
+      findLabels: vi.fn().mockResolvedValue([]),
       findLabelsForWorkItemIds: vi.fn().mockResolvedValue(new Map()),
       findLinkById: vi.fn().mockResolvedValue(null),
       findLinksByWorkItemId: vi.fn().mockResolvedValue([]),
@@ -1293,8 +1309,7 @@ describe("TaskService restore, moves, labels, and sync state", () => {
       insertLabel: vi.fn().mockResolvedValue(undefined),
       insertLink: vi.fn().mockResolvedValue(undefined),
       moveToProject: vi.fn().mockResolvedValue(undefined),
-      removeAllLabelsFromWorkItem: vi.fn().mockResolvedValue(undefined),
-      restore: vi.fn().mockResolvedValue(undefined),
+      restoreMany: vi.fn().mockResolvedValue(undefined),
       setGitHubError: vi.fn().mockResolvedValue(undefined),
       unassignLabel: vi.fn().mockResolvedValue(undefined),
       update: vi.fn().mockResolvedValue(undefined),
@@ -1343,12 +1358,12 @@ describe("TaskService restore, moves, labels, and sync state", () => {
 
     await service.restore(actor, "item-1");
 
-    expect(repository.restore).toHaveBeenCalledWith("item-1");
+    expect(repository.restoreMany).toHaveBeenCalledWith(["item-1"]);
     expect(repository.insertHistory).toHaveBeenCalledWith(
       expect.objectContaining({ action: "restored" }),
     );
 
-    projectService.canWriteProject.mockResolvedValueOnce(false);
+    permissionService.hasCapability.mockResolvedValueOnce(false);
 
     await expect(service.restore(actor, "item-1")).rejects.toThrow(
       WorkItemAccessDeniedError,
@@ -1359,6 +1374,7 @@ describe("TaskService restore, moves, labels, and sync state", () => {
     const actor = createUser();
     const item = createWorkItem({
       assigneeId: "user-1",
+      assigneeGroupId: null,
       githubIssueNumber: 82,
       milestoneId: "milestone-1",
       parentId: "epic-1",
@@ -1385,9 +1401,8 @@ describe("TaskService restore, moves, labels, and sync state", () => {
         projectId: "project-2",
       }),
     );
-    expect(repository.removeAllLabelsFromWorkItem).toHaveBeenCalledWith(
-      "item-1",
-    );
+    expect(repository.unassignLabel).not.toHaveBeenCalled();
+    expect(repository.deleteLabel).not.toHaveBeenCalled();
     expect(repository.insertHistory).toHaveBeenCalledWith(
       expect.objectContaining({
         action: "project_changed",
@@ -1407,7 +1422,9 @@ describe("TaskService restore, moves, labels, and sync state", () => {
     const actor = createUser();
     const root = createWorkItem({
       assigneeId: null,
+      assigneeGroupId: null,
       assigneeName: null,
+      assigneeGroupName: null,
       id: "epic-1",
       milestoneId: null,
       milestoneName: null,
@@ -1452,15 +1469,7 @@ describe("TaskService restore, moves, labels, and sync state", () => {
     repository.findById.mockResolvedValue(createWorkItem());
     projectService.getById.mockResolvedValue(createProject());
 
-    projectService.canWriteProject.mockResolvedValueOnce(false);
-
-    await expect(
-      service.moveToProject(actor, "item-1", "project-2"),
-    ).rejects.toThrow(WorkItemAccessDeniedError);
-
-    projectService.canWriteProject
-      .mockResolvedValueOnce(true)
-      .mockResolvedValueOnce(false);
+    permissionService.hasCapability.mockResolvedValueOnce(false);
 
     await expect(
       service.moveToProject(actor, "item-1", "project-2"),
@@ -1509,6 +1518,7 @@ describe("TaskService restore, moves, labels, and sync state", () => {
 
     await service.update(actor, "item-1", {
       assigneeId: null,
+      assigneeGroupId: null,
       description: "Desc",
       dueAt: null,
       milestoneId: null,
@@ -1531,6 +1541,7 @@ describe("TaskService restore, moves, labels, and sync state", () => {
     await expect(
       service.update(actor, "item-1", {
         assigneeId: null,
+        assigneeGroupId: null,
         description: "Desc",
         dueAt: null,
         milestoneId: null,
@@ -1544,12 +1555,12 @@ describe("TaskService restore, moves, labels, and sync state", () => {
     ).rejects.toThrow("A reporter must be selected.");
   });
 
-  it("creates, renames, and deletes project labels", async () => {
+  it("creates global labels with uniqueness and access checks", async () => {
     const actor = createUser();
     projectService.getById.mockResolvedValue(createProject());
 
-    repository.findLabelById.mockResolvedValue(createProjectLabel());
-    const created = await service.createLabel(actor, "project-1", {
+    repository.findLabelById.mockResolvedValue(createCatalogLabel());
+    const created = await service.createLabel(actor, {
       color: "#ef4444",
       name: "Bug",
     });
@@ -1560,45 +1571,45 @@ describe("TaskService restore, moves, labels, and sync state", () => {
 
     repository.findLabelById.mockResolvedValue(null);
     await expect(
-      service.createLabel(actor, "project-1", {
+      service.createLabel(actor, {
         color: "#ef4444",
         name: "Bug",
       }),
     ).rejects.toThrow("Created label could not be retrieved.");
 
     await expect(
-      service.createLabel(actor, "project-1", { color: "red", name: "Bug" }),
+      service.createLabel(actor, { color: "red", name: "Bug" }),
     ).rejects.toThrow("Unsupported label color.");
 
     await expect(
-      service.createLabel(actor, "project-1", {
+      service.createLabel(actor, {
         color: "#ef4444",
         name: "   ",
       }),
     ).rejects.toThrow("Label name must be between 1 and 40 characters.");
 
-    repository.findLabelsByProjectId.mockResolvedValue([createProjectLabel()]);
+    repository.findLabelByName.mockResolvedValue(createCatalogLabel());
     await expect(
-      service.createLabel(actor, "project-1", {
+      service.createLabel(actor, {
         color: "#ef4444",
         name: "feature",
       }),
     ).rejects.toThrow("A label with this name already exists");
 
-    projectService.canWriteProject.mockResolvedValueOnce(false);
+    permissionService.hasCapability.mockResolvedValueOnce(false);
     await expect(
-      service.createLabel(actor, "project-1", {
+      service.createLabel(actor, {
         color: "#ef4444",
         name: "Bug",
       }),
     ).rejects.toThrow(WorkItemAccessDeniedError);
   });
 
-  it("updates project labels with uniqueness checks", async () => {
+  it("updates global labels with uniqueness checks", async () => {
     const actor = createUser();
-    const label = createProjectLabel();
+    const label = createCatalogLabel();
     projectService.getById.mockResolvedValue(createProject());
-    repository.findLabelsByProjectId.mockResolvedValue([label]);
+    repository.findLabelByName.mockResolvedValue(label);
     repository.findLabelById
       .mockResolvedValueOnce(label)
       .mockResolvedValueOnce({ ...label, name: "Feature Request" });
@@ -1618,10 +1629,9 @@ describe("TaskService restore, moves, labels, and sync state", () => {
     ).rejects.toThrow("Selected label does not exist.");
 
     repository.findLabelById.mockResolvedValue(label);
-    repository.findLabelsByProjectId.mockResolvedValue([
-      label,
-      createProjectLabel({ id: "label-2", name: "Bug" }),
-    ]);
+    repository.findLabelByName.mockResolvedValue(
+      createCatalogLabel({ id: "label-2", name: "Bug" }),
+    );
     await expect(
       service.updateLabel(actor, "label-1", {
         color: "#a855f7",
@@ -1637,7 +1647,7 @@ describe("TaskService restore, moves, labels, and sync state", () => {
       service.updateLabel(actor, "label-1", { color: "#a855f7", name: " " }),
     ).rejects.toThrow("Label name must be between 1 and 40 characters.");
 
-    projectService.canWriteProject.mockResolvedValueOnce(false);
+    permissionService.hasCapability.mockResolvedValueOnce(false);
     await expect(
       service.updateLabel(actor, "label-1", {
         color: "#a855f7",
@@ -1645,6 +1655,7 @@ describe("TaskService restore, moves, labels, and sync state", () => {
       }),
     ).rejects.toThrow(WorkItemAccessDeniedError);
 
+    repository.findLabelByName.mockResolvedValue(null);
     repository.findLabelById
       .mockResolvedValueOnce(label)
       .mockResolvedValue(null);
@@ -1658,7 +1669,7 @@ describe("TaskService restore, moves, labels, and sync state", () => {
 
   it("deletes labels and assigns them to tickets", async () => {
     const actor = createUser();
-    const label = createProjectLabel();
+    const label = createCatalogLabel();
     repository.findById.mockResolvedValue(createWorkItem());
     projectService.getById.mockResolvedValue(createProject());
     repository.findLabelById.mockResolvedValue(label);
@@ -1672,21 +1683,13 @@ describe("TaskService restore, moves, labels, and sync state", () => {
       }),
     );
 
-    repository.findLabelById.mockResolvedValue({
-      ...label,
-      projectId: "foreign-project",
-    });
-    await expect(
-      service.assignLabel(actor, "item-1", "label-1"),
-    ).rejects.toThrow("Selected label does not belong");
-
     repository.findLabelById.mockResolvedValue(null);
     await expect(
       service.assignLabel(actor, "item-1", "label-1"),
-    ).rejects.toThrow("Selected label does not belong");
+    ).rejects.toThrow("Selected label does not exist.");
 
     repository.findLabelById.mockResolvedValue(label);
-    projectService.canWriteProject.mockResolvedValueOnce(false);
+    permissionService.hasCapability.mockResolvedValueOnce(false);
     await expect(
       service.assignLabel(actor, "item-1", "label-1"),
     ).rejects.toThrow(WorkItemAccessDeniedError);
@@ -1706,7 +1709,7 @@ describe("TaskService restore, moves, labels, and sync state", () => {
       expect.objectContaining({ action: "label_removed", oldValue: null }),
     );
 
-    projectService.canWriteProject.mockResolvedValueOnce(false);
+    permissionService.hasCapability.mockResolvedValueOnce(false);
     await expect(
       service.unassignLabel(actor, "item-1", "label-1"),
     ).rejects.toThrow(WorkItemAccessDeniedError);
@@ -1721,38 +1724,36 @@ describe("TaskService restore, moves, labels, and sync state", () => {
     );
 
     repository.findLabelById.mockResolvedValue(label);
-    projectService.canWriteProject.mockResolvedValueOnce(false);
+    permissionService.hasCapability.mockResolvedValueOnce(false);
     await expect(service.deleteLabel(actor, "label-1")).rejects.toThrow(
       WorkItemAccessDeniedError,
     );
   });
 
-  it("reads label catalogs and usage", async () => {
+  it("reads the label catalog and usage", async () => {
     const actor = createUser();
-    projectService.getById.mockResolvedValue(createProject());
-    repository.findLabelsByProjectId.mockResolvedValue([
-      createProjectLabel(),
-      createProjectLabel({ id: "label-2", name: "Bug" }),
+    repository.findLabels.mockResolvedValue([
+      createCatalogLabel(),
+      createCatalogLabel({ id: "label-2", name: "Bug" }),
     ]);
-    repository.countLabelUsageByProjectIds.mockResolvedValue(
+    repository.countLabelUsageByLabel.mockResolvedValue(
       new Map([
-        [
-          "project-1",
-          new Map([
-            ["label-1", 3],
-            ["label-2", 5],
-          ]),
-        ],
+        ["label-1", 3],
+        ["label-2", 5],
       ]),
     );
 
-    expect(await service.findLabels(actor, "project-1")).toHaveLength(2);
+    expect(await service.findLabels()).toHaveLength(2);
 
-    const usage = await service.countLabelUsage(actor, "project-1");
+    const usage = await service.countLabelUsage(actor);
     expect(usage.get("label-1")).toBe(3);
     expect(usage.get("label-2")).toBe(5);
+    expect(repository.countLabelUsageByLabel).toHaveBeenCalledWith({
+      departmentIds: null,
+      projectIds: ["project-1"],
+    });
 
-    const mapped = new Map([["item-1", [createProjectLabel()]]]);
+    const mapped = new Map([["item-1", [createCatalogLabel()]]]);
     repository.findLabelsForWorkItemIds.mockResolvedValue(mapped);
     expect(await service.findLabelsForWorkItems(["item-1"])).toBe(mapped);
   });
@@ -1903,10 +1904,8 @@ describe("TaskService restore, moves, labels, and sync state", () => {
     repository.findEligibleAssigneesByProjectIds.mockResolvedValue(
       new Map([["project-1", [createUser()]]]),
     );
-    repository.findLabelsByProjectIds.mockResolvedValue(
-      new Map([["project-1", []]]),
-    );
-    repository.countLabelUsageByProjectIds.mockResolvedValue(new Map());
+    repository.findLabels.mockResolvedValue([]);
+    repository.countLabelUsageByLabel.mockResolvedValue(new Map());
     repository.findLabelsForWorkItemIds.mockResolvedValue(
       new Map([["item-1", []]]),
     );
@@ -1921,13 +1920,13 @@ describe("TaskService restore, moves, labels, and sync state", () => {
       1,
     );
 
-    await cachedService.findLabelsByProjects(["project-1"]);
-    await cachedService.findLabelsByProjects(["project-1"]);
-    expect(repository.findLabelsByProjectIds).toHaveBeenCalledTimes(1);
+    await cachedService.findLabels();
+    await cachedService.findLabels();
+    expect(repository.findLabels).toHaveBeenCalledTimes(1);
 
-    await cachedService.countLabelUsageByProjects(createUser(), ["project-1"]);
-    await cachedService.countLabelUsageByProjects(createUser(), ["project-1"]);
-    expect(repository.countLabelUsageByProjectIds).toHaveBeenCalledTimes(1);
+    await cachedService.countLabelUsage(createUser());
+    await cachedService.countLabelUsage(createUser());
+    expect(repository.countLabelUsageByLabel).toHaveBeenCalledTimes(1);
 
     await cachedService.findLabelsForWorkItems(["item-1"]);
     await cachedService.findLabelsForWorkItems(["item-1"]);
@@ -1954,15 +1953,6 @@ describe("TaskService restore, moves, labels, and sync state", () => {
       ["project-1"],
       { departmentIds: null, projectIds: ["project-1"] },
     );
-  });
-
-  it("falls back to an empty usage map for unknown projects", async () => {
-    projectService.getById.mockResolvedValue(createProject());
-    repository.countLabelUsageByProjectIds.mockResolvedValue(new Map());
-
-    await expect(
-      service.countLabelUsage(createUser(), "project-1"),
-    ).resolves.toEqual(new Map());
   });
 
   it("manages checklist items with access checks", async () => {
@@ -2009,12 +1999,12 @@ describe("TaskService restore, moves, labels, and sync state", () => {
     const actor = createUser();
     repository.findById.mockResolvedValue(createWorkItem());
 
-    projectService.canWriteProject.mockResolvedValue(false);
+    permissionService.hasCapability.mockResolvedValue(false);
     await expect(
       service.addChecklistItem(actor, "item-1", "Verify build"),
     ).rejects.toThrow(WorkItemAccessDeniedError);
 
-    projectService.canWriteProject.mockResolvedValue(true);
+    permissionService.hasCapability.mockResolvedValue(true);
     await expect(
       service.addChecklistItem(actor, "item-1", "   "),
     ).rejects.toThrow(WorkItemValidationError);
@@ -2036,7 +2026,7 @@ describe("TaskService restore, moves, labels, and sync state", () => {
       id: "check-1",
       workItemId: "item-1",
     });
-    projectService.canWriteProject.mockResolvedValue(false);
+    permissionService.hasCapability.mockResolvedValue(false);
     await expect(
       service.setChecklistItemDone(actor, "check-1", true),
     ).rejects.toThrow(WorkItemAccessDeniedError);
@@ -2044,7 +2034,7 @@ describe("TaskService restore, moves, labels, and sync state", () => {
       WorkItemAccessDeniedError,
     );
 
-    projectService.canWriteProject.mockResolvedValue(true);
+    permissionService.hasCapability.mockResolvedValue(true);
     repository.findChecklistItemById
       .mockResolvedValueOnce({
         id: "check-1",
@@ -2101,7 +2091,7 @@ describe("TaskService restore, moves, labels, and sync state", () => {
     const actor = createUser();
     repository.findById.mockResolvedValue(createWorkItem());
 
-    projectService.canWriteProject.mockResolvedValue(false);
+    permissionService.hasCapability.mockResolvedValue(false);
     await expect(
       service.addLink(actor, "item-1", "PAGE-2", "relates_to"),
     ).rejects.toThrow(WorkItemAccessDeniedError);
@@ -2109,7 +2099,7 @@ describe("TaskService restore, moves, labels, and sync state", () => {
       WorkItemAccessDeniedError,
     );
 
-    projectService.canWriteProject.mockResolvedValue(true);
+    permissionService.hasCapability.mockResolvedValue(true);
     await expect(
       service.addLink(actor, "item-1", "PAGE-2", "bogus" as WorkItemLinkType),
     ).rejects.toThrow("Unsupported link type");

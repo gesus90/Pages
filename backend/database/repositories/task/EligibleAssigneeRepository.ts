@@ -3,16 +3,11 @@ import {
   readNullableTextColumn,
   readTextColumn,
 } from "@/backend/database/RowValue";
-import { isRole, ROLE } from "@/definition/Role";
+import { isRole } from "@/definition/Role";
 import { isUserAvatarType } from "@/definition/User";
-
-import { createInClause } from "./InClause";
 
 import type { Database, DatabaseValue } from "@/backend/database/Database";
 import type { User } from "@/definition/User";
-
-/** Columns of the user part of an assignee row, before the project membership column. */
-const USER_COLUMN_COUNT = 10;
 
 function toUser(row: readonly DatabaseValue[]): User {
   const role = readTextColumn(row, 3, "role");
@@ -42,57 +37,7 @@ function toUser(row: readonly DatabaseValue[]): User {
   };
 }
 
-/**
- * Lists the requested projects a user is eligible for.
- *
- * @remarks
- * Administrators and managers are eligible in every requested project,
- * members only in the project their membership row names.
- */
-function resolveEligibleProjectIds(
-  user: User,
-  requestedProjectIds: readonly string[],
-  memberProjectId: DatabaseValue | undefined,
-): readonly string[] {
-  if (user.role === ROLE.ADMIN || user.role === ROLE.MANAGER) {
-    return requestedProjectIds;
-  }
-
-  return typeof memberProjectId === "string" ? [memberProjectId] : [];
-}
-
-function groupAssigneesByProject(
-  rows: readonly (readonly DatabaseValue[])[],
-  projectIds: readonly string[],
-): ReadonlyMap<string, readonly User[]> {
-  const assigneesByProject = new Map<string, Map<string, User>>();
-
-  for (const projectId of projectIds) {
-    assigneesByProject.set(projectId, new Map<string, User>());
-  }
-
-  for (const row of rows) {
-    const user = toUser(row.slice(0, USER_COLUMN_COUNT));
-
-    for (const projectId of resolveEligibleProjectIds(
-      user,
-      projectIds,
-      row[USER_COLUMN_COUNT],
-    )) {
-      assigneesByProject.get(projectId)?.set(user.id, user);
-    }
-  }
-
-  const grouped = new Map<string, readonly User[]>();
-
-  for (const [projectId, usersById] of assigneesByProject) {
-    grouped.set(projectId, Array.from(usersById.values()));
-  }
-
-  return grouped;
-}
-
-/** Owns the lookup of users who can be assigned to work items of a project. */
+/** Owns the lookup of users who can be assigned to work items. */
 export class EligibleAssigneeRepository {
   private readonly database: Database;
 
@@ -105,8 +50,15 @@ export class EligibleAssigneeRepository {
     this.database = database;
   }
 
-  /** Returns all active users eligible to be assigned to work items in a project. */
-  public async findByProjectId(projectId: string): Promise<User[]> {
+  /**
+   * Returns every active user who could be assigned to a ticket.
+   *
+   * @remarks
+   * Whether a person may work in a particular project is a decision of the
+   * current account facts (department scope), taken by the service that
+   * filters these candidates; no legacy role column takes part in it.
+   */
+  public async findCandidates(): Promise<User[]> {
     const rows = await this.database.query(
       `
         SELECT
@@ -122,31 +74,19 @@ export class EligibleAssigneeRepository {
             users.must_change_password
         FROM users
         WHERE users.is_active = 1
-            AND (
-                users.role IN ('admin', 'manager')
-                OR EXISTS (
-                    SELECT 1
-                    FROM project_members
-                    WHERE project_members.project_id = $project_id
-                        AND project_members.user_id = users.id
-                )
-            )
         ORDER BY users.display_name ASC;
       `,
-      { project_id: projectId },
     );
 
     return rows.map(toUser);
   }
 
   /**
-   * Returns eligible assignees for several projects with a single query.
+   * Returns the candidates once for every requested project.
    *
-   * @remarks
-   * Administrators and managers are eligible in every requested project,
-   * members only in their own projects, mirroring {@link findByProjectId}.
-   *
-   * @returns Eligible users grouped by project id, ordered by display name.
+   * @param projectIds - Projects the caller asks candidates for.
+   * @returns The same ordered candidates under each project id; the empty map
+   * for no projects, without querying.
    */
   public async findByProjectIds(
     projectIds: readonly string[],
@@ -155,38 +95,8 @@ export class EligibleAssigneeRepository {
       return new Map<string, readonly User[]>();
     }
 
-    const { parameters, placeholders } = createInClause(
-      "assignee_project_id",
-      projectIds,
-    );
-    const rows = await this.database.query(
-      `
-        SELECT
-            users.id,
-            users.username,
-            users.display_name,
-            users.role,
-            users.is_active,
-            users.avatar_type,
-            users.avatar_icon,
-            users.avatar_color,
-            users.avatar_image_url,
-            users.must_change_password,
-            members.project_id AS member_project_id
-        FROM users
-        LEFT JOIN project_members AS members
-            ON members.user_id = users.id
-            AND members.project_id IN (${placeholders})
-        WHERE users.is_active = 1
-            AND (
-                users.role IN ('admin', 'manager')
-                OR members.project_id IS NOT NULL
-            )
-        ORDER BY users.display_name ASC;
-      `,
-      parameters,
-    );
+    const candidates = await this.findCandidates();
 
-    return groupAssigneesByProject(rows, projectIds);
+    return new Map(projectIds.map((projectId) => [projectId, candidates]));
   }
 }

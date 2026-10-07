@@ -4,37 +4,35 @@ import { createInClause } from "./InClause";
 import { createWorkItemVisibility } from "./WorkItemVisibility";
 
 import type { Database, DatabaseValue } from "@/backend/database/Database";
-import type { ProjectLabel, WorkItemVisibility } from "@/definition/Task";
+import type { Label, WorkItemVisibility } from "@/definition/Task";
 
-/** Values required to persist a label in the catalog of a project. */
-export interface NewProjectLabel {
+/** Values required to persist a label in the global catalog. */
+export interface NewLabel {
   readonly id: string;
-  readonly projectId: string;
   readonly name: string;
   readonly color: string;
 }
 
-/** Values that can be changed on a project label. */
-export interface ProjectLabelUpdate {
+/** Values that can be changed on a label. */
+export interface LabelUpdate {
   readonly name: string;
   readonly color: string;
 }
 
-function toProjectLabel(row: readonly DatabaseValue[]): ProjectLabel {
+function toLabel(row: readonly DatabaseValue[]): Label {
   return {
-    color: readTextColumn(row, 3, "color"),
-    createdAt: readTextColumn(row, 4, "created_at"),
+    color: readTextColumn(row, 2, "color"),
+    createdAt: readTextColumn(row, 3, "created_at"),
     id: readTextColumn(row, 0, "id"),
-    name: readTextColumn(row, 2, "name"),
-    projectId: readTextColumn(row, 1, "project_id"),
-    updatedAt: readTextColumn(row, 5, "updated_at"),
+    name: readTextColumn(row, 1, "name"),
+    updatedAt: readTextColumn(row, 4, "updated_at"),
   };
 }
 
 function appendToGroup(
-  groups: Map<string, ProjectLabel[]>,
+  groups: Map<string, Label[]>,
   groupId: string,
-  label: ProjectLabel,
+  label: Label,
 ): void {
   const group = groups.get(groupId);
 
@@ -45,7 +43,7 @@ function appendToGroup(
   }
 }
 
-/** Owns persistence operations for project labels and their ticket assignments. */
+/** Owns persistence operations for the global label catalog and its ticket assignments. */
 export class TaskLabelRepository {
   private readonly database: Database;
 
@@ -58,87 +56,32 @@ export class TaskLabelRepository {
     this.database = database;
   }
 
-  /** Returns the shared label catalog of a project ordered by name. */
-  public async findByProjectId(projectId: string): Promise<ProjectLabel[]> {
+  /** Returns the global label catalog ordered by name. */
+  public async findAll(): Promise<Label[]> {
     const rows = await this.database.query(
       `
         SELECT
             id,
-            project_id,
             name,
             color,
             created_at,
             updated_at
-        FROM project_labels
-        WHERE project_id = $project_id
+        FROM labels
         ORDER BY name ASC;
       `,
-      { project_id: projectId },
     );
 
-    return rows.map(toProjectLabel);
+    return rows.map(toLabel);
   }
 
-  /** Returns the shared label catalogs of several projects ordered by name. */
-  public async findByProjectIds(
-    projectIds: readonly string[],
-  ): Promise<ReadonlyMap<string, readonly ProjectLabel[]>> {
-    const labelsByProject = new Map<string, ProjectLabel[]>();
-
-    if (projectIds.length === 0) {
-      return labelsByProject;
-    }
-
-    const { parameters, placeholders } = createInClause(
-      "label_project_id",
-      projectIds,
-    );
-    const rows = await this.database.query(
-      `
-        SELECT
-            id,
-            project_id,
-            name,
-            color,
-            created_at,
-            updated_at
-        FROM project_labels
-        WHERE project_id IN (${placeholders})
-        ORDER BY name ASC;
-      `,
-      parameters,
-    );
-
-    for (const row of rows) {
-      appendToGroup(
-        labelsByProject,
-        readTextColumn(row, 1, "project_id"),
-        toProjectLabel(row),
-      );
-    }
-
-    return labelsByProject;
+  /** Returns a label by its identifier. */
+  public async findById(id: string): Promise<Label | null> {
+    return this.findOne("WHERE id = $id", { id });
   }
 
-  /** Returns a project label by its identifier. */
-  public async findById(id: string): Promise<ProjectLabel | null> {
-    const rows = await this.database.query(
-      `
-        SELECT
-            id,
-            project_id,
-            name,
-            color,
-            created_at,
-            updated_at
-        FROM project_labels
-        WHERE id = $id;
-      `,
-      { id },
-    );
-    const row = rows[0];
-
-    return row ? toProjectLabel(row) : null;
+  /** Returns the label with this name, ignoring case. */
+  public async findByName(name: string): Promise<Label | null> {
+    return this.findOne("WHERE lower(name) = lower($name)", { name });
   }
 
   /** Returns how many tickets currently use a label. */
@@ -169,67 +112,45 @@ export class TaskLabelRepository {
   }
 
   /**
-   * Returns label usage counts for several projects with a single query.
+   * Returns how many tickets use each label.
    *
-   * @returns Usage counts grouped by project id, then by label id.
+   * @returns Usage counts by label id; labels without tickets are absent.
    */
-  public async countUsageByProjectIds(
-    projectIds: readonly string[],
+  public async countUsageByLabel(
     visibility?: WorkItemVisibility,
-  ): Promise<ReadonlyMap<string, ReadonlyMap<string, number>>> {
-    const usageByProject = new Map<string, Map<string, number>>();
-
-    if (projectIds.length === 0) {
-      return usageByProject;
-    }
-
-    const { parameters, placeholders } = createInClause(
-      "usage_project_id",
-      projectIds,
-    );
+  ): Promise<ReadonlyMap<string, number>> {
+    const usage = new Map<string, number>();
     const scope = createWorkItemVisibility(visibility);
     const rows = await this.database.query(
       `
         SELECT
-            project_labels.project_id,
             work_item_labels.label_id,
             COUNT(*) AS usage_count
         FROM work_item_labels
-        INNER JOIN project_labels
-            ON project_labels.id = work_item_labels.label_id
         INNER JOIN work_items
             ON work_items.id = work_item_labels.work_item_id
-        WHERE project_labels.project_id IN (${placeholders})
-            AND ${scope.condition}
-        GROUP BY project_labels.project_id, work_item_labels.label_id;
+        WHERE ${scope.condition}
+        GROUP BY work_item_labels.label_id;
       `,
-      { ...parameters, ...scope.parameters },
+      scope.parameters,
     );
 
     for (const row of rows) {
-      const projectId = readTextColumn(row, 0, "project_id");
-      const labelId = readTextColumn(row, 1, "label_id");
-      const count = readCountColumn(row, 2, "usage_count");
-      let usage = usageByProject.get(projectId);
-
-      if (!usage) {
-        usage = new Map<string, number>();
-        usageByProject.set(projectId, usage);
-      }
-
-      usage.set(labelId, count);
+      usage.set(
+        readTextColumn(row, 0, "label_id"),
+        readCountColumn(row, 1, "usage_count"),
+      );
     }
 
-    return usageByProject;
+    return usage;
   }
 
-  /** Inserts a label into the shared catalog of a project. */
-  public async insert(label: NewProjectLabel): Promise<void> {
+  /** Inserts a label into the global catalog. */
+  public async insert(label: NewLabel): Promise<void> {
     await this.database.execute(
       `
-        INSERT INTO project_labels (
+        INSERT INTO labels (
             id,
-            project_id,
             name,
             color,
             created_at,
@@ -237,7 +158,6 @@ export class TaskLabelRepository {
         )
         VALUES (
             $id,
-            $project_id,
             $name,
             $color,
             utc_now(),
@@ -248,16 +168,15 @@ export class TaskLabelRepository {
         color: label.color,
         id: label.id,
         name: label.name,
-        project_id: label.projectId,
       },
     );
   }
 
-  /** Renames or recolors a project label; tickets reference it by id. */
-  public async update(id: string, label: ProjectLabelUpdate): Promise<void> {
+  /** Renames or recolors a label; tickets reference it by id. */
+  public async update(id: string, label: LabelUpdate): Promise<void> {
     await this.database.execute(
       `
-        UPDATE project_labels
+        UPDATE labels
         SET
             name = $name,
             color = $color,
@@ -268,7 +187,7 @@ export class TaskLabelRepository {
     );
   }
 
-  /** Deletes a project label and all of its ticket assignments. */
+  /** Deletes a label and all of its ticket assignments. */
   public async delete(id: string): Promise<void> {
     await this.database.execute(
       `
@@ -279,7 +198,7 @@ export class TaskLabelRepository {
     );
     await this.database.execute(
       `
-        DELETE FROM project_labels
+        DELETE FROM labels
         WHERE id = $id;
       `,
       { id },
@@ -289,8 +208,8 @@ export class TaskLabelRepository {
   /** Returns the labels of the given work items mapped by work item id. */
   public async findByWorkItemIds(
     workItemIds: readonly string[],
-  ): Promise<ReadonlyMap<string, readonly ProjectLabel[]>> {
-    const labelsByWorkItem = new Map<string, ProjectLabel[]>();
+  ): Promise<ReadonlyMap<string, readonly Label[]>> {
+    const labelsByWorkItem = new Map<string, Label[]>();
 
     if (workItemIds.length === 0) {
       return labelsByWorkItem;
@@ -304,17 +223,16 @@ export class TaskLabelRepository {
       `
         SELECT
             work_item_labels.work_item_id,
-            project_labels.id,
-            project_labels.project_id,
-            project_labels.name,
-            project_labels.color,
-            project_labels.created_at,
-            project_labels.updated_at
+            labels.id,
+            labels.name,
+            labels.color,
+            labels.created_at,
+            labels.updated_at
         FROM work_item_labels
-        INNER JOIN project_labels
-            ON project_labels.id = work_item_labels.label_id
+        INNER JOIN labels
+            ON labels.id = work_item_labels.label_id
         WHERE work_item_labels.work_item_id IN (${placeholders})
-        ORDER BY project_labels.name ASC;
+        ORDER BY labels.name ASC;
       `,
       parameters,
     );
@@ -323,14 +241,14 @@ export class TaskLabelRepository {
       appendToGroup(
         labelsByWorkItem,
         readTextColumn(row, 0, "work_item_id"),
-        toProjectLabel(row.slice(1)),
+        toLabel(row.slice(1)),
       );
     }
 
     return labelsByWorkItem;
   }
 
-  /** Assigns a project label to a work item. */
+  /** Assigns a label to a work item. */
   public async assign(workItemId: string, labelId: string): Promise<void> {
     await this.database.execute(
       `
@@ -348,7 +266,7 @@ export class TaskLabelRepository {
     );
   }
 
-  /** Removes a project label from a work item. */
+  /** Removes a label from a work item. */
   public async unassign(workItemId: string, labelId: string): Promise<void> {
     await this.database.execute(
       `
@@ -360,14 +278,25 @@ export class TaskLabelRepository {
     );
   }
 
-  /** Removes every label assignment from a work item. */
-  public async removeAllFromWorkItem(workItemId: string): Promise<void> {
-    await this.database.execute(
+  private async findOne(
+    condition: string,
+    parameters: Record<string, string>,
+  ): Promise<Label | null> {
+    const rows = await this.database.query(
       `
-        DELETE FROM work_item_labels
-        WHERE work_item_id = $work_item_id;
+        SELECT
+            id,
+            name,
+            color,
+            created_at,
+            updated_at
+        FROM labels
+        ${condition};
       `,
-      { work_item_id: workItemId },
+      parameters,
     );
+    const row = rows[0];
+
+    return row ? toLabel(row) : null;
   }
 }

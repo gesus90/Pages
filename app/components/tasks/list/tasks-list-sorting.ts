@@ -1,11 +1,14 @@
+import type {
+  BoardSortDirection,
+  BoardSortField,
+} from "@/definition/BoardPreferences";
 import type { WorkItemDetail, WorkItemPriority } from "@/definition/Task";
 
-/** Columns the task list can be sorted by. */
-export type TaskSortField =
-  "updated" | "priority" | "dueDate" | "project" | "status" | "title";
+/** Orders the task list and the kanban columns can take. */
+export type TaskSortField = BoardSortField;
 
 /** Direction a sorted task list runs in. */
-export type TaskSortDirection = "asc" | "desc";
+export type TaskSortDirection = BoardSortDirection;
 
 const PRIORITY_WEIGHT: Record<WorkItemPriority, number> = {
   urgent: 4,
@@ -32,6 +35,7 @@ const SORT_COMPARISONS: Record<
   TaskSortField,
   (first: WorkItemDetail, second: WorkItemDetail) => number
 > = {
+  manual: (first, second) => first.sortOrder - second.sortOrder,
   updated: (first, second) => first.updatedAt.localeCompare(second.updatedAt),
   priority: (first, second) =>
     PRIORITY_WEIGHT[first.priority] - PRIORITY_WEIGHT[second.priority],

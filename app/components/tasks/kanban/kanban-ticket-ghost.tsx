@@ -1,15 +1,15 @@
 import { CheckSquare } from "lucide-react";
 
-import { UserAvatar } from "@/app/components/common/user-avatar";
+import { AssigneeAvatar } from "@/app/components/tasks/assignee-avatar";
 
 import { KanbanGhostPriority } from "./kanban-ghost-priority";
 import { KanbanGhostType } from "./kanban-ghost-type";
 
-import type { ProjectLabel, WorkItemDetail } from "@/definition/Task";
+import type { Label, WorkItemDetail } from "@/definition/Task";
 
 interface KanbanTicketGhostProps {
   readonly item: WorkItemDetail;
-  readonly labels: readonly ProjectLabel[];
+  readonly labels: readonly Label[];
 }
 
 /**
@@ -85,17 +85,10 @@ export function KanbanTicketGhost({
               </span>
             ) : null}
 
-            {item.assigneeName ? (
-              <UserAvatar
-                name={item.assigneeName}
-                size="xs"
-                className="bg-primary/15 text-primary"
-              />
-            ) : (
-              <span className="inline-flex size-6 items-center justify-center rounded-full bg-primary/15 text-[11px] font-semibold text-primary select-none">
-                ?
-              </span>
-            )}
+            <AssigneeAvatar
+              item={item}
+              className="bg-primary/15 text-primary"
+            />
           </div>
         </div>
       </div>

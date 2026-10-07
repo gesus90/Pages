@@ -103,6 +103,8 @@ function createWorkItemRow(
     "2026-02-01",
     "Forbidden",
     null,
+    null,
+    null,
     ...overrides,
   ];
 }
@@ -278,7 +280,9 @@ describe("TaskRepository", () => {
 
     await repository.insert({
       assigneeId: "user-1",
+      assigneeGroupId: null,
       createdBy: "user-1",
+      departmentId: "department-1",
       description: "Desc",
       dueAt: "2026-05-01",
       id: "item-1",
@@ -297,11 +301,16 @@ describe("TaskRepository", () => {
 
     expect(database.execute).toHaveBeenCalledWith(
       expect.stringContaining("INSERT INTO work_items"),
-      expect.objectContaining({ key: "PAGE-1", title: "Task 1" }),
+      expect.objectContaining({
+        department_id: "department-1",
+        key: "PAGE-1",
+        title: "Task 1",
+      }),
     );
 
     await repository.update("item-1", {
       assigneeId: null,
+      assigneeGroupId: null,
       description: "Updated desc",
       dueAt: null,
       milestoneId: null,
@@ -334,11 +343,11 @@ describe("TaskRepository", () => {
   it("archives a work item", async () => {
     database.execute.mockResolvedValue(undefined);
 
-    await repository.archive("item-1");
+    await repository.archiveMany(["item-1"]);
 
     expect(database.execute).toHaveBeenCalledWith(
       expect.stringContaining("archived_at = utc_now()"),
-      { id: "item-1" },
+      { item_id_0: "item-1" },
     );
   });
 
@@ -412,7 +421,7 @@ describe("TaskRepository", () => {
       ],
     ]);
 
-    const assignees = await repository.findEligibleAssignees("project-1");
+    const assignees = await repository.findEligibleAssignees();
 
     expect(assignees).toHaveLength(2);
     expect(assignees[0]?.displayName).toBe("Admin User");
@@ -509,7 +518,7 @@ describe("TaskRepository", () => {
       ["user-1", "admin", "Admin User", "superadmin", 1, ...AVATAR_COLUMNS],
     ]);
 
-    await expect(repository.findEligibleAssignees("project-1")).rejects.toThrow(
+    await expect(repository.findEligibleAssignees()).rejects.toThrow(
       'unsupported role "superadmin"',
     );
   });
@@ -529,7 +538,7 @@ describe("TaskRepository", () => {
       ],
     ]);
 
-    await expect(repository.findEligibleAssignees("project-1")).rejects.toThrow(
+    await expect(repository.findEligibleAssignees()).rejects.toThrow(
       'unsupported avatar type "hologram"',
     );
   });
@@ -623,6 +632,8 @@ describe("TaskRepository", () => {
       "2026-02-01",
       null,
       "frontend",
+      "group-1",
+      "Platform team",
     ];
 
     database.query.mockResolvedValueOnce([fullItemRow]);
@@ -633,6 +644,8 @@ describe("TaskRepository", () => {
     expect(fullItem?.parentId).toBe("parent-id");
     expect(fullItem?.parentKey).toBe("PAGE-1");
     expect(fullItem?.assigneeName).toBe("User Name");
+    expect(fullItem?.assigneeGroupId).toBe("group-1");
+    expect(fullItem?.assigneeGroupName).toBe("Platform team");
     expect(fullItem?.reporterName).toBe("Reporter Name");
     expect(fullItem?.completedAt).toBe("2026-01-03");
     expect(fullItem?.archivedAt).toBe("2026-01-04");
@@ -689,6 +702,8 @@ describe("TaskRepository", () => {
       null,
       null,
       null,
+      null,
+      null,
     ];
 
     database.query.mockResolvedValueOnce([nullItemRow]);
@@ -701,6 +716,8 @@ describe("TaskRepository", () => {
     expect(nullItem?.departmentId).toBeNull();
     expect(nullItem?.parentId).toBeNull();
     expect(nullItem?.assigneeId).toBeNull();
+    expect(nullItem?.assigneeGroupId).toBeNull();
+    expect(nullItem?.assigneeGroupName).toBeNull();
     expect(nullItem?.githubIssueNumber).toBeNull();
     expect(nullItem?.githubIssueUrl).toBeNull();
     expect(nullItem?.githubIssueState).toBeNull();
@@ -734,9 +751,6 @@ describe("TaskRepository", () => {
     await expect(repository.countWorkItemsByProject([])).resolves.toEqual(
       new Map(),
     );
-    await expect(repository.countLabelUsageByProjectIds([])).resolves.toEqual(
-      new Map(),
-    );
     await expect(
       repository.findEligibleAssigneesByProjectIds([]),
     ).resolves.toEqual(new Map());
@@ -762,24 +776,22 @@ describe("TaskRepository", () => {
     });
   });
 
-  it("groups eligible assignees by project with the fallback branch", async () => {
+  it("offers every active user under each requested project", async () => {
     database.query.mockResolvedValue([
-      [
-        "user-3",
-        "viewer",
-        "Viewer User",
-        ROLE.EMPLOYEE,
-        1,
-        ...AVATAR_COLUMNS,
-        null,
-      ],
+      ["user-3", "viewer", "Viewer User", ROLE.EMPLOYEE, 1, ...AVATAR_COLUMNS],
     ]);
 
     const result = await repository.findEligibleAssigneesByProjectIds([
       "project-1",
+      "project-2",
     ]);
 
-    expect(result.get("project-1")).toEqual([]);
+    expect(result.get("project-1")).toHaveLength(1);
+    expect(result.get("project-2")).toBe(result.get("project-1"));
+    expect(database.query).toHaveBeenCalledTimes(1);
+    expect(database.query).toHaveBeenCalledWith(
+      expect.not.stringContaining("users.role IN"),
+    );
   });
 
   it("manages checklist items", async () => {
@@ -992,10 +1004,10 @@ describe("TaskRepository archived tickets", () => {
   it("restores archived tickets and records sync errors", async () => {
     database.execute.mockResolvedValue(undefined);
 
-    await repository.restore("item-1");
+    await repository.restoreMany(["item-1"]);
     expect(database.execute).toHaveBeenCalledWith(
       expect.stringContaining("archived_at = NULL"),
-      { id: "item-1" },
+      { item_id_0: "item-1" },
     );
 
     await repository.setGitHubError("item-1", "Forbidden");
@@ -1034,7 +1046,7 @@ describe("TaskRepository archived tickets", () => {
   });
 });
 
-describe("TaskRepository project labels", () => {
+describe("TaskRepository global labels", () => {
   let database: ReturnType<typeof createDatabase>;
   let repository: TaskRepository;
 
@@ -1044,25 +1056,26 @@ describe("TaskRepository project labels", () => {
   });
 
   function createLabelRow(): readonly unknown[] {
-    return [
-      "label-1",
-      "project-1",
-      "Feature",
-      "#3b82f6",
-      "2026-01-01",
-      "2026-01-02",
-    ];
+    return ["label-1", "Feature", "#3b82f6", "2026-01-01", "2026-01-02"];
   }
 
-  it("manages the project label catalog", async () => {
+  it("manages the global label catalog", async () => {
     database.query.mockResolvedValue([createLabelRow()]);
 
-    const labels = await repository.findLabelsByProjectId("project-1");
+    const labels = await repository.findLabels();
     expect(labels).toHaveLength(1);
     expect(labels[0]).toMatchObject({ color: "#3b82f6", name: "Feature" });
     expect(database.query).toHaveBeenCalledWith(
-      expect.stringContaining("FROM project_labels"),
-      { project_id: "project-1" },
+      expect.stringContaining("FROM labels"),
+    );
+
+    database.query.mockResolvedValueOnce([createLabelRow()]);
+    await expect(repository.findLabelByName("feature")).resolves.toMatchObject({
+      id: "label-1",
+    });
+    expect(database.query).toHaveBeenLastCalledWith(
+      expect.stringContaining("lower(name) = lower($name)"),
+      { name: "feature" },
     );
 
     database.query.mockResolvedValueOnce([createLabelRow()]);
@@ -1078,10 +1091,9 @@ describe("TaskRepository project labels", () => {
       color: "#ef4444",
       id: "label-2",
       name: "Bug",
-      projectId: "project-1",
     });
     expect(database.execute).toHaveBeenCalledWith(
-      expect.stringContaining("INSERT INTO project_labels"),
+      expect.stringContaining("INSERT INTO labels"),
       expect.objectContaining({ name: "Bug" }),
     );
 
@@ -1090,7 +1102,7 @@ describe("TaskRepository project labels", () => {
       name: "Feature Request",
     });
     expect(database.execute).toHaveBeenCalledWith(
-      expect.stringContaining("UPDATE project_labels"),
+      expect.stringContaining("UPDATE labels"),
       expect.objectContaining({ name: "Feature Request" }),
     );
 
@@ -1100,7 +1112,7 @@ describe("TaskRepository project labels", () => {
       { label_id: "label-1" },
     );
     expect(database.execute).toHaveBeenCalledWith(
-      expect.stringContaining("DELETE FROM project_labels"),
+      expect.stringContaining("DELETE FROM labels"),
       { id: "label-1" },
     );
   });
@@ -1124,11 +1136,20 @@ describe("TaskRepository project labels", () => {
       expect.stringContaining("DELETE FROM work_item_labels"),
       expect.objectContaining({ label_id: "label-1" }),
     );
+  });
 
-    await repository.removeAllLabelsFromWorkItem("item-1");
-    expect(database.execute).toHaveBeenLastCalledWith(
-      expect.stringContaining("DELETE FROM work_item_labels"),
-      { work_item_id: "item-1" },
+  it("counts label usage per label with a visibility scope", async () => {
+    database.query.mockResolvedValue([
+      ["label-1", 3],
+      ["label-2", 1],
+    ]);
+
+    const usage = await repository.countLabelUsageByLabel();
+
+    expect(Object.fromEntries(usage)).toEqual({ "label-1": 3, "label-2": 1 });
+    expect(database.query).toHaveBeenCalledWith(
+      expect.stringContaining("GROUP BY work_item_labels.label_id"),
+      expect.anything(),
     );
   });
 
@@ -1139,15 +1160,7 @@ describe("TaskRepository project labels", () => {
 
     database.query.mockResolvedValue([
       ["item-1", ...createLabelRow()],
-      [
-        "item-1",
-        "label-2",
-        "project-1",
-        "Bug",
-        "#ef4444",
-        "2026-01-01",
-        "2026-01-02",
-      ],
+      ["item-1", "label-2", "Bug", "#ef4444", "2026-01-01", "2026-01-02"],
       ["item-2", ...createLabelRow()],
     ]);
 

@@ -19,13 +19,20 @@ import {
   handleSyncGitHubProject,
   handleSyncGitHubTask,
 } from "./task-github-actions.server";
+import { handleSaveBoardPreferences } from "./task-board-actions.server";
+import {
+  handleDeleteTemplate,
+  handleSaveTemplate,
+} from "./task-template-actions.server";
 import { invalidInput } from "./task-action-support.server";
 import {
   handleArchiveTask,
   handleCreateTask,
+  handleDeleteTask,
   handleMoveProject,
   handleMoveTask,
   handleRestoreTask,
+  handleSetDepartment,
   handleUpdateTask,
 } from "./task-core-actions.server";
 
@@ -44,6 +51,8 @@ const TASK_ACTION_HANDLERS: Readonly<
   "checklist-delete": handleDeleteChecklistItem,
   "checklist-toggle": handleToggleChecklistItem,
   "create-task": handleCreateTask,
+  "delete-task": handleDeleteTask,
+  "delete-template": handleDeleteTemplate,
   "github-assign-pr": handleAssignPullRequest,
   "github-dismiss-issue": handleDismissGitHubIssue,
   "github-import-issue": handleImportGitHubIssue,
@@ -59,6 +68,9 @@ const TASK_ACTION_HANDLERS: Readonly<
   "move-project": handleMoveProject,
   "move-task": handleMoveTask,
   "restore-task": handleRestoreTask,
+  "save-board-preferences": handleSaveBoardPreferences,
+  "save-template": handleSaveTemplate,
+  "set-department": handleSetDepartment,
   "sync-github-project": handleSyncGitHubProject,
   "sync-github-task": handleSyncGitHubTask,
   "update-task": handleUpdateTask,

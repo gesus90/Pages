@@ -21,6 +21,12 @@ export interface ProjectReadScope {
   readonly visibility: WorkItemVisibility;
 }
 
+/** The active account and the live department catalog it acts on. */
+export interface AuthorizationFacts {
+  readonly account: AccountAccess;
+  readonly departments: readonly Department[];
+}
+
 /** Reads projects using current account facts before any cached data leaves the server. */
 export class ProjectAccessService {
   private readonly repository: ProjectRepository;
@@ -42,6 +48,16 @@ export class ProjectAccessService {
     );
     if (!account?.isActive) throw new ProjectAccessDeniedError();
     return account;
+  }
+
+  /** Loads the active account together with the live department catalog from one snapshot. */
+  public async authorizationFacts(actor: User): Promise<AuthorizationFacts> {
+    const snapshot = await this.repository.authorization().snapshot();
+    const account = snapshot.accounts.find(
+      (entry) => entry.userId === actor.id,
+    );
+    if (!account?.isActive) throw new ProjectAccessDeniedError();
+    return { account, departments: snapshot.departments };
   }
 
   /** Resolves project and ticket read scope consistently inside one transaction. */

@@ -2,35 +2,48 @@ import { useLoaderData } from "react-router";
 
 import { TasksContent } from "@/app/components/tasks/board/tasks-content";
 import { TasksToolbar } from "@/app/components/tasks/board/tasks-toolbar";
-import { useTaskFilters } from "@/app/components/tasks/board/use-task-filters";
+import { useBoardPreferences } from "@/app/components/tasks/board/use-board-preferences";
 import { useTasksDialog } from "@/app/components/tasks/board/use-tasks-dialog";
 import { useTasksPage } from "@/app/components/tasks/board/use-tasks-page";
 import { TasksDetail } from "@/app/components/tasks/board/tasks-detail";
 import { TasksFormDialog } from "@/app/components/tasks/board/tasks-form-dialog";
+import { TicketAccessProvider } from "@/app/components/tasks/ticket-access";
 import { type TasksGitHubProjectState } from "@/app/components/tasks/tasks-github";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { cn } from "@/app/lib/cn";
 import { getApplicationServices } from "@/app/lib/services.server";
-import { filterWorkItems } from "@/app/lib/task-filters";
+import { sanitizeBoardReferences } from "@/app/lib/board-references";
+import { filterWorkItems, toTaskFilters } from "@/app/lib/task-filters";
 import { handleTaskAction } from "@/app/lib/task-actions/task-actions.server";
-import { TASKS_VIEW_MODES } from "@/app/lib/tasks-view";
+import {
+  hasBoardQuery,
+  parseBoardQuery,
+  withoutBoardQuery,
+} from "@/definition/BoardPreferences";
 import { ProjectAccessDeniedError } from "@/backend/error/ProjectErrors";
 import { WorkItemNotFoundError } from "@/backend/error/WorkItemErrors";
 
+import type { ShouldRevalidateFunctionArgs } from "react-router";
 import type { ApplicationServices } from "@/app/lib/services.server";
 import type { TaskActionResponse } from "@/app/lib/task-actions/task-action-support.server";
-import type { ArchivedFilter, TasksViewMode } from "@/app/lib/tasks-view";
+import type { ArchivedFilter } from "@/app/lib/tasks-view";
+import type { BoardReferences } from "@/app/lib/board-references";
+import type { BoardPreferences } from "@/definition/BoardPreferences";
 import type { GitHubPullRequest } from "@/definition/GitHub";
 import type { Project } from "@/definition/Project";
 import type {
   Milestone,
-  ProjectLabel,
+  Label,
+  TaskActionPermissions,
+  TicketDepartmentChoices,
   WorkItemChecklistItem,
   WorkItemDetail,
   WorkItemHistory,
   WorkItemLink,
   WorkflowStatus,
 } from "@/definition/Task";
+import type { WorkItemTemplateView } from "@/definition/WorkItemTemplate";
+import type { GroupSummary } from "@/definition/UserGroup";
 import type { User } from "@/definition/User";
 import type { Route } from "./+types/tasks";
 
@@ -50,30 +63,22 @@ export function parseArchivedFilter(value: string | null): ArchivedFilter {
   return "active";
 }
 
-/**
- * Reads the initial board view from the request URL.
- *
- * @param value - Raw query value kept by the ticket detail back link.
- * @returns The selected view, defaulting to the kanban board.
- */
-export function parseViewMode(value: string | null): TasksViewMode {
-  return TASKS_VIEW_MODES.find((mode) => mode === value) ?? "kanban";
-}
-
 interface TasksLoaderData {
   readonly actor: User;
   readonly projects: readonly Project[];
   readonly statuses: readonly WorkflowStatus[];
   readonly milestones: readonly Milestone[];
   readonly assignees: readonly User[];
+  readonly assigneeGroups: readonly GroupSummary[];
+  readonly memberGroupIds: readonly string[];
   readonly assigneesByProject: Readonly<Record<string, readonly User[]>>;
   readonly workItems: readonly WorkItemDetail[];
-  readonly labelsByWorkItem: Readonly<Record<string, readonly ProjectLabel[]>>;
-  readonly labelsByProject: Readonly<Record<string, readonly ProjectLabel[]>>;
-  readonly labelUsageByProject: Readonly<
-    Record<string, Readonly<Record<string, number>>>
-  >;
+  readonly labelsByWorkItem: Readonly<Record<string, readonly Label[]>>;
+  readonly labels: readonly Label[];
+  readonly labelUsage: Readonly<Record<string, number>>;
   readonly archivedFilter: ArchivedFilter;
+  /** The board view after the address and the saved preferences are merged. */
+  readonly board: BoardPreferences;
   readonly selectedItem: WorkItemDetail | null;
   readonly selectedSubtasks: readonly WorkItemDetail[];
   readonly selectedHistory: readonly WorkItemHistory[];
@@ -81,6 +86,9 @@ interface TasksLoaderData {
   readonly selectedChecklist: readonly WorkItemChecklistItem[];
   readonly selectedLinks: readonly WorkItemLink[];
   readonly githubStates: readonly TasksGitHubProjectState[];
+  readonly permissions: TaskActionPermissions;
+  readonly departmentChoices: TicketDepartmentChoices;
+  readonly templates: readonly WorkItemTemplateView[];
 }
 
 /** The assignee lists a project's tickets can use. */
@@ -112,32 +120,17 @@ async function loadAssignees(
   };
 }
 
-/** The labels of every project and how often each one is used. */
-async function loadProjectLabels(
+/** The global label catalog and how often each label is used on visible tickets. */
+async function loadLabels(
   services: ApplicationServices,
-  projects: readonly Project[],
   actor: User,
-): Promise<Pick<TasksLoaderData, "labelsByProject" | "labelUsageByProject">> {
-  const projectIds = projects.map((project) => project.id);
-  const labels = await services.taskService.findLabelsByProjects(projectIds);
-  const usage = await services.taskService.countLabelUsageByProjects(
-    actor,
-    projectIds,
-  );
-  const labelsByProject: Record<string, readonly ProjectLabel[]> = {};
-  const labelUsageByProject: Record<
-    string,
-    Readonly<Record<string, number>>
-  > = {};
-
-  for (const project of projects) {
-    labelsByProject[project.id] = labels.get(project.id) ?? [];
-    labelUsageByProject[project.id] = Object.fromEntries(
-      usage.get(project.id) ?? [],
-    );
-  }
-
-  return { labelUsageByProject, labelsByProject };
+): Promise<Pick<TasksLoaderData, "labels" | "labelUsage">> {
+  return {
+    labelUsage: Object.fromEntries(
+      await services.taskService.countLabelUsage(actor),
+    ),
+    labels: await services.taskService.findLabels(),
+  };
 }
 
 type TaskSelection = Pick<
@@ -172,7 +165,7 @@ async function loadSelection(
   request: {
     readonly actor: User;
     readonly workItems: readonly WorkItemDetail[];
-    readonly labelsByWorkItem: Record<string, readonly ProjectLabel[]>;
+    readonly labelsByWorkItem: Record<string, readonly Label[]>;
     readonly selectedKey: string | null;
   },
 ): Promise<TaskSelection> {
@@ -219,6 +212,65 @@ async function loadSelection(
   };
 }
 
+/** The identifiers the board filters of the visitor may point to. */
+function toBoardReferences(
+  loaded: Pick<
+    TasksLoaderData,
+    | "projects"
+    | "statuses"
+    | "milestones"
+    | "labels"
+    | "departmentChoices"
+    | "assignees"
+    | "assigneeGroups"
+  >,
+): BoardReferences {
+  const idsOf = (items: readonly { readonly id: string }[]): Set<string> =>
+    new Set(items.map((item) => item.id));
+
+  return {
+    assigneeIds: idsOf(loaded.assignees),
+    departmentIds: idsOf(loaded.departmentChoices.available),
+    groupIds: idsOf(loaded.assigneeGroups),
+    labelIds: idsOf(loaded.labels),
+    milestoneIds: idsOf(loaded.milestones),
+    projectIds: idsOf(loaded.projects),
+    statusIds: idsOf(loaded.statuses),
+  };
+}
+
+/**
+ * Keeps the loader from rerunning when only the board view changed.
+ *
+ * @remarks
+ * The loader sends every ticket and the board filters on the client, so a new
+ * filter, sort order or grouping needs no new data; saving the preferences
+ * changes no ticket either. An address without board parameters loads again,
+ * because it asks for the saved preferences.
+ */
+export function shouldRevalidate({
+  currentUrl,
+  nextUrl,
+  formData,
+  defaultShouldRevalidate,
+}: ShouldRevalidateFunctionArgs): boolean {
+  if (formData?.get("intent") === "save-board-preferences") {
+    return false;
+  }
+
+  if (formData || !hasBoardQuery(nextUrl.searchParams)) {
+    return defaultShouldRevalidate;
+  }
+
+  const strip = (url: URL): string => {
+    const params = withoutBoardQuery(url.searchParams);
+
+    return `${url.pathname}?${params.toString()}`;
+  };
+
+  return strip(currentUrl) === strip(nextUrl) ? false : defaultShouldRevalidate;
+}
+
 /** Loads all accessible work items, projects, statuses, and milestones for SSR. */
 export async function loader({
   context,
@@ -238,7 +290,7 @@ export async function loader({
   const workItems = await services.taskService.findAll(actor, {
     archived: archivedFilter,
   });
-  const labelsByWorkItem: Record<string, readonly ProjectLabel[]> = {};
+  const labelsByWorkItem: Record<string, readonly Label[]> = {};
 
   if (workItems.length > 0) {
     const assigned = await services.taskService.findLabelsForWorkItems(
@@ -250,25 +302,42 @@ export async function loader({
     }
   }
 
+  const references = {
+    ...(await loadAssignees(services, projects)),
+    ...(await loadLabels(services, actor)),
+    assigneeGroups: await services.taskService.findAssigneeGroups(actor),
+    departmentChoices: await services.taskService.departmentChoices(actor),
+    milestones: await services.taskService.findMilestones(actor, projectIds),
+    projects,
+    statuses: await services.taskService.findAllStatuses(actor),
+  };
+  const board = sanitizeBoardReferences(
+    parseBoardQuery(
+      url.searchParams,
+      await services.boardPreferencesService.find(actor.id),
+    ),
+    toBoardReferences(references),
+  );
+
   return {
     actor,
     archivedFilter,
-    ...(await loadAssignees(services, projects)),
+    board,
+    ...references,
     githubStates:
-      parseViewMode(url.searchParams.get("view")) === "github"
+      board.view === "github"
         ? await findGitHubStates(services, projects, actor)
         : [],
-    ...(await loadProjectLabels(services, projects, actor)),
     labelsByWorkItem,
-    milestones: await services.taskService.findMilestones(actor, projectIds),
-    projects,
+    memberGroupIds: await services.taskService.findMemberGroupIds(actor),
+    permissions: await services.taskService.actionPermissions(actor),
     ...(await loadSelection(services, {
       actor,
       labelsByWorkItem,
       selectedKey: url.searchParams.get("item"),
       workItems,
     })),
-    statuses: await services.taskService.findAllStatuses(actor),
+    templates: await services.taskTemplateService.findVisible(actor),
     workItems,
   };
 }
@@ -361,86 +430,100 @@ export default function TasksRoute(): React.ReactElement {
   const loaderData = useLoaderData<typeof loader>();
   const { selectedItem, projects, statuses, milestones, workItems } =
     loaderData;
-  const page = useTasksPage(parseViewMode);
-  const filterState = useTaskFilters();
+  const page = useTasksPage();
+  const board = useBoardPreferences(loaderData.board);
   const dialog = useTasksDialog(
     selectedItem?.key ?? null,
-    filterState.filters.project,
+    board.preferences.project,
   );
-  const viewMode = page.viewMode;
+  const viewMode = board.preferences.view;
 
   return (
-    <section
-      className={cn(
-        "flex flex-col",
-        viewMode === "kanban"
-          ? "h-[calc(100dvh-8.5rem)] min-h-0 overflow-hidden"
-          : "min-h-[calc(100vh-theme(spacing.20))]",
-      )}
+    <TicketAccessProvider
+      value={{
+        ...loaderData.permissions,
+        assigneeGroups: loaderData.assigneeGroups,
+        departments: loaderData.departmentChoices.available,
+        projects,
+      }}
     >
-      <div
+      <section
         className={cn(
-          "flex flex-1 gap-6",
+          "flex flex-col",
           viewMode === "kanban"
-            ? "min-h-0 flex-col"
-            : "flex-col xl:flex-row xl:items-start",
+            ? "h-[calc(100dvh-8.5rem)] min-h-0 overflow-hidden"
+            : "min-h-[calc(100vh-theme(spacing.20))]",
         )}
       >
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <TasksToolbar
-            archivedFilter={loaderData.archivedFilter}
-            milestones={milestones}
-            onArchivedChange={page.changeArchived}
-            onCreate={dialog.openCreate}
-            onViewModeChange={page.changeView}
-            projects={projects}
-            state={filterState}
-            statuses={statuses}
-            viewMode={viewMode}
-          />
-
-          <div
-            className={cn(
-              "relative mt-5 flex min-h-0 flex-1 flex-col",
-              viewMode === "kanban" && "overflow-hidden",
-            )}
-          >
-            <TasksContent
-              allItems={workItems}
-              dialog={dialog}
-              githubStates={loaderData.githubStates}
-              isSyncing={page.isSyncing}
-              labelsByWorkItem={loaderData.labelsByWorkItem}
+        <div
+          className={cn(
+            "flex flex-1 gap-6",
+            viewMode === "kanban"
+              ? "min-h-0 flex-col"
+              : "flex-col xl:flex-row xl:items-start",
+          )}
+        >
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <TasksToolbar
+              archivedFilter={loaderData.archivedFilter}
+              assignees={loaderData.assignees}
+              board={board}
+              labels={loaderData.labels}
               milestones={milestones}
-              onMoveTask={page.moveTask}
-              projectFilter={filterState.filters.project}
+              onArchivedChange={page.changeArchived}
+              onCreate={dialog.openCreate}
+              projects={projects}
               statuses={statuses}
-              viewMode={viewMode}
-              visibleItems={filterWorkItems(
-                workItems,
-                filterState.filters,
-                loaderData.actor.id,
-              )}
+              templates={loaderData.templates}
             />
+
+            <div
+              className={cn(
+                "relative mt-5 flex min-h-0 flex-1 flex-col",
+                viewMode === "kanban" && "overflow-hidden",
+              )}
+            >
+              <TasksContent
+                allItems={workItems}
+                dialog={dialog}
+                githubStates={loaderData.githubStates}
+                isSyncing={page.isSyncing}
+                labelsByWorkItem={loaderData.labelsByWorkItem}
+                milestones={milestones}
+                onMoveTask={page.moveTask}
+                onPreferencesChange={board.update}
+                preferences={board.preferences}
+                statuses={statuses}
+                visibleItems={filterWorkItems(
+                  workItems,
+                  toTaskFilters(board.preferences),
+                  {
+                    actorId: loaderData.actor.id,
+                    labelsByWorkItem: loaderData.labelsByWorkItem,
+                    memberGroupIds: loaderData.memberGroupIds,
+                  },
+                )}
+              />
+            </div>
           </div>
         </div>
-      </div>
 
-      {selectedItem ? (
-        <TasksDetail
+        {selectedItem ? (
+          <TasksDetail
+            loaderData={loaderData}
+            dialog={dialog}
+            isArchiving={page.isArchiving}
+            isSyncing={page.isSyncing}
+            selectedItem={selectedItem}
+          />
+        ) : null}
+
+        <TasksFormDialog
           loaderData={loaderData}
           dialog={dialog}
-          isArchiving={page.isArchiving}
-          isSyncing={page.isSyncing}
-          selectedItem={selectedItem}
+          isSubmitting={page.isSubmittingForm}
         />
-      ) : null}
-
-      <TasksFormDialog
-        loaderData={loaderData}
-        dialog={dialog}
-        isSubmitting={page.isSubmittingForm}
-      />
-    </section>
+      </section>
+    </TicketAccessProvider>
   );
 }

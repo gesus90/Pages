@@ -144,7 +144,8 @@ describe("service cache behavior", () => {
       getById: vi.fn().mockResolvedValue(createProject()),
     };
     const repository = {
-      archive: vi.fn().mockResolvedValue(undefined),
+      archiveMany: vi.fn().mockResolvedValue(undefined),
+      findSubtreeIds: vi.fn().mockResolvedValue(["item-1"]),
       findAll: vi.fn().mockResolvedValue([]),
       findById: vi.fn().mockResolvedValue(null),
       insertHistory: vi.fn().mockResolvedValue(undefined),

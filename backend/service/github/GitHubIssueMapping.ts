@@ -182,6 +182,7 @@ export function buildWorkItemUpdateFromRemote(
   statusId: string,
 ): WorkItemUpdate {
   return {
+    assigneeGroupId: item.assigneeGroupId,
     assigneeId: item.assigneeId,
     description: remote.body,
     dueAt: item.dueAt,

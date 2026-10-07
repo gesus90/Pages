@@ -6,8 +6,11 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { useAssigneeOptions } from "@/app/components/tasks/assignee-options";
 import { GitHubSyncBadge } from "@/app/components/tasks/github-sync-badge";
+import { TicketDepartmentSelect } from "@/app/components/tasks/ticket-department-select";
 import { Select } from "@/app/components/ui/select";
+import { toAssigneeValue } from "@/app/lib/assignee-value";
 
 import type { Milestone } from "@/definition/Task";
 import type { Project } from "@/definition/Project";
@@ -22,7 +25,7 @@ interface RowProps {
 interface PeopleRowsProps extends RowProps {
   readonly assignees: readonly User[];
   readonly reporters: readonly User[];
-  readonly onChangeAssignee: (assigneeId: string) => void;
+  readonly onChangeAssignee: (assignee: string) => void;
   readonly onChangeReporter: (reporterId: string) => void;
 }
 
@@ -36,6 +39,10 @@ export function PeopleRows({
   onChangeReporter: handleReporterChange,
 }: PeopleRowsProps): React.ReactElement {
   const { t } = useTranslation();
+  const assigneeOptions = useAssigneeOptions(
+    projectAssignees,
+    task.assigneeGroupId,
+  );
 
   return (
     <>
@@ -51,14 +58,8 @@ export function PeopleRows({
             className="min-w-0"
             disabled={isArchived}
             onValueChange={handleAssigneeChange}
-            options={[
-              { label: t("tasks.unassigned"), value: "" },
-              ...projectAssignees.map((assignee) => ({
-                label: assignee.displayName,
-                value: assignee.id,
-              })),
-            ]}
-            value={task.assigneeId ?? ""}
+            options={assigneeOptions}
+            value={toAssigneeValue(task)}
           />
         </dd>
       </div>
@@ -128,6 +129,14 @@ export function PlacementRows({
             }
             value={task.projectId}
           />
+        </dd>
+      </div>
+      <div className="flex items-center justify-between gap-3">
+        <dt className="text-muted-foreground">
+          {t("tasks.fields.department")}
+        </dt>
+        <dd className="flex min-w-0 items-center gap-1.5">
+          <TicketDepartmentSelect ticket={task} />
         </dd>
       </div>
       <div className="flex items-center justify-between gap-3">

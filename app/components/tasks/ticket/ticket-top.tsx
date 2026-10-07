@@ -39,7 +39,7 @@ export function TicketTop({
       <TicketQuickSelects
         assignees={assignees}
         isArchived={isArchived}
-        onChangeAssignee={(assigneeId) => actions.update({ assigneeId })}
+        onChangeAssignee={(assignee) => actions.update({ assignee })}
         onChangePriority={(priority) => actions.update({ priority })}
         onChangeStatus={actions.changeStatus}
         statuses={statuses}

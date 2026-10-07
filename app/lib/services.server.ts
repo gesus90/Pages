@@ -11,15 +11,20 @@ import { resolveGitHubTokenKey } from "@/backend/github/GitHubTokenKey";
 import { SessionRepository } from "@/backend/database/repositories/SessionRepository";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { AdministrationService } from "@/backend/service/AdministrationService";
+import { GroupAdministrationService } from "@/backend/service/GroupAdministrationService";
 import { GitHubRepository } from "@/backend/database/repositories/GitHubRepository";
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import { TaskRepository } from "@/backend/database/repositories/TaskRepository";
+import { WorkItemTemplateRepository } from "@/backend/database/repositories/task/WorkItemTemplateRepository";
 import { UserRepository } from "@/backend/database/repositories/UserRepository";
+import { UserBoardPreferencesRepository } from "@/backend/database/repositories/UserBoardPreferencesRepository";
 import { UserSettingsRepository } from "@/backend/database/repositories/UserSettingsRepository";
+import { BoardPreferencesService } from "@/backend/service/BoardPreferencesService";
 import { SettingsService } from "@/backend/service/SettingsService";
 import { GitHubSyncService } from "@/backend/service/GitHubSyncService";
 import { ProjectService } from "@/backend/service/ProjectService";
 import { TaskService } from "@/backend/service/TaskService";
+import { TaskTemplateService } from "@/backend/service/TaskTemplateService";
 import { UserService } from "@/backend/service/UserService";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 import { SetupService } from "@/backend/setup/SetupService";
@@ -27,12 +32,15 @@ import { SetupService } from "@/backend/setup/SetupService";
 /** Server-only service instances shared by React Router loaders and actions. */
 export interface ApplicationServices {
   readonly administrationService: AdministrationService;
+  readonly groupAdministrationService: GroupAdministrationService;
   readonly authService: AuthService;
   readonly sessionService: SessionService;
   readonly userService: UserService;
+  readonly boardPreferencesService: BoardPreferencesService;
   readonly settingsService: SettingsService;
   readonly projectService: ProjectService;
   readonly taskService: TaskService;
+  readonly taskTemplateService: TaskTemplateService;
   readonly gitHubSyncService: GitHubSyncService;
   readonly permissionService: PermissionService;
   readonly passwordHasher: PasswordHasher;
@@ -87,6 +95,10 @@ async function initializeServices(
     serverCache,
     passwordHasher,
   );
+  const groupAdministrationService = new GroupAdministrationService(
+    new AuthorizationRepository(database),
+    serverCache,
+  );
   const permissionService = new PermissionService((id) =>
     administrationService.getContext(id),
   );
@@ -102,6 +114,9 @@ async function initializeServices(
     administrationService,
   );
   const settingsService = new SettingsService(userSettingsRepository);
+  const boardPreferencesService = new BoardPreferencesService(
+    new UserBoardPreferencesRepository(database),
+  );
   const tokenKey = resolveGitHubTokenKey(databasePath);
   const projectService = new ProjectService(
     projectRepository,
@@ -114,6 +129,12 @@ async function initializeServices(
     projectService,
     permissionService,
     serverCache,
+  );
+  const taskTemplateService = new TaskTemplateService(
+    new WorkItemTemplateRepository(database),
+    taskService,
+    projectService,
+    permissionService,
   );
   const gitHubSyncService = new GitHubSyncService({
     cache: serverCache,
@@ -146,13 +167,16 @@ async function initializeServices(
       passwordHasher,
       new LoginThrottle(),
     ),
+    boardPreferencesService,
     gitHubSyncService,
+    groupAdministrationService,
     passwordHasher,
     permissionService,
     projectService,
     sessionService,
     settingsService,
     taskService,
+    taskTemplateService,
     userService,
   };
 }

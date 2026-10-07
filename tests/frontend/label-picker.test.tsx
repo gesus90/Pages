@@ -16,15 +16,14 @@ import { LabelPicker } from "@/app/components/tasks/label-picker";
 import { createI18n } from "@/app/lib/i18n";
 import { LANGUAGE } from "@/language/Language";
 
-import type { ProjectLabel } from "@/definition/Task";
+import type { Label } from "@/definition/Task";
 
-function createLabel(overrides: Partial<ProjectLabel> = {}): ProjectLabel {
+function createLabel(overrides: Partial<Label> = {}): Label {
   return {
     color: "#3b82f6",
     createdAt: "2026-01-01",
     id: "label-1",
     name: "Feature",
-    projectId: "project-1",
     updatedAt: "2026-01-02",
     ...overrides,
   };
@@ -56,8 +55,7 @@ function renderPicker(
             isOpen={true}
             labelUsage={{ "label-1": 3 }}
             onOpenChange={vi.fn()}
-            projectId="project-1"
-            projectLabels={[
+            labels={[
               createLabel(),
               createLabel({
                 color: "#ef4444",
@@ -134,7 +132,6 @@ describe("LabelPicker", () => {
       color: "#ef4444",
       intent: "label-create",
       name: "API",
-      projectId: "project-1",
     });
   });
 
@@ -334,14 +331,14 @@ describe("LabelPicker", () => {
     const user = userEvent.setup();
     const submitted: Record<string, string>[] = [];
 
-    let addLabel: ((label: ProjectLabel) => void) | null = null;
+    let addLabel: ((label: Label) => void) | null = null;
 
     function Harness(): React.ReactElement {
-      const [labels, setLabels] = React.useState<readonly ProjectLabel[]>([
+      const [labels, setLabels] = React.useState<readonly Label[]>([
         createLabel({ id: "label-1", name: "Initial" }),
       ]);
 
-      addLabel = (label: ProjectLabel) => {
+      addLabel = (label: Label) => {
         setLabels((current) => [...current, label]);
       };
 
@@ -351,8 +348,7 @@ describe("LabelPicker", () => {
           isOpen={true}
           labelUsage={{}}
           onOpenChange={() => {}}
-          projectId="project-1"
-          projectLabels={labels}
+          labels={labels}
           workItemId="item-1"
         />
       );
@@ -401,7 +397,7 @@ describe("LabelPicker", () => {
       name: "Brand-new",
     });
 
-    const addLabelFn = addLabel as ((label: ProjectLabel) => void) | null;
+    const addLabelFn = addLabel as ((label: Label) => void) | null;
 
     expect(addLabelFn).not.toBeNull();
 
@@ -414,7 +410,6 @@ describe("LabelPicker", () => {
       createdAt: "2026-09-05",
       id: "label-2",
       name: "Brand-new",
-      projectId: "project-1",
       updatedAt: "2026-09-05",
     });
 
@@ -430,7 +425,7 @@ describe("LabelPicker", () => {
     const submitted: Record<string, string>[] = [];
 
     const properties = {
-      projectLabels: [
+      labels: [
         createLabel({
           id: "label-1",
           name: "Initial",
@@ -491,8 +486,7 @@ describe("LabelPicker", () => {
               isOpen={true}
               labelUsage={{}}
               onOpenChange={onOpenChange}
-              projectId="project-1"
-              projectLabels={[createLabel()]}
+              labels={[createLabel()]}
               workItemId="item-1"
             />
           ),
@@ -526,8 +520,7 @@ describe("LabelPicker", () => {
               isOpen={true}
               labelUsage={{}}
               onOpenChange={onOpenChange}
-              projectId="project-1"
-              projectLabels={[createLabel()]}
+              labels={[createLabel()]}
               workItemId="item-1"
             />
           ),

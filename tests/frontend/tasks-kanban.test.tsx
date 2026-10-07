@@ -67,7 +67,9 @@ function createWorkItem(
     departmentId: null,
     archivedAt: null,
     assigneeId: "user-1",
+    assigneeGroupId: null,
     assigneeName: "Admin User",
+    assigneeGroupName: null,
     reporterName: "Reporter User",
     completedAt: null,
     createdAt: "2026-01-01",
@@ -171,6 +173,8 @@ function setViewportMetrics(
   });
 }
 
+const NO_LOOKUPS = { departmentNames: {}, labelsByWorkItem: {} };
+
 describe("TasksKanban", () => {
   it("renders all five workflow columns and card details", async () => {
     const user = userEvent.setup();
@@ -183,6 +187,8 @@ describe("TasksKanban", () => {
     render(
       <I18nextProvider i18n={i18n}>
         <TasksKanban
+          group="none"
+          groupLookups={NO_LOOKUPS}
           labelsByWorkItem={{
             "item-1": [
               {
@@ -190,7 +196,6 @@ describe("TasksKanban", () => {
                 createdAt: "2026-01-01",
                 id: "label-1",
                 name: "Feature",
-                projectId: "project-1",
                 updatedAt: "2026-01-02",
               },
             ],
@@ -213,6 +218,7 @@ describe("TasksKanban", () => {
             }),
             createWorkItem({
               assigneeName: null,
+              assigneeGroupName: null,
               reporterName: null,
               description: "",
               id: "item-3",
@@ -261,6 +267,8 @@ describe("TasksKanban", () => {
     render(
       <I18nextProvider i18n={createI18n(LANGUAGE.GERMAN)}>
         <TasksKanban
+          group="none"
+          groupLookups={NO_LOOKUPS}
           onMoveTask={vi.fn()}
           onOpenTask={vi.fn()}
           onQuickCreate={vi.fn()}
@@ -294,6 +302,8 @@ describe("TasksKanban", () => {
     render(
       <I18nextProvider i18n={i18n}>
         <TasksKanban
+          group="none"
+          groupLookups={NO_LOOKUPS}
           onMoveTask={onMoveTask}
           onOpenTask={vi.fn()}
           onQuickCreate={vi.fn()}
@@ -377,6 +387,8 @@ describe("TasksKanban", () => {
     render(
       <I18nextProvider i18n={i18n}>
         <TasksKanban
+          group="none"
+          groupLookups={NO_LOOKUPS}
           onMoveTask={vi.fn()}
           onOpenTask={vi.fn()}
           onQuickCreate={vi.fn()}
@@ -404,6 +416,8 @@ describe("TasksKanban", () => {
     const { container } = render(
       <I18nextProvider i18n={i18n}>
         <TasksKanban
+          group="none"
+          groupLookups={NO_LOOKUPS}
           labelsByWorkItem={{
             "item-1": [
               {
@@ -411,7 +425,6 @@ describe("TasksKanban", () => {
                 createdAt: "2026-01-01",
                 id: "label-1",
                 name: "Feature",
-                projectId: "project-1",
                 updatedAt: "2026-01-02",
               },
               {
@@ -419,7 +432,6 @@ describe("TasksKanban", () => {
                 createdAt: "2026-01-01",
                 id: "label-2",
                 name: "Backend",
-                projectId: "project-1",
                 updatedAt: "2026-01-02",
               },
               {
@@ -427,7 +439,6 @@ describe("TasksKanban", () => {
                 createdAt: "2026-01-01",
                 id: "label-3",
                 name: "Frontend",
-                projectId: "project-1",
                 updatedAt: "2026-01-02",
               },
               {
@@ -435,7 +446,6 @@ describe("TasksKanban", () => {
                 createdAt: "2026-01-01",
                 id: "label-4",
                 name: "Extra",
-                projectId: "project-1",
                 updatedAt: "2026-01-02",
               },
             ],
@@ -450,6 +460,7 @@ describe("TasksKanban", () => {
             createWorkItem({ assigneeName: null }),
             createWorkItem({
               assigneeName: null,
+              assigneeGroupName: null,
               id: "item-2",
               key: "ASTRO-31",
               milestoneId: null,
@@ -509,6 +520,8 @@ describe("TasksKanban", () => {
     const { container } = render(
       <I18nextProvider i18n={i18n}>
         <TasksKanban
+          group="none"
+          groupLookups={NO_LOOKUPS}
           onMoveTask={onMoveTask}
           onOpenTask={vi.fn()}
           onQuickCreate={vi.fn()}
@@ -545,6 +558,8 @@ describe("TasksKanban", () => {
     render(
       <I18nextProvider i18n={i18n}>
         <TasksKanban
+          group="none"
+          groupLookups={NO_LOOKUPS}
           onMoveTask={vi.fn()}
           onOpenTask={vi.fn()}
           onQuickCreate={vi.fn()}
@@ -555,6 +570,7 @@ describe("TasksKanban", () => {
             createWorkItem({ assigneeName: null }),
             createWorkItem({
               assigneeName: null,
+              assigneeGroupName: null,
               id: "item-2",
               key: "ASTRO-31",
               milestoneId: null,
@@ -598,6 +614,8 @@ describe("TasksKanban", () => {
     render(
       <I18nextProvider i18n={i18n}>
         <TasksKanban
+          group="none"
+          groupLookups={NO_LOOKUPS}
           onMoveTask={onMoveTask}
           onOpenTask={vi.fn()}
           onQuickCreate={vi.fn()}
@@ -608,6 +626,7 @@ describe("TasksKanban", () => {
             createWorkItem(),
             createWorkItem({
               assigneeName: null,
+              assigneeGroupName: null,
               id: "item-high",
               key: "PAGE-21",
               milestoneId: null,
@@ -618,6 +637,7 @@ describe("TasksKanban", () => {
             }),
             createWorkItem({
               assigneeName: null,
+              assigneeGroupName: null,
               id: "item-low",
               key: "PAGE-22",
               milestoneId: null,
@@ -667,6 +687,8 @@ describe("TasksKanban", () => {
     render(
       <I18nextProvider i18n={i18n}>
         <TasksKanban
+          group="none"
+          groupLookups={NO_LOOKUPS}
           onMoveTask={vi.fn()}
           onOpenTask={vi.fn()}
           onQuickCreate={vi.fn()}
@@ -694,6 +716,8 @@ describe("TasksKanban", () => {
     render(
       <I18nextProvider i18n={i18n}>
         <TasksKanban
+          group="none"
+          groupLookups={NO_LOOKUPS}
           onMoveTask={onMoveTask}
           onOpenTask={vi.fn()}
           onQuickCreate={vi.fn()}
@@ -740,6 +764,8 @@ describe("TasksKanban", () => {
     render(
       <I18nextProvider i18n={i18n}>
         <TasksKanban
+          group="none"
+          groupLookups={NO_LOOKUPS}
           onMoveTask={onMoveTask}
           onOpenTask={vi.fn()}
           onQuickCreate={vi.fn()}
@@ -786,6 +812,8 @@ describe("TasksKanban", () => {
     const { container, unmount } = render(
       <I18nextProvider i18n={createI18n(LANGUAGE.GERMAN)}>
         <TasksKanban
+          group="none"
+          groupLookups={NO_LOOKUPS}
           onMoveTask={vi.fn()}
           onOpenTask={vi.fn()}
           onQuickCreate={vi.fn()}
@@ -850,6 +878,8 @@ describe("TasksKanban", () => {
     const { container } = render(
       <I18nextProvider i18n={i18n}>
         <TasksKanban
+          group="none"
+          groupLookups={NO_LOOKUPS}
           labelsByWorkItem={{
             "item-task": [
               {
@@ -857,7 +887,6 @@ describe("TasksKanban", () => {
                 createdAt: "2026-01-01",
                 id: "label-1",
                 name: "Feature",
-                projectId: "project-1",
                 updatedAt: "2026-01-02",
               },
               {
@@ -865,7 +894,6 @@ describe("TasksKanban", () => {
                 createdAt: "2026-01-01",
                 id: "label-2",
                 name: "Backend",
-                projectId: "project-1",
                 updatedAt: "2026-01-02",
               },
               {
@@ -873,7 +901,6 @@ describe("TasksKanban", () => {
                 createdAt: "2026-01-01",
                 id: "label-3",
                 name: "Frontend",
-                projectId: "project-1",
                 updatedAt: "2026-01-02",
               },
               {
@@ -881,7 +908,6 @@ describe("TasksKanban", () => {
                 createdAt: "2026-01-01",
                 id: "label-4",
                 name: "Extra",
-                projectId: "project-1",
                 updatedAt: "2026-01-02",
               },
             ],
@@ -891,7 +917,6 @@ describe("TasksKanban", () => {
                 createdAt: "2026-01-01",
                 id: "label-5",
                 name: "Design",
-                projectId: "project-1",
                 updatedAt: "2026-01-02",
               },
               {
@@ -899,7 +924,6 @@ describe("TasksKanban", () => {
                 createdAt: "2026-01-01",
                 id: "label-6",
                 name: "Infra",
-                projectId: "project-1",
                 updatedAt: "2026-01-02",
               },
             ],
@@ -1007,6 +1031,8 @@ describe("TasksKanban", () => {
     const { container } = render(
       <I18nextProvider i18n={i18n}>
         <TasksKanban
+          group="none"
+          groupLookups={NO_LOOKUPS}
           onMoveTask={onMoveTask}
           onOpenTask={vi.fn()}
           onQuickCreate={vi.fn()}
@@ -1139,6 +1165,8 @@ describe("TasksKanban", () => {
     const view = (items: readonly WorkItemDetail[]): React.ReactElement => (
       <I18nextProvider i18n={i18n}>
         <TasksKanban
+          group="none"
+          groupLookups={NO_LOOKUPS}
           onMoveTask={onMoveTask}
           onOpenTask={vi.fn()}
           onQuickCreate={vi.fn()}
@@ -1195,6 +1223,8 @@ describe("TasksKanban", () => {
     render(
       <I18nextProvider i18n={i18n}>
         <TasksKanban
+          group="none"
+          groupLookups={NO_LOOKUPS}
           onMoveTask={vi.fn()}
           onOpenTask={vi.fn()}
           onQuickCreate={vi.fn()}

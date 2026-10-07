@@ -5,6 +5,7 @@ import type { WorkItemPriority, WorkItemType } from "@/definition/Task";
 export interface NewWorkItem {
   readonly id: string;
   readonly projectId: string;
+  readonly departmentId: string | null;
   readonly key: string;
   readonly number: number;
   readonly type: WorkItemType;
@@ -14,6 +15,7 @@ export interface NewWorkItem {
   readonly statusId: string;
   readonly priority: WorkItemPriority;
   readonly assigneeId: string | null;
+  readonly assigneeGroupId: string | null;
   readonly createdBy: string;
   readonly milestoneId: string | null;
   readonly dueAt: string | null;
@@ -28,6 +30,7 @@ export interface WorkItemUpdate {
   readonly statusId: string;
   readonly priority: WorkItemPriority;
   readonly assigneeId: string | null;
+  readonly assigneeGroupId: string | null;
   readonly reporterId: string;
   readonly parentId: string | null;
   readonly milestoneId: string | null;
@@ -141,6 +144,7 @@ export class WorkItemWriteRepository {
         INSERT INTO work_items (
             id,
             project_id,
+            department_id,
             key,
             number,
             type,
@@ -150,6 +154,7 @@ export class WorkItemWriteRepository {
             status_id,
             priority,
             assignee_id,
+            assignee_group_id,
             created_by,
             milestone_id,
             due_at,
@@ -161,6 +166,7 @@ export class WorkItemWriteRepository {
         VALUES (
             $id,
             $project_id,
+            $department_id,
             $key,
             $number,
             $type,
@@ -170,6 +176,7 @@ export class WorkItemWriteRepository {
             $status_id,
             $priority,
             $assignee_id,
+            $assignee_group_id,
             $created_by,
             $milestone_id,
             $due_at,
@@ -180,8 +187,10 @@ export class WorkItemWriteRepository {
         );
       `,
       {
+        assignee_group_id: item.assigneeGroupId,
         assignee_id: item.assigneeId,
         created_by: item.createdBy,
+        department_id: item.departmentId,
         description: item.description,
         due_at: item.dueAt,
         id: item.id,
@@ -211,6 +220,7 @@ export class WorkItemWriteRepository {
             status_id = $status_id,
             priority = $priority,
             assignee_id = $assignee_id,
+            assignee_group_id = $assignee_group_id,
             created_by = $created_by,
             parent_id = $parent_id,
             milestone_id = $milestone_id,
@@ -221,6 +231,7 @@ export class WorkItemWriteRepository {
             AND archived_at IS NULL;
       `,
       {
+        assignee_group_id: update.assigneeGroupId,
         assignee_id: update.assigneeId,
         created_by: update.reporterId,
         description: update.description,
@@ -233,6 +244,24 @@ export class WorkItemWriteRepository {
         status_id: update.statusId,
         title: update.title,
       },
+    );
+  }
+
+  /** Assigns a work item to a department, or clears the assignment with `null`. */
+  public async setDepartment(
+    id: string,
+    departmentId: string | null,
+  ): Promise<void> {
+    await this.database.execute(
+      `
+        UPDATE work_items
+        SET
+            department_id = $department_id,
+            updated_at = utc_now()
+        WHERE id = $id
+            AND archived_at IS NULL;
+      `,
+      { department_id: departmentId, id },
     );
   }
 
@@ -285,36 +314,6 @@ export class WorkItemWriteRepository {
         sort_order: sortOrder,
         status_id: statusId,
       },
-    );
-  }
-
-  /** Marks a work item as archived without deleting its row. */
-  public async archive(id: string): Promise<void> {
-    await this.database.execute(
-      `
-        UPDATE work_items
-        SET
-            archived_at = utc_now(),
-            updated_at = utc_now()
-        WHERE id = $id
-            AND archived_at IS NULL;
-      `,
-      { id },
-    );
-  }
-
-  /** Restores an archived work item keeping its original workflow status. */
-  public async restore(id: string): Promise<void> {
-    await this.database.execute(
-      `
-        UPDATE work_items
-        SET
-            archived_at = NULL,
-            updated_at = utc_now()
-        WHERE id = $id
-            AND archived_at IS NOT NULL;
-      `,
-      { id },
     );
   }
 

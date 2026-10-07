@@ -42,8 +42,8 @@ describe("ticket department visibility persistence", () => {
       VALUES ('root-history', 'root', 'actor', 'created'),
           ('front-history', 'front-child', 'actor', 'created'),
           ('back-history', 'back-child', 'actor', 'created');
-      INSERT INTO project_labels (id, project_id, name, color)
-      VALUES ('label', 'p1', 'Shared label', '#3b82f6');
+      INSERT INTO labels (id, name, color)
+      VALUES ('label', 'Shared label', '#3b82f6');
       INSERT INTO work_item_labels (work_item_id, label_id)
       VALUES ('root', 'label'), ('front-child', 'label'), ('back-child', 'label');
       INSERT INTO work_item_links (id, work_item_id, linked_work_item_id, link_type)
@@ -173,14 +173,9 @@ describe("ticket department visibility persistence", () => {
       2,
     );
     expect(
-      (
-        await repository.countLabelUsageByProjectIds(
-          ["p1"],
-          FRONTEND_VISIBILITY,
-        )
-      )
-        .get("p1")
-        ?.get("label"),
+      (await repository.countLabelUsageByLabel(FRONTEND_VISIBILITY)).get(
+        "label",
+      ),
     ).toBe(2);
   });
 

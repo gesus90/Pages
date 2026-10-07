@@ -20,6 +20,7 @@ import {
 import {
   handleDisconnectIntegration,
   handleSaveIntegration,
+  handleSetIntegrationSync,
   handleSyncIntegration,
   handleTestIntegration,
 } from "./project-integration-actions.server";
@@ -48,6 +49,7 @@ const PROJECT_ACTION_HANDLERS = {
   "remove-member": handleRemoveMember,
   "save-integration": handleSaveIntegration,
   "save-milestone": handleSaveMilestone,
+  "set-integration-sync": handleSetIntegrationSync,
   "set-tags": handleSetTags,
   "save-template": handleSaveTemplate,
   "sync-integration": handleSyncIntegration,

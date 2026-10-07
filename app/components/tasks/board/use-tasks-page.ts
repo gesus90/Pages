@@ -1,12 +1,9 @@
-import { useState } from "react";
 import {
   useNavigate,
   useNavigation,
   useSearchParams,
   useSubmit,
 } from "react-router";
-
-import type { TasksViewMode } from "@/app/lib/tasks-view";
 
 /** Tells whether a form with one of the intents is being submitted. */
 function isSubmittingIntent(
@@ -22,13 +19,11 @@ function isSubmittingIntent(
   );
 }
 
-/** The chosen view, the page address it lives in and what is being submitted. */
+/** What is being submitted and the functions that change the archive filter or move a ticket. */
 export interface TasksPage {
-  readonly viewMode: TasksViewMode;
   readonly isArchiving: boolean;
   readonly isSyncing: boolean;
   readonly isSubmittingForm: boolean;
-  readonly changeView: (view: TasksViewMode) => void;
   readonly changeArchived: (value: string) => void;
   readonly moveTask: (
     taskId: string,
@@ -37,44 +32,19 @@ export interface TasksPage {
   ) => void;
 }
 
-/**
- * Keeps the view of the tasks page in its address and reports what is submitting.
- *
- * @param parseView - Reads a view out of the address.
- */
-export function useTasksPage(
-  parseView: (value: string | null) => TasksViewMode,
-): TasksPage {
+/** Reports what the tasks page is submitting and keeps its archive filter in the address. */
+export function useTasksPage(): TasksPage {
   const navigation = useNavigation();
   const navigate = useNavigate();
   const submit = useSubmit();
   const [searchParams] = useSearchParams();
-  const [viewMode, setViewMode] = useState<TasksViewMode>(() =>
-    parseView(searchParams.get("view")),
-  );
-
-  function navigateWith(
-    change: (params: URLSearchParams) => void,
-    ...options: [{ readonly preventScrollReset: boolean }?]
-  ): void {
-    const params = new URLSearchParams(searchParams);
-
-    change(params);
-    void navigate(`?${params.toString()}`, ...options);
-  }
 
   return {
-    changeArchived: (value) =>
-      navigateWith((params) => params.set("archived", value)),
-    changeView: (nextView) => {
-      setViewMode(nextView);
-      navigateWith(
-        (params) =>
-          nextView === "kanban"
-            ? params.delete("view")
-            : params.set("view", nextView),
-        { preventScrollReset: true },
-      );
+    changeArchived: (value) => {
+      const params = new URLSearchParams(searchParams);
+
+      params.set("archived", value);
+      void navigate(`?${params.toString()}`);
     },
     isArchiving: isSubmittingIntent(navigation, "archive-task", "restore-task"),
     isSubmittingForm: isSubmittingIntent(
@@ -98,6 +68,5 @@ export function useTasksPage(
         { method: "post" },
       );
     },
-    viewMode,
   };
 }

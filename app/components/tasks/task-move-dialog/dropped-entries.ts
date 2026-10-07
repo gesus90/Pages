@@ -1,8 +1,4 @@
-import type {
-  Milestone,
-  ProjectLabel,
-  WorkItemDetail,
-} from "@/definition/Task";
+import type { Milestone, Label, WorkItemDetail } from "@/definition/Task";
 import type { User } from "@/definition/User";
 
 /** What decides which relations of a ticket survive a move. */
@@ -11,7 +7,7 @@ export interface DroppedEntriesInput {
   readonly targetProjectId: string;
   readonly workItems: readonly WorkItemDetail[];
   readonly milestones: readonly Milestone[];
-  readonly taskLabels: readonly ProjectLabel[];
+  readonly taskLabels: readonly Label[];
   readonly assigneesByProject: Readonly<Record<string, readonly User[]>>;
 }
 
