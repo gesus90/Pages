@@ -74,6 +74,11 @@ describe("user directory route with real A2 authorization", () => {
     );
     vi.mocked(getApplicationServices).mockResolvedValue({
       administrationService: service,
+      wikiService: {
+        listAllPlaceholders: vi.fn().mockResolvedValue({
+          admin: [{ id: "page-1", ownerId: "admin", ownerName: "Admin" }],
+        }),
+      },
     } as unknown as Awaited<ReturnType<typeof getApplicationServices>>);
   });
 
@@ -90,6 +95,9 @@ describe("user directory route with real A2 authorization", () => {
       canManage: true,
     });
     expect(result.actor.mode).toBe("admin");
+    expect(result.privateWikiPages).toEqual({
+      admin: [{ id: "page-1", ownerId: "admin", ownerName: "Admin" }],
+    });
   });
 
   it("rejects missing authenticated context in loaders and actions", async () => {

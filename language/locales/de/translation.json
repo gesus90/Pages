@@ -112,7 +112,8 @@
     "projects": "Projekte",
     "settings": "Einstellungen",
     "tasks": "Aufgaben",
-    "users": "Benutzerverwaltung"
+    "users": "Benutzerverwaltung",
+    "wiki": "Wiki"
   },
   "role": {
     "admin": "Administrator",
@@ -290,6 +291,22 @@
         "databasePath": "Datenbankdatei",
         "startedAt": "Läuft seit",
         "unknown": "Unbekannt"
+      },
+      "wiki": {
+        "title": "Wiki",
+        "description": "Aufbewahrung von Papierkorb und Versionen sowie die Größe von Anhängen.",
+        "trashRetentionDays": "Papierkorb: Tage bis zum endgültigen Löschen",
+        "versionRetentionDays": "Versionen: Tage, die sie mindestens bleiben",
+        "versionKeepLast": "Versionen: so viele neueste je Seite bleiben immer",
+        "mediaLimitMegabytes": "Höchstgröße je Mediendatei (Bild, Audio, Video) in MB",
+        "fileLimitMegabytes": "Höchstgröße je andere Datei in MB",
+        "hint": "Eine Version bleibt, wenn sie jünger ist als die eingestellten Tage oder zu den neuesten gehört – was mehr behält. Die Art einer Datei erkennt der Server an ihrem Inhalt.",
+        "save": "Wiki-Einstellungen speichern",
+        "saved": "Die Wiki-Einstellungen wurden gespeichert.",
+        "error": {
+          "invalidSetting": "Bitte gib ganze Zahlen im erlaubten Bereich ein (Tage 1–3650, Versionen 1–1000, Größen ab 1 MB).",
+          "general": "Die Wiki-Einstellungen konnten nicht gespeichert werden."
+        }
       }
     },
     "profile": {
@@ -572,6 +589,13 @@
       "none": "Noch keine Gruppen angelegt.",
       "empty": "Leer – nicht zuweisbar",
       "memberCount": "Mitglieder: {{total}}"
+    },
+    "privateWiki": {
+      "count": "Private Wiki-Seiten: {{count}}",
+      "title": "Private Wiki-Seiten von {{name}}",
+      "description": "Titel und Inhalt sind nicht sichtbar. Eine gelöschte Seite kommt in den Papierkorb des Besitzers; nur er kann sie wiederherstellen.",
+      "delete": "Löschen",
+      "close": "Schließen"
     }
   },
   "tasks": {
@@ -1434,5 +1458,343 @@
   "markdown": {
     "wikiLink": "Wiki-Seite",
     "externalLink": "Externer Link"
+  },
+  "wiki": {
+    "title": "Wiki",
+    "nav": {
+      "label": "Wiki-Navigation",
+      "open": "Seiten",
+      "search": "Suchen",
+      "newPage": "Neue Seite",
+      "home": "Übersicht",
+      "favorites": "Favoriten",
+      "recent": "Zuletzt geöffnet",
+      "privateArea": "Privat",
+      "generalArea": "Allgemein",
+      "trash": "Papierkorb",
+      "empty": "Noch keine Seiten.",
+      "expand": "{{title}} aufklappen",
+      "collapse": "{{title}} zuklappen"
+    },
+    "home": {
+      "subtitle": "Wissen, Konzepte, Ideen und Dokumentation an einem Ort.",
+      "recentlyEdited": "Zuletzt bearbeitet",
+      "mine": "Meine Seiten",
+      "allPages": "Alle Seiten",
+      "empty": "Es gibt noch keine Seiten. Lege die erste mit „Neue Seite“ an.",
+      "noFavorites": "Noch keine Favoriten.",
+      "noRecent": "Noch nichts bearbeitet.",
+      "noMine": "Du besitzt noch keine Seiten.",
+      "columnTitle": "Titel",
+      "columnLocation": "Ort",
+      "columnOwner": "Besitzer",
+      "columnEdited": "Zuletzt bearbeitet"
+    },
+    "page": {
+      "breadcrumb": "Seitenpfad",
+      "owner": "Besitzer: {{name}}",
+      "lastEdited": "Zuletzt bearbeitet von {{name}} am {{date}}",
+      "private": "Privat",
+      "expired": "Nicht mehr aktuell",
+      "currentUntil": "Aktuell bis {{date}}",
+      "expiredOn": "Abgelaufen am {{date}}",
+      "anchor": {
+        "department": "Abteilung",
+        "milestone": "Meilenstein",
+        "epic": "Epic"
+      },
+      "anchorGone": "nicht mehr vorhanden",
+      "edit": "Bearbeiten",
+      "menu": "Seitenmenü",
+      "favorite": "Als Favorit markieren",
+      "unfavorite": "Favorit entfernen",
+      "children": "Unterseiten",
+      "noChildren": "Keine Unterseiten.",
+      "newSubpage": "Neue Unterseite",
+      "notFound": "Nicht gefunden oder kein Zugriff.",
+      "action": {
+        "history": "Verlauf",
+        "move": "Verschieben nach…",
+        "duplicate": "Duplizieren",
+        "template": "Als Vorlage speichern",
+        "anchors": "Verknüpfungen",
+        "currentUntil": "Aktuell bis…",
+        "owner": "Besitzer ändern",
+        "delete": "In den Papierkorb"
+      },
+      "backlinks": "Erwähnt in",
+      "backlinkProject": "Projekt",
+      "backlinkTicket": "Ticket",
+      "backlinkPage": "Seite"
+    },
+    "editor": {
+      "titleLabel": "Titel der Seite",
+      "contentLabel": "Text der Seite (Markdown)",
+      "icon": "Symbol der Seite",
+      "removeIcon": "Symbol entfernen",
+      "toolbar": "Formatierung",
+      "write": "Bearbeiten",
+      "preview": "Vorschau",
+      "noMatch": "Keine Treffer",
+      "done": "Fertig",
+      "status": {
+        "saved": "Gespeichert",
+        "saving": "Speichert…",
+        "unsaved": "Nicht gespeichert",
+        "conflict": "Konflikt",
+        "error": "Speichern fehlgeschlagen",
+        "tooLong": "Zu lang – wird nicht gespeichert"
+      },
+      "command": {
+        "heading1": "Überschrift 1",
+        "heading2": "Überschrift 2",
+        "heading3": "Überschrift 3",
+        "bold": "Fett",
+        "italic": "Kursiv",
+        "code": "Code",
+        "link": "Link",
+        "bullet": "Aufzählung",
+        "numbered": "Nummerierte Liste",
+        "task": "Aufgabenliste",
+        "quote": "Zitat",
+        "codeBlock": "Codeblock",
+        "table": "Tabelle",
+        "callout": "Hinweisbox",
+        "toggle": "Ausklappbereich",
+        "divider": "Trennlinie",
+        "contents": "Inhaltsverzeichnis"
+      },
+      "menu": {
+        "slash": "Blöcke",
+        "reference": "Verknüpfen"
+      },
+      "reference": {
+        "page": "Seite",
+        "ticket": "Ticket",
+        "person": "Person"
+      },
+      "attach": "Bild oder Datei anhängen",
+      "attachInput": "Datei auswählen",
+      "uploading": "{{name}} wird hochgeladen … {{percent}} %"
+    },
+    "conflict": {
+      "title": "Die Seite wurde inzwischen geändert",
+      "description": "Jemand anderes hat die Seite gespeichert, während du sie bearbeitet hast. Wähle, welche Fassung gilt.",
+      "compare": "Unterschiede ansehen",
+      "takeTheirs": "Fremde Fassung übernehmen",
+      "keepMine": "Meine Fassung behalten",
+      "differences": "Unterschiede"
+    },
+    "dialog": {
+      "cancel": "Abbrechen",
+      "close": "Schließen",
+      "save": "Speichern",
+      "create": {
+        "title": "Neue Seite",
+        "description": "Eine Seite für Wissen, Ideen oder Dokumentation.",
+        "titleLabel": "Titel",
+        "areaLabel": "Bereich",
+        "templateLabel": "Vorlage",
+        "blank": "Leere Seite",
+        "submit": "Seite anlegen"
+      },
+      "delete": {
+        "title": "„{{title}}“ löschen?",
+        "description": "Die Seite und ihre Unterseiten kommen in den Papierkorb und können dort wiederhergestellt werden.",
+        "submit": "In den Papierkorb"
+      },
+      "duplicate": {
+        "title": "Seite duplizieren",
+        "description": "Die Kopie gehört dir und kommt ans Ende der Geschwisterseiten.",
+        "submit": "Duplizieren",
+        "copyOf": "Kopie von {{title}}",
+        "withChildren": "Unterseiten mitkopieren"
+      },
+      "template": {
+        "title": "Als Vorlage speichern",
+        "description": "Die Vorlage steht allen zur Verfügung, die diese Seite sehen, und erscheint nicht im Seitenbaum.",
+        "submit": "Vorlage speichern"
+      },
+      "currentUntil": {
+        "title": "Aktuell bis",
+        "description": "Bis zu diesem Datum gilt die Seite als geprüft. Danach erscheint sie unter „Für mich“.",
+        "label": "Datum (leer = ohne Ablauf)"
+      },
+      "owner": {
+        "title": "Besitzer ändern",
+        "description": "Der neue Besitzer verwaltet die Seite.",
+        "label": "Neuer Besitzer"
+      },
+      "anchors": {
+        "title": "Verknüpfungen",
+        "description": "Wer eine verknüpfte Abteilung, einen Meilenstein oder ein Epic nicht sehen darf, sieht auch diese Seite nicht.",
+        "departments": "Abteilungen",
+        "milestones": "Meilensteine",
+        "epics": "Epics",
+        "missing": "{{count}} Verknüpfung(en) zeigen auf gelöschte Ziele. Mit „Speichern“ werden sie entfernt."
+      },
+      "history": {
+        "title": "Seitenverlauf",
+        "description": "Frühere Fassungen. Wiederherstellen legt eine neue Fassung an und überschreibt nichts.",
+        "version": "Fassung {{revision}}",
+        "preview": "Vorschau",
+        "restore": "Wiederherstellen",
+        "previewLabel": "Vorschau der Fassung"
+      },
+      "move": {
+        "title": "Seite verschieben",
+        "description": "Wähle die Seite oder den Bereich, unter dem die Seite künftig liegt.",
+        "targetLabel": "Ziel",
+        "rootPrivate": "Privat (oberste Ebene)",
+        "rootGeneral": "Allgemein (oberste Ebene)",
+        "rootProject": "{{name}} (oberste Ebene)",
+        "submit": "Verschieben",
+        "change": {
+          "same": "Die Sichtbarkeit bleibt gleich.",
+          "wider": "Danach sehen mehr Personen diese Seite.",
+          "narrower": "Danach sehen weniger Personen diese Seite.",
+          "different": "Danach sehen andere Personen diese Seite."
+        }
+      }
+    },
+    "trash": {
+      "title": "Papierkorb",
+      "description": "Gelöschte Seiten bleiben hier, bis ihre Aufbewahrungszeit abläuft.",
+      "empty": "Der Papierkorb ist leer.",
+      "deleted": "Gelöscht",
+      "remaining": "Verbleibend",
+      "daysLeft_one": "noch {{count}} Tag",
+      "daysLeft_other": "noch {{count}} Tage",
+      "restore": "Wiederherstellen",
+      "purge": "Endgültig löschen",
+      "restoreTitle": "„{{title}}“ wiederherstellen?",
+      "restoreDescription": "Die Seite kommt mit ihren Unterseiten zurück.",
+      "purgeTitle": "„{{title}}“ endgültig löschen?",
+      "purgeDescription": "Die Seite, ihre Unterseiten, Versionen und Anhänge werden unwiderruflich gelöscht."
+    },
+    "placeholder": {
+      "label": "Private Seite",
+      "stamp": "PRIVAT",
+      "description": "Das ist eine private Seite. Titel und Inhalt sind für Administratoren nicht sichtbar.",
+      "owner": "Besitzer:",
+      "address": "Adresse:",
+      "delete": "Seite löschen",
+      "deleteTitle": "Private Seite löschen?",
+      "deleteDescription": "Die Seite kommt in den Papierkorb von {{name}}. Nur {{name}} kann sie wiederherstellen."
+    },
+    "templates": {
+      "note": {
+        "name": "Notiz",
+        "content": "## Worum geht es?\n\n\n## Notizen\n\n- \n"
+      },
+      "decision": {
+        "name": "Entscheidung",
+        "content": "## Kontext\n\n\n## Optionen\n\n- \n\n## Entscheidung\n\n\n## Folgen\n\n"
+      },
+      "guide": {
+        "name": "Anleitung",
+        "content": "[toc]\n\n## Ziel\n\n\n## Voraussetzungen\n\n- \n\n## Schritte\n\n1. \n\n## Probleme und Lösungen\n\n"
+      },
+      "idea": {
+        "name": "Idee",
+        "content": "## Die Idee\n\n\n## Warum jetzt?\n\n\n## Offene Fragen\n\n- [ ] \n"
+      },
+      "incident": {
+        "name": "Störung",
+        "content": "## Was ist passiert?\n\n\n## Auswirkungen\n\n\n## Ursache\n\n\n## Bereinigung\n\n- [ ] \n\n## Wie verhindern wir es künftig?\n\n"
+      }
+    },
+    "errors": {
+      "titleRequired": "Eine Seite braucht einen Titel.",
+      "titleTooLong": "Der Titel darf höchstens 200 Zeichen lang sein.",
+      "contentTooLong": "Der Text darf höchstens 200 000 Zeichen lang sein.",
+      "commentRequired": "Ein Kommentar darf nicht leer sein.",
+      "commentTooLong": "Ein Kommentar darf höchstens 5 000 Zeichen lang sein.",
+      "treeTooDeep": "Seiten können höchstens 10 Ebenen tief verschachtelt werden.",
+      "invalidParent": "Die Seite kann nicht unter diese Seite gelegt werden.",
+      "invalidScope": "Die Seite kann nicht in diesen Bereich verschoben werden.",
+      "invalidAnchor": "Die Seite kann nicht mit diesem Ziel verknüpft werden.",
+      "invalidDate": "Das Datum muss im Format JJJJ-MM-TT angegeben werden.",
+      "invalidIcon": "Das Symbol muss ein einzelnes Emoji sein.",
+      "invalidPosition": "Die Seite kann nicht an diese Stelle gesetzt werden.",
+      "invalidSetting": "Der Wert liegt außerhalb des erlaubten Bereichs.",
+      "fileEmpty": "Die Datei ist leer.",
+      "fileNameTooLong": "Ein Dateiname darf höchstens 255 Zeichen lang sein.",
+      "fileTooLarge": "Die Datei ist größer als das Limit für ihre Art.",
+      "versionMissing": "Diese Fassung gibt es nicht.",
+      "notInTrash": "Die Seite liegt nicht im Papierkorb.",
+      "conflict": "Die Seite wurde inzwischen geändert.",
+      "forbidden": "Dafür fehlt dir die Berechtigung.",
+      "invalidInput": "Die Eingabe ist unvollständig.",
+      "notFound": "Nicht gefunden oder kein Zugriff.",
+      "network": "Der Server ist nicht erreichbar."
+    },
+    "search": {
+      "title": "Wiki durchsuchen",
+      "description": "Sucht in Titeln und Texten aller Seiten, die du sehen darfst.",
+      "placeholder": "Suchbegriff oder \"genaue Wortfolge\"",
+      "label": "Suchtext",
+      "recent": "Zuletzt besucht",
+      "noRecent": "Noch keine Seiten besucht.",
+      "empty": "Keine Treffer.",
+      "total": "{{count}} Treffer",
+      "filters": "Filter",
+      "location": "Ort",
+      "locationAll": "Überall",
+      "locationPrivate": "Privat",
+      "locationGeneral": "Allgemein",
+      "underThisPage": "Nur in dieser Seite und ihren Unterseiten",
+      "creator": "Ersteller",
+      "creatorAll": "Alle",
+      "from": "Bearbeitet ab",
+      "to": "Bearbeitet bis",
+      "titleOnly": "Nur Titel",
+      "sort": "Sortierung",
+      "sortRelevance": "Treffer",
+      "sortEdited": "Zuletzt bearbeitet",
+      "sortCreated": "Erstellt",
+      "loading": "Sucht…"
+    },
+    "attachments": {
+      "title": "Anhänge",
+      "empty": "Keine Anhänge.",
+      "remove": "{{name}} entfernen",
+      "removeTitle": "„{{name}}“ entfernen?",
+      "removeDescription": "Die Datei wird gelöscht. Links auf diesen Anhang funktionieren danach nicht mehr.",
+      "removeSubmit": "Entfernen"
+    },
+    "comments": {
+      "title": "Kommentare",
+      "empty": "Keine offenen Kommentare.",
+      "newLabel": "Kommentar schreiben (mit @name erwähnst du jemanden)",
+      "submit": "Kommentieren",
+      "reply": "Antworten",
+      "replyLabel": "Antwort schreiben",
+      "resolve": "Auflösen",
+      "reopen": "Wieder öffnen",
+      "edit": "Kommentar bearbeiten",
+      "editLabel": "Text des Kommentars",
+      "edited": "bearbeitet",
+      "delete": "Kommentar löschen",
+      "deleteTitle": "Kommentar löschen?",
+      "deleteDescription": "Der Kommentar und seine Antworten werden gelöscht.",
+      "stale": "Stelle geändert",
+      "commentSelection": "Auswahl kommentieren",
+      "showResolved": "Gelöste anzeigen ({{count}})",
+      "hideResolved": "Gelöste ausblenden"
+    },
+    "feed": {
+      "title": "Für mich",
+      "empty": "Gerade gibt es nichts für dich.",
+      "unread": "{{count}} neu",
+      "new": "Neu",
+      "markRead": "Als gelesen markieren",
+      "reason": {
+        "mention": "{{name}} hat dich erwähnt",
+        "reply": "{{name}} hat auf deinen Kommentar geantwortet",
+        "comment": "{{name}} hat deine Seite kommentiert",
+        "expired": "Die Seite ist nicht mehr aktuell"
+      }
+    }
   }
 }

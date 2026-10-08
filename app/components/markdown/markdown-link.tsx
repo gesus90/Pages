@@ -4,6 +4,10 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 
 import { isWikiPath, toOwnPath } from "@/app/lib/markdown-links";
+import {
+  readWikiPageId,
+  requestWikiLinkTitle,
+} from "@/app/lib/wiki-link-titles";
 
 interface MarkdownLinkProps {
   readonly href?: string;
@@ -27,21 +31,58 @@ function useOwnOrigin(): string | undefined {
   return origin;
 }
 
-/** A link inside the application; Wiki pages carry a book icon. */
+/**
+ * Title of the wiki page a link points to, once the server confirmed that the
+ * signed-in person may see it; `null` for other links and for hidden pages.
+ */
+function useWikiPageTitle(path: string): string | null {
+  const id = readWikiPageId(path);
+  const [title, setTitle] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (id === null) {
+      return undefined;
+    }
+
+    let isActive = true;
+
+    void requestWikiLinkTitle(id).then((resolved) => {
+      if (isActive) {
+        setTitle(resolved);
+      }
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, [id]);
+
+  return title;
+}
+
+/**
+ * A link inside the application; Wiki pages carry a book icon and, when the
+ * person may see the page, its title instead of a bare address.
+ */
 function InAppLink({
   path,
+  href,
   children,
 }: {
   readonly path: string;
+  readonly href: string;
   readonly children?: React.ReactNode;
 }): React.ReactElement {
   const { t } = useTranslation();
   const isWiki = isWikiPath(path);
+  const pageTitle = useWikiPageTitle(path);
+  const isBareAddress = children === href || children === path;
 
   return (
     <Link
       className={LINK_CLASS}
       data-link-kind={isWiki ? "wiki" : "internal"}
+      title={pageTitle ?? undefined}
       to={path}
     >
       {isWiki ? (
@@ -51,7 +92,7 @@ function InAppLink({
           role="img"
         />
       ) : null}
-      {children}
+      {pageTitle !== null && isBareAddress ? pageTitle : children}
     </Link>
   );
 }
@@ -82,7 +123,11 @@ export function MarkdownLink({
   const ownPath = toOwnPath(href, ownOrigin);
 
   if (ownPath !== undefined) {
-    return <InAppLink path={ownPath}>{children}</InAppLink>;
+    return (
+      <InAppLink href={href} path={ownPath}>
+        {children}
+      </InAppLink>
+    );
   }
 
   return (

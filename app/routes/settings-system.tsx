@@ -13,6 +13,7 @@ import {
 
 import type { ServerStatus } from "@/backend/service/ServerSettingsService";
 import type { InstanceBranding } from "@/definition/Instance";
+import type { WikiSettings } from "@/definition/Wiki";
 import type { SettingsActionResult } from "@/app/lib/settings-actions/settings-action-support.server";
 import type { Route } from "./+types/settings-system";
 
@@ -23,6 +24,7 @@ type SettingsSystemLoaderData =
       readonly port: number;
       readonly branding: InstanceBranding;
       readonly status: ServerStatus;
+      readonly wikiSettings: WikiSettings;
     }
   | { readonly access: "adminModeRequired" };
 
@@ -48,13 +50,14 @@ export async function loader({
 
   const serverSettings = await createServerSettingsService({ services });
 
-  const [port, status, branding] = await Promise.all([
+  const [port, status, branding, wikiSettings] = await Promise.all([
     serverSettings.readPort(),
     serverSettings.readStatus(),
     services.instanceSettingsService.getBranding(),
+    services.wikiService.getSettings(),
   ]);
 
-  return { access: "granted", branding, port, status };
+  return { access: "granted", branding, port, status, wikiSettings };
 }
 
 /**
@@ -84,6 +87,7 @@ export default function SettingsSystemRoute(): React.ReactElement {
       branding={loaderData.branding}
       port={loaderData.port}
       status={loaderData.status}
+      wikiSettings={loaderData.wikiSettings}
     />
   ) : (
     <AdminModeRequired />

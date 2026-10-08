@@ -125,6 +125,11 @@ describe("transferSqliteToDuckDb", { timeout: 30_000 }, () => {
             "SELECT COUNT(*) FROM role_permissions WHERE permission = 'manage_roles';",
           ),
         ).toEqual([[0]]);
+        expect(
+          await target.query(
+            "SELECT scope, project_id, owner_id, updated_by, revision FROM wiki_pages WHERE id = 'wp1';",
+          ),
+        ).toEqual([["project", "p1", "u1", "u1", 1]]);
       } finally {
         await target.close();
       }

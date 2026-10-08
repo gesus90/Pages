@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 
 import { UserAvatar } from "@/app/components/common/user-avatar";
+import { UserPrivateWikiPages } from "@/app/components/users/user-private-wiki-pages";
 import { UserRowActions } from "@/app/components/users/user-row-actions";
 
 import type {
@@ -8,11 +9,14 @@ import type {
   UserRole,
   ManagedUser,
 } from "@/definition/Authorization";
+import type { WikiPrivatePlaceholder } from "@/definition/Wiki";
 
 interface UserRowProps {
   readonly directory: AdministrationPageData;
   readonly user: ManagedUser;
   readonly assignableRoles: readonly UserRole[];
+  /** The private wiki pages of this account; empty unless an administrator looks. */
+  readonly privateWikiPages: readonly WikiPrivatePlaceholder[];
 }
 
 /** Renders one user of the directory table. */
@@ -20,6 +24,7 @@ export function UserRow({
   directory,
   user,
   assignableRoles,
+  privateWikiPages,
 }: UserRowProps): React.ReactElement {
   const { t } = useTranslation();
 
@@ -28,9 +33,15 @@ export function UserRow({
       <td className="px-4 py-3">
         <div className="flex items-center gap-3">
           <UserAvatar user={user} size="xs" />
-          <span className="pages-selectable text-sm font-medium text-foreground">
-            {user.displayName}
-          </span>
+          <div className="flex min-w-0 flex-col">
+            <span className="pages-selectable text-sm font-medium text-foreground">
+              {user.displayName}
+            </span>
+            <UserPrivateWikiPages
+              ownerName={user.displayName}
+              pages={privateWikiPages}
+            />
+          </div>
         </div>
       </td>
       <td className="pages-selectable px-4 py-3 text-sm text-muted-foreground">

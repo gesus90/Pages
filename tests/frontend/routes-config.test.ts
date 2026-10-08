@@ -30,6 +30,14 @@ describe("route configuration", () => {
     );
   });
 
+  it("nests the wiki pages below the wiki layout", () => {
+    const layout = routes.find((entry) => !entry.path && entry.children);
+    const wiki = layout?.children?.find((child) => child.path === "wiki");
+    const paths = (wiki?.children ?? []).map((child) => child.path);
+
+    expect(paths).toEqual([undefined, "trash", ":pageId/:slug?"]);
+  });
+
   it("exposes a project detail route", () => {
     const layout = routes.find((entry) => !entry.path && entry.children);
     const childPaths = (layout?.children ?? []).map((child) => child.path);

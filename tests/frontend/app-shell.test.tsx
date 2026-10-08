@@ -116,6 +116,16 @@ describe("AppShell", () => {
     expect(screen.getByText("Dashboard-Inhalt")).toBeInTheDocument();
   });
 
+  it("links to the wiki for every signed-in user", () => {
+    renderShell(createUser());
+
+    expect(
+      screen
+        .getAllByRole("link", { name: "Wiki" })
+        .every((link) => link.getAttribute("href") === "/wiki"),
+    ).toBe(true);
+  });
+
   it("shows project and task links to users with project access", () => {
     renderShell(createUser(), true, "/dashboard", true);
 

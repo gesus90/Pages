@@ -35,6 +35,15 @@ export default [
     route("tasks/:ticketKey", "routes/task-detail.tsx", {
       id: "tasks-detail",
     }),
-    route("wiki", "routes/wiki.tsx"),
+    route("wiki-api/attachments", "routes/wiki-attachments.ts"),
+    route("wiki/attachments/:attachmentId", "routes/wiki-attachment.ts"),
+    route("wiki-api/search", "routes/wiki-search.ts"),
+    route("wiki-api/references", "routes/wiki-references.ts"),
+    route("wiki-api/link-titles", "routes/wiki-link-titles.ts"),
+    route("wiki", "routes/wiki.tsx", [
+      index("routes/wiki-home.tsx"),
+      route("trash", "routes/wiki-trash.tsx"),
+      route(":pageId/:slug?", "routes/wiki-page.tsx"),
+    ]),
   ]),
 ] satisfies RouteConfig;

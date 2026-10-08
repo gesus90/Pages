@@ -75,6 +75,12 @@ export type SettingsActionData =
       readonly ok: false;
       readonly error: "missing" | "invalidLogo" | "general";
     }
+  | { readonly intent: "update-wiki-settings"; readonly ok: true }
+  | {
+      readonly intent: "update-wiki-settings";
+      readonly ok: false;
+      readonly error: "invalidSetting" | "general";
+    }
   | { readonly intent: "remove-logo"; readonly ok: true }
   | { readonly intent: "remove-logo"; readonly ok: false }
   | { readonly intent: "revoke-other-sessions" }

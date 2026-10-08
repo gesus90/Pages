@@ -28,6 +28,18 @@ const ROWS_PER_INSERT = 100;
 /** The table holding the default workflow statuses of a fresh baseline. */
 const SEEDED_TABLE = "workflow_statuses";
 
+/**
+ * Gives the copied wiki pages the owner the former file never stored: the
+ * author owns and last edited the page.
+ */
+const WIKI_BACKFILL = `
+  UPDATE wiki_pages
+  SET
+      owner_id = author_id,
+      updated_by = author_id
+  WHERE owner_id = '';
+`;
+
 /** Inputs of a one-time transfer from the former SQLite file to DuckDB. */
 export interface TransferOptions {
   /** SQLite database file; it is opened read-only and never changed. */
@@ -107,6 +119,7 @@ async function transferInto(
         authorizationBackfill: authorizationBackfillForSchema(
           options.migrations,
         ),
+        wikiBackfill: wikiBackfillForSchema(options.migrations),
       });
     } finally {
       await target.close();
@@ -133,6 +146,7 @@ async function copyMissingRows(
   options: {
     readonly targetExisted: boolean;
     readonly authorizationBackfill: string | undefined;
+    readonly wikiBackfill: string | undefined;
   },
 ): Promise<TransferResult> {
   const plans = await planTables(source, target);
@@ -153,6 +167,10 @@ async function copyMissingRows(
 
       if (options.authorizationBackfill) {
         await transaction.execute(options.authorizationBackfill);
+      }
+
+      if (options.wikiBackfill) {
+        await transaction.execute(options.wikiBackfill);
       }
     });
 
@@ -179,6 +197,15 @@ async function copyMissingRows(
   throw new TransferError(
     "The target database already holds data that differs from the source. Use a new target file.",
   );
+}
+
+/** The wiki backfill, for targets whose schema has the wiki owner column. */
+function wikiBackfillForSchema(
+  migrations: readonly Migration[],
+): string | undefined {
+  return migrations.some((migration) => migration.name === "019_wiki.sql")
+    ? WIKI_BACKFILL
+    : undefined;
 }
 
 /** Adapts the frozen A2 backfill to the merged A3 capability catalog. */
@@ -402,6 +429,8 @@ function verifySourceColumns(
  * The ticket number counter came with the A4 follow-up; it starts at 0 after
  * the copy and rises with the tickets on the first allocation.
  * The company logo came with A5; SQLite has none.
+ * The wiki came with A6: SQLite has only the former pages, which become
+ * project pages whose owner is their author (see `WIKI_BACKFILL`).
  */
 async function readTargetColumns(
   target: Database,
@@ -421,7 +450,17 @@ async function readTargetColumns(
               'work_item_templates', 'work_item_template_departments',
               'work_item_template_projects', 'work_item_template_labels',
               'work_item_template_checklist_items', 'user_board_preferences',
-              'instance_logo'
+              'instance_logo', 'wiki_page_anchors', 'wiki_page_versions',
+              'wiki_page_links', 'wiki_attachments', 'wiki_comments', 'wiki_mentions',
+              'wiki_favorites', 'wiki_recent_pages', 'wiki_expanded_pages',
+              'wiki_user_state', 'wiki_settings'
+          )
+          AND NOT (
+              table_name = 'wiki_pages'
+              AND column_name NOT IN (
+                  'id', 'project_id', 'author_id', 'title', 'content',
+                  'created_at', 'updated_at'
+              )
           )
           AND NOT (table_name = 'users' AND column_name = 'must_change_password')
           AND NOT (table_name = 'work_items' AND column_name = 'department_id')

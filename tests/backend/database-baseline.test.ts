@@ -128,6 +128,7 @@ describe("DuckDB baseline migration", () => {
       "016_user_board_preferences.sql",
       "017_ticket_number_counter.sql",
       "018_instance_logo.sql",
+      "019_wiki.sql",
     ]);
   });
 

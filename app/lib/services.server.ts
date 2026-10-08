@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import { AuthService } from "@/backend/auth/AuthService";
 import { LoginThrottle } from "@/backend/auth/LoginThrottle";
 import { PasswordHasher } from "@/backend/auth/PasswordHasher";
@@ -20,6 +22,7 @@ import { WorkItemTemplateRepository } from "@/backend/database/repositories/task
 import { UserRepository } from "@/backend/database/repositories/UserRepository";
 import { UserBoardPreferencesRepository } from "@/backend/database/repositories/UserBoardPreferencesRepository";
 import { UserSettingsRepository } from "@/backend/database/repositories/UserSettingsRepository";
+import { WikiRepository } from "@/backend/database/repositories/WikiRepository";
 import { BoardPreferencesService } from "@/backend/service/BoardPreferencesService";
 import { HealthService } from "@/backend/service/HealthService";
 import { InstanceSettingsService } from "@/backend/service/InstanceSettingsService";
@@ -29,6 +32,9 @@ import { ProjectService } from "@/backend/service/ProjectService";
 import { TaskService } from "@/backend/service/TaskService";
 import { TaskTemplateService } from "@/backend/service/TaskTemplateService";
 import { UserService } from "@/backend/service/UserService";
+import { WikiMaintenanceScheduler } from "@/backend/service/wiki/WikiMaintenanceScheduler";
+import { WikiService } from "@/backend/service/WikiService";
+import { WikiFileStore } from "@/backend/storage/WikiFileStore";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 import { SetupService } from "@/backend/setup/SetupService";
 
@@ -46,6 +52,7 @@ export interface ApplicationServices {
   readonly projectService: ProjectService;
   readonly taskService: TaskService;
   readonly taskTemplateService: TaskTemplateService;
+  readonly wikiService: WikiService;
   readonly gitHubSyncService: GitHubSyncService;
   readonly permissionService: PermissionService;
   readonly passwordHasher: PasswordHasher;
@@ -55,6 +62,7 @@ declare global {
   var pagesServices: Promise<ApplicationServices> | undefined;
   var pagesShutdownHandlerRegistered: boolean | undefined;
   var pagesSyncSchedulerStarted: boolean | undefined;
+  var pagesWikiMaintenanceStarted: boolean | undefined;
 }
 
 /**
@@ -85,6 +93,63 @@ function registerShutdownHandler(database: Database): void {
   process.once("SIGTERM", () => void shutdown());
 }
 
+/**
+ * Creates the services that need little more than the database.
+ *
+ * @param database - Central database access.
+ * @param databasePath - Path of the database; attachments live next to it.
+ * @param projectService - Decides which projects an account reads.
+ * @param permissionService - Decides the capabilities of an account.
+ * @returns Health, instance settings and the wiki.
+ */
+function createWorkspaceServices(
+  database: Database,
+  databasePath: string,
+  projectService: ProjectService,
+  permissionService: PermissionService,
+): Pick<
+  ApplicationServices,
+  "healthService" | "instanceSettingsService" | "wikiService"
+> {
+  return {
+    healthService: new HealthService(database),
+    instanceSettingsService: new InstanceSettingsService(
+      new InstanceSettingsRepository(database),
+      permissionService,
+    ),
+    wikiService: new WikiService(
+      new WikiRepository(database),
+      projectService,
+      permissionService,
+      new WikiFileStore(
+        path.join(path.dirname(databasePath), "wiki-attachments"),
+      ),
+    ),
+  };
+}
+
+/**
+ * Brings accounts and sessions up to date at startup.
+ *
+ * @param setupService - Upgrades a legacy bootstrap administrator.
+ * @param sessionService - Removes the sessions that expired meanwhile.
+ * @returns The session service, ready for requests.
+ */
+async function prepareSessions(
+  setupService: SetupService,
+  sessionService: SessionService,
+): Promise<SessionService> {
+  if (await setupService.migrateLegacyBootstrapAdministrator()) {
+    console.info(
+      '[pages] Migrated the default administrator "admin" to the current password hashing algorithm.',
+    );
+  }
+
+  await sessionService.removeExpiredSessions();
+
+  return sessionService;
+}
+
 async function initializeServices(
   database: Database,
   databasePath: string,
@@ -95,13 +160,14 @@ async function initializeServices(
 
   const passwordHasher = new PasswordHasher();
   const serverCache = new ServerCache();
+  const authorizationRepository = new AuthorizationRepository(database);
   const administrationService = new AdministrationService(
-    new AuthorizationRepository(database),
+    authorizationRepository,
     serverCache,
     passwordHasher,
   );
   const groupAdministrationService = new GroupAdministrationService(
-    new AuthorizationRepository(database),
+    authorizationRepository,
     serverCache,
   );
   const permissionService = new PermissionService((id) =>
@@ -153,16 +219,17 @@ async function initializeServices(
   });
   taskService.setGitHubSync(gitHubSyncService);
   startGitHubSyncScheduler(gitHubSyncService);
-  const sessionService = new SessionService(sessionRepository, userService);
-  const setupService = new SetupService(userRepository, passwordHasher);
-
-  if (await setupService.migrateLegacyBootstrapAdministrator()) {
-    console.info(
-      '[pages] Migrated the default administrator "admin" to the current password hashing algorithm.',
-    );
-  }
-
-  await sessionService.removeExpiredSessions();
+  const workspaceServices = createWorkspaceServices(
+    database,
+    databasePath,
+    projectService,
+    permissionService,
+  );
+  startWikiMaintenanceScheduler(workspaceServices.wikiService);
+  const sessionService = await prepareSessions(
+    new SetupService(userRepository, passwordHasher),
+    new SessionService(sessionRepository, userService),
+  );
 
   return {
     administrationService,
@@ -175,11 +242,7 @@ async function initializeServices(
     boardPreferencesService,
     gitHubSyncService,
     groupAdministrationService,
-    healthService: new HealthService(database),
-    instanceSettingsService: new InstanceSettingsService(
-      new InstanceSettingsRepository(database),
-      permissionService,
-    ),
+    ...workspaceServices,
     passwordHasher,
     permissionService,
     projectService,
@@ -207,6 +270,21 @@ function startGitHubSyncScheduler(gitHubSyncService: GitHubSyncService): void {
 
   globalThis.pagesSyncSchedulerStarted = true;
   new GitHubSyncScheduler(gitHubSyncService).start();
+}
+
+/**
+ * Starts the wiki cleanup (expired trash, old versions, orphaned files)
+ * exactly once, with a first run at the start.
+ *
+ * @param wikiService - Service that carries out the cleanup.
+ */
+function startWikiMaintenanceScheduler(wikiService: WikiService): void {
+  if (globalThis.pagesWikiMaintenanceStarted) {
+    return;
+  }
+
+  globalThis.pagesWikiMaintenanceStarted = true;
+  new WikiMaintenanceScheduler(wikiService).start();
 }
 
 async function openConfiguredServices(): Promise<ApplicationServices> {

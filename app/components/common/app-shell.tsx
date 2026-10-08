@@ -1,4 +1,5 @@
 import {
+  BookOpen,
   FolderKanban,
   LayoutDashboard,
   LogOut,
@@ -111,6 +112,18 @@ function NavigationLinks({
           </NavLink>
         </>
       ) : null}
+      <NavLink
+        className={({ isActive }) => getLinkClassName(isActive)}
+        to="/wiki"
+        prefetch="intent"
+        onClick={onNavigate}
+      >
+        <BookOpen
+          className="size-6 text-primary xl:size-5"
+          aria-hidden="true"
+        />
+        {t("navigation.wiki")}
+      </NavLink>
 
       <div className="mt-auto flex flex-col gap-1">
         {canViewUsers ? (

@@ -1,3 +1,5 @@
+import { tmpdir } from "node:os";
+
 import { describe, expect, it, vi } from "vitest";
 
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
@@ -7,6 +9,7 @@ import { WikiRepository } from "@/backend/database/repositories/WikiRepository";
 import { ProjectService } from "@/backend/service/ProjectService";
 import { TaskService } from "@/backend/service/TaskService";
 import { WikiService } from "@/backend/service/WikiService";
+import { WikiFileStore } from "@/backend/storage/WikiFileStore";
 
 import type { Database } from "@/backend/database/Database";
 
@@ -64,8 +67,20 @@ describe("future business-logic boundaries", () => {
   });
 
   it("creates a wiki service around its repository", () => {
-    const repository = new WikiRepository(createDatabase());
+    const database = createDatabase();
+    const permissionService = new PermissionService();
+    const projectService = new ProjectService(
+      new ProjectRepository(database),
+      permissionService,
+    );
 
-    expect(new WikiService(repository)).toBeInstanceOf(WikiService);
+    expect(
+      new WikiService(
+        new WikiRepository(database),
+        projectService,
+        permissionService,
+        new WikiFileStore(tmpdir()),
+      ),
+    ).toBeInstanceOf(WikiService);
   });
 });

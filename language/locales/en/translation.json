@@ -112,7 +112,8 @@
     "projects": "Projects",
     "settings": "Settings",
     "tasks": "Tasks",
-    "users": "User management"
+    "users": "User management",
+    "wiki": "Wiki"
   },
   "role": {
     "admin": "Administrator",
@@ -290,6 +291,22 @@
         "databasePath": "Database file",
         "startedAt": "Running since",
         "unknown": "Unknown"
+      },
+      "wiki": {
+        "title": "Wiki",
+        "description": "Retention of trash and versions, and the size of attachments.",
+        "trashRetentionDays": "Trash: days until permanent deletion",
+        "versionRetentionDays": "Versions: days they stay at least",
+        "versionKeepLast": "Versions: this many newest per page always stay",
+        "mediaLimitMegabytes": "Largest media file (image, audio, video) in MB",
+        "fileLimitMegabytes": "Largest other file in MB",
+        "hint": "A version stays when it is younger than the days set or among the newest, whichever keeps more. The server recognizes the kind of a file by its content.",
+        "save": "Save wiki settings",
+        "saved": "The wiki settings were saved.",
+        "error": {
+          "invalidSetting": "Please enter whole numbers in the permitted range (days 1–3650, versions 1–1000, sizes from 1 MB).",
+          "general": "The wiki settings could not be saved."
+        }
       }
     },
     "profile": {
@@ -572,6 +589,13 @@
       "none": "No groups created yet.",
       "empty": "Empty – cannot be assigned",
       "memberCount": "Members: {{total}}"
+    },
+    "privateWiki": {
+      "count": "Private wiki pages: {{count}}",
+      "title": "Private wiki pages of {{name}}",
+      "description": "Titles and content are not visible. A deleted page moves to the owner's trash; only the owner can restore it.",
+      "delete": "Delete",
+      "close": "Close"
     }
   },
   "tasks": {
@@ -1434,5 +1458,343 @@
   "markdown": {
     "wikiLink": "Wiki page",
     "externalLink": "External link"
+  },
+  "wiki": {
+    "title": "Wiki",
+    "nav": {
+      "label": "Wiki navigation",
+      "open": "Pages",
+      "search": "Search",
+      "newPage": "New page",
+      "home": "Overview",
+      "favorites": "Favorites",
+      "recent": "Recently opened",
+      "privateArea": "Private",
+      "generalArea": "General",
+      "trash": "Trash",
+      "empty": "No pages yet.",
+      "expand": "Expand {{title}}",
+      "collapse": "Collapse {{title}}"
+    },
+    "home": {
+      "subtitle": "Knowledge, concepts, ideas and documentation in one place.",
+      "recentlyEdited": "Recently edited",
+      "mine": "My pages",
+      "allPages": "All pages",
+      "empty": "There are no pages yet. Create the first one with “New page”.",
+      "noFavorites": "No favorites yet.",
+      "noRecent": "Nothing edited yet.",
+      "noMine": "You do not own any pages yet.",
+      "columnTitle": "Title",
+      "columnLocation": "Location",
+      "columnOwner": "Owner",
+      "columnEdited": "Last edited"
+    },
+    "page": {
+      "breadcrumb": "Page path",
+      "owner": "Owner: {{name}}",
+      "lastEdited": "Last edited by {{name}} on {{date}}",
+      "private": "Private",
+      "expired": "No longer current",
+      "currentUntil": "Current until {{date}}",
+      "expiredOn": "Expired on {{date}}",
+      "anchor": {
+        "department": "Department",
+        "milestone": "Milestone",
+        "epic": "Epic"
+      },
+      "anchorGone": "no longer exists",
+      "edit": "Edit",
+      "menu": "Page menu",
+      "favorite": "Mark as favorite",
+      "unfavorite": "Remove favorite",
+      "children": "Subpages",
+      "noChildren": "No subpages.",
+      "newSubpage": "New subpage",
+      "notFound": "Not found or no access.",
+      "action": {
+        "history": "History",
+        "move": "Move to…",
+        "duplicate": "Duplicate",
+        "template": "Save as template",
+        "anchors": "Links",
+        "currentUntil": "Current until…",
+        "owner": "Change owner",
+        "delete": "Move to trash"
+      },
+      "backlinks": "Mentioned in",
+      "backlinkProject": "Project",
+      "backlinkTicket": "Ticket",
+      "backlinkPage": "Page"
+    },
+    "editor": {
+      "titleLabel": "Page title",
+      "contentLabel": "Page text (Markdown)",
+      "icon": "Page icon",
+      "removeIcon": "Remove icon",
+      "toolbar": "Formatting",
+      "write": "Edit",
+      "preview": "Preview",
+      "noMatch": "No matches",
+      "done": "Done",
+      "status": {
+        "saved": "Saved",
+        "saving": "Saving…",
+        "unsaved": "Not saved",
+        "conflict": "Conflict",
+        "error": "Saving failed",
+        "tooLong": "Too long – will not be saved"
+      },
+      "command": {
+        "heading1": "Heading 1",
+        "heading2": "Heading 2",
+        "heading3": "Heading 3",
+        "bold": "Bold",
+        "italic": "Italic",
+        "code": "Code",
+        "link": "Link",
+        "bullet": "Bulleted list",
+        "numbered": "Numbered list",
+        "task": "Task list",
+        "quote": "Quote",
+        "codeBlock": "Code block",
+        "table": "Table",
+        "callout": "Callout",
+        "toggle": "Toggle",
+        "divider": "Divider",
+        "contents": "Table of contents"
+      },
+      "menu": {
+        "slash": "Blocks",
+        "reference": "Link"
+      },
+      "reference": {
+        "page": "Page",
+        "ticket": "Ticket",
+        "person": "Person"
+      },
+      "attach": "Attach an image or file",
+      "attachInput": "Choose a file",
+      "uploading": "Uploading {{name}} … {{percent}} %"
+    },
+    "conflict": {
+      "title": "The page was changed in the meantime",
+      "description": "Somebody else saved the page while you were editing it. Choose which version applies.",
+      "compare": "Show differences",
+      "takeTheirs": "Take their version",
+      "keepMine": "Keep my version",
+      "differences": "Differences"
+    },
+    "dialog": {
+      "cancel": "Cancel",
+      "close": "Close",
+      "save": "Save",
+      "create": {
+        "title": "New page",
+        "description": "A page for knowledge, ideas or documentation.",
+        "titleLabel": "Title",
+        "areaLabel": "Area",
+        "templateLabel": "Template",
+        "blank": "Blank page",
+        "submit": "Create page"
+      },
+      "delete": {
+        "title": "Delete “{{title}}”?",
+        "description": "The page and its subpages go to the trash, where they can be restored.",
+        "submit": "Move to trash"
+      },
+      "duplicate": {
+        "title": "Duplicate page",
+        "description": "The copy belongs to you and is placed after its sibling pages.",
+        "submit": "Duplicate",
+        "copyOf": "Copy of {{title}}",
+        "withChildren": "Copy subpages too"
+      },
+      "template": {
+        "title": "Save as template",
+        "description": "Everyone who sees this page can use the template; it does not appear in the page tree.",
+        "submit": "Save template"
+      },
+      "currentUntil": {
+        "title": "Current until",
+        "description": "Until this date the page counts as reviewed. Afterwards it shows up under “For me”.",
+        "label": "Date (empty = no expiry)"
+      },
+      "owner": {
+        "title": "Change owner",
+        "description": "The new owner manages the page.",
+        "label": "New owner"
+      },
+      "anchors": {
+        "title": "Links",
+        "description": "Whoever may not see a linked department, milestone or epic does not see this page either.",
+        "departments": "Departments",
+        "milestones": "Milestones",
+        "epics": "Epics",
+        "missing": "{{count}} link(s) point to deleted targets. Saving removes them."
+      },
+      "history": {
+        "title": "Page history",
+        "description": "Earlier versions. Restoring creates a new version and overwrites nothing.",
+        "version": "Version {{revision}}",
+        "preview": "Preview",
+        "restore": "Restore",
+        "previewLabel": "Preview of the version"
+      },
+      "move": {
+        "title": "Move page",
+        "description": "Choose the page or area the page will live under.",
+        "targetLabel": "Target",
+        "rootPrivate": "Private (top level)",
+        "rootGeneral": "General (top level)",
+        "rootProject": "{{name}} (top level)",
+        "submit": "Move",
+        "change": {
+          "same": "Visibility stays the same.",
+          "wider": "Afterwards more people see this page.",
+          "narrower": "Afterwards fewer people see this page.",
+          "different": "Afterwards different people see this page."
+        }
+      }
+    },
+    "trash": {
+      "title": "Trash",
+      "description": "Deleted pages stay here until their retention time ends.",
+      "empty": "The trash is empty.",
+      "deleted": "Deleted",
+      "remaining": "Remaining",
+      "daysLeft_one": "{{count}} day left",
+      "daysLeft_other": "{{count}} days left",
+      "restore": "Restore",
+      "purge": "Delete permanently",
+      "restoreTitle": "Restore “{{title}}”?",
+      "restoreDescription": "The page returns together with its subpages.",
+      "purgeTitle": "Delete “{{title}}” permanently?",
+      "purgeDescription": "The page, its subpages, versions and attachments are deleted irrevocably."
+    },
+    "placeholder": {
+      "label": "Private page",
+      "stamp": "PRIVATE",
+      "description": "This is a private page. Its title and content are not visible to administrators.",
+      "owner": "Owner:",
+      "address": "Address:",
+      "delete": "Delete page",
+      "deleteTitle": "Delete private page?",
+      "deleteDescription": "The page moves to the trash of {{name}}. Only {{name}} can restore it."
+    },
+    "templates": {
+      "note": {
+        "name": "Note",
+        "content": "## What is it about?\n\n\n## Notes\n\n- \n"
+      },
+      "decision": {
+        "name": "Decision",
+        "content": "## Context\n\n\n## Options\n\n- \n\n## Decision\n\n\n## Consequences\n\n"
+      },
+      "guide": {
+        "name": "Guide",
+        "content": "[toc]\n\n## Goal\n\n\n## Requirements\n\n- \n\n## Steps\n\n1. \n\n## Problems and solutions\n\n"
+      },
+      "idea": {
+        "name": "Idea",
+        "content": "## The idea\n\n\n## Why now?\n\n\n## Open questions\n\n- [ ] \n"
+      },
+      "incident": {
+        "name": "Incident",
+        "content": "## What happened?\n\n\n## Impact\n\n\n## Cause\n\n\n## Cleanup\n\n- [ ] \n\n## How do we prevent it?\n\n"
+      }
+    },
+    "errors": {
+      "titleRequired": "A page needs a title.",
+      "titleTooLong": "The title must not exceed 200 characters.",
+      "contentTooLong": "The text must not exceed 200,000 characters.",
+      "commentRequired": "A comment must not be empty.",
+      "commentTooLong": "A comment must not exceed 5,000 characters.",
+      "treeTooDeep": "Pages can be nested at most 10 levels deep.",
+      "invalidParent": "The page cannot be placed below this page.",
+      "invalidScope": "The page cannot be moved to this area.",
+      "invalidAnchor": "The page cannot be linked to this target.",
+      "invalidDate": "The date must use the format YYYY-MM-DD.",
+      "invalidIcon": "The icon must be a single emoji.",
+      "invalidPosition": "The page cannot be placed at this position.",
+      "invalidSetting": "The value is outside the permitted range.",
+      "fileEmpty": "The file is empty.",
+      "fileNameTooLong": "A file name must not exceed 255 characters.",
+      "fileTooLarge": "The file exceeds the size limit for its kind.",
+      "versionMissing": "This version does not exist.",
+      "notInTrash": "The page is not in the trash.",
+      "conflict": "The page was changed in the meantime.",
+      "forbidden": "You lack the permission for this.",
+      "invalidInput": "The input is incomplete.",
+      "notFound": "Not found or no access.",
+      "network": "The server cannot be reached."
+    },
+    "search": {
+      "title": "Search the wiki",
+      "description": "Searches the titles and texts of every page you may see.",
+      "placeholder": "Search term or \"exact phrase\"",
+      "label": "Search text",
+      "recent": "Recently visited",
+      "noRecent": "No pages visited yet.",
+      "empty": "No results.",
+      "total": "{{count}} results",
+      "filters": "Filters",
+      "location": "Location",
+      "locationAll": "Everywhere",
+      "locationPrivate": "Private",
+      "locationGeneral": "General",
+      "underThisPage": "Only in this page and its subpages",
+      "creator": "Creator",
+      "creatorAll": "Everyone",
+      "from": "Edited from",
+      "to": "Edited until",
+      "titleOnly": "Titles only",
+      "sort": "Sort by",
+      "sortRelevance": "Relevance",
+      "sortEdited": "Last edited",
+      "sortCreated": "Created",
+      "loading": "Searching…"
+    },
+    "attachments": {
+      "title": "Attachments",
+      "empty": "No attachments.",
+      "remove": "Remove {{name}}",
+      "removeTitle": "Remove “{{name}}”?",
+      "removeDescription": "The file is deleted. Links to this attachment stop working.",
+      "removeSubmit": "Remove"
+    },
+    "comments": {
+      "title": "Comments",
+      "empty": "No open comments.",
+      "newLabel": "Write a comment (use @name to mention somebody)",
+      "submit": "Comment",
+      "reply": "Reply",
+      "replyLabel": "Write a reply",
+      "resolve": "Resolve",
+      "reopen": "Reopen",
+      "edit": "Edit comment",
+      "editLabel": "Comment text",
+      "edited": "edited",
+      "delete": "Delete comment",
+      "deleteTitle": "Delete comment?",
+      "deleteDescription": "The comment and its replies are deleted.",
+      "stale": "Passage changed",
+      "commentSelection": "Comment on selection",
+      "showResolved": "Show resolved ({{count}})",
+      "hideResolved": "Hide resolved"
+    },
+    "feed": {
+      "title": "For me",
+      "empty": "Nothing for you right now.",
+      "unread": "{{count}} new",
+      "new": "New",
+      "markRead": "Mark as read",
+      "reason": {
+        "mention": "{{name}} mentioned you",
+        "reply": "{{name}} replied to your comment",
+        "comment": "{{name}} commented on your page",
+        "expired": "The page is no longer current"
+      }
+    }
   }
 }

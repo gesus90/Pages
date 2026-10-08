@@ -6,10 +6,12 @@ import type {
   AdministrationPageData,
   ManagedUser,
 } from "@/definition/Authorization";
+import type { WikiPrivatePagesByOwner } from "@/definition/Wiki";
 
 interface UserDirectoryTableProps {
   readonly directory: AdministrationPageData;
   readonly visibleUsers: readonly ManagedUser[];
+  readonly privateWikiPages: WikiPrivatePagesByOwner;
   readonly hasFilter: boolean;
   readonly onReset: () => void;
 }
@@ -18,6 +20,7 @@ interface UserDirectoryTableProps {
 export function UserDirectoryTable({
   directory,
   visibleUsers,
+  privateWikiPages,
   hasFilter,
   onReset,
 }: UserDirectoryTableProps): React.ReactElement {
@@ -43,6 +46,7 @@ export function UserDirectoryTable({
               user={user}
               assignableRoles={directory.assignableRoles}
               directory={directory}
+              privateWikiPages={privateWikiPages[user.id] ?? []}
             />
           ))
         ) : (

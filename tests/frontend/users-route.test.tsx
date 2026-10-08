@@ -35,6 +35,8 @@ import {
   managedUser,
 } from "../helpers/administration-page";
 
+import type { WikiPrivatePagesByOwner } from "@/definition/Wiki";
+
 const mockedActionData = vi.mocked(useActionData);
 const mockedLoaderData = vi.mocked(useLoaderData);
 const mockedNavigation = vi.mocked(useNavigation);
@@ -96,13 +98,15 @@ function renderUsers(
   actionData: unknown = undefined,
   submitting: Record<string, string> | null = null,
   submit: ReturnType<typeof useSubmit> = vi.fn(),
+  privateWikiPages: WikiPrivatePagesByOwner = {},
 ): void {
-  mockedLoaderData.mockReturnValue(
-    administrationPage(
+  mockedLoaderData.mockReturnValue({
+    ...administrationPage(
       users.map((user) => managedUser(user)),
       directoryRoles(assignableRoles),
     ),
-  );
+    privateWikiPages,
+  });
   mockedActionData.mockReturnValue(actionData);
   mockedSubmit.mockReturnValue(submit);
 
@@ -379,6 +383,32 @@ describe("UserRow", () => {
     expect(
       await screen.findByRole("button", { name: "Wird deaktiviert …" }),
     ).toBeDisabled();
+  });
+
+  it("shows the private wiki pages of an account as a count with a list", async () => {
+    const user = userEvent.setup();
+    renderUsers(
+      [MANAGEABLE_ADMIN, LOCKED_EMPLOYEE],
+      undefined,
+      undefined,
+      null,
+      vi.fn(),
+      {
+        [MANAGEABLE_ADMIN.id]: [
+          { id: "page-1", ownerId: MANAGEABLE_ADMIN.id, ownerName: "Admin" },
+        ],
+      },
+    );
+
+    expect(
+      screen.getAllByRole("button", { name: /Private Wiki-Seiten/ }),
+    ).toHaveLength(1);
+
+    await user.click(
+      screen.getByRole("button", { name: "Private Wiki-Seiten: 1" }),
+    );
+
+    expect(await screen.findByText("/wiki/page-1")).toBeInTheDocument();
   });
 
   it("shows failed state changes of the directory above the table", () => {

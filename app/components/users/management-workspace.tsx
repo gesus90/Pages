@@ -8,12 +8,15 @@ import { DepartmentCatalog } from "@/app/components/users/department-catalog";
 import { ManagementFeedback } from "@/app/components/users/management-feedback";
 
 import type { AdministrationPageData } from "@/definition/Authorization";
+import type { WikiPrivatePagesByOwner } from "@/definition/Wiki";
 
 /** The management sections share the page layout and accessible tab pattern. */
 export function ManagementWorkspace({
   directory,
+  privateWikiPages,
 }: {
   readonly directory: AdministrationPageData;
+  readonly privateWikiPages: WikiPrivatePagesByOwner;
 }): React.ReactElement {
   const { t } = useTranslation();
   const [section, setSection] = useState("users");
@@ -44,7 +47,10 @@ export function ManagementWorkspace({
           value="users"
           className="mt-6 flex min-h-0 flex-1 flex-col"
         >
-          <UserDirectory directory={directory} />
+          <UserDirectory
+            directory={directory}
+            privateWikiPages={privateWikiPages}
+          />
         </TabsContent>
         {directory.canManageRoles ? (
           <TabsContent value="roles" className="mt-6 min-h-0 flex-1">

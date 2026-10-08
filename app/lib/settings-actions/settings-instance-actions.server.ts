@@ -1,11 +1,14 @@
 import { data } from "react-router";
 
+import { WikiValidationError } from "@/backend/error/WikiErrors";
 import { InstanceSettingsDeniedError } from "@/backend/service/InstanceSettingsService";
+
 import { readText } from "@/app/lib/form-fields.server";
 
 import { parseLogoUpload } from "./logo-upload.server";
 import { forbidden } from "./settings-action-support.server";
 
+import type { WikiSettings } from "@/definition/Wiki";
 import type {
   SettingsActionData,
   SettingsActionHandler,
@@ -97,5 +100,51 @@ export const handleRemoveLogo: SettingsActionHandler = async ({
     return data<SettingsActionData>({ intent: "remove-logo", ok: true });
   } catch (error: unknown) {
     return failInstanceAction(error, { intent: "remove-logo", ok: false });
+  }
+};
+
+const MEBIBYTE = 1024 * 1024;
+
+function readNumber(formData: FormData, name: string, factor = 1): number {
+  const value = (readText(formData, name) ?? "").trim();
+
+  return /^\d+$/u.test(value) ? Number(value) * factor : Number.NaN;
+}
+
+/** Changes the wiki retention times and upload limits; administrators only. */
+export const handleUpdateWikiSettings: SettingsActionHandler = async ({
+  user,
+  formData,
+  services,
+}) => {
+  const failure = {
+    error: "general",
+    intent: "update-wiki-settings",
+    ok: false,
+  } as const;
+  const settings: WikiSettings = {
+    fileLimitBytes: readNumber(formData, "fileLimitMegabytes", MEBIBYTE),
+    mediaLimitBytes: readNumber(formData, "mediaLimitMegabytes", MEBIBYTE),
+    trashRetentionDays: readNumber(formData, "trashRetentionDays"),
+    versionKeepLast: readNumber(formData, "versionKeepLast"),
+    versionRetentionDays: readNumber(formData, "versionRetentionDays"),
+  };
+
+  try {
+    await services.wikiService.updateSettings(user, settings);
+
+    return data<SettingsActionData>({
+      intent: "update-wiki-settings",
+      ok: true,
+    });
+  } catch (error: unknown) {
+    if (error instanceof WikiValidationError) {
+      return data<SettingsActionData>(
+        { ...failure, error: "invalidSetting" },
+        { status: 400 },
+      );
+    }
+
+    return failInstanceAction(error, failure);
   }
 };

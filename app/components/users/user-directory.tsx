@@ -11,6 +11,7 @@ import type {
   AdministrationPageData,
   ManagedUser,
 } from "@/definition/Authorization";
+import type { WikiPrivatePagesByOwner } from "@/definition/Wiki";
 import type { UsersActionData } from "@/app/lib/user-actions/user-action-support.server";
 
 function matchesSearch(user: ManagedUser, query: string): boolean {
@@ -25,8 +26,10 @@ function matchesSearch(user: ManagedUser, query: string): boolean {
 /** Lists only server-authorized identities and their independently authorized actions. */
 export function UserDirectory({
   directory,
+  privateWikiPages,
 }: {
   readonly directory: AdministrationPageData;
+  readonly privateWikiPages: WikiPrivatePagesByOwner;
 }): React.ReactElement {
   const { t, i18n } = useTranslation();
   const actionData = useActionData<UsersActionData>();
@@ -93,6 +96,7 @@ export function UserDirectory({
         <UserDirectoryTable
           directory={directory}
           visibleUsers={visibleUsers}
+          privateWikiPages={privateWikiPages}
           hasFilter={search.trim() !== ""}
           onReset={resetSearch}
         />

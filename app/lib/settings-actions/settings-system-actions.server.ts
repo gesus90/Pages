@@ -12,6 +12,7 @@ import {
   handleRemoveLogo,
   handleUpdateCompanyName,
   handleUpdateLogo,
+  handleUpdateWikiSettings,
 } from "./settings-instance-actions.server";
 import { handleSetMode } from "./settings-mode-action.server";
 
@@ -87,6 +88,7 @@ const SYSTEM_ACTION_HANDLERS = {
   "update-company-name": handleUpdateCompanyName,
   "update-logo": handleUpdateLogo,
   "update-port": handleUpdatePort,
+  "update-wiki-settings": handleUpdateWikiSettings,
 } satisfies Record<string, SettingsActionHandler>;
 
 /**

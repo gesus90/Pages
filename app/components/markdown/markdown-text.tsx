@@ -13,9 +13,11 @@ interface MarkdownTextProps {
   readonly className?: string;
 }
 
-const REMARK_PLUGINS = [remarkGfm];
+/** Remark plugins every markdown rendering of Pages uses. */
+export const MARKDOWN_REMARK_PLUGINS = [remarkGfm];
 
-const COMPONENTS: Components = {
+/** Styled elements shared by ticket descriptions and wiki pages. */
+export const MARKDOWN_COMPONENTS: Components = {
   a: ({ href, children }) => (
     <MarkdownLink href={href}>{children}</MarkdownLink>
   ),
@@ -114,9 +116,9 @@ export function MarkdownText({
   return (
     <div className={cn("text-sm leading-relaxed break-words", className)}>
       <Markdown
-        components={COMPONENTS}
+        components={MARKDOWN_COMPONENTS}
         disallowedElements={["img"]}
-        remarkPlugins={REMARK_PLUGINS}
+        remarkPlugins={MARKDOWN_REMARK_PLUGINS}
         unwrapDisallowed
         urlTransform={transformMarkdownUrl}
       >

@@ -56,7 +56,7 @@ function renderWorkspace(initial: AdministrationPageData): {
     refresh = () => setVersion((current) => current + 1);
     return (
       <>
-        <ManagementWorkspace directory={directory} />
+        <ManagementWorkspace directory={directory} privateWikiPages={{}} />
         <Toaster />
       </>
     );

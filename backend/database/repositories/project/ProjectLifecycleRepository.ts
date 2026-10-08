@@ -1,3 +1,5 @@
+import { deleteWikiPages } from "../wiki/WikiPageDeletion";
+
 import type { DatabaseTransaction } from "@/backend/database/Database";
 
 const OWNED_PROJECT_DELETIONS = [
@@ -16,7 +18,6 @@ const OWNED_PROJECT_DELETIONS = [
   "DELETE FROM milestones WHERE project_id = $project_id;",
   "DELETE FROM workflow_statuses WHERE project_id = $project_id;",
   "DELETE FROM tasks WHERE project_id = $project_id;",
-  "DELETE FROM wiki_pages WHERE project_id = $project_id;",
   "DELETE FROM work_items WHERE project_id = $project_id;",
 ] as const;
 
@@ -33,6 +34,12 @@ export class ProjectLifecycleRepository {
   public async delete(projectId: string): Promise<void> {
     await this.deleteTemplates(projectId);
     await this.deleteWorkItemChildren(projectId);
+    // The project has no trash, so its pages go for good. Their attachment
+    // files are removed by the orphan sweep of the wiki.
+    await deleteWikiPages(this.database, {
+      parameters: { project_id: projectId },
+      sql: "SELECT id FROM wiki_pages WHERE project_id = $project_id",
+    });
     for (const statement of OWNED_PROJECT_DELETIONS) {
       await this.database.execute(statement, { project_id: projectId });
     }

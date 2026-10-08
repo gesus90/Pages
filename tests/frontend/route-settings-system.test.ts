@@ -39,6 +39,9 @@ function useAccount(account: AccountAccess): void {
     instanceSettingsService: {
       getBranding: vi.fn().mockResolvedValue(BRANDING),
     },
+    wikiService: {
+      getSettings: vi.fn().mockResolvedValue({ trashRetentionDays: 30 }),
+    },
     permissionService: new PermissionService(
       vi.fn().mockResolvedValue(account),
     ),
@@ -100,6 +103,7 @@ describe("system settings route", () => {
           startedAt: expect.any(String),
           version: PAGES_VERSION,
         },
+        wikiSettings: { trashRetentionDays: 30 },
       });
     });
 

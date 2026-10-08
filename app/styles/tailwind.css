@@ -293,3 +293,12 @@
     );
   }
 }
+
+/* Passages of a wiki page that open comments refer to. */
+::highlight(wiki-comment) {
+  background-color: color-mix(
+    in srgb,
+    var(--color-warning, #d97706) 30%,
+    transparent
+  );
+}

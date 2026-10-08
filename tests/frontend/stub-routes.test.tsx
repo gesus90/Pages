@@ -26,7 +26,6 @@ import { createI18n } from "@/app/lib/i18n";
 import { LANGUAGE } from "@/language/Language";
 import ProjectRoute from "@/app/routes/project";
 import SettingsRoute from "@/app/routes/settings-profile";
-import WikiRoute from "@/app/routes/wiki";
 
 import { createSettingsLoaderData } from "../helpers/settings-loader-data";
 
@@ -62,12 +61,6 @@ describe("future route boundaries", () => {
 
   it("renders an empty project shell", () => {
     const { container } = render(<ProjectRoute />);
-
-    expect(container.querySelector("main")).not.toBeNull();
-  });
-
-  it("renders an empty wiki shell", () => {
-    const { container } = render(<WikiRoute />);
 
     expect(container.querySelector("main")).not.toBeNull();
   });

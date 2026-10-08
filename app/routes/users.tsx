@@ -9,21 +9,31 @@ import { handleUsersAction } from "@/app/lib/user-actions/user-actions.server";
 
 import type { MiddlewareFunction } from "react-router";
 import type { AdministrationPageData } from "@/definition/Authorization";
+import type { WikiPrivatePagesByOwner } from "@/definition/Wiki";
 import type { UsersActionResult } from "@/app/lib/user-actions/user-action-support.server";
 import type { Route } from "./+types/users";
 
 /** Checks management access independently of navigation visibility. */
 export const middleware: MiddlewareFunction[] = [requireUserManagement];
 
+/** The management view with what an administrator sees of private wiki pages. */
+export interface UsersPageData extends AdministrationPageData {
+  readonly privateWikiPages: WikiPrivatePagesByOwner;
+}
+
 /** Loads one server-filtered management view. */
 export async function loader({
   context,
-}: Route.LoaderArgs): Promise<AdministrationPageData> {
+}: Route.LoaderArgs): Promise<UsersPageData> {
   const actor = context.get(authenticatedUserContext);
   if (!actor)
     throw new Error("Authenticated middleware did not provide a user.");
   const services = await getApplicationServices();
-  return services.administrationService.pageData(actor.id);
+  const [directory, privateWikiPages] = await Promise.all([
+    services.administrationService.pageData(actor.id),
+    services.wikiService.listAllPlaceholders(actor),
+  ]);
+  return { ...directory, privateWikiPages };
 }
 
 /** Applies validated mutations through the transactional A2 service boundary. */
@@ -48,5 +58,11 @@ export async function action({
 
 /** Renders users, roles and departments in their permitted sections. */
 export default function UsersRoute(): React.ReactElement {
-  return <ManagementWorkspace directory={useLoaderData<typeof loader>()} />;
+  const page = useLoaderData<typeof loader>();
+  return (
+    <ManagementWorkspace
+      directory={page}
+      privateWikiPages={page.privateWikiPages}
+    />
+  );
 }

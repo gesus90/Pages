@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createI18n } from "@/app/lib/i18n";
 import SettingsSystemRoute from "@/app/routes/settings-system";
+import { WIKI_SETTING_DEFAULTS } from "@/definition/Wiki";
 
 import type { SettingsActionData } from "@/app/lib/settings-actions/settings-action-support.server";
 
@@ -32,6 +33,7 @@ function renderRoute({ access, onAction }: RenderOptions): void {
                 startedAt: "2026-10-07T08:00:00.000Z",
                 version: "9.9.9",
               },
+              wikiSettings: WIKI_SETTING_DEFAULTS,
             }
           : { access },
       path: "/settings/system",

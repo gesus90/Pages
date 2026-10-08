@@ -156,9 +156,10 @@ never turned into an administrator).
 
 ## Data
 
-Pages stores everything in one [DuckDB](https://duckdb.org) file, by default
+Pages stores its data in one [DuckDB](https://duckdb.org) file, by default
 `~/.pages/data/pages.duckdb`; the setup wizard chooses the path and stores it
-as `databasePath` in the configuration. The schema is created and updated
+as `databasePath` in the configuration. Files attached to wiki pages are not
+kept in the database but in a `wiki-attachments` folder next to it. The schema is created and updated
 automatically on start by the migrations in
 `backend/database/migrations-duckdb/`; an applied migration must never be
 edited, add a new one instead.
@@ -168,7 +169,8 @@ edited, add a new one instead.
   by another tool while the server runs. Requests of several users are queued
   inside the process.
 - **Backup:** stop Pages, then copy `pages.duckdb` (and a `pages.duckdb.wal`
-  file if one exists) together with the `github-token.key` next to it.
+  file if one exists) together with the `github-token.key` and the
+  `wiki-attachments` folder next to it.
 - **No foreign keys.** DuckDB cannot update indexed columns of rows that other
   tables reference and has no `ON DELETE` actions, so the schema has none; the
   services check references. Project archiving retains its data; permanent

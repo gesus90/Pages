@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { WIKI_SETTING_DEFAULTS } from "@/definition/Wiki";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { I18nextProvider } from "react-i18next";
@@ -22,6 +23,7 @@ function renderSection(
     {
       Component: () => (
         <SystemSection
+          wikiSettings={WIKI_SETTING_DEFAULTS}
           branding={branding}
           port={3000}
           status={{
@@ -62,6 +64,7 @@ describe("status card", () => {
       {
         Component: () => (
           <SystemSection
+            wikiSettings={WIKI_SETTING_DEFAULTS}
             branding={{ companyName: null, logoUrl: null }}
             port={3000}
             status={{

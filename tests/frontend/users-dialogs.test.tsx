@@ -76,12 +76,13 @@ function renderUsers(
 ): Harness {
   let forceRender: () => void = () => {};
 
-  mockedLoaderData.mockReturnValue(
-    administrationPage(
+  mockedLoaderData.mockReturnValue({
+    ...administrationPage(
       users.map((user) => managedUser(user)),
       directoryRoles(assignableRoles),
     ),
-  );
+    privateWikiPages: {},
+  });
   mockedSubmit.mockReturnValue(vi.fn());
   mockedNavigation.mockReturnValue(
     (initial.navigation ?? { state: "idle" }) as ReturnType<
