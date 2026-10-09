@@ -1,3 +1,3 @@
 import { start } from "./start.js";
 
-start();
+void start();

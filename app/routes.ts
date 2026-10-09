@@ -14,6 +14,14 @@ export default [
   route("setup", "routes/setup.tsx"),
   route("health", "routes/health.ts"),
   route("api/v1/agents", "routes/api-v1-agents.ts"),
+  route("api/v1/personal-tokens", "routes/api-v1-personal-tokens.ts"),
+  route("api/v1/mcp-settings", "routes/api-v1-mcp-settings.ts"),
+  route(
+    ".well-known/oauth-authorization-server",
+    "routes/oauth-server-metadata.ts",
+  ),
+  route("oauth/consent", "routes/oauth-consent.tsx"),
+  route("oauth/:endpoint", "routes/oauth-endpoint.ts"),
   route("instance-logo", "routes/instance-logo.ts"),
   layout("routes/authenticated.tsx", [
     route("account-version", "routes/account-version.ts"),

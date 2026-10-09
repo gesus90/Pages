@@ -136,6 +136,7 @@ describe("DuckDB baseline migration", () => {
       "024_ticket_attachments_and_tree.sql",
       "025_text_assistant.sql",
       "026_agent_function_assignments.sql",
+      "027_mcp_authorization.sql",
     ]);
   });
 

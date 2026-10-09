@@ -4,11 +4,23 @@ export interface PagesAgentApiRequest {
   readonly parameters: Readonly<Record<string, unknown>>;
 }
 
-/** Stable failures available before agent authentication is implemented. */
-export type PagesAgentApiErrorCode =
-  "AUTH_REQUIRED" | "AUTH_NOT_READY" | "METHOD_NOT_ALLOWED";
+/** Verified identity wire contract; permission names originate exclusively in Pages. */
+export interface PagesAgentApiIdentity {
+  readonly userId: string;
+  readonly isAdmin: boolean;
+  readonly permissions: readonly string[];
+}
 
-/** Public, unprivileged error envelope; no successful operation exists yet. */
+/** Stable failures from the versioned authentication boundary. */
+export type PagesAgentApiErrorCode =
+  | "AUTH_REQUIRED"
+  | "AUTH_INVALID"
+  | "AUTH_UNAVAILABLE"
+  | "INVALID_REQUEST"
+  | "FORBIDDEN"
+  | "METHOD_NOT_ALLOWED";
+
+/** Public error envelope without credentials or underlying diagnostic messages. */
 export interface PagesAgentApiFailure {
   readonly apiVersion: "1";
   readonly error: {

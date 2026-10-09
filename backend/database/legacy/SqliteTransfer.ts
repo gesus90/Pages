@@ -435,6 +435,8 @@ function verifySourceColumns(
  * SQLite has neither.
  * The Text role, preferences and private assistant histories came with A8.3;
  * their native defaults and existing rows remain outside the legacy copy.
+ * Personal agent tokens and OAuth consent came with A9.2; their native rows
+ * likewise stay untouched when the frozen SQLite schema is copied.
  */
 async function readTargetColumns(
   target: Database,
@@ -462,7 +464,9 @@ async function readTargetColumns(
               'work_item_attachments', 'work_item_tree_expansions',
               'text_assistant_settings', 'text_assistant_preferences',
               'assistant_conversations', 'assistant_messages',
-              'agent_function_assignments'
+              'agent_function_assignments', 'personal_agent_tokens',
+              'mcp_oauth_clients', 'mcp_oauth_flows', 'mcp_oauth_preferences',
+              'mcp_oauth_grants', 'mcp_oauth_credentials'
           )
           AND NOT (
               table_name = 'wiki_pages'

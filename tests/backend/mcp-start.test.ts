@@ -6,56 +6,79 @@ vi.mock(
 );
 vi.mock("../../mcp/src/configuration", () => ({ readConfiguration: vi.fn() }));
 vi.mock("../../mcp/src/server", () => ({ createServer: vi.fn() }));
+vi.mock("../../mcp/src/verification", () => ({ verifyPages: vi.fn() }));
+vi.mock("../../mcp/src/http-configuration", () => ({
+  readHttpConfiguration: vi.fn(),
+}));
+vi.mock("../../mcp/src/http-server", () => ({ startHttpServer: vi.fn() }));
 
 import { serveStdio } from "../../mcp/node_modules/@modelcontextprotocol/server/dist/stdio.mjs";
 import { readConfiguration } from "../../mcp/src/configuration";
 import { createServer } from "../../mcp/src/server";
+import { verifyPages } from "../../mcp/src/verification";
+import { startHttpServer } from "../../mcp/src/http-server";
+import { readHttpConfiguration } from "../../mcp/src/http-configuration";
 import { start } from "../../mcp/src/start";
 
+const originalArguments = process.argv;
+const identity = { userId: "test", isAdmin: false, permissions: [] };
 beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
   process.exitCode = 0;
+  process.argv = [process.execPath, "bundle.js"];
+  vi.mocked(verifyPages).mockResolvedValue(identity);
 });
 afterEach(() => {
   process.exitCode = 0;
+  process.argv = originalArguments;
 });
 
 describe("MCP startup", () => {
-  it("validates configuration before opening stdio", () => {
-    start();
+  it("verifies Pages before opening stdio and verifies again in every factory", async () => {
+    await start();
     expect(readConfiguration).toHaveBeenCalledWith(process.env);
-    expect(serveStdio).toHaveBeenCalledWith(createServer);
+    expect(verifyPages).toHaveBeenCalledOnce();
+    const factory = vi.mocked(serveStdio).mock.calls[0]?.[0];
+    if (!factory) throw new Error("Missing factory");
+    factory({ era: "legacy" });
+    const verify = vi.mocked(createServer).mock.calls[0]?.[0];
+    if (!verify) throw new Error("Missing verification");
+    await verify();
+    expect(verifyPages).toHaveBeenCalledTimes(2);
     expect(console.error).not.toHaveBeenCalled();
   });
-
-  it.each([new Error("PAGES_TOKEN is required."), "invalid"])(
-    "fails clearly when configuration cannot be read",
-    (failure) => {
-      vi.mocked(readConfiguration).mockImplementation(() => {
-        throw failure;
+  it("fails closed with token-free diagnostics on configuration, verification or SDK errors", async () => {
+    for (const operation of [readConfiguration, verifyPages, serveStdio]) {
+      vi.mocked(operation).mockImplementationOnce(() => {
+        throw new Error("sentinel-secret");
       });
-      start();
+      await start();
       expect(process.exitCode).toBe(1);
-      expect(serveStdio).not.toHaveBeenCalled();
-      expect(console.error).toHaveBeenCalledWith(
-        expect.stringContaining("[pages-mcp]"),
+      expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain(
+        "sentinel-secret",
       );
-    },
-  );
-
-  it("redacts an unexpected startup exception", () => {
-    vi.mocked(serveStdio).mockImplementation(() => {
-      throw new Error("sentinel-secret");
-    });
-    start();
-    expect(process.exitCode).toBe(1);
-    expect(console.error).toHaveBeenCalledWith(
-      "[pages-mcp] Could not start the stdio server.",
-    );
+    }
   });
-
+  it("opens HTTP without a personal token and closes its listener on shutdown", async () => {
+    process.argv.push("--http", "--resource", "https://mcp.invalid/mcp");
+    const close = vi.fn();
+    vi.mocked(startHttpServer).mockResolvedValue({ close } as never);
+    const once = vi.spyOn(process, "once").mockReturnValue(process);
+    await start();
+    expect(readHttpConfiguration).toHaveBeenCalledWith(
+      process.env,
+      process.argv.slice(2),
+    );
+    expect(readConfiguration).not.toHaveBeenCalled();
+    const shutdown = once.mock.calls.find(
+      ([signal]) => signal === "SIGTERM",
+    )?.[1];
+    if (!shutdown) throw new Error("Missing shutdown");
+    shutdown();
+    expect(close).toHaveBeenCalledOnce();
+  });
   it("starts the entry point", async () => {
     await import("../../mcp/src/main");
-    expect(serveStdio).toHaveBeenCalledWith(createServer);
+    await vi.waitFor(() => expect(serveStdio).toHaveBeenCalledOnce());
   });
 });

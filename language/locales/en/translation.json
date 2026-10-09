@@ -2414,5 +2414,14 @@
       "general": "The setting could not be saved.",
       "accessUnverified": "Access to this connection is not verified. Verify it in the agent settings first."
     }
+  },
+  "mcpConsent": {
+    "title": "Allow MCP access",
+    "description": "This client wants to connect to Pages. Pages checks your permissions again for every call.",
+    "client": "Client",
+    "resource": "MCP resource",
+    "scope": "Scope",
+    "approve": "Allow",
+    "deny": "Deny"
   }
 }

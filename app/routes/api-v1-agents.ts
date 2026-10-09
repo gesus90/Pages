@@ -1,68 +1,69 @@
-import { rejectUnverifiedAgentCredential } from "@/backend/service/PagesAgentApiService";
+import { getApplicationServices } from "@/app/lib/services.server";
+import { readOAuthJson } from "@/app/lib/oauth-response.server";
+import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
 
-import type { PagesAgentApiFailure } from "@/definition/PagesAgentApi";
+import type { PagesAgentApiErrorCode } from "@/definition/PagesAgentApi";
 import type { Route } from "./+types/api-v1-agents";
 
-function respond(
-  failure: PagesAgentApiFailure,
-  status: number,
-  additionalHeaders: Readonly<Record<string, string>> = {},
-): Response {
-  return Response.json(failure, {
-    status,
-    headers: {
-      "Cache-Control": "no-store",
-      "X-Content-Type-Options": "nosniff",
-      ...additionalHeaders,
+function failure(code: PagesAgentApiErrorCode, status: number): Response {
+  return Response.json(
+    {
+      apiVersion: "1",
+      error: {
+        code,
+        message: "The agent API request was rejected.",
+        retryable: false,
+      },
     },
-  });
+    {
+      status,
+      headers: {
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+        ...(status === 401 ? { "WWW-Authenticate": "Bearer" } : {}),
+        ...(status === 405 ? { Allow: "POST" } : {}),
+      },
+    },
+  );
 }
 
-function handleRequest(request: Request): Response {
-  if (request.method !== "POST") {
-    return respond(
-      {
-        apiVersion: "1",
-        error: {
-          code: "METHOD_NOT_ALLOWED",
-          message: "Use POST for the agent API.",
-          retryable: false,
-        },
+async function handleRequest(request: Request): Promise<Response> {
+  if (request.method !== "POST") return failure("METHOD_NOT_ALLOWED", 405);
+  const authorization = request.headers.get("Authorization") ?? "";
+  if (!/^Bearer [A-Za-z0-9._~+/-]+=*$/i.test(authorization))
+    return failure("AUTH_REQUIRED", 401);
+  try {
+    const services = await getApplicationServices();
+    // Verify before reading input; browser cookies and caller-supplied identities never participate.
+    const token = authorization.slice(7);
+    await services.pagesAgentApiService.verify(token);
+    const result = await services.pagesAgentApiService.handle(
+      token,
+      await readOAuthJson(request),
+    );
+    return Response.json(result, {
+      headers: {
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
       },
-      405,
-      { Allow: "POST" },
+    });
+  } catch (error: unknown) {
+    if (!(error instanceof McpAuthorizationError))
+      return failure("AUTH_UNAVAILABLE", 503);
+    if (error.status === 401) return failure("AUTH_INVALID", 401);
+    return failure(
+      error.status === 403 ? "FORBIDDEN" : "INVALID_REQUEST",
+      error.status,
     );
   }
-
-  if (
-    !/^Bearer [A-Za-z0-9._~+/-]+=*$/i.test(
-      request.headers.get("Authorization") ?? "",
-    )
-  ) {
-    return respond(
-      {
-        apiVersion: "1",
-        error: {
-          code: "AUTH_REQUIRED",
-          message: "Bearer authentication is required.",
-          retryable: false,
-        },
-      },
-      401,
-      { "WWW-Authenticate": "Bearer" },
-    );
-  }
-
-  // Header syntax is not authentication. Do not read the body or UI cookies.
-  return respond(rejectUnverifiedAgentCredential(), 503);
 }
 
-/** Reserves the versioned agent endpoint without any business operation. */
-export function action({ request }: Route.ActionArgs): Response {
+/** Handles only verified A9.2 API operations; no business tools exist in this stage. */
+export async function action({ request }: Route.ActionArgs): Promise<Response> {
   return handleRequest(request);
 }
 
-/** Rejects reads with the same JSON contract used by mutation requests. */
-export function loader({ request }: Route.LoaderArgs): Response {
+/** Rejects reads using the stable JSON method error. */
+export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
   return handleRequest(request);
 }

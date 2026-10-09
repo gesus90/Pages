@@ -40,9 +40,10 @@ describe("MCP single-file build", () => {
         encoding: "utf8",
         timeout: 5_000,
       });
-      expect(runtime.status).toBe(0);
+      expect(runtime.status).toBe(1);
       expect(runtime.stdout).toBe("");
-      expect(runtime.stderr).toBe("");
+      expect(runtime.stderr).toContain("Startup failed");
+      expect(runtime.stderr).not.toContain("synthetic-credential");
     } finally {
       process.chdir(originalDirectory);
       await rm(directory, { recursive: true, force: true });

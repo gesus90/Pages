@@ -1,5 +1,22 @@
 import { RouterContextProvider } from "react-router";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@/app/lib/services.server", () => ({
+  getApplicationServices: vi.fn(),
+}));
+
+import { getApplicationServices } from "@/app/lib/services.server";
+import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
+import type { ApplicationServices } from "@/app/lib/services.server";
+
+const verify = vi.fn();
+const handle = vi.fn();
+beforeEach(() => {
+  verify.mockRejectedValue(new McpAuthorizationError("invalid_token", 401));
+  vi.mocked(getApplicationServices).mockResolvedValue({
+    pagesAgentApiService: { verify, handle },
+  } as unknown as ApplicationServices);
+});
 
 import { action, loader } from "@/app/routes/api-v1-agents";
 
@@ -14,6 +31,62 @@ function args(request: Request): Parameters<typeof action>[0] {
 }
 
 describe("version 1 agent API foundation", () => {
+  it("returns verified identity with an empty tool catalog and never trusts caller identity", async () => {
+    verify.mockResolvedValue({
+      userId: "owner",
+      isAdmin: false,
+      permissions: [],
+    });
+    handle.mockResolvedValue({
+      apiVersion: "1",
+      identity: { userId: "owner", isAdmin: false, permissions: [] },
+      tools: [],
+    });
+    const input = {
+      operation: "verify",
+      parameters: {},
+      actor: { isAdmin: true },
+    };
+    const response = await action(
+      args(
+        new Request("https://pages.invalid/api/v1/agents", {
+          method: "POST",
+          headers: {
+            Authorization: "Bearer isolated-token",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(input),
+        }),
+      ),
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(await response.json()).toMatchObject({
+      identity: { isAdmin: false },
+      tools: [],
+    });
+    expect(handle).toHaveBeenCalledWith("isolated-token", input);
+  });
+
+  it("fails closed on unavailable verification, invalid input and forbidden business calls", async () => {
+    for (const [error, status, code] of [
+      [new Error("sentinel-secret"), 503, "AUTH_UNAVAILABLE"],
+      [new McpAuthorizationError("invalid_request"), 400, "INVALID_REQUEST"],
+      [new McpAuthorizationError("FORBIDDEN", 403), 403, "FORBIDDEN"],
+    ] as const) {
+      verify.mockRejectedValue(error);
+      const response = await action(
+        args(
+          new Request("https://pages.invalid/api/v1/agents", {
+            method: "POST",
+            headers: { Authorization: "Bearer isolated-token" },
+          }),
+        ),
+      );
+      expect(response.status).toBe(status);
+      expect(await response.text()).toContain(code);
+    }
+  });
   it.each([
     undefined,
     "Basic private",
@@ -32,7 +105,7 @@ describe("version 1 agent API foundation", () => {
         headers,
         body: "not even JSON",
       });
-      const response = action(args(request));
+      const response = await action(args(request));
       expect(request.bodyUsed).toBe(false);
       expect(response.status).toBe(401);
       expect(response.headers.get("WWW-Authenticate")).toBe("Bearer");
@@ -42,7 +115,7 @@ describe("version 1 agent API foundation", () => {
         apiVersion: "1",
         error: {
           code: "AUTH_REQUIRED",
-          message: "Bearer authentication is required.",
+          message: "The agent API request was rejected.",
           retryable: false,
         },
       });
@@ -64,15 +137,15 @@ describe("version 1 agent API foundation", () => {
           actor: { isAdmin: true },
         }),
       });
-      const response = action(args(request));
+      const response = await action(args(request));
       expect(request.bodyUsed).toBe(false);
-      expect(response.status).toBe(503);
-      expect(response.headers.get("WWW-Authenticate")).toBeNull();
+      expect(response.status).toBe(401);
+      expect(response.headers.get("WWW-Authenticate")).toBe("Bearer");
       await expect(response.json()).resolves.toEqual({
         apiVersion: "1",
         error: {
-          code: "AUTH_NOT_READY",
-          message: "Agent authentication is not available yet.",
+          code: "AUTH_INVALID",
+          message: "The agent API request was rejected.",
           retryable: false,
         },
       });
@@ -85,14 +158,14 @@ describe("version 1 agent API foundation", () => {
       const input = args(
         new Request("https://pages.invalid/api/v1/agents", { method }),
       );
-      const response = method === "GET" ? loader(input) : action(input);
+      const response = await (method === "GET" ? loader(input) : action(input));
       expect(response.status).toBe(405);
       expect(response.headers.get("Allow")).toBe("POST");
       await expect(response.json()).resolves.toEqual({
         apiVersion: "1",
         error: {
           code: "METHOD_NOT_ALLOWED",
-          message: "Use POST for the agent API.",
+          message: "The agent API request was rejected.",
           retryable: false,
         },
       });

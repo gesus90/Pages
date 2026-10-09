@@ -44,13 +44,18 @@ import { SetupService } from "@/backend/setup/SetupService";
 
 import { createAgentServices } from "./agent-services.server";
 import { createTextAssistantServices } from "./text-assistant-services.server";
+import { createMcpServices } from "./mcp-services.server";
 
 import type { AgentApplicationServices } from "./agent-services.server";
 import type { TextAssistantApplicationServices } from "./text-assistant-services.server";
+import type { McpApplicationServices } from "./mcp-services.server";
 
 /** Server-only service instances shared by React Router loaders and actions. */
 export interface ApplicationServices
-  extends AgentApplicationServices, TextAssistantApplicationServices {
+  extends
+    AgentApplicationServices,
+    TextAssistantApplicationServices,
+    McpApplicationServices {
   readonly administrationService: AdministrationService;
   readonly groupAdministrationService: GroupAdministrationService;
   readonly authService: AuthService;
@@ -247,6 +252,7 @@ async function initializeServices(
 
   return {
     ...agentServices,
+    ...createMcpServices(database, userService, administrationService),
     ...assistantServices,
     administrationService,
     authService: new AuthService(

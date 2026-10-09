@@ -3,7 +3,7 @@ import type { PagesConfiguration } from "./configuration.js";
 
 /**
  * Sends the shared JSON envelope to Pages, without redirecting credentials.
- * No A9.1 tool invokes this adapter and no local token validation authenticates it.
+ * Pages verifies the supplied personal or API delegation credential for every request.
  * Network and API failures expose only fixed diagnostics.
  */
 export async function postAgentRequest(
