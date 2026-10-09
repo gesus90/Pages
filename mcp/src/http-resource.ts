@@ -1,7 +1,7 @@
 import { createMcpHandler } from "@modelcontextprotocol/server";
 
 import { createServer } from "./server.js";
-import { readVerifiedIdentity, verifyPages } from "./verification.js";
+import { readVerifiedIdentity } from "./verification.js";
 
 import type { HttpConfiguration } from "./http-configuration.js";
 
@@ -71,12 +71,9 @@ export function createProtectedResource(
 ): ProtectedMcpResource {
   const handler = createMcpHandler(
     ({ authInfo }) =>
-      createServer(async () => {
+      createServer(() => {
         if (!authInfo) throw new Error("Pages authorization failed.");
-        return verifyPages({
-          agentsUrl: configuration.agentsUrl,
-          token: authInfo.token,
-        });
+        return { agentsUrl: configuration.agentsUrl, token: authInfo.token };
       }),
     { responseMode: "json" },
   );

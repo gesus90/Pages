@@ -1,7 +1,16 @@
 import { postAgentRequest } from "./pages-client.js";
 
-import type { PagesAgentApiIdentity } from "../../definition/PagesAgentApi.js";
+import type {
+  PagesAgentApiBusinessOperation,
+  PagesAgentApiIdentity,
+} from "../../definition/PagesAgentApi.js";
 import type { PagesConfiguration } from "./configuration.js";
+
+/** Fresh identity and the business operations Pages currently offers to it. */
+export interface PagesVerification {
+  readonly identity: PagesAgentApiIdentity;
+  readonly tools: readonly PagesAgentApiBusinessOperation[];
+}
 
 /** Narrows a verified identity without exposing unknown server fields to the MCP client. */
 export function readVerifiedIdentity(input: unknown): PagesAgentApiIdentity {
@@ -26,10 +35,19 @@ export function readVerifiedIdentity(input: unknown): PagesAgentApiIdentity {
   };
 }
 
-/** Verifies current validity/rights for every request; a positive response is never cached. */
+function isKnownOperation(
+  name: string,
+): name is PagesAgentApiBusinessOperation {
+  return name === "projects.names.list";
+}
+
+/**
+ * Verifies current validity/rights for every request; a positive response is never cached.
+ * Operations this package does not implement are ignored, so only known tools are exposed.
+ */
 export async function verifyPages(
   configuration: PagesConfiguration,
-): Promise<PagesAgentApiIdentity> {
+): Promise<PagesVerification> {
   const response = await postAgentRequest(configuration, {
     operation: "verify",
     parameters: {},
@@ -37,11 +55,15 @@ export async function verifyPages(
   if (typeof response !== "object" || response === null)
     throw new Error("Pages verification failed.");
   const envelope = response as Record<string, unknown>;
+  const tools = envelope.tools;
   if (
     envelope.apiVersion !== "1" ||
-    !Array.isArray(envelope.tools) ||
-    envelope.tools.length !== 0
+    !Array.isArray(tools) ||
+    !tools.every((tool: unknown) => typeof tool === "string")
   )
     throw new Error("Pages verification failed.");
-  return readVerifiedIdentity(envelope.identity);
+  return {
+    identity: readVerifiedIdentity(envelope.identity),
+    tools: tools.filter(isKnownOperation),
+  };
 }

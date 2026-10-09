@@ -1,8 +1,8 @@
 # Pages MCP 0.1.0
 
 A9.2 implements personal stdio-token verification and protected HTTP with Pages
-OAuth. The implemented tool catalog is empty. Business tools and release automation
-belong to later stages.
+OAuth. A9.3 adds exactly one read-only function, `list_project_names`; further
+business tools and release automation belong to later stages.
 
 Requires Node.js >=24; Node 24 LTS is the tested runtime. Copy the single
 `pages-mcp-v0.1.0.js` outside every package tree declaring `"type": "module"`.
@@ -70,8 +70,20 @@ API Bearer credential. Every API call rechecks grant state and current user righ
 Unavailable verification fails closed; there is no positive identity/rights cache.
 
 The personal admin property counts on the MCP path regardless of browser role
-mode. Existing Pages UI policy remains unchanged. Non-admin identities retain only
-current role grants. All unimplemented business operations are denied server-side.
+mode: an administrator in role mode sees every active project through
+`projects.names.list`. Existing Pages UI policy remains unchanged. Non-admin
+identities see what the existing project read rules allow (department scope, role
+binding, `allProjects`). All unimplemented business operations are denied server-side.
+
+## Tool: `list_project_names`
+
+The bundle exposes one tool, `list_project_names`, without arguments. It is read-only
+(`readOnlyHint`) and returns a text content block holding a JSON array of project
+names, for example `["Alpha plan","Shared project"]`. `tools/list` shows the tool only
+when Pages offers it to the verified identity; every list and call verifies the
+credential anew. Any Pages failure (invalid, expired or revoked credential, unreachable
+Pages) becomes the fixed error "Pages authorization failed." without project data.
+Unknown tool names and any argument are rejected with a protocol error.
 
 ## Owner management APIs
 
@@ -106,8 +118,15 @@ UI is outside this stage; the explicit OAuth consent screen is included.
 
 `/api/v1/agents` accepts only personal stdio or API delegation credentials, never
 browser cookies or MCP OAuth access tokens. It verifies before body parsing and
-returns `{apiVersion:"1", identity:{userId,isAdmin,permissions}, tools:[]}` only for
-`verify`. Stable failures use `{apiVersion:"1", error:{code,message,retryable:false}}`:
+dispatches two operations:
+
+- `verify` returns `{apiVersion:"1", identity:{userId,isAdmin,permissions}, tools:["projects.names.list"]}`;
+  `tools` lists the business operations Pages currently offers to that identity.
+- `projects.names.list` (parameters `{}`) returns `{apiVersion:"1", projectNames:[...]}`:
+  only the names of the active projects its owner may read, in Pages' project order.
+  No identifiers, descriptions or content are returned.
+
+Stable failures use `{apiVersion:"1", error:{code,message,retryable:false}}`:
 `AUTH_REQUIRED`, `AUTH_INVALID`, `AUTH_UNAVAILABLE`, `INVALID_REQUEST`, `FORBIDDEN`,
 `METHOD_NOT_ALLOWED`. Every response includes no-store and nosniff headers.
 

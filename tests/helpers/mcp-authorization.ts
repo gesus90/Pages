@@ -4,8 +4,10 @@ import { vi } from "vitest";
 import { Database } from "@/backend/database/Database";
 import { DATABASE_MIGRATIONS } from "@/backend/database/Migrations";
 import { McpOAuthRepository } from "@/backend/database/repositories/mcp/McpOAuthRepository";
+import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import { PersonalAgentTokenRepository } from "@/backend/database/repositories/mcp/PersonalAgentTokenRepository";
 import { AgentIdentityService } from "@/backend/service/mcp/AgentIdentityService";
+import { AgentProjectService } from "@/backend/service/mcp/AgentProjectService";
 import { OAuthClientService } from "@/backend/service/mcp/OAuthClientService";
 import { OAuthConsentService } from "@/backend/service/mcp/OAuthConsentService";
 import { OAuthGrantService } from "@/backend/service/mcp/OAuthGrantService";
@@ -69,7 +71,11 @@ export function wireFixture(database: Database) {
     tokens,
     grants,
     personal,
-    api: new PagesAgentApiService(personal, tokens),
+    api: new PagesAgentApiService(
+      personal,
+      tokens,
+      new AgentProjectService(new ProjectRepository(database)),
+    ),
   };
 }
 

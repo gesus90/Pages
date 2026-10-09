@@ -1,7 +1,9 @@
 import { PersonalAgentTokenRepository } from "@/backend/database/repositories/mcp/PersonalAgentTokenRepository";
 import { McpOAuthRepository } from "@/backend/database/repositories/mcp/McpOAuthRepository";
 import { PagesAgentApiService } from "@/backend/service/PagesAgentApiService";
+import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import { AgentIdentityService } from "@/backend/service/mcp/AgentIdentityService";
+import { AgentProjectService } from "@/backend/service/mcp/AgentProjectService";
 import { PersonalAgentTokenService } from "@/backend/service/mcp/PersonalAgentTokenService";
 import { OAuthClientService } from "@/backend/service/mcp/OAuthClientService";
 import { OAuthConsentService } from "@/backend/service/mcp/OAuthConsentService";
@@ -50,6 +52,7 @@ export function createMcpServices(
     pagesAgentApiService: new PagesAgentApiService(
       personalAgentTokenService,
       oauthTokenService,
+      new AgentProjectService(new ProjectRepository(database)),
     ),
     oauthConsentService: new OAuthConsentService({
       repository,

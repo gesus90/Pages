@@ -58,7 +58,7 @@ async function handleRequest(request: Request): Promise<Response> {
   }
 }
 
-/** Handles only verified A9.2 API operations; no business tools exist in this stage. */
+/** Handles only verified API operations: `verify` and the project-name listing. */
 export async function action({ request }: Route.ActionArgs): Promise<Response> {
   return handleRequest(request);
 }

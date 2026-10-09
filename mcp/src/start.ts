@@ -23,7 +23,7 @@ export async function start(): Promise<void> {
     }
     const configuration = readConfiguration(process.env);
     await verifyPages(configuration);
-    serveStdio(() => createServer(() => verifyPages(configuration)));
+    serveStdio(() => createServer(() => configuration));
   } catch {
     console.error(
       "[pages-mcp] Startup failed. Check PAGES_URL, PAGES_TOKEN (stdio), HTTP options and Pages authorization.",

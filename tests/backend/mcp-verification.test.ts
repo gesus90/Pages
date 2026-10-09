@@ -26,14 +26,14 @@ describe("fresh MCP verification", () => {
         agentsUrl: configuration.agentsUrl,
         token: credential,
       }),
-    ).toEqual(identity);
+    ).toEqual({ identity, tools: [] });
     for (const response of [
       null,
       3,
       {},
       { apiVersion: "wrong" },
       { apiVersion: "1", tools: null },
-      { apiVersion: "1", tools: ["business"] },
+      { apiVersion: "1", tools: [1] },
       { apiVersion: "1", tools: [] },
     ]) {
       vi.mocked(fetch).mockResolvedValue(Response.json(response));
@@ -54,6 +54,18 @@ describe("fresh MCP verification", () => {
       expect(() => readVerifiedIdentity(invalid)).toThrow(
         "Pages verification failed.",
       );
+  });
+  it("exposes only the operations this package implements", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      Response.json({
+        apiVersion: "1",
+        identity,
+        tools: ["projects.names.list", "projects.delete"],
+      }),
+    );
+    await expect(
+      verifyPages({ agentsUrl: configuration.agentsUrl, token: credential }),
+    ).resolves.toEqual({ identity, tools: ["projects.names.list"] });
   });
   it("validates HTTP options, supplies no personal token, and retains secure URLs", () => {
     expect(configuration.port).toBe(8998);

@@ -31,7 +31,7 @@ function args(request: Request): Parameters<typeof action>[0] {
 }
 
 describe("version 1 agent API foundation", () => {
-  it("returns verified identity with an empty tool catalog and never trusts caller identity", async () => {
+  it("returns verified identity with its tool catalog and never trusts caller identity", async () => {
     verify.mockResolvedValue({
       userId: "owner",
       isAdmin: false,
@@ -40,7 +40,7 @@ describe("version 1 agent API foundation", () => {
     handle.mockResolvedValue({
       apiVersion: "1",
       identity: { userId: "owner", isAdmin: false, permissions: [] },
-      tools: [],
+      tools: ["projects.names.list"],
     });
     const input = {
       operation: "verify",
@@ -63,7 +63,7 @@ describe("version 1 agent API foundation", () => {
     expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(await response.json()).toMatchObject({
       identity: { isAdmin: false },
-      tools: [],
+      tools: ["projects.names.list"],
     });
     expect(handle).toHaveBeenCalledWith("isolated-token", input);
   });

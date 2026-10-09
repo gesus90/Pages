@@ -22,11 +22,16 @@ import { start } from "../../mcp/src/start";
 
 const originalArguments = process.argv;
 const identity = { userId: "test", isAdmin: false, permissions: [] };
+const configuration = {
+  agentsUrl: new URL("https://pages.invalid/api/v1/agents"),
+  token: "isolated-token",
+};
 beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
   process.exitCode = 0;
   process.argv = [process.execPath, "bundle.js"];
-  vi.mocked(verifyPages).mockResolvedValue(identity);
+  vi.mocked(readConfiguration).mockReturnValue(configuration);
+  vi.mocked(verifyPages).mockResolvedValue({ identity, tools: [] });
 });
 afterEach(() => {
   process.exitCode = 0;
@@ -34,17 +39,16 @@ afterEach(() => {
 });
 
 describe("MCP startup", () => {
-  it("verifies Pages before opening stdio and verifies again in every factory", async () => {
+  it("verifies Pages before opening stdio and serves each connection with the validated configuration", async () => {
     await start();
     expect(readConfiguration).toHaveBeenCalledWith(process.env);
-    expect(verifyPages).toHaveBeenCalledOnce();
+    expect(verifyPages).toHaveBeenCalledExactlyOnceWith(configuration);
     const factory = vi.mocked(serveStdio).mock.calls[0]?.[0];
     if (!factory) throw new Error("Missing factory");
     factory({ era: "legacy" });
-    const verify = vi.mocked(createServer).mock.calls[0]?.[0];
-    if (!verify) throw new Error("Missing verification");
-    await verify();
-    expect(verifyPages).toHaveBeenCalledTimes(2);
+    const resolve = vi.mocked(createServer).mock.calls[0]?.[0];
+    if (!resolve) throw new Error("Missing resolver");
+    expect(resolve()).toBe(configuration);
     expect(console.error).not.toHaveBeenCalled();
   });
   it("fails closed with token-free diagnostics on configuration, verification or SDK errors", async () => {

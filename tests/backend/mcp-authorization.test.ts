@@ -172,10 +172,10 @@ describe("personal stdio credentials", () => {
     });
     await expect(
       fixture.api.handle(created.token, { operation: "verify" }),
-    ).resolves.toMatchObject({ tools: [] });
+    ).resolves.toMatchObject({ tools: ["projects.names.list"] });
     await expect(
       fixture.api.handle(created.token, {
-        operation: "projects.names.list",
+        operation: "projects.create",
         actor: { isAdmin: true },
       }),
     ).rejects.toMatchObject({ status: 403 });

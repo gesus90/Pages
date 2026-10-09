@@ -11,6 +11,22 @@ export interface PagesAgentApiIdentity {
   readonly permissions: readonly string[];
 }
 
+/** Business operations Pages may offer to a verified identity. */
+export type PagesAgentApiBusinessOperation = "projects.names.list";
+
+/** Result of `verify`: the current identity and the business operations it may call. */
+export interface PagesAgentApiVerification {
+  readonly apiVersion: "1";
+  readonly identity: PagesAgentApiIdentity;
+  readonly tools: readonly PagesAgentApiBusinessOperation[];
+}
+
+/** Result of `projects.names.list`: names only, without identifiers or content. */
+export interface PagesAgentApiProjectNames {
+  readonly apiVersion: "1";
+  readonly projectNames: readonly string[];
+}
+
 /** Stable failures from the versioned authentication boundary. */
 export type PagesAgentApiErrorCode =
   | "AUTH_REQUIRED"
