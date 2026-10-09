@@ -1,0 +1,5 @@
+allowBuilds:
+  esbuild: true
+
+# Match the repository's ten-day protection, including transitive packages.
+minimumReleaseAge: 14400

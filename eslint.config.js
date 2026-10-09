@@ -9,12 +9,13 @@ const typedSourceFiles = [
   "backend/**/*.ts",
   "definition/**/*.ts",
   "language/**/*.ts",
+  "mcp/src/**/*.ts",
 ];
 
 /** ESLint flat configuration for Pages. */
 export default tseslint.config(
   {
-    ignores: ["build/**", "coverage/**", ".react-router/**", "dist/**"],
+    ignores: ["build/**", "coverage/**", ".react-router/**", "**/dist/**"],
   },
   {
     // Rules cannot be switched off with `eslint-disable` comments.
@@ -32,6 +33,7 @@ export default tseslint.config(
       "backend/**/*.ts",
       "definition/**/*.ts",
       "language/**/*.ts",
+      "mcp/**/*.ts",
       "tests/**/*.ts",
       "tests/**/*.tsx",
       "*.config.{js,mjs,ts}",

@@ -1,0 +1,25 @@
+{
+  "name": "pages-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit && prettier --check .",
+    "build": "node build.config.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.6",
+    "esbuild": "0.28.2",
+    "prettier": "3.9.9",
+    "typescript": "6.0.3"
+  },
+  "engines": {
+    "node": ">=24.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "packageManager": "pnpm@11.23.0"
+}
