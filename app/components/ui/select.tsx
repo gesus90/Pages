@@ -116,7 +116,7 @@ export function Select<Value extends string = string>({
       </SelectPrimitive.Trigger>
       <SelectPrimitive.Portal>
         <SelectPrimitive.Content
-          className="z-50 max-h-72 min-w-40 overflow-hidden rounded-xl bg-surface p-1 shadow-panel outline-none"
+          className="z-50 max-h-72 max-w-(--radix-select-content-available-width) min-w-40 overflow-hidden rounded-xl bg-surface p-1 shadow-panel outline-none"
           position="popper"
           sideOffset={6}
         >
@@ -139,7 +139,7 @@ export function Select<Value extends string = string>({
                     {option.icon}
                   </span>
                 ) : null}
-                <span className="flex min-w-0 flex-1 flex-col">
+                <span className="flex min-w-0 flex-1 flex-col break-words">
                   <SelectPrimitive.ItemText>
                     {option.label}
                   </SelectPrimitive.ItemText>

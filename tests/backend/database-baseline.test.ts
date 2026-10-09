@@ -129,6 +129,9 @@ describe("DuckDB baseline migration", () => {
       "017_ticket_number_counter.sql",
       "018_instance_logo.sql",
       "019_wiki.sql",
+      "020_agent_connections.sql",
+      "021_agent_model_catalogs.sql",
+      "022_agent_reasoning_effort.sql",
     ]);
   });
 

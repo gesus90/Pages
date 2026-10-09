@@ -10,17 +10,31 @@ import type { User } from "@/definition/User";
 export type SystemSettingsAccess = "granted" | "adminModeRequired";
 
 /**
- * Tells whether the settings navigation lists the system area for an account.
+ * Tells whether an account may reach the system settings at all.
  *
  * @param account - Current account facts.
  * @returns Whether the account holds the personal admin permission, in either mode.
  *
  * @remarks
- * Accounts in the role mode still see the entry, so they find the way back to
- * the admin mode instead of wondering where the area went.
+ * Accounts in the role mode get the admin-mode notice on a direct visit, so
+ * they find the way back to the admin mode.
  */
 export function canSeeSystemSettings(account: AccountAccess): boolean {
   return account.isActive && account.isAdmin;
+}
+
+/**
+ * Tells whether the settings navigation lists the admin areas System and Agents.
+ *
+ * @param account - Current account facts.
+ * @returns Whether the account works in the active admin mode right now.
+ *
+ * @remarks
+ * Following the active mode lets a mode switch show or hide both entries with
+ * the next revalidation; the areas still check access on every request.
+ */
+export function listsAdminSettings(account: AccountAccess): boolean {
+  return new UserPolicyService().isAdministrator(account);
 }
 
 /**

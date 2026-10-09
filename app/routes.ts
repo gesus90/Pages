@@ -22,7 +22,12 @@ export default [
       index("routes/settings-index.ts"),
       route("profile", "routes/settings-profile.tsx"),
       route("system", "routes/settings-system.tsx"),
+      route("agents", "routes/settings-agents.tsx"),
     ]),
+    route(
+      "settings-api/agents/:connectionId/login",
+      "routes/settings-agents-login.ts",
+    ),
     route("projekte", "routes/projects.tsx"),
     route("projekte/:projectId", "routes/project-detail.tsx"),
     route("projekte/:projectId/icon", "routes/project-icon.ts"),

@@ -46,6 +46,17 @@ describe("route configuration", () => {
     expect(childPaths).toContain("projekte/:projectId/icon");
   });
 
+  it("protects agent settings and the login resource under the authenticated layout", () => {
+    const layout = routes.find((entry) => !entry.path && entry.children);
+    const settings = layout?.children?.find(
+      (entry) => entry.path === "settings",
+    );
+    expect(settings?.children?.map((entry) => entry.path)).toContain("agents");
+    expect(layout?.children?.map((entry) => entry.path)).toContain(
+      "settings-api/agents/:connectionId/login",
+    );
+  });
+
   it("exposes addressable ticket detail routes", () => {
     const layout = routes.find((entry) => !entry.path && entry.children);
     const childPaths = (layout?.children ?? []).map((child) => child.path);

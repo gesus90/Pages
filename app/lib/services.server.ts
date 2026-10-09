@@ -38,8 +38,12 @@ import { WikiFileStore } from "@/backend/storage/WikiFileStore";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 import { SetupService } from "@/backend/setup/SetupService";
 
+import { createAgentServices } from "./agent-services.server";
+
+import type { AgentApplicationServices } from "./agent-services.server";
+
 /** Server-only service instances shared by React Router loaders and actions. */
-export interface ApplicationServices {
+export interface ApplicationServices extends AgentApplicationServices {
   readonly administrationService: AdministrationService;
   readonly groupAdministrationService: GroupAdministrationService;
   readonly authService: AuthService;
@@ -72,7 +76,10 @@ declare global {
  *
  * @param database - Central database access to close on shutdown.
  */
-function registerShutdownHandler(database: Database): void {
+function registerShutdownHandler(
+  database: Database,
+  agents: AgentApplicationServices,
+): void {
   if (globalThis.pagesShutdownHandlerRegistered) {
     return;
   }
@@ -81,6 +88,8 @@ function registerShutdownHandler(database: Database): void {
 
   const shutdown = async (): Promise<void> => {
     try {
+      await agents.agentCatalogScheduler.shutdown();
+      await agents.agentCliLoginService.shutdown();
       await database.close();
       process.exit(0);
     } catch (error: unknown) {
@@ -111,20 +120,22 @@ function createWorkspaceServices(
   ApplicationServices,
   "healthService" | "instanceSettingsService" | "wikiService"
 > {
+  const wikiService = new WikiService(
+    new WikiRepository(database),
+    projectService,
+    permissionService,
+    new WikiFileStore(
+      path.join(path.dirname(databasePath), "wiki-attachments"),
+    ),
+  );
+  startWikiMaintenanceScheduler(wikiService);
   return {
     healthService: new HealthService(database),
     instanceSettingsService: new InstanceSettingsService(
       new InstanceSettingsRepository(database),
       permissionService,
     ),
-    wikiService: new WikiService(
-      new WikiRepository(database),
-      projectService,
-      permissionService,
-      new WikiFileStore(
-        path.join(path.dirname(databasePath), "wiki-attachments"),
-      ),
-    ),
+    wikiService,
   };
 }
 
@@ -154,8 +165,6 @@ async function initializeServices(
   database: Database,
   databasePath: string,
 ): Promise<ApplicationServices> {
-  registerShutdownHandler(database);
-
   await database.migrate(DATABASE_MIGRATIONS);
 
   const passwordHasher = new PasswordHasher();
@@ -189,6 +198,7 @@ async function initializeServices(
     new UserBoardPreferencesRepository(database),
   );
   const tokenKey = resolveGitHubTokenKey(databasePath);
+  const agentServices = startAgentServices(database, databasePath, tokenKey);
   const projectService = new ProjectService(
     projectRepository,
     permissionService,
@@ -225,13 +235,13 @@ async function initializeServices(
     projectService,
     permissionService,
   );
-  startWikiMaintenanceScheduler(workspaceServices.wikiService);
   const sessionService = await prepareSessions(
     new SetupService(userRepository, passwordHasher),
     new SessionService(sessionRepository, userService),
   );
 
   return {
+    ...agentServices,
     administrationService,
     authService: new AuthService(
       userService,
@@ -327,4 +337,19 @@ export function activateApplicationServices(
   globalThis.pagesServices = initializeServices(database, databasePath);
 
   return globalThis.pagesServices;
+}
+
+function startAgentServices(
+  database: Database,
+  databasePath: string,
+  tokenKey: Buffer,
+): AgentApplicationServices {
+  const services = createAgentServices(
+    database,
+    path.dirname(databasePath),
+    tokenKey,
+  );
+  services.agentCatalogScheduler.start();
+  registerShutdownHandler(database, services);
+  return services;
 }

@@ -44,6 +44,7 @@ vi.mock("@/backend/github/GitHubTokenKey", () => ({
 }));
 
 import { AdministrationService } from "@/backend/service/AdministrationService";
+import { AgentCliLoginService } from "@/backend/service/agents/AgentCliLoginService";
 import { createAccess } from "../helpers/authorization";
 import { createUser } from "../helpers/factories";
 import { PERMISSION } from "@/definition/Role";
@@ -274,6 +275,15 @@ describe("getApplicationServices", () => {
   });
 
   it("closes the database and exits on shutdown signals", async () => {
+    const finishCliShutdown = vi.fn<() => void>();
+    const cliShutdown = vi
+      .spyOn(AgentCliLoginService.prototype, "shutdown")
+      .mockImplementation(
+        () =>
+          new Promise<void>((resolve) =>
+            finishCliShutdown.mockImplementation(resolve),
+          ),
+      );
     const handlers = new Map<string, () => void>();
     const once = vi.spyOn(process, "once").mockImplementation(((
       event: string,
@@ -294,6 +304,10 @@ describe("getApplicationServices", () => {
     await getApplicationServices();
 
     handlers.get("SIGTERM")?.();
+
+    await vi.waitFor(() => expect(cliShutdown).toHaveBeenCalledTimes(1));
+    expect(database.close).not.toHaveBeenCalled();
+    finishCliShutdown();
 
     await vi.waitFor(() => {
       expect(exit).toHaveBeenCalledWith(0);

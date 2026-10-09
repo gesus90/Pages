@@ -69,6 +69,9 @@ describe("SettingsSystemRoute", () => {
     expect(
       await screen.findByRole("heading", { name: "Admin-Modus erforderlich" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Die Systemeinstellungen sind nur im Admin-Modus/),
+    ).toBeInTheDocument();
     expect(screen.queryByLabelText("Port")).toBeNull();
 
     await user.click(

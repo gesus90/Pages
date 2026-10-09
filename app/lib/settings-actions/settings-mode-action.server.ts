@@ -4,11 +4,14 @@ import { badRequest } from "./settings-action-support.server";
 
 import type {
   SettingsActionData,
-  SettingsActionHandler,
+  SettingsActionContext,
+  SettingsActionResult,
 } from "./settings-action-support.server";
 
 /** Changes only the caller's persisted mode, without asking for the password again. */
-export const handleSetMode: SettingsActionHandler = async ({
+export const handleSetMode: (
+  context: SettingsActionContext,
+) => Promise<Exclude<SettingsActionResult, null>> = async ({
   user,
   services,
   formData,

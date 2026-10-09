@@ -5,12 +5,12 @@ import { SettingsNavigation } from "@/app/components/settings/settings-navigatio
 import { VerticalScrollArea } from "@/app/components/ui/vertical-scroll-area";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
-import { canSeeSystemSettings } from "@/app/lib/settings-actions/settings-system-access.server";
+import { listsAdminSettings } from "@/app/lib/settings-actions/settings-system-access.server";
 
 import type { Route } from "./+types/settings";
 
 interface SettingsLayoutData {
-  /** Whether the navigation lists the system area. */
+  /** Whether the navigation lists the admin areas System and Agents. */
   readonly canViewSystem: boolean;
 }
 
@@ -27,7 +27,7 @@ export async function loader({
   const services = await getApplicationServices();
   const account = await services.administrationService.getContext(user.id);
 
-  return { canViewSystem: canSeeSystemSettings(account) };
+  return { canViewSystem: listsAdminSettings(account) };
 }
 
 /** Renders the settings frame with the navigation between its areas. */

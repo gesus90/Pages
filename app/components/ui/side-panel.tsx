@@ -5,12 +5,18 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/app/components/ui/button";
 import styles from "./side-panel.module.css";
 
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 
 interface SidePanelContentProps {
   readonly title: string;
   readonly closeLabel: string;
   readonly children: ReactNode;
+  /** Controlled forms can reset their dirty state after an in-panel save. */
+  readonly hasUnsavedChanges?: boolean;
+  /** Restores focus for panels opened from several table or menu triggers. */
+  readonly onCloseAutoFocus?: ComponentProps<
+    typeof DialogPrimitive.Content
+  >["onCloseAutoFocus"];
 }
 
 /** Accessible management panel with the shared Pages surface and fixed header. */
@@ -18,12 +24,17 @@ export function SidePanelContent({
   title,
   closeLabel,
   children,
+  hasUnsavedChanges,
+  onCloseAutoFocus,
 }: SidePanelContentProps): React.ReactElement {
   const { t } = useTranslation();
   const content = useRef<HTMLDivElement>(null);
   const hasChanges = useRef(false);
   function allowDismissal(): boolean {
-    if (!hasChanges.current || !content.current?.querySelector("form"))
+    if (
+      !(hasUnsavedChanges ?? hasChanges.current) ||
+      !content.current?.querySelector("form")
+    )
       return true;
     if (!window.confirm(t("users.discardChanges"))) return false;
     hasChanges.current = false;
@@ -39,6 +50,7 @@ export function SidePanelContent({
       />
       <DialogPrimitive.Content
         ref={content}
+        onCloseAutoFocus={onCloseAutoFocus}
         onChangeCapture={() => {
           hasChanges.current = true;
         }}

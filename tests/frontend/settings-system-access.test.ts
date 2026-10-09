@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   canSeeSystemSettings,
+  listsAdminSettings,
   resolveSystemSettingsAccess,
 } from "@/app/lib/settings-actions/settings-system-access.server";
 
@@ -29,6 +30,30 @@ describe("canSeeSystemSettings", () => {
     ["an account with a role only", { isAdmin: false }, false],
   ] as const)("is decided for %s", (_name, overrides, expected) => {
     expect(canSeeSystemSettings(createAccess(overrides))).toBe(expected);
+  });
+});
+
+describe("listsAdminSettings", () => {
+  // A7 §21.1: System and Agents follow the active mode, so a switch toggles both entries.
+  it.each([
+    [
+      "an active admin in the admin mode",
+      { isAdmin: true, mode: "admin" },
+      true,
+    ],
+    [
+      "an active admin in the role mode",
+      { isAdmin: true, mode: "role" },
+      false,
+    ],
+    [
+      "a deactivated admin in the admin mode",
+      { isAdmin: true, isActive: false, mode: "admin" },
+      false,
+    ],
+    ["an account with a role only", { isAdmin: false }, false],
+  ] as const)("is decided for %s", (_name, overrides, expected) => {
+    expect(listsAdminSettings(createAccess(overrides))).toBe(expected);
   });
 });
 

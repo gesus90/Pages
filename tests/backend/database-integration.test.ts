@@ -30,6 +30,9 @@ describe("DuckDB persistence", () => {
     );
 
     expect(rows?.map((row) => row[0]).sort()).toEqual([
+      "agent_connection_checks",
+      "agent_connections",
+      "agent_model_catalogs",
       "department_members",
       "departments",
       "github_external_issues",

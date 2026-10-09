@@ -18,6 +18,7 @@ export const buttonVariants = cva(
       size: {
         default: "",
         sm: "min-h-9 h-9 px-3 text-xs xl:text-xs",
+        xs: "min-h-8 h-8 px-2.5 text-xs xl:min-h-8 xl:px-2.5 xl:text-xs",
         "icon-sm": "size-8 min-h-8 p-0 xl:min-h-8 xl:p-0",
         icon: "size-11 p-0 xl:size-9 xl:p-0",
       },
@@ -32,6 +33,8 @@ export const buttonVariants = cva(
           "border border-border bg-surface text-foreground shadow-xs hover:bg-surface-hover",
         destructive:
           "bg-destructive text-primary-foreground hover:bg-destructive/90",
+        "destructive-soft":
+          "border border-destructive/20 bg-destructive/5 text-destructive hover:bg-destructive/10",
       },
     },
   },

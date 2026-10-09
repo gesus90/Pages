@@ -453,7 +453,8 @@ async function readTargetColumns(
               'instance_logo', 'wiki_page_anchors', 'wiki_page_versions',
               'wiki_page_links', 'wiki_attachments', 'wiki_comments', 'wiki_mentions',
               'wiki_favorites', 'wiki_recent_pages', 'wiki_expanded_pages',
-              'wiki_user_state', 'wiki_settings'
+              'wiki_user_state', 'wiki_settings',
+              'agent_connections', 'agent_connection_checks', 'agent_model_catalogs'
           )
           AND NOT (
               table_name = 'wiki_pages'

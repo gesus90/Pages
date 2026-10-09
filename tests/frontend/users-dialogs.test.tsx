@@ -373,6 +373,43 @@ describe("ChangeRoleDialog", () => {
     expect(hiddenValue(dialog, "role")).toBe("admin");
   });
 
+  it("keeps the chosen role when the page revalidates while the dialog is open", async () => {
+    // A7 §21.2: fresh loader objects used to reset the choice, so saving kept the old role.
+    const user = userEvent.setup();
+    const harness = renderUsers();
+    const dialog = await openMenuItem(user, "Rolle ändern");
+
+    await user.click(within(dialog).getByRole("combobox", { name: "Rolle" }));
+    await user.click(screen.getByRole("option", { name: "Administrator" }));
+    mockedLoaderData.mockReturnValue({
+      ...administrationPage(
+        [managedUser(createListItem())],
+        directoryRoles(ALL_ROLES),
+      ),
+      privateWikiPages: {},
+    });
+    harness.update({});
+
+    expect(hiddenValue(dialog, "role")).toBe("admin");
+  });
+
+  it("follows a role another administrator stored while the dialog is open", async () => {
+    const user = userEvent.setup();
+    const harness = renderUsers();
+    const dialog = await openMenuItem(user, "Rolle ändern");
+
+    mockedLoaderData.mockReturnValue({
+      ...administrationPage(
+        [managedUser(createListItem({ role: ROLE.EMPLOYEE }))],
+        directoryRoles(ALL_ROLES),
+      ),
+      privateWikiPages: {},
+    });
+    harness.update({});
+
+    expect(hiddenValue(dialog, "role")).toBe("employee");
+  });
+
   it("starts from the current role again when reopened", async () => {
     const user = userEvent.setup();
 

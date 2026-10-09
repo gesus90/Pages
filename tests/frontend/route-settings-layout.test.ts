@@ -39,10 +39,10 @@ describe("settings layout loader", () => {
 
   it.each([
     ["an admin in the admin mode", { isAdmin: true, mode: "admin" }, true],
-    ["an admin in the role mode", { isAdmin: true, mode: "role" }, true],
+    ["an admin in the role mode", { isAdmin: true, mode: "role" }, false],
     ["an account without the admin permission", { isAdmin: false }, false],
   ] as const)(
-    "lists the system area for %s: %s",
+    "lists the admin areas for %s: %s",
     async (_name, overrides, expected) => {
       useAccount(createAccess(overrides));
 

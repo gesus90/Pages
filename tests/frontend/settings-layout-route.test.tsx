@@ -15,6 +15,7 @@ function renderLayout(canViewSystem: boolean): void {
       children: [
         { Component: () => <p>Persönlicher Inhalt</p>, path: "profile" },
         { Component: () => <p>Systeminhalt</p>, path: "system" },
+        { Component: () => <p>Agent-Anbindungen</p>, path: "agents" },
       ],
       loader: () => ({ canViewSystem }),
       path: "/settings",
@@ -61,5 +62,17 @@ describe("SettingsLayoutRoute", () => {
       await screen.findByRole("link", { name: "Persönlich" }),
     ).toHaveAttribute("aria-current", "page");
     expect(screen.queryByRole("link", { name: "System" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Agents" })).toBeNull();
+  });
+
+  it("opens Agents only through administrator navigation", async () => {
+    const user = userEvent.setup();
+    renderLayout(true);
+    await user.click(await screen.findByRole("link", { name: "Agents" }));
+    expect(await screen.findByText("Agent-Anbindungen")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Agents" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
   });
 });

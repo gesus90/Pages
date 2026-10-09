@@ -170,7 +170,12 @@ edited, add a new one instead.
   inside the process.
 - **Backup:** stop Pages, then copy `pages.duckdb` (and a `pages.duckdb.wal`
   file if one exists) together with the `github-token.key` and the
-  `wiki-attachments` folder next to it.
+  `wiki-attachments` and `agents` folders next to it, plus `config.toml`.
+  If `PAGES_GITHUB_TOKEN_KEY` supplies the instance key, preserve that value
+  separately in the secure backup instead of a key file. The key protects
+  both GitHub tokens and saved agent API keys. The `agents` folder contains
+  sensitive CLI account credentials: restrict backup access and retain its
+  directory/file permissions (0700/0600) when restoring as the service user.
 - **No foreign keys.** DuckDB cannot update indexed columns of rows that other
   tables reference and has no `ON DELETE` actions, so the schema has none; the
   services check references. Project archiving retains its data; permanent
@@ -192,7 +197,102 @@ anymore. To carry the data over once:
 The source is opened read-only, the copy runs in one transaction, and every
 table's row count is compared. Running the command again changes nothing.
 
+## Agent connections
+
+*Settings → Agents* manages named, instance-wide connections. Like *System*,
+it is listed only for personal administrators in active administrator mode;
+switching modes shows or hides both entries immediately. Opened directly in
+role mode, the page only offers the switch, and connection metadata and
+actions require active administrator mode. Up to 50 connections can coexist, including
+multiple connections to the same provider. Names are unique regardless of
+case, and the provider cannot be changed after creation.
+
+- **API keys:** OpenRouter, OpenAI, Google AI Studio, Z.AI (international
+  standard endpoint), and Anthropic. Keys are encrypted with AES-256-GCM
+  using a separate HKDF-derived instance key. Saved keys and key fragments
+  are never sent back to the browser. Leaving the replacement field blank
+  retains the key; replacing it clears both check results. Changing the
+  model or reasoning effort clears the model result only.
+- **CLI accounts:** install the official Codex CLI or Claude Code on the
+  server following the provider's installation instructions. The Pages
+  service must find `codex` or `claude` in its own PATH (or next to its Node
+  executable); an interactive shell's PATH may differ. Restart the service
+  after changing its environment. Pages shows the discovered binary paths.
+  Phase 1 implements the documented CLI contracts; installed versions and
+  real account flows still require separately authorized verification.
+
+CLI accounts use the official login commands, with a dedicated
+`agents/<connection-id>/` directory next to the database, isolated HOME,
+configuration, and working directories, and a restricted environment.
+Existing personal CLI credentials are not imported or modified. Codex uses
+ChatGPT device-code sign-in, which must be enabled in the account's security
+settings. Claude Code uses Claude account sign-in and forwards the entered
+authorization code to that CLI's stdin. Each panel also offers an isolated
+terminal command to run as the Pages service's operating-system user.
+These directories isolate configuration and credentials, not the service
+user's operating-system privileges.
+
+Opening the page starts no CLI process or provider request. A successful
+access check or CLI sign-in also loads the model list (see *A7 models and
+reasoning*). Checks require an explicit action and keep
+separate timestamped results:
+
+- **Access check:** free API credential/model-list validation. Z.AI uses a
+  one-token minimal request to `glm-4.7-flash` with thinking disabled.
+  CLI sign-in status is checked locally; this does not prove that a later
+  server request will succeed.
+- **Model/CLI test:** requires confirmation and sends only
+  `Reply with exactly: OK`, with no project or wiki content. It can incur
+  API charges or consume subscription quota. APIs require a saved model;
+  an empty CLI model uses the tool's default. A saved reasoning effort is
+  passed along. Reported CLI cost is an
+  accounting estimate, not an additional subscription charge.
+
+API checks time out after 15 seconds (access) or 30 seconds (model). CLI
+checks have an overall 25/45-second deadline; login runs asynchronously and
+is polled every two seconds while active. One operation per connection,
+three active logins, and four CLI processes are allowed. Output is bounded,
+errors are sanitized, and shutdown terminates active CLI process groups
+before closing the database. In-progress login sessions are not resumed
+after a Pages restart; completed credentials and check results persist.
+
+Signing out or removing a CLI connection removes its Pages-owned credential
+directory. A cleanup failure retains the connection for retry. Sessions can
+also be revoked in the provider account. Pages does not yet use these
+connections for text editing, chat, task routing, or other productive work.
+
 ## License
 
 Pages is open source under the [MIT License](./LICENSE). Anyone may use,
 copy, modify, and distribute it.
+
+### A7 models and reasoning
+
+Each connection has a model, its regular configuration, and an optional reasoning
+effort; checks use both. A successful access check (API) or CLI sign-in loads the model
+list in the same step. If the connection has no model yet, the server stores a listed
+default: the first entry of Codex (its own priority order), Claude
+Code (the aliases its help names) and Anthropic (newest first), OpenRouter's free
+router `openrouter/free` or else its first free model, and Google's
+`models/gemini-flash-latest` when listed. OpenAI and Z.AI mark no default. An existing
+choice is never replaced. The reasoning selection offers only the levels the list
+names for the chosen model; otherwise the panel explains why none can be chosen.
+Without a usable list, a manual model ID remains available. Loading the list only
+retrieves metadata; it never runs a model test or sends Pages content. OpenRouter models show **Free** only
+when both authoritative prompt and completion prices are zero. A catalog listing does
+not guarantee that a model supports the diagnostic text endpoint.
+
+Each supported connection has a persisted refresh cadence: manual only (default),
+every 6 hours, daily or weekly, plus an explicit refresh button. Changing cadence
+sets the next due time from now; a refresh resets it from completion. The server checks
+persisted due times every minute and refreshes at most one connection per tick.
+Failures retain the last good catalog and show its timestamp and a sanitized error.
+Key replacement clears account-specific catalog data while preserving cadence.
+Catalogs, cadence and actions are restricted to active administrator mode.
+
+OpenRouter, OpenAI, Google AI Studio and Anthropic use their official model-list APIs.
+Signed-in CLI connections read `codex debug models` or `claude --help` in their own
+isolated directory. Z.AI currently has no documented token-free catalog endpoint and
+keeps a manual model ID. Requests have a 25-second total
+deadline, a 32-page limit, 8 MiB per page, 16 MiB per refresh and 10,000 unique models.
+An incomplete or oversized listing does not replace the previous snapshot.

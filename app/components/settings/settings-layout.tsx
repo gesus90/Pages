@@ -9,6 +9,7 @@ interface SettingsCardProps {
   readonly className?: string;
   readonly action?: ReactNode;
   readonly children: ReactNode;
+  readonly wrapHeader?: boolean;
 }
 
 interface ProfileRowProps {
@@ -61,6 +62,7 @@ export function SettingsCard({
   action,
   className,
   children,
+  wrapHeader = false,
 }: SettingsCardProps): React.ReactElement {
   return (
     <section
@@ -69,7 +71,12 @@ export function SettingsCard({
         className,
       )}
     >
-      <header className="flex items-start justify-between gap-3">
+      <header
+        className={cn(
+          "flex items-start justify-between gap-3",
+          wrapHeader && "flex-wrap",
+        )}
+      >
         <div className="flex items-start gap-3">
           <span
             className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary-subtle text-primary"

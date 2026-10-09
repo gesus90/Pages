@@ -5,15 +5,22 @@ import { Form, useNavigation } from "react-router";
 import { SettingsCard } from "@/app/components/settings/settings-layout";
 import { Button } from "@/app/components/ui/button";
 
-/** Tells an administrator in the role mode to switch modes before using the system settings. */
-export function AdminModeRequired(): React.ReactElement {
+/** Tells an administrator in the role mode to switch modes before using an admin-only settings area. */
+export function AdminModeRequired({
+  description,
+}: {
+  /** Names the protected area; defaults to the system settings. */
+  readonly description?: string;
+}): React.ReactElement {
   const { t } = useTranslation();
   const navigation = useNavigation();
 
   return (
     <SettingsCard
       className="lg:max-w-[calc(50%-0.5rem)]"
-      description={t("settings.system.adminModeRequired.description")}
+      description={
+        description ?? t("settings.system.adminModeRequired.description")
+      }
       icon={<Shield className="size-4" aria-hidden="true" />}
       title={t("settings.system.adminModeRequired.title")}
     >

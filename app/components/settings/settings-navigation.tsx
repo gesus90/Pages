@@ -1,4 +1,4 @@
-import { Server, UserRound } from "lucide-react";
+import { Bot, Server, UserRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { NavLink } from "react-router";
 
@@ -62,6 +62,14 @@ export function SettingsNavigation({
           to="/settings/system"
         >
           {t("settings.navigation.system")}
+        </SettingsNavigationLink>
+      ) : null}
+      {canViewSystem ? (
+        <SettingsNavigationLink
+          icon={<Bot className="size-4 text-primary" aria-hidden="true" />}
+          to="/settings/agents"
+        >
+          {t("settings.navigation.agents")}
         </SettingsNavigationLink>
       ) : null}
     </nav>

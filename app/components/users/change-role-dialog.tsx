@@ -35,14 +35,17 @@ export function ChangeRoleDialog({
 }: ChangeRoleDialogProps): React.ReactElement {
   const { t } = useTranslation();
   const actionData = useUsersActionData();
-  const [selectedRole, setSelectedRole] = useState(user.account.role?.id ?? "");
+  const storedRoleId = user.account.role?.id ?? "";
+  const [selectedRole, setSelectedRole] = useState(storedRoleId);
   const isSubmitting = useIsSubmitting("set-role");
 
+  // Keyed on the stored id: every revalidation brings a new role object, which
+  // must not discard the choice made in the open dialog.
   useEffect(() => {
     if (open) {
-      setSelectedRole(user.account.role?.id ?? "");
+      setSelectedRole(storedRoleId);
     }
-  }, [open, user.account.role]);
+  }, [open, storedRoleId]);
 
   useEffect(() => {
     if (actionData?.intent === "set-role" && actionData.ok) {
