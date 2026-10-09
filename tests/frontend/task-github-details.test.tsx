@@ -161,7 +161,7 @@ describe("TaskGitHubDetails", () => {
     expect(screen.getByText("Nicht verknüpft")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Noch kein GitHub Issue verknüpft. Neue Tasks werden automatisch synchronisiert.",
+        "Noch kein GitHub Issue verknüpft. Neue Aufgaben werden automatisch synchronisiert.",
       ),
     ).toBeInTheDocument();
     expect(

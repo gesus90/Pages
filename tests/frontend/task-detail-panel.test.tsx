@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nextProvider } from "react-i18next";
 import { createMemoryRouter, RouterProvider } from "react-router";
 
@@ -15,6 +21,9 @@ import {
 } from "@/definition/Task";
 import { LANGUAGE } from "@/language/Language";
 
+import { installEditorGeometry } from "../helpers/editor";
+
+import type { Editor } from "@tiptap/core";
 import type { TicketAccess } from "@/app/components/tasks/ticket-access";
 import type { Project } from "@/definition/Project";
 import type {
@@ -284,6 +293,25 @@ const WRITER_ACCESS: TicketAccess = {
   ],
 };
 
+/** What the ticket fetchers posted to the shared ticket action. */
+let fetcherSubmissions: Record<string, FormDataEntryValue>[] = [];
+
+/** The shared ticket action the fetchers of the panel post to. */
+const TICKET_ACTION_ROUTE = {
+  async action({ request }: { request: Request }) {
+    fetcherSubmissions.push(Object.fromEntries(await request.formData()));
+
+    return { intent: "update-description", ok: true };
+  },
+  path: "/aufgaben",
+};
+
+beforeAll(installEditorGeometry);
+
+beforeEach(() => {
+  fetcherSubmissions = [];
+});
+
 function renderPanel(
   properties: Partial<Parameters<typeof TaskDetailPanel>[0]> = {},
   access: TicketAccess = WRITER_ACCESS,
@@ -359,6 +387,7 @@ function renderPanel(
         ),
         path: "/",
       },
+      TICKET_ACTION_ROUTE,
     ],
     { initialEntries: ["/"] },
   );
@@ -406,6 +435,7 @@ function renderPanelCapturing(
         ),
         path: "/",
       },
+      TICKET_ACTION_ROUTE,
     ],
     { initialEntries: [entry] },
   );
@@ -435,9 +465,9 @@ describe("TaskDetailPanel", () => {
     );
     expect(screen.getByText("2 / 4 (50 %)")).toBeInTheDocument();
     expect(screen.getByLabelText("Reporter")).toHaveTextContent("Admin");
-    expect(
-      screen.getByLabelText("Epic auswählen (optional)"),
-    ).toHaveTextContent("PAGE-3: Epic System");
+    expect(screen.getByLabelText("Epic")).toHaveTextContent(
+      "PAGE-3: Epic System",
+    );
     expect(screen.getByText("Feature")).toBeInTheDocument();
 
     expect(
@@ -450,7 +480,9 @@ describe("TaskDetailPanel", () => {
     await user.dblClick(screen.getByText("API anbinden"));
     expect(onOpenTask).toHaveBeenCalledWith("PAGE-14");
 
-    await user.click(screen.getByRole("button", { name: "Unteraufgabe" }));
+    await user.click(
+      screen.getByRole("button", { name: "Subtask hinzufügen" }),
+    );
     expect(onCreateSubtask).toHaveBeenCalledTimes(1);
 
     expect(
@@ -539,12 +571,12 @@ describe("TaskDetailPanel", () => {
       }),
     });
 
-    expect(
-      screen.getByLabelText("Initiative auswählen (optional)"),
-    ).toHaveTextContent("PAGE-1: Platform");
+    expect(screen.getByLabelText("Initiative")).toHaveTextContent(
+      "PAGE-1: Platform",
+    );
 
     expect(
-      screen.getByRole("button", { name: "Neue Aufgabe" }),
+      screen.getByRole("button", { name: "Task hinzufügen" }),
     ).toBeInTheDocument();
   });
 
@@ -555,14 +587,13 @@ describe("TaskDetailPanel", () => {
       task: createWorkItem({ type: WORK_ITEM_TYPE.SUBTASK }),
     });
 
-    expect(screen.getByText("Übergeordneter Task *")).toBeInTheDocument();
+    expect(screen.getByLabelText("Task")).toBeInTheDocument();
 
-    const parentButtons = screen.getAllByRole("button", { name: /PAGE-3/ });
-    await user.click(parentButtons[0]);
+    await user.click(screen.getByRole("button", { name: "PAGE-3 öffnen" }));
     expect(onSelectTask).toHaveBeenCalledWith("PAGE-3");
 
     expect(
-      screen.queryByRole("button", { name: "Unteraufgabe" }),
+      screen.queryByRole("button", { name: /hinzufügen$/ }),
     ).not.toBeInTheDocument();
   });
 
@@ -578,7 +609,9 @@ describe("TaskDetailPanel", () => {
       }),
     });
 
-    expect(screen.queryByText("Übergeordneter Task *")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /öffnen$/ }),
+    ).not.toBeInTheDocument();
 
     renderPanel({
       history: [],
@@ -586,9 +619,8 @@ describe("TaskDetailPanel", () => {
       task: createWorkItem({ type: WORK_ITEM_TYPE.INITIATIVE }),
     });
 
-    expect(
-      screen.queryByLabelText("Epic auswählen (optional)"),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Initiative")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Epic")).not.toBeInTheDocument();
   });
 
   it("shows archiving progress", () => {
@@ -613,7 +645,7 @@ describe("TaskDetailPanel", () => {
       screen.queryByRole("button", { name: "Bearbeiten" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Unteraufgabe" }),
+      screen.queryByRole("button", { name: "Subtask" }),
     ).not.toBeInTheDocument();
   });
 
@@ -656,7 +688,11 @@ describe("TaskDetailPanel", () => {
 
     await user.click(screen.getByRole("button", { name: "Endgültig löschen" }));
     expect(screen.getByText("PAGE-12 endgültig löschen?")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Endgültig löschen" }));
+    await act(async () => {
+      await user.click(
+        screen.getByRole("button", { name: "Endgültig löschen" }),
+      );
+    });
 
     expect(Object.fromEntries(submissions[0] ?? [])).toMatchObject({
       id: "item-1",
@@ -721,8 +757,17 @@ describe("TaskDetailPanel", () => {
       await screen.findByRole("option", { name: "Max Mustermann" }),
     );
 
-    await user.click(screen.getByLabelText("Epic auswählen (optional)"));
-    await user.click(await screen.findByRole("option", { name: "Keine" }));
+    await user.click(screen.getByLabelText("Epic"));
+    await user.click(
+      await screen.findByRole("option", { name: "Keine Zuordnung" }),
+    );
+    await waitFor(() =>
+      expect(fetcherSubmissions.at(-1)).toMatchObject({
+        id: "item-1",
+        intent: "change-parent",
+        parentId: "",
+      }),
+    );
 
     await user.click(screen.getByLabelText("Meilenstein"));
     await user.click(await screen.findByRole("option", { name: "Keine" }));
@@ -879,7 +924,54 @@ describe("TaskDetailPanel", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("edits the description through the edit, save, and cancel buttons", async () => {
+  it("collapses and expands a detail section without its actions toggling it", async () => {
+    renderPanel();
+
+    const toggle = screen.getByRole("button", { name: "Verknüpfungen" });
+
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.queryByText("Noch keine Verknüpfungen"),
+    ).not.toBeInTheDocument();
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Noch keine Verknüpfungen")).toBeVisible();
+  });
+
+  it("refreshes the panel after an attachment was uploaded", async () => {
+    let sent = 0;
+
+    class UploadRequest {
+      public status = 200;
+      public responseText = JSON.stringify({
+        attachment: { fileName: "a.txt", id: "a9", isEmbeddable: false },
+      });
+      public onload: (() => void) | null = null;
+      public onerror: (() => void) | null = null;
+      public upload = { onprogress: null };
+      public open(): void {}
+      public send(): void {
+        sent += 1;
+        queueMicrotask(() => this.onload?.());
+      }
+    }
+
+    vi.stubGlobal("XMLHttpRequest", UploadRequest);
+    renderPanel();
+
+    const input = document.querySelector<HTMLInputElement>(
+      'section > input[type="file"]',
+    );
+
+    await userEvent.upload(input as HTMLInputElement, new File(["x"], "a.txt"));
+    await waitFor(() => expect(sent).toBe(1));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    vi.unstubAllGlobals();
+  });
+
+  it("edits the description in the block editor and saves it with its base", async () => {
     const user = userEvent.setup();
     renderPanel();
 
@@ -887,15 +979,28 @@ describe("TaskDetailPanel", () => {
       screen.getByRole("button", { name: "Beschreibung bearbeiten" }),
     );
 
-    const textarea = screen.getByRole("textbox", { name: "" });
+    const editor = await screen.findByRole("textbox", {
+      name: "Beschreibung von PAGE-12",
+    });
 
-    expect(textarea).toHaveFocus();
-
-    fireEvent.change(textarea, { target: { value: "New description" } });
-
+    expect(screen.getByRole("toolbar", { name: "Formatierung" })).toBeVisible();
+    act(() => {
+      (editor as unknown as { editor: Editor }).editor
+        .chain()
+        .focus("end")
+        .insertContent(" ergänzt")
+        .run();
+    });
     await user.click(screen.getByRole("button", { name: "Speichern" }));
 
-    expect(textarea).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(fetcherSubmissions.at(-1)).toMatchObject({
+        baseDescription: "Detailed description of task",
+        description: "Detailed description of task ergänzt",
+        id: "item-1",
+        intent: "update-description",
+      }),
+    );
   });
 
   it("cancels the description edit", async () => {
@@ -1186,7 +1291,7 @@ describe("TaskDetailPanel", () => {
       task: createWorkItem({ type: WORK_ITEM_TYPE.SUBTASK }),
     });
 
-    const parentLink = screen.getByRole("button", { name: "PAGE-3" });
+    const parentLink = screen.getByRole("button", { name: "PAGE-3 öffnen" });
 
     await user.click(parentLink);
 

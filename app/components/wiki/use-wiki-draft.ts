@@ -18,7 +18,13 @@ const AUTOSAVE_DELAY = 1200;
 
 /** What the editor shows about the save. */
 export type WikiSaveStatus =
-  "saved" | "saving" | "unsaved" | "conflict" | "error" | "tooLong";
+  | "saved"
+  | "saving"
+  | "unsaved"
+  | "conflict"
+  | "error"
+  | "tooLong"
+  | "titleRequired";
 
 /** The fields the person edits. */
 export interface WikiDraft {
@@ -51,6 +57,11 @@ export interface WikiDraftState {
   readonly isClean: boolean;
   /** The page as last saved, or as loaded while nothing was saved. */
   readonly saved: WikiPage;
+  /**
+   * Takes over a newer saved version, such as a restored one, while nothing
+   * typed is unsaved.
+   */
+  readonly adopt: (page: WikiPage) => boolean;
 }
 
 function createSaveRequest(save: {
@@ -66,6 +77,37 @@ function createSaveRequest(save: {
     icon: save.icon ?? "",
     intent: "save",
     title: save.title,
+  };
+}
+
+function toDraft(page: WikiPage): WikiDraft {
+  return { content: page.content, icon: page.icon ?? "", title: page.title };
+}
+
+/** The ways out of a conflict, while one is open. */
+function createConflictControls(
+  conflict: WikiPage | null,
+  apply: {
+    readonly setBase: (page: WikiPage) => void;
+    readonly setConflict: (page: null) => void;
+    readonly setDraft: (draft: WikiDraft) => void;
+  },
+): WikiConflict | null {
+  if (!conflict) {
+    return null;
+  }
+
+  return {
+    keepMine: () => {
+      apply.setBase(conflict);
+      apply.setConflict(null);
+    },
+    takeTheirs: () => {
+      apply.setDraft(toDraft(conflict));
+      apply.setBase(conflict);
+      apply.setConflict(null);
+    },
+    theirs: conflict,
   };
 }
 
@@ -88,11 +130,7 @@ function toIcon(icon: string): string | null {
  */
 export function useWikiDraft(page: WikiPage): WikiDraftState {
   const fetcher = useFetcher<WikiActionResult<{ page: WikiPage }>>();
-  const [draft, setDraftState] = useState<WikiDraft>({
-    content: page.content,
-    icon: page.icon ?? "",
-    title: page.title,
-  });
+  const [draft, setDraftState] = useState<WikiDraft>(() => toDraft(page));
   const [base, setBase] = useState(page);
   const [conflict, setConflict] = useState<WikiPage | null>(null);
   const [errorCode, setErrorCode] = useState<WikiActionErrorCode | null>(null);
@@ -150,24 +188,11 @@ export function useWikiDraft(page: WikiPage): WikiDraftState {
   }, [canSave, content, icon, isIdle, pageId, revision, submit, title]);
 
   return {
-    conflict: conflict
-      ? {
-          keepMine: () => {
-            setBase(conflict);
-            setConflict(null);
-          },
-          takeTheirs: () => {
-            setDraftState({
-              content: conflict.content,
-              icon: conflict.icon ?? "",
-              title: conflict.title,
-            });
-            setBase(conflict);
-            setConflict(null);
-          },
-          theirs: conflict,
-        }
-      : null,
+    conflict: createConflictControls(conflict, {
+      setBase,
+      setConflict,
+      setDraft: setDraftState,
+    }),
     draft,
     errorCode,
     isClean,
@@ -184,7 +209,24 @@ export function useWikiDraft(page: WikiPage): WikiDraftState {
       setErrorCode(null);
       setDraftState(next);
     },
-    status: resolveStatus({ conflict, errorCode, isClean, isIdle, isTooLong }),
+    adopt: (next) => {
+      if (!isClean || next.revision <= base.revision) {
+        return false;
+      }
+
+      setBase(next);
+      setDraftState(toDraft(next));
+
+      return true;
+    },
+    status: resolveStatus({
+      conflict,
+      errorCode,
+      isClean,
+      isIdle,
+      isTitleMissing: title === "",
+      isTooLong,
+    }),
   };
 }
 
@@ -193,6 +235,7 @@ function resolveStatus(facts: {
   readonly errorCode: WikiActionErrorCode | null;
   readonly isClean: boolean;
   readonly isIdle: boolean;
+  readonly isTitleMissing: boolean;
   readonly isTooLong: boolean;
 }): WikiSaveStatus {
   if (facts.conflict) {
@@ -205,6 +248,10 @@ function resolveStatus(facts: {
 
   if (facts.isTooLong) {
     return "tooLong";
+  }
+
+  if (facts.isTitleMissing) {
+    return "titleRequired";
   }
 
   if (!facts.isIdle) {

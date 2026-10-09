@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useActionData, useNavigate } from "react-router";
 
-import { WORK_ITEM_TYPE } from "@/definition/Task";
+import { WORK_ITEM_CHILD_TYPE, WORK_ITEM_TYPE } from "@/definition/Task";
 
 import type { action } from "@/app/routes/tasks";
 import type { WorkItemDetail, WorkItemType } from "@/definition/Task";
@@ -16,13 +16,6 @@ interface TicketFormDialogState {
   readonly defaultType?: WorkItemType;
   readonly defaultStatusId?: string | null;
 }
-
-const CHILD_TYPES: Readonly<Record<WorkItemType, WorkItemType>> = {
-  [WORK_ITEM_TYPE.INITIATIVE]: WORK_ITEM_TYPE.EPIC,
-  [WORK_ITEM_TYPE.EPIC]: WORK_ITEM_TYPE.TASK,
-  [WORK_ITEM_TYPE.TASK]: WORK_ITEM_TYPE.SUBTASK,
-  [WORK_ITEM_TYPE.SUBTASK]: WORK_ITEM_TYPE.SUBTASK,
-};
 
 const CLOSED_DIALOG: TicketFormDialogState = { isOpen: false, mode: "create" };
 
@@ -84,7 +77,8 @@ export function useTicketDialogs(
       setFormDialog({
         defaultParentId: ticket.id,
         defaultProjectId: ticket.projectId,
-        defaultType: CHILD_TYPES[ticket.type],
+        defaultType:
+          WORK_ITEM_CHILD_TYPE[ticket.type] ?? WORK_ITEM_TYPE.SUBTASK,
         isOpen: true,
         mode: "create",
       }),

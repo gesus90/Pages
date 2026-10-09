@@ -204,7 +204,7 @@ describe("TasksGitHub", () => {
     expect(screen.getByText("Pages")).toBeInTheDocument();
     expect(screen.getByText("#104")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Als Task importieren" }),
+      screen.getByRole("button", { name: "Als Aufgabe importieren" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Ignorieren" }),
@@ -212,11 +212,11 @@ describe("TasksGitHub", () => {
     expect(screen.getByText("Nicht zugeordnet")).toBeInTheDocument();
 
     await user.selectOptions(
-      screen.getByLabelText("Task auswählen …"),
+      screen.getByLabelText("Aufgabe auswählen …"),
       "item-1",
     );
     await user.click(
-      screen.getByRole("button", { name: "Als Task importieren" }),
+      screen.getByRole("button", { name: "Als Aufgabe importieren" }),
     );
 
     expect(submitted).toContainEqual(
@@ -341,7 +341,9 @@ describe("TasksGitHub", () => {
       [],
     );
 
-    expect(screen.queryByLabelText("Task zuweisen …")).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Aufgabe zuweisen …"),
+    ).not.toBeInTheDocument();
   });
 
   it("submits pull request assignments on selection", () => {
@@ -369,7 +371,7 @@ describe("TasksGitHub", () => {
     ]);
 
     const select = screen.getByLabelText(
-      "Task zuweisen …",
+      "Aufgabe zuweisen …",
     ) as HTMLSelectElement;
     const requestSubmit = vi.fn();
     Object.defineProperty(select.form, "requestSubmit", {
@@ -415,7 +417,9 @@ describe("TasksGitHub", () => {
       screen.queryByRole("button", { name: "Jetzt synchronisieren" }),
     ).not.toBeInTheDocument();
     expect(screen.getByText("#104")).toBeInTheDocument();
-    expect(screen.queryByLabelText("Task auswählen …")).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Aufgabe auswählen …"),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByText("Keine Pull Requests erkannt."),
     ).toBeInTheDocument();

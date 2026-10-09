@@ -1,4 +1,4 @@
-import { ChevronRight, Clock } from "lucide-react";
+import { ChevronRight, Clock, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 
@@ -18,6 +18,8 @@ interface WikiTreeItemViewProps {
   readonly drag: WikiDragHandlers;
   /** Today as `YYYY-MM-DD`, to mark pages that are no longer up to date. */
   readonly today: string;
+  /** Offers a plus that creates a subpage of the page, as in Notion. */
+  readonly onCreateChild?: (node: WikiTreeItem["node"]) => void;
 }
 
 const DROP_MARKERS = {
@@ -65,6 +67,7 @@ export function WikiTreeItemView({
   onNavigate,
   drag,
   today,
+  onCreateChild,
 }: WikiTreeItemViewProps): React.ReactElement {
   const { t } = useTranslation();
   const { node, children } = item;
@@ -119,6 +122,16 @@ export function WikiTreeItemView({
             role="img"
           />
         ) : null}
+        {onCreateChild ? (
+          <button
+            aria-label={t("wiki.nav.addChild", { title: node.title })}
+            className="flex size-6 shrink-0 items-center justify-center rounded-md opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-muted [@media(hover:none)]:opacity-100"
+            type="button"
+            onClick={() => onCreateChild(node)}
+          >
+            <Plus aria-hidden="true" className="size-3.5" />
+          </button>
+        ) : null}
       </div>
       {children.length > 0 && isOpen ? (
         <ul>
@@ -131,6 +144,7 @@ export function WikiTreeItemView({
               expandedIds={expandedIds}
               item={child}
               today={today}
+              onCreateChild={onCreateChild}
               onNavigate={onNavigate}
               onToggle={onToggle}
             />

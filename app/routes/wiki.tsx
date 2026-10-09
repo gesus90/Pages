@@ -57,15 +57,9 @@ export async function action(
 
 /** Renders the wiki frame around the open page. */
 export default function WikiRoute(): React.ReactElement {
-  const { navigation, people, templates, today } =
-    useLoaderData<typeof loader>();
+  // Templates and today serve the wiki navigation in the main sidebar,
+  // which reads them from this loader.
+  const { navigation, people } = useLoaderData<typeof loader>();
 
-  return (
-    <WikiShell
-      navigation={navigation}
-      people={people}
-      templates={templates}
-      today={today}
-    />
-  );
+  return <WikiShell navigation={navigation} people={people} />;
 }

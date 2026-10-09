@@ -38,6 +38,10 @@ export default defineConfig({
       build: {
         rollupOptions: {
           input: "./backend/runtime/ServerEntry.ts",
+          // One file keeps the entry in `build/server`, where it finds the
+          // client files relative to itself. Code the browser loads lazily,
+          // such as the ticket description editor, must not split it.
+          output: { inlineDynamicImports: true },
         },
       },
     },

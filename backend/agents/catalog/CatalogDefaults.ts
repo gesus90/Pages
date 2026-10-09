@@ -23,7 +23,7 @@ function listed(
  * @remarks
  * Each rule follows what the provider or CLI documents:
  * - Codex lists its models in its own priority order, Claude Code names its
- *   aliases in its help, and Anthropic lists newer models first, so their first
+ *   models in its SDK initialize catalog, and Anthropic lists newer models first, so their first
  *   entry is the default.
  * - OpenRouter starts with its free router, otherwise its first free model, so
  *   a default never incurs costs.

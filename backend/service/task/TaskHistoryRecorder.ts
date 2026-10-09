@@ -236,6 +236,47 @@ export class TaskHistoryRecorder {
     });
   }
 
+  /** Records a new description. */
+  public async recordDescriptionChanged(
+    actor: User,
+    existing: WorkItemDetail,
+    description: string,
+  ): Promise<void> {
+    await this.record(actor, existing.id, {
+      action: "description_changed",
+      field: "description",
+      newValue: description,
+      oldValue: existing.description,
+    });
+  }
+
+  /**
+   * Records a new parent of a work item.
+   *
+   * @param actor - The person who changed it.
+   * @param change - The work item, the key of its former parent as the actor
+   * saw it, and the new parent, `null` when it has none any more.
+   */
+  public async recordParentChanged(
+    actor: User,
+    change: {
+      readonly workItemId: string;
+      readonly oldParentKey: string | null;
+      readonly newParentId: string | null;
+    },
+  ): Promise<void> {
+    const parent = change.newParentId
+      ? await this.taskRepository.findById(change.newParentId)
+      : null;
+
+    await this.record(actor, change.workItemId, {
+      action: "parent_changed",
+      field: "parent",
+      newValue: parent?.key ?? null,
+      oldValue: change.oldParentKey,
+    });
+  }
+
   /** Records one entry for every field an update changed. */
   public async recordUpdate(
     actor: User,

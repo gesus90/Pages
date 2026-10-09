@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 
 import { useAssigneeOptions } from "@/app/components/tasks/assignee-options";
 import { useTicketAccess } from "@/app/components/tasks/ticket-access";
+import { WORK_ITEM_LIMITS } from "@/definition/Task";
 
 import { TaskFormTemplateField } from "./task-form-template-field";
 import { TaskFormSelectField } from "./task-form-select-field";
@@ -134,7 +135,7 @@ function TextFields({
         hint={t("tasks.descriptionHint")}
         id="task-description"
         label={t("tasks.fields.description")}
-        maxLength={10000}
+        maxLength={WORK_ITEM_LIMITS.descriptionLength}
         name="description"
         type="textarea"
       />

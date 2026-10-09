@@ -5,10 +5,16 @@ import { useRegionFormatter } from "@/app/components/common/region-provider";
 import { AssigneeAvatar } from "@/app/components/tasks/assignee-avatar";
 import { DetailSection } from "@/app/components/tasks/detail-section";
 import { Button } from "@/app/components/ui/button";
-import { WORK_ITEM_TYPE } from "@/definition/Task";
 import { cn } from "@/app/lib/cn";
 
-import type { WorkItemDetail } from "@/definition/Task";
+import type { WorkItemDetail, WorkItemType } from "@/definition/Task";
+
+const TITLE_KEYS: Readonly<Record<WorkItemType, string>> = {
+  epic: "tasks.detail.containedTasks",
+  initiative: "tasks.detail.containedEpics",
+  subtask: "tasks.tabs.subtasks",
+  task: "tasks.tabs.subtasks",
+};
 
 interface DetailChildrenSectionProps {
   readonly task: WorkItemDetail;
@@ -19,7 +25,7 @@ interface DetailChildrenSectionProps {
   readonly onOpenTask: (key: string) => void;
 }
 
-/** Renders the subtasks of a task, or the tasks an epic contains. */
+/** Renders the children of a ticket: epics of an initiative, tasks of an epic, subtasks of a task. */
 export function DetailChildrenSection({
   task,
   subtasks,
@@ -30,13 +36,9 @@ export function DetailChildrenSection({
 }: DetailChildrenSectionProps): React.ReactElement {
   const { t } = useTranslation();
   const { formatDate } = useRegionFormatter();
-  const isEpic = task.type === WORK_ITEM_TYPE.EPIC;
-
   return (
     <DetailSection
-      title={
-        isEpic ? t("tasks.detail.containedTasks") : t("tasks.tabs.subtasks")
-      }
+      title={t(TITLE_KEYS[task.type])}
       trailing={
         !isArchived ? (
           <Button
@@ -46,9 +48,7 @@ export function DetailChildrenSection({
             variant="outline"
           >
             <Plus className="size-3.5" aria-hidden="true" />
-            {isEpic
-              ? t("tasks.create.trigger")
-              : t("tasks.actions.createSubtask")}
+            {t(`tasks.children.add.${task.type}`)}
           </Button>
         ) : (
           <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-foreground">

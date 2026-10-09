@@ -36,7 +36,9 @@ import type {
   Label,
   TaskActionPermissions,
   TicketDepartmentChoices,
+  WorkItemAttachment,
   WorkItemChecklistItem,
+  WorkItemDescendants,
   WorkItemDetail,
   WorkItemHistory,
   WorkItemLink,
@@ -88,6 +90,8 @@ interface TasksLoaderData {
   readonly selectedPullRequests: readonly GitHubPullRequest[];
   readonly selectedChecklist: readonly WorkItemChecklistItem[];
   readonly selectedLinks: readonly WorkItemLink[];
+  readonly selectedAttachments: readonly WorkItemAttachment[];
+  readonly selectedDescendants: WorkItemDescendants | null;
   readonly githubStates: readonly TasksGitHubProjectState[];
   readonly permissions: TaskActionPermissions;
   readonly departmentChoices: TicketDepartmentChoices;
@@ -144,14 +148,18 @@ type TaskSelection = Pick<
   | "selectedPullRequests"
   | "selectedChecklist"
   | "selectedLinks"
+  | "selectedAttachments"
+  | "selectedDescendants"
 >;
 
 const NO_SELECTION: TaskSelection = {
+  selectedAttachments: [],
   selectedChecklist: [],
   selectedHistory: [],
   selectedItem: null,
   selectedLinks: [],
   selectedPullRequests: [],
+  selectedDescendants: null,
   selectedSubtasks: [],
 };
 
@@ -196,7 +204,15 @@ async function loadSelection(
   }
 
   return {
+    selectedAttachments: await services.taskAttachmentService.list(
+      actor,
+      matched.id,
+    ),
     selectedChecklist: await services.taskService.findChecklistItems(
+      actor,
+      matched.id,
+    ),
+    selectedDescendants: await services.taskService.describeDescendants(
       actor,
       matched.id,
     ),

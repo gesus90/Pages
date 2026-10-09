@@ -53,6 +53,7 @@ export class CliToolExecution {
     home: CliHome,
     args: readonly string[],
     signal: AbortSignal,
+    input?: string,
   ): Promise<CliProcessResult> {
     return this.runner.run({
       file: this.file,
@@ -61,7 +62,8 @@ export class CliToolExecution {
       arguments: args,
       signal,
       timeoutMs: 20_000,
-      stdin: "ignore",
+      stdin: input === undefined ? "ignore" : "pipe",
+      input,
       maxStdoutBytes: 8 * 1024 * 1024,
     });
   }

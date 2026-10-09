@@ -31,8 +31,6 @@ const FIELD_ERRORS = new Set<AgentForm["error"]>([
   "name_taken",
   "api_key_required",
   "api_key_invalid_format",
-  "test_model_invalid",
-  "test_model_required",
 ]);
 
 function hasRunningLogin(
@@ -88,12 +86,7 @@ export function AgentConnectionPanel({
         className="min-h-0 flex-1"
         contentClassName="gap-6 px-6 pb-6"
       >
-        <PanelForm
-          form={form}
-          kind={kind}
-          catalog={catalog}
-          availability={availability}
-        />
+        <PanelForm form={form} kind={kind} availability={availability} />
         <PanelMessages
           error={actions.error}
           hasPollError={hasPollError}
@@ -138,23 +131,16 @@ export function AgentConnectionPanel({
 function PanelForm({
   form,
   kind,
-  catalog,
   availability,
 }: {
   readonly form: AgentForm;
   readonly kind: AgentAccessKind;
-  readonly catalog: AgentModelCatalog | undefined;
   readonly availability: AgentModelAvailability;
 }): React.ReactElement {
   const { t } = useTranslation();
   return (
     <form id="agent-connection-form" onSubmit={form.handleSubmit}>
-      <AgentFormFields
-        form={form}
-        kind={kind}
-        catalog={catalog}
-        availability={availability}
-      />
+      <AgentFormFields form={form} kind={kind} availability={availability} />
       {form.error && !FIELD_ERRORS.has(form.error) ? (
         <div className="mt-3">
           <AgentAlert message={t(`settings.agents.error.${form.error}`)} />

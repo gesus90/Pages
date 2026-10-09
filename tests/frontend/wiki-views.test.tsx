@@ -1,10 +1,17 @@
 // @vitest-environment jsdom
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { I18nextProvider } from "react-i18next";
 import { createMemoryRouter, RouterProvider } from "react-router";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/app/lib/services.server", () => ({
   getApplicationServices: vi.fn(),
@@ -12,8 +19,11 @@ vi.mock("@/app/lib/services.server", () => ({
 
 import { RegionProvider } from "@/app/components/common/region-provider";
 import { WikiHomeView } from "@/app/components/wiki/wiki-home-view";
-import { WikiPageHeader } from "@/app/components/wiki/wiki-page-header";
-import { WikiShell } from "@/app/components/wiki/wiki-shell";
+import {
+  WikiBreadcrumb,
+  WikiPageMeta,
+} from "@/app/components/wiki/wiki-page-header";
+import { WIKI_SEARCH_EVENT, WikiShell } from "@/app/components/wiki/wiki-shell";
 import { WikiPageScreen } from "@/app/components/wiki/wiki-page-screen";
 import { WikiTrashView } from "@/app/components/wiki/wiki-trash-view";
 import { createI18n } from "@/app/lib/i18n";
@@ -23,7 +33,10 @@ import WikiPageRoute from "@/app/routes/wiki-page";
 import WikiTrashRoute from "@/app/routes/wiki-trash";
 import { LANGUAGE } from "@/language/Language";
 
+import { installEditorGeometry, typeText } from "../helpers/editor";
 import { renderInWiki } from "../helpers/wiki-render";
+
+import type { Editor } from "@tiptap/core";
 
 import type {
   WikiNavigation,
@@ -36,6 +49,7 @@ const PAGE: WikiPage = {
   anchors: [],
   breadcrumb: [],
   content: "# Heading\n\nBody text",
+  cover: null,
   createdAt: "2026-01-01 10:00:00",
   currentUntil: null,
   icon: "📘",
@@ -139,19 +153,28 @@ function summary(
   };
 }
 
-describe("WikiPageHeader", () => {
-  function renderHeader(page: Partial<WikiPage>, hideTitle = false) {
+beforeAll(installEditorGeometry);
+
+async function editorOf(): Promise<Editor> {
+  const element = await screen.findByRole("textbox", { name: "Page text" });
+
+  return (element as unknown as { editor: Editor }).editor;
+}
+
+describe("WikiBreadcrumb and WikiPageMeta", () => {
+  function renderHeader(page: Partial<WikiPage>) {
+    const full = { ...PAGE, ...page };
+
     return renderInWiki(
-      <WikiPageHeader
-        hideTitle={hideTitle}
-        page={{ ...PAGE, ...page }}
-        today="2026-10-07"
-      />,
+      <>
+        <WikiBreadcrumb page={full} />
+        <WikiPageMeta page={full} today="2026-10-07" />
+      </>,
       { path: "/wiki/p1" },
     );
   }
 
-  it("shows title, owner, last editor and the breadcrumb", async () => {
+  it("shows the pages above, the page itself, the owner and the last editor", async () => {
     renderHeader({
       breadcrumb: [
         { icon: "🗂️", id: "a", title: "Top" },
@@ -159,29 +182,29 @@ describe("WikiPageHeader", () => {
       ],
     });
 
-    expect(await screen.findByRole("heading", { name: "Guide" })).toBeVisible();
-    expect(screen.getByText(/Owner: Olga/)).toHaveTextContent(
-      "Last edited by Max on 2026-01-02",
-    );
-    expect(screen.getByRole("link", { name: "🗂️ Top" })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: "🗂️ Top" })).toHaveAttribute(
       "href",
       "/wiki/a/top",
     );
     expect(screen.getByRole("link", { name: "Middle" })).toBeVisible();
+    expect(screen.getByText("📘 Guide")).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByText(/Owner: Olga/)).toHaveTextContent(
+      "Last edited by Max on 2026-01-02",
+    );
   });
 
-  it("names the owner when nobody edited and hides the title for the editor", async () => {
-    renderHeader({ icon: null, updatedByName: null }, true);
+  it("names the owner when nobody edited and shows a page without icon", async () => {
+    renderHeader({ icon: null, updatedByName: null });
 
     expect(await screen.findByText(/Last edited by Olga/)).toBeVisible();
-    expect(screen.queryByRole("heading")).toBeNull();
-    expect(screen.queryByRole("navigation")).toBeNull();
-  });
-
-  it("shows a title without icon", async () => {
-    renderHeader({ icon: null });
-
-    expect(await screen.findByRole("heading", { name: "Guide" })).toBeVisible();
+    expect(
+      within(screen.getByRole("navigation", { name: "Page path" })).getByText(
+        "Guide",
+      ),
+    ).toBeVisible();
   });
 
   it("marks private pages, projects, the review date and anchors", async () => {
@@ -313,20 +336,27 @@ describe("WikiPageScreen", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
-  it("switches to the editor and back", async () => {
-    screenOf(view());
+  it("edits title and text in place and shows the read view to readers", async () => {
+    const { unmount } = screenOf(view());
 
-    await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
-
-    expect(await screen.findByLabelText("Page text (Markdown)")).toHaveValue(
-      "# Heading\n\nBody text",
+    expect(
+      await screen.findByRole("textbox", { name: "Page title" }),
+    ).toHaveValue("Guide");
+    expect(
+      within(
+        await screen.findByRole("textbox", { name: "Page text" }),
+      ).getByRole("heading", { name: "Heading" }),
+    ).toBeVisible();
+    unmount();
+    screenOf(
+      view({
+        permissions: { canComment: true, canEdit: false, canManage: false },
+      }),
     );
-
-    await userEvent.click(screen.getByRole("button", { name: "Done" }));
-
-    await waitFor(() =>
-      expect(screen.queryByLabelText("Page text (Markdown)")).toBeNull(),
-    );
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Guide" }),
+    ).toBeVisible();
+    expect(screen.queryByRole("textbox", { name: "Page text" })).toBeNull();
   });
 
   describe("after the editor saved", () => {
@@ -338,7 +368,7 @@ describe("WikiPageScreen", () => {
 
       setLoaded = setLoadedState;
 
-      return screenElement(loaded);
+      return <div key={loaded.page.id}>{screenElement(loaded)}</div>;
     }
 
     async function saveOnce(): Promise<ReturnType<typeof renderInWiki>> {
@@ -348,35 +378,33 @@ describe("WikiPageScreen", () => {
         },
         path: "/wiki/p1",
       });
+      const editor = await editorOf();
 
-      await userEvent.click(
-        await screen.findByRole("button", { name: "Edit" }),
-      );
-      await userEvent.type(
-        await screen.findByLabelText("Page text (Markdown)"),
-        "!",
-      );
-      await userEvent.click(screen.getByRole("button", { name: "Done" }));
-
-      await waitFor(() =>
-        expect(screen.queryByLabelText("Page text (Markdown)")).toBeNull(),
-      );
-
-      expect(screen.getByText("Body text!")).toBeVisible();
+      act(() => {
+        editor.commands.focus("end");
+        typeText(editor, "!");
+      });
+      await waitFor(() => expect(rendered.pageSubmissions).toHaveLength(1), {
+        timeout: 4000,
+      });
+      expect(rendered.pageSubmissions[0]).toMatchObject({
+        content: SAVED,
+        expectedRevision: "1",
+        intent: "save",
+      });
+      expect(await screen.findByText("Saved")).toBeVisible();
 
       return rendered;
     }
 
-    it("edits on from the saved revision, not from the stale loader data", async () => {
+    it("saves on from the saved revision, not from the stale loader data", async () => {
       const { pageSubmissions } = await saveOnce();
+      const editor = await editorOf();
 
-      await userEvent.click(screen.getByRole("button", { name: "Edit" }));
-
-      const textarea = await screen.findByLabelText("Page text (Markdown)");
-
-      expect(textarea).toHaveValue(SAVED);
-
-      await userEvent.type(textarea, "?");
+      act(() => {
+        editor.commands.focus("end");
+        typeText(editor, "?");
+      });
       await waitFor(() => expect(pageSubmissions).toHaveLength(2), {
         timeout: 4000,
       });
@@ -384,15 +412,23 @@ describe("WikiPageScreen", () => {
       expect(pageSubmissions[1]).toMatchObject({ expectedRevision: "2" });
     });
 
-    it("lets newer loader data and other pages win over the saved page", async () => {
+    it("loads newer saved versions into the editor and starts other pages afresh", async () => {
       await saveOnce();
       act(() => setLoaded(view({}, { content: "Loaded later", revision: 3 })));
 
-      expect(await screen.findByText("Loaded later")).toBeVisible();
+      expect(
+        await within(
+          await screen.findByRole("textbox", { name: "Page text" }),
+        ).findByText("Loaded later"),
+      ).toBeVisible();
 
       act(() => setLoaded(view({}, { content: "Other page", id: "p2" })));
 
-      expect(await screen.findByText("Other page")).toBeVisible();
+      expect(
+        await within(
+          await screen.findByRole("textbox", { name: "Page text" }),
+        ).findByText("Other page"),
+      ).toBeVisible();
     });
   });
 
@@ -426,33 +462,33 @@ describe("WikiPageScreen", () => {
 });
 
 describe("WikiShell", () => {
-  it("opens the navigation as a drawer on small screens and closes it after a link", async () => {
-    renderInWiki(
-      <WikiShell
-        navigation={NAVIGATION}
-        people={[]}
-        templates={[]}
-        today="2026-10-07"
-      />,
-      {
-        path: "/wiki/p1",
-      },
-    );
-
-    await userEvent.click(await screen.findByRole("button", { name: "Pages" }));
-
-    const drawer = await screen.findByRole("dialog", {
-      name: "Wiki navigation",
+  it("opens the search from the sidebar and with Ctrl+K unless the editor used the key", async () => {
+    renderInWiki(<WikiShell navigation={NAVIGATION} people={[]} />, {
+      path: "/wiki/p1",
     });
 
-    await userEvent.click(
-      within(drawer).getByRole("link", { name: "Overview" }),
-    );
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    act(() => {
+      window.dispatchEvent(new Event(WIKI_SEARCH_EVENT));
+    });
+    expect(await screen.findByRole("dialog")).toBeVisible();
+    await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 
-    await userEvent.click(screen.getByRole("button", { name: "Pages" }));
-    await userEvent.click(await screen.findByRole("button", { name: "Close" }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    const handled = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      ctrlKey: true,
+      key: "k",
+    });
+
+    handled.preventDefault();
+    act(() => {
+      window.dispatchEvent(handled);
+    });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.keyDown(window, { ctrlKey: true, key: "k" });
+    expect(await screen.findByRole("dialog")).toBeVisible();
   });
 });
 
@@ -654,9 +690,10 @@ describe("wiki route components", () => {
     renderRoutes("/wiki");
 
     expect(await screen.findByRole("heading", { name: "Wiki" })).toBeVisible();
+    // The navigation lives in the main sidebar since A8.1.
     expect(
-      screen.getAllByRole("navigation", { name: "Wiki navigation" }).length,
-    ).toBeGreaterThan(0);
+      screen.queryByRole("navigation", { name: "Wiki navigation" }),
+    ).toBeNull();
 
     renderRoutes("/wiki/trash");
 
@@ -714,9 +751,7 @@ describe("wiki route components", () => {
 
     await act(() => router.navigate("/wiki/p2"));
 
-    expect(
-      await screen.findByRole("heading", { name: "Title p2" }),
-    ).toBeVisible();
+    expect(await screen.findByDisplayValue("Title p2")).toBeVisible();
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 

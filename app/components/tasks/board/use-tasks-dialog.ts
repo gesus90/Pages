@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useActionData, useNavigate, useSearchParams } from "react-router";
 
-import { WORK_ITEM_TYPE } from "@/definition/Task";
+import { WORK_ITEM_CHILD_TYPE, WORK_ITEM_TYPE } from "@/definition/Task";
 
 import type { action } from "@/app/routes/tasks";
 import type { WorkItemDetail, WorkItemType } from "@/definition/Task";
@@ -90,8 +90,20 @@ export function useTasksDialog(
     }
   }, [actionData, navigate, searchParams]);
 
+  // The card or row that opened the panel gets the focus back when the panel
+  // closes (A8.2-E10); opening another ticket inside the panel keeps it.
+  const opener = useRef<HTMLElement | null>(null);
+
   function openTask(key: string): void {
     const params = new URLSearchParams(searchParams);
+    const active = document.activeElement;
+
+    if (
+      active instanceof HTMLElement &&
+      active.closest('[role="dialog"]') === null
+    ) {
+      opener.current = active;
+    }
 
     setDialogState((previous) => ({ ...previous, selectedTaskId: key }));
     params.set("item", key);
@@ -100,9 +112,13 @@ export function useTasksDialog(
 
   function closeDetail(): void {
     const params = new URLSearchParams(searchParams);
+    const target = opener.current;
 
     params.delete("item");
-    void navigate(`?${params.toString()}`);
+    opener.current = null;
+    void Promise.resolve(navigate(`?${params.toString()}`)).then(() =>
+      target?.focus(),
+    );
   }
 
   return {
@@ -112,9 +128,7 @@ export function useTasksDialog(
         defaultParentId: parentTask.id,
         defaultProjectId: parentTask.projectId,
         defaultType:
-          parentTask.type === WORK_ITEM_TYPE.EPIC
-            ? WORK_ITEM_TYPE.TASK
-            : WORK_ITEM_TYPE.SUBTASK,
+          WORK_ITEM_CHILD_TYPE[parentTask.type] ?? WORK_ITEM_TYPE.SUBTASK,
         isOpen: true,
         mode: "create",
         selectedTaskId,

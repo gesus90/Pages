@@ -7,7 +7,11 @@ import { FileTooLargeError } from "@/backend/storage/WikiFileStore";
 import { countCharacters, WIKI_LIMITS } from "@/definition/Wiki";
 
 import { canManagePage } from "./WikiAccess";
-import { detectFileType, sanitizeFileName } from "./WikiFileTypes";
+import {
+  detectFileType,
+  isEmbeddableType,
+  sanitizeFileName,
+} from "./WikiFileTypes";
 import { WikiPageReader } from "./WikiPageReader";
 
 import type { ReadStream } from "node:fs";
@@ -53,13 +57,6 @@ function toPublic(attachment: StoredWikiAttachment): WikiAttachment {
     uploadedBy: attachment.uploadedBy,
     uploadedByName: attachment.uploadedByName,
   };
-}
-
-function isEmbeddableType(
-  contentType: string,
-  kind: "media" | "file",
-): boolean {
-  return kind === "media" && /^image\/(?:jpeg|png|gif|webp)$/.test(contentType);
 }
 
 /** Attaches files to pages, lists them and serves them back. */
@@ -229,7 +226,8 @@ export class WikiAttachmentService {
   }
 
   /**
-   * Removes an attachment and its file.
+   * Removes an attachment and its file, and the cover of its page when the
+   * cover showed that image.
    *
    * @param actor - The signed-in user; the uploader or whoever manages the page.
    * @param id - Attachment identifier.
@@ -254,6 +252,12 @@ export class WikiAttachmentService {
     }
 
     await this.repository.attachments.delete(id);
+
+    // A page must not keep a cover whose image is gone.
+    if (page.cover?.kind === "attachment" && page.cover.attachmentId === id) {
+      await this.repository.writes.setCover(page.id, null);
+    }
+
     await this.files.remove([stored.storageName]);
   }
 

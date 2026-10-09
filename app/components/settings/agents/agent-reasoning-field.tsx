@@ -1,81 +1,36 @@
 import { useTranslation } from "react-i18next";
 
-import { Select } from "@/app/components/ui/select";
+import { AssignmentSelect } from "./agent-model-field/assignment-select";
 
-import type { AgentCatalogModel } from "@/definition/AgentModelCatalog";
-import type { AgentForm } from "./use-agent-form";
+import type { AssignmentChoices } from "./use-agent-assignment";
 
-/** Why no effort can be chosen when the model offers no listed levels. */
-function reasoningNoteKey(
-  model: AgentCatalogModel | undefined,
-  isCliDefault: boolean,
-): string {
-  if (model) return `settings.agents.reasoning.${model.reasoning}`;
-  return isCliDefault
-    ? "settings.agents.reasoning.cliDefault"
-    : "settings.agents.reasoning.manual";
-}
-
-/**
- * Offers only the efforts the provider or CLI lists for the selected model.
- *
- * @remarks
- * A level saved before the list changed stays visible as such until it is
- * reset, so the form never hides the value that model tests still use.
- */
+/** Offers only the chosen model's levels and explains catalogs without selectable levels. */
 export function AgentReasoningField({
-  form,
-  model,
-  isCliDefault,
+  selection,
+  isPending,
 }: {
-  readonly form: AgentForm;
-  readonly model: AgentCatalogModel | undefined;
-  readonly isCliDefault: boolean;
+  readonly selection: AssignmentChoices;
+  readonly isPending: boolean;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const efforts = model?.reasoning === "levels" ? model.reasoningEfforts : [];
-  const saved = form.fields.reasoningEffort;
-  const isUnlisted = saved !== "" && !efforts.includes(saved);
-  const note =
-    efforts.length > 0
-      ? "settings.agents.reasoning.hint"
-      : reasoningNoteKey(model, isCliDefault);
-  if (efforts.length === 0 && !isUnlisted)
-    return <p className="text-xs text-muted-foreground">{t(note)}</p>;
-  const options = [
-    {
-      value: "",
-      label: model?.defaultReasoningEffort
-        ? t("settings.agents.reasoning.defaultNamed", {
-            effort: model.defaultReasoningEffort,
-          })
-        : t("settings.agents.reasoning.default"),
-    },
-    ...efforts.map((effort) => ({ value: effort, label: effort })),
-    ...(isUnlisted
-      ? [
-          {
-            value: saved,
-            label: t("settings.agents.reasoning.unlisted", { effort: saved }),
-          },
-        ]
-      : []),
-  ];
+  const model = selection.models.find(
+    (entry) => entry.id === selection.modelId,
+  );
+  const hasLevels = Boolean(model?.reasoningEfforts.length);
   return (
     <div className="space-y-2">
-      <label className="block text-sm font-medium" htmlFor="agent-reasoning">
-        {t("settings.agents.reasoning.label")}
-      </label>
-      <Select
-        id="agent-reasoning"
-        value={saved}
-        options={options}
-        ariaLabel={t("settings.agents.reasoning.label")}
-        onValueChange={(effort) => form.setField("reasoningEffort", effort)}
-        disabled={form.isSaving}
-        className="w-full"
+      <AssignmentSelect
+        field="reasoning"
+        value={selection.effort}
+        options={selection.effortOptions}
+        onValueChange={selection.chooseEffort}
+        disabled={isPending || !hasLevels}
       />
-      <p className="text-xs text-muted-foreground">{t(note)}</p>
+      {model && !hasLevels ? (
+        <p className="text-sm text-muted-foreground">
+          {t("settings.agents.assignments.noEffort")}
+        </p>
+      ) : null}
     </div>
   );
 }

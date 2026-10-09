@@ -32,6 +32,8 @@ import {
 } from "@/app/components/ui/sheet";
 import { InstanceBrand } from "@/app/components/common/instance-brand";
 import { UserAvatar } from "@/app/components/common/user-avatar";
+import { TicketSidebarSection } from "@/app/components/tasks/tree/ticket-sidebar-section";
+import { WikiSidebarSection } from "@/app/components/wiki/wiki-sidebar-section";
 import { cn } from "@/app/lib/cn";
 
 import type { InstanceBranding } from "@/definition/Instance";
@@ -69,7 +71,7 @@ function NavigationLinks({
 
   return (
     <nav
-      className="flex flex-1 flex-col gap-1"
+      className="flex min-h-0 min-w-0 flex-1 flex-col gap-1"
       aria-label={t("navigation.label")}
     >
       <NavLink
@@ -110,6 +112,7 @@ function NavigationLinks({
             />
             {t("navigation.tasks")}
           </NavLink>
+          <TicketSidebarSection onNavigate={onNavigate} />
         </>
       ) : null}
       <NavLink
@@ -124,8 +127,9 @@ function NavigationLinks({
         />
         {t("navigation.wiki")}
       </NavLink>
+      <WikiSidebarSection onNavigate={onNavigate} />
 
-      <div className="mt-auto flex flex-col gap-1">
+      <div className="mt-auto flex flex-col gap-1 pt-2">
         {canViewUsers ? (
           <NavLink
             className={({ isActive }) => getLinkClassName(isActive)}
@@ -297,7 +301,7 @@ export function AppShell({
           draggable={false}
         />
         <InstanceBrand branding={branding} className="mt-6 xl:mt-4" />
-        <div className="mt-8 flex flex-1 xl:mt-6">
+        <div className="mt-8 flex min-h-0 flex-1 xl:mt-6">
           <NavigationLinks
             canViewProjects={canViewProjects}
             canViewUsers={canViewUsers}

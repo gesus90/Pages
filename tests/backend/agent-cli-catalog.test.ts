@@ -1,3 +1,5 @@
+import { PassThrough } from "node:stream";
+
 import { describe, expect, it } from "vitest";
 
 import { ClaudeCodeCli } from "@/backend/agents/cli/ClaudeCodeCli";
@@ -13,7 +15,7 @@ import { CLI_HOME, completeCli, createCliSpawn } from "../helpers/agent-cli";
 
 import type { CliProviderId } from "@/definition/AgentConnection";
 
-// Shapes follow `codex debug models` and `claude --help`; names are synthetic.
+// Shapes follow `codex debug models` and Claude SDK initialization; names are synthetic.
 const CODEX_MODELS = JSON.stringify({
   models: [
     {
@@ -43,19 +45,41 @@ const CODEX_MODELS = JSON.stringify({
     { slug: "internal-review", visibility: "hide", priority: 1 },
   ],
 });
-const CLAUDE_HELP = [
-  "Usage: claude [options] [command] [prompt]",
-  "",
-  "Options:",
-  "  --effort <level>                      Effort level for the current session",
-  "                                        (low, medium, high, max)",
-  "  --environment <environment_id>        Create a new cloud session",
-  "  --model <model>                       Model for the current session. Provide",
-  "                                        an alias for the latest model (e.g.",
-  "                                        'opus', 'sonnet', or 'opus') or a",
-  "                                        model's full name.",
-  "  --print                               Print the response",
-].join("\n");
+function claudeCatalog(models: readonly unknown[]) {
+  return JSON.stringify({
+    type: "control_response",
+    response: {
+      subtype: "success",
+      request_id: "pages-model-catalog",
+      response: { models },
+    },
+  });
+}
+const CLAUDE_MODELS = claudeCatalog([
+  {
+    value: "sonnet",
+    resolvedModel: "claude-sonnet-5-5",
+    displayName: "Sonnet",
+    supportsEffort: true,
+    supportedEffortLevels: ["low", "high"],
+  },
+  {
+    value: "haiku",
+    resolvedModel: "claude-haiku-5-5",
+    displayName: "Haiku",
+    supportsEffort: false,
+    supportedEffortLevels: ["high"],
+  },
+  {
+    value: "fable",
+    resolvedModel: "claude-fable-5-1",
+    displayName: "Fable",
+    supportsEffort: true,
+    supportedEffortLevels: ["medium", "max"],
+  },
+  { value: "versioned-1", displayName: "Invalid\nname" },
+  { value: "versioned-2", supportsEffort: true, supportedEffortLevels: [] },
+]);
 
 function adapterFor(provider: CliProviderId) {
   const fake = createCliSpawn();
@@ -118,8 +142,8 @@ describe("CLI model catalogs", () => {
       JSON.stringify({ models: [{ slug: "two words", visibility: "list" }] }),
     ],
     [
-      "a bracketed model ID",
-      JSON.stringify({ models: [{ slug: "model[1m]", visibility: "list" }] }),
+      "a malformed bracket suffix",
+      JSON.stringify({ models: [{ slug: "model[1m]x", visibility: "list" }] }),
     ],
   ])("rejects Codex output with %s", (_, stdout) => {
     expect(() => readCodexModels(stdout)).toThrow(
@@ -127,30 +151,126 @@ describe("CLI model catalogs", () => {
     );
   });
 
-  it("reads Claude Code aliases once each, with the efforts its help names", () => {
-    const models = readClaudeModels(CLAUDE_HELP);
-    expect(models.map((model) => model.id)).toEqual(["opus", "sonnet"]);
-    expect(models[0]).toMatchObject({
-      name: "opus",
-      reasoning: "levels",
-      reasoningEfforts: ["low", "medium", "high", "max"],
-      defaultReasoningEffort: null,
-    });
+  it("reads canonical Claude IDs and each model's own levels without help aliases or global efforts", () => {
+    const models = readClaudeModels(
+      `${JSON.stringify({ type: "system" })}\n${CLAUDE_MODELS}\n`,
+    );
+    expect(
+      models.map((model) => [
+        model.id,
+        model.reasoning,
+        model.reasoningEfforts,
+      ]),
+    ).toEqual([
+      ["claude-sonnet-5-5", "levels", ["low", "high"]],
+      ["claude-haiku-5-5", "none", []],
+      ["claude-fable-5-1", "levels", ["medium", "max"]],
+      ["versioned-1", "unknown", []],
+      ["versioned-2", "unknown", []],
+    ]);
+    expect(models[0]?.name).toBe("Sonnet");
+    expect(models[3]?.name).toBe("versioned-1");
+    expect(
+      readClaudeModels(claudeCatalog([{ value: "one" }, { value: "one" }])),
+    ).toHaveLength(1);
+  });
+
+  it("keeps every enabled picker row as its own version, including 1M-context variants", () => {
+    // Shape of Claude Code's subscriber picker: alias rows name the family,
+    // their resolved model names the version; earlier versions are their own rows.
+    const models = readClaudeModels(
+      claudeCatalog([
+        {
+          value: "default",
+          resolvedModel: "claude-opus-5-5",
+          displayName: "Default (recommended)",
+          supportedEffortLevels: ["low", "medium", "high", "xhigh", "max"],
+        },
+        {
+          value: "opus[1m]",
+          resolvedModel: "claude-opus-5-5[1m]",
+          displayName: "Opus (1M context)",
+          supportedEffortLevels: ["low", "max"],
+        },
+        {
+          value: "sonnet",
+          resolvedModel: "claude-sonnet-5-5",
+          displayName: "Sonnet",
+        },
+        {
+          value: "haiku",
+          resolvedModel: "claude-haiku-5-5",
+          displayName: "Haiku",
+        },
+        {
+          value: "claude-haiku-4-5",
+          resolvedModel: "claude-haiku-4-5-20251001",
+          displayName: "Haiku 4.5",
+          supportsEffort: false,
+        },
+        { value: "claude-opus-4-8", displayName: "Opus 4.8" },
+        {
+          value: "opus",
+          resolvedModel: "claude-opus-5-5",
+          displayName: "Opus",
+          supportedEffortLevels: ["low", "medium", "high", "xhigh", "max"],
+        },
+        {
+          value: "claude-mythos-5-1",
+          displayName: "Mythos 5.1",
+          disabled: true,
+        },
+      ]),
+    );
+    expect(models.map((model) => [model.id, model.name])).toEqual([
+      ["claude-opus-5-5", "Opus"],
+      ["claude-opus-5-5[1m]", "Opus (1M context)"],
+      ["claude-sonnet-5-5", "Sonnet"],
+      ["claude-haiku-5-5", "Haiku"],
+      ["claude-haiku-4-5-20251001", "Haiku 4.5"],
+      ["claude-opus-4-8", "Opus 4.8"],
+    ]);
+    expect(models[1]?.reasoningEfforts).toEqual(["low", "max"]);
+    expect(models[4]?.reasoning).toBe("none");
   });
 
   it.each([
-    ["without effort levels", CLAUDE_HELP.replace("--effort", "--effortless")],
-    ["without model aliases", CLAUDE_HELP.replace(/'[a-z]+'/g, "x")],
-    ["with an empty effort list", CLAUDE_HELP.replace(/\(low.*max\)/, "()")],
-  ])("rejects Claude Code help %s", (_, help) => {
-    expect(() => readClaudeModels(help)).toThrow(
-      expect.objectContaining({ code: "cli_unexpected_output" }),
-    );
-  });
+    "not JSON",
+    JSON.stringify({}),
+    JSON.stringify({
+      type: "control_response",
+      response: { subtype: "error", request_id: "pages-model-catalog" },
+    }),
+    JSON.stringify({
+      type: "control_response",
+      response: { subtype: "success", request_id: "other" },
+    }),
+    claudeCatalog([]),
+    claudeCatalog([{ value: "opus", disabled: true }]),
+    claudeCatalog(Array.from({ length: 1001 }, () => ({}))),
+    claudeCatalog([{ value: "bad id" }]),
+    claudeCatalog([{ value: 3 }]),
+    claudeCatalog([{ value: "sonnet", resolvedModel: "bad id" }]),
+    JSON.stringify({
+      type: "control_response",
+      response: {
+        subtype: "success",
+        request_id: "pages-model-catalog",
+        response: { models: {} },
+      },
+    }),
+  ])(
+    "rejects malformed or uncorrelated Claude catalog output: %s",
+    (output) => {
+      expect(() => readClaudeModels(output)).toThrow(
+        expect.objectContaining({ code: "cli_unexpected_output" }),
+      );
+    },
+  );
 
   it.each([
     ["codex_cli", CODEX_MODELS, ["debug", "models"], "vendor-large"],
-    ["claude_code", CLAUDE_HELP, ["--help"], "opus"],
+    ["claude_code", CLAUDE_MODELS, ["--print"], "claude-sonnet-5-5"],
   ] as const)(
     "lists the %s catalog without a model turn and maps failures to safe codes",
     async (provider, output, command, first) => {
@@ -163,10 +283,28 @@ describe("CLI model catalogs", () => {
         command,
       );
       expect(fake.spawn.mock.calls[0]?.[2].stdio).toEqual([
-        "ignore",
+        provider === "claude_code" ? "pipe" : "ignore",
         "pipe",
         "pipe",
       ]);
+      if (provider === "claude_code") {
+        const stdin = fake.children[0].stdin;
+        expect(stdin).toBeInstanceOf(PassThrough);
+        if (!(stdin instanceof PassThrough))
+          throw new Error("Missing fake pipe");
+        expect(stdin.read()?.toString()).toBe(
+          `${JSON.stringify({ type: "control_request", request_id: "pages-model-catalog", request: { subtype: "initialize", hooks: {}, agents: {}, sdkMcpServers: [] } })}\n`,
+        );
+        expect(stdin?.writableEnded).toBe(true);
+        expect(fake.children[0].spawnargs).toEqual(
+          expect.arrayContaining([
+            "stream-json",
+            "--safe-mode",
+            "--no-session-persistence",
+          ]),
+        );
+        expect(fake.children[0].spawnargs).not.toContain("--model");
+      }
       const failed = adapter.listModels(CLI_HOME, signal);
       completeCli(fake.children[1], output, 1);
       await expect(failed).rejects.toMatchObject({

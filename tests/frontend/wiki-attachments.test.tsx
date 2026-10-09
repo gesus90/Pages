@@ -1,10 +1,24 @@
 // @vitest-environment jsdom
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 import { WikiAttachmentsView } from "@/app/components/wiki/wiki-attachments-view";
-import { WikiEditor } from "@/app/components/wiki/wiki-editor";
+import { WikiPageEditor } from "@/app/components/wiki/wiki-page-editor";
 import { contentDisposition } from "@/app/lib/content-disposition";
 import { formatBytes } from "@/app/lib/format-bytes";
 import {
@@ -13,6 +27,7 @@ import {
   WikiUploadError,
 } from "@/app/lib/wiki-upload";
 
+import { installEditorGeometry } from "../helpers/editor";
 import { renderInWiki } from "../helpers/wiki-render";
 
 import type { WikiAttachmentEntry } from "@/app/components/wiki/wiki-attachments-view";
@@ -389,10 +404,13 @@ describe("WikiAttachmentsView", () => {
 });
 
 describe("attachments in the editor", () => {
+  beforeAll(installEditorGeometry);
+
   const PAGE: WikiPage = {
     anchors: [],
     breadcrumb: [],
     content: "",
+    cover: null,
     createdAt: "2026-01-01 10:00:00",
     currentUntil: null,
     icon: null,
@@ -410,59 +428,78 @@ describe("attachments in the editor", () => {
     updatedByName: "Olga",
   };
 
-  function renderEditor() {
-    return renderInWiki(<WikiEditor page={PAGE} onDone={vi.fn()} />, {
-      path: "/wiki/p1",
+  async function renderEditor(): Promise<HTMLElement> {
+    renderInWiki(
+      <WikiPageEditor
+        attachments={[]}
+        meta={null}
+        page={PAGE}
+        onComment={vi.fn()}
+        onSaved={vi.fn()}
+        onTextChange={vi.fn()}
+        onTextElement={vi.fn()}
+      />,
+      { path: "/wiki/p1" },
+    );
+
+    return screen.findByRole("textbox", { name: "Page text" });
+  }
+
+  function pasteFile(element: HTMLElement, file: File): void {
+    const paste = new Event("paste", {
+      bubbles: true,
+      cancelable: true,
+    }) as Event & { clipboardData: unknown };
+
+    paste.clipboardData = {
+      files: [file],
+      getData: () => "",
+      types: ["Files"],
+    };
+    act(() => {
+      element.dispatchEvent(paste);
     });
   }
 
-  it("inserts the markdown of an uploaded file at the caret", async () => {
-    renderEditor();
+  it("inserts pasted and chosen files at the caret", async () => {
+    const element = await renderEditor();
 
-    const textarea = (await screen.findByLabelText(
-      "Page text (Markdown)",
-    )) as HTMLTextAreaElement;
+    pasteFile(element, new File(["x"], "logo.png"));
 
-    await userEvent.type(textarea, "before ");
-    await userEvent.upload(
-      screen.getByLabelText("Choose a file"),
-      new File(["x"], "logo.png"),
+    expect(await within(element).findByRole("img")).toHaveAttribute(
+      "src",
+      "/wiki/attachments/a1",
+    );
+    expect(FakeRequest.instances[0]?.url).toBe(
+      "/wiki-api/attachments?page=p1&name=logo.png",
     );
 
-    await waitFor(() =>
-      expect(textarea.value).toContain(
-        "![logo \\[v2\\].png](/wiki/attachments/a1)",
-      ),
-    );
-    expect(textarea.value.startsWith("before ")).toBe(true);
-  });
+    FakeRequest.next = {
+      body: JSON.stringify({
+        attachment: {
+          ...ATTACHMENT,
+          fileName: "plan.pdf",
+          isEmbeddable: false,
+        },
+      }),
+      status: 200,
+    };
 
-  it("uploads files dropped on the text and pasted into it", async () => {
-    renderEditor();
+    const input = document.querySelector('input[type="file"]');
 
-    const textarea = await screen.findByLabelText("Page text (Markdown)");
-    const file = new File(["x"], "a.png");
+    fireEvent.change(input as HTMLInputElement, {
+      target: { files: [new File(["y"], "plan.pdf")] },
+    });
 
-    fireEvent.dragOver(textarea);
-    fireEvent.drop(textarea, { dataTransfer: { files: [file] } });
-    await waitFor(() => expect(FakeRequest.instances).toHaveLength(1));
-
-    fireEvent.paste(textarea, { clipboardData: { files: [file] } });
-    await waitFor(() => expect(FakeRequest.instances).toHaveLength(2));
-
-    fireEvent.paste(textarea, { clipboardData: { files: [] } });
-
-    expect(FakeRequest.instances).toHaveLength(2);
+    expect(
+      await within(element).findByRole("link", { name: "plan.pdf" }),
+    ).toHaveAttribute("href", "/wiki/attachments/a1");
   });
 
   it("reports an unexpected failure as a network problem", async () => {
     FakeRequest.next = "error";
-    renderEditor();
 
-    await userEvent.upload(
-      await screen.findByLabelText("Choose a file"),
-      new File(["x"], "a.png"),
-    );
+    pasteFile(await renderEditor(), new File(["x"], "a.png"));
 
     expect(
       await screen.findByText("The server cannot be reached."),

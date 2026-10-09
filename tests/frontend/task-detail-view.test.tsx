@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -178,6 +178,9 @@ function createEpicTask(): WorkItemDetail {
   });
 }
 
+/** What the ticket fetchers posted to the shared ticket action. */
+let fetcherSubmissions: Record<string, FormDataEntryValue>[] = [];
+
 function renderDetail(loaderOverrides: Record<string, unknown> = {}): void {
   mockedLoaderData.mockReturnValue({
     actor: createUser(),
@@ -196,6 +199,13 @@ function renderDetail(loaderOverrides: Record<string, unknown> = {}): void {
         createUser({ displayName: "Max Mustermann", id: "user-2" }),
       ],
     },
+    attachments: [],
+    checklist: [],
+    descendants: {
+      active: { epic: 0, initiative: 0, subtask: 1, task: 0 },
+      all: { epic: 0, initiative: 0, subtask: 1, task: 0 },
+    },
+    links: [],
     children: [
       createTicket({
         id: "sub-1",
@@ -285,7 +295,17 @@ function renderDetail(loaderOverrides: Record<string, unknown> = {}): void {
 
   const i18n = createI18n(LANGUAGE.GERMAN);
   const router = createMemoryRouter(
-    [{ element: <TaskDetailRoute />, path: "/" }],
+    [
+      { element: <TaskDetailRoute />, path: "/" },
+      {
+        async action({ request }) {
+          fetcherSubmissions.push(Object.fromEntries(await request.formData()));
+
+          return { intent: "change-parent", ok: true };
+        },
+        path: "/aufgaben",
+      },
+    ],
     { initialEntries: ["/"] },
   );
 
@@ -299,6 +319,7 @@ function renderDetail(loaderOverrides: Record<string, unknown> = {}): void {
 describe("TaskDetailRoute", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    fetcherSubmissions = [];
     mockedActionData.mockReturnValue(undefined);
     mockedNavigate.mockReturnValue(vi.fn());
     mockedNavigation.mockReturnValue({
@@ -308,24 +329,72 @@ describe("TaskDetailRoute", () => {
     mockedSubmit.mockReturnValue(vi.fn());
   });
 
-  it("renders the task full view with breadcrumb and tabs", async () => {
-    const user = userEvent.setup();
+  it("renders the Jira-like full view with path, description, children and activity", () => {
     renderDetail();
 
     expect(
       screen.getByRole("heading", { level: 1, name: "Login Seite erstellen" }),
     ).toBeInTheDocument();
-    expect(screen.getAllByText("PAGE-14")).toHaveLength(2);
+    expect(screen.getAllByText("PAGE-14").length).toBeGreaterThanOrEqual(2);
     expect(screen.getByRole("link", { name: "Aufgaben" })).toBeInTheDocument();
-
-    await user.click(screen.getByRole("tab", { name: /Subtasks/ }));
-    expect(screen.getByText("UI erstellen")).toBeInTheDocument();
-
-    await user.click(screen.getByRole("tab", { name: "Aktivität" }));
-    expect(screen.getAllByText("Keine").length).toBeGreaterThan(0);
-
-    await user.click(screen.getByRole("tab", { name: "Beschreibung" }));
+    expect(
+      screen.getByRole("link", { name: "Projektverwaltung" }),
+    ).toHaveAttribute("href", "/aufgaben/PAGE-3?from=kanban");
     expect(screen.getByText("Login umsetzen")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Subtasks/ }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("UI erstellen")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Aktivität" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Anhänge/ })).toBeVisible();
+    expect(screen.getAllByLabelText("Status")).toHaveLength(1);
+  });
+
+  it("saves the title edited in place and refreshes after an upload", async () => {
+    const user = userEvent.setup();
+    const submit = vi.fn();
+    const answers: (() => void)[] = [];
+
+    class UploadRequest {
+      public status = 200;
+      public responseText = JSON.stringify({
+        attachment: { fileName: "a.txt", id: "a9", isEmbeddable: false },
+      });
+      public onload: (() => void) | null = null;
+      public onerror: (() => void) | null = null;
+      public upload = { onprogress: null };
+      public open(): void {}
+      public send(): void {
+        answers.push(() => this.onload?.());
+        queueMicrotask(() => this.onload?.());
+      }
+    }
+
+    vi.stubGlobal("XMLHttpRequest", UploadRequest);
+    mockedSubmit.mockReturnValue(submit);
+    renderDetail();
+
+    await user.dblClick(
+      screen.getByRole("heading", { level: 1, name: "Login Seite erstellen" }),
+    );
+    const titleInput = screen.getByDisplayValue("Login Seite erstellen");
+
+    await user.clear(titleInput);
+    await user.type(titleInput, "Neuer Titel{Enter}");
+    expect(submit).toHaveBeenCalledWith(
+      expect.objectContaining({ intent: "update-task", title: "Neuer Titel" }),
+      { method: "post" },
+    );
+
+    const input = document.querySelector<HTMLInputElement>(
+      'section > input[type="file"]',
+    );
+
+    await user.upload(input as HTMLInputElement, new File(["x"], "a.txt"));
+    await waitFor(() => expect(answers).toHaveLength(1));
+    vi.unstubAllGlobals();
   });
 
   it("navigates back and opens child tickets", async () => {
@@ -334,33 +403,31 @@ describe("TaskDetailRoute", () => {
     mockedNavigate.mockReturnValue(navigate);
     renderDetail();
 
-    await user.click(screen.getByRole("button", { name: "Zurück" }));
+    await user.click(screen.getByRole("button", { name: "Zurück zum Board" }));
     expect(navigate).toHaveBeenCalledWith("/aufgaben?view=kanban");
-
-    await user.click(screen.getByRole("tab", { name: /Subtasks/ }));
-    await user.click(screen.getByText("UI erstellen"));
-    expect(navigate).toHaveBeenCalledWith("/aufgaben/PAGE-14.1?from=kanban");
+    expect(screen.getByRole("link", { name: /UI erstellen/ })).toHaveAttribute(
+      "href",
+      "/aufgaben/PAGE-14.1?from=kanban",
+    );
   });
 
-  it("submits header and detail quick edits", async () => {
+  it("submits status, field and parent changes", async () => {
     const user = userEvent.setup();
     const submit = vi.fn();
     mockedSubmit.mockReturnValue(submit);
     renderDetail();
 
-    await user.click(screen.getAllByLabelText("Status")[0] as HTMLElement);
+    await user.click(screen.getByLabelText("Status"));
     await user.click(await screen.findByRole("option", { name: "Done" }));
     expect(submit).toHaveBeenCalledWith(
       expect.objectContaining({ intent: "move-task" }),
       { method: "post" },
     );
 
-    await user.click(screen.getAllByLabelText("Priorität")[1] as HTMLElement);
+    await user.click(screen.getByLabelText("Priorität"));
     await user.click(await screen.findByRole("option", { name: "Dringend" }));
 
-    await user.click(
-      screen.getAllByLabelText("Zugewiesen an")[1] as HTMLElement,
-    );
+    await user.click(screen.getByLabelText("Zugewiesen an"));
     await user.click(
       await screen.findByRole("option", { name: "Max Mustermann" }),
     );
@@ -368,11 +435,6 @@ describe("TaskDetailRoute", () => {
     await user.click(screen.getByLabelText("Reporter"));
     await user.click(
       await screen.findByRole("option", { name: "Max Mustermann" }),
-    );
-
-    await user.click(screen.getByLabelText("Epic auswählen (optional)"));
-    await user.click(
-      await screen.findByRole("option", { name: "PAGE-3: Projektverwaltung" }),
     );
 
     await user.click(screen.getByLabelText("Meilenstein"));
@@ -386,8 +448,24 @@ describe("TaskDetailRoute", () => {
     });
 
     expect(submit).toHaveBeenCalledWith(
-      expect.objectContaining({ intent: "update-task" }),
+      expect.objectContaining({ intent: "update-task", priority: "urgent" }),
       { method: "post" },
+    );
+    expect(submit).toHaveBeenCalledWith(
+      expect.not.objectContaining({ description: expect.anything() }),
+      { method: "post" },
+    );
+
+    await user.click(screen.getByLabelText("Epic"));
+    await user.click(
+      await screen.findByRole("option", { name: "PAGE-99: Eigenes Epic" }),
+    );
+    await waitFor(() =>
+      expect(fetcherSubmissions.at(-1)).toMatchObject({
+        id: "item-14",
+        intent: "change-parent",
+        parentId: "self-epic",
+      }),
     );
   });
 
@@ -411,7 +489,7 @@ describe("TaskDetailRoute", () => {
       }),
     });
 
-    await user.click(screen.getAllByLabelText("Priorität")[1] as HTMLElement);
+    await user.click(screen.getByLabelText("Priorität"));
     await user.click(await screen.findByRole("option", { name: "Dringend" }));
 
     expect(submit).toHaveBeenCalledWith(
@@ -488,17 +566,20 @@ describe("TaskDetailRoute", () => {
       }),
     });
 
-    expect(screen.getByText("Enthaltene Tasks")).toBeInTheDocument();
-
-    await user.click(screen.getByRole("tab", { name: /Enthaltene Tasks/ }));
-    expect(screen.getByText("Projekt erstellen")).toBeInTheDocument();
     expect(
-      screen.getByLabelText("Initiative auswählen (optional)"),
-    ).toHaveTextContent("PAGE-1: Plattform");
+      screen.getByRole("heading", { name: /Enthaltene Tasks/ }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Projekt erstellen")).toBeInTheDocument();
+    expect(screen.getByLabelText("Initiative")).toHaveTextContent(
+      "PAGE-1: Plattform",
+    );
     expect(screen.getByText("1 / 2 (50 %)")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("tab", { name: /Enthaltene Tasks/ }));
-    await user.click(screen.getByRole("button", { name: "Neue Aufgabe" }));
+    const [headerAdd] = screen.getAllByRole("button", {
+      name: "Task hinzufügen",
+    });
+
+    await user.click(headerAdd as HTMLElement);
     expect(
       screen.getByRole("heading", { name: "Neue Aufgabe" }),
     ).toBeInTheDocument();
@@ -506,8 +587,6 @@ describe("TaskDetailRoute", () => {
 
   it("assigns an initiative to an epic through the sidebar", async () => {
     const user = userEvent.setup();
-    const submit = vi.fn();
-    mockedSubmit.mockReturnValue(submit);
     renderDetail({
       projectWorkItems: [
         createTicket({
@@ -527,40 +606,45 @@ describe("TaskDetailRoute", () => {
       }),
     });
 
-    await user.click(screen.getByLabelText("Initiative auswählen (optional)"));
+    await user.click(screen.getByLabelText("Initiative"));
     await user.click(
       await screen.findByRole("option", { name: "PAGE-2: Zweite Initiative" }),
     );
 
-    expect(submit).toHaveBeenCalledWith(
-      expect.objectContaining({ intent: "update-task", parentId: "init-2" }),
-      { method: "post" },
+    await waitFor(() =>
+      expect(fetcherSubmissions.at(-1)).toMatchObject({
+        id: "epic-1",
+        intent: "change-parent",
+        parentId: "init-2",
+      }),
     );
   });
 
-  it("submits the quick selects of the header", async () => {
+  it("copies the ticket link and shows the address without clipboard access", async () => {
     const user = userEvent.setup();
-    const submit = vi.fn();
-    mockedSubmit.mockReturnValue(submit);
+    const writeText = vi
+      .fn()
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error("denied"));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
     renderDetail();
 
-    await user.click(screen.getAllByLabelText("Priorität")[0] as HTMLElement);
-    await user.click(await screen.findByRole("option", { name: "Dringend" }));
-    await user.click(
-      screen.getAllByLabelText("Zugewiesen an")[0] as HTMLElement,
-    );
-    await user.click(
-      await screen.findByRole("option", { name: "Max Mustermann" }),
+    await user.click(screen.getByRole("button", { name: "Link kopieren" }));
+    expect(await screen.findByText("Link kopiert")).toBeInTheDocument();
+    expect(writeText).toHaveBeenCalledWith(
+      `${window.location.origin}/aufgaben/PAGE-14`,
     );
 
-    expect(submit).toHaveBeenCalledWith(
-      expect.objectContaining({ intent: "update-task", priority: "urgent" }),
-      { method: "post" },
-    );
-    expect(submit).toHaveBeenCalledWith(
-      expect.objectContaining({ assigneeId: "user-2", intent: "update-task" }),
-      { method: "post" },
-    );
+    await user.click(screen.getByRole("button", { name: "Link kopieren" }));
+    expect(
+      await screen.findByText(`${window.location.origin}/aufgaben/PAGE-14`),
+    ).toBeInTheDocument();
+    expect(warn).toHaveBeenCalled();
   });
 
   it("renders initiative views with contained epics", async () => {
@@ -579,16 +663,17 @@ describe("TaskDetailRoute", () => {
       }),
     });
 
-    expect(screen.getByText("Enthaltene Epics")).toBeInTheDocument();
-
-    await user.click(screen.getByRole("tab", { name: /Enthaltene Epics/ }));
-    expect(screen.getByText("Projektverwaltung")).toBeInTheDocument();
     expect(
-      screen.queryByLabelText("Epic auswählen (optional)"),
-    ).not.toBeInTheDocument();
+      screen.getByRole("heading", { name: /Enthaltene Epics/ }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Projektverwaltung")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Initiative")).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("tab", { name: /Enthaltene Epics/ }));
-    await user.click(screen.getByRole("button", { name: "Epic erstellen" }));
+    const [sectionAdd] = screen
+      .getAllByRole("button", { name: "Epic hinzufügen" })
+      .slice(-1);
+
+    await user.click(sectionAdd as HTMLElement);
     expect(
       screen.getByRole("heading", { name: "Neue Aufgabe" }),
     ).toBeInTheDocument();
@@ -617,12 +702,15 @@ describe("TaskDetailRoute", () => {
       }),
     });
 
-    expect(screen.getByText(/Übergeordneter Task/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Task")).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /Subtasks/ }),
+      screen.queryByRole("heading", { name: /Subtasks/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /hinzufügen/ }),
     ).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "PAGE-14" }));
+    await user.click(screen.getByRole("button", { name: "PAGE-14 öffnen" }));
     expect(navigate).toHaveBeenCalledWith("/aufgaben/PAGE-14?from=kanban");
   });
 
@@ -641,9 +729,9 @@ describe("TaskDetailRoute", () => {
       }),
     });
 
-    expect(
-      screen.getByLabelText("Initiative auswählen (optional)"),
-    ).toHaveTextContent("Keine");
+    expect(screen.getByLabelText("Initiative")).toHaveTextContent(
+      "Keine Zuordnung",
+    );
     expect(screen.queryByText("PAGE-3")).not.toBeInTheDocument();
   });
 
@@ -707,11 +795,36 @@ describe("TaskDetailRoute", () => {
       screen.getAllByRole("button", { name: "Wiederherstellen" }).length,
     ).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Bearbeiten" })).toBeDisabled();
+    expect(
+      screen.queryByRole("button", { name: "Subtask hinzufügen" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Beschreibung bearbeiten" }),
+    ).not.toBeInTheDocument();
+    void user;
+  });
 
-    await user.click(screen.getByRole("tab", { name: /Subtasks/ }));
+  it("keeps the metadata of active tickets read-only without write access", () => {
+    renderDetail({ permissions: { canDelete: false, canWrite: false } });
+
+    const fields = screen.getAllByRole("combobox");
+
+    expect(fields.length).toBeGreaterThan(0);
+
+    for (const field of fields) {
+      expect(field).toBeDisabled();
+    }
+
+    const dates = document.querySelectorAll('input[type="date"]');
+
+    expect(dates).toHaveLength(2);
+
+    for (const date of dates) {
+      expect(date).toBeDisabled();
+    }
 
     expect(
-      screen.queryByRole("button", { name: "Unteraufgabe" }),
+      screen.queryByRole("button", { name: "Labels bearbeiten" }),
     ).not.toBeInTheDocument();
   });
 
@@ -773,8 +886,11 @@ describe("TaskDetailRoute", () => {
     ).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Abbrechen" }));
 
-    await user.click(screen.getByRole("tab", { name: /Subtasks/ }));
-    await user.click(screen.getByRole("button", { name: "Unteraufgabe" }));
+    await user.click(
+      screen.getAllByRole("button", {
+        name: "Subtask hinzufügen",
+      })[1] as HTMLElement,
+    );
     expect(
       screen.getByRole("heading", { name: "Neue Aufgabe" }),
     ).toBeInTheDocument();
@@ -881,8 +997,11 @@ describe("TaskDetailRoute", () => {
 
     renderDetail();
 
-    await user.click(screen.getByRole("tab", { name: /Subtasks/ }));
-    await user.click(screen.getByRole("button", { name: "Unteraufgabe" }));
+    await user.click(
+      screen.getAllByRole("button", {
+        name: "Subtask hinzufügen",
+      })[0] as HTMLElement,
+    );
 
     expect(screen.getByRole("alert")).toBeInTheDocument();
   });
@@ -895,7 +1014,7 @@ describe("TaskDetailRoute", () => {
       }),
     });
 
-    await user.click(screen.getByRole("tab", { name: "Beschreibung" }));
+    void user;
 
     expect(screen.getByRole("heading", { name: "Plan" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /idea/ })).toHaveAttribute(
@@ -904,8 +1023,7 @@ describe("TaskDetailRoute", () => {
     );
   });
 
-  it("renders empty description and children states", async () => {
-    const user = userEvent.setup();
+  it("renders empty description and children states", () => {
     renderDetail({
       children: [],
       parent: null,
@@ -917,10 +1035,12 @@ describe("TaskDetailRoute", () => {
       }),
     });
 
-    expect(screen.getAllByText("Keine").length).toBeGreaterThan(0);
-
-    await user.click(screen.getByRole("tab", { name: /Subtasks/ }));
-
-    expect(screen.getAllByText("Keine").length).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("button", { name: "Beschreibung hinzufügen …" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Keine untergeordneten Einträge."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Noch keine Anhänge.")).toBeInTheDocument();
   });
 });

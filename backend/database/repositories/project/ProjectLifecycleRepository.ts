@@ -1,4 +1,5 @@
 import { deleteWikiPages } from "../wiki/WikiPageDeletion";
+import { deleteAssistantConversations } from "../assistant/AssistantConversationDeletion";
 
 import type { DatabaseTransaction } from "@/backend/database/Database";
 
@@ -79,6 +80,11 @@ export class ProjectLifecycleRepository {
   }
 
   private async deleteWorkItemChildren(projectId: string): Promise<void> {
+    await deleteAssistantConversations(this.database, {
+      condition:
+        "context_kind = 'ticket' AND context_id IN (SELECT id FROM work_items WHERE project_id = $project_id)",
+      parameters: { project_id: projectId },
+    });
     await this.database.execute(
       `
       DELETE FROM work_item_history
@@ -112,6 +118,25 @@ export class ProjectLifecycleRepository {
       `
       DELETE FROM work_item_labels
       WHERE work_item_id IN (
+          SELECT id FROM work_items WHERE project_id = $project_id
+      );
+    `,
+      { project_id: projectId },
+    );
+    // The files of these attachments are swept when the server starts.
+    await this.database.execute(
+      `
+      DELETE FROM work_item_attachments
+      WHERE work_item_id IN (
+          SELECT id FROM work_items WHERE project_id = $project_id
+      );
+    `,
+      { project_id: projectId },
+    );
+    await this.database.execute(
+      `
+      DELETE FROM work_item_tree_expansions
+      WHERE node_key IN (
           SELECT id FROM work_items WHERE project_id = $project_id
       );
     `,

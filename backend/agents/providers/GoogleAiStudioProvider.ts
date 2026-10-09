@@ -46,6 +46,16 @@ function readGeneration(
   });
 }
 
+/**
+ * Names a catalog level as a value of Gemini's `ThinkingLevel` enum.
+ *
+ * @param effort - A level as Google's thinking documentation lists it, such as `medium`.
+ * @returns The enum name the generateContent reference defines, such as `MEDIUM`.
+ */
+export function geminiThinkingLevel(effort: string): string {
+  return effort.toUpperCase();
+}
+
 /** Gemini authentication always travels in x-goog-api-key, never in the URL. */
 export class GoogleAiStudioProvider implements ApiProviderAdapter {
   public readonly provider = "google_ai_studio";
@@ -84,7 +94,16 @@ export class GoogleAiStudioProvider implements ApiProviderAdapter {
         path: `/models/${encodeURIComponent(model)}:generateContent`,
         body: {
           contents: [{ parts: [{ text: MODEL_TEST_PROMPT }] }],
-          generationConfig: { maxOutputTokens: 16 },
+          generationConfig: {
+            maxOutputTokens: 16,
+            ...(request.reasoningEffort === null
+              ? {}
+              : {
+                  thinkingConfig: {
+                    thinkingLevel: geminiThinkingLevel(request.reasoningEffort),
+                  },
+                }),
+          },
         },
         parse: (payload) => readGeneration(payload, request.model),
       },

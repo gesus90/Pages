@@ -132,6 +132,10 @@ describe("DuckDB baseline migration", () => {
       "020_agent_connections.sql",
       "021_agent_model_catalogs.sql",
       "022_agent_reasoning_effort.sql",
+      "023_wiki_page_cover.sql",
+      "024_ticket_attachments_and_tree.sql",
+      "025_text_assistant.sql",
+      "026_agent_function_assignments.sql",
     ]);
   });
 

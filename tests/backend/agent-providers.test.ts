@@ -454,3 +454,27 @@ describe("provider payloads and transport", () => {
     ).toMatchObject({ errorCode: "provider_bad_response" });
   });
 });
+
+describe("Google reasoning transport", () => {
+  it("passes an explicitly selected level as the documented thinkingLevel enum value, without a budget mapping or replacement", async () => {
+    const { adapter, request, signal } = setup(
+      "google_ai_studio",
+      MODEL.google_ai_studio,
+    );
+    await adapter.runModelTest(
+      {
+        apiKey: "synthetic",
+        model: "models/catalog-model",
+        reasoningEffort: "minimal",
+      },
+      signal,
+    );
+    expect(JSON.parse(request.mock.calls[0]?.[1]?.body ?? "{}")).toMatchObject({
+      generationConfig: {
+        maxOutputTokens: 16,
+        thinkingConfig: { thinkingLevel: "MINIMAL" },
+      },
+    });
+    expect(request).toHaveBeenCalledOnce();
+  });
+});

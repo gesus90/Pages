@@ -1,48 +1,40 @@
 import { TicketArchivedBanner } from "@/app/components/tasks/ticket/ticket-archived-banner";
 import { TicketHeading } from "@/app/components/tasks/ticket/ticket-heading";
-import { TicketQuickSelects } from "@/app/components/tasks/ticket/ticket-quick-selects";
 
 import type { TaskPanelActions } from "@/app/components/tasks/detail/use-task-panel-actions";
-import type { WorkItemDetail, WorkflowStatus } from "@/definition/Task";
-import type { User } from "@/definition/User";
+import type { WorkItemDetail } from "@/definition/Task";
 
 interface TicketTopProps {
   readonly ticket: WorkItemDetail;
-  readonly statuses: readonly WorkflowStatus[];
-  readonly assignees: readonly User[];
   readonly actions: TaskPanelActions;
+  readonly canWrite: boolean;
   readonly isArchived: boolean;
   readonly isArchiving: boolean;
   readonly onBack: () => void;
   readonly onEdit: () => void;
+  readonly onCreateChild: (() => void) | null;
 }
 
-/** Renders the heading, the quick selects and the archive notice of a ticket. */
+/** Renders the heading with its actions and the archive notice of a ticket. */
 export function TicketTop({
   ticket,
-  statuses,
-  assignees,
   actions,
+  canWrite,
   isArchived,
   isArchiving,
   onBack,
   onEdit,
+  onCreateChild,
 }: TicketTopProps): React.ReactElement {
   return (
     <>
       <TicketHeading
+        canWrite={canWrite}
         isArchived={isArchived}
         onBack={onBack}
+        onCreateChild={onCreateChild}
         onEdit={onEdit}
-        ticket={ticket}
-      />
-      <TicketQuickSelects
-        assignees={assignees}
-        isArchived={isArchived}
-        onChangeAssignee={(assignee) => actions.update({ assignee })}
-        onChangePriority={(priority) => actions.update({ priority })}
-        onChangeStatus={actions.changeStatus}
-        statuses={statuses}
+        onSaveTitle={(title) => actions.update({ title })}
         ticket={ticket}
       />
       {isArchived ? (

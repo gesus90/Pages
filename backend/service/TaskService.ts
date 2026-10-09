@@ -33,15 +33,18 @@ import type {
 import type { WorkItemsOverviewScope } from "@/backend/service/task/TaskReadService";
 import type {
   CreateWorkItemInput,
+  DescriptionChange,
   UpdateWorkItemInput,
 } from "@/backend/service/task/TaskWriteService";
 import type {
+  ChildHandling,
   Milestone,
   MilestoneDependency,
   Label,
   TaskActionPermissions,
   TicketDepartmentChoices,
   WorkItemChecklistItem,
+  WorkItemDescendants,
   WorkItemDetail,
   WorkItemHistory,
   WorkItemLink,
@@ -58,8 +61,14 @@ export type {
 } from "@/backend/service/task/TaskMilestoneService";
 export type {
   CreateWorkItemInput,
+  DescriptionChange,
   UpdateWorkItemInput,
 } from "@/backend/service/task/TaskWriteService";
+
+/** Removes stored attachment files of tickets that were deleted for good. */
+export interface AttachmentFileRemover {
+  readonly removeFiles: (storageNames: readonly string[]) => Promise<void>;
+}
 
 /**
  * Establishes the business-logic boundary for work items and kanban tracking.
@@ -81,6 +90,7 @@ export class TaskService {
   private readonly links: TaskLinkService;
   private readonly milestones: TaskMilestoneService;
   private readonly gitHubPublisher: TaskGitHubPublisher;
+  private attachmentFiles: AttachmentFileRemover | null = null;
 
   /**
    * Creates a task service.
@@ -157,6 +167,16 @@ export class TaskService {
    */
   public setGitHubSync(gitHubSync: GitHubSyncService): void {
     this.gitHubPublisher.attach(gitHubSync);
+  }
+
+  /**
+   * Attaches the store of ticket attachments, whose files a permanent
+   * deletion removes from the disk.
+   *
+   * @param files - Removes stored files by name.
+   */
+  public setAttachmentFiles(files: AttachmentFileRemover): void {
+    this.attachmentFiles = files;
   }
 
   /** Returns all available workflow statuses. */
@@ -322,6 +342,24 @@ export class TaskService {
     return this.writer.update(actor, id, input);
   }
 
+  /** Saves a new description unless someone saved another one since it was opened. */
+  public async updateDescription(
+    actor: User,
+    id: string,
+    change: DescriptionChange,
+  ): Promise<WorkItemDetail> {
+    return this.writer.updateDescription(actor, id, change);
+  }
+
+  /** Moves a work item below another parent of the same project, or removes its parent. */
+  public async changeParent(
+    actor: User,
+    id: string,
+    parentId: string | null,
+  ): Promise<WorkItemDetail> {
+    return this.writer.changeParent(actor, id, parentId);
+  }
+
   /** Updates status and column sort order via kanban drag & drop. */
   public async updateStatusAndOrder(
     actor: User,
@@ -332,9 +370,28 @@ export class TaskService {
     return this.writer.updateStatusAndOrder(actor, id, statusId, sortOrder);
   }
 
-  /** Marks a work item and its descendants as archived without physical deletion. */
-  public async archive(actor: User, id: string): Promise<void> {
-    return this.lifecycle.archive(actor, id);
+  /** Tells which visible descendants an archive or a deletion of a work item reaches. */
+  public async describeDescendants(
+    actor: User,
+    id: string,
+  ): Promise<WorkItemDescendants> {
+    return this.lifecycle.describeDescendants(actor, id);
+  }
+
+  /**
+   * Archives a work item without physical deletion.
+   *
+   * @param actor - The person archiving.
+   * @param id - Work item identifier.
+   * @param handling - Whether the descendants go along (`include`) or the
+   * direct children stay without a parent (`keep`).
+   */
+  public async archive(
+    actor: User,
+    id: string,
+    handling: ChildHandling = "include",
+  ): Promise<void> {
+    return this.lifecycle.archive(actor, id, handling);
   }
 
   /** Restores an archived work item and its descendants keeping their workflow status. */
@@ -342,9 +399,26 @@ export class TaskService {
     return this.lifecycle.restore(actor, id);
   }
 
-  /** Permanently deletes a work item, its descendants and all data tied to them; administrator mode only. */
-  public async deletePermanently(actor: User, id: string): Promise<void> {
-    return this.lifecycle.deletePermanently(actor, id);
+  /**
+   * Permanently deletes a work item with all data tied to it; administrator mode only.
+   *
+   * @param actor - The person deleting.
+   * @param id - Work item identifier.
+   * @param handling - Whether the descendants are deleted too (`include`) or
+   * the direct children stay without a parent (`keep`).
+   */
+  public async deletePermanently(
+    actor: User,
+    id: string,
+    handling: ChildHandling = "include",
+  ): Promise<void> {
+    const storageNames = await this.lifecycle.deletePermanently(
+      actor,
+      id,
+      handling,
+    );
+
+    await this.attachmentFiles?.removeFiles(storageNames);
   }
 
   /** Reassigns a work item to a department, or clears it, apart from content edits. */

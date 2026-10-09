@@ -1,5 +1,6 @@
 import { WorkItemValidationError } from "@/backend/error/WorkItemErrors";
 import {
+  assertParentActive,
   assertParentFits,
   selectParentLookup,
 } from "@/backend/service/task/WorkItemHierarchy";
@@ -8,15 +9,24 @@ import type { TaskRepository } from "@/backend/database/repositories/TaskReposit
 import type { WorkItemType, WorkItemVisibility } from "@/definition/Task";
 import type { TaskAccessGuard } from "./TaskAccessGuard";
 
-/** The records a work item points to, which must exist and fit its project. */
-export interface WorkItemReferences {
+/** The parent a work item points to, which must exist, fit its type and be active. */
+export interface ParentReference {
   readonly type: WorkItemType;
   readonly visibility?: WorkItemVisibility;
   /** Trusted unchanged hidden parent; never taken from external input. */
   readonly preservedParentId?: string | null;
+  /**
+   * The parent the work item has now. It may stay even when it was archived
+   * meanwhile; only a newly chosen parent must be active.
+   */
+  readonly storedParentId?: string | null;
   readonly projectId: string;
   readonly selfId: string | null;
   readonly parentId: string | null;
+}
+
+/** The records a work item points to, which must exist and fit its project. */
+export interface WorkItemReferences extends ParentReference {
   readonly milestoneId: string | null;
   readonly assigneeId: string | null;
   readonly assigneeGroupId: string | null;
@@ -87,6 +97,36 @@ export class WorkItemReferenceValidator {
     return (eligible.get(projectId) ?? []).some((user) => user.id === userId);
   }
 
+  /**
+   * Validates the parent of a work item against the hierarchy.
+   *
+   * @throws {WorkItemHierarchyError} When the parent is missing, hidden, of
+   * the wrong type, in another project, or newly chosen and archived.
+   */
+  public async validateHierarchy(reference: ParentReference): Promise<void> {
+    const lookup = selectParentLookup(
+      reference.type,
+      reference.parentId,
+      reference.selfId,
+    );
+
+    if (lookup === null) {
+      return;
+    }
+
+    if (reference.preservedParentId === lookup.parentId) return;
+    const parent = await this.taskRepository.findById(
+      lookup.parentId,
+      reference.visibility,
+    );
+
+    assertParentFits(parent, lookup.rule, reference.projectId);
+
+    if (reference.storedParentId !== lookup.parentId) {
+      assertParentActive(parent);
+    }
+  }
+
   private async validateAssignment(
     references: WorkItemReferences,
   ): Promise<void> {
@@ -118,28 +158,6 @@ export class WorkItemReferenceValidator {
     if (group.memberCount === 0) {
       throw new WorkItemValidationError("groupEmpty");
     }
-  }
-
-  private async validateHierarchy(
-    references: WorkItemReferences,
-  ): Promise<void> {
-    const lookup = selectParentLookup(
-      references.type,
-      references.parentId,
-      references.selfId,
-    );
-
-    if (lookup === null) {
-      return;
-    }
-
-    if (references.preservedParentId === lookup.parentId) return;
-    const parent = await this.taskRepository.findById(
-      lookup.parentId,
-      references.visibility,
-    );
-
-    assertParentFits(parent, lookup.rule, references.projectId);
   }
 
   private async validateMilestone(

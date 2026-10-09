@@ -222,7 +222,7 @@ describe("TaskService", () => {
       setGitHubConflict: vi.fn().mockResolvedValue(undefined),
       setGitHubError: vi.fn().mockResolvedValue(undefined),
       unassignLabel: vi.fn().mockResolvedValue(undefined),
-      update: vi.fn().mockResolvedValue(undefined),
+      update: vi.fn().mockResolvedValue(true),
       updateChecklistItem: vi.fn().mockResolvedValue(undefined),
       updateGitHubLink: vi.fn().mockResolvedValue(undefined),
       updateLabel: vi.fn().mockResolvedValue(undefined),
@@ -422,7 +422,7 @@ describe("TaskService", () => {
 
     await expect(
       service.create(actor, {
-        description: "a".repeat(10_001),
+        description: "a".repeat(65_537),
         projectId: "project-1",
         statusId: "status-1",
         title: "Valid",
@@ -1209,7 +1209,7 @@ describe("TaskService", () => {
       service.update(actor, "item-1", {
         assigneeId: null,
         assigneeGroupId: null,
-        description: "a".repeat(10_001),
+        description: "a".repeat(65_537),
         dueAt: null,
         milestoneId: null,
         parentId: null,
@@ -1312,7 +1312,7 @@ describe("TaskService restore, moves, labels, and sync state", () => {
       restoreMany: vi.fn().mockResolvedValue(undefined),
       setGitHubError: vi.fn().mockResolvedValue(undefined),
       unassignLabel: vi.fn().mockResolvedValue(undefined),
-      update: vi.fn().mockResolvedValue(undefined),
+      update: vi.fn().mockResolvedValue(true),
       updateChecklistItem: vi.fn().mockResolvedValue(undefined),
       updateLabel: vi.fn().mockResolvedValue(undefined),
       updateStatusAndOrder: vi.fn().mockResolvedValue(undefined),

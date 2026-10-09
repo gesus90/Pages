@@ -168,6 +168,8 @@ export class AgentConnectionService {
     await this.dependencies.operations.run(id, "write", async () => {
       const { repository, cli } = this.dependencies;
       const connection = await requireAgentConnection(repository, id);
+      if (await repository.hasAssignments(id))
+        throw new AgentError("connection_in_use");
       if (!isApiProvider(connection.provider))
         await cli.cleanup(actor, connection);
       await repository.remove(id);

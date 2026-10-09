@@ -431,6 +431,10 @@ function verifySourceColumns(
  * The company logo came with A5; SQLite has none.
  * The wiki came with A6: SQLite has only the former pages, which become
  * project pages whose owner is their author (see `WIKI_BACKFILL`).
+ * Ticket attachments and the open branches of the ticket tree came with A8.2;
+ * SQLite has neither.
+ * The Text role, preferences and private assistant histories came with A8.3;
+ * their native defaults and existing rows remain outside the legacy copy.
  */
 async function readTargetColumns(
   target: Database,
@@ -454,7 +458,11 @@ async function readTargetColumns(
               'wiki_page_links', 'wiki_attachments', 'wiki_comments', 'wiki_mentions',
               'wiki_favorites', 'wiki_recent_pages', 'wiki_expanded_pages',
               'wiki_user_state', 'wiki_settings',
-              'agent_connections', 'agent_connection_checks', 'agent_model_catalogs'
+              'agent_connections', 'agent_connection_checks', 'agent_model_catalogs',
+              'work_item_attachments', 'work_item_tree_expansions',
+              'text_assistant_settings', 'text_assistant_preferences',
+              'assistant_conversations', 'assistant_messages',
+              'agent_function_assignments'
           )
           AND NOT (
               table_name = 'wiki_pages'

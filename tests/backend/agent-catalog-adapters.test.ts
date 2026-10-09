@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { CatalogHttpClient } from "@/backend/agents/catalog/CatalogHttpClient";
 import {
+  isCatalogModelId,
   parseCatalogPage,
   parseStoredCatalog,
 } from "@/backend/agents/catalog/CatalogParsing";
@@ -17,6 +18,11 @@ import {
 import type { ApiProviderId } from "@/definition/AgentConnection";
 
 const SIGNAL = new AbortController().signal;
+// Metadata with which each catalog marks an entry as a text model.
+const TEXT = {
+  architecture: { input_modalities: ["text"], output_modalities: ["text"] },
+};
+const GENERATES = { supportedGenerationMethods: ["generateContent"] };
 
 function catalog(provider: ApiProviderId, request: typeof fetch) {
   const client = new CatalogProviderClient(new CatalogHttpClient(request));
@@ -45,10 +51,11 @@ describe("token-free provider catalog adapters", () => {
               name: "Friendly",
               context_length: 123,
               pricing: { prompt: "0", completion: "0.000" },
+              ...TEXT,
             },
           ],
         },
-        "https://openrouter.ai/api/v1/models?output_modalities=all&limit=1000&offset=0",
+        "https://openrouter.ai/api/v1/models?output_modalities=text&limit=1000&offset=0",
         "Authorization",
       ],
       [
@@ -59,6 +66,7 @@ describe("token-free provider catalog adapters", () => {
               name: "models/model",
               displayName: "Friendly",
               inputTokenLimit: 1024,
+              ...GENERATES,
             },
           ],
         },
@@ -109,15 +117,15 @@ describe("token-free provider catalog adapters", () => {
       .fn<typeof fetch>()
       .mockResolvedValueOnce(
         payloadResponse({
-          models: [{ name: "models/z" }],
+          models: [{ name: "models/z", ...GENERATES }],
           nextPageToken: "a&b?",
         }),
       )
       .mockResolvedValueOnce(
         payloadResponse({
           models: [
-            { name: "models/a" },
-            { name: "models/z", displayName: "Updated" },
+            { name: "models/a", ...GENERATES },
+            { name: "models/z", displayName: "Updated", ...GENERATES },
           ],
           nextPageToken: "",
         }),
@@ -151,24 +159,24 @@ describe("token-free provider catalog adapters", () => {
     expect(anthropic.mock.calls[1]?.[0]).toContain("after_id=z%2F%3F");
   });
 
-  it("follows OpenRouter offset pages across all modalities without trusting next-page URLs", async () => {
+  it("follows OpenRouter offset pages of text models without trusting next-page URLs", async () => {
     const request = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(
         Response.json({
-          data: [{ id: "model/a" }],
+          data: [{ id: "model/a", ...TEXT }],
           total_count: 2,
           links: { next: "https://untrusted.invalid" },
         }),
       )
       .mockResolvedValueOnce(
-        Response.json({ data: [{ id: "model/b" }], total_count: 2 }),
+        Response.json({ data: [{ id: "model/b", ...TEXT }], total_count: 2 }),
       );
     expect(
       (await catalog("openrouter", request)).map((model) => model.id),
     ).toEqual(["model/a", "model/b"]);
     expect(request.mock.calls[1]?.[0]).toBe(
-      "https://openrouter.ai/api/v1/models?output_modalities=all&limit=1000&offset=1",
+      "https://openrouter.ai/api/v1/models?output_modalities=text&limit=1000&offset=1",
     );
     expect(
       parseCatalogPage(
@@ -181,10 +189,11 @@ describe("token-free provider catalog adapters", () => {
       parseCatalogPage(
         {
           data: [
-            { id: "~vendor/model-latest" },
+            { id: "~vendor/model-latest", ...TEXT },
             {
               id: "openrouter/free",
               pricing: { prompt: "0", completion: "0" },
+              ...TEXT,
             },
           ],
           total_count: 2,
@@ -227,7 +236,11 @@ describe("token-free provider catalog adapters", () => {
     ];
     for (const [prompt, completion, isFree] of prices) {
       const model = parseCatalogPage(
-        { data: [{ id: "model:free", pricing: { prompt, completion } }] },
+        {
+          data: [
+            { id: "model:free", pricing: { prompt, completion }, ...TEXT },
+          ],
+        },
         "openrouter",
       ).models[0];
       expect(model.isFree).toBe(isFree);
@@ -249,8 +262,14 @@ describe("token-free provider catalog adapters", () => {
       ["openai", { data: [{ id: "x".repeat(201) }] }],
       ["openai", { data: [{ id: "bad\nmodel" }] }],
       ["openai", { data: [{ id: "bad model" }] }],
-      ["openrouter", { data: [{ id: "~~vendor/model" }] }],
-      ["openrouter", { data: [{ id: "~" }] }],
+      ["openrouter", { data: [{ id: "~~vendor/model", ...TEXT }] }],
+      ["openrouter", { data: [{ id: "~", ...TEXT }] }],
+      ["openai", { data: [{ id: "model[1M]" }] }],
+      ["openai", { data: [{ id: "model[1m][1m]" }] }],
+      ["openai", { data: [{ id: "model[1m" }] }],
+      ["openai", { data: [{ id: "mod[1m]el" }] }],
+      ["openai", { data: [{ id: "model[]" }] }],
+      ["openai", { data: [{ id: "[1m]" }] }],
       ["openai", { data: [], has_more: true }],
       ["anthropic", { data: [] }],
       ["anthropic", { data: [], has_more: true }],
@@ -264,7 +283,7 @@ describe("token-free provider catalog adapters", () => {
     for (const context_length of [-1, Infinity, 1.5, "123", null])
       expect(
         parseCatalogPage(
-          { data: [{ id: "x", context_length, name: "bad\nname" }] },
+          { data: [{ id: "x", context_length, name: "bad\nname", ...TEXT }] },
           "openrouter",
         ).models[0],
       ).toMatchObject({ contextWindow: null, name: "x" });
@@ -296,12 +315,13 @@ describe("token-free provider catalog adapters", () => {
         payloadResponse({
           models: Array.from({ length: 10000 }, (_, index) => ({
             name: `models/m${index}`,
+            ...GENERATES,
           })),
           nextPageToken: "next",
         }),
       )
       .mockResolvedValueOnce(
-        payloadResponse({ models: [{ name: "models/extra" }] }),
+        payloadResponse({ models: [{ name: "models/extra", ...GENERATES }] }),
       );
     await expect(catalog("google_ai_studio", models)).rejects.toMatchObject({
       code: "catalog_limit_exceeded",
@@ -441,8 +461,8 @@ describe("token-free provider catalog adapters", () => {
 function reasoningOf(provider: ApiProviderId, entry: Record<string, unknown>) {
   const payload =
     provider === "google_ai_studio"
-      ? { models: [{ name: "models/test", ...entry }] }
-      : { data: [{ id: "test", ...entry }], has_more: false };
+      ? { models: [{ name: "models/test", ...GENERATES, ...entry }] }
+      : { data: [{ id: "test", ...TEXT, ...entry }], has_more: false };
   const [model] = parseCatalogPage(payload, provider).models;
   return [
     model?.reasoning,
@@ -504,7 +524,7 @@ describe("reasoning support from provider catalogs", () => {
           },
         },
       }),
-    ).toEqual(["levels", ["low", "max"], null]);
+    ).toEqual(["levels", ["low", "max", "extreme"], null]);
     expect(
       reasoningOf("anthropic", {
         capabilities: { effort: { supported: true } },
@@ -562,5 +582,305 @@ describe("reasoning support from provider catalogs", () => {
     expect(() => parseStoredCatalog({ data: [] })).toThrow(
       expect.objectContaining({ code: "provider_bad_response" }),
     );
+  });
+});
+
+describe("explicit catalog reasoning metadata", () => {
+  it.each(["google_ai_studio", "openai", "openrouter", "anthropic"] as const)(
+    "keeps exactly the listed %s levels, without defaults or name inference",
+    (provider) => {
+      expect(
+        reasoningOf(provider, {
+          thinking: true,
+          reasoning: {
+            supported_efforts: ["minimal", "high", "minimal"],
+            default_effort: "low",
+          },
+        }),
+      ).toEqual(["levels", ["minimal", "high"], null]);
+      expect(
+        reasoningOf(provider, {
+          reasoning: {
+            supported_efforts: ["custom"],
+            default_effort: "custom",
+          },
+        }),
+      ).toEqual(["levels", ["custom"], "custom"]);
+    },
+  );
+  it("keeps native Google thinking responses without levels explicit and ignores malformed stage metadata", async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValueOnce(
+      Response.json({
+        models: [
+          { name: "models/reasoner", thinking: true, ...GENERATES },
+          {
+            name: "models/listed",
+            thinking: true,
+            reasoning: { supported_efforts: ["low", "high"] },
+            ...GENERATES,
+          },
+          {
+            name: "models/invalid",
+            thinking: true,
+            reasoning: { supported_efforts: ["invented stage"] },
+            ...GENERATES,
+          },
+        ],
+      }),
+    );
+    const models = await catalog("google_ai_studio", request);
+    expect(models.map((model) => [model.id, model.reasoningEfforts])).toEqual([
+      ["models/invalid", []],
+      ["models/listed", ["low", "high"]],
+      ["models/reasoner", []],
+    ]);
+    expect(request).toHaveBeenCalledOnce();
+  });
+});
+
+describe("text models only", () => {
+  it("keeps OpenRouter models that read text and write only text, by their listed modalities", async () => {
+    const entry = (id: string, input: unknown, output: unknown) => ({
+      id,
+      architecture: { input_modalities: input, output_modalities: output },
+    });
+    const request = vi.fn<typeof fetch>().mockResolvedValueOnce(
+      Response.json({
+        data: [
+          entry("vendor/chat", ["text"], ["text"]),
+          entry("vendor/vision", ["text", "image", "file"], ["text"]),
+          entry("vendor/image", ["text", "image"], ["image"]),
+          entry("vendor/image-chat", ["text", "image"], ["image", "text"]),
+          entry("vendor/audio-chat", ["text", "audio"], ["text", "audio"]),
+          entry("vendor/video", ["text"], ["video"]),
+          entry("vendor/speech", ["text"], ["speech"]),
+          entry("vendor/embedding", ["text"], ["embeddings"]),
+          entry("vendor/transcription", ["audio"], ["text"]),
+          entry("vendor/unlisted", undefined, ["text"]),
+          entry("vendor/malformed", "text", "text"),
+          { id: "vendor/no-architecture" },
+          { id: "bad id with spaces", architecture: { output_modalities: [] } },
+        ],
+        total_count: 13,
+      }),
+    );
+    expect(
+      (await catalog("openrouter", request)).map((model) => model.id),
+    ).toEqual(["vendor/chat", "vendor/vision"]);
+    // Pagination counts every listed entry, not only the kept text models.
+    expect(
+      parseCatalogPage(
+        {
+          data: Array.from({ length: 1000 }, (_, index) =>
+            entry(`vendor/m${index}`, ["text"], index === 0 ? ["text"] : []),
+          ),
+        },
+        "openrouter",
+      ),
+    ).toMatchObject({ models: [{ id: "vendor/m0" }], nextCursor: "1000" });
+  });
+
+  it("keeps Google models that generate content and leaves catalogs without modality data unfiltered", async () => {
+    const google = vi.fn<typeof fetch>().mockResolvedValueOnce(
+      Response.json({
+        models: [
+          { name: "models/text", ...GENERATES },
+          {
+            name: "models/both",
+            supportedGenerationMethods: ["countTokens", "generateContent"],
+          },
+          {
+            name: "models/embedding",
+            supportedGenerationMethods: ["embedContent"],
+          },
+          { name: "models/imagen", supportedGenerationMethods: ["predict"] },
+          { name: "models/unknown" },
+          {
+            name: "models/malformed",
+            supportedGenerationMethods: "generateContent",
+          },
+        ],
+      }),
+    );
+    expect(
+      (await catalog("google_ai_studio", google)).map((model) => model.id),
+    ).toEqual(["models/both", "models/text"]);
+    for (const provider of ["openai", "anthropic"] as const)
+      expect(
+        parseCatalogPage(
+          { data: [{ id: "listed" }, { id: "plain-2" }], has_more: false },
+          provider,
+        ).models.map((model) => model.id),
+      ).toEqual(["listed", "plain-2"]);
+  });
+});
+
+describe("documented reasoning levels", () => {
+  it("reads OpenRouter's null allowlist, token budgets and mandatory reasoning as documented", () => {
+    const gateway = ["max", "xhigh", "high", "medium", "low", "minimal"];
+    expect(
+      reasoningOf("openrouter", {
+        reasoning: { supported_efforts: null, default_effort: "none" },
+      }),
+    ).toEqual(["levels", [...gateway, "none"], "none"]);
+    expect(
+      reasoningOf("openrouter", {
+        reasoning: {
+          mandatory: true,
+          supported_efforts: null,
+          default_effort: "none",
+        },
+      }),
+    ).toEqual(["levels", gateway, null]);
+    expect(
+      reasoningOf("openrouter", {
+        reasoning: { mandatory: false, supports_max_tokens: true },
+      }),
+    ).toEqual(["levels", gateway, null]);
+    expect(
+      reasoningOf("openrouter", {
+        reasoning: {
+          mandatory: true,
+          supports_max_tokens: true,
+          supported_efforts: ["medium", "low"],
+          default_effort: "medium",
+        },
+      }),
+    ).toEqual(["levels", ["medium", "low"], "medium"]);
+    expect(
+      reasoningOf("openrouter", {
+        reasoning: { mandatory: true, supported_efforts: ["high", "none"] },
+      }),
+    ).toEqual(["levels", ["high"], null]);
+    expect(
+      reasoningOf("openrouter", {
+        reasoning: { mandatory: true, supported_efforts: ["none"] },
+      }),
+    ).toEqual(["automatic", [], null]);
+    for (const reasoning of [
+      { mandatory: false },
+      { mandatory: true, default_enabled: true },
+      { supports_max_tokens: false },
+      null,
+    ])
+      expect(reasoningOf("openrouter", { reasoning })).toEqual([
+        "automatic",
+        [],
+        null,
+      ]);
+  });
+
+  it("offers Google's documented levels only for exactly listed thinking models", () => {
+    const google = (name: string, thinking: unknown) => {
+      const [model] = parseCatalogPage(
+        { models: [{ name, thinking, ...GENERATES }] },
+        "google_ai_studio",
+      ).models;
+      return [
+        model?.reasoning,
+        model?.reasoningEfforts,
+        model?.defaultReasoningEffort,
+      ];
+    };
+    expect(google("models/gemini-3.8-flash", true)).toEqual([
+      "levels",
+      ["low", "medium", "high"],
+      "medium",
+    ]);
+    expect(google("models/gemini-3-flash-preview", true)).toEqual([
+      "levels",
+      ["minimal", "low", "medium", "high"],
+      "high",
+    ]);
+    expect(google("models/gemini-3-pro-preview", true)).toEqual([
+      "levels",
+      ["low", "high"],
+      "high",
+    ]);
+    // Budget-based Gemini 2.5, aliases and unknown versions keep no levels.
+    for (const name of [
+      "models/gemini-2.5-flash",
+      "models/gemini-flash-latest",
+      "models/gemini-3.8-flash-001",
+      "models/constructor",
+    ])
+      expect(google(name, true)).toEqual(["automatic", [], null]);
+    expect(google("models/gemini-3.8-flash", false)).toEqual([
+      "none",
+      [],
+      null,
+    ]);
+    expect(google("models/gemini-3.8-flash", "yes")).toEqual([
+      "unknown",
+      [],
+      null,
+    ]);
+  });
+
+  it("orders Anthropic's alphabetically listed effort capabilities by the documented ladder", () => {
+    expect(
+      reasoningOf("anthropic", {
+        capabilities: {
+          effort: {
+            high: { supported: true },
+            low: { supported: true },
+            max: { supported: true },
+            medium: { supported: true },
+            newlevel: { supported: true },
+            supported: true,
+            xhigh: { supported: true },
+          },
+        },
+      }),
+    ).toEqual([
+      "levels",
+      ["low", "medium", "high", "xhigh", "max", "newlevel"],
+      null,
+    ]);
+  });
+});
+
+describe("model identifiers", () => {
+  it("accepts OpenRouter aliases and Claude's 1M-context suffix in listings and stored snapshots", () => {
+    for (const id of [
+      "claude-opus-5-5[1m]",
+      "claude-sonnet-4-6[1m]",
+      "~anthropic/claude-sonnet-latest",
+      "models/gemini-3.8-flash",
+      "x".repeat(200),
+    ])
+      expect(isCatalogModelId(id)).toBe(true);
+    for (const id of [
+      "",
+      "x".repeat(201),
+      "claude[1M]",
+      "claude[]",
+      "claude[1m][2m]",
+      "claude[1m",
+      "cla[1m]ude",
+      "[1m]",
+      "claude [1m]",
+      7,
+    ])
+      expect(isCatalogModelId(id)).toBe(false);
+    expect(
+      parseStoredCatalog([
+        {
+          id: "claude-opus-5-5[1m]",
+          name: "Opus (1M context)",
+          reasoning_support: "levels",
+          reasoning: {
+            supported_efforts: ["low", "max"],
+            default_effort: null,
+          },
+        },
+      ]),
+    ).toMatchObject([
+      {
+        id: "claude-opus-5-5[1m]",
+        name: "Opus (1M context)",
+        reasoningEfforts: ["low", "max"],
+      },
+    ]);
   });
 });

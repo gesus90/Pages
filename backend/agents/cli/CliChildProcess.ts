@@ -57,6 +57,7 @@ export class CliChildProcess implements CliRunningProcess {
       .on("data", (chunk: string) => this.receive("stderr", chunk));
     request.signal?.addEventListener("abort", this.abort, { once: true });
     if (request.signal?.aborted) this.abort();
+    if (request.input !== undefined) child.stdin?.end(request.input);
   }
 
   /** SIGKILL still follows SIGTERM if the wrapper exits before its descendants. */

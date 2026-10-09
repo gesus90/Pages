@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { WorkItemValidationError } from "@/backend/error/WorkItemErrors";
 import {
   trimOrNull,
+  validateDescription,
   validateWorkItemText,
 } from "@/backend/service/task/WorkItemValidation";
 import {
@@ -55,7 +56,13 @@ export interface CreateWorkItemInput {
 /** Values that can be changed on an existing work item. */
 export interface UpdateWorkItemInput {
   readonly title: string;
-  readonly description: string;
+  /**
+   * Absent keeps the stored description, so a change of other fields never
+   * overwrites a description someone saved meanwhile.
+   */
+  readonly description?: string;
+  /** The description the change started from; see {@link DescriptionChange}. */
+  readonly baseDescription?: string;
   readonly statusId: string;
   readonly priority: WorkItemPriority;
   readonly assigneeId: string | null;
@@ -66,6 +73,16 @@ export interface UpdateWorkItemInput {
   readonly milestoneId: string | null;
   readonly dueAt: string | null;
   readonly startAt: string | null;
+}
+
+/** A new description together with the text it was written from. */
+export interface DescriptionChange {
+  readonly description: string;
+  /**
+   * The description as it was when editing began. When the stored one
+   * differs, someone else saved in between and the change is refused.
+   */
+  readonly baseDescription: string;
 }
 
 /** Collaborators of the write service. */
@@ -83,6 +100,29 @@ export interface TaskWriteServiceDependencies {
 interface UpdateReferenceScope {
   readonly visibility: WorkItemVisibility;
   readonly preservedParentId: string | null;
+}
+
+/**
+ * Refuses a description written from an outdated text, unless the stored
+ * text is already the new one.
+ *
+ * @throws {WorkItemValidationError} With `descriptionConflict`.
+ */
+function assertDescriptionCurrent(
+  stored: string,
+  base: string,
+  next: string,
+): void {
+  if (stored !== base && stored !== next) {
+    throw new WorkItemValidationError("descriptionConflict");
+  }
+}
+
+/** Refuses changes of an archived work item. */
+function assertActive(item: WorkItemDetail): void {
+  if (item.archivedAt !== null) {
+    throw new WorkItemValidationError("ticketArchived");
+  }
 }
 
 /** The values of a new work item that the caller decides, before it is numbered. */
@@ -228,19 +268,37 @@ export class TaskWriteService {
           : null,
     });
 
-    await this.taskRepository.update(id, {
+    if (
+      input.description !== undefined &&
+      input.baseDescription !== undefined
+    ) {
+      assertDescriptionCurrent(
+        existing.description,
+        input.baseDescription,
+        values.description,
+      );
+    }
+
+    const isUpdated = await this.taskRepository.update(id, {
       assigneeGroupId: values.assigneeGroupId,
       assigneeId: values.assigneeId,
+      baseDescription: input.baseDescription ?? existing.description,
       description: values.description,
       dueAt: values.dueAt,
       milestoneId: values.milestoneId,
       parentId: values.parentId,
       priority: values.priority,
       reporterId: values.reporterId,
+      shouldPreserveDescription: input.description === undefined,
       startAt: values.startAt,
       statusId: values.newStatus.id,
       title: values.title,
     });
+
+    if (!isUpdated) {
+      throw new WorkItemValidationError("descriptionConflict");
+    }
+
     this.cache.invalidateWorkItems();
 
     await this.history.recordUpdate(actor, original, values);
@@ -255,6 +313,118 @@ export class TaskWriteService {
     void this.gitHubPublisher.publish(actor, updated);
 
     return updated;
+  }
+
+  /**
+   * Saves a new description of a work item.
+   *
+   * @param actor - The person saving; needs write access to the ticket.
+   * @param id - Work item identifier.
+   * @param change - The new text and the text it was written from.
+   * @returns The stored work item.
+   * @throws {WorkItemValidationError} When the ticket is archived, the text
+   * is too long, or someone saved another description meanwhile.
+   */
+  public async updateDescription(
+    actor: User,
+    id: string,
+    change: DescriptionChange,
+  ): Promise<WorkItemDetail> {
+    const existing = await this.access.requireWritableWorkItem(actor, id);
+    const description = change.description.trim();
+
+    assertActive(existing);
+    validateDescription(description);
+    assertDescriptionCurrent(
+      existing.description,
+      change.baseDescription,
+      description,
+    );
+
+    if (description === existing.description) {
+      return existing;
+    }
+
+    const isUpdated = await this.taskRepository.updateDescription(
+      id,
+      description,
+      change.baseDescription,
+    );
+
+    if (!isUpdated) {
+      throw new WorkItemValidationError("descriptionConflict");
+    }
+
+    this.cache.invalidateWorkItems();
+    await this.history.recordDescriptionChanged(actor, existing, description);
+
+    const updated = await this.requireStored(
+      id,
+      "Work item could not be retrieved after its description changed.",
+      actor,
+    );
+
+    void this.gitHubPublisher.publish(actor, updated);
+
+    return updated;
+  }
+
+  /**
+   * Moves a work item below another parent, or removes its parent.
+   *
+   * @param actor - The person moving; needs write access to the ticket.
+   * @param id - Work item identifier.
+   * @param parentId - The new parent, or `null` for none.
+   * @returns The stored work item.
+   * @throws {WorkItemHierarchyError} When the parent does not fit the type,
+   * lies in another project, is hidden or archived.
+   * @throws {WorkItemValidationError} When the ticket is archived.
+   *
+   * @remarks
+   * Only the parent changes, in a single statement. A parent the actor cannot
+   * see stays when the actor chooses none, as with every other edit (T3.2.3.4).
+   */
+  public async changeParent(
+    actor: User,
+    id: string,
+    parentId: string | null,
+  ): Promise<WorkItemDetail> {
+    const existing = await this.access.requireWritableWorkItem(actor, id);
+
+    assertActive(existing);
+
+    const hiddenParent =
+      existing.parentId === null
+        ? await this.taskRepository.findParentReference(id)
+        : null;
+    const storedParentId = hiddenParent?.id ?? existing.parentId;
+    const nextParentId = trimOrNull(parentId) ?? hiddenParent?.id ?? null;
+
+    if (nextParentId === storedParentId) {
+      return existing;
+    }
+
+    await this.validator.validateHierarchy({
+      parentId: nextParentId,
+      projectId: existing.projectId,
+      selfId: id,
+      storedParentId,
+      type: existing.type,
+      visibility: await this.access.visibility(actor),
+    });
+    await this.taskRepository.updateParent(id, nextParentId);
+    this.cache.invalidateWorkItems();
+    await this.history.recordParentChanged(actor, {
+      newParentId: nextParentId,
+      oldParentKey: existing.parentKey,
+      workItemId: id,
+    });
+
+    return this.requireStored(
+      id,
+      "Work item could not be retrieved after its parent changed.",
+      actor,
+    );
   }
 
   /** Updates status and column sort order via kanban drag & drop. */
@@ -302,7 +472,10 @@ export class TaskWriteService {
     scope: UpdateReferenceScope,
   ): Promise<WorkItemUpdateValues> {
     const title = input.title.trim();
-    const description = input.description.trim();
+    const description =
+      input.description === undefined
+        ? existing.description
+        : input.description.trim();
     const parentId = trimOrNull(input.parentId) ?? scope.preservedParentId;
     const milestoneId = trimOrNull(input.milestoneId);
     const assigneeId = trimOrNull(input.assigneeId);
@@ -333,6 +506,7 @@ export class TaskWriteService {
       preservedGroupId: existing.assigneeGroupId,
       projectId: existing.projectId,
       selfId: existing.id,
+      storedParentId: existing.parentId,
       type: existing.type,
       ...scope,
     });

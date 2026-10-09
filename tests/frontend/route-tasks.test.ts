@@ -153,6 +153,13 @@ function createServices(
       findIntegrationsByProjects: vi.fn().mockResolvedValue(new Map()),
       getById: vi.fn().mockResolvedValue(createProject()),
     },
+    taskAttachmentService: {
+      list: vi.fn().mockResolvedValue([]),
+      remove: vi.fn(),
+    },
+    ticketTreeService: {
+      setExpanded: vi.fn(),
+    },
     taskTemplateService: {
       createFromTemplate: vi.fn().mockResolvedValue(createWorkItem()),
       delete: vi.fn(),
@@ -174,7 +181,12 @@ function createServices(
         .mockResolvedValue({ canDelete: false, canWrite: true }),
       create: vi.fn().mockResolvedValue(createWorkItem()),
       createLabel: vi.fn(),
+      changeParent: vi.fn().mockResolvedValue(createWorkItem()),
       deletePermanently: vi.fn(),
+      describeDescendants: vi.fn().mockResolvedValue({
+        active: { epic: 0, initiative: 0, subtask: 1, task: 0 },
+        all: { epic: 0, initiative: 0, subtask: 2, task: 0 },
+      }),
       departmentChoices: vi
         .fn()
         .mockResolvedValue({ available: [{ id: "dept", name: "Dept" }] }),
@@ -210,6 +222,7 @@ function createServices(
       setChecklistItemDone: vi.fn(),
       unassignLabel: vi.fn(),
       update: vi.fn().mockResolvedValue(createWorkItem()),
+      updateDescription: vi.fn().mockResolvedValue(createWorkItem()),
       updateLabel: vi.fn(),
       updateStatusAndOrder: vi.fn().mockResolvedValue(createWorkItem()),
     },
@@ -306,6 +319,8 @@ describe("tasks route loader", () => {
     expect(result.selectedItem).not.toBeNull();
     expect(result.selectedItem?.key).toBe("PAGE-12");
     expect(result.selectedPullRequests).toEqual([]);
+    expect(result.selectedAttachments).toEqual([]);
+    expect(result.selectedDescendants?.all.subtask).toBe(2);
     expect(result.githubStates).toHaveLength(1);
     expect(result.githubStates[0]?.project.id).toBe("project-1");
   });
@@ -385,6 +400,7 @@ describe("tasks route action", () => {
   it("updates a task successfully", async () => {
     const context = new Map([[authenticatedUserContext, createUser()]]);
     const request = createPostRequest({
+      baseDescription: "Details",
       description: "Updated desc",
       id: "item-1",
       intent: "update-task",
@@ -402,6 +418,31 @@ describe("tasks route action", () => {
     );
 
     expect(response.data).toMatchObject({ intent: "update-task", ok: true });
+  });
+
+  it("refuses an update description without the text it started from", async () => {
+    const services = createServices();
+
+    mockedServices.mockResolvedValueOnce(services);
+
+    const response = getActionData(
+      await action({
+        context: new Map([[authenticatedUserContext, createUser()]]),
+        request: createPostRequest({
+          description: "Stale draft",
+          id: "item-1",
+          intent: "update-task",
+          priority: WORK_ITEM_PRIORITY.NORMAL,
+          reporterId: "user-1",
+          statusId: "status-todo",
+          title: "Updated Task",
+        }),
+      } as unknown as LoaderFunctionArgs),
+    );
+
+    expect(response.init?.status).toBe(400);
+    expect(response.data).toMatchObject({ error: "invalidInput", ok: false });
+    expect(services.taskService.update).not.toHaveBeenCalled();
   });
 
   it("returns 400 on invalid input for update-task", async () => {
@@ -1378,6 +1419,107 @@ describe("tasks route action", () => {
     }
   });
 
+  it("saves descriptions and parents and handles children through their intents", async () => {
+    const context = new Map([[authenticatedUserContext, createUser()]]);
+    const services = createServices();
+    mockedServices.mockResolvedValue(services);
+    const run = async (
+      entries: Record<string, string | undefined>,
+    ): Promise<ReturnType<typeof getActionData>> =>
+      getActionData(
+        await action({
+          context,
+          request: createPostRequest(entries),
+        } as unknown as LoaderFunctionArgs),
+      );
+
+    expect(
+      (
+        await run({
+          baseDescription: "Alt",
+          description: "Neu",
+          id: "item-1",
+          intent: "update-description",
+        })
+      ).data,
+    ).toMatchObject({ intent: "update-description", ok: true });
+    expect(services.taskService.updateDescription).toHaveBeenCalledWith(
+      expect.anything(),
+      "item-1",
+      { baseDescription: "Alt", description: "Neu" },
+    );
+
+    await run({ id: "item-1", intent: "change-parent", parentId: "epic-1" });
+    await run({ id: "item-1", intent: "change-parent", parentId: "" });
+    expect(services.taskService.changeParent).toHaveBeenNthCalledWith(
+      1,
+      expect.anything(),
+      "item-1",
+      "epic-1",
+    );
+    expect(services.taskService.changeParent).toHaveBeenNthCalledWith(
+      2,
+      expect.anything(),
+      "item-1",
+      null,
+    );
+
+    await run({ children: "keep", id: "item-1", intent: "archive-task" });
+    expect(services.taskService.archive).toHaveBeenCalledWith(
+      expect.anything(),
+      "item-1",
+      "keep",
+    );
+
+    await run({ attachmentId: "file-1", intent: "remove-attachment" });
+    expect(services.taskAttachmentService.remove).toHaveBeenCalledWith(
+      expect.anything(),
+      "file-1",
+    );
+
+    await run({ expanded: "1", intent: "set-tree-expanded", nodeKey: "e-1" });
+    await run({ expanded: "0", intent: "set-tree-expanded", nodeKey: "e-1" });
+    expect(services.ticketTreeService.setExpanded).toHaveBeenNthCalledWith(
+      1,
+      expect.anything(),
+      "e-1",
+      true,
+    );
+    expect(services.ticketTreeService.setExpanded).toHaveBeenNthCalledWith(
+      2,
+      expect.anything(),
+      "e-1",
+      false,
+    );
+
+    for (const entries of [
+      { description: "x", id: "item-1", intent: "update-description" },
+      { baseDescription: "x", intent: "update-description" },
+      { id: "item-1", intent: "change-parent" },
+      { intent: "remove-attachment" },
+      { expanded: "yes", intent: "set-tree-expanded", nodeKey: "e-1" },
+      { expanded: "1", intent: "set-tree-expanded" },
+      { children: "some", id: "item-1", intent: "archive-task" },
+      { children: "none", id: "item-1", intent: "delete-task" },
+    ]) {
+      expect((await run(entries)).init?.status).toBe(400);
+    }
+
+    (
+      services.taskService.updateDescription as ReturnType<typeof vi.fn>
+    ).mockRejectedValueOnce(new WorkItemValidationError("descriptionConflict"));
+    expect(
+      (
+        await run({
+          baseDescription: "",
+          description: "x",
+          id: "item-1",
+          intent: "update-description",
+        })
+      ).data,
+    ).toMatchObject({ error: "descriptionConflict", ok: false });
+  });
+
   it("deletes tickets permanently and redirects to a local target", async () => {
     const context = new Map([[authenticatedUserContext, createUser()]]);
     const services = createServices();
@@ -1396,6 +1538,7 @@ describe("tasks route action", () => {
     expect(services.taskService.deletePermanently).toHaveBeenCalledWith(
       expect.anything(),
       "item-1",
+      "include",
     );
 
     const fallback = (await action({

@@ -84,6 +84,48 @@ describe("wiki actions", () => {
     expect((await service.navigation(ada)).nodes).toHaveLength(1);
   });
 
+  it("creates a subpage without leaving the page when asked to stay", async () => {
+    const { ada, layout, service } = await setup();
+    const parent = await service.create(ada, pageInput({ title: "Parent" }));
+    const body = await readBody(
+      await layout(ada, {
+        intent: "create-page",
+        parentId: parent.id,
+        stay: "1",
+        title: "Child",
+      }),
+    );
+
+    expect(body).toMatchObject({
+      ok: true,
+      page: { parentId: parent.id, title: "Child" },
+    });
+  });
+
+  it("sets and removes the cover of a page", async () => {
+    const { ada, pageAction, service } = await setup();
+    const page = await service.create(ada, pageInput());
+
+    expect(
+      await readBody(
+        await pageAction(ada, page.id, {
+          cover: "preset:dusk",
+          intent: "set-cover",
+        }),
+      ),
+    ).toEqual({ cover: { kind: "preset", preset: "dusk" }, ok: true });
+    expect(
+      await readBody(
+        await pageAction(ada, page.id, { cover: "", intent: "set-cover" }),
+      ),
+    ).toEqual({ cover: null, ok: true });
+    expect(
+      await readBody(
+        await pageAction(ada, page.id, { cover: "neon", intent: "set-cover" }),
+      ),
+    ).toEqual({ error: "invalidCover", ok: false });
+  });
+
   it("rejects unknown intents, bad scopes and missing fields", async () => {
     const { ada, layout } = await setup();
 
@@ -371,7 +413,7 @@ describe("wiki actions", () => {
       ).toEqual(bad);
     }
 
-    for (const intent of ["set-current-until", "set-anchors"]) {
+    for (const intent of ["set-current-until", "set-anchors", "set-cover"]) {
       expect(await readBody(await pageAction(ada, null, { intent }))).toEqual(
         bad,
       );

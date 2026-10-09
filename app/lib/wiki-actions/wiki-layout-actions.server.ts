@@ -63,7 +63,10 @@ async function createPage({
     title: formData.get("title")?.toString() ?? "",
   });
 
-  return redirect(wikiPagePath(page.id, page.title));
+  // `/page` in the editor stays on the parent page and links the new one.
+  return readFlag(formData, "stay")
+    ? succeededWith({ page })
+    : redirect(wikiPagePath(page.id, page.title));
 }
 
 async function setExpanded({

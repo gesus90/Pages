@@ -62,10 +62,42 @@ describe("remarkWikiBlocks", () => {
 
   it("turns a toggle without a body line into a summary only", () => {
     const leading = text("[!toggle] Only");
-
-    transform(quote(paragraph(leading)));
+    const tree = transform(quote(paragraph(leading), paragraph(text("b"))));
 
     expect(leading.value).toBe("");
+    expect(tree.children).toHaveLength(2);
+    expect(tree.children?.[1]?.children?.[0]?.value).toBe("b");
+  });
+
+  it("keeps the first paragraph of a toggle when more follows the title", () => {
+    const tree = transform(
+      quote(paragraph(text("[!TOGGLE] Title"), { type: "emphasis" })),
+    );
+
+    expect(tree.children).toHaveLength(2);
+    expect(tree.children?.[1]?.children?.[1]?.type).toBe("emphasis");
+  });
+
+  it("turns a block anchor comment into an empty anchor element", () => {
+    const tree = transform({ type: "html", value: "<!-- block:ab12 -->\n" });
+
+    expect(tree).toEqual({
+      children: [],
+      data: {
+        hName: "span",
+        hProperties: { className: "block scroll-mt-20", id: "block-ab12" },
+      },
+      type: "paragraph",
+      value: undefined,
+    });
+  });
+
+  it("leaves other HTML alone", () => {
+    expect(transform({ type: "html", value: "<b>x</b>" }).type).toBe("html");
+    expect(transform({ type: "html", value: "<!-- block:UP -->" }).type).toBe(
+      "html",
+    );
+    expect(transform({ type: "html" }).type).toBe("html");
   });
 
   it("marks a paragraph with only [toc] as the contents marker", () => {

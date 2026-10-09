@@ -40,6 +40,7 @@ import type {
   WorkItemsOverviewScope,
 } from "./task/WorkItemCountRepository";
 import type { FindWorkItemsOptions } from "./task/WorkItemFilter";
+import type { DescendantCount } from "./task/WorkItemLifecycleRepository";
 import type { NewWorkItemHistory } from "./task/WorkItemHistoryRepository";
 import type {
   NewWorkItemLink,
@@ -307,8 +308,8 @@ export class TaskRepository {
     return this.queries.findKnownGitHubIssueNumbers(projectId);
   }
 
-  /** Updates fields on an existing work item. */
-  public async update(id: string, update: WorkItemUpdate): Promise<void> {
+  /** Updates fields atomically; returns false when inactive or the description changed meanwhile. */
+  public async update(id: string, update: WorkItemUpdate): Promise<boolean> {
     return this.writes.update(id, update);
   }
 
@@ -330,6 +331,23 @@ export class TaskRepository {
     return this.writes.updateStatusAndOrder(id, statusId, sortOrder, isDone);
   }
 
+  /** Replaces a current description atomically; returns false when inactive or changed meanwhile. */
+  public async updateDescription(
+    id: string,
+    description: string,
+    baseDescription: string,
+  ): Promise<boolean> {
+    return this.writes.updateDescription(id, description, baseDescription);
+  }
+
+  /** Sets the parent of an active work item, or removes it with `null`. */
+  public async updateParent(
+    id: string,
+    parentId: string | null,
+  ): Promise<void> {
+    return this.writes.updateParent(id, parentId);
+  }
+
   /** Assigns a work item to a department, or clears the assignment with `null`. */
   public async setDepartment(
     id: string,
@@ -346,6 +364,22 @@ export class TaskRepository {
     return this.lifecycle.findSubtreeIds(rootId, visibility);
   }
 
+  /** Counts the descendants of a work item by type and state, optionally within a visible scope. */
+  public async countDescendants(
+    rootId: string,
+    visibility?: WorkItemVisibility,
+  ): Promise<DescendantCount[]> {
+    return this.lifecycle.countDescendants(rootId, visibility);
+  }
+
+  /** Removes the parent of the direct children of a work item and returns their ids. */
+  public async detachChildren(
+    parentId: string,
+    scope: "active" | "all",
+  ): Promise<string[]> {
+    return this.lifecycle.detachChildren(parentId, scope);
+  }
+
   /** Marks the given work items as archived without deleting their rows. */
   public async archiveMany(ids: readonly string[]): Promise<void> {
     return this.lifecycle.archiveMany(ids);
@@ -354,6 +388,11 @@ export class TaskRepository {
   /** Restores the given archived work items keeping their workflow status. */
   public async restoreMany(ids: readonly string[]): Promise<void> {
     return this.lifecycle.restoreMany(ids);
+  }
+
+  /** Lists the attachment files of a work item and its descendants. */
+  public async findSubtreeStorageNames(rootId: string): Promise<string[]> {
+    return this.lifecycle.findSubtreeStorageNames(rootId);
   }
 
   /** Permanently removes a work item with its descendants and every dependent row. */

@@ -16,6 +16,7 @@ export const WIKI_ERROR_MESSAGES = {
   fileNameTooLong: "A file name must not exceed 255 characters.",
   fileTooLarge: "The file exceeds the size limit set for its kind.",
   invalidAnchor: "The page cannot be tied to this target.",
+  invalidCover: "The cover must be a prepared cover or an image of the page.",
   invalidDate: "The date must use the format YYYY-MM-DD.",
   invalidIcon: "The icon must be a single emoji.",
   invalidParent: "The page cannot be placed below this page.",

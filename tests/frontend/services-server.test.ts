@@ -45,6 +45,8 @@ vi.mock("@/backend/github/GitHubTokenKey", () => ({
 
 import { AdministrationService } from "@/backend/service/AdministrationService";
 import { AgentCliLoginService } from "@/backend/service/agents/AgentCliLoginService";
+import { AssistantHistoryScheduler } from "@/backend/service/assistant/AssistantHistoryScheduler";
+import { TextAssistantService } from "@/backend/service/assistant/TextAssistantService";
 import { createAccess } from "../helpers/authorization";
 import { createUser } from "../helpers/factories";
 import { PERMISSION } from "@/definition/Role";
@@ -128,6 +130,9 @@ describe("getApplicationServices", () => {
     stubSessionCleanup();
     stubRuntime(() => "/mocked/pages.duckdb");
     vi.mocked(resolveGitHubTokenKey).mockReturnValue(Buffer.alloc(32));
+    vi.spyOn(AssistantHistoryScheduler.prototype, "start").mockImplementation(
+      () => undefined,
+    );
   });
 
   it("opens the configured database and builds the services", async () => {
@@ -275,6 +280,12 @@ describe("getApplicationServices", () => {
   });
 
   it("closes the database and exits on shutdown signals", async () => {
+    const assistantShutdown = vi
+      .spyOn(TextAssistantService.prototype, "shutdown")
+      .mockResolvedValue(undefined);
+    const historyShutdown = vi
+      .spyOn(AssistantHistoryScheduler.prototype, "shutdown")
+      .mockResolvedValue(undefined);
     const finishCliShutdown = vi.fn<() => void>();
     const cliShutdown = vi
       .spyOn(AgentCliLoginService.prototype, "shutdown")
@@ -307,6 +318,8 @@ describe("getApplicationServices", () => {
 
     await vi.waitFor(() => expect(cliShutdown).toHaveBeenCalledTimes(1));
     expect(database.close).not.toHaveBeenCalled();
+    expect(historyShutdown).toHaveBeenCalledTimes(1);
+    expect(assistantShutdown).toHaveBeenCalledTimes(1);
     finishCliShutdown();
 
     await vi.waitFor(() => {

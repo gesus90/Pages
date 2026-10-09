@@ -17,6 +17,61 @@ import {
 
 import type { WorkItemPriority, WorkItemType } from "@/definition/Task";
 
+const TYPE_ICON_STYLES = {
+  [WORK_ITEM_TYPE.INITIATIVE]: { className: "text-[#6d28d9]", icon: Layers },
+  [WORK_ITEM_TYPE.EPIC]: {
+    className: "fill-current text-[#7e22ce]",
+    icon: Bookmark,
+  },
+  [WORK_ITEM_TYPE.TASK]: {
+    className: "fill-current text-[#1d4ed8]",
+    icon: Circle,
+  },
+  [WORK_ITEM_TYPE.SUBTASK]: { className: "text-[#047857]", icon: CheckCircle2 },
+} as const satisfies Readonly<
+  Record<WorkItemType, { readonly className: string; readonly icon: unknown }>
+>;
+
+/**
+ * Renders the small symbol of a ticket type in its color, for narrow places
+ * such as the ticket tree; the type name is given there as text.
+ */
+export function TaskTypeIcon({
+  type,
+}: {
+  readonly type: WorkItemType;
+}): React.ReactElement {
+  const { className, icon: Icon } = TYPE_ICON_STYLES[type];
+
+  return (
+    <Icon aria-hidden="true" className={`size-3.5 shrink-0 ${className}`} />
+  );
+}
+
+/**
+ * The color of the dot of a workflow status.
+ *
+ * @param statusKey - Key of the status.
+ * @returns The background class of the dot; unknown statuses look like backlog.
+ */
+export function statusDotClass(statusKey: string): string {
+  if (statusKey === WORKFLOW_STATUS_KEY.TODO) {
+    return "bg-blue-500";
+  }
+
+  if (statusKey === WORKFLOW_STATUS_KEY.IN_PROGRESS) {
+    return "bg-[#f97316]";
+  }
+
+  if (statusKey === WORKFLOW_STATUS_KEY.REVIEW) {
+    return "bg-purple-500";
+  }
+
+  return statusKey === WORKFLOW_STATUS_KEY.DONE
+    ? "bg-emerald-500"
+    : "bg-slate-400";
+}
+
 interface TaskTypeBadgeProps {
   readonly type: WorkItemType;
   readonly className?: string;
@@ -142,17 +197,7 @@ export function TaskStatusBadge({
   statusName,
   className = "",
 }: TaskStatusBadgeProps): React.ReactElement {
-  let dotColor = "bg-slate-400";
-
-  if (statusKey === WORKFLOW_STATUS_KEY.TODO) {
-    dotColor = "bg-blue-500";
-  } else if (statusKey === WORKFLOW_STATUS_KEY.IN_PROGRESS) {
-    dotColor = "bg-[#f97316]";
-  } else if (statusKey === WORKFLOW_STATUS_KEY.REVIEW) {
-    dotColor = "bg-purple-500";
-  } else if (statusKey === WORKFLOW_STATUS_KEY.DONE) {
-    dotColor = "bg-emerald-500";
-  }
+  const dotColor = statusDotClass(statusKey);
 
   return (
     <span

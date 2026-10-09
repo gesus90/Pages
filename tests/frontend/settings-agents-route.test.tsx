@@ -219,7 +219,7 @@ describe("agent settings UI", () => {
     // Model and reasoning follow once the saved connection has access.
     expect(screen.queryByLabelText("Model ID")).toBeNull();
     expect(
-      screen.getByText("Model and reasoning can be set up after saving."),
+      screen.getByText("Assign models and reasoning levels under Agent tasks."),
     ).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Save" }));
     // A field error appears once at its field, not again as a block alert.
@@ -498,16 +498,13 @@ describe("agent settings UI", () => {
     await user.click(
       await screen.findByRole("button", { name: "Test connection" }),
     );
-    await user.type(screen.getByLabelText("Model ID"), "bad model");
+    await user.type(screen.getByLabelText("Name"), " changed");
     fireEvent.submit(
       screen.getByLabelText("Name").closest("form") as HTMLFormElement,
     );
     await waitFor(() =>
-      expect(screen.getByLabelText("Model ID")).toHaveAttribute(
-        "aria-invalid",
-        "true",
-      ),
+      expect(screen.getByRole("alert")).toHaveTextContent(/model/i),
     );
-    expect(screen.getByLabelText("Model ID")).toHaveValue("bad model");
+    expect(screen.queryByLabelText("Model ID")).toBeNull();
   });
 });

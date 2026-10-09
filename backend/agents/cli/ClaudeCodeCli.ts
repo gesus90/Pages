@@ -140,12 +140,38 @@ export class ClaudeCodeCli implements CliToolAdapter {
     return readClaudeTest(result.stdout);
   }
 
-  /** Claude Code has no list command; its help names the aliases and effort levels. */
+  /** Reads the CLI picker through SDK initialization; no user prompt is sent. */
   public async listModels(
     home: CliHome,
     signal: AbortSignal,
   ): Promise<readonly AgentCatalogModel[]> {
-    const result = await this.execution.run(home, ["--help"], signal, 10_000);
+    const result = await this.execution.readCatalog(
+      home,
+      [
+        "--print",
+        "--input-format",
+        "stream-json",
+        "--output-format",
+        "stream-json",
+        "--verbose",
+        "--tools",
+        "",
+        "--strict-mcp-config",
+        "--no-session-persistence",
+        "--safe-mode",
+      ],
+      signal,
+      `${JSON.stringify({
+        type: "control_request",
+        request_id: "pages-model-catalog",
+        request: {
+          subtype: "initialize",
+          hooks: {},
+          agents: {},
+          sdkMcpServers: [],
+        },
+      })}\n`,
+    );
     if (result.errorCode) throw new AgentError(result.errorCode);
     if (result.exitCode !== 0) throw new AgentError("cli_unexpected_output");
     return readClaudeModels(result.stdout);

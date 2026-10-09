@@ -120,6 +120,25 @@ async function setCurrentUntil({
   return succeeded();
 }
 
+async function setCover({
+  actor,
+  formData,
+  pageId,
+  services,
+}: WikiActionContext): Promise<WikiActionOutcome> {
+  if (pageId === null) {
+    return invalidInput();
+  }
+
+  return succeededWith({
+    cover: await services.wikiService.setCover(
+      actor,
+      pageId,
+      readOptionalText(formData, "cover"),
+    ),
+  });
+}
+
 async function setAnchors({
   actor,
   formData,
@@ -257,6 +276,7 @@ const PAGE_HANDLERS: Readonly<Record<string, WikiActionHandler>> = {
   "restore-version": restoreVersion,
   save: savePage,
   "set-anchors": setAnchors,
+  "set-cover": setCover,
   "set-current-until": setCurrentUntil,
   "set-owner": setOwner,
 };

@@ -24,6 +24,94 @@ export function isWorkItemType(value: unknown): value is WorkItemType {
   );
 }
 
+/** The type of the children each type can hold; subtasks hold none. */
+export const WORK_ITEM_CHILD_TYPE: Readonly<
+  Record<WorkItemType, WorkItemType | null>
+> = {
+  [WORK_ITEM_TYPE.INITIATIVE]: WORK_ITEM_TYPE.EPIC,
+  [WORK_ITEM_TYPE.EPIC]: WORK_ITEM_TYPE.TASK,
+  [WORK_ITEM_TYPE.TASK]: WORK_ITEM_TYPE.SUBTASK,
+  [WORK_ITEM_TYPE.SUBTASK]: null,
+};
+
+/** The type of the parent each type can have; initiatives have none. */
+export const WORK_ITEM_PARENT_TYPE: Readonly<
+  Record<WorkItemType, WorkItemType | null>
+> = {
+  [WORK_ITEM_TYPE.INITIATIVE]: null,
+  [WORK_ITEM_TYPE.EPIC]: WORK_ITEM_TYPE.INITIATIVE,
+  [WORK_ITEM_TYPE.TASK]: WORK_ITEM_TYPE.EPIC,
+  [WORK_ITEM_TYPE.SUBTASK]: WORK_ITEM_TYPE.TASK,
+};
+
+/** Limits of the text of a work item. */
+export const WORK_ITEM_LIMITS = {
+  titleLength: 200,
+  /**
+   * The limit of a GitHub issue body, because the synchronization writes the
+   * description there.
+   */
+  descriptionLength: 65_536,
+} as const;
+
+/**
+ * What happens to the children when a work item is archived or deleted:
+ * `include` takes the whole subtree along, `keep` leaves the direct children
+ * in place without a parent. Subtasks always go along with their task.
+ */
+export type ChildHandling = "include" | "keep";
+
+/**
+ * Narrows an unknown value to a way of handling children.
+ *
+ * @param value - Value received from an untrusted source.
+ * @returns Whether the value names a supported handling.
+ */
+export function isChildHandling(value: unknown): value is ChildHandling {
+  return value === "include" || value === "keep";
+}
+
+/** How many descendants of each type a work item has. */
+export type WorkItemTypeCounts = Readonly<Record<WorkItemType, number>>;
+
+/** The descendants an archive or a permanent deletion of a work item reaches. */
+export interface WorkItemDescendants {
+  /** Descendants that are still active; archiving reaches only these. */
+  readonly active: WorkItemTypeCounts;
+  /** Every descendant, archived ones included; deleting reaches all of them. */
+  readonly all: WorkItemTypeCounts;
+}
+
+/** A file attached to a ticket, as the ticket views show it. */
+export interface WorkItemAttachment {
+  readonly id: string;
+  readonly workItemId: string;
+  readonly fileName: string;
+  readonly contentType: string;
+  /** `media` for recognized images, audio and video; `file` for the rest. */
+  readonly kind: "media" | "file";
+  readonly size: number;
+  /** Whether the file may be shown as an image inside a description. */
+  readonly isEmbeddable: boolean;
+  readonly uploadedBy: string;
+  readonly uploadedByName: string | null;
+  readonly createdAt: string;
+}
+
+/** One active ticket as the navigation tree shows it. */
+export interface TicketTreeEntry {
+  readonly id: string;
+  readonly key: string;
+  readonly type: WorkItemType;
+  readonly parentId: string | null;
+  readonly projectId: string;
+  readonly projectName: string;
+  readonly title: string;
+  readonly statusKey: string;
+  readonly statusName: string;
+  readonly isDone: boolean;
+}
+
 /** Priority levels supported by work items. */
 export const WORK_ITEM_PRIORITY = {
   LOW: "low",

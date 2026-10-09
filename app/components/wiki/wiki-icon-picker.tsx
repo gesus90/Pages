@@ -1,91 +1,72 @@
 import { SmilePlus } from "lucide-react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/app/components/ui/dropdown-menu";
-
-/** Emoji offered as page icons. */
-const ICONS = [
-  "📘",
-  "📝",
-  "📌",
-  "💡",
-  "🧭",
-  "🛠️",
-  "🐞",
-  "🚀",
-  "📊",
-  "📅",
-  "✅",
-  "⚠️",
-  "🔒",
-  "🎯",
-  "📚",
-  "🧪",
-  "🗂️",
-  "🔧",
-  "💬",
-  "⭐",
-  "🏁",
-  "🧩",
-  "📦",
-  "🌍",
-] as const;
+import { EmojiPicker } from "@/app/components/editor/emoji-picker";
+import { FloatingPanel } from "@/app/components/editor/menus/floating-panel";
+import { cn } from "@/app/lib/cn";
 
 interface WikiIconPickerProps {
+  /** The emoji of the page; empty for none. */
   readonly value: string;
   readonly onChange: (icon: string) => void;
+  /** Large icon of the page head, or the small button to add one (no icon yet). */
+  readonly variant?: "page" | "add";
 }
 
-/** A button that shows the page icon and offers a choice of emoji. */
+/**
+ * Chooses the emoji of a page: the large icon of the page head (Notion-like)
+ * or a quiet "add icon" button, both opening the searchable emoji picker.
+ */
 export function WikiIconPicker({
   value,
   onChange,
+  variant = "page",
 }: WikiIconPickerProps): React.ReactElement {
   const { t } = useTranslation();
+  const [anchor, setAnchor] = useState<DOMRect | null>(null);
+
+  function handlePick(icon: string): void {
+    setAnchor(null);
+    onChange(icon);
+  }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          aria-label={t("wiki.editor.icon")}
-          className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-border bg-surface text-2xl hover:bg-surface-hover"
-          type="button"
-        >
-          {value === "" ? (
-            <SmilePlus
-              aria-hidden="true"
-              className="size-5 text-muted-foreground"
-            />
-          ) : (
-            value
-          )}
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="start"
-        className="grid w-56 grid-cols-6 gap-1 p-2"
+    <>
+      <button
+        aria-label={
+          variant === "add" ? t("wiki.editor.addIcon") : t("wiki.editor.icon")
+        }
+        className={cn(
+          "flex items-center rounded-xl hover:bg-surface-hover",
+          variant === "page"
+            ? "size-20 justify-center text-6xl"
+            : "h-8 gap-1.5 px-2 text-sm text-muted-foreground",
+        )}
+        type="button"
+        onClick={(event) =>
+          setAnchor(event.currentTarget.getBoundingClientRect())
+        }
       >
-        {ICONS.map((icon) => (
-          <DropdownMenuItem
-            key={icon}
-            className="justify-center text-lg"
-            onSelect={() => onChange(icon)}
-          >
-            {icon}
-          </DropdownMenuItem>
-        ))}
-        <DropdownMenuItem
-          className="col-span-6 justify-center text-xs"
-          onSelect={() => onChange("")}
-        >
-          {t("wiki.editor.removeIcon")}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+        {variant === "page" ? (
+          value
+        ) : (
+          <>
+            <SmilePlus aria-hidden="true" className="size-4" />
+            {t("wiki.editor.addIcon")}
+          </>
+        )}
+      </button>
+      <FloatingPanel
+        anchor={anchor}
+        label={t("wiki.editor.icon")}
+        onClose={() => setAnchor(null)}
+      >
+        <EmojiPicker
+          onPick={handlePick}
+          onRemove={value === "" ? undefined : () => handlePick("")}
+        />
+      </FloatingPanel>
+    </>
   );
 }

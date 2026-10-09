@@ -6,6 +6,7 @@ import {
 } from "@/app/lib/form-fields.server";
 import { resolveLocalRedirect } from "@/app/lib/redirect.server";
 import {
+  isChildHandling,
   isWorkItemPriority,
   isWorkItemType,
   WORK_ITEM_PRIORITY,
@@ -18,6 +19,7 @@ import {
   runTicketAction,
 } from "./task-action-support.server";
 
+import type { ChildHandling } from "@/definition/Task";
 import type { TaskActionHandler } from "./task-action-support.server";
 
 /** Creates a ticket. */
@@ -83,13 +85,16 @@ export const handleUpdateTask: TaskActionHandler = async ({
   const statusId = readText(formData, "statusId");
   const priority = formData.get("priority");
   const reporterId = readText(formData, "reporterId");
+  const description = readText(formData, "description");
+  const baseDescription = readText(formData, "baseDescription");
 
   if (
     id === null ||
     title === null ||
     statusId === null ||
     !isWorkItemPriority(priority) ||
-    reporterId === null
+    reporterId === null ||
+    (description !== null && baseDescription === null)
   ) {
     return invalidInput("update-task");
   }
@@ -98,7 +103,9 @@ export const handleUpdateTask: TaskActionHandler = async ({
     services.taskService.update(actor, id, {
       assigneeGroupId: readOptionalText(formData, "assigneeGroupId"),
       assigneeId: readOptionalText(formData, "assigneeId"),
-      description: readTextOrEmpty(formData, "description"),
+      // Absent fields keep the stored description (A8.2-E05).
+      baseDescription: baseDescription ?? undefined,
+      description: description ?? undefined,
       dueAt: readOptionalText(formData, "dueAt"),
       milestoneId: readOptionalText(formData, "milestoneId"),
       parentId: readOptionalText(formData, "parentId"),
@@ -135,20 +142,28 @@ export const handleMoveTask: TaskActionHandler = async ({
   );
 };
 
-/** Archives a ticket. */
+/** Reads how the children of an archived or deleted ticket are handled; absent means all go along. */
+function readChildHandling(formData: FormData): ChildHandling | null {
+  const value = readText(formData, "children") ?? "include";
+
+  return isChildHandling(value) ? value : null;
+}
+
+/** Archives a ticket, with its descendants or keeping its direct children. */
 export const handleArchiveTask: TaskActionHandler = async ({
   actor,
   formData,
   services,
 }) => {
   const id = readRequiredText(formData, "id");
+  const handling = readChildHandling(formData);
 
-  if (id === null) {
+  if (id === null || handling === null) {
     return invalidInput("archive-task");
   }
 
   return runTaskAction("archive-task", () =>
-    services.taskService.archive(actor, id),
+    services.taskService.archive(actor, id, handling),
   );
 };
 
@@ -169,21 +184,22 @@ export const handleRestoreTask: TaskActionHandler = async ({
   );
 };
 
-/** Permanently deletes a ticket with its subtree; administrator mode only. */
+/** Permanently deletes a ticket with its subtree or keeping its direct children; administrator mode only. */
 export const handleDeleteTask: TaskActionHandler = async ({
   actor,
   formData,
   services,
 }) => {
   const id = readRequiredText(formData, "id");
+  const handling = readChildHandling(formData);
 
-  if (id === null) {
+  if (id === null || handling === null) {
     return invalidInput("delete-task");
   }
 
   return runTaskActionThenRedirect(
     "delete-task",
-    () => services.taskService.deletePermanently(actor, id),
+    () => services.taskService.deletePermanently(actor, id, handling),
     resolveLocalRedirect(formData.get("redirectTo"), "/aufgaben"),
   );
 };

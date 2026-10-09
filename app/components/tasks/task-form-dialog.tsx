@@ -77,6 +77,7 @@ export function TaskFormDialog({
 
         <Form className="mt-5 flex flex-col gap-4" method="post" noValidate>
           <TaskFormHiddenInputs
+            baseDescription={initialTask?.description}
             editedItemId={initialTask?.id}
             mode={mode}
             selections={selections}

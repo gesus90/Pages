@@ -158,8 +158,9 @@ never turned into an administrator).
 
 Pages stores its data in one [DuckDB](https://duckdb.org) file, by default
 `~/.pages/data/pages.duckdb`; the setup wizard chooses the path and stores it
-as `databasePath` in the configuration. Files attached to wiki pages are not
-kept in the database but in a `wiki-attachments` folder next to it. The schema is created and updated
+as `databasePath` in the configuration. Files attached to wiki pages and to
+tickets are not kept in the database but in the `wiki-attachments` and
+`ticket-attachments` folders next to it. The schema is created and updated
 automatically on start by the migrations in
 `backend/database/migrations-duckdb/`; an applied migration must never be
 edited, add a new one instead.
@@ -170,7 +171,8 @@ edited, add a new one instead.
   inside the process.
 - **Backup:** stop Pages, then copy `pages.duckdb` (and a `pages.duckdb.wal`
   file if one exists) together with the `github-token.key` and the
-  `wiki-attachments` and `agents` folders next to it, plus `config.toml`.
+  `wiki-attachments`, `ticket-attachments` and `agents` folders next to it,
+  plus `config.toml`.
   If `PAGES_GITHUB_TOKEN_KEY` supplies the instance key, preserve that value
   separately in the secure backup instead of a key file. The key protects
   both GitHub tokens and saved agent API keys. The `agents` folder contains
@@ -211,8 +213,8 @@ case, and the provider cannot be changed after creation.
   standard endpoint), and Anthropic. Keys are encrypted with AES-256-GCM
   using a separate HKDF-derived instance key. Saved keys and key fragments
   are never sent back to the browser. Leaving the replacement field blank
-  retains the key; replacing it clears both check results. Changing the
-  model or reasoning effort clears the model result only.
+  retains the key; replacing it clears both check results. Legacy diagnostic
+  model settings remain stored; model and level choices belong to Agent tasks.
 - **CLI accounts:** install the official Codex CLI or Claude Code on the
   server following the provider's installation instructions. The Pages
   service must find `codex` or `claude` in its own PATH (or next to its Node
@@ -268,19 +270,41 @@ copy, modify, and distribute it.
 
 ### A7 models and reasoning
 
-Each connection has a model, its regular configuration, and an optional reasoning
-effort; checks use both. A successful access check (API) or CLI sign-in loads the model
-list in the same step. If the connection has no model yet, the server stores a listed
-default: the first entry of Codex (its own priority order), Claude
-Code (the aliases its help names) and Anthropic (newest first), OpenRouter's free
-router `openrouter/free` or else its first free model, and Google's
-`models/gemini-flash-latest` when listed. OpenAI and Z.AI mark no default. An existing
-choice is never replaced. The reasoning selection offers only the levels the list
-names for the chosen model; otherwise the panel explains why none can be chosen.
-Without a usable list, a manual model ID remains available. Loading the list only
-retrieves metadata; it never runs a model test or sends Pages content. OpenRouter models show **Free** only
-when both authoritative prompt and completion prices are zero. A catalog listing does
-not guarantee that a model supports the diagnostic text endpoint.
+Agent tasks assign a function to a named connection, a model from that connection's
+loaded catalog, and one of that model's listed reasoning levels. The connection
+dropdown names each connection with its provider, such as "Account1 (OpenAI API)" or
+"TSK_100 (Z.AI API)". The connection and model dropdowns open a panel that starts
+with a search field; every typed word must match, ignoring case, a connection's name
+or provider, or a model's ID or display name. The model panel adds prefilters for
+models with reasoning levels and, when the catalog carries prices, for free models,
+plus a live result count. Arrow keys and Enter choose inside the panel; Escape closes
+only the panel. Every model option includes its ID. Searching and prefilters preserve
+configuration; changing the connection or model clears dependent choices. Missing or
+invalid assignments remain visible and fail explicitly, without another connection,
+model, or level taking their place. A model without catalog levels shows
+"No reasoning level available".
+
+Reasoning levels come from the catalogs: OpenRouter’s `reasoning.supported_efforts`
+(a `null` list stands for every documented gateway effort, a model that only takes a
+reasoning token budget gets the efforts OpenRouter documents to convert into that
+budget, and mandatory reasoning never offers `none`), Anthropic’s
+`capabilities.effort` in the documented order from `low` to `max`, Codex’s
+`supported_reasoning_levels` and Claude Code’s `supportedEffortLevels`. Google’s
+listing reports only a `thinking` flag; a thinking model whose exact ID appears in
+Google’s documented thinking-level table gets that table’s levels, which are sent as
+`thinkingConfig.thinkingLevel`. OpenAI’s listing carries no reasoning data, so its
+models offer no level. Explicit `reasoning.supported_efforts` metadata is kept when
+a listing provides it.
+
+Connection panels register access and manage catalogs, without model or level
+selectors. Existing diagnostic settings remain stored. For diagnostic checks only,
+a successful access check or sign-in can initialize a previously empty test model:
+the first listed Codex, Claude Code, or Anthropic model; OpenRouter’s free router or
+first free model; Google’s listed latest Flash alias. OpenAI and Z.AI name no default.
+These diagnostic defaults never populate Agent tasks. Loading a catalog only
+retrieves metadata; it never runs a model test or sends Pages content. OpenRouter
+models show **Free** only when both catalog prices are zero. A listing does not
+guarantee support for the diagnostic text endpoint.
 
 Each supported connection has a persisted refresh cadence: manual only (default),
 every 6 hours, daily or weekly, plus an explicit refresh button. Changing cadence
@@ -291,8 +315,17 @@ Key replacement clears account-specific catalog data while preserving cadence.
 Catalogs, cadence and actions are restricted to active administrator mode.
 
 OpenRouter, OpenAI, Google AI Studio and Anthropic use their official model-list APIs.
-Signed-in CLI connections read `codex debug models` or `claude --help` in their own
-isolated directory. Z.AI currently has no documented token-free catalog endpoint and
-keeps a manual model ID. Requests have a 25-second total
+Catalogs keep only text models, judged by each listing’s own metadata: an OpenRouter
+model must accept text and output only text, and a Google model must support
+`generateContent`. OpenAI, Anthropic and Z.AI listings carry no modality data and are
+not filtered by name. Signed-in CLI connections read `codex debug models` or Claude
+Code’s SDK initialize catalog in their own isolated directory. Claude uses the
+catalog’s `resolvedModel` when present and reads each entry’s `supportedEffortLevels`;
+global help flags are not model capabilities. Every enabled picker row stays its own
+model, including earlier versions and 1M-context variants such as
+`claude-opus-5-5[1m]`; rows that resolve to the same model become one entry. The initialize request contains no user message. Older CLIs
+without that catalog fail explicitly instead of returning help aliases. Z.AI has no
+documented token-free catalog endpoint in the current adapter and cannot supply a
+catalog assignment; existing diagnostic IDs remain stored. Requests have a 25-second total
 deadline, a 32-page limit, 8 MiB per page, 16 MiB per refresh and 10,000 unique models.
 An incomplete or oversized listing does not replace the previous snapshot.

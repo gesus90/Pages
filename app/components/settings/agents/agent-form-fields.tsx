@@ -7,9 +7,6 @@ import { Input } from "@/app/components/ui/input";
 import { Select } from "@/app/components/ui/select";
 import { AGENT_PROVIDERS, isAgentProvider } from "@/definition/AgentConnection";
 
-import { AgentModelField } from "./agent-model-field";
-
-import type { AgentModelCatalog } from "@/definition/AgentModelCatalog";
 import type { AgentAccessKind } from "@/definition/AgentConnection";
 import type { AgentModelAvailability } from "./use-model-availability";
 import type { AgentForm } from "./use-agent-form";
@@ -105,12 +102,10 @@ function AgentKeyField({
 export function AgentFormFields({
   form,
   kind,
-  catalog,
   availability,
 }: {
   readonly form: AgentForm;
   readonly kind: AgentAccessKind;
-  readonly catalog?: AgentModelCatalog;
   readonly availability: AgentModelAvailability;
 }): React.ReactElement {
   const isExisting = availability.isExisting;
@@ -176,11 +171,9 @@ export function AgentFormFields({
           isExisting={isExisting}
         />
       ) : null}
-      <AgentModelField
-        form={form}
-        catalog={catalog}
-        availability={availability}
-      />
+      <p className="text-sm text-muted-foreground">
+        {t("settings.agents.assignments.connectionHint")}
+      </p>
     </fieldset>
   );
 }

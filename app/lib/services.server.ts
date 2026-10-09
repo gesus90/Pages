@@ -18,7 +18,9 @@ import { InstanceSettingsRepository } from "@/backend/database/repositories/Inst
 import { GitHubRepository } from "@/backend/database/repositories/GitHubRepository";
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import { TaskRepository } from "@/backend/database/repositories/TaskRepository";
+import { WorkItemAttachmentRepository } from "@/backend/database/repositories/task/WorkItemAttachmentRepository";
 import { WorkItemTemplateRepository } from "@/backend/database/repositories/task/WorkItemTemplateRepository";
+import { WorkItemTreeRepository } from "@/backend/database/repositories/task/WorkItemTreeRepository";
 import { UserRepository } from "@/backend/database/repositories/UserRepository";
 import { UserBoardPreferencesRepository } from "@/backend/database/repositories/UserBoardPreferencesRepository";
 import { UserSettingsRepository } from "@/backend/database/repositories/UserSettingsRepository";
@@ -31,6 +33,8 @@ import { GitHubSyncService } from "@/backend/service/GitHubSyncService";
 import { ProjectService } from "@/backend/service/ProjectService";
 import { TaskService } from "@/backend/service/TaskService";
 import { TaskTemplateService } from "@/backend/service/TaskTemplateService";
+import { TaskAttachmentService } from "@/backend/service/task/TaskAttachmentService";
+import { TicketTreeService } from "@/backend/service/task/TicketTreeService";
 import { UserService } from "@/backend/service/UserService";
 import { WikiMaintenanceScheduler } from "@/backend/service/wiki/WikiMaintenanceScheduler";
 import { WikiService } from "@/backend/service/WikiService";
@@ -39,11 +43,14 @@ import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 import { SetupService } from "@/backend/setup/SetupService";
 
 import { createAgentServices } from "./agent-services.server";
+import { createTextAssistantServices } from "./text-assistant-services.server";
 
 import type { AgentApplicationServices } from "./agent-services.server";
+import type { TextAssistantApplicationServices } from "./text-assistant-services.server";
 
 /** Server-only service instances shared by React Router loaders and actions. */
-export interface ApplicationServices extends AgentApplicationServices {
+export interface ApplicationServices
+  extends AgentApplicationServices, TextAssistantApplicationServices {
   readonly administrationService: AdministrationService;
   readonly groupAdministrationService: GroupAdministrationService;
   readonly authService: AuthService;
@@ -56,6 +63,8 @@ export interface ApplicationServices extends AgentApplicationServices {
   readonly projectService: ProjectService;
   readonly taskService: TaskService;
   readonly taskTemplateService: TaskTemplateService;
+  readonly taskAttachmentService: TaskAttachmentService;
+  readonly ticketTreeService: TicketTreeService;
   readonly wikiService: WikiService;
   readonly gitHubSyncService: GitHubSyncService;
   readonly permissionService: PermissionService;
@@ -79,6 +88,7 @@ declare global {
 function registerShutdownHandler(
   database: Database,
   agents: AgentApplicationServices,
+  assistant: TextAssistantApplicationServices,
 ): void {
   if (globalThis.pagesShutdownHandlerRegistered) {
     return;
@@ -88,6 +98,8 @@ function registerShutdownHandler(
 
   const shutdown = async (): Promise<void> => {
     try {
+      await assistant.assistantHistoryScheduler.shutdown();
+      await assistant.textAssistantService.shutdown();
       await agents.agentCatalogScheduler.shutdown();
       await agents.agentCliLoginService.shutdown();
       await database.close();
@@ -184,8 +196,6 @@ async function initializeServices(
   );
   const userRepository = new UserRepository(database);
   const projectRepository = new ProjectRepository(database);
-  const taskRepository = new TaskRepository(database);
-  const gitHubRepository = new GitHubRepository(database);
   const userSettingsRepository = new UserSettingsRepository(database);
   const sessionRepository = new SessionRepository(database);
   const userService = new UserService(
@@ -205,36 +215,31 @@ async function initializeServices(
     tokenKey,
     serverCache,
   );
-  const taskService = new TaskService(
-    taskRepository,
-    projectService,
-    permissionService,
-    serverCache,
-  );
-  const taskTemplateService = new TaskTemplateService(
-    new WorkItemTemplateRepository(database),
-    taskService,
-    projectService,
-    permissionService,
-  );
-  const gitHubSyncService = new GitHubSyncService({
-    cache: serverCache,
-    gitHubRepository,
-    projectRepository,
-    projectService,
-    taskRepository,
-    taskService,
-    tokenKey,
-    userRepository,
-  });
-  taskService.setGitHubSync(gitHubSyncService);
-  startGitHubSyncScheduler(gitHubSyncService);
   const workspaceServices = createWorkspaceServices(
     database,
     databasePath,
     projectService,
     permissionService,
   );
+  const assistantServices = createTextAssistantServices({
+    database,
+    projectService,
+    permissions: permissionService,
+    agents: agentServices,
+  });
+  assistantServices.assistantHistoryScheduler.start();
+  registerShutdownHandler(database, agentServices, assistantServices);
+  const taskServices = createTaskServices({
+    database,
+    databasePath,
+    permissionService,
+    projectRepository,
+    projectService,
+    serverCache,
+    tokenKey,
+    userRepository,
+    wikiService: workspaceServices.wikiService,
+  });
   const sessionService = await prepareSessions(
     new SetupService(userRepository, passwordHasher),
     new SessionService(sessionRepository, userService),
@@ -242,6 +247,7 @@ async function initializeServices(
 
   return {
     ...agentServices,
+    ...assistantServices,
     administrationService,
     authService: new AuthService(
       userService,
@@ -250,7 +256,6 @@ async function initializeServices(
       new LoginThrottle(),
     ),
     boardPreferencesService,
-    gitHubSyncService,
     groupAdministrationService,
     ...workspaceServices,
     passwordHasher,
@@ -258,10 +263,131 @@ async function initializeServices(
     projectService,
     sessionService,
     settingsService,
-    taskService,
-    taskTemplateService,
+    ...taskServices,
     userService,
   };
+}
+
+/** What the task services are built from. */
+interface TaskServiceContext {
+  readonly database: Database;
+  readonly databasePath: string;
+  readonly permissionService: PermissionService;
+  readonly projectRepository: ProjectRepository;
+  readonly projectService: ProjectService;
+  readonly serverCache: ServerCache;
+  readonly tokenKey: ReturnType<typeof resolveGitHubTokenKey>;
+  readonly userRepository: UserRepository;
+  readonly wikiService: WikiService;
+}
+
+/**
+ * Creates the services of tickets: the tickets themselves, templates, GitHub
+ * synchronization, ticket attachments and the ticket tree (A8.2).
+ *
+ * @param context - The repositories and services the ticket services use.
+ * @returns The ticket services, with GitHub and attachment files attached.
+ */
+function createTaskServices(
+  context: TaskServiceContext,
+): Pick<
+  ApplicationServices,
+  | "gitHubSyncService"
+  | "taskAttachmentService"
+  | "taskService"
+  | "taskTemplateService"
+  | "ticketTreeService"
+> {
+  const { database, permissionService, projectService } = context;
+  const taskRepository = new TaskRepository(database);
+  const taskService = new TaskService(
+    taskRepository,
+    projectService,
+    permissionService,
+    context.serverCache,
+  );
+  const gitHubSyncService = new GitHubSyncService({
+    cache: context.serverCache,
+    gitHubRepository: new GitHubRepository(database),
+    projectRepository: context.projectRepository,
+    projectService,
+    taskRepository,
+    taskService,
+    tokenKey: context.tokenKey,
+    userRepository: context.userRepository,
+  });
+
+  taskService.setGitHubSync(gitHubSyncService);
+  startGitHubSyncScheduler(gitHubSyncService);
+
+  return {
+    gitHubSyncService,
+    ...createTicketServices(
+      database,
+      context.databasePath,
+      taskService,
+      context.wikiService,
+    ),
+    taskService,
+    taskTemplateService: new TaskTemplateService(
+      new WorkItemTemplateRepository(database),
+      taskService,
+      projectService,
+      permissionService,
+    ),
+  };
+}
+
+/**
+ * Creates the services of ticket attachments and the ticket tree (A8.2).
+ *
+ * @param database - The open database.
+ * @param databasePath - Path of the database; attachments lie next to it.
+ * @param taskService - Checks the access to tickets.
+ * @param wikiService - Provides the instance-wide upload limits.
+ * @returns The services, with the attachment files tied to ticket deletion.
+ */
+function createTicketServices(
+  database: Database,
+  databasePath: string,
+  taskService: TaskService,
+  wikiService: WikiService,
+): Pick<ApplicationServices, "taskAttachmentService" | "ticketTreeService"> {
+  const taskAttachmentService = new TaskAttachmentService(
+    new WorkItemAttachmentRepository(database),
+    taskService,
+    wikiService,
+    new WikiFileStore(
+      path.join(path.dirname(databasePath), "ticket-attachments"),
+    ),
+  );
+
+  taskService.setAttachmentFiles(taskAttachmentService);
+  void sweepTicketAttachments(taskAttachmentService);
+
+  return {
+    taskAttachmentService,
+    ticketTreeService: new TicketTreeService(
+      new WorkItemTreeRepository(database),
+      taskService,
+    ),
+  };
+}
+
+/**
+ * Removes ticket attachment files nothing refers to any more, such as those
+ * of projects deleted for good, once when the server starts.
+ *
+ * @param service - The ticket attachment service.
+ */
+async function sweepTicketAttachments(
+  service: TaskAttachmentService,
+): Promise<void> {
+  try {
+    await service.sweep();
+  } catch (error: unknown) {
+    console.warn("Pages could not sweep ticket attachment files.", error);
+  }
 }
 
 /**
@@ -350,6 +476,5 @@ function startAgentServices(
     tokenKey,
   );
   services.agentCatalogScheduler.start();
-  registerShutdownHandler(database, services);
   return services;
 }

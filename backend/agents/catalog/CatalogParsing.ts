@@ -2,6 +2,13 @@ import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { isReasoningEffortToken } from "@/definition/AgentModelCatalog";
 
+import { isTextModel } from "./CatalogTextModels";
+import {
+  documentedGoogleThinkingLevels,
+  OPENROUTER_BUDGET_EFFORTS,
+  OPENROUTER_GATEWAY_EFFORTS,
+} from "./DocumentedReasoningLevels";
+
 import type { ApiProviderId } from "@/definition/AgentConnection";
 import type {
   AgentCatalogModel,
@@ -25,8 +32,33 @@ const REASONING_SUPPORT: readonly AgentReasoningSupport[] = [
   "unknown",
 ];
 
-// Anthropic's ModelCapabilities names exactly these effort keys.
-const ANTHROPIC_EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
+// Anthropic lists its effort capabilities alphabetically; its documentation
+// orders the levels from `low` to `max`.
+const ANTHROPIC_EFFORT_LADDER: readonly string[] = [
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+];
+
+/**
+ * Accepts the model IDs every catalog may list and Pages may store.
+ *
+ * @param value - A listed or stored model ID.
+ * @returns Whether the ID is safe to save, show and pass on unchanged.
+ *
+ * @remarks
+ * OpenRouter aliases start with `~`. Claude Code names its 1M-context
+ * variants with a bracketed suffix such as `claude-opus-5-5[1m]`.
+ */
+export function isCatalogModelId(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length <= 200 &&
+    /^~?[A-Za-z0-9][A-Za-z0-9._:/-]*(?:\[[0-9a-z]{1,16}\])?$/.test(value)
+  );
+}
 
 /** Reasoning support that names no selectable effort. */
 export function reasoningWithoutLevels(
@@ -62,14 +94,36 @@ export function reasoningLevels(
   };
 }
 
-// OpenRouter omits `reasoning` for non-reasoning models and lists efforts otherwise.
+// OpenRouter documents three forms of `supported_efforts`: a list, `null` for
+// every gateway effort, and an omitted list for models without effort
+// selection. Models that only take a token budget convert efforts instead.
+function readOpenRouterEfforts(
+  reasoning: Record<string, unknown>,
+): readonly string[] | null {
+  if (reasoning.supported_efforts === null) return OPENROUTER_GATEWAY_EFFORTS;
+  if (reasoning.supported_efforts !== undefined)
+    return readReasoningEfforts(reasoning.supported_efforts);
+  return reasoning.supports_max_tokens === true
+    ? OPENROUTER_BUDGET_EFFORTS
+    : null;
+}
+
+// OpenRouter omits `reasoning` for non-reasoning models and router models.
 function readOpenRouterReasoning(value: unknown): ReasoningFields {
   if (value === undefined) return reasoningWithoutLevels("none");
   const reasoning = readAgentObject(value);
-  const efforts = readReasoningEfforts(reasoning.supported_efforts);
-  return efforts
+  // A mandatory reasoning model rejects the effort "none".
+  const efforts = (readOpenRouterEfforts(reasoning) ?? []).filter(
+    (effort) => reasoning.mandatory !== true || effort !== "none",
+  );
+  return efforts.length > 0
     ? reasoningLevels(efforts, reasoning.default_effort)
     : reasoningWithoutLevels("automatic");
+}
+
+function ladderRank(effort: string): number {
+  const rank = ANTHROPIC_EFFORT_LADDER.indexOf(effort);
+  return rank === -1 ? ANTHROPIC_EFFORT_LADDER.length : rank;
 }
 
 function readAnthropicReasoning(value: unknown): ReasoningFields {
@@ -77,30 +131,49 @@ function readAnthropicReasoning(value: unknown): ReasoningFields {
     return reasoningWithoutLevels("unknown");
   const effort = readAgentObject(readAgentObject(value).effort);
   if (effort.supported !== true) return reasoningWithoutLevels("none");
-  const efforts = ANTHROPIC_EFFORTS.filter(
-    (level) => readAgentObject(effort[level]).supported === true,
+  const efforts = readReasoningEfforts(
+    Object.keys(effort)
+      .filter(
+        (level) =>
+          isReasoningEffortToken(level) &&
+          readAgentObject(effort[level]).supported === true,
+      )
+      .sort((left, right) => ladderRank(left) - ladderRank(right)),
   );
-  return efforts.length > 0
+  return efforts
     ? reasoningLevels(efforts, null)
     : reasoningWithoutLevels("none");
 }
 
-// Gemini's model resource only says whether a model thinks, not which levels it accepts.
-const GOOGLE_THINKING: Readonly<Record<string, AgentReasoningSupport>> = {
-  true: "automatic",
-  false: "none",
-};
+// Gemini's model resource only says whether a model thinks; the levels come
+// from Google's documented table for exactly that model (A8.4-Fix2-E04).
+function readGoogleReasoning(
+  model: Record<string, unknown>,
+  id: string,
+): ReasoningFields {
+  if (model.thinking === false) return reasoningWithoutLevels("none");
+  if (model.thinking !== true) return reasoningWithoutLevels("unknown");
+  const documented = documentedGoogleThinkingLevels(
+    id.replace(/^models\//, ""),
+  );
+  return documented
+    ? reasoningLevels(documented.efforts, documented.defaultEffort)
+    : reasoningWithoutLevels("automatic");
+}
 
 function readReasoning(
   model: Record<string, unknown>,
   provider: ApiProviderId,
+  id: string,
 ): ReasoningFields {
   if (provider === "openrouter")
     return readOpenRouterReasoning(model.reasoning);
+  const listedReasoning = readAgentObject(model.reasoning);
+  const efforts = readReasoningEfforts(listedReasoning.supported_efforts);
+  if (efforts) return reasoningLevels(efforts, listedReasoning.default_effort);
   if (provider === "anthropic")
     return readAnthropicReasoning(model.capabilities);
-  if (provider === "google_ai_studio" && typeof model.thinking === "boolean")
-    return reasoningWithoutLevels(GOOGLE_THINKING[String(model.thinking)]);
+  if (provider === "google_ai_studio") return readGoogleReasoning(model, id);
   return reasoningWithoutLevels("unknown");
 }
 
@@ -128,13 +201,8 @@ function isZeroPrice(price: string | null): boolean {
 
 function readModel(entry: unknown, provider: ApiProviderId): AgentCatalogModel {
   const model = readAgentObject(entry);
-  const id = readText(
-    provider === "google_ai_studio" ? model.name : model.id,
-    200,
-  );
-  // OpenRouter lists alias IDs such as "~vendor/model-latest" next to regular ones.
-  if (id === null || !/^~?[A-Za-z0-9][A-Za-z0-9._:/-]*$/.test(id))
-    throw new AgentError("provider_bad_response");
+  const id = provider === "google_ai_studio" ? model.name : model.id;
+  if (!isCatalogModelId(id)) throw new AgentError("provider_bad_response");
   const pricing = readAgentObject(model.pricing);
   const promptPrice =
     provider === "openrouter" ? readPrice(pricing.prompt) : null;
@@ -158,8 +226,14 @@ function readModel(entry: unknown, provider: ApiProviderId): AgentCatalogModel {
     promptPrice,
     completionPrice,
     isFree: isZeroPrice(promptPrice) && isZeroPrice(completionPrice),
-    ...readReasoning(model, provider),
+    ...readReasoning(model, provider, id),
   };
+}
+
+function readEntries(payload: unknown): readonly unknown[] {
+  if (!Array.isArray(payload) || payload.length > 10_000)
+    throw new AgentError("provider_bad_response");
+  return payload;
 }
 
 function readCursor(
@@ -207,18 +281,31 @@ function readOpenRouterCursor(
   return String(offset + count);
 }
 
-/** Strictly parses a complete page without storing raw descriptions or provider bodies. */
+/**
+ * Strictly parses a complete page without storing raw descriptions or provider bodies.
+ *
+ * @param payload - One page as the provider returned it.
+ * @param provider - The provider that returned the page.
+ * @param offset - OpenRouter's offset of this page.
+ * @returns The page's text models and the cursor of the next page.
+ *
+ * @remarks
+ * Only entries that the catalog's own metadata marks as text models are kept
+ * (A8.4-Fix2-E02). Pagination still counts every listed entry.
+ */
 export function parseCatalogPage(
   payload: unknown,
   provider: ApiProviderId,
   offset = 0,
 ): CatalogPage {
   const result = readAgentObject(payload);
-  const entries = provider === "google_ai_studio" ? result.models : result.data;
-  if (!Array.isArray(entries) || entries.length > 10_000)
-    throw new AgentError("provider_bad_response");
+  const entries = readEntries(
+    provider === "google_ai_studio" ? result.models : result.data,
+  );
   return {
-    models: entries.map((entry: unknown) => readModel(entry, provider)),
+    models: entries
+      .filter((entry) => isTextModel(entry, provider))
+      .map((entry) => readModel(entry, provider)),
     nextCursor:
       provider === "openrouter"
         ? readOpenRouterCursor(result, offset, entries.length)
@@ -248,11 +335,10 @@ function readStoredReasoning(entry: unknown): ReasoningFields {
 export function parseStoredCatalog(
   entries: unknown,
 ): readonly AgentCatalogModel[] {
-  if (!Array.isArray(entries)) throw new AgentError("provider_bad_response");
-  const stored: readonly unknown[] = entries;
-  const models = parseCatalogPage({ data: stored }, "openrouter").models;
-  return models.map((model, index) => ({
-    ...model,
-    ...readStoredReasoning(stored[index]),
+  // Snapshots hold only models already accepted at refresh time, so the
+  // provider's modality metadata is neither stored nor checked again.
+  return readEntries(entries).map((entry) => ({
+    ...readModel(entry, "openrouter"),
+    ...readStoredReasoning(entry),
   }));
 }

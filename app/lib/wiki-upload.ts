@@ -1,5 +1,18 @@
 import type { WikiAttachment } from "@/definition/Wiki";
 
+/** The address of an attachment of this instance; only those show as images. */
+export const WIKI_ATTACHMENT_PATH = /^\/wiki\/attachments\/[\w-]+(?:\?.*)?$/;
+
+/**
+ * Tells whether an image address belongs to an attachment of this instance.
+ *
+ * @param src - Image address from the markdown.
+ * @returns Whether the renderer and the editor may show it.
+ */
+export function isWikiAttachmentPath(src: string): boolean {
+  return WIKI_ATTACHMENT_PATH.test(src);
+}
+
 /** Thrown when an upload fails; the code names the reason for the person. */
 export class WikiUploadError extends Error {
   /** Key below `wiki.errors` that describes the failure. */

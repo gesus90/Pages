@@ -132,7 +132,12 @@ function renderHierarchy(items: WorkItemDetail[]): {
 
 describe("buildHierarchy", () => {
   it("nests initiatives, epics, tasks, and subtasks with averaged progress", () => {
-    const nodes = buildHierarchy(createTree());
+    const sections = buildHierarchy(createTree());
+
+    expect(sections).toHaveLength(1);
+    expect(sections[0]).toMatchObject({ group: null, projectName: null });
+
+    const nodes = sections[0]?.nodes ?? [];
 
     expect(nodes).toHaveLength(1);
     expect(nodes[0]?.item.key).toBe("PAGE-1");
@@ -148,16 +153,54 @@ describe("buildHierarchy", () => {
     expect(task?.progress).toBe(0);
   });
 
-  it("attaches orphaned items at the root", () => {
-    const nodes = buildHierarchy([
+  it("puts tickets without a visible parent into the group of their level", () => {
+    const sections = buildHierarchy([
       createWorkItem({ id: "orphan", parentId: "missing-parent" }),
+      createWorkItem({
+        id: "loose-epic",
+        key: "PAGE-30",
+        type: WORK_ITEM_TYPE.EPIC,
+      }),
+      createWorkItem({
+        id: "loose-subtask",
+        key: "PAGE-31",
+        parentId: "hidden-task",
+        type: WORK_ITEM_TYPE.SUBTASK,
+      }),
     ]);
 
-    expect(nodes).toHaveLength(1);
-    expect(nodes[0]?.item.id).toBe("orphan");
+    expect(
+      sections.map((section) => [
+        section.group,
+        section.nodes.map((node) => node.item.id),
+      ]),
+    ).toEqual([
+      ["no-initiative", ["loose-epic"]],
+      ["no-epic", ["orphan"]],
+      ["no-task", ["loose-subtask"]],
+    ]);
   });
 
-  it("returns no nodes without work items", () => {
+  it("names the projects when tickets of several projects are shown", () => {
+    const sections = buildHierarchy([
+      createWorkItem({ id: "a", type: WORK_ITEM_TYPE.INITIATIVE }),
+      createWorkItem({
+        id: "b",
+        key: "TOOL-1",
+        projectId: "project-2",
+        projectName: "Tools",
+      }),
+    ]);
+
+    expect(
+      sections.map((section) => [section.projectName, section.group]),
+    ).toEqual([
+      ["Pages", null],
+      ["Tools", "no-epic"],
+    ]);
+  });
+
+  it("returns no sections without work items", () => {
     expect(buildHierarchy([])).toEqual([]);
   });
 });
@@ -249,7 +292,40 @@ describe("TasksHierarchy", () => {
     await user.click(screen.getByRole("button", { name: /weitere anzeigen/ }));
 
     expect(screen.getAllByText(/^Root \d+$/)).toHaveLength(60);
+    expect(
+      screen.getByRole("heading", { name: "Ohne Epic" }),
+    ).toBeInTheDocument();
 
     void initial;
+  });
+
+  it("collapses the children of every section", async () => {
+    const user = userEvent.setup();
+
+    renderHierarchy([
+      ...createTree(),
+      createWorkItem({
+        id: "loose-epic",
+        key: "PAGE-40",
+        title: "Loses Epic",
+        type: WORK_ITEM_TYPE.EPIC,
+      }),
+      createWorkItem({
+        id: "loose-task",
+        key: "PAGE-41",
+        parentId: "loose-epic",
+        title: "Aufgabe darin",
+      }),
+    ]);
+
+    expect(screen.getByText("Aufgabe darin")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Alle zuklappen" }));
+
+    expect(screen.queryByText("Aufgabe darin")).not.toBeInTheDocument();
+    expect(screen.getByText("Loses Epic")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Ohne Initiative" }),
+    ).toBeInTheDocument();
   });
 });

@@ -1,4 +1,4 @@
-import { MoreHorizontal, Pencil, Star } from "lucide-react";
+import { MoreHorizontal, Star } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
 
@@ -29,17 +29,15 @@ interface WikiPageMenuProps {
   readonly isPrivate: boolean;
   readonly isFavorite: boolean;
   readonly permissions: WikiPagePermissions;
-  readonly onEdit: () => void;
   readonly onOpen: (dialog: WikiPageDialog) => void;
 }
 
-/** The buttons above a page: favorite, edit and the menu of everything else. */
+/** The buttons above a page: favorite and the menu of everything else. */
 export function WikiPageMenu({
   pageId,
   isPrivate,
   isFavorite,
   permissions,
-  onEdit,
   onOpen,
 }: WikiPageMenuProps): React.ReactElement {
   const { t } = useTranslation();
@@ -89,12 +87,6 @@ export function WikiPageMenu({
           className={isMarked ? "size-4 fill-current text-warning" : "size-4"}
         />
       </Button>
-      {permissions.canEdit ? (
-        <Button size="sm" variant="outline" onClick={onEdit}>
-          <Pencil aria-hidden="true" className="size-4" />
-          {t("wiki.page.edit")}
-        </Button>
-      ) : null}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button

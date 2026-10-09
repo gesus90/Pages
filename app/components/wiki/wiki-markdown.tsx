@@ -1,6 +1,9 @@
-import { Info, Lightbulb, OctagonAlert, TriangleAlert } from "lucide-react";
 import Markdown from "react-markdown";
 
+import {
+  CALLOUT_STYLES,
+  isCalloutKind,
+} from "@/app/components/markdown/callout-style";
 import {
   MARKDOWN_COMPONENTS,
   MARKDOWN_REMARK_PLUGINS,
@@ -8,6 +11,7 @@ import {
 import { cn } from "@/app/lib/cn";
 import { transformMarkdownUrl } from "@/app/lib/markdown-links";
 import { extractHeadings } from "@/app/lib/wiki-headings";
+import { isWikiAttachmentPath } from "@/app/lib/wiki-upload";
 import { remarkWikiBlocks } from "@/app/lib/wiki-remark";
 
 import type { Components } from "react-markdown";
@@ -18,32 +22,14 @@ interface WikiMarkdownProps {
   /** Markdown source of the page; raw HTML in it is shown as text. */
   readonly source: string;
   readonly className?: string;
+  /**
+   * Tells whether an image may be shown; wiki attachments by default, ticket
+   * descriptions also allow their own attachments (A8.2).
+   */
+  readonly isDisplayableImage?: (src: string) => boolean;
 }
 
 const REMARK_PLUGINS = [...MARKDOWN_REMARK_PLUGINS, remarkWikiBlocks];
-const ATTACHMENT_PATH = /^\/wiki\/attachments\/[\w-]+(?:\?.*)?$/;
-
-const CALLOUT_STYLES: Readonly<
-  Record<WikiCalloutKind, { icon: typeof Info; className: string }>
-> = {
-  caution: {
-    className: "border-destructive/50 bg-destructive/10",
-    icon: OctagonAlert,
-  },
-  important: { className: "border-primary/50 bg-primary-subtle", icon: Info },
-  note: { className: "border-border bg-muted", icon: Info },
-  tip: { className: "border-success/50 bg-success/10", icon: Lightbulb },
-  warning: {
-    className: "border-warning/50 bg-warning/10",
-    icon: TriangleAlert,
-  },
-};
-
-const CALLOUT_KINDS = Object.keys(CALLOUT_STYLES);
-
-function isCalloutKind(value: unknown): value is WikiCalloutKind {
-  return typeof value === "string" && CALLOUT_KINDS.includes(value);
-}
 
 function TableOfContents({
   headings,
@@ -88,7 +74,10 @@ function Callout({
   );
 }
 
-function createComponents(headings: readonly WikiHeading[]): Components {
+function createComponents(
+  headings: readonly WikiHeading[],
+  isDisplayableImage: (src: string) => boolean,
+): Components {
   const idByLine = new Map(
     headings.map((heading) => [heading.line, heading.id]),
   );
@@ -125,7 +114,7 @@ function createComponents(headings: readonly WikiHeading[]): Components {
     h2: heading("h2", "mt-6 text-xl first:mt-0"),
     h3: heading("h3", "mt-5 text-lg first:mt-0"),
     img: ({ alt, src }) =>
-      typeof src === "string" && ATTACHMENT_PATH.test(src) ? (
+      typeof src === "string" && isDisplayableImage(src) ? (
         <img
           alt={alt}
           className="mt-3 max-h-[32rem] max-w-full rounded-lg"
@@ -154,6 +143,7 @@ function createComponents(headings: readonly WikiHeading[]): Components {
 export function WikiMarkdown({
   source,
   className,
+  isDisplayableImage = isWikiAttachmentPath,
 }: WikiMarkdownProps): React.ReactElement {
   const headings = extractHeadings(source);
 
@@ -165,7 +155,7 @@ export function WikiMarkdown({
       )}
     >
       <Markdown
-        components={createComponents(headings)}
+        components={createComponents(headings, isDisplayableImage)}
         remarkPlugins={REMARK_PLUGINS}
         urlTransform={transformMarkdownUrl}
       >

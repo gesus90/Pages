@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import { AssistantPanel } from "@/app/components/assistant/assistant-panel";
+import { useTextAssistant } from "@/app/components/assistant/use-text-assistant";
 import { useTranslation } from "react-i18next";
-import { Link, useRevalidator } from "react-router";
+import { Link } from "react-router";
 
 import { useCommentHighlights } from "@/app/components/wiki/use-comment-highlights";
 import { useWikiSelection } from "@/app/components/wiki/use-wiki-selection";
@@ -8,7 +10,6 @@ import { WikiAnchorsDialog } from "@/app/components/wiki/wiki-anchors-dialog";
 import { WikiAttachmentsView } from "@/app/components/wiki/wiki-attachments-view";
 import { WikiBacklinksView } from "@/app/components/wiki/wiki-backlinks-view";
 import { WikiCommentsPanel } from "@/app/components/wiki/wiki-comments-panel";
-import { WikiEditor } from "@/app/components/wiki/wiki-editor";
 import { WikiHistoryDialog } from "@/app/components/wiki/wiki-history-dialog";
 import { WikiMarkdown } from "@/app/components/wiki/wiki-markdown";
 import { WikiMoveDialog } from "@/app/components/wiki/wiki-move-dialog";
@@ -19,11 +20,18 @@ import {
   WikiDuplicateDialog,
   WikiOwnerDialog,
 } from "@/app/components/wiki/wiki-page-dialogs";
-import { WikiPageHeader } from "@/app/components/wiki/wiki-page-header";
+import { WikiPageEditor } from "@/app/components/wiki/wiki-page-editor";
+import {
+  WikiBreadcrumb,
+  WikiPageMeta,
+} from "@/app/components/wiki/wiki-page-header";
+import { WikiPageHero } from "@/app/components/wiki/wiki-page-hero";
 import { WikiPageMenu } from "@/app/components/wiki/wiki-page-menu";
 import { wikiPagePath } from "@/app/lib/wiki-tree";
 
 import type { WikiAttachmentEntry } from "@/app/components/wiki/wiki-attachments-view";
+import type { BlockEditorHandle } from "@/app/components/editor/block-editor-types";
+import type { QuoteReference } from "@/app/lib/wiki-highlight";
 import type { WikiVersionEntry } from "@/app/components/wiki/wiki-history-dialog";
 import type { WikiPageDialog } from "@/app/components/wiki/wiki-page-menu";
 import type { WikiTemplateChoice } from "@/app/components/wiki/wiki-new-page-form";
@@ -73,7 +81,13 @@ function PageDialogs({
     case "currentUntil":
       return <WikiCurrentUntilDialog page={page} onClose={onClose} />;
     case "delete":
-      return <WikiDeleteDialog page={page} onClose={onClose} />;
+      return (
+        <WikiDeleteDialog
+          nodes={screen.navigation.nodes}
+          page={page}
+          onClose={onClose}
+        />
+      );
     case "duplicate":
       return <WikiDuplicateDialog page={page} onClose={onClose} />;
     case "template":
@@ -168,19 +182,68 @@ function newestPage(loaded: WikiPage, saved: WikiPage | null): WikiPage {
     : loaded;
 }
 
-/** One wiki page: header, text or editor, subpages, comments and dialogs. */
+/** The text of a page for people who may only read it. */
+function WikiPageReading({
+  page,
+  meta,
+  onTextElement,
+}: {
+  readonly page: WikiPage;
+  readonly meta: React.ReactNode;
+  readonly onTextElement: (element: HTMLElement | null) => void;
+}): React.ReactElement {
+  const handle = useRef<BlockEditorHandle | null>(null);
+  const [element, setElement] = useState<HTMLElement | null>(null);
+  const assistant = useTextAssistant({
+    context: { kind: "wiki", id: page.id, version: String(page.revision) },
+    title: page.title,
+    handle,
+    content: page.content,
+    canEdit: false,
+    canSend: true,
+    maximumLength: 200_000,
+    selectionElement: element,
+  });
+  const reportElement = useCallback(
+    (node: HTMLElement | null): void => {
+      setElement(node);
+      onTextElement(node);
+    },
+    [onTextElement],
+  );
+  return (
+    <div className="space-y-4">
+      <WikiPageHero page={page} />
+      <div className="mx-auto w-full max-w-[46rem] space-y-4">
+        {meta}
+        <div ref={reportElement}>
+          <WikiMarkdown className="text-base" source={page.content} />
+        </div>
+      </div>
+      <AssistantPanel {...assistant.panel} />
+    </div>
+  );
+}
+
+/**
+ * One wiki page as in Notion: breadcrumb and menu on top, cover, emoji and
+ * title, then the text, edited in place by everybody who may edit, followed
+ * by attachments and subpages, with the comments at the side.
+ */
 export function WikiPageScreen(
   loadedScreen: WikiPageScreenProps,
 ): React.ReactElement {
-  const revalidator = useRevalidator();
   const [savedPage, setSavedPage] = useState<WikiPage | null>(null);
   const page = newestPage(loadedScreen.view.page, savedPage);
   const screen = { ...loadedScreen, view: { ...loadedScreen.view, page } };
   const { permissions, isFavorite } = screen.view;
-  const [isEditing, setIsEditing] = useState(false);
   const [dialog, setDialog] = useState<WikiPageDialog | null>(null);
   const [text, setText] = useState<HTMLElement | null>(null);
-  const reader = isEditing ? null : text;
+  const selection = useWikiSelection(text);
+  const [textVersion, setTextVersion] = useState(0);
+  const [requestedQuote, setRequestedQuote] = useState<{
+    readonly quote: QuoteReference;
+  } | null>(null);
   const quotes = screen.comments.flatMap(({ comment }) =>
     comment.quote !== null && comment.resolvedAt === null
       ? [
@@ -192,82 +255,73 @@ export function WikiPageScreen(
         ]
       : [],
   );
+  const meta = (
+    <>
+      <WikiPageMeta page={page} today={screen.today} />
+      <WikiBacklinksView backlinks={screen.backlinks} />
+    </>
+  );
 
-  useCommentHighlights(reader, quotes);
+  useCommentHighlights(text, quotes, textVersion);
+
+  function handleComment(): void {
+    if (selection) {
+      setRequestedQuote({ quote: selection });
+    }
+  }
 
   return (
     <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_20rem]">
       <article className="min-w-0 space-y-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <WikiPageHeader
-              hideTitle={isEditing}
-              page={page}
-              today={screen.today}
-            />
-          </div>
+        <div className="flex items-center justify-between gap-3">
+          <WikiBreadcrumb page={page} />
           <WikiPageMenu
             isFavorite={isFavorite}
             isPrivate={page.scope === "private"}
             pageId={page.id}
             permissions={permissions}
-            onEdit={() => setIsEditing(true)}
             onOpen={setDialog}
           />
         </div>
-        <WikiBacklinksView backlinks={screen.backlinks} />
-        {isEditing ? (
-          <WikiEditor
+        {permissions.canEdit ? (
+          <WikiPageEditor
             key={page.id}
+            attachments={screen.attachments}
+            meta={meta}
             page={page}
-            onDone={(saved) => {
-              setSavedPage(saved);
-              setIsEditing(false);
-              void revalidator.revalidate();
-            }}
+            onComment={handleComment}
+            onSaved={setSavedPage}
+            onTextChange={() => setTextVersion((version) => version + 1)}
+            onTextElement={setText}
           />
         ) : (
-          <div ref={setText}>
-            <WikiMarkdown source={page.content} />
-          </div>
+          <WikiPageReading
+            key={page.id}
+            meta={meta}
+            page={page}
+            onTextElement={setText}
+          />
         )}
-        <WikiAttachmentsView
-          attachments={screen.attachments}
-          canUpload={permissions.canEdit}
-          pageId={page.id}
-        />
-        <ChildrenSection screen={screen} />
+        <div className="mx-auto w-full max-w-[46rem] space-y-6">
+          <WikiAttachmentsView
+            attachments={screen.attachments}
+            canUpload={permissions.canEdit}
+            pageId={page.id}
+          />
+          <ChildrenSection screen={screen} />
+        </div>
         <PageDialogs
           dialog={dialog}
           screen={screen}
           onClose={() => setDialog(null)}
         />
       </article>
-      <CommentsRail
+      <WikiCommentsPanel
         pageId={page.id}
-        reader={reader}
+        requestedQuote={requestedQuote}
+        selection={selection}
         threads={screen.comments}
       />
     </div>
-  );
-}
-
-function CommentsRail({
-  pageId,
-  reader,
-  threads,
-}: {
-  readonly pageId: string;
-  readonly reader: HTMLElement | null;
-  readonly threads: readonly WikiCommentThread[];
-}): React.ReactElement {
-  const selection = useWikiSelection(reader);
-
-  return (
-    <WikiCommentsPanel
-      pageId={pageId}
-      selection={selection}
-      threads={threads}
-    />
   );
 }

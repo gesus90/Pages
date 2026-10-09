@@ -2,7 +2,7 @@ import {
   readNullableTextColumn,
   readTextColumn,
 } from "@/backend/database/RowValue";
-import { isWikiScope } from "@/definition/Wiki";
+import { isWikiScope, parseWikiCover } from "@/definition/Wiki";
 
 import type { DatabaseValue } from "@/backend/database/Database";
 import type { WikiPage, WikiPageSummary, WikiScope } from "@/definition/Wiki";
@@ -35,7 +35,8 @@ export const WIKI_PAGE_COLUMNS = `
     page.content,
     page.revision,
     page.is_template,
-    editor.display_name
+    editor.display_name,
+    page.cover
 `;
 
 /** Joins that give {@link WIKI_SUMMARY_COLUMNS} their names. */
@@ -130,5 +131,6 @@ export function readPageRecord(row: readonly DatabaseValue[]): WikiPageRecord {
     revision: readCount(row, 13, "revision"),
     isTemplate: readCount(row, 14, "is_template") === 1,
     updatedByName: readNullableTextColumn(row, 15, "editor_name"),
+    cover: parseWikiCover(readNullableTextColumn(row, 16, "cover")),
   };
 }

@@ -1,0 +1,188 @@
+/* Typography of the editable document. ProseMirror generates the markup, so
+   it is styled from its container; the values follow the wiki renderer. */
+.content :global(.ProseMirror) {
+  min-height: 12rem;
+  padding-bottom: var(--space-large);
+  outline: none;
+  font-size: 1rem;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.content :global(.ProseMirror) > * + * {
+  margin-top: 0.25rem;
+}
+
+.content :global(.ProseMirror) h1 {
+  margin-top: 1.75rem;
+  font-size: 1.875rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.content :global(.ProseMirror) h2 {
+  margin-top: 1.5rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.content :global(.ProseMirror) h3 {
+  margin-top: 1.25rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.content :global(.ProseMirror) :is(h4, h5, h6) {
+  margin-top: 1rem;
+  font-weight: 600;
+}
+
+.content :global(.ProseMirror) :is(ul, ol) {
+  padding-left: 1.5rem;
+}
+
+.content :global(.ProseMirror) ul {
+  list-style: disc;
+}
+
+.content :global(.ProseMirror) ol {
+  list-style: decimal;
+}
+
+.content :global(.ProseMirror) ul[data-type="taskList"] {
+  padding-left: 0.25rem;
+  list-style: none;
+}
+
+.content :global(.ProseMirror) ul[data-type="taskList"] li {
+  display: flex;
+  gap: var(--space-small);
+}
+
+.content :global(.ProseMirror) ul[data-type="taskList"] li > label {
+  margin-top: 0.3rem;
+  user-select: none;
+}
+
+.content :global(.ProseMirror) ul[data-type="taskList"] li > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.content
+  :global(.ProseMirror)
+  ul[data-type="taskList"]
+  li[data-checked="true"]
+  > div {
+  color: var(--color-muted-foreground);
+  text-decoration: line-through;
+}
+
+.content :global(.ProseMirror) blockquote {
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--color-border);
+  font-style: italic;
+}
+
+.content :global(.ProseMirror) code {
+  padding: 0.1rem 0.3rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+}
+
+.content :global(.ProseMirror) pre {
+  padding: 0.75rem;
+  overflow-x: auto;
+  border-radius: var(--radius-lg);
+  background: var(--color-muted);
+  font-size: 0.8125rem;
+  white-space: pre;
+}
+
+.content :global(.ProseMirror) pre code {
+  padding: 0;
+  background: none;
+}
+
+.content :global(.ProseMirror) a {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.content :global(.ProseMirror) a[href^="/wiki/attachments/"]::before {
+  content: "📎 ";
+}
+
+.content :global(.ProseMirror) hr {
+  margin: 1rem 0;
+  border-color: var(--color-border);
+}
+
+.content :global(.ProseMirror) hr:global(.ProseMirror-selectednode) {
+  border-color: var(--color-primary);
+}
+
+.content :global(.ProseMirror) table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.content :global(.ProseMirror) :is(td, th) {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--color-border);
+  vertical-align: top;
+}
+
+.content :global(.ProseMirror) th {
+  background: var(--color-muted);
+  font-weight: 600;
+  text-align: left;
+}
+
+.content :global(.ProseMirror) :global(.selectedCell) {
+  background: var(--color-primary-subtle);
+}
+
+.content :global(.ProseMirror) :global(.tableWrapper) {
+  overflow-x: auto;
+}
+
+/* The hint in an empty block, set by the placeholder extension. */
+.content :global(.ProseMirror) :global(.is-empty)::before {
+  float: left;
+  height: 0;
+  color: var(--color-muted-foreground);
+  content: attr(data-placeholder);
+  pointer-events: none;
+}
+
+.content :global(.ProseMirror-selectednode) {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Where a dragged block lands (DESIGN: selection is primary). */
+:global(.pages-editor-dropcursor) {
+  background: var(--color-primary);
+}
+
+/* Toggles hide everything below their summary while they are closed. */
+.toggle[data-open="false"]
+  .toggleContent
+  [data-node-view-content-react]
+  > :not(:first-child) {
+  display: none;
+}
+
+.toggleContent summary {
+  display: block;
+  font-weight: 500;
+  list-style: none;
+}

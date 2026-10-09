@@ -1,5 +1,6 @@
 import { readText, readTextOrEmpty } from "@/app/lib/form-fields.server";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { isAgentFunction } from "@/definition/AgentAssignment";
 
 import { badRequest } from "./settings-action-support.server";
 import { requireAgentAccount } from "./settings-agents-access.server";
@@ -31,6 +32,22 @@ function readConnectionInput(formData: FormData): AgentConnectionInput {
 }
 
 const AGENT_ACTION_HANDLERS: Readonly<Record<string, AgentActionHandler>> = {
+  "create-assignment": (context) => saveAssignment(context, "create"),
+  "update-assignment": (context) => saveAssignment(context, "update"),
+  "delete-assignment": async ({ actor, services, formData }) => {
+    await services.agentAssignmentService.remove(
+      actor,
+      readTextOrEmpty(formData, "function"),
+    );
+    return { ok: true };
+  },
+  "configure-retention": async ({ actor, services, formData }) => {
+    await services.textAgentRoleService.saveRetention(
+      actor,
+      Number(readTextOrEmpty(formData, "retentionDays")),
+    );
+    return { ok: true };
+  },
   "create-connection": async ({ actor, services, formData }) => ({
     ok: true,
     connectionId: await services.agentConnectionService.create(
@@ -58,6 +75,21 @@ const AGENT_ACTION_HANDLERS: Readonly<Record<string, AgentActionHandler>> = {
       interval ? Number(interval) : NaN,
     );
     return { ok: true, connectionId: id };
+  },
+  "configure-text": async ({ actor, services, formData }) => {
+    const connectionId = readTextOrEmpty(formData, "connectionId");
+    await services.textAgentRoleService.save(actor, {
+      retentionDays: Number(readTextOrEmpty(formData, "retentionDays")),
+      role:
+        connectionId === ""
+          ? null
+          : {
+              connectionId,
+              model: readTextOrEmpty(formData, "model"),
+              reasoningEffort: readText(formData, "reasoningEffort"),
+            },
+    });
+    return { ok: true };
   },
   "refresh-catalog": async ({ actor, services, id }) => {
     await services.agentCatalogService.run(actor, id);
@@ -93,6 +125,33 @@ const AGENT_ACTION_HANDLERS: Readonly<Record<string, AgentActionHandler>> = {
   },
 };
 
+async function saveAssignment(
+  { actor, services, formData, id }: AgentActionContext,
+  mode: "create" | "update",
+): Promise<{ ok: true }> {
+  const assignedFunction = readText(formData, "function");
+  if (!isAgentFunction(assignedFunction))
+    throw new AgentError("function_invalid");
+  await services.agentAssignmentService.save(
+    actor,
+    {
+      function: assignedFunction,
+      connectionId: id,
+      model: readTextOrEmpty(formData, "model"),
+      reasoningEffort: readText(formData, "reasoningEffort"),
+    },
+    mode,
+  );
+  return { ok: true };
+}
+
+const CONNECTION_FREE_INTENTS = new Set([
+  "create-connection",
+  "configure-text",
+  "configure-retention",
+  "delete-assignment",
+]);
+
 /** Dispatches only known intents after checking fresh account facts, preserving mode switching. */
 export async function handleAgentsAction(
   context: SettingsActionContext,
@@ -109,7 +168,7 @@ export async function handleAgentsAction(
   if (!intent || !Object.hasOwn(AGENT_ACTION_HANDLERS, intent))
     throw badRequest();
   const id = readTextOrEmpty(context.formData, "connectionId");
-  if (intent !== "create-connection" && !id)
+  if (!CONNECTION_FREE_INTENTS.has(intent) && !id)
     throw new AgentError("connection_not_found");
   const result = await AGENT_ACTION_HANDLERS[intent]({ ...context, actor, id });
   return Response.json({ ...result, intent }, { headers: AGENT_NO_STORE });

@@ -9,10 +9,14 @@ import { AgentAlert } from "./agent-alert";
 import { AgentConfirmation } from "./agent-confirmation";
 import { AgentConnectionPanel } from "./agent-connection-panel";
 import { AgentConnectionsCard } from "./agent-connections-card";
+import { TextAgentSettings } from "./text-agent-settings";
+import { AgentAssignments } from "./agent-assignments";
 import { useAgentManagement } from "./use-agent-management";
 import { useCliLoginPolling } from "./use-cli-login-polling";
 
 import type { AgentModelCatalog } from "@/definition/AgentModelCatalog";
+import type { TextAssistantSettings } from "@/definition/TextAssistant";
+import type { AgentAssignmentView } from "@/definition/AgentAssignment";
 import type {
   AgentConnectionSummary,
   CliToolLocations,
@@ -23,10 +27,14 @@ export function AgentsSection({
   connections,
   cliTools,
   catalogs = {},
+  assistantSettings = { role: null, retentionDays: 30 },
+  assignments = [],
 }: {
   readonly connections: readonly AgentConnectionSummary[];
   readonly cliTools: CliToolLocations;
   readonly catalogs?: Readonly<Record<string, AgentModelCatalog>>;
+  readonly assistantSettings?: TextAssistantSettings;
+  readonly assignments?: readonly AgentAssignmentView[];
 }): React.ReactElement {
   const { t } = useTranslation();
   const {
@@ -84,6 +92,12 @@ export function AgentsSection({
           />
         ))
       )}
+      <AgentAssignments
+        assignments={assignments}
+        connections={connections}
+        catalogs={catalogs}
+      />
+      <TextAgentSettings settings={assistantSettings} />
       <Dialog open={selection !== null} onOpenChange={() => setSelection(null)}>
         {selection ? (
           <AgentConnectionPanel

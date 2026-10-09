@@ -117,6 +117,26 @@ export function detectFileType(head: Buffer): DetectedFileType {
 }
 
 /**
+ * Tells whether a stored file may appear inside a page or a description.
+ *
+ * @param contentType - The type found when the file was uploaded.
+ * @param kind - The kind found when the file was uploaded.
+ * @returns Whether the file is a raster image that browsers show safely.
+ */
+export function isEmbeddableType(
+  contentType: string,
+  kind: "media" | "file",
+): boolean {
+  return (
+    kind === "media" &&
+    SIGNATURES.some(
+      (signature) =>
+        signature.isEmbeddable && signature.contentType === contentType,
+    )
+  );
+}
+
+/**
  * Cleans a file name received from a browser.
  *
  * @param name - Name as sent.

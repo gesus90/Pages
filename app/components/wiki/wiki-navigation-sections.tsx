@@ -12,7 +12,7 @@ import type { WikiTreeItem } from "@/app/lib/wiki-tree";
 const HEADING_CLASS =
   "flex items-center gap-1.5 px-2 pb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase";
 const LINK_CLASS =
-  "flex min-h-8 items-center gap-1.5 rounded-lg px-2 text-sm text-muted-foreground hover:bg-sidebar-hover hover:text-foreground";
+  "flex min-h-8 min-w-0 items-center gap-1.5 rounded-lg px-2 text-sm text-muted-foreground hover:bg-sidebar-hover hover:text-foreground";
 
 /** The link look of the navigation, shared by its plain links. */
 export const NAVIGATION_LINK_CLASS = LINK_CLASS;
@@ -29,6 +29,7 @@ interface TreeSectionProps {
   readonly onNavigate?: () => void;
   readonly drag: WikiDragHandlers;
   readonly today: string;
+  readonly onCreateChild?: (node: WikiTreeItem["node"]) => void;
 }
 
 /** An area of the navigation with the page trees in it. */
@@ -98,7 +99,7 @@ export function WikiLinkList({
               onClick={onNavigate}
             >
               {link.icon ? <span aria-hidden="true">{link.icon}</span> : null}
-              <span className="truncate">{link.title}</span>
+              <span className="min-w-0 truncate">{link.title}</span>
             </Link>
           </li>
         ))}

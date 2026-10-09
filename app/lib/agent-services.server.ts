@@ -13,15 +13,25 @@ import { AgentCheckService } from "@/backend/service/agents/AgentCheckService";
 import { AgentCliLoginService } from "@/backend/service/agents/AgentCliLoginService";
 import { AgentConnectionService } from "@/backend/service/agents/AgentConnectionService";
 import { AgentOperationRegistry } from "@/backend/service/agents/AgentOperationRegistry";
+import { AgentTextExecution } from "@/backend/agents/AgentTextExecution";
+import { ApiTextExecution } from "@/backend/agents/providers/ApiTextExecution";
+import { CliTextExecution } from "@/backend/agents/cli/CliTextExecution";
+import { TextAssistantSettingsRepository } from "@/backend/database/repositories/assistant/TextAssistantSettingsRepository";
+import { TextAgentRoleService } from "@/backend/service/assistant/TextAgentRoleService";
+import { AgentAssignmentRepository } from "@/backend/database/repositories/agent/AgentAssignmentRepository";
+import { AgentAssignmentService } from "@/backend/service/agents/AgentAssignmentService";
 
 import type { Database } from "@/backend/database/Database";
 
 export interface AgentApplicationServices {
+  readonly agentAssignmentService: AgentAssignmentService;
   readonly agentCatalogService: AgentCatalogService;
   readonly agentCatalogScheduler: AgentCatalogScheduler;
   readonly agentConnectionService: AgentConnectionService;
   readonly agentCheckService: AgentCheckService;
   readonly agentCliLoginService: AgentCliLoginService;
+  readonly textAgentRoleService: TextAgentRoleService;
+  readonly agentTextExecution: AgentTextExecution;
 }
 
 /** Creates lazy adapters and one shared login/process registry without running any checks. */
@@ -54,6 +64,21 @@ export function createAgentServices(
     catalog: refresh,
   });
   return {
+    agentAssignmentService: new AgentAssignmentService({
+      assignments: new AgentAssignmentRepository(database),
+      connections: repository,
+      operations,
+    }),
+    textAgentRoleService: new TextAgentRoleService(
+      new TextAssistantSettingsRepository(database),
+      repository,
+      operations,
+    ),
+    agentTextExecution: new AgentTextExecution(
+      new ApiTextExecution(repository, cipher),
+      new CliTextExecution({ runtime, store, locator, runner }),
+      operations,
+    ),
     agentCatalogService: new AgentCatalogService(
       repository,
       refresh,

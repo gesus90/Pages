@@ -1,6 +1,7 @@
 import { readTextColumn } from "@/backend/database/RowValue";
 
 import { readCount } from "./WikiPageRows";
+import { deleteAssistantConversations } from "../assistant/AssistantConversationDeletion";
 
 import type { DatabaseTransaction } from "@/backend/database/Database";
 import type { WikiScope } from "@/definition/Wiki";
@@ -307,6 +308,20 @@ export class WikiPageWriteRepository {
   }
 
   /**
+   * Sets or removes the cover of a page. The cover is no part of the text,
+   * so the revision stays.
+   *
+   * @param id - Page identifier.
+   * @param cover - `preset:<name>`, `attachment:<id>` or `null`.
+   */
+  public async setCover(id: string, cover: string | null): Promise<void> {
+    await this.database.execute(
+      "UPDATE wiki_pages SET cover = $cover WHERE id = $id;",
+      { cover, id },
+    );
+  }
+
+  /**
    * Changes the owner of a page.
    *
    * @param id - Page identifier.
@@ -350,6 +365,11 @@ export class WikiPageWriteRepository {
       `,
       { page_id: id, user_id: userId },
     );
+    await deleteAssistantConversations(this.database, {
+      condition:
+        "context_kind = 'wiki' AND context_id IN (SELECT id FROM wiki_pages WHERE deleted_root_id = $page_id)",
+      parameters: { page_id: id },
+    });
   }
 
   /**

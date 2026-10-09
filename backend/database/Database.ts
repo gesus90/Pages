@@ -112,7 +112,7 @@ export class Database {
       await mkdir(path.dirname(databasePath), { recursive: true });
     }
 
-    const instance = await DuckDBInstance.create(databasePath);
+    const instance = await openInstance(databasePath);
     const connection = await instance.connect();
 
     await connection.run(CONNECTION_SETUP);
@@ -151,6 +151,7 @@ export class Database {
     const orderedMigrations = [...migrations].sort((first, second) =>
       first.name.localeCompare(second.name),
     );
+    let appliedCount = 0;
 
     for (const migration of orderedMigrations) {
       const checksum = createMigrationChecksum(migration.sql);
@@ -158,9 +159,17 @@ export class Database {
 
       if (appliedChecksum === undefined) {
         await this.applyMigration(migration, checksum);
+        appliedCount += 1;
       } else if (appliedChecksum !== checksum) {
         throw new MigrationChecksumError(migration.name);
       }
+    }
+
+    // DuckDB cannot replay an ALTER TABLE on a table whose defaults call
+    // utc_now() from the write-ahead log; writing the schema change into the
+    // file right away keeps a later unclean stop from leaving such a log.
+    if (appliedCount > 0) {
+      await this.execute("CHECKPOINT;");
     }
   }
 
@@ -256,6 +265,58 @@ export class Database {
         },
       );
     }
+  }
+}
+
+/** Text DuckDB reports when it cannot replay the write-ahead log of a file. */
+const WAL_REPLAY_FAILURE = "Failure while replaying WAL";
+
+/**
+ * Opens a DuckDB instance, replaying a write-ahead log that DuckDB cannot
+ * replay while it opens the file as its main database.
+ *
+ * @param databasePath - File system path, or {@link IN_MEMORY_DATABASE_PATH}.
+ * @returns The open instance.
+ * @throws Every other failure to open the database.
+ *
+ * @remarks
+ * DuckDB 1.5 fails to replay an `ALTER TABLE` of a table whose defaults call
+ * a macro such as `utc_now()`, because no default database exists yet while
+ * the main database loads. Attached to an in-memory instance the same log
+ * replays; a checkpoint then writes it into the file, and the file opens.
+ */
+async function openInstance(databasePath: string): Promise<DuckDBInstance> {
+  try {
+    return await DuckDBInstance.create(databasePath);
+  } catch (error: unknown) {
+    if (!String(error).includes(WAL_REPLAY_FAILURE)) {
+      throw error;
+    }
+
+    await replayWriteAheadLog(databasePath);
+    console.warn(
+      `[pages] Replayed the write-ahead log of ${databasePath} through an attached database.`,
+    );
+
+    return DuckDBInstance.create(databasePath);
+  }
+}
+
+async function replayWriteAheadLog(databasePath: string): Promise<void> {
+  const memory = await DuckDBInstance.create(IN_MEMORY_DATABASE_PATH);
+  const connection = await memory.connect();
+
+  try {
+    // ATTACH takes no parameters; the path comes from the server
+    // configuration and is quoted as a string literal.
+    const literal = `'${databasePath.replaceAll("'", "''")}'`;
+
+    await connection.run(
+      `ATTACH ${literal} AS recovered; CHECKPOINT recovered; DETACH recovered;`,
+    );
+  } finally {
+    connection.closeSync();
+    memory.closeSync();
   }
 }
 

@@ -24,6 +24,7 @@ const PAGE: WikiPage = {
   anchors: [],
   breadcrumb: [],
   content: "text",
+  cover: null,
   createdAt: "2026-01-01 10:00:00",
   currentUntil: "2026-12-31",
   icon: null,
@@ -212,10 +213,11 @@ describe("WikiActionDialog", () => {
 describe("page dialogs", () => {
   it("confirms the deletion of a page", async () => {
     const { layoutSubmissions } = renderInWiki(
-      <WikiDeleteDialog page={PAGE} onClose={vi.fn()} />,
+      <WikiDeleteDialog nodes={[]} page={PAGE} onClose={vi.fn()} />,
     );
 
     expect(await screen.findByText("Delete “Guide”?")).toBeVisible();
+    expect(screen.queryByRole("note")).toBeNull();
     await userEvent.click(
       screen.getByRole("button", { name: "Move to trash" }),
     );
@@ -226,6 +228,55 @@ describe("page dialogs", () => {
         pageId: "p1",
       }),
     );
+  });
+
+  it("names the subpages that go to the trash with the page", async () => {
+    const node = (
+      id: string,
+      parentId: string,
+      icon: string | null = null,
+    ) => ({
+      currentUntil: null,
+      icon,
+      id,
+      parentId,
+      position: 0,
+      projectId: null,
+      scope: "instance" as const,
+      title: `Page ${id}`,
+    });
+    const root = { ...node("p1", ""), parentId: null };
+    const nodes = [
+      root,
+      node("a", "p1", "📘"),
+      node("b", "a"),
+      ...["c", "d", "e", "f", "g"].map((id) => node(id, "p1")),
+    ];
+
+    renderInWiki(
+      <WikiDeleteDialog nodes={nodes} page={PAGE} onClose={vi.fn()} />,
+    );
+
+    const note = await screen.findByRole("note");
+
+    expect(note).toHaveTextContent(
+      "7 subpages go to the trash with this page:",
+    );
+    expect(within(note).getAllByRole("listitem")).toHaveLength(5);
+    expect(within(note).getByText("📘 Page a")).toBeVisible();
+    expect(note).toHaveTextContent("and 2 more");
+
+    renderInWiki(
+      <WikiDeleteDialog
+        nodes={[root, node("a", "p1")]}
+        page={PAGE}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(
+      await screen.findByText("1 subpage goes to the trash with this page:"),
+    ).toBeVisible();
   });
 
   it("duplicates with the subpages on request", async () => {

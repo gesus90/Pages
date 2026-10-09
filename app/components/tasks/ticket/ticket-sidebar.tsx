@@ -2,15 +2,17 @@ import { Calendar, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { useAssigneeOptions } from "@/app/components/tasks/assignee-options";
+import { TicketParentField } from "@/app/components/tasks/hierarchy/ticket-parent-field";
 import { TaskGitHubDetails } from "@/app/components/tasks/task-github-details";
 import { TaskTypeBadge } from "@/app/components/tasks/task-badges";
 import { TaskLabelPill } from "@/app/components/tasks/task-labels";
 import { TicketDepartmentSelect } from "@/app/components/tasks/ticket-department-select";
 import { TicketLifecycleControls } from "@/app/components/tasks/ticket-lifecycle-controls";
+import { useTicketAccess } from "@/app/components/tasks/ticket-access";
 import { usePriorityOptions } from "@/app/components/tasks/priority-options";
+import { TicketCollapsible } from "@/app/components/tasks/ticket/ticket-collapsible";
 import { Select } from "@/app/components/ui/select";
 import { toAssigneeValue } from "@/app/lib/assignee-value";
-import { WORK_ITEM_TYPE } from "@/definition/Task";
 
 import type { TaskPanelActions } from "@/app/components/tasks/detail/use-task-panel-actions";
 import type { GitHubPullRequest } from "@/definition/GitHub";
@@ -18,17 +20,11 @@ import type { Project } from "@/definition/Project";
 import type {
   Milestone,
   Label,
+  WorkItemDescendants,
   WorkItemDetail,
   WorkflowStatus,
 } from "@/definition/Task";
 import type { User } from "@/definition/User";
-
-const PARENT_LABEL_KEYS: Readonly<Record<WorkItemDetail["type"], string>> = {
-  [WORK_ITEM_TYPE.INITIATIVE]: "tasks.fields.parentEpic",
-  [WORK_ITEM_TYPE.EPIC]: "tasks.fields.parentInitiative",
-  [WORK_ITEM_TYPE.TASK]: "tasks.fields.parentEpic",
-  [WORK_ITEM_TYPE.SUBTASK]: "tasks.fields.parentTask",
-};
 
 interface RowProps {
   readonly label: string;
@@ -93,45 +89,6 @@ function DateRow({
   );
 }
 
-interface ParentSelectRowProps {
-  readonly label: string;
-  readonly labelId: string;
-  readonly ticket: WorkItemDetail;
-  readonly options: readonly WorkItemDetail[];
-  readonly isArchived: boolean;
-  readonly onChange: (parentId: string) => void;
-}
-
-/** Renders a select that assigns the parent initiative or epic. */
-function ParentSelectRow({
-  label,
-  labelId,
-  ticket,
-  options,
-  isArchived,
-  onChange,
-}: ParentSelectRowProps): React.ReactElement {
-  const { t } = useTranslation();
-
-  return (
-    <Row label={label} labelId={labelId}>
-      <Select
-        ariaLabel={label}
-        value={ticket.parentId ?? ""}
-        onValueChange={onChange}
-        disabled={isArchived}
-        options={[
-          { value: "", label: t("tasks.none") },
-          ...options.map((option) => ({
-            value: option.id,
-            label: `${option.key}: ${option.title}`,
-          })),
-        ]}
-      />
-    </Row>
-  );
-}
-
 interface SidebarProps {
   readonly ticket: WorkItemDetail;
   readonly actions: TaskPanelActions;
@@ -143,12 +100,11 @@ interface PeopleRowsProps extends SidebarProps {
   readonly assignees: readonly User[];
 }
 
-/** Renders type, status, priority, assignee and reporter of a ticket. */
+/** Renders type, priority, assignee and reporter of a ticket. */
 function PeopleRows({
   ticket,
   actions,
   isArchived,
-  statuses,
   assignees,
 }: PeopleRowsProps): React.ReactElement {
   const { t } = useTranslation();
@@ -162,18 +118,6 @@ function PeopleRows({
     <>
       <Row label={t("tasks.fields.type")}>
         <TaskTypeBadge type={ticket.type} />
-      </Row>
-      <Row label={t("tasks.fields.status")} labelId="detail-status">
-        <Select
-          ariaLabel={t("tasks.fields.status")}
-          value={ticket.statusId}
-          onValueChange={actions.changeStatus}
-          disabled={isArchived}
-          options={statuses.map((status) => ({
-            value: status.id,
-            label: status.name,
-          }))}
-        />
       </Row>
       <Row label={t("tasks.fields.priority")} labelId="detail-priority">
         <Select
@@ -211,11 +155,10 @@ function PeopleRows({
 
 interface PlacementRowsProps extends SidebarProps {
   readonly project: Project;
-  readonly parent: WorkItemDetail | null;
   readonly milestones: readonly Milestone[];
   readonly taskLabels: readonly Label[];
-  readonly epicOptions: readonly WorkItemDetail[];
-  readonly initiativeOptions: readonly WorkItemDetail[];
+  /** Tickets of the project the parent may be chosen from. */
+  readonly projectWorkItems: readonly WorkItemDetail[];
   readonly onOpenTicket: (key: string) => void;
   readonly onMoveProject: () => void;
   readonly onEditLabels: () => void;
@@ -227,11 +170,9 @@ function PlacementRows({
   actions,
   isArchived,
   project,
-  parent,
   milestones,
   taskLabels,
-  epicOptions,
-  initiativeOptions,
+  projectWorkItems,
   onOpenTicket,
   onMoveProject,
   onEditLabels,
@@ -257,37 +198,12 @@ function PlacementRows({
       <Row label={t("tasks.fields.department")}>
         <TicketDepartmentSelect ticket={ticket} />
       </Row>
-      {parent ? (
-        <Row label={t(PARENT_LABEL_KEYS[ticket.type])}>
-          <button
-            className="font-semibold text-primary hover:underline"
-            onClick={() => onOpenTicket(parent.key)}
-            type="button"
-          >
-            {parent.key}
-          </button>
-        </Row>
-      ) : null}
-      {ticket.type === WORK_ITEM_TYPE.TASK ? (
-        <ParentSelectRow
-          isArchived={isArchived}
-          label={t("tasks.fields.parentEpic")}
-          labelId="detail-epic"
-          onChange={(parentId) => actions.update({ parentId })}
-          options={epicOptions}
-          ticket={ticket}
-        />
-      ) : null}
-      {ticket.type === WORK_ITEM_TYPE.EPIC ? (
-        <ParentSelectRow
-          isArchived={isArchived}
-          label={t("tasks.fields.parentInitiative")}
-          labelId="detail-initiative"
-          onChange={(parentId) => actions.update({ parentId })}
-          options={initiativeOptions}
-          ticket={ticket}
-        />
-      ) : null}
+      <TicketParentField
+        isDisabled={isArchived}
+        onOpenTicket={onOpenTicket}
+        ticket={ticket}
+        workItems={projectWorkItems}
+      />
       <Row label={t("tasks.fields.milestone")} labelId="detail-milestone">
         <Select
           ariaLabel={t("tasks.fields.milestone")}
@@ -375,36 +291,82 @@ interface TicketSidebarProps extends PeopleRowsProps, PlacementRowsProps {
   readonly isArchiving: boolean;
   readonly isSyncing: boolean;
   readonly redirectTo: string;
+  readonly descendants: WorkItemDescendants | null;
 }
 
-/** Renders the fields, progress, GitHub details and lifecycle controls of a ticket. */
-export function TicketSidebar(props: TicketSidebarProps): React.ReactElement {
-  const { ticket, isArchived } = props;
+/** The status of the ticket, on top of the right column as in Jira. */
+function StatusField({
+  ticket,
+  statuses,
+  isArchived,
+  onChange,
+}: {
+  readonly ticket: WorkItemDetail;
+  readonly statuses: readonly WorkflowStatus[];
+  readonly isArchived: boolean;
+  readonly onChange: (statusId: string) => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
 
   return (
-    <aside className="flex min-w-0 flex-col gap-3 text-xs">
-      <div className="flex flex-col gap-3 rounded-xl bg-muted/40 p-4">
-        <PeopleRows {...props} />
-        <PlacementRows {...props} />
+    <Select
+      ariaLabel={t("tasks.fields.status")}
+      className="h-10 w-full font-semibold"
+      disabled={isArchived}
+      onValueChange={onChange}
+      options={statuses.map((status) => ({
+        label: status.name,
+        value: status.id,
+      }))}
+      value={ticket.statusId}
+    />
+  );
+}
+
+/**
+ * The right column of a ticket (A8.2-E07): status on top, then the areas
+ * details, dates and progress, GitHub and further actions, each of which
+ * opens and closes.
+ */
+export function TicketSidebar(props: TicketSidebarProps): React.ReactElement {
+  const { ticket, isArchived } = props;
+  const { t } = useTranslation();
+  const { canWrite } = useTicketAccess();
+  const isReadOnly = isArchived || !canWrite;
+
+  return (
+    <aside className="flex min-w-0 flex-col gap-3 text-xs lg:sticky lg:top-24 lg:self-start">
+      <StatusField
+        isArchived={isReadOnly}
+        onChange={props.actions.changeStatus}
+        statuses={props.statuses}
+        ticket={ticket}
+      />
+      <TicketCollapsible title={t("tasks.detail.details")}>
+        <PeopleRows {...props} isArchived={isReadOnly} />
+        <PlacementRows {...props} isArchived={isReadOnly} />
+      </TicketCollapsible>
+      <TicketCollapsible title={t("tasks.detail.schedule")}>
         <ScheduleRows
           actions={props.actions}
-          isArchived={isArchived}
+          isArchived={isReadOnly}
           ticket={ticket}
         />
-      </div>
-
+      </TicketCollapsible>
       <TaskGitHubDetails
         isSyncing={props.isSyncing}
         publishesNewTasks={props.publishesNewTasks}
         pullRequests={props.pullRequests}
         task={ticket}
       />
-
-      <TicketLifecycleControls
-        isArchiving={props.isArchiving}
-        redirectTo={props.redirectTo}
-        ticket={ticket}
-      />
+      <TicketCollapsible isInitiallyOpen={false} title={t("tasks.detail.more")}>
+        <TicketLifecycleControls
+          descendants={props.descendants}
+          isArchiving={props.isArchiving}
+          redirectTo={props.redirectTo}
+          ticket={ticket}
+        />
+      </TicketCollapsible>
     </aside>
   );
 }

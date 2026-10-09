@@ -7,6 +7,7 @@ import {
   Star,
   Trash2,
 } from "lucide-react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "react-router";
 
@@ -17,11 +18,17 @@ import {
   WikiLinkList,
   WikiTreeSection,
 } from "@/app/components/wiki/wiki-navigation-sections";
-import { WikiNewPageButton } from "@/app/components/wiki/wiki-new-page-dialog";
+import {
+  WikiNewPageButton,
+  WikiNewPageDialog,
+} from "@/app/components/wiki/wiki-new-page-dialog";
 import { buildWikiTree } from "@/app/lib/wiki-tree";
 
 import type { WikiTemplateChoice } from "@/app/components/wiki/wiki-new-page-dialog";
-import type { WikiNavigation as WikiNavigationData } from "@/definition/Wiki";
+import type {
+  WikiNavigation as WikiNavigationData,
+  WikiTreeNode,
+} from "@/definition/Wiki";
 
 interface WikiNavigationProps {
   readonly navigation: WikiNavigationData;
@@ -70,6 +77,45 @@ function ProjectSections({
   );
 }
 
+/** Search, new page and the start page at the top of the navigation. */
+function NavigationActions({
+  navigation,
+  templates,
+  onNavigate,
+  onSearch,
+}: Pick<
+  WikiNavigationProps,
+  "navigation" | "templates" | "onNavigate" | "onSearch"
+>): React.ReactElement {
+  const { t } = useTranslation();
+  const { pathname } = useLocation();
+
+  return (
+    <div className="flex flex-col gap-2">
+      <button
+        className="flex h-9 items-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm text-muted-foreground hover:bg-surface-hover"
+        type="button"
+        onClick={onSearch}
+      >
+        <Search aria-hidden="true" className="size-4" />
+        {t("wiki.nav.search")}
+      </button>
+      {navigation.canCreate ? (
+        <WikiNewPageButton
+          key={pathname}
+          label={t("wiki.nav.newPage")}
+          projects={navigation.projects}
+          templates={templates}
+        />
+      ) : null}
+      <Link className={NAVIGATION_LINK_CLASS} to="/wiki" onClick={onNavigate}>
+        <Home aria-hidden="true" className="size-4" />
+        {t("wiki.nav.home")}
+      </Link>
+    </div>
+  );
+}
+
 /** The left navigation of the wiki: search, new page, favorites and trees. */
 export function WikiNavigation({
   navigation,
@@ -79,8 +125,17 @@ export function WikiNavigation({
   onSearch,
 }: WikiNavigationProps): React.ReactElement {
   const { t } = useTranslation();
-  const { pathname } = useLocation();
+  const location = useLocation();
   const state = useWikiNavigation(navigation);
+  // The sidebar stays while pages change, so the dialog remembers the
+  // navigation it was opened in and closes with the next one, also when the
+  // person comes back to the same page.
+  const [childRequest, setChildRequest] = useState<{
+    readonly parent: WikiTreeNode;
+    readonly locationKey: string;
+  } | null>(null);
+  const childParent =
+    childRequest?.locationKey === location.key ? childRequest.parent : null;
   const tree = buildWikiTree(navigation.nodes);
   const byId = new Map(navigation.nodes.map((node) => [node.id, node]));
   const favorites = navigation.favoriteIds.flatMap((id) => {
@@ -92,6 +147,10 @@ export function WikiNavigation({
     currentId: state.currentId,
     drag: state.drag,
     expandedIds: state.expandedIds,
+    onCreateChild: navigation.canCreate
+      ? (parent: WikiTreeNode) =>
+          setChildRequest({ locationKey: location.key, parent })
+      : undefined,
     onNavigate,
     onToggle: state.onToggle,
     today,
@@ -99,28 +158,12 @@ export function WikiNavigation({
 
   return (
     <nav aria-label={t("wiki.nav.label")} className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
-        <button
-          className="flex h-9 items-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm text-muted-foreground hover:bg-surface-hover"
-          type="button"
-          onClick={onSearch}
-        >
-          <Search aria-hidden="true" className="size-4" />
-          {t("wiki.nav.search")}
-        </button>
-        {navigation.canCreate ? (
-          <WikiNewPageButton
-            key={pathname}
-            label={t("wiki.nav.newPage")}
-            projects={navigation.projects}
-            templates={templates}
-          />
-        ) : null}
-        <Link className={NAVIGATION_LINK_CLASS} to="/wiki" onClick={onNavigate}>
-          <Home aria-hidden="true" className="size-4" />
-          {t("wiki.nav.home")}
-        </Link>
-      </div>
+      <NavigationActions
+        navigation={navigation}
+        templates={templates}
+        onNavigate={onNavigate}
+        onSearch={onSearch}
+      />
       <WikiLinkList
         icon={<Star aria-hidden="true" className="size-3.5" />}
         links={favorites}
@@ -161,6 +204,15 @@ export function WikiNavigation({
         <Trash2 aria-hidden="true" className="size-4" />
         {t("wiki.nav.trash")}
       </Link>
+      <WikiNewPageDialog
+        key={childParent?.id ?? "none"}
+        isOpen={childParent !== null}
+        parentId={childParent?.id}
+        projects={navigation.projects}
+        templates={templates}
+        // The dialog only opens through the plus, so any change closes it.
+        onOpenChange={() => setChildRequest(null)}
+      />
       {state.pendingMove ? (
         <WikiMoveDialog
           navigation={navigation}

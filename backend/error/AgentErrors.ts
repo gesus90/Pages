@@ -1,5 +1,11 @@
 /** Stable codes cross the HTTP boundary; upstream error text never does. */
 export const AGENT_ERROR_MESSAGES = {
+  function_invalid: "Choose a predefined agent function.",
+  assignment_exists:
+    "This function already has an assignment. Edit it instead.",
+  assignment_not_found: "The assignment no longer exists. Create it again.",
+  connection_in_use:
+    "Remove or change this connection's agent assignments before deleting it.",
   catalog_unsupported:
     "This provider has no documented token-free catalog endpoint.",
   catalog_interval_invalid: "Choose a supported catalog refresh interval.",

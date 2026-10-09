@@ -16,6 +16,7 @@ export default [
   route("instance-logo", "routes/instance-logo.ts"),
   layout("routes/authenticated.tsx", [
     route("account-version", "routes/account-version.ts"),
+    route("assistant-api", "routes/text-assistant.ts"),
     route("dashboard", "routes/dashboard.tsx"),
     route("users", "routes/users.tsx"),
     route("settings", "routes/settings.tsx", [
@@ -32,14 +33,18 @@ export default [
     route("projekte/:projectId", "routes/project-detail.tsx"),
     route("projekte/:projectId/icon", "routes/project-icon.ts"),
     route("users/:userId/avatar", "routes/user-avatar.ts"),
-    route("aufgaben", "routes/tasks.tsx", { id: "aufgaben" }),
-    route("tasks", "routes/tasks.tsx", { id: "tasks" }),
-    route("aufgaben/:ticketKey", "routes/task-detail.tsx", {
-      id: "aufgaben-detail",
-    }),
-    route("tasks/:ticketKey", "routes/task-detail.tsx", {
-      id: "tasks-detail",
-    }),
+    layout("routes/tasks-layout.tsx", [
+      route("aufgaben", "routes/tasks.tsx", { id: "aufgaben" }),
+      route("tasks", "routes/tasks.tsx", { id: "tasks" }),
+      route("aufgaben/:ticketKey", "routes/task-detail.tsx", {
+        id: "aufgaben-detail",
+      }),
+      route("tasks/:ticketKey", "routes/task-detail.tsx", {
+        id: "tasks-detail",
+      }),
+    ]),
+    route("aufgaben-api/attachments", "routes/ticket-attachments.ts"),
+    route("aufgaben/attachments/:attachmentId", "routes/ticket-attachment.ts"),
     route("wiki-api/attachments", "routes/wiki-attachments.ts"),
     route("wiki/attachments/:attachmentId", "routes/wiki-attachment.ts"),
     route("wiki-api/search", "routes/wiki-search.ts"),

@@ -24,6 +24,8 @@ export function TasksDetail({
     <TaskDetailPanel
       key={selectedItem.id}
       assignees={loaderData.assignees}
+      attachments={loaderData.selectedAttachments}
+      descendants={loaderData.selectedDescendants}
       assigneesByProject={loaderData.assigneesByProject}
       checklist={loaderData.selectedChecklist}
       history={loaderData.selectedHistory}

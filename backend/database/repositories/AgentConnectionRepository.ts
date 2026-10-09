@@ -79,6 +79,15 @@ export class AgentConnectionRepository {
     return readCountColumn(rows[0], 0, "count");
   }
 
+  /** Used inside the connection write lock before credential cleanup or deletion. */
+  public async hasAssignments(id: string): Promise<boolean> {
+    const rows = await this.database.query(
+      "SELECT function FROM agent_function_assignments WHERE connection_id = $id LIMIT 1;",
+      { id },
+    );
+    return rows.length > 0;
+  }
+
   /** Only check execution needs the encrypted API secret. */
   public async findSecretEncrypted(id: string): Promise<string | null> {
     const rows = await this.database.query(

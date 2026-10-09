@@ -8,7 +8,7 @@ import type {
   WorkItemPriority,
 } from "@/definition/Task";
 
-/** The fields a detail panel change can replace; the others keep their value. */
+/** The fields a detail panel change can replace; the others keep their value, the description stays as stored. */
 interface PanelUpdate {
   readonly title?: string;
   readonly priority?: WorkItemPriority;
@@ -19,7 +19,6 @@ interface PanelUpdate {
   readonly parentId?: string;
   readonly dueAt?: string;
   readonly startAt?: string;
-  readonly description?: string;
 }
 
 /** The changes the detail panel can submit for its task. */
@@ -40,8 +39,9 @@ export function useTaskPanelActions(task: WorkItemDetail): TaskPanelActions {
   function update(changes: PanelUpdate): void {
     void submit(
       {
+        // The description is saved on its own (A8.2-E05); leaving it out
+        // keeps a field change from overwriting a newer description.
         ...splitAssigneeValue(changes.assignee ?? toAssigneeValue(task)),
-        description: changes.description ?? task.description,
         dueAt: changes.dueAt ?? task.dueAt ?? "",
         id: task.id,
         intent: "update-task",

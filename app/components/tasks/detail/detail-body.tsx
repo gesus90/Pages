@@ -11,7 +11,9 @@ import type { Project } from "@/definition/Project";
 import type {
   Milestone,
   Label,
+  WorkItemAttachment,
   WorkItemChecklistItem,
+  WorkItemDescendants,
   WorkItemDetail,
   WorkItemLink,
 } from "@/definition/Task";
@@ -47,6 +49,8 @@ interface DetailBodyProps {
   readonly subtasks: readonly WorkItemDetail[];
   readonly checklist: readonly WorkItemChecklistItem[];
   readonly links: readonly WorkItemLink[];
+  readonly attachments: readonly WorkItemAttachment[];
+  readonly descendants: WorkItemDescendants | null;
   readonly taskLabels: readonly Label[];
   readonly assignees: readonly User[];
   readonly assigneesByProject: Readonly<Record<string, readonly User[]>>;
@@ -69,6 +73,8 @@ export function DetailBody({
   subtasks,
   checklist,
   links,
+  attachments,
+  descendants,
   taskLabels,
   assignees,
   assigneesByProject,
@@ -95,7 +101,7 @@ export function DetailBody({
       )}
     >
       <DetailMainColumn
-        actions={actions}
+        attachments={attachments}
         checklist={checklist}
         isArchived={isArchived}
         isSyncing={isSyncing}
@@ -108,6 +114,7 @@ export function DetailBody({
       <DetailSideColumn
         actions={actions}
         assignees={projectAssignees}
+        descendants={descendants}
         isArchived={isArchived}
         isArchiving={isArchiving}
         isSyncing={isSyncing}

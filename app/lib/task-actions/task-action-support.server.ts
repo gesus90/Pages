@@ -41,7 +41,11 @@ export type TaskActionIntent =
   | "github-link-issue"
   | "github-dismiss-issue"
   | "github-assign-pr"
-  | "github-resolve-conflict";
+  | "github-resolve-conflict"
+  | "update-description"
+  | "change-parent"
+  | "remove-attachment"
+  | "set-tree-expanded";
 
 /** Why a ticket action failed; the client translates it as `tasks.error.<code>`. */
 export type TaskActionErrorCode =

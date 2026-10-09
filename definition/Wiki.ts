@@ -132,9 +132,61 @@ export interface WikiPageSummary extends WikiPageLink {
   readonly createdAt: string;
 }
 
+/** Prepared covers of a page; the interface draws them from design tokens. */
+export const WIKI_COVER_PRESETS = [
+  "sunrise",
+  "ocean",
+  "forest",
+  "dusk",
+  "slate",
+  "sand",
+] as const;
+
+/** A prepared cover. */
+export type WikiCoverPreset = (typeof WIKI_COVER_PRESETS)[number];
+
+/** The cover of a page: a prepared gradient or an image of the page. */
+export type WikiCover =
+  | { readonly kind: "preset"; readonly preset: WikiCoverPreset }
+  | { readonly kind: "attachment"; readonly attachmentId: string };
+
+const COVER_PATTERN = /^(preset|attachment):([\w-]{1,64})$/;
+
+/**
+ * Reads a stored or submitted cover.
+ *
+ * @param value - `preset:<name>`, `attachment:<id>` or `null`.
+ * @returns The cover, or `null` for none and for anything malformed.
+ */
+export function parseWikiCover(value: string | null): WikiCover | null {
+  const [, kind, name = ""] = COVER_PATTERN.exec(value ?? "") ?? [];
+
+  if (kind === "attachment") {
+    return { attachmentId: name, kind: "attachment" };
+  }
+
+  const preset = WIKI_COVER_PRESETS.find((candidate) => candidate === name);
+
+  return kind === "preset" && preset ? { kind: "preset", preset } : null;
+}
+
+/**
+ * Writes a cover the way it is stored and submitted.
+ *
+ * @param cover - The cover.
+ * @returns `preset:<name>` or `attachment:<id>`.
+ */
+export function formatWikiCover(cover: WikiCover): string {
+  return cover.kind === "preset"
+    ? `preset:${cover.preset}`
+    : `attachment:${cover.attachmentId}`;
+}
+
 /** A page with everything the page view and the editor need. */
 export interface WikiPage extends WikiPageSummary {
   readonly content: string;
+  /** Optional cover above the title (A8.1). */
+  readonly cover: WikiCover | null;
   readonly revision: number;
   readonly isTemplate: boolean;
   readonly updatedByName: string | null;

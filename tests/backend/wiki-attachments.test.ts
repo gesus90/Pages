@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   WikiAccessDeniedError,
   WikiPageNotFoundError,
+  WikiValidationError,
 } from "@/backend/error/WikiErrors";
 import { WikiMaintenanceScheduler } from "@/backend/service/wiki/WikiMaintenanceScheduler";
 import {
@@ -503,6 +504,106 @@ describe("wiki attachments", () => {
     await service.runMaintenance();
 
     expect(readdirSync(filesDirectory)).toEqual([]);
+  });
+});
+
+describe("wiki covers", () => {
+  const getDatabase = useMigratedDatabase();
+
+  async function setup() {
+    const harness = createWikiHarness(getDatabase());
+    const ada = await harness.addUser("ada");
+    const reader = await harness.addUser("reader", { capabilities: [] });
+    const page = await harness.service.create(ada, pageInput({ title: "Doc" }));
+    const other = await harness.service.create(
+      ada,
+      pageInput({ title: "Other" }),
+    );
+    const upload = (fileName: string, body: Buffer, pageId = page.id) =>
+      harness.service.uploadAttachment(ada, pageId, {
+        body: bytes(body),
+        contentLength: null,
+        fileName,
+      });
+    const coverOf = async (id = page.id) => {
+      const result = await harness.service.read(ada, id);
+
+      return result.kind === "page" ? result.view.page : null;
+    };
+
+    return { ...harness, ada, coverOf, other, page, reader, upload };
+  }
+
+  async function expectInvalid(promise: Promise<unknown>): Promise<void> {
+    await expect(promise).rejects.toBeInstanceOf(WikiValidationError);
+    await expect(promise).rejects.toMatchObject({ code: "invalidCover" });
+  }
+
+  it("sets and removes a prepared cover without a new revision", async () => {
+    const { ada, coverOf, page, service } = await setup();
+
+    expect((await coverOf())?.cover).toBeNull();
+    expect(await service.setCover(ada, page.id, "preset:ocean")).toEqual({
+      kind: "preset",
+      preset: "ocean",
+    });
+    expect(await coverOf()).toMatchObject({
+      cover: { kind: "preset", preset: "ocean" },
+      revision: page.revision,
+    });
+    expect(await service.setCover(ada, page.id, null)).toBeNull();
+    expect((await coverOf())?.cover).toBeNull();
+  });
+
+  it("accepts only raster images of the same page", async () => {
+    const { ada, coverOf, other, page, service, upload } = await setup();
+    const image = await upload("logo.png", PNG);
+    const note = await upload("note.txt", Buffer.from("x"));
+    const song = await upload("song.ogg", Buffer.from("OggS...."));
+    const foreign = await upload("other.png", PNG, other.id);
+
+    await service.setCover(ada, page.id, `attachment:${image.id}`);
+    expect((await coverOf())?.cover).toEqual({
+      attachmentId: image.id,
+      kind: "attachment",
+    });
+
+    await expectInvalid(
+      service.setCover(ada, page.id, `attachment:${note.id}`),
+    );
+    await expectInvalid(
+      service.setCover(ada, page.id, `attachment:${song.id}`),
+    );
+    await expectInvalid(
+      service.setCover(ada, page.id, `attachment:${foreign.id}`),
+    );
+    await expectInvalid(service.setCover(ada, page.id, "attachment:missing"));
+    await expectInvalid(service.setCover(ada, page.id, "preset:neon"));
+    await expectInvalid(service.setCover(ada, page.id, "red"));
+  });
+
+  it("needs the right to write and a visible page", async () => {
+    const { ada, page, reader, service } = await setup();
+
+    await expect(
+      service.setCover(reader, page.id, "preset:sand"),
+    ).rejects.toBeInstanceOf(WikiAccessDeniedError);
+    await expect(
+      service.setCover(ada, "missing", "preset:sand"),
+    ).rejects.toBeInstanceOf(WikiPageNotFoundError);
+  });
+
+  it("drops the cover when its image is removed, and only then", async () => {
+    const { ada, coverOf, page, service, upload } = await setup();
+    const image = await upload("logo.png", PNG);
+    const spare = await upload("spare.png", PNG);
+
+    await service.setCover(ada, page.id, `attachment:${image.id}`);
+    await service.removeAttachment(ada, spare.id);
+    expect((await coverOf())?.cover).toMatchObject({ attachmentId: image.id });
+
+    await service.removeAttachment(ada, image.id);
+    expect((await coverOf())?.cover).toBeNull();
   });
 });
 

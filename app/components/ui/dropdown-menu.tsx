@@ -1,5 +1,5 @@
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
-import { Check } from "lucide-react";
+import { Check, ChevronRight } from "lucide-react";
 
 import { cn } from "@/app/lib/cn";
 
@@ -7,6 +7,7 @@ import type { ComponentProps } from "react";
 
 export const DropdownMenu = DropdownMenuPrimitive.Root;
 export const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
+export const DropdownMenuSub = DropdownMenuPrimitive.Sub;
 
 /** Renders a positioned Radix dropdown surface with Pages styling. */
 export function DropdownMenuContent({
@@ -93,5 +94,64 @@ export function DropdownMenuCheckboxItem({
       </span>
       {children}
     </DropdownMenuPrimitive.CheckboxItem>
+  );
+}
+
+/** Renders an item that opens a nested menu, with an arrow on its right. */
+export function DropdownMenuSubTrigger({
+  className,
+  children,
+  ...properties
+}: ComponentProps<
+  typeof DropdownMenuPrimitive.SubTrigger
+>): React.ReactElement {
+  return (
+    <DropdownMenuPrimitive.SubTrigger
+      className={cn(
+        "flex min-h-10 cursor-pointer items-center rounded-md px-3 text-sm text-foreground outline-none data-highlighted:bg-muted data-[state=open]:bg-muted data-disabled:pointer-events-none data-disabled:opacity-50",
+        className,
+      )}
+      {...properties}
+    >
+      <span className="flex flex-1 items-center">{children}</span>
+      <ChevronRight className="ml-2 size-4 shrink-0" aria-hidden="true" />
+    </DropdownMenuPrimitive.SubTrigger>
+  );
+}
+
+/** Renders the surface of a nested menu with the styling of the main one. */
+export function DropdownMenuSubContent({
+  className,
+  ...properties
+}: ComponentProps<
+  typeof DropdownMenuPrimitive.SubContent
+>): React.ReactElement {
+  return (
+    <DropdownMenuPrimitive.Portal>
+      <DropdownMenuPrimitive.SubContent
+        className={cn(
+          "z-50 min-w-44 rounded-xl bg-surface p-1 shadow-panel outline-none",
+          className,
+        )}
+        sideOffset={4}
+        {...properties}
+      />
+    </DropdownMenuPrimitive.Portal>
+  );
+}
+
+/** Shows the keyboard shortcut of a menu item at its right edge. */
+export function DropdownMenuShortcut({
+  className,
+  ...properties
+}: ComponentProps<"span">): React.ReactElement {
+  return (
+    <span
+      className={cn(
+        "ml-auto pl-4 text-xs tracking-wide text-muted-foreground",
+        className,
+      )}
+      {...properties}
+    />
   );
 }

@@ -5,22 +5,40 @@ import { Checkbox } from "@/app/components/ui/checkbox";
 import { Input } from "@/app/components/ui/input";
 import { Select } from "@/app/components/ui/select";
 import { WikiActionDialog } from "@/app/components/wiki/wiki-action-dialog";
-import { wikiPagePath } from "@/app/lib/wiki-tree";
+import { findSubtreeIds, wikiPagePath } from "@/app/lib/wiki-tree";
 import { WIKI_LIMITS } from "@/definition/Wiki";
 
-import type { WikiOwnerCandidate, WikiPage } from "@/definition/Wiki";
+import type {
+  WikiOwnerCandidate,
+  WikiPage,
+  WikiTreeNode,
+} from "@/definition/Wiki";
 
 interface PageDialogProps {
   readonly page: WikiPage;
   readonly onClose: () => void;
 }
 
-/** Asks for confirmation before a page and its subpages go to the trash. */
+/** Largest number of subpages the delete dialog names. */
+const NAMED_SUBPAGES = 5;
+
+/**
+ * Asks for confirmation before a page and its subpages go to the trash, and
+ * names the subpages the person can see, so none is lost unnoticed.
+ */
 export function WikiDeleteDialog({
   page,
+  nodes,
   onClose,
-}: PageDialogProps): React.ReactElement {
+}: PageDialogProps & {
+  /** The visible pages of the navigation, to find the subpages. */
+  readonly nodes: readonly WikiTreeNode[];
+}): React.ReactElement {
   const { t } = useTranslation();
+  // Direct subpages first, then theirs.
+  const subpages = findSubtreeIds(nodes, page.id)
+    .slice(1)
+    .flatMap((id) => nodes.filter((node) => node.id === id));
 
   return (
     <WikiActionDialog
@@ -31,7 +49,30 @@ export function WikiDeleteDialog({
       submitLabel={t("wiki.dialog.delete.submit")}
       title={t("wiki.dialog.delete.title", { title: page.title })}
       onClose={onClose}
-    />
+    >
+      {subpages.length > 0 ? (
+        <div className="rounded-lg bg-warning-subtle p-3 text-sm" role="note">
+          <p className="font-medium">
+            {t("wiki.dialog.delete.subpages", { count: subpages.length })}
+          </p>
+          <ul className="mt-1 list-disc pl-5">
+            {subpages.slice(0, NAMED_SUBPAGES).map((node) => (
+              <li key={node.id}>
+                {node.icon ? `${node.icon} ` : ""}
+                {node.title}
+              </li>
+            ))}
+          </ul>
+          {subpages.length > NAMED_SUBPAGES ? (
+            <p className="mt-1 text-muted-foreground">
+              {t("wiki.dialog.delete.moreSubpages", {
+                count: subpages.length - NAMED_SUBPAGES,
+              })}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+    </WikiActionDialog>
   );
 }
 

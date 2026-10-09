@@ -107,6 +107,9 @@ function createServices(
       findIntegration: vi.fn().mockResolvedValue(null),
       getById: vi.fn().mockResolvedValue(createProject()),
     },
+    taskAttachmentService: {
+      list: vi.fn().mockResolvedValue([]),
+    },
     taskTemplateService: {
       findVisible: vi.fn().mockResolvedValue([]),
     },
@@ -121,13 +124,19 @@ function createServices(
       create: vi.fn(),
       createLabel: vi.fn(),
       deleteLabel: vi.fn(),
+      describeDescendants: vi.fn().mockResolvedValue({
+        active: { epic: 0, initiative: 0, subtask: 0, task: 0 },
+        all: { epic: 0, initiative: 0, subtask: 0, task: 0 },
+      }),
       findAll: vi.fn().mockResolvedValue([]),
       findAllStatuses: vi.fn().mockResolvedValue([]),
       findAssigneeGroupIdsByProject: vi.fn().mockResolvedValue({}),
       findAssigneeGroups: vi.fn().mockResolvedValue([]),
+      findChecklistItems: vi.fn().mockResolvedValue([]),
       findEligibleAssignees: vi.fn().mockResolvedValue([createUser()]),
       findLabels: vi.fn().mockResolvedValue([]),
       findLabelsForWorkItems: vi.fn().mockResolvedValue(new Map()),
+      findLinks: vi.fn().mockResolvedValue([]),
       findMilestones: vi.fn().mockResolvedValue([]),
       findSubtasks: vi.fn().mockResolvedValue([]),
       getById: vi.fn().mockResolvedValue(createTicket()),
@@ -178,6 +187,7 @@ describe("task detail route action", () => {
     expect(services.taskService.archive).toHaveBeenCalledWith(
       expect.anything(),
       "item-14",
+      "include",
     );
   });
 });

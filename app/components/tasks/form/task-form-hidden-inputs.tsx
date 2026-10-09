@@ -5,6 +5,11 @@ import type { TaskFormSelections } from "./task-form-selections";
 interface TaskFormHiddenInputsProps {
   readonly mode: "create" | "edit";
   readonly editedItemId: string | undefined;
+  /**
+   * The saved description the edit starts from; the server refuses the
+   * change when someone saved another one meanwhile (A8.2-E05).
+   */
+  readonly baseDescription: string | undefined;
   readonly selections: TaskFormSelections;
 }
 
@@ -12,6 +17,7 @@ interface TaskFormHiddenInputsProps {
 export function TaskFormHiddenInputs({
   mode,
   editedItemId,
+  baseDescription,
   selections,
 }: TaskFormHiddenInputsProps): React.ReactElement {
   const assignee = splitAssigneeValue(selections.assignee);
@@ -39,7 +45,18 @@ export function TaskFormHiddenInputs({
       <input name="milestoneId" type="hidden" value={selections.milestoneId} />
       <input name="parentId" type="hidden" value={selections.parentId} />
       {mode === "edit" ? (
-        <input name="reporterId" type="hidden" value={selections.reporterId} />
+        <>
+          <input
+            name="reporterId"
+            type="hidden"
+            value={selections.reporterId}
+          />
+          <input
+            name="baseDescription"
+            type="hidden"
+            value={baseDescription ?? ""}
+          />
+        </>
       ) : (
         <>
           <input

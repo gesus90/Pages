@@ -26,6 +26,8 @@ export interface CliRunRequest {
   readonly home: CliHome;
   readonly timeoutMs: number;
   readonly stdin: "pipe" | "ignore";
+  /** One prompt or metadata control request sent through stdin and then closed, never through shell arguments. */
+  readonly input?: string;
   /** Raises the 256 KiB stdout cap for commands that print a whole model catalog. */
   readonly maxStdoutBytes?: number;
   readonly signal?: AbortSignal;

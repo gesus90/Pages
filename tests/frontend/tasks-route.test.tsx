@@ -652,7 +652,9 @@ describe("TasksRoute", () => {
       selectedSubtasks: [createWorkItem({ id: "sub-1", key: "PAGE-13" })],
     });
 
-    await user.click(screen.getByRole("button", { name: "Unteraufgabe" }));
+    await user.click(
+      screen.getByRole("button", { name: "Subtask hinzufügen" }),
+    );
 
     expect(
       screen.getByRole("heading", { name: "Neue Aufgabe" }),
@@ -674,7 +676,7 @@ describe("TasksRoute", () => {
     });
 
     await user.click(
-      within(panel).getByRole("button", { name: "Neue Aufgabe" }),
+      within(panel).getByRole("button", { name: "Task hinzufügen" }),
     );
 
     expect(

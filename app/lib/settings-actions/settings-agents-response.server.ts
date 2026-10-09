@@ -4,6 +4,8 @@ import {
 } from "@/backend/error/AgentErrors";
 
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
+import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import type { TextAssistantErrorCode } from "@/backend/error/TextAssistantErrors";
 import type {
   AgentCheckSummary,
   CliLoginView,
@@ -20,7 +22,7 @@ export type AgentActionResult =
   | {
       readonly ok: false;
       readonly intent: string;
-      readonly error: AgentErrorCode | "general";
+      readonly error: AgentErrorCode | TextAssistantErrorCode | "general";
     };
 
 export const AGENT_NO_STORE = { "Cache-Control": "no-store" };
@@ -36,6 +38,11 @@ const ERROR_STATUS: Partial<Record<AgentErrorCode, number>> = {
 
 /** Keeps every error response uncacheable and never echoes a native error or form secret. */
 export function agentFailureResponse(error: unknown, intent = ""): Response {
+  if (error instanceof TextAssistantError)
+    return Response.json(
+      { ok: false, intent, error: error.code },
+      { status: 400, headers: AGENT_NO_STORE },
+    );
   if (error instanceof Response) {
     const headers = new Headers(error.headers);
     headers.set("Cache-Control", "no-store");

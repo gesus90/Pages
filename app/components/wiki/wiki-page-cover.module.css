@@ -1,0 +1,48 @@
+/* Prepared covers, mixed from the colour tokens so they follow the theme. */
+.sunrise {
+  background: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--color-primary) 55%, var(--color-surface)),
+    color-mix(in srgb, var(--color-warning) 30%, var(--color-surface))
+  );
+}
+
+.ocean {
+  background: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--color-info) 55%, var(--color-surface)),
+    color-mix(in srgb, var(--color-success) 30%, var(--color-surface))
+  );
+}
+
+.forest {
+  background: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--color-success) 55%, var(--color-surface)),
+    color-mix(in srgb, var(--color-success) 15%, var(--color-surface))
+  );
+}
+
+.dusk {
+  background: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--color-info) 45%, var(--color-surface)),
+    color-mix(in srgb, var(--color-primary) 40%, var(--color-surface))
+  );
+}
+
+.slate {
+  background: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--color-muted-foreground) 45%, var(--color-surface)),
+    var(--color-muted)
+  );
+}
+
+.sand {
+  background: linear-gradient(
+    120deg,
+    var(--color-warning-subtle),
+    var(--color-primary-subtle)
+  );
+}

@@ -8,8 +8,10 @@ import type { ApiProviderId } from "@/definition/AgentConnection";
 import type { AgentCatalogModel } from "@/definition/AgentModelCatalog";
 
 function catalogPath(provider: ApiProviderId, cursor: string | null): string {
+  // Text output is OpenRouter's documented default; the parser still checks
+  // every entry's modalities, because this list includes image and audio output.
   if (provider === "openrouter")
-    return `/models?output_modalities=all&limit=1000&offset=${cursor ?? "0"}`;
+    return `/models?output_modalities=text&limit=1000&offset=${cursor ?? "0"}`;
   if (provider === "google_ai_studio") {
     const suffix =
       cursor === null ? "" : `&pageToken=${encodeURIComponent(cursor)}`;

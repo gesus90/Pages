@@ -11,6 +11,12 @@ const services = vi.hoisted(() => ({
   },
   agentCatalogService: { list: vi.fn(), configure: vi.fn(), run: vi.fn() },
   agentCheckService: { run: vi.fn() },
+  textAgentRoleService: {
+    read: vi.fn(),
+    save: vi.fn(),
+    saveRetention: vi.fn(),
+  },
+  agentAssignmentService: { list: vi.fn(), save: vi.fn(), remove: vi.fn() },
   agentCliLoginService: {
     tools: vi.fn(),
     read: vi.fn(),
@@ -32,6 +38,7 @@ import {
   loader as loginLoader,
 } from "@/app/routes/settings-agents-login";
 import { AgentError, isAgentErrorCode } from "@/backend/error/AgentErrors";
+import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
 
 import { createAccess } from "../helpers/authorization";
 import { CLI_LOCATIONS, createAgentConnection } from "../helpers/agents";
@@ -69,6 +76,11 @@ function pollArgs(
 }
 
 const INTENTS = [
+  "create-assignment",
+  "update-assignment",
+  "delete-assignment",
+  "configure-retention",
+  "configure-text",
   "create-connection",
   "update-connection",
   "delete-connection",
@@ -91,6 +103,11 @@ describe("agent routes", () => {
     ]);
     services.agentCliLoginService.tools.mockResolvedValue(CLI_LOCATIONS);
     services.agentCatalogService.list.mockResolvedValue({});
+    services.agentAssignmentService.list.mockResolvedValue([]);
+    services.textAgentRoleService.read.mockResolvedValue({
+      role: null,
+      retentionDays: 30,
+    });
   });
 
   it("loads only safe metadata and performs no checks or login", async () => {
@@ -100,10 +117,113 @@ describe("agent routes", () => {
       connections: [createAgentConnection()],
       cliTools: CLI_LOCATIONS,
       catalogs: {},
+      assistantSettings: { role: null, retentionDays: 30 },
+      assignments: [],
     });
     expect(result.init?.headers).toEqual({ "Cache-Control": "no-store" });
     expect(services.agentCheckService.run).not.toHaveBeenCalled();
     expect(services.agentCliLoginService.start).not.toHaveBeenCalled();
+  });
+
+  it("assigns and clears Text independently of diagnostic defaults and maps invalid assignments", async () => {
+    await action(
+      routeArgs({
+        intent: "configure-text",
+        connectionId: "id",
+        model: "catalog-model",
+        reasoningEffort: "medium",
+        retentionDays: "30",
+      }),
+    );
+    expect(services.textAgentRoleService.save).toHaveBeenLastCalledWith(
+      expect.objectContaining({ mode: "admin" }),
+      {
+        role: {
+          connectionId: "id",
+          model: "catalog-model",
+          reasoningEffort: "medium",
+        },
+        retentionDays: 30,
+      },
+    );
+    await action(routeArgs({ intent: "configure-text", retentionDays: "1" }));
+    expect(services.textAgentRoleService.save).toHaveBeenLastCalledWith(
+      expect.anything(),
+      { role: null, retentionDays: 1 },
+    );
+    services.textAgentRoleService.save.mockRejectedValueOnce(
+      new TextAssistantError("modelUnavailable"),
+    );
+    expect(
+      await (await action(routeArgs({ intent: "configure-text" }))).json(),
+    ).toEqual({ ok: false, intent: "", error: "modelUnavailable" });
+  });
+
+  it("validates predefined functions, persists exact assignments and changes retention independently", async () => {
+    for (const intent of ["create-assignment", "update-assignment"]) {
+      await action(
+        routeArgs({
+          intent,
+          function: "skills",
+          connectionId: "acc2",
+          model: "listed",
+          reasoningEffort: "medium",
+        }),
+      );
+      expect(services.agentAssignmentService.save).toHaveBeenLastCalledWith(
+        expect.objectContaining({ mode: "admin" }),
+        {
+          function: "skills",
+          connectionId: "acc2",
+          model: "listed",
+          reasoningEffort: "medium",
+        },
+        intent === "create-assignment" ? "create" : "update",
+      );
+    }
+    await action(
+      routeArgs({
+        intent: "create-assignment",
+        function: "text",
+        connectionId: "acc1",
+        model: "plain",
+      }),
+    );
+    expect(services.agentAssignmentService.save).toHaveBeenLastCalledWith(
+      expect.anything(),
+      {
+        function: "text",
+        connectionId: "acc1",
+        model: "plain",
+        reasoningEffort: null,
+      },
+      "create",
+    );
+    const invalid = await action(
+      routeArgs({
+        intent: "create-assignment",
+        function: "execute-shell",
+        connectionId: "acc1",
+      }),
+    );
+    expect(await invalid.json()).toMatchObject({
+      ok: false,
+      error: "function_invalid",
+    });
+    await action(
+      routeArgs({ intent: "delete-assignment", function: "skills" }),
+    );
+    expect(services.agentAssignmentService.remove).toHaveBeenLastCalledWith(
+      expect.anything(),
+      "skills",
+    );
+    await action(
+      routeArgs({ intent: "configure-retention", retentionDays: "7" }),
+    );
+    expect(
+      services.textAgentRoleService.saveRetention,
+    ).toHaveBeenLastCalledWith(expect.anything(), 7);
+    expect(services.textAgentRoleService.save).not.toHaveBeenCalled();
   });
 
   it("sends page, data and action answers as no-store with the parent security headers", () => {
@@ -204,6 +324,7 @@ describe("agent routes", () => {
           code: "synthetic-input-marker",
           kind: "auth",
           intervalHours: "24",
+          function: "text",
         }),
       );
       expect(response.status).toBe(200);

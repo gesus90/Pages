@@ -408,7 +408,7 @@ describe("ProjectDetailRoute", () => {
     expect(screen.getByText("1 / 3")).toBeInTheDocument();
     expect(screen.getByText("Abgeschlossene Meilensteine")).toBeInTheDocument();
     expect(screen.getByText("0 / 1")).toBeInTheDocument();
-    expect(screen.getByText("Offene Subaufgaben")).toBeInTheDocument();
+    expect(screen.getByText("Offene Subtasks")).toBeInTheDocument();
   });
 
   it("configures GitHub without ever exposing the stored token", async () => {

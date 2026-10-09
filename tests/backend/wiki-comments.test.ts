@@ -58,6 +58,7 @@ describe("plain text", () => {
       ),
     ).toBe("Title bold done item quote code const a = 1; a b link img");
     expect(collapseWhitespace("  a \n\t b  ")).toBe("a b");
+    expect(toPlainText("<!-- block:a1 -->\nBlock text")).toBe("Block text");
   });
 });
 

@@ -441,6 +441,15 @@
         "codex_cli": "Codex CLI (ChatGPT-Konto)",
         "claude_code": "Claude Code (Claude-Abo)"
       },
+      "providerShort": {
+        "openrouter": "OpenRouter API",
+        "openai": "OpenAI API",
+        "google_ai_studio": "Google AI Studio API",
+        "zai": "Z.AI API",
+        "anthropic": "Anthropic API",
+        "codex_cli": "Codex CLI",
+        "claude_code": "Claude Code CLI"
+      },
       "error": {
         "name_required": "Ein Name für die Anbindung ist erforderlich.",
         "name_too_long": "Der Name darf höchstens 80 Zeichen enthalten.",
@@ -486,9 +495,13 @@
         "catalog_interval_invalid": "Ein unterstütztes Katalog-Aktualisierungsintervall wählen.",
         "catalog_limit_exceeded": "Der Katalog überschritt seine Sicherheitsgrenzen. Der letzte erfolgreiche Katalog bleibt erhalten.",
         "reasoning_effort_invalid": "Die Reasoning-Stufe hat ein ungültiges Format.",
-        "reasoning_effort_unsupported": "Die Modellliste nennt diese Reasoning-Stufe für das gewählte Modell nicht."
+        "reasoning_effort_unsupported": "Die Modellliste nennt diese Reasoning-Stufe für das gewählte Modell nicht.",
+        "function_invalid": "Wähle eine definierte Agent-Funktion.",
+        "assignment_exists": "Diese Funktion ist bereits zugeordnet. Bearbeite ihre Zuordnung.",
+        "assignment_not_found": "Diese Zuordnung existiert nicht mehr. Lege sie erneut an.",
+        "connection_in_use": "Entferne oder ändere zuerst die Agent-Zuordnungen dieser Anbindung."
       },
-      "description": "Verwalten Sie die KI-Anbindungen dieser Pages-Instanz. Sie werden in diesem Schritt nur eingerichtet und geprüft, noch nicht in Pages verwendet.",
+      "description": "Verwalten Sie die benannten KI-Anbindungen und Funktionszuordnungen dieser Pages-Instanz.",
       "adminModeRequired": "Die Agents-Einstellungen sind nur im Admin-Modus verfügbar. Ihr Konto ist derzeit im Rollenmodus.",
       "apiTitle": "API-Anbindungen",
       "cliTitle": "CLI-Anbindungen",
@@ -667,6 +680,40 @@
         "otherModel": "Andere Modell-ID manuell eingeben",
         "noDefault": "Der Anbieter kennzeichnet kein Standardmodell. Wählen Sie das Modell dieser Anbindung.",
         "cliHint": "Liest die Modellliste der angemeldeten CLI aus. Es werden keine Modell-Token erzeugt. Intervalländerungen gelten sofort; „Nur manuell“ deaktiviert geplante Aktualisierungen."
+      },
+      "assignments": {
+        "title": "Agent-Aufgaben",
+        "description": "Ordnet einer Funktion eine benannte Anbindung, ein gelistetes Modell und eine unterstützte Stufe zu. „+“ erstellt nur eine Zuordnung.",
+        "function": "Funktion",
+        "connection": "Anbindung",
+        "model": "Modell",
+        "reasoning": "Reasoning-Stufe",
+        "status": "Status",
+        "actions": "Aktionen",
+        "add": "Zuordnung hinzufügen",
+        "save": "Zuordnung speichern",
+        "editNamed": "{{function}}-Zuordnung bearbeiten",
+        "removeNamed": "{{function}}-Zuordnung entfernen",
+        "chooseFunction": "Funktion auswählen",
+        "chooseEffort": "Gelistete Stufe auswählen",
+        "empty": "Noch keine Zuordnungen.",
+        "ready": "Verwendbar",
+        "verifyHint": "Anbindung zuerst verifizieren und ihren Katalog laden. Modelle und Stufen stammen nur aus diesem Katalog.",
+        "skillsHint": "SKILLS ist nur zuweisbar; Bedeutung und Ausführung sind noch nicht festgelegt.",
+        "functions": {
+          "text": "Text",
+          "skills": "SKILLS"
+        },
+        "noEffort": "Keine Reasoning-Stufe verfügbar",
+        "connectionHint": "Modell und Reasoning-Stufe werden unter Agent-Aufgaben zugeordnet.",
+        "chooseConnection": "Anbindung auswählen",
+        "searchConnections": "Anbindungen suchen",
+        "noConnections": "Keine passende Anbindung.",
+        "connectionCount": "{{count}} von {{total}} Anbindungen",
+        "filters": {
+          "withLevels": "Mit Reasoning-Stufen",
+          "empty": "Keine passenden Modelle im Katalog dieser Anbindung."
+        }
       }
     }
   },
@@ -860,7 +907,7 @@
       "cancel": "Abbrechen",
       "clearSearch": "Suche löschen",
       "close": "Schließen",
-      "createSubtask": "Unteraufgabe",
+      "createSubtask": "Subtask",
       "edit": "Bearbeiten",
       "editTitle": "Titel bearbeiten",
       "open": "Öffnen",
@@ -1027,8 +1074,8 @@
       "dependencySelf": "Ein Meilenstein kann nicht von sich selbst abhängen.",
       "dependencyTypeUnsupported": "Dieser Abhängigkeitstyp wird nicht unterstützt.",
       "departmentNotFound": "Die gewählte Abteilung existiert nicht.",
-      "descendantsHidden": "Das Ticket hat Unteraufgaben, die du nicht sehen darfst.",
-      "descriptionTooLong": "Die Beschreibung darf höchstens 10.000 Zeichen lang sein.",
+      "descendantsHidden": "Das Ticket hat untergeordnete Einträge, die du nicht sehen darfst.",
+      "descriptionTooLong": "Die Beschreibung darf höchstens 65.536 Zeichen lang sein.",
       "epicMissing": "Das gewählte Epic existiert nicht.",
       "epicOtherProject": "Das übergeordnete Epic muss zum selben Projekt gehören.",
       "epicParentType": "Ein Epic kann nur zu einer Initiative gehören.",
@@ -1037,7 +1084,7 @@
       "githubIssueNotImportable": "Dieses GitHub-Issue kann nicht importiert werden.",
       "githubIssueNotLinkable": "Dieses GitHub-Issue kann nicht verknüpft werden.",
       "githubNoConflict": "Dieses Ticket hat keinen Synchronisationskonflikt.",
-      "githubOnlyTasksLinkable": "Nur Aufgaben können mit einem GitHub-Issue verknüpft werden.",
+      "githubOnlyTasksLinkable": "Nur Tasks können mit einem GitHub-Issue verknüpft werden.",
       "githubPullRequestNotAssignable": "Dieser Pull Request kann nicht zugeordnet werden.",
       "githubPullRequestOtherProject": "Ein Pull Request kann nur Tickets desselben Projekts referenzieren.",
       "githubSyncSwitchedOff": "Die GitHub-Synchronisierung ist für dieses Projekt ausgeschaltet.",
@@ -1067,22 +1114,31 @@
       "milestoneStartDateFormat": "Das Startdatum muss das Format JJJJ-MM-TT haben.",
       "milestoneStatusUnsupported": "Dieser Meilenstein-Status wird nicht unterstützt.",
       "moveSameProject": "Das Ticket gehört bereits zum gewählten Projekt.",
-      "parentTaskMissing": "Die gewählte übergeordnete Aufgabe existiert nicht.",
-      "parentTaskOtherProject": "Die übergeordnete Aufgabe muss zum selben Projekt gehören.",
+      "parentTaskMissing": "Der gewählte übergeordnete Task existiert nicht.",
+      "parentTaskOtherProject": "Der übergeordnete Task muss zum selben Projekt gehören.",
       "priorityUnsupported": "Diese Priorität wird nicht unterstützt.",
       "reporterRequired": "Bitte wähle eine meldende Person aus.",
       "statusNotFound": "Der gewählte Status existiert nicht.",
-      "subtaskParentRequired": "Eine Unteraufgabe braucht eine übergeordnete Aufgabe.",
-      "subtaskParentType": "Eine Unteraufgabe kann nur zu einer Aufgabe gehören.",
-      "subtaskSelfParent": "Eine Unteraufgabe kann nicht ihre eigene übergeordnete Aufgabe sein.",
+      "subtaskParentRequired": "Ein Subtask braucht einen übergeordneten Task.",
+      "subtaskParentType": "Ein Subtask kann nur zu einem Task gehören.",
+      "subtaskSelfParent": "Ein Subtask kann nicht sein eigener übergeordneter Task sein.",
       "targetStatusNotFound": "Der Zielstatus existiert nicht.",
-      "taskParentType": "Eine Aufgabe kann nur ein Epic als übergeordnetes Element haben.",
-      "taskSelfParent": "Eine Aufgabe kann nicht ihr eigenes übergeordnetes Element sein.",
+      "taskParentType": "Ein Task kann nur ein Epic als übergeordnetes Element haben.",
+      "taskSelfParent": "Ein Task kann nicht sein eigenes übergeordnetes Element sein.",
       "templateNameLength": "Der Vorlagenname muss zwischen 1 und 80 Zeichen lang sein.",
       "templateShareTargetMissing": "Wähle mindestens eine Abteilung oder ein Projekt zum Teilen aus.",
       "titleLength": "Der Titel muss zwischen 1 und 200 Zeichen lang sein.",
       "typeUnsupported": "Dieser Tickettyp wird nicht unterstützt.",
-      "githubNotConnected": "Dieses Projekt ist nicht mit GitHub verbunden."
+      "githubNotConnected": "Dieses Projekt ist nicht mit GitHub verbunden.",
+      "attachmentFileEmpty": "Die Datei ist leer.",
+      "attachmentFileNameTooLong": "Der Dateiname ist zu lang.",
+      "attachmentTooLarge": "Die Datei ist größer als erlaubt.",
+      "descriptionConflict": "Die Beschreibung wurde inzwischen von jemand anderem geändert.",
+      "invalidTreeKey": "Dieser Zweig ist unbekannt.",
+      "parentArchived": "Der gewählte übergeordnete Eintrag ist archiviert.",
+      "subtasksStayWithTask": "Subtasks bleiben immer bei ihrem Task.",
+      "ticketArchived": "Ein archiviertes Ticket kann nicht geändert werden.",
+      "network": "Der Server ist nicht erreichbar."
     },
     "hierarchy": {
       "expandAll": "Alle aufklappen",
@@ -1095,11 +1151,11 @@
       "noTasks": "Keine Aufgaben zugeordnet."
     },
     "github": {
-      "import": "Als Task importieren",
+      "import": "Als Aufgabe importieren",
       "link": "Verknüpfen",
-      "linkTask": "Task auswählen …",
+      "linkTask": "Aufgabe auswählen …",
       "ignore": "Ignorieren",
-      "assignTask": "Task zuweisen …",
+      "assignTask": "Aufgabe zuweisen …",
       "unassigned": "Nicht zugeordnet",
       "externalIssues": "Neue GitHub Issues",
       "pullRequests": "Pull Requests",
@@ -1122,7 +1178,7 @@
       "statusPending": "Lokale Änderungen",
       "statusFailed": "Sync fehlgeschlagen",
       "statusUnlinked": "Nicht verknüpft",
-      "noIssueHint": "Noch kein GitHub Issue verknüpft. Neue Tasks werden automatisch synchronisiert.",
+      "noIssueHint": "Noch kein GitHub Issue verknüpft. Neue Aufgaben werden automatisch synchronisiert.",
       "syncFailed": "Synchronisierung fehlgeschlagen.",
       "retry": "Erneut versuchen",
       "open": "Auf GitHub öffnen",
@@ -1179,7 +1235,13 @@
       "doneSuffix": "erledigt",
       "doubleClickHint": "Doppelklicken zum Bearbeiten",
       "editDescription": "Beschreibung bearbeiten",
-      "gitStatus": "Git Status"
+      "gitStatus": "Git Status",
+      "backToBoard": "Zurück zum Board",
+      "copyLink": "Link kopieren",
+      "linkCopied": "Link kopiert",
+      "schedule": "Termine und Fortschritt",
+      "more": "Weitere Aktionen",
+      "actions": "Ticketaktionen"
     },
     "path": {
       "title": "Pfad"
@@ -1281,6 +1343,99 @@
     },
     "card": {
       "status": "Status von {{key}} ändern"
+    },
+    "typePlural": {
+      "initiative": "Initiatives",
+      "epic": "Epics",
+      "task": "Tasks",
+      "subtask": "Subtasks"
+    },
+    "count": {
+      "initiative_one": "{{count}} Initiative",
+      "initiative_other": "{{count}} Initiatives",
+      "epic_one": "{{count}} Epic",
+      "epic_other": "{{count}} Epics",
+      "task_one": "{{count}} Task",
+      "task_other": "{{count}} Tasks",
+      "subtask_one": "{{count}} Subtask",
+      "subtask_other": "{{count}} Subtasks"
+    },
+    "tree": {
+      "label": "Aufgaben-Navigation",
+      "kanban": "Kanban-Board",
+      "hierarchy": "Hierarchie",
+      "expand": "{{title}} aufklappen",
+      "collapse": "{{title}} zuklappen",
+      "group": {
+        "no-initiative": "Ohne Initiative",
+        "no-epic": "Ohne Epic",
+        "no-task": "Ohne sichtbaren Task"
+      },
+      "empty": "Noch keine Einträge.",
+      "showMore": "{{count}} weitere anzeigen",
+      "status": "Status: {{status}}"
+    },
+    "description": {
+      "editorLabel": "Beschreibung von {{key}}",
+      "empty": "Noch keine Beschreibung.",
+      "add": "Beschreibung hinzufügen …",
+      "save": "Speichern",
+      "cancel": "Abbrechen",
+      "saveHint": "{{shortcut}} speichert",
+      "status": {
+        "unsaved": "Ungespeicherte Änderungen",
+        "saving": "Wird gespeichert …",
+        "saved": "Gespeichert",
+        "failed": "Nicht gespeichert: {{reason}}"
+      },
+      "counter": "{{count}} / {{max}} Zeichen",
+      "conflict": {
+        "title": "Die Beschreibung wurde inzwischen geändert",
+        "body": "Jemand hat die Beschreibung gespeichert, während du sie bearbeitet hast. Dein Entwurf ist noch da.",
+        "reload": "Neueste Fassung laden",
+        "overwrite": "Meine Fassung speichern"
+      },
+      "leave": {
+        "title": "Ungespeicherte Beschreibung",
+        "body": "Deine Änderungen an der Beschreibung sind noch nicht gespeichert.",
+        "stay": "Weiter bearbeiten",
+        "discard": "Verwerfen",
+        "save": "Speichern"
+      }
+    },
+    "attachments": {
+      "title": "Anhänge",
+      "add": "Datei anhängen",
+      "empty": "Noch keine Anhänge.",
+      "remove": "{{name}} entfernen",
+      "download": "{{name}} herunterladen",
+      "uploading": "{{name}} wird hochgeladen … {{percent}} %",
+      "meta": "{{size}} · {{user}}",
+      "failed": "Hochladen fehlgeschlagen: {{reason}}"
+    },
+    "parent": {
+      "none": "Keine Zuordnung",
+      "saving": "Wird zugeordnet …",
+      "open": "{{key}} öffnen"
+    },
+    "children": {
+      "add": {
+        "initiative": "Epic hinzufügen",
+        "epic": "Task hinzufügen",
+        "task": "Subtask hinzufügen"
+      },
+      "empty": "Keine untergeordneten Einträge."
+    },
+    "lifecycle": {
+      "archiveTitle": "{{key}} archivieren?",
+      "archiveConfirm": "Archivieren",
+      "affected": "Betroffen sind außerdem: {{list}}.",
+      "noChildren": "Es gibt keine untergeordneten Einträge.",
+      "handling": "Untergeordnete Einträge",
+      "include": "Mit allen untergeordneten Einträgen",
+      "keep": "Untergeordnete Einträge behalten (sie verlieren nur diese Zuordnung)",
+      "subtasksArchived": "Subtasks gehören zu ihrem Task und werden mitarchiviert.",
+      "subtasksDeleted": "Subtasks gehören zu ihrem Task und werden mitgelöscht."
     }
   },
   "projectDetail": {
@@ -1310,7 +1465,7 @@
       "progressHint": "Anteil der erledigten Aufgaben im Projekt.",
       "tasksDone": "Erledigte Aufgaben",
       "milestonesDone": "Abgeschlossene Meilensteine",
-      "openSubtasks": "Offene Subaufgaben",
+      "openSubtasks": "Offene Subtasks",
       "nextDates": "Nächste Termine",
       "showAllDates": "Alle anzeigen",
       "noDates": "Keine anstehenden Termine.",
@@ -1699,11 +1854,150 @@
     "wikiLink": "Wiki-Seite",
     "externalLink": "Externer Link"
   },
+  "editor": {
+    "placeholder": "Schreibe etwas oder tippe „/“ für Blöcke …",
+    "task": {
+      "done": "Erledigt",
+      "open": "Offen"
+    },
+    "callout": {
+      "kind": "Art des Hinweises: {{kind}}",
+      "kinds": {
+        "note": "Notiz",
+        "tip": "Tipp",
+        "important": "Wichtig",
+        "warning": "Warnung",
+        "caution": "Vorsicht"
+      }
+    },
+    "toggle": {
+      "open": "Ausklappbereich öffnen",
+      "close": "Ausklappbereich schließen"
+    },
+    "raw": {
+      "label": "Markdown-Quelltext (kann nicht als Block dargestellt werden)"
+    },
+    "contents": {
+      "label": "Inhaltsverzeichnis",
+      "empty": "Noch keine Überschriften."
+    },
+    "image": {
+      "hidden": "Bild wird nicht angezeigt: {{name}}"
+    },
+    "blocks": {
+      "paragraph": "Text",
+      "heading1": "Überschrift 1",
+      "heading2": "Überschrift 2",
+      "heading3": "Überschrift 3",
+      "bulletList": "Aufzählung",
+      "orderedList": "Nummerierte Liste",
+      "taskList": "Aufgabenliste",
+      "toggle": "Ausklappbereich",
+      "quote": "Zitat",
+      "callout": "Hinweisbox",
+      "page": "Unterseite",
+      "file": "Bild oder Datei",
+      "emoji": "Emoji",
+      "codeBlock": "Codeblock",
+      "table": "Tabelle",
+      "divider": "Trennlinie",
+      "contents": "Inhaltsverzeichnis",
+      "assistant": "Textassistenz"
+    },
+    "blockGroups": {
+      "basic": "Blöcke",
+      "media": "Medien",
+      "advanced": "Weitere",
+      "assistant": "Textassistenz"
+    },
+    "menu": {
+      "label": "Editormenü",
+      "cut": "Ausschneiden",
+      "copy": "Kopieren",
+      "paste": "Einfügen",
+      "pastePlain": "Als Klartext einfügen",
+      "selectAll": "Alles auswählen",
+      "undo": "Rückgängig",
+      "redo": "Wiederholen",
+      "format": "Formatieren",
+      "turnInto": "Umwandeln in",
+      "block": "Block",
+      "emoji": "Emoji einfügen",
+      "assistant": "Textassistenz",
+      "noMatch": "Keine Treffer",
+      "blocks": "Blöcke",
+      "references": "Verknüpfen"
+    },
+    "format": {
+      "bold": "Fett",
+      "italic": "Kursiv",
+      "strike": "Durchgestrichen",
+      "code": "Code",
+      "link": "Link"
+    },
+    "block": {
+      "duplicate": "Duplizieren",
+      "moveUp": "Nach oben verschieben",
+      "moveDown": "Nach unten verschieben",
+      "copyLink": "Link zum Block kopieren",
+      "delete": "Löschen"
+    },
+    "assistant": {
+      "unavailable": "Die Textassistenz ist noch nicht verfügbar.",
+      "translate": "Übersetzen",
+      "proofread": "Lektorieren",
+      "generate": "Text generieren",
+      "summarize": "Zusammenfassen",
+      "explain": "Erklären",
+      "instruct": "Freie Anweisung …"
+    },
+    "notice": {
+      "linkCopied": "Link zum Block kopiert.",
+      "linkManual": "Kopieren nicht erlaubt. Link: {{link}}",
+      "pasteRefused": "Der Browser erlaubt das Einfügen über das Menü nicht. Bitte {{shortcut}} verwenden."
+    },
+    "toolbar": {
+      "label": "Formatierung",
+      "comment": "Kommentieren",
+      "mobile": "Werkzeuge",
+      "insert": "Block einfügen",
+      "indent": "Einrücken",
+      "outdent": "Ausrücken"
+    },
+    "handle": {
+      "add": "Block darunter einfügen",
+      "menu": "Blockaktionen"
+    },
+    "link": {
+      "title": "Link",
+      "description": "Adresse einer Webseite (http, https, mailto) oder einer Seite in Pages.",
+      "address": "Adresse",
+      "text": "Text",
+      "invalid": "Diese Adresse ist nicht erlaubt.",
+      "remove": "Link entfernen",
+      "cancel": "Abbrechen",
+      "apply": "Übernehmen"
+    },
+    "emoji": {
+      "search": "Emoji suchen",
+      "remove": "Entfernen",
+      "empty": "Kein Emoji gefunden.",
+      "categories": {
+        "smileys": "Smileys",
+        "people": "Menschen",
+        "nature": "Natur",
+        "food": "Essen und Trinken",
+        "activities": "Aktivitäten",
+        "travel": "Reisen und Orte",
+        "objects": "Gegenstände",
+        "symbols": "Symbole"
+      }
+    }
+  },
   "wiki": {
     "title": "Wiki",
     "nav": {
       "label": "Wiki-Navigation",
-      "open": "Seiten",
       "search": "Suchen",
       "newPage": "Neue Seite",
       "home": "Übersicht",
@@ -1714,7 +2008,8 @@
       "trash": "Papierkorb",
       "empty": "Noch keine Seiten.",
       "expand": "{{title}} aufklappen",
-      "collapse": "{{title}} zuklappen"
+      "collapse": "{{title}} zuklappen",
+      "addChild": "Unterseite in „{{title}}“ anlegen"
     },
     "home": {
       "subtitle": "Wissen, Konzepte, Ideen und Dokumentation an einem Ort.",
@@ -1744,7 +2039,6 @@
         "epic": "Epic"
       },
       "anchorGone": "nicht mehr vorhanden",
-      "edit": "Bearbeiten",
       "menu": "Seitenmenü",
       "favorite": "Als Favorit markieren",
       "unfavorite": "Favorit entfernen",
@@ -1769,44 +2063,16 @@
     },
     "editor": {
       "titleLabel": "Titel der Seite",
-      "contentLabel": "Text der Seite (Markdown)",
+      "contentLabel": "Text der Seite",
       "icon": "Symbol der Seite",
-      "removeIcon": "Symbol entfernen",
-      "toolbar": "Formatierung",
-      "write": "Bearbeiten",
-      "preview": "Vorschau",
-      "noMatch": "Keine Treffer",
-      "done": "Fertig",
       "status": {
         "saved": "Gespeichert",
         "saving": "Speichert…",
         "unsaved": "Nicht gespeichert",
         "conflict": "Konflikt",
         "error": "Speichern fehlgeschlagen",
-        "tooLong": "Zu lang – wird nicht gespeichert"
-      },
-      "command": {
-        "heading1": "Überschrift 1",
-        "heading2": "Überschrift 2",
-        "heading3": "Überschrift 3",
-        "bold": "Fett",
-        "italic": "Kursiv",
-        "code": "Code",
-        "link": "Link",
-        "bullet": "Aufzählung",
-        "numbered": "Nummerierte Liste",
-        "task": "Aufgabenliste",
-        "quote": "Zitat",
-        "codeBlock": "Codeblock",
-        "table": "Tabelle",
-        "callout": "Hinweisbox",
-        "toggle": "Ausklappbereich",
-        "divider": "Trennlinie",
-        "contents": "Inhaltsverzeichnis"
-      },
-      "menu": {
-        "slash": "Blöcke",
-        "reference": "Verknüpfen"
+        "tooLong": "Zu lang – wird nicht gespeichert",
+        "titleRequired": "Titel fehlt – wird nicht gespeichert"
       },
       "reference": {
         "page": "Seite",
@@ -1815,7 +2081,9 @@
       },
       "attach": "Bild oder Datei anhängen",
       "attachInput": "Datei auswählen",
-      "uploading": "{{name}} wird hochgeladen … {{percent}} %"
+      "uploading": "{{name}} wird hochgeladen … {{percent}} %",
+      "addIcon": "Symbol hinzufügen",
+      "titlePlaceholder": "Ohne Titel"
     },
     "conflict": {
       "title": "Die Seite wurde inzwischen geändert",
@@ -1841,7 +2109,11 @@
       "delete": {
         "title": "„{{title}}“ löschen?",
         "description": "Die Seite und ihre Unterseiten kommen in den Papierkorb und können dort wiederhergestellt werden.",
-        "submit": "In den Papierkorb"
+        "submit": "In den Papierkorb",
+        "subpages_one": "Mit dieser Seite kommt {{count}} Unterseite in den Papierkorb:",
+        "subpages_other": "Mit dieser Seite kommen {{count}} Unterseiten in den Papierkorb:",
+        "moreSubpages_one": "und {{count}} weitere",
+        "moreSubpages_other": "und {{count}} weitere"
       },
       "duplicate": {
         "title": "Seite duplizieren",
@@ -1967,7 +2239,8 @@
       "forbidden": "Dafür fehlt dir die Berechtigung.",
       "invalidInput": "Die Eingabe ist unvollständig.",
       "notFound": "Nicht gefunden oder kein Zugriff.",
-      "network": "Der Server ist nicht erreichbar."
+      "network": "Der Server ist nicht erreichbar.",
+      "invalidCover": "Das Cover muss ein vorbereitetes Cover oder ein Bild dieser Seite sein."
     },
     "search": {
       "title": "Wiki durchsuchen",
@@ -2035,6 +2308,111 @@
         "comment": "{{name}} hat deine Seite kommentiert",
         "expired": "Die Seite ist nicht mehr aktuell"
       }
+    },
+    "cover": {
+      "add": "Cover hinzufügen",
+      "change": "Cover ändern",
+      "remove": "Cover entfernen",
+      "title": "Cover wählen",
+      "description": "Ein vorbereitetes Cover oder ein Bild dieser Seite. Das Cover erscheint über dem Titel.",
+      "presets": "Vorbereitete Cover",
+      "images": "Bilder dieser Seite",
+      "upload": "Bild hochladen",
+      "preset": {
+        "sunrise": "Sonnenaufgang",
+        "ocean": "Meer",
+        "forest": "Wald",
+        "dusk": "Dämmerung",
+        "slate": "Schiefer",
+        "sand": "Sand"
+      }
+    },
+    "subpage": {
+      "title": "Neue Unterseite",
+      "description": "Die Unterseite liegt unter dieser Seite und wird hier verlinkt."
+    }
+  },
+  "assistant": {
+    "title": "Textassistent",
+    "toggle": "Textassistent öffnen/schließen",
+    "close": "Assistent schließen",
+    "action": "Aktion",
+    "context": "Gesendeter Kontext",
+    "contextHint": "Nur der gewählte Umfang wird gesendet. Andere Seiten, Projekte und der bisherige Verlauf werden nicht mitgesendet.",
+    "writeIntent": "Gewünschte Wirkung",
+    "targetLanguage": "Zielsprache (Sprachcode, z. B. en)",
+    "instruction": "Anweisung oder Frage",
+    "autoApply": "AI-Textänderungen direkt übernehmen",
+    "waitForSave": "Bitte zuerst die laufende Speicherung abschließen.",
+    "send": "Senden",
+    "cancel": "Anfrage abbrechen",
+    "running": "Die konfigurierte Text-Anbindung antwortet …",
+    "preview": "Textvorschlag",
+    "before": "Ausgangstext anzeigen",
+    "apply": "Übernehmen",
+    "discard": "Verwerfen",
+    "applied": "Text geändert. Ein Undo nimmt die gesamte Änderung zurück.",
+    "newConversation": "Neue Unterhaltung",
+    "deleteConversation": "Eigene Unterhaltung löschen",
+    "history": "Eigener Verlauf",
+    "conversation": "Unterhaltung {{number}}",
+    "actions": {
+      "chat": "Frage / Chat",
+      "translate": "Übersetzen",
+      "proofread": "Lektorieren",
+      "generate": "Generieren / ergänzen",
+      "summarize": "Zusammenfassen",
+      "explain": "Erklären",
+      "instruct": "Freie Anweisung"
+    },
+    "scope": {
+      "none": "Kein Dokumentinhalt",
+      "selection": "Fixierte Auswahl",
+      "document": "Aktuelle Seite / Ticketbeschreibung"
+    },
+    "change": {
+      "answer": "Antwort ohne Textänderung",
+      "replace": "Gewählten Text ersetzen",
+      "insert": "Text an der fixierten Position einfügen"
+    },
+    "message": {
+      "user": "Du",
+      "assistant": "Assistent",
+      "suggestion": "Textvorschlag; Übernehmen erfolgt im Editor."
+    },
+    "settings": {
+      "title": "Agent-Funktionsrolle „Text“",
+      "description": "Instanzweite Anbindung für Wiki und Ticketbeschreibung. Nur gelistete Modelle und Reasoning-Stufen sind verwendbar. Persönliche Präferenzen ändern Benutzer im Assistenten.",
+      "connection": "Anbindung",
+      "model": "Modell",
+      "reasoning": "Reasoning-Stufe",
+      "retention": "Chat-Aufbewahrung nach der letzten Nachricht (1–365 Tage)",
+      "unavailable": "Nicht verfügbar",
+      "chooseModel": "Gelistetes Modell wählen",
+      "invalid": "Die gespeicherte Zuordnung ist nicht verfügbar. Bitte Anbindung, Modell und Reasoning prüfen.",
+      "saved": "Text-Konfiguration gespeichert.",
+      "save": "Text-Einstellungen speichern",
+      "retentionTitle": "Chat-Aufbewahrung"
+    },
+    "error": {
+      "invalidInput": "Bitte die Eingaben prüfen.",
+      "accessDenied": "Für diese Aktion fehlen die aktuellen Rechte.",
+      "contextMissing": "Seite oder Ticket ist nicht mehr verfügbar.",
+      "roleMissing": "Die Rolle „Text“ ist noch nicht zugewiesen. Ein Admin kann sie in den Agent-Einstellungen konfigurieren.",
+      "connectionUnavailable": "Die zugewiesene Anbindung oder Anmeldung ist nicht verfügbar.",
+      "modelUnavailable": "Das konfigurierte Modell ist nicht im verfügbaren Katalog.",
+      "reasoningUnsupported": "Die konfigurierte Reasoning-Stufe wird nicht unterstützt.",
+      "emptySelection": "Die fixierte Auswahl ist leer. Bitte Text auswählen oder ausdrücklich den Dokumentumfang wählen.",
+      "versionConflict": "Der Text oder Kontext hat sich geändert. Dein Entwurf bleibt erhalten. Bitte den gewünschten Umfang neu auswählen und die Anfrage wiederholen.",
+      "conversationMissing": "Diese eigene Unterhaltung ist gelöscht oder abgelaufen. Bitte eine neue Unterhaltung beginnen.",
+      "requestBusy": "Es läuft bereits eine Anfrage. Bitte abschließen oder abbrechen.",
+      "cancelled": "Anfrage abgebrochen; der Text bleibt erhalten.",
+      "timeout": "Die Anfrage hat zu lange gedauert. Eine Wiederholung startet nur durch erneutes Senden.",
+      "providerFailed": "Die Text-Anbindung konnte nicht antworten. Der Text bleibt erhalten. Erneutes Senden wiederholt die Anfrage.",
+      "invalidOutput": "Die Antwort ist unvollständig oder nicht als sicherer Text verwendbar. Es wurde nichts übernommen.",
+      "credentialsInText": "Zugangsdaten dürfen nicht an die Textassistenz gesendet werden. Bitte aus dem gewählten Kontext oder der Anweisung entfernen.",
+      "general": "Die Einstellung konnte nicht gespeichert werden.",
+      "accessUnverified": "Der Zugang dieser Anbindung ist nicht bestätigt. Verifiziere sie zuerst in den Agent-Einstellungen."
     }
   }
 }

@@ -102,10 +102,17 @@ interface TitleProps {
   readonly title: string;
   readonly isArchived: boolean;
   readonly onSave: (title: string) => void;
+  /** The heading level; the full ticket page uses its main heading. */
+  readonly level?: "h1" | "h2";
 }
 
-/** Renders the ticket title, which is edited in place. */
-function Title({ title, isArchived, onSave }: TitleProps): React.ReactElement {
+/** Renders the ticket title, which is edited in place; panel and full view share it. */
+export function EditableTicketTitle({
+  title,
+  isArchived,
+  onSave,
+  level: Heading = "h2",
+}: TitleProps): React.ReactElement {
   const { t } = useTranslation();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(title);
@@ -193,12 +200,12 @@ function Title({ title, isArchived, onSave }: TitleProps): React.ReactElement {
         </div>
       ) : (
         <div className="min-w-0 flex-1">
-          <h2
+          <Heading
             className="cursor-text text-xl font-semibold tracking-tight text-foreground transition-colors sm:text-2xl"
             onDoubleClick={handleTitleDoubleClick}
           >
             {title}
-          </h2>
+          </Heading>
           {!isArchived ? (
             <p className="mt-0.5 text-xs text-muted-foreground select-none">
               {t("tasks.detail.doubleClickHint")}
@@ -282,7 +289,11 @@ export function DetailHeader({
         statuses={statuses}
         task={task}
       />
-      <Title isArchived={isArchived} onSave={onSaveTitle} title={task.title} />
+      <EditableTicketTitle
+        isArchived={isArchived}
+        onSave={onSaveTitle}
+        title={task.title}
+      />
       {isArchived ? (
         <ArchivedBanner isArchiving={isArchiving} workItemId={task.id} />
       ) : null}

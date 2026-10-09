@@ -13,7 +13,9 @@ import type { Project } from "@/definition/Project";
 import type {
   Milestone,
   Label,
+  WorkItemAttachment,
   WorkItemChecklistItem,
+  WorkItemDescendants,
   WorkItemDetail,
   WorkItemHistory,
   WorkItemLink,
@@ -27,6 +29,9 @@ interface TaskDetailPanelProps {
   readonly history: readonly WorkItemHistory[];
   readonly checklist?: readonly WorkItemChecklistItem[];
   readonly links?: readonly WorkItemLink[];
+  readonly attachments?: readonly WorkItemAttachment[];
+  /** The descendants archiving or deleting reaches; `null` when unknown. */
+  readonly descendants?: WorkItemDescendants | null;
   readonly pullRequests?: readonly GitHubPullRequest[];
   readonly statuses: readonly WorkflowStatus[];
   readonly assignees?: readonly User[];
@@ -52,6 +57,8 @@ export function TaskDetailPanel({
   subtasks,
   checklist = [],
   links = [],
+  attachments = [],
+  descendants = null,
   statuses,
   assignees = [],
   milestones = [],
@@ -99,6 +106,8 @@ export function TaskDetailPanel({
 
           <DetailBody
             actions={actions}
+            attachments={attachments}
+            descendants={descendants}
             assignees={assignees}
             assigneesByProject={assigneesByProject}
             checklist={checklist}

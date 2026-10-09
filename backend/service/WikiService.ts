@@ -1,6 +1,7 @@
 import { WikiAccess } from "./wiki/WikiAccess";
 import { WikiAttachmentService } from "./wiki/WikiAttachmentService";
 import { WikiCommentService } from "./wiki/WikiCommentService";
+import { WikiCoverService } from "./wiki/WikiCoverService";
 import { WikiFeedService } from "./wiki/WikiFeedService";
 import { WikiChoiceService } from "./wiki/WikiChoiceService";
 import { WikiMaintenanceService } from "./wiki/WikiMaintenanceService";
@@ -28,6 +29,7 @@ import type {
   WikiAttachment,
   WikiBacklinks,
   WikiComment,
+  WikiCover,
   WikiCommentThread,
   WikiFeedItem,
   WikiOwnerCandidate,
@@ -89,6 +91,7 @@ export class WikiService {
   private readonly attachments: WikiAttachmentService;
   private readonly comments: WikiCommentService;
   private readonly feed: WikiFeedService;
+  private readonly covers: WikiCoverService;
 
   /**
    * Creates a wiki service.
@@ -116,6 +119,7 @@ export class WikiService {
     this.settings = new WikiSettingsService(wikiRepository, permissionService);
     this.comments = new WikiCommentService(wikiRepository, access);
     this.feed = new WikiFeedService(wikiRepository, access);
+    this.covers = new WikiCoverService(wikiRepository, access);
     this.attachments = new WikiAttachmentService(
       wikiRepository,
       access,
@@ -245,6 +249,15 @@ export class WikiService {
     anchors: readonly WikiAnchor[],
   ): Promise<void> {
     return this.pages.setAnchors(actor, id, anchors);
+  }
+
+  /** Sets or removes the cover of a page. */
+  public async setCover(
+    actor: User,
+    id: string,
+    cover: string | null,
+  ): Promise<WikiCover | null> {
+    return this.covers.setCover(actor, id, cover);
   }
 
   /** Sets or clears the date until which a page counts as up to date. */

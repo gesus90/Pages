@@ -309,22 +309,17 @@ describe("WikiSearchDialog", () => {
 });
 
 describe("WikiShell search", () => {
-  it("opens with Ctrl+K and Cmd+K and from the navigation button", async () => {
-    renderInWiki(
-      <WikiShell
-        navigation={NAVIGATION}
-        people={[]}
-        templates={[]}
-        today="2026-10-07"
-      />,
-      { path: "/wiki/p1" },
-    );
+  it("opens with Ctrl+K and Cmd+K but not with other keys", async () => {
+    renderInWiki(<WikiShell navigation={NAVIGATION} people={[]} />, {
+      path: "/wiki/p1",
+    });
 
-    await screen.findAllByRole("button", { name: "Search" });
-    fireEvent.keyDown(window, { ctrlKey: true, key: "k" });
-    expect(
-      await screen.findByRole("dialog", { name: "Search the wiki" }),
-    ).toBeVisible();
+    await waitFor(() => {
+      fireEvent.keyDown(window, { ctrlKey: true, key: "k" });
+      expect(
+        screen.getByRole("dialog", { name: "Search the wiki" }),
+      ).toBeVisible();
+    });
 
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -338,41 +333,6 @@ describe("WikiShell search", () => {
     fireEvent.keyDown(window, { key: "k" });
     fireEvent.keyDown(window, { ctrlKey: true, key: "j" });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-
-    await userEvent.click(
-      screen.getAllByRole("button", { name: "Search" })[0] as HTMLElement,
-    );
-    expect(
-      await screen.findByRole("dialog", { name: "Search the wiki" }),
-    ).toBeVisible();
-  });
-
-  it("opens from the drawer and closes the drawer", async () => {
-    renderInWiki(
-      <WikiShell
-        navigation={NAVIGATION}
-        people={[]}
-        templates={[]}
-        today="2026-10-07"
-      />,
-    );
-
-    await userEvent.click(await screen.findByRole("button", { name: "Pages" }));
-
-    const drawer = await screen.findByRole("dialog", {
-      name: "Wiki navigation",
-    });
-
-    await userEvent.click(
-      within(drawer).getByRole("button", { name: "Search" }),
-    );
-
-    expect(
-      await screen.findByRole("dialog", { name: "Search the wiki" }),
-    ).toBeVisible();
-    expect(
-      screen.queryByRole("dialog", { name: "Wiki navigation" }),
-    ).toBeNull();
   });
 });
 

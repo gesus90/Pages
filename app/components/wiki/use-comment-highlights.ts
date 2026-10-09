@@ -13,6 +13,8 @@ export const COMMENT_HIGHLIGHT = "wiki-comment";
  * @param root - The element that holds the rendered page; `null` while the
  * page is being edited.
  * @param quotes - The quoted passages of the open comments.
+ * @param version - Changes whenever the text in `root` changed, so the marks
+ * follow an editor while the person types.
  *
  * @remarks
  * Uses the CSS Custom Highlight API, which paints ranges without touching the
@@ -22,6 +24,7 @@ export const COMMENT_HIGHLIGHT = "wiki-comment";
 export function useCommentHighlights(
   root: HTMLElement | null,
   quotes: readonly QuoteReference[],
+  version: number = 0,
 ): void {
   useEffect(() => {
     if (root === null || typeof CSS === "undefined" || !("highlights" in CSS)) {
@@ -39,5 +42,5 @@ export function useCommentHighlights(
     return () => {
       CSS.highlights.delete(COMMENT_HIGHLIGHT);
     };
-  }, [root, quotes]);
+  }, [root, quotes, version]);
 }

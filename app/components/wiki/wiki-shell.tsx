@@ -1,20 +1,8 @@
-import { PanelLeft } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useTranslation } from "react-i18next";
-import { Outlet, useLocation, useParams } from "react-router";
+import { Outlet, useParams } from "react-router";
 
-import { Button } from "@/app/components/ui/button";
-import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetTitle,
-  SheetTrigger,
-} from "@/app/components/ui/sheet";
-import { WikiNavigation } from "@/app/components/wiki/wiki-navigation";
 import { WikiSearchDialog } from "@/app/components/wiki/wiki-search-dialog";
 
-import type { WikiTemplateChoice } from "@/app/components/wiki/wiki-new-page-dialog";
 import type {
   WikiNavigation as WikiNavigationData,
   WikiOwnerCandidate,
@@ -22,66 +10,56 @@ import type {
 
 interface WikiShellProps {
   readonly navigation: WikiNavigationData;
-  readonly templates: readonly WikiTemplateChoice[];
   readonly people: readonly WikiOwnerCandidate[];
-  readonly today: string;
 }
 
-/** Opens the search with Ctrl or Cmd + K, as in other tools. */
-function useSearchShortcut(open: () => void): void {
+/** The event that the wiki navigation in the sidebar sends to open the search. */
+export const WIKI_SEARCH_EVENT = "pages:wiki-search";
+
+/**
+ * Opens the search with Ctrl or Cmd + K, as in other tools, and when the
+ * sidebar asks for it. A shortcut the editor already used (its link
+ * dialog) does not open the search as well.
+ */
+function useSearchRequests(open: () => void): void {
   useEffect(() => {
     const listen = (event: KeyboardEvent): void => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+      if (
+        !event.defaultPrevented &&
+        (event.ctrlKey || event.metaKey) &&
+        event.key.toLowerCase() === "k"
+      ) {
         event.preventDefault();
         open();
       }
     };
 
     window.addEventListener("keydown", listen);
+    window.addEventListener(WIKI_SEARCH_EVENT, open);
 
-    return () => window.removeEventListener("keydown", listen);
+    return () => {
+      window.removeEventListener("keydown", listen);
+      window.removeEventListener(WIKI_SEARCH_EVENT, open);
+    };
   }, [open]);
 }
 
-/** The wiki frame: page navigation on the left, the open page on the right. */
+/**
+ * The wiki frame around the open page. Its navigation lives in the main
+ * sidebar below "Wiki" (A8.1); the frame keeps the search.
+ */
 export function WikiShell({
   navigation,
-  templates,
   people,
-  today,
 }: WikiShellProps): React.ReactElement {
-  const { pathname } = useLocation();
   const { pageId = null } = useParams();
   const [isSearching, setIsSearching] = useState(false);
-  const openSearch = (): void => setIsSearching(true);
 
-  useSearchShortcut(openSearch);
+  useSearchRequests(() => setIsSearching(true));
 
   return (
-    <div className="mx-auto flex max-w-[92rem] gap-8">
-      <aside className="hidden w-60 shrink-0 md:block">
-        <div className="sticky top-24 max-h-[calc(100dvh-7rem)] overflow-y-auto pr-1">
-          <WikiNavigation
-            navigation={navigation}
-            templates={templates}
-            today={today}
-            onSearch={openSearch}
-          />
-        </div>
-      </aside>
-      <div className="min-w-0 flex-1">
-        <div className="mb-4 md:hidden">
-          <MobileNavigation
-            key={pathname}
-            navigation={navigation}
-            people={people}
-            templates={templates}
-            today={today}
-            onSearch={openSearch}
-          />
-        </div>
-        <Outlet />
-      </div>
+    <div className="mx-auto max-w-[80rem]">
+      <Outlet />
       {isSearching ? (
         <WikiSearchDialog
           navigation={navigation}
@@ -91,48 +69,5 @@ export function WikiShell({
         />
       ) : null}
     </div>
-  );
-}
-
-function MobileNavigation({
-  navigation,
-  templates,
-  today,
-  onSearch,
-}: WikiShellProps & { readonly onSearch: () => void }): React.ReactElement {
-  const { t } = useTranslation();
-  const [isOpen, setIsOpen] = useState(false);
-
-  return (
-    <Sheet open={isOpen} onOpenChange={setIsOpen}>
-      <SheetTrigger asChild>
-        <Button size="sm" variant="outline">
-          <PanelLeft aria-hidden="true" className="size-4" />
-          {t("wiki.nav.open")}
-        </Button>
-      </SheetTrigger>
-      <SheetContent className="overflow-y-auto">
-        <div className="mb-4 flex items-center justify-between">
-          <SheetTitle className="text-base font-semibold">
-            {t("wiki.nav.label")}
-          </SheetTitle>
-          <SheetClose asChild>
-            <Button size="sm" variant="ghost">
-              {t("wiki.dialog.close")}
-            </Button>
-          </SheetClose>
-        </div>
-        <WikiNavigation
-          navigation={navigation}
-          templates={templates}
-          today={today}
-          onNavigate={() => setIsOpen(false)}
-          onSearch={() => {
-            setIsOpen(false);
-            onSearch();
-          }}
-        />
-      </SheetContent>
-    </Sheet>
   );
 }

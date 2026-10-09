@@ -86,6 +86,55 @@ describe("transferSqliteToDuckDb", { timeout: 30_000 }, () => {
   });
 
   describe("copying", () => {
+    it("preserves native assistant settings, preferences and history while copying the frozen schema", async () => {
+      createSource();
+      const prepared = await Database.create(targetPath);
+      await prepared.migrate(DATABASE_MIGRATIONS);
+      await prepared.execute(`
+        UPDATE text_assistant_settings SET retention_days = 7;
+        INSERT INTO agent_function_assignments (function, connection_id, model)
+        VALUES ('text', 'connection', 'catalog-model');
+        INSERT INTO text_assistant_preferences (user_id, auto_apply, target_language)
+        VALUES ('u1', TRUE, 'fr');
+        INSERT INTO assistant_conversations (id, user_id, context_kind, context_id)
+        VALUES ('conversation', 'u1', 'wiki', 'wp1');
+        INSERT INTO assistant_messages (id, conversation_id, role, content, change_kind, position)
+        VALUES ('message', 'conversation', 'user', 'Own saved question', 'answer', 1);
+      `);
+      await prepared.close();
+      expect((await transferSqliteToDuckDb(createOptions())).status).toBe(
+        "copied",
+      );
+      const target = await Database.create(targetPath);
+      try {
+        expect(
+          await target.query(
+            "SELECT function, connection_id, model FROM agent_function_assignments;",
+          ),
+        ).toEqual([["text", "connection", "catalog-model"]]);
+        expect(
+          await target.query(
+            "SELECT retention_days FROM text_assistant_settings;",
+          ),
+        ).toEqual([[7]]);
+        expect(
+          await target.query(
+            "SELECT auto_apply, target_language FROM text_assistant_preferences;",
+          ),
+        ).toEqual([[1, "fr"]]);
+        expect(
+          await target.query("SELECT content FROM assistant_messages;"),
+        ).toEqual([["Own saved question"]]);
+        expect(
+          await target.query(
+            "SELECT user_id, context_id FROM assistant_conversations;",
+          ),
+        ).toEqual([["u1", "wp1"]]);
+      } finally {
+        await target.close();
+      }
+    });
+
     it("can still target the historical schema without authorization migrations", async () => {
       createSource();
       const result = await transferSqliteToDuckDb({

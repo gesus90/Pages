@@ -21,6 +21,12 @@ import {
 } from "./task-github-actions.server";
 import { handleSaveBoardPreferences } from "./task-board-actions.server";
 import {
+  handleChangeParent,
+  handleRemoveAttachment,
+  handleSetTreeExpanded,
+  handleUpdateDescription,
+} from "./task-hierarchy-actions.server";
+import {
   handleDeleteTemplate,
   handleSaveTemplate,
 } from "./task-template-actions.server";
@@ -47,6 +53,7 @@ const TASK_ACTION_HANDLERS: Readonly<
   Record<TaskActionIntent, TaskActionHandler>
 > = {
   "archive-task": handleArchiveTask,
+  "change-parent": handleChangeParent,
   "checklist-add": handleAddChecklistItem,
   "checklist-delete": handleDeleteChecklistItem,
   "checklist-toggle": handleToggleChecklistItem,
@@ -67,12 +74,15 @@ const TASK_ACTION_HANDLERS: Readonly<
   "link-remove": handleRemoveLink,
   "move-project": handleMoveProject,
   "move-task": handleMoveTask,
+  "remove-attachment": handleRemoveAttachment,
   "restore-task": handleRestoreTask,
   "save-board-preferences": handleSaveBoardPreferences,
   "save-template": handleSaveTemplate,
   "set-department": handleSetDepartment,
+  "set-tree-expanded": handleSetTreeExpanded,
   "sync-github-project": handleSyncGitHubProject,
   "sync-github-task": handleSyncGitHubTask,
+  "update-description": handleUpdateDescription,
   "update-task": handleUpdateTask,
 };
 

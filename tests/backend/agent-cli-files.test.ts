@@ -80,6 +80,8 @@ describe("isolated agent credential store", () => {
     const store = new AgentCredentialStore(directory);
     const privateDirectory = path.join(directory, "private-fixture");
     await filesystem.mkdir(privateDirectory, { mode: 0o755 });
+    // The fixture's baseline must not depend on the runner's restrictive umask.
+    await filesystem.chmod(privateDirectory, 0o755);
     await filesystem.symlink(privateDirectory, path.join(directory, "agents"));
     await expect(store.prepare(ID, "codex_cli")).rejects.toMatchObject({
       code: "cli_not_executable",

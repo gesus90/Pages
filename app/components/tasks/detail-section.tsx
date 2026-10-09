@@ -39,13 +39,15 @@ export function DetailSection({
     <section
       className={cn("rounded-2xl bg-surface p-4 shadow-xs sm:p-5", className)}
     >
-      <button
-        aria-expanded={isOpen}
-        className="flex w-full items-center justify-between gap-3 text-left select-none"
-        onClick={() => setIsOpen((previous) => !previous)}
-        type="button"
-      >
-        <span className="flex min-w-0 items-center gap-2">
+      <div className="flex items-center justify-between gap-3">
+        {/* The trailing actions sit beside the toggle: a button inside a
+            button is invalid HTML and breaks the hydration of the page. */}
+        <button
+          aria-expanded={isOpen}
+          className="flex min-w-0 flex-1 items-center gap-2 text-left select-none"
+          onClick={() => setIsOpen((previous) => !previous)}
+          type="button"
+        >
           {isOpen ? (
             <ChevronDown
               className="size-4 shrink-0 text-muted-foreground"
@@ -61,9 +63,9 @@ export function DetailSection({
           <span className="truncate text-sm font-semibold text-foreground">
             {title}
           </span>
-        </span>
+        </button>
         {trailing}
-      </button>
+      </div>
       {isOpen ? <div className="mt-3.5">{children}</div> : null}
     </section>
   );

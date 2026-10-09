@@ -314,21 +314,25 @@ describe("TaskRepository", () => {
       }),
     );
 
-    await repository.update("item-1", {
-      assigneeId: null,
-      assigneeGroupId: null,
-      description: "Updated desc",
-      dueAt: null,
-      milestoneId: null,
-      parentId: null,
-      priority: WORK_ITEM_PRIORITY.URGENT,
-      reporterId: "user-1",
-      startAt: null,
-      statusId: "status-2",
-      title: "Updated task",
-    });
+    database.query.mockResolvedValue([["item-1"]]);
 
-    expect(database.execute).toHaveBeenCalledWith(
+    await expect(
+      repository.update("item-1", {
+        assigneeId: null,
+        assigneeGroupId: null,
+        description: "Updated desc",
+        dueAt: null,
+        milestoneId: null,
+        parentId: null,
+        priority: WORK_ITEM_PRIORITY.URGENT,
+        reporterId: "user-1",
+        startAt: null,
+        statusId: "status-2",
+        title: "Updated task",
+      }),
+    ).resolves.toBe(true);
+
+    expect(database.query).toHaveBeenCalledWith(
       expect.stringContaining("UPDATE work_items"),
       expect.objectContaining({ id: "item-1", title: "Updated task" }),
     );

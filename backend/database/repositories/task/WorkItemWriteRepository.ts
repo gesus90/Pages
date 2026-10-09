@@ -27,6 +27,10 @@ export interface NewWorkItem {
 export interface WorkItemUpdate {
   readonly title: string;
   readonly description: string;
+  /** Leaves the stored description untouched, including concurrent saves. */
+  readonly shouldPreserveDescription?: boolean;
+  /** When present, the description must still match this text or the new text. */
+  readonly baseDescription?: string;
   readonly statusId: string;
   readonly priority: WorkItemPriority;
   readonly assigneeId: string | null;
@@ -209,14 +213,14 @@ export class WorkItemWriteRepository {
     );
   }
 
-  /** Updates fields on an existing work item. */
-  public async update(id: string, update: WorkItemUpdate): Promise<void> {
-    await this.database.execute(
+  /** Updates fields atomically; returns false when inactive or the description changed meanwhile. */
+  public async update(id: string, update: WorkItemUpdate): Promise<boolean> {
+    const rows = await this.database.query(
       `
         UPDATE work_items
         SET
             title = $title,
-            description = $description,
+            description = COALESCE($description, description),
             status_id = $status_id,
             priority = $priority,
             assignee_id = $assignee_id,
@@ -228,13 +232,23 @@ export class WorkItemWriteRepository {
             start_at = $start_at,
             updated_at = utc_now()
         WHERE id = $id
-            AND archived_at IS NULL;
+            AND archived_at IS NULL
+            AND (
+                $description IS NULL
+                OR $base_description IS NULL
+                OR description = $base_description
+                OR description = $description
+            )
+        RETURNING id;
       `,
       {
         assignee_group_id: update.assigneeGroupId,
         assignee_id: update.assigneeId,
         created_by: update.reporterId,
-        description: update.description,
+        base_description: update.baseDescription ?? null,
+        description: update.shouldPreserveDescription
+          ? null
+          : update.description,
         due_at: update.dueAt,
         id,
         milestone_id: update.milestoneId,
@@ -244,6 +258,49 @@ export class WorkItemWriteRepository {
         status_id: update.statusId,
         title: update.title,
       },
+    );
+
+    return rows.length > 0;
+  }
+
+  /** Replaces a current description atomically; returns false when inactive or changed meanwhile. */
+  public async updateDescription(
+    id: string,
+    description: string,
+    baseDescription: string,
+  ): Promise<boolean> {
+    const rows = await this.database.query(
+      `
+        UPDATE work_items
+        SET
+            description = $description,
+            updated_at = utc_now()
+        WHERE id = $id
+            AND archived_at IS NULL
+            AND (description = $base_description OR description = $description)
+        RETURNING id;
+      `,
+      { base_description: baseDescription, description, id },
+    );
+
+    return rows.length > 0;
+  }
+
+  /** Sets the parent of an active work item, or removes it with `null`. */
+  public async updateParent(
+    id: string,
+    parentId: string | null,
+  ): Promise<void> {
+    await this.database.execute(
+      `
+        UPDATE work_items
+        SET
+            parent_id = $parent_id,
+            updated_at = utc_now()
+        WHERE id = $id
+            AND archived_at IS NULL;
+      `,
+      { id, parent_id: parentId },
     );
   }
 

@@ -8,13 +8,16 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { WikiCommentsPanel } from "@/app/components/wiki/wiki-comments-panel";
 import { WikiFeedView } from "@/app/components/wiki/wiki-feed-view";
 import { WikiPageScreen } from "@/app/components/wiki/wiki-page-screen";
 
+import { installEditorGeometry } from "../helpers/editor";
 import { renderInWiki } from "../helpers/wiki-render";
+
+import type { Editor } from "@tiptap/core";
 
 import type {
   WikiComment,
@@ -384,6 +387,7 @@ describe("WikiFeedView", () => {
 });
 
 describe("page screen with comments", () => {
+  beforeAll(installEditorGeometry);
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
@@ -394,6 +398,7 @@ describe("page screen with comments", () => {
     anchors: [],
     breadcrumb: [],
     content: "Some text with a commented passage in it",
+    cover: null,
     createdAt: "2026-01-01 10:00:00",
     currentUntil: null,
     icon: null,
@@ -411,7 +416,7 @@ describe("page screen with comments", () => {
     updatedByName: "Olga",
   };
 
-  function renderScreen(threads: readonly WikiCommentThread[]) {
+  function renderScreen(threads: readonly WikiCommentThread[], canEdit = true) {
     return renderInWiki(
       <WikiPageScreen
         anchorChoices={{
@@ -439,7 +444,7 @@ describe("page screen with comments", () => {
           children: [],
           isFavorite: false,
           page: PAGE,
-          permissions: { canComment: true, canEdit: true, canManage: true },
+          permissions: { canComment: true, canEdit, canManage: canEdit },
         }}
       />,
       { path: "/wiki/p1" },
@@ -489,14 +494,51 @@ describe("page screen with comments", () => {
     expect(screen.getByText("text")).toBeVisible();
   });
 
-  it("does not offer selection comments while editing", async () => {
+  it("marks passages in the text of readers too", async () => {
+    vi.stubGlobal("Highlight", class {});
+    vi.stubGlobal("CSS", { highlights: new Map() });
+    renderScreen([thread("c1", { quote: "commented passage" })], false);
+
+    expect(await screen.findByText(/Some text with/)).toBeVisible();
+    expect(screen.queryByRole("textbox", { name: "Page text" })).toBeNull();
+    await waitFor(() =>
+      expect(
+        (CSS as unknown as { highlights: Map<string, unknown> }).highlights.has(
+          "wiki-comment",
+        ),
+      ).toBe(true),
+    );
+  });
+
+  it("comments on the passage selected in the editor", async () => {
     renderScreen([]);
 
-    await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
-    await screen.findByLabelText("Page text (Markdown)");
+    const element = await screen.findByRole("textbox", { name: "Page text" });
+    const { editor } = element as unknown as { editor: Editor };
 
-    expect(
-      screen.queryByRole("button", { name: "Comment on selection" }),
-    ).toBeNull();
+    act(() => {
+      editor.commands.focus();
+      editor.commands.setTextSelection({ from: 6, to: 10 });
+    });
+
+    const toolbar = await screen.findByRole("toolbar", { name: "Formatting" });
+
+    act(() => {
+      window.getSelection()?.removeAllRanges();
+      document.dispatchEvent(new Event("selectionchange"));
+    });
+    fireEvent.click(within(toolbar).getByRole("button", { name: "Comment" }));
+    expect(screen.queryByText("text")).toBeNull();
+
+    const text = within(element).getByText(/Some text with/).firstChild as Text;
+
+    act(() => {
+      window.getSelection()?.setBaseAndExtent(text, 5, text, 9);
+      document.dispatchEvent(new Event("selectionchange"));
+    });
+    fireEvent.click(within(toolbar).getByRole("button", { name: "Comment" }));
+
+    expect(await screen.findByText("text")).toBeVisible();
+    expect(screen.getByLabelText(/Write a comment/)).toBeVisible();
   });
 });

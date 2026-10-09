@@ -101,7 +101,7 @@ export function assertParentFits(
   parent: WorkItemDetail | null,
   rule: ParentRule,
   projectId: string,
-): void {
+): asserts parent is WorkItemDetail {
   if (!parent) {
     throw new WorkItemHierarchyError(rule.missingCode);
   }
@@ -112,5 +112,18 @@ export function assertParentFits(
 
   if (parent.projectId !== projectId) {
     throw new WorkItemHierarchyError(rule.projectCode);
+  }
+}
+
+/**
+ * Checks that a newly chosen parent is active, so no active work item ends up
+ * below an archived one.
+ *
+ * @param parent - The parent that fits the rule of the child.
+ * @throws {WorkItemHierarchyError} When the parent is archived.
+ */
+export function assertParentActive(parent: WorkItemDetail): void {
+  if (parent.archivedAt !== null) {
+    throw new WorkItemHierarchyError("parentArchived");
   }
 }

@@ -162,6 +162,41 @@ describe("WikiNavigation", () => {
     await screen.findByRole("navigation");
 
     expect(screen.queryByRole("button", { name: "New page" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Add a subpage to “Alpha”" }),
+    ).toBeNull();
+  });
+
+  it("creates a subpage from the plus of a tree entry", async () => {
+    const { layoutSubmissions, router } = renderNav();
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Add a subpage to “Alpha”" }),
+    );
+
+    const dialog = await screen.findByRole("dialog", { name: "New page" });
+
+    await userEvent.type(within(dialog).getByLabelText("Title"), "Child");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Create page" }),
+    );
+    await waitFor(() =>
+      expect(layoutSubmissions[0]).toMatchObject({
+        intent: "create-page",
+        parentId: "a",
+        title: "Child",
+      }),
+    );
+
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Add a subpage to “Alpha”" }),
+    );
+    expect(await screen.findByRole("dialog")).toBeVisible();
+    await router.navigate("/wiki/a1");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
   it("shows an empty note without pages", async () => {

@@ -1,11 +1,12 @@
 import { useLoaderData, useNavigate, useNavigation } from "react-router";
 
+import { getAncestorChain } from "@/app/components/tasks/detail/detail-path-section";
 import { useTaskPanelActions } from "@/app/components/tasks/detail/use-task-panel-actions";
 import { GitHubSyncBadge } from "@/app/components/tasks/github-sync-badge";
 import { TicketDialogs } from "@/app/components/tasks/ticket/ticket-dialogs";
 import { TicketBreadcrumb } from "@/app/components/tasks/ticket/ticket-breadcrumb";
+import { TicketMainColumn } from "@/app/components/tasks/ticket/ticket-main-column";
 import { TicketSidebar } from "@/app/components/tasks/ticket/ticket-sidebar";
-import { TicketTabs } from "@/app/components/tasks/ticket/ticket-tabs";
 import { TicketTop } from "@/app/components/tasks/ticket/ticket-top";
 import { useTicketDialogs } from "@/app/components/tasks/ticket/use-ticket-dialogs";
 import { TicketAccessProvider } from "@/app/components/tasks/ticket-access";
@@ -13,7 +14,7 @@ import { PageContent } from "@/app/components/ui/card";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { publishesNewTasks } from "@/definition/Project";
-import { WORK_ITEM_TYPE } from "@/definition/Task";
+import { WORK_ITEM_CHILD_TYPE } from "@/definition/Task";
 
 import { action } from "./tasks";
 import { ProjectAccessDeniedError } from "@/backend/error/ProjectErrors";
@@ -27,8 +28,12 @@ import type {
   Label,
   TaskActionPermissions,
   TicketDepartmentChoices,
+  WorkItemAttachment,
+  WorkItemChecklistItem,
+  WorkItemDescendants,
   WorkItemDetail,
   WorkItemHistory,
+  WorkItemLink,
   WorkflowStatus,
 } from "@/definition/Task";
 import type { WorkItemTemplateView } from "@/definition/WorkItemTemplate";
@@ -60,6 +65,11 @@ interface TaskDetailLoaderData {
   readonly parent: WorkItemDetail | null;
   readonly children: readonly WorkItemDetail[];
   readonly history: readonly WorkItemHistory[];
+  readonly attachments: readonly WorkItemAttachment[];
+  readonly checklist: readonly WorkItemChecklistItem[];
+  readonly links: readonly WorkItemLink[];
+  /** The descendants archiving or deleting the ticket reaches. */
+  readonly descendants: WorkItemDescendants;
   readonly pullRequests: readonly GitHubPullRequest[];
   readonly projects: readonly Project[];
   readonly projectWorkItems: readonly WorkItemDetail[];
@@ -191,12 +201,19 @@ export async function loader({
     assigneeGroups: await services.taskService.findAssigneeGroups(actor),
     assignees,
     assigneesByProject,
+    attachments: await services.taskAttachmentService.list(actor, ticket.id),
+    checklist: await services.taskService.findChecklistItems(actor, ticket.id),
     children,
     departmentChoices: await services.taskService.departmentChoices(actor),
     fromView: parseDetailView(url.searchParams.get("from")),
     history,
     labelUsage,
+    descendants: await services.taskService.describeDescendants(
+      actor,
+      ticket.id,
+    ),
     labels,
+    links: await services.taskService.findLinks(actor, ticket.id),
     milestones,
     parent,
     permissions: await services.taskService.actionPermissions(actor),
@@ -212,18 +229,6 @@ export async function loader({
     templates: await services.taskTemplateService.findVisible(actor),
     ticket,
   };
-}
-
-/** Lists the active tickets of one type a ticket can be attached to. */
-function parentCandidates(
-  workItems: readonly WorkItemDetail[],
-  ticket: WorkItemDetail,
-  type: WorkItemDetail["type"],
-): WorkItemDetail[] {
-  return workItems.filter(
-    (item) =>
-      item.type === type && item.id !== ticket.id && item.archivedAt === null,
-  );
 }
 
 /** Tells whether a form with one of the intents is being submitted. */
@@ -244,7 +249,11 @@ interface TaskDetailViewProps {
   readonly loaderData: TaskDetailLoaderData;
 }
 
-/** Renders the full ticket view inside the regular tasks content area. */
+/**
+ * Renders the ticket as in Jira (A8.2-E07): path and actions on top, the
+ * large description with the content of the ticket on the left, status and
+ * the detail areas on the right; stacked on small screens.
+ */
 function TaskDetailView({
   loaderData,
 }: TaskDetailViewProps): React.ReactElement {
@@ -261,83 +270,80 @@ function TaskDetailView({
   );
   const isSyncing = isSubmittingIntent(navigation, "sync-github-task");
   const backTarget = `/aufgaben?view=${loaderData.fromView}`;
+  const hrefOf = (key: string): string =>
+    `/aufgaben/${key}?from=${loaderData.fromView}`;
 
   function handleOpenTicket(key: string): void {
-    void navigate(`/aufgaben/${key}?from=${loaderData.fromView}`);
+    void navigate(hrefOf(key));
   }
 
   return (
     <PageContent>
-      <div className="mx-auto flex w-full max-w-6xl flex-col">
+      <div className="mx-auto flex w-full max-w-7xl flex-col">
         <TicketBreadcrumb
+          ancestors={getAncestorChain(ticket, [
+            ...loaderData.projectWorkItems,
+            // An archived parent is not among the active tickets.
+            ...(loaderData.parent ? [loaderData.parent] : []),
+          ])}
           backTarget={backTarget}
+          hrefOf={hrefOf}
           project={project}
           ticket={ticket}
         />
         <TicketTop
           actions={actions}
-          assignees={assignees}
+          canWrite={loaderData.permissions.canWrite}
           isArchived={isArchived}
           isArchiving={isArchiving}
           onBack={() => void navigate(backTarget)}
+          onCreateChild={
+            WORK_ITEM_CHILD_TYPE[ticket.type] === null
+              ? null
+              : dialogs.openCreateChild
+          }
           onEdit={dialogs.openEdit}
-          statuses={statuses}
           ticket={ticket}
         />
 
-        <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
-          <TicketTabs
+        <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_22rem]">
+          <TicketMainColumn
+            attachments={loaderData.attachments}
+            canWrite={loaderData.permissions.canWrite}
+            checklist={loaderData.checklist}
+            children={loaderData.children}
             history={loaderData.history}
-            isArchived={isArchived}
-            items={loaderData.children}
+            hrefOf={hrefOf}
+            isSubmitting={isSyncing}
+            links={loaderData.links}
             onCreateChild={dialogs.openCreateChild}
-            onOpenChild={handleOpenTicket}
+            onOpenTicket={handleOpenTicket}
+            projectWorkItems={loaderData.projectWorkItems}
             ticket={ticket}
           />
           <TicketSidebar
             actions={actions}
             assignees={assignees}
-            epicOptions={parentCandidates(
-              loaderData.projectWorkItems,
-              ticket,
-              WORK_ITEM_TYPE.EPIC,
-            )}
-            initiativeOptions={parentCandidates(
-              loaderData.projectWorkItems,
-              ticket,
-              WORK_ITEM_TYPE.INITIATIVE,
-            )}
+            descendants={loaderData.descendants}
             isArchived={isArchived}
             isArchiving={isArchiving}
             isSyncing={isSyncing}
             milestones={milestones}
-            redirectTo={backTarget}
             onEditLabels={() => dialogs.setIsLabelPickerOpen(true)}
             onMoveProject={() => dialogs.setIsMoveDialogOpen(true)}
             onOpenTicket={handleOpenTicket}
-            parent={loaderData.parent}
             project={project}
+            projectWorkItems={loaderData.projectWorkItems}
             publishesNewTasks={loaderData.publishesNewTasks}
             pullRequests={loaderData.pullRequests}
+            redirectTo={backTarget}
             statuses={statuses}
             taskLabels={loaderData.taskLabels}
             ticket={ticket}
           />
         </div>
 
-        <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
-          <GitHubSyncBadge
-            githubConflict={ticket.githubConflict}
-            githubIssueNumber={ticket.githubIssueNumber}
-            githubLastError={ticket.githubLastError}
-            githubLastSyncAt={ticket.githubLastSyncAt}
-            isSyncing={isSyncing}
-            updatedAt={ticket.updatedAt}
-          />
-        </div>
-
-        <TicketDialogs
-          loaderData={loaderData}
+        <TicketFooter
           dialogs={dialogs}
           isSubmittingForm={isSubmittingIntent(
             navigation,
@@ -345,9 +351,48 @@ function TaskDetailView({
             "update-task",
           )}
           isSyncing={isSyncing}
+          loaderData={loaderData}
         />
       </div>
     </PageContent>
+  );
+}
+
+interface TicketFooterProps {
+  readonly loaderData: TaskDetailLoaderData;
+  readonly dialogs: ReturnType<typeof useTicketDialogs>;
+  readonly isSyncing: boolean;
+  readonly isSubmittingForm: boolean;
+}
+
+/** The GitHub state below the ticket and the dialogs of the ticket page. */
+function TicketFooter({
+  loaderData,
+  dialogs,
+  isSyncing,
+  isSubmittingForm,
+}: TicketFooterProps): React.ReactElement {
+  const { ticket } = loaderData;
+
+  return (
+    <>
+      <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
+        <GitHubSyncBadge
+          githubConflict={ticket.githubConflict}
+          githubIssueNumber={ticket.githubIssueNumber}
+          githubLastError={ticket.githubLastError}
+          githubLastSyncAt={ticket.githubLastSyncAt}
+          isSyncing={isSyncing}
+          updatedAt={ticket.updatedAt}
+        />
+      </div>
+      <TicketDialogs
+        loaderData={loaderData}
+        dialogs={dialogs}
+        isSubmittingForm={isSubmittingForm}
+        isSyncing={isSyncing}
+      />
+    </>
   );
 }
 

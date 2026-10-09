@@ -1,8 +1,9 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { copyFile, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { DuckDBInstance } from "@duckdb/node-api";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   Database,
@@ -45,6 +46,45 @@ describe("Database", () => {
         [["kept"]],
       );
       await reopened.close();
+    });
+
+    it("replays a write-ahead log that DuckDB cannot replay on its own", async () => {
+      const original = path.join(directory, "running.duckdb");
+      const crashed = path.join(directory, "crashed.duckdb");
+      const instance = await DuckDBInstance.create(original);
+      const connection = await instance.connect();
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      await connection.run(
+        "CREATE MACRO utc_now() AS strftime(now(), '%Y-%m-%d %H:%M:%S');" +
+          "CREATE TABLE items (id INTEGER, created_at TEXT DEFAULT utc_now());" +
+          "CHECKPOINT;" +
+          "ALTER TABLE items ADD COLUMN label TEXT;" +
+          "INSERT INTO items (id, label) VALUES (1, 'kept');",
+      );
+      // The files of a running process are what an unclean stop leaves.
+      await copyFile(original, crashed);
+      await copyFile(`${original}.wal`, `${crashed}.wal`);
+      connection.closeSync();
+      instance.closeSync();
+
+      const recovered = await Database.create(crashed);
+
+      await expect(
+        recovered.query("SELECT id, label FROM items;"),
+      ).resolves.toEqual([[1, "kept"]]);
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining("Replayed the write-ahead log"),
+      );
+      await recovered.close();
+    });
+
+    it("rethrows other failures to open a file", async () => {
+      const filePath = path.join(directory, "foreign.duckdb");
+
+      await writeFile(filePath, "no database at all");
+
+      await expect(Database.create(filePath)).rejects.toThrow();
     });
 
     it("finishes queued statements before it closes", async () => {
@@ -325,6 +365,33 @@ describe("Database", () => {
       await expect(database.query("SELECT * FROM half_done;")).rejects.toThrow(
         "half_done",
       );
+    });
+
+    it("writes applied schema changes into the file instead of the log", async () => {
+      const filePath = path.join(directory, "pages.duckdb");
+      const fileDatabase = await Database.create(filePath);
+      const logSize = async (): Promise<number> =>
+        (await stat(`${filePath}.wal`).catch(() => ({ size: 0 }))).size;
+
+      await fileDatabase.migrate([
+        {
+          name: "001_items.sql",
+          sql: "CREATE TABLE items (id INTEGER, created_at TEXT DEFAULT utc_now());",
+        },
+      ]);
+      await fileDatabase.migrate([
+        {
+          name: "001_items.sql",
+          sql: "CREATE TABLE items (id INTEGER, created_at TEXT DEFAULT utc_now());",
+        },
+        {
+          name: "002_label.sql",
+          sql: "ALTER TABLE items ADD COLUMN label TEXT;",
+        },
+      ]);
+
+      await expect(logSize()).resolves.toBe(0);
+      await fileDatabase.close();
     });
 
     it("stamps applied migrations in the stored timestamp format", async () => {

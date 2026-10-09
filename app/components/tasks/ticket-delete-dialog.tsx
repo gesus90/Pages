@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Form, useActionData, useLocation, useNavigation } from "react-router";
 
+import { ChildHandlingFields } from "@/app/components/tasks/lifecycle/child-handling-fields";
 import { Button } from "@/app/components/ui/button";
 import {
   Dialog,
@@ -13,11 +14,13 @@ import {
   DialogTrigger,
 } from "@/app/components/ui/dialog";
 
-import type { WorkItemDetail } from "@/definition/Task";
+import type { WorkItemDetail, WorkItemTypeCounts } from "@/definition/Task";
 
 interface TicketDeleteDialogProps {
   readonly ticket: WorkItemDetail;
   readonly redirectTo?: string;
+  /** Every descendant the deletion reaches; `null` when unknown. */
+  readonly counts: WorkItemTypeCounts | null;
 }
 
 interface DeleteOutcome {
@@ -41,6 +44,7 @@ function withoutSelectedItem(pathname: string, search: string): string {
 export function TicketDeleteDialog({
   ticket,
   redirectTo,
+  counts,
 }: TicketDeleteDialogProps): React.ReactElement {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -77,6 +81,11 @@ export function TicketDeleteDialog({
         <Form className="mt-5" method="post">
           <input name="intent" type="hidden" value="delete-task" />
           <input name="id" type="hidden" value={ticket.id} />
+          <ChildHandlingFields
+            counts={counts}
+            subtasksNote={t("tasks.lifecycle.subtasksDeleted")}
+            ticket={ticket}
+          />
           <input
             name="redirectTo"
             type="hidden"

@@ -14,6 +14,8 @@ import {
 } from "@/app/lib/settings-actions/settings-agents-response.server";
 
 import type { AgentModelCatalog } from "@/definition/AgentModelCatalog";
+import type { TextAssistantSettings } from "@/definition/TextAssistant";
+import type { AgentAssignmentView } from "@/definition/AgentAssignment";
 import type {
   AgentConnectionSummary,
   CliToolLocations,
@@ -27,6 +29,8 @@ type AgentsLoaderData =
       readonly connections: readonly AgentConnectionSummary[];
       readonly cliTools: CliToolLocations;
       readonly catalogs: Readonly<Record<string, AgentModelCatalog>>;
+      readonly assistantSettings: TextAssistantSettings;
+      readonly assignments: readonly AgentAssignmentView[];
     };
 
 /**
@@ -57,13 +61,23 @@ export async function loader({
         { access: "adminModeRequired" },
         { headers: AGENT_NO_STORE },
       );
-    const [connections, cliTools, catalogs] = await Promise.all([
-      services.agentConnectionService.list(actor),
-      services.agentCliLoginService.tools(actor),
-      services.agentCatalogService.list(actor),
-    ]);
+    const [connections, cliTools, catalogs, assistantSettings, assignments] =
+      await Promise.all([
+        services.agentConnectionService.list(actor),
+        services.agentCliLoginService.tools(actor),
+        services.agentCatalogService.list(actor),
+        services.textAgentRoleService.read(actor),
+        services.agentAssignmentService.list(actor),
+      ]);
     return routeData<AgentsLoaderData>(
-      { access: "granted", connections, cliTools, catalogs },
+      {
+        access: "granted",
+        connections,
+        cliTools,
+        catalogs,
+        assistantSettings,
+        assignments,
+      },
       { headers: AGENT_NO_STORE },
     );
   } catch (error: unknown) {
@@ -89,6 +103,8 @@ export default function SettingsAgentsRoute(): React.ReactElement {
       connections={result.connections}
       cliTools={result.cliTools}
       catalogs={result.catalogs}
+      assistantSettings={result.assistantSettings}
+      assignments={result.assignments}
     />
   ) : (
     <AdminModeRequired description={t("settings.agents.adminModeRequired")} />
