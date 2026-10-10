@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "check": "tsc --noEmit && prettier --check .",
-    "build": "node build.config.ts"
+    "build": "node build-probe.config.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "2.2.0"
