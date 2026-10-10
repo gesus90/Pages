@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { I18nextProvider } from "react-i18next";
 import { describe, expect, it, vi } from "vitest";
 
+import { RegionProvider } from "@/app/components/common/region-provider";
 import { AgentChecks } from "@/app/components/settings/agents/agent-checks";
 import { AgentCliLogin } from "@/app/components/settings/agents/agent-cli-login";
 import { AgentConfirmation } from "@/app/components/settings/agents/agent-confirmation";
@@ -156,13 +157,16 @@ describe("CLI account UI", () => {
         },
       }),
     });
+    // A chosen zone keeps the expected clock time independent of the machine.
     show(
-      <AgentCliLogin
-        connection={connection}
-        disabled
-        actions={actions}
-        onCommand={vi.fn()}
-      />,
+      <RegionProvider region={{ dateFormat: "DD.MM.YYYY", timezone: "UTC" }}>
+        <AgentCliLogin
+          connection={connection}
+          disabled
+          actions={actions}
+          onCommand={vi.fn()}
+        />
+      </RegionProvider>,
     );
     expect(
       screen.getByRole("link", { name: "Open sign-in page" }),

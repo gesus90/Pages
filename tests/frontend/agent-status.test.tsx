@@ -4,6 +4,7 @@ import { renderToString } from "react-dom/server";
 import { I18nextProvider } from "react-i18next";
 import { describe, expect, it, vi } from "vitest";
 
+import { RegionProvider } from "@/app/components/common/region-provider";
 import { AgentCheckResults } from "@/app/components/settings/agents/agent-check-results";
 import { AgentCheckTime } from "@/app/components/settings/agents/agent-check-time";
 import {
@@ -168,15 +169,16 @@ describe("connection evidence", () => {
 
   it("keeps region-formatted timestamps alongside relative age", () => {
     vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-10-08T10:05:00Z"));
+    // A chosen zone keeps the expected clock times independent of the machine.
     show(
-      <>
+      <RegionProvider region={{ dateFormat: "DD.MM.YYYY", timezone: "UTC" }}>
         <AgentCheckTime checkedAt={null} />
         <AgentCheckTime checkedAt="unreadable" />
         <AgentCheckTime checkedAt={PASSED.checkedAt} />
         <AgentCheckTime checkedAt="2026-10-08T08:05:00Z" />
         <AgentCheckTime checkedAt="2026-10-05T10:05:00Z" />
         <AgentCheckTime checkedAt="2026-09-28T10:05:00Z" />
-      </>,
+      </RegionProvider>,
     );
     // A missing value shows the dash and keeps a spoken label.
     expect(screen.getByText("—")).toHaveAttribute("aria-hidden", "true");

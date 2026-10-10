@@ -39,12 +39,12 @@ describe("buildDefaultWindow", () => {
   );
 
   it.each([
-    ["weeks", local(2026, 8, 17), 20 * 7 * DAY_IN_MS],
+    ["weeks", local(2026, 8, 17), local(2027, 1, 4)],
     ["months", local(2026, 7, 1), undefined],
     ["quarter", local(2026, 1, 1), undefined],
   ] as const)(
     "centers on today when milestones lie near it (%s)",
-    (view, start, span) => {
+    (view, start, end) => {
       const result = buildDefaultWindow(
         [local(2026, 9, 1), local(2026, 10, 15)],
         view,
@@ -53,8 +53,8 @@ describe("buildDefaultWindow", () => {
 
       expect(result.start).toBe(start);
 
-      if (span !== undefined) {
-        expect(result.end - result.start).toBe(span);
+      if (end !== undefined) {
+        expect(result.end).toBe(end);
       }
     },
   );
@@ -128,6 +128,25 @@ describe("buildColumns and buildSuperSegments", () => {
     expect(columns.every((column) => column.width === 70)).toBe(true);
   });
 
+  it("labels consecutive weeks across a change of daylight saving time", () => {
+    const columns = buildColumns(
+      { end: local(2026, 11, 9), start: local(2026, 10, 19) },
+      "weeks",
+      10,
+    );
+
+    expect(columns.map((column) => column.key)).toEqual([
+      `week-${local(2026, 10, 19)}`,
+      `week-${local(2026, 10, 26)}`,
+      `week-${local(2026, 11, 2)}`,
+    ]);
+    expect(columns.map((column) => column.label)).toEqual([
+      "KW 43",
+      "KW 44",
+      "KW 45",
+    ]);
+  });
+
   it("clips month and quarter columns to the window", () => {
     const months = buildColumns(
       { end: local(2026, 10, 15), start: local(2026, 9, 15) },
@@ -170,7 +189,11 @@ describe("buildColumns and buildSuperSegments", () => {
     );
 
     expect(years.map((segment) => segment.label)).toEqual(["2026", "2027"]);
-    expect(years[0]?.width).toBe(275);
+    // Widths follow elapsed time, which differs from whole days where the
+    // segment spans a change of daylight saving time.
+    expect(years[0]?.width).toBe(
+      (local(2027, 1, 1) - local(2026, 4, 1)) / DAY_IN_MS,
+    );
   });
 
   it("includes an empty last year when the window ends on New Year", () => {

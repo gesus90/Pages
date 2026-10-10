@@ -97,6 +97,21 @@ export function startOfWeekMonday(time: number): number {
   ).getTime();
 }
 
+/**
+ * Returns the instant `amount` weeks away at the same local time of day.
+ *
+ * @remarks
+ * Steps calendar days rather than a fixed number of milliseconds, so a week
+ * boundary stays on local midnight across a change of daylight saving time.
+ */
+export function addWeeks(time: number, amount: number): number {
+  const date = new Date(time);
+
+  date.setDate(date.getDate() + 7 * amount);
+
+  return date.getTime();
+}
+
 /** Returns the first day of the instant's month. */
 export function startOfMonth(time: number): number {
   const date = new Date(time);
