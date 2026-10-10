@@ -154,7 +154,12 @@ describe("buildColumns and buildSuperSegments", () => {
       1,
     );
 
-    expect(months.map((column) => column.width)).toEqual([16, 14]);
+    // Widths follow elapsed time, which differs from whole days where a
+    // column spans a change of daylight saving time.
+    expect(months.map((column) => column.width)).toEqual([
+      (local(2026, 10, 1) - local(2026, 9, 15)) / DAY_IN_MS,
+      (local(2026, 10, 15) - local(2026, 10, 1)) / DAY_IN_MS,
+    ]);
 
     const quarters = buildColumns(
       { end: local(2026, 11, 1), start: local(2026, 5, 1) },
