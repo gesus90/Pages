@@ -2,7 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../mcp/src/verification", () => ({ verifyPages: vi.fn() }));
 vi.mock("../../mcp/src/project-names", () => ({ listProjectNames: vi.fn() }));
+vi.mock("../../mcp/src/tools/read-operation", () => ({
+  readOperation: vi.fn(),
+}));
 
+import { readOperation } from "../../mcp/src/tools/read-operation";
+import { PagesOperationFailure } from "../../mcp/src/tools/operation-failure";
+import { PAGES_AGENT_READ_OPERATIONS } from "@/definition/PagesAgentOperations";
 import { listProjectNames } from "../../mcp/src/project-names";
 import { createServer } from "../../mcp/src/server";
 import { verifyPages } from "../../mcp/src/verification";
@@ -176,5 +182,133 @@ describe("MCP project-name tool", () => {
     });
     expect(verifyPages).not.toHaveBeenCalled();
     await server.close();
+  });
+});
+
+describe("MCP A9.5 read tools", () => {
+  it("lists exactly the currently allowed read operations", async () => {
+    vi.mocked(verifyPages).mockResolvedValue({
+      identity,
+      tools: ["projects.names.list", ...PAGES_AGENT_READ_OPERATIONS],
+    });
+    const { server, request } = await connect();
+    expect(await request("tools/list")).toMatchObject({
+      result: {
+        tools: [
+          { name: "list_project_names" },
+          { name: "resolve_project" },
+          { name: "read_project" },
+          { name: "read_wiki_page" },
+          { name: "read_wiki_tree" },
+          { name: "search_wiki" },
+        ],
+      },
+    });
+    vi.mocked(verifyPages).mockResolvedValue({
+      identity,
+      tools: ["wiki.search"],
+    });
+    expect(await request("tools/list")).toMatchObject({
+      result: { tools: [{ name: "search_wiki" }] },
+    });
+    await server.close();
+  });
+
+  it.each([
+    ["resolve_project", "projects.resolve", { name: "Alpha" }],
+    ["read_project", "projects.read", { projectId: "a" }],
+    ["read_wiki_page", "wiki.page.read", { pageId: "p" }],
+    ["read_wiki_tree", "wiki.tree.read", undefined],
+    ["search_wiki", "wiki.search", { text: "needle" }],
+  ] as const)(
+    "calls %s with fresh authorization",
+    async (name, operation, parameters) => {
+      vi.mocked(verifyPages).mockResolvedValue({
+        identity,
+        tools: [operation],
+      });
+      vi.mocked(readOperation).mockResolvedValue({ id: "allowed" });
+      const { server, request } = await connect();
+      expect(
+        await request("tools/call", { name, arguments: parameters }),
+      ).toMatchObject({ result: { content: [{ text: '{"id":"allowed"}' }] } });
+      expect(readOperation).toHaveBeenCalledExactlyOnceWith(
+        configuration,
+        operation,
+        parameters ?? {},
+      );
+      await server.close();
+    },
+  );
+
+  it("blocks a direct call after removal from the current tool list", async () => {
+    const { server, request } = await connect();
+    expect(
+      await request("tools/call", {
+        name: "read_wiki_page",
+        arguments: { pageId: "p" },
+      }),
+    ).toMatchObject({ error: { message: "Pages authorization failed." } });
+    expect(readOperation).not.toHaveBeenCalled();
+    await server.close();
+  });
+
+  it.each([
+    new PagesOperationFailure("NOT_FOUND"),
+    new PagesOperationFailure("AMBIGUOUS", {
+      candidates: [{ id: "a", name: "Alpha" }],
+      truncated: false,
+    }),
+  ])(
+    "returns a public business failure without raw diagnostics",
+    async (failure) => {
+      vi.mocked(verifyPages).mockResolvedValue({
+        identity,
+        tools: ["projects.resolve"],
+      });
+      vi.mocked(readOperation).mockRejectedValue(failure);
+      const { server, request } = await connect();
+      expect(
+        await request("tools/call", {
+          name: "resolve_project",
+          arguments: { name: "Alpha" },
+        }),
+      ).toMatchObject({
+        result: {
+          isError: true,
+          content: [
+            {
+              text: JSON.stringify({
+                code: failure.code,
+                ...(failure.details === undefined
+                  ? {}
+                  : { details: failure.details }),
+              }),
+            },
+          ],
+        },
+      });
+      await server.close();
+    },
+  );
+
+  it("redacts persistence and configuration failures on reads", async () => {
+    vi.mocked(verifyPages).mockResolvedValue({
+      identity,
+      tools: ["wiki.tree.read"],
+    });
+    vi.mocked(readOperation).mockRejectedValue(new Error("sentinel-secret"));
+    const first = await connect();
+    expect(
+      await first.request("tools/call", { name: "read_wiki_tree" }),
+    ).toMatchObject({ error: { message: "Pages authorization failed." } });
+    await first.server.close();
+    const second = await connect(() => {
+      throw new Error("sentinel-secret");
+    });
+    expect(
+      await second.request("tools/call", { name: "read_wiki_tree" }),
+    ).toMatchObject({ error: { message: "Pages authorization failed." } });
+    await second.server.close();
   });
 });

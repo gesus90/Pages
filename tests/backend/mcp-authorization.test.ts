@@ -172,13 +172,15 @@ describe("personal stdio credentials", () => {
     });
     await expect(
       fixture.api.handle(created.token, { operation: "verify" }),
-    ).resolves.toMatchObject({ tools: ["projects.names.list"] });
+    ).resolves.toMatchObject({
+      tools: expect.arrayContaining(["projects.names.list", "wiki.search"]),
+    });
     await expect(
       fixture.api.handle(created.token, {
         operation: "projects.create",
         actor: { isAdmin: true },
       }),
-    ).rejects.toMatchObject({ status: 403 });
+    ).rejects.toMatchObject({ status: 400, code: "INVALID_REQUEST" });
     fixture.users.getById.mockRejectedValue(new Error("database unavailable"));
     await expect(fixture.api.verify(created.token)).rejects.toThrow(
       "database unavailable",

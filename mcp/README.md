@@ -235,3 +235,38 @@ Root lint and 100% per-file coverage gates include package source. The
 and [pinned SDK HTTP entry](https://github.com/modelcontextprotocol/typescript-sdk/blob/v2.2.0/docs/serving/http.md)
 provide the protocol basis. Test clients, user/login state and metadata requests
 are isolated or faked; no real account or provider credential is needed.
+
+## Project and wiki reads (A9.5)
+
+The existing `list_project_names` tool still returns names only. The additional
+read-only tools use the same stdio and OAuth transports and verify current rights
+on every call. Reading wiki content does not record a visit.
+
+| Tool              | Pages operation    | Arguments                    | Result                                                                               |
+| ----------------- | ------------------ | ---------------------------- | ------------------------------------------------------------------------------------ |
+| `resolve_project` | `projects.resolve` | `name`                       | Exact trimmed, case-sensitive visible project ID and name                            |
+| `read_project`    | `projects.read`    | `projectId`                  | ID, name, description, status, progress, start and target dates                      |
+| `read_wiki_page`  | `wiki.page.read`   | `pageId`                     | ID, title, complete Markdown, revision, parent, scope and project ID                 |
+| `read_wiki_tree`  | `wiki.tree.read`   | Optional `projectId`         | At most 100 visible nodes (`id`, `title`, `parentId`), visible total and `truncated` |
+| `search_wiki`     | `wiki.search`      | `text`, optional `projectId` | At most 20 visible hits (`id`, `title`, `snippet`), visible total and `truncated`    |
+
+These operations return `{apiVersion:"1",result}`. Arguments are strict; texts and
+IDs accept at most 200 Unicode characters. An optional project must itself be
+visible and active. A tree parent outside the returned project/window is `null`.
+Search snippets contain at most 200 Unicode characters. Counts use the same
+visibility policy as the nodes and snippets, including anchors and ancestors.
+
+Ambiguous project names return `AMBIGUOUS` (HTTP 409), with at most 100 visible
+`error.details.candidates` containing IDs and names, sorted by ID, and `truncated`.
+The client must choose explicitly. Hidden and missing targets both return
+`NOT_FOUND` (404), including another person's private wiki page. Personal admins
+use their administrator scope regardless of their stored UI mode; private content
+continues to belong to its owner. The UI mode remains unchanged.
+
+The complete request envelope is limited to 65,536 UTF-8 bytes before parsing.
+New read response envelopes are limited to 1,048,576 UTF-8 bytes. Oversized content
+returns `PAYLOAD_TOO_LARGE` (413); Markdown is never silently truncated. Unknown
+operations and invalid arguments return `INVALID_REQUEST` (400). MCP business
+errors expose the stable code and visible ambiguity choices; authentication and
+provider failures use a fixed diagnostic. No write, asset, import or SSE operation
+is added by A9.5.

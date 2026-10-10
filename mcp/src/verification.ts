@@ -1,3 +1,5 @@
+import { READ_TOOLS } from "./tools/registry.js";
+
 import { postAgentRequest } from "./pages-client.js";
 
 import type {
@@ -38,7 +40,10 @@ export function readVerifiedIdentity(input: unknown): PagesAgentApiIdentity {
 function isKnownOperation(
   name: string,
 ): name is PagesAgentApiBusinessOperation {
-  return name === "projects.names.list";
+  return (
+    name === "projects.names.list" ||
+    READ_TOOLS.some((entry) => entry.operation === name)
+  );
 }
 
 /**

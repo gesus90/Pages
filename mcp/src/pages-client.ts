@@ -1,3 +1,5 @@
+import { operationFailure } from "./tools/operation-failure.js";
+
 import type { PagesAgentApiRequest } from "../../definition/PagesAgentApi.js";
 import type { PagesConfiguration } from "./configuration.js";
 
@@ -9,6 +11,7 @@ import type { PagesConfiguration } from "./configuration.js";
 export async function postAgentRequest(
   configuration: PagesConfiguration,
   input: PagesAgentApiRequest,
+  options: { readonly businessErrors?: boolean } = {},
 ): Promise<unknown> {
   let response: Response;
   try {
@@ -27,6 +30,11 @@ export async function postAgentRequest(
     throw new Error("Could not reach the Pages agent API.");
   }
   if (!response.ok) {
+    if (options.businessErrors) {
+      const failure = await operationFailure(response);
+      if (failure) throw failure;
+      throw new Error("The Pages agent API rejected the request.");
+    }
     try {
       await response.body?.cancel();
     } catch {

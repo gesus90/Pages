@@ -1,3 +1,6 @@
+import { WikiRepository } from "@/backend/database/repositories/WikiRepository";
+import { AgentOperationRouter } from "@/backend/service/agents/AgentOperationRouter";
+
 import { PersonalAgentTokenRepository } from "@/backend/database/repositories/mcp/PersonalAgentTokenRepository";
 import { McpOAuthRepository } from "@/backend/database/repositories/mcp/McpOAuthRepository";
 import { PagesAgentApiService } from "@/backend/service/PagesAgentApiService";
@@ -53,6 +56,11 @@ export function createMcpServices(
       personalAgentTokenService,
       oauthTokenService,
       new AgentProjectService(new ProjectRepository(database)),
+      new AgentOperationRouter({
+        projects: new ProjectRepository(database),
+        wiki: new WikiRepository(database),
+        users,
+      }),
     ),
     oauthConsentService: new OAuthConsentService({
       repository,

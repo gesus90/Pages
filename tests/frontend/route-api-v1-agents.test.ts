@@ -6,6 +6,7 @@ vi.mock("@/app/lib/services.server", () => ({
 }));
 
 import { getApplicationServices } from "@/app/lib/services.server";
+import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
 import type { ApplicationServices } from "@/app/lib/services.server";
 
@@ -171,4 +172,67 @@ describe("version 1 agent API foundation", () => {
       });
     },
   );
+});
+
+describe("A9.5 route failures", () => {
+  it.each([
+    "INVALID_REQUEST",
+    "NOT_FOUND",
+    "AMBIGUOUS",
+    "PAYLOAD_TOO_LARGE",
+  ] as const)("maps %s to the stable business status", async (code) => {
+    verify.mockResolvedValue({ userId: "reader" });
+    const details =
+      code === "AMBIGUOUS"
+        ? { candidates: [{ id: "a", name: "Alpha" }], truncated: false }
+        : undefined;
+    const error = new AgentOperationError(code, details);
+    handle.mockRejectedValue(error);
+    const response = await action(
+      args(
+        new Request("http://127.0.0.1/api/v1/agents", {
+          method: "POST",
+          headers: {
+            Authorization: "Bearer isolated-token",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ operation: "wiki.tree.read", parameters: {} }),
+        }),
+      ),
+    );
+    expect(response.status).toBe(error.status);
+    expect(await response.json()).toEqual({
+      apiVersion: "1",
+      error: {
+        code,
+        message: "The agent API request was rejected.",
+        retryable: false,
+        ...(details === undefined ? {} : { details }),
+      },
+    });
+  });
+
+  it("rejects an oversized authenticated body before parsing or dispatch", async () => {
+    verify.mockResolvedValue({ userId: "reader" });
+    const parse = vi.spyOn(JSON, "parse");
+    const response = await action(
+      args(
+        new Request("http://127.0.0.1/api/v1/agents", {
+          method: "POST",
+          headers: {
+            Authorization: "Bearer isolated-token",
+            "Content-Type": "application/json",
+          },
+          body: "ä".repeat(32769),
+        }),
+      ),
+    );
+    expect(response.status).toBe(413);
+    expect(handle).not.toHaveBeenCalled();
+    expect(parse).not.toHaveBeenCalled();
+    parse.mockRestore();
+    expect(await response.json()).toMatchObject({
+      error: { code: "PAYLOAD_TOO_LARGE" },
+    });
+  });
 });

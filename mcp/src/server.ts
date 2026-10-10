@@ -6,6 +6,9 @@ import {
 
 import manifest from "../package.json" with { type: "json" };
 import { listProjectNames } from "./project-names.js";
+import { READ_TOOLS } from "./tools/registry.js";
+import { readOperation } from "./tools/read-operation.js";
+import { PagesOperationFailure } from "./tools/operation-failure.js";
 import { verifyPages } from "./verification.js";
 
 import type { PagesConfiguration } from "./configuration.js";
@@ -36,7 +39,7 @@ async function authorized<Result>(
 }
 
 /**
- * Creates the server exposing exactly the project-name listing.
+ * Creates the server exposing project names and the A9.5 read tools.
  * Pages verifies and authorizes every list and call anew with the configuration
  * resolved for that request; the list only contains what Pages currently allows.
  */
@@ -48,12 +51,51 @@ export function createServer(resolve: () => PagesConfiguration): McpServer {
   server.server.setRequestHandler("tools/list", async () => {
     const { tools } = await authorized(() => verifyPages(resolve()));
     return {
-      tools: tools.includes("projects.names.list")
-        ? [LIST_PROJECT_NAMES_TOOL]
-        : [],
+      tools: [
+        ...(tools.includes("projects.names.list")
+          ? [LIST_PROJECT_NAMES_TOOL]
+          : []),
+        ...READ_TOOLS.filter((entry) => tools.includes(entry.operation)).map(
+          (entry) => entry.tool,
+        ),
+      ],
     };
   });
   server.server.setRequestHandler("tools/call", async (request) => {
+    const readTool = READ_TOOLS.find(
+      (entry) => entry.tool.name === request.params.name,
+    );
+    if (readTool) {
+      const configuration = await authorized(async () => resolve());
+      const verification = await authorized(() => verifyPages(configuration));
+      if (!verification.tools.includes(readTool.operation))
+        throw new Error("Pages authorization failed.");
+      try {
+        const result = await readOperation(
+          configuration,
+          readTool.operation,
+          request.params.arguments ?? {},
+        );
+        return { content: [{ type: "text", text: JSON.stringify(result) }] };
+      } catch (error: unknown) {
+        if (error instanceof PagesOperationFailure)
+          return {
+            isError: true,
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  code: error.code,
+                  ...(error.details === undefined
+                    ? {}
+                    : { details: error.details }),
+                }),
+              },
+            ],
+          };
+        throw new Error("Pages authorization failed.");
+      }
+    }
     if (request.params.name !== LIST_PROJECT_NAMES_TOOL.name) {
       await authorized(() => verifyPages(resolve()));
       throw new ProtocolError(ProtocolErrorCode.InvalidParams, "Unknown tool.");

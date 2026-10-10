@@ -23,7 +23,9 @@ describe("MCP service wiring", () => {
         services.pagesAgentApiService.handle(created.token, {
           operation: "verify",
         }),
-      ).resolves.toMatchObject({ tools: ["projects.names.list"] });
+      ).resolves.toMatchObject({
+        tools: expect.arrayContaining(["projects.names.list", "wiki.search"]),
+      });
       await expect(
         services.oauthConsentService.begin(new URLSearchParams()),
       ).rejects.toMatchObject({ status: 503 });

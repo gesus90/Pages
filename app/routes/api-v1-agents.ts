@@ -1,11 +1,17 @@
 import { getApplicationServices } from "@/app/lib/services.server";
-import { readOAuthJson } from "@/app/lib/oauth-response.server";
+import { readAgentJson } from "@/app/lib/agent-json.server";
+import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
 
+import type { AgentProjectCandidates } from "@/definition/PagesAgentOperations";
 import type { PagesAgentApiErrorCode } from "@/definition/PagesAgentApi";
 import type { Route } from "./+types/api-v1-agents";
 
-function failure(code: PagesAgentApiErrorCode, status: number): Response {
+function failure(
+  code: PagesAgentApiErrorCode,
+  status: number,
+  details?: AgentProjectCandidates,
+): Response {
   return Response.json(
     {
       apiVersion: "1",
@@ -13,6 +19,7 @@ function failure(code: PagesAgentApiErrorCode, status: number): Response {
         code,
         message: "The agent API request was rejected.",
         retryable: false,
+        ...(details === undefined ? {} : { details }),
       },
     },
     {
@@ -39,7 +46,7 @@ async function handleRequest(request: Request): Promise<Response> {
     await services.pagesAgentApiService.verify(token);
     const result = await services.pagesAgentApiService.handle(
       token,
-      await readOAuthJson(request),
+      await readAgentJson(request),
     );
     return Response.json(result, {
       headers: {
@@ -48,6 +55,8 @@ async function handleRequest(request: Request): Promise<Response> {
       },
     });
   } catch (error: unknown) {
+    if (error instanceof AgentOperationError)
+      return failure(error.code, error.status, error.details);
     if (!(error instanceof McpAuthorizationError))
       return failure("AUTH_UNAVAILABLE", 503);
     if (error.status === 401) return failure("AUTH_INVALID", 401);
@@ -58,7 +67,7 @@ async function handleRequest(request: Request): Promise<Response> {
   }
 }
 
-/** Handles only verified API operations: `verify` and the project-name listing. */
+/** Handles verified project and wiki reads through the versioned agent API. */
 export async function action({ request }: Route.ActionArgs): Promise<Response> {
   return handleRequest(request);
 }

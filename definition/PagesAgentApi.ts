@@ -1,3 +1,8 @@
+import type {
+  PagesAgentReadOperation,
+  AgentProjectCandidates,
+} from "./PagesAgentOperations.js";
+
 /** JSON operation envelope reserved for the version 1 Pages agent API. */
 export interface PagesAgentApiRequest {
   readonly operation: string;
@@ -12,7 +17,8 @@ export interface PagesAgentApiIdentity {
 }
 
 /** Business operations Pages may offer to a verified identity. */
-export type PagesAgentApiBusinessOperation = "projects.names.list";
+export type PagesAgentApiBusinessOperation =
+  "projects.names.list" | PagesAgentReadOperation;
 
 /** Result of `verify`: the current identity and the business operations it may call. */
 export interface PagesAgentApiVerification {
@@ -34,7 +40,10 @@ export type PagesAgentApiErrorCode =
   | "AUTH_UNAVAILABLE"
   | "INVALID_REQUEST"
   | "FORBIDDEN"
-  | "METHOD_NOT_ALLOWED";
+  | "METHOD_NOT_ALLOWED"
+  | "NOT_FOUND"
+  | "AMBIGUOUS"
+  | "PAYLOAD_TOO_LARGE";
 
 /** Public error envelope without credentials or underlying diagnostic messages. */
 export interface PagesAgentApiFailure {
@@ -43,5 +52,6 @@ export interface PagesAgentApiFailure {
     readonly code: PagesAgentApiErrorCode;
     readonly message: string;
     readonly retryable: false;
+    readonly details?: AgentProjectCandidates;
   };
 }

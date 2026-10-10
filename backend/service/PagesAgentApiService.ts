@@ -1,5 +1,9 @@
+import { PAGES_AGENT_READ_OPERATIONS } from "@/definition/PagesAgentOperations";
+
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
 
+import type { AgentOperationRouter } from "./agents/AgentOperationRouter";
+import type { PagesAgentReadResponse } from "@/definition/PagesAgentOperations";
 import type { AgentProjectService } from "./mcp/AgentProjectService";
 import type { PersonalAgentTokenService } from "./mcp/PersonalAgentTokenService";
 import type { OAuthTokenService } from "./mcp/OAuthTokenService";
@@ -14,15 +18,18 @@ export class PagesAgentApiService {
   private readonly personal: PersonalAgentTokenService;
   private readonly oauth: OAuthTokenService;
   private readonly projects: AgentProjectService;
+  private readonly operations: AgentOperationRouter;
 
   public constructor(
     personal: PersonalAgentTokenService,
     oauth: OAuthTokenService,
     projects: AgentProjectService,
+    operations: AgentOperationRouter,
   ) {
     this.personal = personal;
     this.oauth = oauth;
     this.projects = projects;
+    this.operations = operations;
   }
 
   /** Resolves current rights; OAuth access tokens are never accepted as API credentials. */
@@ -51,18 +58,26 @@ export class PagesAgentApiService {
    * @remarks
    * Reading project names needs no capability: reading is always enabled within the
    * permitted scope, so every verified identity is offered it. The caller never supplies
-   * an identity, and unknown operations are forbidden.
+   * an identity; unknown operations are invalid requests.
    */
   public async handle(
     token: string,
     input: Readonly<Record<string, unknown>>,
-  ): Promise<PagesAgentApiVerification | PagesAgentApiProjectNames> {
+  ): Promise<
+    | PagesAgentApiVerification
+    | PagesAgentApiProjectNames
+    | PagesAgentReadResponse
+  > {
     const identity = await this.verify(token);
     if (input.operation === "verify") {
-      return { apiVersion: "1", identity, tools: ["projects.names.list"] };
+      return {
+        apiVersion: "1",
+        identity,
+        tools: ["projects.names.list", ...PAGES_AGENT_READ_OPERATIONS],
+      };
     }
     if (input.operation !== "projects.names.list") {
-      throw new McpAuthorizationError("FORBIDDEN", 403);
+      return this.operations.handle(identity, input);
     }
     const parameters = input.parameters === undefined ? {} : input.parameters;
     if (

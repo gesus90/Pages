@@ -1,3 +1,6 @@
+import { WikiRepository } from "@/backend/database/repositories/WikiRepository";
+import { AgentOperationRouter } from "@/backend/service/agents/AgentOperationRouter";
+
 import { createHash } from "node:crypto";
 import { vi } from "vitest";
 
@@ -75,6 +78,11 @@ export function wireFixture(database: Database) {
       personal,
       tokens,
       new AgentProjectService(new ProjectRepository(database)),
+      new AgentOperationRouter({
+        projects: new ProjectRepository(database),
+        wiki: new WikiRepository(database),
+        users,
+      }),
     ),
   };
 }

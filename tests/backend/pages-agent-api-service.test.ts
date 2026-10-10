@@ -1,3 +1,7 @@
+import { AgentOperationRouter } from "@/backend/service/agents/AgentOperationRouter";
+import { PAGES_AGENT_READ_OPERATIONS } from "@/definition/PagesAgentOperations";
+import { AgentOperationError } from "@/backend/error/AgentOperationError";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
@@ -11,15 +15,20 @@ const identity = { userId: "owner", isAdmin: false, permissions: [] };
 const personal = { verify: vi.fn() };
 const oauth = { verifyDelegation: vi.fn() };
 const projects = { listNames: vi.fn() };
+const operations = { handle: vi.fn() };
 const service = new PagesAgentApiService(
   personal as unknown as PersonalAgentTokenService,
   oauth as unknown as OAuthTokenService,
   projects as unknown as AgentProjectService,
+  operations as unknown as AgentOperationRouter,
 );
 
 beforeEach(() => {
   vi.resetAllMocks();
   personal.verify.mockResolvedValue(identity);
+  operations.handle.mockRejectedValue(
+    new AgentOperationError("INVALID_REQUEST"),
+  );
   projects.listNames.mockResolvedValue(["Alpha", "Beta"]);
 });
 
@@ -30,7 +39,7 @@ describe("agent API operations", () => {
     ).resolves.toEqual({
       apiVersion: "1",
       identity,
-      tools: ["projects.names.list"],
+      tools: ["projects.names.list", ...PAGES_AGENT_READ_OPERATIONS],
     });
     expect(projects.listNames).not.toHaveBeenCalled();
   });
@@ -63,14 +72,30 @@ describe("agent API operations", () => {
     },
   );
 
-  it("forbids every other operation", async () => {
+  it("rejects unknown operations with INVALID_REQUEST", async () => {
     for (const operation of [undefined, "", "projects.create", "projects.list"])
       await expect(
         service.handle("token", { operation }),
       ).rejects.toMatchObject({
-        status: 403,
+        status: 400,
+        code: "INVALID_REQUEST",
       });
     expect(projects.listNames).not.toHaveBeenCalled();
+  });
+
+  it("dispatches a read only with the freshly verified identity", async () => {
+    operations.handle.mockResolvedValue({
+      apiVersion: "1",
+      result: { id: "alpha", name: "Alpha" },
+    });
+    const input = {
+      operation: "projects.resolve",
+      parameters: { name: "Alpha" },
+    };
+    await expect(service.handle("token", input)).resolves.toMatchObject({
+      result: { id: "alpha" },
+    });
+    expect(operations.handle).toHaveBeenCalledExactlyOnceWith(identity, input);
   });
 
   it("never reads projects for an unverified, revoked or unavailable credential", async () => {
