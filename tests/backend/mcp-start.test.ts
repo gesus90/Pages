@@ -7,7 +7,10 @@ vi.mock(
 vi.mock("../../mcp/src/configuration", () => ({ readConfiguration: vi.fn() }));
 vi.mock("../../mcp/src/server", () => ({ createServer: vi.fn() }));
 vi.mock("../../mcp/src/verification", () => ({ verifyPages: vi.fn() }));
-vi.mock("../../mcp/src/http-configuration", () => ({
+vi.mock("../../mcp/src/http-configuration", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("../../mcp/src/http-configuration")
+  >()),
   readHttpConfiguration: vi.fn(),
 }));
 vi.mock("../../mcp/src/http-server", () => ({ startHttpServer: vi.fn() }));
@@ -17,7 +20,10 @@ import { readConfiguration } from "../../mcp/src/configuration";
 import { createServer } from "../../mcp/src/server";
 import { verifyPages } from "../../mcp/src/verification";
 import { startHttpServer } from "../../mcp/src/http-server";
-import { readHttpConfiguration } from "../../mcp/src/http-configuration";
+import {
+  HttpOptionError,
+  readHttpConfiguration,
+} from "../../mcp/src/http-configuration";
 import { start } from "../../mcp/src/start";
 
 const originalArguments = process.argv;
@@ -80,6 +86,19 @@ describe("MCP startup", () => {
     if (!shutdown) throw new Error("Missing shutdown");
     shutdown();
     expect(close).toHaveBeenCalledOnce();
+  });
+  it("names a rejected HTTP option with fixed text and no value", async () => {
+    process.argv.push("--http", "--host", "sentinel-secret");
+    vi.mocked(readHttpConfiguration).mockImplementationOnce(() => {
+      throw new HttpOptionError("host");
+    });
+    await start();
+    expect(process.exitCode).toBe(1);
+    expect(console.error).toHaveBeenCalledExactlyOnceWith(
+      "[pages-mcp] --host accepts only 127.0.0.1, ::1 or localhost; remote access needs a TLS reverse proxy.",
+    );
+    expect(startHttpServer).not.toHaveBeenCalled();
+    expect(readConfiguration).not.toHaveBeenCalled();
   });
   it("starts the entry point", async () => {
     await import("../../mcp/src/main");

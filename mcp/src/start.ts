@@ -3,7 +3,10 @@ import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { readConfiguration } from "./configuration.js";
 import { createServer } from "./server.js";
 import { verifyPages } from "./verification.js";
-import { readHttpConfiguration } from "./http-configuration.js";
+import {
+  HttpOptionError,
+  readHttpConfiguration,
+} from "./http-configuration.js";
 import { startHttpServer } from "./http-server.js";
 
 /** Starts stdio after validation; all unexpected diagnostics are fixed, token-free text. */
@@ -24,9 +27,11 @@ export async function start(): Promise<void> {
     const configuration = readConfiguration(process.env);
     await verifyPages(configuration);
     serveStdio(() => createServer(() => configuration));
-  } catch {
+  } catch (error: unknown) {
     console.error(
-      "[pages-mcp] Startup failed. Check PAGES_URL, PAGES_TOKEN (stdio), HTTP options and Pages authorization.",
+      error instanceof HttpOptionError
+        ? `[pages-mcp] ${error.message}`
+        : "[pages-mcp] Startup failed. Check PAGES_URL, PAGES_TOKEN (stdio), HTTP options and Pages authorization.",
     );
     process.exitCode = 1;
   }

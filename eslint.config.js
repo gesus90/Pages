@@ -10,6 +10,7 @@ const typedSourceFiles = [
   "definition/**/*.ts",
   "language/**/*.ts",
   "mcp/src/**/*.ts",
+  "mcp/scripts/**/*.ts",
 ];
 
 /** ESLint flat configuration for Pages. */

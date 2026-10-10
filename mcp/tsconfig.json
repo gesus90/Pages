@@ -18,5 +18,5 @@
     "types": ["node"],
     "verbatimModuleSyntax": true
   },
-  "include": ["src", "build.config.ts"]
+  "include": ["src", "scripts", "build.config.ts"]
 }

@@ -1,4 +1,6 @@
 import { request } from "node:http";
+import { connect } from "node:net";
+import { networkInterfaces } from "node:os";
 import { promisify } from "node:util";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -26,6 +28,7 @@ describe("loopback HTTP listener failures", () => {
       issuer: "https://pages.invalid",
       agentsUrl: new URL("https://pages.invalid/api/v1/agents"),
       resource: new URL("https://mcp.invalid/mcp"),
+      host: "127.0.0.1",
       port: 0,
     };
     const server = await startHttpServer(configuration);
@@ -75,4 +78,139 @@ describe("loopback HTTP listener failures", () => {
       "sentinel-secret",
     );
   });
+});
+
+const ownAddresses = Object.values(networkInterfaces())
+  .flat()
+  .filter((entry) => entry !== undefined);
+const hasIpv6Loopback = ownAddresses.some((entry) => entry.address === "::1");
+const externalAddress = ownAddresses.find(
+  (entry) => entry.family === "IPv4" && !entry.internal,
+)?.address;
+
+function listenerConfiguration(
+  host: string,
+): Parameters<typeof startHttpServer>[0] {
+  return {
+    issuer: "https://pages.invalid",
+    agentsUrl: new URL("https://pages.invalid/api/v1/agents"),
+    resource: new URL("https://mcp.invalid/mcp"),
+    host,
+    port: 0,
+  };
+}
+
+function listenerPort(
+  server: Awaited<ReturnType<typeof startHttpServer>>,
+): number {
+  const address = server.address();
+  if (!address || typeof address === "string") {
+    throw new Error("Expected a TCP listener");
+  }
+  return address.port;
+}
+
+function connectionOutcome(host: string, port: number): Promise<string> {
+  return new Promise((resolve) => {
+    const socket = connect({ host, port });
+    socket.once("connect", () => {
+      socket.destroy();
+      resolve("connected");
+    });
+    socket.once("error", (error: NodeJS.ErrnoException) => {
+      resolve(error.code ?? "error");
+    });
+  });
+}
+
+describe("loopback listener address", () => {
+  it("honors Connection: close even when the SDK requests keep-alive", async () => {
+    fetchResource.mockResolvedValue(
+      Response.json({}, { headers: { Connection: "keep-alive" } }),
+    );
+    const server = await startHttpServer(listenerConfiguration("127.0.0.1"));
+    try {
+      const response = await new Promise<{
+        status: number | undefined;
+        connection: string | undefined;
+      }>((resolve, reject) => {
+        const outgoing = request(
+          {
+            host: "127.0.0.1",
+            port: listenerPort(server),
+            path: "/mcp",
+            headers: { Host: "mcp.invalid", Connection: "close" },
+          },
+          (incoming) => {
+            incoming.resume();
+            resolve({
+              status: incoming.statusCode,
+              connection: incoming.headers.connection,
+            });
+          },
+        );
+        outgoing.on("error", reject);
+        outgoing.end();
+      });
+      expect(response.status).toBe(200);
+      expect(response.connection).toBe("close");
+    } finally {
+      await promisify(server.close.bind(server))();
+    }
+  });
+
+  it("binds only the configured loopback address", async () => {
+    const server = await startHttpServer(listenerConfiguration("127.0.0.1"));
+    try {
+      const address = server.address();
+      expect(address).toMatchObject({ address: "127.0.0.1", family: "IPv4" });
+      expect(await connectionOutcome("127.0.0.1", listenerPort(server))).toBe(
+        "connected",
+      );
+    } finally {
+      await promisify(server.close.bind(server))();
+    }
+  });
+
+  it.runIf(hasIpv6Loopback)("binds the IPv6 loopback address ::1", async () => {
+    const server = await startHttpServer(listenerConfiguration("::1"));
+    try {
+      expect(server.address()).toMatchObject({
+        address: "::1",
+        family: "IPv6",
+      });
+      expect(await connectionOutcome("::1", listenerPort(server))).toBe(
+        "connected",
+      );
+    } finally {
+      await promisify(server.close.bind(server))();
+    }
+  });
+
+  it("resolves localhost to a loopback address", async () => {
+    const server = await startHttpServer(listenerConfiguration("localhost"));
+    try {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        throw new Error("Expected a TCP listener");
+      }
+      expect(["127.0.0.1", "::1"]).toContain(address.address);
+    } finally {
+      await promisify(server.close.bind(server))();
+    }
+  });
+
+  it.runIf(externalAddress !== undefined)(
+    "refuses a connection through a non-loopback address of this machine",
+    async () => {
+      const server = await startHttpServer(listenerConfiguration("127.0.0.1"));
+      try {
+        expect(
+          await connectionOutcome(externalAddress ?? "", listenerPort(server)),
+        ).toBe("ECONNREFUSED");
+      } finally {
+        await promisify(server.close.bind(server))();
+      }
+    },
+  );
 });

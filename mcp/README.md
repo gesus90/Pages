@@ -1,8 +1,10 @@
 # Pages MCP 0.1.0
 
-A9.2 implements personal stdio-token verification and protected HTTP with Pages
-OAuth. A9.3 adds exactly one read-only function, `list_project_names`; further
-business tools and release automation belong to later stages.
+One bundle serves local clients over stdio and shared instances over Streamable
+HTTP behind an HTTPS reverse proxy. Authentication is a personal token for stdio
+and Pages OAuth for HTTP. The package exposes exactly one read-only function,
+`list_project_names`; further business tools belong to later stages. Releases are
+published from `mcp-vMAJOR.MINOR.PATCH` tags (see Releases below).
 
 Requires Node.js >=24; Node 24 LTS is the tested runtime. Copy the single
 `pages-mcp-v0.1.0.js` outside every package tree declaring `"type": "module"`.
@@ -28,10 +30,56 @@ the process. The pinned SDK supports both legacy initialization and current MCP.
 ## Protected HTTP
 
 Start the same bundle with `--http --resource https://mcp.example.com/mcp`, optionally
-`--port 8998`. Set `PAGES_URL` to the Pages authorization server's origin. HTTP mode
-ignores `PAGES_TOKEN`. The listener binds only 127.0.0.1 (default port 8998).
-A trusted reverse proxy must terminate HTTPS and preserve Host and Authorization.
-There is no hosting configuration or deployment in A9.2.
+`--port 8998` and `--host 127.0.0.1`. Set `PAGES_URL` to the Pages authorization
+server's origin. HTTP mode ignores `PAGES_TOKEN`. The listener serves `/mcp` and binds
+only a loopback address: `127.0.0.1` by default on port 8998. `--host` accepts
+exactly `127.0.0.1`, `::1` or `localhost`; any other value (for example `0.0.0.0`) is
+a startup error that names the option and never echoes its value. The port is free
+to choose, and the options may appear in any order. Plain HTTP is therefore
+loopback-only; remote clients always use HTTPS through a reverse proxy.
+
+### Remote operation behind an HTTPS reverse proxy
+
+TLS ends at a trusted reverse proxy on the same machine; the proxy forwards to the
+loopback listener. Do not publish the listener on a non-loopback address, do not
+forward it with a plain TCP/port mapping, and never put tokens into URLs or logs.
+
+- Public URL: `https://mcp.example.com/mcp`, the same value passed as `--resource`
+  and configured in Pages as `PAGES_MCP_RESOURCE`. The certificate must match that
+  name and be trusted by the clients; a DNS name with a valid certificate is
+  recommended. The `/.well-known/oauth-protected-resource` paths are served by the
+  same listener and must be forwarded too.
+- Target: `127.0.0.1:8998` (or the chosen loopback `--host`/`--port`).
+- The proxy must pass `Host` unchanged (the listener rejects any other Host with 403) and must pass `Authorization` unchanged. Origin is checked and no CORS
+  wildcard is offered; query strings on `/mcp` are rejected.
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name mcp.example.com;
+    # ssl_certificate and ssl_certificate_key for mcp.example.com
+
+    location / {
+        proxy_pass http://127.0.0.1:8998;
+        proxy_set_header Host $http_host;
+        proxy_set_header Authorization $http_authorization;
+        proxy_http_version 1.1;
+    }
+}
+```
+
+Known limitation: Pages itself behind a TLS-terminating proxy. Pages builds request
+URLs from the connection it sees (plain HTTP behind the proxy), and React Router
+answers a browser form post with 400 when the `Origin` scheme (https) differs from
+that URL. Until Pages offers a trusted-proxy or allowed-origin setting, this blocks
+the Pages login and the OAuth consent page when the public Pages URL is HTTPS; it
+does not affect the MCP listener. Verified only on a local loopback topology.
+
+Without a Bearer credential `/mcp` answers 401 JSON with `Cache-Control: no-store`.
+OpenClaw 2026.9.8 allows private or loopback targets only for the origin of the
+configured MCP URL and blocks an authorization server on another private origin
+(A9.3-E12). Public HTTPS names are not private; run Pages OAuth and the MCP
+resource under public HTTPS names, or serve both below one origin.
 
 Configure Pages with `PAGES_OAUTH_ISSUER` (the exact origin without a trailing slash)
 and `PAGES_MCP_RESOURCE` (the exact public `/mcp` URL). These are public URLs, not
@@ -129,6 +177,47 @@ dispatches two operations:
 Stable failures use `{apiVersion:"1", error:{code,message,retryable:false}}`:
 `AUTH_REQUIRED`, `AUTH_INVALID`, `AUTH_UNAVAILABLE`, `INVALID_REQUEST`, `FORBIDDEN`,
 `METHOD_NOT_ALLOWED`. Every response includes no-store and nosniff headers.
+
+## Client examples
+
+`examples/clients/` holds one file per client with placeholders only: instance URL,
+bundle path and a reference to the token variable. Replace `pages.example.com`,
+`mcp.example.com` and the bundle path; never commit a token.
+
+| File                  | Client     | stdio (token from the environment) | HTTP (OAuth)                        |
+| --------------------- | ---------- | ---------------------------------- | ----------------------------------- |
+| `claude-cli.mcp.json` | Claude CLI | `${PAGES_TOKEN}` expansion         | `type: http`, authenticate in-app   |
+| `codex-config.toml`   | Codex      | `env_vars = ["PAGES_TOKEN"]`       | `url`, then `codex mcp login`       |
+| `openclaw.json`       | OpenClaw 2 | `${PAGES_TOKEN}` expansion         | `auth: oauth`, `openclaw mcp login` |
+| `opencode.json`       | OpenCode   | `{env:PAGES_TOKEN}`                | `type: remote`, `opencode mcp auth` |
+
+## Releases
+
+Tag a commit as `mcp-vMAJOR.MINOR.PATCH` (for example `mcp-v0.2.0`). GitHub Actions
+runs the same gates as the CI for pull requests and `main`, then builds the package
+in an isolated working copy whose `package.json` and README carry the tag's version,
+builds the bundle twice and compares both SHA-256 values, and only after all of that
+publishes a GitHub Release with `pages-mcp-v<version>.zip` and
+`pages-mcp-v<version>.zip.sha256`. An invalid tag or a failing check publishes
+nothing, nothing is committed to `main`, and no npm package is published. The tag is
+the only source of the version; the version in the repository's `mcp/package.json`
+is the development default.
+
+The archive contains one folder `pages-mcp-v<version>/` with the bundle,
+`pages-mcp-v<version>.js.sha256`, a runtime `package.json` (CommonJS, so the bundle
+starts next to it), this README and `examples/clients/`. No token or instance URL is
+built in; the packaging script fails when a configured value or an address outside
+the placeholder hosts would be archived.
+
+```sh
+sha256sum --check pages-mcp-v<version>.zip.sha256
+unzip pages-mcp-v<version>.zip
+node pages-mcp-v<version>/pages-mcp-v<version>.js   # configured by environment, see above
+```
+
+Locally, `node mcp/scripts/package-release.ts package mcp-vX.Y.Z <output-directory>`
+produces the same archive after `pnpm --dir mcp install --frozen-lockfile`;
+`node mcp/scripts/package-release.ts tag <tag>` only validates a tag.
 
 ## Package checks
 

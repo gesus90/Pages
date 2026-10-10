@@ -1,0 +1,82 @@
+name: mcp-release
+
+# A tag `mcp-vMAJOR.MINOR.PATCH` is the only source of the package version.
+# The same gates as the CI run first; the release is published only after all
+# of them succeed. Nothing is committed to `main` and no npm package is made.
+on:
+  push:
+    tags: ["mcp-v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mcp-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # An invalid tag such as `mcp-v1.2` or `mcp-v1.2.3-rc.1` stops here.
+      - id: version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="$(node mcp/scripts/package-release.ts tag "$TAG")"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+  verify:
+    needs: tag
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    needs: [tag, verify]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # Reads the `packageManager` field of package.json.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: mcp/pnpm-lock.yaml
+
+      - run: pnpm --dir mcp install --frozen-lockfile
+
+      # Sets the version in an isolated copy, builds the bundle twice, compares
+      # both SHA-256 values and writes the archive and its checksum file.
+      - name: Package
+        env:
+          TAG: ${{ github.ref_name }}
+        run: node mcp/scripts/package-release.ts package "$TAG" "$RUNNER_TEMP/release"
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.tag.outputs.version }}
+        run: |
+          archive="$RUNNER_TEMP/release/pages-mcp-v${VERSION}.zip"
+          checksum="$(cut -d ' ' -f 1 "${archive}.sha256")"
+          notes="$(printf 'Pages MCP %s\n\nSHA-256 of pages-mcp-v%s.zip:\n\n    %s\n' "$VERSION" "$VERSION" "$checksum")"
+          gh release create "$TAG" "$archive" "${archive}.sha256" \
+            --verify-tag \
+            --latest=false \
+            --title "Pages MCP ${VERSION}" \
+            --notes "$notes"

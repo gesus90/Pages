@@ -40,14 +40,22 @@ async function respond(
       },
     );
     const response = await resource.fetch(request);
-    outgoing.writeHead(response.status, Object.fromEntries(response.headers));
+    const responseHeaders = Object.fromEntries(response.headers);
+    // Node must honor a client's Connection: close, even when the SDK serves legacy SSE.
+    delete responseHeaders.connection;
+    outgoing.writeHead(response.status, responseHeaders);
     outgoing.end(Buffer.from(await response.arrayBuffer()));
   } catch {
     outgoing.writeHead(503).end();
   }
 }
 
-/** Opens only a loopback listener; remote HTTP requires a trusted HTTPS reverse proxy. */
+/**
+ * Opens only a loopback listener; remote HTTP requires a trusted HTTPS reverse proxy.
+ *
+ * @param configuration - Validated options; `host` is always a loopback address.
+ * @returns The listening server, closed by the caller on shutdown.
+ */
 export async function startHttpServer(
   configuration: HttpConfiguration,
 ): Promise<Server> {
@@ -62,7 +70,7 @@ export async function startHttpServer(
   });
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
-    server.listen(configuration.port, "127.0.0.1", resolve);
+    server.listen(configuration.port, configuration.host, resolve);
   });
   server.on("error", () => console.error("[pages-mcp] HTTP server failed."));
   return server;

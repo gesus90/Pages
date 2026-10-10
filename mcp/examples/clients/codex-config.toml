@@ -1,0 +1,13 @@
+# Add to ~/.codex/config.toml. Export PAGES_TOKEN in the environment that starts Codex;
+# `env_vars` forwards it, so the token is never written into this file.
+[mcp_servers.pages]
+command = "node"
+args = ["/path/to/pages-mcp-vX.Y.Z.js"]
+env_vars = ["PAGES_TOKEN"]
+
+[mcp_servers.pages.env]
+PAGES_URL = "https://pages.example.com"
+
+# Streamable HTTP behind an HTTPS reverse proxy; authenticate with `codex mcp login pages-http`.
+[mcp_servers.pages-http]
+url = "https://mcp.example.com/mcp"

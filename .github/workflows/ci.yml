@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  # The MCP release workflow runs exactly these gates before it publishes anything.
+  workflow_call:
 
 permissions:
   contents: read
@@ -15,7 +17,7 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -26,21 +28,30 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            mcp/pnpm-lock.yaml
 
       - run: pnpm install --frozen-lockfile
+
+      # The MCP package has its own manifest and lockfile. The root tests import
+      # its sources and its installed SDK, so it is installed before any gate.
+      - run: pnpm --dir mcp install --frozen-lockfile
 
       # Runs `react-router typegen`, `tsc --noEmit` and `prettier --check`.
       - run: pnpm run check
 
       - run: pnpm run lint
 
-      - run: pnpm exec vitest run
+      # Type check and format check of the MCP package.
+      - run: pnpm --dir mcp run check
 
-      # Coverage thresholds (100% per file) are reported but do not block the
-      # pipeline until the coverage policy is decided.
+      # Every test, with the 100% per-file coverage thresholds. A failing test
+      # or a coverage miss fails the job.
       - run: pnpm test
-        continue-on-error: true
 
       - run: pnpm run build
+
+      - run: pnpm --dir mcp run build
 
       - run: pnpm audit --prod --audit-level=high
