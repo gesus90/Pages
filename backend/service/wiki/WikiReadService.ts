@@ -3,13 +3,17 @@ import { WikiPageNotFoundError } from "@/backend/error/WikiErrors";
 import { describePermissions } from "./WikiAccess";
 import { WikiPageReader } from "./WikiPageReader";
 
-import type { WikiRepository } from "@/backend/database/repositories/WikiRepository";
+import type {
+  WikiPageRecord,
+  WikiRepository,
+} from "@/backend/database/repositories/WikiRepository";
 import type { User } from "@/definition/User";
 import type {
   WikiHome,
   WikiNavigation,
   WikiPageView,
   WikiPrivatePlaceholder,
+  WikiTreeNode,
 } from "@/definition/Wiki";
 import type { WikiAccess } from "./WikiAccess";
 import type { WikiTrashService } from "./WikiTrashService";
@@ -90,6 +94,21 @@ export class WikiReadService {
         permissions: describePermissions(viewer, record),
       },
     };
+  }
+
+  /** Reads a visible record without visits or private placeholders, for agent queries and previews. */
+  public async readWithoutVisit(
+    actor: User,
+    id: string,
+  ): Promise<WikiPageRecord> {
+    const viewer = await this.access.resolve(actor);
+    return new WikiPageReader(this.repository).require(viewer.scope, id);
+  }
+
+  /** Lists visible navigation nodes without loading personal UI state. */
+  public async visibleNodes(actor: User): Promise<WikiTreeNode[]> {
+    const viewer = await this.access.resolve(actor);
+    return this.repository.pages.listNodes(viewer.scope);
   }
 
   /**

@@ -1,17 +1,17 @@
 import { readCountColumn, readTextColumn } from "@/backend/database/RowValue";
 
-import type { Database } from "@/backend/database/Database";
+import type { TaskDatabase } from "./TaskDatabase";
 
 /** Owns the project key and the sequential ticket numbers of work items. */
 export class WorkItemKeyRepository {
-  private readonly database: Database;
+  private readonly database: TaskDatabase;
 
   /**
    * Creates a work item key repository.
    *
    * @param database - Central database access.
    */
-  public constructor(database: Database) {
+  public constructor(database: TaskDatabase) {
     this.database = database;
   }
 

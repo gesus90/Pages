@@ -2,6 +2,7 @@ import {
   DAY_IN_MS,
   addMonths,
   addQuarters,
+  addWeeks,
   formatMonthYear,
   getIsoWeek,
   getQuarterLabel,
@@ -72,7 +73,7 @@ export function shiftBoundary(
   units: number,
 ): number {
   if (view === "weeks") {
-    return time + units * 7 * DAY_IN_MS;
+    return addWeeks(time, units);
   }
 
   if (view === "months") {
@@ -98,8 +99,8 @@ export function buildDefaultWindow(
   if (times.length === 0) {
     if (view === "weeks") {
       return {
-        end: startOfWeekMonday(today) + 12 * 7 * DAY_IN_MS,
-        start: startOfWeekMonday(today) - 7 * DAY_IN_MS,
+        end: addWeeks(startOfWeekMonday(today), 12),
+        start: addWeeks(startOfWeekMonday(today), -1),
       };
     }
 
@@ -125,8 +126,8 @@ export function buildDefaultWindow(
       : minimum;
 
   if (view === "weeks") {
-    const start = startOfWeekMonday(anchor) - 6 * 7 * DAY_IN_MS;
-    return { end: start + 20 * 7 * DAY_IN_MS, start };
+    const start = addWeeks(startOfWeekMonday(anchor), -6);
+    return { end: addWeeks(start, 20), start };
   }
 
   if (view === "months") {
@@ -153,8 +154,8 @@ export function extendWindow(
 ): TimeWindow {
   if (view === "weeks") {
     return direction === "start"
-      ? { end: window.end, start: window.start - 8 * 7 * DAY_IN_MS }
-      : { end: window.end + 8 * 7 * DAY_IN_MS, start: window.start };
+      ? { end: window.end, start: addWeeks(window.start, -8) }
+      : { end: addWeeks(window.end, 8), start: window.start };
   }
 
   if (view === "months") {
@@ -232,7 +233,7 @@ export function buildColumns(
     for (
       let time = startOfWeekMonday(window.start);
       time < window.end;
-      time += 7 * DAY_IN_MS
+      time = addWeeks(time, 1)
     ) {
       columns.push({
         key: `week-${time}`,
@@ -425,7 +426,7 @@ export function shiftWindow(
 
   if (view === "weeks") {
     const weeks = Math.max(1, Math.round(span / 2 / (7 * DAY_IN_MS)));
-    shiftedStart = window.start + sign * weeks * 7 * DAY_IN_MS;
+    shiftedStart = addWeeks(window.start, sign * weeks);
   } else if (view === "months") {
     const months = Math.max(1, Math.round(span / 2 / (30 * DAY_IN_MS)));
     shiftedStart = addMonths(window.start, sign * months);

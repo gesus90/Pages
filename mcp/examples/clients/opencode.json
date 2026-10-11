@@ -1,0 +1,16 @@
+{
+  "mcp": {
+    "pages": {
+      "type": "local",
+      "command": ["node", "/path/to/pages-mcp-vX.Y.Z.js"],
+      "environment": {
+        "PAGES_URL": "https://pages.example.com",
+        "PAGES_TOKEN": "{env:PAGES_TOKEN}"
+      }
+    },
+    "pages-http": {
+      "type": "remote",
+      "url": "https://mcp.example.com/mcp"
+    }
+  }
+}

@@ -13,7 +13,6 @@ import { WorkItemLinkRepository } from "./task/WorkItemLinkRepository";
 import { WorkItemQueryRepository } from "./task/WorkItemQueryRepository";
 import { WorkItemWriteRepository } from "./task/WorkItemWriteRepository";
 
-import type { Database } from "@/backend/database/Database";
 import type {
   Milestone,
   MilestoneDependency,
@@ -28,7 +27,12 @@ import type {
 import type { GroupSummary, UserGroup } from "@/definition/UserGroup";
 import type { User } from "@/definition/User";
 import type { NewMilestoneDependency } from "./task/MilestoneDependencyRepository";
-import type { MilestoneUpdate, NewMilestone } from "./task/MilestoneRepository";
+import type { TaskDatabase } from "./task/TaskDatabase";
+import type {
+  MilestoneFieldChange,
+  MilestoneUpdate,
+  NewMilestone,
+} from "./task/MilestoneRepository";
 import type { NewLabel, LabelUpdate } from "./task/TaskLabelRepository";
 import type {
   ChecklistItemUpdate,
@@ -94,7 +98,7 @@ export class TaskRepository {
    *
    * @param database - Central database access.
    */
-  public constructor(database: Database) {
+  public constructor(database: TaskDatabase) {
     this.statuses = new WorkflowStatusRepository(database);
     this.milestones = new MilestoneRepository(database);
     this.dependencies = new MilestoneDependencyRepository(database);
@@ -144,6 +148,14 @@ export class TaskRepository {
     milestone: MilestoneUpdate,
   ): Promise<void> {
     return this.milestones.update(id, milestone);
+  }
+
+  /** Replaces one milestone field while it still holds the base value. */
+  public async updateMilestoneField(
+    id: string,
+    change: MilestoneFieldChange,
+  ): Promise<boolean> {
+    return this.milestones.updateField(id, change);
   }
 
   /** Soft-deletes a milestone without removing its row. */
@@ -338,6 +350,33 @@ export class TaskRepository {
     baseDescription: string,
   ): Promise<boolean> {
     return this.writes.updateDescription(id, description, baseDescription);
+  }
+
+  /** Replaces a title while it still holds the base title. */
+  public async updateTitle(
+    id: string,
+    title: string,
+    baseTitle: string,
+  ): Promise<boolean> {
+    return this.writes.updateTitle(id, title, baseTitle);
+  }
+
+  /** Replaces the status, keeping the sort order, while it is still the base status. */
+  public async updateStatus(
+    id: string,
+    status: { readonly id: string; readonly isDone: boolean },
+    baseStatusId: string,
+  ): Promise<boolean> {
+    return this.writes.updateStatus(id, status, baseStatusId);
+  }
+
+  /** Replaces the parent while it is still the base parent. */
+  public async replaceParent(
+    id: string,
+    parentId: string | null,
+    baseParentId: string | null,
+  ): Promise<boolean> {
+    return this.writes.replaceParent(id, parentId, baseParentId);
   }
 
   /** Sets the parent of an active work item, or removes it with `null`. */

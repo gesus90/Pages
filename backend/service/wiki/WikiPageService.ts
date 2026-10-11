@@ -54,6 +54,12 @@ export interface UpdateWikiPageInput {
   readonly icon: string | null;
   /** Revision the editor started from; a mismatch is a conflict. */
   readonly expectedRevision: number;
+  /**
+   * Whether a save by the same author within ten minutes refreshes the
+   * newest version. `false` always keeps the previous text as its own
+   * version; the default is `true`.
+   */
+  readonly coalesceVersions?: boolean;
 }
 
 /** How a page is copied. */
@@ -187,7 +193,8 @@ export class WikiPageService {
 
       return this.applyEdit(repository, viewer, current, {
         ...edit,
-        coalesceMinutes: VERSION_COALESCE_MINUTES,
+        coalesceMinutes:
+          input.coalesceVersions === false ? 0 : VERSION_COALESCE_MINUTES,
       });
     });
   }

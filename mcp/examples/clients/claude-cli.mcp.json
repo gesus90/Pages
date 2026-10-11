@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "pages": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/path/to/pages-mcp-vX.Y.Z.js"],
+      "env": {
+        "PAGES_URL": "https://pages.example.com",
+        "PAGES_TOKEN": "${PAGES_TOKEN}"
+      }
+    },
+    "pages-http": {
+      "type": "http",
+      "url": "https://mcp.example.com/mcp"
+    }
+  }
+}

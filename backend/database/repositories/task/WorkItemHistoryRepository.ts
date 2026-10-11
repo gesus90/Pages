@@ -3,7 +3,8 @@ import { readTextColumn } from "@/backend/database/RowValue";
 import { readOptionalTextColumn } from "./OptionalColumn";
 import { createWorkItemVisibility } from "./WorkItemVisibility";
 
-import type { Database, DatabaseValue } from "@/backend/database/Database";
+import type { DatabaseValue } from "@/backend/database/Database";
+import type { TaskDatabase } from "./TaskDatabase";
 import type { WorkItemHistory, WorkItemVisibility } from "@/definition/Task";
 
 /** Entry to record in the audit trail. */
@@ -33,14 +34,14 @@ function toWorkItemHistory(row: readonly DatabaseValue[]): WorkItemHistory {
 
 /** Owns persistence operations for the audit trail of work items. */
 export class WorkItemHistoryRepository {
-  private readonly database: Database;
+  private readonly database: TaskDatabase;
 
   /**
    * Creates a work item history repository.
    *
    * @param database - Central database access.
    */
-  public constructor(database: Database) {
+  public constructor(database: TaskDatabase) {
     this.database = database;
   }
 

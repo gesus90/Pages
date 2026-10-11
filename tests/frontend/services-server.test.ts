@@ -1,3 +1,4 @@
+import { WikiMaintenanceScheduler } from "@/backend/service/wiki/WikiMaintenanceScheduler";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/backend/database/Database", () => ({
@@ -133,6 +134,27 @@ describe("getApplicationServices", () => {
     vi.spyOn(AssistantHistoryScheduler.prototype, "start").mockImplementation(
       () => undefined,
     );
+  });
+
+  it("runs staged asset cleanup through the existing shared maintenance scheduler", async () => {
+    delete globalThis.pagesWikiMaintenanceStarted;
+    const schedulers: WikiMaintenanceScheduler[] = [];
+    vi.spyOn(WikiMaintenanceScheduler.prototype, "start").mockImplementation(
+      function (this: WikiMaintenanceScheduler) {
+        schedulers.push(this);
+      },
+    );
+    const services = await getApplicationServices();
+    const wiki = vi
+      .spyOn(services.wikiService, "runMaintenance")
+      .mockResolvedValue(undefined);
+    const assets = vi
+      .spyOn(services.agentAssetService, "runMaintenance")
+      .mockResolvedValue(undefined);
+    expect(await schedulers[0]?.runOnce()).toBe(true);
+    expect(wiki).toHaveBeenCalledOnce();
+    expect(assets).toHaveBeenCalledOnce();
+    resetServiceGlobals();
   });
 
   it("opens the configured database and builds the services", async () => {

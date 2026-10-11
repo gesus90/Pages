@@ -2,11 +2,15 @@ import { randomUUID } from "node:crypto";
 
 import { isMilestoneLinkType, isMilestoneStatus } from "@/definition/Task";
 
-import { WorkItemValidationError } from "@/backend/error/WorkItemErrors";
+import {
+  WorkItemConflictError,
+  WorkItemValidationError,
+} from "@/backend/error/WorkItemErrors";
 import { validateMilestoneInput } from "@/backend/service/MilestoneValidation";
 
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type { TaskRepository } from "@/backend/database/repositories/TaskRepository";
+import type { MilestoneField } from "@/backend/database/repositories/task/MilestoneRepository";
 import type { TaskAccessGuard } from "@/backend/service/task/TaskAccessGuard";
 import type {
   Milestone,
@@ -41,12 +45,65 @@ export interface UpdateMilestoneInput {
   readonly colorCustom?: string | null;
 }
 
+/** One milestone field with the value it held when it was read, and its new value. */
+export interface MilestoneFieldInput {
+  readonly field: MilestoneField;
+  readonly base: string | null;
+  readonly value: string | null;
+}
+
+/** The milestone after a single-field change, and whether the change wrote anything. */
+export interface MilestoneFieldUpdate {
+  readonly milestone: Milestone;
+  readonly isChanged: boolean;
+}
+
 /** Values required to link two milestones of one project. */
 export interface AddMilestoneDependencyInput {
   readonly projectId: string;
   readonly sourceId: string;
   readonly targetId: string;
   readonly linkType: MilestoneLinkType;
+}
+
+/**
+ * Validates the new value of one milestone field against the milestone it
+ * replaces a value of.
+ *
+ * @returns The normalized value to store.
+ * @throws {WorkItemValidationError} When the value is unusable for the field.
+ */
+function readFieldValue(
+  existing: Milestone,
+  change: MilestoneFieldInput,
+): string | null {
+  const dates = { dueAt: existing.dueAt, startAt: existing.startAt };
+
+  switch (change.field) {
+    case "name":
+      return validateMilestoneInput({ ...dates, name: change.value ?? "" })
+        .name;
+    case "description":
+      return (change.value ?? "").trim();
+    case "status":
+      if (!isMilestoneStatus(change.value)) {
+        throw new WorkItemValidationError("milestoneStatusUnsupported");
+      }
+
+      return change.value;
+    case "startAt":
+      return validateMilestoneInput({
+        ...dates,
+        name: existing.name,
+        startAt: change.value,
+      }).startAt;
+    case "dueAt":
+      return validateMilestoneInput({
+        ...dates,
+        dueAt: change.value,
+        name: existing.name,
+      }).dueAt;
+  }
 }
 
 /** Manages the milestones of projects and the dependencies between them. */
@@ -144,6 +201,57 @@ export class TaskMilestoneService {
     return updated;
   }
 
+  /**
+   * Replaces one field of a milestone while it still holds the value the
+   * caller read; every other field stays as it is.
+   *
+   * @param actor - The person changing it; needs project management access.
+   * @param id - Milestone identifier.
+   * @param change - The field, the value it was read with, and the new value.
+   * @returns The stored milestone and whether anything was written; nothing
+   * is when the milestone already has the value.
+   * @throws {WorkItemConflictError} When the field changed meanwhile.
+   * @throws {WorkItemValidationError} When the value is unusable.
+   */
+  public async updateMilestoneField(
+    actor: User,
+    id: string,
+    change: MilestoneFieldInput,
+  ): Promise<MilestoneFieldUpdate> {
+    const existing = await this.requireWritableMilestone(actor, id);
+    const current = this.currentValue(existing, change.field);
+    const value = readFieldValue(existing, change);
+
+    // The stored value counts as the new one when someone saved it meanwhile.
+    if (current !== change.base && current !== value) {
+      throw new WorkItemConflictError(change.field);
+    }
+
+    if (value === current) {
+      return { isChanged: false, milestone: existing };
+    }
+
+    const isUpdated = await this.taskRepository.updateMilestoneField(id, {
+      base: current,
+      field: change.field,
+      value,
+    });
+
+    if (!isUpdated) {
+      throw new WorkItemConflictError(change.field);
+    }
+
+    this.cache.invalidateWorkItems();
+
+    const updated = await this.taskRepository.findMilestoneById(id);
+
+    if (!updated) {
+      throw new Error("Updated milestone could not be retrieved.");
+    }
+
+    return { isChanged: true, milestone: updated };
+  }
+
   /** Soft-deletes a milestone together with its dependencies. */
   public async deleteMilestone(actor: User, id: string): Promise<void> {
     await this.requireWritableMilestone(actor, id);
@@ -228,7 +336,7 @@ export class TaskMilestoneService {
   private async requireWritableMilestone(
     actor: User,
     id: string,
-  ): Promise<void> {
+  ): Promise<Milestone> {
     const existing = await this.taskRepository.findMilestoneById(id);
 
     if (!existing) {
@@ -236,6 +344,21 @@ export class TaskMilestoneService {
     }
 
     await this.access.requirePlanningProject(actor, existing.projectId);
+
+    return existing;
+  }
+
+  private currentValue(
+    milestone: Milestone,
+    field: MilestoneField,
+  ): string | null {
+    return {
+      description: milestone.description,
+      dueAt: milestone.dueAt,
+      name: milestone.name,
+      startAt: milestone.startAt,
+      status: milestone.status,
+    }[field];
   }
 
   private async requireMilestonePair(

@@ -97,6 +97,24 @@ describe("WikiMarkdown", () => {
     expect(container.querySelector("img")?.getAttribute("alt")).toBe("ok");
   });
 
+  it("shows agent asset images and keeps PDF assets as links", () => {
+    const image = "/agent-assets/f08b4926-264a-4014-9f3c-b201232bd9a1";
+    const pdf = "/agent-assets/16cda71d-ecc0-42d3-b972-71161436c950?download=1";
+    const container = renderWiki(
+      `![diagram](${image}) [Manual](${pdf}) ![outside](https://example.com${image}) ![path](${image}/extra)`,
+    );
+
+    expect(container.querySelectorAll("img")).toHaveLength(1);
+    expect(screen.getByRole("img", { name: "diagram" })).toHaveAttribute(
+      "src",
+      image,
+    );
+    expect(screen.getByRole("link", { name: "Manual" })).toHaveAttribute(
+      "href",
+      pdf,
+    );
+  });
+
   it("shows raw HTML as text", () => {
     const container = renderWiki("<script>alert(1)</script>");
 

@@ -1,0 +1,110 @@
+import type { AgentImportApplied } from "./AgentImportApply.js";
+import type { AgentImportUpdated } from "./AgentImportUpdate.js";
+import type { AgentStructuredImportApplied } from "./AgentStructuredImportManifest.js";
+import type {
+  AgentMilestoneChanged,
+  AgentMilestoneCreated,
+  AgentMilestoneDependencyChanged,
+  AgentTicketChanged,
+  AgentTicketCreated,
+} from "./AgentTickets.js";
+import type {
+  AgentWikiCommentAdded,
+  AgentWikiCommentChanged,
+} from "./AgentWikiComments.js";
+import type {
+  AgentWikiPageChanged,
+  AgentWikiPageMoved,
+} from "./AgentWikiFields.js";
+
+/** Write operations; Pages offers these only with the current write capability. */
+export const PAGES_AGENT_WRITE_OPERATIONS = [
+  "assets.upload.prepare",
+  "wiki.page.create",
+  "wiki.import.apply",
+  "wiki.import.update",
+  "import.structured.apply",
+  "wiki.page.setTitle",
+  "wiki.page.setContent",
+  "wiki.page.setIcon",
+  "wiki.page.move",
+  "ticket.create",
+  "ticket.setTitle",
+  "ticket.setDescription",
+  "ticket.setStatus",
+  "ticket.setParent",
+  "milestone.create",
+  "milestone.setName",
+  "milestone.setDescription",
+  "milestone.setStatus",
+  "milestone.setStartAt",
+  "milestone.setDueAt",
+  "milestone.dependency.add",
+  "milestone.dependency.remove",
+] as const;
+
+/** An implemented write operation. */
+export type PagesAgentWriteOperation =
+  (typeof PAGES_AGENT_WRITE_OPERATIONS)[number];
+
+/** Binary upload instructions; the ticket is sent only through the named header. */
+export interface AgentUploadTicket {
+  readonly ticket: string;
+  readonly header: "X-Pages-Upload-Ticket";
+  readonly uploadPath: "/api/v1/agent-assets";
+  readonly expiresAt: number;
+  readonly mediaLimitBytes: number;
+  readonly fileLimitBytes: number;
+}
+
+/** Public asset handle, with a stable authenticated download path. */
+export interface AgentAsset {
+  readonly assetId: string;
+  readonly link: string;
+  readonly fileName: string;
+  readonly contentType: string;
+  readonly size: number;
+  readonly expiresAt: number;
+}
+
+/** Explicit project create with no implicit destination or overwrite. */
+export interface AgentWikiCreateInput {
+  readonly operationId: string;
+  readonly projectId: string;
+  readonly parentId: string | null;
+  readonly title: string;
+  readonly content: string;
+  readonly icon: string | null;
+  readonly assetIds: readonly string[];
+}
+
+/** Persisted result returned unchanged on a matching operation replay. */
+export interface AgentWikiCreated {
+  readonly pageId: string;
+  readonly link: string;
+  readonly assets: readonly {
+    readonly assetId: string;
+    readonly attachmentId: string;
+    readonly link: string;
+  }[];
+}
+
+/** Version-one write result envelope. */
+export interface PagesAgentWriteResponse {
+  readonly apiVersion: "1";
+  readonly result:
+    | AgentUploadTicket
+    | AgentWikiCreated
+    | AgentImportApplied
+    | AgentImportUpdated
+    | AgentStructuredImportApplied
+    | AgentWikiPageChanged
+    | AgentWikiPageMoved
+    | AgentWikiCommentAdded
+    | AgentWikiCommentChanged
+    | AgentTicketCreated
+    | AgentTicketChanged
+    | AgentMilestoneCreated
+    | AgentMilestoneChanged
+    | AgentMilestoneDependencyChanged;
+}

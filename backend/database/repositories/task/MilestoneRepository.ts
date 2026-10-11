@@ -8,7 +8,8 @@ import {
 import { createInClause } from "./InClause";
 import { readOptionalTextColumn } from "./OptionalColumn";
 
-import type { Database, DatabaseValue } from "@/backend/database/Database";
+import type { DatabaseValue } from "@/backend/database/Database";
+import type { TaskDatabase } from "./TaskDatabase";
 import type {
   Milestone,
   MilestoneColor,
@@ -39,6 +40,78 @@ export interface MilestoneUpdate {
   readonly iconKey?: MilestoneIcon | null;
   readonly colorCustom?: string | null;
 }
+
+/** The milestone fields that can be replaced one at a time. */
+export type MilestoneField =
+  "name" | "description" | "status" | "startAt" | "dueAt";
+
+/** One field with the value it must still hold and its new value. */
+export interface MilestoneFieldChange {
+  readonly field: MilestoneField;
+  readonly base: string | null;
+  readonly value: string | null;
+}
+
+/** One fixed statement per field, so no column name is ever built from input. */
+const MILESTONE_FIELD_STATEMENTS: Readonly<Record<MilestoneField, string>> = {
+  name: `
+    UPDATE milestones
+    SET
+        name = $value,
+        updated_at = utc_now()
+    WHERE id = $id
+        AND archived_at IS NULL
+        AND name = $base_value
+    RETURNING id;
+  `,
+  description: `
+    UPDATE milestones
+    SET
+        description = $value,
+        updated_at = utc_now()
+    WHERE id = $id
+        AND archived_at IS NULL
+        AND COALESCE(description, '') = $base_value
+    RETURNING id;
+  `,
+  status: `
+    UPDATE milestones
+    SET
+        status = $value,
+        completed_at = CASE WHEN $value = 'completed' THEN utc_now() ELSE NULL END,
+        updated_at = utc_now()
+    WHERE id = $id
+        AND archived_at IS NULL
+        AND status = $base_value
+    RETURNING id;
+  `,
+  startAt: `
+    UPDATE milestones
+    SET
+        start_at = $value,
+        updated_at = utc_now()
+    WHERE id = $id
+        AND archived_at IS NULL
+        AND (
+            start_at = $base_value
+            OR ($base_value IS NULL AND start_at IS NULL)
+        )
+    RETURNING id;
+  `,
+  dueAt: `
+    UPDATE milestones
+    SET
+        due_at = $value,
+        updated_at = utc_now()
+    WHERE id = $id
+        AND archived_at IS NULL
+        AND (
+            due_at = $base_value
+            OR ($base_value IS NULL AND due_at IS NULL)
+        )
+    RETURNING id;
+  `,
+};
 
 const CUSTOM_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 
@@ -99,14 +172,14 @@ function toMilestone(row: readonly DatabaseValue[]): Milestone {
 
 /** Owns persistence operations for project milestones. */
 export class MilestoneRepository {
-  private readonly database: Database;
+  private readonly database: TaskDatabase;
 
   /**
    * Creates a milestone repository.
    *
    * @param database - Central database access.
    */
-  public constructor(database: Database) {
+  public constructor(database: TaskDatabase) {
     this.database = database;
   }
 
@@ -256,6 +329,29 @@ export class MilestoneRepository {
         color_custom: milestone.colorCustom ?? null,
       },
     );
+  }
+
+  /**
+   * Replaces one field of a milestone while it still holds the base value.
+   *
+   * @param id - Milestone identifier.
+   * @param change - The field, the value it must still hold, and the new value.
+   * @returns Whether a row changed; false when archived or the field differs.
+   *
+   * @remarks
+   * The other fields stay as they are, so a rename does not move the
+   * completion time of a completed milestone.
+   */
+  public async updateField(
+    id: string,
+    change: MilestoneFieldChange,
+  ): Promise<boolean> {
+    const rows = await this.database.query(
+      MILESTONE_FIELD_STATEMENTS[change.field],
+      { base_value: change.base, id, value: change.value },
+    );
+
+    return rows.length > 0;
   }
 
   /** Soft-deletes a milestone without removing its row. */

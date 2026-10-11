@@ -204,6 +204,45 @@ describe("wiki pages", () => {
     ]);
   });
 
+  it("keeps each quick save as a recoverable version when coalescing is explicitly disabled", async () => {
+    const { service, ada } = await setup();
+    const page = await service.create(ada, pageInput({ content: "original" }));
+    await service.update(ada, page.id, {
+      content: "replacement",
+      expectedRevision: 1,
+      icon: null,
+      title: "Page",
+      coalesceVersions: false,
+    });
+    const versions = await service.listVersions(ada, page.id);
+    expect(versions.map((version) => version.revision)).toEqual([2, 1]);
+    const original = versions.find((version) => version.revision === 1);
+    if (!original) throw new Error("Expected original version.");
+    expect(
+      await service.restoreVersion(ada, page.id, original.id),
+    ).toMatchObject({ content: "original", revision: 3 });
+  });
+
+  it("replaces anchors only for an authorized page manager", async () => {
+    const { service, ada, bob, repository, addDepartment } = await setup();
+    await addDepartment("sales");
+    await getDatabase().execute(
+      "INSERT INTO department_members (user_id, department_id) VALUES ('ada', 'sales'), ('bob', 'sales');",
+    );
+    const page = await service.create(ada, pageInput());
+    await service.setAnchors(ada, page.id, [
+      { kind: "department", targetId: "sales" },
+    ]);
+    expect(await repository.anchors.findAnchors(page.id)).toMatchObject([
+      { kind: "department", targetId: "sales" },
+    ]);
+    await expect(service.setAnchors(bob, page.id, [])).rejects.toBeInstanceOf(
+      WikiAccessDeniedError,
+    );
+    await service.setAnchors(ada, page.id, []);
+    expect(await repository.anchors.findAnchors(page.id)).toEqual([]);
+  });
+
   it("refuses to save without write or for a hidden page", async () => {
     const { service, ada, reader } = await setup();
     const page = await service.create(ada, pageInput());

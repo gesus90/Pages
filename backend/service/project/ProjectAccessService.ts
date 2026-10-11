@@ -1,3 +1,5 @@
+import { accountForChannel } from "@/backend/auth/McpActorContext";
+
 import { ProjectPolicyService } from "@/backend/auth/ProjectPolicyService";
 import { UserPolicyService } from "@/backend/auth/UserPolicyService";
 import { CACHE_TTLS } from "@/backend/cache/ServerCache";
@@ -6,6 +8,7 @@ import {
   ProjectNotFoundError,
 } from "@/backend/error/ProjectErrors";
 
+import type { ActorChannel } from "@/backend/auth/McpActorContext";
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import type { AccountAccess, Department } from "@/definition/Authorization";
@@ -31,13 +34,19 @@ export interface AuthorizationFacts {
 export class ProjectAccessService {
   private readonly repository: ProjectRepository;
   private readonly cache: ServerCache;
+  private readonly channel: ActorChannel;
   private readonly policy = new ProjectPolicyService();
   private readonly users = new UserPolicyService();
 
   /** Shares the project persistence and raw row cache. */
-  public constructor(repository: ProjectRepository, cache: ServerCache) {
+  public constructor(
+    repository: ProjectRepository,
+    cache: ServerCache,
+    channel: ActorChannel = "ui",
+  ) {
     this.repository = repository;
     this.cache = cache;
+    this.channel = channel;
   }
 
   /** Loads the active account from live persisted authorization. */
@@ -47,7 +56,7 @@ export class ProjectAccessService {
       (entry) => entry.userId === actor.id,
     );
     if (!account?.isActive) throw new ProjectAccessDeniedError();
-    return account;
+    return accountForChannel(account, this.channel);
   }
 
   /** Loads the active account together with the live department catalog from one snapshot. */
@@ -57,13 +66,20 @@ export class ProjectAccessService {
       (entry) => entry.userId === actor.id,
     );
     if (!account?.isActive) throw new ProjectAccessDeniedError();
-    return { account, departments: snapshot.departments };
+    return {
+      account: accountForChannel(account, this.channel),
+      departments: snapshot.departments,
+    };
   }
 
   /** Resolves project and ticket read scope consistently inside one transaction. */
   public async scope(actor: User): Promise<ProjectReadScope> {
     return this.repository.transaction(async (repository) => {
-      const access = new ProjectAccessService(repository, this.cache);
+      const access = new ProjectAccessService(
+        repository,
+        this.cache,
+        this.channel,
+      );
       const account = await access.account(actor);
       const activeIds = await repository.findActiveIds();
       const departments = await repository.findDepartmentsByProjects(activeIds);

@@ -6,7 +6,8 @@ import {
 
 import { readOptionalTextColumn } from "./OptionalColumn";
 
-import type { Database, DatabaseValue } from "@/backend/database/Database";
+import type { DatabaseValue } from "@/backend/database/Database";
+import type { TaskDatabase } from "./TaskDatabase";
 import type { WorkflowStatus } from "@/definition/Task";
 
 function toWorkflowStatus(row: readonly DatabaseValue[]): WorkflowStatus {
@@ -22,14 +23,14 @@ function toWorkflowStatus(row: readonly DatabaseValue[]): WorkflowStatus {
 
 /** Owns persistence operations for workflow statuses. */
 export class WorkflowStatusRepository {
-  private readonly database: Database;
+  private readonly database: TaskDatabase;
 
   /**
    * Creates a workflow status repository.
    *
    * @param database - Central database access.
    */
-  public constructor(database: Database) {
+  public constructor(database: TaskDatabase) {
     this.database = database;
   }
 

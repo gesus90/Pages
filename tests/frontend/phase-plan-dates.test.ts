@@ -4,6 +4,7 @@ import {
   DAY_IN_MS,
   addMonths,
   addQuarters,
+  addWeeks,
   formatDayMonth,
   formatMonthYear,
   formatRangeLabel,
@@ -89,6 +90,14 @@ describe("ISO weeks and grid starts", () => {
     expect(startOfWeekMonday(local(2026, 9, 30))).toBe(local(2026, 9, 28));
     expect(startOfWeekMonday(local(2026, 9, 28))).toBe(local(2026, 9, 28));
     expect(startOfWeekMonday(local(2026, 10, 4))).toBe(local(2026, 9, 28));
+  });
+
+  it("moves by whole weeks across changes of daylight saving time", () => {
+    expect(addWeeks(local(2026, 10, 19), 3)).toBe(local(2026, 11, 9));
+    expect(addWeeks(local(2027, 4, 5), -4)).toBe(local(2027, 3, 8));
+    expect(addWeeks(new Date(2026, 9, 25, 23).getTime(), 1)).toBe(
+      new Date(2026, 10, 1, 23).getTime(),
+    );
   });
 
   it("snaps to months and quarters", () => {

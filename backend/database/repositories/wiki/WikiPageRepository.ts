@@ -270,6 +270,34 @@ export class WikiPageRepository {
     return rows.map(readLink);
   }
 
+  /** Lists visible direct project children, including project roots, for complete import conflict checks. */
+  public async listProjectChildren(
+    scope: WikiVisibilityScope,
+    projectId: string,
+    parentId: string | null,
+  ): Promise<WikiPageLink[]> {
+    const visible = createVisiblePagesQuery(scope);
+    const rows = await this.database.query(
+      `
+        ${visible.sql}
+        SELECT
+            page.id,
+            page.title,
+            page.icon
+        FROM wiki_pages AS page
+        INNER JOIN visible_pages
+            ON visible_pages.id = page.id
+        WHERE page.scope = 'project'
+            AND page.project_id = $project_id
+            AND page.parent_id IS NOT DISTINCT FROM $parent_id
+            AND page.is_template = 0
+        ORDER BY page.id;
+      `,
+      { ...visible.parameters, project_id: projectId, parent_id: parentId },
+    );
+    return rows.map(readLink);
+  }
+
   /**
    * Lists the pages above a page, from the root down.
    *

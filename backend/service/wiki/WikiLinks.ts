@@ -8,6 +8,9 @@ const PAGE_ADDRESS = /\/wiki\/([\w-]+)/g;
 const TICKET_ADDRESS =
   /\/(?:aufgaben|tasks)\/([A-Za-z][A-Za-z0-9]*-\d+)(?!\w)/g;
 const RESERVED_PAGE_PATHS = new Set(["attachments", "trash", "search"]);
+const PAGE_IDENTIFIER = /^[\w-]+$/;
+const PAGE_REFERENCE =
+  /^(?:https?:\/\/[^\s/?#]+)?(?:\/[^\s?#]*)?\/wiki\/([\w-]+)\/?(?:[?#]\S*)?$/;
 
 /**
  * Reads the pages and tickets a markdown text links to.
@@ -35,6 +38,26 @@ export function extractWikiLinks(content: string): WikiLinkTargets {
   }
 
   return { pageIds: [...pageIds], ticketKeys: [...ticketKeys] };
+}
+
+/**
+ * Resolves a page identifier or a page address to the page identifier.
+ *
+ * @param reference - An identifier, or an address such as `/wiki/<id>` with or
+ * without the address of the server and a deployment prefix in front of it.
+ * @returns The page identifier, or `null` when the text names no page.
+ *
+ * @remarks
+ * Like `extractWikiLinks`, only the path matters. The result is only an
+ * identifier: whether the page exists and is visible is decided by the read.
+ */
+export function resolveWikiPageReference(reference: string): string | null {
+  const text = reference.trim();
+  const id = PAGE_IDENTIFIER.test(text)
+    ? text
+    : (PAGE_REFERENCE.exec(text)?.[1] ?? null);
+
+  return id === null || RESERVED_PAGE_PATHS.has(id) ? null : id;
 }
 
 /**

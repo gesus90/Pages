@@ -49,6 +49,7 @@ describe("wiki repositories on empty answers", () => {
     const pages = new WikiPageRepository(database);
     const writes = new WikiPageWriteRepository(database);
 
+    expect(await pages.findNode("missing")).toBeNull();
     expect(await pages.countLevelsBelow("x")).toBe(0);
     expect(
       await writes.nextPosition(

@@ -52,6 +52,8 @@ describe("setup gate", () => {
     "http://pages.invalid/setup.data",
     "http://pages.invalid/set-language",
     "http://pages.invalid/health",
+    "http://pages.invalid/api/v1/agents",
+    "http://pages.invalid/api/v1/agent-assets",
   ])("lets %s through while the setup is pending", async (url) => {
     await expect(runGate(url)).resolves.toBe("next");
   });

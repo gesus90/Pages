@@ -138,3 +138,28 @@ export class WorkItemAccessDeniedError extends Error {
     super("This user is not allowed to access tasks for this project.");
   }
 }
+
+/** The single fields of a work item or milestone that a change can be conditioned on. */
+export type WorkItemConflictField =
+  "title" | "status" | "parent" | "name" | "description" | "startAt" | "dueAt";
+
+/**
+ * Thrown when a field no longer holds the value a change started from.
+ *
+ * @remarks
+ * Nothing was written. Only the changes that name the old value of one field
+ * raise it; the description of a ticket has its own code, `descriptionConflict`.
+ */
+export class WorkItemConflictError extends Error {
+  public readonly field: WorkItemConflictField;
+
+  /**
+   * Creates a conflict error.
+   *
+   * @param field - The field that was changed by someone else meanwhile.
+   */
+  public constructor(field: WorkItemConflictField) {
+    super(`The ${field} was changed by someone else since it was read.`);
+    this.field = field;
+  }
+}

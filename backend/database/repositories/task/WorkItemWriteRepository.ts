@@ -1,4 +1,4 @@
-import type { Database } from "@/backend/database/Database";
+import type { TaskDatabase } from "./TaskDatabase";
 import type { WorkItemPriority, WorkItemType } from "@/definition/Task";
 
 /** Values required to persist a new work item. */
@@ -65,14 +65,14 @@ export interface WorkItemMove {
 
 /** Owns the write access to work items. */
 export class WorkItemWriteRepository {
-  private readonly database: Database;
+  private readonly database: TaskDatabase;
 
   /**
    * Creates a work item write repository.
    *
    * @param database - Central database access.
    */
-  public constructor(database: Database) {
+  public constructor(database: TaskDatabase) {
     this.database = database;
   }
 
@@ -281,6 +281,87 @@ export class WorkItemWriteRepository {
         RETURNING id;
       `,
       { base_description: baseDescription, description, id },
+    );
+
+    return rows.length > 0;
+  }
+
+  /** Replaces a title atomically; returns false when inactive or no longer the base title. */
+  public async updateTitle(
+    id: string,
+    title: string,
+    baseTitle: string,
+  ): Promise<boolean> {
+    const rows = await this.database.query(
+      `
+        UPDATE work_items
+        SET
+            title = $title,
+            updated_at = utc_now()
+        WHERE id = $id
+            AND archived_at IS NULL
+            AND title = $base_title
+        RETURNING id;
+      `,
+      { base_title: baseTitle, id, title },
+    );
+
+    return rows.length > 0;
+  }
+
+  /**
+   * Replaces the status atomically and keeps the sort order; returns false
+   * when inactive or no longer in the base status.
+   */
+  public async updateStatus(
+    id: string,
+    status: { readonly id: string; readonly isDone: boolean },
+    baseStatusId: string,
+  ): Promise<boolean> {
+    const rows = await this.database.query(
+      `
+        UPDATE work_items
+        SET
+            status_id = $status_id,
+            completed_at = CASE WHEN $is_done = 1 THEN utc_now() ELSE NULL END,
+            updated_at = utc_now()
+        WHERE id = $id
+            AND archived_at IS NULL
+            AND status_id = $base_status_id
+        RETURNING id;
+      `,
+      {
+        base_status_id: baseStatusId,
+        id,
+        is_done: status.isDone ? 1 : 0,
+        status_id: status.id,
+      },
+    );
+
+    return rows.length > 0;
+  }
+
+  /** Replaces the parent atomically; returns false when inactive or no longer below the base parent. */
+  public async replaceParent(
+    id: string,
+    parentId: string | null,
+    baseParentId: string | null,
+  ): Promise<boolean> {
+    const rows = await this.database.query(
+      `
+        UPDATE work_items
+        SET
+            parent_id = $parent_id,
+            updated_at = utc_now()
+        WHERE id = $id
+            AND archived_at IS NULL
+            AND (
+                parent_id = $base_parent_id
+                OR ($base_parent_id IS NULL AND parent_id IS NULL)
+            )
+        RETURNING id;
+      `,
+      { base_parent_id: baseParentId, id, parent_id: parentId },
     );
 
     return rows.length > 0;

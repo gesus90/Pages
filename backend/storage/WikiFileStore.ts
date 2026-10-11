@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
-import { mkdir, readdir, rename, rm, stat } from "node:fs/promises";
+import { copyFile, mkdir, readdir, rename, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -118,6 +118,26 @@ export class WikiFileStore {
     }
 
     return { checksum: hash.digest("hex"), size, storageName };
+  }
+
+  /** Copies staging bytes to a server-named wiki file without risking the original on rollback. */
+  public async copyTo(
+    storageName: string,
+    target: WikiFileStore,
+  ): Promise<string> {
+    await mkdir(target.directory, { recursive: true });
+    const copyName = randomUUID();
+    const destination = path.join(target.directory, copyName);
+    try {
+      await copyFile(
+        path.join(this.directory, path.basename(storageName)),
+        destination,
+      );
+      return copyName;
+    } catch (error: unknown) {
+      await rm(destination, { force: true });
+      throw error;
+    }
   }
 
   /**

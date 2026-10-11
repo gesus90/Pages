@@ -3,7 +3,8 @@ import { readCountColumn, readTextColumn } from "@/backend/database/RowValue";
 import { createInClause } from "./InClause";
 import { createWorkItemVisibility } from "./WorkItemVisibility";
 
-import type { Database, DatabaseValue } from "@/backend/database/Database";
+import type { DatabaseValue } from "@/backend/database/Database";
+import type { TaskDatabase } from "./TaskDatabase";
 import type { Label, WorkItemVisibility } from "@/definition/Task";
 
 /** Values required to persist a label in the global catalog. */
@@ -45,14 +46,14 @@ function appendToGroup(
 
 /** Owns persistence operations for the global label catalog and its ticket assignments. */
 export class TaskLabelRepository {
-  private readonly database: Database;
+  private readonly database: TaskDatabase;
 
   /**
    * Creates a task label repository.
    *
    * @param database - Central database access.
    */
-  public constructor(database: Database) {
+  public constructor(database: TaskDatabase) {
     this.database = database;
   }
 

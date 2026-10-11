@@ -27,7 +27,7 @@ export interface WikiPageFacts {
 
 /** Resolves who is looking at the wiki, from the current account facts. */
 export class WikiAccess {
-  private readonly projectService: ProjectService;
+  private readonly projectService: Pick<ProjectService, "workItemVisibility">;
   private readonly permissionService: PermissionService;
 
   /**
@@ -37,7 +37,7 @@ export class WikiAccess {
    * @param permissionService - Decides the capabilities of an account.
    */
   public constructor(
-    projectService: ProjectService,
+    projectService: Pick<ProjectService, "workItemVisibility">,
     permissionService: PermissionService,
   ) {
     this.projectService = projectService;

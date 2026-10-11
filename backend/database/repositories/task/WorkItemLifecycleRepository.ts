@@ -8,10 +8,8 @@ import { createInClause } from "./InClause";
 import { createWorkItemVisibility } from "./WorkItemVisibility";
 import { deleteAssistantConversations } from "../assistant/AssistantConversationDeletion";
 
-import type {
-  Database,
-  DatabaseTransaction,
-} from "@/backend/database/Database";
+import type { DatabaseTransaction } from "@/backend/database/Database";
+import type { TaskDatabase } from "./TaskDatabase";
 import type { WorkItemVisibility } from "@/definition/Task";
 
 /** Recursive selection of a work item and all its descendants, archived or not. */
@@ -45,14 +43,14 @@ export interface DescendantCount {
 
 /** Archives, restores and permanently removes whole work item subtrees. */
 export class WorkItemLifecycleRepository {
-  private readonly database: Database;
+  private readonly database: TaskDatabase;
 
   /**
    * Creates a work item lifecycle repository.
    *
    * @param database - Central database access.
    */
-  public constructor(database: Database) {
+  public constructor(database: TaskDatabase) {
     this.database = database;
   }
 

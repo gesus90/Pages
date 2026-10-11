@@ -3,6 +3,28 @@ import { describe, expect, it } from "vitest";
 
 import routes from "@/app/routes";
 
+describe("A9.6 route configuration", () => {
+  it("exposes binary agent uploads publicly and protects stable asset downloads with the authenticated layout", () => {
+    const layout = routes.find((entry) => !entry.path && entry.children);
+    expect(
+      routes.find((entry) => entry.path === "api/v1/agent-assets"),
+    ).toMatchObject({
+      file: "routes/api-v1-agent-assets.ts",
+    });
+    expect(
+      layout?.children?.find((entry) => entry.path === "agent-assets/:assetId"),
+    ).toMatchObject({
+      file: "routes/agent-asset.ts",
+    });
+    expect(routes.some((entry) => entry.path === "agent-assets/:assetId")).toBe(
+      false,
+    );
+    expect(
+      layout?.children?.some((entry) => entry.path === "api/v1/agent-assets"),
+    ).toBe(false);
+  });
+});
+
 describe("route configuration", () => {
   it("exposes the public login and logout routes", () => {
     const paths = routes

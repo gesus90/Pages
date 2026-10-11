@@ -236,6 +236,20 @@ export class TaskHistoryRecorder {
     });
   }
 
+  /** Records a new title. */
+  public async recordTitleChanged(
+    actor: User,
+    existing: WorkItemDetail,
+    title: string,
+  ): Promise<void> {
+    await this.record(actor, existing.id, {
+      action: "title_changed",
+      field: "title",
+      newValue: title,
+      oldValue: existing.title,
+    });
+  }
+
   /** Records a new description. */
   public async recordDescriptionChanged(
     actor: User,

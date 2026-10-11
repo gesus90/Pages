@@ -12,20 +12,20 @@ import {
 import { buildWorkItemFilter } from "./WorkItemFilter";
 import { createWorkItemVisibility } from "./WorkItemVisibility";
 
-import type { Database } from "@/backend/database/Database";
+import type { TaskDatabase } from "./TaskDatabase";
 import type { WorkItemDetail, WorkItemVisibility } from "@/definition/Task";
 import type { FindWorkItemsOptions } from "./WorkItemFilter";
 
 /** Owns the read access to work items together with their joined display data. */
 export class WorkItemQueryRepository {
-  private readonly database: Database;
+  private readonly database: TaskDatabase;
 
   /**
    * Creates a work item query repository.
    *
    * @param database - Central database access.
    */
-  public constructor(database: Database) {
+  public constructor(database: TaskDatabase) {
     this.database = database;
   }
 

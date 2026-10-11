@@ -30,7 +30,7 @@ export interface CommentInput {
 }
 
 /** Longest quoted passage and longest piece of its surroundings. */
-const QUOTE_LENGTH = 500;
+export const COMMENT_QUOTE_LENGTH = 500;
 const CONTEXT_LENGTH = 40;
 
 function cut(text: string | null, length: number): string | null {
@@ -176,7 +176,7 @@ export class WikiCommentService {
         body,
         pageId,
         parentId: input.parentId,
-        quote: cut(input.quote, QUOTE_LENGTH),
+        quote: cut(input.quote, COMMENT_QUOTE_LENGTH),
         quotePrefix: cut(input.quotePrefix, CONTEXT_LENGTH),
         quoteSuffix: cut(input.quoteSuffix, CONTEXT_LENGTH),
       });

@@ -3,6 +3,7 @@ import { TaskAssigneeGroupService } from "@/backend/service/task/TaskAssigneeGro
 import { TaskAccessGuard } from "@/backend/service/task/TaskAccessGuard";
 import { TaskChecklistService } from "@/backend/service/task/TaskChecklistService";
 import { TaskDepartmentService } from "@/backend/service/task/TaskDepartmentService";
+import { TaskFieldService } from "@/backend/service/task/TaskFieldService";
 import { TaskGitHubPublisher } from "@/backend/service/task/TaskGitHubPublisher";
 import { TaskHistoryRecorder } from "@/backend/service/task/TaskHistoryRecorder";
 import { TaskLabelService } from "@/backend/service/task/TaskLabelService";
@@ -26,8 +27,15 @@ import type { GitHubSyncService } from "@/backend/service/GitHubSyncService";
 import type { ProjectService } from "@/backend/service/ProjectService";
 import type { LabelInput } from "@/backend/service/task/TaskLabelService";
 import type {
+  ParentChange,
+  StatusChange,
+  TitleChange,
+} from "@/backend/service/task/TaskFieldService";
+import type {
   AddMilestoneDependencyInput,
   CreateMilestoneInput,
+  MilestoneFieldInput,
+  MilestoneFieldUpdate,
   UpdateMilestoneInput,
 } from "@/backend/service/task/TaskMilestoneService";
 import type { WorkItemsOverviewScope } from "@/backend/service/task/TaskReadService";
@@ -80,6 +88,7 @@ export interface AttachmentFileRemover {
 export class TaskService {
   private readonly reader: TaskReadService;
   private readonly writer: TaskWriteService;
+  private readonly fields: TaskFieldService;
   private readonly lifecycle: TaskLifecycleService;
   private readonly departments: TaskDepartmentService;
   private readonly access: TaskAccessGuard;
@@ -146,6 +155,14 @@ export class TaskService {
       taskRepository,
       validator,
     });
+    this.fields = new TaskFieldService({
+      access,
+      cache,
+      gitHubPublisher: this.gitHubPublisher,
+      history,
+      taskRepository,
+      validator,
+    });
     this.mover = new TaskMoveService({
       access,
       cache,
@@ -207,6 +224,18 @@ export class TaskService {
     input: UpdateMilestoneInput,
   ): Promise<Milestone> {
     return this.milestones.updateMilestone(actor, id, input);
+  }
+
+  /**
+   * Replaces one field of a milestone while it still holds the value the
+   * caller read, after verifying project access and write permission.
+   */
+  public async updateMilestoneField(
+    actor: User,
+    id: string,
+    change: MilestoneFieldInput,
+  ): Promise<MilestoneFieldUpdate> {
+    return this.milestones.updateMilestoneField(actor, id, change);
   }
 
   /** Soft-deletes a milestone together with its dependencies. */
@@ -358,6 +387,33 @@ export class TaskService {
     parentId: string | null,
   ): Promise<WorkItemDetail> {
     return this.writer.changeParent(actor, id, parentId);
+  }
+
+  /** Replaces the title unless someone saved another one since it was read. */
+  public async updateTitle(
+    actor: User,
+    id: string,
+    change: TitleChange,
+  ): Promise<WorkItemDetail> {
+    return this.fields.updateTitle(actor, id, change);
+  }
+
+  /** Moves a work item to another status, keeping its sort order and every other field. */
+  public async updateStatus(
+    actor: User,
+    id: string,
+    change: StatusChange,
+  ): Promise<WorkItemDetail> {
+    return this.fields.updateStatus(actor, id, change);
+  }
+
+  /** Replaces the parent unless it changed since it was read. */
+  public async updateParent(
+    actor: User,
+    id: string,
+    change: ParentChange,
+  ): Promise<WorkItemDetail> {
+    return this.fields.updateParent(actor, id, change);
   }
 
   /** Updates status and column sort order via kanban drag & drop. */

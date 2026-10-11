@@ -6,7 +6,8 @@ import {
 import { isRole } from "@/definition/Role";
 import { isUserAvatarType } from "@/definition/User";
 
-import type { Database, DatabaseValue } from "@/backend/database/Database";
+import type { DatabaseValue } from "@/backend/database/Database";
+import type { TaskDatabase } from "./TaskDatabase";
 import type { User } from "@/definition/User";
 
 function toUser(row: readonly DatabaseValue[]): User {
@@ -39,14 +40,14 @@ function toUser(row: readonly DatabaseValue[]): User {
 
 /** Owns the lookup of users who can be assigned to work items. */
 export class EligibleAssigneeRepository {
-  private readonly database: Database;
+  private readonly database: TaskDatabase;
 
   /**
    * Creates an eligible assignee repository.
    *
    * @param database - Central database access.
    */
-  public constructor(database: Database) {
+  public constructor(database: TaskDatabase) {
     this.database = database;
   }
 

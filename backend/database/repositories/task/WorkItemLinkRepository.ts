@@ -3,7 +3,8 @@ import { isWorkItemLinkType } from "@/definition/Task";
 
 import { createWorkItemVisibility } from "./WorkItemVisibility";
 
-import type { Database, DatabaseValue } from "@/backend/database/Database";
+import type { DatabaseValue } from "@/backend/database/Database";
+import type { TaskDatabase } from "./TaskDatabase";
 import type {
   WorkItemLink,
   WorkItemLinkType,
@@ -89,14 +90,14 @@ function toStoredWorkItemLink(
 
 /** Owns persistence operations for links between work items. */
 export class WorkItemLinkRepository {
-  private readonly database: Database;
+  private readonly database: TaskDatabase;
 
   /**
    * Creates a work item link repository.
    *
    * @param database - Central database access.
    */
-  public constructor(database: Database) {
+  public constructor(database: TaskDatabase) {
     this.database = database;
   }
 

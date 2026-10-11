@@ -4,7 +4,8 @@ import {
   readTextColumn,
 } from "@/backend/database/RowValue";
 
-import type { Database, DatabaseValue } from "@/backend/database/Database";
+import type { DatabaseValue } from "@/backend/database/Database";
+import type { TaskDatabase } from "./TaskDatabase";
 import type { WorkItemChecklistItem } from "@/definition/Task";
 
 /** Values required to append a checklist item to a work item. */
@@ -36,14 +37,14 @@ function toWorkItemChecklistItem(
 
 /** Owns persistence operations for the checklist items of work items. */
 export class WorkItemChecklistRepository {
-  private readonly database: Database;
+  private readonly database: TaskDatabase;
 
   /**
    * Creates a work item checklist repository.
    *
    * @param database - Central database access.
    */
-  public constructor(database: Database) {
+  public constructor(database: TaskDatabase) {
     this.database = database;
   }
 

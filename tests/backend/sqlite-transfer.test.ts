@@ -86,6 +86,66 @@ describe("transferSqliteToDuckDb", { timeout: 30_000 }, () => {
   });
 
   describe("copying", () => {
+    it("preserves native authentication, staging and operation tables through initial and repeated transfers", async () => {
+      createSource();
+      const prepared = await Database.create(targetPath);
+      await prepared.migrate(DATABASE_MIGRATIONS);
+      await prepared.execute(`
+        INSERT INTO personal_agent_tokens (id, user_id, name, token_hash, created_at)
+        VALUES ('personal', 'u1', 'Local client', 'synthetic-hash', 1);
+        INSERT INTO mcp_oauth_clients (id, metadata) VALUES ('client', '{}');
+        INSERT INTO mcp_oauth_flows (id, parameters, expires_at)
+        VALUES ('flow', 'scope=mcp:connect', 1000);
+        INSERT INTO mcp_oauth_preferences (user_id, duration_seconds) VALUES ('u1', NULL);
+        INSERT INTO mcp_oauth_grants (id, user_id, client_id, resource, verified_at, status)
+        VALUES ('grant', 'u1', 'client', 'https://mcp.example/mcp', 1, 'active');
+        INSERT INTO mcp_oauth_credentials (token_hash, grant_id, kind, audience, expires_at, parameters)
+        VALUES ('synthetic-access-hash', 'grant', 'access', 'https://mcp.example/mcp', 1000, '');
+        INSERT INTO agent_assets (id, user_id, status, file_name, content_type, kind, size, checksum, storage_name, expires_at, created_at)
+        VALUES ('asset', 'u1', 'staged', 'file.pdf', 'application/octet-stream', 'file', 8, 'checksum', 'storage', 1000, 1);
+        INSERT INTO agent_operation_keys (user_id, operation_id, operation, fingerprint, result_json, created_at)
+        VALUES ('u1', 'operation', 'wiki.page.create', 'fingerprint', '{}', 1);
+        INSERT INTO agent_import_runs (id, user_id, project_id, status, snapshot_json, created_at, updated_at)
+        VALUES ('run', 'u1', 'p1', 'running', '{}', 1, 1);
+        INSERT INTO agent_import_sources (project_id, source_key, target_kind, target_id, content_hash, target_revision, result_json, last_run_id, created_at, updated_at)
+        VALUES ('p1', 'file.md', 'wiki', 'page', 'hash', 1, '{}', 'run', 1, 1);
+        INSERT INTO agent_import_items (run_id, source_key, target_key, ordinal, action, target_id, result_json, created_at)
+        VALUES ('run', 'file.md', 'file:file.md', 0, 'created', 'page', '{}', 1);
+      `);
+      const tables = [
+        "agent_assets",
+        "agent_operation_keys",
+        "agent_import_runs",
+        "agent_import_sources",
+        "agent_import_items",
+        "personal_agent_tokens",
+        "mcp_oauth_clients",
+        "mcp_oauth_flows",
+        "mcp_oauth_preferences",
+        "mcp_oauth_grants",
+        "mcp_oauth_credentials",
+      ];
+      const expected = await Promise.all(
+        tables.map((table) => prepared.query(`SELECT * FROM ${table};`)),
+      );
+      await prepared.close();
+      for (const status of ["copied", "already-transferred"]) {
+        expect((await transferSqliteToDuckDb(createOptions())).status).toBe(
+          status,
+        );
+        const target = await Database.create(targetPath);
+        try {
+          for (const [index, table] of tables.entries()) {
+            expect(await target.query(`SELECT * FROM ${table};`)).toEqual(
+              expected[index],
+            );
+          }
+        } finally {
+          await target.close();
+        }
+      }
+    });
+
     it("preserves native assistant settings, preferences and history while copying the frozen schema", async () => {
       createSource();
       const prepared = await Database.create(targetPath);

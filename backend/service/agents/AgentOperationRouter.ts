@@ -1,0 +1,317 @@
+import { PermissionService } from "@/backend/auth/PermissionService";
+import { ServerCache } from "@/backend/cache/ServerCache";
+import { AgentOperationError } from "@/backend/error/AgentOperationError";
+import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
+import { ProjectAccessService } from "@/backend/service/project/ProjectAccessService";
+import { WikiAccess } from "@/backend/service/wiki/WikiAccess";
+import { WikiReadService } from "@/backend/service/wiki/WikiReadService";
+import { WikiSearchService } from "@/backend/service/wiki/WikiSearchService";
+import { WikiTrashService } from "@/backend/service/wiki/WikiTrashService";
+import {
+  PAGES_AGENT_LIMITS,
+  PAGES_AGENT_READ_OPERATIONS,
+} from "@/definition/PagesAgentOperations";
+
+import { AgentProjectReadService } from "./AgentProjectReadService";
+import { AgentWikiReadService } from "./AgentWikiReadService";
+import { createAgentWikiAccess } from "./AgentWikiAccess";
+import {
+  isAgentMilestoneOperation,
+  isAgentTicketOperation,
+} from "./AgentTicketValidation";
+import { isAgentCommentOperation } from "./AgentWikiCommentValidation";
+import { isAgentWikiFieldOperation } from "./AgentWikiFieldValidation";
+import { WikiImportPlanner } from "./WikiImportPlanner";
+
+import type { AgentPlanningServices } from "./AgentPlanningServices";
+import type { AgentWikiCommentService } from "./AgentWikiCommentService";
+import type { AgentWikiFieldService } from "./AgentWikiFieldService";
+import type { AgentWriteOperationService } from "./AgentWriteOperationService";
+import type { StructuredImportService } from "./StructuredImportService";
+import type { WikiImportService } from "./WikiImportService";
+import type { WikiImportUpdateService } from "./WikiImportUpdateService";
+import type { AgentWikiPageOperation } from "@/definition/AgentWikiFields";
+import type { PagesAgentWriteResponse } from "@/definition/PagesAgentWrites";
+import type { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
+import type { WikiRepository } from "@/backend/database/repositories/WikiRepository";
+import type { UserService } from "@/backend/service/UserService";
+import type { User } from "@/definition/User";
+import type { AgentIdentity } from "@/definition/McpAuthorization";
+import type {
+  PagesAgentCommentOperation,
+  PagesAgentReadOperation,
+  PagesAgentReadResponse,
+  PagesAgentStructuredReadResponse,
+} from "@/definition/PagesAgentOperations";
+
+/** Server-owned dependencies; no actor or policy arrives through operation parameters. */
+export interface AgentOperationDependencies {
+  readonly projects: ProjectRepository;
+  readonly wiki: WikiRepository;
+  readonly users: Pick<UserService, "getById">;
+  readonly writes?: AgentWriteOperationService;
+  readonly imports?: WikiImportService;
+  readonly importUpdates?: WikiImportUpdateService;
+  readonly structured?: StructuredImportService;
+  readonly fields?: AgentWikiFieldService;
+  readonly comments?: AgentWikiCommentService;
+  readonly planning?: AgentPlanningServices;
+}
+
+function readParameters(input: unknown): Readonly<Record<string, unknown>> {
+  if (typeof input !== "object" || input === null || Array.isArray(input))
+    throw new AgentOperationError("INVALID_REQUEST");
+  return input as Record<string, unknown>;
+}
+
+function readText(
+  parameters: Readonly<Record<string, unknown>>,
+  name: string,
+): string {
+  const text = parameters[name];
+  if (
+    typeof text !== "string" ||
+    !text.trim() ||
+    Array.from(text).length > PAGES_AGENT_LIMITS.textCharacters
+  )
+    throw new AgentOperationError("INVALID_REQUEST");
+  return text.trim();
+}
+
+function validateParameters(
+  operation: Exclude<PagesAgentReadOperation, "wiki.import.plan">,
+  parameters: Readonly<Record<string, unknown>>,
+): void {
+  const allowed = {
+    "projects.resolve": ["name"],
+    "projects.read": ["projectId"],
+    "wiki.page.read": ["pageId"],
+    "wiki.tree.read": ["projectId"],
+    "wiki.search": ["text", "projectId"],
+  }[operation];
+  if (Object.keys(parameters).some((key) => !allowed.includes(key)))
+    throw new AgentOperationError("INVALID_REQUEST");
+}
+
+/** Dispatches reads, import previews and writes using fresh authentication and isolated MCP policy. */
+export class AgentOperationRouter {
+  private readonly dependencies: AgentOperationDependencies;
+
+  public constructor(dependencies: AgentOperationDependencies) {
+    this.dependencies = dependencies;
+  }
+
+  /** Issues a binary upload capability through the authenticated API boundary. */
+  public async prepareUpload(
+    identity: AgentIdentity,
+    token: string,
+    parameters: unknown,
+  ): Promise<PagesAgentWriteResponse> {
+    if (!this.dependencies.writes)
+      throw new AgentOperationError("INVALID_REQUEST");
+    return this.dependencies.writes.prepare(identity, token, parameters);
+  }
+
+  /** Resolves current persisted scope for each call and returns a bounded version-1 result. */
+  public async handle(
+    identity: AgentIdentity,
+    input: Readonly<Record<string, unknown>>,
+    verify?: () => Promise<AgentIdentity>,
+  ): Promise<
+    | PagesAgentReadResponse
+    | PagesAgentStructuredReadResponse
+    | PagesAgentWriteResponse
+  > {
+    const direct = await this.handleDirect(identity, input, verify);
+    if (direct) return direct;
+    const operation = PAGES_AGENT_READ_OPERATIONS.find(
+      (name) => name === input.operation,
+    );
+    if (!operation) throw new AgentOperationError("INVALID_REQUEST");
+    if (operation === "wiki.import.plan")
+      return this.planImport(identity, input.parameters);
+    const parameters = readParameters(
+      input.parameters === undefined ? {} : input.parameters,
+    );
+    validateParameters(operation, parameters);
+    const actor = await this.requireActor(identity);
+    const access = new ProjectAccessService(
+      this.dependencies.projects,
+      ServerCache.disabled(),
+      "mcp",
+    );
+    const projects = new AgentProjectReadService(access);
+    const wikiAccess = new WikiAccess(
+      {
+        workItemVisibility: async (user) =>
+          (await access.scope(user)).visibility,
+      },
+      new PermissionService((id) => access.account({ ...actor, id })),
+    );
+    const reads = new WikiReadService(
+      this.dependencies.wiki,
+      wikiAccess,
+      new WikiTrashService(this.dependencies.wiki, wikiAccess),
+    );
+    const wiki = new AgentWikiReadService(
+      reads,
+      new WikiSearchService(this.dependencies.wiki, wikiAccess),
+    );
+    let result: PagesAgentReadResponse["result"];
+    if (operation === "projects.resolve")
+      result = await projects.resolve(actor, readText(parameters, "name"));
+    else if (operation === "projects.read")
+      result = await projects.read(actor, readText(parameters, "projectId"));
+    else if (operation === "wiki.page.read")
+      result = await wiki.read(actor, readText(parameters, "pageId"));
+    else {
+      const projectId =
+        parameters.projectId === undefined
+          ? undefined
+          : readText(parameters, "projectId");
+      if (projectId !== undefined) await projects.read(actor, projectId);
+      result =
+        operation === "wiki.tree.read"
+          ? await wiki.tree(actor, projectId)
+          : await wiki.search(actor, readText(parameters, "text"), projectId);
+    }
+    const response: PagesAgentReadResponse = { apiVersion: "1", result };
+    if (
+      Buffer.byteLength(JSON.stringify(response)) >
+      PAGES_AGENT_LIMITS.responseBytes
+    )
+      throw new AgentOperationError("PAYLOAD_TOO_LARGE");
+    return response;
+  }
+
+  /** Runs a write, or a ticket or milestone read, or returns `null` when the name is none of them. */
+  private async handleDirect(
+    identity: AgentIdentity,
+    input: Readonly<Record<string, unknown>>,
+    verify: (() => Promise<AgentIdentity>) | undefined,
+  ): Promise<
+    | PagesAgentReadResponse
+    | PagesAgentStructuredReadResponse
+    | PagesAgentWriteResponse
+    | null
+  > {
+    const planned = await this.handlePlanning(identity, input);
+    if (planned) return planned;
+    if (isAgentCommentOperation(input.operation))
+      return this.handleComment(identity, input.operation, input.parameters);
+    if (
+      input.operation === "import.structured.plan" ||
+      input.operation === "import.structured.apply"
+    )
+      return this.structuredImport(identity, input, verify);
+    if (input.operation === "wiki.import.apply")
+      return this.applyImport(identity, input.parameters, verify);
+    if (input.operation === "wiki.import.update")
+      return this.updateImport(identity, input.parameters, verify);
+    if (input.operation === "wiki.page.create" && this.dependencies.writes)
+      return this.dependencies.writes.create(identity, input.parameters);
+    if (
+      isAgentWikiFieldOperation(input.operation) ||
+      input.operation === "wiki.page.move"
+    )
+      return this.changePage(identity, input.operation, input.parameters);
+    return null;
+  }
+
+  /** Runs a ticket or milestone operation, or returns `null` when the name is none of them. */
+  private async handlePlanning(
+    identity: AgentIdentity,
+    input: Readonly<Record<string, unknown>>,
+  ): Promise<PagesAgentReadResponse | PagesAgentWriteResponse | null> {
+    const { operation, parameters } = input;
+    const isPlanning =
+      operation === "ticket.read" ||
+      operation === "milestones.read" ||
+      isAgentTicketOperation(operation) ||
+      isAgentMilestoneOperation(operation);
+    if (!isPlanning) return null;
+    const { planning } = this.dependencies;
+    if (!planning) throw new AgentOperationError("INVALID_REQUEST");
+    if (operation === "ticket.read")
+      return planning.reads.readTicket(identity, parameters);
+    if (operation === "milestones.read")
+      return planning.reads.readMilestones(identity, parameters);
+    return isAgentTicketOperation(operation)
+      ? planning.tickets.apply(identity, operation, parameters)
+      : planning.milestones.apply(identity, operation, parameters);
+  }
+
+  /** Reads the comments of a page or changes one; commenting needs no write capability. */
+  private async handleComment(
+    identity: AgentIdentity,
+    operation: PagesAgentCommentOperation,
+    parameters: unknown,
+  ): Promise<PagesAgentReadResponse | PagesAgentWriteResponse> {
+    const { comments } = this.dependencies;
+    if (!comments) throw new AgentOperationError("INVALID_REQUEST");
+    return operation === "wiki.comments.read"
+      ? comments.read(identity, parameters)
+      : comments.apply(identity, operation, parameters);
+  }
+
+  private async structuredImport(
+    identity: AgentIdentity,
+    input: Readonly<Record<string, unknown>>,
+    verify: (() => Promise<AgentIdentity>) | undefined,
+  ): Promise<PagesAgentStructuredReadResponse | PagesAgentWriteResponse> {
+    const { structured } = this.dependencies;
+    if (!structured) throw new AgentOperationError("INVALID_REQUEST");
+    if (input.operation === "import.structured.plan")
+      return structured.plan(identity, input.parameters);
+    if (!verify) throw new AgentOperationError("INVALID_REQUEST");
+    return structured.apply(identity, input.parameters, verify);
+  }
+
+  private async applyImport(
+    identity: AgentIdentity,
+    parameters: unknown,
+    verify: (() => Promise<AgentIdentity>) | undefined,
+  ): Promise<PagesAgentWriteResponse> {
+    if (!this.dependencies.imports || !verify)
+      throw new AgentOperationError("INVALID_REQUEST");
+    return this.dependencies.imports.apply(identity, parameters, verify);
+  }
+
+  private async updateImport(
+    identity: AgentIdentity,
+    parameters: unknown,
+    verify: (() => Promise<AgentIdentity>) | undefined,
+  ): Promise<PagesAgentWriteResponse> {
+    if (!this.dependencies.importUpdates || !verify)
+      throw new AgentOperationError("INVALID_REQUEST");
+    return this.dependencies.importUpdates.update(identity, parameters, verify);
+  }
+
+  private async changePage(
+    identity: AgentIdentity,
+    operation: AgentWikiPageOperation,
+    parameters: unknown,
+  ): Promise<PagesAgentWriteResponse> {
+    if (!this.dependencies.fields)
+      throw new AgentOperationError("INVALID_REQUEST");
+    return this.dependencies.fields.apply(identity, operation, parameters);
+  }
+
+  private async planImport(
+    identity: AgentIdentity,
+    parameters: unknown,
+  ): Promise<PagesAgentReadResponse> {
+    const actor = await this.requireActor(identity);
+    return new WikiImportPlanner(
+      this.dependencies.wiki,
+      createAgentWikiAccess(this.dependencies.projects, actor),
+    ).plan(actor, parameters);
+  }
+
+  private async requireActor(identity: AgentIdentity): Promise<User> {
+    const actor = await this.dependencies.users.getById(identity.userId);
+    if (!actor?.isActive || actor.mustChangePassword)
+      throw new McpAuthorizationError("invalid_token", 401);
+    return actor;
+  }
+}

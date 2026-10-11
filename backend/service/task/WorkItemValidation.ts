@@ -6,12 +6,16 @@ export function trimOrNull(value: string | null | undefined): string | null {
   return value ? value.trim() : null;
 }
 
-/** Checks the title and description of a work item against their limits. */
-export function validateWorkItemText(title: string, description: string): void {
+/** Checks a title against its limits. */
+export function validateTitle(title: string): void {
   if (!title || title.length > WORK_ITEM_LIMITS.titleLength) {
     throw new WorkItemValidationError("titleLength");
   }
+}
 
+/** Checks the title and description of a work item against their limits. */
+export function validateWorkItemText(title: string, description: string): void {
+  validateTitle(title);
   validateDescription(description);
 }
 

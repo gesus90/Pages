@@ -2414,5 +2414,14 @@
       "general": "Die Einstellung konnte nicht gespeichert werden.",
       "accessUnverified": "Der Zugang dieser Anbindung ist nicht bestätigt. Verifiziere sie zuerst in den Agent-Einstellungen."
     }
+  },
+  "mcpConsent": {
+    "title": "MCP-Zugriff erlauben",
+    "description": "Dieser Client möchte sich mit Pages verbinden. Pages prüft Ihre Rechte bei jedem Aufruf erneut.",
+    "client": "Client",
+    "resource": "MCP-Ressource",
+    "scope": "Zugriffsbereich",
+    "approve": "Erlauben",
+    "deny": "Ablehnen"
   }
 }

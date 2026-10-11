@@ -3,7 +3,8 @@ import { isMilestoneLinkType } from "@/definition/Task";
 
 import { createInClause } from "./InClause";
 
-import type { Database, DatabaseValue } from "@/backend/database/Database";
+import type { DatabaseValue } from "@/backend/database/Database";
+import type { TaskDatabase } from "./TaskDatabase";
 import type { MilestoneDependency, MilestoneLinkType } from "@/definition/Task";
 
 /** Values required to persist a directed dependency between two milestones. */
@@ -36,14 +37,14 @@ function toMilestoneDependency(
 
 /** Owns persistence operations for dependencies between milestones. */
 export class MilestoneDependencyRepository {
-  private readonly database: Database;
+  private readonly database: TaskDatabase;
 
   /**
    * Creates a milestone dependency repository.
    *
    * @param database - Central database access.
    */
-  public constructor(database: Database) {
+  public constructor(database: TaskDatabase) {
     this.database = database;
   }
 

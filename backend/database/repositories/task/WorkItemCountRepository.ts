@@ -3,7 +3,8 @@ import { readCountColumn, readTextColumn } from "@/backend/database/RowValue";
 import { createInClause } from "./InClause";
 import { createWorkItemVisibility } from "./WorkItemVisibility";
 
-import type { Database, DatabaseValue } from "@/backend/database/Database";
+import type { DatabaseValue } from "@/backend/database/Database";
+import type { TaskDatabase } from "./TaskDatabase";
 import type { WorkItemVisibility } from "@/definition/Task";
 
 /** Dashboard counters computed directly in the database. */
@@ -76,14 +77,14 @@ function addToProjectCounts(
 
 /** Owns the aggregate work item counters of dashboards and project lists. */
 export class WorkItemCountRepository {
-  private readonly database: Database;
+  private readonly database: TaskDatabase;
 
   /**
    * Creates a work item count repository.
    *
    * @param database - Central database access.
    */
-  public constructor(database: Database) {
+  public constructor(database: TaskDatabase) {
     this.database = database;
   }
 

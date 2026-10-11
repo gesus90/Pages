@@ -32,6 +32,8 @@ import { SettingsService } from "@/backend/service/SettingsService";
 import { GitHubSyncService } from "@/backend/service/GitHubSyncService";
 import { ProjectService } from "@/backend/service/ProjectService";
 import { TaskService } from "@/backend/service/TaskService";
+import { TaskGitHubPublisher } from "@/backend/service/task/TaskGitHubPublisher";
+import { TaskHistoryRecorder } from "@/backend/service/task/TaskHistoryRecorder";
 import { TaskTemplateService } from "@/backend/service/TaskTemplateService";
 import { TaskAttachmentService } from "@/backend/service/task/TaskAttachmentService";
 import { TicketTreeService } from "@/backend/service/task/TicketTreeService";
@@ -44,13 +46,19 @@ import { SetupService } from "@/backend/setup/SetupService";
 
 import { createAgentServices } from "./agent-services.server";
 import { createTextAssistantServices } from "./text-assistant-services.server";
+import { createMcpServices } from "./mcp-services.server";
 
+import type { AgentAssetService } from "@/backend/service/agents/AgentAssetService";
 import type { AgentApplicationServices } from "./agent-services.server";
 import type { TextAssistantApplicationServices } from "./text-assistant-services.server";
+import type { McpApplicationServices } from "./mcp-services.server";
 
 /** Server-only service instances shared by React Router loaders and actions. */
 export interface ApplicationServices
-  extends AgentApplicationServices, TextAssistantApplicationServices {
+  extends
+    AgentApplicationServices,
+    TextAssistantApplicationServices,
+    McpApplicationServices {
   readonly administrationService: AdministrationService;
   readonly groupAdministrationService: GroupAdministrationService;
   readonly authService: AuthService;
@@ -140,7 +148,6 @@ function createWorkspaceServices(
       path.join(path.dirname(databasePath), "wiki-attachments"),
     ),
   );
-  startWikiMaintenanceScheduler(wikiService);
   return {
     healthService: new HealthService(database),
     instanceSettingsService: new InstanceSettingsService(
@@ -173,6 +180,41 @@ async function prepareSessions(
   return sessionService;
 }
 
+/**
+ * Creates the services that decide what an account may do.
+ *
+ * @param database - The open database.
+ * @param passwordHasher - Hashes the passwords the administration sets.
+ * @param serverCache - Shared cache the administration invalidates on changes.
+ * @returns The administration, the group administration and the permission service.
+ */
+function createAuthorizationServices(
+  database: Database,
+  passwordHasher: PasswordHasher,
+  serverCache: ServerCache,
+): Pick<
+  ApplicationServices,
+  "administrationService" | "groupAdministrationService" | "permissionService"
+> {
+  const authorizationRepository = new AuthorizationRepository(database);
+  const administrationService = new AdministrationService(
+    authorizationRepository,
+    serverCache,
+    passwordHasher,
+  );
+
+  return {
+    administrationService,
+    groupAdministrationService: new GroupAdministrationService(
+      authorizationRepository,
+      serverCache,
+    ),
+    permissionService: new PermissionService((id) =>
+      administrationService.getContext(id),
+    ),
+  };
+}
+
 async function initializeServices(
   database: Database,
   databasePath: string,
@@ -181,19 +223,11 @@ async function initializeServices(
 
   const passwordHasher = new PasswordHasher();
   const serverCache = new ServerCache();
-  const authorizationRepository = new AuthorizationRepository(database);
-  const administrationService = new AdministrationService(
-    authorizationRepository,
-    serverCache,
-    passwordHasher,
-  );
-  const groupAdministrationService = new GroupAdministrationService(
-    authorizationRepository,
-    serverCache,
-  );
-  const permissionService = new PermissionService((id) =>
-    administrationService.getContext(id),
-  );
+  const {
+    administrationService,
+    groupAdministrationService,
+    permissionService,
+  } = createAuthorizationServices(database, passwordHasher, serverCache);
   const userRepository = new UserRepository(database);
   const projectRepository = new ProjectRepository(database);
   const userSettingsRepository = new UserSettingsRepository(database);
@@ -245,8 +279,18 @@ async function initializeServices(
     new SessionService(sessionRepository, userService),
   );
 
+  const mcpServices = startMcpWorkspace({
+    database,
+    databasePath,
+    users: userService,
+    administration: administrationService,
+    wiki: workspaceServices.wikiService,
+    gitHubSync: taskServices.gitHubSyncService,
+    serverCache,
+  });
   return {
     ...agentServices,
+    ...mcpServices,
     ...assistantServices,
     administrationService,
     authService: new AuthService(
@@ -266,6 +310,39 @@ async function initializeServices(
     ...taskServices,
     userService,
   };
+}
+
+/** Builds the agent write services and shares the existing maintenance scheduler. */
+function startMcpWorkspace(context: {
+  readonly database: Database;
+  readonly databasePath: string;
+  readonly users: UserService;
+  readonly administration: AdministrationService;
+  readonly wiki: WikiService;
+  readonly gitHubSync: GitHubSyncService;
+  readonly serverCache: ServerCache;
+}): McpApplicationServices {
+  // The publisher of the ticket pages, on its own repository: agent ticket changes
+  // follow the same GitHub rule once they are committed.
+  const taskRepository = new TaskRepository(context.database);
+  const publisher = new TaskGitHubPublisher(
+    taskRepository,
+    new TaskHistoryRecorder(taskRepository),
+    context.serverCache,
+  );
+  publisher.attach(context.gitHubSync);
+  const services = createMcpServices(
+    context.database,
+    context.users,
+    context.administration,
+    {
+      directory: path.dirname(context.databasePath),
+      wikiService: context.wiki,
+      tickets: { cache: context.serverCache, publisher },
+    },
+  );
+  startWikiMaintenanceScheduler(context.wiki, services.agentAssetService);
+  return services;
 }
 
 /** What the task services are built from. */
@@ -414,13 +491,21 @@ function startGitHubSyncScheduler(gitHubSyncService: GitHubSyncService): void {
  *
  * @param wikiService - Service that carries out the cleanup.
  */
-function startWikiMaintenanceScheduler(wikiService: WikiService): void {
+function startWikiMaintenanceScheduler(
+  wikiService: WikiService,
+  assets: AgentAssetService,
+): void {
   if (globalThis.pagesWikiMaintenanceStarted) {
     return;
   }
 
   globalThis.pagesWikiMaintenanceStarted = true;
-  new WikiMaintenanceScheduler(wikiService).start();
+  new WikiMaintenanceScheduler({
+    runMaintenance: async () => {
+      await wikiService.runMaintenance();
+      await assets.runMaintenance();
+    },
+  }).start();
 }
 
 async function openConfiguredServices(): Promise<ApplicationServices> {

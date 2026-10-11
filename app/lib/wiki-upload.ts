@@ -1,7 +1,8 @@
 import type { WikiAttachment } from "@/definition/Wiki";
 
-/** The address of an attachment of this instance; only those show as images. */
-export const WIKI_ATTACHMENT_PATH = /^\/wiki\/attachments\/[\w-]+(?:\?.*)?$/;
+/** Wiki attachment and agent asset addresses of this instance, allowed as images. */
+export const WIKI_ATTACHMENT_PATH =
+  /^\/(?:wiki\/attachments|agent-assets)\/[\w-]+(?:\?.*)?$/;
 
 /**
  * Tells whether an image address belongs to an attachment of this instance.
