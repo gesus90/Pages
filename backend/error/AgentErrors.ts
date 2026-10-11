@@ -1,5 +1,58 @@
 /** Stable codes cross the HTTP boundary; upstream error text never does. */
 export const AGENT_ERROR_MESSAGES = {
+  plan_invalid: "Check the plan fields and graph nodes.",
+  plan_access_denied: "This plan or run is not accessible.",
+  plan_conflict: "The plan changed. Reload it before saving or starting.",
+  plan_cycle: "Execution dependencies contain a cycle.",
+  plan_binding_invalid: "Check parameter ports and source or result bindings.",
+  plan_workspace_conflict:
+    "Parallel steps or another run would write to the same working copy.",
+  plan_context_changed:
+    "The workspace, project or model context changed. Review the plan before starting again.",
+  plan_directory_required:
+    "CLI plan steps require an explicit workspace directory parameter.",
+  plan_step_failed: "The step failed. Provider diagnostics are not exposed.",
+  plan_dependency_failed:
+    "A dependency failed or was cancelled; this step is blocked.",
+  plan_interrupted:
+    "The server interrupted this run. It cannot be resumed automatically.",
+  workspace_invalid:
+    "Enter a name, existing local directory, project and usage assignments.",
+  workspace_access_denied: "The workspace or its project is not accessible.",
+  workspace_not_found: "The workspace registration no longer exists.",
+  workspace_conflict: "The workspace changed. Reload it before saving.",
+  workspace_roots_missing:
+    "Workspace roots have not been configured on the server.",
+  workspace_path_invalid:
+    "Choose an absolute path to an existing local directory.",
+  workspace_path_unavailable:
+    "The directory is unavailable or lacks read, write or traversal permission.",
+  workspace_path_outside_roots:
+    "The directory is outside approved roots or overlaps Pages instance data.",
+  workspace_path_changed:
+    "The registered directory was replaced or redirected. Register it again explicitly.",
+  workspace_path_conflict:
+    "Another workspace already registers this directory or an overlapping directory.",
+  workspace_in_use:
+    "Remove the workspace references before unregistering or rebinding it.",
+  configuration_invalid: "Enter a valid agent configuration.",
+  parameter_invalid: "Check parameter names, types and defaults.",
+  parameter_required: "Supply every required parameter.",
+  parameter_reference_unavailable:
+    "The parameter reference is unavailable or not accessible.",
+  profile_in_use:
+    "Remove the agent's assignments and usage grants before deleting it.",
+  profile_conflict: "The agent changed. Reload it before saving.",
+  profile_scope_invalid: "Choose targets within the agent's scope.",
+  personal_access_missing: "No matching personal model access is assigned.",
+  personal_access_selection_required:
+    "Choose a matching personal access explicitly.",
+  agent_usage_denied: "The agent is not shared for this user and project.",
+  agent_inactive: "The agent is inactive.",
+  system_function_in_use: "This system function already has an agent.",
+  profile_invalid: "Enter a valid execution profile.",
+  profile_not_found: "The execution profile no longer exists.",
+  profile_target_invalid: "Choose an existing assignment target.",
   function_invalid: "Choose a predefined agent function.",
   assignment_exists:
     "This function already has an assignment. Edit it instead.",

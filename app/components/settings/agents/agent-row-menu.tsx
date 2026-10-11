@@ -12,7 +12,8 @@ import { isLoginActive } from "@/definition/AgentConnection";
 
 import type { AgentConnectionSummary } from "@/definition/AgentConnection";
 
-export type AgentCommand = "auth" | "model" | "login" | "logout" | "delete";
+export type AgentCommand =
+  "auth" | "model" | "login" | "logout" | "delete" | "activate" | "deactivate";
 export type AgentCommandHandler = (
   connection: AgentConnectionSummary,
   command: AgentCommand,
@@ -50,6 +51,21 @@ export function AgentRowMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        <DropdownMenuItem
+          disabled={isBusy}
+          onSelect={() =>
+            onCommand(
+              connection,
+              connection.isActive ? "deactivate" : "activate",
+            )
+          }
+        >
+          {t(
+            connection.isActive
+              ? "settings.agents.profiles.deactivate"
+              : "settings.agents.profiles.activate",
+          )}
+        </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => onEdit(connection)}>
           {t("settings.agents.edit")}
         </DropdownMenuItem>

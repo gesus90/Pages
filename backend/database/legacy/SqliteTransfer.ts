@@ -437,6 +437,8 @@ function verifySourceColumns(
  * their native defaults and existing rows remain outside the legacy copy.
  * Personal agent tokens and OAuth consent came with A9.2; their native rows
  * likewise stay untouched when the frozen SQLite schema is copied.
+ * Execution profiles and their A10.1 grants are native configuration as well.
+ * The A10.2 legacy function references stay with their native agent profiles.
  */
 async function readTargetColumns(
   target: Database,
@@ -461,6 +463,10 @@ async function readTargetColumns(
               'wiki_favorites', 'wiki_recent_pages', 'wiki_expanded_pages',
               'wiki_user_state', 'wiki_settings',
               'agent_connections', 'agent_connection_checks', 'agent_model_catalogs',
+              'agent_execution_profiles', 'agent_profile_purposes', 'agent_profile_targets',
+              'agent_legacy_function_assignments',
+              'agent_workspaces', 'agent_workspace_targets',
+              'agent_plans', 'agent_plan_runs', 'agent_plan_workspace_locks',
               'work_item_attachments', 'work_item_tree_expansions',
               'text_assistant_settings', 'text_assistant_preferences',
               'assistant_conversations', 'assistant_messages',

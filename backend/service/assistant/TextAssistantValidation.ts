@@ -93,10 +93,19 @@ function validateAction(request: TextAssistantRequest): void {
     throw new TextAssistantError("invalidInput");
 }
 
+function readProfileSelection(
+  input: unknown,
+): Pick<TextAssistantRequest, "profileId"> {
+  if (input === undefined) return {};
+  if (input === null) return { profileId: null };
+  return { profileId: readAssistantIdentifier(input) };
+}
+
 /** Narrows the entire external request before services use any part of it. */
 export function readAssistantRequest(input: unknown): TextAssistantRequest {
   const envelope = readAgentObject(input);
   const request: TextAssistantRequest = {
+    ...readProfileSelection(envelope.profileId),
     requestId: readAssistantIdentifier(envelope.requestId),
     conversationId:
       envelope.conversationId === null

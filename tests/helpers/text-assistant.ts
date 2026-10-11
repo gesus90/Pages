@@ -15,6 +15,10 @@ import { WikiAccess } from "@/backend/service/wiki/WikiAccess";
 import { WikiPageReader } from "@/backend/service/wiki/WikiPageReader";
 import { TaskAccessGuard } from "@/backend/service/task/TaskAccessGuard";
 import { AssistantRequestRegistry } from "@/backend/service/assistant/AssistantRequestRegistry";
+import { AgentProfileService } from "@/backend/service/agents/AgentProfileService";
+import { AgentProfileRepository } from "@/backend/database/repositories/agent/AgentProfileRepository";
+import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
+import { AgentOperationRegistry } from "@/backend/service/agents/AgentOperationRegistry";
 import { TextAgentRoleService } from "@/backend/service/assistant/TextAgentRoleService";
 import { TextAssistantContextService } from "@/backend/service/assistant/TextAssistantContextService";
 import { TextAssistantService } from "@/backend/service/assistant/TextAssistantService";
@@ -110,9 +114,26 @@ export async function createAssistantHarness(database: Database) {
     },
     alice.id,
   );
-  const roles = new TextAgentRoleService(settings, connections);
+  const operations = new AgentOperationRegistry();
+  const profiles = new AgentProfileService({
+    profiles: new AgentProfileRepository(database),
+    connections,
+    authorization,
+    groups: new UserGroupRepository(database),
+    operations,
+  });
+  const roles = new TextAgentRoleService(
+    settings,
+    connections,
+    operations,
+    profiles,
+  );
   const admin = createAccess({
     userId: alice.id,
+    role:
+      (await authorization.snapshot()).accounts.find(
+        (account) => account.userId === alice.id,
+      )?.role ?? null,
     isAdmin: true,
     mode: "admin",
   });
@@ -162,6 +183,7 @@ export async function createAssistantHarness(database: Database) {
     settings,
     connections,
     roles,
+    profiles,
     contexts,
     conversations,
     requests,

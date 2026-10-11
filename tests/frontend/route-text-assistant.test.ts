@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const services = vi.hoisted(() => ({
   administrationService: { getContext: vi.fn() },
+  agentProfileService: { choices: vi.fn() },
   textAssistantService: {
     run: vi.fn(),
     validate: vi.fn(),
@@ -67,6 +68,7 @@ function args(
 const context = { kind: "wiki", id: "page", version: "1" };
 beforeEach(() => {
   services.administrationService.getContext.mockResolvedValue(createAccess());
+  services.agentProfileService.choices.mockResolvedValue([]);
   services.textAssistantService.history.mockResolvedValue({
     conversations: [],
     preferences: { autoApply: false, targetLanguage: "de" },
@@ -78,6 +80,7 @@ beforeEach(() => {
 describe("explicit text assistant actions", () => {
   it("dispatches all intents with authenticated ownership and no cache", async () => {
     for (const intent of [
+      "profiles",
       "run",
       "validate",
       "history",
@@ -90,6 +93,7 @@ describe("explicit text assistant actions", () => {
         args(
           {
             intent,
+            purpose: "text",
             request: { pinned: true },
             context,
             id: "conversation",
@@ -146,6 +150,41 @@ describe("explicit text assistant actions", () => {
     );
     const response = await action(args({ intent: "run", request: {} }));
     expect(await response.text()).not.toContain("secret upstream diagnostic");
+  });
+
+  it("returns only server-filtered profiles and rejects revoked direct selections before execution", async () => {
+    const choice = {
+      id: "profile",
+      name: "Personal",
+      model: "model",
+      reasoningEffort: null,
+    };
+    services.agentProfileService.choices.mockResolvedValueOnce([choice]);
+    const response = await action(
+      args({ intent: "profiles", purpose: "agent" }),
+    );
+    expect(await response.json()).toEqual({ ok: true, profiles: [choice] });
+    expect(services.agentProfileService.choices).toHaveBeenLastCalledWith(
+      createUser().id,
+      "agent",
+    );
+    expect(services.textAssistantService.run).not.toHaveBeenCalled();
+    services.agentProfileService.choices.mockRejectedValueOnce(
+      new TextAssistantError("invalidInput"),
+    );
+    expect(
+      (await action(args({ intent: "profiles", purpose: "unknown" }))).status,
+    ).toBe(400);
+    services.textAssistantService.run.mockRejectedValueOnce(
+      new TextAssistantError("accessDenied"),
+    );
+    expect(
+      (
+        await action(
+          args({ intent: "run", request: { profileId: "unassigned" } }),
+        )
+      ).status,
+    ).toBe(403);
   });
 
   it("maps authorization/context/conflict errors and preserves no-store on thrown responses", () => {

@@ -268,6 +268,93 @@ connections for text editing, chat, task routing, or other productive work.
 Pages is open source under the [MIT License](./LICENSE). Anyone may use,
 copy, modify, and distribute it.
 
+### Execution profiles and assignments (A10.1)
+
+Connections can be enabled or disabled without replacing their encrypted keys or
+isolated CLI logins. Each connection can have several named execution profiles,
+each with a catalog-listed model, reasoning level, active state and purposes:
+Text, Chat or Agent execution. Administrators assign profiles to people, groups,
+departments or explicit System functions such as System → Text and System → Chat.
+These assignments do not grant access to reusable agent task definitions.
+
+The assistant offers only assigned, active profiles with verified access and a
+valid model/level in that connection's own catalog. Several eligible profiles
+require an explicit choice; a revoked or disabled selection fails without switching
+to another account. Personal and System profiles have equal priority. Group
+membership and department membership are checked again on the server for each
+request. Team leaders with user-management permission can additionally use profiles
+assigned to their explicitly managed departments. Administrator status and global
+management scopes do not grant an execution bypass. Only active administrator mode
+can manage connections, profiles and assignments.
+
+Existing Text configuration becomes a System profile for Text and Chat, preserving
+the previous editor behavior. The original Text assignment API remains a synchronized
+compatibility facade. The profile editor can separate its Text and Chat assignments.
+No quotas or new consumption display are included, and configuring Agent execution
+profiles does not introduce a new runner, workspace or execution plan.
+
+### Local workspaces (A10.3)
+
+Administrators in active admin mode can register an existing local directory at
+`/agents/workspaces`, give it a name and assign a project and usage grants to
+people, groups or departments. Registration and removal change database metadata
+only; directory contents, Git branches and local changes remain intact.
+
+Set `PAGES_WORKSPACE_ROOTS` to approved existing absolute directory roots, separated
+by the operating system's path delimiter (`:` on Linux). An empty setting disables
+registration and resolution. Pages canonicalizes paths and symlinks, requires its
+service user to have read/write/traversal access, excludes instance data and
+rejects overlapping registrations. Resolution checks the saved directory identity
+again and fails explicitly after replacement or lost permissions. The allowlist
+and separate directory registrations do not provide an execution sandbox.
+
+Workspace usage requires both a current assignment and current access to its active
+project. Administrator status and managed departments do not bypass usage grants.
+The workspace always reads its current project's GitHub repository link; no GitHub
+secrets are copied and no clone, push or branch switch is triggered.
+
+Agent parameters can select registered workspace IDs as defaults. Server preparation
+reauthorizes model access, workspace references and Wiki content, deriving project
+context from the selected workspace. Only the explicitly named workspace directory
+parameter produces a working-directory contract for the later CLI runner. A path
+mentioned in the prompt has no such effect.
+
+### Execution plans (A10.4)
+
+The expandable **Agents** sidebar entry below Tasks links to **Execution plan**,
+**Workspace** and the existing **Agents list**. At `/agents/plans`, workspace users
+can create named private plans or share usage with current workspace users. Only
+the owner edits a plan. Project and GitHub context always come from the workspace;
+changing a plan's workspace requires removing its nodes first.
+
+The grid accepts agent, task/subtask and global text variable nodes by drag-and-drop
+or Insert buttons. Flow ports define successful predecessors and joins; parameter
+ports explicitly bind tasks, variables or successful predecessor results to text
+parameters. Workspace and Wiki parameters retain their existing typed reference
+checks. Inputs, templates and referenced text are frozen when Play starts a saved
+revision. Plan edits affect future runs; access is resolved again immediately before
+each actual step starts, using the executing user's own applicable access.
+
+Preflight rejects cycles, unavailable definitions/models/directories and unordered
+CLI writes to the same working copy. Writing copies are reserved transactionally
+throughout each run, including across plans and users. CLI steps require an explicit
+directory parameter: their process cwd is the registered copy while credentials
+remain in an isolated home. API steps use the existing text adapter. At most two
+steps run concurrently per instance service. No Git operations are performed by
+the plan service; a branch parameter is literal input.
+
+Run views show waiting, running, succeeded, failed and cancelled steps, sanitized
+final text and stable error codes. Failed predecessors block dependents while
+independent branches may finish. Stop prevents future starts and requests active
+abort; confirmed cancellation appears only after adapter/process completion. Run
+history is private to the executor and requires current resource access. The UI
+shows the last twenty own runs. Retry, resume and conditions are not implemented.
+After an interrupted server process, unfinished runs are marked failed and unknown
+writing reservations remain held for operator review; there is no automatic resume
+or automatic release of potentially active processes.
+
+Full tests, coverage, final build and overall acceptance remain deferred to A10.5.
+
 ### A7 models and reasoning
 
 Agent tasks assign a function to a named connection, a model from that connection's

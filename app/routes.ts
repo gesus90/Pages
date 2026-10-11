@@ -27,6 +27,12 @@ export default [
   layout("routes/authenticated.tsx", [
     route("account-version", "routes/account-version.ts"),
     route("assistant-api", "routes/text-assistant.ts"),
+    route("agent-api/definitions", "routes/agent-definitions.ts"),
+    route("agent-api/workspaces", "routes/agent-workspace-choices.ts"),
+    route("agents/workspaces", "routes/agent-workspaces.tsx"),
+    route("agents/plans", "routes/agent-plans.tsx"),
+    route("agent-api/plan-sources", "routes/agent-plan-sources.ts"),
+    route("agent-api/plan-runs", "routes/agent-plan-runs.ts"),
     route("dashboard", "routes/dashboard.tsx"),
     route("users", "routes/users.tsx"),
     route("settings", "routes/settings.tsx", [

@@ -31,7 +31,47 @@ function readConnectionInput(formData: FormData): AgentConnectionInput {
   };
 }
 
+function readActive(formData: FormData): boolean {
+  const active = readText(formData, "isActive");
+  if (active !== "true" && active !== "false")
+    throw new AgentError("profile_invalid");
+  return active === "true";
+}
+
 const AGENT_ACTION_HANDLERS: Readonly<Record<string, AgentActionHandler>> = {
+  "set-connection-active": async ({ actor, services, formData, id }) => {
+    await services.agentConnectionService.setActive(
+      actor,
+      id,
+      readActive(formData),
+    );
+    return { ok: true, connectionId: id };
+  },
+  "save-profile": async ({ actor, services, formData }) => {
+    const content = readTextOrEmpty(formData, "profile");
+    if (content.length > 500000) throw new AgentError("profile_invalid");
+    const profile: unknown = JSON.parse(content);
+    await services.agentProfileService.save(
+      actor,
+      readText(formData, "profileId"),
+      profile,
+    );
+    return { ok: true };
+  },
+  "delete-profile": async ({ actor, services, formData }) => {
+    await services.agentProfileService.remove(
+      actor,
+      readTextOrEmpty(formData, "profileId"),
+    );
+    return { ok: true };
+  },
+  "profile-usages": async ({ actor, services, formData }) => ({
+    ok: true,
+    usages: await services.agentProfileService.usages(
+      actor,
+      readTextOrEmpty(formData, "profileId"),
+    ),
+  }),
   "create-assignment": (context) => saveAssignment(context, "create"),
   "update-assignment": (context) => saveAssignment(context, "update"),
   "delete-assignment": async ({ actor, services, formData }) => {
@@ -146,6 +186,9 @@ async function saveAssignment(
 }
 
 const CONNECTION_FREE_INTENTS = new Set([
+  "save-profile",
+  "delete-profile",
+  "profile-usages",
   "create-connection",
   "configure-text",
   "configure-retention",

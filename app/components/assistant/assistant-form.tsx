@@ -4,6 +4,8 @@ import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Select } from "@/app/components/ui/select";
 
+import { AssistantProfileField } from "./assistant-profile-field";
+
 import type {
   TextAssistantAction,
   TextAssistantChange,
@@ -12,6 +14,7 @@ import type {
 
 /** Explicit action, context and write intent; opening the form performs no generation. */
 export interface AssistantFormState {
+  readonly profileId?: string | null;
   readonly action: TextAssistantAction;
   readonly scope: TextAssistantScope;
   readonly change: TextAssistantChange;
@@ -54,7 +57,12 @@ function AssistantActionFields({
 }: AssistantFieldsProps): React.ReactElement {
   const { t } = useTranslation();
   function chooseAction(action: TextAssistantAction): void {
-    onChange({ ...state, action, change: defaultChange(action) });
+    onChange({
+      ...state,
+      action,
+      change: defaultChange(action),
+      profileId: null,
+    });
   }
   function chooseScope(scope: TextAssistantScope): void {
     onChange({ ...state, scope });
@@ -202,6 +210,11 @@ export function AssistantForm(
       }}
     >
       <AssistantActionFields {...props} />
+      <AssistantProfileField
+        state={props.state}
+        isRunning={props.isRunning}
+        onChange={props.onChange}
+      />
       <AssistantInstructionFields {...props} />
       {!props.canSend ? (
         <p className="text-xs text-muted-foreground">

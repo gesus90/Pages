@@ -24,6 +24,8 @@ export interface CliRunRequest {
   readonly arguments: readonly string[];
   readonly provider: CliProviderId;
   readonly home: CliHome;
+  /** Authorized plan cwd; login and text requests keep the isolated default directory. */
+  readonly workingDirectory?: string;
   readonly timeoutMs: number;
   readonly stdin: "pipe" | "ignore";
   /** One prompt or metadata control request sent through stdin and then closed, never through shell arguments. */

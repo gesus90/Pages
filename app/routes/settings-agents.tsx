@@ -3,6 +3,7 @@ import { data as routeData, useLoaderData } from "react-router";
 
 import { AdminModeRequired } from "@/app/components/settings/admin-mode-required";
 import { AgentsSection } from "@/app/components/settings/agents/agents-section";
+import { readAgentFilters } from "@/definition/AgentFilters";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { readSettingsRequest } from "@/app/lib/settings-actions/settings-request.server";
@@ -13,6 +14,11 @@ import {
   AGENT_NO_STORE,
 } from "@/app/lib/settings-actions/settings-agents-response.server";
 
+import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
+import type {
+  AgentProfile,
+  AgentProfileDirectory,
+} from "@/definition/AgentProfile";
 import type { AgentModelCatalog } from "@/definition/AgentModelCatalog";
 import type { TextAssistantSettings } from "@/definition/TextAssistant";
 import type { AgentAssignmentView } from "@/definition/AgentAssignment";
@@ -21,6 +27,8 @@ import type {
   CliToolLocations,
 } from "@/definition/AgentConnection";
 import type { Route } from "./+types/settings-agents";
+import type { AgentAvailability } from "@/definition/AgentAvailability";
+import type { AgentFilters } from "@/definition/AgentFilters";
 
 type AgentsLoaderData =
   | { readonly access: "adminModeRequired" }
@@ -30,7 +38,16 @@ type AgentsLoaderData =
       readonly cliTools: CliToolLocations;
       readonly catalogs: Readonly<Record<string, AgentModelCatalog>>;
       readonly assistantSettings: TextAssistantSettings;
+      readonly profiles: readonly AgentProfile[];
+      readonly profileDirectory: AgentProfileDirectory;
       readonly assignments: readonly AgentAssignmentView[];
+      readonly workspaceChoices: readonly AgentWorkspaceChoice[];
+      readonly availability: Readonly<Record<string, AgentAvailability>>;
+      readonly filters: AgentFilters;
+      readonly projects: readonly {
+        readonly id: string;
+        readonly name: string;
+      }[];
     };
 
 /**
@@ -49,6 +66,7 @@ export const headers: Route.HeadersFunction = ({ parentHeaders }) => {
 /** Loads secret-free metadata only for personal administrators in the active admin mode. */
 export async function loader({
   context,
+  request,
 }: Route.LoaderArgs): Promise<ReturnType<typeof routeData<AgentsLoaderData>>> {
   try {
     const services = await getApplicationServices();
@@ -61,14 +79,28 @@ export async function loader({
         { access: "adminModeRequired" },
         { headers: AGENT_NO_STORE },
       );
-    const [connections, cliTools, catalogs, assistantSettings, assignments] =
-      await Promise.all([
-        services.agentConnectionService.list(actor),
-        services.agentCliLoginService.tools(actor),
-        services.agentCatalogService.list(actor),
-        services.textAgentRoleService.read(actor),
-        services.agentAssignmentService.list(actor),
-      ]);
+    const filters = readAgentFilters(new URL(request.url).searchParams);
+    const [
+      connections,
+      cliTools,
+      catalogs,
+      assistantSettings,
+      assignments,
+      agentList,
+      profileDirectory,
+      projects,
+      workspaceChoices,
+    ] = await Promise.all([
+      services.agentConnectionService.list(actor),
+      services.agentCliLoginService.tools(actor),
+      services.agentCatalogService.list(actor),
+      services.textAgentRoleService.read(actor),
+      services.agentAssignmentService.list(actor),
+      services.agentProfileService.filteredList(actor, filters),
+      services.agentProfileService.directory(actor),
+      services.agentProfileService.projects(actor),
+      services.agentWorkspaceService.choices(actor.userId),
+    ]);
     return routeData<AgentsLoaderData>(
       {
         access: "granted",
@@ -77,6 +109,12 @@ export async function loader({
         catalogs,
         assistantSettings,
         assignments,
+        profiles: agentList.profiles,
+        availability: agentList.availability,
+        filters,
+        projects,
+        profileDirectory,
+        workspaceChoices,
       },
       { headers: AGENT_NO_STORE },
     );
@@ -105,6 +143,12 @@ export default function SettingsAgentsRoute(): React.ReactElement {
       catalogs={result.catalogs}
       assistantSettings={result.assistantSettings}
       assignments={result.assignments}
+      profiles={result.profiles}
+      profileDirectory={result.profileDirectory}
+      availability={result.availability}
+      filters={result.filters}
+      projects={result.projects}
+      workspaceChoices={result.workspaceChoices}
     />
   ) : (
     <AdminModeRequired description={t("settings.agents.adminModeRequired")} />

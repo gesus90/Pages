@@ -18,6 +18,7 @@ import type {
 } from "@/definition/AgentConnection";
 
 const STATUS_STYLES = {
+  inactive: { icon: Ban, className: "bg-muted text-muted-foreground" },
   unchecked: {
     icon: CircleDashed,
     className: "bg-muted text-muted-foreground",
@@ -50,6 +51,7 @@ export function latestAgentCheck(
 export function agentStatus(
   connection: AgentConnectionSummary,
 ): keyof typeof STATUS_STYLES {
+  if (!connection.isActive) return "inactive";
   const cliState = cliAvailability(connection.cli);
   if (cliState) return cliState;
   const latest = latestAgentCheck(connection);

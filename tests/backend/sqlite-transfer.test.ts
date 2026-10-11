@@ -91,6 +91,24 @@ describe("transferSqliteToDuckDb", { timeout: 30_000 }, () => {
       const prepared = await Database.create(targetPath);
       await prepared.migrate(DATABASE_MIGRATIONS);
       await prepared.execute(`
+        INSERT INTO agent_connections (id, name, provider, created_by, updated_by, is_active)
+        VALUES ('native-cli', 'Native CLI', 'codex_cli', 'u1', 'u1', FALSE);
+        INSERT INTO agent_execution_profiles (id, name, connection_id, model, reasoning_effort, is_active)
+        VALUES
+            ('native-profile', 'Native profile', 'native-cli', 'model', NULL, FALSE),
+            ('native-skills', 'Legacy SKILLS', 'native-cli', 'model', NULL, FALSE);
+        INSERT INTO agent_profile_purposes VALUES ('native-profile', 'text');
+        INSERT INTO agent_profile_targets VALUES ('native-profile', 'person', 'u1');
+        INSERT INTO agent_profile_purposes VALUES ('native-skills', 'agent');
+        INSERT INTO agent_legacy_function_assignments VALUES ('skills', 'native-skills');
+        INSERT INTO agent_workspaces (id, name, path, directory_identity, project_id, registered_by)
+        VALUES ('native-workspace', 'Workspace', '/synthetic/workspace', '1:2', 'p1', 'u1');
+        INSERT INTO agent_workspace_targets VALUES ('native-workspace', 'person', 'u1');
+        INSERT INTO agent_plans (id, owner_id, project_id, workspace_id, name, usage, plan_json)
+        VALUES ('native-plan', 'u1', 'p1', 'native-workspace', 'Plan', 'private', '{}');
+        INSERT INTO agent_plan_runs (id, plan_id, user_id, project_id, workspace_id, started_at, status, view_json, snapshot_json)
+        VALUES ('native-plan-run', 'native-plan', 'u1', 'p1', 'native-workspace', 'now', 'running', '{}', '{}');
+        INSERT INTO agent_plan_workspace_locks VALUES ('native-workspace', 'native-plan-run');
         INSERT INTO personal_agent_tokens (id, user_id, name, token_hash, created_at)
         VALUES ('personal', 'u1', 'Local client', 'synthetic-hash', 1);
         INSERT INTO mcp_oauth_clients (id, metadata) VALUES ('client', '{}');
@@ -113,6 +131,16 @@ describe("transferSqliteToDuckDb", { timeout: 30_000 }, () => {
         VALUES ('run', 'file.md', 'file:file.md', 0, 'created', 'page', '{}', 1);
       `);
       const tables = [
+        "agent_connections",
+        "agent_execution_profiles",
+        "agent_profile_purposes",
+        "agent_profile_targets",
+        "agent_legacy_function_assignments",
+        "agent_workspaces",
+        "agent_workspace_targets",
+        "agent_plans",
+        "agent_plan_runs",
+        "agent_plan_workspace_locks",
         "agent_assets",
         "agent_operation_keys",
         "agent_import_runs",
@@ -152,8 +180,10 @@ describe("transferSqliteToDuckDb", { timeout: 30_000 }, () => {
       await prepared.migrate(DATABASE_MIGRATIONS);
       await prepared.execute(`
         UPDATE text_assistant_settings SET retention_days = 7;
-        INSERT INTO agent_function_assignments (function, connection_id, model)
-        VALUES ('text', 'connection', 'catalog-model');
+        INSERT INTO agent_execution_profiles (id, name, connection_id, model, reasoning_effort, is_active)
+        VALUES ('native-text', 'Native Text', 'connection', 'catalog-model', NULL, FALSE);
+        INSERT INTO agent_profile_purposes VALUES ('native-text', 'text');
+        INSERT INTO agent_profile_targets VALUES ('native-text', 'system', 'text');
         INSERT INTO text_assistant_preferences (user_id, auto_apply, target_language)
         VALUES ('u1', TRUE, 'fr');
         INSERT INTO assistant_conversations (id, user_id, context_kind, context_id)

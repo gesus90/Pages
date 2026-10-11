@@ -16,14 +16,19 @@ import { AgentOperationRegistry } from "@/backend/service/agents/AgentOperationR
 import { AgentTextExecution } from "@/backend/agents/AgentTextExecution";
 import { ApiTextExecution } from "@/backend/agents/providers/ApiTextExecution";
 import { CliTextExecution } from "@/backend/agents/cli/CliTextExecution";
+import { AgentPlanExecution } from "@/backend/agents/AgentPlanExecution";
+import { CliPlanExecution } from "@/backend/agents/cli/CliPlanExecution";
 import { TextAssistantSettingsRepository } from "@/backend/database/repositories/assistant/TextAssistantSettingsRepository";
 import { TextAgentRoleService } from "@/backend/service/assistant/TextAgentRoleService";
 import { AgentAssignmentRepository } from "@/backend/database/repositories/agent/AgentAssignmentRepository";
 import { AgentAssignmentService } from "@/backend/service/agents/AgentAssignmentService";
 
-import type { Database } from "@/backend/database/Database";
+import { createAgentConfigurationServices } from "./agent-workspace-services.server";
 
-export interface AgentApplicationServices {
+import type { Database } from "@/backend/database/Database";
+import type { AgentConfigurationApplicationServices } from "./agent-workspace-services.server";
+
+export interface AgentApplicationServices extends AgentConfigurationApplicationServices {
   readonly agentAssignmentService: AgentAssignmentService;
   readonly agentCatalogService: AgentCatalogService;
   readonly agentCatalogScheduler: AgentCatalogScheduler;
@@ -32,6 +37,7 @@ export interface AgentApplicationServices {
   readonly agentCliLoginService: AgentCliLoginService;
   readonly textAgentRoleService: TextAgentRoleService;
   readonly agentTextExecution: AgentTextExecution;
+  readonly agentPlanExecution: AgentPlanExecution;
 }
 
 /** Creates lazy adapters and one shared login/process registry without running any checks. */
@@ -43,6 +49,12 @@ export function createAgentServices(
   const repository = new AgentConnectionRepository(database);
   const cipher = new InstanceSecretCipher(tokenKey);
   const operations = new AgentOperationRegistry();
+  const configuration = createAgentConfigurationServices({
+    database,
+    dataDirectory,
+    connections: repository,
+    operations,
+  });
   const store = new AgentCredentialStore(dataDirectory);
   const locator = new CliLocator();
   const runner = new CliProcessRunner();
@@ -64,6 +76,7 @@ export function createAgentServices(
     catalog: refresh,
   });
   return {
+    ...configuration,
     agentAssignmentService: new AgentAssignmentService({
       assignments: new AgentAssignmentRepository(database),
       connections: repository,
@@ -73,10 +86,16 @@ export function createAgentServices(
       new TextAssistantSettingsRepository(database),
       repository,
       operations,
+      configuration.agentProfileService,
     ),
     agentTextExecution: new AgentTextExecution(
       new ApiTextExecution(repository, cipher),
       new CliTextExecution({ runtime, store, locator, runner }),
+      operations,
+    ),
+    agentPlanExecution: new AgentPlanExecution(
+      new ApiTextExecution(repository, cipher),
+      new CliPlanExecution({ runtime, store, locator, runner }),
       operations,
     ),
     agentCatalogService: new AgentCatalogService(

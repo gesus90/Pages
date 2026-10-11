@@ -34,6 +34,7 @@ import { InstanceBrand } from "@/app/components/common/instance-brand";
 import { UserAvatar } from "@/app/components/common/user-avatar";
 import { TicketSidebarSection } from "@/app/components/tasks/tree/ticket-sidebar-section";
 import { WikiSidebarSection } from "@/app/components/wiki/wiki-sidebar-section";
+import { AgentNavigation } from "@/app/components/settings/agents/agent-navigation";
 import { cn } from "@/app/lib/cn";
 
 import type { InstanceBranding } from "@/definition/Instance";
@@ -52,6 +53,7 @@ interface AppShellProps {
 interface NavigationLinksProps {
   readonly canViewProjects: boolean;
   readonly canViewUsers: boolean;
+  readonly canManageAgents: boolean;
   readonly onNavigate?: () => void;
 }
 
@@ -65,6 +67,7 @@ function getLinkClassName(isActive: boolean): string {
 function NavigationLinks({
   canViewProjects,
   canViewUsers,
+  canManageAgents,
   onNavigate,
 }: NavigationLinksProps): React.ReactElement {
   const { t } = useTranslation();
@@ -115,6 +118,7 @@ function NavigationLinks({
           <TicketSidebarSection onNavigate={onNavigate} />
         </>
       ) : null}
+      <AgentNavigation canManage={canManageAgents} onNavigate={onNavigate} />
       <NavLink
         className={({ isActive }) => getLinkClassName(isActive)}
         to="/wiki"
@@ -226,10 +230,12 @@ function AccountMenu({
 function MobileNavigation({
   canViewProjects,
   canViewUsers,
+  canManageAgents,
   branding,
 }: {
   readonly canViewProjects: boolean;
   readonly canViewUsers: boolean;
+  readonly canManageAgents: boolean;
   readonly branding: InstanceBranding;
 }): React.ReactElement {
   const { t } = useTranslation();
@@ -274,6 +280,7 @@ function MobileNavigation({
         <NavigationLinks
           canViewProjects={canViewProjects}
           canViewUsers={canViewUsers}
+          canManageAgents={canManageAgents}
           onNavigate={handleClose}
         />
       </SheetContent>
@@ -305,6 +312,9 @@ export function AppShell({
           <NavigationLinks
             canViewProjects={canViewProjects}
             canViewUsers={canViewUsers}
+            canManageAgents={
+              account.isActive && account.isAdmin && account.mode === "admin"
+            }
           />
         </div>
       </aside>
@@ -315,6 +325,9 @@ export function AppShell({
             branding={branding}
             canViewProjects={canViewProjects}
             canViewUsers={canViewUsers}
+            canManageAgents={
+              account.isActive && account.isAdmin && account.mode === "admin"
+            }
           />
         </div>
         <img

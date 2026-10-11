@@ -3,6 +3,7 @@ import { requireAgentAdministrator } from "@/backend/service/agents/AgentService
 import { resolveAgentAssignment } from "@/backend/service/agents/AgentAssignmentResolution";
 import { AgentOperationRegistry } from "@/backend/service/agents/AgentOperationRegistry";
 
+import type { AgentProfileService } from "@/backend/service/agents/AgentProfileService";
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import type { ResolvedAgentAssignment } from "@/backend/service/agents/AgentAssignmentResolution";
 import type { TextAssistantSettingsRepository } from "@/backend/database/repositories/assistant/TextAssistantSettingsRepository";
@@ -23,6 +24,7 @@ function requireRetention(retentionDays: number): void {
 
 /** Enforces the function role independently of connection test defaults. */
 export class TextAgentRoleService {
+  private readonly profiles: AgentProfileService | null;
   private readonly settings: TextAssistantSettingsRepository;
   private readonly connections: AgentConnectionRepository;
   private readonly operations: AgentOperationRegistry;
@@ -31,7 +33,9 @@ export class TextAgentRoleService {
     settings: TextAssistantSettingsRepository,
     connections: AgentConnectionRepository,
     operations: AgentOperationRegistry = new AgentOperationRegistry(),
+    profiles: AgentProfileService | null = null,
   ) {
+    this.profiles = profiles;
     this.settings = settings;
     this.connections = connections;
     this.operations = operations;
@@ -69,9 +73,24 @@ export class TextAgentRoleService {
   }
 
   /** New requests resolve and revalidate the saved assignment once. */
-  public async resolve(): Promise<ResolvedTextAgent> {
-    const { role } = await this.settings.read();
-    if (role === null) throw new TextAssistantError("roleMissing");
-    return resolveAgentAssignment(this.connections, role);
+  public async resolve(
+    userId?: string,
+    purpose: "text" | "chat" = "text",
+    profileId: string | null = null,
+  ): Promise<ResolvedTextAgent> {
+    if (this.profiles !== null && userId !== undefined)
+      return this.profiles.resolve(userId, purpose, profileId);
+    const candidates = (await this.connections.profiles().list()).filter(
+      (profile) =>
+        profile.purposes.includes(purpose) &&
+        profile.targets.some(
+          (target) => target.kind === "system" && target.targetId === purpose,
+        ),
+    );
+    if (candidates.length > 1)
+      throw new TextAssistantError("profileSelectionRequired");
+    const profile = candidates[0];
+    if (!profile?.isActive) throw new TextAssistantError("roleMissing");
+    return resolveAgentAssignment(this.connections, profile);
   }
 }

@@ -74,6 +74,7 @@ function setup(
       model: "listed-model",
       reasoningEffort: effort,
       connection: {
+        isActive: true,
         id: path.basename(CLI_HOME.root),
         name: "CLI",
         provider,

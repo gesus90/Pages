@@ -53,6 +53,7 @@ function input(
       model: "models/selected",
       reasoningEffort: effort,
       connection: {
+        isActive: true,
         id: "connection",
         name: "Synthetic",
         provider,

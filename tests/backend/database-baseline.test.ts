@@ -139,6 +139,10 @@ describe("DuckDB baseline migration", () => {
       "027_mcp_authorization.sql",
       "028_agent_assets.sql",
       "029_agent_imports.sql",
+      "030_agent_execution_profiles.sql",
+      "031_agent_configuration.sql",
+      "032_agent_workspaces.sql",
+      "033_agent_plans.sql",
     ]);
   });
 

@@ -353,9 +353,8 @@ describe("agent assignment administration", () => {
     );
   });
 
-  it("places assignments below connections, disables + when all functions exist and removes only a chosen assignment", async () => {
+  it("disables + when all legacy functions exist and removes only a chosen assignment", async () => {
     const { user, action } = story({
-      completeSection: true,
       assignments: [
         ASSIGNED,
         {
@@ -370,12 +369,6 @@ describe("agent assignment administration", () => {
       name: "Zuordnung hinzufügen",
     });
     expect(add).toBeDisabled();
-    const headings = screen
-      .getAllByRole("heading")
-      .map((heading) => heading.textContent);
-    expect(headings.indexOf("Agent-Aufgaben")).toBeGreaterThan(
-      headings.indexOf("CLI-Anbindungen"),
-    );
     await user.click(
       screen.getByRole("button", { name: "SKILLS-Zuordnung entfernen" }),
     );
@@ -389,6 +382,30 @@ describe("agent assignment administration", () => {
     expect(
       await screen.findByRole("button", { name: "Text-Zuordnung bearbeiten" }),
     ).toBeEnabled();
+  });
+
+  it("shows the central agent panel before connections and retains SKILLS as a read-only legacy notice", async () => {
+    const { action } = story({
+      completeSection: true,
+      assignments: [{ ...ASSIGNED, function: "skills" }],
+    });
+    expect(
+      await screen.findByRole("button", { name: "Agent hinzufügen" }),
+    ).toBeEnabled();
+    const headings = screen
+      .getAllByRole("heading")
+      .map((heading) => heading.textContent);
+    expect(headings.lastIndexOf("Agents")).toBeLessThan(
+      headings.indexOf("API-Anbindungen"),
+    );
+    expect(screen.getByText(/SKILLS.*Altbestand/)).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Zuordnung hinzufügen" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "SKILLS-Zuordnung entfernen" }),
+    ).toBeNull();
+    expect(action).not.toHaveBeenCalled();
   });
 
   it("shows a failed assignment removal in its row", async () => {

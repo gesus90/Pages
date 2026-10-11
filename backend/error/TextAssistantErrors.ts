@@ -2,6 +2,7 @@ export type TextAssistantErrorCode =
   | "invalidInput"
   | "accessDenied"
   | "contextMissing"
+  | "profileSelectionRequired"
   | "roleMissing"
   | "connectionUnavailable"
   | "accessUnverified"

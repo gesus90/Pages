@@ -42,7 +42,7 @@ export class CliProcessRunner {
       const child = this.spawnProcess(request.file, request.arguments, {
         shell: false,
         detached: true,
-        cwd: request.home.work,
+        cwd: request.workingDirectory ?? request.home.work,
         env: createCliEnvironment(request.home, request.provider, request.file),
         stdio: [request.stdin, "pipe", "pipe"],
       });

@@ -31,6 +31,30 @@ describe("agent panel coordination", () => {
     expect(hook.result.current.confirmation).toBeNull();
   });
 
+  it("toggles only the selected connection's availability without login or a fallback", () => {
+    const connection = createCliConnection();
+    const hook = renderHook(() => useAgentManagement());
+    act(() => hook.result.current.command(connection, "deactivate"));
+    expect(submit).toHaveBeenLastCalledWith(
+      "set-connection-active",
+      connection.id,
+      { isActive: "false" },
+    );
+    act(() =>
+      hook.result.current.command(
+        { ...connection, isActive: false },
+        "activate",
+      ),
+    );
+    expect(submit).toHaveBeenLastCalledWith(
+      "set-connection-active",
+      connection.id,
+      { isActive: "true" },
+    );
+    expect(hook.result.current.selection).toBeNull();
+    expect(hook.result.current.confirmation).toBeNull();
+  });
+
   it("opens login explicitly and tolerates a trigger removed from the document", () => {
     vi.spyOn(document, "activeElement", "get").mockReturnValue(null);
     const connection = createCliConnection();

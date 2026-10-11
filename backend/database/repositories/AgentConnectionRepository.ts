@@ -3,6 +3,7 @@ import {
   readNullableTextColumn,
 } from "@/backend/database/RowValue";
 
+import { AgentProfileRepository } from "./agent/AgentProfileRepository";
 import { AgentCatalogRepository } from "./agent/AgentCatalogRepository";
 import { AgentCheckRepository } from "./agent/AgentCheckRepository";
 import {
@@ -48,6 +49,11 @@ export class AgentConnectionRepository {
     return new AgentCatalogRepository(this.database);
   }
 
+  /** Profile persistence shares the same database and legacy configuration boundary. */
+  public profiles(): AgentProfileRepository {
+    return new AgentProfileRepository(this.database);
+  }
+
   /** Check persistence shares the same database connection. */
   public checks(): AgentCheckRepository {
     return this.checkRepository;
@@ -82,10 +88,40 @@ export class AgentConnectionRepository {
   /** Used inside the connection write lock before credential cleanup or deletion. */
   public async hasAssignments(id: string): Promise<boolean> {
     const rows = await this.database.query(
-      "SELECT function FROM agent_function_assignments WHERE connection_id = $id LIMIT 1;",
+      `
+      SELECT
+          connection_id
+      FROM agent_function_assignments
+      WHERE connection_id = $id
+      UNION ALL
+      SELECT
+          connection_id
+      FROM agent_execution_profiles
+      WHERE connection_id = $id
+      LIMIT 1;
+    `,
       { id },
     );
     return rows.length > 0;
+  }
+
+  /** Updates availability without discarding a verified credential or catalog. */
+  public async setActive(
+    id: string,
+    isActive: boolean,
+    actorId: string,
+  ): Promise<void> {
+    await this.database.execute(
+      `
+      UPDATE agent_connections
+      SET
+          is_active = $is_active,
+          updated_by = $actor_id,
+          updated_at = utc_now()
+      WHERE id = $id;
+    `,
+      { id, is_active: isActive, actor_id: actorId },
+    );
   }
 
   /** Only check execution needs the encrypted API secret. */

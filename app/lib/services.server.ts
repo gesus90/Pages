@@ -45,11 +45,13 @@ import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 import { SetupService } from "@/backend/setup/SetupService";
 
 import { createAgentServices } from "./agent-services.server";
+import { createAgentPlanService } from "./agent-plan-services.server";
 import { createTextAssistantServices } from "./text-assistant-services.server";
 import { createMcpServices } from "./mcp-services.server";
 
 import type { AgentAssetService } from "@/backend/service/agents/AgentAssetService";
 import type { AgentApplicationServices } from "./agent-services.server";
+import type { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
 import type { TextAssistantApplicationServices } from "./text-assistant-services.server";
 import type { McpApplicationServices } from "./mcp-services.server";
 
@@ -60,6 +62,7 @@ export interface ApplicationServices
     TextAssistantApplicationServices,
     McpApplicationServices {
   readonly administrationService: AdministrationService;
+  readonly agentPlanService: AgentPlanService;
   readonly groupAdministrationService: GroupAdministrationService;
   readonly authService: AuthService;
   readonly sessionService: SessionService;
@@ -97,6 +100,7 @@ function registerShutdownHandler(
   database: Database,
   agents: AgentApplicationServices,
   assistant: TextAssistantApplicationServices,
+  plans: AgentPlanService,
 ): void {
   if (globalThis.pagesShutdownHandlerRegistered) {
     return;
@@ -108,6 +112,7 @@ function registerShutdownHandler(
     try {
       await assistant.assistantHistoryScheduler.shutdown();
       await assistant.textAssistantService.shutdown();
+      await plans.shutdown();
       await agents.agentCatalogScheduler.shutdown();
       await agents.agentCliLoginService.shutdown();
       await database.close();
@@ -262,7 +267,6 @@ async function initializeServices(
     agents: agentServices,
   });
   assistantServices.assistantHistoryScheduler.start();
-  registerShutdownHandler(database, agentServices, assistantServices);
   const taskServices = createTaskServices({
     database,
     databasePath,
@@ -273,6 +277,12 @@ async function initializeServices(
     tokenKey,
     userRepository,
     wikiService: workspaceServices.wikiService,
+  });
+  const agentPlanService = await preparePlanService(database, {
+    agents: agentServices,
+    assistant: assistantServices,
+    tasks: taskServices.taskService,
+    users: userService,
   });
   const sessionService = await prepareSessions(
     new SetupService(userRepository, passwordHasher),
@@ -290,6 +300,7 @@ async function initializeServices(
   });
   return {
     ...agentServices,
+    agentPlanService,
     ...mcpServices,
     ...assistantServices,
     administrationService,
@@ -310,6 +321,25 @@ async function initializeServices(
     ...taskServices,
     userService,
   };
+}
+
+async function preparePlanService(
+  database: Database,
+  input: {
+    readonly agents: AgentApplicationServices;
+    readonly assistant: TextAssistantApplicationServices;
+    readonly tasks: TaskService;
+    readonly users: UserService;
+  },
+): Promise<AgentPlanService> {
+  const plans = await createAgentPlanService({
+    database,
+    agents: input.agents,
+    tasks: input.tasks,
+    users: input.users,
+  });
+  registerShutdownHandler(database, input.agents, input.assistant, plans);
+  return plans;
 }
 
 /** Builds the agent write services and shares the existing maintenance scheduler. */

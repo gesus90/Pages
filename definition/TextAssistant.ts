@@ -36,8 +36,9 @@ export type TextAssistantAction =
 export type TextAssistantScope = "none" | "selection" | "document";
 export type TextAssistantChange = "answer" | "replace" | "insert";
 
-/** Client requests contain no provider selection or writable metadata fields. */
+/** Client requests reference a server-authorized profile, never credentials or provider configuration. */
 export interface TextAssistantRequest {
+  readonly profileId?: string | null;
   readonly requestId: string;
   readonly conversationId: string | null;
   readonly context: TextAssistantContext;

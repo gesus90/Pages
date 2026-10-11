@@ -71,6 +71,35 @@ function renderStory(story: AgentStory): ReturnType<typeof userEvent.setup> {
 }
 
 describe("agent settings UI", () => {
+  it.each([true, false])(
+    "changes the availability of exactly one connection, active=%s",
+    async (isActive) => {
+      const received: FormData[] = [];
+      const user = renderStory({
+        connections: [createAgentConnection({ isActive })],
+        onAction: (form) => {
+          received.push(form);
+          return { ok: true, intent: "set-connection-active" };
+        },
+      });
+      await user.click(
+        await screen.findByRole("button", {
+          name: "Actions for Test connection",
+        }),
+      );
+      await user.click(
+        screen.getByRole("menuitem", {
+          name: isActive ? "Disable connection" : "Enable connection",
+        }),
+      );
+      await waitFor(() =>
+        expect(received[0]?.get("intent")).toBe("set-connection-active"),
+      );
+      expect(received[0]?.get("connectionId")).toBe(createAgentConnection().id);
+      expect(received[0]?.get("isActive")).toBe(String(!isActive));
+    },
+  );
+
   it("returns focus to the row menu trigger after editing from its portaled menu", async () => {
     const user = renderStory({ connections: [createAgentConnection()] });
     const trigger = await screen.findByRole("button", {
@@ -219,7 +248,9 @@ describe("agent settings UI", () => {
     // Model and reasoning follow once the saved connection has access.
     expect(screen.queryByLabelText("Model ID")).toBeNull();
     expect(
-      screen.getByText("Assign models and reasoning levels under Agent tasks."),
+      screen.getByText(
+        "Configure model and reasoning in the central Agents panel.",
+      ),
     ).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Save" }));
     // A field error appears once at its field, not again as a block alert.

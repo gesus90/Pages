@@ -134,7 +134,7 @@ describe("catalog administrative controls", () => {
   });
 
   it.each([false, true])(
-    "refreshes catalogs while models and levels are assigned only under Agent tasks (verified: %s)",
+    "refreshes catalogs while models and levels are assigned in the central Agents panel (verified: %s)",
     async (isVerified) => {
       const connection = createAgentConnection({
         checks: {
@@ -194,7 +194,7 @@ describe("catalog administrative controls", () => {
       expect(screen.queryByLabelText("Model ID")).toBeNull();
       expect(
         screen.getByText(
-          /Assign models and reasoning levels under Agent tasks/,
+          /Configure model and reasoning in the central Agents panel/,
         ),
       ).toBeInTheDocument();
       await waitFor(() =>

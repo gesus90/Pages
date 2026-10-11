@@ -142,7 +142,11 @@ export class TextAssistantService {
   ): Promise<TextAssistantResult> {
     const { roles, contexts, conversations, execution } = this.dependencies;
     await contexts.validate(actor, request.context, request.change);
-    const agent = await roles.resolve();
+    const agent = await roles.resolve(
+      actor.id,
+      request.action === "chat" ? "chat" : "text",
+      request.profileId ?? null,
+    );
     await conversations.sweep();
     let conversationId = request.conversationId;
     if (conversationId !== null)

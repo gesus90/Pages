@@ -69,6 +69,7 @@ export class AgentConnectionService {
             : cli.describe(actor, connection),
         ]);
         return {
+          isActive: connection.isActive,
           id: connection.id,
           name: connection.name,
           provider: connection.provider,
@@ -159,6 +160,20 @@ export class AgentConnectionService {
           actorId: actor.userId,
         }),
       );
+    });
+  }
+
+  /** Enables or disables this exact connection without changing its credentials. */
+  public async setActive(
+    actor: AccountAccess,
+    id: string,
+    isActive: boolean,
+  ): Promise<void> {
+    requireAgentAdministrator(actor);
+    if (typeof isActive !== "boolean") throw new AgentError("profile_invalid");
+    await this.dependencies.operations.run(id, "write", async () => {
+      await requireAgentConnection(this.dependencies.repository, id);
+      await this.dependencies.repository.setActive(id, isActive, actor.userId);
     });
   }
 

@@ -10,17 +10,26 @@ import { AgentConfirmation } from "./agent-confirmation";
 import { AgentConnectionPanel } from "./agent-connection-panel";
 import { AgentConnectionsCard } from "./agent-connections-card";
 import { TextAgentSettings } from "./text-agent-settings";
-import { AgentAssignments } from "./agent-assignments";
+import { AgentProfiles } from "./agent-profiles";
 import { useAgentManagement } from "./use-agent-management";
 import { useCliLoginPolling } from "./use-cli-login-polling";
 
+import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
+import type {
+  AgentProfile,
+  AgentProfileDirectory,
+} from "@/definition/AgentProfile";
 import type { AgentModelCatalog } from "@/definition/AgentModelCatalog";
 import type { TextAssistantSettings } from "@/definition/TextAssistant";
 import type { AgentAssignmentView } from "@/definition/AgentAssignment";
 import type {
   AgentConnectionSummary,
+  AgentAccessKind,
   CliToolLocations,
 } from "@/definition/AgentConnection";
+import type { AgentCommandHandler } from "./agent-row-menu";
+import type { AgentAvailability } from "@/definition/AgentAvailability";
+import type { AgentFilters } from "@/definition/AgentFilters";
 
 /** Manages first-pass connection tables and panels without automatic provider checks. */
 export function AgentsSection({
@@ -29,12 +38,24 @@ export function AgentsSection({
   catalogs = {},
   assistantSettings = { role: null, retentionDays: 30 },
   assignments = [],
+  profiles = [],
+  profileDirectory = { persons: [], groups: [], departments: [] },
+  availability,
+  filters,
+  projects,
+  workspaceChoices,
 }: {
+  readonly workspaceChoices?: readonly AgentWorkspaceChoice[];
   readonly connections: readonly AgentConnectionSummary[];
   readonly cliTools: CliToolLocations;
   readonly catalogs?: Readonly<Record<string, AgentModelCatalog>>;
   readonly assistantSettings?: TextAssistantSettings;
+  readonly profiles?: readonly AgentProfile[];
+  readonly profileDirectory?: AgentProfileDirectory;
   readonly assignments?: readonly AgentAssignmentView[];
+  readonly availability?: Readonly<Record<string, AgentAvailability>>;
+  readonly filters?: AgentFilters;
+  readonly projects?: readonly { readonly id: string; readonly name: string }[];
 }): React.ReactElement {
   const { t } = useTranslation();
   const {
@@ -51,12 +72,7 @@ export function AgentsSection({
   } = useAgentManagement();
   const sessions = useCliLoginPolling(connections);
   const isLoading = useManagementPending();
-  const visibleConnections = connections.map((connection) => {
-    const session = sessions[connection.id];
-    return connection.cli && session && !session.hasError
-      ? { ...connection, cli: { ...connection.cli, login: session.login } }
-      : connection;
-  });
+  const visibleConnections = withLoginSessions(connections, sessions);
   const selected = visibleConnections.find(
     (connection) => connection.id === selection?.id,
   );
@@ -70,32 +86,25 @@ export function AgentsSection({
       {actions.error && !selection ? (
         <AgentAlert message={t(`settings.agents.error.${actions.error}`)} />
       ) : null}
-      {isLoading ? (
-        <div
-          role="status"
-          aria-label={t("settings.agents.loading")}
-          className="h-40 animate-pulse rounded-2xl bg-muted"
-        />
-      ) : (
-        (["api_key", "cli_account"] as const).map((kind) => (
-          <AgentConnectionsCard
-            key={kind}
-            kind={kind}
-            connections={visibleConnections.filter(
-              (connection) => connection.accessKind === kind,
-            )}
-            cliTools={cliTools}
-            disabled={actions.isPending}
-            onAdd={(accessKind) => select({ kind: accessKind })}
-            onEdit={edit}
-            onCommand={command}
-          />
-        ))
-      )}
-      <AgentAssignments
-        assignments={assignments}
+      <AgentProfiles
+        profiles={profiles}
+        directory={profileDirectory}
         connections={connections}
         catalogs={catalogs}
+        availability={availability}
+        filters={filters}
+        projects={projects}
+        workspaceChoices={workspaceChoices}
+      />
+      <LegacyAgentNotice assignments={assignments} />
+      <AgentConnectionTables
+        isLoading={isLoading}
+        connections={visibleConnections}
+        cliTools={cliTools}
+        disabled={actions.isPending}
+        onAdd={(kind) => select({ kind })}
+        onEdit={edit}
+        onCommand={command}
       />
       <TextAgentSettings settings={assistantSettings} />
       <Dialog open={selection !== null} onOpenChange={() => setSelection(null)}>
@@ -121,5 +130,68 @@ export function AgentsSection({
         />
       ) : null}
     </div>
+  );
+}
+
+function withLoginSessions(
+  connections: readonly AgentConnectionSummary[],
+  sessions: ReturnType<typeof useCliLoginPolling>,
+): readonly AgentConnectionSummary[] {
+  return connections.map((connection) => {
+    const session = sessions[connection.id];
+    return connection.cli && session && !session.hasError
+      ? { ...connection, cli: { ...connection.cli, login: session.login } }
+      : connection;
+  });
+}
+
+function LegacyAgentNotice(props: {
+  readonly assignments: readonly AgentAssignmentView[];
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (!props.assignments.some((assignment) => assignment.function === "skills"))
+    return null;
+  return (
+    <p className="rounded-xl bg-warning-subtle px-4 py-2.5 text-sm text-warning">
+      {t("settings.agents.definition.legacySkills")}
+    </p>
+  );
+}
+
+function AgentConnectionTables(props: {
+  readonly isLoading: boolean;
+  readonly connections: readonly AgentConnectionSummary[];
+  readonly cliTools: CliToolLocations;
+  readonly disabled: boolean;
+  readonly onAdd: (kind: AgentAccessKind) => void;
+  readonly onEdit: (connection: AgentConnectionSummary) => void;
+  readonly onCommand: AgentCommandHandler;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  if (props.isLoading)
+    return (
+      <div
+        role="status"
+        aria-label={t("settings.agents.loading")}
+        className="h-40 animate-pulse rounded-2xl bg-muted"
+      />
+    );
+  return (
+    <>
+      {(["api_key", "cli_account"] as const).map((kind) => (
+        <AgentConnectionsCard
+          key={kind}
+          kind={kind}
+          connections={props.connections.filter(
+            (connection) => connection.accessKind === kind,
+          )}
+          cliTools={props.cliTools}
+          disabled={props.disabled}
+          onAdd={props.onAdd}
+          onEdit={props.onEdit}
+          onCommand={props.onCommand}
+        />
+      ))}
+    </>
   );
 }

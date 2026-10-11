@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -79,6 +79,48 @@ function getSubmitMock(): ReturnType<typeof vi.fn> {
 }
 
 describe("AppShell", () => {
+  it.each([
+    createAccess({ isActive: true, isAdmin: true, mode: "admin" }),
+    createAccess({ isActive: true, isAdmin: true, mode: "role" }),
+    createAccess({ isActive: false, isAdmin: true, mode: "admin" }),
+  ])(
+    "keeps agent navigation available across account modes on desktop and mobile",
+    async (account) => {
+      const router = createMemoryRouter(
+        [
+          {
+            path: "/agents/plans",
+            element: (
+              <AppShell
+                user={createUser()}
+                account={account}
+                branding={NO_BRANDING}
+                canViewUsers={false}
+                canViewProjects={false}
+              />
+            ),
+          },
+        ],
+        { initialEntries: ["/agents/plans"] },
+      );
+      render(
+        <I18nextProvider i18n={createI18n("en")}>
+          <RouterProvider router={router} />
+        </I18nextProvider>,
+      );
+      expect(
+        screen.getByRole("link", { name: "Execution plan" }),
+      ).toHaveAttribute("href", "/agents/plans");
+      await userEvent.click(
+        screen.getByRole("button", { name: "Open navigation" }),
+      );
+      const mobile = screen.getByRole("dialog", { name: "Main navigation" });
+      expect(
+        within(mobile).getByRole("link", { name: "Agents list" }),
+      ).toHaveAttribute("href", "/settings/agents");
+    },
+  );
+
   it("shows connectivity state and an unassigned role in the account menu", async () => {
     const router = createMemoryRouter([
       {

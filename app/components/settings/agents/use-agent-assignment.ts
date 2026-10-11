@@ -132,7 +132,8 @@ function choiceError(input: {
   readonly modelExists: boolean;
   readonly hasEffort: boolean;
 }): AssignmentChoices["error"] {
-  if (!input.connection) return "connectionUnavailable";
+  if (!input.connection || !input.connection.isActive)
+    return "connectionUnavailable";
   if (!input.hasAccess) return "accessUnverified";
   if (!input.modelExists) return "modelUnavailable";
   if (!input.hasEffort) return "reasoningUnsupported";

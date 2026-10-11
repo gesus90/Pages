@@ -13,16 +13,20 @@ import {
 
 import type { Route } from "./+types/text-assistant";
 
+function requireAssistantPost(request: Request): void {
+  if (request.method !== "POST") throw new TextAssistantError("invalidInput");
+  const origin = request.headers.get("Origin");
+  if (origin !== null && origin !== new URL(request.url).origin)
+    throw new TextAssistantError("accessDenied");
+}
+
 /** Only explicit POST actions can create conversations, generate text or save preferences. */
 export async function action({
   request,
   context,
 }: Route.ActionArgs): Promise<Response> {
   try {
-    if (request.method !== "POST") throw new TextAssistantError("invalidInput");
-    const origin = request.headers.get("Origin");
-    if (origin !== null && origin !== new URL(request.url).origin)
-      throw new TextAssistantError("accessDenied");
+    requireAssistantPost(request);
     const user = context.get(authenticatedUserContext);
     if (!user) throw new TextAssistantError("accessDenied");
     const services = await getApplicationServices();
@@ -34,6 +38,17 @@ export async function action({
     const input = readAgentObject(parsed);
     const assistant = services.textAssistantService;
     switch (input.intent) {
+      case "profiles":
+        return Response.json(
+          {
+            ok: true,
+            profiles: await services.agentProfileService.choices(
+              user.id,
+              input.purpose,
+            ),
+          },
+          { headers: ASSISTANT_NO_STORE },
+        );
       case "run":
         return Response.json(
           { ok: true, result: await assistant.run(user, input.request) },

@@ -375,6 +375,64 @@ describe("private chat history lifecycle", () => {
 });
 
 describe("assistant editor entry points", () => {
+  it("forwards an explicit profile selection while keeping legacy requests without a selection supported", async () => {
+    api.mockImplementation(async (input) =>
+      input.intent === "run"
+        ? output(input.request)
+        : input.intent === "messages"
+          ? messages
+          : history,
+    );
+    const hook = renderHook(() =>
+      useTextAssistant({
+        context,
+        title: "Page",
+        handle: handle(),
+        content: "Full document",
+        canEdit: true,
+        canSend: true,
+        maximumLength: 100,
+      }),
+    );
+    act(() => hook.result.current.panel.onToggle());
+    await waitFor(() =>
+      expect(hook.result.current.panel.form.targetLanguage).toBe("en"),
+    );
+    act(() =>
+      hook.result.current.panel.onFormChange({
+        action: "chat",
+        scope: "none",
+        change: "answer",
+        targetLanguage: "en",
+        autoApply: false,
+        instruction: "Question",
+      }),
+    );
+    act(() => hook.result.current.panel.onSend());
+    await waitFor(() =>
+      expect(hook.result.current.panel.run.isRunning).toBe(false),
+    );
+    const first = api.mock.calls.find(([input]) => input.intent === "run")?.[0]
+      .request;
+    expect(first).not.toHaveProperty("profileId");
+    act(() =>
+      hook.result.current.panel.onFormChange({
+        ...hook.result.current.panel.form,
+        profileId: "explicit-profile",
+      }),
+    );
+    act(() => hook.result.current.panel.onSend());
+    await waitFor(() =>
+      expect(
+        api.mock.calls.filter(([input]) => input.intent === "run"),
+      ).toHaveLength(2),
+    );
+    expect(
+      api.mock.calls.filter(([input]) => input.intent === "run")[1][0].request,
+    ).toMatchObject({ profileId: "explicit-profile" });
+    hook.unmount();
+  });
+
   it("opens menus without generation, sends only chosen context and saves preferences explicitly", async () => {
     const editor = handle();
     api.mockResolvedValue(history);

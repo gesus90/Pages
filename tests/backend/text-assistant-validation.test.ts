@@ -25,6 +25,22 @@ const ACTIONS: readonly TextAssistantAction[] = [
   "chat",
 ];
 
+describe("profile identifiers in assistant requests", () => {
+  it("accepts explicit authorized identifiers and null and rejects malformed ones", () => {
+    const request = assistantRequest();
+    expect(
+      readAssistantRequest({ ...request, profileId: "selected-profile" })
+        .profileId,
+    ).toBe("selected-profile");
+    expect(
+      readAssistantRequest({ ...request, profileId: null }).profileId,
+    ).toBeNull();
+    expect(() =>
+      readAssistantRequest({ ...request, profileId: "../secrets" }),
+    ).toThrow("invalidInput");
+  });
+});
+
 describe("text assistant input and prompt boundaries", () => {
   it.each(ACTIONS)(
     "accepts the explicit %s action without adding other context",

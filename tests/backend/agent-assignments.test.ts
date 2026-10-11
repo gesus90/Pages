@@ -26,7 +26,7 @@ import type { AgentAssignment } from "@/definition/AgentAssignment";
 
 const ADMIN = createAccess({ isAdmin: true, mode: "admin" });
 const ASSIGNMENT: AgentAssignment = {
-  function: "skills",
+  function: "text",
   connectionId: "connection",
   model: "catalog-model",
   reasoningEffort: "medium",
@@ -108,10 +108,12 @@ async function seed(database: Database) {
 describe("predefined agent assignments", () => {
   const getDatabase = useMigratedDatabase();
 
-  it("persists Text and SKILLS separately, shares the A8.3 Text runtime and keeps snapshots stable", async () => {
+  it("persists Text on the central agent, rejects new SKILLS functions and keeps A8.3 runtime snapshots stable", async () => {
     const { service, roles, connections } = await seed(getDatabase());
     await service.save(ADMIN, ASSIGNMENT, "create");
-    await service.save(ADMIN, { ...ASSIGNMENT, function: "text" }, "create");
+    await expect(
+      service.save(ADMIN, { ...ASSIGNMENT, function: "skills" }, "create"),
+    ).rejects.toMatchObject({ code: "function_invalid" });
     const snapshot = await roles.resolve();
     await service.save(
       ADMIN,
@@ -135,7 +137,6 @@ describe("predefined agent assignments", () => {
     await roles.saveRetention(ADMIN, 7);
     expect((await roles.read(ADMIN)).retentionDays).toBe(7);
     expect(await service.list(ADMIN)).toEqual([
-      { ...ASSIGNMENT, error: null },
       {
         ...ASSIGNMENT,
         function: "text",
@@ -148,12 +149,11 @@ describe("predefined agent assignments", () => {
     await expect(roles.resolve()).rejects.toThrow("modelUnavailable");
     expect((await service.list(ADMIN)).map((entry) => entry.error)).toEqual([
       "modelUnavailable",
-      "modelUnavailable",
     ]);
     expect(snapshot.model).toBe("catalog-model");
     await service.remove(ADMIN, "text");
     await expect(roles.resolve()).rejects.toThrow("roleMissing");
-    expect(await service.list(ADMIN)).toHaveLength(1);
+    expect(await service.list(ADMIN)).toHaveLength(0);
   });
 
   it("requires verified access, available credentials, and catalog-listed models and levels", async () => {
@@ -277,7 +277,7 @@ describe("predefined agent assignments", () => {
       code: "connection_in_use",
     });
     expect(cli.cleanup).not.toHaveBeenCalled();
-    await service.remove(ADMIN, "skills");
+    await service.remove(ADMIN, "text");
     await management.remove(ADMIN, "connection");
     expect(await connections.find("connection")).toBeNull();
   });
@@ -347,7 +347,7 @@ describe("predefined agent assignments", () => {
         "create",
       );
       expect((await service.list(ADMIN))[0].connectionId).toBe(ids[1]);
-      await assignments.remove("skills");
+      await assignments.remove("text");
       await connections.catalogs().invalidate(ids[0]);
       expect((await connections.catalogs().find(ids[1])).models[0].id).toBe(
         "account-2",

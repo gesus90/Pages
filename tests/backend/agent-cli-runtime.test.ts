@@ -26,6 +26,7 @@ afterEach(async () => {
 });
 
 const CONNECTION: AgentConnectionRecord = {
+  isActive: true,
   id: "00000000-0000-4000-8000-000000000001",
   name: "Test",
   provider: "codex_cli",

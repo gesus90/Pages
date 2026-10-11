@@ -46,6 +46,8 @@ vi.mock("@/backend/github/GitHubTokenKey", () => ({
 
 import { AdministrationService } from "@/backend/service/AdministrationService";
 import { AgentCliLoginService } from "@/backend/service/agents/AgentCliLoginService";
+import { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
+import { TaskAttachmentService } from "@/backend/service/task/TaskAttachmentService";
 import { AssistantHistoryScheduler } from "@/backend/service/assistant/AssistantHistoryScheduler";
 import { TextAssistantService } from "@/backend/service/assistant/TextAssistantService";
 import { createAccess } from "../helpers/authorization";
@@ -75,10 +77,12 @@ const mockedAuth = vi.mocked(AuthService);
 function createDatabase(): {
   close: ReturnType<typeof vi.fn>;
   migrate: ReturnType<typeof vi.fn>;
+  query: ReturnType<typeof vi.fn>;
 } {
   return {
     close: vi.fn().mockResolvedValue(undefined),
     migrate: vi.fn().mockResolvedValue(undefined),
+    query: vi.fn().mockResolvedValue([]),
   };
 }
 
@@ -136,6 +140,26 @@ describe("getApplicationServices", () => {
     );
   });
 
+  it("reports maintenance failures without preventing A10 services from becoming available", async () => {
+    const failure = new Error("attachment cleanup unavailable");
+    vi.spyOn(TaskAttachmentService.prototype, "sweep").mockRejectedValueOnce(
+      failure,
+    );
+    const warning = vi
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+    expect((await getApplicationServices()).agentPlanService).toBeInstanceOf(
+      AgentPlanService,
+    );
+    await vi.waitFor(() =>
+      expect(warning).toHaveBeenCalledWith(
+        "Pages could not sweep ticket attachment files.",
+        failure,
+      ),
+    );
+    resetServiceGlobals();
+  });
+
   it("runs staged asset cleanup through the existing shared maintenance scheduler", async () => {
     delete globalThis.pagesWikiMaintenanceStarted;
     const schedulers: WikiMaintenanceScheduler[] = [];
@@ -164,6 +188,7 @@ describe("getApplicationServices", () => {
     expect(resolveGitHubTokenKey).toHaveBeenCalledWith("/mocked/pages.duckdb");
     expect(services.authService).toBeDefined();
     expect(services.sessionService).toBeDefined();
+    expect(services.agentPlanService).toBeInstanceOf(AgentPlanService);
     expect(mockedAuth).toHaveBeenCalledTimes(1);
     vi.spyOn(AdministrationService.prototype, "getContext").mockResolvedValue(
       createAccess(),
@@ -302,6 +327,9 @@ describe("getApplicationServices", () => {
   });
 
   it("closes the database and exits on shutdown signals", async () => {
+    const planShutdown = vi
+      .spyOn(AgentPlanService.prototype, "shutdown")
+      .mockResolvedValue(undefined);
     const assistantShutdown = vi
       .spyOn(TextAssistantService.prototype, "shutdown")
       .mockResolvedValue(undefined);
@@ -342,6 +370,7 @@ describe("getApplicationServices", () => {
     expect(database.close).not.toHaveBeenCalled();
     expect(historyShutdown).toHaveBeenCalledTimes(1);
     expect(assistantShutdown).toHaveBeenCalledTimes(1);
+    expect(planShutdown).toHaveBeenCalledTimes(1);
     finishCliShutdown();
 
     await vi.waitFor(() => {

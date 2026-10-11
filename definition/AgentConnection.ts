@@ -122,6 +122,7 @@ export interface AgentCliState {
 
 /** Safe metadata; neither ciphertext nor key fragments belong in this contract. */
 export interface AgentConnectionSummary {
+  readonly isActive: boolean;
   readonly id: string;
   readonly name: string;
   readonly provider: AgentProviderId;

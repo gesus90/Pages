@@ -3,11 +3,25 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const services = vi.hoisted(() => ({
   administrationService: { getContext: vi.fn(), setMode: vi.fn() },
+  agentWorkspaceService: { choices: vi.fn().mockResolvedValue([]) },
+  agentProfileService: {
+    list: vi.fn().mockResolvedValue([]),
+    filteredList: vi.fn().mockResolvedValue({ profiles: [], availability: {} }),
+    projects: vi.fn().mockResolvedValue([]),
+    usages: vi.fn().mockResolvedValue([]),
+    catalog: vi.fn().mockResolvedValue([]),
+    directory: vi
+      .fn()
+      .mockResolvedValue({ persons: [], groups: [], departments: [] }),
+    save: vi.fn(),
+    remove: vi.fn(),
+  },
   agentConnectionService: {
     list: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
     remove: vi.fn(),
+    setActive: vi.fn(),
   },
   agentCatalogService: { list: vi.fn(), configure: vi.fn(), run: vi.fn() },
   agentCheckService: { run: vi.fn() },
@@ -33,6 +47,7 @@ vi.mock("@/app/lib/services.server", () => ({
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { agentFailureResponse } from "@/app/lib/settings-actions/settings-agents-response.server";
 import { action, headers, loader } from "@/app/routes/settings-agents";
+import { loader as definitionsLoader } from "@/app/routes/agent-definitions";
 import {
   action as loginAction,
   loader as loginLoader,
@@ -76,6 +91,10 @@ function pollArgs(
 }
 
 const INTENTS = [
+  "save-profile",
+  "delete-profile",
+  "profile-usages",
+  "set-connection-active",
   "create-assignment",
   "update-assignment",
   "delete-assignment",
@@ -104,6 +123,18 @@ describe("agent routes", () => {
     services.agentCliLoginService.tools.mockResolvedValue(CLI_LOCATIONS);
     services.agentCatalogService.list.mockResolvedValue({});
     services.agentAssignmentService.list.mockResolvedValue([]);
+    services.agentProfileService.list.mockResolvedValue([]);
+    services.agentProfileService.filteredList.mockResolvedValue({
+      profiles: [],
+      availability: {},
+    });
+    services.agentProfileService.projects.mockResolvedValue([]);
+    services.agentProfileService.catalog.mockResolvedValue([]);
+    services.agentProfileService.directory.mockResolvedValue({
+      persons: [],
+      groups: [],
+      departments: [],
+    });
     services.textAgentRoleService.read.mockResolvedValue({
       role: null,
       retentionDays: 30,
@@ -119,10 +150,92 @@ describe("agent routes", () => {
       catalogs: {},
       assistantSettings: { role: null, retentionDays: 30 },
       assignments: [],
+      profiles: [],
+      availability: {},
+      projects: [],
+      filters: {
+        search: "",
+        scope: "",
+        provider: "",
+        connection: "",
+        purpose: "",
+        status: "",
+        usability: "",
+      },
+      profileDirectory: { persons: [], groups: [], departments: [] },
     });
     expect(result.init?.headers).toEqual({ "Cache-Control": "no-store" });
     expect(services.agentCheckService.run).not.toHaveBeenCalled();
     expect(services.agentCliLoginService.start).not.toHaveBeenCalled();
+  });
+
+  it("reads only the current user's catalog in a validated project context without provider requests", async () => {
+    const args = routeArgs({}, "GET");
+    const response = await definitionsLoader({
+      ...args,
+      request: new Request(
+        "https://pages.invalid/agent-api/definitions?projectId=project",
+      ),
+    });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(await response.json()).toEqual({ agents: [] });
+    expect(services.agentProfileService.catalog).toHaveBeenCalledWith(
+      createUser().id,
+      "project",
+    );
+    expect(services.agentCheckService.run).not.toHaveBeenCalled();
+    const denied = await definitionsLoader(routeArgs({}, "GET", false));
+    expect(denied.status).toBe(403);
+    const malformed = await definitionsLoader({
+      ...args,
+      request: new Request(
+        "https://pages.invalid/agent-api/definitions?projectId=",
+      ),
+    });
+    expect(malformed.status).toBe(400);
+  });
+
+  it("loads deletion references through the protected action and returns safe conflict errors", async () => {
+    services.agentProfileService.usages.mockResolvedValueOnce([
+      { kind: "global" },
+    ]);
+    const response = await action(
+      routeArgs({ intent: "profile-usages", profileId: "selected" }),
+    );
+    expect(await response.json()).toEqual({
+      ok: true,
+      intent: "profile-usages",
+      usages: [{ kind: "global" }],
+    });
+    expect(services.agentProfileService.usages).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: "admin" }),
+      "selected",
+    );
+    services.agentProfileService.remove.mockRejectedValueOnce(
+      new AgentError("profile_in_use"),
+    );
+    expect(
+      (
+        await action(
+          routeArgs({ intent: "delete-profile", profileId: "selected" }),
+        )
+      ).status,
+    ).toBe(409);
+    services.agentProfileService.save.mockRejectedValueOnce(
+      new AgentError("profile_conflict"),
+    );
+    expect(
+      (
+        await action(
+          routeArgs({
+            intent: "save-profile",
+            profileId: "selected",
+            profile: "{}",
+          }),
+        )
+      ).status,
+    ).toBe(409);
   });
 
   it("assigns and clears Text independently of diagnostic defaults and maps invalid assignments", async () => {
@@ -316,6 +429,8 @@ describe("agent routes", () => {
         routeArgs({
           intent,
           connectionId: "id",
+          isActive: "true",
+          profile: JSON.stringify({ name: "Profile", isActive: true }),
           name: "Example",
           provider: "openai",
           apiKey: "synthetic-key-marker",
@@ -411,6 +526,80 @@ describe("agent routes", () => {
     expect(services.agentCheckService.run).not.toHaveBeenCalled();
   });
 
+  it("validates activation and profile envelopes and dispatches deliberate profile replacement", async () => {
+    for (const isActive of ["true", "false"]) {
+      expect(
+        (
+          await action(
+            routeArgs({
+              intent: "set-connection-active",
+              connectionId: "id",
+              isActive,
+            }),
+          )
+        ).status,
+      ).toBe(200);
+      expect(
+        services.agentConnectionService.setActive,
+      ).toHaveBeenLastCalledWith(expect.anything(), "id", isActive === "true");
+    }
+    expect(
+      (
+        await action(
+          routeArgs({
+            intent: "set-connection-active",
+            connectionId: "id",
+            isActive: "yes",
+          }),
+        )
+      ).status,
+    ).toBe(400);
+    for (const profile of [
+      "invalid JSON",
+      "x".repeat(50001),
+      "x".repeat(500001),
+    ])
+      expect(
+        (await action(routeArgs({ intent: "save-profile", profile }))).status,
+      ).toBeGreaterThanOrEqual(400);
+    const profile = {
+      name: "Named",
+      connectionId: "id",
+      model: "model",
+      reasoningEffort: null,
+      isActive: true,
+      purposes: ["text"],
+      targets: [{ kind: "person", targetId: "person" }],
+    };
+    await action(
+      routeArgs({ intent: "save-profile", profile: JSON.stringify(profile) }),
+    );
+    expect(services.agentProfileService.save).toHaveBeenLastCalledWith(
+      expect.anything(),
+      null,
+      profile,
+    );
+    await action(
+      routeArgs({
+        intent: "save-profile",
+        profileId: "selected",
+        profile: JSON.stringify(profile),
+      }),
+    );
+    expect(services.agentProfileService.save).toHaveBeenLastCalledWith(
+      expect.anything(),
+      "selected",
+      profile,
+    );
+    await action(
+      routeArgs({ intent: "delete-profile", profileId: "selected" }),
+    );
+    expect(services.agentProfileService.remove).toHaveBeenLastCalledWith(
+      expect.anything(),
+      "selected",
+    );
+  });
+
   it("validates request method, intent, identifier and check kind", async () => {
     const invalidFields: ReadonlyArray<Record<string, string>> = [
       {},
@@ -459,6 +648,9 @@ describe("agent routes", () => {
       login_limit_reached: 409,
       login_not_running: 409,
       credential_cleanup_failed: 500,
+      profile_in_use: 409,
+      profile_conflict: 409,
+      agent_usage_denied: 403,
     };
     for (const [code, status] of Object.entries(statuses)) {
       if (!isAgentErrorCode(code)) throw new Error("Invalid test fixture");

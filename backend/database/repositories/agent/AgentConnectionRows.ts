@@ -11,6 +11,7 @@ import type { AgentProviderId } from "@/definition/AgentConnection";
 
 /** Persistence metadata deliberately excludes the encrypted secret. */
 export interface AgentConnectionRecord {
+  readonly isActive: boolean;
   readonly id: string;
   readonly name: string;
   readonly provider: AgentProviderId;
@@ -31,7 +32,8 @@ export const CONNECTION_COLUMNS = `
     cli_logged_in_at,
     cli_account_label,
     updated_at,
-    reasoning_effort
+    reasoning_effort,
+    is_active
 `;
 
 /** Maps explicit columns, rejecting an unsupported stored provider. */
@@ -41,6 +43,7 @@ export function readAgentConnection(
   const provider = readTextColumn(row, 2, "provider");
   if (!isAgentProvider(provider)) throw new AgentError("provider_invalid");
   return {
+    isActive: readBooleanColumn(row, 9, "is_active"),
     id: readTextColumn(row, 0, "id"),
     name: readTextColumn(row, 1, "name"),
     provider,

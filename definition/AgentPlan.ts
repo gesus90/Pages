@@ -1,0 +1,131 @@
+import type { AgentDefinitionChoice } from "./AgentAvailability";
+import type { AgentParameterValue } from "./AgentParameters";
+import type { AgentWorkspaceChoice, WorkspaceGitHub } from "./AgentWorkspace";
+
+/** Plan sources and execution dependencies are deliberately separate contracts. */
+export type AgentPlanBinding =
+  | { readonly kind: "literal"; readonly value: AgentParameterValue | null }
+  | { readonly kind: "source"; readonly nodeId: string }
+  | { readonly kind: "result"; readonly stepId: string };
+
+export interface AgentPlanPosition {
+  readonly x: number;
+  readonly y: number;
+}
+
+/** Each agent instance has its own identifier and parameter values. */
+export interface AgentPlanStep extends AgentPlanPosition {
+  readonly id: string;
+  readonly type: "agent";
+  readonly agentId: string;
+  readonly personalAgentId: string | null;
+  readonly instruction: string;
+  readonly bindings: Readonly<Record<string, AgentPlanBinding>>;
+}
+
+/** Source nodes provide input; they never create an execution dependency. */
+export type AgentPlanNode =
+  | AgentPlanStep
+  | (AgentPlanPosition & {
+      readonly id: string;
+      readonly type: "task";
+      readonly taskId: string;
+    })
+  | (AgentPlanPosition & {
+      readonly id: string;
+      readonly type: "variable";
+      readonly name: string;
+    });
+
+export interface AgentPlanEdge {
+  readonly from: string;
+  readonly to: string;
+}
+
+/** Workspace sharing reuses its live grants; it never delegates credentials. */
+export interface AgentPlanInput {
+  readonly name: string;
+  readonly workspaceId: string;
+  readonly usage: "private" | "workspace";
+  readonly globals: Readonly<Record<string, string>>;
+  readonly nodes: readonly AgentPlanNode[];
+  readonly edges: readonly AgentPlanEdge[];
+  readonly revision?: number;
+}
+
+export interface AgentPlan extends AgentPlanInput {
+  readonly id: string;
+  readonly ownerId: string;
+  readonly projectId: string;
+  readonly revision: number;
+}
+
+/** Current links are derived on read, rather than copied into editable fields. */
+export interface AgentPlanView extends AgentPlan {
+  readonly canEdit: boolean;
+  readonly projectName: string;
+  readonly github: WorkspaceGitHub | null;
+}
+
+/** The source set exposes only readable task metadata, including subtasks. */
+export interface AgentPlanTask {
+  readonly id: string;
+  readonly key: string;
+  readonly title: string;
+  readonly type: "task" | "subtask";
+  readonly parentId: string | null;
+  readonly statusName: string;
+}
+
+export interface AgentPlanSources {
+  readonly agents: readonly AgentDefinitionChoice[];
+  readonly tasks: readonly AgentPlanTask[];
+}
+
+export interface AgentPlanPage {
+  readonly userId: string;
+  readonly plans: readonly AgentPlanView[];
+  readonly workspaces: readonly AgentWorkspaceChoice[];
+  readonly selected: AgentPlanView | null;
+  readonly sources: AgentPlanSources;
+  readonly runs: readonly AgentPlanRun[];
+}
+
+export type AgentPlanStepStatus =
+  "waiting" | "running" | "succeeded" | "failed" | "cancelled";
+
+/** Blocked waiting steps and confirmed cancellations remain distinguishable. */
+export interface AgentPlanStepResult {
+  readonly id: string;
+  readonly name: string;
+  readonly status: AgentPlanStepStatus;
+  readonly isBlocked: boolean;
+  readonly cancellation: "none" | "requested" | "confirmed" | "not_started";
+  readonly output: string | null;
+  readonly error: string | null;
+}
+
+/** Only the executor may read this sanitized view or request its stop. */
+export interface AgentPlanRun {
+  readonly id: string;
+  readonly planId: string;
+  readonly planName: string;
+  readonly planRevision: number;
+  readonly userId: string;
+  readonly startedAt: string;
+  readonly status: "running" | "succeeded" | "failed" | "cancelled";
+  readonly stopRequested: boolean;
+  readonly steps: readonly AgentPlanStepResult[];
+}
+
+/** Creates an unsaved plan without guessing a workspace or granting other users access. */
+export function emptyAgentPlan(): AgentPlanInput {
+  return {
+    name: "",
+    workspaceId: "",
+    usage: "private",
+    globals: { branch: "" },
+    nodes: [],
+    edges: [],
+  };
+}

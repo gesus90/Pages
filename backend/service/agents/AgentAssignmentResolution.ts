@@ -20,6 +20,7 @@ export async function resolveAgentAssignment(
   const connection = await connections.find(assignment.connectionId);
   if (
     !connection ||
+    !connection.isActive ||
     (isApiProvider(connection.provider)
       ? !connection.hasApiKey
       : connection.cliLoggedInAt === null)

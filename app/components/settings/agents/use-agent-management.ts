@@ -51,6 +51,12 @@ export function useAgentManagement(): {
     select({ kind: connection.accessKind, id: connection.id });
   }
   const command: AgentCommandHandler = (connection, operation) => {
+    if (operation === "activate" || operation === "deactivate") {
+      actions.submit("set-connection-active", connection.id, {
+        isActive: String(operation === "activate"),
+      });
+      return;
+    }
     if (
       operation === "model" ||
       operation === "delete" ||

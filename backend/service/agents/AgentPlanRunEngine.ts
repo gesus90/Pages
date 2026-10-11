@@ -1,0 +1,257 @@
+import { randomUUID } from "node:crypto";
+
+import { SerialQueue } from "@/backend/concurrency/SerialQueue";
+import { AgentError } from "@/backend/error/AgentErrors";
+import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
+import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { isApiProvider } from "@/definition/AgentConnection";
+
+import { sanitizePlanOutput } from "./AgentPlanOutput";
+import { hasPlanPath } from "./AgentPlanGraph";
+
+import type { PlanExecution } from "@/backend/agents/AgentPlanExecution";
+import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
+import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
+import type {
+  AgentPlanSnapshot,
+  AgentPlanStepSnapshot,
+} from "./AgentPlanSnapshot";
+import type { AgentPlanStepStart } from "./AgentPlanStepStart";
+
+interface ActivePlanRun {
+  view: AgentPlanRun;
+  readonly snapshot: AgentPlanSnapshot;
+  readonly controllers: Map<string, AbortController>;
+}
+
+interface EngineDependencies {
+  readonly runs: AgentPlanRunRepository;
+  readonly start: AgentPlanStepStart;
+  readonly execution: PlanExecution;
+}
+
+function patchStep(
+  active: ActivePlanRun,
+  id: string,
+  changes: Partial<AgentPlanStepResult>,
+): void {
+  active.view = {
+    ...active.view,
+    steps: active.view.steps.map((step) =>
+      step.id === id ? { ...step, ...changes } : step,
+    ),
+  };
+}
+
+function requestCancellation(active: ActivePlanRun): void {
+  active.view = { ...active.view, stopRequested: true };
+  for (const step of active.view.steps) {
+    if (step.status === "waiting")
+      patchStep(active, step.id, {
+        status: "cancelled",
+        cancellation: "not_started",
+        isBlocked: false,
+      });
+    if (step.status === "running")
+      patchStep(active, step.id, { cancellation: "requested" });
+  }
+}
+
+function updateBlocked(active: ActivePlanRun): void {
+  for (const step of active.view.steps) {
+    if (step.status !== "waiting") continue;
+    const hasFailedDependency = active.view.steps.some(
+      (entry) =>
+        (entry.status === "failed" || entry.status === "cancelled") &&
+        hasPlanPath(active.snapshot.plan.edges, entry.id, step.id),
+    );
+    if (hasFailedDependency)
+      patchStep(active, step.id, {
+        isBlocked: true,
+        error: "plan_dependency_failed",
+      });
+  }
+}
+
+function readySteps(active: ActivePlanRun): readonly AgentPlanStepSnapshot[] {
+  return active.snapshot.steps.filter((snapshot) => {
+    const step = active.view.steps.find(
+      (entry) => entry.id === snapshot.step.id,
+    );
+    return (
+      step?.status === "waiting" &&
+      !step.isBlocked &&
+      active.snapshot.plan.edges
+        .filter((edge) => edge.to === step.id)
+        .every(
+          (edge) =>
+            active.view.steps.find((entry) => entry.id === edge.from)
+              ?.status === "succeeded",
+        )
+    );
+  });
+}
+
+/** Event-driven DAG scheduler; at most two steps run across the whole instance service. */
+export class AgentPlanRunEngine {
+  private readonly dependencies: EngineDependencies;
+  private readonly active = new Map<string, ActivePlanRun>();
+  private readonly writes = new SerialQueue();
+  private readonly pending = new Set<Promise<void>>();
+  private isClosing = false;
+
+  public constructor(dependencies: EngineDependencies) {
+    this.dependencies = dependencies;
+  }
+
+  /** Persists a snapshot and reserves writing copies before returning a new Play run. */
+  public async start(
+    userId: string,
+    snapshot: AgentPlanSnapshot,
+  ): Promise<AgentPlanRun> {
+    if (this.isClosing) throw new AgentError("plan_access_denied");
+    const view: AgentPlanRun = {
+      id: randomUUID(),
+      planId: snapshot.plan.id,
+      planName: snapshot.plan.name,
+      planRevision: snapshot.plan.revision,
+      userId,
+      startedAt: new Date().toISOString(),
+      status: "running",
+      stopRequested: false,
+      steps: snapshot.steps.map((step) => ({
+        id: step.step.id,
+        name: step.name,
+        status: "waiting",
+        isBlocked: false,
+        cancellation: "none",
+        output: null,
+        error: null,
+      })),
+    };
+    const workspaceIds = snapshot.steps.flatMap((step) =>
+      !isApiProvider(step.provider) && step.prepared.directory
+        ? [step.prepared.directory.id]
+        : [],
+    );
+    await this.dependencies.runs.create(view, snapshot, workspaceIds);
+    this.active.set(view.id, { view, snapshot, controllers: new Map() });
+    await this.pump();
+    return (await this.dependencies.runs.find(view.id)) ?? view;
+  }
+
+  /** Stop is persisted first; confirmed cancellation is reported only by a settled adapter. */
+  public async stop(id: string): Promise<void> {
+    await this.writes.run(async () => {
+      const active = this.active.get(id);
+      if (!active) return;
+      requestCancellation(active);
+      await this.dependencies.runs.update(active.view);
+      for (const controller of active.controllers.values()) controller.abort();
+    });
+    await this.pump();
+  }
+
+  /** The shutdown hook drains execution before closing DuckDB or the shared CLI runner. */
+  public async shutdown(): Promise<void> {
+    this.isClosing = true;
+    for (const id of this.active.keys()) await this.stop(id);
+    await Promise.all([...this.pending]);
+    await this.pump();
+  }
+
+  private async pump(): Promise<void> {
+    await this.writes.run(async () => {
+      for (const [id, active] of this.active) {
+        updateBlocked(active);
+        const ready = active.view.stopRequested ? [] : readySteps(active);
+        for (const step of ready) {
+          if (this.runningCount() >= 2) break;
+          const controller = new AbortController();
+          active.controllers.set(step.step.id, controller);
+          patchStep(active, step.step.id, { status: "running" });
+          await this.dependencies.runs.update(active.view);
+          const pending = this.execute(active, step, controller);
+          this.pending.add(pending);
+          void pending.then(() => this.pending.delete(pending));
+        }
+        if (active.controllers.size === 0 && readySteps(active).length === 0) {
+          const hasFailure = active.view.steps.some(
+            (step) => step.status === "failed" || step.isBlocked,
+          );
+          let status: AgentPlanRun["status"] = "succeeded";
+          if (hasFailure) status = "failed";
+          if (active.view.stopRequested) status = "cancelled";
+          active.view = { ...active.view, status };
+          await this.dependencies.runs.update(active.view);
+          this.active.delete(id);
+        }
+      }
+    });
+  }
+
+  private runningCount(): number {
+    return [...this.active.values()].reduce(
+      (count, active) => count + active.controllers.size,
+      0,
+    );
+  }
+
+  private async execute(
+    active: ActivePlanRun,
+    step: AgentPlanStepSnapshot,
+    controller: AbortController,
+  ): Promise<void> {
+    let hasStarted = false;
+    let changes: Partial<AgentPlanStepResult>;
+    try {
+      const input = await this.dependencies.start.prepare(
+        active.view,
+        active.snapshot,
+        step,
+      );
+      if (active.view.stopRequested || controller.signal.aborted)
+        throw new AgentPlanCancelledError();
+      hasStarted = true;
+      const output = await this.dependencies.execution.run(
+        input,
+        controller.signal,
+      );
+      changes = {
+        status: "succeeded",
+        output: sanitizePlanOutput(output),
+        error: null,
+      };
+    } catch (error: unknown) {
+      changes =
+        error instanceof AgentPlanCancelledError
+          ? {
+              status: "cancelled",
+              cancellation: hasStarted ? "confirmed" : "not_started",
+            }
+          : {
+              status: "failed",
+              error:
+                error instanceof AgentError ||
+                error instanceof TextAssistantError
+                  ? error.code
+                  : "plan_step_failed",
+            };
+    }
+    try {
+      await this.writes.run(async () => {
+        patchStep(active, step.step.id, changes);
+        active.controllers.delete(step.step.id);
+        await this.dependencies.runs.update(active.view);
+      });
+      await this.pump();
+    } catch {
+      // Keep persistent reservations if progress cannot be saved; no further providers may start.
+      requestCancellation(active);
+      for (const running of active.controllers.values()) running.abort();
+      console.error(
+        "Pages could not persist agent plan progress; workspace reservations remain held.",
+      );
+    }
+  }
+}

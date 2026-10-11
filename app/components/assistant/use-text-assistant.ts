@@ -45,6 +45,7 @@ function createRequest(
     document: selected.documentMarkdown,
   };
   return {
+    ...(form.profileId === undefined ? {} : { profileId: form.profileId }),
     requestId: crypto.randomUUID(),
     conversationId,
     context: { ...context },
@@ -104,6 +105,7 @@ export function useTextAssistant(options: TextAssistantOptions): {
       scope: "none",
       change: "answer",
       instruction: "",
+      profileId: null,
     }));
   }, [kind, id]);
   const history = useAssistantHistory(options.context, isOpen);
@@ -124,6 +126,7 @@ export function useTextAssistant(options: TextAssistantOptions): {
       setForm((current) => ({
         ...current,
         action,
+        profileId: null,
         scope: action === "generate" ? "none" : "selection",
         change: defaultAssistantChange(action),
       }));
