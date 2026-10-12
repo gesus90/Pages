@@ -1,3 +1,11 @@
+import type {
+  AgentDirectoryEntry,
+  AgentMilestoneReference,
+  AgentTag,
+  AgentVisiblePerson,
+  AgentWikiPageReference,
+} from "./AgentExtensions.js";
+
 /** Types a ticket can have; mirrors the work item types of Pages. */
 export type AgentTicketType = "initiative" | "epic" | "task" | "subtask";
 
@@ -194,6 +202,20 @@ export interface AgentTicket {
   readonly dueAt: string | null;
   readonly isArchived: boolean;
   readonly statuses: readonly AgentTicketStatus[];
+  /** Tags of the catalog the ticket carries. */
+  readonly tags: readonly AgentTag[];
+  /** For an initiative: every milestone it is linked with, its own included. */
+  readonly linkedMilestones?: readonly AgentMilestoneReference[];
+  /** Visible wiki pages tied to an epic; omitted for other types. */
+  readonly wikiPages?: readonly AgentWikiPageReference[];
+  /**
+   * Visible active epics, tasks and subtasks below the ticket. A deletion
+   * moves them to the archive with it; given on a single read only.
+   */
+  readonly descendantCount?: number;
+  readonly assignee?: AgentVisiblePerson | null;
+  readonly assigneeGroup?: AgentDirectoryEntry | null;
+  readonly department?: AgentDirectoryEntry | null;
 }
 
 /** A milestone of a visible project. */
@@ -205,6 +227,17 @@ export interface AgentMilestone {
   readonly status: AgentMilestoneStatus;
   readonly startAt: string | null;
   readonly dueAt: string | null;
+  /** Visible initiatives linked with the milestone, its tickets' own milestone included. */
+  readonly initiatives: readonly AgentTicketReferenceEntry[];
+  /** Visible wiki pages tied to the milestone. */
+  readonly wikiPages: readonly AgentWikiPageReference[];
+}
+
+/** A visible ticket named by identifier, key and title. */
+export interface AgentTicketReferenceEntry {
+  readonly id: string;
+  readonly key: string;
+  readonly title: string;
 }
 
 /** A directed dependency between two milestones. */
@@ -220,4 +253,6 @@ export interface AgentMilestones {
   readonly projectId: string;
   readonly milestones: readonly AgentMilestone[];
   readonly dependencies: readonly AgentMilestoneDependency[];
+  readonly total?: number;
+  readonly nextCursor?: string | null;
 }

@@ -1,5 +1,4 @@
 import { accountForChannel } from "@/backend/auth/McpActorContext";
-
 import { ProjectPolicyService } from "@/backend/auth/ProjectPolicyService";
 import { UserPolicyService } from "@/backend/auth/UserPolicyService";
 import { CACHE_TTLS } from "@/backend/cache/ServerCache";
@@ -176,7 +175,10 @@ export class ProjectAccessService {
             const account = accounts.get(user.id);
             return (
               account !== undefined &&
-              this.policy.canAccess(account, departmentIds)
+              this.policy.canAccess(
+                accountForChannel(account, this.channel),
+                departmentIds,
+              )
             );
           }),
         );

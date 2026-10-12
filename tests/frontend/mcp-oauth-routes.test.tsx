@@ -113,17 +113,9 @@ beforeEach(() => {
 });
 
 describe("owner token and consent settings APIs", () => {
-  it("lists only owner facts and handles create, rotate, revoke and duration mutations", async () => {
-    expect(
-      (
-        await personal.loader(
-          args(new Request("https://pages.invalid/api/v1/personal-tokens")),
-        )
-      ).status,
-    ).toBe(200);
-    expect(services.personalAgentTokenService.list).toHaveBeenCalledWith(
-      "user-1",
-    );
+  it("removes the browser credential API while preserving owner OAuth settings", async () => {
+    expect((await personal.loader()).status).toBe(404);
+    expect(services.personalAgentTokenService.list).not.toHaveBeenCalled();
     expect(
       (
         await settings.loader(
@@ -134,38 +126,11 @@ describe("owner token and consent settings APIs", () => {
     services.personalAgentTokenService.create.mockResolvedValue({
       token: "shown-once",
     });
-    expect(
-      (
-        await personal.action(
-          args(
-            jsonRequest({
-              operation: "create",
-              name: "local",
-              expiresAt: null,
-            }),
-          ),
-        )
-      ).status,
-    ).toBe(201);
-    expect(services.personalAgentTokenService.create).toHaveBeenCalledWith(
-      "user-1",
-      "local",
-      null,
-    );
-    expect(
-      (
-        await personal.action(
-          args(jsonRequest({ operation: "rotate", id: "token-id" })),
-        )
-      ).status,
-    ).toBe(201);
-    expect(
-      (
-        await personal.action(
-          args(jsonRequest({ operation: "revoke", id: "token-id" })),
-        )
-      ).status,
-    ).toBe(200);
+    expect((await personal.action()).status).toBe(404);
+    expect(services.personalAgentTokenService.create).not.toHaveBeenCalled();
+    expect(services.personalAgentTokenService.rotate).not.toHaveBeenCalled();
+    expect((await personal.action()).status).toBe(404);
+    expect((await personal.action()).status).toBe(404);
     expect(
       (
         await settings.action(
@@ -198,18 +163,18 @@ describe("owner token and consent settings APIs", () => {
         expect(
           (await route.loader(args(new Request("https://pages.invalid/api"))))
             .status,
-        ).toBe(401);
+        ).toBe(route === personal ? 404 : 401);
         expect(
           (
             await route.action(
               args(jsonRequest({ operation: "revoke", id: "id" })),
             )
           ).status,
-        ).toBe(401);
+        ).toBe(route === personal ? 404 : 401);
       }
       vi.mocked(getAuthenticatedUser).mockResolvedValue(createUser());
       expect((await route.action(args(jsonRequest({}, "PUT")))).status).toBe(
-        405,
+        route === personal ? 404 : 405,
       );
       expect(
         (
@@ -217,27 +182,28 @@ describe("owner token and consent settings APIs", () => {
             args(new Request("https://pages.invalid/api", { method: "POST" })),
           )
         ).status,
-      ).toBe(403);
-      expect((await route.action(args(jsonRequest({})))).status).toBe(400);
+      ).toBe(route === personal ? 404 : 403);
+      expect((await route.action(args(jsonRequest({})))).status).toBe(
+        route === personal ? 404 : 400,
+      );
       expect(
         (
           await route.action(
             args(jsonRequest({ operation: "unknown", id: "id" })),
           )
         ).status,
-      ).toBe(400);
+      ).toBe(route === personal ? 404 : 400);
       expect(
         (await route.action(args(jsonRequest({ operation: "revoke", id: 3 }))))
           .status,
-      ).toBe(400);
+      ).toBe(route === personal ? 404 : 400);
     }
     services.personalAgentTokenService.list.mockRejectedValue(
       new Error("sentinel-secret"),
     );
-    const response = await personal.loader(
-      args(new Request("https://pages.invalid/api")),
-    );
-    expect(response.status).toBe(503);
+    const response = await personal.loader();
+    expect(response.status).toBe(404);
+    expect(await response.clone().json()).toEqual({ error: "not_found" });
     expect(await response.text()).not.toContain("sentinel-secret");
   });
 });

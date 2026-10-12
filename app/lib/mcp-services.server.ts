@@ -16,9 +16,12 @@ import { ServerCache } from "@/backend/cache/ServerCache";
 import { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
 import { WikiFileStore } from "@/backend/storage/WikiFileStore";
 import { WikiRepository } from "@/backend/database/repositories/WikiRepository";
+import { AgentExtensionService } from "@/backend/service/agents/AgentExtensionService";
+import { AgentAdministrationService } from "@/backend/service/agents/AgentAdministrationService";
 import { AgentOperationRouter } from "@/backend/service/agents/AgentOperationRouter";
-
 import { PersonalAgentTokenRepository } from "@/backend/database/repositories/mcp/PersonalAgentTokenRepository";
+import { PairingRepository } from "@/backend/database/repositories/mcp/PairingRepository";
+import { PairingService } from "@/backend/service/mcp/PairingService";
 import { McpOAuthRepository } from "@/backend/database/repositories/mcp/McpOAuthRepository";
 import { PagesAgentApiService } from "@/backend/service/PagesAgentApiService";
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
@@ -31,6 +34,10 @@ import { readOAuthConfiguration } from "@/backend/service/mcp/OAuthConfiguration
 import { OAuthGrantService } from "@/backend/service/mcp/OAuthGrantService";
 import { OAuthTokenService } from "@/backend/service/mcp/OAuthTokenService";
 
+import type { AgentChannel } from "@/backend/auth/McpActorContext";
+import type { AgentPlanningServices } from "@/backend/service/agents/AgentPlanningServices";
+import type { AgentWikiCreateDependencies } from "@/backend/service/agents/AgentWikiCreateService";
+import type { AgentWriteDependencies } from "@/backend/service/agents/AgentWriteOperationService";
 import type { AgentTicketPublisher } from "@/backend/service/agents/AgentTicketAnnouncer";
 import type { WikiService } from "@/backend/service/WikiService";
 import type { Database } from "@/backend/database/Database";
@@ -40,24 +47,134 @@ import type { UserService } from "@/backend/service/UserService";
 /** Authentication services; OAuth configuration is lazy and cannot block ordinary Pages startup. */
 export interface McpApplicationServices {
   readonly agentAssetService: AgentAssetService;
+  /** The same operation catalog for the chat agent: UI role mode, changes marked as AI actions. */
+  readonly chatOperationRouter: AgentOperationRouter;
   readonly agentUploadTicketService: AgentUploadTicketService;
   readonly pagesEventPublisher: PagesEventPublisher;
   readonly pagesAgentApiService: PagesAgentApiService;
   readonly personalAgentTokenService: PersonalAgentTokenService;
+  readonly pairingService: PairingService;
   readonly oauthClientService: OAuthClientService;
   readonly oauthConsentService: OAuthConsentService;
   readonly oauthGrantService: OAuthGrantService;
   readonly oauthTokenService: OAuthTokenService;
 }
 
+/** What the operations of one agent channel share. */
+interface OperationContext {
+  readonly database: Database;
+  readonly events: PagesEventPublisher;
+  readonly cache: ServerCache;
+  readonly channel: AgentChannel;
+}
+
 /** The page and comment operations; each call runs in one transaction on the shared connection. */
 function createWikiOperations(
-  database: Database,
-  events: PagesEventPublisher,
-): { fields: AgentWikiFieldService; comments: AgentWikiCommentService } {
+  context: OperationContext,
+  planning: AgentPlanningServices,
+): {
+  fields: AgentWikiFieldService;
+  comments: AgentWikiCommentService;
+  extensions: AgentExtensionService;
+} {
+  const { database, events, cache, channel } = context;
   return {
-    fields: new AgentWikiFieldService({ database, events }),
-    comments: new AgentWikiCommentService({ database, events }),
+    fields: new AgentWikiFieldService({ database, events, channel }),
+    comments: new AgentWikiCommentService({ database, events, channel }),
+    extensions: new AgentExtensionService({
+      database,
+      planning: planning.reads,
+      announcer: planning.announcer,
+      cache,
+      channel,
+    }),
+  };
+}
+
+/** What the operation catalogs of both agent channels are built from. */
+interface RouterContext extends Omit<OperationContext, "channel"> {
+  readonly users: Pick<UserService, "getById">;
+  readonly publisher: AgentTicketPublisher | null;
+  readonly writes: Omit<AgentWriteDependencies, "create">;
+  readonly creation: AgentWikiCreateDependencies;
+}
+
+/** Builds the operation catalog of MCP clients, including imports and uploads. */
+function createMcpOperationRouter(
+  context: RouterContext,
+): AgentOperationRouter {
+  const { creation } = context;
+  const planning = createAgentPlanningServices(context);
+  return new AgentOperationRouter({
+    administration: new AgentAdministrationService(
+      context.database,
+      context.cache,
+    ),
+    projects: new ProjectRepository(context.database),
+    wiki: new WikiRepository(context.database),
+    users: context.users,
+    writes: new AgentWriteOperationService({
+      ...context.writes,
+      create: new AgentWikiCreateService(creation),
+    }),
+    imports: new WikiImportService(creation),
+    importUpdates: new WikiImportUpdateService(creation),
+    structured: new StructuredImportService({ creation, planning }),
+    ...createWikiOperations({ ...context, channel: "mcp" }, planning),
+    planning,
+  });
+}
+
+/**
+ * Builds the operation catalog for the chat agent (T6.12.5).
+ *
+ * @remarks
+ * It shares every service and check with MCP but runs on the chat channel:
+ * administrators keep the role mode of the interface, and changes are marked
+ * as AI actions. Imports and uploads are not wired, so they do not exist for
+ * the chat.
+ */
+function createChatOperationRouter(
+  context: RouterContext,
+): AgentOperationRouter {
+  const channel = "chat";
+  const planning = createAgentPlanningServices({ ...context, channel });
+  return new AgentOperationRouter({
+    administration: new AgentAdministrationService(
+      context.database,
+      context.cache,
+      channel,
+    ),
+    projects: new ProjectRepository(context.database),
+    wiki: new WikiRepository(context.database),
+    users: context.users,
+    writes: new AgentWriteOperationService({
+      ...context.writes,
+      create: new AgentWikiCreateService({ ...context.creation, channel }),
+    }),
+    ...createWikiOperations({ ...context, channel }, planning),
+    planning,
+    channel,
+  });
+}
+
+/** Shares the existing database and fresh identity checks between personal tokens and pairing. */
+function createPersonalAuthorization(
+  database: Database,
+  identities: AgentIdentityService,
+): Pick<
+  McpApplicationServices,
+  "personalAgentTokenService" | "pairingService"
+> {
+  return {
+    personalAgentTokenService: new PersonalAgentTokenService(
+      new PersonalAgentTokenRepository(database),
+      identities,
+    ),
+    pairingService: new PairingService(
+      new PairingRepository(database),
+      identities,
+    ),
   };
 }
 
@@ -77,10 +194,8 @@ export function createMcpServices(
   },
 ): McpApplicationServices {
   const identities = new AgentIdentityService(users, administration);
-  const personalAgentTokenService = new PersonalAgentTokenService(
-    new PersonalAgentTokenRepository(database),
-    identities,
-  );
+  const { personalAgentTokenService, pairingService } =
+    createPersonalAuthorization(database, identities);
   const repository = new McpOAuthRepository(database);
   const configuration = (): ReturnType<typeof readOAuthConfiguration> =>
     readOAuthConfiguration(process.env);
@@ -114,42 +229,34 @@ export function createMcpServices(
     ),
     events: pagesEventPublisher,
   };
-  const planning = createAgentPlanningServices({
+  const routers: RouterContext = {
     database,
-    users,
     events: pagesEventPublisher,
     cache: workspace.tickets?.cache ?? ServerCache.disabled(),
-    publisher: workspace.tickets?.publisher ?? null,
-  });
-  const writes = new AgentWriteOperationService({
     users,
-    tickets: agentUploadTicketService,
-    assets: agentAssetService,
-    wiki: workspace.wikiService,
-    create: new AgentWikiCreateService(creation),
-  });
+    publisher: workspace.tickets?.publisher ?? null,
+    writes: {
+      users,
+      tickets: agentUploadTicketService,
+      assets: agentAssetService,
+      wiki: workspace.wikiService,
+    },
+    creation,
+  };
   return {
     agentAssetService,
+    chatOperationRouter: createChatOperationRouter(routers),
     agentUploadTicketService,
     pagesEventPublisher,
     personalAgentTokenService,
+    pairingService,
     oauthClientService,
     oauthTokenService,
     pagesAgentApiService: new PagesAgentApiService(
       personalAgentTokenService,
       oauthTokenService,
       new AgentProjectService(new ProjectRepository(database)),
-      new AgentOperationRouter({
-        projects: new ProjectRepository(database),
-        wiki: new WikiRepository(database),
-        users,
-        writes,
-        imports: new WikiImportService(creation),
-        importUpdates: new WikiImportUpdateService(creation),
-        structured: new StructuredImportService({ creation, planning }),
-        ...createWikiOperations(database, pagesEventPublisher),
-        planning,
-      }),
+      createMcpOperationRouter(routers),
     ),
     oauthConsentService: new OAuthConsentService({
       repository,

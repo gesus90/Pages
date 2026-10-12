@@ -10,9 +10,13 @@ vi.mock("../../mcp/src/tools/read-operation", () => ({
 }));
 
 import { readOperation } from "../../mcp/src/tools/read-operation";
+
 import { PagesOperationFailure } from "../../mcp/src/tools/operation-failure";
+
 import { COMMENT_TOOLS } from "../../mcp/src/tools/wiki-comments";
+
 import { verifyPages } from "../../mcp/src/verification";
+
 import { connectMcpServer } from "../helpers/mcp-server";
 
 const identity = { userId: "reader", isAdmin: false, permissions: [] };
@@ -71,8 +75,12 @@ it("offers all five exact schemas to an account without write rights", async () 
       },
       {
         name: "delete_wiki_comment",
-        properties: { operationId: identifier, commentId: identifier },
-        required: ["operationId", "commentId"],
+        properties: {
+          operationId: identifier,
+          commentId: identifier,
+          confirmation: { type: "string", enum: ["LÖSCHEN", "DELETE"] },
+        },
+        required: ["operationId", "commentId", "confirmation"],
         readOnlyHint: false,
         destructiveHint: true,
       },
@@ -139,7 +147,7 @@ it.each([
   [
     "delete_wiki_comment",
     "wiki.comment.delete",
-    { operationId: "delete", commentId: "comment" },
+    { operationId: "delete", commentId: "comment", confirmation: "LÖSCHEN" },
   ],
 ] as const)(
   "forwards %s unchanged and rechecks current authorization",

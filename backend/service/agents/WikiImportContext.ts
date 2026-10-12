@@ -44,7 +44,13 @@ export async function resolveWikiImportContext(
   const viewer = await access.resolve(actor);
   if (!viewer.scope.projectIds.includes(projectId))
     throw new AgentOperationError("NOT_FOUND");
-  return { actor, projectId, wiki: new WikiRepository(scope), access, viewer };
+  return {
+    actor,
+    projectId,
+    wiki: new WikiRepository(scope, "mcp"),
+    access,
+    viewer,
+  };
 }
 
 /** Reads the selected existing parent chain without visits, rejecting foreign scopes and templates. */

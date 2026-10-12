@@ -10,6 +10,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { WikiPageEditor } from "@/app/components/wiki/wiki-page-editor";
+import { WIKI_LIMITS } from "@/definition/Wiki";
 
 import { installEditorGeometry, typeText } from "../helpers/editor";
 import { renderInWiki } from "../helpers/wiki-render";
@@ -164,22 +165,29 @@ describe("WikiPageEditor", () => {
     expect(screen.getByText(/Saving failed/)).toHaveClass("text-destructive");
   });
 
-  it("counts characters near the limit and refuses to save above it", async () => {
-    renderEditor({ content: "x".repeat(200_000) });
+  it("counts UTF-8 bytes near the limit and refuses to save above it", async () => {
+    const limit = WIKI_LIMITS.contentLength;
+    const { pageSubmissions } = renderEditor({
+      content: "ä".repeat(limit / 2),
+    });
     // Reading a text at the limit takes a moment, more so with coverage.
     const { editor } = await editorOf(15_000);
 
-    expect(screen.getByText("200000 / 200000")).not.toHaveClass(
+    expect(screen.getByText(`${limit} / ${limit}`)).not.toHaveClass(
       "text-destructive",
     );
     typeAtEnd(editor, "y");
 
-    expect(await screen.findByText("200001 / 200000")).toHaveClass(
+    expect(await screen.findByText(`${limit + 1} / ${limit}`)).toHaveClass(
       "text-destructive",
     );
     expect(screen.getByText("Too long – will not be saved")).toHaveClass(
       "text-destructive",
     );
+    await act(async () => {
+      await new Promise<void>((resolve) => setTimeout(resolve, 1300));
+    });
+    expect(pageSubmissions).toEqual([]);
   }, 30_000);
 
   it("keeps the own version or takes the other one after a conflict", async () => {

@@ -6,10 +6,23 @@ interface PendingRequest {
   readonly completed: Promise<unknown>;
 }
 
+/** Deadline of one request and how many requests may run at once. */
+export interface AssistantRequestLimits {
+  readonly timeoutMs: number;
+  readonly capacity: number;
+}
+
 /** Pins cancellation to the owning user and drains requests before database shutdown. */
 export class AssistantRequestRegistry {
   private readonly requests = new Map<string, PendingRequest>();
+  private readonly limits: AssistantRequestLimits;
   private isStopped = false;
+
+  public constructor(
+    limits: AssistantRequestLimits = { timeoutMs: 120_000, capacity: 8 },
+  ) {
+    this.limits = limits;
+  }
 
   /** Registers synchronously before asynchronous preflight, with a bounded overall deadline. */
   public async run<Result>(
@@ -20,12 +33,15 @@ export class AssistantRequestRegistry {
     if (
       this.isStopped ||
       this.requests.has(id) ||
-      this.requests.size >= 8 ||
+      this.requests.size >= this.limits.capacity ||
       [...this.requests.values()].some((entry) => entry.userId === userId)
     )
       throw new TextAssistantError("requestBusy");
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort("timeout"), 120_000);
+    const timer = setTimeout(
+      () => controller.abort("timeout"),
+      this.limits.timeoutMs,
+    );
     const operation = Promise.resolve().then(() => work(controller.signal));
     this.requests.set(id, { userId, controller, completed: operation });
     try {

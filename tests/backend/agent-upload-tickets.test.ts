@@ -165,7 +165,7 @@ describe("one-use upload ticket authority", () => {
     ).toMatchObject({ assetId: expect.any(String) });
   });
 
-  it("checks persisted write rights again after streaming and filters the next tool catalog", async () => {
+  it("checks persisted write rights after streaming and on the next call while retaining the offered catalog", async () => {
     const run = await fixture();
     const writer = await run.addUser("writer", { capabilities: ["write"] });
     const credential = await run.personal.create(writer.id, "writer", null);
@@ -204,8 +204,14 @@ describe("one-use upload ticket authority", () => {
       operation: "verify",
     });
     if (!("tools" in verification)) throw new Error("Expected verification.");
-    expect(verification.tools).not.toContain("assets.upload.prepare");
-    expect(verification.tools).not.toContain("wiki.page.create");
+    expect(verification.tools).toContain("assets.upload.prepare");
+    expect(verification.tools).toContain("wiki.page.create");
+    await expect(
+      run.api.handle(credential.token, {
+        operation: "assets.upload.prepare",
+        parameters: { fileName: "next.png" },
+      }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
     expect(
       await run.database.query("SELECT COUNT(*) FROM agent_assets;"),
     ).toEqual([[0]]);

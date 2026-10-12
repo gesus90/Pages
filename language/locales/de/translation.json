@@ -313,6 +313,26 @@
           "invalidSetting": "Bitte gib ganze Zahlen im erlaubten Bereich ein (Tage 1–3650, Versionen 1–1000, Größen ab 1 MB).",
           "general": "Die Wiki-Einstellungen konnten nicht gespeichert werden."
         }
+      },
+      "chat": {
+        "title": "Chat-Assistent Pica",
+        "description": "Anhanggrenze und Systemanweisung des globalen Chats.",
+        "attachmentLimit": "Maximale Anhanggröße (MB)",
+        "attachmentHint": "Standard 16 MB, höchstens 512 MB pro Datei. Gilt für neue Uploads.",
+        "instruction": "Systemanweisung (Markdown)",
+        "instructionDefault": "Die Standardanweisung aus CHAT_AGENT.md ist aktiv.",
+        "instructionCustom": "Eine eigene Anweisung ist aktiv.",
+        "instructionHint": "Sie gilt ab der nächsten Nachricht. Die festen Regeln von Pages (Rechte der Person, Aktionen, Bestätigung beim Löschen) ergänzt Pages immer selbst.",
+        "modelHint": "Zugang und Modell legst du bei der Systemfunktion Chat fest:",
+        "modelLink": "Einstellungen › Agents",
+        "save": "Chat-Einstellungen speichern",
+        "reset": "Standard wiederherstellen",
+        "saved": "Gespeichert.",
+        "error": {
+          "invalidSetting": "Bitte eine Grenze von 1 bis 512 MB und eine Anweisung mit höchstens 20.000 Zeichen angeben.",
+          "credentialsInText": "Die Anweisung darf keine Zugangsdaten enthalten.",
+          "general": "Die Einstellungen konnten nicht gespeichert werden."
+        }
       }
     },
     "profile": {
@@ -433,7 +453,8 @@
       "label": "Einstellungsbereiche",
       "personal": "Persönlich",
       "system": "System",
-      "agents": "Agents"
+      "agents": "Agents",
+      "connections": "Verbindungen"
     },
     "saved": "Einstellungen gespeichert.",
     "agents": {
@@ -769,8 +790,11 @@
         "model": "Modell / Reasoning",
         "purposes": "Verwendungszwecke",
         "targets": "Zuweisungen",
+        "scope": "Geltung",
         "active": "Aktiv",
         "inactive": "Inaktiv",
+        "status": "Status",
+        "usability": "Nutzbarkeit",
         "actions": "Aktionen",
         "activate": "Zugang aktivieren",
         "deactivate": "Zugang deaktivieren",
@@ -791,6 +815,7 @@
       "definition": {
         "tag": "Tag",
         "scope": "Geltung",
+        "systemScopeHint": "Bei „System“ gilt der Agent für die ganze Instanz. Gruppe, Abteilung und Person sind deshalb deaktiviert.",
         "project": "Projektbezug",
         "global": "Global",
         "sharing": "Nutzungsfreigabe",
@@ -817,7 +842,12 @@
         "discardTitle": "Änderungen verwerfen?",
         "discardDescription": "Die ungespeicherten Änderungen an diesem Agent gehen verloren.",
         "discard": "Änderungen verwerfen",
-        "assignmentHint": "Zugewiesen an: Diese Ziele erlauben den Modellzugang. System → Text und Chat sind Funktionszuweisungen. Die Nutzungsfreigabe der Vorlage folgt separat.",
+        "assignmentHint": "Zuweisungen werden nur hier gepflegt. Jede Zuweisung hat genau eine Geltung. Die Ziele erlauben den Modellzugang; System → Text und Chat sind Funktionszuweisungen. Die Nutzungsfreigabe der Vorlage folgt separat.",
+        "assignedTo": "Zugewiesen an",
+        "planTasks": "Projekt-Aufgaben und Tickets",
+        "planTasksHint": "Ausführpläne verbinden diese Tickets mit dem Agent. Geändert wird im Ausführplan.",
+        "planTasksEmpty": "Kein Ausführplan verbindet Tickets mit diesem Agent.",
+        "planTaskSource": "Ausführplan „{{plan}}“",
         "emptyFiltered": "Keine Agents für diese Filter.",
         "resetFilters": "Filter zurücksetzen",
         "search": "Suche",
@@ -859,9 +889,109 @@
           "sharing": "Nutzungsfreigabe: {{target}}",
           "project": "Projektgeltung: {{id}}",
           "legacy": "Legacy-Funktion: {{id}}",
-          "plan": "Ausführplan {{id}}"
+          "plan": "Ausführplan {{id}}",
+          "agent": "Agent „{{name}}“"
         }
       }
+    },
+    "connections": {
+      "title": "Verbindungen",
+      "description": "MCP-Clients, die in Ihrem Namen auf Pages zugreifen. Sie erhalten nie mehr Rechte als Ihr Konto.",
+      "stdio": {
+        "title": "MCP-Clients (stdio)",
+        "description": "Gekoppelte Clients auf Ihren Geräten. Ein neuer Client wird im Terminal gekoppelt.",
+        "pair": "Client koppeln",
+        "column": {
+          "name": "Name",
+          "status": "Status",
+          "created": "Erstellt",
+          "lastUsed": "Zuletzt genutzt",
+          "expires": "Gültig bis",
+          "actions": "Aktionen"
+        },
+        "source": {
+          "pairing": "Gekoppelt",
+          "manual": "Manuell erstellt"
+        },
+        "status": {
+          "active": "Aktiv",
+          "rotationPending": "Rotation ausstehend",
+          "expired": "Abgelaufen",
+          "revoked": "Widerrufen"
+        },
+        "rotated": "rotiert {{time}}",
+        "ended": "Beendete Verbindungen ({{count}})",
+        "empty": {
+          "title": "Noch kein MCP-Client gekoppelt.",
+          "description": "Starten Sie das Pairing im Terminal des Geräts, auf dem Ihr MCP-Client läuft.",
+          "action": "Anleitung anzeigen"
+        }
+      },
+      "menu": {
+        "label": "Aktionen für {{name}}",
+        "rotate": "Rotation anfordern …",
+        "revoke": "Widerrufen …"
+      },
+      "revoke": {
+        "title": "Verbindung widerrufen?",
+        "description": "„{{name}}“ verliert sofort den Zugriff auf Pages. Um den Client wieder zu nutzen, koppeln Sie ihn neu.",
+        "confirm": "Widerrufen",
+        "success": "Verbindung widerrufen."
+      },
+      "rotate": {
+        "title": "Rotation anfordern?",
+        "description": "„{{name}}“ erhält bei der nächsten Anfrage automatisch einen neuen Zugangswert; der bisherige wird danach ungültig. Name, Gültigkeit und Rechte bleiben gleich. Der neue Wert erscheint nicht im Browser.",
+        "hint": "Bei Verdacht auf Missbrauch widerrufen Sie die Verbindung stattdessen.",
+        "confirm": "Rotation anfordern",
+        "success": "Rotation angefordert."
+      },
+      "guide": {
+        "title": "MCP-Client koppeln",
+        "description": "Das Pairing startet auf dem Gerät, auf dem Ihr MCP-Client läuft.",
+        "step1": "Im Terminal ausführen:",
+        "step2": "Den Link im Browser bestätigen. Öffnet sich kein Browser, geben Sie den Code unter {{origin}}/pair ein.",
+        "step3": "Im MCP-Client nur PAGES_URL eintragen; der gekoppelte Zugang wird automatisch verwendet.",
+        "addressHint": "Erreicht der Client Pages unter einer anderen Adresse, passen Sie sie an.",
+        "copy": "Befehl kopieren",
+        "enterCode": "Code eingeben",
+        "close": "Schließen",
+        "copied": "Befehl kopiert.",
+        "copyError": "Kopieren nicht möglich. Markieren Sie den Befehl und kopieren Sie ihn manuell."
+      },
+      "oauth": {
+        "title": "HTTP-MCP-Freigaben",
+        "description": "Freigaben für MCP-Clients, die über HTTP und OAuth verbunden sind.",
+        "duration": "Erneut bestätigen nach",
+        "durationHint": "Gilt auch für bestehende Freigaben. Verkürzen kann aktive Freigaben sofort beenden; abgelaufene oder widerrufene Freigaben werden nicht wieder aktiv.",
+        "empty": "Keine HTTP-MCP-Freigaben.",
+        "shorten": {
+          "title": "Dauer verkürzen?",
+          "description": "{{count}} aktive Freigaben enden dadurch sofort. Die Clients müssen sich neu anmelden.",
+          "confirm": "Verkürzen"
+        },
+        "revoke": {
+          "title": "Freigabe widerrufen?",
+          "description": "Der Client „{{client}}“ muss sich danach neu anmelden und den Zugriff erneut erlauben.",
+          "confirm": "Widerrufen",
+          "success": "Freigabe widerrufen."
+        },
+        "days": "{{count}} Tage",
+        "columns": {
+          "client": "Client",
+          "confirmed": "Bestätigt",
+          "expires": "Gültig bis",
+          "status": "Status",
+          "actions": "Aktionen"
+        }
+      },
+      "error": {
+        "load": "Verbindungen konnten nicht geladen werden.",
+        "action": "Die Änderung konnte nicht gespeichert werden. Bitte erneut versuchen.",
+        "retry": "Erneut versuchen"
+      },
+      "save": "Speichern",
+      "cancel": "Abbrechen",
+      "loading": "Verbindungen werden geladen"
     }
   },
   "users": {
@@ -909,7 +1039,8 @@
       "delete": "Löschen",
       "roleDeleteHint": "Die Rolle wird gelöscht. Zugewiesene Benutzer müssen zuvor eine andere Rolle erhalten.",
       "departmentDeleteHint": "Die Abteilung und ihre Zuordnungen werden entfernt. Benutzer, deren letzte Abteilung dies ist, bleiben als abteilungslose Benutzer erhalten und können neu zugeordnet werden.",
-      "groupDeleteHint": "Die Gruppe wird gelöscht. Tickets, die ihr zugewiesen sind, sind danach nicht mehr zugewiesen."
+      "groupDeleteHint": "Die Gruppe wird gelöscht. Tickets, die ihr zugewiesen sind, sind danach nicht mehr zugewiesen.",
+      "agentUsages": "Verwendet von diesen Agents:"
     },
     "personalAdmin": "Persönliche Admin-Berechtigung",
     "mode": {
@@ -1005,6 +1136,7 @@
       "invalidInput": "Bitte überprüfen Sie Ihre Eingaben.",
       "forbidden": "Sie sind nicht berechtigt, diese Aktion auszuführen.",
       "inUse": "Die Rolle ist noch Benutzern zugewiesen und kann nicht gelöscht werden.",
+      "agentInUse": "Agents verwenden diesen Eintrag noch als Geltung oder Nutzungsfreigabe. Ändern Sie diese Agents zuerst unter Einstellungen › Agents im Admin-Modus.",
       "lastMembership": "Die letzte Abteilungsmitgliedschaft darf nicht direkt entfernt werden.",
       "lastAdministrator": "Der letzte aktive Administrator kann nicht deaktiviert werden.",
       "demoteLastAdministrator": "Dem letzten aktiven Administrator kann die Administratorrolle nicht entzogen werden.",
@@ -1195,6 +1327,8 @@
       "parent_changed": "{{user}} änderte das übergeordnete Element: {{oldValue}} → {{newValue}}",
       "department_changed": "{{user}} änderte die Abteilung: {{oldValue}} → {{newValue}}",
       "milestone_changed": "{{user}} änderte den Meilenstein: {{oldValue}} → {{newValue}}",
+      "milestone_initiative_added": "{{user}} verknüpfte den Meilenstein {{newValue}}.",
+      "milestone_initiative_removed": "{{user}} entfernte die Verknüpfung mit dem Meilenstein {{oldValue}}.",
       "due_at_changed": "{{user}} änderte das Fälligkeitsdatum: {{oldValue}} → {{newValue}}",
       "title_changed": "{{user}} änderte den Titel.",
       "description_changed": "{{user}} änderte die Beschreibung.",
@@ -1240,6 +1374,7 @@
       "groupEmpty": "Die gewählte Gruppe hat keine Mitglieder.",
       "groupNotFound": "Die gewählte Gruppe existiert nicht.",
       "initiativeMissing": "Die gewählte Initiative existiert nicht.",
+      "initiativeRequired": "Nur eine Initiative lässt sich mit einem Meilenstein verknüpfen.",
       "initiativeNoParent": "Eine Initiative kann kein übergeordnetes Element haben.",
       "initiativeOtherProject": "Die übergeordnete Initiative muss zum selben Projekt gehören.",
       "labelColorUnsupported": "Diese Label-Farbe wird nicht unterstützt.",
@@ -1255,6 +1390,7 @@
       "milestoneDateOrder": "Das Startdatum darf nicht nach dem Fälligkeitsdatum liegen.",
       "milestoneDueDateFormat": "Das Fälligkeitsdatum muss das Format JJJJ-MM-TT haben.",
       "milestoneIconUnsupported": "Dieses Meilenstein-Symbol wird nicht unterstützt.",
+      "milestoneInitiativeInUse": "Epics, Tasks oder Subtasks unter der Initiative verwenden diesen Meilenstein noch.",
       "milestoneNameLength": "Der Meilenstein-Name muss zwischen 1 und 200 Zeichen lang sein.",
       "milestoneNotFound": "Der gewählte Meilenstein existiert nicht.",
       "milestoneOtherProject": "Der Meilenstein gehört nicht zum gewählten Projekt.",
@@ -1923,7 +2059,12 @@
       "team": "Team",
       "integrations": "Integrationen",
       "project": "Projekt",
-      "empty": "Noch keine Aktivitäten in diesem Projekt."
+      "empty": "Noch keine Aktivitäten in diesem Projekt.",
+      "wiki": "Wiki",
+      "source": {
+        "mcp": "über MCP",
+        "ai": "KI-Aktion über Pica"
+      }
     }
   },
   "setup": {
@@ -2566,6 +2707,83 @@
     "chooseProfile": "Profil wählen",
     "noProfiles": "Kein aktives, zugewiesenes Profil verfügbar."
   },
+  "chat": {
+    "passwordReceipt": {
+      "hint": "Kopiere das temporäre Passwort jetzt. Es wird nicht in der Unterhaltung gespeichert und beim Schließen ausgeblendet.",
+      "label": "Temporäres Passwort für {{name}}",
+      "dismiss": "Passwort ausblenden"
+    },
+    "open": "Pica öffnen",
+    "close": "Pica schließen",
+    "title": "Pica",
+    "subtitle": "Chat-Assistent",
+    "session": "Session",
+    "sessionId": "Session-ID",
+    "copySession": "Session-ID kopieren",
+    "messages": "Unterhaltung mit Pica",
+    "empty": "Frag Pica etwas zu Wiki, Tickets oder Projekten. Mit / rufst du Chat-Befehle auf.",
+    "you": "Deine Nachricht",
+    "loading": "Die Session wird geladen …",
+    "thinking": "Pica antwortet …",
+    "input": "Nachricht an Pica",
+    "placeholder": "Frag Pica etwas oder tippe / für Befehle …",
+    "commands": "Chat-Befehle: /new neue Session · /sessions Sessions anzeigen · /delete Session löschen",
+    "send": "Abschicken",
+    "cancel": "Abbrechen",
+    "attach": "Anhang hinzufügen",
+    "attachments": "Anhänge",
+    "removeAttachment": "Anhang {{name}} entfernen",
+    "uploading_one": "{{count}} Anhang wird hochgeladen …",
+    "uploading_other": "{{count}} Anhänge werden hochgeladen …",
+    "limit": "Anhänge bis {{size}}",
+    "notice": {
+      "newSession": "Neue Session gestartet.",
+      "switched": "Session gewechselt.",
+      "deleted": "Session endgültig gelöscht.",
+      "unknownCommand": "Unbekannter Chat-Befehl. Verfügbar sind /new, /sessions und /delete."
+    },
+    "sessions": {
+      "title": "Deine Sessions",
+      "current": "aktuell",
+      "empty": "noch keine Nachricht",
+      "close": "Zurück zum Chat"
+    },
+    "delete": {
+      "title": "Session löschen",
+      "hint": "Wähle eine Session. Sie wird mit allen Nachrichten und Anhängen endgültig gelöscht.",
+      "confirm": "Tippe {{word}}, um das Löschen zu bestätigen.",
+      "submit": "Endgültig löschen"
+    },
+    "error": {
+      "invalidInput": "Bitte die Eingabe prüfen.",
+      "accessDenied": "Dafür fehlen dir die Rechte.",
+      "sessionMissing": "Diese Session gibt es nicht mehr. Mit /new startest du eine neue.",
+      "attachmentMissing": "Der Anhang ist nicht mehr vorhanden.",
+      "confirmationRequired": "Das Bestätigungswort stimmt nicht. Es wurde nichts gelöscht.",
+      "credentialsInText": "Zugangsdaten dürfen nicht an Pica gesendet werden. Bitte entferne sie aus der Nachricht.",
+      "emptyMessage": "Bitte schreib eine Nachricht oder füge einen Anhang hinzu.",
+      "messageTooLong": "Die Nachricht ist zu lang (höchstens 20.000 Zeichen).",
+      "tooManyAttachments": "Pro Nachricht sind höchstens 10 Anhänge möglich.",
+      "fileEmpty": "Die Datei ist leer.",
+      "fileTooLarge": "Die Datei ist größer als die erlaubte Grenze.",
+      "fileNameTooLong": "Der Dateiname ist zu lang.",
+      "fileTypeNotAllowed": "Dieser Dateityp ist nicht erlaubt oder der Inhalt passt nicht zum Dateinamen. Ausführbare Dateien sind gesperrt.",
+      "invalidSetting": "Bitte die Eingabe prüfen.",
+      "stepLimit": "Pica konnte die Anfrage nicht in den erlaubten Schritten abschließen. Bitte teil sie in kleinere Schritte auf.",
+      "roleMissing": "Für den Chat ist noch kein Agent zugewiesen. Ein Admin legt ihn unter Einstellungen › Agents mit der Systemfunktion Chat fest.",
+      "profileSelectionRequired": "Mehrere Chat-Agents passen gleichrangig. Ein Admin muss die Zuweisung eindeutig machen.",
+      "connectionUnavailable": "Der Zugang des Chat-Agenten ist nicht verfügbar. Bitte wende dich an einen Admin.",
+      "accessUnverified": "Der Zugang des Chat-Agenten ist nicht bestätigt. Bitte wende dich an einen Admin.",
+      "modelUnavailable": "Das Modell des Chat-Agenten ist nicht im Katalog des Zugangs.",
+      "reasoningUnsupported": "Die Reasoning-Stufe des Chat-Agenten wird nicht unterstützt.",
+      "requestBusy": "Pica beantwortet gerade schon eine Nachricht von dir.",
+      "cancelled": "Die Antwort wurde abgebrochen.",
+      "timeout": "Die Antwort hat zu lange gedauert. Bitte versuch es noch einmal.",
+      "providerFailed": "Der Anbieter hat nicht geantwortet. Bitte versuch es noch einmal.",
+      "invalidOutput": "Die Antwort war unvollständig und wurde nicht gespeichert.",
+      "general": "Das hat nicht geklappt. Bitte versuch es noch einmal."
+    }
+  },
   "mcpConsent": {
     "title": "MCP-Zugriff erlauben",
     "description": "Dieser Client möchte sich mit Pages verbinden. Pages prüft Ihre Rechte bei jedem Aufruf erneut.",
@@ -2688,6 +2906,85 @@
       "requested": "Abbruch angefordert; noch nicht bestätigt.",
       "confirmed": "Abbruch vom Runner bestätigt.",
       "not_started": "Vor dem Start abgebrochen."
+    }
+  },
+  "mcpDuration": {
+    "label": "Gültigkeit in Tagen",
+    "hint": "1 bis 365 Tage. 0 bedeutet unbegrenzt.",
+    "unlimited": "Unbegrenzt",
+    "current": "Aktuell: {{duration}}"
+  },
+  "mcpPairing": {
+    "title": "MCP-Client verbinden",
+    "subtitle": "Ein MCP-Client möchte in Ihrem Namen auf diese Pages-Instanz zugreifen.",
+    "warning": "Bestätigen Sie nur ein Pairing, das Sie gerade selbst gestartet haben.",
+    "approve": "Verbinden",
+    "deny": "Ablehnen",
+    "code": {
+      "label": "Pairing-Code",
+      "compare": "Vergleichen Sie den Code mit Ihrem Terminal.",
+      "validUntil": "Gültig bis {{time}}.",
+      "spoken": "Pairing-Code: {{letters}}"
+    },
+    "details": {
+      "client": "Client",
+      "clientHint": "vom Client angegeben",
+      "device": "Gerät",
+      "version": "Paketversion",
+      "requested": "Angefragt",
+      "account": "Konto",
+      "switchAccount": "Anderes Konto verwenden"
+    },
+    "form": {
+      "name": "Name der Verbindung",
+      "nameHint": "Unter diesem Namen erscheint die Verbindung in den Einstellungen.",
+      "nameDefault": "{{client}} auf {{device}}",
+      "validity": "Gültigkeit",
+      "validityHint": "Danach muss der Client neu gekoppelt werden.",
+      "confirmMatch": "Der Code stimmt mit meinem Terminal überein, und ich habe das Pairing selbst gestartet.",
+      "error": {
+        "name": "Bitte einen Namen eingeben.",
+        "confirmMatch": "Bitte bestätigen Sie den Code-Vergleich."
+      }
+    },
+    "rights": "Der Client erhält dieselben Rechte wie Ihr Konto, nicht mehr. Pages prüft sie bei jedem Aufruf. Widerrufen können Sie die Verbindung jederzeit unter Einstellungen › Verbindungen.",
+    "rightsAdmin": "Ihre Admin-Berechtigung gilt über MCP unabhängig vom gewählten Modus.",
+    "enter": {
+      "description": "Geben Sie den Code ein, den der Pairing-Befehl in Ihrem Terminal anzeigt.",
+      "label": "Pairing-Code",
+      "hint": "Acht Buchstaben, z. B. BCDF-GHJK.",
+      "submit": "Weiter",
+      "errorFormat": "Bitte den achtstelligen Code eingeben.",
+      "errorLocked": "Zu viele Versuche. Bitte in {{minutes}} Minuten erneut versuchen."
+    },
+    "approved": {
+      "title": "Verbindung bestätigt",
+      "description": "Der Client übernimmt den Zugang automatisch. Danach können Sie dieses Fenster schließen.",
+      "waiting": "Warten auf den Client …",
+      "claimed": "Der Client hat den Zugang übernommen.",
+      "notClaimed": "Der Client hat den Zugang nicht abgeholt. Starten Sie das Pairing im Terminal neu.",
+      "cancelled": "Der Client hat das Pairing abgebrochen.",
+      "open": "Verbindungen öffnen"
+    },
+    "denied": {
+      "title": "Pairing abgelehnt",
+      "description": "Der Client erhält keinen Zugang. Wenn Sie das Pairing nicht selbst gestartet haben, ist nichts weiter zu tun.",
+      "dashboard": "Zum Dashboard"
+    },
+    "invalid": {
+      "title": "Code ungültig",
+      "description": "Dieser Pairing-Code ist ungültig, abgelaufen oder wurde bereits verwendet. Starten Sie das Pairing im Terminal neu."
+    },
+    "expired": {
+      "title": "Code abgelaufen",
+      "description": "Der Code ist abgelaufen. Starten Sie das Pairing im Terminal neu."
+    },
+    "cancelled": {
+      "title": "Pairing abgebrochen",
+      "description": "Der Client hat das Pairing beendet. Es wurde kein Zugang erteilt."
+    },
+    "error": {
+      "decision": "Die Entscheidung konnte nicht gespeichert werden. Bitte erneut versuchen."
     }
   }
 }

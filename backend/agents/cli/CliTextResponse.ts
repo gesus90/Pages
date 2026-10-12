@@ -15,7 +15,16 @@ function readClaudeText(output: string): string {
   return result.result;
 }
 
-function readCodexText(output: string): string {
+/** Codex items a text turn may contain; a search only where the chat allowed it. */
+function isTextItem(type: unknown, isSearchAllowed: boolean): boolean {
+  return (
+    type === "agent_message" ||
+    type === "reasoning" ||
+    (isSearchAllowed && type === "web_search")
+  );
+}
+
+function readCodexText(output: string, isSearchAllowed: boolean): string {
   let isComplete = false;
   let text = "";
   for (const line of output.split("\n").filter((entry) => entry.trim())) {
@@ -32,8 +41,7 @@ function readCodexText(output: string): string {
       text = item.text;
     if (
       (event.type === "item.started" || event.type === "item.completed") &&
-      item.type !== "agent_message" &&
-      item.type !== "reasoning"
+      !isTextItem(item.type, isSearchAllowed)
     )
       throw new TextAssistantError("invalidOutput");
     if (event.type === "turn.completed") isComplete = true;
@@ -42,15 +50,16 @@ function readCodexText(output: string): string {
   return text;
 }
 
-/** Accepts only a completed assistant turn, never CLI diagnostics or tool events. */
+/** Accepts only a completed assistant turn, never CLI diagnostics or tool events other than an allowed search. */
 export function readCliTextResponse(
   provider: CliProviderId,
   output: string,
+  options: { readonly webSearch?: boolean } = {},
 ): string {
   try {
     return provider === "claude_code"
       ? readClaudeText(output)
-      : readCodexText(output);
+      : readCodexText(output, options.webSearch === true);
   } catch (error: unknown) {
     if (error instanceof TextAssistantError) throw error;
     throw new TextAssistantError("invalidOutput");

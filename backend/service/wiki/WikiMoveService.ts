@@ -9,6 +9,7 @@ import {
   WIKI_SCOPE,
 } from "@/definition/Wiki";
 
+import { recordWikiActivity } from "./WikiActivity";
 import { canManagePage } from "./WikiAccess";
 import { WikiPageReader } from "./WikiPageReader";
 import { requireDepth, resolvePlacement } from "./WikiPlacementResolver";
@@ -127,6 +128,14 @@ export class WikiMoveService {
       await this.dropForeignAnchors(repository, id, page, placement);
       siblings.splice(index < 0 ? siblings.length : index, 0, id);
       await repository.writes.writePositions(siblings);
+      await recordWikiActivity(repository, page, actor.id, "wiki_page_moved");
+      if (placement.projectId !== page.projectId)
+        await recordWikiActivity(
+          repository,
+          { id: page.id, projectId: placement.projectId },
+          actor.id,
+          "wiki_page_moved",
+        );
     });
   }
 

@@ -313,6 +313,26 @@
           "invalidSetting": "Please enter whole numbers in the permitted range (days 1–3650, versions 1–1000, sizes from 1 MB).",
           "general": "The wiki settings could not be saved."
         }
+      },
+      "chat": {
+        "title": "Chat assistant Pica",
+        "description": "Attachment limit and system instruction of the global chat.",
+        "attachmentLimit": "Maximum attachment size (MB)",
+        "attachmentHint": "Default 16 MB, at most 512 MB per file. Applies to new uploads.",
+        "instruction": "System instruction (Markdown)",
+        "instructionDefault": "The default instruction from CHAT_AGENT.md is active.",
+        "instructionCustom": "A custom instruction is active.",
+        "instructionHint": "It applies from the next message on. Pages always adds its fixed rules (rights of the person, actions, confirmation of deletions).",
+        "modelHint": "Access and model are set at the system function Chat:",
+        "modelLink": "Settings › Agents",
+        "save": "Save chat settings",
+        "reset": "Restore default",
+        "saved": "Saved.",
+        "error": {
+          "invalidSetting": "Please enter a limit from 1 to 512 MB and an instruction of at most 20,000 characters.",
+          "credentialsInText": "The instruction must not contain credentials.",
+          "general": "The settings could not be saved."
+        }
       }
     },
     "profile": {
@@ -433,7 +453,8 @@
       "label": "Settings areas",
       "personal": "Personal",
       "system": "System",
-      "agents": "Agents"
+      "agents": "Agents",
+      "connections": "Connections"
     },
     "saved": "Settings saved.",
     "agents": {
@@ -769,8 +790,11 @@
         "model": "Model / reasoning",
         "purposes": "Purposes",
         "targets": "Assignments",
+        "scope": "Scope",
         "active": "Active",
         "inactive": "Inactive",
+        "status": "Status",
+        "usability": "Usability",
         "actions": "Actions",
         "activate": "Enable connection",
         "deactivate": "Disable connection",
@@ -791,6 +815,7 @@
       "definition": {
         "tag": "Tag",
         "scope": "Scope",
+        "systemScopeHint": "With “System”, the agent applies to the whole instance. Group, department and person are therefore disabled.",
         "project": "Project context",
         "global": "Global",
         "sharing": "Usage sharing",
@@ -817,7 +842,12 @@
         "discardTitle": "Discard changes?",
         "discardDescription": "Unsaved changes to this agent will be lost.",
         "discard": "Discard changes",
-        "assignmentHint": "Assigned to: these targets authorize model access. System → Text and Chat are function assignments. Template usage is shared separately.",
+        "assignmentHint": "Assignments are maintained here only. Each assignment has exactly one scope. These targets authorize model access; System → Text and Chat are function assignments. Template usage is shared separately.",
+        "assignedTo": "Assigned to",
+        "planTasks": "Project tasks and tickets",
+        "planTasksHint": "Execution plans bind these tickets to the agent. Change them in the execution plan.",
+        "planTasksEmpty": "No execution plan binds tickets to this agent.",
+        "planTaskSource": "Execution plan “{{plan}}”",
         "emptyFiltered": "No agents match these filters.",
         "resetFilters": "Reset filters",
         "search": "Search",
@@ -859,9 +889,109 @@
           "sharing": "Usage share: {{target}}",
           "project": "Project scope: {{id}}",
           "legacy": "Legacy function: {{id}}",
-          "plan": "Execution plan {{id}}"
+          "plan": "Execution plan {{id}}",
+          "agent": "Agent “{{name}}”"
         }
       }
+    },
+    "connections": {
+      "title": "Connections",
+      "description": "MCP clients that access Pages on your behalf. They never get more permissions than your account.",
+      "stdio": {
+        "title": "MCP clients (stdio)",
+        "description": "Paired clients on your devices. New clients are paired in the terminal.",
+        "pair": "Pair client",
+        "column": {
+          "name": "Name",
+          "status": "Status",
+          "created": "Created",
+          "lastUsed": "Last used",
+          "expires": "Valid until",
+          "actions": "Actions"
+        },
+        "source": {
+          "pairing": "Paired",
+          "manual": "Created manually"
+        },
+        "status": {
+          "active": "Active",
+          "rotationPending": "Rotation pending",
+          "expired": "Expired",
+          "revoked": "Revoked"
+        },
+        "rotated": "rotated {{time}}",
+        "ended": "Ended connections ({{count}})",
+        "empty": {
+          "title": "No MCP client paired yet.",
+          "description": "Start pairing in the terminal of the device that runs your MCP client.",
+          "action": "Show instructions"
+        }
+      },
+      "menu": {
+        "label": "Actions for {{name}}",
+        "rotate": "Request rotation …",
+        "revoke": "Revoke …"
+      },
+      "revoke": {
+        "title": "Revoke connection?",
+        "description": "“{{name}}” loses access to Pages immediately. Pair the client again to use it.",
+        "confirm": "Revoke",
+        "success": "Connection revoked."
+      },
+      "rotate": {
+        "title": "Request rotation?",
+        "description": "“{{name}}” automatically receives a new access value with its next request; the old one then stops working. Name, validity and permissions stay the same. The new value never appears in the browser.",
+        "hint": "If you suspect misuse, revoke the connection instead.",
+        "confirm": "Request rotation",
+        "success": "Rotation requested."
+      },
+      "guide": {
+        "title": "Pair MCP client",
+        "description": "Pairing starts on the device that runs your MCP client.",
+        "step1": "Run in the terminal:",
+        "step2": "Confirm the link in the browser. If no browser opens, enter the code at {{origin}}/pair.",
+        "step3": "In the MCP client, set only PAGES_URL; the paired access is used automatically.",
+        "addressHint": "If the client reaches Pages at a different address, adjust it.",
+        "copy": "Copy command",
+        "enterCode": "Enter code",
+        "close": "Close",
+        "copied": "Command copied.",
+        "copyError": "Could not copy. Select the command and copy it manually."
+      },
+      "oauth": {
+        "title": "HTTP MCP grants",
+        "description": "Grants for MCP clients connected via HTTP and OAuth.",
+        "duration": "Confirm again after",
+        "durationHint": "Also applies to existing grants. Shortening can end active grants immediately; expired or revoked grants do not become active again.",
+        "empty": "No HTTP MCP grants.",
+        "shorten": {
+          "title": "Shorten duration?",
+          "description": "{{count}} active grants end immediately. The clients must sign in again.",
+          "confirm": "Shorten"
+        },
+        "revoke": {
+          "title": "Revoke grant?",
+          "description": "The client “{{client}}” must then sign in and allow access again.",
+          "confirm": "Revoke",
+          "success": "Grant revoked."
+        },
+        "days": "{{count}} days",
+        "columns": {
+          "client": "Client",
+          "confirmed": "Confirmed",
+          "expires": "Valid until",
+          "status": "Status",
+          "actions": "Actions"
+        }
+      },
+      "error": {
+        "load": "Connections could not be loaded.",
+        "action": "The change could not be saved. Please try again.",
+        "retry": "Try again"
+      },
+      "save": "Save",
+      "cancel": "Cancel",
+      "loading": "Loading connections"
     }
   },
   "users": {
@@ -909,7 +1039,8 @@
       "delete": "Delete",
       "roleDeleteHint": "The role will be deleted. Assign its users to another role first.",
       "departmentDeleteHint": "The department and its assignments will be removed. Users losing their final department are retained without a department and can be assigned again.",
-      "groupDeleteHint": "The group will be deleted. Tickets assigned to it become unassigned."
+      "groupDeleteHint": "The group will be deleted. Tickets assigned to it become unassigned.",
+      "agentUsages": "Used by these agents:"
     },
     "personalAdmin": "Personal administrator eligibility",
     "mode": {
@@ -1004,6 +1135,7 @@
       "emailTaken": "This email address is already in use.",
       "invalidInput": "Please check your input.",
       "inUse": "The role is still assigned to users and cannot be deleted.",
+      "agentInUse": "Agents still use this entry as their scope or usage share. Change those agents first under Settings › Agents in admin mode.",
       "lastMembership": "The final department membership cannot be removed directly.",
       "forbidden": "You are not allowed to perform this action.",
       "lastAdministrator": "The last active administrator cannot be deactivated.",
@@ -1195,6 +1327,8 @@
       "parent_changed": "{{user}} changed the parent: {{oldValue}} → {{newValue}}",
       "department_changed": "{{user}} changed the department: {{oldValue}} → {{newValue}}",
       "milestone_changed": "{{user}} changed the milestone: {{oldValue}} → {{newValue}}",
+      "milestone_initiative_added": "{{user}} linked the milestone {{newValue}}.",
+      "milestone_initiative_removed": "{{user}} removed the link with the milestone {{oldValue}}.",
       "due_at_changed": "{{user}} changed the due date: {{oldValue}} → {{newValue}}",
       "title_changed": "{{user}} changed the title.",
       "description_changed": "{{user}} changed the description.",
@@ -1240,6 +1374,7 @@
       "groupEmpty": "The selected group has no members.",
       "groupNotFound": "The selected group does not exist.",
       "initiativeMissing": "The selected Initiative does not exist.",
+      "initiativeRequired": "Only an Initiative can be linked with a milestone.",
       "initiativeNoParent": "An Initiative cannot have a parent.",
       "initiativeOtherProject": "The parent Initiative must belong to the same project.",
       "labelColorUnsupported": "This label color is not supported.",
@@ -1255,6 +1390,7 @@
       "milestoneDateOrder": "The start date must not be after the due date.",
       "milestoneDueDateFormat": "The due date must use the format YYYY-MM-DD.",
       "milestoneIconUnsupported": "This milestone symbol is not supported.",
+      "milestoneInitiativeInUse": "Epics, tasks or subtasks below the Initiative still use this milestone.",
       "milestoneNameLength": "The milestone name must be between 1 and 200 characters long.",
       "milestoneNotFound": "The selected milestone does not exist.",
       "milestoneOtherProject": "The milestone does not belong to the selected project.",
@@ -1923,7 +2059,12 @@
       "team": "Team",
       "integrations": "Integrations",
       "project": "Project",
-      "empty": "No activities in this project yet."
+      "empty": "No activities in this project yet.",
+      "wiki": "Wiki",
+      "source": {
+        "mcp": "via MCP",
+        "ai": "AI action via Pica"
+      }
     }
   },
   "setup": {
@@ -2566,6 +2707,83 @@
     "chooseProfile": "Choose a profile",
     "noProfiles": "No active assigned profile is available."
   },
+  "chat": {
+    "passwordReceipt": {
+      "hint": "Copy the temporary password now. It is not stored in the conversation and disappears when you close the panel.",
+      "label": "Temporary password for {{name}}",
+      "dismiss": "Hide password"
+    },
+    "open": "Open Pica",
+    "close": "Close Pica",
+    "title": "Pica",
+    "subtitle": "Chat assistant",
+    "session": "Session",
+    "sessionId": "Session ID",
+    "copySession": "Copy session ID",
+    "messages": "Conversation with Pica",
+    "empty": "Ask Pica about the wiki, tickets or projects. Type / for chat commands.",
+    "you": "Your message",
+    "loading": "Loading the session …",
+    "thinking": "Pica is answering …",
+    "input": "Message to Pica",
+    "placeholder": "Ask Pica something or type / for commands …",
+    "commands": "Chat commands: /new new session · /sessions show sessions · /delete delete a session",
+    "send": "Send",
+    "cancel": "Cancel",
+    "attach": "Add attachment",
+    "attachments": "Attachments",
+    "removeAttachment": "Remove attachment {{name}}",
+    "uploading_one": "Uploading {{count}} attachment …",
+    "uploading_other": "Uploading {{count}} attachments …",
+    "limit": "Attachments up to {{size}}",
+    "notice": {
+      "newSession": "New session started.",
+      "switched": "Session switched.",
+      "deleted": "Session deleted for good.",
+      "unknownCommand": "Unknown chat command. Available are /new, /sessions and /delete."
+    },
+    "sessions": {
+      "title": "Your sessions",
+      "current": "current",
+      "empty": "no message yet",
+      "close": "Back to the chat"
+    },
+    "delete": {
+      "title": "Delete a session",
+      "hint": "Choose a session. It is deleted for good with all messages and attachments.",
+      "confirm": "Type {{word}} to confirm the deletion.",
+      "submit": "Delete for good"
+    },
+    "error": {
+      "invalidInput": "Please check the input.",
+      "accessDenied": "You lack the rights for this.",
+      "sessionMissing": "This session no longer exists. Start a new one with /new.",
+      "attachmentMissing": "The attachment no longer exists.",
+      "confirmationRequired": "The confirmation word does not match. Nothing was deleted.",
+      "credentialsInText": "Credentials must not be sent to Pica. Please remove them from the message.",
+      "emptyMessage": "Please write a message or add an attachment.",
+      "messageTooLong": "The message is too long (at most 20,000 characters).",
+      "tooManyAttachments": "A message can have at most 10 attachments.",
+      "fileEmpty": "The file is empty.",
+      "fileTooLarge": "The file is larger than the allowed limit.",
+      "fileNameTooLong": "The file name is too long.",
+      "fileTypeNotAllowed": "This file type is not allowed or the content does not match the file name. Executable files are blocked.",
+      "invalidSetting": "Please check the input.",
+      "stepLimit": "Pica could not finish the request within the allowed steps. Please split it into smaller steps.",
+      "roleMissing": "No agent is assigned to the chat yet. An administrator sets it under Settings › Agents with the system function Chat.",
+      "profileSelectionRequired": "Several chat agents match with the same priority. An administrator has to make the assignment unique.",
+      "connectionUnavailable": "The access of the chat agent is not available. Please contact an administrator.",
+      "accessUnverified": "The access of the chat agent is not verified. Please contact an administrator.",
+      "modelUnavailable": "The model of the chat agent is not in the catalog of its access.",
+      "reasoningUnsupported": "The reasoning level of the chat agent is not supported.",
+      "requestBusy": "Pica is already answering a message of yours.",
+      "cancelled": "The answer was cancelled.",
+      "timeout": "The answer took too long. Please try again.",
+      "providerFailed": "The provider did not answer. Please try again.",
+      "invalidOutput": "The answer was incomplete and was not stored.",
+      "general": "That did not work. Please try again."
+    }
+  },
   "mcpConsent": {
     "title": "Allow MCP access",
     "description": "This client wants to connect to Pages. Pages checks your permissions again for every call.",
@@ -2688,6 +2906,85 @@
       "requested": "Cancellation requested; not confirmed yet.",
       "confirmed": "Cancellation confirmed by runner.",
       "not_started": "Cancelled before start."
+    }
+  },
+  "mcpDuration": {
+    "label": "Validity in days",
+    "hint": "1 to 365 days. 0 means unlimited.",
+    "unlimited": "Unlimited",
+    "current": "Current: {{duration}}"
+  },
+  "mcpPairing": {
+    "title": "Connect MCP client",
+    "subtitle": "An MCP client wants to access this Pages instance on your behalf.",
+    "warning": "Only confirm a pairing that you have just started yourself.",
+    "approve": "Connect",
+    "deny": "Deny",
+    "code": {
+      "label": "Pairing code",
+      "compare": "Compare the code with your terminal.",
+      "validUntil": "Valid until {{time}}.",
+      "spoken": "Pairing code: {{letters}}"
+    },
+    "details": {
+      "client": "Client",
+      "clientHint": "stated by the client",
+      "device": "Device",
+      "version": "Package version",
+      "requested": "Requested",
+      "account": "Account",
+      "switchAccount": "Use another account"
+    },
+    "form": {
+      "name": "Connection name",
+      "nameHint": "The connection appears under this name in your settings.",
+      "nameDefault": "{{client}} on {{device}}",
+      "validity": "Validity",
+      "validityHint": "After that, the client must be paired again.",
+      "confirmMatch": "The code matches my terminal, and I started this pairing myself.",
+      "error": {
+        "name": "Enter a name.",
+        "confirmMatch": "Confirm that the code matches."
+      }
+    },
+    "rights": "The client gets the same permissions as your account, no more. Pages checks them on every call. You can revoke the connection at any time under Settings › Connections.",
+    "rightsAdmin": "Your admin permission applies via MCP regardless of the selected mode.",
+    "enter": {
+      "description": "Enter the code shown by the pairing command in your terminal.",
+      "label": "Pairing code",
+      "hint": "Eight letters, e.g. BCDF-GHJK.",
+      "submit": "Continue",
+      "errorFormat": "Enter the eight-letter code.",
+      "errorLocked": "Too many attempts. Try again in {{minutes}} minutes."
+    },
+    "approved": {
+      "title": "Connection confirmed",
+      "description": "The client takes over the access automatically. You can then close this window.",
+      "waiting": "Waiting for the client …",
+      "claimed": "The client has taken over the access.",
+      "notClaimed": "The client did not collect the access. Start pairing again in the terminal.",
+      "cancelled": "The client cancelled the pairing.",
+      "open": "Open connections"
+    },
+    "denied": {
+      "title": "Pairing denied",
+      "description": "The client gets no access. If you did not start this pairing yourself, nothing else is needed.",
+      "dashboard": "Go to dashboard"
+    },
+    "invalid": {
+      "title": "Invalid code",
+      "description": "This pairing code is invalid, expired or already used. Start pairing again in the terminal."
+    },
+    "expired": {
+      "title": "Code expired",
+      "description": "The code has expired. Start pairing again in the terminal."
+    },
+    "cancelled": {
+      "title": "Pairing cancelled",
+      "description": "The client ended the pairing. No access was granted."
+    },
+    "error": {
+      "decision": "The decision could not be saved. Please try again."
     }
   }
 }

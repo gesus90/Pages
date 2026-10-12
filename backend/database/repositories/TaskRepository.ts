@@ -1,6 +1,7 @@
 import { EligibleAssigneeRepository } from "./task/EligibleAssigneeRepository";
 import { UserGroupRepository } from "./UserGroupRepository";
 import { MilestoneDependencyRepository } from "./task/MilestoneDependencyRepository";
+import { MilestoneInitiativeRepository } from "./task/MilestoneInitiativeRepository";
 import { MilestoneRepository } from "./task/MilestoneRepository";
 import { TaskLabelRepository } from "./task/TaskLabelRepository";
 import { WorkflowStatusRepository } from "./task/WorkflowStatusRepository";
@@ -27,6 +28,7 @@ import type {
 import type { GroupSummary, UserGroup } from "@/definition/UserGroup";
 import type { User } from "@/definition/User";
 import type { NewMilestoneDependency } from "./task/MilestoneDependencyRepository";
+import type { MilestoneInitiativeLink } from "./task/MilestoneInitiativeRepository";
 import type { TaskDatabase } from "./task/TaskDatabase";
 import type {
   MilestoneFieldChange,
@@ -57,6 +59,7 @@ import type {
   WorkItemUpdate,
 } from "./task/WorkItemWriteRepository";
 
+export type { MilestoneInitiativeLink } from "./task/MilestoneInitiativeRepository";
 export type { MilestoneUpdate, NewMilestone } from "./task/MilestoneRepository";
 export type {
   ProjectWorkItemCounts,
@@ -81,6 +84,7 @@ export class TaskRepository {
   private readonly statuses: WorkflowStatusRepository;
   private readonly milestones: MilestoneRepository;
   private readonly dependencies: MilestoneDependencyRepository;
+  private readonly initiatives: MilestoneInitiativeRepository;
   private readonly history: WorkItemHistoryRepository;
   private readonly keys: WorkItemKeyRepository;
   private readonly queries: WorkItemQueryRepository;
@@ -102,6 +106,7 @@ export class TaskRepository {
     this.statuses = new WorkflowStatusRepository(database);
     this.milestones = new MilestoneRepository(database);
     this.dependencies = new MilestoneDependencyRepository(database);
+    this.initiatives = new MilestoneInitiativeRepository(database);
     this.history = new WorkItemHistoryRepository(database);
     this.keys = new WorkItemKeyRepository(database);
     this.queries = new WorkItemQueryRepository(database);
@@ -187,6 +192,53 @@ export class TaskRepository {
     milestoneId: string,
   ): Promise<void> {
     return this.dependencies.deleteByMilestone(milestoneId);
+  }
+
+  /** Returns the milestone and initiative links of the given projects. */
+  public async findMilestoneInitiativeLinks(
+    projectIds: readonly string[],
+  ): Promise<MilestoneInitiativeLink[]> {
+    return this.initiatives.findByProjectIds(projectIds);
+  }
+
+  /** Links an initiative with a milestone; an existing link stays. */
+  public async linkInitiativeToMilestone(
+    milestoneId: string,
+    initiativeId: string,
+  ): Promise<void> {
+    return this.initiatives.insert(milestoneId, initiativeId);
+  }
+
+  /** Removes the table row linking an initiative with a milestone. */
+  public async unlinkInitiativeFromMilestone(
+    milestoneId: string,
+    initiativeId: string,
+  ): Promise<void> {
+    return this.initiatives.delete(milestoneId, initiativeId);
+  }
+
+  /** Gives a work item a milestone while it has none; tells whether it took it. */
+  public async setMilestoneIfEmpty(
+    workItemId: string,
+    milestoneId: string,
+  ): Promise<boolean> {
+    return this.initiatives.setMilestoneIfEmpty(workItemId, milestoneId);
+  }
+
+  /** Clears the milestone of a work item while it still holds the given one. */
+  public async clearMilestone(
+    workItemId: string,
+    milestoneId: string,
+  ): Promise<void> {
+    return this.initiatives.clearMilestone(workItemId, milestoneId);
+  }
+
+  /** Counts the active descendants of an initiative that carry the milestone. */
+  public async countMilestoneDependents(
+    initiativeId: string,
+    milestoneId: string,
+  ): Promise<number> {
+    return this.initiatives.countDependents(initiativeId, milestoneId);
   }
 
   /** Returns work item history across all tasks of one project, newest last. */

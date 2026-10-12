@@ -439,6 +439,9 @@ function verifySourceColumns(
  * likewise stay untouched when the frozen SQLite schema is copied.
  * Execution profiles and their A10.1 grants are native configuration as well.
  * The A10.2 legacy function references stay with their native agent profiles.
+ * MCP pairing (A11.2), the chat of A11.4 and the links between milestones and
+ * initiatives (A11.5) exist only in DuckDB as well;
+ * copied activity keeps the defaults of the A11.1 source and wiki page columns.
  */
 async function readTargetColumns(
   target: Database,
@@ -474,7 +477,10 @@ async function readTargetColumns(
               'mcp_oauth_clients', 'mcp_oauth_flows', 'mcp_oauth_preferences',
               'mcp_oauth_grants', 'mcp_oauth_credentials',
               'agent_assets', 'agent_operation_keys',
-              'agent_import_runs', 'agent_import_sources', 'agent_import_items'
+              'agent_import_runs', 'agent_import_sources', 'agent_import_items',
+              'mcp_pairing_preferences', 'mcp_pairing_requests',
+              'chat_settings', 'chat_sessions', 'chat_messages', 'chat_attachments',
+              'milestone_initiatives', 'administration_activity'
           )
           AND NOT (
               table_name = 'wiki_pages'
@@ -487,6 +493,10 @@ async function readTargetColumns(
           AND NOT (table_name = 'work_items' AND column_name = 'department_id')
           AND NOT (table_name = 'work_items' AND column_name = 'assignee_group_id')
           AND NOT (table_name = 'project_activity' AND column_name = 'work_item_id')
+          AND NOT (
+              table_name = 'project_activity'
+              AND column_name IN ('wiki_page_id', 'source')
+          )
           AND NOT (table_name = 'project_integrations' AND column_name = 'sync_enabled')
           AND NOT (table_name = 'project_keys' AND column_name = 'last_number')
       ORDER BY table_name, ordinal_position;

@@ -30,6 +30,7 @@ describe("DuckDB persistence", () => {
     );
 
     expect(rows?.map((row) => row[0]).sort()).toEqual([
+      "administration_activity",
       "agent_assets",
       "agent_connection_checks",
       "agent_connections",
@@ -50,6 +51,10 @@ describe("DuckDB persistence", () => {
       "agent_workspaces",
       "assistant_conversations",
       "assistant_messages",
+      "chat_attachments",
+      "chat_messages",
+      "chat_sessions",
+      "chat_settings",
       "department_members",
       "departments",
       "github_external_issues",
@@ -63,7 +68,10 @@ describe("DuckDB persistence", () => {
       "mcp_oauth_flows",
       "mcp_oauth_grants",
       "mcp_oauth_preferences",
+      "mcp_pairing_preferences",
+      "mcp_pairing_requests",
       "milestone_dependencies",
+      "milestone_initiatives",
       "milestones",
       "personal_agent_tokens",
       "project_activity",

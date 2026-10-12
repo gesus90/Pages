@@ -22,6 +22,7 @@ import type {
   AgentProfile,
   AgentProfileDirectory,
 } from "@/definition/AgentProfile";
+import type { AgentTaskAssignment } from "@/definition/AgentUsage";
 
 /** The central panel manages the same agent IDs used for functions and future plan steps. */
 export function AgentProfiles(props: {
@@ -33,6 +34,9 @@ export function AgentProfiles(props: {
   readonly availability?: Readonly<Record<string, AgentAvailability>>;
   readonly filters?: AgentFilters;
   readonly projects?: readonly { readonly id: string; readonly name: string }[];
+  readonly taskAssignments?: Readonly<
+    Record<string, readonly AgentTaskAssignment[]>
+  >;
 }): React.ReactElement {
   const { t } = useTranslation();
   const [selected, setSelected] = useState<AgentProfile | "new" | null>(null);
@@ -100,6 +104,11 @@ export function AgentProfiles(props: {
         {selected ? (
           <AgentProfileForm
             profile={selected === "new" ? null : selected}
+            taskAssignments={
+              selected === "new"
+                ? undefined
+                : (props.taskAssignments?.[selected.id] ?? [])
+            }
             workspaceChoices={props.workspaceChoices}
             connections={props.connections}
             catalogs={props.catalogs}
@@ -120,11 +129,12 @@ function AgentProfileTableHead(): React.ReactElement {
       <tr>
         {[
           "name",
+          "scope",
           "connection",
           "model",
           "purposes",
-          "targets",
-          "active",
+          "status",
+          "usability",
           "actions",
         ].map((column) => (
           <th key={column} scope="col" className="px-4 py-3">

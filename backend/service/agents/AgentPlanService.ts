@@ -4,15 +4,20 @@ import { readPlanInput } from "@/backend/agents/AgentPlanInput";
 import { AgentError } from "@/backend/error/AgentErrors";
 
 import { planSteps, validatePlanGraph } from "./AgentPlanGraph";
+import { requireAgentAdministrator } from "./AgentServiceAccess";
 
 import type { AgentPlanRepository } from "@/backend/database/repositories/agent/AgentPlanRepository";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
+import type { AccountAccess } from "@/definition/Authorization";
 import type {
+  AgentPlan,
   AgentPlanInput,
   AgentPlanPage,
   AgentPlanRun,
   AgentPlanSources,
+  AgentPlanTask,
 } from "@/definition/AgentPlan";
+import type { AgentTaskAssignment } from "@/definition/AgentUsage";
 import type { AgentWorkspaceService } from "./AgentWorkspaceService";
 import type { AgentProfileService } from "./AgentProfileService";
 import type { AgentParameterService } from "./AgentParameterService";
@@ -31,6 +36,33 @@ interface PlanDependencies {
   readonly access: AgentPlanAccess;
   readonly preparation: AgentPlanPreparation;
   readonly engine: AgentPlanRunEngine;
+}
+
+interface PlanTaskBinding {
+  readonly agentId: string;
+  readonly taskId: string;
+}
+
+/** Lists each agent and ticket pair once per plan, including a step's personal access agent. */
+function planTaskBindings(plan: AgentPlan): readonly PlanTaskBinding[] {
+  const tickets = new Map<string, string>();
+  for (const node of plan.nodes)
+    if (node.type === "task") tickets.set(node.id, node.taskId);
+  const pairs = new Map<string, PlanTaskBinding>();
+  for (const step of planSteps(plan)) {
+    const agentIds =
+      step.personalAgentId === null
+        ? [step.agentId]
+        : [step.agentId, step.personalAgentId];
+    for (const binding of Object.values(step.bindings)) {
+      const taskId =
+        binding.kind === "source" ? tickets.get(binding.nodeId) : undefined;
+      if (taskId === undefined) continue;
+      for (const agentId of agentIds)
+        pairs.set(`${agentId}\n${taskId}`, { agentId, taskId });
+    }
+  }
+  return [...pairs.values()];
 }
 
 /** Route-facing plan facade; graph, authorization and execution responsibilities stay in small services. */
@@ -194,6 +226,42 @@ export class AgentPlanService {
     await this.run(userId, id);
     await this.dependencies.engine.stop(id);
     return this.run(userId, id);
+  }
+
+  /**
+   * Lists, per agent, the tickets that plan steps bind to it, for the protected agent administration.
+   *
+   * @remarks
+   * Tickets the administrator cannot read are omitted, not counted. The plan stays the only place that changes them.
+   */
+  public async taskAssignments(
+    actor: AccountAccess,
+  ): Promise<Readonly<Record<string, readonly AgentTaskAssignment[]>>> {
+    requireAgentAdministrator(actor);
+    const assignments: Record<string, AgentTaskAssignment[]> = {};
+    const readable = new Map<string, readonly AgentPlanTask[]>();
+    for (const plan of await this.dependencies.plans.list()) {
+      const bindings = planTaskBindings(plan);
+      if (bindings.length === 0) continue;
+      const tasks =
+        readable.get(plan.projectId) ??
+        (await this.dependencies.tasks.list(actor.userId, plan.projectId));
+      readable.set(plan.projectId, tasks);
+      for (const binding of bindings) {
+        const task = tasks.find((entry) => entry.id === binding.taskId);
+        if (!task) continue;
+        const list = assignments[binding.agentId] ?? [];
+        list.push({
+          planId: plan.id,
+          planName: plan.name,
+          taskId: task.id,
+          key: task.key,
+          title: task.title,
+        });
+        assignments[binding.agentId] = list;
+      }
+    }
+    return assignments;
   }
 
   /** Completes active cancellation before application shutdown closes the database. */

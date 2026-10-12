@@ -5,6 +5,7 @@ import {
 } from "@/backend/error/WikiErrors";
 import { countCharacters, WIKI_LIMITS, WIKI_SCOPE } from "@/definition/Wiki";
 
+import { recordWikiActivity } from "./WikiActivity";
 import { WikiPageReader } from "./WikiPageReader";
 import { syncMentions } from "./WikiMentions";
 import { collapseWhitespace, toPlainText } from "./WikiPlainText";
@@ -187,6 +188,12 @@ export class WikiCommentService {
         text: body,
       });
 
+      await recordWikiActivity(
+        repository,
+        page,
+        actor.id,
+        "wiki_comment_added",
+      );
       return toComment(
         viewer,
         page,
@@ -217,6 +224,12 @@ export class WikiCommentService {
       }
 
       await repository.comments.updateBody(id, text);
+      await recordWikiActivity(
+        repository,
+        page,
+        actor.id,
+        "wiki_comment_edited",
+      );
       await this.recordMentions(repository, page, {
         authorId: actor.id,
         commentId: id,
@@ -244,6 +257,12 @@ export class WikiCommentService {
       }
 
       await repository.comments.delete(id);
+      await recordWikiActivity(
+        repository,
+        page,
+        actor.id,
+        "wiki_comment_deleted",
+      );
     });
   }
 
@@ -263,13 +282,19 @@ export class WikiCommentService {
     const viewer = await this.access.resolve(actor);
 
     await this.repository.transaction(async (repository) => {
-      const { comment } = await this.load(repository, viewer, id);
+      const { comment, page } = await this.load(repository, viewer, id);
 
       if (comment.parentId !== null) {
         throw new WikiValidationError("invalidParent");
       }
 
       await repository.comments.setResolved(id, isResolved ? actor.id : null);
+      await recordWikiActivity(
+        repository,
+        page,
+        actor.id,
+        "wiki_comment_resolved",
+      );
     });
   }
 

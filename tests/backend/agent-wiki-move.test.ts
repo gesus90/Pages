@@ -225,18 +225,15 @@ it("resolves sibling addresses, reports inherited visibility changes and rolls a
 });
 
 it.each(["instance", "private"] as const)(
-  "rejects moving a %s page",
+  "moves an owned %s page into a project without changing its content or revision",
   async (scope) => {
     const harness = await setup();
     const page = await harness.service.create(
       harness.actor,
       pageInput({ scope }),
     );
-    const before = await wikiFieldState(harness.database, {
-      includeOperationKeys: true,
-    });
-    await expect(
-      harness.fields.apply(IMPORT_IDENTITY, "wiki.page.move", {
+    expect(
+      await harness.fields.apply(IMPORT_IDENTITY, "wiki.page.move", {
         operationId: "move",
         pageId: page.id,
         expectedRevision: 1,
@@ -244,10 +241,18 @@ it.each(["instance", "private"] as const)(
         parentId: null,
         beforeId: null,
       }),
-    ).rejects.toMatchObject({ code: "INVALID_REQUEST" });
-    expect(
-      await wikiFieldState(harness.database, { includeOperationKeys: true }),
-    ).toEqual(before);
+    ).toMatchObject({
+      result: { changed: true, revision: 1, projectId: "alpha" },
+    });
+    expect(await harness.repository.pages.findNode(page.id)).toMatchObject({
+      scope: "project",
+      projectId: "alpha",
+      parentId: null,
+    });
+    expect(await persistedPage(harness.database, page.id)).toMatchObject({
+      content: page.content,
+      revision: page.revision,
+    });
   },
 );
 

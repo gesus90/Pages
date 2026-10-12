@@ -9,19 +9,25 @@ import {
 } from "./AdministrationAccess";
 import { updateProjectProjection } from "./LegacyProjectAuthorization";
 import type { ServerCache } from "@/backend/cache/ServerCache";
+import type { ActorChannel } from "@/backend/auth/McpActorContext";
 import type { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import type { UserRole } from "@/definition/Authorization";
 
 /** Owns role delegation and shared-role mutations. */
 export class RoleAdministrationService {
-  private readonly policy = new UserPolicyService();
+  private readonly policy: UserPolicyService;
   private readonly repository: AuthorizationRepository;
   private readonly cache: ServerCache;
 
   /** Binds role operations to the aggregate transaction and project cache. */
-  public constructor(repository: AuthorizationRepository, cache: ServerCache) {
+  public constructor(
+    repository: AuthorizationRepository,
+    cache: ServerCache,
+    channel: ActorChannel = "ui",
+  ) {
     this.repository = repository;
     this.cache = cache;
+    this.policy = new UserPolicyService(channel);
   }
 
   /** Creates or edits a shared role; existing holders must all be within scope. */

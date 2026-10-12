@@ -235,6 +235,10 @@ export class WorkItemLifecycleRepository {
         parameters,
       );
       await transaction.execute(
+        `DELETE FROM milestone_initiatives WHERE initiative_id IN (${placeholders});`,
+        parameters,
+      );
+      await transaction.execute(
         `DELETE FROM project_activity WHERE work_item_id IN (${placeholders});`,
         parameters,
       );

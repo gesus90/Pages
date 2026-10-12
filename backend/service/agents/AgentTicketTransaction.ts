@@ -1,15 +1,19 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import { AgentOperationKeyRepository } from "@/backend/database/repositories/agents/AgentOperationKeyRepository";
+import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
+import { TaskRepository } from "@/backend/database/repositories/TaskRepository";
 import { UserRepository } from "@/backend/database/repositories/UserRepository";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
+import { agentChannelPolicy } from "@/backend/auth/McpActorContext";
 import { CAPABILITY } from "@/definition/Authorization";
 
 import { createAgentTaskContext } from "./AgentTaskAccess";
 import { agentTransactionScope } from "./AgentTransactionScope";
 import { translateAgentTicketError } from "./AgentTicketErrors";
 
+import type { AgentChannel } from "@/backend/auth/McpActorContext";
 import type {
   Database,
   DatabaseTransaction,
@@ -70,9 +74,11 @@ function fingerprint(request: object): string {
  */
 export class AgentTicketTransaction {
   private readonly database: Database;
+  private readonly channel: AgentChannel;
 
-  public constructor(database: Database) {
+  public constructor(database: Database, channel: AgentChannel = "mcp") {
     this.database = database;
+    this.channel = channel;
   }
 
   /**
@@ -114,6 +120,40 @@ export class AgentTicketTransaction {
     }
   }
 
+  private async recordActivity(
+    context: AgentTaskContext,
+    operation: string,
+    event: PagesEvent,
+  ): Promise<void> {
+    if (
+      !event.type.startsWith("ticket.") &&
+      !event.type.startsWith("milestone.")
+    )
+      return;
+    const tasks = new TaskRepository(context.database);
+    const ticket = event.type.startsWith("ticket.")
+      ? await tasks.findById(event.id)
+      : null;
+    const milestone = event.type.startsWith("milestone.")
+      ? await tasks.findMilestoneById(event.id)
+      : null;
+    const projectId = ticket?.projectId ?? milestone?.projectId;
+    if (!projectId) return;
+    await new ProjectRepository(
+      context.database,
+      agentChannelPolicy(this.channel).source,
+    ).insertActivity({
+      id: randomUUID(),
+      projectId,
+      userId: context.actor.id,
+      category: ticket ? "tasks" : "planning",
+      action: operation,
+      message:
+        this.channel === "chat" ? "Change via chat agent." : "Change via MCP.",
+      ...(ticket ? { workItemId: ticket.id } : {}),
+    });
+  }
+
   private async execute<Result>(
     transaction: DatabaseTransaction,
     run: AgentTicketRun<Result>,
@@ -122,7 +162,7 @@ export class AgentTicketTransaction {
     const actor = await new UserRepository(scope).findById(run.userId);
     if (!actor?.isActive || actor.mustChangePassword)
       throw new McpAuthorizationError("invalid_token", 401);
-    const context = createAgentTaskContext(scope, actor);
+    const context = createAgentTaskContext(scope, actor, this.channel);
     // The write right is global, so refusing first reveals nothing about any object.
     if (
       run.needsWriteRight &&
@@ -141,6 +181,8 @@ export class AgentTicketTransaction {
       return { actor, result: stored, published: null, event: null };
     }
     const outcome = await run.work(context);
+    if (outcome.event !== null)
+      await this.recordActivity(context, run.operation, outcome.event);
     await operations.insert(run.userId, run.request.operationId, {
       operation: run.operation,
       fingerprint: hash,

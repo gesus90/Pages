@@ -1,3 +1,5 @@
+import { AGENT_EXTENSION_READ_OPERATIONS } from "@/definition/AgentExtensions";
+import { AGENT_ADMIN_READ_OPERATIONS } from "@/definition/AgentAdministration";
 import { PAGES_AGENT_WRITE_OPERATIONS } from "@/definition/PagesAgentWrites";
 import {
   PAGES_AGENT_COMMENT_OPERATIONS,
@@ -5,7 +7,6 @@ import {
   PAGES_AGENT_STRUCTURED_READ_OPERATIONS,
   PAGES_AGENT_TICKET_READ_OPERATIONS,
 } from "@/definition/PagesAgentOperations";
-
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
 
 import type { PagesAgentWriteResponse } from "@/definition/PagesAgentWrites";
@@ -79,24 +80,33 @@ export class PagesAgentApiService {
     | PagesAgentReadResponse
     | PagesAgentStructuredReadResponse
     | PagesAgentWriteResponse
+    | { readonly token: string; readonly expiresAt: number | null }
+    | { readonly revoked: true }
   > {
     const identity = await this.verify(token);
     if (input.operation === "verify") {
       return {
         apiVersion: "1",
         identity,
+        credential: await this.personal.credential(token),
         tools: [
           "projects.names.list",
           ...PAGES_AGENT_READ_OPERATIONS,
           ...PAGES_AGENT_TICKET_READ_OPERATIONS,
           ...PAGES_AGENT_STRUCTURED_READ_OPERATIONS,
           ...PAGES_AGENT_COMMENT_OPERATIONS,
-          ...(identity.isAdmin || identity.permissions.includes("write")
-            ? PAGES_AGENT_WRITE_OPERATIONS
-            : []),
+          ...AGENT_EXTENSION_READ_OPERATIONS,
+          ...PAGES_AGENT_WRITE_OPERATIONS.filter(
+            (operation) => identity.isAdmin || !operation.startsWith("admin."),
+          ),
+          ...(identity.isAdmin ? AGENT_ADMIN_READ_OPERATIONS : []),
         ],
       };
     }
+    if (input.operation === "credential.rotate")
+      return this.personal.rotateCredential(token);
+    if (input.operation === "credential.revoke")
+      return this.personal.revokeCredential(token);
     if (input.operation === "assets.upload.prepare")
       return this.operations.prepareUpload(identity, token, input.parameters);
     if (input.operation !== "projects.names.list") {

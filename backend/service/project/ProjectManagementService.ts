@@ -7,8 +7,10 @@ import {
   ProjectNotFoundError,
 } from "@/backend/error/ProjectErrors";
 import { isProjectStatus } from "@/definition/Project";
+
 import { ProjectAccessService } from "./ProjectAccessService";
 
+import type { ActorChannel } from "@/backend/auth/McpActorContext";
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type { AuthorizationSnapshot } from "@/backend/database/repositories/AuthorizationRepository";
 import type {
@@ -28,10 +30,16 @@ import type { User } from "@/definition/User";
 export class ProjectManagementService {
   private readonly repository: ProjectRepository;
   private readonly cache: ServerCache;
+  private readonly channel: ActorChannel;
   private readonly policy = new ProjectPolicyService();
 
   /** Binds policy checks to the project transaction and cache boundary. */
-  public constructor(repository: ProjectRepository, cache: ServerCache) {
+  public constructor(
+    repository: ProjectRepository,
+    cache: ServerCache,
+    channel: ActorChannel = "ui",
+  ) {
+    this.channel = channel;
     this.repository = repository;
     this.cache = cache;
   }
@@ -39,9 +47,11 @@ export class ProjectManagementService {
   /** Archive listings offer permanent deletion only in current administrator mode. */
   public async canDelete(actor: User): Promise<boolean> {
     return this.policy.canDelete(
-      await new ProjectAccessService(this.repository, this.cache).account(
-        actor,
-      ),
+      await new ProjectAccessService(
+        this.repository,
+        this.cache,
+        this.channel,
+      ).account(actor),
     );
   }
 
@@ -51,7 +61,11 @@ export class ProjectManagementService {
     projectId: string,
   ): Promise<ProjectActionPermissions> {
     return this.repository.transaction(async (repository) => {
-      const access = new ProjectAccessService(repository, this.cache);
+      const access = new ProjectAccessService(
+        repository,
+        this.cache,
+        this.channel,
+      );
       const account = await access.account(actor);
       const active = await repository.findById(projectId);
       const project = active ?? (await repository.findArchivedById(projectId));
@@ -85,6 +99,7 @@ export class ProjectManagementService {
     const account = await new ProjectAccessService(
       this.repository,
       this.cache,
+      this.channel,
     ).account(actor);
     const projects = await this.repository.findArchived();
     return projects.filter((project) =>
@@ -177,7 +192,11 @@ export class ProjectManagementService {
     departmentIds: readonly string[],
   ): Promise<void> {
     await this.repository.transaction(async (repository) => {
-      const access = new ProjectAccessService(repository, this.cache);
+      const access = new ProjectAccessService(
+        repository,
+        this.cache,
+        this.channel,
+      );
       const account = await access.account(actor);
       const project = await access.getById(actor, projectId);
       const snapshot = await repository.authorization().snapshot();
@@ -216,7 +235,11 @@ export class ProjectManagementService {
   /** Archives only with the explicit archive capability and complete current scope. */
   public async archive(actor: User, projectId: string): Promise<void> {
     await this.repository.transaction(async (repository) => {
-      const access = new ProjectAccessService(repository, this.cache);
+      const access = new ProjectAccessService(
+        repository,
+        this.cache,
+        this.channel,
+      );
       const account = await access.account(actor);
       const project = await access.getById(actor, projectId);
       if (
@@ -240,6 +263,7 @@ export class ProjectManagementService {
       const account = await new ProjectAccessService(
         repository,
         this.cache,
+        this.channel,
       ).account(actor);
       if (!this.policy.canDelete(account))
         throw new ProjectManagementDeniedError();
@@ -258,7 +282,11 @@ export class ProjectManagementService {
     actor: User,
     projectId: string,
   ): Promise<Project> {
-    const access = new ProjectAccessService(repository, this.cache);
+    const access = new ProjectAccessService(
+      repository,
+      this.cache,
+      this.channel,
+    );
     const project = await access.getById(actor, projectId);
     if (!(await access.canWrite(actor, projectId)))
       throw new ProjectManagementDeniedError();

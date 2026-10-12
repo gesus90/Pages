@@ -1,3 +1,5 @@
+import { EXTENSION_WRITE_TOOLS } from "./extensions.js";
+import { ADMIN_WRITE_TOOLS } from "./administration.js";
 import { ASSET_UPLOAD_TOOL } from "./asset-upload.js";
 import {
   MILESTONE_CREATE_TOOL,
@@ -35,6 +37,8 @@ export const WRITE_TOOLS: readonly {
   readonly operation: PagesAgentWriteOperation;
   readonly tool: Tool;
 }[] = [
+  ...EXTENSION_WRITE_TOOLS,
+  ...ADMIN_WRITE_TOOLS,
   { operation: "assets.upload.prepare", tool: ASSET_UPLOAD_TOOL },
   { operation: "wiki.page.create", tool: WIKI_CREATE_TOOL },
   { operation: "wiki.import.apply", tool: WIKI_IMPORT_APPLY_TOOL },

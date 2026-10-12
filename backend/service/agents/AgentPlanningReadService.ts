@@ -2,6 +2,16 @@ import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
 import { PAGES_AGENT_LIMITS } from "@/definition/PagesAgentOperations";
 
+import { pageAgentEntries } from "./AgentCursor";
+import { readAgentDirectory } from "./AgentDirectoryService";
+import { readIdentifier, readParameterRecord } from "./AgentParameterReader";
+import {
+  countAgentDescendants,
+  readAgentAnchoredPages,
+  readAgentInitiativeLinks,
+  readAgentTicketLinks,
+  readAgentTicketTags,
+} from "./AgentPlanningEnrichment";
 import { createAgentTaskContext } from "./AgentTaskAccess";
 import { translateAgentTicketError } from "./AgentTicketErrors";
 import {
@@ -9,23 +19,29 @@ import {
   readAgentTicketRead,
 } from "./AgentTicketValidation";
 
+import type { AgentChannel } from "@/backend/auth/McpActorContext";
 import type { Database } from "@/backend/database/Database";
 import type { UserService } from "@/backend/service/UserService";
+import type { AgentTag } from "@/definition/AgentExtensions";
 import type { AgentMilestones, AgentTicket } from "@/definition/AgentTickets";
 import type { AgentIdentity } from "@/definition/McpAuthorization";
 import type { PagesAgentReadResponse } from "@/definition/PagesAgentOperations";
 import type { WorkItemDetail, WorkflowStatus } from "@/definition/Task";
 import type { AgentTaskContext } from "./AgentTaskAccess";
+import type { AgentProjectTickets } from "@/definition/AgentExtensions";
 
 /** The server-owned collaborators of ticket and milestone reads. */
 export interface AgentPlanningReadDependencies {
   readonly database: Database;
   readonly users: Pick<UserService, "getById">;
+  /** The agent surface the reads run for; MCP when absent. */
+  readonly channel?: AgentChannel;
 }
 
 function describeTicket(
   ticket: WorkItemDetail,
   statuses: readonly WorkflowStatus[],
+  tags: readonly AgentTag[],
 ): AgentTicket {
   return {
     id: ticket.id,
@@ -51,6 +67,7 @@ function describeTicket(
         ({ projectId }) => projectId === null || projectId === ticket.projectId,
       )
       .map(({ id, name, isDone }) => ({ id, name, isDone })),
+    tags,
   };
 }
 
@@ -82,25 +99,102 @@ export class AgentPlanningReadService {
           ? await context.tasks.getById(context.actor, reference.id)
           : await context.tasks.getByKey(context.actor, reference.key);
       const statuses = await context.tasks.findAllStatuses(context.actor);
-      return this.respond(describeTicket(ticket, statuses));
+      const directory = await readAgentDirectory(context);
+      const tags = await readAgentTicketTags(context, [ticket.id]);
+      return this.respond({
+        ...describeTicket(ticket, statuses, tags.get(ticket.id) ?? []),
+        ...(await readAgentTicketLinks(context, ticket)),
+        descendantCount: await countAgentDescendants(context, ticket),
+        assignee:
+          directory.people.find(({ id }) => id === ticket.assigneeId) ?? null,
+        assigneeGroup:
+          directory.groups
+            .filter(({ id }) => id === ticket.assigneeGroupId)
+            .map(({ id, name }) => ({ id, name }))[0] ?? null,
+        department:
+          directory.departments.find(({ id }) => id === ticket.departmentId) ??
+          null,
+      });
     } catch (error: unknown) {
       throw translateAgentTicketError(error);
     }
   }
 
-  /**
-   * Reads the milestones and dependencies of one visible project.
-   *
-   * @param identity - The verified owner of the call.
-   * @param parameters - The raw operation parameters: `projectId`.
-   * @returns The milestones; a project the account cannot see is reported as missing.
-   * @throws {AgentOperationError} `INVALID_REQUEST`, `NOT_FOUND` or `PAYLOAD_TOO_LARGE`.
-   */
+  /** Lists the visible tickets of a project with a stable continuation cursor. */
+  public async readProjectTickets(
+    identity: AgentIdentity,
+    parameters: unknown,
+  ): Promise<PagesAgentReadResponse> {
+    const fields = readParameterRecord(parameters);
+    const projectId = readIdentifier(fields.projectId);
+    const context = await this.context(identity);
+    try {
+      await context.projects.getById(context.actor, projectId);
+      const statuses = await context.tasks.findAllStatuses(context.actor);
+      const tickets = (await context.tasks.findAll(context.actor)).filter(
+        (ticket) => ticket.projectId === projectId,
+      );
+      const directory = await readAgentDirectory(context);
+      const window = pageAgentEntries(tickets, {
+        cursor: fields.cursor,
+        limit: fields.limit,
+        context: JSON.stringify([
+          identity.userId,
+          "projects.tickets.list",
+          projectId,
+        ]),
+      });
+      const tags = await readAgentTicketTags(
+        context,
+        window.entries.map(({ id }) => id),
+      );
+      const links = await readAgentInitiativeLinks(context, projectId);
+      const result = {
+        ...window,
+        entries: window.entries.map((ticket) => ({
+          ...describeTicket(ticket, statuses, tags.get(ticket.id) ?? []),
+          ...(ticket.type === "initiative"
+            ? {
+                linkedMilestones:
+                  links.milestonesByInitiative.get(ticket.id) ?? [],
+              }
+            : {}),
+          assignee:
+            directory.people.find(({ id }) => id === ticket.assigneeId) ?? null,
+          assigneeGroup:
+            directory.groups
+              .filter(({ id }) => id === ticket.assigneeGroupId)
+              .map(({ id, name }) => ({ id, name }))[0] ?? null,
+          department:
+            directory.departments.find(
+              ({ id }) => id === ticket.departmentId,
+            ) ?? null,
+        })),
+      };
+      return this.respond({
+        projectId,
+        tickets: result.entries,
+        total: result.total,
+        nextCursor: result.nextCursor,
+      });
+    } catch (error: unknown) {
+      throw translateAgentTicketError(error);
+    }
+  }
+
+  /** Reads the milestones and dependencies of one visible project with cursor navigation. */
   public async readMilestones(
     identity: AgentIdentity,
     parameters: unknown,
   ): Promise<PagesAgentReadResponse> {
-    const projectId = readAgentMilestonesRead(parameters);
+    const fields = readParameterRecord(parameters);
+    if (
+      Object.keys(fields).some(
+        (key) => !["projectId", "cursor", "limit"].includes(key),
+      )
+    )
+      throw new AgentOperationError("INVALID_REQUEST");
+    const projectId = readAgentMilestonesRead({ projectId: fields.projectId });
     const context = await this.context(identity);
     try {
       await context.projects.getById(context.actor, projectId);
@@ -108,23 +202,81 @@ export class AgentPlanningReadService {
         context.tasks.findMilestones(context.actor, [projectId]),
         context.tasks.findDependencies(context.actor, [projectId]),
       ]);
+      const window = pageAgentEntries(
+        [
+          ...milestones.map((milestone) => ({
+            id: `milestone:${milestone.id}`,
+            milestone,
+            dependency: null,
+          })),
+          ...dependencies.map((dependency) => ({
+            id: `dependency:${dependency.id}`,
+            milestone: null,
+            dependency,
+          })),
+        ],
+        {
+          cursor: fields.cursor,
+          limit: fields.limit,
+          context: JSON.stringify([
+            identity.userId,
+            "milestones.read",
+            projectId,
+          ]),
+        },
+      );
+      const links = await readAgentInitiativeLinks(context, projectId);
+      const initiatives = await context.tasks.findAll(context.actor, {
+        archived: "active",
+        projectIds: [projectId],
+        type: "initiative",
+      });
+      const pages = await readAgentAnchoredPages(
+        context,
+        "milestone",
+        window.entries.flatMap(({ milestone }) =>
+          milestone ? [milestone.id] : [],
+        ),
+      );
       const result: AgentMilestones = {
+        total: window.total,
+        nextCursor: window.nextCursor,
         projectId,
-        milestones: milestones.map((milestone) => ({
-          id: milestone.id,
-          projectId: milestone.projectId,
-          name: milestone.name,
-          description: milestone.description,
-          status: milestone.status,
-          startAt: milestone.startAt,
-          dueAt: milestone.dueAt,
-        })),
-        dependencies: dependencies.map((dependency) => ({
-          id: dependency.id,
-          sourceId: dependency.sourceId,
-          targetId: dependency.targetId,
-          linkType: dependency.linkType,
-        })),
+        milestones: window.entries.flatMap(({ milestone }) =>
+          milestone
+            ? [
+                {
+                  id: milestone.id,
+                  projectId: milestone.projectId,
+                  name: milestone.name,
+                  description: milestone.description,
+                  status: milestone.status,
+                  startAt: milestone.startAt,
+                  dueAt: milestone.dueAt,
+                  initiatives: initiatives
+                    .filter(({ id }) =>
+                      (
+                        links.initiativesByMilestone.get(milestone.id) ?? []
+                      ).includes(id),
+                    )
+                    .map(({ id, key, title }) => ({ id, key, title })),
+                  wikiPages: pages.get(milestone.id) ?? [],
+                },
+              ]
+            : [],
+        ),
+        dependencies: window.entries.flatMap(({ dependency }) =>
+          dependency
+            ? [
+                {
+                  id: dependency.id,
+                  sourceId: dependency.sourceId,
+                  targetId: dependency.targetId,
+                  linkType: dependency.linkType,
+                },
+              ]
+            : [],
+        ),
       };
       return this.respond(result);
     } catch (error: unknown) {
@@ -136,11 +288,15 @@ export class AgentPlanningReadService {
     const actor = await this.dependencies.users.getById(identity.userId);
     if (!actor?.isActive || actor.mustChangePassword)
       throw new McpAuthorizationError("invalid_token", 401);
-    return createAgentTaskContext(this.dependencies.database, actor);
+    return createAgentTaskContext(
+      this.dependencies.database,
+      actor,
+      this.dependencies.channel,
+    );
   }
 
   private respond(
-    result: AgentTicket | AgentMilestones,
+    result: AgentTicket | AgentMilestones | AgentProjectTickets,
   ): PagesAgentReadResponse {
     const response: PagesAgentReadResponse = { apiVersion: "1", result };
     if (

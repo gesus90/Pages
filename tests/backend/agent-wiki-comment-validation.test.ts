@@ -41,13 +41,15 @@ it.each([
   ["wiki.comment.edit", { ...target, body: " Body " }],
   ["wiki.comment.resolve", { ...target, resolved: true }],
   ["wiki.comment.resolve", { ...target, resolved: false }],
-  ["wiki.comment.delete", target],
+  ["wiki.comment.delete", { ...target, confirmation: "LÖSCHEN" }],
 ] as const)("reads the exact required parameters of %s", (operation, input) => {
   expect(readAgentWikiCommentWrite(operation, input)).toEqual({
     operation,
     ...input,
   });
-  for (const key of Object.keys(input)) {
+  for (const key of Object.keys(input).filter(
+    (key) => key !== "confirmation",
+  )) {
     const missing: Record<string, unknown> = { ...input };
     delete missing[key];
     expect(() => readAgentWikiCommentWrite(operation, missing)).toThrow(
@@ -112,4 +114,12 @@ it("reads the page ID from an address and rejects missing or additional read fie
     expect(() => readAgentWikiCommentsRead(input)).toThrow(
       expect.objectContaining({ code: "INVALID_REQUEST" }),
     );
+});
+
+it("leaves a missing delete confirmation to the language-specific server check", () => {
+  expect(readAgentWikiCommentWrite("wiki.comment.delete", target)).toEqual({
+    operation: "wiki.comment.delete",
+    ...target,
+    confirmation: undefined,
+  });
 });

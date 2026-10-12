@@ -56,4 +56,26 @@ export class OAuthGrantService {
       await repository.grants().end(id, "revoked", Date.now());
     });
   }
+
+  /** Adds public client names for the personal connections screen without changing the OAuth API. */
+  public async connections(userId: string): Promise<{
+    durationSeconds: number | null;
+    grants: readonly (OAuthGrant & { readonly clientName: string })[];
+  }> {
+    const summary = await this.get(userId);
+    const recent = new Set(
+      await this.repository.grants().recentIds(userId, Date.now()),
+    );
+    const grants = await Promise.all(
+      summary.grants
+        .filter((grant) => recent.has(grant.id))
+        .map(async (grant) => ({
+          ...grant,
+          clientName:
+            (await this.repository.clients().find(grant.clientId))
+              ?.client_name ?? grant.clientId,
+        })),
+    );
+    return { durationSeconds: summary.durationSeconds, grants };
+  }
 }

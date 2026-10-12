@@ -3,6 +3,7 @@ import { PROJECT_ACTIVITY_CATEGORY } from "@/definition/Project";
 import type {
   ProjectActivity,
   ProjectActivityCategory,
+  ProjectActivitySource,
 } from "@/definition/Project";
 import type { WorkItemHistory } from "@/definition/Task";
 
@@ -13,6 +14,8 @@ export interface ActivityEntry {
   readonly category: ProjectActivityCategory;
   readonly userName: string | null;
   readonly message: string;
+  /** Where the change came from; MCP changes and AI actions carry a marker (T6.4.51, T6.6.1). */
+  readonly source: ProjectActivitySource;
 }
 
 /** The filter value that lets every category or person through. */
@@ -59,6 +62,7 @@ export function buildActivityEntries(
     createdAt: entry.createdAt,
     id: entry.id,
     message: entry.message,
+    source: entry.source,
     userName: entry.userDisplayName,
   }));
   const taskEntries: ActivityEntry[] = taskHistory.map((entry) => ({
@@ -66,6 +70,7 @@ export function buildActivityEntries(
     createdAt: entry.createdAt,
     id: `task-${entry.id}`,
     message: toTaskMessage(entry.action, entry.field),
+    source: "ui",
     userName: entry.userDisplayName,
   }));
 

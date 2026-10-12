@@ -1,3 +1,4 @@
+import { agentChannelPolicy } from "@/backend/auth/McpActorContext";
 import { AgentAssetRepository } from "@/backend/database/repositories/agents/AgentAssetRepository";
 import { AgentOperationKeyRepository } from "@/backend/database/repositories/agents/AgentOperationKeyRepository";
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
@@ -37,18 +38,26 @@ export class AgentWikiCreateTransaction {
     transaction: DatabaseTransaction,
   ): Promise<AgentWikiCreated> {
     const scope = agentTransactionScope(transaction);
-    const wiki = new WikiRepository(scope);
-    const access = createAgentWikiAccess(new ProjectRepository(scope), actor);
+    const channel = this.dependencies.channel ?? "mcp";
+    const wiki = new WikiRepository(scope, agentChannelPolicy(channel).source);
+    const access = createAgentWikiAccess(
+      new ProjectRepository(scope),
+      actor,
+      channel,
+    );
     const viewer = await access.resolve(actor);
     if (!viewer.canWrite) throw new AgentOperationError("FORBIDDEN");
-    if (!viewer.scope.projectIds.includes(input.projectId))
+    if (
+      input.projectId !== null &&
+      !viewer.scope.projectIds.includes(input.projectId)
+    )
       throw new AgentOperationError("NOT_FOUND");
     const reader = new WikiPageReader(wiki);
     if (input.parentId !== null) {
       const parent = await reader.require(viewer.scope, input.parentId);
       if (
         parent.projectId !== input.projectId ||
-        parent.scope !== WIKI_SCOPE.PROJECT
+        parent.scope !== (input.scope ?? WIKI_SCOPE.PROJECT)
       )
         throw new AgentOperationError("NOT_FOUND");
     }
@@ -64,7 +73,7 @@ export class AgentWikiCreateTransaction {
     const owned = await this.requireAssets(assets, actor.id, input.assetIds);
     const page = await new WikiPageService(wiki, access).create(actor, {
       ...input,
-      scope: WIKI_SCOPE.PROJECT,
+      scope: input.scope ?? WIKI_SCOPE.PROJECT,
       anchors: [],
       isTemplate: false,
       templateId: null,

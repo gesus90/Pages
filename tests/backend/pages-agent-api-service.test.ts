@@ -1,4 +1,7 @@
 import { AgentOperationRouter } from "@/backend/service/agents/AgentOperationRouter";
+import { AGENT_EXTENSION_READ_OPERATIONS } from "@/definition/AgentExtensions";
+import { AGENT_ADMIN_READ_OPERATIONS } from "@/definition/AgentAdministration";
+import { PAGES_AGENT_WRITE_OPERATIONS } from "@/definition/PagesAgentWrites";
 import {
   PAGES_AGENT_COMMENT_OPERATIONS,
   PAGES_AGENT_READ_OPERATIONS,
@@ -19,7 +22,7 @@ import type { AgentIdentity } from "@/definition/McpAuthorization";
 import type { PagesAgentWriteResponse } from "@/definition/PagesAgentWrites";
 
 const identity = { userId: "owner", isAdmin: false, permissions: [] };
-const personal = { verify: vi.fn() };
+const personal = { verify: vi.fn(), credential: vi.fn() };
 const oauth = { verifyDelegation: vi.fn() };
 const projects = { listNames: vi.fn() };
 const operations = { handle: vi.fn() };
@@ -33,6 +36,7 @@ const service = new PagesAgentApiService(
 beforeEach(() => {
   vi.resetAllMocks();
   personal.verify.mockResolvedValue(identity);
+  personal.credential.mockResolvedValue(null);
   operations.handle.mockRejectedValue(
     new AgentOperationError("INVALID_REQUEST"),
   );
@@ -83,15 +87,38 @@ describe("agent API operations", () => {
     ).resolves.toEqual({
       apiVersion: "1",
       identity,
+      credential: null,
       tools: [
         "projects.names.list",
         ...PAGES_AGENT_READ_OPERATIONS,
         ...PAGES_AGENT_TICKET_READ_OPERATIONS,
         ...PAGES_AGENT_STRUCTURED_READ_OPERATIONS,
         ...PAGES_AGENT_COMMENT_OPERATIONS,
+        ...AGENT_EXTENSION_READ_OPERATIONS,
+        ...PAGES_AGENT_WRITE_OPERATIONS.filter(
+          (operation) => !operation.startsWith("admin."),
+        ),
       ],
     });
     expect(projects.listNames).not.toHaveBeenCalled();
+  });
+
+  it("offers the administration catalog only to a freshly verified personal administrator", async () => {
+    personal.verify.mockResolvedValue({ ...identity, isAdmin: true });
+    expect(
+      await service.handle("token", { operation: "verify" }),
+    ).toMatchObject({
+      tools: expect.arrayContaining([
+        ...AGENT_ADMIN_READ_OPERATIONS,
+        ...PAGES_AGENT_WRITE_OPERATIONS,
+      ]),
+    });
+    personal.verify.mockResolvedValue(identity);
+    const response = await service.handle("token", { operation: "verify" });
+    if (!("tools" in response)) throw new Error("Missing verification tools.");
+    expect(
+      response.tools.some((operation) => operation.startsWith("admin.")),
+    ).toBe(false);
   });
 
   it.each([undefined, {}])(

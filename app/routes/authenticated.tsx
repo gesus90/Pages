@@ -1,6 +1,7 @@
 import { useLoaderData } from "react-router";
 
 import { AppShell } from "@/app/components/common/app-shell";
+import { ChatLauncher } from "@/app/components/chat/chat-launcher";
 import { RegionProvider } from "@/app/components/common/region-provider";
 import { useAuthorizationRefresh } from "@/app/components/common/use-authorization-refresh";
 import {
@@ -86,6 +87,7 @@ export default function AuthenticatedRoute(): React.ReactElement {
         account={account}
         isOffline={isOffline}
       />
+      <ChatLauncher />
     </RegionProvider>
   );
 }

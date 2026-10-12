@@ -1,4 +1,4 @@
-import { Bot, Server, UserRound } from "lucide-react";
+import { Bot, Plug, Server, UserRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { NavLink } from "react-router";
 
@@ -26,7 +26,7 @@ function SettingsNavigationLink({
     <NavLink
       className={({ isActive }) =>
         cn(
-          "inline-flex min-h-10 items-center gap-2 rounded-xl px-3.5 text-sm font-medium text-muted-foreground transition-colors outline-none hover:bg-sidebar-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary",
+          "inline-flex min-h-10 items-center gap-2 rounded-xl px-3.5 text-sm font-medium text-foreground/70 transition-colors outline-none hover:bg-sidebar-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary",
           isActive && "bg-primary-subtle text-foreground shadow-xs",
         )
       }
@@ -55,6 +55,12 @@ export function SettingsNavigation({
         to="/settings/profile"
       >
         {t("settings.navigation.personal")}
+      </SettingsNavigationLink>
+      <SettingsNavigationLink
+        icon={<Plug className="size-4 text-primary" aria-hidden="true" />}
+        to="/settings/connections"
+      >
+        {t("settings.navigation.connections")}
       </SettingsNavigationLink>
       {canViewSystem ? (
         <SettingsNavigationLink

@@ -60,6 +60,11 @@ export function ProjectActivityTab({
                   </span>
                 ) : null}
                 <span className="text-muted-foreground">{entry.message}</span>
+                {entry.source === "ui" ? null : (
+                  <span className="ml-2 inline-block rounded-full bg-primary-subtle px-2 py-0.5 text-xs font-medium text-primary">
+                    {t(`projectDetail.activity.source.${entry.source}`)}
+                  </span>
+                )}
                 <span className="mt-1 block text-xs text-muted-foreground">
                   {t(`projectDetail.activity.${entry.category}`)}
                 </span>

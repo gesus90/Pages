@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { AgentWikiReadService } from "@/backend/service/agents/AgentWikiReadService";
+
 import { createUser } from "../helpers/factories";
 
 import type { WikiTreeNode } from "@/definition/Wiki";
@@ -70,6 +71,7 @@ describe("agent wiki result boundaries", () => {
     expect(searches.search).toHaveBeenCalledWith(
       actor,
       expect.objectContaining({ location: "project:project" }),
+      Number.MAX_SAFE_INTEGER,
     );
   });
 

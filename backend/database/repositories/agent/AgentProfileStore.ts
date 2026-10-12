@@ -4,7 +4,7 @@ import {
   readNullableTextColumn,
   readTextColumn,
 } from "@/backend/database/RowValue";
-import { AgentError } from "@/backend/error/AgentErrors";
+import { AgentError, AgentInUseError } from "@/backend/error/AgentErrors";
 import {
   configurationForTargets,
   readAgentConfiguration,
@@ -15,8 +15,11 @@ import {
 } from "@/definition/AgentProfile";
 
 import type { DatabaseTransaction } from "@/backend/database/Database";
-import type { AgentProfile } from "@/definition/AgentProfile";
-import type { AgentUsage } from "@/definition/AgentUsage";
+import type {
+  AgentProfile,
+  AgentProfileTarget,
+} from "@/definition/AgentProfile";
+import type { AgentReference, AgentUsage } from "@/definition/AgentUsage";
 
 /** Statement operations shared by profile writes and the legacy system function facade. */
 export class AgentProfileStore {
@@ -111,7 +114,7 @@ export class AgentProfileStore {
   /** Deletes only an unused profile, without withdrawing references or changing connections. */
   public async remove(id: string): Promise<void> {
     const usages = await this.usages(id);
-    if (usages.length > 0) throw new AgentError("profile_in_use");
+    if (usages.length > 0) throw new AgentInUseError("profile_in_use", usages);
     await this.clearScopes(id);
     await this.database.execute(
       "DELETE FROM agent_execution_profiles WHERE id = $id;",
@@ -159,6 +162,23 @@ export class AgentProfileStore {
     for (const row of plans)
       usages.push({ kind: "plan", id: readTextColumn(row, 0, "id") });
     return usages;
+  }
+
+  /** Names every agent whose scope or usage sharing still references a group, department or person. */
+  public async references(
+    target: AgentProfileTarget,
+  ): Promise<readonly AgentReference[]> {
+    return (await this.list())
+      .filter((profile) =>
+        [
+          ...profile.targets,
+          ...(profile.configuration?.sharing.targets ?? []),
+        ].some(
+          (entry) =>
+            entry.kind === target.kind && entry.targetId === target.targetId,
+        ),
+      )
+      .map((profile) => ({ id: profile.id, name: profile.name }));
   }
 
   private async saveRecord(profile: AgentProfile): Promise<void> {

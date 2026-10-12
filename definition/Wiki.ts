@@ -1,7 +1,7 @@
-/** Fixed limits of wiki texts, counted in Unicode characters (T4.3.9). */
+/** Wiki content is limited by UTF-8 bytes; other text limits count Unicode characters. */
 export const WIKI_LIMITS = {
   titleLength: 200,
-  contentLength: 200_000,
+  contentLength: 1_048_576,
   commentLength: 5_000,
   treeDepth: 10,
   fileNameLength: 255,

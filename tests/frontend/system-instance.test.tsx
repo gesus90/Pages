@@ -9,6 +9,8 @@ import { describe, expect, it, vi } from "vitest";
 import { SystemSection } from "@/app/components/settings/system-section";
 import { createI18n } from "@/app/lib/i18n";
 
+import { CHAT_ADMINISTRATION } from "../helpers/chat";
+
 import type { SettingsActionData } from "@/app/lib/settings-actions/settings-action-support.server";
 import type { InstanceBranding } from "@/definition/Instance";
 
@@ -24,6 +26,7 @@ function renderSection(
       Component: () => (
         <SystemSection
           wikiSettings={WIKI_SETTING_DEFAULTS}
+          chatSettings={CHAT_ADMINISTRATION}
           branding={branding}
           port={3000}
           status={{
@@ -65,6 +68,7 @@ describe("status card", () => {
         Component: () => (
           <SystemSection
             wikiSettings={WIKI_SETTING_DEFAULTS}
+            chatSettings={CHAT_ADMINISTRATION}
             branding={{ companyName: null, logoUrl: null }}
             port={3000}
             status={{

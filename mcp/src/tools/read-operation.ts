@@ -1,5 +1,7 @@
 import { postAgentRequest } from "../pages-client.js";
 
+import type { AgentExtensionReadOperation } from "../../../definition/AgentExtensions.js";
+import type { AgentAdminReadOperation } from "../../../definition/AgentAdministration.js";
 import type { PagesAgentWriteOperation } from "../../../definition/PagesAgentWrites.js";
 import type {
   PagesAgentCommentOperation,
@@ -13,6 +15,8 @@ import type { PagesConfiguration } from "../configuration.js";
 export async function readOperation(
   configuration: PagesConfiguration,
   operation:
+    | AgentExtensionReadOperation
+    | AgentAdminReadOperation
     | PagesAgentReadOperation
     | PagesAgentStructuredReadOperation
     | PagesAgentTicketReadOperation

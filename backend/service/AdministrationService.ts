@@ -36,6 +36,7 @@ import type {
 } from "@/definition/Authorization";
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type { PasswordHasher } from "@/backend/auth/PasswordHasher";
+import type { ActorChannel } from "@/backend/auth/McpActorContext";
 import type {
   AdministrationPageData,
   ManagedUser,
@@ -43,20 +44,24 @@ import type {
 
 /** Authorizes aggregate mutations using current facts inside the database transaction. */
 export class AdministrationService {
-  private readonly policy = new UserPolicyService();
+  private readonly policy: UserPolicyService;
   private readonly repository: AuthorizationRepository;
   private readonly cache: ServerCache;
   private readonly hasher: PasswordHasher;
+  private readonly channel: ActorChannel;
 
   /** Creates the management boundary and its compatibility-cache invalidation. */
   public constructor(
     repository: AuthorizationRepository,
     cache: ServerCache,
     hasher: PasswordHasher,
+    channel: ActorChannel = "ui",
   ) {
     this.repository = repository;
     this.cache = cache;
     this.hasher = hasher;
+    this.channel = channel;
+    this.policy = new UserPolicyService(channel);
   }
 
   /** Returns current account facts for personal settings, never another user's context. */
@@ -99,6 +104,7 @@ export class AdministrationService {
         repository,
         this.cache,
         this.hasher,
+        this.channel,
       );
       const snapshot = await repository.snapshot();
       const actor = activeAccount(snapshot, userId);
@@ -123,6 +129,7 @@ export class AdministrationService {
         groups: await new GroupAdministrationService(
           repository,
           this.cache,
+          this.channel,
         ).pageData(userId),
         canCreate: this.policy.has(actor, CAPABILITY.MANAGE_USERS),
         canManageRoles: this.policy.has(actor, CAPABILITY.MANAGE_ROLES),
@@ -403,18 +410,20 @@ export class AdministrationService {
 
   /** Saves a shared role through its delegation boundary. */
   public async saveRole(userId: string, input: UserRole): Promise<void> {
-    await new RoleAdministrationService(this.repository, this.cache).saveRole(
-      userId,
-      input,
-    );
+    await new RoleAdministrationService(
+      this.repository,
+      this.cache,
+      this.channel,
+    ).saveRole(userId, input);
   }
 
   /** Deletes an unassigned role through its delegation boundary. */
   public async deleteRole(userId: string, roleId: string): Promise<void> {
-    await new RoleAdministrationService(this.repository, this.cache).deleteRole(
-      userId,
-      roleId,
-    );
+    await new RoleAdministrationService(
+      this.repository,
+      this.cache,
+      this.channel,
+    ).deleteRole(userId, roleId);
   }
 
   /** Saves a department and assigns new departments to the creator's scope. */
@@ -422,10 +431,10 @@ export class AdministrationService {
     userId: string,
     input: Department,
   ): Promise<void> {
-    await new DepartmentAdministrationService(this.repository).saveDepartment(
-      userId,
-      input,
-    );
+    await new DepartmentAdministrationService(
+      this.repository,
+      this.channel,
+    ).saveDepartment(userId, input);
     this.cache.invalidatePrefix("project:");
     this.cache.invalidateProjectsList();
   }
@@ -435,10 +444,10 @@ export class AdministrationService {
     userId: string,
     departmentId: string,
   ): Promise<void> {
-    await new DepartmentAdministrationService(this.repository).deleteDepartment(
-      userId,
-      departmentId,
-    );
+    await new DepartmentAdministrationService(
+      this.repository,
+      this.channel,
+    ).deleteDepartment(userId, departmentId);
     this.cache.invalidatePrefix("project:");
     this.cache.invalidateProjectMembership();
     this.cache.invalidateWorkItems();

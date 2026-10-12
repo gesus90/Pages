@@ -5,6 +5,7 @@ import type {
 } from "../../../definition/PagesAgentOperations.js";
 
 const LIMIT_CONSTRAINTS = [
+  "wikiContentBytes",
   "requestBytes",
   "responseBytes",
   "importIndexEntries",
@@ -25,7 +26,8 @@ export class PagesOperationFailure extends Error {
     | "INVALID_REQUEST"
     | "PAYLOAD_TOO_LARGE"
     | "CONFLICT"
-    | "FORBIDDEN";
+    | "FORBIDDEN"
+    | "CONFIRMATION_REQUIRED";
   public readonly details: AgentOperationDetails | undefined;
 
   public constructor(
@@ -79,6 +81,21 @@ function readCandidates(input: unknown): AgentProjectCandidates | undefined {
   return { candidates, truncated: details.truncated };
 }
 
+function readRevision(
+  input: unknown,
+): { readonly currentRevision: number } | undefined {
+  if (
+    typeof input !== "object" ||
+    input === null ||
+    !("currentRevision" in input) ||
+    typeof input.currentRevision !== "number" ||
+    !Number.isSafeInteger(input.currentRevision) ||
+    input.currentRevision < 1
+  )
+    return undefined;
+  return { currentRevision: input.currentRevision };
+}
+
 /** Parses only public business codes and visible choices; authentication failures stay generic. */
 export async function operationFailure(
   response: Response,
@@ -111,6 +128,7 @@ export async function operationFailure(
       "PAYLOAD_TOO_LARGE",
       "CONFLICT",
       "FORBIDDEN",
+      "CONFIRMATION_REQUIRED",
     ] as const
   ).find((code) => code === error.code);
   if (publicCode) {
@@ -120,12 +138,21 @@ export async function operationFailure(
       PAYLOAD_TOO_LARGE: 413,
       CONFLICT: 409,
       FORBIDDEN: 403,
+      CONFIRMATION_REQUIRED: 400,
     }[publicCode];
-    const details =
-      publicCode === "PAYLOAD_TOO_LARGE" ? readLimit(error.details) : undefined;
+    const details = failureDetails(publicCode, error.details);
     return response.status === expectedStatus
       ? new PagesOperationFailure(publicCode, details)
       : undefined;
   }
+  return undefined;
+}
+
+function failureDetails(
+  code: PagesOperationFailure["code"],
+  details: unknown,
+): AgentOperationDetails | undefined {
+  if (code === "PAYLOAD_TOO_LARGE") return readLimit(details);
+  if (code === "CONFLICT") return readRevision(details);
   return undefined;
 }

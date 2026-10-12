@@ -9,6 +9,8 @@ import { createI18n } from "@/app/lib/i18n";
 import SettingsSystemRoute from "@/app/routes/settings-system";
 import { WIKI_SETTING_DEFAULTS } from "@/definition/Wiki";
 
+import { CHAT_ADMINISTRATION } from "../helpers/chat";
+
 import type { SettingsActionData } from "@/app/lib/settings-actions/settings-action-support.server";
 
 interface RenderOptions {
@@ -34,6 +36,7 @@ function renderRoute({ access, onAction }: RenderOptions): void {
                 version: "9.9.9",
               },
               wikiSettings: WIKI_SETTING_DEFAULTS,
+              chatSettings: CHAT_ADMINISTRATION,
             }
           : { access },
       path: "/settings/system",

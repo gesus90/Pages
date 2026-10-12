@@ -39,22 +39,29 @@ export function AgentConfigurationFields(props: {
           }
         />
       </label>
-      <label className="space-y-1.5 text-sm font-medium">
-        <span className="block">{t("settings.agents.definition.scope")}</span>
-        <Select
-          size="default"
-          className="w-full"
-          value={configuration.scope}
-          disabled={props.disabled}
-          onValueChange={chooseScope}
-          options={(["person", "group", "department", "system"] as const).map(
-            (scope) => ({
-              value: scope,
-              label: t(`settings.agents.profiles.target.${scope}`),
-            }),
-          )}
-        />
-      </label>
+      <div className="space-y-1.5">
+        <label className="block space-y-1.5 text-sm font-medium">
+          <span className="block">{t("settings.agents.definition.scope")}</span>
+          <Select
+            size="default"
+            className="w-full"
+            value={configuration.scope}
+            disabled={props.disabled}
+            onValueChange={chooseScope}
+            options={(["person", "group", "department", "system"] as const).map(
+              (scope) => ({
+                value: scope,
+                label: t(`settings.agents.profiles.target.${scope}`),
+              }),
+            )}
+          />
+        </label>
+        {configuration.scope === "system" ? (
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            {t("settings.agents.definition.systemScopeHint")}
+          </p>
+        ) : null}
+      </div>
       <label className="space-y-1.5 text-sm font-medium">
         <span className="block">{t("settings.agents.definition.project")}</span>
         <Select

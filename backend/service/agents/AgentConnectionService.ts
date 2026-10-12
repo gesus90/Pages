@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { isUniqueViolationOn } from "@/backend/database/Database";
-import { AgentError } from "@/backend/error/AgentErrors";
+import { AgentError, AgentInUseError } from "@/backend/error/AgentErrors";
 import {
   AGENT_PROVIDERS,
   isAgentProvider,
@@ -183,8 +183,9 @@ export class AgentConnectionService {
     await this.dependencies.operations.run(id, "write", async () => {
       const { repository, cli } = this.dependencies;
       const connection = await requireAgentConnection(repository, id);
-      if (await repository.hasAssignments(id))
-        throw new AgentError("connection_in_use");
+      const usages = await repository.usages(id);
+      if (usages.length > 0)
+        throw new AgentInUseError("connection_in_use", usages);
       if (!isApiProvider(connection.provider))
         await cli.cleanup(actor, connection);
       await repository.remove(id);

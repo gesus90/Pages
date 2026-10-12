@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { readAgentJson } from "@/app/lib/agent-json.server";
+import { PAGES_AGENT_LIMITS } from "@/definition/PagesAgentOperations";
 
 interface StreamingRequestInit extends RequestInit {
   readonly duplex: "half";
@@ -60,10 +61,15 @@ describe("bounded agent JSON", () => {
 
   it("rejects declared oversized bodies without reading or parsing", async () => {
     const parse = vi.spyOn(JSON, "parse");
-    const input = request("not JSON", { "Content-Length": "65537" });
+    const input = request("not JSON", {
+      "Content-Length": String(PAGES_AGENT_LIMITS.wikiEnvelopeBytes + 1),
+    });
     await expect(readAgentJson(input)).rejects.toMatchObject({
       code: "PAYLOAD_TOO_LARGE",
-      details: { constraint: "requestBytes", limit: 65_536 },
+      details: {
+        constraint: "requestBytes",
+        limit: PAGES_AGENT_LIMITS.wikiEnvelopeBytes,
+      },
     });
     expect(input.bodyUsed).toBe(false);
     expect(parse).not.toHaveBeenCalled();
@@ -76,15 +82,42 @@ describe("bounded agent JSON", () => {
     ];
     for (const headers of headerCases) {
       const parse = vi.spyOn(JSON, "parse");
-      const input = request("ä".repeat(32769), headers);
+      const input = request(
+        "ä".repeat(PAGES_AGENT_LIMITS.wikiEnvelopeBytes / 2 + 1),
+        headers,
+      );
       await expect(readAgentJson(input)).rejects.toMatchObject({
         code: "PAYLOAD_TOO_LARGE",
         status: 413,
-        details: { constraint: "requestBytes", limit: 65_536 },
+        details: {
+          constraint: "requestBytes",
+          limit: PAGES_AGENT_LIMITS.wikiEnvelopeBytes,
+        },
       });
       expect(parse).not.toHaveBeenCalled();
       parse.mockRestore();
     }
+  });
+
+  it("keeps non-wiki envelopes at 64 KiB while accepting escaped 1 MiB wiki text", async () => {
+    await expect(
+      readAgentJson(
+        request(
+          JSON.stringify({
+            operation: "projects.create",
+            parameters: { description: "x".repeat(65_536) },
+          }),
+        ),
+      ),
+    ).rejects.toMatchObject({
+      code: "PAYLOAD_TOO_LARGE",
+      details: { limit: 65_536 },
+    });
+    const input = {
+      operation: "wiki.page.setContent",
+      parameters: { content: "\u0000".repeat(1_048_576) },
+    };
+    expect(await readAgentJson(request(JSON.stringify(input)))).toEqual(input);
   });
 
   it("rejects malformed UTF-8 and releases the reader on a broken stream", async () => {

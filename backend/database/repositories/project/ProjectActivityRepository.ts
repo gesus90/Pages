@@ -2,15 +2,18 @@ import { readTextColumn } from "@/backend/database/RowValue";
 import { isProjectActivityCategory } from "@/definition/Project";
 
 import { createWorkItemVisibility } from "../task/WorkItemVisibility";
+import { createVisiblePagesQuery } from "../wiki/WikiVisibility";
 
 import type {
   DatabaseTransaction,
   DatabaseValue,
 } from "@/backend/database/Database";
 import type { WorkItemVisibility } from "@/definition/Task";
+import type { WikiVisibilityScope } from "@/definition/Wiki";
 import type {
   ProjectActivity,
   ProjectActivityCategory,
+  ProjectActivitySource,
 } from "@/definition/Project";
 
 /** Entry recorded in the chronological project activity log. */
@@ -23,6 +26,8 @@ export interface NewProjectActivity {
   readonly message: string;
   /** Ticket reference used solely to enforce F9 on generated integration events. */
   readonly workItemId?: string;
+  /** Wiki reference used to filter activity with the current page visibility. */
+  readonly wikiPageId?: string;
 }
 
 function toProjectActivity(row: readonly DatabaseValue[]): ProjectActivity {
@@ -51,30 +56,50 @@ function toProjectActivity(row: readonly DatabaseValue[]): ProjectActivity {
     action: readTextColumn(row, 5, "action"),
     message: readTextColumn(row, 6, "message"),
     createdAt: readTextColumn(row, 7, "created_at"),
+    source: readSource(row[8]),
   };
+}
+
+function readSource(input: DatabaseValue | undefined): ProjectActivitySource {
+  if (input !== "ui" && input !== "mcp" && input !== "ai")
+    throw new Error("Invalid project activity source.");
+  return input;
 }
 
 /** Owns persistence operations for the project activity log. */
 export class ProjectActivityRepository {
   private readonly database: DatabaseTransaction;
+  private readonly source: ProjectActivitySource;
 
   /**
    * Creates a project activity repository.
    *
    * @param database - Central database access.
    */
-  public constructor(database: DatabaseTransaction) {
+  public constructor(
+    database: DatabaseTransaction,
+    source: ProjectActivitySource = "ui",
+  ) {
     this.database = database;
+    this.source = source;
   }
 
   /** Returns the chronological activity log of a project, newest last. */
   public async findByProjectId(
     projectId: string,
     visibility?: WorkItemVisibility,
+    wikiScope?: WikiVisibilityScope,
   ): Promise<ProjectActivity[]> {
     const scope = createWorkItemVisibility(visibility);
+    const wiki = wikiScope
+      ? createVisiblePagesQuery(wikiScope, { includeDeleted: true })
+      : { sql: "", parameters: {} };
+    const wikiCondition = wikiScope
+      ? "project_activity.wiki_page_id IN (SELECT id FROM visible_pages)"
+      : "FALSE";
     const rows = await this.database.query(
       `
+        ${wiki.sql}
         SELECT
             project_activity.id,
             project_activity.project_id,
@@ -83,7 +108,8 @@ export class ProjectActivityRepository {
             project_activity.category,
             project_activity.action,
             project_activity.message,
-            project_activity.created_at
+            project_activity.created_at,
+            project_activity.source
         FROM project_activity
         LEFT JOIN users
             ON users.id = project_activity.user_id
@@ -97,9 +123,13 @@ export class ProjectActivityRepository {
                         AND ${scope.condition}
                 )
             )
-        ORDER BY project_activity.created_at ASC;
+            AND (
+                project_activity.category <> 'wiki'
+                OR ${wikiCondition}
+            )
+        ORDER BY project_activity.created_at ASC, project_activity.id ASC;
       `,
-      { project_id: projectId, ...scope.parameters },
+      { project_id: projectId, ...scope.parameters, ...wiki.parameters },
     );
 
     return rows.map(toProjectActivity);
@@ -117,6 +147,8 @@ export class ProjectActivityRepository {
             action,
             message,
             work_item_id,
+            wiki_page_id,
+            source,
             created_at
         )
         VALUES (
@@ -127,6 +159,8 @@ export class ProjectActivityRepository {
             $action,
             $message,
             $work_item_id,
+            $wiki_page_id,
+            $source,
             utc_now()
         );
       `,
@@ -138,6 +172,8 @@ export class ProjectActivityRepository {
         action: entry.action,
         message: entry.message,
         work_item_id: entry.workItemId ?? null,
+        wiki_page_id: entry.wikiPageId ?? null,
+        source: this.source,
       },
     );
   }

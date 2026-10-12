@@ -88,6 +88,24 @@ export class OAuthGrantRepository {
     return rows.map((row) => readTextColumn(row, 0, "id"));
   }
 
+  /** Lists active grants and only the last ninety days of ended connections for the UI. */
+  public async recentIds(userId: string, now: number): Promise<string[]> {
+    const rows = await this.database.query(
+      `
+      SELECT id
+      FROM mcp_oauth_grants
+      WHERE user_id = $user_id
+          AND (
+              status = 'active'
+              OR COALESCE(ended_at, expires_at, verified_at) >= $cutoff
+          )
+      ORDER BY verified_at DESC;
+    `,
+      { user_id: userId, cutoff: now - 90 * 86_400_000 },
+    );
+    return rows.map((row) => readTextColumn(row, 0, "id"));
+  }
+
   /** Records a terminal status without reactivating an ended consent. */
   public async end(
     id: string,

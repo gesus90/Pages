@@ -21,6 +21,7 @@ import { PAGES_VERSION } from "@/definition/Version";
 
 import { createAccess } from "../helpers/authorization";
 import { createUser } from "../helpers/factories";
+import { CHAT_ADMINISTRATION } from "../helpers/chat";
 
 import type { PagesRuntime } from "@/backend/runtime/PagesRuntime";
 import type { AccountAccess } from "@/definition/Authorization";
@@ -41,6 +42,9 @@ function useAccount(account: AccountAccess): void {
     },
     wikiService: {
       getSettings: vi.fn().mockResolvedValue({ trashRetentionDays: 30 }),
+    },
+    chatSettingsService: {
+      administration: vi.fn().mockResolvedValue(CHAT_ADMINISTRATION),
     },
     permissionService: new PermissionService(
       vi.fn().mockResolvedValue(account),
@@ -104,6 +108,7 @@ describe("system settings route", () => {
           version: PAGES_VERSION,
         },
         wikiSettings: { trashRetentionDays: 30 },
+        chatSettings: CHAT_ADMINISTRATION,
       });
     });
 

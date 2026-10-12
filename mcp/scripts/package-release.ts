@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import {
   cp,
   mkdir,
@@ -280,10 +281,18 @@ async function buildBundle(
   version: string,
   readme: string,
 ): Promise<Buffer> {
-  const workDirectory = await mkdtemp(
+  const temporaryDirectory = await mkdtemp(
     path.join(tmpdir(), "pages-mcp-release-"),
   );
+  const workDirectory = path.join(temporaryDirectory, "mcp");
   try {
+    await mkdir(workDirectory);
+    const sharedDefinitions = path.join(packageDirectory, "..", "definition");
+    if (existsSync(sharedDefinitions)) {
+      await cp(sharedDefinitions, path.join(temporaryDirectory, "definition"), {
+        recursive: true,
+      });
+    }
     await writeFile(path.join(workDirectory, "package.json"), manifest);
     await writeFile(path.join(workDirectory, "README.md"), readme);
     for (const name of SOURCE_ENTRIES) {
@@ -311,7 +320,7 @@ async function buildBundle(
       path.join(workDirectory, "dist", `pages-mcp-v${version}.js`),
     );
   } finally {
-    await rm(workDirectory, { recursive: true, force: true });
+    await rm(temporaryDirectory, { recursive: true, force: true });
   }
 }
 

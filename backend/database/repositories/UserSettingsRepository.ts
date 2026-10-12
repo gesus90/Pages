@@ -24,14 +24,14 @@ export interface StoredUserSettings {
 
 /** Owns persistence operations for personal user settings. */
 export class UserSettingsRepository {
-  private readonly database: Database;
+  private readonly database: Pick<Database, "query" | "execute">;
 
   /**
    * Creates a user settings repository.
    *
    * @param database - Central database access.
    */
-  public constructor(database: Database) {
+  public constructor(database: Pick<Database, "query" | "execute">) {
     this.database = database;
   }
 

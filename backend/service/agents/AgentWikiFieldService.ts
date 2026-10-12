@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 
+import { agentChannelPolicy } from "@/backend/auth/McpActorContext";
 import { AgentOperationKeyRepository } from "@/backend/database/repositories/agents/AgentOperationKeyRepository";
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import { UserRepository } from "@/backend/database/repositories/UserRepository";
@@ -29,6 +30,7 @@ import type {
   Database,
   DatabaseTransaction,
 } from "@/backend/database/Database";
+import type { AgentChannel } from "@/backend/auth/McpActorContext";
 import type { WikiPageRecord } from "@/backend/database/repositories/WikiRepository";
 import type { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
 import type { WikiAccess, WikiViewer } from "@/backend/service/wiki/WikiAccess";
@@ -47,6 +49,8 @@ import type { User } from "@/definition/User";
 export interface AgentWikiFieldDependencies {
   readonly database: Database;
   readonly events: PagesEventPublisher;
+  /** The agent surface the changes run for; MCP when absent. */
+  readonly channel?: AgentChannel;
 }
 
 /** What one call changes for the person: the stored result and the page to announce, if any. */
@@ -157,10 +161,15 @@ export class AgentWikiFieldService {
     const actor = await new UserRepository(scope).findById(userId);
     if (!actor?.isActive || actor.mustChangePassword)
       throw new McpAuthorizationError("invalid_token", 401);
-    const access = createAgentWikiAccess(new ProjectRepository(scope), actor);
+    const channel = this.dependencies.channel ?? "mcp";
+    const access = createAgentWikiAccess(
+      new ProjectRepository(scope),
+      actor,
+      channel,
+    );
     const viewer = await access.resolve(actor);
     if (!viewer.canWrite) throw new AgentOperationError("FORBIDDEN");
-    const wiki = new WikiRepository(scope);
+    const wiki = new WikiRepository(scope, agentChannelPolicy(channel).source);
     const context = {
       actor,
       wiki,
@@ -182,7 +191,9 @@ export class AgentWikiFieldService {
     }
     const page = await context.reader.require(viewer.scope, request.pageId);
     if (page.revision !== request.expectedRevision)
-      throw new AgentOperationError("CONFLICT");
+      throw new AgentOperationError("CONFLICT", {
+        currentRevision: page.revision,
+      });
     const outcome =
       "field" in request
         ? await this.setField(context, page, request)
@@ -232,12 +243,10 @@ export class AgentWikiFieldService {
     page: WikiPageRecord,
     request: AgentWikiMoveInput,
   ): Promise<FieldOutcome> {
-    if (page.scope !== WIKI_SCOPE.PROJECT)
-      throw new AgentOperationError("INVALID_REQUEST");
     await this.requireTarget(context, request);
     const placement = {
       parentId: request.parentId,
-      scope: WIKI_SCOPE.PROJECT,
+      scope: request.scope ?? WIKI_SCOPE.PROJECT,
       projectId: request.projectId,
       beforeId: request.beforeId,
     };
@@ -273,12 +282,15 @@ export class AgentWikiFieldService {
     request: AgentWikiMoveInput,
   ): Promise<void> {
     const { reader, viewer } = context;
-    if (!viewer.scope.projectIds.includes(request.projectId))
+    if (
+      request.projectId !== null &&
+      !viewer.scope.projectIds.includes(request.projectId)
+    )
       throw new AgentOperationError("NOT_FOUND");
     if (request.parentId !== null) {
       const parent = await reader.require(viewer.scope, request.parentId);
       if (
-        parent.scope !== WIKI_SCOPE.PROJECT ||
+        parent.scope !== (request.scope ?? WIKI_SCOPE.PROJECT) ||
         parent.projectId !== request.projectId
       )
         throw new AgentOperationError("NOT_FOUND");

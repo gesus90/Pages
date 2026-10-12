@@ -114,7 +114,11 @@ it.each(["private", "anchored", "deleted", "revoked"])(
       ],
       [
         "wiki.comment.delete",
-        { operationId: "delete", commentId: root.commentId },
+        {
+          confirmation: "LÖSCHEN",
+          operationId: "delete",
+          commentId: root.commentId,
+        },
       ],
     ] as const;
     for (const [operation, input] of writes)
@@ -176,7 +180,11 @@ it.each(["reader", "writer", "owner", "role-admin", "outsider"])(
       isAdmin: userId === "outsider",
       permissions: [],
     };
-    const request = { operationId: "delete", commentId: root.commentId };
+    const request = {
+      confirmation: "LÖSCHEN",
+      operationId: "delete",
+      commentId: root.commentId,
+    };
     if (userId === "outsider") {
       await expect(
         harness.comments.apply(identity, "wiki.comment.delete", request),
@@ -210,7 +218,11 @@ it("refuses an administrator on another account's private page", async () => {
     harness.comments.apply(
       { userId: "owner", isAdmin: true, permissions: [] },
       "wiki.comment.delete",
-      { operationId: "private", commentId: comment.id },
+      {
+        confirmation: "LÖSCHEN",
+        operationId: "private",
+        commentId: comment.id,
+      },
     ),
   ).rejects.toMatchObject({ code: "NOT_FOUND" });
 });
@@ -263,7 +275,7 @@ it("rejects missing comments, replies as parents, foreign and hidden parents, an
     ["wiki.comment.add", { pageId: "missing", body: "Body" }],
     ["wiki.comment.edit", { commentId: "missing", body: "Body" }],
     ["wiki.comment.resolve", { commentId: "missing", resolved: true }],
-    ["wiki.comment.delete", { commentId: "missing" }],
+    ["wiki.comment.delete", { confirmation: "LÖSCHEN", commentId: "missing" }],
   ] as const)
     await expect(
       harness.comments.apply(COMMENT_READER, operation, {
@@ -306,7 +318,11 @@ it.each(["wiki.comment.add", "wiki.comment.delete"] as const)(
               pageId: harness.page.id,
               body: "New @writer",
             }
-          : { operationId: "interrupted", commentId: root.commentId },
+          : {
+              confirmation: "LÖSCHEN",
+              operationId: "interrupted",
+              commentId: root.commentId,
+            },
       ),
     ).rejects.toBe(failure);
     expect(

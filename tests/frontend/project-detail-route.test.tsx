@@ -136,6 +136,7 @@ function createLoaderData(overrides: Record<string, unknown> = {}) {
       {
         action: "member_added",
         category: "team",
+        source: "ui",
         createdAt: "2026-09-05 15:00",
         id: "activity-1",
         message: "Anna was added to the project.",

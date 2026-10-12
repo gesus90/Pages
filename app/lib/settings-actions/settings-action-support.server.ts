@@ -81,6 +81,12 @@ export type SettingsActionData =
       readonly ok: false;
       readonly error: "invalidSetting" | "general";
     }
+  | { readonly intent: "update-chat-settings"; readonly ok: true }
+  | {
+      readonly intent: "update-chat-settings";
+      readonly ok: false;
+      readonly error: "invalidSetting" | "credentialsInText" | "general";
+    }
   | { readonly intent: "remove-logo"; readonly ok: true }
   | { readonly intent: "remove-logo"; readonly ok: false }
   | { readonly intent: "revoke-other-sessions" }

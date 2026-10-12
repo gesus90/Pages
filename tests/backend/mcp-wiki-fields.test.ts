@@ -48,7 +48,7 @@ it("offers exact field schemas, required arguments and destructive/idempotent an
       {
         name: "move_wiki_page",
         fields: {
-          projectId: identifier,
+          projectId: { type: ["string", "null"], maxLength: 200 },
           parentId: {
             type: ["string", "null"],
             minLength: 1,

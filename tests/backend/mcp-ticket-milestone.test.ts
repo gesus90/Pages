@@ -321,7 +321,15 @@ it.each(schemas)(
     expect(entry.tool.inputSchema).toEqual({
       type: "object",
       additionalProperties: false,
-      properties,
+      properties: {
+        ...properties,
+        ...(operation === "milestones.read"
+          ? {
+              cursor: { type: ["string", "null"] },
+              limit: { type: "integer", minimum: 1, maximum: 100 },
+            }
+          : {}),
+      },
       required: Object.keys(properties),
     });
     expect(entry.tool.annotations).toEqual({

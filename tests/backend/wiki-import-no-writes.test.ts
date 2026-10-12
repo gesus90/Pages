@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { UserRepository } from "@/backend/database/repositories/UserRepository";
+import { hashAgentCredential } from "@/backend/security/AgentCredential";
 import { wireFixture } from "../helpers/mcp-authorization";
 import { useMigratedDatabase } from "../helpers/test-database";
 import { pageInput } from "../helpers/wiki-harness";
@@ -59,7 +60,7 @@ describe("wiki import dry-run zero writes", () => {
     directories.clear();
   });
 
-  it("preserves every table and every row through authenticated index/package/repeat/error/conflict/hidden-target previews", async () => {
+  it("preserves every table and row through previews while recording only successful credential use", async () => {
     const database = getDatabase();
     const harness = await createWikiImportHarness(database);
     directories.add(harness.filesDirectory);
@@ -92,6 +93,9 @@ describe("wiki import dry-run zero writes", () => {
       "dry-run-test",
       null,
     );
+    const now = Date.now();
+    vi.spyOn(Date, "now").mockReturnValue(now);
+    await fixture.api.verify(created.token);
     const before = await snapshot(database);
     expect(Object.keys(before)).toEqual(
       expect.arrayContaining([
@@ -108,6 +112,7 @@ describe("wiki import dry-run zero writes", () => {
     );
     expect(before.wiki_recent_pages?.count).toBe(1);
     const execute = vi.spyOn(database, "execute");
+    const used = vi.spyOn(fixture.personalRepository, "used");
     const transactionalWrites: string[] = [];
     const runTransaction = database.transaction.bind(database);
     vi.spyOn(database, "transaction").mockImplementation(
@@ -163,7 +168,19 @@ describe("wiki import dry-run zero writes", () => {
       }),
     ).rejects.toMatchObject({ code: "PAYLOAD_TOO_LARGE" });
     expect(await snapshot(database)).toEqual(before);
-    expect(execute).not.toHaveBeenCalled();
+    expect(used).toHaveBeenCalledTimes(7);
+    expect(execute).toHaveBeenCalledTimes(7);
+    for (const [statement, parameters] of execute.mock.calls) {
+      expect(statement).toContain("UPDATE personal_agent_tokens");
+      expect(statement).toContain("SET last_used_at = CASE");
+      expect(parameters).toEqual({
+        hash: hashAgentCredential(created.token),
+        now,
+      });
+    }
+    expect((await fixture.personal.list(harness.actor.id))[0]?.lastUsedAt).toBe(
+      now,
+    );
     expect(transactionalWrites).toEqual([]);
     expect(visit).not.toHaveBeenCalled();
   });

@@ -76,6 +76,11 @@ describe("recoverable wiki import application", () => {
     ).toEqual([[3]]);
     expect(
       await harness.database.query(
+        "SELECT source, COUNT(*) FROM project_activity WHERE category = 'wiki' GROUP BY source;",
+      ),
+    ).toEqual([["mcp", 3]]);
+    expect(
+      await harness.database.query(
         "SELECT COUNT(*) FROM agent_import_sources;",
       ),
     ).toEqual([[3]]);

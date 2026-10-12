@@ -52,3 +52,13 @@ export function useAgentActions(onRemoved: () => void): {
 }
 
 export type AgentActions = ReturnType<typeof useAgentActions>;
+
+/** Names the agents that blocked a rejected connection deletion, for display next to its error. */
+export function readBlockingAgents(
+  result: AgentActionResult | undefined,
+): readonly string[] {
+  if (result?.ok !== false) return [];
+  return (result.usages ?? []).flatMap((usage) =>
+    usage.kind === "agent" ? [usage.name] : [],
+  );
+}

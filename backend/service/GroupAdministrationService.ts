@@ -2,9 +2,14 @@ import { UserPolicyService } from "@/backend/auth/UserPolicyService";
 import { AdministrationError } from "@/backend/error/AdministrationError";
 import { MAX_GROUP_NAME_LENGTH } from "@/definition/UserGroup";
 
-import { activeAccount, requireAdministration } from "./AdministrationAccess";
+import {
+  activeAccount,
+  requireAdministration,
+  requireNoAgentScope,
+} from "./AdministrationAccess";
 
 import type { ServerCache } from "@/backend/cache/ServerCache";
+import type { ActorChannel } from "@/backend/auth/McpActorContext";
 import type {
   AuthorizationRepository,
   AuthorizationSnapshot,
@@ -49,7 +54,7 @@ function validateGroup(
 
 /** Manages user groups within the directory scope of the people who manage users. */
 export class GroupAdministrationService {
-  private readonly policy = new UserPolicyService();
+  private readonly policy: UserPolicyService;
   private readonly repository: AuthorizationRepository;
   private readonly cache: ServerCache;
 
@@ -58,10 +63,16 @@ export class GroupAdministrationService {
    *
    * @param repository - Authorization repository, possibly inside a transaction.
    * @param cache - Server cache invalidated by assignment-relevant changes.
+   * @param channel - Server-owned administrator interpretation; the UI policy is the default.
    */
-  public constructor(repository: AuthorizationRepository, cache: ServerCache) {
+  public constructor(
+    repository: AuthorizationRepository,
+    cache: ServerCache,
+    channel: ActorChannel = "ui",
+  ) {
     this.repository = repository;
     this.cache = cache;
+    this.policy = new UserPolicyService(channel);
   }
 
   /** Lists the groups the actor may see, with edit hints from the same policy. */
@@ -133,6 +144,7 @@ export class GroupAdministrationService {
    * @param userId - Acting user, resolved against current persisted facts.
    * @param groupId - Group to delete.
    * @throws {AdministrationError} When the group does not exist or is out of scope.
+   * @throws {AgentScopeInUseError} When agents still use the group as scope or usage share.
    */
   public async deleteGroup(userId: string, groupId: string): Promise<void> {
     await this.repository.transaction(async (repository) => {
@@ -149,6 +161,10 @@ export class GroupAdministrationService {
       requireAdministration(
         this.policy.canChangeGroup(actor, membersOf(snapshot, group.memberIds)),
       );
+      await requireNoAgentScope(repository, actor, {
+        kind: "group",
+        targetId: groupId,
+      });
       await repository.groups().delete(groupId);
     });
     this.cache.invalidateWorkItems();

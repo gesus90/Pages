@@ -23,6 +23,7 @@ import type {
   WorkItemUpdateValues,
 } from "@/backend/service/task/TaskHistoryRecorder";
 import type { TaskDepartmentService } from "@/backend/service/task/TaskDepartmentService";
+import type { TaskMilestoneLinkService } from "@/backend/service/task/TaskMilestoneLinkService";
 import type { WorkItemNumbering } from "@/backend/service/task/WorkItemNumbering";
 import type { WorkItemReferenceValidator } from "@/backend/service/task/WorkItemReferenceValidator";
 import type { Project } from "@/definition/Project";
@@ -94,6 +95,7 @@ export interface TaskWriteServiceDependencies {
   readonly history: TaskHistoryRecorder;
   readonly departments: TaskDepartmentService;
   readonly gitHubPublisher: TaskGitHubPublisher;
+  readonly milestoneLinks: TaskMilestoneLinkService;
   readonly cache: ServerCache;
 }
 
@@ -140,6 +142,7 @@ export class TaskWriteService {
   private readonly history: TaskHistoryRecorder;
   private readonly departments: TaskDepartmentService;
   private readonly gitHubPublisher: TaskGitHubPublisher;
+  private readonly milestoneLinks: TaskMilestoneLinkService;
   private readonly cache: ServerCache;
 
   /**
@@ -155,6 +158,7 @@ export class TaskWriteService {
     this.history = dependencies.history;
     this.departments = dependencies.departments;
     this.gitHubPublisher = dependencies.gitHubPublisher;
+    this.milestoneLinks = dependencies.milestoneLinks;
     this.cache = dependencies.cache;
   }
 
@@ -237,6 +241,8 @@ export class TaskWriteService {
       null,
     );
 
+    await this.milestoneLinks.threadAssignedTask(actor, created);
+
     if (!input.skipGitHubSync) {
       // Local-first: return the stored row immediately and synchronize
       // with GitHub in the background without blocking the UI.
@@ -308,6 +314,10 @@ export class TaskWriteService {
       "Updated work item could not be retrieved.",
       actor,
     );
+
+    if (values.milestoneId !== original.milestoneId) {
+      await this.milestoneLinks.threadAssignedTask(actor, updated);
+    }
 
     // Local-first: the stored update is already visible; GitHub follows async.
     void this.gitHubPublisher.publish(actor, updated);

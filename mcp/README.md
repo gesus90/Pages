@@ -18,11 +18,50 @@ external. Compare its SHA-256 with the build evidence.
 Run `node /path/to/pages-mcp-v0.1.0.js` with the following client environment:
 
 - `PAGES_URL`: absolute instance base URL, optionally with a deployment prefix.
-  HTTPS is required; HTTP is allowed for localhost, 127.0.0.1 and [::1].
+  HTTPS is required; HTTP is allowed for localhost, 127.0.0.1, [::1] and private
+  IPv4 addresses (10/8, 172.16/12 and 192.168/16).
   User information, query, fragment and surrounding whitespace are rejected.
-- `PAGES_TOKEN`: an owner-bound personal token created through Pages. Pages verifies
+- `PAGES_TOKEN`: optional explicit owner-bound personal token. It takes priority
+  over local pairing credentials and is never automatically rotated. Pages verifies
   identity, expiry, revocation and current rights before startup and every tool
   list/call. A syntactically valid credential alone cannot authenticate.
+
+Pair the bundle once before starting a stdio client:
+
+```sh
+node /path/to/pages-mcp-v0.1.0.js pair --url https://pages.example.com --name "My workstation"
+```
+
+Open the displayed link, sign in to Pages, compare the code, and explicitly approve
+the connection. `--no-browser` keeps this entirely manual, including over SSH.
+After approval the bundle verifies and saves its credential; configure the MCP
+client with only `PAGES_URL`. The browser never displays a token. The default
+validity is 30 days; enter whole days 1–365, or 0 for unlimited, during approval or
+under Settings → Connections. A preference change applies from the creation time
+to the owner's still-active connections and future connections, without reviving
+expired or revoked connections.
+
+`status`, `rotate` and `unpair` accept the same `--url` option, or `PAGES_URL`.
+`unpair` also removes the local credential when the instance is offline; revoke the
+connection under Settings → Connections in that case. Pairing again saves the new
+credential before revoking the previous one. A rotation keeps the connection ID,
+name and expiry. The previous credential works until the new one is used, at most
+five minutes. Settings can request a rotation at the next verification.
+
+Credentials are scoped to the exact normalized instance URL, including any path
+prefix. They live in `pages-mcp/credentials.json` below `XDG_CONFIG_HOME` or
+`~/.config` on Linux, `~/Library/Application Support` on macOS, or `APPDATA` on
+Windows. On POSIX the directory must have mode 0700 and the file 0600; broader
+permissions and symbolic links are refused. Updates use an exclusive file lock
+and atomic rename. No credential is sent through a redirect or to another
+instance. A revoked or invalid local credential is removed with a hint to pair
+again; a concurrently rotated credential is reread and retried once.
+
+Pairing commands write human-readable messages only to stderr (German for a
+German POSIX locale, otherwise English). `pair` exits with 0 on success, 1 on other
+errors, 2 on rejection, 3 on expiry, 4 on an invalid address or non-Pages instance,
+and 130 on Ctrl+C. Requests expire after ten minutes; approval near the deadline
+allows at least sixty seconds for collection.
 
 Startup failures have a nonzero exit status and fixed, credential-free stderr
 text. stdout is reserved for MCP. Closing stdin releases the transport and ends
@@ -53,7 +92,8 @@ node /path/to/pages-mcp-v0.1.0.js --http --host 192.168.0.52 --port 8998 --resou
 Die Adresse muss auf dem Rechner verfügbar sein. Clients verwenden die angegebene
 Resource-URL einschließlich Port; der Listener prüft den Host-Header gegen Host
 und Port dieser URL. Authentifizierung und OAuth bleiben unverändert.
-`PAGES_URL` verlangt weiterhin HTTPS, außer auf Loopback. Auch die bestehende
+Im HTTP-MCP-Modus gilt: `PAGES_URL` verlangt weiterhin HTTPS, außer auf Loopback.
+Für stdio-Pairing akzeptiert `PAGES_URL` seit A11.2 auch private IPv4-Adressen über HTTP. Die bestehende
 Pages-OAuth-Konfiguration akzeptiert HTTP nur auf Loopback und lehnt eine private
 HTTP-URL als `PAGES_MCP_RESOURCE` weiterhin ab. Diese Listener-Erweiterung allein
 ermöglicht daher noch keinen vollständigen OAuth-Betrieb mit der privaten
@@ -122,7 +162,7 @@ information or fragment. CIMD requires a matching `client_id`, a public HTTPS
 location, pinned public DNS resolution, no redirects, and bounded JSON.
 
 `GET /oauth/authorize` starts a process limited to 15 minutes before Pages login.
-The existing Pages login returns only to the internal consent page. The user sees
+The Pages login returns only to an allowed internal consent or pairing page. The user sees
 client name/identity, exact MCP resource and `mcp:connect`, then explicitly approves
 or denies. Approval is bound to the user, browser session and CSRF nonce.
 Authorization codes are single-use, expire after at most 60 seconds, and are
@@ -271,11 +311,11 @@ on every call. Reading wiki content does not record a visit.
 | `read_project`    | `projects.read`    | `projectId`                  | ID, name, description, status, progress, start and target dates                      |
 | `read_wiki_page`  | `wiki.page.read`   | `pageId`                     | ID, title, complete Markdown, revision, parent, scope and project ID                 |
 | `read_wiki_tree`  | `wiki.tree.read`   | Optional `projectId`         | At most 100 visible nodes (`id`, `title`, `parentId`), visible total and `truncated` |
-| `search_wiki`     | `wiki.search`      | `text`, optional `projectId` | At most 20 visible hits (`id`, `title`, `snippet`), visible total and `truncated`    |
+| `search_wiki`     | `wiki.search`      | `text`, optional `projectId` | At most 100 visible hits (`id`, `title`, `snippet`), visible total and `truncated`   |
 
 These operations return `{apiVersion:"1",result}`. Arguments are strict; texts and
 IDs accept at most 200 Unicode characters. An optional project must itself be
-visible and active. A tree parent outside the returned project/window is `null`.
+visible and active. A tree parent outside the visible project is `null`; visible parents on another cursor page keep their IDs.
 Search snippets contain at most 200 Unicode characters. Counts use the same
 visibility policy as the nodes and snippets, including anchors and ancestors.
 
@@ -286,8 +326,8 @@ The client must choose explicitly. Hidden and missing targets both return
 use their administrator scope regardless of their stored UI mode; private content
 continues to belong to its owner. The UI mode remains unchanged.
 
-The complete request envelope is limited to 65,536 UTF-8 bytes before parsing.
-New read response envelopes are limited to 1,048,576 UTF-8 bytes. Oversized content
+The complete request envelope is limited to 65,536 UTF-8 bytes, except wiki create/content calls (A11.1 below).
+List response envelopes are limited to 1,048,576 UTF-8 bytes; individual wiki content has its own 1 MiB UTF-8 budget with room for JSON escaping and metadata. Oversized content
 returns `PAYLOAD_TOO_LARGE` (413); Markdown is never silently truncated. Unknown
 operations and invalid arguments return `INVALID_REQUEST` (400). MCP business
 errors expose the stable code and visible ambiguity choices; authentication and
@@ -303,8 +343,7 @@ Pages instance, preserving any deployment prefix. Send the ticket only in the
 named header, without an Authorization header or query string. Tickets are
 one-use, expire after five minutes and are invalid after a Pages restart. Failed
 uploads need a new ticket. The binary client uses a separate five-minute budget;
-JSON calls keep their five-second budget and 64-KiB request limit, except import
-application, which has a thirty-second budget.
+JSON calls keep their five-second budget; wiki create/content calls allow 1 MiB UTF-8 content (A11.1), other requests keep 64 KiB. Import application has a thirty-second budget.
 
 The endpoint rechecks the originating personal credential or OAuth consent and
 current account rights before and after streaming. A minted ticket can outlive
@@ -321,7 +360,7 @@ hourly, retries failed deletions and preserves linked assets.
 
 `create_wiki_page` calls `wiki.page.create` with all fields explicit:
 `{operationId,projectId,parentId,title,content,icon,assetIds}`. Use `parentId:null`
-for a project root, `icon:null` for no icon and `assetIds:[]` for no attachments.
+for a root, optionally `scope:instance` or `scope:private` with `projectId:null`, `icon:null` for no icon and `assetIds:[]` for no attachments.
 At most 100 owned, staged, unexpired asset IDs can be linked. Use their stable links
 in Markdown. The visible parent must belong to the explicit project; normal title,
 icon and depth rules apply. Existing pages are never overwritten.
@@ -333,7 +372,7 @@ return the same result. Changed input with the same key returns `CONFLICT` (409)
 Foreign/missing/expired assets or hidden destinations return `NOT_FOUND` (404),
 lack of write permission `FORBIDDEN` (403), size overflow `PAYLOAD_TOO_LARGE` (413)
 and invalid input `INVALID_REQUEST` (400). No failed create leaves an operation row.
-Both write tools are offered only with the current write capability. Internal
+Write tools are offered to every verified account; Pages checks the operation-specific UI rights when called. Internal
 notifications contain only type and ID and are published after commit.
 
 ## Wiki import preview (A9.7)
@@ -573,7 +612,7 @@ changed, parentId, projectId, visibility}`.
 - **Visibility and rights.** A page or target the account cannot see returns
   `NOT_FOUND`. Without the write right the call returns `FORBIDDEN` and no revision
   rises. A move also needs the right to manage the page.
-- **Move.** Only project pages move. Name the target project, the parent below it
+- **Move.** Pages in project, instance and private scope move. Name the target project (or `null` with `scope:instance` or `scope:private`), the parent below it
   (`null` for a root page) and the sibling to place the page before (`null` to
   append). A page below itself or its descendants, below a template, deeper than
   ten levels, or before a page that is no sibling is `INVALID_REQUEST`. The move
@@ -586,7 +625,7 @@ changed, parentId, projectId, visibility}`.
   from a lost response even though the revision has moved on. The same ID with
   other input returns `CONFLICT`. A refused call stores nothing.
 
-The tools are only listed to accounts that currently hold the write right. The
+The tools are listed to every verified account; rights are enforced on each call. The
 focused A9.10 unit and integration tests cover every changed executable TypeScript
 file at 100% statements, branches, functions and lines. Type-only contracts have
 no executable coverage counters.
@@ -648,8 +687,7 @@ status IDs that `set_ticket_status` and `create_ticket` take.
   call stores nothing. The stored result is shown again only while its ticket or
   project is still visible.
 
-The write tools are only listed to accounts that currently hold the write right;
-the read tools are always listed. A9.11 has unit and integration tests with
+Read and write tools are listed to every verified account; Pages enforces the corresponding UI rights on each invocation. A9.11 has unit and integration tests with
 100% statements, branches, functions and lines per executable file. Type-only
 contracts have no executable coverage counters.
 
@@ -792,7 +830,7 @@ Unknown arguments are `INVALID_REQUEST`.
   nothing (`changed: false`); a thread that is already resolved keeps who resolved
   it, and when. Only the first comment of a thread is resolved; resolving a
   reply is `INVALID_REQUEST`. An edited text is not kept as a version.
-- **Delete.** `deletedComments` names the scope: the comment and all replies to
+- **Delete.** Pass the user's exact language-specific `confirmation` (`LÖSCHEN` or `DELETE`); missing or wrong confirmation returns `CONFIRMATION_REQUIRED`. `deletedComments` names the scope: the comment and all replies to
   it. Deleting cannot be undone.
 - **Repeat.** Use a new `operationId` per intended change. Repeating an ID with
   identical input returns the stored result without writing again, which recovers
@@ -811,3 +849,171 @@ identifiers are not part of the result.
 Limits: 64 KiB request, 1 MiB response (`PAYLOAD_TOO_LARGE` beyond). A9.13 tests verify
 100% statements, branches, functions and lines per executable file; pure type
 contracts have no executable coverage counters.
+
+## Wiki and project foundations (A11.1)
+
+Pages authorizes every operation using current account rights and the same business
+services as the UI. There is no additional MCP permission or write switch. Project
+deletion is never offered. Failed changes leave neither an activity entry nor a
+replay record. Project activity carries `source:ui|mcp|ai`; these MCP calls use `mcp`.
+
+New reads are `list_departments`, `list_groups`, `list_visible_people`,
+`read_wiki_outline`, `read_wiki_links`, `read_project_members`,
+`read_project_activity` and `list_project_tickets`. Lists accept `limit` (1–100)
+and `cursor`; continue with `nextCursor` and the same query. Counts and all entries
+use current visibility on every page. Comment lists preserve the UI chronology; if a continuation comment was deleted, restart the list after `INVALID_REQUEST`. Cursors contain no global database row positions. People expose only IDs, display names,
+departments and groups. Ticket reads also expose visible assignments.
+
+New writes are `delete_wiki_page`, `create_project`, `set_project_name`,
+`set_project_description`, `set_project_status`, `set_project_dates`,
+`assign_project_member`, `remove_project_member`, `set_ticket_assignee`,
+`assign_ticket_to_milestone`, `delete_ticket` and `delete_milestone`.
+
+| Tool | Pages operation | Required arguments |
+| --- | --- | --- |
+| `set_ticket_assignee` | `ticket.setAssignee` | `operationId`, `ticketId`, `targetType`, `targetId`, `expectedAssigneeId`, `expectedAssigneeGroupId` |
+| `assign_ticket_to_milestone` | `ticket.assignMilestone` | `operationId`, `ticketId`, `milestoneId`, `expectedMilestoneId` |
+| `delete_ticket` | `ticket.delete` | `operationId`, `ticketId`, `confirmation` |
+| `delete_milestone` | `milestone.delete` | `operationId`, `projectId`, `milestoneId`, `confirmation` |
+
+Project group assignment applies to visible eligible members of the group using
+the existing person-membership model. Department assignment uses the existing
+project management policy. Ticket assignees support person, group, none and
+department; department changes require `expectedDepartmentId` and use the UI
+department policy. Other assignment changes compare their last-read values.
+Milestones receive their ticket assignments through `assign_ticket_to_milestone`.
+
+For every deletion, first ask the user to type `LÖSCHEN` (German) or `DELETE`
+(English) and pass that exact reply as `confirmation`. Never infer consent.
+Wiki deletion uses the existing trash, includes descendants and reports
+`recursive:true`, `affectedCount` and `disposition:trash`. Tickets and milestones
+use the UI archive. Comment deletion remains irreversible.
+
+Wiki creation and moves support project, instance and private scope. Use
+`projectId:null` with explicit `scope:instance` or `scope:private`. Wiki writes
+with a revision accept `expected_revision` at the Pages API as well as the
+existing `expectedRevision`; deletion advertises `expected_revision`. A stale
+revision returns `CONFLICT` with `details.currentRevision`.
+
+Wiki content accepts at most 1 MiB of UTF-8 on reads and writes. Create/content
+JSON envelopes allow the corresponding escaped text plus metadata; all other
+requests keep 64 KiB and list responses keep 1 MiB. Oversize contents return
+`PAYLOAD_TOO_LARGE`, never truncation or content paging. Internal references
+`[Title](page:<id>)` are indexed together with existing `/wiki/<id>` links;
+forward and back link reads omit invisible pages.
+
+## Milestones, initiatives, tags and links (A11.5)
+
+Rights are the ones of the interface, checked by Pages on every call; this package
+adds no switch and no rule. The ticket and milestone tools of A9.11 and A11.1 keep
+their contracts. A11.5 adds what was missing to manage planning data completely.
+
+| Tool                          | Pages operation               | Arguments                                                 | Does                                                             |
+| ----------------------------- | ----------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------- |
+| `list_ticket_tags`            | `tags.list`                   | optional `cursor`, `limit`                                | The catalog of tags, ordered by name                             |
+| `set_ticket_tags`             | `ticket.setTags`              | `operationId`, `ticketId`, `tagIds`, `expectedTagIds`     | Replaces the tags of a ticket with tags of the catalog           |
+| `add_milestone_initiative`    | `milestone.initiative.add`    | `operationId`, `projectId`, `milestoneId`, `initiativeId` | Links an initiative with a milestone of its project              |
+| `remove_milestone_initiative` | `milestone.initiative.remove` | `operationId`, `projectId`, `milestoneId`, `initiativeId` | Removes the link while nothing below the initiative uses it      |
+| `set_wiki_page_anchors`       | `wiki.page.setAnchors`        | `operationId`, `pageId`, `anchors`, `expectedAnchors`     | Replaces the departments, milestones and epics a page is tied to |
+
+- **Hierarchy.** Initiative → Epic → Task → Subtask is the parent chain
+  (`create_ticket`, `set_ticket_parent`); a wrong level is `INVALID_REQUEST`. A ticket
+  carries one milestone (`assign_ticket_to_milestone`). An initiative can be linked with
+  several milestones: its own milestone and every `add_milestone_initiative` link count.
+  `add_milestone_initiative` takes only an initiative of the project of the milestone.
+- **Thread of milestones.** When a task is assigned to a milestone, in Pages as well as
+  here, its epic takes the milestone if it has none, and its initiative is linked with
+  it. An epic keeps a milestone it already carries, because it carries exactly one.
+  Only a task starts the thread; nothing is removed by it.
+- **Unlinking.** `remove_milestone_initiative` returns `CONFLICT` while an epic, task or
+  subtask below the initiative still carries the milestone, hidden ones included, and
+  `changed:false` when the link does not exist. It also clears the own milestone of the
+  initiative when that is the one named.
+- **Tags.** The tags are the labels of the catalog in Pages. `tagIds` and `expectedTagIds` hold tag IDs from `list_ticket_tags`. No tool
+  creates, renames or deletes a tag; a tag outside the catalog is `INVALID_REQUEST` and
+  changes nothing. `expectedTagIds` must equal the tags read last, otherwise `CONFLICT`;
+  tags that someone already set to the requested value are not a conflict. A ticket
+  carries no tag by default.
+- **Wiki links.** `anchors` is a list of `{kind, targetId}` with `kind` one of
+  `department`, `milestone` and `epic`. A tied page is visible only to people who see
+  every target, exactly as in the wiki; the page service of Pages decides who may tie.
+  `read_wiki_page` returns the `anchors` of a page; `read_milestones` and
+  `read_ticket` (epics) return the visible `wikiPages` tied to them. Links between a
+  ticket and a page are written into the text (`set_wiki_page_content` with the ticket
+  key, `set_ticket_description` with the page address).
+- **Reads.** `read_ticket` and `list_project_tickets` carry `tags`; an initiative
+  carries `linkedMilestones`. `read_ticket` also carries `descendantCount`, the visible
+  active epics, tasks and subtasks that `delete_ticket` moves to the archive with the
+  ticket; name that number when you ask for the confirmation. `read_milestones` carries
+  the visible `initiatives` and `wikiPages` of every milestone. What the account cannot
+  see appears as neither entry, placeholder nor count.
+- **Deleting and restoring.** `delete_ticket` and `delete_milestone` keep their
+  confirmation and archive recursively, as in A11.1. The archive is the trash: people
+  restore a ticket with its subtree in Pages. Pages does not purge the archive after a
+  period.
+- **Activity.** Changes are written to the activity of the project with the marker
+  `mcp`; a change of anchors appears in the category `wiki`.
+- **Repeat.** `operationId` works as for every other write: repeating it with identical
+  input returns the stored result, other input returns `CONFLICT`.
+
+## Administration (A11.6)
+
+Pages offers the following tools only to current personal administrators and checks
+the persisted admin eligibility again inside every operation's transaction. MCP
+admin access is independent of the browser's role mode and does not change it.
+
+| Tool                         | Pages operation              | Purpose                                                                             |
+| ---------------------------- | ---------------------------- | ----------------------------------------------------------------------------------- |
+| `list_admin_users`           | `admin.users.list`           | Accounts, roles, activity, departments, groups and management scope                 |
+| `list_admin_departments`     | `admin.departments.list`     | Existing departments and member IDs                                                 |
+| `list_admin_groups`          | `admin.groups.list`          | Existing groups and member IDs                                                      |
+| `list_admin_roles`           | `admin.roles.list`           | Existing normal roles, rank, department binding and permissions                     |
+| `list_admin_permissions`     | `admin.permissions.list`     | Configurable rights; reading remains an immutable basic right                       |
+| `read_admin_project_members` | `admin.projectMembers.read`  | Members and departments of a project                                                |
+| `read_admin_activity`        | `admin.activity.read`        | Instance-wide administration audit trail                                            |
+| `set_admin_role_permissions` | `admin.roles.setPermissions` | Replace permissions of an existing role for all its holders                         |
+| `assign_admin_role`          | `admin.roles.assign`         | Assign an existing normal role to a person or current members of a group/department |
+| `set_admin_user_name`        | `admin.users.setName`        | Change the person's name, preserving login and email                                |
+| `set_admin_user_departments` | `admin.users.setDepartments` | Replace department memberships                                                      |
+| `set_admin_user_scope`       | `admin.users.setScope`       | Change explicit department/project management scope                                 |
+| `update_admin_group`         | `admin.groups.update`        | Rename an existing group and replace members                                        |
+| `rename_admin_department`    | `admin.departments.rename`   | Rename an existing department                                                       |
+
+Reads use optional `cursor` and `limit` (1–100); `read_admin_project_members`
+also requires `projectId`. Responses omit email addresses, password hashes and
+credentials. All writes require `operationId` and the last-read expected fields
+shown in the tool schema. Stale state returns `CONFLICT`; the complete batch rolls
+back. An identical retry returns the stored public result after checking current
+admin eligibility again. Nothing is logged or stored for rejected calls.
+
+Groups and departments have no independent action permissions in Pages. A batch
+role assignment replaces the normal role of every **current** member, at most 100
+people, atomically. It creates no inherited grant and does not affect future members.
+`expectedAssignments` must list exactly the current members and their last-read
+roles (`[{userId, roleId}]`); read the users and membership lists first. Editing a
+shared role changes all its holders, including people outside the selected group.
+Personal administrator eligibility is preserved by every MCP operation.
+
+Removing rights or memberships requires the explicit `confirmation` word of the
+administrator's current interface language: `LÖSCHEN` or `DELETE`. Ask the person
+and pass their reply; never infer it. Successful administration changes are recorded
+with actor, operation, target, affected users, time and `source:mcp` in the
+instance-wide administration activity. The mutation, audit and replay result commit
+together. Admin revocation immediately prevents further admin calls and replay.
+
+MCP has no operation for user creation, personal admin eligibility, blocking or
+unblocking users, password reset, or creating/deleting groups and departments.
+Unknown operations and extra parameters cannot enable these paths.
+
+The chat uses the existing UI administration services in **active admin mode**.
+It additionally supports user creation, admin eligibility, blocking/unblocking,
+password reset, group/department creation and deletion, and role management.
+User creation, admin eligibility changes, blocking/unblocking, password reset and
+deletion require the person's typed confirmation in the **current** message.
+Rights/membership reductions also require it. One confirmation allows at most one
+administration mutation or deletion. The model cannot supply confirmation itself.
+Chat activity has `source:ai`. Temporary passwords are delivered once directly to
+the human administrator in a separate panel display; they never enter model prompts,
+stored conversations, audit or replay records. Closing the panel, switching sessions,
+sending another message or dismissing the display clears it; after response loss,
+use the existing password-reset workflow.

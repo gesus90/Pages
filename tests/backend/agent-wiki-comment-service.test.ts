@@ -62,6 +62,8 @@ it("allows a reader to add and reply, exposes only public fields, and publishes 
     canDelete: true,
   };
   expect(result).toEqual({
+    total: 1,
+    nextCursor: null,
     pageId: harness.page.id,
     link: `/wiki/${harness.page.id}`,
     threads: [
@@ -257,6 +259,7 @@ it("deletes a reply alone or an entire thread with mentions, reports the count, 
   await addAgentComment(harness, { operationId: "kept", body: "Other" });
   expect(
     await harness.comments.apply(COMMENT_READER, "wiki.comment.delete", {
+      confirmation: "LÖSCHEN",
       operationId: "delete-reply",
       commentId: reply.commentId,
     }),
@@ -268,7 +271,11 @@ it("deletes a reply alone or an entire thread with mentions, reports the count, 
     parentId: root.commentId,
     body: "Reply @writer",
   });
-  const input = { operationId: "delete-root", commentId: root.commentId };
+  const input = {
+    confirmation: "LÖSCHEN",
+    operationId: "delete-root",
+    commentId: root.commentId,
+  };
   const response = await harness.comments.apply(
     COMMENT_WRITER,
     "wiki.comment.delete",
@@ -358,6 +365,7 @@ it("replays canonical addresses, binds keys to account and exact operation, and 
   ).rejects.toMatchObject({ code: "CONFLICT" });
   await expect(
     harness.comments.apply(COMMENT_READER, "wiki.comment.delete", {
+      confirmation: "LÖSCHEN",
       operationId: "parallel",
       commentId: addedComment(responses[0]).commentId,
     }),

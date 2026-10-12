@@ -63,6 +63,8 @@ export interface AgentWikiCommentThread {
 
 /** The comments of one visible page, oldest thread first. */
 export interface AgentWikiComments {
+  readonly total?: number;
+  readonly nextCursor?: string | null;
   readonly pageId: string;
   readonly link: string;
   readonly threads: readonly AgentWikiCommentThread[];

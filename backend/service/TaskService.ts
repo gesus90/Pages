@@ -9,6 +9,7 @@ import { TaskHistoryRecorder } from "@/backend/service/task/TaskHistoryRecorder"
 import { TaskLabelService } from "@/backend/service/task/TaskLabelService";
 import { TaskLifecycleService } from "@/backend/service/task/TaskLifecycleService";
 import { TaskLinkService } from "@/backend/service/task/TaskLinkService";
+import { TaskMilestoneLinkService } from "@/backend/service/task/TaskMilestoneLinkService";
 import { TaskMilestoneService } from "@/backend/service/task/TaskMilestoneService";
 import { TaskMoveService } from "@/backend/service/task/TaskMoveService";
 import { TaskReadService } from "@/backend/service/task/TaskReadService";
@@ -19,6 +20,7 @@ import { WorkItemReferenceValidator } from "@/backend/service/task/WorkItemRefer
 import type { PermissionService } from "@/backend/auth/PermissionService";
 import type {
   FindWorkItemsOptions,
+  MilestoneInitiativeLink,
   ProjectWorkItemCounts,
   TaskRepository,
   WorkItemsOverview,
@@ -38,6 +40,7 @@ import type {
   MilestoneFieldUpdate,
   UpdateMilestoneInput,
 } from "@/backend/service/task/TaskMilestoneService";
+import type { MilestoneInitiativeChange } from "@/backend/service/task/TaskMilestoneLinkService";
 import type { WorkItemsOverviewScope } from "@/backend/service/task/TaskReadService";
 import type {
   CreateWorkItemInput,
@@ -98,6 +101,7 @@ export class TaskService {
   private readonly checklists: TaskChecklistService;
   private readonly links: TaskLinkService;
   private readonly milestones: TaskMilestoneService;
+  private readonly milestoneLinks: TaskMilestoneLinkService;
   private readonly gitHubPublisher: TaskGitHubPublisher;
   private attachmentFiles: AttachmentFileRemover | null = null;
 
@@ -145,12 +149,19 @@ export class TaskService {
       cache,
     );
     this.reader = new TaskReadService(taskRepository, access, cache);
+    this.milestoneLinks = new TaskMilestoneLinkService(
+      taskRepository,
+      access,
+      history,
+      cache,
+    );
     this.writer = new TaskWriteService({
       access,
       cache,
       departments: this.departments,
       gitHubPublisher: this.gitHubPublisher,
       history,
+      milestoneLinks: this.milestoneLinks,
       numbering,
       taskRepository,
       validator,
@@ -241,6 +252,36 @@ export class TaskService {
   /** Soft-deletes a milestone together with its dependencies. */
   public async deleteMilestone(actor: User, id: string): Promise<void> {
     return this.milestones.deleteMilestone(actor, id);
+  }
+
+  /** Returns the links between milestones and the initiatives the actor sees. */
+  public async findMilestoneInitiatives(
+    actor: User,
+    projectIds: readonly string[],
+  ): Promise<MilestoneInitiativeLink[]> {
+    return this.milestoneLinks.findLinks(actor, projectIds);
+  }
+
+  /** Links an initiative with a milestone of its project. */
+  public async linkInitiativeToMilestone(
+    actor: User,
+    milestoneId: string,
+    initiativeId: string,
+  ): Promise<MilestoneInitiativeChange> {
+    return this.milestoneLinks.addInitiative(actor, milestoneId, initiativeId);
+  }
+
+  /** Removes the link while nothing below the initiative uses the milestone. */
+  public async unlinkInitiativeFromMilestone(
+    actor: User,
+    milestoneId: string,
+    initiativeId: string,
+  ): Promise<MilestoneInitiativeChange> {
+    return this.milestoneLinks.removeInitiative(
+      actor,
+      milestoneId,
+      initiativeId,
+    );
   }
 
   /** Returns every dependency of the given projects. */

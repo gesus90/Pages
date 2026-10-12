@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { handleUsersAction } from "@/app/lib/user-actions/user-actions.server";
-import { AdministrationError } from "@/backend/error/AdministrationError";
+import {
+  AdministrationError,
+  AgentScopeInUseError,
+} from "@/backend/error/AdministrationError";
 import {
   EmailTakenError,
   LastAdministratorError,
@@ -340,6 +343,39 @@ describe("role, department and scope action validation", () => {
     });
     await run({ intent: "delete-group", entityId: "team" });
     expect(groupService.deleteGroup).toHaveBeenCalledWith("user-1", "team");
+  });
+
+  it("returns the agents that block deleting a group or department (A11.3)", async () => {
+    groupService.deleteGroup.mockRejectedValueOnce(
+      new AgentScopeInUseError(["Team agent"]),
+    );
+    const group = await run({ intent: "delete-group", entityId: "team" });
+    expect(group.init?.status).toBe(409);
+    expect(group.data).toEqual({
+      ok: false,
+      intent: "delete-group",
+      error: "agentInUse",
+      agents: ["Team agent"],
+    });
+    const services = doubles();
+    services.deleteDepartment.mockRejectedValueOnce(
+      new AgentScopeInUseError([]),
+    );
+    const department = await run(
+      { intent: "delete-department", entityId: "hr" },
+      services,
+    );
+    expect(department.init?.status).toBe(409);
+    expect(department.data).toEqual({
+      ok: false,
+      intent: "delete-department",
+      error: "agentInUse",
+      agents: [],
+    });
+    services.deleteRole.mockRejectedValueOnce(new AdministrationError("inUse"));
+    expect(
+      (await run({ intent: "delete-role", entityId: "role" }, services)).data,
+    ).toEqual({ ok: false, intent: "delete-role", error: "inUse" });
   });
 
   it("delegates membership changes and explicit personal grants separately", async () => {

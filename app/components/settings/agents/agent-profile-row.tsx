@@ -44,6 +44,12 @@ export function AgentProfileRow(props: {
           </span>
         ) : null}
       </th>
+      <td className="px-4 py-3">
+        <p>{t(`settings.agents.profiles.target.${scope}`)}</p>
+        <p className="text-xs text-muted-foreground">
+          {targets.join(", ") || "—"}
+        </p>
+      </td>
       <td className="px-4 py-3">{connection?.name ?? profile.connectionId}</td>
       <td className="pages-selectable px-4 py-3">
         {profile.model} ·{" "}
@@ -55,16 +61,14 @@ export function AgentProfileRow(props: {
           .join(", ")}
       </td>
       <td className="px-4 py-3">
-        <p>{t(`settings.agents.profiles.target.${scope}`)}</p>
-        <p className="text-xs text-muted-foreground">
-          {targets.join(", ") || "—"}
-        </p>
+        {t(
+          profile.isActive
+            ? "settings.agents.profiles.active"
+            : "settings.agents.profiles.inactive",
+        )}
       </td>
       <td className="px-4 py-3">
-        <AgentProfileStatus
-          isActive={profile.isActive}
-          availability={availability}
-        />
+        <AgentProfileUsability availability={availability} />
       </td>
       <td className="px-4 py-3">
         <AgentProfileActions
@@ -77,19 +81,20 @@ export function AgentProfileRow(props: {
   );
 }
 
-function AgentProfileStatus(props: {
-  readonly isActive: boolean;
+function AgentProfileUsability(props: {
   readonly availability: AgentAvailability | undefined;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const reason = props.availability?.reason;
+  if (!props.availability)
+    return <span className="text-muted-foreground">—</span>;
+  const reason = props.availability.reason;
   return (
     <>
       <p>
         {t(
-          props.isActive
-            ? "settings.agents.profiles.active"
-            : "settings.agents.profiles.inactive",
+          props.availability.isUsable
+            ? "settings.agents.definition.usable"
+            : "settings.agents.definition.blocked",
         )}
       </p>
       {reason ? (

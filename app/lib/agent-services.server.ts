@@ -20,6 +20,7 @@ import { AgentPlanExecution } from "@/backend/agents/AgentPlanExecution";
 import { CliPlanExecution } from "@/backend/agents/cli/CliPlanExecution";
 import { TextAssistantSettingsRepository } from "@/backend/database/repositories/assistant/TextAssistantSettingsRepository";
 import { TextAgentRoleService } from "@/backend/service/assistant/TextAgentRoleService";
+import { AssistantRequestRegistry } from "@/backend/service/assistant/AssistantRequestRegistry";
 import { AgentAssignmentRepository } from "@/backend/database/repositories/agent/AgentAssignmentRepository";
 import { AgentAssignmentService } from "@/backend/service/agents/AgentAssignmentService";
 
@@ -37,6 +38,14 @@ export interface AgentApplicationServices extends AgentConfigurationApplicationS
   readonly agentCliLoginService: AgentCliLoginService;
   readonly textAgentRoleService: TextAgentRoleService;
   readonly agentTextExecution: AgentTextExecution;
+  /** Text runs of the chat; parallel chats share a verified connection. */
+  readonly agentChatExecution: AgentTextExecution;
+  /**
+   * Running chat answers. One answer may run several model calls, so its
+   * deadline is longer than that of the text assistant; shutdown cancels them
+   * before the database closes.
+   */
+  readonly chatRequests: AssistantRequestRegistry;
   readonly agentPlanExecution: AgentPlanExecution;
 }
 
@@ -93,6 +102,16 @@ export function createAgentServices(
       new CliTextExecution({ runtime, store, locator, runner }),
       operations,
     ),
+    agentChatExecution: new AgentTextExecution(
+      new ApiTextExecution(repository, cipher),
+      new CliTextExecution({ runtime, store, locator, runner }),
+      operations,
+      "shared",
+    ),
+    chatRequests: new AssistantRequestRegistry({
+      timeoutMs: 300_000,
+      capacity: 16,
+    }),
     agentPlanExecution: new AgentPlanExecution(
       new ApiTextExecution(repository, cipher),
       new CliPlanExecution({ runtime, store, locator, runner }),

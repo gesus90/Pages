@@ -8,7 +8,8 @@ export class AgentOperationError extends Error {
     | "INVALID_REQUEST"
     | "PAYLOAD_TOO_LARGE"
     | "CONFLICT"
-    | "FORBIDDEN";
+    | "FORBIDDEN"
+    | "CONFIRMATION_REQUIRED";
   public readonly status: number;
   public readonly details: AgentOperationDetails | undefined;
 
@@ -26,6 +27,7 @@ export class AgentOperationError extends Error {
       NOT_FOUND: 404,
       CONFLICT: 409,
       FORBIDDEN: 403,
+      CONFIRMATION_REQUIRED: 400,
       AMBIGUOUS: 409,
       INVALID_REQUEST: 400,
       PAYLOAD_TOO_LARGE: 413,

@@ -5,6 +5,7 @@ import {
 } from "@/backend/error/WikiErrors";
 import { WIKI_SCOPE } from "@/definition/Wiki";
 
+import { recordWikiActivity } from "./WikiActivity";
 import { canManagePage } from "./WikiAccess";
 import { WikiPageReader } from "./WikiPageReader";
 
@@ -54,6 +55,7 @@ export class WikiTrashService {
       }
 
       await repository.writes.markDeleted(id, actor.id);
+      await recordWikiActivity(repository, page, actor.id, "wiki_page_deleted");
     });
   }
 

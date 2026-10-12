@@ -11,6 +11,7 @@ import { AgentCatalogControls } from "./agent-catalog-controls";
 import { AgentChecks } from "./agent-checks";
 import { AgentCliLogin } from "./agent-cli-login";
 import { AgentFormFields } from "./agent-form-fields";
+import { readBlockingAgents } from "./use-agent-actions";
 import { useAgentForm } from "./use-agent-form";
 import { useModelAvailability } from "./use-model-availability";
 
@@ -89,6 +90,7 @@ export function AgentConnectionPanel({
         <PanelForm form={form} kind={kind} availability={availability} />
         <PanelMessages
           error={actions.error}
+          blockingAgents={readBlockingAgents(actions.result)}
           hasPollError={hasPollError}
           shouldSaveFirst={form.isDirty || !connection}
         />
@@ -196,10 +198,12 @@ function PanelFooter({
 
 function PanelMessages({
   error,
+  blockingAgents,
   hasPollError,
   shouldSaveFirst,
 }: {
   readonly error: AgentActions["error"];
+  readonly blockingAgents: readonly string[];
   readonly hasPollError: boolean;
   readonly shouldSaveFirst: boolean;
 }): React.ReactElement {
@@ -210,6 +214,7 @@ function PanelMessages({
         <AgentAlert
           id="agent-action-error"
           message={t(`settings.agents.error.${error}`)}
+          details={blockingAgents}
         />
       ) : null}
       {hasPollError ? (

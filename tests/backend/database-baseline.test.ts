@@ -143,6 +143,11 @@ describe("DuckDB baseline migration", () => {
       "031_agent_configuration.sql",
       "032_agent_workspaces.sql",
       "033_agent_plans.sql",
+      "034_project_activity_wiki_source.sql",
+      "035_mcp_pairing.sql",
+      "036_chat.sql",
+      "037_milestone_initiatives.sql",
+      "038_administration_activity.sql",
     ]);
   });
 

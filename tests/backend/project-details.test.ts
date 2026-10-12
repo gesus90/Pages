@@ -781,6 +781,7 @@ describe("ProjectRepository project details", () => {
         "member_added",
         "Anna was added.",
         "2026-09-05",
+        "ui",
       ],
     ]);
 
@@ -792,6 +793,7 @@ describe("ProjectRepository project details", () => {
         id: "activity-1",
         message: "Anna was added.",
         projectId: "project-1",
+        source: "ui",
         userDisplayName: "Alex",
         userId: "user-1",
       },
@@ -1164,10 +1166,16 @@ describe("ProjectService project details", () => {
     expect(repository.findGoals).toHaveBeenCalledWith("project-1");
     expect(repository.findTags).toHaveBeenCalledWith("project-1");
     expect(repository.findEvents).toHaveBeenCalledWith("project-1");
-    expect(repository.findActivity).toHaveBeenCalledWith("project-1", {
-      departmentIds: ["frontend"],
-      projectIds: [],
-    });
+    expect(repository.findActivity).toHaveBeenCalledWith(
+      "project-1",
+      { departmentIds: ["frontend"], projectIds: [] },
+      {
+        departmentIds: ["frontend"],
+        isAdmin: false,
+        projectIds: [],
+        userId: "user-1",
+      },
+    );
     expect(repository.findIntegration).toHaveBeenCalledWith("project-1");
   });
 

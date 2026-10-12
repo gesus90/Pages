@@ -12,6 +12,7 @@ import {
 } from "@/app/lib/settings-actions/settings-system-actions.server";
 
 import type { ServerStatus } from "@/backend/service/ServerSettingsService";
+import type { ChatAdministration } from "@/definition/Chat";
 import type { InstanceBranding } from "@/definition/Instance";
 import type { WikiSettings } from "@/definition/Wiki";
 import type { SettingsActionResult } from "@/app/lib/settings-actions/settings-action-support.server";
@@ -25,6 +26,8 @@ type SettingsSystemLoaderData =
       readonly branding: InstanceBranding;
       readonly status: ServerStatus;
       readonly wikiSettings: WikiSettings;
+      /** Attachment limit and system instruction of the chat agent. */
+      readonly chatSettings: ChatAdministration;
     }
   | { readonly access: "adminModeRequired" };
 
@@ -50,14 +53,23 @@ export async function loader({
 
   const serverSettings = await createServerSettingsService({ services });
 
-  const [port, status, branding, wikiSettings] = await Promise.all([
-    serverSettings.readPort(),
-    serverSettings.readStatus(),
-    services.instanceSettingsService.getBranding(),
-    services.wikiService.getSettings(),
-  ]);
+  const [port, status, branding, wikiSettings, chatSettings] =
+    await Promise.all([
+      serverSettings.readPort(),
+      serverSettings.readStatus(),
+      services.instanceSettingsService.getBranding(),
+      services.wikiService.getSettings(),
+      services.chatSettingsService.administration(user),
+    ]);
 
-  return { access: "granted", branding, port, status, wikiSettings };
+  return {
+    access: "granted",
+    branding,
+    chatSettings,
+    port,
+    status,
+    wikiSettings,
+  };
 }
 
 /**
@@ -85,6 +97,7 @@ export default function SettingsSystemRoute(): React.ReactElement {
   return loaderData.access === "granted" ? (
     <SystemSection
       branding={loaderData.branding}
+      chatSettings={loaderData.chatSettings}
       port={loaderData.port}
       status={loaderData.status}
       wikiSettings={loaderData.wikiSettings}

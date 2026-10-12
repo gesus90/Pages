@@ -20,6 +20,10 @@ import { createI18n } from "@/app/lib/i18n";
 import type { AgentParameter } from "@/definition/AgentParameters";
 import type { AgentWorkspacePage } from "@/definition/AgentWorkspace";
 
+// Coverage instrumentation on a busy machine can push a dialog past the one
+// second that Testing Library waits by default.
+const SLOW_UI_WAIT = { timeout: 10_000 };
+
 const workspace = {
   id: "workspace-id",
   name: "Development",
@@ -91,17 +95,32 @@ describe("A10.3 workspace UI and workspace reference selection", () => {
     window.dispatchEvent(unload);
     expect(unload.defaultPrevented).toBe(true);
     await user.click(screen.getByRole("button", { name: "Save workspace" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent(/changed/);
+    expect(
+      await screen.findByRole("alert", {}, SLOW_UI_WAIT),
+    ).toHaveTextContent(/changed/);
     expect(JSON.parse(String(submitted[0].get("workspace")))).toMatchObject({
       revision: 1,
       name: "Edited",
     });
+    // Escape is ignored while the save is pending, so wait until it settled.
+    await waitFor(
+      () =>
+        expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled(),
+      SLOW_UI_WAIT,
+    );
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     expect(
-      await screen.findByRole("button", { name: "Discard changes" }),
+      await screen.findByRole(
+        "button",
+        { name: "Discard changes" },
+        SLOW_UI_WAIT,
+      ),
     ).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Discard changes" }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(
+      () => expect(screen.queryByRole("dialog")).toBeNull(),
+      SLOW_UI_WAIT,
+    );
     const afterClose = new Event("beforeunload", { cancelable: true });
     window.dispatchEvent(afterClose);
     expect(afterClose.defaultPrevented).toBe(false);

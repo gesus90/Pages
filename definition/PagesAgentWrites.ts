@@ -1,3 +1,8 @@
+import { AGENT_EXTENSION_WRITE_OPERATIONS } from "./AgentExtensions.js";
+import { AGENT_ADMIN_WRITE_OPERATIONS } from "./AgentAdministration.js";
+
+import type { AgentAdminChanged } from "./AgentAdministration.js";
+import type { AgentExtensionChanged } from "./AgentExtensions.js";
 import type { AgentImportApplied } from "./AgentImportApply.js";
 import type { AgentImportUpdated } from "./AgentImportUpdate.js";
 import type { AgentStructuredImportApplied } from "./AgentStructuredImportManifest.js";
@@ -17,8 +22,10 @@ import type {
   AgentWikiPageMoved,
 } from "./AgentWikiFields.js";
 
-/** Write operations; Pages offers these only with the current write capability. */
+/** Write operations offered to verified accounts; Pages applies the corresponding UI rights per call. */
 export const PAGES_AGENT_WRITE_OPERATIONS = [
+  ...AGENT_EXTENSION_WRITE_OPERATIONS,
+  ...AGENT_ADMIN_WRITE_OPERATIONS,
   "assets.upload.prepare",
   "wiki.page.create",
   "wiki.import.apply",
@@ -67,10 +74,11 @@ export interface AgentAsset {
   readonly expiresAt: number;
 }
 
-/** Explicit project create with no implicit destination or overwrite. */
+/** Explicit wiki creation with a named scope and parent, without overwriting. */
 export interface AgentWikiCreateInput {
   readonly operationId: string;
-  readonly projectId: string;
+  readonly projectId: string | null;
+  readonly scope?: "project" | "instance" | "private";
   readonly parentId: string | null;
   readonly title: string;
   readonly content: string;
@@ -106,5 +114,7 @@ export interface PagesAgentWriteResponse {
     | AgentTicketChanged
     | AgentMilestoneCreated
     | AgentMilestoneChanged
-    | AgentMilestoneDependencyChanged;
+    | AgentMilestoneDependencyChanged
+    | AgentExtensionChanged
+    | AgentAdminChanged;
 }

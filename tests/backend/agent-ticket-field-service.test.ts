@@ -458,5 +458,9 @@ it("uses MCP policy for project lists, assignment filtering and account facts in
       ?.map(({ id }) => id)
       .sort(),
   ).toEqual(["owner", "writer"]);
-  expect(filtered.get("p2")).toEqual([]);
+  expect(filtered.get("p2")?.map(({ id }) => id)).toEqual(["owner"]);
+  const chat = createAgentTaskContext(run.database, run.owner, "chat");
+  expect((await chat.projects.filterAssignees(candidates)).get("p2")).toEqual(
+    [],
+  );
 });

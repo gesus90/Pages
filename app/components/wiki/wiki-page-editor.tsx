@@ -16,7 +16,7 @@ import { WikiMarkdown } from "@/app/components/wiki/wiki-markdown";
 import { WikiPageHero } from "@/app/components/wiki/wiki-page-hero";
 import { WikiSubpageDialog } from "@/app/components/wiki/wiki-subpage-dialog";
 import { cn } from "@/app/lib/cn";
-import { countCharacters, WIKI_LIMITS } from "@/definition/Wiki";
+import { WIKI_LIMITS } from "@/definition/Wiki";
 
 import type {
   BlockEditorHandle,
@@ -47,7 +47,7 @@ function SaveStatus({
   readonly state: WikiDraftState;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const length = countCharacters(state.draft.content);
+  const length = new TextEncoder().encode(state.draft.content).byteLength;
 
   return (
     <p

@@ -1,3 +1,4 @@
+import { PAGES_AGENT_LIMITS } from "@/definition/PagesAgentOperations";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 
 import type { AgentWikiCreateInput } from "@/definition/PagesAgentWrites";
@@ -15,6 +16,7 @@ export function readAgentWikiCreate(
   const allowed = [
     "operationId",
     "projectId",
+    "scope",
     "parentId",
     "title",
     "content",
@@ -30,16 +32,31 @@ export function readAgentWikiCreate(
     input.assetIds.length > 100
   )
     throw new AgentOperationError("INVALID_REQUEST");
+  if (
+    Buffer.byteLength(input.content, "utf8") >
+    PAGES_AGENT_LIMITS.wikiContentBytes
+  )
+    throw new AgentOperationError("PAYLOAD_TOO_LARGE", {
+      constraint: "wikiContentBytes",
+      limit: PAGES_AGENT_LIMITS.wikiContentBytes,
+    });
   const assetIds = input.assetIds.map(identifier);
   if (new Set(assetIds).size !== assetIds.length)
     throw new AgentOperationError("INVALID_REQUEST");
   return {
     operationId: identifier(input.operationId),
-    projectId: identifier(input.projectId),
+    projectId: input.projectId === null ? null : identifier(input.projectId),
+    ...(input.scope === undefined ? {} : { scope: readScope(input.scope) }),
     parentId: input.parentId === null ? null : identifier(input.parentId),
     title: input.title,
     content: input.content,
     icon: input.icon,
     assetIds,
   };
+}
+
+function readScope(input: unknown): "project" | "instance" | "private" {
+  if (input !== "project" && input !== "instance" && input !== "private")
+    throw new AgentOperationError("INVALID_REQUEST");
+  return input;
 }

@@ -1,3 +1,4 @@
+import { PAGES_AGENT_LIMITS } from "@/definition/PagesAgentOperations";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { resolveWikiPageReference } from "@/backend/service/wiki/WikiLinks";
 
@@ -82,7 +83,7 @@ export function readAgentWikiFieldChange(
   operation: AgentWikiFieldOperation,
   input: unknown,
 ): AgentWikiFieldInput {
-  const fields = readParameterRecord(input);
+  const fields = normalizeRevision(readParameterRecord(input));
   const field = FIELD_OPERATIONS[operation];
   requireParameterKeys(fields, [...TARGET_KEYS, field]);
   const base = target(fields);
@@ -94,6 +95,14 @@ export function readAgentWikiFieldChange(
   }
   if (typeof value !== "string")
     throw new AgentOperationError("INVALID_REQUEST");
+  if (
+    field === "content" &&
+    Buffer.byteLength(value, "utf8") > PAGES_AGENT_LIMITS.wikiContentBytes
+  )
+    throw new AgentOperationError("PAYLOAD_TOO_LARGE", {
+      constraint: "wikiContentBytes",
+      limit: PAGES_AGENT_LIMITS.wikiContentBytes,
+    });
   return { ...base, field, value };
 }
 
@@ -109,8 +118,11 @@ export function readAgentWikiFieldChange(
  * "project root" and "at the end".
  */
 export function readAgentWikiMove(input: unknown): AgentWikiMoveInput {
-  const fields = readParameterRecord(input);
-  requireParameterKeys(fields, [
+  const fields = normalizeRevision(readParameterRecord(input));
+  const { scope, ...location } = fields;
+  if (fields.projectId === null && (scope === undefined || scope === "project"))
+    throw new AgentOperationError("INVALID_REQUEST");
+  requireParameterKeys(location, [
     ...TARGET_KEYS,
     "projectId",
     "parentId",
@@ -118,8 +130,27 @@ export function readAgentWikiMove(input: unknown): AgentWikiMoveInput {
   ]);
   return {
     ...target(fields),
-    projectId: readIdentifier(fields.projectId),
+    projectId:
+      fields.projectId === null ? null : readIdentifier(fields.projectId),
+    ...(scope === undefined ? {} : { scope: readScope(scope) }),
     parentId: nullablePageReference(fields.parentId),
     beforeId: nullablePageReference(fields.beforeId),
   };
+}
+
+function readScope(input: unknown): "project" | "instance" | "private" {
+  if (input !== "project" && input !== "instance" && input !== "private")
+    throw new AgentOperationError("INVALID_REQUEST");
+  return input;
+}
+
+/** Accepts the specified revision spelling while retaining established camel-case clients. */
+export function normalizeRevision(
+  parameters: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> {
+  if (!("expected_revision" in parameters)) return parameters;
+  if ("expectedRevision" in parameters)
+    throw new AgentOperationError("INVALID_REQUEST");
+  const { expected_revision: expectedRevision, ...fields } = parameters;
+  return { ...fields, expectedRevision };
 }

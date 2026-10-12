@@ -52,12 +52,12 @@ export async function createStructuredImportEnvironment(
   const actor = await new UserRepository(scope).findById(userId);
   if (!actor?.isActive || actor.mustChangePassword)
     throw new McpAuthorizationError("invalid_token", 401);
-  const projects = new ProjectRepository(scope);
+  const projects = new ProjectRepository(scope, "mcp");
   const access = createAgentWikiAccess(projects, actor);
   return {
     actor,
     projects,
-    wiki: new WikiRepository(scope),
+    wiki: new WikiRepository(scope, "mcp"),
     access,
     viewer: await access.resolve(actor),
     tasks: createAgentTaskContext(scope, actor),

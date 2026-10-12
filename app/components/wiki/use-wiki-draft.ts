@@ -142,7 +142,8 @@ export function useWikiDraft(page: WikiPage): WikiDraftState {
     icon === base.icon;
   const isTooLong =
     countCharacters(title) > WIKI_LIMITS.titleLength ||
-    countCharacters(draft.content) > WIKI_LIMITS.contentLength;
+    new TextEncoder().encode(draft.content).byteLength >
+      WIKI_LIMITS.contentLength;
   const isIdle = fetcher.state === "idle";
   const canSave =
     !isClean &&

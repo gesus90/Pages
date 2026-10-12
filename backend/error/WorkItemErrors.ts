@@ -47,6 +47,7 @@ export const WORK_ITEM_ERROR_MESSAGES = {
   groupEmpty: "Selected group has no members.",
   groupNotFound: "Selected group does not exist.",
   initiativeMissing: "The specified Initiative does not exist.",
+  initiativeRequired: "Only an Initiative can be linked with a milestone.",
   invalidTreeKey: "The branch of the ticket tree is unknown.",
   initiativeNoParent: "An Initiative cannot have a parent work item.",
   initiativeOtherProject: "Parent Initiative must belong to the same project.",
@@ -64,6 +65,8 @@ export const WORK_ITEM_ERROR_MESSAGES = {
   milestoneDateOrder: "Milestone start date must not be after its due date.",
   milestoneDueDateFormat: "Milestone due date must use the format YYYY-MM-DD.",
   milestoneIconUnsupported: "Milestone icon must be a supported symbol.",
+  milestoneInitiativeInUse:
+    "Epics, tasks or subtasks below the Initiative still use this milestone.",
   milestoneNameLength: "Milestone name must be between 1 and 200 characters.",
   milestoneNotFound: "Selected milestone does not exist.",
   milestoneOtherProject: "Milestone does not belong to the selected project.",

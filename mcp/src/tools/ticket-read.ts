@@ -31,7 +31,11 @@ export const MILESTONES_READ_TOOL: Tool = {
     "Lists the milestones (ID, name, description, status, start and due date) and the dependencies between them for a visible project. A hidden project returns NOT_FOUND. Responses are limited to 1 MiB UTF-8 JSON.",
   inputSchema: {
     type: "object",
-    properties: { projectId: IDENTIFIER },
+    properties: {
+      projectId: IDENTIFIER,
+      cursor: { type: ["string", "null"] },
+      limit: { type: "integer", minimum: 1, maximum: 100 },
+    },
     required: ["projectId"],
     additionalProperties: false,
   },

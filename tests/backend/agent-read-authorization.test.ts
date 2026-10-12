@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { UserRepository } from "@/backend/database/repositories/UserRepository";
+import { AGENT_EXTENSION_READ_OPERATIONS } from "@/definition/AgentExtensions";
+import { PAGES_AGENT_WRITE_OPERATIONS } from "@/definition/PagesAgentWrites";
 import {
   PAGES_AGENT_COMMENT_OPERATIONS,
   PAGES_AGENT_READ_OPERATIONS,
@@ -86,6 +88,10 @@ describe("next-call authentication on A9.5 reads", () => {
         ...PAGES_AGENT_TICKET_READ_OPERATIONS,
         ...PAGES_AGENT_STRUCTURED_READ_OPERATIONS,
         ...PAGES_AGENT_COMMENT_OPERATIONS,
+        ...AGENT_EXTENSION_READ_OPERATIONS,
+        ...PAGES_AGENT_WRITE_OPERATIONS.filter(
+          (operation) => !operation.startsWith("admin."),
+        ),
       ],
     });
     expect(

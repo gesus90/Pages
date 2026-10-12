@@ -54,6 +54,7 @@ export function AgentProfileForm(
             isPending={isPending}
             directory={props.directory}
             projects={props.projects ?? []}
+            taskAssignments={props.taskAssignments}
           />
           <AgentAssignmentResult result={fetcher.data} />
         </VerticalScrollArea>

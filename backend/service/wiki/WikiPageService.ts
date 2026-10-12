@@ -6,7 +6,9 @@ import {
   WikiPageNotFoundError,
   WikiValidationError,
 } from "@/backend/error/WikiErrors";
+import { WIKI_SCOPE } from "@/definition/Wiki";
 
+import { recordWikiActivity } from "./WikiActivity";
 import { validateAnchors } from "./WikiAnchorValidator";
 import { canManagePage } from "./WikiAccess";
 import { extractWikiLinks } from "./WikiLinks";
@@ -23,8 +25,6 @@ import {
 import type { WikiRepository } from "@/backend/database/repositories/WikiRepository";
 import type { WikiPageRecord } from "@/backend/database/repositories/WikiRepository";
 import type { User } from "@/definition/User";
-import { WIKI_SCOPE } from "@/definition/Wiki";
-
 import type { WikiAnchor, WikiPage, WikiScope } from "@/definition/Wiki";
 import type { WikiAccess, WikiViewer } from "./WikiAccess";
 
@@ -156,7 +156,14 @@ export class WikiPageService {
         isPrivate: resolved.placement.scope === WIKI_SCOPE.PRIVATE,
       });
 
-      return reader.assemble(await reader.require(viewer.scope, id));
+      const created = await reader.require(viewer.scope, id);
+      await recordWikiActivity(
+        repository,
+        created,
+        actor.id,
+        "wiki_page_created",
+      );
+      return reader.assemble(created);
     });
   }
 
@@ -496,6 +503,19 @@ export class WikiPageService {
       coalesceMinutes,
     );
     await repository.links.replace(current.id, extractWikiLinks(edit.content));
+    const actions = [
+      current.title !== edit.title ? "wiki_title_changed" : null,
+      current.content !== edit.content ? "wiki_content_changed" : null,
+      current.icon !== edit.icon ? "wiki_icon_changed" : null,
+      JSON.stringify(extractWikiLinks(current.content)) !==
+      JSON.stringify(extractWikiLinks(edit.content))
+        ? "wiki_links_changed"
+        : null,
+    ];
+    for (const action of actions) {
+      if (action !== null)
+        await recordWikiActivity(repository, current, viewer.user.id, action);
+    }
     await this.recordMentions(repository, {
       authorId: viewer.user.id,
       content: edit.content,

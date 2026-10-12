@@ -39,7 +39,7 @@ export function normalizeTitle(title: string): string {
  * @throws {WikiValidationError} When it is too long.
  */
 export function validateContent(content: string): string {
-  if (countCharacters(content) > WIKI_LIMITS.contentLength) {
+  if (Buffer.byteLength(content, "utf8") > WIKI_LIMITS.contentLength) {
     throw new WikiValidationError("contentTooLong");
   }
 

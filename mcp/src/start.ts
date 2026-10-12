@@ -1,6 +1,9 @@
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
 
 import { readConfiguration } from "./configuration.js";
+import { CredentialStoreError } from "./credential-store.js";
+import { runCredentialCommand } from "./credential-command.js";
+import { readStdioConfiguration } from "./stdio-configuration.js";
 import { createServer } from "./server.js";
 import { verifyPages } from "./verification.js";
 import {
@@ -13,6 +16,10 @@ import { startHttpServer } from "./http-server.js";
 export async function start(): Promise<void> {
   try {
     const argumentsList = process.argv.slice(2);
+    if (["pair", "rotate", "unpair", "status"].includes(argumentsList[0])) {
+      process.exitCode = await runCredentialCommand(argumentsList, process.env);
+      return;
+    }
     if (argumentsList.length > 0) {
       const server = await startHttpServer(
         readHttpConfiguration(process.env, argumentsList),
@@ -24,12 +31,15 @@ export async function start(): Promise<void> {
       process.once("SIGTERM", shutdown);
       return;
     }
-    const configuration = readConfiguration(process.env);
+    const configuration =
+      process.env.PAGES_TOKEN !== undefined
+        ? readConfiguration(process.env)
+        : await readStdioConfiguration(process.env);
     await verifyPages(configuration);
     serveStdio(() => createServer(() => configuration));
   } catch (error: unknown) {
     console.error(
-      error instanceof HttpOptionError
+      error instanceof HttpOptionError || error instanceof CredentialStoreError
         ? `[pages-mcp] ${error.message}`
         : "[pages-mcp] Startup failed. Check PAGES_URL, PAGES_TOKEN (stdio), HTTP options and Pages authorization.",
     );

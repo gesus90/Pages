@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 
+import { agentChannelPolicy } from "@/backend/auth/McpActorContext";
 import { AgentOperationKeyRepository } from "@/backend/database/repositories/agents/AgentOperationKeyRepository";
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import { UserRepository } from "@/backend/database/repositories/UserRepository";
@@ -15,6 +16,9 @@ import { WikiCommentService } from "@/backend/service/wiki/WikiCommentService";
 import { WikiPageReader } from "@/backend/service/wiki/WikiPageReader";
 import { PAGES_AGENT_LIMITS } from "@/definition/PagesAgentOperations";
 
+import { requireAgentConfirmation } from "./AgentConfirmation";
+import { pageAgentEntries } from "./AgentCursor";
+import { readParameterRecord } from "./AgentParameterReader";
 import { agentTransactionScope } from "./AgentTransactionScope";
 import { createAgentWikiAccess } from "./AgentWikiAccess";
 import {
@@ -22,6 +26,7 @@ import {
   readAgentWikiCommentWrite,
 } from "./AgentWikiCommentValidation";
 
+import type { AgentChannel } from "@/backend/auth/McpActorContext";
 import type {
   Database,
   DatabaseTransaction,
@@ -46,6 +51,8 @@ import type { AgentWikiCommentRequest } from "./AgentWikiCommentValidation";
 export interface AgentWikiCommentDependencies {
   readonly database: Database;
   readonly events: PagesEventPublisher;
+  /** The agent surface the comments run for; MCP when absent. */
+  readonly channel?: AgentChannel;
 }
 
 /** What one call changed: the stored result and the page whose comments to announce, if any. */
@@ -93,13 +100,18 @@ function pageLink(pageId: string): string {
 async function openContext(
   scope: CommentScope,
   userId: string,
+  channel: AgentChannel,
 ): Promise<CommentContext> {
   const actor = await new UserRepository(scope).findById(userId);
   if (!actor?.isActive || actor.mustChangePassword)
     throw new McpAuthorizationError("invalid_token", 401);
-  const wiki = new WikiRepository(scope);
-  // The MCP access context decides who is an administrator, like every other agent operation.
-  const access = createAgentWikiAccess(new ProjectRepository(scope), actor);
+  const wiki = new WikiRepository(scope, agentChannelPolicy(channel).source);
+  // The access context of the channel decides who is an administrator, like every other agent operation.
+  const access = createAgentWikiAccess(
+    new ProjectRepository(scope),
+    actor,
+    channel,
+  );
   return {
     actor,
     wiki,
@@ -153,10 +165,18 @@ export class AgentWikiCommentService {
     identity: AgentIdentity,
     parameters: unknown,
   ): Promise<PagesAgentReadResponse> {
-    const pageId = readAgentWikiCommentsRead(parameters);
+    const fields = readParameterRecord(parameters);
+    if (
+      Object.keys(fields).some(
+        (key) => !["pageId", "cursor", "limit"].includes(key),
+      )
+    )
+      throw new AgentOperationError("INVALID_REQUEST");
+    const pageId = readAgentWikiCommentsRead({ pageId: fields.pageId });
     const context = await openContext(
       this.dependencies.database,
       identity.userId,
+      this.dependencies.channel ?? "mcp",
     );
     let threads: Awaited<ReturnType<WikiCommentService["list"]>>;
     try {
@@ -164,12 +184,27 @@ export class AgentWikiCommentService {
     } catch (error: unknown) {
       throw translate(error);
     }
+    const paged = pageAgentEntries(
+      threads.map((thread) => ({ id: thread.comment.id, thread })),
+      {
+        cursor: fields.cursor,
+        limit: fields.limit,
+        preserveOrder: true,
+        context: JSON.stringify([
+          identity.userId,
+          "wiki.comments.read",
+          pageId,
+        ]),
+      },
+    );
     const response: PagesAgentReadResponse = {
       apiVersion: "1",
       result: {
         pageId,
         link: pageLink(pageId),
-        threads: threads.map((thread) => ({
+        total: paged.total,
+        nextCursor: paged.nextCursor,
+        threads: paged.entries.map(({ thread }) => ({
           comment: describeComment(thread.comment, null),
           replies: thread.replies.map((reply) =>
             describeComment(reply, thread.comment.id),
@@ -228,7 +263,13 @@ export class AgentWikiCommentService {
     userId: string,
     request: AgentWikiCommentRequest,
   ): Promise<CommentOutcome> {
-    const base = await openContext(agentTransactionScope(transaction), userId);
+    if (request.operation === "wiki.comment.delete")
+      await requireAgentConfirmation(transaction, userId, request.confirmation);
+    const base = await openContext(
+      agentTransactionScope(transaction),
+      userId,
+      this.dependencies.channel ?? "mcp",
+    );
     const viewer = await base.access.resolve(base.actor);
     const context = {
       ...base,

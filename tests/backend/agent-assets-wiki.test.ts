@@ -435,6 +435,14 @@ describe("A9.6 binary assets and atomic wiki creation", () => {
 });
 
 describe("A9.6 explicit input validation", () => {
+  it.each(["instance", "private"])(
+    "accepts a null project for explicit %s scope",
+    (scope) => {
+      const input = { ...createInput(), projectId: null, scope };
+      expect(readAgentWikiCreate(input)).toEqual(input);
+    },
+  );
+
   it("requires all fields, rejects injected policy, duplicate assets and invalid types", () => {
     const valid = createInput();
     expect(readAgentWikiCreate({ ...valid })).toEqual(valid);
@@ -444,7 +452,8 @@ describe("A9.6 explicit input validation", () => {
       { operationId: " " },
       { operationId: 1 },
       { operationId: "x".repeat(201) },
-      { projectId: null },
+      { projectId: 1 },
+      { scope: "unsupported" },
       { parentId: undefined },
       { title: 1 },
       { content: null },

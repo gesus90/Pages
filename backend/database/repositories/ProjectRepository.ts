@@ -16,12 +16,13 @@ import type {
   DatabaseTransaction,
 } from "@/backend/database/Database";
 import type { WorkItemVisibility } from "@/definition/Task";
+import type { WikiVisibilityScope } from "@/definition/Wiki";
 import type { Department } from "@/definition/Authorization";
-
 import type {
   ArchivedProject,
   Project,
   ProjectActivity,
+  ProjectActivitySource,
   ProjectEvent,
   ProjectGoal,
   ProjectIntegration,
@@ -76,6 +77,7 @@ type ProjectDatabase = Pick<Database, "execute" | "query" | "transaction">;
  */
 export class ProjectRepository {
   private readonly database: ProjectDatabase;
+  private readonly source: ProjectActivitySource;
   private readonly departments: ProjectDepartmentRepository;
   private readonly lifecycle: ProjectLifecycleRepository;
   private readonly templates: ProjectTemplateRepository;
@@ -93,7 +95,11 @@ export class ProjectRepository {
    *
    * @param database - Central database access.
    */
-  public constructor(database: ProjectDatabase) {
+  public constructor(
+    database: ProjectDatabase,
+    source: ProjectActivitySource = "ui",
+  ) {
+    this.source = source;
     this.database = database;
     this.departments = new ProjectDepartmentRepository(database);
     this.lifecycle = new ProjectLifecycleRepository(database);
@@ -105,7 +111,7 @@ export class ProjectRepository {
     this.tags = new ProjectTagRepository(database);
     this.events = new ProjectEventRepository(database);
     this.integrations = new ProjectIntegrationRepository(database);
-    this.activity = new ProjectActivityRepository(database);
+    this.activity = new ProjectActivityRepository(database, source);
   }
 
   /** Returns every non-archived project ordered by most recent change. */
@@ -171,13 +177,16 @@ export class ProjectRepository {
   ): Promise<Result> {
     return this.database.transaction((transaction) =>
       work(
-        new ProjectRepository({
-          query: transaction.query.bind(transaction),
-          execute: transaction.execute.bind(transaction),
-          transaction: async <Nested>(
-            operation: (scope: DatabaseTransaction) => Promise<Nested>,
-          ): Promise<Nested> => operation(transaction),
-        }),
+        new ProjectRepository(
+          {
+            query: transaction.query.bind(transaction),
+            execute: transaction.execute.bind(transaction),
+            transaction: async <Nested>(
+              operation: (scope: DatabaseTransaction) => Promise<Nested>,
+            ): Promise<Nested> => operation(transaction),
+          },
+          this.source,
+        ),
       ),
     );
   }
@@ -418,8 +427,9 @@ export class ProjectRepository {
   public async findActivity(
     projectId: string,
     visibility?: WorkItemVisibility,
+    wikiScope?: WikiVisibilityScope,
   ): Promise<ProjectActivity[]> {
-    return this.activity.findByProjectId(projectId, visibility);
+    return this.activity.findByProjectId(projectId, visibility, wikiScope);
   }
 
   /** Records an entry in the chronological project activity log. */

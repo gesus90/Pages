@@ -116,6 +116,7 @@ async function checkCommentLifecycle(
   ).toMatchObject({ action: "resolved", changed: true });
   expect(
     await call(connection, "delete_wiki_comment", {
+      confirmation: "LÖSCHEN",
       operationId: "delete",
       commentId: root.commentId,
     }),

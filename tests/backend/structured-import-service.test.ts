@@ -45,6 +45,7 @@ async function counts(harness: StructuredHarness): Promise<unknown[]> {
     "agent_assets",
     "agent_import_sources",
     "work_item_history",
+    "project_activity",
   ])
     totals.push(await harness.database.query(`SELECT COUNT(*) FROM ${table};`));
   return totals;
@@ -137,6 +138,11 @@ describe("structured import durable application", () => {
       failed: 0,
     });
     await verifyImportedTargets(harness, first);
+    expect(
+      await harness.database.query(
+        "SELECT source, COUNT(*) FROM project_activity WHERE category = 'wiki' GROUP BY source;",
+      ),
+    ).toEqual([["mcp", 2]]);
     const preview = await harness.structured.plan(planningIdentity, {
       manifest,
     });

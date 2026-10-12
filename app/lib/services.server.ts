@@ -45,12 +45,14 @@ import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 import { SetupService } from "@/backend/setup/SetupService";
 
 import { createAgentServices } from "./agent-services.server";
+import { createChatServices } from "./chat-services.server";
 import { createAgentPlanService } from "./agent-plan-services.server";
 import { createTextAssistantServices } from "./text-assistant-services.server";
 import { createMcpServices } from "./mcp-services.server";
 
 import type { AgentAssetService } from "@/backend/service/agents/AgentAssetService";
 import type { AgentApplicationServices } from "./agent-services.server";
+import type { ChatApplicationServices } from "./chat-services.server";
 import type { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
 import type { TextAssistantApplicationServices } from "./text-assistant-services.server";
 import type { McpApplicationServices } from "./mcp-services.server";
@@ -59,6 +61,7 @@ import type { McpApplicationServices } from "./mcp-services.server";
 export interface ApplicationServices
   extends
     AgentApplicationServices,
+    ChatApplicationServices,
     TextAssistantApplicationServices,
     McpApplicationServices {
   readonly administrationService: AdministrationService;
@@ -112,6 +115,7 @@ function registerShutdownHandler(
     try {
       await assistant.assistantHistoryScheduler.shutdown();
       await assistant.textAssistantService.shutdown();
+      await agents.chatRequests.shutdown();
       await plans.shutdown();
       await agents.agentCatalogScheduler.shutdown();
       await agents.agentCliLoginService.shutdown();
@@ -292,8 +296,8 @@ async function initializeServices(
   const mcpServices = startMcpWorkspace({
     database,
     databasePath,
-    users: userService,
-    administration: administrationService,
+    accounts: { users: userService, administration: administrationService },
+    agents: agentServices,
     wiki: workspaceServices.wikiService,
     gitHubSync: taskServices.gitHubSyncService,
     serverCache,
@@ -342,16 +346,22 @@ async function preparePlanService(
   return plans;
 }
 
-/** Builds the agent write services and shares the existing maintenance scheduler. */
+/**
+ * Builds the agent write services and the chat on the same operation catalog,
+ * and shares the existing maintenance scheduler.
+ */
 function startMcpWorkspace(context: {
   readonly database: Database;
   readonly databasePath: string;
-  readonly users: UserService;
-  readonly administration: AdministrationService;
+  readonly accounts: {
+    readonly users: UserService;
+    readonly administration: AdministrationService;
+  };
+  readonly agents: AgentApplicationServices;
   readonly wiki: WikiService;
   readonly gitHubSync: GitHubSyncService;
   readonly serverCache: ServerCache;
-}): McpApplicationServices {
+}): McpApplicationServices & ChatApplicationServices {
   // The publisher of the ticket pages, on its own repository: agent ticket changes
   // follow the same GitHub rule once they are committed.
   const taskRepository = new TaskRepository(context.database);
@@ -361,18 +371,24 @@ function startMcpWorkspace(context: {
     context.serverCache,
   );
   publisher.attach(context.gitHubSync);
-  const services = createMcpServices(
-    context.database,
-    context.users,
-    context.administration,
-    {
-      directory: path.dirname(context.databasePath),
-      wikiService: context.wiki,
-      tickets: { cache: context.serverCache, publisher },
-    },
-  );
+  const { users, administration } = context.accounts;
+  const directory = path.dirname(context.databasePath);
+  const services = createMcpServices(context.database, users, administration, {
+    directory,
+    wikiService: context.wiki,
+    tickets: { cache: context.serverCache, publisher },
+  });
   startWikiMaintenanceScheduler(context.wiki, services.agentAssetService);
-  return services;
+  return {
+    ...services,
+    ...createChatServices({
+      database: context.database,
+      directory,
+      accounts: context.accounts,
+      agents: context.agents,
+      router: services.chatOperationRouter,
+    }),
+  };
 }
 
 /** What the task services are built from. */

@@ -4,6 +4,7 @@ import { expect, it } from "vitest";
 
 import { READ_TOOLS } from "../../mcp/src/tools/registry";
 import { WRITE_TOOLS } from "../../mcp/src/tools/write-registry";
+import { AGENT_EXTENSION_WRITE_OPERATIONS } from "@/definition/AgentExtensions";
 
 const readme = readFileSync(
   new URL("../../mcp/README.md", import.meta.url),
@@ -16,7 +17,10 @@ const section = readme
 it("documents every A9.11 tool and its exact operation and required parameters", () => {
   const entries = [...READ_TOOLS, ...WRITE_TOOLS].filter(
     ({ operation }) =>
-      operation.startsWith("ticket.") || operation.startsWith("milestone"),
+      (operation.startsWith("ticket.") || operation.startsWith("milestone")) &&
+      !AGENT_EXTENSION_WRITE_OPERATIONS.some(
+        (extension) => extension === operation,
+      ),
   );
   expect(entries).toHaveLength(15);
   for (const { operation, tool } of entries) {
@@ -24,6 +28,23 @@ it("documents every A9.11 tool and its exact operation and required parameters",
     expect(section).toContain(`\`${operation}\``);
     for (const key of tool.inputSchema.required ?? [])
       expect(section).toContain(`\`${key}\``);
+  }
+});
+
+it("documents the seven additional ticket and milestone tools with their required parameters", () => {
+  const entries = WRITE_TOOLS.filter(
+    ({ operation }) =>
+      (operation.startsWith("ticket.") || operation.startsWith("milestone")) &&
+      AGENT_EXTENSION_WRITE_OPERATIONS.some(
+        (extension) => extension === operation,
+      ),
+  );
+  expect(entries).toHaveLength(7);
+  for (const { operation, tool } of entries) {
+    expect(readme).toContain(`\`${tool.name}\``);
+    expect(readme).toContain(`\`${operation}\``);
+    for (const key of tool.inputSchema.required ?? [])
+      expect(readme).toContain(`\`${key}\``);
   }
 });
 

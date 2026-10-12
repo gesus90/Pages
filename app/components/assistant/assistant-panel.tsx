@@ -168,7 +168,7 @@ export function AssistantPanel(props: AssistantPanelProps): React.ReactElement {
         aria-keyshortcuts="Control+Alt+Shift+J Meta+Alt+Shift+J"
         title={`${t("assistant.toggle")} (${formatShortcut("assistantChat", false)} / ${formatShortcut("assistantChat", true)})`}
         style={positionStyle}
-        className="fixed right-4 bottom-[calc(var(--assistant-keyboard-inset)+env(safe-area-inset-bottom)+4rem)] z-40 flex size-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 md:bottom-[calc(env(safe-area-inset-bottom)+1rem)]"
+        className="fixed right-5 bottom-[calc(var(--assistant-keyboard-inset)+env(safe-area-inset-bottom)+8rem)] z-40 flex size-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 md:bottom-[calc(env(safe-area-inset-bottom)+5rem)]"
       >
         <Bot aria-hidden="true" className="size-6" />
       </button>
@@ -177,7 +177,7 @@ export function AssistantPanel(props: AssistantPanelProps): React.ReactElement {
           id="text-assistant-panel"
           aria-label={t("assistant.title")}
           style={positionStyle}
-          className="fixed top-16 right-0 bottom-[calc(var(--assistant-keyboard-inset)+env(safe-area-inset-bottom)+8rem)] z-40 flex w-full max-w-sm flex-col border border-border bg-surface shadow-xl md:bottom-[calc(env(safe-area-inset-bottom)+5rem)]"
+          className="fixed top-16 right-0 bottom-[calc(var(--assistant-keyboard-inset)+env(safe-area-inset-bottom)+12rem)] z-40 flex w-full max-w-sm flex-col border border-border bg-surface shadow-xl md:bottom-[calc(env(safe-area-inset-bottom)+9rem)]"
         >
           <div className="flex items-center justify-between border-b border-border p-4">
             <div className="min-w-0">

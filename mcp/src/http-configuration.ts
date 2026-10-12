@@ -1,6 +1,5 @@
-import { isIPv4 } from "node:net";
-
 import { readConfiguration } from "./configuration.js";
+import { isPrivateIpv4 } from "./instance-address.js";
 
 /** Explicit audience, Pages issuer and local listener; no personal token participates in HTTP mode. */
 export interface HttpConfiguration {
@@ -50,18 +49,6 @@ function readOptions(argumentsList: readonly string[]): Map<string, string> {
     options.set(name, pairs[index + 1]);
   }
   return options;
-}
-
-function isPrivateIpv4(host: string): boolean {
-  if (!isIPv4(host)) {
-    return false;
-  }
-  const [firstOctet, secondOctet] = host.split(".").map(Number);
-  return (
-    firstOctet === 10 ||
-    (firstOctet === 172 && secondOctet >= 16 && secondOctet <= 31) ||
-    (firstOctet === 192 && secondOctet === 168)
-  );
 }
 
 function readResource(value: string | undefined): URL {
@@ -135,6 +122,13 @@ export function readHttpConfiguration(
     PAGES_URL: environment.PAGES_URL,
     PAGES_TOKEN: CONFIGURATION_ONLY_TOKEN,
   });
+  if (
+    pages.agentsUrl.protocol === "http:" &&
+    isPrivateIpv4(pages.agentsUrl.hostname)
+  )
+    throw new Error(
+      "PAGES_URL requires HTTPS (or loopback HTTP) in OAuth mode.",
+    );
   if (pages.agentsUrl.pathname !== "/api/v1/agents") {
     throw new HttpOptionError("pages");
   }

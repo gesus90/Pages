@@ -15,6 +15,7 @@ import type {
   AgentProfileDirectory,
   AgentProfileInput,
 } from "@/definition/AgentProfile";
+import type { AgentTaskAssignment } from "@/definition/AgentUsage";
 import type { AssignmentChoices } from "./use-agent-assignment";
 
 /** Inputs for the central agent editor. */
@@ -25,6 +26,8 @@ export interface AgentProfileFormProps {
   readonly catalogs: Readonly<Record<string, AgentModelCatalog>>;
   readonly directory: AgentProfileDirectory;
   readonly projects?: readonly { readonly id: string; readonly name: string }[];
+  /** Tickets that execution plans bind to an existing agent, listed read-only. */
+  readonly taskAssignments?: readonly AgentTaskAssignment[];
   readonly onSaved: () => void;
 }
 

@@ -3,20 +3,26 @@ import { CAPABILITY } from "@/definition/Authorization";
 import {
   activeAccount,
   requireAdministration,
+  requireNoAgentScope,
   validateAdministrationName,
   requireUniqueAdministrationName,
 } from "./AdministrationAccess";
 import type { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
+import type { ActorChannel } from "@/backend/auth/McpActorContext";
 import type { Department } from "@/definition/Authorization";
 
 /** Owns department labels and their membership deletion exception. */
 export class DepartmentAdministrationService {
-  private readonly policy = new UserPolicyService();
+  private readonly policy: UserPolicyService;
   private readonly repository: AuthorizationRepository;
 
   /** Binds department operations to the aggregate transaction. */
-  public constructor(repository: AuthorizationRepository) {
+  public constructor(
+    repository: AuthorizationRepository,
+    channel: ActorChannel = "ui",
+  ) {
     this.repository = repository;
+    this.policy = new UserPolicyService(channel);
   }
 
   /** Creates or renames a department and assigns a new one to the creator's scope. */
@@ -47,7 +53,7 @@ export class DepartmentAdministrationService {
     });
   }
 
-  /** Removes an in-scope department, retaining the historical membership invariant. */
+  /** Removes an in-scope department that no agent uses, retaining the historical membership invariant. */
   public async deleteDepartment(
     userId: string,
     departmentId: string,
@@ -58,6 +64,10 @@ export class DepartmentAdministrationService {
       requireAdministration(
         this.policy.canManageDepartment(actor, departmentId),
       );
+      await requireNoAgentScope(repository, actor, {
+        kind: "department",
+        targetId: departmentId,
+      });
       await repository.deleteDepartment(departmentId);
     });
   }

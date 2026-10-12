@@ -8,7 +8,7 @@ const ANNOTATIONS = {
   openWorldHint: false,
 } as const;
 const COMMON =
-  "pageId is a page ID or a Pages address such as /wiki/<id> (with or without the server in front). expectedRevision is the revision you read with read_wiki_page; a page saved since then returns CONFLICT and nothing changes. Only this field changes; the other fields stay as they are, and the previous state stays in the page versions. Reuse operationId with identical input to recover the stored result after response loss; changed input returns CONFLICT. A hidden page returns NOT_FOUND; without the write right the call returns FORBIDDEN. JSON request maximum 64 KiB.";
+  "pageId is a page ID or a Pages address such as /wiki/<id> (with or without the server in front). expectedRevision is the revision you read with read_wiki_page; a page saved since then returns CONFLICT with currentRevision and nothing changes. Only this field changes; the other fields stay as they are, and the previous state stays in the page versions. Reuse operationId with identical input to recover the stored result after response loss; changed input returns CONFLICT. A hidden page returns NOT_FOUND; without the write right the call returns FORBIDDEN. Wiki content accepts at most 1 MiB UTF-8, other requests at most 64 KiB.";
 
 type FieldSchema = NonNullable<Tool["inputSchema"]["properties"]>[string];
 

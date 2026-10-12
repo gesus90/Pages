@@ -1,3 +1,4 @@
+import { ProjectActivityRepository } from "./project/ProjectActivityRepository";
 import { deleteWikiPages } from "./wiki/WikiPageDeletion";
 import { WikiAnchorRepository } from "./wiki/WikiAnchorRepository";
 import { WikiAttachmentRepository } from "./wiki/WikiAttachmentRepository";
@@ -17,6 +18,7 @@ import type {
   Database,
   DatabaseTransaction,
 } from "@/backend/database/Database";
+import type { ProjectActivitySource } from "@/definition/Project";
 import type { WikiPageSelection } from "./wiki/WikiPageDeletion";
 
 export type { WikiNodeRecord, WikiTrashEntry } from "./wiki/WikiPageRepository";
@@ -82,14 +84,22 @@ export class WikiRepository {
   public readonly settings: WikiSettingsRepository;
   /** Favorites, recent pages and open branches of users. */
   public readonly state: WikiStateRepository;
+  /** Project audit entries sharing the wiki mutation transaction. */
+  public readonly activity: ProjectActivityRepository;
   private readonly database: WikiDatabase;
+  private readonly source: ProjectActivitySource;
 
   /**
    * Creates a wiki repository.
    *
    * @param database - Central database access.
    */
-  public constructor(database: WikiDatabase) {
+  public constructor(
+    database: WikiDatabase,
+    source: ProjectActivitySource = "ui",
+  ) {
+    this.source = source;
+    this.activity = new ProjectActivityRepository(database, source);
     this.database = database;
     this.pages = new WikiPageRepository(database);
     this.writes = new WikiPageWriteRepository(database);
@@ -117,13 +127,16 @@ export class WikiRepository {
   ): Promise<Result> {
     return this.database.transaction((transaction) =>
       work(
-        new WikiRepository({
-          execute: transaction.execute.bind(transaction),
-          query: transaction.query.bind(transaction),
-          transaction: async <Nested>(
-            operation: (scope: DatabaseTransaction) => Promise<Nested>,
-          ): Promise<Nested> => operation(transaction),
-        }),
+        new WikiRepository(
+          {
+            execute: transaction.execute.bind(transaction),
+            query: transaction.query.bind(transaction),
+            transaction: async <Nested>(
+              operation: (scope: DatabaseTransaction) => Promise<Nested>,
+            ): Promise<Nested> => operation(transaction),
+          },
+          this.source,
+        ),
       ),
     );
   }

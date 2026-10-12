@@ -71,7 +71,7 @@ describe("wiki pages", () => {
       service.create(ada, pageInput({ title: "x".repeat(201) })),
     ).rejects.toMatchObject({ code: "titleTooLong" });
     await expect(
-      service.create(ada, pageInput({ content: "x".repeat(200_001) })),
+      service.create(ada, pageInput({ content: "ä".repeat(524_288) + "x" })),
     ).rejects.toMatchObject({ code: "contentTooLong" });
     await expect(
       service.create(ada, pageInput({ icon: "abc" })),

@@ -1,5 +1,8 @@
 import { data } from "react-router";
-import { AdministrationError } from "@/backend/error/AdministrationError";
+import {
+  AdministrationError,
+  AgentScopeInUseError,
+} from "@/backend/error/AdministrationError";
 import {
   EmailTakenError,
   LastAdministratorError,
@@ -20,6 +23,7 @@ const ADMINISTRATION_ERROR_STATUS: Readonly<
   invalidInput: 400,
   notFound: 404,
   inUse: 409,
+  agentInUse: 409,
   lastAdministrator: 409,
   lastMembership: 409,
 };
@@ -33,6 +37,7 @@ export type UsersErrorCode =
   | "lastAdministrator"
   | "demoteLastAdministrator"
   | "inUse"
+  | "agentInUse"
   | "lastMembership"
   | "userNotFound";
 
@@ -74,6 +79,8 @@ export type UsersActionData =
       readonly ok: false;
       readonly intent: UsersIntent;
       readonly error: UsersErrorCode;
+      /** Agents that block deleting a group or department, named only for administrators. */
+      readonly agents?: readonly string[];
     };
 
 /** The response a user directory action returns. */
@@ -113,8 +120,10 @@ export function toActionError(
 ): UsersActionResult {
   if (error instanceof AdministrationError) {
     const errorCode = error.code === "notFound" ? "userNotFound" : error.code;
+    const details =
+      error instanceof AgentScopeInUseError ? { agents: error.agents } : {};
     return data<UsersActionData>(
-      { ok: false, intent, error: errorCode },
+      { ok: false, intent, error: errorCode, ...details },
       {
         status: ADMINISTRATION_ERROR_STATUS[error.code],
       },

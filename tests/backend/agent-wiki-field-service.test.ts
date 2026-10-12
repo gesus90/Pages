@@ -413,7 +413,7 @@ it("checks visibility before stale revisions and stale revisions before invalid 
 it.each([
   ["wiki.page.setTitle", "title", ""],
   ["wiki.page.setTitle", "title", "x".repeat(201)],
-  ["wiki.page.setContent", "content", "x".repeat(200001)],
+  ["wiki.page.setContent", "content", "x".repeat(1_048_577)],
   ["wiki.page.setIcon", "icon", "invalid"],
 ] as const)(
   "rejects invalid %s values without changing the wiki",
@@ -429,7 +429,12 @@ it.each([
         expectedRevision: 1,
         [field]: value,
       }),
-    ).rejects.toMatchObject({ code: "INVALID_REQUEST" });
+    ).rejects.toMatchObject({
+      code:
+        operation === "wiki.page.setContent"
+          ? "PAYLOAD_TOO_LARGE"
+          : "INVALID_REQUEST",
+    });
     expect(
       await wikiFieldState(harness.database, { includeOperationKeys: true }),
     ).toEqual(before);

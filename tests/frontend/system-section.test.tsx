@@ -9,6 +9,8 @@ import { describe, expect, it } from "vitest";
 import { SystemSection } from "@/app/components/settings/system-section";
 import { createI18n } from "@/app/lib/i18n";
 
+import { CHAT_ADMINISTRATION } from "../helpers/chat";
+
 import type { SettingsActionData } from "@/app/lib/settings-actions/settings-action-support.server";
 
 function renderSection(
@@ -19,6 +21,7 @@ function renderSection(
       Component: () => (
         <SystemSection
           wikiSettings={WIKI_SETTING_DEFAULTS}
+          chatSettings={CHAT_ADMINISTRATION}
           branding={{ companyName: "Muster GmbH", logoUrl: null }}
           port={3000}
           status={{

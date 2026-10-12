@@ -35,6 +35,7 @@ const configuration = {
 beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
   process.exitCode = 0;
+  vi.stubEnv("PAGES_TOKEN", "isolated-token");
   process.argv = [process.execPath, "bundle.js"];
   vi.mocked(readConfiguration).mockReturnValue(configuration);
   vi.mocked(verifyPages).mockResolvedValue({ identity, tools: [] });

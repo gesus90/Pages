@@ -44,3 +44,17 @@ export function useUsersError(intent: UsersIntent): UsersErrorCode | null {
     ? actionData.error
     : null;
 }
+
+/**
+ * Lists the agents that blocked the latest failed deletion with the given intent.
+ *
+ * @param intent - The directory action whose failure the caller shows.
+ * @returns Agent names, or an empty list when none were reported to this user.
+ */
+export function useBlockingAgents(intent: UsersIntent): readonly string[] {
+  const actionData = useUsersActionData();
+
+  return actionData && !actionData.ok && actionData.intent === intent
+    ? (actionData.agents ?? [])
+    : [];
+}

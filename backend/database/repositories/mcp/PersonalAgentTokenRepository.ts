@@ -49,8 +49,8 @@ export class PersonalAgentTokenRepository {
     await this.database.execute(
       `
       INSERT INTO personal_agent_tokens (
-          id, user_id, name, token_hash, created_at, expires_at, revoked_at
-      ) VALUES ($id, $user_id, $name, $token_hash, $created_at, $expires_at, NULL);
+          id, user_id, name, token_hash, created_at, expires_at, revoked_at, source, device_label
+      ) VALUES ($id, $user_id, $name, $token_hash, $created_at, $expires_at, NULL, $source, $device);
     `,
       {
         id: token.id,
@@ -59,6 +59,8 @@ export class PersonalAgentTokenRepository {
         token_hash: tokenHash,
         created_at: token.createdAt,
         expires_at: token.expiresAt,
+        source: token.source,
+        device: token.device,
       },
     );
   }
@@ -73,7 +75,12 @@ export class PersonalAgentTokenRepository {
           name,
           CAST(created_at AS TEXT),
           CAST(expires_at AS TEXT),
-          CAST(revoked_at AS TEXT)
+          CAST(revoked_at AS TEXT),
+          source,
+          device_label,
+          CAST(last_used_at AS TEXT),
+          CAST(rotated_at AS TEXT),
+          CAST(rotation_requested_at AS TEXT)
       FROM personal_agent_tokens
       WHERE user_id = $user_id
       ORDER BY created_at DESC;
@@ -91,6 +98,18 @@ export class PersonalAgentTokenRepository {
       revokedAt: nullableTimestamp(
         readNullableTextColumn(row, 5, "revoked_at"),
       ),
+      source:
+        readTextColumn(row, 6, "source") === "pairing" ? "pairing" : "manual",
+      device: readNullableTextColumn(row, 7, "device_label"),
+      lastUsedAt: nullableTimestamp(
+        readNullableTextColumn(row, 8, "last_used_at"),
+      ),
+      rotatedAt: nullableTimestamp(
+        readNullableTextColumn(row, 9, "rotated_at"),
+      ),
+      rotationRequestedAt: nullableTimestamp(
+        readNullableTextColumn(row, 10, "rotation_requested_at"),
+      ),
     }));
   }
 
@@ -103,7 +122,7 @@ export class PersonalAgentTokenRepository {
       `
       SELECT user_id
       FROM personal_agent_tokens
-      WHERE token_hash = $token_hash
+      WHERE (token_hash = $token_hash OR (previous_token_hash = $token_hash AND previous_valid_until > $now))
           AND revoked_at IS NULL
           AND (expires_at IS NULL OR expires_at > $now);
     `,
@@ -117,13 +136,102 @@ export class PersonalAgentTokenRepository {
     await this.database.execute(
       `
       UPDATE personal_agent_tokens
-      SET revoked_at = $now
+      SET revoked_at = $now,
+          previous_token_hash = NULL,
+          previous_valid_until = NULL,
+          rotation_requested_at = NULL
       WHERE id = $id
           AND user_id = $user_id
           AND revoked_at IS NULL;
     `,
       { id, user_id: userId, now },
     );
+  }
+
+  /** Returns public metadata only for a valid presented credential. */
+  public async describe(
+    tokenHash: string,
+    now: number,
+  ): Promise<StoredPersonalToken | null> {
+    const owner = await this.findOwner(tokenHash, now);
+    if (!owner) return null;
+    const rows = await this.database.query(
+      `
+      SELECT id
+      FROM personal_agent_tokens
+      WHERE token_hash = $hash
+          OR (previous_token_hash = $hash AND previous_valid_until > $now);
+    `,
+      { hash: tokenHash, now },
+    );
+    const row = rows[0];
+    if (!row) return null;
+    return (
+      (await this.list(owner)).find(
+        (token) => token.id === readTextColumn(row, 0, "id"),
+      ) ?? null
+    );
+  }
+
+  /** Tracks successful use at most once a minute and ends overlap on first use of the new token. */
+  public async used(tokenHash: string, now: number): Promise<void> {
+    await this.database.execute(
+      `
+      UPDATE personal_agent_tokens
+      SET last_used_at = CASE WHEN last_used_at IS NULL OR last_used_at <= $now - 60000 THEN $now ELSE last_used_at END,
+          previous_token_hash = CASE WHEN token_hash = $hash THEN NULL ELSE previous_token_hash END,
+          previous_valid_until = CASE WHEN token_hash = $hash THEN NULL ELSE previous_valid_until END
+      WHERE revoked_at IS NULL
+          AND (expires_at IS NULL OR expires_at > $now)
+          AND (token_hash = $hash OR (previous_token_hash = $hash AND previous_valid_until > $now));
+    `,
+      { hash: tokenHash, now },
+    );
+  }
+
+  /** Requests rotation for one active owner-bound paired credential. */
+  public async requestRotation(
+    userId: string,
+    id: string,
+    now: number,
+  ): Promise<void> {
+    await this.database.execute(
+      `
+      UPDATE personal_agent_tokens
+      SET rotation_requested_at = COALESCE(rotation_requested_at, $now)
+      WHERE id = $id
+          AND user_id = $user_id
+          AND source = 'pairing'
+          AND revoked_at IS NULL
+          AND (expires_at IS NULL OR expires_at > $now);
+    `,
+      { user_id: userId, id, now },
+    );
+  }
+
+  /** Replaces a paired credential in place; only its current hash may rotate. */
+  public async replaceHash(
+    currentHash: string,
+    replacementHash: string,
+    now: number,
+  ): Promise<boolean> {
+    const rows = await this.database.query(
+      `
+      UPDATE personal_agent_tokens
+      SET token_hash = $replacement,
+          previous_token_hash = $current,
+          previous_valid_until = $now + 300000,
+          rotated_at = $now,
+          rotation_requested_at = NULL
+      WHERE token_hash = $current
+          AND source = 'pairing'
+          AND revoked_at IS NULL
+          AND (expires_at IS NULL OR expires_at > $now)
+      RETURNING id;
+    `,
+      { current: currentHash, replacement: replacementHash, now },
+    );
+    return rows.length === 1;
   }
 }
 

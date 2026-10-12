@@ -33,6 +33,10 @@ export function extractWikiLinks(content: string): WikiLinkTargets {
     }
   }
 
+  for (const [, id = ""] of content.matchAll(/\]\(page:([\w-]+)\)/g)) {
+    if (!RESERVED_PAGE_PATHS.has(id)) pageIds.add(id);
+  }
+
   for (const [, key = ""] of content.matchAll(TICKET_ADDRESS)) {
     ticketKeys.add(key.toUpperCase());
   }

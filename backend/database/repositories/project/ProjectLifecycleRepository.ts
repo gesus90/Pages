@@ -123,6 +123,17 @@ export class ProjectLifecycleRepository {
     `,
       { project_id: projectId },
     );
+    await this.database.execute(
+      `
+      DELETE FROM milestone_initiatives
+      WHERE initiative_id IN (
+          SELECT id FROM work_items WHERE project_id = $project_id
+      ) OR milestone_id IN (
+          SELECT id FROM milestones WHERE project_id = $project_id
+      );
+    `,
+      { project_id: projectId },
+    );
     // The files of these attachments are swept when the server starts.
     await this.database.execute(
       `

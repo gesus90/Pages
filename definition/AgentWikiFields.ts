@@ -29,7 +29,8 @@ export type AgentWikiFieldInput = AgentWikiPageTarget & AgentWikiFieldChange;
 
 /** An explicit place inside a project; the page keeps its text and icon. */
 export interface AgentWikiMoveInput extends AgentWikiPageTarget {
-  readonly projectId: string;
+  readonly projectId: string | null;
+  readonly scope?: "project" | "instance" | "private";
   /** Page above, or `null` for a root page of the project. */
   readonly parentId: string | null;
   /** Sibling the page is placed before, or `null` to append it. */
@@ -56,7 +57,7 @@ export interface AgentWikiPageMoved {
   readonly revision: number;
   readonly changed: boolean;
   readonly parentId: string | null;
-  readonly projectId: string;
+  readonly projectId: string | null;
   /** How the move changed who sees the page; never names or numbers of people. */
   readonly visibility: WikiVisibilityChange;
 }

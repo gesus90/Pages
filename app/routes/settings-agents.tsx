@@ -29,6 +29,7 @@ import type {
 import type { Route } from "./+types/settings-agents";
 import type { AgentAvailability } from "@/definition/AgentAvailability";
 import type { AgentFilters } from "@/definition/AgentFilters";
+import type { AgentTaskAssignment } from "@/definition/AgentUsage";
 
 type AgentsLoaderData =
   | { readonly access: "adminModeRequired" }
@@ -48,6 +49,9 @@ type AgentsLoaderData =
         readonly id: string;
         readonly name: string;
       }[];
+      readonly taskAssignments: Readonly<
+        Record<string, readonly AgentTaskAssignment[]>
+      >;
     };
 
 /**
@@ -90,6 +94,7 @@ export async function loader({
       profileDirectory,
       projects,
       workspaceChoices,
+      taskAssignments,
     ] = await Promise.all([
       services.agentConnectionService.list(actor),
       services.agentCliLoginService.tools(actor),
@@ -100,6 +105,7 @@ export async function loader({
       services.agentProfileService.directory(actor),
       services.agentProfileService.projects(actor),
       services.agentWorkspaceService.choices(actor.userId),
+      services.agentPlanService.taskAssignments(actor),
     ]);
     return routeData<AgentsLoaderData>(
       {
@@ -115,6 +121,7 @@ export async function loader({
         projects,
         profileDirectory,
         workspaceChoices,
+        taskAssignments,
       },
       { headers: AGENT_NO_STORE },
     );
@@ -149,6 +156,7 @@ export default function SettingsAgentsRoute(): React.ReactElement {
       filters={result.filters}
       projects={result.projects}
       workspaceChoices={result.workspaceChoices}
+      taskAssignments={result.taskAssignments}
     />
   ) : (
     <AdminModeRequired description={t("settings.agents.adminModeRequired")} />

@@ -1,3 +1,5 @@
+import type { AgentUsage } from "@/definition/AgentUsage";
+
 /** Stable codes cross the HTTP boundary; upstream error text never does. */
 export const AGENT_ERROR_MESSAGES = {
   plan_invalid: "Check the plan fields and graph nodes.",
@@ -131,6 +133,19 @@ export class AgentError extends Error {
     super(AGENT_ERROR_MESSAGES[code]);
     this.name = "AgentError";
     this.code = code;
+  }
+}
+
+/** A deletion lock that carries the current references, so the caller can list them. */
+export class AgentInUseError extends AgentError {
+  public readonly usages: readonly AgentUsage[];
+
+  public constructor(
+    code: "profile_in_use" | "connection_in_use",
+    usages: readonly AgentUsage[],
+  ) {
+    super(code);
+    this.usages = usages;
   }
 }
 

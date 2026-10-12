@@ -1,6 +1,14 @@
-import { AdministrationError } from "@/backend/error/AdministrationError";
+import { UserPolicyService } from "@/backend/auth/UserPolicyService";
+import {
+  AdministrationError,
+  AgentScopeInUseError,
+} from "@/backend/error/AdministrationError";
 
-import type { AuthorizationSnapshot } from "@/backend/database/repositories/AuthorizationRepository";
+import type {
+  AuthorizationRepository,
+  AuthorizationSnapshot,
+} from "@/backend/database/repositories/AuthorizationRepository";
+import type { AgentProfileTarget } from "@/definition/AgentProfile";
 import type { AccountAccess, Department } from "@/definition/Authorization";
 
 /** Resolves a target from the current aggregate snapshot. */
@@ -50,4 +58,29 @@ export function requireUniqueAdministrationName(
   ) {
     throw new AdministrationError("invalidInput");
   }
+}
+
+/**
+ * Keeps a group or department while agents use it, instead of silently withdrawing their scope or usage share.
+ *
+ * @remarks
+ * Only administrators in the active admin mode manage agents, so only they receive the agent names.
+ *
+ * @param repository - Authorization repository inside the deleting transaction.
+ * @param actor - Current account that requested the deletion.
+ * @param target - Group or department about to be deleted.
+ * @throws {AgentScopeInUseError} When agents still reference the target.
+ */
+export async function requireNoAgentScope(
+  repository: AuthorizationRepository,
+  actor: AccountAccess,
+  target: AgentProfileTarget,
+): Promise<void> {
+  const agents = await repository.agentProfiles().references(target);
+  if (agents.length === 0) return;
+  throw new AgentScopeInUseError(
+    new UserPolicyService().isAdministrator(actor)
+      ? agents.map((agent) => agent.name)
+      : [],
+  );
 }

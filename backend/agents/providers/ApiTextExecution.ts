@@ -63,10 +63,9 @@ export class ApiTextExecution implements TextExecution {
       signal.throwIfAborted();
       if (classifyProviderError(response.status, payload))
         throw new TextAssistantError("providerFailed");
-      return readTextProviderResponse(connection.provider, payload).replaceAll(
-        apiKey,
-        "[redacted]",
-      );
+      return readTextProviderResponse(connection.provider, payload, {
+        webSearch: input.webSearch,
+      }).replaceAll(apiKey, "[redacted]");
     } catch (error: unknown) {
       if (error instanceof TextAssistantError) throw error;
       throw new TextAssistantError("providerFailed");

@@ -226,7 +226,7 @@ describe("A9.5 route failures", () => {
             Authorization: "Bearer isolated-token",
             "Content-Type": "application/json",
           },
-          body: "ä".repeat(32769),
+          body: "ä".repeat((6 * 1_048_576 + 65_536) / 2 + 1),
         }),
       ),
     );

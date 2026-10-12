@@ -12,6 +12,7 @@ import {
 import { FormError } from "@/app/components/users/form-error";
 import { useCloseAfterAction } from "@/app/components/users/use-close-after-action";
 import {
+  useBlockingAgents,
   useIsSubmitting,
   useUsersError,
 } from "@/app/components/users/use-users-action";
@@ -34,6 +35,7 @@ export function CatalogDeleteDialog({
   const [open, setOpen] = useState(false);
   const intent = `delete-${kind}` as const;
   const error = useUsersError(intent);
+  const blockingAgents = useBlockingAgents(intent);
   const pending = useIsSubmitting(intent);
   function close(): void {
     setOpen(false);
@@ -62,6 +64,16 @@ export function CatalogDeleteDialog({
           <input type="hidden" name="intent" value={intent} />
           <input type="hidden" name="entityId" value={id} />
           <FormError error={error} />
+          {blockingAgents.length > 0 ? (
+            <div className="mt-3 text-sm">
+              <p className="font-medium">{t("users.catalog.agentUsages")}</p>
+              <ul className="pages-selectable mt-1.5 list-disc space-y-0.5 pl-4 break-words">
+                {blockingAgents.map((agentName, index) => (
+                  <li key={index}>{agentName}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           <footer className="mt-6 flex justify-end gap-2">
             <DialogClose asChild>
               <Button variant="ghost">{t("users.edit.cancel")}</Button>

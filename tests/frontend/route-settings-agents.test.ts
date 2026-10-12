@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const services = vi.hoisted(() => ({
   administrationService: { getContext: vi.fn(), setMode: vi.fn() },
   agentWorkspaceService: { choices: vi.fn().mockResolvedValue([]) },
+  agentPlanService: { taskAssignments: vi.fn() },
   agentProfileService: {
     list: vi.fn().mockResolvedValue([]),
     filteredList: vi.fn().mockResolvedValue({ profiles: [], availability: {} }),
@@ -52,7 +53,11 @@ import {
   action as loginAction,
   loader as loginLoader,
 } from "@/app/routes/settings-agents-login";
-import { AgentError, isAgentErrorCode } from "@/backend/error/AgentErrors";
+import {
+  AgentError,
+  AgentInUseError,
+  isAgentErrorCode,
+} from "@/backend/error/AgentErrors";
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
 
 import { createAccess } from "../helpers/authorization";
@@ -142,7 +147,24 @@ describe("agent routes", () => {
   });
 
   it("loads only safe metadata and performs no checks or login", async () => {
+    const taskAssignments = {
+      agent: [
+        {
+          planId: "plan",
+          planName: "Release",
+          taskId: "task",
+          key: "PAGE-1",
+          title: "Write notes",
+        },
+      ],
+    };
+    services.agentPlanService.taskAssignments.mockResolvedValue(
+      taskAssignments,
+    );
     const result = await loader(routeArgs({}, "GET"));
+    expect(services.agentPlanService.taskAssignments).toHaveBeenCalledWith(
+      expect.objectContaining({ isAdmin: true, mode: "admin" }),
+    );
     expect(result.data).toEqual({
       access: "granted",
       connections: [createAgentConnection()],
@@ -163,6 +185,7 @@ describe("agent routes", () => {
         usability: "",
       },
       profileDirectory: { persons: [], groups: [], departments: [] },
+      taskAssignments,
     });
     expect(result.init?.headers).toEqual({ "Cache-Control": "no-store" });
     expect(services.agentCheckService.run).not.toHaveBeenCalled();
@@ -222,6 +245,37 @@ describe("agent routes", () => {
         )
       ).status,
     ).toBe(409);
+    services.agentProfileService.remove.mockRejectedValueOnce(
+      new AgentInUseError("profile_in_use", [{ kind: "plan", id: "release" }]),
+    );
+    const blocked = await action(
+      routeArgs({ intent: "delete-profile", profileId: "selected" }),
+    );
+    expect(blocked.status).toBe(409);
+    expect(blocked.headers.get("Cache-Control")).toBe("no-store");
+    expect(await blocked.json()).toEqual({
+      ok: false,
+      intent: "",
+      error: "profile_in_use",
+      usages: [{ kind: "plan", id: "release" }],
+    });
+    services.agentConnectionService.remove.mockRejectedValueOnce(
+      new AgentInUseError("connection_in_use", [
+        { kind: "agent", id: "writer", name: "Writer" },
+      ]),
+    );
+    expect(
+      await (
+        await action(
+          routeArgs({ intent: "delete-connection", connectionId: "id" }),
+        )
+      ).json(),
+    ).toEqual({
+      ok: false,
+      intent: "",
+      error: "connection_in_use",
+      usages: [{ kind: "agent", id: "writer", name: "Writer" }],
+    });
     services.agentProfileService.save.mockRejectedValueOnce(
       new AgentError("profile_conflict"),
     );

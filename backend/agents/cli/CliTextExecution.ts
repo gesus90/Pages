@@ -52,7 +52,8 @@ function codexArguments(input: TextExecutionInput, work: string): string[] {
     "-c",
     "features.code_mode=false",
     "-c",
-    'web_search="disabled"',
+    // The chat may use Codex's own search; no other tool is ever enabled.
+    input.webSearch === true ? 'web_search="live"' : 'web_search="disabled"',
     "-c",
     "mcp_servers={}",
     "-m",
@@ -65,14 +66,23 @@ function codexArguments(input: TextExecutionInput, work: string): string[] {
 }
 
 function claudeArguments(input: TextExecutionInput): string[] {
+  // Search is the only tool the chat may enable; it needs turns of its own.
+  const tools =
+    input.webSearch === true
+      ? [
+          "--max-turns",
+          "6",
+          "--tools",
+          "WebSearch",
+          "--allowedTools",
+          "WebSearch",
+        ]
+      : ["--max-turns", "1", "--tools", ""];
   const args = [
     "-p",
     "--output-format",
     "json",
-    "--max-turns",
-    "1",
-    "--tools",
-    "",
+    ...tools,
     "--strict-mcp-config",
     "--no-session-persistence",
     "--safe-mode",
@@ -118,13 +128,18 @@ export class CliTextExecution implements TextExecution {
             ? codexArguments(input, home.work)
             : claudeArguments(input),
         stdin: "pipe",
-        input: input.prompt,
+        input:
+          input.instructions === undefined
+            ? input.prompt
+            : `${input.instructions}\n\n${input.prompt}`,
         signal,
         timeoutMs: 120_000,
       });
       if (result.errorCode !== null || result.exitCode !== 0)
         throw new TextAssistantError("providerFailed");
-      return readCliTextResponse(connection.provider, result.stdout);
+      return readCliTextResponse(connection.provider, result.stdout, {
+        webSearch: input.webSearch,
+      });
     } finally {
       await store.secure(connection.id, connection.provider);
     }

@@ -111,7 +111,7 @@ describe("MCP project-name tool", () => {
       error: { code: -32602, message: "This tool takes no arguments." },
     });
     expect(
-      await request("tools/call", { name: "create_project" }),
+      await request("tools/call", { name: "unknown_project_tool" }),
     ).toMatchObject({ error: { code: -32602, message: "Unknown tool." } });
     expect(verifyPages).toHaveBeenCalledOnce();
     expect(listProjectNames).not.toHaveBeenCalled();

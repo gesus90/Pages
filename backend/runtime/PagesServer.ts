@@ -2,6 +2,9 @@ import { createServer } from "node:http";
 import { networkInterfaces } from "node:os";
 
 import { createRequestListener } from "@react-router/node";
+import { RouterContextProvider } from "react-router";
+
+import { clientSocketAddressContext } from "@/app/lib/client-address.server";
 
 import {
   ConfigError,
@@ -93,6 +96,11 @@ export function createPagesRequestListener(
   const handleApplication = createRequestListener({
     build,
     mode: "production",
+    getLoadContext: (request, client) => {
+      const context = new RouterContextProvider();
+      context.set(clientSocketAddressContext, client.address);
+      return context;
+    },
   });
 
   return (request, response) => {

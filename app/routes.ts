@@ -15,7 +15,8 @@ export default [
   route("health", "routes/health.ts"),
   route("api/v1/agent-assets", "routes/api-v1-agent-assets.ts"),
   route("api/v1/agents", "routes/api-v1-agents.ts"),
-  route("api/v1/personal-tokens", "routes/api-v1-personal-tokens.ts"),
+  route("api/v1/pairing/:endpoint?", "routes/api-v1-pairing.ts"),
+  route("pair", "routes/pair.tsx"),
   route("api/v1/mcp-settings", "routes/api-v1-mcp-settings.ts"),
   route(
     ".well-known/oauth-authorization-server",
@@ -27,6 +28,9 @@ export default [
   layout("routes/authenticated.tsx", [
     route("account-version", "routes/account-version.ts"),
     route("assistant-api", "routes/text-assistant.ts"),
+    route("chat-api", "routes/chat-api.ts"),
+    route("chat-api/attachments", "routes/chat-attachments.ts"),
+    route("chat/attachments/:attachmentId", "routes/chat-attachment.ts"),
     route("agent-api/definitions", "routes/agent-definitions.ts"),
     route("agent-api/workspaces", "routes/agent-workspace-choices.ts"),
     route("agents/workspaces", "routes/agent-workspaces.tsx"),
@@ -38,6 +42,7 @@ export default [
     route("settings", "routes/settings.tsx", [
       index("routes/settings-index.ts"),
       route("profile", "routes/settings-profile.tsx"),
+      route("connections", "routes/settings-connections.tsx"),
       route("system", "routes/settings-system.tsx"),
       route("agents", "routes/settings-agents.tsx"),
     ]),

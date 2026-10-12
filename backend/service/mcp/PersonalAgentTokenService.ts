@@ -15,6 +15,7 @@ import type {
   AgentIdentity,
   PersonalAgentToken,
 } from "@/definition/McpAuthorization";
+import type { McpCredentialDetails } from "@/definition/McpPairing";
 
 /** Manages personal stdio credentials; only creation and rotation return clear text once. */
 export class PersonalAgentTokenService {
@@ -41,10 +42,15 @@ export class PersonalAgentTokenService {
 
   /** Returns only the owner's audit summaries, never hashes or clear text. */
   public async list(userId: string): Promise<PersonalAgentToken[]> {
-    return (await this.repository.list(userId)).map((token) => ({
-      ...token,
-      status: status(token),
-    }));
+    return (await this.repository.list(userId))
+      .filter((token) => {
+        const endedAt = token.revokedAt ?? token.expiresAt;
+        return endedAt === null || endedAt > Date.now() - 90 * 86_400_000;
+      })
+      .map((token) => ({
+        ...token,
+        status: status(token),
+      }));
   }
 
   /** Revokes a token belonging to the requesting user. */
@@ -82,7 +88,67 @@ export class PersonalAgentTokenService {
   public async verifyHash(tokenHash: string): Promise<AgentIdentity> {
     const owner = await this.repository.findOwner(tokenHash, Date.now());
     if (!owner) throw new McpAuthorizationError("invalid_token", 401);
-    return this.identities.verify(owner);
+    const identity = await this.identities.verify(owner);
+    await this.repository.used(tokenHash, Date.now());
+    return identity;
+  }
+
+  /** Returns audit metadata for the caller's currently valid credential. */
+  public async credential(token: string): Promise<McpCredentialDetails | null> {
+    const summary = await this.repository.describe(
+      hashAgentCredential(token),
+      Date.now(),
+    );
+    return summary
+      ? {
+          id: summary.id,
+          name: summary.name,
+          expiresAt: summary.expiresAt,
+          rotationRequested: summary.rotationRequestedAt !== null,
+        }
+      : null;
+  }
+
+  /** Requests client-side rotation without exposing a clear token to the browser. */
+  public async requestRotation(userId: string, id: string): Promise<void> {
+    const summary = (await this.list(userId)).find((token) => token.id === id);
+    if (!summary || summary.source !== "pairing" || summary.status !== "active")
+      throw new McpAuthorizationError("invalid_request");
+    await this.repository.requestRotation(userId, id, Date.now());
+  }
+
+  /** Rotates a device's current credential, retaining its id and absolute expiry. */
+  public async rotateCredential(
+    token: string,
+  ): Promise<{ token: string; expiresAt: number | null }> {
+    await this.verify(token);
+    return this.repository.transaction(async (repository) => {
+      const current = hashAgentCredential(token);
+      const summary = await repository.describe(current, Date.now());
+      const replacement = createAgentCredential();
+      if (
+        !summary ||
+        !(await repository.replaceHash(
+          current,
+          hashAgentCredential(replacement),
+          Date.now(),
+        ))
+      )
+        throw new McpAuthorizationError("invalid_token", 401);
+      return { token: replacement, expiresAt: summary.expiresAt };
+    });
+  }
+
+  /** Revokes the presented connection without accepting a caller-supplied owner or id. */
+  public async revokeCredential(token: string): Promise<{ revoked: true }> {
+    const identity = await this.verify(token);
+    const summary = await this.repository.describe(
+      hashAgentCredential(token),
+      Date.now(),
+    );
+    if (!summary) throw new McpAuthorizationError("invalid_token", 401);
+    await this.revoke(identity.userId, summary.id);
+    return { revoked: true };
   }
   private async issue(
     userId: string,
@@ -108,6 +174,11 @@ export class PersonalAgentTokenService {
       createdAt: Date.now(),
       expiresAt,
       revokedAt: null,
+      source: "manual",
+      device: null,
+      lastUsedAt: null,
+      rotatedAt: null,
+      rotationRequestedAt: null,
       status: "active",
     };
     await this.repository.insert(summary, hashAgentCredential(token));

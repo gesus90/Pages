@@ -16,7 +16,7 @@ import { fieldStatus } from "../helpers/task-fields";
 
 const setup = useAgentPlanningHarness();
 
-it("reads IDs, keys and addresses, lists only applicable statuses and excludes people and integration metadata", async () => {
+it("reads IDs, keys and addresses, lists applicable statuses and safe assignments, and excludes integration metadata", async () => {
   const run = await setup();
   await run.planning.tickets.apply(
     planningIdentity,
@@ -47,6 +47,9 @@ it("reads IDs, keys and addresses, lists only applicable statuses and excludes p
       key: item.key,
       title: "Original",
       isArchived: false,
+      assignee: null,
+      assigneeGroup: null,
+      department: null,
       statuses: [
         { id: "status-done", name: "Done", isDone: true },
         { id: "own", name: "Done", isDone: true },
@@ -54,7 +57,7 @@ it("reads IDs, keys and addresses, lists only applicable statuses and excludes p
     },
   });
   expect(JSON.stringify(byId)).not.toMatch(
-    /createdBy|assignee|reporter|github|department|password/,
+    /createdBy|reporter|github|password|email|username/,
   );
   vi.spyOn(TaskService.prototype, "getById").mockResolvedValue(
     createWorkItem({ archivedAt: "2026-01-01" }),
@@ -116,7 +119,7 @@ it("describes milestone fields and dependencies without exposing extra storage c
           startAt: null,
           dueAt: null,
         },
-      ],
+      ].sort((left, right) => left.id.localeCompare(right.id)),
       dependencies: [
         { sourceId: source.id, targetId: target.id, linkType: "blocks" },
       ],

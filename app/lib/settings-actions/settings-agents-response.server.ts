@@ -1,6 +1,7 @@
 import {
   AgentAccessDeniedError,
   AgentError,
+  AgentInUseError,
 } from "@/backend/error/AgentErrors";
 
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
@@ -27,6 +28,8 @@ export type AgentActionResult =
       readonly ok: false;
       readonly intent: string;
       readonly error: AgentErrorCode | TextAssistantErrorCode | "general";
+      /** Current references of a blocked deletion, so the dialog can list them. */
+      readonly usages?: readonly AgentUsage[];
     };
 
 export const AGENT_NO_STORE = { "Cache-Control": "no-store" };
@@ -73,8 +76,10 @@ export function agentFailureResponse(error: unknown, intent = ""): Response {
   const code = error instanceof AgentError ? error.code : "general";
   const status =
     error instanceof AgentError ? (ERROR_STATUS[error.code] ?? 400) : 500;
+  const references =
+    error instanceof AgentInUseError ? { usages: error.usages } : {};
   return Response.json(
-    { ok: false, intent, error: code },
+    { ok: false, intent, error: code, ...references },
     { status, headers: AGENT_NO_STORE },
   );
 }

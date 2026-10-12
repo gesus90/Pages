@@ -1,3 +1,5 @@
+import type { AgentExtensionReadResult } from "./AgentExtensions.js";
+import type { AgentAdminReadResult } from "./AgentAdministration.js";
 import type { AgentImportPlan } from "./AgentImportManifest.js";
 import type { AgentStructuredImportPlan } from "./AgentStructuredImportManifest.js";
 import type { AgentMilestones, AgentTicket } from "./AgentTickets.js";
@@ -58,6 +60,9 @@ export type PagesAgentReadOperation =
 /** Fixed wire limits, including the whole serialized UTF-8 response envelope. */
 export const PAGES_AGENT_LIMITS = {
   requestBytes: 65_536,
+  wikiContentBytes: 1_048_576,
+  /** Worst-case JSON escaping of wiki text, plus the metadata budget. */
+  wikiEnvelopeBytes: 6 * 1_048_576 + 65_536,
   responseBytes: 1_048_576,
   candidates: 100,
   treeNodes: 100,
@@ -90,6 +95,16 @@ export interface AgentWikiPage {
   readonly parentId: string | null;
   readonly scope: string;
   readonly projectId: string | null;
+  /** What the page is tied to; a visible page implies visible targets. */
+  readonly anchors: readonly AgentWikiAnchor[];
+}
+
+/** A department, milestone or epic a page is tied to. */
+export interface AgentWikiAnchor {
+  readonly kind: "department" | "milestone" | "epic";
+  readonly targetId: string;
+  /** Name of the target; `null` when it no longer exists. */
+  readonly label: string | null;
 }
 
 /** A visible tree entry; parents outside the requested project or returned window are null. */
@@ -104,6 +119,7 @@ export interface AgentWikiTree {
   readonly nodes: readonly AgentWikiNode[];
   readonly total: number;
   readonly truncated: boolean;
+  readonly nextCursor?: string | null;
 }
 
 /** A visible search passage without owner or project metadata. */
@@ -118,6 +134,7 @@ export interface AgentWikiSearch {
   readonly results: readonly AgentWikiSearchHit[];
   readonly total: number;
   readonly truncated: boolean;
+  readonly nextCursor?: string | null;
 }
 
 /** Business read/preview results; existing verify/name envelopes remain compatible. */
@@ -132,7 +149,9 @@ export interface PagesAgentReadResponse {
     | AgentImportPlan
     | AgentTicket
     | AgentMilestones
-    | AgentWikiComments;
+    | AgentWikiComments
+    | AgentExtensionReadResult
+    | AgentAdminReadResult;
 }
 
 /** Version-one result of a structured import preview. */
@@ -149,6 +168,7 @@ export interface AgentProjectCandidates {
 
 /** Public limit names, shared with the MCP error whitelist. */
 export const AGENT_LIMIT_CONSTRAINTS = [
+  "wikiContentBytes",
   "requestBytes",
   "responseBytes",
   "importIndexEntries",
@@ -168,4 +188,9 @@ export interface AgentLimitDetails {
 }
 
 /** Credential-safe, whitelisted business failure details. */
-export type AgentOperationDetails = AgentProjectCandidates | AgentLimitDetails;
+export interface AgentRevisionConflict {
+  readonly currentRevision: number;
+}
+
+export type AgentOperationDetails =
+  AgentProjectCandidates | AgentLimitDetails | AgentRevisionConflict;

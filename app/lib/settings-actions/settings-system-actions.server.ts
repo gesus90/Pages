@@ -14,6 +14,7 @@ import {
   handleUpdateLogo,
   handleUpdateWikiSettings,
 } from "./settings-instance-actions.server";
+import { handleUpdateChatSettings } from "./settings-chat-actions.server";
 import { handleSetMode } from "./settings-mode-action.server";
 
 import type {
@@ -85,6 +86,7 @@ export async function handleUpdatePort(
 const SYSTEM_ACTION_HANDLERS = {
   "remove-logo": handleRemoveLogo,
   "set-mode": handleSetMode,
+  "update-chat-settings": handleUpdateChatSettings,
   "update-company-name": handleUpdateCompanyName,
   "update-logo": handleUpdateLogo,
   "update-port": handleUpdatePort,

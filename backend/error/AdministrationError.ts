@@ -4,6 +4,7 @@ export type AdministrationErrorCode =
   | "invalidInput"
   | "notFound"
   | "inUse"
+  | "agentInUse"
   | "lastAdministrator"
   | "lastMembership";
 
@@ -15,5 +16,16 @@ export class AdministrationError extends Error {
   public constructor(code: AdministrationErrorCode) {
     super(code);
     this.code = code;
+  }
+}
+
+/** Blocks deleting a group or department that agents still use as scope or usage share. */
+export class AgentScopeInUseError extends AdministrationError {
+  public readonly agents: readonly string[];
+
+  /** Creates the lock with the names of the agents that must be changed first. */
+  public constructor(agents: readonly string[]) {
+    super("agentInUse");
+    this.agents = agents;
   }
 }

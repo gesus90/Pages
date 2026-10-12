@@ -76,6 +76,7 @@ export class WikiSearchService {
   public async search(
     actor: User,
     input: WikiSearchInput,
+    maximumResults = SEARCH_LIMIT,
   ): Promise<WikiSearchResponse> {
     const viewer = await this.access.resolve(actor);
     const { phrases, terms } = parseSearchText(input.text);
@@ -84,7 +85,7 @@ export class WikiSearchService {
       creatorId: input.creatorId,
       editedFrom: normalizeDate(input.editedFrom),
       editedTo: normalizeDate(input.editedTo),
-      limit: SEARCH_LIMIT,
+      limit: maximumResults,
       phrases,
       sort: SORTS.find((sort) => sort === input.sort) ?? "relevance",
       terms,

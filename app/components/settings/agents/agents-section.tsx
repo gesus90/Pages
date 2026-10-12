@@ -11,6 +11,7 @@ import { AgentConnectionPanel } from "./agent-connection-panel";
 import { AgentConnectionsCard } from "./agent-connections-card";
 import { TextAgentSettings } from "./text-agent-settings";
 import { AgentProfiles } from "./agent-profiles";
+import { readBlockingAgents } from "./use-agent-actions";
 import { useAgentManagement } from "./use-agent-management";
 import { useCliLoginPolling } from "./use-cli-login-polling";
 
@@ -30,6 +31,24 @@ import type {
 import type { AgentCommandHandler } from "./agent-row-menu";
 import type { AgentAvailability } from "@/definition/AgentAvailability";
 import type { AgentFilters } from "@/definition/AgentFilters";
+import type { AgentTaskAssignment } from "@/definition/AgentUsage";
+
+interface AgentsSectionProps {
+  readonly workspaceChoices?: readonly AgentWorkspaceChoice[];
+  readonly connections: readonly AgentConnectionSummary[];
+  readonly cliTools: CliToolLocations;
+  readonly catalogs?: Readonly<Record<string, AgentModelCatalog>>;
+  readonly assistantSettings?: TextAssistantSettings;
+  readonly profiles?: readonly AgentProfile[];
+  readonly profileDirectory?: AgentProfileDirectory;
+  readonly assignments?: readonly AgentAssignmentView[];
+  readonly availability?: Readonly<Record<string, AgentAvailability>>;
+  readonly filters?: AgentFilters;
+  readonly projects?: readonly { readonly id: string; readonly name: string }[];
+  readonly taskAssignments?: Readonly<
+    Record<string, readonly AgentTaskAssignment[]>
+  >;
+}
 
 /** Manages first-pass connection tables and panels without automatic provider checks. */
 export function AgentsSection({
@@ -44,19 +63,8 @@ export function AgentsSection({
   filters,
   projects,
   workspaceChoices,
-}: {
-  readonly workspaceChoices?: readonly AgentWorkspaceChoice[];
-  readonly connections: readonly AgentConnectionSummary[];
-  readonly cliTools: CliToolLocations;
-  readonly catalogs?: Readonly<Record<string, AgentModelCatalog>>;
-  readonly assistantSettings?: TextAssistantSettings;
-  readonly profiles?: readonly AgentProfile[];
-  readonly profileDirectory?: AgentProfileDirectory;
-  readonly assignments?: readonly AgentAssignmentView[];
-  readonly availability?: Readonly<Record<string, AgentAvailability>>;
-  readonly filters?: AgentFilters;
-  readonly projects?: readonly { readonly id: string; readonly name: string }[];
-}): React.ReactElement {
+  taskAssignments,
+}: AgentsSectionProps): React.ReactElement {
   const { t } = useTranslation();
   const {
     selection,
@@ -84,7 +92,10 @@ export function AgentsSection({
         description={t("settings.agents.description")}
       />
       {actions.error && !selection ? (
-        <AgentAlert message={t(`settings.agents.error.${actions.error}`)} />
+        <AgentAlert
+          message={t(`settings.agents.error.${actions.error}`)}
+          details={readBlockingAgents(actions.result)}
+        />
       ) : null}
       <AgentProfiles
         profiles={profiles}
@@ -95,6 +106,7 @@ export function AgentsSection({
         filters={filters}
         projects={projects}
         workspaceChoices={workspaceChoices}
+        taskAssignments={taskAssignments}
       />
       <LegacyAgentNotice assignments={assignments} />
       <AgentConnectionTables

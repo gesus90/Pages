@@ -6,6 +6,7 @@ import {
 
 import { AgentWikiCreateTransaction } from "./AgentWikiCreateTransaction";
 
+import type { AgentChannel } from "@/backend/auth/McpActorContext";
 import type { Database } from "@/backend/database/Database";
 import type { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
 import type { WikiFileStore } from "@/backend/storage/WikiFileStore";
@@ -21,6 +22,8 @@ export interface AgentWikiCreateDependencies {
   readonly staging: WikiFileStore;
   readonly wikiFiles: WikiFileStore;
   readonly events: PagesEventPublisher;
+  /** The agent surface the pages are created for; MCP when absent. */
+  readonly channel?: AgentChannel;
 }
 
 /** Creates one project page and all attachment links in the same commit as its operation result. */

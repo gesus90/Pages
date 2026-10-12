@@ -1,0 +1,59 @@
+/* ProseMirror generates the markup of the input field, so it is styled from
+   its container; the values follow the block editor in a compact size. */
+.input :global(.ProseMirror) {
+  min-height: 3.5rem;
+  max-height: 10rem;
+  overflow-y: auto;
+  outline: none;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.input :global(.ProseMirror) > * + * {
+  margin-top: 0.25rem;
+}
+
+.input :global(.ProseMirror) :is(ul, ol) {
+  padding-left: 1.25rem;
+}
+
+.input :global(.ProseMirror) ul {
+  list-style: disc;
+}
+
+.input :global(.ProseMirror) ol {
+  list-style: decimal;
+}
+
+.input :global(.ProseMirror) code {
+  padding: 0.1rem 0.3rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+}
+
+.input :global(.ProseMirror) pre {
+  padding: 0.5rem 0.75rem;
+  overflow-x: auto;
+  border-radius: var(--radius-md);
+  background: var(--color-muted);
+  font-size: 0.75rem;
+  white-space: pre;
+}
+
+.input :global(.ProseMirror) pre code {
+  padding: 0;
+  background: none;
+}
+
+/* The hint in the empty field, set by the placeholder extension. */
+.input :global(.ProseMirror) :global(.is-empty)::before {
+  float: left;
+  height: 0;
+  color: var(--color-muted-foreground);
+  content: attr(data-placeholder);
+  pointer-events: none;
+}

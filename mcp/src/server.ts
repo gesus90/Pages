@@ -5,6 +5,7 @@ import {
 } from "@modelcontextprotocol/server";
 
 import manifest from "../package.json" with { type: "json" };
+import { CredentialStoreError } from "./credential-store.js";
 import { listProjectNames } from "./project-names.js";
 import { WRITE_TOOLS } from "./tools/write-registry.js";
 import { READ_TOOLS } from "./tools/registry.js";
@@ -35,7 +36,8 @@ async function authorized<Result>(
 ): Promise<Result> {
   try {
     return await request();
-  } catch {
+  } catch (error: unknown) {
+    if (error instanceof CredentialStoreError) throw error;
     throw new Error("Pages authorization failed.");
   }
 }

@@ -1,3 +1,4 @@
+import { agentChannelPolicy } from "@/backend/auth/McpActorContext";
 import { PermissionService } from "@/backend/auth/PermissionService";
 import { ServerCache } from "@/backend/cache/ServerCache";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
@@ -23,6 +24,10 @@ import { isAgentCommentOperation } from "./AgentWikiCommentValidation";
 import { isAgentWikiFieldOperation } from "./AgentWikiFieldValidation";
 import { WikiImportPlanner } from "./WikiImportPlanner";
 
+import type { AgentChannel } from "@/backend/auth/McpActorContext";
+import type { AgentAdministrationService } from "./AgentAdministrationService";
+import type { AgentAdminWriteResponse } from "@/definition/AgentAdministration";
+import type { AgentExtensionService } from "./AgentExtensionService";
 import type { AgentPlanningServices } from "./AgentPlanningServices";
 import type { AgentWikiCommentService } from "./AgentWikiCommentService";
 import type { AgentWikiFieldService } from "./AgentWikiFieldService";
@@ -56,6 +61,10 @@ export interface AgentOperationDependencies {
   readonly fields?: AgentWikiFieldService;
   readonly comments?: AgentWikiCommentService;
   readonly planning?: AgentPlanningServices;
+  readonly extensions?: AgentExtensionService;
+  readonly administration?: AgentAdministrationService;
+  /** The agent surface the reads run for; MCP when absent. */
+  readonly channel?: AgentChannel;
 }
 
 function readParameters(input: unknown): Readonly<Record<string, unknown>> {
@@ -86,8 +95,8 @@ function validateParameters(
     "projects.resolve": ["name"],
     "projects.read": ["projectId"],
     "wiki.page.read": ["pageId"],
-    "wiki.tree.read": ["projectId"],
-    "wiki.search": ["text", "projectId"],
+    "wiki.tree.read": ["projectId", "cursor", "limit"],
+    "wiki.search": ["text", "projectId", "cursor", "limit"],
   }[operation];
   if (Object.keys(parameters).some((key) => !allowed.includes(key)))
     throw new AgentOperationError("INVALID_REQUEST");
@@ -96,9 +105,11 @@ function validateParameters(
 /** Dispatches reads, import previews and writes using fresh authentication and isolated MCP policy. */
 export class AgentOperationRouter {
   private readonly dependencies: AgentOperationDependencies;
+  private readonly channel: AgentChannel;
 
   public constructor(dependencies: AgentOperationDependencies) {
     this.dependencies = dependencies;
+    this.channel = dependencies.channel ?? "mcp";
   }
 
   /** Issues a binary upload capability through the authenticated API boundary. */
@@ -121,7 +132,10 @@ export class AgentOperationRouter {
     | PagesAgentReadResponse
     | PagesAgentStructuredReadResponse
     | PagesAgentWriteResponse
+    | AgentAdminWriteResponse
   > {
+    const extension = await this.handleAdditional(identity, input);
+    if (extension) return extension;
     const direct = await this.handleDirect(identity, input, verify);
     if (direct) return direct;
     const operation = PAGES_AGENT_READ_OPERATIONS.find(
@@ -138,7 +152,7 @@ export class AgentOperationRouter {
     const access = new ProjectAccessService(
       this.dependencies.projects,
       ServerCache.disabled(),
-      "mcp",
+      agentChannelPolicy(this.channel).actor,
     );
     const projects = new AgentProjectReadService(access);
     const wikiAccess = new WikiAccess(
@@ -156,6 +170,7 @@ export class AgentOperationRouter {
     const wiki = new AgentWikiReadService(
       reads,
       new WikiSearchService(this.dependencies.wiki, wikiAccess),
+      this.dependencies.wiki.anchors,
     );
     let result: PagesAgentReadResponse["result"];
     if (operation === "projects.resolve")
@@ -170,18 +185,59 @@ export class AgentOperationRouter {
           ? undefined
           : readText(parameters, "projectId");
       if (projectId !== undefined) await projects.read(actor, projectId);
+      const paging = {
+        cursor: parameters.cursor,
+        limit: parameters.limit,
+        context: JSON.stringify([
+          actor.id,
+          operation,
+          projectId,
+          parameters.text,
+        ]),
+      };
       result =
         operation === "wiki.tree.read"
-          ? await wiki.tree(actor, projectId)
-          : await wiki.search(actor, readText(parameters, "text"), projectId);
+          ? await wiki.tree(actor, projectId, paging)
+          : await wiki.search(
+              actor,
+              readText(parameters, "text"),
+              projectId,
+              paging,
+            );
     }
     const response: PagesAgentReadResponse = { apiVersion: "1", result };
     if (
       Buffer.byteLength(JSON.stringify(response)) >
-      PAGES_AGENT_LIMITS.responseBytes
+      (operation === "wiki.page.read"
+        ? PAGES_AGENT_LIMITS.wikiEnvelopeBytes
+        : PAGES_AGENT_LIMITS.responseBytes)
     )
       throw new AgentOperationError("PAYLOAD_TOO_LARGE");
     return response;
+  }
+
+  private async handleAdditional(
+    identity: AgentIdentity,
+    input: Readonly<Record<string, unknown>>,
+  ): Promise<
+    | PagesAgentReadResponse
+    | PagesAgentWriteResponse
+    | AgentAdminWriteResponse
+    | null
+  > {
+    const administration = await this.dependencies.administration?.handle(
+      identity,
+      input.operation,
+      input.parameters,
+    );
+    if (administration) return administration;
+    return (
+      (await this.dependencies.extensions?.handle(
+        identity,
+        input.operation,
+        input.parameters,
+      )) ?? null
+    );
   }
 
   /** Runs a write, or a ticket or milestone read, or returns `null` when the name is none of them. */
@@ -304,7 +360,7 @@ export class AgentOperationRouter {
     const actor = await this.requireActor(identity);
     return new WikiImportPlanner(
       this.dependencies.wiki,
-      createAgentWikiAccess(this.dependencies.projects, actor),
+      createAgentWikiAccess(this.dependencies.projects, actor, this.channel),
     ).plan(actor, parameters);
   }
 

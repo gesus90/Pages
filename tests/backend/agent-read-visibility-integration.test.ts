@@ -166,6 +166,7 @@ describe("agent reads with real visibility and foreign records", () => {
         parentId: null,
         scope: "project",
         projectId: "alpha",
+        anchors: [],
       },
     });
     expect(
@@ -308,14 +309,36 @@ describe("agent reads with real visibility and foreign records", () => {
     const { router, visible, database } = await setup();
     await database.execute(
       "UPDATE wiki_pages SET content = $content WHERE id = $id;",
-      { content: "\u0001".repeat(200000), id: visible.id },
+      { content: "\u0001".repeat(1_048_576), id: visible.id },
     );
-    await expect(
-      router.handle(identity, {
-        operation: "wiki.page.read",
-        parameters: { pageId: visible.id },
-      }),
-    ).rejects.toMatchObject({ code: "PAYLOAD_TOO_LARGE", status: 413 });
+    const input = {
+      operation: "wiki.page.read",
+      parameters: { pageId: visible.id },
+    };
+    const response = await router.handle(identity, input);
+    expect(response).toMatchObject({
+      result: { content: "\u0001".repeat(1_048_576) },
+    });
+    expect(Buffer.byteLength(JSON.stringify(response))).toBeGreaterThan(
+      1_048_576,
+    );
+    await database.execute(
+      "UPDATE wiki_pages SET title = $title WHERE id = $id;",
+      { title: "x".repeat(65_536), id: visible.id },
+    );
+    await expect(router.handle(identity, input)).rejects.toMatchObject({
+      code: "PAYLOAD_TOO_LARGE",
+      status: 413,
+    });
+    await database.execute(
+      "UPDATE wiki_pages SET content = $content WHERE id = $id;",
+      { content: "ä".repeat(524_289), id: visible.id },
+    );
+    await expect(router.handle(identity, input)).rejects.toMatchObject({
+      code: "PAYLOAD_TOO_LARGE",
+      status: 413,
+      details: { constraint: "wikiContentBytes", limit: 1_048_576 },
+    });
   });
 
   it("supports explicit visible-project tree and search filters", async () => {

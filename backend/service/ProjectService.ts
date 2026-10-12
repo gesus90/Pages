@@ -14,6 +14,7 @@ import { ProjectCreationService } from "./project/ProjectCreationService";
 import { ProjectAccessService } from "./project/ProjectAccessService";
 import { ProjectManagementService } from "./project/ProjectManagementService";
 import { ProjectTemplateService } from "./project/ProjectTemplateService";
+import { WikiAccess } from "./wiki/WikiAccess";
 
 import type { PermissionService } from "@/backend/auth/PermissionService";
 import type {
@@ -669,6 +670,12 @@ export class ProjectService {
     return this.projectRepository.findActivity(
       projectId,
       await this.workItemVisibility(actor),
+      (
+        await new WikiAccess(
+          { workItemVisibility: (user) => this.workItemVisibility(user) },
+          this.permissionService,
+        ).resolve(actor)
+      ).scope,
     );
   }
 

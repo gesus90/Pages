@@ -1,6 +1,7 @@
 import {
   readCountColumn,
   readNullableTextColumn,
+  readTextColumn,
 } from "@/backend/database/RowValue";
 
 import { AgentProfileRepository } from "./agent/AgentProfileRepository";
@@ -13,6 +14,7 @@ import {
 
 import type { Database } from "@/backend/database/Database";
 import type { AgentProviderId } from "@/definition/AgentConnection";
+import type { AgentUsage } from "@/definition/AgentUsage";
 import type { AgentConnectionRecord } from "./agent/AgentConnectionRows";
 
 export interface AgentConnectionWrite {
@@ -85,24 +87,30 @@ export class AgentConnectionRepository {
     return readCountColumn(rows[0], 0, "count");
   }
 
-  /** Used inside the connection write lock before credential cleanup or deletion. */
-  public async hasAssignments(id: string): Promise<boolean> {
+  /**
+   * Names the agents that use this connection.
+   *
+   * @remarks
+   * Read inside the connection write lock before credential cleanup or deletion.
+   * Function assignments, including legacy ones, always belong to an agent.
+   */
+  public async usages(id: string): Promise<readonly AgentUsage[]> {
     const rows = await this.database.query(
       `
       SELECT
-          connection_id
-      FROM agent_function_assignments
-      WHERE connection_id = $id
-      UNION ALL
-      SELECT
-          connection_id
+          id,
+          name
       FROM agent_execution_profiles
       WHERE connection_id = $id
-      LIMIT 1;
+      ORDER BY lower(name), id;
     `,
       { id },
     );
-    return rows.length > 0;
+    return rows.map((row): AgentUsage => ({
+      kind: "agent",
+      id: readTextColumn(row, 0, "id"),
+      name: readTextColumn(row, 1, "name"),
+    }));
   }
 
   /** Updates availability without discarding a verified credential or catalog. */

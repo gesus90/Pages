@@ -4,6 +4,7 @@ import { AgentTicketAnnouncer } from "./AgentTicketAnnouncer";
 import { AgentTicketService } from "./AgentTicketService";
 import { AgentTicketTransaction } from "./AgentTicketTransaction";
 
+import type { AgentChannel } from "@/backend/auth/McpActorContext";
 import type { Database } from "@/backend/database/Database";
 import type { UserService } from "@/backend/service/UserService";
 import type { AgentTicketAnnouncerDependencies } from "./AgentTicketAnnouncer";
@@ -12,6 +13,8 @@ import type { AgentTicketAnnouncerDependencies } from "./AgentTicketAnnouncer";
 export interface AgentPlanningDependencies extends AgentTicketAnnouncerDependencies {
   readonly database: Database;
   readonly users: Pick<UserService, "getById">;
+  /** The agent surface the operations run for; MCP when absent. */
+  readonly channel?: AgentChannel;
 }
 
 /** The ticket and milestone operations of agents, ready to be dispatched. */
@@ -33,7 +36,10 @@ export function createAgentPlanningServices(
   dependencies: AgentPlanningDependencies,
 ): AgentPlanningServices {
   const shared = {
-    transaction: new AgentTicketTransaction(dependencies.database),
+    transaction: new AgentTicketTransaction(
+      dependencies.database,
+      dependencies.channel,
+    ),
     announcer: new AgentTicketAnnouncer(dependencies),
   };
 

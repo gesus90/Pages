@@ -16,7 +16,8 @@
     "strict": true,
     "target": "ES2023",
     "types": ["node"],
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+    "paths": { "@/*": ["../*.ts", "../*"] }
   },
   "include": ["src", "scripts", "build.config.ts"]
 }

@@ -1,5 +1,7 @@
 import { CAPABILITY } from "@/definition/Authorization";
+import { accountForChannel } from "./McpActorContext";
 
+import type { ActorChannel } from "./McpActorContext";
 import type {
   AccountAccess,
   Capability,
@@ -8,9 +10,17 @@ import type {
 
 /** Evaluates management policy from current persisted account facts. */
 export class UserPolicyService {
-  /** Personal administrator eligibility grants power only in active admin mode. */
+  private readonly channel: ActorChannel;
+
+  /** Keeps MCP's personal-admin exception separate from the default UI role mode. */
+  public constructor(channel: ActorChannel = "ui") {
+    this.channel = channel;
+  }
+
+  /** Uses active admin mode on the UI path and personal eligibility on the MCP path. */
   public isAdministrator(actor: AccountAccess): boolean {
-    return actor.isActive && actor.isAdmin && actor.mode === "admin";
+    const account = accountForChannel(actor, this.channel);
+    return account.isActive && account.isAdmin && account.mode === "admin";
   }
 
   /** Checks a capability independently of target visibility and hierarchy. */

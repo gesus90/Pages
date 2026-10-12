@@ -46,7 +46,8 @@ export function AgentProfileDelete(props: {
     )
       onClose();
   }, [fetcher.state, fetcher.data, onClose]);
-  const usages = fetcher.data?.ok ? fetcher.data.usages : undefined;
+  // A rejected deletion returns the references found by the server's atomic recheck.
+  const usages = fetcher.data?.usages;
   const isPending = fetcher.state !== "idle";
   return (
     <Dialog open onOpenChange={props.onClose}>
@@ -112,6 +113,8 @@ function usageLabel(
 ): string {
   if (usage.kind === "global")
     return t("settings.agents.definition.shareGlobally");
+  if (usage.kind === "agent")
+    return t("settings.agents.definition.usage.agent", { name: usage.name });
   if ("id" in usage)
     return t(`settings.agents.definition.usage.${usage.kind}`, {
       id: usage.id,

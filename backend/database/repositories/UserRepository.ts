@@ -328,6 +328,27 @@ export class UserRepository {
         { id, is_active: isActive },
       );
       if (!isActive) {
+        await transaction.execute(
+          `
+          UPDATE personal_agent_tokens
+          SET revoked_at = COALESCE(revoked_at, $now),
+              previous_token_hash = NULL,
+              previous_valid_until = NULL,
+              rotation_requested_at = NULL
+          WHERE user_id = $id;
+        `,
+          { id, now: Date.now() },
+        );
+        await transaction.execute(
+          `
+          UPDATE mcp_oauth_grants
+          SET status = 'revoked',
+              ended_at = $now
+          WHERE user_id = $id
+              AND status = 'active';
+        `,
+          { id, now: Date.now() },
+        );
         await transaction.execute("DELETE FROM sessions WHERE user_id = $id;", {
           id,
         });

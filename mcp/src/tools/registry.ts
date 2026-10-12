@@ -1,7 +1,11 @@
+import { EXTENSION_READ_TOOLS } from "./extensions.js";
+import { ADMIN_READ_TOOLS } from "./administration.js";
 import { STRUCTURED_IMPORT_PLAN_TOOL } from "./structured-import-plan.js";
 import { MILESTONES_READ_TOOL, TICKET_READ_TOOL } from "./ticket-read.js";
 import { WIKI_IMPORT_PLAN_TOOL } from "./wiki-import-plan.js";
 
+import type { AgentExtensionReadOperation } from "../../../definition/AgentExtensions.js";
+import type { AgentAdminReadOperation } from "../../../definition/AgentAdministration.js";
 import type { Tool } from "@modelcontextprotocol/server";
 import type {
   PagesAgentReadOperation,
@@ -11,6 +15,8 @@ import type {
 
 interface ReadTool {
   readonly operation:
+    | AgentExtensionReadOperation
+    | AgentAdminReadOperation
     | PagesAgentReadOperation
     | PagesAgentStructuredReadOperation
     | PagesAgentTicketReadOperation;
@@ -27,6 +33,8 @@ const TEXT = { type: "string", minLength: 1, maxLength: 200 } as const;
 
 /** Fixed read-only tool descriptions; Pages determines which operations an identity may use. */
 export const READ_TOOLS: readonly ReadTool[] = [
+  ...EXTENSION_READ_TOOLS,
+  ...ADMIN_READ_TOOLS,
   {
     operation: "projects.resolve",
     tool: {
@@ -52,7 +60,11 @@ export const READ_TOOLS: readonly ReadTool[] = [
         "Reads the core details of a visible active project by ID. Missing and hidden projects both return NOT_FOUND. Responses are limited to 1 MiB UTF-8 JSON.",
       inputSchema: {
         type: "object",
-        properties: { projectId: TEXT },
+        properties: {
+          projectId: TEXT,
+          cursor: { type: ["string", "null"] },
+          limit: { type: "integer", minimum: 1, maximum: 100 },
+        },
         required: ["projectId"],
         additionalProperties: false,
       },
@@ -65,7 +77,7 @@ export const READ_TOOLS: readonly ReadTool[] = [
       name: "read_wiki_page",
       title: "Read wiki page",
       description:
-        "Reads complete Markdown and revision of a visible page without recording a visit. Hidden/private placeholders return NOT_FOUND. Responses over 1 MiB UTF-8 JSON return PAYLOAD_TOO_LARGE.",
+        "Reads complete Markdown and revision of a visible page without recording a visit. Hidden/private placeholders return NOT_FOUND. Content over 1 MiB UTF-8 returns PAYLOAD_TOO_LARGE; JSON escaping and metadata have a separate envelope budget.",
       inputSchema: {
         type: "object",
         properties: { pageId: TEXT },
@@ -81,10 +93,14 @@ export const READ_TOOLS: readonly ReadTool[] = [
       name: "read_wiki_tree",
       title: "Read wiki tree",
       description:
-        "Lists at most 100 visible wiki nodes, optionally in a visible project. Includes visible total and truncated; parents outside the returned window are null. Responses are limited to 1 MiB UTF-8 JSON.",
+        "Lists up to 100 visible wiki nodes per cursor page, optionally in a visible project. Includes visible total, nextCursor and truncated; visible parents on another page keep their IDs. Pass nextCursor with the same query to continue. Responses are limited to 1 MiB UTF-8 JSON.",
       inputSchema: {
         type: "object",
-        properties: { projectId: TEXT },
+        properties: {
+          projectId: TEXT,
+          cursor: { type: ["string", "null"] },
+          limit: { type: "integer", minimum: 1, maximum: 100 },
+        },
         additionalProperties: false,
       },
       annotations: ANNOTATIONS,
@@ -96,10 +112,15 @@ export const READ_TOOLS: readonly ReadTool[] = [
       name: "search_wiki",
       title: "Search wiki",
       description:
-        "Searches visible wiki titles and Markdown, optionally in a visible project. At most 20 hits, snippets at most 200 Unicode characters, visible total and truncated. Responses are limited to 1 MiB UTF-8 JSON.",
+        "Searches visible wiki titles and Markdown, optionally in a visible project. Up to 100 hits per cursor page, snippets at most 200 Unicode characters, visible total, nextCursor and truncated. Pass nextCursor with the same query to continue. Responses are limited to 1 MiB UTF-8 JSON.",
       inputSchema: {
         type: "object",
-        properties: { text: TEXT, projectId: TEXT },
+        properties: {
+          text: TEXT,
+          projectId: TEXT,
+          cursor: { type: ["string", "null"] },
+          limit: { type: "integer", minimum: 1, maximum: 100 },
+        },
         required: ["text"],
         additionalProperties: false,
       },

@@ -1,5 +1,7 @@
+import type { AgentExtensionReadOperation } from "./AgentExtensions.js";
+import type { AgentAdminReadOperation } from "./AgentAdministration.js";
+import type { McpCredentialDetails } from "./McpPairing.js";
 import type { PagesAgentWriteOperation } from "./PagesAgentWrites.js";
-
 import type {
   PagesAgentCommentOperation,
   PagesAgentReadOperation,
@@ -24,6 +26,8 @@ export interface PagesAgentApiIdentity {
 /** Business operations Pages may offer to a verified identity. */
 export type PagesAgentApiBusinessOperation =
   | "projects.names.list"
+  | AgentExtensionReadOperation
+  | AgentAdminReadOperation
   | PagesAgentReadOperation
   | PagesAgentStructuredReadOperation
   | PagesAgentTicketReadOperation
@@ -35,6 +39,7 @@ export interface PagesAgentApiVerification {
   readonly apiVersion: "1";
   readonly identity: PagesAgentApiIdentity;
   readonly tools: readonly PagesAgentApiBusinessOperation[];
+  readonly credential?: McpCredentialDetails | null;
 }
 
 /** Result of `projects.names.list`: names only, without identifiers or content. */
@@ -49,6 +54,7 @@ export type PagesAgentApiErrorCode =
   | "AUTH_INVALID"
   | "AUTH_UNAVAILABLE"
   | "INVALID_REQUEST"
+  | "CONFIRMATION_REQUIRED"
   | "FORBIDDEN"
   | "METHOD_NOT_ALLOWED"
   | "NOT_FOUND"

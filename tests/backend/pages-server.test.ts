@@ -30,6 +30,7 @@ import { networkInterfaces } from "node:os";
 import { createRequestListener } from "@react-router/node";
 
 import { ConfigError } from "@/backend/config/PagesConfig";
+import { clientSocketAddressContext } from "@/app/lib/client-address.server";
 import { initializePagesRuntime } from "@/backend/runtime/PagesRuntime";
 import {
   announceServer,
@@ -163,8 +164,18 @@ describe("createPagesRequestListener", () => {
     expect(createRequestListener).toHaveBeenCalledWith({
       build,
       mode: "production",
+      getLoadContext: expect.any(Function),
     });
     expect(serveStaticAsset).toHaveBeenCalledWith(request, response, "/client");
+    const options = vi.mocked(createRequestListener).mock.calls[0]?.[0];
+    if (!options?.getLoadContext) throw new Error("Missing socket context.");
+    const context = await options.getLoadContext(
+      new Request("https://pages.invalid/pair", {
+        headers: { "X-Forwarded-For": "forged-address" },
+      }),
+      { address: "192.168.1.7", family: "IPv4", port: 4567 },
+    );
+    expect(context.get(clientSocketAddressContext)).toBe("192.168.1.7");
   });
 });
 

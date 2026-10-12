@@ -26,7 +26,7 @@ const RIGHTS =
 const REPLAY =
   "Reuse operationId with identical input to recover the stored result after response loss; changed input returns CONFLICT. JSON request maximum 64 KiB.";
 const AUTHOR =
-  "Comments appear under the name of the connected account; Pages does not mark them as written by an agent.";
+  "Comments appear under the name of the connected account; Project activity records source=mcp.";
 
 /** Reads the comments of one page. */
 export const WIKI_COMMENTS_READ_TOOL: Tool = {
@@ -35,7 +35,11 @@ export const WIKI_COMMENTS_READ_TOOL: Tool = {
   description: `Reads the comments of a visible wiki page as threads, oldest first, each with its replies: comment id, author display name, text, quoted passage and whether it is stale, resolved state, and whether the connected account may edit (canEdit) or delete (canDelete) it. Reply to a thread with the id of its first comment. pageId is a page ID or a Pages address such as /wiki/<id>. Missing and hidden pages both return NOT_FOUND. Responses are limited to 1 MiB UTF-8 JSON.`,
   inputSchema: {
     type: "object",
-    properties: { pageId: IDENTIFIER },
+    properties: {
+      pageId: IDENTIFIER,
+      cursor: { type: ["string", "null"] },
+      limit: { type: "integer", minimum: 1, maximum: 100 },
+    },
     required: ["pageId"],
     additionalProperties: false,
   },
@@ -98,11 +102,15 @@ export const WIKI_COMMENT_RESOLVE_TOOL: Tool = {
 export const WIKI_COMMENT_DELETE_TOOL: Tool = {
   name: "delete_wiki_comment",
   title: "Delete wiki comment",
-  description: `Deletes a comment together with all replies to it and their mentions; deletedComments says how many comments were removed. The author of a comment, the owner of the page and administrators (not on private pages) may delete it; anybody else gets FORBIDDEN, which read_wiki_comments shows beforehand as canDelete. Deleting cannot be undone. ${RIGHTS} ${REPLAY}`,
+  description: `Deletes a comment together with all replies to it and their mentions; deletedComments says how many comments were removed. The author of a comment, the owner of the page and administrators (not on private pages) may delete it; anybody else gets FORBIDDEN, which read_wiki_comments shows beforehand as canDelete. Deleting cannot be undone. Ask the user to type LÖSCHEN (German) or DELETE (English) and pass that exact reply as confirmation; missing or wrong confirmation is rejected. ${RIGHTS} ${REPLAY}`,
   inputSchema: {
     type: "object",
-    properties: { operationId: IDENTIFIER, commentId: IDENTIFIER },
-    required: ["operationId", "commentId"],
+    properties: {
+      operationId: IDENTIFIER,
+      commentId: IDENTIFIER,
+      confirmation: { type: "string", enum: ["LÖSCHEN", "DELETE"] },
+    },
+    required: ["operationId", "commentId", "confirmation"],
     additionalProperties: false,
   },
   annotations: DESTRUCTIVE_ANNOTATIONS,

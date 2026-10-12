@@ -92,6 +92,40 @@ export class WikiAnchorRepository {
   }
 
   /**
+   * Finds the pages tied to the given targets of one kind.
+   *
+   * @param kind - Kind of the anchors.
+   * @param targetIds - Departments, milestones or epics to look for.
+   * @returns Each target with the identifiers of its pages; visibility is not applied.
+   */
+  public async findPageIdsByTargets(
+    kind: WikiAnchorKind,
+    targetIds: readonly string[],
+  ): Promise<Map<string, string[]>> {
+    const found = new Map<string, string[]>();
+
+    for (const targetId of targetIds) {
+      const rows = await this.database.query(
+        `
+          SELECT page_id
+          FROM wiki_page_anchors
+          WHERE kind = $kind
+              AND target_id = $target_id
+          ORDER BY page_id;
+        `,
+        { kind, target_id: targetId },
+      );
+
+      found.set(
+        targetId,
+        rows.map((row) => readTextColumn(row, 0, "page_id")),
+      );
+    }
+
+    return found;
+  }
+
+  /**
    * Removes the anchors of the given kinds from a page and everything below.
    *
    * @param id - Page identifier at the top of the subtree.

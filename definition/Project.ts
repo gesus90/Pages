@@ -206,6 +206,7 @@ export const PROJECT_ACTIVITY_CATEGORY = {
   TEAM: "team",
   INTEGRATIONS: "integrations",
   PROJECT: "project",
+  WIKI: "wiki",
 } as const;
 
 /** A category grouping entries of the project activity log. */
@@ -221,6 +222,9 @@ export function isProjectActivityCategory(
   );
 }
 
+/** Persisted source of a project change, independent of its author. */
+export type ProjectActivitySource = "ui" | "mcp" | "ai";
+
 /** A single chronological entry of the project activity log. */
 export interface ProjectActivity {
   readonly id: string;
@@ -231,6 +235,8 @@ export interface ProjectActivity {
   readonly action: string;
   readonly message: string;
   readonly createdAt: string;
+  /** Server-owned channel that performed the mutation. */
+  readonly source: ProjectActivitySource;
 }
 
 /** Longest project description the detail page accepts, in characters. */

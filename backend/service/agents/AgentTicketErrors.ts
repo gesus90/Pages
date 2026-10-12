@@ -26,6 +26,7 @@ const NOT_FOUND_CODES: ReadonlySet<WorkItemErrorCode> = new Set([
 const CONFLICT_CODES: ReadonlySet<WorkItemErrorCode> = new Set([
   "descriptionConflict",
   "dependencyExists",
+  "milestoneInitiativeInUse",
   "ticketArchived",
 ]);
 

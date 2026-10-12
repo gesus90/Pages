@@ -1,3 +1,5 @@
+import { createContext } from "react-router";
+
 /**
  * Reads the client address a reverse proxy reports for a request.
  *
@@ -19,3 +21,5 @@ export function getClientAddress(request: Request): string | null {
 
   return firstAddress;
 }
+/** Actual socket peer provided by the Node listener; client headers cannot overwrite it. */
+export const clientSocketAddressContext = createContext<string>("unknown");

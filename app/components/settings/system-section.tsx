@@ -2,12 +2,14 @@ import { Server } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { SettingsSectionHeader } from "@/app/components/settings/settings-layout";
+import { ChatSettingsCard } from "@/app/components/settings/system/chat-settings-card";
 import { InstanceCard } from "@/app/components/settings/system/instance-card";
 import { ServerCard } from "@/app/components/settings/system/server-card";
 import { StatusCard } from "@/app/components/settings/system/status-card";
 import { WikiSettingsCard } from "@/app/components/settings/system/wiki-settings-card";
 
 import type { ServerStatus } from "@/backend/service/ServerSettingsService";
+import type { ChatAdministration } from "@/definition/Chat";
 import type { InstanceBranding } from "@/definition/Instance";
 import type { WikiSettings } from "@/definition/Wiki";
 
@@ -18,6 +20,8 @@ interface SystemSectionProps {
   readonly status: ServerStatus;
   /** Retention times and upload limits of the wiki. */
   readonly wikiSettings: WikiSettings;
+  /** Attachment limit and system instruction of the chat agent. */
+  readonly chatSettings: ChatAdministration;
 }
 
 /**
@@ -33,6 +37,7 @@ export function SystemSection({
   branding,
   status,
   wikiSettings,
+  chatSettings,
 }: SystemSectionProps): React.ReactElement {
   const { t } = useTranslation();
 
@@ -51,6 +56,7 @@ export function SystemSection({
         <div className="flex flex-col gap-4">
           <StatusCard status={status} />
           <ServerCard port={port} />
+          <ChatSettingsCard settings={chatSettings} />
         </div>
       </div>
     </section>

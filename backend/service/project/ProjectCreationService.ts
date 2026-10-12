@@ -1,3 +1,4 @@
+import { accountForChannel } from "@/backend/auth/McpActorContext";
 import { ProjectPolicyService } from "@/backend/auth/ProjectPolicyService";
 import { UserPolicyService } from "@/backend/auth/UserPolicyService";
 import { CAPABILITY } from "@/definition/Authorization";
@@ -8,6 +9,7 @@ import {
   ProjectManagementDeniedError,
 } from "@/backend/error/ProjectErrors";
 
+import type { ActorChannel } from "@/backend/auth/McpActorContext";
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type {
   NewProject,
@@ -20,11 +22,17 @@ import type { User } from "@/definition/User";
 export class ProjectCreationService {
   private readonly repository: ProjectRepository;
   private readonly cache: ServerCache;
+  private readonly channel: ActorChannel;
   private readonly policy = new ProjectPolicyService();
   private readonly users = new UserPolicyService();
 
   /** Binds project creation and catalog choices to their shared persistence boundary. */
-  public constructor(repository: ProjectRepository, cache: ServerCache) {
+  public constructor(
+    repository: ProjectRepository,
+    cache: ServerCache,
+    channel: ActorChannel = "ui",
+  ) {
+    this.channel = channel;
     this.repository = repository;
     this.cache = cache;
   }
@@ -32,9 +40,12 @@ export class ProjectCreationService {
   /** Returns only departments the actor may assign to a new project. */
   public async choices(actor: User): Promise<ProjectDepartmentChoices> {
     const snapshot = await this.repository.authorization().snapshot();
-    const account = snapshot.accounts.find(
+    const persisted = snapshot.accounts.find(
       (entry) => entry.userId === actor.id,
     );
+    const account = persisted
+      ? accountForChannel(persisted, this.channel)
+      : undefined;
     if (!account?.isActive) throw new ProjectAccessDeniedError();
     return {
       available: snapshot.departments.filter((department) =>
@@ -48,9 +59,12 @@ export class ProjectCreationService {
   public async create(actor: User, input: NewProject): Promise<boolean> {
     const canAccess = await this.repository.transaction(async (repository) => {
       const snapshot = await repository.authorization().snapshot();
-      const account = snapshot.accounts.find(
+      const persisted = snapshot.accounts.find(
         (entry) => entry.userId === actor.id,
       );
+      const account = persisted
+        ? accountForChannel(persisted, this.channel)
+        : undefined;
       if (!account || !this.users.has(account, CAPABILITY.MANAGE_PROJECTS))
         throw new ProjectManagementDeniedError();
       const departmentIds = [...new Set(input.departmentIds ?? [])];

@@ -193,6 +193,48 @@ export class TaskHistoryRecorder {
     });
   }
 
+  /** Records that an initiative was linked with a milestone. */
+  public async recordMilestoneLinked(
+    actor: User,
+    workItemId: string,
+    milestoneName: string,
+  ): Promise<void> {
+    await this.record(actor, workItemId, {
+      action: "milestone_initiative_added",
+      field: "milestone",
+      newValue: milestoneName,
+      oldValue: null,
+    });
+  }
+
+  /** Records that an initiative lost its link with a milestone. */
+  public async recordMilestoneUnlinked(
+    actor: User,
+    workItemId: string,
+    milestoneName: string,
+  ): Promise<void> {
+    await this.record(actor, workItemId, {
+      action: "milestone_initiative_removed",
+      field: "milestone",
+      newValue: null,
+      oldValue: milestoneName,
+    });
+  }
+
+  /** Records that a work item took the milestone of a task below it (T6.13.2). */
+  public async recordMilestoneAdopted(
+    actor: User,
+    workItemId: string,
+    milestoneName: string,
+  ): Promise<void> {
+    await this.record(actor, workItemId, {
+      action: "milestone_changed",
+      field: "milestone",
+      newValue: milestoneName,
+      oldValue: null,
+    });
+  }
+
   /**
    * Records that a work item moved to another project.
    *
