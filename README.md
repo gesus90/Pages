@@ -229,7 +229,8 @@ table's row count is compared. Running the command again changes nothing.
 
 ## Agent connections
 
-*Settings → Agents* manages named, instance-wide connections. Like *System*,
+*Settings → Agents* manages named, instance-wide connections; each has a usage
+scope (see *Usage scope of connections*). Like *System*,
 it is listed only for personal administrators in active administrator mode;
 switching modes shows or hides both entries immediately. Opened directly in
 role mode, the page only offers the switch, and connection metadata and
@@ -320,6 +321,38 @@ the previous editor behavior. The original Text assignment API remains a synchro
 compatibility facade. The profile editor can separate its Text and Chat assignments.
 No quotas or new consumption display are included, and configuring Agent execution
 profiles does not introduce a new runner, workspace or execution plan.
+
+### Usage scope of connections (PAGE-19)
+
+API and CLI connections are system resources, not personal copies. Each
+connection has a **usage scope** that decides which Pages accounts may use the
+models offered through it. Administrators set it in *Settings → Agents* (active
+admin mode), in the connection panel under *Use of the models*:
+
+- **Global:** every active account.
+- **Restricted:** the selected people and the current members of the selected
+  groups and departments. The targets form a union; one match is enough.
+  Group and department membership is read at every check, so a change applies
+  to the next check. Managing a department does not make a person a member.
+
+The scope is an additional limit on top of the profile assignments above: a
+person needs an assignment of the profile and a scope that admits them.
+Administrators get no usage bypass; managing a connection is not using it.
+Connection access checks and model tests stay available to administrators.
+
+The server checks the scope for API and CLI connections alike, when models are
+offered (text and chat profiles, reusable agents, personal access) and again
+immediately before every model call, including each call of a longer chat
+answer or plan step. A person outside the scope neither sees the model nor can
+run it by a forged or stale selection: the call is refused with `accessDenied`
+and the provider is not contacted. Keys and account details stay on the server
+and never appear in lists, responses or errors.
+
+Existing connections become **Global** with the migration, and new connections
+start Global, so nobody gains or loses access silently. A group or department
+that a connection scope lists cannot be deleted until the scope is changed.
+Deactivated accounts lose access whatever the scope says. Only administrators
+in active admin mode can create connections or change their scope.
 
 ### Local workspaces (A10.3)
 
