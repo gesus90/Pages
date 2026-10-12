@@ -1,4 +1,8 @@
-import { readText, readTextOrEmpty } from "@/app/lib/form-fields.server";
+import {
+  readOptionalText,
+  readText,
+  readTextOrEmpty,
+} from "@/app/lib/form-fields.server";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { isAgentFunction } from "@/definition/AgentAssignment";
 
@@ -51,9 +55,10 @@ const AGENT_ACTION_HANDLERS: Readonly<Record<string, AgentActionHandler>> = {
     const content = readTextOrEmpty(formData, "profile");
     if (content.length > 500000) throw new AgentError("profile_invalid");
     const profile: unknown = JSON.parse(content);
+    // The editor of a new agent sends an empty ID; only a filled one names an existing agent.
     await services.agentProfileService.save(
       actor,
-      readText(formData, "profileId"),
+      readOptionalText(formData, "profileId"),
       profile,
     );
     return { ok: true };

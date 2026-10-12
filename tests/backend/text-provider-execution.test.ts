@@ -264,11 +264,12 @@ describe("text HTTP transport uses A7 secrets without forwarding diagnostics", (
     await expect(execution.run(input(), signal)).rejects.toThrow(
       "providerFailed",
     );
+    // A key that no longer decrypts is an unusable access, not a provider failure.
     await getDatabase().execute(
       "UPDATE agent_connections SET secret_encrypted = 'invalid' WHERE id = 'connection';",
     );
     await expect(execution.run(input(), signal)).rejects.toThrow(
-      "providerFailed",
+      "connectionUnavailable",
     );
     vi.spyOn(repository, "findSecretEncrypted").mockResolvedValueOnce(null);
     await expect(execution.run(input(), signal)).rejects.toThrow(

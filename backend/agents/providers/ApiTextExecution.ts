@@ -42,11 +42,8 @@ export class ApiTextExecution implements TextExecution {
     const current = await this.repository.find(connection.id);
     if (!current || current.provider !== connection.provider)
       throw new TextAssistantError("connectionUnavailable");
-    const encrypted = await this.repository.findSecretEncrypted(connection.id);
-    if (encrypted === null)
-      throw new TextAssistantError("connectionUnavailable");
+    const apiKey = await this.readApiKey(connection.id);
     try {
-      const apiKey = this.cipher.decrypt(connection.id, encrypted);
       const request = createTextProviderRequest(connection.provider, input);
       signal.throwIfAborted();
       const response = await this.request(
@@ -69,6 +66,21 @@ export class ApiTextExecution implements TextExecution {
     } catch (error: unknown) {
       if (error instanceof TextAssistantError) throw error;
       throw new TextAssistantError("providerFailed");
+    }
+  }
+
+  /**
+   * A key that is missing or no longer decrypts, for example after the
+   * instance key changed, makes the access unusable; it is no provider failure.
+   */
+  private async readApiKey(connectionId: string): Promise<string> {
+    const encrypted = await this.repository.findSecretEncrypted(connectionId);
+    if (encrypted === null)
+      throw new TextAssistantError("connectionUnavailable");
+    try {
+      return this.cipher.decrypt(connectionId, encrypted);
+    } catch {
+      throw new TextAssistantError("connectionUnavailable");
     }
   }
 

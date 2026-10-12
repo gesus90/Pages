@@ -633,6 +633,19 @@ describe("agent routes", () => {
       null,
       profile,
     );
+    // The editor of a new agent submits its hidden ID field empty (PAGE-18).
+    await action(
+      routeArgs({
+        intent: "save-profile",
+        profileId: "",
+        profile: JSON.stringify(profile),
+      }),
+    );
+    expect(services.agentProfileService.save).toHaveBeenLastCalledWith(
+      expect.anything(),
+      null,
+      profile,
+    );
     await action(
       routeArgs({
         intent: "save-profile",
