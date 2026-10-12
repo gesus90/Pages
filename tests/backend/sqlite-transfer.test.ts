@@ -93,6 +93,8 @@ describe("transferSqliteToDuckDb", { timeout: 30_000 }, () => {
       await prepared.execute(`
         INSERT INTO agent_connections (id, name, provider, created_by, updated_by, is_active)
         VALUES ('native-cli', 'Native CLI', 'codex_cli', 'u1', 'u1', FALSE);
+        INSERT INTO agent_connection_scopes VALUES ('native-cli', 'restricted');
+        INSERT INTO agent_connection_scope_targets VALUES ('native-cli', 'person', 'u1');
         INSERT INTO agent_execution_profiles (id, name, connection_id, model, reasoning_effort, is_active)
         VALUES
             ('native-profile', 'Native profile', 'native-cli', 'model', NULL, FALSE),
@@ -132,6 +134,8 @@ describe("transferSqliteToDuckDb", { timeout: 30_000 }, () => {
       `);
       const tables = [
         "agent_connections",
+        "agent_connection_scopes",
+        "agent_connection_scope_targets",
         "agent_execution_profiles",
         "agent_profile_purposes",
         "agent_profile_targets",
