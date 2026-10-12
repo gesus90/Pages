@@ -7,11 +7,15 @@ import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
 import { isAgentProfilePurpose } from "@/definition/AgentProfile";
 import { matchesAgentFilters } from "@/definition/AgentFilters";
 
-import { resolveAgentAssignment } from "./AgentAssignmentResolution";
+import {
+  resolveAgentAssignment,
+  resolveAgentAssignmentFor,
+} from "./AgentAssignmentResolution";
 import { readAgentProfileInput } from "./AgentProfileValidation";
 import { requireAgentAdministrator } from "./AgentServiceAccess";
 import { AgentAvailabilityService } from "./AgentAvailabilityService";
 
+import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
 import type { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import type { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
@@ -247,12 +251,19 @@ export class AgentProfileService {
           model: choice.model,
           reasoningEffort: choice.reasoningEffort,
         }));
-    const candidates = await this.candidates(userId, purpose);
+    const { viewer, profiles: candidates } = await this.candidates(
+      userId,
+      purpose,
+    );
     const choices: AgentProfileChoice[] = [];
     for (const profile of candidates) {
       if (!profile.isActive) continue;
       try {
-        await resolveAgentAssignment(this.dependencies.connections, profile);
+        await resolveAgentAssignmentFor(
+          this.dependencies.connections,
+          viewer,
+          profile,
+        );
         choices.push({
           id: profile.id,
           name: profile.name,
@@ -284,13 +295,16 @@ export class AgentProfileService {
       ).assignment;
     }
     if (profileId !== null) {
-      const profile = (await this.candidates(userId, purpose)).find(
-        (entry) => entry.id === profileId,
-      );
+      const { viewer, profiles } = await this.candidates(userId, purpose);
+      const profile = profiles.find((entry) => entry.id === profileId);
       if (!profile?.isActive) throw new TextAssistantError("accessDenied");
-      return resolveAgentAssignment(this.dependencies.connections, profile);
+      return resolveAgentAssignmentFor(
+        this.dependencies.connections,
+        viewer,
+        profile,
+      );
     }
-    const candidates = await this.candidates(userId, purpose);
+    const { profiles: candidates } = await this.candidates(userId, purpose);
     if (candidates.length === 0) throw new TextAssistantError("roleMissing");
     if (candidates.length > 1)
       throw new TextAssistantError("profileSelectionRequired");
@@ -308,7 +322,10 @@ export class AgentProfileService {
   private async candidates(
     userId: string,
     purpose: unknown,
-  ): Promise<readonly AgentProfile[]> {
+  ): Promise<{
+    readonly viewer: AgentViewer;
+    readonly profiles: readonly AgentProfile[];
+  }> {
     const actor = await this.account(userId);
     if (!isAgentProfilePurpose(purpose))
       throw new TextAssistantError("invalidInput");
@@ -329,9 +346,13 @@ export class AgentProfileService {
         agentProfilePriority(profile, viewer, purpose),
       ),
     );
-    return assigned.filter(
-      (profile) => agentProfilePriority(profile, viewer, purpose) === priority,
-    );
+    return {
+      viewer,
+      profiles: assigned.filter(
+        (profile) =>
+          agentProfilePriority(profile, viewer, purpose) === priority,
+      ),
+    };
   }
 
   private requireTargets(

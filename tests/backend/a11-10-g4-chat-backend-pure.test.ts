@@ -334,6 +334,7 @@ function textInput(overrides: Partial<TextExecutionInput>): TextExecutionInput {
         updatedAt: "now",
       },
     },
+    userId: "person",
     prompt: "Frage",
     webSearch: true,
     ...overrides,

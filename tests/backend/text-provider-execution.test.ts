@@ -65,6 +65,7 @@ function input(
         updatedAt: "now",
       },
     },
+    userId: "person",
     prompt: "Chosen context only",
   };
 }

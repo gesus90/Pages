@@ -69,6 +69,7 @@ function setup(
   };
   vi.spyOn(runtime, "adapter").mockResolvedValue(adapter);
   const input: TextExecutionInput = {
+    userId: "person",
     prompt: "Only the selected passage",
     agent: {
       model: "listed-model",

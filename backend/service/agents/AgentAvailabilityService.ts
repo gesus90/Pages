@@ -8,7 +8,8 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
 import { agentParameterIssues } from "@/definition/AgentParameters";
 
-import { resolveAgentAssignment } from "./AgentAssignmentResolution";
+import { resolveAgentAssignmentFor } from "./AgentAssignmentResolution";
+import { canUseAgentConnection } from "./AgentConnectionAccess";
 
 import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
 import type {
@@ -43,24 +44,9 @@ export class AgentAvailabilityService {
     const context = await this.context(userId, projectId);
     const choices: AgentDefinitionChoice[] = [];
     for (const profile of context.profiles) {
-      if (
-        !profile.purposes.includes("agent") ||
-        !hasAgentUsage(profile, context.viewer)
-      )
-        continue;
+      if (!(await this.isListed(profile, context))) continue;
       const configuration =
         profile.configuration ?? configurationForTargets(profile.targets);
-      if (
-        configuration.projectId !== null &&
-        !(await this.canReadProject(context.viewer, configuration.projectId))
-      )
-        continue;
-      if (
-        projectId !== null &&
-        configuration.projectId !== null &&
-        configuration.projectId !== projectId
-      )
-        continue;
       const connection = await this.dependencies.connections.find(
         profile.connectionId,
       );
@@ -129,8 +115,9 @@ export class AgentAvailabilityService {
       return {
         profile,
         accessAgentId: profile.id,
-        assignment: await resolveAgentAssignment(
+        assignment: await resolveAgentAssignmentFor(
           this.dependencies.connections,
+          context.viewer,
           profile,
         ),
       };
@@ -143,11 +130,43 @@ export class AgentAvailabilityService {
     return {
       profile,
       accessAgentId: chosen.id,
-      assignment: await resolveAgentAssignment(
+      assignment: await resolveAgentAssignmentFor(
         this.dependencies.connections,
+        context.viewer,
         chosen,
       ),
     };
+  }
+
+  /** Whether the person may see this agent: usage share, project context and connection scope. */
+  private async isListed(
+    profile: AgentProfile,
+    context: AvailabilityContext,
+  ): Promise<boolean> {
+    if (
+      !profile.purposes.includes("agent") ||
+      !hasAgentUsage(profile, context.viewer)
+    )
+      return false;
+    const configuration =
+      profile.configuration ?? configurationForTargets(profile.targets);
+    const { projectId } = configuration;
+    if (
+      projectId !== null &&
+      (!(await this.canReadProject(context.viewer, projectId)) ||
+        (context.projectId !== null && projectId !== context.projectId))
+    )
+      return false;
+    // A personal agent runs on the person's own access, which is checked in
+    // its availability; every other agent shows its model only within scope.
+    return (
+      configuration.accessMode === "personal" ||
+      (await canUseAgentConnection(
+        this.dependencies.connections,
+        context.viewer,
+        profile.connectionId,
+      ))
+    );
   }
 
   private async context(
@@ -205,7 +224,11 @@ export class AgentAvailabilityService {
           )
         )
           throw new AgentError("agent_usage_denied");
-        await resolveAgentAssignment(this.dependencies.connections, profile);
+        await resolveAgentAssignmentFor(
+          this.dependencies.connections,
+          context.viewer,
+          profile,
+        );
         return { isUsable: true, reason: null, personalChoices: [] };
       }
       if (!hasAgentUsage(profile, context.viewer))
@@ -232,7 +255,11 @@ export class AgentAvailabilityService {
       }
       if (agentProfilePriority(profile, context.viewer, "agent") === 0)
         throw new AgentError("agent_usage_denied");
-      await resolveAgentAssignment(this.dependencies.connections, profile);
+      await resolveAgentAssignmentFor(
+        this.dependencies.connections,
+        context.viewer,
+        profile,
+      );
       return { isUsable: true, reason: null, personalChoices: [] };
     } catch (error: unknown) {
       if (
@@ -276,7 +303,11 @@ export class AgentAvailabilityService {
       );
       if (connection?.provider !== requested.provider) continue;
       try {
-        await resolveAgentAssignment(this.dependencies.connections, source);
+        await resolveAgentAssignmentFor(
+          this.dependencies.connections,
+          context.viewer,
+          source,
+        );
         candidates.push(source);
       } catch (error: unknown) {
         if (!(error instanceof TextAssistantError)) throw error;

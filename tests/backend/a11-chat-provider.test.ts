@@ -38,6 +38,7 @@ function chatInput(
 ): TextExecutionInput {
   return {
     instructions: "# Pica\n\nDu bist Pica.",
+    userId: "person",
     prompt: 'Aktuelle Nachricht der Person: "Hallo"',
     webSearch,
     agent: {

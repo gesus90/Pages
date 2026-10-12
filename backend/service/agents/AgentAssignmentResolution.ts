@@ -1,6 +1,8 @@
+import { isInAgentConnectionScope } from "@/backend/auth/AgentConnectionScopePolicy";
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
 import { isApiProvider } from "@/definition/AgentConnection";
 
+import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import type { AgentConnectionRecord } from "@/backend/database/repositories/agent/AgentConnectionRows";
 import type { TextAgentRole } from "@/definition/TextAssistant";
@@ -46,4 +48,28 @@ export async function resolveAgentAssignment(
     model: assignment.model,
     reasoningEffort: effort,
   };
+}
+
+/**
+ * Resolves an assignment for one person, after the connection scope admits them.
+ *
+ * @param connections - Connection persistence.
+ * @param viewer - Current account facts and group memberships of the person.
+ * @param assignment - The role or profile naming connection, model and effort.
+ * @returns The resolved assignment, as {@link resolveAgentAssignment} does.
+ * @throws {TextAssistantError} `accessDenied` when the scope excludes the person.
+ *
+ * @remarks
+ * The scope comes first, so a person outside it learns nothing about the state
+ * of the connection. A missing connection passes here and fails as unavailable.
+ */
+export async function resolveAgentAssignmentFor(
+  connections: AgentConnectionRepository,
+  viewer: AgentViewer,
+  assignment: TextAgentRole,
+): Promise<ResolvedAgentAssignment> {
+  const scope = await connections.scopes().find(assignment.connectionId);
+  if (scope !== null && !isInAgentConnectionScope(scope, viewer))
+    throw new TextAssistantError("accessDenied");
+  return resolveAgentAssignment(connections, assignment);
 }

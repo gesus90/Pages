@@ -59,6 +59,7 @@ function setup(provider: CliProviderId = "codex_cli") {
   };
   vi.spyOn(runtime, "adapter").mockResolvedValue(adapter);
   const input: AgentPlanExecutionInput = {
+    userId: "person",
     prompt: "Edit the selected task",
     directory: path.join(directory, "copy"),
     beforeStart: vi.fn(async () => undefined),

@@ -17,6 +17,10 @@ import { AgentTextExecution } from "@/backend/agents/AgentTextExecution";
 import { ApiTextExecution } from "@/backend/agents/providers/ApiTextExecution";
 import { CliTextExecution } from "@/backend/agents/cli/CliTextExecution";
 import { AgentPlanExecution } from "@/backend/agents/AgentPlanExecution";
+import { ScopedExecution } from "@/backend/agents/ScopedExecution";
+import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
+import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
+import { AgentConnectionAccess } from "@/backend/service/agents/AgentConnectionAccess";
 import { CliPlanExecution } from "@/backend/agents/cli/CliPlanExecution";
 import { TextAssistantSettingsRepository } from "@/backend/database/repositories/assistant/TextAssistantSettingsRepository";
 import { TextAgentRoleService } from "@/backend/service/assistant/TextAgentRoleService";
@@ -27,6 +31,8 @@ import { AgentAssignmentService } from "@/backend/service/agents/AgentAssignment
 import { createAgentConfigurationServices } from "./agent-workspace-services.server";
 
 import type { Database } from "@/backend/database/Database";
+import type { PlanExecution } from "@/backend/agents/AgentPlanExecution";
+import type { TextExecution } from "@/backend/agents/TextExecution";
 import type { AgentConfigurationApplicationServices } from "./agent-workspace-services.server";
 
 export interface AgentApplicationServices extends AgentConfigurationApplicationServices {
@@ -37,16 +43,74 @@ export interface AgentApplicationServices extends AgentConfigurationApplicationS
   readonly agentCheckService: AgentCheckService;
   readonly agentCliLoginService: AgentCliLoginService;
   readonly textAgentRoleService: TextAgentRoleService;
-  readonly agentTextExecution: AgentTextExecution;
+  /** Every model run passes the scope of its connection before the provider is called. */
+  readonly agentTextExecution: TextExecution;
   /** Text runs of the chat; parallel chats share a verified connection. */
-  readonly agentChatExecution: AgentTextExecution;
+  readonly agentChatExecution: TextExecution;
   /**
    * Running chat answers. One answer may run several model calls, so its
    * deadline is longer than that of the text assistant; shutdown cancels them
    * before the database closes.
    */
   readonly chatRequests: AssistantRequestRegistry;
-  readonly agentPlanExecution: AgentPlanExecution;
+  readonly agentPlanExecution: PlanExecution;
+}
+
+interface ExecutionInput {
+  readonly repository: AgentConnectionRepository;
+  readonly cipher: InstanceSecretCipher;
+  readonly operations: AgentOperationRegistry;
+  readonly runtime: AgentCliRuntime;
+  readonly store: AgentCredentialStore;
+  readonly locator: CliLocator;
+  readonly runner: CliProcessRunner;
+  readonly access: AgentConnectionAccess;
+}
+
+/**
+ * Builds the three model entry points; each passes the connection scope before
+ * its provider adapter, so no run can bypass the check.
+ */
+function createExecutions(
+  input: ExecutionInput,
+): Pick<
+  AgentApplicationServices,
+  "agentTextExecution" | "agentChatExecution" | "agentPlanExecution"
+> {
+  const { repository, cipher, operations, access } = input;
+  const cliAdapters = {
+    runtime: input.runtime,
+    store: input.store,
+    locator: input.locator,
+    runner: input.runner,
+  };
+  return {
+    agentTextExecution: new ScopedExecution(
+      new AgentTextExecution(
+        new ApiTextExecution(repository, cipher),
+        new CliTextExecution(cliAdapters),
+        operations,
+      ),
+      access,
+    ),
+    agentChatExecution: new ScopedExecution(
+      new AgentTextExecution(
+        new ApiTextExecution(repository, cipher),
+        new CliTextExecution(cliAdapters),
+        operations,
+        "shared",
+      ),
+      access,
+    ),
+    agentPlanExecution: new ScopedExecution(
+      new AgentPlanExecution(
+        new ApiTextExecution(repository, cipher),
+        new CliPlanExecution(cliAdapters),
+        operations,
+      ),
+      access,
+    ),
+  };
 }
 
 /** Creates lazy adapters and one shared login/process registry without running any checks. */
@@ -84,6 +148,11 @@ export function createAgentServices(
     operations,
     catalog: refresh,
   });
+  const access = new AgentConnectionAccess({
+    connections: repository,
+    authorization: new AuthorizationRepository(database),
+    groups: new UserGroupRepository(database),
+  });
   return {
     ...configuration,
     agentAssignmentService: new AgentAssignmentService({
@@ -97,26 +166,20 @@ export function createAgentServices(
       operations,
       configuration.agentProfileService,
     ),
-    agentTextExecution: new AgentTextExecution(
-      new ApiTextExecution(repository, cipher),
-      new CliTextExecution({ runtime, store, locator, runner }),
+    ...createExecutions({
+      repository,
+      cipher,
       operations,
-    ),
-    agentChatExecution: new AgentTextExecution(
-      new ApiTextExecution(repository, cipher),
-      new CliTextExecution({ runtime, store, locator, runner }),
-      operations,
-      "shared",
-    ),
+      runtime,
+      store,
+      locator,
+      runner,
+      access,
+    }),
     chatRequests: new AssistantRequestRegistry({
       timeoutMs: 300_000,
       capacity: 16,
     }),
-    agentPlanExecution: new AgentPlanExecution(
-      new ApiTextExecution(repository, cipher),
-      new CliPlanExecution({ runtime, store, locator, runner }),
-      operations,
-    ),
     agentCatalogService: new AgentCatalogService(
       repository,
       refresh,

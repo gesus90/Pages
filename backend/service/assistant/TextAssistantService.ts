@@ -154,7 +154,11 @@ export class TextAssistantService {
     else conversationId = await conversations.create(actor.id, request.context);
     signal.throwIfAborted();
     const output = await execution.run(
-      { agent, prompt: createTextAssistantPrompt(request) },
+      {
+        agent,
+        userId: actor.id,
+        prompt: createTextAssistantPrompt(request),
+      },
       signal,
     );
     signal.throwIfAborted();

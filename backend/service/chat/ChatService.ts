@@ -241,6 +241,7 @@ export class ChatService {
       const output = await this.dependencies.execution.run(
         {
           agent: turn.agent,
+          userId: turn.actor.id,
           instructions,
           prompt: createChatPrompt({
             ...prompt,

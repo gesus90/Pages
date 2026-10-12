@@ -96,6 +96,7 @@ export class AgentPlanStepStart {
     });
     return {
       agent: resolved.assignment,
+      userId: run.userId,
       directory: step.prepared.directory?.path ?? null,
       prompt: `${parameters.markdown}\n\n${step.step.instruction}`,
       beforeStart: () =>
