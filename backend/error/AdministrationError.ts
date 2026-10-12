@@ -19,11 +19,11 @@ export class AdministrationError extends Error {
   }
 }
 
-/** Blocks deleting a group or department that agents still use as scope or usage share. */
+/** Blocks deleting a group or department that agents still use as scope or usage share, or that a connection lists in its usage scope. */
 export class AgentScopeInUseError extends AdministrationError {
   public readonly agents: readonly string[];
 
-  /** Creates the lock with the names of the agents that must be changed first. */
+  /** Creates the lock with the names of the agents and connections that must be changed first. */
   public constructor(agents: readonly string[]) {
     super("agentInUse");
     this.agents = agents;

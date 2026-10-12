@@ -8,7 +8,7 @@ import type {
   AuthorizationRepository,
   AuthorizationSnapshot,
 } from "@/backend/database/repositories/AuthorizationRepository";
-import type { AgentProfileTarget } from "@/definition/AgentProfile";
+import type { AgentConnectionScopeTarget } from "@/definition/AgentConnectionScope";
 import type { AccountAccess, Department } from "@/definition/Authorization";
 
 /** Resolves a target from the current aggregate snapshot. */
@@ -74,16 +74,12 @@ export function requireUniqueAdministrationName(
 export async function requireNoAgentScope(
   repository: AuthorizationRepository,
   actor: AccountAccess,
-  target: AgentProfileTarget,
+  target: AgentConnectionScopeTarget,
 ): Promise<void> {
-  const agents = await repository.agentProfiles().references(target);
-  // Connection scopes name persons, groups and departments only.
-  const connections =
-    target.kind === "system"
-      ? []
-      : await repository
-          .agentConnectionScopes()
-          .references({ kind: target.kind, targetId: target.targetId });
+  const [agents, connections] = await Promise.all([
+    repository.agentProfiles().references(target),
+    repository.agentConnectionScopes().references(target),
+  ]);
   const references = [...agents, ...connections];
   if (references.length === 0) return;
   throw new AgentScopeInUseError(

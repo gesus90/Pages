@@ -1,6 +1,9 @@
 import { useTranslation } from "react-i18next";
 
-import { GLOBAL_CONNECTION_SCOPE } from "@/definition/AgentConnectionScope";
+import {
+  GLOBAL_CONNECTION_SCOPE,
+  isAgentConnectionScopeKind,
+} from "@/definition/AgentConnectionScope";
 
 import { AgentProfileTargets } from "./agent-profile-targets";
 
@@ -13,15 +16,10 @@ import type {
   AgentProfileTarget,
 } from "@/definition/AgentProfile";
 
-/** A system function is no usage target; the picker never offers one in sharing mode. */
-function toScopeTargets(
-  targets: readonly AgentProfileTarget[],
-): AgentConnectionScopeTarget[] {
-  return targets.flatMap((target) =>
-    target.kind === "system"
-      ? []
-      : [{ kind: target.kind, targetId: target.targetId }],
-  );
+function isScopeTarget(
+  target: AgentProfileTarget,
+): target is AgentConnectionScopeTarget {
+  return isAgentConnectionScopeKind(target.kind);
 }
 
 /** Chooses between global use and a union of persons, groups and departments. */
@@ -88,7 +86,7 @@ export function AgentScopeFields(props: {
             onChange={(targets) =>
               props.onChange({
                 mode: "restricted",
-                targets: toScopeTargets(targets),
+                targets: targets.filter(isScopeTarget),
               })
             }
           />

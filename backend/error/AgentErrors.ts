@@ -80,7 +80,7 @@ export const AGENT_ERROR_MESSAGES = {
   connection_limit_reached: "At most 50 connections can be stored.",
   connection_not_found: "The connection does not exist.",
   connection_scope_invalid:
-    "Choose global use, or at least one person, group or department.",
+    "Choose global use, or between 1 and 200 persons, groups or departments.",
   secret_unavailable:
     "The saved secret cannot be decrypted. Replace the API key.",
   check_in_progress: "An operation is already running for this connection.",

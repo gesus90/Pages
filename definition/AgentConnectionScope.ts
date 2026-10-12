@@ -37,6 +37,19 @@ export const GLOBAL_CONNECTION_SCOPE: AgentConnectionScope = {
   targets: [],
 };
 
+/**
+ * The scope of a connection that has no stored mode.
+ *
+ * @remarks
+ * Migration and creation always store a mode, so this only guards against a
+ * hand-edited database: nobody may use the connection until an administrator
+ * chooses a scope, instead of everybody.
+ */
+export const UNSET_CONNECTION_SCOPE: AgentConnectionScope = {
+  mode: "restricted",
+  targets: [],
+};
+
 /** Narrows stored and external mode names. */
 export function isAgentConnectionScopeMode(
   value: unknown,

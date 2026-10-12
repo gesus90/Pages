@@ -488,7 +488,7 @@
         "test_model_invalid": "Die Modell-ID darf höchstens 200 Zeichen und keine Leer- oder Steuerzeichen enthalten.",
         "connection_limit_reached": "Es können höchstens 50 Anbindungen gespeichert werden.",
         "connection_not_found": "Diese Anbindung existiert nicht.",
-        "connection_scope_invalid": "Wählen Sie „Global“ oder mindestens einen Nutzer, eine Gruppe oder eine Abteilung.",
+        "connection_scope_invalid": "Wählen Sie „Global“ oder 1 bis 200 Nutzer, Gruppen oder Abteilungen.",
         "secret_unavailable": "Der gespeicherte Key kann nicht entschlüsselt werden. Ersetzen Sie den API-Key.",
         "check_in_progress": "Für diese Anbindung läuft bereits ein Vorgang.",
         "check_timeout": "Die Zeitgrenze der Prüfung wurde überschritten.",

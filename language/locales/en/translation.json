@@ -488,7 +488,7 @@
         "test_model_invalid": "The model ID has an invalid format.",
         "connection_limit_reached": "At most 50 connections can be stored.",
         "connection_not_found": "The connection does not exist.",
-        "connection_scope_invalid": "Choose Global, or at least one user, group or department.",
+        "connection_scope_invalid": "Choose Global, or between 1 and 200 users, groups or departments.",
         "secret_unavailable": "The saved secret cannot be decrypted. Replace the API key.",
         "check_in_progress": "An operation is already running for this connection.",
         "check_timeout": "The check exceeded its time limit.",

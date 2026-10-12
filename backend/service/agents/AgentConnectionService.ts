@@ -8,7 +8,10 @@ import {
   isAgentProvider,
   isApiProvider,
 } from "@/definition/AgentConnection";
-import { GLOBAL_CONNECTION_SCOPE } from "@/definition/AgentConnectionScope";
+import {
+  GLOBAL_CONNECTION_SCOPE,
+  UNSET_CONNECTION_SCOPE,
+} from "@/definition/AgentConnectionScope";
 
 import {
   readAgentConnectionScope,
@@ -84,7 +87,7 @@ export class AgentConnectionService {
           hasApiKey: connection.hasApiKey,
           testModel: connection.testModel,
           reasoningEffort: connection.reasoningEffort,
-          scope: scopes.get(connection.id) ?? GLOBAL_CONNECTION_SCOPE,
+          scope: scopes.get(connection.id) ?? UNSET_CONNECTION_SCOPE,
           cli: cliState,
           checks: { auth, model },
           updatedAt: connection.updatedAt,

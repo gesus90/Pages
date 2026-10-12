@@ -2,9 +2,10 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { I18nextProvider } from "react-i18next";
-import { createRoutesStub } from "react-router";
+import { createRoutesStub, useLoaderData, useRevalidator } from "react-router";
 import { describe, expect, it } from "vitest";
 
+import { useAgentForm } from "@/app/components/settings/agents/use-agent-form";
 import { createI18n } from "@/app/lib/i18n";
 import SettingsAgentsRoute from "@/app/routes/settings-agents";
 
@@ -16,6 +17,7 @@ import {
 
 import type { AgentActionResult } from "@/app/lib/settings-actions/settings-agents-response.server";
 import type { AgentConnectionSummary } from "@/definition/AgentConnection";
+import type { AgentConnectionScope } from "@/definition/AgentConnectionScope";
 import type { AgentProfileDirectory } from "@/definition/AgentProfile";
 
 const DIRECTORY: AgentProfileDirectory = {
@@ -210,8 +212,123 @@ describe("PAGE-19 usage scope in the connection settings", () => {
     await user.click(within(dialog).getByRole("button", { name: "Save" }));
     expect(
       await within(dialog).findByText(
-        "Choose Global, or at least one user, group or department.",
+        "Choose Global, or between 1 and 200 users, groups or departments.",
       ),
     ).toBeVisible();
+  });
+
+  it("leaves the scope out of a save that did not change it", async () => {
+    const { user, received } = renderStory({
+      connections: [
+        createAgentConnection({
+          name: "Closed API",
+          scope: {
+            mode: "restricted",
+            targets: [{ kind: "person", targetId: "bob" }],
+          },
+        }),
+      ],
+    });
+    await user.click(await screen.findByRole("button", { name: "Edit" }));
+    const dialog = await screen.findByRole("dialog");
+    const name = within(dialog).getByLabelText("Name");
+    await user.clear(name);
+    await user.type(name, "Renamed API");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(received).toHaveLength(1));
+    expect(received[0].get("intent")).toBe("update-connection");
+    expect(received[0].get("name")).toBe("Renamed API");
+    expect(received[0].has("scope")).toBe(false);
+  });
+
+  it("sends the scope of a new connection even when it is global", async () => {
+    const { user, received } = renderStory({ connections: [] });
+    await user.click(
+      await screen.findByRole("button", { name: "Add API connection" }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    await user.type(within(dialog).getByLabelText("Name"), "Plain key");
+    await user.type(
+      within(dialog).getByLabelText("API key"),
+      "synthetic-key-for-page-19-ui",
+    );
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(received).toHaveLength(1));
+    expect(scopeOf(received[0])).toEqual({ mode: "global", targets: [] });
+  });
+});
+
+function ScopeProbe(): React.ReactElement {
+  const connection = useLoaderData<AgentConnectionSummary>();
+  const form = useAgentForm("api_key", connection, () => undefined);
+  const revalidator = useRevalidator();
+  return (
+    <>
+      <output data-testid="form">
+        {JSON.stringify(form.fields.scope)}|{String(form.isDirty)}
+      </output>
+      <button
+        type="button"
+        onClick={() =>
+          form.setField("scope", {
+            mode: "restricted",
+            targets: [{ kind: "group", targetId: "team" }],
+          })
+        }
+      >
+        Change
+      </button>
+      <button type="button" onClick={() => void revalidator.revalidate()}>
+        Reload
+      </button>
+    </>
+  );
+}
+
+describe("PAGE-19 form state of the scope", () => {
+  it("adopts a scope another administrator saved, but keeps an edited one", async () => {
+    const first: AgentConnectionScope = {
+      mode: "restricted",
+      targets: [
+        { kind: "person", targetId: "bob" },
+        { kind: "department", targetId: "finance" },
+      ],
+    };
+    let connection = createAgentConnection({ scope: first });
+    const Stub = createRoutesStub([
+      { path: "/", Component: ScopeProbe, loader: () => connection },
+    ]);
+    const user = userEvent.setup();
+    render(
+      <I18nextProvider i18n={createI18n("en")}>
+        <Stub initialEntries={["/"]} />
+      </I18nextProvider>,
+    );
+    const form = await screen.findByTestId("form");
+    expect(form).toHaveTextContent(JSON.stringify(first) + "|false");
+    // Another administrator changes the scope; an unedited form follows it,
+    // and the order in which the server lists targets is no change.
+    const second: AgentConnectionScope = {
+      mode: "restricted",
+      targets: [
+        { kind: "department", targetId: "engineering" },
+        { kind: "person", targetId: "carol" },
+      ],
+    };
+    connection = { ...connection, scope: second };
+    await user.click(screen.getByRole("button", { name: "Reload" }));
+    await waitFor(() =>
+      expect(form).toHaveTextContent(JSON.stringify(second) + "|false"),
+    );
+    // An edited form keeps its choice and stays dirty.
+    await user.click(screen.getByRole("button", { name: "Change" }));
+    const edited = JSON.stringify({
+      mode: "restricted",
+      targets: [{ kind: "group", targetId: "team" }],
+    });
+    expect(form).toHaveTextContent(edited + "|true");
+    connection = { ...connection, scope: { mode: "global", targets: [] } };
+    await user.click(screen.getByRole("button", { name: "Reload" }));
+    await waitFor(() => expect(form).toHaveTextContent(edited + "|true"));
   });
 });

@@ -25,21 +25,57 @@ interface AgentFormFields {
   readonly scope: AgentConnectionScope;
 }
 
-type ModelChoice = Pick<AgentFormFields, "testModel" | "reasoningEffort">;
+type StoredChoice = Pick<
+  AgentFormFields,
+  "testModel" | "reasoningEffort" | "scope"
+>;
 
-function storedChoice(
-  connection: AgentConnectionSummary | undefined,
-): ModelChoice {
+/** The server lists targets by kind, the form in the order of the choices. */
+function canonicalScope(scope: AgentConnectionScope): AgentConnectionScope {
   return {
-    testModel: connection?.testModel ?? "",
-    reasoningEffort: connection?.reasoningEffort ?? "",
+    mode: scope.mode,
+    targets: [...scope.targets].sort(
+      (left, right) =>
+        left.kind.localeCompare(right.kind) ||
+        left.targetId.localeCompare(right.targetId),
+    ),
   };
 }
 
-function isSameChoice(left: ModelChoice, right: ModelChoice): boolean {
+function isSameScope(
+  left: AgentConnectionScope,
+  right: AgentConnectionScope,
+): boolean {
+  return (
+    JSON.stringify(canonicalScope(left)) ===
+    JSON.stringify(canonicalScope(right))
+  );
+}
+
+function storedChoice(
+  connection: AgentConnectionSummary | undefined,
+): StoredChoice {
+  return {
+    testModel: connection?.testModel ?? "",
+    reasoningEffort: connection?.reasoningEffort ?? "",
+    scope: connection?.scope ?? GLOBAL_CONNECTION_SCOPE,
+  };
+}
+
+function isSameChoice(left: StoredChoice, right: StoredChoice): boolean {
   return (
     left.testModel === right.testModel &&
-    left.reasoningEffort === right.reasoningEffort
+    left.reasoningEffort === right.reasoningEffort &&
+    isSameScope(left.scope, right.scope)
+  );
+}
+
+function isSameFields(left: AgentFormFields, right: AgentFormFields): boolean {
+  return (
+    left.name === right.name &&
+    left.provider === right.provider &&
+    left.apiKey === right.apiKey &&
+    isSameChoice(left, right)
   );
 }
 
@@ -49,6 +85,7 @@ function isSameChoice(left: ModelChoice, right: ModelChoice): boolean {
  * @remarks
  * The server stores a default model after access (A7 §21.6). The form adopts
  * such a change unless the administrator has already changed the model here.
+ * A scope that another administrator saved is adopted the same way.
  */
 function useFormFields(
   kind: AgentAccessKind,
@@ -64,7 +101,6 @@ function useFormFields(
     provider:
       connection?.provider ?? (kind === "api_key" ? "openrouter" : "codex_cli"),
     apiKey: "",
-    scope: connection?.scope ?? GLOBAL_CONNECTION_SCOPE,
     ...storedChoice(connection),
   });
   const [saved, setSaved] = useState(fields);
@@ -133,10 +169,15 @@ export function useAgentForm(
   }, [fetcher.data, fetcher.state, fields, onSaved, setFields, setSaved, t]);
   function handleSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
+    const { scope, ...text } = fields;
     void fetcher.submit(
       {
-        ...fields,
-        scope: JSON.stringify(fields.scope),
+        ...text,
+        // An unchanged scope is not sent, so a form opened earlier cannot
+        // overwrite a scope that another administrator saved since.
+        ...(!connection || !isSameScope(scope, saved.scope)
+          ? { scope: JSON.stringify(scope) }
+          : {}),
         intent: connection ? "update-connection" : "create-connection",
         connectionId: connection?.id ?? "",
       },
@@ -147,7 +188,7 @@ export function useAgentForm(
     fields,
     setField: (key, value) =>
       setFields((current) => ({ ...current, [key]: value })),
-    isDirty: JSON.stringify(fields) !== JSON.stringify(saved),
+    isDirty: !isSameFields(fields, saved),
     isSaving: fetcher.state !== "idle",
     savedCount,
     error:

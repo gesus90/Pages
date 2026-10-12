@@ -5,6 +5,7 @@ import {
 import { AgentError } from "@/backend/error/AgentErrors";
 import {
   GLOBAL_CONNECTION_SCOPE,
+  UNSET_CONNECTION_SCOPE,
   isAgentConnectionScopeKind,
 } from "@/definition/AgentConnectionScope";
 
@@ -23,15 +24,21 @@ const TARGET_EXISTS: Readonly<Record<AgentConnectionScopeKind, string>> = {
   department: "SELECT id FROM departments WHERE id = $target_id;",
 };
 
-/**
- * The scope of a connection that has no stored mode.
- *
- * @remarks
- * Migration and creation always store a mode, so this only guards against a
- * hand-edited database: nobody may use the connection until an administrator
- * chooses a scope, instead of everybody.
- */
-const UNSET_SCOPE: AgentConnectionScope = { mode: "restricted", targets: [] };
+type TargetRow = readonly [string, string, string];
+
+/** Narrows the stored rows of one connection; an unknown kind is a corrupt scope. */
+function readTargets(
+  rows: readonly TargetRow[],
+  connectionId: string,
+): AgentConnectionScopeTarget[] {
+  return rows
+    .filter(([id]) => id === connectionId)
+    .map(([, kind, targetId]) => {
+      if (!isAgentConnectionScopeKind(kind))
+        throw new AgentError("connection_scope_invalid");
+      return { kind, targetId };
+    });
+}
 
 /** Stores who may use each connection, apart from its credentials and checks. */
 export class AgentConnectionScopeRepository {
@@ -65,7 +72,7 @@ export class AgentConnectionScopeRepository {
     if (!row) return null;
     const mode = readNullableTextColumn(row, 0, "mode");
     if (mode === "global") return GLOBAL_CONNECTION_SCOPE;
-    if (mode !== "restricted") return UNSET_SCOPE;
+    if (mode !== "restricted") return UNSET_CONNECTION_SCOPE;
     return {
       mode,
       targets: readTargets(await this.targetRows(connectionId), connectionId),
@@ -93,7 +100,7 @@ export class AgentConnectionScopeRepository {
       if (mode === "global") scopes.set(id, GLOBAL_CONNECTION_SCOPE);
       else if (mode === "restricted")
         scopes.set(id, { mode, targets: readTargets(targets, id) });
-      else scopes.set(id, UNSET_SCOPE);
+      else scopes.set(id, UNSET_CONNECTION_SCOPE);
     }
     return scopes;
   }
@@ -192,7 +199,7 @@ export class AgentConnectionScopeRepository {
 
   private async targetRows(
     connectionId: string | null,
-  ): Promise<readonly (readonly [string, string, string])[]> {
+  ): Promise<readonly TargetRow[]> {
     const rows =
       connectionId === null
         ? await this.database.query(`
@@ -230,17 +237,4 @@ export class AgentConnectionScopeRepository {
     });
     if (rows.length === 0) throw new AgentError("profile_target_invalid");
   }
-}
-
-function readTargets(
-  rows: readonly (readonly [string, string, string])[],
-  connectionId: string,
-): AgentConnectionScopeTarget[] {
-  return rows
-    .filter(([id]) => id === connectionId)
-    .map(([, kind, targetId]) => {
-      if (!isAgentConnectionScopeKind(kind))
-        throw new AgentError("connection_scope_invalid");
-      return { kind, targetId };
-    });
 }

@@ -343,16 +343,21 @@ Connection access checks and model tests stay available to administrators.
 The server checks the scope for API and CLI connections alike, when models are
 offered (text and chat profiles, reusable agents, personal access) and again
 immediately before every model call, including each call of a longer chat
-answer or plan step. A person outside the scope neither sees the model nor can
-run it by a forged or stale selection: the call is refused with `accessDenied`
-and the provider is not contacted. Keys and account details stay on the server
-and never appear in lists, responses or errors.
+answer or plan step. A person outside the scope is not offered the models of
+the connection and cannot run them by a forged or stale selection: the call is
+refused with `accessDenied` and the provider is not contacted. A reusable agent
+for personal access keeps naming the model it requires; running it needs the
+person's own access, and the connection of that access has to admit them too.
+Keys and account details stay on the server and never appear in lists,
+responses or errors.
 
 Existing connections become **Global** with the migration, and new connections
 start Global, so nobody gains or loses access silently. A group or department
 that a connection scope lists cannot be deleted until the scope is changed.
 Deactivated accounts lose access whatever the scope says. Only administrators
-in active admin mode can create connections or change their scope.
+in active admin mode can create connections or change their scope; because
+membership is read live, whoever may change group or department memberships
+also changes who passes a restricted scope.
 
 ### Local workspaces (A10.3)
 

@@ -32,10 +32,9 @@ function readScopeField(formData: FormData): unknown {
   if (content.length > 50_000) throw new AgentError("connection_scope_invalid");
   try {
     return JSON.parse(content);
-  } catch (error: unknown) {
-    if (error instanceof SyntaxError)
-      throw new AgentError("connection_scope_invalid");
-    throw error;
+  } catch {
+    // The parser's own message would echo request content.
+    throw new AgentError("connection_scope_invalid");
   }
 }
 

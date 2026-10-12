@@ -5,6 +5,7 @@ import {
   AgentAccessDeniedError,
   AgentInUseError,
 } from "@/backend/error/AgentErrors";
+import { AgentConnectionScopeRepository } from "@/backend/database/repositories/agent/AgentConnectionScopeRepository";
 import { AgentScopeInUseError } from "@/backend/error/AdministrationError";
 import { DepartmentAdministrationService } from "@/backend/service/DepartmentAdministrationService";
 import { GroupAdministrationService } from "@/backend/service/GroupAdministrationService";
@@ -437,5 +438,45 @@ describe("PAGE-19 scope administration invariants", () => {
           { id: unused },
         ),
       ).toEqual([]);
+  });
+
+  it("lists a connection without a stored scope as restricted to nobody", async () => {
+    const h = await createScopeHarness(getDatabase());
+    await getDatabase().execute(
+      "DELETE FROM agent_connection_scopes WHERE connection_id = $id;",
+      { id: CLI_CONNECTION_ID },
+    );
+    const unset: AgentConnectionScope = { mode: "restricted", targets: [] };
+    expect(
+      (await h.connections.scopes().list()).get(CLI_CONNECTION_ID),
+    ).toEqual(unset);
+    expect(await scopeOf(h, CLI_CONNECTION_ID)).toEqual(unset);
+    expect((await scopeOf(h, API_CONNECTION_ID))?.mode).toBe("global");
+  });
+
+  it("refuses to read a stored target of an unknown kind", async () => {
+    // The database constraint prevents such a row; this is the second line.
+    const scopeRows = [["connection-a", "restricted"]];
+    const targetRows = [["connection-a", "system", "text"]];
+    const single = new AgentConnectionScopeRepository({
+      query: vi
+        .fn()
+        .mockResolvedValueOnce([["restricted"]])
+        .mockResolvedValueOnce(targetRows),
+      execute: vi.fn(),
+    });
+    await expect(single.find("connection-a")).rejects.toMatchObject({
+      code: "connection_scope_invalid",
+    });
+    const all = new AgentConnectionScopeRepository({
+      query: vi
+        .fn()
+        .mockResolvedValueOnce(scopeRows)
+        .mockResolvedValueOnce(targetRows),
+      execute: vi.fn(),
+    });
+    await expect(all.list()).rejects.toMatchObject({
+      code: "connection_scope_invalid",
+    });
   });
 });
