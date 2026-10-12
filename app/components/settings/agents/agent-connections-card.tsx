@@ -117,6 +117,7 @@ function AgentConnectionsTable({
             {[
               "name",
               "providerLabel",
+              "scope.column",
               "statusLabel",
               "lastCheck",
               "actions",
@@ -149,6 +150,13 @@ function AgentConnectionsTable({
               </th>
               <td className="px-3 py-3 whitespace-nowrap">
                 {t(AGENT_PROVIDERS[connection.provider].labelKey)}
+              </td>
+              <td className="px-3 py-3 whitespace-nowrap">
+                {connection.scope.mode === "global"
+                  ? t("settings.agents.scope.summaryGlobal")
+                  : t("settings.agents.scope.summaryRestricted", {
+                      count: connection.scope.targets.length,
+                    })}
               </td>
               <td className="px-3 py-3">
                 <AgentStatus connection={connection} />

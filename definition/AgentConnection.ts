@@ -1,4 +1,5 @@
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
+import type { AgentConnectionScope } from "./AgentConnectionScope";
 
 /** API keys and CLI accounts remain separate connection types. */
 export type ApiProviderId =
@@ -131,6 +132,8 @@ export interface AgentConnectionSummary {
   readonly testModel: string | null;
   /** Saved effort for the selected model; null keeps the provider or CLI default. */
   readonly reasoningEffort: string | null;
+  /** Who may use the models of this connection; administrators only receive it. */
+  readonly scope: AgentConnectionScope;
   readonly cli: AgentCliState | null;
   readonly checks: {
     readonly auth: AgentCheckSummary | null;
@@ -145,6 +148,13 @@ export interface AgentConnectionInput {
   readonly apiKey?: string;
   readonly testModel?: string;
   readonly reasoningEffort?: string;
+  /**
+   * Untrusted usage scope from the request, validated by the service.
+   *
+   * @remarks
+   * Absent means global on creation and unchanged on update.
+   */
+  readonly scope?: unknown;
 }
 
 export interface CliToolLocation {

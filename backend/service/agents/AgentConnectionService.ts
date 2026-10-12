@@ -8,8 +8,12 @@ import {
   isAgentProvider,
   isApiProvider,
 } from "@/definition/AgentConnection";
+import { GLOBAL_CONNECTION_SCOPE } from "@/definition/AgentConnectionScope";
 
-import { validateAgentInput } from "./AgentConnectionValidation";
+import {
+  readAgentConnectionScope,
+  validateAgentInput,
+} from "./AgentConnectionValidation";
 import {
   requireAgentAdministrator,
   requireAgentConnection,
@@ -57,7 +61,10 @@ export class AgentConnectionService {
   /** Loads metadata and previous results; it never calls a provider or starts a process. */
   public async list(actor: AccountAccess): Promise<AgentConnectionSummary[]> {
     requireAgentAdministrator(actor);
-    const connections = await this.dependencies.repository.list();
+    const [connections, scopes] = await Promise.all([
+      this.dependencies.repository.list(),
+      this.dependencies.repository.scopes().list(),
+    ]);
     return Promise.all(
       connections.map(async (connection) => {
         const { repository, cli } = this.dependencies;
@@ -77,6 +84,7 @@ export class AgentConnectionService {
           hasApiKey: connection.hasApiKey,
           testModel: connection.testModel,
           reasoningEffort: connection.reasoningEffort,
+          scope: scopes.get(connection.id) ?? GLOBAL_CONNECTION_SCOPE,
           cli: cliState,
           checks: { auth, model },
           updatedAt: connection.updatedAt,
@@ -95,6 +103,10 @@ export class AgentConnectionService {
       const provider = input.provider;
       if (!isAgentProvider(provider)) throw new AgentError("provider_invalid");
       const validated = validateAgentInput(input, provider);
+      const scope =
+        input.scope === undefined
+          ? GLOBAL_CONNECTION_SCOPE
+          : readAgentConnectionScope(input.scope);
       if (isApiProvider(provider) && !validated.apiKey)
         throw new AgentError("api_key_required");
       // A new connection has no catalog yet, so no effort can be confirmed.
@@ -115,13 +127,14 @@ export class AgentConnectionService {
               : cipher.encrypt(id, validated.apiKey),
           testModel: validated.testModel,
           actorId: actor.userId,
+          scope,
         }),
       );
       return id;
     });
   }
 
-  /** Retains a blank key, forbids provider changes, and invalidates stale checks. */
+  /** Retains a blank key and an absent scope, forbids provider changes, and invalidates stale checks. */
   public async update(
     actor: AccountAccess,
     id: string,
@@ -137,6 +150,10 @@ export class AgentConnectionService {
       )
         throw new AgentError("provider_immutable");
       const validated = validateAgentInput(input, connection.provider);
+      const scope =
+        input.scope === undefined
+          ? null
+          : readAgentConnectionScope(input.scope);
       // An unchanged choice stays valid even if a later catalog no longer lists it.
       const isModelUnchanged =
         validated.testModel === connection.testModel &&
@@ -158,6 +175,7 @@ export class AgentConnectionService {
           reasoningEffort: validated.reasoningEffort,
           clearModel: !isModelUnchanged,
           actorId: actor.userId,
+          ...(scope ? { scope } : {}),
         }),
       );
     });

@@ -1,11 +1,24 @@
+import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { isApiProvider } from "@/definition/AgentConnection";
+import {
+  GLOBAL_CONNECTION_SCOPE,
+  isAgentConnectionScopeKind,
+  isAgentConnectionScopeMode,
+} from "@/definition/AgentConnectionScope";
 import { isReasoningEffortToken } from "@/definition/AgentModelCatalog";
 
 import type {
   AgentConnectionInput,
   AgentProviderId,
 } from "@/definition/AgentConnection";
+import type {
+  AgentConnectionScope,
+  AgentConnectionScopeTarget,
+} from "@/definition/AgentConnectionScope";
+
+const MAX_SCOPE_TARGETS = 200;
+const MAX_TARGET_ID_LENGTH = 100;
 
 export interface ValidatedAgentInput {
   readonly name: string;
@@ -47,4 +60,56 @@ function validateModelChoice(
     testModel: testModel || null,
     reasoningEffort: reasoningEffort || null,
   };
+}
+
+function readScopeTarget(input: unknown): AgentConnectionScopeTarget {
+  const target = readAgentObject(input);
+  const targetId =
+    typeof target.targetId === "string" ? target.targetId.trim() : "";
+  if (
+    !isAgentConnectionScopeKind(target.kind) ||
+    !targetId ||
+    targetId.length > MAX_TARGET_ID_LENGTH ||
+    /\p{Cc}/u.test(targetId)
+  )
+    throw new AgentError("connection_scope_invalid");
+  return { kind: target.kind, targetId };
+}
+
+function readScopeTargets(input: unknown): AgentConnectionScopeTarget[] {
+  if (!Array.isArray(input) || input.length > MAX_SCOPE_TARGETS)
+    throw new AgentError("connection_scope_invalid");
+  const targets = input.map(readScopeTarget);
+  return targets.filter(
+    (target, index) =>
+      targets.findIndex(
+        (entry) =>
+          entry.kind === target.kind && entry.targetId === target.targetId,
+      ) === index,
+  );
+}
+
+/**
+ * Narrows an untrusted usage scope before persistence.
+ *
+ * @param input - Parsed request content.
+ * @returns A scope that is either global without targets or restricted with at
+ * least one person, group or department.
+ * @throws {AgentError} `connection_scope_invalid` for anything else.
+ *
+ * @remarks
+ * Whether the named targets exist is decided by the repository inside the
+ * saving transaction.
+ */
+export function readAgentConnectionScope(input: unknown): AgentConnectionScope {
+  const scope = readAgentObject(input);
+  if (!isAgentConnectionScopeMode(scope.mode))
+    throw new AgentError("connection_scope_invalid");
+  const targets = readScopeTargets(scope.targets ?? []);
+  if (scope.mode === "global") {
+    if (targets.length > 0) throw new AgentError("connection_scope_invalid");
+    return GLOBAL_CONNECTION_SCOPE;
+  }
+  if (targets.length === 0) throw new AgentError("connection_scope_invalid");
+  return { mode: "restricted", targets };
 }

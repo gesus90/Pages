@@ -16,6 +16,7 @@ import { useAgentForm } from "./use-agent-form";
 import { useModelAvailability } from "./use-model-availability";
 
 import type { AgentModelCatalog } from "@/definition/AgentModelCatalog";
+import type { AgentProfileDirectory } from "@/definition/AgentProfile";
 import type {
   AgentAccessKind,
   AgentConnectionSummary,
@@ -47,6 +48,7 @@ export function AgentConnectionPanel({
   kind,
   catalog,
   connection,
+  directory,
   actions,
   hasPollError,
   onSaved,
@@ -55,6 +57,7 @@ export function AgentConnectionPanel({
 }: {
   readonly kind: AgentAccessKind;
   readonly catalog?: AgentModelCatalog;
+  readonly directory: AgentProfileDirectory;
   readonly connection: AgentConnectionSummary | undefined;
   readonly actions: AgentActions;
   readonly hasPollError: boolean;
@@ -87,7 +90,12 @@ export function AgentConnectionPanel({
         className="min-h-0 flex-1"
         contentClassName="gap-6 px-6 pb-6"
       >
-        <PanelForm form={form} kind={kind} availability={availability} />
+        <PanelForm
+          form={form}
+          kind={kind}
+          availability={availability}
+          directory={directory}
+        />
         <PanelMessages
           error={actions.error}
           blockingAgents={readBlockingAgents(actions.result)}
@@ -134,15 +142,22 @@ function PanelForm({
   form,
   kind,
   availability,
+  directory,
 }: {
   readonly form: AgentForm;
   readonly kind: AgentAccessKind;
   readonly availability: AgentModelAvailability;
+  readonly directory: AgentProfileDirectory;
 }): React.ReactElement {
   const { t } = useTranslation();
   return (
     <form id="agent-connection-form" onSubmit={form.handleSubmit}>
-      <AgentFormFields form={form} kind={kind} availability={availability} />
+      <AgentFormFields
+        form={form}
+        kind={kind}
+        availability={availability}
+        directory={directory}
+      />
       {form.error && !FIELD_ERRORS.has(form.error) ? (
         <div className="mt-3">
           <AgentAlert message={t(`settings.agents.error.${form.error}`)} />

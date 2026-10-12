@@ -29,6 +29,23 @@ function includeSavedTargets(
   ];
 }
 
+function TargetOption(props: {
+  readonly name: string;
+  readonly isChecked: boolean;
+  readonly onToggle: (checked: boolean) => void;
+}): React.ReactElement {
+  return (
+    <label className="flex items-center gap-2 text-sm">
+      <input
+        type="checkbox"
+        checked={props.isChecked}
+        onChange={(event) => props.onToggle(event.target.checked)}
+      />
+      <span className="break-words">{props.name}</span>
+    </label>
+  );
+}
+
 /** Explicit scope choices keep global functions separate from people and organization scopes. */
 export function AgentProfileTargets(props: {
   readonly directory: AgentProfileDirectory;
@@ -38,6 +55,8 @@ export function AgentProfileTargets(props: {
   readonly scope?: AgentProfileTargetKind;
   readonly isSharing?: boolean;
   readonly purposes?: readonly AgentProfilePurpose[];
+  /** Overrides the accessible name of the group of choices. */
+  readonly label?: string;
 }): React.ReactElement {
   const { t } = useTranslation();
   const sections = [
@@ -65,11 +84,14 @@ export function AgentProfileTargets(props: {
   return (
     <section
       className="grid gap-4 sm:grid-cols-2"
-      aria-label={t(
-        props.isSharing
-          ? "settings.agents.definition.sharing"
-          : "settings.agents.profiles.targets",
-      )}
+      aria-label={
+        props.label ??
+        t(
+          props.isSharing
+            ? "settings.agents.definition.sharing"
+            : "settings.agents.profiles.targets",
+        )
+      }
     >
       {sections
         .filter((section) => !props.isSharing || section.kind !== "system")
@@ -101,26 +123,18 @@ export function AgentProfileTargets(props: {
                 ),
                 props.targets,
               ).map((entry) => (
-                <label
+                <TargetOption
                   key={entry.id}
-                  className="flex items-center gap-2 text-sm"
-                >
-                  <input
-                    type="checkbox"
-                    checked={props.targets.some(
-                      (target) =>
-                        target.kind === section.kind &&
-                        target.targetId === entry.id,
-                    )}
-                    onChange={(event) =>
-                      toggle(
-                        { kind: section.kind, targetId: entry.id },
-                        event.target.checked,
-                      )
-                    }
-                  />
-                  <span className="break-words">{entry.name}</span>
-                </label>
+                  name={entry.name}
+                  isChecked={props.targets.some(
+                    (target) =>
+                      target.kind === section.kind &&
+                      target.targetId === entry.id,
+                  )}
+                  onToggle={(checked) =>
+                    toggle({ kind: section.kind, targetId: entry.id }, checked)
+                  }
+                />
               ))}
             </VerticalScrollArea>
           </fieldset>

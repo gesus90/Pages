@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
 
 import { showSuccessToast } from "@/app/components/ui/toast";
+import { GLOBAL_CONNECTION_SCOPE } from "@/definition/AgentConnectionScope";
 
 import type { AgentActionResult } from "@/app/lib/settings-actions/settings-agents-response.server";
 import type {
@@ -10,6 +11,7 @@ import type {
   AgentConnectionSummary,
   AgentProviderId,
 } from "@/definition/AgentConnection";
+import type { AgentConnectionScope } from "@/definition/AgentConnectionScope";
 import type { Dispatch, FormEvent, SetStateAction } from "react";
 
 interface AgentFormFields {
@@ -19,6 +21,8 @@ interface AgentFormFields {
   readonly testModel: string;
   /** Empty keeps the provider or CLI default effort. */
   readonly reasoningEffort: string;
+  /** Who may use the models of the connection; sent as one JSON field. */
+  readonly scope: AgentConnectionScope;
 }
 
 type ModelChoice = Pick<AgentFormFields, "testModel" | "reasoningEffort">;
@@ -60,6 +64,7 @@ function useFormFields(
     provider:
       connection?.provider ?? (kind === "api_key" ? "openrouter" : "codex_cli"),
     apiKey: "",
+    scope: connection?.scope ?? GLOBAL_CONNECTION_SCOPE,
     ...storedChoice(connection),
   });
   const [saved, setSaved] = useState(fields);
@@ -131,6 +136,7 @@ export function useAgentForm(
     void fetcher.submit(
       {
         ...fields,
+        scope: JSON.stringify(fields.scope),
         intent: connection ? "update-connection" : "create-connection",
         connectionId: connection?.id ?? "",
       },

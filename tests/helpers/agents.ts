@@ -1,3 +1,5 @@
+import { GLOBAL_CONNECTION_SCOPE } from "@/definition/AgentConnectionScope";
+
 import type {
   AgentConnectionSummary,
   CliToolLocations,
@@ -17,6 +19,7 @@ export function createAgentConnection(
     hasApiKey: true,
     testModel: null,
     reasoningEffort: null,
+    scope: GLOBAL_CONNECTION_SCOPE,
     cli: null,
     checks: { auth: null, model: null },
     updatedAt: "2026-10-08T10:00:00.000Z",

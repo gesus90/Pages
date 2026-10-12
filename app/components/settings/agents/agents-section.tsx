@@ -125,6 +125,7 @@ export function AgentsSection({
             key={selection.id ?? selection.kind}
             kind={selection.kind}
             connection={selected}
+            directory={profileDirectory}
             catalog={selected ? catalogs[selected.id] : undefined}
             actions={actions}
             hasPollError={Boolean(selected && sessions[selected.id]?.hasError)}

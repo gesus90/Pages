@@ -25,6 +25,20 @@ type AgentActionHandler = (
   context: AgentActionContext,
 ) => Promise<Omit<Extract<AgentActionResult, { ok: true }>, "intent">>;
 
+/** An absent field leaves the scope unchanged; malformed content is a stable error. */
+function readScopeField(formData: FormData): unknown {
+  const content = readTextOrEmpty(formData, "scope");
+  if (content === "") return undefined;
+  if (content.length > 50_000) throw new AgentError("connection_scope_invalid");
+  try {
+    return JSON.parse(content);
+  } catch (error: unknown) {
+    if (error instanceof SyntaxError)
+      throw new AgentError("connection_scope_invalid");
+    throw error;
+  }
+}
+
 function readConnectionInput(formData: FormData): AgentConnectionInput {
   return {
     name: readTextOrEmpty(formData, "name"),
@@ -32,6 +46,7 @@ function readConnectionInput(formData: FormData): AgentConnectionInput {
     apiKey: readTextOrEmpty(formData, "apiKey"),
     testModel: readTextOrEmpty(formData, "testModel"),
     reasoningEffort: readTextOrEmpty(formData, "reasoningEffort"),
+    scope: readScopeField(formData),
   };
 }
 

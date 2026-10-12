@@ -7,7 +7,10 @@ import { Input } from "@/app/components/ui/input";
 import { Select } from "@/app/components/ui/select";
 import { AGENT_PROVIDERS, isAgentProvider } from "@/definition/AgentConnection";
 
+import { AgentScopeFields } from "./agent-scope-fields";
+
 import type { AgentAccessKind } from "@/definition/AgentConnection";
+import type { AgentProfileDirectory } from "@/definition/AgentProfile";
 import type { AgentModelAvailability } from "./use-model-availability";
 import type { AgentForm } from "./use-agent-form";
 
@@ -103,10 +106,12 @@ export function AgentFormFields({
   form,
   kind,
   availability,
+  directory,
 }: {
   readonly form: AgentForm;
   readonly kind: AgentAccessKind;
   readonly availability: AgentModelAvailability;
+  readonly directory: AgentProfileDirectory;
 }): React.ReactElement {
   const isExisting = availability.isExisting;
   const { t } = useTranslation();
@@ -171,6 +176,12 @@ export function AgentFormFields({
           isExisting={isExisting}
         />
       ) : null}
+      <AgentScopeFields
+        scope={form.fields.scope}
+        directory={directory}
+        disabled={form.isSaving}
+        onChange={(scope) => form.setField("scope", scope)}
+      />
       <p className="text-sm text-muted-foreground">
         {t("settings.agents.assignments.connectionHint")}
       </p>
