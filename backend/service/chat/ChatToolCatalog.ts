@@ -75,7 +75,8 @@ const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
   "people.visible.list": `{${WINDOW}} sichtbare Personen mit Abteilung und Gruppe`,
   "wiki.tree.read": `{projectId?, ${WINDOW}} Seitenbaum des Wikis`,
   "wiki.search": `{text, projectId?, ${WINDOW}} Wiki durchsuchen`,
-  "wiki.page.read": "{pageId} Seite mit Markdown, revision und anchors lesen",
+  "wiki.page.read":
+    "{pageId} Seite mit Markdown, revision, icon, cover und anchors lesen",
   "wiki.outline.read": `{${PAGE}} Überschriften einer Seite`,
   "wiki.links.read": `{${PAGE}} Verweise und Rückverweise einer Seite`,
   "wiki.page.create":
@@ -85,6 +86,8 @@ const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
     "{pageId, expectedRevision, content} Seiteninhalt (Markdown) ersetzen",
   "wiki.page.setIcon":
     "{pageId, expectedRevision, icon|null} Seitensymbol setzen",
+  "wiki.page.setCover":
+    "{pageId, cover: {kind: preset, preset: sunrise|ocean|forest|dusk|slate|sand}|{kind: attachment, attachmentId}|null} Seitencover setzen oder entfernen, ohne Revision",
   "wiki.page.move":
     "{pageId, expectedRevision, projectId|null, scope?: project|instance|private, parentId|null, beforeId|null} Seite verschieben",
   "wiki.page.delete": `{pageId, expectedRevision} Seite samt Unterseiten in den Papierkorb, ${CONFIRMED}`,

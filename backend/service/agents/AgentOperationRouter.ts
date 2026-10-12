@@ -21,7 +21,7 @@ import {
   isAgentTicketOperation,
 } from "./AgentTicketValidation";
 import { isAgentCommentOperation } from "./AgentWikiCommentValidation";
-import { isAgentWikiFieldOperation } from "./AgentWikiFieldValidation";
+import { isAgentWikiPageOperation } from "./AgentWikiFieldValidation";
 import { WikiImportPlanner } from "./WikiImportPlanner";
 
 import type { AgentChannel } from "@/backend/auth/McpActorContext";
@@ -266,10 +266,7 @@ export class AgentOperationRouter {
       return this.updateImport(identity, input.parameters, verify);
     if (input.operation === "wiki.page.create" && this.dependencies.writes)
       return this.dependencies.writes.create(identity, input.parameters);
-    if (
-      isAgentWikiFieldOperation(input.operation) ||
-      input.operation === "wiki.page.move"
-    )
+    if (isAgentWikiPageOperation(input.operation))
       return this.changePage(identity, input.operation, input.parameters);
     return null;
   }

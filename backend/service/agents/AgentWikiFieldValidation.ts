@@ -1,6 +1,7 @@
 import { PAGES_AGENT_LIMITS } from "@/definition/PagesAgentOperations";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { resolveWikiPageReference } from "@/backend/service/wiki/WikiLinks";
+import { WIKI_COVER_PRESETS } from "@/definition/Wiki";
 
 import {
   readIdentifier,
@@ -9,12 +10,16 @@ import {
 } from "./AgentParameterReader";
 
 import type {
+  AgentWikiCoverInput,
   AgentWikiField,
   AgentWikiFieldInput,
   AgentWikiFieldOperation,
   AgentWikiMoveInput,
+  AgentWikiPageOperation,
+  AgentWikiPageRequest,
   AgentWikiPageTarget,
 } from "@/definition/AgentWikiFields";
+import type { WikiCover } from "@/definition/Wiki";
 
 const FIELD_OPERATIONS: Readonly<
   Record<AgentWikiFieldOperation, AgentWikiField>
@@ -31,6 +36,17 @@ export function isAgentWikiFieldOperation(
 ): name is AgentWikiFieldOperation {
   return (
     typeof name === "string" && Object.keys(FIELD_OPERATIONS).includes(name)
+  );
+}
+
+/** Tells whether an operation name is any page operation of this family. */
+export function isAgentWikiPageOperation(
+  name: unknown,
+): name is AgentWikiPageOperation {
+  return (
+    isAgentWikiFieldOperation(name) ||
+    name === "wiki.page.setCover" ||
+    name === "wiki.page.move"
   );
 }
 
@@ -104,6 +120,68 @@ export function readAgentWikiFieldChange(
       limit: PAGES_AGENT_LIMITS.wikiContentBytes,
     });
   return { ...base, field, value };
+}
+
+function readCover(input: unknown): WikiCover | null {
+  if (input === null) return null;
+  const fields = readParameterRecord(input);
+  if (fields.kind === "preset") {
+    requireParameterKeys(fields, ["kind", "preset"]);
+    const preset = WIKI_COVER_PRESETS.find(
+      (candidate) => candidate === fields.preset,
+    );
+    if (preset === undefined) throw new AgentOperationError("INVALID_REQUEST");
+    return { kind: "preset", preset };
+  }
+  if (fields.kind === "attachment") {
+    requireParameterKeys(fields, ["kind", "attachmentId"]);
+    return {
+      kind: "attachment",
+      attachmentId: readIdentifier(fields.attachmentId),
+    };
+  }
+  throw new AgentOperationError("INVALID_REQUEST");
+}
+
+/**
+ * Validates a cover change before any persistence or policy read.
+ *
+ * @param input - The raw operation parameters.
+ * @returns The page and the new cover; `null` removes the cover.
+ * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or malformed parameter.
+ *
+ * @remarks
+ * The cover is `{kind: "preset", preset}` with one of the six prepared names,
+ * `{kind: "attachment", attachmentId}` or `null`, the shape `read_wiki_page`
+ * returns. It takes no revision: a cover is no part of the text.
+ */
+export function readAgentWikiCoverChange(input: unknown): AgentWikiCoverInput {
+  const fields = readParameterRecord(input);
+  requireParameterKeys(fields, ["operationId", "pageId", "cover"]);
+  return {
+    operationId: readIdentifier(fields.operationId),
+    pageId: readWikiPageReference(fields.pageId),
+    cover: readCover(fields.cover),
+  };
+}
+
+/**
+ * Validates the parameters of any page operation of this family.
+ *
+ * @param operation - The operation that was called.
+ * @param input - The raw operation parameters.
+ * @returns The validated request.
+ * @throws {AgentOperationError} `INVALID_REQUEST` or `PAYLOAD_TOO_LARGE`.
+ */
+export function readAgentWikiPageRequest(
+  operation: AgentWikiPageOperation,
+  input: unknown,
+): AgentWikiPageRequest {
+  if (isAgentWikiFieldOperation(operation))
+    return readAgentWikiFieldChange(operation, input);
+  if (operation === "wiki.page.setCover")
+    return readAgentWikiCoverChange(input);
+  return readAgentWikiMove(input);
 }
 
 /**

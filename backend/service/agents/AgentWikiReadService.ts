@@ -41,11 +41,20 @@ export class AgentWikiReadService {
     this.anchors = anchors;
   }
 
-  /** Reads complete Markdown and revision without recording a visit or revealing private placeholders. */
+  /** Reads complete Markdown, revision, icon and cover without recording a visit or revealing private placeholders. */
   public async read(actor: User, pageId: string): Promise<AgentWikiPage> {
     try {
-      const { id, title, content, revision, parentId, scope, projectId } =
-        await this.reads.readWithoutVisit(actor, pageId);
+      const {
+        id,
+        title,
+        content,
+        revision,
+        parentId,
+        scope,
+        projectId,
+        icon,
+        cover,
+      } = await this.reads.readWithoutVisit(actor, pageId);
       if (
         Buffer.byteLength(content, "utf8") > PAGES_AGENT_LIMITS.wikiContentBytes
       )
@@ -61,6 +70,8 @@ export class AgentWikiReadService {
         parentId,
         scope,
         projectId,
+        icon,
+        cover,
         anchors: (await this.anchors?.findAnchors(id)) ?? [],
       };
     } catch (error: unknown) {

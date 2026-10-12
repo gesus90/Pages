@@ -5,6 +5,11 @@ import { describe, expect, it } from "vitest";
 
 import { readImportTitle } from "@/backend/service/agents/ImportMarkdownTitle";
 import { readWikiImportManifest } from "@/backend/service/agents/WikiImportManifestReader";
+import { PAGES_AGENT_WRITE_OPERATIONS } from "@/definition/PagesAgentWrites";
+import { WIKI_COVER_PRESETS } from "@/definition/Wiki";
+
+import { READ_TOOLS } from "../../mcp/src/tools/registry";
+import { WRITE_TOOLS } from "../../mcp/src/tools/write-registry";
 
 const README = readFileSync(
   fileURLToPath(new URL("../../mcp/README.md", import.meta.url)),
@@ -219,5 +224,52 @@ describe("MCP README remote operation", () => {
       "nothing is committed to `main`, and no npm package is published",
     );
     expect(README).toContain("mcp-vMAJOR.MINOR.PATCH");
+  });
+});
+
+describe("MCP README PAGE-15 icon and cover contract", () => {
+  // Line breaks of the Markdown source carry no meaning.
+  const section = README.split("## Wiki icon and cover (PAGE-15)")[1]
+    ?.split("## Tickets and milestones (A9.11)")[0]
+    ?.replace(/\s+/g, " ");
+
+  it("documents exactly the shipped tools, operations and presets", () => {
+    const cover = WRITE_TOOLS.find(
+      ({ tool }) => tool.name === "set_wiki_page_cover",
+    );
+    expect(cover?.operation).toBe("wiki.page.setCover");
+    expect(PAGES_AGENT_WRITE_OPERATIONS).toContain("wiki.page.setCover");
+    expect(
+      READ_TOOLS.find(({ tool }) => tool.name === "read_wiki_page")?.operation,
+    ).toBe("wiki.page.read");
+    expect(section).toContain("`set_wiki_page_cover`");
+    expect(section).toContain("`wiki.page.setCover`");
+    expect(section).toContain("`set_wiki_page_icon`");
+    for (const preset of WIKI_COVER_PRESETS)
+      expect(section).toContain(`\`${preset}\``);
+    expect(
+      Object.keys(cover?.tool.inputSchema.properties ?? {}).sort(),
+    ).toEqual(["cover", "operationId", "pageId"]);
+  });
+
+  it("documents the read contract, the image rules and the revision rules", () => {
+    for (const contract of [
+      "`icon` is a single emoji, or `null`",
+      '`{"kind":"preset","preset":<name>}`',
+      '`{"kind":"attachment","attachmentId":<id>}`',
+      "JPEG, PNG, GIF or WebP",
+      "must belong to the page named by `pageId`",
+      "the same `INVALID_REQUEST` without detail",
+      "changes neither the Markdown, nor the revision, nor the page versions",
+      "takes no `expectedRevision`",
+      "`FORBIDDEN`",
+      "`NOT_FOUND`",
+      "returns `CONFLICT`",
+      "`create_wiki_page` has no cover argument",
+    ])
+      expect(section).toContain(contract);
+    expect(README).toContain(
+      "ID, title, complete Markdown, revision, parent, scope, project ID, icon and cover",
+    );
   });
 });

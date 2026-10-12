@@ -75,6 +75,48 @@ describe("agent wiki result boundaries", () => {
     );
   });
 
+  it.each([
+    ["no icon and no cover", null, null],
+    ["an emoji and a preset", "📘", { kind: "preset", preset: "ocean" }],
+    [
+      "an attachment cover",
+      "🧭",
+      { kind: "attachment", attachmentId: "attachment-1" },
+    ],
+  ] as const)(
+    "returns the icon and the cover of a page with %s as stored",
+    async (_label, icon, cover) => {
+      const reads = {
+        visibleNodes: vi.fn(),
+        readWithoutVisit: vi.fn().mockResolvedValue({
+          id: "page",
+          title: "Title",
+          content: "Text",
+          revision: 4,
+          parentId: null,
+          scope: "project",
+          projectId: "p1",
+          icon,
+          cover,
+          ownerId: "never exposed",
+        }),
+      };
+      const service = new AgentWikiReadService(reads, { search: vi.fn() });
+      await expect(service.read(actor, "page")).resolves.toEqual({
+        id: "page",
+        title: "Title",
+        content: "Text",
+        revision: 4,
+        parentId: null,
+        scope: "project",
+        projectId: "p1",
+        icon,
+        cover,
+        anchors: [],
+      });
+    },
+  );
+
   it("propagates persistence errors while keeping missing/hidden failures unified", async () => {
     const reads = {
       visibleNodes: vi.fn(),

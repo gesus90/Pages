@@ -13,18 +13,15 @@ import {
   WikiPageNotFoundError,
   WikiValidationError,
 } from "@/backend/error/WikiErrors";
+import { WikiCoverService } from "@/backend/service/wiki/WikiCoverService";
 import { WikiMoveService } from "@/backend/service/wiki/WikiMoveService";
 import { WikiPageReader } from "@/backend/service/wiki/WikiPageReader";
 import { WikiPageService } from "@/backend/service/wiki/WikiPageService";
-import { WIKI_SCOPE } from "@/definition/Wiki";
+import { WIKI_SCOPE, formatWikiCover } from "@/definition/Wiki";
 
 import { agentTransactionScope } from "./AgentTransactionScope";
 import { createAgentWikiAccess } from "./AgentWikiAccess";
-import {
-  isAgentWikiFieldOperation,
-  readAgentWikiFieldChange,
-  readAgentWikiMove,
-} from "./AgentWikiFieldValidation";
+import { readAgentWikiPageRequest } from "./AgentWikiFieldValidation";
 
 import type {
   Database,
@@ -35,15 +32,19 @@ import type { WikiPageRecord } from "@/backend/database/repositories/WikiReposit
 import type { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
 import type { WikiAccess, WikiViewer } from "@/backend/service/wiki/WikiAccess";
 import type {
+  AgentWikiCoverChanged,
+  AgentWikiCoverInput,
   AgentWikiFieldInput,
   AgentWikiMoveInput,
   AgentWikiPageChanged,
   AgentWikiPageMoved,
   AgentWikiPageOperation,
+  AgentWikiPageRequest,
 } from "@/definition/AgentWikiFields";
 import type { AgentIdentity } from "@/definition/McpAuthorization";
 import type { PagesAgentWriteResponse } from "@/definition/PagesAgentWrites";
 import type { User } from "@/definition/User";
+import type { WikiCover } from "@/definition/Wiki";
 
 /** The server-owned collaborators; pages change on the shared connection. */
 export interface AgentWikiFieldDependencies {
@@ -55,7 +56,8 @@ export interface AgentWikiFieldDependencies {
 
 /** What one call changes for the person: the stored result and the page to announce, if any. */
 interface FieldOutcome {
-  readonly result: AgentWikiPageChanged | AgentWikiPageMoved;
+  readonly result:
+    AgentWikiPageChanged | AgentWikiCoverChanged | AgentWikiPageMoved;
   readonly changedPageId: string | null;
 }
 
@@ -76,8 +78,13 @@ interface PagePlace {
 }
 
 /** Binds an operation ID to the exact page, revision and value it was first used with. */
-function fingerprint(input: AgentWikiFieldInput | AgentWikiMoveInput): string {
+function fingerprint(input: AgentWikiPageRequest): string {
   return createHash("sha256").update(JSON.stringify(input)).digest("hex");
+}
+
+/** The stored spelling of a cover, so that two covers compare by value. */
+function coverKey(cover: WikiCover | null): string | null {
+  return cover === null ? null : formatWikiCover(cover);
 }
 
 /** Business failures of the wiki become the fixed codes of the agent API. */
@@ -117,7 +124,8 @@ export class AgentWikiFieldService {
    * Runs one granular page operation for the owner of a verified credential.
    *
    * @param identity - The verified owner of the operation.
-   * @param operation - `wiki.page.setTitle`, `wiki.page.setContent`, `wiki.page.setIcon` or `wiki.page.move`.
+   * @param operation - `wiki.page.setTitle`, `wiki.page.setContent`, `wiki.page.setIcon`,
+   * `wiki.page.setCover` or `wiki.page.move`.
    * @param parameters - The raw operation parameters.
    * @returns The stored result; a repeated operation ID returns it unchanged.
    * @throws {AgentOperationError} `INVALID_REQUEST`, `FORBIDDEN`, `NOT_FOUND` or `CONFLICT`.
@@ -126,15 +134,14 @@ export class AgentWikiFieldService {
    * Rights and visibility are resolved anew inside the transaction. The order is fixed so
    * that a hidden page is indistinguishable from a missing one: write right, then
    * visibility, then the revision. A refused call writes nothing and stores no result.
+   * A cover takes no revision, because it is no part of the text.
    */
   public async apply(
     identity: AgentIdentity,
     operation: AgentWikiPageOperation,
     parameters: unknown,
   ): Promise<PagesAgentWriteResponse> {
-    const request = isAgentWikiFieldOperation(operation)
-      ? readAgentWikiFieldChange(operation, parameters)
-      : readAgentWikiMove(parameters);
+    const request = readAgentWikiPageRequest(operation, parameters);
     let outcome: FieldOutcome;
     try {
       outcome = await this.dependencies.database.transaction((transaction) =>
@@ -155,7 +162,7 @@ export class AgentWikiFieldService {
     transaction: DatabaseTransaction,
     userId: string,
     operation: AgentWikiPageOperation,
-    request: AgentWikiFieldInput | AgentWikiMoveInput,
+    request: AgentWikiPageRequest,
   ): Promise<FieldOutcome> {
     const scope = agentTransactionScope(transaction);
     const actor = await new UserRepository(scope).findById(userId);
@@ -190,20 +197,54 @@ export class AgentWikiFieldService {
       return { result: stored, changedPageId: null };
     }
     const page = await context.reader.require(viewer.scope, request.pageId);
-    if (page.revision !== request.expectedRevision)
-      throw new AgentOperationError("CONFLICT", {
-        currentRevision: page.revision,
-      });
-    const outcome =
-      "field" in request
-        ? await this.setField(context, page, request)
-        : await this.move(context, page, request);
+    const outcome = await this.change(context, page, request);
     await operations.insert(userId, request.operationId, {
       operation,
       fingerprint: hash,
       resultJson: JSON.stringify(outcome.result),
     });
     return outcome;
+  }
+
+  /** Applies the request to the page; every request but a cover change is bound to the revision read. */
+  private async change(
+    context: FieldContext,
+    page: WikiPageRecord,
+    request: AgentWikiPageRequest,
+  ): Promise<FieldOutcome> {
+    if ("cover" in request) return this.setCover(context, page, request);
+    if (page.revision !== request.expectedRevision)
+      throw new AgentOperationError("CONFLICT", {
+        currentRevision: page.revision,
+      });
+    return "field" in request
+      ? this.setField(context, page, request)
+      : this.move(context, page, request);
+  }
+
+  /** Sets or removes the cover through the service of the interface, which decides what a cover may be. */
+  private async setCover(
+    context: FieldContext,
+    page: WikiPageRecord,
+    request: AgentWikiCoverInput,
+  ): Promise<FieldOutcome> {
+    const cover = await new WikiCoverService(
+      context.wiki,
+      context.access,
+    ).setCover(context.actor, page.id, coverKey(request.cover));
+    const hasChanged = coverKey(page.cover) !== coverKey(cover);
+    return {
+      result: {
+        pageId: page.id,
+        link: `/wiki/${page.id}`,
+        field: "cover",
+        // A cover is visual metadata: text, revision and versions stay as they are.
+        revision: page.revision,
+        changed: hasChanged,
+        cover,
+      },
+      changedPageId: hasChanged ? page.id : null,
+    };
   }
 
   /** Reads the current values and hands them back unchanged, except the one the call names. */

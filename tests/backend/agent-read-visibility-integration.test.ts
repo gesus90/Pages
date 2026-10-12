@@ -166,6 +166,8 @@ describe("agent reads with real visibility and foreign records", () => {
         parentId: null,
         scope: "project",
         projectId: "alpha",
+        icon: null,
+        cover: null,
         anchors: [],
       },
     });

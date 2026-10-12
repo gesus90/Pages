@@ -4,6 +4,7 @@ import type { AgentImportPlan } from "./AgentImportManifest.js";
 import type { AgentStructuredImportPlan } from "./AgentStructuredImportManifest.js";
 import type { AgentMilestones, AgentTicket } from "./AgentTickets.js";
 import type { AgentWikiComments } from "./AgentWikiComments.js";
+import type { WikiCover } from "./Wiki.js";
 
 /** Read operations; every verified active account may read and plan within its scope. */
 export const PAGES_AGENT_READ_OPERATIONS = [
@@ -95,6 +96,10 @@ export interface AgentWikiPage {
   readonly parentId: string | null;
   readonly scope: string;
   readonly projectId: string | null;
+  /** A single emoji, or `null` when the page has no icon. */
+  readonly icon: string | null;
+  /** The visual cover, or `null` when the page has none. */
+  readonly cover: WikiCover | null;
   /** What the page is tied to; a visible page implies visible targets. */
   readonly anchors: readonly AgentWikiAnchor[];
 }

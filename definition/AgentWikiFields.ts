@@ -1,4 +1,4 @@
-import type { WikiVisibilityChange } from "./Wiki.js";
+import type { WikiCover, WikiVisibilityChange } from "./Wiki.js";
 
 /** The page fields an agent changes one at a time. */
 export type AgentWikiField = "title" | "content" | "icon";
@@ -7,8 +7,9 @@ export type AgentWikiField = "title" | "content" | "icon";
 export type AgentWikiFieldOperation =
   "wiki.page.setTitle" | "wiki.page.setContent" | "wiki.page.setIcon";
 
-/** Every operation of this family: three single-field changes and the move. */
-export type AgentWikiPageOperation = AgentWikiFieldOperation | "wiki.page.move";
+/** Every operation of this family: three single-field changes, the cover and the move. */
+export type AgentWikiPageOperation =
+  AgentWikiFieldOperation | "wiki.page.setCover" | "wiki.page.move";
 
 /** The page an operation addresses, bound to the revision the caller read. */
 export interface AgentWikiPageTarget {
@@ -27,6 +28,18 @@ export type AgentWikiFieldChange =
 /** One field of one page; the other fields stay as they are. */
 export type AgentWikiFieldInput = AgentWikiPageTarget & AgentWikiFieldChange;
 
+/**
+ * The cover of a page. It is visual page metadata: unlike the fields above it
+ * needs no revision, because setting it never changes text, revision or version.
+ */
+export interface AgentWikiCoverInput {
+  readonly operationId: string;
+  /** Always a page identifier; a Pages address is resolved before this contract. */
+  readonly pageId: string;
+  /** A preset, an image attachment of the page, or `null` to remove the cover. */
+  readonly cover: WikiCover | null;
+}
+
 /** An explicit place inside a project; the page keeps its text and icon. */
 export interface AgentWikiMoveInput extends AgentWikiPageTarget {
   readonly projectId: string | null;
@@ -37,6 +50,10 @@ export interface AgentWikiMoveInput extends AgentWikiPageTarget {
   readonly beforeId: string | null;
 }
 
+/** The validated parameters of any operation of this family. */
+export type AgentWikiPageRequest =
+  AgentWikiFieldInput | AgentWikiCoverInput | AgentWikiMoveInput;
+
 /** Result of a field change; returned unchanged when the operation ID is repeated. */
 export interface AgentWikiPageChanged {
   readonly pageId: string;
@@ -46,6 +63,19 @@ export interface AgentWikiPageChanged {
   readonly revision: number;
   /** Whether the call wrote anything. */
   readonly changed: boolean;
+}
+
+/** Result of a cover change; returned unchanged when the operation ID is repeated. */
+export interface AgentWikiCoverChanged {
+  readonly pageId: string;
+  readonly link: string;
+  readonly field: "cover";
+  /** The page revision; a cover never changes it. */
+  readonly revision: number;
+  /** Whether the cover differed from the stored one. */
+  readonly changed: boolean;
+  /** The cover as stored after the call; `null` when it is removed. */
+  readonly cover: WikiCover | null;
 }
 
 /** Result of a move; returned unchanged when the operation ID is repeated. */

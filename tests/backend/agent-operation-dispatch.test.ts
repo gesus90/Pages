@@ -170,6 +170,7 @@ describe("operation router write delegation", () => {
     ["wiki.page.setTitle", "fields"],
     ["wiki.page.setContent", "fields"],
     ["wiki.page.setIcon", "fields"],
+    ["wiki.page.setCover", "fields"],
     ["wiki.page.move", "fields"],
   ] as const)(
     "forwards the exact identity and parameters of %s",
@@ -237,6 +238,7 @@ describe("operation router fails closed", () => {
     ["wiki.comments.read", "comments"],
     ["wiki.comment.add", "comments"],
     ["wiki.page.setTitle", "fields"],
+    ["wiki.page.setCover", "fields"],
     ["wiki.page.move", "fields"],
     ["wiki.import.apply", "imports"],
     ["wiki.import.update", "importUpdates"],

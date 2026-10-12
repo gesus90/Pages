@@ -77,7 +77,7 @@ export const READ_TOOLS: readonly ReadTool[] = [
       name: "read_wiki_page",
       title: "Read wiki page",
       description:
-        "Reads complete Markdown and revision of a visible page without recording a visit. Hidden/private placeholders return NOT_FOUND. Content over 1 MiB UTF-8 returns PAYLOAD_TOO_LARGE; JSON escaping and metadata have a separate envelope budget.",
+        "Reads complete Markdown, revision, icon (a single emoji or null) and cover (null, {kind:preset,preset} or {kind:attachment,attachmentId}) of a visible page without recording a visit. Hidden/private placeholders return NOT_FOUND. Content over 1 MiB UTF-8 returns PAYLOAD_TOO_LARGE; JSON escaping and metadata have a separate envelope budget.",
       inputSchema: {
         type: "object",
         properties: { pageId: TEXT },

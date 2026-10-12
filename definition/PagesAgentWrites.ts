@@ -18,6 +18,7 @@ import type {
   AgentWikiCommentChanged,
 } from "./AgentWikiComments.js";
 import type {
+  AgentWikiCoverChanged,
   AgentWikiPageChanged,
   AgentWikiPageMoved,
 } from "./AgentWikiFields.js";
@@ -34,6 +35,7 @@ export const PAGES_AGENT_WRITE_OPERATIONS = [
   "wiki.page.setTitle",
   "wiki.page.setContent",
   "wiki.page.setIcon",
+  "wiki.page.setCover",
   "wiki.page.move",
   "ticket.create",
   "ticket.setTitle",
@@ -107,6 +109,7 @@ export interface PagesAgentWriteResponse {
     | AgentImportUpdated
     | AgentStructuredImportApplied
     | AgentWikiPageChanged
+    | AgentWikiCoverChanged
     | AgentWikiPageMoved
     | AgentWikiCommentAdded
     | AgentWikiCommentChanged

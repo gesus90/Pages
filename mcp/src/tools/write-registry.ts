@@ -20,6 +20,7 @@ import {
   TICKET_SET_TITLE_TOOL,
 } from "./ticket-field.js";
 import { WIKI_CREATE_TOOL } from "./wiki-create.js";
+import { WIKI_SET_COVER_TOOL } from "./wiki-cover.js";
 import { WIKI_IMPORT_APPLY_TOOL } from "./wiki-import-apply.js";
 import { WIKI_IMPORT_UPDATE_TOOL } from "./wiki-import-update.js";
 import { WIKI_MOVE_TOOL } from "./wiki-move.js";
@@ -47,6 +48,7 @@ export const WRITE_TOOLS: readonly {
   { operation: "wiki.page.setTitle", tool: WIKI_SET_TITLE_TOOL },
   { operation: "wiki.page.setContent", tool: WIKI_SET_CONTENT_TOOL },
   { operation: "wiki.page.setIcon", tool: WIKI_SET_ICON_TOOL },
+  { operation: "wiki.page.setCover", tool: WIKI_SET_COVER_TOOL },
   { operation: "wiki.page.move", tool: WIKI_MOVE_TOOL },
   { operation: "ticket.create", tool: TICKET_CREATE_TOOL },
   { operation: "ticket.setTitle", tool: TICKET_SET_TITLE_TOOL },

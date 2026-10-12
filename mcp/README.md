@@ -309,7 +309,7 @@ on every call. Reading wiki content does not record a visit.
 | ----------------- | ------------------ | ---------------------------- | ------------------------------------------------------------------------------------ |
 | `resolve_project` | `projects.resolve` | `name`                       | Exact trimmed, case-sensitive visible project ID and name                            |
 | `read_project`    | `projects.read`    | `projectId`                  | ID, name, description, status, progress, start and target dates                      |
-| `read_wiki_page`  | `wiki.page.read`   | `pageId`                     | ID, title, complete Markdown, revision, parent, scope and project ID                 |
+| `read_wiki_page`  | `wiki.page.read`   | `pageId`                     | ID, title, complete Markdown, revision, parent, scope, project ID, icon and cover    |
 | `read_wiki_tree`  | `wiki.tree.read`   | Optional `projectId`         | At most 100 visible nodes (`id`, `title`, `parentId`), visible total and `truncated` |
 | `search_wiki`     | `wiki.search`      | `text`, optional `projectId` | At most 100 visible hits (`id`, `title`, `snippet`), visible total and `truncated`   |
 
@@ -629,6 +629,57 @@ The tools are listed to every verified account; rights are enforced on each call
 focused A9.10 unit and integration tests cover every changed executable TypeScript
 file at 100% statements, branches, functions and lines. Type-only contracts have
 no executable coverage counters.
+
+## Wiki icon and cover (PAGE-15)
+
+`read_wiki_page` returns the visual metadata of a page with its text:
+
+- `icon` is a single emoji, or `null` when the page has none.
+- `cover` is `null`, `{"kind":"preset","preset":<name>}` with `preset` one of
+  `sunrise`, `ocean`, `forest`, `dusk`, `slate` or `sand`, or
+  `{"kind":"attachment","attachmentId":<id>}` for an image attachment of the page.
+
+Both are always present, `null` when not set. A page the account cannot see returns
+`NOT_FOUND` and no metadata, like its text.
+
+| Tool                  | Pages operation      | Arguments                                         | Changes    |
+| --------------------- | -------------------- | ------------------------------------------------- | ---------- |
+| `set_wiki_page_icon`  | `wiki.page.setIcon`  | `operationId`, `pageId`, `expectedRevision`, `icon` | Icon only  |
+| `set_wiki_page_cover` | `wiki.page.setCover` | `operationId`, `pageId`, `cover`                  | Cover only |
+
+- **Icon.** `create_wiki_page` takes an `icon` (an emoji or `null`), `set_wiki_page_icon`
+  changes it and `icon:null` removes it; `read_wiki_page` confirms the stored value after
+  each call. An icon is part of the revision, so `set_wiki_page_icon` follows the rules of
+  [A9.10](#single-field-wiki-operations-a910): it needs `expectedRevision`, raises the
+  revision and keeps the previous state as a page version. Anything that is not a single
+  emoji is `INVALID_REQUEST`.
+- **Cover.** `set_wiki_page_cover` sets, replaces or removes the cover. `cover` is
+  required and takes exactly the shape `read_wiki_page` returns: a preset, an attachment
+  or `null` to remove it. Switching between the kinds is one call. Every other value,
+  unknown keys included, is `INVALID_REQUEST`.
+- **Image attachments.** `attachmentId` must belong to the page named by `pageId`,
+  be a media attachment and be a JPEG, PNG, GIF or WebP image. Take it from the
+  `attachmentId` of the `create_wiki_page` result, or from a `/wiki/attachments/<id>`
+  link in the page's Markdown. An unknown preset, an attachment of another page, a
+  file or media of another type and an attachment that does not exist all return the same
+  `INVALID_REQUEST` without detail, so a response never reveals another page's
+  attachments. Deleting the attachment in Pages removes the cover.
+- **Not part of the text.** A cover is visual page metadata. Setting, replacing or
+  removing it changes neither the Markdown, nor the revision, nor the page versions,
+  nor the modification date. It therefore takes no `expectedRevision`, never returns
+  `CONFLICT` for a revision and returns the current `revision` unchanged. The result is
+  `{pageId, link, field:"cover", revision, changed, cover}`; `changed` is `false` when the
+  stored cover was already the requested one, and nothing is written then.
+- **Rights.** Pages checks the account on every call with the rules of the interface
+  (`WikiCoverService`): without the write right the call returns `FORBIDDEN`, a page
+  that is missing or hidden from the account returns `NOT_FOUND`. `set_wiki_page_cover`
+  is listed to every verified account, like the other write tools.
+- **Repeat.** Use a new `operationId` per intended change. Repeating the same ID with
+  identical input returns the stored result without writing again, even when the cover
+  has changed in between. The same ID with other input, or used for another operation,
+  returns `CONFLICT`. A refused call stores nothing.
+- **Not offered.** `create_wiki_page` has no cover argument; set the cover with a
+  second call after creating the page.
 
 ## Tickets and milestones (A9.11)
 
