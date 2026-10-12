@@ -148,6 +148,7 @@ describe("DuckDB baseline migration", () => {
       "036_chat.sql",
       "037_milestone_initiatives.sql",
       "038_administration_activity.sql",
+      "039_agent_connection_scopes.sql",
     ]);
   });
 
