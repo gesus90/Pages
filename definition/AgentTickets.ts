@@ -52,17 +52,37 @@ export type AgentMilestoneOperation =
   | "milestone.dependency.add"
   | "milestone.dependency.remove";
 
-/** A new ticket in an explicit project; it is created locally and never overwrites. */
+/** What a new ticket is assigned to: a person, a group, or nobody. */
+export interface AgentTicketAssignee {
+  readonly targetType: "person" | "group" | "none";
+  /** `null` exactly when `targetType` is `none`. */
+  readonly targetId: string | null;
+}
+
+/**
+ * A new ticket; it is created locally and never overwrites.
+ *
+ * @remarks
+ * What a call leaves open is taken from the parent and the account, never
+ * invented: the project and a milestone and department the parent carries, and
+ * the account that creates the ticket as its assignee.
+ */
 export interface AgentTicketCreateInput {
   readonly operationId: string;
-  readonly projectId: string;
+  /** `null` takes the project of the parent. */
+  readonly projectId: string | null;
   readonly type: AgentTicketType;
   readonly title: string;
   readonly description: string;
   /** `null` takes the status new tickets of the project start in. */
   readonly statusId: string | null;
   readonly parent: AgentTicketReference | null;
+  /** `null` takes the milestone of the parent, when it has one. */
   readonly milestoneId: string | null;
+  /** Absent or `null` takes the department of the parent, when it has one and the account may select it. */
+  readonly departmentId?: string | null;
+  /** Absent or `null` assigns the account that creates the ticket. */
+  readonly assignee?: AgentTicketAssignee | null;
 }
 
 /** The ticket a field change addresses. */

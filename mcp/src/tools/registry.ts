@@ -1,6 +1,12 @@
 import { EXTENSION_READ_TOOLS } from "./extensions.js";
 import { ADMIN_READ_TOOLS } from "./administration.js";
 import { STRUCTURED_IMPORT_PLAN_TOOL } from "./structured-import-plan.js";
+import {
+  ASSIGNMENT_TARGETS_SEARCH_TOOL,
+  TICKET_LINKS_READ_TOOL,
+  TICKET_SEARCH_TOOL,
+  TICKET_TREE_READ_TOOL,
+} from "./ticket-search.js";
 import { MILESTONES_READ_TOOL, TICKET_READ_TOOL } from "./ticket-read.js";
 import { WIKI_IMPORT_PLAN_TOOL } from "./wiki-import-plan.js";
 
@@ -130,5 +136,12 @@ export const READ_TOOLS: readonly ReadTool[] = [
   { operation: "wiki.import.plan", tool: WIKI_IMPORT_PLAN_TOOL },
   { operation: "ticket.read", tool: TICKET_READ_TOOL },
   { operation: "milestones.read", tool: MILESTONES_READ_TOOL },
+  { operation: "tickets.search", tool: TICKET_SEARCH_TOOL },
+  { operation: "tickets.tree.read", tool: TICKET_TREE_READ_TOOL },
+  { operation: "tickets.links.read", tool: TICKET_LINKS_READ_TOOL },
+  {
+    operation: "assignment.targets.search",
+    tool: ASSIGNMENT_TARGETS_SEARCH_TOOL,
+  },
   { operation: "import.structured.plan", tool: STRUCTURED_IMPORT_PLAN_TOOL },
 ];

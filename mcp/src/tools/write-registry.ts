@@ -14,6 +14,10 @@ import {
 import { STRUCTURED_IMPORT_APPLY_TOOL } from "./structured-import-apply.js";
 import { TICKET_CREATE_TOOL } from "./ticket-create.js";
 import {
+  TICKET_LINK_ADD_TOOL,
+  TICKET_LINK_REMOVE_TOOL,
+} from "./ticket-link.js";
+import {
   TICKET_SET_DESCRIPTION_TOOL,
   TICKET_SET_PARENT_TOOL,
   TICKET_SET_STATUS_TOOL,
@@ -55,6 +59,8 @@ export const WRITE_TOOLS: readonly {
   { operation: "ticket.setDescription", tool: TICKET_SET_DESCRIPTION_TOOL },
   { operation: "ticket.setStatus", tool: TICKET_SET_STATUS_TOOL },
   { operation: "ticket.setParent", tool: TICKET_SET_PARENT_TOOL },
+  { operation: "tickets.link.add", tool: TICKET_LINK_ADD_TOOL },
+  { operation: "tickets.link.remove", tool: TICKET_LINK_REMOVE_TOOL },
   { operation: "milestone.create", tool: MILESTONE_CREATE_TOOL },
   { operation: "milestone.setName", tool: MILESTONE_SET_NAME_TOOL },
   {

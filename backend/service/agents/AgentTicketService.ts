@@ -2,6 +2,10 @@ import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { WORKFLOW_STATUS_KEY } from "@/definition/Task";
 
 import {
+  resolveAgentTicketCreate,
+  takeStatedTicketCreate,
+} from "./AgentTicketCreateContext";
+import {
   isAgentTicketFieldOperation,
   readAgentTicketCreate,
   readAgentTicketFieldChange,
@@ -91,6 +95,9 @@ function hasChangedField(
   }[field];
 }
 
+/** Whether a create call takes what it leaves open from the parent and the account, or is taken as stated. */
+type CreateMode = "defaults" | "stated";
+
 /** Creates tickets locally and changes one of their fields at a time for an agent. */
 export class AgentTicketService {
   private readonly dependencies: AgentTicketServiceDependencies;
@@ -138,6 +145,10 @@ export class AgentTicketService {
    * @param request - The explicit create contract.
    * @returns The outcome, to be announced after the caller's commit.
    * @throws {AgentOperationError} `FORBIDDEN`, `NOT_FOUND`, `INVALID_REQUEST` or `CONFLICT`.
+   *
+   * @remarks
+   * The caller states every value: nothing is inherited from the parent and
+   * nobody is assigned by default, as for callers before the defaults existed.
    */
   public async createWithin(
     transaction: DatabaseTransaction,
@@ -146,7 +157,7 @@ export class AgentTicketService {
   ): Promise<AgentTicketCompleted<AgentTicketCreated>> {
     return this.dependencies.transaction.runWithin(
       transaction,
-      this.createRun(userId, request),
+      this.createRun(userId, request, "stated"),
     );
   }
 
@@ -155,13 +166,14 @@ export class AgentTicketService {
     request: AgentTicketCreateInput,
   ): Promise<AgentTicketCompleted<AgentTicketCreated>> {
     return this.dependencies.transaction.run(
-      this.createRun(identity.userId, request),
+      this.createRun(identity.userId, request, "defaults"),
     );
   }
 
   private createRun(
     userId: string,
     request: AgentTicketCreateInput,
+    mode: CreateMode,
   ): AgentTicketRun<AgentTicketCreated> {
     return {
       userId,
@@ -171,7 +183,7 @@ export class AgentTicketService {
       revisit: async (context, stored) => {
         await context.tasks.getById(context.actor, stored.ticketId);
       },
-      work: (context) => this.create(context, request),
+      work: (context) => this.create(context, request, mode),
     };
   }
 
@@ -195,26 +207,31 @@ export class AgentTicketService {
   private async create(
     context: AgentTaskContext,
     request: AgentTicketCreateInput,
+    mode: CreateMode,
   ): Promise<AgentTicketOutcome<AgentTicketCreated>> {
     const { actor, tasks } = context;
-    const statusId =
-      request.statusId ??
-      findDefaultStatusId(
-        await tasks.findAllStatuses(actor),
-        request.projectId,
-      );
     const parent = request.parent
       ? await requireTicket(context, request.parent)
       : null;
+    const values =
+      mode === "defaults"
+        ? await resolveAgentTicketCreate(context, request, parent)
+        : takeStatedTicketCreate(request);
+    const statusId =
+      request.statusId ??
+      findDefaultStatusId(await tasks.findAllStatuses(actor), values.projectId);
     // No `skipGitHubSync`: the ticket follows the synchronization of its project.
     const created = await tasks.create(actor, {
-      projectId: request.projectId,
+      projectId: values.projectId,
       type: request.type,
       title: request.title,
       description: request.description,
       statusId,
       parentId: parent?.id ?? null,
-      milestoneId: request.milestoneId,
+      milestoneId: values.milestoneId,
+      departmentId: values.departmentId,
+      assigneeId: values.assigneeId,
+      assigneeGroupId: values.assigneeGroupId,
     });
     return {
       result: {

@@ -35,19 +35,23 @@ export function readIdentifier(input: unknown): string {
 }
 
 /**
- * Requires that exactly the named parameters are present.
+ * Requires that the named parameters are present, and no others but the optional ones.
  *
  * @param fields - The parameters of the call.
- * @param keys - The parameter names the operation takes.
+ * @param keys - The parameter names the operation requires.
+ * @param optionalKeys - The parameter names the operation takes but does not require.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing or unknown parameter.
  */
 export function requireParameterKeys(
   fields: Readonly<Record<string, unknown>>,
   keys: readonly string[],
+  optionalKeys: readonly string[] = [],
 ): void {
   if (
-    Object.keys(fields).length !== keys.length ||
-    keys.some((key) => !(key in fields))
+    keys.some((key) => !(key in fields)) ||
+    Object.keys(fields).some(
+      (key) => !keys.includes(key) && !optionalKeys.includes(key),
+    )
   )
     throw new AgentOperationError("INVALID_REQUEST");
 }

@@ -47,7 +47,8 @@ it("reads IDs, keys and addresses, lists applicable statuses and safe assignment
       key: item.key,
       title: "Original",
       isArchived: false,
-      assignee: null,
+      // A ticket created without an assignee belongs to the account that created it.
+      assignee: { id: planningIdentity.userId },
       assigneeGroup: null,
       department: null,
       statuses: [

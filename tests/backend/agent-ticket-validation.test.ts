@@ -68,6 +68,9 @@ it.each([undefined, null, [], false, 1, "request"])(
   },
 );
 
+// Left out, these are taken from the parent and the account (PAGE-16).
+const OPTIONAL_TICKET_KEYS = ["projectId", "milestoneId"];
+
 it("requires every declared key and rejects replaced or additional keys", () => {
   for (const [input, read] of [
     [ticket, readAgentTicketCreate],
@@ -77,9 +80,12 @@ it("requires every declared key and rejects replaced or additional keys", () => 
     for (const key of Object.keys(input)) {
       const missing: Record<string, unknown> = { ...input };
       delete missing[key];
-      expect(() => read(missing)).toThrow(
-        expect.objectContaining({ code: "INVALID_REQUEST" }),
-      );
+      if (input === ticket && OPTIONAL_TICKET_KEYS.includes(key))
+        expect(() => read(missing)).not.toThrow();
+      else
+        expect(() => read(missing)).toThrow(
+          expect.objectContaining({ code: "INVALID_REQUEST" }),
+        );
       missing.actor = "injected";
       expect(() => read(missing)).toThrow(
         expect.objectContaining({ code: "INVALID_REQUEST" }),
@@ -101,6 +107,15 @@ it.each([
   { statusId: "" },
   { parentId: "Ticket title" },
   { milestoneId: false },
+  { departmentId: 1 },
+  { departmentId: "" },
+  { assignee: "writer" },
+  { assignee: {} },
+  { assignee: { targetType: "person", targetId: null } },
+  { assignee: { targetType: "person", targetId: "" } },
+  { assignee: { targetType: "none", targetId: "writer" } },
+  { assignee: { targetType: "department", targetId: "alpha" } },
+  { assignee: { targetType: "person", targetId: "writer", extra: true } },
 ])("rejects malformed ticket creation parameters %j", (overrides) => {
   expect(() => readAgentTicketCreate({ ...ticket, ...overrides })).toThrow(
     expect.objectContaining({ code: "INVALID_REQUEST" }),
@@ -125,6 +140,42 @@ it("reads explicit nullable and populated creation contracts without changing in
     parent: { key: "PAGE-1" },
   });
   expect(populated.parentId).toBe("PAGE-1");
+  // What is left out reads as "take it from the parent and the account".
+  const bare = Object.fromEntries(
+    Object.entries(ticket).filter(
+      ([key]) => !OPTIONAL_TICKET_KEYS.includes(key),
+    ),
+  );
+  expect(readAgentTicketCreate(bare)).toEqual({
+    ...bare,
+    parentId: undefined,
+    parent: null,
+    projectId: null,
+    milestoneId: null,
+  });
+  const assigned = {
+    ...ticket,
+    projectId: null,
+    departmentId: "alpha",
+    assignee: { targetType: "group", targetId: "visible-group" },
+  };
+  expect(readAgentTicketCreate(assigned)).toEqual({
+    ...assigned,
+    parentId: undefined,
+    parent: null,
+  });
+  const nobody = {
+    ...ticket,
+    assignee: { targetType: "none", targetId: null },
+  };
+  expect(readAgentTicketCreate(nobody)).toEqual({
+    ...nobody,
+    parentId: undefined,
+    parent: null,
+  });
+  expect(readAgentTicketCreate({ ...ticket, assignee: null })).toMatchObject({
+    assignee: null,
+  });
   expect(readAgentMilestoneCreate(milestone)).toEqual(milestone);
   const dated = { ...milestone, startAt: "2026-01-01", dueAt: "2026-02-01" };
   expect(readAgentMilestoneCreate(dated)).toEqual(dated);

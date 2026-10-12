@@ -25,9 +25,14 @@ export interface FindWorkItemsOptions {
   readonly statusId?: string;
   readonly priority?: WorkItemPriority;
   readonly milestoneId?: string;
+  /** Direct children of this ticket. */
+  readonly parentId?: string;
+  readonly departmentId?: string;
   /** Tickets that carry at least one of these labels; empty means no label filter. */
   readonly labelIds?: readonly string[];
   readonly search?: string;
+  /** Also matches the search text against the description, taking `%` and `_` of the text literally. */
+  readonly searchDescription?: boolean;
   readonly archived?: ArchivedScope;
   readonly openOnly?: boolean;
   readonly hasDueDate?: boolean;
@@ -61,7 +66,9 @@ type EqualityOption =
   | "type"
   | "statusId"
   | "priority"
-  | "milestoneId";
+  | "milestoneId"
+  | "parentId"
+  | "departmentId";
 
 interface EqualityFilter {
   readonly option: EqualityOption;
@@ -127,6 +134,16 @@ const EQUALITY_FILTERS: readonly EqualityFilter[] = [
     condition: "work_items.milestone_id = $milestone_id",
     option: "milestoneId",
     parameter: "milestone_id",
+  },
+  {
+    condition: "work_items.parent_id = $parent_id",
+    option: "parentId",
+    parameter: "parent_id",
+  },
+  {
+    condition: "work_items.department_id = $department_id",
+    option: "departmentId",
+    parameter: "department_id",
   },
 ];
 
@@ -204,11 +221,31 @@ function createAssignedToFragments(
   ];
 }
 
-function createSearchFragments(search: string | undefined): FilterFragment[] {
-  const term = search?.trim();
+/** Makes the characters that `LIKE` treats as wildcards match themselves. */
+function escapeLikePattern(text: string): string {
+  return text.replace(/[\\%_]/g, (character) => `\\${character}`);
+}
+
+function createSearchFragments(
+  options: FindWorkItemsOptions,
+): FilterFragment[] {
+  const term = options.search?.trim();
 
   if (!term) {
     return [];
+  }
+
+  if (options.searchDescription === true) {
+    return [
+      {
+        condition: `(LOWER(work_items.title) LIKE $search ESCAPE '\\'
+              OR LOWER(work_items.key) LIKE $search ESCAPE '\\'
+              OR LOWER(work_items.description) LIKE $search ESCAPE '\\')`,
+        parameters: {
+          search: `%${escapeLikePattern(term.toLowerCase())}%`,
+        },
+      },
+    ];
   }
 
   return [
@@ -272,7 +309,7 @@ export function buildWorkItemFilter(
     ...createEqualityFragments(options),
     ...createAssignedToFragments(options.assignedToUserId),
     ...createLabelFragments(options.labelIds),
-    ...createSearchFragments(options.search),
+    ...createSearchFragments(options),
     ...createFlagFragments(options),
   ];
   const conditions = [

@@ -16,6 +16,11 @@ import {
 import { AgentProjectReadService } from "./AgentProjectReadService";
 import { AgentWikiReadService } from "./AgentWikiReadService";
 import { createAgentWikiAccess } from "./AgentWikiAccess";
+import { dispatchAgentTicketNavigation } from "./AgentTicketNavigationDispatch";
+import {
+  isAgentTicketLinkOperation,
+  isAgentTicketNavigationRead,
+} from "./AgentTicketNavigationValidation";
 import {
   isAgentMilestoneOperation,
   isAgentTicketOperation,
@@ -277,14 +282,25 @@ export class AgentOperationRouter {
     input: Readonly<Record<string, unknown>>,
   ): Promise<PagesAgentReadResponse | PagesAgentWriteResponse | null> {
     const { operation, parameters } = input;
+    const isNavigation =
+      isAgentTicketNavigationRead(operation) ||
+      isAgentTicketLinkOperation(operation);
     const isPlanning =
       operation === "ticket.read" ||
       operation === "milestones.read" ||
+      isNavigation ||
       isAgentTicketOperation(operation) ||
       isAgentMilestoneOperation(operation);
     if (!isPlanning) return null;
     const { planning } = this.dependencies;
     if (!planning) throw new AgentOperationError("INVALID_REQUEST");
+    if (isNavigation)
+      return dispatchAgentTicketNavigation(
+        planning,
+        identity,
+        operation,
+        parameters,
+      );
     if (operation === "ticket.read")
       return planning.reads.readTicket(identity, parameters);
     if (operation === "milestones.read")

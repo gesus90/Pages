@@ -684,13 +684,17 @@ Both are always present, `null` when not set. A page the account cannot see retu
 ## Tickets and milestones (A9.11)
 
 Two read tools and thirteen write tools let an agent plan work. Every argument is
-required, unknown arguments are `INVALID_REQUEST`, and "nothing" is `null`.
+required, unknown arguments are `INVALID_REQUEST`, and "nothing" is `null`. The one
+exception is `create_ticket`, whose `projectId`, `milestoneId`, `departmentId` and
+`assignee` may be left out; see "Defaults of `create_ticket`" in the section
+"Ticket search, hierarchy, links and assignment (PAGE-16)". The tools that find
+tickets and name assignment targets are described there as well.
 
 | Tool                          | Pages operation               | Arguments (besides `operationId`)                                                  | Result                                       |
 | ----------------------------- | ----------------------------- | ---------------------------------------------------------------------------------- | -------------------------------------------- |
 | `read_ticket`                 | `ticket.read`                 | `ticketId`                                                                         | Core fields, and the statuses of the project |
 | `read_milestones`             | `milestones.read`             | `projectId`                                                                        | Milestones and dependencies of the project   |
-| `create_ticket`               | `ticket.create`               | `projectId`, `type`, `title`, `description`, `statusId`, `parentId`, `milestoneId` | `{ticketId, key, link, statusId}`            |
+| `create_ticket`               | `ticket.create`               | `type`, `title`, `description`, `statusId`, `parentId`; optional `projectId`, `milestoneId`, `departmentId`, `assignee` | `{ticketId, key, link, statusId}`            |
 | `set_ticket_title`            | `ticket.setTitle`             | `ticketId`, `expectedTitle`, `title`                                               | `{ticketId, key, link, field, changed}`      |
 | `set_ticket_description`      | `ticket.setDescription`       | `ticketId`, `expectedDescription`, `description`                                   | `{ticketId, key, link, field, changed}`      |
 | `set_ticket_status`           | `ticket.setStatus`            | `ticketId`, `expectedStatusId`, `statusId`                                         | `{ticketId, key, link, field, changed}`      |
@@ -741,6 +745,133 @@ status IDs that `set_ticket_status` and `create_ticket` take.
 Read and write tools are listed to every verified account; Pages enforces the corresponding UI rights on each invocation. A9.11 has unit and integration tests with
 100% statements, branches, functions and lines per executable file. Type-only
 contracts have no executable coverage counters.
+
+## Ticket search, hierarchy, links and assignment (PAGE-16)
+
+Four read tools find tickets and read their hierarchy, links and assignment
+targets; two write tools change the typed links between two tickets. Reads need no
+write right. Like every Pages tool they show only what the signed-in account may see:
+hidden tickets, people, groups and departments are neither listed nor counted, and
+a hidden record answers exactly like a missing one (`NOT_FOUND`, message "Not found
+or no access."). A response is limited to 1 MiB UTF-8 JSON (`PAYLOAD_TOO_LARGE`).
+
+| Tool                         | Pages operation             | Arguments                                                                                                                                                  | Result                                                  |
+| ---------------------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| `search_tickets`             | `tickets.search`            | `projectId`; optional `text`, `type`, `statusId`, `parentId`, `milestoneId`, `departmentId`, `assigneeId`, `assigneeGroupId`, `tagIds`, `cursor`, `limit`  | `{projectId, tickets, total, nextCursor}`               |
+| `read_ticket_tree`           | `tickets.tree.read`         | `projectId` and/or `ticketId`; optional `cursor`, `limit`                                                                                                  | `{projectId, root, path, nodes, total, nextCursor}`     |
+| `read_ticket_links`          | `tickets.links.read`        | `ticketId`; optional `cursor`, `limit`                                                                                                                     | `{ticketId, key, links, total, nextCursor}`             |
+| `search_assignment_targets`  | `assignment.targets.search` | optional `text`, `targetType`, `projectId`, `cursor`, `limit`                                                                                              | `{targets, total, nextCursor}`                          |
+| `add_ticket_link`            | `tickets.link.add`          | `operationId`, `ticketId`, `targetTicketId`, `linkType`                                                                                                    | `{linkId, linkType, direction, ticketId, key, linkedTicketId, linkedKey, removed: false}` |
+| `remove_ticket_link`         | `tickets.link.remove`       | `operationId`, `ticketId`, `linkId`                                                                                                                        | The same fields, `removed: true`                        |
+
+Changing the parent stays `set_ticket_parent`, and the assignment stays
+`set_ticket_assignee` (person, group, department or none); both are described in
+the sections above. Moving a ticket below another parent and changing a link are
+separate operations: neither touches the other, and neither touches any field.
+
+### Search
+
+`search_tickets` lists the visible, non-archived tickets of one project, ordered by
+ticket number. `text` (1 to 200 characters) matches key, title and description
+without regard to case; `%` and `_` in it match themselves. `type`
+(`initiative`, `epic`, `task`, `subtask`), `statusId`, `parentId` (a ticket ID,
+key or Pages address; only its direct children), `milestoneId`, `departmentId`,
+`assigneeId` or `assigneeGroupId` (not both) and `tagIds` (tickets that carry at
+least one of up to 50 tags) narrow the result, and every filter you give applies.
+Without a filter the call lists the project.
+
+A hit has `id`, `key`, `link`, `projectId`, `type`, `title`, `priority`, `statusId`,
+`statusName`, `isDone`, `parentId`, `parentKey`, `milestoneId`, `milestoneName`,
+`assignee`, `assigneeGroup`, `department`, `tags` and `snippet`: up to 200
+characters of the description around the match, `null` when the match is elsewhere.
+A hit carries no description; `read_ticket` does.
+
+- **Paging.** `limit` is 1 to 100 (default 100). `total` counts all visible matches;
+  pass `nextCursor` with the same query to continue. A cursor is bound to the
+  account and the query; another query returns `INVALID_REQUEST`. Because tickets
+  are ordered by number, a cursor never repeats or skips a visible match, also when
+  tickets are added between two pages.
+- **Hidden.** A filter must name something you see. A status, milestone,
+  department, person, group, tag or parent that is hidden, belongs to another
+  project or does not exist returns `NOT_FOUND`, the same for all three, so a
+  filter cannot be used to probe for hidden records. A parent of another project is
+  `INVALID_REQUEST`.
+
+### Hierarchy
+
+`read_ticket_tree` reads initiative → epic → task → subtask. With `projectId` it
+lists every visible non-archived ticket of the project. With `ticketId` it returns
+that ticket as `root`, its visible ancestors as `path` (outermost first) and its
+visible descendants as `nodes`; the project may then be left out, and a project that
+disagrees with the ticket is `INVALID_REQUEST`. A node has `id`, `key`, `link`,
+`type`, `title`, `statusId`, `statusName`, `isDone`, `parentId`, `parentKey`,
+`childCount` (visible direct children) and `depth` (visible ancestors; 0 without a
+visible parent). The tree is rebuilt from `parentId`; a parent on another page keeps
+its ID. A parent you cannot see reads as `null`, and the path ends there.
+
+### Links
+
+A link has a type and a direction: `blocks` (the ticket blocks the other),
+`duplicates` (the ticket duplicates the other) and `relates_to` (no direction).
+`read_ticket_links` shows each link of a ticket with `id`, `linkType`, `direction`
+(`outgoing` when this ticket is the source, `incoming` when the other one is), the
+other ticket (`id`, `key`, `title`, `statusKey`, `isDone`) and `createdAt`. The
+same link has the same `id` on both tickets, with the opposite direction. A link to
+a ticket you cannot see is neither listed nor counted.
+
+`add_ticket_link` creates the link from `ticketId` to `targetTicketId`. A link to
+the ticket itself, or to an archived ticket, is `INVALID_REQUEST`. A link that
+already exists is `CONFLICT` and nothing is written; `relates_to` counts as
+existing from either side. A hidden or missing ticket is `NOT_FOUND`. `remove_ticket_link` removes the link `linkId` (an `id`
+from `read_ticket_links`) from either side. A link that does not exist, belongs to
+other tickets or whose other ticket you cannot see is `NOT_FOUND`. Links are
+Pages-only: nothing is published to GitHub.
+
+### Assignment targets
+
+`search_assignment_targets` lists the persons, groups and departments you may
+assign tickets to. `text` (1 to 200 characters) is part of the name, without
+regard to case; `targetType` is `person`, `group` or `department` (all three when
+left out); `projectId` limits persons to those who may be assigned in that project
+(a hidden or missing project is `NOT_FOUND`). The call never picks one: every match
+is listed with `targetType`, `id` and `name`, a person also with the `departments`
+and `groups` that tell equal names apart, and `isExactMatch` is `true` when the
+name equals `text`. Several exact matches are ambiguous, so ask rather than choose.
+Pass the `id` to `set_ticket_assignee` or to `create_ticket`.
+
+### Defaults of `create_ticket`
+
+What a call leaves out, or passes as `null`, is taken from the parent and the
+signed-in account, and never invented:
+
+| Argument       | Left out or `null`                                                                                    | Stated                                                          |
+| -------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `projectId`    | The project of the parent; one of the two is required (`INVALID_REQUEST`)                             | Must equal the project of the parent, else `INVALID_REQUEST`    |
+| `milestoneId`  | The milestone of the parent, when it has one                                                          | A milestone of the project; another one is `NOT_FOUND`          |
+| `departmentId` | The department of the parent, when it has one and you may select it                                   | A department you may select; a hidden or missing one is `NOT_FOUND`, a visible one you may not select is `FORBIDDEN`    |
+| `assignee`     | The person you are signed in as, as on the ticket pages                                               | `{targetType: person\|group, targetId}` or `{targetType: none, targetId: null}` for nobody |
+
+- **Whose ticket.** The assignee is the verified Pages person of the credential, not
+  a service account and not the person who created the previous ticket. Several
+  people can use the same package at the same time; each new ticket belongs to the
+  one who created it.
+- **Milestone thread.** The milestone rules of the section "Milestones, initiatives,
+  tags and links (A11.5)" hold: a task that carries a milestone gives it to its epic
+  when that has none, links its initiative, and nothing is overwritten.
+- **Refusals.** A person who may not be assigned in the project is
+  `INVALID_REQUEST`; a person, group or department you cannot see is `NOT_FOUND`,
+  like a missing one; a visible department you may not select is `FORBIDDEN`. A
+  refused call creates nothing.
+- **Structured import.** `apply_structured_import` keeps stating every value: it
+  takes nothing from the parent and assigns nobody by default.
+
+### End to end
+
+A typical order: `search_tickets` to find the ticket, `read_ticket_tree` and
+`read_ticket_links` to understand where it sits, `create_ticket` below the right
+parent (or `set_ticket_parent` / `add_ticket_link` to change relations),
+`search_assignment_targets` and `set_ticket_assignee` for the assignment, and
+`read_ticket` to read the values back.
 
 ## Structured import (A9.12)
 

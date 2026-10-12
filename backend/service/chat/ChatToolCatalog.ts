@@ -100,7 +100,15 @@ const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
   "ticket.read":
     "{ticketId} Ticket mit möglichen Status, Tags, Verknüpfungen und descendantCount lesen (ID oder Schlüssel)",
   "ticket.create":
-    "{projectId, type: initiative|epic|task|subtask, title, description, statusId|null, parentId|null, milestoneId|null} Ticket anlegen",
+    "{projectId?, type: initiative|epic|task|subtask, title, description, statusId|null, parentId|null, milestoneId?|null, departmentId?|null, assignee?: {targetType: person|group|none, targetId|null}} Ticket anlegen; Projekt, Meilenstein und Abteilung kommen vom Elternticket, Bearbeitung ist ohne Angabe die anlegende Person",
+  "tickets.search": `{projectId, text?, type?: initiative|epic|task|subtask, statusId?, parentId?, milestoneId?, departmentId?, assigneeId?, assigneeGroupId?, tagIds?: [], ${WINDOW}} Tickets eines Projekts nach Schlüssel, Titel und Beschreibung suchen und filtern`,
+  "tickets.tree.read": `{projectId?, ticketId?, ${WINDOW}} Hierarchie eines Projekts oder Pfad und Unterbaum eines Tickets, nur sichtbare Tickets`,
+  "tickets.links.read": `{ticketId, ${WINDOW}} Verknüpfungen blocks, relates_to und duplicates eines Tickets mit Richtung`,
+  "assignment.targets.search": `{text?, targetType?: person|group|department, projectId?, ${WINDOW}} sichtbare Zuweisungsziele suchen; mehrdeutige Namen werden nie automatisch aufgelöst`,
+  "tickets.link.add":
+    "{ticketId, targetTicketId, linkType: blocks|relates_to|duplicates} Verknüpfung vom Ticket zum Zielticket anlegen",
+  "tickets.link.remove":
+    "{ticketId, linkId} Verknüpfung aus tickets.links.read entfernen",
   "ticket.setTitle": "{ticketId, expectedTitle, title} Tickettitel ändern",
   "ticket.setDescription":
     "{ticketId, expectedDescription, description} Ticketbeschreibung ändern",

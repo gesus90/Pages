@@ -1,8 +1,12 @@
+import { AgentAssignmentTargetService } from "./AgentAssignmentTargetService";
 import { AgentMilestoneService } from "./AgentMilestoneService";
 import { AgentPlanningReadService } from "./AgentPlanningReadService";
 import { AgentTicketAnnouncer } from "./AgentTicketAnnouncer";
+import { AgentTicketLinkService } from "./AgentTicketLinkService";
+import { AgentTicketSearchService } from "./AgentTicketSearchService";
 import { AgentTicketService } from "./AgentTicketService";
 import { AgentTicketTransaction } from "./AgentTicketTransaction";
+import { AgentTicketTreeService } from "./AgentTicketTreeService";
 
 import type { AgentChannel } from "@/backend/auth/McpActorContext";
 import type { Database } from "@/backend/database/Database";
@@ -22,6 +26,14 @@ export interface AgentPlanningServices {
   readonly tickets: AgentTicketService;
   readonly milestones: AgentMilestoneService;
   readonly reads: AgentPlanningReadService;
+  /** Finds tickets by text and filters. */
+  readonly search: AgentTicketSearchService;
+  /** Reads the hierarchy of a project or below a ticket. */
+  readonly tree: AgentTicketTreeService;
+  /** Reads and changes the typed links between tickets. */
+  readonly links: AgentTicketLinkService;
+  /** Names the persons, groups and departments tickets can be assigned to. */
+  readonly targets: AgentAssignmentTargetService;
   /** Reacts to a committed change; callers that run inside their own transaction use it themselves. */
   readonly announcer: AgentTicketAnnouncer;
 }
@@ -47,6 +59,10 @@ export function createAgentPlanningServices(
     tickets: new AgentTicketService(shared),
     milestones: new AgentMilestoneService(shared),
     reads: new AgentPlanningReadService(dependencies),
+    search: new AgentTicketSearchService(dependencies),
+    tree: new AgentTicketTreeService(dependencies),
+    links: new AgentTicketLinkService({ ...dependencies, ...shared }),
+    targets: new AgentAssignmentTargetService(dependencies),
     announcer: shared.announcer,
   };
 }

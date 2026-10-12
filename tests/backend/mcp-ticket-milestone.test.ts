@@ -40,14 +40,26 @@ const schemas = [
     name: "create_ticket",
     properties: {
       operationId: identifier,
-      projectId: identifier,
+      projectId: nullableIdentifier,
       type: { enum: ["initiative", "epic", "task", "subtask"] },
       title: identifier,
       description: { type: "string", maxLength: 65536 },
       statusId: nullableIdentifier,
       parentId: nullableIdentifier,
       milestoneId: nullableIdentifier,
+      departmentId: nullableIdentifier,
+      assignee: {
+        type: ["object", "null"],
+        additionalProperties: false,
+        properties: {
+          targetType: { type: "string", enum: ["person", "group", "none"] },
+          targetId: nullableIdentifier,
+        },
+        required: ["targetType", "targetId"],
+      },
     },
+    // Left out, they are taken from the parent and the signed-in account (PAGE-16).
+    optional: ["projectId", "milestoneId", "departmentId", "assignee"],
   },
   {
     operation: "ticket.setTitle",
@@ -312,7 +324,7 @@ const calls = [
 
 it.each(schemas)(
   "exposes the exact required schema and annotations of $name",
-  ({ operation, name, properties }) => {
+  ({ operation, name, properties, optional = [] }) => {
     const entry = [...READ_TOOLS, ...WRITE_TOOLS].find(
       (candidate) => candidate.operation === operation,
     );
@@ -330,7 +342,9 @@ it.each(schemas)(
             }
           : {}),
       },
-      required: Object.keys(properties),
+      required: Object.keys(properties).filter(
+        (property) => !optional.includes(property),
+      ),
     });
     expect(entry.tool.annotations).toEqual({
       readOnlyHint: operation.endsWith(".read"),

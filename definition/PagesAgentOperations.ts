@@ -1,7 +1,15 @@
+import { AGENT_TICKET_NAVIGATION_READ_OPERATIONS } from "./AgentTicketNavigation.js";
+
 import type { AgentExtensionReadResult } from "./AgentExtensions.js";
 import type { AgentAdminReadResult } from "./AgentAdministration.js";
 import type { AgentImportPlan } from "./AgentImportManifest.js";
 import type { AgentStructuredImportPlan } from "./AgentStructuredImportManifest.js";
+import type {
+  AgentAssignmentTargets,
+  AgentTicketLinks,
+  AgentTicketSearch,
+  AgentTicketTree,
+} from "./AgentTicketNavigation.js";
 import type { AgentMilestones, AgentTicket } from "./AgentTickets.js";
 import type { AgentWikiComments } from "./AgentWikiComments.js";
 import type { WikiCover } from "./Wiki.js";
@@ -16,10 +24,15 @@ export const PAGES_AGENT_READ_OPERATIONS = [
   "wiki.import.plan",
 ] as const;
 
-/** Reads of tickets and milestones, which an agent needs before it can change them. */
+/**
+ * Reads of tickets and milestones, which an agent needs before it can change
+ * them: single reads, and the search, hierarchy, link and assignment target
+ * reads that find the ticket to change.
+ */
 export const PAGES_AGENT_TICKET_READ_OPERATIONS = [
   "ticket.read",
   "milestones.read",
+  ...AGENT_TICKET_NAVIGATION_READ_OPERATIONS,
 ] as const;
 
 /** Previews of structured imports; like every read they need no write right. */
@@ -154,6 +167,10 @@ export interface PagesAgentReadResponse {
     | AgentImportPlan
     | AgentTicket
     | AgentMilestones
+    | AgentTicketSearch
+    | AgentTicketTree
+    | AgentTicketLinks
+    | AgentAssignmentTargets
     | AgentWikiComments
     | AgentExtensionReadResult
     | AgentAdminReadResult;

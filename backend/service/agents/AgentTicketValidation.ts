@@ -15,6 +15,7 @@ import type {
   AgentMilestoneFieldInput,
   AgentMilestoneFieldOperation,
   AgentMilestoneOperation,
+  AgentTicketAssignee,
   AgentTicketCreateInput,
   AgentTicketField,
   AgentTicketFieldInput,
@@ -157,14 +158,21 @@ export function resolveAgentTicketReference(
   return TICKET_IDENTIFIER.test(name) ? { id: name } : null;
 }
 
-function ticketReference(input: unknown): AgentTicketReference {
+/**
+ * Reads a parameter that names a ticket by identifier, key or Pages address.
+ *
+ * @param input - The raw value.
+ * @returns The reference to the ticket.
+ * @throws {AgentOperationError} `INVALID_REQUEST` for a value that names no ticket.
+ */
+export function readAgentTicketReference(input: unknown): AgentTicketReference {
   const reference = resolveAgentTicketReference(readIdentifier(input));
   if (reference === null) throw new AgentOperationError("INVALID_REQUEST");
   return reference;
 }
 
 function nullableTicketReference(input: unknown): AgentTicketReference | null {
-  return input === null ? null : ticketReference(input);
+  return input === null ? null : readAgentTicketReference(input);
 }
 
 function text(input: unknown): string {
@@ -181,6 +189,26 @@ function nullableIdentifier(input: unknown): string | null {
   return input === null ? null : readIdentifier(input);
 }
 
+/** An absent parameter reads as `null`, which takes the default of the operation. */
+function optionalIdentifier(input: unknown): string | null {
+  return input === undefined ? null : nullableIdentifier(input);
+}
+
+function readAssignee(input: unknown): AgentTicketAssignee | null {
+  if (input === null) return null;
+  const fields = readParameterRecord(input);
+  requireParameterKeys(fields, ["targetType", "targetId"]);
+  const { targetType } = fields;
+  if (targetType === "none") {
+    if (fields.targetId !== null)
+      throw new AgentOperationError("INVALID_REQUEST");
+    return { targetType, targetId: null };
+  }
+  if (targetType !== "person" && targetType !== "group")
+    throw new AgentOperationError("INVALID_REQUEST");
+  return { targetType, targetId: readIdentifier(fields.targetId) };
+}
+
 /**
  * Validates the identifier or key of a ticket read.
  *
@@ -191,7 +219,7 @@ function nullableIdentifier(input: unknown): string | null {
 export function readAgentTicketRead(input: unknown): AgentTicketReference {
   const fields = readParameterRecord(input);
   requireParameterKeys(fields, ["ticketId"]);
-  return ticketReference(fields.ticketId);
+  return readAgentTicketReference(fields.ticketId);
 }
 
 /**
@@ -211,37 +239,40 @@ export function readAgentMilestonesRead(input: unknown): string {
  * Validates a local ticket create before any persistence or policy read.
  *
  * @param input - The raw operation parameters.
- * @returns The complete explicit create contract.
+ * @returns The explicit create contract; what it leaves open is `null` or absent.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or malformed parameter.
  *
  * @remarks
- * Every parameter is required, so a call never creates anything implicitly:
- * `statusId`, `parentId` and `milestoneId` are `null` to say "the default
- * status", "no parent" and "no milestone".
+ * `description`, `statusId` and `parentId` are required, with `null` for "the
+ * default status" and "no parent". `projectId`, `milestoneId`, `departmentId`
+ * and `assignee` may be left out or be `null`: the project, milestone and
+ * department are then taken from the parent, and the assignee is the account
+ * that creates the ticket. Nothing is taken that the parent does not carry.
  */
 export function readAgentTicketCreate(input: unknown): AgentTicketCreateInput {
   const fields = readParameterRecord(input);
-  requireParameterKeys(fields, [
-    "operationId",
-    "projectId",
-    "type",
-    "title",
-    "description",
-    "statusId",
-    "parentId",
-    "milestoneId",
-  ]);
+  requireParameterKeys(
+    fields,
+    ["operationId", "type", "title", "description", "statusId", "parentId"],
+    ["projectId", "milestoneId", "departmentId", "assignee"],
+  );
   if (!isWorkItemType(fields.type))
     throw new AgentOperationError("INVALID_REQUEST");
   return {
     operationId: readIdentifier(fields.operationId),
-    projectId: readIdentifier(fields.projectId),
+    projectId: optionalIdentifier(fields.projectId),
     type: fields.type,
     title: text(fields.title),
     description: text(fields.description),
     statusId: nullableIdentifier(fields.statusId),
     parent: nullableTicketReference(fields.parentId),
-    milestoneId: nullableIdentifier(fields.milestoneId),
+    milestoneId: optionalIdentifier(fields.milestoneId),
+    ...(fields.departmentId === undefined
+      ? {}
+      : { departmentId: nullableIdentifier(fields.departmentId) }),
+    ...(fields.assignee === undefined
+      ? {}
+      : { assignee: readAssignee(fields.assignee) }),
   };
 }
 
@@ -272,7 +303,7 @@ export function readAgentTicketFieldChange(
   ]);
   const target = {
     operationId: readIdentifier(fields.operationId),
-    ticket: ticketReference(fields.ticketId),
+    ticket: readAgentTicketReference(fields.ticketId),
   };
   if (names.field === "parent")
     return {
