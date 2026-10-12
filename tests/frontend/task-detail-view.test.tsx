@@ -1,5 +1,11 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -204,6 +210,7 @@ function renderDetail(loaderOverrides: Record<string, unknown> = {}): void {
     descendants: {
       active: { epic: 0, initiative: 0, subtask: 1, task: 0 },
       all: { epic: 0, initiative: 0, subtask: 1, task: 0 },
+      canArchive: true,
     },
     links: [],
     children: [
@@ -777,6 +784,40 @@ describe("TaskDetailRoute", () => {
     ).toBeDisabled();
   });
 
+  it("puts the archive action among the actions of those who may archive", async () => {
+    renderDetail();
+
+    const actions = screen.getByRole("group", { name: "Ticketaktionen" });
+
+    await userEvent.click(
+      within(actions).getByRole("button", { name: "Archivieren" }),
+    );
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "PAGE-14 archivieren?",
+    });
+
+    expect(dialog).toHaveTextContent("wird archiviert, nicht gelöscht");
+    expect(dialog).toHaveTextContent(
+      "Betroffen ist außerdem 1 aktiver untergeordneter Eintrag über alle Ebenen: 1 Subtask.",
+    );
+  });
+
+  it("hides the archive action from a writer without the archive right", () => {
+    renderDetail({
+      descendants: {
+        active: { epic: 0, initiative: 0, subtask: 1, task: 0 },
+        all: { epic: 0, initiative: 0, subtask: 1, task: 0 },
+        canArchive: false,
+      },
+    });
+
+    expect(
+      screen.queryByRole("button", { name: "Archivieren" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Bearbeiten" })).toBeEnabled();
+  });
+
   it("shows archived tickets with restore actions", async () => {
     const user = userEvent.setup();
     const navigate = vi.fn();
@@ -849,7 +890,14 @@ describe("TaskDetailRoute", () => {
       intent: "create-task",
       ok: false,
     });
-    renderDetail({ permissions: { canDelete: true, canWrite: false } });
+    renderDetail({
+      descendants: {
+        active: { epic: 0, initiative: 0, subtask: 1, task: 0 },
+        all: { epic: 0, initiative: 0, subtask: 1, task: 0 },
+        canArchive: false,
+      },
+      permissions: { canDelete: true, canWrite: false },
+    });
 
     expect(
       screen.queryByRole("button", { name: "Archivieren" }),
@@ -861,6 +909,15 @@ describe("TaskDetailRoute", () => {
       "/aufgaben?view=kanban",
     );
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("offers archiving without write access to a manager who holds the archive right", () => {
+    mockedNavigate.mockReturnValue(vi.fn());
+    renderDetail({ permissions: { canDelete: false, canWrite: false } });
+
+    expect(screen.getByRole("button", { name: "Archivieren" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Bearbeiten" })).toBeDisabled();
+    expect(screen.queryByText(/nur Leserechte/)).not.toBeInTheDocument();
   });
 
   it("ignores successful outcomes inside the delete dialog", async () => {

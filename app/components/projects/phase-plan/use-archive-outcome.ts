@@ -12,47 +12,47 @@ import type {
 } from "@/app/lib/phase-plan/plan-types";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 
-interface DeleteOutcomeInput {
+interface ArchiveOutcomeInput {
   readonly fetcher: { readonly state: string; readonly data: unknown };
-  readonly pendingDelete: RefObject<string | null>;
+  readonly pendingArchive: RefObject<string | null>;
   readonly dispatch: Dispatch<OptimisticAction>;
   readonly setPanel: Dispatch<SetStateAction<PanelState | null>>;
   readonly setSaveError: Dispatch<SetStateAction<PlanSaveError | null>>;
 }
 
 /**
- * Reacts to the answer of the background delete.
+ * Reacts to the answer of the background archive.
  *
  * @remarks
- * A failed delete restores the milestone and keeps the panel open to show the
- * error; a successful one closes the panel of the deleted milestone.
+ * A failed archive restores the milestone and keeps the panel open to show the
+ * error; a successful one closes the panel of the archived milestone.
  */
-export function useDeleteOutcome(input: DeleteOutcomeInput): void {
-  const { fetcher, pendingDelete, dispatch, setPanel, setSaveError } = input;
+export function useArchiveOutcome(input: ArchiveOutcomeInput): void {
+  const { fetcher, pendingArchive, dispatch, setPanel, setSaveError } = input;
 
   useEffect(() => {
-    const deletedId = pendingDelete.current;
+    const archivedId = pendingArchive.current;
     const outcome = getActionOutcome(fetcher.data);
 
-    if (deletedId === null || fetcher.state !== "idle" || outcome === null) {
+    if (archivedId === null || fetcher.state !== "idle" || outcome === null) {
       return;
     }
 
-    pendingDelete.current = null;
+    pendingArchive.current = null;
 
     if (outcome === "ok") {
       setPanel((current) =>
-        panelMilestoneIdFor(current) === deletedId ? null : current,
+        panelMilestoneIdFor(current) === archivedId ? null : current,
       );
       return;
     }
 
-    dispatch({ milestoneId: deletedId, type: "restore" });
+    dispatch({ milestoneId: archivedId, type: "restore" });
     setSaveError("saveFailed");
   }, [
     fetcher.data,
     fetcher.state,
-    pendingDelete,
+    pendingArchive,
     dispatch,
     setPanel,
     setSaveError,

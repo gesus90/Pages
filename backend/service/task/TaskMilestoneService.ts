@@ -252,9 +252,31 @@ export class TaskMilestoneService {
     return { isChanged: true, milestone: updated };
   }
 
-  /** Soft-deletes a milestone together with its dependencies. */
-  public async deleteMilestone(actor: User, id: string): Promise<void> {
-    await this.requireWritableMilestone(actor, id);
+  /**
+   * Archives a milestone together with its dependencies.
+   *
+   * @remarks
+   * Nothing is deleted: the milestone keeps its row and leaves the active
+   * views. Its tickets are not touched and keep their assignment. The status
+   * of the milestone is not rewritten either; archiving is a lifecycle step of
+   * its own.
+   *
+   * @param actor - The person archiving; needs the milestone right together
+   * with the project responsibility, see {@link TaskAccessGuard.canArchive}.
+   * @param id - Milestone identifier.
+   * @throws {WorkItemValidationError} With `milestoneNotFound` when the
+   * milestone does not exist or is archived already.
+   * @throws {WorkItemAccessDeniedError} Without the archive right in its project.
+   */
+  public async archiveMilestone(actor: User, id: string): Promise<void> {
+    const existing = await this.taskRepository.findMilestoneById(id);
+
+    if (!existing) {
+      throw new WorkItemValidationError("milestoneNotFound");
+    }
+
+    await this.access.requireProject(actor, existing.projectId);
+    await this.access.requireArchiveRight(actor, existing.projectId);
     await this.taskRepository.deleteDependenciesByMilestone(id);
     await this.taskRepository.archiveMilestone(id);
     this.cache.invalidateWorkItems();

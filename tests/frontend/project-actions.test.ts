@@ -90,7 +90,7 @@ function createServices() {
     taskService: {
       addDependency: vi.fn(),
       createMilestone: vi.fn(),
-      deleteMilestone: vi.fn(),
+      archiveMilestone: vi.fn(),
       findDependencies: vi.fn().mockResolvedValue([]),
       findMilestones: vi.fn().mockResolvedValue([MILESTONE]),
       removeDependency: vi.fn(),
@@ -752,22 +752,34 @@ describe("handleProjectAction", () => {
       });
     });
 
-    it("deletes a milestone", async () => {
+    it("archives a milestone through the service, which decides who may", async () => {
       const services = createServices();
 
       await expect(
-        run("delete-milestone", { milestoneId: " milestone-1 " }, services),
+        run("archive-milestone", { milestoneId: " milestone-1 " }, services),
       ).resolves.toEqual(OK);
-      expect(services.taskService.deleteMilestone).toHaveBeenCalledWith(
+      expect(services.taskService.archiveMilestone).toHaveBeenCalledWith(
         ACTOR,
         "milestone-1",
       );
     });
 
-    it("rejects deleting a milestone without identifier", async () => {
+    it("rejects archiving a milestone without identifier", async () => {
+      const services = createServices();
+
       await expect(
-        run("delete-milestone", { milestoneId: " " }),
+        run("archive-milestone", { milestoneId: " " }, services),
       ).resolves.toEqual(INVALID);
+      expect(services.taskService.archiveMilestone).not.toHaveBeenCalled();
+    });
+
+    it("no longer knows a delete intent for milestones", async () => {
+      const services = createServices();
+
+      await expect(
+        run("delete-milestone", { milestoneId: "milestone-1" }, services),
+      ).resolves.toEqual(INVALID);
+      expect(services.taskService.archiveMilestone).not.toHaveBeenCalled();
     });
 
     describe("update-milestone-status", () => {

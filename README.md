@@ -82,6 +82,34 @@ Within accessible projects, tickets are visible in the account's own departments
 or without a department. This restriction also applies to unbound roles and
 global project managers; active administrator mode can read all tickets.
 
+## Archiving tickets and milestones
+
+Archiving is a lifecycle step of its own, not a workflow status. An archived
+ticket or milestone is not deleted: it keeps its data and its status, leaves the
+active views and, for a ticket, can be restored.
+
+- **Who may archive.** Administrators in active administrator mode, and
+  accounts whose role has the capability *Milestones* and who are responsible
+  for the project of the ticket or milestone. Responsibility is the one that
+  milestone planning needs: project lead, or the capability *Create and manage
+  projects* together with an assigned management department of the project or
+  the global project scope. Ordinary write, assignment or membership rights do
+  not suffice, and neither does the capability without that responsibility. A
+  ticket must also be visible to the account together with all its
+  descendants. The server decides again on every request, so a hidden control
+  grants nothing; the MCP operations `delete_ticket` and `delete_milestone` use
+  the same decision. Restoring a ticket keeps the write rule.
+- **Tickets.** Archiving takes the active descendants along on all levels; for
+  initiatives and epics the dialog can instead keep the direct children without
+  a parent. The confirmation names the ticket, the effect and how many
+  descendants per level it reaches. The workflow status is not rewritten.
+- **Milestones.** Archiving removes the dependency links of the milestone and
+  does not archive the tickets assigned to it. The milestone status (open,
+  completed, archived) is independent of the archive.
+- **Kanban.** Archived tickets are hidden by default. The archive filter of the
+  tasks page is offered only to those who may archive and lists archived tickets
+  only of the projects in which they may.
+
 ## Development
 
 Pages needs Node.js 22.22 or newer and pnpm 10 or newer. Install dependencies

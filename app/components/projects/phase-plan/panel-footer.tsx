@@ -1,21 +1,21 @@
-import { Trash2 } from "lucide-react";
+import { Archive } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
 
 interface PanelFooterProps {
-  readonly canDelete: boolean;
+  readonly canArchive: boolean;
   readonly canSave: boolean;
-  readonly onDelete: () => void;
+  readonly onArchive: () => void;
   readonly onCancel: () => void;
   readonly onSave: () => void;
 }
 
-/** Renders the delete button and the cancel and save buttons of the panel. */
+/** Renders the archive button and the cancel and save buttons of the panel. */
 export function PanelFooter({
-  canDelete,
+  canArchive,
   canSave,
-  onDelete,
+  onArchive,
   onCancel,
   onSave,
 }: PanelFooterProps): React.ReactElement {
@@ -23,14 +23,14 @@ export function PanelFooter({
 
   return (
     <div className="flex shrink-0 items-center justify-between gap-2 border-t border-border/60 px-5 pt-3 pb-5">
-      {canDelete ? (
+      {canArchive ? (
         <button
           type="button"
           className="inline-flex shrink-0 items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-semibold text-destructive outline-none transition-colors hover:bg-destructive/10 focus-visible:ring-2 focus-visible:ring-primary"
-          onClick={onDelete}
+          onClick={onArchive}
         >
-          <Trash2 className="size-3.5" aria-hidden="true" />
-          {t("projectDetail.planning.phasePlan.deleteMilestone")}
+          <Archive className="size-3.5" aria-hidden="true" />
+          {t("projectDetail.planning.phasePlan.archiveMilestone")}
         </button>
       ) : (
         <span />

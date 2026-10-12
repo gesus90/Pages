@@ -17,6 +17,8 @@ interface TicketHeadingProps {
   readonly onSaveTitle: (title: string) => void;
   /** Adds a child of the level below; `null` for subtasks. */
   readonly onCreateChild: (() => void) | null;
+  /** The archive control, shown among the actions of those who may archive. */
+  readonly archiveAction?: React.ReactNode;
 }
 
 /** Copies the address of the ticket and tells how it went. */
@@ -65,7 +67,7 @@ function CopyLinkButton({
 
 /**
  * Renders type, key, the editable title and the actions of a ticket: back to
- * the board, add a child, edit everything, copy the link (A8.2-E07).
+ * the board, add a child, copy the link, archive, edit everything (A8.2-E07).
  */
 export function TicketHeading({
   ticket,
@@ -75,6 +77,7 @@ export function TicketHeading({
   onEdit,
   onSaveTitle,
   onCreateChild,
+  archiveAction = null,
 }: TicketHeadingProps): React.ReactElement {
   const { t } = useTranslation();
   const canChange = canWrite && !isArchived;
@@ -119,6 +122,7 @@ export function TicketHeading({
           </Button>
         ) : null}
         <CopyLinkButton ticketKey={ticket.key} />
+        {archiveAction}
         <Button
           className="gap-1.5"
           disabled={!canChange}

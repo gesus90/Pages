@@ -5,6 +5,7 @@ import type { Milestone, MilestoneDependency } from "@/definition/Task";
 interface ProjectPlanningTabProps {
   readonly milestones: readonly Milestone[];
   readonly milestoneLinks: readonly MilestoneDependency[];
+  readonly canArchive: boolean;
   readonly canWrite: boolean;
 }
 
@@ -12,12 +13,14 @@ interface ProjectPlanningTabProps {
 export function ProjectPlanningTab({
   milestones,
   milestoneLinks,
+  canArchive,
   canWrite,
 }: ProjectPlanningTabProps): React.ReactElement {
   return (
     <PhaseMilestonePlan
       milestones={milestones}
       milestoneLinks={milestoneLinks}
+      canArchive={canArchive}
       canWrite={canWrite}
     />
   );

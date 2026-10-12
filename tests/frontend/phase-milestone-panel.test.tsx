@@ -19,7 +19,7 @@ import type { FakeFetcher, RenderedPlan } from "../helpers/plan-harness";
 const mockedUseFetcher = vi.mocked(useFetcher);
 
 let saveFetcher: FakeFetcher;
-let deleteFetcher: FakeFetcher;
+let archiveFetcher: FakeFetcher;
 let fetcherCalls = 0;
 
 const KICKOFF = createMilestone({
@@ -43,13 +43,13 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date(2026, 8, 30, 12));
   saveFetcher = createFakeFetcher();
-  deleteFetcher = createFakeFetcher();
+  archiveFetcher = createFakeFetcher();
   fetcherCalls = 0;
   mockedUseFetcher.mockImplementation(
     () =>
-      [saveFetcher, deleteFetcher][fetcherCalls++ % 2] as unknown as ReturnType<
-        typeof useFetcher
-      >,
+      [saveFetcher, archiveFetcher][
+        fetcherCalls++ % 2
+      ] as unknown as ReturnType<typeof useFetcher>,
   );
 });
 
@@ -643,47 +643,53 @@ describe("dependencies", () => {
   });
 });
 
-describe("deleting a milestone", () => {
+describe("archiving a milestone", () => {
   const MILESTONES = [KICKOFF, REVIEW];
 
-  async function confirmDelete(
+  async function confirmArchive(
     actor: ReturnType<typeof userEvent.setup>,
   ): Promise<void> {
     await actor.click(
-      within(panel()).getByRole("button", { name: "Meilenstein löschen" }),
+      within(panel()).getByRole("button", { name: "Archivieren" }),
     );
     await actor.click(
       within(await screen.findByRole("dialog")).getByRole("button", {
-        name: "Löschen",
+        name: "Archivieren",
       }),
     );
   }
 
-  it("asks for confirmation and can be cancelled", async () => {
+  it("names the milestone and what the archive does, and can be cancelled", async () => {
     const actor = user();
 
     renderPlan({ milestones: MILESTONES });
     await openEdit(actor, /Kickoff/);
     await actor.click(
-      within(panel()).getByRole("button", { name: "Meilenstein löschen" }),
+      within(panel()).getByRole("button", { name: "Archivieren" }),
     );
 
-    const dialog = await screen.findByRole("dialog");
+    const dialog = await screen.findByRole("dialog", {
+      name: "Meilenstein „Kickoff“ archivieren?",
+    });
 
     expect(dialog).toHaveTextContent(
-      "Der Meilenstein „Kickoff“ wird dauerhaft gelöscht.",
+      "„Kickoff“ wird archiviert, nicht gelöscht. Der Meilenstein verschwindet aus der Planung; sein Status bleibt unverändert.",
     );
-    expect(dialog).not.toHaveTextContent("Verknüpfungen");
+    expect(dialog).toHaveTextContent(
+      "Zugeordnete Tickets werden nicht mitarchiviert und bleiben unverändert.",
+    );
+    expect(dialog).not.toHaveTextContent("Abhängigkeit");
 
     await actor.click(
       within(dialog).getByRole("button", { name: "Abbrechen" }),
     );
 
     expect(screen.queryByRole("dialog")).toBeNull();
-    expect(deleteFetcher.submit).not.toHaveBeenCalled();
+    expect(archiveFetcher.submit).not.toHaveBeenCalled();
+    expect(card(/Kickoff/)).toBeInTheDocument();
   });
 
-  it("mentions links that will be removed too", async () => {
+  it("mentions the dependencies that will be removed", async () => {
     const actor = user();
 
     renderPlan({
@@ -692,12 +698,40 @@ describe("deleting a milestone", () => {
     });
     await openEdit(actor, /Kickoff/);
     await actor.click(
-      within(panel()).getByRole("button", { name: "Meilenstein löschen" }),
+      within(panel()).getByRole("button", { name: "Archivieren" }),
     );
 
     expect(await screen.findByRole("dialog")).toHaveTextContent(
-      "Verknüpfungen",
+      "1 Abhängigkeit zu anderen Meilensteinen wird entfernt.",
     );
+  });
+
+  it("offers the archive action only to those who may archive", async () => {
+    const actor = user();
+
+    renderPlan({ canArchive: false, milestones: MILESTONES });
+    await openEdit(actor, /Kickoff/);
+
+    expect(
+      within(panel()).queryByRole("button", { name: "Archivieren" }),
+    ).toBeNull();
+    expect(
+      within(panel()).getByRole("button", { name: "Abbrechen" }),
+    ).toBeInTheDocument();
+    expect(archiveFetcher.submit).not.toHaveBeenCalled();
+  });
+
+  it("does not offer to archive a milestone that does not exist yet", async () => {
+    const actor = user();
+
+    renderPlan({ milestones: MILESTONES });
+    await actor.click(
+      screen.getByRole("button", { name: "Meilenstein hinzufügen" }),
+    );
+
+    expect(
+      within(panel()).queryByRole("button", { name: "Archivieren" }),
+    ).toBeNull();
   });
 
   it("removes the milestone at once and closes the panel on success", async () => {
@@ -705,38 +739,38 @@ describe("deleting a milestone", () => {
     const plan = renderPlan({ milestones: MILESTONES });
 
     await openEdit(actor, /Kickoff/);
-    await confirmDelete(actor);
+    await confirmArchive(actor);
 
-    expect(submitted(deleteFetcher)).toEqual({
-      intent: "delete-milestone",
+    expect(submitted(archiveFetcher)).toEqual({
+      intent: "archive-milestone",
       milestoneId: "m1",
     });
     expect(screen.queryByRole("button", { name: /Kickoff/ })).toBeNull();
 
-    answer(deleteFetcher, true, plan);
+    answer(archiveFetcher, true, plan);
 
     expect(screen.queryByRole("complementary")).toBeNull();
   });
 
-  it("keeps another open panel when a different milestone was deleted", async () => {
+  it("keeps another open panel when a different milestone was archived", async () => {
     const actor = user();
     const plan = renderPlan({ milestones: MILESTONES });
 
     await openEdit(actor, /Kickoff/);
-    await confirmDelete(actor);
+    await confirmArchive(actor);
     await actor.click(card(/Design Review/));
-    answer(deleteFetcher, true, plan);
+    answer(archiveFetcher, true, plan);
 
     expect(panel()).toBeInTheDocument();
   });
 
-  it("restores the milestone when the delete fails", async () => {
+  it("restores the milestone when the server refuses the archive", async () => {
     const actor = user();
     const plan = renderPlan({ milestones: MILESTONES });
 
     await openEdit(actor, /Kickoff/);
-    await confirmDelete(actor);
-    answer(deleteFetcher, false, plan);
+    await confirmArchive(actor);
+    answer(archiveFetcher, false, plan);
 
     expect(card(/Kickoff/)).toBeInTheDocument();
     expect(within(panel()).getByRole("alert")).toHaveTextContent(
@@ -744,20 +778,20 @@ describe("deleting a milestone", () => {
     );
   });
 
-  it("disables the confirmation while a delete is running", async () => {
+  it("disables the confirmation while an archive is running", async () => {
     const actor = user();
     const plan = renderPlan({ milestones: MILESTONES });
 
     await openEdit(actor, /Kickoff/);
     await actor.click(
-      within(panel()).getByRole("button", { name: "Meilenstein löschen" }),
+      within(panel()).getByRole("button", { name: "Archivieren" }),
     );
-    deleteFetcher.state = "submitting";
+    archiveFetcher.state = "submitting";
     plan.refresh();
 
     expect(
       within(await screen.findByRole("dialog")).getByRole("button", {
-        name: "Löschen",
+        name: "Archivieren",
       }),
     ).toBeDisabled();
   });

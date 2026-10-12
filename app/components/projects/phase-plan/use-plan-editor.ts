@@ -1,7 +1,7 @@
 import { useEffect, useReducer, useRef, useState } from "react";
 import { useFetcher } from "react-router";
 
-import { useDeleteOutcome } from "@/app/components/projects/phase-plan/use-delete-outcome";
+import { useArchiveOutcome } from "@/app/components/projects/phase-plan/use-archive-outcome";
 import { useMilestoneMutations } from "@/app/components/projects/phase-plan/use-milestone-mutations";
 import { useSaveOutcome } from "@/app/components/projects/phase-plan/use-save-outcome";
 import { panelMilestoneIdFor } from "@/app/lib/phase-plan/plan-milestones";
@@ -31,7 +31,7 @@ export interface PlanEditor extends EffectiveData {
   readonly savedToken: SavedToken | null;
   readonly revertToken: RevertToken | null;
   readonly isSaving: boolean;
-  readonly isDeleting: boolean;
+  readonly isArchiving: boolean;
   readonly openCreate: () => void;
   readonly openMilestone: (milestone: Milestone) => void;
   readonly closePanel: () => void;
@@ -40,7 +40,7 @@ export interface PlanEditor extends EffectiveData {
     milestoneId: string | null,
     linkOps: LinkOperations,
   ) => void;
-  readonly deleteMilestone: (milestoneId: string) => void;
+  readonly archiveMilestone: (milestoneId: string) => void;
   readonly previewPatch: (
     milestoneId: string | null,
     patch: PreviewPatch | null,
@@ -48,7 +48,7 @@ export interface PlanEditor extends EffectiveData {
 }
 
 /**
- * Owns the milestone panel and applies saves and deletes optimistically.
+ * Owns the milestone panel and applies saves and archives optimistically.
  *
  * @remarks
  * Saves go out through background requests, so the timeline never reloads:
@@ -64,7 +64,7 @@ export function usePlanEditor(
   milestoneLinks: readonly MilestoneDependency[],
 ): PlanEditor {
   const saveFetcher = useFetcher();
-  const deleteFetcher = useFetcher();
+  const archiveFetcher = useFetcher();
   const [state, dispatch] = useReducer(
     optimisticReducer,
     EMPTY_OPTIMISTIC_STATE,
@@ -74,7 +74,7 @@ export function usePlanEditor(
   const [savedToken, setSavedToken] = useState<SavedToken | null>(null);
   const [revertToken, setRevertToken] = useState<RevertToken | null>(null);
   const pendingSave = useRef<PendingSave | null>(null);
-  const pendingDelete = useRef<string | null>(null);
+  const pendingArchive = useRef<string | null>(null);
 
   useEffect(() => {
     dispatch({ type: "reset" });
@@ -91,19 +91,19 @@ export function usePlanEditor(
     setSaveError,
     setSavedToken,
   });
-  useDeleteOutcome({
+  useArchiveOutcome({
     dispatch,
-    fetcher: deleteFetcher,
-    pendingDelete,
+    fetcher: archiveFetcher,
+    pendingArchive,
     setPanel,
     setSaveError,
   });
 
-  const { saveDraft, deleteMilestone } = useMilestoneMutations({
+  const { saveDraft, archiveMilestone } = useMilestoneMutations({
     dispatch,
-    deleteFetcher,
+    archiveFetcher,
     milestones,
-    pendingDelete,
+    pendingArchive,
     pendingSave,
     saveFetcher,
     setSaveError,
@@ -157,8 +157,8 @@ export function usePlanEditor(
   return {
     ...applyOptimisticState(milestones, milestoneLinks, state),
     closePanel,
-    deleteMilestone,
-    isDeleting: deleteFetcher.state !== "idle",
+    archiveMilestone,
+    isArchiving: archiveFetcher.state !== "idle",
     isSaving: saveFetcher.state !== "idle",
     openCreate,
     openMilestone,

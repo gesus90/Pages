@@ -199,6 +199,7 @@ it("resolves a ticket key before recursively archiving and reports the complete 
   vi.spyOn(run.context.tasks, "describeDescendants").mockResolvedValue({
     active: { initiative: 0, epic: 1, task: 2, subtask: 3 },
     all: { initiative: 0, epic: 1, task: 2, subtask: 3 },
+    canArchive: true,
   });
   await expect(
     applyAgentPlanningExtension(run.context, "ticket.delete", {
@@ -218,6 +219,51 @@ it("resolves a ticket key before recursively archiving and reports the complete 
     run.context.actor,
     run.ticket.id,
     "include",
+  );
+});
+
+it("archives a milestone of the visible project through the service that checks the right", async () => {
+  const run = setup();
+  vi.spyOn(run.context.projects, "getById").mockResolvedValue({
+    createdAt: "2026-01-01",
+    updatedAt: "2026-01-01",
+    id: "project-1",
+    name: "Project",
+    description: "",
+    departments: [],
+    parentId: null,
+    status: "active",
+    progress: 0,
+    placeholderColor: "#FCE3D3",
+    hasIcon: false,
+    managerId: null,
+    managerName: null,
+    startDate: null,
+    targetDate: null,
+    notes: "",
+  });
+  vi.spyOn(run.context.tasks, "findMilestones").mockResolvedValue([
+    fieldMilestone(),
+  ]);
+  const archive = vi
+    .spyOn(run.context.tasks, "archiveMilestone")
+    .mockResolvedValue(undefined);
+  await expect(
+    applyAgentPlanningExtension(run.context, "milestone.delete", {
+      projectId: "project-1",
+      milestoneId: fieldMilestone().id,
+      confirmation: "LÖSCHEN",
+    }),
+  ).resolves.toEqual({
+    id: fieldMilestone().id,
+    projectId: "project-1",
+    changed: true,
+    affectedCount: 1,
+    disposition: "trash",
+  });
+  expect(archive).toHaveBeenCalledExactlyOnceWith(
+    run.context.actor,
+    fieldMilestone().id,
   );
 });
 
@@ -245,7 +291,7 @@ it("does not delete a milestone absent from the visible project", async () => {
     fieldMilestone(),
   ]);
   const remove = vi
-    .spyOn(run.context.tasks, "deleteMilestone")
+    .spyOn(run.context.tasks, "archiveMilestone")
     .mockResolvedValue(undefined);
   await expect(
     applyAgentPlanningExtension(run.context, "milestone.delete", {

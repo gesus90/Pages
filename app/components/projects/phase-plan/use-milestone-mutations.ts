@@ -27,9 +27,9 @@ interface Submitter {
 interface MutationsInput {
   readonly milestones: readonly Milestone[];
   readonly saveFetcher: Submitter;
-  readonly deleteFetcher: Submitter;
+  readonly archiveFetcher: Submitter;
   readonly pendingSave: RefObject<PendingSave | null>;
-  readonly pendingDelete: RefObject<string | null>;
+  readonly pendingArchive: RefObject<string | null>;
   readonly dispatch: Dispatch<OptimisticAction>;
   readonly setSaveError: Dispatch<SetStateAction<PlanSaveError | null>>;
 }
@@ -41,11 +41,11 @@ export interface MilestoneMutations {
     milestoneId: string | null,
     linkOps: LinkOperations,
   ) => void;
-  readonly deleteMilestone: (milestoneId: string) => void;
+  readonly archiveMilestone: (milestoneId: string) => void;
 }
 
 /**
- * Sends milestone saves and deletes and shows them before the server answers.
+ * Sends milestone saves and archives and shows them before the server answers.
  *
  * @remarks
  * Every call records what it waits for, so the outcome hooks can revert the
@@ -57,9 +57,9 @@ export function useMilestoneMutations(
   const {
     milestones,
     saveFetcher,
-    deleteFetcher,
+    archiveFetcher,
     pendingSave,
-    pendingDelete,
+    pendingArchive,
     dispatch,
     setSaveError,
   } = input;
@@ -132,17 +132,17 @@ export function useMilestoneMutations(
     saveExisting(server, draft, linkOps);
   }
 
-  function deleteMilestone(milestoneId: string): void {
+  function archiveMilestone(milestoneId: string): void {
     setSaveError(null);
-    pendingDelete.current = milestoneId;
+    pendingArchive.current = milestoneId;
     dispatch({ milestoneId, type: "remove" });
 
     const formData = new FormData();
 
-    formData.set("intent", "delete-milestone");
+    formData.set("intent", "archive-milestone");
     formData.set("milestoneId", milestoneId);
-    void deleteFetcher.submit(formData, { method: "post" });
+    void archiveFetcher.submit(formData, { method: "post" });
   }
 
-  return { deleteMilestone, saveDraft };
+  return { archiveMilestone, saveDraft };
 }

@@ -14,6 +14,8 @@ export interface ToolbarFilterSelectsProps {
   readonly statuses: readonly WorkflowStatus[];
   readonly milestones: readonly Milestone[];
   readonly archivedFilter: ArchivedFilter;
+  /** Whether the archive filter is offered; only those who may archive see it. */
+  readonly canFilterArchived: boolean;
   readonly onArchivedChange: (value: ArchivedFilter) => void;
 }
 
@@ -35,6 +37,7 @@ export function ToolbarFilterSelects({
   statuses,
   milestones,
   archivedFilter,
+  canFilterArchived,
   onArchivedChange,
 }: ToolbarFilterSelectsProps): React.ReactElement {
   const { t } = useTranslation();
@@ -106,16 +109,18 @@ export function ToolbarFilterSelects({
         />
       ) : null}
 
-      <Select
-        ariaLabel={t("tasks.filter.archived")}
-        value={archivedFilter}
-        onValueChange={onArchivedChange}
-        options={[
-          { value: "active", label: t("tasks.filter.active") },
-          { value: "archived", label: t("tasks.filter.archivedTickets") },
-          { value: "all", label: t("tasks.filter.all") },
-        ]}
-      />
+      {canFilterArchived ? (
+        <Select
+          ariaLabel={t("tasks.filter.archived")}
+          value={archivedFilter}
+          onValueChange={onArchivedChange}
+          options={[
+            { value: "active", label: t("tasks.filter.active") },
+            { value: "archived", label: t("tasks.filter.archivedTickets") },
+            { value: "all", label: t("tasks.filter.all") },
+          ]}
+        />
+      ) : null}
     </>
   );
 }

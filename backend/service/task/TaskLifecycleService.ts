@@ -68,33 +68,41 @@ export class TaskLifecycleService {
   }
 
   /**
-   * Tells which descendants an archive or a deletion of a work item reaches.
+   * Tells which descendants an archive or a deletion of a work item reaches
+   * and whether the person asking may archive it.
    *
    * @param actor - The person asking; counts cover what they can see.
    * @param id - Work item identifier.
-   * @returns The active and all descendants per type.
+   * @returns The active and all descendants per type, and the archive right
+   * as it holds right now; archiving checks it again.
    */
   public async describeDescendants(
     actor: User,
     id: string,
   ): Promise<WorkItemDescendants> {
-    await this.access.requireWorkItem(actor, id);
+    const item = await this.access.requireWorkItem(actor, id);
 
     const counts = await this.taskRepository.countDescendants(
       id,
       await this.access.visibility(actor),
     );
 
-    return { active: sumCounts(counts, true), all: sumCounts(counts, false) };
+    return {
+      active: sumCounts(counts, true),
+      all: sumCounts(counts, false),
+      canArchive: await this.access.canArchive(actor, item.projectId),
+    };
   }
 
   /**
-   * Archives a work item without physical deletion.
+   * Archives a work item without physical deletion; its workflow status stays.
    *
-   * @param actor - The person archiving; needs write access.
+   * @param actor - The person archiving; needs the milestone right together
+   * with the project responsibility, see {@link TaskAccessGuard.canArchive}.
    * @param id - Work item identifier.
    * @param handling - `include` archives every active descendant too; `keep`
    * leaves the active direct children in place without a parent.
+   * @throws {WorkItemAccessDeniedError} Without the archive right in the project.
    * @throws {WorkItemValidationError} When descendants are hidden from the
    * actor, or subtasks would be left without their task.
    */
@@ -103,7 +111,7 @@ export class TaskLifecycleService {
     id: string,
     handling: ChildHandling = "include",
   ): Promise<void> {
-    const item = await this.access.requireWritableWorkItem(actor, id);
+    const item = await this.access.requireArchivableWorkItem(actor, id);
     let ids = await this.requireVisibleSubtree(actor, id);
 
     if (handling === "keep") {

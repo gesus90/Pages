@@ -249,9 +249,14 @@ export class TaskService {
     return this.milestones.updateMilestoneField(actor, id, change);
   }
 
-  /** Soft-deletes a milestone together with its dependencies. */
-  public async deleteMilestone(actor: User, id: string): Promise<void> {
-    return this.milestones.deleteMilestone(actor, id);
+  /**
+   * Archives a milestone together with its dependencies; its tickets stay.
+   *
+   * @remarks
+   * Needs the milestone right in the project, which is checked again here.
+   */
+  public async archiveMilestone(actor: User, id: string): Promise<void> {
+    return this.milestones.archiveMilestone(actor, id);
   }
 
   /** Returns the links between milestones and the initiatives the actor sees. */
@@ -361,7 +366,11 @@ export class TaskService {
     return this.assigneeGroups.findMemberGroupIds(actor);
   }
 
-  /** Returns non-archived work items across projects the actor has access to. */
+  /**
+   * Returns work items across projects the actor has access to; the
+   * non-archived ones unless `archived` asks otherwise, which only reaches
+   * the projects the actor may archive in.
+   */
   public async findAll(
     actor: User,
     options: FindWorkItemsOptions = {},
@@ -542,6 +551,37 @@ export class TaskService {
     ]);
 
     return { canDelete, canWrite };
+  }
+
+  /**
+   * Tells whether the actor may archive tickets and milestones of a project.
+   *
+   * @remarks
+   * A hint for controls; every archive checks the right again.
+   *
+   * @param actor - The person asking.
+   * @param projectId - Project the tickets or milestones belong to.
+   */
+  public async canArchive(actor: User, projectId: string): Promise<boolean> {
+    return this.access.canArchive(actor, projectId);
+  }
+
+  /**
+   * Tells whether the actor may archive in at least one of the projects, which
+   * is what the filter for archived tickets needs.
+   *
+   * @remarks
+   * A hint for controls; `findAll` limits archived tickets to the projects the
+   * actor may archive in on its own.
+   *
+   * @param actor - The person asking.
+   * @param projectIds - Projects to test, usually those the actor can open.
+   */
+  public async canArchiveAny(
+    actor: User,
+    projectIds: readonly string[],
+  ): Promise<boolean> {
+    return this.access.canArchiveAny(actor, projectIds);
   }
 
   /**

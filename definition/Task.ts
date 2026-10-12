@@ -74,12 +74,20 @@ export function isChildHandling(value: unknown): value is ChildHandling {
 /** How many descendants of each type a work item has. */
 export type WorkItemTypeCounts = Readonly<Record<WorkItemType, number>>;
 
-/** The descendants an archive or a permanent deletion of a work item reaches. */
+/**
+ * The descendants an archive or a permanent deletion of a work item reaches,
+ * and whether the person asking may archive it.
+ */
 export interface WorkItemDescendants {
   /** Descendants that are still active; archiving reaches only these. */
   readonly active: WorkItemTypeCounts;
   /** Every descendant, archived ones included; deleting reaches all of them. */
   readonly all: WorkItemTypeCounts;
+  /**
+   * Whether the person asking may archive the work item right now. It only
+   * decides which controls appear; archiving checks the right again.
+   */
+  readonly canArchive: boolean;
 }
 
 /** A file attached to a ticket, as the ticket views show it. */

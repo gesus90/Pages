@@ -93,6 +93,7 @@ export function TaskDetailPanel({
           role="dialog"
         >
           <DetailHeader
+            descendants={descendants}
             isArchived={task.archivedAt !== null}
             isArchiving={isArchiving}
             onChangeStatus={actions.changeStatus}

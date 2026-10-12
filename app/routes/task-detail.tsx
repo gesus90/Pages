@@ -294,6 +294,7 @@ function TaskDetailView({
         <TicketTop
           actions={actions}
           canWrite={loaderData.permissions.canWrite}
+          descendants={loaderData.descendants}
           isArchived={isArchived}
           isArchiving={isArchiving}
           onBack={() => void navigate(backTarget)}

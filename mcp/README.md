@@ -1069,7 +1069,9 @@ For every deletion, first ask the user to type `LÖSCHEN` (German) or `DELETE`
 (English) and pass that exact reply as `confirmation`. Never infer consent.
 Wiki deletion uses the existing trash, includes descendants and reports
 `recursive:true`, `affectedCount` and `disposition:trash`. Tickets and milestones
-use the UI archive. Comment deletion remains irreversible.
+use the UI archive and need its right: the role capability "Milestones" together
+with responsibility for the project, or active administrator mode; ordinary write
+rights return `FORBIDDEN`. Comment deletion remains irreversible.
 
 Wiki creation and moves support project, instance and private scope. Use
 `projectId:null` with explicit `scope:instance` or `scope:private`. Wiki writes
@@ -1130,7 +1132,9 @@ their contracts. A11.5 adds what was missing to manage planning data completely.
   the visible `initiatives` and `wikiPages` of every milestone. What the account cannot
   see appears as neither entry, placeholder nor count.
 - **Deleting and restoring.** `delete_ticket` and `delete_milestone` keep their
-  confirmation and archive recursively, as in A11.1. The archive is the trash: people
+  confirmation and archive recursively, as in A11.1, and need the archive right of the
+  interface (role capability "Milestones" plus responsibility for the project; a plain
+  writer gets `FORBIDDEN` and nothing changes). The archive is the trash: people
   restore a ticket with its subtree in Pages. Pages does not purge the archive after a
   period.
 - **Activity.** Changes are written to the activity of the project with the marker

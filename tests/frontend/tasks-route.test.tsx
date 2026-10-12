@@ -210,6 +210,7 @@ function renderTasks(loaderOverrides: Record<string, unknown> = {}): void {
     actor: createUser(),
     archivedFilter: "active",
     board: DEFAULT_BOARD_PREFERENCES,
+    canFilterArchived: true,
     labels: [],
     assignees: [createUser()],
     assigneesByProject: {},
@@ -532,6 +533,27 @@ describe("TasksRoute", () => {
     expect(navigate).toHaveBeenCalledWith("?archived=archived");
   });
 
+  it("offers the archive filter only to people who may archive", () => {
+    renderTasks({ canFilterArchived: false });
+
+    expect(
+      screen.queryByRole("combobox", { name: "Archiv-Status" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows the archive action of the selected ticket only with the right", () => {
+    const none = { epic: 0, initiative: 0, subtask: 0, task: 0 };
+
+    renderTasks({
+      selectedDescendants: { active: none, all: none, canArchive: false },
+      selectedItem: createWorkItem(),
+    });
+
+    expect(
+      screen.queryByRole("button", { name: "Archivieren" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("opens tickets in the full view on double click", async () => {
     const user = userEvent.setup();
     const navigate = vi.fn();
@@ -755,6 +777,11 @@ describe("TasksRoute", () => {
     } as unknown as ReturnType<typeof useNavigation>);
 
     renderTasks({
+      selectedDescendants: {
+        active: { epic: 0, initiative: 0, subtask: 0, task: 0 },
+        all: { epic: 0, initiative: 0, subtask: 0, task: 0 },
+        canArchive: true,
+      },
       selectedItem: createWorkItem(),
     });
 

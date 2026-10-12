@@ -23,7 +23,7 @@ import type { FakeFetcher } from "../helpers/plan-harness";
 const mockedUseFetcher = vi.mocked(useFetcher);
 
 let saveFetcher: FakeFetcher;
-let deleteFetcher: FakeFetcher;
+let archiveFetcher: FakeFetcher;
 let fetcherCalls = 0;
 
 const KICKOFF = createMilestone({
@@ -55,13 +55,13 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date(2026, 8, 30, 12));
   saveFetcher = createFakeFetcher();
-  deleteFetcher = createFakeFetcher();
+  archiveFetcher = createFakeFetcher();
   fetcherCalls = 0;
   mockedUseFetcher.mockImplementation(
     () =>
-      [saveFetcher, deleteFetcher][fetcherCalls++ % 2] as unknown as ReturnType<
-        typeof useFetcher
-      >,
+      [saveFetcher, archiveFetcher][
+        fetcherCalls++ % 2
+      ] as unknown as ReturnType<typeof useFetcher>,
   );
 });
 

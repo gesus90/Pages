@@ -2,7 +2,11 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { I18nextProvider } from "react-i18next";
-import { createMemoryRouter, RouterProvider } from "react-router";
+import {
+  createMemoryRouter,
+  RouterProvider,
+  useActionData,
+} from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TicketParentField } from "@/app/components/tasks/hierarchy/ticket-parent-field";
@@ -10,6 +14,7 @@ import {
   countAll,
   describeCounts,
 } from "@/app/components/tasks/lifecycle/child-handling-fields";
+import { TicketArchiveAction } from "@/app/components/tasks/lifecycle/ticket-archive-action";
 import { TicketAccessProvider } from "@/app/components/tasks/ticket-access";
 import { TicketLifecycleControls } from "@/app/components/tasks/ticket-lifecycle-controls";
 import { TicketChildrenSection } from "@/app/components/tasks/ticket/ticket-children-section";
@@ -48,6 +53,7 @@ let answer: unknown = { intent: "change-parent", ok: true };
 function renderWithRouter(
   element: React.ReactElement,
   access: TicketAccess = ACCESS,
+  pageAnswer: unknown = { intent: "archive-task", ok: true },
 ): void {
   const router = createMemoryRouter(
     [
@@ -55,7 +61,7 @@ function renderWithRouter(
         async action({ request }) {
           submissions.push(Object.fromEntries(await request.formData()));
 
-          return { intent: "archive-task", ok: true };
+          return pageAnswer;
         },
         element,
         path: "/",
@@ -100,13 +106,19 @@ describe("child handling", () => {
     const descendants: WorkItemDescendants = {
       active: { ...NONE, subtask: 3, task: 2 },
       all: { ...NONE, subtask: 3, task: 4 },
+      canArchive: true,
     };
 
     renderWithRouter(
-      <TicketLifecycleControls
+      <TicketArchiveAction
         descendants={descendants}
         isArchiving={false}
-        ticket={createWorkItem({ key: "PAGE-2", type: WORK_ITEM_TYPE.EPIC })}
+        ticket={createWorkItem({
+          key: "PAGE-2",
+          statusName: "In Arbeit",
+          title: "Login",
+          type: WORK_ITEM_TYPE.EPIC,
+        })}
       />,
     );
 
@@ -115,8 +127,16 @@ describe("child handling", () => {
       name: "PAGE-2 archivieren?",
     });
 
+    // The ticket, what the archive does to it and how many descendants it reaches.
     expect(
-      within(dialog).getByText("Betroffen sind außerdem: 2 Tasks, 3 Subtasks."),
+      within(dialog).getByText(
+        "„Login“ (PAGE-2) wird archiviert, nicht gelöscht. Der Status „In Arbeit“ bleibt unverändert; das Ticket verschwindet aus den aktiven Ansichten und lässt sich wiederherstellen.",
+      ),
+    ).toBeVisible();
+    expect(
+      within(dialog).getByText(
+        "Betroffen sind außerdem 5 aktive untergeordnete Einträge über alle Ebenen: 2 Tasks, 3 Subtasks.",
+      ),
     ).toBeVisible();
     await userEvent.click(
       within(dialog).getByRole("button", { name: "Archivieren" }),
@@ -144,10 +164,14 @@ describe("child handling", () => {
     );
   });
 
-  it("archives tasks with their subtasks and leaves without children alone", async () => {
+  it("archives tasks with their subtasks and sends nothing when cancelled", async () => {
     renderWithRouter(
-      <TicketLifecycleControls
-        descendants={{ active: { ...NONE, subtask: 1 }, all: NONE }}
+      <TicketArchiveAction
+        descendants={{
+          active: { ...NONE, subtask: 1 },
+          all: NONE,
+          canArchive: true,
+        }}
         isArchiving={false}
         ticket={createWorkItem({ key: "PAGE-3" })}
       />,
@@ -158,6 +182,11 @@ describe("child handling", () => {
 
     expect(
       within(dialog).getByText(
+        "Betroffen ist außerdem 1 aktiver untergeordneter Eintrag über alle Ebenen: 1 Subtask.",
+      ),
+    ).toBeVisible();
+    expect(
+      within(dialog).getByText(
         "Subtasks gehören zu ihrem Task und werden mitarchiviert.",
       ),
     ).toBeVisible();
@@ -166,15 +195,181 @@ describe("child handling", () => {
       within(dialog).getByRole("button", { name: "Abbrechen" }),
     );
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(submissions).toEqual([]);
+  });
+
+  it("says that nothing else is affected when a ticket has no active descendants", async () => {
+    renderWithRouter(
+      <TicketArchiveAction
+        descendants={{
+          active: NONE,
+          all: { ...NONE, task: 2 },
+          canArchive: true,
+        }}
+        isArchiving={false}
+        ticket={createWorkItem({ type: WORK_ITEM_TYPE.EPIC })}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Archivieren" }));
+
+    expect(
+      within(await screen.findByRole("dialog")).getByText(
+        "Es gibt keine untergeordneten Einträge.",
+      ),
+    ).toBeVisible();
+  });
+
+  it("keeps the reason visible when the server refuses an archive request", async () => {
+    // The refreshed hint takes the control away, as the loader does after the answer.
+    function RefreshedAfterRefusal(): React.ReactElement {
+      const outcome = useActionData();
+
+      return (
+        <TicketArchiveAction
+          descendants={{
+            active: NONE,
+            all: NONE,
+            canArchive: outcome === undefined,
+          }}
+          isArchiving={false}
+          ticket={createWorkItem()}
+        />
+      );
+    }
+
+    renderWithRouter(<RefreshedAfterRefusal />, ACCESS, {
+      error: "forbidden",
+      intent: "archive-task",
+      ok: false,
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "Archivieren" }));
+    await userEvent.click(
+      within(await screen.findByRole("dialog")).getByRole("button", {
+        name: "Archivieren",
+      }),
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Du bist nicht berechtigt, diese Aktion auszuführen.",
+    );
+    expect(
+      screen.queryByRole("button", { name: "Archivieren" }),
+    ).not.toBeInTheDocument();
+    expect(submissions).toEqual([
+      { children: "include", id: "item-1", intent: "archive-task" },
+    ]);
+  });
+
+  it("offers no archive action without the right, for archived tickets or while unknown", () => {
+    const rights = { active: NONE, all: NONE };
+
+    renderWithRouter(
+      <>
+        <TicketArchiveAction
+          descendants={{ ...rights, canArchive: false }}
+          isArchiving={false}
+          ticket={createWorkItem()}
+        />
+        <TicketArchiveAction
+          descendants={{ ...rights, canArchive: true }}
+          isArchiving={false}
+          ticket={createWorkItem({ archivedAt: "2026-10-01" })}
+        />
+        <TicketArchiveAction
+          descendants={null}
+          isArchiving={false}
+          ticket={createWorkItem()}
+        />
+      </>,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Archivieren" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows no archive control among the lifecycle actions and no reader notice for those who may archive", () => {
+    const withRight: WorkItemDescendants = {
+      active: NONE,
+      all: NONE,
+      canArchive: true,
+    };
+
+    renderWithRouter(
+      <TicketLifecycleControls
+        descendants={withRight}
+        isArchiving={false}
+        ticket={createWorkItem()}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Archivieren" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Endgültig löschen" }),
+    ).toBeVisible();
+  });
+
+  it("keeps the reader notice for people who may neither write nor archive", () => {
+    const readOnly: TicketAccess = {
+      ...ACCESS,
+      canDelete: false,
+      canWrite: false,
+    };
+
+    renderWithRouter(
+      <TicketLifecycleControls
+        descendants={{ active: NONE, all: NONE, canArchive: false }}
+        isArchiving={false}
+        ticket={createWorkItem()}
+      />,
+      readOnly,
+    );
+
+    expect(
+      screen.getByText(/Du hast nur Leserechte für dieses Ticket/u),
+    ).toBeVisible();
+  });
+
+  it("shows nothing at all to a manager who may archive but neither write nor delete", () => {
+    const archiveOnly: TicketAccess = {
+      ...ACCESS,
+      canDelete: false,
+      canWrite: false,
+    };
+
+    renderWithRouter(
+      <TicketLifecycleControls
+        descendants={{ active: NONE, all: NONE, canArchive: true }}
+        isArchiving={false}
+        ticket={createWorkItem()}
+      />,
+      archiveOnly,
+    );
+
+    expect(screen.queryByText(/Leserechte/u)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
   it("names deletions with unknown and with no descendants", async () => {
+    const subtask = createWorkItem({ type: WORK_ITEM_TYPE.SUBTASK });
+
     renderWithRouter(
-      <TicketLifecycleControls
-        descendants={null}
-        isArchiving
-        ticket={createWorkItem({ type: WORK_ITEM_TYPE.SUBTASK })}
-      />,
+      <>
+        <TicketArchiveAction
+          descendants={{ active: NONE, all: NONE, canArchive: true }}
+          isArchiving
+          ticket={subtask}
+        />
+        <TicketLifecycleControls
+          descendants={null}
+          isArchiving
+          ticket={subtask}
+        />
+      </>,
     );
 
     expect(
@@ -198,7 +393,11 @@ describe("child handling", () => {
   it("deletes an initiative while keeping its epics", async () => {
     renderWithRouter(
       <TicketLifecycleControls
-        descendants={{ active: NONE, all: { ...NONE, epic: 1 } }}
+        descendants={{
+          active: NONE,
+          all: { ...NONE, epic: 1 },
+          canArchive: false,
+        }}
         isArchiving={false}
         ticket={createWorkItem({ type: WORK_ITEM_TYPE.INITIATIVE })}
       />,

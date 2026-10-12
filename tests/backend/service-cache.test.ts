@@ -140,6 +140,7 @@ describe("service cache behavior", () => {
       workItemVisibility: vi
         .fn()
         .mockResolvedValue({ departmentIds: null, projectIds: ["project-1"] }),
+      canWriteProject: vi.fn().mockResolvedValue(true),
       findAll: vi.fn().mockResolvedValue([createProject()]),
       getById: vi.fn().mockResolvedValue(createProject()),
     };
@@ -177,6 +178,7 @@ describe("service cache behavior", () => {
 
   it("keeps separate cache entries per query shape", async () => {
     const projectService = {
+      canWriteProject: vi.fn().mockResolvedValue(true),
       workItemVisibility: vi
         .fn()
         .mockResolvedValue({ departmentIds: null, projectIds: ["project-1"] }),

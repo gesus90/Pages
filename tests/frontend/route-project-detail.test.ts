@@ -13,7 +13,10 @@ import {
   ProjectManagementDeniedError,
   ProjectNotFoundError,
 } from "@/backend/error/ProjectErrors";
-import { WorkItemValidationError } from "@/backend/error/WorkItemErrors";
+import {
+  WorkItemAccessDeniedError,
+  WorkItemValidationError,
+} from "@/backend/error/WorkItemErrors";
 
 import type { Project } from "@/definition/Project";
 
@@ -81,6 +84,8 @@ function createServices(overrides: Record<string, unknown> = {}) {
       testConnection: vi.fn().mockResolvedValue(true),
     },
     taskService: {
+      archiveMilestone: vi.fn(),
+      canArchive: vi.fn().mockResolvedValue(true),
       createMilestone: vi.fn(),
       findAll: vi.fn().mockResolvedValue([]),
       findAllStatuses: vi.fn().mockResolvedValue([]),
@@ -268,6 +273,34 @@ describe("project detail route loader", () => {
     expect(taskService.findDependencies).toHaveBeenCalledWith(user, [
       "project-1",
     ]);
+  });
+
+  it("tells the planning tab whether milestones can be archived", async () => {
+    const services = createServices();
+    mockedServices.mockResolvedValue(services);
+    const user = createUser();
+    const context = new Map([[authenticatedUserContext, user]]);
+    const taskService = services.taskService as unknown as {
+      canArchive: ReturnType<typeof vi.fn>;
+    };
+    const load = (tab: string) =>
+      loader({
+        context,
+        params: { projectId: "project-1" },
+        request: new Request(
+          `http://pages.invalid/projekte/project-1?tab=${tab}`,
+        ),
+      } as unknown as LoaderArguments);
+
+    expect((await load("team")).canArchiveMilestones).toBe(false);
+    expect(taskService.canArchive).not.toHaveBeenCalled();
+
+    expect((await load("planning")).canArchiveMilestones).toBe(true);
+    expect(taskService.canArchive).toHaveBeenCalledWith(user, "project-1");
+
+    taskService.canArchive.mockResolvedValue(false);
+
+    expect((await load("planning")).canArchiveMilestones).toBe(false);
   });
 
   it("continues without assignable users when lookup fails", async () => {
@@ -754,6 +787,47 @@ describe("project detail route action", () => {
     expect(invalidStatus).toMatchObject({
       data: { ok: false },
       init: { status: 400 },
+    });
+  });
+
+  it("archives a milestone and answers a refusal of the service with forbidden", async () => {
+    const context = new Map([[authenticatedUserContext, createUser()]]);
+    const services = createServices();
+    mockedServices.mockResolvedValue(services);
+    const taskService = services.taskService as unknown as {
+      archiveMilestone: ReturnType<typeof vi.fn>;
+    };
+
+    const archived = await action({
+      context,
+      params: { projectId: "project-1" },
+      request: createPostRequest({
+        intent: "archive-milestone",
+        milestoneId: "milestone-1",
+      }),
+    } as unknown as LoaderArguments);
+    expect(archived).toMatchObject({ data: { ok: true } });
+    expect(taskService.archiveMilestone).toHaveBeenCalledWith(
+      expect.anything(),
+      "milestone-1",
+    );
+
+    // A request the interface never offered is judged by the same service.
+    taskService.archiveMilestone.mockRejectedValue(
+      new WorkItemAccessDeniedError(),
+    );
+
+    const refused = await action({
+      context,
+      params: { projectId: "project-1" },
+      request: createPostRequest({
+        intent: "archive-milestone",
+        milestoneId: "milestone-1",
+      }),
+    } as unknown as LoaderArguments);
+    expect(refused).toMatchObject({
+      data: { error: "forbidden", ok: false },
+      init: { status: 403 },
     });
   });
 

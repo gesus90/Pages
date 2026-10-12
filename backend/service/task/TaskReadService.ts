@@ -150,7 +150,14 @@ export class TaskReadService {
     return this.access.filterAssignees(assignees);
   }
 
-  /** Returns non-archived work items across projects the actor has access to. */
+  /**
+   * Returns work items across projects the actor has access to.
+   *
+   * @remarks
+   * Active work items by default. Archived ones are returned only for the
+   * projects in which the actor may archive; this is decided here, whatever
+   * the caller asked for, so a request cannot widen it.
+   */
   public async findAll(
     actor: User,
     options: FindWorkItemsOptions = {},
@@ -164,7 +171,17 @@ export class TaskReadService {
       return [];
     }
 
-    const scopedOptions = { ...options, visibility };
+    const archiveScope = await this.limitArchived(
+      actor,
+      options,
+      effectiveProjectIds,
+    );
+
+    if (archiveScope === null) {
+      return [];
+    }
+
+    const scopedOptions = { ...archiveScope, visibility };
     const cacheKey = `workitems:q:${workItemScopeKey(actor.id, visibility)}:${stableWorkItemsKey(scopedOptions, effectiveProjectIds)}`;
     const cached = this.cache.get<WorkItemDetail[]>(cacheKey);
 
@@ -262,5 +279,35 @@ export class TaskReadService {
       projectIds,
       await this.access.visibility(actor),
     );
+  }
+
+  /**
+   * Restricts a query for archived work items to the projects the actor may
+   * archive in.
+   *
+   * @returns The options to query with, or `null` when the actor asked for
+   * archived work items only and may see none.
+   */
+  private async limitArchived(
+    actor: User,
+    options: FindWorkItemsOptions,
+    projectIds: readonly string[],
+  ): Promise<FindWorkItemsOptions | null> {
+    if (options.archived !== "archived" && options.archived !== "all") {
+      return { ...options, archivedProjectIds: undefined };
+    }
+
+    const archivable = await this.access.archivableProjectIds(
+      actor,
+      projectIds,
+    );
+
+    if (archivable.length > 0) {
+      return { ...options, archivedProjectIds: archivable };
+    }
+
+    return options.archived === "all"
+      ? { ...options, archived: "active", archivedProjectIds: undefined }
+      : null;
   }
 }

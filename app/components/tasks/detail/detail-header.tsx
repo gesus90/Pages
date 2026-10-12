@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Form } from "react-router";
 
+import { TicketArchiveAction } from "@/app/components/tasks/lifecycle/ticket-archive-action";
 import { TaskTypeBadge } from "@/app/components/tasks/task-badges";
 import { useTicketAccess } from "@/app/components/tasks/ticket-access";
 import { Button } from "@/app/components/ui/button";
@@ -10,12 +11,18 @@ import { Input } from "@/app/components/ui/input";
 import { Select } from "@/app/components/ui/select";
 import { focusOnMount } from "@/app/lib/focus-on-mount";
 
-import type { WorkItemDetail, WorkflowStatus } from "@/definition/Task";
+import type {
+  WorkItemDescendants,
+  WorkItemDetail,
+  WorkflowStatus,
+} from "@/definition/Task";
 
 interface TopBarProps {
   readonly task: WorkItemDetail;
   readonly statuses: readonly WorkflowStatus[];
   readonly isArchived: boolean;
+  readonly isArchiving: boolean;
+  readonly descendants: WorkItemDescendants | null;
   readonly onEdit: (task: WorkItemDetail) => void;
   readonly onClose: () => void;
   readonly onSelectTask: (key: string) => void;
@@ -27,6 +34,8 @@ function TopBar({
   task,
   statuses,
   isArchived,
+  isArchiving,
+  descendants,
   onEdit,
   onClose,
   onSelectTask,
@@ -63,6 +72,13 @@ function TopBar({
         ) : null}
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
+        <TicketArchiveAction
+          descendants={descendants}
+          isArchiving={isArchiving}
+          isCompact
+          ticket={task}
+          triggerClassName="h-9 px-3 text-xs"
+        />
         {!isArchived ? (
           <Button
             className="h-9 gap-1.5 px-3 text-xs"
@@ -259,6 +275,8 @@ interface DetailHeaderProps {
   readonly statuses: readonly WorkflowStatus[];
   readonly isArchived: boolean;
   readonly isArchiving: boolean;
+  /** What archiving reaches and whether the visitor may archive; `null` when unknown. */
+  readonly descendants: WorkItemDescendants | null;
   readonly onEdit: (task: WorkItemDetail) => void;
   readonly onClose: () => void;
   readonly onSelectTask: (key: string) => void;
@@ -272,6 +290,7 @@ export function DetailHeader({
   statuses,
   isArchived,
   isArchiving,
+  descendants,
   onEdit,
   onClose,
   onSelectTask,
@@ -281,7 +300,9 @@ export function DetailHeader({
   return (
     <header className="shrink-0 px-5 pt-5 sm:px-7 sm:pt-6">
       <TopBar
+        descendants={descendants}
         isArchived={isArchived}
+        isArchiving={isArchiving}
         onChangeStatus={onChangeStatus}
         onClose={onClose}
         onEdit={onEdit}

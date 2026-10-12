@@ -48,6 +48,11 @@ interface ChildHandlingFieldsProps {
   readonly counts: WorkItemTypeCounts | null;
   /** Tells that subtasks go along, worded for archiving or deleting. */
   readonly subtasksNote: string;
+  /**
+   * Translation key of the sentence that names what the action reaches. It
+   * receives `count`, the number of descendants, and `list`, the same per type.
+   */
+  readonly affectedKey?: string;
 }
 
 /**
@@ -60,6 +65,7 @@ export function ChildHandlingFields({
   ticket,
   counts,
   subtasksNote,
+  affectedKey = "tasks.lifecycle.affected",
 }: ChildHandlingFieldsProps): React.ReactElement {
   const { t } = useTranslation();
   const total = counts === null ? 0 : countAll(counts);
@@ -82,7 +88,7 @@ export function ChildHandlingFields({
   return (
     <div className="flex flex-col gap-3 text-sm">
       <p className="text-foreground">
-        {t("tasks.lifecycle.affected", { list: describeCounts(counts, t) })}
+        {t(affectedKey, { count: total, list: describeCounts(counts, t) })}
       </p>
       {canKeep ? (
         <fieldset className="flex flex-col gap-2">

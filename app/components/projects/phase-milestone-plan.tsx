@@ -25,6 +25,8 @@ import type { Milestone, MilestoneDependency } from "@/definition/Task";
 interface PhaseMilestonePlanProps {
   readonly milestones: readonly Milestone[];
   readonly milestoneLinks: readonly MilestoneDependency[];
+  /** Whether the visitor may archive milestones of the project; a hint only. */
+  readonly canArchive: boolean;
   readonly canWrite: boolean;
 }
 
@@ -44,6 +46,7 @@ interface PhaseMilestonePlanProps {
 export function PhaseMilestonePlan({
   milestones,
   milestoneLinks,
+  canArchive,
   canWrite,
 }: PhaseMilestonePlanProps): React.ReactElement {
   const { t } = useTranslation();
@@ -122,10 +125,11 @@ export function PhaseMilestonePlan({
         <MilestonePanel
           key={panel.mode === "edit" ? panel.milestone.id : "new"}
           {...describePanelLinks(panel, editor.milestones, editor.links)}
-          isDeleting={editor.isDeleting}
+          canArchive={canArchive}
+          isArchiving={editor.isArchiving}
           isSaving={editor.isSaving}
+          onArchive={editor.archiveMilestone}
           onClose={editor.closePanel}
-          onDelete={editor.deleteMilestone}
           onPreview={editor.previewPatch}
           onSave={editor.saveDraft}
           panel={panel}

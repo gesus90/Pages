@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { PanelDeleteDialog } from "@/app/components/projects/phase-plan/panel-delete-dialog";
+import { PanelArchiveDialog } from "@/app/components/projects/phase-plan/panel-archive-dialog";
 import { PanelFields } from "@/app/components/projects/phase-plan/panel-fields";
 import { PanelFooter } from "@/app/components/projects/phase-plan/panel-footer";
 import { PanelHeader } from "@/app/components/projects/phase-plan/panel-header";
@@ -35,17 +35,19 @@ interface MilestonePanelProps {
   readonly incomingLinkSourceIds: readonly string[];
   readonly candidates: readonly LinkCandidate[];
   readonly linkCount: number;
+  /** Whether the visitor may archive the milestone; the server decides again. */
+  readonly canArchive: boolean;
   readonly saveError: PlanSaveError | null;
   readonly revertToken: RevertToken | null;
   readonly savedToken: SavedToken | null;
   readonly isSaving: boolean;
-  readonly isDeleting: boolean;
+  readonly isArchiving: boolean;
   readonly onSave: (
     draft: PanelDraft,
     milestoneId: string | null,
     linkOps: LinkOperations,
   ) => void;
-  readonly onDelete: (milestoneId: string) => void;
+  readonly onArchive: (milestoneId: string) => void;
   readonly onPreview: (
     milestoneId: string | null,
     patch: PreviewPatch | null,
@@ -98,9 +100,9 @@ export function MilestonePanel(props: MilestonePanelProps): React.ReactElement {
     onClose();
   }
 
-  function handleConfirmDelete(id: string): void {
+  function handleConfirmArchive(id: string): void {
     setShowConfirm(false);
-    props.onDelete(id);
+    props.onArchive(id);
   }
 
   const incomingIds = new Set(props.incomingLinkSourceIds);
@@ -150,19 +152,19 @@ export function MilestonePanel(props: MilestonePanelProps): React.ReactElement {
         </VerticalScrollArea>
 
         <PanelFooter
-          canDelete={milestoneId !== null}
+          canArchive={props.canArchive && milestoneId !== null}
           canSave={canSave}
+          onArchive={() => setShowConfirm(true)}
           onCancel={onClose}
-          onDelete={() => setShowConfirm(true)}
           onSave={actions.save}
         />
 
-        {panel.mode === "edit" ? (
-          <PanelDeleteDialog
-            isDeleting={props.isDeleting}
+        {panel.mode === "edit" && props.canArchive ? (
+          <PanelArchiveDialog
+            isArchiving={props.isArchiving}
             linkCount={props.linkCount}
             milestoneName={panel.milestone.name}
-            onConfirm={() => handleConfirmDelete(panel.milestone.id)}
+            onConfirm={() => handleConfirmArchive(panel.milestone.id)}
             onOpenChange={setShowConfirm}
             open={showConfirm}
           />

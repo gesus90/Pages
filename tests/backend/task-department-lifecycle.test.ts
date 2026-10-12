@@ -268,10 +268,10 @@ describe("ticket departments, archive and permanent deletion", () => {
     );
   });
 
-  it("archives and restores a subtree with the same write rule", async () => {
+  it("archives with the milestone right and restores with the write rule", async () => {
     const { tasks, repository } = await setup();
 
-    await tasks.archive(MEMBER, "leaf");
+    await tasks.archive(MANAGER, "leaf");
     expect(await repository.findSubtreeIds("leaf")).toEqual(["leaf"]);
     await expect(tasks.getById(MEMBER, "leaf")).resolves.toMatchObject({
       archivedAt: expect.any(String),
@@ -304,13 +304,13 @@ describe("ticket departments, archive and permanent deletion", () => {
   it("refuses to change a subtree that contains tickets the actor cannot see", async () => {
     const { tasks } = await setup();
 
-    await expect(tasks.archive(MEMBER, "epic")).rejects.toThrow(
+    await expect(tasks.archive(MANAGER, "epic")).rejects.toThrow(
       "not visible to you",
     );
     await expect(tasks.restore(MEMBER, "front")).rejects.toThrow(
       "not visible to you",
     );
-    await expect(tasks.archive(MEMBER, "missing")).rejects.toThrow(
+    await expect(tasks.archive(MANAGER, "missing")).rejects.toThrow(
       "does not exist",
     );
   });
@@ -343,7 +343,7 @@ describe("ticket departments, archive and permanent deletion", () => {
       name: "Shared",
     });
 
-    await tasks.archive(MEMBER, "leaf");
+    await tasks.archive(MANAGER, "leaf");
     await tasks.restore(MEMBER, "leaf");
     await tasks.assignLabel(MEMBER, "leaf", label.id);
     await tasks.addChecklistItem(MEMBER, "leaf", "Check");

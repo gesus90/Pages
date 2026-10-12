@@ -25,6 +25,7 @@ export function createFakeFetcher(): FakeFetcher {
 interface PlanProps {
   readonly milestones: readonly Milestone[];
   readonly milestoneLinks: readonly MilestoneDependency[];
+  readonly canArchive: boolean;
   readonly canWrite: boolean;
 }
 
@@ -39,6 +40,7 @@ export interface RenderedPlan {
 /** Renders the milestone plan in a router; a rendering context for hooks. */
 export function renderPlan(initial: Partial<PlanProps> = {}): RenderedPlan {
   let current: PlanProps = {
+    canArchive: true,
     canWrite: true,
     milestoneLinks: [],
     milestones: [],

@@ -134,6 +134,106 @@ export class TaskAccessGuard {
     return this.permissions.hasCapability(actor, CAPABILITY.WRITE);
   }
 
+  /**
+   * Tells whether the actor may archive tickets and milestones of a project.
+   *
+   * @remarks
+   * The single archive rule of tickets and milestones: the role capability
+   * "milestones" together with the project responsibility that milestone
+   * planning needs. Ordinary write, assignment and membership rights alone do
+   * not suffice, and neither does the capability without that responsibility.
+   * Administrators in active administrator mode hold both. Both facts are
+   * read freshly on every call, and the project access is part of the second.
+   */
+  public async canArchive(actor: User, projectId: string): Promise<boolean> {
+    if (!(await this.holdsMilestoneRight(actor))) {
+      return false;
+    }
+
+    return this.projectService.canWriteProject(actor, projectId);
+  }
+
+  /**
+   * Verifies that the actor may archive in a project.
+   *
+   * @throws {WorkItemAccessDeniedError} Without the archive right there.
+   */
+  public async requireArchiveRight(
+    actor: User,
+    projectId: string,
+  ): Promise<void> {
+    if (!(await this.canArchive(actor, projectId))) {
+      throw new WorkItemAccessDeniedError();
+    }
+  }
+
+  /**
+   * Returns a work item the actor may see and archive.
+   *
+   * @throws {WorkItemNotFoundError} When the ticket does not exist or is hidden.
+   * @throws {WorkItemAccessDeniedError} Without the archive right in its project.
+   */
+  public async requireArchivableWorkItem(
+    actor: User,
+    workItemId: string,
+  ): Promise<WorkItemDetail> {
+    const item = await this.requireWorkItem(actor, workItemId);
+    await this.requireArchiveRight(actor, item.projectId);
+
+    return item;
+  }
+
+  /**
+   * Narrows projects to those the actor may archive in.
+   *
+   * @param actor - User asking.
+   * @param projectIds - Projects to test, in the order they are returned.
+   * @returns The projects of the list with the archive right; empty without
+   * the capability, which is then tested only once.
+   */
+  public async archivableProjectIds(
+    actor: User,
+    projectIds: readonly string[],
+  ): Promise<string[]> {
+    if (!(await this.holdsMilestoneRight(actor))) {
+      return [];
+    }
+
+    const archivable: string[] = [];
+
+    for (const projectId of projectIds) {
+      if (await this.projectService.canWriteProject(actor, projectId)) {
+        archivable.push(projectId);
+      }
+    }
+
+    return archivable;
+  }
+
+  /**
+   * Tells whether the actor may archive in at least one of the projects.
+   *
+   * @remarks
+   * Stops at the first project that qualifies, which is what the archive
+   * filter needs to decide whether it is offered at all.
+   */
+  public async canArchiveAny(
+    actor: User,
+    projectIds: readonly string[],
+  ): Promise<boolean> {
+    if (!(await this.holdsMilestoneRight(actor))) {
+      return false;
+    }
+
+    for (const projectId of projectIds) {
+      if (await this.projectService.canWriteProject(actor, projectId)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   /** Tells whether the actor may permanently delete tickets: active administrator mode only. */
   public async canDelete(actor: User): Promise<boolean> {
     return this.projectService.canDeleteProjects(actor);
@@ -164,5 +264,10 @@ export class TaskAccessGuard {
     }
 
     return requestedIds.filter((id) => accessibleIds.has(id));
+  }
+
+  /** Tells whether the role of the actor, or the administrator mode, holds the capability "milestones". */
+  private async holdsMilestoneRight(actor: User): Promise<boolean> {
+    return this.permissions.hasCapability(actor, CAPABILITY.MILESTONES);
   }
 }

@@ -69,6 +69,8 @@ interface ProjectDetailLoaderData {
   readonly activity: readonly ProjectActivity[];
   readonly taskHistory: readonly WorkItemHistory[];
   readonly canWrite: boolean;
+  /** Whether the visitor may archive the milestones of this project. */
+  readonly canArchiveMilestones: boolean;
   readonly activeTab: DetailTab;
 }
 
@@ -93,6 +95,7 @@ function getActiveTab(request: Request): DetailTab {
 type TabData = Pick<
   ProjectDetailLoaderData,
   | "activity"
+  | "canArchiveMilestones"
   | "canWrite"
   | "events"
   | "goals"
@@ -104,6 +107,25 @@ type TabData = Pick<
   | "taskHistory"
   | "workItems"
 >;
+
+/**
+ * Tells whether the visitor may archive the milestones of the project.
+ *
+ * @param services - Application services of the request.
+ * @param actor - The signed-in user.
+ * @param projectId - Project being viewed.
+ * @param isNeeded - Whether the selected tab shows the control; it is the
+ * planning tab only, so no other tab asks.
+ * @returns A hint for the control; archiving checks the right again.
+ */
+async function findArchiveHint(
+  services: ApplicationServices,
+  actor: User,
+  projectId: string,
+  isNeeded: boolean,
+): Promise<boolean> {
+  return isNeeded ? services.taskService.canArchive(actor, projectId) : false;
+}
 
 /**
  * Loads only the data the selected tab shows, so switching tabs stays cheap.
@@ -138,6 +160,7 @@ async function loadTabData(
     workItems,
     taskHistory,
     canWrite,
+    canArchiveMilestones,
   ] = await Promise.all([
     needsGeneral || needsTeam
       ? services.projectService.findMembers(actor, projectId)
@@ -170,10 +193,12 @@ async function loadTabData(
       ? services.taskService.findHistoryByProject(actor, projectId)
       : Promise.resolve([]),
     services.projectService.canWriteProject(actor, projectId),
+    findArchiveHint(services, actor, projectId, needsPlanning),
   ]);
 
   return {
     activity,
+    canArchiveMilestones,
     canWrite,
     events,
     goals,
@@ -366,6 +391,7 @@ export default function ProjectDetailRoute(): React.ReactElement {
             <ProjectPlanningTab
               milestones={loaderData.milestones}
               milestoneLinks={loaderData.milestoneLinks}
+              canArchive={loaderData.canArchiveMilestones}
               canWrite={loaderData.canWrite}
             />
           ) : null}

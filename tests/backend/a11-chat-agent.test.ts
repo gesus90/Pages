@@ -249,7 +249,7 @@ describe("A11.4 AK-03/AK-08: actions with the rights of the person", () => {
     }
   });
 
-  it("deletes only after the person typed the confirmation word, once per message", async () => {
+  it("archives only after the person with the milestone right typed the confirmation word, once per message", async () => {
     const run = await setup();
     run.execution.run
       .mockResolvedValueOnce(chatAction("ticket.create", ticket()))
@@ -257,7 +257,7 @@ describe("A11.4 AK-03/AK-08: actions with the rights of the person", () => {
         chatAction("ticket.create", ticket({ title: "Zweites" })),
       )
       .mockResolvedValueOnce("Angelegt.");
-    await run.ask("writer", "Leg zwei Tickets an.");
+    await run.ask("admin", "Leg zwei Tickets an.");
     expect(await ticketCount(run)).toBe(2);
 
     run.execution.run
@@ -268,7 +268,7 @@ describe("A11.4 AK-03/AK-08: actions with the rights of the person", () => {
         }),
       )
       .mockResolvedValueOnce("Bitte tippe LÖSCHEN.");
-    await run.ask("writer", "Lösch PAGE-1.");
+    await run.ask("admin", "Lösch PAGE-1.");
     expect(calls(run).at(-1)?.prompt).toContain(
       '"error":"CONFIRMATION_REQUIRED"',
     );
@@ -282,7 +282,7 @@ describe("A11.4 AK-03/AK-08: actions with the rights of the person", () => {
         chatAction("ticket.delete", { ticketId: "PAGE-2" }),
       )
       .mockResolvedValueOnce("PAGE-1 ist gelöscht.");
-    await run.ask("writer", "LÖSCHEN");
+    await run.ask("admin", "LÖSCHEN");
     const prompt = calls(run).at(-1)?.prompt ?? "";
     expect(prompt).toMatch(/Aktion 1: [^\n]*\nErgebnis: \{"ok":true/u);
     expect(prompt).toMatch(
@@ -292,6 +292,28 @@ describe("A11.4 AK-03/AK-08: actions with the rights of the person", () => {
       "SELECT title FROM work_items WHERE archived_at IS NULL;",
     );
     expect(remaining).toEqual([["Zweites"]]);
+  });
+
+  it("refuses to archive a ticket to a person without the milestone right, even with the confirmation word", async () => {
+    const run = await setup();
+    run.execution.run
+      .mockResolvedValueOnce(chatAction("ticket.create", ticket()))
+      .mockResolvedValueOnce("Angelegt.");
+    await run.ask("writer", "Leg ein Ticket an.");
+    expect(await ticketCount(run)).toBe(1);
+
+    run.execution.run
+      .mockResolvedValueOnce(
+        chatAction("ticket.delete", { ticketId: "PAGE-1" }),
+      )
+      .mockResolvedValueOnce("Das darf ich nicht.");
+    await run.ask("writer", "LÖSCHEN");
+
+    expect(calls(run).at(-1)?.prompt).toContain('"error":"FORBIDDEN"');
+    const remaining = await run.database.query(
+      "SELECT COUNT(*) FROM work_items WHERE archived_at IS NULL;",
+    );
+    expect(Number(remaining[0][0])).toBe(1);
   });
 
   it("acts for an administrator only in the role mode chosen in the interface", async () => {

@@ -33,7 +33,7 @@ export async function applyAgentPlanningExtension(
       )
     )
       throw new AgentOperationError("NOT_FOUND");
-    await context.tasks.deleteMilestone(context.actor, id);
+    await context.tasks.archiveMilestone(context.actor, id);
     return {
       id,
       projectId,

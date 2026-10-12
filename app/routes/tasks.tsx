@@ -82,6 +82,11 @@ interface TasksLoaderData {
   readonly labels: readonly Label[];
   readonly labelUsage: Readonly<Record<string, number>>;
   readonly archivedFilter: ArchivedFilter;
+  /**
+   * Whether the visitor may archive in a project they can open and so may
+   * filter for archived tickets. Without it the filter stays at `active`.
+   */
+  readonly canFilterArchived: boolean;
   /** The board view after the address and the saved preferences are merged. */
   readonly board: BoardPreferences;
   readonly selectedItem: WorkItemDetail | null;
@@ -303,9 +308,17 @@ export async function loader({
 
   const services = await getApplicationServices();
   const url = new URL(request.url);
-  const archivedFilter = parseArchivedFilter(url.searchParams.get("archived"));
   const projects = await services.projectService.findAll(actor);
   const projectIds = projects.map((project) => project.id);
+  // Archived tickets are for those who may archive; the service limits them
+  // to the projects of that right again, so the address cannot widen it.
+  const canFilterArchived = await services.taskService.canArchiveAny(
+    actor,
+    projectIds,
+  );
+  const archivedFilter = canFilterArchived
+    ? parseArchivedFilter(url.searchParams.get("archived"))
+    : "active";
   const workItems = await services.taskService.findAll(actor, {
     archived: archivedFilter,
   });
@@ -348,6 +361,7 @@ export async function loader({
     actor,
     archivedFilter,
     board,
+    canFilterArchived,
     ...references,
     githubStates:
       board.view === "github"
@@ -494,6 +508,7 @@ export default function TasksRoute(): React.ReactElement {
               archivedFilter={loaderData.archivedFilter}
               assignees={loaderData.assignees}
               board={board}
+              canFilterArchived={loaderData.canFilterArchived}
               labels={loaderData.labels}
               milestones={milestones}
               onArchivedChange={page.changeArchived}

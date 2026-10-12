@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -34,6 +35,8 @@ import type {
   WorkflowStatus,
 } from "@/definition/Task";
 import type { User } from "@/definition/User";
+
+const NO_DESCENDANTS = { epic: 0, initiative: 0, subtask: 0, task: 0 };
 
 function createStatuses(): WorkflowStatus[] {
   return [
@@ -624,9 +627,61 @@ describe("TaskDetailPanel", () => {
   });
 
   it("shows archiving progress", () => {
-    renderPanel({ isArchiving: true });
+    renderPanel({
+      descendants: {
+        active: NO_DESCENDANTS,
+        all: NO_DESCENDANTS,
+        canArchive: true,
+      },
+      isArchiving: true,
+    });
 
     expect(screen.getByText("Wird archiviert …")).toBeInTheDocument();
+  });
+
+  it("offers the archive action next to the status with the archive right", async () => {
+    renderPanel({
+      descendants: {
+        active: { ...NO_DESCENDANTS, subtask: 2 },
+        all: { ...NO_DESCENDANTS, subtask: 2 },
+        canArchive: true,
+      },
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "Archivieren" }));
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "PAGE-12 archivieren?",
+    });
+
+    expect(dialog).toHaveTextContent("2 aktive untergeordnete Einträge");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Abbrechen" }),
+    );
+    expect(screen.queryByRole("dialog", { name: /archivieren\?/ })).toBeNull();
+  });
+
+  it("hides the archive action without the archive right", () => {
+    renderPanel({
+      descendants: {
+        active: NO_DESCENDANTS,
+        all: NO_DESCENDANTS,
+        canArchive: false,
+      },
+    });
+
+    expect(
+      screen.queryByRole("button", { name: "Archivieren" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Status")).toBeEnabled();
+  });
+
+  it("shows no archive action for a ticket without any information about the right", () => {
+    renderPanel({ descendants: null });
+
+    expect(
+      screen.queryByRole("button", { name: "Archivieren" }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows archived tickets with a restore action", () => {

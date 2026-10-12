@@ -172,6 +172,7 @@ function createServices(
       addLink: vi.fn(),
       archive: vi.fn(),
       assignLabel: vi.fn(),
+      canArchiveAny: vi.fn().mockResolvedValue(true),
       countLabelUsage: vi.fn().mockResolvedValue(new Map()),
       countLabelUsageByProjects: vi
         .fn()
@@ -186,6 +187,7 @@ function createServices(
       describeDescendants: vi.fn().mockResolvedValue({
         active: { epic: 0, initiative: 0, subtask: 1, task: 0 },
         all: { epic: 0, initiative: 0, subtask: 2, task: 0 },
+        canArchive: true,
       }),
       departmentChoices: vi
         .fn()
@@ -495,6 +497,41 @@ describe("tasks route action", () => {
     );
   });
 
+  it("keeps archived tickets out for people who may not archive anywhere", async () => {
+    const context = new Map([[authenticatedUserContext, createUser()]]);
+    const services = createServices();
+    vi.mocked(services.taskService.canArchiveAny).mockResolvedValue(false);
+    mockedServices.mockResolvedValue(services);
+
+    const result = await loader({
+      context,
+      request: new Request("http://pages.invalid/aufgaben?archived=archived"),
+    } as unknown as LoaderFunctionArgs);
+
+    expect(result.canFilterArchived).toBe(false);
+    expect(result.archivedFilter).toBe("active");
+    expect(services.taskService.canArchiveAny).toHaveBeenCalledWith(
+      expect.anything(),
+      ["project-1"],
+    );
+    expect(services.taskService.findAll).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ archived: "active" }),
+    );
+  });
+
+  it("offers the archive filter to people who may archive in a visible project", async () => {
+    const context = new Map([[authenticatedUserContext, createUser()]]);
+
+    const result = await loader({
+      context,
+      request: new Request("http://pages.invalid/aufgaben?archived=all"),
+    } as unknown as LoaderFunctionArgs);
+
+    expect(result.canFilterArchived).toBe(true);
+    expect(result.archivedFilter).toBe("all");
+  });
+
   it("loads empty boards without label lookups", async () => {
     const context = new Map([[authenticatedUserContext, createUser()]]);
     const services = createServices();
@@ -612,6 +649,39 @@ describe("tasks route action", () => {
     );
 
     expect(response.data).toMatchObject({ intent: "archive-task", ok: true });
+  });
+
+  it("answers a direct archive request without the right with forbidden and changes nothing", async () => {
+    const context = new Map([[authenticatedUserContext, createUser()]]);
+    const services = createServices();
+    vi.mocked(services.taskService.archive).mockRejectedValueOnce(
+      new WorkItemAccessDeniedError(),
+    );
+    mockedServices.mockResolvedValueOnce(services);
+
+    const response = getActionData(
+      await action({
+        context,
+        request: createPostRequest({
+          children: "include",
+          id: "item-1",
+          intent: "archive-task",
+        }),
+      } as unknown as LoaderFunctionArgs),
+    );
+
+    // The control never offered it; the service is asked all the same.
+    expect(services.taskService.archive).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "user-1" }),
+      "item-1",
+      "include",
+    );
+    expect(response.init?.status).toBe(403);
+    expect(response.data).toEqual({
+      error: "forbidden",
+      intent: "archive-task",
+      ok: false,
+    });
   });
 
   it("returns 400 on missing id for archive-task", async () => {

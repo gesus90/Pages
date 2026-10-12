@@ -186,7 +186,7 @@ describe("live capabilities during department enforcement", () => {
     ]);
   });
 
-  it("planning continues to use the existing project role until A3 defines milestone actions", async () => {
+  it("keeps planning with the project role while archiving needs the milestone right", async () => {
     const { tasks, administration } = await setup([CAPABILITY.MILESTONES]);
     const first = await tasks.createMilestone(actor, {
       projectId: "project",
@@ -210,17 +210,26 @@ describe("live capabilities during department enforcement", () => {
       startAt: null,
       dueAt: null,
     });
+    await tasks.archiveMilestone(actor, first.id);
     await administration.saveRole(
       "admin",
       createRole({ id: "profile", permissions: [] }),
     );
-    await tasks.deleteMilestone(actor, first.id);
+    await tasks.updateMilestone(actor, second.id, {
+      name: "Second, renamed",
+      description: "",
+      status: "open",
+      startAt: null,
+      dueAt: null,
+    });
+    await expect(tasks.archiveMilestone(actor, second.id)).rejects.toThrow(
+      "not allowed",
+    );
     await new ProjectRepository(getDatabase()).updateMemberRole(
       "project",
       "actor",
       "member",
     );
-    await expect(tasks.deleteMilestone(actor, second.id)).rejects.toThrow();
     await expect(
       tasks.addDependency(actor, {
         projectId: "project",

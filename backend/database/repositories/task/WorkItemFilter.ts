@@ -34,6 +34,12 @@ export interface FindWorkItemsOptions {
   /** Also matches the search text against the description, taking `%` and `_` of the text literally. */
   readonly searchDescription?: boolean;
   readonly archived?: ArchivedScope;
+  /**
+   * Projects whose archived work items may be returned. It narrows the
+   * `archived` and `all` scopes: archived work items of every other project
+   * are left out. Without it, archived work items of all projects count.
+   */
+  readonly archivedProjectIds?: readonly string[];
   readonly openOnly?: boolean;
   readonly hasDueDate?: boolean;
   readonly orderBy?: WorkItemsOrder;
@@ -180,6 +186,53 @@ function createEqualityFragments(
   return fragments;
 }
 
+/**
+ * Narrows archived work items to the projects the caller may see them in.
+ *
+ * @remarks
+ * The `all` scope keeps every active work item and adds the archived ones of
+ * the listed projects; the `archived` scope keeps only those. An empty list
+ * therefore leaves no archived work item at all.
+ */
+function createArchivedProjectFragments(
+  options: FindWorkItemsOptions,
+): FilterFragment[] {
+  const { archived, archivedProjectIds } = options;
+
+  if (
+    archivedProjectIds === undefined ||
+    (archived !== "archived" && archived !== "all")
+  ) {
+    return [];
+  }
+
+  const isAll = archived === "all";
+
+  if (archivedProjectIds.length === 0) {
+    return [
+      {
+        condition: isAll ? "work_items.archived_at IS NULL" : "1 = 0",
+        parameters: {},
+      },
+    ];
+  }
+
+  const { parameters, placeholders } = createInClause(
+    "archived_project_id",
+    archivedProjectIds,
+  );
+  const isInProjects = `work_items.project_id IN (${placeholders})`;
+
+  return [
+    {
+      condition: isAll
+        ? `(work_items.archived_at IS NULL OR ${isInProjects})`
+        : isInProjects,
+      parameters,
+    },
+  ];
+}
+
 function createLabelFragments(
   labelIds: readonly string[] | undefined,
 ): FilterFragment[] {
@@ -306,6 +359,7 @@ export function buildWorkItemFilter(
       ? [createWorkItemVisibility(options.visibility)]
       : []),
     ...createProjectFragments(options.projectIds),
+    ...createArchivedProjectFragments(options),
     ...createEqualityFragments(options),
     ...createAssignedToFragments(options.assignedToUserId),
     ...createLabelFragments(options.labelIds),

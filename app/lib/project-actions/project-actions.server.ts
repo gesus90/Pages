@@ -25,8 +25,8 @@ import {
   handleTestIntegration,
 } from "./project-integration-actions.server";
 import {
+  handleArchiveMilestone,
   handleCreateMilestone,
-  handleDeleteMilestone,
   handleSaveMilestone,
   handleUpdateMilestoneStatus,
 } from "./project-milestone-actions.server";
@@ -40,11 +40,11 @@ import type {
 const PROJECT_ACTION_HANDLERS = {
   "add-member": handleAddMember,
   "archive-event": handleArchiveEvent,
+  "archive-milestone": handleArchiveMilestone,
   "create-event": handleCreateEvent,
   "create-goal": handleCreateGoal,
   "create-milestone": handleCreateMilestone,
   "delete-goal": handleDeleteGoal,
-  "delete-milestone": handleDeleteMilestone,
   "disconnect-integration": handleDisconnectIntegration,
   "remove-member": handleRemoveMember,
   "save-integration": handleSaveIntegration,

@@ -312,9 +312,6 @@ describe("ticket hierarchy (A8.2)", () => {
         description: "Neu",
       }),
     ).rejects.toBeInstanceOf(WorkItemAccessDeniedError);
-    await expect(
-      context.readOnly.archive(context.admin, levels.task.id),
-    ).rejects.toBeInstanceOf(WorkItemAccessDeniedError);
   });
 
   it("saves descriptions only from the current text and keeps other fields from overwriting them", async () => {
@@ -550,6 +547,7 @@ describe("ticket hierarchy (A8.2)", () => {
     ).resolves.toEqual({
       active: { epic: 1, initiative: 0, subtask: 1, task: 1 },
       all: { epic: 1, initiative: 0, subtask: 1, task: 2 },
+      canArchive: true,
     });
   });
 

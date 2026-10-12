@@ -2,7 +2,6 @@ import { RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Form } from "react-router";
 
-import { TicketArchiveDialog } from "@/app/components/tasks/lifecycle/ticket-archive-dialog";
 import { useTicketAccess } from "@/app/components/tasks/ticket-access";
 import { TicketTemplateSaveDialog } from "@/app/components/tasks/templates/ticket-template-save-dialog";
 import { TicketDeleteDialog } from "@/app/components/tasks/ticket-delete-dialog";
@@ -18,7 +17,10 @@ interface TicketLifecycleControlsProps {
   readonly descendants: WorkItemDescendants | null;
 }
 
-/** Offers archive, restore and permanent deletion, or a notice when the visitor may do none of them. */
+/**
+ * Offers restore, template and permanent deletion, or a notice when the
+ * visitor may do none of them. Archiving sits with the actions of the ticket.
+ */
 export function TicketLifecycleControls({
   ticket,
   isArchiving,
@@ -30,7 +32,10 @@ export function TicketLifecycleControls({
   const isArchived = ticket.archivedAt !== null;
 
   if (!canWrite && !canDelete) {
-    return (
+    // Whoever is offered the archive control is no mere reader.
+    const isOfferedArchive = descendants?.canArchive === true && !isArchived;
+
+    return isOfferedArchive ? null : (
       <p className="text-xs text-muted-foreground">
         {t("tasks.permissions.readOnly")}
       </p>
@@ -39,13 +44,6 @@ export function TicketLifecycleControls({
 
   return (
     <div className="flex flex-col gap-1">
-      {canWrite && !isArchived ? (
-        <TicketArchiveDialog
-          counts={descendants?.active ?? null}
-          isArchiving={isArchiving}
-          ticket={ticket}
-        />
-      ) : null}
       {canWrite && isArchived ? (
         <Form method="post">
           <input name="intent" type="hidden" value="restore-task" />

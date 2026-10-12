@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PermissionService } from "@/backend/auth/PermissionService";
 import { TaskService } from "@/backend/service/TaskService";
+import { ROLE } from "@/definition/Role";
 import { MILESTONE_LINK_TYPE } from "@/definition/Task";
 
 import { createUser } from "../helpers/factories";
@@ -286,8 +287,8 @@ describe("TaskService milestone lifecycle", () => {
     ).rejects.toThrow("Updated milestone could not be retrieved.");
   });
 
-  it("deletes a milestone together with its dependencies", async () => {
-    await doubles.service.deleteMilestone(ACTOR, "milestone-1");
+  it("archives a milestone together with its dependencies and keeps its row", async () => {
+    await doubles.service.archiveMilestone(ACTOR, "milestone-1");
 
     expect(
       doubles.repository.deleteDependenciesByMilestone,
@@ -295,23 +296,40 @@ describe("TaskService milestone lifecycle", () => {
     expect(doubles.repository.archiveMilestone).toHaveBeenCalledWith(
       "milestone-1",
     );
+    expect(doubles.repository.updateMilestone).not.toHaveBeenCalled();
   });
 
-  it("reports an unknown milestone when deleting", async () => {
+  it("reports an unknown milestone when archiving", async () => {
     doubles.repository.findMilestoneById.mockResolvedValue(null);
 
     await expect(
-      doubles.service.deleteMilestone(ACTOR, "missing"),
+      doubles.service.archiveMilestone(ACTOR, "missing"),
     ).rejects.toBeInstanceOf(WorkItemValidationError);
     expect(doubles.repository.archiveMilestone).not.toHaveBeenCalled();
   });
 
-  it("denies deleting milestones without write access", async () => {
+  it("denies archiving milestones without planning responsibility", async () => {
     doubles.projects.canWriteProject.mockResolvedValue(false);
 
     await expect(
-      doubles.service.deleteMilestone(ACTOR, "milestone-1"),
+      doubles.service.archiveMilestone(ACTOR, "milestone-1"),
     ).rejects.toBeInstanceOf(WorkItemAccessDeniedError);
+    expect(
+      doubles.repository.deleteDependenciesByMilestone,
+    ).not.toHaveBeenCalled();
+    expect(doubles.repository.archiveMilestone).not.toHaveBeenCalled();
+  });
+
+  it("denies archiving milestones without the milestone right", async () => {
+    const employee = createUser({ id: "employee", role: ROLE.EMPLOYEE });
+
+    await expect(
+      doubles.service.archiveMilestone(employee, "milestone-1"),
+    ).rejects.toBeInstanceOf(WorkItemAccessDeniedError);
+    expect(doubles.projects.canWriteProject).not.toHaveBeenCalled();
+    expect(
+      doubles.repository.deleteDependenciesByMilestone,
+    ).not.toHaveBeenCalled();
     expect(doubles.repository.archiveMilestone).not.toHaveBeenCalled();
   });
 });

@@ -1,7 +1,14 @@
 import type { UserListItem } from "@/definition/User";
 import type { GroupPageData } from "@/definition/UserGroup";
 
-/** Configurable capabilities; reading is always enabled within the permitted scope. */
+/**
+ * Configurable capabilities; reading is always enabled within the permitted scope.
+ *
+ * @remarks
+ * `MILESTONES` is the milestone right: together with the responsibility for
+ * the project it allows archiving its tickets and milestones. Milestone
+ * planning itself keeps following the project responsibility.
+ */
 export const CAPABILITY = {
   WRITE: "write",
   MANAGE_PROJECTS: "manage_projects",

@@ -265,8 +265,14 @@ export const handleSaveMilestone: ProjectActionHandler = async (context) => {
   return succeeded();
 };
 
-/** Deletes a milestone. */
-export const handleDeleteMilestone: ProjectActionHandler = async ({
+/**
+ * Archives a milestone; its tickets stay as they are.
+ *
+ * @remarks
+ * The service decides who may, again for every request, so a hidden or
+ * disabled control grants nothing.
+ */
+export const handleArchiveMilestone: ProjectActionHandler = async ({
   actor,
   formData,
   services,
@@ -277,7 +283,7 @@ export const handleDeleteMilestone: ProjectActionHandler = async ({
     return invalidInput();
   }
 
-  await services.taskService.deleteMilestone(actor, milestoneId);
+  await services.taskService.archiveMilestone(actor, milestoneId);
 
   return succeeded();
 };

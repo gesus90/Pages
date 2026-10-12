@@ -253,7 +253,28 @@ it("archives tickets and milestones only with confirmation and the UI rights", a
       confirmation: "LÖSCHEN",
     }),
   ).toMatchObject({ code: "FORBIDDEN" });
+  // Writing and managing projects are not the milestone right the archive needs.
+  for (const person of ["writer", "manager"]) {
+    harness.configuration.token = harness.tokens.get(person) ?? "";
+    expect(
+      await callA11Tool(harness.connection, "delete_ticket", {
+        ...ticketInput,
+        confirmation: "LÖSCHEN",
+      }),
+    ).toMatchObject({ code: "FORBIDDEN" });
+    expect(
+      await callA11Tool(harness.connection, "delete_milestone", {
+        ...milestoneInput,
+        confirmation: "LÖSCHEN",
+      }),
+    ).toMatchObject({ code: "FORBIDDEN" });
+  }
   harness.configuration.token = harness.tokens.get("owner") ?? "";
+  expect(
+    await callA11Tool(harness.connection, "read_ticket", {
+      ticketId: ticket.ticketId,
+    }),
+  ).toMatchObject({ isArchived: false });
   expect(
     await callA11Tool(harness.connection, "delete_ticket", {
       ...ticketInput,
