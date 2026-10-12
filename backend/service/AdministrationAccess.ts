@@ -61,15 +61,15 @@ export function requireUniqueAdministrationName(
 }
 
 /**
- * Keeps a group or department while agents use it, instead of silently withdrawing their scope or usage share.
+ * Keeps a group or department while agents or connections use it, instead of silently withdrawing their scope or usage share.
  *
  * @remarks
- * Only administrators in the active admin mode manage agents, so only they receive the agent names.
+ * Only administrators in the active admin mode manage agents and connections, so only they receive the names.
  *
  * @param repository - Authorization repository inside the deleting transaction.
  * @param actor - Current account that requested the deletion.
  * @param target - Group or department about to be deleted.
- * @throws {AgentScopeInUseError} When agents still reference the target.
+ * @throws {AgentScopeInUseError} When agents or connection scopes still reference the target.
  */
 export async function requireNoAgentScope(
   repository: AuthorizationRepository,
@@ -77,10 +77,18 @@ export async function requireNoAgentScope(
   target: AgentProfileTarget,
 ): Promise<void> {
   const agents = await repository.agentProfiles().references(target);
-  if (agents.length === 0) return;
+  // Connection scopes name persons, groups and departments only.
+  const connections =
+    target.kind === "system"
+      ? []
+      : await repository
+          .agentConnectionScopes()
+          .references({ kind: target.kind, targetId: target.targetId });
+  const references = [...agents, ...connections];
+  if (references.length === 0) return;
   throw new AgentScopeInUseError(
     new UserPolicyService().isAdministrator(actor)
-      ? agents.map((agent) => agent.name)
+      ? references.map((reference) => reference.name)
       : [],
   );
 }

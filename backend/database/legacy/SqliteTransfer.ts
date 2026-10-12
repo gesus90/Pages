@@ -442,6 +442,8 @@ function verifySourceColumns(
  * MCP pairing (A11.2), the chat of A11.4 and the links between milestones and
  * initiatives (A11.5) exist only in DuckDB as well;
  * copied activity keeps the defaults of the A11.1 source and wiki page columns.
+ * The usage scopes of connections (PAGE-19) belong to native connections, which
+ * the copy never touches.
  */
 async function readTargetColumns(
   target: Database,
@@ -466,6 +468,7 @@ async function readTargetColumns(
               'wiki_favorites', 'wiki_recent_pages', 'wiki_expanded_pages',
               'wiki_user_state', 'wiki_settings',
               'agent_connections', 'agent_connection_checks', 'agent_model_catalogs',
+              'agent_connection_scopes', 'agent_connection_scope_targets',
               'agent_execution_profiles', 'agent_profile_purposes', 'agent_profile_targets',
               'agent_legacy_function_assignments',
               'agent_workspaces', 'agent_workspace_targets',

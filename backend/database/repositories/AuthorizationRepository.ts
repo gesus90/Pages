@@ -5,6 +5,7 @@ import {
   readTextColumn,
 } from "@/backend/database/RowValue";
 import { isCapability } from "@/definition/Authorization";
+import { AgentConnectionScopeRepository } from "./agent/AgentConnectionScopeRepository";
 import { AgentProfileStore } from "./agent/AgentProfileStore";
 import { UserGroupRepository } from "./UserGroupRepository";
 import { UserRepository } from "./UserRepository";
@@ -71,6 +72,11 @@ export class AuthorizationRepository {
   /** Reads agent scopes inside the current aggregate transaction, so deletion locks cannot race. */
   public agentProfiles(): AgentProfileStore {
     return new AgentProfileStore(this.database);
+  }
+
+  /** Reads connection scopes inside the current aggregate transaction, so deletion locks cannot race. */
+  public agentConnectionScopes(): AgentConnectionScopeRepository {
+    return new AgentConnectionScopeRepository(this.database);
   }
 
   /** Restores admin mode for a personally authorized setup account without altering its role. */

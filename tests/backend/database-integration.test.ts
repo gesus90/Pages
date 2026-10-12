@@ -33,6 +33,8 @@ describe("DuckDB persistence", () => {
       "administration_activity",
       "agent_assets",
       "agent_connection_checks",
+      "agent_connection_scope_targets",
+      "agent_connection_scopes",
       "agent_connections",
       "agent_execution_profiles",
       "agent_function_assignments",

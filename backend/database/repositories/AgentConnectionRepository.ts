@@ -3,10 +3,12 @@ import {
   readNullableTextColumn,
   readTextColumn,
 } from "@/backend/database/RowValue";
+import { GLOBAL_CONNECTION_SCOPE } from "@/definition/AgentConnectionScope";
 
 import { AgentProfileRepository } from "./agent/AgentProfileRepository";
 import { AgentCatalogRepository } from "./agent/AgentCatalogRepository";
 import { AgentCheckRepository } from "./agent/AgentCheckRepository";
+import { AgentConnectionScopeRepository } from "./agent/AgentConnectionScopeRepository";
 import {
   CONNECTION_COLUMNS,
   readAgentConnection,
@@ -14,6 +16,7 @@ import {
 
 import type { Database } from "@/backend/database/Database";
 import type { AgentProviderId } from "@/definition/AgentConnection";
+import type { AgentConnectionScope } from "@/definition/AgentConnectionScope";
 import type { AgentUsage } from "@/definition/AgentUsage";
 import type { AgentConnectionRecord } from "./agent/AgentConnectionRows";
 
@@ -24,6 +27,8 @@ export interface AgentConnectionWrite {
   readonly secretEncrypted: string | null;
   readonly testModel: string | null;
   readonly actorId: string;
+  /** Absent keeps the system-wide behaviour every connection had before scopes. */
+  readonly scope?: AgentConnectionScope;
 }
 
 export interface AgentConnectionChange {
@@ -34,6 +39,8 @@ export interface AgentConnectionChange {
   readonly reasoningEffort: string | null;
   readonly clearModel: boolean;
   readonly actorId: string;
+  /** Absent keeps the stored scope. */
+  readonly scope?: AgentConnectionScope;
 }
 
 /** Facade for connection persistence and atomic credential/check changes. */
@@ -59,6 +66,11 @@ export class AgentConnectionRepository {
   /** Check persistence shares the same database connection. */
   public checks(): AgentCheckRepository {
     return this.checkRepository;
+  }
+
+  /** Scope persistence decides who may use the models of a connection. */
+  public scopes(): AgentConnectionScopeRepository {
+    return new AgentConnectionScopeRepository(this.database);
   }
 
   /** Lists safe metadata without selecting secret ciphertext. */
@@ -143,37 +155,43 @@ export class AgentConnectionRepository {
       : null;
   }
 
-  /** Inserts a validated connection; the database enforces case-insensitive names. */
+  /** Inserts a validated connection and its scope; the database enforces case-insensitive names. */
   public async insert(connection: AgentConnectionWrite): Promise<void> {
-    await this.database.execute(
-      `
-      INSERT INTO agent_connections (
-          id,
-          name,
-          provider,
-          secret_encrypted,
-          test_model,
-          created_by,
-          updated_by
-      ) VALUES (
-          $id,
-          $name,
-          $provider,
-          $secret_encrypted,
-          $test_model,
-          $actor_id,
-          $actor_id
+    await this.database.transaction(async (transaction) => {
+      await transaction.execute(
+        `
+        INSERT INTO agent_connections (
+            id,
+            name,
+            provider,
+            secret_encrypted,
+            test_model,
+            created_by,
+            updated_by
+        ) VALUES (
+            $id,
+            $name,
+            $provider,
+            $secret_encrypted,
+            $test_model,
+            $actor_id,
+            $actor_id
+        );
+      `,
+        {
+          id: connection.id,
+          name: connection.name,
+          provider: connection.provider,
+          secret_encrypted: connection.secretEncrypted,
+          test_model: connection.testModel,
+          actor_id: connection.actorId,
+        },
       );
-    `,
-      {
-        id: connection.id,
-        name: connection.name,
-        provider: connection.provider,
-        secret_encrypted: connection.secretEncrypted,
-        test_model: connection.testModel,
-        actor_id: connection.actorId,
-      },
-    );
+      await new AgentConnectionScopeRepository(transaction).save(
+        connection.id,
+        connection.scope ?? GLOBAL_CONNECTION_SCOPE,
+      );
+    });
   }
 
   /** Updates metadata and invalidates affected checks within one transaction. */
@@ -203,6 +221,11 @@ export class AgentConnectionRepository {
           actor_id: change.actorId,
         },
       );
+      if (change.scope)
+        await new AgentConnectionScopeRepository(transaction).save(
+          id,
+          change.scope,
+        );
       const checks = new AgentCheckRepository(transaction);
       if (change.secretEncrypted !== null) {
         await checks.clear(id);
@@ -279,6 +302,7 @@ export class AgentConnectionRepository {
     await this.database.transaction(async (transaction) => {
       await new AgentCheckRepository(transaction).clear(id);
       await new AgentCatalogRepository(transaction).remove(id);
+      await new AgentConnectionScopeRepository(transaction).remove(id);
       await transaction.execute(
         "DELETE FROM agent_connections WHERE id = $id;",
         { id },
