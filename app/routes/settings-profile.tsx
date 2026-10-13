@@ -7,6 +7,7 @@ import { ChangePasswordDialog } from "@/app/components/settings/change-password-
 import { NotificationsCard } from "@/app/components/settings/notifications-card";
 import { ProfileCard } from "@/app/components/settings/profile-card";
 import { AccountModeCard } from "@/app/components/settings/account-mode-card";
+import { AppearanceCard } from "@/app/components/settings/appearance-card";
 import { RegionCard } from "@/app/components/settings/region-card";
 import { RevokeOtherSessionsDialog } from "@/app/components/settings/revoke-other-sessions-dialog";
 import { SecurityCard } from "@/app/components/settings/security-card";
@@ -80,7 +81,7 @@ export async function action(
   );
 }
 
-/** Renders the personal settings: profile, security, notifications, and region. */
+/** Renders the personal settings: profile, security, notifications, appearance, and region. */
 export default function SettingsProfileRoute(): React.ReactElement {
   const { t } = useTranslation();
   const {
@@ -135,6 +136,7 @@ export default function SettingsProfileRoute(): React.ReactElement {
               onRevokeSession={handleRevokeSession}
               onRevokeOtherSessions={() => setIsRevokeAllDialogOpen(true)}
             />
+            <AppearanceCard settings={settings} onChange={persistSettings} />
             <RegionCard settings={settings} onChange={persistSettings} />
           </div>
         </div>

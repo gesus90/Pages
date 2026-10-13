@@ -11,6 +11,7 @@ vi.mock("react-router", async (importOriginal) => {
     Meta: () => null,
     Scripts: () => null,
     ScrollRestoration: () => null,
+    useNavigation: vi.fn(),
     useRouteLoaderData: vi.fn(),
   };
 });
@@ -44,6 +45,7 @@ import { I18nextProvider } from "react-i18next";
 import {
   createMemoryRouter,
   RouterProvider,
+  useNavigation,
   useRouteLoaderData,
 } from "react-router";
 
@@ -73,6 +75,7 @@ import Root, {
 import type { Language } from "@/language/Language";
 
 const mockedLoaderData = vi.mocked(useRouteLoaderData);
+const mockedNavigation = vi.mocked(useNavigation);
 const mockedGetUser = vi.mocked(getAuthenticatedUser);
 const mockedServices = vi.mocked(getApplicationServices);
 const mockedAnonymousLanguage = vi.mocked(resolveAnonymousLanguage);
@@ -110,13 +113,13 @@ describe("root loader", () => {
         params: {},
         request,
       } as unknown as Parameters<typeof loader>[0]),
-    ).resolves.toEqual({ language: "en" });
+    ).resolves.toEqual({ language: "en", theme: "system" });
     expect(resolveSetupLanguage).toHaveBeenCalledWith(request);
     expect(mockedGetUser).not.toHaveBeenCalled();
     expect(mockedServices).not.toHaveBeenCalled();
   });
 
-  it("selects the stored language for authenticated visitors", async () => {
+  it("selects the stored language and theme for authenticated visitors", async () => {
     const user = {
       displayName: "Admin",
       id: "user-1",
@@ -125,7 +128,9 @@ describe("root loader", () => {
       role: ROLE.ADMIN,
       username: "admin",
     };
-    const getUserSettings = vi.fn().mockResolvedValue({ language: "de" });
+    const getUserSettings = vi
+      .fn()
+      .mockResolvedValue({ language: "de", theme: "dark" });
     mockedGetUser.mockResolvedValue(user);
     mockedServices.mockResolvedValue({
       settingsService: { getUserSettings },
@@ -138,12 +143,12 @@ describe("root loader", () => {
         params: {},
         request,
       } as unknown as Parameters<typeof loader>[0]),
-    ).resolves.toEqual({ language: "de" });
+    ).resolves.toEqual({ language: "de", theme: "dark" });
     expect(getUserSettings).toHaveBeenCalledWith("user-1");
     expect(mockedAnonymousLanguage).not.toHaveBeenCalled();
   });
 
-  it("selects the anonymous language for visitors without a session", async () => {
+  it("selects the anonymous language and the system theme without a session", async () => {
     mockedGetUser.mockResolvedValue(null);
     mockedAnonymousLanguage.mockResolvedValue(LANGUAGE.GERMAN);
 
@@ -154,7 +159,7 @@ describe("root loader", () => {
         params: {},
         request,
       } as unknown as Parameters<typeof loader>[0]),
-    ).resolves.toEqual({ language: "de" });
+    ).resolves.toEqual({ language: "de", theme: "system" });
     expect(mockedAnonymousLanguage).toHaveBeenCalledWith(request);
   });
 });
@@ -198,6 +203,13 @@ describe("Root", () => {
 });
 
 describe("Layout", () => {
+  beforeEach(() => {
+    mockedNavigation.mockReturnValue({
+      formData: undefined,
+      state: "idle",
+    } as ReturnType<typeof useNavigation>);
+  });
+
   it("renders localized children inside the document shell", () => {
     mockedLoaderData.mockReturnValue({ language: LANGUAGE.GERMAN });
     const i18n = createI18n(LANGUAGE.GERMAN);
@@ -243,6 +255,91 @@ describe("Layout", () => {
 
     expect(screen.getByText("Anwendungsinhalt")).toBeInTheDocument();
     expect(document.documentElement.lang).toBe("de");
+  });
+
+  function renderLayout(): void {
+    render(
+      <I18nextProvider i18n={createI18n(LANGUAGE.GERMAN)}>
+        <Layout>
+          <p>Anwendungsinhalt</p>
+        </Layout>
+      </I18nextProvider>,
+    );
+  }
+
+  function readThemeColors(): {
+    content: string | null;
+    media: string | null;
+  }[] {
+    return [...document.querySelectorAll('meta[name="theme-color"]')].map(
+      (tag) => ({
+        content: tag.getAttribute("content"),
+        media: tag.getAttribute("media"),
+      }),
+    );
+  }
+
+  it.each([
+    ["light", "light", "#ffffff"],
+    ["dark", "dark", "#0f1217"],
+  ] as const)(
+    "renders the %s theme on the document root with one browser color",
+    (theme, colorScheme, color) => {
+      mockedLoaderData.mockReturnValue({ language: LANGUAGE.GERMAN, theme });
+
+      renderLayout();
+
+      expect(document.documentElement).toHaveAttribute("data-theme", theme);
+      expect(
+        document.querySelector('meta[name="color-scheme"]'),
+      ).toHaveAttribute("content", colorScheme);
+      expect(readThemeColors()).toEqual([{ content: color, media: null }]);
+    },
+  );
+
+  it("lets the operating system choose in the system theme", () => {
+    mockedLoaderData.mockReturnValue({
+      language: LANGUAGE.GERMAN,
+      theme: "system",
+    });
+
+    renderLayout();
+
+    expect(document.documentElement).toHaveAttribute("data-theme", "system");
+    expect(document.querySelector('meta[name="color-scheme"]')).toHaveAttribute(
+      "content",
+      "light dark",
+    );
+    expect(readThemeColors()).toEqual([
+      { content: "#ffffff", media: "(prefers-color-scheme: light)" },
+      { content: "#0f1217", media: "(prefers-color-scheme: dark)" },
+    ]);
+  });
+
+  it("defaults to the system theme where the router has no loader data", () => {
+    mockedLoaderData.mockReturnValue(undefined);
+
+    renderLayout();
+
+    expect(document.documentElement).toHaveAttribute("data-theme", "system");
+  });
+
+  it("applies a theme at once while its settings submission is pending", () => {
+    const formData = new FormData();
+    formData.set("intent", "update-settings");
+    formData.set("theme", "dark");
+    mockedLoaderData.mockReturnValue({
+      language: LANGUAGE.GERMAN,
+      theme: "light",
+    });
+    mockedNavigation.mockReturnValue({
+      formData,
+      state: "submitting",
+    } as unknown as ReturnType<typeof useNavigation>);
+
+    renderLayout();
+
+    expect(document.documentElement).toHaveAttribute("data-theme", "dark");
   });
 });
 

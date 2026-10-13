@@ -432,6 +432,15 @@
         }
       }
     },
+    "appearance": {
+      "title": "Appearance",
+      "description": "Choose whether Pages is shown light or dark.",
+      "theme": "Color scheme",
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System",
+      "systemHint": "System uses the setting of your device and follows it when it changes."
+    },
     "region": {
       "title": "Language & region",
       "description": "Adjust language and regional display options.",

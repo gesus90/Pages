@@ -12,10 +12,15 @@ import {
   useRouteLoaderData,
 } from "react-router";
 
+import { useDocumentTheme } from "@/app/components/common/use-document-theme";
 import { buttonVariants } from "@/app/components/ui/button";
 import { Toaster } from "@/app/components/ui/toast";
 import { getAuthenticatedUser } from "@/app/lib/auth.server";
 import { cn } from "@/app/lib/cn";
+import {
+  getColorSchemeMeta,
+  getThemeColorMetas,
+} from "@/app/lib/document-theme";
 import { createI18n } from "@/app/lib/i18n";
 import { createSecurityHeaders } from "@/app/lib/security-headers";
 import {
@@ -28,6 +33,7 @@ import {
   requireFinishedSetup,
 } from "@/app/lib/setup-gate.server";
 import stylesheet from "@/app/styles/tailwind.css?url";
+import { DEFAULT_USER_SETTINGS } from "@/definition/Settings";
 import { LANGUAGE } from "@/language/Language";
 
 import type { ReactNode } from "react";
@@ -37,6 +43,7 @@ import type {
   MetaFunction,
   MiddlewareFunction,
 } from "react-router";
+import type { UserTheme } from "@/definition/Settings";
 import type { Language } from "@/language/Language";
 import type { Route } from "./+types/root";
 
@@ -60,19 +67,26 @@ function resolveErrorKind(error: unknown): ErrorKind {
 export const middleware: MiddlewareFunction[] = [requireFinishedSetup];
 
 /**
- * Selects the document language.
+ * Selects the document language and color theme.
  *
  * @remarks
- * Signed-in visitors use their persisted personal language setting.
- * Everyone else falls back to their browser's `Accept-Language` preference.
+ * Signed-in visitors use their persisted personal language and theme.
+ * Everyone else falls back to their browser's `Accept-Language` preference
+ * and to the default theme `system`, which follows the operating system.
  * The setup wizard starts in German unless the visitor chose a language;
  * it never touches the services, because no database exists yet.
  */
 export async function loader({ request }: Route.LoaderArgs): Promise<{
   language: Language;
+  theme: UserTheme;
 }> {
+  const { theme: defaultTheme } = DEFAULT_USER_SETTINGS;
+
   if (await isSetupPending()) {
-    return { language: await resolveSetupLanguage(request) };
+    return {
+      language: await resolveSetupLanguage(request),
+      theme: defaultTheme,
+    };
   }
 
   const user = await getAuthenticatedUser(request);
@@ -81,10 +95,13 @@ export async function loader({ request }: Route.LoaderArgs): Promise<{
     const services = await getApplicationServices();
     const settings = await services.settingsService.getUserSettings(user.id);
 
-    return { language: settings.language };
+    return { language: settings.language, theme: settings.theme };
   }
 
-  return { language: await resolveAnonymousLanguage(request) };
+  return {
+    language: await resolveAnonymousLanguage(request),
+    theme: defaultTheme,
+  };
 }
 
 /** Registers the global Tailwind stylesheet. */
@@ -102,9 +119,11 @@ export const headers: HeadersFunction = () => createSecurityHeaders();
  * Provides the HTML document and request-scoped localization provider.
  *
  * @remarks
- * Also renders around thrown-response error pages (for example a 403 from
- * a permission check), where the router does not provide this route's own
- * loader data, so a default language is used instead.
+ * The theme is written to the document root, so the server renders the same
+ * attribute the client hydrates and the stylesheet needs no script to choose
+ * a palette. Also renders around thrown-response error pages (for example a
+ * 403 from a permission check), where the router does not provide this
+ * route's own loader data, so a default language and theme are used instead.
  */
 export function Layout({
   children,
@@ -113,14 +132,23 @@ export function Layout({
 }): React.ReactElement {
   const loaderData = useRouteLoaderData<typeof loader>("root");
   const language = loaderData?.language ?? LANGUAGE.GERMAN;
+  const theme = useDocumentTheme(loaderData?.theme);
   const i18n = createI18n(language);
 
   return (
-    <html lang={language}>
+    <html lang={language} data-theme={theme}>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="theme-color" content="#ffffff" />
+        <meta name="color-scheme" content={getColorSchemeMeta(theme)} />
+        {getThemeColorMetas(theme).map((color) => (
+          <meta
+            content={color.content}
+            key={color.media ?? "always"}
+            media={color.media}
+            name="theme-color"
+          />
+        ))}
         <link rel="icon" type="image/png" href="/assets/icon.png" />
         <Meta />
         <Links />

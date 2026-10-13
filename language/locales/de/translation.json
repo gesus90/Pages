@@ -432,6 +432,15 @@
         }
       }
     },
+    "appearance": {
+      "title": "Darstellung",
+      "description": "Wählen Sie, ob Pages hell oder dunkel dargestellt wird.",
+      "theme": "Farbschema",
+      "light": "Hell",
+      "dark": "Dunkel",
+      "system": "System",
+      "systemHint": "System übernimmt die Einstellung Ihres Geräts und folgt ihr, sobald sie sich ändert."
+    },
     "region": {
       "title": "Sprache & Region",
       "description": "Passen Sie Sprache und regionale Darstellung an.",
