@@ -161,12 +161,34 @@ it. The maintenance commands are `pnpm run check`, `pnpm run lint`
 (which allows no warnings), `pnpm run format`, and `pnpm run clean`.
 
 The repository is in an intentional intermediate state: PAGE-37 removed the
-previous MCP suite; PAGE-34 removed the remaining Pages tests, helpers, fixtures,
-setup, Vitest/coverage configuration and test-only dependencies. There is no test
-structure or test command. `pnpm run test` fails with a missing-script error;
-frontend and backend test scripts are also absent. PAGE-35 already removed the
-CI test step. Check and lint remain available and do not establish test coverage.
-PAGE-32/PAGE-33 will rebuild Pages unit tests; no replacement is included here.
+previous MCP suite; PAGE-34 removed the remaining Pages suite. PAGE-38 configures
+only a new Vitest unit-test foundation with separate Node Backend and jsdom
+Frontend scopes. There are no test cases, fixtures or dummy suites. No test or
+coverage execution has taken place. PAGE-35 removed the CI test step, which
+remains absent. Check and lint remain available and do not establish test coverage.
+
+The only future Pages test commands are `pnpm run test:backend` and
+`pnpm run test:frontend`. The scripts are configured, but usable, validated suites
+are not available yet; adding and running unit tests belongs to PAGE-32/PAGE-33.
+There is no `test` script, aggregate or alias. Both future commands include
+coverage by default: statements, branches, functions and lines per source module,
+including untested files. Reports are diagnostic, with no mandatory percentage,
+per-file quota or replacement threshold. Do not hide gaps with ignore comments
+or blanket exclusions.
+
+Choose the test scope by behavior: loaders/actions under `app/` belong to Backend,
+while isolated React rendering and hooks belong to Frontend. Discovery is disjoint
+under `tests/backend/` and `tests/frontend/`; use `*.unit.test.{ts,tsx}` only.
+Mock external boundaries; real databases, services, network/subprocess chains,
+smoke, E2E, browser, integration and live-provider tests are outside these scopes.
+Mixed route modules and shared code appear in both diagnostic reports to keep
+all branch gaps visible; the reports are independent, without aggregation.
+
+Intended outputs are `coverage/backend/` and `coverage/frontend/`, each with a
+terminal table, `coverage.txt`, HTML (`index.html`), JSON counters
+(`coverage-final.json`) and metric summaries (`coverage-summary.json`). No reports
+were generated or validated in PAGE-38. See [tests/README.md](./tests/README.md)
+for selection rules, complete source includes, setup and aliases.
 
 Future Pages tests may verify Pages-owned Agent API, OAuth, pairing and wiki
 behavior, but must not import executable modules from the independent `mcp/`
@@ -503,9 +525,10 @@ After an interrupted server process, unfinished runs are marked failed and unkno
 writing reservations remain held for operator review; there is no automatic resume
 or automatic release of potentially active processes.
 
-Final build and overall acceptance remain deferred to A10.5. The previous tests
-and coverage infrastructure have been removed; Pages unit tests will be rebuilt
-in PAGE-32/PAGE-33.
+Final build and overall acceptance remain deferred to A10.5. The previous suite
+was removed; PAGE-38 configures a new unit-test foundation without test execution,
+before PAGE-32/PAGE-33 add and run pure Pages unit tests. Coverage is diagnostic,
+without a mandatory percentage threshold for now.
 
 ### Agents of users (PAGE-20)
 

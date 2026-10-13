@@ -166,18 +166,23 @@ For database work:
 
 ## 9. Tests
 
-### Current state after PAGE-34
+### Current intermediate state after PAGE-38
 
-The previous MCP suite and its exclusive infrastructure were removed in PAGE-37.
-PAGE-34 removed the remaining Pages tests, helpers, fixtures, setup and runner
-configuration. No test structure or test scripts currently exist. PAGE-35 removed
-the CI test step. Run `pnpm check` and `pnpm lint` for the available quality gates;
-the cleanup does not demonstrate functional test coverage.
+PAGE-37 removed the previous MCP suite; PAGE-34 removed the remaining Pages
+suite. PAGE-38 adds only unit-test structure, standalone Backend/Frontend
+Vitest configs and diagnostic coverage configuration. There are no test cases,
+fixtures or dummy suites, and no test or coverage execution has taken place.
+PAGE-35 removed the CI test step; it remains absent. Run `pnpm run check` and
+`pnpm run lint` as non-test gates; neither demonstrates functional coverage.
 
-Pages unit tests will be rebuilt in PAGE-32/PAGE-33. Do not introduce replacement
-tests or infrastructure as part of cleanup work. The independent MCP test plan
-remains open (TBD), with no suite, runner or test command. MCP check/build and
-root lint remain non-test gates. Browser E2E and live integration are a later phase.
+The only future Pages commands are `pnpm run test:backend` and
+`pnpm run test:frontend`. Their scripts are configured, but usable, validated
+suites are not available yet. PAGE-32/PAGE-33 will add and execute their respective
+unit tests. PAGE-38 acceptance must not execute tests or coverage.
+See [tests/README.md](./tests/README.md) for discovery, source includes, aliases,
+setup and report paths. The independent MCP test plan remains open (TBD), with
+no suite, runner or test command. MCP check/build and root lint remain non-test
+gates. Browser E2E and live integration are a later phase.
 
 ### Rules for future test work
 
@@ -186,9 +191,22 @@ root lint remain non-test gates. Browser E2E and live integration are a later ph
 - Do not delete or weaken tests only to make a change pass.
 - Follow the test patterns established by the rebuild and avoid unnecessary
   test infrastructure.
-- Preserve the requirement for 100 % statement, branch, function and line
-  coverage per Pages source file when coverage gates are rebuilt, without
-  coverage-ignore comments or new coverage exclusions.
+- Coverage is diagnostic: report statements, branches, functions and lines per
+  relevant Pages source module, including untested files and branch gaps. No
+  mandatory percentage, per-file quota or replacement threshold applies for now.
+  Do not hide gaps with coverage-ignore comments or blanket exclusions.
+- Keep exactly two Pages test scripts: `test:backend` and `test:frontend`, both
+  with coverage. No `test` script, aggregator, alias or MCP forwarding command.
+- Choose scope by behavior: server-side loaders/actions under `app/` belong to
+  Backend in Node; isolated React components/hooks belong to Frontend in jsdom.
+  Discovery stays disjoint under `tests/backend/` and `tests/frontend/`, with
+  `*.unit.test.{ts,tsx}` only. Mixed route modules and shared source deliberately
+  appear in both diagnostic reports; do not aggregate the reports.
+- Mock external boundaries. No real databases, services, networks or subprocess
+  chains, and no smoke, E2E, browser, integration or live-provider tests.
+- Intended reports go to `coverage/backend/` and `coverage/frontend/`: terminal
+  and file text tables, HTML, JSON counters and per-module JSON metric summaries.
+  PAGE-38 configures these outputs without generating or validating reports.
 - Pages tests may verify Pages-owned Agent API, OAuth, pairing, wiki and database
   behavior. They must not import executable modules from the independent `mcp/`
   package or start an MCP server, client, transport or process, including through
@@ -236,7 +254,7 @@ Before considering a task complete:
 
 - Confirm the requested behavior is implemented.
 - Confirm changed code follows `GUIDELINES.md`.
-- Run `pnpm check` and `pnpm lint`. No test commands are currently available after PAGE-34; do not claim test or coverage validation from these gates. Once test infrastructure is rebuilt, run the tests required by the current task unless that task explicitly prohibits test execution. Keep the independent MCP package outside Pages test coverage.
+- Run `pnpm run check` and `pnpm run lint`; do not claim test or coverage validation from these gates. PAGE-38 is configuration-only and prohibits test/coverage execution, including acceptance. The two future scripts have no usable, validated suites yet. Once unit cases are added, run tests required by the current task unless that task explicitly prohibits execution. Keep the independent MCP package outside Pages test coverage.
 - Confirm no unrelated code was changed.
 - Confirm types and interfaces match the implementation.
 - Update documentation only when documented behavior changed.

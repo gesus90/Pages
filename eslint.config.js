@@ -9,6 +9,8 @@ const typedSourceFiles = [
   "backend/**/*.ts",
   "definition/**/*.ts",
   "language/**/*.ts",
+  "tests/**/*.{ts,tsx}",
+  "vitest.*.config.ts",
   "mcp/src/**/*.ts",
   "mcp/scripts/**/*.ts",
 ];
@@ -24,7 +26,7 @@ export default tseslint.config(
   },
   ...tseslint.configs.recommended,
   {
-    files: ["app/**/*.{ts,tsx}"],
+    files: ["app/**/*.{ts,tsx}", "tests/frontend/**/*.{ts,tsx}"],
     languageOptions: {
       globals: globals.browser,
     },
@@ -34,6 +36,7 @@ export default tseslint.config(
       "backend/**/*.ts",
       "definition/**/*.ts",
       "language/**/*.ts",
+      "tests/backend/**/*.{ts,tsx}",
       "mcp/**/*.ts",
       "*.config.{js,mjs,ts}",
     ],
@@ -150,7 +153,7 @@ export default tseslint.config(
   },
   {
     // Rules of hooks and effect dependencies (GUIDELINES.md chapter 12).
-    files: ["app/**/*.{ts,tsx}"],
+    files: ["app/**/*.{ts,tsx}", "tests/frontend/**/*.{ts,tsx}"],
     plugins: { "react-hooks": reactHooks },
     rules: {
       "react-hooks/exhaustive-deps": "error",
