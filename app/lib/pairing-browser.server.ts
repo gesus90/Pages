@@ -31,11 +31,14 @@ export async function pairingBrowserIdentity(
       },
     );
   if (user.mustChangePassword)
-    throw redirect("/change-password", {
-      headers: {
-        "Cache-Control": "no-store",
-        "Referrer-Policy": "no-referrer",
+    throw redirect(
+      `/change-password?returnTo=${encodeURIComponent(pairingReturnPath(request))}`,
+      {
+        headers: {
+          "Cache-Control": "no-store",
+          "Referrer-Policy": "no-referrer",
+        },
       },
-    });
+    );
   return { userId: user.id, session };
 }

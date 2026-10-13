@@ -35,6 +35,8 @@ interface LoginLoaderData {
   readonly language: Language;
   /** Company name and logo, shown to visitors without a session. */
   readonly branding: InstanceBranding;
+  /** Sign-in path retaining the validated pairing destination after language changes. */
+  readonly loginPath: string;
 }
 
 interface LoginActionData {
@@ -60,10 +62,15 @@ export async function loader({
   }
 
   const services = await getApplicationServices();
+  const destination = loginDestination(request);
 
   return {
     branding: await services.instanceSettingsService.getBranding(),
     language: await resolveAnonymousLanguage(request),
+    loginPath:
+      destination === "/dashboard"
+        ? "/login"
+        : `/login?returnTo=${encodeURIComponent(destination)}`,
   };
 }
 
@@ -130,14 +137,14 @@ export async function action({
 /** Renders the Pages sign-in form backed by the route action. */
 export default function LoginRoute(): React.ReactElement {
   const { t } = useTranslation();
-  const { branding, language } = useLoaderData<typeof loader>();
+  const { branding, language, loginPath } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
 
   return (
     <AuthLayout
-      header={<LanguageSwitcher language={language} redirectTo="/login" />}
+      header={<LanguageSwitcher language={language} redirectTo={loginPath} />}
       footer={<AuthFooter />}
     >
       <InstanceBrand branding={branding} className="mb-6" isCentered />

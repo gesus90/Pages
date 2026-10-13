@@ -5,6 +5,7 @@ import { AuthHeading } from "@/app/components/auth/auth-heading";
 import { AuthLayout } from "@/app/components/auth/auth-layout";
 import { RequiredPasswordForm } from "@/app/components/auth/required-password-form";
 import { getAuthenticatedUser } from "@/app/lib/auth.server";
+import { loginDestination } from "@/app/lib/login-destination.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { handleChangePassword } from "@/app/lib/settings-actions/settings-account-actions.server";
 
@@ -15,11 +16,13 @@ async function requirePasswordChange(request: Request): Promise<User> {
   const user = await getAuthenticatedUser(request);
 
   if (!user) {
-    throw redirect("/login");
+    throw redirect(
+      `/login?returnTo=${encodeURIComponent(loginDestination(request))}`,
+    );
   }
 
   if (!user.mustChangePassword) {
-    throw redirect("/dashboard");
+    throw redirect(loginDestination(request));
   }
 
   return user;
@@ -52,7 +55,9 @@ export async function action({
     user,
   });
 
-  return result.data.outcome === "success" ? redirect("/dashboard") : result;
+  return result.data.outcome === "success"
+    ? redirect(loginDestination(request))
+    : result;
 }
 
 /** Shows the mandatory password replacement without workspace navigation. */

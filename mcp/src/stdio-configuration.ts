@@ -16,7 +16,7 @@ export async function readStdioConfiguration(
   const credential = await store.get(instance);
   if (!credential)
     throw new CredentialStoreError(
-      "No paired credential. Run pages-mcp pair --url <Pages instance> first, or set PAGES_TOKEN.",
+      "No paired credential. Run pages-mcp pair --url <Pages instance> first.",
     );
   let token = credential.token;
   return {

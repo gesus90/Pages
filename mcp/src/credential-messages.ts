@@ -4,9 +4,9 @@ const MESSAGES = {
     link: "Link",
     code: "Code",
     instructions:
-      "Öffnen Sie den Link, melden Sie sich an und vergleichen Sie den Code.",
+      "Öffnen Sie den Link, melden Sie sich an, vergleichen Sie den Code und bestätigen Sie die Verbindung ausdrücklich.",
     fallback:
-      "Öffnen Sie den Link auf einem Gerät mit Browser oder geben Sie den Code hier ein:",
+      "Öffnen Sie den Link auf einem Gerät mit Browser oder geben Sie den Code auf dieser Pages-Seite ein:",
     waiting: "Warten auf Bestätigung …",
     opened: "Browser geöffnet.",
     expires: "Gültig bis",
@@ -37,9 +37,10 @@ const MESSAGES = {
     heading: "Pages MCP pairing with",
     link: "Link",
     code: "Code",
-    instructions: "Open the link, sign in and compare the code.",
+    instructions:
+      "Open the link, sign in, compare the code and explicitly approve the connection.",
     fallback:
-      "Open the link on a device with a browser or enter the code here:",
+      "Open the link on a device with a browser or enter the code on this Pages page:",
     waiting: "Waiting for confirmation …",
     opened: "Browser opened.",
     expires: "Valid until",

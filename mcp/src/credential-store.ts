@@ -5,7 +5,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 
-import { readInstanceUrl } from "./instance-address.js";
+import { readInstanceUrl } from "./instance-address.ts";
 
 /** Credentials belong to exactly one normalized instance and operating-system user. */
 export interface StoredCredential {

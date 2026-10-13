@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "allowImportingTsExtensions": true,
     "erasableSyntaxOnly": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
@@ -19,5 +20,5 @@
     "verbatimModuleSyntax": true,
     "paths": { "@/*": ["../*.ts", "../*"] }
   },
-  "include": ["src", "scripts", "build.config.ts"]
+  "include": ["src", "scripts", "test", "build.config.ts"]
 }

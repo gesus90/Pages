@@ -20,6 +20,7 @@ const typedSourceFiles = [
   "vitest.*.config.ts",
   "mcp/src/**/*.ts",
   "mcp/scripts/**/*.ts",
+  "mcp/test/**/*.ts",
 ];
 
 /** ESLint flat configuration for Pages. */

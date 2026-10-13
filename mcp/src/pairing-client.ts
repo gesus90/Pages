@@ -26,7 +26,7 @@ function isRecord(input: unknown): input is Record<string, unknown> {
   return typeof input === "object" && input !== null && !Array.isArray(input);
 }
 
-/** HTTP adapter that neither follows redirects nor reflects bodies in errors. */
+/** Pages pairing adapter that neither follows redirects nor reflects bodies in errors. */
 export class PairingClient {
   private readonly instance: URL;
 

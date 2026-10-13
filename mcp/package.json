@@ -7,7 +7,8 @@
   "scripts": {
     "lint": "eslint . --max-warnings=0",
     "check": "tsc --noEmit && prettier --check .",
-    "build": "node build.config.ts"
+    "build": "node build.config.ts",
+    "test:mcp": "pnpm run build && node test/client.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "2.2.0"

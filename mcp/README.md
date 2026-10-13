@@ -74,8 +74,9 @@ installation or Pages root gates are required for this workflow. `lint` checks
 package sources, scripts and JavaScript configuration with no warnings allowed.
 `check` runs `tsc --noEmit` and package-local `prettier --check .`, including this
 README and the client examples. It does not start Pages or generate React Router
-types. These are static checks, not functional tests; this package has no test
-script or validated test suite.
+types. These are static checks, not functional tests. The separate `test:mcp`
+command below checks the built adapter with a real stdio client against an
+explicitly isolated Pages instance.
 
 ### Bundle format and distribution
 
@@ -133,16 +134,37 @@ Pages request. Both stdout logs must be empty. Neither command should open a
 network listener; inspect the process's listening sockets while it runs (for
 example, with `ss -ltnp` on Linux).
 
-For a configured stdio check, use an already running local Pages instance at
-`PAGES_URL=http://127.0.0.1:3000`. Supply its personal credential securely through
-`PAGES_TOKEN` in the process environment, without printing or recording it. A
-stdio client launches the built file without arguments, sends `initialize`, waits
-for its response, sends `notifications/initialized`, then requests `tools/list`.
-Keep stdin open until both responses arrive, then close it and verify that the
-process exits. stdout must contain only MCP protocol messages; diagnostics belong
-on stderr. Tool discovery does not require calling tools or writing to Pages.
-Record the bundle filename, exit codes and channel observations separately from
-this README; do not treat the expected outcomes above as completed checks.
+### Stdio end-to-end acceptance
+
+Use only an already running, explicitly isolated Pages instance with completed
+setup and a personal account allowed to list project names. Set `PAGES_URL` to
+that instance. Pair it separately using the browser flow below, or supply an
+existing credential securely through `PAGES_TOKEN` in the process environment.
+Keep credentials out of commands, files and reports. Then run from the repository
+root:
+
+```sh
+CI=true pnpm --dir mcp run test:mcp
+```
+
+The script builds the versioned bundle and runs [test/client.ts](./test/client.ts).
+[test/server.ts](./test/server.ts) checks instance health and launches that real
+bundle as a stdio child. The client sends `initialize`, validates the server
+identity, version and tools capability, sends `notifications/initialized`, lists
+tools and calls only `list_project_names`. It validates the returned JSON array,
+closes stdin and requires server exit code zero. Invalid responses, protocol
+errors, non-protocol stdout, unavailable Pages, incomplete setup, missing or
+rejected credentials and timeouts fail with a nonzero client exit code and fixed
+diagnostics on stderr. Project names and raw provider responses are not logged.
+
+The check reads the existing pairing store when `PAGES_TOKEN` is unset and passes
+the credential only in the child's process environment. This prevents automatic
+rotation and local-store updates during acceptance. It requests no content or
+credential mutations and never opens a database directly. Pages still handles
+its normal credential-use bookkeeping. There are no mocks, fixtures, additional
+test suites or coverage gates. The script starts and stops only its own adapter
+child; it does not start Pages or perform browser approval. This check does not
+establish that the separate browser flow has been manually accepted.
 
 ## Connect a client over stdio
 
@@ -173,6 +195,8 @@ The command displays a Pages browser link and a code on stderr, attempts to open
 a browser in an interactive desktop session, and waits for approval. Sign in to
 Pages with your own account, compare the browser code with the terminal code,
 check the displayed account and client, and explicitly approve the connection.
+Signing in alone does not grant access. The request is retained through sign-in,
+language changes and any required password replacement.
 The browser does not display a token to copy. The local process collects the
 credential, verifies it with Pages, saves it and exits successfully.
 
@@ -245,6 +269,10 @@ Client-specific examples with the same paired-credential setup are available:
 - [Codex](./examples/clients/codex-config.toml)
 - [OpenClaw](./examples/clients/openclaw.json)
 - [OpenCode](./examples/clients/opencode.json)
+
+See the [example setup instructions](./examples/clients/README.md) before using a client
+configuration. Run `pair` separately; the client's startup arguments contain only
+the bundle path.
 
 ### Explicit token override
 

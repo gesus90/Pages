@@ -1,4 +1,4 @@
-import { instanceEndpoint, readInstanceUrl } from "./instance-address.js";
+import { instanceEndpoint, readInstanceUrl } from "./instance-address.ts";
 
 /** Validated instance URL and opaque Bearer credential; not an authenticated identity. */
 export interface PagesConfiguration {
