@@ -174,7 +174,8 @@ export class AgentRunArchive {
       await this.repository.discardInput(run.id, step.stepId);
       await this.materialize(record);
     }
-    if (run.status !== "running") await this.repository.markArchived(run.id);
+    if (run.status !== "running" && run.status !== "paused")
+      await this.repository.markArchived(run.id);
   }
 
   private async restoreFile(agentId: string, runId: string): Promise<void> {

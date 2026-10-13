@@ -1,7 +1,11 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 import { isAgentParameterName } from "@/definition/AgentParameters";
+import { planValueIssue } from "@/definition/AgentPlanValue";
 
-import { readAgentParameterValue } from "./AgentConfigurationInput";
+import {
+  readAgentParameterValue,
+  readAgentTargets,
+} from "./AgentConfigurationInput";
 import { readAgentObject } from "./AgentPayload";
 
 import type {
@@ -10,6 +14,7 @@ import type {
   AgentPlanInput,
   AgentPlanNode,
   AgentPlanPosition,
+  AgentPlanParameter,
 } from "@/definition/AgentPlan";
 
 /** Bounds untrusted graph labels and identifiers before any resource lookup. */
@@ -41,7 +46,21 @@ function readPosition(input: Record<string, unknown>): AgentPlanPosition {
 }
 
 function readBinding(input: unknown): AgentPlanBinding {
-  const binding = readAgentObject(input);
+  const binding = readPlanObject(input);
+  const allowed = {
+    literal: ["kind", "value"],
+    source: ["kind", "nodeId"],
+    result: ["kind", "stepId"],
+  };
+  if (
+    binding.kind !== "literal" &&
+    binding.kind !== "source" &&
+    binding.kind !== "result"
+  )
+    throw new AgentError("plan_invalid");
+  const keys = allowed[binding.kind];
+  if (Object.keys(binding).some((key) => !keys.includes(key)))
+    throw new AgentError("plan_binding_invalid");
   if (binding.kind === "literal")
     return {
       kind: "literal",
@@ -58,7 +77,7 @@ function readBinding(input: unknown): AgentPlanBinding {
 function readBindings(
   input: unknown,
 ): Readonly<Record<string, AgentPlanBinding>> {
-  const bindings = readAgentObject(input);
+  const bindings = readPlanObject(input);
   if (Object.keys(bindings).length > 64) throw new AgentError("plan_invalid");
   return Object.fromEntries(
     Object.entries(bindings).map(([name, binding]) => {
@@ -69,8 +88,11 @@ function readBindings(
 }
 
 function readNode(input: unknown): AgentPlanNode {
-  const node = readAgentObject(input);
+  const node = readPlanObject(input);
   const base = { id: readPlanText(node.id), ...readPosition(node) };
+  if (node.type === "start" || node.type === "end")
+    return { ...base, type: node.type };
+  if (node.type === "parameter") return readParameterNode(node, base);
   if (node.type === "task")
     return { ...base, type: "task", taskId: readPlanText(node.taskId) };
   if (node.type === "variable") {
@@ -96,12 +118,61 @@ function readNode(input: unknown): AgentPlanNode {
 }
 
 function readEdge(input: unknown): AgentPlanEdge {
-  const edge = readAgentObject(input);
-  return { from: readPlanText(edge.from), to: readPlanText(edge.to) };
+  const edge = readPlanObject(input);
+  if (edge.kind !== undefined && edge.kind !== "flow")
+    throw new AgentError("plan_invalid");
+  return {
+    from: readPlanText(edge.from),
+    to: readPlanText(edge.to),
+    fromPort:
+      edge.fromPort === undefined ? "flow-out" : readPlanText(edge.fromPort),
+    toPort: edge.toPort === undefined ? "flow-in" : readPlanText(edge.toPort),
+  };
+}
+
+function readParameterNode(
+  node: Record<string, unknown>,
+  base: AgentPlanPosition & { readonly id: string },
+): AgentPlanParameter {
+  const name = readPlanText(node.name, 64);
+  const format = node.format;
+  if (
+    !isAgentParameterName(name) ||
+    (format !== "string" && format !== "number" && format !== "json")
+  )
+    throw new AgentError("plan_invalid");
+  const parameter: AgentPlanParameter = {
+    ...base,
+    type: "parameter",
+    name,
+    format,
+    value: readAgentParameterValue(node.value),
+  };
+  const issue = planValueIssue(parameter);
+  if (issue !== null)
+    throw new AgentError(
+      issue === "json" ? "plan_json_invalid" : "plan_number_invalid",
+    );
+  return parameter;
+}
+
+function readSharing(input: unknown): NonNullable<AgentPlanInput["sharing"]> {
+  const sharing = readPlanObject(input);
+  const targets = readAgentTargets(sharing.targets);
+  const operator = sharing.operator === undefined ? "or" : sharing.operator;
+  if (
+    typeof sharing.isGlobal !== "boolean" ||
+    (operator !== "or" && operator !== "and") ||
+    targets.some(
+      (target) => target.kind !== "group" && target.kind !== "department",
+    )
+  )
+    throw new AgentError("plan_invalid");
+  return { isGlobal: sharing.isGlobal, targets, operator };
 }
 
 function readGlobals(input: unknown): Readonly<Record<string, string>> {
-  const globals = readAgentObject(input);
+  const globals = readPlanObject(input);
   if (Object.keys(globals).length > 64) throw new AgentError("plan_invalid");
   return Object.fromEntries(
     Object.entries(globals).map(([name, text]) => {
@@ -118,7 +189,7 @@ function readGlobals(input: unknown): Readonly<Record<string, string>> {
 
 /** Parses one bounded plan; graph relationships are validated by the service. */
 export function readPlanInput(input: unknown): AgentPlanInput {
-  const plan = readAgentObject(input);
+  const plan = readPlanObject(input);
   if (
     !Array.isArray(plan.nodes) ||
     plan.nodes.length > 100 ||
@@ -139,9 +210,21 @@ export function readPlanInput(input: unknown): AgentPlanInput {
     name: readPlanText(plan.name, 120),
     workspaceId: readPlanText(plan.workspaceId),
     usage: plan.usage,
+    ...(plan.projectId === undefined
+      ? {}
+      : { projectId: readPlanText(plan.projectId) }),
+    ...(plan.sharing === undefined
+      ? {}
+      : { sharing: readSharing(plan.sharing) }),
     globals: readGlobals(plan.globals),
     nodes: plan.nodes.map(readNode),
     edges: plan.edges.map(readEdge),
     ...(revision === undefined ? {} : { revision }),
   };
+}
+
+function readPlanObject(input: unknown): Record<string, unknown> {
+  if (typeof input !== "object" || input === null || Array.isArray(input))
+    throw new AgentError("plan_invalid");
+  return readAgentObject(input);
 }

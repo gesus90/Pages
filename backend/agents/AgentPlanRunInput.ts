@@ -3,19 +3,16 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { readPlanText } from "./AgentPlanInput";
 import { readAgentObject } from "./AgentPayload";
 
-import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
+import type {
+  AgentPlanRun,
+  AgentPlanStepResult,
+  AgentPlanStepStatus,
+} from "@/definition/AgentPlan";
 
 function readResult(input: unknown): AgentPlanStepResult {
   const step = readAgentObject(input);
   const { status, cancellation, output, error } = step;
-  if (
-    status !== "waiting" &&
-    status !== "running" &&
-    status !== "succeeded" &&
-    status !== "failed" &&
-    status !== "cancelled"
-  )
-    throw new AgentError("plan_invalid");
+  if (!isStepStatus(status)) throw new AgentError("plan_invalid");
   if (
     cancellation !== "none" &&
     cancellation !== "requested" &&
@@ -48,7 +45,8 @@ export function readPlanRun(input: unknown): AgentPlanRun {
     status !== "running" &&
     status !== "succeeded" &&
     status !== "failed" &&
-    status !== "cancelled"
+    status !== "cancelled" &&
+    status !== "paused"
   )
     throw new AgentError("plan_invalid");
   if (
@@ -71,4 +69,18 @@ export function readPlanRun(input: unknown): AgentPlanRun {
     stopRequested,
     steps: run.steps.map(readResult),
   };
+}
+
+function isStepStatus(input: unknown): input is AgentPlanStepStatus {
+  return (
+    typeof input === "string" &&
+    [
+      "waiting",
+      "running",
+      "succeeded",
+      "failed",
+      "cancelled",
+      "paused",
+    ].includes(input)
+  );
 }

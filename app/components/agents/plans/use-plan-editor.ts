@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect } from "react";
 import { useFetcher, useNavigate } from "react-router";
 
-import { emptyAgentPlan } from "@/definition/AgentPlan";
-
+import { usePlanDraft } from "./use-plan-draft";
 import { usePlanGraph } from "./use-plan-graph";
+import { usePlanSources } from "./use-plan-sources";
 
 import type { AgentPlanActionResult } from "@/app/lib/agent-plan-response";
 import type {
@@ -12,33 +12,7 @@ import type {
   AgentPlanSources,
 } from "@/definition/AgentPlan";
 
-/** Source responses carry their workspace so delayed responses cannot cross project selections. */
-export type PlanSourceResponse =
-  | { readonly workspaceId: string; readonly sources: AgentPlanSources }
-  | { readonly ok: false; readonly error: string };
-
-function initialDraft(page: AgentPlanPage): AgentPlanInput {
-  const plan = page.selected;
-  if (!plan) return emptyAgentPlan();
-  return {
-    name: plan.name,
-    workspaceId: plan.workspaceId,
-    usage: plan.usage,
-    globals: plan.globals,
-    nodes: plan.nodes,
-    edges: plan.edges,
-    revision: plan.revision,
-  };
-}
-
-function hasSavedDraft(
-  result: AgentPlanActionResult | undefined,
-  isPending: boolean,
-): boolean {
-  return !isPending && result?.ok === true && result.intent === "save-plan";
-}
-
-/** Keeps editable graph state separate from saved plans and immutable execution views. */
+/** Saved graphs, unsaved edits and immutable run commands remain separate state. */
 export function usePlanEditor(page: AgentPlanPage): {
   readonly draft: AgentPlanInput;
   readonly setDraft: React.Dispatch<React.SetStateAction<AgentPlanInput>>;
@@ -52,40 +26,24 @@ export function usePlanEditor(page: AgentPlanPage): {
   readonly save: () => void;
   readonly play: () => void;
   readonly stop: (id: string) => void;
+  readonly pause: (id: string) => void;
+  readonly resume: (id: string) => void;
 } {
-  const [draft, setDraft] = useState<AgentPlanInput>(() => initialDraft(page));
   const command = useFetcher<AgentPlanActionResult>();
-  const sourceRequest = useFetcher<PlanSourceResponse>();
-  const { load: loadSources } = sourceRequest;
-  const submittedDraft = useRef<string | null>(null);
-  const navigate = useNavigate();
-  const response = sourceRequest.data;
-  const canEdit = page.selected?.canEdit ?? true;
-  const isPending = command.state !== "idle";
-  const hasSaved = hasSavedDraft(command.data, isPending);
-  const isDirty =
-    JSON.stringify(draft) !==
-    (hasSaved ? submittedDraft.current : JSON.stringify(initialDraft(page)));
-  let sources = page.sources;
-  if (draft.workspaceId !== page.selected?.workspaceId)
-    sources = { agents: [], tasks: [] };
-  if (
-    response &&
-    "sources" in response &&
-    response.workspaceId === draft.workspaceId
-  )
-    sources = response.sources;
+  const { draft, setDraft, isDirty, submitted } = usePlanDraft(
+    page,
+    command.data,
+    command.state !== "idle",
+  );
+  const { sources, sourceError } = usePlanSources(page, draft.workspaceId);
   const graph = usePlanGraph(draft, setDraft, sources);
-  useEffect(() => {
-    if (draft.workspaceId && draft.workspaceId !== page.selected?.workspaceId)
-      void loadSources(
-        `/agent-api/plan-sources?workspaceId=${encodeURIComponent(draft.workspaceId)}`,
-      );
-  }, [draft.workspaceId, page.selected?.workspaceId, loadSources]);
+  const navigate = useNavigate();
   useEffect(() => {
     const result = command.data;
     if (
       result?.ok &&
+      command.state === "idle" &&
+      !isDirty &&
       result.intent === "save-plan" &&
       result.planId &&
       result.planId !== page.selected?.id
@@ -93,9 +51,9 @@ export function usePlanEditor(page: AgentPlanPage): {
       void navigate(
         `/agents/plans?planId=${encodeURIComponent(result.planId)}`,
       );
-  }, [command.data, page.selected?.id, navigate]);
+  }, [command.data, command.state, isDirty, page.selected?.id, navigate]);
   function save(): void {
-    submittedDraft.current = JSON.stringify(draft);
+    submitted.current = draft;
     void command.submit(
       {
         intent: "save-plan",
@@ -111,14 +69,14 @@ export function usePlanEditor(page: AgentPlanPage): {
       {
         intent: "play-plan",
         planId: page.selected.id,
-        revision: String(page.selected.revision),
+        revision: String(draft.revision),
       },
       { method: "post", action: "/agents/plans" },
     );
   }
-  function stop(id: string): void {
+  function control(intent: string, id: string): void {
     void command.submit(
-      { intent: "stop-plan", runId: id },
+      { intent, runId: id },
       { method: "post", action: "/agents/plans" },
     );
   }
@@ -129,11 +87,13 @@ export function usePlanEditor(page: AgentPlanPage): {
     graph,
     command,
     isDirty,
-    canEdit,
-    isPending,
-    sourceError: response && "error" in response ? response.error : null,
+    canEdit: page.selected?.canEdit ?? true,
+    isPending: command.state !== "idle",
+    sourceError,
     save,
     play,
-    stop,
+    stop: (id) => control("stop-plan", id),
+    pause: (id) => control("pause-plan", id),
+    resume: (id) => control("resume-plan", id),
   };
 }

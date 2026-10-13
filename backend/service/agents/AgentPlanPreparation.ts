@@ -1,8 +1,10 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 import { isApiProvider } from "@/definition/AgentConnection";
+import { planExecutionIssues } from "@/definition/AgentPlanGraph";
+import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
 
 import { planBindings } from "./AgentPlanBindings";
-import { hasPlanPath, planSteps, validatePlanGraph } from "./AgentPlanGraph";
+import { hasPlanPath, planSteps } from "./AgentPlanGraph";
 
 import type { AgentPlan } from "@/definition/AgentPlan";
 import type { ResolvedAgentWorkspace } from "@/definition/AgentWorkspace";
@@ -33,7 +35,11 @@ export class AgentPlanPreparation {
     userId: string,
     plan: AgentPlan,
   ): Promise<AgentPlanSnapshot> {
-    validatePlanGraph(plan);
+    const issues = planExecutionIssues(
+      plan,
+      await this.dependencies.profiles.catalog(userId, plan.projectId),
+    );
+    if (issues.length > 0) throw new AgentPlanValidationError(issues);
     const steps = planSteps(plan);
     if (steps.length === 0) throw new AgentError("plan_invalid");
     const tasks = await Promise.all(

@@ -225,7 +225,7 @@ export class PageAgentRunRepository {
           runs.view_json,
           runs.snapshot_json
       FROM agent_plan_runs AS runs
-      WHERE runs.status <> 'running'
+      WHERE runs.status NOT IN ('running', 'paused')
           AND NOT EXISTS (
               SELECT 1
               FROM page_agent_archived_runs AS archived

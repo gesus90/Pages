@@ -5,17 +5,19 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
 import { isApiProvider } from "@/definition/AgentConnection";
+import { isPlanFlowNode } from "@/definition/AgentPlanGraph";
 
 import { sanitizePlanOutput } from "./AgentPlanOutput";
 import { hasPlanPath } from "./AgentPlanGraph";
 
 import type { PlanExecution } from "@/backend/agents/AgentPlanExecution";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
-import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 import type {
-  AgentPlanSnapshot,
-  AgentPlanStepSnapshot,
-} from "./AgentPlanSnapshot";
+  AgentPlanNode,
+  AgentPlanRun,
+  AgentPlanStepResult,
+} from "@/definition/AgentPlan";
+import type { AgentPlanSnapshot } from "./AgentPlanSnapshot";
 import type { AgentPlanStepStart } from "./AgentPlanStepStart";
 import type { AgentRunArchive } from "./AgentRunArchive";
 import type { AgentDefinitionFiles } from "./AgentDefinitionFiles";
@@ -51,7 +53,7 @@ function patchStep(
 function requestCancellation(active: ActivePlanRun): void {
   active.view = { ...active.view, stopRequested: true };
   for (const step of active.view.steps) {
-    if (step.status === "waiting")
+    if (step.status === "waiting" || step.status === "paused")
       patchStep(active, step.id, {
         status: "cancelled",
         cancellation: "not_started",
@@ -64,7 +66,7 @@ function requestCancellation(active: ActivePlanRun): void {
 
 function updateBlocked(active: ActivePlanRun): void {
   for (const step of active.view.steps) {
-    if (step.status !== "waiting") continue;
+    if (step.status !== "waiting" && step.status !== "paused") continue;
     const hasFailedDependency = active.view.steps.some(
       (entry) =>
         (entry.status === "failed" || entry.status === "cancelled") &&
@@ -78,11 +80,9 @@ function updateBlocked(active: ActivePlanRun): void {
   }
 }
 
-function readySteps(active: ActivePlanRun): readonly AgentPlanStepSnapshot[] {
-  return active.snapshot.steps.filter((snapshot) => {
-    const step = active.view.steps.find(
-      (entry) => entry.id === snapshot.step.id,
-    );
+function readySteps(active: ActivePlanRun): readonly AgentPlanNode[] {
+  return active.snapshot.plan.nodes.filter((node) => {
+    const step = active.view.steps.find((entry) => entry.id === node.id);
     return (
       step?.status === "waiting" &&
       !step.isBlocked &&
@@ -124,15 +124,19 @@ export class AgentPlanRunEngine {
       startedAt: new Date().toISOString(),
       status: "running",
       stopRequested: false,
-      steps: snapshot.steps.map((step) => ({
-        id: step.step.id,
-        name: step.name,
-        status: "waiting",
-        isBlocked: false,
-        cancellation: "none",
-        output: null,
-        error: null,
-      })),
+      steps: snapshot.plan.nodes
+        .filter((node) => isPlanFlowNode(node, snapshot.plan))
+        .map((node) => ({
+          id: node.id,
+          name:
+            snapshot.steps.find((step) => step.step.id === node.id)?.name ??
+            node.type,
+          status: "waiting",
+          isBlocked: false,
+          cancellation: "none",
+          output: null,
+          error: null,
+        })),
     };
     const workspaceIds = snapshot.steps.flatMap((step) =>
       !isApiProvider(step.provider) && step.prepared.directory
@@ -170,6 +174,41 @@ export class AgentPlanRunEngine {
     await this.pump();
   }
 
+  /** Persists pause before scheduling can start another node; in-flight nodes settle normally. */
+  public async pause(id: string): Promise<void> {
+    await this.writes.run(async () => {
+      const active = this.active.get(id);
+      if (!active || active.view.stopRequested)
+        throw new AgentError("plan_run_unavailable");
+      active.view = {
+        ...active.view,
+        status: "paused",
+        steps: active.view.steps.map((step) =>
+          step.status === "waiting" ? { ...step, status: "paused" } : step,
+        ),
+      };
+      await this.dependencies.runs.update(active.view);
+    });
+  }
+
+  /** Resumes the same snapshot and only its unfinished nodes, without replaying completed work. */
+  public async resume(id: string): Promise<void> {
+    await this.writes.run(async () => {
+      const active = this.active.get(id);
+      if (!active || this.isClosing || active.view.stopRequested)
+        throw new AgentError("plan_run_unavailable");
+      active.view = {
+        ...active.view,
+        status: "running",
+        steps: active.view.steps.map((step) =>
+          step.status === "paused" ? { ...step, status: "waiting" } : step,
+        ),
+      };
+      await this.dependencies.runs.update(active.view);
+    });
+    await this.pump();
+  }
+
   /** The shutdown hook drains execution before closing DuckDB or the shared CLI runner. */
   public async shutdown(): Promise<void> {
     this.isClosing = true;
@@ -182,20 +221,30 @@ export class AgentPlanRunEngine {
     await this.writes.run(async () => {
       for (const [id, active] of this.active) {
         updateBlocked(active);
-        const ready = active.view.stopRequested ? [] : readySteps(active);
+        const ready =
+          active.view.stopRequested || active.view.status === "paused"
+            ? []
+            : readySteps(active);
         for (const step of ready) {
           if (this.runningCount() >= 2) break;
           const controller = new AbortController();
-          active.controllers.set(step.step.id, controller);
-          patchStep(active, step.step.id, { status: "running" });
+          active.controllers.set(step.id, controller);
+          patchStep(active, step.id, { status: "running" });
           await this.dependencies.runs.update(active.view);
           const pending = this.execute(active, step, controller);
           this.pending.add(pending);
           void pending.then(() => this.pending.delete(pending));
         }
-        if (active.controllers.size === 0 && readySteps(active).length === 0) {
+        if (
+          active.controllers.size === 0 &&
+          readySteps(active).length === 0 &&
+          (active.view.status !== "paused" || active.view.stopRequested)
+        ) {
           const hasFailure = active.view.steps.some(
-            (step) => step.status === "failed" || step.isBlocked,
+            (step) =>
+              step.status === "failed" ||
+              step.status === "waiting" ||
+              step.isBlocked,
           );
           let status: AgentPlanRun["status"] = "succeeded";
           if (hasFailure) status = "failed";
@@ -222,32 +271,45 @@ export class AgentPlanRunEngine {
 
   private async execute(
     active: ActivePlanRun,
-    step: AgentPlanStepSnapshot,
+    node: AgentPlanNode,
     controller: AbortController,
   ): Promise<void> {
     let hasStarted = false;
     let changes: Partial<AgentPlanStepResult>;
     try {
-      const input = await this.dependencies.start.prepare(
-        active.view,
-        active.snapshot,
-        step,
-      );
       if (active.view.stopRequested || controller.signal.aborted)
         throw new AgentPlanCancelledError();
-      await this.dependencies.archive?.input(
-        active.view.id,
-        step.step.id,
-        input.prompt,
+      const step = active.snapshot.steps.find(
+        (entry) => entry.step.id === node.id,
       );
-      hasStarted = true;
-      const output = await this.dependencies.execution.run(
-        input,
-        controller.signal,
-      );
+      let output: string | null = null;
+      if (step) {
+        const input = await this.dependencies.start.prepare(
+          active.view,
+          active.snapshot,
+          step,
+        );
+        if (active.view.stopRequested || controller.signal.aborted)
+          throw new AgentPlanCancelledError();
+        await this.dependencies.archive?.input(
+          active.view.id,
+          node.id,
+          input.prompt,
+        );
+        hasStarted = true;
+        output = sanitizePlanOutput(
+          await this.dependencies.execution.run(input, controller.signal),
+        );
+      } else {
+        await this.dependencies.start.control(
+          active.view,
+          active.snapshot,
+          node,
+        );
+      }
       changes = {
         status: "succeeded",
-        output: sanitizePlanOutput(output),
+        output,
         error: null,
       };
     } catch (error: unknown) {
@@ -268,8 +330,8 @@ export class AgentPlanRunEngine {
     }
     try {
       await this.writes.run(async () => {
-        patchStep(active, step.step.id, changes);
-        active.controllers.delete(step.step.id);
+        patchStep(active, node.id, changes);
+        active.controllers.delete(node.id);
         await this.dependencies.runs.update(active.view);
         await this.dependencies.archive?.complete(active.view, active.snapshot);
       });

@@ -7,6 +7,9 @@ import { AgentPlanRunEngine } from "@/backend/service/agents/AgentPlanRunEngine"
 import { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
 import { AgentPlanStepStart } from "@/backend/service/agents/AgentPlanStepStart";
 import { AgentPlanTasks } from "@/backend/service/agents/AgentPlanTasks";
+import { AgentPlanSharing } from "@/backend/service/agents/AgentPlanSharing";
+import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
+import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 
 import type { Database } from "@/backend/database/Database";
 import type { TaskService } from "@/backend/service/TaskService";
@@ -27,7 +30,11 @@ export async function createAgentPlanService(input: {
     agentProfileService: profiles,
     agentParameterService: parameters,
   } = input.agents;
-  const access = new AgentPlanAccess(plans, workspaces);
+  const sharing = new AgentPlanSharing(
+    new AuthorizationRepository(input.database),
+    new UserGroupRepository(input.database),
+  );
+  const access = new AgentPlanAccess(plans, workspaces, sharing);
   const tasks = new AgentPlanTasks(input.tasks, input.users);
   const engine = new AgentPlanRunEngine({
     runs,

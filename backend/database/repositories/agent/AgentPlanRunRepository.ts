@@ -29,6 +29,17 @@ export class AgentPlanRunRepository {
       );
       if (!plan || Number(plan[0]) !== run.planRevision)
         throw new AgentError("plan_conflict");
+      const [active] = await transaction.query(
+        `
+        SELECT id
+        FROM agent_plan_runs
+        WHERE plan_id = $plan_id
+            AND user_id = $user_id
+            AND status IN ('running', 'paused');
+      `,
+        { plan_id: run.planId, user_id: run.userId },
+      );
+      if (active) throw new AgentError("plan_run_unavailable");
       for (const workspaceId of new Set(workspaceIds)) {
         const [lock] = await transaction.query(
           "SELECT run_id FROM agent_plan_workspace_locks WHERE workspace_id = $id;",
@@ -100,7 +111,7 @@ export class AgentPlanRunRepository {
   /** Returns unfinished public records for service-controlled recovery after restart. */
   public async unfinished(): Promise<readonly AgentPlanRun[]> {
     const rows = await this.database.query(
-      "SELECT view_json FROM agent_plan_runs WHERE status = 'running';",
+      "SELECT view_json FROM agent_plan_runs WHERE status IN ('running', 'paused');",
     );
     return rows.map((row) => {
       const input: unknown = JSON.parse(readTextColumn(row, 0, "view_json"));
@@ -116,7 +127,7 @@ export class AgentPlanRunRepository {
         SET status = $status,
             view_json = $view_json
         WHERE id = $id
-            AND status = 'running';
+            AND status IN ('running', 'paused');
       `,
       { id: run.id, status: run.status, view_json: JSON.stringify(run) },
     );
@@ -156,7 +167,7 @@ export class AgentPlanRunRepository {
       `,
         { id: run.id, status: run.status, view_json: JSON.stringify(run) },
       );
-      if (run.status !== "running")
+      if (run.status !== "running" && run.status !== "paused")
         await transaction.execute(
           "DELETE FROM agent_plan_workspace_locks WHERE run_id = $id;",
           { id: run.id },

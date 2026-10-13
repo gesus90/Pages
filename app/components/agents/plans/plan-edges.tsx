@@ -1,6 +1,6 @@
 import { useId } from "react";
 
-import { PLAN_NODE_WIDTH, planNodeHeight } from "./plan-layout";
+import { PLAN_NODE_WIDTH, planOutputY } from "./plan-layout";
 
 import type {
   AgentPlanInput,
@@ -61,9 +61,9 @@ export function PlanEdges(props: {
         const x1 = edge.source.x + PLAN_NODE_WIDTH;
         const y1 =
           edge.source.y +
-          (edge.parameter !== null && edge.source.type === "agent"
-            ? planNodeHeight(edge.source, props.sources) - 50
-            : 80);
+          (edge.parameter === null
+            ? 72
+            : planOutputY(edge.source, props.sources));
         const x2 = edge.target.x;
         const parameterIndex =
           target.type === "agent"
@@ -76,8 +76,8 @@ export function PlanEdges(props: {
         const y2 =
           edge.target.y +
           (edge.parameter === null
-            ? 80
-            : 116 + Math.max(0, parameterIndex) * 32);
+            ? 72
+            : 104 + Math.max(0, parameterIndex) * 32);
         const bend = Math.max(40, Math.abs(x2 - x1) / 2);
         return (
           <g

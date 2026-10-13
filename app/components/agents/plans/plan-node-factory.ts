@@ -52,32 +52,33 @@ export function createPlanNode(input: {
     x: snapPlanCoordinate(position.x),
     y: snapPlanCoordinate(position.y),
   };
+  if (kind === "start" || kind === "end") return { ...base, type: kind };
   if (kind === "agent") {
     const agent = sources.agents.find(
       (entry) => entry.id === reference && entry.availability.isUsable,
     );
     if (!agent) return null;
-    const directory = agent.configuration.directoryParameter;
     return {
       ...base,
       type: "agent",
       agentId: reference,
       personalAgentId: null,
       instruction: "",
-      bindings: directory
-        ? {
-            [directory]: {
-              kind: "literal",
-              value: { type: "workspace", workspaceId: draft.workspaceId },
-            },
-          }
-        : {},
+      bindings: {},
     };
   }
   if (kind === "task")
     return sources.tasks.some((task) => task.id === reference)
       ? { ...base, type: "task", taskId: reference }
       : null;
+  if (kind === "parameter")
+    return {
+      ...base,
+      type: "parameter",
+      name: reference,
+      format: "string",
+      value: { type: "text", text: "" },
+    };
   return Object.hasOwn(draft.globals, reference)
     ? { ...base, type: "variable", name: reference }
     : null;

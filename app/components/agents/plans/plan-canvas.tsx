@@ -7,7 +7,11 @@ import { PlanEdges } from "./plan-edges";
 import { PlanNodeCard } from "./plan-node-card";
 import { PLAN_GRID, PLAN_NODE_WIDTH, planNodeHeight } from "./plan-layout";
 
-import type { AgentPlanInput, AgentPlanSources } from "@/definition/AgentPlan";
+import type {
+  AgentPlanInput,
+  AgentPlanSources,
+  AgentPlanRun,
+} from "@/definition/AgentPlan";
 import type { PlanGraphActions } from "./use-plan-graph";
 
 /** A native, SSR-compatible grid with persisted positions and existing Pages scroll behavior. */
@@ -16,6 +20,7 @@ export function PlanCanvas(props: {
   readonly sources: AgentPlanSources;
   readonly graph: PlanGraphActions;
   readonly canEdit: boolean;
+  readonly run: AgentPlanRun | null;
 }): React.ReactElement {
   const { t } = useTranslation();
   const width = Math.max(
@@ -45,20 +50,11 @@ export function PlanCanvas(props: {
       props.graph.add(kind, reference, position);
   }
   return (
-    <section aria-label={t("plans.canvas")} className="space-y-2">
-      <p className="text-sm text-muted-foreground">{t("plans.canvasHint")}</p>
-      {props.graph.connection ? (
-        <div role="status" className="flex items-center gap-2 text-sm">
-          {t("plans.connectHint")}
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => props.graph.begin(null)}
-          >
-            {t("settings.agents.cancel")}
-          </Button>
-        </div>
-      ) : null}
+    <section
+      aria-label={t("plans.canvas")}
+      className="w-full min-w-0 flex-1 space-y-2"
+    >
+      <CanvasControls graph={props.graph} canEdit={props.canEdit} />
       <HorizontalScrollArea
         className="rounded-xl border border-border"
         viewportClassName="max-h-[65vh] overflow-y-auto"
@@ -83,10 +79,53 @@ export function PlanCanvas(props: {
               sources={props.sources}
               graph={props.graph}
               canEdit={props.canEdit}
+              result={props.run?.steps.find((step) => step.id === node.id)}
             />
           ))}
         </div>
       </HorizontalScrollArea>
     </section>
+  );
+}
+
+function CanvasControls(props: {
+  readonly graph: PlanGraphActions;
+  readonly canEdit: boolean;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!props.canEdit}
+          onClick={() => props.graph.add("start", "start")}
+        >
+          {t("plans.addStart")}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!props.canEdit}
+          onClick={() => props.graph.add("end", "end")}
+        >
+          {t("plans.addEnd")}
+        </Button>
+      </div>
+      <p className="text-sm text-muted-foreground">{t("plans.canvasHint")}</p>
+      {props.graph.connection ? (
+        <div role="status" className="flex items-center gap-2 text-sm">
+          {t("plans.connectHint")}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => props.graph.begin(null)}
+          >
+            {t("settings.agents.cancel")}
+          </Button>
+        </div>
+      ) : null}
+    </>
   );
 }

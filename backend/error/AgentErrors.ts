@@ -2,6 +2,9 @@ import type { AgentUsage } from "@/definition/AgentUsage";
 
 /** Stable codes cross the HTTP boundary; upstream error text never does. */
 export const AGENT_ERROR_MESSAGES = {
+  plan_json_invalid: "Enter one valid JSON value with finite numbers.",
+  plan_number_invalid: "Enter one finite number.",
+  plan_run_unavailable: "This run is no longer active. Start a new run.",
   plan_invalid: "Check the plan fields and graph nodes.",
   plan_access_denied: "This plan or run is not accessible.",
   plan_conflict: "The plan changed. Reload it before saving or starting.",

@@ -3,6 +3,7 @@ import {
   AgentError,
   AgentInUseError,
 } from "@/backend/error/AgentErrors";
+import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
 
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
@@ -82,7 +83,15 @@ export function agentFailureResponse(error: unknown, intent = ""): Response {
   const references =
     error instanceof AgentInUseError ? { usages: error.usages } : {};
   return Response.json(
-    { ok: false, intent, error: code, ...references },
+    {
+      ok: false,
+      intent,
+      error: code,
+      ...references,
+      ...(error instanceof AgentPlanValidationError
+        ? { issues: error.issues }
+        : {}),
+    },
     { status, headers: AGENT_NO_STORE },
   );
 }

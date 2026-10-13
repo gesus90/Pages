@@ -1,4 +1,4 @@
-import { data as routeData, useLoaderData } from "react-router";
+import { data as routeData, useLoaderData, useLocation } from "react-router";
 
 import { PlanPage } from "@/app/components/agents/plans/plan-page";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
@@ -8,9 +8,10 @@ import {
   agentFailureResponse,
   AGENT_NO_STORE,
 } from "@/app/lib/settings-actions/settings-agents-response.server";
-import { readPlanText } from "@/backend/agents/AgentPlanInput";
+import { readPlanInput, readPlanText } from "@/backend/agents/AgentPlanInput";
 import { AgentError } from "@/backend/error/AgentErrors";
 
+import type { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
 import type { AgentPlanPage } from "@/definition/AgentPlan";
 import type { Route } from "./+types/agent-plans";
 
@@ -45,44 +46,33 @@ export async function loader({
   }
 }
 
-/** Saving, Play and Stop all use the authenticated executor and server-side permissions. */
+/** Save, Play, Pause, Resume and Stop use the authenticated executor and live server permissions. */
 export async function action(args: Route.ActionArgs): Promise<Response> {
   let intent = "";
   try {
     const { user, services, formData } = await readSettingsRequest(args);
     intent = String(formData.get("intent") ?? "");
-    const planId = String(formData.get("planId") ?? "");
-    if (planId) readPlanText(planId);
-    if (intent === "save-plan") {
-      const content = String(formData.get("plan") ?? "");
-      if (content.length > 2_000_000) throw new AgentError("plan_invalid");
-      const proposed: unknown = JSON.parse(content);
-      const id = await services.agentPlanService.save(
-        user.id,
-        planId || null,
-        proposed,
-      );
-      return Response.json(
-        { ok: true, intent, planId: id },
-        { headers: AGENT_NO_STORE },
-      );
-    }
-    if (intent === "play-plan") {
-      const revision = Number(formData.get("revision"));
-      if (!Number.isSafeInteger(revision) || revision < 1)
-        throw new AgentError("plan_invalid");
-      const run = await services.agentPlanService.play(
-        user.id,
-        readPlanText(planId),
-        revision,
-      );
-      return Response.json(
-        { ok: true, intent, run },
-        { headers: AGENT_NO_STORE },
-      );
-    }
-    if (intent === "stop-plan") {
-      const run = await services.agentPlanService.stop(
+    if (intent === "save-plan")
+      return await savePlan(user.id, services.agentPlanService, formData);
+    if (intent === "play-plan")
+      return await playPlan(user.id, services.agentPlanService, formData);
+    if (
+      intent === "stop-plan" ||
+      intent === "pause-plan" ||
+      intent === "resume-plan"
+    ) {
+      const operations = {
+        "stop-plan": services.agentPlanService.stop.bind(
+          services.agentPlanService,
+        ),
+        "pause-plan": services.agentPlanService.pause.bind(
+          services.agentPlanService,
+        ),
+        "resume-plan": services.agentPlanService.resume.bind(
+          services.agentPlanService,
+        ),
+      };
+      const run = await operations[intent](
         user.id,
         readPlanText(formData.get("runId")),
       );
@@ -93,17 +83,62 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
     }
     throw new AgentError("plan_invalid");
   } catch (error: unknown) {
-    return agentFailureResponse(error, intent);
+    return agentFailureResponse(
+      error instanceof SyntaxError ? new AgentError("plan_invalid") : error,
+      intent,
+    );
   }
 }
 
 /** The page composes existing Pages controls with a small native graph editor. */
 export default function AgentPlansRoute(): React.ReactElement {
   const page = useLoaderData<typeof loader>();
+  const location = useLocation();
   return (
     <PlanPage
-      key={`${page.selected?.id ?? "new"}:${page.selected?.revision ?? 0}`}
+      key={`${page.selected?.id ?? "new"}:${location.key}`}
       page={page}
     />
+  );
+}
+
+async function savePlan(
+  userId: string,
+  service: AgentPlanService,
+  formData: FormData,
+): Promise<Response> {
+  const planId = String(formData.get("planId") ?? "");
+  if (planId) readPlanText(planId);
+  const content = String(formData.get("plan") ?? "");
+  if (content.length > 2_000_000) throw new AgentError("plan_invalid");
+  const proposed = readPlanInput(JSON.parse(content) as unknown);
+  const id = await service.save(userId, planId || null, proposed);
+  return Response.json(
+    {
+      ok: true,
+      intent: "save-plan",
+      planId: id,
+      revision: planId ? (proposed.revision ?? 0) + 1 : 1,
+    },
+    { headers: AGENT_NO_STORE },
+  );
+}
+
+async function playPlan(
+  userId: string,
+  service: AgentPlanService,
+  formData: FormData,
+): Promise<Response> {
+  const revision = Number(formData.get("revision"));
+  if (!Number.isSafeInteger(revision) || revision < 1)
+    throw new AgentError("plan_invalid");
+  const run = await service.play(
+    userId,
+    readPlanText(formData.get("planId")),
+    revision,
+  );
+  return Response.json(
+    { ok: true, intent: "play-plan", run },
+    { headers: AGENT_NO_STORE },
   );
 }

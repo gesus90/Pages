@@ -34,12 +34,17 @@ export function usePlanRun(
   const run = selectedRun(runs, selectedId, poll.data);
   const hasError = poll.data?.ok === false && poll.data.runId === selectedId;
   useEffect(() => {
-    if (latest) select(latest.id);
-  }, [latest]);
+    if (latest) {
+      select(latest.id);
+      void loadRun(
+        `/agent-api/plan-runs?runId=${encodeURIComponent(latest.id)}`,
+      );
+    }
+  }, [latest, loadRun]);
   useEffect(() => {
     if (
       !selectedId ||
-      run?.status !== "running" ||
+      (run?.status !== "running" && run?.status !== "paused") ||
       hasError ||
       poll.state !== "idle"
     )

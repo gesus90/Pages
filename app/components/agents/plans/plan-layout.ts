@@ -18,7 +18,8 @@ export function planNodeLabel(
   node: AgentPlanNode,
   sources: AgentPlanSources,
 ): string {
-  if (node.type === "variable") return node.name;
+  if (node.type === "start" || node.type === "end") return node.type;
+  if (node.type === "variable" || node.type === "parameter") return node.name;
   if (node.type === "task") {
     const task = sources.tasks.find((entry) => entry.id === node.taskId);
     return task ? `${task.key}: ${task.title}` : node.taskId;
@@ -35,6 +36,24 @@ export function planNodeClass(type: AgentPlanNode["type"]): string {
     agent: "bg-column-todo border-info/40",
     task: "bg-column-done border-success/40",
     variable: "bg-column-review border-foreground/20",
+    parameter: "bg-column-review border-foreground/20",
+    start: "bg-surface border-success",
+    end: "bg-surface border-primary",
   };
   return classes[type];
+}
+
+/** Port centers share the card geometry so a line always names the port it actually reaches. */
+export function planOutputY(
+  node: AgentPlanNode,
+  sources: AgentPlanSources,
+): number {
+  if (node.type === "agent")
+    return (
+      112 +
+      (sources.agents.find((agent) => agent.id === node.agentId)?.configuration
+        .parameters.length ?? 0) *
+        32
+    );
+  return node.type === "task" ? 112 : 80;
 }

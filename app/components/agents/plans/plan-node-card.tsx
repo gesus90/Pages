@@ -10,8 +10,13 @@ import {
   planNodeLabel,
 } from "./plan-layout";
 import { PlanPorts } from "./plan-ports";
+import { PlanFlowPorts } from "./plan-flow-ports";
 
-import type { AgentPlanNode, AgentPlanSources } from "@/definition/AgentPlan";
+import type {
+  AgentPlanNode,
+  AgentPlanSources,
+  AgentPlanStepResult,
+} from "@/definition/AgentPlan";
 import type { PlanGraphActions } from "./use-plan-graph";
 
 /** Node ports are buttons as well as drag targets, allowing keyboard and touch bindings. */
@@ -20,9 +25,14 @@ export function PlanNodeCard(props: {
   readonly sources: AgentPlanSources;
   readonly graph: PlanGraphActions;
   readonly canEdit: boolean;
+  readonly result?: AgentPlanStepResult;
 }): React.ReactElement {
   const { t } = useTranslation();
   const { node, graph } = props;
+  const label =
+    node.type === "start" || node.type === "end"
+      ? t(`plans.nodeType.${node.type}`)
+      : planNodeLabel(node, props.sources);
   const parameters =
     node.type === "agent"
       ? (props.sources.agents.find((agent) => agent.id === node.agentId)
@@ -34,11 +44,13 @@ export function PlanNodeCard(props: {
   }
   return (
     <article
-      aria-label={planNodeLabel(node, props.sources)}
+      aria-label={label}
       className={cn(
         "absolute rounded-xl border p-3 shadow-xs",
         planNodeClass(node.type),
         graph.selectedId === node.id && "ring-2 ring-primary",
+        graph.issues.some((issue) => issue.nodeId === node.id) &&
+          "border-destructive",
       )}
       style={{
         left: node.x,
@@ -59,54 +71,36 @@ export function PlanNodeCard(props: {
       >
         <span className="block text-xs font-normal text-muted-foreground">
           {t(`plans.nodeType.${node.type}`)}
+          {props.result ? ` · ${t(`plans.status.${props.result.status}`)}` : ""}
         </span>
-        <span className="block truncate">
-          {planNodeLabel(node, props.sources)}
-        </span>
+        <span className="block truncate">{label}</span>
       </button>
-      {node.type === "agent" ? (
-        <div className="flex items-center justify-between gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={!props.canEdit || graph.connection?.kind !== "flow"}
-            onClick={() => graph.connect(node.id)}
-          >
-            {t("plans.flowIn")}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={!props.canEdit}
-            onClick={() => graph.begin({ kind: "flow", nodeId: node.id })}
-          >
-            {t("plans.flowOut")}
-          </Button>
-        </div>
-      ) : null}
+      <PlanFlowPorts node={node} graph={graph} canEdit={props.canEdit} />
       {node.type === "agent" ? (
         <PlanPorts
           node={node}
-          label={planNodeLabel(node, props.sources)}
+          label={label}
           parameters={parameters}
           graph={graph}
           canEdit={props.canEdit}
         />
       ) : null}
-      <Button
-        className="mt-2"
-        size="sm"
-        variant="ghost"
-        disabled={!props.canEdit}
-        onClick={() =>
-          graph.begin({
-            kind: node.type === "agent" ? "result" : "source",
-            nodeId: node.id,
-          })
-        }
-      >
-        {t(node.type === "agent" ? "plans.resultOut" : "plans.valueOut")}
-      </Button>
+      {node.type !== "start" && node.type !== "end" ? (
+        <Button
+          className="mt-2 ml-auto flex"
+          size="sm"
+          variant="ghost"
+          disabled={!props.canEdit}
+          onClick={() =>
+            graph.begin({
+              kind: node.type === "agent" ? "result" : "source",
+              nodeId: node.id,
+            })
+          }
+        >
+          {t(node.type === "agent" ? "plans.resultOut" : "plans.valueOut")}
+        </Button>
+      ) : null}
     </article>
   );
 }

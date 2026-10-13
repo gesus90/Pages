@@ -3,13 +3,17 @@ import { useTranslation } from "react-i18next";
 import { Input } from "@/app/components/ui/input";
 import { Select } from "@/app/components/ui/select";
 
+import { PlanSharing } from "./plan-sharing";
+
 import type { AgentPlanInput } from "@/definition/AgentPlan";
+import type { AgentProfileDirectory } from "@/definition/AgentProfile";
 import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
 
-/** Project and GitHub are readonly facts of the selected workspace. */
+/** Project selection narrows authorized workspaces; the server verifies their relationship again. */
 export function PlanFields(props: {
   readonly draft: AgentPlanInput;
   readonly workspaces: readonly AgentWorkspaceChoice[];
+  readonly directory: AgentProfileDirectory;
   readonly disabled: boolean;
   readonly onChange: (draft: AgentPlanInput) => void;
 }): React.ReactElement {
@@ -18,8 +22,18 @@ export function PlanFields(props: {
   const workspace = props.workspaces.find(
     (entry) => entry.id === draft.workspaceId,
   );
+  const projectId = draft.projectId ?? workspace?.projectId ?? "";
+  const projects = [
+    ...new Map(
+      props.workspaces.map((entry) => [entry.projectId, entry.projectName]),
+    ).entries(),
+  ];
+  const contextDisabled = props.disabled || draft.nodes.length > 0;
   return (
-    <fieldset disabled={props.disabled} className="grid gap-4 sm:grid-cols-2">
+    <fieldset
+      disabled={props.disabled}
+      className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+    >
       <label className="space-y-1 text-sm font-medium">
         <span>{t("plans.name")}</span>
         <Input
@@ -30,27 +44,44 @@ export function PlanFields(props: {
           }
         />
       </label>
-      <div className="space-y-1">
-        <label className="block text-sm font-medium" htmlFor="plan-workspace">
+      <label className="space-y-1 text-sm font-medium">
+        <span>{t("plans.project")}</span>
+        <Select
+          value={projectId}
+          disabled={contextDisabled}
+          ariaLabel={t("plans.project")}
+          options={[
+            { value: "", label: t("plans.chooseProject") },
+            ...projects.map(([id, name]) => ({ value: id, label: name })),
+          ]}
+          onValueChange={(next) =>
+            props.onChange({ ...draft, projectId: next, workspaceId: "" })
+          }
+        />
+      </label>
+      <div className="space-y-1 text-sm">
+        <label className="block font-medium" htmlFor="plan-workspace">
           {t("plans.workspace")}
         </label>
         <Select
           id="plan-workspace"
           ariaLabel={t("plans.workspace")}
           value={draft.workspaceId}
-          disabled={props.disabled || draft.nodes.length > 0}
+          disabled={contextDisabled || !projectId}
           onValueChange={(workspaceId) =>
             props.onChange({ ...draft, workspaceId })
           }
           options={[
             { value: "", label: t("plans.chooseWorkspace") },
-            ...props.workspaces.map((entry) => ({
-              value: entry.id,
-              label: entry.isUsable
-                ? entry.name
-                : t("plans.workspaceUnavailable", { name: entry.name }),
-              disabled: !entry.isUsable,
-            })),
+            ...props.workspaces
+              .filter((entry) => entry.projectId === projectId)
+              .map((entry) => ({
+                value: entry.id,
+                label: entry.isUsable
+                  ? entry.name
+                  : t("plans.workspaceUnavailable", { name: entry.name }),
+                disabled: !entry.isUsable,
+              })),
           ]}
         />
         {props.workspaces.length === 0 ? (
@@ -64,31 +95,12 @@ export function PlanFields(props: {
           </p>
         ) : null}
       </div>
-      <dl className="space-y-1 text-sm">
-        <dt className="font-medium">{t("plans.project")}</dt>
-        <dd>{workspace?.projectName ?? "—"}</dd>
-        <dt className="font-medium">{t("plans.github")}</dt>
-        <dd className="pages-selectable break-all">
-          {workspace?.github?.repoUrl ?? t("workspaces.noGitHub")}
-        </dd>
-      </dl>
-      <div className="space-y-1">
-        <label htmlFor="plan-usage" className="block text-sm font-medium">
-          {t("plans.usage")}
-        </label>
-        <Select
-          id="plan-usage"
-          ariaLabel={t("plans.usage")}
-          value={draft.usage}
-          disabled={props.disabled}
-          onValueChange={(usage) => props.onChange({ ...draft, usage })}
-          options={[
-            { value: "private", label: t("plans.private") },
-            { value: "workspace", label: t("plans.sharedWorkspace") },
-          ]}
-        />
-        <p className="text-xs text-muted-foreground">{t("plans.usageHint")}</p>
-      </div>
+      <PlanSharing
+        draft={draft}
+        directory={props.directory}
+        disabled={props.disabled}
+        onChange={props.onChange}
+      />
     </fieldset>
   );
 }

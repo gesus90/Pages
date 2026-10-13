@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/app/components/ui/button";
 import { Select } from "@/app/components/ui/select";
 
+import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { usePlanRun } from "./use-plan-run";
 
 /** Results contain only final sanitized text, never snapshots, credentials or native diagnostics. */
@@ -49,7 +50,7 @@ export function PlanRunView(props: {
             <p role="status" className="text-sm">
               {t(`plans.status.${run.status}`)} · {completed}/{run.steps.length}
             </p>
-            {run.status === "running" ? (
+            {run.status === "running" || run.status === "paused" ? (
               <Button
                 size="sm"
                 variant="outline"
@@ -66,43 +67,56 @@ export function PlanRunView(props: {
             value={completed}
             max={run.steps.length}
           />
-          <ol className="space-y-3">
-            {run.steps.map((step) => (
-              <li key={step.id} className="rounded-lg bg-surface p-3 text-sm">
-                <p className="font-medium">
-                  {step.name}{" "}
-                  <span className="font-normal">
-                    {t(
-                      step.isBlocked
-                        ? "plans.blocked"
-                        : `plans.status.${step.status}`,
-                    )}
-                  </span>
-                </p>
-                {step.cancellation !== "none" ? (
-                  <p className="text-xs text-muted-foreground">
-                    {t(`plans.cancellation.${step.cancellation}`)}
-                  </p>
-                ) : null}
-                {step.error ? (
-                  <p className="text-destructive">
-                    {t(`settings.agents.error.${step.error}`, {
-                      defaultValue: t(`assistant.error.${step.error}`),
-                    })}
-                  </p>
-                ) : null}
-                {step.output !== null ? (
-                  <pre className="pages-selectable mt-2 whitespace-pre-wrap break-words font-sans">
-                    {step.output}
-                  </pre>
-                ) : null}
-              </li>
-            ))}
-          </ol>
+          <RunSteps steps={run.steps} />
         </>
       ) : (
         <p className="text-sm text-muted-foreground">{t("plans.noRuns")}</p>
       )}
     </section>
+  );
+}
+
+function RunSteps({
+  steps,
+}: {
+  readonly steps: readonly AgentPlanStepResult[];
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <ol className="space-y-3">
+      {steps.map((step) => (
+        <li key={step.id} className="rounded-lg bg-surface p-3 text-sm">
+          <p className="font-medium">
+            {t(`plans.nodeType.${step.name}`, {
+              defaultValue: step.name,
+            })}{" "}
+            <span className="font-normal">
+              {t(
+                step.isBlocked
+                  ? "plans.blocked"
+                  : `plans.status.${step.status}`,
+              )}
+            </span>
+          </p>
+          {step.cancellation !== "none" ? (
+            <p className="text-xs text-muted-foreground">
+              {t(`plans.cancellation.${step.cancellation}`)}
+            </p>
+          ) : null}
+          {step.error ? (
+            <p className="text-destructive">
+              {t(`settings.agents.error.${step.error}`, {
+                defaultValue: t(`assistant.error.${step.error}`),
+              })}
+            </p>
+          ) : null}
+          {step.output !== null ? (
+            <pre className="pages-selectable mt-2 whitespace-pre-wrap break-words font-sans">
+              {step.output}
+            </pre>
+          ) : null}
+        </li>
+      ))}
+    </ol>
   );
 }

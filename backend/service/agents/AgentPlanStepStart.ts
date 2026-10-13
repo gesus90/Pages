@@ -3,7 +3,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { bindAgentParameters } from "./AgentParameterBinding";
 
 import type { TextExecutionInput } from "@/backend/agents/TextExecution";
-import type { AgentPlanRun } from "@/definition/AgentPlan";
+import type { AgentPlanNode, AgentPlanRun } from "@/definition/AgentPlan";
 import type {
   AgentPlanStepSnapshot,
   AgentPlanSnapshot,
@@ -38,6 +38,25 @@ export class AgentPlanStepStart {
 
   public constructor(dependencies: StartDependencies) {
     this.dependencies = dependencies;
+  }
+
+  /** Flow tickets are authorized checkpoints; they do not change ticket status or call a model. */
+  public async control(
+    run: AgentPlanRun,
+    snapshot: AgentPlanSnapshot,
+    node: AgentPlanNode,
+  ): Promise<void> {
+    await this.dependencies.access.require(run.userId, snapshot.plan.id);
+    if (node.type === "task") {
+      await this.dependencies.tasks.snapshot(
+        run.userId,
+        snapshot.plan.projectId,
+        node.taskId,
+      );
+      return;
+    }
+    if (node.type !== "start" && node.type !== "end")
+      throw new AgentError("plan_invalid");
   }
 
   /** Resolves credentials for the current executor and rejects a redirected model or working copy. */

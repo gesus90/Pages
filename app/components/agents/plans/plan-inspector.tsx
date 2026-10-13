@@ -5,6 +5,7 @@ import { Input } from "@/app/components/ui/input";
 import { Select } from "@/app/components/ui/select";
 import { Textarea } from "@/app/components/ui/textarea";
 
+import { PlanValueFields } from "./plan-value-fields";
 import { PlanParameterInput } from "./plan-parameter-input";
 import { planNodeLabel } from "./plan-layout";
 
@@ -83,6 +84,16 @@ export function PlanInspector(props: InspectorProps): React.ReactElement {
         </Button>
       </div>
       {node.type === "agent" ? <StepFields {...props} step={node} /> : null}
+      {node.type === "parameter" ? (
+        <PlanValueFields
+          node={node}
+          workspaces={props.workspaces.filter(
+            (workspace) => workspace.projectId === props.draft.projectId,
+          )}
+          disabled={props.disabled}
+          onChange={props.graph.replaceNode}
+        />
+      ) : null}
     </section>
   );
 }
@@ -93,9 +104,6 @@ function StepFields(
   const { t } = useTranslation();
   const { step } = props;
   const agent = props.sources.agents.find((entry) => entry.id === step.agentId);
-  const projectId = props.workspaces.find(
-    (workspace) => workspace.id === props.draft.workspaceId,
-  )?.projectId;
   return (
     <fieldset disabled={props.disabled} className="space-y-3">
       <label className="block space-y-1 text-sm">
@@ -137,7 +145,7 @@ function StepFields(
           />
         </div>
       ) : null}
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3">
         {agent?.configuration.parameters.map((parameter) => (
           <PlanParameterInput
             key={parameter.name}
@@ -145,11 +153,8 @@ function StepFields(
             step={step}
             draft={props.draft}
             sources={props.sources}
-            workspaces={props.workspaces.filter(
-              (workspace) => workspace.projectId === projectId,
-            )}
+            graph={props.graph}
             disabled={props.disabled}
-            onChange={props.graph.replaceStep}
           />
         ))}
       </div>

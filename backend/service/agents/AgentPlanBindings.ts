@@ -22,6 +22,7 @@ export function planBindings(
       if (binding.kind === "result")
         return [name, { type: "text", text: "[pending predecessor result]" }];
       const source = plan.nodes.find((node) => node.id === binding.nodeId);
+      if (source?.type === "parameter") return [name, source.value];
       if (
         source?.type === "variable" &&
         Object.hasOwn(plan.globals, source.name)

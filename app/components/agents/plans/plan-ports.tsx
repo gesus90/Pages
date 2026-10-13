@@ -1,10 +1,12 @@
 import { useTranslation } from "react-i18next";
 
+import { cn } from "@/app/lib/cn";
+
 import type { AgentPlanStep } from "@/definition/AgentPlan";
 import type { AgentParameter } from "@/definition/AgentParameters";
 import type { PlanGraphActions } from "./use-plan-graph";
 
-/** Accepts task/variable drops directly on a compatible input port, as well as button connections. */
+/** Every named data IN validates the source type; disconnecting is an explicit operation. */
 export function PlanPorts(props: {
   readonly node: AgentPlanStep;
   readonly label: string;
@@ -17,53 +19,71 @@ export function PlanPorts(props: {
     event: React.DragEvent<HTMLButtonElement>,
     parameter: string,
   ): void {
-    event.preventDefault();
-    event.stopPropagation();
-    if (!props.canEdit) return;
     const [kind, reference] = event.dataTransfer
       .getData("application/x-pages-plan")
       .split(":");
-    if (!reference) return;
-    let id: string | null = null;
-    if (kind === "node") id = reference;
-    if (kind === "task" || kind === "variable")
-      id = props.graph.add(kind, reference, {
-        x: Math.max(0, props.node.x - 320),
-        y: props.node.y + 240,
-      });
-    if (id) props.graph.bindSource(id, props.node.id, parameter);
+    if (kind !== "node" || !reference || !props.canEdit) return;
+    event.preventDefault();
+    event.stopPropagation();
+    props.graph.bindSource(reference, props.node.id, parameter);
+  }
+  function disconnect(name: string): void {
+    props.graph.replaceStep({
+      ...props.node,
+      bindings: Object.fromEntries(
+        Object.entries(props.node.bindings).filter(([key]) => key !== name),
+      ),
+    });
   }
   return (
     <>
-      {props.parameters.map((parameter) => (
-        <button
-          type="button"
-          key={parameter.name}
-          className="flex h-8 w-full items-center gap-2 text-left text-xs hover:underline disabled:opacity-60"
-          aria-label={t("plans.bindPort", {
-            parameter: parameter.name,
-            name: props.label,
-          })}
-          disabled={!props.canEdit || parameter.type !== "text"}
-          onDragOver={(event) => {
-            if (props.canEdit && parameter.type === "text")
-              event.preventDefault();
-          }}
-          onDrop={(event) => {
-            if (parameter.type === "text") drop(event, parameter.name);
-          }}
-          onClick={() => {
-            if (props.canEdit && parameter.type === "text")
-              props.graph.connect(props.node.id, parameter.name);
-          }}
-        >
-          <span
-            className="size-2 shrink-0 rounded-sm border border-current"
-            aria-hidden="true"
-          />
-          {parameter.name} ({parameter.type})
-        </button>
-      ))}
+      {props.parameters.map((parameter) => {
+        const hasIssue = props.graph.issues.some(
+          (issue) =>
+            issue.nodeId === props.node.id && issue.port === parameter.name,
+        );
+        return (
+          <div key={parameter.name} className="flex h-8 items-center gap-1">
+            <button
+              type="button"
+              className={cn(
+                "flex min-w-0 flex-1 items-center gap-1 text-left text-xs hover:underline disabled:opacity-60",
+                hasIssue && "text-destructive",
+              )}
+              aria-label={t("plans.bindPort", {
+                parameter: parameter.name,
+                name: props.label,
+              })}
+              disabled={!props.canEdit}
+              onDragOver={(event) => {
+                if (props.canEdit) event.preventDefault();
+              }}
+              onDrop={(event) => drop(event, parameter.name)}
+              onClick={() => props.graph.connect(props.node.id, parameter.name)}
+            >
+              <span
+                className="size-2 shrink-0 rounded-sm border border-current"
+                aria-hidden="true"
+              />
+              <span className="truncate">
+                {t("plans.dataIn")} · {parameter.name} ({parameter.type})
+                {parameter.isRequired ? " *" : ""}
+              </span>
+            </button>
+            {props.node.bindings[parameter.name] ? (
+              <button
+                type="button"
+                className="px-1 text-xs hover:underline"
+                disabled={!props.canEdit}
+                aria-label={t("plans.disconnect", { name: parameter.name })}
+                onClick={() => disconnect(parameter.name)}
+              >
+                ×
+              </button>
+            ) : null}
+          </div>
+        );
+      })}
     </>
   );
 }

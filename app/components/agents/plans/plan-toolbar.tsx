@@ -1,11 +1,11 @@
-import { Play, Plus, Save } from "lucide-react";
+import { Pause, Play, Plus, Save } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 
 import { Button } from "@/app/components/ui/button";
 import { Select } from "@/app/components/ui/select";
 
-import type { AgentPlanPage } from "@/definition/AgentPlan";
+import type { AgentPlanPage, AgentPlanRun } from "@/definition/AgentPlan";
 import type { usePlanEditor } from "./use-plan-editor";
 
 /** Saved plan navigation uses the existing route so back/forward and dirty-draft protection work together. */
@@ -47,9 +47,11 @@ export function PlanHeader({
 export function PlanActions(props: {
   readonly editor: ReturnType<typeof usePlanEditor>;
   readonly hasSelection: boolean;
+  readonly run: AgentPlanRun | null;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const { editor } = props;
+  const { editor, run } = props;
+  const isActive = run?.status === "running" || run?.status === "paused";
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Button
@@ -72,6 +74,8 @@ export function PlanActions(props: {
           editor.isPending ||
           !props.hasSelection ||
           editor.isDirty ||
+          isActive ||
+          editor.graph.issues.length > 0 ||
           !editor.draft.nodes.some((node) => node.type === "agent")
         }
         onClick={editor.play}
@@ -79,11 +83,41 @@ export function PlanActions(props: {
         <Play className="size-4" aria-hidden="true" />
         {t("plans.play")}
       </Button>
+      <RunControl editor={editor} run={run} />
       {editor.isDirty ? (
         <p className="text-xs text-muted-foreground">
           {t("plans.saveBeforePlay")}
         </p>
       ) : null}
     </div>
+  );
+}
+
+function RunControl({
+  editor,
+  run,
+}: {
+  readonly editor: ReturnType<typeof usePlanEditor>;
+  readonly run: AgentPlanRun | null;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (!run || (run.status !== "running" && run.status !== "paused"))
+    return null;
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      disabled={editor.isPending || run.stopRequested}
+      onClick={() =>
+        run.status === "paused" ? editor.resume(run.id) : editor.pause(run.id)
+      }
+    >
+      {run.status === "paused" ? (
+        <Play className="size-4" aria-hidden="true" />
+      ) : (
+        <Pause className="size-4" aria-hidden="true" />
+      )}
+      {t(run.status === "paused" ? "plans.resume" : "plans.pause")}
+    </Button>
   );
 }

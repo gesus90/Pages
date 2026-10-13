@@ -82,6 +82,13 @@ async function readUsages(
     WHERE workspace_id = $id
         OR EXISTS (
             SELECT 1
+            FROM json_each(json_extract(agent_plans.plan_json, '$.nodes')) AS node
+            WHERE json_extract_string(node.value, '$.type') = 'parameter'
+                AND json_extract_string(node.value, '$.value.type') = 'workspace'
+                AND json_extract_string(node.value, '$.value.workspaceId') = $id
+        )
+        OR EXISTS (
+            SELECT 1
             FROM json_each(json_extract(agent_plans.plan_json, '$.nodes')) AS node,
                 json_each(json_extract(node.value, '$.bindings')) AS binding
             WHERE json_extract_string(binding.value, '$.value.type') = 'workspace'

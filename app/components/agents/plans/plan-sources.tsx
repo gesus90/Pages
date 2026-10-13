@@ -9,33 +9,31 @@ import { Button } from "@/app/components/ui/button";
 import type { AgentPlanNode, AgentPlanSources } from "@/definition/AgentPlan";
 import type { PlanGraphActions } from "./use-plan-graph";
 
-interface SourceProps {
+export interface SourceProps {
   readonly sources: AgentPlanSources;
   readonly graph: PlanGraphActions;
   readonly canEdit: boolean;
 }
 
-/** Two independent source filters never widen the server-authorized resource sets. */
-export function PlanSources(props: SourceProps): React.ReactElement {
-  return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <AgentSources {...props} />
-      <TaskSources {...props} />
-    </div>
-  );
-}
-
-function AgentSources(props: SourceProps): React.ReactElement {
+/** Searches only the server-authorized agent catalog. */
+export function AgentSources(props: SourceProps): React.ReactElement {
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
-  const [usableOnly, setUsableOnly] = useState(false);
-  const agents = props.sources.agents.filter(
-    (agent) =>
-      `${agent.name} ${agent.model} ${agent.configuration.tag}`
-        .toLowerCase()
-        .includes(search.toLowerCase()) &&
-      (!usableOnly || agent.availability.isUsable),
-  );
+  const [usableOnly, setUsableOnly] = useState(true);
+  const [sort, setSort] = useState<"name" | "model">("name");
+  const agents = props.sources.agents
+    .filter(
+      (agent) =>
+        `${agent.name} ${agent.model} ${agent.configuration.tag}`
+          .toLowerCase()
+          .includes(search.toLowerCase()) &&
+        (!usableOnly || agent.availability.isUsable),
+    )
+    .sort(
+      (first, second) =>
+        first[sort].localeCompare(second[sort]) ||
+        first.id.localeCompare(second.id),
+    );
   return (
     <section
       aria-label={t("plans.agentSources")}
@@ -48,6 +46,15 @@ function AgentSources(props: SourceProps): React.ReactElement {
         value={search}
         onChange={(event) => setSearch(event.target.value)}
       />
+      <Select<"name" | "model">
+        ariaLabel={t("plans.sort")}
+        value={sort}
+        onValueChange={setSort}
+        options={[
+          { value: "name", label: t("plans.sortName") },
+          { value: "model", label: t("plans.sortModel") },
+        ]}
+      />
       <label className="flex items-center gap-2 text-sm">
         <input
           type="checkbox"
@@ -57,7 +64,7 @@ function AgentSources(props: SourceProps): React.ReactElement {
         {t("plans.usableOnly")}
       </label>
       <VerticalScrollArea
-        className="max-h-56"
+        className="max-h-[35vh]"
         contentClassName="space-y-2 pb-5"
       >
         {agents.map((agent) => (
@@ -90,17 +97,25 @@ function AgentSources(props: SourceProps): React.ReactElement {
   );
 }
 
-function TaskSources(props: SourceProps): React.ReactElement {
+/** Project tickets retain their visibility and can be searched, filtered and sorted. */
+export function TaskSources(props: SourceProps): React.ReactElement {
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [type, setType] = useState("");
-  const tasks = props.sources.tasks.filter(
-    (task) =>
-      `${task.key} ${task.title} ${task.statusName}`
-        .toLowerCase()
-        .includes(search.toLowerCase()) &&
-      (!type || task.type === type),
-  );
+  const [sort, setSort] = useState<"key" | "title" | "statusName">("key");
+  const tasks = props.sources.tasks
+    .filter(
+      (task) =>
+        `${task.key} ${task.title} ${task.statusName}`
+          .toLowerCase()
+          .includes(search.toLowerCase()) &&
+        (!type || task.type === type),
+    )
+    .sort(
+      (first, second) =>
+        first[sort].localeCompare(second[sort], undefined, { numeric: true }) ||
+        first.id.localeCompare(second.id),
+    );
   return (
     <section
       aria-label={t("plans.taskSources")}
@@ -113,6 +128,16 @@ function TaskSources(props: SourceProps): React.ReactElement {
         value={search}
         onChange={(event) => setSearch(event.target.value)}
       />
+      <Select<"key" | "title" | "statusName">
+        ariaLabel={t("plans.sort")}
+        value={sort}
+        onValueChange={setSort}
+        options={[
+          { value: "key", label: t("plans.sortKey") },
+          { value: "title", label: t("plans.sortName") },
+          { value: "statusName", label: t("plans.sortStatus") },
+        ]}
+      />
       <Select
         ariaLabel={t("plans.taskTypeFilter")}
         value={type}
@@ -124,7 +149,7 @@ function TaskSources(props: SourceProps): React.ReactElement {
         ]}
       />
       <VerticalScrollArea
-        className="max-h-56"
+        className="max-h-[35vh]"
         contentClassName="space-y-2 pb-5"
       >
         {tasks.map((task) => (

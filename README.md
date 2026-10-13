@@ -60,6 +60,78 @@ Routes handle the request, services hold the business logic, repositories hold
 the SQL. React components live in `app/components/`, shared types and contracts
 in `definition/`.
 
+## Agents execution plans
+
+Under **Agents → Ausführplan** (`/agents/plans`), choose a saved plan or use
+**+** to create one. Set its title, project, workspace and sharing. The project
+selection narrows the registered workspaces and their ticket picker. Only
+workspaces in accessible projects are offered; unavailable registrations are
+explained and cannot be selected for new work.
+
+The grid is the main editor. A collapsible panel on the right has **Agents**,
+**Tickets** and **Parameters** tabs. Search, filter and sort the authorized
+agents and project tasks/subtasks, then drag them onto the grid. Buttons offer
+an alternative to dragging. Move nodes by their header or edit their grid
+coordinates. The panel edits instances and their inputs; agent definitions
+remain in the existing Agents area.
+
+A parameter node contains one name and one value: string, finite number or a
+single valid JSON value, including an object or array. Invalid JSON is rejected
+without creating fields from its properties. Numbers and JSON are passed as
+text to the existing agent text parameters. Workspace and wiki references are
+single values of their existing types and require matching input ports and
+current resource access.
+
+Select an **OUT** port, then a compatible **IN** port:
+
+- Solid **Flow OUT → Flow IN** edges control order. Agents and flow tickets
+  have both ports; a **Start** has only OUT and an **End** only IN.
+- Dashed **Data OUT → named Data IN** connections bind values directly to an
+  agent parameter. Ticket data becomes authorized ticket markdown at a text
+  port. Data alone never schedules a node; tickets used only as data sources
+  do not need flow edges. A ticket in the flow is an authorized checkpoint and
+  does not implicitly change its ticket status.
+- A data IN accepts one source. Disconnect before rebinding. Wrong directions,
+  unknown ports, incompatible types, duplicate connections and flow cycles
+  are rejected. Existing predecessor-result connections remain available and
+  require a flow path from the producing agent to the consuming agent.
+
+An executable plan needs at least one usable agent, an explicit Start and a
+reachable End. Every flow node must be reachable from a Start and lead to an
+End; every required flow IN/OUT must be connected. Required agent inputs,
+including a configured working directory, need connected, nonempty values.
+When inserting an agent, its configured defaults become individual connected
+parameter nodes. Earlier plans keep their values and bindings; old literal
+bindings can be converted into value nodes in the selection panel. They need
+explicit Start/End nodes and connected required parameters before Play.
+
+**Save** persists the metadata, positions, port references, connections and
+values. Incomplete drafts can be saved; invalid connections cannot. Revision
+checks reject conflicting writes. Navigation and tab closing warn about
+unsaved changes, and run polling does not replace an edited draft.
+
+**Play** validates and executes the saved revision using the Pages execution
+service and its existing API/CLI adapters. Solid branches run independently,
+with at most two concurrent nodes across the service. A join waits for every
+incoming predecessor to succeed; a failed predecessor blocks its continuation.
+Independent CLI branches may not write to the same working copy.
+
+Run and node status show waiting, running, succeeded, failed, paused or
+cancelled. **Pause** persists the current run and prevents additional nodes
+from starting; nodes already running may finish. **Resume** continues that
+same snapshot without repeating completed nodes. Paused runs retain their
+working-copy reservations. **Stop** remains available to cancel a run.
+Reloading the page retains its persisted state. After a server interruption,
+unfinished runs are marked failed rather than silently replaying work; a new
+run is an explicit action.
+
+Plans may be private, global, or shared with Pages groups and departments
+using OR/AND membership. Global sharing still requires access to the plan's
+project and workspace. Only the owner may edit. Every executor needs their own
+current agent/model and ticket/wiki permissions; sharing never delegates
+credentials. Only the executor may read, pause, resume or stop their run, and
+resource access is rechecked on the server before execution and disclosure.
+
 ## Getting started
 
 ### Requirements

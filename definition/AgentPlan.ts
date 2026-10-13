@@ -1,5 +1,7 @@
 import type { AgentDefinitionChoice } from "./AgentAvailability";
 import type { AgentParameterValue } from "./AgentParameters";
+import type { AgentConfiguration } from "./AgentConfiguration";
+import type { AgentProfileDirectory } from "./AgentProfile";
 import type { AgentWorkspaceChoice, WorkspaceGitHub } from "./AgentWorkspace";
 
 /** Plan sources and execution dependencies are deliberately separate contracts. */
@@ -23,9 +25,24 @@ export interface AgentPlanStep extends AgentPlanPosition {
   readonly bindings: Readonly<Record<string, AgentPlanBinding>>;
 }
 
+/** One named value; numbers and JSON are rendered once into existing text ports. */
+export interface AgentPlanParameter extends AgentPlanPosition {
+  readonly id: string;
+  readonly type: "parameter";
+  readonly name: string;
+  readonly format: "string" | "number" | "json";
+  readonly value: AgentParameterValue;
+}
+
 /** Source nodes provide input; they never create an execution dependency. */
 export type AgentPlanNode =
   | AgentPlanStep
+  | AgentPlanParameter
+  | (AgentPlanPosition & { readonly id: string; readonly type: "end" })
+  | (AgentPlanPosition & {
+      readonly id: string;
+      readonly type: "start";
+    })
   | (AgentPlanPosition & {
       readonly id: string;
       readonly type: "task";
@@ -40,6 +57,8 @@ export type AgentPlanNode =
 export interface AgentPlanEdge {
   readonly from: string;
   readonly to: string;
+  readonly fromPort: string;
+  readonly toPort: string;
 }
 
 /** Workspace sharing follows live project access; it never delegates credentials. */
@@ -47,6 +66,9 @@ export interface AgentPlanInput {
   readonly name: string;
   readonly workspaceId: string;
   readonly usage: "private" | "workspace";
+  /** Absent only in older plans, where workspace usage meant every project member. */
+  readonly sharing?: AgentConfiguration["sharing"];
+  readonly projectId?: string;
   readonly globals: Readonly<Record<string, string>>;
   readonly nodes: readonly AgentPlanNode[];
   readonly edges: readonly AgentPlanEdge[];
@@ -89,10 +111,11 @@ export interface AgentPlanPage {
   readonly selected: AgentPlanView | null;
   readonly sources: AgentPlanSources;
   readonly runs: readonly AgentPlanRun[];
+  readonly directory: AgentProfileDirectory;
 }
 
 export type AgentPlanStepStatus =
-  "waiting" | "running" | "succeeded" | "failed" | "cancelled";
+  "waiting" | "running" | "succeeded" | "failed" | "cancelled" | "paused";
 
 /** Blocked waiting steps and confirmed cancellations remain distinguishable. */
 export interface AgentPlanStepResult {
@@ -113,7 +136,7 @@ export interface AgentPlanRun {
   readonly planRevision: number;
   readonly userId: string;
   readonly startedAt: string;
-  readonly status: "running" | "succeeded" | "failed" | "cancelled";
+  readonly status: "running" | "succeeded" | "failed" | "cancelled" | "paused";
   readonly stopRequested: boolean;
   readonly steps: readonly AgentPlanStepResult[];
 }
@@ -124,7 +147,9 @@ export function emptyAgentPlan(): AgentPlanInput {
     name: "",
     workspaceId: "",
     usage: "private",
-    globals: { branch: "" },
+    sharing: { isGlobal: false, targets: [], operator: "or" },
+    projectId: "",
+    globals: {},
     nodes: [],
     edges: [],
   };

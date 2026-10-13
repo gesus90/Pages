@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { readPlanInput } from "@/backend/agents/AgentPlanInput";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { requireCredentialFreeText } from "@/backend/service/assistant/TextAssistantValidation";
 
 import { planSteps, validatePlanGraph } from "./AgentPlanGraph";
 import { requireAgentAdministrator } from "./AgentServiceAccess";
@@ -88,7 +89,7 @@ export class AgentPlanService {
               cancellation: "requested",
               error: "plan_interrupted",
             };
-          if (step.status === "waiting")
+          if (step.status === "waiting" || step.status === "paused")
             return { ...step, isBlocked: true, error: "plan_interrupted" };
           return step;
         }),
@@ -126,6 +127,7 @@ export class AgentPlanService {
         ? await this.sources(userId, workspace.id)
         : { agents: [], tasks: [] },
       runs: selected ? await this.history(userId, selected.id) : [],
+      directory: await this.dependencies.access.directory(userId),
     };
   }
 
@@ -152,7 +154,7 @@ export class AgentPlanService {
     input: unknown,
   ): Promise<string> {
     const proposed = readPlanInput(input);
-    validatePlanGraph(proposed);
+    requireCredentialFreeText(JSON.stringify(proposed));
     const previous =
       id === null ? null : await this.dependencies.access.require(userId, id);
     if (previous && !previous.canEdit)
@@ -169,8 +171,20 @@ export class AgentPlanService {
       userId,
       proposed.workspaceId,
     );
+    if (
+      proposed.projectId !== undefined &&
+      proposed.projectId !== workspace.projectId
+    )
+      throw new AgentError("plan_context_changed");
     await this.validateReferences(userId, proposed, workspace.projectId);
     const planId = id ?? randomUUID();
+    await this.dependencies.access.validateSharing({
+      ...proposed,
+      id: planId,
+      ownerId: userId,
+      projectId: workspace.projectId,
+      revision: proposed.revision ?? 1,
+    });
     await this.dependencies.plans.save(
       {
         ...proposed,
@@ -204,6 +218,9 @@ export class AgentPlanService {
       throw new AgentError("plan_access_denied");
     await this.dependencies.access.require(userId, run.planId);
     const resources = await this.dependencies.runs.resources(id);
+    for (const agentId of resources.agentIds)
+      if (!(await this.dependencies.profiles.isVisible(userId, agentId)))
+        throw new AgentError("plan_access_denied");
     // Access only: a run that started must stay readable and stoppable after its directory or link is gone.
     for (const workspaceId of resources.workspaceIds)
       await this.dependencies.workspaces.requireAccess(
@@ -226,6 +243,20 @@ export class AgentPlanService {
   public async stop(userId: string, id: string): Promise<AgentPlanRun> {
     await this.run(userId, id);
     await this.dependencies.engine.stop(id);
+    return this.run(userId, id);
+  }
+
+  /** Only the executor with current plan and resource access may pause this run. */
+  public async pause(userId: string, id: string): Promise<AgentPlanRun> {
+    await this.run(userId, id);
+    await this.dependencies.engine.pause(id);
+    return this.run(userId, id);
+  }
+
+  /** Reauthorizes the original executor; the engine keeps the original run snapshot. */
+  public async resume(userId: string, id: string): Promise<AgentPlanRun> {
+    await this.run(userId, id);
+    await this.dependencies.engine.resume(id);
     return this.run(userId, id);
   }
 
@@ -278,6 +309,7 @@ export class AgentPlanService {
     projectId: string,
   ): Promise<void> {
     const catalog = await this.dependencies.profiles.catalog(userId, projectId);
+    validatePlanGraph(proposed, catalog);
     if (
       planSteps(proposed).some(
         (step) => !catalog.some((agent) => agent.id === step.agentId),
@@ -287,6 +319,23 @@ export class AgentPlanService {
     for (const node of proposed.nodes) {
       if (node.type === "task")
         await this.dependencies.tasks.snapshot(userId, projectId, node.taskId);
+      const values = node.type === "parameter" ? [node.value] : [];
+      if (node.type === "agent")
+        values.push(
+          ...Object.values(node.bindings).flatMap((binding) =>
+            binding.kind === "literal" && binding.value ? [binding.value] : [],
+          ),
+        );
+      for (const value of values) {
+        if (value.type === "wiki")
+          await this.dependencies.parameters.requireWiki(userId, value.pageId);
+        if (value.type === "workspace")
+          await this.dependencies.workspaces.resolve(
+            userId,
+            value.workspaceId,
+            projectId,
+          );
+      }
     }
   }
 
