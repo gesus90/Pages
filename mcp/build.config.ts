@@ -7,7 +7,7 @@ import manifest from "./package.json" with { type: "json" };
 await rm("dist", { recursive: true, force: true });
 await build({
   entryPoints: ["src/main.ts"],
-  outfile: `dist/pages-mcp-v${manifest.version}.js`,
+  outfile: `dist/pages-mcp-v${manifest.version}.cjs`,
   bundle: true,
   platform: "node",
   target: "node24",
