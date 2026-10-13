@@ -127,18 +127,20 @@ function WorkspaceTable(props: {
   readonly onEdit: (workspace: AgentWorkspaceView) => void;
 }): React.ReactElement {
   const { t } = useTranslation();
+  // People who may manage none of the listed workspaces get no empty actions column.
+  const hasActions = props.workspaces.some((workspace) => workspace.canManage);
+  const columns = ["name", "project", "path", "github", "state"];
+  if (hasActions) columns.push("actions");
   return (
     <HorizontalScrollArea>
       <table className="w-full text-left text-sm">
         <thead>
           <tr>
-            {["name", "project", "path", "github", "state", "actions"].map(
-              (column) => (
-                <th key={column} scope="col" className="px-4 py-3">
-                  {t(`workspaces.${column}`)}
-                </th>
-              ),
-            )}
+            {columns.map((column) => (
+              <th key={column} scope="col" className="px-4 py-3">
+                {t(`workspaces.${column}`)}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody className="divide-y divide-border/60">
@@ -146,6 +148,7 @@ function WorkspaceTable(props: {
             <WorkspaceRow
               key={workspace.id}
               workspace={workspace}
+              hasActions={hasActions}
               onEdit={() => props.onEdit(workspace)}
             />
           ))}

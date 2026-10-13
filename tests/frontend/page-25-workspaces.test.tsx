@@ -384,6 +384,28 @@ describe("PAGE-25 actions follow the right on each project", () => {
     expect(screen.getByText("Foreign")).toBeVisible();
   });
 
+  it("leaves out the actions column when nothing in the list can be managed", async () => {
+    await mount(
+      <WorkspacePage
+        page={page({
+          canManage: false,
+          workspaces: [workspace({ canManage: false })],
+        })}
+      />,
+    );
+    await screen.findByRole("row", { name: /Development/u });
+    expect(
+      screen.getAllByRole("columnheader").map((header) => header.textContent),
+    ).toEqual([
+      "Name",
+      "Project",
+      "Local path",
+      "GitHub from project",
+      "Availability",
+    ]);
+    expect(screen.getAllByRole("cell")).toHaveLength(4);
+  });
+
   it("explains an unusable workspace in the list", async () => {
     await mount(
       <WorkspacePage

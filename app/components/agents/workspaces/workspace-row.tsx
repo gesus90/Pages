@@ -14,13 +14,58 @@ import { WorkspaceDelete } from "./workspace-delete";
 
 import type { AgentWorkspaceView } from "@/definition/AgentWorkspace";
 
-/** Keeps path failures visible and registration administration separate from usage. */
-export function WorkspaceRow(props: {
+/** Edit and removal of one registration, offered only where the person may manage its project. */
+function WorkspaceActions(props: {
   readonly workspace: AgentWorkspaceView;
   readonly onEdit: () => void;
 }): React.ReactElement {
   const { t } = useTranslation();
   const [isDeleting, setDeleting] = useState(false);
+  const { workspace } = props;
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label={t("settings.agents.actionsFor", {
+              name: workspace.name,
+            })}
+          >
+            <MoreHorizontal className="size-4" aria-hidden="true" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={props.onEdit}>
+            {t("settings.agents.edit")}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="text-destructive"
+            onSelect={() => setDeleting(true)}
+          >
+            {t("workspaces.unregister")}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {isDeleting ? (
+        <WorkspaceDelete
+          workspace={workspace}
+          onClose={() => setDeleting(false)}
+        />
+      ) : null}
+    </>
+  );
+}
+
+/** Keeps path failures visible and registration administration separate from usage. */
+export function WorkspaceRow(props: {
+  readonly workspace: AgentWorkspaceView;
+  /** Whether the table has an actions column at all, which depends on the whole list. */
+  readonly hasActions: boolean;
+  readonly onEdit: () => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
   const { workspace } = props;
   return (
     <tr>
@@ -41,42 +86,13 @@ export function WorkspaceRow(props: {
             : t("workspaces.ready")}
         </span>
       </td>
-      <td className="px-4 py-3">
-        {workspace.canManage ? (
-          <>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  size="icon-sm"
-                  variant="ghost"
-                  aria-label={t("settings.agents.actionsFor", {
-                    name: workspace.name,
-                  })}
-                >
-                  <MoreHorizontal className="size-4" aria-hidden="true" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={props.onEdit}>
-                  {t("settings.agents.edit")}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="text-destructive"
-                  onSelect={() => setDeleting(true)}
-                >
-                  {t("workspaces.unregister")}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {isDeleting ? (
-              <WorkspaceDelete
-                workspace={workspace}
-                onClose={() => setDeleting(false)}
-              />
-            ) : null}
-          </>
-        ) : null}
-      </td>
+      {props.hasActions ? (
+        <td className="px-4 py-3">
+          {workspace.canManage ? (
+            <WorkspaceActions workspace={workspace} onEdit={props.onEdit} />
+          ) : null}
+        </td>
+      ) : null}
     </tr>
   );
 }
