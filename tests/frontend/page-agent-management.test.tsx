@@ -18,6 +18,7 @@ beforeAll(installEditorGeometry);
 
 function page(): PageAgentPage {
   return {
+    isAdministrator: false,
     agents: [],
     models: [
       {
@@ -413,6 +414,20 @@ describe("PAGE-20 failure state of the agent list", () => {
     await mountFailing(403);
     expect(await screen.findByRole("alert")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+  });
+});
+
+describe("PAGE-20 link to the central administration", () => {
+  it("offers administrators the way to the agent management and nobody else", async () => {
+    await mount({ ...page(), isAdministrator: true });
+    expect(
+      screen.getByRole("link", { name: "Agent management" }),
+    ).toHaveAttribute("href", "/settings/agents");
+  });
+
+  it("does not show the link to people without administration", async () => {
+    await mount(page());
+    expect(screen.queryByRole("link", { name: "Agent management" })).toBeNull();
   });
 });
 

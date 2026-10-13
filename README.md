@@ -500,9 +500,10 @@ Full tests, coverage, final build and overall acceptance remain deferred to A10.
 
 **Agents → Agents list** (`/agents/agents`; *Agents Liste* in the German
 interface) is where people create and manage their own agents for recurring
-work such as tests and tasks. Administrators keep managing connections, model
-profiles and their assignments under *Settings → Agents*; they do not edit or
-delete the agents of users.
+work such as tests and tasks. The list shows the agents of users: the person's
+own and those shared with them. Administrators keep managing connections, model
+profiles and their agents under *Settings → Agents*, which the page links to for
+them; they do not edit or delete the agents of users.
 
 - **Model and reasoning.** An agent names one *model profile* with the purpose
   Agent that administrators set up, and a reasoning level that the model's

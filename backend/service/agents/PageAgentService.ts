@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { readAgentConfiguration } from "@/backend/agents/AgentConfigurationInput";
+import { UserPolicyService } from "@/backend/auth/UserPolicyService";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
@@ -77,6 +78,7 @@ export class PageAgentService {
       });
     }
     return {
+      isAdministrator: new UserPolicyService().isAdministrator(viewer.actor),
       agents,
       models,
       workspaces: (await this.dependencies.workspaces?.choices(userId)) ?? [],

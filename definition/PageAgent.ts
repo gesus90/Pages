@@ -30,6 +30,8 @@ export interface PageAgentModel {
 }
 
 export interface PageAgentPage {
+  /** Offers the link to the central agent administration. */
+  readonly isAdministrator: boolean;
   readonly agents: readonly PageAgent[];
   readonly models: readonly PageAgentModel[];
   readonly directory: AgentProfileDirectory;

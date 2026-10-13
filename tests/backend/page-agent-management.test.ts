@@ -42,6 +42,13 @@ describe("PAGE-20 user agents, live model grants and sharing", () => {
       configuration: proposed.configuration,
     });
     expect((await current.service.page(current.alice.id)).agents).toEqual([]);
+    // Only an administrator is pointed to the central agent administration.
+    expect(
+      (await current.service.page(current.admin.userId)).isAdministrator,
+    ).toBe(true);
+    expect((await current.service.page(current.bob.id)).isAdministrator).toBe(
+      false,
+    );
     await expect(
       current.profiles.resolve(current.alice.id, "agent", id),
     ).rejects.toMatchObject({ code: "agent_usage_denied" });

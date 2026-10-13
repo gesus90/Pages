@@ -1,9 +1,10 @@
 import { Bot, Plus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router";
 
 import { SettingsCard } from "@/app/components/settings/settings-layout";
-import { Button } from "@/app/components/ui/button";
+import { Button, buttonVariants } from "@/app/components/ui/button";
 import { Dialog } from "@/app/components/ui/dialog";
 import { HorizontalScrollArea } from "@/app/components/ui/horizontal-scroll-area";
 import { useManagementPending } from "@/app/components/users/use-management-pending";
@@ -90,6 +91,14 @@ export function PageAgentPageView({
     <div className="mx-auto w-full max-w-6xl space-y-5 px-2 pt-3 pb-10">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">{t("navigation.agentList")}</h1>
+        {page.isAdministrator ? (
+          <Link
+            to="/settings/agents"
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            {t("navigation.agentManagement")}
+          </Link>
+        ) : null}
       </header>
       <SettingsCard
         icon={<Bot className="size-5" />}

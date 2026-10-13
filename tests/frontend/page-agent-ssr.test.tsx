@@ -41,6 +41,7 @@ describe("PAGE-20 server rendering of the agent list", () => {
 
   it("writes the heading, the create action and the agents as the server sends them", async () => {
     const html = await renderOnServer({
+      isAdministrator: false,
       agents: [
         {
           id: "agent",
@@ -79,6 +80,7 @@ describe("PAGE-20 server rendering of the agent list", () => {
 
   it("says that no agent is visible and, without a model, why none can be created", async () => {
     const html = await renderOnServer({
+      isAdministrator: false,
       agents: [],
       models: [],
       workspaces: [],
