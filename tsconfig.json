@@ -30,10 +30,8 @@
     "definition",
     "language",
     "scripts",
-    "tests",
     "react-router.config.ts",
     "vite.config.ts",
-    "vitest.config.ts",
     ".react-router/types/**/*"
   ]
 }

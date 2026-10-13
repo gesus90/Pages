@@ -51,7 +51,6 @@ Pages is a self-hosted project management and wiki application built with:
 - React Router
 - DuckDB
 - i18next
-- Vitest
 
 The application uses server-side rendering and is intended to support multiple users.
 
@@ -167,34 +166,37 @@ For database work:
 
 ## 9. Tests
 
-When behavior changes:
+### Current state after PAGE-34
 
-- Add or update relevant tests.
+The previous MCP suite and its exclusive infrastructure were removed in PAGE-37.
+PAGE-34 removed the remaining Pages tests, helpers, fixtures, setup and runner
+configuration. No test structure or test scripts currently exist. PAGE-35 removed
+the CI test step. Run `pnpm check` and `pnpm lint` for the available quality gates;
+the cleanup does not demonstrate functional test coverage.
+
+Pages unit tests will be rebuilt in PAGE-32/PAGE-33. Do not introduce replacement
+tests or infrastructure as part of cleanup work. The independent MCP test plan
+remains open (TBD), with no suite, runner or test command. MCP check/build and
+root lint remain non-test gates. Browser E2E and live integration are a later phase.
+
+### Rules for future test work
+
+- Once test infrastructure is rebuilt, add or update relevant tests whenever
+  behavior changes; keep them focused on observable behavior.
 - Do not delete or weaken tests only to make a change pass.
-- Follow existing test patterns in the repository.
-- Keep tests focused on observable behavior.
-
-Do not create unnecessary test infrastructure when the current setup is sufficient.
-
-### Pages and MCP test boundaries (PAGE-37)
-
-- The previous MCP suite and its exclusive test infrastructure have been removed.
-- Pages backend tests stay in `tests/backend/`; Pages frontend tests stay in
-  `tests/frontend/`. General and shared Pages helpers stay in `tests/helpers/`.
+- Follow the test patterns established by the rebuild and avoid unnecessary
+  test infrastructure.
+- Preserve the requirement for 100 % statement, branch, function and line
+  coverage per Pages source file when coverage gates are rebuilt, without
+  coverage-ignore comments or new coverage exclusions.
 - Pages tests may verify Pages-owned Agent API, OAuth, pairing, wiki and database
   behavior. They must not import executable modules from the independent `mcp/`
-  package or start an MCP
-  server, client, transport or process, including through a shared helper. Use
-  mocks or stubs at an MCP boundary. Pages connection instructions may read
-  the package version from `mcp/package.json`; this is static runtime metadata.
-- Pages scripts, discovery, setup, coverage and watch mode cover Pages only.
-  Do not add a root test aggregator or forwarding command for MCP.
-- The MCP area has an open, independent test plan (TBD), with no replacement
-  suite, runner or test command yet. Do not describe the removed suite as
-  existing MCP coverage. MCP check/build and root lint remain non-test gates.
-- Browser E2E and live integration belong to a later phase.
-- PAGE-35 removed the CI test step before this cleanup. PAGE-34 handles the
-  remaining Pages test cleanup; PAGE-32/PAGE-33 will rebuild Pages unit tests.
+  package or start an MCP server, client, transport or process, including through
+  a shared helper. Use mocks or stubs at an MCP boundary. Pages connection
+  instructions may read the package version from `mcp/package.json`; this is
+  static runtime metadata.
+- Keep future Pages scripts, discovery, setup, coverage and watch mode scoped to
+  Pages. Do not add a root test aggregator or forwarding command for MCP.
 
 ---
 
@@ -234,7 +236,7 @@ Before considering a task complete:
 
 - Confirm the requested behavior is implemented.
 - Confirm changed code follows `GUIDELINES.md`.
-- Run `pnpm check`, `pnpm lint`, and the tests required by the current task, unless the task explicitly prohibits test execution. When permitted, `pnpm test` gates Pages source at 100 % statement, branch, function, and line coverage per file, without coverage-ignore comments or new coverage exclusions. The independent MCP package is outside Pages coverage; its future test plan is open. Removal of the old MCP suite is not a coverage result.
+- Run `pnpm check` and `pnpm lint`. No test commands are currently available after PAGE-34; do not claim test or coverage validation from these gates. Once test infrastructure is rebuilt, run the tests required by the current task unless that task explicitly prohibits test execution. Keep the independent MCP package outside Pages test coverage.
 - Confirm no unrelated code was changed.
 - Confirm types and interfaces match the implementation.
 - Update documentation only when documented behavior changed.

@@ -632,8 +632,8 @@ Rules:
 - Use logical names for variables.
 - Take every color from the theme tokens in `app/styles/tailwind.css`. A token
   has a value in the light and in the dark palette, so a component never names
-  a palette color, a hex value, or a `dark:` variant. A test lists the few files
-  that may hold a color directly, such as colors users choose.
+  a palette color, a hex value, or a `dark:` variant. Direct colors are limited
+  to user-chosen colors and third-party brand colors; all other colors use tokens.
 
 Good:
 

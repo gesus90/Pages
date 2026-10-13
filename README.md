@@ -41,7 +41,6 @@ It is designed to start simple and scale from personal use to small teams with r
 | UI | Tailwind CSS 4 + shadcn/ui (Radix UI) + Lucide |
 | Database | DuckDB |
 | Localization | i18next |
-| Tests | Vitest |
 
 ## Architecture
 
@@ -132,14 +131,15 @@ and on other devices.
 - **One token scale.** Both palettes define the same semantic color tokens in
   `app/styles/tailwind.css`. Components name roles (`bg-surface`,
   `text-muted-foreground`, `bg-notice-subtle`), never a palette value, and a new
-  color is a token with a value for both themes; a test lists the few files that
-  may name a color directly. Colors users choose (labels, milestones, project
-  and avatar colors) and third-party brand colors are not inverted. Text in a
-  user color is only lightened in the dark theme where it would not be readable.
+  color is a token with a value for both themes. Colors users choose (labels,
+  milestones, project and avatar colors) and third-party brand colors are not
+  inverted. Text in a user color is only lightened in the dark theme where it
+  would not be readable.
 - **Contrast.** Every token pair of the dark palette meets WCAG 2.1 AA (4.5:1 for
   text, 3:1 for graphics and the focus ring). The light palette is unchanged;
-  its pairs below AA predate the dark theme and are listed in
-  `tests/frontend/page-29-theme-styles.test.ts`.
+  its pairs below AA predate the dark theme. The previous automated contrast
+  checks were removed with the test suite in PAGE-34; no current test coverage
+  is claimed.
 - **Persistence.** The theme is the `theme` column of `user_settings`
   (migration `040_user_theme.sql`); an empty or unknown value means `system`,
   so accounts that exist before the update start in System as well.
@@ -157,32 +157,25 @@ pnpm run dev
 Pages is then available at <http://localhost:5173>.
 
 Use `pnpm run build` to create a production build and `pnpm run start` to serve
-it. Use `pnpm test` to verify the unit test suite, always with coverage.
-`pnpm run test:frontend` and `pnpm run test:backend` verify a single scope
-through the `VITEST_FRONTEND` and `VITEST_BACKEND` environment flags, also
-with coverage. Suites below `tests/frontend/` verify everything below
-`app/`, suites below `tests/backend/` verify `backend/`, `definition/`,
-and `language/`. Each scope is held at 100% coverage on its own files, so
-a run fails individually as well as together. The combined scope discovers only
-`tests/backend/` and `tests/frontend/` and covers the Pages source directories
-`app/`, `backend/`, `definition/`, `language/` and `scripts/`.
-The remaining maintenance commands are `pnpm run check`, `pnpm run lint`
+it. The maintenance commands are `pnpm run check`, `pnpm run lint`
 (which allows no warnings), `pnpm run format`, and `pnpm run clean`.
 
-The previous MCP tests and their exclusive helpers have been removed (PAGE-37).
-Pages backend and frontend tests may verify Pages-owned Agent API, OAuth,
-pairing and wiki behavior, but must not import executable modules from the
-independent `mcp/` package or start an MCP server, client, transport or process.
-Pages connection instructions read only its package version as static metadata.
-Tests that touch an MCP
-boundary use mocks or stubs. MCP is outside Pages discovery, setup, coverage
-and watch mode; the root test scripts aggregate only Pages.
-A new independent MCP test plan is open (TBD); no MCP test runner, test command
-or replacement suite exists. MCP check and build remain non-test gates, and
-root lint still checks MCP source. Browser E2E and live integration are a later
-phase. Removing the old suite does not demonstrate functional test coverage.
-PAGE-35 removed the CI test step before this cleanup; PAGE-34 will handle the
-remaining Pages test cleanup and structure afterward.
+The repository is in an intentional intermediate state: PAGE-37 removed the
+previous MCP suite; PAGE-34 removed the remaining Pages tests, helpers, fixtures,
+setup, Vitest/coverage configuration and test-only dependencies. There is no test
+structure or test command. `pnpm run test` fails with a missing-script error;
+frontend and backend test scripts are also absent. PAGE-35 already removed the
+CI test step. Check and lint remain available and do not establish test coverage.
+PAGE-32/PAGE-33 will rebuild Pages unit tests; no replacement is included here.
+
+Future Pages tests may verify Pages-owned Agent API, OAuth, pairing and wiki
+behavior, but must not import executable modules from the independent `mcp/`
+package or start an MCP server, client, transport or process. Pages connection
+instructions read only its package version as static metadata. Use mocks or
+stubs at an MCP boundary, and keep Pages test infrastructure scoped to Pages.
+The independent MCP test plan remains open (TBD), with no suite, runner or test
+command. MCP check and build remain non-test gates, and root lint still checks
+MCP source. Browser E2E and live integration are a later phase.
 
 Coding conventions are defined in [`GUIDELINES.md`](./GUIDELINES.md).
 
@@ -510,7 +503,9 @@ After an interrupted server process, unfinished runs are marked failed and unkno
 writing reservations remain held for operator review; there is no automatic resume
 or automatic release of potentially active processes.
 
-Full tests, coverage, final build and overall acceptance remain deferred to A10.5.
+Final build and overall acceptance remain deferred to A10.5. The previous tests
+and coverage infrastructure have been removed; Pages unit tests will be rebuilt
+in PAGE-32/PAGE-33.
 
 ### Agents of users (PAGE-20)
 

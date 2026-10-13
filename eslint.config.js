@@ -35,8 +35,6 @@ export default tseslint.config(
       "definition/**/*.ts",
       "language/**/*.ts",
       "mcp/**/*.ts",
-      "tests/**/*.ts",
-      "tests/**/*.tsx",
       "*.config.{js,mjs,ts}",
     ],
     languageOptions: {

@@ -294,16 +294,17 @@ This independent package has its own manifest, lockfile, TypeScript configuratio
 and build. Dependency age remains ten days; SDK 2.2.0 is unchanged. Package version
 supplies both the filename and MCP `serverInfo.version`; API version remains `1`.
 Root lint continues to check package source. The previous MCP suite and its
-exclusive helpers have been removed (PAGE-37). Pages backend and frontend
-have their own test scopes; they do not import this package or run MCP servers,
-clients, transports or processes. MCP is outside Pages test discovery, setup,
-coverage, watch mode and root test aggregation.
+exclusive helpers were removed in PAGE-37. PAGE-34 removed the remaining Pages
+test structure and test commands; neither package currently has a test runner.
+PAGE-32/PAGE-33 will rebuild Pages unit tests. Future Pages tests must use mocks
+or stubs at the MCP boundary and must not import executable modules from this
+package or run MCP servers, clients, transports or processes. Keep MCP outside
+Pages test discovery, setup, coverage, watch mode and root test aggregation.
 
-A new independent MCP test plan is open (TBD). No replacement suite, runner
+The independent MCP test plan remains open (TBD). No replacement suite, runner
 or test command exists yet, and no MCP test coverage is claimed. Check and
 build above are non-test gates. Browser E2E and live integration are a later
-phase. PAGE-35 removed the CI test step before this cleanup; PAGE-34 handles
-the remaining Pages test cleanup afterward.
+phase. PAGE-35 already removed the CI test step.
 
 The
 [official authorization profile](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization)
