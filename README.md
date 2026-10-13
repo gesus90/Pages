@@ -393,12 +393,41 @@ in active admin mode can create connections or change their scope; because
 membership is read live, whoever may change group or department memberships
 also changes who passes a restricted scope.
 
-### Local workspaces (A10.3)
+### Local workspaces (A10.3, PAGE-25)
 
-Administrators in active admin mode can register an existing local directory at
-`/agents/workspaces`, give it a name and assign a project and usage grants to
-people, groups or departments. Registration and removal change database metadata
-only; directory contents, Git branches and local changes remain intact.
+Under **Agents → Workspace** (`/agents/workspaces`; *Arbeitsverzeichnis* in the
+German interface) people register an existing local directory as a workspace of
+a project. A workspace has exactly three properties: a **name**, a **local path**
+and a **project**. Registration and removal change database metadata only;
+directory contents, Git branches, local changes and the project's GitHub link
+remain intact.
+
+- **Only projects with a GitHub link** can have a workspace, which is the stored
+  repository address of the project's GitHub integration. The server refuses any
+  other project on every save, and the form lists such projects as not
+  selectable. The workspace always reads the project's current repository link;
+  no GitHub secrets are copied and no clone, push or branch switch is triggered.
+  If the project later loses its link, the workspace stays in the list, is
+  marked unusable and cannot be chosen or run until the link exists again.
+- **Visibility follows the project.** Everyone who can open the project sees its
+  workspaces and can choose them in the execution plan. There are no extra
+  grants for people, groups or departments; a person without access to the
+  project learns nothing about its workspaces, also not through direct requests,
+  which answer exactly like a request for a workspace that does not exist.
+- **Management** belongs to Pages administrators in active admin mode and to the
+  managers of the project: the same responsibility that edits its general
+  information and GitHub link (a member with the project role *Manager*, or the
+  project right together with a scope over the project's departments or all
+  projects). Moving a workspace to another project needs that right on both
+  projects. Everyone else gets no registration, edit or removal action, and the
+  server rechecks the right on every request.
+- **Removal is confirmed** in a dialog that states that the directory, its files
+  and the project's GitHub link stay unchanged. A workspace that an agent
+  default, a plan or an active execution still refers to cannot be removed;
+  administrators see what refers to it, managers only the kinds of references.
+- **Paths are local.** A path is an absolute directory on the Pages server.
+  URLs, `host:path` notation and network share notation (`//host/share`) are
+  refused.
 
 Set `PAGES_WORKSPACE_ROOTS` to approved existing absolute directory roots, separated
 by the operating system's path delimiter (`:` on Linux). An empty setting disables
@@ -408,10 +437,10 @@ rejects overlapping registrations. Resolution checks the saved directory identit
 again and fails explicitly after replacement or lost permissions. The allowlist
 and separate directory registrations do not provide an execution sandbox.
 
-Workspace usage requires both a current assignment and current access to its active
-project. Administrator status and managed departments do not bypass usage grants.
-The workspace always reads its current project's GitHub repository link; no GitHub
-secrets are copied and no clone, push or branch switch is triggered.
+Migration `041` removes the usage grants that A10.3 stored per workspace.
+Existing registrations stay and are now visible to everyone who can open their
+project; one whose project has no GitHub link is listed as unusable until the
+project gets a link or a manager assigns another project.
 
 Agent parameters can select registered workspace IDs as defaults. Server preparation
 reauthorizes model access, workspace references and Wiki content, deriving project
@@ -422,10 +451,13 @@ mentioned in the prompt has no such effect.
 ### Execution plans (A10.4)
 
 The expandable **Agents** sidebar entry below Tasks links to **Execution plan**,
-**Workspace** and the existing **Agents list**. At `/agents/plans`, workspace users
-can create named private plans or share usage with current workspace users. Only
-the owner edits a plan. Project and GitHub context always come from the workspace;
-changing a plan's workspace requires removing its nodes first.
+**Workspace** and the existing **Agents list**. At `/agents/plans`, people with
+access to a workspace's project can create named private plans or share usage with
+everyone who has that access. The plan offers only workspaces of accessible
+projects; one that is unavailable (path changed, project without GitHub link) is
+listed as unavailable and cannot be chosen. Only the owner edits a plan. Project
+and GitHub context always come from the workspace; changing a plan's workspace
+requires removing its nodes first.
 
 The grid accepts agent, task/subtask and global text variable nodes by drag-and-drop
 or Insert buttons. Flow ports define successful predecessors and joins; parameter
