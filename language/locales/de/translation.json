@@ -2934,7 +2934,6 @@
     "stop": "Stop",
     "stopRequested": "Abbruch angefordert",
     "progress": "Fortschritt",
-    "blocked": "Wartet · durch Vorgänger blockiert",
     "noRuns": "Noch kein eigener Lauf für diesen Plan.",
     "discardTitle": "Ungespeicherten Plan verwerfen?",
     "discardHint": "Ungespeicherte Planänderungen gehen verloren. Laufende Ausführungen behalten ihren Snapshot.",
@@ -3045,7 +3044,7 @@
     "private": "Privat",
     "edit": "Bearbeiten",
     "view": "Ansehen",
-    "blocked": "Ausführung derzeit nicht erlaubt. Modell- und Anbindungsfreigaben werden beim Start erneut geprüft.",
+    "blocked": "Derzeit nicht verfügbar.",
     "sharing": "Freigabe",
     "operator": "Verknüpfung der Ziele",
     "or": "ODER – mindestens ein Ziel",
@@ -3053,8 +3052,19 @@
     "name": "Name",
     "model": "Admin-Modell",
     "reasoning": "Reasoning",
-    "saveFailed": "Agent konnte nicht gespeichert werden.",
     "close": "Schließen",
-    "save": "Speichern"
+    "save": "Speichern",
+    "listTitle": "Ihre Agents",
+    "description": "Agents für wiederkehrende Arbeiten wie Tests und Aufgaben. Ein Agent läuft nur mit einem Modell, das Administratoren bereitstellen und das für die startende Person freigegeben ist.",
+    "formDescription": "Instruktion, Parameter und Freigabe werden mit dem Agent gespeichert. Die Freigabe erweitert nie den Modellzugriff einer Person.",
+    "readOnlyHint": "Dieser Agent wurde für Sie freigegeben. Nur der Besitzer ändert ihn.",
+    "loading": "Agents werden geladen",
+    "status": "Status",
+    "actions": "Aktionen",
+    "ready": "Bereit",
+    "editAgent": "Agent bearbeiten",
+    "viewAgent": "Agent ansehen",
+    "loadError": "Die Agents konnten nicht geladen werden.",
+    "retry": "Erneut versuchen"
   }
 }

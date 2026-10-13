@@ -1,80 +1,138 @@
+import { Bot, Plus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { SettingsCard } from "@/app/components/settings/settings-layout";
 import { Button } from "@/app/components/ui/button";
-import { PageContent } from "@/app/components/ui/card";
+import { Dialog } from "@/app/components/ui/dialog";
+import { HorizontalScrollArea } from "@/app/components/ui/horizontal-scroll-area";
+import { useManagementPending } from "@/app/components/users/use-management-pending";
 
-import { PageAgentEditor } from "./page-agent-editor";
+import { PageAgentForm } from "./page-agent-form";
+import { PageAgentRow } from "./page-agent-row";
 
 import type { PageAgent, PageAgentPage } from "@/definition/PageAgent";
 
-function sharingLabel(agent: PageAgent): string {
-  if (agent.configuration.sharing.isGlobal) return "pageAgents.global";
-  return agent.configuration.sharing.targets.length
-    ? "pageAgents.restricted"
-    : "pageAgents.private";
+const COLUMNS = ["name", "model", "reasoning", "sharing", "status", "actions"];
+
+function PageAgentTable(props: {
+  readonly agents: readonly PageAgent[];
+  readonly onOpen: (agent: PageAgent) => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <HorizontalScrollArea>
+      <table className="w-full text-left text-sm">
+        <thead>
+          <tr>
+            {COLUMNS.map((column) => (
+              <th key={column} scope="col" className="px-4 py-3">
+                {t(`pageAgents.${column}`)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border/60">
+          {props.agents.map((agent) => (
+            <PageAgentRow
+              key={agent.id}
+              agent={agent}
+              onOpen={() => props.onOpen(agent)}
+            />
+          ))}
+        </tbody>
+      </table>
+    </HorizontalScrollArea>
+  );
 }
 
-/** User agent management shares the application cards and the existing template/parameter controls. */
+function PageAgentList(props: {
+  readonly agents: readonly PageAgent[];
+  readonly isLoading: boolean;
+  readonly onOpen: (agent: PageAgent) => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  if (props.isLoading)
+    return (
+      <div
+        role="status"
+        aria-label={t("pageAgents.loading")}
+        className="flex flex-col gap-4 py-2"
+      >
+        {[1, 2, 3].map((row) => (
+          <div key={row} className="h-4 animate-pulse rounded-md bg-muted" />
+        ))}
+      </div>
+    );
+  if (props.agents.length === 0)
+    return (
+      <p className="py-6 text-center text-sm text-muted-foreground">
+        {t("pageAgents.empty")}
+      </p>
+    );
+  return <PageAgentTable agents={props.agents} onOpen={props.onOpen} />;
+}
+
+/** Lists the agents visible to the person and opens them in the same form that creates one. */
 export function PageAgentPageView({
   page,
 }: {
   readonly page: PageAgentPage;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const [selected, setSelected] = useState<PageAgent | null | undefined>(
-    undefined,
-  );
-  function edit(agent: PageAgent): void {
-    setSelected(agent);
+  const isLoading = useManagementPending();
+  const [selected, setSelected] = useState<PageAgent | "new" | null>(null);
+  const hasModels = page.models.length > 0;
+  function close(): void {
+    setSelected(null);
   }
   return (
-    <main className="mx-auto w-full max-w-6xl space-y-6 p-4 sm:p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">{t("navigation.agentList")}</h1>
-        <Button
-          onClick={() => setSelected(null)}
-          disabled={page.models.length === 0}
-        >
-          {t("pageAgents.create")}
-        </Button>
-      </div>
-      {page.models.length === 0 ? (
-        <p role="status" className="text-muted-foreground">
-          {t("pageAgents.noModels")}
-        </p>
-      ) : null}
-      {selected !== undefined ? (
-        <PageAgentEditor
-          key={selected?.id ?? "new"}
-          agent={selected}
-          page={page}
-          onClose={() => setSelected(undefined)}
+    <div className="mx-auto w-full max-w-6xl space-y-5 px-2 pt-3 pb-10">
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold">{t("navigation.agentList")}</h1>
+      </header>
+      <SettingsCard
+        icon={<Bot className="size-5" />}
+        title={t("pageAgents.listTitle")}
+        description={t("pageAgents.description")}
+        wrapHeader
+        action={
+          <Button
+            size="sm"
+            disabled={!hasModels}
+            onClick={() => setSelected("new")}
+          >
+            <Plus className="size-4" aria-hidden="true" />
+            {t("pageAgents.create")}
+          </Button>
+        }
+      >
+        {hasModels ? null : (
+          <p role="status" className="mb-4 text-sm text-warning">
+            {t("pageAgents.noModels")}
+          </p>
+        )}
+        <PageAgentList
+          agents={page.agents}
+          isLoading={isLoading}
+          onOpen={setSelected}
         />
-      ) : null}
-      {page.agents.length === 0 ? (
-        <p className="text-muted-foreground">{t("pageAgents.empty")}</p>
-      ) : null}
-      <div className="grid gap-4 md:grid-cols-2">
-        {page.agents.map((agent) => (
-          <PageContent key={agent.id} className="space-y-3 p-4">
-            <h2 className="break-words text-lg font-semibold">{agent.name}</h2>
-            <p className="text-sm text-muted-foreground">
-              {agent.model} ·{" "}
-              {agent.reasoningEffort ?? t("pageAgents.defaultReasoning")}
-            </p>
-            <p className="text-sm">{t(sharingLabel(agent))}</p>
-            {!agent.availability.isUsable ? (
-              <p role="status" className="text-sm text-warning">
-                {t("pageAgents.blocked")}
-              </p>
-            ) : null}
-            <Button variant="outline" onClick={() => edit(agent)}>
-              {t(agent.canEdit ? "pageAgents.edit" : "pageAgents.view")}
-            </Button>
-          </PageContent>
-        ))}
-      </div>
-    </main>
+      </SettingsCard>
+      <Dialog
+        open={selected !== null}
+        onOpenChange={(open) => {
+          if (!open) close();
+        }}
+      >
+        {selected === null ? null : (
+          <PageAgentForm
+            key={selected === "new" ? "new" : selected.id}
+            agent={selected === "new" ? null : selected}
+            page={page}
+            onSaved={close}
+          />
+        )}
+      </Dialog>
+    </div>
   );
 }

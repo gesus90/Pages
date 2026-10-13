@@ -2934,7 +2934,6 @@
     "stop": "Stop",
     "stopRequested": "Stop requested",
     "progress": "Progress",
-    "blocked": "Waiting · blocked by predecessor",
     "noRuns": "No own run for this plan yet.",
     "discardTitle": "Discard unsaved plan?",
     "discardHint": "Unsaved plan changes will be lost. Running executions keep their snapshot.",
@@ -3045,7 +3044,7 @@
     "private": "Private",
     "edit": "Edit",
     "view": "View",
-    "blocked": "Execution is currently unavailable. Model and connection grants are checked again at start.",
+    "blocked": "Not available right now.",
     "sharing": "Sharing",
     "operator": "Target matching",
     "or": "OR – at least one target",
@@ -3053,8 +3052,19 @@
     "name": "Name",
     "model": "Admin model",
     "reasoning": "Reasoning",
-    "saveFailed": "Could not save agent.",
     "close": "Close",
-    "save": "Save"
+    "save": "Save",
+    "listTitle": "Your agents",
+    "description": "Agents for recurring work such as tests and tasks. An agent runs only on a model that administrators provide and that is released for the person who starts it.",
+    "formDescription": "Instruction, parameters and sharing are saved with the agent. Sharing never extends the model access of anyone.",
+    "readOnlyHint": "This agent was shared with you. Only its owner changes it.",
+    "loading": "Loading agents",
+    "status": "Status",
+    "actions": "Actions",
+    "ready": "Ready",
+    "editAgent": "Edit agent",
+    "viewAgent": "View agent",
+    "loadError": "The agents could not be loaded.",
+    "retry": "Try again"
   }
 }

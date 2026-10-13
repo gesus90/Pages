@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { I18nextProvider } from "react-i18next";
-import { createRoutesStub } from "react-router";
+import { createRoutesStub, Link } from "react-router";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { PageAgentPageView } from "@/app/components/agents/definitions/page-agent-page";
+import { ErrorBoundary } from "@/app/routes/page-agents";
 import { createI18n } from "@/app/lib/i18n";
 import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 
@@ -64,7 +65,7 @@ describe("PAGE-20 user agent management UI", () => {
     const submitted: FormData[] = [];
     await mount(page(), async (request) => {
       submitted.push(await request.formData());
-      return { ok: true };
+      return { ok: true, intent: "save-agent" };
     });
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Create agent" }));
@@ -112,7 +113,7 @@ describe("PAGE-20 user agent management UI", () => {
     const submitted: FormData[] = [];
     await mount({ ...proposed, agents: [existing] }, async (request) => {
       submitted.push(await request.formData());
-      return { ok: false, error: "profile_conflict" };
+      return { ok: false, intent: "save-agent", error: "profile_conflict" };
     });
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Edit" }));
@@ -178,5 +179,239 @@ describe("PAGE-20 user agent management UI", () => {
     expect(screen.getByLabelText("Name")).toBeDisabled();
     expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
     expect(screen.getByRole("combobox", { name: "Sharing" })).toBeDisabled();
+  });
+});
+
+function listed(
+  overrides: Partial<PageAgentPage["agents"][number]> = {},
+): PageAgentPage["agents"][number] {
+  return {
+    id: "agent",
+    ownerId: "bob",
+    name: "Nightly checks",
+    canEdit: true,
+    modelProfileId: "admin-model",
+    model: "model-a",
+    reasoningEffort: null,
+    revision: 1,
+    availability: { isUsable: true, reason: null, personalChoices: [] },
+    configuration: { ...emptyAgentConfiguration(), accessMode: "shared" },
+    ...overrides,
+  };
+}
+
+describe("PAGE-20 agent list and form states", () => {
+  it("shows model, reasoning, sharing and why an agent cannot run", async () => {
+    const base = page();
+    await mount({
+      ...base,
+      agents: [
+        listed({ name: "Private one" }),
+        listed({
+          id: "shared",
+          name: "Shared one",
+          reasoningEffort: "low",
+          configuration: {
+            ...emptyAgentConfiguration(),
+            sharing: { isGlobal: true, targets: [] },
+          },
+        }),
+        listed({
+          id: "team",
+          name: "Team one",
+          availability: {
+            isUsable: false,
+            reason: "agent_usage_denied",
+            personalChoices: [],
+          },
+          configuration: {
+            ...emptyAgentConfiguration(),
+            sharing: {
+              isGlobal: false,
+              targets: [{ kind: "group", targetId: "team" }],
+            },
+          },
+        }),
+        listed({
+          id: "model",
+          name: "Model gone",
+          availability: {
+            isUsable: false,
+            reason: "modelUnavailable",
+            personalChoices: [],
+          },
+        }),
+      ],
+    });
+    const row = (name: string): HTMLElement => {
+      const cell = screen.getByRole("rowheader", { name });
+      const container = cell.closest("tr");
+      if (!container) throw new Error("Missing row");
+      return container;
+    };
+    expect(row("Private one")).toHaveTextContent("Default");
+    expect(row("Private one")).toHaveTextContent("Private");
+    expect(row("Private one")).toHaveTextContent("Ready");
+    expect(row("Shared one")).toHaveTextContent("Global");
+    expect(row("Shared one")).toHaveTextContent("low");
+    expect(row("Team one")).toHaveTextContent("Restricted");
+    expect(row("Team one")).toHaveTextContent(
+      "No usage share or authorized access in the selected project context.",
+    );
+    expect(row("Model gone")).toHaveTextContent(
+      "The configured model is absent from the available catalog.",
+    );
+  });
+
+  it("asks before it discards a draft and closes without asking when nothing changed", async () => {
+    await mount(page());
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Create agent" }));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByLabelText("Name")).toBeNull());
+    await user.click(screen.getByRole("button", { name: "Create agent" }));
+    await user.type(screen.getByLabelText("Name"), "Draft");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    const discard = await screen.findByRole("dialog", {
+      name: "Discard changes?",
+    });
+    await user.click(within(discard).getByRole("button", { name: "Cancel" }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Discard changes?" }),
+      ).toBeNull(),
+    );
+    expect(screen.getByLabelText("Name")).toHaveValue("Draft");
+    await user.keyboard("{Escape}");
+    const again = await screen.findByRole("dialog", {
+      name: "Discard changes?",
+    });
+    await user.click(
+      within(again).getByRole("button", { name: "Discard changes" }),
+    );
+    await waitFor(() => expect(screen.queryByLabelText("Name")).toBeNull());
+  });
+
+  it("disables creation and says why while no authorized admin model exists", async () => {
+    await mount({ ...page(), models: [] });
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "No authorized admin model is available.",
+    );
+    expect(screen.getByText("No visible agents.")).toBeVisible();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Create agent" }));
+    expect(screen.queryByLabelText("Name")).toBeNull();
+  });
+
+  it("keeps save closed until the name, the model and the parameters are valid", async () => {
+    await mount({
+      ...page(),
+      agents: [listed({ modelProfileId: "withdrawn" })],
+    });
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    const save = screen.getByRole("button", { name: "Save" });
+    // The model grant of this agent is gone, so another one has to be chosen.
+    expect(save).toBeDisabled();
+    await user.click(screen.getByRole("combobox", { name: "Admin model" }));
+    await user.click(
+      screen.getByRole("option", { name: "Approved · model-a" }),
+    );
+    expect(save).toBeEnabled();
+    await user.clear(screen.getByLabelText("Name"));
+    expect(save).toBeDisabled();
+    await user.type(screen.getByLabelText("Name"), "Renamed");
+    expect(save).toBeEnabled();
+    // Two parameters with one name cannot be saved.
+    await user.click(screen.getByRole("button", { name: "Add parameter" }));
+    await user.click(screen.getByRole("button", { name: "Add parameter" }));
+    const second = screen.getByDisplayValue("parameter_2");
+    await user.clear(second);
+    await user.type(second, "parameter_1");
+    expect(save).toBeDisabled();
+  });
+
+  it("shows a loading state while the list is being reloaded", async () => {
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const i18n = await createI18n("en");
+    const Stub = createRoutesStub([
+      {
+        path: "/agents/agents",
+        loader: async ({ request }) => {
+          if (new URL(request.url).searchParams.has("reload")) await gate;
+          return null;
+        },
+        Component: () => (
+          <>
+            <Link to="?reload=1">Reload</Link>
+            <PageAgentPageView page={{ ...page(), agents: [listed()] }} />
+          </>
+        ),
+      },
+    ]);
+    render(
+      <I18nextProvider i18n={i18n}>
+        <Stub initialEntries={["/agents/agents"]} />
+      </I18nextProvider>,
+    );
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("link", { name: "Reload" }));
+    expect(
+      await screen.findByRole("status", { name: "Loading agents" }),
+    ).toBeVisible();
+    release();
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("status", { name: "Loading agents" }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText("Nightly checks")).toBeVisible();
+  });
+});
+
+describe("PAGE-20 failure state of the agent list", () => {
+  async function mountFailing(status: number): Promise<() => number> {
+    let loads = 0;
+    const i18n = await createI18n("en");
+    const Stub = createRoutesStub([
+      {
+        path: "/agents/agents",
+        loader: () => {
+          loads += 1;
+          if (loads === 1) throw new Response("failure", { status });
+          return null;
+        },
+        Component: () => <PageAgentPageView page={page()} />,
+        ErrorBoundary,
+      },
+    ]);
+    render(
+      <I18nextProvider i18n={i18n}>
+        <Stub initialEntries={["/agents/agents"]} />
+      </I18nextProvider>,
+    );
+    return () => loads;
+  }
+
+  it("keeps the page chrome, says that loading failed and retries on request", async () => {
+    const loads = await mountFailing(500);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "The agents could not be loaded.",
+    );
+    expect(
+      screen.getByRole("heading", { name: "Agents list", level: 1 }),
+    ).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+    await screen.findByText("No visible agents.");
+    expect(loads()).toBe(2);
+  });
+
+  it("offers no retry when access was refused", async () => {
+    await mountFailing(403);
+    expect(await screen.findByRole("alert")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
   });
 });

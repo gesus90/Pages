@@ -53,6 +53,11 @@ describe("PAGE-20 authenticated management and archive endpoints", () => {
     );
     expect(response.status).toBe(200);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(await response.json()).toEqual({
+      ok: true,
+      intent: "save-agent",
+      agentId: "agent",
+    });
     expect(services.pageAgentService.save).toHaveBeenCalledWith(
       createUser().id,
       "agent",
@@ -77,6 +82,9 @@ describe("PAGE-20 authenticated management and archive endpoints", () => {
         .status,
     ).toBe(400);
     expect((await action(args({ intent: "other" }))).status).toBe(400);
+    expect(
+      (await action(args({ intent: "save-agent", agent: "{not json" }))).status,
+    ).toBe(400);
   });
 
   it("protects markdown with agent, executor, model, plan and source-resource checks and no caching", async () => {
