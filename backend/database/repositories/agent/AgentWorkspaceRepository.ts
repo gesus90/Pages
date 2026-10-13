@@ -1,6 +1,10 @@
 import path from "node:path";
 
-import { readCountColumn, readTextColumn } from "@/backend/database/RowValue";
+import {
+  readCountColumn,
+  readNullableTextColumn,
+  readTextColumn,
+} from "@/backend/database/RowValue";
 import { AgentError } from "@/backend/error/AgentErrors";
 
 import type {
@@ -86,17 +90,17 @@ async function readUsages(
     UNION
     SELECT
         run_id AS id,
-        '' AS name,
+        CAST(NULL AS TEXT) AS name,
         'run' AS kind
     FROM agent_plan_workspace_locks
     WHERE workspace_id = $id
-    ORDER BY kind, name, id;
+    ORDER BY kind, name NULLS LAST, id;
   `,
     { id },
   );
   return rows.map((row) => ({
     id: readTextColumn(row, 0, "id"),
-    name: readTextColumn(row, 1, "name"),
+    name: readNullableTextColumn(row, 1, "name"),
     kind: readUsageKind(row),
   }));
 }

@@ -554,7 +554,7 @@
         "system_function_in_use": "Diese Systemfunktion ist bereits einem Agent zugewiesen.",
         "workspace_invalid": "Geben Sie einen Namen, ein vorhandenes lokales Verzeichnis und ein Projekt an.",
         "workspace_project_unsupported": "Das Projekt braucht eine GitHub-Verknüpfung.",
-        "workspace_management_denied": "Nur Administratoren und Manager des Projekts dürfen dessen Arbeitsbereiche verwalten.",
+        "workspace_management_denied": "Nur Administratoren und die Verantwortlichen des Projekts dürfen dessen Arbeitsbereiche verwalten.",
         "workspace_access_denied": "Der Arbeitsbereich oder sein Projekt ist nicht zugänglich.",
         "workspace_not_found": "Die Registrierung des Arbeitsbereichs existiert nicht mehr.",
         "workspace_conflict": "Der Arbeitsbereich wurde geändert. Laden Sie ihn vor dem Speichern neu.",

@@ -1,7 +1,7 @@
 import { mkdir, rename } from "node:fs/promises";
 import path from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 
@@ -72,6 +72,17 @@ describe("PAGE-25 workspace visibility follows project access", () => {
     await expect(
       current.workspaces.resolve(designer, id),
     ).rejects.toMatchObject({ code: "workspace_access_denied" });
+  });
+
+  it("reads only the projects that carry workspaces when it offers choices", async () => {
+    const current = await setup();
+    await current.register({ projectId: "shared" });
+    const findAll = vi.spyOn(current.projects, "findAll");
+    const findById = vi.spyOn(current.projects, "findById");
+    const choices = await current.workspaces.choices(current.bob.id);
+    expect(choices.map((entry) => entry.projectId)).toEqual(["shared"]);
+    expect(findAll).not.toHaveBeenCalled();
+    expect(findById).toHaveBeenCalledTimes(1);
   });
 
   it("treats a workspace of an inaccessible project like a missing one on every direct call", async () => {

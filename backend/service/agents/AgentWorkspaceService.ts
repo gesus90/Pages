@@ -129,26 +129,29 @@ export class AgentWorkspaceService {
     projectId: string | null = null,
   ): Promise<readonly AgentWorkspaceChoice[]> {
     const actor = await this.account(userId);
-    const readable = await this.readableProjects(actor);
-    if (projectId !== null && !readable.has(projectId))
-      throw new AgentError("workspace_access_denied");
-    const selected = (await this.dependencies.workspaces.list()).filter(
-      (workspace) =>
-        readable.has(workspace.projectId) &&
-        (projectId === null || workspace.projectId === projectId),
+    if (projectId !== null) await this.requireProject(actor, projectId);
+    const registered = (await this.dependencies.workspaces.list()).filter(
+      (workspace) => projectId === null || workspace.projectId === projectId,
+    );
+    // Only the projects that carry workspaces are read, however many projects exist.
+    const readable = await this.readableProjectsOf(
+      actor,
+      registered.map((workspace) => workspace.projectId),
     );
     const integrations =
       await this.dependencies.projects.findIntegrationsByProjectIds([
-        ...new Set(selected.map((workspace) => workspace.projectId)),
+        ...readable.keys(),
       ]);
     return Promise.all(
-      selected.map((workspace) =>
-        this.describe(
-          workspace,
-          readable.get(workspace.projectId),
-          toGitHub(integrations.get(workspace.projectId)),
+      registered
+        .filter((workspace) => readable.has(workspace.projectId))
+        .map((workspace) =>
+          this.describe(
+            workspace,
+            readable.get(workspace.projectId),
+            toGitHub(integrations.get(workspace.projectId)),
+          ),
         ),
-      ),
     );
   }
 
@@ -232,11 +235,7 @@ export class AgentWorkspaceService {
     await this.requireManagedWorkspace(actor, await this.find(id));
     const usages = await this.dependencies.workspaces.usages(id);
     if (new UserPolicyService().isAdministrator(actor)) return usages;
-    return usages.map((usage, index) => ({
-      id: String(index),
-      name: "",
-      kind: usage.kind,
-    }));
+    return usages.map((usage) => ({ id: null, name: null, kind: usage.kind }));
   }
 
   /** Unregisters metadata only; deleting the referenced directory is never supported. */
@@ -269,6 +268,25 @@ export class AgentWorkspaceService {
     return new Map(
       projects
         .filter((project) => canReadProject(actor, project))
+        .map((project): [string, Project] => [project.id, project]),
+    );
+  }
+
+  private async readableProjectsOf(
+    actor: AccountAccess,
+    projectIds: readonly string[],
+  ): Promise<ReadonlyMap<string, Project>> {
+    const projects = await Promise.all(
+      [...new Set(projectIds)].map((id) =>
+        this.dependencies.projects.findById(id),
+      ),
+    );
+    return new Map(
+      projects
+        .filter(
+          (project): project is Project =>
+            project !== null && canReadProject(actor, project),
+        )
         .map((project): [string, Project] => [project.id, project]),
     );
   }

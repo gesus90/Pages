@@ -22,7 +22,7 @@ export const AGENT_ERROR_MESSAGES = {
   workspace_project_unsupported:
     "The project needs a link to a GitHub repository.",
   workspace_management_denied:
-    "Only administrators and managers of the project can manage its workspaces.",
+    "Only administrators and those who manage the project can manage its workspaces.",
   workspace_access_denied: "The workspace or its project is not accessible.",
   workspace_not_found: "The workspace registration no longer exists.",
   workspace_conflict: "The workspace changed. Reload it before saving.",

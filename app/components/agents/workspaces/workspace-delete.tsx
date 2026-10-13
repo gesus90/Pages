@@ -22,7 +22,7 @@ import type {
 interface UsageEntry {
   readonly key: string;
   readonly kind: AgentWorkspaceUsageKind;
-  readonly name: string;
+  readonly name: string | null;
   readonly count: number;
 }
 
@@ -33,7 +33,7 @@ function toUsageEntries(
   const entries: UsageEntry[] = [];
   const anonymous = new Map<AgentWorkspaceUsageKind, number>();
   for (const usage of usages) {
-    if (usage.name)
+    if (usage.name !== null)
       entries.push({
         key: `${usage.kind}:${usage.id}`,
         kind: usage.kind,
@@ -43,7 +43,7 @@ function toUsageEntries(
     else anonymous.set(usage.kind, (anonymous.get(usage.kind) ?? 0) + 1);
   }
   for (const [kind, count] of anonymous)
-    entries.push({ key: kind, kind, name: "", count });
+    entries.push({ key: kind, kind, name: null, count });
   return entries;
 }
 
@@ -53,7 +53,7 @@ function UsageLabel({
   readonly entry: UsageEntry;
 }): React.ReactElement {
   const { t } = useTranslation();
-  if (entry.name) return <>{entry.name}</>;
+  if (entry.name !== null) return <>{entry.name}</>;
   const kind = t(`workspaces.usageKind.${entry.kind}`);
   return (
     <>

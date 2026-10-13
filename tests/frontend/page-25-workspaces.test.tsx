@@ -410,10 +410,14 @@ describe("PAGE-25 actions follow the right on each project", () => {
 describe("PAGE-25 removal confirmation", () => {
   it("confirms before removing, tells that files and GitHub link stay and shows only kinds of references", async () => {
     const submitted: FormData[] = [];
-    let usages: readonly { id: string; name: string; kind: string }[] = [
-      { id: "0", name: "", kind: "plan" },
-      { id: "1", name: "", kind: "plan" },
-      { id: "2", name: "", kind: "run" },
+    let usages: readonly {
+      id: string | null;
+      name: string | null;
+      kind: string;
+    }[] = [
+      { id: null, name: null, kind: "plan" },
+      { id: null, name: null, kind: "plan" },
+      { id: "run-1", name: null, kind: "run" },
     ];
     await mount(<WorkspacePage page={page()} />, {
       action: async (request) => {

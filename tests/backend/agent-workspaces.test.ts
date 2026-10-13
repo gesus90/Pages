@@ -171,6 +171,22 @@ describe("A10.3 local workspace registration, project access and parameter prepa
     await expect(workspaces.resolve(admin.userId, id)).resolves.toMatchObject({
       id,
     });
+    // A path typed through a symlink that leads into the approved root is canonicalized, not refused.
+    const aliasRoot = path.join(root, "alias-root");
+    await symlink(path.join(root, "approved"), aliasRoot);
+    const viaAlias = await workspaces.save(
+      admin.userId,
+      null,
+      registration(root, {
+        name: "Via alias",
+        path: path.join(aliasRoot, "two"),
+      }),
+    );
+    expect(
+      (await workspaceRepository.list()).find((entry) => entry.id === viaAlias)
+        ?.path,
+    ).toBe(path.join(root, "approved", "two"));
+    await workspaces.remove(admin.userId, viaAlias, 1);
     await expect(
       workspaces.save(bob.id, null, registration(root)),
     ).rejects.toMatchObject({ code: "workspace_management_denied" });

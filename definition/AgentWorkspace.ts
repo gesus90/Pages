@@ -57,12 +57,13 @@ export type AgentWorkspaceUsageKind = "agent" | "plan" | "run";
  * A reference that blocks unregistering or rebinding a workspace.
  *
  * @remarks
- * Only administrators receive the name; anyone else gets the kind alone, so a
- * project manager learns that the workspace is in use, not by whom.
+ * Only administrators receive the identifier and name of an agent or plan;
+ * anyone else gets the kind alone, so a project manager learns that the
+ * workspace is in use, not by whom. An execution never carries a name.
  */
 export interface AgentWorkspaceUsage {
-  readonly id: string;
-  readonly name: string;
+  readonly id: string | null;
+  readonly name: string | null;
   readonly kind: AgentWorkspaceUsageKind;
 }
 

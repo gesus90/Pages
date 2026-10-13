@@ -68,8 +68,9 @@ describe("A10 workspace metadata and reference failure regression", () => {
       id: "project",
       name: "Project project",
     });
-    vi.spyOn(current.projects, "findAll").mockResolvedValueOnce([]);
+    vi.spyOn(current.projects, "findById").mockResolvedValue(null);
     expect(await current.workspaces.choices(current.bob.id)).toEqual([]);
+    vi.mocked(current.projects.findById).mockRestore();
     const projects = await current.projects.findAll();
     vi.spyOn(current.projects, "findAll").mockResolvedValueOnce([]);
     expect(

@@ -308,12 +308,12 @@ describe("PAGE-25 workspace management rights", () => {
     );
     expect(await current.workspaces.usages(current.admin.userId, id)).toEqual([
       { id: "plan-1", name: "Private release plan", kind: "plan" },
-      { id: "run-1", name: "", kind: "run" },
+      { id: "run-1", name: null, kind: "run" },
     ]);
     const hidden = await current.workspaces.usages(lead, id);
     expect(hidden).toEqual([
-      { id: "0", name: "", kind: "plan" },
-      { id: "1", name: "", kind: "run" },
+      { id: null, name: null, kind: "plan" },
+      { id: null, name: null, kind: "run" },
     ]);
     expect(JSON.stringify(hidden)).not.toMatch(/plan-1|run-1|Private release/);
     await expect(current.workspaces.remove(lead, id, 1)).rejects.toMatchObject({

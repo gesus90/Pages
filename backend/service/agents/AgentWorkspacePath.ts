@@ -70,11 +70,7 @@ export class AgentWorkspacePath {
     if (!this.isConfigured()) throw new AgentError("workspace_roots_missing");
     try {
       const roots = await this.canonicalRoots();
-      // A path outside the roots is refused before the filesystem is asked about it,
-      // so the answer does not tell whether it exists.
-      if (!this.isLexicallyWithin(input, roots))
-        throw new AgentError("workspace_path_outside_roots");
-      const directory = await realpath(input);
+      const directory = await this.canonicalDirectory(input, roots);
       requireAbsoluteDirectory(directory);
       if (!roots.some((root) => containsWorkspacePath(root, directory)))
         throw new AgentError("workspace_path_outside_roots");
@@ -111,15 +107,32 @@ export class AgentWorkspacePath {
     return inspected.path;
   }
 
-  private isLexicallyWithin(
+  /**
+   * Resolves symlinks of a typed path.
+   *
+   * @remarks
+   * A typed path that cannot be resolved and lies outside every root reports
+   * the same refusal as an existing one outside them, so the answer does not
+   * tell whether a path beyond the approved roots exists.
+   */
+  private async canonicalDirectory(
     input: string,
     canonicalRoots: readonly string[],
-  ): boolean {
-    const typed = path.resolve(input);
-    return [
-      ...canonicalRoots,
-      ...this.options.roots.map((root) => path.resolve(root)),
-    ].some((root) => containsWorkspacePath(root, typed));
+  ): Promise<string> {
+    try {
+      return await realpath(input);
+    } catch {
+      const typed = path.resolve(input);
+      const isWithin = [
+        ...canonicalRoots,
+        ...this.options.roots.map((root) => path.resolve(root)),
+      ].some((root) => containsWorkspacePath(root, typed));
+      throw new AgentError(
+        isWithin
+          ? "workspace_path_unavailable"
+          : "workspace_path_outside_roots",
+      );
+    }
   }
 
   private async canonicalRoots(): Promise<readonly string[]> {
