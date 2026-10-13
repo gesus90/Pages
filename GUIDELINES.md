@@ -630,6 +630,10 @@ Rules:
 - Avoid repeated magic values.
 - Use CSS custom properties for shared design values.
 - Use logical names for variables.
+- Take every color from the theme tokens in `app/styles/tailwind.css`. A token
+  has a value in the light and in the dark palette, so a component never names
+  a palette color, a hex value, or a `dark:` variant. A test lists the few files
+  that may hold a color directly, such as colors users choose.
 
 Good:
 

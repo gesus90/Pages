@@ -120,6 +120,9 @@ For frontend work:
 
 - Follow all React, TypeScript, TypeDoc, and CSS rules from `GUIDELINES.md`.
 - Preserve the existing visual language.
+- Name colors by their semantic token (`bg-surface`, `text-muted-foreground`).
+  The tokens carry the light and the dark palette; add a token with a value for
+  both instead of a color in a component.
 - Reuse existing components and patterns where practical.
 - Keep desktop, tablet, and mobile behavior in mind.
 - Keep user-facing text compatible with i18next.

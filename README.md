@@ -110,6 +110,40 @@ active views and, for a ticket, can be restored.
   tasks page is offered only to those who may archive and lists archived tickets
   only of the projects in which they may.
 
+## Appearance
+
+Every account chooses how Pages looks under *Settings → Personal → Appearance*:
+**Light**, **Dark** or **System**. The choice applies at once to the whole
+interface and is stored with the account, so it returns after the next sign-in
+and on other devices.
+
+- **System** is the default for new accounts and for pages without a session,
+  such as the sign-in page. It follows the operating system preference
+  (`prefers-color-scheme`) and changes with it while Pages is open. An explicit
+  choice always wins over the system. An error page that the server renders
+  without loader data (a 404 on a direct request) cannot know the account and
+  uses the system, like the language; in the browser an error page keeps the
+  theme the document had.
+- **No flash, no script.** The server writes the theme to the document root
+  (`data-theme`) and the stylesheet selects the palette from it, so the first
+  paint already uses the right one and the client hydrates the same value. The
+  browser chrome (`theme-color`) and native controls (`color-scheme`) follow
+  the same choice.
+- **One token scale.** Both palettes define the same semantic color tokens in
+  `app/styles/tailwind.css`. Components name roles (`bg-surface`,
+  `text-muted-foreground`, `bg-notice-subtle`), never a palette value, and a new
+  color is a token with a value for both themes; a test lists the few files that
+  may name a color directly. Colors users choose (labels, milestones, project
+  and avatar colors) and third-party brand colors are not inverted. Text in a
+  user color is only lightened in the dark theme where it would not be readable.
+- **Contrast.** Every token pair of the dark palette meets WCAG 2.1 AA (4.5:1 for
+  text, 3:1 for graphics and the focus ring). The light palette is unchanged;
+  its pairs below AA predate the dark theme and are listed in
+  `tests/frontend/page-29-theme-styles.test.ts`.
+- **Persistence.** The theme is the `theme` column of `user_settings`
+  (migration `040_user_theme.sql`); an empty or unknown value means `system`,
+  so accounts that exist before the update start in System as well.
+
 ## Development
 
 Pages needs Node.js 22.22 or newer and pnpm 10 or newer. Install dependencies
