@@ -497,4 +497,64 @@ describe("PAGE-20 which runs get a record, and what happens when files fail", ()
       input: "Test Default task\n\nA",
     });
   });
+  it("refuses a plan with an agent that is not shared with the planner, whatever the request claims", async () => {
+    const current = await setup();
+    await expect(
+      current.service.save(
+        current.alice.id,
+        null,
+        executionPlan(current.workspaceId, current.userAgentId),
+      ),
+    ).rejects.toThrow();
+    expect(current.execution.run).not.toHaveBeenCalled();
+    expect(await readdir(path.join(current.root, "Agents"))).toEqual([
+      current.userAgentId,
+    ]);
+  });
+
+  it("checks the connection scope again when a step starts and records the refusal as a failed run", async () => {
+    const current = await setup();
+    const pending = controlExecution(current.execution);
+    const planId = await current.service.save(
+      current.bob.id,
+      null,
+      executionPlan(current.workspaceId, current.userAgentId, {
+        nodes: [
+          executionStep("A", current.userAgentId),
+          executionStep("B", current.userAgentId, {
+            input: { kind: "result", stepId: "A" },
+          }),
+        ],
+        edges: [{ from: "A", to: "B" }],
+      }),
+    );
+    const run = await current.service.play(current.bob.id, planId, 1);
+    await waitForPlan(() => expect(pending.has("A")).toBe(true));
+    // The administrator narrows the connection while the first step runs.
+    await current.connections.scopes().save("connection", {
+      mode: "restricted",
+      targets: [{ kind: "person", targetId: current.alice.id }],
+    });
+    pending.get("A")?.resolve("Done");
+    await waitForPlan(async () =>
+      expect((await current.runRepository.find(run.id))?.status).toBe("failed"),
+    );
+    await current.engine.shutdown();
+    expect(pending.has("B")).toBe(false);
+    const { record } = await current.archive.read(
+      current.bob.id,
+      current.userAgentId,
+      runIdentifier(run.id, "B"),
+    );
+    expect(record).toMatchObject({ status: "failed", result: "accessDenied" });
+    expect(
+      (
+        await current.archive.read(
+          current.bob.id,
+          current.userAgentId,
+          runIdentifier(run.id, "A"),
+        )
+      ).record.status,
+    ).toBe("succeeded");
+  });
 });
