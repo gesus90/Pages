@@ -10,12 +10,21 @@ import type { PageAgentModel } from "@/definition/PageAgent";
 import type { ProfileDependencies } from "./AgentProfileService";
 import type { ResolvedAgentAssignment } from "./AgentAssignmentResolution";
 
-/** Resolves the unchanged admin model and its live assignment independently of the usage share. */
+/**
+ * Resolves the unchanged admin model and its live assignment independently of the usage share.
+ *
+ * @returns The assignment and the identifier of the administrator profile that grants it.
+ * @throws {AgentError} `agent_usage_denied` unless the model profile is active, has
+ * the purpose Agent, is released for the viewer and still names the saved model.
+ */
 export async function resolvePageAgentModel(
   dependencies: ProfileDependencies,
   viewer: AgentViewer,
   profile: AgentProfile,
-): Promise<ResolvedAgentAssignment> {
+): Promise<{
+  readonly assignment: ResolvedAgentAssignment;
+  readonly sourceId: string;
+}> {
   const source = (await dependencies.profiles.list()).find(
     (entry) => entry.id === profile.modelProfileId,
   );
@@ -32,7 +41,14 @@ export async function resolvePageAgentModel(
     source.model !== profile.model
   )
     throw new AgentError("agent_usage_denied");
-  return resolveAgentAssignmentFor(dependencies.connections, viewer, profile);
+  return {
+    assignment: await resolveAgentAssignmentFor(
+      dependencies.connections,
+      viewer,
+      profile,
+    ),
+    sourceId: source.id,
+  };
 }
 
 /** Enumerates exact administrative models after assignment, scope and capability checks. */

@@ -110,15 +110,12 @@ export class AgentAvailabilityService {
     if (profile.ownerId) {
       if (selection.personalAgentId !== null)
         throw new AgentError("agent_usage_denied");
-      return {
+      const { assignment, sourceId } = await resolvePageAgentModel(
+        this.dependencies,
+        context.viewer,
         profile,
-        accessAgentId: profile.modelProfileId ?? profile.id,
-        assignment: await resolvePageAgentModel(
-          this.dependencies,
-          context.viewer,
-          profile,
-        ),
-      };
+      );
+      return { profile, accessAgentId: sourceId, assignment };
     }
     if (configuration.accessMode === "shared") {
       if (
