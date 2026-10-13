@@ -105,6 +105,9 @@ export class AgentConnectionRepository {
    * @remarks
    * Read inside the connection write lock before credential cleanup or deletion.
    * Function assignments, including legacy ones, always belong to an agent.
+   * Agents of users reach a connection only through a model profile of the
+   * administrators, which this list names, so they are left out: an
+   * administrator cannot change them and must not learn their names here.
    */
   public async usages(id: string): Promise<readonly AgentUsage[]> {
     const rows = await this.database.query(
@@ -114,6 +117,7 @@ export class AgentConnectionRepository {
           name
       FROM agent_execution_profiles
       WHERE connection_id = $id
+          AND owner_id IS NULL
       ORDER BY lower(name), id;
     `,
       { id },

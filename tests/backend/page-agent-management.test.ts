@@ -471,6 +471,24 @@ describe("PAGE-20 visibility of agents, deleted groups and the limits of adminis
       administration.deleteGroup(current.admin.userId, "two"),
     ).rejects.toBeInstanceOf(AgentScopeInUseError);
   });
+
+  it("names only the agents of administrators as users of a connection", async () => {
+    const current = await setup();
+    const id = await current.service.save(
+      current.bob.id,
+      null,
+      pageAgentInput(),
+    );
+    const usages = await current.connections.usages("connection");
+    expect(usages).toContainEqual({
+      kind: "agent",
+      id: "admin-model",
+      name: "Admin model",
+    });
+    expect(
+      usages.map((usage) => ("id" in usage ? usage.id : "")),
+    ).not.toContain(id);
+  });
 });
 
 describe("PAGE-20 definition validation and the life of a model grant", () => {
