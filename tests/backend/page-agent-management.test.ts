@@ -2,7 +2,12 @@ import { readFile, readdir, rm, stat, symlink } from "node:fs/promises";
 import path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
+
+import { ServerCache } from "@/backend/cache/ServerCache";
 import { UserRepository } from "@/backend/database/repositories/UserRepository";
+import { AgentScopeInUseError } from "@/backend/error/AdministrationError";
+import { GroupAdministrationService } from "@/backend/service/GroupAdministrationService";
+import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 
 import { createPageAgentHarness, pageAgentInput } from "../helpers/page-agents";
 import { useMigratedDatabase } from "../helpers/test-database";
@@ -97,7 +102,7 @@ describe("PAGE-20 user agents, live model grants and sharing", () => {
     await expect(
       current.service.save(current.bob.id, id, initial),
     ).rejects.toMatchObject({ code: "profile_conflict" });
-    const directory = path.join(current.directory, ".pages", "Agents", id);
+    const directory = path.join(current.directory, id);
     expect(await readdir(directory)).toEqual(["AGENT.md"]);
     const markdown = await readFile(path.join(directory, "AGENT.md"), "utf8");
     const encoded = markdown.split("```json\n")[1]?.split("\n```")[0] ?? "";
@@ -302,7 +307,7 @@ describe("PAGE-20 user agents, live model grants and sharing", () => {
         ...persisted,
         name: "While running",
       }),
-    ).rejects.toMatchObject({ code: "profile_conflict" });
+    ).rejects.toMatchObject({ code: "profile_running" });
     release();
     release();
     await current.service.save(current.bob.id, id, {
@@ -317,12 +322,152 @@ describe("PAGE-20 user agents, live model grants and sharing", () => {
     await expect(
       current.profiles.resolve(current.bob.id, "agent", id),
     ).rejects.toThrow();
-    await symlink(
-      current.directory,
-      path.join(current.directory, ".pages", "Agents", "linked"),
-    );
+    await symlink(current.directory, path.join(current.directory, "linked"));
     await expect(
       current.files.write({ ...source, id: "linked" }),
     ).rejects.toThrow();
+  });
+});
+
+describe("PAGE-20 visibility of agents, deleted groups and the limits of administrators", () => {
+  const getDatabase = useMigratedDatabase();
+  let harness: Awaited<ReturnType<typeof createPageAgentHarness>> | undefined;
+  afterEach(async () => {
+    if (harness)
+      await rm(harness.wiki.filesDirectory, { recursive: true, force: true });
+    harness = undefined;
+  });
+  async function setup() {
+    harness = await createPageAgentHarness(getDatabase());
+    return harness;
+  }
+  function restricted(
+    targets: AgentConfiguration["sharing"]["targets"],
+    operator: "and" | "or" = "or",
+  ) {
+    const proposed = pageAgentInput();
+    return {
+      ...proposed,
+      configuration: {
+        ...proposed.configuration,
+        sharing: { isGlobal: false, operator, targets },
+      },
+    };
+  }
+
+  it("lets someone read a record of an agent only while the agent is shared with them", async () => {
+    const current = await setup();
+    await current.groups.save({
+      id: "one",
+      name: "One",
+      memberIds: [current.reader.id],
+    });
+    const id = await current.service.save(
+      current.bob.id,
+      null,
+      restricted([{ kind: "group", targetId: "one" }]),
+    );
+    for (const user of [current.bob, current.reader])
+      await expect(
+        current.service.requireVisible(user.id, id),
+      ).resolves.toBeUndefined();
+    for (const [user, agent] of [
+      [current.alice, id],
+      [current.bob, "missing"],
+      [current.reader, "../escape"],
+    ] as const)
+      await expect(
+        current.service.requireVisible(user.id, agent),
+      ).rejects.toMatchObject({ code: "agent_usage_denied" });
+    // Membership is read again each time.
+    await current.groups.save({ id: "one", name: "One", memberIds: [] });
+    await expect(
+      current.service.requireVisible(current.reader.id, id),
+    ).rejects.toMatchObject({ code: "agent_usage_denied" });
+  });
+
+  it("shows the owner only the groups and departments that still exist, and a save stores that list", async () => {
+    const current = await setup();
+    await current.authorization.saveDepartment({ id: "alpha", name: "alpha" });
+    for (const id of ["gone", "kept"])
+      await current.groups.save({ id, name: id, memberIds: [] });
+    const id = await current.service.save(
+      current.bob.id,
+      null,
+      restricted(
+        [
+          { kind: "group", targetId: "gone" },
+          { kind: "group", targetId: "kept" },
+          { kind: "department", targetId: "alpha" },
+        ],
+        "and",
+      ),
+    );
+    await current.groups.delete("gone");
+    const shown = (await current.service.page(current.bob.id)).agents[0];
+    expect(shown.configuration.sharing).toEqual({
+      isGlobal: false,
+      operator: "and",
+      targets: [
+        { kind: "group", targetId: "kept" },
+        { kind: "department", targetId: "alpha" },
+      ],
+    });
+    // The stored share still names the deleted group until the owner saves again.
+    expect(
+      (await current.repository.list()).find((entry) => entry.id === id)
+        ?.configuration?.sharing.targets,
+    ).toHaveLength(3);
+    await current.service.save(current.bob.id, id, shown);
+    expect(
+      (await current.repository.list()).find((entry) => entry.id === id)
+        ?.configuration?.sharing.targets,
+    ).toEqual(shown.configuration.sharing.targets);
+  });
+
+  it("keeps administrators from changing or deleting an agent of a user without blocking their own work", async () => {
+    const current = await setup();
+    for (const id of ["one", "two"])
+      await current.groups.save({ id, name: id, memberIds: [] });
+    const id = await current.service.save(
+      current.bob.id,
+      null,
+      restricted([{ kind: "group", targetId: "one" }]),
+    );
+    await expect(
+      current.profiles.remove(current.admin, id),
+    ).rejects.toMatchObject({ code: "agent_usage_denied" });
+    await expect(
+      current.profiles.remove(current.admin, "missing"),
+    ).rejects.toMatchObject({ code: "profile_not_found" });
+    const listed = await current.profiles.list(current.admin);
+    expect(listed.map((entry) => entry.id)).toContain("admin-model");
+    expect(listed.map((entry) => entry.id)).not.toContain(id);
+    const administration = new GroupAdministrationService(
+      current.authorization,
+      new ServerCache(),
+    );
+    // A group that only an agent of a user shares with can be deleted.
+    await administration.deleteGroup(current.admin.userId, "one");
+    // An agent of the administrators keeps the group in use.
+    await current.profiles.save(current.admin, null, {
+      name: "Shared work",
+      connectionId: "connection",
+      model: "model-a",
+      reasoningEffort: "medium",
+      isActive: true,
+      purposes: ["agent"],
+      targets: [{ kind: "system", targetId: "agent" }],
+      configuration: {
+        ...emptyAgentConfiguration("system"),
+        sharing: {
+          isGlobal: false,
+          targets: [{ kind: "group", targetId: "two" }],
+        },
+      },
+    });
+    await expect(
+      administration.deleteGroup(current.admin.userId, "two"),
+    ).rejects.toBeInstanceOf(AgentScopeInUseError);
   });
 });

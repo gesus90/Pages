@@ -48,6 +48,8 @@ export const AGENT_ERROR_MESSAGES = {
   profile_in_use:
     "Remove the agent's assignments and usage grants before deleting it.",
   profile_conflict: "The agent changed. Reload it before saving.",
+  profile_running:
+    "The agent is part of a running plan. Change it after the run ended.",
   profile_scope_invalid: "Choose targets within the agent's scope.",
   personal_access_missing: "No matching personal model access is assigned.",
   personal_access_selection_required:

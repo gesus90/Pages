@@ -2,7 +2,7 @@ import { RouterContextProvider } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 
 const services = vi.hoisted(() => ({
-  pageAgentService: { page: vi.fn(), save: vi.fn(), require: vi.fn() },
+  pageAgentService: { page: vi.fn(), save: vi.fn(), requireVisible: vi.fn() },
   agentRunArchive: { read: vi.fn() },
   agentPlanService: { run: vi.fn() },
 }));
@@ -86,12 +86,12 @@ describe("PAGE-20 authenticated management and archive endpoints", () => {
       params: { agentId: "agent", runId: "run" },
       pattern: "/agent-api/run-records/:agentId/:runId",
     };
-    services.pageAgentService.require.mockRejectedValueOnce(
+    services.pageAgentService.requireVisible.mockRejectedValueOnce(
       new AgentError("agent_usage_denied"),
     );
     expect((await archiveLoader(request)).status).toBe(403);
     expect(services.agentRunArchive.read).not.toHaveBeenCalled();
-    services.pageAgentService.require.mockResolvedValue(undefined);
+    services.pageAgentService.requireVisible.mockResolvedValue(undefined);
     services.agentRunArchive.read.mockRejectedValueOnce(
       new AgentError("agent_usage_denied"),
     );
@@ -110,6 +110,7 @@ describe("PAGE-20 authenticated management and archive endpoints", () => {
     expect(await response.text()).toBe("# Private run");
     expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(response.headers.get("Content-Type")).toContain("text/markdown");
+    expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
     expect(services.agentPlanService.run).toHaveBeenCalledWith(
       createUser().id,
       "plan-run",

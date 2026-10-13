@@ -172,19 +172,28 @@ export class AgentProfileStore {
     return usages;
   }
 
-  /** Names every agent whose scope or usage sharing still references a group, department or person. */
+  /**
+   * Names every administrator agent whose scope or usage sharing still references a group, department or person.
+   *
+   * @remarks
+   * Agents of users do not count: an administrator cannot change them, so they
+   * would block the deletion without a way to resolve it. A deleted group
+   * simply never matches anyone there.
+   */
   public async references(
     target: AgentProfileTarget,
   ): Promise<readonly AgentReference[]> {
     return (await this.list())
-      .filter((profile) =>
-        [
-          ...profile.targets,
-          ...(profile.configuration?.sharing.targets ?? []),
-        ].some(
-          (entry) =>
-            entry.kind === target.kind && entry.targetId === target.targetId,
-        ),
+      .filter(
+        (profile) =>
+          profile.ownerId === undefined &&
+          [
+            ...profile.targets,
+            ...(profile.configuration?.sharing.targets ?? []),
+          ].some(
+            (entry) =>
+              entry.kind === target.kind && entry.targetId === target.targetId,
+          ),
       )
       .map((profile) => ({ id: profile.id, name: profile.name }));
   }

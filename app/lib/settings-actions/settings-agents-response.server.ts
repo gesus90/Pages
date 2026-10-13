@@ -43,6 +43,7 @@ const ERROR_STATUS: Partial<Record<AgentErrorCode, number>> = {
   credential_cleanup_failed: 500,
   profile_in_use: 409,
   profile_conflict: 409,
+  profile_running: 409,
   system_function_in_use: 409,
   agent_usage_denied: 403,
   workspace_access_denied: 403,

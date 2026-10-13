@@ -91,8 +91,10 @@ export function PageAgentEditor(props: {
       />
       {fetcher.data?.error ? (
         <p role="alert" className="text-sm text-destructive">
-          {t(`settings.agents.errors.${fetcher.data.error}`, {
-            defaultValue: t("pageAgents.saveFailed"),
+          {t(`settings.agents.error.${fetcher.data.error}`, {
+            defaultValue: t(`assistant.error.${fetcher.data.error}`, {
+              defaultValue: t("pageAgents.saveFailed"),
+            }),
           })}
         </p>
       ) : null}

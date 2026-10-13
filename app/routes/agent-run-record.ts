@@ -8,7 +8,14 @@ import { AgentError } from "@/backend/error/AgentErrors";
 
 import type { Route } from "./+types/agent-run-record";
 
-/** Private markdown requires current agent, executor, plan and source-resource authorization. */
+/**
+ * Delivers the markdown of one agent run to the person who started it.
+ *
+ * @remarks
+ * The agent must still be visible to the requester, the run must be theirs,
+ * and the plan and its source resources must still be accessible to them.
+ * A record of someone else and a missing record are refused alike.
+ */
 export async function loader({
   context,
   params,
@@ -17,7 +24,7 @@ export async function loader({
     const user = context.get(authenticatedUserContext);
     if (!user) throw new AgentError("agent_usage_denied");
     const services = await getApplicationServices();
-    await services.pageAgentService.require(user.id, params.agentId);
+    await services.pageAgentService.requireVisible(user.id, params.agentId);
     const archived = await services.agentRunArchive.read(
       user.id,
       params.agentId,
@@ -28,6 +35,7 @@ export async function loader({
       headers: {
         ...AGENT_NO_STORE,
         "Content-Type": "text/markdown; charset=utf-8",
+        "X-Content-Type-Options": "nosniff",
       },
     });
   } catch (error: unknown) {

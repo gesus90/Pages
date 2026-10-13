@@ -227,14 +227,10 @@ export class AgentProfileService {
       const profile = (await this.dependencies.profiles.list()).find(
         (entry) => entry.id === id,
       );
-      if (profile?.ownerId) throw new AgentError("agent_usage_denied");
-      await this.dependencies.files?.assertMutable(id);
-      if (
-        !(await this.dependencies.profiles.list()).some(
-          (entry) => entry.id === id,
-        )
-      )
-        throw new AgentError("profile_not_found");
+      if (!profile) throw new AgentError("profile_not_found");
+      // Agents of users are managed by their owner only.
+      if (profile.ownerId) throw new AgentError("agent_usage_denied");
+      this.dependencies.files?.assertMutable(id);
       await this.dependencies.profiles.remove(id);
     });
   }

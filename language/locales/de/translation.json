@@ -546,6 +546,7 @@
         "parameter_reference_unavailable": "Die Parameterreferenz ist nicht verfügbar oder nicht zugänglich.",
         "profile_in_use": "Zuweisungen, Projektbezug und Nutzungsfreigaben vor dem Löschen entfernen.",
         "profile_conflict": "Der Agent wurde geändert. Vor dem Speichern neu laden.",
+        "profile_running": "Der Agent ist Teil eines laufenden Plans. Nach dem Ende des Laufs ändern.",
         "profile_scope_invalid": "Ziele innerhalb der gewählten Geltung auswählen. Persönliche Geltung nutzt ausschließlich eigene persönliche Zugänge.",
         "personal_access_missing": "Kein passender eigener persönlicher Modellzugang zugewiesen.",
         "personal_access_selection_required": "Einen passenden eigenen persönlichen Zugang ausdrücklich auswählen.",

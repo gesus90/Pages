@@ -76,7 +76,7 @@ describe("PAGE-20 user agent management UI", () => {
     await user.click(screen.getByRole("option", { name: "low" }));
     await user.click(screen.getByRole("button", { name: "Add parameter" }));
     expect(screen.getByDisplayValue("parameter_1")).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Save", exact: true }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(submitted).toHaveLength(1));
     const definition: unknown = JSON.parse(String(submitted[0].get("agent")));
     expect(definition).toMatchObject({
@@ -125,7 +125,7 @@ describe("PAGE-20 user agent management UI", () => {
     await user.click(
       screen.getByRole("option", { name: "AND – every target" }),
     );
-    await user.click(screen.getByRole("button", { name: "Save", exact: true }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
     await screen.findByRole("alert");
     const definition: unknown = JSON.parse(String(submitted[0].get("agent")));
     expect(definition).toMatchObject({
@@ -176,9 +176,7 @@ describe("PAGE-20 user agent management UI", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "View" }));
     expect(screen.getByLabelText("Name")).toBeDisabled();
-    expect(
-      screen.queryByRole("button", { name: "Save", exact: true }),
-    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
     expect(screen.getByRole("combobox", { name: "Sharing" })).toBeDisabled();
   });
 });

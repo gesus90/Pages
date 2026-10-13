@@ -546,6 +546,7 @@
         "parameter_reference_unavailable": "The parameter reference is unavailable or not accessible.",
         "profile_in_use": "Remove assignments, project context and usage shares before deleting.",
         "profile_conflict": "The agent changed. Reload it before saving.",
+        "profile_running": "The agent is part of a running plan. Change it after the run ended.",
         "profile_scope_invalid": "Choose targets within the selected scope. Personal scope uses only the executor’s personal access.",
         "personal_access_missing": "No matching personal model access is assigned.",
         "personal_access_selection_required": "Choose a matching personal access explicitly.",

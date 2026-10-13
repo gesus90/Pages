@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { readAgentConfiguration } from "@/backend/agents/AgentConfigurationInput";
-import { hasAgentUsage } from "@/backend/auth/AgentProfilePolicy";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
@@ -12,7 +11,10 @@ import { requireCredentialFreeText } from "@/backend/service/assistant/TextAssis
 import { pageAgentModels, resolvePageAgentModel } from "./PageAgentModels";
 
 import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
-import type { AgentProfile } from "@/definition/AgentProfile";
+import type {
+  AgentProfile,
+  AgentProfileDirectory,
+} from "@/definition/AgentProfile";
 import type { PageAgent, PageAgentPage } from "@/definition/PageAgent";
 import type {
   ProfileDependencies,
@@ -46,6 +48,11 @@ export class PageAgentService {
       this.dependencies.authorization.snapshot(),
       this.dependencies.groups.findAll(),
     ]);
+    const directory: AgentProfileDirectory = {
+      persons: [],
+      groups: groups.map((group) => ({ id: group.id, name: group.name })),
+      departments: snapshot.departments,
+    };
     const agents: PageAgent[] = [];
     for (const profile of await this.dependencies.profiles.list()) {
       const choice = catalog.find((entry) => entry.id === profile.id);
@@ -63,7 +70,7 @@ export class PageAgentService {
         modelProfileId: profile.modelProfileId,
         model: profile.model,
         reasoningEffort: profile.reasoningEffort,
-        configuration: profile.configuration,
+        configuration: withoutDeletedTargets(profile.configuration, directory),
         revision: profile.revision,
         canEdit: profile.ownerId === userId,
         availability: choice.availability,
@@ -73,11 +80,7 @@ export class PageAgentService {
       agents,
       models,
       workspaces: (await this.dependencies.workspaces?.choices(userId)) ?? [],
-      directory: {
-        persons: [],
-        groups: groups.map((group) => ({ id: group.id, name: group.name })),
-        departments: snapshot.departments,
-      },
+      directory,
     };
   }
 
@@ -137,20 +140,21 @@ export class PageAgentService {
     });
   }
 
-  /** A direct file request still requires live sharing, model grants and active account status. */
-  public async require(userId: string, id: string): Promise<AgentProfile> {
-    const viewer = await this.viewer(userId);
-    const profile = (await this.dependencies.profiles.list()).find(
-      (entry) => entry.id === id,
-    );
-    if (!profile || !profile.isActive || !hasAgentUsage(profile, viewer))
+  /**
+   * Requires that the agent is currently visible to the user.
+   *
+   * @param userId - Authenticated requester.
+   * @param id - Agent identifier from the request.
+   * @throws {AgentError} `agent_usage_denied` for an agent that does not exist
+   * and for one that is not shared with the user, without telling which.
+   *
+   * @remarks
+   * Reading a record does not start a model, so the model grants are not part
+   * of this check. A user who loses the share loses the content as well.
+   */
+  public async requireVisible(userId: string, id: string): Promise<void> {
+    if (!(await this.profiles.catalog(userId)).some((entry) => entry.id === id))
       throw new AgentError("agent_usage_denied");
-    await this.profiles.resolveDefinition(userId, {
-      agentId: id,
-      personalAgentId: null,
-      projectId: profile.configuration?.projectId ?? null,
-    });
-    return profile;
   }
 
   private async viewer(userId: string): Promise<AgentViewer> {
@@ -205,6 +209,32 @@ export class PageAgentService {
       }
     }
   }
+}
+
+/**
+ * Leaves out sharing targets whose group or department no longer exists.
+ *
+ * @remarks
+ * A deleted group never matches anyone, so the owner could not see why the
+ * agent stays closed. The next save stores the cleaned list.
+ */
+function withoutDeletedTargets(
+  configuration: PageAgent["configuration"],
+  directory: AgentProfileDirectory,
+): PageAgent["configuration"] {
+  const known = new Set([
+    ...directory.groups.map((entry) => `group:${entry.id}`),
+    ...directory.departments.map((entry) => `department:${entry.id}`),
+  ]);
+  return {
+    ...configuration,
+    sharing: {
+      ...configuration.sharing,
+      targets: configuration.sharing.targets.filter((target) =>
+        known.has(`${target.kind}:${target.targetId}`),
+      ),
+    },
+  };
 }
 
 function readName(input: unknown): string {
