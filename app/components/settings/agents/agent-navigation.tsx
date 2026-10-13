@@ -5,7 +5,7 @@ import { NavLink, useLocation } from "react-router";
 
 import { cn } from "@/app/lib/cn";
 
-/** Links the work navigation to the existing central panel, without a second list route. */
+/** Links reusable user agents, execution plans and workspace management. */
 export function AgentNavigation(props: {
   readonly canManage?: boolean;
   readonly onNavigate?: () => void;
@@ -64,11 +64,11 @@ export function AgentNavigation(props: {
             {t("navigation.workspace")}
           </NavLink>
           <NavLink
-            to="/settings/agents"
+            to="/agents/agents"
             onClick={props.onNavigate}
             className={cn(
               "flex min-h-11 items-center rounded-xl px-3 text-sm font-medium text-muted-foreground hover:bg-sidebar-hover hover:text-foreground xl:min-h-9",
-              location.pathname === "/settings/agents" &&
+              location.pathname === "/agents/agents" &&
                 "bg-primary-subtle text-foreground shadow-xs",
             )}
           >

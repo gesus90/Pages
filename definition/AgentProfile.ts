@@ -29,6 +29,9 @@ export interface AgentProfileInput {
 
 export interface AgentProfile extends AgentProfileInput {
   readonly id: string;
+  /** Present only on user-created definitions; administrative model grants stay separate. */
+  readonly ownerId?: string;
+  readonly modelProfileId?: string;
 }
 
 /** The user-facing selection deliberately omits assignments and connection metadata. */

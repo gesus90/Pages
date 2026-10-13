@@ -57,6 +57,7 @@ export interface AgentApplicationServices extends AgentConfigurationApplicationS
 }
 
 interface ExecutionInput {
+  readonly dataDirectory: string;
   readonly repository: AgentConnectionRepository;
   readonly cipher: InstanceSecretCipher;
   readonly operations: AgentOperationRegistry;
@@ -105,7 +106,10 @@ function createExecutions(
     agentPlanExecution: new ScopedExecution(
       new AgentPlanExecution(
         new ApiTextExecution(repository, cipher),
-        new CliPlanExecution(cliAdapters),
+        new CliPlanExecution({
+          ...cliAdapters,
+          protectedDirectory: input.dataDirectory,
+        }),
         operations,
       ),
       access,
@@ -167,6 +171,7 @@ export function createAgentServices(
       configuration.agentProfileService,
     ),
     ...createExecutions({
+      dataDirectory,
       repository,
       cipher,
       operations,

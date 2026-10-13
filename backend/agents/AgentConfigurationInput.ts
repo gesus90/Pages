@@ -115,6 +115,12 @@ export function readAgentConfiguration(input: unknown): AgentConfiguration {
   )
     throw new AgentError("configuration_invalid");
   const targets = readAgentTargets(sharing.targets);
+  if (
+    sharing.operator !== undefined &&
+    sharing.operator !== "and" &&
+    sharing.operator !== "or"
+  )
+    throw new AgentError("configuration_invalid");
   if (targets.some((target) => target.kind === "system"))
     throw new AgentError("configuration_invalid");
   return {
@@ -131,6 +137,10 @@ export function readAgentConfiguration(input: unknown): AgentConfiguration {
       configuration.directoryParameter === null
         ? null
         : text(configuration.directoryParameter, 64),
-    sharing: { isGlobal: sharing.isGlobal, targets },
+    sharing: {
+      isGlobal: sharing.isGlobal,
+      targets,
+      ...(sharing.operator === undefined ? {} : { operator: sharing.operator }),
+    },
   };
 }

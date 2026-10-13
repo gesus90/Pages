@@ -57,6 +57,7 @@ export function AgentProfileTargets(props: {
   readonly purposes?: readonly AgentProfilePurpose[];
   /** Overrides the accessible name of the group of choices. */
   readonly label?: string;
+  readonly kinds?: readonly AgentProfileTargetKind[];
 }): React.ReactElement {
   const { t } = useTranslation();
   const sections = [
@@ -94,6 +95,10 @@ export function AgentProfileTargets(props: {
       }
     >
       {sections
+        .filter(
+          (section) =>
+            props.kinds === undefined || props.kinds.includes(section.kind),
+        )
         .filter((section) => !props.isSharing || section.kind !== "system")
         .map((section) => (
           <fieldset

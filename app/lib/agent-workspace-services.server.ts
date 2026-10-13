@@ -11,6 +11,10 @@ import { AgentParameterService } from "@/backend/service/agents/AgentParameterSe
 import { AgentProfileService } from "@/backend/service/agents/AgentProfileService";
 import { AgentWorkspacePath } from "@/backend/service/agents/AgentWorkspacePath";
 import { AgentWorkspaceService } from "@/backend/service/agents/AgentWorkspaceService";
+import { AgentDefinitionFiles } from "@/backend/service/agents/AgentDefinitionFiles";
+import { AgentRunArchive } from "@/backend/service/agents/AgentRunArchive";
+import { PageAgentService } from "@/backend/service/agents/PageAgentService";
+import { PageAgentRunRepository } from "@/backend/database/repositories/agent/PageAgentRunRepository";
 
 import type { Database } from "@/backend/database/Database";
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
@@ -21,6 +25,9 @@ export interface AgentConfigurationApplicationServices {
   readonly agentProfileService: AgentProfileService;
   readonly agentWorkspaceService: AgentWorkspaceService;
   readonly agentParameterService: AgentParameterService;
+  readonly pageAgentService: PageAgentService;
+  readonly agentDefinitionFiles: AgentDefinitionFiles;
+  readonly agentRunArchive: AgentRunArchive;
 }
 
 /** Wires registration and parameter preparation without filesystem writes or runner starts. */
@@ -50,7 +57,8 @@ export function createAgentConfigurationServices(input: {
       protectedDirectory: input.dataDirectory,
     }),
   });
-  const agentProfileService = new AgentProfileService({
+  const agentDefinitionFiles = new AgentDefinitionFiles(input.dataDirectory);
+  const dependencies = {
     profiles: new AgentProfileRepository(database),
     connections: input.connections,
     authorization,
@@ -58,10 +66,22 @@ export function createAgentConfigurationServices(input: {
     operations: input.operations,
     content,
     workspaces: agentWorkspaceService,
-  });
+    files: agentDefinitionFiles,
+  };
+  const agentProfileService = new AgentProfileService(dependencies);
   return {
     agentProfileService,
     agentWorkspaceService,
+    pageAgentService: new PageAgentService(
+      dependencies,
+      agentProfileService,
+      agentDefinitionFiles,
+    ),
+    agentDefinitionFiles,
+    agentRunArchive: new AgentRunArchive(
+      new PageAgentRunRepository(database),
+      input.dataDirectory,
+    ),
     agentParameterService: new AgentParameterService({
       profiles: agentProfileService,
       workspaces: agentWorkspaceService,

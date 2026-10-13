@@ -10,6 +10,7 @@ import { agentParameterIssues } from "@/definition/AgentParameters";
 
 import { resolveAgentAssignmentFor } from "./AgentAssignmentResolution";
 import { canUseAgentConnection } from "./AgentConnectionAccess";
+import { resolvePageAgentModel } from "./PageAgentModels";
 
 import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
 import type {
@@ -106,6 +107,19 @@ export class AgentAvailabilityService {
       profile.configuration ?? configurationForTargets(profile.targets);
     if (agentParameterIssues(configuration).length > 0)
       throw new AgentError("parameter_invalid");
+    if (profile.ownerId) {
+      if (selection.personalAgentId !== null)
+        throw new AgentError("agent_usage_denied");
+      return {
+        profile,
+        accessAgentId: profile.modelProfileId ?? profile.id,
+        assignment: await resolvePageAgentModel(
+          this.dependencies,
+          context.viewer,
+          profile,
+        ),
+      };
+    }
     if (configuration.accessMode === "shared") {
       if (
         selection.personalAgentId !== null ||
@@ -160,6 +174,7 @@ export class AgentAvailabilityService {
     // A personal agent runs on the person's own access, which is checked in
     // its availability; every other agent shows its model only within scope.
     return (
+      profile.ownerId !== undefined ||
       configuration.accessMode === "personal" ||
       (await canUseAgentConnection(
         this.dependencies.connections,
@@ -238,6 +253,10 @@ export class AgentAvailabilityService {
         profile.configuration ?? configurationForTargets(profile.targets);
       if (agentParameterIssues(configuration).length > 0)
         throw new AgentError("parameter_invalid");
+      if (profile.ownerId) {
+        await resolvePageAgentModel(this.dependencies, context.viewer, profile);
+        return { isUsable: true, reason: null, personalChoices: [] };
+      }
       if (configuration.accessMode === "personal") {
         const candidates = await this.personalCandidates(profile, context);
         if (candidates.length === 0)
@@ -280,7 +299,7 @@ export class AgentAvailabilityService {
     );
     if (!requested) return [];
     const candidates: AgentProfile[] = [];
-    for (const source of context.profiles) {
+    for (const source of context.profiles.filter((entry) => !entry.ownerId)) {
       if (
         !source.isActive ||
         !source.purposes.includes("agent") ||

@@ -1,4 +1,5 @@
 import { AgentPlanRepository } from "@/backend/database/repositories/agent/AgentPlanRepository";
+import { AgentProfileRepository } from "@/backend/database/repositories/agent/AgentProfileRepository";
 import { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import { AgentPlanAccess } from "@/backend/service/agents/AgentPlanAccess";
 import { AgentPlanPreparation } from "@/backend/service/agents/AgentPlanPreparation";
@@ -32,6 +33,8 @@ export async function createAgentPlanService(input: {
     runs,
     start: new AgentPlanStepStart({ access, tasks, profiles, parameters }),
     execution: input.agents.agentPlanExecution,
+    archive: input.agents.agentRunArchive,
+    files: input.agents.agentDefinitionFiles,
   });
   const service = new AgentPlanService({
     plans,
@@ -45,5 +48,8 @@ export async function createAgentPlanService(input: {
     engine,
   });
   await service.recoverInterruptedRuns();
+  for (const profile of await new AgentProfileRepository(input.database).list())
+    await input.agents.agentDefinitionFiles.write(profile);
+  await input.agents.agentRunArchive.recover();
   return service;
 }

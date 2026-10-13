@@ -34,6 +34,11 @@ export default [
     route("agent-api/definitions", "routes/agent-definitions.ts"),
     route("agent-api/workspaces", "routes/agent-workspace-choices.ts"),
     route("agents/workspaces", "routes/agent-workspaces.tsx"),
+    route("agents/agents", "routes/page-agents.tsx"),
+    route(
+      "agent-api/run-records/:agentId/:runId",
+      "routes/agent-run-record.ts",
+    ),
     route("agents/plans", "routes/agent-plans.tsx"),
     route("agent-api/plan-sources", "routes/agent-plan-sources.ts"),
     route("agent-api/plan-runs", "routes/agent-plan-runs.ts"),

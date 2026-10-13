@@ -28,6 +28,9 @@ import { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
 import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 import { emptyAgentPlan } from "@/definition/AgentPlan";
+import { AgentRunArchive } from "@/backend/service/agents/AgentRunArchive";
+import { AgentDefinitionFiles } from "@/backend/service/agents/AgentDefinitionFiles";
+import { PageAgentRunRepository } from "@/backend/database/repositories/agent/PageAgentRunRepository";
 
 import { createAssistantHarness } from "./text-assistant";
 
@@ -85,6 +88,8 @@ export type ExecutionPlanHarness = Omit<
     readonly stepStart: AgentPlanStepStart;
     readonly execution: ControlledExecution;
     readonly engine: AgentPlanRunEngine;
+    readonly archive: AgentRunArchive;
+    readonly files: AgentDefinitionFiles;
     readonly service: AgentPlanService;
     readonly dispose: () => Promise<void>;
   };
@@ -279,7 +284,14 @@ function assembleHarness(
       return "Completed";
     }),
   };
+  const archive = new AgentRunArchive(
+    new PageAgentRunRepository(database),
+    path.join(workspace.root, "instance"),
+  );
+  const files = new AgentDefinitionFiles(path.join(workspace.root, "instance"));
   const engine = new AgentPlanRunEngine({
+    archive,
+    files,
     runs: runRepository,
     start: stepStart,
     execution,
@@ -308,6 +320,8 @@ function assembleHarness(
     execution,
     engine,
     service,
+    archive,
+    files,
     async dispose(): Promise<void> {
       execution.cancelPending();
       await engine.shutdown();

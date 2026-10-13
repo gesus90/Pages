@@ -58,7 +58,23 @@ export function hasAgentUsage(
   viewer: AgentViewer,
 ): boolean {
   const sharing = profile.configuration?.sharing;
+  if (profile.ownerId === viewer.actor.userId) return true;
   if (!sharing) return agentProfilePriority(profile, viewer, "agent") > 0;
+  if (profile.ownerId) {
+    const matches = sharing.targets.map((target) =>
+      matchesAgentTarget(target, {
+        ...viewer,
+        actor: { ...viewer.actor, managedDepartments: [] },
+      }),
+    );
+    return (
+      sharing.isGlobal ||
+      (matches.length > 0 &&
+        (sharing.operator === "and"
+          ? matches.every(Boolean)
+          : matches.some(Boolean)))
+    );
+  }
   return (
     sharing.isGlobal ||
     sharing.targets.some((target) =>

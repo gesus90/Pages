@@ -18,6 +18,7 @@ export interface AgentConfiguration {
   readonly sharing: {
     readonly isGlobal: boolean;
     readonly targets: readonly AgentProfileTarget[];
+    readonly operator?: "and" | "or";
   };
 }
 

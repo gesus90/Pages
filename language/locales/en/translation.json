@@ -3033,5 +3033,27 @@
     "error": {
       "decision": "The decision could not be saved. Please try again."
     }
+  },
+  "pageAgents": {
+    "create": "Create agent",
+    "noModels": "No authorized admin model is available.",
+    "empty": "No visible agents.",
+    "defaultReasoning": "Default",
+    "global": "Global",
+    "restricted": "Restricted",
+    "private": "Private",
+    "edit": "Edit",
+    "view": "View",
+    "blocked": "Execution is currently unavailable. Model and connection grants are checked again at start.",
+    "sharing": "Sharing",
+    "operator": "Target matching",
+    "or": "OR – at least one target",
+    "and": "AND – every target",
+    "name": "Name",
+    "model": "Admin model",
+    "reasoning": "Reasoning",
+    "saveFailed": "Could not save agent.",
+    "close": "Close",
+    "save": "Save"
   }
 }

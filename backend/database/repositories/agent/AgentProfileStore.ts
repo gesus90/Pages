@@ -40,7 +40,9 @@ export class AgentProfileStore {
           reasoning_effort,
           is_active,
           configuration_json,
-          revision
+          revision,
+          owner_id,
+          model_profile_id
       FROM agent_execution_profiles
       ORDER BY lower(name), id;
     `);
@@ -72,6 +74,12 @@ export class AgentProfileStore {
           JSON.parse(readTextColumn(row, 6, "configuration_json")),
         ),
         revision: readCountColumn(row, 7, "revision"),
+        ...(readNullableTextColumn(row, 8, "owner_id") === null
+          ? {}
+          : {
+              ownerId: readTextColumn(row, 8, "owner_id"),
+              modelProfileId: readTextColumn(row, 9, "model_profile_id"),
+            }),
         purposes: purposes
           .filter((entry) => entry[0] === id)
           .map((entry) => {
@@ -192,7 +200,9 @@ export class AgentProfileStore {
           reasoning_effort,
           is_active,
           configuration_json,
-          revision
+          revision,
+          owner_id,
+          model_profile_id
       ) VALUES (
           $id,
           $name,
@@ -201,7 +211,9 @@ export class AgentProfileStore {
           $reasoning_effort,
           $is_active,
           $configuration_json,
-          1
+          1,
+          $owner_id,
+          $model_profile_id
       )
       ON CONFLICT (id) DO UPDATE SET
           name = EXCLUDED.name,
@@ -210,6 +222,8 @@ export class AgentProfileStore {
           reasoning_effort = EXCLUDED.reasoning_effort,
           is_active = EXCLUDED.is_active,
           configuration_json = EXCLUDED.configuration_json,
+          owner_id = EXCLUDED.owner_id,
+          model_profile_id = EXCLUDED.model_profile_id,
           revision = agent_execution_profiles.revision + 1;
     `,
       {
@@ -219,6 +233,8 @@ export class AgentProfileStore {
         model: profile.model,
         reasoning_effort: profile.reasoningEffort,
         is_active: profile.isActive,
+        owner_id: profile.ownerId ?? null,
+        model_profile_id: profile.modelProfileId ?? null,
         configuration_json: JSON.stringify(
           profile.configuration ?? configurationForTargets(profile.targets),
         ),

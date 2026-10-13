@@ -17,17 +17,22 @@ import type {
   AgentPlanStepSnapshot,
 } from "./AgentPlanSnapshot";
 import type { AgentPlanStepStart } from "./AgentPlanStepStart";
+import type { AgentRunArchive } from "./AgentRunArchive";
+import type { AgentDefinitionFiles } from "./AgentDefinitionFiles";
 
 interface ActivePlanRun {
   view: AgentPlanRun;
   readonly snapshot: AgentPlanSnapshot;
   readonly controllers: Map<string, AbortController>;
+  readonly releaseDefinition?: () => void;
 }
 
 interface EngineDependencies {
   readonly runs: AgentPlanRunRepository;
   readonly start: AgentPlanStepStart;
   readonly execution: PlanExecution;
+  readonly archive?: AgentRunArchive;
+  readonly files?: AgentDefinitionFiles;
 }
 
 function patchStep(
@@ -134,8 +139,21 @@ export class AgentPlanRunEngine {
         ? [step.prepared.directory.id]
         : [],
     );
-    await this.dependencies.runs.create(view, snapshot, workspaceIds);
-    this.active.set(view.id, { view, snapshot, controllers: new Map() });
+    const releaseDefinition = await this.dependencies.files?.hold(
+      snapshot.steps.map((step) => step.step.agentId),
+    );
+    try {
+      await this.dependencies.runs.create(view, snapshot, workspaceIds);
+    } catch (error: unknown) {
+      releaseDefinition?.();
+      throw error;
+    }
+    this.active.set(view.id, {
+      view,
+      snapshot,
+      controllers: new Map(),
+      releaseDefinition,
+    });
     await this.pump();
     return (await this.dependencies.runs.find(view.id)) ?? view;
   }
@@ -184,6 +202,11 @@ export class AgentPlanRunEngine {
           if (active.view.stopRequested) status = "cancelled";
           active.view = { ...active.view, status };
           await this.dependencies.runs.update(active.view);
+          await this.dependencies.archive?.complete(
+            active.view,
+            active.snapshot,
+          );
+          active.releaseDefinition?.();
           this.active.delete(id);
         }
       }
@@ -212,6 +235,11 @@ export class AgentPlanRunEngine {
       );
       if (active.view.stopRequested || controller.signal.aborted)
         throw new AgentPlanCancelledError();
+      await this.dependencies.archive?.input(
+        active.view.id,
+        step.step.id,
+        input.prompt,
+      );
       hasStarted = true;
       const output = await this.dependencies.execution.run(
         input,
@@ -243,6 +271,7 @@ export class AgentPlanRunEngine {
         patchStep(active, step.step.id, changes);
         active.controllers.delete(step.step.id);
         await this.dependencies.runs.update(active.view);
+        await this.dependencies.archive?.complete(active.view, active.snapshot);
       });
       await this.pump();
     } catch {

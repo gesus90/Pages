@@ -255,7 +255,7 @@ describe("A10.3 workspace UI and workspace reference selection", () => {
     );
     expect(screen.getByRole("link", { name: "Agents list" })).toHaveAttribute(
       "href",
-      "/settings/agents",
+      "/agents/agents",
     );
     expect(
       screen.queryByRole("button", { name: "Register workspace" }),

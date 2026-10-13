@@ -41,6 +41,7 @@ import type {
 } from "@/definition/AgentAvailability";
 import type { AgentFilters } from "@/definition/AgentFilters";
 import type { AgentUsage } from "@/definition/AgentUsage";
+import type { AgentDefinitionFiles } from "./AgentDefinitionFiles";
 
 /** Shared persistence and live authorization boundaries of the central agent aggregate. */
 export interface ProfileDependencies {
@@ -51,6 +52,7 @@ export interface ProfileDependencies {
   readonly operations: AgentOperationRegistry;
   readonly content?: AgentContentAccess;
   readonly workspaces?: AgentWorkspaceService;
+  readonly files?: AgentDefinitionFiles;
 }
 
 /** Rechecks persisted grants at selection and execution; no admin execution bypass or fallback. */
@@ -67,7 +69,9 @@ export class AgentProfileService {
   /** Lists protected configuration for current administrators in admin mode. */
   public async list(actor: AccountAccess): Promise<readonly AgentProfile[]> {
     requireAgentAdministrator(await this.account(actor.userId));
-    return this.dependencies.profiles.list();
+    return (await this.dependencies.profiles.list()).filter(
+      (profile) => !profile.ownerId,
+    );
   }
 
   /** Supplies current per-executor block reasons within protected administration. */
@@ -177,14 +181,7 @@ export class AgentProfileService {
         profile.connectionId,
         "write",
         async () => {
-          const previous =
-            id === null
-              ? null
-              : (await this.dependencies.profiles.list()).find(
-                  (entry) => entry.id === id,
-                );
-          if (id !== null && !previous)
-            throw new AgentError("profile_not_found");
+          const previous = await this.previousForSave(id);
           const configured = mergeProfileInput(profile, previous);
           requireAgentAdministrator(await this.account(actor.userId));
           if (
@@ -212,7 +209,7 @@ export class AgentProfileService {
               profile,
             );
           const profileId = id ?? randomUUID();
-          await this.dependencies.profiles.save({
+          await this.persist({
             ...configured,
             id: profileId,
           });
@@ -227,9 +224,14 @@ export class AgentProfileService {
     requireAgentAdministrator(await this.account(actor.userId));
     await this.writes.run(async () => {
       requireAgentAdministrator(await this.account(actor.userId));
+      const profile = (await this.dependencies.profiles.list()).find(
+        (entry) => entry.id === id,
+      );
+      if (profile?.ownerId) throw new AgentError("agent_usage_denied");
+      await this.dependencies.files?.assertMutable(id);
       if (
         !(await this.dependencies.profiles.list()).some(
-          (profile) => profile.id === id,
+          (entry) => entry.id === id,
         )
       )
         throw new AgentError("profile_not_found");
@@ -317,6 +319,24 @@ export class AgentProfileService {
     ).accounts.find((entry) => entry.userId === userId);
     if (!account?.isActive) throw new TextAssistantError("accessDenied");
     return account;
+  }
+
+  private async previousForSave(
+    id: string | null,
+  ): Promise<AgentProfile | null> {
+    if (id === null) return null;
+    const previous = (await this.dependencies.profiles.list()).find(
+      (entry) => entry.id === id,
+    );
+    if (!previous) throw new AgentError("profile_not_found");
+    if (previous.ownerId) throw new AgentError("agent_usage_denied");
+    return previous;
+  }
+
+  private async persist(profile: AgentProfile): Promise<void> {
+    if (this.dependencies.files)
+      await this.dependencies.files.save(profile, this.dependencies.profiles);
+    else await this.dependencies.profiles.save(profile);
   }
 
   private async candidates(

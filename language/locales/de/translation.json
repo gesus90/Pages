@@ -3033,5 +3033,27 @@
     "error": {
       "decision": "Die Entscheidung konnte nicht gespeichert werden. Bitte erneut versuchen."
     }
+  },
+  "pageAgents": {
+    "create": "Agent erstellen",
+    "noModels": "Kein freigegebenes Admin-Modell verfügbar.",
+    "empty": "Keine sichtbaren Agents.",
+    "defaultReasoning": "Standard",
+    "global": "Global",
+    "restricted": "Eingeschränkt",
+    "private": "Privat",
+    "edit": "Bearbeiten",
+    "view": "Ansehen",
+    "blocked": "Ausführung derzeit nicht erlaubt. Modell- und Anbindungsfreigaben werden beim Start erneut geprüft.",
+    "sharing": "Freigabe",
+    "operator": "Verknüpfung der Ziele",
+    "or": "ODER – mindestens ein Ziel",
+    "and": "UND – jedes Ziel",
+    "name": "Name",
+    "model": "Admin-Modell",
+    "reasoning": "Reasoning",
+    "saveFailed": "Agent konnte nicht gespeichert werden.",
+    "close": "Schließen",
+    "save": "Speichern"
   }
 }
