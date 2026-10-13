@@ -437,10 +437,19 @@ rejects overlapping registrations. Resolution checks the saved directory identit
 again and fails explicitly after replacement or lost permissions. The allowlist
 and separate directory registrations do not provide an execution sandbox.
 
-Migration `041` removes the usage grants that A10.3 stored per workspace.
-Existing registrations stay and are now visible to everyone who can open their
-project; one whose project has no GitHub link is listed as unusable until the
-project gets a link or a manager assigns another project.
+Migration `041` removes the usage grants that A10.3 stored per workspace (the
+table `agent_workspace_targets`). Existing registrations stay and are now
+visible to everyone who can open their project, so a workspace that was limited
+to some people is no longer limited; one whose project has no GitHub link is
+listed as unusable until the project gets a link or a manager assigns another
+project. To see which registrations carry grants, run this on a copy of the
+database before upgrading:
+
+```sql
+SELECT workspace_id, kind, count(*) AS grants
+FROM agent_workspace_targets
+GROUP BY workspace_id, kind;
+```
 
 Agent parameters can select registered workspace IDs as defaults. Server preparation
 reauthorizes model access, workspace references and Wiki content, deriving project

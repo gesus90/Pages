@@ -13,7 +13,56 @@ import {
 import { VerticalScrollArea } from "@/app/components/ui/vertical-scroll-area";
 
 import type { AgentActionResult } from "@/app/lib/settings-actions/settings-agents-response.server";
-import type { AgentWorkspaceView } from "@/definition/AgentWorkspace";
+import type {
+  AgentWorkspaceUsage,
+  AgentWorkspaceUsageKind,
+  AgentWorkspaceView,
+} from "@/definition/AgentWorkspace";
+
+interface UsageEntry {
+  readonly key: string;
+  readonly kind: AgentWorkspaceUsageKind;
+  readonly name: string;
+  readonly count: number;
+}
+
+/** Keeps named references as they are and counts the anonymous ones per kind. */
+function toUsageEntries(
+  usages: readonly AgentWorkspaceUsage[],
+): readonly UsageEntry[] {
+  const entries: UsageEntry[] = [];
+  const anonymous = new Map<AgentWorkspaceUsageKind, number>();
+  for (const usage of usages) {
+    if (usage.name)
+      entries.push({
+        key: `${usage.kind}:${usage.id}`,
+        kind: usage.kind,
+        name: usage.name,
+        count: 1,
+      });
+    else anonymous.set(usage.kind, (anonymous.get(usage.kind) ?? 0) + 1);
+  }
+  for (const [kind, count] of anonymous)
+    entries.push({ key: kind, kind, name: "", count });
+  return entries;
+}
+
+function UsageLabel({
+  entry,
+}: {
+  readonly entry: UsageEntry;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  if (entry.name) return <>{entry.name}</>;
+  const kind = t(`workspaces.usageKind.${entry.kind}`);
+  return (
+    <>
+      {entry.count > 1
+        ? t("workspaces.usageKindCount", { kind, count: entry.count })
+        : kind}
+    </>
+  );
+}
 
 /** Confirms removal of an unused registration; it never offers directory or GitHub changes. */
 export function WorkspaceDelete(props: {
@@ -62,9 +111,9 @@ export function WorkspaceDelete(props: {
           >
             <p className="text-sm font-medium">{t("workspaces.usedBy")}</p>
             <ul className="pages-selectable mt-2 space-y-1 text-sm">
-              {usages.map((usage) => (
-                <li key={`${usage.kind}:${usage.id}`}>
-                  {usage.name || t(`workspaces.usageKind.${usage.kind}`)}
+              {toUsageEntries(usages).map((entry) => (
+                <li key={entry.key}>
+                  <UsageLabel entry={entry} />
                 </li>
               ))}
             </ul>

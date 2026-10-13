@@ -297,6 +297,20 @@ describe("A10.3 local workspace registration, project access and parameter prepa
           registration(root, { path: directory }),
         ),
       ).rejects.toHaveProperty("code");
+    // Whether a path outside the approved roots exists must not show in the answer.
+    for (const outside of [
+      path.join(root, "outside"),
+      path.join(root, "outside", "does-not-exist"),
+      "/etc/hosts",
+      "/nonexistent-pages-probe",
+    ])
+      await expect(
+        workspaces.save(
+          admin.userId,
+          null,
+          registration(root, { path: outside }),
+        ),
+      ).rejects.toMatchObject({ code: "workspace_path_outside_roots" });
     for (const remote of [
       "https://example.com/team/project",
       "ssh://builder@example.com/srv/project",
@@ -312,6 +326,14 @@ describe("A10.3 local workspace registration, project access and parameter prepa
           registration(root, { path: remote }),
         ),
       ).rejects.toMatchObject({ code: "workspace_path_invalid" });
+    // The operator's roots are not judged by their notation, only what a person types is.
+    const doubled = new AgentWorkspacePath({
+      roots: [`/${path.join(root, "approved")}`],
+      protectedDirectory: path.join(root, "instance"),
+    });
+    await expect(
+      doubled.inspect(path.join(root, "approved", "one")),
+    ).resolves.toMatchObject({ path: path.join(root, "approved", "one") });
     await workspaces.save(admin.userId, null, registration(root));
     await mkdir(path.join(root, "approved", "one", "nested"));
     for (const directory of [

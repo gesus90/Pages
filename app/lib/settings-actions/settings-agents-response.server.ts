@@ -47,6 +47,7 @@ const ERROR_STATUS: Partial<Record<AgentErrorCode, number>> = {
   agent_usage_denied: 403,
   workspace_access_denied: 403,
   workspace_management_denied: 403,
+  workspace_project_unsupported: 409,
   workspace_not_found: 404,
   workspace_conflict: 409,
   workspace_in_use: 409,

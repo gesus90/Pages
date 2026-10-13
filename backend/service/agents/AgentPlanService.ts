@@ -204,8 +204,9 @@ export class AgentPlanService {
       throw new AgentError("plan_access_denied");
     await this.dependencies.access.require(userId, run.planId);
     const resources = await this.dependencies.runs.resources(id);
+    // Access only: a run that started must stay readable and stoppable after its directory or link is gone.
     for (const workspaceId of resources.workspaceIds)
-      await this.dependencies.workspaces.resolve(
+      await this.dependencies.workspaces.requireAccess(
         userId,
         workspaceId,
         resources.projectId,

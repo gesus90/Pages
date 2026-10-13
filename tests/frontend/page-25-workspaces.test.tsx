@@ -412,7 +412,8 @@ describe("PAGE-25 removal confirmation", () => {
     const submitted: FormData[] = [];
     let usages: readonly { id: string; name: string; kind: string }[] = [
       { id: "0", name: "", kind: "plan" },
-      { id: "1", name: "", kind: "run" },
+      { id: "1", name: "", kind: "plan" },
+      { id: "2", name: "", kind: "run" },
     ];
     await mount(<WorkspacePage page={page()} />, {
       action: async (request) => {
@@ -437,7 +438,7 @@ describe("PAGE-25 removal confirmation", () => {
     expect(dialog).toHaveTextContent(
       "The directory, its files and the project's GitHub link stay unchanged.",
     );
-    expect(await within(dialog).findByText("Plan")).toBeVisible();
+    expect(await within(dialog).findByText("Plan (2)")).toBeVisible();
     expect(within(dialog).getByText("Active execution")).toBeVisible();
     const confirm = within(dialog).getByRole("button", {
       name: "Remove registration",

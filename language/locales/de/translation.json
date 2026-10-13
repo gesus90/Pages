@@ -2862,6 +2862,7 @@
       "plan": "Plan",
       "run": "Aktive Ausführung"
     },
+    "usageKindCount": "{{kind}} ({{count}})",
     "unavailableDefault": "Gespeicherter Arbeitsbereich nicht zugänglich",
     "noDefault": "Kein Standardwert",
     "save": "Arbeitsbereich speichern"

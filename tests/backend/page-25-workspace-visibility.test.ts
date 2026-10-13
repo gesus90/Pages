@@ -5,9 +5,14 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 
+import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
+
 import {
+  controlExecution,
   createExecutionPlanHarness,
   executionPlan,
+  executionStep,
+  waitForPlan,
 } from "../helpers/execution-plans";
 import { useMigratedDatabase } from "../helpers/test-database";
 import { createWorkspaceRightsHarness } from "../helpers/workspace-rights";
@@ -285,6 +290,43 @@ describe("PAGE-25 workspace choice in the agent planning", () => {
         executionPlan(current.workspaceId, current.agentId),
       ),
     ).toEqual(expect.any(String));
+  });
+
+  it("keeps a started run readable and stoppable after its project lost the GitHub link", async () => {
+    const current = await setup();
+    const pending = controlExecution(current.execution);
+    const id = await current.service.save(
+      current.bob.id,
+      null,
+      executionPlan(current.workspaceId, current.agentId, {
+        nodes: ["A", "B"].map((name) => executionStep(name, current.agentId)),
+        edges: [{ from: "A", to: "B" }],
+      }),
+    );
+    const run = await current.service.play(current.bob.id, id, 1);
+    await waitForPlan(() => expect(pending.has("A")).toBe(true));
+    await current.projects.deleteIntegration("project");
+    // A new start is refused, but what already runs can still be read and stopped.
+    expect(await current.service.run(current.bob.id, run.id)).toMatchObject({
+      id: run.id,
+      status: "running",
+    });
+    const requested = await current.service.stop(current.bob.id, run.id);
+    expect(requested.steps[0]).toMatchObject({ cancellation: "requested" });
+    pending.get("A")?.reject(new AgentPlanCancelledError());
+    await waitForPlan(async () =>
+      expect((await current.service.run(current.bob.id, run.id)).status).toBe(
+        "cancelled",
+      ),
+    );
+    await expect(
+      current.service.play(current.bob.id, id, 1),
+    ).rejects.toMatchObject({ code: "workspace_project_unsupported" });
+    const page = await current.service.page(current.bob.id, {
+      planId: id,
+      workspaceId: null,
+    });
+    expect(page.runs.map((entry) => entry.id)).toEqual([run.id]);
   });
 
   it("lists an unavailable workspace as unusable and refuses it in a plan", async () => {

@@ -2862,6 +2862,7 @@
       "plan": "Plan",
       "run": "Active execution"
     },
+    "usageKindCount": "{{kind}} ({{count}})",
     "unavailableDefault": "Saved workspace is not accessible",
     "noDefault": "No default",
     "save": "Save workspace"

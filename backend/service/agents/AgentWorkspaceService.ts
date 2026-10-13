@@ -95,22 +95,21 @@ export class AgentWorkspaceService {
       await this.dependencies.projects.findIntegrationsByProjectIds([
         ...readable.keys(),
       ]);
-    const workspaces: AgentWorkspaceView[] = [];
-    for (const workspace of registered) {
-      const project = readable.get(workspace.projectId);
-      // Only administrators see a registration whose project nobody can open any more, so they can clean it up.
-      if (!project && !isAdministrator) continue;
-      const choice = await this.describe(
-        workspace,
-        project,
-        toGitHub(integrations.get(workspace.projectId)),
-      );
-      workspaces.push({
-        ...choice,
+    // Only administrators see a registration whose project nobody can open any more, so they can clean it up.
+    const visible = registered.filter(
+      (workspace) => isAdministrator || readable.has(workspace.projectId),
+    );
+    const workspaces = await Promise.all(
+      visible.map(async (workspace): Promise<AgentWorkspaceView> => ({
+        ...(await this.describe(
+          workspace,
+          readable.get(workspace.projectId),
+          toGitHub(integrations.get(workspace.projectId)),
+        )),
         revision: workspace.revision,
         canManage: isAdministrator || manageableIds.has(workspace.projectId),
-      });
-    }
+      })),
+    );
     return {
       canManage: isAdministrator || manageable.length > 0,
       isAdministrator,
@@ -142,16 +141,15 @@ export class AgentWorkspaceService {
       await this.dependencies.projects.findIntegrationsByProjectIds([
         ...new Set(selected.map((workspace) => workspace.projectId)),
       ]);
-    const choices: AgentWorkspaceChoice[] = [];
-    for (const workspace of selected)
-      choices.push(
-        await this.describe(
+    return Promise.all(
+      selected.map((workspace) =>
+        this.describe(
           workspace,
           readable.get(workspace.projectId),
           toGitHub(integrations.get(workspace.projectId)),
         ),
-      );
-    return choices;
+      ),
+    );
   }
 
   /** Reauthorizes IDs before inspecting a path and returns a real working-directory contract. */
@@ -160,14 +158,8 @@ export class AgentWorkspaceService {
     id: string,
     projectId: string | null = null,
   ): Promise<ResolvedAgentWorkspace> {
-    const actor = await this.account(userId);
-    const workspace = (await this.dependencies.workspaces.list()).find(
-      (entry) => entry.id === id,
-    );
-    if (!workspace || (projectId !== null && workspace.projectId !== projectId))
-      throw new AgentError("workspace_access_denied");
-    const project = await this.requireProject(actor, workspace.projectId);
-    const github = await this.requireGitHub(project.id);
+    const workspace = await this.authorized(userId, id, projectId);
+    const github = await this.requireGitHub(workspace.projectId);
     return {
       id: workspace.id,
       path: await this.dependencies.paths.resolve(workspace),
@@ -176,6 +168,22 @@ export class AgentWorkspaceService {
       projectId: workspace.projectId,
       github,
     };
+  }
+
+  /**
+   * Rechecks that the person may still open the workspace's project.
+   *
+   * @remarks
+   * Unlike {@link AgentWorkspaceService.resolve} it does not need a usable
+   * directory or a GitHub link, so reading and stopping an execution that
+   * already started keeps working when either has gone.
+   */
+  public async requireAccess(
+    userId: string,
+    id: string,
+    projectId: string | null = null,
+  ): Promise<void> {
+    await this.authorized(userId, id, projectId);
   }
 
   /** Stores only a canonical registration for a managed project with a GitHub link; no directory content is touched. */
@@ -270,6 +278,21 @@ export class AgentWorkspaceService {
       (entry) => entry.id === id,
     );
     if (!workspace) throw new AgentError("workspace_not_found");
+    return workspace;
+  }
+
+  private async authorized(
+    userId: string,
+    id: string,
+    projectId: string | null,
+  ): Promise<AgentWorkspace> {
+    const actor = await this.account(userId);
+    const workspace = (await this.dependencies.workspaces.list()).find(
+      (entry) => entry.id === id,
+    );
+    if (!workspace || (projectId !== null && workspace.projectId !== projectId))
+      throw new AgentError("workspace_access_denied");
+    await this.requireProject(actor, workspace.projectId);
     return workspace;
   }
 

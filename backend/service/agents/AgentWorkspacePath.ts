@@ -29,11 +29,9 @@ function isNetworkLocation(input: string): boolean {
   return /^[\\/]{2}/u.test(input);
 }
 
-/** Accepts local absolute paths only; URLs, `host:path` notation and shares are not local. */
 function requireAbsoluteDirectory(input: string): void {
   if (
     !path.isAbsolute(input) ||
-    isNetworkLocation(input) ||
     input.length > 4096 ||
     /[\u0000-\u001f\u007f]/u.test(input) ||
     input.split(/[\\/]/u).includes("..") ||
@@ -55,16 +53,29 @@ export class AgentWorkspacePath {
     return this.options.roots.length > 0;
   }
 
-  /** Canonicalizes within approved roots and requires service-user read/write/traverse access. */
+  /**
+   * Canonicalizes within approved roots and requires service-user read/write/traverse access.
+   *
+   * @remarks
+   * A typed path must be local: URLs, `host:path` notation and network shares
+   * are refused. The approved roots are the operator's decision and are not
+   * judged by their notation.
+   */
   public async inspect(
     input: string,
   ): Promise<{ readonly path: string; readonly identity: string }> {
     requireAbsoluteDirectory(input);
+    if (isNetworkLocation(input))
+      throw new AgentError("workspace_path_invalid");
     if (!this.isConfigured()) throw new AgentError("workspace_roots_missing");
     try {
+      const roots = await this.canonicalRoots();
+      // A path outside the roots is refused before the filesystem is asked about it,
+      // so the answer does not tell whether it exists.
+      if (!this.isLexicallyWithin(input, roots))
+        throw new AgentError("workspace_path_outside_roots");
       const directory = await realpath(input);
       requireAbsoluteDirectory(directory);
-      const roots = await this.canonicalRoots();
       if (!roots.some((root) => containsWorkspacePath(root, directory)))
         throw new AgentError("workspace_path_outside_roots");
       const protectedDirectory = await realpath(
@@ -98,6 +109,17 @@ export class AgentWorkspacePath {
     )
       throw new AgentError("workspace_path_changed");
     return inspected.path;
+  }
+
+  private isLexicallyWithin(
+    input: string,
+    canonicalRoots: readonly string[],
+  ): boolean {
+    const typed = path.resolve(input);
+    return [
+      ...canonicalRoots,
+      ...this.options.roots.map((root) => path.resolve(root)),
+    ].some((root) => containsWorkspacePath(root, typed));
   }
 
   private async canonicalRoots(): Promise<readonly string[]> {

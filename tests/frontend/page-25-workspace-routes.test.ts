@@ -182,7 +182,7 @@ describe("PAGE-25 workspace routes with the real service", () => {
       }),
     );
     expect(await envelope(unsupported)).toMatchObject({
-      status: 400,
+      status: 409,
       body: { ok: false, error: "workspace_project_unsupported" },
     });
 
