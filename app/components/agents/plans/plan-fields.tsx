@@ -31,7 +31,7 @@ export function PlanFields(props: {
         />
       </label>
       <div className="space-y-1">
-        <label className="text-sm font-medium" htmlFor="plan-workspace">
+        <label className="block text-sm font-medium" htmlFor="plan-workspace">
           {t("plans.workspace")}
         </label>
         <Select
@@ -73,7 +73,7 @@ export function PlanFields(props: {
         </dd>
       </dl>
       <div className="space-y-1">
-        <label htmlFor="plan-usage" className="text-sm font-medium">
+        <label htmlFor="plan-usage" className="block text-sm font-medium">
           {t("plans.usage")}
         </label>
         <Select

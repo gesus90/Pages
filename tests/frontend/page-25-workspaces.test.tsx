@@ -316,7 +316,7 @@ describe("PAGE-25 registration form", () => {
     );
     expect(
       await screen.findByText(
-        "Choose a project that is linked to a GitHub repository.",
+        "The project needs a link to a GitHub repository.",
       ),
     ).toBeVisible();
     const user = userEvent.setup();
@@ -400,7 +400,7 @@ describe("PAGE-25 actions follow the right on each project", () => {
     );
     expect(
       await screen.findByText(
-        "Choose a project that is linked to a GitHub repository.",
+        "The project needs a link to a GitHub repository.",
       ),
     ).toBeVisible();
     expect(screen.getByText("No GitHub repository configured")).toBeVisible();
