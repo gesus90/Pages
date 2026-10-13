@@ -25,6 +25,22 @@ describe("A9.6 route configuration", () => {
   });
 });
 
+describe("PAGE-20 route configuration", () => {
+  it("serves the agent list and the run records only inside the authenticated layout", () => {
+    const layout = routes.find((entry) => !entry.path && entry.children);
+    const inside = (layout?.children ?? []).map((entry) => entry.path);
+    const records = "agent-api/run-records/:agentId/:runId";
+
+    expect(inside).toEqual(expect.arrayContaining(["agents/agents", records]));
+    expect(
+      (layout?.children ?? []).find((entry) => entry.path === records),
+    ).toMatchObject({ file: "routes/agent-run-record.ts" });
+    const outside = routes.map((entry) => entry.path);
+    expect(outside).not.toContain("agents/agents");
+    expect(outside).not.toContain(records);
+  });
+});
+
 describe("route configuration", () => {
   it("exposes the public login and logout routes", () => {
     const paths = routes
