@@ -38,20 +38,15 @@ const workspace = {
   reason: null,
   revision: 1,
   canManage: false,
-  targets: [],
 } as const;
 
 function page(canManage: boolean): AgentWorkspacePage {
   return {
     canManage,
+    isAdministrator: canManage,
     isConfigured: true,
     workspaces: [{ ...workspace, canManage }],
     projects: [{ id: "project", name: "Project", github: workspace.github }],
-    directory: {
-      persons: [{ id: "bob", name: "Bob" }],
-      groups: [],
-      departments: [],
-    },
   };
 }
 
@@ -90,7 +85,6 @@ describe("A10.3 workspace UI and workspace reference selection", () => {
     expect(screen.getByLabelText("Name")).toHaveValue("Development");
     await user.clear(screen.getByLabelText("Name"));
     await user.type(screen.getByLabelText("Name"), "Edited");
-    await user.click(screen.getByRole("checkbox", { name: "Bob" }));
     const unload = new Event("beforeunload", { cancelable: true });
     window.dispatchEvent(unload);
     expect(unload.defaultPrevented).toBe(true);
@@ -128,8 +122,8 @@ describe("A10.3 workspace UI and workspace reference selection", () => {
 
   it("shows unregister uses and pending state, retains failures and confirms an unused registration", async () => {
     let finish: ((result: unknown) => void) | undefined;
-    let usages: readonly { id: string; name: string }[] = [
-      { id: "plan", name: "Build plan" },
+    let usages: readonly { id: string; name: string; kind: string }[] = [
+      { id: "plan", name: "Build plan", kind: "plan" },
     ];
     let shouldFail = true;
     const submitted: FormData[] = [];
@@ -218,7 +212,9 @@ describe("A10.3 workspace UI and workspace reference selection", () => {
         page={{ ...page(false), isConfigured: false, workspaces: [] }}
       />,
     );
-    expect(screen.getByText("No accessible workspaces yet.")).toBeVisible();
+    expect(
+      screen.getByText("No workspaces are registered for your projects yet."),
+    ).toBeVisible();
     expect(screen.getByRole("status")).toHaveTextContent(
       "Working directories have not been approved on the server yet.",
     );
@@ -268,7 +264,7 @@ describe("A10.3 workspace UI and workspace reference selection", () => {
     expect(screen.getByText(workspace.path)).toBeVisible();
   });
 
-  it("serializes registration with a project and grants, inherits GitHub and asks before discarding edits", async () => {
+  it("serializes registration with name, path and project, inherits GitHub and asks before discarding edits", async () => {
     const submitted: FormData[] = [];
     await mount(<WorkspacePage page={page(true)} />, async (request) => {
       submitted.push(await request.formData());
@@ -283,12 +279,11 @@ describe("A10.3 workspace UI and workspace reference selection", () => {
       "Existing workspace",
     );
     await user.type(
-      screen.getByRole("textbox", { name: "Working directory" }),
+      screen.getByRole("textbox", { name: "Local path" }),
       "/approved/new",
     );
     await user.click(screen.getByRole("combobox", { name: "Project" }));
     await user.click(screen.getByRole("option", { name: "Project" }));
-    await user.click(screen.getByRole("checkbox", { name: "Bob" }));
     expect(screen.getAllByText(workspace.github.repoUrl)).toHaveLength(2);
     await user.click(screen.getByRole("button", { name: "Save workspace" }));
     await waitFor(() => expect(submitted).toHaveLength(1));
@@ -297,7 +292,6 @@ describe("A10.3 workspace UI and workspace reference selection", () => {
       name: "Existing workspace",
       path: "/approved/new",
       projectId: "project",
-      targets: [{ kind: "person", targetId: "bob" }],
     });
     await waitFor(() =>
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),

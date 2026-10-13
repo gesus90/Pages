@@ -137,17 +137,17 @@ describe("A10 workspace registration boundary", () => {
     name: "Copy",
     path: "/approved/copy",
     projectId: "project",
-    targets: [{ kind: "person", targetId: "bob" }],
   };
 
-  it("rejects malformed paths, missing grants and nonintegral optimistic revisions", () => {
+  it("rejects malformed names, paths and projects and nonintegral optimistic revisions", () => {
     for (const overrides of [
       { name: 7 },
       { name: " " },
       { name: "x".repeat(121) },
       { path: "/copy\u0000" },
-      { targets: [] },
-      { targets: [{ kind: "system", targetId: "agent" }] },
+      { path: "x".repeat(4097) },
+      { projectId: "" },
+      { projectId: "x".repeat(101) },
       ...["1", 0, 1.5, Number.MAX_SAFE_INTEGER + 1].map((revision) => ({
         revision,
       })),
@@ -157,6 +157,17 @@ describe("A10 workspace registration boundary", () => {
       readWorkspaceInput({ ...base, name: " Copy ", revision: 2 }),
     ).toEqual({ ...base, revision: 2 });
     expect(readWorkspaceInput(base)).toEqual(base);
+  });
+
+  it("keeps only name, path, project and revision, so legacy usage grants never reach the service", () => {
+    expect(
+      readWorkspaceInput({
+        ...base,
+        targets: [{ kind: "person", targetId: "bob" }],
+        registeredBy: "forged",
+        directoryIdentity: "forged",
+      }),
+    ).toEqual(base);
   });
 });
 

@@ -132,7 +132,6 @@ describe("A10.3 workspace route boundaries", () => {
       name: "Existing",
       path: "/approved/work",
       projectId: "project",
-      targets: [{ kind: "person", targetId: "bob" }],
     };
     const request = args({
       intent: "save-workspace",
@@ -161,7 +160,7 @@ describe("A10.3 workspace route boundaries", () => {
     );
     expect(await failed.text()).not.toContain("sensitive native path");
     workspaceService.usages.mockResolvedValue([
-      { id: "agent", name: "Worker" },
+      { id: "agent", name: "Worker", kind: "agent" },
     ]);
     expect(
       await (
@@ -172,7 +171,7 @@ describe("A10.3 workspace route boundaries", () => {
     ).toEqual({
       ok: true,
       intent: "workspace-usages",
-      workspaceUsages: [{ id: "agent", name: "Worker" }],
+      workspaceUsages: [{ id: "agent", name: "Worker", kind: "agent" }],
     });
     await action(
       args({

@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 
 import { createCatalogModel } from "../helpers/agents";
+import { createAccess, createRole } from "../helpers/authorization";
 import {
   controlExecution,
   createExecutionPlanHarness,
@@ -377,7 +378,7 @@ describe("A10.4 preflight, live authorization and working-copy reservations", ()
     );
   });
 
-  it("denies workspace usage immediately after grant revocation and rejects changed GitHub context", async () => {
+  it("denies workspace use immediately after project access is withdrawn and rejects changed GitHub context", async () => {
     const current = await setup();
     const pending = controlExecution(current.execution);
     const id = await current.service.save(
@@ -412,14 +413,22 @@ describe("A10.4 preflight, live authorization and working-copy reservations", ()
     expect((await current.runRepository.find(run.id))?.steps[1].error).toBe(
       "plan_context_changed",
     );
-    const previous = (await current.workspaceRepository.list()).find(
-      (entry) => entry.id === current.workspaceId,
-    );
-    if (!previous) throw new Error("Missing fixture");
-    await current.workspaces.save(current.admin.userId, previous.id, {
-      ...previous,
-      targets: [{ kind: "person", targetId: current.alice.id }],
+    await current.wiki.addDepartment("engineering");
+    await current.projects.setDepartments("project", ["engineering"]);
+    const role = createRole({
+      id: "scoped",
+      permissions: [],
+      departmentBound: true,
     });
+    await current.authorization.saveRole(role);
+    await current.authorization.saveAccount(
+      createAccess({
+        userId: current.bob.id,
+        role,
+        departments: [],
+        managedDepartments: [],
+      }),
+    );
     await expect(
       current.service.run(current.bob.id, run.id),
     ).rejects.toMatchObject({ code: "plan_access_denied" });

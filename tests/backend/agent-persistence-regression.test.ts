@@ -150,25 +150,12 @@ describe("A10 transactional persistence and corrupt-state regression", () => {
     transaction.mockImplementationOnce(async (operation) =>
       operation({
         execute: async () => undefined,
-        query: async (sql) =>
-          sql.includes("agent_workspace_targets")
-            ? [["workspace", "system", "agent"]]
-            : [
-                [
-                  "workspace",
-                  "Name",
-                  "/approved/one",
-                  "identity",
-                  "project",
-                  "alice",
-                  1,
-                ],
-              ],
+        query: async () => [["workspace", "Name", "unexpected-kind"]],
       }),
     );
-    await expect(current.workspaceRepository.list()).rejects.toMatchObject({
-      code: "workspace_invalid",
-    });
+    await expect(
+      current.workspaceRepository.usages("workspace"),
+    ).rejects.toMatchObject({ code: "workspace_invalid" });
   });
 
   it("retains legacy configuration defaults while withdrawing only selected function targets", async () => {

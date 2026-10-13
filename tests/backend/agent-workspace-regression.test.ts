@@ -3,7 +3,6 @@ import path from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 import { AgentWorkspacePath } from "@/backend/service/agents/AgentWorkspacePath";
 import { AgentWorkspaceService } from "@/backend/service/agents/AgentWorkspaceService";
 import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
@@ -64,33 +63,12 @@ describe("A10 workspace metadata and reference failure regression", () => {
 
   it("keeps admin metadata complete while hiding deleted projects from users and preserving unexpected path failures", async () => {
     const current = await setup();
-    const groups = new UserGroupRepository(getDatabase());
-    await groups.save({
-      id: "team",
-      name: "Team",
-      memberIds: [current.bob.id],
-    });
-    const account = (await current.authorization.snapshot()).accounts.find(
-      (entry) => entry.userId === current.bob.id,
-    );
-    if (!account) throw new Error("Missing account fixture");
-    await current.authorization.saveAccount({
-      ...account,
-      firstName: "",
-      lastName: "",
-    });
     const page = await current.workspaces.page(current.admin.userId);
     expect(page.projects[0]).toMatchObject({
       id: "project",
       name: "Project project",
     });
-    expect(page.directory.groups).toEqual([{ id: "team", name: "Team" }]);
-    expect(
-      page.directory.persons.find((entry) => entry.id === current.bob.id)?.name,
-    ).toBe(current.bob.id);
-    vi.spyOn(current.projects, "findById")
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(null);
+    vi.spyOn(current.projects, "findAll").mockResolvedValueOnce([]);
     expect(await current.workspaces.choices(current.bob.id)).toEqual([]);
     const projects = await current.projects.findAll();
     vi.spyOn(current.projects, "findAll").mockResolvedValueOnce([]);
@@ -113,7 +91,6 @@ describe("A10 workspace metadata and reference failure regression", () => {
       workspaces: current.workspaceRepository,
       authorization: current.authorization,
       projects: current.projects,
-      groups,
       paths,
     });
     await expect(service.page(current.bob.id)).rejects.toThrow(
@@ -124,7 +101,6 @@ describe("A10 workspace metadata and reference failure regression", () => {
         name: "Missing",
         path: path.join(current.root, "approved", "three"),
         projectId: "project",
-        targets: current.targets,
         revision: 1,
       }),
     ).rejects.toMatchObject({ code: "workspace_not_found" });
@@ -146,7 +122,6 @@ describe("A10 workspace metadata and reference failure regression", () => {
         name: "Invalid project",
         path: path.join(current.root, "approved", "three"),
         projectId: "missing",
-        targets: current.targets,
       }),
     ).rejects.toMatchObject({ code: "workspace_access_denied" });
     await expect(

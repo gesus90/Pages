@@ -33,7 +33,6 @@ import { createAssistantHarness } from "./text-assistant";
 
 import type { Database } from "@/backend/database/Database";
 import type { PlanExecution } from "@/backend/agents/AgentPlanExecution";
-import type { AgentWorkspaceInput } from "@/definition/AgentWorkspace";
 import type { AgentProfileInput } from "@/definition/AgentProfile";
 import type {
   AgentPlanBinding,
@@ -48,7 +47,6 @@ interface WorkspaceFixture {
   readonly projects: ProjectRepository;
   readonly workspaceRepository: AgentWorkspaceRepository;
   readonly workspaces: AgentWorkspaceService;
-  readonly targets: AgentWorkspaceInput["targets"];
   readonly workspaceId: string;
   readonly secondWorkspaceId: string;
 }
@@ -112,39 +110,47 @@ async function prepareWorkspaces(
   for (const name of ["one", "two", "three"])
     await mkdir(path.join(root, "approved", name), { recursive: true });
   const projects = new ProjectRepository(database);
+  // A workspace needs a project with a GitHub link, like the one of a real instance.
+  await projects.upsertIntegration("project", {
+    repoUrl: "https://github.com/example/project.git",
+    repoName: "example/project",
+    tokenHash: "synthetic-hash",
+    tokenEncrypted: "synthetic-ciphertext",
+    syncIssues: false,
+    syncStatus: false,
+    syncComments: false,
+    syncPullRequests: false,
+    syncCommits: false,
+    syncDirection: "pull",
+    syncIntervalMinutes: 0,
+    isConnected: true,
+    lastSyncAt: null,
+  });
   const workspaceRepository = new AgentWorkspaceRepository(database);
   const workspaces = new AgentWorkspaceService({
     workspaces: workspaceRepository,
     projects,
     authorization: base.authorization,
-    groups: new UserGroupRepository(database),
     paths: new AgentWorkspacePath({
       roots: [path.join(root, "approved")],
       protectedDirectory: path.join(root, "instance"),
     }),
   });
-  const targets: AgentWorkspaceInput["targets"] = [
-    { kind: "person", targetId: base.bob.id },
-    { kind: "person", targetId: base.alice.id },
-  ];
   const workspaceId = await workspaces.save(base.admin.userId, null, {
     name: "One",
     path: path.join(root, "approved", "one"),
     projectId: "project",
-    targets,
   });
   const secondWorkspaceId = await workspaces.save(base.admin.userId, null, {
     name: "Two",
     path: path.join(root, "approved", "two"),
     projectId: "project",
-    targets,
   });
   return {
     root,
     projects,
     workspaceRepository,
     workspaces,
-    targets,
     workspaceId,
     secondWorkspaceId,
   };

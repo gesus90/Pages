@@ -105,6 +105,7 @@ vi.mock("react-router", async (importOriginal) => ({
   useBlocker: () => boundaries.blocker,
   useFetcher: boundaries.fetcher,
   useLoaderData: boundaries.loader,
+  useNavigation: () => ({ state: "idle" }),
 }));
 
 import { PlanGlobals } from "@/app/components/agents/plans/plan-globals";
@@ -216,7 +217,7 @@ describe("A10 component boundary guards and stale reference regression", () => {
       expect.stringMatching(/access/i),
     );
   });
-  it("ignores organizational system values from a workspace target control and handles controlled dialog open notifications", () => {
+  it("serializes only name, path and project of a workspace and handles controlled dialog open notifications", () => {
     const Form = (
       props: React.FormHTMLAttributes<HTMLFormElement>,
     ): React.ReactElement => <form {...props} />;
@@ -225,46 +226,21 @@ describe("A10 component boundary guards and stale reference regression", () => {
       data: undefined,
       Form,
     });
-    boundaries.targets.mockClear();
-    const directory = {
-      persons: [{ id: "bob", name: "Bob" }],
-      groups: [],
-      departments: [],
-    };
     const form = render(
-      <WorkspaceForm
-        workspace={null}
-        projects={[]}
-        directory={directory}
-        onSaved={vi.fn()}
-      />,
+      <WorkspaceForm workspace={null} projects={[]} onSaved={vi.fn()} />,
       { wrapper },
-    );
-    const change: unknown = boundaries.targets.mock.calls[0][0];
-    if (typeof change !== "function")
-      throw new Error("Missing target callback");
-    act(() =>
-      change([
-        { kind: "system", targetId: "agent" },
-        { kind: "person", targetId: "bob" },
-      ]),
     );
     const serialized = form.container.querySelector('input[name="workspace"]');
     expect(serialized).toHaveValue(
-      JSON.stringify({
-        name: "",
-        path: "",
-        projectId: "",
-        targets: [{ kind: "person", targetId: "bob" }],
-      }),
+      JSON.stringify({ name: "", path: "", projectId: "" }),
     );
     form.unmount();
     const page = {
       canManage: false,
+      isAdministrator: false,
       isConfigured: true,
       workspaces: [],
       projects: [],
-      directory,
     };
     boundaries.loader.mockReturnValue(page);
     boundaries.dialog.mockClear();

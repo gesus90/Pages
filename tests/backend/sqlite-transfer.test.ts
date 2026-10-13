@@ -105,7 +105,6 @@ describe("transferSqliteToDuckDb", { timeout: 30_000 }, () => {
         INSERT INTO agent_legacy_function_assignments VALUES ('skills', 'native-skills');
         INSERT INTO agent_workspaces (id, name, path, directory_identity, project_id, registered_by)
         VALUES ('native-workspace', 'Workspace', '/synthetic/workspace', '1:2', 'p1', 'u1');
-        INSERT INTO agent_workspace_targets VALUES ('native-workspace', 'person', 'u1');
         INSERT INTO agent_plans (id, owner_id, project_id, workspace_id, name, usage, plan_json)
         VALUES ('native-plan', 'u1', 'p1', 'native-workspace', 'Plan', 'private', '{}');
         INSERT INTO agent_plan_runs (id, plan_id, user_id, project_id, workspace_id, started_at, status, view_json, snapshot_json)
@@ -141,7 +140,6 @@ describe("transferSqliteToDuckDb", { timeout: 30_000 }, () => {
         "agent_profile_targets",
         "agent_legacy_function_assignments",
         "agent_workspaces",
-        "agent_workspace_targets",
         "agent_plans",
         "agent_plan_runs",
         "agent_plan_workspace_locks",

@@ -260,7 +260,9 @@ describe("A10.4 navigation and graphical plan editing", () => {
       screen.queryByRole("button", { name: "Insert Unavailable" }),
     ).toBeNull();
     await user.click(screen.getByRole("combobox", { name: "Usage share" }));
-    await user.click(screen.getByRole("option", { name: "Workspace users" }));
+    await user.click(
+      screen.getByRole("option", { name: "People with project access" }),
+    );
     let payload = "";
     fireEvent.dragStart(
       screen.getByRole("button", { name: "Insert variable branch" }),

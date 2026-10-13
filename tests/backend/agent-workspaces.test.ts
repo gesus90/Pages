@@ -55,7 +55,6 @@ async function setup(
   const workspaces = new AgentWorkspaceService({
     workspaces: workspaceRepository,
     projects,
-    groups,
     authorization: harness.authorization,
     paths: new AgentWorkspacePath({
       roots: [path.join(root, "approved")],
@@ -90,14 +89,12 @@ async function setup(
 
 function registration(
   root: string,
-  userId: string,
   overrides: Partial<AgentWorkspaceInput> = {},
 ): AgentWorkspaceInput {
   return {
     name: "Development",
     path: path.join(root, "approved", "one"),
     projectId: "project",
-    targets: [{ kind: "person", targetId: userId }],
     ...overrides,
   };
 }
@@ -105,8 +102,9 @@ function registration(
 async function saveIntegration(
   projects: ProjectRepository,
   repoUrl: string,
+  projectId = "project",
 ): Promise<void> {
-  await projects.upsertIntegration("project", {
+  await projects.upsertIntegration(projectId, {
     repoUrl,
     repoName: "example/project",
     tokenHash: "synthetic-hash",
@@ -123,7 +121,7 @@ async function saveIntegration(
   });
 }
 
-describe("A10.3 local workspace registration, rights and parameter preparation", () => {
+describe("A10.3 local workspace registration, project access and parameter preparation", () => {
   const getDatabase = useMigratedDatabase();
   let root = "";
   beforeEach(async () => {
@@ -153,7 +151,7 @@ describe("A10.3 local workspace registration, rights and parameter preparation",
     const id = await workspaces.save(
       admin.userId,
       null,
-      registration(root, bob.id, { path: alias }),
+      registration(root, { path: alias }),
     );
     const resolved = await workspaces.resolve(bob.id, id);
     expect(resolved.path).toBe(path.join(root, "approved", "one"));
@@ -161,82 +159,75 @@ describe("A10.3 local workspace registration, rights and parameter preparation",
       "https://github.com/example/project.git",
     );
     const page = await workspaces.page(bob.id);
-    expect(page.workspaces[0]).toMatchObject({
-      id,
-      canManage: false,
-      targets: [],
-    });
+    expect(page.workspaces[0]).toMatchObject({ id, canManage: false });
+    expect(page).toMatchObject({ canManage: false, isAdministrator: false });
     expect(JSON.stringify(page)).not.toMatch(
-      /synthetic-ciphertext|tokenHash|registeredBy|directoryIdentity/,
+      /synthetic-ciphertext|tokenHash|registeredBy|directoryIdentity|targets/,
     );
     await saveIntegration(projects, "https://github.com/example/renamed.git");
     expect((await workspaces.resolve(bob.id, id)).github?.repoUrl).toBe(
       "https://github.com/example/renamed.git",
     );
-    await expect(workspaces.resolve(admin.userId, id)).rejects.toMatchObject({
-      code: "workspace_access_denied",
+    await expect(workspaces.resolve(admin.userId, id)).resolves.toMatchObject({
+      id,
     });
     await expect(
-      workspaces.save(bob.id, null, registration(root, bob.id)),
-    ).rejects.toMatchObject({ name: "AgentAccessDeniedError" });
+      workspaces.save(bob.id, null, registration(root)),
+    ).rejects.toMatchObject({ code: "workspace_management_denied" });
     await workspaces.remove(admin.userId, id, 1);
     expect(await workspaceRepository.list()).toEqual([]);
     expect(await readFile(file, "utf8")).toBe("uncommitted local work");
     expect((await stat(file)).mtimeMs).toBe(before.mtimeMs);
   });
 
-  it("rechecks group and department usage, revocation, inactivity and project scope without management bypass", async () => {
-    const { workspaces, admin, bob, authorization, groups, wiki } = await setup(
+  it("follows live project access of department-bound accounts, including inactivity, without management bypass", async () => {
+    const { workspaces, admin, bob, authorization, wiki } = await setup(
       getDatabase(),
       root,
     );
     await wiki.addDepartment("engineering");
     await wiki.addDepartment("other");
     await wiki.addProject("restricted", ["engineering"]);
-    await authorization.saveRole(
-      createRole({ id: "scoped", permissions: [], departmentBound: true }),
+    await saveIntegration(
+      new ProjectRepository(getDatabase()),
+      "https://github.com/example/restricted.git",
+      "restricted",
     );
+    const role = createRole({
+      id: "scoped",
+      permissions: [],
+      departmentBound: true,
+    });
+    await authorization.saveRole(role);
     const account = createAccess({
       userId: bob.id,
-      role: createRole({
-        id: "scoped",
-        permissions: [],
-        departmentBound: true,
-      }),
+      role,
       departments: ["engineering"],
       managedDepartments: ["other"],
     });
     await authorization.saveAccount(account);
-    await groups.save({ id: "team", name: "Team", memberIds: [bob.id] });
-    const groupId = await workspaces.save(
+    const first = await workspaces.save(
       admin.userId,
       null,
-      registration(root, bob.id, {
-        projectId: "restricted",
-        targets: [{ kind: "group", targetId: "team" }],
-      }),
+      registration(root, { projectId: "restricted" }),
     );
-    const departmentId = await workspaces.save(
+    const second = await workspaces.save(
       admin.userId,
       null,
-      registration(root, bob.id, {
+      registration(root, {
         path: path.join(root, "approved", "two"),
         projectId: "restricted",
-        targets: [{ kind: "department", targetId: "engineering" }],
       }),
     );
     expect(
       (await workspaces.choices(bob.id, "restricted"))
         .map((entry) => entry.id)
         .sort(),
-    ).toEqual([groupId, departmentId].sort());
-    await groups.save({ id: "team", name: "Team", memberIds: [] });
-    await expect(workspaces.resolve(bob.id, groupId)).rejects.toMatchObject({
-      code: "workspace_access_denied",
-    });
-    expect(await workspaces.resolve(bob.id, departmentId)).toMatchObject({
+    ).toEqual([first, second].sort());
+    expect(await workspaces.resolve(bob.id, second)).toMatchObject({
       projectId: "restricted",
     });
+    // Managing a department does not make the account a member of it.
     await authorization.saveAccount({
       ...account,
       departments: ["other"],
@@ -246,28 +237,28 @@ describe("A10.3 local workspace registration, rights and parameter preparation",
     await expect(
       workspaces.choices(bob.id, "restricted"),
     ).rejects.toMatchObject({ code: "workspace_access_denied" });
-    const personalId = await workspaces.save(
-      admin.userId,
-      null,
-      registration(root, bob.id, {
-        path: path.join(root, "approved", "three"),
-        projectId: "restricted",
-      }),
-    );
-    await expect(workspaces.resolve(bob.id, personalId)).rejects.toMatchObject({
+    await expect(workspaces.resolve(bob.id, first)).rejects.toMatchObject({
       code: "workspace_access_denied",
+    });
+    await authorization.saveAccount(account);
+    expect(await workspaces.resolve(bob.id, first)).toMatchObject({
+      projectId: "restricted",
     });
     await getDatabase().execute(
       "UPDATE users SET is_active = 0 WHERE id = $id;",
       { id: bob.id },
     );
-    await expect(workspaces.resolve(bob.id, personalId)).rejects.toMatchObject({
+    await expect(workspaces.resolve(bob.id, first)).rejects.toMatchObject({
       code: "workspace_access_denied",
     });
   });
 
-  it("rejects unapproved, traversing, missing, non-directory, protected and symlink-escaping paths and overlapping registrations", async () => {
-    const { workspaces, admin, bob } = await setup(getDatabase(), root);
+  it("rejects unapproved, traversing, remote, missing, non-directory, protected and symlink-escaping paths and overlapping registrations", async () => {
+    const { workspaces, admin } = await setup(getDatabase(), root);
+    await saveIntegration(
+      new ProjectRepository(getDatabase()),
+      "https://github.com/example/project.git",
+    );
     const paths = new AgentWorkspacePath({
       roots: [],
       protectedDirectory: path.join(root, "instance"),
@@ -303,25 +294,25 @@ describe("A10.3 local workspace registration, rights and parameter preparation",
         workspaces.save(
           admin.userId,
           null,
-          registration(root, bob.id, { path: directory }),
+          registration(root, { path: directory }),
         ),
       ).rejects.toHaveProperty("code");
-    await expect(
-      workspaces.save(
-        admin.userId,
-        null,
-        registration(root, bob.id, {
-          targets: [{ kind: "person", targetId: "missing" }],
-        }),
-      ),
-    ).rejects.toMatchObject({ code: "profile_target_invalid" });
-    await expect(
-      workspaces.save(admin.userId, null, {
-        ...registration(root, bob.id),
-        targets: [{ kind: "system", targetId: "agent" }],
-      }),
-    ).rejects.toMatchObject({ code: "workspace_invalid" });
-    await workspaces.save(admin.userId, null, registration(root, bob.id));
+    for (const remote of [
+      "https://example.com/team/project",
+      "ssh://builder@example.com/srv/project",
+      "git@github.com:example/project.git",
+      "file:///approved/one",
+      "//fileserver/share/project",
+      "\\\\fileserver\\share\\project",
+    ])
+      await expect(
+        workspaces.save(
+          admin.userId,
+          null,
+          registration(root, { path: remote }),
+        ),
+      ).rejects.toMatchObject({ code: "workspace_path_invalid" });
+    await workspaces.save(admin.userId, null, registration(root));
     await mkdir(path.join(root, "approved", "one", "nested"));
     for (const directory of [
       path.join(root, "approved", "one"),
@@ -332,7 +323,7 @@ describe("A10.3 local workspace registration, rights and parameter preparation",
         workspaces.save(
           admin.userId,
           null,
-          registration(root, bob.id, { path: directory }),
+          registration(root, { path: directory }),
         ),
       ).rejects.toMatchObject({ code: "workspace_path_conflict" });
     expect(await readFile(path.join(root, "approved", "file"), "utf8")).toBe(
@@ -341,11 +332,10 @@ describe("A10.3 local workspace registration, rights and parameter preparation",
   });
 
   it("fails after directory replacement or loss of permissions and protects stale edits and removal", async () => {
-    const { workspaces, workspaceRepository, admin, bob } = await setup(
-      getDatabase(),
-      root,
-    );
-    const proposed = registration(root, bob.id);
+    const { workspaces, workspaceRepository, projects, admin, bob } =
+      await setup(getDatabase(), root);
+    await saveIntegration(projects, "https://github.com/example/project.git");
+    const proposed = registration(root);
     const id = await workspaces.save(admin.userId, null, proposed);
     await workspaces.save(admin.userId, id, {
       ...proposed,
@@ -376,31 +366,38 @@ describe("A10.3 local workspace registration, rights and parameter preparation",
   });
 
   it("binds defaults and explicit workspace IDs to a real directory contract and current Wiki markdown, with project and reference checks", async () => {
-    const { workspaces, profiles, parameters, admin, bob, page, wiki } =
-      await setup(getDatabase(), root);
-    const targets = [
-      { kind: "person", targetId: admin.userId },
-      { kind: "person", targetId: bob.id },
-    ] as const;
+    const {
+      workspaces,
+      profiles,
+      parameters,
+      projects,
+      admin,
+      bob,
+      page,
+      wiki,
+      authorization,
+    } = await setup(getDatabase(), root);
+    await saveIntegration(projects, "https://github.com/example/project.git");
     const workspaceId = await workspaces.save(
       admin.userId,
       null,
-      registration(root, bob.id, { targets }),
+      registration(root),
     );
     const secondId = await workspaces.save(
       admin.userId,
       null,
-      registration(root, bob.id, {
-        targets,
-        path: path.join(root, "approved", "two"),
-      }),
+      registration(root, { path: path.join(root, "approved", "two") }),
     );
     await wiki.addProject("different");
+    await saveIntegration(
+      projects,
+      "https://github.com/example/different.git",
+      "different",
+    );
     const foreignId = await workspaces.save(
       admin.userId,
       null,
-      registration(root, bob.id, {
-        targets,
+      registration(root, {
         projectId: "different",
         path: path.join(root, "approved", "three"),
       }),
@@ -467,14 +464,14 @@ describe("A10.3 local workspace registration, rights and parameter preparation",
         ?.configuration,
     ).toEqual(configuration);
     expect(await workspaces.usages(admin.userId, workspaceId)).toEqual([
-      { id: agentId, name: "Worker" },
+      { id: agentId, name: "Worker", kind: "agent" },
     ]);
     await expect(
       workspaces.remove(admin.userId, workspaceId, 1),
     ).rejects.toMatchObject({ code: "workspace_in_use" });
     await expect(
       workspaces.save(admin.userId, workspaceId, {
-        ...registration(root, bob.id, { targets }),
+        ...registration(root),
         revision: 1,
         projectId: "different",
       }),
@@ -490,10 +487,22 @@ describe("A10.3 local workspace registration, rights and parameter preparation",
     );
     expect(promptOnly.directory).toBeNull();
     expect(promptOnly.parameters.directory).toBeNull();
-    await workspaces.save(admin.userId, workspaceId, {
-      ...registration(root, admin.userId),
-      revision: 1,
+    await wiki.addDepartment("engineering");
+    await projects.setDepartments("project", ["engineering"]);
+    const role = createRole({
+      id: "scoped",
+      permissions: [],
+      departmentBound: true,
     });
+    await authorization.saveRole(role);
+    await authorization.saveAccount(
+      createAccess({
+        userId: bob.id,
+        role,
+        departments: [],
+        managedDepartments: [],
+      }),
+    );
     await expect(
       parameters.prepare(bob.id, selection, {}),
     ).rejects.toMatchObject({ code: "workspace_access_denied" });

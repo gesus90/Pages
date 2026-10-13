@@ -49,7 +49,6 @@ describe("DuckDB persistence", () => {
       "agent_plans",
       "agent_profile_purposes",
       "agent_profile_targets",
-      "agent_workspace_targets",
       "agent_workspaces",
       "assistant_conversations",
       "assistant_messages",
