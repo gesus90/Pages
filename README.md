@@ -163,10 +163,26 @@ through the `VITEST_FRONTEND` and `VITEST_BACKEND` environment flags, also
 with coverage. Suites below `tests/frontend/` verify everything below
 `app/`, suites below `tests/backend/` verify `backend/`, `definition/`,
 and `language/`. Each scope is held at 100% coverage on its own files, so
-a run fails individually as well as together. New files below `tests/` and
-new source directories are picked up automatically.
+a run fails individually as well as together. The combined scope discovers only
+`tests/backend/` and `tests/frontend/` and covers the Pages source directories
+`app/`, `backend/`, `definition/`, `language/` and `scripts/`.
 The remaining maintenance commands are `pnpm run check`, `pnpm run lint`
 (which allows no warnings), `pnpm run format`, and `pnpm run clean`.
+
+The previous MCP tests and their exclusive helpers have been removed (PAGE-37).
+Pages backend and frontend tests may verify Pages-owned Agent API, OAuth,
+pairing and wiki behavior, but must not import executable modules from the
+independent `mcp/` package or start an MCP server, client, transport or process.
+Pages connection instructions read only its package version as static metadata.
+Tests that touch an MCP
+boundary use mocks or stubs. MCP is outside Pages discovery, setup, coverage
+and watch mode; the root test scripts aggregate only Pages.
+A new independent MCP test plan is open (TBD); no MCP test runner, test command
+or replacement suite exists. MCP check and build remain non-test gates, and
+root lint still checks MCP source. Browser E2E and live integration are a later
+phase. Removing the old suite does not demonstrate functional test coverage.
+PAGE-35 removed the CI test step before this cleanup; PAGE-34 will handle the
+remaining Pages test cleanup and structure afterward.
 
 Coding conventions are defined in [`GUIDELINES.md`](./GUIDELINES.md).
 

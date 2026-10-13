@@ -10,7 +10,7 @@ const projectAlias = {
  * Resolves the test scope from the `VITEST_FRONTEND` and `VITEST_BACKEND`
  * environment flags set by the `test:frontend` and `test:backend` scripts.
  *
- * @returns The selected scope, defaulting to every suite.
+ * @returns The selected scope, defaulting to both Pages test directories.
  */
 function resolveTestScope(): "frontend" | "backend" | "all" {
   if (process.env.VITEST_FRONTEND === "true") {
@@ -28,7 +28,7 @@ function resolveTestScope(): "frontend" | "backend" | "all" {
  * Resolves the test files for a scope.
  *
  * @param scope - Scope selected through the environment flags.
- * @returns Glob patterns covering the scope, including future directories.
+ * @returns Glob patterns covering only the Pages test directories.
  */
 function resolveTestInclude(scope: "frontend" | "backend" | "all"): string[] {
   if (scope === "frontend") {
@@ -39,7 +39,10 @@ function resolveTestInclude(scope: "frontend" | "backend" | "all"): string[] {
     return ["tests/backend/**/*.test.{ts,tsx}"];
   }
 
-  return ["tests/**/*.test.{ts,tsx}"];
+  return [
+    "tests/frontend/**/*.test.{ts,tsx}",
+    "tests/backend/**/*.test.{ts,tsx}",
+  ];
 }
 
 /**
@@ -66,7 +69,13 @@ function resolveCoverageInclude(
     return ["backend/**/*.ts", "definition/**/*.ts", "language/**/*.ts"];
   }
 
-  return ["**/*.{ts,tsx}"];
+  return [
+    "app/**/*.{ts,tsx}",
+    "backend/**/*.ts",
+    "definition/**/*.ts",
+    "language/**/*.ts",
+    "scripts/**/*.ts",
+  ];
 }
 
 const testScope = resolveTestScope();
@@ -74,6 +83,11 @@ const testScope = resolveTestScope();
 export default defineConfig({
   resolve: {
     alias: projectAlias,
+  },
+  server: {
+    watch: {
+      ignored: [fileURLToPath(new URL("./mcp/**", import.meta.url))],
+    },
   },
   test: {
     clearMocks: true,

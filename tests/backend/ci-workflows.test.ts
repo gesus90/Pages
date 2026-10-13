@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -11,17 +11,6 @@ const WORKFLOW_DIRECTORY = path.join(REPOSITORY_ROOT, ".github", "workflows");
 
 function readWorkflow(name: string): string {
   return readFileSync(path.join(WORKFLOW_DIRECTORY, name), "utf8");
-}
-
-/** Returns the lines of one top-level job, from its key to the next job key. */
-function readJob(workflow: string, job: string): string[] {
-  const lines = workflow.split("\n");
-  const start = lines.indexOf(`  ${job}:`);
-  expect(start, `job ${job}`).toBeGreaterThanOrEqual(0);
-  const length = lines
-    .slice(start + 1)
-    .findIndex((line) => /^ {2}\S/.test(line));
-  return lines.slice(start, length < 0 ? undefined : start + 1 + length);
 }
 
 function positionOf(lines: readonly string[], fragment: string): number {
@@ -126,71 +115,5 @@ describe("ci.yml", () => {
       "            pnpm-lock.yaml\n            mcp/pnpm-lock.yaml\n",
     );
     expect(workflow).not.toContain("contents: write");
-  });
-});
-
-describe("mcp-release.yml", () => {
-  const workflow = readWorkflow("mcp-release.yml");
-  const lines = workflow.split("\n");
-
-  it("starts only for mcp-v tags", () => {
-    expect(workflow).toMatch(/^on:\n {2}push:\n {4}tags: \["mcp-v\*"\]\n/m);
-    expect(workflow).not.toContain("branches:");
-    expect(workflow).not.toContain("pull_request");
-    expect(workflow).not.toContain("workflow_dispatch");
-  });
-
-  it("validates the tag with the packaging script before any gate runs", () => {
-    const job = readJob(workflow, "tag");
-    expect(job.join("\n")).toContain(
-      'version="$(node mcp/scripts/package-release.ts tag "$TAG")"',
-    );
-    expect(job.join("\n")).toContain("TAG: ${{ github.ref_name }}");
-    expect(readJob(workflow, "verify")).toEqual([
-      "  verify:",
-      "    needs: tag",
-      "    uses: ./.github/workflows/ci.yml",
-      "",
-    ]);
-  });
-
-  it("publishes only after the tag check and every CI gate succeeded", () => {
-    const job = readJob(workflow, "publish");
-    expect(job).toContain("    needs: [tag, verify]");
-    expect(job.filter((line) => line.includes("contents: write"))).toHaveLength(
-      1,
-    );
-    expect(
-      lines.filter((line) => line.includes("contents: write")),
-    ).toHaveLength(1);
-    expect(job.join("\n")).toContain(
-      "VERSION: ${{ needs.tag.outputs.version }}",
-    );
-    expectInOrder(job, [
-      "run: pnpm --dir mcp install --frozen-lockfile",
-      'node mcp/scripts/package-release.ts package "$TAG" "$RUNNER_TEMP/release"',
-      "gh release create",
-    ]);
-  });
-
-  it("creates the GitHub release with the archive and its SHA-256 file from the tag", () => {
-    const job = readJob(workflow, "publish").join("\n");
-    expect(job).toContain(
-      'archive="$RUNNER_TEMP/release/pages-mcp-v${VERSION}.zip"',
-    );
-    expect(job).toContain(
-      'gh release create "$TAG" "$archive" "${archive}.sha256"',
-    );
-    expect(job).toContain("--verify-tag");
-    expect(job).toContain("GH_TOKEN: ${{ github.token }}");
-  });
-
-  it("references scripts that exist", () => {
-    expect(
-      existsSync(
-        path.join(REPOSITORY_ROOT, "mcp", "scripts", "package-release.ts"),
-      ),
-    ).toBe(true);
-    expect(existsSync(path.join(WORKFLOW_DIRECTORY, "ci.yml"))).toBe(true);
   });
 });

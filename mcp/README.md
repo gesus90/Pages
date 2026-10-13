@@ -7,7 +7,7 @@ asset upload preparation, single wiki-page creation and a read-only wiki import
 preview. Releases are
 published from `mcp-vMAJOR.MINOR.PATCH` tags (see Releases below).
 
-Requires Node.js >=24; Node 24 LTS is the tested runtime. Copy the single
+Requires Node.js >=24; Node 24 LTS is the supported runtime. Copy the single
 `pages-mcp-v0.1.0.js` outside every package tree declaring `"type": "module"`.
 No checkout, `package.json`, `node_modules` or installation is needed at runtime.
 The bundle is CommonJS, includes JavaScript dependencies, and leaves Node built-ins
@@ -293,11 +293,22 @@ pnpm --dir mcp build
 This independent package has its own manifest, lockfile, TypeScript configuration
 and build. Dependency age remains ten days; SDK 2.2.0 is unchanged. Package version
 supplies both the filename and MCP `serverInfo.version`; API version remains `1`.
-Root lint and 100% per-file coverage gates include package source. The
+Root lint continues to check package source. The previous MCP suite and its
+exclusive helpers have been removed (PAGE-37). Pages backend and frontend
+have their own test scopes; they do not import this package or run MCP servers,
+clients, transports or processes. MCP is outside Pages test discovery, setup,
+coverage, watch mode and root test aggregation.
+
+A new independent MCP test plan is open (TBD). No replacement suite, runner
+or test command exists yet, and no MCP test coverage is claimed. Check and
+build above are non-test gates. Browser E2E and live integration are a later
+phase. PAGE-35 removed the CI test step before this cleanup; PAGE-34 handles
+the remaining Pages test cleanup afterward.
+
+The
 [official authorization profile](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization)
 and [pinned SDK HTTP entry](https://github.com/modelcontextprotocol/typescript-sdk/blob/v2.2.0/docs/serving/http.md)
-provide the protocol basis. Test clients, user/login state and metadata requests
-are isolated or faked; no real account or provider credential is needed.
+provide the protocol basis.
 
 ## Project and wiki reads (A9.5)
 
@@ -524,11 +535,7 @@ plan has already become stale receive a defined `CONFLICT` and must replan.
 
 The A9.7 package limits and 64-KiB request / 1-MiB response limits remain in force.
 Apply has a thirty-second MCP budget. A timeout does not undo committed sources:
-repeat with the same operation ID. A9.8 unit and integration tests cover recovery,
-concurrent imports, source conflicts, current authorization and atomic rollback,
-including attachment bytes. The changed executable TypeScript files have 100%
-statement, branch, function and line coverage per file in the focused A9.8 run;
-migration and transfer behavior and this documented contract are tested separately.
+repeat with the same operation ID.
 
 ## Updating imported wiki pages (A9.9)
 
@@ -576,10 +583,7 @@ input returns `CONFLICT`. A later `apply_wiki_import` of the updated source is
 `skipped`, because the stored baseline moves with every update.
 
 Credentials, write rights and project visibility are checked again for the call.
-Update has a thirty-second MCP budget and the A9.7 package limits. The focused
-A9.9 unit and integration tests cover every changed executable TypeScript file
-at 100% statements, branches, functions and lines. Type-only contracts have no
-executable coverage counters.
+Update has a thirty-second MCP budget and the A9.7 package limits.
 
 ## Single-field wiki operations (A9.10)
 
@@ -625,10 +629,7 @@ changed, parentId, projectId, visibility}`.
   from a lost response even though the revision has moved on. The same ID with
   other input returns `CONFLICT`. A refused call stores nothing.
 
-The tools are listed to every verified account; rights are enforced on each call. The
-focused A9.10 unit and integration tests cover every changed executable TypeScript
-file at 100% statements, branches, functions and lines. Type-only contracts have
-no executable coverage counters.
+The tools are listed to every verified account; rights are enforced on each call.
 
 ## Wiki icon and cover (PAGE-15)
 
@@ -642,10 +643,10 @@ no executable coverage counters.
 Both are always present, `null` when not set. A page the account cannot see returns
 `NOT_FOUND` and no metadata, like its text.
 
-| Tool                  | Pages operation      | Arguments                                         | Changes    |
-| --------------------- | -------------------- | ------------------------------------------------- | ---------- |
+| Tool                  | Pages operation      | Arguments                                           | Changes    |
+| --------------------- | -------------------- | --------------------------------------------------- | ---------- |
 | `set_wiki_page_icon`  | `wiki.page.setIcon`  | `operationId`, `pageId`, `expectedRevision`, `icon` | Icon only  |
-| `set_wiki_page_cover` | `wiki.page.setCover` | `operationId`, `pageId`, `cover`                  | Cover only |
+| `set_wiki_page_cover` | `wiki.page.setCover` | `operationId`, `pageId`, `cover`                    | Cover only |
 
 - **Icon.** `create_wiki_page` takes an `icon` (an emoji or `null`), `set_wiki_page_icon`
   changes it and `icon:null` removes it; `read_wiki_page` confirms the stored value after
@@ -690,23 +691,23 @@ exception is `create_ticket`, whose `projectId`, `milestoneId`, `departmentId` a
 "Ticket search, hierarchy, links and assignment (PAGE-16)". The tools that find
 tickets and name assignment targets are described there as well.
 
-| Tool                          | Pages operation               | Arguments (besides `operationId`)                                                  | Result                                       |
-| ----------------------------- | ----------------------------- | ---------------------------------------------------------------------------------- | -------------------------------------------- |
-| `read_ticket`                 | `ticket.read`                 | `ticketId`                                                                         | Core fields, and the statuses of the project |
-| `read_milestones`             | `milestones.read`             | `projectId`                                                                        | Milestones and dependencies of the project   |
+| Tool                          | Pages operation               | Arguments (besides `operationId`)                                                                                       | Result                                       |
+| ----------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| `read_ticket`                 | `ticket.read`                 | `ticketId`                                                                                                              | Core fields, and the statuses of the project |
+| `read_milestones`             | `milestones.read`             | `projectId`                                                                                                             | Milestones and dependencies of the project   |
 | `create_ticket`               | `ticket.create`               | `type`, `title`, `description`, `statusId`, `parentId`; optional `projectId`, `milestoneId`, `departmentId`, `assignee` | `{ticketId, key, link, statusId}`            |
-| `set_ticket_title`            | `ticket.setTitle`             | `ticketId`, `expectedTitle`, `title`                                               | `{ticketId, key, link, field, changed}`      |
-| `set_ticket_description`      | `ticket.setDescription`       | `ticketId`, `expectedDescription`, `description`                                   | `{ticketId, key, link, field, changed}`      |
-| `set_ticket_status`           | `ticket.setStatus`            | `ticketId`, `expectedStatusId`, `statusId`                                         | `{ticketId, key, link, field, changed}`      |
-| `set_ticket_parent`           | `ticket.setParent`            | `ticketId`, `expectedParentId`, `parentId`                                         | `{ticketId, key, link, field, changed}`      |
-| `create_milestone`            | `milestone.create`            | `projectId`, `name`, `description`, `startAt`, `dueAt`                             | `{milestoneId, projectId}`                   |
-| `set_milestone_name`          | `milestone.setName`           | `milestoneId`, `expectedName`, `name`                                              | `{milestoneId, projectId, field, changed}`   |
-| `set_milestone_description`   | `milestone.setDescription`    | `milestoneId`, `expectedDescription`, `description`                                | `{milestoneId, projectId, field, changed}`   |
-| `set_milestone_status`        | `milestone.setStatus`         | `milestoneId`, `expectedStatus`, `status`                                          | `{milestoneId, projectId, field, changed}`   |
-| `set_milestone_start`         | `milestone.setStartAt`        | `milestoneId`, `expectedStartAt`, `startAt`                                        | `{milestoneId, projectId, field, changed}`   |
-| `set_milestone_due`           | `milestone.setDueAt`          | `milestoneId`, `expectedDueAt`, `dueAt`                                            | `{milestoneId, projectId, field, changed}`   |
-| `add_milestone_dependency`    | `milestone.dependency.add`    | `projectId`, `sourceId`, `targetId`, `linkType`                                    | The dependency, `removed: false`             |
-| `remove_milestone_dependency` | `milestone.dependency.remove` | `projectId`, `dependencyId`                                                        | The dependency, `removed: true`              |
+| `set_ticket_title`            | `ticket.setTitle`             | `ticketId`, `expectedTitle`, `title`                                                                                    | `{ticketId, key, link, field, changed}`      |
+| `set_ticket_description`      | `ticket.setDescription`       | `ticketId`, `expectedDescription`, `description`                                                                        | `{ticketId, key, link, field, changed}`      |
+| `set_ticket_status`           | `ticket.setStatus`            | `ticketId`, `expectedStatusId`, `statusId`                                                                              | `{ticketId, key, link, field, changed}`      |
+| `set_ticket_parent`           | `ticket.setParent`            | `ticketId`, `expectedParentId`, `parentId`                                                                              | `{ticketId, key, link, field, changed}`      |
+| `create_milestone`            | `milestone.create`            | `projectId`, `name`, `description`, `startAt`, `dueAt`                                                                  | `{milestoneId, projectId}`                   |
+| `set_milestone_name`          | `milestone.setName`           | `milestoneId`, `expectedName`, `name`                                                                                   | `{milestoneId, projectId, field, changed}`   |
+| `set_milestone_description`   | `milestone.setDescription`    | `milestoneId`, `expectedDescription`, `description`                                                                     | `{milestoneId, projectId, field, changed}`   |
+| `set_milestone_status`        | `milestone.setStatus`         | `milestoneId`, `expectedStatus`, `status`                                                                               | `{milestoneId, projectId, field, changed}`   |
+| `set_milestone_start`         | `milestone.setStartAt`        | `milestoneId`, `expectedStartAt`, `startAt`                                                                             | `{milestoneId, projectId, field, changed}`   |
+| `set_milestone_due`           | `milestone.setDueAt`          | `milestoneId`, `expectedDueAt`, `dueAt`                                                                                 | `{milestoneId, projectId, field, changed}`   |
+| `add_milestone_dependency`    | `milestone.dependency.add`    | `projectId`, `sourceId`, `targetId`, `linkType`                                                                         | The dependency, `removed: false`             |
+| `remove_milestone_dependency` | `milestone.dependency.remove` | `projectId`, `dependencyId`                                                                                             | The dependency, `removed: true`              |
 
 `ticketId` (and a parent) is a ticket ID, a key such as `PAGE-12`, or a Pages
 address such as `/tasks/PAGE-12` or `/aufgaben/PAGE-12`, with or without the
@@ -742,9 +743,7 @@ status IDs that `set_ticket_status` and `create_ticket` take.
   call stores nothing. The stored result is shown again only while its ticket or
   project is still visible.
 
-Read and write tools are listed to every verified account; Pages enforces the corresponding UI rights on each invocation. A9.11 has unit and integration tests with
-100% statements, branches, functions and lines per executable file. Type-only
-contracts have no executable coverage counters.
+Read and write tools are listed to every verified account; Pages enforces the corresponding UI rights on each invocation.
 
 ## Ticket search, hierarchy, links and assignment (PAGE-16)
 
@@ -755,14 +754,14 @@ hidden tickets, people, groups and departments are neither listed nor counted, a
 a hidden record answers exactly like a missing one (`NOT_FOUND`, message "Not found
 or no access."). A response is limited to 1 MiB UTF-8 JSON (`PAYLOAD_TOO_LARGE`).
 
-| Tool                         | Pages operation             | Arguments                                                                                                                                                  | Result                                                  |
-| ---------------------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| `search_tickets`             | `tickets.search`            | `projectId`; optional `text`, `type`, `statusId`, `parentId`, `milestoneId`, `departmentId`, `assigneeId`, `assigneeGroupId`, `tagIds`, `cursor`, `limit`  | `{projectId, tickets, total, nextCursor}`               |
-| `read_ticket_tree`           | `tickets.tree.read`         | `projectId` and/or `ticketId`; optional `cursor`, `limit`                                                                                                  | `{projectId, root, path, nodes, total, nextCursor}`     |
-| `read_ticket_links`          | `tickets.links.read`        | `ticketId`; optional `cursor`, `limit`                                                                                                                     | `{ticketId, key, links, total, nextCursor}`             |
-| `search_assignment_targets`  | `assignment.targets.search` | optional `text`, `targetType`, `projectId`, `cursor`, `limit`                                                                                              | `{targets, total, nextCursor}`                          |
-| `add_ticket_link`            | `tickets.link.add`          | `operationId`, `ticketId`, `targetTicketId`, `linkType`                                                                                                    | `{linkId, linkType, direction, ticketId, key, linkedTicketId, linkedKey, removed: false}` |
-| `remove_ticket_link`         | `tickets.link.remove`       | `operationId`, `ticketId`, `linkId`                                                                                                                        | The same fields, `removed: true`                        |
+| Tool                        | Pages operation             | Arguments                                                                                                                                                 | Result                                                                                    |
+| --------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `search_tickets`            | `tickets.search`            | `projectId`; optional `text`, `type`, `statusId`, `parentId`, `milestoneId`, `departmentId`, `assigneeId`, `assigneeGroupId`, `tagIds`, `cursor`, `limit` | `{projectId, tickets, total, nextCursor}`                                                 |
+| `read_ticket_tree`          | `tickets.tree.read`         | `projectId` and/or `ticketId`; optional `cursor`, `limit`                                                                                                 | `{projectId, root, path, nodes, total, nextCursor}`                                       |
+| `read_ticket_links`         | `tickets.links.read`        | `ticketId`; optional `cursor`, `limit`                                                                                                                    | `{ticketId, key, links, total, nextCursor}`                                               |
+| `search_assignment_targets` | `assignment.targets.search` | optional `text`, `targetType`, `projectId`, `cursor`, `limit`                                                                                             | `{targets, total, nextCursor}`                                                            |
+| `add_ticket_link`           | `tickets.link.add`          | `operationId`, `ticketId`, `targetTicketId`, `linkType`                                                                                                   | `{linkId, linkType, direction, ticketId, key, linkedTicketId, linkedKey, removed: false}` |
+| `remove_ticket_link`        | `tickets.link.remove`       | `operationId`, `ticketId`, `linkId`                                                                                                                       | The same fields, `removed: true`                                                          |
 
 Changing the parent stays `set_ticket_parent`, and the assignment stays
 `set_ticket_assignee` (person, group, department or none); both are described in
@@ -844,12 +843,12 @@ Pass the `id` to `set_ticket_assignee` or to `create_ticket`.
 What a call leaves out, or passes as `null`, is taken from the parent and the
 signed-in account, and never invented:
 
-| Argument       | Left out or `null`                                                                                    | Stated                                                          |
-| -------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| `projectId`    | The project of the parent; one of the two is required (`INVALID_REQUEST`)                             | Must equal the project of the parent, else `INVALID_REQUEST`    |
-| `milestoneId`  | The milestone of the parent, when it has one                                                          | A milestone of the project; another one is `NOT_FOUND`          |
-| `departmentId` | The department of the parent, when it has one and you may select it                                   | A department you may select; a hidden or missing one is `NOT_FOUND`, a visible one you may not select is `FORBIDDEN`    |
-| `assignee`     | The person you are signed in as, as on the ticket pages                                               | `{targetType: person\|group, targetId}` or `{targetType: none, targetId: null}` for nobody |
+| Argument       | Left out or `null`                                                        | Stated                                                                                                               |
+| -------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `projectId`    | The project of the parent; one of the two is required (`INVALID_REQUEST`) | Must equal the project of the parent, else `INVALID_REQUEST`                                                         |
+| `milestoneId`  | The milestone of the parent, when it has one                              | A milestone of the project; another one is `NOT_FOUND`                                                               |
+| `departmentId` | The department of the parent, when it has one and you may select it       | A department you may select; a hidden or missing one is `NOT_FOUND`, a visible one you may not select is `FORBIDDEN` |
+| `assignee`     | The person you are signed in as, as on the ticket pages                   | `{targetType: person\|group, targetId}` or `{targetType: none, targetId: null}` for nobody                           |
 
 - **Whose ticket.** The assignee is the verified Pages person of the credential, not
   a service account and not the person who created the previous ticket. Several
@@ -963,10 +962,7 @@ then applies it source by source.
 
 Limits: 100 sources, 200 links, 32 assets, and for the wiki part the A9.7 limits
 (32 pages, 16 KiB each, 32 KiB together); 64 KiB request, 1 MiB response. Apply has
-a thirty-second budget. A9.12 has unit and integration tests with 100%
-statements, branches, functions and lines per executable file. Type-only
-contracts have no executable coverage counters. The verification covers the
-A9.12 files; a full-suite run is outside this verification step.
+a thirty-second budget.
 
 ## Wiki comments (A9.13)
 
@@ -1028,9 +1024,7 @@ deletedComments}` with `action` one of `edited`, `resolved`, `reopened` and
 `isResolved`, `resolvedAt`, `resolvedByName`, `canEdit` and `canDelete`. Account
 identifiers are not part of the result.
 
-Limits: 64 KiB request, 1 MiB response (`PAYLOAD_TOO_LARGE` beyond). A9.13 tests verify
-100% statements, branches, functions and lines per executable file; pure type
-contracts have no executable coverage counters.
+Limits: 64 KiB request, 1 MiB response (`PAYLOAD_TOO_LARGE` beyond).
 
 ## Wiki and project foundations (A11.1)
 
@@ -1051,12 +1045,12 @@ New writes are `delete_wiki_page`, `create_project`, `set_project_name`,
 `assign_project_member`, `remove_project_member`, `set_ticket_assignee`,
 `assign_ticket_to_milestone`, `delete_ticket` and `delete_milestone`.
 
-| Tool | Pages operation | Required arguments |
-| --- | --- | --- |
-| `set_ticket_assignee` | `ticket.setAssignee` | `operationId`, `ticketId`, `targetType`, `targetId`, `expectedAssigneeId`, `expectedAssigneeGroupId` |
-| `assign_ticket_to_milestone` | `ticket.assignMilestone` | `operationId`, `ticketId`, `milestoneId`, `expectedMilestoneId` |
-| `delete_ticket` | `ticket.delete` | `operationId`, `ticketId`, `confirmation` |
-| `delete_milestone` | `milestone.delete` | `operationId`, `projectId`, `milestoneId`, `confirmation` |
+| Tool                         | Pages operation          | Required arguments                                                                                   |
+| ---------------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `set_ticket_assignee`        | `ticket.setAssignee`     | `operationId`, `ticketId`, `targetType`, `targetId`, `expectedAssigneeId`, `expectedAssigneeGroupId` |
+| `assign_ticket_to_milestone` | `ticket.assignMilestone` | `operationId`, `ticketId`, `milestoneId`, `expectedMilestoneId`                                      |
+| `delete_ticket`              | `ticket.delete`          | `operationId`, `ticketId`, `confirmation`                                                            |
+| `delete_milestone`           | `milestone.delete`       | `operationId`, `projectId`, `milestoneId`, `confirmation`                                            |
 
 Project group assignment applies to visible eligible members of the group using
 the existing person-membership model. Department assignment uses the existing

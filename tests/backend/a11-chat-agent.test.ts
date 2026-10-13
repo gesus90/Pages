@@ -318,18 +318,6 @@ describe("A11.4 AK-03/AK-08: actions with the rights of the person", () => {
 
   it("acts for an administrator only in the role mode chosen in the interface", async () => {
     const run = await setup();
-    const credential = await run.mcp.personalAgentTokenService.create(
-      "roleadmin",
-      "mcp",
-      null,
-    );
-    // MCP keeps its admin exception; the chat acts like the interface.
-    await expect(
-      run.mcp.pagesAgentApiService.handle(credential.token, {
-        operation: "projects.read",
-        parameters: { projectId: "p2" },
-      }),
-    ).resolves.toMatchObject({ result: { id: "p2" } });
     run.execution.run
       .mockResolvedValueOnce(chatAction("projects.read", { projectId: "p2" }))
       .mockResolvedValueOnce("Kein Zugriff.");
