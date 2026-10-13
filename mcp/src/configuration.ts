@@ -4,7 +4,7 @@ import { instanceEndpoint, readInstanceUrl } from "./instance-address.js";
 export interface PagesConfiguration {
   readonly agentsUrl: URL;
   readonly token: string;
-  /** Local credential lifecycle, absent for explicit environment and HTTP delegation credentials. */
+  /** Local credential lifecycle, absent for explicit environment credentials. */
   readonly credentials?: {
     readonly refresh: (invalidToken: string) => Promise<string>;
     readonly rotate: (currentToken: string) => Promise<string>;

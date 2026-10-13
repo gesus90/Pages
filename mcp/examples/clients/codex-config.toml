@@ -7,7 +7,3 @@ env_vars = ["PAGES_TOKEN"]
 
 [mcp_servers.pages.env]
 PAGES_URL = "https://pages.example.com"
-
-# Streamable HTTP behind an HTTPS reverse proxy; authenticate with `codex mcp login pages-http`.
-[mcp_servers.pages-http]
-url = "https://mcp.example.com/mcp"

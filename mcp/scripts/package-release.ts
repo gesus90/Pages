@@ -168,17 +168,10 @@ function isPlaceholderHost(hostname: string): boolean {
   );
 }
 
-function findUnexpectedHosts(text: string, fileName: string): string[] {
+function findUnexpectedHosts(text: string): string[] {
   return (text.match(URL_PATTERN) ?? []).filter((candidate) => {
     // The pinned SDK constructs an IPv6 URL from a validated runtime value.
     if (candidate === "http://[${value}") return false;
-    // This fixed README example is public documentation supplied for intranet operation.
-    if (
-      path.basename(fileName) === "README.md" &&
-      candidate === "http://192.168.0.52"
-    ) {
-      return false;
-    }
     try {
       return !isPlaceholderHost(new URL(candidate).hostname);
     } catch {
@@ -218,7 +211,7 @@ export function assertNoSecrets(
     if (tokenPattern.test(text)) {
       throw new Error(`${entry.name} contains a token-shaped value.`);
     }
-    if (findUnexpectedHosts(text, entry.name).length > 0) {
+    if (findUnexpectedHosts(text).length > 0) {
       throw new Error(
         `${entry.name} contains an address outside the placeholder hosts.`,
       );

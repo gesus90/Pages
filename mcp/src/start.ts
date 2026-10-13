@@ -1,16 +1,10 @@
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
 
-import { readConfiguration } from "./configuration.js";
 import { CredentialStoreError } from "./credential-store.js";
 import { runCredentialCommand } from "./credential-command.js";
 import { readStdioConfiguration } from "./stdio-configuration.js";
 import { createServer } from "./server.js";
 import { verifyPages } from "./verification.js";
-import {
-  HttpOptionError,
-  readHttpConfiguration,
-} from "./http-configuration.js";
-import { startHttpServer } from "./http-server.js";
 
 /** Starts stdio after validation; all unexpected diagnostics are fixed, token-free text. */
 export async function start(): Promise<void> {
@@ -21,27 +15,20 @@ export async function start(): Promise<void> {
       return;
     }
     if (argumentsList.length > 0) {
-      const server = await startHttpServer(
-        readHttpConfiguration(process.env, argumentsList),
+      console.error(
+        "[pages-mcp] Only stdio is supported. HTTP, listen, port, host, resource and transport options are unavailable. Start without options, or use pair, status, rotate or unpair for credentials.",
       );
-      const shutdown = (): void => {
-        server.close();
-      };
-      process.once("SIGINT", shutdown);
-      process.once("SIGTERM", shutdown);
+      process.exitCode = 1;
       return;
     }
-    const configuration =
-      process.env.PAGES_TOKEN !== undefined
-        ? readConfiguration(process.env)
-        : await readStdioConfiguration(process.env);
+    const configuration = await readStdioConfiguration(process.env);
     await verifyPages(configuration);
     serveStdio(() => createServer(() => configuration));
   } catch (error: unknown) {
     console.error(
-      error instanceof HttpOptionError || error instanceof CredentialStoreError
+      error instanceof CredentialStoreError
         ? `[pages-mcp] ${error.message}`
-        : "[pages-mcp] Startup failed. Check PAGES_URL, PAGES_TOKEN (stdio), HTTP options and Pages authorization.",
+        : "[pages-mcp] Startup failed. Check PAGES_URL, PAGES_TOKEN or local pairing credentials and Pages authorization.",
     );
     process.exitCode = 1;
   }

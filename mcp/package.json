@@ -5,6 +5,7 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
+    "lint": "eslint . --max-warnings=0",
     "check": "tsc --noEmit && prettier --check .",
     "build": "node build.config.ts"
   },
@@ -14,8 +15,12 @@
   "devDependencies": {
     "@types/node": "24.13.6",
     "esbuild": "0.28.2",
+    "eslint": "10.11.0",
+    "eslint-plugin-jsdoc": "64.5.4",
+    "globals": "17.12.0",
     "prettier": "3.9.9",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.70.1"
   },
   "engines": {
     "node": ">=24.0.0",

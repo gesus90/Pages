@@ -1,8 +1,7 @@
 # Pages MCP 0.1.0
 
-One bundle serves local clients over stdio and shared instances over Streamable
-HTTP on private IPv4 addresses or behind an HTTPS reverse proxy. Authentication is
-a personal token for stdio and Pages OAuth for HTTP. The package exposes project/wiki reads and authorized
+The bundle serves local MCP clients exclusively over stdio. Authentication uses
+a paired credential or an explicit personal token. The package exposes project/wiki reads and authorized
 asset upload preparation, single wiki-page creation and a read-only wiki import
 preview. Releases are
 published from `mcp-vMAJOR.MINOR.PATCH` tags (see Releases below).
@@ -67,117 +66,19 @@ Startup failures have a nonzero exit status and fixed, credential-free stderr
 text. stdout is reserved for MCP. Closing stdin releases the transport and ends
 the process. The pinned SDK supports both legacy initialization and current MCP.
 
-## Protected HTTP
+## Transport boundary
 
-Start the same bundle with `--http --resource https://mcp.example.com/mcp`, optionally
-`--port 8998` and `--host 127.0.0.1`. Set `PAGES_URL` to the Pages authorization
-server's origin. HTTP mode ignores `PAGES_TOKEN`. The listener serves `/mcp` and binds
-to `127.0.0.1` by default on port 8998. `--host` accepts `127.0.0.1`, `::1`,
-`localhost` and private IPv4 addresses in `10.0.0.0/8`, `172.16.0.0/12` or
-`192.168.0.0/16`. Public addresses, wildcard addresses such as `0.0.0.0`, and
-other hostnames are startup errors that name the option without echoing its value.
-The port is free to choose, and the options may appear in any order. The resource
-URL permits HTTP only on loopback or private IPv4 addresses; every other resource
-host requires HTTPS. Public HTTPS resource URLs remain supported behind a proxy.
+MCP clients communicate with the local adapter only over stdio. HTTP, listen,
+port, host, resource and transport start options are rejected with a nonzero exit
+status and a fixed stderr message before credential lookup or any Pages request.
+The adapter does not open a network listener, publish MCP OAuth discovery, or
+support Streamable HTTP, SSE or WebSocket transports.
 
-### Intranet-Betrieb (HTTP)
-
-Für das Intranet kann der MCP-Dienst vorerst über HTTP an eine konkrete private
-IPv4-Adresse gebunden werden. Beispiel mit Port 8998:
-
-```sh
-node /path/to/pages-mcp-v0.1.0.js --http --host 192.168.0.52 --port 8998 --resource http://192.168.0.52:8998/mcp
-```
-
-Die Adresse muss auf dem Rechner verfügbar sein. Clients verwenden die angegebene
-Resource-URL einschließlich Port; der Listener prüft den Host-Header gegen Host
-und Port dieser URL. Authentifizierung und OAuth bleiben unverändert.
-Im HTTP-MCP-Modus gilt: `PAGES_URL` verlangt weiterhin HTTPS, außer auf Loopback.
-Für stdio-Pairing akzeptiert `PAGES_URL` seit A11.2 auch private IPv4-Adressen über HTTP. Die bestehende
-Pages-OAuth-Konfiguration akzeptiert HTTP nur auf Loopback und lehnt eine private
-HTTP-URL als `PAGES_MCP_RESOURCE` weiterhin ab. Diese Listener-Erweiterung allein
-ermöglicht daher noch keinen vollständigen OAuth-Betrieb mit der privaten
-HTTP-Resource. HTTPS für den direkten Intranet-Betrieb folgt später und ist nicht
-Teil von A9.
-
-### Remote operation behind an HTTPS reverse proxy
-
-TLS ends at a trusted reverse proxy on the same machine; the proxy forwards to the
-loopback listener. For public remote access, keep the listener on loopback, do not
-forward it with a plain TCP/port mapping, and never put tokens into URLs or logs.
-
-- Public URL: `https://mcp.example.com/mcp`, the same value passed as `--resource`
-  and configured in Pages as `PAGES_MCP_RESOURCE`. The certificate must match that
-  name and be trusted by the clients; a DNS name with a valid certificate is
-  recommended. The `/.well-known/oauth-protected-resource` paths are served by the
-  same listener and must be forwarded too.
-- Target: `127.0.0.1:8998` (or the chosen loopback `--host`/`--port`).
-- The proxy must pass `Host` unchanged (the listener rejects any other Host with 403) and must pass `Authorization` unchanged. Origin is checked and no CORS
-  wildcard is offered; query strings on `/mcp` are rejected.
-
-```nginx
-server {
-    listen 443 ssl;
-    server_name mcp.example.com;
-    # ssl_certificate and ssl_certificate_key for mcp.example.com
-
-    location / {
-        proxy_pass http://127.0.0.1:8998;
-        proxy_set_header Host $http_host;
-        proxy_set_header Authorization $http_authorization;
-        proxy_http_version 1.1;
-    }
-}
-```
-
-Known limitation: Pages itself behind a TLS-terminating proxy. Pages builds request
-URLs from the connection it sees (plain HTTP behind the proxy), and React Router
-answers a browser form post with 400 when the `Origin` scheme (https) differs from
-that URL. Until Pages offers a trusted-proxy or allowed-origin setting, this blocks
-the Pages login and the OAuth consent page when the public Pages URL is HTTPS; it
-does not affect the MCP listener. Verified only on a local loopback topology.
-
-Without a Bearer credential `/mcp` answers 401 JSON with `Cache-Control: no-store`.
-OpenClaw 2026.9.8 allows private or loopback targets only for the origin of the
-configured MCP URL and blocks an authorization server on another private origin
-(A9.3-E12). Public HTTPS names are not private; run Pages OAuth and the MCP
-resource under public HTTPS names, or serve both below one origin.
-
-Configure Pages with `PAGES_OAUTH_ISSUER` (the exact origin without a trailing slash)
-and `PAGES_MCP_RESOURCE` (the exact public `/mcp` URL). These are public URLs, not
-credentials. HTTPS is required except on loopback. Missing configuration closes
-the OAuth boundary while ordinary Pages and personal stdio tokens remain usable.
-
-The resource publishes `/.well-known/oauth-protected-resource` and
-`/.well-known/oauth-protected-resource/mcp`. Anonymous/invalid requests receive a
-401 Bearer challenge with `resource_metadata` and `scope="mcp:connect"`. Pages
-publishes `/.well-known/oauth-authorization-server` with authorization, token and
-registration endpoints. Host, Origin and query-string checks precede authentication;
-no unrestricted CORS is enabled.
-
-Public clients use Authorization Code with S256 PKCE and no client secret. CIMD URL
-client identities are preferred; `POST /oauth/register` provides DCR compatibility.
-Redirect URIs match exactly, use HTTPS or loopback HTTP, and contain no user
-information or fragment. CIMD requires a matching `client_id`, a public HTTPS
-location, pinned public DNS resolution, no redirects, and bounded JSON.
-
-`GET /oauth/authorize` starts a process limited to 15 minutes before Pages login.
-The Pages login returns only to an allowed internal consent or pairing page. The user sees
-client name/identity, exact MCP resource and `mcp:connect`, then explicitly approves
-or denies. Approval is bound to the user, browser session and CSRF nonce.
-Authorization codes are single-use, expire after at most 60 seconds, and are
-bound to client, redirect URI, resource and PKCE verifier. Access tokens expire
-after 600 seconds. A refresh token is issued only when `grant_types` includes
-`refresh_token`; every refresh rotates it. Reusing any consumed refresh token
-revokes the entire grant, including access and delegation credentials.
-
-The MCP process submits the OAuth access credential only as `subject_token` to
-`POST /oauth/delegate`, with the exact `resource`. This dedicated endpoint verifies
-its issuing Pages instance, audience, lifetime, consent and identity. It returns
-a separate opaque Pages-API delegation credential valid for at most 60 seconds,
-never beyond the access credential's expiry. The MCP OAuth credential is never an
-API Bearer credential. Every API call rechecks grant state and current user rights.
-Unavailable verification fails closed; there is no positive identity/rights cache.
+The adapter still calls the authenticated Pages Agent API over HTTP(S) using
+`PAGES_URL`; pairing uses the Pages pairing endpoints and browser links. These
+outgoing requests are separate from the MCP transport. The existing localhost
+and private IPv4 HTTP instance rules above remain valid. Pages-owned OAuth
+endpoints, grants and credentials are unaffected by removal of the MCP listener.
 
 The personal admin property counts on the MCP path regardless of browser role
 mode: an administrator in role mode sees every active project through
@@ -243,15 +144,15 @@ Stable failures use `{apiVersion:"1", error:{code,message,retryable:false}}`:
 ## Client examples
 
 `examples/clients/` holds one file per client with placeholders only: instance URL,
-bundle path and a reference to the token variable. Replace `pages.example.com`,
-`mcp.example.com` and the bundle path; never commit a token.
+bundle path and a reference to the token variable. Replace `pages.example.com`
+and the bundle path; never commit a token.
 
-| File                  | Client     | stdio (token from the environment) | HTTP (OAuth)                        |
-| --------------------- | ---------- | ---------------------------------- | ----------------------------------- |
-| `claude-cli.mcp.json` | Claude CLI | `${PAGES_TOKEN}` expansion         | `type: http`, authenticate in-app   |
-| `codex-config.toml`   | Codex      | `env_vars = ["PAGES_TOKEN"]`       | `url`, then `codex mcp login`       |
-| `openclaw.json`       | OpenClaw 2 | `${PAGES_TOKEN}` expansion         | `auth: oauth`, `openclaw mcp login` |
-| `opencode.json`       | OpenCode   | `{env:PAGES_TOKEN}`                | `type: remote`, `opencode mcp auth` |
+| File                  | Client     | stdio (token from the environment) |
+| --------------------- | ---------- | ---------------------------------- |
+| `claude-cli.mcp.json` | Claude CLI | `${PAGES_TOKEN}` expansion         |
+| `codex-config.toml`   | Codex      | `env_vars = ["PAGES_TOKEN"]`       |
+| `openclaw.json`       | OpenClaw 2 | `${PAGES_TOKEN}` expansion         |
+| `opencode.json`       | OpenCode   | `{env:PAGES_TOKEN}`                |
 
 ## Releases
 
@@ -269,8 +170,7 @@ The archive contains one folder `pages-mcp-v<version>/` with the bundle,
 `pages-mcp-v<version>.js.sha256`, a runtime `package.json` (CommonJS, so the bundle
 starts next to it), this README and `examples/clients/`. No token or instance URL is
 built in; the packaging script fails when a configured value or an address outside
-the placeholder hosts would be archived. The README's fixed intranet example is
-an allowed documentation placeholder.
+the placeholder hosts would be archived.
 
 ```sh
 sha256sum --check pages-mcp-v<version>.zip.sha256
@@ -286,12 +186,21 @@ produces the same archive after `pnpm --dir mcp install --frozen-lockfile`;
 
 ```sh
 pnpm --dir mcp install --frozen-lockfile
-pnpm --dir mcp check
-pnpm --dir mcp build
+pnpm --dir mcp run lint
+pnpm --dir mcp run check
+pnpm --dir mcp run build
 ```
 
 This independent package has its own manifest, lockfile, TypeScript configuration
-and build. Dependency age remains ten days; SDK 2.2.0 is unchanged. Package version
+and build. From `mcp/`, the equivalent commands are `pnpm install`,
+`pnpm run lint`, `pnpm run check` and `pnpm run build`. Installation uses only the
+MCP manifest and lockfile; no Pages dependency installation is needed. ESLint uses
+MCP-local dependencies and the shared static repository rules, checks all package
+source, scripts and JavaScript configuration, and accepts no warnings. Check runs
+only MCP TypeScript and Prettier, retaining the shared API contracts without
+starting Pages, React Router type generation or test gates.
+
+Dependency age remains ten days; SDK 2.2.0 is unchanged. Package version
 supplies both the filename and MCP `serverInfo.version`; API version remains `1`.
 Root lint continues to check package source. The previous MCP suite and its
 exclusive helpers were removed in PAGE-37. PAGE-34 removed the remaining Pages
@@ -306,15 +215,10 @@ or test command exists yet, and no MCP test coverage is claimed. Check and
 build above are non-test gates. Browser E2E and live integration are a later
 phase. PAGE-35 already removed the CI test step.
 
-The
-[official authorization profile](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization)
-and [pinned SDK HTTP entry](https://github.com/modelcontextprotocol/typescript-sdk/blob/v2.2.0/docs/serving/http.md)
-provide the protocol basis.
-
 ## Project and wiki reads (A9.5)
 
 The existing `list_project_names` tool still returns names only. The additional
-read-only tools use the same stdio and OAuth transports and verify current rights
+read-only tools use the same stdio transport and verify current rights
 on every call. Reading wiki content does not record a visit.
 
 | Tool              | Pages operation    | Arguments                    | Result                                                                               |
