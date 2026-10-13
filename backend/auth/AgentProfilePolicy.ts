@@ -52,36 +52,31 @@ export function agentProfilePriority(
   );
 }
 
-/** Sharing controls visibility and usage independently of connection assignments. */
+/**
+ * Decides whether a person may see and use an agent through its sharing.
+ *
+ * @remarks
+ * The owner always may. Otherwise the share is global, or its group and
+ * department targets match with OR (at least one, the default) or AND (every
+ * one). Usage never grants managed-department access and never a model.
+ */
 export function hasAgentUsage(
   profile: AgentProfile,
   viewer: AgentViewer,
 ): boolean {
-  const sharing = profile.configuration?.sharing;
   if (profile.ownerId === viewer.actor.userId) return true;
+  const sharing = profile.configuration?.sharing;
   if (!sharing) return agentProfilePriority(profile, viewer, "agent") > 0;
-  if (profile.ownerId) {
-    const matches = sharing.targets.map((target) =>
-      matchesAgentTarget(target, {
-        ...viewer,
-        actor: { ...viewer.actor, managedDepartments: [] },
-      }),
-    );
-    return (
-      sharing.isGlobal ||
-      (matches.length > 0 &&
-        (sharing.operator === "and"
-          ? matches.every(Boolean)
-          : matches.some(Boolean)))
-    );
-  }
-  return (
-    sharing.isGlobal ||
-    sharing.targets.some((target) =>
-      matchesAgentTarget(target, {
-        ...viewer,
-        actor: { ...viewer.actor, managedDepartments: [] },
-      }),
-    )
+  if (sharing.isGlobal) return true;
+  const member = {
+    ...viewer,
+    actor: { ...viewer.actor, managedDepartments: [] },
+  };
+  const matches = sharing.targets.map((target) =>
+    matchesAgentTarget(target, member),
   );
+  if (matches.length === 0) return false;
+  return sharing.operator === "and"
+    ? matches.every(Boolean)
+    : matches.some(Boolean);
 }
