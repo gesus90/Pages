@@ -42,7 +42,7 @@ export interface AgentPlanEdge {
   readonly to: string;
 }
 
-/** Workspace sharing reuses its live grants; it never delegates credentials. */
+/** Workspace sharing follows live project access; it never delegates credentials. */
 export interface AgentPlanInput {
   readonly name: string;
   readonly workspaceId: string;

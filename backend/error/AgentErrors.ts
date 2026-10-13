@@ -18,8 +18,11 @@ export const AGENT_ERROR_MESSAGES = {
     "A dependency failed or was cancelled; this step is blocked.",
   plan_interrupted:
     "The server interrupted this run. It cannot be resumed automatically.",
-  workspace_invalid:
-    "Enter a name, existing local directory, project and usage assignments.",
+  workspace_invalid: "Enter a name, an existing local directory and a project.",
+  workspace_project_unsupported:
+    "Choose a project that is linked to a GitHub repository.",
+  workspace_management_denied:
+    "Only administrators and managers of the project can manage its workspaces.",
   workspace_access_denied: "The workspace or its project is not accessible.",
   workspace_not_found: "The workspace registration no longer exists.",
   workspace_conflict: "The workspace changed. Reload it before saving.",

@@ -222,6 +222,11 @@ export class ProjectRepository {
     return this.members.isProjectManager(projectId, userId);
   }
 
+  /** Returns the projects in which the user holds the project manager role. */
+  public async findManagedProjectIds(userId: string): Promise<string[]> {
+    return this.members.findManagedProjectIds(userId);
+  }
+
   /** Inserts a project and its owner membership. */
   public async insert(project: NewProject): Promise<void> {
     await this.transaction(async (repository) => {

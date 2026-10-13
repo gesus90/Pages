@@ -7,6 +7,7 @@ import { SettingsCard } from "@/app/components/settings/settings-layout";
 import { Button, buttonVariants } from "@/app/components/ui/button";
 import { Dialog } from "@/app/components/ui/dialog";
 import { HorizontalScrollArea } from "@/app/components/ui/horizontal-scroll-area";
+import { useManagementPending } from "@/app/components/users/use-management-pending";
 
 import { WorkspaceForm } from "./workspace-form";
 import { WorkspaceRow } from "./workspace-row";
@@ -16,13 +17,14 @@ import type {
   AgentWorkspaceView,
 } from "@/definition/AgentWorkspace";
 
-/** Shows authorized local workspaces without setup, Git or execution actions. */
+/** Shows the local workspaces of accessible projects; managers get the registration controls. */
 export function WorkspacePage({
   page,
 }: {
   readonly page: AgentWorkspacePage;
 }): React.ReactElement {
   const { t } = useTranslation();
+  const isLoading = useManagementPending();
   const [selected, setSelected] = useState<AgentWorkspaceView | "new" | null>(
     null,
   );
@@ -33,7 +35,7 @@ export function WorkspacePage({
     <div className="mx-auto w-full max-w-6xl space-y-5 px-2 pt-3 pb-10">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">{t("workspaces.title")}</h1>
-        {page.canManage ? (
+        {page.isAdministrator ? (
           <Link
             to="/settings/agents"
             className={buttonVariants({ variant: "outline", size: "sm" })}
@@ -44,7 +46,7 @@ export function WorkspacePage({
       </header>
       <SettingsCard
         icon={<Folder className="size-5" />}
-        title={t("workspaces.title")}
+        title={t("workspaces.listTitle")}
         description={t("workspaces.description")}
         wrapHeader
         action={
@@ -63,19 +65,13 @@ export function WorkspacePage({
         {!page.isConfigured ? (
           <p role="status" className="mb-4 text-sm text-warning">
             {t(
-              page.canManage
+              page.isAdministrator
                 ? "workspaces.rootsMissingAdmin"
                 : "workspaces.rootsMissing",
             )}
           </p>
         ) : null}
-        {page.workspaces.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">
-            {t("workspaces.empty")}
-          </p>
-        ) : (
-          <WorkspaceTable workspaces={page.workspaces} onEdit={setSelected} />
-        )}
+        <WorkspaceList page={page} isLoading={isLoading} onEdit={setSelected} />
       </SettingsCard>
       <Dialog
         open={selected !== null}
@@ -87,12 +83,42 @@ export function WorkspacePage({
           <WorkspaceForm
             workspace={selected === "new" ? null : selected}
             projects={page.projects}
-            directory={page.directory}
             onSaved={close}
           />
         ) : null}
       </Dialog>
     </div>
+  );
+}
+
+function WorkspaceList(props: {
+  readonly page: AgentWorkspacePage;
+  readonly isLoading: boolean;
+  readonly onEdit: (workspace: AgentWorkspaceView) => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  if (props.isLoading)
+    return (
+      <div
+        role="status"
+        aria-label={t("workspaces.loading")}
+        className="flex flex-col gap-4 py-2"
+      >
+        {[1, 2, 3].map((row) => (
+          <div key={row} className="h-4 animate-pulse rounded-md bg-muted" />
+        ))}
+      </div>
+    );
+  if (props.page.workspaces.length === 0)
+    return (
+      <p className="py-6 text-center text-sm text-muted-foreground">
+        {t(
+          props.page.canManage ? "workspaces.emptyManage" : "workspaces.empty",
+        )}
+      </p>
+    );
+  return (
+    <WorkspaceTable workspaces={props.page.workspaces} onEdit={props.onEdit} />
   );
 }
 

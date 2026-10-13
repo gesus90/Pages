@@ -76,6 +76,20 @@ export class ProjectPolicyService {
     );
   }
 
+  /**
+   * Registering a local working directory for a project needs the same project
+   * responsibility as its general information and GitHub link.
+   *
+   * @remarks
+   * Reading the project is a separate check, so a caller combines both.
+   */
+  public canManageWorkspaces(
+    actor: AccountAccess,
+    project: ProjectManagementContext,
+  ): boolean {
+    return this.canEditGeneral(actor, project);
+  }
+
   /** Assignment changes require complete current responsibility and scoped new selections. */
   public canChangeDepartments(
     actor: AccountAccess,

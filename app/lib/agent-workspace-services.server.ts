@@ -16,7 +16,7 @@ import type { Database } from "@/backend/database/Database";
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import type { AgentOperationRegistry } from "@/backend/service/agents/AgentOperationRegistry";
 
-/** The existing central agent and the workspace registry share live authorization boundaries. */
+/** The existing central agent and the workspace registry share live account and project boundaries. */
 export interface AgentConfigurationApplicationServices {
   readonly agentProfileService: AgentProfileService;
   readonly agentWorkspaceService: AgentWorkspaceService;
@@ -41,7 +41,6 @@ export function createAgentConfigurationServices(input: {
   const agentWorkspaceService = new AgentWorkspaceService({
     workspaces: new AgentWorkspaceRepository(database),
     authorization,
-    groups,
     projects,
     paths: new AgentWorkspacePath({
       roots: (process.env.PAGES_WORKSPACE_ROOTS ?? "")

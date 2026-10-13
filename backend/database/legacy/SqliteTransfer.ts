@@ -473,7 +473,7 @@ async function readTargetColumns(
               'agent_connection_scopes', 'agent_connection_scope_targets',
               'agent_execution_profiles', 'agent_profile_purposes', 'agent_profile_targets',
               'agent_legacy_function_assignments',
-              'agent_workspaces', 'agent_workspace_targets',
+              'agent_workspaces',
               'agent_plans', 'agent_plan_runs', 'agent_plan_workspace_locks',
               'work_item_attachments', 'work_item_tree_expansions',
               'text_assistant_settings', 'text_assistant_preferences',

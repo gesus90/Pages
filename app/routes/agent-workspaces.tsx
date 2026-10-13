@@ -1,5 +1,6 @@
 import { data as routeData, useLoaderData } from "react-router";
 
+import { WorkspaceLoadError } from "@/app/components/agents/workspaces/workspace-load-error";
 import { WorkspacePage } from "@/app/components/agents/workspaces/workspace-page";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
@@ -20,7 +21,7 @@ export const headers: Route.HeadersFunction = ({ parentHeaders }) => {
   return response;
 };
 
-/** Loads only currently accessible registrations and permitted management controls. */
+/** Loads only the registrations of accessible projects and the management controls the person holds. */
 export async function loader({
   context,
 }: Route.LoaderArgs): Promise<
@@ -38,7 +39,7 @@ export async function loader({
   }
 }
 
-/** Mutates registration metadata only; the service rechecks persisted administrator permissions. */
+/** Mutates registration metadata only; the service rechecks project access and management rights. */
 export async function action(args: Route.ActionArgs): Promise<Response> {
   let intent = "";
   try {
@@ -78,4 +79,9 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
 /** Shares the existing Pages cards and dialogs with the central agent administration. */
 export default function AgentWorkspacesRoute(): React.ReactElement {
   return <WorkspacePage page={useLoaderData<typeof loader>()} />;
+}
+
+/** A failed load keeps the page chrome and offers a retry. */
+export function ErrorBoundary(): React.ReactElement {
+  return <WorkspaceLoadError />;
 }

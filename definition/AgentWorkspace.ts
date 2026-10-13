@@ -1,18 +1,10 @@
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
-import type { AgentProfileDirectory } from "./AgentProfile";
 
-/** Usage grants never grant project access or workspace administration. */
-export interface AgentWorkspaceTarget {
-  readonly kind: "person" | "group" | "department";
-  readonly targetId: string;
-}
-
-/** A registration refers to an existing directory; it contains no Git credentials. */
+/** A registration refers to an existing local directory; it contains no Git credentials. */
 export interface AgentWorkspaceInput {
   readonly name: string;
   readonly path: string;
   readonly projectId: string;
-  readonly targets: readonly AgentWorkspaceTarget[];
   readonly revision?: number;
 }
 
@@ -30,7 +22,7 @@ export interface WorkspaceGitHub {
   readonly repoName: string | null;
 }
 
-/** Authorized selection metadata also explains a directory that has become unavailable. */
+/** Authorized selection metadata also explains a directory or project that has become unusable. */
 export interface AgentWorkspaceChoice {
   readonly id: string;
   readonly name: string;
@@ -42,11 +34,10 @@ export interface AgentWorkspaceChoice {
   readonly reason: AgentErrorCode | null;
 }
 
-/** Only administrators receive grant lists and editing hints. */
+/** The management hint comes from the same policy that rechecks every mutation. */
 export interface AgentWorkspaceView extends AgentWorkspaceChoice {
   readonly revision: number;
   readonly canManage: boolean;
-  readonly targets: readonly AgentWorkspaceTarget[];
 }
 
 /** A reauthorized working-directory contract for the later CLI runner, never a sandbox. */
@@ -59,21 +50,37 @@ export interface ResolvedAgentWorkspace {
   readonly github: WorkspaceGitHub | null;
 }
 
-/** References block unregistering or rebinding a workspace, but not withdrawing usage grants. */
+/** What still refers to a workspace and therefore blocks unregistering or rebinding it. */
+export type AgentWorkspaceUsageKind = "agent" | "plan" | "run";
+
+/**
+ * A reference that blocks unregistering or rebinding a workspace.
+ *
+ * @remarks
+ * Only administrators receive the name; anyone else gets the kind alone, so a
+ * project manager learns that the workspace is in use, not by whom.
+ */
 export interface AgentWorkspaceUsage {
   readonly id: string;
   readonly name: string;
+  readonly kind: AgentWorkspaceUsageKind;
+}
+
+/** A project that can be assigned to a workspace, with the GitHub link that makes it eligible. */
+export interface AgentWorkspaceProject {
+  readonly id: string;
+  readonly name: string;
+  readonly github: WorkspaceGitHub | null;
 }
 
 /** Page metadata is filtered before reaching the browser. */
 export interface AgentWorkspacePage {
+  /** Whether the person may register workspaces for at least one project. */
   readonly canManage: boolean;
+  /** The central agent administration is reserved for administrators. */
+  readonly isAdministrator: boolean;
   readonly isConfigured: boolean;
   readonly workspaces: readonly AgentWorkspaceView[];
-  readonly projects: readonly {
-    readonly id: string;
-    readonly name: string;
-    readonly github: WorkspaceGitHub | null;
-  }[];
-  readonly directory: AgentProfileDirectory;
+  /** Only projects the person may manage; the form disables those without a GitHub link. */
+  readonly projects: readonly AgentWorkspaceProject[];
 }

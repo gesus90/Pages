@@ -46,11 +46,18 @@ export function PlanFields(props: {
             { value: "", label: t("plans.chooseWorkspace") },
             ...props.workspaces.map((entry) => ({
               value: entry.id,
-              label: entry.name,
+              label: entry.isUsable
+                ? entry.name
+                : t("plans.workspaceUnavailable", { name: entry.name }),
               disabled: !entry.isUsable,
             })),
           ]}
         />
+        {props.workspaces.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            {t("plans.noWorkspaces")}
+          </p>
+        ) : null}
         {draft.nodes.length > 0 ? (
           <p className="text-xs text-muted-foreground">
             {t("plans.workspaceChangeHint")}

@@ -102,6 +102,23 @@ export class ProjectMemberRepository {
     return readCountColumn(row, 0, "manager_count") > 0;
   }
 
+  /** Returns the projects in which the user holds the project manager role. */
+  public async findManagedProjectIds(userId: string): Promise<string[]> {
+    const rows = await this.database.query(
+      `
+        SELECT
+            project_id
+        FROM project_members
+        WHERE user_id = $user_id
+            AND role = 'manager'
+        ORDER BY project_id;
+      `,
+      { user_id: userId },
+    );
+
+    return rows.map((row) => readTextColumn(row, 0, "project_id"));
+  }
+
   /** Returns every person assigned to the project with their project role. */
   public async findByProjectId(projectId: string): Promise<ProjectMember[]> {
     const rows = await this.database.query(

@@ -28,10 +28,9 @@ export function useWorkspaceForm(
           name: workspace.name,
           path: workspace.path,
           projectId: workspace.projectId,
-          targets: workspace.targets,
           revision: workspace.revision,
         }
-      : { name: "", path: "", projectId: "", targets: [] },
+      : { name: "", path: "", projectId: "" },
   );
   const initial = useRef(JSON.stringify(input));
   const isDirty = initial.current !== JSON.stringify(input);

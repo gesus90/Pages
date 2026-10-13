@@ -15,7 +15,7 @@ import { VerticalScrollArea } from "@/app/components/ui/vertical-scroll-area";
 import type { AgentActionResult } from "@/app/lib/settings-actions/settings-agents-response.server";
 import type { AgentWorkspaceView } from "@/definition/AgentWorkspace";
 
-/** Confirms removal of an unused registration; it never offers directory deletion. */
+/** Confirms removal of an unused registration; it never offers directory or GitHub changes. */
 export function WorkspaceDelete(props: {
   readonly workspace: AgentWorkspaceView;
   readonly onClose: () => void;
@@ -63,7 +63,9 @@ export function WorkspaceDelete(props: {
             <p className="text-sm font-medium">{t("workspaces.usedBy")}</p>
             <ul className="pages-selectable mt-2 space-y-1 text-sm">
               {usages.map((usage) => (
-                <li key={usage.id}>{usage.name}</li>
+                <li key={`${usage.kind}:${usage.id}`}>
+                  {usage.name || t(`workspaces.usageKind.${usage.kind}`)}
+                </li>
               ))}
             </ul>
           </VerticalScrollArea>

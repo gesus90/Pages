@@ -5,7 +5,7 @@ import type { AgentPlan, AgentPlanView } from "@/definition/AgentPlan";
 import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
 import type { AgentWorkspaceService } from "./AgentWorkspaceService";
 
-/** Ownership controls editing; live workspace usage and project access control every read or run. */
+/** Ownership controls editing; live project access to the workspace controls every read or run. */
 export class AgentPlanAccess {
   private readonly plans: AgentPlanRepository;
   private readonly workspaces: AgentWorkspaceService;
@@ -18,7 +18,7 @@ export class AgentPlanAccess {
     this.workspaces = workspaces;
   }
 
-  /** Returns only plans whose current workspace project and usage grants still agree. */
+  /** Returns only plans whose workspace is still visible in the plan's project. */
   public async list(userId: string): Promise<readonly AgentPlanView[]> {
     const [plans, workspaces] = await Promise.all([
       this.plans.list(),

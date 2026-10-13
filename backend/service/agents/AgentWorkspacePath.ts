@@ -24,9 +24,16 @@ export function containsWorkspacePath(
   );
 }
 
+/** Network share notation such as `//host/share` names a location away from this machine. */
+function isNetworkLocation(input: string): boolean {
+  return /^[\\/]{2}/u.test(input);
+}
+
+/** Accepts local absolute paths only; URLs, `host:path` notation and shares are not local. */
 function requireAbsoluteDirectory(input: string): void {
   if (
     !path.isAbsolute(input) ||
+    isNetworkLocation(input) ||
     input.length > 4096 ||
     /[\u0000-\u001f\u007f]/u.test(input) ||
     input.split(/[\\/]/u).includes("..") ||

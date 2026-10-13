@@ -10,8 +10,8 @@ import type {
 } from "@/backend/database/Database";
 import type {
   AgentWorkspace,
-  AgentWorkspaceTarget,
   AgentWorkspaceUsage,
+  AgentWorkspaceUsageKind,
 } from "@/definition/AgentWorkspace";
 
 const WORKSPACE_COLUMNS = `
@@ -24,11 +24,23 @@ const WORKSPACE_COLUMNS = `
     revision
 `;
 
-function readTarget(row: readonly DatabaseValue[]): AgentWorkspaceTarget {
-  const kind = row[1];
-  if (kind !== "person" && kind !== "group" && kind !== "department")
+function readWorkspace(row: readonly DatabaseValue[]): AgentWorkspace {
+  return {
+    id: readTextColumn(row, 0, "id"),
+    name: readTextColumn(row, 1, "name"),
+    path: readTextColumn(row, 2, "path"),
+    directoryIdentity: readTextColumn(row, 3, "directory_identity"),
+    projectId: readTextColumn(row, 4, "project_id"),
+    registeredBy: readTextColumn(row, 5, "registered_by"),
+    revision: readCountColumn(row, 6, "revision"),
+  };
+}
+
+function readUsageKind(row: readonly DatabaseValue[]): AgentWorkspaceUsageKind {
+  const kind = row[2];
+  if (kind !== "agent" && kind !== "plan" && kind !== "run")
     throw new AgentError("workspace_invalid");
-  return { kind, targetId: readTextColumn(row, 2, "target_id") };
+  return kind;
 }
 
 async function readWorkspaces(
@@ -40,24 +52,7 @@ async function readWorkspaces(
     FROM agent_workspaces
     ORDER BY lower(name), id;
   `);
-  const targets = await database.query(`
-    SELECT
-        workspace_id,
-        kind,
-        target_id
-    FROM agent_workspace_targets
-    ORDER BY kind, target_id;
-  `);
-  return rows.map((row) => ({
-    id: readTextColumn(row, 0, "id"),
-    name: readTextColumn(row, 1, "name"),
-    path: readTextColumn(row, 2, "path"),
-    directoryIdentity: readTextColumn(row, 3, "directory_identity"),
-    projectId: readTextColumn(row, 4, "project_id"),
-    registeredBy: readTextColumn(row, 5, "registered_by"),
-    revision: readCountColumn(row, 6, "revision"),
-    targets: targets.filter((target) => target[0] === row[0]).map(readTarget),
-  }));
+  return rows.map(readWorkspace);
 }
 
 async function readUsages(
@@ -68,13 +63,17 @@ async function readUsages(
     `
     SELECT DISTINCT
         profiles.id,
-        profiles.name
+        profiles.name,
+        'agent' AS kind
     FROM agent_execution_profiles AS profiles,
         json_each(json_extract(profiles.configuration_json, '$.parameters')) AS parameter
     WHERE json_extract_string(parameter.value, '$.defaultValue.type') = 'workspace'
         AND json_extract_string(parameter.value, '$.defaultValue.workspaceId') = $id
     UNION
-    SELECT id, name
+    SELECT
+        id,
+        name,
+        'plan' AS kind
     FROM agent_plans
     WHERE workspace_id = $id
         OR EXISTS (
@@ -85,20 +84,24 @@ async function readUsages(
                 AND json_extract_string(binding.value, '$.value.workspaceId') = $id
         )
     UNION
-    SELECT run_id AS id, 'Active execution' AS name
+    SELECT
+        run_id AS id,
+        '' AS name,
+        'run' AS kind
     FROM agent_plan_workspace_locks
     WHERE workspace_id = $id
-    ORDER BY name, id;
+    ORDER BY kind, name, id;
   `,
     { id },
   );
   return rows.map((row) => ({
     id: readTextColumn(row, 0, "id"),
     name: readTextColumn(row, 1, "name"),
+    kind: readUsageKind(row),
   }));
 }
 
-/** Atomic registration metadata and grants, without filesystem mutation or Git operations. */
+/** Atomic registration metadata, without filesystem mutation or Git operations. */
 export class AgentWorkspaceRepository {
   private readonly database: Database;
 
@@ -106,12 +109,12 @@ export class AgentWorkspaceRepository {
     this.database = database;
   }
 
-  /** Reads registrations and grants from one coherent database snapshot. */
+  /** Reads every registration from one coherent database snapshot. */
   public async list(): Promise<readonly AgentWorkspace[]> {
     return this.database.transaction(readWorkspaces);
   }
 
-  /** Returns current template references for a protected unregister dialog. */
+  /** Returns current references for a protected unregister dialog. */
   public async usages(id: string): Promise<readonly AgentWorkspaceUsage[]> {
     return this.database.transaction((transaction) =>
       readUsages(transaction, id),
@@ -157,18 +160,6 @@ export class AgentWorkspaceRepository {
       )
         throw new AgentError("workspace_in_use");
       await this.saveRecord(transaction, workspace);
-      await transaction.execute(
-        "DELETE FROM agent_workspace_targets WHERE workspace_id = $id;",
-        { id: workspace.id },
-      );
-      for (const target of workspace.targets)
-        await transaction.execute(
-          `
-          INSERT INTO agent_workspace_targets (workspace_id, kind, target_id)
-          VALUES ($id, $kind, $target_id);
-        `,
-          { id: workspace.id, kind: target.kind, target_id: target.targetId },
-        );
     });
   }
 
@@ -183,10 +174,6 @@ export class AgentWorkspaceRepository {
         throw new AgentError("workspace_conflict");
       if ((await readUsages(transaction, id)).length > 0)
         throw new AgentError("workspace_in_use");
-      await transaction.execute(
-        "DELETE FROM agent_workspace_targets WHERE workspace_id = $id;",
-        { id },
-      );
       await transaction.execute(
         "DELETE FROM agent_workspaces WHERE id = $id;",
         { id },
