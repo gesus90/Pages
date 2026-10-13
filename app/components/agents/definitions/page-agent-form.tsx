@@ -106,6 +106,7 @@ export function PageAgentForm(props: {
             draft={input}
             models={props.page.models}
             disabled={isDisabled}
+            isModelWithdrawn={!isReadOnly && !hasModel}
             onChange={form.setInput}
           />
           <AgentTemplateEditor

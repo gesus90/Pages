@@ -178,6 +178,8 @@ describe("PAGE-20 user agent management UI", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "View" }));
     expect(screen.getByLabelText("Name")).toBeDisabled();
+    // Someone who only reads the agent is not told to replace its model.
+    expect(screen.queryByText(/no longer released for you/u)).toBeNull();
     expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
     expect(screen.getByRole("combobox", { name: "Sharing" })).toBeDisabled();
   });
@@ -314,11 +316,13 @@ describe("PAGE-20 agent list and form states", () => {
     const save = screen.getByRole("button", { name: "Save" });
     // The model grant of this agent is gone, so another one has to be chosen.
     expect(save).toBeDisabled();
+    expect(screen.getByText(/no longer released for you/u)).toBeVisible();
     await user.click(screen.getByRole("combobox", { name: "Admin model" }));
     await user.click(
       screen.getByRole("option", { name: "Approved · model-a" }),
     );
     expect(save).toBeEnabled();
+    expect(screen.queryByText(/no longer released for you/u)).toBeNull();
     await user.clear(screen.getByLabelText("Name"));
     expect(save).toBeDisabled();
     await user.type(screen.getByLabelText("Name"), "Renamed");

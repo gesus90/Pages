@@ -3065,6 +3065,7 @@
     "editAgent": "Edit agent",
     "viewAgent": "View agent",
     "loadError": "The agents could not be loaded.",
-    "retry": "Try again"
+    "retry": "Try again",
+    "modelWithdrawn": "The model of this agent is no longer released for you or was changed. Choose a released model to save it."
   }
 }

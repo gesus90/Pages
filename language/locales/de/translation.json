@@ -3065,6 +3065,7 @@
     "editAgent": "Agent bearbeiten",
     "viewAgent": "Agent ansehen",
     "loadError": "Die Agents konnten nicht geladen werden.",
-    "retry": "Erneut versuchen"
+    "retry": "Erneut versuchen",
+    "modelWithdrawn": "Das Modell dieses Agents ist für Sie nicht mehr freigegeben oder wurde geändert. Wählen Sie ein freigegebenes Modell, um zu speichern."
   }
 }
