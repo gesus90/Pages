@@ -344,7 +344,7 @@ describe("A10.4 navigation and graphical plan editing", () => {
     expect(links.map((link) => link.getAttribute("href"))).toEqual([
       "/agents/plans",
       "/agents/workspaces",
-      "/settings/agents",
+      "/agents/agents",
     ]);
     await user.click(screen.getByRole("button", { name: "Agents" }));
     expect(

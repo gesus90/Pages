@@ -117,7 +117,7 @@ describe("AppShell", () => {
       const mobile = screen.getByRole("dialog", { name: "Main navigation" });
       expect(
         within(mobile).getByRole("link", { name: "Agents list" }),
-      ).toHaveAttribute("href", "/settings/agents");
+      ).toHaveAttribute("href", "/agents/agents");
     },
   );
 

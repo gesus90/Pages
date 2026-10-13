@@ -178,9 +178,21 @@ describe("A10 component boundary guards and stale reference regression", () => {
     expect(screen.getByLabelText("Name")).toHaveValue("");
     expect(screen.getByRole("option", { name: "Global" })).toBeInTheDocument();
   });
-  it("keeps the central agent list active and explains unusable default workspaces", () => {
+  it("keeps the Agents section open on the central administration without marking the list", () => {
     render(
       <MemoryRouter initialEntries={["/settings/agents"]}>
+        <AgentNavigation />
+      </MemoryRouter>,
+      { wrapper },
+    );
+    expect(screen.getByRole("link", { name: "Execution plan" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Agents list" })).not.toHaveClass(
+      "bg-primary-subtle",
+    );
+  });
+  it("keeps the agent list active and explains unusable default workspaces", () => {
+    render(
+      <MemoryRouter initialEntries={["/agents/agents"]}>
         <AgentNavigation />
       </MemoryRouter>,
       { wrapper },
