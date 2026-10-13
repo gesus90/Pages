@@ -1,10 +1,11 @@
 # Pages unit-test structure (PAGE-38)
 
-PAGE-38 configures a future unit-test foundation only. There are no test cases,
-fixtures or dummy suites. Neither tests nor coverage have been executed; the
-scripts below are configured for PAGE-32/PAGE-33 and are not available as usable,
-validated test suites yet. Empty discovery is an error, not a passing suite.
-CI test execution remains absent after PAGE-35. Check and lint are non-test gates.
+PAGE-38 configures a future unit-test foundation. The only test cases so far
+are the targeted Pica chat tests of PAGE-28 under
+`tests/frontend/app/components/chat/`, with their fixture; the full suites are
+planned for PAGE-32/PAGE-33 and are not available as usable, validated test
+suites yet. Empty discovery is an error, not a passing suite. CI test execution
+remains absent after PAGE-35. Check and lint are non-test gates.
 
 | Future command           | Discovery (relative to repository root)  | Environment | Reports              |
 | ------------------------ | ---------------------------------------- | ----------- | -------------------- |
@@ -37,8 +38,9 @@ Select by the behavior under test, not the source directory or extension:
   browser, integration or live suites to these directories.
 
 Use imports from `vitest`; test globals are disabled. Production aliases
-`@/app`, `@/backend`, `@/definition` and `@/language` resolve to the same source
-directories in both configs so existing imports and mock targets stay consistent.
+`@/app`, `@/assets`, `@/backend`, `@/definition` and `@/language` resolve to the
+same source directories in both configs so existing imports and mock targets
+stay consistent.
 There are no test-directory aliases and no root-wide `@` alias: neither scope
 aliases the other test tree or the independent `mcp/` package. Cross-scope test
 imports are not part of this structure.

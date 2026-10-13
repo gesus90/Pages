@@ -107,6 +107,8 @@ export function useChat(isOpen: boolean): ChatController {
       commands.setNotice("unknownCommand");
       return "restore";
     }
+    // The conversation replaces the session list, so the answer and its progress stay in view.
+    commands.closePicker();
     return sender.send(text);
   }
 

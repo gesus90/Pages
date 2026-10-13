@@ -51,7 +51,7 @@ export function ChatPanel({
           picker={picker}
         />
       ) : (
-        <ChatMessageList chat={chat} />
+        <ChatMessageList chat={chat} isOpen={isOpen} />
       )}
       <ChatPasswordReceipts
         receipts={chat.temporaryPasswords}

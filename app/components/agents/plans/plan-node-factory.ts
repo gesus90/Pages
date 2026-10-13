@@ -1,3 +1,5 @@
+import { createRandomUuid } from "@/app/lib/random-uuid";
+
 import { PLAN_GRID } from "./plan-layout";
 
 import type {
@@ -6,23 +8,6 @@ import type {
   AgentPlanPosition,
   AgentPlanSources,
 } from "@/definition/AgentPlan";
-
-function createPlanNodeId(): string {
-  // getRandomValues also works on intranet HTTP, where randomUUID is unavailable.
-  const randomBytes = crypto.getRandomValues(new Uint8Array(16));
-  randomBytes[6] = (randomBytes[6] & 0x0f) | 0x40;
-  randomBytes[8] = (randomBytes[8] & 0x3f) | 0x80;
-  const encodedBytes = Array.from(randomBytes, (byte) =>
-    byte.toString(16).padStart(2, "0"),
-  ).join("");
-  return [
-    encodedBytes.slice(0, 8),
-    encodedBytes.slice(8, 12),
-    encodedBytes.slice(12, 16),
-    encodedBytes.slice(16, 20),
-    encodedBytes.slice(20),
-  ].join("-");
-}
 
 /** Coordinates remain bounded integral grid points even for edited numeric fields. */
 export function snapPlanCoordinate(coordinate: number): number {
@@ -48,7 +33,7 @@ export function createPlanNode(input: {
     y: 40 + Math.floor(draft.nodes.length / 3) * 340,
   };
   const base = {
-    id: createPlanNodeId(),
+    id: createRandomUuid(),
     x: snapPlanCoordinate(position.x),
     y: snapPlanCoordinate(position.y),
   };

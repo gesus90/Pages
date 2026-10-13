@@ -2790,6 +2790,7 @@
       "cancelled": "Die Antwort wurde abgebrochen.",
       "timeout": "Die Antwort hat zu lange gedauert. Bitte versuch es noch einmal.",
       "providerFailed": "Der Anbieter hat nicht geantwortet. Bitte versuch es noch einmal.",
+      "network": "Pages ist gerade nicht erreichbar. Bitte prüf die Verbindung und versuch es noch einmal.",
       "invalidOutput": "Die Antwort war unvollständig und wurde nicht gespeichert.",
       "general": "Das hat nicht geklappt. Bitte versuch es noch einmal."
     }

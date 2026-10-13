@@ -12,6 +12,9 @@ import type {
 } from "@/definition/Chat";
 import type { ChatTemporaryPassword } from "@/definition/AgentAdministration";
 
+/** HTTP statuses with which a gateway reports that the answer took too long. */
+const GATEWAY_TIMEOUT_STATUSES: readonly number[] = [408, 504];
+
 /** A failed chat request with the stable code the server sent. */
 export class ChatClientError extends Error {
   public readonly code: string;
@@ -130,12 +133,21 @@ export function readChatSessions(value: unknown): readonly ChatSession[] {
   return readList(value).map(readSession);
 }
 
+/** Sends a chat request; without an answer it fails as `cancelled` or `network`. */
+async function request(url: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, init);
+  } catch {
+    throw new ChatClientError(init.signal?.aborted ? "cancelled" : "network");
+  }
+}
+
 /** Sends one intent to the chat interface and returns its answer. */
 export async function chatApi(
   input: Readonly<Record<string, unknown>>,
   signal?: AbortSignal,
 ): Promise<Record<string, unknown>> {
-  const response = await fetch("/chat-api", {
+  const response = await request("/chat-api", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -150,7 +162,7 @@ export async function uploadChatAttachment(
   file: File,
 ): Promise<ChatAttachment> {
   const query = new URLSearchParams({ session: sessionId, name: file.name });
-  const response = await fetch(`/chat-api/attachments?${query.toString()}`, {
+  const response = await request(`/chat-api/attachments?${query.toString()}`, {
     method: "PUT",
     body: file,
   });
@@ -172,7 +184,12 @@ async function readResult(
   try {
     parsed = await response.json();
   } catch {
-    throw new ChatClientError("general");
+    // A proxy in front of Pages answers its own deadline without the JSON of Pages.
+    throw new ChatClientError(
+      GATEWAY_TIMEOUT_STATUSES.includes(response.status)
+        ? "timeout"
+        : "general",
+    );
   }
   const result = readAgentObject(parsed);
   if (!response.ok || result.ok !== true)

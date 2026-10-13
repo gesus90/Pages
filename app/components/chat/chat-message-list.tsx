@@ -14,7 +14,15 @@ import type { ChatController } from "./use-chat";
 
 interface ChatMessageListProps {
   readonly chat: ChatController;
+  readonly isOpen: boolean;
 }
+
+/** Start offsets of the three dots, so they light up one after the other. */
+const DOT_DELAYS = [
+  "[animation-delay:0ms]",
+  "[animation-delay:300ms]",
+  "[animation-delay:600ms]",
+] as const;
 
 function hideImages(): boolean {
   return false;
@@ -58,18 +66,49 @@ function ChatMessageItem({
   );
 }
 
+/** Pica's row while the answer runs (T6.12.1): avatar, moving dots and "Pica antwortet …". */
+function ChatAnswerPending(): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <div className="flex items-center gap-2" role="status">
+      <img alt="" className="size-7 shrink-0 rounded-lg" src={picaIconUrl} />
+      <p className="flex items-center gap-2.5 rounded-2xl bg-surface px-3 py-2 text-sm font-medium ring-1 ring-border">
+        <span aria-hidden="true" className="flex gap-1">
+          {DOT_DELAYS.map((delay) => (
+            <span
+              key={delay}
+              className={cn(
+                "size-2 animate-pulse rounded-full bg-primary motion-reduce:animate-none",
+                delay,
+              )}
+            />
+          ))}
+        </span>
+        {t("chat.thinking")}
+      </p>
+    </div>
+  );
+}
+
 /** The conversation of the open session, newest at the bottom. */
 export function ChatMessageList({
   chat,
+  isOpen,
 }: ChatMessageListProps): React.ReactElement {
   const { t } = useTranslation();
   const end = useRef<HTMLDivElement>(null);
-  const { messages } = chat.view;
-  const count = messages.length + (chat.sending ? 1 : 0);
+  const { messages, session } = chat.view;
+  // A message is only shown in the session it was sent to.
+  const sending =
+    chat.sending !== null && chat.sending.sessionId === session?.id
+      ? chat.sending
+      : null;
+  const count = messages.length + (sending ? 1 : 0);
 
   useEffect(() => {
-    end.current?.scrollIntoView({ block: "end" });
-  }, [count]);
+    // A hidden panel cannot scroll, so reopening it shows what arrived meanwhile.
+    if (isOpen) end.current?.scrollIntoView({ block: "end" });
+  }, [count, chat.error, isOpen]);
 
   return (
     <div
@@ -83,18 +122,15 @@ export function ChatMessageList({
       {messages.map((message) => (
         <ChatMessageItem key={message.id} message={message} />
       ))}
-      {chat.sending ? (
+      {sending ? (
         <ChatMessageItem
-          message={{
-            role: "user",
-            content: chat.sending.text,
-            attachments: [],
-          }}
+          message={{ role: "user", content: sending.text, attachments: [] }}
         />
       ) : null}
-      {chat.isLoading || chat.sending ? (
+      {sending ? <ChatAnswerPending /> : null}
+      {chat.isLoading ? (
         <p className="text-sm text-muted-foreground" role="status">
-          {chat.isLoading ? t("chat.loading") : t("chat.thinking")}
+          {t("chat.loading")}
         </p>
       ) : null}
       {chat.commands.notice ? (
@@ -103,7 +139,10 @@ export function ChatMessageList({
         </p>
       ) : null}
       {chat.error ? (
-        <p className="text-sm text-destructive" role="alert">
+        <p
+          className="rounded-xl bg-destructive-subtle px-3 py-2 text-sm font-medium text-destructive"
+          role="alert"
+        >
           {chatErrorText(t, chat.error)}
         </p>
       ) : null}
