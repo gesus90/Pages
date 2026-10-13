@@ -2,10 +2,9 @@
   "mcp": {
     "pages": {
       "type": "local",
-      "command": ["node", "/path/to/pages-mcp-vX.Y.Z.js"],
+      "command": ["node", "/absolute/path/pages-mcp-vX.Y.Z.cjs"],
       "environment": {
-        "PAGES_URL": "https://pages.example.com",
-        "PAGES_TOKEN": "{env:PAGES_TOKEN}"
+        "PAGES_URL": "http://127.0.0.1:3000"
       }
     }
   }

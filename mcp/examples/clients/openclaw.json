@@ -3,10 +3,9 @@
     "servers": {
       "pages": {
         "command": "node",
-        "args": ["/path/to/pages-mcp-vX.Y.Z.js"],
+        "args": ["/absolute/path/pages-mcp-vX.Y.Z.cjs"],
         "env": {
-          "PAGES_URL": "https://pages.example.com",
-          "PAGES_TOKEN": "${PAGES_TOKEN}"
+          "PAGES_URL": "http://127.0.0.1:3000"
         }
       }
     }

@@ -1,188 +1,72 @@
 # Pages MCP 0.1.0
 
-The bundle serves local MCP clients exclusively over stdio. Authentication uses
-a paired credential or an explicit personal token. The package exposes project/wiki reads and authorized
-asset upload preparation, single wiki-page creation and a read-only wiki import
-preview. Releases are
-published from `mcp-vMAJOR.MINOR.PATCH` tags (see Releases below).
+The Pages adapter implements the Model Context Protocol (MCP), which lets external
+clients discover and call tools through a common protocol. It connects those
+clients to an existing Pages instance under the personal identity that approved
+the connection. Pages authenticates the credential and checks current access
+rights on the server for every request.
 
-Requires Node.js >=24; Node 24 LTS is the supported runtime. Copy the single
-`pages-mcp-v0.1.0.js` outside every package tree declaring `"type": "module"`.
-No checkout, `package.json`, `node_modules` or installation is needed at runtime.
-The bundle is CommonJS, includes JavaScript dependencies, and leaves Node built-ins
-external. Compare its SHA-256 with the build evidence.
+## Architecture and transport
 
-## stdio
-
-Run `node /path/to/pages-mcp-v0.1.0.js` with the following client environment:
-
-- `PAGES_URL`: absolute instance base URL, optionally with a deployment prefix.
-  HTTPS is required; HTTP is allowed for localhost, 127.0.0.1, [::1] and private
-  IPv4 addresses (10/8, 172.16/12 and 192.168/16).
-  User information, query, fragment and surrounding whitespace are rejected.
-- `PAGES_TOKEN`: optional explicit owner-bound personal token. It takes priority
-  over local pairing credentials and is never automatically rotated. Pages verifies
-  identity, expiry, revocation and current rights before startup and every tool
-  list/call. A syntactically valid credential alone cannot authenticate.
-
-Pair the bundle once before starting a stdio client:
-
-```sh
-node /path/to/pages-mcp-v0.1.0.js pair --url https://pages.example.com --name "My workstation"
+```text
+MCP client
+    ↓ stdio: stdin/stdout
+Local Pages MCP process
+    ↓ authenticated HTTP(S) requests
+Pages Agent API
+    ↓
+Pages services → repositories → database
 ```
 
-Open the displayed link, sign in to Pages, compare the code, and explicitly approve
-the connection. `--no-browser` keeps this entirely manual, including over SSH.
-After approval the bundle verifies and saves its credential; configure the MCP
-client with only `PAGES_URL`. The browser never displays a token. The default
-validity is 30 days; enter whole days 1–365, or 0 for unlimited, during approval or
-under Settings → Connections. A preference change applies from the creation time
-to the owner's still-active connections and future connections, without reviving
-expired or revoked connections.
+**Stdio is the only supported MCP transport.** The client launches the local
+process and exchanges MCP messages through its stdin and stdout. stdout is
+reserved for the protocol; diagnostics and credential-command messages go to
+stderr. The adapter has no direct database access and opens no network listener.
 
-`status`, `rotate` and `unpair` accept the same `--url` option, or `PAGES_URL`.
-`unpair` also removes the local credential when the instance is offline; revoke the
-connection under Settings → Connections in that case. Pairing again saves the new
-credential before revoking the previous one. A rotation keeps the connection ID,
-name and expiry. The previous credential works until the new one is used, at most
-five minutes. Settings can request a rotation at the next verification.
+`PAGES_URL` identifies the Pages web application and API, not an MCP endpoint.
+The API requests and browser pairing links use HTTP(S), so this setup still
+requires network access to Pages. HTTP MCP, SSE and Streamable HTTP are not
+supported. Start without transport, listen, host or port options; unsupported
+start arguments fail before credential lookup or any Pages request.
 
-Credentials are scoped to the exact normalized instance URL, including any path
-prefix. They live in `pages-mcp/credentials.json` below `XDG_CONFIG_HOME` or
-`~/.config` on Linux, `~/Library/Application Support` on macOS, or `APPDATA` on
-Windows. On POSIX the directory must have mode 0700 and the file 0600; broader
-permissions and symbolic links are refused. Updates use an exclusive file lock
-and atomic rename. No credential is sent through a redirect or to another
-instance. A revoked or invalid local credential is removed with a hint to pair
-again; a concurrently rotated credential is reread and retried once.
+Pages still contains OAuth endpoints, stored grants and OAuth settings in its
+Connections UI. These are legacy features with respect to MCP connectivity and
+do not provide a supported remote MCP setup. Their presence does not replace
+stdio pairing, and this package does not remove them.
 
-Pairing commands write human-readable messages only to stderr (German for a
-German POSIX locale, otherwise English). `pair` exits with 0 on success, 1 on other
-errors, 2 on rejection, 3 on expiry, 4 on an invalid address or non-Pages instance,
-and 130 on Ctrl+C. Requests expire after ten minutes; approval near the deadline
-allows at least sixty seconds for collection.
+## Supported functions
 
-Startup failures have a nonzero exit status and fixed, credential-free stderr
-text. stdout is reserved for MCP. Closing stdin releases the transport and ends
-the process. The pinned SDK supports both legacy initialization and current MCP.
+The adapter supports project discovery and management, wiki reading, search,
+page creation and field changes, comments, asset upload preparation, wiki and
+structured import preview/application, tickets, milestones, assignments, tags
+and links. Personal administrators can also read administration information and
+change existing roles, accounts and memberships within the offered operations.
 
-## Transport boundary
+Start with the [tool reference](#tool-reference) below for arguments, results,
+limits and permission rules. [Read tool definitions](./src/tools/registry.ts),
+[write tool definitions](./src/tools/write-registry.ts) and their imported schemas
+are the source contracts. The client's `tools/list` contains only implemented
+tools offered by Pages to the verified identity. A listed write tool does not
+prove permission to change a particular target: Pages checks that operation's
+current rights when called. Hidden objects are not disclosed by lists or errors.
 
-MCP clients communicate with the local adapter only over stdio. HTTP, listen,
-port, host, resource and transport start options are rejected with a nonzero exit
-status and a fixed stderr message before credential lookup or any Pages request.
-The adapter does not open a network listener, publish MCP OAuth discovery, or
-support Streamable HTTP, SSE or WebSocket transports.
+## Developing from the repository
 
-The adapter still calls the authenticated Pages Agent API over HTTP(S) using
-`PAGES_URL`; pairing uses the Pages pairing endpoints and browser links. These
-outgoing requests are separate from the MCP transport. The existing localhost
-and private IPv4 HTTP instance rules above remain valid. Pages-owned OAuth
-endpoints, grants and credentials are unaffected by removal of the MCP listener.
+The independent [package manifest](./package.json) requires **Node.js 24 or newer**
+and **pnpm 10 or newer**, and pins `pnpm@11.23.0` in `packageManager`.
+Node and pnpm are needed for development; running a built bundle needs only Node.
 
-The personal admin property counts on the MCP path regardless of browser role
-mode: an administrator in role mode sees every active project through
-`projects.names.list`. Existing Pages UI policy remains unchanged. Non-admin
-identities see what the existing project read rules allow (department scope, role
-binding, `allProjects`). All unimplemented business operations are denied server-side.
-
-## Tool: `list_project_names`
-
-The `list_project_names` tool takes no arguments. It is read-only
-(`readOnlyHint`) and returns a text content block holding a JSON array of project
-names, for example `["Alpha plan","Shared project"]`. `tools/list` shows the tool only
-when Pages offers it to the verified identity; every list and call verifies the
-credential anew. Any Pages failure (invalid, expired or revoked credential, unreachable
-Pages) becomes the fixed error "Pages authorization failed." without project data.
-Unknown tool names and any argument are rejected with a protocol error.
-
-## Owner management APIs
-
-Browser-session APIs require same-origin JSON POSTs; credentials cannot act as
-browser sessions. All credential-bearing and management responses use no-store.
-
-| Endpoint                  | Method | Request / result                                         |
-| ------------------------- | ------ | -------------------------------------------------------- |
-| `/api/v1/personal-tokens` | GET    | Owner's public token summaries                           |
-| `/api/v1/personal-tokens` | POST   | `{operation:"create", name, expiresAt}`                  |
-| `/api/v1/personal-tokens` | POST   | `{operation:"rotate", id}` or `{operation:"revoke", id}` |
-| `/api/v1/mcp-settings`    | GET    | `{durationSeconds, grants}` for the owner                |
-| `/api/v1/mcp-settings`    | POST   | `{operation:"set-duration", durationSeconds}`            |
-| `/api/v1/mcp-settings`    | POST   | `{operation:"revoke", id}`                               |
-| `/api/v1/agents`          | POST   | Bearer + `{operation:"verify", parameters:{}}`           |
-
-Personal token names contain 1–100 trimmed characters; `expiresAt` is a future
-Unix timestamp in milliseconds or null for unlimited. Creation/rotation returns
-`{token, summary}` once; lists omit both token and hash. Summaries contain owner,
-name, created/expiry/revocation timestamps and effective status. Rotation revokes
-the old credential atomically without overlap and retains its original expiry.
-Expired/revoked tokens cannot be rotated. Only SHA-256 hashes of random 256-bit
-credentials are persisted.
-
-The HTTP grant duration defaults to 86400 seconds until configured. A positive
-integer up to ten years or null for unlimited is accepted. A setting change
-first expires grants under the previous rule, then changes all remaining active
-grant deadlines relative to their original verification time. Shortening may
-expire them immediately; longer/unlimited durations never revive expired or
-revoked grants. Access-token lifetime remains independent. Personal token/settings
-UI is outside this stage; the explicit OAuth consent screen is included.
-
-`/api/v1/agents` accepts only personal stdio or API delegation credentials, never
-browser cookies or MCP OAuth access tokens. It verifies before body parsing and
-includes these foundation operations:
-
-- `verify` returns `{apiVersion:"1", identity:{userId,isAdmin,permissions}, tools:["projects.names.list"]}`;
-  `tools` lists the business operations Pages currently offers to that identity.
-- `projects.names.list` (parameters `{}`) returns `{apiVersion:"1", projectNames:[...]}`:
-  only the names of the active projects its owner may read, in Pages' project order.
-  No identifiers, descriptions or content are returned.
-
-Stable failures use `{apiVersion:"1", error:{code,message,retryable:false}}`:
-`AUTH_REQUIRED`, `AUTH_INVALID`, `AUTH_UNAVAILABLE`, `INVALID_REQUEST`, `FORBIDDEN`,
-`METHOD_NOT_ALLOWED`. Every response includes no-store and nosniff headers.
-
-## Client examples
-
-`examples/clients/` holds one file per client with placeholders only: instance URL,
-bundle path and a reference to the token variable. Replace `pages.example.com`
-and the bundle path; never commit a token.
-
-| File                  | Client     | stdio (token from the environment) |
-| --------------------- | ---------- | ---------------------------------- |
-| `claude-cli.mcp.json` | Claude CLI | `${PAGES_TOKEN}` expansion         |
-| `codex-config.toml`   | Codex      | `env_vars = ["PAGES_TOKEN"]`       |
-| `openclaw.json`       | OpenClaw 2 | `${PAGES_TOKEN}` expansion         |
-| `opencode.json`       | OpenCode   | `{env:PAGES_TOKEN}`                |
-
-## Releases
-
-Tag a commit as `mcp-vMAJOR.MINOR.PATCH` (for example `mcp-v0.2.0`). GitHub Actions
-runs the same gates as the CI for pull requests and `main`, then builds the package
-in an isolated working copy whose `package.json` and README carry the tag's version,
-builds the bundle twice and compares both SHA-256 values, and only after all of that
-publishes a GitHub Release with `pages-mcp-v<version>.zip` and
-`pages-mcp-v<version>.zip.sha256`. An invalid tag or a failing check publishes
-nothing, nothing is committed to `main`, and no npm package is published. The tag is
-the only source of the version; the version in the repository's `mcp/package.json`
-is the development default.
-
-The archive contains one folder `pages-mcp-v<version>/` with the bundle,
-`pages-mcp-v<version>.js.sha256`, a runtime `package.json` (CommonJS, so the bundle
-starts next to it), this README and `examples/clients/`. No token or instance URL is
-built in; the packaging script fails when a configured value or an address outside
-the placeholder hosts would be archived.
+Use `mcp/` as the working directory:
 
 ```sh
-sha256sum --check pages-mcp-v<version>.zip.sha256
-unzip pages-mcp-v<version>.zip
-node pages-mcp-v<version>/pages-mcp-v<version>.js   # configured by environment, see above
+cd mcp
+pnpm install --frozen-lockfile
+pnpm run lint
+pnpm run check
+pnpm run build
 ```
 
-Locally, `node mcp/scripts/package-release.ts package mcp-vX.Y.Z <output-directory>`
-produces the same archive after `pnpm --dir mcp install --frozen-lockfile`;
-`node mcp/scripts/package-release.ts tag <tag>` only validates a tag.
-
-## Package checks
+From the repository root, the equivalent commands are:
 
 ```sh
 pnpm --dir mcp install --frozen-lockfile
@@ -191,33 +75,236 @@ pnpm --dir mcp run check
 pnpm --dir mcp run build
 ```
 
-This independent package has its own manifest, lockfile, TypeScript configuration
-and build. From `mcp/`, the equivalent commands are `pnpm install`,
-`pnpm run lint`, `pnpm run check` and `pnpm run build`. Installation uses only the
-MCP manifest and lockfile; no Pages dependency installation is needed. ESLint uses
-MCP-local dependencies and the shared static repository rules, checks all package
-source, scripts and JavaScript configuration, and accepts no warnings. Check runs
-only MCP TypeScript and Prettier, retaining the shared API contracts without
-starting Pages, React Router type generation or test gates.
+Installation uses the MCP package's own manifest and lockfile. No root dependency
+installation or Pages root gates are required for this workflow. `lint` checks
+package sources, scripts and JavaScript configuration with no warnings allowed.
+`check` runs `tsc --noEmit` and package-local `prettier --check .`, including this
+README and the client examples. It does not start Pages or generate React Router
+types. These are static checks, not functional tests; this package has no test
+script or validated test suite.
 
-Dependency age remains ten days; SDK 2.2.0 is unchanged. Package version
-supplies both the filename and MCP `serverInfo.version`; API version remains `1`.
-Root lint continues to check package source. The previous MCP suite and its
-exclusive helpers were removed in PAGE-37. PAGE-34 removed the remaining Pages
-test structure and test commands; neither package currently has a test runner.
-PAGE-32/PAGE-33 will rebuild Pages unit tests. Future Pages tests must use mocks
-or stubs at the MCP boundary and must not import executable modules from this
-package or run MCP servers, clients, transports or processes. Keep MCP outside
-Pages test discovery, setup, coverage, watch mode and root test aggregation.
+### Bundle format and distribution
 
-The independent MCP test plan remains open (TBD). No replacement suite, runner
-or test command exists yet, and no MCP test coverage is claimed. Check and
-build above are non-test gates. Browser E2E and live integration are a later
-phase. PAGE-35 already removed the CI test step.
+[build.config.ts](./build.config.ts) uses esbuild with `bundle: true`, Node target
+`node24`, `format: "cjs"` and no code splitting. It clears `mcp/dist/` and writes
+`mcp/dist/pages-mcp-v<version>.cjs`, using the version from `package.json`.
+The manifest currently declares `0.1.0`, so this source configuration names the
+output `pages-mcp-v0.1.0.cjs`; this is not evidence of a published release.
 
-## Project and wiki reads (A9.5)
+JavaScript dependencies are bundled into that single CommonJS file; Node
+built-ins are supplied by Node. Copying the built `.cjs` file is sufficient for
+runtime use: no checkout, pnpm installation, `package.json` or `node_modules` is
+needed beside it.
 
-The existing `list_project_names` tool still returns names only. The additional
+**Keep the `.cjs` extension.** The development manifest declares `"type": "module"`,
+which makes Node interpret `.js` files in that package as ES modules. `.cjs`
+explicitly selects CommonJS, including inside a package with `"type": "module"`.
+Renaming this bundle to `.js` can make it fail in such a directory; moving it
+outside the package tree is unnecessary when its `.cjs` name is preserved.
+
+The repository has a [release workflow](../.github/workflows/mcp-release.yml)
+intended to publish version-tagged ZIP assets to the
+[Pages GitHub releases](https://github.com/gesus90/Pages/releases), rather than npm.
+However, the existing [release packager](./scripts/package-release.ts) still
+expects `.js` bundle filenames and stamps `.js` references in the README and
+examples. That does not match the `.cjs` build output. Release packaging needs to
+be aligned before its download/archive instructions can be relied on. No release
+availability, completed build, reproducibility result or checksum is asserted
+here. The setup below describes an already built `.cjs` file; `X.Y.Z` and the
+absolute paths are synthetic placeholders to replace with the file you have.
+
+## Connect a client over stdio
+
+### 1. Choose a reachable Pages instance
+
+Pages must already be set up and reachable from the computer running the adapter.
+You need a personal Pages account that can sign in and approve the connection.
+The examples use `PAGES_URL=http://127.0.0.1:3000`; that address reaches Pages only
+when it runs on the same computer as the adapter.
+
+`PAGES_URL` must be an absolute instance base URL, optionally with a deployment
+prefix. HTTPS is accepted. HTTP is also accepted for `localhost`, `127.0.0.1`,
+`[::1]` and private IPv4 addresses in 10/8, 172.16/12 and 192.168/16. Other hosts
+require HTTPS. User information, query strings, fragments and surrounding
+whitespace are rejected. Trailing slashes are normalized; the deployment prefix
+remains part of the instance identity. Use the same normalized URL for pairing
+and the client.
+
+### 2. Pair under the operating-system account that will run the client
+
+With the built bundle at your chosen absolute path, run:
+
+```sh
+node /absolute/path/pages-mcp-vX.Y.Z.cjs pair --url http://127.0.0.1:3000 --name "Example workstation"
+```
+
+The command displays a Pages browser link and a code on stderr, attempts to open
+a browser in an interactive desktop session, and waits for approval. Sign in to
+Pages with your own account, compare the browser code with the terminal code,
+check the displayed account and client, and explicitly approve the connection.
+The browser does not display a token to copy. The local process collects the
+credential, verifies it with Pages, saves it and exits successfully.
+
+For manual or SSH use, add `--no-browser` to the `pair` command. Open the displayed
+link yourself on a device that can reach that same Pages instance. If the URL
+uses loopback, it refers to the machine running the browser; for a different
+machine use an instance URL reachable by both the browser and adapter instead.
+The process must remain running until approval and collection finish. Pairing
+requests expire after ten minutes; approval near the deadline allows at least
+sixty seconds for collection. Rejection or expiry needs a new pairing request.
+
+### 3. Keep the local credential private
+
+The credential is stored in `credentials.json` under the current operating-system
+account's configuration directory:
+
+| Platform | Directory                                                         |
+| -------- | ----------------------------------------------------------------- |
+| Linux    | `$XDG_CONFIG_HOME/pages-mcp`, or `~/.config/pages-mcp` when unset |
+| macOS    | `~/Library/Application Support/pages-mcp`                         |
+| Windows  | `%APPDATA%/pages-mcp`                                             |
+
+`XDG_CONFIG_HOME` and `APPDATA`, when used, must be absolute. On POSIX the directory
+must belong to the current user and have mode `0700`; the file must belong to that
+user and have mode `0600`. Symbolic links are refused. Writes use a cross-process
+exclusive lock and atomic rename. Entries belong to the exact normalized instance
+URL, including its deployment prefix. Different operating-system accounts have
+separate stores; a shared account/store shares that paired Pages identity.
+
+Run pairing and the MCP client with the same operating-system account and
+configuration location. Keep the store out of source control, client JSON,
+screenshots and diagnostic reports. Never print or copy its secret contents.
+Credentials are not forwarded through HTTP redirects to another instance.
+
+### 4. Configure and start the MCP client
+
+The normal start has no subcommand or transport argument:
+
+```sh
+PAGES_URL=http://127.0.0.1:3000 node /absolute/path/pages-mcp-vX.Y.Z.cjs
+```
+
+Normally the MCP client launches this process and manages its stdio pipes.
+Use `command`, `args` and `env` in the client's local MCP server configuration:
+
+```json
+{
+  "mcpServers": {
+    "pages": {
+      "command": "node",
+      "args": ["/absolute/path/pages-mcp-vX.Y.Z.cjs"],
+      "env": {
+        "PAGES_URL": "http://127.0.0.1:3000"
+      }
+    }
+  }
+}
+```
+
+This is a generic configuration shape; adapt the outer keys to your client.
+Replace the synthetic bundle path and version with the actual file. `node` must
+be in the client's PATH; otherwise use its absolute executable path. The bundle
+verifies Pages authorization before serving MCP; startup failure exits nonzero
+and reports diagnostics on stderr. Keep stdout connected to the client's protocol
+input. Closing stdin ends the local process.
+
+Client-specific examples with the same paired-credential setup are available:
+
+- [Claude CLI](./examples/clients/claude-cli.mcp.json)
+- [Codex](./examples/clients/codex-config.toml)
+- [OpenClaw](./examples/clients/openclaw.json)
+- [OpenCode](./examples/clients/opencode.json)
+
+### Explicit token override
+
+For MCP startup, a defined `PAGES_TOKEN` takes priority over the local pairing
+store, including when it is empty. An empty or malformed value fails; an invalid,
+expired or revoked token does not fall back to pairing. Leave the variable unset
+in the client environment for the paired setup above, including inherited values
+from the process launching the client.
+
+An intentional override must be a valid owner-bound personal credential supplied
+securely in the process environment. The adapter does not automatically rotate it.
+Do not hardcode a token in client configuration or commit one to the repository.
+Browser cookies and Pages OAuth access tokens are not interchangeable with this
+personal stdio credential. The credential commands below manage the local paired
+entry, even when `PAGES_TOKEN` is set; they do not manage that override.
+
+## Credential status, rotation and removal
+
+All credential commands accept `--url`, or use `PAGES_URL` when it is omitted.
+Only `pair` accepts `--name` and `--no-browser`. Commands write human-readable
+messages to stderr and never print the credential.
+
+```sh
+node /absolute/path/pages-mcp-vX.Y.Z.cjs status --url http://127.0.0.1:3000
+node /absolute/path/pages-mcp-vX.Y.Z.cjs rotate --url http://127.0.0.1:3000
+node /absolute/path/pages-mcp-vX.Y.Z.cjs unpair --url http://127.0.0.1:3000
+```
+
+- `status` verifies the local entry with Pages and reports its instance, name and
+  expiry. It requires a reachable Pages API; it is not just an offline file read.
+  Verification can honor a pending server-requested rotation.
+- `rotate` requests a replacement credential from Pages, saves it locally and
+  verifies it. The paired connection keeps its ID, name and original expiry.
+  The previous credential works until the new one is used, at most five minutes.
+  Rotation does not extend an expired connection or revive a revoked one.
+- `unpair` attempts server-side revocation, then removes the matching local
+  credential even if Pages cannot be reached. If revocation could not be confirmed,
+  revoke the connection in Pages under **Settings → Connections** when reachable.
+- Pairing again verifies and saves the new credential before attempting to revoke
+  the previous local one. If that revocation fails, revoke the old connection in
+  Pages as well.
+
+Under **Settings → Connections**, the owner can inspect and revoke connections,
+request rotation of a paired connection for its next verification, and set the
+personal validity preference. It defaults to 30 days; approval and settings accept
+whole days 1–365, or 0 for unlimited. A changed preference recalculates still-active
+credentials from their creation time and affects future pairings. It can shorten
+a connection's remaining lifetime; expired or revoked connections stay ended.
+
+Pages checks validity, revocation and current account rights at startup and on
+every tool list/call. On a rejected local credential, the adapter rereads the
+store and retries once if another process has already rotated it. If the entry
+still holds the rejected credential, it removes that entry and asks for pairing
+again. A generic authorization error alone does not identify this case.
+
+## Troubleshooting
+
+| Symptom                                                                                      | What to check                                                                                                                                                                                                                                                                      |
+| -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Node cannot be found, or the bundle cannot be loaded                                         | Use Node.js 24 or newer, ensure the client can find its executable, use the real absolute bundle path and keep the `.cjs` extension. The single bundle does not need pnpm or a runtime dependency installation.                                                                    |
+| Startup reports unsupported arguments                                                        | Start without options; use only the documented credential subcommands. MCP transport is stdio.                                                                                                                                                                                     |
+| Pages cannot be reached, or pairing reports the wrong instance                               | Check the base URL, deployment prefix and connectivity from the adapter's machine. Loopback refers to that machine. Confirm that the address serves Pages and that setup has finished. HTTP redirects are rejected.                                                                |
+| The instance is reachable but unhealthy                                                      | Pages exposes `/health` beneath its deployment prefix: `ok` means healthy, `setup` means setup is pending (also HTTP 200), and `unavailable` means unhealthy (HTTP 503). Availability or health does not prove authorization. Consult Pages diagnostics for an unhealthy instance. |
+| No paired credential                                                                         | Pair for the same normalized URL under the account/configuration location used by the client. Check for a defined `PAGES_TOKEN` overriding that entry.                                                                                                                             |
+| The paired credential is reported as no longer valid, or Connections shows expiry/revocation | Check the owner's connection status in Pages and pair again when expiry/revocation is confirmed. Rotation cannot revive it. Never paste the credential into a report.                                                                                                              |
+| `Pages authorization failed.` or the generic startup failure                                 | These messages can also cover unreachable Pages, invalid responses or other provider failures. Check reachability/health, stderr and the owner's connection status before concluding that a token has expired.                                                                     |
+| `FORBIDDEN`, or a tool is unavailable                                                        | Check the current account, project/page visibility and the operation's UI permission. Tool discovery is filtered; discovery alone does not grant write rights. `NOT_FOUND` can also mean hidden content.                                                                           |
+| The credential store is refused                                                              | Check ownership, exact POSIX directory/file modes and configuration paths. Symbolic links are not supported; keep the contents private.                                                                                                                                            |
+
+## Tool reference
+
+All tools use the same local stdio connection and authenticated Pages Agent API.
+The reference below describes the implemented operation families. Use the offered
+`tools/list` schemas for complete required/optional arguments and pagination
+fields, and the linked source definitions when developing an integration.
+API status codes mentioned below describe Pages responses, not an HTTP MCP
+transport. Binary asset upload paths are Pages API paths as well.
+
+### Project name discovery
+
+`list_project_names` takes no arguments and is read-only. It returns a text
+content block containing a JSON array of visible active project names, such as
+`["Example plan", "Shared project"]`. It is offered only when Pages allows
+`projects.names.list` for the verified identity; every list/call verifies the
+credential anew. Unknown tool names and supplied arguments are rejected with a
+protocol error. A Pages authorization or provider failure returns the fixed
+message `Pages authorization failed.` without project data.
+
+### Project and wiki reads
+
+The `list_project_names` tool returns names only. The following
 read-only tools use the same stdio transport and verify current rights
 on every call. Reading wiki content does not record a visit.
 
@@ -242,15 +329,14 @@ The client must choose explicitly. Hidden and missing targets both return
 use their administrator scope regardless of their stored UI mode; private content
 continues to belong to its owner. The UI mode remains unchanged.
 
-The complete request envelope is limited to 65,536 UTF-8 bytes, except wiki create/content calls (A11.1 below).
+The complete request envelope is limited to 65,536 UTF-8 bytes, except wiki create/content calls (see wiki and project foundations below).
 List response envelopes are limited to 1,048,576 UTF-8 bytes; individual wiki content has its own 1 MiB UTF-8 budget with room for JSON escaping and metadata. Oversized content
 returns `PAYLOAD_TOO_LARGE` (413); Markdown is never silently truncated. Unknown
 operations and invalid arguments return `INVALID_REQUEST` (400). MCP business
 errors expose the stable code and visible ambiguity choices; authentication and
-provider failures use a fixed diagnostic. No write, asset, import or SSE operation
-is added by A9.5.
+provider failures use a fixed diagnostic.
 
-## Assets and single-page creation (A9.6)
+### Assets and single-page creation
 
 `prepare_asset_upload` calls `assets.upload.prepare` with `{fileName}`. It returns
 `{ticket, header:"X-Pages-Upload-Ticket", uploadPath:"/api/v1/agent-assets", expiresAt,
@@ -259,11 +345,10 @@ Pages instance, preserving any deployment prefix. Send the ticket only in the
 named header, without an Authorization header or query string. Tickets are
 one-use, expire after five minutes and are invalid after a Pages restart. Failed
 uploads need a new ticket. The binary client uses a separate five-minute budget;
-JSON calls keep their five-second budget; wiki create/content calls allow 1 MiB UTF-8 content (A11.1), other requests keep 64 KiB. Import application has a thirty-second budget.
+JSON calls keep their five-second budget; wiki create/content calls allow 1 MiB UTF-8 content, other requests keep 64 KiB. Import application has a thirty-second budget.
 
-The endpoint rechecks the originating personal credential or OAuth consent and
-current account rights before and after streaming. A minted ticket can outlive
-the technical delegation credential while its originating consent remains active.
+For stdio uploads, the Pages endpoint rechecks the originating personal credential
+and current account rights before and after streaming.
 File bytes never enter MCP or Agent-API JSON. Type detection and current wiki
 settings determine the streaming limit (defaults: media 500 MiB, other files/PDF
 100 MiB). Oversize or incomplete uploads leave no staging object. Responses contain
@@ -291,7 +376,7 @@ and invalid input `INVALID_REQUEST` (400). No failed create leaves an operation 
 Write tools are offered to every verified account; Pages checks the operation-specific UI rights when called. Internal
 notifications contain only type and ID and are published after commit.
 
-## Wiki import preview (A9.7)
+### Wiki import preview
 
 `plan_wiki_import` calls `wiki.import.plan` through the same authenticated JSON
 API. It is read-only, including when the account has no write permission. The
@@ -382,7 +467,7 @@ IDs/titles and current write availability. Input/property/list order does not
 affect it; content or relevant target-state changes do. Each package has its own
 fingerprint, and a changed target requires a new plan. Nothing is persisted.
 
-## Wiki import application (A9.8)
+### Wiki import application
 
 `apply_wiki_import` calls `wiki.import.apply` with
 `{operationId,fingerprint,projectId,parentId,manifest,assets?}`. Repeat the exact
@@ -392,7 +477,7 @@ Use a new operation ID and a fresh plan for each package or subsequent import.
 A stale fingerprint returns `CONFLICT` without creating a run or pages.
 
 Reuse the same operation ID and input after a lost response, timeout or interrupted
-run. Index/file/asset list order is immaterial. The owner-scoped A9.6 operation key
+run. Index/file/asset list order is immaterial. The owner-scoped operation key
 permanently identifies this package's run; changed input with that key returns
 `CONFLICT`. A completed replay returns the same run, actions, page IDs and attachment
 IDs. A running replay processes only sources without a committed outcome. A new
@@ -407,12 +492,12 @@ Unrelated indexed sources are left for their own packages. Changed grouping or
 placement is a conflict and does not adopt an existing page.
 
 Optional `assets:[{sourceKey,assetIds:[...]}]` binds at most 100 owned, staged,
-unexpired A9.6 asset IDs to a loaded source. Each source may appear once. Upload
+unexpired asset IDs to a loaded source. Each source may appear once. Upload
 with `prepare_asset_upload` first and use its stable `/agent-assets/<id>` links
 in Markdown. Page, attachments, operation result, source mapping, item and counters
 share one source transaction. A rollback removes copied attachment bytes and
-preserves staged assets. Markdown remains exact; relative link rewriting belongs
-to a later import operation.
+preserves staged assets. Markdown remains exact; structured import handles
+relative asset link rewriting.
 
 The result is `{apiVersion:"1",result:{runId,status,counts,items}}`. Status is
 `complete` when all sources succeeded or were unchanged, otherwise `partial`.
@@ -425,7 +510,7 @@ and counters intact.
 New sources create pages. An unchanged mapped source with its original target
 revision and placement is `skipped`; a changed source, attachment set, target
 revision or placement is `conflict`. Missing or hidden mapped targets are failures
-and are never recreated implicitly. A9.7's read-only preview still diagnoses
+and are never recreated implicitly. The read-only wiki import preview still diagnoses
 matching existing titles; apply compares its own durable source mapping before
 those title collisions, while unassociated existing pages remain conflicts.
 No source overwrites page content or produces an update revision.
@@ -438,11 +523,11 @@ result leaves Pages. Competing requests use the central serialized DuckDB connec
 and source/item primary keys; they cannot create duplicate pages. Requests whose
 plan has already become stale receive a defined `CONFLICT` and must replan.
 
-The A9.7 package limits and 64-KiB request / 1-MiB response limits remain in force.
+The wiki import preview package limits and 64-KiB request / 1-MiB response limits remain in force.
 Apply has a thirty-second MCP budget. A timeout does not undo committed sources:
 repeat with the same operation ID.
 
-## Updating imported wiki pages (A9.9)
+### Updating imported wiki pages
 
 `update_wiki_import` calls `wiki.import.update` with
 `{operationId,fingerprint,projectId,parentId,manifest,updates}`. Plan the changed
@@ -488,11 +573,11 @@ input returns `CONFLICT`. A later `apply_wiki_import` of the updated source is
 `skipped`, because the stored baseline moves with every update.
 
 Credentials, write rights and project visibility are checked again for the call.
-Update has a thirty-second MCP budget and the A9.7 package limits.
+Update has a thirty-second MCP budget and the wiki import preview package limits.
 
-## Single-field wiki operations (A9.10)
+### Single-field wiki operations
 
-Four tools change exactly one thing about an existing wiki page. Every argument is
+The following tools change exactly one thing about an existing wiki page. Every argument is
 required, and unknown arguments are `INVALID_REQUEST`.
 
 | Tool                    | Pages operation        | Arguments (besides the common ones)     | Changes                      |
@@ -536,7 +621,7 @@ changed, parentId, projectId, visibility}`.
 
 The tools are listed to every verified account; rights are enforced on each call.
 
-## Wiki icon and cover (PAGE-15)
+### Wiki icon and cover
 
 `read_wiki_page` returns the visual metadata of a page with its text:
 
@@ -556,7 +641,7 @@ Both are always present, `null` when not set. A page the account cannot see retu
 - **Icon.** `create_wiki_page` takes an `icon` (an emoji or `null`), `set_wiki_page_icon`
   changes it and `icon:null` removes it; `read_wiki_page` confirms the stored value after
   each call. An icon is part of the revision, so `set_wiki_page_icon` follows the rules of
-  [A9.10](#single-field-wiki-operations-a910): it needs `expectedRevision`, raises the
+  [single-field wiki operations](#single-field-wiki-operations): it needs `expectedRevision`, raises the
   revision and keeps the previous state as a page version. Anything that is not a single
   emoji is `INVALID_REQUEST`.
 - **Cover.** `set_wiki_page_cover` sets, replaces or removes the cover. `cover` is
@@ -587,13 +672,13 @@ Both are always present, `null` when not set. A page the account cannot see retu
 - **Not offered.** `create_wiki_page` has no cover argument; set the cover with a
   second call after creating the page.
 
-## Tickets and milestones (A9.11)
+### Tickets and milestones
 
-Two read tools and thirteen write tools let an agent plan work. Every argument is
+The following read and write tools let an agent plan work. Every argument is
 required, unknown arguments are `INVALID_REQUEST`, and "nothing" is `null`. The one
 exception is `create_ticket`, whose `projectId`, `milestoneId`, `departmentId` and
 `assignee` may be left out; see "Defaults of `create_ticket`" in the section
-"Ticket search, hierarchy, links and assignment (PAGE-16)". The tools that find
+"Ticket search, hierarchy, links and assignment". The tools that find
 tickets and name assignment targets are described there as well.
 
 | Tool                          | Pages operation               | Arguments (besides `operationId`)                                                                                       | Result                                       |
@@ -614,8 +699,8 @@ tickets and name assignment targets are described there as well.
 | `add_milestone_dependency`    | `milestone.dependency.add`    | `projectId`, `sourceId`, `targetId`, `linkType`                                                                         | The dependency, `removed: false`             |
 | `remove_milestone_dependency` | `milestone.dependency.remove` | `projectId`, `dependencyId`                                                                                             | The dependency, `removed: true`              |
 
-`ticketId` (and a parent) is a ticket ID, a key such as `PAGE-12`, or a Pages
-address such as `/tasks/PAGE-12` or `/aufgaben/PAGE-12`, with or without the
+`ticketId` (and a parent) is a ticket ID, a key such as `WORK-12`, or a Pages
+address such as `/tasks/WORK-12` or `/aufgaben/WORK-12`, with or without the
 server in front. Milestones, dependencies, statuses and projects are named by ID.
 Read first: `read_ticket` returns every value a change compares against, and the
 status IDs that `set_ticket_status` and `create_ticket` take.
@@ -650,7 +735,7 @@ status IDs that `set_ticket_status` and `create_ticket` take.
 
 Read and write tools are listed to every verified account; Pages enforces the corresponding UI rights on each invocation.
 
-## Ticket search, hierarchy, links and assignment (PAGE-16)
+### Ticket search, hierarchy, links and assignment
 
 Four read tools find tickets and read their hierarchy, links and assignment
 targets; two write tools change the typed links between two tickets. Reads need no
@@ -673,7 +758,7 @@ Changing the parent stays `set_ticket_parent`, and the assignment stays
 the sections above. Moving a ticket below another parent and changing a link are
 separate operations: neither touches the other, and neither touches any field.
 
-### Search
+#### Search
 
 `search_tickets` lists the visible, non-archived tickets of one project, ordered by
 ticket number. `text` (1 to 200 characters) matches key, title and description
@@ -701,7 +786,7 @@ A hit carries no description; `read_ticket` does.
   filter cannot be used to probe for hidden records. A parent of another project is
   `INVALID_REQUEST`.
 
-### Hierarchy
+#### Hierarchy
 
 `read_ticket_tree` reads initiative → epic → task → subtask. With `projectId` it
 lists every visible non-archived ticket of the project. With `ticketId` it returns
@@ -713,7 +798,7 @@ disagrees with the ticket is `INVALID_REQUEST`. A node has `id`, `key`, `link`,
 visible parent). The tree is rebuilt from `parentId`; a parent on another page keeps
 its ID. A parent you cannot see reads as `null`, and the path ends there.
 
-### Links
+#### Links
 
 A link has a type and a direction: `blocks` (the ticket blocks the other),
 `duplicates` (the ticket duplicates the other) and `relates_to` (no direction).
@@ -731,7 +816,7 @@ from `read_ticket_links`) from either side. A link that does not exist, belongs 
 other tickets or whose other ticket you cannot see is `NOT_FOUND`. Links are
 Pages-only: nothing is published to GitHub.
 
-### Assignment targets
+#### Assignment targets
 
 `search_assignment_targets` lists the persons, groups and departments you may
 assign tickets to. `text` (1 to 200 characters) is part of the name, without
@@ -743,7 +828,7 @@ and `groups` that tell equal names apart, and `isExactMatch` is `true` when the
 name equals `text`. Several exact matches are ambiguous, so ask rather than choose.
 Pass the `id` to `set_ticket_assignee` or to `create_ticket`.
 
-### Defaults of `create_ticket`
+#### Defaults of `create_ticket`
 
 What a call leaves out, or passes as `null`, is taken from the parent and the
 signed-in account, and never invented:
@@ -760,7 +845,7 @@ signed-in account, and never invented:
   people can use the same package at the same time; each new ticket belongs to the
   one who created it.
 - **Milestone thread.** The milestone rules of the section "Milestones, initiatives,
-  tags and links (A11.5)" hold: a task that carries a milestone gives it to its epic
+  tags and links" hold: a task that carries a milestone gives it to its epic
   when that has none, links its initiative, and nothing is overwritten.
 - **Refusals.** A person who may not be assigned in the project is
   `INVALID_REQUEST`; a person, group or department you cannot see is `NOT_FOUND`,
@@ -769,7 +854,7 @@ signed-in account, and never invented:
 - **Structured import.** `apply_structured_import` keeps stating every value: it
   takes nothing from the parent and assigns nobody by default.
 
-### End to end
+#### End to end
 
 A typical order: `search_tickets` to find the ticket, `read_ticket_tree` and
 `read_ticket_links` to understand where it sits, `create_ticket` below the right
@@ -777,7 +862,7 @@ parent (or `set_ticket_parent` / `add_ticket_link` to change relations),
 `search_assignment_targets` and `set_ticket_assignee` for the assignment, and
 `read_ticket` to read the values back.
 
-## Structured import (A9.12)
+### Structured import
 
 `plan_structured_import` (`import.structured.plan`, read-only) and
 `apply_structured_import` (`import.structured.apply`) import projects' worth of
@@ -820,7 +905,7 @@ then applies it source by source.
 - **Sources.** `project` names an existing visible project by ID and nothing
   else; a project is never created. `milestone` and `ticket` name their project
   by key (left out when the manifest has exactly one project). `wiki` is a
-  Markdown page whose key is its relative path, with the A9.7 rules for titles
+  Markdown page whose key is its relative path, with the wiki import preview rules for titles
   and folders. Keys are unique per kind. `wiki` names the project and the
   parent page for all pages; `parentId: null` is the project root.
 - **Links.** Only keys of the same manifest: `parent` (ticket to ticket, of the
@@ -846,7 +931,7 @@ then applies it source by source.
   state it was planned against.
 - **Apply.** Repeat the exact manifest and the fingerprint with a new
   `operationId`. Order: milestones, tickets with parents first, dependencies,
-  then wiki pages (the A9.8 rules, unchanged). Every source commits its object,
+  then wiki pages (the wiki import application rules, unchanged). Every source commits its object,
   its mapping and its outcome together; targets a source builds on come from the
   outcomes of the same run. After a lost response, a timeout or an interruption
   repeat the call with the same `operationId` and input: committed sources are
@@ -865,11 +950,11 @@ then applies it source by source.
   key and link, the parent and milestone it was linked to, the attachments, a
   `reason` and a fixed `errorCode`.
 
-Limits: 100 sources, 200 links, 32 assets, and for the wiki part the A9.7 limits
+Limits: 100 sources, 200 links, 32 assets, and for the wiki part the wiki import preview limits
 (32 pages, 16 KiB each, 32 KiB together); 64 KiB request, 1 MiB response. Apply has
 a thirty-second budget.
 
-## Wiki comments (A9.13)
+### Wiki comments
 
 Five tools read and change the comments of wiki pages. They are the same
 comments people write in Pages and appear there at once.
@@ -931,21 +1016,21 @@ identifiers are not part of the result.
 
 Limits: 64 KiB request, 1 MiB response (`PAYLOAD_TOO_LARGE` beyond).
 
-## Wiki and project foundations (A11.1)
+### Wiki and project foundations
 
 Pages authorizes every operation using current account rights and the same business
 services as the UI. There is no additional MCP permission or write switch. Project
 deletion is never offered. Failed changes leave neither an activity entry nor a
 replay record. Project activity carries `source:ui|mcp|ai`; these MCP calls use `mcp`.
 
-New reads are `list_departments`, `list_groups`, `list_visible_people`,
+Directory and project reads are `list_departments`, `list_groups`, `list_visible_people`,
 `read_wiki_outline`, `read_wiki_links`, `read_project_members`,
 `read_project_activity` and `list_project_tickets`. Lists accept `limit` (1–100)
 and `cursor`; continue with `nextCursor` and the same query. Counts and all entries
 use current visibility on every page. Comment lists preserve the UI chronology; if a continuation comment was deleted, restart the list after `INVALID_REQUEST`. Cursors contain no global database row positions. People expose only IDs, display names,
 departments and groups. Ticket reads also expose visible assignments.
 
-New writes are `delete_wiki_page`, `create_project`, `set_project_name`,
+Project and assignment writes are `delete_wiki_page`, `create_project`, `set_project_name`,
 `set_project_description`, `set_project_status`, `set_project_dates`,
 `assign_project_member`, `remove_project_member`, `set_ticket_assignee`,
 `assign_ticket_to_milestone`, `delete_ticket` and `delete_milestone`.
@@ -985,11 +1070,10 @@ requests keep 64 KiB and list responses keep 1 MiB. Oversize contents return
 `[Title](page:<id>)` are indexed together with existing `/wiki/<id>` links;
 forward and back link reads omit invisible pages.
 
-## Milestones, initiatives, tags and links (A11.5)
+### Milestones, initiatives, tags and links
 
 Rights are the ones of the interface, checked by Pages on every call; this package
-adds no switch and no rule. The ticket and milestone tools of A9.11 and A11.1 keep
-their contracts. A11.5 adds what was missing to manage planning data completely.
+adds no switch and no rule. The following tools manage tags, initiative links and wiki anchors.
 
 | Tool                          | Pages operation               | Arguments                                                 | Does                                                             |
 | ----------------------------- | ----------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------- |
@@ -1031,7 +1115,7 @@ their contracts. A11.5 adds what was missing to manage planning data completely.
   the visible `initiatives` and `wikiPages` of every milestone. What the account cannot
   see appears as neither entry, placeholder nor count.
 - **Deleting and restoring.** `delete_ticket` and `delete_milestone` keep their
-  confirmation and archive recursively, as in A11.1, and need the archive right of the
+  confirmation and archive recursively, as described in wiki and project foundations, and need the archive right of the
   interface (role capability "Milestones" plus responsibility for the project; a plain
   writer gets `FORBIDDEN` and nothing changes). The archive is the trash: people
   restore a ticket with its subtree in Pages. Pages does not purge the archive after a
@@ -1041,7 +1125,7 @@ their contracts. A11.5 adds what was missing to manage planning data completely.
 - **Repeat.** `operationId` works as for every other write: repeating it with identical
   input returns the stored result, other input returns `CONFLICT`.
 
-## Administration (A11.6)
+### Administration
 
 Pages offers the following tools only to current personal administrators and checks
 the persisted admin eligibility again inside every operation's transaction. MCP

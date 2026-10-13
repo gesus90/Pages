@@ -296,7 +296,8 @@ Further documentation:
 - [AGENTS.md](./AGENTS.md): working rules for AI coding agents, including
   architecture boundaries and database migrations
 - [tests/README.md](./tests/README.md): unit-test scopes and coverage
-- [mcp/README.md](./mcp/README.md): the independent MCP package
+- [mcp/README.md](./mcp/README.md): the independent stdio MCP adapter, setup and
+  tool reference
 - [.env.example](./.env.example): optional environment variables
 
 ## Security notes
