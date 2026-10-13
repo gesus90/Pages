@@ -71,9 +71,9 @@ export class AgentWorkspacePath {
     try {
       const roots = await this.canonicalRoots();
       const directory = await this.canonicalDirectory(input, roots);
-      requireAbsoluteDirectory(directory);
       if (!roots.some((root) => containsWorkspacePath(root, directory)))
         throw new AgentError("workspace_path_outside_roots");
+      requireAbsoluteDirectory(directory);
       const protectedDirectory = await realpath(
         this.options.protectedDirectory,
       );

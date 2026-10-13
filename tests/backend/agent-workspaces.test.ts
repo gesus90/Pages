@@ -314,7 +314,9 @@ describe("A10.3 local workspace registration, project access and parameter prepa
         ),
       ).rejects.toHaveProperty("code");
     // Whether a path outside the approved roots exists must not show in the answer.
+    await symlink("/", path.join(root, "outside", "to-filesystem-root"));
     for (const outside of [
+      path.join(root, "outside", "to-filesystem-root"),
       path.join(root, "outside"),
       path.join(root, "outside", "does-not-exist"),
       "/etc/hosts",
