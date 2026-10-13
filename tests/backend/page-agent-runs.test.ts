@@ -523,7 +523,7 @@ describe("PAGE-20 which runs get a record, and what happens when files fail", ()
         null,
         executionPlan(current.workspaceId, current.userAgentId),
       ),
-    ).rejects.toThrow();
+    ).rejects.toMatchObject({ code: "plan_access_denied" });
     expect(current.execution.run).not.toHaveBeenCalled();
     expect(await readdir(path.join(current.root, "Agents"))).toEqual([
       current.userAgentId,
@@ -779,5 +779,57 @@ describe("PAGE-20 which runs get a record, and what happens when files fail", ()
     expect(
       Object.keys(await current.service.taskAssignments(current.admin)),
     ).toEqual([current.agentId]);
+  });
+  it("lets the person an agent is shared with run it and read the record, never the owner, and no longer once the share ends", async () => {
+    const current = await setup();
+    const shared = (await current.pages.page(current.bob.id)).agents[0];
+    await current.pages.save(current.bob.id, current.userAgentId, {
+      ...shared,
+      configuration: {
+        ...shared.configuration,
+        sharing: { isGlobal: true, targets: [] },
+      },
+    });
+    const planId = await current.service.save(
+      current.alice.id,
+      null,
+      executionPlan(current.workspaceId, current.userAgentId),
+    );
+    const run = await current.service.play(current.alice.id, planId, 1);
+    await waitForPlan(async () =>
+      expect((await current.runRepository.find(run.id))?.status).toBe(
+        "succeeded",
+      ),
+    );
+    await current.engine.shutdown();
+    const runId = runIdentifier(run.id, "A");
+    const own = await current.archive.read(
+      current.alice.id,
+      current.userAgentId,
+      runId,
+    );
+    expect(own.record).toMatchObject({
+      userId: current.alice.id,
+      status: "succeeded",
+    });
+    // The owner of the agent did not run it, so the record is not theirs to read.
+    await expect(
+      current.archive.read(current.bob.id, current.userAgentId, runId),
+    ).rejects.toMatchObject({ code: "agent_usage_denied" });
+    await expect(
+      current.pages.requireVisible(current.alice.id, current.userAgentId),
+    ).resolves.toBeUndefined();
+    // Once the owner closes the share, the route no longer delivers the record.
+    const reopened = (await current.pages.page(current.bob.id)).agents[0];
+    await current.pages.save(current.bob.id, current.userAgentId, {
+      ...reopened,
+      configuration: {
+        ...reopened.configuration,
+        sharing: { isGlobal: false, targets: [] },
+      },
+    });
+    await expect(
+      current.pages.requireVisible(current.alice.id, current.userAgentId),
+    ).rejects.toMatchObject({ code: "agent_usage_denied" });
   });
 });
