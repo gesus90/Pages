@@ -54,19 +54,19 @@ Use `mcp/` as the working directory:
 
 ```sh
 cd mcp
-pnpm install --frozen-lockfile
-pnpm run lint
-pnpm run check
-pnpm run build
+CI=true pnpm install --frozen-lockfile
+CI=true pnpm run lint
+CI=true pnpm run check
+CI=true pnpm run build
 ```
 
 From the repository root, the equivalent commands are:
 
 ```sh
-pnpm --dir mcp install --frozen-lockfile
-pnpm --dir mcp run lint
-pnpm --dir mcp run check
-pnpm --dir mcp run build
+CI=true pnpm --dir mcp install --frozen-lockfile
+CI=true pnpm --dir mcp run lint
+CI=true pnpm --dir mcp run check
+CI=true pnpm --dir mcp run build
 ```
 
 Installation uses the MCP package's own manifest and lockfile. No root dependency
@@ -82,8 +82,9 @@ script or validated test suite.
 [build.config.ts](./build.config.ts) uses esbuild with `bundle: true`, Node target
 `node24`, `format: "cjs"` and no code splitting. It clears `mcp/dist/` and writes
 `mcp/dist/pages-mcp-v<version>.cjs`, using the version from `package.json`.
-The manifest currently declares `0.1.0`, so this source configuration names the
-output `pages-mcp-v0.1.0.cjs`; this is not evidence of a published release.
+With the development manifest in this checkout, the output is
+`pages-mcp-v0.1.0.cjs`; this names a build artifact and does not establish a
+published release.
 
 JavaScript dependencies are bundled into that single CommonJS file; Node
 built-ins are supplied by Node. Copying the built `.cjs` file is sufficient for
@@ -99,13 +100,49 @@ outside the package tree is unnecessary when its `.cjs` name is preserved.
 The repository has a [release workflow](../.github/workflows/mcp-release.yml)
 intended to publish version-tagged ZIP assets to the
 [Pages GitHub releases](https://github.com/gesus90/Pages/releases), rather than npm.
-However, the existing [release packager](./scripts/package-release.ts) still
-expects `.js` bundle filenames and stamps `.js` references in the README and
-examples. That does not match the `.cjs` build output. Release packaging needs to
-be aligned before its download/archive instructions can be relied on. No release
-availability, completed build, reproducibility result or checksum is asserted
-here. The setup below describes an already built `.cjs` file; `X.Y.Z` and the
-absolute paths are synthetic placeholders to replace with the file you have.
+The [release packager](./scripts/package-release.ts) reads the same
+`dist/pages-mcp-v<version>.cjs` output. It uses that filename for the archive
+entry, bundle checksum, shipped manifest's `main` field and client example paths.
+The archive's manifest declares `"type": "commonjs"`; the `.cjs` extension also
+keeps the bundle independent of the surrounding package type. The packager builds
+twice in isolated working copies and rejects differing bundle checksums before
+writing the archive. These are packaging rules, not evidence of a published
+release or a completed reproducibility check. The setup below describes an
+already built `.cjs` file; `X.Y.Z` and the absolute paths are synthetic placeholders
+to replace with the file you have.
+
+### Manual bundle acceptance
+
+A successful build alone does not establish that Node can load the bundle.
+After building, use Node.js 24 or newer to inspect the generated file directly.
+From the repository root, substitute the version from `mcp/package.json`:
+
+```sh
+env -u PAGES_URL -u PAGES_TOKEN node mcp/dist/pages-mcp-vX.Y.Z.cjs > bundle-no-config.stdout.log 2> bundle-no-config.stderr.log
+echo $?
+env -u PAGES_URL -u PAGES_TOKEN node mcp/dist/pages-mcp-vX.Y.Z.cjs --unsupported > bundle-argument.stdout.log 2> bundle-argument.stderr.log
+echo $?
+```
+
+Inspect each exit code immediately after its command with `echo $?`. Without
+Pages configuration, the first command must exit nonzero with a configuration
+diagnostic on stderr. It must not fail with a module-loading error such as
+`require is not defined`. The second command must exit nonzero with
+`Unsupported startup argument` on stderr, before configuration lookup or any
+Pages request. Both stdout logs must be empty. Neither command should open a
+network listener; inspect the process's listening sockets while it runs (for
+example, with `ss -ltnp` on Linux).
+
+For a configured stdio check, use an already running local Pages instance at
+`PAGES_URL=http://127.0.0.1:3000`. Supply its personal credential securely through
+`PAGES_TOKEN` in the process environment, without printing or recording it. A
+stdio client launches the built file without arguments, sends `initialize`, waits
+for its response, sends `notifications/initialized`, then requests `tools/list`.
+Keep stdin open until both responses arrive, then close it and verify that the
+process exits. stdout must contain only MCP protocol messages; diagnostics belong
+on stderr. Tool discovery does not require calling tools or writing to Pages.
+Record the bundle filename, exit codes and channel observations separately from
+this README; do not treat the expected outcomes above as completed checks.
 
 ## Connect a client over stdio
 
@@ -264,17 +301,17 @@ again. A generic authorization error alone does not identify this case.
 
 ## Troubleshooting
 
-| Symptom                                                                                      | What to check                                                                                                                                                                                                                                                                      |
-| -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Node cannot be found, or the bundle cannot be loaded                                         | Use Node.js 24 or newer, ensure the client can find its executable, use the real absolute bundle path and keep the `.cjs` extension. The single bundle does not need pnpm or a runtime dependency installation.                                                                    |
-| Startup reports unsupported arguments                                                        | Start without options; use only the documented credential subcommands. MCP transport is stdio.                                                                                                                                                                                     |
-| Pages cannot be reached, or pairing reports the wrong instance                               | Check the base URL, deployment prefix and connectivity from the adapter's machine. Loopback refers to that machine. Confirm that the address serves Pages and that setup has finished. HTTP redirects are rejected.                                                                |
-| The instance is reachable but unhealthy                                                      | Pages exposes `/health` beneath its deployment prefix: `ok` means healthy, `setup` means setup is pending (also HTTP 200), and `unavailable` means unhealthy (HTTP 503). Availability or health does not prove authorization. Consult Pages diagnostics for an unhealthy instance. |
-| No paired credential                                                                         | Pair for the same normalized URL under the account/configuration location used by the client. Check for a defined `PAGES_TOKEN` overriding that entry.                                                                                                                             |
-| The paired credential is reported as no longer valid, or Connections shows expiry/revocation | Check the owner's connection status in Pages and pair again when expiry/revocation is confirmed. Rotation cannot revive it. Never paste the credential into a report.                                                                                                              |
-| `Pages authorization failed.` or the generic startup failure                                 | These messages can also cover unreachable Pages, invalid responses or other provider failures. Check reachability/health, stderr and the owner's connection status before concluding that a token has expired.                                                                     |
-| `FORBIDDEN`, or a tool is unavailable                                                        | Check the current account, project/page visibility and the operation's UI permission. Tool discovery is filtered; discovery alone does not grant write rights. `NOT_FOUND` can also mean hidden content.                                                                           |
-| The credential store is refused                                                              | Check ownership, exact POSIX directory/file modes and configuration paths. Symbolic links are not supported; keep the contents private.                                                                                                                                            |
+| Symptom                                                                                      | What to check                                                                                                                                                                                                                                                                     |
+| -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Node cannot be found, or the bundle cannot be loaded                                         | Use Node.js 24 or newer, ensure the client can find its executable, use the real absolute bundle path and keep the `.cjs` extension. The single bundle does not need pnpm or a runtime dependency installation.                                                                   |
+| Startup reports unsupported arguments                                                        | Start without options; use only the documented credential subcommands. MCP transport is stdio.                                                                                                                                                                                    |
+| Pages cannot be reached, or pairing reports the wrong instance                               | Check the base URL, deployment prefix and connectivity from the adapter's machine. Loopback refers to that machine. Confirm that the address serves Pages and that setup has finished. Redirects are rejected.                                                                    |
+| The instance is reachable but unhealthy                                                      | Pages exposes `/health` beneath its deployment prefix: `ok` means healthy, `setup` means setup is pending (status 200), and `unavailable` means unhealthy (status 503). Availability or health does not prove authorization. Consult Pages diagnostics for an unhealthy instance. |
+| No paired credential                                                                         | Pair for the same normalized URL under the account/configuration location used by the client. Check for a defined `PAGES_TOKEN` overriding that entry.                                                                                                                            |
+| The paired credential is reported as no longer valid, or Connections shows expiry/revocation | Check the owner's connection status in Pages and pair again when expiry/revocation is confirmed. Rotation cannot revive it. Never paste the credential into a report.                                                                                                             |
+| `Pages authorization failed.` or the generic startup failure                                 | These messages can also cover unreachable Pages, invalid responses or other provider failures. Check reachability/health, stderr and the owner's connection status before concluding that a token has expired.                                                                    |
+| `FORBIDDEN`, or a tool is unavailable                                                        | Check the current account, project/page visibility and the operation's UI permission. Tool discovery is filtered; discovery alone does not grant write rights. `NOT_FOUND` can also mean hidden content.                                                                          |
+| The credential store is refused                                                              | Check ownership, exact POSIX directory/file modes and configuration paths. Symbolic links are not supported; keep the contents private.                                                                                                                                           |
 
 ## Tool reference
 

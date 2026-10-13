@@ -64,8 +64,15 @@ const SECRET_ENVIRONMENT_NAMES = [
   "GITHUB_TOKEN",
   "GH_TOKEN",
 ];
-const EXAMPLE_BUNDLE_PLACEHOLDER = "pages-mcp-vX.Y.Z.js";
-const TEXT_EXTENSIONS = new Set([".js", ".md", ".json", ".toml", ".sha256"]);
+const EXAMPLE_BUNDLE_PLACEHOLDER = "pages-mcp-vX.Y.Z.cjs";
+const TEXT_EXTENSIONS = new Set([
+  ".cjs",
+  ".js",
+  ".md",
+  ".json",
+  ".toml",
+  ".sha256",
+]);
 const SOURCE_ENTRIES = ["build.config.ts", "tsconfig.json", "src"];
 // 1980-01-01 00:00:00, the earliest ZIP timestamp, keeps the archive independent of the build time.
 const ZIP_DOS_DATE = 0x0021;
@@ -101,7 +108,7 @@ export function stampReadme(
   version: string,
 ): string {
   const title = `# Pages MCP ${currentVersion}`;
-  const bundle = `pages-mcp-v${currentVersion}.js`;
+  const bundle = `pages-mcp-v${currentVersion}.cjs`;
   if (!readme.includes(title) || !readme.includes(bundle)) {
     throw new Error(
       "The README must name the package version and bundle file.",
@@ -109,7 +116,7 @@ export function stampReadme(
   }
   return readme
     .replaceAll(title, `# Pages MCP ${version}`)
-    .replaceAll(bundle, `pages-mcp-v${version}.js`);
+    .replaceAll(bundle, `pages-mcp-v${version}.cjs`);
 }
 
 /**
@@ -119,8 +126,8 @@ export function stampReadme(
  * @returns Manifest text describing the dependency-free CommonJS bundle.
  *
  * @remarks
- * The development manifest declares `"type": "module"` for the build tooling. Next to the CommonJS bundle that
- * declaration would make Node refuse to start it, so the shipped manifest declares `commonjs`.
+ * The `.cjs` extension selects CommonJS regardless of the surrounding package type.
+ * The shipped manifest also records that format explicitly.
  */
 export function createReleaseManifest(version: string): string {
   const manifest = {
@@ -128,7 +135,7 @@ export function createReleaseManifest(version: string): string {
     version,
     license: "MIT",
     type: "commonjs",
-    main: `pages-mcp-v${version}.js`,
+    main: `pages-mcp-v${version}.cjs`,
     engines: { node: ">=24.0.0" },
   };
   return `${JSON.stringify(manifest, null, 2)}\n`;
@@ -204,10 +211,9 @@ export function assertNoSecrets(
     if (!TEXT_EXTENSIONS.has(path.extname(entry.name))) {
       continue;
     }
-    const tokenPattern =
-      path.extname(entry.name) === ".js"
-        ? BUNDLE_TOKEN_PATTERN
-        : TOKEN_SHAPED_PATTERN;
+    const tokenPattern = [".cjs", ".js"].includes(path.extname(entry.name))
+      ? BUNDLE_TOKEN_PATTERN
+      : TOKEN_SHAPED_PATTERN;
     if (tokenPattern.test(text)) {
       throw new Error(`${entry.name} contains a token-shaped value.`);
     }
@@ -310,7 +316,7 @@ async function buildBundle(
       throw new Error("The bundle build failed.");
     }
     return await readFile(
-      path.join(workDirectory, "dist", `pages-mcp-v${version}.js`),
+      path.join(workDirectory, "dist", `pages-mcp-v${version}.cjs`),
     );
   } finally {
     await rm(temporaryDirectory, { recursive: true, force: true });
@@ -377,7 +383,7 @@ export async function packageRelease(
   if (sha256(first) !== sha256(second)) {
     throw new Error("Two clean builds produced different bundles.");
   }
-  const bundleName = `pages-mcp-v${version}.js`;
+  const bundleName = `pages-mcp-v${version}.cjs`;
   const prefix = `pages-mcp-v${version}`;
   const entries: ArchiveEntry[] = [
     { name: bundleName, content: first },
