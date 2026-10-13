@@ -143,11 +143,21 @@ describe("A10.4 real CLI adapter contracts with injected child processes", () =>
       stdout: "",
       stderr: "synthetic private output",
       exitCode: 1,
-      errorCode: "check_timeout",
+      errorCode: null,
     });
     await expect(
       current.execution.run(current.input, new AbortController().signal),
     ).rejects.toMatchObject({ code: "plan_step_failed" });
+    // The time limit has a code of its own, so a run record can name it.
+    vi.mocked(current.runner.run).mockResolvedValueOnce({
+      stdout: "",
+      stderr: "synthetic private output",
+      exitCode: null,
+      errorCode: "check_timeout",
+    });
+    await expect(
+      current.execution.run(current.input, new AbortController().signal),
+    ).rejects.toMatchObject({ code: "timeout" });
     const controller = new AbortController();
     vi.mocked(current.runner.run).mockImplementationOnce(async () => {
       controller.abort();

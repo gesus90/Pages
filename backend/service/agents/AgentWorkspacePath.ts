@@ -8,6 +8,8 @@ import { AgentError } from "@/backend/error/AgentErrors";
 export interface AgentWorkspacePathOptions {
   readonly roots: readonly string[];
   readonly protectedDirectory: string;
+  /** Further instance folders a working copy may neither contain nor lie within. */
+  readonly additionalProtectedDirectories?: readonly string[];
 }
 
 /** Uses path segments rather than string prefixes, including for symlink destinations. */
@@ -74,14 +76,7 @@ export class AgentWorkspacePath {
       if (!roots.some((root) => containsWorkspacePath(root, directory)))
         throw new AgentError("workspace_path_outside_roots");
       requireAbsoluteDirectory(directory);
-      const protectedDirectory = await realpath(
-        this.options.protectedDirectory,
-      );
-      if (
-        containsWorkspacePath(protectedDirectory, directory) ||
-        containsWorkspacePath(directory, protectedDirectory)
-      )
-        throw new AgentError("workspace_path_outside_roots");
+      await this.requireOutsideProtected(directory);
       const metadata = await stat(directory, { bigint: true });
       if (!metadata.isDirectory())
         throw new AgentError("workspace_path_invalid");
@@ -105,6 +100,33 @@ export class AgentWorkspacePath {
     )
       throw new AgentError("workspace_path_changed");
     return inspected.path;
+  }
+
+  /**
+   * Refuses a directory that contains or lies within an instance folder.
+   *
+   * @remarks
+   * The data directory must exist. A further folder, such as the agent
+   * directory, is created on first use, so a missing one is compared by its
+   * typed path.
+   */
+  private async requireOutsideProtected(directory: string): Promise<void> {
+    const protectedDirectories = [
+      await realpath(this.options.protectedDirectory),
+      ...(await Promise.all(
+        (this.options.additionalProtectedDirectories ?? []).map((entry) =>
+          realpath(entry).catch(() => path.resolve(entry)),
+        ),
+      )),
+    ];
+    if (
+      protectedDirectories.some(
+        (entry) =>
+          containsWorkspacePath(entry, directory) ||
+          containsWorkspacePath(directory, entry),
+      )
+    )
+      throw new AgentError("workspace_path_outside_roots");
   }
 
   /**
