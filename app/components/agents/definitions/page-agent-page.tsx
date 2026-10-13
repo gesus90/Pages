@@ -118,12 +118,8 @@ export function PageAgentPageView({
           onOpen={setSelected}
         />
       </SettingsCard>
-      <Dialog
-        open={selected !== null}
-        onOpenChange={(open) => {
-          if (!open) close();
-        }}
-      >
+      {/* The form guards every dismissal itself, so it asks before it drops a draft. */}
+      <Dialog open={selected !== null}>
         {selected === null ? null : (
           <PageAgentForm
             key={selected === "new" ? "new" : selected.id}

@@ -140,6 +140,18 @@ describe("PAGE-20 CLI filesystem isolation", () => {
     expect(isolated?.arguments).not.toContain(path.join(root, "Agents"));
   });
 
+  it("starts in the work folder of the credential home when no working directory is given", async () => {
+    installBubblewrap(true);
+    const proposed = request({ workingDirectory: undefined });
+    await mkdir(proposed.home.work);
+    const isolated = await isolateCliPlan(proposed, [
+      path.join(root, "Agents"),
+    ]);
+    expect(isolated?.arguments).toEqual(
+      expect.arrayContaining(["--chdir", proposed.home.work]),
+    );
+  });
+
   it("refuses a working directory inside an instance folder but accepts one around it, which is emptied as well", async () => {
     installBubblewrap(true);
     await mkdir(path.join(root, "instance", "work"));

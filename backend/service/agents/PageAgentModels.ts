@@ -51,16 +51,17 @@ export async function pageAgentModels(
       continue;
     try {
       await resolveAgentAssignmentFor(dependencies.connections, viewer, source);
+      // The assignment above found this model in the catalog.
       const catalog = await dependencies.connections
         .catalogs()
         .find(source.connectionId);
-      const model = catalog.models.find((entry) => entry.id === source.model);
-      if (!model) continue;
       choices.push({
         id: source.id,
         name: source.name,
         model: source.model,
-        reasoningEfforts: model.reasoningEfforts,
+        reasoningEfforts: catalog.models
+          .filter((entry) => entry.id === source.model)
+          .flatMap((entry) => entry.reasoningEfforts),
         reasoningEffort: source.reasoningEffort,
       });
     } catch (error: unknown) {

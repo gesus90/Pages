@@ -10,6 +10,8 @@ import type {
   PageAgentPage,
 } from "@/definition/PageAgent";
 
+type ModelChoice = Pick<PageAgentInput, "modelProfileId" | "reasoningEffort">;
+
 function initialInput(
   agent: PageAgent | null,
   models: PageAgentPage["models"],
@@ -22,13 +24,18 @@ function initialInput(
       configuration: agent.configuration,
       revision: agent.revision,
     };
-  const [first] = models;
-  return {
+  // A new agent starts on the first released model, which is the only one for most people.
+  const [first]: (ModelChoice | undefined)[] = models.map((model) => ({
+    modelProfileId: model.id,
+    reasoningEffort: model.reasoningEffort,
+  }));
+  const blank: PageAgentInput = {
     name: "",
-    modelProfileId: first?.id ?? "",
-    reasoningEffort: first?.reasoningEffort ?? null,
+    modelProfileId: "",
+    reasoningEffort: null,
     configuration: { ...emptyAgentConfiguration(), accessMode: "shared" },
   };
+  return { ...blank, ...first };
 }
 
 /** Keeps the definition under edit and its dirty-state protection apart from the form sections. */

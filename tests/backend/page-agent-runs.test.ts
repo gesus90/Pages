@@ -557,4 +557,146 @@ describe("PAGE-20 which runs get a record, and what happens when files fail", ()
       ).record.status,
     ).toBe("succeeded");
   });
+  it("writes the records of ended runs found in the stored history, with what that history knows", async () => {
+    const current = await setup();
+    const known = {
+      step: {
+        id: "A",
+        agentId: current.userAgentId,
+        instruction: "Stored step",
+      },
+      model: "model-a",
+      reasoningEffort: null,
+      prepared: { parameters: { markdown: "Stored template" } },
+    };
+    const view = {
+      id: "stored-run",
+      planId: "stored-plan",
+      planName: "Stored plan",
+      planRevision: 1,
+      userId: current.bob.id,
+      startedAt: "2026-10-01T10:00:00.000Z",
+      status: "failed",
+      stopRequested: false,
+      steps: [
+        {
+          id: "A",
+          name: "Stored step",
+          status: "failed",
+          cancellation: "none",
+          isBlocked: false,
+          output: null,
+          error: "plan_step_failed",
+        },
+      ],
+    };
+    // The snapshot names a second step that the view of the run does not know.
+    const snapshot = {
+      steps: [known, { ...known, step: { ...known.step, id: "B" } }],
+    };
+    await getDatabase().execute(
+      `
+      INSERT INTO agent_plan_runs (
+          id, plan_id, user_id, project_id, workspace_id, started_at, status, view_json, snapshot_json
+      ) VALUES (
+          $id, $plan_id, $user_id, 'project', $workspace_id, $started_at, 'failed', $view_json, $snapshot_json
+      );
+    `,
+      {
+        id: view.id,
+        plan_id: view.planId,
+        user_id: current.bob.id,
+        workspace_id: current.workspaceId,
+        started_at: view.startedAt,
+        view_json: JSON.stringify(view),
+        snapshot_json: JSON.stringify(snapshot),
+      },
+    );
+    await current.archive.recover();
+    const { record } = await current.archive.read(
+      current.bob.id,
+      current.userAgentId,
+      runIdentifier("stored-run", "A"),
+    );
+    expect(record).toMatchObject({
+      status: "failed",
+      startedAt: "2026-10-01T10:00:00.000Z",
+      input: "Stored template\n\nStored step",
+      result: "plan_step_failed",
+      reasoningEffort: null,
+    });
+    expect(await readdir(current.runs)).toEqual([
+      `${runIdentifier("stored-run", "A")}.md`,
+    ]);
+  });
+  it("checks workspace and wiki references of the owner when the services for them are wired, and refuses them otherwise", async () => {
+    const current = await setup();
+    const database = getDatabase();
+    const configuration = (
+      type: "workspace" | "wiki",
+      defaultValue: unknown,
+    ) => {
+      const proposed = pageAgentInput({ modelProfileId: current.agentId });
+      return {
+        ...proposed,
+        configuration: {
+          ...proposed.configuration,
+          markdown: type === "wiki" ? "{{ref.markdown}}" : "{{ref.path}}",
+          parameters: [
+            {
+              name: "ref",
+              type,
+              description: "Reference",
+              isRequired: false,
+              defaultValue,
+            },
+          ],
+        },
+      };
+    };
+    // Both references of the owner are accepted and stay as saved.
+    await current.pages.save(
+      current.bob.id,
+      null,
+      configuration("workspace", {
+        type: "workspace",
+        workspaceId: current.workspaceId,
+      }),
+    );
+    await current.pages.save(
+      current.bob.id,
+      null,
+      configuration("wiki", { type: "wiki", pageId: current.page.id }),
+    );
+    await expect(
+      current.pages.save(
+        current.bob.id,
+        null,
+        configuration("workspace", { type: "workspace", workspaceId: "gone" }),
+      ),
+    ).rejects.toThrow();
+    // Without the services that resolve them, no reference can be verified.
+    const unwired = new PageAgentService(
+      {
+        profiles: current.profileRepository,
+        connections: current.connections,
+        authorization: current.authorization,
+        groups: new UserGroupRepository(database),
+        operations: new AgentOperationRegistry(),
+      },
+      current.profiles,
+      current.files,
+    );
+    for (const input of [
+      configuration("workspace", {
+        type: "workspace",
+        workspaceId: current.workspaceId,
+      }),
+      configuration("wiki", { type: "wiki", pageId: current.page.id }),
+    ])
+      await expect(
+        unwired.save(current.bob.id, null, input),
+      ).rejects.toMatchObject({ code: "parameter_reference_unavailable" });
+    expect((await unwired.page(current.bob.id)).workspaces).toEqual([]);
+  });
 });

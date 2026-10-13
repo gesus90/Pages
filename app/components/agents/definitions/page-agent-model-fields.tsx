@@ -15,14 +15,14 @@ export function PageAgentModelFields(props: {
   const model = props.models.find(
     (entry) => entry.id === props.draft.modelProfileId,
   );
+  const efforts = model?.reasoningEfforts ?? [];
   function selectModel(id: string): void {
     const selected = props.models.find((entry) => entry.id === id);
-    if (selected)
-      props.onChange({
-        ...props.draft,
-        modelProfileId: id,
-        reasoningEffort: selected.reasoningEffort,
-      });
+    props.onChange({
+      ...props.draft,
+      modelProfileId: id,
+      reasoningEffort: selected?.reasoningEffort ?? null,
+    });
   }
   return (
     <div className="grid gap-4 sm:grid-cols-2">
@@ -42,16 +42,17 @@ export function PageAgentModelFields(props: {
         <span>{t("pageAgents.reasoning")}</span>
         <Select
           value={props.draft.reasoningEffort ?? ""}
-          disabled={props.disabled}
+          disabled={props.disabled || efforts.length === 0}
+          // Only a listed level is a choice; the fixed default reports as empty.
           onValueChange={(effort) =>
-            props.onChange({ ...props.draft, reasoningEffort: effort || null })
+            props.onChange({
+              ...props.draft,
+              reasoningEffort: efforts.includes(effort) ? effort : null,
+            })
           }
           options={
-            model?.reasoningEfforts.length
-              ? model.reasoningEfforts.map((effort) => ({
-                  value: effort,
-                  label: effort,
-                }))
+            efforts.length > 0
+              ? efforts.map((effort) => ({ value: effort, label: effort }))
               : [{ value: "", label: t("pageAgents.defaultReasoning") }]
           }
         />

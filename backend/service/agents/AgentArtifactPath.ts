@@ -20,6 +20,17 @@ export function requireArtifactId(id: string): void {
     throw new AgentError("profile_invalid");
 }
 
+/** Creates one private directory, or accepts an existing real directory. */
+async function ensureDirectory(directory: string): Promise<void> {
+  const entry = await lstat(directory).catch(() => null);
+  if (entry === null) {
+    await mkdir(directory, { mode: DIRECTORY_MODE });
+    return;
+  }
+  if (!entry.isDirectory() || entry.isSymbolicLink())
+    throw new AgentError("profile_invalid");
+}
+
 /**
  * Creates private directories below the agent directory and refuses links.
  *
@@ -41,19 +52,7 @@ export async function artifactDirectory(
   for (const part of parts) {
     requireArtifactId(part);
     directory = path.join(directory, part);
-    await mkdir(directory, { mode: DIRECTORY_MODE }).catch(
-      async (error: unknown) => {
-        if (
-          !(error instanceof Error) ||
-          !("code" in error) ||
-          error.code !== "EEXIST"
-        )
-          throw error;
-        const entry = await lstat(directory);
-        if (!entry.isDirectory() || entry.isSymbolicLink())
-          throw new AgentError("profile_invalid");
-      },
-    );
+    await ensureDirectory(directory);
   }
   return directory;
 }

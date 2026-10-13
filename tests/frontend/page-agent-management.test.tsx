@@ -415,3 +415,98 @@ describe("PAGE-20 failure state of the agent list", () => {
     expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
   });
 });
+
+describe("PAGE-20 form controls", () => {
+  it("switches between private, global and restricted and keeps targets only while restricted", async () => {
+    const submitted: FormData[] = [];
+    await mount(page(), async (request) => {
+      submitted.push(await request.formData());
+      return { ok: true, intent: "save-agent" };
+    });
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Create agent" }));
+    await user.type(screen.getByLabelText("Name"), "Shared");
+    const sharing = screen.getByRole("combobox", { name: "Sharing" });
+    await user.click(sharing);
+    await user.click(screen.getByRole("option", { name: "Restricted" }));
+    await user.click(screen.getByLabelText("Team"));
+    await user.click(sharing);
+    await user.click(screen.getByRole("option", { name: "Private" }));
+    expect(screen.queryByLabelText("Team")).toBeNull();
+    await user.click(sharing);
+    await user.click(screen.getByRole("option", { name: "Restricted" }));
+    expect(screen.getByLabelText("Team")).not.toBeChecked();
+    await user.click(sharing);
+    await user.click(screen.getByRole("option", { name: "Global" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(submitted).toHaveLength(1));
+    const definition: unknown = JSON.parse(String(submitted[0].get("agent")));
+    expect(definition).toMatchObject({
+      configuration: { sharing: { isGlobal: true, targets: [] } },
+    });
+  });
+
+  it("resets the reasoning to the default of the chosen model and fixes it for a model without levels", async () => {
+    const submitted: FormData[] = [];
+    const base = page();
+    await mount(
+      {
+        ...base,
+        models: [
+          ...base.models,
+          {
+            id: "plain-model",
+            name: "Plain",
+            model: "model-b",
+            reasoningEfforts: [],
+            reasoningEffort: null,
+          },
+        ],
+      },
+      async (request) => {
+        submitted.push(await request.formData());
+        return { ok: true, intent: "save-agent" };
+      },
+    );
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Create agent" }));
+    await user.type(screen.getByLabelText("Name"), "Plain agent");
+    const reasoning = screen.getByRole("combobox", { name: "Reasoning" });
+    expect(reasoning).toHaveTextContent("medium");
+    await user.click(reasoning);
+    await user.click(screen.getByRole("option", { name: "low" }));
+    expect(reasoning).toHaveTextContent("low");
+    await user.click(screen.getByRole("combobox", { name: "Admin model" }));
+    await user.click(screen.getByRole("option", { name: "Plain · model-b" }));
+    expect(reasoning).toHaveTextContent("Default");
+    expect(reasoning).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(submitted).toHaveLength(1));
+    expect(JSON.parse(String(submitted[0].get("agent")))).toMatchObject({
+      modelProfileId: "plain-model",
+      reasoningEffort: null,
+    });
+  });
+
+  it("keeps the form open when it is dismissed while a save is running", async () => {
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await mount(page(), async () => {
+      await gate;
+      return { ok: true, intent: "save-agent" };
+    });
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Create agent" }));
+    await user.type(screen.getByLabelText("Name"), "Slow");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled(),
+    );
+    await user.keyboard("{Escape}");
+    expect(screen.getByLabelText("Name")).toBeVisible();
+    release();
+    await waitFor(() => expect(screen.queryByLabelText("Name")).toBeNull());
+  });
+});

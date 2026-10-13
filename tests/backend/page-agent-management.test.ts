@@ -1,7 +1,7 @@
 import { readFile, readdir, rm, stat, symlink } from "node:fs/promises";
 import path from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ServerCache } from "@/backend/cache/ServerCache";
 import { UserRepository } from "@/backend/database/repositories/UserRepository";
@@ -13,6 +13,7 @@ import { createPageAgentHarness, pageAgentInput } from "../helpers/page-agents";
 import { useMigratedDatabase } from "../helpers/test-database";
 
 import type { AgentConfiguration } from "@/definition/AgentConfiguration";
+import type { AgentParameterValue } from "@/definition/AgentParameters";
 
 describe("PAGE-20 user agents, live model grants and sharing", () => {
   const getDatabase = useMigratedDatabase();
@@ -469,5 +470,207 @@ describe("PAGE-20 visibility of agents, deleted groups and the limits of adminis
     await expect(
       administration.deleteGroup(current.admin.userId, "two"),
     ).rejects.toBeInstanceOf(AgentScopeInUseError);
+  });
+});
+
+describe("PAGE-20 definition validation and the life of a model grant", () => {
+  const getDatabase = useMigratedDatabase();
+  let harness: Awaited<ReturnType<typeof createPageAgentHarness>> | undefined;
+  afterEach(async () => {
+    if (harness)
+      await rm(harness.wiki.filesDirectory, { recursive: true, force: true });
+    harness = undefined;
+  });
+  async function setup() {
+    harness = await createPageAgentHarness(getDatabase());
+    return harness;
+  }
+  function withConfiguration(overrides: Partial<AgentConfiguration>) {
+    const proposed = pageAgentInput();
+    return {
+      ...proposed,
+      configuration: { ...proposed.configuration, ...overrides },
+    };
+  }
+
+  it("answers every malformed or unavailable definition with a stable code", async () => {
+    const current = await setup();
+    const proposed = pageAgentInput();
+    const reference = (
+      value: AgentParameterValue,
+      type: "workspace" | "wiki",
+    ) => ({
+      markdown:
+        type === "wiki" ? "{{reference.markdown}}" : "{{reference.path}}",
+      parameters: [
+        {
+          name: "reference",
+          type,
+          description: "Reference",
+          isRequired: false,
+          defaultValue: value,
+        },
+      ],
+    });
+    const cases: readonly (readonly [unknown, string])[] = [
+      [{ ...proposed, name: "" }, "profile_invalid"],
+      [{ ...proposed, name: "   " }, "profile_invalid"],
+      [{ ...proposed, name: "x".repeat(201) }, "profile_invalid"],
+      [{ ...proposed, name: 5 }, "profile_invalid"],
+      [{ ...proposed, modelProfileId: 5 }, "profile_invalid"],
+      [{ ...proposed, reasoningEffort: 5 }, "profile_invalid"],
+      [
+        withConfiguration({
+          sharing: { isGlobal: false, targets: [], operator: "xor" as never },
+        }),
+        "configuration_invalid",
+      ],
+      [withConfiguration({ projectId: "project" }), "configuration_invalid"],
+      [
+        withConfiguration({
+          sharing: {
+            isGlobal: false,
+            targets: [{ kind: "group", targetId: "missing" }],
+          },
+        }),
+        "profile_target_invalid",
+      ],
+      [
+        withConfiguration({
+          sharing: {
+            isGlobal: false,
+            targets: [{ kind: "department", targetId: "missing" }],
+          },
+        }),
+        "profile_target_invalid",
+      ],
+      [
+        withConfiguration(
+          reference({ type: "workspace", workspaceId: "w" }, "workspace"),
+        ),
+        "parameter_reference_unavailable",
+      ],
+      [
+        withConfiguration(
+          reference({ type: "wiki", pageId: "missing" }, "wiki"),
+        ),
+        "parameter_reference_unavailable",
+      ],
+      [{ ...proposed, name: "password: hunter2hunter2" }, "credentialsInText"],
+    ];
+    for (const [input, code] of cases)
+      await expect(
+        current.service.save(current.bob.id, null, input),
+      ).rejects.toMatchObject({ code });
+    expect((await current.repository.list()).filter((e) => e.ownerId)).toEqual(
+      [],
+    );
+  });
+
+  it("accepts a wiki page the owner can read as a default and keeps its reference", async () => {
+    const current = await setup();
+    const id = await current.service.save(
+      current.bob.id,
+      null,
+      withConfiguration({
+        markdown: "Context: {{reference.markdown}}",
+        parameters: [
+          {
+            name: "reference",
+            type: "wiki",
+            description: "Context",
+            isRequired: false,
+            defaultValue: { type: "wiki", pageId: current.page.id },
+          },
+        ],
+      }),
+    );
+    const saved = (await current.service.page(current.bob.id)).agents[0];
+    expect(saved).toMatchObject({ id });
+    expect(saved.configuration.parameters[0]).toMatchObject({
+      defaultValue: { type: "wiki", pageId: current.page.id },
+    });
+  });
+
+  it("makes an agent unavailable when its model is swapped or withdrawn and never accepts a personal source", async () => {
+    const current = await setup();
+    const id = await current.service.save(
+      current.bob.id,
+      null,
+      pageAgentInput(),
+    );
+    await expect(
+      current.profiles.resolveDefinition(current.bob.id, {
+        agentId: id,
+        personalAgentId: "someone-elses-access",
+        projectId: null,
+      }),
+    ).rejects.toMatchObject({ code: "agent_usage_denied" });
+    const source = (await current.repository.list()).find(
+      (entry) => entry.id === "admin-model",
+    );
+    if (!source) throw new Error("Missing model");
+    // The administrator switches the profile to another model of the connection.
+    await current.repository.save({ ...source, model: "model-b" });
+    const switched = (await current.repository.list()).find(
+      (entry) => entry.id === "admin-model",
+    );
+    if (!switched) throw new Error("Missing model");
+    const [listed] = (await current.service.page(current.bob.id)).agents;
+    expect(listed.availability).toMatchObject({
+      isUsable: false,
+      reason: "agent_usage_denied",
+    });
+    await expect(
+      current.profiles.resolve(current.bob.id, "agent", id),
+    ).rejects.toMatchObject({ code: "agent_usage_denied" });
+    // Withdrawn from use, the profile is no longer offered either.
+    await current.repository.save({ ...switched, isActive: false });
+    expect((await current.service.page(current.bob.id)).models).toEqual([]);
+  });
+
+  it("does not hide an infrastructure failure behind an empty model list", async () => {
+    const current = await setup();
+    vi.spyOn(current.connections, "catalogs").mockImplementation(() => {
+      throw new Error("database offline");
+    });
+    await expect(current.service.page(current.bob.id)).rejects.toThrow(
+      "database offline",
+    );
+  });
+
+  it("holds the definitions of administrators during a run as well and keeps their files afterwards", async () => {
+    const current = await setup();
+    const agentId = await current.profiles.save(current.admin, null, {
+      name: "Administrator agent",
+      connectionId: "connection",
+      model: "model-a",
+      reasoningEffort: "medium",
+      isActive: true,
+      purposes: ["agent"],
+      targets: [],
+      configuration: emptyAgentConfiguration("system"),
+    });
+    const definition = path.join(current.directory, agentId, "AGENT.md");
+    const original = await readFile(definition, "utf8");
+    const saved = (await current.repository.list()).find(
+      (entry) => entry.id === agentId,
+    );
+    if (!saved) throw new Error("Missing agent");
+    const release = await current.files.hold([agentId]);
+    await expect(
+      current.profiles.save(current.admin, agentId, {
+        ...saved,
+        name: "Renamed while running",
+      }),
+    ).rejects.toMatchObject({ code: "profile_running" });
+    await expect(
+      current.profiles.remove(current.admin, agentId),
+    ).rejects.toMatchObject({ code: "profile_running" });
+    expect(await readFile(definition, "utf8")).toBe(original);
+    release();
+    await current.profiles.remove(current.admin, agentId);
+    // The history of a removed agent stays where it was written.
+    expect(await readFile(definition, "utf8")).toBe(original);
   });
 });

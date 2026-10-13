@@ -1,11 +1,21 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { Select } from "@/app/components/ui/select";
 import { AgentProfileTargets } from "@/app/components/settings/agents/agent-profile-targets";
+import { Select } from "@/app/components/ui/select";
 
 import type { AgentConfiguration } from "@/definition/AgentConfiguration";
 import type { AgentProfileDirectory } from "@/definition/AgentProfile";
+
+type SharingScope = "private" | "global" | "restricted";
+type SharingOperator = "and" | "or";
+
+const SCOPES: readonly SharingScope[] = ["private", "global", "restricted"];
+
+function scopeOf(sharing: AgentConfiguration["sharing"]): SharingScope {
+  if (sharing.isGlobal) return "global";
+  return sharing.targets.length > 0 ? "restricted" : "private";
+}
 
 /** Explicit private/global/restricted choices preserve every selected group and department. */
 export function PageAgentSharing(props: {
@@ -17,17 +27,19 @@ export function PageAgentSharing(props: {
   const { t } = useTranslation();
   const { configuration } = props;
   const sharing = configuration.sharing;
-  let scope = sharing.targets.length > 0 ? "restricted" : "private";
-  if (sharing.isGlobal) scope = "global";
-  const [isRestricted, setRestricted] = useState(scope === "restricted");
-  function changeScope(next: string): void {
+  // A restricted share without a target looks like a private one in the data.
+  const [isRestricted, setRestricted] = useState(
+    scopeOf(sharing) === "restricted",
+  );
+  const scope = isRestricted ? "restricted" : scopeOf(sharing);
+  function changeScope(next: SharingScope): void {
     setRestricted(next === "restricted");
     props.onChange({
       ...configuration,
       sharing: {
+        ...sharing,
         isGlobal: next === "global",
         targets: next === "restricted" ? sharing.targets : [],
-        operator: sharing.operator ?? "or",
       },
     });
   }
@@ -35,11 +47,11 @@ export function PageAgentSharing(props: {
     <section className="space-y-4">
       <label className="block space-y-2 text-sm font-medium">
         <span>{t("pageAgents.sharing")}</span>
-        <Select
-          value={isRestricted ? "restricted" : scope}
+        <Select<SharingScope>
+          value={scope}
           disabled={props.disabled}
           onValueChange={changeScope}
-          options={["private", "global", "restricted"].map((option) => ({
+          options={SCOPES.map((option) => ({
             value: option,
             label: t(`pageAgents.${option}`),
           }))}
@@ -49,20 +61,19 @@ export function PageAgentSharing(props: {
         <>
           <label className="block space-y-2 text-sm font-medium">
             <span>{t("pageAgents.operator")}</span>
-            <Select
+            <Select<SharingOperator>
               value={sharing.operator ?? "or"}
               disabled={props.disabled}
               options={[
                 { value: "or", label: t("pageAgents.or") },
                 { value: "and", label: t("pageAgents.and") },
               ]}
-              onValueChange={(operator) => {
-                if (operator === "and" || operator === "or")
-                  props.onChange({
-                    ...configuration,
-                    sharing: { ...sharing, operator },
-                  });
-              }}
+              onValueChange={(operator) =>
+                props.onChange({
+                  ...configuration,
+                  sharing: { ...sharing, operator },
+                })
+              }
             />
           </label>
           <AgentProfileTargets

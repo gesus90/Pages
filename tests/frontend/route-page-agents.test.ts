@@ -11,7 +11,7 @@ vi.mock("@/app/lib/services.server", () => ({
 }));
 
 import { authenticatedUserContext } from "@/app/lib/auth.server";
-import { action, loader } from "@/app/routes/page-agents";
+import { action, headers, loader } from "@/app/routes/page-agents";
 import { loader as archiveLoader } from "@/app/routes/agent-run-record";
 import { AgentError } from "@/backend/error/AgentErrors";
 
@@ -81,6 +81,25 @@ describe("PAGE-20 authenticated management and archive endpoints", () => {
       (await action(args({ intent: "save-agent", agent: "x".repeat(500001) })))
         .status,
     ).toBe(400);
+    services.pageAgentService.save.mockResolvedValue("created");
+    expect(
+      await (await action(args({ intent: "save-agent", agent: "{}" }))).json(),
+    ).toMatchObject({ ok: true, agentId: "created" });
+    expect(services.pageAgentService.save).toHaveBeenLastCalledWith(
+      createUser().id,
+      null,
+      {},
+    );
+    const combined = new Headers(
+      headers({
+        parentHeaders: new Headers({ "X-Frame-Options": "DENY" }),
+        loaderHeaders: new Headers(),
+        actionHeaders: new Headers(),
+        errorHeaders: undefined,
+      }),
+    );
+    expect(combined.get("Cache-Control")).toBe("no-store");
+    expect(combined.get("X-Frame-Options")).toBe("DENY");
     expect((await action(args({ intent: "other" }))).status).toBe(400);
     expect(
       (await action(args({ intent: "save-agent", agent: "{not json" }))).status,

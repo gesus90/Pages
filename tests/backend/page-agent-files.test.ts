@@ -32,6 +32,7 @@ import { renderAgentRunRecord } from "@/backend/service/agents/AgentRunMarkdown"
 import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 import { isPageAgentRunStatus } from "@/definition/PageAgent";
 
+import type { AgentProfileRepository } from "@/backend/database/repositories/agent/AgentProfileRepository";
 import type { AgentProfile } from "@/definition/AgentProfile";
 import type { PageAgentRunRecord } from "@/definition/PageAgent";
 
@@ -308,6 +309,32 @@ describe("PAGE-20 definition files of agents", () => {
     await writeFile(filename, "tampered");
     await files.restore([profile()]);
     expect(await readFile(filename, "utf8")).toBe(original);
+  });
+
+  it("saves through the repository and writes the definition it stored, or reports that it vanished", async () => {
+    const directory = path.join(root, "Agents");
+    const files = new AgentDefinitionFiles(directory);
+    const stored: AgentProfile[] = [];
+    const repository = {
+      save: async (entry: AgentProfile) => {
+        stored.push({ ...entry, revision: 7 });
+      },
+      list: async () => stored,
+    } as unknown as AgentProfileRepository;
+    await files.save(profile(), repository);
+    expect(
+      await readFile(path.join(directory, "agent", "AGENT.md"), "utf8"),
+    ).toContain('"revision": 7');
+    const lost = {
+      save: async () => undefined,
+      list: async () => [],
+    } as unknown as AgentProfileRepository;
+    await expect(
+      files.save(profile({ id: "lost" }), lost),
+    ).rejects.toMatchObject({
+      code: "profile_not_found",
+    });
+    expect(await artifactExists(path.join(directory, "lost"))).toBe(false);
   });
 
   it("reports a folder it cannot write and still repairs the others", async () => {
