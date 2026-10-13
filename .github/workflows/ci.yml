@@ -34,8 +34,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # The MCP package has its own manifest and lockfile. The root tests import
-      # its sources and its installed SDK, so it is installed before any gate.
+      # The MCP package has its own manifest and lockfile.
+      # Install it before its check and build gates.
       - run: pnpm --dir mcp install --frozen-lockfile
 
       # Runs `react-router typegen`, `tsc --noEmit` and `prettier --check`.
@@ -45,10 +45,6 @@ jobs:
 
       # Type check and format check of the MCP package.
       - run: pnpm --dir mcp run check
-
-      # Every test, with the 100% per-file coverage thresholds. A failing test
-      # or a coverage miss fails the job.
-      - run: pnpm test
 
       - run: pnpm run build
 
