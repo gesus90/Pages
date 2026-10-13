@@ -50,8 +50,8 @@
   top: 0;
   background: linear-gradient(
     to bottom,
-    rgb(242 244 247 / 100%) 0%,
-    rgb(242 244 247 / 0%) 100%
+    var(--color-background) 0%,
+    transparent 100%
   );
 }
 
@@ -59,7 +59,7 @@
   bottom: 0;
   background: linear-gradient(
     to top,
-    rgb(242 244 247 / 100%) 0%,
-    rgb(242 244 247 / 0%) 100%
+    var(--color-background) 0%,
+    transparent 100%
   );
 }

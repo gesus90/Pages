@@ -18,16 +18,16 @@ import {
 import type { WorkItemPriority, WorkItemType } from "@/definition/Task";
 
 const TYPE_ICON_STYLES = {
-  [WORK_ITEM_TYPE.INITIATIVE]: { className: "text-[#6d28d9]", icon: Layers },
+  [WORK_ITEM_TYPE.INITIATIVE]: { className: "text-initiative", icon: Layers },
   [WORK_ITEM_TYPE.EPIC]: {
-    className: "fill-current text-[#7e22ce]",
+    className: "fill-current text-epic",
     icon: Bookmark,
   },
   [WORK_ITEM_TYPE.TASK]: {
-    className: "fill-current text-[#1d4ed8]",
+    className: "fill-current text-info",
     icon: Circle,
   },
-  [WORK_ITEM_TYPE.SUBTASK]: { className: "text-[#047857]", icon: CheckCircle2 },
+  [WORK_ITEM_TYPE.SUBTASK]: { className: "text-success", icon: CheckCircle2 },
 } as const satisfies Readonly<
   Record<WorkItemType, { readonly className: string; readonly icon: unknown }>
 >;
@@ -87,7 +87,7 @@ export function TaskTypeBadge({
   if (type === WORK_ITEM_TYPE.INITIATIVE) {
     return (
       <span
-        className={`inline-flex items-center gap-1.5 rounded-md bg-[#ede9fe] px-2 py-0.5 text-xs font-medium text-[#6d28d9] ${className}`}
+        className={`inline-flex items-center gap-1.5 rounded-md bg-initiative-subtle px-2 py-0.5 text-xs font-medium text-initiative ${className}`}
       >
         <Layers className="size-3.5" aria-hidden="true" />
         {t("tasks.type.initiative")}
@@ -98,7 +98,7 @@ export function TaskTypeBadge({
   if (type === WORK_ITEM_TYPE.EPIC) {
     return (
       <span
-        className={`inline-flex items-center gap-1.5 rounded-md bg-[#f3e8ff] px-2 py-0.5 text-xs font-medium text-[#7e22ce] ${className}`}
+        className={`inline-flex items-center gap-1.5 rounded-md bg-epic-subtle px-2 py-0.5 text-xs font-medium text-epic ${className}`}
       >
         <Bookmark className="size-3.5 fill-current" aria-hidden="true" />
         {t("tasks.type.epic")}
@@ -109,7 +109,7 @@ export function TaskTypeBadge({
   if (type === WORK_ITEM_TYPE.SUBTASK) {
     return (
       <span
-        className={`inline-flex items-center gap-1.5 rounded-md bg-[#ecfdf5] px-2 py-0.5 text-xs font-medium text-[#047857] ${className}`}
+        className={`inline-flex items-center gap-1.5 rounded-md bg-success-subtle px-2 py-0.5 text-xs font-medium text-success ${className}`}
       >
         <CheckCircle2 className="size-3.5" aria-hidden="true" />
         {t("tasks.type.subtask")}
@@ -119,7 +119,7 @@ export function TaskTypeBadge({
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-md bg-[#eff6ff] px-2 py-0.5 text-xs font-medium text-[#1d4ed8] ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded-md bg-info-subtle px-2 py-0.5 text-xs font-medium text-info ${className}`}
     >
       <Circle className="size-3 fill-current" aria-hidden="true" />
       {t("tasks.type.task")}
@@ -142,7 +142,7 @@ export function TaskPriorityBadge({
   if (priority === WORK_ITEM_PRIORITY.URGENT) {
     return (
       <span
-        className={`inline-flex items-center gap-1 text-xs font-medium text-rose-600 ${className}`}
+        className={`inline-flex items-center gap-1 text-xs font-medium text-priority-urgent ${className}`}
       >
         <AlertCircle className="size-3.5" aria-hidden="true" />
         {t("tasks.priority.urgent")}
@@ -153,7 +153,7 @@ export function TaskPriorityBadge({
   if (priority === WORK_ITEM_PRIORITY.HIGH) {
     return (
       <span
-        className={`inline-flex items-center gap-1 text-xs font-medium text-[#ea580c] ${className}`}
+        className={`inline-flex items-center gap-1 text-xs font-medium text-priority-high ${className}`}
       >
         <ArrowUp className="size-3.5" aria-hidden="true" />
         {t("tasks.priority.high")}
@@ -164,7 +164,7 @@ export function TaskPriorityBadge({
   if (priority === WORK_ITEM_PRIORITY.LOW) {
     return (
       <span
-        className={`inline-flex items-center gap-1 text-xs font-medium text-[#059669] ${className}`}
+        className={`inline-flex items-center gap-1 text-xs font-medium text-priority-low ${className}`}
       >
         <ArrowDown className="size-3.5" aria-hidden="true" />
         {t("tasks.priority.low")}

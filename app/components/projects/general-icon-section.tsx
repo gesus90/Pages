@@ -49,7 +49,7 @@ export function GeneralIconSection({
           />
         ) : (
           <span
-            className="inline-flex size-16 shrink-0 select-none items-center justify-center rounded-xl text-3xl font-semibold"
+            className="inline-flex size-16 shrink-0 select-none items-center justify-center rounded-xl text-3xl font-semibold text-ink"
             style={{ backgroundColor: project.placeholderColor }}
             aria-hidden="true"
           >

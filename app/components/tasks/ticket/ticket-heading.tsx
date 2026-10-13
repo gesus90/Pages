@@ -91,7 +91,7 @@ export function TicketHeading({
           {ticket.key}
         </span>
         {isArchived ? (
-          <span className="rounded-md bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-700">
+          <span className="rounded-md bg-notice-chip px-2 py-0.5 text-xs font-semibold text-notice">
             {t("tasks.archived.badge")}
           </span>
         ) : null}

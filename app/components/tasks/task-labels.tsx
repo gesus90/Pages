@@ -1,5 +1,7 @@
 import { X } from "lucide-react";
 
+import { createUserColorStyle } from "@/app/lib/user-color-style";
+
 import type { Label } from "@/definition/Task";
 
 interface TaskLabelPillProps {
@@ -14,8 +16,8 @@ export function TaskLabelPill({
 }: TaskLabelPillProps): React.ReactElement {
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium"
-      style={{ backgroundColor: `${label.color}1f`, color: label.color }}
+      className="pages-user-color-text inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium"
+      style={createUserColorStyle(label.color, "1f")}
     >
       {label.name}
       {onRemove ? (

@@ -43,8 +43,8 @@ export function IntegrationCard({
       className={cn(
         "flex w-full cursor-pointer items-start gap-4 rounded-2xl border bg-surface p-5 text-left shadow-xs transition-all outline-none hover:shadow-md focus-visible:ring-2 focus-visible:ring-primary",
         selected
-          ? "border-orange-500 bg-orange-50/60"
-          : "border-border hover:border-orange-300",
+          ? "border-primary bg-primary-subtle"
+          : "border-border hover:border-primary/50",
       )}
       onClick={handleSelect}
       type="button"

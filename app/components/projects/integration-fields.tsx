@@ -22,7 +22,7 @@ export function StatusPill({ connected }: StatusPillProps): React.ReactElement {
       className={cn(
         "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap select-none",
         connected
-          ? "bg-emerald-50 text-emerald-700"
+          ? "bg-success-subtle text-success"
           : "bg-muted text-muted-foreground",
       )}
     >
@@ -30,7 +30,7 @@ export function StatusPill({ connected }: StatusPillProps): React.ReactElement {
         aria-hidden="true"
         className={cn(
           "size-1.5 shrink-0 rounded-full",
-          connected ? "bg-emerald-500" : "bg-muted-foreground/60",
+          connected ? "bg-success-dot" : "bg-muted-foreground/60",
         )}
       />
       {connected

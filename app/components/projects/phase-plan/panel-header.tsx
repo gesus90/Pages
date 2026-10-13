@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { MilestoneMarkerIcon } from "@/app/components/projects/phase-plan/milestone-symbol";
 import { SymbolColorPicker } from "@/app/components/projects/phase-plan/symbol-color-picker";
 import { COLOR_DEFAULT_ICON } from "@/app/lib/phase-plan/plan-milestones";
+import { createUserColorStyle } from "@/app/lib/user-color-style";
 
 import type { PanelDraft } from "@/app/lib/phase-plan/plan-types";
 import type { MilestoneIcon } from "@/definition/Task";
@@ -37,8 +38,8 @@ export function PanelHeader({
       <div className="relative shrink-0">
         <button
           type="button"
-          className="flex size-10 items-center justify-center rounded-xl outline-none transition focus-visible:ring-2 focus-visible:ring-primary"
-          style={{ backgroundColor: `${draftHex}26`, color: draftHex }}
+          className="pages-user-color-text flex size-10 items-center justify-center rounded-xl outline-none transition focus-visible:ring-2 focus-visible:ring-primary"
+          style={createUserColorStyle(draftHex, "26")}
           aria-label={t("projectDetail.planning.phasePlan.symbol")}
           aria-expanded={pickerOpen}
           onClick={onTogglePicker}

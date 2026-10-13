@@ -105,9 +105,10 @@ export function KanbanTicketCard({
           <span className="flex items-center gap-1.5">
             {item.githubIssueNumber !== null ? (
               <span
+                aria-label={t("tasks.github.synchronized")}
                 className="size-2 rounded-full bg-emerald-500"
+                role="img"
                 title={t("tasks.github.synchronized")}
-                aria-hidden="true"
               />
             ) : null}
             <span className="text-[11px] font-semibold tracking-wide text-muted-foreground">

@@ -66,7 +66,7 @@ function TopBar({
           </span>
         )}
         {isArchived ? (
-          <span className="shrink-0 rounded-md bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-700">
+          <span className="shrink-0 rounded-md bg-notice-chip px-2 py-0.5 text-xs font-semibold text-notice">
             {t("tasks.archived.badge")}
           </span>
         ) : null}
@@ -247,7 +247,7 @@ function ArchivedBanner({
   const { canWrite } = useTicketAccess();
 
   return (
-    <div className="mt-4 flex items-center justify-between gap-2 rounded-xl bg-orange-50 px-4 py-2 text-xs">
+    <div className="mt-4 flex items-center justify-between gap-2 rounded-xl bg-notice-subtle px-4 py-2 text-xs">
       <span className="font-semibold text-foreground">
         {t("tasks.archived.banner")}
       </span>

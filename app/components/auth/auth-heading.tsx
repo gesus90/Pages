@@ -17,7 +17,7 @@ export function AuthHeading({
     <>
       {hasLogo ? (
         <img
-          className="mx-auto mb-8 h-auto w-[140px] sm:w-[160px]"
+          className="pages-logo mx-auto mb-8 h-auto w-[140px] sm:w-[160px]"
           src={iconUrl}
           alt="Pages"
           draggable={false}

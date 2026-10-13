@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { MilestoneSearchSelect } from "@/app/components/projects/phase-plan/milestone-search-select";
 import { MilestoneSymbol } from "@/app/components/projects/phase-plan/milestone-symbol";
 import { Button } from "@/app/components/ui/button";
+import { createUserColorStyle } from "@/app/lib/user-color-style";
 import { MILESTONE_ICON } from "@/definition/Task";
 
 import type {
@@ -68,11 +69,8 @@ export function PanelLinksSection({
               className="flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-2 text-xs"
             >
               <span
-                className="flex size-6 shrink-0 items-center justify-center rounded-md"
-                style={{
-                  backgroundColor: `${link.targetHex}26`,
-                  color: link.targetHex,
-                }}
+                className="pages-user-color-text flex size-6 shrink-0 items-center justify-center rounded-md"
+                style={createUserColorStyle(link.targetHex, "26")}
                 aria-hidden="true"
               >
                 <MilestoneSymbol

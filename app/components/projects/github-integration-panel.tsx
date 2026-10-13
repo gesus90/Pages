@@ -75,8 +75,8 @@ function TestResult({
       className={cn(
         "rounded-xl px-4 py-2.5 text-xs font-medium",
         testPassed
-          ? "bg-emerald-50 text-emerald-700"
-          : "bg-red-50 text-destructive",
+          ? "bg-success-subtle text-success"
+          : "bg-destructive-subtle text-destructive",
       )}
       role={testPassed ? "status" : "alert"}
     >

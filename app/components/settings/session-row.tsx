@@ -82,9 +82,9 @@ export function SessionRow({
               {deviceLabel || t("settings.security.sessions.unknownDevice")}
             </span>
             {session.isCurrent ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-success-dot/10 px-2 py-0.5 text-[11px] font-semibold text-success">
                 <span
-                  className="size-1.5 rounded-full bg-emerald-500"
+                  className="size-1.5 rounded-full bg-success-dot"
                   aria-hidden="true"
                 />
                 {t("settings.security.sessions.current")}

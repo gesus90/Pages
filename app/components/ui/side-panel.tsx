@@ -46,7 +46,7 @@ export function SidePanelContent({
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay
-        className={`fixed inset-x-0 top-19 bottom-0 z-30 bg-foreground/15 ${styles.backdrop}`}
+        className={`fixed inset-x-0 top-19 bottom-0 z-30 bg-scrim ${styles.backdrop}`}
       />
       <DialogPrimitive.Content
         ref={content}

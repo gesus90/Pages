@@ -52,21 +52,21 @@
 /* Jede Spalte färbt ihren Fade auf die eigene Pastellfläche ein, damit der
    Übergang unsichtbar in den Spaltenhintergrund läuft. */
 .backlog {
-  --scroll-fade-channels: 238 241 245;
+  --scroll-fade-color: var(--color-column-backlog);
 }
 
 .todo {
-  --scroll-fade-channels: 234 242 253;
+  --scroll-fade-color: var(--color-column-todo);
 }
 
 .progress {
-  --scroll-fade-channels: 253 241 231;
+  --scroll-fade-color: var(--color-column-progress);
 }
 
 .review {
-  --scroll-fade-channels: 241 236 251;
+  --scroll-fade-color: var(--color-column-review);
 }
 
 .done {
-  --scroll-fade-channels: 231 245 238;
+  --scroll-fade-color: var(--color-column-done);
 }

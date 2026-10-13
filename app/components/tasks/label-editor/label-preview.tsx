@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 
 import { getLabelTextColor } from "@/app/components/tasks/label-color";
+import { createUserColorStyle } from "@/app/lib/user-color-style";
 
 interface LabelPreviewProps {
   readonly name: string;
@@ -26,11 +27,8 @@ export function LabelPreview({
         {t("tasks.labels.preview")}
       </span>
       <span
-        className="inline-flex max-w-full items-center gap-1 truncate rounded-md px-2 py-0.5 text-xs font-medium"
-        style={{
-          backgroundColor: `${color}26`,
-          color: getLabelTextColor(color),
-        }}
+        className="pages-user-color-text inline-flex max-w-full items-center gap-1 truncate rounded-md px-2 py-0.5 text-xs font-medium"
+        style={createUserColorStyle(color, "26", getLabelTextColor(color))}
       >
         <span className="min-w-0 truncate">{previewName}</span>
       </span>

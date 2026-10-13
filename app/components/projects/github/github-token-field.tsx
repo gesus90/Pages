@@ -83,7 +83,7 @@ function StoredTokenNotice({
         type="password"
         value="•••••••••••••••"
       />
-      <p className="text-xs font-semibold text-emerald-700">
+      <p className="text-xs font-semibold text-success">
         {t("projectDetail.integrations.tokenSet")}
       </p>
       <button

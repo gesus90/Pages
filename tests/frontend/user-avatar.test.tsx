@@ -54,21 +54,25 @@ describe("UserAvatar placeholder color", () => {
     // "a" has the code point 97, which selects palette entry 97 % 5 = 2.
     const avatar = renderAvatar({ user: { id: " a ", username: "other" } });
 
-    expect(avatar.className).toContain("bg-[#fdf4ee] text-[#c2600f]");
+    expect(avatar.className).toContain(
+      "bg-avatar-peach text-avatar-peach-foreground",
+    );
   });
 
   it("falls back to the username and then to the resolved name", () => {
     // "b" is code point 98 (entry 3); "c" is code point 99 (entry 4).
     expect(renderAvatar({ user: { username: "b" } }).className).toContain(
-      "bg-[#eef2ee] text-[#3f5a46]",
+      "bg-avatar-sage text-avatar-sage-foreground",
     );
     expect(renderAvatar({ name: "c" }).className).toContain(
-      "bg-[#f1eef4] text-[#5a3f6a]",
+      "bg-avatar-lilac text-avatar-lilac-foreground",
     );
   });
 
   it("keeps the first palette entry for an empty seed", () => {
-    expect(renderAvatar({}).className).toContain("bg-[#f4f1ee] text-[#8a5a34]");
+    expect(renderAvatar({}).className).toContain(
+      "bg-avatar-sand text-avatar-sand-foreground",
+    );
   });
 });
 
@@ -177,17 +181,21 @@ describe("UserAvatar images", () => {
 });
 
 describe("UserAvatar presentation", () => {
-  it("applies the configured color, trimmed", () => {
+  it("hands the configured color, trimmed, to the stylesheet", () => {
     const avatar = renderAvatar({ avatarColor: " #ff0000 ", name: "Anna" });
 
-    expect(avatar.style.color).toBe("rgb(255, 0, 0)");
+    expect(avatar.style.getPropertyValue("--chip-color")).toBe("#ff0000");
+    expect(avatar).toHaveClass("pages-user-color-text");
   });
 
-  it("applies no inline color for blank or missing colors", () => {
-    expect(renderAvatar({ avatarColor: "  ", name: "Anna" }).style.color).toBe(
-      "",
-    );
-    expect(renderAvatar({ name: "Anna" }).style.color).toBe("");
+  it("applies no color for blank or missing colors", () => {
+    for (const avatar of [
+      renderAvatar({ avatarColor: "  ", name: "Anna" }),
+      renderAvatar({ name: "Anna" }),
+    ]) {
+      expect(avatar.style.getPropertyValue("--chip-color")).toBe("");
+      expect(avatar).not.toHaveClass("pages-user-color-text");
+    }
   });
 
   it("is hidden from assistive technology without a label", () => {

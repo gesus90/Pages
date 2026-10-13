@@ -26,7 +26,7 @@ interface VerticalScrollAreaProps {
  * harten Kante. Die Fades erscheinen nur, wenn in der jeweiligen Richtung
  * wirklich weiterer Inhalt existiert, und sind klickdurchlässig, damit
  * darunterliegende Bedienelemente erreichbar bleiben. Die Verlaufsfarbe folgt
- * `--scroll-fade-channels`, das der aufrufende Container auf seinen eigenen
+ * `--scroll-fade-color`, das der aufrufende Container auf seinen eigenen
  * Hintergrund setzen kann.
  */
 export function VerticalScrollArea({

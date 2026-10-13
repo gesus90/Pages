@@ -13,7 +13,7 @@ import { usePanelSave } from "@/app/components/projects/phase-plan/use-panel-sav
 import { VerticalScrollArea } from "@/app/components/ui/vertical-scroll-area";
 import { TYPE_COLORS } from "@/app/lib/phase-plan/plan-colors";
 import { panelMilestoneIdFor } from "@/app/lib/phase-plan/plan-milestones";
-import { WHITE_SCROLL_FADE_STYLE } from "@/app/lib/scroll-fade-style";
+import { SURFACE_SCROLL_FADE_STYLE } from "@/app/lib/scroll-fade-style";
 import { normalizeHexColorCode } from "@/definition/Task";
 
 import type {
@@ -56,7 +56,7 @@ interface MilestonePanelProps {
 }
 
 const PANEL_STYLE: CSSProperties = {
-  ...WHITE_SCROLL_FADE_STYLE,
+  ...SURFACE_SCROLL_FADE_STYLE,
   bottom: 16,
   right: 20,
   top: "6rem",

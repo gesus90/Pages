@@ -23,7 +23,7 @@ export function SheetContent({
 }: SheetContentProps): React.ReactElement {
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-black/20 data-[state=closed]:animate-out data-[state=open]:animate-in" />
+      <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-scrim-drawer data-[state=closed]:animate-out data-[state=open]:animate-in" />
       <DialogPrimitive.Content
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex w-[min(19rem,86vw)] flex-col bg-surface p-5 shadow-panel outline-none",

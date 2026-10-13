@@ -32,7 +32,7 @@ export function DialogContent({
 }: DialogContentProps): React.ReactElement {
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-foreground/15 data-[state=closed]:animate-out data-[state=open]:animate-in" />
+      <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-scrim data-[state=closed]:animate-out data-[state=open]:animate-in" />
       <DialogPrimitive.Content
         className={cn(
           "fixed top-1/2 left-1/2 z-50 max-h-[90dvh] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-surface p-6 shadow-panel outline-none",

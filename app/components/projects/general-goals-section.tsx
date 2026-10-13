@@ -30,7 +30,7 @@ function GoalRow({ goal, canWrite }: GoalRowProps): React.ReactElement {
             className={cn(
               "flex size-5 items-center justify-center rounded-full border-2 transition-colors",
               goal.isDone
-                ? "border-primary bg-primary text-white"
+                ? "border-primary bg-primary text-primary-foreground"
                 : "border-muted-foreground/40 text-transparent hover:border-primary",
             )}
           >
@@ -45,7 +45,7 @@ function GoalRow({ goal, canWrite }: GoalRowProps): React.ReactElement {
           className={cn(
             "flex size-5 shrink-0 items-center justify-center rounded-full border-2",
             goal.isDone
-              ? "border-primary bg-primary text-white"
+              ? "border-primary bg-primary text-primary-foreground"
               : "border-muted-foreground/40",
           )}
         />

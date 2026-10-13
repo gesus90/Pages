@@ -6,6 +6,7 @@ import {
   getUserAvatarVisual,
   resolveUserAvatar,
 } from "@/app/lib/user-avatar-display";
+import { createUserTextColorStyle } from "@/app/lib/user-color-style";
 
 import type {
   UserAvatarIconKey,
@@ -119,9 +120,14 @@ export function UserAvatar({
         visual.kind === "initials"
           ? avatar.placeholderColorClasses
           : "bg-muted text-muted-foreground",
+        avatar.customColor !== null && "pages-user-color-text",
         className,
       )}
-      style={avatar.customColor ? { color: avatar.customColor } : undefined}
+      style={
+        avatar.customColor === null
+          ? undefined
+          : createUserTextColorStyle(avatar.customColor)
+      }
       aria-hidden={ariaLabel ? undefined : true}
       aria-label={ariaLabel}
       role={ariaLabel ? "img" : undefined}

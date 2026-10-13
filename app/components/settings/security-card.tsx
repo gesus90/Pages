@@ -5,7 +5,7 @@ import { SessionRow } from "@/app/components/settings/session-row";
 import { SettingsCard } from "@/app/components/settings/settings-layout";
 import { Button } from "@/app/components/ui/button";
 import { VerticalScrollArea } from "@/app/components/ui/vertical-scroll-area";
-import { WHITE_SCROLL_FADE_STYLE } from "@/app/lib/scroll-fade-style";
+import { SURFACE_SCROLL_FADE_STYLE } from "@/app/lib/scroll-fade-style";
 
 import type { SessionSummary } from "@/definition/Session";
 
@@ -79,7 +79,7 @@ export function SecurityCard({
           <VerticalScrollArea
             className="mt-3 max-h-80"
             contentClassName="space-y-2 pr-1.5"
-            style={WHITE_SCROLL_FADE_STYLE}
+            style={SURFACE_SCROLL_FADE_STYLE}
           >
             {sessions.map((session) => (
               <SessionRow

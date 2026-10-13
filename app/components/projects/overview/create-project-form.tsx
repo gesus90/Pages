@@ -39,7 +39,7 @@ export function CreateProjectForm({
       <input name="status" type="hidden" value={selectedStatus} />
       <input name="templateId" type="hidden" value={selectedTemplateId} />
       <VerticalScrollArea
-        className="max-h-[60dvh] [--scroll-fade-channels:var(--surface-channels)]"
+        className="max-h-[60dvh] [--scroll-fade-color:var(--color-surface)]"
         contentClassName="flex flex-col gap-4 px-1 pt-1 pb-10"
       >
         <ProjectFields state={state} templates={templates} />

@@ -67,7 +67,7 @@ export function TeamMemberRow({
               {member.displayName}
             </span>
             {member.isActive === false ? (
-              <span className="shrink-0 rounded-full bg-slate-500/10 px-2 py-0.5 text-[11px] font-medium whitespace-nowrap text-slate-500">
+              <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium whitespace-nowrap text-muted-foreground">
                 {t("projectDetail.team.invited")}
               </span>
             ) : null}

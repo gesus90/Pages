@@ -21,17 +21,14 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 1rem;
-  box-shadow:
-    -24px 32px 80px -24px rgb(23 23 23 / 28%),
-    -8px 12px 32px -8px rgb(23 23 23 / 12%),
-    0 8px 28px rgb(23 23 23 / 8%);
+  box-shadow: var(--shadow-overlay);
 
   animation: panelIn 220ms ease-out both;
   transform-origin: top right;
 }
 
 .body {
-  --scroll-fade-channels: 255 255 255;
+  --scroll-fade-color: var(--color-surface);
 }
 
 @keyframes overlayIn {

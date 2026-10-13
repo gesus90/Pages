@@ -31,7 +31,7 @@ export function ServiceIcon({ id }: ServiceIconProps): React.ReactElement {
     return (
       <span
         aria-hidden="true"
-        className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-[#171717] text-white"
+        className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-[#171717] text-white ring-1 ring-tile-edge"
       >
         <GitBranch className="size-7" />
       </span>

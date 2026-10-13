@@ -11,7 +11,7 @@ function getInitial(name: string): string {
 function ProjectPlaceholder({ project }: ProjectIconProps): React.ReactElement {
   return (
     <span
-      className="inline-flex size-12 shrink-0 select-none items-center justify-center rounded-xl text-2xl font-semibold text-foreground"
+      className="inline-flex size-12 shrink-0 select-none items-center justify-center rounded-xl text-2xl font-semibold text-ink"
       style={{ backgroundColor: project.placeholderColor }}
       aria-hidden="true"
     >

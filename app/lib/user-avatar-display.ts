@@ -10,11 +10,11 @@ import type { UserAvatarType } from "@/definition/User";
  * color used for interactive elements.
  */
 const AVATAR_PALETTE: readonly string[] = [
-  "bg-[#f4f1ee] text-[#8a5a34]",
-  "bg-[#eef0f4] text-[#3f4657]",
-  "bg-[#fdf4ee] text-[#c2600f]",
-  "bg-[#eef2ee] text-[#3f5a46]",
-  "bg-[#f1eef4] text-[#5a3f6a]",
+  "bg-avatar-sand text-avatar-sand-foreground",
+  "bg-avatar-slate text-avatar-slate-foreground",
+  "bg-avatar-peach text-avatar-peach-foreground",
+  "bg-avatar-sage text-avatar-sage-foreground",
+  "bg-avatar-lilac text-avatar-lilac-foreground",
 ];
 
 /** The icons a user avatar may show. */

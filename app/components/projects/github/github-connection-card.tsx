@@ -73,7 +73,7 @@ export function GitHubConnectionCard({
           aria-hidden="true"
           className={cn(
             "size-2 rounded-full",
-            integration.isConnected ? "bg-emerald-500" : "bg-muted-foreground",
+            integration.isConnected ? "bg-success-dot" : "bg-muted-foreground",
           )}
         />
         {integration.isConnected

@@ -18,7 +18,7 @@ export function TicketArchivedBanner({
   const { canWrite } = useTicketAccess();
 
   return (
-    <div className="mt-4 flex items-center justify-between gap-2 rounded-xl bg-orange-50 p-3 text-xs">
+    <div className="mt-4 flex items-center justify-between gap-2 rounded-xl bg-notice-subtle p-3 text-xs">
       <span className="font-semibold text-foreground">
         {t("tasks.archived.banner")}
       </span>

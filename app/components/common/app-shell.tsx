@@ -261,7 +261,7 @@ function MobileNavigation({
         <div className="mb-8 flex items-center justify-between">
           <SheetTitle className="sr-only">{t("navigation.label")}</SheetTitle>
           <img
-            className="pointer-events-none w-38"
+            className="pages-logo pointer-events-none w-38"
             src={iconUrl}
             alt="Pages"
             draggable={false}
@@ -302,7 +302,7 @@ export function AppShell({
     <div className="min-h-screen bg-background text-foreground">
       <aside className="fixed inset-y-0 left-0 hidden w-[18.25rem] flex-col bg-background px-5 pt-7 pb-13 md:flex xl:w-56 xl:px-4 xl:pt-5 xl:pb-6">
         <img
-          className="pointer-events-none w-57 xl:w-32"
+          className="pages-logo pointer-events-none w-57 xl:w-32"
           src={iconUrl}
           alt="Pages"
           draggable={false}
@@ -331,7 +331,7 @@ export function AppShell({
           />
         </div>
         <img
-          className="pointer-events-none w-26 md:hidden"
+          className="pages-logo pointer-events-none w-26 md:hidden"
           src={iconUrl}
           alt="Pages"
           draggable={false}

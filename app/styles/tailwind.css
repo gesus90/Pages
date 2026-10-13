@@ -1,6 +1,24 @@
 @import "tailwindcss";
 
-@theme {
+/* Dark theme (PAGE-29). `data-theme` on the document root is `light`, `dark`
+   or `system`; the server renders it, so no script is needed to choose a
+   palette. An explicit `dark` always applies, `system` only while the
+   operating system prefers dark, and `light` never. */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    &:where([data-theme="system"], [data-theme="system"] *) {
+      @slot;
+    }
+  }
+}
+
+/* `static` emits every token, so CSS modules and scripts can rely on them even
+   when no utility class names them. */
+@theme static {
   --font-sans:
     "Inter Variable", Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
@@ -20,13 +38,57 @@
   --color-primary-subtle: #fdf4ee;
   --color-primary-foreground: #ffffff;
   --color-destructive: #c5322b;
+  --color-destructive-subtle: #fef2f2;
   --color-success: #047857;
   --color-success-dot: #10b981;
   --color-success-subtle: #ecfdf5;
   --color-info: #1d4ed8;
+  --color-info-subtle: #eff6ff;
   --color-warning-subtle: #fffbeb;
   --color-warning: #b45309;
   --color-ring: #f97316;
+
+  /* Notice of a ticket archived: the strong tone for text, two tints. */
+  --color-notice: oklch(55.3% 0.195 38.402);
+  --color-notice-subtle: #fff7ed;
+  --color-notice-chip: oklch(95.4% 0.038 75.164);
+
+  /* Ticket types and priorities. */
+  --color-initiative: #6d28d9;
+  --color-initiative-subtle: #ede9fe;
+  --color-epic: #7e22ce;
+  --color-epic-subtle: #f3e8ff;
+  --color-priority-urgent: oklch(58.6% 0.253 17.585);
+  --color-priority-high: #ea580c;
+  --color-priority-low: #059669;
+
+  /* Dimming layers behind modal surfaces. */
+  --color-scrim: rgb(23 23 23 / 15%);
+  --color-scrim-panel: rgb(23 23 23 / 13%);
+  --color-scrim-drawer: rgb(0 0 0 / 20%);
+
+  /* Work surface of the ticket panel, one step below the section cards. */
+  --color-panel-body: #f7f8fa;
+
+  /* Edge of a tile in a third-party brand color that is as dark as the dark
+     surface it sits on. Invisible in the light theme. */
+  --color-tile-edge: transparent;
+
+  /* Text on a color a user or the system picked (project placeholder,
+     milestone marker): it stays dark, whatever the theme is. */
+  --color-ink: #171717;
+
+  /* Placeholder avatars: a muted tint with its text color, by name hash. */
+  --color-avatar-sand: #f4f1ee;
+  --color-avatar-sand-foreground: #8a5a34;
+  --color-avatar-slate: #eef0f4;
+  --color-avatar-slate-foreground: #3f4657;
+  --color-avatar-peach: #fdf4ee;
+  --color-avatar-peach-foreground: #c2600f;
+  --color-avatar-sage: #eef2ee;
+  --color-avatar-sage-foreground: #3f5a46;
+  --color-avatar-lilac: #f1eef4;
+  --color-avatar-lilac-foreground: #5a3f6a;
 
   /* Auth-Bereich (Login, Setup-Wizard), DESIGN.md §14.1 */
   --color-auth-glow-warm: #ffe8d6;
@@ -48,44 +110,149 @@
   --radius-xl: 1rem;
   --radius-2xl: 1.25rem;
   --radius-3xl: 1.5rem;
-  --shadow-xs: 0 1px 2px rgb(23 23 23 / 5%);
 
+  /* Shadows: Tailwind copies these values into the utilities, so the ink and
+     the strength are variables the dark theme can change. The edge of
+     `shadow-xs`, `shadow-panel` and `shadow-floating` is invisible in the
+     light theme; on a dark surface it keeps fields, popups and small raised
+     controls apart from the card they sit on. */
+  --shadow-xs:
+    0 1px 2px rgb(var(--shadow-ink) / calc(5% * var(--shadow-strength))),
+    0 0 0 1px rgb(var(--shadow-edge) / var(--shadow-edge-alpha));
   --shadow-card:
-    0 1px 2px rgb(23 23 23 / 3%), 0 12px 32px -8px rgb(23 23 23 / 8%);
+    0 1px 2px rgb(var(--shadow-ink) / calc(3% * var(--shadow-strength))),
+    0 12px 32px -8px rgb(var(--shadow-ink) / calc(8% * var(--shadow-strength)));
   --shadow-floating:
-    0 4px 12px rgb(23 23 23 / 6%), 0 16px 40px rgb(23 23 23 / 10%);
-  --shadow-panel: 0 8px 28px rgb(23 23 23 / 10%), 0 2px 8px rgb(23 23 23 / 6%);
-  --shadow-column: 0 1px 2px rgb(23 23 23 / 3%), 0 8px 24px rgb(23 23 23 / 4%);
+    0 4px 12px rgb(var(--shadow-ink) / calc(6% * var(--shadow-strength))),
+    0 16px 40px rgb(var(--shadow-ink) / calc(10% * var(--shadow-strength))),
+    0 0 0 1px rgb(var(--shadow-edge) / var(--shadow-edge-alpha));
+  --shadow-panel:
+    0 8px 28px rgb(var(--shadow-ink) / calc(10% * var(--shadow-strength))),
+    0 2px 8px rgb(var(--shadow-ink) / calc(6% * var(--shadow-strength))),
+    0 0 0 1px rgb(var(--shadow-edge) / var(--shadow-edge-alpha));
+  --shadow-column:
+    0 1px 2px rgb(var(--shadow-ink) / calc(3% * var(--shadow-strength))),
+    0 8px 24px rgb(var(--shadow-ink) / calc(4% * var(--shadow-strength)));
+  --shadow-overlay:
+    -24px 32px 80px -24px
+      rgb(var(--shadow-ink) / calc(28% * var(--shadow-strength))),
+    -8px 12px 32px -8px
+      rgb(var(--shadow-ink) / calc(12% * var(--shadow-strength))),
+    0 8px 28px rgb(var(--shadow-ink) / calc(8% * var(--shadow-strength)));
   --shadow-auth-button: 0 10px 24px -8px rgb(249 115 22 / 45%);
 }
 
+/* The plain names are aliases of the color tokens above, so a palette is only
+   ever defined once. The dark palette overrides the same token names. */
 :root {
-  --background: #f2f4f7;
-  --surface: #ffffff;
-  --surface-hover: #f6f7f9;
-  --card: #ffffff;
-  --sidebar: #f2f4f7;
-  --sidebar-hover: #e8ebf0;
-  --muted: #eef0f4;
-  --foreground: #171717;
-  --muted-foreground: #6d7482;
-  --border: #e9ebf0;
-  --primary: #f97316;
-  --primary-hover: #ea580c;
-  --primary-subtle: #fdf4ee;
-  --primary-foreground: #ffffff;
-  --destructive: #c5322b;
-  --background-channels: 242 244 247;
-  --surface-channels: 255 255 255;
-  --panel-body-channels: 247 248 250;
+  color-scheme: light;
+
+  --background: var(--color-background);
+  --surface: var(--color-surface);
+  --surface-hover: var(--color-surface-hover);
+  --card: var(--color-card);
+  --sidebar: var(--color-sidebar);
+  --sidebar-hover: var(--color-sidebar-hover);
+  --muted: var(--color-muted);
+  --foreground: var(--color-foreground);
+  --muted-foreground: var(--color-muted-foreground);
+  --border: var(--color-border);
+  --primary: var(--color-primary);
+  --primary-hover: var(--color-primary-hover);
+  --primary-subtle: var(--color-primary-subtle);
+  --primary-foreground: var(--color-primary-foreground);
+  --destructive: var(--color-destructive);
 
   /* Standardfarbe aller Scroll-Fades; einzelne Container überschreiben sie. */
-  --scroll-fade-channels: var(--background-channels);
+  --scroll-fade-color: var(--color-background);
   --scrollbar-thumb: #d5dae2;
   --scrollbar-thumb-hover: #c2c9d4;
+  --shadow-ink: 23 23 23;
+  --shadow-strength: 1;
+  --shadow-edge: 255 255 255;
+  --shadow-edge-alpha: 0%;
   --space-small: 0.5rem;
   --space-medium: 1rem;
   --space-large: 1.5rem;
+
+  @variant dark {
+    color-scheme: dark;
+
+    --color-background: #0f1217;
+    --color-surface: #171b22;
+    --color-surface-hover: #1e232b;
+    --color-card: #171b22;
+    --color-sidebar: #0f1217;
+    --color-sidebar-hover: #1d222a;
+    --color-muted: #232831;
+    --color-foreground: #e9ebef;
+    --color-muted-foreground: #9aa3b2;
+    --color-border: #2a303a;
+    --color-primary: #f97316;
+    --color-primary-hover: #fb8a3c;
+    --color-primary-subtle: #2a1b11;
+    --color-primary-foreground: #1a0f05;
+    --color-destructive: #f87171;
+    --color-destructive-subtle: #2d1618;
+    --color-success: #34d399;
+    --color-success-dot: #10b981;
+    --color-success-subtle: #0f2a20;
+    --color-info: #60a5fa;
+    --color-info-subtle: #12233d;
+    --color-warning-subtle: #2b220c;
+    --color-warning: #fbbf24;
+    --color-ring: #fb923c;
+
+    --color-notice: #fdba74;
+    --color-notice-subtle: #2a1d12;
+    --color-notice-chip: #3a2616;
+
+    --color-initiative: #a78bfa;
+    --color-initiative-subtle: #1f1a36;
+    --color-epic: #c084fc;
+    --color-epic-subtle: #27183a;
+    --color-priority-urgent: #fb7185;
+    --color-priority-high: #fb923c;
+    --color-priority-low: #34d399;
+
+    --color-scrim: rgb(0 0 0 / 55%);
+    --color-scrim-panel: rgb(0 0 0 / 50%);
+    --color-scrim-drawer: rgb(0 0 0 / 60%);
+
+    --color-panel-body: #12161c;
+    --color-tile-edge: rgb(255 255 255 / 12%);
+    --color-ink: #171717;
+
+    --color-avatar-sand: #2b2520;
+    --color-avatar-sand-foreground: #dcb590;
+    --color-avatar-slate: #252b35;
+    --color-avatar-slate-foreground: #b8c0d0;
+    --color-avatar-peach: #33210f;
+    --color-avatar-peach-foreground: #f5a86a;
+    --color-avatar-sage: #1f2b23;
+    --color-avatar-sage-foreground: #a5c9ae;
+    --color-avatar-lilac: #2a2233;
+    --color-avatar-lilac-foreground: #cfb6e2;
+
+    --color-auth-glow-warm: #3a2312;
+    --color-auth-glow-cool: #16233f;
+    --color-auth-button-from: #ffa25e;
+    --color-field: #12161c;
+    --color-field-border: #2b323d;
+    --color-field-border-hover: #3b4452;
+
+    --color-column-backlog: #141920;
+    --color-column-todo: #121a27;
+    --color-column-progress: #1b1712;
+    --color-column-review: #181a26;
+    --color-column-done: #111d19;
+
+    --scrollbar-thumb: #3a4250;
+    --scrollbar-thumb-hover: #4b5565;
+    --shadow-ink: 0 0 0;
+    --shadow-strength: 4;
+    --shadow-edge-alpha: 10%;
+  }
 }
 
 @layer base {
@@ -255,42 +422,62 @@
   }
 
   /* Scrollbarer Inhalt darf nie hart abgeschnitten enden. Jeder Container
-     setzt --scroll-fade-channels auf seine eigene Hintergrundfarbe, damit
+     setzt --scroll-fade-color auf seine eigene Hintergrundfarbe, damit
      der Verlauf farblich exakt in die Fläche darunter übergeht. */
   .pages-scroll-fade-start {
     background: linear-gradient(
       to right,
-      rgb(var(--scroll-fade-channels) / 100%) 0%,
-      rgb(var(--scroll-fade-channels) / 72%) 42%,
-      rgb(var(--scroll-fade-channels) / 0%) 100%
+      var(--scroll-fade-color) 0%,
+      color-mix(in srgb, var(--scroll-fade-color) 72%, transparent) 42%,
+      transparent 100%
     );
   }
 
   .pages-scroll-fade-end {
     background: linear-gradient(
       to left,
-      rgb(var(--scroll-fade-channels) / 100%) 0%,
-      rgb(var(--scroll-fade-channels) / 72%) 42%,
-      rgb(var(--scroll-fade-channels) / 0%) 100%
+      var(--scroll-fade-color) 0%,
+      color-mix(in srgb, var(--scroll-fade-color) 72%, transparent) 42%,
+      transparent 100%
     );
   }
 
   .pages-scroll-fade-top {
     background: linear-gradient(
       to bottom,
-      rgb(var(--scroll-fade-channels) / 100%) 0%,
-      rgb(var(--scroll-fade-channels) / 72%) 42%,
-      rgb(var(--scroll-fade-channels) / 0%) 100%
+      var(--scroll-fade-color) 0%,
+      color-mix(in srgb, var(--scroll-fade-color) 72%, transparent) 42%,
+      transparent 100%
     );
   }
 
   .pages-scroll-fade-bottom {
     background: linear-gradient(
       to top,
-      rgb(var(--scroll-fade-channels) / 100%) 0%,
-      rgb(var(--scroll-fade-channels) / 72%) 42%,
-      rgb(var(--scroll-fade-channels) / 0%) 100%
+      var(--scroll-fade-color) 0%,
+      color-mix(in srgb, var(--scroll-fade-color) 72%, transparent) 42%,
+      transparent 100%
     );
+  }
+
+  /* Die Wortmarke ist dunkel auf transparent. Im dunklen Thema wird sie weiß,
+     der orange Akzent bleibt orange; das Bild selbst bleibt unverändert. */
+  .pages-logo {
+    @variant dark {
+      filter: invert(1) hue-rotate(203deg) saturate(3.1) brightness(1.06);
+    }
+  }
+
+  /* Text in einer vom Nutzer gewählten Farbe (Label, Meilenstein). Die Farbe
+     behält ihren Farbton; im dunklen Thema wird nur ihre Helligkeit auf ein
+     Maß angehoben, bei dem sie auf dunklem Grund lesbar bleibt. --chip-text
+     ist optional und ersetzt die Farbe im hellen Thema. */
+  .pages-user-color-text {
+    color: var(--chip-text, var(--chip-color));
+
+    @variant dark {
+      color: oklch(from var(--chip-color) max(l, 0.78) c h);
+    }
   }
 }
 

@@ -63,7 +63,7 @@ export function DeactivateDialog({
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="bg-destructive text-white hover:bg-destructive/90"
+              className="bg-destructive text-primary-foreground hover:bg-destructive/90"
             >
               {isSubmitting
                 ? t("users.deactivate.deactivating")

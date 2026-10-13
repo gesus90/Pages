@@ -51,7 +51,7 @@ export function ProjectDepartmentChoices({
         <input key={id} type="hidden" name="departmentIds" value={id} />
       ))}
       <VerticalScrollArea
-        className="max-h-48 [--scroll-fade-channels:var(--surface-channels)]"
+        className="max-h-48 [--scroll-fade-color:var(--color-surface)]"
         contentClassName="flex flex-col gap-2 px-1 pt-1 pb-10"
       >
         {available.map((department) => {

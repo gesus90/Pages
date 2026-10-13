@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 import { VerticalScrollArea } from "@/app/components/ui/vertical-scroll-area";
-import { WHITE_SCROLL_FADE_STYLE } from "@/app/lib/scroll-fade-style";
+import { SURFACE_SCROLL_FADE_STYLE } from "@/app/lib/scroll-fade-style";
 
 import styles from "./project-integrations-tab.module.css";
 
@@ -84,7 +84,7 @@ export function PanelShell({
 
         <div
           className="flex min-h-0 flex-1 flex-col"
-          style={WHITE_SCROLL_FADE_STYLE}
+          style={SURFACE_SCROLL_FADE_STYLE}
         >
           <VerticalScrollArea
             className="min-h-0 flex-1"

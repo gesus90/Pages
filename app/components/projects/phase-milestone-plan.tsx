@@ -18,7 +18,7 @@ import {
 } from "@/app/lib/phase-plan/plan-milestones";
 import { splitDated } from "@/app/lib/phase-plan/plan-optimistic";
 import { BUFFER_MS } from "@/app/lib/phase-plan/plan-window";
-import { WHITE_SCROLL_FADE_STYLE } from "@/app/lib/scroll-fade-style";
+import { SURFACE_SCROLL_FADE_STYLE } from "@/app/lib/scroll-fade-style";
 
 import type { Milestone, MilestoneDependency } from "@/definition/Task";
 
@@ -91,7 +91,7 @@ export function PhaseMilestonePlan({
       ) : (
         <div
           className="mt-4 overflow-hidden rounded-xl border border-border/60 bg-surface shadow-xs"
-          style={WHITE_SCROLL_FADE_STYLE}
+          style={SURFACE_SCROLL_FADE_STYLE}
         >
           <div className="flex">
             <PlanLaneLabels lanes={lanes} onShift={viewport.shift} />
