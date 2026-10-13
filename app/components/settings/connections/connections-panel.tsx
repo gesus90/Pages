@@ -5,7 +5,6 @@ import { useTranslation } from "react-i18next";
 import { SettingsSectionHeader } from "@/app/components/settings/settings-layout";
 import { useManagementPending } from "@/app/components/users/use-management-pending";
 import { ConnectionConfirmation } from "./connection-confirmation";
-import { OAuthConnectionsCard } from "./oauth-connections-card";
 import { PairingGuide } from "./pairing-guide";
 import { StdioConnectionsCard } from "./stdio-connections-card";
 import { useConnectionsActions } from "./use-connections-actions";
@@ -20,7 +19,7 @@ export function ConnectionsPanel({
 }): React.ReactElement {
   const { t } = useTranslation();
   const [guideOpen, setGuideOpen] = useState(false);
-  const actions = useConnectionsActions(view);
+  const actions = useConnectionsActions();
   const loading = useManagementPending();
   return (
     <div className="w-full max-w-6xl">
@@ -45,12 +44,6 @@ export function ConnectionsPanel({
             onAction={actions.choose}
             onValidity={actions.validity}
             endedRef={actions.endedRef}
-          />
-          <OAuthConnectionsCard
-            oauth={view.oauth}
-            pending={actions.pending}
-            onAction={actions.choose}
-            onDuration={actions.duration}
           />
         </div>
       )}

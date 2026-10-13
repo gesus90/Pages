@@ -989,32 +989,6 @@
         "copied": "Befehl kopiert.",
         "copyError": "Kopieren nicht möglich. Markieren Sie den Befehl und kopieren Sie ihn manuell."
       },
-      "oauth": {
-        "title": "HTTP-MCP-Freigaben",
-        "description": "Freigaben für MCP-Clients, die über HTTP und OAuth verbunden sind.",
-        "duration": "Erneut bestätigen nach",
-        "durationHint": "Gilt auch für bestehende Freigaben. Verkürzen kann aktive Freigaben sofort beenden; abgelaufene oder widerrufene Freigaben werden nicht wieder aktiv.",
-        "empty": "Keine HTTP-MCP-Freigaben.",
-        "shorten": {
-          "title": "Dauer verkürzen?",
-          "description": "{{count}} aktive Freigaben enden dadurch sofort. Die Clients müssen sich neu anmelden.",
-          "confirm": "Verkürzen"
-        },
-        "revoke": {
-          "title": "Freigabe widerrufen?",
-          "description": "Der Client „{{client}}“ muss sich danach neu anmelden und den Zugriff erneut erlauben.",
-          "confirm": "Widerrufen",
-          "success": "Freigabe widerrufen."
-        },
-        "days": "{{count}} Tage",
-        "columns": {
-          "client": "Client",
-          "confirmed": "Bestätigt",
-          "expires": "Gültig bis",
-          "status": "Status",
-          "actions": "Aktionen"
-        }
-      },
       "error": {
         "load": "Verbindungen konnten nicht geladen werden.",
         "action": "Die Änderung konnte nicht gespeichert werden. Bitte erneut versuchen.",
@@ -2819,15 +2793,6 @@
       "invalidOutput": "Die Antwort war unvollständig und wurde nicht gespeichert.",
       "general": "Das hat nicht geklappt. Bitte versuch es noch einmal."
     }
-  },
-  "mcpConsent": {
-    "title": "MCP-Zugriff erlauben",
-    "description": "Dieser Client möchte sich mit Pages verbinden. Pages prüft Ihre Rechte bei jedem Aufruf erneut.",
-    "client": "Client",
-    "resource": "MCP-Ressource",
-    "scope": "Zugriffsbereich",
-    "approve": "Erlauben",
-    "deny": "Ablehnen"
   },
   "workspaces": {
     "title": "Arbeitsverzeichnis",

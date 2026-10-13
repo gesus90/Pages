@@ -16,7 +16,7 @@ function requestTimeout(operation: string): number {
 
 /**
  * Sends the shared JSON envelope to Pages, without redirecting credentials.
- * Pages verifies the supplied personal or API delegation credential for every request.
+ * Pages verifies the supplied personal credential for every request.
  * Network and API failures expose only fixed diagnostics.
  */
 export async function postAgentRequest(

@@ -4,7 +4,7 @@ import { getAuthenticatedUser } from "@/app/lib/auth.server";
 import { getSessionToken } from "@/app/lib/session.server";
 import { normalizePairingCode } from "@/backend/service/mcp/PairingValidation";
 
-import type { OAuthBrowserIdentity } from "@/backend/service/mcp/OAuthConsentService";
+import type { PairingBrowserIdentity } from "@/definition/McpPairing";
 
 /** Allows only the pairing route with one normalized code as a login return path. */
 export function pairingReturnPath(request: Request): string {
@@ -17,7 +17,7 @@ export function pairingReturnPath(request: Request): string {
 /** Requires the ordinary browser session and mandatory-password gate for pairing. */
 export async function pairingBrowserIdentity(
   request: Request,
-): Promise<OAuthBrowserIdentity> {
+): Promise<PairingBrowserIdentity> {
   const user = await getAuthenticatedUser(request);
   const session = await getSessionToken(request);
   if (!user || !session)

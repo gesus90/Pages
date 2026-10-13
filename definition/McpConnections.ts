@@ -6,14 +6,4 @@ export interface McpConnectionsView {
   readonly packageVersion: string;
   readonly validityDays: number;
   readonly tokens: readonly PersonalAgentToken[];
-  readonly oauth: {
-    readonly durationSeconds: number | null;
-    readonly grants: readonly {
-      readonly id: string;
-      readonly clientName: string;
-      readonly verifiedAt: number;
-      readonly expiresAt: number | null;
-      readonly status: string;
-    }[];
-  };
 }

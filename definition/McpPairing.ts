@@ -1,3 +1,9 @@
+/** Browser session identity used only for approving a personal pairing request. */
+export interface PairingBrowserIdentity {
+  readonly userId: string;
+  readonly session: string;
+}
+
 /** Browser-safe lifecycle of a device authorization request. */
 export type McpPairingStatus =
   "pending" | "approved" | "denied" | "cancelled" | "consumed" | "expired";

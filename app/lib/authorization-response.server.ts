@@ -1,7 +1,7 @@
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
 
-/** Sends a credential-safe OAuth/API response that cannot be cached. */
-export function oauthResponse(result: unknown, status = 200): Response {
+/** Sends a credential-safe personal authorization response that cannot be cached. */
+export function authorizationResponse(result: unknown, status = 200): Response {
   return Response.json(result, {
     status,
     headers: {
@@ -12,9 +12,9 @@ export function oauthResponse(result: unknown, status = 200): Response {
   });
 }
 
-/** Replaces all untrusted diagnostics with a fixed, non-reflecting OAuth error. */
-export function oauthFailure(error: unknown): Response {
-  return oauthResponse(
+/** Replaces untrusted diagnostics with a fixed personal authorization error. */
+export function authorizationFailure(error: unknown): Response {
+  return authorizationResponse(
     {
       error:
         error instanceof McpAuthorizationError
@@ -26,7 +26,7 @@ export function oauthFailure(error: unknown): Response {
 }
 
 /** Validates a bounded JSON object before a route passes it to business logic. */
-export async function readOAuthJson(
+export async function readAuthorizationJson(
   request: Request,
 ): Promise<Readonly<Record<string, unknown>>> {
   if (!request.headers.get("content-type")?.startsWith("application/json"))
@@ -44,8 +44,8 @@ export async function readOAuthJson(
   return input as Record<string, unknown>;
 }
 
-/** Requires same-origin browser mutations; authorization endpoints never use browser cookies as client auth. */
-export function requireOAuthOrigin(request: Request): void {
+/** Requires same-origin browser mutations of personal connections and pairing. */
+export function requireAuthorizationOrigin(request: Request): void {
   if (request.headers.get("origin") !== new URL(request.url).origin)
     throw new McpAuthorizationError("access_denied", 403);
 }

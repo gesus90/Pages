@@ -989,32 +989,6 @@
         "copied": "Command copied.",
         "copyError": "Could not copy. Select the command and copy it manually."
       },
-      "oauth": {
-        "title": "HTTP MCP grants",
-        "description": "Grants for MCP clients connected via HTTP and OAuth.",
-        "duration": "Confirm again after",
-        "durationHint": "Also applies to existing grants. Shortening can end active grants immediately; expired or revoked grants do not become active again.",
-        "empty": "No HTTP MCP grants.",
-        "shorten": {
-          "title": "Shorten duration?",
-          "description": "{{count}} active grants end immediately. The clients must sign in again.",
-          "confirm": "Shorten"
-        },
-        "revoke": {
-          "title": "Revoke grant?",
-          "description": "The client “{{client}}” must then sign in and allow access again.",
-          "confirm": "Revoke",
-          "success": "Grant revoked."
-        },
-        "days": "{{count}} days",
-        "columns": {
-          "client": "Client",
-          "confirmed": "Confirmed",
-          "expires": "Valid until",
-          "status": "Status",
-          "actions": "Actions"
-        }
-      },
       "error": {
         "load": "Connections could not be loaded.",
         "action": "The change could not be saved. Please try again.",
@@ -2819,15 +2793,6 @@
       "invalidOutput": "The answer was incomplete and was not stored.",
       "general": "That did not work. Please try again."
     }
-  },
-  "mcpConsent": {
-    "title": "Allow MCP access",
-    "description": "This client wants to connect to Pages. Pages checks your permissions again for every call.",
-    "client": "Client",
-    "resource": "MCP resource",
-    "scope": "Scope",
-    "approve": "Allow",
-    "deny": "Deny"
   },
   "workspaces": {
     "title": "Workspaces",

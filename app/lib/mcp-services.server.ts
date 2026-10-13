@@ -22,17 +22,11 @@ import { AgentOperationRouter } from "@/backend/service/agents/AgentOperationRou
 import { PersonalAgentTokenRepository } from "@/backend/database/repositories/mcp/PersonalAgentTokenRepository";
 import { PairingRepository } from "@/backend/database/repositories/mcp/PairingRepository";
 import { PairingService } from "@/backend/service/mcp/PairingService";
-import { McpOAuthRepository } from "@/backend/database/repositories/mcp/McpOAuthRepository";
 import { PagesAgentApiService } from "@/backend/service/PagesAgentApiService";
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import { AgentIdentityService } from "@/backend/service/mcp/AgentIdentityService";
 import { AgentProjectService } from "@/backend/service/mcp/AgentProjectService";
 import { PersonalAgentTokenService } from "@/backend/service/mcp/PersonalAgentTokenService";
-import { OAuthClientService } from "@/backend/service/mcp/OAuthClientService";
-import { OAuthConsentService } from "@/backend/service/mcp/OAuthConsentService";
-import { readOAuthConfiguration } from "@/backend/service/mcp/OAuthConfiguration";
-import { OAuthGrantService } from "@/backend/service/mcp/OAuthGrantService";
-import { OAuthTokenService } from "@/backend/service/mcp/OAuthTokenService";
 
 import type { AgentChannel } from "@/backend/auth/McpActorContext";
 import type { AgentPlanningServices } from "@/backend/service/agents/AgentPlanningServices";
@@ -44,7 +38,7 @@ import type { Database } from "@/backend/database/Database";
 import type { AdministrationService } from "@/backend/service/AdministrationService";
 import type { UserService } from "@/backend/service/UserService";
 
-/** Authentication services; OAuth configuration is lazy and cannot block ordinary Pages startup. */
+/** Personal authentication and operation services shared by stdio clients and Pages. */
 export interface McpApplicationServices {
   readonly agentAssetService: AgentAssetService;
   /** The same operation catalog for the chat agent: UI role mode, changes marked as AI actions. */
@@ -54,10 +48,6 @@ export interface McpApplicationServices {
   readonly pagesAgentApiService: PagesAgentApiService;
   readonly personalAgentTokenService: PersonalAgentTokenService;
   readonly pairingService: PairingService;
-  readonly oauthClientService: OAuthClientService;
-  readonly oauthConsentService: OAuthConsentService;
-  readonly oauthGrantService: OAuthGrantService;
-  readonly oauthTokenService: OAuthTokenService;
 }
 
 /** What the operations of one agent channel share. */
@@ -196,21 +186,9 @@ export function createMcpServices(
   const identities = new AgentIdentityService(users, administration);
   const { personalAgentTokenService, pairingService } =
     createPersonalAuthorization(database, identities);
-  const repository = new McpOAuthRepository(database);
-  const configuration = (): ReturnType<typeof readOAuthConfiguration> =>
-    readOAuthConfiguration(process.env);
-  const oauthClientService = new OAuthClientService(repository);
-  const oauthTokenService = new OAuthTokenService(
-    repository,
-    identities,
-    configuration,
-  );
-  const authority = new AgentUploadAuthorityService(
-    personalAgentTokenService,
-    oauthTokenService,
-  );
-  const agentUploadTicketService = new AgentUploadTicketService(
-    (hash, issuedAt) => authority.verify(hash, issuedAt),
+  const authority = new AgentUploadAuthorityService(personalAgentTokenService);
+  const agentUploadTicketService = new AgentUploadTicketService((hash) =>
+    authority.verify(hash),
   );
   const staging = new WikiFileStore(
     path.join(workspace.directory, "agent-assets"),
@@ -250,20 +228,10 @@ export function createMcpServices(
     pagesEventPublisher,
     personalAgentTokenService,
     pairingService,
-    oauthClientService,
-    oauthTokenService,
     pagesAgentApiService: new PagesAgentApiService(
       personalAgentTokenService,
-      oauthTokenService,
       new AgentProjectService(new ProjectRepository(database)),
       createMcpOperationRouter(routers),
     ),
-    oauthConsentService: new OAuthConsentService({
-      repository,
-      clients: oauthClientService,
-      identities,
-      configuration,
-    }),
-    oauthGrantService: new OAuthGrantService(repository),
   };
 }

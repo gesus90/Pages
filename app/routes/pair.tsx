@@ -11,9 +11,9 @@ import {
   getClientAddress,
 } from "@/app/lib/client-address.server";
 import {
-  oauthFailure,
-  requireOAuthOrigin,
-} from "@/app/lib/oauth-response.server";
+  authorizationFailure,
+  requireAuthorizationOrigin,
+} from "@/app/lib/authorization-response.server";
 import {
   pairingBrowserIdentity,
   pairingReturnPath,
@@ -73,7 +73,7 @@ export async function loader({
           headers: { ...PAIR_HEADERS, "Retry-After": String(error.retryAfter) },
         },
       );
-    const response = oauthFailure(error);
+    const response = authorizationFailure(error);
     response.headers.set("Referrer-Policy", "no-referrer");
     throw response;
   }
@@ -84,7 +84,7 @@ export async function action({ request }: Route.ActionArgs): Promise<Response> {
   try {
     if (request.method !== "POST")
       throw new McpAuthorizationError("invalid_request", 405);
-    requireOAuthOrigin(request);
+    requireAuthorizationOrigin(request);
     const browser = await pairingBrowserIdentity(request);
     const form = await request.formData();
     const services = await getApplicationServices();
@@ -122,7 +122,7 @@ export async function action({ request }: Route.ActionArgs): Promise<Response> {
     return redirect(`/pair?code=${code}`, { headers: PAIR_HEADERS });
   } catch (error: unknown) {
     if (error instanceof Response) throw error;
-    const response = oauthFailure(error);
+    const response = authorizationFailure(error);
     response.headers.set("Referrer-Policy", "no-referrer");
     return response;
   }

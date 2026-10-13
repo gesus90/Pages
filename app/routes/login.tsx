@@ -19,7 +19,7 @@ import { getClientAddress } from "@/app/lib/client-address.server";
 import { resolveCookieSecure } from "@/app/lib/cookie-security.server";
 import { resolveAnonymousLanguage } from "@/app/lib/language.server";
 import { sessionCookie } from "@/app/lib/session.server";
-import { oauthLoginDestination } from "@/app/lib/oauth-login.server";
+import { loginDestination } from "@/app/lib/login-destination.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { TooManyLoginAttemptsError } from "@/backend/auth/LoginThrottle";
 
@@ -56,7 +56,7 @@ export async function loader({
   const user = await getAuthenticatedUser(request);
 
   if (user) {
-    return redirect(oauthLoginDestination(request));
+    return redirect(loginDestination(request));
   }
 
   const services = await getApplicationServices();
@@ -118,7 +118,7 @@ export async function action({
     );
   }
 
-  return redirect(oauthLoginDestination(request), {
+  return redirect(loginDestination(request), {
     headers: {
       "Set-Cookie": await sessionCookie.serialize(loginResult.sessionToken, {
         secure: resolveCookieSecure(request),

@@ -207,7 +207,7 @@ gates. Browser E2E and live integration are a later phase.
 - Intended reports go to `coverage/backend/` and `coverage/frontend/`: terminal
   and file text tables, HTML, JSON counters and per-module JSON metric summaries.
   PAGE-38 configures these outputs without generating or validating reports.
-- Pages tests may verify Pages-owned Agent API, OAuth, pairing, wiki and database
+- Pages tests may verify Pages-owned Agent API, pairing, wiki and database
   behavior. They must not import executable modules from the independent `mcp/`
   package or start an MCP server, client, transport or process, including through
   a shared helper. Use mocks or stubs at an MCP boundary. Pages connection

@@ -10,7 +10,7 @@ import {
 
 import type { ConnectionAction } from "./connection-action";
 
-/** Confirms revocation, rotation or an OAuth duration reduction with the existing modal pattern. */
+/** Confirms personal credential revocation or rotation with the existing modal pattern. */
 export function ConnectionConfirmation({
   action,
   pending,
@@ -28,8 +28,6 @@ export function ConnectionConfirmation({
   const prefixes = {
     "revoke-token": "settings.connections.revoke",
     "request-rotation": "settings.connections.rotate",
-    "revoke-oauth-grant": "settings.connections.oauth.revoke",
-    "set-oauth-duration": "settings.connections.oauth.shorten",
   };
   const prefix = action
     ? prefixes[action.intent]
@@ -49,8 +47,6 @@ export function ConnectionConfirmation({
         <DialogDescription className="mt-2 text-sm text-muted-foreground">
           {t(`${prefix}.description`, {
             name: action?.name,
-            client: action?.name,
-            count: action?.count,
           })}
         </DialogDescription>
         {action?.intent === "request-rotation" ? (

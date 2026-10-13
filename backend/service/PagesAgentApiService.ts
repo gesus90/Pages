@@ -17,50 +17,31 @@ import type {
 } from "@/definition/PagesAgentOperations";
 import type { AgentProjectService } from "./mcp/AgentProjectService";
 import type { PersonalAgentTokenService } from "./mcp/PersonalAgentTokenService";
-import type { OAuthTokenService } from "./mcp/OAuthTokenService";
 import type { AgentIdentity } from "@/definition/McpAuthorization";
 import type {
   PagesAgentApiProjectNames,
   PagesAgentApiVerification,
 } from "@/definition/PagesAgentApi";
 
-/** Verifies stdio/API delegation credentials and dispatches the implemented operations. */
+/** Verifies personal stdio credentials and dispatches the implemented operations. */
 export class PagesAgentApiService {
   private readonly personal: PersonalAgentTokenService;
-  private readonly oauth: OAuthTokenService;
   private readonly projects: AgentProjectService;
   private readonly operations: AgentOperationRouter;
 
   public constructor(
     personal: PersonalAgentTokenService,
-    oauth: OAuthTokenService,
     projects: AgentProjectService,
     operations: AgentOperationRouter,
   ) {
     this.personal = personal;
-    this.oauth = oauth;
     this.projects = projects;
     this.operations = operations;
   }
 
-  /** Resolves current rights; OAuth access tokens are never accepted as API credentials. */
+  /** Resolves current rights from the personal credential on every API call. */
   public async verify(token: string): Promise<AgentIdentity> {
-    try {
-      return await this.personal.verify(token);
-    } catch (error: unknown) {
-      if (
-        !(error instanceof McpAuthorizationError) ||
-        error.code !== "invalid_token"
-      )
-        throw error;
-    }
-    try {
-      return await this.oauth.verifyDelegation(token);
-    } catch (error: unknown) {
-      if (error instanceof McpAuthorizationError)
-        throw new McpAuthorizationError("invalid_token", 401);
-      throw error;
-    }
+    return this.personal.verify(token);
   }
 
   /**

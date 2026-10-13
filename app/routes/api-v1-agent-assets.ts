@@ -51,7 +51,7 @@ async function upload(request: Request): Promise<Response> {
   }
 }
 
-/** Receives raw bytes under a one-use upload capability; OAuth credentials are never accepted. */
+/** Receives raw bytes under a one-use upload capability bound to a personal credential. */
 export async function action({ request }: Route.ActionArgs): Promise<Response> {
   return upload(request);
 }

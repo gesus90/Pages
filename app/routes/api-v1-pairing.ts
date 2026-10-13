@@ -4,10 +4,10 @@ import {
 } from "@/app/lib/client-address.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import {
-  oauthFailure,
-  oauthResponse,
-  readOAuthJson,
-} from "@/app/lib/oauth-response.server";
+  authorizationFailure,
+  authorizationResponse,
+  readAuthorizationJson,
+} from "@/app/lib/authorization-response.server";
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
 import { PairingRateError } from "@/backend/service/mcp/PairingThrottle";
 
@@ -22,15 +22,15 @@ export async function action({
   try {
     if (request.method !== "POST")
       throw new McpAuthorizationError("invalid_request", 405);
-    const input = await readOAuthJson(request);
+    const input = await readAuthorizationJson(request);
     const { pairingService } = await getApplicationServices();
     if (params.endpoint === "token")
-      return oauthResponse(await pairingService.exchange(input));
+      return authorizationResponse(await pairingService.exchange(input));
     if (params.endpoint === "cancel")
-      return oauthResponse(await pairingService.cancel(input));
+      return authorizationResponse(await pairingService.cancel(input));
     if (params.endpoint !== undefined)
       throw new McpAuthorizationError("invalid_request", 404);
-    return oauthResponse(
+    return authorizationResponse(
       await pairingService.begin(input, {
         socket: context.get(clientSocketAddressContext),
         forwarded: getClientAddress(request),
@@ -38,7 +38,7 @@ export async function action({
       201,
     );
   } catch (error: unknown) {
-    const response = oauthFailure(error);
+    const response = authorizationFailure(error);
     if (error instanceof PairingRateError)
       response.headers.set("Retry-After", String(error.retryAfter));
     return response;
@@ -47,5 +47,7 @@ export async function action({
 
 /** Rejects non-POST device access without revealing any state. */
 export function loader(): Response {
-  return oauthFailure(new McpAuthorizationError("invalid_request", 405));
+  return authorizationFailure(
+    new McpAuthorizationError("invalid_request", 405),
+  );
 }

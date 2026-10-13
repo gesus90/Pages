@@ -18,11 +18,11 @@ import type {
   StoredPairingRequest,
 } from "@/backend/database/repositories/mcp/PairingRepository";
 import type { AgentIdentityService } from "./AgentIdentityService";
-import type { OAuthBrowserIdentity } from "./OAuthConsentService";
 import type { PairingAddress } from "./PairingThrottle";
 import type {
   McpPairedCredential,
   McpPairingView,
+  PairingBrowserIdentity,
 } from "@/definition/McpPairing";
 import type { PersonalAgentToken } from "@/definition/McpAuthorization";
 
@@ -100,7 +100,7 @@ export class PairingService {
   /** Returns only client labels, public account facts and a session-bound nonce. */
   public async view(
     input: unknown,
-    browser: OAuthBrowserIdentity,
+    browser: PairingBrowserIdentity,
     address: PairingAddress,
   ): Promise<McpPairingView> {
     const identity = await this.identities.verify(browser.userId);
@@ -173,7 +173,7 @@ export class PairingService {
   /** Stores a single explicit decision; approval never creates or returns a token. */
   public async decide(
     input: Readonly<Record<string, unknown>>,
-    browser: OAuthBrowserIdentity,
+    browser: PairingBrowserIdentity,
   ): Promise<void> {
     await this.identities.verify(browser.userId);
     const code = normalizePairingCode(input.code);
@@ -294,7 +294,7 @@ export class PairingService {
     throw new McpAuthorizationError("temporarily_unavailable", 503);
   }
 
-  private nonceHash(browser: OAuthBrowserIdentity, csrf: string): string {
+  private nonceHash(browser: PairingBrowserIdentity, csrf: string): string {
     return hashAgentCredential(`${browser.session}:${browser.userId}:${csrf}`);
   }
 

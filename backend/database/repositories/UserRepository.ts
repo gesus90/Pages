@@ -339,16 +339,6 @@ export class UserRepository {
         `,
           { id, now: Date.now() },
         );
-        await transaction.execute(
-          `
-          UPDATE mcp_oauth_grants
-          SET status = 'revoked',
-              ended_at = $now
-          WHERE user_id = $id
-              AND status = 'active';
-        `,
-          { id, now: Date.now() },
-        );
         await transaction.execute("DELETE FROM sessions WHERE user_id = $id;", {
           id,
         });

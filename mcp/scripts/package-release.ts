@@ -59,8 +59,6 @@ const LOOPBACK_HOSTS = ["localhost", "127.0.0.1", "[::1]"];
 const SECRET_ENVIRONMENT_NAMES = [
   "PAGES_TOKEN",
   "PAGES_URL",
-  "PAGES_OAUTH_ISSUER",
-  "PAGES_MCP_RESOURCE",
   "GITHUB_TOKEN",
   "GH_TOKEN",
 ];
