@@ -16,7 +16,7 @@ export async function start(): Promise<void> {
     }
     if (argumentsList.length > 0) {
       console.error(
-        "[pages-mcp] Only stdio is supported. HTTP, listen, port, host, resource and transport options are unavailable. Start without options, or use pair, status, rotate or unpair for credentials.",
+        "[pages-mcp] Unsupported startup argument. Pages MCP runs only over stdio: start without arguments, or use pair, status, rotate or unpair for credentials.",
       );
       process.exitCode = 1;
       return;

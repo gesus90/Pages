@@ -2,7 +2,7 @@ import { operationFailure } from "./tools/operation-failure.js";
 
 import type { PagesConfiguration } from "./configuration.js";
 
-/** Sends raw file bytes directly to Pages with a separate five-minute budget and no OAuth credential. */
+/** Sends raw file bytes directly to Pages with a separate five-minute budget and no extra credential. */
 export async function uploadAgentAsset(
   configuration: PagesConfiguration,
   ticket: string,

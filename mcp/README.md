@@ -12,7 +12,7 @@ rights on the server for every request.
 MCP client
     ↓ stdio: stdin/stdout
 Local Pages MCP process
-    ↓ authenticated HTTP(S) requests
+    ↓ authenticated requests
 Pages Agent API
     ↓
 Pages services → repositories → database
@@ -24,15 +24,9 @@ reserved for the protocol; diagnostics and credential-command messages go to
 stderr. The adapter has no direct database access and opens no network listener.
 
 `PAGES_URL` identifies the Pages web application and API, not an MCP endpoint.
-The API requests and browser pairing links use HTTP(S), so this setup still
-requires network access to Pages. HTTP MCP, SSE and Streamable HTTP are not
-supported. Start without transport, listen, host or port options; unsupported
-start arguments fail before credential lookup or any Pages request.
-
-Pages still contains OAuth endpoints, stored grants and OAuth settings in its
-Connections UI. These are legacy features with respect to MCP connectivity and
-do not provide a supported remote MCP setup. Their presence does not replace
-stdio pairing, and this package does not remove them.
+Pages API requests and browser pairing links need network access to Pages.
+Start without arguments, or use the credential commands; any other start argument
+fails before credential lookup or any Pages request.
 
 ## Supported functions
 
@@ -174,7 +168,7 @@ separate stores; a shared account/store shares that paired Pages identity.
 Run pairing and the MCP client with the same operating-system account and
 configuration location. Keep the store out of source control, client JSON,
 screenshots and diagnostic reports. Never print or copy its secret contents.
-Credentials are not forwarded through HTTP redirects to another instance.
+Credentials are not forwarded through redirects to another instance.
 
 ### 4. Configure and start the MCP client
 
@@ -226,8 +220,7 @@ from the process launching the client.
 An intentional override must be a valid owner-bound personal credential supplied
 securely in the process environment. The adapter does not automatically rotate it.
 Do not hardcode a token in client configuration or commit one to the repository.
-Browser cookies and Pages OAuth access tokens are not interchangeable with this
-personal stdio credential. The credential commands below manage the local paired
+Browser sessions are not interchangeable with this personal stdio credential. The credential commands below manage the local paired
 entry, even when `PAGES_TOKEN` is set; they do not manage that override.
 
 ## Credential status, rotation and removal
@@ -289,8 +282,8 @@ All tools use the same local stdio connection and authenticated Pages Agent API.
 The reference below describes the implemented operation families. Use the offered
 `tools/list` schemas for complete required/optional arguments and pagination
 fields, and the linked source definitions when developing an integration.
-API status codes mentioned below describe Pages responses, not an HTTP MCP
-transport. Binary asset upload paths are Pages API paths as well.
+Status codes mentioned below are Pages API responses. Binary asset upload paths are
+Pages API paths as well.
 
 ### Project name discovery
 
@@ -322,7 +315,7 @@ visible and active. A tree parent outside the visible project is `null`; visible
 Search snippets contain at most 200 Unicode characters. Counts use the same
 visibility policy as the nodes and snippets, including anchors and ancestors.
 
-Ambiguous project names return `AMBIGUOUS` (HTTP 409), with at most 100 visible
+Ambiguous project names return `AMBIGUOUS` (409), with at most 100 visible
 `error.details.candidates` containing IDs and names, sorted by ID, and `truncated`.
 The client must choose explicitly. Hidden and missing targets both return
 `NOT_FOUND` (404), including another person's private wiki page. Personal admins
