@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-import { rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { AgentError } from "@/backend/error/AgentErrors";
@@ -7,29 +5,67 @@ import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { redactAssistantCredentials } from "@/backend/service/assistant/TextAssistantValidation";
 
 import {
-  agentArtifactRoot,
   artifactDirectory,
   requireArtifactId,
+  writeArtifact,
 } from "./AgentArtifactPath";
 import { sanitizePlanOutput } from "./AgentPlanOutput";
 
 import type { AgentProfile } from "@/definition/AgentProfile";
 import type { AgentProfileRepository } from "@/backend/database/repositories/agent/AgentProfileRepository";
 
-/** Server-owned definitions live outside web and workspace roots; CLI isolation hides this directory. */
+function safeText(text: string): string {
+  return sanitizePlanOutput(redactAssistantCredentials(text));
+}
+
+/**
+ * Renders the stored definition of an agent as its `AGENT.md`.
+ *
+ * @param profile - Persisted definition; connection and credentials are not part of it.
+ * @returns A heading, the agent identifier and the definition as one JSON block.
+ */
+export function renderAgentDefinition(profile: AgentProfile): string {
+  const definition = {
+    agentId: profile.id,
+    name: profile.name,
+    model: profile.model,
+    reasoningEffort: profile.reasoningEffort,
+    revision: profile.revision,
+    configuration: profile.configuration,
+  };
+  const encoded = JSON.stringify(
+    definition,
+    (property: string, entry: unknown): unknown => {
+      if (property === "") return entry;
+      return typeof entry === "string" ? safeText(entry) : entry;
+    },
+    2,
+  );
+  const heading = safeText(profile.name).replace(/\s+/gu, " ").trim();
+  return `# ${heading}\n\nAgent-ID: ${profile.id}\n\n## Definition\n\n\`\`\`json\n${encoded}\n\`\`\`\n`;
+}
+
+/**
+ * Owns the `AGENT.md` of every agent below the agent directory of the instance.
+ *
+ * @remarks
+ * Only this class writes the file, and only from a persisted definition. While
+ * a plan run holds an agent, no save or deletion of that agent is accepted.
+ */
 export class AgentDefinitionFiles {
-  private readonly dataDirectory: string;
-  private readonly running = new Map<string, number>();
+  private readonly directory: string;
+  private readonly holds = new Set<readonly string[]>();
   private readonly writes = new SerialQueue();
 
-  public constructor(dataDirectory: string) {
-    this.dataDirectory = dataDirectory;
+  public constructor(directory: string) {
+    this.directory = directory;
   }
 
   /** Blocks management changes while any invocation holds this definition. */
-  public async assertMutable(id: string): Promise<void> {
+  public assertMutable(id: string): void {
     requireArtifactId(id);
-    if (this.running.has(id)) throw new AgentError("profile_conflict");
+    for (const hold of this.holds)
+      if (hold.includes(id)) throw new AgentError("profile_running");
   }
 
   /** Holds a definition immutable through adapter settlement and archive persistence. */
@@ -43,7 +79,7 @@ export class AgentDefinitionFiles {
     repository: AgentProfileRepository,
   ): Promise<void> {
     await this.writes.run(async () => {
-      await this.assertMutable(profile.id);
+      this.assertMutable(profile.id);
       await repository.save(profile);
       const persisted = (await repository.list()).find(
         (entry) => entry.id === profile.id,
@@ -56,54 +92,49 @@ export class AgentDefinitionFiles {
   /** Atomically materializes a secret-free definition from persisted fields only. */
   public async write(profile: AgentProfile): Promise<void> {
     await this.writes.run(async () => {
-      await this.assertMutable(profile.id);
+      this.assertMutable(profile.id);
       await this.writeDefinition(profile);
     });
   }
 
+  /**
+   * Repairs missing or altered files from the stored definitions.
+   *
+   * @param profiles - Every persisted definition.
+   *
+   * @remarks
+   * Runs at startup, so an unwritable folder is reported and skipped instead of
+   * keeping the whole server from starting. The next save repairs that agent.
+   */
+  public async restore(profiles: readonly AgentProfile[]): Promise<void> {
+    for (const profile of profiles) {
+      try {
+        await this.write(profile);
+      } catch (error: unknown) {
+        console.error(
+          `Pages could not write the definition file of agent ${profile.id}.`,
+          error,
+        );
+      }
+    }
+  }
+
   private reserve(ids: readonly string[]): () => void {
     for (const id of ids) requireArtifactId(id);
-    for (const id of ids) this.running.set(id, (this.running.get(id) ?? 0) + 1);
-    let isReleased = false;
+    const hold = [...ids];
+    this.holds.add(hold);
     return () => {
-      if (isReleased) return;
-      isReleased = true;
-      for (const id of ids) {
-        const count = (this.running.get(id) ?? 1) - 1;
-        if (count === 0) this.running.delete(id);
-        else this.running.set(id, count);
-      }
+      this.holds.delete(hold);
     };
   }
 
   private async writeDefinition(profile: AgentProfile): Promise<void> {
-    const root = await agentArtifactRoot(this.dataDirectory);
-    const directory = await artifactDirectory(root, [profile.id]);
-    const temporary = path.join(directory, `${randomUUID()}.md`);
-    const definition = {
-      agentId: profile.id,
-      name: profile.name,
-      model: profile.model,
-      reasoningEffort: profile.reasoningEffort,
-      revision: profile.revision,
-      configuration: profile.configuration,
-    };
-    const encoded = JSON.stringify(
-      definition,
-      (property: string, entry: unknown): unknown => {
-        if (property === "") return entry;
-        return typeof entry === "string"
-          ? sanitizePlanOutput(redactAssistantCredentials(entry))
-          : entry;
-      },
-      2,
+    // A model assignment for the text or chat function is no agent a plan can run.
+    if (!profile.purposes.includes("agent")) return;
+    const directory = await artifactDirectory(this.directory, [profile.id]);
+    await writeArtifact(
+      path.join(directory, "AGENT.md"),
+      renderAgentDefinition(profile),
     );
-    const markdown = `# ${sanitizePlanOutput(profile.name)}\n\nAgent-ID: ${profile.id}\n\n## Definition\n\n\`\`\`json\n${encoded}\n\`\`\`\n`;
-    try {
-      await writeFile(temporary, markdown, { flag: "wx", mode: 0o400 });
-      await rename(temporary, path.join(directory, "AGENT.md"));
-    } finally {
-      await rm(temporary, { force: true });
-    }
   }
 }

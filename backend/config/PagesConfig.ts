@@ -6,6 +6,7 @@ import type { TomlTable } from "smol-toml";
 const PAGES_DIRECTORY_NAME = ".pages";
 const CONFIG_FILE_NAME = "config.toml";
 const DATA_DIRECTORY_NAME = "data";
+const AGENTS_DIRECTORY_NAME = "Agents";
 const DATABASE_FILE_NAME = "pages.duckdb";
 
 /** Port the server listens on when neither a start parameter nor the configuration names one. */
@@ -117,6 +118,20 @@ export function resolveDefaultDataDirectory(configPath: string): string {
  */
 export function resolveDefaultDatabasePath(configPath: string): string {
   return path.join(resolveDefaultDataDirectory(configPath), DATABASE_FILE_NAME);
+}
+
+/**
+ * Returns the directory of the agent folders that belongs to a configuration file.
+ *
+ * @param configPath - Absolute path of the configuration file.
+ * @returns `Agents/` next to the configuration, `~/.pages/Agents` by default.
+ *
+ * @remarks
+ * It is separate from the data directory (T6.15.1); each agent keeps its fixed
+ * `AGENT.md` and its run records in a folder named by its identifier.
+ */
+export function resolveAgentsDirectory(configPath: string): string {
+  return path.join(path.dirname(configPath), AGENTS_DIRECTORY_NAME);
 }
 
 function invalidConfig(source: string, detail: string): ConfigError {

@@ -42,6 +42,7 @@ import { WikiMaintenanceScheduler } from "@/backend/service/wiki/WikiMaintenance
 import { WikiService } from "@/backend/service/WikiService";
 import { WikiFileStore } from "@/backend/storage/WikiFileStore";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
+import { resolveAgentsDirectory } from "@/backend/config/PagesConfig";
 import { SetupService } from "@/backend/setup/SetupService";
 
 import { createAgentServices } from "./agent-services.server";
@@ -251,7 +252,7 @@ async function initializeServices(
     new UserBoardPreferencesRepository(database),
   );
   const tokenKey = resolveGitHubTokenKey(databasePath);
-  const agentServices = startAgentServices(database, databasePath, tokenKey);
+  const agentServices = await startAgents(database, databasePath, tokenKey);
   const projectService = new ProjectService(
     projectRepository,
     permissionService,
@@ -596,15 +597,18 @@ export function activateApplicationServices(
   return globalThis.pagesServices;
 }
 
-function startAgentServices(
+/** The agent folders lie next to the configuration file, apart from the data directory. */
+async function startAgents(
   database: Database,
   databasePath: string,
   tokenKey: Buffer,
-): AgentApplicationServices {
+): Promise<AgentApplicationServices> {
+  const runtime = await getPagesRuntime();
   const services = createAgentServices(
     database,
     path.dirname(databasePath),
     tokenKey,
+    resolveAgentsDirectory(runtime.configFile.path),
   );
   services.agentCatalogScheduler.start();
   return services;

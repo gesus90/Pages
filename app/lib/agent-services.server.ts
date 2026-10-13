@@ -57,7 +57,8 @@ export interface AgentApplicationServices extends AgentConfigurationApplicationS
 }
 
 interface ExecutionInput {
-  readonly dataDirectory: string;
+  /** Instance folders a CLI agent process must not reach. */
+  readonly protectedDirectories: readonly string[];
   readonly repository: AgentConnectionRepository;
   readonly cipher: InstanceSecretCipher;
   readonly operations: AgentOperationRegistry;
@@ -108,7 +109,7 @@ function createExecutions(
         new ApiTextExecution(repository, cipher),
         new CliPlanExecution({
           ...cliAdapters,
-          protectedDirectory: input.dataDirectory,
+          protectedDirectories: input.protectedDirectories,
         }),
         operations,
       ),
@@ -122,6 +123,7 @@ export function createAgentServices(
   database: Database,
   dataDirectory: string,
   tokenKey: Buffer,
+  agentsDirectory: string,
 ): AgentApplicationServices {
   const repository = new AgentConnectionRepository(database);
   const cipher = new InstanceSecretCipher(tokenKey);
@@ -129,6 +131,7 @@ export function createAgentServices(
   const configuration = createAgentConfigurationServices({
     database,
     dataDirectory,
+    agentsDirectory,
     connections: repository,
     operations,
   });
@@ -171,7 +174,7 @@ export function createAgentServices(
       configuration.agentProfileService,
     ),
     ...createExecutions({
-      dataDirectory,
+      protectedDirectories: [dataDirectory, agentsDirectory],
       repository,
       cipher,
       operations,

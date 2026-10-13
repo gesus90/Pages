@@ -1,4 +1,3 @@
-import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
 import { AgentProfileRepository } from "@/backend/database/repositories/agent/AgentProfileRepository";
@@ -48,8 +47,7 @@ export async function createPageAgentHarness(database: Database) {
   await base.authorization.saveAccount(base.admin);
   const repository = new AgentProfileRepository(database);
   const groups = new UserGroupRepository(database);
-  const directory = path.join(base.wiki.filesDirectory, "instance");
-  await mkdir(directory);
+  const directory = path.join(base.wiki.filesDirectory, "Agents");
   const files = new AgentDefinitionFiles(directory);
   const dependencies = {
     profiles: repository,

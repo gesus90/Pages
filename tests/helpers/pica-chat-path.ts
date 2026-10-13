@@ -324,7 +324,12 @@ export async function createPicaApplication(
     users: { getById: (id: string) => users.findById(id) },
     administration: administrationService,
   };
-  const agents = createAgentServices(database, directory, TOKEN_KEY);
+  const agents = createAgentServices(
+    database,
+    directory,
+    TOKEN_KEY,
+    path.join(directory, "Agents"),
+  );
   const chatRequests = new AssistantRequestRegistry({
     timeoutMs: options.chatTimeoutMs ?? 60_000,
     capacity: 4,

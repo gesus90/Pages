@@ -34,6 +34,8 @@ export interface AgentConfigurationApplicationServices {
 export function createAgentConfigurationServices(input: {
   readonly database: Database;
   readonly dataDirectory: string;
+  /** Folder of the `AGENT.md` and run records of every agent; separate from the data folder. */
+  readonly agentsDirectory: string;
   readonly connections: AgentConnectionRepository;
   readonly operations: AgentOperationRegistry;
 }): AgentConfigurationApplicationServices {
@@ -55,9 +57,10 @@ export function createAgentConfigurationServices(input: {
         .map((root) => root.trim())
         .filter(Boolean),
       protectedDirectory: input.dataDirectory,
+      additionalProtectedDirectories: [input.agentsDirectory],
     }),
   });
-  const agentDefinitionFiles = new AgentDefinitionFiles(input.dataDirectory);
+  const agentDefinitionFiles = new AgentDefinitionFiles(input.agentsDirectory);
   const dependencies = {
     profiles: new AgentProfileRepository(database),
     connections: input.connections,
@@ -80,7 +83,7 @@ export function createAgentConfigurationServices(input: {
     agentDefinitionFiles,
     agentRunArchive: new AgentRunArchive(
       new PageAgentRunRepository(database),
-      input.dataDirectory,
+      input.agentsDirectory,
     ),
     agentParameterService: new AgentParameterService({
       profiles: agentProfileService,

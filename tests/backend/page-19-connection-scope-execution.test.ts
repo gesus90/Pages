@@ -121,6 +121,7 @@ describe("PAGE-19 production wiring", () => {
       getDatabase(),
       directory,
       Buffer.alloc(32, 7),
+      path.join(directory, "Agents"),
     );
     const before = readdirSync(directory);
     for (const kind of KINDS) {

@@ -78,11 +78,20 @@ function createDatabase(): {
   close: ReturnType<typeof vi.fn>;
   migrate: ReturnType<typeof vi.fn>;
   query: ReturnType<typeof vi.fn>;
+  transaction: ReturnType<typeof vi.fn>;
 } {
+  const query = vi.fn().mockResolvedValue([]);
+
   return {
     close: vi.fn().mockResolvedValue(undefined),
     migrate: vi.fn().mockResolvedValue(undefined),
-    query: vi.fn().mockResolvedValue([]),
+    query,
+    // Startup reads the stored agents in one transaction to repair their files.
+    transaction: vi.fn(
+      async (
+        work: (transaction: { query: typeof query }) => Promise<unknown>,
+      ) => work({ query }),
+    ),
   };
 }
 
@@ -102,6 +111,7 @@ function stubSetup(migrates = false): ReturnType<typeof vi.fn> {
 function stubRuntime(getDatabasePath: () => string): void {
   vi.mocked(getPagesRuntime).mockResolvedValue({
     getDatabasePath,
+    configFile: { path: "/mocked/config.toml" },
   } as unknown as PagesRuntime);
 }
 

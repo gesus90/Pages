@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
-import { readdir, readFile, rm } from "node:fs/promises";
+import { readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
@@ -13,6 +13,7 @@ import { PageAgentService } from "@/backend/service/agents/PageAgentService";
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 
 import {
+  controlExecution,
   createExecutionPlanHarness,
   executionPlan,
   executionStep,
@@ -101,8 +102,6 @@ describe("PAGE-20 terminal agent run archive and definition immutability", () =>
       await current.engine.shutdown();
       const directory = path.join(
         current.root,
-        "instance",
-        ".pages",
         "Agents",
         current.userAgentId,
         "runs",
@@ -133,8 +132,6 @@ describe("PAGE-20 terminal agent run archive and definition immutability", () =>
     const current = await setup();
     const filename = path.join(
       current.root,
-      "instance",
-      ".pages",
       "Agents",
       current.userAgentId,
       "AGENT.md",
@@ -161,7 +158,7 @@ describe("PAGE-20 terminal agent run archive and definition immutability", () =>
         ...saved,
         name: "During run",
       }),
-    ).rejects.toMatchObject({ code: "profile_conflict" });
+    ).rejects.toMatchObject({ code: "profile_running" });
     expect(await readFile(filename, "utf8")).toBe(before);
     finish?.();
     await waitForPlan(async () =>
@@ -214,8 +211,6 @@ describe("PAGE-20 terminal agent run archive and definition immutability", () =>
     expect(archived.markdown).not.toContain(credentialShape);
     const filename = path.join(
       current.root,
-      "instance",
-      ".pages",
       "Agents",
       current.userAgentId,
       "runs",
@@ -228,5 +223,278 @@ describe("PAGE-20 terminal agent run archive and definition immutability", () =>
       "SELECT COUNT(*) FROM page_agent_run_records;",
     );
     expect(rows[0]?.[0]).toBe(2);
+  });
+});
+
+describe("PAGE-20 which runs get a record, and what happens when files fail", () => {
+  const getDatabase = useMigratedDatabase();
+  let harness: ExecutionPlanHarness | undefined;
+  afterEach(async () => {
+    vi.restoreAllMocks();
+    await harness?.dispose();
+    harness = undefined;
+  });
+
+  async function setup() {
+    const database = getDatabase();
+    harness = await createExecutionPlanHarness(database);
+    const current = harness;
+    const pages = new PageAgentService(
+      {
+        profiles: current.profileRepository,
+        connections: current.connections,
+        authorization: current.authorization,
+        groups: new UserGroupRepository(database),
+        operations: new AgentOperationRegistry(),
+        workspaces: current.workspaces,
+        content: new AgentContentAccess(
+          current.projects,
+          current.wiki.repository,
+        ),
+      },
+      current.profiles,
+      current.files,
+    );
+    const userAgentId = await pages.save(
+      current.bob.id,
+      null,
+      pageAgentInput({ modelProfileId: current.agentId }),
+    );
+    const runs = path.join(current.root, "Agents", userAgentId, "runs");
+    return { ...current, pages, userAgentId, runs };
+  }
+
+  function runIdentifier(planRunId: string, stepId: string): string {
+    return createHash("sha256").update(`${planRunId}\n${stepId}`).digest("hex");
+  }
+
+  it("records the step that failed and no run of the successor it blocked", async () => {
+    const current = await setup();
+    current.execution.run.mockImplementation(async (input) => {
+      await input.beforeStart?.();
+      throw new AgentError("plan_step_failed");
+    });
+    const planId = await current.service.save(
+      current.bob.id,
+      null,
+      executionPlan(current.workspaceId, current.userAgentId, {
+        nodes: [
+          executionStep("A", current.userAgentId),
+          executionStep("B", current.userAgentId, {
+            input: { kind: "result", stepId: "A" },
+          }),
+        ],
+        edges: [{ from: "A", to: "B" }],
+      }),
+    );
+    const run = await current.service.play(current.bob.id, planId, 1);
+    await waitForPlan(async () =>
+      expect((await current.runRepository.find(run.id))?.status).toBe("failed"),
+    );
+    await current.engine.shutdown();
+    const first = runIdentifier(run.id, "A");
+    expect(await readdir(current.runs)).toEqual([`${first}.md`]);
+    const stored = await current.archive.read(
+      current.bob.id,
+      current.userAgentId,
+      first,
+    );
+    expect(stored.record).toMatchObject({
+      status: "failed",
+      result: "plan_step_failed",
+    });
+    await expect(
+      current.archive.read(
+        current.bob.id,
+        current.userAgentId,
+        runIdentifier(run.id, "B"),
+      ),
+    ).rejects.toMatchObject({ code: "agent_usage_denied" });
+  });
+
+  it("records a stopped step as cancelled and the step that never started not at all", async () => {
+    const current = await setup();
+    const pending = controlExecution(current.execution);
+    const planId = await current.service.save(
+      current.bob.id,
+      null,
+      executionPlan(current.workspaceId, current.userAgentId, {
+        nodes: [
+          executionStep("A", current.userAgentId),
+          executionStep("B", current.userAgentId, {
+            input: { kind: "result", stepId: "A" },
+          }),
+        ],
+        edges: [{ from: "A", to: "B" }],
+      }),
+    );
+    const run = await current.service.play(current.bob.id, planId, 1);
+    await waitForPlan(() => expect(pending.has("A")).toBe(true));
+    const stopping = current.service.stop(current.bob.id, run.id);
+    await waitForPlan(() =>
+      expect(pending.get("A")?.signal.aborted).toBe(true),
+    );
+    pending.get("A")?.reject(new AgentPlanCancelledError());
+    await stopping;
+    await waitForPlan(async () =>
+      expect((await current.runRepository.find(run.id))?.status).toBe(
+        "cancelled",
+      ),
+    );
+    await current.engine.shutdown();
+    expect(await readdir(current.runs)).toEqual([
+      `${runIdentifier(run.id, "A")}.md`,
+    ]);
+    const stored = await current.archive.read(
+      current.bob.id,
+      current.userAgentId,
+      runIdentifier(run.id, "A"),
+    );
+    expect(stored.record.status).toBe("cancelled");
+    expect(stored.record.input).toBe("Test Default task\n\nA");
+  });
+
+  it("pins the prompt before the model starts and keeps it only until the record carries it", async () => {
+    const current = await setup();
+    let pinned: unknown = null;
+    current.execution.run.mockImplementation(async (input) => {
+      await input.beforeStart?.();
+      pinned = await getDatabase().query(
+        "SELECT prompt FROM page_agent_run_inputs;",
+      );
+      return "Completed";
+    });
+    const planId = await current.service.save(
+      current.bob.id,
+      null,
+      executionPlan(current.workspaceId, current.userAgentId),
+    );
+    const run = await current.service.play(current.bob.id, planId, 1);
+    await waitForPlan(async () =>
+      expect((await current.runRepository.find(run.id))?.status).toBe(
+        "succeeded",
+      ),
+    );
+    await current.engine.shutdown();
+    expect(pinned).toEqual([["Test Default task\n\nA"]]);
+    expect(
+      await getDatabase().query("SELECT 1 FROM page_agent_run_inputs;"),
+    ).toEqual([]);
+    expect(
+      await getDatabase().query(
+        "SELECT plan_run_id FROM page_agent_archived_runs;",
+      ),
+    ).toEqual([[run.id]]);
+    const { record } = await current.archive.read(
+      current.bob.id,
+      current.userAgentId,
+      runIdentifier(run.id, "A"),
+    );
+    expect(Date.parse(record.startedAt)).toBeLessThanOrEqual(
+      Date.parse(record.finishedAt),
+    );
+  });
+
+  it("never disturbs a plan run when a file cannot be written and repairs it afterwards", async () => {
+    const current = await setup();
+    const failure = vi.spyOn(console, "error").mockImplementation(() => {});
+    // A file where the runs folder belongs makes every write below it fail.
+    await writeFile(current.runs, "not a folder");
+    const planId = await current.service.save(
+      current.bob.id,
+      null,
+      executionPlan(current.workspaceId, current.userAgentId),
+    );
+    const run = await current.service.play(current.bob.id, planId, 1);
+    await waitForPlan(async () =>
+      expect((await current.runRepository.find(run.id))?.status).toBe(
+        "succeeded",
+      ),
+    );
+    await current.engine.shutdown();
+    expect(failure).toHaveBeenCalled();
+    // The record is stored, so only the file is missing; the run is not marked as done.
+    const runId = runIdentifier(run.id, "A");
+    expect(
+      await getDatabase().query(
+        "SELECT status FROM page_agent_run_records WHERE run_id = $run_id;",
+        { run_id: runId },
+      ),
+    ).toEqual([["succeeded"]]);
+    expect(
+      await getDatabase().query("SELECT 1 FROM page_agent_archived_runs;"),
+    ).toEqual([]);
+    await rm(current.runs);
+    await current.archive.recover();
+    expect(await readdir(current.runs)).toEqual([`${runId}.md`]);
+    expect(
+      await getDatabase().query(
+        "SELECT plan_run_id FROM page_agent_archived_runs;",
+      ),
+    ).toEqual([[run.id]]);
+  });
+
+  it("hands out the stored record and puts a replaced file back", async () => {
+    const current = await setup();
+    const planId = await current.service.save(
+      current.bob.id,
+      null,
+      executionPlan(current.workspaceId, current.userAgentId),
+    );
+    const run = await current.service.play(current.bob.id, planId, 1);
+    await waitForPlan(async () =>
+      expect((await current.runRepository.find(run.id))?.status).toBe(
+        "succeeded",
+      ),
+    );
+    await current.engine.shutdown();
+    const runId = runIdentifier(run.id, "A");
+    const filename = path.join(current.runs, `${runId}.md`);
+    const original = await readFile(filename, "utf8");
+    await rm(filename);
+    await writeFile(filename, "# Replaced by another process\n");
+    const read = await current.archive.read(
+      current.bob.id,
+      current.userAgentId,
+      runId,
+    );
+    expect(read.markdown).toBe(original);
+    expect(await readFile(filename, "utf8")).toBe(original);
+  });
+
+  it("records the step an interrupted server left running when it starts again", async () => {
+    const current = await setup();
+    const pending = controlExecution(current.execution);
+    const planId = await current.service.save(
+      current.bob.id,
+      null,
+      executionPlan(current.workspaceId, current.userAgentId, {
+        nodes: [
+          executionStep("A", current.userAgentId),
+          executionStep("B", current.userAgentId, {
+            input: { kind: "result", stepId: "A" },
+          }),
+        ],
+        edges: [{ from: "A", to: "B" }],
+      }),
+    );
+    const run = await current.service.play(current.bob.id, planId, 1);
+    await waitForPlan(() => expect(pending.has("A")).toBe(true));
+    // What the next start of the server does with a run it finds unfinished.
+    await current.service.recoverInterruptedRuns();
+    await current.archive.recover();
+    expect(await readdir(current.runs)).toEqual([
+      `${runIdentifier(run.id, "A")}.md`,
+    ]);
+    const { record } = await current.archive.read(
+      current.bob.id,
+      current.userAgentId,
+      runIdentifier(run.id, "A"),
+    );
+    expect(record).toMatchObject({
+      status: "failed",
+      result: "plan_interrupted",
+      input: "Test Default task\n\nA",
+    });
   });
 });

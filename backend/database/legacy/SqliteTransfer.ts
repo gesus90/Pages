@@ -446,6 +446,8 @@ function verifySourceColumns(
  * the copy never touches.
  * The color theme of a user (PAGE-29) is a native column of `user_settings`;
  * copied accounts start with the default, which follows the system.
+ * Agents of users and the records of agent runs (PAGE-20) exist only in
+ * DuckDB, so their columns and tables are native as well.
  */
 async function readTargetColumns(
   target: Database,
@@ -475,6 +477,8 @@ async function readTargetColumns(
               'agent_legacy_function_assignments',
               'agent_workspaces',
               'agent_plans', 'agent_plan_runs', 'agent_plan_workspace_locks',
+              'page_agent_run_inputs', 'page_agent_run_records',
+              'page_agent_archived_runs',
               'work_item_attachments', 'work_item_tree_expansions',
               'text_assistant_settings', 'text_assistant_preferences',
               'assistant_conversations', 'assistant_messages',

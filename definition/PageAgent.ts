@@ -36,6 +36,22 @@ export interface PageAgentPage {
   readonly workspaces: readonly AgentWorkspaceChoice[];
 }
 
+/** How a run that started ended; a step that never started has no record. */
+export const PAGE_AGENT_RUN_STATUSES = [
+  "succeeded",
+  "failed",
+  "cancelled",
+  "timeout",
+] as const;
+export type PageAgentRunStatus = (typeof PAGE_AGENT_RUN_STATUSES)[number];
+
+/** Narrows a stored status before it reaches a record. */
+export function isPageAgentRunStatus(
+  input: unknown,
+): input is PageAgentRunStatus {
+  return PAGE_AGENT_RUN_STATUSES.some((status) => status === input);
+}
+
 /** One terminal agent invocation, including invocations within a multi-step plan. */
 export interface PageAgentRunRecord {
   readonly agentId: string;
@@ -44,7 +60,7 @@ export interface PageAgentRunRecord {
   readonly userId: string;
   readonly startedAt: string;
   readonly finishedAt: string;
-  readonly status: "succeeded" | "failed" | "cancelled" | "timeout";
+  readonly status: PageAgentRunStatus;
   readonly model: string;
   readonly reasoningEffort: string | null;
   readonly input: string;

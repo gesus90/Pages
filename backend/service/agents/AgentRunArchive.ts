@@ -1,65 +1,130 @@
-import { createHash, randomUUID } from "node:crypto";
-import { link, readFile, rm, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import path from "node:path";
 
 import { AgentError } from "@/backend/error/AgentErrors";
-import { redactAssistantCredentials } from "@/backend/service/assistant/TextAssistantValidation";
 import { readArchiveSteps } from "@/backend/agents/PageAgentRecordInput";
+import { redactAssistantCredentials } from "@/backend/service/assistant/TextAssistantValidation";
 
 import {
-  agentArtifactRoot,
   artifactDirectory,
+  artifactExists,
   requireArtifactId,
+  writeArtifact,
 } from "./AgentArtifactPath";
 import { sanitizePlanOutput } from "./AgentPlanOutput";
+import { renderAgentRunRecord } from "./AgentRunMarkdown";
 
 import type { PageAgentRunRepository } from "@/backend/database/repositories/agent/PageAgentRunRepository";
-import type { AgentPlanRun } from "@/definition/AgentPlan";
-import type { PageAgentRunRecord } from "@/definition/PageAgent";
 import type { ArchiveAgentStep } from "@/backend/agents/PageAgentRecordInput";
+import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
+import type {
+  PageAgentRunRecord,
+  PageAgentRunStatus,
+} from "@/definition/PageAgent";
 import type { AgentPlanSnapshot } from "./AgentPlanSnapshot";
+
+const CANCELLED_RESULT = "The run was stopped before it finished.";
 
 function safeText(text: string): string {
   return sanitizePlanOutput(redactAssistantCredentials(text));
 }
 
-/** Persists one private markdown artifact per terminal invocation, never a DREAMING analysis. */
+/**
+ * Decides how a step run ended, or that it has no run to record.
+ *
+ * @remarks
+ * A step that waits, is blocked, or was cancelled before its adapter started
+ * never ran, so it has no record.
+ */
+function settledStatus(result: AgentPlanStepResult): PageAgentRunStatus | null {
+  if (result.status === "succeeded") return "succeeded";
+  if (result.status === "cancelled")
+    return result.cancellation === "confirmed" ? "cancelled" : null;
+  if (result.status === "failed")
+    return result.error === "timeout" || result.error === "check_timeout"
+      ? "timeout"
+      : "failed";
+  return null;
+}
+
+function runIdentifier(planRunId: string, stepId: string): string {
+  return createHash("sha256").update(`${planRunId}\n${stepId}`).digest("hex");
+}
+
+/** Persists one private markdown artifact per ended agent run, never a DREAMING analysis. */
 export class AgentRunArchive {
   private readonly repository: PageAgentRunRepository;
-  private readonly dataDirectory: string;
+  private readonly directory: string;
 
-  public constructor(
-    repository: PageAgentRunRepository,
-    dataDirectory: string,
-  ) {
+  public constructor(repository: PageAgentRunRepository, directory: string) {
     this.repository = repository;
-    this.dataDirectory = dataDirectory;
+    this.directory = directory;
   }
 
-  /** Records dispatched input before starting the adapter, with pasted credentials redacted. */
+  /** Records the prompt and the start time before the adapter starts, with pasted credentials redacted. */
   public async input(
     planRunId: string,
     stepId: string,
     prompt: string,
   ): Promise<void> {
-    await this.repository.input(planRunId, stepId, safeText(prompt));
+    await this.repository.pinInput(planRunId, stepId, {
+      prompt: safeText(prompt),
+      startedAt: new Date().toISOString(),
+    });
   }
 
-  /** Archives all terminal steps, including skipped, blocked, failed and cancelled steps. */
+  /**
+   * Records every run of a plan that has ended since the last call.
+   *
+   * @param run - Current persisted view of the plan run.
+   * @param snapshot - The frozen plan the run executes.
+   *
+   * @remarks
+   * Never throws: a file or database problem must not disturb the plan run.
+   * The records are repaired by the next call and at startup.
+   */
   public async complete(
     run: AgentPlanRun,
     snapshot: AgentPlanSnapshot,
   ): Promise<void> {
-    await this.completeSteps(run, readArchiveSteps(snapshot));
+    await this.report(`write the run records of plan run ${run.id}`, () =>
+      this.archive(run, readArchiveSteps(snapshot)),
+    );
   }
 
-  /** Startup repairs missing files and records from terminal history, without provider calls. */
+  /**
+   * Repairs missing records and files of ended runs, without provider calls.
+   *
+   * @remarks
+   * Runs at startup and never throws. Plan runs that ended before the records
+   * existed are not part of it; a record whose file was lost is written again.
+   */
   public async recover(): Promise<void> {
-    for (const { run, steps } of await this.repository.terminalPlans())
-      await this.completeSteps(run, steps);
+    await this.report("repair the agent run records", async () => {
+      for (const { run, steps } of await this.repository.unarchived())
+        await this.report(`write the run records of plan run ${run.id}`, () =>
+          this.archive(run, steps),
+        );
+      for (const { agentId, runId } of await this.repository.keys())
+        await this.report(`write the run record file ${runId}`, () =>
+          this.restoreFile(agentId, runId),
+        );
+    });
   }
 
-  /** Delivery additionally requires executor identity; the route checks agent and source-resource access. */
+  /**
+   * Returns a record and its markdown for the executor of the run.
+   *
+   * @param userId - Authenticated requester; only the executor reads a record.
+   * @param agentId - Agent identifier from the request.
+   * @param runId - Run identifier from the request.
+   * @throws {AgentError} `agent_usage_denied` for a record that does not exist
+   * and for one of another executor, so the answer reveals nothing about it.
+   *
+   * @remarks
+   * Delivery additionally requires the current agent and plan authorization,
+   * which the route checks before it calls this method.
+   */
   public async read(
     userId: string,
     agentId: string,
@@ -73,69 +138,69 @@ export class AgentRunArchive {
     const record = await this.repository.find(agentId, runId);
     if (!record || record.userId !== userId)
       throw new AgentError("agent_usage_denied");
-    const filename = await this.materialize(record);
-    return { record, markdown: await readFile(filename, "utf8") };
+    return { record, markdown: await this.materialize(record) };
   }
 
-  private async completeSteps(
+  private async archive(
     run: AgentPlanRun,
     steps: readonly ArchiveAgentStep[],
   ): Promise<void> {
     for (const step of steps) {
       const result = run.steps.find((entry) => entry.id === step.stepId);
-      if (
-        !result ||
-        result.status === "running" ||
-        (result.status === "waiting" && run.status === "running")
-      )
-        continue;
-      let status: PageAgentRunRecord["status"] = "failed";
-      if (result.status === "succeeded" || result.status === "cancelled")
-        status = result.status;
-      if (result.error === "timeout" || result.error === "check_timeout")
-        status = "timeout";
+      if (!result) continue;
+      const status = settledStatus(result);
+      if (status === null) continue;
+      const pinned = await this.repository.findInput(run.id, step.stepId);
       const record = await this.repository.save({
         agentId: step.agentId,
-        runId: createHash("sha256")
-          .update(`${run.id}\n${step.stepId}`)
-          .digest("hex"),
+        runId: runIdentifier(run.id, step.stepId),
         planRunId: run.id,
         userId: run.userId,
-        startedAt: run.startedAt,
+        startedAt: pinned?.startedAt ?? run.startedAt,
         finishedAt: new Date().toISOString(),
         status,
         model: step.model,
         reasoningEffort: step.reasoningEffort,
-        input: safeText(
-          (await this.repository.prompt(run.id, step.stepId)) ?? step.input,
-        ),
-        result: safeText(result.output ?? result.error ?? result.cancellation),
+        input: pinned?.prompt ?? safeText(step.input),
+        result: safeText(result.output ?? result.error ?? CANCELLED_RESULT),
       });
+      await this.repository.discardInput(run.id, step.stepId);
       await this.materialize(record);
+    }
+    if (run.status !== "running") await this.repository.markArchived(run.id);
+  }
+
+  private async restoreFile(agentId: string, runId: string): Promise<void> {
+    requireArtifactId(agentId);
+    requireArtifactId(runId);
+    if (await artifactExists(this.recordPath(agentId, runId))) return;
+    await this.materialize(await this.repository.get(agentId, runId));
+  }
+
+  private recordPath(agentId: string, runId: string): string {
+    return path.join(this.directory, agentId, "runs", `${runId}.md`);
+  }
+
+  /** A problem is reported and left for the next repair, so one record cannot stop the others. */
+  private async report(
+    action: string,
+    work: () => Promise<void>,
+  ): Promise<void> {
+    try {
+      await work();
+    } catch (error: unknown) {
+      console.error(`Pages could not ${action}.`, error);
     }
   }
 
   private async materialize(record: PageAgentRunRecord): Promise<string> {
     requireArtifactId(record.runId);
-    const root = await agentArtifactRoot(this.dataDirectory);
-    const directory = await artifactDirectory(root, [record.agentId, "runs"]);
-    const filename = path.join(directory, `${record.runId}.md`);
-    const temporary = path.join(directory, `${randomUUID()}.tmp`);
-    const metadata = { ...record, input: undefined, result: undefined };
-    const markdown = `# Agent run ${record.runId}\n\n\`\`\`json\n${JSON.stringify(metadata, null, 2)}\n\`\`\`\n\n## Input\n\n${record.input}\n\n## Result\n\n${record.result}\n`;
-    try {
-      await writeFile(temporary, markdown, { flag: "wx", mode: 0o400 });
-      await link(temporary, filename).catch((error: unknown) => {
-        if (
-          !(error instanceof Error) ||
-          !("code" in error) ||
-          error.code !== "EEXIST"
-        )
-          throw error;
-      });
-    } finally {
-      await rm(temporary, { force: true });
-    }
-    return filename;
+    await artifactDirectory(this.directory, [record.agentId, "runs"]);
+    const markdown = renderAgentRunRecord(record);
+    await writeArtifact(
+      this.recordPath(record.agentId, record.runId),
+      markdown,
+    );
+    return markdown;
   }
 }

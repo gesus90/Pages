@@ -48,8 +48,10 @@ export async function createAgentPlanService(input: {
     engine,
   });
   await service.recoverInterruptedRuns();
-  for (const profile of await new AgentProfileRepository(input.database).list())
-    await input.agents.agentDefinitionFiles.write(profile);
+  // Interrupted runs ended just now, so their records are repaired as well.
+  await input.agents.agentDefinitionFiles.restore(
+    await new AgentProfileRepository(input.database).list(),
+  );
   await input.agents.agentRunArchive.recover();
   return service;
 }

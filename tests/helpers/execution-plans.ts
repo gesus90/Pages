@@ -286,9 +286,9 @@ function assembleHarness(
   };
   const archive = new AgentRunArchive(
     new PageAgentRunRepository(database),
-    path.join(workspace.root, "instance"),
+    path.join(workspace.root, "Agents"),
   );
-  const files = new AgentDefinitionFiles(path.join(workspace.root, "instance"));
+  const files = new AgentDefinitionFiles(path.join(workspace.root, "Agents"));
   const engine = new AgentPlanRunEngine({
     archive,
     files,

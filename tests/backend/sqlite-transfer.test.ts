@@ -99,6 +99,9 @@ describe("transferSqliteToDuckDb", { timeout: 30_000 }, () => {
         VALUES
             ('native-profile', 'Native profile', 'native-cli', 'model', NULL, FALSE),
             ('native-skills', 'Legacy SKILLS', 'native-cli', 'model', NULL, FALSE);
+        UPDATE agent_execution_profiles
+        SET owner_id = 'u1', model_profile_id = 'native-skills'
+        WHERE id = 'native-profile';
         INSERT INTO agent_profile_purposes VALUES ('native-profile', 'text');
         INSERT INTO agent_profile_targets VALUES ('native-profile', 'person', 'u1');
         INSERT INTO agent_profile_purposes VALUES ('native-skills', 'agent');
@@ -110,6 +113,10 @@ describe("transferSqliteToDuckDb", { timeout: 30_000 }, () => {
         INSERT INTO agent_plan_runs (id, plan_id, user_id, project_id, workspace_id, started_at, status, view_json, snapshot_json)
         VALUES ('native-plan-run', 'native-plan', 'u1', 'p1', 'native-workspace', 'now', 'running', '{}', '{}');
         INSERT INTO agent_plan_workspace_locks VALUES ('native-workspace', 'native-plan-run');
+        INSERT INTO page_agent_run_inputs VALUES ('native-plan-run', 'step', 'prompt', 'now');
+        INSERT INTO page_agent_run_records
+        VALUES ('native-profile', 'run', 'native-plan-run', 'u1', 'now', 'now', 'succeeded', 'model', NULL, 'input', 'result');
+        INSERT INTO page_agent_archived_runs VALUES ('native-plan-run');
         INSERT INTO personal_agent_tokens (id, user_id, name, token_hash, created_at)
         VALUES ('personal', 'u1', 'Local client', 'synthetic-hash', 1);
         INSERT INTO mcp_oauth_clients (id, metadata) VALUES ('client', '{}');
@@ -143,6 +150,9 @@ describe("transferSqliteToDuckDb", { timeout: 30_000 }, () => {
         "agent_plans",
         "agent_plan_runs",
         "agent_plan_workspace_locks",
+        "page_agent_run_inputs",
+        "page_agent_run_records",
+        "page_agent_archived_runs",
         "agent_assets",
         "agent_operation_keys",
         "agent_import_runs",

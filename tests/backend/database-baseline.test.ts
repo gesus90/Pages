@@ -151,6 +151,7 @@ describe("DuckDB baseline migration", () => {
       "039_agent_connection_scopes.sql",
       "040_user_theme.sql",
       "041_agent_workspace_project_access.sql",
+      "042_page_agents.sql",
     ]);
   });
 

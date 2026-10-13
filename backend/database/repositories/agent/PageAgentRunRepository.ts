@@ -1,14 +1,41 @@
 import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
+import { readArchiveSteps } from "@/backend/agents/PageAgentRecordInput";
 import {
-  readArchiveSteps,
-  readPageAgentRecord,
-} from "@/backend/agents/PageAgentRecordInput";
-import { readTextColumn } from "@/backend/database/RowValue";
+  readNullableTextColumn,
+  readTextColumn,
+} from "@/backend/database/RowValue";
+import { AgentError } from "@/backend/error/AgentErrors";
+import { isPageAgentRunStatus } from "@/definition/PageAgent";
 
-import type { Database } from "@/backend/database/Database";
-import type { PageAgentRunRecord } from "@/definition/PageAgent";
+import type { Database, DatabaseValue } from "@/backend/database/Database";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
+import type { PageAgentRunRecord } from "@/definition/PageAgent";
 import type { ArchiveAgentStep } from "@/backend/agents/PageAgentRecordInput";
+
+/** The prompt a step received and the moment it was handed to the model. */
+export interface PinnedAgentInput {
+  readonly prompt: string;
+  readonly startedAt: string;
+}
+
+/** A plan run that ended and whose step records may still be incomplete. */
+export interface UnarchivedPlanRun {
+  readonly run: AgentPlanRun;
+  readonly steps: readonly ArchiveAgentStep[];
+}
+
+const RECORD_COLUMNS = `
+    agent_id,
+    run_id,
+    plan_run_id,
+    user_id,
+    started_at,
+    finished_at,
+    status,
+    model,
+    reasoning_effort,
+    input,
+    result`;
 
 /** Durable, idempotent outbox; file failures are recoverable without rerunning a model. */
 export class PageAgentRunRepository {
@@ -18,55 +45,118 @@ export class PageAgentRunRepository {
     this.database = database;
   }
 
-  /** Pins the fully rendered input before any provider starts. */
-  public async input(
+  /** Pins the fully rendered input before any provider starts; the first pin wins. */
+  public async pinInput(
     planRunId: string,
     stepId: string,
-    prompt: string,
+    input: PinnedAgentInput,
   ): Promise<void> {
     await this.database.execute(
       `
-      INSERT INTO page_agent_run_inputs (plan_run_id, step_id, prompt)
-      VALUES ($plan_run_id, $step_id, $prompt)
+      INSERT INTO page_agent_run_inputs (
+          plan_run_id,
+          step_id,
+          prompt,
+          started_at
+      ) VALUES (
+          $plan_run_id,
+          $step_id,
+          $prompt,
+          $started_at
+      )
       ON CONFLICT DO NOTHING;
     `,
-      { plan_run_id: planRunId, step_id: stepId, prompt },
+      {
+        plan_run_id: planRunId,
+        step_id: stepId,
+        prompt: input.prompt,
+        started_at: input.startedAt,
+      },
     );
   }
 
   /** Recovery uses the exact dispatched prompt when execution reached the start boundary. */
-  public async prompt(
+  public async findInput(
     planRunId: string,
     stepId: string,
-  ): Promise<string | null> {
+  ): Promise<PinnedAgentInput | null> {
     const [row] = await this.database.query(
       `
-      SELECT prompt FROM page_agent_run_inputs
+      SELECT
+          prompt,
+          started_at
+      FROM page_agent_run_inputs
       WHERE plan_run_id = $plan_run_id
           AND step_id = $step_id;
     `,
       { plan_run_id: planRunId, step_id: stepId },
     );
-    return row ? readTextColumn(row, 0, "prompt") : null;
+    return row
+      ? {
+          prompt: readTextColumn(row, 0, "prompt"),
+          startedAt: readTextColumn(row, 1, "started_at"),
+        }
+      : null;
+  }
+
+  /** The record carries the prompt from here on, so the pinned copy is not kept twice. */
+  public async discardInput(planRunId: string, stepId: string): Promise<void> {
+    await this.database.execute(
+      `
+      DELETE FROM page_agent_run_inputs
+      WHERE plan_run_id = $plan_run_id
+          AND step_id = $step_id;
+    `,
+      { plan_run_id: planRunId, step_id: stepId },
+    );
   }
 
   /** First completion wins, including its timestamp; repeated callbacks cannot change the result. */
   public async save(record: PageAgentRunRecord): Promise<PageAgentRunRecord> {
     await this.database.execute(
       `
-      INSERT INTO page_agent_run_records (agent_id, run_id, record_json)
-      VALUES ($agent_id, $run_id, $record_json)
+      INSERT INTO page_agent_run_records (
+          agent_id,
+          run_id,
+          plan_run_id,
+          user_id,
+          started_at,
+          finished_at,
+          status,
+          model,
+          reasoning_effort,
+          input,
+          result
+      ) VALUES (
+          $agent_id,
+          $run_id,
+          $plan_run_id,
+          $user_id,
+          $started_at,
+          $finished_at,
+          $status,
+          $model,
+          $reasoning_effort,
+          $input,
+          $result
+      )
       ON CONFLICT DO NOTHING;
     `,
       {
         agent_id: record.agentId,
         run_id: record.runId,
-        record_json: JSON.stringify(record),
+        plan_run_id: record.planRunId,
+        user_id: record.userId,
+        started_at: record.startedAt,
+        finished_at: record.finishedAt,
+        status: record.status,
+        model: record.model,
+        reasoning_effort: record.reasoningEffort,
+        input: record.input,
+        result: record.result,
       },
     );
-    const persisted = await this.find(record.agentId, record.runId);
-    if (!persisted) throw new Error("Agent run record was not persisted.");
-    return persisted;
+    return this.get(record.agentId, record.runId);
   }
 
   /** Retrieves one private record for service authorization. */
@@ -76,29 +166,69 @@ export class PageAgentRunRepository {
   ): Promise<PageAgentRunRecord | null> {
     const [row] = await this.database.query(
       `
-      SELECT record_json FROM page_agent_run_records
+      SELECT${RECORD_COLUMNS}
+      FROM page_agent_run_records
       WHERE agent_id = $agent_id
           AND run_id = $run_id;
     `,
       { agent_id: agentId, run_id: runId },
     );
-    const input: unknown = row
-      ? JSON.parse(readTextColumn(row, 0, "record_json"))
-      : null;
-    return input === null ? null : readPageAgentRecord(input);
+    return row ? readRecord(row) : null;
   }
 
-  /** Terminal plan history supplies missing outbox entries after a crash or file-write failure. */
-  public async terminalPlans(): Promise<
-    readonly {
-      readonly run: AgentPlanRun;
-      readonly steps: readonly ArchiveAgentStep[];
-    }[]
+  /** Retrieves a record that must exist, such as one just listed by {@link keys}. */
+  public async get(
+    agentId: string,
+    runId: string,
+  ): Promise<PageAgentRunRecord> {
+    const record = await this.find(agentId, runId);
+    if (!record) throw new AgentError("plan_invalid");
+    return record;
+  }
+
+  /** Lists the identifiers of all records, so missing files can be found without reading their text. */
+  public async keys(): Promise<
+    readonly { readonly agentId: string; readonly runId: string }[]
   > {
     const rows = await this.database.query(`
-      SELECT view_json, snapshot_json
-      FROM agent_plan_runs
-      WHERE status <> 'running';
+      SELECT
+          agent_id,
+          run_id
+      FROM page_agent_run_records
+      ORDER BY agent_id, run_id;
+    `);
+    return rows.map((row) => ({
+      agentId: readTextColumn(row, 0, "agent_id"),
+      runId: readTextColumn(row, 1, "run_id"),
+    }));
+  }
+
+  /** Remembers that every settled step of a plan run has its record and file. */
+  public async markArchived(planRunId: string): Promise<void> {
+    await this.database.execute(
+      `
+      INSERT INTO page_agent_archived_runs (plan_run_id)
+      VALUES ($plan_run_id)
+      ON CONFLICT DO NOTHING;
+    `,
+      { plan_run_id: planRunId },
+    );
+  }
+
+  /** Ended plan runs of this version whose records may be missing after a crash or write failure. */
+  public async unarchived(): Promise<readonly UnarchivedPlanRun[]> {
+    const rows = await this.database.query(`
+      SELECT
+          runs.view_json,
+          runs.snapshot_json
+      FROM agent_plan_runs AS runs
+      WHERE runs.status <> 'running'
+          AND NOT EXISTS (
+              SELECT 1
+              FROM page_agent_archived_runs AS archived
+              WHERE archived.plan_run_id = runs.id
+          )
+      ORDER BY runs.started_at, runs.id;
     `);
     return rows.map((row) => {
       const view: unknown = JSON.parse(readTextColumn(row, 0, "view_json"));
@@ -108,4 +238,22 @@ export class PageAgentRunRepository {
       return { run: readPlanRun(view), steps: readArchiveSteps(snapshot) };
     });
   }
+}
+
+function readRecord(row: readonly DatabaseValue[]): PageAgentRunRecord {
+  const status = readTextColumn(row, 6, "status");
+  if (!isPageAgentRunStatus(status)) throw new AgentError("plan_invalid");
+  return {
+    agentId: readTextColumn(row, 0, "agent_id"),
+    runId: readTextColumn(row, 1, "run_id"),
+    planRunId: readTextColumn(row, 2, "plan_run_id"),
+    userId: readTextColumn(row, 3, "user_id"),
+    startedAt: readTextColumn(row, 4, "started_at"),
+    finishedAt: readTextColumn(row, 5, "finished_at"),
+    status,
+    model: readTextColumn(row, 7, "model"),
+    reasoningEffort: readNullableTextColumn(row, 8, "reasoning_effort"),
+    input: readTextColumn(row, 9, "input"),
+    result: readTextColumn(row, 10, "result"),
+  };
 }
