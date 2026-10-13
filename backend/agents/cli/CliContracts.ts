@@ -32,10 +32,29 @@ export interface CliRunRequest {
   readonly stdin: "pipe" | "ignore";
   /** One prompt or metadata control request sent through stdin and then closed, never through shell arguments. */
   readonly input?: string;
+  /** Variables added to the isolated environment, such as a tool's own inline configuration. */
+  readonly environment?: Readonly<Record<string, string>>;
   /** Raises the 256 KiB stdout cap for commands that print a whole model catalog. */
   readonly maxStdoutBytes?: number;
   readonly signal?: AbortSignal;
   readonly onOutput?: (stdout: string, stderr: string) => void;
+}
+
+/** A streaming session in an authorized working directory. */
+export interface CliSessionRequest {
+  readonly file: string;
+  /** The tool itself when `file` is a wrapper that starts it. */
+  readonly toolFile?: string;
+  readonly arguments: readonly string[];
+  readonly provider: CliProviderId;
+  readonly home: CliHome;
+  readonly workingDirectory: string;
+  /** Variables added to the isolated environment; credentials stay out of the arguments. */
+  readonly environment: Readonly<Record<string, string>>;
+  readonly timeoutMs: number;
+  readonly signal: AbortSignal;
+  /** Receives every complete line of the standard output, in order. */
+  readonly onLine: (line: string) => void;
 }
 
 export interface CliRunningProcess {
@@ -67,15 +86,11 @@ export interface CliStatusOutcome {
   readonly accountLabel: string | null;
 }
 
+/** What every CLI runner offers Pages; signing in differs per tool. */
 export interface CliToolAdapter {
   readonly provider: CliProviderId;
   readStatus(home: CliHome, signal: AbortSignal): Promise<CliStatusOutcome>;
   version(home: CliHome, signal: AbortSignal): Promise<ProviderCheckOutcome>;
-  startLogin(
-    home: CliHome,
-    onChallenge: (challenge: CliLoginChallenge) => void,
-  ): CliRunningProcess;
-  loginError(result: CliProcessResult): AgentErrorCode;
   runTest(
     home: CliHome,
     selection: CliModelSelection,
@@ -86,4 +101,13 @@ export interface CliToolAdapter {
     signal: AbortSignal,
   ): Promise<readonly AgentCatalogModel[]>;
   logout(home: CliHome, signal: AbortSignal): Promise<ProviderCheckOutcome>;
+}
+
+/** A CLI that signs in through its own interactive account flow. */
+export interface CliLoginAdapter extends CliToolAdapter {
+  startLogin(
+    home: CliHome,
+    onChallenge: (challenge: CliLoginChallenge) => void,
+  ): CliRunningProcess;
+  loginError(result: CliProcessResult): AgentErrorCode;
 }

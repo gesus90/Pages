@@ -7,6 +7,7 @@ import type { AgentExtensionChanged } from "./AgentExtensions.js";
 import type { AgentImportApplied } from "./AgentImportApply.js";
 import type { AgentImportUpdated } from "./AgentImportUpdate.js";
 import type { AgentStructuredImportApplied } from "./AgentStructuredImportManifest.js";
+import type { AgentChecklistItemChanged } from "./AgentTicketChecklist.js";
 import type { AgentTicketLinkChanged } from "./AgentTicketNavigation.js";
 import type {
   AgentMilestoneChanged,
@@ -44,6 +45,7 @@ export const PAGES_AGENT_WRITE_OPERATIONS = [
   "ticket.setDescription",
   "ticket.setStatus",
   "ticket.setParent",
+  "ticket.checklist.setItem",
   ...AGENT_TICKET_LINK_OPERATIONS,
   "milestone.create",
   "milestone.setName",
@@ -118,6 +120,7 @@ export interface PagesAgentWriteResponse {
     | AgentWikiCommentChanged
     | AgentTicketCreated
     | AgentTicketChanged
+    | AgentChecklistItemChanged
     | AgentTicketLinkChanged
     | AgentMilestoneCreated
     | AgentMilestoneChanged

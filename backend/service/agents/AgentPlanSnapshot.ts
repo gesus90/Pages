@@ -6,7 +6,7 @@ import type { PreparedAgentParameters } from "./AgentParameterService";
 /** Secrets and usage grants are excluded from frozen execution configuration. */
 export type AgentPlanTemplate = Pick<
   AgentConfiguration,
-  "markdown" | "parameters" | "directoryParameter"
+  "markdown" | "parameters" | "directoryParameter" | "run"
 >;
 
 /** Model identity is pinned while credentials and permission checks remain live. */

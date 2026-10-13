@@ -24,8 +24,9 @@ decide what each account can see and change.
 - Tickets on a Kanban board and in a list, with hierarchy, milestones and attachments
 - Wiki pages per project or for the whole instance, with search, attachments
   and a trash
-- Optional AI model connections, managed by administrators, for the text
-  assistant, the chat and agents
+- Optional AI model connections (API keys, or Codex CLI, Claude Code and
+  OpenCode accounts), managed by administrators, for the text assistant, the
+  chat and agents
 - German and English interface; light, dark and system theme
 
 Pages is in early development (version 0.1.0).
@@ -111,19 +112,51 @@ checks reject conflicting writes. Navigation and tab closing warn about
 unsaved changes, and run polling does not replace an edited draft.
 
 **Play** validates and executes the saved revision using the Pages execution
-service and its existing API/CLI adapters. Solid branches run independently,
-with at most two concurrent nodes across the service. A join waits for every
-incoming predecessor to succeed; a failed predecessor blocks its continuation.
-Independent CLI branches may not write to the same working copy.
+service. Solid branches run independently, with at most two concurrent nodes
+across the service. A join waits for every incoming predecessor to succeed; a
+failed predecessor blocks its continuation. Independent CLI branches may not
+write to the same working copy.
+
+The connection of an agent decides its runner: a Codex CLI, Claude Code or
+OpenCode connection starts a real CLI session in the node's workspace; an API
+connection stays a request without tools. Before a node starts, Pages reads the
+agent's `AGENT.md`, binds every parameter (a placeholder is never sent
+unresolved) and fixes the node's **todo list** (task list items of the node
+instruction and of the bound tickets' descriptions) and **acceptance criteria**
+(the acceptance criteria of the bound tickets). Both are stored with the run and
+appended to the prompt together with the required closing report. The exact
+model, reasoning effort and the agent's run options (workspace access, shell,
+web, time limit) are passed with fixed, verified switches; a combination a
+runner cannot enforce, such as read-only access with commands for Claude Code
+or OpenCode, blocks the start. Every runner works unattended: nothing waits for
+a person, and an action the options do not allow is refused instead of asked.
+
+A node bound to tickets reaches Pages through the local Pages MCP process with
+a credential of its own: it acts with the executor's current rights, only for
+the bound tickets, and only reads them and sets their checklist entries. The
+credential travels in the process environment, never in arguments, prompts or
+the interface, and is revoked when the node closes.
+
+A node succeeds only when its closing report marks every todo done, proves
+every criterion and every ticket entry among them is checked in the ticket, and
+the session closed without leftover processes. The run view shows per node the
+runner, one-shot call or interactive session, session and process identity,
+times, the real process exit, the closeout, the requested and effective
+configuration, the contract with its verdict and a link to the sent prompt. The
+normalized **Pages result** is `0` for an accepted and closed node and `-1` for
+any other outcome; a `-1` node fails and blocks its successors. Exit code 0
+alone never counts as success.
 
 Run and node status show waiting, running, succeeded, failed, paused or
 cancelled. **Pause** persists the current run and prevents additional nodes
-from starting; nodes already running may finish. **Resume** continues that
-same snapshot without repeating completed nodes. Paused runs retain their
-working-copy reservations. **Stop** remains available to cancel a run.
-Reloading the page retains its persisted state. After a server interruption,
-unfinished runs are marked failed rather than silently replaying work; a new
-run is an explicit action.
+from starting; nodes already running may finish and close normally. **Resume**
+continues that same snapshot without repeating completed nodes. Paused runs
+retain their working-copy reservations. **Stop** cancels a run and ends the
+running sessions with their whole process group. Reloading the page retains its
+persisted state. After a server interruption, unfinished runs are marked failed
+rather than silently replaying work; processes and MCP credentials the
+interrupted sessions left behind are ended at startup. A new run is an explicit
+action.
 
 Plans may be private, global, or shared with Pages groups and departments
 using OR/AND membership. Global sharing still requires access to the plan's

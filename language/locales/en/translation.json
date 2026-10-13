@@ -475,7 +475,8 @@
         "zai": "Z.AI",
         "anthropic": "Anthropic",
         "codex_cli": "Codex CLI (ChatGPT account)",
-        "claude_code": "Claude Code (Claude subscription)"
+        "claude_code": "Claude Code (Claude subscription)",
+        "opencode": "OpenCode (OpenRouter key)"
       },
       "providerShort": {
         "openrouter": "OpenRouter API",
@@ -484,7 +485,8 @@
         "zai": "Z.AI API",
         "anthropic": "Anthropic API",
         "codex_cli": "Codex CLI",
-        "claude_code": "Claude Code CLI"
+        "claude_code": "Claude Code CLI",
+        "opencode": "OpenCode CLI"
       },
       "error": {
         "name_required": "A connection needs a name.",
@@ -581,7 +583,16 @@
         "plan_interrupted": "The server interrupted this run. Automatic resume is unavailable.",
         "plan_json_invalid": "Enter exactly one valid JSON value. Numbers must be finite.",
         "plan_number_invalid": "Enter exactly one finite number.",
-        "plan_run_unavailable": "This plan already has an active run, or the selected run is no longer active."
+        "plan_run_unavailable": "This plan already has an active run, or the selected run is no longer active.",
+        "plan_run_option_unsupported": "The runner cannot enforce the run options of this agent, such as read-only access with commands. Change the run options.",
+        "plan_mcp_unavailable": "The node is bound to tickets, but this server has no Pages MCP adapter for agent sessions.",
+        "plan_definition_changed": "The AGENT.md of the agent is missing or does not match the started revision.",
+        "plan_placeholder_unresolved": "The prompt still contains a parameter placeholder; nothing was sent.",
+        "plan_runner_failed": "The runner ended its turn with an error.",
+        "plan_runner_incomplete": "The runner ended without completing its turn.",
+        "plan_runner_permission_denied": "The runner refused actions that the run options do not allow; nothing was approved on its behalf.",
+        "plan_acceptance_failed": "The closing report does not prove every todo and acceptance criterion.",
+        "plan_closeout_failed": "The session could not be closed completely; processes of it remained."
       },
       "description": "Manage the named AI connections and function assignments of this Pages instance.",
       "adminModeRequired": "The agent settings are only available in the admin mode. Your account is currently in the role mode.",
@@ -923,6 +934,18 @@
           "plan": "Execution plan {{id}}",
           "agent": "Agent “{{name}}”"
         }
+      },
+      "openCodeKey": "OpenRouter API key for OpenCode",
+      "openCodeKeyHint": "Pages stores the key only in the private sign-in folder of this connection, in OpenCode's own key file. It is never shown again.",
+      "openCodeKeyStore": "Store key",
+      "openCodeKeyReplace": "Replace key",
+      "run": {
+        "title": "Execution in plans",
+        "hint": "Applies to CLI runners (Codex, Claude Code, OpenCode). They always work unattended: what is not allowed is refused instead of asked. A combination a runner cannot enforce blocks the start.",
+        "access": "Workspace access",
+        "timeout": "Time limit per session (minutes)",
+        "shell": "Run commands in the workspace (shell)",
+        "web": "Allow web search and web fetch"
       }
     },
     "connections": {
@@ -2979,7 +3002,79 @@
       "json": "Enter exactly one valid JSON value. Numbers must be finite.",
       "number": "Enter exactly one finite number."
     },
-    "createPortValue": "Value as parameter node"
+    "createPortValue": "Value as parameter node",
+    "session": {
+      "title": "Session",
+      "runner": {
+        "codex_cli": "Codex CLI",
+        "claude_code": "Claude Code",
+        "opencode": "OpenCode",
+        "api": "API connection"
+      },
+      "mode": {
+        "one_shot": "One-shot call",
+        "interactive": "Interactive session",
+        "request": "API request without process"
+      },
+      "result": "Pages result",
+      "resultPending": "pending",
+      "instance": "Instance",
+      "sessionId": "Runner session ID",
+      "process": "Process group",
+      "started": "Start",
+      "turnEnded": "Turn end",
+      "ended": "End",
+      "exit": "Process exit",
+      "exitValue": "Code {{code}} · signal {{signal}}",
+      "closeoutLabel": "Closing",
+      "closeout": {
+        "pending": "pending",
+        "confirmed": "confirmed, no processes left ({{count}} leftover processes ended)",
+        "failed": "failed, processes remained",
+        "not_needed": "not needed, no process started"
+      },
+      "prompt": "Show the sent prompt",
+      "configuration": "Configuration",
+      "requested": "Requested",
+      "effective": "Effective (passed to or reported by the runner)",
+      "connection": "Connection",
+      "model": "Model ID",
+      "reasoning": "Reasoning",
+      "options": "Run options",
+      "optionsValue": "{{access}} · shell: {{shell}} · web: {{web}} · {{minutes}} min",
+      "access": {
+        "workspace_write": "Write in workspace",
+        "read_only": "Read only"
+      },
+      "yes": "yes",
+      "no": "no",
+      "unattended": "Unattended",
+      "mcp": "Pages MCP",
+      "directory": "Workspace",
+      "definition": "AGENT.md",
+      "definitionValue": "{{path}} (revision {{revision}})",
+      "todos": "Todo list",
+      "criteria": "Acceptance criteria",
+      "verdict": {
+        "pending": "Completion contract · acceptance pending",
+        "accepted": "Completion contract · accepted",
+        "rejected": "Completion contract · not accepted"
+      },
+      "todoStatus": {
+        "done": "done",
+        "open": "open",
+        "missing": "not reported"
+      },
+      "met": "met",
+      "unmet": "not met",
+      "ticketChecked": "checked in the ticket",
+      "ticketOpen": "open in the ticket",
+      "issues": "Reasons",
+      "decisions": "Decisions the agent took",
+      "events": "Session events",
+      "duration": "Duration",
+      "durationValue": "turn {{turn}} s · total {{total}} s"
+    }
   },
   "mcpDuration": {
     "label": "Validity in days",

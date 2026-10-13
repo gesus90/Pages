@@ -1,6 +1,7 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 
 import { readPlanText } from "./AgentPlanInput";
+import { readPlanSessionRecord } from "./AgentPlanSessionInput";
 import { readAgentObject } from "./AgentPayload";
 
 import type {
@@ -34,6 +35,7 @@ function readResult(input: unknown): AgentPlanStepResult {
     isBlocked: step.isBlocked,
     output,
     error,
+    session: readPlanSessionRecord(step.session),
   };
 }
 

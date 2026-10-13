@@ -5,7 +5,7 @@ import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import type {
   CliHome,
   CliRunningProcess,
-  CliToolAdapter,
+  CliLoginAdapter,
 } from "@/backend/agents/cli/CliContracts";
 import type {
   CliLoginState,
@@ -17,7 +17,7 @@ import type {
 export interface CliLoginSession {
   readonly id: string;
   readonly provider: CliProviderId;
-  readonly adapter: CliToolAdapter;
+  readonly adapter: CliLoginAdapter;
   readonly home: CliHome;
   readonly expiresAt: string;
   readonly release: () => void;

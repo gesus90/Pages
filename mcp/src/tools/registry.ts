@@ -7,6 +7,7 @@ import {
   TICKET_SEARCH_TOOL,
   TICKET_TREE_READ_TOOL,
 } from "./ticket-search.js";
+import { TICKET_CHECKLIST_READ_TOOL } from "./ticket-checklist.js";
 import { MILESTONES_READ_TOOL, TICKET_READ_TOOL } from "./ticket-read.js";
 import { WIKI_IMPORT_PLAN_TOOL } from "./wiki-import-plan.js";
 
@@ -135,6 +136,7 @@ export const READ_TOOLS: readonly ReadTool[] = [
   },
   { operation: "wiki.import.plan", tool: WIKI_IMPORT_PLAN_TOOL },
   { operation: "ticket.read", tool: TICKET_READ_TOOL },
+  { operation: "ticket.checklist.read", tool: TICKET_CHECKLIST_READ_TOOL },
   { operation: "milestones.read", tool: MILESTONES_READ_TOOL },
   { operation: "tickets.search", tool: TICKET_SEARCH_TOOL },
   { operation: "tickets.tree.read", tool: TICKET_TREE_READ_TOOL },

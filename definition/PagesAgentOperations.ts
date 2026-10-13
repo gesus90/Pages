@@ -11,6 +11,7 @@ import type {
   AgentTicketTree,
 } from "./AgentTicketNavigation.js";
 import type { AgentMilestones, AgentTicket } from "./AgentTickets.js";
+import type { AgentTicketChecklist } from "./AgentTicketChecklist.js";
 import type { AgentWikiComments } from "./AgentWikiComments.js";
 import type { WikiCover } from "./Wiki.js";
 
@@ -31,6 +32,7 @@ export const PAGES_AGENT_READ_OPERATIONS = [
  */
 export const PAGES_AGENT_TICKET_READ_OPERATIONS = [
   "ticket.read",
+  "ticket.checklist.read",
   "milestones.read",
   ...AGENT_TICKET_NAVIGATION_READ_OPERATIONS,
 ] as const;
@@ -166,6 +168,7 @@ export interface PagesAgentReadResponse {
     | AgentWikiSearch
     | AgentImportPlan
     | AgentTicket
+    | AgentTicketChecklist
     | AgentMilestones
     | AgentTicketSearch
     | AgentTicketTree

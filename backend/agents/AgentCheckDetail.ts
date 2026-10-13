@@ -2,6 +2,12 @@ import { isReasoningEffortToken } from "@/definition/AgentModelCatalog";
 
 import type { AgentCheckDetail } from "@/definition/AgentConnection";
 
+const AUTH_METHODS = ["chatgpt", "claude.ai", "openrouter"] as const;
+
+function readAuthMethod(input: unknown): AgentCheckDetail["authMethod"] {
+  return AUTH_METHODS.find((method) => method === input);
+}
+
 /** Removes arbitrary provider fields and rejects invalid measurements at the storage boundary. */
 export function sanitizeCheckDetail(input: unknown): AgentCheckDetail {
   if (typeof input !== "object" || input === null) return {};
@@ -28,8 +34,6 @@ export function sanitizeCheckDetail(input: unknown): AgentCheckDetail {
     if (typeof value === "string" && /^[\w.:/+@-]{1,200}$/.test(value))
       detail[key] = value;
   }
-  const authMethod: unknown = Reflect.get(input, "authMethod");
-  if (authMethod === "chatgpt" || authMethod === "claude.ai")
-    return { ...detail, authMethod };
-  return detail;
+  const authMethod = readAuthMethod(Reflect.get(input, "authMethod"));
+  return authMethod === undefined ? detail : { ...detail, authMethod };
 }

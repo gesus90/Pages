@@ -4,7 +4,7 @@ import type { AgentConnectionScope } from "./AgentConnectionScope";
 /** API keys and CLI accounts remain separate connection types. */
 export type ApiProviderId =
   "openrouter" | "openai" | "google_ai_studio" | "zai" | "anthropic";
-export type CliProviderId = "codex_cli" | "claude_code";
+export type CliProviderId = "codex_cli" | "claude_code" | "opencode";
 export type AgentProviderId = ApiProviderId | CliProviderId;
 export type AgentAccessKind = "api_key" | "cli_account";
 export type AgentCheckKind = "auth" | "model";
@@ -44,7 +44,21 @@ export const AGENT_PROVIDERS = {
     accessKind: "cli_account",
     labelKey: "settings.agents.provider.claude_code",
   },
+  opencode: {
+    accessKind: "cli_account",
+    labelKey: "settings.agents.provider.opencode",
+  },
 } as const;
+
+/**
+ * The model provider an OpenCode connection signs in to.
+ *
+ * @remarks
+ * OpenCode itself can reach many providers. A Pages connection holds exactly
+ * one provider key in the credential folder of the connection, so its model
+ * IDs always carry this provider prefix.
+ */
+export const OPENCODE_MODEL_PROVIDER = "openrouter";
 
 export const ZAI_FREE_MODEL = "glm-4.7-flash";
 export const MODEL_TEST_PROMPT = "Reply with exactly: OK";
@@ -72,7 +86,7 @@ export interface AgentCheckDetail {
   readonly outputTokens?: number;
   readonly endpoint?: string;
   readonly cliVersion?: string;
-  readonly authMethod?: "chatgpt" | "claude.ai";
+  readonly authMethod?: "chatgpt" | "claude.ai" | "openrouter";
   /** Reasoning effort the model or CLI test requested, if one was configured. */
   readonly reasoningEffort?: string;
   /** Reported accounting cost, not an additional subscription charge. */

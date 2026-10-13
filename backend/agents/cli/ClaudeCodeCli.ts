@@ -17,7 +17,7 @@ import type {
   CliProcessResult,
   CliRunningProcess,
   CliStatusOutcome,
-  CliToolAdapter,
+  CliLoginAdapter,
 } from "./CliContracts";
 import type { CliToolExecution } from "./CliToolExecution";
 
@@ -30,7 +30,7 @@ function accountLabel(status: Record<string, unknown>): string | null {
 }
 
 /** Controls Claude's own subscription login flow without reading or handling OAuth tokens. */
-export class ClaudeCodeCli implements CliToolAdapter {
+export class ClaudeCodeCli implements CliLoginAdapter {
   public readonly provider = "claude_code";
   private readonly execution: CliToolExecution;
 

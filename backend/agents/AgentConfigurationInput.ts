@@ -1,11 +1,17 @@
 import { AgentError } from "@/backend/error/AgentErrors";
-import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
+import {
+  AGENT_RUN_TIMEOUT_MINUTES,
+  emptyAgentConfiguration,
+} from "@/definition/AgentConfiguration";
 import { isAgentParameterName } from "@/definition/AgentParameters";
 import { isAgentProfileTargetKind } from "@/definition/AgentProfile";
 
 import { readAgentObject } from "./AgentPayload";
 
-import type { AgentConfiguration } from "@/definition/AgentConfiguration";
+import type {
+  AgentConfiguration,
+  AgentRunOptions,
+} from "@/definition/AgentConfiguration";
 import type {
   AgentParameter,
   AgentParameterValue,
@@ -101,6 +107,28 @@ export function configurationForTargets(
   };
 }
 
+/** Reads the run options of an agent; anything malformed is refused, never defaulted. */
+function readRunOptions(input: unknown): AgentRunOptions {
+  const options = readAgentObject(input);
+  const minutes = options.timeoutMinutes;
+  if (
+    (options.access !== "workspace_write" && options.access !== "read_only") ||
+    typeof options.shell !== "boolean" ||
+    typeof options.web !== "boolean" ||
+    typeof minutes !== "number" ||
+    !Number.isSafeInteger(minutes) ||
+    minutes < AGENT_RUN_TIMEOUT_MINUTES.minimum ||
+    minutes > AGENT_RUN_TIMEOUT_MINUTES.maximum
+  )
+    throw new AgentError("configuration_invalid");
+  return {
+    access: options.access,
+    shell: options.shell,
+    web: options.web,
+    timeoutMinutes: minutes,
+  };
+}
+
 /** Parses stored and external task sections; references remain identifiers. */
 export function readAgentConfiguration(input: unknown): AgentConfiguration {
   const configuration = readAgentObject(input);
@@ -142,5 +170,8 @@ export function readAgentConfiguration(input: unknown): AgentConfiguration {
       targets,
       ...(sharing.operator === undefined ? {} : { operator: sharing.operator }),
     },
+    ...(configuration.run === undefined
+      ? {}
+      : { run: readRunOptions(configuration.run) }),
   };
 }

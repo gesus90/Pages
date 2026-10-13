@@ -21,6 +21,22 @@ export const AGENT_ERROR_MESSAGES = {
     "A dependency failed or was cancelled; this step is blocked.",
   plan_interrupted:
     "The server interrupted this run. It cannot be resumed automatically.",
+  plan_run_option_unsupported:
+    "The runner cannot enforce the run options of this agent, such as read-only access with commands. Change the run options.",
+  plan_mcp_unavailable:
+    "The node is bound to tickets, but this server has no Pages MCP adapter for agent sessions.",
+  plan_definition_changed:
+    "The AGENT.md of the agent is missing or does not match the started revision.",
+  plan_placeholder_unresolved:
+    "The prompt still contains a parameter placeholder; nothing was sent.",
+  plan_runner_failed: "The runner ended its turn with an error.",
+  plan_runner_incomplete: "The runner ended without completing its turn.",
+  plan_runner_permission_denied:
+    "The runner refused actions that the run options do not allow; nothing was approved on its behalf.",
+  plan_acceptance_failed:
+    "The closing report does not prove every todo and acceptance criterion.",
+  plan_closeout_failed:
+    "The session could not be closed completely; processes of it remained.",
   workspace_invalid: "Enter a name, an existing local directory and a project.",
   workspace_project_unsupported:
     "The project needs a link to a GitHub repository.",

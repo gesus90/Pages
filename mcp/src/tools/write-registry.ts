@@ -12,6 +12,7 @@ import {
   MILESTONE_SET_STATUS_TOOL,
 } from "./milestone.js";
 import { STRUCTURED_IMPORT_APPLY_TOOL } from "./structured-import-apply.js";
+import { TICKET_CHECKLIST_SET_TOOL } from "./ticket-checklist.js";
 import { TICKET_CREATE_TOOL } from "./ticket-create.js";
 import {
   TICKET_LINK_ADD_TOOL,
@@ -59,6 +60,7 @@ export const WRITE_TOOLS: readonly {
   { operation: "ticket.setDescription", tool: TICKET_SET_DESCRIPTION_TOOL },
   { operation: "ticket.setStatus", tool: TICKET_SET_STATUS_TOOL },
   { operation: "ticket.setParent", tool: TICKET_SET_PARENT_TOOL },
+  { operation: "ticket.checklist.setItem", tool: TICKET_CHECKLIST_SET_TOOL },
   { operation: "tickets.link.add", tool: TICKET_LINK_ADD_TOOL },
   { operation: "tickets.link.remove", tool: TICKET_LINK_REMOVE_TOOL },
   { operation: "milestone.create", tool: MILESTONE_CREATE_TOOL },

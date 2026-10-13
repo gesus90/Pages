@@ -8,6 +8,13 @@ import type {
   CliToolLocations,
 } from "@/definition/AgentConnection";
 
+/** The executable each CLI installs. */
+export const CLI_BINARIES: Readonly<Record<CliProviderId, string>> = {
+  codex_cli: "codex",
+  claude_code: "claude",
+  opencode: "opencode",
+};
+
 /** Locates externally installed CLIs through the filesystem; it never executes them. */
 export class CliLocator {
   private readonly searchPath: string;
@@ -23,7 +30,7 @@ export class CliLocator {
 
   /** PATH wins, followed by the running Node binary's directory for nvm installations. */
   public async find(provider: CliProviderId): Promise<CliToolLocation> {
-    const binary = provider === "codex_cli" ? "codex" : "claude";
+    const binary = CLI_BINARIES[provider];
     const directories = [
       ...new Set([
         ...this.searchPath
@@ -46,12 +53,13 @@ export class CliLocator {
     return { found: false, path: null };
   }
 
-  /** Lists both tools without touching authentication or running version commands. */
+  /** Lists every tool without touching authentication or running version commands. */
   public async list(): Promise<CliToolLocations> {
-    const [codex, claude] = await Promise.all([
+    const [codex, claude, opencode] = await Promise.all([
       this.find("codex_cli"),
       this.find("claude_code"),
+      this.find("opencode"),
     ]);
-    return { codex_cli: codex, claude_code: claude };
+    return { codex_cli: codex, claude_code: claude, opencode };
   }
 }

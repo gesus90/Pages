@@ -2,6 +2,7 @@ import type { AgentDefinitionChoice } from "./AgentAvailability";
 import type { AgentParameterValue } from "./AgentParameters";
 import type { AgentConfiguration } from "./AgentConfiguration";
 import type { AgentProfileDirectory } from "./AgentProfile";
+import type { AgentPlanSessionRecord } from "./AgentPlanSession";
 import type { AgentWorkspaceChoice, WorkspaceGitHub } from "./AgentWorkspace";
 
 /** Plan sources and execution dependencies are deliberately separate contracts. */
@@ -126,6 +127,8 @@ export interface AgentPlanStepResult {
   readonly cancellation: "none" | "requested" | "confirmed" | "not_started";
   readonly output: string | null;
   readonly error: string | null;
+  /** Runner, session, process, contract, acceptance and result of an agent node. */
+  readonly session?: AgentPlanSessionRecord | null;
 }
 
 /** Only the executor may read this sanitized view or request its stop. */

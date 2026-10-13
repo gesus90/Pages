@@ -50,6 +50,27 @@ function readCodexText(output: string, isSearchAllowed: boolean): string {
   return text;
 }
 
+/** OpenCode's text parts of a finished turn; a tool use is no text answer. */
+function readOpenCodeText(output: string): string {
+  let text = "";
+  let isComplete = false;
+  for (const line of output.split("\n").filter((entry) => entry.trim())) {
+    const parsed: unknown = JSON.parse(line);
+    const event = readAgentObject(parsed);
+    const part = readAgentObject(event.part);
+    if (event.type === "error") throw new TextAssistantError("providerFailed");
+    if (event.type === "tool_use")
+      throw new TextAssistantError("invalidOutput");
+    if (event.type === "step_start") text = "";
+    if (event.type === "text" && typeof part.text === "string")
+      text += part.text;
+    if (event.type === "step_finish") isComplete = part.reason === "stop";
+  }
+  if (!isComplete || !text.trim())
+    throw new TextAssistantError("invalidOutput");
+  return text;
+}
+
 /** Accepts only a completed assistant turn, never CLI diagnostics or tool events other than an allowed search. */
 export function readCliTextResponse(
   provider: CliProviderId,
@@ -57,6 +78,7 @@ export function readCliTextResponse(
   options: { readonly webSearch?: boolean } = {},
 ): string {
   try {
+    if (provider === "opencode") return readOpenCodeText(output);
     return provider === "claude_code"
       ? readClaudeText(output)
       : readCodexText(output, options.webSearch === true);

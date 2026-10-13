@@ -70,6 +70,34 @@ export class AgentRunArchive {
   }
 
   /**
+   * Returns the prompt one node was sent, for the executor of the run.
+   *
+   * @param userId - The executor; another person gets nothing.
+   * @param step - The plan run, the node and its agent.
+   * @returns The redacted prompt, or `null` before the node was sent anything.
+   *
+   * @remarks
+   * While the node runs the pinned prompt answers; afterwards its record does.
+   */
+  public async sentPrompt(
+    userId: string,
+    step: {
+      readonly planRunId: string;
+      readonly stepId: string;
+      readonly agentId: string;
+    },
+  ): Promise<string | null> {
+    const pinned = await this.repository.findInput(step.planRunId, step.stepId);
+    if (pinned) return pinned.prompt;
+    requireArtifactId(step.agentId);
+    const record = await this.repository.find(
+      step.agentId,
+      runIdentifier(step.planRunId, step.stepId),
+    );
+    return record?.userId === userId ? record.input : null;
+  }
+
+  /**
    * Records every run of a plan that has ended since the last call.
    *
    * @param run - Current persisted view of the plan run.

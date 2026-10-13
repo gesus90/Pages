@@ -44,6 +44,7 @@ import { WikiFileStore } from "@/backend/storage/WikiFileStore";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 import { resolveAgentsDirectory } from "@/backend/config/PagesConfig";
 import { SetupService } from "@/backend/setup/SetupService";
+import mcpManifest from "@/mcp/package.json";
 
 import { createAgentServices } from "./agent-services.server";
 import { createChatServices } from "./chat-services.server";
@@ -55,6 +56,7 @@ import type { AgentAssetService } from "@/backend/service/agents/AgentAssetServi
 import type { AgentApplicationServices } from "./agent-services.server";
 import type { ChatApplicationServices } from "./chat-services.server";
 import type { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
+import type { AgentPlanMcpSettings } from "@/backend/service/agents/AgentPlanSessionAccess";
 import type { TextAssistantApplicationServices } from "./text-assistant-services.server";
 import type { McpApplicationServices } from "./mcp-services.server";
 
@@ -328,6 +330,33 @@ async function initializeServices(
   };
 }
 
+/**
+ * Where plan sessions find the Pages MCP bundle and how it reaches this instance.
+ *
+ * @remarks
+ * `PAGES_MCP_BUNDLE` names a built bundle; without it the bundle of the MCP
+ * package next to the server is used when it exists. `PAGES_AGENT_API_URL`
+ * overrides the loopback address of the configured port, for example behind
+ * a reverse proxy.
+ */
+function planMcpSettings(port: number): AgentPlanMcpSettings {
+  const bundle = configuredValue("PAGES_MCP_BUNDLE");
+  return {
+    bundle: path.resolve(
+      bundle ??
+        path.join("mcp", "dist", `pages-mcp-v${mcpManifest.version}.cjs`),
+    ),
+    url: configuredValue("PAGES_AGENT_API_URL") ?? `http://127.0.0.1:${port}`,
+    node: process.execPath,
+  };
+}
+
+/** An environment variable with content; empty counts as unset. */
+function configuredValue(name: string): string | null {
+  const value = process.env[name]?.trim();
+  return value === undefined || value === "" ? null : value;
+}
+
 async function preparePlanService(
   database: Database,
   input: {
@@ -342,6 +371,7 @@ async function preparePlanService(
     agents: input.agents,
     tasks: input.tasks,
     users: input.users,
+    mcp: planMcpSettings((await getPagesRuntime()).getConfig().port),
   });
   registerShutdownHandler(database, input.agents, input.assistant, plans);
   return plans;

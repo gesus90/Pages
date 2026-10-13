@@ -71,3 +71,37 @@ export function readClaudeTest(output: string): ProviderCheckOutcome {
     }),
   };
 }
+
+/** A finished OpenCode step with text is proof of a turn; the exit code alone is not. */
+export function readOpenCodeTest(output: string): ProviderCheckOutcome {
+  let finished: Record<string, unknown> | null = null;
+  let failure: AgentErrorCode | null = null;
+  let hasText = false;
+  try {
+    for (const line of output
+      .split("\n")
+      .filter((candidate) => candidate.trim() !== "")) {
+      const parsed: unknown = JSON.parse(line);
+      const event = readAgentObject(parsed);
+      const part = readAgentObject(event.part);
+      if (event.type === "error") failure = classifyCliFailure(event);
+      if (event.type === "text" && typeof part.text === "string")
+        hasText = hasText || part.text.trim() !== "";
+      if (event.type === "step_finish" && part.reason === "stop")
+        finished = part;
+    }
+  } catch {
+    return { ok: false, errorCode: "cli_unexpected_output", detail: {} };
+  }
+  if (failure !== null || finished === null || !hasText)
+    return { ok: false, errorCode: failure ?? "cli_check_failed", detail: {} };
+  const tokens = readAgentObject(finished.tokens);
+  return {
+    ok: true,
+    detail: sanitizeCheckDetail({
+      inputTokens: tokens.input,
+      outputTokens: tokens.output,
+      costUsd: finished.cost,
+    }),
+  };
+}

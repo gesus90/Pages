@@ -1,0 +1,126 @@
+import { useTranslation } from "react-i18next";
+
+import type { TFunction } from "i18next";
+import type {
+  AgentPlanAcceptance,
+  AgentPlanContract,
+  AgentPlanContractItem,
+  AgentPlanCriterionStatus,
+} from "@/definition/AgentPlanSession";
+
+function ticketNote(
+  item: AgentPlanContractItem,
+  checked: boolean | null | undefined,
+  t: TFunction,
+): string {
+  if (!item.ticket) return "";
+  const state =
+    checked === undefined || checked === null
+      ? ""
+      : ` · ${t(checked ? "plans.session.ticketChecked" : "plans.session.ticketOpen")}`;
+  return ` (${item.ticket.key}${state})`;
+}
+
+function criterionNote(
+  status: AgentPlanCriterionStatus | undefined,
+  t: TFunction,
+): string {
+  if (!status) return "";
+  const verdict = t(status.met ? "plans.session.met" : "plans.session.unmet");
+  return status.evidence
+    ? ` — ${verdict}: ${status.evidence}`
+    : ` — ${verdict}`;
+}
+
+function Todos({
+  contract,
+  acceptance,
+}: {
+  readonly contract: AgentPlanContract;
+  readonly acceptance: AgentPlanAcceptance | null;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <ul className="space-y-0.5">
+      {contract.todos.map((todo) => {
+        const status = acceptance?.todos.find((entry) => entry.id === todo.id);
+        return (
+          <li key={todo.id} className="break-words">
+            <span className="font-medium">{todo.id}</span> {todo.text}
+            {ticketNote(todo, undefined, t)}
+            {status
+              ? ` — ${t(`plans.session.todoStatus.${status.status}`)}`
+              : ""}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function Criteria({
+  contract,
+  acceptance,
+}: {
+  readonly contract: AgentPlanContract;
+  readonly acceptance: AgentPlanAcceptance | null;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <ul className="space-y-0.5">
+      {contract.criteria.map((criterion) => {
+        const status = acceptance?.criteria.find(
+          (entry) => entry.id === criterion.id,
+        );
+        return (
+          <li key={criterion.id} className="break-words">
+            <span className="font-medium">{criterion.id}</span> {criterion.text}
+            {ticketNote(criterion, status?.ticketChecked, t)}
+            {criterionNote(status, t)}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/** Lists the todos and criteria fixed before the start, with the verdict on the closing report. */
+export function PlanRunContract({
+  contract,
+  acceptance,
+}: {
+  readonly contract: AgentPlanContract;
+  readonly acceptance: AgentPlanAcceptance | null;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const verdict = acceptance?.verdict ?? "pending";
+  return (
+    <details className="text-xs" open={acceptance?.verdict === "rejected"}>
+      <summary className="cursor-pointer font-medium">
+        {t(`plans.session.verdict.${verdict}`)}
+      </summary>
+      <div className="pages-selectable mt-1 space-y-2">
+        <h4 className="font-medium">{t("plans.session.todos")}</h4>
+        <Todos contract={contract} acceptance={acceptance} />
+        <h4 className="font-medium">{t("plans.session.criteria")}</h4>
+        <Criteria contract={contract} acceptance={acceptance} />
+        {acceptance && acceptance.issues.length > 0 ? (
+          <p className="text-destructive">
+            {t("plans.session.issues")}: {acceptance.issues.join(", ")}
+          </p>
+        ) : null}
+        {acceptance && acceptance.decisions.length > 0 ? (
+          <>
+            <h4 className="font-medium">{t("plans.session.decisions")}</h4>
+            <ul className="list-disc pl-4">
+              {acceptance.decisions.map((decision) => (
+                <li key={decision}>{decision}</li>
+              ))}
+            </ul>
+          </>
+        ) : null}
+        {acceptance?.summary ? <p>{acceptance.summary}</p> : null}
+      </div>
+    </details>
+  );
+}

@@ -48,6 +48,30 @@ export class CliToolExecution {
     });
   }
 
+  /** Sends one prompt through stdin, never through the argument list. */
+  public prompt(
+    home: CliHome,
+    request: {
+      readonly arguments: readonly string[];
+      readonly input: string;
+      readonly environment?: Readonly<Record<string, string>>;
+    },
+    signal: AbortSignal,
+    timeoutMs = 45_000,
+  ): Promise<CliProcessResult> {
+    return this.runner.run({
+      file: this.file,
+      provider: this.provider,
+      home,
+      arguments: request.arguments,
+      signal,
+      timeoutMs,
+      stdin: "pipe",
+      input: request.input,
+      environment: request.environment,
+    });
+  }
+
   /** Catalog commands print large JSON, bounded at 8 MiB and 20 seconds. */
   public readCatalog(
     home: CliHome,

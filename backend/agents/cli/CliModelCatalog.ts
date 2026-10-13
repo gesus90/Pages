@@ -145,3 +145,82 @@ export function readClaudeModels(stdout: string): readonly AgentCatalogModel[] {
   if (models.length === 0) throw unexpected();
   return [...new Map(models.map((model) => [model.id, model])).values()];
 }
+
+// `opencode models --verbose` prints each model as its ID on one line followed
+// by a pretty-printed JSON object whose closing brace starts a line.
+const OPENCODE_ENTRY = /^(\S+)\n(\{\n[\s\S]*?\n\})$/gmu;
+const MAXIMUM_OPENCODE_MODELS = 5000;
+
+// OpenCode states prices in US dollars per million tokens; catalogs keep them per token.
+function readPerTokenPrice(value: unknown): string | null {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0)
+    return null;
+  return String(Number((value / 1_000_000).toPrecision(6)));
+}
+
+function readOpenCodeModel(
+  id: string,
+  entry: Record<string, unknown>,
+): AgentCatalogModel {
+  const cost = readAgentObject(entry.cost);
+  const limit = readAgentObject(entry.limit);
+  const capabilities = readAgentObject(entry.capabilities);
+  const promptPrice = readPerTokenPrice(cost.input);
+  const completionPrice = readPerTokenPrice(cost.output);
+  const efforts = readReasoningEfforts(
+    Object.keys(readAgentObject(entry.variants)),
+  );
+  const name = entry.name;
+  const context = limit.context;
+  return {
+    id,
+    name:
+      typeof name === "string" && /^[^\p{Cc}]{1,200}$/u.test(name) ? name : id,
+    contextWindow:
+      typeof context === "number" &&
+      Number.isSafeInteger(context) &&
+      context > 0
+        ? context
+        : null,
+    promptPrice,
+    completionPrice,
+    isFree: promptPrice === "0" && completionPrice === "0",
+    ...(efforts
+      ? reasoningLevels(efforts, null)
+      : reasoningWithoutLevels(
+          capabilities.reasoning === true ? "automatic" : "none",
+        )),
+  };
+}
+
+/**
+ * Reads `opencode models <provider> --verbose`, the catalog OpenCode itself uses.
+ *
+ * @param stdout - The listing printed by the CLI.
+ * @returns The models under their full OpenCode IDs, such as
+ * `openrouter/z-ai/glm-5.2`, with the variants OpenCode offers as efforts.
+ * @throws {AgentError} `cli_unexpected_output` for anything but a model list.
+ *
+ * @remarks
+ * Deprecated models and IDs Pages cannot store unchanged, such as aliases
+ * with a `~` after the provider, are left out instead of failing the list.
+ */
+export function readOpenCodeModels(
+  stdout: string,
+): readonly AgentCatalogModel[] {
+  const models: AgentCatalogModel[] = [];
+  for (const match of stdout.matchAll(OPENCODE_ENTRY)) {
+    let entry: Record<string, unknown>;
+    try {
+      const parsed: unknown = JSON.parse(match[2]);
+      entry = readAgentObject(parsed);
+    } catch {
+      throw unexpected();
+    }
+    if (!isCatalogModelId(match[1]) || entry.status === "deprecated") continue;
+    models.push(readOpenCodeModel(match[1], entry));
+    if (models.length > MAXIMUM_OPENCODE_MODELS) throw unexpected();
+  }
+  if (models.length === 0) throw unexpected();
+  return models;
+}

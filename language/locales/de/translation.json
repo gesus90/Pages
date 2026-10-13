@@ -475,7 +475,8 @@
         "zai": "Z.AI",
         "anthropic": "Anthropic",
         "codex_cli": "Codex CLI (ChatGPT-Konto)",
-        "claude_code": "Claude Code (Claude-Abo)"
+        "claude_code": "Claude Code (Claude-Abo)",
+        "opencode": "OpenCode (OpenRouter-Schlüssel)"
       },
       "providerShort": {
         "openrouter": "OpenRouter API",
@@ -484,7 +485,8 @@
         "zai": "Z.AI API",
         "anthropic": "Anthropic API",
         "codex_cli": "Codex CLI",
-        "claude_code": "Claude Code CLI"
+        "claude_code": "Claude Code CLI",
+        "opencode": "OpenCode CLI"
       },
       "error": {
         "name_required": "Ein Name für die Anbindung ist erforderlich.",
@@ -581,7 +583,16 @@
         "plan_interrupted": "Der Server hat den Lauf unterbrochen. Automatische Fortsetzung ist nicht möglich.",
         "plan_json_invalid": "Genau einen gültigen JSON-Wert eingeben. Zahlen müssen endlich sein.",
         "plan_number_invalid": "Genau eine endliche Zahl eingeben.",
-        "plan_run_unavailable": "Dieser Plan hat bereits einen aktiven Lauf, oder der gewählte Lauf ist nicht mehr aktiv."
+        "plan_run_unavailable": "Dieser Plan hat bereits einen aktiven Lauf, oder der gewählte Lauf ist nicht mehr aktiv.",
+        "plan_run_option_unsupported": "Der Runner kann die Laufoptionen dieses Agenten nicht durchsetzen, etwa „Nur lesen“ zusammen mit Shell. Passe die Laufoptionen an.",
+        "plan_mcp_unavailable": "Der Knoten ist an Tickets gebunden, aber dieser Server hat keinen Pages-MCP-Adapter für Agent-Sitzungen.",
+        "plan_definition_changed": "Die AGENT.md des Agenten fehlt oder passt nicht zur gestarteten Revision.",
+        "plan_placeholder_unresolved": "Der Auftrag enthielte noch einen Parameter-Platzhalter; es wurde nichts gesendet.",
+        "plan_runner_failed": "Der Runner hat seinen Turn mit einem Fehler beendet.",
+        "plan_runner_incomplete": "Der Runner endete, ohne seinen Turn abzuschließen.",
+        "plan_runner_permission_denied": "Der Runner hat Aktionen abgelehnt, die die Laufoptionen nicht erlauben; nichts wurde stellvertretend freigegeben.",
+        "plan_acceptance_failed": "Der Abschlussbericht belegt nicht jedes Todo und jedes Abnahmekriterium.",
+        "plan_closeout_failed": "Die Sitzung ließ sich nicht vollständig schließen; Prozesse blieben übrig."
       },
       "description": "Verwalten Sie die benannten KI-Anbindungen und Funktionszuordnungen dieser Pages-Instanz.",
       "adminModeRequired": "Die Agents-Einstellungen sind nur im Admin-Modus verfügbar. Ihr Konto ist derzeit im Rollenmodus.",
@@ -923,6 +934,18 @@
           "plan": "Ausführplan {{id}}",
           "agent": "Agent „{{name}}“"
         }
+      },
+      "openCodeKey": "OpenRouter-API-Schlüssel für OpenCode",
+      "openCodeKeyHint": "Pages legt den Schlüssel nur im privaten Anmeldeordner dieser Verbindung ab, in OpenCodes eigener Schlüsseldatei. Er erscheint danach nirgends mehr.",
+      "openCodeKeyStore": "Schlüssel hinterlegen",
+      "openCodeKeyReplace": "Schlüssel ersetzen",
+      "run": {
+        "title": "Ausführung in Ausführplänen",
+        "hint": "Gilt für CLI-Runner (Codex, Claude Code, OpenCode). Sie arbeiten immer unbeaufsichtigt: Was nicht erlaubt ist, wird abgelehnt statt nachgefragt. Eine Kombination, die ein Runner nicht durchsetzen kann, blockiert den Start.",
+        "access": "Zugriff auf den Workspace",
+        "timeout": "Zeitlimit je Sitzung (Minuten)",
+        "shell": "Befehle im Workspace ausführen (Shell)",
+        "web": "Websuche und Webabruf erlauben"
       }
     },
     "connections": {
@@ -2979,7 +3002,79 @@
       "json": "Genau einen gültigen JSON-Wert eingeben. Zahlen müssen endlich sein.",
       "number": "Genau eine endliche Zahl eingeben."
     },
-    "createPortValue": "Wert als Parameterknoten"
+    "createPortValue": "Wert als Parameterknoten",
+    "session": {
+      "title": "Sitzung",
+      "runner": {
+        "codex_cli": "Codex CLI",
+        "claude_code": "Claude Code",
+        "opencode": "OpenCode",
+        "api": "API-Verbindung"
+      },
+      "mode": {
+        "one_shot": "Einmal-Aufruf",
+        "interactive": "Interaktive Sitzung",
+        "request": "API-Anfrage ohne Prozess"
+      },
+      "result": "Pages-Ergebnis",
+      "resultPending": "ausstehend",
+      "instance": "Instanz",
+      "sessionId": "Sitzungs-ID des Runners",
+      "process": "Prozessgruppe",
+      "started": "Start",
+      "turnEnded": "Turn-Ende",
+      "ended": "Ende",
+      "exit": "Prozess-Exit",
+      "exitValue": "Code {{code}} · Signal {{signal}}",
+      "closeoutLabel": "Schließen",
+      "closeout": {
+        "pending": "ausstehend",
+        "confirmed": "bestätigt, keine Prozesse übrig ({{count}} Restprozesse beendet)",
+        "failed": "fehlgeschlagen, Prozesse übrig",
+        "not_needed": "nicht nötig, kein Prozess gestartet"
+      },
+      "prompt": "Gesendeten Auftrag anzeigen",
+      "configuration": "Konfiguration",
+      "requested": "Angefordert",
+      "effective": "Wirksam (vom Runner übergeben oder gemeldet)",
+      "connection": "Verbindung",
+      "model": "Modell-ID",
+      "reasoning": "Reasoning",
+      "options": "Laufoptionen",
+      "optionsValue": "{{access}} · Shell: {{shell}} · Web: {{web}} · {{minutes}} min",
+      "access": {
+        "workspace_write": "Workspace schreiben",
+        "read_only": "Nur lesen"
+      },
+      "yes": "ja",
+      "no": "nein",
+      "unattended": "Unbeaufsichtigt",
+      "mcp": "Pages-MCP",
+      "directory": "Workspace",
+      "definition": "AGENT.md",
+      "definitionValue": "{{path}} (Revision {{revision}})",
+      "todos": "Todo-Liste",
+      "criteria": "Abnahmekriterien",
+      "verdict": {
+        "pending": "Abschlussvertrag · Abnahme ausstehend",
+        "accepted": "Abschlussvertrag · fachlich abgenommen",
+        "rejected": "Abschlussvertrag · nicht abgenommen"
+      },
+      "todoStatus": {
+        "done": "erledigt",
+        "open": "offen",
+        "missing": "nicht berichtet"
+      },
+      "met": "erfüllt",
+      "unmet": "nicht erfüllt",
+      "ticketChecked": "im Ticket abgehakt",
+      "ticketOpen": "im Ticket offen",
+      "issues": "Gründe",
+      "decisions": "Eigene Entscheidungen des Agenten",
+      "events": "Ereignisse der Sitzung",
+      "duration": "Dauer",
+      "durationValue": "Turn {{turn}} s · gesamt {{total}} s"
+    }
   },
   "mcpDuration": {
     "label": "Gültigkeit in Tagen",

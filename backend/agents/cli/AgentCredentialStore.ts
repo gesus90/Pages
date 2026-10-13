@@ -6,6 +6,13 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import type { CliProviderId } from "@/definition/AgentConnection";
 import type { CliHome } from "./CliContracts";
 
+/** The folder each CLI keeps its own configuration and login in. */
+const CONFIG_DIRECTORIES: Readonly<Record<CliProviderId, string>> = {
+  codex_cli: "codex",
+  claude_code: "claude",
+  opencode: "opencode",
+};
+
 const UUID_PATTERN =
   /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
 
@@ -42,7 +49,7 @@ export class AgentCredentialStore {
     return {
       root,
       home: path.join(root, "home"),
-      config: path.join(root, provider === "codex_cli" ? "codex" : "claude"),
+      config: path.join(root, CONFIG_DIRECTORIES[provider]),
       work: path.join(root, "work"),
     };
   }

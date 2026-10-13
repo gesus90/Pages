@@ -5,6 +5,7 @@ import { WikiMarkdown } from "@/app/components/wiki/wiki-markdown";
 import { isWikiAttachmentPath } from "@/app/lib/wiki-upload";
 
 import { AgentParameterFields } from "./agent-parameter-fields";
+import { AgentRunOptionsFields } from "./agent-run-options-fields";
 
 import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
 import type { AgentConfiguration } from "@/definition/AgentConfiguration";
@@ -39,6 +40,11 @@ export function AgentTemplateEditor(props: {
         />
       </div>
       <AgentParameterFields {...props} />
+      <AgentRunOptionsFields
+        configuration={props.configuration}
+        disabled={props.disabled}
+        onChange={props.onChange}
+      />
     </section>
   );
 }

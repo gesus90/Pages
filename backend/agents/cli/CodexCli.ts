@@ -16,7 +16,7 @@ import type {
   CliProcessResult,
   CliRunningProcess,
   CliStatusOutcome,
-  CliToolAdapter,
+  CliLoginAdapter,
 } from "./CliContracts";
 import type { CliToolExecution } from "./CliToolExecution";
 
@@ -28,7 +28,7 @@ const CODEX_AUTH_ARGUMENTS = [
 ];
 
 /** Controls the unchanged Codex binary using an isolated, file-backed ChatGPT account. */
-export class CodexCli implements CliToolAdapter {
+export class CodexCli implements CliLoginAdapter {
   public readonly provider = "codex_cli";
   private readonly execution: CliToolExecution;
 

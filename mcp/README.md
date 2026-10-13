@@ -793,6 +793,38 @@ status IDs that `set_ticket_status` and `create_ticket` take.
 
 Read and write tools are listed to every verified account; Pages enforces the corresponding UI rights on each invocation.
 
+### Ticket checklist
+
+Two tools read and set the checkboxes of one ticket. Pages builds the checklist
+from the same data the ticket page shows: the acceptance criteria of the ticket
+(`source: "criteria"`) and the task list items of its Markdown description
+(`source: "description"`). Only real list items count; a `- [ ]` inside a code
+block is no entry.
+
+| Tool                        | Pages operation            | Arguments (besides `operationId`)                   | Result                                                |
+| --------------------------- | -------------------------- | --------------------------------------------------- | ----------------------------------------------------- |
+| `read_ticket_checklist`     | `ticket.checklist.read`    | `ticketId`                                          | `{ticketId, key, link, revision, items}`              |
+| `set_ticket_checklist_item` | `ticket.checklist.setItem` | `ticketId`, `itemId`, `checked`, `expectedRevision` | `{ticketId, key, itemId, checked, changed, revision}` |
+
+- **Entries.** Every entry has `id`, `source`, `text`, `checked`, `order` (position
+  among all entries), `depth` and `parentId` (the enclosing description entry).
+  Equal texts get different ids. An id stays the same when only its checkbox
+  changes; it changes when the text or the position in the hierarchy changes.
+- **Revision.** `revision` grows with every change through this API and
+  whenever the description or an acceptance criterion differs from the last
+  read; it never goes back, even when the checklist returns to an earlier state.
+  A change names the revision you read; when anything changed since then the
+  call returns `CONFLICT` and nothing is written. Read again and decide anew.
+- **Explicit state.** `checked` is `true` or `false`; the call never toggles. An
+  entry that already has the state stays unchanged (`changed: false`). Only the
+  addressed entry changes: for a description entry only the character inside its
+  brackets, every other character of the description stays as it is. The result
+  carries the new revision for the next call.
+- **Errors and rights.** An unknown or removed id is `NOT_FOUND`, like a hidden
+  ticket. Setting needs the write right (`FORBIDDEN` without it). The same
+  `operationId` with identical input returns the stored result without writing
+  again.
+
 ### Ticket search, hierarchy, links and assignment
 
 Four read tools find tickets and read their hierarchy, links and assignment

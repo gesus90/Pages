@@ -1,3 +1,4 @@
+import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
 import { readPlanRunResources } from "@/backend/agents/AgentPlanRunResources";
 import { readTextColumn } from "@/backend/database/RowValue";
@@ -106,6 +107,27 @@ export class AgentPlanRunRepository {
       readTextColumn(row, 0, "snapshot_json"),
     );
     return readPlanRunResources(snapshot);
+  }
+
+  /** Names the agent of one node from the private snapshot, without disclosing anything else. */
+  public async stepAgent(id: string, stepId: string): Promise<string | null> {
+    const [row] = await this.database.query(
+      "SELECT snapshot_json FROM agent_plan_runs WHERE id = $id;",
+      { id },
+    );
+    if (!row) return null;
+    const snapshot = readAgentObject(
+      JSON.parse(readTextColumn(row, 0, "snapshot_json")),
+    );
+    const steps: readonly unknown[] = Array.isArray(snapshot.steps)
+      ? snapshot.steps
+      : [];
+    for (const entry of steps) {
+      const step = readAgentObject(readAgentObject(entry).step);
+      if (step.id === stepId && typeof step.agentId === "string")
+        return step.agentId;
+    }
+    return null;
   }
 
   /** Returns unfinished public records for service-controlled recovery after restart. */

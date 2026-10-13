@@ -26,7 +26,8 @@ function listed(
  *   models in its SDK initialize catalog, and Anthropic lists newer models first, so their first
  *   entry is the default.
  * - OpenRouter starts with its free router, otherwise its first free model, so
- *   a default never incurs costs.
+ *   a default never incurs costs. OpenCode reaches OpenRouter as well and starts
+ *   with its first free model for the same reason.
  * - Google starts with its "latest Flash" alias when listed.
  * - OpenAI's listing marks no default and also contains models that cannot
  *   chat, so OpenAI and Z.AI get none and the administrator chooses.
@@ -41,6 +42,7 @@ export function defaultCatalogModel(
     case "anthropic":
       return models.at(0)?.id ?? null;
     case "openrouter":
+    case "opencode":
       return (
         listed(models, OPENROUTER_FREE_ROUTER) ??
         models.find((model) => model.isFree)?.id ??

@@ -19,6 +19,7 @@ import { WikiRepository } from "@/backend/database/repositories/WikiRepository";
 import { AgentExtensionService } from "@/backend/service/agents/AgentExtensionService";
 import { AgentAdministrationService } from "@/backend/service/agents/AgentAdministrationService";
 import { AgentOperationRouter } from "@/backend/service/agents/AgentOperationRouter";
+import { AgentRunCredentialRepository } from "@/backend/database/repositories/mcp/AgentRunCredentialRepository";
 import { PersonalAgentTokenRepository } from "@/backend/database/repositories/mcp/PersonalAgentTokenRepository";
 import { PairingRepository } from "@/backend/database/repositories/mcp/PairingRepository";
 import { PairingService } from "@/backend/service/mcp/PairingService";
@@ -26,6 +27,7 @@ import { PagesAgentApiService } from "@/backend/service/PagesAgentApiService";
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import { AgentIdentityService } from "@/backend/service/mcp/AgentIdentityService";
 import { AgentProjectService } from "@/backend/service/mcp/AgentProjectService";
+import { AgentRunCredentialService } from "@/backend/service/mcp/AgentRunCredentialService";
 import { PersonalAgentTokenService } from "@/backend/service/mcp/PersonalAgentTokenService";
 
 import type { AgentChannel } from "@/backend/auth/McpActorContext";
@@ -232,6 +234,10 @@ export function createMcpServices(
       personalAgentTokenService,
       new AgentProjectService(new ProjectRepository(database)),
       createMcpOperationRouter(routers),
+      new AgentRunCredentialService(
+        new AgentRunCredentialRepository(database),
+        identities,
+      ),
     ),
   };
 }

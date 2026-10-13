@@ -94,6 +94,27 @@ function claudeArguments(input: TextExecutionInput): string[] {
   return args;
 }
 
+// A text turn of OpenCode may use no tool: no files, commands, web or MCP.
+const OPENCODE_TEXT_CONFIGURATION = JSON.stringify({
+  permission: "deny",
+  share: "disabled",
+  autoupdate: false,
+});
+
+function openCodeArguments(input: TextExecutionInput): string[] {
+  const args = ["run", "--format", "json", "--pure", "-m", input.agent.model];
+  if (input.agent.reasoningEffort !== null)
+    args.push("--variant", input.agent.reasoningEffort);
+  return args;
+}
+
+function textArguments(input: TextExecutionInput, work: string): string[] {
+  const { provider } = input.agent.connection;
+  if (provider === "codex_cli") return codexArguments(input, work);
+  if (provider === "opencode") return openCodeArguments(input);
+  return claudeArguments(input);
+}
+
 /** Uses the existing isolated credential homes and bounded, cancellable process runner. */
 export class CliTextExecution implements TextExecution {
   private readonly dependencies: CliTextDependencies;
@@ -123,10 +144,11 @@ export class CliTextExecution implements TextExecution {
         file: location.path,
         provider: connection.provider,
         home,
-        arguments:
-          connection.provider === "codex_cli"
-            ? codexArguments(input, home.work)
-            : claudeArguments(input),
+        arguments: textArguments(input, home.work),
+        environment:
+          connection.provider === "opencode"
+            ? { OPENCODE_CONFIG_CONTENT: OPENCODE_TEXT_CONFIGURATION }
+            : undefined,
         stdin: "pipe",
         input:
           input.instructions === undefined

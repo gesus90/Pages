@@ -7,17 +7,17 @@ import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
 import { isApiProvider } from "@/definition/AgentConnection";
 import { isPlanFlowNode } from "@/definition/AgentPlanGraph";
 
-import { sanitizePlanOutput } from "./AgentPlanOutput";
 import { hasPlanPath } from "./AgentPlanGraph";
 
-import type { PlanExecution } from "@/backend/agents/AgentPlanExecution";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type {
   AgentPlanNode,
   AgentPlanRun,
   AgentPlanStepResult,
 } from "@/definition/AgentPlan";
+import type { AgentPlanSessionRecord } from "@/definition/AgentPlanSession";
 import type { AgentPlanSnapshot } from "./AgentPlanSnapshot";
+import type { AgentPlanStepRunner } from "./AgentPlanStepRunner";
 import type { AgentPlanStepStart } from "./AgentPlanStepStart";
 import type { AgentRunArchive } from "./AgentRunArchive";
 import type { AgentDefinitionFiles } from "./AgentDefinitionFiles";
@@ -32,7 +32,7 @@ interface ActivePlanRun {
 interface EngineDependencies {
   readonly runs: AgentPlanRunRepository;
   readonly start: AgentPlanStepStart;
-  readonly execution: PlanExecution;
+  readonly steps: AgentPlanStepRunner;
   readonly archive?: AgentRunArchive;
   readonly files?: AgentDefinitionFiles;
 }
@@ -274,60 +274,7 @@ export class AgentPlanRunEngine {
     node: AgentPlanNode,
     controller: AbortController,
   ): Promise<void> {
-    let hasStarted = false;
-    let changes: Partial<AgentPlanStepResult>;
-    try {
-      if (active.view.stopRequested || controller.signal.aborted)
-        throw new AgentPlanCancelledError();
-      const step = active.snapshot.steps.find(
-        (entry) => entry.step.id === node.id,
-      );
-      let output: string | null = null;
-      if (step) {
-        const input = await this.dependencies.start.prepare(
-          active.view,
-          active.snapshot,
-          step,
-        );
-        if (active.view.stopRequested || controller.signal.aborted)
-          throw new AgentPlanCancelledError();
-        await this.dependencies.archive?.input(
-          active.view.id,
-          node.id,
-          input.prompt,
-        );
-        hasStarted = true;
-        output = sanitizePlanOutput(
-          await this.dependencies.execution.run(input, controller.signal),
-        );
-      } else {
-        await this.dependencies.start.control(
-          active.view,
-          active.snapshot,
-          node,
-        );
-      }
-      changes = {
-        status: "succeeded",
-        output,
-        error: null,
-      };
-    } catch (error: unknown) {
-      changes =
-        error instanceof AgentPlanCancelledError
-          ? {
-              status: "cancelled",
-              cancellation: hasStarted ? "confirmed" : "not_started",
-            }
-          : {
-              status: "failed",
-              error:
-                error instanceof AgentError ||
-                error instanceof TextAssistantError
-                  ? error.code
-                  : "plan_step_failed",
-            };
-    }
+    const changes = await this.outcome(active, node, controller);
     try {
       await this.writes.run(async () => {
         patchStep(active, node.id, changes);
@@ -342,6 +289,60 @@ export class AgentPlanRunEngine {
       for (const running of active.controllers.values()) running.abort();
       console.error(
         "Pages could not persist agent plan progress; workspace reservations remain held.",
+      );
+    }
+  }
+
+  /** Agent nodes run through the step runner; flow tickets, starts and ends are checkpoints. */
+  private async outcome(
+    active: ActivePlanRun,
+    node: AgentPlanNode,
+    controller: AbortController,
+  ): Promise<Partial<AgentPlanStepResult>> {
+    const isStopped = active.view.stopRequested || controller.signal.aborted;
+    const step = active.snapshot.steps.find(
+      (entry) => entry.step.id === node.id,
+    );
+    if (step) {
+      if (isStopped)
+        return { status: "cancelled", cancellation: "not_started" };
+      return this.dependencies.steps.run(active.view, active.snapshot, step, {
+        signal: controller.signal,
+        save: (session) => this.saveSession(active, node.id, session),
+      });
+    }
+    try {
+      if (isStopped) throw new AgentPlanCancelledError();
+      await this.dependencies.start.control(active.view, active.snapshot, node);
+      return { status: "succeeded", output: null, error: null };
+    } catch (error: unknown) {
+      if (error instanceof AgentPlanCancelledError)
+        return { status: "cancelled", cancellation: "not_started" };
+      return {
+        status: "failed",
+        error:
+          error instanceof AgentError || error instanceof TextAssistantError
+            ? error.code
+            : "plan_step_failed",
+      };
+    }
+  }
+
+  /** Stores the newest record of a running node; a failure is reported, never thrown. */
+  private async saveSession(
+    active: ActivePlanRun,
+    stepId: string,
+    session: AgentPlanSessionRecord,
+  ): Promise<void> {
+    try {
+      await this.writes.run(async () => {
+        patchStep(active, stepId, { session });
+        await this.dependencies.runs.update(active.view);
+      });
+    } catch (error: unknown) {
+      console.error(
+        "Pages could not store the record of an agent node.",
+        error,
       );
     }
   }

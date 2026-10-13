@@ -1,4 +1,6 @@
+import { unsupportedRunOption } from "@/backend/agents/cli/CliSessionPlans";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { DEFAULT_AGENT_RUN_OPTIONS } from "@/definition/AgentConfiguration";
 import { isApiProvider } from "@/definition/AgentConnection";
 import { planExecutionIssues } from "@/definition/AgentPlanGraph";
 import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
@@ -71,6 +73,7 @@ export class AgentPlanPreparation {
         markdown: configuration.markdown,
         parameters: configuration.parameters,
         directoryParameter: configuration.directoryParameter,
+        ...(configuration.run === undefined ? {} : { run: configuration.run }),
       };
       const bindings = planBindings(plan, step, tasks);
       const prepared = await this.dependencies.parameters.prepare(
@@ -85,11 +88,17 @@ export class AgentPlanPreparation {
       );
       if (prepared.workspace.projectId !== plan.projectId)
         throw new AgentError("plan_context_changed");
-      if (
-        !isApiProvider(resolved.assignment.connection.provider) &&
-        prepared.directory === null
-      )
+      const { provider } = resolved.assignment.connection;
+      if (!isApiProvider(provider) && prepared.directory === null)
         throw new AgentError("plan_directory_required");
+      // Options the runner cannot enforce stop the whole plan before any node starts.
+      const unsupported = isApiProvider(provider)
+        ? null
+        : unsupportedRunOption(
+            provider,
+            configuration.run ?? DEFAULT_AGENT_RUN_OPTIONS,
+          );
+      if (unsupported !== null) throw new AgentError(unsupported);
       const taskIds = Object.values(step.bindings).flatMap((binding) => {
         if (binding.kind !== "source") return [];
         const node = plan.nodes.find((entry) => entry.id === binding.nodeId);

@@ -99,6 +99,10 @@ const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
   "wiki.comment.delete": `{commentId} Kommentar löschen, ${CONFIRMED}`,
   "ticket.read":
     "{ticketId} Ticket mit möglichen Status, Tags, Verknüpfungen und descendantCount lesen (ID oder Schlüssel)",
+  "ticket.checklist.read":
+    "{ticketId} Checkliste eines Tickets lesen: Abnahmekriterien und Aufgabenpunkte der Beschreibung mit ID, Text, checked, Reihenfolge, Ebene und Revision",
+  "ticket.checklist.setItem":
+    "{ticketId, itemId, checked: true|false, expectedRevision} einen Checklisteneintrag gezielt setzen; nur dieser Eintrag ändert sich",
   "ticket.create":
     "{projectId?, type: initiative|epic|task|subtask, title, description, statusId|null, parentId|null, milestoneId?|null, departmentId?|null, assignee?: {targetType: person|group|none, targetId|null}} Ticket anlegen; Projekt, Meilenstein und Abteilung kommen vom Elternticket, Bearbeitung ist ohne Angabe die anlegende Person",
   "tickets.search": `{projectId, text?, type?: initiative|epic|task|subtask, statusId?, parentId?, milestoneId?, departmentId?, assigneeId?, assigneeGroupId?, tagIds?: [], ${WINDOW}} Tickets eines Projekts nach Schlüssel, Titel und Beschreibung suchen und filtern`,

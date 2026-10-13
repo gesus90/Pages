@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { readPlanInput } from "@/backend/agents/AgentPlanInput";
+import { endTaggedProcesses } from "@/backend/agents/cli/CliProcessScan";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { requireCredentialFreeText } from "@/backend/service/assistant/TextAssistantValidation";
 
@@ -26,6 +27,9 @@ import type { AgentPlanTasks } from "./AgentPlanTasks";
 import type { AgentPlanAccess } from "./AgentPlanAccess";
 import type { AgentPlanPreparation } from "./AgentPlanPreparation";
 import type { AgentPlanRunEngine } from "./AgentPlanRunEngine";
+import type { AgentPlanSessionAccess } from "./AgentPlanSessionAccess";
+import type { AgentRunArchive } from "./AgentRunArchive";
+import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 
 interface PlanDependencies {
   readonly plans: AgentPlanRepository;
@@ -37,6 +41,36 @@ interface PlanDependencies {
   readonly access: AgentPlanAccess;
   readonly preparation: AgentPlanPreparation;
   readonly engine: AgentPlanRunEngine;
+  /** Ends the MCP access of interrupted sessions; absent without plan sessions. */
+  readonly sessions?: AgentPlanSessionAccess;
+  /** Serves the prompts nodes were sent. */
+  readonly archive?: AgentRunArchive;
+}
+
+/**
+ * Ends what an interrupted node left behind: its processes and its MCP access.
+ *
+ * @remarks
+ * A server stop can leave a runner and its helpers running in their own
+ * process group. Every process of a session carries its instance tag, so the
+ * restarted server finds and ends them before it reports the node as failed.
+ */
+async function endInterruptedSession(
+  step: AgentPlanStepResult,
+): Promise<AgentPlanStepResult> {
+  const session = step.session;
+  if (!session || session.closeout !== "pending") return step;
+  const cleanup = await endTaggedProcesses(session.instanceId);
+  return {
+    ...step,
+    session: {
+      ...session,
+      endedAt: new Date().toISOString(),
+      closeout: cleanup.remaining === 0 ? "confirmed" : "failed",
+      leftoverProcesses: cleanup.found,
+      resultCode: -1,
+    },
+  };
 }
 
 interface PlanTaskBinding {
@@ -74,14 +108,24 @@ export class AgentPlanService {
     this.dependencies = dependencies;
   }
 
-  /** Fails orphaned runs at startup without claiming process cancellation or releasing unknown reservations. */
+  /**
+   * Fails orphaned runs at startup without releasing unknown reservations.
+   *
+   * @remarks
+   * Processes and MCP access that interrupted sessions left behind are ended
+   * first; nothing is started again.
+   */
   public async recoverInterruptedRuns(): Promise<void> {
     for (const previous of await this.dependencies.runs.unfinished()) {
+      await this.dependencies.sessions?.revoke(previous.id, null);
+      const steps = await Promise.all(
+        previous.steps.map(endInterruptedSession),
+      );
       const run: AgentPlanRun = {
         ...previous,
         status: "failed",
         stopRequested: true,
-        steps: previous.steps.map((step) => {
+        steps: steps.map((step) => {
           if (step.status === "running")
             return {
               ...step,
@@ -96,6 +140,35 @@ export class AgentPlanService {
       };
       await this.dependencies.runs.interrupt(run);
     }
+  }
+
+  /**
+   * Returns the prompt a node of the executor's run was sent.
+   *
+   * @param userId - The executor; nobody else reads it.
+   * @param runId - The plan run.
+   * @param stepId - The node.
+   * @returns The redacted plain text exactly as the runner received it.
+   * @throws {AgentError} `plan_access_denied` without current access, or when
+   * the node has not been sent anything.
+   */
+  public async prompt(
+    userId: string,
+    runId: string,
+    stepId: string,
+  ): Promise<string> {
+    await this.run(userId, runId);
+    const agentId = await this.dependencies.runs.stepAgent(runId, stepId);
+    const prompt =
+      agentId === null || !this.dependencies.archive
+        ? null
+        : await this.dependencies.archive.sentPrompt(userId, {
+            planRunId: runId,
+            stepId,
+            agentId,
+          });
+    if (prompt === null) throw new AgentError("plan_access_denied");
+    return prompt;
   }
 
   /** Loads only authorized plans, sources and the requesting user's execution history. */

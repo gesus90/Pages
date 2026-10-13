@@ -2,6 +2,7 @@ import { AgentAssignmentTargetService } from "./AgentAssignmentTargetService";
 import { AgentMilestoneService } from "./AgentMilestoneService";
 import { AgentPlanningReadService } from "./AgentPlanningReadService";
 import { AgentTicketAnnouncer } from "./AgentTicketAnnouncer";
+import { AgentTicketChecklistService } from "./AgentTicketChecklistService";
 import { AgentTicketLinkService } from "./AgentTicketLinkService";
 import { AgentTicketSearchService } from "./AgentTicketSearchService";
 import { AgentTicketService } from "./AgentTicketService";
@@ -34,6 +35,8 @@ export interface AgentPlanningServices {
   readonly links: AgentTicketLinkService;
   /** Names the persons, groups and departments tickets can be assigned to. */
   readonly targets: AgentAssignmentTargetService;
+  /** Reads and sets the checkboxes of a ticket. */
+  readonly checklists: AgentTicketChecklistService;
   /** Reacts to a committed change; callers that run inside their own transaction use it themselves. */
   readonly announcer: AgentTicketAnnouncer;
 }
@@ -63,6 +66,7 @@ export function createAgentPlanningServices(
     tree: new AgentTicketTreeService(dependencies),
     links: new AgentTicketLinkService({ ...dependencies, ...shared }),
     targets: new AgentAssignmentTargetService(dependencies),
+    checklists: new AgentTicketChecklistService({ ...dependencies, ...shared }),
     announcer: shared.announcer,
   };
 }

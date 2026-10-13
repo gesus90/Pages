@@ -151,9 +151,13 @@ export async function bindAgentParameters(
       placeholder.property === "text"
         ? placeholder.name
         : `${placeholder.name}.${placeholder.property}`;
+    const replacement = replacements[token];
+    // A placeholder is never sent unresolved, not even as an empty or literal token.
+    if (replacement === undefined)
+      throw new AgentError("plan_placeholder_unresolved");
     markdown =
       markdown.slice(0, placeholder.start) +
-      replacements[token] +
+      replacement +
       markdown.slice(placeholder.end);
   }
   if (markdown.length > 1_000_000) throw new AgentError("parameter_invalid");

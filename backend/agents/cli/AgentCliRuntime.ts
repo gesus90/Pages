@@ -4,6 +4,7 @@ import { isApiProvider } from "@/definition/AgentConnection";
 import { ClaudeCodeCli } from "./ClaudeCodeCli";
 import { CodexCli } from "./CodexCli";
 import { CliToolExecution } from "./CliToolExecution";
+import { OpenCodeCli } from "./OpenCodeCli";
 
 import type { AgentConnectionRecord } from "@/backend/database/repositories/agent/AgentConnectionRows";
 import type {
@@ -13,7 +14,7 @@ import type {
 import type { ProviderCheckOutcome } from "@/backend/agents/providers/ProviderContracts";
 import type { AgentCatalogModel } from "@/definition/AgentModelCatalog";
 import type { AgentCredentialStore } from "./AgentCredentialStore";
-import type { CliToolAdapter } from "./CliContracts";
+import type { CliLoginAdapter, CliToolAdapter } from "./CliContracts";
 import type { CliLocator } from "./CliLocator";
 import type { CliProcessRunner } from "./CliProcessRunner";
 
@@ -33,16 +34,33 @@ export class AgentCliRuntime {
 
   /** Resolves the installed binary without executing or installing it. */
   public async adapter(provider: CliProviderId): Promise<CliToolAdapter> {
-    const location = await this.dependencies.locator.find(provider);
-    if (!location.path) throw new AgentError("cli_not_found");
-    const execution = new CliToolExecution(
-      this.dependencies.runner,
-      location.path,
-      provider,
-    );
+    const execution = await this.execution(provider);
+    switch (provider) {
+      case "codex_cli":
+        return new CodexCli(execution);
+      case "claude_code":
+        return new ClaudeCodeCli(execution);
+      case "opencode":
+        return new OpenCodeCli(execution);
+    }
+  }
+
+  /**
+   * Resolves a CLI that signs in through its own interactive account flow.
+   *
+   * @throws {AgentError} `provider_invalid` for OpenCode, which signs in with a provider key.
+   */
+  public async loginAdapter(provider: CliProviderId): Promise<CliLoginAdapter> {
+    if (provider === "opencode") throw new AgentError("provider_invalid");
+    const execution = await this.execution(provider);
     return provider === "codex_cli"
       ? new CodexCli(execution)
       : new ClaudeCodeCli(execution);
+  }
+
+  /** Resolves the OpenCode adapter, which also stores the provider key. */
+  public async openCode(): Promise<OpenCodeCli> {
+    return new OpenCodeCli(await this.execution("opencode"));
   }
 
   /** Version, local login status and the optional test all share the caller's deadline. */
@@ -124,5 +142,15 @@ export class AgentCliRuntime {
       // Directory removal is the authoritative local cleanup, including a missing CLI.
     }
     await this.dependencies.store.remove(connection.id, connection.provider);
+  }
+
+  private async execution(provider: CliProviderId): Promise<CliToolExecution> {
+    const location = await this.dependencies.locator.find(provider);
+    if (!location.path) throw new AgentError("cli_not_found");
+    return new CliToolExecution(
+      this.dependencies.runner,
+      location.path,
+      provider,
+    );
   }
 }

@@ -1,6 +1,7 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 import { isApiProvider, isLoginActive } from "@/definition/AgentConnection";
 import { createCliTerminalCommand } from "@/backend/agents/cli/CliEnvironment";
+import { CLI_BINARIES } from "@/backend/agents/cli/CliLocator";
 
 import {
   requireAgentAdministrator,
@@ -17,6 +18,7 @@ import type { AgentConnectionRecord } from "@/backend/database/repositories/agen
 import type {
   AgentCliState,
   CliLoginView,
+  CliProviderId,
   CliToolLocations,
 } from "@/definition/AgentConnection";
 import type { AccountAccess } from "@/definition/Authorization";
@@ -72,8 +74,7 @@ export class AgentCliLoginService {
       terminalCommand: createCliTerminalCommand(
         home,
         connection.provider,
-        location.path ??
-          (connection.provider === "codex_cli" ? "codex" : "claude"),
+        location.path ?? CLI_BINARIES[connection.provider],
       ),
     };
   }
@@ -85,7 +86,7 @@ export class AgentCliLoginService {
     const release = this.dependencies.operations.acquire(id, "login");
     try {
       const connection = await this.requireCli(id);
-      const adapter = await this.dependencies.runtime.adapter(
+      const adapter = await this.dependencies.runtime.loginAdapter(
         connection.provider,
       );
       if (this.isShuttingDown) throw new AgentError("login_limit_reached");
@@ -118,6 +119,58 @@ export class AgentCliLoginService {
       release();
       throw error;
     }
+  }
+
+  /**
+   * Stores the provider key of an OpenCode connection in its credential folder.
+   *
+   * @param actor - An administrator.
+   * @param id - The OpenCode connection.
+   * @param apiKey - The key as entered; it is written once and never returned.
+   * @returns The confirmed sign-in state of the connection.
+   * @throws {AgentError} `provider_invalid` for another connection type,
+   * `api_key_invalid_format`, or the failure of the confirming status read.
+   *
+   * @remarks
+   * OpenCode keeps provider keys in its own credential file. Pages writes the
+   * key there, confirms it through OpenCode's own key listing and loads the
+   * model list; the database only learns that a key is stored.
+   */
+  public async storeKey(
+    actor: AccountAccess,
+    id: string,
+    apiKey: string,
+  ): Promise<AgentCliState> {
+    requireAgentAdministrator(actor);
+    if (!apiKey || apiKey.length > 512 || /[\s\p{Cc}]/u.test(apiKey))
+      throw new AgentError("api_key_invalid_format");
+    await this.dependencies.operations.run(id, "login", async () => {
+      const connection = await this.requireCli(id);
+      if (connection.provider !== "opencode")
+        throw new AgentError("provider_invalid");
+      const { repository, store, runtime } = this.dependencies;
+      await repository.setCliAccount(
+        id,
+        { loggedInAt: null, label: null },
+        actor.userId,
+      );
+      const adapter = await runtime.openCode();
+      const home = await store.prepare(id, "opencode");
+      await adapter.storeKey(home, apiKey);
+      const status = await adapter.readStatus(
+        home,
+        AbortSignal.timeout(25_000),
+      );
+      await store.secure(id, "opencode");
+      if (!status.outcome.ok) throw new AgentError(status.outcome.errorCode);
+      await repository.setCliAccount(
+        id,
+        { loggedInAt: new Date().toISOString(), label: status.accountLabel },
+        actor.userId,
+      );
+      await this.dependencies.catalog.loadAfterAccess(id);
+    });
+    return this.describe(actor, await this.requireCli(id));
   }
 
   /** Validates a one-use Claude code and writes it directly to the official CLI's pipe. */
@@ -200,9 +253,7 @@ export class AgentCliLoginService {
 
   private async requireCli(
     id: string,
-  ): Promise<
-    AgentConnectionRecord & { readonly provider: "codex_cli" | "claude_code" }
-  > {
+  ): Promise<AgentConnectionRecord & { readonly provider: CliProviderId }> {
     const connection = await requireAgentConnection(
       this.dependencies.repository,
       id,

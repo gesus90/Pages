@@ -1,3 +1,4 @@
+import { AgentRunCredentialRepository } from "@/backend/database/repositories/mcp/AgentRunCredentialRepository";
 import { AgentPlanRepository } from "@/backend/database/repositories/agent/AgentPlanRepository";
 import { AgentProfileRepository } from "@/backend/database/repositories/agent/AgentProfileRepository";
 import { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
@@ -5,13 +6,17 @@ import { AgentPlanAccess } from "@/backend/service/agents/AgentPlanAccess";
 import { AgentPlanPreparation } from "@/backend/service/agents/AgentPlanPreparation";
 import { AgentPlanRunEngine } from "@/backend/service/agents/AgentPlanRunEngine";
 import { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
+import { AgentPlanSessionAccess } from "@/backend/service/agents/AgentPlanSessionAccess";
+import { AgentPlanStepRunner } from "@/backend/service/agents/AgentPlanStepRunner";
 import { AgentPlanStepStart } from "@/backend/service/agents/AgentPlanStepStart";
+import { AgentRunCredentialService } from "@/backend/service/mcp/AgentRunCredentialService";
 import { AgentPlanTasks } from "@/backend/service/agents/AgentPlanTasks";
 import { AgentPlanSharing } from "@/backend/service/agents/AgentPlanSharing";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 
 import type { Database } from "@/backend/database/Database";
+import type { AgentPlanMcpSettings } from "@/backend/service/agents/AgentPlanSessionAccess";
 import type { TaskService } from "@/backend/service/TaskService";
 import type { UserService } from "@/backend/service/UserService";
 import type { AgentApplicationServices } from "./agent-services.server";
@@ -22,6 +27,8 @@ export async function createAgentPlanService(input: {
   readonly agents: AgentApplicationServices;
   readonly tasks: TaskService;
   readonly users: UserService;
+  /** How sessions of ticket-bound nodes reach Pages through MCP. */
+  readonly mcp: AgentPlanMcpSettings;
 }): Promise<AgentPlanService> {
   const plans = new AgentPlanRepository(input.database);
   const runs = new AgentPlanRunRepository(input.database);
@@ -36,10 +43,29 @@ export async function createAgentPlanService(input: {
   );
   const access = new AgentPlanAccess(plans, workspaces, sharing);
   const tasks = new AgentPlanTasks(input.tasks, input.users);
+  const start = new AgentPlanStepStart({
+    access,
+    tasks,
+    profiles,
+    parameters,
+    files: input.agents.agentDefinitionFiles,
+  });
+  const sessions = new AgentPlanSessionAccess(
+    new AgentRunCredentialService(
+      new AgentRunCredentialRepository(input.database),
+    ),
+    input.mcp,
+  );
   const engine = new AgentPlanRunEngine({
     runs,
-    start: new AgentPlanStepStart({ access, tasks, profiles, parameters }),
-    execution: input.agents.agentPlanExecution,
+    start,
+    steps: new AgentPlanStepRunner({
+      start,
+      execution: input.agents.agentPlanExecution,
+      tasks,
+      access: sessions,
+      archive: input.agents.agentRunArchive,
+    }),
     archive: input.agents.agentRunArchive,
     files: input.agents.agentDefinitionFiles,
   });
@@ -53,6 +79,8 @@ export async function createAgentPlanService(input: {
     access,
     preparation: new AgentPlanPreparation({ profiles, parameters, tasks }),
     engine,
+    sessions,
+    archive: input.agents.agentRunArchive,
   });
   await service.recoverInterruptedRuns();
   // Interrupted runs ended just now, so their records are repaired as well.

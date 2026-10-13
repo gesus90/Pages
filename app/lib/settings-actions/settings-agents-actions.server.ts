@@ -182,6 +182,14 @@ const AGENT_ACTION_HANDLERS: Readonly<Record<string, AgentActionHandler>> = {
     await services.agentCliLoginService.logout(actor, id);
     return { ok: true };
   },
+  "store-cli-key": async ({ actor, services, formData, id }) => {
+    await services.agentCliLoginService.storeKey(
+      actor,
+      id,
+      readTextOrEmpty(formData, "apiKey"),
+    );
+    return { ok: true, connectionId: id };
+  },
 };
 
 async function saveAssignment(

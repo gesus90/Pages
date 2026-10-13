@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/app/components/ui/button";
 import { Select } from "@/app/components/ui/select";
 
+import { PlanRunSession } from "./plan-run-session";
+
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { usePlanRun } from "./use-plan-run";
 
@@ -67,7 +69,7 @@ export function PlanRunView(props: {
             value={completed}
             max={run.steps.length}
           />
-          <RunSteps steps={run.steps} />
+          <RunSteps runId={run.id} steps={run.steps} />
         </>
       ) : (
         <p className="text-sm text-muted-foreground">{t("plans.noRuns")}</p>
@@ -77,8 +79,10 @@ export function PlanRunView(props: {
 }
 
 function RunSteps({
+  runId,
   steps,
 }: {
+  readonly runId: string;
   readonly steps: readonly AgentPlanStepResult[];
 }): React.ReactElement {
   const { t } = useTranslation();
@@ -114,6 +118,13 @@ function RunSteps({
             <pre className="pages-selectable mt-2 whitespace-pre-wrap break-words font-sans">
               {step.output}
             </pre>
+          ) : null}
+          {step.session ? (
+            <PlanRunSession
+              runId={runId}
+              stepId={step.id}
+              session={step.session}
+            />
           ) : null}
         </li>
       ))}

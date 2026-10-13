@@ -7,6 +7,7 @@ import { isLoginActive } from "@/definition/AgentConnection";
 import { AgentAlert } from "./agent-alert";
 import { AgentCopyButton } from "./agent-copy-button";
 import { AgentLoginChallenge } from "./agent-login-challenge";
+import { AgentOpenCodeKey } from "./agent-opencode-key";
 
 import type { AgentConnectionSummary } from "@/definition/AgentConnection";
 import type { AgentCommandHandler } from "./agent-row-menu";
@@ -72,31 +73,18 @@ export function AgentCliLogin({
               {t("settings.agents.deviceAuthHint")}
             </p>
           ) : null}
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              size="sm"
+          {connection.provider === "opencode" ? (
+            <AgentOpenCodeKey
+              connection={connection}
+              actions={actions}
               disabled={disabled}
-              onClick={() => onCommand(connection, "login")}
-            >
-              {t(
-                cli.loggedInAt || cli.login
-                  ? "settings.agents.loginAgain"
-                  : "settings.agents.loginStart",
-              )}
-            </Button>
-            {cli.loggedInAt ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={disabled}
-                onClick={() => onCommand(connection, "logout")}
-              >
-                {t("settings.agents.logout")}
-              </Button>
-            ) : null}
-          </div>
+            />
+          ) : null}
+          <LoginButtons
+            connection={connection}
+            disabled={disabled}
+            onCommand={onCommand}
+          />
           <TerminalAlternative
             connection={connection}
             terminalCommand={cli.terminalCommand}
@@ -106,6 +94,49 @@ export function AgentCliLogin({
         </>
       )}
     </section>
+  );
+}
+
+/** Starts the account flow of a CLI, or signs it out; OpenCode takes a key instead. */
+function LoginButtons({
+  connection,
+  disabled,
+  onCommand,
+}: {
+  readonly connection: AgentConnectionSummary;
+  readonly disabled: boolean;
+  readonly onCommand: AgentCommandHandler;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const cli = connection.cli;
+  return (
+    <div className="flex flex-wrap gap-2">
+      {connection.provider === "opencode" ? null : (
+        <Button
+          type="button"
+          size="sm"
+          disabled={disabled}
+          onClick={() => onCommand(connection, "login")}
+        >
+          {t(
+            cli?.loggedInAt || cli?.login
+              ? "settings.agents.loginAgain"
+              : "settings.agents.loginStart",
+          )}
+        </Button>
+      )}
+      {cli?.loggedInAt ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={disabled}
+          onClick={() => onCommand(connection, "logout")}
+        >
+          {t("settings.agents.logout")}
+        </Button>
+      ) : null}
+    </div>
   );
 }
 

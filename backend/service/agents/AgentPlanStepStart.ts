@@ -1,12 +1,16 @@
 import { AgentError } from "@/backend/error/AgentErrors";
+import { DEFAULT_AGENT_RUN_OPTIONS } from "@/definition/AgentConfiguration";
 
 import { bindAgentParameters } from "./AgentParameterBinding";
 
 import type { TextExecutionInput } from "@/backend/agents/TextExecution";
+import type { AgentRunOptions } from "@/definition/AgentConfiguration";
 import type { AgentPlanNode, AgentPlanRun } from "@/definition/AgentPlan";
+import type { AgentDefinitionFiles } from "./AgentDefinitionFiles";
 import type {
   AgentPlanStepSnapshot,
   AgentPlanSnapshot,
+  AgentPlanTemplate,
 } from "./AgentPlanSnapshot";
 import type { AgentProfileService } from "./AgentProfileService";
 import type { AgentParameterService } from "./AgentParameterService";
@@ -20,11 +24,24 @@ export interface AgentPlanExecutionInput extends TextExecutionInput {
   readonly beforeStart?: () => Promise<void>;
 }
 
+/** A node ready to start: its resolved input, the definition it read and its run options. */
+export interface PreparedPlanStep {
+  readonly input: AgentPlanExecutionInput;
+  /** The `AGENT.md` the prompt was resolved from. */
+  readonly definition: {
+    readonly path: string;
+    readonly revision: number;
+  } | null;
+  readonly options: AgentRunOptions;
+}
+
 interface StartDependencies {
   readonly profiles: AgentProfileService;
   readonly parameters: AgentParameterService;
   readonly access: AgentPlanAccess;
   readonly tasks: AgentPlanTasks;
+  /** Reads `AGENT.md`; without it the frozen template is used. */
+  readonly files?: Pick<AgentDefinitionFiles, "read">;
 }
 
 interface StartContext {
@@ -59,12 +76,19 @@ export class AgentPlanStepStart {
       throw new AgentError("plan_invalid");
   }
 
-  /** Resolves credentials for the current executor and rejects a redirected model or working copy. */
+  /**
+   * Resolves credentials for the current executor and rejects a redirected model or working copy.
+   *
+   * @remarks
+   * The prompt comes from the `AGENT.md` of the agent, read now. It must name
+   * the agent and revision the run started with and keep its parameters and
+   * run options; otherwise the node refuses instead of sending another text.
+   */
   public async prepare(
     run: AgentPlanRun,
     snapshot: AgentPlanSnapshot,
     step: AgentPlanStepSnapshot,
-  ): Promise<AgentPlanExecutionInput> {
+  ): Promise<PreparedPlanStep> {
     await this.dependencies.access.require(run.userId, snapshot.plan.id);
     const selection = {
       agentId: step.step.agentId,
@@ -99,7 +123,8 @@ export class AgentPlanStepStart {
       step.template,
     );
     validateContext(step, live);
-    const parameters = await bindAgentParameters(step.template, values, {
+    const { template, definition } = await this.readDefinition(step);
+    const parameters = await bindAgentParameters(template, values, {
       workspace: async (id) => {
         const reference = step.prepared.references.find(
           (entry) => entry.id === id,
@@ -114,15 +139,47 @@ export class AgentPlanStepStart {
       },
     });
     return {
-      agent: resolved.assignment,
-      userId: run.userId,
-      directory: step.prepared.directory?.path ?? null,
-      prompt: `${parameters.markdown}\n\n${step.step.instruction}`,
-      beforeStart: () =>
-        this.reauthorize(run, snapshot, step, {
-          values,
-          connectionId: resolved.assignment.connection.id,
-        }),
+      input: {
+        agent: resolved.assignment,
+        userId: run.userId,
+        directory: step.prepared.directory?.path ?? null,
+        prompt: `${parameters.markdown}\n\n${step.step.instruction}`,
+        beforeStart: () =>
+          this.reauthorize(run, snapshot, step, {
+            values,
+            connectionId: resolved.assignment.connection.id,
+          }),
+      },
+      definition,
+      options: template.run ?? DEFAULT_AGENT_RUN_OPTIONS,
+    };
+  }
+
+  private async readDefinition(step: AgentPlanStepSnapshot): Promise<{
+    readonly template: AgentPlanTemplate;
+    readonly definition: PreparedPlanStep["definition"];
+  }> {
+    if (!this.dependencies.files)
+      return { template: step.template, definition: null };
+    const document = await this.dependencies.files.read(step.step.agentId);
+    const { configuration } = document;
+    if (
+      document.revision !== step.revision ||
+      JSON.stringify(configuration.parameters) !==
+        JSON.stringify(step.template.parameters) ||
+      configuration.directoryParameter !== step.template.directoryParameter ||
+      JSON.stringify(configuration.run ?? null) !==
+        JSON.stringify(step.template.run ?? null)
+    )
+      throw new AgentError("plan_definition_changed");
+    return {
+      template: {
+        markdown: configuration.markdown,
+        parameters: configuration.parameters,
+        directoryParameter: configuration.directoryParameter,
+        ...(configuration.run === undefined ? {} : { run: configuration.run }),
+      },
+      definition: { path: document.path, revision: document.revision },
     };
   }
 

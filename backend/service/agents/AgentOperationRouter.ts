@@ -256,6 +256,8 @@ export class AgentOperationRouter {
     | PagesAgentWriteResponse
     | null
   > {
+    const checklist = await this.handleChecklist(identity, input);
+    if (checklist) return checklist;
     const planned = await this.handlePlanning(identity, input);
     if (planned) return planned;
     if (isAgentCommentOperation(input.operation))
@@ -308,6 +310,24 @@ export class AgentOperationRouter {
     return isAgentTicketOperation(operation)
       ? planning.tickets.apply(identity, operation, parameters)
       : planning.milestones.apply(identity, operation, parameters);
+  }
+
+  /** Reads or sets the checklist of a ticket, or returns `null` for any other operation. */
+  private async handleChecklist(
+    identity: AgentIdentity,
+    input: Readonly<Record<string, unknown>>,
+  ): Promise<PagesAgentReadResponse | PagesAgentWriteResponse | null> {
+    const { operation, parameters } = input;
+    if (
+      operation !== "ticket.checklist.read" &&
+      operation !== "ticket.checklist.setItem"
+    )
+      return null;
+    const { planning } = this.dependencies;
+    if (!planning) throw new AgentOperationError("INVALID_REQUEST");
+    return operation === "ticket.checklist.read"
+      ? planning.checklists.read(identity, parameters)
+      : planning.checklists.set(identity, parameters);
   }
 
   /** Reads the comments of a page or changes one; commenting needs no write capability. */

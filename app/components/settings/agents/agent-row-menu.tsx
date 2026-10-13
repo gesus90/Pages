@@ -79,7 +79,7 @@ export function AgentRowMenu({
               : "settings.agents.checkAccess",
           )}
         </DropdownMenuItem>
-        {canUseCli ? (
+        {canUseCli && connection.provider !== "opencode" ? (
           <DropdownMenuItem
             disabled={isBusy}
             onSelect={() => onCommand(connection, "login")}

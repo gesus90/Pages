@@ -35,7 +35,7 @@ function CliLocations({
   const { t } = useTranslation();
   return (
     <div className="mb-4 space-y-2 text-xs text-muted-foreground">
-      {(["codex_cli", "claude_code"] as const).map((provider) => (
+      {(["codex_cli", "claude_code", "opencode"] as const).map((provider) => (
         <p key={provider}>
           <span className="font-medium">
             {t(AGENT_PROVIDERS[provider].labelKey)}:{" "}

@@ -35,6 +35,10 @@ export default [
     route("agents/plans", "routes/agent-plans.tsx"),
     route("agent-api/plan-sources", "routes/agent-plan-sources.ts"),
     route("agent-api/plan-runs", "routes/agent-plan-runs.ts"),
+    route(
+      "agent-api/plan-runs/:runId/steps/:stepId/prompt",
+      "routes/agent-plan-prompt.ts",
+    ),
     route("dashboard", "routes/dashboard.tsx"),
     route("users", "routes/users.tsx"),
     route("settings", "routes/settings.tsx", [

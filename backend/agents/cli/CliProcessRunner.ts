@@ -4,12 +4,14 @@ import { AgentError } from "@/backend/error/AgentErrors";
 
 import { CliChildProcess } from "./CliChildProcess";
 import { createCliEnvironment } from "./CliEnvironment";
+import { CliSessionProcess } from "./CliSessionProcess";
 
 import type {
   CliGroupSignal,
   CliProcessResult,
   CliRunningProcess,
   CliRunRequest,
+  CliSessionRequest,
   CliSpawn,
 } from "./CliContracts";
 
@@ -43,11 +45,14 @@ export class CliProcessRunner {
         shell: false,
         detached: true,
         cwd: request.workingDirectory ?? request.home.work,
-        env: createCliEnvironment(
-          request.home,
-          request.provider,
-          request.toolFile ?? request.file,
-        ),
+        env: {
+          ...createCliEnvironment(
+            request.home,
+            request.provider,
+            request.toolFile ?? request.file,
+          ),
+          ...request.environment,
+        },
         stdio: [request.stdin, "pipe", "pipe"],
       });
       running = new CliChildProcess(child, request, this.signalGroup);
@@ -61,6 +66,49 @@ export class CliProcessRunner {
       this.active.delete(running);
     });
     return running;
+  }
+
+  /**
+   * Starts a streaming session whose input stays open until the caller ends it.
+   *
+   * @param request - Tool, arguments, isolated home, authorized working directory and callbacks.
+   * @returns The running session; it counts against the same process limit.
+   * @throws {AgentError} `login_limit_reached` at the limit or during shutdown,
+   * `check_timeout` for an aborted request, `cli_not_executable` when spawning fails.
+   */
+  public startSession(request: CliSessionRequest): CliSessionProcess {
+    if (this.isShuttingDown || this.active.size >= 4)
+      throw new AgentError("login_limit_reached");
+    if (request.signal.aborted) throw new AgentError("check_timeout");
+    // spawn is synchronous: the child inherits 0077 before another JS task can run.
+    const previousMask = process.umask(0o077);
+    let session: CliSessionProcess;
+    try {
+      const child = this.spawnProcess(request.file, request.arguments, {
+        shell: false,
+        detached: true,
+        cwd: request.workingDirectory,
+        env: {
+          ...createCliEnvironment(
+            request.home,
+            request.provider,
+            request.toolFile ?? request.file,
+          ),
+          ...request.environment,
+        },
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+      session = new CliSessionProcess(child, request, this.signalGroup);
+    } catch {
+      throw new AgentError("cli_not_executable");
+    } finally {
+      process.umask(previousMask);
+    }
+    this.active.add(session);
+    void session.completed.then(() => {
+      this.active.delete(session);
+    });
+    return session;
   }
 
   /** Checks expose a structured failure instead of a native spawn error. */

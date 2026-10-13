@@ -6,7 +6,7 @@ import { promisify } from "node:util";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { containsWorkspacePath } from "@/backend/service/agents/AgentWorkspacePath";
 
-import type { CliRunRequest } from "./CliContracts";
+import type { CliSessionRequest } from "./CliContracts";
 
 const BUBBLEWRAP = "/usr/bin/bwrap";
 const TRUE_BINARY = "/usr/bin/true";
@@ -87,12 +87,14 @@ export class CliPlanIsolation {
    * @throws {AgentError} `workspace_path_outside_roots` when the working
    * directory lies within a protected folder.
    */
-  public async isolate(request: CliRunRequest): Promise<CliRunRequest | null> {
+  public async isolate(
+    request: CliSessionRequest,
+  ): Promise<CliSessionRequest | null> {
     this.availability ??= this.probe();
     if (!(await this.availability)) return null;
     const [homeRoot, workingDirectory] = await Promise.all([
       realpath(request.home.root),
-      realpath(request.workingDirectory ?? request.home.work),
+      realpath(request.workingDirectory),
     ]);
     // A folder that does not exist yet has nothing to hide.
     const resolved = await Promise.all(

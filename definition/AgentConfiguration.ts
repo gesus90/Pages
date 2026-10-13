@@ -4,6 +4,36 @@ import type {
 } from "./AgentProfile";
 import type { AgentParameter } from "./AgentParameters";
 
+/**
+ * How a CLI runner may work in the workspace of a plan node.
+ *
+ * @remarks
+ * Every runner works without asking anyone. Each runner maps these options to
+ * its own verified switches; a combination a runner cannot enforce blocks the
+ * node before its process starts.
+ */
+export interface AgentRunOptions {
+  /** Whether the session may change files in its workspace. */
+  readonly access: "workspace_write" | "read_only";
+  /** Whether the session may run commands in its workspace. */
+  readonly shell: boolean;
+  /** Whether the session may search or fetch from the web. */
+  readonly web: boolean;
+  /** Longest duration of one session. */
+  readonly timeoutMinutes: number;
+}
+
+/** Limits of {@link AgentRunOptions.timeoutMinutes}. */
+export const AGENT_RUN_TIMEOUT_MINUTES = { minimum: 1, maximum: 120 } as const;
+
+/** Options of an agent that names none: write in the workspace, no commands, no web, ten minutes. */
+export const DEFAULT_AGENT_RUN_OPTIONS: AgentRunOptions = {
+  access: "workspace_write",
+  shell: false,
+  web: false,
+  timeoutMinutes: 10,
+};
+
 /** Optional task configuration belongs to the same agent as its model access. */
 export interface AgentConfiguration {
   readonly scope: AgentProfileTargetKind;
@@ -20,6 +50,8 @@ export interface AgentConfiguration {
     readonly targets: readonly AgentProfileTarget[];
     readonly operator?: "and" | "or";
   };
+  /** How CLI runners may work; absent means {@link DEFAULT_AGENT_RUN_OPTIONS}. */
+  readonly run?: AgentRunOptions;
 }
 
 /** Creates an empty task section without granting usage or assigning a system function. */

@@ -21,7 +21,7 @@ import { ScopedExecution } from "@/backend/agents/ScopedExecution";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 import { AgentConnectionAccess } from "@/backend/service/agents/AgentConnectionAccess";
-import { CliPlanExecution } from "@/backend/agents/cli/CliPlanExecution";
+import { CliSessionExecution } from "@/backend/agents/cli/CliSessionExecution";
 import { TextAssistantSettingsRepository } from "@/backend/database/repositories/assistant/TextAssistantSettingsRepository";
 import { TextAgentRoleService } from "@/backend/service/assistant/TextAgentRoleService";
 import { AssistantRequestRegistry } from "@/backend/service/assistant/AssistantRequestRegistry";
@@ -106,18 +106,16 @@ function createExecutions(
       ),
       access,
     ),
-    agentPlanExecution: new ScopedExecution(
-      new AgentPlanExecution(
-        new ApiTextExecution(repository, cipher),
-        new CliPlanExecution({
-          ...cliAdapters,
-          isolation: {
-            protectedDirectories: input.protectedDirectories,
-            isRequired: input.isIsolationRequired,
-          },
-        }),
-        operations,
-      ),
+    agentPlanExecution: new AgentPlanExecution(
+      new ApiTextExecution(repository, cipher),
+      new CliSessionExecution({
+        ...cliAdapters,
+        isolation: {
+          protectedDirectories: input.protectedDirectories,
+          isRequired: input.isIsolationRequired,
+        },
+      }),
+      operations,
       access,
     ),
   };

@@ -483,6 +483,7 @@ async function readTargetColumns(
               'text_assistant_settings', 'text_assistant_preferences',
               'assistant_conversations', 'assistant_messages',
               'agent_function_assignments', 'personal_agent_tokens',
+              'agent_run_credentials', 'work_item_checklist_revisions',
               'agent_assets', 'agent_operation_keys',
               'agent_import_runs', 'agent_import_sources', 'agent_import_items',
               'mcp_pairing_preferences', 'mcp_pairing_requests',
