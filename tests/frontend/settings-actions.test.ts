@@ -17,6 +17,7 @@ const NOTIFICATIONS = Object.fromEntries(
 const VALID_SETTINGS = {
   dateFormat: "YYYY-MM-DD",
   language: "en",
+  theme: "dark",
   timezone: "Europe/Berlin",
   weekStart: "monday",
   ...NOTIFICATIONS,
@@ -43,6 +44,7 @@ describe("parseSettingsForm", () => {
     expect(settings).toMatchObject({
       dateFormat: "YYYY-MM-DD",
       language: "en",
+      theme: "dark",
       timezone: "Europe/Berlin",
       weekStart: "monday",
     });
@@ -59,6 +61,8 @@ describe("parseSettingsForm", () => {
 
   it.each([
     ["an unknown language", { language: "fr" }],
+    ["an unknown theme", { theme: "sepia" }],
+    ["a theme sent as file", { theme: new File(["x"], "x.txt") }],
     ["an unknown timezone", { timezone: "Mars/Olympus" }],
     ["a timezone sent as file", { timezone: new File(["x"], "x.txt") }],
     ["an unknown date format", { dateFormat: "DD-MM" }],
@@ -71,11 +75,11 @@ describe("parseSettingsForm", () => {
   });
 
   it("rejects a form without the switches", () => {
-    const { dateFormat, language, timezone, weekStart } = VALID_SETTINGS;
+    const { dateFormat, language, theme, timezone, weekStart } = VALID_SETTINGS;
 
     expect(
       parseSettingsForm(
-        createForm({ dateFormat, language, timezone, weekStart }),
+        createForm({ dateFormat, language, theme, timezone, weekStart }),
       ),
     ).toBeNull();
   });

@@ -62,6 +62,26 @@ export function isUserTimezone(value: unknown): value is UserTimezone {
   );
 }
 
+/**
+ * Color themes a user can select for the whole interface.
+ *
+ * @remarks
+ * `system` follows the operating system preference (`prefers-color-scheme`),
+ * `light` and `dark` override it.
+ */
+export const USER_THEMES = ["light", "dark", "system"] as const;
+
+/** A color theme a user can select for the whole interface. */
+export type UserTheme = (typeof USER_THEMES)[number];
+
+/** Narrows an unknown value to a supported user theme. */
+export function isUserTheme(value: unknown): value is UserTheme {
+  return (
+    typeof value === "string" &&
+    (USER_THEMES as readonly string[]).includes(value)
+  );
+}
+
 /** Notification channels and events a user can toggle individually. */
 interface UserNotifications {
   readonly email: boolean;
@@ -81,6 +101,7 @@ interface UserNotifications {
  */
 export interface UserSettings {
   readonly language: Language;
+  readonly theme: UserTheme;
   readonly timezone: UserTimezone | null;
   readonly dateFormat: UserDateFormat;
   readonly weekStart: UserWeekStart;
@@ -90,6 +111,7 @@ export interface UserSettings {
 /** Settings applied until a user row stores an explicit value. */
 export const DEFAULT_USER_SETTINGS: UserSettings = {
   language: LANGUAGE.GERMAN,
+  theme: "system",
   timezone: null,
   dateFormat: "DD.MM.YYYY",
   weekStart: "monday",

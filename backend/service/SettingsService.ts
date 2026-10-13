@@ -1,6 +1,7 @@
 import {
   DEFAULT_USER_SETTINGS,
   isUserDateFormat,
+  isUserTheme,
   isUserTimezone,
   isUserWeekStart,
 } from "@/definition/Settings";
@@ -80,6 +81,7 @@ export class SettingsService {
       ),
       language: stored?.language ?? defaults.language,
       notifications: toNotifications(stored),
+      theme: pickValid(stored?.theme, isUserTheme, defaults.theme),
       timezone: pickValid(stored?.timezone, isUserTimezone, defaults.timezone),
       weekStart: pickValid(
         stored?.weekStart,
@@ -101,6 +103,7 @@ export class SettingsService {
   ): Promise<void> {
     await this.userSettingsRepository.upsert(userId, {
       language: settings.language,
+      theme: settings.theme,
       timezone: settings.timezone,
       dateFormat: settings.dateFormat,
       weekStart: settings.weekStart,

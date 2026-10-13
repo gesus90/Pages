@@ -444,6 +444,8 @@ function verifySourceColumns(
  * copied activity keeps the defaults of the A11.1 source and wiki page columns.
  * The usage scopes of connections (PAGE-19) belong to native connections, which
  * the copy never touches.
+ * The color theme of a user (PAGE-29) is a native column of `user_settings`;
+ * copied accounts start with the default, which follows the system.
  */
 async function readTargetColumns(
   target: Database,
@@ -502,6 +504,7 @@ async function readTargetColumns(
           )
           AND NOT (table_name = 'project_integrations' AND column_name = 'sync_enabled')
           AND NOT (table_name = 'project_keys' AND column_name = 'last_number')
+          AND NOT (table_name = 'user_settings' AND column_name = 'theme')
       ORDER BY table_name, ordinal_position;
     `,
   );

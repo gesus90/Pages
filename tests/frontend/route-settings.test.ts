@@ -73,6 +73,7 @@ function createSettingsEntries(
     "notification.email": "on",
     "notification.mentions": "on",
     "notification.weeklySummary": "off",
+    theme: "system",
     timezone: "",
     weekStart: "monday",
     ...overrides,
@@ -280,6 +281,7 @@ describe("settings route action", () => {
         mentions: true,
         weeklySummary: false,
       },
+      theme: "system",
       timezone: null,
       weekStart: "monday",
     });

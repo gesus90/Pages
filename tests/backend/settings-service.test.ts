@@ -35,6 +35,7 @@ function createStoredSettings(
     notifyEmail: null,
     notifyMentions: null,
     notifyWeeklySummary: null,
+    theme: null,
     timezone: null,
     weekStart: null,
     ...overrides,
@@ -136,6 +137,7 @@ describe("SettingsService", () => {
         mentions: false,
         weeklySummary: true,
       },
+      theme: "dark",
       timezone: "Europe/London",
       weekStart: "sunday",
     });
@@ -149,6 +151,7 @@ describe("SettingsService", () => {
       notifyEmail: true,
       notifyMentions: false,
       notifyWeeklySummary: true,
+      theme: "dark",
       timezone: "Europe/London",
       weekStart: "sunday",
     });

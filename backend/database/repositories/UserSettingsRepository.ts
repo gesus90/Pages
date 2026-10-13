@@ -11,6 +11,7 @@ import type { Language } from "@/language/Language";
 /** A settings row as stored in the database, with every optional value nullable. */
 export interface StoredUserSettings {
   readonly language: Language;
+  readonly theme: string | null;
   readonly timezone: string | null;
   readonly dateFormat: string | null;
   readonly weekStart: string | null;
@@ -120,7 +121,8 @@ export class UserSettingsRepository {
             notify_mentions,
             notify_assignments,
             notify_due_dates,
-            notify_weekly_summary
+            notify_weekly_summary,
+            theme
         FROM user_settings
         WHERE user_id = $user_id;
       `,
@@ -156,6 +158,7 @@ export class UserSettingsRepository {
             notify_assignments,
             notify_due_dates,
             notify_weekly_summary,
+            theme,
             updated_at
         )
         VALUES (
@@ -170,6 +173,7 @@ export class UserSettingsRepository {
             $notify_assignments,
             $notify_due_dates,
             $notify_weekly_summary,
+            $theme,
             utc_now()
         )
         ON CONFLICT (user_id) DO UPDATE SET
@@ -183,6 +187,7 @@ export class UserSettingsRepository {
             notify_assignments = excluded.notify_assignments,
             notify_due_dates = excluded.notify_due_dates,
             notify_weekly_summary = excluded.notify_weekly_summary,
+            theme = excluded.theme,
             updated_at = excluded.updated_at;
       `,
       {
@@ -197,6 +202,7 @@ export class UserSettingsRepository {
         notify_assignments: settings.notifyAssignments ?? null,
         notify_due_dates: settings.notifyDueDates ?? null,
         notify_weekly_summary: settings.notifyWeeklySummary ?? null,
+        theme: settings.theme,
       },
     );
   }
@@ -212,6 +218,7 @@ export class UserSettingsRepository {
 
     return {
       language,
+      theme: readNullableTextColumn(row, 10, "theme"),
       timezone: readNullableTextColumn(row, 1, "timezone"),
       dateFormat: readNullableTextColumn(row, 2, "date_format"),
       weekStart: readNullableTextColumn(row, 3, "week_start"),

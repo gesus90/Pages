@@ -2,6 +2,7 @@ import {
   DEFAULT_USER_SETTINGS,
   USER_NOTIFICATION_KEYS,
   isUserDateFormat,
+  isUserTheme,
   isUserTimezone,
   isUserWeekStart,
 } from "@/definition/Settings";
@@ -39,12 +40,14 @@ function parseNotifications(
 /** Parses a complete user settings payload sent by the settings form. */
 export function parseSettingsForm(formData: FormData): UserSettings | null {
   const language = formData.get("language");
+  const theme = formData.get("theme");
   const timezone = formData.get("timezone");
   const dateFormat = formData.get("dateFormat");
   const weekStart = formData.get("weekStart");
 
   if (
     !isLanguage(language) ||
+    !isUserTheme(theme) ||
     typeof timezone !== "string" ||
     (timezone !== "" && !isUserTimezone(timezone)) ||
     !isUserDateFormat(dateFormat) ||
@@ -61,6 +64,7 @@ export function parseSettingsForm(formData: FormData): UserSettings | null {
 
   return {
     language,
+    theme,
     timezone: timezone === "" ? null : timezone,
     dateFormat,
     weekStart,

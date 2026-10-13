@@ -18,6 +18,7 @@ const FULL_SETTINGS: StoredUserSettings = {
   notifyEmail: false,
   notifyMentions: true,
   notifyWeeklySummary: false,
+  theme: "dark",
   timezone: "Europe/Berlin",
   weekStart: "monday",
 };
@@ -65,6 +66,7 @@ describe("UserSettingsRepository on DuckDB", () => {
       notifyEmail: null,
       notifyMentions: null,
       notifyWeeklySummary: null,
+      theme: null,
       timezone: null,
       weekStart: null,
     };

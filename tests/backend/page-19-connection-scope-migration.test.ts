@@ -10,7 +10,10 @@ import { createScopeHarness, textAgent } from "../helpers/connection-scope";
 describe("PAGE-19 migration 039", () => {
   it("names the migration after the next free number", () => {
     const names = DATABASE_MIGRATIONS.map((migration) => migration.name).sort();
-    expect(names.at(-1)).toBe("039_agent_connection_scopes.sql");
+    const index = names.indexOf("039_agent_connection_scopes.sql");
+
+    // Later migrations (PAGE-29 adds 040) may follow; 039 stays the one after 038.
+    expect(names[index - 1]).toMatch(/^038_/u);
     expect(names.filter((name) => name.startsWith("039_"))).toHaveLength(1);
   });
 
