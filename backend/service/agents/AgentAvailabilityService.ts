@@ -73,13 +73,23 @@ export class AgentAvailabilityService {
     const context = await this.context(userId, null);
     if (!new UserPolicyService().isAdministrator(context.viewer.actor))
       throw new TextAssistantError("accessDenied");
+    // The agents of users are none of the administration's business, not even their identifiers.
     const entries = await Promise.all(
-      context.profiles.map(
-        async (profile) =>
-          [profile.id, await this.availability(profile, context)] as const,
-      ),
+      context.profiles
+        .filter((profile) => !profile.ownerId)
+        .map(
+          async (profile) =>
+            [profile.id, await this.availability(profile, context)] as const,
+        ),
     );
     return Object.fromEntries(entries);
+  }
+
+  /** Whether the person currently sees the agent in their lists, without judging whether it can run. */
+  public async isVisible(userId: string, agentId: string): Promise<boolean> {
+    const context = await this.context(userId, null);
+    const profile = context.profiles.find((entry) => entry.id === agentId);
+    return profile !== undefined && (await this.isListed(profile, context));
   }
 
   /** Reauthorizes the selected definition and personal source for each future step start. */
@@ -114,6 +124,7 @@ export class AgentAvailabilityService {
         this.dependencies,
         context.viewer,
         profile,
+        context.profiles,
       );
       return { profile, accessAgentId: sourceId, assignment };
     }
@@ -251,7 +262,12 @@ export class AgentAvailabilityService {
       if (agentParameterIssues(configuration).length > 0)
         throw new AgentError("parameter_invalid");
       if (profile.ownerId) {
-        await resolvePageAgentModel(this.dependencies, context.viewer, profile);
+        await resolvePageAgentModel(
+          this.dependencies,
+          context.viewer,
+          profile,
+          context.profiles,
+        );
         return { isUsable: true, reason: null, personalChoices: [] };
       }
       if (configuration.accessMode === "personal") {

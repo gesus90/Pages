@@ -50,6 +50,7 @@ export const AGENT_ERROR_MESSAGES = {
   profile_conflict: "The agent changed. Reload it before saving.",
   profile_running:
     "The agent is part of a running plan. Change it after the run ended.",
+  profile_limit_reached: "At most 100 agents per person can be created.",
   profile_scope_invalid: "Choose targets within the agent's scope.",
   personal_access_missing: "No matching personal model access is assigned.",
   personal_access_selection_required:
@@ -104,6 +105,8 @@ export const AGENT_ERROR_MESSAGES = {
   cli_not_found:
     "The CLI was not found. Check its installation and service PATH.",
   cli_not_executable: "The CLI cannot be executed.",
+  cli_isolation_unavailable:
+    "CLI agents need an isolated environment, which this server cannot provide.",
   cli_not_logged_in: "Sign in to the CLI account first.",
   cli_auth_failed: "The CLI account was rejected. Sign in again.",
   cli_check_failed: "The CLI test failed.",

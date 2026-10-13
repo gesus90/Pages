@@ -49,9 +49,24 @@ export async function createAgentPlanService(input: {
   });
   await service.recoverInterruptedRuns();
   // Interrupted runs ended just now, so their records are repaired as well.
-  await input.agents.agentDefinitionFiles.restore(
-    await new AgentProfileRepository(input.database).list(),
-  );
-  await input.agents.agentRunArchive.recover();
+  await repairAgentFiles(input);
   return service;
+}
+
+/** A problem with these copies is reported and never keeps the server from starting. */
+async function repairAgentFiles(input: {
+  readonly database: Database;
+  readonly agents: AgentApplicationServices;
+}): Promise<void> {
+  try {
+    await input.agents.agentDefinitionFiles.restore(
+      await new AgentProfileRepository(input.database).list(),
+    );
+  } catch (error: unknown) {
+    console.error(
+      "Pages could not read the agents to repair their definition files.",
+      error,
+    );
+  }
+  await input.agents.agentRunArchive.recover();
 }

@@ -241,6 +241,8 @@ export class AgentPlanService {
     requireAgentAdministrator(actor);
     const assignments: Record<string, AgentTaskAssignment[]> = {};
     const readable = new Map<string, readonly AgentPlanTask[]>();
+    // Plans that only use agents of users stay out of the administration.
+    const hidden = await this.dependencies.profiles.userAgentIds(actor);
     for (const plan of await this.dependencies.plans.list()) {
       const bindings = planTaskBindings(plan);
       if (bindings.length === 0) continue;
@@ -250,7 +252,7 @@ export class AgentPlanService {
       readable.set(plan.projectId, tasks);
       for (const binding of bindings) {
         const task = tasks.find((entry) => entry.id === binding.taskId);
-        if (!task) continue;
+        if (!task || hidden.has(binding.agentId)) continue;
         const list = assignments[binding.agentId] ?? [];
         list.push({
           planId: plan.id,

@@ -507,9 +507,11 @@ them; they do not edit or delete the agents of users.
 
 - **Model and reasoning.** An agent names one *model profile* with the purpose
   Agent that administrators set up, and a reasoning level that the model's
-  catalog lists. The form offers only profiles that are released for the person
-  and whose connection scope admits them. An agent stores no API key, CLI login
-  or connection of its own. The server checks the same facts again for the
+  catalog lists (the level of the profile is only the preselection). The form
+  offers only profiles that are released for the person, whose connection scope
+  admits them and that are not bound to a project, because an agent of a user
+  has no project. An agent stores no API key, CLI login or connection of its
+  own. The server checks the same facts again for the
   person who **starts** a run: model release, connection scope, an active
   account and the sharing of the agent. Sharing an agent therefore never extends
   a model grant; someone without access to its model cannot run it, and a
@@ -525,7 +527,7 @@ them; they do not edit or delete the agents of users.
   least one) or **AND** (membership in every one). Membership is read again on
   each check, so a change applies from the next request. A deleted group or
   department matches nobody, which keeps an AND share closed; the owner's view
-  leaves such targets out and the next save stores the cleaned list. The right
+  leaves such targets out, says so, and the next save stores the cleaned list. The right
   to manage a department does not make someone a member for this purpose. Only
   the owner changes an agent; others with access can open it read-only.
 - **Definition file.** For every agent that plans can run, Pages writes
@@ -535,10 +537,13 @@ them; they do not edit or delete the agents of users.
   revision, instruction, parameters and sharing) as one JSON block; connection
   and credentials are not part of it and credential-shaped text is masked. Only
   Pages writes the file, from the stored definition, atomically and read-only
-  (`0400`). It is written again at every start and after every save, so a lost
-  or changed file does not outlive the next start. While a plan run holds an
-  agent, every save and deletion of that agent is refused with *part of a
-  running plan*; otherwise only the owner's save in the form changes it.
+  (`0400`). It is written again at every start and after every save, and checked
+  against the stored definition whenever a plan run that held the agent ends,
+  so a lost or changed file does not outlive the run. A file that cannot be
+  written is reported in the log and does not undo the save; the next save or
+  start repairs it. While a plan run holds an agent, every save and deletion of
+  that agent is refused with *part of a running plan*; otherwise only the
+  owner's save in the form changes it.
 - **Run records.** When a step of a plan has run and ended, Pages writes exactly
   one file `Agents/<agent-id>/runs/<run-id>.md` for the agent it ran: metadata
   as JSON (agent, run and plan-run identifier, executor, start and end time,
@@ -546,11 +551,12 @@ them; they do not edit or delete the agents of users.
   level), the prepared input as sent to the model and the result or the error
   code, with credential-shaped text masked. The run identifier is derived from
   the plan run and the step, so repeated completion or recovery writes the same
-  file and never a second one. A step that never started (blocked by a failed
-  predecessor, or stopped before its start) has no record, and runs that ended
-  before migration `042` get none. The record is stored in the database first;
-  a lost file is written again at start and when it is read. A file problem
-  never disturbs the plan run.
+  file and never a second one. A step that never reached its turn (blocked by a failed
+  predecessor, or stopped before its start) has no record; a step whose start
+  was refused, for example because access was withdrawn, is recorded as failed.
+  Runs that ended before migration `042` get none. The record is stored in the
+  database first; a lost file is written again at start and when the record is
+  read, which delivers it even then. A file problem never disturbs the plan run.
 - **Access.** The files are not served by the web server. The route
   `/agent-api/run-records/<agent-id>/<run-id>` returns a record as Markdown only
   to the person who started the run, while the agent is still visible to them
@@ -561,13 +567,22 @@ them; they do not edit or delete the agents of users.
   analysis finds them. No automatic evaluation exists yet.
 - **Protection while agents run.** A working copy may neither contain nor lie
   within the data directory or the `Agents` folder; registration refuses it. If
-  bubblewrap is installed at `/usr/bin/bwrap`, the CLI processes of plan steps
-  run in a mount namespace in which only the working copy and their credential
-  home are writable and the instance folders appear empty. Without it they run
-  as before, Pages logs a warning once, and the protection rests on the sandbox
-  of the CLI itself, the separation above, the read-only file and the rebuild at
-  start. Agent identifiers are accepted only as `[A-Za-z0-9-]{1,100}`, so no
-  identifier can address another path.
+  bubblewrap is installed at `/usr/bin/bwrap` and starts a namespace for the
+  service account (Pages tries once per process), the CLI processes of plan
+  steps run in a mount namespace in which only the working copy and their
+  credential home are writable and the instance folders appear empty. Where it
+  is missing or refused, they run as before and Pages logs a warning once; the
+  protection then rests on the sandbox of the CLI itself, the separation above,
+  the read-only file and the repair after each run. A process under the account
+  of the service can still *read* every file of that account, including the
+  database and the run records, when no namespace is in place. Set
+  `PAGES_CLI_ISOLATION=required` to refuse CLI plan steps instead of running
+  them without isolation. Agent identifiers are accepted only as
+  `[A-Za-z0-9-]{1,100}`, so no identifier can address another path.
+- **Limits and administration.** One person can create at most 100 agents.
+  Administrator lists, reports and deletion checks (connections, groups,
+  departments, ticket assignments) leave the agents of users out: an
+  administrator can neither change them nor learn their names there.
 
 Migration `042` adds the columns `owner_id` and `model_profile_id` to
 `agent_execution_profiles` (empty for administrator agents) and the tables

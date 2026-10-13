@@ -316,8 +316,8 @@ describe("PAGE-20 user agents, live model grants and sharing", () => {
         name: "While running",
       }),
     ).rejects.toMatchObject({ code: "profile_running" });
-    release();
-    release();
+    await release();
+    await release();
     await current.service.save(current.bob.id, id, {
       ...persisted,
       name: "After run",
@@ -413,6 +413,7 @@ describe("PAGE-20 visibility of agents, deleted groups and the limits of adminis
     );
     await current.groups.delete("gone");
     const shown = (await current.service.page(current.bob.id)).agents[0];
+    expect(shown.hasDeletedTargets).toBe(true);
     expect(shown.configuration.sharing).toEqual({
       isGlobal: false,
       operator: "and",
@@ -427,6 +428,9 @@ describe("PAGE-20 visibility of agents, deleted groups and the limits of adminis
         ?.configuration?.sharing.targets,
     ).toHaveLength(3);
     await current.service.save(current.bob.id, id, shown);
+    expect(
+      (await current.service.page(current.bob.id)).agents[0].hasDeletedTargets,
+    ).toBe(false);
     expect(
       (await current.repository.list()).find((entry) => entry.id === id)
         ?.configuration?.sharing.targets,
@@ -693,9 +697,83 @@ describe("PAGE-20 definition validation and the life of a model grant", () => {
       current.profiles.remove(current.admin, agentId),
     ).rejects.toMatchObject({ code: "profile_running" });
     expect(await readFile(definition, "utf8")).toBe(original);
-    release();
+    await release();
     await current.profiles.remove(current.admin, agentId);
     // The history of a removed agent stays where it was written.
     expect(await readFile(definition, "utf8")).toBe(original);
+  });
+  it("keeps the agents of users out of the lists and reports of the administration", async () => {
+    const current = await setup();
+    const id = await current.service.save(
+      current.bob.id,
+      null,
+      pageAgentInput(),
+    );
+    const inspected = await current.profiles.inspect(current.admin);
+    expect(Object.keys(inspected)).toContain("admin-model");
+    expect(Object.keys(inspected)).not.toContain(id);
+    // An agent of a user answers like an unknown one.
+    expect(await current.profiles.usages(current.admin, id)).toEqual([]);
+    expect(await current.profiles.userAgentIds(current.admin)).toEqual(
+      new Set([id]),
+    );
+  });
+
+  it("offers no model profile that is bound to a project and refuses an agent that already uses one", async () => {
+    const current = await setup();
+    const id = await current.service.save(
+      current.bob.id,
+      null,
+      pageAgentInput(),
+    );
+    const source = (await current.repository.list()).find(
+      (entry) => entry.id === "admin-model",
+    );
+    if (!source?.configuration) throw new Error("Missing model");
+    await current.repository.save({
+      ...source,
+      configuration: { ...source.configuration, projectId: "project" },
+    });
+    expect((await current.service.page(current.bob.id)).models).toEqual([]);
+    await expect(
+      current.service.save(current.bob.id, null, pageAgentInput()),
+    ).rejects.toMatchObject({ code: "agent_usage_denied" });
+    await expect(
+      current.profiles.resolve(current.bob.id, "agent", id),
+    ).rejects.toMatchObject({ code: "agent_usage_denied" });
+  });
+
+  it("limits the agents one person can create and still lets that person change them", async () => {
+    const current = await setup();
+    for (let index = 0; index < 100; index += 1)
+      await current.repository.save({
+        id: `bulk-${index}`,
+        name: `Bulk ${index}`,
+        ownerId: current.bob.id,
+        modelProfileId: "admin-model",
+        connectionId: "connection",
+        model: "model-a",
+        reasoningEffort: "medium",
+        isActive: true,
+        purposes: ["agent"],
+        targets: [],
+        configuration: {
+          ...emptyAgentConfiguration(),
+          accessMode: "shared",
+        },
+      });
+    await expect(
+      current.service.save(current.bob.id, null, pageAgentInput()),
+    ).rejects.toMatchObject({ code: "profile_limit_reached" });
+    // Nobody else is limited by it, and the owner keeps editing what exists.
+    await current.service.save(current.alice.id, null, pageAgentInput());
+    const first = (await current.service.page(current.bob.id)).agents.find(
+      (entry) => entry.id === "bulk-0",
+    );
+    if (!first) throw new Error("Missing agent");
+    await current.service.save(current.bob.id, "bulk-0", {
+      ...first,
+      name: "Renamed at the limit",
+    });
   });
 });

@@ -1,5 +1,5 @@
 import { WikiMaintenanceScheduler } from "@/backend/service/wiki/WikiMaintenanceScheduler";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/backend/database/Database", () => ({
   Database: {
@@ -132,8 +132,24 @@ function resetServiceGlobals(): void {
   delete globalThis.pagesSyncSchedulerStarted;
 }
 
+/** Every started service set registers shutdown listeners; a test leaves none behind. */
+function trackShutdownListeners(): () => void {
+  const signals = ["SIGINT", "SIGTERM"] as const;
+  const known = signals.map((signal) => new Set(process.listeners(signal)));
+
+  return () => {
+    signals.forEach((signal, index) => {
+      for (const listener of process.listeners(signal))
+        if (!known[index]?.has(listener)) process.off(signal, listener);
+    });
+  };
+}
+
 describe("getApplicationServices", () => {
+  let restoreListeners = (): void => undefined;
+
   beforeEach(() => {
+    restoreListeners = trackShutdownListeners();
     resetServiceGlobals();
     vi.clearAllMocks();
     mockedDatabaseCreate.mockResolvedValue(
@@ -148,6 +164,10 @@ describe("getApplicationServices", () => {
     vi.spyOn(AssistantHistoryScheduler.prototype, "start").mockImplementation(
       () => undefined,
     );
+  });
+
+  afterEach(() => {
+    restoreListeners();
   });
 
   it("reports maintenance failures without preventing A10 services from becoming available", async () => {
@@ -188,6 +208,25 @@ describe("getApplicationServices", () => {
     expect(await schedulers[0]?.runOnce()).toBe(true);
     expect(wiki).toHaveBeenCalledOnce();
     expect(assets).toHaveBeenCalledOnce();
+    resetServiceGlobals();
+  });
+
+  it("starts although the stored agents cannot be read to repair their files", async () => {
+    const failure = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    const database = createDatabase();
+    database.transaction.mockRejectedValue(new Error("unreadable profile"));
+    mockedDatabaseCreate.mockResolvedValue(
+      database as unknown as Awaited<ReturnType<typeof mockedDatabaseCreate>>,
+    );
+    expect((await getApplicationServices()).agentPlanService).toBeInstanceOf(
+      AgentPlanService,
+    );
+    expect(failure).toHaveBeenCalledWith(
+      "Pages could not read the agents to repair their definition files.",
+      expect.any(Error),
+    );
     resetServiceGlobals();
   });
 

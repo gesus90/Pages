@@ -52,6 +52,7 @@ describe("PAGE-20 server rendering of the agent list", () => {
           model: "model-a",
           reasoningEffort: "medium",
           revision: 1,
+          hasDeletedTargets: false,
           availability: { isUsable: true, reason: null, personalChoices: [] },
           configuration: {
             ...emptyAgentConfiguration(),

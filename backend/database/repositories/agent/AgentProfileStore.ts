@@ -21,6 +21,18 @@ import type {
 } from "@/definition/AgentProfile";
 import type { AgentReference, AgentUsage } from "@/definition/AgentUsage";
 
+function groupBy<Row>(
+  rows: readonly Row[],
+  keyOf: (row: Row) => string,
+): ReadonlyMap<string, readonly Row[]> {
+  const groups = new Map<string, Row[]>();
+  for (const row of rows) {
+    const key = keyOf(row);
+    groups.set(key, [...(groups.get(key) ?? []), row]);
+  }
+  return groups;
+}
+
 /** Statement operations shared by profile writes and the legacy system function facade. */
 export class AgentProfileStore {
   private readonly database: DatabaseTransaction;
@@ -61,6 +73,13 @@ export class AgentProfileStore {
       FROM agent_profile_targets
       ORDER BY kind, target_id;
     `);
+    // Grouped once, so a large number of agents does not make every row scan every grant.
+    const purposesByProfile = groupBy(purposes, (entry) =>
+      readTextColumn(entry, 0, "profile_id"),
+    );
+    const targetsByProfile = groupBy(targets, (entry) =>
+      readTextColumn(entry, 0, "profile_id"),
+    );
     return rows.map((row) => {
       const id = readTextColumn(row, 0, "id");
       return {
@@ -80,22 +99,18 @@ export class AgentProfileStore {
               ownerId: readTextColumn(row, 8, "owner_id"),
               modelProfileId: readTextColumn(row, 9, "model_profile_id"),
             }),
-        purposes: purposes
-          .filter((entry) => entry[0] === id)
-          .map((entry) => {
-            const purpose = readTextColumn(entry, 1, "purpose");
-            if (!isAgentProfilePurpose(purpose))
-              throw new AgentError("profile_invalid");
-            return purpose;
-          }),
-        targets: targets
-          .filter((entry) => entry[0] === id)
-          .map((entry) => {
-            const kind = readTextColumn(entry, 1, "kind");
-            if (!isAgentProfileTargetKind(kind))
-              throw new AgentError("profile_invalid");
-            return { kind, targetId: readTextColumn(entry, 2, "target_id") };
-          }),
+        purposes: (purposesByProfile.get(id) ?? []).map((entry) => {
+          const purpose = readTextColumn(entry, 1, "purpose");
+          if (!isAgentProfilePurpose(purpose))
+            throw new AgentError("profile_invalid");
+          return purpose;
+        }),
+        targets: (targetsByProfile.get(id) ?? []).map((entry) => {
+          const kind = readTextColumn(entry, 1, "kind");
+          if (!isAgentProfileTargetKind(kind))
+            throw new AgentError("profile_invalid");
+          return { kind, targetId: readTextColumn(entry, 2, "target_id") };
+        }),
       };
     });
   }
@@ -133,7 +148,8 @@ export class AgentProfileStore {
   /** Checks every current reference inside the same transaction as deletion. */
   public async usages(id: string): Promise<readonly AgentUsage[]> {
     const profile = (await this.list()).find((entry) => entry.id === id);
-    if (!profile) return [];
+    // An agent of a user answers like an unknown one: nothing to report or to remove.
+    if (!profile || profile.ownerId !== undefined) return [];
     const rows = await this.database.query(
       `
       SELECT function

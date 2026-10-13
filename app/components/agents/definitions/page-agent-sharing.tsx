@@ -22,6 +22,8 @@ export function PageAgentSharing(props: {
   readonly configuration: AgentConfiguration;
   readonly directory: AgentProfileDirectory;
   readonly disabled: boolean;
+  /** The saved share names a group or department that is gone; saving stores the list without it. */
+  readonly hasDeletedTargets: boolean;
   readonly onChange: (configuration: AgentConfiguration) => void;
 }): React.ReactElement {
   const { t } = useTranslation();
@@ -45,6 +47,11 @@ export function PageAgentSharing(props: {
   }
   return (
     <section className="space-y-4">
+      {props.hasDeletedTargets ? (
+        <p role="status" className="text-sm text-warning">
+          {t("pageAgents.deletedTargets")}
+        </p>
+      ) : null}
       <label className="block space-y-2 text-sm font-medium">
         <span>{t("pageAgents.sharing")}</span>
         <Select<SharingScope>

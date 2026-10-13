@@ -1,5 +1,3 @@
-import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
-import { readArchiveSteps } from "@/backend/agents/PageAgentRecordInput";
 import {
   readNullableTextColumn,
   readTextColumn,
@@ -8,9 +6,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { isPageAgentRunStatus } from "@/definition/PageAgent";
 
 import type { Database, DatabaseValue } from "@/backend/database/Database";
-import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type { PageAgentRunRecord } from "@/definition/PageAgent";
-import type { ArchiveAgentStep } from "@/backend/agents/PageAgentRecordInput";
 
 /** The prompt a step received and the moment it was handed to the model. */
 export interface PinnedAgentInput {
@@ -18,10 +14,11 @@ export interface PinnedAgentInput {
   readonly startedAt: string;
 }
 
-/** A plan run that ended and whose step records may still be incomplete. */
+/** The stored texts of a plan run that ended and whose step records may still be incomplete. */
 export interface UnarchivedPlanRun {
-  readonly run: AgentPlanRun;
-  readonly steps: readonly ArchiveAgentStep[];
+  readonly id: string;
+  readonly viewJson: string;
+  readonly snapshotJson: string;
 }
 
 const RECORD_COLUMNS = `
@@ -215,10 +212,16 @@ export class PageAgentRunRepository {
     );
   }
 
-  /** Ended plan runs of this version whose records may be missing after a crash or write failure. */
+  /**
+   * Ended plan runs of this version whose records may be missing after a crash or write failure.
+   *
+   * @remarks
+   * The texts are returned unread, so one damaged run cannot hide the others.
+   */
   public async unarchived(): Promise<readonly UnarchivedPlanRun[]> {
     const rows = await this.database.query(`
       SELECT
+          runs.id,
           runs.view_json,
           runs.snapshot_json
       FROM agent_plan_runs AS runs
@@ -230,13 +233,11 @@ export class PageAgentRunRepository {
           )
       ORDER BY runs.started_at, runs.id;
     `);
-    return rows.map((row) => {
-      const view: unknown = JSON.parse(readTextColumn(row, 0, "view_json"));
-      const snapshot: unknown = JSON.parse(
-        readTextColumn(row, 1, "snapshot_json"),
-      );
-      return { run: readPlanRun(view), steps: readArchiveSteps(snapshot) };
-    });
+    return rows.map((row) => ({
+      id: readTextColumn(row, 0, "id"),
+      viewJson: readTextColumn(row, 1, "view_json"),
+      snapshotJson: readTextColumn(row, 2, "snapshot_json"),
+    }));
   }
 }
 

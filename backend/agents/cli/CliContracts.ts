@@ -21,6 +21,8 @@ export interface CliProcessResult {
 
 export interface CliRunRequest {
   readonly file: string;
+  /** The tool itself when `file` is a wrapper that starts it; the tool's folder belongs on the PATH. */
+  readonly toolFile?: string;
   readonly arguments: readonly string[];
   readonly provider: CliProviderId;
   readonly home: CliHome;

@@ -276,13 +276,13 @@ describe("PAGE-20 definition files of agents", () => {
     expect(() => files.assertMutable("agent")).toThrow(
       expect.objectContaining({ code: "profile_running" }),
     );
-    first();
-    first();
+    await first();
+    await first();
     expect(() => files.assertMutable("other")).not.toThrow();
     expect(() => files.assertMutable("agent")).toThrow(
       expect.objectContaining({ code: "profile_running" }),
     );
-    second();
+    await second();
     expect(() => files.assertMutable("agent")).not.toThrow();
     await expect(files.hold(["../escape"])).rejects.toMatchObject({
       code: "profile_invalid",
@@ -335,6 +335,67 @@ describe("PAGE-20 definition files of agents", () => {
       code: "profile_not_found",
     });
     expect(await artifactExists(path.join(directory, "lost"))).toBe(false);
+  });
+
+  it("keeps a saved definition when its file cannot be written and writes it with the next repair", async () => {
+    const directory = path.join(root, "Agents");
+    await mkdir(directory);
+    await writeFile(path.join(directory, "agent"), "a file, not a folder");
+    const failure = vi.spyOn(console, "error").mockImplementation(() => {});
+    const files = new AgentDefinitionFiles(directory);
+    const stored: AgentProfile[] = [];
+    const repository = {
+      save: async (entry: AgentProfile) => {
+        stored.push(entry);
+      },
+      list: async () => stored,
+    } as unknown as AgentProfileRepository;
+    await files.save(profile(), repository);
+    expect(stored).toHaveLength(1);
+    expect(failure).toHaveBeenCalledTimes(1);
+    await rm(path.join(directory, "agent"));
+    await files.restore(stored);
+    expect(
+      await artifactExists(path.join(directory, "agent", "AGENT.md")),
+    ).toBe(true);
+  });
+
+  it("puts a changed or lost file back when a run lets go, and leaves what another run still holds", async () => {
+    const directory = path.join(root, "Agents");
+    const stored = [profile(), profile({ id: "other" })];
+    const files = new AgentDefinitionFiles(directory, async () => stored);
+    await files.restore(stored);
+    const filename = path.join(directory, "agent", "AGENT.md");
+    const original = await readFile(filename, "utf8");
+    const first = await files.hold(["agent", "other"]);
+    const second = await files.hold(["other"]);
+    // While the run holds the agents, another process replaces and removes the files.
+    await rm(filename);
+    await writeFile(filename, "tampered");
+    await rm(path.join(directory, "other", "AGENT.md"));
+    await first();
+    expect(await readFile(filename, "utf8")).toBe(original);
+    // The second run still holds "other", so its file stays as it is until that run ends.
+    expect(
+      await artifactExists(path.join(directory, "other", "AGENT.md")),
+    ).toBe(false);
+    await second();
+    expect(
+      await artifactExists(path.join(directory, "other", "AGENT.md")),
+    ).toBe(true);
+  });
+
+  it("reports a failure to read the definitions after a run and does not fail the release", async () => {
+    const failure = vi.spyOn(console, "error").mockImplementation(() => {});
+    const files = new AgentDefinitionFiles(
+      path.join(root, "Agents"),
+      async () => {
+        throw new Error("database offline");
+      },
+    );
+    const release = await files.hold(["agent"]);
+    await expect(release()).resolves.toBeUndefined();
+    expect(failure).toHaveBeenCalledTimes(1);
   });
 
   it("reports a folder it cannot write and still repairs the others", async () => {

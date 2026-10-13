@@ -2,8 +2,8 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 
 import { AgentError } from "@/backend/error/AgentErrors";
+import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
 import { readArchiveSteps } from "@/backend/agents/PageAgentRecordInput";
-import { redactAssistantCredentials } from "@/backend/service/assistant/TextAssistantValidation";
 
 import {
   artifactDirectory,
@@ -11,7 +11,7 @@ import {
   requireArtifactId,
   writeArtifact,
 } from "./AgentArtifactPath";
-import { sanitizePlanOutput } from "./AgentPlanOutput";
+import { sanitizeArtifactText } from "./AgentPlanOutput";
 import { renderAgentRunRecord } from "./AgentRunMarkdown";
 
 import type { PageAgentRunRepository } from "@/backend/database/repositories/agent/PageAgentRunRepository";
@@ -24,10 +24,6 @@ import type {
 import type { AgentPlanSnapshot } from "./AgentPlanSnapshot";
 
 const CANCELLED_RESULT = "The run was stopped before it finished.";
-
-function safeText(text: string): string {
-  return sanitizePlanOutput(redactAssistantCredentials(text));
-}
 
 /**
  * Decides how a step run ended, or that it has no run to record.
@@ -68,7 +64,7 @@ export class AgentRunArchive {
     prompt: string,
   ): Promise<void> {
     await this.repository.pinInput(planRunId, stepId, {
-      prompt: safeText(prompt),
+      prompt: sanitizeArtifactText(prompt),
       startedAt: new Date().toISOString(),
     });
   }
@@ -101,9 +97,14 @@ export class AgentRunArchive {
    */
   public async recover(): Promise<void> {
     await this.report("repair the agent run records", async () => {
-      for (const { run, steps } of await this.repository.unarchived())
-        await this.report(`write the run records of plan run ${run.id}`, () =>
-          this.archive(run, steps),
+      for (const stored of await this.repository.unarchived())
+        await this.report(
+          `write the run records of plan run ${stored.id}`,
+          () =>
+            this.archive(
+              readPlanRun(JSON.parse(stored.viewJson) as unknown),
+              readArchiveSteps(JSON.parse(stored.snapshotJson) as unknown),
+            ),
         );
       for (const { agentId, runId } of await this.repository.keys())
         await this.report(`write the run record file ${runId}`, () =>
@@ -138,7 +139,11 @@ export class AgentRunArchive {
     const record = await this.repository.find(agentId, runId);
     if (!record || record.userId !== userId)
       throw new AgentError("agent_usage_denied");
-    return { record, markdown: await this.materialize(record) };
+    // The record is the truth; a file that cannot be written does not keep it from its executor.
+    await this.report(`write the run record file ${runId}`, async () => {
+      await this.materialize(record);
+    });
+    return { record, markdown: renderAgentRunRecord(record) };
   }
 
   private async archive(
@@ -161,8 +166,10 @@ export class AgentRunArchive {
         status,
         model: step.model,
         reasoningEffort: step.reasoningEffort,
-        input: pinned?.prompt ?? safeText(step.input),
-        result: safeText(result.output ?? result.error ?? CANCELLED_RESULT),
+        input: pinned?.prompt ?? sanitizeArtifactText(step.input),
+        result: sanitizeArtifactText(
+          result.output ?? result.error ?? CANCELLED_RESULT,
+        ),
       });
       await this.repository.discardInput(run.id, step.stepId);
       await this.materialize(record);

@@ -547,6 +547,8 @@
         "profile_in_use": "Remove assignments, project context and usage shares before deleting.",
         "profile_conflict": "The agent changed. Reload it before saving.",
         "profile_running": "The agent is part of a running plan. Change it after the run ended.",
+        "profile_limit_reached": "At most 100 agents per person can be created.",
+        "cli_isolation_unavailable": "CLI agents need an isolated environment, which this server cannot provide.",
         "profile_scope_invalid": "Choose targets within the selected scope. Personal scope uses only the executor’s personal access.",
         "personal_access_missing": "No matching personal model access is assigned.",
         "personal_access_selection_required": "Choose a matching personal access explicitly.",
@@ -3066,6 +3068,7 @@
     "viewAgent": "View agent",
     "loadError": "The agents could not be loaded.",
     "retry": "Try again",
-    "modelWithdrawn": "The model of this agent is no longer released for you or was changed. Choose a released model to save it."
+    "modelWithdrawn": "The model of this agent is no longer released for you or was changed. Choose a released model to save it.",
+    "deletedTargets": "A group or department of this share no longer exists. It is left out of the list below; saving stores the share without it."
   }
 }

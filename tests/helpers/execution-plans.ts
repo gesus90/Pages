@@ -288,7 +288,10 @@ function assembleHarness(
     new PageAgentRunRepository(database),
     path.join(workspace.root, "Agents"),
   );
-  const files = new AgentDefinitionFiles(path.join(workspace.root, "Agents"));
+  const files = new AgentDefinitionFiles(
+    path.join(workspace.root, "Agents"),
+    () => profile.profileRepository.list(),
+  );
   const engine = new AgentPlanRunEngine({
     archive,
     files,

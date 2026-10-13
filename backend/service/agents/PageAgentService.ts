@@ -23,6 +23,9 @@ import type {
 } from "./AgentProfileService";
 import type { AgentDefinitionFiles } from "./AgentDefinitionFiles";
 
+/** One person cannot fill the instance with agents; the lists and the files stay small. */
+const MAX_AGENTS_PER_OWNER = 100;
+
 /** User management uses the same persisted definitions and execution catalog as plans. */
 export class PageAgentService {
   private readonly dependencies: ProfileDependencies;
@@ -43,19 +46,20 @@ export class PageAgentService {
   /** Loads visible definitions, current model grants and sharing directory names without account details. */
   public async page(userId: string): Promise<PageAgentPage> {
     const viewer = await this.viewer(userId);
-    const [catalog, models, snapshot, groups] = await Promise.all([
+    const [catalog, stored, snapshot, groups] = await Promise.all([
       this.profiles.catalog(userId),
-      pageAgentModels(this.dependencies, viewer),
+      this.dependencies.profiles.list(),
       this.dependencies.authorization.snapshot(),
       this.dependencies.groups.findAll(),
     ]);
+    const models = await pageAgentModels(this.dependencies, viewer, stored);
     const directory: AgentProfileDirectory = {
       persons: [],
       groups: groups.map((group) => ({ id: group.id, name: group.name })),
       departments: snapshot.departments,
     };
     const agents: PageAgent[] = [];
-    for (const profile of await this.dependencies.profiles.list()) {
+    for (const profile of stored) {
       const choice = catalog.find((entry) => entry.id === profile.id);
       if (
         !profile.ownerId ||
@@ -64,6 +68,7 @@ export class PageAgentService {
         !choice
       )
         continue;
+      const shown = withoutDeletedTargets(profile.configuration, directory);
       agents.push({
         id: profile.id,
         ownerId: profile.ownerId,
@@ -71,7 +76,10 @@ export class PageAgentService {
         modelProfileId: profile.modelProfileId,
         model: profile.model,
         reasoningEffort: profile.reasoningEffort,
-        configuration: withoutDeletedTargets(profile.configuration, directory),
+        configuration: shown,
+        hasDeletedTargets:
+          shown.sharing.targets.length <
+          profile.configuration.sharing.targets.length,
         revision: profile.revision,
         canEdit: profile.ownerId === userId,
         availability: choice.availability,
@@ -94,21 +102,24 @@ export class PageAgentService {
   ): Promise<string> {
     return this.writes.run(async () => {
       const viewer = await this.viewer(userId);
+      const stored = await this.dependencies.profiles.list();
       const previous =
-        id === null
-          ? undefined
-          : (await this.dependencies.profiles.list()).find(
-              (entry) => entry.id === id,
-            );
+        id === null ? undefined : stored.find((entry) => entry.id === id);
       const proposed = readAgentObject(input);
       validateOwnerSave({ userId, id, previous, proposed });
+      if (
+        id === null &&
+        stored.filter((entry) => entry.ownerId === userId).length >=
+          MAX_AGENTS_PER_OWNER
+      )
+        throw new AgentError("profile_limit_reached");
       const name = readName(proposed.name);
       if (
         proposed.reasoningEffort !== null &&
         typeof proposed.reasoningEffort !== "string"
       )
         throw new AgentError("profile_invalid");
-      const source = (await this.dependencies.profiles.list()).find(
+      const source = stored.find(
         (entry) => entry.id === proposed.modelProfileId,
       );
       if (!source) throw new AgentError("agent_usage_denied");
@@ -136,7 +147,7 @@ export class PageAgentService {
         },
         revision: previous?.revision,
       };
-      await resolvePageAgentModel(this.dependencies, viewer, profile);
+      await resolvePageAgentModel(this.dependencies, viewer, profile, stored);
       await this.files.save(profile, this.dependencies.profiles);
       return profile.id;
     });
@@ -155,7 +166,7 @@ export class PageAgentService {
    * of this check. A user who loses the share loses the content as well.
    */
   public async requireVisible(userId: string, id: string): Promise<void> {
-    if (!(await this.profiles.catalog(userId)).some((entry) => entry.id === id))
+    if (!(await this.profiles.isVisible(userId, id)))
       throw new AgentError("agent_usage_denied");
   }
 

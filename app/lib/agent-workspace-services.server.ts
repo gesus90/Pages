@@ -60,9 +60,13 @@ export function createAgentConfigurationServices(input: {
       additionalProtectedDirectories: [input.agentsDirectory],
     }),
   });
-  const agentDefinitionFiles = new AgentDefinitionFiles(input.agentsDirectory);
+  const profiles = new AgentProfileRepository(database);
+  const agentDefinitionFiles = new AgentDefinitionFiles(
+    input.agentsDirectory,
+    () => profiles.list(),
+  );
   const dependencies = {
-    profiles: new AgentProfileRepository(database),
+    profiles,
     connections: input.connections,
     authorization,
     groups,

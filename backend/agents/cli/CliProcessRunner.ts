@@ -43,7 +43,11 @@ export class CliProcessRunner {
         shell: false,
         detached: true,
         cwd: request.workingDirectory ?? request.home.work,
-        env: createCliEnvironment(request.home, request.provider, request.file),
+        env: createCliEnvironment(
+          request.home,
+          request.provider,
+          request.toolFile ?? request.file,
+        ),
         stdio: [request.stdin, "pipe", "pipe"],
       });
       running = new CliChildProcess(child, request, this.signalGroup);

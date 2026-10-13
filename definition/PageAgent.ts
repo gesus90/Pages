@@ -17,6 +17,8 @@ export interface PageAgent extends PageAgentInput {
   readonly ownerId: string;
   readonly model: string;
   readonly canEdit: boolean;
+  /** The share still names a group or department that no longer exists; the list above leaves it out. */
+  readonly hasDeletedTargets: boolean;
   readonly availability: AgentAvailability;
 }
 

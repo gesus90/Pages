@@ -10,6 +10,7 @@ import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
 import { AgentOperationRegistry } from "@/backend/service/agents/AgentOperationRegistry";
 import { AgentContentAccess } from "@/backend/service/agents/AgentContentAccess";
 import { PageAgentService } from "@/backend/service/agents/PageAgentService";
+import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 
 import {
@@ -23,6 +24,21 @@ import { pageAgentInput } from "../helpers/page-agents";
 import { useMigratedDatabase } from "../helpers/test-database";
 
 import type { ExecutionPlanHarness } from "../helpers/execution-plans";
+
+/** The worker agent of the harness is bound to its project, so it cannot be the model of a user agent. */
+async function addModelSource(current: ExecutionPlanHarness): Promise<void> {
+  await current.profileRepository.save({
+    id: "model-source",
+    name: "Model source",
+    connectionId: "connection",
+    model: "model-a",
+    reasoningEffort: "medium",
+    isActive: true,
+    purposes: ["agent"],
+    targets: [{ kind: "system", targetId: "agent" }],
+    configuration: emptyAgentConfiguration("system"),
+  });
+}
 
 describe("PAGE-20 terminal agent run archive and definition immutability", () => {
   const getDatabase = useMigratedDatabase();
@@ -51,10 +67,11 @@ describe("PAGE-20 terminal agent run archive and definition immutability", () =>
       current.profiles,
       current.files,
     );
+    await addModelSource(current);
     const agentId = await pages.save(
       current.bob.id,
       null,
-      pageAgentInput({ modelProfileId: current.agentId }),
+      pageAgentInput({ modelProfileId: "model-source" }),
     );
     return { ...current, pages, userAgentId: agentId };
   }
@@ -255,10 +272,11 @@ describe("PAGE-20 which runs get a record, and what happens when files fail", ()
       current.profiles,
       current.files,
     );
+    await addModelSource(current);
     const userAgentId = await pages.save(
       current.bob.id,
       null,
-      pageAgentInput({ modelProfileId: current.agentId }),
+      pageAgentInput({ modelProfileId: "model-source" }),
     );
     const runs = path.join(current.root, "Agents", userAgentId, "runs");
     return { ...current, pages, userAgentId, runs };
@@ -636,7 +654,7 @@ describe("PAGE-20 which runs get a record, and what happens when files fail", ()
       type: "workspace" | "wiki",
       defaultValue: unknown,
     ) => {
-      const proposed = pageAgentInput({ modelProfileId: current.agentId });
+      const proposed = pageAgentInput({ modelProfileId: "model-source" });
       return {
         ...proposed,
         configuration: {
@@ -698,5 +716,68 @@ describe("PAGE-20 which runs get a record, and what happens when files fail", ()
         unwired.save(current.bob.id, null, input),
       ).rejects.toMatchObject({ code: "parameter_reference_unavailable" });
     expect((await unwired.page(current.bob.id)).workspaces).toEqual([]);
+  });
+  it("puts AGENT.md back when a run changed or removed it and lets go", async () => {
+    const current = await setup();
+    const filename = path.join(
+      current.root,
+      "Agents",
+      current.userAgentId,
+      "AGENT.md",
+    );
+    const original = await readFile(filename, "utf8");
+    current.execution.run.mockImplementation(async (input) => {
+      await input.beforeStart?.();
+      // What a process under the account of the server could still do.
+      await rm(filename);
+      await writeFile(filename, "# Tampered by a runtime agent\n");
+      return "Completed";
+    });
+    const planId = await current.service.save(
+      current.bob.id,
+      null,
+      executionPlan(current.workspaceId, current.userAgentId),
+    );
+    const run = await current.service.play(current.bob.id, planId, 1);
+    await waitForPlan(async () =>
+      expect((await current.runRepository.find(run.id))?.status).toBe(
+        "succeeded",
+      ),
+    );
+    await waitForPlan(async () =>
+      expect(await readFile(filename, "utf8")).toBe(original),
+    );
+  });
+
+  it("leaves plans that only use agents of users out of the ticket assignments of the administration", async () => {
+    const current = await setup();
+    await current.service.save(
+      current.bob.id,
+      null,
+      executionPlan(current.workspaceId, current.userAgentId, {
+        nodes: [
+          executionStep("A", current.userAgentId, {
+            input: { kind: "source", nodeId: "ticket" },
+          }),
+          { id: "ticket", type: "task", taskId: current.task.id, x: 0, y: 0 },
+        ],
+      }),
+    );
+    await current.service.save(
+      current.bob.id,
+      null,
+      executionPlan(current.workspaceId, current.agentId, {
+        name: "Administrator agent",
+        nodes: [
+          executionStep("A", current.agentId, {
+            input: { kind: "source", nodeId: "ticket" },
+          }),
+          { id: "ticket", type: "task", taskId: current.task.id, x: 0, y: 0 },
+        ],
+      }),
+    );
+    expect(
+      Object.keys(await current.service.taskAssignments(current.admin)),
+    ).toEqual([current.agentId]);
   });
 });

@@ -121,6 +121,9 @@ export function PageAgentForm(props: {
             configuration={input.configuration}
             directory={props.page.directory}
             disabled={isDisabled}
+            hasDeletedTargets={
+              !isReadOnly && (props.agent?.hasDeletedTargets ?? false)
+            }
             onChange={(configuration) =>
               form.setInput({ ...input, configuration })
             }

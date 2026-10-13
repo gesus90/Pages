@@ -108,6 +108,7 @@ describe("PAGE-20 user agent management UI", () => {
       model: "model-a",
       reasoningEffort: "medium",
       revision: 3,
+      hasDeletedTargets: false,
       availability: { isUsable: true, reason: null, personalChoices: [] },
       configuration: { ...emptyAgentConfiguration(), accessMode: "shared" },
     } as const;
@@ -162,6 +163,7 @@ describe("PAGE-20 user agent management UI", () => {
           model: "model-a",
           reasoningEffort: "medium",
           revision: 1,
+          hasDeletedTargets: false,
           availability: {
             isUsable: false,
             reason: "agent_usage_denied",
@@ -197,6 +199,7 @@ function listed(
     model: "model-a",
     reasoningEffort: null,
     revision: 1,
+    hasDeletedTargets: false,
     availability: { isUsable: true, reason: null, personalChoices: [] },
     configuration: { ...emptyAgentConfiguration(), accessMode: "shared" },
     ...overrides,
@@ -418,6 +421,31 @@ describe("PAGE-20 failure state of the agent list", () => {
     await mountFailing(403);
     expect(await screen.findByRole("alert")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+  });
+});
+
+describe("PAGE-20 share with a deleted target", () => {
+  it("tells the owner that a target is gone and a reader nothing of it", async () => {
+    await mount({
+      ...page(),
+      agents: [
+        listed({ hasDeletedTargets: true }),
+        listed({
+          id: "shared",
+          name: "Shared with me",
+          canEdit: false,
+          hasDeletedTargets: true,
+        }),
+      ],
+    });
+    const user = userEvent.setup();
+    const [edit] = screen.getAllByRole("button", { name: "Edit" });
+    await user.click(edit);
+    expect(screen.getByText(/no longer exists/u)).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByLabelText("Name")).toBeNull());
+    await user.click(screen.getByRole("button", { name: "View" }));
+    expect(screen.queryByText(/no longer exists/u)).toBeNull();
   });
 });
 

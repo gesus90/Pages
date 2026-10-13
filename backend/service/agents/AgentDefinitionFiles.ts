@@ -2,21 +2,16 @@ import path from "node:path";
 
 import { AgentError } from "@/backend/error/AgentErrors";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
-import { redactAssistantCredentials } from "@/backend/service/assistant/TextAssistantValidation";
 
 import {
   artifactDirectory,
   requireArtifactId,
   writeArtifact,
 } from "./AgentArtifactPath";
-import { sanitizePlanOutput } from "./AgentPlanOutput";
+import { sanitizeArtifactText } from "./AgentPlanOutput";
 
 import type { AgentProfile } from "@/definition/AgentProfile";
 import type { AgentProfileRepository } from "@/backend/database/repositories/agent/AgentProfileRepository";
-
-function safeText(text: string): string {
-  return sanitizePlanOutput(redactAssistantCredentials(text));
-}
 
 /**
  * Renders the stored definition of an agent as its `AGENT.md`.
@@ -37,11 +32,13 @@ export function renderAgentDefinition(profile: AgentProfile): string {
     definition,
     (property: string, entry: unknown): unknown => {
       if (property === "") return entry;
-      return typeof entry === "string" ? safeText(entry) : entry;
+      return typeof entry === "string" ? sanitizeArtifactText(entry) : entry;
     },
     2,
   );
-  const heading = safeText(profile.name).replace(/\s+/gu, " ").trim();
+  const heading = sanitizeArtifactText(profile.name)
+    .replace(/\s+/gu, " ")
+    .trim();
   return `# ${heading}\n\nAgent-ID: ${profile.id}\n\n## Definition\n\n\`\`\`json\n${encoded}\n\`\`\`\n`;
 }
 
@@ -51,29 +48,54 @@ export function renderAgentDefinition(profile: AgentProfile): string {
  * @remarks
  * Only this class writes the file, and only from a persisted definition. While
  * a plan run holds an agent, no save or deletion of that agent is accepted.
+ * When the run lets go, the file is checked against the stored definition, so
+ * a changed or lost file is back before the next run can read it.
  */
 export class AgentDefinitionFiles {
   private readonly directory: string;
+  private readonly loadProfiles:
+    (() => Promise<readonly AgentProfile[]>) | null;
   private readonly holds = new Set<readonly string[]>();
   private readonly writes = new SerialQueue();
 
-  public constructor(directory: string) {
+  /**
+   * Creates the owner of the definition files.
+   *
+   * @param directory - The agent directory of the instance.
+   * @param loadProfiles - Supplies the stored definitions for the check after a
+   * run; without it a run is not followed by a check.
+   */
+  public constructor(
+    directory: string,
+    loadProfiles?: () => Promise<readonly AgentProfile[]>,
+  ) {
     this.directory = directory;
+    this.loadProfiles = loadProfiles ?? null;
   }
 
   /** Blocks management changes while any invocation holds this definition. */
   public assertMutable(id: string): void {
     requireArtifactId(id);
-    for (const hold of this.holds)
-      if (hold.includes(id)) throw new AgentError("profile_running");
+    if (this.isHeld(id)) throw new AgentError("profile_running");
   }
 
-  /** Holds a definition immutable through adapter settlement and archive persistence. */
-  public async hold(ids: readonly string[]): Promise<() => void> {
+  /**
+   * Holds definitions immutable through adapter settlement and archive persistence.
+   *
+   * @returns The release, which also checks the held files against the stored
+   * definitions; calling it again does nothing.
+   */
+  public async hold(ids: readonly string[]): Promise<() => Promise<void>> {
     return this.writes.run(async () => this.reserve(ids));
   }
 
-  /** Serializes definition saves with reservations so an awaited database write cannot race a start. */
+  /**
+   * Serializes definition saves with reservations so an awaited database write cannot race a start.
+   *
+   * @remarks
+   * A problem with the file is reported and does not undo the saved
+   * definition: the file is a copy, and the next save or start repairs it.
+   */
   public async save(
     profile: AgentProfile,
     repository: AgentProfileRepository,
@@ -85,7 +107,7 @@ export class AgentDefinitionFiles {
         (entry) => entry.id === profile.id,
       );
       if (!persisted) throw new AgentError("profile_not_found");
-      await this.writeDefinition(persisted);
+      await this.writeOrReport(persisted);
     });
   }
 
@@ -108,24 +130,49 @@ export class AgentDefinitionFiles {
    */
   public async restore(profiles: readonly AgentProfile[]): Promise<void> {
     for (const profile of profiles) {
-      try {
-        await this.write(profile);
-      } catch (error: unknown) {
-        console.error(
-          `Pages could not write the definition file of agent ${profile.id}.`,
-          error,
-        );
-      }
+      await this.writes.run(async () => {
+        if (this.isHeld(profile.id)) return;
+        await this.writeOrReport(profile);
+      });
     }
   }
 
-  private reserve(ids: readonly string[]): () => void {
+  private isHeld(id: string): boolean {
+    return [...this.holds].some((hold) => hold.includes(id));
+  }
+
+  private reserve(ids: readonly string[]): () => Promise<void> {
     for (const id of ids) requireArtifactId(id);
     const hold = [...ids];
     this.holds.add(hold);
-    return () => {
-      this.holds.delete(hold);
+    return async () => {
+      if (!this.holds.delete(hold)) return;
+      await this.repair(ids);
     };
+  }
+
+  private async repair(ids: readonly string[]): Promise<void> {
+    if (this.loadProfiles === null) return;
+    try {
+      const profiles = await this.loadProfiles();
+      await this.restore(profiles.filter((entry) => ids.includes(entry.id)));
+    } catch (error: unknown) {
+      console.error(
+        "Pages could not check the definition files after a run.",
+        error,
+      );
+    }
+  }
+
+  private async writeOrReport(profile: AgentProfile): Promise<void> {
+    try {
+      await this.writeDefinition(profile);
+    } catch (error: unknown) {
+      console.error(
+        `Pages could not write the definition file of agent ${profile.id}.`,
+        error,
+      );
+    }
   }
 
   private async writeDefinition(profile: AgentProfile): Promise<void> {

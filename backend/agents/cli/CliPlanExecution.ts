@@ -5,7 +5,7 @@ import { isApiProvider } from "@/definition/AgentConnection";
 
 import { cliPlanArguments } from "./CliPlanArguments";
 import { readCliPlanResponse } from "./CliPlanResponse";
-import { isolateCliPlan } from "./CliPlanIsolation";
+import { CliPlanIsolation } from "./CliPlanIsolation";
 
 import type { PlanExecution } from "@/backend/agents/AgentPlanExecution";
 import type { AgentPlanExecutionInput } from "@/backend/service/agents/AgentPlanStepStart";
@@ -15,22 +15,39 @@ import type { CliLocator } from "./CliLocator";
 import type { CliProcessRunner } from "./CliProcessRunner";
 import type { CliRunRequest } from "./CliContracts";
 
+/** How CLI runs are kept away from the instance folders. */
+export interface CliIsolationOptions {
+  /** Folders a CLI run must not reach, such as the data and agent folders. */
+  readonly protectedDirectories: readonly string[];
+  /** Refuse a run instead of starting it unisolated when bubblewrap does not work. */
+  readonly isRequired: boolean;
+  /** Decides whether bubblewrap works; defaults to a real probe. */
+  readonly probe?: () => Promise<boolean>;
+}
+
 interface PlanCliDependencies {
   readonly runtime: AgentCliRuntime;
   readonly store: AgentCredentialStore;
   readonly locator: CliLocator;
   readonly runner: CliProcessRunner;
-  /** Instance folders a CLI run must not reach; none disables the isolation. */
-  readonly protectedDirectories?: readonly string[];
+  /** Absent disables the isolation. */
+  readonly isolation?: CliIsolationOptions;
 }
 
 /** Shares the bounded process runner and credential homes; plan directories are separate from those homes. */
 export class CliPlanExecution implements PlanExecution {
   private readonly dependencies: PlanCliDependencies;
+  private readonly isolation: CliPlanIsolation | null;
+  private readonly isIsolationRequired: boolean;
   private hasWarnedWithoutIsolation = false;
 
   public constructor(dependencies: PlanCliDependencies) {
     this.dependencies = dependencies;
+    const { isolation } = dependencies;
+    this.isolation = isolation
+      ? new CliPlanIsolation(isolation.protectedDirectories, isolation.probe)
+      : null;
+    this.isIsolationRequired = isolation?.isRequired === true;
   }
 
   /** Starts at the explicitly resolved cwd and confirms cancellation only after process-group drainage. */
@@ -84,16 +101,23 @@ export class CliPlanExecution implements PlanExecution {
     }
   }
 
-  /** Runs in a mount namespace that hides the instance folders, where bubblewrap is installed. */
+  /**
+   * Runs in a mount namespace that hides the instance folders, where bubblewrap works.
+   *
+   * @remarks
+   * Where it does not, the run starts as before and one warning says so, unless
+   * the operator demanded isolation: then the step fails before any process.
+   */
   private async isolate(request: CliRunRequest): Promise<CliRunRequest> {
-    const directories = this.dependencies.protectedDirectories ?? [];
-    if (directories.length === 0) return request;
-    const isolated = await isolateCliPlan(request, directories);
+    if (this.isolation === null) return request;
+    const isolated = await this.isolation.isolate(request);
     if (isolated !== null) return isolated;
+    if (this.isIsolationRequired)
+      throw new AgentError("cli_isolation_unavailable");
     if (!this.hasWarnedWithoutIsolation) {
       this.hasWarnedWithoutIsolation = true;
       console.warn(
-        "Pages runs CLI agents without a mount namespace because bubblewrap (/usr/bin/bwrap) is not installed. Install it to hide the instance folders from these processes.",
+        "Pages runs CLI agents without a mount namespace because bubblewrap does not work on this host. Install it, or set PAGES_CLI_ISOLATION=required to refuse such runs.",
       );
     }
     return request;

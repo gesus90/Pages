@@ -24,7 +24,7 @@ interface ActivePlanRun {
   view: AgentPlanRun;
   readonly snapshot: AgentPlanSnapshot;
   readonly controllers: Map<string, AbortController>;
-  readonly releaseDefinition?: () => void;
+  readonly releaseDefinition?: () => Promise<void>;
 }
 
 interface EngineDependencies {
@@ -145,7 +145,7 @@ export class AgentPlanRunEngine {
     try {
       await this.dependencies.runs.create(view, snapshot, workspaceIds);
     } catch (error: unknown) {
-      releaseDefinition?.();
+      await releaseDefinition?.();
       throw error;
     }
     this.active.set(view.id, {
@@ -206,7 +206,7 @@ export class AgentPlanRunEngine {
             active.view,
             active.snapshot,
           );
-          active.releaseDefinition?.();
+          await active.releaseDefinition?.();
           this.active.delete(id);
         }
       }

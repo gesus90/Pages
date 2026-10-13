@@ -59,6 +59,8 @@ export interface AgentApplicationServices extends AgentConfigurationApplicationS
 interface ExecutionInput {
   /** Instance folders a CLI agent process must not reach. */
   readonly protectedDirectories: readonly string[];
+  /** Operator choice: refuse CLI plan steps where no isolation is possible. */
+  readonly isIsolationRequired: boolean;
   readonly repository: AgentConnectionRepository;
   readonly cipher: InstanceSecretCipher;
   readonly operations: AgentOperationRegistry;
@@ -109,7 +111,10 @@ function createExecutions(
         new ApiTextExecution(repository, cipher),
         new CliPlanExecution({
           ...cliAdapters,
-          protectedDirectories: input.protectedDirectories,
+          isolation: {
+            protectedDirectories: input.protectedDirectories,
+            isRequired: input.isIsolationRequired,
+          },
         }),
         operations,
       ),
@@ -175,6 +180,7 @@ export function createAgentServices(
     ),
     ...createExecutions({
       protectedDirectories: [dataDirectory, agentsDirectory],
+      isIsolationRequired: process.env.PAGES_CLI_ISOLATION === "required",
       repository,
       cipher,
       operations,

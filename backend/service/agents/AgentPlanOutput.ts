@@ -1,7 +1,12 @@
+import { redactAssistantCredentials } from "@/backend/service/assistant/TextAssistantValidation";
+
+/** Longest text a run keeps, whatever its source. */
+const PLAN_OUTPUT_LIMIT = 200_000;
+
 /** Redacts credential-shaped strings from final answers before persistence, display or result forwarding. */
 export function sanitizePlanOutput(output: string): string {
   return output
-    .slice(0, 200000)
+    .slice(0, PLAN_OUTPUT_LIMIT)
     .replace(
       /-----BEGIN [^-]*PRIVATE KEY-----[\s\S]*?-----END [^-]*PRIVATE KEY-----/gu,
       "[redacted]",
@@ -15,4 +20,16 @@ export function sanitizePlanOutput(output: string): string {
       "$1[redacted]",
     )
     .replace(/\bBearer\s+[a-zA-Z0-9_.~+/=-]+/giu, "Bearer [redacted]");
+}
+
+/**
+ * Prepares text for a file that stays on disk: credential-shaped text is masked
+ * and a cut at the length limit says so.
+ *
+ * @param text - Prompt, result or definition text.
+ * @returns The masked text, with a note when it was shortened.
+ */
+export function sanitizeArtifactText(text: string): string {
+  const masked = sanitizePlanOutput(redactAssistantCredentials(text));
+  return text.length > PLAN_OUTPUT_LIMIT ? `${masked}\n[truncated]` : masked;
 }

@@ -24,7 +24,8 @@ export function requireArtifactId(id: string): void {
 async function ensureDirectory(directory: string): Promise<void> {
   const entry = await lstat(directory).catch(() => null);
   if (entry === null) {
-    await mkdir(directory, { mode: DIRECTORY_MODE });
+    // Recursive creation does not fail when another writer made it first.
+    await mkdir(directory, { recursive: true, mode: DIRECTORY_MODE });
     return;
   }
   if (!entry.isDirectory() || entry.isSymbolicLink())
@@ -80,7 +81,11 @@ export async function writeArtifact(
   filename: string,
   content: string,
 ): Promise<void> {
-  const existing = await readFile(filename, "utf8").catch(() => null);
+  // Only a regular file is read: a pipe or a device in its place must not stall the caller.
+  const entry = await lstat(filename).catch(() => null);
+  const existing = entry?.isFile()
+    ? await readFile(filename, "utf8").catch(() => null)
+    : null;
   if (existing === content) return;
   const temporary = path.join(path.dirname(filename), `${randomUUID()}.tmp`);
   try {

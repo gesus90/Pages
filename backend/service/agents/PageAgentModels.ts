@@ -11,32 +11,47 @@ import type { ProfileDependencies } from "./AgentProfileService";
 import type { ResolvedAgentAssignment } from "./AgentAssignmentResolution";
 
 /**
+ * Whether a profile of the administrators may serve as the model of a user agent for the viewer.
+ *
+ * @remarks
+ * It must be active, have the purpose Agent and be released for the viewer. A
+ * profile bound to a project is left out: an agent of a user has no project, so
+ * it would run the model in every project.
+ */
+function isModelSource(source: AgentProfile, viewer: AgentViewer): boolean {
+  return (
+    source.ownerId === undefined &&
+    source.isActive &&
+    source.purposes.includes("agent") &&
+    !source.configuration?.projectId &&
+    agentProfilePriority(source, viewer, "agent") > 0
+  );
+}
+
+/**
  * Resolves the unchanged admin model and its live assignment independently of the usage share.
  *
+ * @param dependencies - Persistence and live authorization boundaries.
+ * @param viewer - The person who saves or starts the agent.
+ * @param profile - The user agent, naming its model profile, connection and model.
+ * @param profiles - Every stored profile, as the caller already loaded them.
  * @returns The assignment and the identifier of the administrator profile that grants it.
- * @throws {AgentError} `agent_usage_denied` unless the model profile is active, has
- * the purpose Agent, is released for the viewer and still names the saved model.
+ * @throws {AgentError} `agent_usage_denied` unless the model profile is released
+ * for the viewer and still names the saved connection and model.
  */
 export async function resolvePageAgentModel(
   dependencies: ProfileDependencies,
   viewer: AgentViewer,
   profile: AgentProfile,
+  profiles: readonly AgentProfile[],
 ): Promise<{
   readonly assignment: ResolvedAgentAssignment;
   readonly sourceId: string;
 }> {
-  const source = (await dependencies.profiles.list()).find(
-    (entry) => entry.id === profile.modelProfileId,
-  );
+  const source = profiles.find((entry) => entry.id === profile.modelProfileId);
   if (
     !source ||
-    source.ownerId ||
-    !source.isActive ||
-    !source.purposes.includes("agent") ||
-    agentProfilePriority(source, viewer, "agent") === 0
-  )
-    throw new AgentError("agent_usage_denied");
-  if (
+    !isModelSource(source, viewer) ||
     source.connectionId !== profile.connectionId ||
     source.model !== profile.model
   )
@@ -55,16 +70,11 @@ export async function resolvePageAgentModel(
 export async function pageAgentModels(
   dependencies: ProfileDependencies,
   viewer: AgentViewer,
+  profiles: readonly AgentProfile[],
 ): Promise<readonly PageAgentModel[]> {
   const choices: PageAgentModel[] = [];
-  for (const source of await dependencies.profiles.list()) {
-    if (
-      source.ownerId ||
-      !source.isActive ||
-      !source.purposes.includes("agent") ||
-      agentProfilePriority(source, viewer, "agent") === 0
-    )
-      continue;
+  for (const source of profiles) {
+    if (!isModelSource(source, viewer)) continue;
     try {
       await resolveAgentAssignmentFor(dependencies.connections, viewer, source);
       // The assignment above found this model in the catalog.

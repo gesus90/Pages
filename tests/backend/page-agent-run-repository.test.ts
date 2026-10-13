@@ -105,14 +105,15 @@ describe("PAGE-20 run record persistence", () => {
     await insert("a", "succeeded");
     await insert("bb", "failed");
     await insert("ccc", "running");
-    expect(
-      (await repository.unarchived()).map((entry) => entry.run.id),
-    ).toEqual(["a", "bb"]);
+    expect((await repository.unarchived()).map((entry) => entry.id)).toEqual([
+      "a",
+      "bb",
+    ]);
     await repository.markArchived("a");
     await repository.markArchived("a");
-    expect(
-      (await repository.unarchived()).map((entry) => entry.run.id),
-    ).toEqual(["bb"]);
+    expect((await repository.unarchived()).map((entry) => entry.id)).toEqual([
+      "bb",
+    ]);
   });
 
   it("refuses a stored status that is not one of the four terminal states", async () => {

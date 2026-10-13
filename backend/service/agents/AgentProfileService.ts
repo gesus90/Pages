@@ -74,6 +74,18 @@ export class AgentProfileService {
     );
   }
 
+  /** Names the agents of users, which the administration neither lists nor reports on. */
+  public async userAgentIds(
+    actor: AccountAccess,
+  ): Promise<ReadonlySet<string>> {
+    requireAgentAdministrator(await this.account(actor.userId));
+    return new Set(
+      (await this.dependencies.profiles.list())
+        .filter((profile) => profile.ownerId !== undefined)
+        .map((profile) => profile.id),
+    );
+  }
+
   /** Supplies current per-executor block reasons within protected administration. */
   public async inspect(
     actor: AccountAccess,
@@ -116,6 +128,11 @@ export class AgentProfileService {
     projectId: string | null = null,
   ): Promise<readonly AgentDefinitionChoice[]> {
     return this.availability.catalog(userId, projectId);
+  }
+
+  /** Whether the person currently sees the agent in their lists, without judging whether it can run. */
+  public async isVisible(userId: string, agentId: string): Promise<boolean> {
+    return this.availability.isVisible(userId, agentId);
   }
 
   /** Resolves only access and the template snapshot; starting runners belongs to A10.4. */
