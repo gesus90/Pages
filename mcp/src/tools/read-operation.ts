@@ -1,5 +1,6 @@
 import { postAgentRequest } from "../pages-client.js";
 
+import type { AgentTextRangeReadOperation } from "../../../definition/AgentTextRange.js";
 import type { AgentExtensionReadOperation } from "../../../definition/AgentExtensions.js";
 import type { AgentAdminReadOperation } from "../../../definition/AgentAdministration.js";
 import type { AgentWorkspaceReadOperation } from "../../../definition/AgentWorkspaceOperations.js";
@@ -21,6 +22,7 @@ export async function readOperation(
     | AgentAdminReadOperation
     | AgentWorkspaceReadOperation
     | PageAgentReadOperation
+    | AgentTextRangeReadOperation
     | PagesAgentReadOperation
     | PagesAgentStructuredReadOperation
     | PagesAgentTicketReadOperation

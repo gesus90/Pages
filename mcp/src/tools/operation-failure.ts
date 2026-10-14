@@ -7,6 +7,8 @@ import type {
 
 const LIMIT_CONSTRAINTS = [
   "wikiContentBytes",
+  "ticketDescriptionUtf16Units",
+  "textRangeCharacters",
   "requestBytes",
   "responseBytes",
   "importIndexEntries",
@@ -34,6 +36,11 @@ const REJECTION_REASONS: Readonly<
   agent_limit_reached: true,
   agent_running: true,
   sharing_changes_required: true,
+  text_changed: true,
+  range_text_mismatch: true,
+  range_reversed: true,
+  line_out_of_range: true,
+  column_out_of_range: true,
 };
 
 function isRejectionReason(

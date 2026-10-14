@@ -4,6 +4,10 @@ import { WORKSPACE_READ_TOOLS } from "./workspaces.js";
 import { AGENT_READ_TOOLS } from "./agents.js";
 import { STRUCTURED_IMPORT_PLAN_TOOL } from "./structured-import-plan.js";
 import {
+  TICKET_READ_DESCRIPTION_RANGE_TOOL,
+  WIKI_READ_RANGE_TOOL,
+} from "./text-range.js";
+import {
   ASSIGNMENT_TARGETS_SEARCH_TOOL,
   TICKET_LINKS_READ_TOOL,
   TICKET_SEARCH_TOOL,
@@ -13,6 +17,7 @@ import { TICKET_CHECKLIST_READ_TOOL } from "./ticket-checklist.js";
 import { MILESTONES_READ_TOOL, TICKET_READ_TOOL } from "./ticket-read.js";
 import { WIKI_IMPORT_PLAN_TOOL } from "./wiki-import-plan.js";
 
+import type { AgentTextRangeReadOperation } from "../../../definition/AgentTextRange.js";
 import type { AgentExtensionReadOperation } from "../../../definition/AgentExtensions.js";
 import type { AgentAdminReadOperation } from "../../../definition/AgentAdministration.js";
 import type { AgentWorkspaceReadOperation } from "../../../definition/AgentWorkspaceOperations.js";
@@ -30,6 +35,7 @@ interface ReadTool {
     | AgentAdminReadOperation
     | AgentWorkspaceReadOperation
     | PageAgentReadOperation
+    | AgentTextRangeReadOperation
     | PagesAgentReadOperation
     | PagesAgentStructuredReadOperation
     | PagesAgentTicketReadOperation;
@@ -142,8 +148,13 @@ export const READ_TOOLS: readonly ReadTool[] = [
       annotations: ANNOTATIONS,
     },
   },
+  { operation: "wiki.page.readRange", tool: WIKI_READ_RANGE_TOOL },
   { operation: "wiki.import.plan", tool: WIKI_IMPORT_PLAN_TOOL },
   { operation: "ticket.read", tool: TICKET_READ_TOOL },
+  {
+    operation: "ticket.description.readRange",
+    tool: TICKET_READ_DESCRIPTION_RANGE_TOOL,
+  },
   { operation: "ticket.checklist.read", tool: TICKET_CHECKLIST_READ_TOOL },
   { operation: "milestones.read", tool: MILESTONES_READ_TOOL },
   { operation: "tickets.search", tool: TICKET_SEARCH_TOOL },
