@@ -1,3 +1,0 @@
-$ react-router typegen && tsc --noEmit && prettier --check .
-Checking formatting...
-All matched files use Prettier code style!
