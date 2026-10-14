@@ -11,6 +11,7 @@ import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 import { PageAgentWorld } from "../agents/page-agent-world";
 
 import type { TextExecutionInput } from "@/backend/agents/TextExecution";
+import type { AgentPlanOperationService } from "@/backend/service/agents/AgentPlanOperationService";
 import type { StoredChatMessage } from "@/backend/database/repositories/chat/ChatSessionRepository";
 import type { ChatActionOutcome } from "@/backend/service/chat/ChatPrompt";
 import type { AgentParameter } from "@/definition/AgentParameters";
@@ -92,7 +93,10 @@ export class ChatAgentWorld {
   public readonly messages: StoredChatMessage[] = [];
   private replies: string[] = [];
 
-  public constructor() {
+  /**
+   * @param plans - Plan operations the chat may call as well; none when absent.
+   */
+  public constructor(plans?: Pick<AgentPlanOperationService, "handle">) {
     this.world.addPerson("igor");
     this.world.addPerson("member");
     this.world.addPerson("outsider");
@@ -113,11 +117,17 @@ export class ChatAgentWorld {
       identities: { verify: this.verify },
       router: {
         handle: async (identity, request) => {
-          const response = await this.operations.handle(
-            identity,
-            request.operation,
-            request.parameters,
-          );
+          const response =
+            (await plans?.handle(
+              identity,
+              request.operation,
+              request.parameters,
+            )) ??
+            (await this.operations.handle(
+              identity,
+              request.operation,
+              request.parameters,
+            ));
           if (response === null)
             throw new AgentOperationError("INVALID_REQUEST");
           return response;
