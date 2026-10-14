@@ -1,3 +1,4 @@
+import { CHAT_AGENT_WRITE_OPERATIONS } from "@/definition/ChatAgentOperations";
 import { PAGES_AGENT_WRITE_OPERATIONS } from "@/definition/PagesAgentWrites";
 import {
   CHAT_ADMIN_OPERATIONS,
@@ -12,7 +13,11 @@ import type {
 import type { AgentExtensionReadOperation } from "@/definition/AgentExtensions";
 import type { AgentTextRangeWriteOperation } from "@/definition/AgentTextRange";
 import type { AgentWorkspaceWriteOperation } from "@/definition/AgentWorkspaceOperations";
-import type { PageAgentWriteOperation } from "@/definition/PageAgentOperations";
+import type { ChatAgentWriteOperation } from "@/definition/ChatAgentOperations";
+import type {
+  PageAgentReadOperation,
+  PageAgentWriteOperation,
+} from "@/definition/PageAgentOperations";
 import type {
   PagesAgentCommentOperation,
   PagesAgentReadOperation,
@@ -22,9 +27,9 @@ import type { PagesAgentWriteOperation } from "@/definition/PagesAgentWrites";
 
 /**
  * Operations of the agent API that the chat never offers: imports and uploads
- * need files and a credential, the workspace registry and the user agents
- * belong to MCP clients, and range patches exist to spare an MCP client the
- * transfer of whole texts, which the chat reads and writes in full anyway.
+ * need files and a credential, the workspace registry belongs to MCP clients,
+ * and range patches exist to spare an MCP client the transfer of whole texts,
+ * which the chat reads and writes in full anyway.
  */
 type ExcludedOperation =
   | "wiki.import.plan"
@@ -33,8 +38,7 @@ type ExcludedOperation =
   | "import.structured.apply"
   | "assets.upload.prepare"
   | AgentTextRangeWriteOperation
-  | AgentWorkspaceWriteOperation
-  | PageAgentWriteOperation;
+  | AgentWorkspaceWriteOperation;
 
 /** A Pages operation the chat agent may request; the same operations MCP clients use (T6.12.5). */
 export type ChatOperation = Exclude<
@@ -44,7 +48,10 @@ export type ChatOperation = Exclude<
   | AgentExtensionReadOperation
   | PagesAgentWriteOperation
   | AgentAdminReadOperation
-  | AgentAdminWriteOperation,
+  | AgentAdminWriteOperation
+  | PageAgentReadOperation
+  | PageAgentWriteOperation
+  | ChatAgentWriteOperation,
   ExcludedOperation
 >;
 
@@ -63,6 +70,21 @@ const CONFIRMED = "Bestätigung der Person nötig";
  */
 const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
   ...CHAT_ADMIN_OPERATIONS,
+  "agents.list":
+    "{cursor?, limit?} sichtbare Benutzer-Agents mit Anweisung, Parametern und Konfiguration auflisten",
+  "agents.read":
+    "{agentId} sichtbaren Benutzer-Agent mit instruction (AGENT.md-Anweisung), parameters, run, Modell, Freigabe, canEdit und revision lesen",
+  "agents.models.list":
+    "{} aktuell für die Person freigegebene Modelle, Standardmodell und Reasoning-Stufen lesen",
+  "agents.create":
+    "{name, instruction?, parameters?: [], directoryParameter?: null|Name, modelProfileId?, reasoningEffort?: null|Stufe, sharing?: {scope: private|global|restricted, operator?: and|or, groupIds?: [], departmentIds?: []}} Agent im Namen der Person erstellen (create_agent); ohne Modellangabe gilt das freigegebene Standardmodell",
+  "agents.update":
+    "{agentId, expectedRevision, name?, instruction?, parameterChanges?: [], parameters?: [], directoryParameter?, modelProfileId?, reasoningEffort?, sharing?} nur angegebene Felder ändern; parameterChanges und parameters schließen sich aus, alle anderen Felder bleiben erhalten",
+  "agents.clone":
+    "{agentId, expectedRevision, name?, instruction?, parameterChanges?: [], parameters?: [], directoryParameter?, modelProfileId?, reasoningEffort?, sharing?} gelesene Quelle als unabhängigen neuen Agent für die Person klonen; vollständige Konfiguration inklusive Laufzeit und Parameter kopieren, nur gewünschte Anpassungen übernehmen; Quelle bleibt erhalten",
+  "agents.delete":
+    "{agentId, expectedRevision} eigenen Benutzer-Agent entfernen; vorher lesen und ausdrücklich mit LÖSCHEN in der aktuellen Nachricht bestätigen",
+
   "projects.resolve": "{name} Projekt über den exakten Namen finden",
   "projects.read": "{projectId} Projekt lesen",
   "projects.members.read": `{${PROJECT}} Mitglieder und Abteilungen eines Projekts`,
@@ -188,6 +210,7 @@ export function isChatOperation(value: unknown): value is ChatOperation {
 export function isChatWriteOperation(operation: ChatOperation): boolean {
   return (
     isChatAdminWriteOperation(operation) ||
+    CHAT_AGENT_WRITE_OPERATIONS.some((write) => write === operation) ||
     COMMENT_WRITES.has(operation) ||
     PAGES_AGENT_WRITE_OPERATIONS.some((write) => write === operation)
   );

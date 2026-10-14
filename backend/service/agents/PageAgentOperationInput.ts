@@ -1,7 +1,4 @@
-import { readAgentConfiguration } from "@/backend/agents/AgentConfigurationInput";
-import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
-import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 import {
   PAGE_AGENT_SHARING_OPERATORS,
   PAGE_AGENT_SHARING_SCOPES,
@@ -13,12 +10,18 @@ import {
   requireParameterKeys,
 } from "./AgentParameterReader";
 
+import {
+  readPageAgentParameterChanges,
+  readPageAgentParameters,
+} from "./PageAgentParameterChanges";
+
 import type { AgentParameter } from "@/definition/AgentParameters";
 import type {
   PageAgentSharingOperator,
   PageAgentSharingScope,
   PageAgentWriteOperation,
 } from "@/definition/PageAgentOperations";
+import type { PageAgentParameterChange } from "./PageAgentParameterChanges";
 
 /** Parameters of `agents.list`; the window is validated by the paging helper. */
 export interface PageAgentListRequest {
@@ -46,6 +49,7 @@ export interface PageAgentFields {
   readonly name?: string;
   readonly instruction?: string;
   readonly parameters?: readonly AgentParameter[];
+  readonly parameterChanges?: readonly PageAgentParameterChange[];
   readonly directoryParameter?: string | null;
   readonly modelProfileId?: string;
   readonly reasoningEffort?: string | null;
@@ -69,10 +73,12 @@ export interface PageAgentUpdateRequest {
 export type PageAgentWriteRequest =
   PageAgentCreateRequest | PageAgentUpdateRequest;
 
-const EDITABLE_FIELDS = [
+/** Explicitly editable fields; ownership and connection credentials are never accepted. */
+export const PAGE_AGENT_EDITABLE_FIELDS = [
   "name",
   "instruction",
   "parameters",
+  "parameterChanges",
   "directoryParameter",
   "modelProfileId",
   "reasoningEffort",
@@ -87,7 +93,8 @@ function invalid(): AgentOperationError {
   return new AgentOperationError("INVALID_REQUEST");
 }
 
-function readRevision(input: unknown): number {
+/** Validates the revision returned by the last visible read. */
+export function readPageAgentRevision(input: unknown): number {
   if (typeof input !== "number" || !Number.isSafeInteger(input) || input < 1)
     throw invalid();
   return input;
@@ -114,29 +121,6 @@ function readEffort(input: unknown): string | null {
   if (typeof input !== "string" || !input.trim() || input.length > 24)
     throw invalid();
   return input;
-}
-
-/**
- * Reads the parameter declarations through the rules of a stored agent.
- *
- * @remarks
- * The result carries the names and values in the stored order of keys, so two
- * requests with the same meaning produce the same operation fingerprint.
- */
-function readParameters(input: unknown): readonly AgentParameter[] {
-  if (!Array.isArray(input) || input.length > 50) throw invalid();
-  try {
-    return readAgentConfiguration({
-      ...emptyAgentConfiguration("person"),
-      parameters: input,
-    }).parameters;
-  } catch (error: unknown) {
-    if (error instanceof AgentError)
-      throw new AgentOperationError("INVALID_REQUEST", {
-        reason: "configuration_invalid",
-      });
-    throw error;
-  }
 }
 
 function readIdentifierList(input: unknown): readonly string[] {
@@ -192,7 +176,7 @@ function readSharing(input: unknown): PageAgentSharingRequest {
 }
 
 /** Reads the fields present in `parameters`; absent ones stay absent. */
-function readFields(
+export function readPageAgentFields(
   parameters: Readonly<Record<string, unknown>>,
 ): PageAgentFields {
   const fields: Record<string, unknown> = {};
@@ -200,7 +184,13 @@ function readFields(
   if ("instruction" in parameters)
     fields.instruction = readInstruction(parameters.instruction);
   if ("parameters" in parameters)
-    fields.parameters = readParameters(parameters.parameters);
+    fields.parameters = readPageAgentParameters(parameters.parameters);
+  if ("parameterChanges" in parameters) {
+    if ("parameters" in parameters) throw invalid();
+    fields.parameterChanges = readPageAgentParameterChanges(
+      parameters.parameterChanges,
+    );
+  }
   if ("directoryParameter" in parameters)
     fields.directoryParameter =
       parameters.directoryParameter === null
@@ -270,9 +260,11 @@ export function readPageAgentWriteRequest(
     requireParameterKeys(
       parameters,
       ["operationId", "name"],
-      EDITABLE_FIELDS.filter((field) => field !== "name"),
+      PAGE_AGENT_EDITABLE_FIELDS.filter(
+        (field) => field !== "name" && field !== "parameterChanges",
+      ),
     );
-    const fields = readFields(parameters);
+    const fields = readPageAgentFields(parameters);
     return {
       operation,
       operationId: readIdentifier(parameters.operationId),
@@ -282,15 +274,15 @@ export function readPageAgentWriteRequest(
   requireParameterKeys(
     parameters,
     ["operationId", "agentId", "expectedRevision"],
-    EDITABLE_FIELDS,
+    PAGE_AGENT_EDITABLE_FIELDS,
   );
-  const fields = readFields(parameters);
+  const fields = readPageAgentFields(parameters);
   if (Object.keys(fields).length === 0) throw invalid();
   return {
     operation,
     operationId: readIdentifier(parameters.operationId),
     agentId: readIdentifier(parameters.agentId),
-    expectedRevision: readRevision(parameters.expectedRevision),
+    expectedRevision: readPageAgentRevision(parameters.expectedRevision),
     fields,
   };
 }

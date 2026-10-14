@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { readAgentConfiguration } from "@/backend/agents/AgentConfigurationInput";
+import { hasAgentUsage } from "@/backend/auth/AgentProfilePolicy";
 import { UserPolicyService } from "@/backend/auth/UserPolicyService";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { AgentError } from "@/backend/error/AgentErrors";
@@ -22,7 +23,10 @@ import type {
   PageAgentModel,
   PageAgentPage,
 } from "@/definition/PageAgent";
-import type { AgentProfileJournal } from "@/backend/database/repositories/agent/AgentProfileRepository";
+import type {
+  AgentProfileJournal,
+  AgentProfileRemoveOptions,
+} from "@/backend/database/repositories/agent/AgentProfileRepository";
 import type {
   ProfileDependencies,
   AgentProfileService,
@@ -107,7 +111,11 @@ export class PageAgentService {
   }
 
   /** Removes an owner's agent, checking live ownership before entering the definition's atomic mutation lock. */
-  public async remove(userId: string, id: string): Promise<void> {
+  public async remove(
+    userId: string,
+    id: string,
+    options: AgentProfileRemoveOptions = {},
+  ): Promise<void> {
     await this.writes.run(async () => {
       await this.viewer(userId);
       const profile = (await this.dependencies.profiles.list()).find(
@@ -115,7 +123,12 @@ export class PageAgentService {
       );
       if (profile?.ownerId !== userId)
         throw new AgentError("agent_usage_denied");
-      await this.files.remove(id, this.dependencies.profiles);
+      if (
+        options.expectedRevision !== undefined &&
+        profile.revision !== options.expectedRevision
+      )
+        throw new AgentError("profile_conflict");
+      await this.files.remove(id, this.dependencies.profiles, options);
     });
   }
 
@@ -134,56 +147,40 @@ export class PageAgentService {
     input: unknown,
     journal?: AgentProfileJournal,
   ): Promise<string> {
+    return this.writes.run(() =>
+      this.saveDefinition(userId, id, input, journal),
+    );
+  }
+
+  /** Rechecks a clone's source in the same management queue as edits and deletion. */
+  public async clone(
+    userId: string,
+    source: {
+      readonly id: string;
+      readonly expectedRevision: number;
+      /** An explicit replacement may select the current grant; otherwise the pinned model is retained. */
+      readonly preserveModel?: boolean;
+    },
+    input: unknown,
+    journal?: AgentProfileJournal,
+  ): Promise<string> {
     return this.writes.run(async () => {
       const viewer = await this.viewer(userId);
       const stored = await this.dependencies.profiles.list();
-      const previous =
-        id === null ? undefined : stored.find((entry) => entry.id === id);
-      const proposed = readAgentObject(input);
-      validateOwnerSave({ userId, id, previous, proposed });
+      const profile = stored.find((entry) => entry.id === source.id);
+      if (!profile?.ownerId || !hasAgentUsage(profile, viewer))
+        throw new AgentError("profile_not_found");
+      if ((profile.revision ?? 1) !== source.expectedRevision)
+        throw new AgentError("profile_conflict");
+      const model = stored.find((entry) => entry.id === profile.modelProfileId);
       if (
-        id === null &&
-        stored.filter((entry) => entry.ownerId === userId).length >=
-          MAX_AGENTS_PER_OWNER
+        source.preserveModel !== false &&
+        (!model ||
+          model.connectionId !== profile.connectionId ||
+          model.model !== profile.model)
       )
-        throw new AgentError("profile_limit_reached");
-      const name = readName(proposed.name);
-      if (
-        proposed.reasoningEffort !== null &&
-        typeof proposed.reasoningEffort !== "string"
-      )
-        throw new AgentError("profile_invalid");
-      const source = stored.find(
-        (entry) => entry.id === proposed.modelProfileId,
-      );
-      if (!source) throw new AgentError("agent_usage_denied");
-      const configuration = readAgentConfiguration(proposed.configuration);
-      await this.validateConfiguration(configuration);
-      await this.validateReferences(viewer, configuration);
-      requireCredentialFreeText(
-        JSON.stringify({ name: proposed.name, configuration }),
-      );
-      const profile: AgentProfile = {
-        id: id ?? randomUUID(),
-        name,
-        ownerId: userId,
-        modelProfileId: source.id,
-        connectionId: source.connectionId,
-        model: source.model,
-        reasoningEffort: proposed.reasoningEffort,
-        isActive: true,
-        purposes: ["agent"],
-        targets: [],
-        configuration: {
-          ...configuration,
-          scope: "person",
-          accessMode: "shared",
-        },
-        revision: previous?.revision,
-      };
-      await resolvePageAgentModel(this.dependencies, viewer, profile, stored);
-      await this.files.save(profile, this.dependencies.profiles, journal);
-      return profile.id;
+        throw new AgentError("agent_usage_denied");
+      return this.saveDefinition(userId, null, input, journal);
     });
   }
 
@@ -202,6 +199,61 @@ export class PageAgentService {
   public async requireVisible(userId: string, id: string): Promise<void> {
     if (!(await this.profiles.isVisible(userId, id)))
       throw new AgentError("agent_usage_denied");
+  }
+
+  private async saveDefinition(
+    userId: string,
+    id: string | null,
+    input: unknown,
+    journal?: AgentProfileJournal,
+  ): Promise<string> {
+    const viewer = await this.viewer(userId);
+    const stored = await this.dependencies.profiles.list();
+    const previous =
+      id === null ? undefined : stored.find((entry) => entry.id === id);
+    const proposed = readAgentObject(input);
+    validateOwnerSave({ userId, id, previous, proposed });
+    if (
+      id === null &&
+      stored.filter((entry) => entry.ownerId === userId).length >=
+        MAX_AGENTS_PER_OWNER
+    )
+      throw new AgentError("profile_limit_reached");
+    const name = readName(proposed.name);
+    if (
+      proposed.reasoningEffort !== null &&
+      typeof proposed.reasoningEffort !== "string"
+    )
+      throw new AgentError("profile_invalid");
+    const source = stored.find((entry) => entry.id === proposed.modelProfileId);
+    if (!source) throw new AgentError("agent_usage_denied");
+    const configuration = readAgentConfiguration(proposed.configuration);
+    await this.validateConfiguration(configuration);
+    await this.validateReferences(viewer, configuration);
+    requireCredentialFreeText(
+      JSON.stringify({ name: proposed.name, configuration }),
+    );
+    const profile: AgentProfile = {
+      id: id ?? randomUUID(),
+      name,
+      ownerId: userId,
+      modelProfileId: source.id,
+      connectionId: source.connectionId,
+      model: source.model,
+      reasoningEffort: proposed.reasoningEffort,
+      isActive: true,
+      purposes: ["agent"],
+      targets: [],
+      configuration: {
+        ...configuration,
+        scope: "person",
+        accessMode: "shared",
+      },
+      revision: previous?.revision,
+    };
+    await resolvePageAgentModel(this.dependencies, viewer, profile, stored);
+    await this.files.save(profile, this.dependencies.profiles, journal);
+    return profile.id;
   }
 
   private async load(userId: string): Promise<{

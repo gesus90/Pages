@@ -60,6 +60,7 @@ export class ChatToolExecutor {
    * @param userId - The person the chat speaks with.
    * @param action - The operation and parameters the agent requested.
    * @param confirmation - The confirmation word the person typed in the current message, or `null`.
+   * @param agentConfirmation - The ticket-required German word for agent deletion, taken only from the current message.
    * @returns The result, or a stable error code the agent can explain.
    * @throws {ChatError} `accessDenied` when the account may no longer act.
    */
@@ -67,12 +68,17 @@ export class ChatToolExecutor {
     userId: string,
     action: ChatActionRequest,
     confirmation: ChatConfirmationWord | null,
+    agentConfirmation: "LÖSCHEN" | null = confirmation === "LÖSCHEN"
+      ? confirmation
+      : null,
   ): Promise<ChatActionOutcome> {
     const { operation } = action;
     if (!isChatOperation(operation))
       return { ok: false, error: "UNKNOWN_OPERATION" };
     const isConfirmed = isChatConfirmationOperation(operation);
-    if (requiresChatConfirmation(operation) && confirmation === null)
+    const typedConfirmation =
+      operation === "agents.delete" ? agentConfirmation : confirmation;
+    if (requiresChatConfirmation(operation) && typedConfirmation === null)
       return { ok: false, error: "CONFIRMATION_REQUIRED" };
     const parameters = {
       ...Object.fromEntries(
@@ -81,7 +87,9 @@ export class ChatToolExecutor {
         ),
       ),
       ...(isChatWriteOperation(operation) ? { operationId: randomUUID() } : {}),
-      ...(isConfirmed && confirmation !== null ? { confirmation } : {}),
+      ...(isConfirmed && typedConfirmation !== null
+        ? { confirmation: typedConfirmation }
+        : {}),
     };
     const identity = await this.verify(userId);
     try {

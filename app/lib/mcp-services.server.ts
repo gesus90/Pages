@@ -20,6 +20,7 @@ import { AgentExtensionService } from "@/backend/service/agents/AgentExtensionSe
 import { AgentAdministrationService } from "@/backend/service/agents/AgentAdministrationService";
 import { AgentOperationRouter } from "@/backend/service/agents/AgentOperationRouter";
 import { AgentWorkspaceOperationService } from "@/backend/service/agents/AgentWorkspaceOperationService";
+import { ChatAgentOperationService } from "@/backend/service/agents/ChatAgentOperationService";
 import { PageAgentOperationService } from "@/backend/service/agents/PageAgentOperationService";
 import { AgentRunCredentialRepository } from "@/backend/database/repositories/mcp/AgentRunCredentialRepository";
 import { PersonalAgentTokenRepository } from "@/backend/database/repositories/mcp/PersonalAgentTokenRepository";
@@ -99,8 +100,8 @@ interface RouterContext extends Omit<OperationContext, "channel"> {
  * Builds the operation catalog of MCP clients, including imports and uploads.
  *
  * @remarks
- * The workspace registry and the management of user agents are part of this
- * catalog only; the chat catalog is built without them.
+ * The workspace registry belongs to this catalog; user-agent management is
+ * also available to the signed-in chat through the same Pages services.
  */
 function createMcpOperationRouter(
   context: RouterContext,
@@ -148,6 +149,7 @@ function createMcpOperationRouter(
  */
 function createChatOperationRouter(
   context: RouterContext,
+  pageAgents: PageAgentService,
 ): AgentOperationRouter {
   const channel = "chat";
   const planning = createAgentPlanningServices({ ...context, channel });
@@ -157,6 +159,10 @@ function createChatOperationRouter(
       context.cache,
       channel,
     ),
+    pageAgents: new ChatAgentOperationService({
+      database: context.database,
+      agents: pageAgents,
+    }),
     projects: new ProjectRepository(context.database),
     wiki: new WikiRepository(context.database),
     users: context.users,
@@ -205,7 +211,7 @@ export function createMcpServices(
     };
     /** The agent workspace registry; MCP clients manage workspaces through it. */
     readonly agentWorkspaces: AgentWorkspaceService;
-    /** The management of user agents; MCP clients read and change agents through it. */
+    /** The user-agent management shared by MCP clients and the signed-in chat. */
     readonly pageAgents: PageAgentService;
   },
 ): McpApplicationServices {
@@ -249,7 +255,10 @@ export function createMcpServices(
   };
   return {
     agentAssetService,
-    chatOperationRouter: createChatOperationRouter(routers),
+    chatOperationRouter: createChatOperationRouter(
+      routers,
+      workspace.pageAgents,
+    ),
     agentUploadTicketService,
     pagesEventPublisher,
     personalAgentTokenService,

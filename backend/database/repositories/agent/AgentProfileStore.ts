@@ -135,7 +135,19 @@ export class AgentProfileStore {
   }
 
   /** Deletes only an unused profile, without withdrawing references or changing connections. */
-  public async remove(id: string): Promise<void> {
+  public async remove(id: string, expectedRevision?: number): Promise<void> {
+    if (expectedRevision !== undefined) {
+      const [row] = await this.database.query(
+        `
+        SELECT revision
+        FROM agent_execution_profiles
+        WHERE id = $id;
+      `,
+        { id },
+      );
+      if (!row || readCountColumn(row, 0, "revision") !== expectedRevision)
+        throw new AgentError("profile_conflict");
+    }
     const usages = await this.usages(id);
     if (usages.length > 0) throw new AgentInUseError("profile_in_use", usages);
     await this.clearScopes(id);

@@ -74,7 +74,7 @@ export interface AgentOperationDependencies {
   readonly extensions?: AgentExtensionService;
   readonly administration?: AgentAdministrationService;
   readonly workspaces?: AgentWorkspaceOperationService;
-  readonly pageAgents?: PageAgentOperationService;
+  readonly pageAgents?: Pick<PageAgentOperationService, "handle">;
   /** The agent surface the reads run for; MCP when absent. */
   readonly channel?: AgentChannel;
 }

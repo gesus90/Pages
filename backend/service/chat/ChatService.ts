@@ -52,9 +52,12 @@ const IDENTIFIER = /^[a-zA-Z0-9-]{1,100}$/u;
 
 /** What the chat turns are built from. */
 export interface ChatServiceDependencies {
-  readonly sessions: ChatSessionService;
+  readonly sessions: Pick<ChatSessionService, "require">;
   readonly messages: Pick<ChatSessionRepository, "messages" | "append">;
-  readonly attachments: ChatAttachmentService;
+  readonly attachments: Pick<
+    ChatAttachmentService,
+    "pending" | "link" | "readText"
+  >;
   readonly settings: Pick<ChatSettingsService, "instruction">;
   readonly agents: Pick<AgentProfileService, "resolve">;
   readonly execution: TextExecution;
@@ -115,7 +118,10 @@ function readSendRequest(input: unknown): ChatSendRequest {
 
 /** Tells whether the person typed the confirmation word as a word of its own. */
 function containsWord(text: string, word: ChatConfirmationWord): boolean {
-  return new RegExp(`(?:^|[^\\p{L}])${word}(?:$|[^\\p{L}])`, "u").test(text);
+  return new RegExp(
+    `(?:^|[^\\p{L}\\p{M}\\p{N}_])${word}(?:$|[^\\p{L}\\p{M}\\p{N}_])`,
+    "u",
+  ).test(text);
 }
 
 function readAnswer(text: string): string {
@@ -235,6 +241,9 @@ export class ChatService {
     let confirmation = containsWord(turn.request.text, confirmationWord)
       ? confirmationWord
       : null;
+    let agentConfirmation = containsWord(turn.request.text, "LÖSCHEN")
+      ? ("LÖSCHEN" as const)
+      : null;
     const steps: ChatStep[] = [];
     const temporaryPasswords: ChatTemporaryPassword[] = [];
     for (let round = 0; round <= CHAT_MAXIMUM_ACTIONS; round += 1) {
@@ -266,7 +275,12 @@ export class ChatService {
         continue;
       }
       const { temporaryPassword, ...outcome } =
-        await this.dependencies.tools.run(turn.actor.id, reply, confirmation);
+        await this.dependencies.tools.run(
+          turn.actor.id,
+          reply,
+          confirmation,
+          agentConfirmation,
+        );
       if (temporaryPassword) temporaryPasswords.push(temporaryPassword);
       steps.push({
         operation: reply.operation,
@@ -277,8 +291,10 @@ export class ChatService {
       if (
         isChatOperation(reply.operation) &&
         isChatConfirmationOperation(reply.operation)
-      )
+      ) {
         confirmation = null;
+        agentConfirmation = null;
+      }
     }
     throw new ChatError("stepLimit");
   }

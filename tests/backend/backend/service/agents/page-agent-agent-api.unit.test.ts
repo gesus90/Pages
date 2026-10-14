@@ -182,7 +182,7 @@ it("does not offer or run them for the credential of an agent plan session", asy
   ).rejects.toMatchObject({ code: "FORBIDDEN" });
 });
 
-it("does not hand the changes to the chat assistant", () => {
+it("offers user-agent changes to the signed-in chat assistant", () => {
   for (const operation of PAGE_AGENT_WRITE_OPERATIONS)
-    expect(isChatOperation(operation)).toBe(false);
+    expect(isChatOperation(operation)).toBe(true);
 });

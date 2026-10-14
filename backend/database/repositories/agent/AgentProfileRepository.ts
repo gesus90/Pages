@@ -20,6 +20,12 @@ export type AgentProfileJournal = (
   profile: AgentProfile,
 ) => Promise<void>;
 
+/** Revision check and work that must commit atomically with a removal. */
+export interface AgentProfileRemoveOptions {
+  readonly expectedRevision?: number;
+  readonly journal?: (transaction: DatabaseTransaction) => Promise<void>;
+}
+
 /** Atomic execution-profile persistence, independent of credential storage. */
 export class AgentProfileRepository {
   private readonly database: Pick<Database, "transaction">;
@@ -47,10 +53,17 @@ export class AgentProfileRepository {
   }
 
   /** Removes configuration and grants in the same transaction. */
-  public async remove(id: string): Promise<void> {
-    await this.database.transaction((transaction) =>
-      new AgentProfileStore(transaction).remove(id),
-    );
+  public async remove(
+    id: string,
+    options: AgentProfileRemoveOptions = {},
+  ): Promise<void> {
+    await this.database.transaction(async (transaction) => {
+      await new AgentProfileStore(transaction).remove(
+        id,
+        options.expectedRevision,
+      );
+      await options.journal?.(transaction);
+    });
   }
 
   /** Supplies the current references for the administration deletion dialog. */

@@ -94,6 +94,41 @@ project activity or operation key. Identical authorized repeats return the store
 result without writing again; changed input returns `CONFLICT`. See the
 [MCP archive contract](./mcp/README.md#milestones-initiatives-tags-and-links).
 
+## Agents in the Pages chat
+
+Pica can list and read visible user agents, create them (`agents.create`, the
+`create_agent` functionality), change individual fields, clone them and remove
+owned definitions. Every action resolves the signed-in person's current rights:
+sharing grants reading/usage only, editing and deletion require ownership, and
+creating/cloning uses the person's current released models and accessible
+parameter references. Pica has no separate technical account or additional
+rights. Administrator model assignments remain outside this chat management.
+
+For a title-only change Pica sends only `name`; for an instruction/`AGENT.md`
+change only `instruction`. Named `parameterChanges` add, update or remove one or
+several declarations while retaining unrelated parameters and unmentioned fields
+of edited declarations. PAGE-55 string (`text`), numeric (`number`) and ticket
+(`ticket`) values are supported, including zero and decimal numbers. These
+changes may be combined in one request. A complete `parameters` replacement is
+still available when explicitly requested. The final instruction's placeholders
+must match the final declarations.
+
+Pica reads the current agent before changes and sends `expectedRevision`.
+Concurrent changes are refused. A clone copies the complete configuration,
+parameters and run options into a new ID owned by the person, applies only the
+requested overrides and leaves its source untouched. The source's current
+visibility and revision, and the person's model/reference grants, are checked
+again before creation. Without a requested new title, the clone retains the
+source title.
+
+Agent deletion requires the exact word **LÖSCHEN** in the current user message,
+also with an English interface. Confirmation from earlier messages or from the
+model's action parameters is not accepted; one confirmation permits one deletion
+or administration mutation. Deletion checks ownership and revision again, and a
+running definition cannot be changed or deleted. Existing run history is kept.
+Pica receives the actual mutation receipts and safe error codes to explain what
+succeeded or failed.
+
 ## Agents execution plans
 
 Under **Agents → Ausführplan** (`/agents/plans`), choose a saved plan or use

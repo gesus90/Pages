@@ -10,6 +10,7 @@ import type { AgentExtensionChanged } from "./AgentExtensions.js";
 import type { AgentImportApplied } from "./AgentImportApply.js";
 import type { AgentImportUpdated } from "./AgentImportUpdate.js";
 import type { AgentWorkspaceChanged } from "./AgentWorkspaceOperations.js";
+import type { ChatAgentDeleted } from "./ChatAgentOperations.js";
 import type { PageAgentChanged } from "./PageAgentOperations.js";
 import type { AgentStructuredImportApplied } from "./AgentStructuredImportManifest.js";
 import type { AgentChecklistItemChanged } from "./AgentTicketChecklist.js";
@@ -140,5 +141,6 @@ export interface PagesAgentWriteResponse {
     | AgentExtensionChanged
     | AgentAdminChanged
     | AgentWorkspaceChanged
-    | PageAgentChanged;
+    | PageAgentChanged
+    | ChatAgentDeleted;
 }

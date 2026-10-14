@@ -19,7 +19,10 @@ import type {
   Database,
   DatabaseTransaction,
 } from "@/backend/database/Database";
-import type { AgentProfileJournal } from "@/backend/database/repositories/agent/AgentProfileRepository";
+import type {
+  AgentProfileJournal,
+  AgentProfileRemoveOptions,
+} from "@/backend/database/repositories/agent/AgentProfileRepository";
 import type { AgentConnectionRecord } from "@/backend/database/repositories/agent/AgentConnectionRows";
 import type { StoredAgentOperation } from "@/backend/database/repositories/agents/AgentOperationKeyRepository";
 import type { AuthorizationSnapshot } from "@/backend/database/repositories/AuthorizationRepository";
@@ -186,8 +189,20 @@ class MemoryProfiles extends AgentProfileRepository {
   }
 
   /** Removes the synthetic profile without touching a database. */
-  public override async remove(id: string): Promise<void> {
-    this.world.withdrawModel(id);
+  public override async remove(
+    id: string,
+    options: AgentProfileRemoveOptions = {},
+  ): Promise<void> {
+    await this.world.transaction(async (transaction) => {
+      const previous = this.world.stored().find((entry) => entry.id === id);
+      if (
+        options.expectedRevision !== undefined &&
+        previous?.revision !== options.expectedRevision
+      )
+        throw new AgentError("profile_conflict");
+      this.world.withdrawModel(id);
+      await options.journal?.(transaction);
+    });
   }
 
   /** Saves a profile under the revision rule and runs the journal in the same transaction. */

@@ -17,6 +17,7 @@ import type { AgentConfiguration } from "@/definition/AgentConfiguration";
 import type { AgentProfile } from "@/definition/AgentProfile";
 import type {
   AgentProfileJournal,
+  AgentProfileRemoveOptions,
   AgentProfileRepository,
 } from "@/backend/database/repositories/agent/AgentProfileRepository";
 
@@ -200,10 +201,11 @@ export class AgentDefinitionFiles {
   public async remove(
     id: string,
     repository: AgentProfileRepository,
+    options: AgentProfileRemoveOptions = {},
   ): Promise<void> {
     await this.writes.run(async () => {
       this.assertMutable(id);
-      await repository.remove(id);
+      await repository.remove(id, options);
     });
   }
 

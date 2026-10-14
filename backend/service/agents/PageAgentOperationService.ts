@@ -11,6 +11,11 @@ import {
 } from "@/definition/PageAgentOperations";
 import { PAGES_AGENT_LIMITS } from "@/definition/PagesAgentOperations";
 
+import {
+  definitionKey,
+  proposePageAgent,
+  toSharing,
+} from "./PageAgentOperationDefinition";
 import { pageAgentEntries } from "./AgentCursor";
 import {
   fingerprintOperation,
@@ -43,7 +48,6 @@ import type {
   PageAgentModelEntry,
   PageAgentReadOperation,
   PageAgentSharingEntry,
-  PageAgentSharingOperator,
   PageAgentWriteOperation,
 } from "@/definition/PageAgentOperations";
 import type { PagesAgentReadResponse } from "@/definition/PagesAgentOperations";
@@ -51,7 +55,6 @@ import type { PagesAgentWriteResponse } from "@/definition/PagesAgentWrites";
 import type { PageAgentService } from "./PageAgentService";
 import type {
   PageAgentCreateRequest,
-  PageAgentSharingRequest,
   PageAgentUpdateRequest,
   PageAgentWriteRequest,
 } from "./PageAgentOperationInput";
@@ -107,19 +110,20 @@ function toEntry(
   return {
     id: agent.id,
     name: agent.name,
-    instruction: configuration.markdown,
-    parameters: configuration.parameters,
+    // Keep conflict and access facts readable when the chat truncates a long instruction.
+    revision: agent.revision ?? 1,
+    ownerId: agent.ownerId,
+    canEdit: agent.canEdit,
     directoryParameter: configuration.directoryParameter,
     run: configuration.run ?? DEFAULT_AGENT_RUN_OPTIONS,
     modelProfileId: agent.modelProfileId,
     model: agent.model,
     reasoningEffort: agent.reasoningEffort,
     sharing: sharingOf(agent, directory),
-    ownerId: agent.ownerId,
-    canEdit: agent.canEdit,
     isUsable: agent.availability.isUsable,
     hasDeletedTargets: agent.hasDeletedTargets,
-    revision: agent.revision ?? 1,
+    parameters: configuration.parameters,
+    instruction: configuration.markdown,
   };
 }
 
@@ -137,69 +141,6 @@ function toModelEntry(
     defaultReasoningEffort: defaultReasoningEffort(model),
     isDefault: model.id === defaultId,
   };
-}
-
-/**
- * The share as the definition stores it; private and global keep no targets.
- *
- * @param request - The requested share, or `undefined` for a private one.
- * @param operator - What a restricted share without an operator takes.
- */
-function toSharing(
-  request: PageAgentSharingRequest | undefined,
-  operator: PageAgentSharingOperator = "or",
-): AgentConfiguration["sharing"] {
-  if (request === undefined || request.scope === "private")
-    return { isGlobal: false, targets: [] };
-  if (request.scope === "global") return { isGlobal: true, targets: [] };
-  return {
-    isGlobal: false,
-    targets: [
-      ...request.groupIds.map((targetId) => ({
-        kind: "group" as const,
-        targetId,
-      })),
-      ...request.departmentIds.map((targetId) => ({
-        kind: "department" as const,
-        targetId,
-      })),
-    ],
-    operator: request.operator ?? operator,
-  };
-}
-
-/** The operator a restricted share has now; anything else counts as the default. */
-function storedOperator(
-  sharing: AgentConfiguration["sharing"],
-): PageAgentSharingOperator {
-  const isRestricted = !sharing.isGlobal && sharing.targets.length > 0;
-  return isRestricted ? (sharing.operator ?? "or") : "or";
-}
-
-/** Compares what a change may touch, so a request that matches the agent writes nothing. */
-function definitionKey(input: {
-  readonly name: string;
-  readonly modelProfileId: string;
-  readonly reasoningEffort: string | null;
-  readonly configuration: AgentConfiguration;
-}): string {
-  const { configuration } = input;
-  const { sharing } = configuration;
-  const targets = sharing.targets
-    .map((target) => `${target.kind}:${target.targetId}`)
-    .sort();
-  const hasTargets = !sharing.isGlobal && targets.length > 0;
-  return JSON.stringify([
-    input.name,
-    input.modelProfileId,
-    input.reasoningEffort,
-    configuration.markdown,
-    configuration.parameters,
-    configuration.directoryParameter,
-    sharing.isGlobal,
-    hasTargets ? targets : [],
-    hasTargets ? (sharing.operator ?? "or") : null,
-  ]);
 }
 
 /**
@@ -482,28 +423,7 @@ export class PageAgentOperationService {
   ): Promise<void> {
     const current = await this.requireCurrent(userId, request);
     const { fields } = request;
-    const { configuration } = current;
-    const proposed = {
-      name: fields.name ?? current.name,
-      modelProfileId: fields.modelProfileId ?? current.modelProfileId,
-      reasoningEffort:
-        fields.reasoningEffort === undefined
-          ? current.reasoningEffort
-          : fields.reasoningEffort,
-      configuration: {
-        ...configuration,
-        markdown: fields.instruction ?? configuration.markdown,
-        parameters: fields.parameters ?? configuration.parameters,
-        directoryParameter:
-          fields.directoryParameter === undefined
-            ? configuration.directoryParameter
-            : fields.directoryParameter,
-        sharing:
-          fields.sharing === undefined
-            ? configuration.sharing
-            : toSharing(fields.sharing, storedOperator(configuration.sharing)),
-      },
-    };
+    const proposed = proposePageAgent(current, fields);
     const revision = request.expectedRevision;
     // Saving is what cleans a share of deleted targets and what pins the
     // model of an agent that cannot run again, so neither is a no-op.
