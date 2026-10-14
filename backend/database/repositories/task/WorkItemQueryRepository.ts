@@ -3,6 +3,7 @@ import {
   readNullableTextColumn,
   readTextColumn,
 } from "@/backend/database/RowValue";
+import { WORK_ITEM_TYPE } from "@/definition/Task";
 import { createInClause } from "./InClause";
 import { toWorkItemDetail } from "./WorkItemDetailMapper";
 import {
@@ -133,6 +134,24 @@ export class WorkItemQueryRepository {
     return this.findByCondition(
       "work_items.project_id = $project_id AND work_items.github_issue_number IS NOT NULL AND work_items.archived_at IS NULL",
       { project_id: projectId },
+      visibility,
+    );
+  }
+
+  /**
+   * Returns archived tasks of a project linked to a GitHub issue.
+   *
+   * @remarks
+   * Archived tasks stay linked, and their issue is closed by the next
+   * synchronization run, so the run needs them next to the active ones.
+   */
+  public async findArchivedLinkedWorkItems(
+    projectId: string,
+    visibility?: WorkItemVisibility,
+  ): Promise<WorkItemDetail[]> {
+    return this.findByCondition(
+      "work_items.project_id = $project_id AND work_items.type = $type AND work_items.github_issue_number IS NOT NULL AND work_items.archived_at IS NOT NULL",
+      { project_id: projectId, type: WORK_ITEM_TYPE.TASK },
       visibility,
     );
   }

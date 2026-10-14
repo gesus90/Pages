@@ -351,6 +351,14 @@ export class TaskRepository {
     return this.queries.findLinkedWorkItems(projectId, visibility);
   }
 
+  /** Returns archived tasks of a project linked to a GitHub issue. */
+  public async findArchivedLinkedWorkItems(
+    projectId: string,
+    visibility?: WorkItemVisibility,
+  ): Promise<WorkItemDetail[]> {
+    return this.queries.findArchivedLinkedWorkItems(projectId, visibility);
+  }
+
   /** Replaces the GitHub linkage stored on a work item. */
   public async updateGitHubLink(
     id: string,

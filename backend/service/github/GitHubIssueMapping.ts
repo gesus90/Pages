@@ -28,36 +28,58 @@ export interface GitHubIssuePatch {
  *
  * @param title - Pages title or GitHub issue title.
  * @param description - Pages description or GitHub issue body.
- * @param isDone - Whether the Pages task is done or the issue is closed.
+ * @param isClosed - Whether the Pages task counts as closed or the issue is closed.
  * @returns Hex-encoded content hash shared by both sides.
  */
 export function computeGitHubContentHash(
   title: string,
   description: string,
-  isDone: boolean,
+  isClosed: boolean,
 ): string {
   return createHash("sha256")
-    .update(`${title}\n${description}\n${isDone ? "closed" : "open"}`)
+    .update(`${title}\n${description}\n${isClosed ? "closed" : "open"}`)
     .digest("hex");
 }
 
 /**
  * Maps a Pages completion state onto a GitHub issue state.
  *
- * @param isDone - Whether the Pages task reached a done status.
+ * @param isClosed - Whether the Pages task counts as closed, see
+ * {@link isWorkItemClosedOnGitHub}.
  * @returns The corresponding GitHub issue state.
  */
-export function mapPagesToGitHubState(isDone: boolean): "open" | "closed" {
-  return isDone ? "closed" : "open";
+export function mapPagesToGitHubState(isClosed: boolean): "open" | "closed" {
+  return isClosed ? "closed" : "open";
+}
+
+/**
+ * Tells whether the issue of a Pages work item belongs on GitHub as closed.
+ *
+ * @param item - Work item whose workflow status and archive state are read.
+ * @returns `true` for a done work item and for an archived one, whatever its
+ * workflow status is.
+ *
+ * @remarks
+ * Archiving stays a state of its own in Pages: it neither changes the workflow
+ * status nor the link. It only means that the issue is not open any more.
+ */
+export function isWorkItemClosedOnGitHub(
+  item: Pick<WorkItemDetail, "isDone" | "archivedAt">,
+): boolean {
+  return item.isDone || item.archivedAt !== null;
 }
 
 /**
  * Hashes the synchronized content of a Pages work item.
  *
- * @param item - Work item whose title, description, and completion are hashed.
+ * @param item - Work item whose title, description, and closed state are hashed.
  */
 export function hashWorkItemContent(item: WorkItemDetail): string {
-  return computeGitHubContentHash(item.title, item.description, item.isDone);
+  return computeGitHubContentHash(
+    item.title,
+    item.description,
+    isWorkItemClosedOnGitHub(item),
+  );
 }
 
 /**
@@ -84,7 +106,7 @@ export function buildGitHubIssuePatch(
   item: WorkItemDetail,
   remote: GitHubIssueData,
 ): GitHubIssuePatch {
-  const nextState = mapPagesToGitHubState(item.isDone);
+  const nextState = mapPagesToGitHubState(isWorkItemClosedOnGitHub(item));
 
   return {
     ...(item.title === remote.title ? {} : { title: item.title }),
@@ -221,7 +243,9 @@ export function findOpenWorkflowStatus(
  *
  * @remarks
  * GitHub cannot distinguish Pages-specific open states, so an open remote
- * issue only moves the task out of a done status.
+ * issue only moves the task out of a done status. A closed remote issue moves
+ * only an active task to done: an archived task keeps its workflow status,
+ * because archiving is a state of its own and the issue is closed anyway.
  */
 export function resolvePulledStatusId(
   item: WorkItemDetail,
@@ -231,7 +255,12 @@ export function resolvePulledStatusId(
   const doneStatus = statuses.find((status) => status.isDone);
   const openStatus = findOpenWorkflowStatus(statuses);
 
-  if (remote.state === "closed" && doneStatus && !item.isDone) {
+  if (
+    remote.state === "closed" &&
+    doneStatus &&
+    !item.isDone &&
+    item.archivedAt === null
+  ) {
     return doneStatus.id;
   }
 

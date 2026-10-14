@@ -3,6 +3,7 @@ import {
   buildLinkFromPages,
   buildSyncHistoryEntry,
   isEmptyGitHubIssuePatch,
+  isWorkItemClosedOnGitHub,
 } from "@/backend/service/github/GitHubIssueMapping";
 import {
   canPushToGitHub,
@@ -147,7 +148,9 @@ export class GitHubIssuePusher {
       { title: item.title, body: item.description },
     );
 
-    if (item.isDone && created.state === "open") {
+    const isClosed = isWorkItemClosedOnGitHub(item);
+
+    if (isClosed && created.state === "open") {
       await sync.client.updateIssue(
         sync.repo.owner,
         sync.repo.repo,
@@ -158,7 +161,7 @@ export class GitHubIssuePusher {
 
     const timestamp = this.now();
     const remoteState =
-      item.isDone || created.state === "closed" ? "closed" : "open";
+      isClosed || created.state === "closed" ? "closed" : "open";
 
     await this.taskRepository.updateGitHubLink(
       item.id,

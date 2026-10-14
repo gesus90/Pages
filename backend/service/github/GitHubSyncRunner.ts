@@ -21,7 +21,11 @@ import type {
 import type { GitHubSyncCounters } from "@/backend/service/github/GitHubSyncRun";
 import type { GitHubSyncSummary } from "@/definition/GitHub";
 import type { ProjectIntegration } from "@/definition/Project";
-import type { WorkItemDetail, WorkflowStatus } from "@/definition/Task";
+import type {
+  WorkItemDetail,
+  WorkItemVisibility,
+  WorkflowStatus,
+} from "@/definition/Task";
 import type { User } from "@/definition/User";
 
 /** Dependencies required to run GitHub synchronizations. */
@@ -100,11 +104,7 @@ export class GitHubSyncRunner {
     const sync = await this.contextLoader.requireContext(projectId);
     const summary = createEmptySyncCounters();
     const timestamp = this.now();
-    const tasks = await this.taskRepository.findAll({
-      projectIds: [projectId],
-      type: WORK_ITEM_TYPE.TASK,
-      visibility,
-    });
+    const tasks = await this.findSynchronizedTasks(projectId, visibility);
     const statuses = (await this.taskRepository.findAllStatuses()).filter(
       (status) => status.projectId === null || status.projectId === projectId,
     );
@@ -204,6 +204,31 @@ export class GitHubSyncRunner {
     await this.reconcileLinkedItem(sync, actor, item, summary);
 
     return summary;
+  }
+
+  /**
+   * Collects the tasks a run reconciles: every active task, and the archived
+   * ones that are linked, whose issue then follows the archive state.
+   *
+   * @remarks
+   * An archived task without a link is left out, so archiving never leads to
+   * a new issue.
+   */
+  private async findSynchronizedTasks(
+    projectId: string,
+    visibility: WorkItemVisibility,
+  ): Promise<WorkItemDetail[]> {
+    const active = await this.taskRepository.findAll({
+      projectIds: [projectId],
+      type: WORK_ITEM_TYPE.TASK,
+      visibility,
+    });
+    const archived = await this.taskRepository.findArchivedLinkedWorkItems(
+      projectId,
+      visibility,
+    );
+
+    return [...active, ...archived];
   }
 
   private async synchronizeTask(
