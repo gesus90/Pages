@@ -118,6 +118,14 @@ The terminal prints a summary per file. The HTML report is written to
 `mcp/coverage/index.html`; open it in a browser. `coverage/` is not versioned and
 is recreated by every run.
 
+### Continuous integration
+
+The [CI workflow](../.github/workflows/ci.yml) shows two checks. **Pages check**
+runs the root gates first. **MCP check** starts only after **Pages check** has
+succeeded; it installs this package's dependencies and runs `pnpm run lint`,
+`pnpm run check`, `pnpm run build` and `pnpm run test` with `mcp/` as the working
+directory, in this order. A failing step fails the check and the workflow.
+
 ### Removing local artifacts
 
 ```sh

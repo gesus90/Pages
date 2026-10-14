@@ -15,7 +15,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify:
+  # The Pages project gates. `MCP check` waits for this job.
+  pages-check:
+    name: Pages check
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -34,11 +36,45 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # The MCP package has its own manifest and lockfile.
-      # Install it before its check and build gates.
+      # The MCP package has its own manifest and lockfile. The root lint reads
+      # the MCP sources with type information, so their dependencies must exist.
       - run: pnpm --dir mcp install --frozen-lockfile
 
       # Runs `react-router typegen`, `tsc --noEmit` and `prettier --check`.
       - run: pnpm run check
 
       - run: pnpm run lint
+
+  # The MCP package gates, run in `mcp/` one after the other. `needs` starts
+  # this job only after `Pages check` succeeded; a failed `Pages check` skips
+  # it and the workflow fails.
+  mcp-check:
+    name: MCP check
+    needs: pages-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: mcp
+    steps:
+      - uses: actions/checkout@v4
+
+      # Reads the `packageManager` field of package.json.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: mcp/pnpm-lock.yaml
+
+      # The MCP package needs no root installation.
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm run lint
+
+      - run: pnpm run check
+
+      - run: pnpm run build
+
+      - run: pnpm run test

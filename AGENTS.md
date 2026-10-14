@@ -172,8 +172,11 @@ PAGE-37 removed the previous MCP suite; PAGE-34 removed the remaining Pages
 suite. PAGE-38 adds only unit-test structure, standalone Backend/Frontend
 Vitest configs and diagnostic coverage configuration. There are no test cases,
 fixtures or dummy suites, and no test or coverage execution has taken place.
-PAGE-35 removed the CI test step; it remains absent. Run `pnpm run check` and
-`pnpm run lint` as non-test gates; neither demonstrates functional coverage.
+PAGE-35 removed the Pages test step from the CI; it remains absent from the
+**Pages check** job. The **MCP check** job (PAGE-57) runs only the independent
+MCP package's own `pnpm run test`, after **Pages check** has succeeded. Run
+`pnpm run check` and `pnpm run lint` as non-test gates; neither demonstrates
+functional coverage.
 
 The only future Pages commands are `pnpm run test:backend` and
 `pnpm run test:frontend`. Their scripts are configured, but usable, validated
