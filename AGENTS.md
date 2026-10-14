@@ -180,9 +180,11 @@ The only future Pages commands are `pnpm run test:backend` and
 suites are not available yet. PAGE-32/PAGE-33 will add and execute their respective
 unit tests. PAGE-38 acceptance must not execute tests or coverage.
 See [tests/README.md](./tests/README.md) for discovery, source includes, aliases,
-setup and report paths. The independent MCP test plan remains open (TBD), with
-no suite, runner or test command. MCP check/build and root lint remain non-test
-gates. Browser E2E and live integration are a later phase.
+setup and report paths. The independent MCP package has its own Vitest unit
+suite under `mcp/tests/`, run from `mcp/` with `pnpm run test`; its coverage
+thresholds are 100 % for every metric and coverage-ignore comments are not
+allowed (see [mcp/README.md](./mcp/README.md)). MCP check/build and root lint
+remain non-test gates. Browser E2E and live integration are a later phase.
 
 ### Rules for future test work
 

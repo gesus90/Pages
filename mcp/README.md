@@ -78,9 +78,62 @@ installation or Pages root gates are required for this workflow. `lint` checks
 package sources, scripts and JavaScript configuration with no warnings allowed.
 `check` runs `tsc --noEmit` and package-local `prettier --check .`, including this
 README and the client examples. It does not start Pages or generate React Router
-types. These are static checks, not functional tests. The separate `test:mcp`
-command below checks the built adapter with a real stdio client against an
-explicitly isolated Pages instance.
+types. These are static checks; the [unit tests](#unit-tests-and-coverage) check
+behavior. The separate `test:mcp` command below checks the built adapter with a
+real stdio client against an explicitly isolated Pages instance.
+
+### Unit tests and coverage
+
+```sh
+cd mcp
+CI=true pnpm run test
+```
+
+`test` runs all unit tests once with V8 coverage and then exits; there is no
+watch mode. The tests live in `mcp/tests/` as `*.unit.test.ts` and mirror the
+source path: `tests/src/` for `src/`, `tests/scripts/` for `scripts/`. The stdio
+check in `tests/stdio/` is no unit test and is not discovered. The configuration
+is [vitest.config.ts](./vitest.config.ts).
+
+The tests need no running Pages instance, network, browser or real credentials.
+Pages requests (`fetch`), the credential store's file system, subprocesses,
+timers and esbuild are mocked; the release packager tests write only to a
+temporary directory that they remove.
+
+Coverage covers every executable file of the package, including files that no
+test imports: `src/**/*.ts`, `scripts/**/*.ts` and `build.config.ts`. Only tests,
+dependencies (`node_modules/`) and generated output (`dist/`, `coverage/`) lie
+outside it. The shared Pages definitions imported from `../definition/` belong
+to the Pages root package and are not part of this report.
+
+**Statements, branches, functions and lines must each reach 100 %.** The
+thresholds in `vitest.config.ts` are binding: a failing test or any metric below
+100 % makes `pnpm run test` exit nonzero. Coverage-ignore comments such as
+`/* v8 ignore next */`, `/* v8 ignore start */` or `/* v8 ignore stop */` are not
+allowed, and no production code is excluded from coverage to reach the target;
+cover new code with tests instead.
+
+The terminal prints a summary per file. The HTML report is written to
+`mcp/coverage/index.html`; open it in a browser. `coverage/` is not versioned and
+is recreated by every run.
+
+### Removing local artifacts
+
+```sh
+cd mcp
+pnpm run clean
+```
+
+`clean` deletes `mcp/node_modules/` (including the Vitest cache below it), the
+build output `mcp/dist/` and the coverage report `mcp/coverage/`. Missing paths
+are skipped, so the command can run repeatedly. Sources, tests, configuration and
+`pnpm-lock.yaml` stay, and nothing outside these three paths is touched. Install
+the dependencies again before the next check, build or test run.
+
+Depending on pnpm's `verifyDepsBeforeRun` setting, pnpm can install missing
+dependencies before any script starts, including `clean`; the command still ends
+with them removed. `pnpm run --config.verifyDepsBeforeRun=false clean` skips that
+step.
 
 ### Bundle format and distribution
 
@@ -151,8 +204,8 @@ root:
 CI=true pnpm --dir mcp run test:mcp
 ```
 
-The script builds the versioned bundle and runs [test/client.ts](./test/client.ts).
-[test/server.ts](./test/server.ts) checks instance health and launches that real
+The script builds the versioned bundle and runs [tests/stdio/client.ts](./tests/stdio/client.ts).
+[tests/stdio/server.ts](./tests/stdio/server.ts) checks instance health and launches that real
 bundle as a stdio child. The client sends `initialize`, validates the server
 identity, version and tools capability, sends `notifications/initialized`, lists
 tools and calls only `list_project_names`. It validates the returned JSON array,
@@ -165,8 +218,8 @@ The check reads the existing pairing store when `PAGES_TOKEN` is unset and passe
 the credential only in the child's process environment. This prevents automatic
 rotation and local-store updates during acceptance. It requests no content or
 credential mutations and never opens a database directly. Pages still handles
-its normal credential-use bookkeeping. There are no mocks, fixtures, additional
-test suites or coverage gates. The script starts and stops only its own adapter
+its normal credential-use bookkeeping. This check uses no mocks or fixtures and
+has no coverage gate; the unit tests are a separate suite. The script starts and stops only its own adapter
 child; it does not start Pages or perform browser approval. This check does not
 establish that the separate browser flow has been manually accepted.
 
