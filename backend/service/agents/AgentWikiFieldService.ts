@@ -17,9 +17,11 @@ import { WikiCoverService } from "@/backend/service/wiki/WikiCoverService";
 import { WikiMoveService } from "@/backend/service/wiki/WikiMoveService";
 import { WikiPageReader } from "@/backend/service/wiki/WikiPageReader";
 import { WikiPageService } from "@/backend/service/wiki/WikiPageService";
+import { PAGES_AGENT_LIMITS } from "@/definition/PagesAgentOperations";
 import { WIKI_SCOPE, formatWikiCover } from "@/definition/Wiki";
 
 import { agentTransactionScope } from "./AgentTransactionScope";
+import { applyTextPatch, indexText } from "./AgentTextRange";
 import { createAgentWikiAccess } from "./AgentWikiAccess";
 import { readAgentWikiPageRequest } from "./AgentWikiFieldValidation";
 
@@ -32,6 +34,8 @@ import type { WikiPageRecord } from "@/backend/database/repositories/WikiReposit
 import type { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
 import type { WikiAccess, WikiViewer } from "@/backend/service/wiki/WikiAccess";
 import type {
+  AgentWikiContentPatchInput,
+  AgentWikiContentPatched,
   AgentWikiCoverChanged,
   AgentWikiCoverInput,
   AgentWikiFieldInput,
@@ -57,7 +61,10 @@ export interface AgentWikiFieldDependencies {
 /** What one call changes for the person: the stored result and the page to announce, if any. */
 interface FieldOutcome {
   readonly result:
-    AgentWikiPageChanged | AgentWikiCoverChanged | AgentWikiPageMoved;
+    | AgentWikiPageChanged
+    | AgentWikiContentPatched
+    | AgentWikiCoverChanged
+    | AgentWikiPageMoved;
   readonly changedPageId: string | null;
 }
 
@@ -124,8 +131,8 @@ export class AgentWikiFieldService {
    * Runs one granular page operation for the owner of a verified credential.
    *
    * @param identity - The verified owner of the operation.
-   * @param operation - `wiki.page.setTitle`, `wiki.page.setContent`, `wiki.page.setIcon`,
-   * `wiki.page.setCover` or `wiki.page.move`.
+   * @param operation - `wiki.page.setTitle`, `wiki.page.setContent`, `wiki.page.patchContent`,
+   * `wiki.page.setIcon`, `wiki.page.setCover` or `wiki.page.move`.
    * @param parameters - The raw operation parameters.
    * @returns The stored result; a repeated operation ID returns it unchanged.
    * @throws {AgentOperationError} `INVALID_REQUEST`, `FORBIDDEN`, `NOT_FOUND` or `CONFLICT`.
@@ -217,6 +224,8 @@ export class AgentWikiFieldService {
       throw new AgentOperationError("CONFLICT", {
         currentRevision: page.revision,
       });
+    if ("replacementText" in request)
+      return this.patchContent(context, page, request);
     return "field" in request
       ? this.setField(context, page, request)
       : this.move(context, page, request);
@@ -273,6 +282,55 @@ export class AgentWikiFieldService {
         field: request.field,
         revision: written.revision,
         changed: hasChanged,
+      },
+      changedPageId: hasChanged ? page.id : null,
+    };
+  }
+
+  /**
+   * Replaces one range of the Markdown and saves the result as the next revision.
+   *
+   * @remarks
+   * The page was read in this transaction at the revision the caller named, so
+   * the positions refer to exactly the text they were read from. The save goes
+   * through the page service of the interface: the same size limit, version,
+   * link and activity records, and the same revision check once more.
+   */
+  private async patchContent(
+    context: FieldContext,
+    page: WikiPageRecord,
+    request: AgentWikiContentPatchInput,
+  ): Promise<FieldOutcome> {
+    const patched = applyTextPatch(indexText(page.content), request);
+    if (
+      Buffer.byteLength(patched.text, "utf8") >
+      PAGES_AGENT_LIMITS.wikiContentBytes
+    )
+      throw new AgentOperationError("PAYLOAD_TOO_LARGE", {
+        constraint: "wikiContentBytes",
+        limit: PAGES_AGENT_LIMITS.wikiContentBytes,
+      });
+    const written = await new WikiPageService(
+      context.wiki,
+      context.access,
+    ).update(context.actor, page.id, {
+      title: page.title,
+      content: patched.text,
+      icon: page.icon,
+      expectedRevision: page.revision,
+      coalesceVersions: false,
+    });
+    const hasChanged = written.revision !== page.revision;
+    return {
+      result: {
+        pageId: page.id,
+        link: `/wiki/${page.id}`,
+        field: "content",
+        revision: written.revision,
+        changed: hasChanged,
+        start: patched.start,
+        end: patched.end,
+        ...(patched.after === undefined ? {} : { after: patched.after }),
       },
       changedPageId: hasChanged ? page.id : null,
     };

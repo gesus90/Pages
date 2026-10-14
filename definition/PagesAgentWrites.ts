@@ -3,6 +3,7 @@ import { AGENT_ADMIN_WRITE_OPERATIONS } from "./AgentAdministration.js";
 import { AGENT_WORKSPACE_WRITE_OPERATIONS } from "./AgentWorkspaceOperations.js";
 import { PAGE_AGENT_WRITE_OPERATIONS } from "./PageAgentOperations.js";
 import { AGENT_TICKET_LINK_OPERATIONS } from "./AgentTicketNavigation.js";
+import { AGENT_TEXT_RANGE_WRITE_OPERATIONS } from "./AgentTextRange.js";
 
 import type { AgentAdminChanged } from "./AgentAdministration.js";
 import type { AgentExtensionChanged } from "./AgentExtensions.js";
@@ -19,12 +20,14 @@ import type {
   AgentMilestoneDependencyChanged,
   AgentTicketChanged,
   AgentTicketCreated,
+  AgentTicketDescriptionPatched,
 } from "./AgentTickets.js";
 import type {
   AgentWikiCommentAdded,
   AgentWikiCommentChanged,
 } from "./AgentWikiComments.js";
 import type {
+  AgentWikiContentPatched,
   AgentWikiCoverChanged,
   AgentWikiPageChanged,
   AgentWikiPageMoved,
@@ -46,6 +49,7 @@ export const PAGES_AGENT_WRITE_OPERATIONS = [
   "wiki.page.setIcon",
   "wiki.page.setCover",
   "wiki.page.move",
+  ...AGENT_TEXT_RANGE_WRITE_OPERATIONS,
   "ticket.create",
   "ticket.setTitle",
   "ticket.setDescription",
@@ -120,12 +124,14 @@ export interface PagesAgentWriteResponse {
     | AgentImportUpdated
     | AgentStructuredImportApplied
     | AgentWikiPageChanged
+    | AgentWikiContentPatched
     | AgentWikiCoverChanged
     | AgentWikiPageMoved
     | AgentWikiCommentAdded
     | AgentWikiCommentChanged
     | AgentTicketCreated
     | AgentTicketChanged
+    | AgentTicketDescriptionPatched
     | AgentChecklistItemChanged
     | AgentTicketLinkChanged
     | AgentMilestoneCreated

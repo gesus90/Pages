@@ -6,6 +6,11 @@ import {
   readParameterRecord,
   requireParameterKeys,
 } from "./AgentParameterReader";
+import {
+  TEXT_PATCH_KEYS,
+  readAgentTextPatch,
+  readAgentTextRangeRequest,
+} from "./AgentTextRangeValidation";
 
 import type {
   AgentMilestoneCreateInput,
@@ -17,15 +22,18 @@ import type {
   AgentMilestoneOperation,
   AgentTicketAssignee,
   AgentTicketCreateInput,
+  AgentTicketDescriptionPatchInput,
   AgentTicketField,
   AgentTicketFieldInput,
   AgentTicketFieldOperation,
   AgentTicketOperation,
   AgentTicketReference,
 } from "@/definition/AgentTickets";
+import type { AgentTextRangeRequest } from "@/definition/AgentTextRange";
 
 const TICKET_KEY = /^[A-Za-z][A-Za-z0-9]*-\d+$/;
 const TICKET_IDENTIFIER = /^[\w-]+$/;
+const DESCRIPTION_VERSION = /^[0-9a-f]{32}$/;
 const TICKET_ADDRESS =
   /^(?:https?:\/\/[^\s/?#]+)?(?:\/[^\s?#]*)?\/(?:aufgaben|tasks)\/([A-Za-z][A-Za-z0-9]*-\d+)\/?(?:[?#]\S*)?$/;
 
@@ -111,7 +119,11 @@ export function isAgentTicketFieldOperation(
 export function isAgentTicketOperation(
   name: unknown,
 ): name is AgentTicketOperation {
-  return name === "ticket.create" || isAgentTicketFieldOperation(name);
+  return (
+    name === "ticket.create" ||
+    name === "ticket.patchDescription" ||
+    isAgentTicketFieldOperation(name)
+  );
 }
 
 /** Tells whether an operation name is a single-field milestone operation. */
@@ -220,6 +232,61 @@ export function readAgentTicketRead(input: unknown): AgentTicketReference {
   const fields = readParameterRecord(input);
   requireParameterKeys(fields, ["ticketId"]);
   return readAgentTicketReference(fields.ticketId);
+}
+
+/**
+ * Validates a read of one passage of a ticket description.
+ *
+ * @param input - The raw operation parameters.
+ * @returns The ticket and the passage asked for.
+ * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or malformed parameter, `PAYLOAD_TOO_LARGE` for a budget over the limit.
+ */
+export function readAgentTicketDescriptionRange(input: unknown): {
+  readonly ticket: AgentTicketReference;
+  readonly range: AgentTextRangeRequest;
+} {
+  const fields = readParameterRecord(input);
+  requireParameterKeys(fields, ["ticketId", "start"], ["end", "maxCharacters"]);
+  return {
+    ticket: readAgentTicketReference(fields.ticketId),
+    range: readAgentTextRangeRequest(fields),
+  };
+}
+
+/**
+ * Validates a range patch of a ticket description before any persistence or policy read.
+ *
+ * @param input - The raw operation parameters.
+ * @returns The ticket, the version it was read at and the one range with its expected text and replacement.
+ * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or malformed parameter.
+ *
+ * @remarks
+ * The complete description is no input. The version is the
+ * `descriptionVersion` of the passage read last: 32 lower-case hex digits.
+ */
+export function readAgentTicketDescriptionPatch(
+  input: unknown,
+): AgentTicketDescriptionPatchInput {
+  const fields = readParameterRecord(input);
+  requireParameterKeys(
+    fields,
+    [
+      "operationId",
+      "ticketId",
+      "expectedDescriptionVersion",
+      ...TEXT_PATCH_KEYS,
+    ],
+    ["includeAfter"],
+  );
+  const version = fields.expectedDescriptionVersion;
+  if (typeof version !== "string" || !DESCRIPTION_VERSION.test(version))
+    throw new AgentOperationError("INVALID_REQUEST");
+  return {
+    operationId: readIdentifier(fields.operationId),
+    ticket: readAgentTicketReference(fields.ticketId),
+    expectedVersion: version,
+    ...readAgentTextPatch(fields),
+  };
 }
 
 /**

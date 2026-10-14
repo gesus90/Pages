@@ -1,3 +1,4 @@
+import type { AgentTextPatch, AgentTextPatched } from "./AgentTextRange.js";
 import type {
   AgentDirectoryEntry,
   AgentMilestoneReference,
@@ -30,8 +31,9 @@ export type AgentTicketFieldOperation =
   | "ticket.setStatus"
   | "ticket.setParent";
 
-/** Every ticket write: the local create and the single-field changes. */
-export type AgentTicketOperation = "ticket.create" | AgentTicketFieldOperation;
+/** Every ticket write: the local create, the single-field changes and the description range patch. */
+export type AgentTicketOperation =
+  "ticket.create" | "ticket.patchDescription" | AgentTicketFieldOperation;
 
 /** The milestone fields an agent changes one at a time. */
 export type AgentMilestoneField =
@@ -112,6 +114,16 @@ export type AgentTicketFieldChange =
 /** One field of one ticket; the other fields stay as they are. */
 export type AgentTicketFieldInput = AgentTicketTarget & AgentTicketFieldChange;
 
+/**
+ * One range of the description of a ticket, bound to the version the caller read.
+ * The complete description is no part of the request.
+ */
+export interface AgentTicketDescriptionPatchInput
+  extends AgentTicketTarget, AgentTextPatch {
+  /** The `descriptionVersion` of the passage read last. */
+  readonly expectedVersion: string;
+}
+
 /** A new milestone in an explicit project. */
 export interface AgentMilestoneCreateInput {
   readonly operationId: string;
@@ -163,6 +175,20 @@ export interface AgentTicketChanged {
   readonly field: AgentTicketField;
   /** Whether the call wrote anything; `false` when the value was already set. */
   readonly changed: boolean;
+}
+
+/**
+ * Result of a description range patch; returned unchanged when the operation ID is repeated.
+ *
+ * @remarks
+ * `start` and `end` delimit the replacement text in the new description. The
+ * new description is not part of the result unless `after` was asked for.
+ */
+export interface AgentTicketDescriptionPatched
+  extends AgentTicketChanged, AgentTextPatched {
+  readonly field: "description";
+  /** The version of the description after the call; unchanged when nothing was written. */
+  readonly descriptionVersion: string;
 }
 
 /** Result of a milestone create; returned unchanged when the operation ID is repeated. */

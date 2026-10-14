@@ -8,8 +8,14 @@ import {
   readParameterRecord,
   requireParameterKeys,
 } from "./AgentParameterReader";
+import {
+  TEXT_PATCH_KEYS,
+  readAgentTextPatch,
+  readAgentTextRangeRequest,
+} from "./AgentTextRangeValidation";
 
 import type {
+  AgentWikiContentPatchInput,
   AgentWikiCoverInput,
   AgentWikiField,
   AgentWikiFieldInput,
@@ -19,6 +25,7 @@ import type {
   AgentWikiPageRequest,
   AgentWikiPageTarget,
 } from "@/definition/AgentWikiFields";
+import type { AgentTextRangeRequest } from "@/definition/AgentTextRange";
 import type { WikiCover } from "@/definition/Wiki";
 
 const FIELD_OPERATIONS: Readonly<
@@ -45,6 +52,7 @@ export function isAgentWikiPageOperation(
 ): name is AgentWikiPageOperation {
   return (
     isAgentWikiFieldOperation(name) ||
+    name === "wiki.page.patchContent" ||
     name === "wiki.page.setCover" ||
     name === "wiki.page.move"
   );
@@ -166,6 +174,48 @@ export function readAgentWikiCoverChange(input: unknown): AgentWikiCoverInput {
 }
 
 /**
+ * Validates a read of one passage of the Markdown of a page.
+ *
+ * @param input - The raw operation parameters.
+ * @returns The page identifier and the passage asked for.
+ * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or malformed parameter, `PAYLOAD_TOO_LARGE` for a budget over the limit.
+ */
+export function readAgentWikiPageRange(input: unknown): {
+  readonly pageId: string;
+  readonly range: AgentTextRangeRequest;
+} {
+  const fields = readParameterRecord(input);
+  requireParameterKeys(fields, ["pageId", "start"], ["end", "maxCharacters"]);
+  return {
+    pageId: readWikiPageReference(fields.pageId),
+    range: readAgentTextRangeRequest(fields),
+  };
+}
+
+/**
+ * Validates a range patch of the Markdown before any persistence or policy read.
+ *
+ * @param input - The raw operation parameters.
+ * @returns The page, its expected revision and the one range with its expected text and replacement.
+ * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or malformed parameter.
+ *
+ * @remarks
+ * The complete text is no input. Size limits apply to the text that results,
+ * which is only known against the stored page.
+ */
+export function readAgentWikiContentPatch(
+  input: unknown,
+): AgentWikiContentPatchInput {
+  const fields = normalizeRevision(readParameterRecord(input));
+  requireParameterKeys(
+    fields,
+    [...TARGET_KEYS, ...TEXT_PATCH_KEYS],
+    ["includeAfter"],
+  );
+  return { ...target(fields), ...readAgentTextPatch(fields) };
+}
+
+/**
  * Validates the parameters of any page operation of this family.
  *
  * @param operation - The operation that was called.
@@ -179,6 +229,8 @@ export function readAgentWikiPageRequest(
 ): AgentWikiPageRequest {
   if (isAgentWikiFieldOperation(operation))
     return readAgentWikiFieldChange(operation, input);
+  if (operation === "wiki.page.patchContent")
+    return readAgentWikiContentPatch(input);
   if (operation === "wiki.page.setCover")
     return readAgentWikiCoverChange(input);
   return readAgentWikiMove(input);

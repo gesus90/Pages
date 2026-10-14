@@ -84,6 +84,12 @@ export interface DescriptionChange {
    * differs, someone else saved in between and the change is refused.
    */
   readonly baseDescription: string;
+  /**
+   * Stores the text exactly as given instead of trimming it. A change that
+   * replaces one range of the stored text needs this, so that nothing
+   * outside the range is altered.
+   */
+  readonly isVerbatim?: boolean;
 }
 
 /** Collaborators of the write service. */
@@ -341,7 +347,9 @@ export class TaskWriteService {
     change: DescriptionChange,
   ): Promise<WorkItemDetail> {
     const existing = await this.access.requireWritableWorkItem(actor, id);
-    const description = change.description.trim();
+    const description = change.isVerbatim
+      ? change.description
+      : change.description.trim();
 
     assertActive(existing);
     validateDescription(description);

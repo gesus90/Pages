@@ -26,7 +26,10 @@ import {
   isAgentTicketOperation,
 } from "./AgentTicketValidation";
 import { isAgentCommentOperation } from "./AgentWikiCommentValidation";
-import { isAgentWikiPageOperation } from "./AgentWikiFieldValidation";
+import {
+  isAgentWikiPageOperation,
+  readAgentWikiPageRange,
+} from "./AgentWikiFieldValidation";
 import { WikiImportPlanner } from "./WikiImportPlanner";
 
 import type { AgentChannel } from "@/backend/auth/McpActorContext";
@@ -158,29 +161,9 @@ export class AgentOperationRouter {
     );
     validateParameters(operation, parameters);
     const actor = await this.requireActor(identity);
-    const access = new ProjectAccessService(
-      this.dependencies.projects,
-      ServerCache.disabled(),
-      agentChannelPolicy(this.channel).actor,
-    );
+    const access = this.projectAccess();
     const projects = new AgentProjectReadService(access);
-    const wikiAccess = new WikiAccess(
-      {
-        workItemVisibility: async (user) =>
-          (await access.scope(user)).visibility,
-      },
-      new PermissionService((id) => access.account({ ...actor, id })),
-    );
-    const reads = new WikiReadService(
-      this.dependencies.wiki,
-      wikiAccess,
-      new WikiTrashService(this.dependencies.wiki, wikiAccess),
-    );
-    const wiki = new AgentWikiReadService(
-      reads,
-      new WikiSearchService(this.dependencies.wiki, wikiAccess),
-      this.dependencies.wiki.anchors,
-    );
+    const wiki = this.wikiReads(actor, access);
     let result: PagesAgentReadResponse["result"];
     if (operation === "projects.resolve")
       result = await projects.resolve(actor, readText(parameters, "name"));
@@ -223,6 +206,37 @@ export class AgentOperationRouter {
     )
       throw new AgentOperationError("PAYLOAD_TOO_LARGE");
     return response;
+  }
+
+  private projectAccess(): ProjectAccessService {
+    return new ProjectAccessService(
+      this.dependencies.projects,
+      ServerCache.disabled(),
+      agentChannelPolicy(this.channel).actor,
+    );
+  }
+
+  private wikiReads(
+    actor: User,
+    access: ProjectAccessService,
+  ): AgentWikiReadService {
+    const wikiAccess = new WikiAccess(
+      {
+        workItemVisibility: async (user) =>
+          (await access.scope(user)).visibility,
+      },
+      new PermissionService((id) => access.account({ ...actor, id })),
+    );
+    const reads = new WikiReadService(
+      this.dependencies.wiki,
+      wikiAccess,
+      new WikiTrashService(this.dependencies.wiki, wikiAccess),
+    );
+    return new AgentWikiReadService(
+      reads,
+      new WikiSearchService(this.dependencies.wiki, wikiAccess),
+      this.dependencies.wiki.anchors,
+    );
   }
 
   private async handleAdditional(
@@ -272,6 +286,8 @@ export class AgentOperationRouter {
     | PagesAgentWriteResponse
     | null
   > {
+    const range = await this.handleTextRange(identity, input);
+    if (range) return range;
     const checklist = await this.handleChecklist(identity, input);
     if (checklist) return checklist;
     const planned = await this.handlePlanning(identity, input);
@@ -326,6 +342,33 @@ export class AgentOperationRouter {
     return isAgentTicketOperation(operation)
       ? planning.tickets.apply(identity, operation, parameters)
       : planning.milestones.apply(identity, operation, parameters);
+  }
+
+  /**
+   * Reads one passage of a page or of a ticket description, or returns `null` for any other operation.
+   *
+   * @remarks
+   * The passage is cut on the server: the complete text never leaves it, and a
+   * hidden target is reported as missing exactly like in a full read.
+   */
+  private async handleTextRange(
+    identity: AgentIdentity,
+    input: Readonly<Record<string, unknown>>,
+  ): Promise<PagesAgentReadResponse | null> {
+    const { operation, parameters } = input;
+    if (operation === "ticket.description.readRange") {
+      const { planning } = this.dependencies;
+      if (!planning) throw new AgentOperationError("INVALID_REQUEST");
+      return planning.reads.readDescriptionRange(identity, parameters);
+    }
+    if (operation !== "wiki.page.readRange") return null;
+    const { pageId, range } = readAgentWikiPageRange(parameters);
+    const actor = await this.requireActor(identity);
+    const wiki = this.wikiReads(actor, this.projectAccess());
+    return {
+      apiVersion: "1",
+      result: await wiki.readRange(actor, pageId, range),
+    };
   }
 
   /** Reads or sets the checklist of a ticket, or returns `null` for any other operation. */

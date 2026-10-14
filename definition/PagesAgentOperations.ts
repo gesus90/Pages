@@ -1,5 +1,9 @@
 import { AGENT_TICKET_NAVIGATION_READ_OPERATIONS } from "./AgentTicketNavigation.js";
 
+import type {
+  AgentTicketDescriptionRange,
+  AgentWikiPageRange,
+} from "./AgentTextRange.js";
 import type { AgentExtensionReadResult } from "./AgentExtensions.js";
 import type { AgentAdminReadResult } from "./AgentAdministration.js";
 import type { AgentWorkspaceReadResult } from "./AgentWorkspaceOperations.js";
@@ -166,6 +170,8 @@ export interface PagesAgentReadResponse {
     | AgentProjectReference
     | AgentProjectDetails
     | AgentWikiPage
+    | AgentWikiPageRange
+    | AgentTicketDescriptionRange
     | AgentWikiTree
     | AgentWikiSearch
     | AgentImportPlan
@@ -198,6 +204,8 @@ export interface AgentProjectCandidates {
 /** Public limit names, shared with the MCP error whitelist. */
 export const AGENT_LIMIT_CONSTRAINTS = [
   "wikiContentBytes",
+  "ticketDescriptionUtf16Units",
+  "textRangeCharacters",
   "requestBytes",
   "responseBytes",
   "importIndexEntries",
@@ -222,11 +230,15 @@ export interface AgentRevisionConflict {
 }
 
 /**
- * Why Pages refused a user agent change, as a fixed name of its own.
+ * Why Pages refused a user agent change or a text range, as a fixed name of its own.
  *
  * @remarks
  * The public error code stays one of the fixed codes of the agent API; the
- * reason tells a client which input to change.
+ * reason tells a client which input to change. The last five belong to text
+ * ranges: `text_changed` (`CONFLICT`) says the text was saved since the
+ * version the caller read, `range_text_mismatch` (`CONFLICT`) that the range
+ * holds other text than expected, and `range_reversed`, `line_out_of_range`
+ * and `column_out_of_range` (`INVALID_REQUEST`) that a position is unusable.
  */
 export const AGENT_REJECTION_REASONS = [
   "model_unavailable",
@@ -240,6 +252,11 @@ export const AGENT_REJECTION_REASONS = [
   "agent_limit_reached",
   "agent_running",
   "sharing_changes_required",
+  "text_changed",
+  "range_text_mismatch",
+  "range_reversed",
+  "line_out_of_range",
+  "column_out_of_range",
 ] as const;
 
 export interface AgentRejectionReason {

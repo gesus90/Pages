@@ -1,5 +1,6 @@
 import type { AgentExtensionReadOperation } from "./AgentExtensions.js";
 import type { AgentAdminReadOperation } from "./AgentAdministration.js";
+import type { AgentTextRangeReadOperation } from "./AgentTextRange.js";
 import type { AgentWorkspaceReadOperation } from "./AgentWorkspaceOperations.js";
 import type { PageAgentReadOperation } from "./PageAgentOperations.js";
 import type { McpCredentialDetails } from "./McpPairing.js";
@@ -36,6 +37,7 @@ export type PagesAgentApiBusinessOperation =
   | PagesAgentStructuredReadOperation
   | PagesAgentTicketReadOperation
   | PagesAgentCommentOperation
+  | AgentTextRangeReadOperation
   | PagesAgentWriteOperation;
 
 /** Result of `verify`: the current identity and the business operations it may call. */

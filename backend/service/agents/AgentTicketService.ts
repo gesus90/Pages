@@ -5,9 +5,11 @@ import {
   resolveAgentTicketCreate,
   takeStatedTicketCreate,
 } from "./AgentTicketCreateContext";
+import { patchAgentTicketDescription } from "./AgentTicketDescriptionPatch";
 import {
   isAgentTicketFieldOperation,
   readAgentTicketCreate,
+  readAgentTicketDescriptionPatch,
   readAgentTicketFieldChange,
 } from "./AgentTicketValidation";
 
@@ -15,6 +17,8 @@ import type {
   AgentTicketChanged,
   AgentTicketCreateInput,
   AgentTicketCreated,
+  AgentTicketDescriptionPatchInput,
+  AgentTicketDescriptionPatched,
   AgentTicketFieldInput,
   AgentTicketOperation,
   AgentTicketParentChange,
@@ -110,7 +114,7 @@ export class AgentTicketService {
    * Runs one ticket write for the owner of a verified credential.
    *
    * @param identity - The verified owner of the operation.
-   * @param operation - `ticket.create` or one of the `ticket.set…` operations.
+   * @param operation - `ticket.create`, `ticket.patchDescription` or one of the `ticket.set…` operations.
    * @param parameters - The raw operation parameters.
    * @returns The stored result; a repeated operation ID returns it unchanged.
    * @throws {AgentOperationError} `INVALID_REQUEST`, `FORBIDDEN`, `NOT_FOUND` or `CONFLICT`.
@@ -126,13 +130,7 @@ export class AgentTicketService {
     operation: AgentTicketOperation,
     parameters: unknown,
   ): Promise<PagesAgentWriteResponse> {
-    const completed = isAgentTicketFieldOperation(operation)
-      ? await this.runField(
-          identity,
-          operation,
-          readAgentTicketFieldChange(operation, parameters),
-        )
-      : await this.runCreate(identity, readAgentTicketCreate(parameters));
+    const completed = await this.dispatch(identity, operation, parameters);
     this.dependencies.announcer.announce(completed);
     return { apiVersion: "1", result: completed.result };
   }
@@ -159,6 +157,45 @@ export class AgentTicketService {
       transaction,
       this.createRun(userId, request, "stated"),
     );
+  }
+
+  private async dispatch(
+    identity: AgentIdentity,
+    operation: AgentTicketOperation,
+    parameters: unknown,
+  ): Promise<
+    AgentTicketCompleted<
+      AgentTicketChanged | AgentTicketCreated | AgentTicketDescriptionPatched
+    >
+  > {
+    if (isAgentTicketFieldOperation(operation))
+      return this.runField(
+        identity,
+        operation,
+        readAgentTicketFieldChange(operation, parameters),
+      );
+    if (operation === "ticket.patchDescription")
+      return this.runDescriptionPatch(
+        identity,
+        readAgentTicketDescriptionPatch(parameters),
+      );
+    return this.runCreate(identity, readAgentTicketCreate(parameters));
+  }
+
+  private async runDescriptionPatch(
+    identity: AgentIdentity,
+    request: AgentTicketDescriptionPatchInput,
+  ): Promise<AgentTicketCompleted<AgentTicketDescriptionPatched>> {
+    return this.dependencies.transaction.run<AgentTicketDescriptionPatched>({
+      userId: identity.userId,
+      operation: "ticket.patchDescription",
+      request,
+      needsWriteRight: true,
+      revisit: async (context, stored) => {
+        await context.tasks.getById(context.actor, stored.ticketId);
+      },
+      work: (context) => patchAgentTicketDescription(context, request),
+    });
   }
 
   private async runCreate(

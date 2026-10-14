@@ -1,3 +1,4 @@
+import type { AgentTextPatch, AgentTextPatched } from "./AgentTextRange.js";
 import type { WikiCover, WikiVisibilityChange } from "./Wiki.js";
 
 /** The page fields an agent changes one at a time. */
@@ -7,9 +8,12 @@ export type AgentWikiField = "title" | "content" | "icon";
 export type AgentWikiFieldOperation =
   "wiki.page.setTitle" | "wiki.page.setContent" | "wiki.page.setIcon";
 
-/** Every operation of this family: three single-field changes, the cover and the move. */
+/** Every operation of this family: three single-field changes, the range patch, the cover and the move. */
 export type AgentWikiPageOperation =
-  AgentWikiFieldOperation | "wiki.page.setCover" | "wiki.page.move";
+  | AgentWikiFieldOperation
+  | "wiki.page.patchContent"
+  | "wiki.page.setCover"
+  | "wiki.page.move";
 
 /** The page an operation addresses, bound to the revision the caller read. */
 export interface AgentWikiPageTarget {
@@ -50,9 +54,19 @@ export interface AgentWikiMoveInput extends AgentWikiPageTarget {
   readonly beforeId: string | null;
 }
 
+/**
+ * One range of the Markdown of a page, bound to the revision the caller read.
+ * The complete text is no part of the request.
+ */
+export interface AgentWikiContentPatchInput
+  extends AgentWikiPageTarget, AgentTextPatch {}
+
 /** The validated parameters of any operation of this family. */
 export type AgentWikiPageRequest =
-  AgentWikiFieldInput | AgentWikiCoverInput | AgentWikiMoveInput;
+  | AgentWikiFieldInput
+  | AgentWikiContentPatchInput
+  | AgentWikiCoverInput
+  | AgentWikiMoveInput;
 
 /** Result of a field change; returned unchanged when the operation ID is repeated. */
 export interface AgentWikiPageChanged {
@@ -63,6 +77,18 @@ export interface AgentWikiPageChanged {
   readonly revision: number;
   /** Whether the call wrote anything. */
   readonly changed: boolean;
+}
+
+/**
+ * Result of a range patch; returned unchanged when the operation ID is repeated.
+ *
+ * @remarks
+ * `start` and `end` delimit the replacement text in the new Markdown. The new
+ * text is not part of the result unless `after` was asked for.
+ */
+export interface AgentWikiContentPatched
+  extends AgentWikiPageChanged, AgentTextPatched {
+  readonly field: "content";
 }
 
 /** Result of a cover change; returned unchanged when the operation ID is repeated. */

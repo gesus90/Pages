@@ -16,13 +16,17 @@ import { createAgentTaskContext } from "./AgentTaskAccess";
 import { translateAgentTicketError } from "./AgentTicketErrors";
 import {
   readAgentMilestonesRead,
+  readAgentTicketDescriptionRange,
   readAgentTicketRead,
 } from "./AgentTicketValidation";
+import { agentTextVersion, indexText, readTextRange } from "./AgentTextRange";
+import { agentTicketLink, requireAgentTicket } from "./AgentTicketLookup";
 
 import type { AgentChannel } from "@/backend/auth/McpActorContext";
 import type { Database } from "@/backend/database/Database";
 import type { UserService } from "@/backend/service/UserService";
 import type { AgentTag } from "@/definition/AgentExtensions";
+import type { AgentTicketDescriptionRange } from "@/definition/AgentTextRange";
 import type { AgentMilestones, AgentTicket } from "@/definition/AgentTickets";
 import type { AgentIdentity } from "@/definition/McpAuthorization";
 import type { PagesAgentReadResponse } from "@/definition/PagesAgentOperations";
@@ -114,6 +118,37 @@ export class AgentPlanningReadService {
         department:
           directory.departments.find(({ id }) => id === ticket.departmentId) ??
           null,
+      });
+    } catch (error: unknown) {
+      throw translateAgentTicketError(error);
+    }
+  }
+
+  /**
+   * Reads one passage of the description of a visible ticket.
+   *
+   * @param identity - The verified owner of the call.
+   * @param parameters - The raw operation parameters: `ticketId`, `start`, optional `end` and `maxCharacters`.
+   * @returns The passage, its absolute positions, the version of the description and its size; never the whole text.
+   * @throws {AgentOperationError} `INVALID_REQUEST`, `NOT_FOUND` or `PAYLOAD_TOO_LARGE`.
+   *
+   * @remarks
+   * A hidden ticket is reported as missing, exactly like in a full read.
+   */
+  public async readDescriptionRange(
+    identity: AgentIdentity,
+    parameters: unknown,
+  ): Promise<PagesAgentReadResponse> {
+    const request = readAgentTicketDescriptionRange(parameters);
+    const context = await this.context(identity);
+    try {
+      const ticket = await requireAgentTicket(context, request.ticket);
+      return this.respond({
+        ticketId: ticket.id,
+        key: ticket.key,
+        link: agentTicketLink(ticket.key),
+        descriptionVersion: agentTextVersion(ticket.description),
+        ...readTextRange(indexText(ticket.description), request.range),
       });
     } catch (error: unknown) {
       throw translateAgentTicketError(error);
@@ -296,7 +331,11 @@ export class AgentPlanningReadService {
   }
 
   private respond(
-    result: AgentTicket | AgentMilestones | AgentProjectTickets,
+    result:
+      | AgentTicket
+      | AgentTicketDescriptionRange
+      | AgentMilestones
+      | AgentProjectTickets,
   ): PagesAgentReadResponse {
     const response: PagesAgentReadResponse = { apiVersion: "1", result };
     if (

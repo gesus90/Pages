@@ -3,8 +3,13 @@ import { WikiPageNotFoundError } from "@/backend/error/WikiErrors";
 import { PAGES_AGENT_LIMITS } from "@/definition/PagesAgentOperations";
 
 import { pageAgentEntries } from "./AgentCursor";
+import { indexText, readTextRange } from "./AgentTextRange";
 
 import type { AgentListWindow } from "./AgentCursor";
+import type {
+  AgentTextRangeRequest,
+  AgentWikiPageRange,
+} from "@/definition/AgentTextRange";
 import type { WikiAnchorRepository } from "@/backend/database/repositories/wiki/WikiAnchorRepository";
 import type { WikiReadService } from "@/backend/service/wiki/WikiReadService";
 import type { WikiSearchService } from "@/backend/service/wiki/WikiSearchService";
@@ -73,6 +78,38 @@ export class AgentWikiReadService {
         icon,
         cover,
         anchors: (await this.anchors?.findAnchors(id)) ?? [],
+      };
+    } catch (error: unknown) {
+      if (error instanceof WikiPageNotFoundError)
+        throw new AgentOperationError("NOT_FOUND");
+      throw error;
+    }
+  }
+
+  /**
+   * Reads one passage of the Markdown of a visible page without recording a visit.
+   *
+   * @param actor - The account the read runs for.
+   * @param pageId - The page identifier.
+   * @param range - Start, optional end and the character budget.
+   * @returns The passage with its absolute positions, the revision and the size of the page; never the whole text.
+   * @throws {AgentOperationError} `NOT_FOUND`, `INVALID_REQUEST` for an unusable position or `PAYLOAD_TOO_LARGE` for a range over the budget.
+   */
+  public async readRange(
+    actor: User,
+    pageId: string,
+    range: AgentTextRangeRequest,
+  ): Promise<AgentWikiPageRange> {
+    try {
+      const { id, content, revision } = await this.reads.readWithoutVisit(
+        actor,
+        pageId,
+      );
+      return {
+        pageId: id,
+        link: `/wiki/${id}`,
+        revision,
+        ...readTextRange(indexText(content), range),
       };
     } catch (error: unknown) {
       if (error instanceof WikiPageNotFoundError)
