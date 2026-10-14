@@ -2,11 +2,12 @@ import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/lib/cn";
+import { isPlanFlowNode } from "@/definition/AgentPlanGraph";
 
 import type { AgentPlanNode } from "@/definition/AgentPlan";
 import type { PlanGraphActions } from "./use-plan-graph";
 
-/** Start exposes only OUT; end exposes only IN; tickets and agents expose both flow ports. */
+/** Start exposes only OUT; end exposes only IN; agents expose both; value sources such as tickets have none. */
 export function PlanFlowPorts(props: {
   readonly node: AgentPlanNode;
   readonly graph: PlanGraphActions;
@@ -14,7 +15,7 @@ export function PlanFlowPorts(props: {
 }): React.ReactElement | null {
   const { t } = useTranslation();
   const { node, graph } = props;
-  if (node.type === "parameter" || node.type === "variable") return null;
+  if (!isPlanFlowNode(node)) return null;
   function issue(port: string): boolean {
     return graph.issues.some(
       (entry) => entry.nodeId === node.id && entry.port === port,

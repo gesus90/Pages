@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
 import { Select } from "@/app/components/ui/select";
-import { planSourceType } from "@/definition/AgentPlanGraph";
+import { fitsPlanParameter } from "@/definition/AgentPlanGraph";
 
 import { planNodeLabel } from "./plan-layout";
 
@@ -35,7 +35,7 @@ export function PlanParameterInput(props: {
   if (binding?.kind === "source") selected = binding.nodeId;
   if (binding?.kind === "result") selected = binding.stepId;
   const options = props.draft.nodes
-    .filter((node) => planSourceType(node) === parameter.type)
+    .filter((node) => fitsPlanParameter(node, parameter.type))
     .map((node) => ({
       value: node.id,
       label: planNodeLabel(node, props.sources),

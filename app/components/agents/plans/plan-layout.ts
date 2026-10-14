@@ -1,7 +1,20 @@
-import type { AgentPlanNode, AgentPlanSources } from "@/definition/AgentPlan";
+import type {
+  AgentPlanInput,
+  AgentPlanNode,
+  AgentPlanSources,
+} from "@/definition/AgentPlan";
+import type { PlanLink } from "./plan-links";
 
 export const PLAN_GRID = 20;
 export const PLAN_NODE_WIDTH = 280;
+
+/** End points of a drawn connection in grid coordinates. */
+export interface PlanLinkPoints {
+  readonly x1: number;
+  readonly y1: number;
+  readonly x2: number;
+  readonly y2: number;
+}
 
 /** Shared geometry keeps rendered cards and SVG ports aligned. */
 export function planNodeHeight(
@@ -55,5 +68,34 @@ export function planOutputY(
         .parameters.length ?? 0) *
         32
     );
-  return node.type === "task" ? 112 : 80;
+  return 80;
+}
+
+/** Flow edges join the flow ports; data links join an OUT with its parameter row. */
+export function planLinkPoints(
+  plan: AgentPlanInput,
+  sources: AgentPlanSources,
+  link: PlanLink,
+): PlanLinkPoints | null {
+  const source = plan.nodes.find((node) => node.id === link.from);
+  const target = plan.nodes.find((node) => node.id === link.to);
+  if (!source || !target) return null;
+  const x1 = source.x + PLAN_NODE_WIDTH;
+  const x2 = target.x;
+  if (link.kind === "flow")
+    return { x1, y1: source.y + 72, x2, y2: target.y + 72 };
+  const parameters =
+    target.type === "agent"
+      ? (sources.agents.find((agent) => agent.id === target.agentId)
+          ?.configuration.parameters ?? [])
+      : [];
+  const index = parameters.findIndex(
+    (parameter) => parameter.name === link.parameter,
+  );
+  return {
+    x1,
+    y1: source.y + planOutputY(source, sources),
+    x2,
+    y2: target.y + 104 + Math.max(0, index) * 32,
+  };
 }

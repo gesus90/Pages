@@ -124,19 +124,17 @@ export class AgentPlanRunEngine {
       startedAt: new Date().toISOString(),
       status: "running",
       stopRequested: false,
-      steps: snapshot.plan.nodes
-        .filter((node) => isPlanFlowNode(node, snapshot.plan))
-        .map((node) => ({
-          id: node.id,
-          name:
-            snapshot.steps.find((step) => step.step.id === node.id)?.name ??
-            node.type,
-          status: "waiting",
-          isBlocked: false,
-          cancellation: "none",
-          output: null,
-          error: null,
-        })),
+      steps: snapshot.plan.nodes.filter(isPlanFlowNode).map((node) => ({
+        id: node.id,
+        name:
+          snapshot.steps.find((step) => step.step.id === node.id)?.name ??
+          node.type,
+        status: "waiting",
+        isBlocked: false,
+        cancellation: "none",
+        output: null,
+        error: null,
+      })),
     };
     const workspaceIds = snapshot.steps.flatMap((step) =>
       !isApiProvider(step.provider) && step.prepared.directory
@@ -293,7 +291,7 @@ export class AgentPlanRunEngine {
     }
   }
 
-  /** Agent nodes run through the step runner; flow tickets, starts and ends are checkpoints. */
+  /** Agent nodes run through the step runner; starts and ends are checkpoints. */
   private async outcome(
     active: ActivePlanRun,
     node: AgentPlanNode,

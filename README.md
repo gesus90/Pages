@@ -154,10 +154,15 @@ selection narrows the registered workspaces and their ticket picker. Only
 workspaces in accessible projects are offered; unavailable registrations are
 explained and cannot be selected for new work.
 
-The grid is the main editor. A collapsible panel on the right has **Agents**,
-**Tickets** and **Parameters** tabs. Search, filter and sort the authorized
-agents and project tasks/subtasks, then drag them onto the grid. Buttons offer
-an alternative to dragging. Move nodes by their header or edit their grid
+The grid is the main editor and spans the page width. Drag its empty area to
+pan it; the mouse wheel or the zoom buttons zoom it, and nodes and connections
+keep their positions relative to each other. On desktop a collapsible panel
+floats over the right edge of the grid without narrowing it; on small screens it
+sits below the grid. It has **Agents**, **Tickets** and **Parameters** tabs.
+Search, filter and sort the authorized agents and project tasks/subtasks, then
+drag them onto the grid. Tickets can also be filtered by their current status:
+open, done, or one workflow status such as To Do or Done. Buttons offer an
+alternative to dragging. Move nodes by their header or edit their grid
 coordinates. The panel edits instances and their inputs; agent definitions
 remain in the existing Agents area.
 
@@ -170,17 +175,25 @@ current resource access.
 
 Select an **OUT** port, then a compatible **IN** port:
 
-- Solid **Flow OUT → Flow IN** edges control order. Agents and flow tickets
-  have both ports; a **Start** has only OUT and an **End** only IN.
+- Solid **Flow OUT → Flow IN** edges control order. Agents have both ports;
+  a **Start** has only OUT and an **End** only IN.
 - Dashed **Data OUT → named Data IN** connections bind values directly to an
-  agent parameter. Ticket data becomes authorized ticket markdown at a text
-  port. Data alone never schedules a node; tickets used only as data sources
-  do not need flow edges. A ticket in the flow is an authorized checkpoint and
-  does not implicitly change its ticket status.
+  agent parameter. Data alone never schedules a node.
+- A ticket node is a value source, not a step: it has one **Ticket OUT** and no
+  flow ports, and needs no Start. Connected to a ticket parameter, the agent
+  receives the complete ticket as that parameter's value when the plan runs; a
+  text parameter of an earlier plan still receives the ticket markdown. Plans
+  that used tickets as flow checkpoints open with direct edges between the
+  neighbours of those tickets. A ticket's status never changes implicitly.
 - A data IN accepts one source. Disconnect before rebinding. Wrong directions,
   unknown ports, incompatible types, duplicate connections and flow cycles
   are rejected. Existing predecessor-result connections remain available and
   require a flow path from the producing agent to the consuming agent.
+
+Click a connection, or choose it in the **Connections** list below the grid, to
+disconnect it alone; both of its nodes stay. The bin on a node removes the node
+together with all of its connections; the Delete key removes the selected node
+or connection.
 
 An executable plan needs at least one usable agent, an explicit Start and a
 reachable End. Every flow node must be reachable from a Start and lead to an
@@ -195,6 +208,11 @@ explicit Start/End nodes and connected required parameters before Play.
 values. Incomplete drafts can be saved; invalid connections cannot. Revision
 checks reject conflicting writes. Navigation and tab closing warn about
 unsaved changes, and run polling does not replace an edited draft.
+
+**Delete plan** removes a plan for everyone it is shared with. Only its owner,
+who may also edit it, is offered the action, and the server refuses anyone
+else. A plan with a running or paused run cannot be deleted; finished runs stay
+in the run records of the agents.
 
 **Play** validates and executes the saved revision using the Pages execution
 service. Solid branches run independently, with at most two concurrent nodes

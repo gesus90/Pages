@@ -1,3 +1,4 @@
+import { Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
@@ -19,14 +20,24 @@ import type {
 } from "@/definition/AgentPlan";
 import type { PlanGraphActions } from "./use-plan-graph";
 
-/** Node ports are buttons as well as drag targets, allowing keyboard and touch bindings. */
-export function PlanNodeCard(props: {
+// The one data OUT of each node type; start and end have none.
+const OUTPUT_LABELS: Partial<Record<AgentPlanNode["type"], string>> = {
+  agent: "plans.resultOut",
+  task: "plans.ticketOut",
+  parameter: "plans.valueOut",
+  variable: "plans.valueOut",
+};
+
+interface NodeCardProps {
   readonly node: AgentPlanNode;
   readonly sources: AgentPlanSources;
   readonly graph: PlanGraphActions;
   readonly canEdit: boolean;
   readonly result?: AgentPlanStepResult;
-}): React.ReactElement {
+}
+
+/** Node ports are buttons as well as drag targets, allowing keyboard and touch bindings. */
+export function PlanNodeCard(props: NodeCardProps): React.ReactElement {
   const { t } = useTranslation();
   const { node, graph } = props;
   const label =
@@ -38,10 +49,7 @@ export function PlanNodeCard(props: {
       ? (props.sources.agents.find((agent) => agent.id === node.agentId)
           ?.configuration.parameters ?? [])
       : [];
-  function startDrag(event: React.DragEvent<HTMLButtonElement>): void {
-    event.dataTransfer.setData("application/x-pages-plan", `node:${node.id}`);
-    event.dataTransfer.effectAllowed = "move";
-  }
+  const output = OUTPUT_LABELS[node.type];
   return (
     <article
       aria-label={label}
@@ -59,22 +67,7 @@ export function PlanNodeCard(props: {
         height: planNodeHeight(node, props.sources),
       }}
     >
-      <button
-        type="button"
-        draggable={props.canEdit}
-        onDragStart={startDrag}
-        onClick={() => graph.select(node.id)}
-        className="mb-2 h-9 w-full cursor-grab text-left text-sm font-semibold"
-        aria-label={t("plans.selectNode", {
-          name: label,
-        })}
-      >
-        <span className="block text-xs font-normal text-muted-foreground">
-          {t(`plans.nodeType.${node.type}`)}
-          {props.result ? ` · ${t(`plans.status.${props.result.status}`)}` : ""}
-        </span>
-        <span className="block truncate">{label}</span>
-      </button>
+      <NodeHeader {...props} label={label} />
       <PlanFlowPorts node={node} graph={graph} canEdit={props.canEdit} />
       {node.type === "agent" ? (
         <PlanPorts
@@ -85,7 +78,7 @@ export function PlanNodeCard(props: {
           canEdit={props.canEdit}
         />
       ) : null}
-      {node.type !== "start" && node.type !== "end" ? (
+      {output ? (
         <Button
           className="mt-2 ml-auto flex"
           size="sm"
@@ -98,9 +91,48 @@ export function PlanNodeCard(props: {
             })
           }
         >
-          {t(node.type === "agent" ? "plans.resultOut" : "plans.valueOut")}
+          {t(output)}
         </Button>
       ) : null}
     </article>
+  );
+}
+
+function NodeHeader(
+  props: NodeCardProps & { readonly label: string },
+): React.ReactElement {
+  const { t } = useTranslation();
+  const { node, graph } = props;
+  function startDrag(event: React.DragEvent<HTMLButtonElement>): void {
+    event.dataTransfer.setData("application/x-pages-plan", `node:${node.id}`);
+    event.dataTransfer.effectAllowed = "move";
+  }
+  return (
+    <div className="mb-2 flex h-9 items-center gap-1">
+      <button
+        type="button"
+        draggable={props.canEdit}
+        onDragStart={startDrag}
+        onClick={() => graph.select(node.id)}
+        className="h-9 min-w-0 flex-1 cursor-grab text-left text-sm font-semibold"
+        aria-label={t("plans.selectNode", { name: props.label })}
+      >
+        <span className="block text-xs font-normal text-muted-foreground">
+          {t(`plans.nodeType.${node.type}`)}
+          {props.result ? ` · ${t(`plans.status.${props.result.status}`)}` : ""}
+        </span>
+        <span className="block truncate">{props.label}</span>
+      </button>
+      <Button
+        size="icon-sm"
+        variant="ghost"
+        className="shrink-0 text-muted-foreground hover:text-destructive"
+        disabled={!props.canEdit}
+        aria-label={t("plans.deleteNode", { name: props.label })}
+        onClick={() => graph.remove(node.id)}
+      >
+        <Trash2 className="size-4" aria-hidden="true" />
+      </Button>
+    </div>
   );
 }

@@ -75,7 +75,12 @@ export class AgentPlanPreparation {
         directoryParameter: configuration.directoryParameter,
         ...(configuration.run === undefined ? {} : { run: configuration.run }),
       };
-      const bindings = planBindings(plan, step, tasks);
+      const bindings = planBindings(
+        plan,
+        step,
+        tasks,
+        configuration.parameters,
+      );
       const prepared = await this.dependencies.parameters.prepare(
         userId,
         {

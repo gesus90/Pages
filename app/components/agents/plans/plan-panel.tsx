@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
 import { Tabs, TabsContent } from "@/app/components/ui/tabs";
+import { cn } from "@/app/lib/cn";
 
 import { AgentSources, TaskSources } from "./plan-sources";
 import { PlanParameters } from "./plan-parameters";
@@ -11,7 +12,7 @@ import { PlanInspector } from "./plan-inspector";
 import type { AgentPlanPage } from "@/definition/AgentPlan";
 import type { usePlanEditor } from "./use-plan-editor";
 
-/** A compact collapsible picker keeps the grid as the primary workspace. */
+/** On desktop a collapsible picker floats over the right edge of the grid, which keeps its full width; small screens stack it below. */
 export function PlanPanel(props: {
   readonly page: AgentPlanPage;
   readonly editor: ReturnType<typeof usePlanEditor>;
@@ -24,7 +25,11 @@ export function PlanPanel(props: {
     !editor.canEdit || editor.isPending || !editor.draft.workspaceId;
   return (
     <aside
-      className={isOpen ? "w-full shrink-0 space-y-3 lg:w-80" : "shrink-0"}
+      aria-label={t("plans.pickers")}
+      className={cn(
+        "mt-3 flex flex-col items-end gap-2 lg:absolute lg:top-2 lg:right-2 lg:z-20 lg:mt-0 lg:max-h-[calc(100%-1rem)]",
+        isOpen && "lg:bottom-2 lg:w-[min(22rem,calc(100%-1rem))]",
+      )}
     >
       <Button
         size="sm"
@@ -35,7 +40,11 @@ export function PlanPanel(props: {
       >
         {t(isOpen ? "plans.collapsePanel" : "plans.expandPanel")}
       </Button>
-      <div id="plan-picker-panel" hidden={!isOpen} className="space-y-3">
+      <div
+        id="plan-picker-panel"
+        hidden={!isOpen}
+        className="min-h-0 w-full flex-1 space-y-3 overflow-y-auto rounded-xl border border-border bg-surface p-3 lg:shadow-panel"
+      >
         <Tabs
           value={tab}
           onValueChange={setTab}

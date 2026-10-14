@@ -1,4 +1,9 @@
-import { data as routeData, useLoaderData, useLocation } from "react-router";
+import {
+  data as routeData,
+  redirect,
+  useLoaderData,
+  useLocation,
+} from "react-router";
 
 import { PlanPage } from "@/app/components/agents/plans/plan-page";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
@@ -46,7 +51,7 @@ export async function loader({
   }
 }
 
-/** Save, Play, Pause, Resume and Stop use the authenticated executor and live server permissions. */
+/** Save, Delete, Play, Pause, Resume and Stop use the authenticated executor and live server permissions. */
 export async function action(args: Route.ActionArgs): Promise<Response> {
   let intent = "";
   try {
@@ -54,6 +59,13 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
     intent = String(formData.get("intent") ?? "");
     if (intent === "save-plan")
       return await savePlan(user.id, services.agentPlanService, formData);
+    if (intent === "delete-plan") {
+      await services.agentPlanService.remove(
+        user.id,
+        readPlanText(formData.get("planId")),
+      );
+      return redirect("/agents/plans", { headers: AGENT_NO_STORE });
+    }
     if (intent === "play-plan")
       return await playPlan(user.id, services.agentPlanService, formData);
     if (

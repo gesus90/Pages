@@ -51,7 +51,9 @@ export class AgentPlanTasks {
           title: item.title,
           type: item.type,
           parentId: item.parentId,
+          statusKey: item.statusKey,
           statusName: item.statusName,
+          isDone: item.isDone,
         },
       ];
     });

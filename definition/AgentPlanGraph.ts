@@ -57,33 +57,75 @@ export function hasPlanPath(
   return false;
 }
 
-/** Tickets used exclusively as input stay outside the execution graph. */
-export function isPlanFlowNode(
-  node: AgentPlanNode,
-  plan: AgentPlanInput,
-): boolean {
-  if (node.type === "parameter" || node.type === "variable") return false;
-  if (
-    node.type !== "task" ||
-    plan.edges.some((edge) => edge.from === node.id || edge.to === node.id)
-  )
-    return true;
-  return !plan.nodes.some(
-    (step) =>
-      step.type === "agent" &&
-      Object.values(step.bindings).some(
-        (binding) => binding.kind === "source" && binding.nodeId === node.id,
-      ),
-  );
+/** Start, end and agent nodes form the execution graph; tickets, parameters and variables only supply values. */
+export function isPlanFlowNode(node: AgentPlanNode): boolean {
+  return node.type === "start" || node.type === "end" || node.type === "agent";
 }
 
-/** Data sources use the established agent types; ticket markdown fits a text input. */
+/** Data sources use the established agent types; a ticket node supplies a ticket reference. */
 export function planSourceType(
   node: AgentPlanNode | undefined,
 ): AgentParameter["type"] | null {
   if (node?.type === "parameter") return node.value.type;
-  if (node?.type === "variable" || node?.type === "task") return "text";
+  if (node?.type === "variable") return "text";
+  if (node?.type === "task") return "ticket";
   return null;
+}
+
+/**
+ * Tells whether a source node may feed a parameter of the given type.
+ *
+ * @remarks
+ * A ticket node also fits a text parameter and then supplies its markdown, as
+ * before ticket parameters existed, so earlier plans keep their bindings.
+ */
+export function fitsPlanParameter(
+  source: AgentPlanNode | undefined,
+  parameterType: AgentParameter["type"],
+): boolean {
+  return (
+    planSourceType(source) === parameterType ||
+    (source?.type === "task" && parameterType === "text")
+  );
+}
+
+/**
+ * Replaces flow edges through ticket nodes by direct edges between their neighbours.
+ *
+ * @remarks
+ * Ticket nodes were flow checkpoints in earlier plans. They are pure value
+ * sources now, so a saved plan keeps its execution order without them.
+ */
+export function withoutTicketFlow<Plan extends AgentPlanInput>(
+  plan: Plan,
+): Plan {
+  const tickets = new Set(
+    plan.nodes.filter((node) => node.type === "task").map((node) => node.id),
+  );
+  if (
+    !plan.edges.some((edge) => tickets.has(edge.from) || tickets.has(edge.to))
+  )
+    return plan;
+  let edges = plan.edges;
+  for (const ticket of tickets) edges = bridgeNode(edges, ticket);
+  return { ...plan, edges };
+}
+
+function bridgeNode(
+  edges: readonly AgentPlanEdge[],
+  id: string,
+): readonly AgentPlanEdge[] {
+  const remaining = edges.filter((edge) => edge.from !== id && edge.to !== id);
+  for (const before of edges.filter((edge) => edge.to === id))
+    for (const after of edges.filter((edge) => edge.from === id))
+      if (
+        before.from !== after.to &&
+        !remaining.some(
+          (edge) => edge.from === before.from && edge.to === after.to,
+        )
+      )
+        remaining.push({ ...after, from: before.from });
+  return remaining;
 }
 
 function edgeIssues(plan: AgentPlanInput): AgentPlanIssue[] {
@@ -92,10 +134,8 @@ function edgeIssues(plan: AgentPlanInput): AgentPlanIssue[] {
   for (const edge of plan.edges) {
     const source = plan.nodes.find((node) => node.id === edge.from);
     const target = plan.nodes.find((node) => node.id === edge.to);
-    const validSource =
-      source && ["start", "agent", "task"].includes(source.type);
-    const validTarget =
-      target && ["end", "agent", "task"].includes(target.type);
+    const validSource = source && ["start", "agent"].includes(source.type);
+    const validTarget = target && ["end", "agent"].includes(target.type);
     if (!validSource || edge.fromPort !== "flow-out")
       issues.push({ nodeId: edge.from, port: edge.fromPort, reason: "port" });
     if (!validTarget || edge.toPort !== "flow-in")
@@ -122,29 +162,34 @@ function bindingIssues(
     const parameter = agent.configuration.parameters.find(
       (entry) => entry.name === name,
     );
-    let type: AgentParameter["type"] | null = null;
-    if (binding.kind === "literal") type = binding.value?.type ?? null;
-    if (binding.kind === "source")
-      type = planSourceType(
-        plan.nodes.find((node) => node.id === binding.nodeId),
-      );
-    if (
-      binding.kind === "result" &&
-      plan.nodes.some(
-        (node) => node.id === binding.stepId && node.type === "agent",
-      ) &&
-      hasPlanPath(plan.edges, binding.stepId, step.id)
-    )
-      type = "text";
     if (!parameter)
       issues.push({ nodeId: step.id, port: name, reason: "port" });
-    else if (
-      type !== parameter.type &&
-      !(binding.kind === "literal" && binding.value === null)
-    )
+    else if (!fitsBinding(step, binding, plan, parameter.type))
       issues.push({ nodeId: step.id, port: name, reason: "type" });
   }
   return issues;
+}
+
+function fitsBinding(
+  step: AgentPlanStep,
+  binding: AgentPlanBinding,
+  plan: AgentPlanInput,
+  parameterType: AgentParameter["type"],
+): boolean {
+  if (binding.kind === "literal")
+    return binding.value === null || binding.value.type === parameterType;
+  if (binding.kind === "source")
+    return fitsPlanParameter(
+      plan.nodes.find((node) => node.id === binding.nodeId),
+      parameterType,
+    );
+  return (
+    parameterType === "text" &&
+    plan.nodes.some(
+      (node) => node.id === binding.stepId && node.type === "agent",
+    ) &&
+    hasPlanPath(plan.edges, binding.stepId, step.id)
+  );
 }
 
 /** Structural checks apply to drafts too; missing connections are checked before Play. */
@@ -222,9 +267,7 @@ export function planExecutionIssues(
     issues.push({ nodeId: null, port: null, reason: "end" });
   if (!plan.nodes.some((node) => node.type === "agent"))
     issues.push({ nodeId: null, port: null, reason: "agent" });
-  for (const node of plan.nodes.filter((entry) =>
-    isPlanFlowNode(entry, plan),
-  )) {
+  for (const node of plan.nodes.filter(isPlanFlowNode)) {
     if (
       node.type !== "start" &&
       !plan.edges.some((edge) => edge.to === node.id)

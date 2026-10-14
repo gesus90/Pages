@@ -1,13 +1,13 @@
-import { useState } from "react";
-
 import { planExecutionIssues } from "@/definition/AgentPlanGraph";
 
+import { planLinkKey, removePlanLink } from "./plan-links";
 import {
   createPlanNode,
   removePlanNode,
   snapPlanCoordinate,
 } from "./plan-node-factory";
 import { usePlanConnections } from "./use-plan-connections";
+import { usePlanSelection } from "./use-plan-selection";
 
 import type {
   AgentPlanInput,
@@ -19,15 +19,15 @@ import type {
 import type { Dispatch, SetStateAction } from "react";
 import type { AgentPlanIssue } from "@/definition/AgentPlanGraph";
 import type { AgentParameterValue } from "@/definition/AgentParameters";
+import type { PlanLink } from "./plan-links";
+import type { PlanSelection } from "./use-plan-selection";
 
 /** Editable node operations and validated port interactions of one plan draft. */
-export interface PlanGraphActions {
+export interface PlanGraphActions extends PlanSelection {
   readonly issues: readonly AgentPlanIssue[];
   readonly connectionIssue: ReturnType<
     typeof usePlanConnections
   >["connectionIssue"];
-  readonly selectedId: string | null;
-  readonly select: (id: string | null) => void;
   readonly connection: ReturnType<typeof usePlanConnections>["connection"];
   readonly begin: ReturnType<typeof usePlanConnections>["begin"];
   readonly connect: ReturnType<typeof usePlanConnections>["connect"];
@@ -38,7 +38,10 @@ export interface PlanGraphActions {
     position?: AgentPlanPosition,
   ) => string | null;
   readonly move: (id: string, x: number, y: number) => void;
+  /** Removes a node together with every connection that reaches it. */
   readonly remove: (id: string) => void;
+  /** Removes one connection and keeps both of its nodes. */
+  readonly disconnect: (link: PlanLink) => void;
   readonly replaceStep: (step: AgentPlanStep) => void;
   readonly replaceNode: (node: AgentPlanNode) => void;
   readonly insertValue: (
@@ -54,7 +57,7 @@ export function usePlanGraph(
   setDraft: Dispatch<SetStateAction<AgentPlanInput>>,
   sources: AgentPlanSources,
 ): PlanGraphActions {
-  const [selectedId, select] = useState<string | null>(null);
+  const selection = usePlanSelection();
   const connections = usePlanConnections(draft, setDraft, sources);
   function add(
     kind: AgentPlanNode["type"],
@@ -68,7 +71,7 @@ export function usePlanGraph(
       ...previous,
       nodes: [...previous.nodes, ...additions],
     }));
-    select(node.id);
+    selection.select(node.id);
     return node.id;
   }
   function move(id: string, x: number, y: number): void {
@@ -83,8 +86,18 @@ export function usePlanGraph(
   }
   function remove(id: string): void {
     setDraft((previous) => removePlanNode(previous, id));
-    if (selectedId === id) select(null);
+    const link = selection.selectedLink;
+    if (selection.selectedId === id || link?.from === id || link?.to === id)
+      selection.select(null);
     if (connections.connection?.nodeId === id) connections.begin(null);
+  }
+  function disconnect(link: PlanLink): void {
+    setDraft((previous) => removePlanLink(previous, link));
+    if (
+      selection.selectedLink &&
+      planLinkKey(selection.selectedLink) === planLinkKey(link)
+    )
+      selection.selectLink(null);
   }
   function replaceNode(step: AgentPlanNode): void {
     setDraft((previous) => ({
@@ -119,17 +132,17 @@ export function usePlanGraph(
         { ...source, value },
       ],
     }));
-    select(source.id);
+    selection.select(source.id);
   }
   return {
     insertValue,
     issues: planExecutionIssues(draft, sources.agents),
-    selectedId,
-    select,
+    ...selection,
     ...connections,
     add,
     move,
     remove,
+    disconnect,
     replaceStep: replaceNode,
     replaceNode,
   };

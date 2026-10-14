@@ -5,6 +5,8 @@ import { useNavigate } from "react-router";
 import { Button } from "@/app/components/ui/button";
 import { Select } from "@/app/components/ui/select";
 
+import { PlanDelete } from "./plan-delete";
+
 import type { AgentPlanPage, AgentPlanRun } from "@/definition/AgentPlan";
 import type { usePlanEditor } from "./use-plan-editor";
 
@@ -24,7 +26,7 @@ export function PlanHeader({
   return (
     <header className="flex flex-wrap items-center justify-between gap-3">
       <h1 className="text-2xl font-bold">{t("plans.title")}</h1>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Select
           ariaLabel={t("plans.choosePlan")}
           value={page.selected?.id ?? ""}
@@ -38,6 +40,7 @@ export function PlanHeader({
           <Plus className="size-4" aria-hidden="true" />
           {t("plans.newPlan")}
         </Button>
+        {page.selected ? <PlanDelete plan={page.selected} /> : null}
       </div>
     </header>
   );

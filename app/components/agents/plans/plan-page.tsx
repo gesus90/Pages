@@ -13,7 +13,7 @@ import { usePlanRun } from "./use-plan-run";
 
 import type { AgentPlanPage } from "@/definition/AgentPlan";
 
-/** Keeps metadata compact and the grid dominant, with a collapsible source and selection panel. */
+/** Keeps metadata compact and the grid dominant, with a collapsible source and selection panel over it. */
 export function PlanPage({
   page,
 }: {
@@ -63,14 +63,17 @@ export function PlanPage({
         hasSelection={page.selected !== null}
         run={running.run}
       />
-      <div className="flex flex-col items-start gap-4 lg:flex-row">
-        <PlanCanvas
-          draft={editor.draft}
-          sources={editor.sources}
-          graph={editor.graph}
-          canEdit={!disabled && Boolean(editor.draft.workspaceId)}
-          run={running.run}
-        />
+      <p className="text-sm text-muted-foreground">{t("plans.canvasHint")}</p>
+      <div className="relative">
+        <div className="relative h-[max(28rem,calc(100dvh-21rem))] overflow-hidden rounded-xl border border-border">
+          <PlanCanvas
+            draft={editor.draft}
+            sources={editor.sources}
+            graph={editor.graph}
+            canEdit={!disabled && Boolean(editor.draft.workspaceId)}
+            run={running.run}
+          />
+        </div>
         <PlanPanel page={page} editor={editor} />
       </div>
       <PlanValidation
@@ -86,8 +89,8 @@ export function PlanPage({
         <PlanConnections
           draft={editor.draft}
           sources={editor.sources}
+          graph={editor.graph}
           disabled={disabled}
-          onChange={editor.setDraft}
         />
       </details>
       <PlanRunView

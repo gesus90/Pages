@@ -57,21 +57,13 @@ export class AgentPlanStepStart {
     this.dependencies = dependencies;
   }
 
-  /** Flow tickets are authorized checkpoints; they do not change ticket status or call a model. */
+  /** Start and end are authorized checkpoints; they do not call a model. */
   public async control(
     run: AgentPlanRun,
     snapshot: AgentPlanSnapshot,
     node: AgentPlanNode,
   ): Promise<void> {
     await this.dependencies.access.require(run.userId, snapshot.plan.id);
-    if (node.type === "task") {
-      await this.dependencies.tasks.snapshot(
-        run.userId,
-        snapshot.plan.projectId,
-        node.taskId,
-      );
-      return;
-    }
     if (node.type !== "start" && node.type !== "end")
       throw new AgentError("plan_invalid");
   }

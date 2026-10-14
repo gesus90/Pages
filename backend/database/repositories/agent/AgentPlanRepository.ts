@@ -1,6 +1,7 @@
 import { readPlanInput } from "@/backend/agents/AgentPlanInput";
 import { readCountColumn, readTextColumn } from "@/backend/database/RowValue";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { withoutTicketFlow } from "@/definition/AgentPlanGraph";
 
 import type {
   Database,
@@ -19,13 +20,13 @@ const PLAN_COLUMNS = `
 
 function readPlan(row: readonly DatabaseValue[]): AgentPlan {
   const input: unknown = JSON.parse(readTextColumn(row, 4, "plan_json"));
-  return {
+  return withoutTicketFlow({
     ...readPlanInput(input),
     id: readTextColumn(row, 0, "id"),
     ownerId: readTextColumn(row, 1, "owner_id"),
     projectId: readTextColumn(row, 2, "project_id"),
     revision: readCountColumn(row, 3, "revision"),
-  };
+  });
 }
 
 async function findPlan(
@@ -117,6 +118,42 @@ export class AgentPlanRepository {
           usage: plan.usage,
           plan_json: JSON.stringify(plan),
         },
+      );
+    });
+  }
+
+  /**
+   * Deletes an owner's plan unless one of its runs is still active.
+   *
+   * @remarks
+   * Finished runs stay stored, so the run records of the agents keep their
+   * history; without the plan they are no longer listed anywhere.
+   *
+   * @throws {AgentError} `plan_access_denied` when the plan no longer belongs
+   * to the owner, `plan_running` while a run is running or paused.
+   */
+  public async remove(id: string, ownerId: string): Promise<void> {
+    await this.database.transaction(async (transaction) => {
+      const previous = await findPlan(transaction, id);
+      if (previous?.ownerId !== ownerId)
+        throw new AgentError("plan_access_denied");
+      const [active] = await transaction.query(
+        `
+        SELECT id
+        FROM agent_plan_runs
+        WHERE plan_id = $plan_id
+            AND status IN ('running', 'paused')
+        LIMIT 1;
+      `,
+        { plan_id: id },
+      );
+      if (active) throw new AgentError("plan_running");
+      await transaction.execute(
+        `
+        DELETE FROM agent_plans
+        WHERE id = $id;
+      `,
+        { id },
       );
     });
   }

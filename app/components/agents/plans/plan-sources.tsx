@@ -6,6 +6,8 @@ import { Select } from "@/app/components/ui/select";
 import { VerticalScrollArea } from "@/app/components/ui/vertical-scroll-area";
 import { Button } from "@/app/components/ui/button";
 
+import { usePlanTaskFilter } from "./use-plan-task-filter";
+
 import type { AgentPlanNode, AgentPlanSources } from "@/definition/AgentPlan";
 import type { PlanGraphActions } from "./use-plan-graph";
 
@@ -97,25 +99,10 @@ export function AgentSources(props: SourceProps): React.ReactElement {
   );
 }
 
-/** Project tickets retain their visibility and can be searched, filtered and sorted. */
+/** Project tickets retain their visibility and can be searched, filtered by type and status, and sorted. */
 export function TaskSources(props: SourceProps): React.ReactElement {
   const { t } = useTranslation();
-  const [search, setSearch] = useState("");
-  const [type, setType] = useState("");
-  const [sort, setSort] = useState<"key" | "title" | "statusName">("key");
-  const tasks = props.sources.tasks
-    .filter(
-      (task) =>
-        `${task.key} ${task.title} ${task.statusName}`
-          .toLowerCase()
-          .includes(search.toLowerCase()) &&
-        (!type || task.type === type),
-    )
-    .sort(
-      (first, second) =>
-        first[sort].localeCompare(second[sort], undefined, { numeric: true }) ||
-        first.id.localeCompare(second.id),
-    );
+  const filter = usePlanTaskFilter(props.sources.tasks);
   return (
     <section
       aria-label={t("plans.taskSources")}
@@ -125,13 +112,13 @@ export function TaskSources(props: SourceProps): React.ReactElement {
       <Input
         aria-label={t("plans.taskFilter")}
         placeholder={t("plans.taskFilter")}
-        value={search}
-        onChange={(event) => setSearch(event.target.value)}
+        value={filter.search}
+        onChange={(event) => filter.setSearch(event.target.value)}
       />
       <Select<"key" | "title" | "statusName">
         ariaLabel={t("plans.sort")}
-        value={sort}
-        onValueChange={setSort}
+        value={filter.sort}
+        onValueChange={filter.setSort}
         options={[
           { value: "key", label: t("plans.sortKey") },
           { value: "title", label: t("plans.sortName") },
@@ -140,19 +127,33 @@ export function TaskSources(props: SourceProps): React.ReactElement {
       />
       <Select
         ariaLabel={t("plans.taskTypeFilter")}
-        value={type}
-        onValueChange={setType}
+        value={filter.type}
+        onValueChange={filter.setType}
         options={[
           { value: "", label: t("plans.allTasks") },
           { value: "task", label: t("plans.task") },
           { value: "subtask", label: t("plans.subtask") },
         ]}
       />
+      <Select
+        ariaLabel={t("plans.taskStatusFilter")}
+        value={filter.status}
+        onValueChange={filter.setStatus}
+        options={[
+          { value: "", label: t("plans.allStatuses") },
+          { value: "open", label: t("plans.openTasks") },
+          { value: "done", label: t("plans.doneTasks") },
+          ...filter.statuses.map((status) => ({
+            value: status.value,
+            label: status.name,
+          })),
+        ]}
+      />
       <VerticalScrollArea
         className="max-h-[35vh]"
         contentClassName="space-y-2 pb-5"
       >
-        {tasks.map((task) => (
+        {filter.tasks.map((task) => (
           <SourceButton
             key={task.id}
             kind="task"
@@ -163,7 +164,7 @@ export function TaskSources(props: SourceProps): React.ReactElement {
             onAdd={props.graph.add}
           />
         ))}
-        {tasks.length === 0 ? (
+        {filter.tasks.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             {t("plans.noSources")}
           </p>

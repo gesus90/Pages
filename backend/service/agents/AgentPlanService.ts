@@ -271,6 +271,21 @@ export class AgentPlanService {
     return planId;
   }
 
+  /**
+   * Deletes a plan with the same right that edits it: its owner's.
+   *
+   * @param userId - The authenticated requester.
+   * @param id - The plan to delete.
+   * @throws {AgentError} `plan_access_denied` when the plan is not visible to
+   * the requester or belongs to someone else, `plan_running` while one of its
+   * runs is active.
+   */
+  public async remove(userId: string, id: string): Promise<void> {
+    const plan = await this.dependencies.access.require(userId, id);
+    if (!plan.canEdit) throw new AgentError("plan_access_denied");
+    await this.dependencies.plans.remove(plan.id, userId);
+  }
+
   /** Play uses the saved revision and never executes an unsaved client graph. */
   public async play(
     userId: string,

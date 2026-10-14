@@ -8,6 +8,8 @@ export const AGENT_ERROR_MESSAGES = {
   plan_invalid: "Check the plan fields and graph nodes.",
   plan_access_denied: "This plan or run is not accessible.",
   plan_conflict: "The plan changed. Reload it before saving or starting.",
+  plan_running:
+    "A run of this plan is still active. Stop it before deleting the plan.",
   plan_cycle: "Execution dependencies contain a cycle.",
   plan_binding_invalid: "Check parameter ports and source or result bindings.",
   plan_workspace_conflict:

@@ -99,7 +99,10 @@ export interface AgentPlanTask {
   readonly title: string;
   readonly type: "task" | "subtask";
   readonly parentId: string | null;
+  readonly statusKey: string;
   readonly statusName: string;
+  /** Whether the ticket's current workflow status counts as done. */
+  readonly isDone: boolean;
 }
 
 export interface AgentPlanSources {
