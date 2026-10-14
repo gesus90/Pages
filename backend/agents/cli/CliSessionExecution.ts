@@ -41,10 +41,10 @@ export interface CliIsolationOptions {
 }
 
 interface SessionDependencies {
-  readonly runtime: AgentCliRuntime;
-  readonly store: AgentCredentialStore;
-  readonly locator: CliLocator;
-  readonly runner: CliProcessRunner;
+  readonly runtime: Pick<AgentCliRuntime, "adapter">;
+  readonly store: Pick<AgentCredentialStore, "prepare" | "secure">;
+  readonly locator: Pick<CliLocator, "find" | "locate">;
+  readonly runner: Pick<CliProcessRunner, "startSession">;
   /** Absent disables the isolation. */
   readonly isolation?: CliIsolationOptions;
 }

@@ -37,14 +37,26 @@ export function CodexModeField(props: {
         size="default"
         className="w-full"
         value={mode ?? ""}
-        placeholder={t("settings.agents.run.chooseMode")}
+        ariaLabel={t("settings.agents.run.mode")}
         disabled={props.disabled}
         onValueChange={choose}
-        options={CODEX_PERMISSION_MODES.map((entry) => ({
-          value: entry,
-          label: t(`settings.agents.run.modes.${entry}.label`),
-          description: t(`settings.agents.run.modes.${entry}.description`),
-        }))}
+        options={[
+          // Only shown while no mode is stored; it cannot be chosen.
+          ...(mode === null
+            ? [
+                {
+                  value: "",
+                  label: t("settings.agents.run.chooseMode"),
+                  disabled: true,
+                },
+              ]
+            : []),
+          ...CODEX_PERMISSION_MODES.map((entry) => ({
+            value: entry,
+            label: t(`settings.agents.run.modes.${entry}.label`),
+            description: t(`settings.agents.run.modes.${entry}.description`),
+          })),
+        ]}
       />
       {mode === null ? (
         <span className="block text-xs font-normal text-warning">

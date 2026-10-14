@@ -30,6 +30,10 @@ export class AcpLineChannel {
       start: (controller) => {
         this.controller = controller;
       },
+      // A closed ACP connection cancels its reader; nothing may be enqueued or closed afterwards.
+      cancel: () => {
+        this.isClosed = true;
+      },
     });
     const writable = new WritableStream<AnyMessage>({
       write: (message) => {
