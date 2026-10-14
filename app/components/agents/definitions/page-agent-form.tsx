@@ -11,7 +11,10 @@ import {
 } from "@/app/components/ui/dialog";
 import { Input } from "@/app/components/ui/input";
 import { VerticalScrollArea } from "@/app/components/ui/vertical-scroll-area";
-import { isCodexPermissionMode } from "@/definition/AgentConfiguration";
+import {
+  isAcpPermissionMode,
+  isAcpProvider,
+} from "@/definition/AgentConfiguration";
 import { agentParameterIssues } from "@/definition/AgentParameters";
 
 import { PageAgentModelFields } from "./page-agent-model-fields";
@@ -36,8 +39,8 @@ interface PageAgentFormState {
  * Checks the draft before it is saved.
  *
  * @remarks
- * A Codex CLI agent saved with the earlier write mode must choose one of its
- * two modes first.
+ * A Codex CLI or Claude Code agent saved with the earlier write mode must
+ * choose one of its two modes first.
  */
 function formState(
   input: PageAgentInput,
@@ -48,9 +51,10 @@ function formState(
   const provider = model?.provider ?? agent?.provider ?? null;
   const { run } = input.configuration;
   const isModeMissing =
-    provider === "codex_cli" &&
+    provider !== null &&
+    isAcpProvider(provider) &&
     run !== undefined &&
-    !isCodexPermissionMode(run.access);
+    !isAcpPermissionMode(run.access);
   return {
     hasModel: model !== undefined,
     provider,

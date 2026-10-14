@@ -10,13 +10,13 @@ import { noteSessionEvent } from "@/backend/agents/cli/CliSessionEvents";
 import { AgentError } from "@/backend/error/AgentErrors";
 
 import { findAcpSelectOption } from "./AcpConfigOptions";
-import { isSupportedCodexAcp } from "./CodexAcpAdapter";
 import {
   createAcpSessionState,
   readAcpConfiguration,
   readAcpUpdate,
-} from "./CodexAcpEvents";
-import { decideCodexPermission } from "./CodexAcpProfile";
+} from "./AcpEvents";
+import { PAGES_MCP_SERVER } from "./AcpLaunch";
+import { readMcpServerStatus } from "./AcpMcpStatus";
 
 import type {
   ClientConnection,
@@ -25,6 +25,7 @@ import type {
   RequestPermissionResponse,
   SessionConfigOption,
   SessionNotification,
+  SessionUpdate,
   StopReason,
   Stream,
 } from "@agentclientprotocol/sdk";
@@ -36,7 +37,8 @@ import type {
 } from "@/backend/agents/AgentPlanExecution";
 import type { CliSessionProcess } from "@/backend/agents/cli/CliSessionProcess";
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
-import type { CodexAcpProfile } from "./CodexAcpProfile";
+import type { AcpConfigStep, AcpDriver, AcpSessionProfile } from "./AcpDriver";
+import type { McpServerStatus } from "./AcpMcpStatus";
 
 /** The JSON-RPC code of an agent that needs a sign-in first. */
 const AUTH_REQUIRED = -32000;
@@ -45,9 +47,12 @@ const PROGRESS_INTERVAL_MS = 5_000;
 /** How long closing waits for the adapter to end the protocol session. */
 const SESSION_CLOSE_WAIT_MS = 5_000;
 const STDERR_EVENT_CHARACTERS = 200;
+/** How long the Pages MCP server may stay in the state of connecting before the node fails. */
+const MCP_CONNECT_WAIT_MS = 20_000;
+const MCP_POLL_MS = 500;
 
 /** What the session runs: exactly the stored model, effort and prompt of the node. */
-export interface CodexAcpRequest {
+export interface AcpSessionRequest {
   readonly directory: string;
   /** The complete prompt; it is sent unchanged as one text block. */
   readonly prompt: string;
@@ -59,10 +64,15 @@ export interface CodexAcpRequest {
 }
 
 /** What one ACP session needs from its surroundings. */
-export interface CodexAcpSessionContext {
+export interface AcpSessionContext {
   readonly instanceId: string;
-  readonly profile: CodexAcpProfile;
-  readonly request: CodexAcpRequest;
+  /** What differs between the adapters of the runners. */
+  readonly driver: Pick<
+    AcpDriver,
+    "errors" | "supportedVersions" | "isSupportedAdapter"
+  >;
+  readonly profile: AcpSessionProfile;
+  readonly request: AcpSessionRequest;
   readonly observer: PlanSessionObserver;
   /** The stop and deadline of the node; the process ends with it. */
   readonly signal: AbortSignal;
@@ -72,14 +82,16 @@ export interface CodexAcpSessionContext {
   readonly secure: () => Promise<void>;
 }
 
-/** One configuration option the session must take exactly. */
-interface ConfigSelection {
+/** One configuration option the session must take, with the options the adapter showed last. */
+interface ConfigSelection extends AcpConfigStep {
   readonly sessionId: string;
   readonly options: readonly SessionConfigOption[];
-  readonly id: string;
-  readonly value: string;
-  /** Why the node fails when the adapter does not offer or confirm the value. */
-  readonly refusal: AgentErrorCode;
+}
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
 }
 
 function stopFailure(reason: StopReason): PlanSessionTurn["failure"] {
@@ -97,29 +109,35 @@ function stopFailure(reason: StopReason): PlanSessionTurn["failure"] {
 }
 
 /**
- * The ACP session of one Codex plan node, from the handshake to the closeout.
+ * The ACP session of one plan node, from the handshake to the closeout.
  *
  * @remarks
  * Pages is the ACP client. The session starts in the authorized workspace,
  * takes the stored mode, model and effort exactly and confirms each of them
  * before the prompt is sent; a value the adapter does not offer fails the
- * node with its own code instead of running with another one. Permission
- * requests are answered by the mode, never by a person. A completed turn is
- * no success on its own: the plan checks the closing report afterwards.
- * Closing ends the protocol session, the adapter with its Codex process and
- * every tagged helper, and confirms that none is left.
+ * node with its own code instead of running with another one. Where the
+ * adapter names the model it really uses, the first report is compared with
+ * the stored model and a difference ends the turn. Permission requests are
+ * answered by the mode, never by a person. A completed turn is no success on
+ * its own: the plan checks the closing report afterwards. Closing ends the
+ * protocol session, the adapter with its runner process and every tagged
+ * helper, and confirms that none is left.
  */
-export class CodexAcpSession implements PlanSession {
+export class AcpSession implements PlanSession {
   public readonly turn: Promise<PlanSessionTurn>;
   private readonly process: Pick<
     CliSessionProcess,
     "endInput" | "exited" | "cancel"
   >;
-  private readonly context: CodexAcpSessionContext;
+  private readonly context: AcpSessionContext;
   private readonly connection: ClientConnection;
   private readonly state = createAcpSessionState();
   private lastProgressAt = 0;
   private lastProgress = "";
+  private isModelChecked = false;
+  private isModelMismatch = false;
+  /** The text of a local command such as `/mcp`; `null` while the turn is the node's. */
+  private localCommandText: string | null = null;
   private closing: Promise<PlanSessionClosed> | null = null;
 
   /**
@@ -132,7 +150,7 @@ export class CodexAcpSession implements PlanSession {
   public constructor(
     process: Pick<CliSessionProcess, "endInput" | "exited" | "cancel">,
     stream: Stream,
-    context: CodexAcpSessionContext,
+    context: AcpSessionContext,
   ) {
     this.process = process;
     this.context = context;
@@ -161,8 +179,7 @@ export class CodexAcpSession implements PlanSession {
       await this.initialize();
       const { sessionId, options } = await this.openSession();
       await this.configure(sessionId, options);
-      if (this.state.isMcpUnavailable)
-        throw new AgentError("plan_mcp_unavailable");
+      await this.requirePagesMcp(sessionId);
       const response = await this.connection.agent.request(
         methods.agent.session.prompt,
         {
@@ -171,6 +188,8 @@ export class CodexAcpSession implements PlanSession {
         },
       );
       noteSessionEvent(this.state.events, `turn ${response.stopReason}`);
+      if (this.isModelMismatch)
+        return this.ended("failed", "plan_model_unavailable");
       return this.ended(
         stopFailure(response.stopReason),
         this.state.isMcpUnavailable ? "plan_mcp_unavailable" : null,
@@ -185,18 +204,25 @@ export class CodexAcpSession implements PlanSession {
       methods.agent.initialize,
       {
         protocolVersion: PROTOCOL_VERSION,
-        // Codex works with its own tools in its own sandbox; Pages lends it no file system or terminal.
+        // The runner works with its own tools; Pages lends it no file system or terminal.
         clientCapabilities: {},
       },
     );
+    const { driver } = this.context;
     const agent = response.agentInfo;
-    if (
-      response.protocolVersion !== PROTOCOL_VERSION ||
-      !isSupportedCodexAcp(agent)
-    )
-      throw new AgentError("plan_acp_adapter_unsupported");
-    this.state.effective.adapter = `${agent.name} ${agent.version}`;
+    const adapter = agent ? `${agent.name} ${agent.version}` : "unknown";
+    this.state.effective.adapter = adapter;
     this.state.effective.protocol = `ACP ${response.protocolVersion}`;
+    if (
+      response.protocolVersion === PROTOCOL_VERSION &&
+      driver.isSupportedAdapter(agent)
+    )
+      return;
+    noteSessionEvent(
+      this.state.events,
+      `adapter ${adapter} is not supported, Pages verified ${driver.supportedVersions}`,
+    );
+    throw new AgentError(driver.errors.adapterUnsupported);
   }
 
   private async openSession(): Promise<{
@@ -226,47 +252,44 @@ export class CodexAcpSession implements PlanSession {
     initial: readonly SessionConfigOption[],
   ): Promise<void> {
     const { profile, request } = this.context;
-    let options = await this.select({
-      sessionId,
-      options: initial,
-      id: "mode",
-      value: profile.sessionMode,
-      refusal: "plan_permission_mode_unenforceable",
-    });
-    options = await this.select({
-      sessionId,
-      options,
-      id: "model",
-      value: request.model,
-      refusal: "plan_model_unavailable",
-    });
-    // The effort is set after the model: a model change resets it to the model's default.
-    if (request.reasoningEffort !== null)
-      options = await this.select({
-        sessionId,
-        options,
-        id: "reasoning_effort",
-        value: request.reasoningEffort,
-        refusal: "plan_reasoning_unsupported",
-      });
-    readAcpConfiguration(this.state, options);
+    let options = initial;
+    for (const step of profile.steps(request))
+      options = await this.select({ ...step, sessionId, options });
+    readAcpConfiguration(this.state, options, profile.reportedOptions);
   }
 
   private async select(
     selection: ConfigSelection,
   ): Promise<readonly SessionConfigOption[]> {
+    const { driver } = this.context;
     const option = findAcpSelectOption(selection.options, selection.id);
-    if (option === null) throw new AgentError("plan_acp_adapter_unsupported");
-    if (!option.values.includes(selection.value))
-      throw new AgentError(selection.refusal);
-    if (option.currentValue === selection.value) return selection.options;
+    if (option === null) {
+      this.noteRefusal(selection, "is not an option of the adapter");
+      throw new AgentError(
+        selection.refusal === "plan_reasoning_unsupported"
+          ? selection.refusal
+          : driver.errors.adapterUnsupported,
+      );
+    }
+    const isResolved = selection.isResolvedByAdapter === true;
+    if (!isResolved && !option.values.includes(selection.value))
+      throw this.refused(selection, `is not among ${option.values.join(", ")}`);
+    if (!isResolved && option.currentValue === selection.value)
+      return selection.options;
     const options = await this.setOption(selection);
     const confirmed = findAcpSelectOption(options, selection.id);
-    if (confirmed?.currentValue !== selection.value)
-      throw new AgentError(selection.refusal);
+    if (confirmed === null)
+      throw this.refused(selection, "was not confirmed by the adapter");
+    if (!isResolved && confirmed.currentValue !== selection.value)
+      throw this.refused(
+        selection,
+        `was not confirmed, the adapter kept ${confirmed.currentValue}`,
+      );
     noteSessionEvent(
       this.state.events,
-      `${selection.id} ${selection.value} confirmed`,
+      isResolved
+        ? `${selection.id} ${selection.value} as ${confirmed.currentValue}`
+        : `${selection.id} ${selection.value} confirmed`,
     );
     return options;
   }
@@ -287,13 +310,27 @@ export class CodexAcpSession implements PlanSession {
     } catch (error: unknown) {
       // A refusal of the adapter, not a lost connection, means the value is not offered.
       if (error instanceof RequestError && !this.connection.signal.aborted)
-        throw new AgentError(selection.refusal);
+        throw this.refused(selection, "was refused by the adapter");
       throw error;
     }
   }
 
+  /** Records which stored setting the adapter did not take, so the run record names it. */
+  private noteRefusal(selection: ConfigSelection, reason: string): void {
+    const adapter = this.state.effective.adapter ?? "the adapter";
+    noteSessionEvent(
+      this.state.events,
+      `${selection.id} ${selection.value} ${reason} (${adapter})`,
+    );
+  }
+
+  private refused(selection: ConfigSelection, reason: string): AgentError {
+    this.noteRefusal(selection, reason);
+    return new AgentError(selection.refusal);
+  }
+
   private decide(request: RequestPermissionRequest): RequestPermissionResponse {
-    const decision = decideCodexPermission(this.context.profile.mode, request);
+    const decision = this.context.profile.decide(request);
     if (decision.isDenied) {
       this.state.permissionDenials += 1;
       noteSessionEvent(
@@ -308,8 +345,108 @@ export class CodexAcpSession implements PlanSession {
     const { sessionId } = this.state;
     // An update may arrive before `session/new` answered; it belongs to the only session.
     if (sessionId !== null && notification.sessionId !== sessionId) return;
-    readAcpUpdate(this.state, notification.update);
+    const { update } = notification;
+    if (this.localCommandText !== null) {
+      if (update.sessionUpdate === "agent_message_chunk")
+        this.collectLocalCommand(update);
+      return;
+    }
+    readAcpUpdate(this.state, update, this.context.profile.reportedOptions);
+    this.checkReportedModel();
     this.reportProgress();
+  }
+
+  private collectLocalCommand(update: SessionUpdate): void {
+    if (
+      update.sessionUpdate === "agent_message_chunk" &&
+      update.content.type === "text"
+    )
+      this.localCommandText =
+        (this.localCommandText ?? "") + update.content.text;
+  }
+
+  /**
+   * Compares the first model the adapter names with the stored one.
+   *
+   * @remarks
+   * An adapter that maps the model to a choice of its own cannot prove the
+   * model before the prompt; the first usage report does, and a difference
+   * ends the turn, so the run never goes on with another model.
+   */
+  private checkReportedModel(): void {
+    const { reportedModel } = this.state;
+    const { matchesReportedModel } = this.context.profile;
+    if (
+      reportedModel === null ||
+      this.isModelChecked ||
+      matchesReportedModel === null
+    )
+      return;
+    this.isModelChecked = true;
+    this.state.effective.model = reportedModel;
+    noteSessionEvent(this.state.events, `model ${reportedModel}`);
+    if (matchesReportedModel(this.context.request.model, reportedModel)) return;
+    this.isModelMismatch = true;
+    void this.cancelTurn();
+  }
+
+  private async cancelTurn(): Promise<void> {
+    const { sessionId } = this.state;
+    if (sessionId === null) return;
+    try {
+      await this.connection.agent.notify(methods.agent.session.cancel, {
+        sessionId,
+      });
+    } catch (error: unknown) {
+      // The turn ends with the connection anyway; the mismatch is already recorded.
+      noteSessionEvent(
+        this.state.events,
+        `cancel ${error instanceof Error ? error.message : "failed"}`,
+      );
+    }
+  }
+
+  /**
+   * Waits until the Pages MCP server of the session is connected.
+   *
+   * @remarks
+   * The adapter lists the server states for its local `/mcp` command, which
+   * costs no model call. Codex reports a failed MCP start through its own
+   * startup tool call instead.
+   */
+  private async requirePagesMcp(sessionId: string): Promise<void> {
+    if (this.state.isMcpUnavailable)
+      throw new AgentError("plan_mcp_unavailable");
+    const { profile, request } = this.context;
+    if (!profile.hasMcpStatusCommand || request.mcpServers.length === 0) return;
+    const deadline = Date.now() + MCP_CONNECT_WAIT_MS;
+    let previous: McpServerStatus | null = null;
+    for (;;) {
+      const status = await this.readMcpStatus(sessionId);
+      if (status !== previous)
+        noteSessionEvent(
+          this.state.events,
+          `mcp ${PAGES_MCP_SERVER} ${status}`,
+        );
+      previous = status;
+      if (status === "failed") throw new AgentError("plan_mcp_unavailable");
+      if (status !== "connecting") return;
+      if (Date.now() >= deadline) throw new AgentError("plan_mcp_unavailable");
+      await delay(MCP_POLL_MS);
+    }
+  }
+
+  private async readMcpStatus(sessionId: string): Promise<McpServerStatus> {
+    this.localCommandText = "";
+    try {
+      await this.connection.agent.request(methods.agent.session.prompt, {
+        sessionId,
+        prompt: [{ type: "text", text: "/mcp" }],
+      });
+      return readMcpServerStatus(this.localCommandText ?? "", PAGES_MCP_SERVER);
+    } finally {
+      this.localCommandText = null;
+    }
   }
 
   private reportProgress(): void {
@@ -332,10 +469,14 @@ export class CodexAcpSession implements PlanSession {
       );
     }
     if (error instanceof AgentError) return this.ended("failed", error.code);
+    const { sessionFailed } = this.context.driver.errors;
     if (this.connection.signal.aborted) {
       const exit = await this.process.exited;
+      // The deadline of the process itself can fire before the one of the node.
+      if (exit.errorCode === "check_timeout")
+        return this.ended("timeout", null);
       this.noteStderr(exit.stderrTail);
-      return this.ended("failed", "plan_acp_session_failed");
+      return this.ended("failed", sessionFailed);
     }
     if (error instanceof RequestError && error.code === AUTH_REQUIRED)
       return this.ended("failed", "cli_not_logged_in");
@@ -343,7 +484,7 @@ export class CodexAcpSession implements PlanSession {
       this.state.events,
       `error ${error instanceof Error ? error.message : "unknown"}`,
     );
-    return this.ended("failed", "plan_acp_session_failed");
+    return this.ended("failed", sessionFailed);
   }
 
   private noteStderr(tail: string): void {

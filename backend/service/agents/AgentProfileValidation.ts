@@ -9,6 +9,7 @@ import { isAgentProfilePurpose } from "@/definition/AgentProfile";
 import { agentParameterIssues } from "@/definition/AgentParameters";
 import { isAgentRunOptionsAllowed } from "@/definition/AgentConfiguration";
 
+import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import type {
   AgentProfileInput,
   AgentProfilePurpose,
@@ -101,15 +102,22 @@ function requireConfiguration(
     throw new AgentError("parameter_invalid");
 }
 
+function permissionModeRefusal(provider: AgentProviderId): AgentErrorCode {
+  if (provider === "codex_cli") return "codex_permission_mode_required";
+  if (provider === "claude_code") return "claude_permission_mode_required";
+  return "plan_run_option_unsupported";
+}
+
 /**
  * Refuses run options the agent's runner does not offer.
  *
  * @param provider - The provider of the agent's model connection.
  * @param run - The run options to store.
  * @param previous - The run options stored so far; absent for a new agent.
- * @throws {AgentError} `codex_permission_mode_required` when a Codex CLI agent
- * would store the earlier write mode anew, `plan_run_option_unsupported` for
- * YOLO outside Codex.
+ * @throws {AgentError} `codex_permission_mode_required` or
+ * `claude_permission_mode_required` when an ACP agent would store the earlier
+ * write mode anew, `plan_run_option_unsupported` for YOLO outside the ACP
+ * runners.
  */
 export function requireAllowedRunOptions(
   provider: AgentProviderId,
@@ -117,9 +125,5 @@ export function requireAllowedRunOptions(
   previous: AgentRunOptions | undefined,
 ): void {
   if (isAgentRunOptionsAllowed(provider, run, previous)) return;
-  throw new AgentError(
-    provider === "codex_cli"
-      ? "codex_permission_mode_required"
-      : "plan_run_option_unsupported",
-  );
+  throw new AgentError(permissionModeRefusal(provider));
 }

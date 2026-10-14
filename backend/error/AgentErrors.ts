@@ -29,20 +29,30 @@ export const AGENT_ERROR_MESSAGES = {
     "The node needs the Pages MCP adapter for agent sessions, but this server has none.",
   codex_permission_mode_required:
     "Codex CLI agents run only in “Read only” or “YOLO”. Choose one of the two modes for this agent.",
+  claude_permission_mode_required:
+    "Claude Code agents run only in “Read only” or “YOLO”. Choose one of the two modes for this agent.",
   plan_acp_adapter_missing:
-    "The Codex ACP adapter (codex-acp) is not installed for the server account.",
+    "The Codex ACP adapter (codex-acp) is not installed for the server account. Install it next to the Codex CLI with npm install -g @agentclientprotocol/codex-acp@2 (see the README, ACP adapters) and start the node again.",
+  plan_claude_acp_adapter_missing:
+    "The Claude ACP adapter (claude-agent-acp) is not installed for the server account. Install it next to the Claude CLI with npm install -g @agentclientprotocol/claude-agent-acp@0.90.0 (see the README, ACP adapters) and start the node again.",
   plan_acp_adapter_unsupported:
-    "The installed Codex ACP adapter does not offer what this run needs. Install a supported version of codex-acp.",
+    "The installed Codex ACP adapter is not a version Pages verified or does not offer what this run needs. Install a supported version of codex-acp (2.1.1 up to 3.0.0); the run record names the installed one.",
+  plan_claude_acp_adapter_unsupported:
+    "The installed Claude ACP adapter is not a version Pages verified or does not offer what this run needs. Install a supported version of claude-agent-acp (0.90.x); the run record names the installed one.",
   plan_model_unavailable:
-    "The Codex model catalog of this connection does not offer the agent's model; nothing was sent.",
+    "The catalog of the runner does not offer the agent's model; nothing was sent, and the run never switches to another model.",
   plan_reasoning_unsupported:
-    "The Codex adapter does not offer the agent's reasoning effort for this model; nothing was sent.",
+    "The runner does not offer the agent's reasoning effort for this model; nothing was sent.",
   plan_permission_mode_unenforceable:
-    "This server cannot enforce the permission mode of the agent: YOLO needs the bubblewrap isolation, and the adapter must confirm the mode.",
+    "The ACP adapter does not offer or confirm the permission mode of the agent, so it cannot be enforced; nothing was sent. For Claude Code, a managed or workspace Claude setting that disables bypassPermissions, or a server account running as root, causes this. The run record names what the adapter reported.",
+  plan_yolo_isolation_unavailable:
+    "YOLO runs without an approval step of the runner, so it starts only inside the bubblewrap isolation, which does not work for the server account. Install bubblewrap (apt install bubblewrap), allow unprivileged user namespaces for the account, and start the node again; Pages probes the isolation again within a minute.",
   plan_codex_configuration_unmanaged:
     "A Codex configuration file (config.toml) outside Pages could change this run. Remove it from the connection folder or the workspace.",
   plan_acp_session_failed:
     "The Codex ACP session failed before or during its turn.",
+  plan_claude_acp_session_failed:
+    "The Claude ACP session failed before or during its turn.",
   plan_definition_changed:
     "The AGENT.md of the agent is missing or does not match the started revision.",
   plan_placeholder_unresolved:

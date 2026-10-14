@@ -6,10 +6,10 @@ import {
   WORKSPACE,
   methodsOf,
   startCodexSession,
-} from "./codex-acp-harness";
-import { FAKE_SESSION_ID } from "./fake-codex-adapter";
+} from "./acp-harness";
+import { FAKE_SESSION_ID } from "./fake-acp-adapter";
 
-import type { ReceivedCall } from "./fake-codex-adapter";
+import type { ReceivedCall } from "./fake-acp-adapter";
 
 const scan = vi.hoisted(() => ({
   endTaggedProcesses: vi.fn(async () => ({ found: 0, remaining: 0 })),

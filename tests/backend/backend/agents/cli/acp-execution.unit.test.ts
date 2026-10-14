@@ -5,7 +5,7 @@ import { CliSessionExecution } from "@/backend/agents/cli/CliSessionExecution";
 import { AgentError } from "@/backend/error/AgentErrors";
 import {
   DEFAULT_AGENT_RUN_OPTIONS,
-  codexRunOptions,
+  acpRunOptions,
 } from "@/definition/AgentConfiguration";
 
 import { fakeCliSpawn } from "./fake-cli-spawn";
@@ -22,6 +22,7 @@ import type {
 } from "@/backend/agents/cli/CliContracts";
 import type { AgentRunOptions } from "@/definition/AgentConfiguration";
 import type { CliProviderId } from "@/definition/AgentConnection";
+import type { FakeAdapterOptions } from "../acp/fake-acp-adapter";
 import type { FakeCliSpawn } from "./fake-cli-spawn";
 
 const files = vi.hoisted(() => ({ existing: new Set<string>() }));
@@ -87,9 +88,16 @@ function harness(
     readonly isolation?: CliIsolationOptions;
     readonly hasAdapter?: boolean;
     readonly isLoggedIn?: boolean;
+    readonly provider?: CliProviderId;
+    readonly adapter?: FakeAdapterOptions;
   } = {},
 ): Harness {
-  const fake = fakeCliSpawn({ initialMode: "read-only" });
+  const isClaude = setup.provider === "claude_code";
+  const fake = fakeCliSpawn({
+    flavor: isClaude ? "claude" : "codex",
+    initialMode: isClaude ? "default" : "read-only",
+    ...setup.adapter,
+  });
   const secure = vi.fn(async () => {});
   const execution = new CliSessionExecution({
     runtime: { adapter: async () => adapter(setup.isLoggedIn ?? true) },
@@ -99,10 +107,10 @@ function harness(
         found: true,
         path: BINARIES[provider] ?? null,
       }),
-      locate: async () =>
+      locate: async (binary) =>
         setup.hasAdapter === false
           ? { found: false, path: null }
-          : { found: true, path: "/synthetic/bin/codex-acp" },
+          : { found: true, path: `/synthetic/bin/${binary}` },
     },
     runner: new CliProcessRunner({
       spawn: fake.spawn,
@@ -119,7 +127,7 @@ function input(
 ): AgentPlanSessionInput {
   return {
     agent: {
-      model: "gpt-synthetic",
+      model: provider === "claude_code" ? "claude-sonnet-5-5" : "gpt-synthetic",
       reasoningEffort: "high",
       connection: {
         id: "connection",
@@ -158,8 +166,8 @@ function observer(): PlanSessionObserver & {
   };
 }
 
-const READ_ONLY = codexRunOptions("read_only", 0);
-const YOLO = codexRunOptions("yolo", 0);
+const READ_ONLY = acpRunOptions("read_only", 0);
+const YOLO = acpRunOptions("yolo", 0);
 const ISOLATION: CliIsolationOptions = {
   protectedDirectories: ["/synthetic/data"],
   isRequired: false,
@@ -203,17 +211,82 @@ it("starts a Codex node through the ACP adapter in its workspace, with the conne
   expect(secure).toHaveBeenCalled();
 });
 
-it("keeps Claude Code on its own CLI session; only Codex speaks ACP", async () => {
-  const { execution, fake } = harness();
+it("starts a Claude Code node through the Claude ACP adapter with the connection's Claude CLI, sign-in and only managed switches", async () => {
+  const { execution, fake, secure } = harness({ provider: "claude_code" });
+  const watcher = observer();
   const session = await execution.open(
-    input("claude_code", DEFAULT_AGENT_RUN_OPTIONS),
+    input("claude_code", READ_ONLY),
+    new AbortController().signal,
+    watcher,
+  );
+  const turn = await session.turn;
+  expect(turn).toMatchObject({ failure: null, errorCode: null });
+  expect(turn.effective).toMatchObject({
+    adapter: "@agentclientprotocol/claude-agent-acp 0.90.0",
+    model: "claude-sonnet-5-5",
+    modelOption: "sonnet",
+    reasoningEffort: "high",
+    sessionMode: "default",
+    permissionMode: "read_only",
+    shell: "off",
+    pagesMcp: "read",
+  });
+  const [started] = fake.spawned;
+  expect(started?.file).toBe("/synthetic/bin/claude-agent-acp");
+  expect(started?.arguments).toEqual([]);
+  expect(started?.options.cwd).toBe(WORKSPACE);
+  const environment = started?.options.env ?? {};
+  expect(environment).toMatchObject({
+    CLAUDE_CONFIG_DIR: HOME.config,
+    CLAUDE_CODE_EXECUTABLE: "/synthetic/bin/claude",
+    CLAUDE_CODE_DISABLE_MODEL_ACCESS_FALLBACK: "1",
+    CLAUDE_CODE_DISABLE_LEGACY_MODEL_REMAP: "1",
+    PAGES_RUN_INSTANCE: "instance-synthetic",
+  });
+  expect(environment.ANTHROPIC_API_KEY).toBeUndefined();
+  expect(JSON.stringify(started)).not.toContain("synthetic-run-token");
+  const created = fake.calls.find((call) => call.method === "session/new");
+  expect(created?.params).toMatchObject({
+    cwd: WORKSPACE,
+    mcpServers: [{ name: "pages", command: "/synthetic/bin/node" }],
+    _meta: {
+      claudeCode: {
+        options: {
+          settingSources: [],
+          strictMcpConfig: true,
+          tools: ["Read", "Glob", "Grep", "WebSearch", "WebFetch"],
+        },
+      },
+    },
+  });
+  expect(watcher.started).toHaveBeenCalledWith(
+    expect.objectContaining({ mode: "interactive", processId: 4242 }),
+  );
+  expect((await session.close()).isConfirmed).toBe(true);
+  expect(secure).toHaveBeenCalled();
+});
+
+it("offers a Claude Code node in YOLO every native tool and approves nothing it has to ask for twice", async () => {
+  const { execution, fake } = harness({
+    provider: "claude_code",
+    isolation: ISOLATION,
+  });
+  const session = await execution.open(
+    input("claude_code", YOLO),
     new AbortController().signal,
     observer(),
   );
-  const [started] = fake.spawned;
-  expect(started?.file).toBe("/synthetic/bin/claude");
-  expect(started?.arguments).toContain("--permission-mode");
-  expect(started?.options.env?.INITIAL_AGENT_MODE).toBeUndefined();
+  const turn = await session.turn;
+  expect(turn.effective).toMatchObject({
+    sessionMode: "bypassPermissions",
+    permissionMode: "yolo",
+    isolation: "bubblewrap",
+  });
+  const created = fake.calls.find((call) => call.method === "session/new");
+  const options = JSON.stringify(created?.params);
+  expect(options).toContain('"settingSources":[]');
+  expect(options).not.toContain('"tools"');
+  expect(options).not.toContain('"disallowedTools"');
   await session.close();
 });
 
@@ -241,37 +314,69 @@ it("runs YOLO only inside bubblewrap, and Nur Lesen there with a read-only works
 });
 
 it.each([
-  [
-    "YOLO without the bubblewrap isolation",
-    {},
-    YOLO,
-    "plan_permission_mode_unenforceable",
-  ],
-  [
-    "the earlier write mode, which never becomes YOLO",
-    {},
-    DEFAULT_AGENT_RUN_OPTIONS,
-    "codex_permission_mode_required",
-  ],
-  [
-    "a server without the ACP adapter",
-    { hasAdapter: false },
-    READ_ONLY,
-    "plan_acp_adapter_missing",
-  ],
-  [
-    "a connection without a ChatGPT sign-in",
-    { isLoggedIn: false },
-    READ_ONLY,
-    "cli_not_logged_in",
-  ],
+  {
+    provider: "codex_cli",
+    scenario: "YOLO without the bubblewrap isolation",
+    setup: {},
+    options: YOLO,
+    code: "plan_yolo_isolation_unavailable",
+  },
+  {
+    provider: "codex_cli",
+    scenario: "the earlier write mode, which never becomes YOLO",
+    setup: {},
+    options: DEFAULT_AGENT_RUN_OPTIONS,
+    code: "codex_permission_mode_required",
+  },
+  {
+    provider: "codex_cli",
+    scenario: "a server without the ACP adapter",
+    setup: { hasAdapter: false },
+    options: READ_ONLY,
+    code: "plan_acp_adapter_missing",
+  },
+  {
+    provider: "codex_cli",
+    scenario: "a connection without a ChatGPT sign-in",
+    setup: { isLoggedIn: false },
+    options: READ_ONLY,
+    code: "cli_not_logged_in",
+  },
+  {
+    provider: "claude_code",
+    scenario: "YOLO without the bubblewrap isolation",
+    setup: {},
+    options: YOLO,
+    code: "plan_yolo_isolation_unavailable",
+  },
+  {
+    provider: "claude_code",
+    scenario: "the earlier write mode, which never becomes YOLO",
+    setup: {},
+    options: DEFAULT_AGENT_RUN_OPTIONS,
+    code: "claude_permission_mode_required",
+  },
+  {
+    provider: "claude_code",
+    scenario: "a server without the Claude ACP adapter",
+    setup: { hasAdapter: false },
+    options: READ_ONLY,
+    code: "plan_claude_acp_adapter_missing",
+  },
+  {
+    provider: "claude_code",
+    scenario: "a connection without a Claude sign-in",
+    setup: { isLoggedIn: false },
+    options: READ_ONLY,
+    code: "cli_not_logged_in",
+  },
 ] as const)(
-  "refuses %s before any process starts",
-  async (scenario, setup, options, code) => {
-    const { execution, fake, secure } = harness(setup);
+  "refuses $provider with $scenario before any process starts",
+  async ({ provider, setup, options, code }) => {
+    const { execution, fake, secure } = harness({ ...setup, provider });
     await expect(
       execution.open(
-        input("codex_cli", options),
+        input(provider, options),
         new AbortController().signal,
         observer(),
       ),
@@ -279,7 +384,7 @@ it.each([
     expect(fake.spawned).toEqual([]);
     // A refusal after the credential folder was prepared restores its modes.
     expect(secure).toHaveBeenCalledTimes(
-      code === "codex_permission_mode_required" ? 0 : 1,
+      code.endsWith("_permission_mode_required") ? 0 : 1,
     );
   },
 );

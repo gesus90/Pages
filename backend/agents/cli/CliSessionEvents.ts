@@ -69,63 +69,6 @@ function text(input: unknown): string {
   return typeof input === "string" ? input : "";
 }
 
-function readClaudeInit(
-  state: CliSessionState,
-  event: Record<string, unknown>,
-): CliSessionUpdate {
-  const servers: unknown[] = Array.isArray(event.mcp_servers)
-    ? event.mcp_servers
-    : [];
-  const tools: unknown[] = Array.isArray(event.tools) ? event.tools : [];
-  state.effective.model = text(event.model);
-  state.effective.permissionMode = text(event.permissionMode);
-  state.effective.tools = tools
-    .filter((tool) => typeof tool === "string")
-    .join(",");
-  state.effective.mcp = servers
-    .map((server) => {
-      const entry = readAgentObject(server);
-      return `${text(entry.name)}:${text(entry.status)}`;
-    })
-    .join(",");
-  return identify(state, event.session_id);
-}
-
-function readClaudeAssistant(
-  state: CliSessionState,
-  event: Record<string, unknown>,
-): void {
-  const message = readAgentObject(event.message);
-  const content: unknown[] = Array.isArray(message.content)
-    ? message.content
-    : [];
-  for (const block of content.map(readAgentObject))
-    if (block.type === "tool_use") note(state, `tool ${text(block.name)}`);
-}
-
-function readClaude(
-  state: CliSessionState,
-  event: Record<string, unknown>,
-): CliSessionUpdate {
-  if (event.type === "system" && event.subtype === "init")
-    return readClaudeInit(state, event);
-  if (event.type === "assistant") readClaudeAssistant(state, event);
-  if (event.type !== "result") return {};
-  const denials: unknown[] = Array.isArray(event.permission_denials)
-    ? event.permission_denials
-    : [];
-  state.permissionDenials += denials.length;
-  state.text = text(event.result);
-  state.isTurnComplete = true;
-  state.hasFailed = event.is_error !== false || event.subtype !== "success";
-  state.effective.turns = String(event.num_turns ?? "");
-  note(
-    state,
-    `turn ${text(event.subtype)} after ${state.effective.turns} turns`,
-  );
-  return { turnEnded: true };
-}
-
 function readOpenCode(
   state: CliSessionState,
   event: Record<string, unknown>,
@@ -159,8 +102,8 @@ function readOpenCode(
  *
  * @remarks
  * Lines that are no JSON are diagnostics and are ignored. Event text is kept
- * short; the caller redacts it before it is stored. Codex speaks ACP and
- * reports through its own reader.
+ * short; the caller redacts it before it is stored. Codex and Claude Code
+ * speak ACP and report through the reader of their session.
  */
 export function readCliSessionLine(
   provider: CliPlanRunner,
@@ -175,8 +118,6 @@ export function readCliSessionLine(
     return {};
   }
   switch (provider) {
-    case "claude_code":
-      return readClaude(state, event);
     case "opencode":
       return readOpenCode(state, event);
   }

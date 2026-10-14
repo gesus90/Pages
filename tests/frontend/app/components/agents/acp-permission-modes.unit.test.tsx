@@ -7,7 +7,7 @@ import { AgentRunOptionsFields } from "@/app/components/settings/agents/agent-ru
 import { createI18n } from "@/app/lib/i18n";
 import {
   DEFAULT_AGENT_RUN_OPTIONS,
-  codexRunOptions,
+  acpRunOptions,
 } from "@/definition/AgentConfiguration";
 
 import type {
@@ -60,6 +60,8 @@ function ModeDraft(props: {
   );
 }
 
+const ACP_PROVIDERS = ["codex_cli", "claude_code"] as const;
+
 function renderModes(
   initial: AgentConfiguration,
   provider: AgentProviderId = "codex_cli",
@@ -89,28 +91,31 @@ function savedRun(saved: SaveMock): AgentRunOptions | undefined {
   return saved.mock.calls.at(-1)?.[0].run;
 }
 
-it("offers a Codex CLI agent only Nur Lesen and YOLO, without separate switches, stores the choice and shows it again", async () => {
-  const first = renderModes(WITHOUT_RUN);
-  expect(modeSelect().textContent).toContain("Nur Lesen");
-  expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
-  const options = await openOptions(modeSelect());
-  expect(options).toHaveLength(2);
-  expect(options[0]).toContain("Nur Lesen");
-  expect(options[1]).toContain("YOLO");
-  fireEvent.click(screen.getAllByRole("option")[1]);
-  expect(
-    screen.getByText(i18n.t("settings.agents.run.modes.yolo.description")),
-  ).toBeDefined();
-  fireEvent.click(screen.getByText("Save draft"));
-  expect(savedRun(first.saved)).toEqual(codexRunOptions("yolo", 0));
-  first.unmount();
+it.each(ACP_PROVIDERS)(
+  "offers a %s agent only Nur Lesen and YOLO, without separate switches, stores the choice and shows it again",
+  async (provider) => {
+    const first = renderModes(WITHOUT_RUN, provider);
+    expect(modeSelect().textContent).toContain("Nur Lesen");
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+    const options = await openOptions(modeSelect());
+    expect(options).toHaveLength(2);
+    expect(options[0]).toContain("Nur Lesen");
+    expect(options[1]).toContain("YOLO");
+    fireEvent.click(screen.getAllByRole("option")[1]);
+    expect(
+      screen.getByText(i18n.t("settings.agents.run.modes.yolo.description")),
+    ).toBeDefined();
+    fireEvent.click(screen.getByText("Save draft"));
+    expect(savedRun(first.saved)).toEqual(acpRunOptions("yolo", 0));
+    first.unmount();
 
-  renderModes({ ...WITHOUT_RUN, run: codexRunOptions("yolo", 0) });
-  expect(modeSelect().textContent).toContain("YOLO");
-});
+    renderModes({ ...WITHOUT_RUN, run: acpRunOptions("yolo", 0) }, provider);
+    expect(modeSelect().textContent).toContain("YOLO");
+  },
+);
 
 it("keeps the mode when only the timeout changes", () => {
-  const draft = renderModes(WITHOUT_RUN);
+  const draft = renderModes(WITHOUT_RUN, "claude_code");
   fireEvent.change(
     screen.getByRole("spinbutton", {
       name: i18n.t("settings.agents.run.timeout"),
@@ -118,35 +123,35 @@ it("keeps the mode when only the timeout changes", () => {
     { target: { value: "30" } },
   );
   fireEvent.click(screen.getByText("Save draft"));
-  expect(savedRun(draft.saved)).toEqual(codexRunOptions("read_only", 30));
+  expect(savedRun(draft.saved)).toEqual(acpRunOptions("read_only", 30));
 });
 
-it("shows no mode for an agent saved with the earlier write mode and asks for a choice instead of assuming YOLO", async () => {
-  renderModes({ ...WITHOUT_RUN, run: DEFAULT_AGENT_RUN_OPTIONS });
-  expect(modeSelect().textContent).toContain(
-    i18n.t("settings.agents.run.chooseMode"),
-  );
-  expect(
-    screen.getByText(i18n.t("settings.agents.run.modeRequired")),
-  ).toBeDefined();
-  const options = await openOptions(modeSelect());
-  expect(options.join(" ")).not.toContain(
-    i18n.t("plans.session.access.workspace_write"),
-  );
-  const selectable = screen
-    .getAllByRole("option")
-    .filter((option) => option.getAttribute("aria-disabled") !== "true");
-  expect(selectable.map((option) => option.textContent)).toEqual([
-    expect.stringContaining("Nur Lesen"),
-    expect.stringContaining("YOLO"),
-  ]);
-});
+it.each(ACP_PROVIDERS)(
+  "shows no mode for a %s agent saved with the earlier write mode and asks for a choice instead of assuming YOLO",
+  async (provider) => {
+    renderModes({ ...WITHOUT_RUN, run: DEFAULT_AGENT_RUN_OPTIONS }, provider);
+    expect(modeSelect().textContent).toContain(
+      i18n.t("settings.agents.run.chooseMode"),
+    );
+    expect(
+      screen.getByText(i18n.t("settings.agents.run.modeRequired")),
+    ).toBeDefined();
+    const options = await openOptions(modeSelect());
+    expect(options.join(" ")).not.toContain(
+      i18n.t("plans.session.access.workspace_write"),
+    );
+    const selectable = screen
+      .getAllByRole("option")
+      .filter((option) => option.getAttribute("aria-disabled") !== "true");
+    expect(selectable.map((option) => option.textContent)).toEqual([
+      expect.stringContaining("Nur Lesen"),
+      expect.stringContaining("YOLO"),
+    ]);
+  },
+);
 
-it("keeps workspace access, shell and web for other runners and offers them no YOLO", async () => {
-  renderModes(
-    { ...WITHOUT_RUN, run: DEFAULT_AGENT_RUN_OPTIONS },
-    "claude_code",
-  );
+it("keeps workspace access, shell and web for runners without ACP and offers them no YOLO", async () => {
+  renderModes({ ...WITHOUT_RUN, run: DEFAULT_AGENT_RUN_OPTIONS }, "opencode");
   expect(
     screen.queryByRole("combobox", {
       name: i18n.t("settings.agents.run.mode"),

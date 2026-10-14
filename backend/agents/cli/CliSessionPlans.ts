@@ -1,9 +1,16 @@
-import { isCodexPermissionMode } from "@/definition/AgentConfiguration";
+import { acpDriverFor } from "@/backend/agents/acp/AcpDrivers";
+import {
+  isAcpPermissionMode,
+  isAcpProvider,
+} from "@/definition/AgentConfiguration";
 
 import { RUN_INSTANCE_VARIABLE } from "./CliProcessScan";
 
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
-import type { AgentRunOptions } from "@/definition/AgentConfiguration";
+import type {
+  AcpProviderId,
+  AgentRunOptions,
+} from "@/definition/AgentConfiguration";
 import type { CliProviderId } from "@/definition/AgentConnection";
 import type { AgentPlanSessionMode } from "@/definition/AgentPlanSession";
 
@@ -11,9 +18,10 @@ import type { AgentPlanSessionMode } from "@/definition/AgentPlanSession";
  * The runners whose plan sessions are CLI processes reading their prompt from stdin.
  *
  * @remarks
- * Codex runs its sessions over the Agent Client Protocol instead.
+ * Codex and Claude Code run their sessions over the Agent Client Protocol
+ * instead.
  */
-export type CliPlanRunner = Exclude<CliProviderId, "codex_cli">;
+export type CliPlanRunner = Exclude<CliProviderId, AcpProviderId>;
 
 /** The local MCP process of a session and how it reaches Pages. */
 export interface CliSessionMcp {
@@ -66,86 +74,6 @@ function sessionEnvironment(
     environment.PAGES_TOKEN = specification.mcp.token;
   }
   return environment;
-}
-
-function claudeTools(specification: CliSessionSpecification): {
-  readonly tools: readonly string[];
-  readonly allowed: readonly string[];
-} {
-  const { options, mcp } = specification;
-  const tools = ["Read", "Glob", "Grep"];
-  const allowed = (mcp?.tools ?? []).map(
-    (tool) => `mcp__${MCP_SERVER}__${tool}`,
-  );
-  if (options.access === "workspace_write") tools.push("Edit", "Write");
-  if (options.shell) {
-    tools.push("Bash");
-    allowed.push("Bash");
-  }
-  if (options.web) {
-    tools.push("WebSearch", "WebFetch");
-    allowed.push("WebSearch", "WebFetch");
-  }
-  return { tools, allowed };
-}
-
-function claudePlan(specification: CliSessionSpecification): CliSessionPlan {
-  const { mcp, options } = specification;
-  const permissionMode =
-    options.access === "workspace_write" ? "acceptEdits" : "dontAsk";
-  const { tools, allowed } = claudeTools(specification);
-  const args = [
-    "-p",
-    "--input-format",
-    "stream-json",
-    "--output-format",
-    "stream-json",
-    "--verbose",
-    "--restricted",
-    "--strict-mcp-config",
-    "--no-session-persistence",
-    "--disable-slash-commands",
-    "--permission-mode",
-    permissionMode,
-    "--permission-prompts",
-    "none",
-    "--max-turns",
-    "200",
-    "--tools",
-    tools.join(","),
-  ];
-  if (allowed.length > 0) args.push("--allowedTools", allowed.join(","));
-  if (mcp)
-    args.push(
-      "--mcp-config",
-      JSON.stringify({
-        mcpServers: {
-          [MCP_SERVER]: {
-            type: "stdio",
-            command: mcp.node,
-            args: [mcp.bundle],
-            env: {
-              PAGES_URL: "${PAGES_URL}",
-              PAGES_TOKEN: "${PAGES_TOKEN}",
-              [RUN_INSTANCE_VARIABLE]: `\${${RUN_INSTANCE_VARIABLE}}`,
-            },
-          },
-        },
-      }),
-    );
-  args.push("--model", specification.model);
-  if (specification.reasoningEffort !== null)
-    args.push("--effort", specification.reasoningEffort);
-  return {
-    mode: "interactive",
-    arguments: args,
-    environment: sessionEnvironment(specification),
-    input: JSON.stringify({
-      type: "user",
-      message: { role: "user", content: specification.prompt },
-    }),
-    unattended: `permission-mode=${permissionMode}, permission-prompts=none`,
-  };
 }
 
 function openCodePermissions(
@@ -229,20 +157,20 @@ function openCodePlan(specification: CliSessionSpecification): CliSessionPlan {
  * @returns The refusal, or `null` when the runner enforces every option.
  *
  * @remarks
- * A Codex agent runs only in "Nur Lesen" or YOLO; an earlier write mode is
- * never raised to YOLO on its own, so the node waits for a chosen mode. YOLO
- * exists for no other runner. Claude Code and OpenCode could change files
- * through a command even in a read-only session, so they refuse that
+ * A Codex or Claude Code agent runs only in "Nur Lesen" or YOLO; an earlier
+ * write mode is never raised to YOLO on its own, so the node waits for a
+ * chosen mode. YOLO exists for no other runner. OpenCode could change files
+ * through a command even in a read-only session, so it refuses that
  * combination instead of pretending to keep it.
  */
 export function unsupportedRunOption(
   provider: CliProviderId,
   options: AgentRunOptions,
 ): AgentErrorCode | null {
-  if (provider === "codex_cli")
-    return isCodexPermissionMode(options.access)
+  if (isAcpProvider(provider))
+    return isAcpPermissionMode(options.access)
       ? null
-      : "codex_permission_mode_required";
+      : acpDriverFor(provider).errors.modeRequired;
   if (options.access === "yolo") return "plan_run_option_unsupported";
   return options.access === "read_only" && options.shell
     ? "plan_run_option_unsupported"
@@ -265,8 +193,6 @@ export function planCliSession(
   specification: CliSessionSpecification,
 ): CliSessionPlan {
   switch (provider) {
-    case "claude_code":
-      return claudePlan(specification);
     case "opencode":
       return openCodePlan(specification);
   }

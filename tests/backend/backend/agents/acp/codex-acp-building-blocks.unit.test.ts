@@ -72,7 +72,7 @@ it("starts the adapter with the Codex CLI of the connection and keeps the MCP cr
   const profile = codexAcpProfile("read_only");
   const launch = planCodexAcpLaunch({
     instanceId: "instance",
-    codexFile: "/synthetic/bin/codex",
+    runnerFile: "/synthetic/bin/codex",
     profile,
     mcp: {
       node: "/synthetic/bin/node",
@@ -97,7 +97,7 @@ it("starts the adapter with the Codex CLI of the connection and keeps the MCP cr
   expect(
     planCodexAcpLaunch({
       instanceId: "instance",
-      codexFile: "/synthetic/bin/codex",
+      runnerFile: "/synthetic/bin/codex",
       profile,
       mcp: null,
     }).mcpServers,

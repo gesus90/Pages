@@ -1,7 +1,7 @@
 import { noteSessionEvent } from "@/backend/agents/cli/CliSessionEvents";
 
 import { findAcpSelectOption } from "./AcpConfigOptions";
-import { PAGES_MCP_SERVER } from "./CodexAcpAdapter";
+import { PAGES_MCP_SERVER } from "./AcpLaunch";
 
 import type {
   SessionConfigOption,
@@ -9,6 +9,7 @@ import type {
   ToolCall,
   ToolCallUpdate,
 } from "@agentclientprotocol/sdk";
+import type { AcpReportedOptions } from "./AcpDriver";
 
 /** What Pages learned from the updates of one ACP session so far. */
 export interface AcpSessionState {
@@ -23,6 +24,8 @@ export interface AcpSessionState {
   permissionDenials: number;
   /** The Pages MCP server reported that it could not start. */
   isMcpUnavailable: boolean;
+  /** The model the adapter reported with its first usage update; `null` until then. */
+  reportedModel: string | null;
   /** What the adapter and Pages report about the session. */
   readonly effective: Record<string, string>;
   /** Short lines of what happened, newest last. */
@@ -47,6 +50,7 @@ export function createAcpSessionState(): AcpSessionState {
     isMessageOpen: false,
     permissionDenials: 0,
     isMcpUnavailable: false,
+    reportedModel: null,
     effective: {},
     events: [],
     tools: new Map(),
@@ -86,20 +90,26 @@ function readTool(
  *
  * @param state - The state, updated in place.
  * @param options - The configuration options the adapter reported last.
+ * @param fields - The field of the report and the option it is read from.
  */
 export function readAcpConfiguration(
   state: AcpSessionState,
   options: readonly SessionConfigOption[],
+  fields: AcpReportedOptions,
 ): void {
-  const fields = {
-    sessionMode: "mode",
-    model: "model",
-    reasoningEffort: "reasoning_effort",
-  } as const;
   for (const [field, id] of Object.entries(fields)) {
     const option = findAcpSelectOption(options, id);
     if (option) state.effective[field] = option.currentValue;
   }
+}
+
+/** The key under which the Claude adapter names the model of a usage update. */
+const CLAUDE_MODEL_KEY = "_claude/model";
+
+function readReportedModel(update: SessionUpdate): string | null {
+  if (update.sessionUpdate !== "usage_update") return null;
+  const model = update._meta?.[CLAUDE_MODEL_KEY];
+  return typeof model === "string" && model.length > 0 ? model : null;
 }
 
 /**
@@ -111,12 +121,15 @@ export function readAcpConfiguration(
  * @remarks
  * Thoughts are not kept; like tool calls and plans they end the current
  * message, so the final answer is the message after the last of them. Event
- * text is short; the caller redacts it before it is stored.
+ * text is short; the caller redacts it before it is stored. Only the first
+ * model an adapter names is kept: later updates may belong to a subagent.
  */
 export function readAcpUpdate(
   state: AcpSessionState,
   update: SessionUpdate,
+  fields: AcpReportedOptions,
 ): void {
+  state.reportedModel ??= readReportedModel(update);
   if (update.sessionUpdate === "agent_message_chunk") {
     readMessage(state, update);
     return;
@@ -136,6 +149,6 @@ export function readAcpUpdate(
     state.effective.sessionMode = update.currentModeId;
     noteSessionEvent(state.events, `mode ${update.currentModeId}`);
   } else if (update.sessionUpdate === "config_option_update") {
-    readAcpConfiguration(state, update.configOptions);
+    readAcpConfiguration(state, update.configOptions, fields);
   }
 }

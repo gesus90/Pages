@@ -1,15 +1,15 @@
 import { vi } from "vitest";
 
-import { planCodexAcpLaunch } from "@/backend/agents/acp/CodexAcpAdapter";
-import { codexAcpProfile } from "@/backend/agents/acp/CodexAcpProfile";
-import { CodexAcpSession } from "@/backend/agents/acp/CodexAcpSession";
+import { AcpSession } from "@/backend/agents/acp/AcpSession";
+import { CLAUDE_ACP_DRIVER } from "@/backend/agents/acp/ClaudeAcpDriver";
+import { CODEX_ACP_DRIVER } from "@/backend/agents/acp/CodexAcpDriver";
 
-import { FakeAdapterProcess, fakeCodexAgent } from "./fake-codex-adapter";
+import { FakeAdapterProcess, fakeCodexAgent } from "./fake-acp-adapter";
 
 import type { Mock } from "vitest";
 import type { PlanSessionObserver } from "@/backend/agents/AgentPlanExecution";
-import type { CodexPermissionMode } from "@/definition/AgentConfiguration";
-import type { FakeAdapterOptions, ReceivedCall } from "./fake-codex-adapter";
+import type { AcpPermissionMode } from "@/definition/AgentConfiguration";
+import type { FakeAdapterOptions, ReceivedCall } from "./fake-acp-adapter";
 
 /** The instance tag of every synthetic session. */
 export const INSTANCE_ID = "instance-synthetic";
@@ -29,7 +29,11 @@ export const PROMPT = [
 
 /** What a node configures; everything else is the synthetic default. */
 export interface SyntheticNode {
-  readonly mode?: CodexPermissionMode;
+  /** The runner of the node; Codex CLI unless named. */
+  readonly provider?: "codex_cli" | "claude_code";
+  /** Whether the node has the Pages MCP server; it has by default. */
+  readonly hasMcp?: boolean;
+  readonly mode?: AcpPermissionMode;
   readonly model?: string;
   readonly reasoningEffort?: string | null;
   readonly controller?: AbortController;
@@ -37,7 +41,7 @@ export interface SyntheticNode {
 
 /** A running synthetic session and everything a test inspects. */
 export interface StartedSession {
-  readonly session: CodexAcpSession;
+  readonly session: AcpSession;
   readonly process: FakeAdapterProcess;
   readonly calls: ReceivedCall[];
   readonly observer: {
@@ -52,29 +56,37 @@ export interface StartedSession {
  * Starts the ACP session of a node against a fake adapter.
  *
  * @param adapter - How the fake adapter behaves.
- * @param node - Mode, model, effort and stop signal of the node.
+ * @param node - Runner, mode, model, effort and stop signal of the node.
  * @returns The session, the fake process and the recorded calls.
  */
-export function startCodexSession(
+export function startAcpSession(
   adapter: FakeAdapterOptions = {},
   node: SyntheticNode = {},
 ): StartedSession {
+  const isClaude = node.provider === "claude_code";
+  const driver = isClaude ? CLAUDE_ACP_DRIVER : CODEX_ACP_DRIVER;
   const controller = node.controller ?? new AbortController();
   const process = new FakeAdapterProcess(controller.signal);
-  const fake = fakeCodexAgent(adapter);
+  const fake = fakeCodexAgent({
+    flavor: isClaude ? "claude" : "codex",
+    ...adapter,
+  });
   process.connect(fake.app);
-  const profile = codexAcpProfile(node.mode ?? "read_only");
-  const launch = planCodexAcpLaunch({
+  const profile = driver.profile(node.mode ?? "read_only");
+  const launch = driver.plan({
     instanceId: INSTANCE_ID,
-    codexFile: "/synthetic/bin/codex",
+    runnerFile: isClaude ? "/synthetic/bin/claude" : "/synthetic/bin/codex",
     profile,
-    mcp: {
-      node: "/synthetic/bin/node",
-      bundle: "/synthetic/pages-mcp.cjs",
-      url: "http://pages.invalid",
-      token: "synthetic-run-token",
-      tools: null,
-    },
+    mcp:
+      node.hasMcp === false
+        ? null
+        : {
+            node: "/synthetic/bin/node",
+            bundle: "/synthetic/pages-mcp.cjs",
+            url: "http://pages.invalid",
+            token: "synthetic-run-token",
+            tools: null,
+          },
   });
   const observer = {
     started: vi.fn<PlanSessionObserver["started"]>(),
@@ -82,13 +94,14 @@ export function startCodexSession(
     progressed: vi.fn<(events: readonly string[]) => void>(),
   };
   const secure = vi.fn(async () => {});
-  const session = new CodexAcpSession(process, process.channel.stream, {
+  const session = new AcpSession(process, process.channel.stream, {
     instanceId: INSTANCE_ID,
+    driver,
     profile,
     request: {
       directory: WORKSPACE,
       prompt: PROMPT,
-      model: node.model ?? "gpt-synthetic",
+      model: node.model ?? (isClaude ? "claude-sonnet-5-5" : "gpt-synthetic"),
       reasoningEffort:
         node.reasoningEffort === undefined ? "high" : node.reasoningEffort,
       mcpServers: launch.mcpServers,
@@ -100,6 +113,14 @@ export function startCodexSession(
     secure,
   });
   return { session, process, calls: fake.calls, observer, secure };
+}
+
+/** Starts the ACP session of a Codex node; see {@link startAcpSession}. */
+export function startCodexSession(
+  adapter: FakeAdapterOptions = {},
+  node: SyntheticNode = {},
+): StartedSession {
+  return startAcpSession(adapter, { ...node, provider: "codex_cli" });
 }
 
 /** The methods the fake adapter received, in order. */

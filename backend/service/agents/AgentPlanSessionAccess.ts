@@ -2,6 +2,7 @@ import { constants } from "node:fs";
 import { access } from "node:fs/promises";
 
 import { AgentError } from "@/backend/error/AgentErrors";
+import { isAcpProvider } from "@/definition/AgentConfiguration";
 
 import type { CliSessionMcp } from "@/backend/agents/cli/CliSessionPlans";
 import type { AgentRunCredentialService } from "@/backend/service/mcp/AgentRunCredentialService";
@@ -52,14 +53,15 @@ export interface AgentPlanSessionGrant {
  *
  * @param provider - The runner of the node.
  * @param options - The run options the runner applies.
- * @returns For a Codex CLI agent every read in "Nur Lesen" and everything its
- * executor may do in YOLO; for every other runner the bound tickets, as before.
+ * @returns For an ACP agent (Codex CLI or Claude Code) every read in "Nur
+ * Lesen" and everything its executor may do in YOLO; for every other runner
+ * the bound tickets, as before.
  */
 export function planSessionReach(
   provider: AgentProviderId,
   options: AgentRunOptions,
 ): AgentRunReach {
-  if (provider !== "codex_cli") return "tickets";
+  if (!isAcpProvider(provider)) return "tickets";
   return options.access === "yolo" ? "full" : "read";
 }
 
@@ -70,8 +72,8 @@ export function planSessionReach(
  * The session gets a fresh credential for its executor and the address of
  * this instance. With the `tickets` reach the credential is limited to reading
  * the bound tickets and setting their checklist entries; the `read` and
- * `full` reaches of a Codex CLI agent cover every read or every operation of
- * the executor, under the normal checks of the executor's rights. Credential
+ * `full` reaches of an ACP agent cover every read or every operation of the
+ * executor, under the normal checks of the executor's rights. Credential
  * and address reach the local MCP process only through its environment. The
  * credential is revoked when the node closes.
  */

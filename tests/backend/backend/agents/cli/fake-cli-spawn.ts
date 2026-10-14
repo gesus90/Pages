@@ -3,17 +3,14 @@ import { PassThrough } from "node:stream";
 
 import { ndJsonStream } from "@agentclientprotocol/sdk";
 
-import { fakeCodexAgent } from "../acp/fake-codex-adapter";
+import { fakeAcpAgent } from "../acp/fake-acp-adapter";
 
 import type { SpawnOptions } from "node:child_process";
 import type {
   CliGroupSignal,
   CliSpawn,
 } from "@/backend/agents/cli/CliContracts";
-import type {
-  FakeAdapterOptions,
-  ReceivedCall,
-} from "../acp/fake-codex-adapter";
+import type { FakeAdapterOptions, ReceivedCall } from "../acp/fake-acp-adapter";
 
 const PROCESS_ID = 4242;
 
@@ -91,7 +88,7 @@ function exit(
 export function fakeCliSpawn(options: FakeAdapterOptions = {}): FakeCliSpawn {
   const spawned: SpawnedProcess[] = [];
   const children: ChildProcess[] = [];
-  const fake = fakeCodexAgent(options);
+  const fake = fakeAcpAgent(options);
   const spawn: CliSpawn = (file, args, spawnOptions) => {
     spawned.push({ file, arguments: args, options: spawnOptions });
     const child = new ChildProcess();

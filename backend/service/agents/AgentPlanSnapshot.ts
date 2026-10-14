@@ -1,3 +1,5 @@
+import { isAcpProvider } from "@/definition/AgentConfiguration";
+
 import type { AgentPlan, AgentPlanStep } from "@/definition/AgentPlan";
 import type { AgentProviderId } from "@/definition/AgentConnection";
 import type { AgentConfiguration } from "@/definition/AgentConfiguration";
@@ -35,8 +37,9 @@ export interface AgentPlanSnapshot {
  *
  * @param step - The provider and the prepared parameters of the node.
  * @returns The workspace of the agent's explicit directory parameter, which
- * takes precedence; for a Codex CLI agent without one the workspace of the
- * plan; otherwise `null`, and a CLI node of another runner needs the parameter.
+ * takes precedence; for an ACP agent (Codex CLI or Claude Code) without one
+ * the workspace of the plan; otherwise `null`, and a CLI node of another
+ * runner needs the parameter.
  *
  * @remarks
  * Both workspaces were resolved through the executor's workspace rights, and
@@ -47,5 +50,5 @@ export function planStepDirectory(
   step: Pick<AgentPlanStepSnapshot, "provider" | "prepared">,
 ): ResolvedAgentWorkspace | null {
   if (step.prepared.directory !== null) return step.prepared.directory;
-  return step.provider === "codex_cli" ? step.prepared.workspace : null;
+  return isAcpProvider(step.provider) ? step.prepared.workspace : null;
 }

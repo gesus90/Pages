@@ -23,6 +23,22 @@ import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 
 const SESSION_ID = "thread-synthetic";
 const MODES = ["read-only", "workspace-write", "agent", "agent-full-access"];
+const CLAUDE_MODES = [
+  "default",
+  "acceptEdits",
+  "plan",
+  "auto",
+  "bypassPermissions",
+];
+const CLAUDE_MODEL_CHOICES = ["default", "opus", "sonnet", "haiku"];
+const CLAUDE_EFFORTS = ["default", "low", "medium", "high", "xhigh", "max"];
+/** The model each picker choice of the fake Claude adapter resolves to. */
+const CLAUDE_RESOLVED_MODELS: Readonly<Record<string, string>> = {
+  default: "claude-opus-5-5",
+  opus: "claude-opus-5-5",
+  sonnet: "claude-sonnet-5-5",
+  haiku: "claude-haiku-5-5",
+};
 
 /** One request or notification the fake adapter received, in order. */
 export interface ReceivedCall {
@@ -46,7 +62,13 @@ export interface FakeTurn {
 
 /** How the fake adapter behaves; everything is synthetic. */
 export interface FakeAdapterOptions {
+  /** Which adapter it imitates: Codex by default. */
+  readonly flavor?: "codex" | "claude";
   readonly agentInfo?: Implementation | null;
+  /** Claude: what the `/mcp` command lists the Pages server as. */
+  readonly mcpStatus?: "connected" | "connecting" | "failed" | "unlisted";
+  /** Claude: the model named by the first usage update instead of the chosen one. */
+  readonly reportedModel?: string | null;
   readonly protocolVersion?: number;
   readonly models?: readonly string[];
   readonly efforts?: readonly string[];
@@ -67,6 +89,11 @@ export interface FakeAdapterOptions {
 const SUPPORTED_ADAPTER: Implementation = {
   name: "@agentclientprotocol/codex-acp",
   version: "2.2.2",
+};
+
+const SUPPORTED_CLAUDE_ADAPTER: Implementation = {
+  name: "@agentclientprotocol/claude-agent-acp",
+  version: "0.90.0",
 };
 
 /**
@@ -165,6 +192,20 @@ export class FakeAdapterProcess {
   }
 }
 
+/** Markdown as the Claude adapter answers its `/mcp` command with. */
+function mcpListing(
+  status: NonNullable<FakeAdapterOptions["mcpStatus"]>,
+): string {
+  const heading = {
+    connected: "Connected",
+    connecting: "Connecting",
+    failed: "Failed",
+    unlisted: "Disabled",
+  }[status];
+  if (status === "unlisted") return "**MCP servers:** 0\n";
+  return `**MCP servers:** 1 (1 ${status})\n\n**${heading}**\n- \`pages\`: 2 tools\n`;
+}
+
 function selectOption(
   id: string,
   currentValue: string,
@@ -185,42 +226,112 @@ export interface FakeCodexAgent {
   readonly calls: ReceivedCall[];
 }
 
+/** What the fake adapter currently has selected, and how it answers option changes. */
+interface FakeSession {
+  readonly configOptions: () => SessionConfigOption[];
+  /** Applies a requested value as the adapter would; throws when it refuses. */
+  readonly select: (configId: string, value: string) => void;
+  /** The model the adapter's current choice resolves to, as Claude reports it. */
+  readonly resolvedModel: () => string | undefined;
+}
+
+function createSession(options: FakeAdapterOptions): FakeSession {
+  const isClaude = options.flavor === "claude";
+  const models = options.models ?? ["gpt-default", "gpt-synthetic"];
+  const efforts =
+    options.efforts ?? (isClaude ? CLAUDE_EFFORTS : ["low", "medium", "high"]);
+  const effortId = isClaude ? "effort" : "reasoning_effort";
+  const current: Record<string, string> = isClaude
+    ? {
+        mode: options.initialMode ?? "default",
+        model: "default",
+        effort: "default",
+      }
+    : {
+        mode: options.initialMode ?? "agent",
+        model: models[0] ?? "gpt-default",
+        reasoning_effort: "medium",
+      };
+  const choices = isClaude ? CLAUDE_MODEL_CHOICES : models;
+  // The value the adapter stores for a requested one, or `null` when it offers none.
+  function resolve(configId: string, value: string): string | null {
+    if (!isClaude || configId !== "model") return value;
+    const exact = Object.entries(CLAUDE_RESOLVED_MODELS).find(
+      ([choice, model]) => choice !== "default" && model === value,
+    );
+    if (exact) return exact[0];
+    return choices.includes(value) ? value : null;
+  }
+  return {
+    configOptions: () =>
+      [
+        selectOption("mode", current.mode, isClaude ? CLAUDE_MODES : MODES),
+        selectOption("model", current.model, choices),
+        selectOption(effortId, current[effortId], efforts),
+      ].filter((option) => !(options.missing ?? []).includes(option.id)),
+    select: (configId, value) => {
+      if ((options.refused ?? []).includes(configId))
+        throw RequestError.invalidParams();
+      const stored = resolve(configId, value);
+      if (isClaude && stored === null) throw RequestError.invalidParams();
+      if (stored === null || (options.unconfirmed ?? []).includes(configId))
+        return;
+      current[configId] = stored;
+      // A model change resets the effort to the model's default, as the adapters do.
+      if (configId === "model")
+        current[effortId] = isClaude ? "default" : "medium";
+    },
+    resolvedModel: () => CLAUDE_RESOLVED_MODELS[current.model ?? "default"],
+  };
+}
+
+async function claudePrompt(
+  options: FakeAdapterOptions,
+  session: FakeSession,
+  turn: FakeTurn,
+): Promise<StopReason> {
+  if (turn.prompt === "/mcp") {
+    await turn.update({
+      sessionUpdate: "agent_message_chunk",
+      content: {
+        type: "text",
+        text: mcpListing(options.mcpStatus ?? "connected"),
+      },
+    });
+    return "end_turn";
+  }
+  await turn.update({
+    sessionUpdate: "usage_update",
+    used: 10,
+    size: 1000,
+    _meta: {
+      "_claude/model": options.reportedModel ?? session.resolvedModel(),
+    },
+  });
+  return (options.turn ?? (async () => "end_turn"))(turn);
+}
+
 /**
- * Builds a fake Codex ACP adapter with the options and turn of a test.
+ * Builds a fake ACP adapter with the options and turn of a test.
  *
- * @param options - Catalog, confirmation behaviour and the scripted turn.
+ * @param options - Flavor, catalog, confirmation behaviour and the scripted turn.
  * @returns The agent app and every call it received.
  */
-export function fakeCodexAgent(
-  options: FakeAdapterOptions = {},
-): FakeCodexAgent {
+export function fakeAcpAgent(options: FakeAdapterOptions = {}): FakeCodexAgent {
   const calls: ReceivedCall[] = [];
-  const models = options.models ?? ["gpt-default", "gpt-synthetic"];
-  const efforts = options.efforts ?? ["low", "medium", "high"];
-  const current: Record<string, string> = {
-    mode: options.initialMode ?? "agent",
-    model: models[0] ?? "gpt-default",
-    reasoning_effort: "medium",
-  };
-  function configOptions(): SessionConfigOption[] {
-    return [
-      selectOption("mode", current.mode, MODES),
-      selectOption("model", current.model, models),
-      selectOption("reasoning_effort", current.reasoning_effort, efforts),
-    ].filter((option) => !(options.missing ?? []).includes(option.id));
-  }
+  const isClaude = options.flavor === "claude";
+  const session = createSession(options);
+  const defaultInfo = isClaude ? SUPPORTED_CLAUDE_ADAPTER : SUPPORTED_ADAPTER;
   function record(method: string, params: unknown): void {
     calls.push({ method, params });
   }
-  const app = agent({ name: "fake-codex-acp" })
+  const app = agent({ name: "fake-acp" })
     .onRequest(methods.agent.initialize, (context) => {
       record(methods.agent.initialize, context.params);
       return {
         protocolVersion: options.protocolVersion ?? 1,
         agentInfo:
-          options.agentInfo === undefined
-            ? SUPPORTED_ADAPTER
-            : options.agentInfo,
+          options.agentInfo === undefined ? defaultInfo : options.agentInfo,
         authMethods: [],
       };
     })
@@ -238,33 +349,25 @@ export function fakeCodexAgent(
             status: "failed",
           },
         });
-      return { sessionId: SESSION_ID, configOptions: configOptions() };
+      return { sessionId: SESSION_ID, configOptions: session.configOptions() };
     })
     .onRequest(methods.agent.session.setConfigOption, (context) => {
       record(methods.agent.session.setConfigOption, context.params);
       const { configId, value } = context.params;
-      if ((options.refused ?? []).includes(configId))
-        throw RequestError.invalidParams();
-      if (
-        typeof value === "string" &&
-        !(options.unconfirmed ?? []).includes(configId)
-      ) {
-        current[configId] = value;
-        // A model change resets the effort to the model's default, as Codex does.
-        if (configId === "model") current.reasoning_effort = "medium";
-      }
-      return { configOptions: configOptions() };
+      if (typeof value === "string") session.select(configId, value);
+      return { configOptions: session.configOptions() };
     })
     .onRequest(methods.agent.session.prompt, async (context) => {
       record(methods.agent.session.prompt, context.params);
       const [block] = context.params.prompt;
-      const stopReason = await (options.turn ?? (async () => "end_turn"))(
-        fakeTurn(
-          context.client,
-          block?.type === "text" ? block.text : "",
-          context.signal,
-        ),
+      const turn = fakeTurn(
+        context.client,
+        block?.type === "text" ? block.text : "",
+        context.signal,
       );
+      const stopReason = isClaude
+        ? await claudePrompt(options, session, turn)
+        : await (options.turn ?? (async () => "end_turn"))(turn);
       return { stopReason };
     })
     .onRequest(methods.agent.session.close, (context) => {
@@ -275,6 +378,13 @@ export function fakeCodexAgent(
       record(methods.agent.session.cancel, context.params);
     });
   return { app, calls };
+}
+
+/** Builds a fake Codex ACP adapter; see {@link fakeAcpAgent}. */
+export function fakeCodexAgent(
+  options: FakeAdapterOptions = {},
+): FakeCodexAgent {
+  return fakeAcpAgent(options);
 }
 
 function fakeTurn(

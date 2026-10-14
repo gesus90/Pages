@@ -16,19 +16,6 @@ const CONFIG_DIRECTORIES: Readonly<Record<CliProviderId, string>> = {
 const UUID_PATTERN =
   /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
 
-// Codex links its helper commands (apply_patch, codex-linux-sandbox, ...) to its own
-// binary below CODEX_HOME/tmp/arg0 and does not remove them on every exit.
-function isCodexHelperLink(
-  link: string,
-  destination: string,
-  root: string,
-): boolean {
-  return (
-    link.startsWith(path.join(root, "codex", "tmp", "arg0") + path.sep) &&
-    path.basename(destination) === "codex"
-  );
-}
-
 /** Creates and removes isolated credential directories without reading credential files. */
 export class AgentCredentialStore {
   private readonly root: string;
@@ -70,20 +57,30 @@ export class AgentCredentialStore {
       ]) {
         await this.ensureDirectory(directory);
       }
-      await this.secureTree(home.root, home.root);
+      await this.secureTree(home.root);
       return home;
     } catch {
       throw new AgentError("cli_not_executable");
     }
   }
 
-  /** Restores modes after CLI writes, without opening auth.json or any other file. */
+  /**
+   * Restores modes after CLI writes, without opening auth.json or any other file.
+   *
+   * @remarks
+   * A symbolic link is never followed and never changed, wherever it points.
+   * Tools of a session create links that leave the folder as a matter of
+   * course, such as the registry of projects in the store of pnpm, which names
+   * every workspace it ran in; refusing them would block the connection for
+   * good, and leaving them alone exposes nothing, because no mode is set
+   * through a link.
+   */
   public async secure(id: string, provider: CliProviderId): Promise<void> {
     const home = this.paths(id, provider);
     try {
       await this.requireDirectory(this.root);
       await this.requireDirectory(home.root);
-      await this.secureTree(home.root, home.root);
+      await this.secureTree(home.root);
     } catch {
       throw new AgentError("cli_not_executable");
     }
@@ -131,24 +128,15 @@ export class AgentCredentialStore {
     await this.files.chmod(directory, 0o700);
   }
 
-  private async secureTree(directory: string, root: string): Promise<void> {
+  private async secureTree(directory: string): Promise<void> {
     for (const entry of await this.files.readdir(directory, {
       withFileTypes: true,
     })) {
+      if (entry.isSymbolicLink()) continue;
       const target = path.join(directory, entry.name);
-      if (entry.isSymbolicLink()) {
-        const destination = path.resolve(
-          directory,
-          await this.files.readlink(target),
-        );
-        if (
-          !destination.startsWith(root + path.sep) &&
-          !isCodexHelperLink(target, destination, root)
-        )
-          throw new AgentError("cli_not_executable");
-      } else if (entry.isDirectory()) {
+      if (entry.isDirectory()) {
         await this.files.chmod(target, 0o700);
-        await this.secureTree(target, root);
+        await this.secureTree(target);
       } else {
         await this.files.chmod(target, 0o600);
       }

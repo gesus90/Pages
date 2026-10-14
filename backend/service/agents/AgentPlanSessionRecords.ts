@@ -16,7 +16,7 @@ import type { PreparedPlanStep } from "./AgentPlanStepStart";
 
 const RUNNER_LABELS: Readonly<Record<CliProviderId, string>> = {
   codex_cli: "Codex CLI over ACP",
-  claude_code: "Claude Code",
+  claude_code: "Claude Code over ACP",
   opencode: "OpenCode",
 };
 
@@ -28,7 +28,7 @@ export interface SessionRecordStart {
   readonly usesMcp: boolean;
 }
 
-// Claude Code and the ACP session of Codex stay open until Pages closes them; OpenCode ends with its turn.
+// The ACP sessions of Codex and Claude Code stay open until Pages closes them; OpenCode ends with its turn.
 function sessionMode(
   provider: ResolvedAgentAssignment["connection"]["provider"],
 ): AgentPlanSessionRecord["mode"] {

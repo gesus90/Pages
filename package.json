@@ -14,7 +14,8 @@
     "test:backend": "vitest run --config vitest.backend.config.ts --coverage",
     "test:frontend": "vitest run --config vitest.frontend.config.ts --coverage",
     "clean": "node -e \"require('node:fs').rmSync('build', { recursive: true, force: true })\"",
-    "db:transfer": "tsx scripts/migrate-sqlite-to-duckdb.ts"
+    "db:transfer": "tsx scripts/migrate-sqlite-to-duckdb.ts",
+    "acp:smoke": "tsx scripts/acp-smoke.ts"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^1.7.0",

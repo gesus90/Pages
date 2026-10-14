@@ -2,33 +2,33 @@ import { useTranslation } from "react-i18next";
 
 import { Select } from "@/app/components/ui/select";
 import {
-  CODEX_PERMISSION_MODES,
-  isCodexPermissionMode,
+  ACP_PERMISSION_MODES,
+  isAcpPermissionMode,
 } from "@/definition/AgentConfiguration";
 
 import type {
   AgentRunOptions,
-  CodexPermissionMode,
+  AcpPermissionMode,
 } from "@/definition/AgentConfiguration";
 
 /**
- * Chooses one of the two modes of a Codex CLI agent: "Nur Lesen" or YOLO.
+ * Chooses one of the two modes of an ACP agent: "Nur Lesen" or YOLO.
  *
  * @remarks
  * An agent saved with the earlier write mode shows no mode, so nobody gets
  * YOLO without choosing it; the agent cannot run until a mode is chosen.
  */
-export function CodexModeField(props: {
+export function AcpModeField(props: {
   readonly options: AgentRunOptions;
   readonly disabled: boolean;
-  readonly onChange: (mode: CodexPermissionMode) => void;
+  readonly onChange: (mode: AcpPermissionMode) => void;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const mode = isCodexPermissionMode(props.options.access)
+  const mode = isAcpPermissionMode(props.options.access)
     ? props.options.access
     : null;
   function choose(value: string): void {
-    if (isCodexPermissionMode(value)) props.onChange(value);
+    if (isAcpPermissionMode(value)) props.onChange(value);
   }
   return (
     <label className="space-y-1.5 text-sm font-medium">
@@ -51,7 +51,7 @@ export function CodexModeField(props: {
                 },
               ]
             : []),
-          ...CODEX_PERMISSION_MODES.map((entry) => ({
+          ...ACP_PERMISSION_MODES.map((entry) => ({
             value: entry,
             label: t(`settings.agents.run.modes.${entry}.label`),
             description: t(`settings.agents.run.modes.${entry}.description`),

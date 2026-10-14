@@ -1,14 +1,12 @@
+import { acpDriverFor } from "@/backend/agents/acp/AcpDrivers";
 import { AcpLineChannel } from "@/backend/agents/acp/AcpLineChannel";
-import {
-  CODEX_ACP_BINARY,
-  planCodexAcpLaunch,
-} from "@/backend/agents/acp/CodexAcpAdapter";
-import { findUnmanagedCodexConfiguration } from "@/backend/agents/acp/CodexAcpConfigurationGuard";
-import { codexAcpProfile } from "@/backend/agents/acp/CodexAcpProfile";
-import { CodexAcpSession } from "@/backend/agents/acp/CodexAcpSession";
+import { AcpSession } from "@/backend/agents/acp/AcpSession";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
-import { isCodexPermissionMode } from "@/definition/AgentConfiguration";
+import {
+  isAcpPermissionMode,
+  isAcpProvider,
+} from "@/definition/AgentConfiguration";
 import { isApiProvider } from "@/definition/AgentConnection";
 
 import { CliPlanIsolation } from "./CliPlanIsolation";
@@ -22,7 +20,8 @@ import type {
   PlanSessionObserver,
   PlanSessionRunner,
 } from "@/backend/agents/AgentPlanExecution";
-import type { CodexPermissionMode } from "@/definition/AgentConfiguration";
+import type { AcpDriver } from "@/backend/agents/acp/AcpDriver";
+import type { AcpPermissionMode } from "@/definition/AgentConfiguration";
 import type { CliProviderId } from "@/definition/AgentConnection";
 import type { AgentCliRuntime } from "./AgentCliRuntime";
 import type { AgentCredentialStore } from "./AgentCredentialStore";
@@ -54,7 +53,7 @@ interface VerifiedStart {
   readonly provider: CliProviderId;
   readonly home: CliHome;
   readonly file: string;
-  /** The Codex ACP adapter; `null` for the runners without ACP. */
+  /** The ACP adapter of a Codex or Claude Code connection; `null` for the runners without ACP. */
   readonly adapter: string | null;
 }
 
@@ -78,8 +77,8 @@ interface IsolatedRequest {
  * and effort of the agent and only managed switches. The local sign-in is
  * checked and the executor is authorized again right before the process
  * starts; the prompt and every credential stay out of the argument list.
- * Codex runs as an ACP session through its adapter, in one of its two modes;
- * there is no fallback to another runner.
+ * Codex and Claude Code run as ACP sessions through their adapters, each in
+ * one of its two modes; there is no fallback to another runner.
  */
 export class CliSessionExecution implements PlanSessionRunner {
   private readonly dependencies: SessionDependencies;
@@ -101,10 +100,11 @@ export class CliSessionExecution implements PlanSessionRunner {
    *
    * @throws {AgentError} `plan_run_option_unsupported` or
    * `codex_permission_mode_required` for options the runner cannot enforce,
-   * `cli_not_logged_in` without a confirmed sign-in, `plan_acp_adapter_missing`
-   * or `plan_codex_configuration_unmanaged` before a Codex session,
-   * `plan_permission_mode_unenforceable` for YOLO without the namespace, or a
-   * start failure; {@link AgentPlanCancelledError} after a stop.
+   * `cli_not_logged_in` without a confirmed sign-in, the missing-adapter code
+   * of the runner or `plan_codex_configuration_unmanaged` before an ACP
+   * session, `plan_yolo_isolation_unavailable` for YOLO without the
+   * namespace, or a start failure; {@link AgentPlanCancelledError} after a
+   * stop.
    */
   public async open(
     input: AgentPlanSessionInput,
@@ -145,8 +145,9 @@ export class CliSessionExecution implements PlanSessionRunner {
         );
       const location = await locator.find(provider);
       if (!location.path) throw new AgentError("cli_not_executable");
-      const acpAdapter =
-        provider === "codex_cli" ? await this.verifyAcp(input, home) : null;
+      const acpAdapter = isAcpProvider(provider)
+        ? await this.verifyAcp(acpDriverFor(provider), input, home)
+        : null;
       await input.beforeStart?.();
       if (signal.aborted) throw new AgentPlanCancelledError();
       return { provider, home, file: location.path, adapter: acpAdapter };
@@ -158,21 +159,13 @@ export class CliSessionExecution implements PlanSessionRunner {
 
   /** Finds the adapter and refuses configuration files Pages does not manage. */
   private async verifyAcp(
+    driver: AcpDriver,
     input: AgentPlanSessionInput,
     home: CliHome,
   ): Promise<string> {
-    const location = await this.dependencies.locator.locate(CODEX_ACP_BINARY);
-    if (!location.path) throw new AgentError("plan_acp_adapter_missing");
-    const unmanaged = await findUnmanagedCodexConfiguration(
-      home.config,
-      input.directory,
-    );
-    if (unmanaged !== null) {
-      console.warn(
-        `Pages refused a Codex plan node because of ${unmanaged}, a Codex configuration file that Pages does not manage.`,
-      );
-      throw new AgentError("plan_codex_configuration_unmanaged");
-    }
+    const location = await this.dependencies.locator.locate(driver.binary);
+    if (!location.path) throw new AgentError(driver.errors.adapterMissing);
+    await driver.requireManagedConfiguration(home, input.directory);
     return location.path;
   }
 
@@ -181,8 +174,8 @@ export class CliSessionExecution implements PlanSessionRunner {
     start: VerifiedStart,
     control: SessionControl,
   ): Promise<PlanSession> {
-    if (start.provider === "codex_cli")
-      return this.spawnAcp(input, start, control);
+    if (isAcpProvider(start.provider))
+      return this.spawnAcp(acpDriverFor(start.provider), input, start, control);
     const plan = planCliSession(start.provider, {
       instanceId: input.instanceId,
       model: input.agent.model,
@@ -236,28 +229,29 @@ export class CliSessionExecution implements PlanSessionRunner {
   }
 
   /**
-   * Starts the Codex ACP adapter and its session in the stored mode.
+   * Starts the ACP adapter of the runner and its session in the stored mode.
    *
    * @remarks
    * "Nur Lesen" also gets its working copy read-only in the namespace. YOLO
-   * runs Codex without a sandbox of its own, so only the namespace keeps it
+   * runs the runner without an approval step, so only the namespace keeps it
    * inside its workspace and away from the instance folders and other
    * credentials; without the namespace YOLO does not start.
    */
   private async spawnAcp(
+    driver: AcpDriver,
     input: AgentPlanSessionInput,
     start: VerifiedStart,
     control: SessionControl,
   ): Promise<PlanSession> {
     const mode = input.options.access;
-    if (!isCodexPermissionMode(mode))
-      throw new AgentError("codex_permission_mode_required");
+    if (!isAcpPermissionMode(mode))
+      throw new AgentError(driver.errors.modeRequired);
     if (start.adapter === null)
-      throw new AgentError("plan_acp_adapter_missing");
-    const profile = codexAcpProfile(mode);
-    const launch = planCodexAcpLaunch({
+      throw new AgentError(driver.errors.adapterMissing);
+    const profile = driver.profile(mode);
+    const launch = driver.plan({
       instanceId: input.instanceId,
-      codexFile: start.file,
+      runnerFile: start.file,
       profile,
       mcp: input.mcp,
     });
@@ -275,7 +269,7 @@ export class CliSessionExecution implements PlanSessionRunner {
       onLine: (line) => channel.receive(line),
     });
     if (mode === "yolo" && !isIsolated)
-      throw new AgentError("plan_permission_mode_unenforceable");
+      throw new AgentError("plan_yolo_isolation_unavailable");
     const child = this.dependencies.runner.startSession(request);
     channel.attach((line) => child.write(line));
     void child.exited.then(() => channel.close());
@@ -286,8 +280,9 @@ export class CliSessionExecution implements PlanSessionRunner {
       arguments: request.arguments,
       unattended: profile.unattended,
     });
-    return new CodexAcpSession(child, channel.stream, {
+    return new AcpSession(child, channel.stream, {
       instanceId: input.instanceId,
+      driver,
       profile,
       request: {
         directory: input.directory,
@@ -299,7 +294,7 @@ export class CliSessionExecution implements PlanSessionRunner {
       },
       observer: control.observer,
       signal: control.signal,
-      isolation: isolationLabel(isIsolated, mode),
+      isolation: isolationLabel(isIsolated, mode, driver),
       secure: () =>
         this.dependencies.store.secure(
           input.agent.connection.id,
@@ -333,9 +328,13 @@ export class CliSessionExecution implements PlanSessionRunner {
 
 function isolationLabel(
   isIsolated: boolean,
-  mode: CodexPermissionMode,
+  mode: AcpPermissionMode,
+  driver: AcpDriver,
 ): string {
-  if (!isIsolated) return "none, the Codex sandbox only";
+  if (!isIsolated)
+    return driver.provider === "codex_cli"
+      ? "none, the Codex sandbox only"
+      : "none, the permission handling of Pages only";
   return mode === "read_only"
     ? "bubblewrap, workspace read-only"
     : "bubblewrap";

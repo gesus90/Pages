@@ -591,13 +591,18 @@
         "plan_run_option_unsupported": "Der Runner kann die Laufoptionen dieses Agenten nicht durchsetzen, etwa „Nur lesen“ zusammen mit Shell. Passe die Laufoptionen an.",
         "plan_mcp_unavailable": "Der Knoten braucht den Pages-MCP-Adapter für Agent-Sitzungen, aber dieser Server hat keinen.",
         "codex_permission_mode_required": "Codex-CLI-Agents laufen nur in „Nur Lesen“ oder „YOLO“. Wähle einen der beiden Modi für diesen Agenten.",
-        "plan_acp_adapter_missing": "Der Codex-ACP-Adapter (codex-acp) ist für das Server-Konto nicht installiert.",
-        "plan_acp_adapter_unsupported": "Der installierte Codex-ACP-Adapter bietet nicht, was dieser Lauf braucht. Installiere eine unterstützte Version von codex-acp.",
-        "plan_model_unavailable": "Der Codex-Modellkatalog dieser Verbindung bietet das Modell des Agenten nicht an; es wurde nichts gesendet.",
-        "plan_reasoning_unsupported": "Der Codex-Adapter bietet die Reasoning-Stufe des Agenten für dieses Modell nicht an; es wurde nichts gesendet.",
-        "plan_permission_mode_unenforceable": "Dieser Server kann den Berechtigungsmodus des Agenten nicht durchsetzen: YOLO braucht die Bubblewrap-Abschottung, und der Adapter muss den Modus bestätigen.",
+        "claude_permission_mode_required": "Claude-Code-Agents laufen nur in „Nur Lesen“ oder „YOLO“. Wähle einen der beiden Modi für diesen Agenten.",
+        "plan_acp_adapter_missing": "Der Codex-ACP-Adapter (codex-acp) ist für das Server-Konto nicht installiert. Installiere ihn neben der Codex-CLI mit npm install -g @agentclientprotocol/codex-acp@2 (siehe README, ACP-Adapter) und starte den Knoten erneut.",
+        "plan_claude_acp_adapter_missing": "Der Claude-ACP-Adapter (claude-agent-acp) ist für das Server-Konto nicht installiert. Installiere ihn neben der Claude-CLI mit npm install -g @agentclientprotocol/claude-agent-acp@0.90.0 (siehe README, ACP-Adapter) und starte den Knoten erneut.",
+        "plan_acp_adapter_unsupported": "Der installierte Codex-ACP-Adapter ist keine von Pages geprüfte Version oder bietet nicht, was dieser Lauf braucht. Installiere eine unterstützte Version von codex-acp (2.1.1 bis unter 3.0.0); der Laufbericht nennt die installierte.",
+        "plan_claude_acp_adapter_unsupported": "Der installierte Claude-ACP-Adapter ist keine von Pages geprüfte Version oder bietet nicht, was dieser Lauf braucht. Installiere eine unterstützte Version von claude-agent-acp (0.90.x); der Laufbericht nennt die installierte.",
+        "plan_model_unavailable": "Der Katalog des Runners bietet das Modell des Agenten nicht an; es wurde nichts gesendet, und der Lauf wechselt nie auf ein anderes Modell.",
+        "plan_reasoning_unsupported": "Der Runner bietet die Reasoning-Stufe des Agenten für dieses Modell nicht an; es wurde nichts gesendet.",
+        "plan_permission_mode_unenforceable": "Der ACP-Adapter bietet den Berechtigungsmodus des Agenten nicht an oder bestätigt ihn nicht, daher lässt er sich nicht durchsetzen; es wurde nichts gesendet. Bei Claude Code verursachen das eine verwaltete oder im Workspace liegende Claude-Einstellung, die bypassPermissions abschaltet, oder ein Server-Konto, das als root läuft. Der Laufbericht nennt, was der Adapter gemeldet hat.",
+        "plan_yolo_isolation_unavailable": "YOLO läuft ohne Freigabeschritt des Runners und startet deshalb nur in der Bubblewrap-Abschottung, die für das Server-Konto nicht funktioniert. Installiere bubblewrap (apt install bubblewrap), erlaube dem Konto unprivilegierte User-Namespaces und starte den Knoten erneut; Pages prüft die Abschottung innerhalb einer Minute neu.",
         "plan_codex_configuration_unmanaged": "Eine Codex-Konfigurationsdatei (config.toml) außerhalb von Pages könnte diesen Lauf verändern. Entferne sie aus dem Verbindungsordner oder dem Workspace.",
         "plan_acp_session_failed": "Die Codex-ACP-Sitzung ist vor oder während ihres Turns fehlgeschlagen.",
+        "plan_claude_acp_session_failed": "Die Claude-ACP-Sitzung ist vor oder während ihres Turns fehlgeschlagen.",
         "plan_definition_changed": "Die AGENT.md des Agenten fehlt oder passt nicht zur gestarteten Revision.",
         "plan_placeholder_unresolved": "Der Auftrag enthielte noch einen Parameter-Platzhalter; es wurde nichts gesendet.",
         "plan_runner_failed": "Der Runner hat seinen Turn mit einem Fehler beendet.",
@@ -962,7 +967,7 @@
       "openCodeKeyReplace": "Schlüssel ersetzen",
       "run": {
         "title": "Laufoptionen",
-        "hint": "Workspace-, Shell- und Web-Berechtigungen gelten für die CLI-Runner Claude Code und OpenCode. Sie arbeiten immer unbeaufsichtigt: Was nicht erlaubt ist, wird abgelehnt statt nachgefragt. Eine Kombination, die ein Runner nicht durchsetzen kann, blockiert den Start. Der Timeout gilt auch für API-Agents.",
+        "hint": "Workspace-, Shell- und Web-Berechtigungen gelten für den OpenCode-Runner. Sie arbeiten immer unbeaufsichtigt: Was nicht erlaubt ist, wird abgelehnt statt nachgefragt. Eine Kombination, die ein Runner nicht durchsetzen kann, blockiert den Start. Der Timeout gilt auch für API-Agents.",
         "access": "Zugriff auf den Workspace",
         "timeout": "Timeout (Minuten)",
         "shell": "Befehle im Workspace ausführen (Shell)",
@@ -970,18 +975,18 @@
         "unlimited": "0 · unbegrenzte Laufzeit",
         "hardTimeout": "Harte Grenze: {{minutes}} Minuten",
         "timeoutHint": "0 bedeutet unbegrenzte Laufzeit bis zum Abschluss. Ein positiver Timeout unterbricht den laufenden Vorgang bei Ablauf hart; der Lauf wird als „Gestört“ mit Timeout-Ursache angezeigt.",
-        "codexHint": "Codex-CLI-Agents laufen über ACP in genau einem von zwei Modi. Sie arbeiten unbeaufsichtigt: Was der Modus nicht erlaubt, wird abgelehnt statt nachgefragt. Der Timeout gilt zusätzlich, auch für API-Agents.",
+        "acpHint": "Codex-CLI- und Claude-Code-Agents laufen über ACP in genau einem von zwei Modi. Sie arbeiten unbeaufsichtigt: Was der Modus nicht erlaubt, wird abgelehnt statt nachgefragt. Der Timeout gilt zusätzlich, auch für API-Agents.",
         "mode": "Berechtigungsmodus",
         "chooseMode": "Modus wählen",
         "modeRequired": "Wähle „Nur Lesen“ oder „YOLO“. Ein Agent, der noch mit dem früheren Workspace-Schreibmodus gespeichert ist, startet erst nach dieser Wahl und wird nie von selbst zu YOLO.",
         "modes": {
           "read_only": {
             "label": "Nur Lesen",
-            "description": "Liest freigegebene Dateien und Pages-Inhalte und darf im Web suchen; ändert keine Dateien und keine Pages-Daten und führt keine Befehle aus."
+            "description": "Liest Pages-Inhalte und, wo der Runner dafür ein Lesewerkzeug hat, die Dateien des Workspace, und darf im Web suchen; ändert keine Dateien und keine Pages-Daten und führt keine Befehle aus."
           },
           "yolo": {
             "label": "YOLO",
-            "description": "Alle Werkzeuge des Codex-Runners ohne Rückfragen: Dateien im Workspace lesen, anlegen, ändern und löschen, Shell, Web und alle Pages-MCP-Werkzeuge mit deinen Pages-Rechten. Läuft nur in der Bubblewrap-Abschottung."
+            "description": "Alle Werkzeuge des Runners ohne Rückfragen: Dateien im Workspace lesen, anlegen, ändern und löschen, Shell, Web und alle Pages-MCP-Werkzeuge mit deinen Pages-Rechten. Läuft nur in der Bubblewrap-Abschottung."
           }
         }
       }

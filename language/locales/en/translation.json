@@ -591,13 +591,18 @@
         "plan_run_option_unsupported": "The runner cannot enforce the run options of this agent, such as read-only access with commands. Change the run options.",
         "plan_mcp_unavailable": "The node needs the Pages MCP adapter for agent sessions, but this server has none.",
         "codex_permission_mode_required": "Codex CLI agents run only in “Read only” or “YOLO”. Choose one of the two modes for this agent.",
-        "plan_acp_adapter_missing": "The Codex ACP adapter (codex-acp) is not installed for the server account.",
-        "plan_acp_adapter_unsupported": "The installed Codex ACP adapter does not offer what this run needs. Install a supported version of codex-acp.",
-        "plan_model_unavailable": "The Codex model catalog of this connection does not offer the agent's model; nothing was sent.",
-        "plan_reasoning_unsupported": "The Codex adapter does not offer the agent's reasoning effort for this model; nothing was sent.",
-        "plan_permission_mode_unenforceable": "This server cannot enforce the permission mode of the agent: YOLO needs the bubblewrap isolation, and the adapter must confirm the mode.",
+        "claude_permission_mode_required": "Claude Code agents run only in “Read only” or “YOLO”. Choose one of the two modes for this agent.",
+        "plan_acp_adapter_missing": "The Codex ACP adapter (codex-acp) is not installed for the server account. Install it next to the Codex CLI with npm install -g @agentclientprotocol/codex-acp@2 (see the README, ACP adapters) and start the node again.",
+        "plan_claude_acp_adapter_missing": "The Claude ACP adapter (claude-agent-acp) is not installed for the server account. Install it next to the Claude CLI with npm install -g @agentclientprotocol/claude-agent-acp@0.90.0 (see the README, ACP adapters) and start the node again.",
+        "plan_acp_adapter_unsupported": "The installed Codex ACP adapter is not a version Pages verified or does not offer what this run needs. Install a supported version of codex-acp (2.1.1 up to 3.0.0); the run record names the installed one.",
+        "plan_claude_acp_adapter_unsupported": "The installed Claude ACP adapter is not a version Pages verified or does not offer what this run needs. Install a supported version of claude-agent-acp (0.90.x); the run record names the installed one.",
+        "plan_model_unavailable": "The catalog of the runner does not offer the agent's model; nothing was sent, and the run never switches to another model.",
+        "plan_reasoning_unsupported": "The runner does not offer the agent's reasoning effort for this model; nothing was sent.",
+        "plan_permission_mode_unenforceable": "The ACP adapter does not offer or confirm the permission mode of the agent, so it cannot be enforced; nothing was sent. For Claude Code, a managed or workspace Claude setting that disables bypassPermissions, or a server account running as root, causes this. The run record names what the adapter reported.",
+        "plan_yolo_isolation_unavailable": "YOLO runs without an approval step of the runner, so it starts only inside the bubblewrap isolation, which does not work for the server account. Install bubblewrap (apt install bubblewrap), allow unprivileged user namespaces for the account, and start the node again; Pages probes the isolation again within a minute.",
         "plan_codex_configuration_unmanaged": "A Codex configuration file (config.toml) outside Pages could change this run. Remove it from the connection folder or the workspace.",
         "plan_acp_session_failed": "The Codex ACP session failed before or during its turn.",
+        "plan_claude_acp_session_failed": "The Claude ACP session failed before or during its turn.",
         "plan_definition_changed": "The AGENT.md of the agent is missing or does not match the started revision.",
         "plan_placeholder_unresolved": "The prompt still contains a parameter placeholder; nothing was sent.",
         "plan_runner_failed": "The runner ended its turn with an error.",
@@ -962,7 +967,7 @@
       "openCodeKeyReplace": "Replace key",
       "run": {
         "title": "Run options",
-        "hint": "Workspace, shell and web permissions apply to the CLI runners Claude Code and OpenCode. They always work unattended: anything not allowed is refused instead of asking. A combination the runner cannot enforce blocks the start. The timeout also applies to API agents.",
+        "hint": "Workspace, shell and web permissions apply to the OpenCode runner. They always work unattended: anything not allowed is refused instead of asking. A combination the runner cannot enforce blocks the start. The timeout also applies to API agents.",
         "access": "Workspace access",
         "timeout": "Timeout (minutes)",
         "shell": "Run commands in the workspace (shell)",
@@ -970,18 +975,18 @@
         "unlimited": "0 · unlimited runtime",
         "hardTimeout": "Hard limit: {{minutes}} minutes",
         "timeoutHint": "0 allows unlimited runtime until completion. A positive timeout interrupts the running operation when it expires; the run is marked as “Failed” with the timeout cause.",
-        "codexHint": "Codex CLI agents run over ACP in exactly one of two modes. They work unattended: anything the mode does not allow is refused instead of asking. The timeout applies on top, also to API agents.",
+        "acpHint": "Codex CLI and Claude Code agents run over ACP in exactly one of two modes. They work unattended: anything the mode does not allow is refused instead of asking. The timeout applies on top, also to API agents.",
         "mode": "Permission mode",
         "chooseMode": "Choose a mode",
         "modeRequired": "Choose “Read only” or “YOLO”. An agent still saved with the earlier workspace write mode starts only after this choice and never becomes YOLO on its own.",
         "modes": {
           "read_only": {
             "label": "Read only",
-            "description": "Reads released files and Pages content and may search the web; changes no files and no Pages data and runs no commands."
+            "description": "Reads Pages content and, where the runner has a reading tool for it, the files of the workspace, and may search the web; changes no files and no Pages data and runs no commands."
           },
           "yolo": {
             "label": "YOLO",
-            "description": "Every tool of the Codex runner without asking: read, create, change and delete files in the workspace, shell, web and every Pages MCP tool with your Pages rights. Runs only inside the bubblewrap isolation."
+            "description": "Every tool of the runner without asking: read, create, change and delete files in the workspace, shell, web and every Pages MCP tool with your Pages rights. Runs only inside the bubblewrap isolation."
           }
         }
       }

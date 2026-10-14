@@ -10,6 +10,8 @@ import type { CliSessionRequest } from "./CliContracts";
 
 const BUBBLEWRAP = "/usr/bin/bwrap";
 const TRUE_BINARY = "/usr/bin/true";
+/** A failed probe is repeated after this long, so installing bubblewrap needs no restart. */
+const RETRY_FAILED_PROBE_MS = 60_000;
 const execFileAsync = promisify(execFile);
 
 /**
@@ -64,13 +66,16 @@ export async function probeBubblewrap(
 export class CliPlanIsolation {
   private readonly protectedDirectories: readonly string[];
   private readonly probe: () => Promise<boolean>;
-  private availability: Promise<boolean> | null = null;
+  private result: { readonly isWorking: boolean; readonly at: number } | null =
+    null;
+  private probing: Promise<boolean> | null = null;
 
   /**
    * Creates the isolation of one server process.
    *
    * @param protectedDirectories - Folders that must stay out of reach, such as the data and agent folders.
-   * @param probe - Decides once whether bubblewrap works here; defaults to {@link probeBubblewrap}.
+   * @param probe - Decides whether bubblewrap works here; defaults to {@link probeBubblewrap}.
+   * A positive answer is kept for the life of the server, a negative one for a minute.
    */
   public constructor(
     protectedDirectories: readonly string[],
@@ -91,8 +96,7 @@ export class CliPlanIsolation {
   public async isolate(
     request: CliSessionRequest,
   ): Promise<CliSessionRequest | null> {
-    this.availability ??= this.probe();
-    if (!(await this.availability)) return null;
+    if (!(await this.isAvailable())) return null;
     const [homeRoot, workingDirectory] = await Promise.all([
       realpath(request.home.root),
       realpath(request.workingDirectory),
@@ -137,5 +141,26 @@ export class CliPlanIsolation {
         ...request.arguments,
       ],
     };
+  }
+
+  private async isAvailable(): Promise<boolean> {
+    const { result } = this;
+    if (
+      result !== null &&
+      (result.isWorking || Date.now() - result.at < RETRY_FAILED_PROBE_MS)
+    )
+      return result.isWorking;
+    this.probing ??= this.runProbe();
+    return this.probing;
+  }
+
+  private async runProbe(): Promise<boolean> {
+    try {
+      const isWorking = await this.probe();
+      this.result = { isWorking, at: Date.now() };
+      return isWorking;
+    } finally {
+      this.probing = null;
+    }
   }
 }

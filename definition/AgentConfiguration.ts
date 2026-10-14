@@ -9,9 +9,10 @@ import type { AgentParameter } from "./AgentParameters";
  * How a session may reach its workspace.
  *
  * @remarks
- * `yolo` is the full access of a Codex CLI agent and exists for no other
- * runner. `workspace_write` is the earlier write mode; a Codex CLI agent no
- * longer runs with it until one of its two modes is chosen.
+ * `yolo` is the full access of an agent that runs over ACP, a Codex CLI or a
+ * Claude Code agent, and exists for no other runner. `workspace_write` is the
+ * earlier write mode; an ACP agent no longer runs with it until one of its two
+ * modes is chosen.
  */
 export type AgentRunAccess = "workspace_write" | "read_only" | "yolo";
 
@@ -21,7 +22,7 @@ export type AgentRunAccess = "workspace_write" | "read_only" | "yolo";
  * @remarks
  * Every runner works without asking anyone. Each runner maps these options to
  * its own verified switches; a combination a runner cannot enforce blocks the
- * node before its process starts. For a Codex CLI agent the mode alone decides
+ * node before its process starts. For an ACP agent the mode alone decides
  * shell and web, see {@link agentRunOptionsFor}.
  */
 export interface AgentRunOptions {
@@ -46,19 +47,30 @@ export const DEFAULT_AGENT_RUN_OPTIONS: AgentRunOptions = {
   timeoutMinutes: 0,
 };
 
-/** The only two modes a Codex CLI agent runs in: "Nur Lesen" and "YOLO". */
-export const CODEX_PERMISSION_MODES = ["read_only", "yolo"] as const;
-export type CodexPermissionMode = (typeof CODEX_PERMISSION_MODES)[number];
+/** The runners whose plan nodes run as Agent Client Protocol (ACP) sessions. */
+export const ACP_PROVIDERS = ["codex_cli", "claude_code"] as const;
+export type AcpProviderId = (typeof ACP_PROVIDERS)[number];
 
-/** Narrows a stored access to one of the two Codex CLI modes. */
-export function isCodexPermissionMode(
+/** Whether an agent of this provider runs as an ACP session in one of the two modes. */
+export function isAcpProvider(
+  provider: AgentProviderId,
+): provider is AcpProviderId {
+  return provider === "codex_cli" || provider === "claude_code";
+}
+
+/** The only two modes an ACP agent runs in: "Nur Lesen" and "YOLO". */
+export const ACP_PERMISSION_MODES = ["read_only", "yolo"] as const;
+export type AcpPermissionMode = (typeof ACP_PERMISSION_MODES)[number];
+
+/** Narrows a stored access to one of the two ACP modes. */
+export function isAcpPermissionMode(
   access: unknown,
-): access is CodexPermissionMode {
+): access is AcpPermissionMode {
   return access === "read_only" || access === "yolo";
 }
 
 /**
- * The run options of a Codex CLI agent in one mode.
+ * The run options of an ACP agent in one mode.
  *
  * @param mode - "Nur Lesen" or "YOLO".
  * @param timeoutMinutes - The duration limit, which stays separate from the mode.
@@ -69,15 +81,15 @@ export function isCodexPermissionMode(
  * write access; reading web search stays available. YOLO allows everything the
  * runner supports.
  */
-export function codexRunOptions(
-  mode: CodexPermissionMode,
+export function acpRunOptions(
+  mode: AcpPermissionMode,
   timeoutMinutes: number,
 ): AgentRunOptions {
   return { access: mode, shell: mode === "yolo", web: true, timeoutMinutes };
 }
 
-/** Options of a Codex CLI agent that names none: read only, no deadline. */
-export const DEFAULT_CODEX_RUN_OPTIONS: AgentRunOptions = codexRunOptions(
+/** Options of an ACP agent that names none: read only, no deadline. */
+export const DEFAULT_ACP_RUN_OPTIONS: AgentRunOptions = acpRunOptions(
   "read_only",
   0,
 );
@@ -86,8 +98,8 @@ export const DEFAULT_CODEX_RUN_OPTIONS: AgentRunOptions = codexRunOptions(
 export function defaultAgentRunOptions(
   provider: AgentProviderId,
 ): AgentRunOptions {
-  return provider === "codex_cli"
-    ? DEFAULT_CODEX_RUN_OPTIONS
+  return isAcpProvider(provider)
+    ? DEFAULT_ACP_RUN_OPTIONS
     : DEFAULT_AGENT_RUN_OPTIONS;
 }
 
@@ -96,7 +108,7 @@ export function defaultAgentRunOptions(
  *
  * @param provider - The provider of the agent's model connection.
  * @param run - The stored run options, absent when the agent names none.
- * @returns The stored options for every runner but Codex. A Codex agent
+ * @returns The stored options for every runner but the ACP ones. An ACP agent
  * without options reads only, and its two modes are reduced to what they
  * allow; an earlier `workspace_write` stays as it is and blocks the start
  * until a mode is chosen.
@@ -106,9 +118,8 @@ export function agentRunOptionsFor(
   run: AgentRunOptions | undefined,
 ): AgentRunOptions {
   if (run === undefined) return defaultAgentRunOptions(provider);
-  if (provider !== "codex_cli" || !isCodexPermissionMode(run.access))
-    return run;
-  return codexRunOptions(run.access, run.timeoutMinutes);
+  if (!isAcpProvider(provider) || !isAcpPermissionMode(run.access)) return run;
+  return acpRunOptions(run.access, run.timeoutMinutes);
 }
 
 /**
@@ -117,8 +128,8 @@ export function agentRunOptionsFor(
  * @param provider - The provider of the agent's model connection.
  * @param run - The run options to store.
  * @param previous - The run options stored so far; absent for a new agent.
- * @returns `false` for YOLO outside Codex, and for a Codex agent that would
- * store the earlier write mode anew instead of keeping it unchanged.
+ * @returns `false` for YOLO outside the ACP runners, and for an ACP agent that
+ * would store the earlier write mode anew instead of keeping it unchanged.
  *
  * @remarks
  * An agent saved before the two modes existed keeps its options until someone
@@ -130,8 +141,8 @@ export function isAgentRunOptionsAllowed(
   run: AgentRunOptions | undefined,
   previous: AgentRunOptions | undefined,
 ): boolean {
-  if (provider !== "codex_cli") return run?.access !== "yolo";
-  if (run === undefined || isCodexPermissionMode(run.access)) return true;
+  if (!isAcpProvider(provider)) return run?.access !== "yolo";
+  if (run === undefined || isAcpPermissionMode(run.access)) return true;
   return JSON.stringify(run) === JSON.stringify(previous);
 }
 

@@ -258,12 +258,13 @@ across the service. A join waits for every incoming predecessor to succeed; a
 failed predecessor blocks its continuation. Independent CLI branches may not
 write to the same working copy.
 
-The connection of an agent decides its runner: a Codex CLI connection runs
-the node as an Agent Client Protocol (ACP) session through the Codex ACP
-adapter `codex-acp` (versions 2.1.1 up to 3.0.0, installed for the server
-account next to the Codex CLI, whose ChatGPT sign-in it reuses); a Claude Code
-or OpenCode connection starts a real CLI session in the node's workspace; an
-API connection stays a request without tools. Before a node starts, Pages reads
+The connection of an agent decides its runner: a Codex CLI or Claude Code
+connection runs the node as an Agent Client Protocol (ACP) session through the
+adapter of its CLI (`codex-acp` or `claude-agent-acp`, installed for the server
+account next to the CLI, whose sign-in it reuses; see
+[ACP adapters](#acp-adapters-for-the-cli-runners)); an OpenCode connection
+starts a real CLI session in the node's workspace; an API connection stays a
+request without tools. Before a node starts, Pages reads
 the agent's `AGENT.md`, binds every parameter (a placeholder is never sent
 unresolved) and fixes the node's **todo list** (task list items of the node
 instruction and of the bound tickets' descriptions) and **acceptance criteria**
@@ -271,37 +272,48 @@ instruction and of the bound tickets' descriptions) and **acceptance criteria**
 appended to the prompt together with the required closing report. The exact
 model, reasoning effort and the agent's run options (workspace access, shell,
 web, time limit) are passed with fixed, verified switches; a combination a
-runner cannot enforce, such as read-only access with commands for Claude Code
-or OpenCode, blocks the start. The Codex adapter must offer and confirm the
-stored model, effort and mode before the prompt is sent; otherwise the node
-fails with its own reason, and Pages never switches to another model, to an API
-connection or back to the earlier runner. Every runner works unattended:
+runner cannot enforce, such as read-only access with commands for OpenCode,
+blocks the start. The ACP adapter must offer and confirm the stored model,
+effort and mode before the prompt is sent, and an adapter that maps the model
+to a choice of its own (Claude) is checked against the model it reports with
+its first usage update; otherwise the node fails with its own reason, and
+Pages never switches to another model, to an API connection or back to an
+earlier runner. Every runner works unattended:
 nothing waits for a person, and an action the options do not allow is refused
 instead of asked.
 
-A Codex CLI agent runs in exactly one of two permission modes, chosen in the
-agent list. **Read only** reads the workspace and Pages content and may search
-the web, but creates, changes and deletes no files, runs no commands and calls
-only reading Pages MCP operations; the server refuses every change, and inside
-bubblewrap the workspace is mounted read-only. **YOLO** gives the session every
-tool of the Codex runner without approval prompts: files in the workspace,
-shell, web and the full Pages MCP catalog with the executor's rights. It starts
-only inside the bubblewrap isolation, which keeps the instance folders and the
-other credentials out of reach. An agent without run options reads only; an
-agent saved with the earlier workspace write mode does not start until one of
-the two modes is chosen, and it never becomes YOLO on its own. A Codex
-configuration file Pages does not manage (`config.toml` in the connection's
-Codex folder, or `.codex/config.toml` of the workspace's project) blocks the
-start, because it could add servers or providers the agent does not name.
+A Codex CLI or Claude Code agent runs in exactly one of two permission modes,
+chosen in the agent list. **Read only** reads the workspace and Pages content
+and may search the web, but creates, changes and deletes no files, runs no
+commands and calls only reading Pages MCP operations; the server offers no
+changing tool to it, and inside bubblewrap the workspace is mounted read-only.
+For Claude Code the model gets no tool but Read, Glob, Grep, WebSearch and
+WebFetch, so no file change and no command exists for it, and Pages answers
+every remaining request itself. Codex reads files only through its shell,
+which Read only switches off, so a Codex node in Read only works with Pages
+content and the web; give it YOLO, or Claude Code, when it has to read the
+workspace. **YOLO** gives the session every tool of the runner without
+approval prompts: files in the workspace, shell, web and the full Pages MCP
+catalog with the executor's rights. It starts only inside the bubblewrap
+isolation, which keeps the instance folders and the other credentials out of
+reach. An agent without run options reads only; an agent saved with the earlier
+workspace write mode does not start until one of the two modes is chosen, and
+it never becomes YOLO on its own. A Codex configuration file Pages does not
+manage (`config.toml` in the connection's Codex folder, or `.codex/config.toml`
+of the workspace's project) blocks the start, because it could add servers or
+providers the agent does not name. A Claude session ignores the user and
+workspace settings of Claude Code (`settingSources` is empty), reaches only its
+own Pages MCP server (the account's connectors and user MCP servers stay out),
+keeps no session history and switches off the automatic model fallback.
 
-A Claude Code or OpenCode node bound to tickets reaches Pages through the local
-Pages MCP process with a credential of its own: it acts with the executor's
-current rights, only for the bound tickets, and only reads them and sets their
-checklist entries. A Codex node always gets the Pages MCP process: in Read only
-with every reading operation, in YOLO with every operation of the executor,
-both under the executor's current rights. The credential travels in the process
-environment or the session request, never in arguments, prompts or the
-interface, and is revoked when the node closes.
+An OpenCode node bound to tickets reaches Pages through the local Pages MCP
+process with a credential of its own: it acts with the executor's current
+rights, only for the bound tickets, and only reads them and sets their
+checklist entries. A Codex CLI or Claude Code node always gets the Pages MCP
+process: in Read only with every reading operation, in YOLO with every
+operation of the executor, both under the executor's current rights. The
+credential travels in the process environment or the session request, never in
+arguments, prompts or the interface, and is revoked when the node closes.
 
 A node succeeds only when its closing report marks every todo done, proves
 every criterion and every ticket entry among them is checked in the ticket, and
@@ -309,8 +321,9 @@ the session closed without leftover processes. A Read only session cannot
 change tickets; there the report decides and Pages records the acceptance. The
 run view shows per node the runner, one-shot call or interactive session,
 session and process identity, times, the real process exit, the closeout, the
-requested and effective configuration (for Codex also adapter, session mode,
-approval policy, sandbox, isolation and the effective permissions), the
+requested and effective configuration (for the ACP runners also adapter,
+session mode, model as the adapter reports it, isolation and the effective
+permissions), the
 contract with its verdict and a link to the sent prompt. The
 normalized **Pages result** is `0` for an accepted and closed node and `-1` for
 any other outcome; a `-1` node fails and blocks its successors. Exit code 0
@@ -379,6 +392,84 @@ dependencies once as CI does:
 ```sh
 pnpm --dir mcp install
 ```
+
+### ACP adapters for the CLI runners
+
+A Codex CLI or Claude Code connection runs plan nodes through an Agent Client
+Protocol adapter that is installed once for the account of the Pages server,
+next to the CLI. The adapter is a normal npm package; Pages starts it as a
+child process of the node, with the CLI of the connection and its isolated
+sign-in, and finds it on the `PATH` of the server or next to the Node binary
+that runs it.
+
+| Runner      | Package                                  | Executable         | Pages accepts   | Verified with |
+| ----------- | ---------------------------------------- | ------------------ | --------------- | ------------- |
+| Codex CLI   | `@agentclientprotocol/codex-acp`         | `codex-acp`        | 2.1.1 up to 3.0 | 2.2.2         |
+| Claude Code | `@agentclientprotocol/claude-agent-acp`  | `claude-agent-acp` | 0.90.x          | 0.90.0        |
+
+```sh
+# Install (or update to the verified version) as the account of the Pages server.
+npm install -g @agentclientprotocol/codex-acp@2
+npm install -g @agentclientprotocol/claude-agent-acp@0.90.0
+
+codex-acp --version        # 2.2.2 at the time of writing
+claude-agent-acp --version # 0.90.0
+```
+
+The adapter packages a Claude CLI binary of its own, which Pages never uses:
+it always points the adapter at the `claude` CLI of the host
+(`CLAUDE_CODE_EXECUTABLE`), so the sign-in, the version and the catalog the
+other Pages checks use are the ones the node runs with. The adapter is only
+found when its folder is on the `PATH` of the running server; the service
+needs no restart after installing it, because the executable is looked up at
+every node start. Previews and other majors are refused. A 0.x adapter may
+change with every minor version, so Pages accepts the next one only after it
+was verified.
+
+What Pages sets for a session, and nothing else:
+
+- **Codex:** `CODEX_PATH` (the Codex CLI of the connection), `CODEX_CONFIG`
+  (sign-in method, provider, shell and web switches of the mode),
+  `INITIAL_AGENT_MODE`; the session mode `read-only` or `agent-full-access`,
+  the model and the effort are confirmed before the prompt.
+- **Claude Code:** `CLAUDE_CODE_EXECUTABLE`, the automatic model fallback and the
+  remap of retired model names switched off, auto memory off; `session/new`
+  carries the Claude options (`settingSources: []`, `strictMcpConfig`, the
+  tool allowlist of Read only). The mode `default` or `bypassPermissions`, the
+  model and the effort are confirmed before the prompt; the model the adapter
+  reports with its first usage update must equal the stored one.
+
+Check an installation, as the account of the Pages server and from the folder
+of the repository, with a throw-away workspace:
+
+```sh
+pnpm acp:smoke --provider claude_code --data ~/.pages/data \
+  --connection <connection id> --workspace /tmp/smoke-workspace \
+  --mode read_only --model <exact model id> --effort low
+```
+
+It starts the node exactly like a plan does (connection sign-in, adapter,
+isolation, mode), sends a short prompt and prints what the run record would
+hold: adapter and model as reported, session mode, events, closing report and
+whether any process of the session is left. `--stop-after <seconds>` stops the
+node like the stop button, `--timeout <minutes>` applies a deadline,
+`--mcp-bundle` and `--mcp-url` with `PAGES_SMOKE_TOKEN` connect a Pages MCP
+server.
+
+YOLO needs [bubblewrap](https://github.com/containers/bubblewrap)
+(`apt install bubblewrap`) with unprivileged user namespaces for the server
+account; without it a YOLO node fails with `plan_yolo_isolation_unavailable`
+before any process starts. Pages probes the isolation again a minute after a
+failed probe, so installing bubblewrap needs no restart either.
+
+| Run record or error                                      | Cause and remedy                                                                 |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `plan_acp_adapter_missing`, `plan_claude_acp_adapter_missing` | The adapter is not on the `PATH` of the server account. Install it as above. |
+| `plan_acp_adapter_unsupported`, `plan_claude_acp_adapter_unsupported` | The run record names the installed adapter and the verified range. |
+| `plan_yolo_isolation_unavailable`                        | bubblewrap is missing or user namespaces are off. Install or allow it.           |
+| `plan_permission_mode_unenforceable`                     | The adapter did not offer or confirm the mode, for Claude Code for example a managed setting that disables `bypassPermissions`, or a server running as root. |
+| `plan_model_unavailable`, `plan_reasoning_unsupported`   | The runner does not offer the stored model or effort. Choose another in the agent. |
+| `codex_permission_mode_required`, `claude_permission_mode_required` | An agent saved with the earlier write mode needs a chosen mode.   |
 
 ### First start
 

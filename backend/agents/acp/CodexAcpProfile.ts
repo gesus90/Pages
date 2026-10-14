@@ -1,9 +1,13 @@
+import { approvePermission, refusePermission } from "./AcpPermissions";
+
+import type { RequestPermissionRequest } from "@agentclientprotocol/sdk";
+import type { AcpPermissionMode } from "@/definition/AgentConfiguration";
 import type {
-  PermissionOptionKind,
-  RequestPermissionOutcome,
-  RequestPermissionRequest,
-} from "@agentclientprotocol/sdk";
-import type { CodexPermissionMode } from "@/definition/AgentConfiguration";
+  AcpConfigStep,
+  AcpModelRequest,
+  AcpPermissionDecision,
+  AcpSessionProfile,
+} from "./AcpDriver";
 
 /** The session mode of the Codex ACP adapter that carries a Pages mode. */
 export type CodexAcpSessionMode = "read-only" | "agent-full-access";
@@ -18,22 +22,10 @@ export type CodexAcpSessionMode = "read-only" | "agent-full-access";
  * without a sandbox of its own. The configuration lies above every
  * configuration file of Codex, so a file cannot widen it.
  */
-export interface CodexAcpProfile {
-  readonly mode: CodexPermissionMode;
+export interface CodexAcpProfile extends AcpSessionProfile {
   readonly sessionMode: CodexAcpSessionMode;
   /** Codex configuration the adapter applies to the session, passed as `CODEX_CONFIG`. */
   readonly configuration: Readonly<Record<string, unknown>>;
-  /** How the session works without anybody approving, as the run records it. */
-  readonly unattended: string;
-  /** What the session may do, as the run records it. */
-  readonly permissions: Readonly<Record<string, string>>;
-}
-
-/** What Pages answers a permission request of the adapter. */
-export interface CodexPermissionDecision {
-  readonly outcome: RequestPermissionOutcome;
-  /** The request was refused; the run counts it as a permission denial. */
-  readonly isDenied: boolean;
 }
 
 // Sign-in and provider stay those of the connection: no API key, no other provider.
@@ -42,6 +34,61 @@ const ACCOUNT_CONFIGURATION = {
   forced_login_method: "chatgpt",
   model_provider: "openai",
 } as const;
+
+const REPORTED_OPTIONS = {
+  sessionMode: "mode",
+  model: "model",
+  reasoningEffort: "reasoning_effort",
+} as const;
+
+/**
+ * Answers a permission request of the adapter; nobody is asked during a run.
+ *
+ * @param mode - The mode of the agent.
+ * @param request - The request of the adapter.
+ * @returns The selected option and whether it refuses.
+ *
+ * @remarks
+ * YOLO approves every request once, so nothing waits for a person and no
+ * approval is stored for later runs. "Nur Lesen" refuses every command, file
+ * change and additional permission. It only approves calls of MCP tools: the
+ * Pages MCP server is the only one a session gets, and its credential allows
+ * nothing but reading, so the server refuses every change itself.
+ */
+export function decideCodexPermission(
+  mode: AcpPermissionMode,
+  request: RequestPermissionRequest,
+): AcpPermissionDecision {
+  const isMcpToolCall = request._meta?.is_mcp_tool_approval === true;
+  if (mode === "yolo" || isMcpToolCall) return approvePermission(request);
+  return refusePermission(request);
+}
+
+// The mode first, then the model; the effort comes last because a model change resets it.
+function codexSteps(
+  sessionMode: CodexAcpSessionMode,
+  request: AcpModelRequest,
+): readonly AcpConfigStep[] {
+  const steps: AcpConfigStep[] = [
+    {
+      id: REPORTED_OPTIONS.sessionMode,
+      value: sessionMode,
+      refusal: "plan_permission_mode_unenforceable",
+    },
+    {
+      id: REPORTED_OPTIONS.model,
+      value: request.model,
+      refusal: "plan_model_unavailable",
+    },
+  ];
+  if (request.reasoningEffort !== null)
+    steps.push({
+      id: REPORTED_OPTIONS.reasoningEffort,
+      value: request.reasoningEffort,
+      refusal: "plan_reasoning_unsupported",
+    });
+  return steps;
+}
 
 const READ_ONLY_PROFILE: CodexAcpProfile = {
   mode: "read_only",
@@ -69,6 +116,11 @@ const READ_ONLY_PROFILE: CodexAcpProfile = {
     web: "search",
     pagesMcp: "read",
   },
+  reportedOptions: REPORTED_OPTIONS,
+  matchesReportedModel: null,
+  hasMcpStatusCommand: false,
+  steps: (request) => codexSteps("read-only", request),
+  decide: (request) => decideCodexPermission("read_only", request),
 };
 
 const YOLO_PROFILE: CodexAcpProfile = {
@@ -91,6 +143,11 @@ const YOLO_PROFILE: CodexAcpProfile = {
     web: "search",
     pagesMcp: "every tool of the executor",
   },
+  reportedOptions: REPORTED_OPTIONS,
+  matchesReportedModel: null,
+  hasMcpStatusCommand: false,
+  steps: (request) => codexSteps("agent-full-access", request),
+  decide: (request) => decideCodexPermission("yolo", request),
 };
 
 /**
@@ -99,47 +156,6 @@ const YOLO_PROFILE: CodexAcpProfile = {
  * @param mode - "Nur Lesen" or "YOLO", as the agent stores it.
  * @returns Session mode, configuration and the recorded permissions.
  */
-export function codexAcpProfile(mode: CodexPermissionMode): CodexAcpProfile {
+export function codexAcpProfile(mode: AcpPermissionMode): CodexAcpProfile {
   return mode === "yolo" ? YOLO_PROFILE : READ_ONLY_PROFILE;
-}
-
-function optionOf(
-  request: RequestPermissionRequest,
-  kinds: readonly PermissionOptionKind[],
-): RequestPermissionOutcome {
-  for (const kind of kinds) {
-    const option = request.options.find((entry) => entry.kind === kind);
-    if (option) return { outcome: "selected", optionId: option.optionId };
-  }
-  return { outcome: "cancelled" };
-}
-
-/**
- * Answers a permission request of the adapter; nobody is asked during a run.
- *
- * @param mode - The mode of the agent.
- * @param request - The request of the adapter.
- * @returns The selected option and whether it refuses.
- *
- * @remarks
- * YOLO approves every request once, so nothing waits for a person and no
- * approval is stored for later runs. "Nur Lesen" refuses every command, file
- * change and additional permission. It only approves calls of MCP tools: the
- * Pages MCP server is the only one a session gets, and its credential allows
- * nothing but reading, so the server refuses every change itself.
- */
-export function decideCodexPermission(
-  mode: CodexPermissionMode,
-  request: RequestPermissionRequest,
-): CodexPermissionDecision {
-  const isMcpToolCall = request._meta?.is_mcp_tool_approval === true;
-  if (mode === "yolo" || isMcpToolCall)
-    return {
-      outcome: optionOf(request, ["allow_once", "allow_always"]),
-      isDenied: false,
-    };
-  return {
-    outcome: optionOf(request, ["reject_once", "reject_always"]),
-    isDenied: true,
-  };
 }
