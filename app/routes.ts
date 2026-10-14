@@ -17,6 +17,8 @@ export default [
   route("api/v1/agents", "routes/api-v1-agents.ts"),
   route("api/v1/pairing/:endpoint?", "routes/api-v1-pairing.ts"),
   route("pair", "routes/pair.tsx"),
+  route("discord/callback", "routes/discord-callback.ts"),
+  route("discord/result", "routes/discord-result.tsx"),
   route("instance-logo", "routes/instance-logo.ts"),
   layout("routes/authenticated.tsx", [
     route("account-version", "routes/account-version.ts"),
@@ -57,6 +59,7 @@ export default [
     route("projekte", "routes/projects.tsx"),
     route("projekte/:projectId", "routes/project-detail.tsx"),
     route("projekte/:projectId/icon", "routes/project-icon.ts"),
+    route("projekte/:projectId/discord", "routes/project-discord.ts"),
     route("users/:userId/avatar", "routes/user-avatar.ts"),
     layout("routes/tasks-layout.tsx", [
       route("aufgaben", "routes/tasks.tsx", { id: "aufgaben" }),

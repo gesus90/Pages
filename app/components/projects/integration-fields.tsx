@@ -44,6 +44,7 @@ interface ToggleSwitchProps {
   readonly checked: boolean;
   readonly onChange: (nextChecked: boolean) => void;
   readonly label: string;
+  readonly isDisabled?: boolean;
 }
 
 /** Renders an orange Pages toggle switch with an accessible label. */
@@ -51,6 +52,7 @@ function ToggleSwitch({
   checked,
   onChange,
   label,
+  isDisabled = false,
 }: ToggleSwitchProps): React.ReactElement {
   function handleClick(): void {
     onChange(!checked);
@@ -62,9 +64,10 @@ function ToggleSwitch({
       aria-label={label}
       className={cn(
         "inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
-        "cursor-pointer",
+        "cursor-pointer disabled:cursor-not-allowed disabled:opacity-60",
         checked ? "justify-end bg-orange-500" : "justify-start bg-muted",
       )}
+      disabled={isDisabled}
       onClick={handleClick}
       role="switch"
       type="button"
@@ -82,6 +85,8 @@ interface ToggleRowProps {
   readonly hint: string;
   readonly checked: boolean;
   readonly onChange: (nextChecked: boolean) => void;
+  /** Blocks the switch, for example while the change it made is still being saved. */
+  readonly isDisabled?: boolean;
 }
 
 /** Renders a labeled setting row with a trailing toggle switch. */
@@ -90,6 +95,7 @@ export function ToggleRow({
   hint,
   checked,
   onChange,
+  isDisabled = false,
 }: ToggleRowProps): React.ReactElement {
   return (
     <div className="flex items-start justify-between gap-4">
@@ -99,7 +105,12 @@ export function ToggleRow({
           {hint}
         </p>
       </div>
-      <ToggleSwitch checked={checked} label={title} onChange={onChange} />
+      <ToggleSwitch
+        checked={checked}
+        isDisabled={isDisabled}
+        label={title}
+        onChange={onChange}
+      />
     </div>
   );
 }

@@ -132,6 +132,140 @@ never writes to GitHub, and the actor needs write permission on the project.
 With the synchronization switched off (`sync_enabled = false`) nothing is read
 from or written to GitHub. There is no "last write wins" rule.
 
+## Discord notifications
+
+A project can send notifications about its tickets and milestones to one
+Discord text channel. A bot posts them; it is added to the Discord server through
+Discord's official installation flow. Nothing else of Discord is used: no
+commands, no replies, no direct messages, no reading of messages and no gateway
+connection.
+
+### Set up the Discord application (once per instance)
+
+An administrator registers one Discord application for the whole Pages
+instance. Projects never ask for credentials.
+
+1. In the [Discord Developer Portal](https://discord.com/developers/applications)
+   create an application (for example "Pages").
+2. **Bot:** create the bot and copy its token. No privileged gateway intent is
+   needed, leave them off. Switch on **Public Bot** if people other than the
+   application owner add the bot to their servers.
+3. **OAuth2:** copy the client secret and add the redirect
+   `<public address of Pages>/discord/callback`, for example
+   `https://pages.example.com/discord/callback`. It has to match exactly.
+4. Set these environment variables on the Pages server and restart it (see
+   [.env.example](./.env.example)):
+
+| Variable                       | Value                                                              |
+| ------------------------------ | ------------------------------------------------------------------ |
+| `PAGES_DISCORD_APPLICATION_ID` | Application ID (the OAuth2 client ID)                              |
+| `PAGES_DISCORD_CLIENT_SECRET`  | OAuth2 client secret                                               |
+| `PAGES_DISCORD_BOT_TOKEN`      | Bot token                                                          |
+| `PAGES_PUBLIC_URL`             | Optional. Public address of Pages, for example behind a proxy      |
+
+Without all three secrets, the Discord panel of a project explains which
+variables are missing and offers no way to connect. The values stay in the
+server process: they are never sent to a browser, never stored in the database
+and never logged. To rotate a secret, reset it in the portal and restart Pages.
+
+`PAGES_PUBLIC_URL` decides the redirect address and the links in messages. Set
+it whenever the address the browser or phone uses differs from the one Pages
+sees, for example behind a reverse proxy; otherwise the address of the request
+that starts the connection is used. A phone can only finish the connection if it
+reaches that address.
+
+### Bot permissions
+
+The installation link asks for the scope `bot` and the permissions
+`View Channel` (1024) and `Send Messages` (2048), together `3072`, and for
+nothing else. A channel can only be chosen when the bot can see it and send
+into it. Pages computes this on the server from the roles of the bot and the
+overwrites of the channel. Only text and announcement channels are listed.
+Channels the bot cannot use stay in the list, disabled, with the missing
+permission next to them.
+
+### Connect a project
+
+Under **Projects → project → Interfaces** the Discord card opens the settings
+panel. Everyone who can read the project sees it read-only; connecting, the
+channel, the events, the test message and disconnecting need the right to write
+in the project, the same as for the GitHub interface.
+
+1. **Connect Discord** starts a connection attempt. It lives 15 minutes, can be
+   used once and is bound to your Pages user and the project.
+2. On a computer the panel shows a **QR code** and a button. Both open the same
+   official Discord authorization page; the QR code is only the entrance and
+   proves nothing. On a phone use the button.
+3. Choose the server in Discord. Discord sends the browser to
+   `/discord/callback`. That can be the phone that scanned the code: no Pages
+   session is needed there. Pages checks the random `state` (only its hash is
+   stored, and it works once), exchanges the code, and asks Discord with the
+   bot token whether the bot really is on the server the answer names.
+4. The panel on the computer notices the result and lists the channels of that
+   server. **Server and channel are confirmed there**; only then is the
+   connection saved.
+5. Four switches select the events **Ticket created**, **Ticket changed**,
+   **Milestone created** and **Milestone changed**, each on its own. A new
+   connection starts with all four on.
+6. **Send test message** posts into the channel at once and shows why it failed
+   if it does.
+7. **Disconnect** removes the server, the channel, the event selection and the
+   messages not sent yet of this project. The bot stays on the Discord server
+   (remove it there if you do not need it any more), and other projects stay
+   connected.
+
+### What is sent
+
+A message names the event, the ticket key or milestone name, the title, the
+status, the project and the link to Pages. It carries no description and no
+person. Titles cannot ping anyone: every message disables all mentions
+(`allowed_mentions` with an empty `parse`), and `@`, `<…>`, markdown and links
+in titles are neutralized as well. Tickets that belong to a department are not
+announced, because the channel is not limited to that department.
+
+Changes made in the interface and by agents (MCP and chat) are announced after
+the Pages change committed. A refused, conflicting or rolled back change
+announces nothing.
+
+### Delivery and failures
+
+A committed change writes a message to a stored outbox; a worker delivers it
+asynchronously, so Discord never blocks or undoes a Pages change.
+
+- Changes of one ticket or milestone that arrive while its message still waits
+  are merged into that message, which keeps its event and shows the newest
+  facts. A template that adds labels and checklist items to a new ticket
+  therefore sends one message, not one per step.
+- A failed delivery is tried again after 30 seconds, 2 minutes, 10 minutes,
+  30 minutes and 2 hours, and given up after the sixth failed attempt or after
+  a day. The panel shows the counters and, in words, the problem that stands.
+- A Discord rate limit moves the message to the time `Retry-After` names. It
+  does not count as a failed attempt and holds back the messages behind it.
+- A problem a retry cannot fix (rejected credentials, the bot removed from the
+  server, a deleted channel) ends the delivery at once.
+- Every message carries a nonce derived from its identifier, and Discord does
+  not create a second message for a repeated nonce. A retry after a lost answer
+  therefore does not post twice.
+- Stored messages survive a restart. Like the GitHub synchronization, the
+  delivery starts with the first request after Pages started.
+
+### Manual acceptance with a real server
+
+Automated tests replace Discord. To check the real thing, set the three
+variables, add the redirect in the portal and then:
+
+1. Open **Projects → project → Interfaces → Discord** and choose **Connect
+   Discord**.
+2. Scan the QR code with a phone, choose a test server and approve. The phone
+   shows "Server authorized".
+3. On the computer the panel shows the server and its channels. Choose a channel
+   and confirm.
+4. Send the test message and check it arrives in the channel.
+5. Create and change a ticket and a milestone, also through an agent, and check
+   one message per switched-on event, with no ping.
+6. Switch an event off, disconnect, and check nothing is posted afterwards while
+   the bot is still on the server.
+
 ## Agents in the Pages chat
 
 Pica can list and read visible user agents, create them (`agents.create`, the

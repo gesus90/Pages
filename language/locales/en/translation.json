@@ -2125,7 +2125,8 @@
       "webhookCopy": "Copy webhook URL",
       "connectionOk": "Connection successful.",
       "connectionFailed": "Connection failed. Check the token and repository.",
-      "planned": "Planned"
+      "planned": "Planned",
+      "discordCardDescription": "Send notifications about tickets and milestones to a Discord channel."
     },
     "activity": {
       "allActivities": "All activities",
@@ -2140,6 +2141,120 @@
       "source": {
         "mcp": "via MCP",
         "ai": "AI action via Pica"
+      }
+    },
+    "discord": {
+      "loading": "Loading Discord settings…",
+      "loadFailed": "The Discord settings could not be loaded.",
+      "retry": "Try again",
+      "instance": {
+        "title": "Discord is not set up on this server",
+        "admin": "A Pages administrator has to register one Discord application for this instance. Set these environment variables on the server and restart Pages. They are secrets of the server and are never asked for in a project.",
+        "member": "Discord notifications are not available yet. Ask a Pages administrator to set up the Discord application of this instance."
+      },
+      "connect": {
+        "title": "Connect a Discord server",
+        "text": "Pages adds a bot to your Discord server and sends notifications about the events you choose to one channel. The bot only sees and writes in the channels you allow. Nothing is saved until you confirm server and channel here.",
+        "button": "Connect Discord",
+        "another": "Add the bot to another server"
+      },
+      "pairing": {
+        "title": "Add the bot on Discord",
+        "qrLabel": "QR code with the Discord authorization link",
+        "open": "Open Discord authorization",
+        "hint": "The QR code and the button only open the official authorization page of Discord. Choose your server there. Pages connects nothing until you confirm server and channel here.",
+        "waiting": "Waiting for the authorization in Discord…",
+        "cancel": "Cancel",
+        "restart": "Start again",
+        "reloaded": "This attempt was started before the view was reloaded, so its link cannot be shown again. Start again to get a new code."
+      },
+      "attempt": {
+        "expired": "The connection attempt expired. Start again.",
+        "denied": "The authorization was cancelled in Discord.",
+        "no_guild": "Discord did not name a server. Choose a server when you add the bot.",
+        "verification_failed": "Pages could not verify that the bot is on that server.",
+        "exchange_failed": "Discord did not accept the authorization. Start again."
+      },
+      "channels": {
+        "title": "Channel for notifications",
+        "server": "Server: {{name}}",
+        "none": "The bot cannot see any text channel on this server.",
+        "missing": {
+          "VIEW_CHANNEL": "The bot cannot see this channel.",
+          "SEND_MESSAGES": "The bot cannot send messages in this channel."
+        },
+        "kind": {
+          "text": "Text channel",
+          "announcement": "Announcement channel"
+        },
+        "confirm": "Connect with this channel",
+        "change": "Change channel",
+        "save": "Use this channel",
+        "cancel": "Cancel"
+      },
+      "status": {
+        "title": "Connection",
+        "server": "Server",
+        "channel": "Channel",
+        "lastSent": "Last message",
+        "never": "none yet",
+        "waiting": "Waiting to be sent",
+        "failed": "Given up"
+      },
+      "events": {
+        "title": "Events",
+        "hint": "Pages sends a message only for the events that are on. Tickets that belong to a department are never announced, because the channel is not limited to that department.",
+        "on": "On",
+        "off": "Off",
+        "ticket.created": {
+          "title": "Ticket created",
+          "hint": "A new ticket is created in this project."
+        },
+        "ticket.updated": {
+          "title": "Ticket changed",
+          "hint": "Fields, status, checklist, labels or links of a ticket change."
+        },
+        "milestone.created": {
+          "title": "Milestone created",
+          "hint": "A new milestone is created in this project."
+        },
+        "milestone.updated": {
+          "title": "Milestone changed",
+          "hint": "A milestone or its dependencies change."
+        }
+      },
+      "test": {
+        "button": "Send test message",
+        "sent": "Test message sent to the channel.",
+        "failed": "The test message was not sent. {{reason}}"
+      },
+      "disconnect": {
+        "button": "Disconnect",
+        "text": "This removes the Discord settings and the event selection of this project. The bot stays on your Discord server; remove it there if you no longer need it. Other projects stay connected.",
+        "keep": "Keep connected",
+        "confirm": "Disconnect now"
+      },
+      "problem": {
+        "invalid_credentials": "Discord rejected the credentials of the Pages application. An administrator has to check the bot token.",
+        "bot_removed": "The bot is no longer on the server. Add it again.",
+        "missing_access": "The bot cannot access the channel. Check the channel permissions.",
+        "missing_permissions": "The bot may not send messages in the channel.",
+        "channel_missing": "The channel no longer exists. Choose another channel.",
+        "rate_limited": "Discord asked Pages to slow down. The messages are sent again shortly.",
+        "unavailable": "Discord could not be reached. Pages tries again.",
+        "unknown": "Discord answered with an unexpected error."
+      },
+      "error": {
+        "not_configured": "Discord is not set up on this server.",
+        "attempt_invalid": "This connection attempt is no longer valid. Start again.",
+        "channel_unavailable": "The bot cannot send in this channel. Choose another one.",
+        "not_connected": "This project is not connected to Discord.",
+        "invalid_events": "The event selection is not valid.",
+        "discord_unavailable": "Discord could not be reached. Try again in a moment.",
+        "invalid_input": "The request is incomplete.",
+        "forbidden": "You are not allowed to change the Discord settings of this project.",
+        "not_found": "The project was not found.",
+        "request_failed": "Pages could not be reached. Check the connection and try again."
       }
     }
   },
@@ -3281,5 +3396,38 @@
     "deleteTitle": "Remove agent “{{name}}”?",
     "deleteDescription": "The agent will be removed from the list and can no longer be started. Running agents can only be removed after their run ends.",
     "confirmDelete": "Remove agent"
+  },
+  "discordResult": {
+    "authorized": {
+      "title": "Server authorized",
+      "text": "The bot was added and Pages checked the server."
+    },
+    "denied": {
+      "title": "Authorization cancelled",
+      "text": "The authorization was cancelled in Discord. Nothing was connected."
+    },
+    "invalid": {
+      "title": "Link not valid",
+      "text": "This link does not belong to a connection attempt of Pages."
+    },
+    "used": {
+      "title": "Link already used",
+      "text": "This connection attempt was already answered. Each link works once."
+    },
+    "expired": {
+      "title": "Link expired",
+      "text": "The connection attempt took too long and expired."
+    },
+    "failed": {
+      "title": "Authorization failed",
+      "text": "Pages could not verify the server. Nothing was connected."
+    },
+    "not_configured": {
+      "title": "Discord is not set up",
+      "text": "An administrator has to set up the Discord application of this Pages instance first."
+    },
+    "nextStep": "Go back to Pages, in the browser tab or on the computer where you started the connection, and confirm server and channel there. You can close this window.",
+    "tryAgain": "Start the connection again in Pages under Projects → Interfaces → Discord.",
+    "backToPages": "Open Pages"
   }
 }

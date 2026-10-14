@@ -6,7 +6,13 @@ PAGE-26, user-agent operation tests of PAGE-21 and agent plan operation tests
 of PAGE-62 under `tests/backend/backend/service/agents/`, the archive repository
 boundary tests under `tests/backend/backend/database/repositories/`, the
 targeted Pica chat tests of PAGE-28 under
-`tests/frontend/app/components/chat/`, and the Codex ACP tests of PAGE-63 under
+`tests/frontend/app/components/chat/`, the Discord notification tests of PAGE-27
+(OAuth state, permissions, channel validation, event selection, UI and agent
+events, delivery, retry and rate limit, mention protection, disconnect) under
+`tests/backend/backend/discord/`, `tests/backend/backend/service/discord/`,
+`tests/backend/app/` and `tests/frontend/app/components/projects/` (Discord is
+replaced by a synthetic REST API behind the `fetch` boundary, never contacted),
+and the Codex ACP tests of PAGE-63 under
 `tests/backend/backend/agents/` (the adapter is an in-process agent app of the
 ACP SDK behind a fake spawn, never a real process), each with their fixtures;
 the full suites are planned for PAGE-32/PAGE-33 and are not available as usable,

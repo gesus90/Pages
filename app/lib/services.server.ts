@@ -31,7 +31,8 @@ import { InstanceSettingsService } from "@/backend/service/InstanceSettingsServi
 import { SettingsService } from "@/backend/service/SettingsService";
 import { GitHubSyncService } from "@/backend/service/GitHubSyncService";
 import { ProjectService } from "@/backend/service/ProjectService";
-import { TaskService } from "@/backend/service/TaskService";
+import { AnnouncingTaskService } from "@/backend/service/AnnouncingTaskService";
+import { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
 import { TaskGitHubPublisher } from "@/backend/service/task/TaskGitHubPublisher";
 import { TaskHistoryRecorder } from "@/backend/service/task/TaskHistoryRecorder";
 import { TaskTemplateService } from "@/backend/service/TaskTemplateService";
@@ -51,7 +52,9 @@ import { createChatServices } from "./chat-services.server";
 import { createAgentPlanService } from "./agent-plan-services.server";
 import { createTextAssistantServices } from "./text-assistant-services.server";
 import { createMcpServices } from "./mcp-services.server";
+import { createDiscordServices } from "./discord-services.server";
 
+import type { TaskService } from "@/backend/service/TaskService";
 import type { AgentAssetService } from "@/backend/service/agents/AgentAssetService";
 import type { AgentApplicationServices } from "./agent-services.server";
 import type { ChatApplicationServices } from "./chat-services.server";
@@ -59,6 +62,7 @@ import type { AgentPlanService } from "@/backend/service/agents/AgentPlanService
 import type { AgentPlanMcpSettings } from "@/backend/service/agents/AgentPlanSessionAccess";
 import type { TextAssistantApplicationServices } from "./text-assistant-services.server";
 import type { McpApplicationServices } from "./mcp-services.server";
+import type { DiscordApplicationServices } from "./discord-services.server";
 
 /** Server-only service instances shared by React Router loaders and actions. */
 export interface ApplicationServices
@@ -66,7 +70,8 @@ export interface ApplicationServices
     AgentApplicationServices,
     ChatApplicationServices,
     TextAssistantApplicationServices,
-    McpApplicationServices {
+    McpApplicationServices,
+    DiscordApplicationServices {
   readonly administrationService: AdministrationService;
   readonly agentPlanService: AgentPlanService;
   readonly groupAdministrationService: GroupAdministrationService;
@@ -302,7 +307,7 @@ async function initializeServices(
     accounts: { users: userService, administration: administrationService },
     agents: { ...agentServices, agentPlanService },
     wiki: workspaceServices.wikiService,
-    gitHubSync: taskServices.gitHubSyncService,
+    tasks: taskServices,
     serverCache,
   });
   return {
@@ -393,7 +398,11 @@ function startMcpWorkspace(context: {
     readonly agentPlanService: AgentPlanService;
   };
   readonly wiki: WikiService;
-  readonly gitHubSync: GitHubSyncService;
+  /** The ticket services, whose GitHub synchronization and event publisher the workspace shares. */
+  readonly tasks: Pick<
+    ApplicationServices,
+    "gitHubSyncService" | "pagesEventPublisher"
+  >;
   readonly serverCache: ServerCache;
 }): McpApplicationServices & ChatApplicationServices {
   // The publisher of the ticket pages, on its own repository: agent ticket changes
@@ -404,7 +413,7 @@ function startMcpWorkspace(context: {
     new TaskHistoryRecorder(taskRepository),
     context.serverCache,
   );
-  publisher.attach(context.gitHubSync);
+  publisher.attach(context.tasks.gitHubSyncService);
   const { users, administration } = context.accounts;
   const directory = path.dirname(context.databasePath);
   const services = createMcpServices(context.database, users, administration, {
@@ -414,6 +423,7 @@ function startMcpWorkspace(context: {
     agentWorkspaces: context.agents.agentWorkspaceService,
     pageAgents: context.agents.pageAgentService,
     plans: context.agents.agentPlanService,
+    events: context.tasks.pagesEventPublisher,
   });
   startWikiMaintenanceScheduler(context.wiki, services.agentAssetService);
   return {
@@ -443,16 +453,21 @@ interface TaskServiceContext {
 
 /**
  * Creates the services of tickets: the tickets themselves, templates, GitHub
- * synchronization, ticket attachments and the ticket tree (A8.2).
+ * synchronization, ticket attachments, the ticket tree (A8.2) and the
+ * Discord notifications that follow ticket and milestone changes.
  *
  * @param context - The repositories and services the ticket services use.
- * @returns The ticket services, with GitHub and attachment files attached.
+ * @returns The ticket services, with GitHub and attachment files attached,
+ * and the event publisher both the interface and the agents announce on.
  */
 function createTaskServices(
   context: TaskServiceContext,
 ): Pick<
   ApplicationServices,
+  | "discordAuthorizationService"
+  | "discordConnectionService"
   | "gitHubSyncService"
+  | "pagesEventPublisher"
   | "taskAttachmentService"
   | "taskService"
   | "taskTemplateService"
@@ -460,11 +475,15 @@ function createTaskServices(
 > {
   const { database, permissionService, projectService } = context;
   const taskRepository = new TaskRepository(database);
-  const taskService = new TaskService(
-    taskRepository,
-    projectService,
-    permissionService,
-    context.serverCache,
+  const pagesEventPublisher = new PagesEventPublisher();
+  const taskService = new AnnouncingTaskService(
+    {
+      cache: context.serverCache,
+      permissionService,
+      projectService,
+      taskRepository,
+    },
+    pagesEventPublisher,
   );
   const gitHubSyncService = new GitHubSyncService({
     cache: context.serverCache,
@@ -481,7 +500,15 @@ function createTaskServices(
   startGitHubSyncScheduler(gitHubSyncService);
 
   return {
+    ...createDiscordServices({
+      database,
+      events: pagesEventPublisher,
+      projectRepository: context.projectRepository,
+      projectService,
+      taskRepository,
+    }),
     gitHubSyncService,
+    pagesEventPublisher,
     ...createTicketServices(
       database,
       context.databasePath,

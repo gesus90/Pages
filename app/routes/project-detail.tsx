@@ -66,6 +66,7 @@ interface ProjectDetailLoaderData {
   readonly statuses: readonly WorkflowStatus[];
   readonly workItems: readonly WorkItemDetail[];
   readonly integration: ProjectIntegration | null;
+  readonly discordConnected: boolean;
   readonly activity: readonly ProjectActivity[];
   readonly taskHistory: readonly WorkItemHistory[];
   readonly canWrite: boolean;
@@ -97,6 +98,7 @@ type TabData = Pick<
   | "activity"
   | "canArchiveMilestones"
   | "canWrite"
+  | "discordConnected"
   | "events"
   | "goals"
   | "integration"
@@ -128,6 +130,33 @@ async function findArchiveHint(
 }
 
 /**
+ * Loads what the interfaces tab shows: the GitHub settings and whether Discord is connected.
+ *
+ * @param services - Application services of the request.
+ * @param actor - The signed-in user.
+ * @param projectId - Project being viewed.
+ * @param isNeeded - Whether the interfaces tab is selected; no other tab asks.
+ * @returns The settings and the status; empty when the tab is not selected.
+ */
+async function findIntegrations(
+  services: ApplicationServices,
+  actor: User,
+  projectId: string,
+  isNeeded: boolean,
+): Promise<Pick<TabData, "discordConnected" | "integration">> {
+  if (!isNeeded) {
+    return { discordConnected: false, integration: null };
+  }
+
+  const [integration, discordConnected] = await Promise.all([
+    services.projectService.findIntegration(actor, projectId),
+    services.discordConnectionService.isConnected(actor, projectId),
+  ]);
+
+  return { discordConnected, integration };
+}
+
+/**
  * Loads only the data the selected tab shows, so switching tabs stays cheap.
  *
  * @param services - Application services of the request.
@@ -153,7 +182,7 @@ async function loadTabData(
     goals,
     tags,
     events,
-    integration,
+    integrations,
     activity,
     milestones,
     milestoneLinks,
@@ -174,9 +203,7 @@ async function loadTabData(
     needsGeneral || needsPlanning
       ? services.projectService.findEvents(actor, projectId)
       : Promise.resolve([]),
-    needsIntegrations
-      ? services.projectService.findIntegration(actor, projectId)
-      : Promise.resolve(null),
+    findIntegrations(services, actor, projectId, needsIntegrations),
     needsActivity
       ? services.projectService.findActivity(actor, projectId)
       : Promise.resolve([]),
@@ -200,9 +227,10 @@ async function loadTabData(
     activity,
     canArchiveMilestones,
     canWrite,
+    discordConnected: integrations.discordConnected,
     events,
     goals,
-    integration,
+    integration: integrations.integration,
     members,
     milestoneLinks,
     milestones,
@@ -399,6 +427,7 @@ export default function ProjectDetailRoute(): React.ReactElement {
             <ProjectIntegrationsTab
               key={loaderData.project.id}
               integration={loaderData.integration}
+              isDiscordConnected={loaderData.discordConnected}
               canWrite={loaderData.canWrite}
               projectId={loaderData.project.id}
             />

@@ -228,6 +228,8 @@ export function createMcpServices(
     readonly pageAgents: PageAgentService;
     /** The agent plans shared by MCP clients and the signed-in chat. */
     readonly plans: AgentPlanService;
+    /** The publisher the interface announces its changes on too; a new one by default. */
+    readonly events?: PagesEventPublisher;
   },
 ): McpApplicationServices {
   const identities = new AgentIdentityService(users, administration);
@@ -240,7 +242,7 @@ export function createMcpServices(
   const staging = new WikiFileStore(
     path.join(workspace.directory, "agent-assets"),
   );
-  const pagesEventPublisher = new PagesEventPublisher();
+  const pagesEventPublisher = workspace.events ?? new PagesEventPublisher();
   const agentAssetService = new AgentAssetService({
     repository: new AgentAssetRepository(database),
     files: staging,

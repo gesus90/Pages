@@ -2,6 +2,7 @@ import { ArrowRight, BookOpen, Plug } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { DiscordPanel } from "@/app/components/projects/discord-integration-panel";
 import { GitHubPanel } from "@/app/components/projects/github-integration-panel";
 import { useGitHubSubmission } from "@/app/components/projects/github/use-github-submission";
 import {
@@ -12,22 +13,23 @@ import {
 import type { IntegrationId } from "@/app/components/projects/integration-service-icon";
 import type { ProjectIntegration } from "@/definition/Project";
 
-/** The interfaces in display order; only GitHub is available today. */
-const PLANNED_INTEGRATIONS: readonly {
+interface PlannedIntegration {
   readonly id: IntegrationId;
   readonly nameKey: string;
   readonly descriptionKey: string;
-}[] = [
+}
+
+/** The planned interfaces that are listed between GitHub and Discord. */
+const PLANNED_BEFORE_DISCORD: readonly PlannedIntegration[] = [
   {
     descriptionKey: "projectDetail.interfaces.calendarDescription",
     id: "google-calendar",
     nameKey: "projectDetail.interfaces.calendarName",
   },
-  {
-    descriptionKey: "projectDetail.interfaces.discordDescription",
-    id: "discord",
-    nameKey: "projectDetail.interfaces.discordName",
-  },
+];
+
+/** The planned interfaces that are listed after Discord. */
+const PLANNED_AFTER_DISCORD: readonly PlannedIntegration[] = [
   {
     descriptionKey: "projectDetail.interfaces.webhooksDescription",
     id: "webhooks",
@@ -47,25 +49,43 @@ const PLANNED_INTEGRATIONS: readonly {
 
 interface ProjectIntegrationsTabProps {
   readonly integration: ProjectIntegration | null;
+  /** Whether the project has a Discord connection when the tab loads. */
+  readonly isDiscordConnected: boolean;
   readonly canWrite: boolean;
   readonly projectId: string;
 }
 
+function renderPlanned(
+  planned: PlannedIntegration,
+  translate: (key: string) => string,
+): React.ReactElement {
+  return (
+    <PlannedIntegrationCard
+      description={translate(planned.descriptionKey)}
+      id={planned.id}
+      key={planned.id}
+      name={translate(planned.nameKey)}
+    />
+  );
+}
+
 /**
- * Renders the project interfaces tab with the GitHub card and the planned ones.
+ * Renders the project interfaces tab with the GitHub and Discord cards and the planned ones.
  *
  * @remarks
- * Selecting the GitHub card opens its settings as a fixed overlay on the
- * right, leaving the main page width and position untouched. The other
- * interfaces are announced as planned and cannot be opened.
+ * Selecting a card opens its settings as a fixed overlay on the right,
+ * leaving the main page width and position untouched; one panel is open at a
+ * time. The other interfaces are announced as planned and cannot be opened.
  */
 export function ProjectIntegrationsTab({
   integration,
+  isDiscordConnected,
   canWrite,
   projectId,
 }: ProjectIntegrationsTabProps): React.ReactElement {
   const { t } = useTranslation();
-  const [isGitHubOpen, setIsGitHubOpen] = useState(false);
+  const [openPanel, setOpenPanel] = useState<"github" | "discord" | null>(null);
+  const [isDiscordLinked, setIsDiscordLinked] = useState(isDiscordConnected);
   const submission = useGitHubSubmission();
 
   return (
@@ -90,17 +110,19 @@ export function ProjectIntegrationsTab({
             description={t("projectDetail.interfaces.githubCardDescription")}
             id="github"
             name={t("projectDetail.interfaces.githubName")}
-            onSelect={() => setIsGitHubOpen(true)}
-            selected={isGitHubOpen}
+            onSelect={() => setOpenPanel("github")}
+            selected={openPanel === "github"}
           />
-          {PLANNED_INTEGRATIONS.map((planned) => (
-            <PlannedIntegrationCard
-              description={t(planned.descriptionKey)}
-              id={planned.id}
-              key={planned.id}
-              name={t(planned.nameKey)}
-            />
-          ))}
+          {PLANNED_BEFORE_DISCORD.map((planned) => renderPlanned(planned, t))}
+          <IntegrationCard
+            connected={isDiscordLinked}
+            description={t("projectDetail.interfaces.discordCardDescription")}
+            id="discord"
+            name={t("projectDetail.interfaces.discordName")}
+            onSelect={() => setOpenPanel("discord")}
+            selected={openPanel === "discord"}
+          />
+          {PLANNED_AFTER_DISCORD.map((planned) => renderPlanned(planned, t))}
         </div>
 
         <div className="mt-5 flex items-start gap-3 rounded-2xl bg-primary-subtle px-5 py-4">
@@ -123,14 +145,22 @@ export function ProjectIntegrationsTab({
         </div>
       </section>
 
-      {isGitHubOpen ? (
+      {openPanel === "github" ? (
         <GitHubPanel
           key={integration?.updatedAt ?? "github-new"}
           canWrite={canWrite}
           integration={integration}
-          onClose={() => setIsGitHubOpen(false)}
+          onClose={() => setOpenPanel(null)}
           projectId={projectId}
           submission={submission}
+        />
+      ) : null}
+      {openPanel === "discord" ? (
+        <DiscordPanel
+          key={projectId}
+          onClose={() => setOpenPanel(null)}
+          onConnectionChange={setIsDiscordLinked}
+          projectId={projectId}
         />
       ) : null}
     </div>
