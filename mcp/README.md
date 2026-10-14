@@ -31,7 +31,8 @@ fails before credential lookup or any Pages request.
 ## Supported functions
 
 The adapter supports project discovery and management, wiki reading, search,
-page creation and field changes, comments, asset upload preparation, wiki and
+page creation and field changes, bounded passage reads and exact range patches
+of wiki text and ticket descriptions, comments, asset upload preparation, wiki and
 structured import preview/application, tickets, milestones, assignments, tags
 and links. Agent workspaces, the local directories that agents work in, can be
 listed and read, and registered, changed and unregistered by those who manage the
@@ -736,6 +737,10 @@ changed, parentId, projectId, visibility}`.
 
 The tools are listed to every verified account; rights are enforced on each call.
 
+`set_wiki_page_content` replaces the whole Markdown. To change one passage with a
+small request, read it with `read_wiki_page_range` and use `patch_wiki_page_content`;
+see [Text ranges](#text-ranges-read-a-passage-patch-a-range).
+
 ### Wiki icon and cover
 
 `read_wiki_page` returns the visual metadata of a page with its text:
@@ -786,6 +791,246 @@ Both are always present, `null` when not set. A page the account cannot see retu
   returns `CONFLICT`. A refused call stores nothing.
 - **Not offered.** `create_wiki_page` has no cover argument; set the cover with a
   second call after creating the page.
+
+### Text ranges: read a passage, patch a range
+
+Four tools change small parts of a long text without moving the whole text. They
+exist for the wiki Markdown (`content`) and the ticket `description`, and for no
+other field, table or file. The existing whole-text tools (`read_wiki_page`,
+`set_wiki_page_content`, `read_ticket`, `set_ticket_description`) are unchanged.
+
+| Tool                            | Pages operation                | Arguments                                                                                                                           | Result                                                                                                               |
+| ------------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `read_wiki_page_range`          | `wiki.page.readRange`          | `pageId`, `start`; optional `end`, `maxCharacters`                                                                                  | `{pageId, link, revision, text, start, end, truncated, next, lineCount, characterCount, byteCount}`                  |
+| `read_ticket_description_range` | `ticket.description.readRange` | `ticketId`, `start`; optional `end`, `maxCharacters`                                                                                | `{ticketId, key, link, descriptionVersion, text, start, end, truncated, next, lineCount, characterCount, byteCount}` |
+| `patch_wiki_page_content`       | `wiki.page.patchContent`       | `operationId`, `pageId`, `expectedRevision`, `start`, `end`, `expectedText`, `replacementText`; optional `includeAfter`             | `{pageId, link, field:"content", revision, changed, start, end, after?}`                                             |
+| `patch_ticket_description`      | `ticket.patchDescription`      | `operationId`, `ticketId`, `expectedDescriptionVersion`, `start`, `end`, `expectedText`, `replacementText`; optional `includeAfter` | `{ticketId, key, link, field:"description", changed, descriptionVersion, start, end, after?}`                        |
+
+`pageId` and `ticketId` are named as in the single-field tools: an ID, a ticket key
+such as `WORK-12`, or a Pages address. The read tools are listed to every verified
+account, the patch tools like the other write tools.
+
+#### Positions
+
+A position is `{line, column}`. The convention is the same for reading and
+patching and is fixed:
+
+- **Lines and columns start at 1.** The range `start` is inclusive and `end` is
+  exclusive. `start` after `end` is refused; equal positions are an empty range.
+- **A column counts Unicode code points** of its line: not UTF-8 bytes, not UTF-16
+  code units, not screen width and not table cells. An emoji such as 😀 is one
+  column, an umlaut written as one code point is one column, and a letter with a
+  separate combining accent is two. Text is never normalized.
+- **Line breaks** are LF, CRLF and CR. A break is stored as it is and kept as it is.
+  It counts as **one** column at the end of its line, a CRLF too, so no position
+  lies between its CR and LF. The position after a break is column 1 of the next
+  line.
+- **The last position of a line** is the one right before its break, one column
+  after its last character. On the last line it is the end of the text. A column
+  beyond it is `column_out_of_range`, a line beyond the last one
+  `line_out_of_range`.
+- **Empty last line.** A text that ends with a break has a last, empty line;
+  `{line: n, column: 1}` on it is the end of the text. An empty text has one empty
+  line.
+
+| To select                | `start`                | `end`                             |
+| ------------------------ | ---------------------- | --------------------------------- |
+| Line 7 with its break    | `{line: 7, column: 1}` | `{line: 8, column: 1}`            |
+| Line 7 without its break | `{line: 7, column: 1}` | `{line: 7, column: <length + 1>}` |
+| Lines 7 to 9             | `{line: 7, column: 1}` | `{line: 10, column: 1}`           |
+| Insertion point          | `{line: 7, column: 4}` | the same position                 |
+
+#### Reading a passage
+
+`start` and `end` of a read need `line`; `column` may be left out and is then 1.
+Without `end` the read runs on from `start` for at most `maxCharacters` characters
+(default 4,096, at most 16,384; a CRLF counts as one character) and reports
+`truncated: true` with `next`, the position to continue from, when more text
+follows. With `end`, a passage longer than `maxCharacters` is refused with
+`PAYLOAD_TOO_LARGE` and `details: {constraint: "textRangeCharacters", limit}`
+instead of being cut. A `maxCharacters` above 16,384 is refused the same way.
+
+The result holds the passage as `text`, its absolute `start` and `end`, and
+`lineCount`, `characterCount` and `byteCount` (UTF-8) of the whole text. The whole
+text is never returned, neither as a field nor inside another object. A read of a
+page records no visit.
+
+The result also names the text state to patch against:
+
+- **Wiki:** `revision`, the existing page revision. Pass it as `expectedRevision`.
+- **Ticket:** `descriptionVersion`, 32 lower-case hex digits: the first 128 bits of
+  the SHA-256 of the UTF-8 bytes of the stored description. Pages derives it from
+  the stored text on every call, so it needs no stored counter and no timestamp:
+  two descriptions share a version only when they are equal. Pass it as
+  `expectedDescriptionVersion`.
+
+#### Patching a range
+
+`patch_wiki_page_content` and `patch_ticket_description` replace exactly the text
+between `start` and `end`. The request carries the range, the text the range
+holds now (`expectedText`), the new text (`replacementText`) and the version; the
+whole text is not part of it. Both positions need `line` and `column`.
+
+- **Replace.** `expectedText` is the current text of the range, byte for byte,
+  line breaks included. `replacementText` takes its place, as sent.
+- **Insert.** Use the same position for `start` and `end`, and an empty
+  `expectedText`.
+- **Delete.** Use an empty `replacementText`. Exactly the range is removed.
+- **Nothing else changes.** Everything before and after the range stays as it is:
+  Markdown, code blocks, blank lines, links, images and line endings. Nothing is
+  searched, normalized, replaced globally or moved to another line. A
+  `replacementText` is inserted verbatim, so write the line endings the text uses
+  (for example CRLF in a CRLF page). The line structure of the result is derived
+  from the whole new text, so a replacement that starts with LF directly after a
+  lone CR, or ends with CR directly before an LF, joins them into one CRLF.
+- **Stored as composed.** A ticket description patched this way is stored exactly
+  as composed. `set_ticket_description` trims the description it receives; a patch
+  does not, because trimming would change text outside the range.
+- **Result.** `changed` is `false` when the result equals the stored text; then no
+  revision, version, history entry or event is written. `start` and `end` delimit
+  the replacement in the new text, so reading `start`..`end` afterwards returns it.
+  With `includeAfter: true` that passage is returned as `after` with the shape of a
+  read (`text`, `start`, `end`, `truncated`, `next`), at most 4,096 characters.
+  Otherwise no text is returned: no new complete text and no diff.
+- **Atomic.** The version, the expected text and the write happen in one
+  transaction. The wiki saves the next revision with its own page version, the
+  previous text stays restorable, and links and activity are updated like for
+  every save. A ticket description change writes its history entry. Whether the
+  change is published to GitHub follows the Pages setting of the project; a patch
+  never forces it. No Git push is part of these tools.
+- **Repeat.** As for the other write tools: the same `operationId` with identical
+  input returns the stored result without writing again, so a lost response is
+  recovered and nothing is inserted twice. The same `operationId` with other input
+  returns `CONFLICT`. A refused call stores nothing.
+
+#### Errors
+
+A refused call changes nothing and never retries on another range.
+
+| Code                | When                                                                                | `details`                                                                    |
+| ------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `CONFLICT`          | Wiki: the page was saved after `expectedRevision`                                   | `currentRevision`                                                            |
+| `CONFLICT`          | Ticket: the description differs from `expectedDescriptionVersion`                   | `reason: "text_changed"`                                                     |
+| `CONFLICT`          | The range holds other text than `expectedText`                                      | `reason: "range_text_mismatch"`                                              |
+| `CONFLICT`          | `operationId` reused with other input                                               | none                                                                         |
+| `INVALID_REQUEST`   | `start` after `end`; line or column outside the text; malformed or unknown argument | `reason: "range_reversed"`, `"line_out_of_range"` or `"column_out_of_range"` |
+| `PAYLOAD_TOO_LARGE` | Passage over `maxCharacters`, or `maxCharacters` over 16,384                        | `constraint: "textRangeCharacters"`, `limit`                                 |
+| `PAYLOAD_TOO_LARGE` | The new Markdown would exceed 1 MiB UTF-8                                           | `constraint: "wikiContentBytes"`, `limit`                                    |
+| `PAYLOAD_TOO_LARGE` | The new description would exceed 65,536 UTF-16 code units                           | `constraint: "ticketDescriptionUtf16Units"`, `limit`                         |
+| `NOT_FOUND`         | Hidden or missing page or ticket, including another person's private page           | none                                                                         |
+| `FORBIDDEN`         | A patch without the write right                                                     | none                                                                         |
+
+After `CONFLICT` read the range again, review the text, and patch with the new
+version. The error never contains text of the page or ticket.
+
+#### Limits and Unicode
+
+- A request is at most 64 KiB of JSON, so `expectedText` and `replacementText`
+  together stay small. Use the patch for a passage; use `set_wiki_page_content` or
+  `create_wiki_page` for a large block of new text.
+- Columns count code points. The limits count differently, and the checks use
+  the unit of the field: wiki Markdown **1 MiB UTF-8 bytes** (an umlaut is 2 bytes,
+  an emoji 4), ticket description **65,536 UTF-16 code units** (an emoji outside the
+  Basic Multilingual Plane is 2 units, although it is one column). The limits are
+  checked on the composed text, before anything is written.
+- A passage response is bounded by `maxCharacters`, at most 16,384 characters.
+
+#### Rights and visibility
+
+Reading a passage is allowed for exactly the targets the whole-text read shows
+(`read_wiki_page`, `read_ticket`), and a patch needs exactly the rights of the
+whole-text change (`set_wiki_page_content`, `set_ticket_description`). Rights and
+visibility are resolved on every call. A hidden target returns `NOT_FOUND`, also
+for a patch.
+
+#### Example: read, patch, read back
+
+A page of about 80 lines is long, the change is one phrase on line 42. Read the
+line (the request is sent as `arguments` of the tool call; the Pages operation
+envelope is shown here):
+
+```json
+{
+  "operation": "wiki.page.readRange",
+  "parameters": {
+    "pageId": "w1",
+    "start": { "line": 42 },
+    "end": { "line": 43 }
+  }
+}
+```
+
+```json
+{
+  "apiVersion": "1",
+  "result": {
+    "pageId": "w1",
+    "link": "/wiki/w1",
+    "revision": 2,
+    "text": "Prüfe Dienst 20 auf Erreichbarkeit und notiere den Status in der Übersicht (Variante 20).\n",
+    "start": { "line": 42, "column": 1 },
+    "end": { "line": 43, "column": 1 },
+    "truncated": false,
+    "next": null,
+    "lineCount": 79,
+    "characterCount": 3949,
+    "byteCount": 4025
+  }
+}
+```
+
+Patch only the phrase. It begins at column 1 and has 34 characters, so `end` is
+column 35:
+
+```json
+{
+  "operation": "wiki.page.patchContent",
+  "parameters": {
+    "operationId": "range-1",
+    "pageId": "w1",
+    "expectedRevision": 2,
+    "start": { "line": 42, "column": 1 },
+    "end": { "line": 42, "column": 35 },
+    "expectedText": "Prüfe Dienst 20 auf Erreichbarkeit",
+    "replacementText": "Prüfe Dienst 20 auf Erreichbarkeit und Latenz"
+  }
+}
+```
+
+```json
+{
+  "apiVersion": "1",
+  "result": {
+    "pageId": "w1",
+    "link": "/wiki/w1",
+    "field": "content",
+    "revision": 3,
+    "changed": true,
+    "start": { "line": 42, "column": 1 },
+    "end": { "line": 42, "column": 46 }
+  }
+}
+```
+
+The result says where the new text stands. Read it back with the returned
+positions (or pass `includeAfter: true` to the patch). Only the page text was sent
+and received, never the whole page.
+
+The same flow with the sample page above (4,025 bytes of Markdown) and, for the
+ticket, a description of 3,066 bytes. The figures are the JSON bytes of the request
+and response bodies measured in one manual run on a synthetic instance, not token
+counts, and they depend on the text:
+
+| Flow                                                                        | Sent and received |
+| --------------------------------------------------------------------------- | ----------------- |
+| Wiki, whole text: `read_wiki_page` + `set_wiki_page_content`                | 8,689 bytes       |
+| Wiki, range: `read_wiki_page_range` + `patch_wiki_page_content`             | 884 bytes         |
+| Wiki, range with a read back of the changed line                            | 1,340 bytes       |
+| Ticket, whole text: `read_ticket` + `set_ticket_description`                | 10,455 bytes      |
+| Ticket, range: `read_ticket_description_range` + `patch_ticket_description` | 1,083 bytes       |
+
+On a page of a few lines the envelopes weigh as much as the text, and the whole-text
+tools are as small.
 
 ### Tickets and milestones
 
