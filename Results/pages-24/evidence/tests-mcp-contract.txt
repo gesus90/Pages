@@ -1,0 +1,12 @@
+✔ delete_ticket retains its name, operation, schema and annotations (5.866544ms)
+✔ delete_ticket describes soft archiving and per-call authorization (2.860313ms)
+✔ delete_milestone retains its name, operation, schema and annotations (0.356572ms)
+✔ delete_milestone describes soft archiving and per-call authorization (1.403311ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 549.220075

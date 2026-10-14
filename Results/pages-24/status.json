@@ -1,0 +1,190 @@
+{
+  "ticket": "PAGE-24",
+  "branch": "task/page-24",
+  "base_commit": "65cb7a2",
+  "status": "blocked",
+  "updated_at": "2026-10-14T09:34:15.043102+00:00",
+  "gates": {
+    "check": {
+      "status": "passed",
+      "command": "pnpm check",
+      "exit_code": 0,
+      "evidence": ["evidence/check.txt", "evidence/verification.md"]
+    },
+    "lint": {
+      "status": "passed",
+      "command": "pnpm lint",
+      "exit_code": 0,
+      "evidence": ["evidence/lint.txt", "evidence/verification.md"]
+    },
+    "mcp_check": {
+      "status": "passed",
+      "command": "cd mcp && pnpm --config.verifyDepsBeforeRun=false run check",
+      "exit_code": 0,
+      "evidence": ["evidence/mcp-check.txt", "evidence/verification.md"]
+    },
+    "mcp_lint": {
+      "status": "passed",
+      "command": "cd mcp && pnpm --config.verifyDepsBeforeRun=false run lint",
+      "exit_code": 0,
+      "evidence": ["evidence/mcp-lint.txt", "evidence/verification.md"]
+    },
+    "tests": {
+      "status": "passed",
+      "commands": [
+        "pnpm run test:backend tests/backend/backend/service/agents/archive-rights.unit.test.ts tests/backend/backend/service/agents/archive-repeat.unit.test.ts tests/backend/backend/service/agents/archive-effects.unit.test.ts tests/backend/backend/database/repositories/archive-repositories.unit.test.ts --maxWorkers=1",
+        "cd mcp && pnpm --config.verifyDepsBeforeRun=false exec node --import tsx --test --test-concurrency=1 test/archive-contract.unit.test.ts"
+      ],
+      "exit_codes": [0, 0],
+      "backend_files": 4,
+      "backend_cases": 85,
+      "mcp_contract_cases": 4,
+      "evidence": [
+        "evidence/tests-backend.txt",
+        "evidence/tests-mcp-contract.txt",
+        "evidence/coverage.md",
+        "evidence/verification.md"
+      ],
+      "scope": "Targeted synthetic unit tests only; no full suite and no client E2E."
+    }
+  },
+  "criteria": {
+    "admin_access": {
+      "status": "met",
+      "evidence": ["evidence/authorization.md", "evidence/tests-backend.txt"],
+      "detail": "Persönliche MCP-Admin-Berechtigung und UI-Administratormodus mit synthetischen Service-Fällen belegt; Browsermodus bleibt unverändert."
+    },
+    "manager_access": {
+      "status": "met",
+      "evidence": ["evidence/authorization.md", "evidence/tests-backend.txt"],
+      "detail": "Aktuelles milestones-Recht plus Projektverantwortung, Projekt-/Abteilungs-/Ziel-Sichtbarkeit; write ist weder ausreichend noch zusätzlich erforderlich."
+    },
+    "server_enforcement": {
+      "status": "met",
+      "evidence": [
+        "evidence/authorization.md",
+        "evidence/mcp-contract.md",
+        "evidence/tests-backend.txt"
+      ],
+      "detail": "Identität und Service-Guards werden auch im Replay erneut geprüft; FORBIDDEN/NOT_FOUND und schreibfreie Ablehnung belegt. Adapter greift nicht auf DB zu."
+    },
+    "same_ui_rules": {
+      "status": "met",
+      "evidence": [
+        "evidence/page-23.md",
+        "evidence/authorization.md",
+        "evidence/tests-backend.txt"
+      ],
+      "detail": "PAGE-23 ist enthalten; UI und MCP nutzen denselben TaskAccessGuard und Archive-Services mit bestehender kanalabhängiger Admin-Interpretation."
+    },
+    "archive_effects": {
+      "status": "met",
+      "evidence": ["evidence/archive-effects.md", "evidence/tests-backend.txt"],
+      "detail": "Aktive Nachkommen, genaue betroffene Anzahl, unveränderter Workflowstatus, keine Meilenstein-Ticket-Kaskade und unveränderte Dependency-Semantik belegt."
+    },
+    "mcp_contract": {
+      "status": "unmet",
+      "evidence": [
+        "evidence/mcp-contract.md",
+        "evidence/tests-mcp-contract.txt",
+        "evidence/tests-backend.txt",
+        "evidence/e2e.md"
+      ],
+      "detail": "Namen/Schemas, Registrierung, Beschreibungen, Bestätigung, Replay und Fehlercodes belegt. Tatsächliche tools/list-Discovery durch einen verbundenen Client bleibt bis zum E2E-Nachweis offen."
+    },
+    "targeted_tests": {
+      "status": "met",
+      "evidence": [
+        "evidence/verification.md",
+        "evidence/tests-backend.txt",
+        "evidence/tests-mcp-contract.txt",
+        "evidence/coverage.md"
+      ],
+      "detail": "85 Backend-Unit-Fälle mit maxWorkers=1 und 4 unabhängige MCP-Vertragschecks mit test-concurrency=1 bestanden; keine volle Suite oder Mindest-Coverage."
+    },
+    "client_acceptance": {
+      "status": "unmet",
+      "evidence": ["evidence/e2e.md"],
+      "detail": "Keine isolierte Pages-Instanz vorhanden; Dienststart verboten. Keine E2E-Ergebnisse für tools/list/tools/call der Rollen."
+    },
+    "documentation": {
+      "status": "met",
+      "evidence": [
+        "evidence/mcp-contract.md",
+        "evidence/page-23.md",
+        "evidence/authorization.md"
+      ],
+      "detail": "MCP-Doku für Tickets und Meilensteine und gemeinsame Rechte-Referenz beschreiben denselben Soft-Archivierungsvertrag."
+    }
+  },
+  "e2e": {
+    "status": "not_run",
+    "blocker": "No isolated Pages instance is available; starting or stopping services is forbidden by the task.",
+    "evidence": ["evidence/e2e.md"],
+    "roles": {
+      "administrator": {
+        "result": "not_run",
+        "tools_list": "not_run",
+        "allowed_calls": "not_run",
+        "denied_calls": "not_run",
+        "evidence": "evidence/e2e.md"
+      },
+      "manager_with_milestone_right": {
+        "result": "not_run",
+        "tools_list": "not_run",
+        "allowed_calls": "not_run",
+        "denied_calls": "not_run",
+        "evidence": "evidence/e2e.md"
+      },
+      "manager_without_milestone_right": {
+        "result": "not_run",
+        "tools_list": "not_run",
+        "allowed_calls": "not_run",
+        "denied_calls": "not_run",
+        "evidence": "evidence/e2e.md"
+      },
+      "ordinary_user": {
+        "result": "not_run",
+        "tools_list": "not_run",
+        "allowed_calls": "not_run",
+        "denied_calls": "not_run",
+        "evidence": "evidence/e2e.md"
+      },
+      "out_of_scope_manager": {
+        "result": "not_run",
+        "tools_list": "not_run",
+        "allowed_calls": "not_run",
+        "denied_calls": "not_run",
+        "evidence": "evidence/e2e.md"
+      }
+    }
+  },
+  "blocker_notification": {
+    "channel": "discord",
+    "account": "mokona",
+    "target": "user:619835286888906762",
+    "result": "sent",
+    "message_id": "1559854903416061974",
+    "evidence": "evidence/e2e.md"
+  },
+  "ticket_tracking": {
+    "tool_available": false,
+    "status_changed": false,
+    "done_set": false,
+    "target_when_all_criteria_are_met": "Review",
+    "current_ticket_status": "unknown"
+  },
+  "commits": ["e41389076da6f878eadd1340e6d6564139de8862"],
+  "commits_scope": "Implementation commits on task/page-24. The final results commit contains this manifest and can be resolved with git log.",
+  "decisions_file": "Results/pages-24/decisions.md",
+  "constraints": {
+    "services_started_or_stopped": false,
+    "production_database_opened_or_written": false,
+    "production_api_called": false,
+    "real_business_records_archived": false,
+    "mcp_bundle_built": false,
+    "pushed": false,
+    "merged": false,
+    "deployed": false
+  }
+}
