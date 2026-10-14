@@ -94,6 +94,44 @@ project activity or operation key. Identical authorized repeats return the store
 result without writing again; changed input returns `CONFLICT`. See the
 [MCP archive contract](./mcp/README.md#milestones-initiatives-tags-and-links).
 
+## GitHub issues: Done and archive
+
+The GitHub synchronization of a project mirrors a linked ticket with the issue
+of the repository. Title, description and the link stay as they are; the
+completion state is carried over as follows.
+
+GitHub's "complete" means that the **issue is closed** (`state: closed`, as
+opposed to `open`). Pages does not read or write the custom **Status** field of a
+GitHub Projects (V2) board, so a board column has no effect on a ticket, and a
+ticket never moves a card.
+
+| Pages ticket                               | GitHub issue at the next sync |
+| ------------------------------------------ | ----------------------------- |
+| active, status **Done**                    | closed                        |
+| active, any other status                   | open                          |
+| archived, whatever its workflow status     | closed                        |
+| restored, status other than **Done**       | reopened                      |
+| restored, status **Done**                  | stays closed                  |
+
+- **Archiving** stays its own state in Pages. It does not change the workflow
+  status and neither deletes nor unlinks the issue; the issue is only closed.
+  Tickets archived together with a parent are covered the same way, each through
+  its own link. An archived ticket that is not linked never gets an issue.
+- **Closing an issue** moves the _active_ ticket to the project's **Done** status;
+  it does not archive the ticket. An archived ticket keeps its status.
+- **Reopening an issue** takes a ticket out of **Done**, as before. It never
+  restores an archived ticket, and the issue of an archived ticket is closed
+  again by the next sync.
+- A repeated sync without a change on either side changes nothing and creates no
+  second issue.
+
+The changes travel with the existing manual and scheduled sync. Direction,
+permissions and conflicts apply unchanged: a ticket that changed on both sides is
+flagged for a decision instead of being overwritten, a direction that only pulls
+never writes to GitHub, and the actor needs write permission on the project.
+With the synchronization switched off (`sync_enabled = false`) nothing is read
+from or written to GitHub. There is no "last write wins" rule.
+
 ## Agents in the Pages chat
 
 Pica can list and read visible user agents, create them (`agents.create`, the
