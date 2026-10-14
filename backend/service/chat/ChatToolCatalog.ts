@@ -11,6 +11,10 @@ import type {
   AgentAdminWriteOperation,
 } from "@/definition/AgentAdministration";
 import type { AgentExtensionReadOperation } from "@/definition/AgentExtensions";
+import type {
+  AgentPlanReadOperation,
+  AgentPlanWriteOperation,
+} from "@/definition/AgentPlanOperations";
 import type { AgentTextRangeWriteOperation } from "@/definition/AgentTextRange";
 import type { AgentWorkspaceWriteOperation } from "@/definition/AgentWorkspaceOperations";
 import type { ChatAgentWriteOperation } from "@/definition/ChatAgentOperations";
@@ -51,6 +55,8 @@ export type ChatOperation = Exclude<
   | AgentAdminWriteOperation
   | PageAgentReadOperation
   | PageAgentWriteOperation
+  | AgentPlanReadOperation
+  | AgentPlanWriteOperation
   | ChatAgentWriteOperation,
   ExcludedOperation
 >;
@@ -59,6 +65,11 @@ const PAGE = "pageId, cursor?, limit?";
 const PROJECT = "projectId, cursor?, limit?";
 const WINDOW = "cursor?, limit?";
 const CONFIRMED = "Bestätigung der Person nötig";
+const PLAN_TARGET = "planId, expectedRevision";
+const RUN =
+  "runId | planId + select: latest|first; runId optional mit planId zur Prüfung";
+const CHANGES =
+  "changes?: [{action: addNode, node: {type: start|end|agent|task|parameter, id?, x?, y?, agentId?, personalAgentId?, instruction?, taskId?, name?, format?, value?}} | {action: updateNode, nodeId, fields: {x?, y?, agentId?, personalAgentId?, instruction?, taskId?, name?, format?, value?}} | {action: removeNode, nodeId} | {action: connect|disconnect, from, to} | {action: bind, nodeId, parameter, binding: {kind: source, nodeId}|{kind: result, stepId}|{kind: literal, value}} | {action: unbind, nodeId, parameter}]";
 
 /**
  * Parameters and purpose of every chat operation, as the agent reads them.
@@ -84,6 +95,20 @@ const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
     "{agentId, expectedRevision, name?, instruction?, parameterChanges?: [], parameters?: [], directoryParameter?, modelProfileId?, reasoningEffort?, sharing?} gelesene Quelle als unabhängigen neuen Agent für die Person klonen; vollständige Konfiguration inklusive Laufzeit und Parameter kopieren, nur gewünschte Anpassungen übernehmen; Quelle bleibt erhalten",
   "agents.delete":
     "{agentId, expectedRevision} eigenen Benutzer-Agent entfernen; vorher lesen und ausdrücklich mit LÖSCHEN in der aktuellen Nachricht bestätigen",
+
+  "plans.list": `{text?, projectId?, ${WINDOW}} sichtbare Ausführpläne nach Name mit Projekt, Freigabe, canEdit, revision, state (idle|running|paused) und latestRun; text sucht im Namen`,
+  "plans.read":
+    "{planId} Ausführplan mit nodes (label, Agent, Ticket, Parameter, bindings), edges (Ablauf from → to), Freigabe, revision und status (state, runCount, latestRun, isRunnable, issues) lesen",
+  "plans.sources.read":
+    "{workspaceId?} Arbeitsbereiche für neue Pläne; mit workspaceId auch die Agents mit ihren Parametern für Agent-Nodes",
+  "plans.runs.list": `{planId, order?: newest|oldest, ${WINDOW}} eigene Runs eines Plans mit runId, planId, startedAt und status, seitenweise (Standard 20 pro Seite)`,
+  "plans.run.read": `{${RUN}} einen eigenen Run mit Start, Ende, Status und Status jedes Nodes lesen`,
+  "plans.run.reports.read": `{${RUN}, stepId?} Berichte eines eigenen Runs lesen: je Node runId, stepId, Ergebnis, Fehler, Abnahme, Kriterien und Todos`,
+  "plans.create": `{name, workspaceId, sharing?: {scope: private|global|restricted, operator?, groupIds?, departmentIds?}, ${CHANGES}} Ausführplan anlegen, ohne Freigabe privat`,
+  "plans.update": `{${PLAN_TARGET}, name?, sharing?, ${CHANGES}} Struktur, Name oder Freigabe eines eigenen Plans ändern; alle changes gelten zusammen oder gar nicht`,
+  "plans.parameter.create": `{${PLAN_TARGET}, name, value: {type: text, text}|{type: number, number}|{type: ticket, ticketId}|{type: workspace, workspaceId}|{type: wiki, pageId}, format?: string|number|json, x?, y?} Parameter-Node anlegen`,
+  "plans.parameter.update": `{${PLAN_TARGET}, parameterId, name?, value?, format?, x?, y?} Parameter-Node ändern`,
+  "plans.parameter.remove": `{${PLAN_TARGET}, parameterId} Parameter-Node samt seinen Datenverbindungen entfernen`,
 
   "projects.resolve": "{name} Projekt über den exakten Namen finden",
   "projects.read": "{projectId} Projekt lesen",

@@ -9,6 +9,25 @@ import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type { AgentPlanSnapshot } from "@/backend/service/agents/AgentPlanSnapshot";
 import type { AgentPlanRunResources } from "@/backend/agents/AgentPlanRunResources";
 
+/** A run by its start and status, without its private snapshot or its results. */
+export interface AgentPlanRunEntry {
+  readonly id: string;
+  readonly startedAt: string;
+  readonly status: AgentPlanRun["status"];
+}
+
+function readRunStatus(input: string): AgentPlanRun["status"] {
+  if (
+    input !== "running" &&
+    input !== "succeeded" &&
+    input !== "failed" &&
+    input !== "cancelled" &&
+    input !== "paused"
+  )
+    throw new AgentError("plan_invalid");
+  return input;
+}
+
 /** Durable sanitized run views and transactional working-copy reservations. */
 export class AgentPlanRunRepository {
   private readonly database: Database;
@@ -175,6 +194,39 @@ export class AgentPlanRunRepository {
       const input: unknown = JSON.parse(readTextColumn(row, 0, "view_json"));
       return readPlanRun(input);
     });
+  }
+
+  /**
+   * Lists every run one person started of a plan, ordered by start.
+   *
+   * @param userId - The executor; runs of others are never part of it.
+   * @param planId - The plan.
+   * @param order - `newest` first or `oldest` first; the identifier breaks ties.
+   */
+  public async entries(
+    userId: string,
+    planId: string,
+    order: "newest" | "oldest",
+  ): Promise<readonly AgentPlanRunEntry[]> {
+    const direction = order === "newest" ? "DESC" : "ASC";
+    const rows = await this.database.query(
+      `
+      SELECT
+          id,
+          started_at,
+          status
+      FROM agent_plan_runs
+      WHERE user_id = $user_id
+          AND plan_id = $plan_id
+      ORDER BY started_at ${direction}, id ${direction};
+    `,
+      { user_id: userId, plan_id: planId },
+    );
+    return rows.map((row) => ({
+      id: readTextColumn(row, 0, "id"),
+      startedAt: readTextColumn(row, 1, "started_at"),
+      status: readRunStatus(readTextColumn(row, 2, "status")),
+    }));
   }
 
   /** Stores progress and releases reservations only after every started step has settled. */

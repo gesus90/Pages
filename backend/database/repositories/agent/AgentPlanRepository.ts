@@ -67,8 +67,19 @@ export class AgentPlanRepository {
     return findPlan(this.database, id);
   }
 
-  /** Rejects stale owner writes atomically, including the workspace project invariant. */
-  public async save(plan: AgentPlan, isNew: boolean): Promise<void> {
+  /**
+   * Rejects stale owner writes atomically, including the workspace project invariant.
+   *
+   * @param plan - The plan as it is stored.
+   * @param isNew - Whether the plan must not exist yet.
+   * @param journal - Runs in the same transaction after the write, so a
+   * recorded operation result commits together with the plan.
+   */
+  public async save(
+    plan: AgentPlan,
+    isNew: boolean,
+    journal?: (transaction: DatabaseTransaction) => Promise<void>,
+  ): Promise<void> {
     await this.database.transaction(async (transaction) => {
       const previous = await findPlan(transaction, plan.id);
       if (
@@ -119,6 +130,7 @@ export class AgentPlanRepository {
           plan_json: JSON.stringify(plan),
         },
       );
+      await journal?.(transaction);
     });
   }
 

@@ -45,7 +45,8 @@ function readPosition(input: Record<string, unknown>): AgentPlanPosition {
   return { x, y };
 }
 
-function readBinding(input: unknown): AgentPlanBinding {
+/** Parses one parameter source of an agent node: a value, a source node or a step result. */
+export function readPlanBinding(input: unknown): AgentPlanBinding {
   const binding = readPlanObject(input);
   const allowed = {
     literal: ["kind", "value"],
@@ -82,12 +83,13 @@ function readBindings(
   return Object.fromEntries(
     Object.entries(bindings).map(([name, binding]) => {
       if (!isAgentParameterName(name)) throw new AgentError("plan_invalid");
-      return [name, readBinding(binding)];
+      return [name, readPlanBinding(binding)];
     }),
   );
 }
 
-function readNode(input: unknown): AgentPlanNode {
+/** Parses one bounded node; its references are checked when the plan is saved. */
+export function readPlanNode(input: unknown): AgentPlanNode {
   const node = readPlanObject(input);
   const base = { id: readPlanText(node.id), ...readPosition(node) };
   if (node.type === "start" || node.type === "end")
@@ -219,7 +221,7 @@ export function readPlanInput(input: unknown): AgentPlanInput {
       ? {}
       : { sharing: readSharing(plan.sharing) }),
     globals: readGlobals(plan.globals),
-    nodes: plan.nodes.map(readNode),
+    nodes: plan.nodes.map(readPlanNode),
     edges: plan.edges.map(readEdge),
     ...(revision === undefined ? {} : { revision }),
   };

@@ -147,7 +147,7 @@ function isOperator(input: unknown): input is PageAgentSharingOperator {
  * A restricted share needs at least one target, because a restricted share
  * without any looks private in the data.
  */
-function readSharing(input: unknown): PageAgentSharingRequest {
+export function readPageAgentSharing(input: unknown): PageAgentSharingRequest {
   const fields = readParameterRecord(input);
   requireParameterKeys(
     fields,
@@ -200,7 +200,8 @@ export function readPageAgentFields(
     fields.modelProfileId = readIdentifier(parameters.modelProfileId);
   if ("reasoningEffort" in parameters)
     fields.reasoningEffort = readEffort(parameters.reasoningEffort);
-  if ("sharing" in parameters) fields.sharing = readSharing(parameters.sharing);
+  if ("sharing" in parameters)
+    fields.sharing = readPageAgentSharing(parameters.sharing);
   return fields;
 }
 

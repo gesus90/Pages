@@ -3,8 +3,12 @@ import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { changePageAgentParameters } from "./PageAgentParameterChanges";
 
 import type { AgentConfiguration } from "@/definition/AgentConfiguration";
+import type { AgentProfileDirectory } from "@/definition/AgentProfile";
 import type { PageAgent, PageAgentInput } from "@/definition/PageAgent";
-import type { PageAgentSharingOperator } from "@/definition/PageAgentOperations";
+import type {
+  PageAgentSharingEntry,
+  PageAgentSharingOperator,
+} from "@/definition/PageAgentOperations";
 import type {
   PageAgentFields,
   PageAgentSharingRequest,
@@ -36,6 +40,41 @@ export function toSharing(
       })),
     ],
     operator: request.operator ?? operator,
+  };
+}
+
+/**
+ * Describes a stored share with the current names of its groups and departments.
+ *
+ * @param sharing - The share as an agent or a plan stores it.
+ * @param directory - The groups and departments of the instance.
+ * @returns The share as a client reads it; targets that are gone are left out.
+ */
+export function sharingEntry(
+  sharing: AgentConfiguration["sharing"],
+  directory: AgentProfileDirectory,
+): PageAgentSharingEntry {
+  const named = (
+    kind: "group" | "department",
+    entries: AgentProfileDirectory["groups"],
+  ): PageAgentSharingEntry["groups"] =>
+    sharing.targets
+      .filter((target) => target.kind === kind)
+      .flatMap((target) => {
+        const entry = entries.find(({ id }) => id === target.targetId);
+        return entry ? [{ id: entry.id, name: entry.name }] : [];
+      });
+  const groups = named("group", directory.groups);
+  const departments = named("department", directory.departments);
+  if (sharing.isGlobal)
+    return { scope: "global", operator: null, groups: [], departments: [] };
+  if (groups.length + departments.length === 0)
+    return { scope: "private", operator: null, groups: [], departments: [] };
+  return {
+    scope: "restricted",
+    operator: sharing.operator ?? "or",
+    groups,
+    departments,
   };
 }
 

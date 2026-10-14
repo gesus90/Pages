@@ -4,6 +4,7 @@ import type { AgentTextRangeReadOperation } from "../../../definition/AgentTextR
 import type { AgentExtensionReadOperation } from "../../../definition/AgentExtensions.js";
 import type { AgentAdminReadOperation } from "../../../definition/AgentAdministration.js";
 import type { AgentWorkspaceReadOperation } from "../../../definition/AgentWorkspaceOperations.js";
+import type { AgentPlanReadOperation } from "../../../definition/AgentPlanOperations.js";
 import type { PageAgentReadOperation } from "../../../definition/PageAgentOperations.js";
 import type { PagesAgentWriteOperation } from "../../../definition/PagesAgentWrites.js";
 import type {
@@ -21,6 +22,7 @@ export async function readOperation(
     | AgentExtensionReadOperation
     | AgentAdminReadOperation
     | AgentWorkspaceReadOperation
+    | AgentPlanReadOperation
     | PageAgentReadOperation
     | AgentTextRangeReadOperation
     | PagesAgentReadOperation

@@ -300,7 +300,7 @@ async function initializeServices(
     database,
     databasePath,
     accounts: { users: userService, administration: administrationService },
-    agents: agentServices,
+    agents: { ...agentServices, agentPlanService },
     wiki: workspaceServices.wikiService,
     gitHubSync: taskServices.gitHubSyncService,
     serverCache,
@@ -388,7 +388,10 @@ function startMcpWorkspace(context: {
     readonly users: UserService;
     readonly administration: AdministrationService;
   };
-  readonly agents: AgentApplicationServices;
+  /** The agent services, with the plan service MCP clients and the chat use. */
+  readonly agents: AgentApplicationServices & {
+    readonly agentPlanService: AgentPlanService;
+  };
   readonly wiki: WikiService;
   readonly gitHubSync: GitHubSyncService;
   readonly serverCache: ServerCache;
@@ -410,6 +413,7 @@ function startMcpWorkspace(context: {
     tickets: { cache: context.serverCache, publisher },
     agentWorkspaces: context.agents.agentWorkspaceService,
     pageAgents: context.agents.pageAgentService,
+    plans: context.agents.agentPlanService,
   });
   startWikiMaintenanceScheduler(context.wiki, services.agentAssetService);
   return {

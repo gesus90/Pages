@@ -2,6 +2,7 @@ import { EXTENSION_READ_TOOLS } from "./extensions.js";
 import { ADMIN_READ_TOOLS } from "./administration.js";
 import { WORKSPACE_READ_TOOLS } from "./workspaces.js";
 import { AGENT_READ_TOOLS } from "./agents.js";
+import { PLAN_READ_TOOLS } from "./plans.js";
 import { STRUCTURED_IMPORT_PLAN_TOOL } from "./structured-import-plan.js";
 import {
   TICKET_READ_DESCRIPTION_RANGE_TOOL,
@@ -21,6 +22,7 @@ import type { AgentTextRangeReadOperation } from "../../../definition/AgentTextR
 import type { AgentExtensionReadOperation } from "../../../definition/AgentExtensions.js";
 import type { AgentAdminReadOperation } from "../../../definition/AgentAdministration.js";
 import type { AgentWorkspaceReadOperation } from "../../../definition/AgentWorkspaceOperations.js";
+import type { AgentPlanReadOperation } from "../../../definition/AgentPlanOperations.js";
 import type { PageAgentReadOperation } from "../../../definition/PageAgentOperations.js";
 import type { Tool } from "@modelcontextprotocol/server";
 import type {
@@ -34,6 +36,7 @@ interface ReadTool {
     | AgentExtensionReadOperation
     | AgentAdminReadOperation
     | AgentWorkspaceReadOperation
+    | AgentPlanReadOperation
     | PageAgentReadOperation
     | AgentTextRangeReadOperation
     | PagesAgentReadOperation
@@ -56,6 +59,7 @@ export const READ_TOOLS: readonly ReadTool[] = [
   ...ADMIN_READ_TOOLS,
   ...WORKSPACE_READ_TOOLS,
   ...AGENT_READ_TOOLS,
+  ...PLAN_READ_TOOLS,
   {
     operation: "projects.resolve",
     tool: {

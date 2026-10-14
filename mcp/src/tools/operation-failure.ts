@@ -1,6 +1,11 @@
 import type {
+  AgentPlanIssueEntry,
+  AgentPlanIssueProblem,
+} from "../../../definition/AgentPlanOperations.js";
+import type {
   AgentLimitDetails,
   AgentOperationDetails,
+  AgentPlanGraphRejection,
   AgentProjectCandidates,
   AgentRejectionReason,
 } from "../../../definition/PagesAgentOperations.js";
@@ -41,7 +46,35 @@ const REJECTION_REASONS: Readonly<
   range_reversed: true,
   line_out_of_range: true,
   column_out_of_range: true,
+  graph_invalid: true,
+  parameter_value_invalid: true,
+  workspace_unavailable: true,
+  element_missing: true,
+  element_exists: true,
 };
+
+/** Every finding of the plan graph check, so a refused plan names what to fix. */
+const ISSUE_PROBLEMS: Readonly<Record<AgentPlanIssueProblem, true>> = {
+  duplicateNode: true,
+  port: true,
+  duplicate: true,
+  cycle: true,
+  type: true,
+  source: true,
+  required: true,
+  start: true,
+  end: true,
+  flowIn: true,
+  flowOut: true,
+  unreachable: true,
+  agent: true,
+  name: true,
+  json: true,
+  number: true,
+};
+
+/** Findings a refusal carries at most. */
+const MAXIMUM_ISSUES = 50;
 
 function isRejectionReason(
   input: unknown,
@@ -179,10 +212,49 @@ export async function operationFailure(
   return undefined;
 }
 
-function readReason(input: unknown): AgentRejectionReason | undefined {
+function isIssueProblem(input: unknown): input is AgentPlanIssueProblem {
+  return typeof input === "string" && Object.hasOwn(ISSUE_PROBLEMS, input);
+}
+
+function readIssueText(input: unknown): string | null | undefined {
+  return input === null || typeof input === "string" ? input : undefined;
+}
+
+function readIssue(input: unknown): AgentPlanIssueEntry | undefined {
+  if (typeof input !== "object" || input === null) return undefined;
+  const issue = input as Record<string, unknown>;
+  const nodeId = readIssueText(issue.nodeId);
+  const port = readIssueText(issue.port);
+  if (nodeId === undefined || port === undefined) return undefined;
+  return isIssueProblem(issue.problem)
+    ? { nodeId, port, problem: issue.problem }
+    : undefined;
+}
+
+/** The findings of a refused plan graph, or `undefined` when any of them is malformed. */
+function readIssues(input: unknown): AgentPlanIssueEntry[] | undefined {
+  if (!Array.isArray(input) || input.length > MAXIMUM_ISSUES) return undefined;
+  const issues: AgentPlanIssueEntry[] = [];
+  for (const entry of input) {
+    const issue = readIssue(entry);
+    if (!issue) return undefined;
+    issues.push(issue);
+  }
+  return issues;
+}
+
+function readReason(
+  input: unknown,
+): AgentRejectionReason | AgentPlanGraphRejection | undefined {
   if (typeof input !== "object" || input === null || !("reason" in input))
     return undefined;
-  return isRejectionReason(input.reason) ? { reason: input.reason } : undefined;
+  if (!isRejectionReason(input.reason)) return undefined;
+  if (input.reason !== "graph_invalid" || !("issues" in input))
+    return { reason: input.reason };
+  const issues = readIssues(input.issues);
+  return issues === undefined
+    ? { reason: input.reason }
+    : { reason: input.reason, issues };
 }
 
 function failureDetails(

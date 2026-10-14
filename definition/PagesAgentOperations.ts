@@ -7,6 +7,10 @@ import type {
 import type { AgentExtensionReadResult } from "./AgentExtensions.js";
 import type { AgentAdminReadResult } from "./AgentAdministration.js";
 import type { AgentWorkspaceReadResult } from "./AgentWorkspaceOperations.js";
+import type {
+  AgentPlanIssueEntry,
+  AgentPlanReadResult,
+} from "./AgentPlanOperations.js";
 import type { PageAgentReadResult } from "./PageAgentOperations.js";
 import type { AgentImportPlan } from "./AgentImportManifest.js";
 import type { AgentStructuredImportPlan } from "./AgentStructuredImportManifest.js";
@@ -186,6 +190,7 @@ export interface PagesAgentReadResponse {
     | AgentExtensionReadResult
     | AgentAdminReadResult
     | AgentWorkspaceReadResult
+    | AgentPlanReadResult
     | PageAgentReadResult;
 }
 
@@ -239,6 +244,12 @@ export interface AgentRevisionConflict {
  * version the caller read, `range_text_mismatch` (`CONFLICT`) that the range
  * holds other text than expected, and `range_reversed`, `line_out_of_range`
  * and `column_out_of_range` (`INVALID_REQUEST`) that a position is unusable.
+ * The rest belong to agent plans: `graph_invalid` (the graph check refused
+ * the plan), `parameter_value_invalid` (a value does not fit its format),
+ * `workspace_unavailable` (the workspace cannot be used), `element_missing`
+ * (a change names a node, connection or input the plan does not have, or one
+ * of another kind) and `element_exists` (a node identifier or parameter name
+ * is taken).
  */
 export const AGENT_REJECTION_REASONS = [
   "model_unavailable",
@@ -257,14 +268,26 @@ export const AGENT_REJECTION_REASONS = [
   "range_reversed",
   "line_out_of_range",
   "column_out_of_range",
+  "graph_invalid",
+  "parameter_value_invalid",
+  "workspace_unavailable",
+  "element_missing",
+  "element_exists",
 ] as const;
 
 export interface AgentRejectionReason {
   readonly reason: (typeof AGENT_REJECTION_REASONS)[number];
 }
 
+/** The graph check refused a plan; every finding names its node and port. */
+export interface AgentPlanGraphRejection {
+  readonly reason: "graph_invalid";
+  readonly issues: readonly AgentPlanIssueEntry[];
+}
+
 export type AgentOperationDetails =
   | AgentProjectCandidates
   | AgentLimitDetails
   | AgentRevisionConflict
-  | AgentRejectionReason;
+  | AgentRejectionReason
+  | AgentPlanGraphRejection;

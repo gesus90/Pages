@@ -38,7 +38,9 @@ and links. Agent workspaces, the local directories that agents work in, can be
 listed and read, and registered, changed and unregistered by those who manage the
 project. User agents, the agents people create on the Pages agent page, can be
 listed, read, created and changed by their owner, together with the models that
-may be given to them. Personal administrators can also read administration information and
+may be given to them. Agent plans can be listed, read, created and changed in
+their structure and parameters by their owner, and the account's own runs of a
+plan and their reports can be listed and read. Personal administrators can also read administration information and
 change existing roles, accounts and memberships within the offered operations.
 
 Start with the [tool reference](#tool-reference) below for arguments, results,
@@ -1713,6 +1715,70 @@ Error codes of these tools, with `details.reason` where Pages names one:
 | `CONFLICT`          | `agent_running`                   | A running plan holds the agent; change it after the run                                       |
 | `CONFLICT`          | none                              | The `operationId` was used with other parameters                                              |
 | `PAYLOAD_TOO_LARGE` | `requestBytes` or `responseBytes` | The request exceeds 64 KiB, or a read exceeds 1 MiB; ask for a smaller `limit`                |
+
+### Agent plans
+
+An agent plan (Ausführplan) is the graph of the plan page: start and end nodes,
+agent nodes with their own work order, ticket nodes and parameter nodes, flow
+connections between them and the inputs of each agent node. These tools work on
+the same plans as the plan page and under its rules; they add no right of their
+own. They neither start, pause, resume, stop nor delete a plan, and a plan
+session (the credential of a running node) gets none of them.
+
+| Tool                    | Pages operation          | Arguments                                                                                       | Does                                                                      |
+| ----------------------- | ------------------------ | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `list_plans`            | `plans.list`             | optional `text`, `projectId`, `cursor`, `limit`                                                 | The visible plans by name, with state and latest own run                  |
+| `read_plan`             | `plans.read`             | `planId`                                                                                        | One plan with nodes, edges, share, revision and status                    |
+| `read_plan_sources`     | `plans.sources.read`     | optional `workspaceId`                                                                          | Workspaces for new plans; with `workspaceId` the agents a node can run    |
+| `list_plan_runs`        | `plans.runs.list`        | `planId`, optional `order` (`newest`, `oldest`), `cursor`, `limit`                              | The account's runs of a plan with date and status, 20 per page by default |
+| `read_plan_run`         | `plans.run.read`         | `runId` (optional `planId` to check it), or `planId` with `select` `latest` or `first`          | One run with the state of every node                                      |
+| `read_plan_run_reports` | `plans.run.reports.read` | as `read_plan_run`, optional `stepId`                                                           | The reports of a run, each with `runId` and `stepId`                      |
+| `create_plan`           | `plans.create`           | `operationId`, `name`, `workspaceId`, optional `sharing`, `changes`                             | Creates a plan owned by the connected account, private unless shared      |
+| `update_plan`           | `plans.update`           | `operationId`, `planId`, `expectedRevision`, one or more of `name`, `sharing`, `changes`        | Changes name, share or structure in one revision                          |
+| `create_plan_parameter` | `plans.parameter.create` | `operationId`, `planId`, `expectedRevision`, `name`, `value`, optional `format`, `x`, `y`       | Adds one parameter node                                                   |
+| `update_plan_parameter` | `plans.parameter.update` | `operationId`, `planId`, `expectedRevision`, `parameterId`, one or more of `name`, `value`, ... | Changes one parameter node                                                |
+| `remove_plan_parameter` | `plans.parameter.remove` | `operationId`, `planId`, `expectedRevision`, `parameterId`                                      | Removes one parameter node and the inputs it fed                          |
+
+- **Visibility.** A plan is visible while the account can open the project of its
+  workspace and the plan is its own or shared with it (`global`, or `restricted`
+  to groups and departments). A hidden plan answers `NOT_FOUND`, exactly like a
+  missing one. Administrators do not see other people's private plans.
+- **Owner.** Only the owner (`canEdit`) changes a plan; a person it is shared with
+  gets `FORBIDDEN`. Changes take the `revision` read last as `expectedRevision`;
+  a stale value returns `CONFLICT` with `details.currentRevision` and changes
+  nothing. A request that matches the stored plan returns `changed:false`.
+- **Structure.** `changes` is a list applied in order and saved as one revision:
+  `addNode` (`start`, `end`, `agent` with `agentId` from `read_plan_sources`,
+  `task` with the `taskId` of a task or subtask of the project, `parameter` with
+  `name`, `value` and optional `format`), `updateNode` (fields of the node's kind,
+  `x` and `y` for every node), `removeNode` (also removes its connections and the
+  inputs it fed), `connect` and `disconnect` (flow `from` → `to`), `bind`
+  (`kind` `source`, `result` or `literal`) and `unbind`. An `id` in `addNode`
+  lets later changes of the same call refer to the node; `createdNodeIds` returns
+  the ids. A new agent node gets value nodes for its defaults and its directory
+  parameter, as in the editor. Pages checks the saved plan like the plan page.
+- **Status.** `read_plan` returns `status`: `state` (`idle`, `running` or `paused`
+  by the account's own runs), `runCount`, `latestRun`, and `isRunnable` with the
+  `issues` the plan page shows before Play.
+- **Runs.** Runs belong to the account that started them; other accounts' runs are
+  never listed or read. Every run carries `runId`, `planId`, `planName`,
+  `startedAt` (ISO 8601) and `status` (`running`, `paused`, `succeeded`, `failed`
+  or `cancelled`). Reading a run or its reports also needs current access to the
+  agents, workspaces, tickets and pages it used.
+- **Reports.** A report belongs to one node of one run (`runId`, `stepId`) and
+  carries status, start and end, the redacted result text, the error, and the
+  acceptance: `verdict`, `summary`, `todos`, `criteria` with evidence,
+  `decisions` and `issues`. Over 1 MiB of JSON is `PAYLOAD_TOO_LARGE`; read one
+  `stepId` at a time then.
+- **Errors.** `INVALID_REQUEST` names its `details.reason`: `graph_invalid` with
+  `details.issues` (`nodeId`, `port`, `problem`), `parameter_value_invalid`,
+  `workspace_unavailable`, `element_missing` (a named node, connection or input
+  does not exist or has another kind), `element_exists` (an id, connection or
+  parameter name is taken), `parameter_reference_unavailable`,
+  `sharing_target_unavailable` or `credentials_in_text`.
+- **Repeat.** Writes take an `operationId`: repeating a call with identical
+  parameters returns its stored result and never changes twice; other
+  parameters return `CONFLICT`.
 
 ### Administration
 

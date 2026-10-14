@@ -14,6 +14,7 @@ import { PAGES_AGENT_LIMITS } from "@/definition/PagesAgentOperations";
 import {
   definitionKey,
   proposePageAgent,
+  sharingEntry,
   toSharing,
 } from "./PageAgentOperationDefinition";
 import { pageAgentEntries } from "./AgentCursor";
@@ -47,7 +48,6 @@ import type {
   PageAgentRead,
   PageAgentModelEntry,
   PageAgentReadOperation,
-  PageAgentSharingEntry,
   PageAgentWriteOperation,
 } from "@/definition/PageAgentOperations";
 import type { PagesAgentReadResponse } from "@/definition/PagesAgentOperations";
@@ -73,35 +73,6 @@ function isWriteOperation(value: unknown): value is PageAgentWriteOperation {
   return PAGE_AGENT_WRITE_OPERATIONS.some((name) => name === value);
 }
 
-function sharingOf(
-  agent: PageAgent,
-  directory: AgentProfileDirectory,
-): PageAgentSharingEntry {
-  const { sharing } = agent.configuration;
-  const named = (
-    kind: "group" | "department",
-    entries: AgentProfileDirectory["groups"],
-  ): PageAgentSharingEntry["groups"] =>
-    sharing.targets
-      .filter((target) => target.kind === kind)
-      .flatMap((target) => {
-        const entry = entries.find(({ id }) => id === target.targetId);
-        return entry ? [{ id: entry.id, name: entry.name }] : [];
-      });
-  const groups = named("group", directory.groups);
-  const departments = named("department", directory.departments);
-  if (sharing.isGlobal)
-    return { scope: "global", operator: null, groups: [], departments: [] };
-  if (groups.length + departments.length === 0)
-    return { scope: "private", operator: null, groups: [], departments: [] };
-  return {
-    scope: "restricted",
-    operator: sharing.operator ?? "or",
-    groups,
-    departments,
-  };
-}
-
 function toEntry(
   agent: PageAgent,
   directory: AgentProfileDirectory,
@@ -119,7 +90,7 @@ function toEntry(
     modelProfileId: agent.modelProfileId,
     model: agent.model,
     reasoningEffort: agent.reasoningEffort,
-    sharing: sharingOf(agent, directory),
+    sharing: sharingEntry(configuration.sharing, directory),
     isUsable: agent.availability.isUsable,
     hasDeletedTargets: agent.hasDeletedTargets,
     parameters: configuration.parameters,

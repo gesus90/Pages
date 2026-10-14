@@ -8,9 +8,14 @@ import { requireCredentialFreeText } from "@/backend/service/assistant/TextAssis
 import { planSteps, validatePlanGraph } from "./AgentPlanGraph";
 import { requireAgentAdministrator } from "./AgentServiceAccess";
 
+import type { DatabaseTransaction } from "@/backend/database/Database";
 import type { AgentPlanRepository } from "@/backend/database/repositories/agent/AgentPlanRepository";
-import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
+import type {
+  AgentPlanRunEntry,
+  AgentPlanRunRepository,
+} from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type { AccountAccess } from "@/definition/Authorization";
+import type { AgentDefinitionChoice } from "@/definition/AgentAvailability";
 import type {
   AgentPlan,
   AgentPlanInput,
@@ -18,7 +23,10 @@ import type {
   AgentPlanRun,
   AgentPlanSources,
   AgentPlanTask,
+  AgentPlanView,
 } from "@/definition/AgentPlan";
+import type { AgentProfileDirectory } from "@/definition/AgentProfile";
+import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
 import type { AgentTaskAssignment } from "@/definition/AgentUsage";
 import type { AgentWorkspaceService } from "./AgentWorkspaceService";
 import type { AgentProfileService } from "./AgentProfileService";
@@ -209,10 +217,7 @@ export class AgentPlanService {
     userId: string,
     workspaceId: string,
   ): Promise<AgentPlanSources> {
-    const workspace = (await this.dependencies.workspaces.choices(userId)).find(
-      (entry) => entry.id === workspaceId,
-    );
-    if (!workspace) throw new AgentError("plan_access_denied");
+    const workspace = await this.workspace(userId, workspaceId);
     const [agents, tasks] = await Promise.all([
       this.dependencies.profiles.catalog(userId, workspace.projectId),
       this.dependencies.tasks.list(userId, workspace.projectId),
@@ -220,11 +225,103 @@ export class AgentPlanService {
     return { agents, tasks };
   }
 
-  /** Creates or owner-edits a graph without silently rebinding nodes to another project. */
+  /**
+   * Returns the agents a node of a plan in the workspace may run, as the plan page offers them.
+   *
+   * @throws {AgentError} `plan_access_denied` for a workspace the person cannot use for plans.
+   */
+  public async agents(
+    userId: string,
+    workspaceId: string,
+  ): Promise<readonly AgentDefinitionChoice[]> {
+    const workspace = await this.workspace(userId, workspaceId);
+    return this.dependencies.profiles.catalog(userId, workspace.projectId);
+  }
+
+  /** Returns the workspaces of the projects the person may open, the choices of a new plan. */
+  public async workspaces(
+    userId: string,
+  ): Promise<readonly AgentWorkspaceChoice[]> {
+    return this.dependencies.workspaces.choices(userId);
+  }
+
+  /** Lists the plans the person may read now, ordered by name. */
+  public async visible(userId: string): Promise<readonly AgentPlanView[]> {
+    return this.dependencies.access.list(userId);
+  }
+
+  /**
+   * Returns one plan the person may read now.
+   *
+   * @throws {AgentError} `plan_access_denied` for a missing or hidden plan alike.
+   */
+  public async view(userId: string, id: string): Promise<AgentPlanView> {
+    return this.dependencies.access.require(userId, id);
+  }
+
+  /** Names the groups and departments a plan share may refer to. */
+  public async directory(userId: string): Promise<AgentProfileDirectory> {
+    return this.dependencies.access.directory(userId);
+  }
+
+  /**
+   * Lists the runs the person started of a visible plan, by start, without their results.
+   *
+   * @remarks
+   * Only the start and the status are listed; reading a run itself still
+   * needs the current access to everything it used, see {@link run}.
+   * @throws {AgentError} `plan_access_denied` for a plan the person cannot read.
+   */
+  public async runEntries(
+    userId: string,
+    planId: string,
+    order: "newest" | "oldest",
+  ): Promise<readonly AgentPlanRunEntry[]> {
+    await this.dependencies.access.require(userId, planId);
+    return this.dependencies.runs.entries(userId, planId, order);
+  }
+
+  /**
+   * Lists the runs the person started of each named plan they may read, newest first.
+   *
+   * @remarks
+   * Access is resolved once for all plans; a plan the person cannot read is
+   * left out of the result.
+   */
+  public async runOverview(
+    userId: string,
+    planIds: readonly string[],
+  ): Promise<ReadonlyMap<string, readonly AgentPlanRunEntry[]>> {
+    const visible = new Set(
+      (await this.dependencies.access.list(userId)).map((plan) => plan.id),
+    );
+    const overview = new Map<string, readonly AgentPlanRunEntry[]>();
+    for (const planId of planIds)
+      if (visible.has(planId))
+        overview.set(
+          planId,
+          await this.dependencies.runs.entries(userId, planId, "newest"),
+        );
+    return overview;
+  }
+
+  /**
+   * Creates or owner-edits a graph without silently rebinding nodes to another project.
+   *
+   * @param userId - The authenticated owner.
+   * @param id - The plan to change, or `null` to create one.
+   * @param input - The proposed plan, validated here.
+   * @param journal - Runs in the transaction of the write with the plan identifier.
+   * @returns The identifier of the saved plan.
+   */
   public async save(
     userId: string,
     id: string | null,
     input: unknown,
+    journal?: (
+      transaction: DatabaseTransaction,
+      planId: string,
+    ) => Promise<void>,
   ): Promise<string> {
     const proposed = readPlanInput(input);
     requireCredentialFreeText(JSON.stringify(proposed));
@@ -267,6 +364,7 @@ export class AgentPlanService {
         revision: proposed.revision ?? 1,
       },
       id === null,
+      journal && ((transaction) => journal(transaction, planId)),
     );
     return planId;
   }
@@ -391,6 +489,17 @@ export class AgentPlanService {
   /** Completes active cancellation before application shutdown closes the database. */
   public async shutdown(): Promise<void> {
     await this.dependencies.engine.shutdown();
+  }
+
+  private async workspace(
+    userId: string,
+    workspaceId: string,
+  ): Promise<AgentWorkspaceChoice> {
+    const workspace = (await this.dependencies.workspaces.choices(userId)).find(
+      (entry) => entry.id === workspaceId,
+    );
+    if (!workspace) throw new AgentError("plan_access_denied");
+    return workspace;
   }
 
   private async validateReferences(

@@ -111,6 +111,30 @@ export function withoutTicketFlow<Plan extends AgentPlanInput>(
   return { ...plan, edges };
 }
 
+/** Removing a node also removes its flow and parameter references. */
+export function removePlanNode<Plan extends AgentPlanInput>(
+  draft: Plan,
+  id: string,
+): Plan {
+  return {
+    ...draft,
+    nodes: draft.nodes
+      .filter((node) => node.id !== id)
+      .map((node) => {
+        if (node.type !== "agent") return node;
+        const bindings = Object.fromEntries(
+          Object.entries(node.bindings).filter(
+            ([, binding]) =>
+              !(binding.kind === "source" && binding.nodeId === id) &&
+              !(binding.kind === "result" && binding.stepId === id),
+          ),
+        );
+        return { ...node, bindings };
+      }),
+    edges: draft.edges.filter((edge) => edge.from !== id && edge.to !== id),
+  };
+}
+
 function bridgeNode(
   edges: readonly AgentPlanEdge[],
   id: string,

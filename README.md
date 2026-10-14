@@ -268,6 +268,21 @@ current agent/model and ticket/wiki permissions; sharing never delegates
 credentials. Only the executor may read, pause, resume or stop their run, and
 resource access is rechecked on the server before execution and disclosure.
 
+### Plans over MCP and in the Pica chat
+
+MCP clients and Pica reach the same plans under the same rules: list and read
+visible plans with their nodes, connections and status (`idle`, `running` or
+`paused`, latest run, and whether the plan could start), create plans, change
+their structure (nodes, flow connections and agent inputs) and their parameter
+nodes one by one, list one's own runs of a plan newest or oldest first in pages,
+select the newest, the first or a named run, and read the reports of a run, each
+tied to its run and node. Only the owner changes a plan; a hidden plan answers
+like a missing one, and runs stay private to the person who started them. Pica
+finds a plan by name, asks back when several match, shows run dates and statuses
+in plain words, and cannot start, stop or delete plans. The tools and their
+errors are listed in the
+[MCP reference](./mcp/README.md#agent-plans).
+
 ## Getting started
 
 ### Requirements

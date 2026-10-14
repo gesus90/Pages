@@ -9,6 +9,9 @@ import type {
   AgentPlanSources,
 } from "@/definition/AgentPlan";
 
+// The plan page and the agent API remove nodes by the same rule.
+export { removePlanNode } from "@/definition/AgentPlanGraph";
+
 /** Coordinates remain bounded integral grid points even for edited numeric fields. */
 export function snapPlanCoordinate(coordinate: number): number {
   if (!Number.isFinite(coordinate)) return 0;
@@ -67,28 +70,4 @@ export function createPlanNode(input: {
   return Object.hasOwn(draft.globals, reference)
     ? { ...base, type: "variable", name: reference }
     : null;
-}
-
-/** Removing a node also removes its flow and parameter references. */
-export function removePlanNode(
-  draft: AgentPlanInput,
-  id: string,
-): AgentPlanInput {
-  return {
-    ...draft,
-    nodes: draft.nodes
-      .filter((node) => node.id !== id)
-      .map((node) => {
-        if (node.type !== "agent") return node;
-        const bindings = Object.fromEntries(
-          Object.entries(node.bindings).filter(
-            ([, binding]) =>
-              !(binding.kind === "source" && binding.nodeId === id) &&
-              !(binding.kind === "result" && binding.stepId === id),
-          ),
-        );
-        return { ...node, bindings };
-      }),
-    edges: draft.edges.filter((edge) => edge.from !== id && edge.to !== id),
-  };
 }

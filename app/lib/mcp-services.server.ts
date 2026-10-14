@@ -20,6 +20,7 @@ import { AgentExtensionService } from "@/backend/service/agents/AgentExtensionSe
 import { AgentAdministrationService } from "@/backend/service/agents/AgentAdministrationService";
 import { AgentOperationRouter } from "@/backend/service/agents/AgentOperationRouter";
 import { AgentWorkspaceOperationService } from "@/backend/service/agents/AgentWorkspaceOperationService";
+import { AgentPlanOperationService } from "@/backend/service/agents/AgentPlanOperationService";
 import { ChatAgentOperationService } from "@/backend/service/agents/ChatAgentOperationService";
 import { PageAgentOperationService } from "@/backend/service/agents/PageAgentOperationService";
 import { AgentRunCredentialRepository } from "@/backend/database/repositories/mcp/AgentRunCredentialRepository";
@@ -39,6 +40,7 @@ import type { AgentWikiCreateDependencies } from "@/backend/service/agents/Agent
 import type { AgentWriteDependencies } from "@/backend/service/agents/AgentWriteOperationService";
 import type { AgentTicketPublisher } from "@/backend/service/agents/AgentTicketAnnouncer";
 import type { AgentWorkspaceService } from "@/backend/service/agents/AgentWorkspaceService";
+import type { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
 import type { PageAgentService } from "@/backend/service/agents/PageAgentService";
 import type { WikiService } from "@/backend/service/WikiService";
 import type { Database } from "@/backend/database/Database";
@@ -91,6 +93,8 @@ function createWikiOperations(
 /** What the operation catalogs of both agent channels are built from. */
 interface RouterContext extends Omit<OperationContext, "channel"> {
   readonly users: Pick<UserService, "getById">;
+  /** The plan service of the plan page; MCP clients and the chat use it alike. */
+  readonly plans: AgentPlanService;
   readonly publisher: AgentTicketPublisher | null;
   readonly writes: Omit<AgentWriteDependencies, "create">;
   readonly creation: AgentWikiCreateDependencies;
@@ -100,8 +104,9 @@ interface RouterContext extends Omit<OperationContext, "channel"> {
  * Builds the operation catalog of MCP clients, including imports and uploads.
  *
  * @remarks
- * The workspace registry belongs to this catalog; user-agent management is
- * also available to the signed-in chat through the same Pages services.
+ * The workspace registry belongs to this catalog; user-agent management and
+ * agent plans are also available to the signed-in chat through the same Pages
+ * services.
  */
 function createMcpOperationRouter(
   context: RouterContext,
@@ -122,6 +127,10 @@ function createMcpOperationRouter(
     pageAgents: new PageAgentOperationService({
       database: context.database,
       agents: pageAgents,
+    }),
+    plans: new AgentPlanOperationService({
+      database: context.database,
+      plans: context.plans,
     }),
     projects: new ProjectRepository(context.database),
     wiki: new WikiRepository(context.database),
@@ -162,6 +171,10 @@ function createChatOperationRouter(
     pageAgents: new ChatAgentOperationService({
       database: context.database,
       agents: pageAgents,
+    }),
+    plans: new AgentPlanOperationService({
+      database: context.database,
+      plans: context.plans,
     }),
     projects: new ProjectRepository(context.database),
     wiki: new WikiRepository(context.database),
@@ -213,6 +226,8 @@ export function createMcpServices(
     readonly agentWorkspaces: AgentWorkspaceService;
     /** The user-agent management shared by MCP clients and the signed-in chat. */
     readonly pageAgents: PageAgentService;
+    /** The agent plans shared by MCP clients and the signed-in chat. */
+    readonly plans: AgentPlanService;
   },
 ): McpApplicationServices {
   const identities = new AgentIdentityService(users, administration);
@@ -244,6 +259,7 @@ export function createMcpServices(
     events: pagesEventPublisher,
     cache: workspace.tickets?.cache ?? ServerCache.disabled(),
     users,
+    plans: workspace.plans,
     publisher: workspace.tickets?.publisher ?? null,
     writes: {
       users,
