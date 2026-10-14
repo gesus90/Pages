@@ -17,7 +17,11 @@ import { readPlanInput, readPlanText } from "@/backend/agents/AgentPlanInput";
 import { AgentError } from "@/backend/error/AgentErrors";
 
 import type { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
-import type { AgentPlanPage } from "@/definition/AgentPlan";
+import type {
+  AgentPlanInput,
+  AgentPlanPage,
+  AgentPlanRun,
+} from "@/definition/AgentPlan";
 import type { Route } from "./+types/agent-plans";
 
 /** Graphs and execution results are always private, uncacheable responses. */
@@ -114,6 +118,12 @@ export default function AgentPlansRoute(): React.ReactElement {
   );
 }
 
+function readPlanContent(formData: FormData): AgentPlanInput {
+  const content = String(formData.get("plan") ?? "");
+  if (content.length > 2_000_000) throw new AgentError("plan_invalid");
+  return readPlanInput(JSON.parse(content) as unknown);
+}
+
 async function savePlan(
   userId: string,
   service: AgentPlanService,
@@ -121,9 +131,7 @@ async function savePlan(
 ): Promise<Response> {
   const planId = String(formData.get("planId") ?? "");
   if (planId) readPlanText(planId);
-  const content = String(formData.get("plan") ?? "");
-  if (content.length > 2_000_000) throw new AgentError("plan_invalid");
-  const proposed = readPlanInput(JSON.parse(content) as unknown);
+  const proposed = readPlanContent(formData);
   const id = await service.save(userId, planId || null, proposed);
   return Response.json(
     {
@@ -136,21 +144,24 @@ async function savePlan(
   );
 }
 
+/** Starts the saved revision, or saves the sent changes first and starts the revision that results. */
 async function playPlan(
   userId: string,
   service: AgentPlanService,
   formData: FormData,
 ): Promise<Response> {
-  const revision = Number(formData.get("revision"));
-  if (!Number.isSafeInteger(revision) || revision < 1)
-    throw new AgentError("plan_invalid");
-  const run = await service.play(
-    userId,
-    readPlanText(formData.get("planId")),
-    revision,
-  );
+  const planId = readPlanText(formData.get("planId"));
+  let run: AgentPlanRun;
+  if (formData.has("plan"))
+    run = await service.saveAndPlay(userId, planId, readPlanContent(formData));
+  else {
+    const revision = Number(formData.get("revision"));
+    if (!Number.isSafeInteger(revision) || revision < 1)
+      throw new AgentError("plan_invalid");
+    run = await service.play(userId, planId, revision);
+  }
   return Response.json(
-    { ok: true, intent: "play-plan", run },
+    { ok: true, intent: "play-plan", planId, revision: run.planRevision, run },
     { headers: AGENT_NO_STORE },
   );
 }

@@ -12,7 +12,7 @@ import type {
   AgentPlanSources,
 } from "@/definition/AgentPlan";
 
-/** Saved graphs, unsaved edits and immutable run commands remain separate state. */
+/** Saved graphs, unsaved edits and immutable run commands remain separate state; Play saves unsaved edits first. */
 export function usePlanEditor(page: AgentPlanPage): {
   readonly draft: AgentPlanInput;
   readonly setDraft: React.Dispatch<React.SetStateAction<AgentPlanInput>>;
@@ -52,6 +52,7 @@ export function usePlanEditor(page: AgentPlanPage): {
         `/agents/plans?planId=${encodeURIComponent(result.planId)}`,
       );
   }, [command.data, command.state, isDirty, page.selected?.id, navigate]);
+  // Flushing the pending state disables the buttons before a second click can submit again.
   function save(): void {
     submitted.current = draft;
     void command.submit(
@@ -60,18 +61,18 @@ export function usePlanEditor(page: AgentPlanPage): {
         planId: page.selected?.id ?? "",
         plan: JSON.stringify(draft),
       },
-      { method: "post", action: "/agents/plans" },
+      { method: "post", action: "/agents/plans", flushSync: true },
     );
   }
   function play(): void {
-    if (!page.selected || isDirty) return;
+    if (!page.selected) return;
+    submitted.current = draft;
+    const version: Readonly<Record<string, string>> = isDirty
+      ? { plan: JSON.stringify(draft) }
+      : { revision: String(draft.revision) };
     void command.submit(
-      {
-        intent: "play-plan",
-        planId: page.selected.id,
-        revision: String(draft.revision),
-      },
-      { method: "post", action: "/agents/plans" },
+      { intent: "play-plan", planId: page.selected.id, ...version },
+      { method: "post", action: "/agents/plans", flushSync: true },
     );
   }
   function control(intent: string, id: string): void {

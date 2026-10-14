@@ -25,7 +25,18 @@ function contents(draft: AgentPlanInput): string {
   return JSON.stringify({ ...draft, revision: undefined });
 }
 
-/** Revalidation never discards local edits; only an acknowledged save advances the draft revision. */
+/** The revision a finished save or start stored the submitted draft as, or `null`. */
+function storedRevision(
+  result: AgentPlanActionResult | undefined,
+  isPending: boolean,
+): number | null {
+  if (isPending || !result?.ok || result.revision === undefined) return null;
+  return result.intent === "save-plan" || result.intent === "play-plan"
+    ? result.revision
+    : null;
+}
+
+/** Revalidation never discards local edits; only an acknowledged save or start advances the draft revision. */
 export function usePlanDraft(
   page: AgentPlanPage,
   result: AgentPlanActionResult | undefined,
@@ -40,26 +51,19 @@ export function usePlanDraft(
   const [saved, setSaved] = useState(() => initialDraft(page));
   const submitted = useRef<AgentPlanInput | null>(null);
   const acknowledged =
-    !isPending && result?.ok && result.intent === "save-plan"
-      ? submitted.current
-      : null;
+    storedRevision(result, isPending) === null ? null : submitted.current;
   const isDirty = contents(draft) !== contents(acknowledged ?? saved);
   useEffect(() => {
-    if (
-      isPending ||
-      !result?.ok ||
-      result.intent !== "save-plan" ||
-      result.revision === undefined ||
-      !submitted.current
-    )
-      return;
+    const revision = storedRevision(result, isPending);
+    if (revision === null || !submitted.current) return;
     const snapshot = submitted.current;
-    const persisted = { ...snapshot, revision: result.revision };
+    const persisted = { ...snapshot, revision };
     setSaved(persisted);
+    // Edits made while the request ran stay unsaved on top of the stored revision.
     setDraft((previous) =>
       contents(previous) === contents(snapshot)
         ? persisted
-        : { ...previous, revision: result.revision },
+        : { ...previous, revision },
     );
   }, [result, isPending]);
   return { draft, setDraft, isDirty, submitted };

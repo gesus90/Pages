@@ -1,9 +1,13 @@
 import { randomUUID } from "node:crypto";
 
 import { readPlanInput } from "@/backend/agents/AgentPlanInput";
-import { endTaggedProcesses } from "@/backend/agents/cli/CliProcessScan";
+import {
+  endTaggedProcesses,
+  findTaggedProcesses,
+} from "@/backend/agents/cli/CliProcessScan";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { requireCredentialFreeText } from "@/backend/service/assistant/TextAssistantValidation";
+import { withoutTicketFlow } from "@/definition/AgentPlanGraph";
 
 import { planSteps, validatePlanGraph } from "./AgentPlanGraph";
 import { requireAgentAdministrator } from "./AgentServiceAccess";
@@ -81,6 +85,22 @@ async function endInterruptedSession(
   };
 }
 
+/**
+ * Whether no process of any session of the run is alive any more.
+ *
+ * @remarks
+ * A node stores its session record before its runner starts, so a node
+ * without one never started a process.
+ */
+async function hasNoSessionProcesses(run: AgentPlanRun): Promise<boolean> {
+  const scans = await Promise.all(
+    run.steps.flatMap((step) =>
+      step.session ? [findTaggedProcesses(step.session.instanceId)] : [],
+    ),
+  );
+  return scans.every((processes) => processes.length === 0);
+}
+
 interface PlanTaskBinding {
   readonly agentId: string;
   readonly taskId: string;
@@ -121,7 +141,9 @@ export class AgentPlanService {
    *
    * @remarks
    * Processes and MCP access that interrupted sessions left behind are ended
-   * first; nothing is started again.
+   * first; nothing is started again. A working copy stays reserved only while
+   * a process of one of the run's sessions is still alive, so a confirmed
+   * cleanup lets the next run of a plan start.
    */
   public async recoverInterruptedRuns(): Promise<void> {
     for (const previous of await this.dependencies.runs.unfinished()) {
@@ -148,6 +170,7 @@ export class AgentPlanService {
       };
       await this.dependencies.runs.interrupt(run);
     }
+    await this.releaseAbandonedReservations();
   }
 
   /**
@@ -323,50 +346,13 @@ export class AgentPlanService {
       planId: string,
     ) => Promise<void>,
   ): Promise<string> {
-    const proposed = readPlanInput(input);
-    requireCredentialFreeText(JSON.stringify(proposed));
-    const previous =
-      id === null ? null : await this.dependencies.access.require(userId, id);
-    if (previous && !previous.canEdit)
-      throw new AgentError("plan_access_denied");
-    if (previous && proposed.revision === undefined)
-      throw new AgentError("plan_conflict");
-    if (
-      previous &&
-      previous.workspaceId !== proposed.workspaceId &&
-      proposed.nodes.length > 0
-    )
-      throw new AgentError("plan_context_changed");
-    const workspace = await this.dependencies.workspaces.resolve(
-      userId,
-      proposed.workspaceId,
-    );
-    if (
-      proposed.projectId !== undefined &&
-      proposed.projectId !== workspace.projectId
-    )
-      throw new AgentError("plan_context_changed");
-    await this.validateReferences(userId, proposed, workspace.projectId);
-    const planId = id ?? randomUUID();
-    await this.dependencies.access.validateSharing({
-      ...proposed,
-      id: planId,
-      ownerId: userId,
-      projectId: workspace.projectId,
-      revision: proposed.revision ?? 1,
-    });
+    const plan = await this.revise(userId, id, input);
     await this.dependencies.plans.save(
-      {
-        ...proposed,
-        id: planId,
-        ownerId: userId,
-        projectId: workspace.projectId,
-        revision: proposed.revision ?? 1,
-      },
+      plan,
       id === null,
-      journal && ((transaction) => journal(transaction, planId)),
+      journal && ((transaction) => journal(transaction, plan.id)),
     );
-    return planId;
+    return plan.id;
   }
 
   /**
@@ -395,6 +381,40 @@ export class AgentPlanService {
     const snapshot = await this.dependencies.preparation.prepare(userId, plan);
     await this.dependencies.access.require(userId, id);
     return this.dependencies.engine.start(userId, snapshot);
+  }
+
+  /**
+   * Saves the owner's edited plan as its next revision and starts exactly that revision.
+   *
+   * @remarks
+   * The revision is prepared like any Play before anything is stored. The
+   * plan and the record of the new run are then written in one transaction,
+   * so a refused start leaves the plan unchanged and a refused save starts
+   * nothing; the old revision is never started instead.
+   *
+   * @param userId - The owner, who also executes the run.
+   * @param id - The plan.
+   * @param input - The edited plan with the revision it was based on.
+   * @returns The new run; it names the saved revision.
+   * @throws {AgentError} `plan_conflict` when the plan changed since that
+   * revision, `plan_run_unavailable` while a run of it is active, and every
+   * refusal of {@link save} and {@link play}.
+   */
+  public async saveAndPlay(
+    userId: string,
+    id: string,
+    input: unknown,
+  ): Promise<AgentPlanRun> {
+    const plan = await this.revise(userId, id, input);
+    // The stored plan is read through the same bridge, so the snapshot is the saved revision.
+    const snapshot = await this.dependencies.preparation.prepare(
+      userId,
+      withoutTicketFlow({ ...plan, revision: plan.revision + 1 }),
+    );
+    await this.dependencies.access.require(userId, id);
+    return this.dependencies.engine.start(userId, snapshot, (create) =>
+      this.dependencies.plans.save(plan, false, create),
+    );
   }
 
   /** Run output stays private to its executor and still requires current plan/workspace permission. */
@@ -502,6 +522,51 @@ export class AgentPlanService {
     return workspace;
   }
 
+  /**
+   * Validates a proposed plan and returns it as it is stored, with the revision it was based on.
+   *
+   * @throws {AgentError} `plan_conflict` when an existing plan is no longer at that revision.
+   */
+  private async revise(
+    userId: string,
+    id: string | null,
+    input: unknown,
+  ): Promise<AgentPlan> {
+    const proposed = readPlanInput(input);
+    requireCredentialFreeText(JSON.stringify(proposed));
+    const previous =
+      id === null ? null : await this.dependencies.access.require(userId, id);
+    if (previous && !previous.canEdit)
+      throw new AgentError("plan_access_denied");
+    if (previous && proposed.revision !== previous.revision)
+      throw new AgentError("plan_conflict");
+    if (
+      previous &&
+      previous.workspaceId !== proposed.workspaceId &&
+      proposed.nodes.length > 0
+    )
+      throw new AgentError("plan_context_changed");
+    const workspace = await this.dependencies.workspaces.resolve(
+      userId,
+      proposed.workspaceId,
+    );
+    if (
+      proposed.projectId !== undefined &&
+      proposed.projectId !== workspace.projectId
+    )
+      throw new AgentError("plan_context_changed");
+    await this.validateReferences(userId, proposed, workspace.projectId);
+    const plan: AgentPlan = {
+      ...proposed,
+      id: id ?? randomUUID(),
+      ownerId: userId,
+      projectId: workspace.projectId,
+      revision: proposed.revision ?? 1,
+    };
+    await this.dependencies.access.validateSharing(plan);
+    return plan;
+  }
+
   private async validateReferences(
     userId: string,
     proposed: AgentPlanInput,
@@ -541,6 +606,12 @@ export class AgentPlanService {
           );
       }
     }
+  }
+
+  private async releaseAbandonedReservations(): Promise<void> {
+    for (const run of await this.dependencies.runs.reserving())
+      if (await hasNoSessionProcesses(run))
+        await this.dependencies.runs.release(run.id);
   }
 
   private async history(

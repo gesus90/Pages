@@ -10,6 +10,7 @@ import { isPlanFlowNode } from "@/definition/AgentPlanGraph";
 import { hasPlanPath } from "./AgentPlanGraph";
 import { planStepDirectory } from "./AgentPlanSnapshot";
 
+import type { DatabaseTransaction } from "@/backend/database/Database";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type {
   AgentPlanNode,
@@ -22,6 +23,17 @@ import type { AgentPlanStepRunner } from "./AgentPlanStepRunner";
 import type { AgentPlanStepStart } from "./AgentPlanStepStart";
 import type { AgentRunArchive } from "./AgentRunArchive";
 import type { AgentDefinitionFiles } from "./AgentDefinitionFiles";
+
+/**
+ * Creates the record of a new run inside a transaction that the caller opens.
+ *
+ * @remarks
+ * The caller passes `create` the transaction in which it stores its own
+ * changes; a failure of either rolls both back.
+ */
+export type AgentPlanRunRecording = (
+  create: (transaction: DatabaseTransaction) => Promise<void>,
+) => Promise<void>;
 
 interface ActivePlanRun {
   view: AgentPlanRun;
@@ -110,10 +122,19 @@ export class AgentPlanRunEngine {
     this.dependencies = dependencies;
   }
 
-  /** Persists a snapshot and reserves writing copies before returning a new Play run. */
+  /**
+   * Persists a snapshot and reserves writing copies before returning a new Play run.
+   *
+   * @param userId - The executor.
+   * @param snapshot - The prepared revision; every start gets its own run and fresh node states.
+   * @param recording - Runs the creation of the run record inside a
+   * transaction of the caller, which stores its own changes with it; without
+   * it the record is created in a transaction of its own.
+   */
   public async start(
     userId: string,
     snapshot: AgentPlanSnapshot,
+    recording?: AgentPlanRunRecording,
   ): Promise<AgentPlanRun> {
     if (this.isClosing) throw new AgentError("plan_access_denied");
     const view: AgentPlanRun = {
@@ -145,7 +166,16 @@ export class AgentPlanRunEngine {
       snapshot.steps.map((step) => step.step.agentId),
     );
     try {
-      await this.dependencies.runs.create(view, snapshot, workspaceIds);
+      if (recording)
+        await recording((transaction) =>
+          this.dependencies.runs.insert(
+            transaction,
+            view,
+            snapshot,
+            workspaceIds,
+          ),
+        );
+      else await this.dependencies.runs.create(view, snapshot, workspaceIds);
     } catch (error: unknown) {
       await releaseDefinition?.();
       throw error;

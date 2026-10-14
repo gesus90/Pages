@@ -4,7 +4,10 @@ import { readPlanRunResources } from "@/backend/agents/AgentPlanRunResources";
 import { readTextColumn } from "@/backend/database/RowValue";
 import { AgentError } from "@/backend/error/AgentErrors";
 
-import type { Database } from "@/backend/database/Database";
+import type {
+  Database,
+  DatabaseTransaction,
+} from "@/backend/database/Database";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type { AgentPlanSnapshot } from "@/backend/service/agents/AgentPlanSnapshot";
 import type { AgentPlanRunResources } from "@/backend/agents/AgentPlanRunResources";
@@ -42,65 +45,82 @@ export class AgentPlanRunRepository {
     snapshot: AgentPlanSnapshot,
     workspaceIds: readonly string[],
   ): Promise<void> {
-    await this.database.transaction(async (transaction) => {
-      const [plan] = await transaction.query(
-        "SELECT revision FROM agent_plans WHERE id = $id;",
-        { id: run.planId },
+    await this.database.transaction((transaction) =>
+      this.insert(transaction, run, snapshot, workspaceIds),
+    );
+  }
+
+  /**
+   * Creates a run like {@link create}, inside a transaction that also stores other changes.
+   *
+   * @remarks
+   * The revision check reads the plan within the same transaction, so a plan
+   * revision written before it in that transaction is the one the run must
+   * name.
+   */
+  public async insert(
+    transaction: DatabaseTransaction,
+    run: AgentPlanRun,
+    snapshot: AgentPlanSnapshot,
+    workspaceIds: readonly string[],
+  ): Promise<void> {
+    const [plan] = await transaction.query(
+      "SELECT revision FROM agent_plans WHERE id = $id;",
+      { id: run.planId },
+    );
+    if (!plan || Number(plan[0]) !== run.planRevision)
+      throw new AgentError("plan_conflict");
+    const [active] = await transaction.query(
+      `
+      SELECT id
+      FROM agent_plan_runs
+      WHERE plan_id = $plan_id
+          AND user_id = $user_id
+          AND status IN ('running', 'paused');
+    `,
+      { plan_id: run.planId, user_id: run.userId },
+    );
+    if (active) throw new AgentError("plan_run_unavailable");
+    for (const workspaceId of new Set(workspaceIds)) {
+      const [lock] = await transaction.query(
+        "SELECT run_id FROM agent_plan_workspace_locks WHERE workspace_id = $id;",
+        { id: workspaceId },
       );
-      if (!plan || Number(plan[0]) !== run.planRevision)
-        throw new AgentError("plan_conflict");
-      const [active] = await transaction.query(
-        `
-        SELECT id
-        FROM agent_plan_runs
-        WHERE plan_id = $plan_id
-            AND user_id = $user_id
-            AND status IN ('running', 'paused');
-      `,
-        { plan_id: run.planId, user_id: run.userId },
-      );
-      if (active) throw new AgentError("plan_run_unavailable");
-      for (const workspaceId of new Set(workspaceIds)) {
-        const [lock] = await transaction.query(
-          "SELECT run_id FROM agent_plan_workspace_locks WHERE workspace_id = $id;",
-          { id: workspaceId },
-        );
-        if (lock) throw new AgentError("plan_workspace_conflict");
-        await transaction.execute(
-          `
-          INSERT INTO agent_plan_workspace_locks (workspace_id, run_id)
-          VALUES ($workspace_id, $run_id);
-        `,
-          { workspace_id: workspaceId, run_id: run.id },
-        );
-      }
+      if (lock) throw new AgentError("plan_workspace_conflict");
       await transaction.execute(
         `
-        INSERT INTO agent_plan_runs (
-            id,
-            plan_id,
-            user_id,
-            project_id,
-            workspace_id,
-            started_at,
-            status,
-            view_json,
-            snapshot_json
-        ) VALUES ($id, $plan_id, $user_id, $project_id, $workspace_id, $started_at, $status, $view_json, $snapshot_json);
+        INSERT INTO agent_plan_workspace_locks (workspace_id, run_id)
+        VALUES ($workspace_id, $run_id);
       `,
-        {
-          id: run.id,
-          plan_id: run.planId,
-          user_id: run.userId,
-          project_id: snapshot.plan.projectId,
-          workspace_id: snapshot.plan.workspaceId,
-          started_at: run.startedAt,
-          status: run.status,
-          view_json: JSON.stringify(run),
-          snapshot_json: JSON.stringify(snapshot),
-        },
+        { workspace_id: workspaceId, run_id: run.id },
       );
-    });
+    }
+    await transaction.execute(
+      `
+      INSERT INTO agent_plan_runs (
+          id,
+          plan_id,
+          user_id,
+          project_id,
+          workspace_id,
+          started_at,
+          status,
+          view_json,
+          snapshot_json
+      ) VALUES ($id, $plan_id, $user_id, $project_id, $workspace_id, $started_at, $status, $view_json, $snapshot_json);
+    `,
+      {
+        id: run.id,
+        plan_id: run.planId,
+        user_id: run.userId,
+        project_id: snapshot.plan.projectId,
+        workspace_id: snapshot.plan.workspaceId,
+        started_at: run.startedAt,
+        status: run.status,
+        view_json: JSON.stringify(run),
+        snapshot_json: JSON.stringify(snapshot),
+      },
+    );
   }
 
   /** Reads only the public record; service authorization still precedes delivery. */
@@ -171,6 +191,45 @@ export class AgentPlanRunRepository {
             AND status IN ('running', 'paused');
       `,
       { id: run.id, status: run.status, view_json: JSON.stringify(run) },
+    );
+  }
+
+  /**
+   * Lists ended runs that still reserve a working copy.
+   *
+   * @remarks
+   * Only an interrupted run keeps its reservations after it ended, because
+   * processes of its sessions might still have been writing.
+   */
+  public async reserving(): Promise<readonly AgentPlanRun[]> {
+    const rows = await this.database.query(`
+      SELECT view_json
+      FROM agent_plan_runs
+      WHERE status NOT IN ('running', 'paused')
+          AND id IN (
+              SELECT run_id
+              FROM agent_plan_workspace_locks
+          );
+    `);
+    return rows.map((row) => {
+      const input: unknown = JSON.parse(readTextColumn(row, 0, "view_json"));
+      return readPlanRun(input);
+    });
+  }
+
+  /** Releases the working copies an ended run still reserves. */
+  public async release(id: string): Promise<void> {
+    await this.database.execute(
+      `
+        DELETE FROM agent_plan_workspace_locks
+        WHERE run_id = $id
+            AND run_id IN (
+                SELECT id
+                FROM agent_plan_runs
+                WHERE status NOT IN ('running', 'paused')
+            );
+      `,
+      { id },
     );
   }
 

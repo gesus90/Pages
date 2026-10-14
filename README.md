@@ -252,11 +252,22 @@ who may also edit it, is offered the action, and the server refuses anyone
 else. A plan with a running or paused run cannot be deleted; finished runs stay
 in the run records of the agents.
 
-**Play** validates and executes the saved revision using the Pages execution
-service. Solid branches run independently, with at most two concurrent nodes
+**Play** validates and executes the plan as the editor shows it, using the
+Pages execution service. Unsaved changes of the owner are saved first, under
+the same plan, as the next revision, and that revision is started; the new
+revision and the run are stored together, so a refused save starts nothing and
+a refused start leaves the plan unchanged and the edits in the editor. A plan
+that changed elsewhere in the meantime is a conflict and is never replaced by
+the older version. Every Play is a new run with its own ID and fresh node
+states: results, errors and blocked nodes of earlier runs carry over neither
+into the run nor into the parameters of its nodes, and earlier runs keep their
+snapshot. While a run of the plan is active or paused, Play waits for it to be
+stopped. Solid branches run independently, with at most two concurrent nodes
 across the service. A join waits for every incoming predecessor to succeed; a
 failed predecessor blocks its continuation. Independent CLI branches may not
-write to the same working copy.
+write to the same working copy. A server restart fails the runs it
+interrupted and ends their processes; their working copies are released once
+no process of their sessions is left.
 
 The connection of an agent decides its runner: a Codex CLI or Claude Code
 connection runs the node as an Agent Client Protocol (ACP) session through the
