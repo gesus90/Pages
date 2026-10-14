@@ -19,6 +19,7 @@ import { WikiRepository } from "@/backend/database/repositories/WikiRepository";
 import { AgentExtensionService } from "@/backend/service/agents/AgentExtensionService";
 import { AgentAdministrationService } from "@/backend/service/agents/AgentAdministrationService";
 import { AgentOperationRouter } from "@/backend/service/agents/AgentOperationRouter";
+import { AgentWorkspaceOperationService } from "@/backend/service/agents/AgentWorkspaceOperationService";
 import { AgentRunCredentialRepository } from "@/backend/database/repositories/mcp/AgentRunCredentialRepository";
 import { PersonalAgentTokenRepository } from "@/backend/database/repositories/mcp/PersonalAgentTokenRepository";
 import { PairingRepository } from "@/backend/database/repositories/mcp/PairingRepository";
@@ -35,6 +36,7 @@ import type { AgentPlanningServices } from "@/backend/service/agents/AgentPlanni
 import type { AgentWikiCreateDependencies } from "@/backend/service/agents/AgentWikiCreateService";
 import type { AgentWriteDependencies } from "@/backend/service/agents/AgentWriteOperationService";
 import type { AgentTicketPublisher } from "@/backend/service/agents/AgentTicketAnnouncer";
+import type { AgentWorkspaceService } from "@/backend/service/agents/AgentWorkspaceService";
 import type { WikiService } from "@/backend/service/WikiService";
 import type { Database } from "@/backend/database/Database";
 import type { AdministrationService } from "@/backend/service/AdministrationService";
@@ -91,9 +93,16 @@ interface RouterContext extends Omit<OperationContext, "channel"> {
   readonly creation: AgentWikiCreateDependencies;
 }
 
-/** Builds the operation catalog of MCP clients, including imports and uploads. */
+/**
+ * Builds the operation catalog of MCP clients, including imports and uploads.
+ *
+ * @remarks
+ * The workspace registry is part of this catalog only; the chat catalog is
+ * built without it.
+ */
 function createMcpOperationRouter(
   context: RouterContext,
+  workspaces: AgentWorkspaceService,
 ): AgentOperationRouter {
   const { creation } = context;
   const planning = createAgentPlanningServices(context);
@@ -102,6 +111,10 @@ function createMcpOperationRouter(
       context.database,
       context.cache,
     ),
+    workspaces: new AgentWorkspaceOperationService({
+      database: context.database,
+      workspaces: workspaces.forChannel("mcp"),
+    }),
     projects: new ProjectRepository(context.database),
     wiki: new WikiRepository(context.database),
     users: context.users,
@@ -183,6 +196,8 @@ export function createMcpServices(
       readonly cache: ServerCache;
       readonly publisher: AgentTicketPublisher | null;
     };
+    /** The agent workspace registry; MCP clients manage workspaces through it. */
+    readonly agentWorkspaces: AgentWorkspaceService;
   },
 ): McpApplicationServices {
   const identities = new AgentIdentityService(users, administration);
@@ -233,7 +248,7 @@ export function createMcpServices(
     pagesAgentApiService: new PagesAgentApiService(
       personalAgentTokenService,
       new AgentProjectService(new ProjectRepository(database)),
-      createMcpOperationRouter(routers),
+      createMcpOperationRouter(routers, workspace.agentWorkspaces),
       new AgentRunCredentialService(
         new AgentRunCredentialRepository(database),
         identities,

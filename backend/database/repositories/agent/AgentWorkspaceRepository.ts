@@ -112,11 +112,23 @@ async function readUsages(
   }));
 }
 
+/**
+ * Work that commits or fails together with a registry change.
+ *
+ * @remarks
+ * It receives the registration as it stands after the change, or as it stood
+ * before its removal. Throwing from it rolls the change back.
+ */
+export type WorkspaceJournal = (
+  transaction: DatabaseTransaction,
+  workspace: AgentWorkspace,
+) => Promise<void>;
+
 /** Atomic registration metadata, without filesystem mutation or Git operations. */
 export class AgentWorkspaceRepository {
-  private readonly database: Database;
+  private readonly database: Pick<Database, "transaction">;
 
-  public constructor(database: Database) {
+  public constructor(database: Pick<Database, "transaction">) {
     this.database = database;
   }
 
@@ -132,8 +144,18 @@ export class AgentWorkspaceRepository {
     );
   }
 
-  /** Rejects stale writes and overlapping directory registrations inside the transaction. */
-  public async save(workspace: AgentWorkspace, isNew: boolean): Promise<void> {
+  /**
+   * Rejects stale writes and overlapping directory registrations inside the transaction.
+   *
+   * @param workspace - The registration to store.
+   * @param isNew - Whether the identifier must not exist yet.
+   * @param journal - Records that commit with the change.
+   */
+  public async save(
+    workspace: AgentWorkspace,
+    isNew: boolean,
+    journal?: WorkspaceJournal,
+  ): Promise<void> {
     await this.database.transaction(async (transaction) => {
       const previous = (await readWorkspaces(transaction)).find(
         (entry) => entry.id === workspace.id,
@@ -171,11 +193,26 @@ export class AgentWorkspaceRepository {
       )
         throw new AgentError("workspace_in_use");
       await this.saveRecord(transaction, workspace);
+      // A new record starts at revision 1 and every change adds one, as the statement does.
+      await journal?.(transaction, {
+        ...workspace,
+        revision: previous ? previous.revision + 1 : 1,
+      });
     });
   }
 
-  /** Unregisters only an unused, unchanged record; its directory and contents remain intact. */
-  public async remove(id: string, revision: number): Promise<void> {
+  /**
+   * Unregisters only an unused, unchanged record; its directory and contents remain intact.
+   *
+   * @param id - Identifier of the registration.
+   * @param revision - The revision the caller last read.
+   * @param journal - Records that commit with the removal.
+   */
+  public async remove(
+    id: string,
+    revision: number,
+    journal?: WorkspaceJournal,
+  ): Promise<void> {
     await this.database.transaction(async (transaction) => {
       const previous = (await readWorkspaces(transaction)).find(
         (entry) => entry.id === id,
@@ -189,6 +226,7 @@ export class AgentWorkspaceRepository {
         "DELETE FROM agent_workspaces WHERE id = $id;",
         { id },
       );
+      await journal?.(transaction, previous);
     });
   }
 

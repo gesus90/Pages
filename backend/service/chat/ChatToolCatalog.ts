@@ -10,6 +10,7 @@ import type {
   AgentAdminWriteOperation,
 } from "@/definition/AgentAdministration";
 import type { AgentExtensionReadOperation } from "@/definition/AgentExtensions";
+import type { AgentWorkspaceWriteOperation } from "@/definition/AgentWorkspaceOperations";
 import type {
   PagesAgentCommentOperation,
   PagesAgentReadOperation,
@@ -17,13 +18,17 @@ import type {
 } from "@/definition/PagesAgentOperations";
 import type { PagesAgentWriteOperation } from "@/definition/PagesAgentWrites";
 
-/** Operations of the agent API that the chat never offers: imports and uploads need files and a credential. */
+/**
+ * Operations of the agent API that the chat never offers: imports and uploads
+ * need files and a credential, and the workspace registry belongs to MCP clients.
+ */
 type ExcludedOperation =
   | "wiki.import.plan"
   | "wiki.import.apply"
   | "wiki.import.update"
   | "import.structured.apply"
-  | "assets.upload.prepare";
+  | "assets.upload.prepare"
+  | AgentWorkspaceWriteOperation;
 
 /** A Pages operation the chat agent may request; the same operations MCP clients use (T6.12.5). */
 export type ChatOperation = Exclude<

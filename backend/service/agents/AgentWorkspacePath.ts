@@ -18,6 +18,8 @@ export interface AgentWorkspacePathOptions {
   readonly protectedDirectory: string;
   /** Further instance folders a working copy may neither contain nor lie within. */
   readonly additionalProtectedDirectories?: readonly string[];
+  /** Level the folder browser opens first; the first root when it is absent or outside the roots. */
+  readonly startDirectory?: string;
 }
 
 /** Uses path segments rather than string prefixes, including for symlink destinations. */
@@ -49,14 +51,21 @@ function isNetworkLocation(input: string): boolean {
   return /^[\\/]{2}/u.test(input);
 }
 
-function requireAbsoluteDirectory(input: string): void {
+/** Structure of any path: absolute, bounded, free of control characters and `..`. */
+function requireAbsolutePath(input: string): void {
   if (
     !path.isAbsolute(input) ||
     input.length > 4096 ||
     /[\u0000-\u001f\u007f]/u.test(input) ||
-    input.split(/[\\/]/u).includes("..") ||
-    path.resolve(input) === path.parse(input).root
+    input.split(/[\\/]/u).includes("..")
   )
+    throw new AgentError("workspace_path_invalid");
+}
+
+/** The filesystem root itself is never a workspace. */
+function requireAbsoluteDirectory(input: string): void {
+  requireAbsolutePath(input);
+  if (path.resolve(input) === path.parse(input).root)
     throw new AgentError("workspace_path_invalid");
 }
 
@@ -298,16 +307,18 @@ export class AgentWorkspacePath {
     roots: readonly string[],
     protectedDirectories: readonly string[],
   ): Promise<string> {
-    let directory = roots[0];
-    if (requested !== "") {
-      requireAbsoluteDirectory(requested);
+    let directory: string;
+    if (requested === "") directory = await this.startingDirectory(roots);
+    else {
+      // A level is only opened, never registered, so the filesystem root may be one.
+      requireAbsolutePath(requested);
       if (isNetworkLocation(requested))
         throw new AgentError("workspace_path_invalid");
       directory = await this.canonicalDirectory(requested, roots);
     }
     if (!roots.some((root) => containsWorkspacePath(root, directory)))
       throw new AgentError("workspace_path_outside_roots");
-    requireAbsoluteDirectory(directory);
+    requireAbsolutePath(directory);
     if (
       protectedDirectories.some((entry) =>
         containsWorkspacePath(entry, directory),
@@ -318,6 +329,21 @@ export class AgentWorkspacePath {
       throw new AgentError("workspace_path_invalid");
     await access(directory, constants.R_OK | constants.X_OK);
     return directory;
+  }
+
+  /** The configured opening level when it exists inside the roots, otherwise the first root. */
+  private async startingDirectory(roots: readonly string[]): Promise<string> {
+    const { startDirectory } = this.options;
+    if (startDirectory === undefined) return roots[0];
+    try {
+      const directory = await realpath(startDirectory);
+      const isWithin = roots.some((root) =>
+        containsWorkspacePath(root, directory),
+      );
+      return isWithin ? directory : roots[0];
+    } catch {
+      return roots[0];
+    }
   }
 
   private async listFolders(
@@ -389,9 +415,9 @@ export class AgentWorkspacePath {
   private async canonicalRoots(): Promise<readonly string[]> {
     const roots: string[] = [];
     for (const configured of this.options.roots) {
-      requireAbsoluteDirectory(configured);
+      requireAbsolutePath(configured);
       const root = await realpath(configured);
-      requireAbsoluteDirectory(root);
+      requireAbsolutePath(root);
       if (!(await stat(root)).isDirectory())
         throw new AgentError("workspace_path_invalid");
       roots.push(root);

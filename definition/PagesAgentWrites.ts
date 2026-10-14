@@ -1,11 +1,13 @@
 import { AGENT_EXTENSION_WRITE_OPERATIONS } from "./AgentExtensions.js";
 import { AGENT_ADMIN_WRITE_OPERATIONS } from "./AgentAdministration.js";
+import { AGENT_WORKSPACE_WRITE_OPERATIONS } from "./AgentWorkspaceOperations.js";
 import { AGENT_TICKET_LINK_OPERATIONS } from "./AgentTicketNavigation.js";
 
 import type { AgentAdminChanged } from "./AgentAdministration.js";
 import type { AgentExtensionChanged } from "./AgentExtensions.js";
 import type { AgentImportApplied } from "./AgentImportApply.js";
 import type { AgentImportUpdated } from "./AgentImportUpdate.js";
+import type { AgentWorkspaceChanged } from "./AgentWorkspaceOperations.js";
 import type { AgentStructuredImportApplied } from "./AgentStructuredImportManifest.js";
 import type { AgentChecklistItemChanged } from "./AgentTicketChecklist.js";
 import type { AgentTicketLinkChanged } from "./AgentTicketNavigation.js";
@@ -30,6 +32,7 @@ import type {
 export const PAGES_AGENT_WRITE_OPERATIONS = [
   ...AGENT_EXTENSION_WRITE_OPERATIONS,
   ...AGENT_ADMIN_WRITE_OPERATIONS,
+  ...AGENT_WORKSPACE_WRITE_OPERATIONS,
   "assets.upload.prepare",
   "wiki.page.create",
   "wiki.import.apply",
@@ -126,5 +129,6 @@ export interface PagesAgentWriteResponse {
     | AgentMilestoneChanged
     | AgentMilestoneDependencyChanged
     | AgentExtensionChanged
-    | AgentAdminChanged;
+    | AgentAdminChanged
+    | AgentWorkspaceChanged;
 }

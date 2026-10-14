@@ -20,6 +20,7 @@ import { PageAgentRunRepository } from "@/backend/database/repositories/agent/Pa
 import type { Database } from "@/backend/database/Database";
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import type { AgentOperationRegistry } from "@/backend/service/agents/AgentOperationRegistry";
+import type { AgentWorkspacePathOptions } from "@/backend/service/agents/AgentWorkspacePath";
 
 /** The existing central agent and the workspace registry share live account and project boundaries. */
 export interface AgentConfigurationApplicationServices {
@@ -35,18 +36,25 @@ export interface AgentConfigurationApplicationServices {
  * The directories a workspace may live in.
  *
  * @remarks
- * `PAGES_WORKSPACE_ROOTS` is an operator's decision and wins. Without it the
- * home directory of the account that runs Pages is the root, as it is for the
- * default configuration folder, so registration works without a variable. The
- * instance's own folders stay excluded either way.
+ * `PAGES_WORKSPACE_ROOTS` is an operator's decision to narrow them and wins.
+ * Without it every existing directory of this machine qualifies, so no
+ * variable is needed; the folder browser opens at the home directory of the
+ * account that runs Pages. The instance's own folders stay excluded either
+ * way, and the account's file permissions still decide what can be used.
+ *
+ * @returns The roots and, without a configured narrowing, the opening level.
  */
-function resolveWorkspaceRoots(): readonly string[] {
+export function resolveWorkspaceRoots(): Pick<
+  AgentWorkspacePathOptions,
+  "roots" | "startDirectory"
+> {
   const configured = (process.env.PAGES_WORKSPACE_ROOTS ?? "")
     .split(path.delimiter)
     .map((root) => root.trim())
     .filter(Boolean);
-  if (configured.length > 0) return configured;
-  return [homedir()].filter(Boolean);
+  if (configured.length > 0) return { roots: configured };
+  const home = homedir();
+  return { roots: [path.parse(home).root || path.sep], startDirectory: home };
 }
 
 /** Wires registration and parameter preparation without filesystem writes or runner starts. */
@@ -71,7 +79,7 @@ export function createAgentConfigurationServices(input: {
     authorization,
     projects,
     paths: new AgentWorkspacePath({
-      roots: resolveWorkspaceRoots(),
+      ...resolveWorkspaceRoots(),
       protectedDirectory: input.dataDirectory,
       additionalProtectedDirectories: [input.agentsDirectory],
     }),

@@ -408,6 +408,7 @@ function startMcpWorkspace(context: {
     directory,
     wikiService: context.wiki,
     tickets: { cache: context.serverCache, publisher },
+    agentWorkspaces: context.agents.agentWorkspaceService,
   });
   startWikiMaintenanceScheduler(context.wiki, services.agentAssetService);
   return {

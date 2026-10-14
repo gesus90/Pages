@@ -33,7 +33,9 @@ fails before credential lookup or any Pages request.
 The adapter supports project discovery and management, wiki reading, search,
 page creation and field changes, comments, asset upload preparation, wiki and
 structured import preview/application, tickets, milestones, assignments, tags
-and links. Personal administrators can also read administration information and
+and links. Agent workspaces, the local directories that agents work in, can be
+listed and read, and registered, changed and unregistered by those who manage the
+project. Personal administrators can also read administration information and
 change existing roles, accounts and memberships within the offered operations.
 
 Start with the [tool reference](#tool-reference) below for arguments, results,
@@ -1214,6 +1216,55 @@ adds no switch and no rule. The following tools manage tags, initiative links an
   `mcp`; a change of anchors appears in the category `wiki`.
 - **Repeat.** `operationId` works as for every other write: repeating it with identical
   input returns the stored result, other input returns `CONFLICT`.
+
+### Agent workspaces
+
+A workspace registers an existing local directory of the machine that runs Pages
+for a project that has a GitHub link. Agents of Pages use it as their working
+directory. These tools manage the registration only: they never read, create,
+change or delete a file in the directory, and they never change the GitHub link
+of the project. Pages applies the rules of the workspace page on every call and
+adds no switch of its own.
+
+| Tool               | Pages operation     | Arguments                                                                                    | Does                                                          |
+| ------------------ | ------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `list_workspaces`  | `workspaces.list`   | optional `projectId`, `cursor`, `limit`                                                      | The workspaces of the projects the account can open, by name  |
+| `read_workspace`   | `workspaces.read`   | `workspaceId`                                                                                | One workspace with the same fields                            |
+| `create_workspace` | `workspaces.create` | `operationId`, `name`, `path`, `projectId`                                                   | Registers an existing directory for a project                 |
+| `update_workspace` | `workspaces.update` | `operationId`, `workspaceId`, `expectedRevision`, one or more of `name`, `path`, `projectId` | Changes what is named; the rest keeps its value               |
+| `remove_workspace` | `workspaces.remove` | `operationId`, `workspaceId`, `expectedRevision`                                             | Unregisters the workspace; directory, project and GitHub stay |
+
+- **Entries.** `id` is stable for the life of the registration. An entry carries
+  `name`, the canonical absolute `path`, `projectId` and `projectName`, `github`
+  (`repoUrl`, `repoName`) taken from the project, `revision`, `isUsable` with
+  `unavailableReason` (`project_unavailable`, `github_link_missing`,
+  `path_invalid`, `path_unavailable`, `path_not_allowed` or `path_changed`), and
+  `canManage` for the connected account. Lists carry `total` and `nextCursor`.
+- **Visibility.** Only workspaces of projects the account can open are returned.
+  A workspace of a hidden project answers `NOT_FOUND`, exactly like a missing one,
+  and no list, count or error names it.
+- **Who may change.** Pages administrators and the managers of the project: the
+  project role Manager, or the role capability for projects within its scope.
+  Membership and ordinary ticket rights are not enough and return `FORBIDDEN`.
+  Moving a workspace needs the right on the old and the new project.
+- **Project.** The project must be visible and linked to a GitHub repository.
+  An unknown or hidden project is `NOT_FOUND`; a visible project without a link
+  is `INVALID_REQUEST`.
+- **Path.** `path` must be an absolute path of an existing directory of the Pages
+  server that its account can read, write and traverse. URLs, `host:path`
+  notation, network shares, relative paths, `..`, the filesystem root and the
+  folders of the Pages instance are `INVALID_REQUEST`. No environment variable
+  is needed; an operator can narrow the usable area with `PAGES_WORKSPACE_ROOTS`.
+  A directory that another workspace registers or overlaps is `CONFLICT`.
+- **Repeat and conflicts.** Writes take an `operationId`: repeating a call with
+  identical parameters returns its stored result and never registers twice;
+  other parameters return `CONFLICT`. `update_workspace` and `remove_workspace`
+  take the `revision` read last as `expectedRevision`. A stale value returns
+  `CONFLICT` with `details.currentRevision` and changes nothing. An update that
+  names the stored values returns `changed:false`.
+- **Removing.** A workspace that plans, agents or runs still refer to cannot be
+  rebound or removed (`CONFLICT`). Removing needs no typed confirmation; the
+  registration can be created again.
 
 ### Administration
 

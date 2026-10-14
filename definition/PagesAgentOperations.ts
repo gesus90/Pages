@@ -2,6 +2,7 @@ import { AGENT_TICKET_NAVIGATION_READ_OPERATIONS } from "./AgentTicketNavigation
 
 import type { AgentExtensionReadResult } from "./AgentExtensions.js";
 import type { AgentAdminReadResult } from "./AgentAdministration.js";
+import type { AgentWorkspaceReadResult } from "./AgentWorkspaceOperations.js";
 import type { AgentImportPlan } from "./AgentImportManifest.js";
 import type { AgentStructuredImportPlan } from "./AgentStructuredImportManifest.js";
 import type {
@@ -176,7 +177,8 @@ export interface PagesAgentReadResponse {
     | AgentAssignmentTargets
     | AgentWikiComments
     | AgentExtensionReadResult
-    | AgentAdminReadResult;
+    | AgentAdminReadResult
+    | AgentWorkspaceReadResult;
 }
 
 /** Version-one result of a structured import preview. */

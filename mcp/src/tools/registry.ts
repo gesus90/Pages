@@ -1,5 +1,6 @@
 import { EXTENSION_READ_TOOLS } from "./extensions.js";
 import { ADMIN_READ_TOOLS } from "./administration.js";
+import { WORKSPACE_READ_TOOLS } from "./workspaces.js";
 import { STRUCTURED_IMPORT_PLAN_TOOL } from "./structured-import-plan.js";
 import {
   ASSIGNMENT_TARGETS_SEARCH_TOOL,
@@ -13,6 +14,7 @@ import { WIKI_IMPORT_PLAN_TOOL } from "./wiki-import-plan.js";
 
 import type { AgentExtensionReadOperation } from "../../../definition/AgentExtensions.js";
 import type { AgentAdminReadOperation } from "../../../definition/AgentAdministration.js";
+import type { AgentWorkspaceReadOperation } from "../../../definition/AgentWorkspaceOperations.js";
 import type { Tool } from "@modelcontextprotocol/server";
 import type {
   PagesAgentReadOperation,
@@ -24,6 +26,7 @@ interface ReadTool {
   readonly operation:
     | AgentExtensionReadOperation
     | AgentAdminReadOperation
+    | AgentWorkspaceReadOperation
     | PagesAgentReadOperation
     | PagesAgentStructuredReadOperation
     | PagesAgentTicketReadOperation;
@@ -42,6 +45,7 @@ const TEXT = { type: "string", minLength: 1, maxLength: 200 } as const;
 export const READ_TOOLS: readonly ReadTool[] = [
   ...EXTENSION_READ_TOOLS,
   ...ADMIN_READ_TOOLS,
+  ...WORKSPACE_READ_TOOLS,
   {
     operation: "projects.resolve",
     tool: {

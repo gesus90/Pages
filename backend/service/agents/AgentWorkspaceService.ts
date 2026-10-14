@@ -1,15 +1,20 @@
 import { randomUUID } from "node:crypto";
 
 import { readWorkspaceInput } from "@/backend/agents/AgentWorkspaceInput";
+import { accountForChannel } from "@/backend/auth/McpActorContext";
 import { ProjectPolicyService } from "@/backend/auth/ProjectPolicyService";
 import { UserPolicyService } from "@/backend/auth/UserPolicyService";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { AgentError } from "@/backend/error/AgentErrors";
 
+import type { ActorChannel } from "@/backend/auth/McpActorContext";
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import type { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import type { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
-import type { AgentWorkspaceRepository } from "@/backend/database/repositories/agent/AgentWorkspaceRepository";
+import type {
+  AgentWorkspaceRepository,
+  WorkspaceJournal,
+} from "@/backend/database/repositories/agent/AgentWorkspaceRepository";
 import type { AccountAccess } from "@/definition/Authorization";
 import type {
   AgentWorkspace,
@@ -25,12 +30,34 @@ import type {
 import type { Project, ProjectIntegration } from "@/definition/Project";
 import type { AgentWorkspacePath } from "./AgentWorkspacePath";
 
-/** Live account, project and filesystem boundaries; none of these grants imply another. */
+/**
+ * Live account, project and filesystem boundaries; none of these grants imply another.
+ *
+ * @remarks
+ * Each boundary names only what the registry calls, so a test can supply
+ * exactly that.
+ */
 export interface AgentWorkspaceDependencies {
-  readonly workspaces: AgentWorkspaceRepository;
-  readonly authorization: AuthorizationRepository;
-  readonly projects: ProjectRepository;
-  readonly paths: AgentWorkspacePath;
+  readonly workspaces: Pick<
+    AgentWorkspaceRepository,
+    "list" | "usages" | "save" | "remove"
+  >;
+  readonly authorization: Pick<AuthorizationRepository, "snapshot">;
+  readonly projects: Pick<
+    ProjectRepository,
+    | "findAll"
+    | "findById"
+    | "findIntegration"
+    | "findIntegrationsByProjectIds"
+    | "findManagedProjectIds"
+    | "isProjectManager"
+  >;
+  readonly paths: Pick<
+    AgentWorkspacePath,
+    "isConfigured" | "inspect" | "resolve" | "browse"
+  >;
+  /** Whose administrator reading applies; the interface when absent. */
+  readonly channel?: ActorChannel;
 }
 
 function toGitHub(
@@ -85,41 +112,52 @@ function manageableProjects(
  */
 export class AgentWorkspaceService {
   private readonly dependencies: AgentWorkspaceDependencies;
-  private readonly writes = new SerialQueue();
+  private readonly writes: SerialQueue;
 
-  public constructor(dependencies: AgentWorkspaceDependencies) {
+  public constructor(
+    dependencies: AgentWorkspaceDependencies,
+    writes: SerialQueue = new SerialQueue(),
+  ) {
     this.dependencies = dependencies;
+    this.writes = writes;
+  }
+
+  /**
+   * Returns the service for another surface that shares storage, rules and write order.
+   *
+   * @remarks
+   * Only the administrator reading differs: MCP counts a personal administrator
+   * regardless of the role mode of the browser, the interface does not.
+   *
+   * @param channel - The surface the returned service acts for.
+   */
+  public forChannel(channel: ActorChannel): AgentWorkspaceService {
+    return new AgentWorkspaceService(
+      { ...this.dependencies, channel },
+      this.writes,
+    );
   }
 
   /** Lists the workspaces of accessible projects, with management hints and the projects a person may assign. */
   public async page(userId: string): Promise<AgentWorkspacePage> {
     const actor = await this.account(userId);
     const isAdministrator = new UserPolicyService().isAdministrator(actor);
-    const [registered, readable, managedIds] = await Promise.all([
-      this.dependencies.workspaces.list(),
-      this.readableProjects(actor),
-      this.dependencies.projects.findManagedProjectIds(userId),
-    ]);
-    const manageable = manageableProjects(actor, readable, managedIds);
+    const { registered, readable, manageable, integrations } =
+      await this.projectScope(actor, userId);
     const manageableIds = new Set(manageable.map((project) => project.id));
-    const integrations =
-      await this.dependencies.projects.findIntegrationsByProjectIds([
-        ...readable.keys(),
-      ]);
     // Only administrators see a registration whose project nobody can open any more, so they can clean it up.
     const visible = registered.filter(
       (workspace) => isAdministrator || readable.has(workspace.projectId),
     );
     const workspaces = await Promise.all(
-      visible.map(async (workspace): Promise<AgentWorkspaceView> => ({
-        ...(await this.describe(
+      visible.map((workspace) =>
+        this.view(
           workspace,
           readable.get(workspace.projectId),
           toGitHub(integrations.get(workspace.projectId)),
-        )),
-        revision: workspace.revision,
-        canManage: isAdministrator || manageableIds.has(workspace.projectId),
-      })),
+          isAdministrator || manageableIds.has(workspace.projectId),
+        ),
+      ),
     );
     return {
       canManage: isAdministrator || manageable.length > 0,
@@ -132,6 +170,95 @@ export class AgentWorkspaceService {
         github: toGitHub(integrations.get(project.id)),
       })),
     };
+  }
+
+  /**
+   * Lists only the workspaces of projects the person can open right now.
+   *
+   * @remarks
+   * Unlike {@link AgentWorkspaceService.page} it never mentions a registration
+   * whose project is hidden or gone, not even to an administrator.
+   *
+   * @param userId - The signed-in or verified person.
+   * @param projectId - Narrows the list to one project, which must be readable.
+   */
+  public async list(
+    userId: string,
+    projectId: string | null = null,
+  ): Promise<readonly AgentWorkspaceView[]> {
+    const actor = await this.account(userId);
+    if (projectId !== null) await this.requireProject(actor, projectId);
+    const { registered, readable, manageable, integrations } =
+      await this.projectScope(actor, userId);
+    const manageableIds = new Set(manageable.map((project) => project.id));
+    const visible = registered.filter(
+      (workspace) =>
+        readable.has(workspace.projectId) &&
+        (projectId === null || workspace.projectId === projectId),
+    );
+    return Promise.all(
+      visible.map((workspace) =>
+        this.view(
+          workspace,
+          readable.get(workspace.projectId),
+          toGitHub(integrations.get(workspace.projectId)),
+          manageableIds.has(workspace.projectId),
+        ),
+      ),
+    );
+  }
+
+  /**
+   * Reads one workspace of a project the person can open.
+   *
+   * @remarks
+   * A workspace of a hidden project answers exactly like a missing one.
+   *
+   * @param userId - The signed-in or verified person.
+   * @param id - Identifier of the registration.
+   * @throws {AgentError} `workspace_not_found` for a missing or hidden workspace.
+   */
+  public async read(userId: string, id: string): Promise<AgentWorkspaceView> {
+    const actor = await this.account(userId);
+    const workspace = (await this.dependencies.workspaces.list()).find(
+      (entry) => entry.id === id,
+    );
+    const project = workspace
+      ? await this.dependencies.projects.findById(workspace.projectId)
+      : null;
+    if (!workspace || !project || !canReadProject(actor, project))
+      throw new AgentError("workspace_not_found");
+    const [integration, isProjectManager] = await Promise.all([
+      this.dependencies.projects.findIntegration(project.id),
+      this.dependencies.projects.isProjectManager(project.id, userId),
+    ]);
+    return this.view(
+      workspace,
+      project,
+      toGitHub(integration),
+      canManageProject(actor, project, isProjectManager),
+    );
+  }
+
+  /**
+   * Rechecks that the person may still register workspaces for a project.
+   *
+   * @remarks
+   * It does not look at a GitHub link, so a stored result of an earlier change
+   * can be shown again while the project is only temporarily without one.
+   *
+   * @param userId - The signed-in or verified person.
+   * @param projectId - The project of the earlier change.
+   */
+  public async requireManagement(
+    userId: string,
+    projectId: string,
+  ): Promise<void> {
+    const actor = await this.account(userId);
+    await this.requireManager(
+      actor,
+      await this.requireProject(actor, projectId),
+    );
   }
 
   /**
@@ -224,11 +351,20 @@ export class AgentWorkspaceService {
     await this.authorized(userId, id, projectId);
   }
 
-  /** Stores only a canonical registration for a managed project with a GitHub link; no directory content is touched. */
+  /**
+   * Stores only a canonical registration for a managed project with a GitHub link; no directory content is touched.
+   *
+   * @param userId - The signed-in or verified person.
+   * @param id - Identifier of the registration to change, or `null` to create one.
+   * @param input - The registration as received.
+   * @param journal - Records that commit with the change or not at all.
+   * @returns The identifier of the registration.
+   */
   public async save(
     userId: string,
     id: string | null,
     input: unknown,
+    journal?: WorkspaceJournal,
   ): Promise<string> {
     await this.account(userId);
     const proposed = readWorkspaceInput(input);
@@ -250,6 +386,7 @@ export class AgentWorkspaceService {
           revision: previous?.revision ?? 1,
         },
         id === null,
+        journal,
       );
       return workspaceId;
     });
@@ -273,17 +410,25 @@ export class AgentWorkspaceService {
     return usages.map((usage) => ({ id: null, name: null, kind: usage.kind }));
   }
 
-  /** Unregisters metadata only; deleting the referenced directory is never supported. */
+  /**
+   * Unregisters metadata only; deleting the referenced directory is never supported.
+   *
+   * @param userId - The signed-in or verified person.
+   * @param id - Identifier of the registration.
+   * @param revision - The revision the caller last read.
+   * @param journal - Records that commit with the removal or not at all.
+   */
   public async remove(
     userId: string,
     id: string,
     revision: number,
+    journal?: WorkspaceJournal,
   ): Promise<void> {
     await this.account(userId);
     await this.writes.run(async () => {
       const actor = await this.account(userId);
       await this.requireManagedWorkspace(actor, await this.find(id));
-      await this.dependencies.workspaces.remove(id, revision);
+      await this.dependencies.workspaces.remove(id, revision, journal);
     });
   }
 
@@ -293,7 +438,46 @@ export class AgentWorkspaceService {
       (account) => account.userId === userId,
     );
     if (!actor?.isActive) throw new AgentError("workspace_access_denied");
-    return actor;
+    return accountForChannel(actor, this.dependencies.channel ?? "ui");
+  }
+
+  /** What every listing starts from: the registrations, and the projects they and the person may touch. */
+  private async projectScope(
+    actor: AccountAccess,
+    userId: string,
+  ): Promise<{
+    readonly registered: readonly AgentWorkspace[];
+    readonly readable: ReadonlyMap<string, Project>;
+    readonly manageable: readonly Project[];
+    readonly integrations: ReadonlyMap<string, ProjectIntegration>;
+  }> {
+    const [registered, readable, managedIds] = await Promise.all([
+      this.dependencies.workspaces.list(),
+      this.readableProjects(actor),
+      this.dependencies.projects.findManagedProjectIds(userId),
+    ]);
+    return {
+      registered,
+      readable,
+      manageable: manageableProjects(actor, readable, managedIds),
+      integrations:
+        await this.dependencies.projects.findIntegrationsByProjectIds([
+          ...readable.keys(),
+        ]),
+    };
+  }
+
+  private async view(
+    workspace: AgentWorkspace,
+    project: Project | undefined,
+    github: WorkspaceGitHub | null,
+    canManage: boolean,
+  ): Promise<AgentWorkspaceView> {
+    return {
+      ...(await this.describe(workspace, project, github)),
+      revision: workspace.revision,
+      canManage,
+    };
   }
 
   private async readableProjects(
