@@ -1,9 +1,11 @@
 # Pages unit-test structure (PAGE-38)
 
 PAGE-38 configures a future unit-test foundation. The only test cases so far
-are the targeted Pica chat tests of PAGE-28 under
-`tests/frontend/app/components/chat/` and the targeted workspace tests of
-PAGE-26 under `tests/backend/backend/service/agents/`, each with their fixtures;
+are the targeted archive authorization tests of PAGE-24 and workspace tests of
+PAGE-26 under `tests/backend/backend/service/agents/`, the archive repository
+boundary tests under `tests/backend/backend/database/repositories/`, and the
+targeted Pica chat tests of PAGE-28 under
+`tests/frontend/app/components/chat/`, each with their fixtures;
 the full suites are planned for PAGE-32/PAGE-33 and are not available as usable,
 validated test suites yet. Empty discovery is an error, not a passing suite. CI test execution
 remains absent after PAGE-35. Check and lint are non-test gates.

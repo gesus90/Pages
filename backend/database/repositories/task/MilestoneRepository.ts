@@ -14,6 +14,7 @@ import type {
   Milestone,
   MilestoneColor,
   MilestoneIcon,
+  MilestoneReadOptions,
 } from "@/definition/Task";
 
 /** Values required to persist a milestone. */
@@ -224,7 +225,10 @@ export class MilestoneRepository {
   }
 
   /** Returns a milestone by its identifier. */
-  public async findById(id: string): Promise<Milestone | null> {
+  public async findById(
+    id: string,
+    options: MilestoneReadOptions = {},
+  ): Promise<Milestone | null> {
     const rows = await this.database.query(
       `
         SELECT
@@ -244,9 +248,9 @@ export class MilestoneRepository {
             color_custom
         FROM milestones
         WHERE id = $id
-            AND archived_at IS NULL;
+            AND ($include_archived OR archived_at IS NULL);
       `,
-      { id },
+      { id, include_archived: options.includeArchived ?? false },
     );
     const row = rows[0];
 

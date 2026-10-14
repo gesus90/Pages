@@ -1145,9 +1145,11 @@ For every deletion, first ask the user to type `LÖSCHEN` (German) or `DELETE`
 (English) and pass that exact reply as `confirmation`. Never infer consent.
 Wiki deletion uses the existing trash, includes descendants and reports
 `recursive:true`, `affectedCount` and `disposition:trash`. Tickets and milestones
-use the UI archive and need its right: the role capability "Milestones" together
-with responsibility for the project, or active administrator mode; ordinary write
-rights return `FORBIDDEN`. Comment deletion remains irreversible.
+use soft archiving and the [shared archive rights](../README.md#ticket-and-milestone-archive-rights):
+the role capability "Milestones" together with responsibility for the visible
+target's project. Ordinary writing or assignment rights do not suffice; `write`
+is not additionally required. MCP uses the existing personal-administrator
+eligibility, independent of the browser's role mode. Comment deletion remains irreversible.
 
 Wiki creation and moves support project, instance and private scope. Use
 `projectId:null` with explicit `scope:instance` or `scope:private`. Wiki writes
@@ -1206,16 +1208,36 @@ adds no switch and no rule. The following tools manage tags, initiative links an
   ticket; name that number when you ask for the confirmation. `read_milestones` carries
   the visible `initiatives` and `wikiPages` of every milestone. What the account cannot
   see appears as neither entry, placeholder nor count.
-- **Deleting and restoring.** `delete_ticket` and `delete_milestone` keep their
-  confirmation and archive recursively, as described in wiki and project foundations, and need the archive right of the
-  interface (role capability "Milestones" plus responsibility for the project; a plain
-  writer gets `FORBIDDEN` and nothing changes). The archive is the trash: people
-  restore a ticket with its subtree in Pages. Pages does not purge the archive after a
-  period.
+- **Soft archiving and restoring.** The compatible names `delete_ticket` and
+  `delete_milestone` preserve records instead of permanently deleting them. They
+  require exact `LÖSCHEN` (German) or `DELETE` (English) confirmation in the account's
+  current language. `delete_ticket` archives the ticket and its active descendants,
+  preserving workflow status; `recursive:true`, `disposition:trash` and
+  `affectedCount` report the newly archived tickets, including the target only if
+  it was active. Already archived tickets receive no additional archive history.
+  A fresh operation on a fully archived subtree returns `changed:false` and
+  `affectedCount:0`. `delete_milestone` archives only the milestone
+  (`affectedCount:1`, `disposition:trash`), removes its incident dependencies and
+  leaves tickets, ticket assignments and initiative links unchanged. People restore
+  tickets with their subtree in Pages; Pages does not automatically purge the archive.
+- **Archive authorization.** Both tools use the [same server archive decision as the UI](../README.md#ticket-and-milestone-archive-rights):
+  current `milestones` capability and project responsibility, or personal Pages
+  administrator eligibility on MCP. Project and own ticket department visibility
+  still apply; milestone visibility follows the project. Generic ticket write or
+  assignment rights alone return `FORBIDDEN`. Hidden or missing targets both return
+  `NOT_FOUND`; hidden descendants prevent archiving the subtree with
+  `INVALID_REQUEST`. Missing or incorrect confirmation returns
+  `CONFIRMATION_REQUIRED`. Rejections write no records, archive history, activity or
+  operation key. `tools/list` advertises these operations without granting target
+  rights; every `tools/call` rechecks current identity, target visibility and rights
+  inside the Pages service. The adapter has no database or separate permission path.
 - **Activity.** Changes are written to the activity of the project with the marker
   `mcp`; a change of anchors appears in the category `wiki`.
 - **Repeat.** `operationId` works as for every other write: repeating it with identical
-  input returns the stored result, other input returns `CONFLICT`.
+  input returns the stored result, other input returns `CONFLICT`. Archive repeats
+  recheck current account validity, confirmation language, target visibility and
+  archive rights before returning the stored result. Rights revoked after the first
+  call therefore deny a repeat, without another write or activity entry.
 
 ### Agent workspaces
 

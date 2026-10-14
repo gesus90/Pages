@@ -18,6 +18,7 @@ import type {
   MilestoneDependency,
   MilestoneIcon,
   MilestoneLinkType,
+  MilestoneReadOptions,
 } from "@/definition/Task";
 import type { User } from "@/definition/User";
 
@@ -269,7 +270,19 @@ export class TaskMilestoneService {
    * @throws {WorkItemAccessDeniedError} Without the archive right in its project.
    */
   public async archiveMilestone(actor: User, id: string): Promise<void> {
-    const existing = await this.taskRepository.findMilestoneById(id);
+    await this.requireArchivableMilestone(actor, id);
+    await this.taskRepository.deleteDependenciesByMilestone(id);
+    await this.taskRepository.archiveMilestone(id);
+    this.cache.invalidateWorkItems();
+  }
+
+  /** Checks current target visibility and the shared archive right, including on replay. */
+  public async requireArchivableMilestone(
+    actor: User,
+    id: string,
+    options: MilestoneReadOptions = {},
+  ): Promise<Milestone> {
+    const existing = await this.taskRepository.findMilestoneById(id, options);
 
     if (!existing) {
       throw new WorkItemValidationError("milestoneNotFound");
@@ -277,9 +290,7 @@ export class TaskMilestoneService {
 
     await this.access.requireProject(actor, existing.projectId);
     await this.access.requireArchiveRight(actor, existing.projectId);
-    await this.taskRepository.deleteDependenciesByMilestone(id);
-    await this.taskRepository.archiveMilestone(id);
-    this.cache.invalidateWorkItems();
+    return existing;
   }
 
   /** Returns every dependency of the given projects. */

@@ -54,7 +54,9 @@ const READ_DESCRIPTION =
 const WRITE_DESCRIPTION =
   "Pages checks the same account rights as the UI. Reuse operationId with identical parameters after response loss. Refused changes leave no activity. Changes in a project are marked source=mcp.";
 const DELETE_DESCRIPTION =
-  "Ask the user to type LÖSCHEN for German or DELETE for English and pass the exact reply as confirmation. Without it Pages returns CONFIRMATION_REQUIRED. Deletion uses the existing trash/archive, returns affectedCount, and recursively includes descendants where applicable. Never infer confirmation.";
+  "Ask the user to type LÖSCHEN for German or DELETE for English and pass the exact reply as confirmation. Without it Pages returns CONFIRMATION_REQUIRED. The operation uses the existing trash/archive, returns affectedCount, and recursively includes descendants where applicable. Never infer confirmation.";
+const ARCHIVE_DESCRIPTION =
+  "Soft archiving preserves the record and its workflow status. Requires current milestone management rights and project responsibility, or Pages administrator eligibility. Ordinary ticket writing or assignment rights do not suffice. tools/list grants no target permission; every tools/call, including an operationId replay, rechecks current identity, visibility and archive rights.";
 
 function readTool(
   name: string,
@@ -269,11 +271,14 @@ export const EXTENSION_WRITE_TOOLS: readonly {
   },
   {
     operation: "ticket.delete",
-    tool: writeTool(
-      "delete_ticket",
-      { ticketId: IDENTIFIER, confirmation: CONFIRMATION },
-      true,
-    ),
+    tool: {
+      ...writeTool(
+        "delete_ticket",
+        { ticketId: IDENTIFIER, confirmation: CONFIRMATION },
+        true,
+      ),
+      description: `${WRITE_DESCRIPTION} ${ARCHIVE_DESCRIPTION} Archives the ticket and its active descendants; affectedCount counts newly archived tickets. ${DELETE_DESCRIPTION}`,
+    },
   },
   {
     operation: "ticket.setTags",
@@ -325,14 +330,17 @@ export const EXTENSION_WRITE_TOOLS: readonly {
   },
   {
     operation: "milestone.delete",
-    tool: writeTool(
-      "delete_milestone",
-      {
-        projectId: IDENTIFIER,
-        milestoneId: IDENTIFIER,
-        confirmation: CONFIRMATION,
-      },
-      true,
-    ),
+    tool: {
+      ...writeTool(
+        "delete_milestone",
+        {
+          projectId: IDENTIFIER,
+          milestoneId: IDENTIFIER,
+          confirmation: CONFIRMATION,
+        },
+        true,
+      ),
+      description: `${WRITE_DESCRIPTION} ${ARCHIVE_DESCRIPTION} Archives only the milestone (affectedCount=1), removes its dependencies and preserves its tickets and their assignments. ${DELETE_DESCRIPTION}`,
+    },
   },
 ];

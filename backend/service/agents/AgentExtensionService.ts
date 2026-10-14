@@ -88,6 +88,12 @@ const WRITE_KEYS: Readonly<
   "wiki.page.setAnchors": ["pageId", "anchors", "expectedAnchors"],
 };
 
+/** The server-stored result and current call parameters used for replay authorization. */
+interface AgentExtensionReplay {
+  readonly stored: AgentExtensionChanged;
+  readonly parameters: Readonly<Record<string, unknown>>;
+}
+
 function translate(error: unknown): unknown {
   if (error instanceof WikiPageNotFoundError)
     return new AgentOperationError("NOT_FOUND");
@@ -108,16 +114,19 @@ function translate(error: unknown): unknown {
 
 /** Server-owned dispatcher for the A11.1 operations; the adapter never supplies policy. */
 export class AgentExtensionService {
-  private readonly database: Database;
+  private readonly database: Pick<Database, "transaction">;
   private readonly cache: ServerCache;
-  private readonly planning: AgentPlanningReadService;
+  private readonly planning: Pick<
+    AgentPlanningReadService,
+    "readProjectTickets"
+  >;
   private readonly announcer: AgentTicketAnnouncer;
   private readonly transaction: AgentTicketTransaction;
   private readonly channel: AgentChannel;
 
   public constructor(dependencies: {
-    readonly database: Database;
-    readonly planning: AgentPlanningReadService;
+    readonly database: Pick<Database, "transaction">;
+    readonly planning: Pick<AgentPlanningReadService, "readProjectTickets">;
     readonly announcer: AgentTicketAnnouncer;
     readonly cache: ServerCache;
     /** The agent surface the operations run for; MCP when absent. */
@@ -221,55 +230,10 @@ export class AgentExtensionService {
       operation,
       request,
       needsWriteRight:
-        operation.startsWith("ticket.") ||
+        (operation.startsWith("ticket.") && operation !== "ticket.delete") ||
         operation.startsWith("milestone.initiative."),
-      revisit: async (context, stored) => {
-        if (operation.endsWith(".delete"))
-          await requireAgentConfirmation(
-            context.database,
-            context.actor.id,
-            parameters.confirmation,
-          );
-        if (stored.projectId !== null)
-          await context.projects.getById(context.actor, stored.projectId);
-        if (
-          operation.startsWith("projects.") ||
-          operation === "milestone.delete"
-        )
-          await this.authorizeProjectReplay(
-            context,
-            operation,
-            stored,
-            parameters,
-          );
-        if (operation.startsWith("ticket."))
-          await context.tasks.getById(context.actor, stored.id);
-        if (
-          operation.startsWith("milestone.initiative.") &&
-          stored.relatedId !== undefined
-        )
-          await context.tasks.getById(context.actor, stored.relatedId);
-        if (
-          operation === "wiki.page.delete" ||
-          operation === "wiki.page.setAnchors"
-        ) {
-          const wiki = new WikiRepository(
-            context.database,
-            agentChannelPolicy(context.channel).source,
-          );
-          const viewer = await createAgentWikiAccess(
-            new ProjectRepository(context.database),
-            context.actor,
-            context.channel,
-          ).resolve(context.actor);
-          const page = await wiki.pages.findVisible(viewer.scope, stored.id, {
-            includeDeleted: operation === "wiki.page.delete",
-          });
-          if (!page) throw new AgentOperationError("NOT_FOUND");
-          if (!canManagePage(viewer, page))
-            throw new AgentOperationError("FORBIDDEN");
-        }
-      },
+      revisit: (context, stored) =>
+        this.revisit(context, operation, { stored, parameters }),
       work: async (context) => {
         const result = await this.apply(context, operation, parameters);
         const published =
@@ -291,6 +255,65 @@ export class AgentExtensionService {
         this.cache.invalidateProject(completed.result.projectId);
     }
     return { apiVersion: "1", result: completed.result };
+  }
+
+  private async revisit(
+    context: AgentTaskContext,
+    operation: AgentExtensionWriteOperation,
+    replay: AgentExtensionReplay,
+  ): Promise<void> {
+    const { stored, parameters } = replay;
+    if (operation.endsWith(".delete"))
+      await requireAgentConfirmation(
+        context.database,
+        context.actor.id,
+        parameters.confirmation,
+      );
+    if (stored.projectId !== null)
+      await context.projects.getById(context.actor, stored.projectId);
+    if (operation === "ticket.delete") {
+      await context.tasks.requireArchivableWorkItem(context.actor, stored.id);
+      return;
+    }
+    if (operation === "milestone.delete") {
+      const milestone = await context.tasks.requireArchivableMilestone(
+        context.actor,
+        stored.id,
+        { includeArchived: true },
+      );
+      if (milestone.projectId !== stored.projectId)
+        throw new AgentOperationError("NOT_FOUND");
+      return;
+    }
+    if (operation.startsWith("projects."))
+      await this.authorizeProjectReplay(context, operation, stored, parameters);
+    if (operation.startsWith("ticket."))
+      await context.tasks.getById(context.actor, stored.id);
+    if (
+      operation.startsWith("milestone.initiative.") &&
+      stored.relatedId !== undefined
+    )
+      await context.tasks.getById(context.actor, stored.relatedId);
+    if (
+      operation === "wiki.page.delete" ||
+      operation === "wiki.page.setAnchors"
+    ) {
+      const wiki = new WikiRepository(
+        context.database,
+        agentChannelPolicy(context.channel).source,
+      );
+      const viewer = await createAgentWikiAccess(
+        new ProjectRepository(context.database),
+        context.actor,
+        context.channel,
+      ).resolve(context.actor);
+      const page = await wiki.pages.findVisible(viewer.scope, stored.id, {
+        includeDeleted: operation === "wiki.page.delete",
+      });
+      if (!page) throw new AgentOperationError("NOT_FOUND");
+      if (!canManagePage(viewer, page))
+        throw new AgentOperationError("FORBIDDEN");
+    }
   }
 
   private async apply(

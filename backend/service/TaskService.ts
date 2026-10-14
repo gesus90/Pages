@@ -51,6 +51,7 @@ import type {
   ChildHandling,
   Milestone,
   MilestoneDependency,
+  MilestoneReadOptions,
   Label,
   TaskActionPermissions,
   TicketDepartmentChoices,
@@ -491,12 +492,13 @@ export class TaskService {
    * @param id - Work item identifier.
    * @param handling - Whether the descendants go along (`include`) or the
    * direct children stay without a parent (`keep`).
+   * @returns The number of newly archived tickets.
    */
   public async archive(
     actor: User,
     id: string,
     handling: ChildHandling = "include",
-  ): Promise<void> {
+  ): Promise<number> {
     return this.lifecycle.archive(actor, id, handling);
   }
 
@@ -564,6 +566,23 @@ export class TaskService {
    */
   public async canArchive(actor: User, projectId: string): Promise<boolean> {
     return this.access.canArchive(actor, projectId);
+  }
+
+  /** Rechecks ticket visibility and the shared archive right without changing the ticket. */
+  public async requireArchivableWorkItem(
+    actor: User,
+    id: string,
+  ): Promise<WorkItemDetail> {
+    return this.access.requireArchivableWorkItem(actor, id);
+  }
+
+  /** Rechecks milestone visibility and the shared archive right without changing the milestone. */
+  public async requireArchivableMilestone(
+    actor: User,
+    id: string,
+    options: MilestoneReadOptions = {},
+  ): Promise<Milestone> {
+    return this.milestones.requireArchivableMilestone(actor, id, options);
   }
 
   /**

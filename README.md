@@ -61,6 +61,39 @@ Routes handle the request, services hold the business logic, repositories hold
 the SQL. React components live in `app/components/`, shared types and contracts
 in `definition/`.
 
+## Ticket and milestone archive rights
+
+UI and MCP archiving share the server decision in `TaskAccessGuard`: the current
+`milestones` capability plus responsibility for the visible target's project.
+Project responsibility is the project's Manager assignment or the scoped
+`manage_projects` capability (managed project departments or `allProjects`).
+Ordinary ticket writing, assignment and membership rights do not grant archiving;
+an additional `write` capability is not required. Current project access still
+applies, and tickets must be public or in the account's own departments. Hidden
+descendants prevent archiving an entire subtree. Milestones follow project
+visibility and have no separate department assignment.
+
+Administrators qualify in active administrator mode in the UI. MCP keeps the
+existing personal-administrator interpretation, regardless of the browser's
+selected role mode; it does not change that mode. Both channels use the same
+archive service and policy with their existing account interpretation.
+
+Archiving is soft: ticket rows and workflow status remain, and active descendants
+are archived recursively by default. Only newly archived tickets receive archive
+history entries. A milestone leaves active views; its incident dependencies are
+removed, while its tickets and their assignments remain. There is no automatic
+purge. Permanent deletion is a separate administrator action in Pages.
+
+The compatible MCP names `delete_ticket` and `delete_milestone` mean archiving.
+They require exact `LÖSCHEN`/`DELETE` confirmation in the current account language.
+Every call, including an `operationId` replay, rechecks the account, target
+visibility and archive rights. `tools/list` advertises operations and proves no
+right on a target. Visible unauthorized targets return `FORBIDDEN`; hidden or
+missing targets return `NOT_FOUND`. Rejected calls create no archive history,
+project activity or operation key. Identical authorized repeats return the stored
+result without writing again; changed input returns `CONFLICT`. See the
+[MCP archive contract](./mcp/README.md#milestones-initiatives-tags-and-links).
+
 ## Agents execution plans
 
 Under **Agents → Ausführplan** (`/agents/plans`), choose a saved plan or use

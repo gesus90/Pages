@@ -102,6 +102,7 @@ export class TaskLifecycleService {
    * @param id - Work item identifier.
    * @param handling - `include` archives every active descendant too; `keep`
    * leaves the active direct children in place without a parent.
+   * @returns The number of newly archived tickets, including the target.
    * @throws {WorkItemAccessDeniedError} Without the archive right in the project.
    * @throws {WorkItemValidationError} When descendants are hidden from the
    * actor, or subtasks would be left without their task.
@@ -110,7 +111,7 @@ export class TaskLifecycleService {
     actor: User,
     id: string,
     handling: ChildHandling = "include",
-  ): Promise<void> {
+  ): Promise<number> {
     const item = await this.access.requireArchivableWorkItem(actor, id);
     let ids = await this.requireVisibleSubtree(actor, id);
 
@@ -119,12 +120,14 @@ export class TaskLifecycleService {
       ids = [id];
     }
 
-    await this.taskRepository.archiveMany(ids);
-    this.cache.invalidateWorkItems();
+    const archivedIds = await this.taskRepository.archiveMany(ids);
+    if (archivedIds.length > 0) this.cache.invalidateWorkItems();
 
-    for (const itemId of ids) {
+    for (const itemId of archivedIds) {
       await this.history.recordArchived(actor, itemId);
     }
+
+    return archivedIds.length;
   }
 
   /**

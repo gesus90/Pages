@@ -183,9 +183,9 @@ export class WorkItemLifecycleRepository {
     return rows.map((row) => readTextColumn(row, 0, "storage_name"));
   }
 
-  /** Marks the given work items as archived. */
-  public async archiveMany(ids: readonly string[]): Promise<void> {
-    await this.setArchived(ids, "utc_now()", "IS NULL");
+  /** Marks active work items as archived and returns exactly the changed ids. */
+  public async archiveMany(ids: readonly string[]): Promise<string[]> {
+    return this.setArchived(ids, "utc_now()", "IS NULL");
   }
 
   /** Brings the given archived work items back. */
@@ -287,23 +287,26 @@ export class WorkItemLifecycleRepository {
     ids: readonly string[],
     archivedAt: "utc_now()" | "NULL",
     currentState: "IS NULL" | "IS NOT NULL",
-  ): Promise<void> {
+  ): Promise<string[]> {
     if (ids.length === 0) {
-      return;
+      return [];
     }
 
     const { parameters, placeholders } = createInClause("item_id", ids);
 
-    await this.database.execute(
+    const rows = await this.database.query(
       `
         UPDATE work_items
         SET
             archived_at = ${archivedAt},
             updated_at = utc_now()
         WHERE id IN (${placeholders})
-            AND archived_at ${currentState};
+            AND archived_at ${currentState}
+        RETURNING id;
       `,
       parameters,
     );
+
+    return rows.map((row) => readTextColumn(row, 0, "id"));
   }
 }

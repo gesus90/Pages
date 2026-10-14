@@ -12,7 +12,7 @@ import type {
 import type { WorkItemDetail } from "@/definition/Task";
 import type { AgentTaskContext } from "./AgentTaskAccess";
 
-/** Applies basic ticket assignments and deletion with the same authorization as the UI. */
+/** Applies ticket assignments and soft archiving with the same authorization as the UI. */
 export async function applyAgentPlanningExtension(
   context: AgentTaskContext,
   operation: AgentExtensionWriteOperation,
@@ -53,19 +53,16 @@ export async function applyAgentPlanningExtension(
       context.actor.id,
       parameters.confirmation,
     );
-    const impact = await context.tasks.describeDescendants(
+    const affectedCount = await context.tasks.archive(
       context.actor,
       ticket.id,
+      "include",
     );
-    await context.tasks.archive(context.actor, ticket.id, "include");
     return {
       id: ticket.id,
       projectId: ticket.projectId,
-      changed: true,
-      affectedCount: Object.values(impact.active).reduce(
-        (sum, count) => sum + count,
-        1,
-      ),
+      changed: affectedCount > 0,
+      affectedCount,
       recursive: true,
       disposition: "trash",
     };

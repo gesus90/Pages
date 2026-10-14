@@ -231,6 +231,12 @@ export interface Milestone {
   readonly archivedAt: string | null;
 }
 
+/** Server-owned milestone lookup options; active records are the default. */
+export interface MilestoneReadOptions {
+  /** Includes archived records for replay authorization and post-archive activity. */
+  readonly includeArchived?: boolean;
+}
+
 /**
  * Narrows an unknown value to a supported milestone status.
  *

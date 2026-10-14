@@ -16,6 +16,7 @@ import { WorkItemWriteRepository } from "./task/WorkItemWriteRepository";
 
 import type {
   Milestone,
+  MilestoneReadOptions,
   MilestoneDependency,
   Label,
   WorkItemChecklistItem,
@@ -138,8 +139,11 @@ export class TaskRepository {
   }
 
   /** Returns a milestone by its identifier. */
-  public async findMilestoneById(id: string): Promise<Milestone | null> {
-    return this.milestones.findById(id);
+  public async findMilestoneById(
+    id: string,
+    options: MilestoneReadOptions = {},
+  ): Promise<Milestone | null> {
+    return this.milestones.findById(id, options);
   }
 
   /** Inserts a milestone for the given project. */
@@ -471,8 +475,8 @@ export class TaskRepository {
     return this.lifecycle.detachChildren(parentId, scope);
   }
 
-  /** Marks the given work items as archived without deleting their rows. */
-  public async archiveMany(ids: readonly string[]): Promise<void> {
+  /** Archives active work items without deleting their rows and returns the changed ids. */
+  public async archiveMany(ids: readonly string[]): Promise<string[]> {
     return this.lifecycle.archiveMany(ids);
   }
 

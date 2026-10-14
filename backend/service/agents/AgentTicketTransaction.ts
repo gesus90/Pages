@@ -73,10 +73,13 @@ function fingerprint(request: object): string {
  * refused call writes nothing and stores nothing.
  */
 export class AgentTicketTransaction {
-  private readonly database: Database;
+  private readonly database: Pick<Database, "transaction">;
   private readonly channel: AgentChannel;
 
-  public constructor(database: Database, channel: AgentChannel = "mcp") {
+  public constructor(
+    database: Pick<Database, "transaction">,
+    channel: AgentChannel = "mcp",
+  ) {
     this.database = database;
     this.channel = channel;
   }
@@ -135,7 +138,9 @@ export class AgentTicketTransaction {
       ? await tasks.findById(event.id)
       : null;
     const milestone = event.type.startsWith("milestone.")
-      ? await tasks.findMilestoneById(event.id)
+      ? await tasks.findMilestoneById(event.id, {
+          includeArchived: operation === "milestone.delete",
+        })
       : null;
     const projectId = ticket?.projectId ?? milestone?.projectId;
     if (!projectId) return;
