@@ -258,10 +258,13 @@ across the service. A join waits for every incoming predecessor to succeed; a
 failed predecessor blocks its continuation. Independent CLI branches may not
 write to the same working copy.
 
-The connection of an agent decides its runner: a Codex CLI, Claude Code or
-OpenCode connection starts a real CLI session in the node's workspace; an API
-connection stays a request without tools. Before a node starts, Pages reads the
-agent's `AGENT.md`, binds every parameter (a placeholder is never sent
+The connection of an agent decides its runner: a Codex CLI connection runs
+the node as an Agent Client Protocol (ACP) session through the Codex ACP
+adapter `codex-acp` (versions 2.1.1 up to 3.0.0, installed for the server
+account next to the Codex CLI, whose ChatGPT sign-in it reuses); a Claude Code
+or OpenCode connection starts a real CLI session in the node's workspace; an
+API connection stays a request without tools. Before a node starts, Pages reads
+the agent's `AGENT.md`, binds every parameter (a placeholder is never sent
 unresolved) and fixes the node's **todo list** (task list items of the node
 instruction and of the bound tickets' descriptions) and **acceptance criteria**
 (the acceptance criteria of the bound tickets). Both are stored with the run and
@@ -269,21 +272,46 @@ appended to the prompt together with the required closing report. The exact
 model, reasoning effort and the agent's run options (workspace access, shell,
 web, time limit) are passed with fixed, verified switches; a combination a
 runner cannot enforce, such as read-only access with commands for Claude Code
-or OpenCode, blocks the start. Every runner works unattended: nothing waits for
-a person, and an action the options do not allow is refused instead of asked.
+or OpenCode, blocks the start. The Codex adapter must offer and confirm the
+stored model, effort and mode before the prompt is sent; otherwise the node
+fails with its own reason, and Pages never switches to another model, to an API
+connection or back to the earlier runner. Every runner works unattended:
+nothing waits for a person, and an action the options do not allow is refused
+instead of asked.
 
-A node bound to tickets reaches Pages through the local Pages MCP process with
-a credential of its own: it acts with the executor's current rights, only for
-the bound tickets, and only reads them and sets their checklist entries. The
-credential travels in the process environment, never in arguments, prompts or
-the interface, and is revoked when the node closes.
+A Codex CLI agent runs in exactly one of two permission modes, chosen in the
+agent list. **Read only** reads the workspace and Pages content and may search
+the web, but creates, changes and deletes no files, runs no commands and calls
+only reading Pages MCP operations; the server refuses every change, and inside
+bubblewrap the workspace is mounted read-only. **YOLO** gives the session every
+tool of the Codex runner without approval prompts: files in the workspace,
+shell, web and the full Pages MCP catalog with the executor's rights. It starts
+only inside the bubblewrap isolation, which keeps the instance folders and the
+other credentials out of reach. An agent without run options reads only; an
+agent saved with the earlier workspace write mode does not start until one of
+the two modes is chosen, and it never becomes YOLO on its own. A Codex
+configuration file Pages does not manage (`config.toml` in the connection's
+Codex folder, or `.codex/config.toml` of the workspace's project) blocks the
+start, because it could add servers or providers the agent does not name.
+
+A Claude Code or OpenCode node bound to tickets reaches Pages through the local
+Pages MCP process with a credential of its own: it acts with the executor's
+current rights, only for the bound tickets, and only reads them and sets their
+checklist entries. A Codex node always gets the Pages MCP process: in Read only
+with every reading operation, in YOLO with every operation of the executor,
+both under the executor's current rights. The credential travels in the process
+environment or the session request, never in arguments, prompts or the
+interface, and is revoked when the node closes.
 
 A node succeeds only when its closing report marks every todo done, proves
 every criterion and every ticket entry among them is checked in the ticket, and
-the session closed without leftover processes. The run view shows per node the
-runner, one-shot call or interactive session, session and process identity,
-times, the real process exit, the closeout, the requested and effective
-configuration, the contract with its verdict and a link to the sent prompt. The
+the session closed without leftover processes. A Read only session cannot
+change tickets; there the report decides and Pages records the acceptance. The
+run view shows per node the runner, one-shot call or interactive session,
+session and process identity, times, the real process exit, the closeout, the
+requested and effective configuration (for Codex also adapter, session mode,
+approval policy, sandbox, isolation and the effective permissions), the
+contract with its verdict and a link to the sent prompt. The
 normalized **Pages result** is `0` for an accepted and closed node and `-1` for
 any other outcome; a `-1` node fails and blocks its successors. Exit code 0
 alone never counts as success.
