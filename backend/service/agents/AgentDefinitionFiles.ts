@@ -209,6 +209,17 @@ export class AgentDefinitionFiles {
     });
   }
 
+  /** Clears administrator references atomically while keeping active run reservations intact. */
+  public async removeWithReferences(
+    id: string,
+    repository: AgentProfileRepository,
+  ): Promise<void> {
+    await this.writes.run(async () => {
+      this.assertMutable(id);
+      await repository.removeWithReferences(id);
+    });
+  }
+
   /** Atomically materializes a secret-free definition from persisted fields only. */
   public async write(profile: AgentProfile): Promise<void> {
     await this.writes.run(async () => {

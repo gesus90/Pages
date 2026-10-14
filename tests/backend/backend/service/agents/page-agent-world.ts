@@ -350,6 +350,8 @@ class MemoryGroups extends UserGroupRepository {
  * exercises the rules of Pages and not a copy.
  */
 export class PageAgentWorld {
+  /** Protected administrator operations over the same mocked boundaries. */
+  public readonly administration: AgentProfileService;
   /** The management as the Pages interface uses it. */
   public readonly agents: PageAgentService;
   /** The operations an MCP client calls. */
@@ -382,9 +384,10 @@ export class PageAgentWorld {
       files,
       tickets,
     };
+    this.administration = new AgentProfileService(dependencies);
     this.agents = new PageAgentService(
       dependencies,
-      new AgentProfileService(dependencies),
+      this.administration,
       files,
     );
     this.operations = new PageAgentOperationService({

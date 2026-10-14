@@ -71,11 +71,7 @@ export function AgentProfileRow(props: {
         <AgentProfileUsability availability={availability} />
       </td>
       <td className="px-4 py-3">
-        <AgentProfileActions
-          profile={profile}
-          directory={directory}
-          onEdit={props.onEdit}
-        />
+        <AgentProfileActions profile={profile} onEdit={props.onEdit} />
       </td>
     </tr>
   );

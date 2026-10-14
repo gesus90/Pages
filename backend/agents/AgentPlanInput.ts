@@ -109,9 +109,11 @@ function readNode(input: unknown): AgentPlanNode {
   return {
     ...base,
     type: "agent",
-    agentId: readPlanText(node.agentId),
+    agentId: node.agentId === "" ? "" : readPlanText(node.agentId),
     personalAgentId:
-      node.personalAgentId === null ? null : readPlanText(node.personalAgentId),
+      node.personalAgentId === null || node.personalAgentId === ""
+        ? node.personalAgentId
+        : readPlanText(node.personalAgentId),
     instruction: node.instruction,
     bindings: readBindings(node.bindings),
   };

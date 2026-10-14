@@ -32,7 +32,7 @@ export function PlanNodeCard(props: {
   const label =
     node.type === "start" || node.type === "end"
       ? t(`plans.nodeType.${node.type}`)
-      : planNodeLabel(node, props.sources);
+      : planNodeLabel(node, props.sources) || t("plans.missingAgent");
   const parameters =
     node.type === "agent"
       ? (props.sources.agents.find((agent) => agent.id === node.agentId)
@@ -66,7 +66,7 @@ export function PlanNodeCard(props: {
         onClick={() => graph.select(node.id)}
         className="mb-2 h-9 w-full cursor-grab text-left text-sm font-semibold"
         aria-label={t("plans.selectNode", {
-          name: planNodeLabel(node, props.sources),
+          name: label,
         })}
       >
         <span className="block text-xs font-normal text-muted-foreground">

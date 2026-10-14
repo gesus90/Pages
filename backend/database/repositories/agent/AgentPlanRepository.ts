@@ -29,7 +29,7 @@ function readPlan(row: readonly DatabaseValue[]): AgentPlan {
 }
 
 async function findPlan(
-  database: DatabaseTransaction,
+  database: Pick<DatabaseTransaction, "query">,
   id: string,
 ): Promise<AgentPlan | null> {
   const [row] = await database.query(
@@ -45,9 +45,9 @@ async function findPlan(
 
 /** Stores bounded graphs with optimistic revisions and immutable ownership. */
 export class AgentPlanRepository {
-  private readonly database: Database;
+  private readonly database: Pick<Database, "transaction" | "query">;
 
-  public constructor(database: Database) {
+  public constructor(database: Pick<Database, "transaction" | "query">) {
     this.database = database;
   }
 
@@ -87,6 +87,7 @@ export class AgentPlanRepository {
       );
       if (!workspace || workspace[0] !== plan.projectId)
         throw new AgentError("plan_context_changed");
+      await requirePlanAgents(transaction, plan);
       await transaction.execute(
         `
         INSERT INTO agent_plans (
@@ -118,5 +119,29 @@ export class AgentPlanRepository {
         },
       );
     });
+  }
+}
+
+/** Rechecks references within the write transaction so a concurrent deletion cannot leave dangling IDs. */
+async function requirePlanAgents(
+  database: DatabaseTransaction,
+  plan: AgentPlan,
+): Promise<void> {
+  const ids = new Set(
+    plan.nodes.flatMap((node) =>
+      node.type === "agent" ? [node.agentId, node.personalAgentId] : [],
+    ),
+  );
+  for (const id of ids) {
+    if (!id) continue;
+    const [profile] = await database.query(
+      `
+      SELECT id
+      FROM agent_execution_profiles
+      WHERE id = $id;
+      `,
+      { id },
+    );
+    if (!profile) throw new AgentError("plan_context_changed");
   }
 }

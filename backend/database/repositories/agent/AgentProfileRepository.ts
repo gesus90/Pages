@@ -1,4 +1,5 @@
 import { AgentProfileStore } from "./AgentProfileStore";
+import { AgentProfileRemoval } from "./AgentProfileRemoval";
 
 import type {
   Database,
@@ -66,7 +67,14 @@ export class AgentProfileRepository {
     });
   }
 
-  /** Supplies the current references for the administration deletion dialog. */
+  /** Administrator deletion clears live references atomically without deleting dependent records. */
+  public async removeWithReferences(id: string): Promise<void> {
+    await this.database.transaction((transaction) =>
+      new AgentProfileRemoval(transaction).remove(id),
+    );
+  }
+
+  /** Supplies the current assignments and plan references. */
   public async usages(id: string): Promise<readonly AgentUsage[]> {
     return this.database.transaction((transaction) =>
       new AgentProfileStore(transaction).usages(id),

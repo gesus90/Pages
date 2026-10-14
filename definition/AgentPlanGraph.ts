@@ -175,7 +175,7 @@ function requiredParameterIssues(
   agent: AgentDefinitionChoice | undefined,
   plan: AgentPlanInput,
 ): AgentPlanIssue[] {
-  if (!agent?.availability.isUsable)
+  if (!agent?.availability.isUsable || step.personalAgentId === "")
     return [{ nodeId: step.id, port: null, reason: "agent" }];
   return agent.configuration.parameters.flatMap(
     (parameter): AgentPlanIssue[] => {

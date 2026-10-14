@@ -277,19 +277,13 @@ export class PageAgentService {
     const agents: PageAgent[] = [];
     for (const profile of stored) {
       const choice = catalog.find((entry) => entry.id === profile.id);
-      if (
-        !profile.ownerId ||
-        !profile.modelProfileId ||
-        !profile.configuration ||
-        !choice
-      )
-        continue;
+      if (!profile.ownerId || !profile.configuration || !choice) continue;
       const shown = withoutDeletedTargets(profile.configuration, directory);
       agents.push({
         id: profile.id,
         ownerId: profile.ownerId,
         name: profile.name,
-        modelProfileId: profile.modelProfileId,
+        modelProfileId: profile.modelProfileId ?? "",
         model: profile.model,
         reasoningEffort: profile.reasoningEffort,
         configuration: shown,

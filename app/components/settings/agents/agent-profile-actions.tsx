@@ -1,6 +1,6 @@
 import { MoreHorizontal } from "lucide-react";
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useFetcher } from "react-router";
 
 import { Button } from "@/app/components/ui/button";
 import {
@@ -10,21 +10,26 @@ import {
   DropdownMenuTrigger,
 } from "@/app/components/ui/dropdown-menu";
 
-import { AgentProfileDelete } from "./agent-profile-delete";
+import { AgentAssignmentResult } from "./agent-assignment-result";
 
-import type {
-  AgentProfile,
-  AgentProfileDirectory,
-} from "@/definition/AgentProfile";
+import type { AgentProfile } from "@/definition/AgentProfile";
+import type { AgentActionResult } from "@/app/lib/settings-actions/settings-agents-response.server";
 
-/** Keeps edit and checked deletion in the administration row's overflow menu. */
+/** Submits administrator deletion directly; the router revalidates the list after success. */
 export function AgentProfileActions(props: {
   readonly profile: AgentProfile;
-  readonly directory: AgentProfileDirectory;
   readonly onEdit: () => void;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const [isDeleting, setDeleting] = useState(false);
+  const fetcher = useFetcher<AgentActionResult>();
+  const isPending = fetcher.state !== "idle";
+  function remove(): void {
+    if (isPending) return;
+    void fetcher.submit(
+      { intent: "delete-profile", profileId: props.profile.id },
+      { method: "post", action: "/settings/agents" },
+    );
+  }
   return (
     <>
       <DropdownMenu>
@@ -32,6 +37,7 @@ export function AgentProfileActions(props: {
           <Button
             size="icon-sm"
             variant="ghost"
+            disabled={isPending}
             aria-label={t("settings.agents.actionsFor", {
               name: props.profile.name,
             })}
@@ -45,18 +51,16 @@ export function AgentProfileActions(props: {
           </DropdownMenuItem>
           <DropdownMenuItem
             className="text-destructive"
-            onSelect={() => setDeleting(true)}
+            onSelect={remove}
+            disabled={isPending}
           >
             {t("settings.agents.remove")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      {isDeleting ? (
-        <AgentProfileDelete
-          profile={props.profile}
-          directory={props.directory}
-          onClose={() => setDeleting(false)}
-        />
+      {isPending ? <p role="status">{t("settings.agents.loading")}</p> : null}
+      {fetcher.data?.ok === false ? (
+        <AgentAssignmentResult result={fetcher.data} />
       ) : null}
     </>
   );

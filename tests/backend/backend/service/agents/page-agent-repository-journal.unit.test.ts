@@ -39,6 +39,7 @@ class ScriptedDatabase {
       query: async (statement): Promise<DatabaseValue[][]> => {
         if (statement.includes("SELECT revision"))
           return this.currentRevision === null ? [] : [[this.currentRevision]];
+        if (statement.includes("owner_id IS NULL")) return [["model-1"]];
         throw new Error("Unexpected query");
       },
       execute: async (statement) => {

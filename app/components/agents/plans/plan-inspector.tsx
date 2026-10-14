@@ -2,11 +2,11 @@ import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
-import { Select } from "@/app/components/ui/select";
 import { Textarea } from "@/app/components/ui/textarea";
 
 import { PlanValueFields } from "./plan-value-fields";
 import { PlanParameterInput } from "./plan-parameter-input";
+import { PlanAgentAssignment } from "./plan-agent-assignment";
 import { planNodeLabel } from "./plan-layout";
 
 import type {
@@ -42,7 +42,9 @@ export function PlanInspector(props: InspectorProps): React.ReactElement {
       className="space-y-3 rounded-xl border border-border p-4"
       aria-label={t("plans.nodeSettings")}
     >
-      <h2 className="font-semibold">{planNodeLabel(node, props.sources)}</h2>
+      <h2 className="font-semibold">
+        {planNodeLabel(node, props.sources) || t("plans.missingAgent")}
+      </h2>
       <div className="flex flex-wrap items-center gap-2">
         <label className="text-sm">
           {t("plans.positionX")}
@@ -106,6 +108,12 @@ function StepFields(
   const agent = props.sources.agents.find((entry) => entry.id === step.agentId);
   return (
     <fieldset disabled={props.disabled} className="space-y-3">
+      <PlanAgentAssignment
+        step={step}
+        sources={props.sources}
+        disabled={props.disabled}
+        onChange={props.graph.replaceStep}
+      />
       <label className="block space-y-1 text-sm">
         <span>{t("plans.instruction")}</span>
         <Textarea
@@ -119,32 +127,6 @@ function StepFields(
           }
         />
       </label>
-      {agent?.configuration.accessMode === "personal" ? (
-        <div className="space-y-1">
-          <label className="text-sm" htmlFor="plan-personal-access">
-            {t("plans.personalAccess")}
-          </label>
-          <Select
-            id="plan-personal-access"
-            ariaLabel={t("plans.personalAccess")}
-            value={step.personalAgentId ?? ""}
-            disabled={props.disabled}
-            options={[
-              { value: "", label: t("plans.uniquePersonalAccess") },
-              ...agent.availability.personalChoices.map((choice) => ({
-                value: choice.id,
-                label: choice.name,
-              })),
-            ]}
-            onValueChange={(personalAgentId) =>
-              props.graph.replaceStep({
-                ...step,
-                personalAgentId: personalAgentId || null,
-              })
-            }
-          />
-        </div>
-      ) : null}
       <div className="grid gap-3">
         {agent?.configuration.parameters.map((parameter) => (
           <PlanParameterInput

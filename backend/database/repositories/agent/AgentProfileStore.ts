@@ -97,7 +97,8 @@ export class AgentProfileStore {
           ? {}
           : {
               ownerId: readTextColumn(row, 8, "owner_id"),
-              modelProfileId: readTextColumn(row, 9, "model_profile_id"),
+              modelProfileId:
+                readNullableTextColumn(row, 9, "model_profile_id") ?? "",
             }),
         purposes: (purposesByProfile.get(id) ?? []).map((entry) => {
           const purpose = readTextColumn(entry, 1, "purpose");
@@ -129,6 +130,7 @@ export class AgentProfileStore {
       if (!row || readCountColumn(row, 0, "revision") !== profile.revision)
         throw new AgentError("profile_conflict");
     }
+    await this.requireModelSource(profile);
     await this.requireAvailableFunctions(profile);
     await this.saveRecord(profile);
     await this.replaceScopes(profile);
@@ -277,6 +279,20 @@ export class AgentProfileStore {
         ),
       },
     );
+  }
+
+  private async requireModelSource(profile: AgentProfile): Promise<void> {
+    if (profile.ownerId === undefined) return;
+    const [source] = await this.database.query(
+      `
+      SELECT id
+      FROM agent_execution_profiles
+      WHERE id = $id
+          AND owner_id IS NULL;
+      `,
+      { id: profile.modelProfileId ?? "" },
+    );
+    if (!source) throw new AgentError("model_assignment_missing");
   }
 
   private async replaceScopes(profile: AgentProfile): Promise<void> {

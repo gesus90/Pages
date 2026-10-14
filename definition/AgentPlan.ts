@@ -20,7 +20,9 @@ export interface AgentPlanPosition {
 export interface AgentPlanStep extends AgentPlanPosition {
   readonly id: string;
   readonly type: "agent";
+  /** Empty after deletion until an agent is explicitly assigned again. */
   readonly agentId: string;
+  /** null chooses automatic access; an empty string marks a removed explicit assignment. */
   readonly personalAgentId: string | null;
   readonly instruction: string;
   readonly bindings: Readonly<Record<string, AgentPlanBinding>>;

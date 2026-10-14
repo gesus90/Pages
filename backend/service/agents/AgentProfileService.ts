@@ -160,7 +160,7 @@ export class AgentProfileService {
       : [];
   }
 
-  /** Reports current references so the UI can explain a deletion lock. */
+  /** Reports current references within protected administration. */
   public async usages(
     actor: AccountAccess,
     id: string,
@@ -238,7 +238,7 @@ export class AgentProfileService {
     );
   }
 
-  /** Removes only unused agents; assignments are never withdrawn as a side effect. */
+  /** Administrators remove definitions and their live references in one transaction. */
   public async remove(actor: AccountAccess, id: string): Promise<void> {
     requireAgentAdministrator(await this.account(actor.userId));
     await this.writes.run(async () => {
@@ -249,8 +249,12 @@ export class AgentProfileService {
       if (!profile) throw new AgentError("profile_not_found");
       // Agents of users are managed by their owner only.
       if (profile.ownerId) throw new AgentError("agent_usage_denied");
-      this.dependencies.files?.assertMutable(id);
-      await this.dependencies.profiles.remove(id);
+      if (this.dependencies.files)
+        await this.dependencies.files.removeWithReferences(
+          id,
+          this.dependencies.profiles,
+        );
+      else await this.dependencies.profiles.removeWithReferences(id);
     });
   }
 

@@ -84,6 +84,8 @@ export const AGENT_ERROR_MESSAGES = {
     "Choose a matching personal access explicitly.",
   agent_usage_denied: "The agent is not shared for this user and project.",
   agent_inactive: "The agent is inactive.",
+  model_assignment_missing:
+    "The assigned model was removed. Assign an available model to use this agent again.",
   system_function_in_use: "This system function already has an agent.",
   profile_invalid: "Enter a valid execution profile.",
   profile_not_found: "The execution profile no longer exists.",

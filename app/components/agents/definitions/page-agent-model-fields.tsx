@@ -33,12 +33,24 @@ export function PageAgentModelFields(props: {
           <span>{t("pageAgents.model")}</span>
           <Select
             value={props.draft.modelProfileId}
+            ariaLabel={t("pageAgents.model")}
             disabled={props.disabled}
             onValueChange={selectModel}
-            options={props.models.map((entry) => ({
-              value: entry.id,
-              label: `${entry.name} · ${entry.model}`,
-            }))}
+            options={[
+              ...(!model
+                ? [
+                    {
+                      value: props.draft.modelProfileId,
+                      label: t("pageAgents.missingModel"),
+                      disabled: true,
+                    },
+                  ]
+                : []),
+              ...props.models.map((entry) => ({
+                value: entry.id,
+                label: `${entry.name} · ${entry.model}`,
+              })),
+            ]}
           />
         </label>
         <label className="block space-y-2 text-sm font-medium">

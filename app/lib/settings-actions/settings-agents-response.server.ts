@@ -77,7 +77,10 @@ export function agentFailureResponse(error: unknown, intent = ""): Response {
     return new Response(error.body, { status: error.status, headers });
   }
   if (error instanceof AgentAccessDeniedError)
-    return new Response("Forbidden", { status: 403, headers: AGENT_NO_STORE });
+    return Response.json(
+      { ok: false, intent, error: "accessDenied" },
+      { status: 403, headers: AGENT_NO_STORE },
+    );
   const code = error instanceof AgentError ? error.code : "general";
   const status =
     error instanceof AgentError ? (ERROR_STATUS[error.code] ?? 400) : 500;

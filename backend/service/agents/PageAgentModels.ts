@@ -48,6 +48,7 @@ export async function resolvePageAgentModel(
   readonly assignment: ResolvedAgentAssignment;
   readonly sourceId: string;
 }> {
+  if (!profile.modelProfileId) throw new AgentError("model_assignment_missing");
   const source = profiles.find((entry) => entry.id === profile.modelProfileId);
   if (
     !source ||

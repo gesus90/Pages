@@ -129,6 +129,23 @@ running definition cannot be changed or deleted. Existing run history is kept.
 Pica receives the actual mutation receipts and safe error codes to explain what
 succeeded or failed.
 
+## Deleting agents in administration
+
+Under **Settings → Agents → Agents**, administrators in admin mode can select
+**Remove** directly, without a confirmation dialog or confirmation word. Saved
+assignments and shares do not prevent deletion. A single transaction clears
+function assignments, dependent user-agent model selections and saved plan
+references before removing the selected administrator agent. Connections,
+dependent agents, plans and their linked tickets remain intact.
+
+User agents with a removed model stay visible with a missing-assignment message;
+their owners can select another released model. Affected plan nodes keep their
+inputs and bindings and require reassignment before execution. An explicitly
+removed personal access selection never falls back to another model. Stale
+editors must reload before saving. Historical run records remain unchanged;
+definitions reserved by an active run retain their existing temporary lock.
+The separate owner and Pica deletion rules above still apply.
+
 ## Agents execution plans
 
 Under **Agents → Ausführplan** (`/agents/plans`), choose a saved plan or use
