@@ -11,7 +11,7 @@ import {
 
 /** Standalone MCP rules with package-local type information and dependencies. */
 export default tseslint.config(
-  { ignores: ["**/dist/**", "**/node_modules/**"] },
+  { ignores: ["**/dist/**", "**/coverage/**", "**/node_modules/**"] },
   { linterOptions: { noInlineConfig: true } },
   ...tseslint.configs.recommended,
   {

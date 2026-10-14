@@ -1,0 +1,132 @@
+import { serveStdio } from "@modelcontextprotocol/server/stdio";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { runCredentialCommand } from "../../src/credential-command.ts";
+import { CredentialStoreError } from "../../src/credential-store.ts";
+import { createServer } from "../../src/server.ts";
+import { start } from "../../src/start.ts";
+import { readStdioConfiguration } from "../../src/stdio-configuration.ts";
+import { verifyPages } from "../../src/verification.ts";
+
+import type {
+  McpRequestContext,
+  McpServer,
+} from "@modelcontextprotocol/server";
+import type { StdioServerHandle } from "@modelcontextprotocol/server/stdio";
+
+vi.mock("@modelcontextprotocol/server/stdio", () => ({ serveStdio: vi.fn() }));
+vi.mock("../../src/credential-command.ts", () => ({
+  runCredentialCommand: vi.fn(),
+}));
+vi.mock("../../src/stdio-configuration.ts", () => ({
+  readStdioConfiguration: vi.fn(),
+}));
+vi.mock("../../src/server.ts", () => ({ createServer: vi.fn() }));
+vi.mock("../../src/verification.ts", () => ({ verifyPages: vi.fn() }));
+
+const CONFIGURATION = {
+  agentsUrl: new URL("https://pages.example/api/v1/agents"),
+  token: "token",
+};
+const STARTUP_FAILED =
+  "[pages-mcp] Startup failed. Check PAGES_URL, PAGES_TOKEN or local pairing credentials and Pages authorization.";
+
+const originalArguments = process.argv;
+const originalExitCode = process.exitCode;
+
+function startWith(...argumentsList: string[]): Promise<void> {
+  process.argv = ["node", "pages-mcp.cjs", ...argumentsList];
+  return start();
+}
+
+beforeEach(() => {
+  vi.resetAllMocks();
+  vi.spyOn(console, "error").mockImplementation(() => undefined);
+  process.exitCode = undefined;
+});
+
+afterEach(() => {
+  process.argv = originalArguments;
+  process.exitCode = originalExitCode;
+});
+
+describe("start credential commands", () => {
+  it.each(["pair", "rotate", "unpair", "status"])(
+    "runs %s and exits with its code",
+    async (command) => {
+      vi.mocked(runCredentialCommand).mockResolvedValue(4);
+      await startWith(command, "--url", "https://pages.example");
+      expect(runCredentialCommand).toHaveBeenCalledWith(
+        [command, "--url", "https://pages.example"],
+        process.env,
+      );
+      expect(process.exitCode).toBe(4);
+      expect(readStdioConfiguration).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([["--stdio"], ["serve"], ["--url", "https://pages.example"]])(
+    "rejects the unsupported arguments %j before any lookup",
+    async (...argumentsList) => {
+      await startWith(...argumentsList);
+      expect(console.error).toHaveBeenCalledWith(
+        "[pages-mcp] Unsupported startup argument. Pages MCP runs only over stdio: start without arguments, or use pair, status, rotate or unpair for credentials.",
+      );
+      expect(process.exitCode).toBe(1);
+      expect(readStdioConfiguration).not.toHaveBeenCalled();
+      expect(runCredentialCommand).not.toHaveBeenCalled();
+    },
+  );
+});
+
+describe("start stdio server", () => {
+  it("verifies Pages before serving stdio with the resolved configuration", async () => {
+    const server = Object.create(null) as McpServer;
+    vi.mocked(readStdioConfiguration).mockResolvedValue(CONFIGURATION);
+    vi.mocked(verifyPages).mockResolvedValue({
+      identity: { userId: "u1", isAdmin: false, permissions: [] },
+      tools: [],
+    });
+    vi.mocked(createServer).mockReturnValue(server);
+    vi.mocked(serveStdio).mockReturnValue(
+      Object.create(null) as StdioServerHandle,
+    );
+    await startWith();
+    expect(readStdioConfiguration).toHaveBeenCalledWith(process.env);
+    expect(verifyPages).toHaveBeenCalledWith(CONFIGURATION);
+    const factory = vi.mocked(serveStdio).mock.calls[0]?.[0];
+    expect(factory?.(Object.create(null) as McpRequestContext)).toBe(server);
+    const resolve = vi.mocked(createServer).mock.calls[0]?.[0];
+    expect(resolve?.()).toBe(CONFIGURATION);
+    expect(process.exitCode).toBeUndefined();
+    expect(console.error).not.toHaveBeenCalled();
+  });
+
+  it("reports local credential problems with their fixed message", async () => {
+    vi.mocked(readStdioConfiguration).mockRejectedValue(
+      new CredentialStoreError("No paired credential."),
+    );
+    await startWith();
+    expect(console.error).toHaveBeenCalledWith(
+      "[pages-mcp] No paired credential.",
+    );
+    expect(process.exitCode).toBe(1);
+    expect(serveStdio).not.toHaveBeenCalled();
+  });
+
+  it("hides every other startup failure behind one message", async () => {
+    vi.mocked(readStdioConfiguration).mockResolvedValue(CONFIGURATION);
+    vi.mocked(verifyPages).mockRejectedValue(new Error("token abc rejected"));
+    await startWith();
+    expect(console.error).toHaveBeenCalledWith(STARTUP_FAILED);
+    expect(process.exitCode).toBe(1);
+    expect(serveStdio).not.toHaveBeenCalled();
+  });
+
+  it("reports a failing credential command as a startup failure", async () => {
+    vi.mocked(runCredentialCommand).mockRejectedValue(new Error("crash"));
+    await startWith("status");
+    expect(console.error).toHaveBeenCalledWith(STARTUP_FAILED);
+    expect(process.exitCode).toBe(1);
+  });
+});

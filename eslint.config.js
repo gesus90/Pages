@@ -20,13 +20,13 @@ const typedSourceFiles = [
   "vitest.*.config.ts",
   "mcp/src/**/*.ts",
   "mcp/scripts/**/*.ts",
-  "mcp/test/**/*.ts",
+  "mcp/tests/**/*.ts",
 ];
 
 /** ESLint flat configuration for Pages. */
 export default tseslint.config(
   {
-    ignores: ["build/**", "coverage/**", ".react-router/**", "**/dist/**"],
+    ignores: ["build/**", "**/coverage/**", ".react-router/**", "**/dist/**"],
   },
   {
     // Rules cannot be switched off with `eslint-disable` comments.

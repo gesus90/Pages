@@ -20,5 +20,5 @@
     "verbatimModuleSyntax": true,
     "paths": { "@/*": ["../*.ts", "../*"] }
   },
-  "include": ["src", "scripts", "test", "build.config.ts"]
+  "include": ["src", "scripts", "tests", "build.config.ts", "vitest.config.ts"]
 }

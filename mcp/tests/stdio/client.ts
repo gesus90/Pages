@@ -1,6 +1,6 @@
 import { createInterface } from "node:readline";
 
-import manifest from "../package.json" with { type: "json" };
+import manifest from "../../package.json" with { type: "json" };
 import {
   startServer,
   stopServer,

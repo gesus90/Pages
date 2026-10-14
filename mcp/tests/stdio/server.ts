@@ -2,10 +2,13 @@ import { spawn } from "node:child_process";
 import { access } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
-import manifest from "../package.json" with { type: "json" };
-import { readConfiguration } from "../src/configuration.ts";
-import { CredentialStore } from "../src/credential-store.ts";
-import { instanceEndpoint, readInstanceUrl } from "../src/instance-address.ts";
+import manifest from "../../package.json" with { type: "json" };
+import { readConfiguration } from "../../src/configuration.ts";
+import { CredentialStore } from "../../src/credential-store.ts";
+import {
+  instanceEndpoint,
+  readInstanceUrl,
+} from "../../src/instance-address.ts";
 
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
 
@@ -109,7 +112,7 @@ export async function startServer(
   environment: Readonly<Record<string, string | undefined>> = process.env,
 ): Promise<RunningServer> {
   const bundle = fileURLToPath(
-    new URL(`../dist/pages-mcp-v${manifest.version}.cjs`, import.meta.url),
+    new URL(`../../dist/pages-mcp-v${manifest.version}.cjs`, import.meta.url),
   );
   try {
     await access(bundle);
