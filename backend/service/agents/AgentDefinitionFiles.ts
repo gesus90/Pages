@@ -15,7 +15,10 @@ import { sanitizeArtifactText } from "./AgentPlanOutput";
 
 import type { AgentConfiguration } from "@/definition/AgentConfiguration";
 import type { AgentProfile } from "@/definition/AgentProfile";
-import type { AgentProfileRepository } from "@/backend/database/repositories/agent/AgentProfileRepository";
+import type {
+  AgentProfileJournal,
+  AgentProfileRepository,
+} from "@/backend/database/repositories/agent/AgentProfileRepository";
 
 /**
  * Renders the stored definition of an agent as its `AGENT.md`.
@@ -168,17 +171,23 @@ export class AgentDefinitionFiles {
   /**
    * Serializes definition saves with reservations so an awaited database write cannot race a start.
    *
+   * @param profile - The definition to store.
+   * @param repository - Where the definition is persisted.
+   * @param journal - Work that commits with the definition, in its transaction.
+   *
    * @remarks
    * A problem with the file is reported and does not undo the saved
    * definition: the file is a copy, and the next save or start repairs it.
+   * A journal that throws keeps the definition and the file as they were.
    */
   public async save(
     profile: AgentProfile,
     repository: AgentProfileRepository,
+    journal?: AgentProfileJournal,
   ): Promise<void> {
     await this.writes.run(async () => {
       this.assertMutable(profile.id);
-      await repository.save(profile);
+      await repository.save(profile, journal);
       const persisted = (await repository.list()).find(
         (entry) => entry.id === profile.id,
       );

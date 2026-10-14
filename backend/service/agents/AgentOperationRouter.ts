@@ -37,6 +37,7 @@ import type { AgentPlanningServices } from "./AgentPlanningServices";
 import type { AgentWikiCommentService } from "./AgentWikiCommentService";
 import type { AgentWikiFieldService } from "./AgentWikiFieldService";
 import type { AgentWorkspaceOperationService } from "./AgentWorkspaceOperationService";
+import type { PageAgentOperationService } from "./PageAgentOperationService";
 import type { AgentWriteOperationService } from "./AgentWriteOperationService";
 import type { StructuredImportService } from "./StructuredImportService";
 import type { WikiImportService } from "./WikiImportService";
@@ -70,6 +71,7 @@ export interface AgentOperationDependencies {
   readonly extensions?: AgentExtensionService;
   readonly administration?: AgentAdministrationService;
   readonly workspaces?: AgentWorkspaceOperationService;
+  readonly pageAgents?: PageAgentOperationService;
   /** The agent surface the reads run for; MCP when absent. */
   readonly channel?: AgentChannel;
 }
@@ -244,8 +246,14 @@ export class AgentOperationRouter {
       input.parameters,
     );
     if (extension) return extension;
+    const workspace = await this.dependencies.workspaces?.handle(
+      identity,
+      input.operation,
+      input.parameters,
+    );
+    if (workspace) return workspace;
     return (
-      (await this.dependencies.workspaces?.handle(
+      (await this.dependencies.pageAgents?.handle(
         identity,
         input.operation,
         input.parameters,

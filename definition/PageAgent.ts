@@ -1,5 +1,6 @@
 import type { AgentConfiguration } from "./AgentConfiguration";
 import type { AgentAvailability } from "./AgentAvailability";
+import type { AgentReasoningSupport } from "./AgentModelCatalog";
 import type { AgentProfileDirectory } from "./AgentProfile";
 import type { AgentWorkspaceChoice } from "./AgentWorkspace";
 
@@ -27,7 +28,11 @@ export interface PageAgentModel {
   readonly id: string;
   readonly name: string;
   readonly model: string;
+  readonly reasoning: AgentReasoningSupport;
   readonly reasoningEfforts: readonly string[];
+  /** The default the catalog names for the model. */
+  readonly catalogDefaultReasoningEffort: string | null;
+  /** The effort the administrator saved with the model assignment. */
   readonly reasoningEffort: string | null;
 }
 

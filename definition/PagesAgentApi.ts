@@ -1,6 +1,7 @@
 import type { AgentExtensionReadOperation } from "./AgentExtensions.js";
 import type { AgentAdminReadOperation } from "./AgentAdministration.js";
 import type { AgentWorkspaceReadOperation } from "./AgentWorkspaceOperations.js";
+import type { PageAgentReadOperation } from "./PageAgentOperations.js";
 import type { McpCredentialDetails } from "./McpPairing.js";
 import type { PagesAgentWriteOperation } from "./PagesAgentWrites.js";
 import type {
@@ -30,6 +31,7 @@ export type PagesAgentApiBusinessOperation =
   | AgentExtensionReadOperation
   | AgentAdminReadOperation
   | AgentWorkspaceReadOperation
+  | PageAgentReadOperation
   | PagesAgentReadOperation
   | PagesAgentStructuredReadOperation
   | PagesAgentTicketReadOperation

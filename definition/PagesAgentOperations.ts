@@ -3,6 +3,7 @@ import { AGENT_TICKET_NAVIGATION_READ_OPERATIONS } from "./AgentTicketNavigation
 import type { AgentExtensionReadResult } from "./AgentExtensions.js";
 import type { AgentAdminReadResult } from "./AgentAdministration.js";
 import type { AgentWorkspaceReadResult } from "./AgentWorkspaceOperations.js";
+import type { PageAgentReadResult } from "./PageAgentOperations.js";
 import type { AgentImportPlan } from "./AgentImportManifest.js";
 import type { AgentStructuredImportPlan } from "./AgentStructuredImportManifest.js";
 import type {
@@ -178,7 +179,8 @@ export interface PagesAgentReadResponse {
     | AgentWikiComments
     | AgentExtensionReadResult
     | AgentAdminReadResult
-    | AgentWorkspaceReadResult;
+    | AgentWorkspaceReadResult
+    | PageAgentReadResult;
 }
 
 /** Version-one result of a structured import preview. */
@@ -219,5 +221,33 @@ export interface AgentRevisionConflict {
   readonly currentRevision: number;
 }
 
+/**
+ * Why Pages refused a user agent change, as a fixed name of its own.
+ *
+ * @remarks
+ * The public error code stays one of the fixed codes of the agent API; the
+ * reason tells a client which input to change.
+ */
+export const AGENT_REJECTION_REASONS = [
+  "model_unavailable",
+  "reasoning_unsupported",
+  "reasoning_required",
+  "default_model_unavailable",
+  "sharing_target_unavailable",
+  "configuration_invalid",
+  "credentials_in_text",
+  "parameter_reference_unavailable",
+  "agent_limit_reached",
+  "agent_running",
+  "sharing_changes_required",
+] as const;
+
+export interface AgentRejectionReason {
+  readonly reason: (typeof AGENT_REJECTION_REASONS)[number];
+}
+
 export type AgentOperationDetails =
-  AgentProjectCandidates | AgentLimitDetails | AgentRevisionConflict;
+  | AgentProjectCandidates
+  | AgentLimitDetails
+  | AgentRevisionConflict
+  | AgentRejectionReason;

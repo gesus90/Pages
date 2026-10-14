@@ -1,14 +1,30 @@
 import { AgentProfileStore } from "./AgentProfileStore";
 
-import type { Database } from "@/backend/database/Database";
+import type {
+  Database,
+  DatabaseTransaction,
+} from "@/backend/database/Database";
 import type { AgentProfile } from "@/definition/AgentProfile";
 import type { AgentUsage } from "@/definition/AgentUsage";
 
+/**
+ * Work that commits together with a saved profile.
+ *
+ * @remarks
+ * It runs after the profile was written, in the same transaction: when it
+ * throws, the profile is not saved. The profile is passed as it was saved, so
+ * its revision is the one that was checked, not the new one.
+ */
+export type AgentProfileJournal = (
+  transaction: DatabaseTransaction,
+  profile: AgentProfile,
+) => Promise<void>;
+
 /** Atomic execution-profile persistence, independent of credential storage. */
 export class AgentProfileRepository {
-  private readonly database: Database;
+  private readonly database: Pick<Database, "transaction">;
 
-  public constructor(database: Database) {
+  public constructor(database: Pick<Database, "transaction">) {
     this.database = database;
   }
 
@@ -19,11 +35,15 @@ export class AgentProfileRepository {
     );
   }
 
-  /** Commits configuration and scope replacement together. */
-  public async save(profile: AgentProfile): Promise<void> {
-    await this.database.transaction((transaction) =>
-      new AgentProfileStore(transaction).save(profile),
-    );
+  /** Commits configuration and scope replacement together, and the journal with them. */
+  public async save(
+    profile: AgentProfile,
+    journal?: AgentProfileJournal,
+  ): Promise<void> {
+    await this.database.transaction(async (transaction) => {
+      await new AgentProfileStore(transaction).save(profile);
+      await journal?.(transaction, profile);
+    });
   }
 
   /** Removes configuration and grants in the same transaction. */

@@ -66,6 +66,52 @@ export async function resolvePageAgentModel(
   };
 }
 
+/** The level an omitted reasoning effort takes when the model lists it. */
+const PREFERRED_REASONING_EFFORT = "medium";
+
+/**
+ * The model an omitted `modelProfileId` selects.
+ *
+ * @param models - The models the person may use, in the order Pages lists them.
+ * @returns The first model, which is also the one the agent form starts on, or
+ * `null` when no model is released for the person.
+ *
+ * @remarks
+ * Pages stores no separate default: what the administrators released for the
+ * person is the configuration. There is no fallback to a model name.
+ */
+export function defaultPageAgentModel(
+  models: readonly PageAgentModel[],
+): PageAgentModel | null {
+  return models.at(0) ?? null;
+}
+
+/**
+ * The reasoning effort an omitted `reasoningEffort` takes for a model.
+ *
+ * @param model - A model from {@link pageAgentModels}.
+ * @returns `medium` when the catalog lists it for the model, otherwise the
+ * default the catalog names for the model when it is selectable, otherwise
+ * `null`.
+ *
+ * @remarks
+ * Nothing else is applied: a model that lists levels, none of them medium, and
+ * names no default has no default effort, and the caller has to choose one.
+ */
+export function defaultReasoningEffort(
+  model: Pick<
+    PageAgentModel,
+    "reasoningEfforts" | "catalogDefaultReasoningEffort"
+  >,
+): string | null {
+  if (model.reasoningEfforts.includes(PREFERRED_REASONING_EFFORT))
+    return PREFERRED_REASONING_EFFORT;
+  const named = model.catalogDefaultReasoningEffort;
+  return named !== null && model.reasoningEfforts.includes(named)
+    ? named
+    : null;
+}
+
 /** Enumerates exact administrative models after assignment, scope and capability checks. */
 export async function pageAgentModels(
   dependencies: ProfileDependencies,
@@ -81,13 +127,14 @@ export async function pageAgentModels(
       const catalog = await dependencies.connections
         .catalogs()
         .find(source.connectionId);
+      const listed = catalog.models.find((entry) => entry.id === source.model);
       choices.push({
         id: source.id,
         name: source.name,
         model: source.model,
-        reasoningEfforts: catalog.models
-          .filter((entry) => entry.id === source.model)
-          .flatMap((entry) => entry.reasoningEfforts),
+        reasoning: listed?.reasoning ?? "unknown",
+        reasoningEfforts: listed?.reasoningEfforts ?? [],
+        catalogDefaultReasoningEffort: listed?.defaultReasoningEffort ?? null,
         reasoningEffort: source.reasoningEffort,
       });
     } catch (error: unknown) {

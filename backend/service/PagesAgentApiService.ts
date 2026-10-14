@@ -1,6 +1,7 @@
 import { AGENT_EXTENSION_READ_OPERATIONS } from "@/definition/AgentExtensions";
 import { AGENT_ADMIN_READ_OPERATIONS } from "@/definition/AgentAdministration";
 import { AGENT_WORKSPACE_READ_OPERATIONS } from "@/definition/AgentWorkspaceOperations";
+import { PAGE_AGENT_READ_OPERATIONS } from "@/definition/PageAgentOperations";
 import { PAGES_AGENT_WRITE_OPERATIONS } from "@/definition/PagesAgentWrites";
 import {
   PAGES_AGENT_COMMENT_OPERATIONS,
@@ -134,6 +135,7 @@ export class PagesAgentApiService {
           ...PAGES_AGENT_COMMENT_OPERATIONS,
           ...AGENT_EXTENSION_READ_OPERATIONS,
           ...AGENT_WORKSPACE_READ_OPERATIONS,
+          ...PAGE_AGENT_READ_OPERATIONS,
           ...PAGES_AGENT_WRITE_OPERATIONS.filter(
             (operation) => identity.isAdmin || !operation.startsWith("admin."),
           ),

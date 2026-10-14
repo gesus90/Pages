@@ -16,7 +16,12 @@ import type {
   AgentProfile,
   AgentProfileDirectory,
 } from "@/definition/AgentProfile";
-import type { PageAgent, PageAgentPage } from "@/definition/PageAgent";
+import type {
+  PageAgent,
+  PageAgentModel,
+  PageAgentPage,
+} from "@/definition/PageAgent";
+import type { AgentProfileJournal } from "@/backend/database/repositories/agent/AgentProfileRepository";
 import type {
   ProfileDependencies,
   AgentProfileService,
@@ -45,60 +50,65 @@ export class PageAgentService {
 
   /** Loads visible definitions, current model grants and sharing directory names without account details. */
   public async page(userId: string): Promise<PageAgentPage> {
-    const viewer = await this.viewer(userId);
-    const [catalog, stored, snapshot, groups] = await Promise.all([
-      this.profiles.catalog(userId),
-      this.dependencies.profiles.list(),
-      this.dependencies.authorization.snapshot(),
-      this.dependencies.groups.findAll(),
-    ]);
-    const models = await pageAgentModels(this.dependencies, viewer, stored);
-    const directory: AgentProfileDirectory = {
-      persons: [],
-      groups: groups.map((group) => ({ id: group.id, name: group.name })),
-      departments: snapshot.departments,
-    };
-    const agents: PageAgent[] = [];
-    for (const profile of stored) {
-      const choice = catalog.find((entry) => entry.id === profile.id);
-      if (
-        !profile.ownerId ||
-        !profile.modelProfileId ||
-        !profile.configuration ||
-        !choice
-      )
-        continue;
-      const shown = withoutDeletedTargets(profile.configuration, directory);
-      agents.push({
-        id: profile.id,
-        ownerId: profile.ownerId,
-        name: profile.name,
-        modelProfileId: profile.modelProfileId,
-        model: profile.model,
-        reasoningEffort: profile.reasoningEffort,
-        configuration: shown,
-        hasDeletedTargets:
-          shown.sharing.targets.length <
-          profile.configuration.sharing.targets.length,
-        revision: profile.revision,
-        canEdit: profile.ownerId === userId,
-        availability: choice.availability,
-      });
-    }
+    const { viewer, stored, agents, directory } = await this.load(userId);
     return {
       isAdministrator: new UserPolicyService().isAdministrator(viewer.actor),
       agents,
-      models,
+      models: await pageAgentModels(this.dependencies, viewer, stored),
       workspaces: (await this.dependencies.workspaces?.choices(userId)) ?? [],
       directory,
     };
   }
 
-  /** Owner-only saves ignore client ownership, credentials, connections and model names. */
+  /**
+   * Lists the user agents the person may currently see, with the names of their sharing targets.
+   *
+   * @param userId - Authenticated requester.
+   *
+   * @remarks
+   * These are the agents of the page above: the owner's own and those shared
+   * with the person. Agents of administrators are not part of it.
+   */
+  public async visibleAgents(userId: string): Promise<{
+    readonly agents: readonly PageAgent[];
+    readonly directory: AgentProfileDirectory;
+  }> {
+    const { agents, directory } = await this.load(userId);
+    return { agents, directory };
+  }
+
+  /**
+   * Lists the models the person may currently give an agent.
+   *
+   * @param userId - Authenticated requester.
+   *
+   * @remarks
+   * Only models that administrators released for the person and whose
+   * connection verifies right now are listed. No credential or connection
+   * detail is part of an entry.
+   */
+  public async models(userId: string): Promise<readonly PageAgentModel[]> {
+    const [viewer, stored] = await Promise.all([
+      this.viewer(userId),
+      this.dependencies.profiles.list(),
+    ]);
+    return pageAgentModels(this.dependencies, viewer, stored);
+  }
+
+  /**
+   * Owner-only saves ignore client ownership, credentials, connections and model names.
+   *
+   * @param userId - Authenticated requester, who becomes the owner of a new agent.
+   * @param id - The agent to change, or `null` to create one.
+   * @param input - The definition as received; it is validated here.
+   * @param journal - Work that commits with the definition, in its transaction.
+   * @returns The identifier of the saved agent.
+   */
   public async save(
     userId: string,
     id: string | null,
     input: unknown,
+    journal?: AgentProfileJournal,
   ): Promise<string> {
     return this.writes.run(async () => {
       const viewer = await this.viewer(userId);
@@ -148,7 +158,7 @@ export class PageAgentService {
         revision: previous?.revision,
       };
       await resolvePageAgentModel(this.dependencies, viewer, profile, stored);
-      await this.files.save(profile, this.dependencies.profiles);
+      await this.files.save(profile, this.dependencies.profiles, journal);
       return profile.id;
     });
   }
@@ -168,6 +178,54 @@ export class PageAgentService {
   public async requireVisible(userId: string, id: string): Promise<void> {
     if (!(await this.profiles.isVisible(userId, id)))
       throw new AgentError("agent_usage_denied");
+  }
+
+  private async load(userId: string): Promise<{
+    readonly viewer: AgentViewer;
+    readonly stored: readonly AgentProfile[];
+    readonly agents: readonly PageAgent[];
+    readonly directory: AgentProfileDirectory;
+  }> {
+    const viewer = await this.viewer(userId);
+    const [catalog, stored, snapshot, groups] = await Promise.all([
+      this.profiles.catalog(userId),
+      this.dependencies.profiles.list(),
+      this.dependencies.authorization.snapshot(),
+      this.dependencies.groups.findAll(),
+    ]);
+    const directory: AgentProfileDirectory = {
+      persons: [],
+      groups: groups.map((group) => ({ id: group.id, name: group.name })),
+      departments: snapshot.departments,
+    };
+    const agents: PageAgent[] = [];
+    for (const profile of stored) {
+      const choice = catalog.find((entry) => entry.id === profile.id);
+      if (
+        !profile.ownerId ||
+        !profile.modelProfileId ||
+        !profile.configuration ||
+        !choice
+      )
+        continue;
+      const shown = withoutDeletedTargets(profile.configuration, directory);
+      agents.push({
+        id: profile.id,
+        ownerId: profile.ownerId,
+        name: profile.name,
+        modelProfileId: profile.modelProfileId,
+        model: profile.model,
+        reasoningEffort: profile.reasoningEffort,
+        configuration: shown,
+        hasDeletedTargets:
+          shown.sharing.targets.length <
+          profile.configuration.sharing.targets.length,
+        revision: profile.revision,
+        canEdit: profile.ownerId === userId,
+        availability: choice.availability,
+      });
+    }
+    return { viewer, stored, agents, directory };
   }
 
   private async viewer(userId: string): Promise<AgentViewer> {
