@@ -1,8 +1,9 @@
 # Pages unit-test structure (PAGE-38)
 
 PAGE-38 configures a future unit-test foundation. The only test cases so far
-are the targeted archive authorization tests of PAGE-24 and workspace tests of
-PAGE-26 under `tests/backend/backend/service/agents/`, the archive repository
+are the targeted archive authorization tests of PAGE-24, workspace tests of
+PAGE-26 and user-agent operation tests of PAGE-21 under
+`tests/backend/backend/service/agents/`, the archive repository
 boundary tests under `tests/backend/backend/database/repositories/`, and the
 targeted Pica chat tests of PAGE-28 under
 `tests/frontend/app/components/chat/`, each with their fixtures;

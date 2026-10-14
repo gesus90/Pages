@@ -2,6 +2,7 @@ import type {
   AgentLimitDetails,
   AgentOperationDetails,
   AgentProjectCandidates,
+  AgentRejectionReason,
 } from "../../../definition/PagesAgentOperations.js";
 
 const LIMIT_CONSTRAINTS = [
@@ -17,6 +18,20 @@ const LIMIT_CONSTRAINTS = [
   "importLinks",
   "importAssets",
 ] as const satisfies readonly AgentLimitDetails["constraint"][];
+
+const REJECTION_REASONS = [
+  "model_unavailable",
+  "reasoning_unsupported",
+  "reasoning_required",
+  "default_model_unavailable",
+  "sharing_target_unavailable",
+  "configuration_invalid",
+  "credentials_in_text",
+  "parameter_reference_unavailable",
+  "agent_limit_reached",
+  "agent_running",
+  "sharing_changes_required",
+] as const satisfies readonly AgentRejectionReason["reason"][];
 
 /** Whitelisted business errors; provider diagnostics and submitted credentials are discarded. */
 export class PagesOperationFailure extends Error {
@@ -148,11 +163,20 @@ export async function operationFailure(
   return undefined;
 }
 
+function readReason(input: unknown): AgentRejectionReason | undefined {
+  if (typeof input !== "object" || input === null || !("reason" in input))
+    return undefined;
+  const reason = REJECTION_REASONS.find((name) => name === input.reason);
+  return reason === undefined ? undefined : { reason };
+}
+
 function failureDetails(
   code: PagesOperationFailure["code"],
   details: unknown,
 ): AgentOperationDetails | undefined {
   if (code === "PAYLOAD_TOO_LARGE") return readLimit(details);
-  if (code === "CONFLICT") return readRevision(details);
+  if (code === "CONFLICT") return readRevision(details) ?? readReason(details);
+  if (code === "INVALID_REQUEST" || code === "FORBIDDEN")
+    return readReason(details);
   return undefined;
 }
