@@ -79,6 +79,25 @@ it("refuses an unknown, missing or malformed parameter before anything is stored
   expect(world.keys.size).toBe(0);
 });
 
+it("names configuration_invalid for a parameter declaration that is not valid", async () => {
+  await expect(
+    create({
+      parameters: [
+        {
+          name: "Bad Name",
+          type: "text",
+          description: "",
+          isRequired: false,
+          defaultValue: null,
+        },
+      ],
+    }),
+  ).rejects.toMatchObject({
+    code: "INVALID_REQUEST",
+    details: { reason: "configuration_invalid" },
+  });
+});
+
 it("refuses a share that cannot be stored or shown unambiguously", async () => {
   const invalid = [
     { scope: "restricted" },

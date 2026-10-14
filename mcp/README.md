@@ -1315,7 +1315,9 @@ administration, runs, plans, workspaces or the deletion of an agent.
   workspace: `access`, `shell`, `web`, `timeoutMinutes`; read only over MCP),
   `modelProfileId`, `model`, `reasoningEffort`, `sharing`, `ownerId`, `canEdit`,
   `isUsable` (a run could start for this account now), `hasDeletedTargets` and
-  `revision`. Lists are ordered by name and carry `total` and `nextCursor`.
+  `revision`. Lists are ordered by name and carry `total` and `nextCursor`; a
+  page whose entries exceed 1 MiB of JSON is `PAYLOAD_TOO_LARGE`
+  (`details.constraint` `responseBytes`), so ask for a smaller `limit`.
 - **Visibility.** An account sees the agents it owns and the agents shared with
   it. Lists, counts and errors never mention another agent: an agent the account
   cannot see answers `NOT_FOUND`, exactly like a missing one, and agents of the
@@ -1329,14 +1331,19 @@ administration, runs, plans, workspaces or the deletion of an agent.
 - **Sharing.** `sharing` replaces the whole share. `scope` is `private` (only the
   owner, the default of a new agent), `global` (every account) or `restricted`
   with `groupIds` and/or `departmentIds` (at least one id) and `operator`: `or`
-  (member of any target, the default) or `and` (member of every target). Ids come
-  from `list_groups` and `list_departments`; an unknown id is `INVALID_REQUEST`
-  with reason `sharing_target_unavailable`. A private or global share names no
-  targets and no operator. An entry shows the groups and departments with their
-  names. A share never gives the right to change the agent, a model, a connection
-  or a project. When a group or department of a share was deleted
+  (member of any target) or `and` (member of every target). An omitted `operator`
+  is `or` for a new share; when a restricted share is changed it keeps the stored
+  operator, so leaving it out never widens an `and` share. Any existing group or
+  department of the instance can be a target, as in the agent form;
+  `list_groups` and `list_departments` list those visible to the account, and an
+  unknown id is `INVALID_REQUEST` with reason `sharing_target_unavailable`. A
+  private or global share names no targets and no operator. An entry shows the
+  groups and departments of a share with their names, the same directory the
+  agent form shows. A share never gives the right to change the agent, a model, a
+  connection or a project. When a group or department of a share was deleted
   (`hasDeletedTargets`), `update_agent` needs an explicit `sharing`
-  (`sharing_changes_required`), because saving writes the list without it.
+  (`sharing_changes_required`) and always saves it, because saving writes the
+  list without the deleted target.
 - **Models.** `list_agent_models` returns only the models that administrators
   released for the account, whose connection verifies now and whose scope admits
   the account, without credentials or connection details. An entry carries
@@ -1347,7 +1354,10 @@ administration, runs, plans, workspaces or the deletion of an agent.
   `isDefault`. A model that lists levels needs one of them; `high` can be chosen
   only where the model lists it. A model without levels takes `reasoningEffort`
   `null`. Pages checks model and effort again whenever an agent is saved: a
-  withdrawn model or an effort the catalog no longer lists is refused.
+  withdrawn model, a connection whose scope no longer admits the account or an
+  effort the catalog no longer lists is refused with `model_unavailable` or
+  `reasoning_unsupported`. Passing `modelProfileId` to an agent that cannot run
+  saves it again, which pins the model's current connection.
 - **Defaults.** Omitted values are never taken from a name in the adapter.
   Without `modelProfileId`, `create_agent` uses the first model of the list, the
   one the agent form of Pages starts on (`isDefault`). Without `reasoningEffort`
@@ -1378,24 +1388,25 @@ administration, runs, plans, workspaces or the deletion of an agent.
 
 Error codes of these tools, with `details.reason` where Pages names one:
 
-| Code              | `details`                         | Meaning                                                                             |
-| ----------------- | --------------------------------- | ----------------------------------------------------------------------------------- |
-| `INVALID_REQUEST` | none                              | Unknown, missing or malformed parameter, including an owner or user parameter       |
-| `INVALID_REQUEST` | `model_unavailable`               | The model is not released for the account, does not exist, or no longer verifies    |
-| `INVALID_REQUEST` | `reasoning_unsupported`           | The model does not list the effort, or lists levels and `null` was passed           |
-| `INVALID_REQUEST` | `reasoning_required`              | The effort was omitted and the model lists levels without a default Pages can apply |
-| `INVALID_REQUEST` | `sharing_target_unavailable`      | A group or department of `sharing` does not exist                                   |
-| `INVALID_REQUEST` | `sharing_changes_required`        | The stored share names a deleted group or department; pass `sharing`                |
-| `INVALID_REQUEST` | `configuration_invalid`           | Undeclared or mistyped placeholder, invalid parameters or directory parameter       |
-| `INVALID_REQUEST` | `credentials_in_text`             | The name or instruction looks like a credential                                     |
-| `INVALID_REQUEST` | `parameter_reference_unavailable` | A workspace or wiki default is not available to the account                         |
-| `INVALID_REQUEST` | `agent_limit_reached`             | The account owns 100 agents                                                         |
-| `FORBIDDEN`       | none                              | The agent is visible but the account is not its owner                               |
-| `FORBIDDEN`       | `default_model_unavailable`       | No model is released for the account, so no default exists                          |
-| `NOT_FOUND`       | none                              | The agent does not exist, is not visible, or belongs to the administration          |
-| `CONFLICT`        | `currentRevision`                 | `expectedRevision` is stale; nothing was written                                    |
-| `CONFLICT`        | `agent_running`                   | A running plan holds the agent; change it after the run                             |
-| `CONFLICT`        | none                              | The `operationId` was used with other parameters                                    |
+| Code                | `details`                         | Meaning                                                                                       |
+| ------------------- | --------------------------------- | --------------------------------------------------------------------------------------------- |
+| `INVALID_REQUEST`   | none                              | Unknown, missing or malformed parameter, including an owner or user parameter                 |
+| `INVALID_REQUEST`   | `model_unavailable`               | The model is not released for the account, does not exist, or no longer verifies or admits it |
+| `INVALID_REQUEST`   | `reasoning_unsupported`           | The model does not list the effort, or lists levels and `null` was passed                     |
+| `INVALID_REQUEST`   | `reasoning_required`              | The effort was omitted and the model lists levels without a default Pages can apply           |
+| `INVALID_REQUEST`   | `sharing_target_unavailable`      | A group or department of `sharing` does not exist                                             |
+| `INVALID_REQUEST`   | `sharing_changes_required`        | The stored share names a deleted group or department; pass `sharing`                          |
+| `INVALID_REQUEST`   | `configuration_invalid`           | Undeclared or mistyped placeholder, invalid parameter declarations or directory parameter     |
+| `INVALID_REQUEST`   | `credentials_in_text`             | The name or instruction looks like a credential                                               |
+| `INVALID_REQUEST`   | `parameter_reference_unavailable` | A workspace or wiki default is not available to the account                                   |
+| `INVALID_REQUEST`   | `agent_limit_reached`             | The account owns 100 agents                                                                   |
+| `FORBIDDEN`         | none                              | The agent is visible but the account is not its owner                                         |
+| `FORBIDDEN`         | `default_model_unavailable`       | No model is released for the account, so no default exists                                    |
+| `NOT_FOUND`         | none                              | The agent does not exist, is not visible, or belongs to the administration                    |
+| `CONFLICT`          | `currentRevision`                 | `expectedRevision` is stale; nothing was written                                              |
+| `CONFLICT`          | `agent_running`                   | A running plan holds the agent; change it after the run                                       |
+| `CONFLICT`          | none                              | The `operationId` was used with other parameters                                              |
+| `PAYLOAD_TOO_LARGE` | `requestBytes` or `responseBytes` | The request exceeds 64 KiB, or a read exceeds 1 MiB; ask for a smaller `limit`                |
 
 ### Administration
 

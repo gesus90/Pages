@@ -9,6 +9,7 @@ import {
   PAGE_AGENT_READ_OPERATIONS,
   PAGE_AGENT_WRITE_OPERATIONS,
 } from "@/definition/PageAgentOperations";
+import { PAGES_AGENT_LIMITS } from "@/definition/PagesAgentOperations";
 
 import { pageAgentEntries } from "./AgentCursor";
 import {
@@ -37,9 +38,12 @@ import type { PageAgent, PageAgentModel } from "@/definition/PageAgent";
 import type {
   PageAgentChanged,
   PageAgentEntry,
+  PageAgentList,
+  PageAgentRead,
   PageAgentModelEntry,
   PageAgentReadOperation,
   PageAgentSharingEntry,
+  PageAgentSharingOperator,
   PageAgentWriteOperation,
 } from "@/definition/PageAgentOperations";
 import type { PagesAgentReadResponse } from "@/definition/PagesAgentOperations";
@@ -135,9 +139,15 @@ function toModelEntry(
   };
 }
 
-/** The share as the definition stores it; private and global keep no targets. */
+/**
+ * The share as the definition stores it; private and global keep no targets.
+ *
+ * @param request - The requested share, or `undefined` for a private one.
+ * @param operator - What a restricted share without an operator takes.
+ */
 function toSharing(
   request: PageAgentSharingRequest | undefined,
+  operator: PageAgentSharingOperator = "or",
 ): AgentConfiguration["sharing"] {
   if (request === undefined || request.scope === "private")
     return { isGlobal: false, targets: [] };
@@ -154,8 +164,16 @@ function toSharing(
         targetId,
       })),
     ],
-    operator: request.operator,
+    operator: request.operator ?? operator,
   };
+}
+
+/** The operator a restricted share has now; anything else counts as the default. */
+function storedOperator(
+  sharing: AgentConfiguration["sharing"],
+): PageAgentSharingOperator {
+  const isRestricted = !sharing.isGlobal && sharing.targets.length > 0;
+  return isRestricted ? (sharing.operator ?? "or") : "or";
 }
 
 /** Compares what a change may touch, so a request that matches the agent writes nothing. */
@@ -182,6 +200,28 @@ function definitionKey(input: {
     hasTargets ? targets : [],
     hasTargets ? (sharing.operator ?? "or") : null,
   ]);
+}
+
+/**
+ * Wraps a read of agents in the envelope within the response budget.
+ *
+ * @remarks
+ * An agent carries an instruction of up to 200,000 characters, so a full page
+ * of them can exceed the budget; the client asks for fewer with `limit`.
+ */
+function respond(
+  result: PageAgentList | PageAgentRead,
+): PagesAgentReadResponse {
+  const response: PagesAgentReadResponse = { apiVersion: "1", result };
+  if (
+    Buffer.byteLength(JSON.stringify(response)) >
+    PAGES_AGENT_LIMITS.responseBytes
+  )
+    throw new AgentOperationError("PAYLOAD_TOO_LARGE", {
+      constraint: "responseBytes",
+      limit: PAGES_AGENT_LIMITS.responseBytes,
+    });
+  return response;
 }
 
 function readStoredResult(json: string): PageAgentChanged {
@@ -261,10 +301,7 @@ export class PageAgentOperationService {
     }
     if (operation === "agents.read") {
       const agentId = readPageAgentReadRequest(input);
-      return {
-        apiVersion: "1",
-        result: { agent: await this.requireVisible(userId, agentId) },
-      };
+      return respond({ agent: await this.requireVisible(userId, agentId) });
     }
     const request = readPageAgentListRequest(input);
     const visible = await agents.visibleAgents(userId);
@@ -278,14 +315,11 @@ export class PageAgentOperationService {
         preserveOrder: true,
       },
     );
-    return {
-      apiVersion: "1",
-      result: {
-        agents: page.entries,
-        total: page.total,
-        nextCursor: page.nextCursor,
-      },
-    };
+    return respond({
+      agents: page.entries,
+      total: page.total,
+      nextCursor: page.nextCursor,
+    });
   }
 
   /** The agent as the person sees it; one they cannot see answers like a missing one. */
@@ -467,11 +501,16 @@ export class PageAgentOperationService {
         sharing:
           fields.sharing === undefined
             ? configuration.sharing
-            : toSharing(fields.sharing),
+            : toSharing(fields.sharing, storedOperator(configuration.sharing)),
       },
     };
     const revision = request.expectedRevision;
-    if (definitionKey(proposed) === definitionKey(current)) {
+    // Saving is what cleans a share of deleted targets and what pins the
+    // model of an agent that cannot run again, so neither is a no-op.
+    const isRepair =
+      current.hasDeletedTargets ||
+      (fields.modelProfileId !== undefined && !current.availability.isUsable);
+    if (!isRepair && definitionKey(proposed) === definitionKey(current)) {
       await this.dependencies.database.transaction((transaction) =>
         recorder.store(transaction, {
           id: current.id,

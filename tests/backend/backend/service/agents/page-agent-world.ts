@@ -83,6 +83,9 @@ export interface SeededAgent {
   readonly isGlobal?: boolean;
   readonly targets?: readonly AgentProfileTarget[];
   readonly operator?: "and" | "or";
+  readonly reasoningEffort?: string | null;
+  /** A connection the agent was pinned to before the model profile moved elsewhere. */
+  readonly pinnedConnectionId?: string;
 }
 
 function account(userId: string, options: PersonOptions): AccountAccess {
@@ -465,9 +468,9 @@ export class PageAgentWorld {
       name: input.name ?? `Agent ${input.id}`,
       ownerId: input.ownerId,
       modelProfileId: source.id,
-      connectionId: source.connectionId,
+      connectionId: input.pinnedConnectionId ?? source.connectionId,
       model: source.model,
-      reasoningEffort: null,
+      reasoningEffort: input.reasoningEffort ?? null,
       isActive: true,
       purposes: ["agent"],
       targets: [],

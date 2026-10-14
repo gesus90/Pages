@@ -9,6 +9,7 @@ type Schema = Properties[string];
 
 const IDENTIFIER = { type: "string", minLength: 1, maxLength: 200 } as const;
 const NAME = { type: "string", minLength: 1, maxLength: 200 } as const;
+const REFERENCE = { type: "string", minLength: 1, maxLength: 100 } as const;
 const INSTRUCTION = { type: "string", maxLength: 200_000 } as const;
 const REVISION = { type: "integer", minimum: 1 } as const;
 const EFFORT: Schema = {
@@ -43,14 +44,14 @@ const PARAMETERS: Schema = {
             type: "object",
             properties: {
               type: { const: "workspace" },
-              workspaceId: IDENTIFIER,
+              workspaceId: REFERENCE,
             },
             required: ["type", "workspaceId"],
             additionalProperties: false,
           },
           {
             type: "object",
-            properties: { type: { const: "wiki" }, pageId: IDENTIFIER },
+            properties: { type: { const: "wiki" }, pageId: REFERENCE },
             required: ["type", "pageId"],
             additionalProperties: false,
           },
@@ -77,7 +78,7 @@ const SHARING: Schema = {
 const SEE_DESCRIPTION =
   "Returns only user agents the connected account owns or that are shared with it now; an agent it cannot see, and one that does not exist, answer NOT_FOUND alike, and totals count visible agents only. Agents of administrators are not part of this list. Pages checks the account rights on every call.";
 const FIELDS_DESCRIPTION =
-  "name is the title. instruction is the Markdown the agent runs; {{parameter}}, {{parameter.path}}, {{parameter.link}} and {{parameter.markdown}} refer to declared parameters (names a-z, 0-9, _), and a placeholder without a declaration or of another type is INVALID_REQUEST with reason configuration_invalid. parameters declares them: type text, workspace or wiki, a default of the same type or null; workspace and wiki defaults must be references the account may use. directoryParameter names the declared workspace parameter an agent run works in, or null. modelProfileId is a modelProfileId of list_agent_models and reasoningEffort one of its reasoningEfforts, or null for a model that lists none. sharing replaces the whole share: scope private (only the owner), global (everyone) or restricted with groupIds and/or departmentIds (at least one) and operator or (member of any target, the default) or and (member of every target); ids come from list_groups and list_departments. A share never gives anyone the right to change the agent, and never a model, a connection or a project. The agent file of the instance is written by Pages; no path is chosen or changed here. A request is at most 64 KiB of UTF-8 JSON (PAYLOAD_TOO_LARGE), which bounds the instruction below its 200,000 characters.";
+  "name is the title. instruction is the Markdown the agent runs; {{parameter}}, {{parameter.path}}, {{parameter.link}} and {{parameter.markdown}} refer to declared parameters (names a-z, 0-9, _), and a placeholder without a declaration or of another type is INVALID_REQUEST with reason configuration_invalid. parameters declares them: type text, workspace or wiki, a default of the same type or null; workspace and wiki defaults must be references the account may use. directoryParameter names the declared workspace parameter an agent run works in, or null. modelProfileId is a modelProfileId of list_agent_models and reasoningEffort one of its reasoningEfforts, or null for a model that lists none. sharing replaces the whole share: scope private (only the owner), global (everyone) or restricted with groupIds and/or departmentIds (at least one) and operator or (member of any target) or and (member of every target); an omitted operator is or for a new share and the stored one when a restricted share is changed. Any existing group or department of the instance can be a target, as in the agent form; list_groups and list_departments list those visible to the account. A share never gives anyone the right to change the agent, and never a model, a connection or a project. The agent file of the instance is written by Pages; no path is chosen or changed here. A request is at most 64 KiB of UTF-8 JSON (PAYLOAD_TOO_LARGE), which bounds the instruction below its 200,000 characters.";
 const CHANGE_DESCRIPTION =
   "Pages validates the model and the effort against the models the account may use now; credentials in the text, unknown sharing targets and invalid parameters are refused with INVALID_REQUEST and one of these reasons: model_unavailable, reasoning_unsupported, reasoning_required, sharing_target_unavailable, configuration_invalid, credentials_in_text, parameter_reference_unavailable, agent_limit_reached (at most 100 agents per person), agent_running (CONFLICT, a running plan holds the agent) or sharing_changes_required. Reuse operationId with identical parameters after response loss to receive the stored result without a second agent or change; the same operationId with other parameters is CONFLICT. An owner or user parameter does not exist: the owner is always the connected account.";
 

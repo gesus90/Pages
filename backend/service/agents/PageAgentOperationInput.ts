@@ -26,10 +26,17 @@ export interface PageAgentListRequest {
   readonly limit: unknown;
 }
 
-/** A requested share, with the lists of targets in a fixed order. */
+/**
+ * A requested share, with the lists of targets in a fixed order.
+ *
+ * @remarks
+ * An omitted operator is not decided here: a new share is `or`, and a change
+ * of a restricted share keeps the stored operator, so leaving the field out
+ * never widens an `and` share.
+ */
 export interface PageAgentSharingRequest {
   readonly scope: PageAgentSharingScope;
-  readonly operator: PageAgentSharingOperator;
+  readonly operator?: PageAgentSharingOperator;
   readonly groupIds: readonly string[];
   readonly departmentIds: readonly string[];
 }
@@ -124,7 +131,10 @@ function readParameters(input: unknown): readonly AgentParameter[] {
       parameters: input,
     }).parameters;
   } catch (error: unknown) {
-    if (error instanceof AgentError) throw invalid();
+    if (error instanceof AgentError)
+      throw new AgentOperationError("INVALID_REQUEST", {
+        reason: "configuration_invalid",
+      });
     throw error;
   }
 }
@@ -175,7 +185,7 @@ function readSharing(input: unknown): PageAgentSharingRequest {
   if (!isRestricted && fields.operator !== undefined) throw invalid();
   return {
     scope: fields.scope,
-    operator: fields.operator ?? "or",
+    ...(fields.operator === undefined ? {} : { operator: fields.operator }),
     groupIds,
     departmentIds,
   };

@@ -59,8 +59,8 @@ it("names no reason for a failure that has none", () => {
 });
 
 it("maps the model rules of the assistant onto the same reasons", () => {
-  expect(assistant("accessDenied")).toMatchObject({ code: "FORBIDDEN" });
   for (const code of [
+    "accessDenied",
     "connectionUnavailable",
     "accessUnverified",
     "modelUnavailable",

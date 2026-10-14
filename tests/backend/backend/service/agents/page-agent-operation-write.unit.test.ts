@@ -429,3 +429,114 @@ it("stops at the limit of agents per person", async () => {
     changed: true,
   });
 });
+
+it("saves a share that names only the visible targets of a share with a deleted one", async () => {
+  world.addGroup("auditors", ["member"]);
+  const created = await create({
+    sharing: {
+      scope: "restricted",
+      operator: "and",
+      groupIds: ["auditors", "builders"],
+    },
+  });
+  world.removeGroup("auditors");
+  expect((await read(created.id)).sharing.groups).toHaveLength(1);
+
+  const cleaned = await update(created.id, 1, {
+    sharing: { scope: "restricted", operator: "and", groupIds: ["builders"] },
+  });
+
+  expect(cleaned).toMatchObject({ changed: true, revision: 2 });
+  expect(world.storedAgents()[0].configuration?.sharing.targets).toEqual([
+    { kind: "group", targetId: "builders" },
+  ]);
+  const reread = (await world.call("owner", "agents.read", {
+    agentId: created.id,
+  })) as { agent: { hasDeletedTargets: boolean } };
+  expect(reread.agent.hasDeletedTargets).toBe(false);
+});
+
+it("keeps an AND share when a changed share leaves the operator out", async () => {
+  world.addGroup("auditors", ["member"]);
+  const created = await create({
+    sharing: { scope: "restricted", operator: "and", groupIds: ["builders"] },
+  });
+
+  await update(created.id, 1, {
+    sharing: { scope: "restricted", groupIds: ["builders", "auditors"] },
+  });
+
+  expect(await read(created.id)).toMatchObject({
+    sharing: { scope: "restricted", operator: "and" },
+  });
+});
+
+it("takes OR for a new restricted share that names no operator", async () => {
+  const created = await create({ sharing: { scope: "global" } });
+
+  await update(created.id, 1, {
+    sharing: { scope: "restricted", groupIds: ["builders"] },
+  });
+
+  expect(await read(created.id)).toMatchObject({
+    sharing: { scope: "restricted", operator: "or" },
+  });
+});
+
+it("pins an agent again when its model is passed and it cannot run", async () => {
+  world.seedAgent({
+    id: "stale",
+    ownerId: "owner",
+    modelProfileId: "model-1",
+    reasoningEffort: "medium",
+    pinnedConnectionId: "connection-model-2",
+  });
+  expect(await read("stale")).toMatchObject({ isUsable: false });
+
+  const repaired = await update("stale", 1, { modelProfileId: "model-1" });
+
+  expect(repaired).toMatchObject({ changed: true, revision: 2 });
+  expect(await read("stale")).toMatchObject({ isUsable: true });
+});
+
+it("refuses a model the owner's connection scope no longer admits as a model problem", async () => {
+  world.addModel("scoped", {
+    scope: {
+      mode: "restricted",
+      targets: [{ kind: "person", targetId: "outsider" }],
+    },
+  });
+  world.seedAgent({ id: "mine", ownerId: "owner", modelProfileId: "scoped" });
+
+  await expect(update("mine", 1, { name: "Renamed" })).rejects.toMatchObject({
+    code: "INVALID_REQUEST",
+    details: { reason: "model_unavailable" },
+  });
+});
+
+it("refuses a list page that exceeds the response budget and serves a smaller one", async () => {
+  for (let index = 0; index < 6; index += 1) {
+    world.seedAgent({
+      id: `big-${index}`,
+      ownerId: "owner",
+      modelProfileId: "model-1",
+    });
+    const stored = world.stored().find((entry) => entry.id === `big-${index}`);
+    if (stored?.configuration)
+      world.replace({
+        ...stored,
+        configuration: {
+          ...stored.configuration,
+          markdown: "x".repeat(200_000),
+        },
+      });
+  }
+
+  await expect(world.call("owner", "agents.list", {})).rejects.toMatchObject({
+    code: "PAYLOAD_TOO_LARGE",
+    details: { constraint: "responseBytes", limit: 1_048_576 },
+  });
+  await expect(
+    world.call("owner", "agents.list", { limit: 2 }),
+  ).resolves.toMatchObject({ total: 6 });
+});

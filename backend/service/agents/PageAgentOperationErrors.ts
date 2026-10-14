@@ -29,7 +29,16 @@ const AGENT_REASONS: Readonly<Partial<Record<AgentErrorCode, Reason>>> = {
   reasoning_effort_unsupported: "reasoning_unsupported",
 };
 
+/**
+ * What keeps a saved model from running for the person.
+ *
+ * @remarks
+ * `accessDenied` belongs here: the identity of the call was verified before,
+ * so it is the scope of the model's connection that no longer admits the
+ * person. FORBIDDEN stays what the documentation says: not the owner.
+ */
 const MODEL_CODES: ReadonlySet<TextAssistantErrorCode> = new Set([
+  "accessDenied",
   "connectionUnavailable",
   "accessUnverified",
   "modelUnavailable",
@@ -58,8 +67,6 @@ function translateAgentError(error: AgentError): AgentOperationError {
 function translateAssistantError(
   error: TextAssistantError,
 ): AgentOperationError {
-  if (error.code === "accessDenied")
-    return new AgentOperationError("FORBIDDEN");
   if (MODEL_CODES.has(error.code)) return rejected("model_unavailable");
   if (error.code === "reasoningUnsupported")
     return rejected("reasoning_unsupported");
