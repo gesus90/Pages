@@ -4,9 +4,11 @@ PAGE-38 configures a future unit-test foundation. The only test cases so far
 are the targeted archive authorization tests of PAGE-24, workspace tests of
 PAGE-26, user-agent operation tests of PAGE-21 and agent plan operation tests
 of PAGE-62 under `tests/backend/backend/service/agents/`, the archive repository
-boundary tests under `tests/backend/backend/database/repositories/`, and the
+boundary tests under `tests/backend/backend/database/repositories/`, the
 targeted Pica chat tests of PAGE-28 under
-`tests/frontend/app/components/chat/`, each with their fixtures;
+`tests/frontend/app/components/chat/`, and the Codex ACP tests of PAGE-63 under
+`tests/backend/backend/agents/` (the adapter is an in-process agent app of the
+ACP SDK behind a fake spawn, never a real process), each with their fixtures;
 the full suites are planned for PAGE-32/PAGE-33 and are not available as usable,
 validated test suites yet. Empty discovery is an error, not a passing suite. CI test execution
 remains absent after PAGE-35. Check and lint are non-test gates.

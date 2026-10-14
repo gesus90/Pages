@@ -12,6 +12,7 @@ import { AgentProfileService } from "@/backend/service/agents/AgentProfileServic
 import { PageAgentOperationService } from "@/backend/service/agents/PageAgentOperationService";
 import { PageAgentService } from "@/backend/service/agents/PageAgentService";
 import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
+import { isApiProvider } from "@/definition/AgentConnection";
 import { GLOBAL_CONNECTION_SCOPE } from "@/definition/AgentConnectionScope";
 import { CAPABILITY } from "@/definition/Authorization";
 
@@ -76,6 +77,8 @@ export interface ModelOptions {
   readonly projectId?: string | null;
   /** The effort the administrator saved with the assignment; the first listed one by default. */
   readonly assignedEffort?: string | null;
+  /** The provider of the connection; an API provider by default, a CLI one is signed in. */
+  readonly provider?: AgentProviderId;
 }
 
 /** A user agent a test starts from, placed without any operation. */
@@ -135,10 +138,25 @@ function connectionRecord(
     hasApiKey: true,
     testModel: null,
     reasoningEffort: null,
-    cliLoggedInAt: null,
+    cliLoggedInAt: isApiProvider(provider) ? null : "2026-01-01 00:00:00",
     cliAccountLabel: null,
     updatedAt: "2026-01-01 00:00:00",
   };
+}
+
+function modelCatalog(model: string, options: ModelOptions): AgentModelCatalog {
+  const efforts = options.efforts ?? [];
+  return catalogOf({
+    id: model,
+    name: model,
+    contextWindow: null,
+    promptPrice: null,
+    completionPrice: null,
+    isFree: false,
+    reasoning: options.reasoning ?? (efforts.length > 0 ? "levels" : "none"),
+    reasoningEfforts: efforts,
+    defaultReasoningEffort: options.catalogDefault ?? null,
+  });
 }
 
 /** One administrator model grant with the connection facts the rules read. */
@@ -433,21 +451,13 @@ export class PageAgentWorld {
     const model = options.model ?? `model-${id}`;
     const connectionId = `connection-${id}`;
     this.models.set(connectionId, {
-      connection: connectionRecord(connectionId, "openrouter"),
+      connection: connectionRecord(
+        connectionId,
+        options.provider ?? "openrouter",
+      ),
       isVerified: options.isVerified ?? true,
       scope: options.scope ?? GLOBAL_CONNECTION_SCOPE,
-      catalog: catalogOf({
-        id: model,
-        name: model,
-        contextWindow: null,
-        promptPrice: null,
-        completionPrice: null,
-        isFree: false,
-        reasoning:
-          options.reasoning ?? (efforts.length > 0 ? "levels" : "none"),
-        reasoningEfforts: efforts,
-        defaultReasoningEffort: options.catalogDefault ?? null,
-      }),
+      catalog: modelCatalog(model, options),
     });
     this.replace({
       id,

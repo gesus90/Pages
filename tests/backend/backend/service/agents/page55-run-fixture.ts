@@ -4,6 +4,7 @@ import { bindAgentParameters } from "@/backend/service/agents/AgentParameterBind
 import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 
 import type { AgentConfiguration } from "@/definition/AgentConfiguration";
+import type { AgentProviderId } from "@/definition/AgentConnection";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type {
   AgentPlanSnapshot,
@@ -25,9 +26,15 @@ export interface ParameterRunFixture {
   readonly parameters: AgentParameterService;
 }
 
-/** Creates a full prompt path without opening a database, file or provider connection. */
+/**
+ * Creates a full prompt path without opening a database, file or provider connection.
+ *
+ * @param configuration - The agent configuration, also read back as its `AGENT.md`.
+ * @param provider - The provider of the agent's connection; an API provider by default.
+ */
 export async function parameterRunFixture(
   configuration: AgentConfiguration = emptyAgentConfiguration(),
+  provider: AgentProviderId = "openrouter",
 ): Promise<ParameterRunFixture> {
   const prepared = await preparedParameters(configuration);
   const step: AgentPlanStepSnapshot = {
@@ -44,7 +51,7 @@ export async function parameterRunFixture(
     name: "Agent",
     revision: 1,
     template: configuration,
-    provider: "openrouter",
+    provider,
     model: "synthetic-free:free",
     reasoningEffort: null,
     prepared,
@@ -89,7 +96,7 @@ export async function parameterRunFixture(
     configuration,
     revision: 1,
   };
-  const assignment = fixtureAssignment(step.model);
+  const assignment = fixtureAssignment(step.model, provider);
   const parameters = fixtureParameters({ profile, assignment, prepared });
   const start = new AgentPlanStepStart({
     profiles: {
@@ -196,14 +203,17 @@ async function preparedParameters(
   };
 }
 
-function fixtureAssignment(model: string): ResolvedAgentAssignment {
+function fixtureAssignment(
+  model: string,
+  provider: AgentProviderId,
+): ResolvedAgentAssignment {
   return {
     model,
     reasoningEffort: null,
     connection: {
       id: "connection",
       name: "Connection",
-      provider: "openrouter",
+      provider,
       isActive: true,
       hasApiKey: true,
       testModel: null,
