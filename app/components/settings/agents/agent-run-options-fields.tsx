@@ -1,37 +1,55 @@
 import { useTranslation } from "react-i18next";
 
-import { Checkbox } from "@/app/components/ui/checkbox";
-import { Input } from "@/app/components/ui/input";
-import { Select } from "@/app/components/ui/select";
 import {
-  AGENT_RUN_TIMEOUT_MINUTES,
   DEFAULT_AGENT_RUN_OPTIONS,
+  codexRunOptions,
+  defaultAgentRunOptions,
 } from "@/definition/AgentConfiguration";
+
+import { CodexModeField } from "./agent-run-options-fields/codex-mode-field";
+import { RunTimeoutField } from "./agent-run-options-fields/run-timeout-field";
+import {
+  RunnerAccessField,
+  RunnerToolFields,
+} from "./agent-run-options-fields/runner-access-fields";
 
 import type {
   AgentConfiguration,
   AgentRunOptions,
+  CodexPermissionMode,
 } from "@/definition/AgentConfiguration";
+import type { AgentProviderId } from "@/definition/AgentConnection";
 
-/** Edits how CLI runners may work in a plan workspace; no free command or argument is offered. */
+/**
+ * Edits how CLI runners may work in a plan workspace; no free command or argument is offered.
+ *
+ * @remarks
+ * A Codex CLI agent offers only its two modes, "Nur Lesen" and YOLO, and no
+ * separate switches that could mix them. Every other runner keeps its access,
+ * shell and web switches. The timeout applies to all.
+ */
 export function AgentRunOptionsFields(props: {
   readonly configuration: AgentConfiguration;
+  /** The provider of the chosen model; `null` while none is chosen. */
+  readonly provider: AgentProviderId | null;
   readonly disabled: boolean;
   readonly onChange: (configuration: AgentConfiguration) => void;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const options = props.configuration.run ?? DEFAULT_AGENT_RUN_OPTIONS;
+  const isCodex = props.provider === "codex_cli";
+  const options =
+    props.configuration.run ??
+    (props.provider === null
+      ? DEFAULT_AGENT_RUN_OPTIONS
+      : defaultAgentRunOptions(props.provider));
   function change(next: Partial<AgentRunOptions>): void {
     props.onChange({ ...props.configuration, run: { ...options, ...next } });
   }
-  function chooseAccess(access: string): void {
-    if (access === "workspace_write" || access === "read_only")
-      change({ access });
-  }
-  function chooseTimeout(text: string): void {
-    if (!text.trim()) return;
-    const minutes = Number(text);
-    if (Number.isSafeInteger(minutes)) change({ timeoutMinutes: minutes });
+  function chooseMode(mode: CodexPermissionMode): void {
+    props.onChange({
+      ...props.configuration,
+      run: codexRunOptions(mode, options.timeoutMinutes),
+    });
   }
   return (
     <fieldset className="space-y-3" disabled={props.disabled}>
@@ -39,63 +57,37 @@ export function AgentRunOptionsFields(props: {
         {t("settings.agents.run.title")}
       </legend>
       <p className="text-sm text-muted-foreground">
-        {t("settings.agents.run.hint")}
+        {t(
+          isCodex
+            ? "settings.agents.run.codexHint"
+            : "settings.agents.run.hint",
+        )}
       </p>
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className="space-y-1.5 text-sm font-medium">
-          <span className="block">{t("settings.agents.run.access")}</span>
-          <Select
-            size="default"
-            className="w-full"
-            value={options.access}
+        {isCodex ? (
+          <CodexModeField
+            options={options}
             disabled={props.disabled}
-            onValueChange={chooseAccess}
-            options={(["workspace_write", "read_only"] as const).map(
-              (access) => ({
-                value: access,
-                label: t(`plans.session.access.${access}`),
-              }),
-            )}
+            onChange={chooseMode}
           />
-        </label>
-        <label className="space-y-1.5 text-sm font-medium">
-          <span className="block">{t("settings.agents.run.timeout")}</span>
-          <Input
-            type="number"
-            aria-label={t("settings.agents.run.timeout")}
-            min={AGENT_RUN_TIMEOUT_MINUTES.minimum}
-            max={AGENT_RUN_TIMEOUT_MINUTES.maximum}
-            step={1}
-            value={options.timeoutMinutes}
-            onChange={(event) => chooseTimeout(event.target.value)}
+        ) : (
+          <RunnerAccessField
+            options={options}
+            disabled={props.disabled}
+            onChange={change}
           />
-          <span className="block text-xs font-normal text-muted-foreground">
-            {t(
-              options.timeoutMinutes === 0
-                ? "settings.agents.run.unlimited"
-                : "settings.agents.run.hardTimeout",
-              { minutes: options.timeoutMinutes },
-            )}
-          </span>
-        </label>
+        )}
+        <RunTimeoutField
+          timeoutMinutes={options.timeoutMinutes}
+          onChange={(timeoutMinutes) => change({ timeoutMinutes })}
+        />
       </div>
       <p className="text-xs text-muted-foreground">
         {t("settings.agents.run.timeoutHint")}
       </p>
-      <label className="flex items-center gap-2 text-sm">
-        <Checkbox
-          checked={options.shell}
-          onChange={(event) => change({ shell: event.target.checked })}
-        />
-        {t("settings.agents.run.shell")}
-      </label>
-      <label className="flex items-center gap-2 text-sm">
-        <Checkbox
-          checked={options.web}
-          onChange={(event) => change({ web: event.target.checked })}
-        />
-        {t("settings.agents.run.web")}
-      </label>
+      {isCodex ? null : (
+        <RunnerToolFields options={options} onChange={change} />
+      )}
     </fieldset>
   );
 }

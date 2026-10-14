@@ -7,16 +7,31 @@ export interface AgentRunTicket {
 }
 
 /**
+ * How far the credential of an agent plan session reaches.
+ *
+ * @remarks
+ * `tickets` allows the listed operations on the bound tickets only. `read`
+ * allows every reading operation and `full` every operation of the executor;
+ * both still pass the normal checks of the executor's current rights.
+ */
+export const AGENT_RUN_REACHES = ["tickets", "read", "full"] as const;
+export type AgentRunReach = (typeof AGENT_RUN_REACHES)[number];
+
+/**
  * What the credential of one agent plan session allows, on top of the
  * current rights of its executor.
  */
 export interface AgentRunScope {
   readonly runId: string;
   readonly stepId: string;
-  /** Agent API operations the session may call; every other one is refused. */
+  /**
+   * Agent API operations the session may call with the `tickets` reach; every
+   * other one is refused. The other reaches derive theirs from the executor.
+   */
   readonly operations: readonly string[];
-  /** The tickets bound to the node; every other ticket is refused. */
+  /** The tickets bound to the node; with the `tickets` reach every other ticket is refused. */
   readonly tickets: readonly AgentRunTicket[];
+  readonly reach: AgentRunReach;
 }
 
 /** Current account rights verified by Pages, independent of the browser role mode. */

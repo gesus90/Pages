@@ -82,6 +82,7 @@ export function AgentProfileFormBody(props: {
             workspace.projectId === draft.configuration.projectId,
         )}
         configuration={draft.configuration}
+        provider={props.selection.provider}
         disabled={props.isPending}
         onChange={draft.setConfiguration}
       />

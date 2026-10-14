@@ -34,6 +34,11 @@ export interface AgentPlanTicketStates {
   readonly unreadable: readonly string[];
   /** Tickets whose requirements changed while the node was running. */
   readonly changed: readonly string[];
+  /**
+   * Whether an entry the report names as done or met must also be checked in
+   * the ticket. A read-only session cannot check it; there the report decides.
+   */
+  readonly isCheckRequired: boolean;
 }
 
 function shortText(input: unknown): string {
@@ -103,7 +108,11 @@ function todoStatus(
   const status =
     reported === "done" || reported === "open" ? reported : "missing";
   if (status !== "done") issues.push(`todo_${status}:${todo.id}`);
-  if (status === "done" && ticketState(todo, states) === false)
+  if (
+    states.isCheckRequired &&
+    status === "done" &&
+    ticketState(todo, states) === false
+  )
     issues.push(`ticket_unchecked:${todo.id}`);
   return { id: todo.id, status };
 }
@@ -123,7 +132,7 @@ function criterionStatus(
     reported.evidence === REPORT_EVIDENCE_PLACEHOLDER
   )
     issues.push(`evidence_missing:${criterion.id}`);
-  if (reported?.met && ticketChecked === false)
+  if (states.isCheckRequired && reported?.met && ticketChecked === false)
     issues.push(`ticket_unchecked:${criterion.id}`);
   return {
     id: criterion.id,
@@ -144,8 +153,8 @@ function criterionStatus(
  * @remarks
  * Only a valid report that names every todo as done and every criterion as
  * met with evidence is accepted, and every ticket entry among them must be
- * checked in the ticket itself. An exit code or the end of a turn proves
- * nothing on its own.
+ * checked in the ticket itself unless the session could not change tickets.
+ * An exit code or the end of a turn proves nothing on its own.
  */
 export function evaluatePlanAcceptance(
   contract: AgentPlanContract,

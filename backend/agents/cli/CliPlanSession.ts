@@ -1,4 +1,4 @@
-import { endTaggedProcesses } from "./CliProcessScan";
+import { closeCliSession } from "./CliSessionCloseout";
 import { readCliSessionLine } from "./CliSessionEvents";
 
 import type {
@@ -7,17 +7,13 @@ import type {
   PlanSessionObserver,
   PlanSessionTurn,
 } from "@/backend/agents/AgentPlanExecution";
-import type { CliProviderId } from "@/definition/AgentConnection";
 import type { CliSessionState } from "./CliSessionEvents";
 import type { CliSessionExit, CliSessionProcess } from "./CliSessionProcess";
-import type { CliSessionPlan } from "./CliSessionPlans";
-
-// An interactive runner gets this long to end by itself once its input is closed.
-const INPUT_CLOSE_GRACE_MS = 15_000;
+import type { CliPlanRunner, CliSessionPlan } from "./CliSessionPlans";
 
 /** What one session needs from its surroundings. */
 export interface CliPlanSessionContext {
-  readonly provider: CliProviderId;
+  readonly provider: CliPlanRunner;
   readonly instanceId: string;
   readonly plan: CliSessionPlan;
   readonly state: CliSessionState;
@@ -95,6 +91,7 @@ export class CliPlanSession implements PlanSession {
       output: state.text,
       sessionId: state.sessionId,
       failure,
+      errorCode: null,
       endedAt: new Date().toISOString(),
       permissionDenials: state.permissionDenials,
       effective: { ...state.effective },
@@ -104,22 +101,7 @@ export class CliPlanSession implements PlanSession {
 
   private async shutDown(): Promise<PlanSessionClosed> {
     try {
-      this.process.endInput();
-      const exit = await Promise.race([
-        this.process.exited,
-        new Promise<null>((resolve) => {
-          setTimeout(() => resolve(null), INPUT_CLOSE_GRACE_MS);
-        }),
-      ]);
-      if (exit === null) this.process.cancel("login_cancelled");
-      const settled = await this.process.exited;
-      const cleanup = await endTaggedProcesses(this.context.instanceId);
-      return {
-        exit: { code: settled.code, signal: settled.signal },
-        endedAt: new Date().toISOString(),
-        leftovers: cleanup.found,
-        isConfirmed: cleanup.remaining === 0,
-      };
+      return await closeCliSession(this.process, this.context.instanceId);
     } finally {
       await this.context.secure();
     }

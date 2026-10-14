@@ -1,20 +1,12 @@
-import { AGENT_EXTENSION_READ_OPERATIONS } from "@/definition/AgentExtensions";
-import { AGENT_TEXT_RANGE_READ_OPERATIONS } from "@/definition/AgentTextRange";
-import { AGENT_ADMIN_READ_OPERATIONS } from "@/definition/AgentAdministration";
-import { AGENT_WORKSPACE_READ_OPERATIONS } from "@/definition/AgentWorkspaceOperations";
-import { AGENT_PLAN_READ_OPERATIONS } from "@/definition/AgentPlanOperations";
-import { PAGE_AGENT_READ_OPERATIONS } from "@/definition/PageAgentOperations";
-import { PAGES_AGENT_WRITE_OPERATIONS } from "@/definition/PagesAgentWrites";
-import {
-  PAGES_AGENT_COMMENT_OPERATIONS,
-  PAGES_AGENT_READ_OPERATIONS,
-  PAGES_AGENT_STRUCTURED_READ_OPERATIONS,
-  PAGES_AGENT_TICKET_READ_OPERATIONS,
-} from "@/definition/PagesAgentOperations";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
 
 import { resolveAgentTicketReference } from "./agents/AgentTicketValidation";
+import {
+  PROJECT_NAMES_OPERATION,
+  ownerOperations,
+  sessionOperations,
+} from "./mcp/AgentOperationCatalog";
 
 import type { PagesAgentWriteResponse } from "@/definition/PagesAgentWrites";
 import type { AgentOperationRouter } from "./agents/AgentOperationRouter";
@@ -34,8 +26,17 @@ import type {
   PagesAgentApiVerification,
 } from "@/definition/PagesAgentApi";
 
-/** Whether a session may name this ticket: by the identifier or key it was given. */
-function isRunTicket(scope: AgentRunScope, ticketId: unknown): boolean {
+/** Operations that verify the credential again while they run, as an import does. */
+const REVERIFIED_OPERATIONS: readonly unknown[] = [
+  "wiki.import.apply",
+  "wiki.import.update",
+  "import.structured.apply",
+];
+
+/** Whether a ticket-bound session names one of its tickets, by the identifier or key it was given. */
+function isRunTicketCall(scope: AgentRunScope, parameters: unknown): boolean {
+  if (typeof parameters !== "object" || parameters === null) return false;
+  const ticketId: unknown = Reflect.get(parameters, "ticketId");
   if (typeof ticketId !== "string") return false;
   const reference = resolveAgentTicketReference(ticketId);
   if (reference === null) return false;
@@ -106,7 +107,8 @@ export class PagesAgentApiService {
     | { readonly revoked: true }
   > {
     const identity = await this.verify(token);
-    if (identity.run) return this.handleSession(identity, identity.run, input);
+    if (identity.run)
+      return this.handleSession(identity, identity.run, token, input);
     return this.handlePersonal(identity, token, input);
   }
 
@@ -129,22 +131,7 @@ export class PagesAgentApiService {
         apiVersion: "1",
         identity,
         credential: await this.personal.credential(token),
-        tools: [
-          "projects.names.list",
-          ...PAGES_AGENT_READ_OPERATIONS,
-          ...PAGES_AGENT_TICKET_READ_OPERATIONS,
-          ...PAGES_AGENT_STRUCTURED_READ_OPERATIONS,
-          ...PAGES_AGENT_COMMENT_OPERATIONS,
-          ...AGENT_TEXT_RANGE_READ_OPERATIONS,
-          ...AGENT_EXTENSION_READ_OPERATIONS,
-          ...AGENT_WORKSPACE_READ_OPERATIONS,
-          ...AGENT_PLAN_READ_OPERATIONS,
-          ...PAGE_AGENT_READ_OPERATIONS,
-          ...PAGES_AGENT_WRITE_OPERATIONS.filter(
-            (operation) => identity.isAdmin || !operation.startsWith("admin."),
-          ),
-          ...(identity.isAdmin ? AGENT_ADMIN_READ_OPERATIONS : []),
-        ],
+        tools: ownerOperations(identity.isAdmin),
       };
     }
     if (input.operation === "credential.rotate")
@@ -153,18 +140,71 @@ export class PagesAgentApiService {
       return this.personal.revokeCredential(token);
     if (input.operation === "assets.upload.prepare")
       return this.operations.prepareUpload(identity, token, input.parameters);
-    if (input.operation !== "projects.names.list") {
-      if (
-        input.operation === "wiki.import.apply" ||
-        input.operation === "wiki.import.update" ||
-        input.operation === "import.structured.apply"
-      )
-        return this.operations.handle(identity, input, () =>
-          this.verify(token),
-        );
-      return this.operations.handle(identity, input);
-    }
-    const parameters = input.parameters === undefined ? {} : input.parameters;
+    return this.dispatch(identity, token, input);
+  }
+
+  /**
+   * Serves a session credential: only the operations, and with the `tickets`
+   * reach only the tickets, of its node.
+   *
+   * @remarks
+   * The operations themselves still check the current rights of the executor,
+   * so the scope can only narrow them. A refused operation fails here, also
+   * when a client calls it directly instead of through a listed tool. A
+   * session cannot rotate or revoke its credential and cannot upload files.
+   */
+  private async handleSession(
+    identity: AgentIdentity,
+    scope: AgentRunScope,
+    token: string,
+    input: Readonly<Record<string, unknown>>,
+  ): Promise<
+    | PagesAgentApiVerification
+    | PagesAgentApiProjectNames
+    | PagesAgentReadResponse
+    | PagesAgentStructuredReadResponse
+    | PagesAgentWriteResponse
+  > {
+    const { userId, isAdmin, permissions } = identity;
+    const allowed = sessionOperations(scope, isAdmin);
+    if (input.operation === "verify")
+      return {
+        apiVersion: "1",
+        identity: { userId, isAdmin, permissions },
+        credential: null,
+        tools: allowed,
+      };
+    if (
+      !allowed.some((operation) => operation === input.operation) ||
+      (scope.reach === "tickets" && !isRunTicketCall(scope, input.parameters))
+    )
+      throw new AgentOperationError("FORBIDDEN");
+    return this.dispatch(identity, token, input);
+  }
+
+  /** Runs an operation the credential may call, with the executor's current rights. */
+  private async dispatch(
+    identity: AgentIdentity,
+    token: string,
+    input: Readonly<Record<string, unknown>>,
+  ): Promise<
+    | PagesAgentApiProjectNames
+    | PagesAgentReadResponse
+    | PagesAgentStructuredReadResponse
+    | PagesAgentWriteResponse
+  > {
+    if (input.operation === PROJECT_NAMES_OPERATION)
+      return this.projectNames(identity, input.parameters);
+    if (REVERIFIED_OPERATIONS.includes(input.operation))
+      return this.operations.handle(identity, input, () => this.verify(token));
+    return this.operations.handle(identity, input);
+  }
+
+  private async projectNames(
+    identity: AgentIdentity,
+    input: unknown,
+  ): Promise<PagesAgentApiProjectNames> {
+    const parameters = input === undefined ? {} : input;
     if (
       typeof parameters !== "object" ||
       parameters === null ||
@@ -177,46 +217,5 @@ export class PagesAgentApiService {
       apiVersion: "1",
       projectNames: await this.projects.listNames(identity.userId),
     };
-  }
-
-  /**
-   * Serves a session credential: only the operations and tickets of its node.
-   *
-   * @remarks
-   * The operations themselves still check the current rights of the executor,
-   * so the scope can only narrow them. A session cannot rotate or revoke its
-   * credential and cannot upload files.
-   */
-  private async handleSession(
-    identity: AgentIdentity,
-    scope: AgentRunScope,
-    input: Readonly<Record<string, unknown>>,
-  ): Promise<
-    | PagesAgentApiVerification
-    | PagesAgentReadResponse
-    | PagesAgentStructuredReadResponse
-    | PagesAgentWriteResponse
-  > {
-    const { userId, isAdmin, permissions } = identity;
-    if (input.operation === "verify")
-      return {
-        apiVersion: "1",
-        identity: { userId, isAdmin, permissions },
-        credential: null,
-        tools: [
-          ...PAGES_AGENT_TICKET_READ_OPERATIONS,
-          ...PAGES_AGENT_WRITE_OPERATIONS,
-        ].filter((operation) => scope.operations.includes(operation)),
-      };
-    const parameters = input.parameters;
-    if (
-      typeof input.operation !== "string" ||
-      !scope.operations.includes(input.operation) ||
-      typeof parameters !== "object" ||
-      parameters === null ||
-      !isRunTicket(scope, Reflect.get(parameters, "ticketId"))
-    )
-      throw new AgentOperationError("FORBIDDEN");
-    return this.operations.handle(identity, input);
   }
 }

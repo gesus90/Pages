@@ -1,7 +1,8 @@
 import { AgentError } from "@/backend/error/AgentErrors";
-import { DEFAULT_AGENT_RUN_OPTIONS } from "@/definition/AgentConfiguration";
+import { agentRunOptionsFor } from "@/definition/AgentConfiguration";
 
 import { bindAgentParameters } from "./AgentParameterBinding";
+import { planStepDirectory } from "./AgentPlanSnapshot";
 
 import type { TextExecutionInput } from "@/backend/agents/TextExecution";
 import type { AgentRunOptions } from "@/definition/AgentConfiguration";
@@ -139,7 +140,7 @@ export class AgentPlanStepStart {
       input: {
         agent: resolved.assignment,
         userId: run.userId,
-        directory: step.prepared.directory?.path ?? null,
+        directory: planStepDirectory(step)?.path ?? null,
         prompt: `${parameters.markdown}\n\n${step.step.instruction}`,
         beforeStart: () =>
           this.reauthorize(run, snapshot, step, {
@@ -148,7 +149,10 @@ export class AgentPlanStepStart {
           }),
       },
       definition,
-      options: template.run ?? DEFAULT_AGENT_RUN_OPTIONS,
+      options: agentRunOptionsFor(
+        resolved.assignment.connection.provider,
+        template.run,
+      ),
     };
   }
 

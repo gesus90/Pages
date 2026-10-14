@@ -10,6 +10,7 @@ import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
 import { agentParameterIssues } from "@/definition/AgentParameters";
 import { requireCredentialFreeText } from "@/backend/service/assistant/TextAssistantValidation";
 
+import { requireAllowedRunOptions } from "./AgentProfileValidation";
 import { pageAgentModels, resolvePageAgentModel } from "./PageAgentModels";
 
 import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
@@ -251,7 +252,17 @@ export class PageAgentService {
       },
       revision: previous?.revision,
     };
-    await resolvePageAgentModel(this.dependencies, viewer, profile, stored);
+    const { assignment } = await resolvePageAgentModel(
+      this.dependencies,
+      viewer,
+      profile,
+      stored,
+    );
+    requireAllowedRunOptions(
+      assignment.connection.provider,
+      configuration.run,
+      previous?.configuration?.run,
+    );
     await this.files.save(profile, this.dependencies.profiles, journal);
     return profile.id;
   }
@@ -293,6 +304,7 @@ export class PageAgentService {
         revision: profile.revision,
         canEdit: profile.ownerId === userId,
         availability: choice.availability,
+        provider: choice.provider,
       });
     }
     return { viewer, stored, agents, directory };

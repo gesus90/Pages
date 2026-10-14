@@ -68,7 +68,11 @@ function readOptions(input: unknown): AgentRunOptions | null {
   if (typeof options.shell !== "boolean" || typeof options.web !== "boolean")
     throw invalid();
   return {
-    access: oneOf(options.access, ["workspace_write", "read_only"] as const),
+    access: oneOf(options.access, [
+      "workspace_write",
+      "read_only",
+      "yolo",
+    ] as const),
     shell: options.shell,
     web: options.web,
     timeoutMinutes: nullableNumber(options.timeoutMinutes) ?? 0,

@@ -30,7 +30,16 @@ export class CliLocator {
 
   /** PATH wins, followed by the running Node binary's directory for nvm installations. */
   public async find(provider: CliProviderId): Promise<CliToolLocation> {
-    const binary = CLI_BINARIES[provider];
+    return this.locate(CLI_BINARIES[provider]);
+  }
+
+  /**
+   * Locates an executable that belongs to a CLI, such as the Codex ACP adapter.
+   *
+   * @param binary - The file name of the executable.
+   * @returns Its path, searched like {@link CliLocator.find}.
+   */
+  public async locate(binary: string): Promise<CliToolLocation> {
     const directories = [
       ...new Set([
         ...this.searchPath

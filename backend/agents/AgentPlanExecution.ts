@@ -6,6 +6,7 @@ import { isApiProvider } from "@/definition/AgentConnection";
 import type { ExecutionAuthorizer } from "./ScopedExecution";
 import type { TextExecution } from "./TextExecution";
 import type { CliSessionMcp } from "@/backend/agents/cli/CliSessionPlans";
+import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import type { AgentOperationRegistry } from "@/backend/service/agents/AgentOperationRegistry";
 import type { AgentPlanExecutionInput } from "@/backend/service/agents/AgentPlanStepStart";
 import type { AgentRunOptions } from "@/definition/AgentConfiguration";
@@ -34,6 +35,8 @@ export interface PlanSessionObserver {
     readonly unattended: string;
   }) => void;
   readonly identified: (sessionId: string) => void;
+  /** Reports the newest events while the turn runs; the turn reports them again at its end. */
+  readonly progressed?: (events: readonly string[]) => void;
 }
 
 /** How the turn of a session ended, before Pages decides on acceptance. */
@@ -43,6 +46,11 @@ export interface PlanSessionTurn {
   readonly sessionId: string | null;
   /** `null` for a turn the runner completed; otherwise why it did not. */
   readonly failure: "timeout" | "cancelled" | "failed" | "incomplete" | null;
+  /**
+   * Why the runner refused to work as configured, such as a model its catalog
+   * does not offer; `null` when it accepted the configuration.
+   */
+  readonly errorCode: AgentErrorCode | null;
   readonly endedAt: string;
   readonly permissionDenials: number;
   readonly effective: Readonly<Record<string, string>>;

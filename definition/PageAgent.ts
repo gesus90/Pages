@@ -1,5 +1,6 @@
 import type { AgentConfiguration } from "./AgentConfiguration";
 import type { AgentAvailability } from "./AgentAvailability";
+import type { AgentProviderId } from "./AgentConnection";
 import type { AgentReasoningSupport } from "./AgentModelCatalog";
 import type { AgentProfileDirectory } from "./AgentProfile";
 import type { AgentWorkspaceChoice } from "./AgentWorkspace";
@@ -21,6 +22,8 @@ export interface PageAgent extends PageAgentInput {
   /** The share still names a group or department that no longer exists; the list above leaves it out. */
   readonly hasDeletedTargets: boolean;
   readonly availability: AgentAvailability;
+  /** The provider of the model connection; `null` when the model is gone. It decides which run options apply. */
+  readonly provider: AgentProviderId | null;
 }
 
 /** Only models assigned by administrators and verified for the requesting executor appear here. */
@@ -34,6 +37,8 @@ export interface PageAgentModel {
   readonly catalogDefaultReasoningEffort: string | null;
   /** The effort the administrator saved with the model assignment. */
   readonly reasoningEffort: string | null;
+  /** The provider of the model connection, such as `codex_cli`; never the connection itself. */
+  readonly provider: AgentProviderId;
 }
 
 export interface PageAgentPage {

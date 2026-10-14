@@ -3,6 +3,8 @@ import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { AgentOperationKeyRepository } from "@/backend/database/repositories/agents/AgentOperationKeyRepository";
 import {
   DEFAULT_AGENT_RUN_OPTIONS,
+  agentRunOptionsFor,
+  defaultAgentRunOptions,
   emptyAgentConfiguration,
 } from "@/definition/AgentConfiguration";
 import {
@@ -86,7 +88,11 @@ function toEntry(
     ownerId: agent.ownerId,
     canEdit: agent.canEdit,
     directoryParameter: configuration.directoryParameter,
-    run: configuration.run ?? DEFAULT_AGENT_RUN_OPTIONS,
+    // What the runner applies; without a model there is no runner to derive it from.
+    run:
+      agent.provider === null
+        ? (configuration.run ?? DEFAULT_AGENT_RUN_OPTIONS)
+        : agentRunOptionsFor(agent.provider, configuration.run),
     modelProfileId: agent.modelProfileId,
     model: agent.model,
     reasoningEffort: agent.reasoningEffort,
@@ -341,6 +347,8 @@ export class PageAgentOperationService {
       });
     const configuration: AgentConfiguration = {
       ...emptyAgentConfiguration("person"),
+      // A client cannot choose the run options; a Codex agent starts read only.
+      run: defaultAgentRunOptions(model.provider),
       accessMode: "shared",
       markdown: fields.instruction ?? "",
       parameters: fields.parameters ?? [],

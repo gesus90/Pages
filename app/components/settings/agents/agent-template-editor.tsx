@@ -9,11 +9,14 @@ import { AgentRunOptionsFields } from "./agent-run-options-fields";
 
 import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
 import type { AgentConfiguration } from "@/definition/AgentConfiguration";
+import type { AgentProviderId } from "@/definition/AgentConnection";
 
 /** Uses the existing wiki block editor while preserving markdown placeholders as text. */
 export function AgentTemplateEditor(props: {
   readonly workspaceChoices?: readonly AgentWorkspaceChoice[];
   readonly configuration: AgentConfiguration;
+  /** The provider of the chosen model; `null` while none is chosen. */
+  readonly provider: AgentProviderId | null;
   readonly disabled: boolean;
   readonly onChange: (configuration: AgentConfiguration) => void;
 }): React.ReactElement {
@@ -42,6 +45,7 @@ export function AgentTemplateEditor(props: {
       <AgentParameterFields {...props} />
       <AgentRunOptionsFields
         configuration={props.configuration}
+        provider={props.provider}
         disabled={props.disabled}
         onChange={props.onChange}
       />

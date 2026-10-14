@@ -39,7 +39,8 @@ export type PageAgentSharingOperator =
  * here because the MCP package type-checks this file on its own.
  */
 export interface PageAgentRunOptions {
-  readonly access: "workspace_write" | "read_only";
+  /** `read_only` and `yolo` are the two modes of a Codex CLI agent; `yolo` exists for no other runner. */
+  readonly access: "workspace_write" | "read_only" | "yolo";
   readonly shell: boolean;
   readonly web: boolean;
   readonly timeoutMinutes: number;

@@ -8,6 +8,7 @@ import { isApiProvider } from "@/definition/AgentConnection";
 import { isPlanFlowNode } from "@/definition/AgentPlanGraph";
 
 import { hasPlanPath } from "./AgentPlanGraph";
+import { planStepDirectory } from "./AgentPlanSnapshot";
 
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type {
@@ -136,11 +137,10 @@ export class AgentPlanRunEngine {
         error: null,
       })),
     };
-    const workspaceIds = snapshot.steps.flatMap((step) =>
-      !isApiProvider(step.provider) && step.prepared.directory
-        ? [step.prepared.directory.id]
-        : [],
-    );
+    const workspaceIds = snapshot.steps.flatMap((step) => {
+      const directory = planStepDirectory(step);
+      return !isApiProvider(step.provider) && directory ? [directory.id] : [];
+    });
     const releaseDefinition = await this.dependencies.files?.hold(
       snapshot.steps.map((step) => step.step.agentId),
     );

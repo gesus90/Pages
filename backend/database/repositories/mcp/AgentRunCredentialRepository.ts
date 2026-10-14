@@ -1,7 +1,9 @@
 import { readTextColumn } from "@/backend/database/RowValue";
+import { AGENT_RUN_REACHES } from "@/definition/McpAuthorization";
 
 import type { Database } from "@/backend/database/Database";
 import type {
+  AgentRunReach,
   AgentRunScope,
   AgentRunTicket,
 } from "@/definition/McpAuthorization";
@@ -40,6 +42,11 @@ function readTickets(text: string): readonly AgentRunTicket[] {
   });
 }
 
+// A credential stored before the reach existed, or with an unknown one, keeps the narrowest reach.
+function readReach(text: string): AgentRunReach {
+  return AGENT_RUN_REACHES.find((reach) => reach === text) ?? "tickets";
+}
+
 /** Stores the hashed credentials of agent plan sessions and ends them. */
 export class AgentRunCredentialRepository {
   private readonly database: Pick<Database, "query" | "execute">;
@@ -60,6 +67,7 @@ export class AgentRunCredentialRepository {
           token_hash,
           operations_json,
           ticket_ids_json,
+          reach,
           created_at,
           expires_at,
           revoked_at
@@ -71,6 +79,7 @@ export class AgentRunCredentialRepository {
           $token_hash,
           $operations_json,
           $ticket_ids_json,
+          $reach,
           $created_at,
           $expires_at,
           NULL
@@ -84,6 +93,7 @@ export class AgentRunCredentialRepository {
         token_hash: record.tokenHash,
         operations_json: JSON.stringify(record.scope.operations),
         ticket_ids_json: JSON.stringify(record.scope.tickets),
+        reach: record.scope.reach,
         created_at: record.createdAt,
         expires_at: record.expiresAt,
       },
@@ -104,7 +114,8 @@ export class AgentRunCredentialRepository {
           step_id,
           operations_json,
           ticket_ids_json,
-          CAST(expires_at AS TEXT)
+          CAST(expires_at AS TEXT),
+          COALESCE(reach, 'tickets')
       FROM agent_run_credentials
       WHERE token_hash = $token_hash
           AND revoked_at IS NULL
@@ -121,6 +132,7 @@ export class AgentRunCredentialRepository {
         stepId: readTextColumn(row, 3, "step_id"),
         operations: readStrings(readTextColumn(row, 4, "operations_json")),
         tickets: readTickets(readTextColumn(row, 5, "ticket_ids_json")),
+        reach: readReach(readTextColumn(row, 7, "reach")),
       },
       expiresAt: Number(readTextColumn(row, 6, "expires_at")),
     };

@@ -7,13 +7,18 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { requireCredentialFreeText } from "@/backend/service/assistant/TextAssistantValidation";
 import { isAgentProfilePurpose } from "@/definition/AgentProfile";
 import { agentParameterIssues } from "@/definition/AgentParameters";
+import { isAgentRunOptionsAllowed } from "@/definition/AgentConfiguration";
 
 import type {
   AgentProfileInput,
   AgentProfilePurpose,
   AgentProfileTarget,
 } from "@/definition/AgentProfile";
-import type { AgentConfiguration } from "@/definition/AgentConfiguration";
+import type {
+  AgentConfiguration,
+  AgentRunOptions,
+} from "@/definition/AgentConfiguration";
+import type { AgentProviderId } from "@/definition/AgentConnection";
 
 function readText(input: unknown, maximum: number): string {
   if (typeof input !== "string" || !input.trim() || input.length > maximum)
@@ -94,4 +99,27 @@ function requireConfiguration(
     throw new AgentError("profile_scope_invalid");
   if (isActive && agentParameterIssues(configuration).length > 0)
     throw new AgentError("parameter_invalid");
+}
+
+/**
+ * Refuses run options the agent's runner does not offer.
+ *
+ * @param provider - The provider of the agent's model connection.
+ * @param run - The run options to store.
+ * @param previous - The run options stored so far; absent for a new agent.
+ * @throws {AgentError} `codex_permission_mode_required` when a Codex CLI agent
+ * would store the earlier write mode anew, `plan_run_option_unsupported` for
+ * YOLO outside Codex.
+ */
+export function requireAllowedRunOptions(
+  provider: AgentProviderId,
+  run: AgentRunOptions | undefined,
+  previous: AgentRunOptions | undefined,
+): void {
+  if (isAgentRunOptionsAllowed(provider, run, previous)) return;
+  throw new AgentError(
+    provider === "codex_cli"
+      ? "codex_permission_mode_required"
+      : "plan_run_option_unsupported",
+  );
 }

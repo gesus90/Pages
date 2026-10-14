@@ -1,6 +1,6 @@
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 
-import type { CliProviderId } from "@/definition/AgentConnection";
+import type { CliPlanRunner } from "./CliSessionPlans";
 
 const MAXIMUM_EVENTS = 60;
 const MAXIMUM_EVENT_CHARACTERS = 200;
@@ -43,11 +43,19 @@ export function createCliSessionState(): CliSessionState {
   };
 }
 
+/**
+ * Keeps one short line of what happened in a session.
+ *
+ * @param events - The lines kept so far, newest last; changed in place.
+ * @param line - What happened; it is shortened, and the caller redacts it before storing.
+ */
+export function noteSessionEvent(events: string[], line: string): void {
+  events.push(line.replace(/\s+/gu, " ").slice(0, MAXIMUM_EVENT_CHARACTERS));
+  if (events.length > MAXIMUM_EVENTS) events.shift();
+}
+
 function note(state: CliSessionState, line: string): void {
-  state.events.push(
-    line.replace(/\s+/gu, " ").slice(0, MAXIMUM_EVENT_CHARACTERS),
-  );
-  if (state.events.length > MAXIMUM_EVENTS) state.events.shift();
+  noteSessionEvent(state.events, line);
 }
 
 function identify(state: CliSessionState, id: unknown): CliSessionUpdate {
@@ -59,58 +67,6 @@ function identify(state: CliSessionState, id: unknown): CliSessionUpdate {
 
 function text(input: unknown): string {
   return typeof input === "string" ? input : "";
-}
-
-function readCodexItem(
-  state: CliSessionState,
-  event: Record<string, unknown>,
-): void {
-  const item = readAgentObject(event.item);
-  const status = text(item.status);
-  switch (item.type) {
-    case "agent_message":
-      if (event.type === "item.completed") state.text = text(item.text);
-      return;
-    case "command_execution":
-      if (event.type === "item.completed")
-        note(
-          state,
-          `command ${text(item.command)} → ${String(item.exit_code ?? status)}`,
-        );
-      return;
-    case "file_change":
-      note(state, `files ${status}`);
-      return;
-    case "mcp_tool_call":
-      if (event.type === "item.completed")
-        note(state, `mcp ${text(item.server)}.${text(item.tool)} ${status}`);
-      return;
-    case "error":
-      note(state, `error ${text(item.message)}`);
-      return;
-    default:
-      return;
-  }
-}
-
-function readCodex(
-  state: CliSessionState,
-  event: Record<string, unknown>,
-): CliSessionUpdate {
-  if (event.type === "thread.started") return identify(state, event.thread_id);
-  if (event.type === "item.started" || event.type === "item.completed")
-    readCodexItem(state, event);
-  if (event.type === "turn.completed") {
-    state.isTurnComplete = true;
-    note(state, "turn completed");
-  }
-  if (event.type === "turn.failed") {
-    state.hasFailed = true;
-    note(state, `turn failed ${text(readAgentObject(event.error).message)}`);
-  }
-  // Codex reports reconnects as errors and retries; only a failed turn counts.
-  if (event.type === "error") note(state, `notice ${text(event.message)}`);
-  return {};
 }
 
 function readClaudeInit(
@@ -203,10 +159,11 @@ function readOpenCode(
  *
  * @remarks
  * Lines that are no JSON are diagnostics and are ignored. Event text is kept
- * short; the caller redacts it before it is stored.
+ * short; the caller redacts it before it is stored. Codex speaks ACP and
+ * reports through its own reader.
  */
 export function readCliSessionLine(
-  provider: CliProviderId,
+  provider: CliPlanRunner,
   line: string,
   state: CliSessionState,
 ): CliSessionUpdate {
@@ -218,8 +175,6 @@ export function readCliSessionLine(
     return {};
   }
   switch (provider) {
-    case "codex_cli":
-      return readCodex(state, event);
     case "claude_code":
       return readClaude(state, event);
     case "opencode":

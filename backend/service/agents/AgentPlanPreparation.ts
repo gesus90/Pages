@@ -1,12 +1,13 @@
 import { unsupportedRunOption } from "@/backend/agents/cli/CliSessionPlans";
 import { AgentError } from "@/backend/error/AgentErrors";
-import { DEFAULT_AGENT_RUN_OPTIONS } from "@/definition/AgentConfiguration";
+import { agentRunOptionsFor } from "@/definition/AgentConfiguration";
 import { isApiProvider } from "@/definition/AgentConnection";
 import { planExecutionIssues } from "@/definition/AgentPlanGraph";
 import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
 
 import { planBindings } from "./AgentPlanBindings";
 import { hasPlanPath, planSteps } from "./AgentPlanGraph";
+import { planStepDirectory } from "./AgentPlanSnapshot";
 
 import type { AgentPlan } from "@/definition/AgentPlan";
 import type { ResolvedAgentWorkspace } from "@/definition/AgentWorkspace";
@@ -94,14 +95,17 @@ export class AgentPlanPreparation {
       if (prepared.workspace.projectId !== plan.projectId)
         throw new AgentError("plan_context_changed");
       const { provider } = resolved.assignment.connection;
-      if (!isApiProvider(provider) && prepared.directory === null)
+      if (
+        !isApiProvider(provider) &&
+        planStepDirectory({ provider, prepared }) === null
+      )
         throw new AgentError("plan_directory_required");
       // Options the runner cannot enforce stop the whole plan before any node starts.
       const unsupported = isApiProvider(provider)
         ? null
         : unsupportedRunOption(
             provider,
-            configuration.run ?? DEFAULT_AGENT_RUN_OPTIONS,
+            agentRunOptionsFor(provider, configuration.run),
           );
       if (unsupported !== null) throw new AgentError(unsupported);
       const taskIds = Object.values(step.bindings).flatMap((binding) => {
@@ -140,7 +144,7 @@ function validateWorkingCopies(
     for (const second of writing) {
       if (
         first.step.id === second.step.id ||
-        !sameWorkingCopy(first.prepared.directory, second.prepared.directory)
+        !sameWorkingCopy(planStepDirectory(first), planStepDirectory(second))
       )
         continue;
       if (

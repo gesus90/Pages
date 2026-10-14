@@ -8,6 +8,7 @@ import { isApiProvider } from "@/definition/AgentConnection";
 import { evaluatePlanAcceptance } from "./AgentPlanAcceptance";
 import { buildPlanContract, renderPlanAssignment } from "./AgentPlanContract";
 import { sanitizePlanOutput } from "./AgentPlanOutput";
+import { planSessionReach } from "./AgentPlanSessionAccess";
 import {
   createSessionRecord,
   failureCode,
@@ -25,6 +26,7 @@ import type {
   AgentPlanContract,
   AgentPlanSessionRecord,
 } from "@/definition/AgentPlanSession";
+import type { AgentRunReach } from "@/definition/McpAuthorization";
 import type { AgentPlanTicketStates } from "./AgentPlanAcceptance";
 import type { AgentPlanSessionAccess } from "./AgentPlanSessionAccess";
 import type {
@@ -51,6 +53,13 @@ export interface StepRunControl {
   readonly signal: AbortSignal;
   /** Persists the newest record of the node; never throws. */
   readonly save: (session: AgentPlanSessionRecord) => Promise<void>;
+}
+
+/** What a session node was started with and is checked against. */
+interface SessionTerms {
+  readonly contract: AgentPlanContract;
+  /** How far the node reaches Pages; `read` cannot set ticket entries. */
+  readonly reach: AgentRunReach;
 }
 
 /** One node from its start to its result; `record` always holds the newest state. */
@@ -188,7 +197,14 @@ export class AgentPlanStepRunner {
         ),
       ),
     );
-    const contract = buildPlanContract(step.step.instruction, tickets);
+    const reach = planSessionReach(
+      prepared.input.agent.connection.provider,
+      prepared.options,
+    );
+    const isReadOnly = reach === "read";
+    const contract = buildPlanContract(step.step.instruction, tickets, {
+      isReadOnly,
+    });
     const instanceId = randomUUID();
     await this.save(
       node,
@@ -196,7 +212,7 @@ export class AgentPlanStepRunner {
         instanceId,
         prepared,
         contract,
-        usesMcp: contract.tickets.length > 0,
+        usesMcp: reach !== "tickets" || contract.tickets.length > 0,
       }),
     );
     const mcp = await this.dependencies.access.grant({
@@ -205,10 +221,12 @@ export class AgentPlanStepRunner {
       stepId: step.step.id,
       tickets: contract.tickets,
       lifetimeMs: prepared.options.timeoutMinutes * 60_000,
+      reach,
     });
     const prompt = `${prepared.input.prompt}\n\n${renderPlanAssignment({
       contract,
       usesMcp: mcp !== null,
+      isReadOnly,
       runnerLabel: node.record ? runnerLabel(node.record) : "",
       instanceId,
       directory,
@@ -228,7 +246,7 @@ export class AgentPlanStepRunner {
     );
     node.hasStarted = true;
     try {
-      return await this.finish(node, session, contract);
+      return await this.finish(node, session, { contract, reach });
     } catch (error: unknown) {
       // A started session is always ended, also when its evaluation failed.
       await session.close().catch((closeError: unknown) => {
@@ -241,16 +259,16 @@ export class AgentPlanStepRunner {
   private async finish(
     node: NodeRun,
     session: PlanSession,
-    contract: AgentPlanContract,
+    terms: SessionTerms,
   ): Promise<Partial<AgentPlanStepResult>> {
     const turn = await session.turn;
     if (node.record) node.record = withTurn(node.record, turn);
     const acceptance =
-      turn.failure === null
+      turn.failure === null && turn.errorCode === null
         ? evaluatePlanAcceptance(
-            contract,
+            terms.contract,
             turn.output,
-            await this.ticketStates(node, contract),
+            await this.ticketStates(node, terms),
           )
         : null;
     // The closing report and the verdict are kept before the session is ended.
@@ -282,12 +300,12 @@ export class AgentPlanStepRunner {
 
   private async ticketStates(
     node: NodeRun,
-    contract: AgentPlanContract,
+    terms: SessionTerms,
   ): Promise<AgentPlanTicketStates> {
     const checked = new Map<string, boolean>();
     const unreadable: string[] = [];
     const changed: string[] = [];
-    for (const ticket of contract.tickets) {
+    for (const ticket of terms.contract.tickets) {
       try {
         const current = await this.dependencies.tasks.checklist(
           node.run.userId,
@@ -305,7 +323,12 @@ export class AgentPlanStepRunner {
         unreadable.push(ticket.key);
       }
     }
-    return { checked, unreadable, changed };
+    return {
+      checked,
+      unreadable,
+      changed,
+      isCheckRequired: terms.reach !== "read",
+    };
   }
 
   private observer(node: NodeRun): PlanSessionObserver {
@@ -325,6 +348,11 @@ export class AgentPlanStepRunner {
       },
       identified: (sessionId) => {
         void this.complete(node, { sessionId });
+      },
+      progressed: (events) => {
+        void this.complete(node, {
+          events: events.map((line) => sanitizePlanOutput(line)),
+        });
       },
     };
   }

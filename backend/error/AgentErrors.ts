@@ -26,7 +26,23 @@ export const AGENT_ERROR_MESSAGES = {
   plan_run_option_unsupported:
     "The runner cannot enforce the run options of this agent, such as read-only access with commands. Change the run options.",
   plan_mcp_unavailable:
-    "The node is bound to tickets, but this server has no Pages MCP adapter for agent sessions.",
+    "The node needs the Pages MCP adapter for agent sessions, but this server has none.",
+  codex_permission_mode_required:
+    "Codex CLI agents run only in “Read only” or “YOLO”. Choose one of the two modes for this agent.",
+  plan_acp_adapter_missing:
+    "The Codex ACP adapter (codex-acp) is not installed for the server account.",
+  plan_acp_adapter_unsupported:
+    "The installed Codex ACP adapter does not offer what this run needs. Install a supported version of codex-acp.",
+  plan_model_unavailable:
+    "The Codex model catalog of this connection does not offer the agent's model; nothing was sent.",
+  plan_reasoning_unsupported:
+    "The Codex adapter does not offer the agent's reasoning effort for this model; nothing was sent.",
+  plan_permission_mode_unenforceable:
+    "This server cannot enforce the permission mode of the agent: YOLO needs the bubblewrap isolation, and the adapter must confirm the mode.",
+  plan_codex_configuration_unmanaged:
+    "A Codex configuration file (config.toml) outside Pages could change this run. Remove it from the connection folder or the workspace.",
+  plan_acp_session_failed:
+    "The Codex ACP session failed before or during its turn.",
   plan_definition_changed:
     "The AGENT.md of the agent is missing or does not match the started revision.",
   plan_placeholder_unresolved:

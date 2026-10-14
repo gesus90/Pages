@@ -86,6 +86,7 @@ function Draft(props: {
       />
       <AgentRunOptionsFields
         configuration={configuration}
+        provider="claude_code"
         onChange={setConfiguration}
         disabled={false}
       />
@@ -318,6 +319,7 @@ function agent(canEdit: boolean): PageAgent {
     canEdit,
     hasDeletedTargets: false,
     availability: { isUsable: true, reason: null, personalChoices: [] },
+    provider: "openrouter",
   };
 }
 

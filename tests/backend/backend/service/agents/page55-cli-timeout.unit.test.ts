@@ -85,6 +85,7 @@ it("issues unlimited run credentials until revocation, rather than expiring afte
     stepId: "step",
     operations: ["ticket.read"],
     tickets: [{ id: "ticket", key: "SYN-55" }],
+    reach: "tickets" as const,
   };
   const issued = await credentials.issue("owner", scope, 0);
   expect(issued.expiresAt).toBe(Number.MAX_SAFE_INTEGER);

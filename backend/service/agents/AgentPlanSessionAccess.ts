@@ -5,7 +5,12 @@ import { AgentError } from "@/backend/error/AgentErrors";
 
 import type { CliSessionMcp } from "@/backend/agents/cli/CliSessionPlans";
 import type { AgentRunCredentialService } from "@/backend/service/mcp/AgentRunCredentialService";
-import type { AgentRunTicket } from "@/definition/McpAuthorization";
+import type { AgentRunOptions } from "@/definition/AgentConfiguration";
+import type { AgentProviderId } from "@/definition/AgentConnection";
+import type {
+  AgentRunReach,
+  AgentRunTicket,
+} from "@/definition/McpAuthorization";
 
 /** The agent API operations a session may call, and the MCP tools that call them. */
 const SESSION_OPERATIONS = [
@@ -39,16 +44,36 @@ export interface AgentPlanSessionGrant {
   readonly stepId: string;
   readonly tickets: readonly AgentRunTicket[];
   readonly lifetimeMs: number;
+  readonly reach: AgentRunReach;
 }
 
 /**
- * Gives the session of a ticket-bound node its own way to Pages.
+ * How far the Pages MCP access of a node reaches.
+ *
+ * @param provider - The runner of the node.
+ * @param options - The run options the runner applies.
+ * @returns For a Codex CLI agent every read in "Nur Lesen" and everything its
+ * executor may do in YOLO; for every other runner the bound tickets, as before.
+ */
+export function planSessionReach(
+  provider: AgentProviderId,
+  options: AgentRunOptions,
+): AgentRunReach {
+  if (provider !== "codex_cli") return "tickets";
+  return options.access === "yolo" ? "full" : "read";
+}
+
+/**
+ * Gives the session of a node its own way to Pages.
  *
  * @remarks
- * The session gets a fresh credential for its executor, limited to reading
- * the bound tickets and setting their checklist entries, and the address of
- * this instance. Both reach the local MCP process only through the process
- * environment. The credential is revoked when the node closes.
+ * The session gets a fresh credential for its executor and the address of
+ * this instance. With the `tickets` reach the credential is limited to reading
+ * the bound tickets and setting their checklist entries; the `read` and
+ * `full` reaches of a Codex CLI agent cover every read or every operation of
+ * the executor, under the normal checks of the executor's rights. Credential
+ * and address reach the local MCP process only through its environment. The
+ * credential is revoked when the node closes.
  */
 export class AgentPlanSessionAccess {
   private readonly credentials: AgentRunCredentialService;
@@ -63,7 +88,7 @@ export class AgentPlanSessionAccess {
   }
 
   /**
-   * Issues the MCP access of one node, or none for a node without tickets.
+   * Issues the MCP access of one node, or none for a ticket-bound reach without tickets.
    *
    * @throws {AgentError} `plan_mcp_unavailable` when the node needs MCP and
    * this server has no readable bundle.
@@ -71,7 +96,7 @@ export class AgentPlanSessionAccess {
   public async grant(
     grant: AgentPlanSessionGrant,
   ): Promise<CliSessionMcp | null> {
-    if (grant.tickets.length === 0) return null;
+    if (grant.reach === "tickets" && grant.tickets.length === 0) return null;
     const { bundle } = this.settings;
     if (bundle === null) throw new AgentError("plan_mcp_unavailable");
     try {
@@ -84,8 +109,9 @@ export class AgentPlanSessionAccess {
       {
         runId: grant.runId,
         stepId: grant.stepId,
-        operations: SESSION_OPERATIONS,
+        operations: grant.reach === "tickets" ? SESSION_OPERATIONS : [],
         tickets: grant.tickets,
+        reach: grant.reach,
       },
       grant.lifetimeMs === 0 ? 0 : grant.lifetimeMs + CREDENTIAL_MARGIN_MS,
     );
@@ -94,7 +120,7 @@ export class AgentPlanSessionAccess {
       bundle,
       url: this.settings.url,
       token: issued.token,
-      tools: SESSION_TOOLS,
+      tools: grant.reach === "tickets" ? SESSION_TOOLS : null,
     };
   }
 

@@ -15,7 +15,7 @@ import type {
 import type { PreparedPlanStep } from "./AgentPlanStepStart";
 
 const RUNNER_LABELS: Readonly<Record<CliProviderId, string>> = {
-  codex_cli: "Codex CLI",
+  codex_cli: "Codex CLI over ACP",
   claude_code: "Claude Code",
   opencode: "OpenCode",
 };
@@ -28,12 +28,13 @@ export interface SessionRecordStart {
   readonly usesMcp: boolean;
 }
 
-// Claude Code runs as an interactive session that Pages closes; the others end with their turn.
+// Claude Code and the ACP session of Codex stay open until Pages closes them; OpenCode ends with its turn.
 function sessionMode(
   provider: ResolvedAgentAssignment["connection"]["provider"],
 ): AgentPlanSessionRecord["mode"] {
-  if (provider === "claude_code") return "interactive";
-  if (provider === "codex_cli" || provider === "opencode") return "one_shot";
+  if (provider === "claude_code" || provider === "codex_cli")
+    return "interactive";
+  if (provider === "opencode") return "one_shot";
   return "request";
 }
 
@@ -93,7 +94,7 @@ export function createSessionRecord(
   };
 }
 
-/** The runner as people read it, such as "Codex CLI". */
+/** The runner as people read it, such as "Claude Code". */
 export function runnerLabel(record: AgentPlanSessionRecord): string {
   return record.runner === "api" ? "API request" : RUNNER_LABELS[record.runner];
 }
@@ -129,6 +130,7 @@ export function failureCode(
   closed: PlanSessionClosed,
 ): AgentErrorCode | "timeout" | null {
   if (turn.failure === "timeout") return "timeout";
+  if (turn.errorCode !== null) return turn.errorCode;
   const isDenied = turn.permissionDenials > 0;
   if (turn.failure === "failed")
     return isDenied ? "plan_runner_permission_denied" : "plan_runner_failed";

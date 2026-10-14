@@ -123,7 +123,11 @@ export async function pageAgentModels(
   for (const source of profiles) {
     if (!isModelSource(source, viewer)) continue;
     try {
-      await resolveAgentAssignmentFor(dependencies.connections, viewer, source);
+      const { connection } = await resolveAgentAssignmentFor(
+        dependencies.connections,
+        viewer,
+        source,
+      );
       // The assignment above found this model in the catalog.
       const catalog = await dependencies.connections
         .catalogs()
@@ -137,6 +141,7 @@ export async function pageAgentModels(
         reasoningEfforts: listed?.reasoningEfforts ?? [],
         catalogDefaultReasoningEffort: listed?.defaultReasoningEffort ?? null,
         reasoningEffort: source.reasoningEffort,
+        provider: connection.provider,
       });
     } catch (error: unknown) {
       if (!(error instanceof TextAssistantError)) throw error;

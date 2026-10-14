@@ -120,7 +120,9 @@ function readRunOptions(input: unknown): AgentRunOptions {
   const options = readAgentObject(input);
   const minutes = options.timeoutMinutes;
   if (
-    (options.access !== "workspace_write" && options.access !== "read_only") ||
+    (options.access !== "workspace_write" &&
+      options.access !== "read_only" &&
+      options.access !== "yolo") ||
     typeof options.shell !== "boolean" ||
     typeof options.web !== "boolean" ||
     typeof minutes !== "number" ||

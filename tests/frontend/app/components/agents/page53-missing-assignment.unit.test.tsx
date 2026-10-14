@@ -36,6 +36,7 @@ function ModelForm(): React.ReactElement {
           id: "replacement",
           name: "Replacement",
           model: "model",
+          provider: "openrouter",
           reasoning: "none",
           reasoningEfforts: [],
           reasoningEffort: null,

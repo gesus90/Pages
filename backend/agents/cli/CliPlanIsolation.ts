@@ -54,7 +54,8 @@ export async function probeBubblewrap(
  * File modes alone cannot protect `AGENT.md` and the run records from a model
  * process that runs under the account of the server. The namespace makes the
  * system read-only, leaves only the working copy and the credential home
- * writable, and replaces every protected folder with an empty one. The prompt
+ * writable, and replaces every protected folder with an empty one. A
+ * read-only session gets its working copy read-only as well. The prompt
  * still travels over stdin, never through the argument list. A host where
  * bubblewrap does not work relies on the sandbox of the CLI itself and on
  * working copies being kept apart from the instance folders when they are
@@ -122,7 +123,7 @@ export class CliPlanIsolation {
         "/dev",
         "--tmpfs",
         "/tmp",
-        "--bind",
+        request.isWorkingDirectoryReadOnly === true ? "--ro-bind" : "--bind",
         workingDirectory,
         workingDirectory,
         ...hidden.flatMap((entry) => ["--tmpfs", entry]),

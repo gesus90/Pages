@@ -11,7 +11,10 @@ import {
   resolveAgentAssignment,
   resolveAgentAssignmentFor,
 } from "./AgentAssignmentResolution";
-import { readAgentProfileInput } from "./AgentProfileValidation";
+import {
+  readAgentProfileInput,
+  requireAllowedRunOptions,
+} from "./AgentProfileValidation";
 import { requireAgentAdministrator } from "./AgentServiceAccess";
 import { AgentAvailabilityService } from "./AgentAvailabilityService";
 
@@ -21,7 +24,10 @@ import type { UserGroupRepository } from "@/backend/database/repositories/UserGr
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import type { AgentProfileRepository } from "@/backend/database/repositories/agent/AgentProfileRepository";
 import type { AccountAccess } from "@/definition/Authorization";
-import type { AgentConfiguration } from "@/definition/AgentConfiguration";
+import type {
+  AgentConfiguration,
+  AgentRunOptions,
+} from "@/definition/AgentConfiguration";
 import type {
   AgentProfile,
   AgentProfileInput,
@@ -216,6 +222,11 @@ export class AgentProfileService {
               directory,
             );
             await this.requireReferences(actor, configured.configuration);
+            await this.requireRunOptions(
+              profile.connectionId,
+              configured.configuration.run,
+              previous?.configuration?.run,
+            );
           }
           if (
             !previous ||
@@ -413,6 +424,17 @@ export class AgentProfileService {
       )
     )
       throw new AgentError("profile_target_invalid");
+  }
+
+  // Without a connection there is no runner whose options could be checked; it cannot run either.
+  private async requireRunOptions(
+    connectionId: string,
+    run: AgentRunOptions | undefined,
+    previous: AgentRunOptions | undefined,
+  ): Promise<void> {
+    const connection = await this.dependencies.connections.find(connectionId);
+    if (connection)
+      requireAllowedRunOptions(connection.provider, run, previous);
   }
 
   private async requireReferences(

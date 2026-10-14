@@ -11,13 +11,56 @@ import {
 } from "@/app/components/ui/dialog";
 import { Input } from "@/app/components/ui/input";
 import { VerticalScrollArea } from "@/app/components/ui/vertical-scroll-area";
+import { isCodexPermissionMode } from "@/definition/AgentConfiguration";
 import { agentParameterIssues } from "@/definition/AgentParameters";
 
 import { PageAgentModelFields } from "./page-agent-model-fields";
 import { PageAgentSharing } from "./page-agent-sharing";
 import { usePageAgentForm } from "./use-page-agent-form";
 
-import type { PageAgent, PageAgentPage } from "@/definition/PageAgent";
+import type { AgentProviderId } from "@/definition/AgentConnection";
+import type {
+  PageAgent,
+  PageAgentInput,
+  PageAgentPage,
+} from "@/definition/PageAgent";
+
+/** What the form derives from the draft: the chosen model's provider and whether it can be saved. */
+interface PageAgentFormState {
+  readonly hasModel: boolean;
+  readonly provider: AgentProviderId | null;
+  readonly isInvalid: boolean;
+}
+
+/**
+ * Checks the draft before it is saved.
+ *
+ * @remarks
+ * A Codex CLI agent saved with the earlier write mode must choose one of its
+ * two modes first.
+ */
+function formState(
+  input: PageAgentInput,
+  agent: PageAgent | null,
+  models: PageAgentPage["models"],
+): PageAgentFormState {
+  const model = models.find((entry) => entry.id === input.modelProfileId);
+  const provider = model?.provider ?? agent?.provider ?? null;
+  const { run } = input.configuration;
+  const isModeMissing =
+    provider === "codex_cli" &&
+    run !== undefined &&
+    !isCodexPermissionMode(run.access);
+  return {
+    hasModel: model !== undefined,
+    provider,
+    isInvalid:
+      !input.name.trim() ||
+      model === undefined ||
+      isModeMissing ||
+      agentParameterIssues(input.configuration).length > 0,
+  };
+}
 
 function PageAgentFormActions(props: {
   readonly isReadOnly: boolean;
@@ -56,13 +99,11 @@ export function PageAgentForm(props: {
   const { input, fetcher, isPending } = form;
   const isReadOnly = props.agent?.canEdit === false;
   const isDisabled = isReadOnly || isPending;
-  const hasModel = props.page.models.some(
-    (model) => model.id === input.modelProfileId,
+  const { hasModel, provider, isInvalid } = formState(
+    input,
+    props.agent,
+    props.page.models,
   );
-  const isInvalid =
-    !input.name.trim() ||
-    !hasModel ||
-    agentParameterIssues(input.configuration).length > 0;
   let title = "pageAgents.create";
   if (props.agent)
     title = isReadOnly ? "pageAgents.viewAgent" : "pageAgents.editAgent";
@@ -111,6 +152,7 @@ export function PageAgentForm(props: {
           />
           <AgentTemplateEditor
             configuration={input.configuration}
+            provider={provider}
             workspaceChoices={props.page.workspaces}
             disabled={isDisabled}
             onChange={(configuration) =>

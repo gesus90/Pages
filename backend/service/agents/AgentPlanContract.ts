@@ -11,6 +11,9 @@ const DEFAULT_TODO = "Carry out the instruction of this node completely.";
 /** The criterion of a node whose tickets list no acceptance criteria. */
 const DEFAULT_CRITERION =
   "The result is in the workspace and the report names how each todo is proven.";
+/** The criterion of a read-only node, which cannot leave a result in the workspace. */
+const DEFAULT_READ_ONLY_CRITERION =
+  "The closing report answers the instruction and names how each todo is proven.";
 
 /**
  * The evidence text of the report example; a report that keeps it proves nothing.
@@ -21,10 +24,19 @@ const DEFAULT_CRITERION =
  */
 export const REPORT_EVIDENCE_PLACEHOLDER = "<proof>";
 
+/** How a node may work, as far as its contract has to say it. */
+export interface AgentPlanContractOptions {
+  /**
+   * The session changes neither files nor Pages data, as a Codex CLI agent in
+   * "Nur Lesen": it reports its tickets instead of setting their entries.
+   */
+  readonly isReadOnly: boolean;
+}
+
 /** The run contract text that tells the agent what Pages checks. */
-export interface AgentPlanAssignment {
+export interface AgentPlanAssignment extends AgentPlanContractOptions {
   readonly contract: AgentPlanContract;
-  /** Whether the agent sets ticket entries through the Pages MCP tools. */
+  /** Whether the session reaches Pages through the Pages MCP tools. */
   readonly usesMcp: boolean;
   readonly runnerLabel: string;
   readonly instanceId: string;
@@ -38,7 +50,21 @@ function itemLine(item: AgentPlanContractItem): string {
   return `- **${item.id}**: ${item.text}${source}`;
 }
 
+function readOnlyMcpSection(contract: AgentPlanContract): string {
+  const keys = contract.tickets.map((ticket) => `\`${ticket.key}\``).join(", ");
+  return [
+    "- The Pages MCP server is connected read-only: you may read Pages content, every change is refused.",
+    ...(keys
+      ? [
+          `- Read ticket ${keys} with \`read_ticket\` and \`read_ticket_checklist\`. Do not try to change tickets or their checklists; Pages records the acceptance from your closing report.`,
+        ]
+      : []),
+  ].join("\n");
+}
+
 function mcpSection(contract: AgentPlanContract): string {
+  if (contract.tickets.length === 0)
+    return "- The Pages MCP server is connected with the tools your account may use.";
   const keys = contract.tickets.map((ticket) => `\`${ticket.key}\``).join(", ");
   return [
     `- The Pages MCP server is connected for ticket ${keys}. Call \`read_ticket_checklist\` with that ticket ID to read the entries and the current revision.`,
@@ -47,21 +73,33 @@ function mcpSection(contract: AgentPlanContract): string {
   ].join("\n");
 }
 
+function mcpLines(assignment: AgentPlanAssignment): readonly string[] {
+  if (!assignment.usesMcp) return [];
+  return [
+    assignment.isReadOnly
+      ? readOnlyMcpSection(assignment.contract)
+      : mcpSection(assignment.contract),
+  ];
+}
+
 /**
  * Fixes the todo list and the acceptance criteria of a node before it starts.
  *
  * @param instruction - The instruction of the node; its task list items become todos.
  * @param tickets - The tickets bound to the node, with their current checklists.
+ * @param options - Whether the node may change anything.
  * @returns Todos, criteria and tickets; a node without any gets one default each.
  *
  * @remarks
  * Task list items of a ticket description are todos, the acceptance criteria
  * of a ticket are criteria. Both keep their checklist item, so the agent sets
- * them through MCP and Pages checks the same entries afterwards.
+ * them through MCP and Pages checks the same entries afterwards; a read-only
+ * node only reports them.
  */
 export function buildPlanContract(
   instruction: string,
   tickets: readonly AgentPlanTicketChecklist[],
+  options: AgentPlanContractOptions,
 ): AgentPlanContract {
   const todos: AgentPlanContractItem[] = readMarkdownTasks(instruction).map(
     (task, index) => ({ id: `T${index + 1}`, text: task.text, ticket: null }),
@@ -86,7 +124,13 @@ export function buildPlanContract(
   if (todos.length === 0)
     todos.push({ id: "T1", text: DEFAULT_TODO, ticket: null });
   if (criteria.length === 0)
-    criteria.push({ id: "K1", text: DEFAULT_CRITERION, ticket: null });
+    criteria.push({
+      id: "K1",
+      text: options.isReadOnly
+        ? DEFAULT_READ_ONLY_CRITERION
+        : DEFAULT_CRITERION,
+      ticket: null,
+    });
   return {
     todos,
     criteria,
@@ -101,7 +145,7 @@ export function buildPlanContract(
 /**
  * Renders the run contract that Pages appends to the resolved prompt of a CLI node.
  *
- * @param assignment - Contract, MCP use, runner, instance and workspace of the node.
+ * @param assignment - Contract, MCP use, read-only mode, runner, instance and workspace of the node.
  * @returns Markdown with the todos, criteria, working rules and the closing report format.
  *
  * @remarks
@@ -138,7 +182,12 @@ export function renderPlanAssignment(assignment: AgentPlanAssignment): string {
     "",
     "### How to work",
     "- Work only in the workspace. Nobody answers questions during this run: when a choice is needed, take the recommended option, otherwise decide yourself and list the decision in the report.",
-    ...(assignment.usesMcp ? [mcpSection(contract)] : []),
+    ...(assignment.isReadOnly
+      ? [
+          "- This session is read-only: read the workspace, but do not create, change or delete files. Commands are not available.",
+        ]
+      : []),
+    ...mcpLines(assignment),
     "",
     "### Closing report (required)",
     "End your final message with exactly one fenced block of the language `pages-report` that holds one JSON object like this:",

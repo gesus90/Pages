@@ -1,9 +1,19 @@
+import { isCodexPermissionMode } from "@/definition/AgentConfiguration";
+
 import { RUN_INSTANCE_VARIABLE } from "./CliProcessScan";
 
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import type { AgentRunOptions } from "@/definition/AgentConfiguration";
 import type { CliProviderId } from "@/definition/AgentConnection";
 import type { AgentPlanSessionMode } from "@/definition/AgentPlanSession";
+
+/**
+ * The runners whose plan sessions are CLI processes reading their prompt from stdin.
+ *
+ * @remarks
+ * Codex runs its sessions over the Agent Client Protocol instead.
+ */
+export type CliPlanRunner = Exclude<CliProviderId, "codex_cli">;
 
 /** The local MCP process of a session and how it reaches Pages. */
 export interface CliSessionMcp {
@@ -12,10 +22,13 @@ export interface CliSessionMcp {
   readonly bundle: string;
   /** The web and API address of Pages, never an MCP network endpoint. */
   readonly url: string;
-  /** The credential of the session; it travels only in the process environment. */
+  /** The credential of the session; it travels in a process environment or input, never in arguments. */
   readonly token: string;
-  /** The MCP tool names the session may call. */
-  readonly tools: readonly string[];
+  /**
+   * The MCP tool names the session may call; `null` offers every tool the
+   * Pages server grants the credential, without a list of the runner.
+   */
+  readonly tools: readonly string[] | null;
 }
 
 /** Everything a runner needs to start one session; no field is free user input. */
@@ -53,79 +66,6 @@ function sessionEnvironment(
     environment.PAGES_TOKEN = specification.mcp.token;
   }
   return environment;
-}
-
-function codexMcpArguments(mcp: CliSessionMcp | null): string[] {
-  if (mcp === null) return ["-c", "mcp_servers={}"];
-  const server = `mcp_servers.${MCP_SERVER}`;
-  return [
-    "-c",
-    `${server}.command=${JSON.stringify(mcp.node)}`,
-    "-c",
-    `${server}.args=${JSON.stringify([mcp.bundle])}`,
-    "-c",
-    `${server}.env_vars=${JSON.stringify(["PAGES_URL", "PAGES_TOKEN", RUN_INSTANCE_VARIABLE])}`,
-    "-c",
-    `${server}.enabled_tools=${JSON.stringify(mcp.tools)}`,
-    "-c",
-    `${server}.default_tools_approval_mode="approve"`,
-    "-c",
-    `${server}.startup_timeout_sec=30`,
-  ];
-}
-
-function codexPlan(specification: CliSessionSpecification): CliSessionPlan {
-  const { options } = specification;
-  const sandbox =
-    options.access === "workspace_write" ? "workspace-write" : "read-only";
-  const args = [
-    "exec",
-    "--skip-git-repo-check",
-    "--ephemeral",
-    "--sandbox",
-    sandbox,
-    "--ignore-user-config",
-    "--ignore-rules",
-    "--color",
-    "never",
-    "--json",
-    "-C",
-    specification.directory,
-    "-c",
-    'approval_policy="never"',
-    "-c",
-    'cli_auth_credentials_store="file"',
-    "-c",
-    'forced_login_method="chatgpt"',
-    "-c",
-    "features.apps=false",
-    "-c",
-    "features.plugins=false",
-    "-c",
-    "features.multi_agent=false",
-    "-c",
-    `features.shell_tool=${options.shell}`,
-    "-c",
-    `features.unified_exec=${options.shell}`,
-    "-c",
-    options.web ? 'web_search="live"' : 'web_search="disabled"',
-    ...codexMcpArguments(specification.mcp),
-    "-m",
-    specification.model,
-  ];
-  if (specification.reasoningEffort !== null)
-    args.push(
-      "-c",
-      `model_reasoning_effort=${JSON.stringify(specification.reasoningEffort)}`,
-    );
-  args.push("-");
-  return {
-    mode: "one_shot",
-    arguments: args,
-    environment: sessionEnvironment(specification),
-    input: specification.prompt,
-    unattended: `approval_policy=never, sandbox=${sandbox}, MCP tools=approve`,
-  };
 }
 
 function claudeTools(specification: CliSessionSpecification): {
@@ -285,19 +225,25 @@ function openCodePlan(specification: CliSessionSpecification): CliSessionPlan {
  * Names a run option the runner cannot enforce, so the node is refused before it starts.
  *
  * @param provider - The runner of the connection.
- * @param options - The run options of the agent.
+ * @param options - The run options of the agent, resolved for its provider.
  * @returns The refusal, or `null` when the runner enforces every option.
  *
  * @remarks
- * Only Codex runs commands inside a sandbox. Claude Code and OpenCode could
- * change files through a command even in a read-only session, so they refuse
- * that combination instead of pretending to keep it.
+ * A Codex agent runs only in "Nur Lesen" or YOLO; an earlier write mode is
+ * never raised to YOLO on its own, so the node waits for a chosen mode. YOLO
+ * exists for no other runner. Claude Code and OpenCode could change files
+ * through a command even in a read-only session, so they refuse that
+ * combination instead of pretending to keep it.
  */
 export function unsupportedRunOption(
   provider: CliProviderId,
   options: AgentRunOptions,
 ): AgentErrorCode | null {
-  if (provider === "codex_cli") return null;
+  if (provider === "codex_cli")
+    return isCodexPermissionMode(options.access)
+      ? null
+      : "codex_permission_mode_required";
+  if (options.access === "yolo") return "plan_run_option_unsupported";
   return options.access === "read_only" && options.shell
     ? "plan_run_option_unsupported"
     : null;
@@ -315,12 +261,10 @@ export function unsupportedRunOption(
  * project configuration of the tools stays off.
  */
 export function planCliSession(
-  provider: CliProviderId,
+  provider: CliPlanRunner,
   specification: CliSessionSpecification,
 ): CliSessionPlan {
   switch (provider) {
-    case "codex_cli":
-      return codexPlan(specification);
     case "claude_code":
       return claudePlan(specification);
     case "opencode":

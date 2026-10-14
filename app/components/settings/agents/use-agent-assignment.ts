@@ -4,7 +4,10 @@ import { useTranslation } from "react-i18next";
 import { AGENT_PROVIDERS } from "@/definition/AgentConnection";
 
 import type { AgentAssignment } from "@/definition/AgentAssignment";
-import type { AgentConnectionSummary } from "@/definition/AgentConnection";
+import type {
+  AgentConnectionSummary,
+  AgentProviderId,
+} from "@/definition/AgentConnection";
 import type {
   AgentCatalogModel,
   AgentModelCatalog,
@@ -15,6 +18,8 @@ import type { SearchableSelectOption } from "@/app/components/ui/searchable-sele
 /** Input choices come from the selected connection, never from a provider-wide union. */
 export interface AssignmentChoices {
   readonly connectionId: string;
+  /** The provider of the chosen connection; it decides which run options apply. */
+  readonly provider: AgentProviderId | null;
   readonly modelId: string;
   readonly models: readonly AgentCatalogModel[];
   readonly effort: string;
@@ -70,6 +75,7 @@ export function useAgentAssignment(input: {
   });
   return {
     connectionId,
+    provider: connection?.provider ?? null,
     modelId,
     models,
     effort,

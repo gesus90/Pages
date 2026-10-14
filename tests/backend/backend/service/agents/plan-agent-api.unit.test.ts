@@ -63,6 +63,7 @@ class SessionTokens extends AgentRunCredentialService {
         stepId: "step-1",
         operations: ["ticket.read"],
         tickets: [{ id: "ticket-1", key: "PAGE-1" }],
+        reach: "tickets",
       },
     };
   }
