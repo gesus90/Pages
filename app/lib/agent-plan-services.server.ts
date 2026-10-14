@@ -49,6 +49,7 @@ export async function createAgentPlanService(input: {
     profiles,
     parameters,
     files: input.agents.agentDefinitionFiles,
+    github: input.agents.agentPlanGitHubCredentials,
   });
   const sessions = new AgentPlanSessionAccess(
     new AgentRunCredentialService(
@@ -83,6 +84,7 @@ export async function createAgentPlanService(input: {
     archive: input.agents.agentRunArchive,
   });
   await service.recoverInterruptedRuns();
+  await input.agents.agentCliGitHubCredentials.recover();
   // Interrupted runs ended just now, so their records are repaired as well.
   await repairAgentFiles(input);
   return service;

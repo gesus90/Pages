@@ -317,6 +317,46 @@ workspace settings of Claude Code (`settingSources` is empty), reaches only its
 own Pages MCP server (the account's connectors and user MCP servers stay out),
 keeps no session history and switches off the automatic model fallback.
 
+Codex CLI and Claude Code YOLO plan nodes can use the GitHub connection stored
+in the selected workspace's Pages project. Pages rechecks the executor's
+workspace access and project management rights (the existing GitHub write
+permission) before decrypting that project's token. The agent connection,
+model, plan bindings and prompt contain no GitHub secret. Read only nodes do
+not receive GitHub credentials. Switching project GitHub synchronization off
+keeps the connection available for these explicitly authorized repository
+operations; synchronization settings are independent of repository access.
+
+Install `gh` for the server account and configure the repository URL and token
+in the project's GitHub settings. Prefer a fine-grained token restricted on
+GitHub to that repository, with **Contents: read and write** for branch pushes
+and **Pull requests: read and write** when the task needs pull requests; grant
+other permissions only as needed. Organization approval, SSO, repository rules
+and token expiry still apply. Pages does not borrow `GH_TOKEN`, `GITHUB_TOKEN`,
+the server's `gh` login or desktop keyring. Missing tokens, decryption failures,
+missing `gh` or missing project write rights appear in the node's effective
+`github` diagnostic, while unrelated YOLO work can continue. Configure the
+connection and explicitly start a new run after correcting such a problem.
+
+Each ACP session gets a temporary `GH_CONFIG_DIR` outside its connection HOME,
+with directory mode 0700 and file mode 0600. Only that directory is mounted
+read-only into its namespace. A destination filter delegates HTTPS Git
+credential responses to native `gh auth git-credential` only for the connected
+repository, with or without `.git`. Matching SSH remote URLs are rewritten to
+HTTPS for the process. Git settings travel through the environment and never
+change the working copy's `.git/config`. Normal closeout and cancellation end
+session processes before removing the directory; failed launches clean it up,
+and startup recovery removes interrupted sessions' credential directories.
+Codex shells preserve the environment Pages has already allowlisted, including
+`GIT_CONFIG_KEY_*`, without loading a user shell profile.
+
+The destination filter and `GH_REPO` default are **not a restriction of the
+token itself**. A YOLO process can read its own temporary token, invoke `gh`
+with another repository or use the API directly, up to the token's native
+GitHub permissions. Pages does not downscope a classic or otherwise broad
+token. Use a token restricted by GitHub when repository isolation is required.
+The handoff exposes only the selected project's token, never credentials of
+another Pages project or connection.
+
 An OpenCode node bound to tickets reaches Pages through the local Pages MCP
 process with a credential of its own: it acts with the executor's current
 rights, only for the bound tickets, and only reads them and sets their

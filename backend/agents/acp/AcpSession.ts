@@ -80,6 +80,10 @@ export interface AcpSessionContext {
   readonly isolation: string;
   /** Restores the modes of the credential folder after the session. */
   readonly secure: () => Promise<void>;
+  /** Masks the exact project credential before any text reaches the observer or turn result. */
+  readonly redact?: (text: string) => string;
+  /** Safe availability diagnostic, including an explicit reason when credentials are missing. */
+  readonly github?: string;
 }
 
 /** One configuration option the session must take, with the options the adapter showed last. */
@@ -157,6 +161,7 @@ export class AcpSession implements PlanSession {
     Object.assign(this.state.effective, context.profile.permissions, {
       isolation: context.isolation,
     });
+    if (context.github) this.state.effective.github = context.github;
     this.connection = acpClient({ name: "pages" })
       .onRequest(methods.client.session.requestPermission, (request) =>
         this.decide(request.params),
@@ -240,7 +245,7 @@ export class AcpSession implements PlanSession {
     );
     this.state.sessionId = response.sessionId;
     noteSessionEvent(this.state.events, `session ${response.sessionId}`);
-    this.context.observer.identified(response.sessionId);
+    this.context.observer.identified(this.redact(response.sessionId));
     return {
       sessionId: response.sessionId,
       options: response.configOptions ?? [],
@@ -456,7 +461,9 @@ export class AcpSession implements PlanSession {
     if (progress === this.lastProgress) return;
     this.lastProgressAt = now;
     this.lastProgress = progress;
-    this.context.observer.progressed?.([...this.state.events]);
+    this.context.observer.progressed?.(
+      this.state.events.map((event) => this.redact(event)),
+    );
   }
 
   private async failed(error: unknown): Promise<PlanSessionTurn> {
@@ -496,7 +503,7 @@ export class AcpSession implements PlanSession {
     if (line)
       noteSessionEvent(
         this.state.events,
-        `adapter ${line.slice(0, STDERR_EVENT_CHARACTERS)}`,
+        `adapter ${this.redact(line).slice(0, STDERR_EVENT_CHARACTERS)}`,
       );
   }
 
@@ -506,15 +513,24 @@ export class AcpSession implements PlanSession {
   ): PlanSessionTurn {
     const { state } = this;
     return {
-      output: state.text,
-      sessionId: state.sessionId,
+      output: this.redact(state.text),
+      sessionId: state.sessionId === null ? null : this.redact(state.sessionId),
       failure,
       errorCode,
       endedAt: new Date().toISOString(),
       permissionDenials: state.permissionDenials,
-      effective: { ...state.effective },
-      events: [...state.events],
+      effective: Object.fromEntries(
+        Object.entries(state.effective).map(([key, value]) => [
+          this.redact(key),
+          this.redact(value),
+        ]),
+      ),
+      events: state.events.map((event) => this.redact(event)),
     };
+  }
+
+  private redact(text: string): string {
+    return this.context.redact?.(text) ?? text;
   }
 
   private async shutDown(): Promise<PlanSessionClosed> {

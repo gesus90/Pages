@@ -11,6 +11,8 @@ import { isApiProvider } from "@/definition/AgentConnection";
 
 import { CliPlanIsolation } from "./CliPlanIsolation";
 import { CliPlanSession } from "./CliPlanSession";
+import { createCliEnvironment } from "./CliEnvironment";
+import { closeCliSession } from "./CliSessionCloseout";
 import { createCliSessionState } from "./CliSessionEvents";
 import { planCliSession, unsupportedRunOption } from "./CliSessionPlans";
 
@@ -28,6 +30,11 @@ import type { AgentCredentialStore } from "./AgentCredentialStore";
 import type { CliHome, CliSessionRequest } from "./CliContracts";
 import type { CliLocator } from "./CliLocator";
 import type { CliProcessRunner } from "./CliProcessRunner";
+import type {
+  CliGitHubAccess,
+  CliGitHubCredentials,
+} from "./CliGitHubCredentials";
+import type { CliSessionProcess } from "./CliSessionProcess";
 
 /** How CLI runs are kept away from the instance folders. */
 export interface CliIsolationOptions {
@@ -46,6 +53,7 @@ interface SessionDependencies {
   readonly runner: Pick<CliProcessRunner, "startSession">;
   /** Absent disables the isolation. */
   readonly isolation?: CliIsolationOptions;
+  readonly github?: Pick<CliGitHubCredentials, "prepare">;
 }
 
 /** What a session start has verified about its connection. */
@@ -256,51 +264,113 @@ export class CliSessionExecution implements PlanSessionRunner {
       mcp: input.mcp,
     });
     const channel = new AcpLineChannel();
-    const { request, isIsolated } = await this.isolate({
-      file: start.adapter,
-      provider: start.provider,
-      home: start.home,
-      arguments: [],
-      workingDirectory: input.directory,
-      isWorkingDirectoryReadOnly: mode === "read_only",
-      environment: launch.environment,
-      timeoutMs: input.options.timeoutMinutes * 60_000,
-      signal: control.signal,
-      onLine: (line) => channel.receive(line),
-    });
-    if (mode === "yolo" && !isIsolated)
-      throw new AgentError("plan_yolo_isolation_unavailable");
-    const child = this.dependencies.runner.startSession(request);
-    channel.attach((line) => child.write(line));
-    void child.exited.then(() => channel.close());
-    control.observer.started({
-      mode: "interactive",
-      processId: child.processId,
-      startedAt: new Date().toISOString(),
-      arguments: request.arguments,
-      unattended: profile.unattended,
-    });
-    return new AcpSession(child, channel.stream, {
+    const github = await this.prepareGitHub(input, start, mode);
+    let child: CliSessionProcess | null = null;
+    try {
+      const { request, isIsolated } = await this.isolate({
+        file: start.adapter,
+        provider: start.provider,
+        home: start.home,
+        arguments: [],
+        workingDirectory: input.directory,
+        isWorkingDirectoryReadOnly: mode === "read_only",
+        credentialDirectory: github?.directory,
+        environment: { ...launch.environment, ...github?.environment },
+        timeoutMs: input.options.timeoutMinutes * 60_000,
+        signal: control.signal,
+        onLine: (line) => channel.receive(github?.redact(line) ?? line),
+      });
+      if (mode === "yolo" && !isIsolated)
+        throw new AgentError("plan_yolo_isolation_unavailable");
+      if (control.signal.aborted) throw new AgentPlanCancelledError();
+      child = this.dependencies.runner.startSession(request);
+      const running = child;
+      channel.attach((line) => running.write(line));
+      void child.exited.then(() => channel.close());
+      control.observer.started({
+        mode: "interactive",
+        processId: child.processId,
+        startedAt: new Date().toISOString(),
+        arguments: request.arguments,
+        unattended: profile.unattended,
+      });
+      return new AcpSession(child, channel.stream, {
+        instanceId: input.instanceId,
+        driver,
+        profile,
+        request: {
+          directory: input.directory,
+          prompt: input.prompt,
+          model: input.agent.model,
+          reasoningEffort: input.agent.reasoningEffort,
+          mcpServers: launch.mcpServers,
+          sessionMeta: launch.sessionMeta,
+        },
+        observer: control.observer,
+        signal: control.signal,
+        isolation: isolationLabel(isIsolated, mode, driver),
+        github: github?.status,
+        redact: github?.redact,
+        secure: () => this.secureAcp(input, start, github),
+      });
+    } catch (error: unknown) {
+      try {
+        if (child !== null) {
+          child.cancel("login_cancelled");
+          await closeCliSession(child, input.instanceId);
+        }
+      } finally {
+        await github?.cleanup();
+      }
+      throw error;
+    }
+  }
+
+  private async prepareGitHub(
+    input: AgentPlanSessionInput,
+    start: VerifiedStart,
+    mode: AcpPermissionMode,
+  ): Promise<CliGitHubAccess | null> {
+    if (!this.dependencies.github) return null;
+    const access =
+      mode === "yolo" && input.github
+        ? await input.github()
+        : ({
+            status: "unavailable",
+            reason:
+              mode === "read_only"
+                ? "read-only session"
+                : "no authorized project connection",
+          } as const);
+    const gh =
+      access.status === "available"
+        ? (await this.dependencies.locator.locate("gh")).path
+        : null;
+    return this.dependencies.github.prepare({
       instanceId: input.instanceId,
-      driver,
-      profile,
-      request: {
-        directory: input.directory,
-        prompt: input.prompt,
-        model: input.agent.model,
-        reasoningEffort: input.agent.reasoningEffort,
-        mcpServers: launch.mcpServers,
-        sessionMeta: launch.sessionMeta,
-      },
-      observer: control.observer,
-      signal: control.signal,
-      isolation: isolationLabel(isIsolated, mode, driver),
-      secure: () =>
-        this.dependencies.store.secure(
-          input.agent.connection.id,
-          start.provider,
-        ),
+      access,
+      gh,
+      searchPath: createCliEnvironment(
+        start.home,
+        start.provider,
+        start.adapter ?? start.file,
+      ).PATH,
     });
+  }
+
+  private async secureAcp(
+    input: AgentPlanSessionInput,
+    start: VerifiedStart,
+    github: CliGitHubAccess | null,
+  ): Promise<void> {
+    try {
+      await github?.cleanup();
+    } finally {
+      await this.dependencies.store.secure(
+        input.agent.connection.id,
+        start.provider,
+      );
+    }
   }
 
   /**

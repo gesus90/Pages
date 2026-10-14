@@ -51,6 +51,8 @@ export interface CliSessionRequest {
   readonly workingDirectory: string;
   /** The isolation mounts the working directory read-only, as for a read-only Codex session. */
   readonly isWorkingDirectoryReadOnly?: boolean;
+  /** Only this session's temporary GitHub configuration is mounted, read-only, outside its HOME. */
+  readonly credentialDirectory?: string;
   /** Variables added to the isolated environment; credentials stay out of the arguments. */
   readonly environment: Readonly<Record<string, string>>;
   readonly timeoutMs: number;

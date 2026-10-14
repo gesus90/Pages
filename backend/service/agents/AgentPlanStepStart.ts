@@ -1,5 +1,8 @@
 import { AgentError } from "@/backend/error/AgentErrors";
-import { agentRunOptionsFor } from "@/definition/AgentConfiguration";
+import {
+  agentRunOptionsFor,
+  isAcpProvider,
+} from "@/definition/AgentConfiguration";
 
 import { bindAgentParameters } from "./AgentParameterBinding";
 import { planStepDirectory } from "./AgentPlanSnapshot";
@@ -17,12 +20,18 @@ import type { AgentProfileService } from "./AgentProfileService";
 import type { AgentParameterService } from "./AgentParameterService";
 import type { AgentPlanAccess } from "./AgentPlanAccess";
 import type { AgentPlanTasks } from "./AgentPlanTasks";
+import type {
+  AgentPlanGitHubAccess,
+  AgentPlanGitHubCredentials,
+} from "./AgentPlanGitHubCredentials";
 
 /** A working directory is a separate process contract, never a prompt convention. */
 export interface AgentPlanExecutionInput extends TextExecutionInput {
   readonly directory: string | null;
   /** Rechecks live access immediately before the adapter's provider request or spawn. */
   readonly beforeStart?: () => Promise<void>;
+  /** Resolves live project credentials only for a YOLO spawn; never serialized or bound to a prompt. */
+  readonly github?: () => Promise<AgentPlanGitHubAccess>;
 }
 
 /** A node ready to start: its resolved input, the definition it read and its run options. */
@@ -43,6 +52,7 @@ interface StartDependencies {
   readonly tasks: Pick<AgentPlanTasks, "snapshot">;
   /** Reads `AGENT.md`; without it the frozen template is used. */
   readonly files?: Pick<AgentDefinitionFiles, "read">;
+  readonly github?: Pick<AgentPlanGitHubCredentials, "resolve">;
 }
 
 interface StartContext {
@@ -136,11 +146,23 @@ export class AgentPlanStepStart {
         return page;
       },
     });
+    const options = agentRunOptionsFor(
+      resolved.assignment.connection.provider,
+      template.run,
+    );
+    const directory = planStepDirectory(step);
+    const github = this.dependencies.github;
     return {
       input: {
         agent: resolved.assignment,
         userId: run.userId,
-        directory: planStepDirectory(step)?.path ?? null,
+        directory: directory?.path ?? null,
+        ...(github &&
+        directory &&
+        isAcpProvider(step.provider) &&
+        options.access === "yolo"
+          ? { github: () => github.resolve(run.userId, directory) }
+          : {}),
         prompt: `${parameters.markdown}\n\n${step.step.instruction}`,
         beforeStart: () =>
           this.reauthorize(run, snapshot, step, {
@@ -149,10 +171,7 @@ export class AgentPlanStepStart {
           }),
       },
       definition,
-      options: agentRunOptionsFor(
-        resolved.assignment.connection.provider,
-        template.run,
-      ),
+      options,
     };
   }
 

@@ -134,6 +134,13 @@ export class CliPlanIsolation {
         "--bind",
         homeRoot,
         homeRoot,
+        ...(request.credentialDirectory
+          ? [
+              "--ro-bind",
+              request.credentialDirectory,
+              request.credentialDirectory,
+            ]
+          : []),
         "--chdir",
         workingDirectory,
         "--",

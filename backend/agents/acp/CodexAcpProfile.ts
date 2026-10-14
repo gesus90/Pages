@@ -129,6 +129,12 @@ const YOLO_PROFILE: CodexAcpProfile = {
   configuration: {
     ...ACCOUNT_CONFIGURATION,
     web_search: "live",
+    // The process already has Pages' allowlist. Keep GIT_CONFIG_KEY_* in shells without loading a user profile.
+    shell_environment_policy: {
+      inherit: "all",
+      ignore_default_excludes: true,
+      experimental_use_profile: false,
+    },
     // Apps reach accounts outside Pages, which YOLO does not grant.
     features: { shell_tool: true, unified_exec: true, apps: false },
   },

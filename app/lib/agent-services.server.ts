@@ -27,12 +27,16 @@ import { TextAgentRoleService } from "@/backend/service/assistant/TextAgentRoleS
 import { AssistantRequestRegistry } from "@/backend/service/assistant/AssistantRequestRegistry";
 import { AgentAssignmentRepository } from "@/backend/database/repositories/agent/AgentAssignmentRepository";
 import { AgentAssignmentService } from "@/backend/service/agents/AgentAssignmentService";
+import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
+import { AgentPlanGitHubCredentials } from "@/backend/service/agents/AgentPlanGitHubCredentials";
+import { CliGitHubCredentials } from "@/backend/agents/cli/CliGitHubCredentials";
 
 import { createAgentConfigurationServices } from "./agent-workspace-services.server";
 
 import type { Database } from "@/backend/database/Database";
 import type { PlanExecution } from "@/backend/agents/AgentPlanExecution";
 import type { TextExecution } from "@/backend/agents/TextExecution";
+import type { AgentWorkspaceService } from "@/backend/service/agents/AgentWorkspaceService";
 import type { AgentConfigurationApplicationServices } from "./agent-workspace-services.server";
 
 export interface AgentApplicationServices extends AgentConfigurationApplicationServices {
@@ -54,6 +58,10 @@ export interface AgentApplicationServices extends AgentConfigurationApplicationS
    */
   readonly chatRequests: AssistantRequestRegistry;
   readonly agentPlanExecution: PlanExecution;
+  /** Server-only project credentials, resolved live for YOLO plan nodes. */
+  readonly agentPlanGitHubCredentials: AgentPlanGitHubCredentials;
+  /** Temporary native gh credentials, also cleaned during interrupted-run recovery. */
+  readonly agentCliGitHubCredentials: CliGitHubCredentials;
 }
 
 interface ExecutionInput {
@@ -69,17 +77,21 @@ interface ExecutionInput {
   readonly locator: CliLocator;
   readonly runner: CliProcessRunner;
   readonly access: AgentConnectionAccess;
+  readonly github: CliGitHubCredentials;
+  readonly catalog: AgentCatalogRefresh;
 }
 
 /**
- * Builds the three model entry points; each passes the connection scope before
- * its provider adapter, so no run can bypass the check.
+ * Builds model execution and checks around the same connection and provider boundaries.
  */
 function createExecutions(
   input: ExecutionInput,
 ): Pick<
   AgentApplicationServices,
-  "agentTextExecution" | "agentChatExecution" | "agentPlanExecution"
+  | "agentTextExecution"
+  | "agentChatExecution"
+  | "agentPlanExecution"
+  | "agentCheckService"
 > {
   const { repository, cipher, operations, access } = input;
   const cliAdapters = {
@@ -89,6 +101,14 @@ function createExecutions(
     runner: input.runner,
   };
   return {
+    agentCheckService: new AgentCheckService({
+      repository,
+      catalog: input.catalog,
+      cipher,
+      operations,
+      cli: input.runtime,
+      providers: createApiProviderRegistry(),
+    }),
     agentTextExecution: new ScopedExecution(
       new AgentTextExecution(
         new ApiTextExecution(repository, cipher),
@@ -110,6 +130,7 @@ function createExecutions(
       new ApiTextExecution(repository, cipher),
       new CliSessionExecution({
         ...cliAdapters,
+        github: input.github,
         isolation: {
           protectedDirectories: input.protectedDirectories,
           isRequired: input.isIsolationRequired,
@@ -118,6 +139,26 @@ function createExecutions(
       operations,
       access,
     ),
+  };
+}
+
+/** Keeps project authorization and temporary CLI credential storage on the server. */
+function createGitHubCredentials(input: {
+  readonly database: Database;
+  readonly dataDirectory: string;
+  readonly tokenKey: Buffer;
+  readonly workspaces: AgentWorkspaceService;
+}): Pick<
+  AgentApplicationServices,
+  "agentPlanGitHubCredentials" | "agentCliGitHubCredentials"
+> {
+  return {
+    agentPlanGitHubCredentials: new AgentPlanGitHubCredentials({
+      projects: new ProjectRepository(input.database),
+      workspaces: input.workspaces,
+      tokenKey: input.tokenKey,
+    }),
+    agentCliGitHubCredentials: new CliGitHubCredentials(input.dataDirectory),
   };
 }
 
@@ -163,8 +204,15 @@ export function createAgentServices(
     authorization: new AuthorizationRepository(database),
     groups: new UserGroupRepository(database),
   });
+  const github = createGitHubCredentials({
+    database,
+    dataDirectory,
+    tokenKey,
+    workspaces: configuration.agentWorkspaceService,
+  });
   return {
     ...configuration,
+    ...github,
     agentAssignmentService: new AgentAssignmentService({
       assignments: new AgentAssignmentRepository(database),
       connections: repository,
@@ -187,6 +235,8 @@ export function createAgentServices(
       locator,
       runner,
       access,
+      github: github.agentCliGitHubCredentials,
+      catalog: refresh,
     }),
     chatRequests: new AssistantRequestRegistry({
       timeoutMs: 300_000,
@@ -207,14 +257,6 @@ export function createAgentServices(
       cipher,
       operations,
       cli: agentCliLoginService,
-    }),
-    agentCheckService: new AgentCheckService({
-      repository,
-      catalog: refresh,
-      cipher,
-      operations,
-      cli: runtime,
-      providers: createApiProviderRegistry(),
     }),
   };
 }

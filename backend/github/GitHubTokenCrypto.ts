@@ -29,7 +29,7 @@ export function encryptGitHubToken(plaintext: string, key: Buffer): string {
  *
  * @param payload - Value produced by `encryptGitHubToken`.
  * @param key - 32-byte server-side key.
- * @returns The plain token, kept inside the server process.
+ * @returns The plain token for server-side API calls or managed ephemeral CLI credentials.
  */
 export function decryptGitHubToken(payload: string, key: Buffer): string {
   const segments = payload.split(":");
