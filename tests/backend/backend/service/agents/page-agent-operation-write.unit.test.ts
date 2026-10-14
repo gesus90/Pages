@@ -1,6 +1,7 @@
 import { beforeEach, expect, it, vi } from "vitest";
 
 import { renderAgentDefinition } from "@/backend/service/agents/AgentDefinitionFiles";
+import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 
 import { memoryFiles } from "./page-agent-files";
 import { AGENTS_DIRECTORY, PageAgentWorld } from "./page-agent-world";
@@ -233,6 +234,70 @@ it("changes every allowed field and reads the same values back", async () => {
     ownerId: "owner",
     revision: 2,
   });
+});
+
+it("keeps the run options of the agent when another field changes", async () => {
+  const created = await create();
+  const stored = world.storedAgents()[0];
+  world.replace({
+    ...stored,
+    configuration: {
+      ...(stored.configuration ?? emptyAgentConfiguration("person")),
+      run: { access: "read_only", shell: false, web: true, timeoutMinutes: 30 },
+    },
+  });
+
+  await update(created.id, 1, { name: "Renamed" });
+
+  expect(world.storedAgents()[0].configuration?.run).toEqual({
+    access: "read_only",
+    shell: false,
+    web: true,
+    timeoutMinutes: 30,
+  });
+  expect(await read(created.id)).toMatchObject({
+    run: { access: "read_only", web: true, timeoutMinutes: 30 },
+  });
+});
+
+it("keeps the stored effort when only the model changes and asks for a valid pair", async () => {
+  const created = await create({ reasoningEffort: "high" });
+
+  await expect(
+    update(created.id, 1, { modelProfileId: "model-2" }),
+  ).rejects.toMatchObject({
+    code: "INVALID_REQUEST",
+    details: { reason: "reasoning_unsupported" },
+  });
+  expect((await read(created.id)).reasoningEffort).toBe("high");
+
+  const changed = await update(created.id, 1, {
+    modelProfileId: "model-2",
+    reasoningEffort: "medium",
+  });
+
+  expect(changed).toMatchObject({ changed: true, revision: 2 });
+  expect(await read(created.id)).toMatchObject({
+    modelProfileId: "model-2",
+    reasoningEffort: "medium",
+  });
+});
+
+it("refuses a change while a run holds the agent and accepts it afterwards", async () => {
+  const created = await create();
+  const release = await world.files.hold([created.id]);
+
+  await expect(
+    update(created.id, 1, { name: "During the run" }),
+  ).rejects.toMatchObject({
+    code: "CONFLICT",
+    details: { reason: "agent_running" },
+  });
+  await release();
+
+  await expect(
+    update(created.id, 1, { name: "After the run" }),
+  ).resolves.toMatchObject({ changed: true, revision: 2 });
 });
 
 it("keeps one revision per change and no-ops a request that matches", async () => {

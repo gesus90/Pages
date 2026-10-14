@@ -1299,13 +1299,13 @@ work on the same agents as the agent page of Pages and under its rules. They
 add no right of their own, and they do not reach the agents of the
 administration, runs, plans, workspaces or the deletion of an agent.
 
-| Tool                | Pages operation      | Arguments                                                                                                                                       | Does                                                          |
-| ------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| `list_agents`       | `agents.list`        | optional `cursor`, `limit`                                                                                                                      | The agents the account owns or that are shared with it        |
-| `read_agent`        | `agents.read`        | `agentId`                                                                                                                                       | One agent with the same fields                                |
-| `list_agent_models` | `agents.models.list` | none                                                                                                                                            | The models the account may give an agent, with their efforts  |
-| `create_agent`      | `agents.create`      | `operationId`, `name`, optional `instruction`, `parameters`, `directoryParameter`, `modelProfileId`, `reasoningEffort`, `sharing`                | Creates a private agent owned by the connected account        |
-| `update_agent`      | `agents.update`      | `operationId`, `agentId`, `expectedRevision`, one or more of `name`, `instruction`, `parameters`, `directoryParameter`, `modelProfileId`, `reasoningEffort`, `sharing` | Changes what is named; the rest keeps its value |
+| Tool                | Pages operation      | Arguments                                                                                                                                                              | Does                                                         |
+| ------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `list_agents`       | `agents.list`        | optional `cursor`, `limit`                                                                                                                                             | The agents the account owns or that are shared with it       |
+| `read_agent`        | `agents.read`        | `agentId`                                                                                                                                                              | One agent with the same fields                               |
+| `list_agent_models` | `agents.models.list` | none                                                                                                                                                                   | The models the account may give an agent, with their efforts |
+| `create_agent`      | `agents.create`      | `operationId`, `name`, optional `instruction`, `parameters`, `directoryParameter`, `modelProfileId`, `reasoningEffort`, `sharing`                                      | Creates a private agent owned by the connected account       |
+| `update_agent`      | `agents.update`      | `operationId`, `agentId`, `expectedRevision`, one or more of `name`, `instruction`, `parameters`, `directoryParameter`, `modelProfileId`, `reasoningEffort`, `sharing` | Changes what is named; the rest keeps its value              |
 
 - **Entries.** `id` is stable. An entry carries `name`, `instruction`
   (Markdown with `{{parameter}}`, `{{parameter.path}}`, `{{parameter.link}}` and
@@ -1378,24 +1378,24 @@ administration, runs, plans, workspaces or the deletion of an agent.
 
 Error codes of these tools, with `details.reason` where Pages names one:
 
-| Code              | `details`                    | Meaning                                                                                  |
-| ----------------- | ---------------------------- | ---------------------------------------------------------------------------------------- |
-| `INVALID_REQUEST` | none                         | Unknown, missing or malformed parameter, including an owner or user parameter            |
-| `INVALID_REQUEST` | `model_unavailable`          | The model is not released for the account, does not exist, or no longer verifies         |
-| `INVALID_REQUEST` | `reasoning_unsupported`      | The model does not list the effort, or lists levels and `null` was passed                |
-| `INVALID_REQUEST` | `reasoning_required`         | The effort was omitted and the model lists levels without a default Pages can apply      |
-| `INVALID_REQUEST` | `sharing_target_unavailable` | A group or department of `sharing` does not exist                                        |
-| `INVALID_REQUEST` | `sharing_changes_required`   | The stored share names a deleted group or department; pass `sharing`                     |
-| `INVALID_REQUEST` | `configuration_invalid`      | Undeclared or mistyped placeholder, invalid parameters or directory parameter            |
-| `INVALID_REQUEST` | `credentials_in_text`        | The name or instruction looks like a credential                                          |
+| Code              | `details`                         | Meaning                                                                             |
+| ----------------- | --------------------------------- | ----------------------------------------------------------------------------------- |
+| `INVALID_REQUEST` | none                              | Unknown, missing or malformed parameter, including an owner or user parameter       |
+| `INVALID_REQUEST` | `model_unavailable`               | The model is not released for the account, does not exist, or no longer verifies    |
+| `INVALID_REQUEST` | `reasoning_unsupported`           | The model does not list the effort, or lists levels and `null` was passed           |
+| `INVALID_REQUEST` | `reasoning_required`              | The effort was omitted and the model lists levels without a default Pages can apply |
+| `INVALID_REQUEST` | `sharing_target_unavailable`      | A group or department of `sharing` does not exist                                   |
+| `INVALID_REQUEST` | `sharing_changes_required`        | The stored share names a deleted group or department; pass `sharing`                |
+| `INVALID_REQUEST` | `configuration_invalid`           | Undeclared or mistyped placeholder, invalid parameters or directory parameter       |
+| `INVALID_REQUEST` | `credentials_in_text`             | The name or instruction looks like a credential                                     |
 | `INVALID_REQUEST` | `parameter_reference_unavailable` | A workspace or wiki default is not available to the account                         |
-| `INVALID_REQUEST` | `agent_limit_reached`        | The account owns 100 agents                                                              |
-| `FORBIDDEN`       | none                         | The agent is visible but the account is not its owner                                    |
-| `FORBIDDEN`       | `default_model_unavailable`  | No model is released for the account, so no default exists                               |
-| `NOT_FOUND`       | none                         | The agent does not exist, is not visible, or belongs to the administration               |
-| `CONFLICT`        | `currentRevision`            | `expectedRevision` is stale; nothing was written                                         |
-| `CONFLICT`        | `agent_running`              | A running plan holds the agent; change it after the run                                  |
-| `CONFLICT`        | none                         | The `operationId` was used with other parameters                                         |
+| `INVALID_REQUEST` | `agent_limit_reached`             | The account owns 100 agents                                                         |
+| `FORBIDDEN`       | none                              | The agent is visible but the account is not its owner                               |
+| `FORBIDDEN`       | `default_model_unavailable`       | No model is released for the account, so no default exists                          |
+| `NOT_FOUND`       | none                              | The agent does not exist, is not visible, or belongs to the administration          |
+| `CONFLICT`        | `currentRevision`                 | `expectedRevision` is stale; nothing was written                                    |
+| `CONFLICT`        | `agent_running`                   | A running plan holds the agent; change it after the run                             |
+| `CONFLICT`        | none                              | The `operationId` was used with other parameters                                    |
 
 ### Administration
 

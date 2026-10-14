@@ -330,6 +330,8 @@ export class PageAgentWorld {
   public readonly agents: PageAgentService;
   /** The operations an MCP client calls. */
   public readonly operations: PageAgentOperationService;
+  /** The owner of the definition files, which a run holds while it reads them. */
+  public readonly files: AgentDefinitionFiles;
   public readonly keys = new Map<string, StoredAgentOperation>();
   /** How often the profile table was written, to show that a refusal writes nothing. */
   public readonly writes = { profiles: 0 };
@@ -344,6 +346,7 @@ export class PageAgentWorld {
     const files = new AgentDefinitionFiles(AGENTS_DIRECTORY, () =>
       profiles.list(),
     );
+    this.files = files;
     const dependencies = {
       profiles,
       connections: new MemoryConnections(this),

@@ -19,19 +19,28 @@ const LIMIT_CONSTRAINTS = [
   "importAssets",
 ] as const satisfies readonly AgentLimitDetails["constraint"][];
 
-const REJECTION_REASONS = [
-  "model_unavailable",
-  "reasoning_unsupported",
-  "reasoning_required",
-  "default_model_unavailable",
-  "sharing_target_unavailable",
-  "configuration_invalid",
-  "credentials_in_text",
-  "parameter_reference_unavailable",
-  "agent_limit_reached",
-  "agent_running",
-  "sharing_changes_required",
-] as const satisfies readonly AgentRejectionReason["reason"][];
+/** Every reason of the contract, so a new one cannot be left out of the whitelist unnoticed. */
+const REJECTION_REASONS: Readonly<
+  Record<AgentRejectionReason["reason"], true>
+> = {
+  model_unavailable: true,
+  reasoning_unsupported: true,
+  reasoning_required: true,
+  default_model_unavailable: true,
+  sharing_target_unavailable: true,
+  configuration_invalid: true,
+  credentials_in_text: true,
+  parameter_reference_unavailable: true,
+  agent_limit_reached: true,
+  agent_running: true,
+  sharing_changes_required: true,
+};
+
+function isRejectionReason(
+  input: unknown,
+): input is AgentRejectionReason["reason"] {
+  return typeof input === "string" && Object.hasOwn(REJECTION_REASONS, input);
+}
 
 /** Whitelisted business errors; provider diagnostics and submitted credentials are discarded. */
 export class PagesOperationFailure extends Error {
@@ -166,8 +175,7 @@ export async function operationFailure(
 function readReason(input: unknown): AgentRejectionReason | undefined {
   if (typeof input !== "object" || input === null || !("reason" in input))
     return undefined;
-  const reason = REJECTION_REASONS.find((name) => name === input.reason);
-  return reason === undefined ? undefined : { reason };
+  return isRejectionReason(input.reason) ? { reason: input.reason } : undefined;
 }
 
 function failureDetails(
