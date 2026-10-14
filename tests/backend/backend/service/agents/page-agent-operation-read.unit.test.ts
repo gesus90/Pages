@@ -238,3 +238,38 @@ it("leaves the file system and the table untouched when reading", async () => {
   expect(world.writes.profiles).toBe(0);
   expect(world.keys.size).toBe(0);
 });
+
+it("keeps the page of the agent list as it was, for the same agents and models", async () => {
+  world.seedAgent({
+    id: "mine",
+    ownerId: "owner",
+    modelProfileId: "model-1",
+    targets: [{ kind: "group", targetId: "builders" }],
+  });
+  world.seedAgent({
+    id: "his",
+    ownerId: "outsider",
+    modelProfileId: "model-1",
+  });
+
+  const page = await world.agents.page("owner");
+
+  expect(page.isAdministrator).toBe(false);
+  expect(page.agents.map((agent) => agent.id)).toEqual(["mine"]);
+  expect(page.agents[0]).toMatchObject({
+    canEdit: true,
+    ownerId: "owner",
+    hasDeletedTargets: false,
+    configuration: {
+      sharing: { targets: [{ kind: "group", targetId: "builders" }] },
+    },
+  });
+  expect(page.models).toMatchObject([
+    { id: "model-1", model: "model-model-1", reasoningEfforts: [] },
+  ]);
+  expect(page.directory.groups.map((group) => group.id)).toEqual([
+    "builders",
+    "auditors",
+  ]);
+  expect(page.workspaces).toEqual([]);
+});
