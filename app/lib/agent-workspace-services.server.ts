@@ -16,6 +16,10 @@ import { AgentDefinitionFiles } from "@/backend/service/agents/AgentDefinitionFi
 import { AgentRunArchive } from "@/backend/service/agents/AgentRunArchive";
 import { PageAgentService } from "@/backend/service/agents/PageAgentService";
 import { PageAgentRunRepository } from "@/backend/database/repositories/agent/PageAgentRunRepository";
+import { UserRepository } from "@/backend/database/repositories/UserRepository";
+import { AgentTicketParameterService } from "@/backend/service/agents/AgentTicketParameterService";
+import { createAgentTaskContext } from "@/backend/service/agents/AgentTaskAccess";
+import { AgentError } from "@/backend/error/AgentErrors";
 
 import type { Database } from "@/backend/database/Database";
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
@@ -74,6 +78,12 @@ export function createAgentConfigurationServices(input: {
     projects,
     new WikiRepository(database),
   );
+  const users = new UserRepository(database);
+  const tickets = new AgentTicketParameterService(async (userId) => {
+    const actor = await users.findById(userId);
+    if (!actor?.isActive) throw new AgentError("agent_usage_denied");
+    return createAgentTaskContext(database, actor, "chat");
+  });
   const agentWorkspaceService = new AgentWorkspaceService({
     workspaces: new AgentWorkspaceRepository(database),
     authorization,
@@ -96,6 +106,7 @@ export function createAgentConfigurationServices(input: {
     groups,
     operations: input.operations,
     content,
+    tickets,
     workspaces: agentWorkspaceService,
     files: agentDefinitionFiles,
   };
@@ -118,6 +129,7 @@ export function createAgentConfigurationServices(input: {
       workspaces: agentWorkspaceService,
       authorization,
       content,
+      tickets,
     }),
   };
 }

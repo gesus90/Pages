@@ -80,7 +80,7 @@ export function createSessionRecord(
       ...connectionOf(agent),
       model: agent.model,
       reasoningEffort: agent.reasoningEffort,
-      options: isRequest ? null : start.prepared.options,
+      options: start.prepared.options,
       unattended: isRequest ? "request without tools" : "pending",
       mcp: start.usesMcp,
       directory: isRequest ? null : directory,

@@ -36,10 +36,10 @@ export interface PreparedPlanStep {
 }
 
 interface StartDependencies {
-  readonly profiles: AgentProfileService;
-  readonly parameters: AgentParameterService;
-  readonly access: AgentPlanAccess;
-  readonly tasks: AgentPlanTasks;
+  readonly profiles: Pick<AgentProfileService, "resolveDefinition">;
+  readonly parameters: Pick<AgentParameterService, "prepare">;
+  readonly access: Pick<AgentPlanAccess, "require">;
+  readonly tasks: Pick<AgentPlanTasks, "snapshot">;
   /** Reads `AGENT.md`; without it the frozen template is used. */
   readonly files?: Pick<AgentDefinitionFiles, "read">;
 }
@@ -125,6 +125,11 @@ export class AgentPlanStepStart {
     validateContext(step, live);
     const { template, definition } = await this.readDefinition(step);
     const parameters = await bindAgentParameters(template, values, {
+      ticket: async (id) => {
+        const ticket = live.tickets?.[id];
+        if (!ticket) throw new AgentError("parameter_ticket_unavailable");
+        return ticket;
+      },
       workspace: async (id) => {
         const reference = step.prepared.references.find(
           (entry) => entry.id === id,

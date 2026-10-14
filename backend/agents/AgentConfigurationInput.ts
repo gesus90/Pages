@@ -34,6 +34,12 @@ export function readAgentParameterValue(input: unknown): AgentParameterValue {
   switch (entry.type) {
     case "text":
       return { type: "text", text: text(entry.text, 200_000, true) };
+    case "number":
+      if (typeof entry.number !== "number" || !Number.isFinite(entry.number))
+        throw new AgentError("parameter_number_invalid");
+      return { type: "number", number: entry.number };
+    case "ticket":
+      return { type: "ticket", ticketId: text(entry.ticketId, 100).trim() };
     case "workspace":
       return {
         type: "workspace",
@@ -52,6 +58,8 @@ function parameter(input: unknown): AgentParameter {
   if (
     !isAgentParameterName(name) ||
     (entry.type !== "text" &&
+      entry.type !== "number" &&
+      entry.type !== "ticket" &&
       entry.type !== "workspace" &&
       entry.type !== "wiki") ||
     typeof entry.isRequired !== "boolean"

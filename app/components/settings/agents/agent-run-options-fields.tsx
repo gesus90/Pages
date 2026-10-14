@@ -29,6 +29,7 @@ export function AgentRunOptionsFields(props: {
       change({ access });
   }
   function chooseTimeout(text: string): void {
+    if (!text.trim()) return;
     const minutes = Number(text);
     if (Number.isSafeInteger(minutes)) change({ timeoutMinutes: minutes });
   }
@@ -61,14 +62,26 @@ export function AgentRunOptionsFields(props: {
           <span className="block">{t("settings.agents.run.timeout")}</span>
           <Input
             type="number"
+            aria-label={t("settings.agents.run.timeout")}
             min={AGENT_RUN_TIMEOUT_MINUTES.minimum}
             max={AGENT_RUN_TIMEOUT_MINUTES.maximum}
             step={1}
             value={options.timeoutMinutes}
             onChange={(event) => chooseTimeout(event.target.value)}
           />
+          <span className="block text-xs font-normal text-muted-foreground">
+            {t(
+              options.timeoutMinutes === 0
+                ? "settings.agents.run.unlimited"
+                : "settings.agents.run.hardTimeout",
+              { minutes: options.timeoutMinutes },
+            )}
+          </span>
         </label>
       </div>
+      <p className="text-xs text-muted-foreground">
+        {t("settings.agents.run.timeoutHint")}
+      </p>
       <label className="flex items-center gap-2 text-sm">
         <Checkbox
           checked={options.shell}

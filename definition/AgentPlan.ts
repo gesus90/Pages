@@ -26,7 +26,7 @@ export interface AgentPlanStep extends AgentPlanPosition {
   readonly bindings: Readonly<Record<string, AgentPlanBinding>>;
 }
 
-/** One named value; numbers and JSON are rendered once into existing text ports. */
+/** One named value; numbers retain their numeric type while JSON uses a text port. */
 export interface AgentPlanParameter extends AgentPlanPosition {
   readonly id: string;
   readonly type: "parameter";

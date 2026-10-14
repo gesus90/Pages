@@ -17,12 +17,15 @@ import type {
 
 /** Reuses A7 credentials and fixed hosts for a single bounded, non-retrying request. */
 export class ApiTextExecution implements TextExecution {
-  private readonly repository: AgentConnectionRepository;
+  private readonly repository: Pick<
+    AgentConnectionRepository,
+    "find" | "findSecretEncrypted"
+  >;
   private readonly cipher: InstanceSecretCipher;
   private readonly request: typeof fetch;
 
   public constructor(
-    repository: AgentConnectionRepository,
+    repository: Pick<AgentConnectionRepository, "find" | "findSecretEncrypted">,
     cipher: InstanceSecretCipher,
     request: typeof fetch = fetch,
   ) {

@@ -40,6 +40,7 @@ import type {
 } from "@/definition/AgentProfile";
 import type { AgentIdentity } from "@/definition/McpAuthorization";
 import type { UserGroup } from "@/definition/UserGroup";
+import type { AgentTicketParameterService } from "@/backend/service/agents/AgentTicketParameterService";
 
 /** The folder of agent definition files of the test instance. */
 export const AGENTS_DIRECTORY = "/srv/pages/agents";
@@ -182,6 +183,11 @@ class MemoryProfiles extends AgentProfileRepository {
         left.name.toLowerCase().localeCompare(right.name.toLowerCase()) ||
         left.id.localeCompare(right.id),
     );
+  }
+
+  /** Removes the synthetic profile without touching a database. */
+  public override async remove(id: string): Promise<void> {
+    this.world.withdrawModel(id);
   }
 
   /** Saves a profile under the revision rule and runs the journal in the same transaction. */
@@ -344,7 +350,9 @@ export class PageAgentWorld {
   private readonly accounts = new Map<string, AccountAccess>();
   private readonly models = new Map<string, ModelFacts>();
 
-  public constructor() {
+  public constructor(
+    tickets?: Pick<AgentTicketParameterService, "choices" | "resolve">,
+  ) {
     const profiles = new MemoryProfiles(this);
     const files = new AgentDefinitionFiles(AGENTS_DIRECTORY, () =>
       profiles.list(),
@@ -357,6 +365,7 @@ export class PageAgentWorld {
       groups: new MemoryGroups(this),
       operations: new AgentOperationRegistry(),
       files,
+      tickets,
     };
     this.agents = new PageAgentService(
       dependencies,

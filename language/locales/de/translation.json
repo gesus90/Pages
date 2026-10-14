@@ -544,7 +544,7 @@
         "profile_target_invalid": "Ein vorhandenes Zuweisungsziel wählen.",
         "configuration_invalid": "Eine gültige Agent-Konfiguration eingeben.",
         "parameter_invalid": "Parameternamen, Typen, Platzhalter und Standardwerte prüfen.",
-        "parameter_required": "Alle Pflichtparameter befüllen.",
+        "parameter_required": "Ein benötigter Parameterwert fehlt. Alle Pflichtparameter und verwendeten Platzhalter befüllen.",
         "parameter_reference_unavailable": "Die Parameterreferenz ist nicht verfügbar oder nicht zugänglich.",
         "profile_in_use": "Zuweisungen, Projektbezug und Nutzungsfreigaben vor dem Löschen entfernen.",
         "profile_conflict": "Der Agent wurde geändert. Vor dem Speichern neu laden.",
@@ -594,7 +594,10 @@
         "plan_runner_incomplete": "Der Runner endete, ohne seinen Turn abzuschließen.",
         "plan_runner_permission_denied": "Der Runner hat Aktionen abgelehnt, die die Laufoptionen nicht erlauben; nichts wurde stellvertretend freigegeben.",
         "plan_acceptance_failed": "Der Abschlussbericht belegt nicht jedes Todo und jedes Abnahmekriterium.",
-        "plan_closeout_failed": "Die Sitzung ließ sich nicht vollständig schließen; Prozesse blieben übrig."
+        "plan_closeout_failed": "Die Sitzung ließ sich nicht vollständig schließen; Prozesse blieben übrig.",
+        "parameter_number_invalid": "Für jeden Zahlenparameter eine gültige endliche Zahl angeben.",
+        "parameter_ticket_unavailable": "Das gewählte Ticket ist nicht verfügbar oder nicht zugänglich. Ein zugängliches Ticket auswählen.",
+        "timeout": "Das harte Zeitlimit des Agents ist abgelaufen. Der laufende Vorgang wurde unterbrochen."
       },
       "description": "Verwalten Sie die benannten KI-Anbindungen und Funktionszuordnungen dieser Pages-Instanz.",
       "adminModeRequired": "Die Agents-Einstellungen sind nur im Admin-Modus verfügbar. Ihr Konto ist derzeit im Rollenmodus.",
@@ -866,7 +869,7 @@
         "sharingHint": "Freigabe erlaubt die Nutzung der Vorlage. Zugang, Projektzugriff und Bearbeitungsrechte werden separat geprüft.",
         "shareGlobally": "Vorlage für alle aktiven Benutzer freigeben",
         "markdown": "Markdown-Grundkonfiguration",
-        "parameterHint": "Platzhalter: {{ziel}}, {{workspace.path}}, {{aufgabe.markdown}} oder {{aufgabe.link}}. Parameter ausdrücklich bestätigen.",
+        "parameterHint": "Platzhalter wie {{ziel}}, {{anzahl}} und {{ticketID}} fügen Strings, Zahlen und den vollständigen Tickettext ein. Workspace und Wiki unterstützen {{workspace.path}}, {{aufgabe.markdown}} und {{aufgabe.link}}. Parameter ausdrücklich bestätigen.",
         "parameters": "Parameter",
         "parameterIssues": "Vor Aktivierung prüfen: {{issues}}.",
         "confirmParameter": "Parameter bestätigen",
@@ -909,16 +912,19 @@
           "shared": "Gemeinsame Geltung: Nutzung nur mit Berechtigung für den zugewiesenen Zugang."
         },
         "type": {
-          "text": "Text",
+          "text": "String",
           "workspace": "Arbeitsbereich-Referenz",
-          "wiki": "Wiki-Seitenreferenz"
+          "wiki": "Wiki-Seitenreferenz",
+          "number": "Zahl",
+          "ticket": "Ticket"
         },
         "issue": {
           "syntax": "ungültige Syntax",
           "undeclared": "unbestätigter Parameter",
           "typeMismatch": "widersprüchlicher Typ",
           "duplicate": "doppelter Name",
-          "directory": "ungültiger Arbeitsbereich-Parameter"
+          "directory": "ungültiger Arbeitsbereich-Parameter",
+          "number": "ungültige Zahl"
         },
         "filter": {
           "scope": "Geltung",
@@ -935,19 +941,25 @@
           "legacy": "Legacy-Funktion: {{id}}",
           "plan": "Ausführplan {{id}}",
           "agent": "Agent „{{name}}“"
-        }
+        },
+        "ticket": "Ticket anbinden",
+        "chooseTicket": "Ticket auswählen (kein Standardwert)",
+        "unavailableTicket": "Angebundenes Ticket nicht zugänglich"
       },
       "openCodeKey": "OpenRouter-API-Schlüssel für OpenCode",
       "openCodeKeyHint": "Pages legt den Schlüssel nur im privaten Anmeldeordner dieser Verbindung ab, in OpenCodes eigener Schlüsseldatei. Er erscheint danach nirgends mehr.",
       "openCodeKeyStore": "Schlüssel hinterlegen",
       "openCodeKeyReplace": "Schlüssel ersetzen",
       "run": {
-        "title": "Ausführung in Ausführplänen",
-        "hint": "Gilt für CLI-Runner (Codex, Claude Code, OpenCode). Sie arbeiten immer unbeaufsichtigt: Was nicht erlaubt ist, wird abgelehnt statt nachgefragt. Eine Kombination, die ein Runner nicht durchsetzen kann, blockiert den Start.",
+        "title": "Laufoptionen",
+        "hint": "Workspace-, Shell- und Web-Berechtigungen gelten für CLI-Runner (Codex, Claude Code, OpenCode). Sie arbeiten immer unbeaufsichtigt: Was nicht erlaubt ist, wird abgelehnt statt nachgefragt. Eine Kombination, die ein Runner nicht durchsetzen kann, blockiert den Start. Der Timeout gilt auch für API-Agents.",
         "access": "Zugriff auf den Workspace",
-        "timeout": "Zeitlimit je Sitzung (Minuten)",
+        "timeout": "Timeout (Minuten)",
         "shell": "Befehle im Workspace ausführen (Shell)",
-        "web": "Websuche und Webabruf erlauben"
+        "web": "Websuche und Webabruf erlauben",
+        "unlimited": "0 · unbegrenzte Laufzeit",
+        "hardTimeout": "Harte Grenze: {{minutes}} Minuten",
+        "timeoutHint": "0 bedeutet unbegrenzte Laufzeit bis zum Abschluss. Ein positiver Timeout unterbricht den laufenden Vorgang bei Ablauf hart; der Lauf wird als „Gestört“ mit Timeout-Ursache angezeigt."
       }
     },
     "connections": {
@@ -2964,7 +2976,7 @@
       "waiting": "Wartet",
       "running": "Läuft",
       "succeeded": "Erfolgreich",
-      "failed": "Fehlgeschlagen",
+      "failed": "Gestört",
       "cancelled": "Abgebrochen",
       "paused": "Pausiert"
     },
@@ -2993,7 +3005,8 @@
       "number": "Zahl",
       "json": "JSON",
       "workspace": "Workspace-Referenz",
-      "wiki": "Wiki-Referenz"
+      "wiki": "Wiki-Referenz",
+      "ticket": "Ticket"
     },
     "singleValueHint": "Ein Name, ein Wert. Zahlen und JSON werden an Text-Ports übergeben; Referenzen nur an Ports desselben Typs.",
     "pause": "Pause",
@@ -3061,7 +3074,7 @@
       "model": "Modell-ID",
       "reasoning": "Reasoning",
       "options": "Laufoptionen",
-      "optionsValue": "{{access}} · Shell: {{shell}} · Web: {{web}} · {{minutes}} min",
+      "optionsValue": "{{access}} · Shell: {{shell}} · Web: {{web}} · {{duration}}",
       "access": {
         "workspace_write": "Workspace schreiben",
         "read_only": "Nur lesen"
@@ -3207,6 +3220,9 @@
     "loadError": "Die Agents konnten nicht geladen werden.",
     "retry": "Erneut versuchen",
     "modelWithdrawn": "Das Modell dieses Agents ist für Sie nicht mehr freigegeben oder wurde geändert. Wählen Sie ein freigegebenes Modell, um zu speichern.",
-    "deletedTargets": "Eine Gruppe oder Abteilung dieser Freigabe gibt es nicht mehr. Sie fehlt in der Liste unten; beim Speichern wird die Freigabe ohne sie gespeichert."
+    "deletedTargets": "Eine Gruppe oder Abteilung dieser Freigabe gibt es nicht mehr. Sie fehlt in der Liste unten; beim Speichern wird die Freigabe ohne sie gespeichert.",
+    "deleteTitle": "Agent „{{name}}“ entfernen?",
+    "deleteDescription": "Der Agent wird aus der AgentListe entfernt und kann danach nicht mehr gestartet werden. Laufende Agents können erst nach dem Ende ihres Laufs entfernt werden.",
+    "confirmDelete": "Agent entfernen"
   }
 }

@@ -19,10 +19,6 @@ export function AgentParameterRow(props: {
 }): React.ReactElement {
   const { t } = useTranslation();
   const { parameter } = props;
-  function chooseType(type: string): void {
-    if (type !== "text" && type !== "workspace" && type !== "wiki") return;
-    props.onChange({ ...parameter, type, defaultValue: null });
-  }
   return (
     <fieldset
       disabled={props.disabled}
@@ -31,38 +27,7 @@ export function AgentParameterRow(props: {
       <legend className="pages-selectable px-1 font-mono text-sm">
         {parameter.name}
       </legend>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="space-y-1.5 text-sm font-medium">
-          <span className="block">
-            {t("settings.agents.definition.parameterName")}
-          </span>
-          <Input
-            value={parameter.name}
-            maxLength={64}
-            required
-            pattern="[a-z][a-z0-9_]{0,63}"
-            onChange={(event) =>
-              props.onChange({ ...parameter, name: event.target.value })
-            }
-          />
-        </label>
-        <label className="space-y-1.5 text-sm font-medium">
-          <span className="block">
-            {t("settings.agents.definition.parameterType")}
-          </span>
-          <Select
-            size="default"
-            className="w-full"
-            value={parameter.type}
-            disabled={props.disabled}
-            onValueChange={chooseType}
-            options={(["text", "workspace", "wiki"] as const).map((type) => ({
-              value: type,
-              label: t(`settings.agents.definition.type.${type}`),
-            }))}
-          />
-        </label>
-      </div>
+      <AgentParameterIdentity {...props} />
       <label className="block space-y-1.5 text-sm font-medium">
         <span className="block">
           {t("settings.agents.definition.parameterDescription")}
@@ -105,5 +70,62 @@ export function AgentParameterRow(props: {
         {t("settings.agents.remove")}
       </Button>
     </fieldset>
+  );
+}
+
+function AgentParameterIdentity(props: {
+  readonly parameter: AgentParameter;
+  readonly disabled: boolean;
+  readonly onChange: (parameter: AgentParameter) => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const { parameter } = props;
+  function chooseType(type: string): void {
+    if (
+      type !== "text" &&
+      type !== "number" &&
+      type !== "ticket" &&
+      type !== "workspace" &&
+      type !== "wiki"
+    )
+      return;
+    props.onChange({ ...parameter, type, defaultValue: null });
+  }
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <label className="space-y-1.5 text-sm font-medium">
+        <span className="block">
+          {t("settings.agents.definition.parameterName")}
+        </span>
+        <Input
+          value={parameter.name}
+          maxLength={64}
+          required
+          pattern="[a-zA-Z][a-zA-Z0-9_]{0,63}"
+          onChange={(event) =>
+            props.onChange({ ...parameter, name: event.target.value })
+          }
+        />
+      </label>
+      <label className="space-y-1.5 text-sm font-medium">
+        <span className="block">
+          {t("settings.agents.definition.parameterType")}
+        </span>
+        <Select
+          size="default"
+          className="w-full"
+          value={parameter.type}
+          ariaLabel={t("settings.agents.definition.parameterType")}
+          disabled={props.disabled}
+          onValueChange={chooseType}
+          options={(
+            ["text", "number", "ticket", "workspace", "wiki"] as const
+          ).map((type) => ({
+            value: type,
+            label: t(`settings.agents.definition.type.${type}`),
+          }))}
+        />
+      </label>
+    </div>
   );
 }

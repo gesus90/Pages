@@ -196,6 +196,17 @@ export class AgentDefinitionFiles {
     });
   }
 
+  /** Serializes deletion with run reservations while retaining historical run records. */
+  public async remove(
+    id: string,
+    repository: AgentProfileRepository,
+  ): Promise<void> {
+    await this.writes.run(async () => {
+      this.assertMutable(id);
+      await repository.remove(id);
+    });
+  }
+
   /** Atomically materializes a secret-free definition from persisted fields only. */
   public async write(profile: AgentProfile): Promise<void> {
     await this.writes.run(async () => {

@@ -123,15 +123,18 @@ export class AgentPlanExecution implements PlanExecution {
     const release = this.operations.acquireExecution(input.agent.connection.id);
     try {
       await input.beforeStart?.();
-      const requestSignal = AbortSignal.any([
-        signal,
-        AbortSignal.timeout(120_000),
-      ]);
       try {
-        return await this.api.run(input, requestSignal);
+        const output = await this.api.run(input, signal);
+        signal.throwIfAborted();
+        return output;
       } catch (error: unknown) {
+        if (
+          signal.aborted &&
+          signal.reason instanceof DOMException &&
+          signal.reason.name === "TimeoutError"
+        )
+          throw new TextAssistantError("timeout");
         if (signal.aborted) throw new AgentPlanCancelledError();
-        if (requestSignal.aborted) throw new TextAssistantError("timeout");
         throw error;
       }
     } finally {

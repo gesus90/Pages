@@ -1,4 +1,7 @@
-import { isAgentParameterName } from "./AgentParameters";
+import {
+  hasAgentParameterValue,
+  isAgentParameterName,
+} from "./AgentParameters";
 import { planValueIssue } from "./AgentPlanValue";
 
 import type { AgentDefinitionChoice } from "./AgentAvailability";
@@ -182,6 +185,9 @@ function requiredParameterIssues(
       )
         return [];
       const binding = step.bindings[parameter.name];
+      if (!binding && hasAgentParameterValue(parameter.defaultValue)) return [];
+      if (binding?.kind === "literal" && hasAgentParameterValue(binding.value))
+        return [];
       if (hasConnectedValue(binding, plan)) return [];
       return [{ nodeId: step.id, port: parameter.name, reason: "required" }];
     },
@@ -199,10 +205,7 @@ function hasConnectedValue(
   if (source?.type === "variable")
     return Boolean(plan.globals[source.name]?.trim());
   if (source?.type !== "parameter") return false;
-  if (source.value.type === "text") return Boolean(source.value.text.trim());
-  if (source.value.type === "workspace")
-    return Boolean(source.value.workspaceId.trim());
-  return Boolean(source.value.pageId.trim());
+  return hasAgentParameterValue(source.value);
 }
 
 /** A runnable DAG has explicit boundaries and no unreachable or unfinished flow branch. */

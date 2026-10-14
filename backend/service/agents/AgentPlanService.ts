@@ -309,6 +309,8 @@ export class AgentPlanService {
       );
     for (const pageId of resources.wikiIds)
       await this.dependencies.parameters.requireWiki(userId, pageId);
+    for (const ticketId of resources.ticketIds)
+      await this.dependencies.parameters.requireTicket(userId, ticketId);
     return run;
   }
 
@@ -400,6 +402,11 @@ export class AgentPlanService {
           ),
         );
       for (const value of values) {
+        if (value.type === "ticket")
+          await this.dependencies.parameters.requireTicket(
+            userId,
+            value.ticketId,
+          );
         if (value.type === "wiki")
           await this.dependencies.parameters.requireWiki(userId, value.pageId);
         if (value.type === "workspace")

@@ -65,6 +65,10 @@ export const AGENT_ERROR_MESSAGES = {
     "Remove the workspace references before unregistering or rebinding it.",
   configuration_invalid: "Enter a valid agent configuration.",
   parameter_invalid: "Check parameter names, types and defaults.",
+  parameter_number_invalid:
+    "Supply a valid finite number for every number parameter.",
+  parameter_ticket_unavailable:
+    "The selected ticket is unavailable or not accessible. Select an accessible ticket.",
   parameter_required: "Supply every required parameter.",
   parameter_reference_unavailable:
     "The parameter reference is unavailable or not accessible.",

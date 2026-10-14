@@ -3,13 +3,14 @@ import { useTranslation } from "react-i18next";
 import { Input } from "@/app/components/ui/input";
 import { Select } from "@/app/components/ui/select";
 import { Textarea } from "@/app/components/ui/textarea";
+import { AgentTicketValue } from "@/app/components/settings/agents/agent-ticket-value";
 import { planValueIssue } from "@/definition/AgentPlanValue";
 import { isAgentParameterName } from "@/definition/AgentParameters";
 
 import type { AgentPlanParameter } from "@/definition/AgentPlan";
 import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
 
-type ValueKind = "string" | "number" | "json" | "workspace" | "wiki";
+type ValueKind = "string" | "number" | "json" | "ticket" | "workspace" | "wiki";
 
 /** One name and one typed value; JSON objects remain a single parameter. */
 export function PlanValueFields(props: {
@@ -24,7 +25,19 @@ export function PlanValueFields(props: {
     node.value.type === "text" ? node.format : node.value.type;
   const issue = planValueIssue(node);
   function changeKind(next: ValueKind): void {
-    if (next === "workspace")
+    if (next === "number")
+      props.onChange({
+        ...node,
+        format: "number",
+        value: { type: "number", number: 0 },
+      });
+    else if (next === "ticket")
+      props.onChange({
+        ...node,
+        format: "string",
+        value: { type: "ticket", ticketId: "" },
+      });
+    else if (next === "workspace")
       props.onChange({
         ...node,
         format: "string",
@@ -69,7 +82,7 @@ export function PlanValueFields(props: {
         disabled={props.disabled}
         onValueChange={changeKind}
         options={(
-          ["string", "number", "json", "workspace", "wiki"] as const
+          ["string", "number", "json", "ticket", "workspace", "wiki"] as const
         ).map((value) => ({ value, label: t(`plans.valueTypes.${value}`) }))}
       />
       <ValueInput {...props} />
@@ -95,6 +108,29 @@ function ValueInput(props: {
   const { node } = props;
   return (
     <>
+      {node.value.type === "number" ? (
+        <Input
+          aria-label={t("plans.variableValue", { name: node.name })}
+          type="number"
+          step="any"
+          value={Number.isFinite(node.value.number) ? node.value.number : ""}
+          onChange={(event) =>
+            props.onChange({
+              ...node,
+              value: { type: "number", number: event.target.valueAsNumber },
+            })
+          }
+        />
+      ) : null}
+      {node.value.type === "ticket" ? (
+        <AgentTicketValue
+          ticketId={node.value.ticketId}
+          disabled={props.disabled}
+          onChange={(ticketId) =>
+            props.onChange({ ...node, value: { type: "ticket", ticketId } })
+          }
+        />
+      ) : null}
       {node.value.type === "text" ? (
         <label className="block space-y-1 text-sm">
           <span>{t("plans.variableValue", { name: node.name })}</span>

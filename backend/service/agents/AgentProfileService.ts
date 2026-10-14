@@ -42,6 +42,7 @@ import type {
 import type { AgentFilters } from "@/definition/AgentFilters";
 import type { AgentUsage } from "@/definition/AgentUsage";
 import type { AgentDefinitionFiles } from "./AgentDefinitionFiles";
+import type { AgentTicketParameterService } from "./AgentTicketParameterService";
 
 /** Shared persistence and live authorization boundaries of the central agent aggregate. */
 export interface ProfileDependencies {
@@ -53,6 +54,7 @@ export interface ProfileDependencies {
   readonly content?: AgentContentAccess;
   readonly workspaces?: AgentWorkspaceService;
   readonly files?: AgentDefinitionFiles;
+  readonly tickets?: Pick<AgentTicketParameterService, "choices" | "resolve">;
 }
 
 /** Rechecks persisted grants at selection and execution; no admin execution bypass or fallback. */
@@ -423,6 +425,14 @@ export class AgentProfileService {
     )
       throw new AgentError("agent_usage_denied");
     for (const parameter of configuration.parameters) {
+      if (parameter.defaultValue?.type === "ticket") {
+        if (!this.dependencies.tickets)
+          throw new AgentError("parameter_ticket_unavailable");
+        await this.dependencies.tickets.resolve(
+          account.userId,
+          parameter.defaultValue.ticketId,
+        );
+      }
       if (parameter.defaultValue?.type === "workspace") {
         if (!this.dependencies.workspaces)
           throw new AgentError("parameter_reference_unavailable");

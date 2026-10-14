@@ -26,6 +26,7 @@ export default [
     route("chat/attachments/:attachmentId", "routes/chat-attachment.ts"),
     route("agent-api/definitions", "routes/agent-definitions.ts"),
     route("agent-api/workspaces", "routes/agent-workspace-choices.ts"),
+    route("agent-api/ticket-choices", "routes/agent-ticket-choices.ts"),
     route("agent-api/workspace-folders", "routes/agent-workspace-folders.ts"),
     route("agents/workspaces", "routes/agent-workspaces.tsx"),
     route("agents/agents", "routes/page-agents.tsx"),

@@ -7,6 +7,7 @@ export interface AgentPlanRunResources {
   readonly workspaceIds: readonly string[];
   readonly taskIds: readonly string[];
   readonly wikiIds: readonly string[];
+  readonly ticketIds: readonly string[];
   readonly agentIds: readonly string[];
 }
 
@@ -17,6 +18,7 @@ export function readPlanRunResources(input: unknown): AgentPlanRunResources {
   const workspaceIds = new Set<string>([readPlanText(plan.workspaceId)]);
   const taskIds = new Set<string>();
   const wikiIds = new Set<string>();
+  const ticketIds = new Set<string>();
   const agentIds = new Set<string>();
   const nodes: readonly unknown[] = Array.isArray(plan.nodes) ? plan.nodes : [];
   for (const inputNode of nodes) {
@@ -42,6 +44,7 @@ export function readPlanRunResources(input: unknown): AgentPlanRunResources {
       if (value.type === "workspace")
         workspaceIds.add(readPlanText(value.workspaceId));
       if (value.type === "wiki") wikiIds.add(readPlanText(value.pageId));
+      if (value.type === "ticket") ticketIds.add(readPlanText(value.ticketId));
     }
   }
   return {
@@ -49,6 +52,7 @@ export function readPlanRunResources(input: unknown): AgentPlanRunResources {
     workspaceIds: [...workspaceIds],
     taskIds: [...taskIds],
     wikiIds: [...wikiIds],
+    ticketIds: [...ticketIds],
     agentIds: [...agentIds],
   };
 }

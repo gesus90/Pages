@@ -100,5 +100,7 @@ function emptyPortValue(
 ): AgentParameterValue {
   if (parameter.type === "workspace") return { type: "workspace", workspaceId };
   if (parameter.type === "wiki") return { type: "wiki", pageId: "" };
+  if (parameter.type === "number") return { type: "number", number: 0 };
+  if (parameter.type === "ticket") return { type: "ticket", ticketId: "" };
   return { type: "text", text: "" };
 }

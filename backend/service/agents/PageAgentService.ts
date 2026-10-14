@@ -12,6 +12,7 @@ import { requireCredentialFreeText } from "@/backend/service/assistant/TextAssis
 import { pageAgentModels, resolvePageAgentModel } from "./PageAgentModels";
 
 import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
+import type { AgentTicketChoice } from "@/definition/AgentParameters";
 import type {
   AgentProfile,
   AgentProfileDirectory,
@@ -93,6 +94,29 @@ export class PageAgentService {
       this.dependencies.profiles.list(),
     ]);
     return pageAgentModels(this.dependencies, viewer, stored);
+  }
+
+  /** Supplies only currently accessible tickets for definition and plan parameter pickers. */
+  public async ticketChoices(
+    userId: string,
+  ): Promise<readonly AgentTicketChoice[]> {
+    await this.viewer(userId);
+    if (!this.dependencies.tickets)
+      throw new AgentError("parameter_ticket_unavailable");
+    return this.dependencies.tickets.choices(userId);
+  }
+
+  /** Removes an owner's agent, checking live ownership before entering the definition's atomic mutation lock. */
+  public async remove(userId: string, id: string): Promise<void> {
+    await this.writes.run(async () => {
+      await this.viewer(userId);
+      const profile = (await this.dependencies.profiles.list()).find(
+        (entry) => entry.id === id,
+      );
+      if (profile?.ownerId !== userId)
+        throw new AgentError("agent_usage_denied");
+      await this.files.remove(id, this.dependencies.profiles);
+    });
   }
 
   /**
@@ -277,6 +301,14 @@ export class PageAgentService {
         if (!this.dependencies.content)
           throw new AgentError("parameter_reference_unavailable");
         await this.dependencies.content.wiki(viewer.actor, reference.pageId);
+      }
+      if (reference?.type === "ticket") {
+        if (!this.dependencies.tickets)
+          throw new AgentError("parameter_ticket_unavailable");
+        await this.dependencies.tickets.resolve(
+          viewer.actor.userId,
+          reference.ticketId,
+        );
       }
     }
   }

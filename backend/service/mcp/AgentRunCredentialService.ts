@@ -51,7 +51,7 @@ export class AgentRunCredentialService {
    *
    * @param userId - The executor of the run.
    * @param scope - The run, the node, its operations and tickets.
-   * @param lifetimeMs - How long the credential may be used at most.
+   * @param lifetimeMs - How long the credential may be used at most; zero keeps it valid until revocation.
    * @returns The clear text, which the caller hands only to the session environment.
    */
   public async issue(
@@ -61,7 +61,8 @@ export class AgentRunCredentialService {
   ): Promise<IssuedRunCredential> {
     const token = createAgentCredential();
     const createdAt = Date.now();
-    const expiresAt = createdAt + lifetimeMs;
+    const expiresAt =
+      lifetimeMs === 0 ? Number.MAX_SAFE_INTEGER : createdAt + lifetimeMs;
     await this.repository.insert({
       id: randomUUID(),
       userId,

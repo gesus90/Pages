@@ -36,7 +36,14 @@ export function AgentParameterFields(props: {
       if (position !== index) return [entry];
       return parameter === null ? [] : [parameter];
     });
-    props.onChange({ ...configuration, parameters });
+    const directoryParameter = parameters.some(
+      (entry) =>
+        entry.name === configuration.directoryParameter &&
+        entry.type === "workspace",
+    )
+      ? configuration.directoryParameter
+      : null;
+    props.onChange({ ...configuration, parameters, directoryParameter });
   }
   function add(name: string, type: AgentParameter["type"]): void {
     props.onChange({
@@ -46,16 +53,6 @@ export function AgentParameterFields(props: {
         { name, type, description: "", isRequired: true, defaultValue: null },
       ],
     });
-  }
-  function addManual(): void {
-    let index = 1;
-    while (
-      configuration.parameters.some(
-        (entry) => entry.name === `parameter_${index}`,
-      )
-    )
-      index++;
-    add(`parameter_${index}`, "text");
   }
   return (
     <section
@@ -97,7 +94,7 @@ export function AgentParameterFields(props: {
         size="sm"
         variant="outline"
         disabled={props.disabled || configuration.parameters.length >= 50}
-        onClick={addManual}
+        onClick={() => add(nextParameterName(configuration.parameters), "text")}
       >
         <Plus className="size-4" aria-hidden="true" />
         {t("settings.agents.definition.addParameter")}
@@ -162,4 +159,11 @@ function AgentDirectoryParameter(props: {
       />
     </label>
   );
+}
+
+function nextParameterName(parameters: readonly AgentParameter[]): string {
+  let index = 1;
+  while (parameters.some((entry) => entry.name === `parameter_${index}`))
+    index++;
+  return `parameter_${index}`;
 }

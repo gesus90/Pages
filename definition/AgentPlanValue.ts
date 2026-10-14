@@ -15,6 +15,8 @@ function hasFiniteNumbers(input: unknown): boolean {
 export function planValueIssue(
   parameter: Pick<AgentPlanParameter, "format" | "value">,
 ): "number" | "json" | null {
+  if (parameter.value.type === "number")
+    return Number.isFinite(parameter.value.number) ? null : "number";
   if (parameter.value.type !== "text" || parameter.format === "string")
     return null;
   try {

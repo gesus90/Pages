@@ -5,7 +5,7 @@ import type {
 import type { AgentParameter } from "./AgentParameters";
 
 /**
- * How a CLI runner may work in the workspace of a plan node.
+ * How a runner may work and the duration limit of one invocation.
  *
  * @remarks
  * Every runner works without asking anyone. Each runner maps these options to
@@ -19,19 +19,19 @@ export interface AgentRunOptions {
   readonly shell: boolean;
   /** Whether the session may search or fetch from the web. */
   readonly web: boolean;
-  /** Longest duration of one session. */
+  /** Hard duration limit in minutes; zero allows the session to finish without a deadline. */
   readonly timeoutMinutes: number;
 }
 
 /** Limits of {@link AgentRunOptions.timeoutMinutes}. */
-export const AGENT_RUN_TIMEOUT_MINUTES = { minimum: 1, maximum: 120 } as const;
+export const AGENT_RUN_TIMEOUT_MINUTES = { minimum: 0, maximum: 120 } as const;
 
-/** Options of an agent that names none: write in the workspace, no commands, no web, ten minutes. */
+/** Options of an agent that names none: write in the workspace, no commands, no web, no deadline. */
 export const DEFAULT_AGENT_RUN_OPTIONS: AgentRunOptions = {
   access: "workspace_write",
   shell: false,
   web: false,
-  timeoutMinutes: 10,
+  timeoutMinutes: 0,
 };
 
 /** Optional task configuration belongs to the same agent as its model access. */
@@ -67,5 +67,6 @@ export function emptyAgentConfiguration(
     parameters: [],
     directoryParameter: null,
     sharing: { isGlobal: false, targets: [] },
+    run: DEFAULT_AGENT_RUN_OPTIONS,
   };
 }

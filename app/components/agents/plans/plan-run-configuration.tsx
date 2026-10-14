@@ -14,7 +14,12 @@ function useRequestedRows(
         access: t(`plans.session.access.${requested.options.access}`),
         shell: yesNo(requested.options.shell),
         web: yesNo(requested.options.web),
-        minutes: requested.options.timeoutMinutes,
+        duration:
+          requested.options.timeoutMinutes === 0
+            ? t("settings.agents.run.unlimited")
+            : t("settings.agents.run.hardTimeout", {
+                minutes: requested.options.timeoutMinutes,
+              }),
       })
     : "—";
   return [

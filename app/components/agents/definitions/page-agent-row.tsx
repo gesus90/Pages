@@ -1,6 +1,9 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
+
+import { PageAgentDelete } from "./page-agent-delete";
 
 import type { PageAgent } from "@/definition/PageAgent";
 
@@ -18,6 +21,7 @@ export function PageAgentRow(props: {
   readonly onOpen: () => void;
 }): React.ReactElement {
   const { t } = useTranslation();
+  const [isDeleting, setDeleting] = useState(false);
   const { agent } = props;
   const { reason } = agent.availability;
   // The reason is a stable error code of the agent or of the model access.
@@ -50,6 +54,19 @@ export function PageAgentRow(props: {
         <Button size="sm" variant="outline" onClick={props.onOpen}>
           {t(agent.canEdit ? "pageAgents.edit" : "pageAgents.view")}
         </Button>
+        {agent.canEdit ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="ml-2"
+            onClick={() => setDeleting(true)}
+          >
+            {t("settings.agents.remove")}
+          </Button>
+        ) : null}
+        {isDeleting ? (
+          <PageAgentDelete agent={agent} onClose={() => setDeleting(false)} />
+        ) : null}
       </td>
     </tr>
   );

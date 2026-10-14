@@ -9,6 +9,10 @@ import type { AgentContentAccess } from "./AgentContentAccess";
 import type { AgentWorkspaceService } from "./AgentWorkspaceService";
 import type { BoundAgentParameters } from "./AgentParameterBinding";
 import type { AgentPlanTemplate } from "./AgentPlanSnapshot";
+import type {
+  AgentTicketParameterService,
+  AgentTicketParameterText,
+} from "./AgentTicketParameterService";
 
 /** The workspace supplies project context; explicit directory parameters alone supply a CLI cwd. */
 export interface AgentParameterSelection {
@@ -23,6 +27,7 @@ export interface PreparedAgentParameters {
   readonly workspace: ResolvedAgentWorkspace;
   readonly directory: ResolvedAgentWorkspace | null;
   readonly references: readonly ResolvedAgentWorkspace[];
+  readonly tickets?: Readonly<Record<string, AgentTicketParameterText>>;
   readonly wiki: Readonly<
     Record<
       string,
@@ -36,10 +41,11 @@ export interface PreparedAgentParameters {
 }
 
 interface ParameterDependencies {
-  readonly profiles: AgentProfileService;
-  readonly workspaces: AgentWorkspaceService;
-  readonly authorization: AuthorizationRepository;
-  readonly content: AgentContentAccess;
+  readonly profiles: Pick<AgentProfileService, "resolveDefinition">;
+  readonly workspaces: Pick<AgentWorkspaceService, "resolve">;
+  readonly authorization: Pick<AuthorizationRepository, "snapshot">;
+  readonly content: Pick<AgentContentAccess, "wiki">;
+  readonly tickets?: Pick<AgentTicketParameterService, "resolve">;
 }
 
 /** Connects the A10.2 binder to live authorized workspace and wiki resolvers. */
@@ -58,6 +64,13 @@ export class AgentParameterService {
     );
     if (!actor?.isActive) throw new AgentError("agent_usage_denied");
     await this.dependencies.content.wiki(actor, pageId);
+  }
+
+  /** Reauthorizes ticket-derived output as well as current parameter bindings. */
+  public async requireTicket(userId: string, ticketId: string): Promise<void> {
+    if (!this.dependencies.tickets)
+      throw new AgentError("parameter_ticket_unavailable");
+    await this.dependencies.tickets.resolve(userId, ticketId);
   }
 
   /** Resolves context, model access, resource grants and an explicit real working directory. */
@@ -82,6 +95,7 @@ export class AgentParameterService {
     const configuration = template ?? resolved.profile.configuration;
     if (!configuration) throw new AgentError("configuration_invalid");
     const references = new Map<string, ResolvedAgentWorkspace>();
+    const tickets: Record<string, AgentTicketParameterText> = {};
     const wiki: Record<
       string,
       {
@@ -91,6 +105,13 @@ export class AgentParameterService {
       }
     > = {};
     const parameters = await bindAgentParameters(configuration, bindings, {
+      ticket: async (id) => {
+        if (!this.dependencies.tickets)
+          throw new AgentError("parameter_ticket_unavailable");
+        const ticket = await this.dependencies.tickets.resolve(userId, id);
+        tickets[id] = ticket;
+        return ticket;
+      },
       workspace: async (id) => {
         const reference = await this.dependencies.workspaces.resolve(
           userId,
@@ -124,6 +145,7 @@ export class AgentParameterService {
       workspace,
       directory,
       references: [...references.values()],
+      tickets,
       wiki,
     };
   }

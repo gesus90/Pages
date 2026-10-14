@@ -24,8 +24,10 @@ const AGENT_REASONS: Readonly<Partial<Record<AgentErrorCode, Reason>>> = {
   configuration_invalid: "configuration_invalid",
   parameter_invalid: "configuration_invalid",
   parameter_required: "configuration_invalid",
+  parameter_number_invalid: "configuration_invalid",
   profile_target_invalid: "sharing_target_unavailable",
   parameter_reference_unavailable: "parameter_reference_unavailable",
+  parameter_ticket_unavailable: "parameter_reference_unavailable",
   reasoning_effort_unsupported: "reasoning_unsupported",
 };
 

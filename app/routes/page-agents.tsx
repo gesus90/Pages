@@ -47,14 +47,21 @@ export async function loader({
 
 /** Client payloads select only a saved admin grant; all authorization remains in the service. */
 export async function action(args: Route.ActionArgs): Promise<Response> {
+  let intent = "";
   try {
     const { user, services, formData } = await readSettingsRequest(args);
-    if (formData.get("intent") !== "save-agent")
-      throw new AgentError("profile_invalid");
-    const content = String(formData.get("agent") ?? "");
+    intent = String(formData.get("intent") ?? "");
     const id = String(formData.get("agentId") ?? "");
-    if (content.length > 500_000 || id.length > 100)
-      throw new AgentError("profile_invalid");
+    if (id.length > 100) throw new AgentError("profile_invalid");
+    if (intent === "delete-agent") {
+      if (!id || formData.get("confirmation") !== "LÖSCHEN")
+        throw new AgentError("profile_invalid");
+      await services.pageAgentService.remove(user.id, id);
+      return Response.json({ ok: true, intent }, { headers: AGENT_NO_STORE });
+    }
+    if (intent !== "save-agent") throw new AgentError("profile_invalid");
+    const content = String(formData.get("agent") ?? "");
+    if (content.length > 500_000) throw new AgentError("profile_invalid");
     const agentId = await services.pageAgentService.save(
       user.id,
       id || null,
@@ -65,7 +72,7 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
       { headers: AGENT_NO_STORE },
     );
   } catch (error: unknown) {
-    return agentFailureResponse(error, "save-agent");
+    return agentFailureResponse(error, intent);
   }
 }
 

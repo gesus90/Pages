@@ -39,10 +39,10 @@ import type { AgentPlanTasks } from "./AgentPlanTasks";
 import type { AgentRunArchive } from "./AgentRunArchive";
 
 interface StepRunnerDependencies {
-  readonly start: AgentPlanStepStart;
+  readonly start: Pick<AgentPlanStepStart, "prepare">;
   readonly execution: PlanExecution;
-  readonly tasks: AgentPlanTasks;
-  readonly access: AgentPlanSessionAccess;
+  readonly tasks: Pick<AgentPlanTasks, "checklist">;
+  readonly access: Pick<AgentPlanSessionAccess, "grant" | "revoke">;
   readonly archive?: AgentRunArchive;
 }
 
@@ -58,7 +58,7 @@ interface NodeRun {
   readonly run: AgentPlanRun;
   readonly snapshot: AgentPlanSnapshot;
   readonly step: AgentPlanStepSnapshot;
-  readonly control: StepRunControl;
+  control: StepRunControl;
   record: AgentPlanSessionRecord | null;
   hasStarted: boolean;
 }
@@ -67,6 +67,14 @@ function errorCode(error: unknown): string {
   if (error instanceof AgentError || error instanceof TextAssistantError)
     return error.code;
   return "plan_step_failed";
+}
+
+function hasTimedOut(signal: AbortSignal): boolean {
+  return (
+    signal.aborted &&
+    signal.reason instanceof DOMException &&
+    signal.reason.name === "TimeoutError"
+  );
 }
 
 /**
@@ -123,6 +131,14 @@ export class AgentPlanStepRunner {
       node.step,
     );
     if (node.control.signal.aborted) throw new AgentPlanCancelledError();
+    if (prepared.options.timeoutMinutes > 0)
+      node.control = {
+        ...node.control,
+        signal: AbortSignal.any([
+          node.control.signal,
+          AbortSignal.timeout(prepared.options.timeoutMinutes * 60_000),
+        ]),
+      };
     if (isApiProvider(prepared.input.agent.connection.provider))
       return this.request(node, prepared);
     return this.session(node, prepared);
@@ -241,7 +257,9 @@ export class AgentPlanStepRunner {
     await this.complete(node, { acceptance });
     const closed = await session.close();
     await this.dependencies.access.revoke(node.run.id, node.step.step.id);
-    const failure = failureCode(turn, acceptance, closed);
+    const failure = hasTimedOut(node.control.signal)
+      ? "timeout"
+      : failureCode(turn, acceptance, closed);
     await this.complete(node, {
       exit: closed.exit,
       endedAt: closed.endedAt,
@@ -325,6 +343,8 @@ export class AgentPlanStepRunner {
             : node.record.closeout,
         resultCode: -1,
       });
+    if (hasTimedOut(node.control.signal))
+      return { status: "failed", error: "timeout", session: node.record };
     if (error instanceof AgentPlanCancelledError)
       return {
         status: "cancelled",

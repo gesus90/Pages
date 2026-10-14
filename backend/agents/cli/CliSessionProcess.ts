@@ -49,7 +49,7 @@ export class CliSessionProcess implements CliRunningProcess {
   private readonly callbacks: CliSessionCallbacks;
   private readonly signalGroup: CliGroupSignal;
   private readonly completion = new EventEmitter();
-  private readonly deadline: ReturnType<typeof setTimeout>;
+  private readonly deadline: ReturnType<typeof setTimeout> | null;
   private readonly abort: () => void;
   private escalation: ReturnType<typeof setTimeout> | null = null;
   private closing: ReturnType<typeof setTimeout> | null = null;
@@ -68,7 +68,13 @@ export class CliSessionProcess implements CliRunningProcess {
     this.child = child;
     this.callbacks = callbacks;
     this.signalGroup = signalGroup;
-    this.abort = () => this.cancel("login_cancelled");
+    this.abort = () =>
+      this.cancel(
+        callbacks.signal.reason instanceof DOMException &&
+          callbacks.signal.reason.name === "TimeoutError"
+          ? "check_timeout"
+          : "login_cancelled",
+      );
     this.exited = new Promise((resolve) => {
       this.completion.once("exit", resolve);
     });
@@ -78,10 +84,10 @@ export class CliSessionProcess implements CliRunningProcess {
       stderr: exit.stderrTail,
       errorCode: exit.errorCode,
     }));
-    this.deadline = setTimeout(
-      () => this.cancel("check_timeout"),
-      callbacks.timeoutMs,
-    );
+    this.deadline =
+      callbacks.timeoutMs > 0
+        ? setTimeout(() => this.cancel("check_timeout"), callbacks.timeoutMs)
+        : null;
     child.once("error", () => {
       this.errorCode = this.errorCode ?? "cli_not_executable";
       this.finish(null, null);
@@ -138,7 +144,7 @@ export class CliSessionProcess implements CliRunningProcess {
     this.escalation = setTimeout(() => {
       this.sendSignal("SIGKILL");
     }, TERMINATION_GRACE_MS);
-    this.sendSignal("SIGTERM");
+    this.sendSignal(code === "check_timeout" ? "SIGKILL" : "SIGTERM");
   }
 
   private receive(chunk: string): void {
@@ -181,7 +187,7 @@ export class CliSessionProcess implements CliRunningProcess {
     this.isFinished = true;
     if (this.pending) this.deliver(this.pending);
     this.pending = "";
-    clearTimeout(this.deadline);
+    if (this.deadline !== null) clearTimeout(this.deadline);
     if (this.escalation !== null) clearTimeout(this.escalation);
     if (this.closing !== null) clearTimeout(this.closing);
     this.callbacks.signal.removeEventListener("abort", this.abort);

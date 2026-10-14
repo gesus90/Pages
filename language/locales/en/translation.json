@@ -544,7 +544,7 @@
         "profile_target_invalid": "Choose an existing assignment target.",
         "configuration_invalid": "Enter a valid agent configuration.",
         "parameter_invalid": "Check parameter names, types, placeholders and defaults.",
-        "parameter_required": "Supply every required parameter.",
+        "parameter_required": "A needed parameter value is missing. Supply all required parameters and used placeholders.",
         "parameter_reference_unavailable": "The parameter reference is unavailable or not accessible.",
         "profile_in_use": "Remove assignments, project context and usage shares before deleting.",
         "profile_conflict": "The agent changed. Reload it before saving.",
@@ -594,7 +594,10 @@
         "plan_runner_incomplete": "The runner ended without completing its turn.",
         "plan_runner_permission_denied": "The runner refused actions that the run options do not allow; nothing was approved on its behalf.",
         "plan_acceptance_failed": "The closing report does not prove every todo and acceptance criterion.",
-        "plan_closeout_failed": "The session could not be closed completely; processes of it remained."
+        "plan_closeout_failed": "The session could not be closed completely; processes of it remained.",
+        "parameter_number_invalid": "Supply a valid finite number for every number parameter.",
+        "parameter_ticket_unavailable": "The selected ticket is unavailable or not accessible. Select an accessible ticket.",
+        "timeout": "The agent’s hard time limit expired. The running operation was interrupted."
       },
       "description": "Manage the named AI connections and function assignments of this Pages instance.",
       "adminModeRequired": "The agent settings are only available in the admin mode. Your account is currently in the role mode.",
@@ -866,7 +869,7 @@
         "sharingHint": "Sharing permits use of the template. Connection access, project access and editing rights are checked separately.",
         "shareGlobally": "Share the template with all active users",
         "markdown": "Markdown base configuration",
-        "parameterHint": "Placeholders: {{ziel}}, {{workspace.path}}, {{aufgabe.markdown}} or {{aufgabe.link}}. Confirm parameter declarations explicitly.",
+        "parameterHint": "Placeholders such as {{target}}, {{count}} and {{ticketID}} insert strings, numbers and the complete ticket text. Workspace and wiki support {{workspace.path}}, {{task.markdown}} and {{task.link}}. Confirm parameters explicitly.",
         "parameters": "Parameters",
         "parameterIssues": "Check before activation: {{issues}}.",
         "confirmParameter": "Confirm parameter",
@@ -909,16 +912,19 @@
           "shared": "Shared scope: use requires authorization for the assigned connection."
         },
         "type": {
-          "text": "Text",
+          "text": "String",
           "workspace": "Workspace reference",
-          "wiki": "Wiki page reference"
+          "wiki": "Wiki page reference",
+          "number": "Number",
+          "ticket": "Ticket"
         },
         "issue": {
           "syntax": "invalid syntax",
           "undeclared": "unconfirmed parameter",
           "typeMismatch": "conflicting type",
           "duplicate": "duplicate name",
-          "directory": "invalid workspace parameter"
+          "directory": "invalid workspace parameter",
+          "number": "invalid number"
         },
         "filter": {
           "scope": "Scope",
@@ -935,19 +941,25 @@
           "legacy": "Legacy function: {{id}}",
           "plan": "Execution plan {{id}}",
           "agent": "Agent “{{name}}”"
-        }
+        },
+        "ticket": "Bind ticket",
+        "chooseTicket": "Select a ticket (no default)",
+        "unavailableTicket": "Bound ticket is not accessible"
       },
       "openCodeKey": "OpenRouter API key for OpenCode",
       "openCodeKeyHint": "Pages stores the key only in the private sign-in folder of this connection, in OpenCode's own key file. It is never shown again.",
       "openCodeKeyStore": "Store key",
       "openCodeKeyReplace": "Replace key",
       "run": {
-        "title": "Execution in plans",
-        "hint": "Applies to CLI runners (Codex, Claude Code, OpenCode). They always work unattended: what is not allowed is refused instead of asked. A combination a runner cannot enforce blocks the start.",
+        "title": "Run options",
+        "hint": "Workspace, shell and web permissions apply to CLI runners (Codex, Claude Code, OpenCode). They always work unattended: anything not allowed is refused instead of asking. A combination the runner cannot enforce blocks the start. The timeout also applies to API agents.",
         "access": "Workspace access",
-        "timeout": "Time limit per session (minutes)",
+        "timeout": "Timeout (minutes)",
         "shell": "Run commands in the workspace (shell)",
-        "web": "Allow web search and web fetch"
+        "web": "Allow web search and web fetch",
+        "unlimited": "0 · unlimited runtime",
+        "hardTimeout": "Hard limit: {{minutes}} minutes",
+        "timeoutHint": "0 allows unlimited runtime until completion. A positive timeout interrupts the running operation when it expires; the run is marked as “Failed” with the timeout cause."
       }
     },
     "connections": {
@@ -2993,7 +3005,8 @@
       "number": "Number",
       "json": "JSON",
       "workspace": "Workspace reference",
-      "wiki": "Wiki reference"
+      "wiki": "Wiki reference",
+      "ticket": "Ticket"
     },
     "singleValueHint": "One name, one value. Numbers and JSON feed text ports; references require a port of the same type.",
     "pause": "Pause",
@@ -3061,7 +3074,7 @@
       "model": "Model ID",
       "reasoning": "Reasoning",
       "options": "Run options",
-      "optionsValue": "{{access}} · shell: {{shell}} · web: {{web}} · {{minutes}} min",
+      "optionsValue": "{{access}} · Shell: {{shell}} · Web: {{web}} · {{duration}}",
       "access": {
         "workspace_write": "Write in workspace",
         "read_only": "Read only"
@@ -3207,6 +3220,9 @@
     "loadError": "The agents could not be loaded.",
     "retry": "Try again",
     "modelWithdrawn": "The model of this agent is no longer released for you or was changed. Choose a released model to save it.",
-    "deletedTargets": "A group or department of this share no longer exists. It is left out of the list below; saving stores the share without it."
+    "deletedTargets": "A group or department of this share no longer exists. It is left out of the list below; saving stores the share without it.",
+    "deleteTitle": "Remove agent “{{name}}”?",
+    "deleteDescription": "The agent will be removed from the list and can no longer be started. Running agents can only be removed after their run ends.",
+    "confirmDelete": "Remove agent"
   }
 }

@@ -2,6 +2,8 @@ import { useTranslation } from "react-i18next";
 
 import { Select } from "@/app/components/ui/select";
 import { Textarea } from "@/app/components/ui/textarea";
+import { AgentNumberDefault } from "./agent-number-default";
+import { AgentTicketValue } from "./agent-ticket-value";
 
 import type { AgentParameter } from "@/definition/AgentParameters";
 import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
@@ -15,6 +17,25 @@ export function AgentParameterDefault(props: {
 }): React.ReactElement {
   const { t } = useTranslation();
   if (props.parameter.type === "text") return <AgentTextDefault {...props} />;
+  if (props.parameter.type === "number")
+    return <AgentNumberDefault {...props} />;
+  if (props.parameter.type === "ticket")
+    return (
+      <AgentTicketValue
+        ticketId={
+          props.parameter.defaultValue?.type === "ticket"
+            ? props.parameter.defaultValue.ticketId
+            : ""
+        }
+        disabled={props.disabled}
+        onChange={(ticketId) =>
+          props.onChange({
+            ...props.parameter,
+            defaultValue: ticketId ? { type: "ticket", ticketId } : null,
+          })
+        }
+      />
+    );
   if (props.parameter.type === "workspace")
     return <AgentWorkspaceDefault {...props} />;
   return (

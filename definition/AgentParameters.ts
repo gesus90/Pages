@@ -1,10 +1,20 @@
-export type AgentParameterType = "text" | "workspace" | "wiki";
+export type AgentParameterType =
+  "text" | "number" | "ticket" | "workspace" | "wiki";
 
 /** Reference defaults retain identifiers, never copied paths or wiki content. */
 export type AgentParameterValue =
   | { readonly type: "text"; readonly text: string }
+  | { readonly type: "number"; readonly number: number }
+  | { readonly type: "ticket"; readonly ticketId: string }
   | { readonly type: "workspace"; readonly workspaceId: string }
   | { readonly type: "wiki"; readonly pageId: string };
+
+/** The authorized ticket projection offered by parameter pickers. */
+export interface AgentTicketChoice {
+  readonly id: string;
+  readonly key: string;
+  readonly title: string;
+}
 
 /** Template declarations are independent of concrete values bound by a later plan step. */
 export interface AgentParameter {
@@ -24,9 +34,14 @@ export interface AgentPlaceholder {
 }
 
 export type AgentParameterIssue =
-  "syntax" | "undeclared" | "typeMismatch" | "duplicate" | "directory";
+  | "syntax"
+  | "undeclared"
+  | "typeMismatch"
+  | "duplicate"
+  | "directory"
+  | "number";
 
-const PARAMETER_NAME = /^[a-z][a-z0-9_]{0,63}$/;
+const PARAMETER_NAME = /^[a-zA-Z][a-zA-Z0-9_]{0,63}$/;
 const PLACEHOLDER_PROPERTIES = {
   text: "text",
   path: "workspace",
@@ -37,6 +52,33 @@ const PLACEHOLDER_PROPERTIES = {
 /** Names are case-sensitive identifiers, without dots or expression syntax. */
 export function isAgentParameterName(name: string): boolean {
   return PARAMETER_NAME.test(name);
+}
+
+/** Checks whether a typed value supplies usable input, including zero as a valid number. */
+export function hasAgentParameterValue(
+  value: AgentParameterValue | null,
+): boolean {
+  if (value === null) return false;
+  switch (value.type) {
+    case "text":
+      return Boolean(value.text.trim());
+    case "number":
+      return Number.isFinite(value.number);
+    case "ticket":
+      return Boolean(value.ticketId.trim());
+    case "workspace":
+      return Boolean(value.workspaceId.trim());
+    case "wiki":
+      return Boolean(value.pageId.trim());
+  }
+}
+
+function hasInvalidNumber(parameters: readonly AgentParameter[]): boolean {
+  return parameters.some(
+    (parameter) =>
+      parameter.defaultValue?.type === "number" &&
+      !Number.isFinite(parameter.defaultValue.number),
+  );
 }
 
 function isEscaped(markdown: string, start: number): boolean {
@@ -104,8 +146,16 @@ export function agentParameterIssues(input: {
   for (const entry of scanned.placeholders) {
     const declared = declarations.get(entry.name);
     if (!declared) issues.add("undeclared");
-    else if (declared.type !== entry.type) issues.add("typeMismatch");
+    else if (
+      declared.type !== entry.type &&
+      !(
+        entry.property === "text" &&
+        (declared.type === "number" || declared.type === "ticket")
+      )
+    )
+      issues.add("typeMismatch");
   }
+  if (hasInvalidNumber(input.parameters)) issues.add("number");
   if (
     input.directoryParameter !== null &&
     declarations.get(input.directoryParameter)?.type !== "workspace"

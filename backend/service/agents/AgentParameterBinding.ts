@@ -3,6 +3,7 @@ import { readAgentParameterValue } from "@/backend/agents/AgentConfigurationInpu
 import { AgentError } from "@/backend/error/AgentErrors";
 import {
   agentParameterIssues,
+  hasAgentParameterValue,
   scanAgentPlaceholders,
 } from "@/definition/AgentParameters";
 
@@ -14,6 +15,9 @@ import type {
 
 /** Resolvers must authorize the executing user and project before returning any resource. */
 export interface AgentReferenceResolvers {
+  readonly ticket?: (
+    id: string,
+  ) => Promise<{ readonly markdown: string; readonly version: string }>;
   readonly workspace: (id: string) => Promise<{ readonly path: string }>;
   readonly wiki: (id: string) => Promise<{
     readonly markdown: string;
@@ -58,7 +62,7 @@ function readBindings(
       if (
         (parameter.isRequired ||
           configuration.directoryParameter === parameter.name) &&
-        (bound === null || (bound.type === "text" && !bound.text.trim()))
+        !hasAgentParameterValue(bound)
       )
         throw new AgentError("parameter_required");
       return [parameter.name, bound];
@@ -92,12 +96,24 @@ async function resolveParameter(
       directory: null,
       version: null,
     };
-  if (bound.type === "text")
+  if (bound.type === "text" || bound.type === "number")
     return {
-      replacements: { [name]: bound.text },
+      replacements: {
+        [name]: bound.type === "text" ? bound.text : String(bound.number),
+      },
       directory: null,
       version: null,
     };
+  if (bound.type === "ticket") {
+    if (!references.ticket)
+      throw new AgentError("parameter_ticket_unavailable");
+    const ticket = await references.ticket(bound.ticketId);
+    return {
+      replacements: { [name]: ticket.markdown },
+      directory: null,
+      version: null,
+    };
+  }
   if (bound.type === "workspace") {
     const workspace = await references.workspace(bound.workspaceId);
     return {
@@ -129,6 +145,14 @@ export async function bindAgentParameters(
   if (agentParameterIssues(configuration).length > 0)
     throw new AgentError("parameter_invalid");
   const values = readBindings(configuration, input);
+  const placeholders = scanAgentPlaceholders(
+    configuration.markdown,
+  ).placeholders;
+  for (const placeholder of placeholders) {
+    const bound = values[placeholder.name];
+    if (!hasAgentParameterValue(bound ?? null))
+      throw new AgentError("parameter_required");
+  }
   const replacements: Record<string, string> = {};
   const wikiVersions: Record<string, string> = {};
   let directory: string | null = null;
@@ -145,7 +169,6 @@ export async function bindAgentParameters(
       wikiVersions[parameter.name] = resolved.version;
   }
   let markdown = configuration.markdown;
-  const placeholders = scanAgentPlaceholders(markdown).placeholders;
   for (const placeholder of [...placeholders].reverse()) {
     const token =
       placeholder.property === "text"

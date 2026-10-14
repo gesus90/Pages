@@ -87,7 +87,7 @@ export class AgentPlanSessionAccess {
         operations: SESSION_OPERATIONS,
         tickets: grant.tickets,
       },
-      grant.lifetimeMs + CREDENTIAL_MARGIN_MS,
+      grant.lifetimeMs === 0 ? 0 : grant.lifetimeMs + CREDENTIAL_MARGIN_MS,
     );
     return {
       node: this.settings.node,
