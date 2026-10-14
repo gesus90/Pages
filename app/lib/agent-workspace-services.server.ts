@@ -1,3 +1,4 @@
+import { homedir } from "node:os";
 import path from "node:path";
 
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
@@ -30,6 +31,24 @@ export interface AgentConfigurationApplicationServices {
   readonly agentRunArchive: AgentRunArchive;
 }
 
+/**
+ * The directories a workspace may live in.
+ *
+ * @remarks
+ * `PAGES_WORKSPACE_ROOTS` is an operator's decision and wins. Without it the
+ * home directory of the account that runs Pages is the root, as it is for the
+ * default configuration folder, so registration works without a variable. The
+ * instance's own folders stay excluded either way.
+ */
+function resolveWorkspaceRoots(): readonly string[] {
+  const configured = (process.env.PAGES_WORKSPACE_ROOTS ?? "")
+    .split(path.delimiter)
+    .map((root) => root.trim())
+    .filter(Boolean);
+  if (configured.length > 0) return configured;
+  return [homedir()].filter(Boolean);
+}
+
 /** Wires registration and parameter preparation without filesystem writes or runner starts. */
 export function createAgentConfigurationServices(input: {
   readonly database: Database;
@@ -52,10 +71,7 @@ export function createAgentConfigurationServices(input: {
     authorization,
     projects,
     paths: new AgentWorkspacePath({
-      roots: (process.env.PAGES_WORKSPACE_ROOTS ?? "")
-        .split(path.delimiter)
-        .map((root) => root.trim())
-        .filter(Boolean),
+      roots: resolveWorkspaceRoots(),
       protectedDirectory: input.dataDirectory,
       additionalProtectedDirectories: [input.agentsDirectory],
     }),

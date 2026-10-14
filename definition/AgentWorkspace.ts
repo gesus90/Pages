@@ -85,3 +85,37 @@ export interface AgentWorkspacePage {
   /** Only projects the person may manage; the form disables those without a GitHub link. */
   readonly projects: readonly AgentWorkspaceProject[];
 }
+
+/** A directory the folder browser offers; the path is absolute on the server. */
+export interface WorkspaceFolderEntry {
+  readonly name: string;
+  readonly path: string;
+}
+
+/** What the folder browser asks for: one level of directories below the approved roots. */
+export interface WorkspaceFolderRequest {
+  /** Absolute directory to list; `null` starts at the approved roots. */
+  readonly path: string | null;
+  readonly showHidden: boolean;
+}
+
+/**
+ * One level of server directories below an approved root.
+ *
+ * @remarks
+ * Files and everything above the approved roots stay out of the listing, so
+ * it discloses directory names only, and only where a workspace may live.
+ */
+export interface WorkspaceFolderListing {
+  /** Absolute path of the level; `null` is the level that lists several approved roots. */
+  readonly path: string | null;
+  /** The way from the approved root down to this level; empty at the roots level. */
+  readonly breadcrumbs: readonly WorkspaceFolderEntry[];
+  /** Several approved roots exist, so the level that lists them can be opened. */
+  readonly hasSeveralRoots: boolean;
+  readonly folders: readonly WorkspaceFolderEntry[];
+  /** More directories exist than are listed. */
+  readonly isTruncated: boolean;
+  /** Why this level cannot be registered, or `null` when it can. */
+  readonly selectionIssue: AgentErrorCode | null;
+}

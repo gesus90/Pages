@@ -83,6 +83,7 @@ export function WorkspacePage({
           <WorkspaceForm
             workspace={selected === "new" ? null : selected}
             projects={page.projects}
+            canBrowse={page.canManage}
             onSaved={close}
           />
         ) : null}

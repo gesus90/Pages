@@ -51,6 +51,10 @@ export const AGENT_ERROR_MESSAGES = {
     "Choose an absolute path to an existing local directory.",
   workspace_path_unavailable:
     "The directory is unavailable or lacks read, write or traversal permission.",
+  workspace_path_denied:
+    "The server account may not open this directory. Choose another one.",
+  workspace_path_contains_instance:
+    "It holds Pages instance data, such as the database or agent files. Open a subfolder instead.",
   workspace_path_outside_roots:
     "The directory is outside approved roots or overlaps Pages instance data.",
   workspace_path_changed:

@@ -18,6 +18,8 @@ import type {
   AgentWorkspaceUsage,
   AgentWorkspaceView,
   ResolvedAgentWorkspace,
+  WorkspaceFolderListing,
+  WorkspaceFolderRequest,
   WorkspaceGitHub,
 } from "@/definition/AgentWorkspace";
 import type { Project, ProjectIntegration } from "@/definition/Project";
@@ -62,6 +64,18 @@ function canManageProject(
   );
 }
 
+/** The projects of a person's readable ones that they may register workspaces for. */
+function manageableProjects(
+  actor: AccountAccess,
+  readable: ReadonlyMap<string, Project>,
+  managedIds: readonly string[],
+): Project[] {
+  const managed = new Set(managedIds);
+  return [...readable.values()].filter((project) =>
+    canManageProject(actor, project, managed.has(project.id)),
+  );
+}
+
 /**
  * Registers existing local directories for projects with a GitHub link.
  *
@@ -86,10 +100,7 @@ export class AgentWorkspaceService {
       this.readableProjects(actor),
       this.dependencies.projects.findManagedProjectIds(userId),
     ]);
-    const managed = new Set(managedIds);
-    const manageable = [...readable.values()].filter((project) =>
-      canManageProject(actor, project, managed.has(project.id)),
-    );
+    const manageable = manageableProjects(actor, readable, managedIds);
     const manageableIds = new Set(manageable.map((project) => project.id));
     const integrations =
       await this.dependencies.projects.findIntegrationsByProjectIds([
@@ -121,6 +132,30 @@ export class AgentWorkspaceService {
         github: toGitHub(integrations.get(project.id)),
       })),
     };
+  }
+
+  /**
+   * Lists the server directories a workspace could be registered in.
+   *
+   * @remarks
+   * The browser reveals directory names of the server, so it is reserved for
+   * those who may register a workspace for at least one project, the same
+   * right the registration itself rechecks.
+   */
+  public async folders(
+    userId: string,
+    request: WorkspaceFolderRequest,
+  ): Promise<WorkspaceFolderListing> {
+    const actor = await this.account(userId);
+    if (!new UserPolicyService().isAdministrator(actor)) {
+      const [readable, managedIds] = await Promise.all([
+        this.readableProjects(actor),
+        this.dependencies.projects.findManagedProjectIds(userId),
+      ]);
+      if (manageableProjects(actor, readable, managedIds).length === 0)
+        throw new AgentError("workspace_management_denied");
+    }
+    return this.dependencies.paths.browse(request);
   }
 
   /** Selection contains only workspaces of accessible projects, including explained path and project failures. */

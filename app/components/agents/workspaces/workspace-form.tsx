@@ -22,6 +22,8 @@ import type {
 export function WorkspaceForm(props: {
   readonly workspace: AgentWorkspaceView | null;
   readonly projects: readonly AgentWorkspaceProject[];
+  /** Whether the person may browse the server's folders, as the server decided for the page. */
+  readonly canBrowse: boolean;
   readonly onSaved: () => void;
 }): React.ReactElement {
   const { t } = useTranslation();
@@ -65,6 +67,7 @@ export function WorkspaceForm(props: {
           <WorkspaceFields
             input={input}
             projects={props.projects}
+            canBrowse={props.canBrowse}
             disabled={isPending}
             onChange={draft.setInput}
           />
