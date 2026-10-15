@@ -3,11 +3,10 @@ import { planGroupIssues } from "./AgentPlanGroupGraph";
 import {
   hasAgentParameterValue,
   isAgentParameterName,
+  scanAgentPlaceholders,
 } from "./AgentParameters";
 import { planStepTemplate } from "./AgentPlanConfiguration";
 import { planValueIssue } from "./AgentPlanValue";
-import { scanAgentPlaceholders } from "./AgentParameters";
-import { isApiProvider } from "./AgentConnection";
 
 import type { AgentDefinitionChoice } from "./AgentAvailability";
 import type { AgentParameter } from "./AgentParameters";
@@ -27,8 +26,7 @@ export interface AgentPlanIssue {
     | "groupSize"
     | "groupProvider"
     | "groupConfiguration"
-    | "notesApi"
-    | "notesUnavailable"
+    | "unsupportedRunNotes"
     | "duplicateNode"
     | "port"
     | "duplicate"
@@ -271,22 +269,19 @@ function requiredParameterIssues(
   agent: AgentDefinitionChoice | undefined,
   plan: AgentPlanInput,
 ): AgentPlanIssue[] {
+  const configuration = step.configuration?.template ?? agent?.configuration;
+  if (
+    [configuration?.markdown ?? "", step.instruction].some(
+      (markdown) => scanAgentPlaceholders(markdown).hasUnsupportedRunNotes,
+    )
+  )
+    return [{ nodeId: step.id, port: null, reason: "unsupportedRunNotes" }];
   if (
     !agent ||
     (!step.configuration && !agent.availability.isUsable) ||
     step.personalAgentId === ""
   )
     return [{ nodeId: step.id, port: null, reason: "agent" }];
-  const configuration = planStepTemplate(step, [agent]);
-  const provider = step.configuration?.provider ?? agent.provider;
-  if (
-    provider &&
-    isApiProvider(provider) &&
-    [configuration?.markdown ?? "", step.instruction].some(
-      (markdown) => scanAgentPlaceholders(markdown).builtins.length > 0,
-    )
-  )
-    return [{ nodeId: step.id, port: null, reason: "notesApi" }];
   return (configuration?.parameters ?? []).flatMap(
     (parameter): AgentPlanIssue[] => {
       if (

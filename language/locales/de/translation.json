@@ -621,9 +621,7 @@
         "parameter_ticket_changed": "Die Assetreferenzen des Tickets wurden vor der Übergabe geändert. Den Lauf erneut starten, um die aktuellen Assets zu verwenden.",
         "parameter_ticket_unavailable": "Das gewählte Ticket ist nicht verfügbar oder nicht zugänglich. Ein zugängliches Ticket auswählen.",
         "timeout": "Das harte Zeitlimit des Agents ist abgelaufen. Der laufende Vorgang wurde unterbrochen.",
-        "plan_notes_unavailable": "Gemeinsame Laufnotizen erfordern nutzbare bubblewrap-Isolation. Es wurde kein Notizordner bereitgestellt.",
-        "plan_notes_api": "Dieser API-Knoten kann gemeinsame Laufnotizen ohne lokalen Dateizugriff nicht verwenden.",
-        "plan_notes_path_invalid": "Der Notizpfad ist unsicher oder überlappt einen Arbeitsordner. Wähle einen Workspace außerhalb des Pages-Temp-Bereichs."
+        "run_notes_unsupported": "Gemeinsame Laufnotizen wurden entfernt. {{@run.notes}} wird nicht mehr unterstützt. Passe den betroffenen Agent oder Plan-Knoten ausdrücklich an."
       },
       "description": "Verwalten Sie die benannten KI-Anbindungen und Funktionszuordnungen dieser Pages-Instanz.",
       "adminModeRequired": "Die Agents-Einstellungen sind nur im Admin-Modus verfügbar. Ihr Konto ist derzeit im Rollenmodus.",
@@ -950,7 +948,8 @@
           "typeMismatch": "widersprüchlicher Typ",
           "duplicate": "doppelter Name",
           "directory": "ungültiger Arbeitsbereich-Parameter",
-          "number": "ungültige Zahl"
+          "number": "ungültige Zahl",
+          "unsupportedRunNotes": "Gemeinsame Laufnotizen wurden entfernt. {{@run.notes}} wird nicht mehr unterstützt. Passe den betroffenen Agent oder Plan-Knoten ausdrücklich an."
         },
         "filter": {
           "scope": "Geltung",
@@ -970,8 +969,7 @@
         },
         "ticket": "Ticket anbinden",
         "chooseTicket": "Ticket auswählen (kein Standardwert)",
-        "unavailableTicket": "Angebundenes Ticket nicht zugänglich",
-        "runNotesHint": "Gemeinsame Notizen dieses Plan-Laufs; bei nutzbarem bubblewrap automatisch für CLI-Knoten verfügbar. Keine Deklaration und kein Eingangs-Binding nötig. Die Vorschau zeigt den Platzhalter, der Lauf löst ihn auf. API-Knoten können ihn nicht verwenden."
+        "unavailableTicket": "Angebundenes Ticket nicht zugänglich"
       },
       "openCodeKey": "OpenRouter-API-Schlüssel für OpenCode",
       "openCodeKeyHint": "Pages legt den Schlüssel nur im privaten Anmeldeordner dieser Verbindung ab, in OpenCodes eigener Schlüsseldatei. Er erscheint danach nirgends mehr.",
@@ -3235,8 +3233,7 @@
       "groupSize": "Die Gruppe benötigt mindestens zwei Agents.",
       "groupProvider": "Dieser Adapter unterstützt die gemeinsame native Session mit wechselnder Schrittanweisung nicht. Verwende Codex CLI.",
       "groupConfiguration": "Die aufgelöste Laufzeitkonfiguration widerspricht der gemeinsamen Gruppenkonfiguration.",
-      "notesApi": "Dieser API-Knoten hat keinen lokalen Dateizugriff und kann keine gemeinsamen Laufnotizen verwenden.",
-      "notesUnavailable": "Dieser Knoten verwendet gemeinsame Laufnotizen, aber die bubblewrap-Isolation ist nicht verfügbar."
+      "unsupportedRunNotes": "Gemeinsame Laufnotizen wurden entfernt. {{@run.notes}} wird nicht mehr unterstützt. Passe den betroffenen Agent oder Plan-Knoten ausdrücklich an."
     },
     "createPortValue": "Wert als Parameterknoten",
     "session": {

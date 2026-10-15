@@ -63,8 +63,7 @@ function runIdentifier(planRunId: string, stepId: string): string {
 }
 
 /**
- * Persists the dispatched prompt and result only, without scanning workspace or run-note files.
- * Notes copied by an agent into its answer are part of that answer's existing archive.
+ * Persists the dispatched prompt and result only, without scanning workspace files.
  */
 export class AgentRunArchive {
   private readonly repository: ArchiveRepository;

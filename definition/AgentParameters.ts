@@ -1,7 +1,3 @@
-import { isAgentRunBuiltin } from "./AgentRunBuiltins.js";
-
-import type { AgentBuiltinPlaceholder } from "./AgentRunBuiltins.js";
-
 export type AgentParameterType =
   "text" | "number" | "ticket" | "workspace" | "wiki";
 
@@ -39,6 +35,7 @@ export interface AgentPlaceholder {
 }
 
 export type AgentParameterIssue =
+  | "unsupportedRunNotes"
   | "syntax"
   | "undeclared"
   | "typeMismatch"
@@ -120,26 +117,26 @@ function placeholder(
 /** Scans once; escaped openings stay literal and substitutions are never recursive. */
 export function scanAgentPlaceholders(markdown: string): {
   readonly placeholders: readonly AgentPlaceholder[];
-  readonly builtins: readonly AgentBuiltinPlaceholder[];
+  readonly hasUnsupportedRunNotes: boolean;
   readonly hasInvalidSyntax: boolean;
 } {
   const placeholders: AgentPlaceholder[] = [];
-  const builtins: AgentBuiltinPlaceholder[] = [];
+  let hasUnsupportedRunNotes = false;
   let hasInvalidSyntax = false;
   const openings = /\{\{/g;
   for (const match of markdown.matchAll(openings)) {
     if (isEscaped(markdown, match.index)) continue;
     const closing = markdown.indexOf("}}", match.index + 2);
     const token = markdown.slice(match.index + 2, closing);
-    if (closing >= 0 && isAgentRunBuiltin(token)) {
-      builtins.push({ token, start: match.index, end: closing + 2 });
+    if (closing >= 0 && token === "@run.notes") {
+      hasUnsupportedRunNotes = true;
       continue;
     }
     const found = placeholder(token, match.index, closing + 2);
     if (closing < 0 || found === null) hasInvalidSyntax = true;
     else placeholders.push(found);
   }
-  return { placeholders, builtins, hasInvalidSyntax };
+  return { placeholders, hasUnsupportedRunNotes, hasInvalidSyntax };
 }
 
 /** Checks declared types and explicit directory use before enabling an agent. */
@@ -150,6 +147,7 @@ export function agentParameterIssues(input: {
 }): readonly AgentParameterIssue[] {
   const issues = new Set<AgentParameterIssue>();
   const scanned = scanAgentPlaceholders(input.markdown);
+  if (scanned.hasUnsupportedRunNotes) issues.add("unsupportedRunNotes");
   if (scanned.hasInvalidSyntax) issues.add("syntax");
   const declarations = new Map(
     input.parameters.map((entry) => [entry.name, entry]),

@@ -24,9 +24,6 @@ import type { AgentPlanStepRunner } from "./AgentPlanStepRunner";
 import type { AgentPlanStepStart } from "./AgentPlanStepStart";
 import type { AgentRunArchive } from "./AgentRunArchive";
 import type { AgentDefinitionFiles } from "./AgentDefinitionFiles";
-import type { AgentRunNotes } from "./AgentRunNotes";
-import type { AgentRunNotesCleanup } from "./AgentRunNotesCleanup";
-import type { AgentRunNotesContext } from "@/backend/agents/AgentRunNotesContext";
 
 /**
  * Creates the record of a new run inside a transaction that the caller opens.
@@ -40,7 +37,6 @@ export type AgentPlanRunRecording = (
 ) => Promise<void>;
 
 interface ActivePlanRun {
-  readonly notes: AgentRunNotesContext | null;
   groupCloseout: "open" | "closing" | "closed";
   view: AgentPlanRun;
   readonly snapshot: AgentPlanSnapshot;
@@ -54,11 +50,6 @@ interface ActivePlanRun {
 const STOP_WAIT_MILLISECONDS = 30_000;
 
 interface EngineDependencies {
-  readonly notesCleanup?: Pick<AgentRunNotesCleanup, "shutdown">;
-  readonly notes?: Pick<
-    AgentRunNotes,
-    "create" | "discard" | "complete" | "setPaused"
-  >;
   readonly runs: Pick<
     AgentPlanRunRepository,
     "insert" | "create" | "update" | "find"
@@ -190,10 +181,7 @@ export class AgentPlanRunEngine {
     const releaseDefinition = await this.dependencies.files?.hold(
       snapshot.steps.map((step) => step.step.agentId),
     );
-    let notes: AgentRunNotesContext | null = null;
     try {
-      notes =
-        (await this.dependencies.notes?.create(initialView, snapshot)) ?? null;
       if (recording)
         await recording((transaction) =>
           this.dependencies.runs.insert(
@@ -210,15 +198,10 @@ export class AgentPlanRunEngine {
           workspaceIds,
         );
     } catch (error: unknown) {
-      try {
-        if (notes) await this.dependencies.notes?.discard(notes);
-      } finally {
-        await releaseDefinition?.();
-      }
+      await releaseDefinition?.();
       throw error;
     }
     this.active.set(view.id, {
-      notes,
       groupCloseout: "open",
       view: initialView,
       snapshot,
@@ -285,10 +268,6 @@ export class AgentPlanRunEngine {
       const active = this.active.get(id);
       if (!active || active.view.stopRequested)
         throw new AgentError("plan_run_unavailable");
-      if (active.notes)
-        await this.dependencies.notes?.setPaused(active.notes, {
-          isPaused: true,
-        });
       active.view = {
         ...active.view,
         status: "paused",
@@ -314,10 +293,6 @@ export class AgentPlanRunEngine {
         ),
       };
       await this.dependencies.runs.update(active.view);
-      if (active.notes)
-        await this.dependencies.notes?.setPaused(active.notes, {
-          isPaused: false,
-        });
     });
     await this.pump();
   }
@@ -325,7 +300,6 @@ export class AgentPlanRunEngine {
   /** The shutdown hook drains execution before closing DuckDB or the shared CLI runner. */
   public async shutdown(): Promise<void> {
     this.isClosing = true;
-    await this.dependencies.notesCleanup?.shutdown();
     for (const id of this.active.keys()) await this.stop(id);
     await Promise.all([...this.pending]);
     await this.pump();
@@ -370,8 +344,6 @@ export class AgentPlanRunEngine {
             active.view,
             active.snapshot,
           );
-          if (active.notes)
-            await this.dependencies.notes?.complete(active.view, active.notes);
           await active.releaseDefinition?.();
           this.active.delete(id);
         }
@@ -415,7 +387,7 @@ export class AgentPlanRunEngine {
       active.view.steps.some((step) => step.session)
     ) {
       await Promise.all([...active.executions]);
-      // Running adapters retain their files until their confirmed closeout and normal finalization.
+      // Running adapters settle before normal finalization releases their definitions.
       try {
         await this.pump();
       } catch (error: unknown) {
@@ -432,7 +404,6 @@ export class AgentPlanRunEngine {
         cancellation: "not_started",
       })),
     };
-    if (active.notes) await this.dependencies.notes?.discard(active.notes);
     await active.releaseDefinition?.();
     this.active.delete(id);
     try {
@@ -483,7 +454,6 @@ export class AgentPlanRunEngine {
       if (isStopped)
         return { status: "cancelled", cancellation: "not_started" };
       return this.dependencies.steps.run(active.view, active.snapshot, step, {
-        notes: active.notes ?? undefined,
         signal: controller.signal,
         save: (session) => this.saveSession(active, node.id, session),
       });

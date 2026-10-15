@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import { BlockEditor } from "@/app/components/editor/block-editor";
 import { WikiMarkdown } from "@/app/components/wiki/wiki-markdown";
 import { isWikiAttachmentPath } from "@/app/lib/wiki-upload";
-import { AGENT_RUN_BUILTINS } from "@/definition/AgentRunBuiltins";
 
 import { AgentParameterFields } from "./agent-parameter-fields";
 import { AgentRunOptionsFields } from "./agent-run-options-fields";
@@ -30,11 +29,6 @@ export function AgentTemplateEditor(props: {
       <p className="text-sm text-muted-foreground">
         {t("settings.agents.definition.parameterHint")}
       </p>
-      {Object.entries(AGENT_RUN_BUILTINS).map(([token, builtin]) => (
-        <p key={token} className="text-sm text-muted-foreground">
-          <code>{`{{${token}}}`}</code> {t(builtin.hintKey)}
-        </p>
-      ))}
       <div className="min-h-80 rounded-xl bg-muted/40 p-4">
         <BlockEditor
           markdown={props.configuration.markdown}

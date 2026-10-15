@@ -5,10 +5,6 @@ import { promisify } from "node:util";
 
 import { AgentError } from "@/backend/error/AgentErrors";
 import { containsWorkspacePath } from "@/backend/service/agents/AgentWorkspacePath";
-import { overlapsWorkspacePath } from "@/backend/service/agents/AgentRunNotesPath";
-
-import { notesMounts } from "./CliNotesMounts";
-import { hiddenNotesDirectories } from "./CliNotesAliases";
 
 import type { CliSessionRequest } from "./CliContracts";
 
@@ -70,7 +66,6 @@ export async function probeBubblewrap(
 export class CliPlanIsolation {
   private readonly protectedDirectories: readonly string[];
   private readonly probe: () => Promise<boolean>;
-  private readonly notesRoot: string | undefined;
   private result: { readonly isWorking: boolean; readonly at: number } | null =
     null;
   private probing: Promise<boolean> | null = null;
@@ -85,11 +80,9 @@ export class CliPlanIsolation {
   public constructor(
     protectedDirectories: readonly string[],
     probe: () => Promise<boolean> = probeBubblewrap,
-    notesRoot?: string,
   ) {
     this.protectedDirectories = protectedDirectories;
     this.probe = probe;
-    this.notesRoot = notesRoot;
   }
 
   /**
@@ -110,31 +103,13 @@ export class CliPlanIsolation {
     ]);
     // A folder that does not exist yet has nothing to hide.
     const resolved = await Promise.all(
-      [
-        ...this.protectedDirectories,
-        ...(this.notesRoot ? [this.notesRoot] : []),
-      ].map((entry) => realpath(entry).catch(() => null)),
+      this.protectedDirectories.map((entry) =>
+        realpath(entry).catch(() => null),
+      ),
     );
-    const notePaths = await this.notesDirectories();
-    const hidden = [
-      ...resolved.filter((entry): entry is string => entry !== null),
-      ...notePaths,
-    ];
+    const hidden = resolved.filter((entry): entry is string => entry !== null);
     if (hidden.some((entry) => containsWorkspacePath(entry, workingDirectory)))
       throw new AgentError("workspace_path_outside_roots");
-    const notes = await notesMounts(request.notes, this.notesRoot);
-    if (
-      [
-        homeRoot,
-        workingDirectory,
-        ...(request.credentialDirectory
-          ? [await realpath(request.credentialDirectory)]
-          : []),
-      ].some((entry) =>
-        notePaths.some((temp) => overlapsWorkspacePath(entry, temp)),
-      )
-    )
-      throw new AgentError("plan_notes_path_invalid");
     return {
       ...request,
       file: BUBBLEWRAP,
@@ -168,7 +143,6 @@ export class CliPlanIsolation {
               request.credentialDirectory,
             ]
           : []),
-        ...notes,
         "--chdir",
         workingDirectory,
         "--",
@@ -178,24 +152,15 @@ export class CliPlanIsolation {
     };
   }
 
-  /** Shares the real namespace probe with validation and run creation. */
-  public async isAvailable(
-    options: { readonly refresh?: boolean } = {},
-  ): Promise<boolean> {
+  private async isAvailable(): Promise<boolean> {
     const { result } = this;
     if (
       result !== null &&
-      !options.refresh &&
       (result.isWorking || Date.now() - result.at < RETRY_FAILED_PROBE_MS)
     )
       return result.isWorking;
     this.probing ??= this.runProbe();
     return this.probing;
-  }
-
-  /** Every visible alias of the temp area must be hidden before a run is bound back. */
-  public async notesDirectories(): Promise<readonly string[]> {
-    return hiddenNotesDirectories(this.notesRoot);
   }
 
   private async runProbe(): Promise<boolean> {

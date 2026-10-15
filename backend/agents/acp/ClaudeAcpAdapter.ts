@@ -74,12 +74,7 @@ export function planClaudeAcpLaunch(
     mcpServers: pagesMcpServers(instanceId, mcp),
     sessionMeta: {
       claudeCode: {
-        options: {
-          ...profile.options,
-          ...(specification.notesDirectory
-            ? { additionalDirectories: [specification.notesDirectory] }
-            : {}),
-        },
+        options: profile.options,
       },
     },
   };

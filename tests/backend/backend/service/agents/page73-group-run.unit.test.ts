@@ -142,13 +142,21 @@ it("uses one native session, releases the outer successor only after both accept
   ).toBe("succeeded");
 });
 
-it.each([
-  { name: "provider error", turn: groupTurn({ failure: "failed" }) },
-  {
-    name: "rejected acceptance",
-    turn: groupTurn({ output: "No closing report" }),
-  },
-])(
+it("continues the group after a missing closing report without blocking the successor", async () => {
+  const runtime = executionFixture();
+  const world = await groupEngine(runtime.execution);
+  const run = await world.engine.start("owner", world.snapshot);
+  await vi.waitFor(() => expect(runtime.open).toHaveBeenCalledOnce());
+  runtime.first.resolve(groupTurn({ output: "No closing report" }));
+  await vi.waitFor(() => expect(runtime.next).toHaveBeenCalledOnce());
+  runtime.second.resolve(groupTurn());
+  await vi.waitFor(() =>
+    expect(world.stored.get(run.id)?.status).toBe("succeeded"),
+  );
+  expect(runtime.close).toHaveBeenCalledTimes(1);
+});
+
+it.each([{ name: "provider error", turn: groupTurn({ failure: "failed" }) }])(
   "stops the group and blocks its outer successor after $name",
   async ({ turn }) => {
     const runtime = executionFixture();

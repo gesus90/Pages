@@ -41,7 +41,6 @@ export interface CliSessionMcp {
 
 /** Everything a runner needs to start one session; no field is free user input. */
 export interface CliSessionSpecification {
-  readonly notesDirectory?: string;
   readonly instanceId: string;
   readonly model: string;
   readonly reasoningEffort: string | null;
@@ -94,13 +93,7 @@ function openCodePermissions(
     bash: allow(options.shell),
     webfetch: allow(options.web),
     websearch: allow(options.web),
-    external_directory: specification.notesDirectory
-      ? {
-          "*": "deny",
-          [specification.notesDirectory]: "allow",
-          [`${specification.notesDirectory}/**`]: "allow",
-        }
-      : "deny",
+    external_directory: "deny",
     doom_loop: "deny",
     task: "deny",
     skill: "deny",

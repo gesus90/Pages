@@ -29,7 +29,12 @@ export function readPlanConfiguration(input: unknown): AgentPlanConfiguration {
     directoryParameter: template.directoryParameter,
     ...(template.run === undefined ? {} : { run: template.run }),
   });
-  if (agentParameterIssues(configuration).length > 0)
+  // Retain removed tokens for node diagnostics and explicit editing of stored plans.
+  if (
+    agentParameterIssues(configuration).some(
+      (issue) => issue !== "unsupportedRunNotes",
+    )
+  )
     throw new AgentError("parameter_invalid");
   return {
     name: readText(entry.name, 200, true),

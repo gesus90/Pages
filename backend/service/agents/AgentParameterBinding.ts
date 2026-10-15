@@ -1,7 +1,6 @@
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { readAgentParameterValue } from "@/backend/agents/AgentConfigurationInput";
 import { AgentError } from "@/backend/error/AgentErrors";
-import { AGENT_RUN_BUILTINS } from "@/definition/AgentRunBuiltins";
 import {
   agentParameterIssues,
   hasAgentParameterValue,
@@ -9,7 +8,6 @@ import {
 } from "@/definition/AgentParameters";
 
 import type { AgentConfiguration } from "@/definition/AgentConfiguration";
-import type { AgentRunContext } from "@/definition/AgentRunBuiltins";
 import type {
   ResolvedAgentTicket,
   AgentTicketInput,
@@ -21,8 +19,6 @@ import type {
 
 /** Resolvers must authorize the executing user and project before returning any resource. */
 export interface AgentReferenceResolvers {
-  /** Preparation keeps built-ins visible; execution must supply the actual run. */
-  readonly runContext?: AgentRunContext | "preview";
   readonly ticket?: (id: string) => Promise<ResolvedAgentTicket>;
   readonly workspace: (id: string) => Promise<{ readonly path: string }>;
   readonly wiki: (id: string) => Promise<{
@@ -162,6 +158,8 @@ export async function bindAgentParameters(
   input: unknown,
   references: AgentReferenceResolvers,
 ): Promise<BoundAgentParameters> {
+  if (scanAgentPlaceholders(configuration.markdown).hasUnsupportedRunNotes)
+    throw new AgentError("run_notes_unsupported");
   if (agentParameterIssues(configuration).length > 0)
     throw new AgentError("parameter_invalid");
   const values = readBindings(configuration, input);
@@ -204,11 +202,7 @@ export async function bindAgentParameters(
     if (resolved.version !== null)
       wikiVersions[parameter.name] = resolved.version;
   }
-  const markdown = replacePlaceholders(
-    configuration.markdown,
-    replacements,
-    references.runContext,
-  );
+  const markdown = replacePlaceholders(configuration.markdown, replacements);
   if (markdown.length > 1_000_000) throw new AgentError("parameter_invalid");
   return { markdown, directory, values, wikiVersions, tickets, assetInputs };
 }
@@ -216,20 +210,9 @@ export async function bindAgentParameters(
 function replacePlaceholders(
   source: string,
   replacements: Readonly<Record<string, string>>,
-  context: AgentRunContext | "preview" | undefined,
 ): string {
-  const { placeholders, builtins } = scanAgentPlaceholders(source);
-  const substitutions: { start: number; end: number; replacement: string }[] =
-    builtins.map((entry) => {
-      if (!context) throw new AgentError("plan_notes_unavailable");
-      return {
-        ...entry,
-        replacement:
-          context === "preview"
-            ? source.slice(entry.start, entry.end)
-            : context[AGENT_RUN_BUILTINS[entry.token].contextKey],
-      };
-    });
+  const { placeholders } = scanAgentPlaceholders(source);
+  let markdown = source;
   for (const placeholder of [...placeholders].reverse()) {
     const token =
       placeholder.property === "text"
@@ -239,34 +222,10 @@ function replacePlaceholders(
     // A placeholder is never sent unresolved, not even as an empty or literal token.
     if (replacement === undefined)
       throw new AgentError("plan_placeholder_unresolved");
-    substitutions.push({ ...placeholder, replacement });
-  }
-  let markdown = source;
-  for (const entry of substitutions.sort(
-    (first, second) => second.start - first.start,
-  ))
     markdown =
-      markdown.slice(0, entry.start) +
-      entry.replacement +
-      markdown.slice(entry.end);
-  return markdown;
-}
-
-/** Resolves only built-ins in a node instruction, without interpreting parameter text. */
-export function bindAgentRunContext(
-  markdown: string,
-  context?: AgentRunContext,
-): string {
-  const builtins = scanAgentPlaceholders(markdown).builtins;
-  if (builtins.length > 0 && !context)
-    throw new AgentError("plan_notes_unavailable");
-  let result = markdown;
-  for (const entry of [...builtins].reverse()) {
-    if (!context) throw new AgentError("plan_notes_unavailable");
-    result =
-      result.slice(0, entry.start) +
-      context[AGENT_RUN_BUILTINS[entry.token].contextKey] +
-      result.slice(entry.end);
+      markdown.slice(0, placeholder.start) +
+      replacement +
+      markdown.slice(placeholder.end);
   }
-  return result;
+  return markdown;
 }

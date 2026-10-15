@@ -3,7 +3,7 @@ import { expect, it, vi } from "vitest";
 import { AgentRunArchive } from "@/backend/service/agents/AgentRunArchive";
 import { writeArtifact } from "@/backend/service/agents/AgentArtifactPath";
 
-import { notesRunFixture } from "./page78-notes-fixture";
+import { parameterRunFixture } from "./page55-run-fixture";
 
 import type { PageAgentRunRecord } from "@/definition/PageAgent";
 
@@ -16,22 +16,22 @@ vi.mock("@/backend/service/agents/AgentArtifactPath", () => ({
 
 vi.mock("node:fs/promises", () => ({
   readFile: () => {
-    throw new Error("Notes must never be read by the archive");
+    throw new Error("Workspace files must never be read by the archive");
   },
   readdir: () => {
-    throw new Error("Notes must never be scanned by the archive");
+    throw new Error("Workspace files must never be scanned by the archive");
   },
   rm: vi.fn(),
 }));
 
-it("archives only the sent prompt and answer, without reading any notes file", async () => {
-  const { run, snapshot } = await notesRunFixture();
+it("archives only the sent prompt and answer, without reading any workspace file", async () => {
+  const { run, snapshot } = await parameterRunFixture();
   const save = vi.fn(async (record: PageAgentRunRecord) => record);
   const archive = new AgentRunArchive(
     {
       pinInput: vi.fn(),
       findInput: async () => ({
-        prompt: "Notes path: /notes/plan/run",
+        prompt: "Sent prompt",
         startedAt: run.startedAt,
       }),
       find: vi.fn(),
@@ -64,7 +64,7 @@ it("archives only the sent prompt and answer, without reading any notes file", a
   );
   expect(save).toHaveBeenCalledWith(
     expect.objectContaining({
-      input: "Notes path: /notes/plan/run",
+      input: "Sent prompt",
       result: "Finished",
     }),
   );

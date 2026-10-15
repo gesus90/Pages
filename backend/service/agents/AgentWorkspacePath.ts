@@ -38,6 +38,13 @@ export function containsWorkspacePath(
   );
 }
 
+/** Tests overlap in both directions using path components. */
+export function overlapsWorkspacePath(first: string, second: string): boolean {
+  return (
+    containsWorkspacePath(first, second) || containsWorkspacePath(second, first)
+  );
+}
+
 /** A level with more directories than this is cut after sorting and says so. */
 const MAXIMUM_LISTED_FOLDERS = 500;
 

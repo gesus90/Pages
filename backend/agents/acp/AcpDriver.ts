@@ -84,7 +84,6 @@ export interface AcpDriverErrors {
 
 /** What starting the adapter for one session needs; nothing of it is free user input. */
 export interface AcpLaunchSpecification {
-  readonly notesDirectory?: string;
   readonly instanceId: string;
   /** The CLI of the connection, which holds its sign-in. */
   readonly runnerFile: string;

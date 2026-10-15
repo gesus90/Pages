@@ -16,7 +16,7 @@ vi.mock("@/app/components/editor/block-editor", () => ({
   ),
 }));
 
-it("documents the catalog's token and keeps preview symbolic without suggesting a parameter input", () => {
+it("reports the removed token while preserving the editable template", () => {
   const i18n = createI18n("de");
   render(
     <I18nextProvider i18n={i18n}>
@@ -35,12 +35,16 @@ it("documents the catalog's token and keeps preview symbolic without suggesting 
     "{{@run.notes}}",
   );
   expect(
-    screen.getByText(i18n.t("settings.agents.definition.runNotesHint")),
-  ).toBeDefined();
+    screen.queryByText("Gemeinsame Notizen dieses Plan-Laufs", {
+      exact: false,
+    }),
+  ).toBeNull();
   expect(
     screen.queryByRole("button", {
       name: i18n.t("settings.agents.definition.confirmParameter"),
     }),
   ).toBeNull();
-  expect(screen.queryByRole("status")).toBeNull();
+  expect(screen.getByRole("status").textContent).toContain(
+    i18n.t("settings.agents.definition.issue.unsupportedRunNotes"),
+  );
 });

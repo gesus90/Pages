@@ -11,7 +11,7 @@ import { validateGroupRuntimes } from "./AgentPlanGroupRuntime";
 import { planBindings } from "./AgentPlanBindings";
 import { hasPlanPath, planSteps } from "./AgentPlanGraph";
 import { planStepDirectory } from "./AgentPlanSnapshot";
-import { overlapsWorkspacePath } from "./AgentRunNotesPath";
+import { overlapsWorkspacePath } from "./AgentWorkspacePath";
 
 import type { AgentProfile } from "@/definition/AgentProfile";
 import type { AgentPlan, AgentPlanStep } from "@/definition/AgentPlan";
@@ -19,14 +19,12 @@ import type { ResolvedAgentWorkspace } from "@/definition/AgentWorkspace";
 import type { AgentProfileService } from "./AgentProfileService";
 import type { AgentParameterService } from "./AgentParameterService";
 import type { AgentPlanTasks } from "./AgentPlanTasks";
-import type { AgentRunNotes } from "./AgentRunNotes";
 import type {
   AgentPlanSnapshot,
   AgentPlanStepSnapshot,
 } from "./AgentPlanSnapshot";
 
 interface PreparationDependencies {
-  readonly notes?: Pick<AgentRunNotes, "validate">;
   readonly profiles: Pick<AgentProfileService, "catalog" | "resolveDefinition">;
   readonly parameters: Pick<AgentParameterService, "prepare">;
   readonly tasks: Pick<AgentPlanTasks, "snapshot">;
@@ -136,9 +134,7 @@ export class AgentPlanPreparation {
     }
     validateGroupRuntimes(groups, snapshots);
     validateWorkingCopies(plan, snapshots);
-    const snapshot = structuredClone({ plan, groups, steps: snapshots });
-    await this.dependencies.notes?.validate(snapshot);
-    return snapshot;
+    return structuredClone({ plan, groups, steps: snapshots });
   }
 }
 

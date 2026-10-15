@@ -48,8 +48,6 @@ export interface CliIsolationOptions {
 }
 
 interface SessionDependencies {
-  /** Shared with plan preparation, so notes use exactly the same capability probe. */
-  readonly planIsolation?: CliPlanIsolation;
   readonly runtime: Pick<AgentCliRuntime, "adapter">;
   readonly store: Pick<AgentCredentialStore, "prepare" | "secure">;
   readonly locator: Pick<CliLocator, "find" | "locate">;
@@ -100,11 +98,9 @@ export class CliSessionExecution implements PlanSessionRunner {
   public constructor(dependencies: SessionDependencies) {
     this.dependencies = dependencies;
     const { isolation } = dependencies;
-    this.isolation =
-      dependencies.planIsolation ??
-      (isolation
-        ? new CliPlanIsolation(isolation.protectedDirectories, isolation.probe)
-        : null);
+    this.isolation = isolation
+      ? new CliPlanIsolation(isolation.protectedDirectories, isolation.probe)
+      : null;
     this.isIsolationRequired = isolation?.isRequired === true;
   }
 
@@ -199,13 +195,11 @@ export class CliSessionExecution implements PlanSessionRunner {
       directory: input.directory,
       prompt: input.prompt,
       mcp: input.mcp,
-      notesDirectory: input.notes?.directory,
     });
     const state = createCliSessionState();
     const buffered: string[] = [];
     let session: CliPlanSession | null = null;
     const { request } = await this.isolate({
-      notes: input.notes,
       file: start.file,
       provider: start.provider,
       home: start.home,
@@ -267,7 +261,6 @@ export class CliSessionExecution implements PlanSessionRunner {
       throw new AgentError(driver.errors.adapterMissing);
     const profile = driver.profile(mode);
     const launch = driver.plan({
-      notesDirectory: input.notes?.directory,
       instanceId: input.instanceId,
       runnerFile: start.file,
       profile,
@@ -278,7 +271,6 @@ export class CliSessionExecution implements PlanSessionRunner {
     let child: CliSessionProcess | null = null;
     try {
       const { request, isIsolated } = await this.isolate({
-        notes: input.notes,
         file: start.adapter,
         provider: start.provider,
         home: start.home,
@@ -394,13 +386,9 @@ export class CliSessionExecution implements PlanSessionRunner {
    * unless the operator demanded isolation: then the node fails before any process.
    */
   private async isolate(request: CliSessionRequest): Promise<IsolatedRequest> {
-    if (this.isolation === null) {
-      if (request.notes) throw new AgentError("plan_notes_unavailable");
-      return { request, isIsolated: false };
-    }
+    if (this.isolation === null) return { request, isIsolated: false };
     const isolated = await this.isolation.isolate(request);
     if (isolated !== null) return { request: isolated, isIsolated: true };
-    if (request.notes) throw new AgentError("plan_notes_unavailable");
     if (this.isIsolationRequired)
       throw new AgentError("cli_isolation_unavailable");
     if (!this.hasWarnedWithoutIsolation) {

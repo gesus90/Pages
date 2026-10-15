@@ -6,7 +6,10 @@ import {
 import { UserPolicyService } from "@/backend/auth/UserPolicyService";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
-import { agentParameterIssues } from "@/definition/AgentParameters";
+import {
+  agentParameterIssues,
+  scanAgentPlaceholders,
+} from "@/definition/AgentParameters";
 
 import { resolveAgentAssignmentFor } from "./AgentAssignmentResolution";
 import { canUseAgentConnection } from "./AgentConnectionAccess";
@@ -141,6 +144,8 @@ export class AgentAvailabilityService {
     }
     const configuration =
       profile.configuration ?? configurationForTargets(profile.targets);
+    if (scanAgentPlaceholders(configuration.markdown).hasUnsupportedRunNotes)
+      throw new AgentError("run_notes_unsupported");
     if (agentParameterIssues(configuration).length > 0)
       throw new AgentError("parameter_invalid");
     if (profile.ownerId) {
@@ -285,6 +290,8 @@ export class AgentAvailabilityService {
       await this.requireProject(profile, context);
       const configuration =
         profile.configuration ?? configurationForTargets(profile.targets);
+      if (scanAgentPlaceholders(configuration.markdown).hasUnsupportedRunNotes)
+        throw new AgentError("run_notes_unsupported");
       if (agentParameterIssues(configuration).length > 0)
         throw new AgentError("parameter_invalid");
       if (profile.ownerId) {

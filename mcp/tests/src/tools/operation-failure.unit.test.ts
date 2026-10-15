@@ -9,8 +9,8 @@ function failureResponse(status: number, error: unknown): Response {
   return new Response(JSON.stringify({ apiVersion: "1", error }), { status });
 }
 
-it.each(["notesApi", "notesUnavailable"])(
-  "keeps the node and public %s notes diagnosis",
+it.each(["unsupportedRunNotes"])(
+  "keeps the node and public %s unsupported-placeholder diagnosis",
   async (problem) => {
     const issues = [{ nodeId: "notes-node", port: null, problem }];
     const failure = await operationFailure(
