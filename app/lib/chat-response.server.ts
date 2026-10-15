@@ -21,6 +21,7 @@ const STATUSES: Readonly<
   requestBusy: 409,
   timeout: 504,
   providerFailed: 502,
+  instructionsUnavailable: 503,
 };
 
 /**

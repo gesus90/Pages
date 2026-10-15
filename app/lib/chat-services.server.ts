@@ -12,6 +12,7 @@ import { ChatService } from "@/backend/service/chat/ChatService";
 import { ChatSessionService } from "@/backend/service/chat/ChatSessionService";
 import { ChatSettingsService } from "@/backend/service/chat/ChatSettingsService";
 import { ChatToolExecutor } from "@/backend/service/chat/ChatToolExecutor";
+import { readPicaInstructions } from "@/backend/service/chat/PicaInstructionFiles";
 import { AgentIdentityService } from "@/backend/service/mcp/AgentIdentityService";
 import { WikiFileStore } from "@/backend/storage/WikiFileStore";
 
@@ -95,6 +96,7 @@ export function createChatServices(input: {
       messages: sessions,
       attachments: chatAttachmentService,
       settings: chatSettingsService,
+      protectedInstructions: readPicaInstructions,
       agents: input.agents.agentProfileService,
       execution: input.agents.agentChatExecution,
       tools: new ChatToolExecutor({

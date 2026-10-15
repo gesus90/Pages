@@ -15,7 +15,8 @@ export type ChatErrorCode =
   | "invalidSetting"
   | "stepLimit"
   | "contextChanged"
-  | "compactionFailed";
+  | "compactionFailed"
+  | "instructionsUnavailable";
 
 /** Stable, translated chat failures; they never carry message text or provider output. */
 export class ChatError extends Error {

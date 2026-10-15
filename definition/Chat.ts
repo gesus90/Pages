@@ -77,15 +77,19 @@ export interface ChatMessage {
 /** Administrator settings of the chat; access and model belong to the agents panel. */
 export interface ChatSettings {
   readonly attachmentLimitBytes: number;
-  /** Markdown instruction of the administrator; `null` keeps the built-in default. */
+  /**
+   * Markdown supplement of the administrator, added below Pica's protected
+   * `SOUL.md` and `AGENTS.md`; `null` when none is saved.
+   */
   readonly systemInstruction: string | null;
 }
 
 /** The settings of the chat as the system settings page shows them. */
 export interface ChatAdministration {
   readonly attachmentLimitMegabytes: number;
-  /** The instruction that applies, the built-in default when none was saved. */
+  /** The saved supplement; empty when none is saved. */
   readonly systemInstruction: string;
+  /** Whether Pica works with its protected instructions alone, without a supplement. */
   readonly isDefaultInstruction: boolean;
 }
 

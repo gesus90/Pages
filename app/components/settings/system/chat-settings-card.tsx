@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Form, Link, useNavigation } from "react-router";
 
+import { PicaMascot } from "@/app/components/chat/pica-mascot";
 import {
   ControlRow,
   SettingsCard,
@@ -11,8 +12,6 @@ import { Input } from "@/app/components/ui/input";
 import { Textarea } from "@/app/components/ui/textarea";
 import { CHAT_LIMITS } from "@/definition/Chat";
 
-import picaIconUrl from "@/assets/pica-icon.svg";
-
 import type { ChatAdministration } from "@/definition/Chat";
 
 interface ChatSettingsCardProps {
@@ -20,8 +19,10 @@ interface ChatSettingsCardProps {
 }
 
 /**
- * Attachment limit and system instruction of the chat agent Pica (T6.12.4,
- * T6.12.8); access and model are chosen in the agents panel (T6.12.14).
+ * Attachment limit and supplementary instruction of the chat agent Pica
+ * (T6.12.4, T6.12.8); access and model are chosen in the agents panel
+ * (T6.12.14). Pica's protected `SOUL.md` and `AGENTS.md` cannot be edited
+ * here or anywhere else in Pages (PAGE-51).
  */
 export function ChatSettingsCard({
   settings,
@@ -35,7 +36,7 @@ export function ChatSettingsCard({
   return (
     <SettingsCard
       description={t("settings.system.chat.description")}
-      icon={<img alt="" className="size-5" src={picaIconUrl} />}
+      icon={<PicaMascot className="size-7" />}
       title={t("settings.system.chat.title")}
     >
       <Form className="space-y-3" method="post" noValidate>

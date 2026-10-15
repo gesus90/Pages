@@ -317,21 +317,21 @@
       },
       "chat": {
         "title": "Chat-Assistent Pica",
-        "description": "Anhanggrenze und Systemanweisung des globalen Chats.",
+        "description": "Anhanggrenze und ergänzende Anweisung des globalen Chats.",
         "attachmentLimit": "Maximale Anhanggröße (MB)",
         "attachmentHint": "Standard 16 MB, höchstens 512 MB pro Datei. Gilt für neue Uploads.",
-        "instruction": "Systemanweisung (Markdown)",
-        "instructionDefault": "Die Standardanweisung aus CHAT_AGENT.md ist aktiv.",
-        "instructionCustom": "Eine eigene Anweisung ist aktiv.",
-        "instructionHint": "Sie gilt ab der nächsten Nachricht. Die festen Regeln von Pages (Rechte der Person, Aktionen, Bestätigung beim Löschen) ergänzt Pages immer selbst.",
+        "instruction": "Ergänzende Anweisung (Markdown, optional)",
+        "instructionDefault": "Keine Ergänzung gespeichert. Pica arbeitet nur mit den geschützten Vorgaben aus SOUL.md und AGENTS.md.",
+        "instructionCustom": "Eine Ergänzung ist aktiv.",
+        "instructionHint": "Sie gilt ab der nächsten Nachricht und steht unter den geschützten Vorgaben von Pica (SOUL.md, AGENTS.md) und den festen Regeln von Pages (Rechte der Person, Aktionen, Bestätigung beim Löschen). Sie kann diese weder ändern noch aufheben; die geschützten Vorgaben lassen sich hier nicht bearbeiten.",
         "modelHint": "Zugang und Modell legst du bei der Systemfunktion Chat fest:",
         "modelLink": "Einstellungen › Agents",
         "save": "Chat-Einstellungen speichern",
-        "reset": "Standard wiederherstellen",
+        "reset": "Ergänzung entfernen",
         "saved": "Gespeichert.",
         "error": {
-          "invalidSetting": "Bitte eine Grenze von 1 bis 512 MB und eine Anweisung mit höchstens 20.000 Zeichen angeben.",
-          "credentialsInText": "Die Anweisung darf keine Zugangsdaten enthalten.",
+          "invalidSetting": "Bitte eine Grenze von 1 bis 512 MB und eine Ergänzung mit höchstens 20.000 Zeichen angeben.",
+          "credentialsInText": "Die Ergänzung darf keine Zugangsdaten enthalten.",
           "general": "Die Einstellungen konnten nicht gespeichert werden."
         }
       }
@@ -2995,7 +2995,8 @@
       "invalidOutput": "Die Antwort war unvollständig und wurde nicht gespeichert.",
       "general": "Das hat nicht geklappt. Bitte versuch es noch einmal.",
       "contextChanged": "Der Kontext wurde inzwischen geändert. Es wurde nichts überschrieben; bitte /compact erneut aufrufen.",
-      "compactionFailed": "Der Kontext konnte nicht komprimiert werden. Der vorhandene Gesprächsverlauf bleibt erhalten."
+      "compactionFailed": "Der Kontext konnte nicht komprimiert werden. Der vorhandene Gesprächsverlauf bleibt erhalten.",
+      "instructionsUnavailable": "Pica kann gerade nicht antworten: Die geschützten Vorgaben von Pica fehlen auf dem Server oder sind nicht lesbar. Deine Nachricht wurde nicht gesendet. Bitte wende dich an einen Admin."
     },
     "recover": "Neue Session starten",
     "context": {

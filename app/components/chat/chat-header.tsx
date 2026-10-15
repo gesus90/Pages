@@ -4,8 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/app/components/ui/button";
 
 import { ChatContextIndicator } from "./chat-context-indicator";
-
-import picaIconUrl from "@/assets/pica-icon.svg";
+import { PicaMascot } from "./pica-mascot";
 
 import type { ChatSession, ChatContextSize } from "@/definition/Chat";
 
@@ -32,7 +31,7 @@ export function ChatHeader({
     <header className="flex flex-col gap-3 border-b border-border p-4">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <img alt="" className="size-9 rounded-xl" src={picaIconUrl} />
+          <PicaMascot className="size-9" />
           <div>
             <h2 className="font-semibold" id="pica-chat-title">
               {t("chat.title")}

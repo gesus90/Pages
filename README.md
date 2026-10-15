@@ -319,6 +319,82 @@ MCP session deletion uses a separate adapter and still requires exactly
 **LÖSCHEN**, including with an English interface. See the
 [MCP session tools](./mcp/README.md#pica-sessions).
 
+## Pica's mascot and protected instructions (PAGE-51)
+
+### Mascot
+
+Pica appears with one graphic: `assets/pica/pica_maskottchen.svg`, the SVG
+attached to PAGE-51, taken over byte for byte. `app/components/chat/pica-mascot.tsx`
+renders it in the launcher (44 px in the 56 px round button), in the chat header
+(36 px), beside Pica's answers and the pending row (28 px) and on the chat
+settings card (28 px in the 36 px symbol tile). It keeps its square canvas
+(`object-contain`) and is never clipped to a round or rounded frame. The image is
+decorative (`alt=""`); the launcher button, the heading and the message label
+name Pica for assistive technology. It is imported with `?no-inline`, so the
+build emits it as a file of its own that browsers load once, instead of a data
+URL in every server-rendered page.
+
+### Protected `AGENTS.md` and `SOUL.md`
+
+Pica has two instruction files of its own:
+
+- `backend/service/chat/pica/SOUL.md`: identity, tone and style of communication.
+- `backend/service/chat/pica/AGENTS.md`: tasks, way of working and binding rules.
+
+They are runtime instructions of Pica, not instructions for coding agents.
+
+**Delivery.** `pnpm run build` copies both files next to the server bundle, to
+`build/server/pica/` (the `pages-pica-instructions` plugin in `vite.config.ts`,
+server build only). They are not part of `build/client/`, the only directory the
+server hands out. Deploy the complete `build/` directory.
+
+**Loading.** `backend/service/chat/PicaInstructionFiles.ts` derives the directory
+from the location of the server code: `build/server/pica/` in production, the
+source directory in development and tests. Configuration, database, environment
+and requests cannot change it. Every Pica message reads both files anew before
+the message is stored. The system instruction of the turn starts with `SOUL.md`
+and `AGENTS.md`, followed by the optional supplement of the administrator, the
+fixed working rules of Pages and the action catalog. The instruction is rebuilt
+for every message and is never part of the conversation, so the files apply in
+new sessions and after `/compact`, which summarizes only the conversation. Only
+the Pica chat loads them. The text assistant, plan nodes and user agents keep
+their own instructions. Their `AGENT.md` files, working directories and
+configurations stay untouched.
+
+**Protection in the product.** Pages has no function that edits, replaces or
+deletes the files: no page, settings field, API route, Agent API or MCP
+operation, and no Pica action. *Settings › System › Chat assistant Pica* keeps
+only an optional supplementary instruction in the database. It stands below the
+protected files with the note that it cannot override them, and an empty field
+removes it. Chat messages, attachments and action results reach the model as
+data. Uploads are stored under server-chosen names in `<data>/chat-attachments/`,
+a different directory. The loader reads only regular files of at most 64 KiB in
+UTF-8. A link, directory or pipe in place of a file is refused, so a link to
+another agent's files is never followed.
+
+**Missing or unreadable files.** If a file is missing, unreadable, not a regular
+file, larger than 64 KiB, not UTF-8 or empty, the server logs one line with the
+path, `missing` or `unreadable` and the reason, never the content:
+
+```text
+[pages] A protected instruction file of Pica cannot be used; the chat does not answer. <path> missing ENOENT
+```
+
+The reasons are `ENOENT`, `EACCES` (or another file-system code),
+`notARegularFile`, `tooLarge`, `notUtf8` and `empty`. The message is neither
+stored nor sent to a model. The browser receives HTTP 503 with the code
+`instructionsUnavailable`; the panel shows a translated notice and keeps the
+typed text. Pages never falls back to other instructions or to another agent's
+files. All other functions keep working.
+
+**Product access versus backend change.** In the running product nobody can
+change the files, administrators and Pica included. To change Pica's identity
+or rules, change the backend: edit the files in the repository, review, build
+and deploy. An account with shell access to the server can change the deployed
+copies in `build/server/pica/`, as it can change the server code itself. That
+happens outside of Pages and applies from the next message. Keep `build/`
+writable only for the account that deploys Pages.
+
 ## Agents in the Pages chat
 
 Pica can list and read visible user agents, create them (`agents.create`, the
@@ -1010,7 +1086,7 @@ aliases are in [tests/README.md](./tests/README.md).
 | `tests/`       | Unit-test scopes and setup                                               |
 | `scripts/`     | Maintenance scripts (`db:transfer`)                                      |
 | `mcp/`         | Independent MCP server package with its own manifest and lockfile        |
-| `assets/`      | Logo and README banner                                                   |
+| `assets/`      | Logo, README banner and the Pica mascot (`assets/pica/`)                 |
 | `server.mjs`   | Entry point of the production server                                     |
 
 Further documentation:

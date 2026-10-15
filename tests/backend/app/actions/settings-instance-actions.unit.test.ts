@@ -297,7 +297,7 @@ describe("handleUpdateChatSettings", () => {
     });
   });
 
-  it("returns to the built-in instruction on reset", async () => {
+  it("removes the supplement on reset", async () => {
     await run(handleUpdateChatSettings, {
       ...fields,
       resetInstruction: "true",

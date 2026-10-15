@@ -42,6 +42,7 @@ import type { ChatContextService } from "./ChatContextService";
 import type { ChatSessionService } from "./ChatSessionService";
 import type { ChatSettingsService } from "./ChatSettingsService";
 import type { ChatToolExecutor } from "./ChatToolExecutor";
+import type { PicaInstructions } from "./PicaInstructionFiles";
 
 /** Actions the agent may run for one message before it has to answer. */
 export const CHAT_MAXIMUM_ACTIONS = 6;
@@ -61,6 +62,11 @@ export interface ChatServiceDependencies {
     "pending" | "link" | "readText"
   >;
   readonly settings: Pick<ChatSettingsService, "instruction">;
+  /**
+   * Loads Pica's protected `SOUL.md` and `AGENTS.md` for every message; a
+   * failure ends the message before anything is stored or sent to a model.
+   */
+  readonly protectedInstructions: () => Promise<PicaInstructions>;
   readonly agents: Pick<AgentProfileService, "resolve">;
   readonly execution: TextExecution;
   readonly tools: Pick<ChatToolExecutor, "run">;
@@ -82,6 +88,7 @@ interface ChatSendRequest {
 interface ChatTurn {
   readonly actor: User;
   readonly agent: ResolvedAgentAssignment;
+  readonly protectedInstructions: PicaInstructions;
   readonly history: readonly StoredChatMessage[];
   readonly summary?: string | null;
   readonly request: ChatSendRequest;
@@ -140,10 +147,11 @@ function readAnswer(text: string): string {
  * @remarks
  * Every message resolves the chat assignment anew for the person who sends it,
  * so a running answer keeps its access and model while the next message uses
- * the current assignment (T6.1.18). The agent works in a loop of at most six
- * actions; each action runs with the rights of the person (T6.12.5). Neither
- * credentials nor server paths enter a prompt, and nothing of the conversation
- * is logged.
+ * the current assignment (T6.1.18). Every message also reads Pica's protected
+ * `SOUL.md` and `AGENTS.md` anew (PAGE-51). The agent works in a loop of at
+ * most six actions; each action runs with the rights of the person (T6.12.5).
+ * Neither credentials nor server paths enter a prompt, and nothing of the
+ * conversation is logged.
  */
 export class ChatService {
   private readonly dependencies: ChatServiceDependencies;
@@ -190,6 +198,8 @@ export class ChatService {
     const sent = await attachments.pending(session.id, request.attachmentIds);
     // Access and model are resolved for the person who sends, at the start of every message.
     const agent = await agents.resolve(actor.id, "chat");
+    const protectedInstructions =
+      await this.dependencies.protectedInstructions();
     const context = this.dependencies.context
       ? await this.dependencies.context.history(actor, session.id)
       : { messages: await messages.messages(session.id), summary: null };
@@ -204,6 +214,7 @@ export class ChatService {
       {
         actor,
         agent,
+        protectedInstructions,
         history,
         summary: context.summary,
         request,
@@ -236,7 +247,8 @@ export class ChatService {
     const confirmationWord = chatConfirmationWord(settings?.language);
     const canSearchWeb = canChatSearchWeb(turn.agent.connection.provider);
     const instructions = createChatInstructions({
-      instruction: await this.dependencies.settings.instruction(),
+      protectedInstructions: turn.protectedInstructions,
+      supplement: await this.dependencies.settings.instruction(),
       personName: turn.actor.displayName,
       confirmationWord,
       canSearchWeb,

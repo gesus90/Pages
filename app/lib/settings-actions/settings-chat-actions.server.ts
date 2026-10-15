@@ -19,12 +19,13 @@ function readMegabytes(formData: FormData): number {
 }
 
 /**
- * Changes the attachment limit and the system instruction of the chat
+ * Changes the attachment limit and the supplementary instruction of the chat
  * (T6.12.4, T6.12.8); administrators in the admin mode only.
  *
  * @remarks
- * `resetInstruction` returns to the built-in instruction. Neither the
- * instruction nor any other content of the form is logged.
+ * `resetInstruction` removes the supplement; Pica's protected `SOUL.md` and
+ * `AGENTS.md` are not part of the form (PAGE-51). Neither the supplement nor
+ * any other content of the form is logged.
  */
 export const handleUpdateChatSettings: SettingsActionHandler = async ({
   user,

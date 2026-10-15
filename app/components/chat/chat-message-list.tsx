@@ -4,10 +4,9 @@ import { useTranslation } from "react-i18next";
 import { WikiMarkdown } from "@/app/components/wiki/wiki-markdown";
 import { cn } from "@/app/lib/cn";
 
-import picaIconUrl from "@/assets/pica-icon.svg";
-
 import { ChatAttachmentList } from "./chat-attachment-list";
 import { chatErrorText } from "./chat-error";
+import { PicaMascot } from "./pica-mascot";
 
 import type { ChatMessage } from "@/definition/Chat";
 import type { ChatController } from "./use-chat";
@@ -41,13 +40,7 @@ function ChatMessageItem({
       aria-label={isOwn ? t("chat.you") : t("chat.title")}
       className={cn("flex gap-2", isOwn ? "justify-end" : "justify-start")}
     >
-      {isOwn ? null : (
-        <img
-          alt=""
-          className="mt-1 size-7 shrink-0 rounded-lg"
-          src={picaIconUrl}
-        />
-      )}
+      {isOwn ? null : <PicaMascot className="mt-1 size-7" />}
       <div
         className={cn(
           "min-w-0 max-w-[85%] rounded-2xl px-3 py-2",
@@ -71,7 +64,7 @@ function ChatAnswerPending(): React.ReactElement {
   const { t } = useTranslation();
   return (
     <div className="flex items-center gap-2" role="status">
-      <img alt="" className="size-7 shrink-0 rounded-lg" src={picaIconUrl} />
+      <PicaMascot className="size-7" />
       <p className="flex items-center gap-2.5 rounded-2xl bg-surface px-3 py-2 text-sm font-medium ring-1 ring-border">
         <span aria-hidden="true" className="flex gap-1">
           {DOT_DELAYS.map((delay) => (

@@ -8,8 +8,6 @@ import {
   CHAT_MEBIBYTE,
 } from "@/definition/Chat";
 
-import { DEFAULT_CHAT_INSTRUCTION } from "./ChatSystemInstruction";
-
 import type { AdministrationService } from "@/backend/service/AdministrationService";
 import type { ChatSettingsRepository } from "@/backend/database/repositories/chat/ChatSettingsRepository";
 import type { ChatAdministration, ChatSettings } from "@/definition/Chat";
@@ -18,28 +16,37 @@ import type { User } from "@/definition/User";
 /** What an administrator changes in the system settings. */
 export interface ChatSettingsUpdate {
   readonly attachmentLimitMegabytes: number;
-  /** The new instruction; `null` returns to the built-in default. */
+  /** The new supplement; `null` or an empty text removes it. */
   readonly systemInstruction: string | null;
 }
 
 function readInstruction(input: string | null): string | null {
-  if (input === null) return null;
-  const instruction = input.trim();
-  if (!instruction || instruction.length > CHAT_LIMITS.instructionCharacters)
+  const instruction = input?.trim() ?? "";
+  // Without a supplement Pica works with its protected files alone.
+  if (!instruction) return null;
+  if (instruction.length > CHAT_LIMITS.instructionCharacters)
     throw new ChatError("invalidSetting");
-  // The instruction reaches the provider with every message, so it must not carry secrets.
+  // The supplement reaches the provider with every message, so it must not carry secrets.
   if (redactAssistantCredentials(instruction) !== instruction)
     throw new ChatError("credentialsInText");
-  return instruction === DEFAULT_CHAT_INSTRUCTION.trim() ? null : instruction;
+  return instruction;
 }
 
-/** Administrator settings of the chat: attachment limit and system instruction (T6.12.4, T6.12.8). */
+/**
+ * Administrator settings of the chat: attachment limit and the supplement to
+ * Pica's instructions (T6.12.4, T6.12.8).
+ *
+ * @remarks
+ * Pica's protected `SOUL.md` and `AGENTS.md` are no setting (PAGE-51): no
+ * method here or anywhere else in Pages reads them for editing or writes them.
+ * The supplement only adds to them.
+ */
 export class ChatSettingsService {
-  private readonly repository: ChatSettingsRepository;
+  private readonly repository: Pick<ChatSettingsRepository, "read" | "save">;
   private readonly accounts: Pick<AdministrationService, "getContext">;
 
   public constructor(
-    repository: ChatSettingsRepository,
+    repository: Pick<ChatSettingsRepository, "read" | "save">,
     accounts: Pick<AdministrationService, "getContext">,
   ) {
     this.repository = repository;
@@ -51,12 +58,9 @@ export class ChatSettingsService {
     return this.repository.read();
   }
 
-  /** Returns the instruction a chat turn starts with. */
-  public async instruction(): Promise<string> {
-    return (
-      (await this.repository.read()).systemInstruction ??
-      DEFAULT_CHAT_INSTRUCTION
-    );
+  /** Returns the supplement a chat turn adds below Pica's protected files, or `null`. */
+  public async instruction(): Promise<string | null> {
+    return (await this.repository.read()).systemInstruction;
   }
 
   /**
@@ -71,7 +75,7 @@ export class ChatSettingsService {
       attachmentLimitMegabytes: Math.round(
         settings.attachmentLimitBytes / CHAT_MEBIBYTE,
       ),
-      systemInstruction: settings.systemInstruction ?? DEFAULT_CHAT_INSTRUCTION,
+      systemInstruction: settings.systemInstruction ?? "",
       isDefaultInstruction: settings.systemInstruction === null,
     };
   }
@@ -80,8 +84,8 @@ export class ChatSettingsService {
    * Replaces the settings.
    *
    * @throws {InstanceSettingsDeniedError} When the actor is no administrator in the admin mode.
-   * @throws {ChatError} `invalidSetting` for a limit outside 1 to 512 MB or an
-   * empty or too long instruction, `credentialsInText` for an instruction with credentials.
+   * @throws {ChatError} `invalidSetting` for a limit outside 1 to 512 MB or a
+   * too long supplement, `credentialsInText` for a supplement with credentials.
    */
   public async update(actor: User, update: ChatSettingsUpdate): Promise<void> {
     await this.requireAdministrator(actor);

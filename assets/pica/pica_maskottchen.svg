@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 640 640" width="640" height="640" role="img" aria-labelledby="title desc">
+  <title id="title">Pica – winkendes Papiermaskottchen</title>
+  <desc id="desc">Breites, cremefarbenes Papier mit umgeknickter orangefarbener Ecke, fröhlichem zwinkerndem Gesicht und einer rechts winkenden Papierlasche. Ohne Füße, auf transparentem Hintergrund.</desc>
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#fffaf1"/>
+      <stop offset="0.6" stop-color="#fff8ed"/>
+      <stop offset="1" stop-color="#fff0d9"/>
+    </linearGradient>
+    <linearGradient id="fold" x1="0.1" y1="0.2" x2="0.9" y2="0.9">
+      <stop offset="0" stop-color="#ffb13e"/>
+      <stop offset="1" stop-color="#ff8917"/>
+    </linearGradient>
+    <linearGradient id="wave" x1="0" y1="0" x2="1" y2="0.6">
+      <stop offset="0" stop-color="#ff8719"/>
+      <stop offset="1" stop-color="#ffa72d"/>
+    </linearGradient>
+    <linearGradient id="blush" x1="0" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#ffa982"/>
+      <stop offset="1" stop-color="#ffbd99"/>
+    </linearGradient>
+    <clipPath id="mouth-clip">
+      <path d="M250 342 C267 348 299 348 326 338 C332 335 336 342 335 355 C334 378 318 393 295 397 C275 401 256 387 250 368 C247 358 245 347 250 342 Z"/>
+    </clipPath>
+  </defs>
+
+  <!-- Kleine Bewegungsstriche beim Winken -->
+  <g fill="none" stroke="#ff911b" stroke-width="17" stroke-linecap="round">
+    <path d="M558 259 L567 231"/>
+    <path d="M590 276 L608 258"/>
+    <path d="M604 302 L623 296"/>
+  </g>
+
+  <!-- Aufgeklappte Lasche hinter dem Blatt -->
+  <path d="M506 334 C526 335 550 303 569 301 C590 296 597 315 601 334 C608 365 596 389 573 400 L519 425 Z" fill="url(#wave)"/>
+  <path d="M504 333 C510 338 515 346 517 365 L527 424 L511 431 Z" fill="#f87914"/>
+
+  <!-- Papier: flache, breitformatige Grundform -->
+  <path d="M162 128 L472 128 C499 128 515 146 516 173 L525 490 C527 523 509 542 476 542 L88 542 C49 542 29 520 28 484 L28 286 C28 265 39 250 54 234 L140 145 C148 135 154 130 162 128 Z" fill="url(#paper)" stroke="#f9dfbd" stroke-width="2"/>
+
+  <!-- Oben links gefaltete Ecke -->
+  <path d="M28 286 C30 268 36 256 49 242 L140 146 C150 134 159 129 163 128 C150 153 170 192 163 222 C156 250 135 251 99 260 C73 267 48 281 28 286 Z" fill="url(#fold)"/>
+  <path d="M28 286 C32 265 44 253 65 248 C90 242 109 244 126 242 C106 259 70 278 28 300 Z" fill="#f97513"/>
+
+  <!-- Augenbrauen -->
+  <g fill="none" stroke="#912508" stroke-width="16" stroke-linecap="round">
+    <path d="M177 261 Q189 240 214 238"/>
+    <path d="M379 233 Q401 230 418 250"/>
+  </g>
+
+  <!-- Großes offenes Auge mit Lichtpunkt -->
+  <ellipse cx="206" cy="312" rx="27" ry="30" fill="#8d2409"/>
+  <circle cx="213" cy="300" r="8" fill="#fffdfa"/>
+
+  <!-- Zwinkerauge -->
+  <path d="M359 319 Q388 283 414 319" fill="none" stroke="#8d2409" stroke-width="18" stroke-linecap="round"/>
+
+  <!-- Wangen -->
+  <ellipse cx="161" cy="364" rx="29" ry="24" fill="url(#blush)"/>
+  <ellipse cx="416" cy="361" rx="29" ry="24" fill="url(#blush)"/>
+
+  <!-- Lächeln mit Zunge -->
+  <path d="M250 342 C267 348 299 348 326 338 C332 335 336 342 335 355 C334 378 318 393 295 397 C275 401 256 387 250 368 C247 358 245 347 250 342 Z" fill="#912508"/>
+  <g clip-path="url(#mouth-clip)">
+    <ellipse cx="292" cy="395" rx="43" ry="32" fill="#ff7536"/>
+  </g>
+
+  <!-- Dezente Zeilen auf dem Papier -->
+  <g fill="none" stroke="#f9cea0" stroke-width="18" stroke-linecap="round">
+    <path d="M130 427 H438"/>
+    <path d="M130 462 H439"/>
+    <path d="M130 497 H357"/>
+  </g>
+</svg>

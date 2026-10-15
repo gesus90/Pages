@@ -222,6 +222,10 @@ export class ChatAgentWorld {
         readText: async () => "",
       },
       settings: { instruction: async () => "Synthetic Pica" },
+      protectedInstructions: async () => ({
+        soul: "Synthetic soul",
+        agents: "Synthetic rules",
+      }),
       agents: {
         resolve: async () => ({
           connection: this.world.facts("connection-model").connection,

@@ -145,6 +145,7 @@ For backend work:
 - Keep authorization checks server-side.
 - Do not expose backend-only data to the client.
 - Split a repository or service that grows beyond the size limits of `GUIDELINES.md` into one small class per aggregate; the original class stays as a facade when other code depends on its public API.
+- `backend/service/chat/pica/AGENTS.md` and `SOUL.md` are runtime instructions of the Pica chatbot (PAGE-51), not instructions for coding agents. Change them only when a task asks to change Pica's identity or rules.
 
 ---
 

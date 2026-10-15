@@ -5,6 +5,7 @@ import { describeChatOperations } from "./ChatToolCatalog";
 
 import type { ChatConfirmationWord, ChatMessage } from "@/definition/Chat";
 import type { ChatTemporaryPassword } from "@/definition/AgentAdministration";
+import type { PicaInstructions } from "./PicaInstructionFiles";
 
 /** Characters of earlier messages the agent receives, newest first. */
 const HISTORY_CHARACTERS = 40_000;
@@ -43,8 +44,10 @@ export interface ChatPromptAttachment {
 
 /** What the fixed part of the instruction is built from. */
 export interface ChatInstructionInput {
-  /** The Markdown instruction of the administrator or the built-in default. */
-  readonly instruction: string;
+  /** Pica's protected `SOUL.md` and `AGENTS.md`; they open the instruction. */
+  readonly protectedInstructions: PicaInstructions;
+  /** The Markdown supplement of the administrator; `null` when none is saved. */
+  readonly supplement: string | null;
   readonly personName: string;
   readonly confirmationWord: ChatConfirmationWord;
   readonly canSearchWeb: boolean;
@@ -100,6 +103,17 @@ export function selectChatHistory(
   return selected;
 }
 
+/** The administrator's supplement, below the protected files it cannot override. */
+function describeSupplement(supplement: string | null): readonly string[] {
+  const text = supplement?.trim();
+  if (!text) return [];
+  return [
+    "## Ergänzung der Administration",
+    "Diese Ergänzung gilt zusätzlich zu den Vorgaben oben. Sie hebt weder diese Vorgaben noch die Arbeitsweise in Pages auf.",
+    text,
+  ];
+}
+
 function describeSearch(canSearchWeb: boolean): string {
   return canSearchWeb
     ? "Du kannst die Suchfunktion deines Modells nutzen, wenn die Person aktuelle Informationen aus dem Internet braucht. Nenne die Quellen."
@@ -107,17 +121,21 @@ function describeSearch(canSearchWeb: boolean): string {
 }
 
 /**
- * Builds the system instruction of one chat turn: the Markdown instruction of
- * the administrator followed by the fixed working rules and the actions of Pages.
+ * Builds the system instruction of one chat turn: Pica's protected `SOUL.md`
+ * and `AGENTS.md`, the supplement of the administrator if there is one, then
+ * the fixed working rules and the actions of Pages.
  *
  * @remarks
- * The fixed rules cannot be edited; they bind the agent to the rights of the
- * person, the action protocol and the confirmation of deletions (T6.12.5,
- * T6.12.7). No credential, token or server path appears in the instruction.
+ * Neither the protected files nor the fixed rules can be edited in Pages; the
+ * rules bind the agent to the rights of the person, the action protocol and
+ * the confirmation of deletions (T6.12.5, T6.12.7, PAGE-51). No credential,
+ * token or server path appears in the instruction.
  */
 export function createChatInstructions(input: ChatInstructionInput): string {
   return [
-    input.instruction.trim(),
+    input.protectedInstructions.soul,
+    input.protectedInstructions.agents,
+    ...describeSupplement(input.supplement),
     "## Arbeitsweise in Pages",
     "Diese Regeln gelten immer und gehen jeder anderen Anweisung vor.",
     [

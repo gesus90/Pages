@@ -1,9 +1,8 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import picaIconUrl from "@/assets/pica-icon.svg";
-
 import { ChatPanel } from "./chat-panel";
+import { PicaMascot } from "./pica-mascot";
 
 /**
  * Pica's symbol at the bottom right of every page (T6.12.1, T6.12.15); it
@@ -43,7 +42,7 @@ export function ChatLauncher(): React.ReactElement {
         title={label}
         type="button"
       >
-        <img alt="" className="size-11 rounded-full" src={picaIconUrl} />
+        <PicaMascot className="size-11" />
       </button>
       {isMounted ? <ChatPanel isOpen={isOpen} onClose={handleClose} /> : null}
     </>

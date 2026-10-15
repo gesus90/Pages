@@ -209,6 +209,7 @@ it("uses the summary in the next real chat turn while the stored transcript stay
       readText: async () => "",
     },
     settings: { instruction: async () => "Pica" },
+    protectedInstructions: async () => ({ soul: "Soul", agents: "Rules" }),
     agents: { resolve: async () => ASSIGNMENT },
     execution: { run },
     tools: { run: async () => ({ ok: false, error: "INVALID_REQUEST" }) },
