@@ -31,6 +31,7 @@ import { InstanceSettingsService } from "@/backend/service/InstanceSettingsServi
 import { SettingsService } from "@/backend/service/SettingsService";
 import { GitHubSyncService } from "@/backend/service/GitHubSyncService";
 import { ProjectService } from "@/backend/service/ProjectService";
+import { ProjectDeletionStorage } from "@/backend/service/project/ProjectDeletionStorage";
 import { AnnouncingTaskService } from "@/backend/service/AnnouncingTaskService";
 import { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
 import { TaskGitHubPublisher } from "@/backend/service/task/TaskGitHubPublisher";
@@ -248,7 +249,6 @@ async function initializeServices(
   const userRepository = new UserRepository(database);
   const projectRepository = new ProjectRepository(database);
   const userSettingsRepository = new UserSettingsRepository(database);
-  const sessionRepository = new SessionRepository(database);
   const userService = new UserService(
     userRepository,
     permissionService,
@@ -293,12 +293,13 @@ async function initializeServices(
   const agentPlanService = await preparePlanService(database, {
     agents: agentServices,
     assistant: assistantServices,
+    projects: projectService,
     tasks: taskServices.taskService,
     users: userService,
   });
   const sessionService = await prepareSessions(
     new SetupService(userRepository, passwordHasher),
-    new SessionService(sessionRepository, userService),
+    new SessionService(new SessionRepository(database), userService),
   );
 
   const mcpServices = startMcpWorkspace({
@@ -367,17 +368,23 @@ async function preparePlanService(
   input: {
     readonly agents: AgentApplicationServices;
     readonly assistant: TextAssistantApplicationServices;
+    readonly projects: ProjectService;
     readonly tasks: TaskService;
     readonly users: UserService;
   },
 ): Promise<AgentPlanService> {
+  const runtime = await getPagesRuntime();
   const plans = await createAgentPlanService({
     database,
     agents: input.agents,
     tasks: input.tasks,
     users: input.users,
-    mcp: planMcpSettings((await getPagesRuntime()).getConfig().port),
+    mcp: planMcpSettings(runtime.getConfig().port),
   });
+  // Deleting a project has to end its plan runs and clear their files first.
+  input.projects.setDeletionEffects(
+    new ProjectDeletionStorage(plans, path.dirname(runtime.getDatabasePath())),
+  );
   registerShutdownHandler(database, input.agents, input.assistant, plans);
   return plans;
 }

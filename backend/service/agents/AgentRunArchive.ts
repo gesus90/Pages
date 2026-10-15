@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { rm } from "node:fs/promises";
 import path from "node:path";
 
 import { AgentError } from "@/backend/error/AgentErrors";
@@ -15,6 +16,7 @@ import { sanitizeArtifactText } from "./AgentPlanOutput";
 import { renderAgentRunRecord } from "./AgentRunMarkdown";
 
 import type { PageAgentRunRepository } from "@/backend/database/repositories/agent/PageAgentRunRepository";
+import type { AgentRunRecordKey } from "@/backend/database/repositories/project/ProjectDeletionFiles";
 import type { ArchiveAgentStep } from "@/backend/agents/PageAgentRecordInput";
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 import type {
@@ -172,6 +174,27 @@ export class AgentRunArchive {
       await this.materialize(record);
     });
     return { record, markdown: renderAgentRunRecord(record) };
+  }
+
+  /**
+   * Removes the markdown files of run records that were deleted with their project.
+   *
+   * @param keys - The agent and run of each record.
+   * @throws {AgentError} `profile_invalid` for an identifier that is no artifact name.
+   *
+   * @remarks
+   * The records are gone from the database, so nothing writes these files
+   * again. A file that does not exist is ignored.
+   */
+  public async removeRecordFiles(
+    keys: readonly AgentRunRecordKey[],
+  ): Promise<void> {
+    for (const { agentId, runId } of keys) {
+      requireArtifactId(agentId);
+      requireArtifactId(runId);
+    }
+    for (const { agentId, runId } of keys)
+      await rm(this.recordPath(agentId, runId), { force: true });
   }
 
   private async archive(

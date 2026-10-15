@@ -41,7 +41,8 @@ listed, read, created and changed by their owner, together with the models that
 may be given to them. Agent plans can be listed, read, created and changed in
 their structure and parameters by their owner, and the account's own runs of a
 plan and their reports can be listed and read. Personal administrators can also read administration information and
-change existing roles, accounts and memberships within the offered operations.
+change existing roles, accounts and memberships within the offered operations,
+and permanently delete a whole project after a confirmation.
 
 Start with the [tool reference](#tool-reference) below for arguments, results,
 limits and permission rules. [Read tool definitions](./src/tools/registry.ts),
@@ -1828,6 +1829,102 @@ together. Admin revocation immediately prevents further admin calls and replay.
 MCP has no operation for user creation, personal admin eligibility, blocking or
 unblocking users, password reset, or creating/deleting groups and departments.
 Unknown operations and extra parameters cannot enable these paths.
+
+#### Permanent project deletion
+
+Two further administrator tools read and perform the permanent deletion of one
+project. They belong to the same personal-administrator boundary as the tools
+above, with the rules of this section added.
+
+| Tool                                | Pages operation                | Required arguments                         | Purpose                                                                 |
+| ----------------------------------- | ------------------------------ | ------------------------------------------ | ----------------------------------------------------------------------- |
+| `read_admin_project_deletion_scope` | `admin.projects.deletionScope` | `projectId`                                | The concrete project and the extent of the data its deletion removes    |
+| `delete_admin_project`              | `admin.projects.delete`        | `operationId`, `projectId`, `confirmation` | Delete the project and everything that belongs only to it, irreversibly |
+
+**Rights.** Pages checks on every call, inside the transaction that reads or
+deletes, that the account is active and a personal administrator, independent of
+the browser's role mode. A project role, the right to manage projects or the
+management of all projects never suffices: such an account gets `FORBIDDEN`,
+nothing is read or changed, and the tools do not appear in its `tools/list`. The
+check also binds the decision to the project's own departments, as for every
+project action. The interface deletes projects through the same service, so both
+paths apply the same rules. The tools exist for MCP clients only: the chat does
+not offer them, and the credential of an agent plan run never receives the
+deletion, so an unattended run cannot delete a project.
+
+**Read first.** `read_admin_project_deletion_scope` returns
+`{project, counts, detached}`. `project` names the project (`id`, `name`,
+`status`, `isArchived`, `departmentNames`). `counts` lists what is removed:
+`tickets` and `subtickets`, `ticketAttachments`, `ticketChecklistItems`,
+`ticketLinks`, `ticketHistoryEntries`, `milestones`, `milestoneDependencies`,
+`wikiPages` (the wiki trash included), `wikiComments`, `wikiAttachments`, `plans`,
+`planRuns`, `workspaces`, `importRuns`, `importSources`, `members`,
+`departmentAssignments`, `goals`, `events`, `activityEntries`, `githubRecords`,
+`integrations` and `templates`. `detached` lists the references elsewhere that
+the deletion clears while the shared objects stay: `templateAssignments`,
+`wikiAnchors`, `wikiLinks` and `boardPreferences`. Show the project and these
+numbers to the user before asking for the confirmation. The read changes nothing.
+
+**Confirmation.** `delete_admin_project` needs the project ID and exactly one of
+the two words `LÖSCHEN` or `DELETE` as `confirmation`. Both are valid whatever
+language the account uses, and the same word is not required on a retry. Ask the
+person to type the word and pass their reply; never infer consent. A missing
+confirmation, any other value (`delete`, ` DELETE`, `yes`, a number) returns
+`CONFIRMATION_REQUIRED`, and nothing changes. The administrator check comes first,
+so a refused account learns nothing about the project.
+
+**What is deleted.** The project and everything that belongs only to it, for
+good: no archiving and no move to the trash. That is all tickets including
+subtickets with their attachments, checklists, history, labels and links; all
+milestones, milestone initiatives and dependencies; all wiki pages of the project
+with comments, mentions, versions, attachments and favorites, including pages
+already in the wiki trash; execution plans with their runs, run records, MCP
+credentials and workspace reservations; registered workspaces (the directory on
+disk is never touched); import records and sources; member and department
+assignments, goals, events, activity, tags, the project key, icon and project
+templates; and GitHub and Discord connections, deliveries and records. The stored
+attachment files and the markdown files of the run records are removed after the
+commit; a file that survives a failure there is no longer referenced and the
+periodic sweeps remove it.
+
+**What stays.** Shared objects are never deleted: people, groups, departments,
+agents, labels, ticket templates, wiki pages of the instance or private pages,
+and every other project with its data. Their references to the deleted project
+are removed or emptied: ticket templates lose the project from their sharing,
+instance and private wiki pages lose their anchors to its milestones and epics and
+their links to its tickets and pages, saved board filters that name the project or
+one of its milestones return to `all`, and projects directly below it lose their
+parent. Links between a ticket of the project and a ticket of another project
+are removed together with the ticket. Existing links, running plans or registered
+workspaces never block the deletion.
+
+**Running plans.** Active plan runs of the project are stopped first, outside the
+deleting transaction, and the call waits until they have closed. If they do not
+close within 30 seconds the call returns `CONFLICT` and nothing is deleted; repeat
+it later.
+
+**Failure and retry.** The deletion is atomic: the data, the audit entry and the
+replay record commit together, and any failure rolls everything back, so no
+orphaned rows or half-deleted project remain. After a lost response repeat the
+call with the same `operationId` and `projectId`: Pages checks the rights and the
+confirmation again and returns the stored result without touching anything,
+including data of other projects. The same `operationId` for another project
+returns `CONFLICT`; a new `operationId` for a project that is already gone returns
+`NOT_FOUND`. Other errors: `INVALID_REQUEST` for a missing, unknown or oversized
+argument, `NOT_FOUND` for an unknown project, `FORBIDDEN` for anyone but an
+administrator.
+
+**Result and audit.** A successful call returns
+`{id, targetType:"project", changed:true, affectedUserIds, deleted}`.
+`affectedUserIds` are the people who were assigned to the project, and `deleted`
+repeats the project and the counts as they were deleted. The deletion is recorded
+in the administration audit trail (`read_admin_activity`) with the actor,
+`admin.projects.delete`, the project ID and `source:mcp`.
+
+**Transports.** Stdio is the only transport of this adapter. It forwards the
+tools to the Pages Agent API, whose operation catalog is the only place the
+deletion is implemented: the stdio adapter, a client that calls the Agent API
+directly and the interface all end in the same service.
 
 The chat uses the existing UI administration services in **active admin mode**.
 It additionally supports user creation, admin eligibility, blocking/unblocking,

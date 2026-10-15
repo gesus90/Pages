@@ -2,14 +2,11 @@ import { createHash } from "node:crypto";
 
 import { agentChannelPolicy } from "@/backend/auth/McpActorContext";
 import { PasswordHasher } from "@/backend/auth/PasswordHasher";
-import { UserPolicyService } from "@/backend/auth/UserPolicyService";
 import { ServerCache } from "@/backend/cache/ServerCache";
 import { AdministrationActivityRepository } from "@/backend/database/repositories/AdministrationActivityRepository";
-import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { AgentOperationKeyRepository } from "@/backend/database/repositories/agents/AgentOperationKeyRepository";
 import { AdministrationError } from "@/backend/error/AdministrationError";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
-import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
 import {
   EmailTakenError,
   UsernameTakenError,
@@ -24,12 +21,12 @@ import {
 } from "@/definition/AgentAdministration";
 import { PAGES_AGENT_LIMITS } from "@/definition/PagesAgentOperations";
 
-import { activeAccount } from "../AdministrationAccess";
 import {
   readAdminChanged,
   readAdminParameters,
 } from "./AgentAdministrationParameters";
 import { readAgentAdministration } from "./AgentAdministrationReads";
+import { requireAgentAdministratorActor } from "./AgentAdministratorAccess";
 import {
   assignAdminRole,
   setAdminRolePermissions,
@@ -43,7 +40,6 @@ import {
 } from "./AgentAdministrationMemberships";
 import { requireAgentConfirmation } from "./AgentConfirmation";
 import { readIdentifier } from "./AgentParameterReader";
-import { agentTransactionScope } from "./AgentTransactionScope";
 import { translateAgentTicketError } from "./AgentTicketErrors";
 import { applyChatAdministration } from "./ChatAdministrationWrites";
 
@@ -120,17 +116,9 @@ export class AgentAdministrationService {
     database: DatabaseTransaction,
     userId: string,
   ): Promise<AgentAdministrationContext> {
-    const repository = new AuthorizationRepository(
-      agentTransactionScope(database),
-    );
-    const actor = await repository.users().findById(userId);
-    if (!actor?.isActive || actor.mustChangePassword)
-      throw new McpAuthorizationError("invalid_token", 401);
-    const snapshot = await repository.snapshot();
-    const account = activeAccount(snapshot, userId);
+    const { actor, repository, snapshot } =
+      await requireAgentAdministratorActor(database, userId, this.channel);
     const policy = agentChannelPolicy(this.channel);
-    if (!new UserPolicyService(policy.actor).isAdministrator(account))
-      throw new AgentOperationError("FORBIDDEN");
     const cache = ServerCache.disabled();
     return {
       database,

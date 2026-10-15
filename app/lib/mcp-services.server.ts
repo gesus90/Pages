@@ -18,6 +18,8 @@ import { WikiFileStore } from "@/backend/storage/WikiFileStore";
 import { WikiRepository } from "@/backend/database/repositories/WikiRepository";
 import { AgentExtensionService } from "@/backend/service/agents/AgentExtensionService";
 import { AgentAdministrationService } from "@/backend/service/agents/AgentAdministrationService";
+import { AgentProjectDeletionService } from "@/backend/service/agents/AgentProjectDeletionService";
+import { ProjectDeletionStorage } from "@/backend/service/project/ProjectDeletionStorage";
 import { AgentOperationRouter } from "@/backend/service/agents/AgentOperationRouter";
 import { AgentWorkspaceOperationService } from "@/backend/service/agents/AgentWorkspaceOperationService";
 import { AgentPlanOperationService } from "@/backend/service/agents/AgentPlanOperationService";
@@ -98,15 +100,17 @@ interface RouterContext extends Omit<OperationContext, "channel"> {
   readonly publisher: AgentTicketPublisher | null;
   readonly writes: Omit<AgentWriteDependencies, "create">;
   readonly creation: AgentWikiCreateDependencies;
+  /** The permanent project deletion; only MCP clients get it. */
+  readonly projectDeletion: AgentProjectDeletionService;
 }
 
 /**
  * Builds the operation catalog of MCP clients, including imports and uploads.
  *
  * @remarks
- * The workspace registry belongs to this catalog; user-agent management and
- * agent plans are also available to the signed-in chat through the same Pages
- * services.
+ * The workspace registry and the permanent deletion of projects belong to this
+ * catalog; user-agent management and agent plans are also available to the
+ * signed-in chat through the same Pages services.
  */
 function createMcpOperationRouter(
   context: RouterContext,
@@ -120,6 +124,7 @@ function createMcpOperationRouter(
       context.database,
       context.cache,
     ),
+    projectDeletion: context.projectDeletion,
     workspaces: new AgentWorkspaceOperationService({
       database: context.database,
       workspaces: workspaces.forChannel("mcp"),
@@ -263,6 +268,11 @@ export function createMcpServices(
     users,
     plans: workspace.plans,
     publisher: workspace.tickets?.publisher ?? null,
+    projectDeletion: new AgentProjectDeletionService({
+      cache: workspace.tickets?.cache ?? ServerCache.disabled(),
+      database,
+      effects: new ProjectDeletionStorage(workspace.plans, workspace.directory),
+    }),
     writes: {
       users,
       tickets: agentUploadTicketService,

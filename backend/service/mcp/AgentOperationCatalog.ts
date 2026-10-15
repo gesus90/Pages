@@ -1,5 +1,9 @@
 import { AGENT_ADMIN_READ_OPERATIONS } from "@/definition/AgentAdministration";
 import { AGENT_EXTENSION_READ_OPERATIONS } from "@/definition/AgentExtensions";
+import {
+  AGENT_PROJECT_DELETION_READ_OPERATIONS,
+  AGENT_PROJECT_DELETION_WRITE_OPERATIONS,
+} from "@/definition/AgentProjectDeletion";
 import { AGENT_PLAN_READ_OPERATIONS } from "@/definition/AgentPlanOperations";
 import { AGENT_TEXT_RANGE_READ_OPERATIONS } from "@/definition/AgentTextRange";
 import { AGENT_WORKSPACE_READ_OPERATIONS } from "@/definition/AgentWorkspaceOperations";
@@ -59,6 +63,7 @@ export function ownerOperations(
       (operation) => isAdmin || !operation.startsWith("admin."),
     ),
     ...(isAdmin ? AGENT_ADMIN_READ_OPERATIONS : []),
+    ...(isAdmin ? AGENT_PROJECT_DELETION_READ_OPERATIONS : []),
   ];
 }
 
@@ -78,19 +83,12 @@ export function readingOperations(
   return [
     ...READING_OPERATIONS,
     ...(isAdmin ? AGENT_ADMIN_READ_OPERATIONS : []),
+    ...(isAdmin ? AGENT_PROJECT_DELETION_READ_OPERATIONS : []),
   ];
 }
 
-/**
- * The operations the credential of an agent plan session may call.
- *
- * @param scope - The stored scope of the session.
- * @param isAdmin - Whether the executor is an administrator now.
- * @returns For the `tickets` reach the listed ticket operations; for `read`
- * every reading operation; for `full` every operation of the executor except
- * the upload, which only a personal credential completes.
- */
-export function sessionOperations(
+/** The operations of a session before the deletion of a project is taken away. */
+function forSession(
   scope: AgentRunScope,
   isAdmin: boolean,
 ): readonly PagesAgentApiBusinessOperation[] {
@@ -107,4 +105,26 @@ export function sessionOperations(
         (operation) => operation !== UPLOAD_OPERATION,
       );
   }
+}
+
+/**
+ * The operations the credential of an agent plan session may call.
+ *
+ * @param scope - The stored scope of the session.
+ * @param isAdmin - Whether the executor is an administrator now.
+ * @returns For the `tickets` reach the listed ticket operations; for `read`
+ * every reading operation; for `full` every operation of the executor except
+ * the upload, which only a personal credential completes. Whatever the reach,
+ * never the deletion of a project, which needs a person at a keyboard.
+ */
+export function sessionOperations(
+  scope: AgentRunScope,
+  isAdmin: boolean,
+): readonly PagesAgentApiBusinessOperation[] {
+  return forSession(scope, isAdmin).filter(
+    (operation) =>
+      !AGENT_PROJECT_DELETION_WRITE_OPERATIONS.some(
+        (deletion) => deletion === operation,
+      ),
+  );
 }

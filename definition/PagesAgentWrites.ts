@@ -1,5 +1,6 @@
 import { AGENT_EXTENSION_WRITE_OPERATIONS } from "./AgentExtensions.js";
 import { AGENT_ADMIN_WRITE_OPERATIONS } from "./AgentAdministration.js";
+import { AGENT_PROJECT_DELETION_WRITE_OPERATIONS } from "./AgentProjectDeletion.js";
 import { AGENT_WORKSPACE_WRITE_OPERATIONS } from "./AgentWorkspaceOperations.js";
 import { AGENT_PLAN_WRITE_OPERATIONS } from "./AgentPlanOperations.js";
 import { PAGE_AGENT_WRITE_OPERATIONS } from "./PageAgentOperations.js";
@@ -40,6 +41,7 @@ import type {
 export const PAGES_AGENT_WRITE_OPERATIONS = [
   ...AGENT_EXTENSION_WRITE_OPERATIONS,
   ...AGENT_ADMIN_WRITE_OPERATIONS,
+  ...AGENT_PROJECT_DELETION_WRITE_OPERATIONS,
   ...AGENT_WORKSPACE_WRITE_OPERATIONS,
   ...AGENT_PLAN_WRITE_OPERATIONS,
   ...PAGE_AGENT_WRITE_OPERATIONS,

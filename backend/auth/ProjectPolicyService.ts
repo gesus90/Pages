@@ -130,6 +130,25 @@ export class ProjectPolicyService {
     return this.users.isAdministrator(actor);
   }
 
+  /**
+   * Deleting a concrete project needs the administrator and a project inside the actor's reach.
+   *
+   * @remarks
+   * A project role or the management of all projects never suffices: the
+   * administrator check comes first, and the scope check then binds the
+   * decision to the departments of this very project.
+   */
+  public canDeleteProject(
+    actor: AccountAccess,
+    departmentIds: readonly string[],
+  ): boolean {
+    return (
+      this.canDelete(actor) &&
+      this.canAccess(actor, departmentIds) &&
+      this.hasCompleteScope(actor, departmentIds)
+    );
+  }
+
   private hasMinimumSelection(selection: ProjectDepartmentSelection): boolean {
     return !selection.hasDepartments || selection.departmentIds.length > 0;
   }

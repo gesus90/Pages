@@ -6,6 +6,7 @@ import type {
 } from "./AgentTextRange.js";
 import type { AgentExtensionReadResult } from "./AgentExtensions.js";
 import type { AgentAdminReadResult } from "./AgentAdministration.js";
+import type { ProjectDeletionScope } from "./AgentProjectDeletion.js";
 import type { AgentWorkspaceReadResult } from "./AgentWorkspaceOperations.js";
 import type {
   AgentPlanIssueEntry,
@@ -189,6 +190,7 @@ export interface PagesAgentReadResponse {
     | AgentWikiComments
     | AgentExtensionReadResult
     | AgentAdminReadResult
+    | ProjectDeletionScope
     | AgentWorkspaceReadResult
     | AgentPlanReadResult
     | PageAgentReadResult;

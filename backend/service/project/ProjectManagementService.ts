@@ -9,6 +9,7 @@ import {
 import { isProjectStatus } from "@/definition/Project";
 
 import { ProjectAccessService } from "./ProjectAccessService";
+import { ProjectDeletionService } from "./ProjectDeletionService";
 
 import type { ActorChannel } from "@/backend/auth/McpActorContext";
 import type { ServerCache } from "@/backend/cache/ServerCache";
@@ -25,6 +26,7 @@ import type {
   ProjectActionPermissions,
 } from "@/definition/Project";
 import type { User } from "@/definition/User";
+import type { ProjectDeletionEffects } from "./ProjectDeletionService";
 
 /** Applies current access, shared ownership and full-scope lifecycle rules atomically. */
 export class ProjectManagementService {
@@ -32,6 +34,7 @@ export class ProjectManagementService {
   private readonly cache: ServerCache;
   private readonly channel: ActorChannel;
   private readonly policy = new ProjectPolicyService();
+  private deletionEffects: ProjectDeletionEffects | null = null;
 
   /** Binds policy checks to the project transaction and cache boundary. */
   public constructor(
@@ -259,22 +262,16 @@ export class ProjectManagementService {
     actor: User,
     projectId: string,
   ): Promise<void> {
-    await this.repository.transaction(async (repository) => {
-      const account = await new ProjectAccessService(
-        repository,
-        this.cache,
-        this.channel,
-      ).account(actor);
-      if (!this.policy.canDelete(account))
-        throw new ProjectManagementDeniedError();
-      const project =
-        (await repository.findById(projectId)) ??
-        (await repository.findArchivedById(projectId));
-      if (!project) throw new ProjectNotFoundError();
-      await repository.deletePermanently(projectId);
-    });
-    this.invalidateScope(projectId);
-    this.cache.invalidatePrefix("project:", "statuses:");
+    await new ProjectDeletionService(
+      this.repository,
+      this.cache,
+      this.channel,
+    ).deleteWithEffects(actor, projectId, this.deletionEffects);
+  }
+
+  /** Attaches what lies beyond the database: running plans and stored files. */
+  public setDeletionEffects(effects: ProjectDeletionEffects): void {
+    this.deletionEffects = effects;
   }
 
   private async requireWrite(

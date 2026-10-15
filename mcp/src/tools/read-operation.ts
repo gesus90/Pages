@@ -3,6 +3,7 @@ import { postAgentRequest } from "../pages-client.js";
 import type { AgentTextRangeReadOperation } from "../../../definition/AgentTextRange.js";
 import type { AgentExtensionReadOperation } from "../../../definition/AgentExtensions.js";
 import type { AgentAdminReadOperation } from "../../../definition/AgentAdministration.js";
+import type { AgentProjectDeletionReadOperation } from "../../../definition/AgentProjectDeletion.js";
 import type { AgentWorkspaceReadOperation } from "../../../definition/AgentWorkspaceOperations.js";
 import type { AgentPlanReadOperation } from "../../../definition/AgentPlanOperations.js";
 import type { PageAgentReadOperation } from "../../../definition/PageAgentOperations.js";
@@ -21,6 +22,7 @@ export async function readOperation(
   operation:
     | AgentExtensionReadOperation
     | AgentAdminReadOperation
+    | AgentProjectDeletionReadOperation
     | AgentWorkspaceReadOperation
     | AgentPlanReadOperation
     | PageAgentReadOperation

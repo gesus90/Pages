@@ -1,5 +1,6 @@
 import { ProjectActivityRepository } from "./project/ProjectActivityRepository";
 import { ProjectCoreRepository } from "./project/ProjectCoreRepository";
+import { ProjectDeletionScopeRepository } from "./project/ProjectDeletionScopeRepository";
 import { ProjectDepartmentRepository } from "./project/ProjectDepartmentRepository";
 import { ProjectLifecycleRepository } from "./project/ProjectLifecycleRepository";
 import { ProjectTemplateRepository } from "./project/ProjectTemplateRepository";
@@ -15,6 +16,7 @@ import type {
   Database,
   DatabaseTransaction,
 } from "@/backend/database/Database";
+import type { ProjectDeletionScope } from "@/definition/AgentProjectDeletion";
 import type { WorkItemVisibility } from "@/definition/Task";
 import type { WikiVisibilityScope } from "@/definition/Wiki";
 import type { Department } from "@/definition/Authorization";
@@ -36,6 +38,7 @@ import type {
   ProjectDetailsUpdate,
   ProjectUpdate,
 } from "./project/ProjectCoreRepository";
+import type { ProjectDeletionFiles } from "./project/ProjectDeletionFiles";
 import type {
   NewProjectEvent,
   ProjectEventUpdate,
@@ -61,6 +64,10 @@ export type {
 export type { NewProjectGoal } from "./project/ProjectGoalRepository";
 export type { ProjectIcon } from "./project/ProjectIconRepository";
 export type {
+  AgentRunRecordKey,
+  ProjectDeletionFiles,
+} from "./project/ProjectDeletionFiles";
+export type {
   DueGitHubSync,
   NewProjectIntegration,
   ProjectSyncSchedule,
@@ -68,6 +75,12 @@ export type {
 
 /** Supports both database-owned and already locked project transactions. */
 type ProjectDatabase = Pick<Database, "execute" | "query" | "transaction">;
+
+/** What a permanent deletion removes, and the people who lose their assignment with it. */
+export interface ProjectDeletionDetails {
+  readonly scope: ProjectDeletionScope;
+  readonly memberIds: readonly string[];
+}
 
 /**
  * Establishes the persistence boundary for projects.
@@ -80,6 +93,7 @@ export class ProjectRepository {
   private readonly source: ProjectActivitySource;
   private readonly departments: ProjectDepartmentRepository;
   private readonly lifecycle: ProjectLifecycleRepository;
+  private readonly deletionScope: ProjectDeletionScopeRepository;
   private readonly templates: ProjectTemplateRepository;
   private readonly projects: ProjectCoreRepository;
   private readonly members: ProjectMemberRepository;
@@ -103,6 +117,7 @@ export class ProjectRepository {
     this.database = database;
     this.departments = new ProjectDepartmentRepository(database);
     this.lifecycle = new ProjectLifecycleRepository(database);
+    this.deletionScope = new ProjectDeletionScopeRepository(database);
     this.templates = new ProjectTemplateRepository(database);
     this.projects = new ProjectCoreRepository(database);
     this.members = new ProjectMemberRepository(database);
@@ -253,9 +268,40 @@ export class ProjectRepository {
     await this.projects.archive(id);
   }
 
-  /** Permanently removes the project aggregate inside one transaction. */
-  public async deletePermanently(id: string): Promise<void> {
-    await this.transaction((repository) => repository.lifecycle.delete(id));
+  /**
+   * Permanently removes the project aggregate inside one transaction.
+   *
+   * @param id - The project to delete, whether active or archived.
+   * @returns The files whose rows went; the caller removes them after the commit.
+   */
+  public async deletePermanently(id: string): Promise<ProjectDeletionFiles> {
+    return this.transaction((repository) => repository.lifecycle.delete(id));
+  }
+
+  /**
+   * Describes the project and the data a permanent deletion would remove.
+   *
+   * @param projectId - The project, whether active or archived.
+   * @returns The extent of the deletion, or `null` when no such project exists.
+   */
+  public async describeDeletion(
+    projectId: string,
+  ): Promise<ProjectDeletionDetails | null> {
+    const record = await this.deletionScope.findRecord(projectId);
+    if (!record) return null;
+    const departments = await this.departments.findByProjectId(projectId);
+    return {
+      memberIds: await this.deletionScope.findMemberIds(projectId),
+      scope: {
+        project: {
+          id: projectId,
+          ...record,
+          departmentNames: departments.map(({ name }) => name),
+        },
+        counts: await this.deletionScope.count(projectId),
+        detached: await this.deletionScope.countDetachments(projectId),
+      },
+    };
   }
 
   /** Returns the custom icon attached to a project. */

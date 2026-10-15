@@ -39,8 +39,13 @@ interface ActivePlanRun {
   view: AgentPlanRun;
   readonly snapshot: AgentPlanSnapshot;
   readonly controllers: Map<string, AbortController>;
+  /** The nodes of this run that are executing, so a caller can wait for exactly this run. */
+  readonly executions: Set<Promise<void>>;
   readonly releaseDefinition?: () => Promise<void>;
 }
+
+/** How long a stopped run may take to close before the caller gives up waiting. */
+const STOP_WAIT_MILLISECONDS = 30_000;
 
 interface EngineDependencies {
   readonly runs: AgentPlanRunRepository;
@@ -184,6 +189,7 @@ export class AgentPlanRunEngine {
       view,
       snapshot,
       controllers: new Map(),
+      executions: new Set(),
       releaseDefinition,
     });
     await this.pump();
@@ -200,6 +206,36 @@ export class AgentPlanRunEngine {
       for (const controller of active.controllers.values()) controller.abort();
     });
     await this.pump();
+  }
+
+  /**
+   * Stops every active run of a project and waits until each has closed.
+   *
+   * @param projectId - The project whose runs end.
+   * @returns Whether all of them closed in time; their records are written by then.
+   *
+   * @remarks
+   * Meant for the deletion of a project, whose data a still running node
+   * would otherwise keep writing to.
+   */
+  public async stopProject(projectId: string): Promise<boolean> {
+    const runs = [...this.active.values()].filter(
+      (active) => active.snapshot.plan.projectId === projectId,
+    );
+    for (const active of runs) await this.stop(active.view.id);
+    let timer: NodeJS.Timeout | undefined;
+    const timeout = new Promise<boolean>((resolve) => {
+      timer = setTimeout(() => resolve(false), STOP_WAIT_MILLISECONDS);
+    });
+    const closed = Promise.all(
+      runs.flatMap((active) => [...active.executions]),
+    ).then(() => true);
+    try {
+      return await Promise.race([closed, timeout]);
+    } finally {
+      clearTimeout(timer);
+      await this.pump();
+    }
   }
 
   /** Persists pause before scheduling can start another node; in-flight nodes settle normally. */
@@ -261,7 +297,11 @@ export class AgentPlanRunEngine {
           await this.dependencies.runs.update(active.view);
           const pending = this.execute(active, step, controller);
           this.pending.add(pending);
-          void pending.then(() => this.pending.delete(pending));
+          active.executions.add(pending);
+          void pending.then(() => {
+            this.pending.delete(pending);
+            active.executions.delete(pending);
+          });
         }
         if (
           active.controllers.size === 0 &&

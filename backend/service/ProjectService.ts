@@ -44,6 +44,7 @@ import type {
   ProjectTemplate,
 } from "@/definition/Project";
 import type { AuthorizationFacts } from "./project/ProjectAccessService";
+import type { ProjectDeletionEffects } from "./project/ProjectDeletionService";
 import type { WorkItemVisibility } from "@/definition/Task";
 import type { User } from "@/definition/User";
 
@@ -173,6 +174,11 @@ export class ProjectService {
     projectId: string,
   ): Promise<void> {
     await this.management.deletePermanently(actor, projectId);
+  }
+
+  /** Attaches the plan runs and stored files that a permanent deletion has to reach. */
+  public setDeletionEffects(effects: ProjectDeletionEffects): void {
+    this.management.setDeletionEffects(effects);
   }
 
   /** Updates a project after verifying management permission and its existence. */

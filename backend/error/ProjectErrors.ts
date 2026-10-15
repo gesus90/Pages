@@ -33,3 +33,10 @@ export class ProjectDepartmentError extends Error {
     this.code = code;
   }
 }
+
+/** Thrown when the plan runs of a project do not stop in time, so its deletion has to wait. */
+export class ProjectRunsActiveError extends Error {
+  public constructor() {
+    super("The agent plan runs of the project are still active.");
+  }
+}

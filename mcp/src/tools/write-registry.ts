@@ -3,6 +3,7 @@ import { ADMIN_WRITE_TOOLS } from "./administration.js";
 import { WORKSPACE_WRITE_TOOLS } from "./workspaces.js";
 import { AGENT_WRITE_TOOLS } from "./agents.js";
 import { PLAN_WRITE_TOOLS } from "./plans.js";
+import { PROJECT_DELETE_TOOL } from "./project-deletion.js";
 import { ASSET_UPLOAD_TOOL } from "./asset-upload.js";
 import {
   MILESTONE_CREATE_TOOL,
@@ -52,6 +53,7 @@ export const WRITE_TOOLS: readonly {
 }[] = [
   ...EXTENSION_WRITE_TOOLS,
   ...ADMIN_WRITE_TOOLS,
+  PROJECT_DELETE_TOOL,
   ...WORKSPACE_WRITE_TOOLS,
   ...AGENT_WRITE_TOOLS,
   ...PLAN_WRITE_TOOLS,

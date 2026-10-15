@@ -1,5 +1,6 @@
 import type { AgentExtensionReadOperation } from "./AgentExtensions.js";
 import type { AgentAdminReadOperation } from "./AgentAdministration.js";
+import type { AgentProjectDeletionReadOperation } from "./AgentProjectDeletion.js";
 import type { AgentTextRangeReadOperation } from "./AgentTextRange.js";
 import type { AgentWorkspaceReadOperation } from "./AgentWorkspaceOperations.js";
 import type { AgentPlanReadOperation } from "./AgentPlanOperations.js";
@@ -32,6 +33,7 @@ export type PagesAgentApiBusinessOperation =
   | "projects.names.list"
   | AgentExtensionReadOperation
   | AgentAdminReadOperation
+  | AgentProjectDeletionReadOperation
   | AgentWorkspaceReadOperation
   | AgentPlanReadOperation
   | PageAgentReadOperation

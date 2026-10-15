@@ -3,6 +3,7 @@ import { ADMIN_READ_TOOLS } from "./administration.js";
 import { WORKSPACE_READ_TOOLS } from "./workspaces.js";
 import { AGENT_READ_TOOLS } from "./agents.js";
 import { PLAN_READ_TOOLS } from "./plans.js";
+import { PROJECT_DELETION_SCOPE_TOOL } from "./project-deletion.js";
 import { STRUCTURED_IMPORT_PLAN_TOOL } from "./structured-import-plan.js";
 import {
   TICKET_READ_DESCRIPTION_RANGE_TOOL,
@@ -21,6 +22,7 @@ import { WIKI_IMPORT_PLAN_TOOL } from "./wiki-import-plan.js";
 import type { AgentTextRangeReadOperation } from "../../../definition/AgentTextRange.js";
 import type { AgentExtensionReadOperation } from "../../../definition/AgentExtensions.js";
 import type { AgentAdminReadOperation } from "../../../definition/AgentAdministration.js";
+import type { AgentProjectDeletionReadOperation } from "../../../definition/AgentProjectDeletion.js";
 import type { AgentWorkspaceReadOperation } from "../../../definition/AgentWorkspaceOperations.js";
 import type { AgentPlanReadOperation } from "../../../definition/AgentPlanOperations.js";
 import type { PageAgentReadOperation } from "../../../definition/PageAgentOperations.js";
@@ -35,6 +37,7 @@ interface ReadTool {
   readonly operation:
     | AgentExtensionReadOperation
     | AgentAdminReadOperation
+    | AgentProjectDeletionReadOperation
     | AgentWorkspaceReadOperation
     | AgentPlanReadOperation
     | PageAgentReadOperation
@@ -57,6 +60,7 @@ const TEXT = { type: "string", minLength: 1, maxLength: 200 } as const;
 export const READ_TOOLS: readonly ReadTool[] = [
   ...EXTENSION_READ_TOOLS,
   ...ADMIN_READ_TOOLS,
+  PROJECT_DELETION_SCOPE_TOOL,
   ...WORKSPACE_READ_TOOLS,
   ...AGENT_READ_TOOLS,
   ...PLAN_READ_TOOLS,

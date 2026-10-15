@@ -36,6 +36,7 @@ import type { AgentChannel } from "@/backend/auth/McpActorContext";
 import type { AgentAdministrationService } from "./AgentAdministrationService";
 import type { AgentAdminWriteResponse } from "@/definition/AgentAdministration";
 import type { AgentExtensionService } from "./AgentExtensionService";
+import type { AgentProjectDeletionService } from "./AgentProjectDeletionService";
 import type { AgentPlanningServices } from "./AgentPlanningServices";
 import type { AgentWikiCommentService } from "./AgentWikiCommentService";
 import type { AgentWikiFieldService } from "./AgentWikiFieldService";
@@ -74,6 +75,8 @@ export interface AgentOperationDependencies {
   readonly planning?: AgentPlanningServices;
   readonly extensions?: AgentExtensionService;
   readonly administration?: AgentAdministrationService;
+  /** Permanent project deletion; wired for MCP only, never for the chat. */
+  readonly projectDeletion?: AgentProjectDeletionService;
   readonly workspaces?: AgentWorkspaceOperationService;
   /** Agent plans and their runs, offered to MCP clients and the chat alike. */
   readonly plans?: Pick<AgentPlanOperationService, "handle">;
@@ -257,6 +260,12 @@ export class AgentOperationRouter {
       input.parameters,
     );
     if (administration) return administration;
+    const deletion = await this.dependencies.projectDeletion?.handle(
+      identity,
+      input.operation,
+      input.parameters,
+    );
+    if (deletion) return deletion;
     const extension = await this.dependencies.extensions?.handle(
       identity,
       input.operation,

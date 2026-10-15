@@ -161,7 +161,7 @@ export const EXTENSION_READ_TOOLS: readonly {
   },
 ];
 
-/** Basic project, wiki and planning write contracts; projects have no deletion tool. */
+/** Basic project, wiki and planning write contracts; deleting a project is `delete_admin_project`. */
 export const EXTENSION_WRITE_TOOLS: readonly {
   readonly operation: AgentExtensionWriteOperation;
   readonly tool: Tool;

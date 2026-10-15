@@ -6,6 +6,7 @@ import {
   findTaggedProcesses,
 } from "@/backend/agents/cli/CliProcessScan";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { ProjectRunsActiveError } from "@/backend/error/ProjectErrors";
 import { requireCredentialFreeText } from "@/backend/service/assistant/TextAssistantValidation";
 import { withoutTicketFlow } from "@/definition/AgentPlanGraph";
 
@@ -18,6 +19,7 @@ import type {
   AgentPlanRunEntry,
   AgentPlanRunRepository,
 } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
+import type { AgentRunRecordKey } from "@/backend/database/repositories/project/ProjectDeletionFiles";
 import type { AccountAccess } from "@/definition/Authorization";
 import type { AgentDefinitionChoice } from "@/definition/AgentAvailability";
 import type {
@@ -504,6 +506,28 @@ export class AgentPlanService {
       }
     }
     return assignments;
+  }
+
+  /**
+   * Stops the active runs of a project that is about to be deleted.
+   *
+   * @param projectId - The project whose runs end.
+   * @throws {ProjectRunsActiveError} When a run does not close within a reasonable time.
+   */
+  public async stopProject(projectId: string): Promise<void> {
+    if (!(await this.dependencies.engine.stopProject(projectId)))
+      throw new ProjectRunsActiveError();
+  }
+
+  /**
+   * Removes the record files of runs that were deleted with their project.
+   *
+   * @param keys - The agent and run of each record.
+   */
+  public async removeRunRecordFiles(
+    keys: readonly AgentRunRecordKey[],
+  ): Promise<void> {
+    await this.dependencies.archive?.removeRecordFiles(keys);
   }
 
   /** Completes active cancellation before application shutdown closes the database. */

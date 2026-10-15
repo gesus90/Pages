@@ -1,8 +1,12 @@
-import { deleteWikiPages } from "../wiki/WikiPageDeletion";
-import { deleteAssistantConversations } from "../assistant/AssistantConversationDeletion";
+import { deleteProjectAgentData } from "./ProjectAgentDeletion";
+import { clearProjectReferences } from "./ProjectReferenceCleanup";
+import { deleteProjectWiki } from "./ProjectWikiDeletion";
+import { deleteProjectWorkItemData } from "./ProjectWorkItemDeletion";
 
 import type { DatabaseTransaction } from "@/backend/database/Database";
+import type { ProjectDeletionFiles } from "./ProjectDeletionFiles";
 
+/** Rows that belong to the project alone; the tickets go last because the others select through them. */
 const OWNED_PROJECT_DELETIONS = [
   "DELETE FROM project_departments WHERE project_id = $project_id;",
   "DELETE FROM project_members WHERE project_id = $project_id;",
@@ -34,18 +38,36 @@ export class ProjectLifecycleRepository {
     this.database = database;
   }
 
-  /** Cleans child records and cross-project links before removing the project itself. */
-  public async delete(projectId: string): Promise<void> {
+  /**
+   * Removes the project, everything that belongs to it, and every reference to it.
+   *
+   * @param projectId - The project to delete.
+   * @returns The files whose rows went; the caller removes them after the commit.
+   *
+   * @remarks
+   * The schema has no foreign key cascades, so every dependent row is removed
+   * explicitly. The project has no trash and no archive step here: pages,
+   * tickets and plans are deleted outright. Shared objects such as people,
+   * groups, departments, agents, labels and ticket templates stay and only
+   * lose their link to the project. A repeated call finds nothing left to
+   * delete and changes nothing else.
+   */
+  public async delete(projectId: string): Promise<ProjectDeletionFiles> {
+    const parameters = { project_id: projectId };
+    // The cleanup selects through rows that the deletions below remove, so it runs first.
+    await clearProjectReferences(this.database, projectId);
+    const agentRunRecords = await deleteProjectAgentData(
+      this.database,
+      projectId,
+    );
+    const ticketAttachments = await deleteProjectWorkItemData(
+      this.database,
+      projectId,
+    );
+    const wikiAttachments = await deleteProjectWiki(this.database, projectId);
     await this.deleteTemplates(projectId);
-    await this.deleteWorkItemChildren(projectId);
-    // The project has no trash, so its pages go for good. Their attachment
-    // files are removed by the orphan sweep of the wiki.
-    await deleteWikiPages(this.database, {
-      parameters: { project_id: projectId },
-      sql: "SELECT id FROM wiki_pages WHERE project_id = $project_id",
-    });
     for (const statement of OWNED_PROJECT_DELETIONS) {
-      await this.database.execute(statement, { project_id: projectId });
+      await this.database.execute(statement, parameters);
     }
     await this.database.execute(
       `
@@ -53,12 +75,13 @@ export class ProjectLifecycleRepository {
       SET parent_id = NULL, updated_at = utc_now()
       WHERE parent_id = $project_id;
     `,
-      { project_id: projectId },
+      parameters,
     );
     await this.database.execute(
       "DELETE FROM projects WHERE id = $project_id;",
-      { project_id: projectId },
+      parameters,
     );
+    return { agentRunRecords, ticketAttachments, wikiAttachments };
   }
 
   private async deleteTemplates(projectId: string): Promise<void> {
@@ -78,82 +101,6 @@ export class ProjectLifecycleRepository {
     }
     await this.database.execute(
       "DELETE FROM project_templates WHERE project_id = $project_id;",
-      { project_id: projectId },
-    );
-  }
-
-  private async deleteWorkItemChildren(projectId: string): Promise<void> {
-    await deleteAssistantConversations(this.database, {
-      condition:
-        "context_kind = 'ticket' AND context_id IN (SELECT id FROM work_items WHERE project_id = $project_id)",
-      parameters: { project_id: projectId },
-    });
-    await this.database.execute(
-      `
-      DELETE FROM work_item_history
-      WHERE work_item_id IN (
-          SELECT id FROM work_items WHERE project_id = $project_id
-      );
-    `,
-      { project_id: projectId },
-    );
-    await this.database.execute(
-      `
-      DELETE FROM work_item_checklist_items
-      WHERE work_item_id IN (
-          SELECT id FROM work_items WHERE project_id = $project_id
-      );
-    `,
-      { project_id: projectId },
-    );
-    await this.database.execute(
-      `
-      DELETE FROM work_item_links
-      WHERE work_item_id IN (
-          SELECT id FROM work_items WHERE project_id = $project_id
-      ) OR linked_work_item_id IN (
-          SELECT id FROM work_items WHERE project_id = $project_id
-      );
-    `,
-      { project_id: projectId },
-    );
-    await this.database.execute(
-      `
-      DELETE FROM work_item_labels
-      WHERE work_item_id IN (
-          SELECT id FROM work_items WHERE project_id = $project_id
-      );
-    `,
-      { project_id: projectId },
-    );
-    await this.database.execute(
-      `
-      DELETE FROM milestone_initiatives
-      WHERE initiative_id IN (
-          SELECT id FROM work_items WHERE project_id = $project_id
-      ) OR milestone_id IN (
-          SELECT id FROM milestones WHERE project_id = $project_id
-      );
-    `,
-      { project_id: projectId },
-    );
-    // The files of these attachments are swept when the server starts.
-    await this.database.execute(
-      `
-      DELETE FROM work_item_attachments
-      WHERE work_item_id IN (
-          SELECT id FROM work_items WHERE project_id = $project_id
-      );
-    `,
-      { project_id: projectId },
-    );
-    await this.database.execute(
-      `
-      DELETE FROM work_item_tree_expansions
-      WHERE node_key IN (
-          SELECT id FROM work_items WHERE project_id = $project_id
-      );
-    `,
       { project_id: projectId },
     );
   }

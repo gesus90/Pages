@@ -5,6 +5,7 @@ import type {
   UserRole,
 } from "./Authorization.js";
 import type { AgentProjectMembers } from "./AgentExtensions.js";
+import type { ProjectDeletionScope } from "./AgentProjectDeletion.js";
 import type { UserGroup } from "./UserGroup.js";
 
 /** Administration reads, offered only to current personal administrators over MCP. */
@@ -105,9 +106,11 @@ export type AgentAdminReadResult =
 /** Public idempotent result of a completed administration action. */
 export interface AgentAdminChanged {
   readonly id: string;
-  readonly targetType: "person" | "group" | "department" | "role";
+  readonly targetType: "person" | "group" | "department" | "role" | "project";
   readonly changed: boolean;
   readonly affectedUserIds: readonly string[];
+  /** What the deletion of a project removed; present for `project` only, so the audit trail keeps the extent. */
+  readonly deleted?: ProjectDeletionScope;
 }
 
 /** A one-time password delivered directly to the signed-in administrator, outside model prompts and chat history. */

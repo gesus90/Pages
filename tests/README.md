@@ -12,6 +12,12 @@ events, delivery, retry and rate limit, mention protection, disconnect) under
 `tests/backend/backend/discord/`, `tests/backend/backend/service/discord/`,
 `tests/backend/app/` and `tests/frontend/app/components/projects/` (Discord is
 replaced by a synthetic REST API behind the `fetch` boundary, never contacted),
+the permanent project deletion tests of PAGE-54 (both confirmation words,
+missing and invalid confirmation, administrator and scope checks, nested project
+data, linked and shared objects, failure and repetition; a schema guard reads the
+migration scripts and opens no database) under
+`tests/backend/backend/database/repositories/` and
+`tests/backend/backend/service/{agents,mcp,project}/`,
 and the Codex ACP tests of PAGE-63 under
 `tests/backend/backend/agents/` (the adapter is an in-process agent app of the
 ACP SDK behind a fake spawn, never a real process), each with their fixtures;
