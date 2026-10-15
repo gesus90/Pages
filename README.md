@@ -266,6 +266,38 @@ variables, add the redirect in the portal and then:
 6. Switch an event off, disconnect, and check nothing is posted afterwards while
    the bot is still on the server.
 
+## Pica sessions and conversation context (PAGE-48)
+
+In the Pica panel, `/delete` opens a selection of the signed-in person's own
+sessions, including a select-all option. The permanent deletion button states
+the exact count; no typed confirmation is needed in this panel. Cancelling or
+leaving the selection empty deletes nothing. Only the displayed selection is
+submitted, in batches of at most 200 IDs. The server checks ownership of every
+batch before deleting any of its sessions. Per-session failures remain visible
+for a targeted retry; file cleanup failures are distinguished from sessions
+that were not deleted. Deleting the active session opens a remaining session or
+a new empty chat. If refreshing fails, the panel offers a new-session button.
+
+`/compact` summarizes older conversation context while retaining the latest four
+messages in context and every original message in the displayed transcript.
+The summary is persisted separately and used by subsequent Pica turns. Short
+context, or a summary that would not reduce it, produces a no-op notice.
+Compaction and chat turns share the request registry, so they cannot run in
+parallel for the same person. Errors or concurrent changes never replace the
+previous summary or the stored transcript.
+
+The small context indicator estimates tokens in the bounded conversation history
+and saved summary using roughly four characters per token. Its tooltip is
+available on pointer hover, keyboard focus and touch, and closes with Escape.
+It marks estimates and unavailable values, and shows a model limit and estimated
+conversation share when the assigned model's catalog provides that limit. This
+is conversation context only: system instructions, new attachments and current
+turn action results are excluded.
+
+MCP session deletion uses a separate adapter and still requires exactly
+**LÖSCHEN**, including with an English interface. See the
+[MCP session tools](./mcp/README.md#pica-sessions).
+
 ## Agents in the Pages chat
 
 Pica can list and read visible user agents, create them (`agents.create`, the

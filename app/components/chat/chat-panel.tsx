@@ -20,7 +20,7 @@ export function ChatPanel({
 }: ChatPanelProps): React.ReactElement {
   const chat = useChat(isOpen);
   const { picker } = chat.commands;
-  const { limits, view } = chat;
+  const { view } = chat;
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLElement>): void {
     if (event.key !== "Escape") return;
@@ -37,17 +37,20 @@ export function ChatPanel({
       id="pica-chat"
       onKeyDown={handleKeyDown}
     >
-      <ChatHeader onClose={onClose} session={view.session} />
-      {picker && limits && view.session ? (
+      <ChatHeader
+        onClose={onClose}
+        session={view.session}
+        context={chat.context}
+      />
+      {picker ? (
         <ChatSessionPicker
           key={picker.mode}
-          confirmationWord={limits.confirmationWord}
-          currentId={view.session.id}
+          currentId={view.session?.id ?? ""}
+          isDeleting={chat.commands.isDeleting}
+          error={chat.error}
           onChoose={(sessionId) => void chat.commands.choose(sessionId)}
           onClose={chat.commands.closePicker}
-          onRemove={(sessionId, confirmation) =>
-            void chat.commands.remove(sessionId, confirmation)
-          }
+          onRemove={(ids) => void chat.commands.remove(ids)}
           picker={picker}
         />
       ) : (

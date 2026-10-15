@@ -37,6 +37,7 @@ const READING_OPERATIONS: readonly PagesAgentApiBusinessOperation[] = [
   ...AGENT_WORKSPACE_READ_OPERATIONS,
   ...AGENT_PLAN_READ_OPERATIONS,
   ...PAGE_AGENT_READ_OPERATIONS,
+  "chat.sessions.list",
 ];
 
 /**
@@ -59,6 +60,7 @@ export function ownerOperations(
     ...AGENT_WORKSPACE_READ_OPERATIONS,
     ...AGENT_PLAN_READ_OPERATIONS,
     ...PAGE_AGENT_READ_OPERATIONS,
+    "chat.sessions.list",
     ...PAGES_AGENT_WRITE_OPERATIONS.filter(
       (operation) => isAdmin || !operation.startsWith("admin."),
     ),
@@ -97,7 +99,11 @@ function forSession(
       return [
         ...PAGES_AGENT_TICKET_READ_OPERATIONS,
         ...PAGES_AGENT_WRITE_OPERATIONS,
-      ].filter((operation) => scope.operations.includes(operation));
+      ].filter(
+        (operation) =>
+          operation !== "chat.sessions.delete" &&
+          scope.operations.includes(operation),
+      );
     case "read":
       return readingOperations(isAdmin);
     case "full":

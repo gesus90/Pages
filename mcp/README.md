@@ -419,6 +419,29 @@ fields, and the linked source definitions when developing an integration.
 Status codes mentioned below are Pages API responses. Binary asset upload paths are
 Pages API paths as well.
 
+### Pica sessions
+
+`list_chat_sessions` (`chat.sessions.list`) takes no arguments and returns all
+of the connected person's own sessions with IDs, previews and `total`.
+Administrators cannot list another person's sessions.
+
+`delete_chat_sessions` (`chat.sessions.delete`) takes `sessionIds`,
+`expectedCount` and `confirmation`. Show the person the exact sessions and count
+first, then require them to type exactly **LÖSCHEN**, also in English. The UI's
+button confirmation does not authorize MCP deletion. `expectedCount` must equal
+the number of unique IDs in this call, between 1 and 200. For all sessions, use
+all IDs read from the list; split larger selections into explicit batches after
+confirming their complete scope. Newly created sessions are not silently added.
+
+The server checks every target's ownership before mutating a batch; a missing or
+foreign session returns `NOT_FOUND` and deletes none of that batch. The result
+contains `deleted` IDs, `failed` entries (`sessionId`, safe `error` code), and
+`cleanupFailed` IDs whose session was deleted but whose file cleanup failed.
+Deletion is permanent and may partially succeed. Re-read after a lost response;
+do not widen the selection or infer confirmation. Read-only run credentials
+receive the list, and only full-reach runs or personal credentials receive
+deletion. Ticket-scoped runs never receive these session operations.
+
 ### Project name discovery
 
 `list_project_names` takes no arguments and is read-only. It returns a text

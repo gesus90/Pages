@@ -1,5 +1,8 @@
 import path from "node:path";
 
+import { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
+import { ChatContextRepository } from "@/backend/database/repositories/chat/ChatContextRepository";
+import { ChatContextService } from "@/backend/service/chat/ChatContextService";
 import { ChatAttachmentRepository } from "@/backend/database/repositories/chat/ChatAttachmentRepository";
 import { ChatSessionRepository } from "@/backend/database/repositories/chat/ChatSessionRepository";
 import { ChatSettingsRepository } from "@/backend/database/repositories/chat/ChatSettingsRepository";
@@ -25,6 +28,7 @@ import type { AgentProfileService } from "@/backend/service/agents/AgentProfileS
 /** The global chat agent Pica: sessions, attachments, settings and turns (A11.4). */
 export interface ChatApplicationServices {
   readonly chatService: ChatService;
+  readonly chatContextService: ChatContextService;
   readonly chatSessionService: ChatSessionService;
   readonly chatAttachmentService: ChatAttachmentService;
   readonly chatSettingsService: ChatSettingsService;
@@ -71,12 +75,23 @@ export function createChatServices(input: {
     files,
     isSafeSvg,
   });
+  const chatContextService = new ChatContextService({
+    sessions: chatSessionService,
+    messages: sessions,
+    contexts: new ChatContextRepository(database),
+    agents: input.agents.agentProfileService,
+    catalogs: new AgentConnectionRepository(database).catalogs(),
+    execution: input.agents.agentChatExecution,
+    requests: input.agents.chatRequests,
+  });
   return {
+    chatContextService,
     chatSessionService,
     chatAttachmentService,
     chatSettingsService,
     chatService: new ChatService({
       sessions: chatSessionService,
+      context: chatContextService,
       messages: sessions,
       attachments: chatAttachmentService,
       settings: chatSettingsService,

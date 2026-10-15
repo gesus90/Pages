@@ -133,7 +133,7 @@ export function ChatMessageList({
           {t("chat.loading")}
         </p>
       ) : null}
-      {chat.commands.notice ? (
+      {chat.commands.notice && chat.commands.notice !== "compacting" ? (
         <p className="text-sm text-muted-foreground" role="status">
           {t(`chat.notice.${chat.commands.notice}`)}
         </p>

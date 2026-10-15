@@ -1,5 +1,11 @@
 import type { AgentProviderId } from "./AgentConnection";
 import type { ChatTemporaryPassword } from "./AgentAdministration";
+import type { ChatSession } from "./ChatSessionOperations.js";
+
+export type {
+  ChatSession,
+  ChatDeletionResult,
+} from "./ChatSessionOperations.js";
 
 /** One mebibyte; attachment limits are configured in whole mebibytes. */
 export const CHAT_MEBIBYTE = 1024 * 1024;
@@ -22,7 +28,12 @@ export const CHAT_LIMITS = {
 } as const;
 
 /** Chat commands that act on the person's own sessions (T6.12.3). */
-export const CHAT_COMMANDS = ["/new", "/sessions", "/delete"] as const;
+export const CHAT_COMMANDS = [
+  "/new",
+  "/sessions",
+  "/delete",
+  "/compact",
+] as const;
 
 /** A chat command typed into the input field. */
 export type ChatCommand = (typeof CHAT_COMMANDS)[number];
@@ -45,15 +56,6 @@ export const CHAT_WEB_SEARCH_PROVIDERS: readonly AgentProviderId[] = [
   "codex_cli",
   "claude_code",
 ];
-
-/** A conversation of one person; its five-word ID is the name shown in the panel. */
-export interface ChatSession {
-  readonly id: string;
-  readonly createdAt: string;
-  readonly lastMessageAt: string;
-  /** Start of the first message, to recognize a session; empty for a new session. */
-  readonly preview: string;
-}
 
 /** A file attached to a session; the type was determined from its content. */
 export interface ChatAttachment {
@@ -127,4 +129,17 @@ export function readChatCommand(text: string): ChatCommand | null {
 /** Tells whether the chat may use the search function of a provider. */
 export function canChatSearchWeb(provider: AgentProviderId): boolean {
   return CHAT_WEB_SEARCH_PROVIDERS.includes(provider);
+}
+
+/** Conversation-only context estimate; provider instructions and tool results are excluded. */
+export interface ChatContextSize {
+  readonly tokens: number | null;
+  readonly limit: number | null;
+  readonly isEstimated: boolean;
+}
+
+/** The manual compaction result; the displayed transcript is never replaced. */
+export interface ChatCompactionResult {
+  readonly status: "compacted" | "notNeeded";
+  readonly context: ChatContextSize;
 }

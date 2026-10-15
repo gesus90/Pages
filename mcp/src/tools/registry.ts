@@ -1,3 +1,4 @@
+import { CHAT_SESSIONS_LIST_TOOL } from "./chat-sessions.js";
 import { EXTENSION_READ_TOOLS } from "./extensions.js";
 import { ADMIN_READ_TOOLS } from "./administration.js";
 import { WORKSPACE_READ_TOOLS } from "./workspaces.js";
@@ -35,6 +36,7 @@ import type {
 
 interface ReadTool {
   readonly operation:
+    | "chat.sessions.list"
     | AgentExtensionReadOperation
     | AgentAdminReadOperation
     | AgentProjectDeletionReadOperation
@@ -58,6 +60,7 @@ const TEXT = { type: "string", minLength: 1, maxLength: 200 } as const;
 
 /** Fixed read-only tool descriptions; Pages determines which operations an identity may use. */
 export const READ_TOOLS: readonly ReadTool[] = [
+  { operation: "chat.sessions.list", tool: CHAT_SESSIONS_LIST_TOOL },
   ...EXTENSION_READ_TOOLS,
   ...ADMIN_READ_TOOLS,
   PROJECT_DELETION_SCOPE_TOOL,

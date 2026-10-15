@@ -52,9 +52,14 @@ const SESSION_COLUMNS = `
 
 /** Every session query is bound to its owner; administrators have no other read path. */
 export class ChatSessionRepository {
-  private readonly database: Database;
+  private readonly database: Pick<
+    Database,
+    "query" | "execute" | "transaction"
+  >;
 
-  public constructor(database: Database) {
+  public constructor(
+    database: Pick<Database, "query" | "execute" | "transaction">,
+  ) {
     this.database = database;
   }
 
@@ -85,16 +90,16 @@ export class ChatSessionRepository {
   }
 
   /** Lists the person's own sessions, most recently used first. */
-  public async list(userId: string, limit: number): Promise<ChatSession[]> {
+  public async list(userId: string, limit?: number): Promise<ChatSession[]> {
     const rows = await this.database.query(
       `
       SELECT ${SESSION_COLUMNS}
       FROM chat_sessions
       WHERE chat_sessions.user_id = $user_id
       ORDER BY chat_sessions.last_message_at DESC, chat_sessions.created_at DESC, chat_sessions.id
-      LIMIT $limit;
+      ${limit === undefined ? "" : "LIMIT $limit"};
     `,
-      { user_id: userId, limit },
+      limit === undefined ? { user_id: userId } : { user_id: userId, limit },
     );
     return rows.map(readSession);
   }

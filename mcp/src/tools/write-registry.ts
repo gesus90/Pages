@@ -1,3 +1,4 @@
+import { CHAT_SESSIONS_DELETE_TOOL } from "./chat-sessions.js";
 import { EXTENSION_WRITE_TOOLS } from "./extensions.js";
 import { ADMIN_WRITE_TOOLS } from "./administration.js";
 import { WORKSPACE_WRITE_TOOLS } from "./workspaces.js";
@@ -54,6 +55,7 @@ export const WRITE_TOOLS: readonly {
   readonly operation: PagesAgentWriteOperation;
   readonly tool: Tool;
 }[] = [
+  { operation: "chat.sessions.delete", tool: CHAT_SESSIONS_DELETE_TOOL },
   ...EXTENSION_WRITE_TOOLS,
   ...ADMIN_WRITE_TOOLS,
   PROJECT_DELETE_TOOL,

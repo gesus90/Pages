@@ -7,6 +7,7 @@ import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/lib/cn";
 import { formatBytes } from "@/app/lib/format-bytes";
 
+import { ChatMaintenanceStatus } from "./chat-maintenance-status";
 import { ChatAttachmentList } from "./chat-attachment-list";
 import { useChatEditor } from "./use-chat-editor";
 
@@ -36,7 +37,11 @@ export function ChatComposer({
     onSubmit: () => void handleSubmit(),
   });
   const { editor } = input;
-  const isBusy = sending !== null || view.session === null;
+  const isBusy =
+    sending !== null ||
+    view.session === null ||
+    chat.isCompacting ||
+    chat.commands.isDeleting;
   const canSend = !isBusy && (input.markdown !== "" || view.pending.length > 0);
 
   useEffect(() => {
@@ -58,6 +63,7 @@ export function ChatComposer({
 
   return (
     <footer className="border-t border-border p-3">
+      <ChatMaintenanceStatus chat={chat} />
       <ChatAttachmentList
         attachments={view.pending}
         onRemove={(id) => void uploads.discard(id)}

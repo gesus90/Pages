@@ -38,6 +38,7 @@ import type {
   ChatPromptInput,
   ChatStep,
 } from "./ChatPrompt";
+import type { ChatContextService } from "./ChatContextService";
 import type { ChatSessionService } from "./ChatSessionService";
 import type { ChatSettingsService } from "./ChatSettingsService";
 import type { ChatToolExecutor } from "./ChatToolExecutor";
@@ -53,6 +54,7 @@ const IDENTIFIER = /^[a-zA-Z0-9-]{1,100}$/u;
 /** What the chat turns are built from. */
 export interface ChatServiceDependencies {
   readonly sessions: Pick<ChatSessionService, "require">;
+  readonly context?: Pick<ChatContextService, "history">;
   readonly messages: Pick<ChatSessionRepository, "messages" | "append">;
   readonly attachments: Pick<
     ChatAttachmentService,
@@ -81,6 +83,7 @@ interface ChatTurn {
   readonly actor: User;
   readonly agent: ResolvedAgentAssignment;
   readonly history: readonly StoredChatMessage[];
+  readonly summary?: string | null;
   readonly request: ChatSendRequest;
   readonly attachments: readonly StoredChatAttachment[];
 }
@@ -187,7 +190,10 @@ export class ChatService {
     const sent = await attachments.pending(session.id, request.attachmentIds);
     // Access and model are resolved for the person who sends, at the start of every message.
     const agent = await agents.resolve(actor.id, "chat");
-    const history = await messages.messages(session.id);
+    const context = this.dependencies.context
+      ? await this.dependencies.context.history(actor, session.id)
+      : { messages: await messages.messages(session.id), summary: null };
+    const history = context.messages;
     signal.throwIfAborted();
     const question = await messages.append(actor.id, session.id, {
       role: "user",
@@ -195,7 +201,14 @@ export class ChatService {
     });
     await attachments.link(session.id, question.id, sent);
     const completed = await this.answer(
-      { actor, agent, history, request, attachments: sent },
+      {
+        actor,
+        agent,
+        history,
+        summary: context.summary,
+        request,
+        attachments: sent,
+      },
       signal,
     );
     signal.throwIfAborted();
@@ -235,6 +248,7 @@ export class ChatService {
       today:
         this.dependencies.today?.() ?? new Date().toISOString().slice(0, 10),
       history: turn.history,
+      summary: turn.summary,
       message: turn.request.text,
       attachments: await this.promptAttachments(turn.attachments),
     };

@@ -30,6 +30,10 @@ opened) under `tests/backend/backend/service/agents/`,
 and the Codex ACP tests of PAGE-63 under
 `tests/backend/backend/agents/` (the adapter is an in-process agent app of the
 ACP SDK behind a fake spawn, never a real process), each with their fixtures;
+the PAGE-48 Pica session/context tests under
+`tests/backend/backend/service/chat/`, `tests/backend/backend/database/repositories/`,
+`tests/backend/app/routes/` and `tests/frontend/app/components/chat/` (mocked
+storage, provider and HTTP boundaries; no live database, network or MCP process);
 the full suites are planned for PAGE-32/PAGE-33 and are not available as usable,
 validated test suites yet. Empty discovery is an error, not a passing suite. CI test execution
 remains absent after PAGE-35. Check and lint are non-test gates.

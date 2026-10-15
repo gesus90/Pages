@@ -43,6 +43,7 @@ type ExcludedOperation =
   | "wiki.import.update"
   | "import.structured.apply"
   | "assets.upload.prepare"
+  | "chat.sessions.delete"
   | AgentTextRangeWriteOperation
   | AgentWorkspaceWriteOperation
   | AgentProjectDeletionWriteOperation;

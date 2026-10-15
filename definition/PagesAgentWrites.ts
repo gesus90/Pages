@@ -7,6 +7,7 @@ import { PAGE_AGENT_WRITE_OPERATIONS } from "./PageAgentOperations.js";
 import { AGENT_TICKET_LINK_OPERATIONS } from "./AgentTicketNavigation.js";
 import { AGENT_TEXT_RANGE_WRITE_OPERATIONS } from "./AgentTextRange.js";
 
+import type { ChatDeletionResult } from "./ChatSessionOperations.js";
 import type { AgentAdminChanged } from "./AgentAdministration.js";
 import type { AgentExtensionChanged } from "./AgentExtensions.js";
 import type { AgentImportApplied } from "./AgentImportApply.js";
@@ -48,6 +49,7 @@ export const PAGES_AGENT_WRITE_OPERATIONS = [
   ...AGENT_WORKSPACE_WRITE_OPERATIONS,
   ...AGENT_PLAN_WRITE_OPERATIONS,
   ...PAGE_AGENT_WRITE_OPERATIONS,
+  "chat.sessions.delete",
   "assets.upload.prepare",
   "wiki.page.create",
   "wiki.import.apply",
@@ -153,5 +155,6 @@ export interface PagesAgentWriteResponse {
     | AgentWorkspaceChanged
     | AgentPlanChanged
     | PageAgentChanged
-    | ChatAgentDeleted;
+    | ChatAgentDeleted
+    | ChatDeletionResult;
 }

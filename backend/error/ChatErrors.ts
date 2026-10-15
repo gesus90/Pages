@@ -13,7 +13,9 @@ export type ChatErrorCode =
   | "fileNameTooLong"
   | "fileTypeNotAllowed"
   | "invalidSetting"
-  | "stepLimit";
+  | "stepLimit"
+  | "contextChanged"
+  | "compactionFailed";
 
 /** Stable, translated chat failures; they never carry message text or provider output. */
 export class ChatError extends Error {

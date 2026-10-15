@@ -1,5 +1,5 @@
 import { ChatError } from "@/backend/error/ChatErrors";
-import { CHAT_LIMITS, isChatSessionId } from "@/definition/Chat";
+import { isChatSessionId } from "@/definition/Chat";
 
 import { createChatSessionId } from "./ChatSessionWords";
 
@@ -11,6 +11,7 @@ import type { WikiFileStore } from "@/backend/storage/WikiFileStore";
 import type {
   ChatAttachment,
   ChatConfirmationWord,
+  ChatDeletionResult,
   ChatOverview,
   ChatSession,
   ChatSessionView,
@@ -23,8 +24,11 @@ const ID_ATTEMPTS = 5;
 
 /** What the session commands are built from. */
 export interface ChatSessionDependencies {
-  readonly sessions: ChatSessionRepository;
-  readonly attachments: ChatAttachmentRepository;
+  readonly sessions: Pick<
+    ChatSessionRepository,
+    "list" | "find" | "exists" | "create" | "remove" | "messages"
+  >;
+  readonly attachments: Pick<ChatAttachmentRepository, "list">;
   readonly settings: Pick<ChatSettingsService, "read">;
   readonly languages: Pick<UserSettingsRepository, "findByUserId">;
   readonly files: Pick<WikiFileStore, "remove">;
@@ -65,6 +69,15 @@ export function publicChatAttachment(
     contentType: attachment.contentType,
     size: attachment.size,
   };
+}
+
+/** Validates one bounded, explicit selection; callers can submit larger selections in batches. */
+export function readChatDeletionIds(input: unknown): readonly string[] {
+  if (!Array.isArray(input) || input.length === 0 || input.length > 200)
+    throw new ChatError("invalidInput");
+  const ids = input.map(readChatSessionId);
+  if (new Set(ids).size !== ids.length) throw new ChatError("invalidInput");
+  return ids;
 }
 
 /**
@@ -114,10 +127,7 @@ export class ChatSessionService {
   /** Lists only the person's own sessions (`/sessions`). */
   public async list(actor: User): Promise<readonly ChatSession[]> {
     requireChatActor(actor);
-    return this.dependencies.sessions.list(
-      actor.id,
-      CHAT_LIMITS.sessionsListed,
-    );
+    return this.dependencies.sessions.list(actor.id);
   }
 
   /** Switches to an own session. */
@@ -144,6 +154,42 @@ export class ChatSessionService {
     const files = await this.dependencies.sessions.remove(actor.id, id);
     if (files === null) throw new ChatError("sessionMissing");
     await this.dependencies.files.remove(files);
+  }
+
+  /**
+   * Deletes the explicit UI selection after its button confirmation.
+   * This entry point is wired only to the authenticated, same-origin chat route.
+   * MCP must validate its own typed confirmation before calling this method.
+   */
+  public async removeSelected(
+    actor: User,
+    input: unknown,
+  ): Promise<ChatDeletionResult> {
+    requireChatActor(actor);
+    const ids = readChatDeletionIds(input);
+    // Preflight every target before the first mutation; foreign IDs never widen the selection.
+    for (const id of ids) await this.require(actor, id);
+    const deleted: string[] = [];
+    const failed: { sessionId: string; error: string }[] = [];
+    const cleanupFailed: string[] = [];
+    for (const id of ids) {
+      try {
+        const files = await this.dependencies.sessions.remove(actor.id, id);
+        if (files === null) throw new ChatError("sessionMissing");
+        deleted.push(id);
+        try {
+          await this.dependencies.files.remove(files);
+        } catch {
+          cleanupFailed.push(id);
+        }
+      } catch (error: unknown) {
+        failed.push({
+          sessionId: id,
+          error: error instanceof ChatError ? error.code : "general",
+        });
+      }
+    }
+    return { deleted, failed, cleanupFailed };
   }
 
   /**

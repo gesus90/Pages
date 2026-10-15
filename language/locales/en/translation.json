@@ -2925,7 +2925,7 @@
     "thinking": "Pica is answering …",
     "input": "Message to Pica",
     "placeholder": "Ask Pica something or type / for commands …",
-    "commands": "Chat commands: /new new session · /sessions show sessions · /delete delete a session",
+    "commands": "Chat commands: /new new session · /sessions show sessions · /delete delete sessions · /compact compact context",
     "send": "Send",
     "cancel": "Cancel",
     "attach": "Add attachment",
@@ -2937,8 +2937,11 @@
     "notice": {
       "newSession": "New session started.",
       "switched": "Session switched.",
-      "deleted": "Session deleted for good.",
-      "unknownCommand": "Unknown chat command. Available are /new, /sessions and /delete."
+      "deleted": "Selected sessions permanently deleted.",
+      "unknownCommand": "Unknown chat command. Available: /new, /sessions, /delete and /compact.",
+      "compacting": "Compacting the conversation context …",
+      "compacted": "Context compacted. The complete conversation history is preserved.",
+      "notNeeded": "No compaction needed: the older context is too short or cannot be reduced further."
     },
     "sessions": {
       "title": "Your sessions",
@@ -2947,10 +2950,15 @@
       "close": "Back to the chat"
     },
     "delete": {
-      "title": "Delete a session",
-      "hint": "Choose a session. It is deleted for good with all messages and attachments.",
-      "confirm": "Type {{word}} to confirm the deletion.",
-      "submit": "Delete for good"
+      "title": "Delete sessions",
+      "hint": "Choose sessions. Selected sessions and all their messages and attachments will be permanently deleted.",
+      "all": "Select all own sessions ({{count}})",
+      "extent": "{{count}} sessions selected. Deletion is permanent.",
+      "submit": "Permanently delete {{count}} sessions",
+      "result": "{{count}} sessions deleted.",
+      "failed": "Not deleted or result unconfirmed: {{id}}.",
+      "cleanupFailed": "Session {{id}} deleted; some associated files could not be removed.",
+      "pending": "Deleting the selected sessions …"
     },
     "error": {
       "invalidInput": "Please check the input.",
@@ -2974,13 +2982,27 @@
       "accessUnverified": "The access of the chat agent is not verified. Please contact an administrator.",
       "modelUnavailable": "The model of the chat agent is not in the catalog of its access.",
       "reasoningUnsupported": "The reasoning level of the chat agent is not supported.",
-      "requestBusy": "Pica is already answering a message of yours.",
+      "requestBusy": "Pica is already processing a message or context compaction for you. Please wait until it finishes.",
       "cancelled": "The answer was cancelled.",
       "timeout": "The answer took too long. Please try again.",
       "providerFailed": "The provider did not answer. Please try again.",
       "network": "Pages cannot be reached right now. Please check the connection and try again.",
       "invalidOutput": "The answer was incomplete and was not stored.",
-      "general": "That did not work. Please try again."
+      "general": "That did not work. Please try again.",
+      "contextChanged": "The context changed meanwhile. Nothing was overwritten; please try /compact again.",
+      "compactionFailed": "The context could not be compacted. Your existing conversation history is preserved."
+    },
+    "recover": "Start a new session",
+    "context": {
+      "label": "Conversation context: {{amount}}",
+      "tokens": "{{count}} tokens",
+      "unavailable": "Context size is currently unavailable.",
+      "shortUnavailable": "Context: —",
+      "estimated": "Estimate: {{amount}}",
+      "explanation": "Active session conversation context: bounded history and summary used for the next message. Excludes system instructions, new attachments and action results. Estimate: roughly four characters per token.",
+      "limit": "Model limit: {{count}} tokens",
+      "limitUnknown": "Model limit unknown.",
+      "utilization": "Estimated conversation share of the model limit: {{percent}}%"
     }
   },
   "workspaces": {

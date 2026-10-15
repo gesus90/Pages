@@ -3,38 +3,51 @@ import { useState } from "react";
 import {
   chatApi,
   chatErrorCode,
-  readChatOverview,
   readChatSessionView,
   readChatSessions,
 } from "@/app/lib/chat-client";
 
+import { useChatDeletion } from "./use-chat-deletion";
+
 import type { Dispatch, SetStateAction } from "react";
-import type { ChatCommand, ChatSession } from "@/definition/Chat";
+
+import type {
+  ChatCommand,
+  ChatSession,
+  ChatDeletionResult,
+} from "@/definition/Chat";
 import type { ChatView } from "./use-chat-uploads";
 
 /** A short confirmation the panel shows after a command. */
 export type ChatNotice =
-  "newSession" | "switched" | "deleted" | "unknownCommand";
+  | "newSession"
+  | "switched"
+  | "deleted"
+  | "unknownCommand"
+  | "compacted"
+  | "notNeeded"
+  | "compacting";
 
 /** The own sessions a command listed, to switch to one or to delete one. */
 export interface ChatPicker {
   readonly mode: "sessions" | "delete";
   readonly sessions: readonly ChatSession[];
+  readonly outcome?: ChatDeletionResult;
 }
 
 /** The chat commands and what they show. */
 export interface ChatCommands {
   readonly picker: ChatPicker | null;
   readonly notice: ChatNotice | null;
+  readonly isDeleting: boolean;
   setNotice(notice: ChatNotice | null): void;
-  run(command: ChatCommand): Promise<void>;
+  run(command: Exclude<ChatCommand, "/compact">): Promise<void>;
   choose(sessionId: string): Promise<void>;
-  remove(sessionId: string, confirmation: string): Promise<void>;
+  remove(ids: readonly string[]): Promise<void>;
   closePicker(): void;
 }
 
 interface ChatCommandOptions {
-  readonly view: ChatView;
   readonly setView: Dispatch<SetStateAction<ChatView>>;
   readonly setError: (code: string) => void;
 }
@@ -49,22 +62,17 @@ export function toChatView(view: ChatView): ChatView {
 }
 
 /**
- * Runs `/new`, `/sessions` and `/delete` on the person's own sessions (T6.12.3).
- *
- * @remarks
- * `/delete` only lists the sessions; the deletion itself needs the typed
- * confirmation word and is final. Deleting the open session opens the most
- * recent remaining one, or a new one.
+ * Lists own sessions and opens a deletion selection whose button confirms the explicit IDs.
  */
 export function useChatCommands({
-  view,
   setView,
   setError,
 }: ChatCommandOptions): ChatCommands {
   const [picker, setPicker] = useState<ChatPicker | null>(null);
   const [notice, setNotice] = useState<ChatNotice | null>(null);
+  const deletion = useChatDeletion({ setView, setPicker, setNotice, setError });
 
-  async function run(command: ChatCommand): Promise<void> {
+  async function run(command: Exclude<ChatCommand, "/compact">): Promise<void> {
     try {
       if (command === "/new") {
         setView(readChatSessionView((await chatApi({ intent: "new" })).view));
@@ -93,30 +101,15 @@ export function useChatCommands({
     }
   }
 
-  async function remove(
-    sessionId: string,
-    confirmation: string,
-  ): Promise<void> {
-    try {
-      await chatApi({ intent: "delete", sessionId, confirmation });
-      if (view.session?.id === sessionId) {
-        const result = await chatApi({ intent: "open" });
-        setView(toChatView(readChatOverview(result.overview)));
-      }
-      setPicker(null);
-      setNotice("deleted");
-    } catch (failure: unknown) {
-      setError(chatErrorCode(failure));
-    }
-  }
-
   return {
     picker,
     notice,
     setNotice,
     run,
     choose,
-    remove,
-    closePicker: () => setPicker(null),
+    ...deletion,
+    closePicker: () => {
+      if (!deletion.isDeleting) setPicker(null);
+    },
   };
 }

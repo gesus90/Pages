@@ -24,6 +24,7 @@ import type {
 import type { AgentMilestones, AgentTicket } from "./AgentTickets.js";
 import type { AgentTicketChecklist } from "./AgentTicketChecklist.js";
 import type { AgentWikiComments } from "./AgentWikiComments.js";
+import type { ChatSession } from "./ChatSessionOperations.js";
 import type { WikiCover } from "./Wiki.js";
 
 /** Read operations; every verified active account may read and plan within its scope. */
@@ -193,7 +194,8 @@ export interface PagesAgentReadResponse {
     | ProjectDeletionScope
     | AgentWorkspaceReadResult
     | AgentPlanReadResult
-    | PageAgentReadResult;
+    | PageAgentReadResult
+    | { readonly sessions: readonly ChatSession[]; readonly total: number };
 }
 
 /** Version-one result of a structured import preview. */

@@ -20,6 +20,7 @@ import type { PagesConfiguration } from "../configuration.js";
 export async function readOperation(
   configuration: PagesConfiguration,
   operation:
+    | "chat.sessions.list"
     | AgentExtensionReadOperation
     | AgentAdminReadOperation
     | AgentProjectDeletionReadOperation

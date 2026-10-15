@@ -31,6 +31,7 @@ export interface PagesAgentApiIdentity {
 /** Business operations Pages may offer to a verified identity. */
 export type PagesAgentApiBusinessOperation =
   | "projects.names.list"
+  | "chat.sessions.list"
   | AgentExtensionReadOperation
   | AgentAdminReadOperation
   | AgentProjectDeletionReadOperation

@@ -3,18 +3,22 @@ import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
 
+import { ChatContextIndicator } from "./chat-context-indicator";
+
 import picaIconUrl from "@/assets/pica-icon.svg";
 
-import type { ChatSession } from "@/definition/Chat";
+import type { ChatSession, ChatContextSize } from "@/definition/Chat";
 
 interface ChatHeaderProps {
   readonly session: ChatSession | null;
+  readonly context: ChatContextSize | null;
   readonly onClose: () => void;
 }
 
 /** Name of the agent, the read-only session ID and the close button (T6.12.1). */
 export function ChatHeader({
   session,
+  context,
   onClose,
 }: ChatHeaderProps): React.ReactElement {
   const { t } = useTranslation();
@@ -55,6 +59,7 @@ export function ChatHeader({
           readOnly
           value={sessionId}
         />
+        <ChatContextIndicator context={context} />
         <Button
           aria-label={t("chat.copySession")}
           disabled={sessionId === ""}

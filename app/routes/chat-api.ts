@@ -31,8 +31,20 @@ async function handleIntent(
     case "send":
       return { reply: await services.chatService.send(actor, input.message) };
     case "delete":
-      await sessions.remove(actor, input.sessionId, input.confirmation);
-      return {};
+      return {
+        deletion: await sessions.removeSelected(actor, input.sessionIds),
+      };
+    case "compact":
+      return {
+        compaction: await services.chatContextService.compact(
+          actor,
+          input.sessionId,
+        ),
+      };
+    case "context":
+      return {
+        context: await services.chatContextService.size(actor, input.sessionId),
+      };
     case "discard":
       await services.chatAttachmentService.discard(actor, input.attachmentId);
       return {};

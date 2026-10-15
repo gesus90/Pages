@@ -8,10 +8,11 @@ import {
 import { readChatCommand } from "@/definition/Chat";
 
 import { toChatView, useChatCommands } from "./use-chat-commands";
+import { useChatContext } from "./use-chat-context";
 import { useChatSend } from "./use-chat-send";
 import { useChatUploads } from "./use-chat-uploads";
 
-import type { ChatConfirmationWord } from "@/definition/Chat";
+import type { ChatConfirmationWord, ChatContextSize } from "@/definition/Chat";
 import type { ChatTemporaryPassword } from "@/definition/AgentAdministration";
 import type { ChatCommands } from "./use-chat-commands";
 import type { ChatSending, ChatSubmitOutcome } from "./use-chat-send";
@@ -32,6 +33,8 @@ export interface ChatController {
   readonly temporaryPasswords: readonly ChatTemporaryPassword[];
   readonly error: string | null;
   readonly commands: ChatCommands;
+  readonly context: ChatContextSize | null;
+  readonly isCompacting: boolean;
   readonly uploads: ChatUploads;
   submit(text: string): Promise<ChatSubmitOutcome>;
   cancel(): void;
@@ -87,7 +90,13 @@ export function useChat(isOpen: boolean): ChatController {
   const [error, setError] = useState<string | null>(null);
   const { isLoading, limits } = useChatLoad(isOpen, setView, setError);
   const sender = useChatSend({ isOpen, view, setView, setError });
-  const commands = useChatCommands({ view, setView, setError });
+  const commands = useChatCommands({ setView, setError });
+  const context = useChatContext({
+    isOpen,
+    view,
+    setError,
+    setNotice: commands.setNotice,
+  });
   const uploads = useChatUploads({
     view,
     limitBytes: limits?.limitBytes ?? null,
@@ -96,11 +105,15 @@ export function useChat(isOpen: boolean): ChatController {
   });
 
   async function submit(text: string): Promise<ChatSubmitOutcome> {
+    if (context.isCompacting || commands.isDeleting) return "restore";
     setError(null);
     commands.setNotice(null);
     const command = readChatCommand(text);
     if (command !== null) {
-      await commands.run(command);
+      if (command === "/compact") {
+        commands.closePicker();
+        await context.compact();
+      } else await commands.run(command);
       return "clear";
     }
     if (/^\/\S*$/u.test(text.trim())) {
@@ -120,6 +133,8 @@ export function useChat(isOpen: boolean): ChatController {
     temporaryPasswords: sender.temporaryPasswords,
     error,
     commands,
+    context: context.context,
+    isCompacting: context.isCompacting,
     uploads,
     submit,
     cancel: sender.cancel,

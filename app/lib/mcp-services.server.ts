@@ -1,5 +1,12 @@
 import path from "node:path";
 
+import { AgentChatSessionOperationService } from "@/backend/service/agents/AgentChatSessionOperationService";
+import { ChatSessionService } from "@/backend/service/chat/ChatSessionService";
+import { ChatSettingsService } from "@/backend/service/chat/ChatSettingsService";
+import { ChatSessionRepository } from "@/backend/database/repositories/chat/ChatSessionRepository";
+import { ChatAttachmentRepository } from "@/backend/database/repositories/chat/ChatAttachmentRepository";
+import { ChatSettingsRepository } from "@/backend/database/repositories/chat/ChatSettingsRepository";
+import { UserSettingsRepository } from "@/backend/database/repositories/UserSettingsRepository";
 import { AgentAssetRepository } from "@/backend/database/repositories/agents/AgentAssetRepository";
 import { AgentAssetService } from "@/backend/service/agents/AgentAssetService";
 import { createAgentPlanningServices } from "@/backend/service/agents/AgentPlanningServices";
@@ -102,6 +109,7 @@ interface RouterContext extends Omit<OperationContext, "channel"> {
   readonly creation: AgentWikiCreateDependencies;
   /** The permanent project deletion; only MCP clients get it. */
   readonly projectDeletion: AgentProjectDeletionService;
+  readonly chatSessions: AgentChatSessionOperationService;
 }
 
 /**
@@ -125,6 +133,7 @@ function createMcpOperationRouter(
       context.cache,
     ),
     projectDeletion: context.projectDeletion,
+    chatSessions: context.chatSessions,
     workspaces: new AgentWorkspaceOperationService({
       database: context.database,
       workspaces: workspaces.forChannel("mcp"),
@@ -214,6 +223,29 @@ function createPersonalAuthorization(
   };
 }
 
+/** Shares the normal own-session service with the MCP-specific confirmation adapter. */
+function createChatSessionOperations(input: {
+  readonly database: Database;
+  readonly users: Pick<UserService, "getById">;
+  readonly administration: Pick<AdministrationService, "getContext">;
+  readonly directory: string;
+}): AgentChatSessionOperationService {
+  const { database, users, administration, directory } = input;
+  return new AgentChatSessionOperationService({
+    users,
+    sessions: new ChatSessionService({
+      sessions: new ChatSessionRepository(database),
+      attachments: new ChatAttachmentRepository(database),
+      settings: new ChatSettingsService(
+        new ChatSettingsRepository(database),
+        administration,
+      ),
+      languages: new UserSettingsRepository(database),
+      files: new WikiFileStore(path.join(directory, "chat-attachments")),
+    }),
+  });
+}
+
 /** Wires the API/services/repositories without opening another database or reading credential files. */
 export function createMcpServices(
   database: Database,
@@ -268,6 +300,12 @@ export function createMcpServices(
     users,
     plans: workspace.plans,
     publisher: workspace.tickets?.publisher ?? null,
+    chatSessions: createChatSessionOperations({
+      database,
+      users,
+      administration,
+      directory: workspace.directory,
+    }),
     projectDeletion: new AgentProjectDeletionService({
       cache: workspace.tickets?.cache ?? ServerCache.disabled(),
       database,

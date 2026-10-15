@@ -4,6 +4,9 @@ import { isChatSessionId } from "@/definition/Chat";
 import type {
   ChatAttachment,
   ChatConfirmationWord,
+  ChatContextSize,
+  ChatDeletionResult,
+  ChatCompactionResult,
   ChatMessage,
   ChatOverview,
   ChatReply,
@@ -197,4 +200,45 @@ async function readResult(
       typeof result.error === "string" ? result.error : "general",
     );
   return result;
+}
+
+/** Reads a conversation-only token estimate and an optional verified model limit. */
+export function readChatContext(value: unknown): ChatContextSize {
+  const context = readAgentObject(value);
+  const tokens = context.tokens === null ? null : readSize(context.tokens);
+  const limit = context.limit === null ? null : readSize(context.limit);
+  if (
+    (tokens !== null && tokens < 0) ||
+    (limit !== null && limit <= 0) ||
+    typeof context.isEstimated !== "boolean"
+  )
+    throw new ChatClientError("general");
+  return { tokens, limit, isEstimated: context.isEstimated };
+}
+
+/** Reads the committed deletions and each failure without treating partial success as complete. */
+export function readChatDeletion(value: unknown): ChatDeletionResult {
+  const deletion = readAgentObject(value);
+  return {
+    deleted: readList(deletion.deleted).map(readText),
+    cleanupFailed: readList(deletion.cleanupFailed).map(readText),
+    failed: readList(deletion.failed).map((entry) => {
+      const failure = readAgentObject(entry);
+      return {
+        sessionId: readText(failure.sessionId),
+        error: readText(failure.error),
+      };
+    }),
+  };
+}
+
+/** Reads a completed manual compaction; no transcript is returned or replaced. */
+export function readChatCompaction(value: unknown): ChatCompactionResult {
+  const compaction = readAgentObject(value);
+  if (compaction.status !== "compacted" && compaction.status !== "notNeeded")
+    throw new ChatClientError("general");
+  return {
+    status: compaction.status,
+    context: readChatContext(compaction.context),
+  };
 }
