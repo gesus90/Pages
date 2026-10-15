@@ -980,10 +980,18 @@ Pages has two separate unit-test scopes. Each runs Vitest once with V8 coverage:
   functions, lines) without a required percentage. The two reports are
   independent and are not added up.
 
-The scripts and their configurations exist, but the repository contains no test
-files yet. An empty run counts as a failure, so neither script is a verified,
-passing suite at this point. Scope rules, source includes and aliases are in
-[tests/README.md](./tests/README.md).
+Run the complete Backend unit suite from the repository root with exactly
+`pnpm run test:backend`. PAGE-32 rebuilds and validates this Node scope; its
+[behavioral scope, results and coverage gaps](./tests/backend/README.md) document
+what is covered. Run the complete Frontend unit suite with exactly
+`pnpm run test:frontend`. PAGE-33 adds and validates isolated UI, hook and client
+behavior; its [selection, results and coverage gaps](./tests/frontend/README.md)
+remain independent. An empty run counts as a failure. New units are discovered
+automatically only as `tests/backend/**/*.unit.test.{ts,tsx}` or
+`tests/frontend/**/*.unit.test.{ts,tsx}` in their respective scope; other test
+kinds and fixtures do not match just because they share a directory. There is no
+general `pnpm run test` or aggregate test script. Scope rules, source includes and
+aliases are in [tests/README.md](./tests/README.md).
 
 ## Repository layout
 

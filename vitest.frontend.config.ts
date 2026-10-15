@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+
 import { defineConfig, mergeConfig } from "vitest/config";
 
 import sharedConfig from "./vitest.shared.config";
@@ -6,6 +8,14 @@ import sharedConfig from "./vitest.shared.config";
 export default mergeConfig(
   sharedConfig,
   defineConfig({
+    resolve: {
+      alias: {
+        // Connection instructions read static version metadata, never MCP code.
+        "@/mcp/package.json": fileURLToPath(
+          new URL("./mcp/package.json", import.meta.url),
+        ),
+      },
+    },
     test: {
       name: "pages-frontend-unit",
       environment: "jsdom",

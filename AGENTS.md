@@ -166,28 +166,25 @@ For database work:
 
 ## 9. Tests
 
-### Current intermediate state after PAGE-38
+### Current state after PAGE-32 and PAGE-33
 
-PAGE-37 removed the previous MCP suite; PAGE-34 removed the remaining Pages
-suite. PAGE-38 adds only unit-test structure, standalone Backend/Frontend
-Vitest configs and diagnostic coverage configuration. There are no test cases,
-fixtures or dummy suites, and no test or coverage execution has taken place.
-PAGE-35 removed the Pages test step from the CI; it remains absent from the
-**Pages check** job. The **MCP check** job (PAGE-57) runs only the independent
-MCP package's own `pnpm run test`, after **Pages check** has succeeded. Run
-`pnpm run check` and `pnpm run lint` as non-test gates; neither demonstrates
-functional coverage.
+PAGE-38 introduced the standalone Backend/Frontend Vitest and diagnostic
+coverage configuration. PAGE-32 rebuilds and executes the Backend unit suite
+using exactly `pnpm run test:backend`. See [tests/backend/README.md](./tests/backend/README.md)
+for the analyzed behavior, mocked boundaries, measured results and remaining
+coverage gaps. Existing targeted Backend regressions are included. PAGE-33
+separately extends and validates the Frontend suite using exactly
+`pnpm run test:frontend`; see [tests/frontend/README.md](./tests/frontend/README.md)
+for behavior selection, boundaries, results and gaps. Backend validation says
+nothing about Frontend coverage.
 
-The only future Pages commands are `pnpm run test:backend` and
-`pnpm run test:frontend`. Their scripts are configured, but usable, validated
-suites are not available yet. PAGE-32/PAGE-33 will add and execute their respective
-unit tests. PAGE-38 acceptance must not execute tests or coverage.
-See [tests/README.md](./tests/README.md) for discovery, source includes, aliases,
-setup and report paths. The independent MCP package has its own Vitest unit
-suite under `mcp/tests/`, run from `mcp/` with `pnpm run test`; its coverage
-thresholds are 100 % for every metric and coverage-ignore comments are not
-allowed (see [mcp/README.md](./mcp/README.md)). MCP check/build and root lint
-remain non-test gates. Browser E2E and live integration are a later phase.
+Keep the two Pages scripts `test:backend` and `test:frontend` separate. No root
+`test` script, aggregate, alias or MCP forwarding command is allowed. Pages CI
+test execution remains absent after PAGE-35. The independent **MCP check** job
+(PAGE-57) runs that package's own tests after **Pages check**. Its Vitest suite
+under `mcp/tests/` remains outside Pages discovery and coverage; see
+[mcp/README.md](./mcp/README.md). Run `pnpm run check` and `pnpm run lint` as
+non-test gates; neither demonstrates functional coverage.
 
 ### Rules for future test work
 
@@ -211,7 +208,7 @@ remain non-test gates. Browser E2E and live integration are a later phase.
   chains, and no smoke, E2E, browser, integration or live-provider tests.
 - Intended reports go to `coverage/backend/` and `coverage/frontend/`: terminal
   and file text tables, HTML, JSON counters and per-module JSON metric summaries.
-  PAGE-38 configures these outputs without generating or validating reports.
+  PAGE-32 validates Backend reports; PAGE-33 separately validates Frontend reports.
 - Pages tests may verify Pages-owned Agent API, pairing, wiki and database
   behavior. They must not import executable modules from the independent `mcp/`
   package or start an MCP server, client, transport or process, including through
@@ -259,7 +256,7 @@ Before considering a task complete:
 
 - Confirm the requested behavior is implemented.
 - Confirm changed code follows `GUIDELINES.md`.
-- Run `pnpm run check` and `pnpm run lint`; do not claim test or coverage validation from these gates. PAGE-38 is configuration-only and prohibits test/coverage execution, including acceptance. The two future scripts have no usable, validated suites yet. Once unit cases are added, run tests required by the current task unless that task explicitly prohibits execution. Keep the independent MCP package outside Pages test coverage.
+- Run `pnpm run check` and `pnpm run lint`; do not claim test or coverage validation from these gates. Run `pnpm run test:backend` for Backend behavior changes and the tests required by the current task unless that task explicitly prohibits execution. Frontend validation remains separate. Keep the independent MCP package outside Pages test discovery and coverage.
 - Confirm no unrelated code was changed.
 - Confirm types and interfaces match the implementation.
 - Update documentation only when documented behavior changed.

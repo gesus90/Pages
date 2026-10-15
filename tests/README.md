@@ -1,63 +1,27 @@
-# Pages unit-test structure (PAGE-38)
+# Pages unit tests
 
-PAGE-38 configures a future unit-test foundation. The only test cases so far
-are the targeted archive authorization tests of PAGE-24, workspace tests of
-PAGE-26, user-agent operation tests of PAGE-21 and agent plan operation tests
-of PAGE-62 under `tests/backend/backend/service/agents/`, the archive repository
-boundary tests under `tests/backend/backend/database/repositories/`, the
-targeted Pica chat tests of PAGE-28 under
-`tests/frontend/app/components/chat/`, the Discord notification tests of PAGE-27
-(OAuth state, permissions, channel validation, event selection, UI and agent
-events, delivery, retry and rate limit, mention protection, disconnect) under
-`tests/backend/backend/discord/`, `tests/backend/backend/service/discord/`,
-`tests/backend/app/` and `tests/frontend/app/components/projects/` (Discord is
-replaced by a synthetic REST API behind the `fetch` boundary, never contacted),
-the permanent project deletion tests of PAGE-54 (both confirmation words,
-missing and invalid confirmation, administrator and scope checks, nested project
-data, linked and shared objects, failure and repetition; a schema guard reads the
-migration scripts and opens no database) under
-`tests/backend/backend/database/repositories/` and
-`tests/backend/backend/service/{agents,mcp,project}/`,
-the template/node/run isolation tests of PAGE-74 (independent copies, active-run
-template edits, model grants, optimistic revisions, legacy JSON pinning and the
-double-click editor) under `tests/backend/backend/service/agents/` and
-`tests/frontend/app/components/agents/`,
-the checklist tests of PAGE-75 (reading the complete checklist, setting several
-entries atomically with one revision, preserved content, refusals and rights;
-the ticket, its criteria, the revision table and the account facts are held in
-memory behind the repository boundaries, so no database or MCP process is
-opened) under `tests/backend/backend/service/agents/`,
-and the Codex ACP tests of PAGE-63 under
-`tests/backend/backend/agents/` (the adapter is an in-process agent app of the
-ACP SDK behind a fake spawn, never a real process), each with their fixtures;
-the PAGE-48 Pica session/context tests under
-`tests/backend/backend/service/chat/`, `tests/backend/backend/database/repositories/`,
-`tests/backend/app/routes/` and `tests/frontend/app/components/chat/` (mocked
-storage, provider and HTTP boundaries; no live database, network or MCP process);
-the full suites are planned for PAGE-32/PAGE-33 and are not available as usable,
-validated test suites yet. Empty discovery is an error, not a passing suite. CI test execution
-remains absent after PAGE-35. Check and lint are non-test gates.
+PAGE-32 builds and validates the Backend suite on the standalone Vitest
+foundation introduced by PAGE-38. Run the complete Node unit scope from the
+repository root with exactly:
 
-PAGE-77 adds focused draft/navigation tests under
-`tests/frontend/app/components/drafts/` and `tests/frontend/app/lib/drafts/`, plus
-backend save/route tests under `tests/backend/backend/service/wiki/` and
-`tests/backend/app/routes/background-drafts.unit.test.ts` and
-`tests/backend/backend/service/background-save-order.unit.test.ts`. They simulate delayed
-responses, disconnections, failures, conflicts, retries and unload warnings behind
-loader, fetch and persistence boundaries. They open no real database or network.
+```sh
+pnpm run test:backend
+```
 
-PAGE-59 adds targeted text range and patch tests under
-`tests/backend/backend/service/agents/page59-*.unit.test.ts` and
-`tests/backend/app/routes/page59-text-api.unit.test.ts`. They exercise wiki
-content and ticket descriptions through the Agent API, with repository,
-credential and GitHub boundaries mocked. Cases cover Unicode positions,
-bounded reads, exact patches, preserved metadata, conflicts and rollback,
-current rights, history, synchronization, full-text compatibility and replay.
-Run only these cases with `pnpm run test:backend page59- --maxWorkers=1`.
-No database, network or independent MCP package process is started.
+This includes existing focused Backend regressions and the new authentication,
+authorization, account administration, project, task, wiki, pairing, configuration,
+request-processing and provider/parser tests. The behavioral analysis, boundary
+choices, measured coverage and remaining gaps are in
+[Backend scope](./backend/README.md). Empty discovery is an error.
 
-| Future command           | Discovery (relative to repository root)  | Environment | Reports              |
-| ------------------------ | ---------------------------------------- | ----------- | -------------------- |
+PAGE-33 extends and validates the Frontend suite using exactly
+`pnpm run test:frontend`. Its [behavioral analysis, boundaries and measured gaps](./frontend/README.md)
+are separate from PAGE-32; existing focused UI regressions remain selected.
+Pages CI test execution remains absent after PAGE-35; check and lint are non-test
+gates. The independent MCP package retains its own CI test job after Pages check.
+
+| Command                  | Discovery (relative to repository root) | Environment | Reports              |
+| ------------------------ | --------------------------------------- | ----------- | -------------------- |
 | `pnpm run test:backend`  | `tests/backend/**/*.unit.test.{ts,tsx}`  | Node        | `coverage/backend/`  |
 | `pnpm run test:frontend` | `tests/frontend/**/*.unit.test.{ts,tsx}` | jsdom       | `coverage/frontend/` |
 
@@ -83,15 +47,22 @@ Select by the behavior under test, not the source directory or extension:
 - Shared executable contracts and utilities may have tests in either scope as
   appropriate to their behavior. Avoid duplicating the same behavioral assertions.
 - Only `*.unit.test.ts` and `*.unit.test.tsx` in the selected directory are
-  discovered. Setup files are not test files; do not add colocated, smoke, E2E,
-  browser, integration or live suites to these directories.
+  discovered automatically: no manual registration or broad directory inclusion
+  is needed for new Backend or Frontend units. A `.integration.test.ts`, `.test.ts`, `.spec.ts`
+  or fixture in the same directory does not match. Keep other test kinds outside
+  the unit trees and never label them `.unit.test.*` to make them discoverable.
+  Setup files are not test files. Each scope guard checks representative
+  selected and rejected paths against the configured glob as well as the Node
+  or jsdom environment, scripts and direct test-source imports, including fixtures.
 
 Use imports from `vitest`; test globals are disabled. Production aliases
 `@/app`, `@/assets`, `@/backend`, `@/definition` and `@/language` resolve to the
 same source directories in both configs so existing imports and mock targets
 stay consistent.
 There are no test-directory aliases and no root-wide `@` alias: neither scope
-aliases the other test tree or the independent `mcp/` package. Cross-scope test
+aliases the other test tree or executable independent `mcp/` sources. Frontend
+additionally resolves exactly `@/mcp/package.json` for static connection-version
+metadata, so coverage can transform the mixed connection route. Cross-scope test
 imports are not part of this structure.
 
 Backend has no setup file because Node unit tests need no global initialization.
@@ -116,7 +87,7 @@ Pages connection instructions. There is no MCP setup, discovery or coverage here
 
 ## Diagnostic coverage
 
-Both future scripts enable V8 coverage by default. Reports list statements,
+Both scripts enable V8 coverage by default. Reports list statements,
 branches, functions and lines per source module. Explicit source includes also
 select unimported files, so untested executable files remain visible. Pure type
 contracts have no executable statements; they are included without inventing
@@ -150,5 +121,6 @@ own report directory:
 - `coverage-summary.json`: all four metric summaries, overall and per module.
 
 Full-coverage files remain visible. Reports are configured even on failed tests;
-each future run cleans only its own directory. Generated reports stay gitignored.
-These are intended output paths, not reports generated or verified by PAGE-38.
+each run cleans only its own directory. Generated reports stay gitignored.
+PAGE-32 generates and checks the Backend reports; PAGE-33 separately generates
+and checks the Frontend reports. PAGE-38 originally configured the report paths.
