@@ -10,6 +10,14 @@ import type { PlanLink } from "./plan-links";
 
 export const PLAN_GRID = 20;
 export const PLAN_NODE_WIDTH = 280;
+export const PLAN_ENDPOINT_SIZE = 64;
+
+/** Compact endpoints keep their original coordinates without changing saved plans. */
+export function planNodeWidth(node: AgentPlanNode): number {
+  return node.type === "start" || node.type === "end"
+    ? PLAN_ENDPOINT_SIZE
+    : PLAN_NODE_WIDTH;
+}
 
 /** End points of a drawn connection in grid coordinates. */
 export interface PlanLinkPoints {
@@ -24,6 +32,7 @@ export function planNodeHeight(
   node: AgentPlanNode,
   sources: AgentPlanSources,
 ): number {
+  if (node.type === "start" || node.type === "end") return 104;
   if (node.type === "group") return 140 + node.parameters.length * 32;
   if (node.type !== "agent") return 140;
   return (
@@ -54,16 +63,16 @@ export function planNodeLabel(
   );
 }
 
-/** Uses the existing board data tints with explicit node-type labels. */
+/** Type tints remain independent of status badges in both theme palettes. */
 export function planNodeClass(type: AgentPlanNode["type"]): string {
   const classes = {
-    agent: "bg-column-todo border-info/40",
-    group: "bg-column-todo border-primary",
-    task: "bg-column-done border-success/40",
-    variable: "bg-column-review border-foreground/20",
-    parameter: "bg-column-review border-foreground/20",
-    start: "bg-surface border-success",
-    end: "bg-surface border-primary",
+    agent: "bg-plan-agent-subtle border-plan-agent/40",
+    group: "bg-plan-agent-subtle border-plan-agent/40",
+    task: "bg-plan-ticket-subtle border-plan-ticket/40",
+    variable: "bg-plan-parameter-subtle border-plan-parameter/40",
+    parameter: "bg-plan-parameter-subtle border-plan-parameter/40",
+    start: "bg-muted border-muted-foreground/30",
+    end: "bg-muted border-muted-foreground/30",
   };
   return classes[type];
 }
@@ -90,7 +99,7 @@ export function planLinkPoints(
   const source = plan.nodes.find((node) => node.id === link.from);
   const target = plan.nodes.find((node) => node.id === link.to);
   if (!source || !target) return null;
-  const x1 = source.x + PLAN_NODE_WIDTH;
+  const x1 = source.x + planNodeWidth(source);
   const x2 = target.x;
   if (link.kind === "flow")
     return { x1, y1: source.y + 72, x2, y2: target.y + 72 };

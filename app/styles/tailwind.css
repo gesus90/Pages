@@ -48,6 +48,16 @@
   --color-warning: #b45309;
   --color-ring: #f97316;
 
+  /* Plan node types stay distinct from their execution status. */
+  --color-plan-agent: #1d4ed8;
+  --color-plan-agent-subtle: #eff6ff;
+  --color-plan-parameter: #6d28d9;
+  --color-plan-parameter-subtle: #f1ecfb;
+  --color-plan-ticket: #9a4a0c;
+  --color-plan-ticket-subtle: #fff1e6;
+  --color-status-active: #b94b08;
+  --color-status-active-subtle: #fff1e6;
+
   /* Notice of a ticket archived: the strong tone for text, two tints. */
   --color-notice: oklch(55.3% 0.195 38.402);
   --color-notice-subtle: #fff7ed;
@@ -202,6 +212,15 @@
     --color-warning-subtle: #2b220c;
     --color-warning: #fbbf24;
     --color-ring: #fb923c;
+
+    --color-plan-agent: #60a5fa;
+    --color-plan-agent-subtle: #12233d;
+    --color-plan-parameter: #a78bfa;
+    --color-plan-parameter-subtle: #211a36;
+    --color-plan-ticket: #fdba74;
+    --color-plan-ticket-subtle: #2a1d12;
+    --color-status-active: #fb923c;
+    --color-status-active-subtle: #2a1b11;
 
     --color-notice: #fdba74;
     --color-notice-subtle: #2a1d12;

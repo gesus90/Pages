@@ -3,9 +3,10 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/app/components/ui/button";
 import { Select } from "@/app/components/ui/select";
 
-import { PlanRunSession } from "./plan-run-session";
+import { PlanRunSequence, planRunAgents } from "./plan-run-sequence";
+import { PlanStatusBadge } from "./plan-status";
+import { PlanRunDiagnostics } from "./plan-run-diagnostics";
 
-import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { usePlanRun } from "./use-plan-run";
 
 /** Results contain only final sanitized text, never snapshots, credentials or native diagnostics. */
@@ -16,17 +17,11 @@ export function PlanRunView(props: {
 }): React.ReactElement {
   const { t } = useTranslation();
   const { run } = props.state;
-  const completed =
-    run?.steps.filter(
-      (step) =>
-        step.status === "succeeded" ||
-        step.status === "failed" ||
-        step.status === "cancelled" ||
-        step.isBlocked,
-    ).length ?? 0;
+  const agents = run ? planRunAgents(run) : [];
+  const completed = agents.filter((step) => step.status === "succeeded").length;
   return (
     <section
-      className="space-y-3 rounded-xl border border-border p-4"
+      className="min-w-0 space-y-4 rounded-xl border border-border bg-panel-body p-4"
       aria-label={t("plans.runView")}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -50,7 +45,10 @@ export function PlanRunView(props: {
         <>
           <div className="flex items-center gap-3">
             <p role="status" className="text-sm">
-              {t(`plans.status.${run.status}`)} · {completed}/{run.steps.length}
+              <PlanStatusBadge status={run.status} />
+              <span className="ml-2 text-muted-foreground">
+                {t("plans.agentProgress", { completed, total: agents.length })}
+              </span>
             </p>
             {run.status === "running" || run.status === "paused" ? (
               <Button
@@ -64,82 +62,17 @@ export function PlanRunView(props: {
             ) : null}
           </div>
           <progress
-            className="h-2 w-full accent-primary"
+            className="h-1.5 w-full accent-success"
             aria-label={t("plans.progress")}
             value={completed}
-            max={run.steps.length}
+            max={Math.max(1, agents.length)}
           />
-          <RunSteps runId={run.id} steps={run.steps} />
+          <PlanRunSequence key={run.id} run={run} />
+          <PlanRunDiagnostics run={run} agents={agents} />
         </>
       ) : (
         <p className="text-sm text-muted-foreground">{t("plans.noRuns")}</p>
       )}
     </section>
-  );
-}
-
-function RunSteps({
-  runId,
-  steps,
-}: {
-  readonly runId: string;
-  readonly steps: readonly AgentPlanStepResult[];
-}): React.ReactElement {
-  const { t } = useTranslation();
-  return (
-    <ol className="space-y-3">
-      {steps.map((step) => {
-        const group = steps.find((entry) => entry.id === step.groupId);
-        const index =
-          steps
-            .filter((entry) => entry.groupId === step.groupId)
-            .findIndex((entry) => entry.id === step.id) + 1;
-        return (
-          <li key={step.id} className="rounded-lg bg-surface p-3 text-sm">
-            {group ? (
-              <p className="text-xs text-muted-foreground">
-                {t("plans.groups.step", { name: group.name, index })}
-              </p>
-            ) : null}
-            <p className="font-medium">
-              {t(`plans.nodeType.${step.name}`, {
-                defaultValue: step.name,
-              })}{" "}
-              <span className="font-normal">
-                {t(
-                  step.isBlocked
-                    ? "plans.blocked"
-                    : `plans.status.${step.status}`,
-                )}
-              </span>
-            </p>
-            {step.cancellation !== "none" ? (
-              <p className="text-xs text-muted-foreground">
-                {t(`plans.cancellation.${step.cancellation}`)}
-              </p>
-            ) : null}
-            {step.error ? (
-              <p className="text-destructive">
-                {t(`settings.agents.error.${step.error}`, {
-                  defaultValue: t(`assistant.error.${step.error}`),
-                })}
-              </p>
-            ) : null}
-            {step.output !== null ? (
-              <pre className="pages-selectable mt-2 whitespace-pre-wrap break-words font-sans">
-                {step.output}
-              </pre>
-            ) : null}
-            {step.session ? (
-              <PlanRunSession
-                runId={runId}
-                stepId={step.id}
-                session={step.session}
-              />
-            ) : null}
-          </li>
-        );
-      })}
-    </ol>
   );
 }

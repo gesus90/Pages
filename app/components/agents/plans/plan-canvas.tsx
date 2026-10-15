@@ -4,7 +4,7 @@ import { PlanCanvasControls } from "./plan-canvas-controls";
 import { PlanEdges } from "./plan-edges";
 import { PlanLinkAction } from "./plan-link-action";
 import { PlanNodeCard } from "./plan-node-card";
-import { PLAN_GRID, PLAN_NODE_WIDTH, planNodeHeight } from "./plan-layout";
+import { PLAN_GRID, planNodeWidth, planNodeHeight } from "./plan-layout";
 import { usePlanViewport } from "./use-plan-viewport";
 
 import type {
@@ -38,7 +38,7 @@ export function PlanCanvas(props: {
   const { view } = viewport;
   const width = Math.max(
     1000,
-    ...props.draft.nodes.map((node) => node.x + PLAN_NODE_WIDTH + 100),
+    ...props.draft.nodes.map((node) => node.x + planNodeWidth(node) + 100),
   );
   const height = Math.max(
     500,
@@ -60,6 +60,7 @@ export function PlanCanvas(props: {
   }
   function deleteSelection(event: React.KeyboardEvent<HTMLDivElement>): void {
     const { selectedLink, selectedId } = graph;
+    if (event.target !== event.currentTarget) return;
     if (!props.canEdit || !DELETE_KEYS.has(event.key)) return;
     if (!selectedLink && !selectedId) return;
     event.preventDefault();

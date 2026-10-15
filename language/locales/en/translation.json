@@ -3356,7 +3356,33 @@
       "up": "Move agent up",
       "down": "Move agent down",
       "step": "{{name}} · Step {{index}}"
-    }
+    },
+    "sequence": "Agent sequence",
+    "sequenceHint": "Select an agent to open its details. The row summarizes the agents; independent agents may run in parallel.",
+    "agentProgress": "{{completed}}/{{total}} agents completed",
+    "details": {
+      "title": "Details: {{name}}",
+      "agent": "Agent",
+      "durationValue": "{{seconds}} s",
+      "inputs": "Inputs",
+      "inputsHint": "The saved assignment contains the actual resolved inputs for this run.",
+      "retryInputs": "Retry loading inputs",
+      "inputsError": "Inputs could not be loaded. Please try again.",
+      "notStarted": "No session information is available for this step yet.",
+      "summary": "Summary",
+      "noSummary": "No summary available yet.",
+      "logs": "Live logs",
+      "logsHint": "Sanitized session events; updated with the run status.",
+      "noLogs": "No session events available yet.",
+      "output": "Full result",
+      "technical": "Session and diagnostics",
+      "noTodos": "No TODO list is available from the agent yet.",
+      "todoRunning": "running",
+      "todoWaiting": "waiting",
+      "todoHint": "Current position is inferred: the first open item while the agent is running. The runner does not report an active TODO ID.",
+      "inputsLoading": "Loading inputs …"
+    },
+    "runDiagnostics": "Additional run diagnostics"
   },
   "mcpDuration": {
     "label": "Validity in days",

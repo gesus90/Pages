@@ -1,6 +1,5 @@
 import { useTranslation } from "react-i18next";
 
-import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { planStepTemplate } from "@/definition/AgentPlanConfiguration";
 import { Textarea } from "@/app/components/ui/textarea";
@@ -11,6 +10,7 @@ import { PlanValueFields } from "./plan-value-fields";
 import { PlanParameterInput } from "./plan-parameter-input";
 import { PlanAgentAssignment } from "./plan-agent-assignment";
 import { planNodeLabel } from "./plan-layout";
+import { PlanNodeActions } from "./plan-node-actions";
 
 import type {
   AgentPlanInput,
@@ -79,14 +79,15 @@ export function PlanInspector(props: InspectorProps): React.ReactElement {
             }
           />
         </label>
-        <Button
-          size="sm"
-          variant="outline"
+        <PlanNodeActions
+          label={
+            node.type === "start" || node.type === "end"
+              ? t(`plans.nodeType.${node.type}`)
+              : planNodeLabel(node, props.sources)
+          }
           disabled={props.disabled}
-          onClick={() => props.graph.remove(node.id)}
-        >
-          {t("plans.removeNode")}
-        </Button>
+          onRemove={() => props.graph.remove(node.id)}
+        />
       </div>
       {node.type === "agent" ? <StepFields {...props} step={node} /> : null}
       {node.type === "group" ? (

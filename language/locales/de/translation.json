@@ -3356,7 +3356,33 @@
       "up": "Agent nach oben",
       "down": "Agent nach unten",
       "step": "{{name}} · Schritt {{index}}"
-    }
+    },
+    "sequence": "Agent-Sequenz",
+    "sequenceHint": "Agent auswählen, um Details zu öffnen. Die Reihe fasst die Agents zusammen; unabhängige Agents können parallel laufen.",
+    "agentProgress": "{{completed}}/{{total}} Agents erledigt",
+    "details": {
+      "title": "Details: {{name}}",
+      "agent": "Agent",
+      "durationValue": "{{seconds}} s",
+      "inputs": "Inputs",
+      "inputsHint": "Der gespeicherte Auftrag enthält die tatsächlich aufgelösten Eingaben dieses Laufs.",
+      "retryInputs": "Inputs erneut laden",
+      "inputsError": "Die Inputs konnten nicht geladen werden. Bitte erneut versuchen.",
+      "notStarted": "Noch keine Sitzungsdaten für diesen Schritt verfügbar.",
+      "summary": "Zusammenfassung",
+      "noSummary": "Noch keine Zusammenfassung verfügbar.",
+      "logs": "Live-Logs",
+      "logsHint": "Bereinigte Sitzungsereignisse; werden mit dem Laufstatus aktualisiert.",
+      "noLogs": "Noch keine Sitzungsereignisse verfügbar.",
+      "output": "Vollständiges Ergebnis",
+      "technical": "Sitzung und Diagnose",
+      "noTodos": "Noch keine TODO-Liste vom Agent verfügbar.",
+      "todoRunning": "läuft",
+      "todoWaiting": "wartet",
+      "todoHint": "Aktuelle Position abgeleitet: erster offener Punkt bei laufendem Agent. Der Runner meldet keine aktive TODO-ID.",
+      "inputsLoading": "Inputs werden geladen …"
+    },
+    "runDiagnostics": "Weitere Laufhinweise"
   },
   "mcpDuration": {
     "label": "Gültigkeit in Tagen",

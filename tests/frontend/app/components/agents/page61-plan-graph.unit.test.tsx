@@ -75,8 +75,14 @@ it("disconnects a selected flow edge with the Delete key", async () => {
 it("deletes a node with every connection it had and keeps the rest of the graph", async () => {
   const { container } = renderPlanPage(planServer());
   await screen.findByRole("region", { name: i18n.t("plans.grid") });
+  fireEvent.keyDown(
+    within(node("Writer")).getByRole("button", {
+      name: i18n.t("settings.agents.actionsFor", { name: "Writer" }),
+    }),
+    { key: "Enter" },
+  );
   fireEvent.click(
-    screen.getByRole("button", {
+    await screen.findByRole("menuitem", {
       name: i18n.t("plans.deleteNode", { name: "Writer" }),
     }),
   );
@@ -90,8 +96,14 @@ it("saves the removal so that the reopened plan still lacks the node and its con
   const server = planServer();
   const first = renderPlanPage(server);
   await screen.findByRole("region", { name: i18n.t("plans.grid") });
+  fireEvent.keyDown(
+    within(node("Writer")).getByRole("button", {
+      name: i18n.t("settings.agents.actionsFor", { name: "Writer" }),
+    }),
+    { key: "Enter" },
+  );
   fireEvent.click(
-    screen.getByRole("button", {
+    await screen.findByRole("menuitem", {
       name: i18n.t("plans.deleteNode", { name: "Writer" }),
     }),
   );

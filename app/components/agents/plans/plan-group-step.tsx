@@ -7,6 +7,7 @@ import { planStepTemplate } from "@/definition/AgentPlanConfiguration";
 
 import { PlanNodeConfigurationFields } from "./plan-node-configuration-fields";
 import { PlanAgentAssignment } from "./plan-agent-assignment";
+import { PlanNodeActions } from "./plan-node-actions";
 
 import type { AgentPlanSources, AgentPlanStep } from "@/definition/AgentPlan";
 import type { AgentParameter } from "@/definition/AgentParameters";
@@ -51,14 +52,11 @@ export function PlanGroupStep(props: {
         >
           ↓
         </Button>
-        <Button
-          size="sm"
-          variant="ghost"
+        <PlanNodeActions
+          label={step.configuration?.name ?? step.agentId}
           disabled={props.disabled}
-          onClick={props.onRemove}
-        >
-          {t("plans.removeNode")}
-        </Button>
+          onRemove={props.onRemove}
+        />
       </div>
       <details>
         <summary className="cursor-pointer text-sm">

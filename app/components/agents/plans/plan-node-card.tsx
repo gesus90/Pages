@@ -1,9 +1,9 @@
-import { Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { planNodeParameters } from "@/definition/AgentPlanGroup";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/lib/cn";
+import { WORKFLOW_STATUS_KEY } from "@/definition/Task";
 
 import {
   PLAN_NODE_WIDTH,
@@ -13,11 +13,16 @@ import {
 } from "./plan-layout";
 import { PlanPorts } from "./plan-ports";
 import { PlanFlowPorts } from "./plan-flow-ports";
+import { PlanEndpoint } from "./plan-endpoint";
+import { PlanNodeActions } from "./plan-node-actions";
+import { PlanStatusBadge } from "./plan-status";
 
 import type {
   AgentPlanNode,
   AgentPlanSources,
   AgentPlanStepResult,
+  AgentPlanStepStatus,
+  AgentPlanTask,
 } from "@/definition/AgentPlan";
 import type { PlanGraphActions } from "./use-plan-graph";
 
@@ -38,14 +43,22 @@ interface NodeCardProps {
   readonly onEdit?: (id: string) => void;
 }
 
+function ticketStatus(
+  task: AgentPlanTask | null | undefined,
+): AgentPlanStepStatus {
+  if (task?.isDone) return "succeeded";
+  if (task?.statusKey === WORKFLOW_STATUS_KEY.IN_PROGRESS) return "running";
+  if (task?.statusKey === "failed") return "failed";
+  return "waiting";
+}
+
 /** Node ports are buttons as well as drag targets, allowing keyboard and touch bindings. */
 export function PlanNodeCard(props: NodeCardProps): React.ReactElement {
   const { t } = useTranslation();
   const { node, graph } = props;
-  const label =
-    node.type === "start" || node.type === "end"
-      ? t(`plans.nodeType.${node.type}`)
-      : planNodeLabel(node, props.sources) || t("plans.missingAgent");
+  if (node.type === "start" || node.type === "end")
+    return <PlanEndpoint {...props} />;
+  const label = planNodeLabel(node, props.sources) || t("plans.missingAgent");
   const parameters = planNodeParameters(node, props.sources.agents);
   const output = OUTPUT_LABELS[node.type];
   return (
@@ -60,7 +73,8 @@ export function PlanNodeCard(props: NodeCardProps): React.ReactElement {
       className={cn(
         "absolute rounded-xl border p-3 shadow-xs",
         planNodeClass(node.type),
-        graph.selectedId === node.id && "ring-2 ring-primary",
+        graph.selectedId === node.id &&
+          "ring-2 ring-info ring-offset-2 ring-offset-surface",
         graph.issues.some((issue) => issue.nodeId === node.id) &&
           "border-destructive",
       )}
@@ -107,6 +121,15 @@ function NodeHeader(
 ): React.ReactElement {
   const { t } = useTranslation();
   const { node, graph } = props;
+  const task =
+    node.type === "task"
+      ? props.sources.tasks.find((entry) => entry.id === node.taskId)
+      : null;
+  const status = props.result?.status ?? ticketStatus(task);
+  function edit(): void {
+    graph.select(node.id);
+    if (node.type === "agent" || node.type === "group") props.onEdit?.(node.id);
+  }
   function startDrag(event: React.DragEvent<HTMLButtonElement>): void {
     event.dataTransfer.setData("application/x-pages-plan", `node:${node.id}`);
     event.dataTransfer.effectAllowed = "move";
@@ -121,22 +144,24 @@ function NodeHeader(
         className="h-9 min-w-0 flex-1 cursor-grab text-left text-sm font-semibold"
         aria-label={t("plans.selectNode", { name: props.label })}
       >
-        <span className="block text-xs font-normal text-muted-foreground">
+        <span className="flex items-center gap-2 text-xs font-normal text-muted-foreground">
           {t(`plans.nodeType.${node.type}`)}
-          {props.result ? ` · ${t(`plans.status.${props.result.status}`)}` : ""}
         </span>
         <span className="block truncate">{props.label}</span>
       </button>
-      <Button
-        size="icon-sm"
-        variant="ghost"
-        className="shrink-0 text-muted-foreground hover:text-destructive"
+      {props.result || task ? (
+        <PlanStatusBadge
+          compact
+          status={status}
+          isBlocked={props.result?.isBlocked}
+        />
+      ) : null}
+      <PlanNodeActions
+        label={props.label}
         disabled={!props.canEdit}
-        aria-label={t("plans.deleteNode", { name: props.label })}
-        onClick={() => graph.remove(node.id)}
-      >
-        <Trash2 className="size-4" aria-hidden="true" />
-      </Button>
+        onRemove={() => graph.remove(node.id)}
+        onEdit={node.type === "task" ? undefined : edit}
+      />
     </div>
   );
 }
