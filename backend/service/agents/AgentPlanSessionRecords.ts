@@ -8,7 +8,6 @@ import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import type { CliProviderId } from "@/definition/AgentConnection";
 import type { ResolvedAgentAssignment } from "./AgentAssignmentResolution";
 import type {
-  AgentPlanAcceptance,
   AgentPlanContract,
   AgentPlanSessionRecord,
 } from "@/definition/AgentPlanSession";
@@ -118,35 +117,36 @@ export function withTurn(
 }
 
 /**
- * Names why a node did not succeed, or `null` when it did.
+ * Names a technical turn failure, independently of reported work progress.
  *
  * @param turn - How the turn ended.
- * @param acceptance - The verdict on the closing report, when there was one.
- * @param closed - The actual process exit and confirmation that nothing is left.
  */
-export function failureCode(
+export function turnFailureCode(
   turn: PlanSessionTurn,
-  acceptance: AgentPlanAcceptance | null,
-  closed: PlanSessionClosed,
 ): AgentErrorCode | "timeout" | null {
   if (turn.failure === "timeout") return "timeout";
   if (turn.errorCode !== null) return turn.errorCode;
-  const isDenied = turn.permissionDenials > 0;
-  if (turn.failure === "failed")
-    return isDenied ? "plan_runner_permission_denied" : "plan_runner_failed";
-  if (turn.failure === "incomplete")
-    return isDenied
-      ? "plan_runner_permission_denied"
-      : "plan_runner_incomplete";
-  // `open` only exists for a todo list completion, where open todos never fail the node.
-  if (acceptance === null || acceptance.verdict === "rejected")
-    return isDenied
-      ? "plan_runner_permission_denied"
-      : "plan_acceptance_failed";
+  if (turn.permissionDenials > 0) return "plan_runner_permission_denied";
+  if (turn.failure === "incomplete") return "plan_runner_incomplete";
+  return turn.failure === null ? null : "plan_runner_failed";
+}
+
+/** Names a process or cleanup failure; a confirmed cleanup alone does not prove a clean exit. */
+export function closeoutFailureCode(
+  closed: PlanSessionClosed,
+): AgentErrorCode | null {
   if (!closed.isConfirmed) return "plan_closeout_failed";
   return closed.exit !== null &&
     closed.exit.code === 0 &&
     closed.exit.signal === null
     ? null
     : "plan_runner_failed";
+}
+
+/** Combines the runner turn and its actual closeout without consulting business diagnostics. */
+export function failureCode(
+  turn: PlanSessionTurn,
+  closed: PlanSessionClosed,
+): AgentErrorCode | "timeout" | null {
+  return turnFailureCode(turn) ?? closeoutFailureCode(closed);
 }

@@ -425,9 +425,11 @@ Pages permissions or a guaranteed asset transfer.
 Every file read uses its original ticket, wiki or staged-asset access policy.
 Ticket selection and sharing never grant file rights. Plan snapshots contain
 references, not file bytes or reusable download credentials. Immediately before
-the API/ACP prompt, Pages rechecks the executor, ticket and each file. A ticket
-or reference list changed between preparation and transmission requires a new
-run. Missing, deleted, inaccessible, unreadable, invalid-UTF-8 and oversized
+the API/ACP prompt, Pages rechecks the executor, ticket and each file. Changed
+asset references between preparation and transmission require a new run. Text,
+status and checkbox revisions alone do not invalidate the file handoff; ticket
+and file authorization are still checked against current state. Missing,
+deleted, inaccessible, unreadable, invalid-UTF-8 and oversized
 files produce an explicit error; the prompt is not sent partially. Historical
 run reads also reauthorize the original asset references, even after their
 links have been removed from the ticket description.
@@ -583,7 +585,7 @@ configuration. Before a node starts, Pages uses that snapshot and binds every
 parameter (a placeholder is never sent unresolved) and fixes the node's **todo list** (task list items of the node
 instruction and of the bound tickets' descriptions) and **acceptance criteria**
 (the acceptance criteria of the bound tickets). Both are stored with the run and
-appended to the prompt together with the required closing report. Later template
+appended to the prompt together with an optional progress report. Later template
 or saved-node edits leave the run unchanged; current template usage, model grants
 and referenced resource permissions are still checked before execution. The sent
 prompt and requested model, reasoning and run options remain available in the run
@@ -672,34 +674,47 @@ operation of the executor, both under the executor's current rights. The
 credential travels in the process environment or the session request, never in
 arguments, prompts or the interface, and is revoked when the node closes.
 
-A node succeeds only when its closing report marks every todo done, proves
-every criterion and every ticket entry among them is checked in the ticket, and
-the session closed without leftover processes. A Read only session cannot
-change tickets; there the report decides and Pages records the acceptance. The
-run view shows per node the runner, one-shot call or interactive session,
-session and process identity, times, the real process exit, the closeout, the
-requested and effective configuration (for the ACP runners also adapter,
-session mode, model as the adapter reports it, isolation and the effective
-permissions), the
-contract with its verdict and a link to the sent prompt. The
-normalized **Pages result** is `0` for an accepted and closed node and `-1` for
-any other outcome; a `-1` node fails and blocks its successors. Exit code 0
-alone never counts as success.
+A node succeeds after a regular runner turn and a clean, confirmed session
+closeout. Its closing report and business progress never gate execution:
+missing, malformed or incomplete `pages-report` blocks, open or unreported
+todos, unchecked ticket entries, unmet criteria, missing evidence and ticket
+changes remain diagnostics. Combinations of these findings neither fail a node
+nor block its intended successors, internal group steps or the overall run.
+There is no business acceptance or manual confirmation. This applies to existing
+and new nodes regardless of their saved `completion` mode or instruction text.
+Runner failures, incomplete turns, permission denials, timeouts, failed process
+exits, unavailable resources and failed cleanup remain execution failures.
 
-An agent node may instead complete by its **todo list** (`completion: todos`,
-chosen per node in the node editor or with `update_plan`; the default is the
-closing report above). Such a node's contract holds only the current todo list of
-its bound tickets: no acceptance criteria, no default todo or criterion, and no
-required report format. Its agent moves the bound ticket to its in-progress
-status before it starts, ticks each todo in the ticket as soon as it is done, and
-moves the ticket to review at the end. An OpenCode node of this kind also gets
-the status tool for its bound tickets; every other runner already follows the
-executor's rights, and a Read only session cannot change tickets at all. Pages
-reads the list again after the turn and shows each todo as checked in the ticket:
-open todos, a missing or malformed report, edited tickets and changed
-requirements never fail the node or block its successors, and a todo that is not
-checked is never shown as done. Only a technical failure of the runner, its
-permissions, the timeout or the closeout ends such a node as failed.
+After the turn, Pages rereads the authorized ticket checklists in both report
+scopes and reconciles current requirements with the original report IDs. New or
+edited requirements receive new IDs, so earlier evidence cannot prove different
+work. A bound todo is done only when its current ticket checkbox is checked;
+without a ticket entry, the optional report supplies its status. Open, missing
+and unknown work remains visible, including when the report is absent. Criteria
+keep the reported assessment, evidence diagnostics and current ticket checkbox.
+Execution success makes no claim that all business work was completed. Agents
+may tick completed items under the existing server-side rights and optimistic
+revision checks; after a conflict they reread and reconcile the current list.
+A failure to authorize or read the ticket itself remains a technical error,
+separate from a missing checklist entry or missing evidence.
+
+The run view shows per node the runner, session mode, session and process
+identity, times, actual process exit, closeout, requested and effective
+configuration, diagnostic progress and a link to the original sent prompt. The
+normalized **execution result** is `0` after regular completion and clean
+closeout, and `-1` for technical failure or cancellation. Internal group turns
+release the next step after regular turn completion, retaining the same native
+session; their process result remains pending until its shared closeout. A
+process crash is never inferred to be success from a favorable progress report.
+
+The existing `completion` field selects only the progress scope: `report`
+(default) describes todos and acceptance criteria; `todos` describes the current
+todo list without criteria or synthetic defaults. Neither scope blocks
+execution. No setting change or migration of saved node copies is needed. In
+the todo scope, the agent still moves the ticket to in-progress, ticks completed
+todos live and moves it to review when all current todos are done. OpenCode
+retains its existing status tool in that scope; other scopes receive no new
+permissions, and Read only cannot change tickets.
 
 Run and node status show waiting, running, succeeded, failed, paused or
 cancelled. **Pause** persists the current run and prevents additional nodes
@@ -710,7 +725,11 @@ running sessions with their whole process group. Reloading the page retains its
 persisted state. After a server interruption, unfinished runs are marked failed
 rather than silently replaying work; processes and MCP credentials the
 interrupted sessions left behind are ended at startup. A new run is an explicit
-action.
+action. Historical runs that failed only because of report or business findings
+retain their stored failure and blocked successors. They are not rewritten or
+restarted. Resume applies only to an active paused run and does not retry failed
+nodes; an ended historical run requires an explicitly started new Play run,
+which uses the current diagnostic-only completion rule.
 
 Plans may be private, global, or shared with Pages groups and departments
 using OR/AND membership. Global sharing still requires access to the plan's

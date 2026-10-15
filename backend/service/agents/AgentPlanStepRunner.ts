@@ -11,12 +11,15 @@ import {
   evaluateTodoCompletion,
 } from "./AgentPlanAcceptance";
 import { buildPlanContract, renderPlanAssignment } from "./AgentPlanContract";
+import { refreshPlanContract } from "./AgentPlanContractRefresh";
 import { sanitizePlanOutput } from "./AgentPlanOutput";
 import { planSessionReach } from "./AgentPlanSessionAccess";
 import {
   createSessionRecord,
+  closeoutFailureCode,
   failureCode,
   runnerLabel,
+  turnFailureCode,
   withTurn,
 } from "./AgentPlanSessionRecords";
 
@@ -72,13 +75,6 @@ interface SessionTerms {
   readonly reach: AgentRunReach;
 }
 
-/** The tickets of a contract as they read after the turn. */
-interface TicketReading {
-  readonly checklists: readonly AgentPlanTicketChecklist[];
-  /** Keys of the tickets that could not be read anymore. */
-  readonly unreadable: readonly string[];
-}
-
 /** One node from its start to its result; `record` always holds the newest state. */
 interface NodeRun {
   readonly run: AgentPlanRun;
@@ -109,9 +105,9 @@ function hasTimedOut(signal: AbortSignal): boolean {
  * @remarks
  * The record of the node, with the requested configuration, the todo list and
  * the acceptance criteria, is stored before any process starts, and the sent
- * prompt is pinned before it leaves. A session counts only after an accepted
- * closing report and a confirmed closeout: then the normalized result is 0,
- * in every other case -1, and the real process exit is kept apart.
+ * prompt is pinned before it leaves. Regular runner completion and a clean,
+ * confirmed closeout determine execution success. Business progress and report
+ * diagnostics are stored separately and never gate the next step.
  */
 export class AgentPlanStepRunner {
   private readonly dependencies: StepRunnerDependencies;
@@ -163,7 +159,7 @@ export class AgentPlanStepRunner {
           exit: closed.exit,
           leftoverProcesses: closed.leftovers,
           endedAt: closed.endedAt,
-          resultCode: closed.isConfirmed ? 0 : -1,
+          resultCode: closeoutFailureCode(closed) === null ? 0 : -1,
         });
       this.retained.delete(key);
       await this.dependencies.access.revoke(runId, key.slice(runId.length + 1));
@@ -331,7 +327,7 @@ export class AgentPlanStepRunner {
       acceptance,
       ...(assessed ? { contract: assessed.contract } : {}),
     });
-    if (this.retain(node, turn, acceptance))
+    if (this.retain(node, turn))
       return {
         status: "succeeded",
         output: sanitizePlanOutput(turn.output),
@@ -341,7 +337,7 @@ export class AgentPlanStepRunner {
     const closed = await this.closeSession(node, session);
     const failure = hasTimedOut(node.control.signal)
       ? "timeout"
-      : failureCode(turn, acceptance, closed);
+      : failureCode(turn, closed);
     await this.complete(node, {
       exit: closed.exit,
       endedAt: closed.endedAt,
@@ -349,7 +345,7 @@ export class AgentPlanStepRunner {
       leftoverProcesses: closed.leftovers,
       resultCode: failure === null ? 0 : -1,
     });
-    const output = turn.output ? sanitizePlanOutput(turn.output) : null;
+    const output = sanitizePlanOutput(turn.output);
     if (turn.failure === "cancelled")
       return {
         status: "cancelled",
@@ -362,21 +358,14 @@ export class AgentPlanStepRunner {
       : { status: "failed", output, error: failure, session: node.record };
   }
 
-  private retain(
-    node: NodeRun,
-    turn: PlanSessionTurn,
-    acceptance: AgentPlanAcceptance | null,
-  ): boolean {
+  private retain(node: NodeRun, turn: PlanSessionTurn): boolean {
     const group = node.snapshot.groups?.find(
       (entry) => entry.id === node.step.groupId,
     );
     if (
       !group ||
       group.steps.at(-1)?.id === node.step.step.id ||
-      turn.failure !== null ||
-      turn.errorCode !== null ||
-      acceptance === null ||
-      acceptance.verdict === "rejected" ||
+      turnFailureCode(turn) !== null ||
       node.control.signal.aborted
     )
       return false;
@@ -399,7 +388,7 @@ export class AgentPlanStepRunner {
         endedAt: closed.endedAt,
         closeout: closed.isConfirmed ? "confirmed" : "failed",
         leftoverProcesses: closed.leftovers,
-        resultCode: closed.isConfirmed ? 0 : -1,
+        resultCode: closeoutFailureCode(closed) === null ? 0 : -1,
       });
     this.retained.delete(key);
     await this.dependencies.access.revoke(
@@ -410,9 +399,8 @@ export class AgentPlanStepRunner {
   }
 
   /**
-   * Judges the turn. A report completion is checked as a gate against the
-   * contract fixed at the start; a todo list completion reads the list as it
-   * is now and only describes it.
+   * Describes progress against the current ticket lists in every completion
+   * mode. Stable report IDs prevent old evidence from proving a new requirement.
    */
   private async assess(
     node: NodeRun,
@@ -422,23 +410,20 @@ export class AgentPlanStepRunner {
     readonly acceptance: AgentPlanAcceptance;
     readonly contract: AgentPlanContract;
   }> {
-    const reading = await this.readTickets(node, terms.contract);
-    const states = this.ticketStates(terms, reading);
-    if (terms.contract.completion !== "todos")
-      return {
-        acceptance: evaluatePlanAcceptance(terms.contract, output, states),
-        contract: terms.contract,
-      };
-    // An unreadable ticket keeps the list of the start, whose todos then stay `missing`.
-    const contract =
-      reading.unreadable.length > 0
-        ? terms.contract
-        : buildPlanContract(node.step.step.instruction, reading.checklists, {
-            isReadOnly: terms.reach === "read",
-            completion: "todos",
-          });
+    const tickets = await this.readTickets(node, terms.contract);
+    const states = this.ticketStates(terms, tickets);
+    const contract = refreshPlanContract(
+      node.step.step.instruction,
+      terms.contract,
+      tickets,
+      { isReadOnly: terms.reach === "read" },
+    );
+    const evaluate =
+      contract.completion === "todos"
+        ? evaluateTodoCompletion
+        : evaluatePlanAcceptance;
     return {
-      acceptance: evaluateTodoCompletion(contract, output, states),
+      acceptance: evaluate(contract, output, states),
       contract,
     };
   }
@@ -446,32 +431,26 @@ export class AgentPlanStepRunner {
   private async readTickets(
     node: NodeRun,
     contract: AgentPlanContract,
-  ): Promise<TicketReading> {
-    const checklists: AgentPlanTicketChecklist[] = [];
-    const unreadable: string[] = [];
-    for (const ticket of contract.tickets) {
-      try {
-        checklists.push(
-          await this.dependencies.tasks.checklist(
-            node.run.userId,
-            node.snapshot.plan.projectId,
-            ticket.id,
-          ),
-        );
-      } catch {
-        unreadable.push(ticket.key);
-      }
-    }
-    return { checklists, unreadable };
+  ): Promise<readonly AgentPlanTicketChecklist[]> {
+    // Access and persistence failures remain technical errors, not missing evidence.
+    return Promise.all(
+      contract.tickets.map((ticket) =>
+        this.dependencies.tasks.checklist(
+          node.run.userId,
+          node.snapshot.plan.projectId,
+          ticket.id,
+        ),
+      ),
+    );
   }
 
   private ticketStates(
     terms: SessionTerms,
-    reading: TicketReading,
+    tickets: readonly AgentPlanTicketChecklist[],
   ): AgentPlanTicketStates {
     const checked = new Map<string, boolean>();
     const changed: string[] = [];
-    for (const current of reading.checklists) {
+    for (const current of tickets) {
       const start = terms.contract.tickets.find(
         (ticket) => ticket.id === current.id,
       );
@@ -485,7 +464,7 @@ export class AgentPlanStepRunner {
     }
     return {
       checked,
-      unreadable: reading.unreadable,
+      unreadable: [],
       changed,
       isCheckRequired: terms.reach !== "read",
     };

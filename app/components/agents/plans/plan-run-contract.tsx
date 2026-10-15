@@ -16,7 +16,7 @@ function ticketNote(
   if (!item.ticket) return "";
   const state =
     checked === undefined || checked === null
-      ? ""
+      ? ` · ${t("plans.session.ticketUnknown")}`
       : ` · ${t(checked ? "plans.session.ticketChecked" : "plans.session.ticketOpen")}`;
   return ` (${item.ticket.key}${state})`;
 }
@@ -24,8 +24,13 @@ function ticketNote(
 function criterionNote(
   status: AgentPlanCriterionStatus | undefined,
   t: TFunction,
+  issues: readonly string[],
 ): string {
   if (!status) return "";
+  if (issues.includes(`criterion_missing:${status.id}`))
+    return ` — ${t("plans.session.unknown")}`;
+  if (issues.includes(`evidence_missing:${status.id}`))
+    return ` — ${t("plans.session.unproven")}`;
   const verdict = t(status.met ? "plans.session.met" : "plans.session.unmet");
   return status.evidence
     ? ` — ${verdict}: ${status.evidence}`
@@ -47,7 +52,7 @@ function Todos({
         return (
           <li key={todo.id} className="break-words">
             <span className="font-medium">{todo.id}</span> {todo.text}
-            {ticketNote(todo, undefined, t)}
+            {todo.ticket ? ` (${todo.ticket.key})` : ""}
             {status
               ? ` — ${t(`plans.session.todoStatus.${status.status}`)}`
               : ""}
@@ -76,7 +81,7 @@ function Criteria({
           <li key={criterion.id} className="break-words">
             <span className="font-medium">{criterion.id}</span> {criterion.text}
             {ticketNote(criterion, status?.ticketChecked, t)}
-            {criterionNote(status, t)}
+            {criterionNote(status, t, acceptance?.issues ?? [])}
           </li>
         );
       })}
@@ -84,7 +89,7 @@ function Criteria({
   );
 }
 
-/** Lists the todos and criteria fixed before the start, with the verdict on the closing report. */
+/** Shows reconciled progress and report diagnostics separately from execution status. */
 export function PlanRunContract({
   contract,
   acceptance,
@@ -105,6 +110,9 @@ export function PlanRunContract({
     >
       <summary className="cursor-pointer font-medium">{label}</summary>
       <div className="pages-selectable mt-1 space-y-2">
+        <p className="text-muted-foreground">
+          {t("plans.session.diagnosticHint")}
+        </p>
         <h4 className="font-medium">{t("plans.session.todos")}</h4>
         <Todos contract={contract} acceptance={acceptance} />
         {contract.criteria.length > 0 ? (
@@ -114,7 +122,7 @@ export function PlanRunContract({
           </>
         ) : null}
         {acceptance && acceptance.issues.length > 0 ? (
-          <p className="text-destructive">
+          <p className="text-muted-foreground">
             {t("plans.session.issues")}: {acceptance.issues.join(", ")}
           </p>
         ) : null}

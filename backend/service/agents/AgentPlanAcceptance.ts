@@ -18,19 +18,15 @@ const MAXIMUM_DECISIONS = 20;
 /** The closing report as the agent wrote it. */
 interface PlanReport {
   readonly todos: ReadonlyMap<string, string>;
-  /** `null` when the report has no criteria list, which only a todo list completion accepts. */
+  readonly hasTodos: boolean;
+  /** `null` when the report has no criteria list. */
   readonly criteria: ReadonlyMap<
     string,
-    { readonly met: boolean; readonly evidence: string }
+    { readonly met: boolean | null; readonly evidence: string }
   > | null;
   readonly decisions: readonly string[];
   readonly summary: string;
 }
-
-/** A report with the criteria list that a report completion requires. */
-type GateReport = PlanReport & {
-  readonly criteria: NonNullable<PlanReport["criteria"]>;
-};
 
 /** The state of the checklist entries of the bound tickets after the turn. */
 export interface AgentPlanTicketStates {
@@ -71,8 +67,8 @@ function readPlanReport(output: string): PlanReport | "invalid" | null {
   } catch {
     return "invalid";
   }
-  if (!Array.isArray(report.todos)) return "invalid";
   return {
+    hasTodos: Array.isArray(report.todos),
     todos: new Map(
       readEntries(report.todos).map((entry) => [
         shortText(entry.id),
@@ -83,7 +79,10 @@ function readPlanReport(output: string): PlanReport | "invalid" | null {
       ? new Map(
           readEntries(report.criteria).map((entry) => [
             shortText(entry.id),
-            { met: entry.met === true, evidence: shortText(entry.evidence) },
+            {
+              met: typeof entry.met === "boolean" ? entry.met : null,
+              evidence: shortText(entry.evidence),
+            },
           ]),
         )
       : null,
@@ -95,51 +94,38 @@ function readPlanReport(output: string): PlanReport | "invalid" | null {
   };
 }
 
-function readGateReport(output: string): GateReport | "invalid" | null {
-  const report = readPlanReport(output);
-  if (report === null || report === "invalid") return report;
-  const { criteria } = report;
-  return criteria === null ? "invalid" : { ...report, criteria };
-}
-
 function ticketState(
   item: AgentPlanContractItem,
   states: AgentPlanTicketStates,
 ): boolean | null {
   if (item.ticket === null) return null;
-  return (
-    states.checked.get(`${item.ticket.id}\n${item.ticket.itemId}`) ?? false
-  );
+  return states.checked.get(`${item.ticket.id}\n${item.ticket.itemId}`) ?? null;
 }
 
 function todoStatus(
   todo: AgentPlanContractItem,
-  report: PlanReport,
+  report: PlanReport | null,
   issues: string[],
   states: AgentPlanTicketStates,
 ): AgentPlanTodoStatus {
-  const reported = report.todos.get(todo.id);
-  const status =
-    reported === "done" || reported === "open" ? reported : "missing";
+  const reported = report?.todos.get(todo.id);
+  const status = todoListStatus(todo, report, states);
   if (status !== "done") issues.push(`todo_${status}:${todo.id}`);
-  if (
-    states.isCheckRequired &&
-    status === "done" &&
-    ticketState(todo, states) === false
-  )
+  if (reported === "done" && ticketState(todo, states) === false)
     issues.push(`ticket_unchecked:${todo.id}`);
   return { id: todo.id, status };
 }
 
 function criterionStatus(
   criterion: AgentPlanContractItem,
-  report: GateReport,
+  report: PlanReport | null,
   issues: string[],
   states: AgentPlanTicketStates,
 ): AgentPlanCriterionStatus {
-  const reported = report.criteria.get(criterion.id);
+  const reported = report?.criteria?.get(criterion.id);
   const ticketChecked = ticketState(criterion, states);
-  if (!reported) issues.push(`criterion_missing:${criterion.id}`);
+  if (!reported || reported.met === null)
+    issues.push(`criterion_missing:${criterion.id}`);
   else if (!reported.met) issues.push(`criterion_unmet:${criterion.id}`);
   else if (
     !reported.evidence ||
@@ -157,43 +143,37 @@ function criterionStatus(
 }
 
 /**
- * Decides whether a node finished its contract, apart from how its process ended.
+ * Describes business progress independently of the runner's execution result.
  *
- * @param contract - The todos and criteria fixed before the node started.
+ * @param contract - The current todos and criteria, reconciled with the sent report IDs.
  * @param output - The final answer of the agent.
  * @param states - The checklist entries of the bound tickets, read after the turn.
- * @returns The verdict with the state of every todo and criterion and the reasons.
+ * @returns Diagnostic progress, including missing reports and open or unproven work.
  *
  * @remarks
- * Only a valid report that names every todo as done and every criterion as
- * met with evidence is accepted, and every ticket entry among them must be
- * checked in the ticket itself unless the session could not change tickets.
- * An exit code or the end of a turn proves nothing on its own.
+ * `accepted` means that this progress assessment has no outstanding issues;
+ * `open` preserves every diagnostic without failing execution. Neither is an
+ * execution verdict. Ticket todos follow the actual checkbox, including in
+ * read-only sessions. Missing or invalid reports never manufacture completion.
  */
 export function evaluatePlanAcceptance(
   contract: AgentPlanContract,
   output: string,
   states: AgentPlanTicketStates,
 ): AgentPlanAcceptance {
-  const report = readGateReport(output);
-  if (report === null || report === "invalid")
-    return {
-      verdict: "rejected",
-      todos: contract.todos.map((todo) => ({ id: todo.id, status: "missing" })),
-      criteria: contract.criteria.map((criterion) => ({
-        id: criterion.id,
-        met: false,
-        evidence: "",
-        ticketChecked: ticketState(criterion, states),
-      })),
-      decisions: [],
-      issues: [report === null ? "report_missing" : "report_invalid"],
-      summary: "",
-    };
+  const parsed = readPlanReport(output);
+  const report = parsed === "invalid" ? null : parsed;
   const issues: string[] = states.unreadable.map(
     (key) => `ticket_unreadable:${key}`,
   );
   issues.push(...states.changed.map((key) => `ticket_changed:${key}`));
+  if (parsed === null) issues.push("report_missing");
+  else if (
+    parsed === "invalid" ||
+    !parsed.hasTodos ||
+    (contract.criteria.length > 0 && parsed.criteria === null)
+  )
+    issues.push("report_invalid");
   const todos = contract.todos.map((todo) =>
     todoStatus(todo, report, issues, states),
   );
@@ -201,12 +181,12 @@ export function evaluatePlanAcceptance(
     criterionStatus(criterion, report, issues, states),
   );
   return {
-    verdict: issues.length === 0 ? "accepted" : "rejected",
+    verdict: issues.length === 0 ? "accepted" : "open",
     todos,
     criteria,
-    decisions: report.decisions,
+    decisions: report?.decisions ?? [],
     issues,
-    summary: report.summary,
+    summary: report?.summary ?? "",
   };
 }
 
@@ -222,45 +202,28 @@ function todoListStatus(
     `${todo.ticket.id}\n${todo.ticket.itemId}`,
   );
   if (checked === true) return "done";
-  if (checked === undefined) return "missing";
-  // A read-only session cannot tick the entry, so its report decides there.
-  return !states.isCheckRequired && reported === "done" ? "done" : "open";
+  return checked === false ? "open" : "missing";
 }
 
 /**
  * Reports how far the todo list of a node is done, without judging the node.
  *
  * @param contract - The current todo list of the node.
- * @param output - The final answer of the agent; its report only adds a summary and decisions.
+ * @param output - The final answer; an optional report describes unbound todos and decisions.
  * @param states - The checklist entries of the bound tickets, read after the turn.
- * @returns `accepted` when every todo is done, `open` otherwise; never `rejected`.
+ * @returns Diagnostic progress without an execution verdict.
  *
  * @remarks
  * A todo with a ticket entry is done exactly when the ticket shows it
  * checked. A todo without one has only the report to go by. A missing or
- * malformed report, changed requirements and other criteria never change the
- * result; an unreadable ticket is listed as an issue and leaves its todos
- * `missing`, never `done`.
+ * malformed report and changed requirements remain diagnostic issues; an
+ * unreadable ticket leaves its todos `missing`, never `done`. No issue gates
+ * execution or successor release.
  */
 export function evaluateTodoCompletion(
   contract: AgentPlanContract,
   output: string,
   states: AgentPlanTicketStates,
 ): AgentPlanAcceptance {
-  const parsed = readPlanReport(output);
-  const report = parsed === "invalid" ? null : parsed;
-  const todos = contract.todos.map((todo) => ({
-    id: todo.id,
-    status: todoListStatus(todo, report, states),
-  }));
-  return {
-    verdict: todos.every((todo) => todo.status === "done")
-      ? "accepted"
-      : "open",
-    todos,
-    criteria: [],
-    decisions: report?.decisions ?? [],
-    issues: states.unreadable.map((key) => `ticket_unreadable:${key}`),
-    summary: report?.summary ?? "",
-  };
+  return evaluatePlanAcceptance(contract, output, states);
 }

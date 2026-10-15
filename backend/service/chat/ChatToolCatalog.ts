@@ -107,7 +107,7 @@ const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
     "{workspaceId?} Arbeitsbereiche für neue Pläne; mit workspaceId auch die Agents mit ihren Parametern für Agent-Nodes",
   "plans.runs.list": `{planId, order?: newest|oldest, ${WINDOW}} eigene Runs eines Plans mit runId, planId, startedAt und status, seitenweise (Standard 20 pro Seite)`,
   "plans.run.read": `{${RUN}} einen eigenen Run mit Start, Ende, Status und Status jedes Nodes lesen`,
-  "plans.run.reports.read": `{${RUN}, stepId?} Berichte eines eigenen Runs lesen: je Node runId, stepId, Ergebnis, Fehler, Abnahme, Kriterien und Todos`,
+  "plans.run.reports.read": `{${RUN}, stepId?} Berichte eines eigenen Runs lesen: je Node runId, stepId, Ausführungsstatus, Ergebnis, Fehler, Fortschritt, Kriterien und Todos`,
   "plans.create": `{name, workspaceId, sharing?: {scope: private|global|restricted, operator?, groupIds?, departmentIds?}, ${CHANGES}} Ausführplan anlegen, ohne Freigabe privat`,
   "plans.update": `{${PLAN_TARGET}, name?, sharing?, ${CHANGES}} Struktur, Name oder Freigabe eines eigenen Plans ändern; alle changes gelten zusammen oder gar nicht`,
   "plans.parameter.create": `{${PLAN_TARGET}, name, value: {type: text, text}|{type: number, number}|{type: ticket, ticketId}|{type: workspace, workspaceId}|{type: wiki, pageId}, format?: string|number|json, x?, y?} Parameter-Node anlegen`,

@@ -14,13 +14,12 @@ export type AgentPlanRunner = CliProviderId | "api";
 export type AgentPlanSessionMode = "one_shot" | "interactive" | "request";
 
 /**
- * What decides that a node finished its work.
+ * The scope of the progress report, independent of execution completion.
  *
  * @remarks
- * `report` is the closing report with its todos and acceptance criteria,
- * checked as a gate. `todos` follows only the current todo list of the bound
- * tickets, which the agent ticks live; the result is shown but never gates
- * the run.
+ * `report` describes todos and acceptance criteria. `todos` follows only the
+ * current todo list of the bound tickets, which the agent ticks live. Both
+ * are diagnostic; regular runner completion releases successors in either mode.
  */
 export type AgentPlanCompletion = "report" | "todos";
 
@@ -54,19 +53,19 @@ export interface AgentPlanContractItem {
 }
 
 /**
- * What a node must finish, fixed and stored before it starts.
+ * The work a node reports on, stored before it starts and reconciled afterwards.
  *
  * @remarks
- * With the `todos` completion the contract lists only the todos of the
- * bound tickets and has no criteria; it is replaced by the current list when
- * the node ends, so the record shows the list the agent worked from last.
+ * The current ticket lists replace the starting requirements after the turn,
+ * preserving report IDs only for unchanged entries. The `todos` report scope
+ * has no criteria. The pinned prompt keeps the original assignment.
  */
 export interface AgentPlanContract {
   /** Absent in records of nodes that completed by report. */
   readonly completion?: AgentPlanCompletion;
   readonly todos: readonly AgentPlanContractItem[];
   readonly criteria: readonly AgentPlanContractItem[];
-  /** Tickets and their requirements at the start; the hash is absent in older run records. */
+  /** Tickets and the requirements shown in this contract; the hash is absent in older records. */
   readonly tickets: readonly {
     readonly id: string;
     readonly key: string;
@@ -74,7 +73,7 @@ export interface AgentPlanContract {
   }[];
 }
 
-/** The state the closing report gave one todo. */
+/** Current ticket checkbox state, or reported progress for a todo without a ticket entry. */
 export interface AgentPlanTodoStatus {
   readonly id: string;
   readonly status: "done" | "open" | "missing";
@@ -90,11 +89,12 @@ export interface AgentPlanCriterionStatus {
 }
 
 /**
- * The business acceptance of a node, separate from the process exit.
+ * Diagnostic business progress, separate from the execution result.
  *
  * @remarks
- * `open` exists only for the `todos` completion: todos remain open, which is
- * shown but does not fail the node.
+ * `accepted` means no progress issues were found; `open` preserves incomplete
+ * or unknown work and report issues. `rejected` remains readable in historical
+ * records. None of these values controls execution or successor release.
  */
 export interface AgentPlanAcceptance {
   readonly verdict: "accepted" | "open" | "rejected";
@@ -102,7 +102,7 @@ export interface AgentPlanAcceptance {
   readonly criteria: readonly AgentPlanCriterionStatus[];
   /** Decisions the agent took on its own instead of asking. */
   readonly decisions: readonly string[];
-  /** Why the node was not accepted, as stable codes. */
+  /** Progress and report diagnostics as stable codes; never execution failures. */
   readonly issues: readonly string[];
   readonly summary: string;
 }
@@ -117,9 +117,10 @@ export interface AgentPlanProcessExit {
  * The observable record of one node: runner, session, process, acceptance and result.
  *
  * @remarks
- * `resultCode` is the normalized outcome of Pages: 0 only after an accepted
- * report and a confirmed closeout, -1 otherwise. The real process exit is kept
- * apart in `exit`.
+ * `resultCode` is the normalized execution outcome: 0 for a regular runner
+ * completion and clean, confirmed closeout, -1 for a technical failure or
+ * cancellation. Progress diagnostics never determine it. The actual process
+ * exit is kept in `exit`; retained group turns await the shared closeout.
  */
 export interface AgentPlanSessionRecord {
   readonly runner: AgentPlanRunner;

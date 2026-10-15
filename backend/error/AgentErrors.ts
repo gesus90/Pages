@@ -62,7 +62,7 @@ export const AGENT_ERROR_MESSAGES = {
   plan_runner_permission_denied:
     "The runner refused actions that the run options do not allow; nothing was approved on its behalf.",
   plan_acceptance_failed:
-    "The closing report does not prove every todo and acceptance criterion.",
+    "Historical run: the closing report did not prove every todo and acceptance criterion. This stored failure is unchanged; start a new run to use diagnostic-only progress.",
   plan_closeout_failed:
     "The session could not be closed completely; processes of it remained.",
   workspace_invalid: "Enter a name, an existing local directory and a project.",
@@ -108,7 +108,7 @@ export const AGENT_ERROR_MESSAGES = {
   parameter_assets_too_large:
     "Ticket assets exceed the 10 MiB transmission limit. No files were truncated or omitted.",
   parameter_ticket_changed:
-    "The ticket or its asset references changed before transmission. Start the run again to use the current ticket.",
+    "The ticket asset references changed before transmission. Start the run again to use the current assets.",
   parameter_required: "Supply every required parameter.",
   parameter_reference_unavailable:
     "The parameter reference is unavailable or not accessible.",

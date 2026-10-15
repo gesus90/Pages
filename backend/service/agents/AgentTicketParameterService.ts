@@ -92,7 +92,9 @@ export class AgentTicketParameterService {
     let size = 0;
     for (const input of inputs) {
       const ticket = await this.resolve(userId, input.ticket.id);
-      if (JSON.stringify(ticket) !== JSON.stringify(input.ticket))
+      // Status, checkbox and text revisions do not change the file handoff.
+      // Keep the asset identity check and every live ticket/file authorization.
+      if (JSON.stringify(ticket.assets) !== JSON.stringify(input.ticket.assets))
         throw new AgentError("parameter_ticket_changed");
       for (const asset of ticket.assets) {
         const { actor } = await this.context(userId);

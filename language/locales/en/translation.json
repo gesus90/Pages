@@ -610,7 +610,7 @@
         "plan_runner_failed": "The runner ended its turn with an error.",
         "plan_runner_incomplete": "The runner ended without completing its turn.",
         "plan_runner_permission_denied": "The runner refused actions that the run options do not allow; nothing was approved on its behalf.",
-        "plan_acceptance_failed": "The closing report does not prove every todo and acceptance criterion.",
+        "plan_acceptance_failed": "Historical run: the closing report did not prove every todo and criterion. This stored failure is unchanged; a new run uses these findings only as diagnostics.",
         "plan_closeout_failed": "The session could not be closed completely; processes of it remained.",
         "parameter_number_invalid": "Supply a valid finite number for every number parameter.",
         "parameter_asset_unavailable": "A ticket asset is missing, deleted, unreadable or not accessible to the executing user. No incomplete input was sent.",
@@ -618,7 +618,7 @@
         "parameter_asset_transfer_unsupported": "This runner or handoff cannot deliver ticket assets. Use an API agent or an ACP adapter with image support, and bind the ticket to each receiving agent.",
         "parameter_asset_reference_unsupported": "A referenced image or text file is not a Pages asset. Upload it to Pages and reference its attachment address.",
         "parameter_assets_too_large": "Ticket assets exceed the 10 MiB transmission limit. No files were truncated or omitted.",
-        "parameter_ticket_changed": "The ticket or its asset references changed before transmission. Start the run again to use the current ticket.",
+        "parameter_ticket_changed": "The ticket asset references changed before transmission. Start the run again to use the current assets.",
         "parameter_ticket_unavailable": "The selected ticket is unavailable or not accessible. Select an accessible ticket.",
         "timeout": "The agent’s hard time limit expired. The running operation was interrupted."
       },
@@ -3070,11 +3070,11 @@
   },
   "plans": {
     "completion": {
-      "label": "Completion",
-      "report": "Closing report with acceptance criteria",
+      "label": "Progress report",
+      "report": "Todos and acceptance criteria",
       "todos": "Current todo list only",
-      "reportHint": "The node counts as finished only after a closing report that proves every todo and acceptance criterion, and the ticket entries are checked.",
-      "todosHint": "Only the todo list of the bound ticket counts and is ticked live. Acceptance criteria, report format and ticket changes during the run never stop the node; open todos are shown as open."
+      "reportHint": "Shows todos, criteria and evidence as diagnostics. Open work, ticket changes and missing or invalid reports never block regular completion or successor agents.",
+      "todosHint": "Shows the current ticket todo list and its live checkboxes. Regular runner completion continues the flow automatically; open and unknown work remains visible."
     },
     "nodeConfigurationHint": "Changes apply only to this node. The agent template and other nodes remain unchanged.",
     "nodeMarkdown": "AGENT.md / instruction for this node",
@@ -3246,7 +3246,7 @@
         "interactive": "Interactive session",
         "request": "API request without process"
       },
-      "result": "Pages result",
+      "result": "Execution result",
       "resultPending": "pending",
       "instance": "Instance",
       "sessionId": "Runner session ID",
@@ -3287,29 +3287,35 @@
       "todos": "Todo list",
       "criteria": "Acceptance criteria",
       "verdict": {
-        "pending": "Completion contract · acceptance pending",
-        "accepted": "Completion contract · accepted",
-        "rejected": "Completion contract · not accepted"
+        "pending": "Progress · not yet known",
+        "accepted": "Progress · fully documented",
+        "rejected": "Progress · historically not accepted",
+        "open": "Progress · open work or diagnostics"
       },
       "todoVerdict": {
         "pending": "Todo list · result pending",
         "accepted": "Todo list · all todos done",
-        "open": "Todo list · todos still open"
+        "open": "Todo list · open work or diagnostics",
+        "rejected": "Todo list · historical assessment"
       },
       "todoStatus": {
         "done": "done",
         "open": "open",
-        "missing": "not reported"
+        "missing": "unknown / not reported"
       },
-      "met": "met",
+      "met": "reported as met",
       "unmet": "not met",
       "ticketChecked": "checked in the ticket",
       "ticketOpen": "open in the ticket",
-      "issues": "Reasons",
+      "issues": "Diagnostics",
       "decisions": "Decisions the agent took",
       "events": "Session events",
       "duration": "Duration",
-      "durationValue": "turn {{turn}} s · total {{total}} s"
+      "durationValue": "turn {{turn}} s · total {{total}} s",
+      "unknown": "unknown / not reported",
+      "unproven": "not evidenced",
+      "ticketUnknown": "ticket state unknown",
+      "diagnosticHint": "Execution status describes runner completion. These business details show diagnostics and progress; they do not block successors or declare open work done."
     },
     "ticketOut": "Ticket OUT",
     "deleteNode": "Delete node {{name}}",

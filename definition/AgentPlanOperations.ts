@@ -93,7 +93,7 @@ export interface AgentPlanAgentNodeEntry extends AgentPlanNodeBase {
   /** `null` for automatic model access, empty when an explicit one was removed. */
   readonly personalAgentId: string | null;
   readonly instruction: string;
-  /** `todos` follows only the ticket's todo list and never gates the run; absent means `report`. */
+  /** Progress scope only; neither mode gates execution. Absent means `report`. */
   readonly completion?: "report" | "todos";
   readonly bindings: Readonly<Record<string, AgentPlanBindingEntry>>;
 }
@@ -256,7 +256,7 @@ export interface AgentPlanRunStepEntry {
   readonly status: "waiting" | AgentPlanRunStatus;
   readonly isBlocked: boolean;
   readonly error: string | null;
-  /** The business acceptance of an agent step; `null` before its report or without one. */
+  /** Diagnostic progress, independent of execution status; `rejected` is historical. */
   readonly verdict: "accepted" | "open" | "rejected" | null;
   readonly startedAt: string | null;
   readonly endedAt: string | null;

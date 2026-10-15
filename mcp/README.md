@@ -1889,10 +1889,15 @@ session (the credential of a running node) gets none of them.
   lets later changes of the same call refer to the node; `createdNodeIds` returns
   the ids. A new agent node gets value nodes for its defaults and its directory
   parameter, as in the editor. Pages checks the saved plan like the plan page.
-  An agent node's `completion` is `report` (default: closing report with
-  acceptance criteria, checked as a gate) or `todos` (only the current todo list
-  of the bound ticket, ticked live; a report, criteria, ticket changes or open
-  todos never fail the node, which shows `verdict` `open` while todos remain).
+  An agent node's `completion` selects the progress scope: `report` (default)
+  describes todos and acceptance criteria; `todos` describes only the current
+  ticket todo list, ticked live. Both scopes release successor agents and
+  internal group steps after regular runner completion. Open or unknown work,
+  ticket changes, unmet criteria and missing, incomplete or invalid reports are
+  diagnostics (`verdict: open`), never execution failures. Technical failures,
+  access denials and explicit pause/stop remain effective. Existing node copies
+  need no migration or setting change. Historical failed runs stay unchanged;
+  Resume continues active paused runs, while ended runs need a new explicit Play.
   `updateNode` with `{"completion": "todos"}` switches an existing node and keeps
   its configuration copy; setting `agentId` to another agent and back inside one
   `changes` list replaces that copy with the agent's current template.

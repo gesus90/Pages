@@ -610,7 +610,7 @@
         "plan_runner_failed": "Der Runner hat seinen Turn mit einem Fehler beendet.",
         "plan_runner_incomplete": "Der Runner endete, ohne seinen Turn abzuschließen.",
         "plan_runner_permission_denied": "Der Runner hat Aktionen abgelehnt, die die Laufoptionen nicht erlauben; nichts wurde stellvertretend freigegeben.",
-        "plan_acceptance_failed": "Der Abschlussbericht belegt nicht jedes Todo und jedes Abnahmekriterium.",
+        "plan_acceptance_failed": "Historischer Lauf: Der Abschlussbericht belegte nicht jedes Todo und Kriterium. Dieser gespeicherte Fehler bleibt bestehen; ein neuer Lauf verwendet die Hinweise nur als Diagnose.",
         "plan_closeout_failed": "Die Sitzung ließ sich nicht vollständig schließen; Prozesse blieben übrig.",
         "parameter_number_invalid": "Für jeden Zahlenparameter eine gültige endliche Zahl angeben.",
         "parameter_asset_unavailable": "Ein Ticket-Asset fehlt, wurde gelöscht, ist nicht lesbar oder für den ausführenden Benutzer nicht zugänglich. Es wurde keine unvollständige Eingabe übergeben.",
@@ -618,7 +618,7 @@
         "parameter_asset_transfer_unsupported": "Dieser Runner oder diese Weitergabe kann Ticket-Assets nicht übertragen. Einen API-Agent oder ACP-Adapter mit Bildunterstützung verwenden und das Ticket an jeden empfangenden Agent binden.",
         "parameter_asset_reference_unsupported": "Ein referenziertes Bild oder eine Textdatei ist kein Pages-Asset. Die Datei in Pages hochladen und über ihre Anhangsadresse referenzieren.",
         "parameter_assets_too_large": "Die Ticket-Assets überschreiten das Übertragungslimit von 10 MiB. Es wurden keine Dateien gekürzt oder ausgelassen.",
-        "parameter_ticket_changed": "Das Ticket oder seine Assetreferenzen wurden vor der Übergabe geändert. Den Lauf erneut starten, um das aktuelle Ticket zu verwenden.",
+        "parameter_ticket_changed": "Die Assetreferenzen des Tickets wurden vor der Übergabe geändert. Den Lauf erneut starten, um die aktuellen Assets zu verwenden.",
         "parameter_ticket_unavailable": "Das gewählte Ticket ist nicht verfügbar oder nicht zugänglich. Ein zugängliches Ticket auswählen.",
         "timeout": "Das harte Zeitlimit des Agents ist abgelaufen. Der laufende Vorgang wurde unterbrochen."
       },
@@ -3070,11 +3070,11 @@
   },
   "plans": {
     "completion": {
-      "label": "Abschluss",
-      "report": "Abschlussbericht mit Abnahmekriterien",
+      "label": "Fortschrittsbericht",
+      "report": "TODOs und Abnahmekriterien",
       "todos": "Nur aktuelle TODO-Liste",
-      "reportHint": "Der Node gilt erst nach einem Abschlussbericht als fertig, der jedes Todo und jedes Abnahmekriterium belegt, und die Ticket-Einträge sind abgehakt.",
-      "todosHint": "Nur die TODO-Liste des verknüpften Tickets zählt und wird live abgehakt. Abnahmekriterien, Berichtsformat und Ticketänderungen während des Laufs stoppen den Node nie; offene Todos werden als offen angezeigt."
+      "reportHint": "Zeigt TODOs, Kriterien und Nachweise als Diagnose. Offene Punkte, Ticketänderungen und fehlende oder ungültige Berichte blockieren weder den regulären Abschluss noch Folge-Agenten.",
+      "todosHint": "Zeigt die aktuelle TODO-Liste des Tickets und ihre live gesetzten Checkboxen. Der reguläre Runnerabschluss setzt den Ablauf selbstständig fort; offene und unbekannte Punkte bleiben sichtbar."
     },
     "nodeConfigurationHint": "Änderungen gelten nur für diesen Node. Das Agent-Template und andere Nodes bleiben unverändert.",
     "nodeMarkdown": "AGENT.md / Anweisung dieses Nodes",
@@ -3246,7 +3246,7 @@
         "interactive": "Interaktive Sitzung",
         "request": "API-Anfrage ohne Prozess"
       },
-      "result": "Pages-Ergebnis",
+      "result": "Ausführungsergebnis",
       "resultPending": "ausstehend",
       "instance": "Instanz",
       "sessionId": "Sitzungs-ID des Runners",
@@ -3287,29 +3287,35 @@
       "todos": "Todo-Liste",
       "criteria": "Abnahmekriterien",
       "verdict": {
-        "pending": "Abschlussvertrag · Abnahme ausstehend",
-        "accepted": "Abschlussvertrag · fachlich abgenommen",
-        "rejected": "Abschlussvertrag · nicht abgenommen"
+        "pending": "Fortschritt · noch unbekannt",
+        "accepted": "Fortschritt · vollständig dokumentiert",
+        "rejected": "Fortschritt · historisch nicht abgenommen",
+        "open": "Fortschritt · offene Punkte oder Hinweise"
       },
       "todoVerdict": {
         "pending": "TODO-Liste · Ergebnis ausstehend",
         "accepted": "TODO-Liste · alle Todos erledigt",
-        "open": "TODO-Liste · Todos noch offen"
+        "open": "TODO-Liste · offene Punkte oder Hinweise",
+        "rejected": "TODO-Liste · historische Bewertung"
       },
       "todoStatus": {
         "done": "erledigt",
         "open": "offen",
-        "missing": "nicht berichtet"
+        "missing": "unbekannt / nicht berichtet"
       },
-      "met": "erfüllt",
+      "met": "als erfüllt berichtet",
       "unmet": "nicht erfüllt",
       "ticketChecked": "im Ticket abgehakt",
       "ticketOpen": "im Ticket offen",
-      "issues": "Gründe",
+      "issues": "Diagnosehinweise",
       "decisions": "Eigene Entscheidungen des Agenten",
       "events": "Ereignisse der Sitzung",
       "duration": "Dauer",
-      "durationValue": "Turn {{turn}} s · gesamt {{total}} s"
+      "durationValue": "Turn {{turn}} s · gesamt {{total}} s",
+      "unknown": "unbekannt / nicht berichtet",
+      "unproven": "nicht nachgewiesen",
+      "ticketUnknown": "Ticketstand unbekannt",
+      "diagnosticHint": "Der Ausführungsstatus beschreibt den Runnerabschluss. Diese fachlichen Angaben sind Diagnose und Fortschritt; sie blockieren keine Folgeschritte und erklären offene Punkte nicht für erledigt."
     },
     "ticketOut": "Ticket OUT",
     "deleteNode": "Knoten {{name}} löschen",

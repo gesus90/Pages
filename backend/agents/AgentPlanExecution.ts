@@ -39,7 +39,7 @@ export interface PlanSessionObserver {
   readonly progressed?: (events: readonly string[]) => void;
 }
 
-/** How the turn of a session ended, before Pages decides on acceptance. */
+/** How the runner ended its turn, independently of business progress or report content. */
 export interface PlanSessionTurn {
   /** The final answer of the agent, unredacted; the caller redacts before storing. */
   readonly output: string;

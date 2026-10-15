@@ -32,7 +32,7 @@ export interface AgentPlanContractOptions {
    * "Nur Lesen": it reports its tickets instead of setting their entries.
    */
   readonly isReadOnly: boolean;
-  /** How the node is judged; absent is `report`. */
+  /** Which progress details are requested; absent is `report`. Neither mode gates execution. */
   readonly completion?: AgentPlanCompletion;
 }
 
@@ -59,7 +59,7 @@ function readOnlyMcpSection(contract: AgentPlanContract): string {
     "- The Pages MCP server is connected read-only: you may read Pages content, every change is refused.",
     ...(keys
       ? [
-          `- Read ticket ${keys} with \`read_ticket\` and \`read_ticket_checklist\`. Do not try to change tickets or their checklists; Pages records the acceptance from your closing report.`,
+          `- Read ticket ${keys} with \`read_ticket\` and \`read_ticket_checklist\`. Do not try to change tickets or their checklists; report your progress and leave open entries open.`,
         ]
       : []),
   ].join("\n");
@@ -71,8 +71,9 @@ function mcpSection(contract: AgentPlanContract): string {
   const keys = contract.tickets.map((ticket) => `\`${ticket.key}\``).join(", ");
   return [
     `- The Pages MCP server is connected for ticket ${keys}. Call \`read_ticket_checklist\` with that ticket ID to read the entries and the current revision.`,
-    "- For every listed checklist item you fulfilled and can prove, call `set_ticket_checklist_item` with the ticket ID, the item ID, `checked: true`, the latest revision as `expectedRevision` and a new `operationId`. Never set an item you did not fulfil. After a `CONFLICT`, read the checklist again.",
+    "- Tick each checklist item as soon as you fulfilled it and can prove it: call `set_ticket_checklist_item` with the ticket ID, the item ID, `checked: true`, the latest revision as `expectedRevision` and a new `operationId`. Never set an item you did not fulfil. After a `CONFLICT`, read the checklist again and reconcile your changes with the current list.",
     "- Pages reads the same entries after your turn: an entry counts only when it is checked in the ticket.",
+    "- Ticket edits, new revisions and your own allowed writes do not stop execution. Read the current list again and continue without redoing completed work; keep unfinished items open.",
   ].join("\n");
 }
 
@@ -189,7 +190,7 @@ function renderTodoAssignment(assignment: AgentPlanAssignment): string {
     (ticket) => `- ${ticket.key} (ID \`${ticket.id}\`)`,
   );
   const example = JSON.stringify({
-    todos: contract.todos.map((todo) => ({ id: todo.id, status: "done" })),
+    todos: contract.todos.map((todo) => ({ id: todo.id, status: "open" })),
     decisions: [],
     summary: "<one sentence>",
   });
@@ -206,7 +207,7 @@ function renderTodoAssignment(assignment: AgentPlanAssignment): string {
       : ["- The ticket lists no todo; the instruction above is the work."]),
     "",
     "### How to work",
-    "- Only the current todo list counts. Acceptance criteria, criterion evidence and a criteria report are not requested or checked; ignore any earlier text that asks for them.",
+    "- Progress follows the current todo list. This report scope does not assess acceptance criteria or criterion evidence. Regular runner completion releases the next steps automatically; open work and report diagnostics do not block execution.",
     "- Work only in the workspace. Nobody answers questions during this run: when a choice is needed, take the recommended option, otherwise decide yourself and name the decision in your closing message.",
     ...(assignment.isReadOnly
       ? [
@@ -241,10 +242,10 @@ export function renderPlanAssignment(assignment: AgentPlanAssignment): string {
     (ticket) => `- ${ticket.key} (ID \`${ticket.id}\`)`,
   );
   const example = JSON.stringify({
-    todos: contract.todos.map((todo) => ({ id: todo.id, status: "done" })),
+    todos: contract.todos.map((todo) => ({ id: todo.id, status: "open" })),
     criteria: contract.criteria.map((criterion) => ({
       id: criterion.id,
-      met: true,
+      met: false,
       evidence: REPORT_EVIDENCE_PLACEHOLDER,
     })),
     decisions: [],
@@ -272,11 +273,12 @@ export function renderPlanAssignment(assignment: AgentPlanAssignment): string {
       : []),
     ...mcpLines(assignment),
     "",
-    "### Closing report (required)",
-    "End your final message with exactly one fenced block of the language `pages-report` that holds one JSON object like this:",
+    "### Closing message and optional progress report",
+    "Summarize completed and open work honestly, including missing evidence and your decisions. Regular runner completion releases the next steps automatically, without business acceptance or manual confirmation. It does not assert that every todo or criterion is fulfilled.",
+    "You may include a fenced `pages-report` block with a JSON object like this to describe progress:",
     "```pages-report",
     example,
     "```",
-    'List every todo and every criterion by its ID. `status` is "done" or "open"; `met` is true or false; `evidence` replaces `<proof>` with the file, command output or check that proves the criterion. `decisions` lists every choice you took on your own, or stays empty. A missing or invalid block, an open todo, an unmet criterion or a missing proof means the node did not succeed.',
+    'Refer to todos and criteria by their IDs. Use `status: "done"` only for completed work and `met: true` only for a fulfilled criterion; replace `<proof>` with real evidence or leave evidence empty when unknown. Keep open work open. A missing, invalid or incomplete report, unmet criteria, missing proof and ticket changes are diagnostic information only and never fail execution or block successors.',
   ].join("\n");
 }
