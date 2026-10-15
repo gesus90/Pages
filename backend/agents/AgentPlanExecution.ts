@@ -69,6 +69,12 @@ export interface PlanSessionClosed {
 /** A running session: first its turn, then its closing. */
 export interface PlanSession {
   readonly turn: Promise<PlanSessionTurn>;
+  /** Starts a new step in this same native session; absent for unsupported runners. */
+  next?(
+    input: AgentPlanExecutionInput,
+    signal: AbortSignal,
+    observer: PlanSessionObserver,
+  ): Promise<PlanSessionTurn>;
   /** Ends the session and its helpers; resolves only after the confirmation. */
   close(): Promise<PlanSessionClosed>;
 }
@@ -169,6 +175,23 @@ export class AgentPlanExecution implements PlanExecution {
     }
     return {
       turn: session.turn,
+      ...(session.next
+        ? {
+            next: async (
+              next: AgentPlanExecutionInput,
+              nextSignal: AbortSignal,
+              nextObserver: PlanSessionObserver,
+            ) => {
+              await this.authorizer.requireUser(
+                next.userId,
+                next.agent.connection.id,
+              );
+              await next.beforeStart?.();
+              if (!session.next) throw new AgentError("plan_step_failed");
+              return session.next(next, nextSignal, nextObserver);
+            },
+          }
+        : {}),
       close: async () => {
         try {
           return await session.close();

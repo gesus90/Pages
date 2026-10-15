@@ -5,7 +5,11 @@ import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
 import { isApiProvider } from "@/definition/AgentConnection";
 
-import { evaluatePlanAcceptance } from "./AgentPlanAcceptance";
+import { AgentPlanGroupSessions } from "./AgentPlanGroupSessions";
+import {
+  evaluatePlanAcceptance,
+  evaluateTodoCompletion,
+} from "./AgentPlanAcceptance";
 import { buildPlanContract, renderPlanAssignment } from "./AgentPlanContract";
 import { sanitizePlanOutput } from "./AgentPlanOutput";
 import { planSessionReach } from "./AgentPlanSessionAccess";
@@ -20,10 +24,13 @@ import type {
   PlanExecution,
   PlanSession,
   PlanSessionObserver,
+  PlanSessionTurn,
+  PlanSessionClosed,
 } from "@/backend/agents/AgentPlanExecution";
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 import type {
   AgentPlanContract,
+  AgentPlanAcceptance,
   AgentPlanSessionRecord,
 } from "@/definition/AgentPlanSession";
 import type { AgentRunReach } from "@/definition/McpAuthorization";
@@ -37,7 +44,10 @@ import type {
   AgentPlanStepStart,
   PreparedPlanStep,
 } from "./AgentPlanStepStart";
-import type { AgentPlanTasks } from "./AgentPlanTasks";
+import type {
+  AgentPlanTasks,
+  AgentPlanTicketChecklist,
+} from "./AgentPlanTasks";
 import type { AgentRunArchive } from "./AgentRunArchive";
 
 interface StepRunnerDependencies {
@@ -45,7 +55,7 @@ interface StepRunnerDependencies {
   readonly execution: PlanExecution;
   readonly tasks: Pick<AgentPlanTasks, "checklist">;
   readonly access: Pick<AgentPlanSessionAccess, "grant" | "revoke">;
-  readonly archive?: AgentRunArchive;
+  readonly archive?: Pick<AgentRunArchive, "input">;
 }
 
 /** How a running node reports its record and learns about a stop. */
@@ -60,6 +70,13 @@ interface SessionTerms {
   readonly contract: AgentPlanContract;
   /** How far the node reaches Pages; `read` cannot set ticket entries. */
   readonly reach: AgentRunReach;
+}
+
+/** The tickets of a contract as they read after the turn. */
+interface TicketReading {
+  readonly checklists: readonly AgentPlanTicketChecklist[];
+  /** Keys of the tickets that could not be read anymore. */
+  readonly unreadable: readonly string[];
 }
 
 /** One node from its start to its result; `record` always holds the newest state. */
@@ -98,9 +115,12 @@ function hasTimedOut(signal: AbortSignal): boolean {
  */
 export class AgentPlanStepRunner {
   private readonly dependencies: StepRunnerDependencies;
+  private readonly groups: AgentPlanGroupSessions;
+  private readonly retained = new Map<string, NodeRun[]>();
 
   public constructor(dependencies: StepRunnerDependencies) {
     this.dependencies = dependencies;
+    this.groups = new AgentPlanGroupSessions(dependencies.execution);
   }
 
   /**
@@ -130,6 +150,23 @@ export class AgentPlanStepRunner {
       return await this.execute(node);
     } catch (error: unknown) {
       return this.failure(node, error);
+    }
+  }
+
+  /** Ends retained native sessions when the plan is cancelled or finishes. */
+  public async closeGroups(runId: string, groupId?: string): Promise<void> {
+    const stopped = await this.groups.stop(runId, groupId);
+    for (const { key, closed } of stopped) {
+      for (const node of this.retained.get(key) ?? [])
+        await this.complete(node, {
+          closeout: closed.isConfirmed ? "confirmed" : "failed",
+          exit: closed.exit,
+          leftoverProcesses: closed.leftovers,
+          endedAt: closed.endedAt,
+          resultCode: closed.isConfirmed ? 0 : -1,
+        });
+      this.retained.delete(key);
+      await this.dependencies.access.revoke(runId, key.slice(runId.length + 1));
     }
   }
 
@@ -202,10 +239,13 @@ export class AgentPlanStepRunner {
       prepared.options,
     );
     const isReadOnly = reach === "read";
+    const completion = step.step.completion ?? "report";
     const contract = buildPlanContract(step.step.instruction, tickets, {
       isReadOnly,
+      completion,
     });
-    const instanceId = randomUUID();
+    const groupKey = `${run.id}/${step.groupId ?? step.step.id}`;
+    const instanceId = this.groups.instanceId(groupKey) ?? randomUUID();
     await this.save(
       node,
       createSessionRecord({
@@ -215,35 +255,53 @@ export class AgentPlanStepRunner {
         usesMcp: reach !== "tickets" || contract.tickets.length > 0,
       }),
     );
-    const mcp = await this.dependencies.access.grant({
-      userId: run.userId,
-      runId: run.id,
-      stepId: step.step.id,
-      tickets: contract.tickets,
-      lifetimeMs: prepared.options.timeoutMinutes * 60_000,
-      reach,
-    });
-    const prompt = `${prepared.input.prompt}\n\n${renderPlanAssignment({
-      contract,
-      usesMcp: mcp !== null,
-      isReadOnly,
-      runnerLabel: node.record ? runnerLabel(node.record) : "",
-      instanceId,
-      directory,
-    })}`;
-    await this.pin(node, prompt);
-    const session = await this.dependencies.execution.open(
+    const mcp = this.groups.instanceId(groupKey)
+      ? this.groups.mcp(groupKey)
+      : await this.dependencies.access.grant({
+          userId: run.userId,
+          runId: run.id,
+          stepId: step.groupId ?? step.step.id,
+          tickets: contract.tickets,
+          lifetimeMs: step.groupId
+            ? 0
+            : prepared.options.timeoutMinutes * 60_000,
+          reach,
+          canSetStatus: completion === "todos",
+        });
+    const instructionScope = step.groupId
+      ? "This is a new step in a sequential group. Only the instruction in this turn is active for this step. Earlier step instructions are completed historical context, not continuing tasks. Retain facts from that context.\n\n"
+      : "";
+    const prompt = `${instructionScope}${prepared.input.prompt}\n\n${renderPlanAssignment(
       {
-        ...prepared.input,
-        prompt,
-        directory,
-        options: prepared.options,
+        contract,
+        usesMcp: mcp !== null,
+        isReadOnly,
+        runnerLabel: node.record ? runnerLabel(node.record) : "",
         instanceId,
-        mcp,
+        directory,
       },
-      node.control.signal,
-      this.observer(node),
-    );
+    )}`;
+    await this.pin(node, prompt);
+    const input = {
+      ...prepared.input,
+      prompt,
+      directory,
+      options: prepared.options,
+      instanceId,
+      mcp,
+    };
+    const session = step.groupId
+      ? await this.groups.turn({
+          key: groupKey,
+          input,
+          signal: node.control.signal,
+          observer: this.observer(node),
+        })
+      : await this.dependencies.execution.open(
+          input,
+          node.control.signal,
+          this.observer(node),
+        );
     node.hasStarted = true;
     try {
       return await this.finish(node, session, { contract, reach });
@@ -263,18 +321,24 @@ export class AgentPlanStepRunner {
   ): Promise<Partial<AgentPlanStepResult>> {
     const turn = await session.turn;
     if (node.record) node.record = withTurn(node.record, turn);
-    const acceptance =
+    const assessed =
       turn.failure === null && turn.errorCode === null
-        ? evaluatePlanAcceptance(
-            terms.contract,
-            turn.output,
-            await this.ticketStates(node, terms),
-          )
+        ? await this.assess(node, terms, turn.output)
         : null;
+    const acceptance = assessed?.acceptance ?? null;
     // The closing report and the verdict are kept before the session is ended.
-    await this.complete(node, { acceptance });
-    const closed = await session.close();
-    await this.dependencies.access.revoke(node.run.id, node.step.step.id);
+    await this.complete(node, {
+      acceptance,
+      ...(assessed ? { contract: assessed.contract } : {}),
+    });
+    if (this.retain(node, turn, acceptance))
+      return {
+        status: "succeeded",
+        output: sanitizePlanOutput(turn.output),
+        error: null,
+        session: node.record,
+      };
+    const closed = await this.closeSession(node, session);
     const failure = hasTimedOut(node.control.signal)
       ? "timeout"
       : failureCode(turn, acceptance, closed);
@@ -298,34 +362,130 @@ export class AgentPlanStepRunner {
       : { status: "failed", output, error: failure, session: node.record };
   }
 
-  private async ticketStates(
+  private retain(
+    node: NodeRun,
+    turn: PlanSessionTurn,
+    acceptance: AgentPlanAcceptance | null,
+  ): boolean {
+    const group = node.snapshot.groups?.find(
+      (entry) => entry.id === node.step.groupId,
+    );
+    if (
+      !group ||
+      group.steps.at(-1)?.id === node.step.step.id ||
+      turn.failure !== null ||
+      turn.errorCode !== null ||
+      acceptance === null ||
+      acceptance.verdict === "rejected" ||
+      node.control.signal.aborted
+    )
+      return false;
+    const key = `${node.run.id}/${group.id}`;
+    const nodes = this.retained.get(key) ?? [];
+    nodes.push(node);
+    this.retained.set(key, nodes);
+    return true;
+  }
+
+  private async closeSession(
+    node: NodeRun,
+    session: PlanSession,
+  ): Promise<PlanSessionClosed> {
+    const key = `${node.run.id}/${node.step.groupId ?? node.step.step.id}`;
+    const closed = await session.close();
+    for (const previous of this.retained.get(key) ?? [])
+      await this.complete(previous, {
+        exit: closed.exit,
+        endedAt: closed.endedAt,
+        closeout: closed.isConfirmed ? "confirmed" : "failed",
+        leftoverProcesses: closed.leftovers,
+        resultCode: closed.isConfirmed ? 0 : -1,
+      });
+    this.retained.delete(key);
+    await this.dependencies.access.revoke(
+      node.run.id,
+      node.step.groupId ?? node.step.step.id,
+    );
+    return closed;
+  }
+
+  /**
+   * Judges the turn. A report completion is checked as a gate against the
+   * contract fixed at the start; a todo list completion reads the list as it
+   * is now and only describes it.
+   */
+  private async assess(
     node: NodeRun,
     terms: SessionTerms,
-  ): Promise<AgentPlanTicketStates> {
-    const checked = new Map<string, boolean>();
+    output: string,
+  ): Promise<{
+    readonly acceptance: AgentPlanAcceptance;
+    readonly contract: AgentPlanContract;
+  }> {
+    const reading = await this.readTickets(node, terms.contract);
+    const states = this.ticketStates(terms, reading);
+    if (terms.contract.completion !== "todos")
+      return {
+        acceptance: evaluatePlanAcceptance(terms.contract, output, states),
+        contract: terms.contract,
+      };
+    // An unreadable ticket keeps the list of the start, whose todos then stay `missing`.
+    const contract =
+      reading.unreadable.length > 0
+        ? terms.contract
+        : buildPlanContract(node.step.step.instruction, reading.checklists, {
+            isReadOnly: terms.reach === "read",
+            completion: "todos",
+          });
+    return {
+      acceptance: evaluateTodoCompletion(contract, output, states),
+      contract,
+    };
+  }
+
+  private async readTickets(
+    node: NodeRun,
+    contract: AgentPlanContract,
+  ): Promise<TicketReading> {
+    const checklists: AgentPlanTicketChecklist[] = [];
     const unreadable: string[] = [];
-    const changed: string[] = [];
-    for (const ticket of terms.contract.tickets) {
+    for (const ticket of contract.tickets) {
       try {
-        const current = await this.dependencies.tasks.checklist(
-          node.run.userId,
-          node.snapshot.plan.projectId,
-          ticket.id,
+        checklists.push(
+          await this.dependencies.tasks.checklist(
+            node.run.userId,
+            node.snapshot.plan.projectId,
+            ticket.id,
+          ),
         );
-        if (
-          ticket.requirementsHash !== undefined &&
-          current.checklist.requirementsHash !== ticket.requirementsHash
-        )
-          changed.push(ticket.key);
-        for (const item of current.checklist.items)
-          checked.set(`${ticket.id}\n${item.id}`, item.checked);
       } catch {
         unreadable.push(ticket.key);
       }
     }
+    return { checklists, unreadable };
+  }
+
+  private ticketStates(
+    terms: SessionTerms,
+    reading: TicketReading,
+  ): AgentPlanTicketStates {
+    const checked = new Map<string, boolean>();
+    const changed: string[] = [];
+    for (const current of reading.checklists) {
+      const start = terms.contract.tickets.find(
+        (ticket) => ticket.id === current.id,
+      );
+      if (
+        start?.requirementsHash !== undefined &&
+        current.checklist.requirementsHash !== start.requirementsHash
+      )
+        changed.push(current.key);
+      for (const item of current.checklist.items)
+        checked.set(`${current.id}\n${item.id}`, item.checked);
+    }
     return {
       checked,
-      unreadable,
+      unreadable: reading.unreadable,
       changed,
       isCheckRequired: terms.reach !== "read",
     };
@@ -361,7 +521,12 @@ export class AgentPlanStepRunner {
     node: NodeRun,
     error: unknown,
   ): Promise<Partial<AgentPlanStepResult>> {
-    await this.dependencies.access.revoke(node.run.id, node.step.step.id);
+    if (node.step.groupId)
+      await this.closeGroups(node.run.id, node.step.groupId);
+    await this.dependencies.access.revoke(
+      node.run.id,
+      node.step.groupId ?? node.step.step.id,
+    );
     if (node.record)
       await this.complete(node, {
         endedAt: new Date().toISOString(),

@@ -123,6 +123,8 @@ export class AgentPlanStepStart {
       selection,
     );
     if (
+      (step.connectionId !== undefined &&
+        resolved.assignment.connection.id !== step.connectionId) ||
       resolved.assignment.connection.provider !== step.provider ||
       resolved.assignment.model !== step.model ||
       resolved.assignment.reasoningEffort !== step.reasoningEffort

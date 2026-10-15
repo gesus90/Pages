@@ -1,3 +1,4 @@
+import { planNodeParameters } from "@/definition/AgentPlanGroup";
 import { planStepTemplate } from "@/definition/AgentPlanConfiguration";
 
 import type {
@@ -23,6 +24,7 @@ export function planNodeHeight(
   node: AgentPlanNode,
   sources: AgentPlanSources,
 ): number {
+  if (node.type === "group") return 140 + node.parameters.length * 32;
   if (node.type !== "agent") return 140;
   return (
     168 + (planStepTemplate(node, sources.agents)?.parameters.length ?? 0) * 32
@@ -35,7 +37,12 @@ export function planNodeLabel(
   sources: AgentPlanSources,
 ): string {
   if (node.type === "start" || node.type === "end") return node.type;
-  if (node.type === "variable" || node.type === "parameter") return node.name;
+  if (
+    node.type === "variable" ||
+    node.type === "parameter" ||
+    node.type === "group"
+  )
+    return node.name;
   if (node.type === "task") {
     const task = sources.tasks.find((entry) => entry.id === node.taskId);
     return task ? `${task.key}: ${task.title}` : node.taskId;
@@ -51,6 +58,7 @@ export function planNodeLabel(
 export function planNodeClass(type: AgentPlanNode["type"]): string {
   const classes = {
     agent: "bg-column-todo border-info/40",
+    group: "bg-column-todo border-primary",
     task: "bg-column-done border-success/40",
     variable: "bg-column-review border-foreground/20",
     parameter: "bg-column-review border-foreground/20",
@@ -86,10 +94,7 @@ export function planLinkPoints(
   const x2 = target.x;
   if (link.kind === "flow")
     return { x1, y1: source.y + 72, x2, y2: target.y + 72 };
-  const parameters =
-    target.type === "agent"
-      ? (planStepTemplate(target, sources.agents)?.parameters ?? [])
-      : [];
+  const parameters = planNodeParameters(target, sources.agents);
   const index = parameters.findIndex(
     (parameter) => parameter.name === link.parameter,
   );

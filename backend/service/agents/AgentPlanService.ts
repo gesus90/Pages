@@ -1,5 +1,12 @@
 import { randomUUID } from "node:crypto";
 
+import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
+import { planExecutionIssues } from "@/definition/AgentPlanGraph";
+import {
+  allPlanSteps,
+  mapPlanSteps,
+  expandPlanGroups,
+} from "@/definition/AgentPlanGroup";
 import { readPlanInput } from "@/backend/agents/AgentPlanInput";
 import {
   endTaggedProcesses,
@@ -11,6 +18,7 @@ import { requireCredentialFreeText } from "@/backend/service/assistant/TextAssis
 import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 import { withoutTicketFlow } from "@/definition/AgentPlanGraph";
 
+import { requireCompatibleFields } from "./AgentPlanGroupRuntime";
 import { requireAllowedRunOptions } from "./AgentProfileValidation";
 import { planSteps, validatePlanGraph } from "./AgentPlanGraph";
 import { requireAgentAdministrator } from "./AgentServiceAccess";
@@ -112,6 +120,7 @@ interface PlanTaskBinding {
 
 /** Lists each agent and ticket pair once per plan, including a step's personal access agent. */
 function planTaskBindings(plan: AgentPlan): readonly PlanTaskBinding[] {
+  plan = expandPlanGroups(plan);
   const tickets = new Map<string, string>();
   for (const node of plan.nodes)
     if (node.type === "task") tickets.set(node.id, node.taskId);
@@ -607,6 +616,14 @@ export class AgentPlanService {
       revision: proposed.revision ?? 1,
     };
     await this.dependencies.access.validateSharing(plan);
+    if (plan.nodes.some((node) => node.type === "group")) {
+      const catalog = await this.dependencies.profiles.catalog(
+        userId,
+        plan.projectId,
+      );
+      if (planExecutionIssues(plan, catalog).length === 0)
+        await this.dependencies.preparation.prepare(userId, plan);
+    }
     return plan;
   }
 
@@ -619,22 +636,24 @@ export class AgentPlanService {
       userId,
       plan.projectId ?? null,
     );
-    const nodes = plan.nodes.map((node) => {
-      if (node.type !== "agent" || node.configuration) return node;
-      const saved = previous?.nodes.find((entry) => entry.id === node.id);
-      if (
-        saved?.type === "agent" &&
-        saved.agentId === node.agentId &&
-        saved.configuration
-      )
+    const pinned = mapPlanSteps(plan, (node) => {
+      if (node.configuration) return node;
+      const saved = previous
+        ? allPlanSteps(previous).find((entry) => entry.id === node.id)
+        : undefined;
+      if (saved?.agentId === node.agentId && saved.configuration)
         return { ...node, configuration: structuredClone(saved.configuration) };
       const source = catalog.find((entry) => entry.id === node.agentId);
       return source
         ? { ...node, configuration: copyPlanConfiguration(source) }
         : node;
     });
-    for (const node of nodes) {
-      if (node.type !== "agent" || !node.configuration) continue;
+    const groupConnections = new Map<
+      string,
+      Readonly<Record<string, string>>
+    >();
+    for (const node of allPlanSteps(pinned)) {
+      if (!node.configuration) continue;
       const resolved = await this.dependencies.profiles.resolveDefinition(
         userId,
         {
@@ -644,14 +663,41 @@ export class AgentPlanService {
           configuration: node.configuration,
         },
       );
-      const saved = previous?.nodes.find((entry) => entry.id === node.id);
+      const group = pinned.nodes.find(
+        (entry) =>
+          entry.type === "group" &&
+          entry.steps.some((step) => step.id === node.id),
+      );
+      if (group) {
+        const fields = {
+          "provider/adapter": resolved.assignment.connection.provider,
+          connectionId: resolved.assignment.connection.id,
+        };
+        if (fields["provider/adapter"] !== "codex_cli")
+          throw new AgentPlanValidationError([
+            {
+              nodeId: node.id,
+              port: "provider/adapter",
+              reason: "groupProvider",
+            },
+          ]);
+        requireCompatibleFields(
+          node.id,
+          fields,
+          groupConnections.get(group.id) ?? null,
+        );
+        groupConnections.set(group.id, fields);
+      }
+      const saved = previous
+        ? allPlanSteps(previous).find((entry) => entry.id === node.id)
+        : undefined;
       requireAllowedRunOptions(
         resolved.assignment.connection.provider,
         node.configuration.template.run,
-        saved?.type === "agent" ? saved.configuration?.template.run : undefined,
+        saved?.configuration?.template.run,
       );
     }
-    return { ...plan, nodes };
+    return pinned;
   }
 
   private async validateReferences(
@@ -667,7 +713,10 @@ export class AgentPlanService {
       )
     )
       throw new AgentError("plan_access_denied");
-    for (const node of proposed.nodes) {
+    for (const node of [
+      ...proposed.nodes.filter((entry) => entry.type !== "agent"),
+      ...allPlanSteps(proposed),
+    ]) {
       if (node.type === "task")
         await this.dependencies.tasks.snapshot(userId, projectId, node.taskId);
       const values = node.type === "parameter" ? [node.value] : [];

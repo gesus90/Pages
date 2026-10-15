@@ -7,6 +7,7 @@ import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
 import { isApiProvider } from "@/definition/AgentConnection";
 import { isPlanFlowNode } from "@/definition/AgentPlanGraph";
 
+import { withGroupResults } from "./AgentPlanGroupResults";
 import { hasPlanPath } from "./AgentPlanGraph";
 import { planStepDirectory } from "./AgentPlanSnapshot";
 
@@ -48,9 +49,12 @@ interface ActivePlanRun {
 const STOP_WAIT_MILLISECONDS = 30_000;
 
 interface EngineDependencies {
-  readonly runs: AgentPlanRunRepository;
-  readonly start: AgentPlanStepStart;
-  readonly steps: AgentPlanStepRunner;
+  readonly runs: Pick<
+    AgentPlanRunRepository,
+    "insert" | "create" | "update" | "find"
+  >;
+  readonly start: Pick<AgentPlanStepStart, "control">;
+  readonly steps: Pick<AgentPlanStepRunner, "run" | "closeGroups">;
   readonly archive?: AgentRunArchive;
   readonly files?: AgentDefinitionFiles;
 }
@@ -60,12 +64,15 @@ function patchStep(
   id: string,
   changes: Partial<AgentPlanStepResult>,
 ): void {
-  active.view = {
-    ...active.view,
-    steps: active.view.steps.map((step) =>
-      step.id === id ? { ...step, ...changes } : step,
-    ),
-  };
+  active.view = withGroupResults(
+    {
+      ...active.view,
+      steps: active.view.steps.map((step) =>
+        step.id === id ? { ...step, ...changes } : step,
+      ),
+    },
+    active.snapshot,
+  );
 }
 
 function requestCancellation(active: ActivePlanRun): void {
@@ -153,6 +160,8 @@ export class AgentPlanRunEngine {
       stopRequested: false,
       steps: snapshot.plan.nodes.filter(isPlanFlowNode).map((node) => ({
         id: node.id,
+        groupId: snapshot.steps.find((step) => step.step.id === node.id)
+          ?.groupId,
         name:
           snapshot.steps.find((step) => step.step.id === node.id)?.name ??
           node.type,
@@ -163,6 +172,7 @@ export class AgentPlanRunEngine {
         error: null,
       })),
     };
+    const initialView = withGroupResults(view, snapshot);
     const workspaceIds = snapshot.steps.flatMap((step) => {
       const directory = planStepDirectory(step);
       return !isApiProvider(step.provider) && directory ? [directory.id] : [];
@@ -175,18 +185,23 @@ export class AgentPlanRunEngine {
         await recording((transaction) =>
           this.dependencies.runs.insert(
             transaction,
-            view,
+            initialView,
             snapshot,
             workspaceIds,
           ),
         );
-      else await this.dependencies.runs.create(view, snapshot, workspaceIds);
+      else
+        await this.dependencies.runs.create(
+          initialView,
+          snapshot,
+          workspaceIds,
+        );
     } catch (error: unknown) {
       await releaseDefinition?.();
       throw error;
     }
     this.active.set(view.id, {
-      view,
+      view: initialView,
       snapshot,
       controllers: new Map(),
       executions: new Set(),
@@ -205,6 +220,7 @@ export class AgentPlanRunEngine {
       await this.dependencies.runs.update(active.view);
       for (const controller of active.controllers.values()) controller.abort();
     });
+    await this.dependencies.steps.closeGroups(id);
     await this.pump();
   }
 

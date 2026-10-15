@@ -1,0 +1,301 @@
+{
+  "ticket": {
+    "key": "PAGE-73",
+    "id": "f33b6510-2b87-4042-8335-dff779b30ef0",
+    "initialChecklistRevision": "1",
+    "finalChecklistRevision": "1",
+    "readOnlyAccess": true,
+    "ticketDataChanged": false,
+    "checkedStateIsNotBusinessEvidence": true
+  },
+  "todos": [
+    {
+      "id": "T1",
+      "status": "done",
+      "checklistItem": {
+        "id": "md-655555d1fea5ca9f",
+        "source": "description",
+        "text": "Die Reiter erscheinen als Agents / Gruppen / Tickets / Parameter.",
+        "checked": false,
+        "order": 0,
+        "depth": 0,
+        "parentId": null
+      },
+      "evidence": [
+        "app/components/agents/plans/plan-panel.tsx",
+        "tests/frontend/app/components/agents/page73-group-editor.unit.test.tsx — asserts exact tab order"
+      ]
+    },
+    {
+      "id": "T2",
+      "status": "done",
+      "checklistItem": {
+        "id": "md-acb32f39f2caf152",
+        "source": "description",
+        "text": "Eine Gruppe mit mindestens zwei Agents lässt sich als einsehbarer, bearbeitbarer Subgraph mit eindeutiger Reihenfolge erstellen.",
+        "checked": false,
+        "order": 1,
+        "depth": 0,
+        "parentId": null
+      },
+      "evidence": [
+        "definition/AgentPlanGroup.ts",
+        "app/components/agents/plans/plan-group-editor.tsx",
+        "tests/frontend/app/components/agents/page73-group-editor.unit.test.tsx — create, edit, reorder, save and reopen two children",
+        "tests/backend/backend/service/agents/page73-group-model.unit.test.ts — bounded parse and ordered round-trip"
+      ]
+    },
+    {
+      "id": "T3",
+      "status": "done",
+      "checklistItem": {
+        "id": "md-0604d24034af53ac",
+        "source": "description",
+        "text": "Die Gruppe lässt sich im äußeren Plan wie ein einzelner Knoten zwischen Vorgänger und Nachfolger verbinden.",
+        "checked": false,
+        "order": 2,
+        "depth": 0,
+        "parentId": null
+      },
+      "evidence": [
+        "definition/AgentPlanGroup.ts: expandPlanGroups",
+        "tests/frontend/app/components/agents/page73-group-editor.unit.test.tsx — external flow IN/OUT and two saved outer edges",
+        "tests/backend/backend/service/agents/page73-group-model.unit.test.ts — expansion Start → first → second → End"
+      ]
+    },
+    {
+      "id": "T4",
+      "status": "done",
+      "checklistItem": {
+        "id": "md-5d4221c08a505939",
+        "source": "description",
+        "text": "Die beschriebenen Start- und Endbedingungen funktionieren; der äußere Nachfolger startet ausschließlich nach erfolgreichem Abschluss aller internen Agents.",
+        "checked": false,
+        "order": 3,
+        "depth": 0,
+        "parentId": null
+      },
+      "evidence": [
+        "backend/service/agents/AgentPlanRunEngine.ts",
+        "tests/backend/backend/service/agents/page73-group-run.unit.test.ts — waits for accepted first/second; failed outer predecessor blocks first",
+        "artifacts/PAGE-73/native-session-proof.json — planSucceeded and outerSuccessorSucceeded"
+      ]
+    },
+    {
+      "id": "T5",
+      "status": "done",
+      "checklistItem": {
+        "id": "md-ea67b1da85259245",
+        "source": "description",
+        "text": "Reihenfolge sowie Verhalten bei internem Fehler, fehlgeschlagener Abnahme, Abbruch und Pause entsprechen den Ablaufregeln und werden nachvollziehbar angezeigt.",
+        "checked": false,
+        "order": 4,
+        "depth": 0,
+        "parentId": null
+      },
+      "evidence": [
+        "backend/service/agents/AgentPlanGroupSessions.ts",
+        "backend/service/agents/AgentPlanGroupResults.ts",
+        "app/components/agents/plans/plan-run-view.tsx",
+        "tests/backend/backend/service/agents/page73-group-run.unit.test.ts — provider failure, rejected report, pause/resume, stop before native open, stop in first/second and paused session",
+        "tests/backend/backend/service/agents/page73-group-model.unit.test.ts — persisted group/failed-child fields"
+      ]
+    },
+    {
+      "id": "T6",
+      "status": "done",
+      "checklistItem": {
+        "id": "md-9f720b384d24ded0",
+        "source": "description",
+        "text": "Zwei Codex-Agents mit kompatibler Konfiguration sind zulässig. Unterschiedliche tatsächliche Adapter, insbesondere OpenRouter und direkter Claude-Adapter, werden abgewiesen; Modellnamen werden nicht mit Provider-IDs verwechselt.",
+        "checked": false,
+        "order": 5,
+        "depth": 0,
+        "parentId": null
+      },
+      "evidence": [
+        "definition/AgentPlanGroupGraph.ts",
+        "backend/service/agents/AgentPlanGroupRuntime.ts",
+        "tests/backend/backend/service/agents/page73-group-model.unit.test.ts — Codex allowed; OpenRouter and claude_code refused by technical IDs"
+      ]
+    },
+    {
+      "id": "T7",
+      "status": "done",
+      "checklistItem": {
+        "id": "md-c4bd9c626b21fc17",
+        "source": "description",
+        "text": "Die gemeinsame Laufzeitkonfiguration wird anhand der definierten aufgelösten Felder validiert; Konflikte nennen Agent und Einstellungsfeld.",
+        "checked": false,
+        "order": 6,
+        "depth": 0,
+        "parentId": null
+      },
+      "evidence": [
+        "backend/service/agents/AgentPlanGroupRuntime.ts: groupRuntimeFields and validateGroupRuntimes",
+        "backend/service/agents/AgentPlanService.ts — resolved connection validation while saving; runnable groups receive full preflight",
+        "backend/service/agents/AgentPlanPreparation.ts — validates again before scheduling",
+        "tests/backend/backend/service/agents/page73-group-model.unit.test.ts — defaults, connection/model/reasoning/directory/tool-mode conflicts name child and field",
+        "tests/backend/backend/agents/acp/group-continuation.unit.test.ts — unexpected effective mode change refused"
+      ]
+    },
+    {
+      "id": "T8",
+      "status": "done",
+      "checklistItem": {
+        "id": "md-c7b2d3e48d950262",
+        "source": "description",
+        "text": "Beide Codex-Agents verwenden nachweislich dieselbe native Session. Der zweite verwendet Kontext aus dem ersten Schritt und führt dabei seine eigene Schrittanweisung aus.",
+        "checked": false,
+        "order": 7,
+        "depth": 0,
+        "parentId": null
+      },
+      "evidence": [
+        "backend/agents/acp/AcpSession.ts: next",
+        "artifacts/PAGE-73/native-session-proof.json — sameNativeSession, sameProcessInstance, contextUsedWithNewInstruction, nonceAbsentFromSecondInput; both actual outputs and sent prompts included"
+      ]
+    },
+    {
+      "id": "T9",
+      "status": "done",
+      "checklistItem": {
+        "id": "md-8a45b780e0d31616",
+        "source": "description",
+        "text": "Provider ohne die erforderliche Session-Fortsetzung und den erforderlichen Anweisungswechsel werden vor Ausführung verständlich abgewiesen.",
+        "checked": false,
+        "order": 8,
+        "depth": 0,
+        "parentId": null
+      },
+      "evidence": [
+        "definition/AgentPlanGroupGraph.ts: internalIssues",
+        "backend/service/agents/AgentPlanGroupRuntime.ts: validateGroupRuntimes",
+        "backend/service/agents/AgentPlanGroupSessions.ts — Codex-only continuation",
+        "tests/backend/backend/service/agents/page73-group-model.unit.test.ts — unsupported adapters refused before execution"
+      ]
+    },
+    {
+      "id": "T10",
+      "status": "done",
+      "checklistItem": {
+        "id": "md-eefdebd7ee2ab45b",
+        "source": "description",
+        "text": "Gruppenparameter lassen sich über sichtbare Schnittstellenanschlüsse von außen anbinden und intern an mehrere Agent-Eingänge mit demselben aufgelösten Wert weitergeben.",
+        "checked": false,
+        "order": 9,
+        "depth": 0,
+        "parentId": null
+      },
+      "evidence": [
+        "app/components/agents/plans/plan-ports.tsx",
+        "app/components/agents/plans/plan-group-parameters.tsx",
+        "app/components/agents/plans/plan-group-step.tsx",
+        "tests/frontend/app/components/agents/page73-group-editor.unit.test.tsx — visible outer port; same interface ID bound to both children",
+        "tests/backend/backend/service/agents/page73-group-model.unit.test.ts — same frozen resolved text value",
+        "artifacts/PAGE-73/native-session-proof.json — commonParameterInBothInputs"
+      ]
+    },
+    {
+      "id": "T11",
+      "status": "done",
+      "checklistItem": {
+        "id": "md-4757badea32b99f9",
+        "source": "description",
+        "text": "Fehlende Pflichtwerte, inkompatible Typen und ungültige Parameterverbindungen werden vor Ausführung verständlich angezeigt.",
+        "checked": false,
+        "order": 10,
+        "depth": 0,
+        "parentId": null
+      },
+      "evidence": [
+        "definition/AgentPlanGroupGraph.ts",
+        "tests/backend/backend/service/agents/page73-group-model.unit.test.ts — required, incompatible type, removed interface, minimum size",
+        "tests/frontend/app/components/agents/page73-group-editor.unit.test.tsx — removing port shows source error and disables Play"
+      ]
+    },
+    {
+      "id": "T12",
+      "status": "done",
+      "checklistItem": {
+        "id": "md-7909917ba3e8a234",
+        "source": "description",
+        "text": "Der vollständige Beispielplan wurde praktisch mit zwei minimalen Codex-Test-Agents geprüft; Session-Fortsetzung, Wechsel der Schrittanweisung und gemeinsamer Parameter sind mit Ergebnissen außerhalb des Tickets nachgewiesen.",
+        "checked": false,
+        "order": 11,
+        "depth": 0,
+        "parentId": null
+      },
+      "evidence": [
+        "scripts/agent-group-proof.ts",
+        "scripts/agent-group-proof-setup.ts",
+        "artifacts/PAGE-73/example-plan.json",
+        "artifacts/PAGE-73/native-session-proof.json — real Codex ACP run; all eight evidence assertions true"
+      ]
+    }
+  ],
+  "criteria": [
+    {
+      "id": "K1",
+      "met": true,
+      "evidence": "Workspace implementation plus this per-todo report, unit-evidence.json, example-plan.json and native-session-proof.json."
+    }
+  ],
+  "checks": {
+    "check": {
+      "command": "pnpm run check",
+      "status": "passed",
+      "exitCode": 0,
+      "output": "react-router typegen && tsc --noEmit && prettier --check .; All matched files use Prettier code style!"
+    },
+    "lint": {
+      "command": "pnpm run lint",
+      "status": "passed",
+      "exitCode": 0,
+      "output": "eslint . --max-warnings=0; no errors or warnings"
+    },
+    "backend": {
+      "status": "passed",
+      "files": 17,
+      "tests": 188,
+      "details": "artifacts/PAGE-73/unit-evidence.json"
+    },
+    "frontend": {
+      "status": "passed",
+      "files": 3,
+      "tests": 12,
+      "details": "artifacts/PAGE-73/unit-evidence.json"
+    },
+    "practical": {
+      "status": "passed",
+      "artifact": "artifacts/PAGE-73/native-session-proof.json"
+    },
+    "diff": {
+      "command": "git diff --check",
+      "status": "passed"
+    },
+    "proofScriptGuidelines": {
+      "status": "passed",
+      "exitCode": 0,
+      "command": "node node_modules/eslint/bin/eslint.js scripts/agent-group-proof.ts scripts/agent-group-proof-setup.ts with max-lines-per-function=100, complexity=15, max-depth=3 and max-params=4"
+    }
+  },
+  "decisions": [
+    "Gruppen sind geordnete Subgraphs aus eigenständigen Agent-Instanzen; eine lineare Ansicht mit Richtungspfeilen und bearbeitbaren Schritten genügt ohne innere Verzweigungen.",
+    "Die erste aufgelöste Agent-Konfiguration legt die gemeinsame Laufzeit fest; Abweichungen werden mit Agent und Feld abgewiesen. Gruppen unterstützen in diesem Ticket ausschließlich Codex CLI über ACP.",
+    "Gemeinsame Parameter werden vor dem Start eingefroren. Die vorhandene DAG-Ausführung übernimmt die expandierte Reihenfolge; dieselbe native Session bleibt zwischen akzeptierten Schritten und während einer Pause offen.",
+    "Der praktische Nachweis verwendet zwei vorübergehende Agent-Instanzen und flüchtige Planhaltung mit echtem Scheduler, Binder, Abnahme und Codex-Prozess. Es werden keine produktiven Agent-Definitionen, Tickets oder zusätzlichen Providerzugänge angelegt.",
+    "Die verfügbare Anmeldung wurde für den Nachweis in einen isolierten Ordner innerhalb des Workspaces kopiert und danach entfernt. Zugangsdaten sind in keinem Nachweis enthalten.",
+    "Das absolute Ticket-Schreibverbot hat Vorrang vor dem widersprüchlichen generierten Auftrag zum Abhaken. Ticket und vollständige Checkliste wurden ausschließlich gelesen; Revision und Checkboxen bleiben unverändert.",
+    "Die bestehende Grenze von 100 Plan-Knoten zählt auch interne Agent-Knoten. Die JSON-Persistenz benötigt keine Migration.",
+    "Die ESLint-Konfiguration erhält den bereits für TypeScript verwendeten tsconfigRootDir auch für andere geparste Dateien; keine Regel wurde gelockert. pnpm 11.23.0 wurde wegen nicht ausführbarer Cache-Wrapper direkt über Node gestartet.",
+    "Frontend-Prüfungen laufen nacheinander, damit die vorhandenen Zeitgrenzen der Regressionstests bei paralleler CPU-Last nicht überschritten werden."
+  ],
+  "limitations": [
+    "Der praktische Nachweis benutzt flüchtige Plan-/Definitionshaltung und keinen produktiven Pages-Datensatz. Provider, native Session und Prozess, Parameterbindung, Reihenfolge und Abnahme sind echt; UI-Verhalten ist separat in jsdom geprüft. Es wurden keine Live-MCP-Ticketaktionen ausgeführt.",
+    "Vitest/V8 kann die unveränderte Datei app/routes/settings-connections.tsx im Frontend-Coverage-Bericht nicht parsen und lässt sie mit PARSE_ERROR (Expected ',', got '{') aus. Diese Diagnose-Lücke ist offengelegt; es wurden keine Coverage-Ausschlüsse oder Schwellwerte geändert.",
+    "Die Unit-Suiten wurden gezielt für PAGE-73 und betroffene Plan-/ACP-/Workspace-Pfade ausgeführt. Das ist keine vollständige Pages-Gesamtsuite und keine Browser-E2E-Prüfung. Das unabhängige MCP-Paket gehört nicht zur Pages-Coverage."
+  ],
+  "openBusinessItems": [],
+  "summary": "Alle zwölf fachlichen TODOs sind implementiert und belegt: 188 Backend- und 12 Frontend-Prüfungen erfolgreich, echter gemeinsamer Codex-Session-Nachweis erfolgreich, check und lint erfolgreich; keine Ticketdaten geändert."
+}

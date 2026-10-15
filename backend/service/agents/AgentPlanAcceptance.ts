@@ -18,13 +18,19 @@ const MAXIMUM_DECISIONS = 20;
 /** The closing report as the agent wrote it. */
 interface PlanReport {
   readonly todos: ReadonlyMap<string, string>;
+  /** `null` when the report has no criteria list, which only a todo list completion accepts. */
   readonly criteria: ReadonlyMap<
     string,
     { readonly met: boolean; readonly evidence: string }
-  >;
+  > | null;
   readonly decisions: readonly string[];
   readonly summary: string;
 }
+
+/** A report with the criteria list that a report completion requires. */
+type GateReport = PlanReport & {
+  readonly criteria: NonNullable<PlanReport["criteria"]>;
+};
 
 /** The state of the checklist entries of the bound tickets after the turn. */
 export interface AgentPlanTicketStates {
@@ -65,8 +71,7 @@ function readPlanReport(output: string): PlanReport | "invalid" | null {
   } catch {
     return "invalid";
   }
-  if (!Array.isArray(report.todos) || !Array.isArray(report.criteria))
-    return "invalid";
+  if (!Array.isArray(report.todos)) return "invalid";
   return {
     todos: new Map(
       readEntries(report.todos).map((entry) => [
@@ -74,18 +79,27 @@ function readPlanReport(output: string): PlanReport | "invalid" | null {
         shortText(entry.status),
       ]),
     ),
-    criteria: new Map(
-      readEntries(report.criteria).map((entry) => [
-        shortText(entry.id),
-        { met: entry.met === true, evidence: shortText(entry.evidence) },
-      ]),
-    ),
+    criteria: Array.isArray(report.criteria)
+      ? new Map(
+          readEntries(report.criteria).map((entry) => [
+            shortText(entry.id),
+            { met: entry.met === true, evidence: shortText(entry.evidence) },
+          ]),
+        )
+      : null,
     decisions: (Array.isArray(report.decisions) ? report.decisions : [])
       .map(shortText)
       .filter(Boolean)
       .slice(0, MAXIMUM_DECISIONS),
     summary: shortText(report.summary),
   };
+}
+
+function readGateReport(output: string): GateReport | "invalid" | null {
+  const report = readPlanReport(output);
+  if (report === null || report === "invalid") return report;
+  const { criteria } = report;
+  return criteria === null ? "invalid" : { ...report, criteria };
 }
 
 function ticketState(
@@ -119,7 +133,7 @@ function todoStatus(
 
 function criterionStatus(
   criterion: AgentPlanContractItem,
-  report: PlanReport,
+  report: GateReport,
   issues: string[],
   states: AgentPlanTicketStates,
 ): AgentPlanCriterionStatus {
@@ -161,7 +175,7 @@ export function evaluatePlanAcceptance(
   output: string,
   states: AgentPlanTicketStates,
 ): AgentPlanAcceptance {
-  const report = readPlanReport(output);
+  const report = readGateReport(output);
   if (report === null || report === "invalid")
     return {
       verdict: "rejected",
@@ -193,5 +207,60 @@ export function evaluatePlanAcceptance(
     decisions: report.decisions,
     issues,
     summary: report.summary,
+  };
+}
+
+function todoListStatus(
+  todo: AgentPlanContractItem,
+  report: PlanReport | null,
+  states: AgentPlanTicketStates,
+): AgentPlanTodoStatus["status"] {
+  const reported = report?.todos.get(todo.id);
+  if (todo.ticket === null)
+    return reported === "done" || reported === "open" ? reported : "missing";
+  const checked = states.checked.get(
+    `${todo.ticket.id}\n${todo.ticket.itemId}`,
+  );
+  if (checked === true) return "done";
+  if (checked === undefined) return "missing";
+  // A read-only session cannot tick the entry, so its report decides there.
+  return !states.isCheckRequired && reported === "done" ? "done" : "open";
+}
+
+/**
+ * Reports how far the todo list of a node is done, without judging the node.
+ *
+ * @param contract - The current todo list of the node.
+ * @param output - The final answer of the agent; its report only adds a summary and decisions.
+ * @param states - The checklist entries of the bound tickets, read after the turn.
+ * @returns `accepted` when every todo is done, `open` otherwise; never `rejected`.
+ *
+ * @remarks
+ * A todo with a ticket entry is done exactly when the ticket shows it
+ * checked. A todo without one has only the report to go by. A missing or
+ * malformed report, changed requirements and other criteria never change the
+ * result; an unreadable ticket is listed as an issue and leaves its todos
+ * `missing`, never `done`.
+ */
+export function evaluateTodoCompletion(
+  contract: AgentPlanContract,
+  output: string,
+  states: AgentPlanTicketStates,
+): AgentPlanAcceptance {
+  const parsed = readPlanReport(output);
+  const report = parsed === "invalid" ? null : parsed;
+  const todos = contract.todos.map((todo) => ({
+    id: todo.id,
+    status: todoListStatus(todo, report, states),
+  }));
+  return {
+    verdict: todos.every((todo) => todo.status === "done")
+      ? "accepted"
+      : "open",
+    todos,
+    criteria: [],
+    decisions: report?.decisions ?? [],
+    issues: states.unreadable.map((key) => `ticket_unreadable:${key}`),
+    summary: report?.summary ?? "",
   };
 }

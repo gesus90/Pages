@@ -1,3 +1,4 @@
+import { allPlanSteps } from "@/definition/AgentPlanGroup";
 import { readPlanInput } from "@/backend/agents/AgentPlanInput";
 import { readCountColumn, readTextColumn } from "@/backend/database/RowValue";
 import { AgentError } from "@/backend/error/AgentErrors";
@@ -177,7 +178,7 @@ async function requirePlanAgents(
   plan: AgentPlan,
 ): Promise<void> {
   const ids = new Set(
-    plan.nodes.flatMap((node) =>
+    allPlanSteps(plan).flatMap((node) =>
       node.type === "agent" ? [node.agentId, node.personalAgentId] : [],
     ),
   );

@@ -25,8 +25,9 @@ export const AGENT_PLAN_NODE_FIELDS: Readonly<
   Record<AgentPlanNode["type"], readonly string[]>
 > = {
   start: [],
+  group: ["name", "steps", "parameters", "bindings"],
   end: [],
-  agent: ["agentId", "personalAgentId", "instruction"],
+  agent: ["agentId", "personalAgentId", "instruction", "completion"],
   task: ["taskId"],
   parameter: ["name", "format", "value"],
   // Variables name a global value of older plans; only their position changes.

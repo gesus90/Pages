@@ -3068,6 +3068,13 @@
     "save": "Arbeitsbereich speichern"
   },
   "plans": {
+    "completion": {
+      "label": "Abschluss",
+      "report": "Abschlussbericht mit Abnahmekriterien",
+      "todos": "Nur aktuelle TODO-Liste",
+      "reportHint": "Der Node gilt erst nach einem Abschlussbericht als fertig, der jedes Todo und jedes Abnahmekriterium belegt, und die Ticket-Einträge sind abgehakt.",
+      "todosHint": "Nur die TODO-Liste des verknüpften Tickets zählt und wird live abgehakt. Abnahmekriterien, Berichtsformat und Ticketänderungen während des Laufs stoppen den Node nie; offene Todos werden als offen angezeigt."
+    },
     "nodeConfigurationHint": "Änderungen gelten nur für diesen Node. Das Agent-Template und andere Nodes bleiben unverändert.",
     "nodeMarkdown": "AGENT.md / Anweisung dieses Nodes",
     "editNode": "Ausgewählten Agent-Node bearbeiten",
@@ -3153,7 +3160,8 @@
       "variable": "Variable",
       "start": "Start",
       "end": "Ende",
-      "parameter": "Parameter"
+      "parameter": "Parameter",
+      "group": "Gruppen"
     },
     "status": {
       "waiting": "Wartet",
@@ -3174,7 +3182,8 @@
     "tabs": {
       "agents": "Agents",
       "tickets": "Tickets",
-      "parameters": "Parameter"
+      "parameters": "Parameter",
+      "groups": "Gruppen"
     },
     "collapsePanel": "Panel einklappen",
     "expandPanel": "Panel öffnen",
@@ -3217,7 +3226,10 @@
       "agent": "Mindestens ein nutzbarer Agent ist erforderlich; Verfügbarkeit und Berechtigung prüfen.",
       "name": "Namen mit kleinem Buchstaben beginnen; nur a–z, 0–9 und Unterstrich, höchstens 64 Zeichen.",
       "json": "Genau einen gültigen JSON-Wert eingeben. Zahlen müssen endlich sein.",
-      "number": "Genau eine endliche Zahl eingeben."
+      "number": "Genau eine endliche Zahl eingeben.",
+      "groupSize": "Die Gruppe benötigt mindestens zwei Agents.",
+      "groupProvider": "Dieser Adapter unterstützt die gemeinsame native Session mit wechselnder Schrittanweisung nicht. Verwende Codex CLI.",
+      "groupConfiguration": "Die aufgelöste Laufzeitkonfiguration widerspricht der gemeinsamen Gruppenkonfiguration."
     },
     "createPortValue": "Wert als Parameterknoten",
     "session": {
@@ -3278,6 +3290,11 @@
         "accepted": "Abschlussvertrag · fachlich abgenommen",
         "rejected": "Abschlussvertrag · nicht abgenommen"
       },
+      "todoVerdict": {
+        "pending": "TODO-Liste · Ergebnis ausstehend",
+        "accepted": "TODO-Liste · alle Todos erledigt",
+        "open": "TODO-Liste · Todos noch offen"
+      },
       "todoStatus": {
         "done": "erledigt",
         "open": "offen",
@@ -3312,7 +3329,24 @@
     "deletePlan": "Plan löschen",
     "deleteTitle": "Plan „{{name}}“ löschen?",
     "deleteDescription": "Der Plan verschwindet für alle, denen er freigegeben ist. Abgeschlossene Läufe bleiben in den Laufprotokollen der Agents erhalten. Ein laufender oder pausierter Lauf muss zuerst gestoppt werden.",
-    "confirmDelete": "Plan löschen"
+    "confirmDelete": "Plan löschen",
+    "groups": {
+      "defaultName": "Agent-Gruppe",
+      "create": "Gruppe anlegen",
+      "name": "Gruppenname",
+      "hint": "Mindestens zwei Codex-Agents in fester Reihenfolge mit identischem Zugang und identischer Laufzeitkonfiguration. Ein Anschluss verteilt denselben Wert an mehrere Agents.",
+      "interfaces": "Schnittstellenanschlüsse",
+      "portName": "Anschlussname",
+      "portType": "Anschlusstyp",
+      "required": "Pflichtwert",
+      "removePort": "Anschluss entfernen",
+      "addPort": "Anschluss hinzufügen",
+      "addAgent": "Agent zur Gruppe hinzufügen",
+      "order": "Interner Subgraph / Ausführungsreihenfolge",
+      "up": "Agent nach oben",
+      "down": "Agent nach unten",
+      "step": "{{name}} · Schritt {{index}}"
+    }
   },
   "mcpDuration": {
     "label": "Gültigkeit in Tagen",

@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "@/app/components/ui/dialog";
 
+import { PlanGroupEditor } from "./plan-group-editor";
 import { PlanNodeConfigurationFields } from "./plan-node-configuration-fields";
 
 import type { usePlanEditor } from "./use-plan-editor";
@@ -24,7 +25,7 @@ export function PlanNodeDialog(props: {
   );
   return (
     <Dialog
-      open={step?.type === "agent"}
+      open={step?.type === "agent" || step?.type === "group"}
       onOpenChange={(isOpen) => {
         if (!isOpen) props.onClose();
       }}
@@ -42,6 +43,15 @@ export function PlanNodeDialog(props: {
             sources={props.editor.sources}
             disabled={!props.editor.canEdit || props.editor.isPending}
             onChange={props.editor.graph.replaceStep}
+          />
+        ) : null}
+        {step?.type === "group" ? (
+          <PlanGroupEditor
+            group={step}
+            draft={props.editor.draft}
+            sources={props.editor.sources}
+            graph={props.editor.graph}
+            disabled={!props.editor.canEdit || props.editor.isPending}
           />
         ) : null}
         <Button onClick={props.onClose}>{t("plans.closeNode")}</Button>

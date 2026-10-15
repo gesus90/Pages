@@ -24,7 +24,7 @@ function bindParameter(
   return {
     ...draft,
     nodes: draft.nodes.map((node) =>
-      node.id === targetId && node.type === "agent"
+      node.id === targetId && (node.type === "agent" || node.type === "group")
         ? { ...node, bindings: { ...node.bindings, [parameter]: binding } }
         : node,
     ),
@@ -83,7 +83,7 @@ export function usePlanConnections(
       return;
     }
     const target = draft.nodes.find((node) => node.id === id);
-    if (target?.type !== "agent") return;
+    if (target?.type !== "agent" && target?.type !== "group") return;
     if (Object.hasOwn(target.bindings, parameter)) {
       setIssue({ nodeId: id, port: parameter, reason: "duplicate" });
       return;
@@ -100,7 +100,7 @@ export function usePlanConnections(
     parameter: string,
   ): void {
     const target = draft.nodes.find((node) => node.id === targetId);
-    if (target?.type !== "agent") return;
+    if (target?.type !== "agent" && target?.type !== "group") return;
     if (Object.hasOwn(target.bindings, parameter)) {
       setIssue({ nodeId: targetId, port: parameter, reason: "duplicate" });
       return;

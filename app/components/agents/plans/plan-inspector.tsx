@@ -6,6 +6,7 @@ import { planStepTemplate } from "@/definition/AgentPlanConfiguration";
 import { Textarea } from "@/app/components/ui/textarea";
 
 import { PlanNodeConfigurationFields } from "./plan-node-configuration-fields";
+import { PlanGroupEditor } from "./plan-group-editor";
 import { PlanValueFields } from "./plan-value-fields";
 import { PlanParameterInput } from "./plan-parameter-input";
 import { PlanAgentAssignment } from "./plan-agent-assignment";
@@ -88,6 +89,9 @@ export function PlanInspector(props: InspectorProps): React.ReactElement {
         </Button>
       </div>
       {node.type === "agent" ? <StepFields {...props} step={node} /> : null}
+      {node.type === "group" ? (
+        <PlanGroupEditor {...props} group={node} />
+      ) : null}
       {node.type === "parameter" ? (
         <PlanValueFields
           node={node}

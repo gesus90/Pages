@@ -13,6 +13,17 @@ export type AgentPlanRunner = CliProviderId | "api";
  */
 export type AgentPlanSessionMode = "one_shot" | "interactive" | "request";
 
+/**
+ * What decides that a node finished its work.
+ *
+ * @remarks
+ * `report` is the closing report with its todos and acceptance criteria,
+ * checked as a gate. `todos` follows only the current todo list of the bound
+ * tickets, which the agent ticks live; the result is shown but never gates
+ * the run.
+ */
+export type AgentPlanCompletion = "report" | "todos";
+
 /** What Pages asks a runner for; never a secret. */
 export interface AgentPlanRunnerConfiguration {
   readonly runner: AgentPlanRunner;
@@ -42,8 +53,17 @@ export interface AgentPlanContractItem {
   } | null;
 }
 
-/** What a node must finish, fixed and stored before it starts. */
+/**
+ * What a node must finish, fixed and stored before it starts.
+ *
+ * @remarks
+ * With the `todos` completion the contract lists only the todos of the
+ * bound tickets and has no criteria; it is replaced by the current list when
+ * the node ends, so the record shows the list the agent worked from last.
+ */
 export interface AgentPlanContract {
+  /** Absent in records of nodes that completed by report. */
+  readonly completion?: AgentPlanCompletion;
   readonly todos: readonly AgentPlanContractItem[];
   readonly criteria: readonly AgentPlanContractItem[];
   /** Tickets and their requirements at the start; the hash is absent in older run records. */
@@ -69,9 +89,15 @@ export interface AgentPlanCriterionStatus {
   readonly ticketChecked: boolean | null;
 }
 
-/** The business acceptance of a node, separate from the process exit. */
+/**
+ * The business acceptance of a node, separate from the process exit.
+ *
+ * @remarks
+ * `open` exists only for the `todos` completion: todos remain open, which is
+ * shown but does not fail the node.
+ */
 export interface AgentPlanAcceptance {
-  readonly verdict: "accepted" | "rejected";
+  readonly verdict: "accepted" | "open" | "rejected";
   readonly todos: readonly AgentPlanTodoStatus[];
   readonly criteria: readonly AgentPlanCriterionStatus[];
   /** Decisions the agent took on its own instead of asking. */

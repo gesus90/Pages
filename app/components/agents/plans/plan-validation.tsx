@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
 
+import { allPlanSteps } from "@/definition/AgentPlanGroup";
+
 import { planNodeLabel } from "./plan-layout";
 
 import type { AgentPlanInput, AgentPlanSources } from "@/definition/AgentPlan";
@@ -27,15 +29,24 @@ export function PlanValidation(props: {
         aria-live="polite"
       >
         {props.issues.map((issue, index) => {
-          const node = props.draft.nodes.find(
-            (entry) => entry.id === issue.nodeId,
-          );
+          const node = [
+            ...props.draft.nodes,
+            ...allPlanSteps(props.draft),
+          ].find((entry) => entry.id === issue.nodeId);
           return (
             <li key={`${issue.nodeId}:${issue.port}:${issue.reason}:${index}`}>
               <button
                 type="button"
                 className="text-left hover:underline"
-                onClick={() => props.onSelect(issue.nodeId)}
+                onClick={() =>
+                  props.onSelect(
+                    props.draft.nodes.find(
+                      (entry) =>
+                        entry.type === "group" &&
+                        entry.steps.some((step) => step.id === issue.nodeId),
+                    )?.id ?? issue.nodeId,
+                  )
+                }
               >
                 {node ? `${planNodeLabel(node, props.sources)} · ` : ""}
                 {issue.port ? `${issue.port}: ` : ""}

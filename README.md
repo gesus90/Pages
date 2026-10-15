@@ -440,13 +440,43 @@ The grid is the main editor and spans the page width. Drag its empty area to
 pan it; the mouse wheel or the zoom buttons zoom it, and nodes and connections
 keep their positions relative to each other. On desktop a collapsible panel
 floats over the right edge of the grid without narrowing it; on small screens it
-sits below the grid. It has **Agents**, **Tickets** and **Parameters** tabs.
+sits below the grid. Its tabs are **Agents / Groups / Tickets / Parameters**
+(**Agents / Gruppen / Tickets / Parameter** in German).
 Search, filter and sort the authorized agents and project tasks/subtasks, then
 drag them onto the grid. Tickets can also be filtered by their current status:
 open, done, or one workflow status such as To Do or Done. Buttons offer an
 alternative to dragging. Move nodes by their header or edit their grid
 coordinates. The panel edits instances and their inputs; agent definitions
 remain in the existing Agents area.
+
+The **Groups** tab creates and selects sequential subgraphs. A group needs at
+least two agent instances; its inspector shows the directed sequence and lets
+you reorder, remove and edit each instance independently. The group has one
+outer flow input and output. Add named, typed boundary ports, connect outer
+value nodes to them, and select the same port at several internal agent inputs.
+Required values, incompatible types and removed port references are checked
+before Play. The resolved boundary values are frozen for the run.
+
+Groups currently support **Codex CLI over ACP** only. Every child must resolve
+to the same adapter, connection, model, reasoning, workspace/directory, tools,
+permissions and sandbox; inherited run defaults are resolved first. Conflicts
+identify the agent and setting. OpenRouter and direct Claude Code are different
+adapters, regardless of model names, and are refused for groups. Each accepted
+step continues the same native Codex session with its own turn-scoped instruction.
+A failure or rejected report blocks later children and the outer successor.
+Pause lets the current child settle, retains the native session and starts no
+further child until resume. Stop closes an active or retained paused session.
+Group and child states, the failing child, native session IDs and closeout are
+available in the run view.
+
+The practical example and its real provider evidence are in
+`artifacts/PAGE-73/`. Reproduce it with
+`pnpm exec tsx scripts/agent-group-proof.ts --data <isolated credential data>
+--connection <connection UUID> --workspace <empty workspace> --model <model ID>
+--effort <effort> --output <artifact folder>`.
+The script uses transient definitions and in-memory plan storage with the real
+scheduler, parameter binding, acceptance and Codex adapter. It connects no Pages
+MCP server, changes no tickets, and records neither credentials nor account files.
 
 A parameter node contains one name and one value: string, finite number or a
 single valid JSON value, including an object or array. Invalid JSON is rejected
@@ -634,6 +664,21 @@ contract with its verdict and a link to the sent prompt. The
 normalized **Pages result** is `0` for an accepted and closed node and `-1` for
 any other outcome; a `-1` node fails and blocks its successors. Exit code 0
 alone never counts as success.
+
+An agent node may instead complete by its **todo list** (`completion: todos`,
+chosen per node in the node editor or with `update_plan`; the default is the
+closing report above). Such a node's contract holds only the current todo list of
+its bound tickets: no acceptance criteria, no default todo or criterion, and no
+required report format. Its agent moves the bound ticket to its in-progress
+status before it starts, ticks each todo in the ticket as soon as it is done, and
+moves the ticket to review at the end. An OpenCode node of this kind also gets
+the status tool for its bound tickets; every other runner already follows the
+executor's rights, and a Read only session cannot change tickets at all. Pages
+reads the list again after the turn and shows each todo as checked in the ticket:
+open todos, a missing or malformed report, edited tickets and changed
+requirements never fail the node or block its successors, and a todo that is not
+checked is never shown as done. Only a technical failure of the runner, its
+permissions, the timeout or the closeout ends such a node as failed.
 
 Run and node status show waiting, running, succeeded, failed, paused or
 cancelled. **Pause** persists the current run and prevents additional nodes

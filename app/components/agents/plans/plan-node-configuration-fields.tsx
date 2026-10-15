@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 
 import { PageAgentModelFields } from "@/app/components/agents/definitions/page-agent-model-fields";
+import { Select } from "@/app/components/ui/select";
 import { Textarea } from "@/app/components/ui/textarea";
 import {
   defaultAgentRunOptions,
@@ -9,7 +10,42 @@ import {
 import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 
 import type { AgentPlanSources, AgentPlanStep } from "@/definition/AgentPlan";
+import type { AgentPlanCompletion } from "@/definition/AgentPlanSession";
 import type { PageAgentInput } from "@/definition/PageAgent";
+
+/** Chooses what decides that the node finished; it belongs to the node, not to its configuration copy. */
+function PlanCompletionField(props: {
+  readonly step: AgentPlanStep;
+  readonly onChange: (step: AgentPlanStep) => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const { step } = props;
+  function change(completion: AgentPlanCompletion): void {
+    const { completion: previous, ...rest } = step;
+    if (completion === "todos") props.onChange({ ...rest, completion });
+    else if (previous !== undefined) props.onChange(rest);
+  }
+  return (
+    <div className="space-y-1 text-sm">
+      <label htmlFor={`plan-completion-${step.id}`}>
+        {t("plans.completion.label")}
+      </label>
+      <Select
+        id={`plan-completion-${step.id}`}
+        ariaLabel={t("plans.completion.label")}
+        value={step.completion ?? "report"}
+        options={[
+          { value: "report", label: t("plans.completion.report") },
+          { value: "todos", label: t("plans.completion.todos") },
+        ]}
+        onValueChange={change}
+      />
+      <p className="text-xs text-muted-foreground">
+        {t(`plans.completion.${step.completion ?? "report"}Hint`)}
+      </p>
+    </div>
+  );
+}
 
 /** Edits the selected node's content and released model without writing to its template. */
 export function PlanNodeConfigurationFields(props: {
@@ -78,6 +114,7 @@ export function PlanNodeConfigurationFields(props: {
           }
         />
       </label>
+      <PlanCompletionField step={props.step} onChange={props.onChange} />
       <PageAgentModelFields
         draft={draft}
         models={models}

@@ -1889,6 +1889,13 @@ session (the credential of a running node) gets none of them.
   lets later changes of the same call refer to the node; `createdNodeIds` returns
   the ids. A new agent node gets value nodes for its defaults and its directory
   parameter, as in the editor. Pages checks the saved plan like the plan page.
+  An agent node's `completion` is `report` (default: closing report with
+  acceptance criteria, checked as a gate) or `todos` (only the current todo list
+  of the bound ticket, ticked live; a report, criteria, ticket changes or open
+  todos never fail the node, which shows `verdict` `open` while todos remain).
+  `updateNode` with `{"completion": "todos"}` switches an existing node and keeps
+  its configuration copy; setting `agentId` to another agent and back inside one
+  `changes` list replaces that copy with the agent's current template.
 - **Status.** `read_plan` returns `status`: `state` (`idle`, `running` or `paused`
   by the account's own runs), `runCount`, `latestRun`, and `isRunnable` with the
   `issues` the plan page shows before Play.

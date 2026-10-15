@@ -42,6 +42,15 @@ export function createPlanNode(input: {
     y: snapPlanCoordinate(position.y),
   };
   if (kind === "start" || kind === "end") return { ...base, type: kind };
+  if (kind === "group")
+    return {
+      ...base,
+      type: "group",
+      name: reference,
+      steps: [],
+      parameters: [],
+      bindings: {},
+    };
   if (kind === "agent") {
     const agent = sources.agents.find(
       (entry) => entry.id === reference && entry.availability.isUsable,

@@ -1,3 +1,5 @@
+import { expandPlanGroups } from "./AgentPlanGroup";
+import { planGroupIssues } from "./AgentPlanGroupGraph";
 import {
   hasAgentParameterValue,
   isAgentParameterName,
@@ -20,6 +22,9 @@ export interface AgentPlanIssue {
   readonly nodeId: string | null;
   readonly port: string | null;
   readonly reason:
+    | "groupSize"
+    | "groupProvider"
+    | "groupConfiguration"
     | "duplicateNode"
     | "port"
     | "duplicate"
@@ -61,7 +66,12 @@ export function hasPlanPath(
 
 /** Start, end and agent nodes form the execution graph; tickets, parameters and variables only supply values. */
 export function isPlanFlowNode(node: AgentPlanNode): boolean {
-  return node.type === "start" || node.type === "end" || node.type === "agent";
+  return (
+    node.type === "start" ||
+    node.type === "end" ||
+    node.type === "agent" ||
+    node.type === "group"
+  );
 }
 
 /** Data sources use the established agent types; a ticket node supplies a ticket reference. */
@@ -123,7 +133,7 @@ export function removePlanNode<Plan extends AgentPlanInput>(
     nodes: draft.nodes
       .filter((node) => node.id !== id)
       .map((node) => {
-        if (node.type !== "agent") return node;
+        if (node.type !== "agent" && node.type !== "group") return node;
         const bindings = Object.fromEntries(
           Object.entries(node.bindings).filter(
             ([, binding]) =>
@@ -160,8 +170,10 @@ function edgeIssues(plan: AgentPlanInput): AgentPlanIssue[] {
   for (const edge of plan.edges) {
     const source = plan.nodes.find((node) => node.id === edge.from);
     const target = plan.nodes.find((node) => node.id === edge.to);
-    const validSource = source && ["start", "agent"].includes(source.type);
-    const validTarget = target && ["end", "agent"].includes(target.type);
+    const validSource =
+      source && ["start", "agent", "group"].includes(source.type);
+    const validTarget =
+      target && ["end", "agent", "group"].includes(target.type);
     if (!validSource || edge.fromPort !== "flow-out")
       issues.push({ nodeId: edge.from, port: edge.fromPort, reason: "port" });
     if (!validTarget || edge.toPort !== "flow-in")
@@ -225,7 +237,14 @@ export function planConnectionIssues(
   plan: AgentPlanInput,
   agents: readonly AgentDefinitionChoice[],
 ): readonly AgentPlanIssue[] {
-  const issues = edgeIssues(plan);
+  const issues = [...edgeIssues(plan), ...planGroupIssues(plan, agents, false)];
+  const expanded = expandPlanGroups(plan);
+  for (const node of expanded.nodes)
+    if (
+      node.type === "agent" &&
+      !plan.nodes.some((entry) => entry.id === node.id)
+    )
+      issues.push(...bindingIssues(node, expanded, agents));
   if (new Set(plan.nodes.map((node) => node.id)).size !== plan.nodes.length)
     issues.push({ nodeId: null, port: null, reason: "duplicateNode" });
   for (const node of plan.nodes) {
@@ -291,6 +310,13 @@ export function planExecutionIssues(
   plan: AgentPlanInput,
   agents: readonly AgentDefinitionChoice[],
 ): readonly AgentPlanIssue[] {
+  if (plan.nodes.some((node) => node.type === "group")) {
+    return [
+      ...planConnectionIssues(plan, agents),
+      ...planGroupIssues(plan, agents, true),
+      ...planExecutionIssues(expandPlanGroups(plan), agents),
+    ];
+  }
   const issues = [...planConnectionIssues(plan, agents)];
   const starts = plan.nodes.filter((node) => node.type === "start");
   const ends = plan.nodes.filter((node) => node.type === "end");

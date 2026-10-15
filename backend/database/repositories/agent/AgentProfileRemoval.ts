@@ -1,3 +1,4 @@
+import { mapPlanSteps } from "@/definition/AgentPlanGroup";
 import { readPlanInput } from "@/backend/agents/AgentPlanInput";
 import {
   readNullableTextColumn,
@@ -63,7 +64,7 @@ export class AgentProfileRemoval {
           plans.id,
           plans.plan_json
       FROM agent_plans AS plans,
-          json_each(json_extract(plans.plan_json, '$.nodes')) AS node
+          json_tree(plans.plan_json, '$.nodes') AS node
       WHERE json_extract_string(node.value, '$.type') = 'agent'
           AND (
               json_extract_string(node.value, '$.agentId') = $id
@@ -76,7 +77,7 @@ export class AgentProfileRemoval {
       const plan = readPlanInput(
         JSON.parse(readTextColumn(row, 1, "plan_json")),
       );
-      const nodes = plan.nodes.map((node) => {
+      const cleared = mapPlanSteps(plan, (node) => {
         if (node.type !== "agent") return node;
         return {
           ...node,
@@ -95,7 +96,7 @@ export class AgentProfileRemoval {
         `,
         {
           id: readTextColumn(row, 0, "id"),
-          plan_json: JSON.stringify({ ...plan, nodes }),
+          plan_json: JSON.stringify(cleared),
         },
       );
     }

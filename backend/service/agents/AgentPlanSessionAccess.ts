@@ -26,6 +26,9 @@ const SESSION_TOOLS = [
   "set_ticket_checklist_item",
   "set_ticket_checklist_items",
 ] as const;
+// Moving a bound ticket between statuses is offered only to a node that reports its own progress.
+const STATUS_OPERATION = "ticket.setStatus";
+const STATUS_TOOL = "set_ticket_status";
 
 // The credential outlives the session limit a little, so a slow closing report still reaches Pages.
 const CREDENTIAL_MARGIN_MS = 5 * 60_000;
@@ -48,6 +51,12 @@ export interface AgentPlanSessionGrant {
   readonly tickets: readonly AgentRunTicket[];
   readonly lifetimeMs: number;
   readonly reach: AgentRunReach;
+  /**
+   * Whether a `tickets` reach also moves the bound tickets between statuses,
+   * as a node that completes by its todo list does. The other reaches already
+   * follow the rights of the executor.
+   */
+  readonly canSetStatus?: boolean;
 }
 
 /**
@@ -108,12 +117,16 @@ export class AgentPlanSessionAccess {
     } catch {
       throw new AgentError("plan_mcp_unavailable");
     }
+    const withStatus = grant.canSetStatus === true;
     const issued = await this.credentials.issue(
       grant.userId,
       {
         runId: grant.runId,
         stepId: grant.stepId,
-        operations: grant.reach === "tickets" ? SESSION_OPERATIONS : [],
+        operations:
+          grant.reach === "tickets"
+            ? [...SESSION_OPERATIONS, ...(withStatus ? [STATUS_OPERATION] : [])]
+            : [],
         tickets: grant.tickets,
         reach: grant.reach,
       },
@@ -124,7 +137,10 @@ export class AgentPlanSessionAccess {
       bundle,
       url: this.settings.url,
       token: issued.token,
-      tools: grant.reach === "tickets" ? SESSION_TOOLS : null,
+      tools:
+        grant.reach === "tickets"
+          ? [...SESSION_TOOLS, ...(withStatus ? [STATUS_TOOL] : [])]
+          : null,
     };
   }
 

@@ -20,6 +20,7 @@ import {
 import { PAGES_MCP_SERVER } from "./AcpLaunch";
 import { readMcpServerStatus } from "./AcpMcpStatus";
 
+import type { AgentPlanExecutionInput } from "@/backend/service/agents/AgentPlanStepStart";
 import type { TextExecutionInput } from "@/backend/agents/TextExecution";
 import type {
   ClientConnection,
@@ -76,7 +77,7 @@ export interface AcpSessionContext {
   /** What differs between the adapters of the runners. */
   readonly driver: Pick<
     AcpDriver,
-    "errors" | "supportedVersions" | "isSupportedAdapter"
+    "provider" | "errors" | "supportedVersions" | "isSupportedAdapter"
   >;
   readonly profile: AcpSessionProfile;
   readonly request: AcpSessionRequest;
@@ -143,11 +144,15 @@ export class AcpSession implements PlanSession {
   private readonly context: AcpSessionContext;
   private readonly connection: ClientConnection;
   private readonly state = createAcpSessionState();
+  private observer: PlanSessionObserver;
+  private turnSignal: AbortSignal;
+  private isWorking = true;
   private lastProgressAt = 0;
   private lastProgress = "";
   private promptCapabilities: PromptCapabilities | null | undefined;
   private isModelChecked = false;
   private isModelMismatch = false;
+  private expectedConfiguration: Readonly<Record<string, string>> | null = null;
   /** The text of a local command such as `/mcp`; `null` while the turn is the node's. */
   private localCommandText: string | null = null;
   private closing: Promise<PlanSessionClosed> | null = null;
@@ -166,6 +171,8 @@ export class AcpSession implements PlanSession {
   ) {
     this.process = process;
     this.context = context;
+    this.observer = context.observer;
+    this.turnSignal = context.signal;
     Object.assign(this.state.effective, context.profile.permissions, {
       isolation: context.isolation,
     });
@@ -187,33 +194,102 @@ export class AcpSession implements PlanSession {
     return this.closing;
   }
 
+  /** Continues the native Codex thread with a fresh, turn-scoped step instruction. */
+  public async next(
+    input: AgentPlanExecutionInput,
+    signal: AbortSignal,
+    observer: PlanSessionObserver,
+  ): Promise<PlanSessionTurn> {
+    if (this.context.driver.provider !== "codex_cli")
+      throw new AgentError("provider_invalid");
+    await this.turn;
+    if (this.isWorking || this.closing || this.state.sessionId === null)
+      throw new AgentError("plan_step_failed");
+    this.isWorking = true;
+    this.turnSignal = signal;
+    this.observer = observer;
+    this.state.text = "";
+    this.state.messageId = null;
+    this.state.isMessageOpen = false;
+    this.state.permissionDenials = 0;
+    this.state.tools.clear();
+    const cancel = (): void => this.process.cancel("login_cancelled");
+    signal.addEventListener("abort", cancel, { once: true });
+    if (signal.aborted) cancel();
+    try {
+      signal.throwIfAborted();
+      this.observer.identified(this.redact(this.state.sessionId));
+      noteSessionEvent(
+        this.state.events,
+        `continue session ${this.state.sessionId}; new step instruction`,
+      );
+      return await this.prompt(this.state.sessionId, input);
+    } catch (error: unknown) {
+      return this.failed(error);
+    } finally {
+      signal.removeEventListener("abort", cancel);
+      this.isWorking = false;
+    }
+  }
+
   private async work(): Promise<PlanSessionTurn> {
     try {
       await this.initialize();
       const { sessionId, options } = await this.openSession();
       await this.configure(sessionId, options);
       await this.requirePagesMcp(sessionId);
-      const response = await this.connection.agent.request(
-        methods.agent.session.prompt,
-        {
-          sessionId,
-          prompt: acpTicketAssetPrompt(
-            this.context.request.prompt,
-            await readTicketAssetInput(this.context.request),
-            this.promptCapabilities,
-          ),
-        },
-      );
-      noteSessionEvent(this.state.events, `turn ${response.stopReason}`);
-      if (this.isModelMismatch)
-        return this.ended("failed", "plan_model_unavailable");
-      return this.ended(
-        stopFailure(response.stopReason),
-        this.state.isMcpUnavailable ? "plan_mcp_unavailable" : null,
-      );
+      return await this.prompt(sessionId, this.context.request);
     } catch (error: unknown) {
       return this.failed(error);
+    } finally {
+      this.isWorking = false;
     }
+  }
+
+  private async prompt(
+    sessionId: string,
+    request: Pick<
+      TextExecutionInput,
+      "prompt" | "ticketInputs" | "readTicketAssets"
+    >,
+  ): Promise<PlanSessionTurn> {
+    if (this.hasConfigurationChanged())
+      return this.ended("failed", "plan_context_changed");
+    const response = await this.connection.agent.request(
+      methods.agent.session.prompt,
+      {
+        sessionId,
+        prompt: acpTicketAssetPrompt(
+          request.prompt,
+          await readTicketAssetInput(request),
+          this.promptCapabilities,
+        ),
+      },
+    );
+    noteSessionEvent(this.state.events, `turn ${response.stopReason}`);
+    if (this.hasConfigurationChanged())
+      return this.ended("failed", "plan_context_changed");
+    if (this.isModelMismatch)
+      return this.ended("failed", "plan_model_unavailable");
+    return this.ended(
+      stopFailure(response.stopReason),
+      this.state.isMcpUnavailable ? "plan_mcp_unavailable" : null,
+    );
+  }
+
+  private hasConfigurationChanged(): boolean {
+    if (this.context.driver.provider !== "codex_cli") return false;
+    const expected = this.expectedConfiguration;
+    if (!expected) return false;
+    const conflict = ["sessionMode", "model", "reasoningEffort"].find(
+      (field) => expected[field] !== this.state.effective[field],
+    );
+    if (!conflict) return false;
+    noteSessionEvent(
+      this.state.events,
+      `runtime configuration changed: ${conflict}`,
+    );
+    return true;
   }
 
   private async initialize(): Promise<void> {
@@ -258,7 +334,7 @@ export class AcpSession implements PlanSession {
     );
     this.state.sessionId = response.sessionId;
     noteSessionEvent(this.state.events, `session ${response.sessionId}`);
-    this.context.observer.identified(this.redact(response.sessionId));
+    this.observer.identified(this.redact(response.sessionId));
     return {
       sessionId: response.sessionId,
       options: response.configOptions ?? [],
@@ -274,6 +350,7 @@ export class AcpSession implements PlanSession {
     for (const step of profile.steps(request))
       options = await this.select({ ...step, sessionId, options });
     readAcpConfiguration(this.state, options, profile.reportedOptions);
+    this.expectedConfiguration = { ...this.state.effective };
   }
 
   private async select(
@@ -474,13 +551,13 @@ export class AcpSession implements PlanSession {
     if (progress === this.lastProgress) return;
     this.lastProgressAt = now;
     this.lastProgress = progress;
-    this.context.observer.progressed?.(
+    this.observer.progressed?.(
       this.state.events.map((event) => this.redact(event)),
     );
   }
 
   private async failed(error: unknown): Promise<PlanSessionTurn> {
-    if (this.context.signal.aborted) {
+    if (this.turnSignal.aborted) {
       // The stop or deadline ends the process; its exit tells which.
       const exit = await this.process.exited;
       return this.ended(

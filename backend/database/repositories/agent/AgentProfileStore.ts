@@ -188,7 +188,7 @@ export class AgentProfileStore {
       `
       SELECT DISTINCT plans.id
       FROM agent_plans AS plans,
-          json_each(json_extract(plans.plan_json, '$.nodes')) AS node
+          json_tree(plans.plan_json, '$.nodes') AS node
       WHERE json_extract_string(node.value, '$.type') = 'agent'
           AND (
               json_extract_string(node.value, '$.agentId') = $id

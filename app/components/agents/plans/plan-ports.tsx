@@ -2,13 +2,14 @@ import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 
+import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 import type { AgentPlanStep } from "@/definition/AgentPlan";
 import type { AgentParameter } from "@/definition/AgentParameters";
 import type { PlanGraphActions } from "./use-plan-graph";
 
 /** Every named data IN validates the source type; disconnecting is an explicit operation. */
 export function PlanPorts(props: {
-  readonly node: AgentPlanStep;
+  readonly node: AgentPlanStep | AgentPlanGroup;
   readonly label: string;
   readonly parameters: readonly AgentParameter[];
   readonly graph: PlanGraphActions;
@@ -28,7 +29,7 @@ export function PlanPorts(props: {
     props.graph.bindSource(reference, props.node.id, parameter);
   }
   function disconnect(name: string): void {
-    props.graph.replaceStep({
+    props.graph.replaceNode({
       ...props.node,
       bindings: Object.fromEntries(
         Object.entries(props.node.bindings).filter(([key]) => key !== name),

@@ -1,8 +1,8 @@
 import { Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { planNodeParameters } from "@/definition/AgentPlanGroup";
 import { Button } from "@/app/components/ui/button";
-import { planStepTemplate } from "@/definition/AgentPlanConfiguration";
 import { cn } from "@/app/lib/cn";
 
 import {
@@ -46,15 +46,12 @@ export function PlanNodeCard(props: NodeCardProps): React.ReactElement {
     node.type === "start" || node.type === "end"
       ? t(`plans.nodeType.${node.type}`)
       : planNodeLabel(node, props.sources) || t("plans.missingAgent");
-  const parameters =
-    node.type === "agent"
-      ? (planStepTemplate(node, props.sources.agents)?.parameters ?? [])
-      : [];
+  const parameters = planNodeParameters(node, props.sources.agents);
   const output = OUTPUT_LABELS[node.type];
   return (
     <article
       onDoubleClick={() => {
-        if (node.type === "agent") {
+        if (node.type === "agent" || node.type === "group") {
           graph.select(node.id);
           props.onEdit?.(node.id);
         }
@@ -76,7 +73,7 @@ export function PlanNodeCard(props: NodeCardProps): React.ReactElement {
     >
       <NodeHeader {...props} label={label} />
       <PlanFlowPorts node={node} graph={graph} canEdit={props.canEdit} />
-      {node.type === "agent" ? (
+      {node.type === "agent" || node.type === "group" ? (
         <PlanPorts
           node={node}
           label={label}

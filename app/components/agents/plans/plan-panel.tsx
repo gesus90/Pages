@@ -6,6 +6,7 @@ import { Tabs, TabsContent } from "@/app/components/ui/tabs";
 import { cn } from "@/app/lib/cn";
 
 import { AgentSources, TaskSources } from "./plan-sources";
+import { PlanGroupSources } from "./plan-group-sources";
 import { PlanParameters } from "./plan-parameters";
 import { PlanInspector } from "./plan-inspector";
 
@@ -51,6 +52,7 @@ export function PlanPanel(props: {
           ariaLabel={t("plans.pickers")}
           tabs={[
             { value: "agents", label: t("plans.tabs.agents") },
+            { value: "groups", label: t("plans.tabs.groups") },
             { value: "tickets", label: t("plans.tabs.tickets") },
             { value: "parameters", label: t("plans.tabs.parameters") },
           ]}
@@ -60,6 +62,13 @@ export function PlanPanel(props: {
               sources={editor.sources}
               graph={editor.graph}
               canEdit={!disabled}
+            />
+          </TabsContent>
+          <TabsContent value="groups" className="pt-3">
+            <PlanGroupSources
+              draft={editor.draft}
+              graph={editor.graph}
+              disabled={disabled}
             />
           </TabsContent>
           <TabsContent value="tickets" className="pt-3">

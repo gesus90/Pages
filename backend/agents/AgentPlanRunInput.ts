@@ -29,6 +29,12 @@ function readResult(input: unknown): AgentPlanStepResult {
     throw new AgentError("plan_invalid");
   return {
     id: readPlanText(step.id),
+    ...(step.groupId === undefined
+      ? {}
+      : { groupId: readPlanText(step.groupId) }),
+    ...(step.failedStepId === undefined
+      ? {}
+      : { failedStepId: readPlanText(step.failedStepId) }),
     name: readPlanText(step.name, 120),
     status,
     cancellation,

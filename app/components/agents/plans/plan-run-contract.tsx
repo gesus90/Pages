@@ -94,16 +94,25 @@ export function PlanRunContract({
 }): React.ReactElement {
   const { t } = useTranslation();
   const verdict = acceptance?.verdict ?? "pending";
+  const isTodoList = contract.completion === "todos";
+  const label = t(
+    `plans.session.${isTodoList ? "todoVerdict" : "verdict"}.${verdict}`,
+  );
   return (
-    <details className="text-xs" open={acceptance?.verdict === "rejected"}>
-      <summary className="cursor-pointer font-medium">
-        {t(`plans.session.verdict.${verdict}`)}
-      </summary>
+    <details
+      className="text-xs"
+      open={verdict === "rejected" || verdict === "open"}
+    >
+      <summary className="cursor-pointer font-medium">{label}</summary>
       <div className="pages-selectable mt-1 space-y-2">
         <h4 className="font-medium">{t("plans.session.todos")}</h4>
         <Todos contract={contract} acceptance={acceptance} />
-        <h4 className="font-medium">{t("plans.session.criteria")}</h4>
-        <Criteria contract={contract} acceptance={acceptance} />
+        {contract.criteria.length > 0 ? (
+          <>
+            <h4 className="font-medium">{t("plans.session.criteria")}</h4>
+            <Criteria contract={contract} acceptance={acceptance} />
+          </>
+        ) : null}
         {acceptance && acceptance.issues.length > 0 ? (
           <p className="text-destructive">
             {t("plans.session.issues")}: {acceptance.issues.join(", ")}

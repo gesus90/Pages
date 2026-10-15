@@ -1,4 +1,4 @@
-import type { AgentParameterValue } from "./AgentParameters.js";
+import type { AgentParameter, AgentParameterValue } from "./AgentParameters.js";
 import type { PageAgentSharingEntry } from "./PageAgentOperations.js";
 
 /**
@@ -40,6 +40,9 @@ export type AgentPlanWriteOperation =
  * graph check of Pages uses exactly these names.
  */
 export const AGENT_PLAN_ISSUE_PROBLEMS = [
+  "groupSize",
+  "groupProvider",
+  "groupConfiguration",
   "duplicateNode",
   "port",
   "duplicate",
@@ -90,6 +93,27 @@ export interface AgentPlanAgentNodeEntry extends AgentPlanNodeBase {
   /** `null` for automatic model access, empty when an explicit one was removed. */
   readonly personalAgentId: string | null;
   readonly instruction: string;
+  /** `todos` follows only the ticket's todo list and never gates the run; absent means `report`. */
+  readonly completion?: "report" | "todos";
+  readonly bindings: Readonly<Record<string, AgentPlanBindingEntry>>;
+}
+
+/** An agent step inside a group; its order in the group is its execution order. */
+export type AgentPlanGroupStepEntry = Omit<AgentPlanAgentNodeEntry, "label">;
+
+/**
+ * A sequential group of agent steps with the inputs at its boundary.
+ *
+ * @remarks
+ * Declared here instead of importing the group of the plan model, because the
+ * MCP package type-checks this file on its own.
+ */
+export interface AgentPlanGroupNodeEntry extends AgentPlanNodeBase {
+  readonly type: "group";
+  readonly name: string;
+  readonly steps: readonly AgentPlanGroupStepEntry[];
+  /** The inputs of the group; each has a stable `id` that step bindings refer to. */
+  readonly parameters: readonly (AgentParameter & { readonly id: string })[];
   readonly bindings: Readonly<Record<string, AgentPlanBindingEntry>>;
 }
 
@@ -104,6 +128,7 @@ export interface AgentPlanParameterNodeEntry extends AgentPlanNodeBase {
 /** A node as a client reads it and writes it back in a change. */
 export type AgentPlanNodeEntry =
   | AgentPlanAgentNodeEntry
+  | AgentPlanGroupNodeEntry
   | AgentPlanParameterNodeEntry
   | (AgentPlanNodeBase & { readonly type: "start" | "end" })
   | (AgentPlanNodeBase & { readonly type: "task"; readonly taskId: string })
@@ -232,7 +257,7 @@ export interface AgentPlanRunStepEntry {
   readonly isBlocked: boolean;
   readonly error: string | null;
   /** The business acceptance of an agent step; `null` before its report or without one. */
-  readonly verdict: "accepted" | "rejected" | null;
+  readonly verdict: "accepted" | "open" | "rejected" | null;
   readonly startedAt: string | null;
   readonly endedAt: string | null;
   /** Whether {@link AgentPlanReport} has something for this node. */
@@ -264,7 +289,7 @@ export interface AgentPlanReport {
   /** The final, redacted result text of the node. */
   readonly output: string | null;
   readonly error: string | null;
-  readonly verdict: "accepted" | "rejected" | null;
+  readonly verdict: "accepted" | "open" | "rejected" | null;
   readonly summary: string | null;
   readonly todos: readonly {
     readonly id: string;

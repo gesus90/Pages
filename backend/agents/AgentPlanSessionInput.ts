@@ -122,6 +122,9 @@ function readContract(input: unknown): AgentPlanContract | null {
   )
     throw invalid();
   return {
+    ...(contract.completion === "todos"
+      ? { completion: "todos" as const }
+      : {}),
     todos: contract.todos.map(readItem),
     criteria: contract.criteria.map(readItem),
     tickets: contract.tickets.map((entry: unknown) => {
@@ -143,7 +146,11 @@ function readAcceptance(input: unknown): AgentPlanAcceptance | null {
   if (!Array.isArray(acceptance.todos) || !Array.isArray(acceptance.criteria))
     throw invalid();
   return {
-    verdict: oneOf(acceptance.verdict, ["accepted", "rejected"] as const),
+    verdict: oneOf(acceptance.verdict, [
+      "accepted",
+      "open",
+      "rejected",
+    ] as const),
     todos: acceptance.todos.map((entry: unknown) => {
       const todo = readAgentObject(entry);
       return {

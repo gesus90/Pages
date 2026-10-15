@@ -1,3 +1,4 @@
+import { expandPlanGroups } from "@/definition/AgentPlanGroup";
 import { unsupportedRunOption } from "@/backend/agents/cli/CliSessionPlans";
 import { planStepTemplate } from "@/definition/AgentPlanConfiguration";
 import { AgentError } from "@/backend/error/AgentErrors";
@@ -6,6 +7,7 @@ import { isApiProvider } from "@/definition/AgentConnection";
 import { planExecutionIssues } from "@/definition/AgentPlanGraph";
 import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
 
+import { validateGroupRuntimes } from "./AgentPlanGroupRuntime";
 import { planBindings } from "./AgentPlanBindings";
 import { hasPlanPath, planSteps } from "./AgentPlanGraph";
 import { planStepDirectory } from "./AgentPlanSnapshot";
@@ -46,6 +48,8 @@ export class AgentPlanPreparation {
     );
     const issues = planExecutionIssues(plan, catalog);
     if (issues.length > 0) throw new AgentPlanValidationError(issues);
+    const groups = plan.nodes.filter((node) => node.type === "group");
+    plan = expandPlanGroups(plan);
     const steps = planSteps(plan);
     if (steps.length === 0) throw new AgentError("plan_invalid");
     const tasks = await Promise.all(
@@ -109,6 +113,10 @@ export class AgentPlanPreparation {
       });
       snapshots.push({
         step,
+        groupId: groups.find((group) =>
+          group.steps.some((entry) => entry.id === step.id),
+        )?.id,
+        connectionId: resolved.assignment.connection.id,
         ...stepOrigin(step, resolved.profile),
         template,
         provider: resolved.assignment.connection.provider,
@@ -123,8 +131,13 @@ export class AgentPlanPreparation {
         ),
       });
     }
+    validateGroupRuntimes(groups, snapshots);
     validateWorkingCopies(plan, snapshots);
-    return { plan: structuredClone(plan), steps: structuredClone(snapshots) };
+    return {
+      plan: structuredClone(plan),
+      groups: structuredClone(groups),
+      steps: structuredClone(snapshots),
+    };
   }
 }
 

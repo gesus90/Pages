@@ -1,12 +1,15 @@
 import type { AgentPlanConfiguration } from "./AgentPlanConfiguration";
 import type { PageAgentModel } from "./PageAgent";
-
 import type { AgentDefinitionChoice } from "./AgentAvailability";
 import type { AgentParameterValue } from "./AgentParameters";
 import type { AgentConfiguration } from "./AgentConfiguration";
 import type { AgentProfileDirectory } from "./AgentProfile";
-import type { AgentPlanSessionRecord } from "./AgentPlanSession";
+import type {
+  AgentPlanCompletion,
+  AgentPlanSessionRecord,
+} from "./AgentPlanSession";
 import type { AgentWorkspaceChoice, WorkspaceGitHub } from "./AgentWorkspace";
+import type { AgentPlanGroup } from "./AgentPlanGroup";
 
 /** Plan sources and execution dependencies are deliberately separate contracts. */
 export type AgentPlanBinding =
@@ -30,6 +33,8 @@ export interface AgentPlanStep extends AgentPlanPosition {
   readonly instruction: string;
   /** Absent only in plans saved before independent node configurations. */
   readonly configuration?: AgentPlanConfiguration;
+  /** Absent means `report`, the completion of every node before this field existed. */
+  readonly completion?: AgentPlanCompletion;
   readonly bindings: Readonly<Record<string, AgentPlanBinding>>;
 }
 
@@ -45,6 +50,7 @@ export interface AgentPlanParameter extends AgentPlanPosition {
 /** Source nodes provide input; they never create an execution dependency. */
 export type AgentPlanNode =
   | AgentPlanStep
+  | AgentPlanGroup
   | AgentPlanParameter
   | (AgentPlanPosition & { readonly id: string; readonly type: "end" })
   | (AgentPlanPosition & {
@@ -132,6 +138,8 @@ export type AgentPlanStepStatus =
 /** Blocked waiting steps and confirmed cancellations remain distinguishable. */
 export interface AgentPlanStepResult {
   readonly id: string;
+  readonly groupId?: string;
+  readonly failedStepId?: string;
   readonly name: string;
   readonly status: AgentPlanStepStatus;
   readonly isBlocked: boolean;

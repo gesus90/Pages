@@ -3068,6 +3068,13 @@
     "save": "Save workspace"
   },
   "plans": {
+    "completion": {
+      "label": "Completion",
+      "report": "Closing report with acceptance criteria",
+      "todos": "Current todo list only",
+      "reportHint": "The node counts as finished only after a closing report that proves every todo and acceptance criterion, and the ticket entries are checked.",
+      "todosHint": "Only the todo list of the bound ticket counts and is ticked live. Acceptance criteria, report format and ticket changes during the run never stop the node; open todos are shown as open."
+    },
     "nodeConfigurationHint": "Changes apply only to this node. The agent template and other nodes remain unchanged.",
     "nodeMarkdown": "AGENT.md / instruction for this node",
     "editNode": "Edit selected agent node",
@@ -3153,7 +3160,8 @@
       "variable": "Variable",
       "start": "Start",
       "end": "End",
-      "parameter": "Parameter"
+      "parameter": "Parameter",
+      "group": "Groups"
     },
     "status": {
       "waiting": "Waiting",
@@ -3174,7 +3182,8 @@
     "tabs": {
       "agents": "Agents",
       "tickets": "Tickets",
-      "parameters": "Parameters"
+      "parameters": "Parameters",
+      "groups": "Groups"
     },
     "collapsePanel": "Collapse panel",
     "expandPanel": "Open panel",
@@ -3217,7 +3226,10 @@
       "agent": "At least one usable agent is required; check availability and permission.",
       "name": "Start names with a lowercase letter; use only a–z, 0–9 and underscore, up to 64 characters.",
       "json": "Enter exactly one valid JSON value. Numbers must be finite.",
-      "number": "Enter exactly one finite number."
+      "number": "Enter exactly one finite number.",
+      "groupSize": "A group requires at least two agents.",
+      "groupProvider": "This adapter cannot continue the same native session with a new step instruction. Use Codex CLI.",
+      "groupConfiguration": "The resolved runtime field conflicts with the shared group configuration."
     },
     "createPortValue": "Value as parameter node",
     "session": {
@@ -3278,6 +3290,11 @@
         "accepted": "Completion contract · accepted",
         "rejected": "Completion contract · not accepted"
       },
+      "todoVerdict": {
+        "pending": "Todo list · result pending",
+        "accepted": "Todo list · all todos done",
+        "open": "Todo list · todos still open"
+      },
       "todoStatus": {
         "done": "done",
         "open": "open",
@@ -3312,7 +3329,24 @@
     "deletePlan": "Delete plan",
     "deleteTitle": "Delete plan “{{name}}”?",
     "deleteDescription": "The plan disappears for everyone it is shared with. Finished runs stay in the run records of the agents. A running or paused run must be stopped first.",
-    "confirmDelete": "Delete plan"
+    "confirmDelete": "Delete plan",
+    "groups": {
+      "defaultName": "Agent group",
+      "create": "Create group",
+      "name": "Group name",
+      "hint": "At least two Codex agents in a fixed sequence with the same connection and runtime configuration. A boundary port distributes the same value to multiple agents.",
+      "interfaces": "Boundary ports",
+      "portName": "Port name",
+      "portType": "Port type",
+      "required": "Required value",
+      "removePort": "Remove port",
+      "addPort": "Add port",
+      "addAgent": "Add agent to group",
+      "order": "Internal subgraph / execution order",
+      "up": "Move agent up",
+      "down": "Move agent down",
+      "step": "{{name}} · Step {{index}}"
+    }
   },
   "mcpDuration": {
     "label": "Validity in days",

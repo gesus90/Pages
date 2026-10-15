@@ -31,6 +31,9 @@ export default tseslint.config(
   {
     // Rules cannot be switched off with `eslint-disable` comments.
     linterOptions: { noInlineConfig: true },
+    languageOptions: {
+      parserOptions: { tsconfigRootDir: import.meta.dirname },
+    },
   },
   ...tseslint.configs.recommended,
   {

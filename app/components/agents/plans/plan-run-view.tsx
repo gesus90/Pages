@@ -88,46 +88,58 @@ function RunSteps({
   const { t } = useTranslation();
   return (
     <ol className="space-y-3">
-      {steps.map((step) => (
-        <li key={step.id} className="rounded-lg bg-surface p-3 text-sm">
-          <p className="font-medium">
-            {t(`plans.nodeType.${step.name}`, {
-              defaultValue: step.name,
-            })}{" "}
-            <span className="font-normal">
-              {t(
-                step.isBlocked
-                  ? "plans.blocked"
-                  : `plans.status.${step.status}`,
-              )}
-            </span>
-          </p>
-          {step.cancellation !== "none" ? (
-            <p className="text-xs text-muted-foreground">
-              {t(`plans.cancellation.${step.cancellation}`)}
+      {steps.map((step) => {
+        const group = steps.find((entry) => entry.id === step.groupId);
+        const index =
+          steps
+            .filter((entry) => entry.groupId === step.groupId)
+            .findIndex((entry) => entry.id === step.id) + 1;
+        return (
+          <li key={step.id} className="rounded-lg bg-surface p-3 text-sm">
+            {group ? (
+              <p className="text-xs text-muted-foreground">
+                {t("plans.groups.step", { name: group.name, index })}
+              </p>
+            ) : null}
+            <p className="font-medium">
+              {t(`plans.nodeType.${step.name}`, {
+                defaultValue: step.name,
+              })}{" "}
+              <span className="font-normal">
+                {t(
+                  step.isBlocked
+                    ? "plans.blocked"
+                    : `plans.status.${step.status}`,
+                )}
+              </span>
             </p>
-          ) : null}
-          {step.error ? (
-            <p className="text-destructive">
-              {t(`settings.agents.error.${step.error}`, {
-                defaultValue: t(`assistant.error.${step.error}`),
-              })}
-            </p>
-          ) : null}
-          {step.output !== null ? (
-            <pre className="pages-selectable mt-2 whitespace-pre-wrap break-words font-sans">
-              {step.output}
-            </pre>
-          ) : null}
-          {step.session ? (
-            <PlanRunSession
-              runId={runId}
-              stepId={step.id}
-              session={step.session}
-            />
-          ) : null}
-        </li>
-      ))}
+            {step.cancellation !== "none" ? (
+              <p className="text-xs text-muted-foreground">
+                {t(`plans.cancellation.${step.cancellation}`)}
+              </p>
+            ) : null}
+            {step.error ? (
+              <p className="text-destructive">
+                {t(`settings.agents.error.${step.error}`, {
+                  defaultValue: t(`assistant.error.${step.error}`),
+                })}
+              </p>
+            ) : null}
+            {step.output !== null ? (
+              <pre className="pages-selectable mt-2 whitespace-pre-wrap break-words font-sans">
+                {step.output}
+              </pre>
+            ) : null}
+            {step.session ? (
+              <PlanRunSession
+                runId={runId}
+                stepId={step.id}
+                session={step.session}
+              />
+            ) : null}
+          </li>
+        );
+      })}
     </ol>
   );
 }

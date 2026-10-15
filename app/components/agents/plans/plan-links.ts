@@ -27,7 +27,7 @@ export function planLinks(plan: AgentPlanInput): readonly PlanLink[] {
     .filter((edge) => ids.has(edge.from) && ids.has(edge.to))
     .map((edge) => ({ kind: "flow", from: edge.from, to: edge.to }));
   for (const target of plan.nodes) {
-    if (target.type !== "agent") continue;
+    if (target.type !== "agent" && target.type !== "group") continue;
     for (const [parameter, binding] of Object.entries(target.bindings)) {
       if (binding.kind === "literal") continue;
       const from = binding.kind === "source" ? binding.nodeId : binding.stepId;
@@ -60,7 +60,11 @@ export function removePlanLink(
   return {
     ...draft,
     nodes: draft.nodes.map((node) => {
-      if (node.id !== link.to || node.type !== "agent") return node;
+      if (
+        node.id !== link.to ||
+        (node.type !== "agent" && node.type !== "group")
+      )
+        return node;
       const bindings = Object.fromEntries(
         Object.entries(node.bindings).filter(
           ([parameter]) => parameter !== link.parameter,

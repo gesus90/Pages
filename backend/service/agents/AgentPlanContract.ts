@@ -1,6 +1,7 @@
 import { readMarkdownTasks } from "@/backend/service/task/TicketChecklist";
 
 import type {
+  AgentPlanCompletion,
   AgentPlanContract,
   AgentPlanContractItem,
 } from "@/definition/AgentPlanSession";
@@ -31,6 +32,8 @@ export interface AgentPlanContractOptions {
    * "Nur Lesen": it reports its tickets instead of setting their entries.
    */
   readonly isReadOnly: boolean;
+  /** How the node is judged; absent is `report`. */
+  readonly completion?: AgentPlanCompletion;
 }
 
 /** The run contract text that tells the agent what Pages checks. */
@@ -87,20 +90,23 @@ function mcpLines(assignment: AgentPlanAssignment): readonly string[] {
  *
  * @param instruction - The instruction of the node; its task list items become todos.
  * @param tickets - The tickets bound to the node, with their current checklists.
- * @param options - Whether the node may change anything.
+ * @param options - Whether the node may change anything, and how it completes.
  * @returns Todos, criteria and tickets; a node without any gets one default each.
  *
  * @remarks
  * Task list items of a ticket description are todos, the acceptance criteria
  * of a ticket are criteria. Both keep their checklist item, so the agent sets
  * them through MCP and Pages checks the same entries afterwards; a read-only
- * node only reports them.
+ * node only reports them. A node that completes by its todo list has only
+ * todos: the criteria of its tickets are not part of its contract, and no
+ * default todo or criterion is invented.
  */
 export function buildPlanContract(
   instruction: string,
   tickets: readonly AgentPlanTicketChecklist[],
   options: AgentPlanContractOptions,
 ): AgentPlanContract {
+  const isTodoList = options.completion === "todos";
   const todos: AgentPlanContractItem[] = readMarkdownTasks(instruction).map(
     (task, index) => ({ id: `T${index + 1}`, text: task.text, ticket: null }),
   );
@@ -114,13 +120,31 @@ export function buildPlanContract(
           text: item.text,
           ticket: reference,
         });
-      else
+      else if (!isTodoList)
         criteria.push({
           id: `K${criteria.length + 1}`,
           text: item.text,
           ticket: reference,
         });
     }
+  if (!isTodoList) addDefaults(todos, criteria, options);
+  return {
+    ...(isTodoList ? { completion: "todos" as const } : {}),
+    todos,
+    criteria,
+    tickets: tickets.map(({ id, key, checklist }) => ({
+      id,
+      key,
+      requirementsHash: checklist.requirementsHash,
+    })),
+  };
+}
+
+function addDefaults(
+  todos: AgentPlanContractItem[],
+  criteria: AgentPlanContractItem[],
+  options: AgentPlanContractOptions,
+): void {
   if (todos.length === 0)
     todos.push({ id: "T1", text: DEFAULT_TODO, ticket: null });
   if (criteria.length === 0)
@@ -131,15 +155,73 @@ export function buildPlanContract(
         : DEFAULT_CRITERION,
       ticket: null,
     });
-  return {
-    todos,
-    criteria,
-    tickets: tickets.map(({ id, key, checklist }) => ({
-      id,
-      key,
-      requirementsHash: checklist.requirementsHash,
-    })),
-  };
+}
+
+function todoMcpLines(assignment: AgentPlanAssignment): readonly string[] {
+  const { contract } = assignment;
+  if (!assignment.usesMcp) return [];
+  const keys = contract.tickets.map((ticket) => `\`${ticket.key}\``).join(", ");
+  if (assignment.isReadOnly)
+    return [
+      "- The Pages MCP server is connected read-only: you may read Pages content, every change is refused.",
+      ...(keys
+        ? [
+            `- Read ticket ${keys} with \`read_ticket\` and \`read_ticket_checklist\`. You cannot change its status or checklist in this mode; name the todos you finished in your closing message.`,
+          ]
+        : []),
+    ];
+  if (keys === "")
+    return [
+      "- The Pages MCP server is connected with the tools your account may use.",
+    ];
+  return [
+    `- The Pages MCP server is connected for ticket ${keys}. Call \`read_ticket\` for its status and the status IDs of its project, and \`read_ticket_checklist\` for the entries and the current revision.`,
+    '- Before you start the work, move the ticket to its in-progress status ("In Arbeit") with `set_ticket_status` unless it already has it; `expectedStatusId` is the status you read.',
+    "- Tick every todo as soon as it is really done, do not wait for the end: `set_ticket_checklist_items` with the ticket ID, `expectedRevision`, `items` of `{itemId, checked: true}` and a new `operationId` (or `set_ticket_checklist_item` for one). Never tick a todo you did not finish. After a `CONFLICT`, read the checklist again and continue with what it holds now.",
+    '- When every current todo is done, move the ticket to its review status ("Review") the same way. Never set it to done.',
+    "- Changes of the ticket by others, new revisions and your own writes do not stop the run: read again, take over the current list and continue without redoing finished work.",
+  ];
+}
+
+function renderTodoAssignment(assignment: AgentPlanAssignment): string {
+  const { contract } = assignment;
+  const tickets = contract.tickets.map(
+    (ticket) => `- ${ticket.key} (ID \`${ticket.id}\`)`,
+  );
+  const example = JSON.stringify({
+    todos: contract.todos.map((todo) => ({ id: todo.id, status: "done" })),
+    decisions: [],
+    summary: "<one sentence>",
+  });
+  return [
+    "---",
+    "## Pages run contract",
+    `Runner: ${assignment.runnerLabel} · session instance \`${assignment.instanceId}\``,
+    `Workspace: \`${assignment.directory}\``,
+    ...(tickets.length > 0 ? ["", "### Tickets", ...tickets] : []),
+    "",
+    "### Todo list",
+    ...(contract.todos.length > 0
+      ? contract.todos.map(itemLine)
+      : ["- The ticket lists no todo; the instruction above is the work."]),
+    "",
+    "### How to work",
+    "- Only the current todo list counts. Acceptance criteria, criterion evidence and a criteria report are not requested or checked; ignore any earlier text that asks for them.",
+    "- Work only in the workspace. Nobody answers questions during this run: when a choice is needed, take the recommended option, otherwise decide yourself and name the decision in your closing message.",
+    ...(assignment.isReadOnly
+      ? [
+          "- This session is read-only: read the workspace, but do not create, change or delete files. Commands are not available.",
+        ]
+      : []),
+    ...todoMcpLines(assignment),
+    "",
+    "### Closing message",
+    "Finish with a short summary: the todos you completed, the todos that stay open and why, and your decisions. Pages shows the todos as they are checked in the ticket after your turn; open ones stay open and do not fail the node.",
+    "A `pages-report` block is optional and only shown. It is the only record of a todo without a ticket entry:",
+    "```pages-report",
+    example,
+    "```",
+  ].join("\n");
 }
 
 /**
@@ -154,6 +236,7 @@ export function buildPlanContract(
  */
 export function renderPlanAssignment(assignment: AgentPlanAssignment): string {
   const { contract } = assignment;
+  if (contract.completion === "todos") return renderTodoAssignment(assignment);
   const tickets = contract.tickets.map(
     (ticket) => `- ${ticket.key} (ID \`${ticket.id}\`)`,
   );

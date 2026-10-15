@@ -1,9 +1,9 @@
 import { isAcpProvider } from "@/definition/AgentConfiguration";
 
+import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 import type { AgentPlan, AgentPlanStep } from "@/definition/AgentPlan";
 import type { AgentProviderId } from "@/definition/AgentConnection";
 import type { AgentPlanTemplate } from "@/definition/AgentPlanConfiguration";
-
 import type { ResolvedAgentWorkspace } from "@/definition/AgentWorkspace";
 import type { PreparedAgentParameters } from "./AgentParameterService";
 
@@ -12,6 +12,8 @@ export type { AgentPlanTemplate } from "@/definition/AgentPlanConfiguration";
 /** Model identity is pinned while credentials and permission checks remain live. */
 export interface AgentPlanStepSnapshot {
   readonly step: AgentPlanStep;
+  readonly groupId?: string;
+  readonly connectionId?: string;
   readonly name: string;
   readonly revision: number;
   readonly template: AgentPlanTemplate;
@@ -26,6 +28,7 @@ export interface AgentPlanStepSnapshot {
 /** This server-only record is persisted once and never sent as a run response. */
 export interface AgentPlanSnapshot {
   readonly plan: AgentPlan;
+  readonly groups?: readonly AgentPlanGroup[];
   readonly steps: readonly AgentPlanStepSnapshot[];
 }
 

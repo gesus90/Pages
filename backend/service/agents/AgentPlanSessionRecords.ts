@@ -138,7 +138,8 @@ export function failureCode(
     return isDenied
       ? "plan_runner_permission_denied"
       : "plan_runner_incomplete";
-  if (acceptance?.verdict !== "accepted")
+  // `open` only exists for a todo list completion, where open todos never fail the node.
+  if (acceptance === null || acceptance.verdict === "rejected")
     return isDenied
       ? "plan_runner_permission_denied"
       : "plan_acceptance_failed";

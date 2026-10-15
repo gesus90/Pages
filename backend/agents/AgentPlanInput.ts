@@ -1,14 +1,18 @@
+import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { isAgentParameterName } from "@/definition/AgentParameters";
 import { planValueIssue } from "@/definition/AgentPlanValue";
 
 import {
   readAgentParameterValue,
+  readAgentConfiguration,
   readAgentTargets,
 } from "./AgentConfigurationInput";
 import { readPlanConfiguration } from "./AgentPlanConfigurationInput";
 import { readAgentObject } from "./AgentPayload";
 
+import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
+import type { AgentPlanCompletion } from "@/definition/AgentPlanSession";
 import type {
   AgentPlanBinding,
   AgentPlanEdge,
@@ -16,6 +20,7 @@ import type {
   AgentPlanNode,
   AgentPlanPosition,
   AgentPlanParameter,
+  AgentPlanStep,
 } from "@/definition/AgentPlan";
 
 /** Bounds untrusted graph labels and identifiers before any resource lookup. */
@@ -96,6 +101,7 @@ export function readPlanNode(input: unknown): AgentPlanNode {
   if (node.type === "start" || node.type === "end")
     return { ...base, type: node.type };
   if (node.type === "parameter") return readParameterNode(node, base);
+  if (node.type === "group") return readGroupNode(node, base);
   if (node.type === "task")
     return { ...base, type: "task", taskId: readPlanText(node.taskId) };
   if (node.type === "variable") {
@@ -103,6 +109,13 @@ export function readPlanNode(input: unknown): AgentPlanNode {
     if (!isAgentParameterName(name)) throw new AgentError("plan_invalid");
     return { ...base, type: "variable", name };
   }
+  return readStepNode(node, base);
+}
+
+function readStepNode(
+  node: Record<string, unknown>,
+  base: AgentPlanPosition & { readonly id: string },
+): AgentPlanStep {
   if (
     node.type !== "agent" ||
     typeof node.instruction !== "string" ||
@@ -121,8 +134,18 @@ export function readPlanNode(input: unknown): AgentPlanNode {
     ...(node.configuration === undefined
       ? {}
       : { configuration: readPlanConfiguration(node.configuration) }),
+    ...(readCompletion(node.completion) === "todos"
+      ? { completion: "todos" as const }
+      : {}),
     bindings: readBindings(node.bindings),
   };
+}
+
+/** Narrows the completion of a node; `report` is the default and is not stored. */
+function readCompletion(input: unknown): AgentPlanCompletion {
+  if (input === undefined || input === "report") return "report";
+  if (input === "todos") return "todos";
+  throw new AgentError("plan_invalid");
 }
 
 function readEdge(input: unknown): AgentPlanEdge {
@@ -214,6 +237,15 @@ export function readPlanInput(input: unknown): AgentPlanInput {
       revision < 1)
   )
     throw new AgentError("plan_invalid");
+  const nodes = plan.nodes.map(readPlanNode);
+  if (
+    nodes.reduce(
+      (count, node) =>
+        count + 1 + (node.type === "group" ? node.steps.length : 0),
+      0,
+    ) > 100
+  )
+    throw new AgentError("plan_invalid");
   return {
     name: readPlanText(plan.name, 120),
     workspaceId: readPlanText(plan.workspaceId),
@@ -225,7 +257,7 @@ export function readPlanInput(input: unknown): AgentPlanInput {
       ? {}
       : { sharing: readSharing(plan.sharing) }),
     globals: readGlobals(plan.globals),
-    nodes: plan.nodes.map(readPlanNode),
+    nodes,
     edges: plan.edges.map(readEdge),
     ...(revision === undefined ? {} : { revision }),
   };
@@ -235,4 +267,42 @@ function readPlanObject(input: unknown): Record<string, unknown> {
   if (typeof input !== "object" || input === null || Array.isArray(input))
     throw new AgentError("plan_invalid");
   return readAgentObject(input);
+}
+
+function readGroupNode(
+  node: Record<string, unknown>,
+  base: AgentPlanPosition & { readonly id: string },
+): AgentPlanGroup {
+  if (
+    !Array.isArray(node.steps) ||
+    node.steps.length > 50 ||
+    !Array.isArray(node.parameters) ||
+    node.parameters.length > 64
+  )
+    throw new AgentError("plan_invalid");
+  const steps = node.steps.map((input: unknown) => {
+    const raw = readPlanObject(input);
+    if (raw.type !== "agent") throw new AgentError("plan_invalid");
+    const step = readPlanNode(raw);
+    if (step.type !== "agent") throw new AgentError("plan_invalid");
+    return step;
+  });
+  const ports: readonly unknown[] = node.parameters;
+  const configuration = readAgentConfiguration({
+    ...emptyAgentConfiguration(),
+    parameters: ports,
+    markdown: "",
+  });
+  const parameters = configuration.parameters.map((parameter, index) => ({
+    ...parameter,
+    id: readPlanText(readPlanObject(ports[index]).id),
+  }));
+  return {
+    ...base,
+    type: "group",
+    name: readPlanText(node.name, 120),
+    steps,
+    parameters,
+    bindings: readBindings(node.bindings),
+  };
 }
