@@ -30,6 +30,8 @@ import { AgentAssignmentService } from "@/backend/service/agents/AgentAssignment
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import { AgentPlanGitHubCredentials } from "@/backend/service/agents/AgentPlanGitHubCredentials";
 import { CliGitHubCredentials } from "@/backend/agents/cli/CliGitHubCredentials";
+import { CliPlanIsolation } from "@/backend/agents/cli/CliPlanIsolation";
+import { agentRunNotesRoot } from "@/backend/service/agents/AgentRunNotesPath";
 
 import { createAgentConfigurationServices } from "./agent-workspace-services.server";
 
@@ -41,6 +43,7 @@ import type { AgentWorkspaceService } from "@/backend/service/agents/AgentWorksp
 import type { AgentConfigurationApplicationServices } from "./agent-workspace-services.server";
 
 export interface AgentApplicationServices extends AgentConfigurationApplicationServices {
+  readonly agentPlanIsolation: CliPlanIsolation;
   readonly agentAssignmentService: AgentAssignmentService;
   readonly agentCatalogService: AgentCatalogService;
   readonly agentCatalogScheduler: AgentCatalogScheduler;
@@ -66,6 +69,7 @@ export interface AgentApplicationServices extends AgentConfigurationApplicationS
 }
 
 interface ExecutionInput {
+  readonly planIsolation: CliPlanIsolation;
   /** Instance folders a CLI agent process must not reach. */
   readonly protectedDirectories: readonly string[];
   /** Operator choice: refuse CLI plan steps where no isolation is possible. */
@@ -131,6 +135,7 @@ function createExecutions(
       new ApiTextExecution(repository, cipher),
       new CliSessionExecution({
         ...cliAdapters,
+        planIsolation: input.planIsolation,
         github: input.github,
         isolation: {
           protectedDirectories: input.protectedDirectories,
@@ -168,6 +173,28 @@ interface AgentServiceResources {
   readonly ticketAssets: AgentTicketAssetDependencies;
 }
 
+/** Shares one refresh worker and operation registry between catalog reads and its scheduler. */
+function createAgentCatalogServices(
+  repository: AgentConnectionRepository,
+  refresh: AgentCatalogRefresh,
+  operations: AgentOperationRegistry,
+): Pick<
+  AgentApplicationServices,
+  "agentCatalogService" | "agentCatalogScheduler"
+> {
+  return {
+    agentCatalogService: new AgentCatalogService(
+      repository,
+      refresh,
+      operations,
+    ),
+    agentCatalogScheduler: new AgentCatalogScheduler(
+      repository.catalogs(),
+      refresh,
+    ),
+  };
+}
+
 /** Creates lazy adapters and one shared login/process registry without running any checks. */
 export function createAgentServices(
   database: Database,
@@ -176,6 +203,11 @@ export function createAgentServices(
   resources: AgentServiceResources,
 ): AgentApplicationServices {
   const { agentsDirectory, ticketAssets } = resources;
+  const agentPlanIsolation = new CliPlanIsolation(
+    [dataDirectory, agentsDirectory],
+    undefined,
+    agentRunNotesRoot(),
+  );
   const repository = new AgentConnectionRepository(database);
   const cipher = new InstanceSecretCipher(tokenKey);
   const operations = new AgentOperationRegistry();
@@ -220,6 +252,7 @@ export function createAgentServices(
   });
   return {
     ...configuration,
+    agentPlanIsolation,
     ...github,
     agentAssignmentService: new AgentAssignmentService({
       assignments: new AgentAssignmentRepository(database),
@@ -233,6 +266,7 @@ export function createAgentServices(
       configuration.agentProfileService,
     ),
     ...createExecutions({
+      planIsolation: agentPlanIsolation,
       protectedDirectories: [dataDirectory, agentsDirectory],
       isIsolationRequired: process.env.PAGES_CLI_ISOLATION === "required",
       repository,
@@ -250,15 +284,7 @@ export function createAgentServices(
       timeoutMs: 300_000,
       capacity: 16,
     }),
-    agentCatalogService: new AgentCatalogService(
-      repository,
-      refresh,
-      operations,
-    ),
-    agentCatalogScheduler: new AgentCatalogScheduler(
-      repository.catalogs(),
-      refresh,
-    ),
+    ...createAgentCatalogServices(repository, refresh, operations),
     agentCliLoginService,
     agentConnectionService: new AgentConnectionService({
       repository,

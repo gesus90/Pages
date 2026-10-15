@@ -16,6 +16,9 @@ import { AgentPlanTasks } from "@/backend/service/agents/AgentPlanTasks";
 import { AgentPlanSharing } from "@/backend/service/agents/AgentPlanSharing";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
+import { AgentRunNotes } from "@/backend/service/agents/AgentRunNotes";
+import { AgentRunNotesCleanup } from "@/backend/service/agents/AgentRunNotesCleanup";
+import { agentRunNotesRoot } from "@/backend/service/agents/AgentRunNotesPath";
 
 import type { Database } from "@/backend/database/Database";
 import type { AgentPlanMcpSettings } from "@/backend/service/agents/AgentPlanSessionAccess";
@@ -34,6 +37,15 @@ export async function createAgentPlanService(input: {
 }): Promise<AgentPlanService> {
   const plans = new AgentPlanRepository(input.database);
   const runs = new AgentPlanRunRepository(input.database);
+  const notes = new AgentRunNotes(
+    agentRunNotesRoot(),
+    input.agents.agentPlanIsolation,
+  );
+  const notesCleanup = new AgentRunNotesCleanup({
+    root: agentRunNotesRoot(),
+    runs,
+    notes,
+  });
   await upgradePlanConfigurations({
     plans,
     profiles: new AgentProfileRepository(input.database),
@@ -65,6 +77,8 @@ export async function createAgentPlanService(input: {
     input.mcp,
   );
   const engine = new AgentPlanRunEngine({
+    notes,
+    notesCleanup,
     runs,
     start,
     steps: new AgentPlanStepRunner({
@@ -85,12 +99,19 @@ export async function createAgentPlanService(input: {
     parameters,
     tasks,
     access,
-    preparation: new AgentPlanPreparation({ profiles, parameters, tasks }),
+    preparation: new AgentPlanPreparation({
+      profiles,
+      parameters,
+      tasks,
+      notes,
+    }),
     engine,
     sessions,
     archive: input.agents.agentRunArchive,
   });
   await service.recoverInterruptedRuns();
+  await notesCleanup.runOnce();
+  notesCleanup.start();
   await input.agents.agentCliGitHubCredentials.recover();
   // Interrupted runs ended just now, so their records are repaired as well.
   await repairAgentFiles(input);

@@ -620,7 +620,10 @@
         "parameter_assets_too_large": "Ticket assets exceed the 10 MiB transmission limit. No files were truncated or omitted.",
         "parameter_ticket_changed": "The ticket asset references changed before transmission. Start the run again to use the current assets.",
         "parameter_ticket_unavailable": "The selected ticket is unavailable or not accessible. Select an accessible ticket.",
-        "timeout": "The agent’s hard time limit expired. The running operation was interrupted."
+        "timeout": "The agent’s hard time limit expired. The running operation was interrupted.",
+        "plan_notes_unavailable": "Shared run notes require usable bubblewrap isolation. No notes directory was provided.",
+        "plan_notes_api": "This API node cannot use shared run notes because it has no local filesystem access.",
+        "plan_notes_path_invalid": "The run notes path is unsafe or overlaps a working directory. Choose a workspace outside the Pages temp area."
       },
       "description": "Manage the named AI connections and function assignments of this Pages instance.",
       "adminModeRequired": "The agent settings are only available in the admin mode. Your account is currently in the role mode.",
@@ -967,7 +970,8 @@
         },
         "ticket": "Bind ticket",
         "chooseTicket": "Select a ticket (no default)",
-        "unavailableTicket": "Bound ticket is not accessible"
+        "unavailableTicket": "Bound ticket is not accessible",
+        "runNotesHint": "Shared notes for this plan run, supplied automatically to CLI nodes with usable bubblewrap. No declaration or input binding is needed. Preview keeps this token; the run resolves it. API nodes cannot use it."
       },
       "openCodeKey": "OpenRouter API key for OpenCode",
       "openCodeKeyHint": "Pages stores the key only in the private sign-in folder of this connection, in OpenCode's own key file. It is never shown again.",
@@ -3230,7 +3234,9 @@
       "number": "Enter exactly one finite number.",
       "groupSize": "A group requires at least two agents.",
       "groupProvider": "This adapter cannot continue the same native session with a new step instruction. Use Codex CLI.",
-      "groupConfiguration": "The resolved runtime field conflicts with the shared group configuration."
+      "groupConfiguration": "The resolved runtime field conflicts with the shared group configuration.",
+      "notesApi": "This API node has no local filesystem access and cannot use shared run notes.",
+      "notesUnavailable": "This node uses shared run notes, but bubblewrap isolation is unavailable."
     },
     "createPortValue": "Value as parameter node",
     "session": {

@@ -52,6 +52,7 @@ import type {
   AgentPlanTicketChecklist,
 } from "./AgentPlanTasks";
 import type { AgentRunArchive } from "./AgentRunArchive";
+import type { AgentRunNotesContext } from "@/backend/agents/AgentRunNotesContext";
 
 interface StepRunnerDependencies {
   readonly start: Pick<AgentPlanStepStart, "prepare">;
@@ -63,6 +64,7 @@ interface StepRunnerDependencies {
 
 /** How a running node reports its record and learns about a stop. */
 export interface StepRunControl {
+  readonly notes?: AgentRunNotesContext;
   readonly signal: AbortSignal;
   /** Persists the newest record of the node; never throws. */
   readonly save: (session: AgentPlanSessionRecord) => Promise<void>;
@@ -83,6 +85,7 @@ interface NodeRun {
   control: StepRunControl;
   record: AgentPlanSessionRecord | null;
   hasStarted: boolean;
+  instruction?: string;
 }
 
 function errorCode(error: unknown): string {
@@ -171,7 +174,9 @@ export class AgentPlanStepRunner {
       node.run,
       node.snapshot,
       node.step,
+      node.control.notes,
     );
+    node.instruction = prepared.instruction ?? node.step.step.instruction;
     if (node.control.signal.aborted) throw new AgentPlanCancelledError();
     if (prepared.options.timeoutMinutes > 0)
       node.control = {
@@ -236,10 +241,14 @@ export class AgentPlanStepRunner {
     );
     const isReadOnly = reach === "read";
     const completion = step.step.completion ?? "report";
-    const contract = buildPlanContract(step.step.instruction, tickets, {
-      isReadOnly,
-      completion,
-    });
+    const contract = buildPlanContract(
+      node.instruction ?? step.step.instruction,
+      tickets,
+      {
+        isReadOnly,
+        completion,
+      },
+    );
     const groupKey = `${run.id}/${step.groupId ?? step.step.id}`;
     const instanceId = this.groups.instanceId(groupKey) ?? randomUUID();
     await this.save(
@@ -413,7 +422,7 @@ export class AgentPlanStepRunner {
     const tickets = await this.readTickets(node, terms.contract);
     const states = this.ticketStates(terms, tickets);
     const contract = refreshPlanContract(
-      node.step.step.instruction,
+      node.instruction ?? node.step.step.instruction,
       terms.contract,
       tickets,
       { isReadOnly: terms.reach === "read" },

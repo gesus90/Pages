@@ -9,6 +9,20 @@ function failureResponse(status: number, error: unknown): Response {
   return new Response(JSON.stringify({ apiVersion: "1", error }), { status });
 }
 
+it.each(["notesApi", "notesUnavailable"])(
+  "keeps the node and public %s notes diagnosis",
+  async (problem) => {
+    const issues = [{ nodeId: "notes-node", port: null, problem }];
+    const failure = await operationFailure(
+      failureResponse(400, {
+        code: "INVALID_REQUEST",
+        details: { reason: "graph_invalid", issues },
+      }),
+    );
+    expect(failure?.details).toEqual({ reason: "graph_invalid", issues });
+  },
+);
+
 describe("PagesOperationFailure", () => {
   it("uses the fixed not-found message", () => {
     const failure = new PagesOperationFailure("NOT_FOUND");

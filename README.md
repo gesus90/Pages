@@ -853,6 +853,42 @@ account; without it a YOLO node fails with `plan_yolo_isolation_unavailable`
 before any process starts. Pages probes the isolation again a minute after a
 failed probe, so installing bubblewrap needs no restart either.
 
+CLI plan nodes automatically receive a shared notes directory at
+`~/.pages/temp/<planId>/<runId>/` when bubblewrap works. Use `{{@run.notes}}`
+in the agent template or node instruction to refer to its absolute canonical
+path; it needs no parameter declaration, value node or binding. The editor
+preview keeps the token symbolic. Ordinary parameters named `run` keep their
+meaning. API nodes have no local filesystem tools and cannot use this built-in;
+mixed plans remain supported when only CLI nodes use it.
+
+Every CLI node has its own pre-created `<stepId>.md`, also named in its
+automatic instruction. Read other step files and change only your own file;
+repeating a step keeps its existing notes. This rule within a run is an agent
+protocol: the shared writable directory does not enforce per-file ownership.
+The runner's read-only mode still disallows writing. There is no common
+`notes.md` or uncoordinated shared append operation. Isolation between runs is
+enforced by bubblewrap: the whole temp area, including bind-mount aliases,
+is hidden before only the current run directory is bound back. Workspaces
+cannot overlap this area in either direction, including through symlinks.
+
+Before creating notes, Pages probes a real bubblewrap namespace. When it is
+unavailable, no notes directory is created or mounted; using the built-in
+fails before any node executes. A plan without it keeps its existing runner
+behavior. Notes remain during a pause and are removed after terminal runs
+and confirmed process closeout. Failed starts roll back their new directory.
+An hourly cleanup examines at most 100 plans and 100 runs per selected plan,
+rotating through larger histories. It removes an orphan only after at least
+seven days since its latest known use and a reliable terminal record and
+process check. Active, paused, missing or uncertain records are retained;
+symlinks are never followed and cleanup failures are logged. Existing
+restart recovery still ends interrupted runs; a private pause marker outside
+the CLI mount preserves paused notes across that recovery until an explicit
+resume or terminal cleanup.
+
+Pages does not archive notes files. They are temporary and may contain sensitive
+intermediate work. Prompts and final answers retain their existing archive
+behavior, so an agent must avoid copying sensitive notes into its answer.
+
 | Run record or error                                      | Cause and remedy                                                                 |
 | -------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | `plan_acp_adapter_missing`, `plan_claude_acp_adapter_missing` | The adapter is not on the `PATH` of the server account. Install it as above. |

@@ -3,6 +3,7 @@ import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import type { CliProviderId } from "@/definition/AgentConnection";
 import type { ProviderCheckOutcome } from "@/backend/agents/providers/ProviderContracts";
 import type { AgentCatalogModel } from "@/definition/AgentModelCatalog";
+import type { AgentRunNotesContext } from "../AgentRunNotesContext";
 
 /** All paths are owned by a single Pages connection, never a user's private CLI home. */
 export interface CliHome {
@@ -42,6 +43,7 @@ export interface CliRunRequest {
 
 /** A streaming session in an authorized working directory. */
 export interface CliSessionRequest {
+  readonly notes?: AgentRunNotesContext;
   readonly file: string;
   /** The tool itself when `file` is a wrapper that starts it. */
   readonly toolFile?: string;

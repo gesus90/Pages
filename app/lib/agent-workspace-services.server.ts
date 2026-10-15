@@ -21,6 +21,7 @@ import { AgentTicketParameterService } from "@/backend/service/agents/AgentTicke
 import { createAgentTaskContext } from "@/backend/service/agents/AgentTaskAccess";
 import { AgentTicketAssetService } from "@/backend/service/agents/AgentTicketAssetService";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { agentRunNotesRoot } from "@/backend/service/agents/AgentRunNotesPath";
 
 import type { AgentTicketAssetDependencies } from "@/backend/service/agents/AgentTicketAssetService";
 import type { Database } from "@/backend/database/Database";
@@ -94,7 +95,10 @@ export function createAgentConfigurationServices(input: {
     paths: new AgentWorkspacePath({
       ...resolveWorkspaceRoots(),
       protectedDirectory: input.dataDirectory,
-      additionalProtectedDirectories: [input.agentsDirectory],
+      additionalProtectedDirectories: [
+        input.agentsDirectory,
+        agentRunNotesRoot(),
+      ],
     }),
   });
   const profiles = new AgentProfileRepository(database);

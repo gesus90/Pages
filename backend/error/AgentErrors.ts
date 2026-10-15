@@ -57,6 +57,12 @@ export const AGENT_ERROR_MESSAGES = {
     "The AGENT.md of the agent is missing or does not match the started revision.",
   plan_placeholder_unresolved:
     "The prompt still contains a parameter placeholder; nothing was sent.",
+  plan_notes_unavailable:
+    "Shared run notes require usable bubblewrap isolation. No notes directory was provided.",
+  plan_notes_api:
+    "This API node cannot use shared run notes because it has no local filesystem access.",
+  plan_notes_path_invalid:
+    "The run notes path is unsafe or overlaps a working directory. Choose a workspace outside the Pages temp area.",
   plan_runner_failed: "The runner ended its turn with an error.",
   plan_runner_incomplete: "The runner ended without completing its turn.",
   plan_runner_permission_denied:

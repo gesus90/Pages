@@ -43,6 +43,8 @@ export const AGENT_PLAN_ISSUE_PROBLEMS = [
   "groupSize",
   "groupProvider",
   "groupConfiguration",
+  "notesApi",
+  "notesUnavailable",
   "duplicateNode",
   "port",
   "duplicate",

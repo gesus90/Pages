@@ -72,6 +72,15 @@ export function planClaudeAcpLaunch(
       CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1",
     },
     mcpServers: pagesMcpServers(instanceId, mcp),
-    sessionMeta: { claudeCode: { options: profile.options } },
+    sessionMeta: {
+      claudeCode: {
+        options: {
+          ...profile.options,
+          ...(specification.notesDirectory
+            ? { additionalDirectories: [specification.notesDirectory] }
+            : {}),
+        },
+      },
+    },
   };
 }

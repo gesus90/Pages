@@ -4,6 +4,8 @@ import path from "node:path";
 
 import { AgentError } from "@/backend/error/AgentErrors";
 
+import { canonicalProspectivePath } from "./AgentCanonicalPath";
+
 import type { Dirent } from "node:fs";
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import type {
@@ -288,7 +290,7 @@ export class AgentWorkspacePath {
       await realpath(this.options.protectedDirectory),
       ...(await Promise.all(
         (this.options.additionalProtectedDirectories ?? []).map((entry) =>
-          realpath(entry).catch(() => path.resolve(entry)),
+          canonicalProspectivePath(entry),
         ),
       )),
     ];

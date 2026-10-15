@@ -27,6 +27,19 @@ import type { AgentPlanSnapshot } from "./AgentPlanSnapshot";
 
 const CANCELLED_RESULT = "The run was stopped before it finished.";
 
+type ArchiveRepository = Pick<
+  PageAgentRunRepository,
+  | "pinInput"
+  | "findInput"
+  | "find"
+  | "save"
+  | "discardInput"
+  | "markArchived"
+  | "unarchived"
+  | "keys"
+  | "get"
+>;
+
 /**
  * Decides how a step run ended, or that it has no run to record.
  *
@@ -49,12 +62,15 @@ function runIdentifier(planRunId: string, stepId: string): string {
   return createHash("sha256").update(`${planRunId}\n${stepId}`).digest("hex");
 }
 
-/** Persists one private markdown artifact per ended agent run, never a DREAMING analysis. */
+/**
+ * Persists the dispatched prompt and result only, without scanning workspace or run-note files.
+ * Notes copied by an agent into its answer are part of that answer's existing archive.
+ */
 export class AgentRunArchive {
-  private readonly repository: PageAgentRunRepository;
+  private readonly repository: ArchiveRepository;
   private readonly directory: string;
 
-  public constructor(repository: PageAgentRunRepository, directory: string) {
+  public constructor(repository: ArchiveRepository, directory: string) {
     this.repository = repository;
     this.directory = directory;
   }

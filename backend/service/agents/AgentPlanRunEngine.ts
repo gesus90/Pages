@@ -24,6 +24,9 @@ import type { AgentPlanStepRunner } from "./AgentPlanStepRunner";
 import type { AgentPlanStepStart } from "./AgentPlanStepStart";
 import type { AgentRunArchive } from "./AgentRunArchive";
 import type { AgentDefinitionFiles } from "./AgentDefinitionFiles";
+import type { AgentRunNotes } from "./AgentRunNotes";
+import type { AgentRunNotesCleanup } from "./AgentRunNotesCleanup";
+import type { AgentRunNotesContext } from "@/backend/agents/AgentRunNotesContext";
 
 /**
  * Creates the record of a new run inside a transaction that the caller opens.
@@ -37,6 +40,8 @@ export type AgentPlanRunRecording = (
 ) => Promise<void>;
 
 interface ActivePlanRun {
+  readonly notes: AgentRunNotesContext | null;
+  groupCloseout: "open" | "closing" | "closed";
   view: AgentPlanRun;
   readonly snapshot: AgentPlanSnapshot;
   readonly controllers: Map<string, AbortController>;
@@ -49,6 +54,11 @@ interface ActivePlanRun {
 const STOP_WAIT_MILLISECONDS = 30_000;
 
 interface EngineDependencies {
+  readonly notesCleanup?: Pick<AgentRunNotesCleanup, "shutdown">;
+  readonly notes?: Pick<
+    AgentRunNotes,
+    "create" | "discard" | "complete" | "setPaused"
+  >;
   readonly runs: Pick<
     AgentPlanRunRepository,
     "insert" | "create" | "update" | "find"
@@ -180,7 +190,10 @@ export class AgentPlanRunEngine {
     const releaseDefinition = await this.dependencies.files?.hold(
       snapshot.steps.map((step) => step.step.agentId),
     );
+    let notes: AgentRunNotesContext | null = null;
     try {
+      notes =
+        (await this.dependencies.notes?.create(initialView, snapshot)) ?? null;
       if (recording)
         await recording((transaction) =>
           this.dependencies.runs.insert(
@@ -197,18 +210,29 @@ export class AgentPlanRunEngine {
           workspaceIds,
         );
     } catch (error: unknown) {
-      await releaseDefinition?.();
+      try {
+        if (notes) await this.dependencies.notes?.discard(notes);
+      } finally {
+        await releaseDefinition?.();
+      }
       throw error;
     }
     this.active.set(view.id, {
+      notes,
+      groupCloseout: "open",
       view: initialView,
       snapshot,
       controllers: new Map(),
       executions: new Set(),
       releaseDefinition,
     });
-    await this.pump();
-    return (await this.dependencies.runs.find(view.id)) ?? view;
+    try {
+      await this.pump();
+      return (await this.dependencies.runs.find(view.id)) ?? view;
+    } catch (error: unknown) {
+      await this.failStart(view.id);
+      throw error;
+    }
   }
 
   /** Stop is persisted first; confirmed cancellation is reported only by a settled adapter. */
@@ -220,7 +244,8 @@ export class AgentPlanRunEngine {
       await this.dependencies.runs.update(active.view);
       for (const controller of active.controllers.values()) controller.abort();
     });
-    await this.dependencies.steps.closeGroups(id);
+    if (this.active.get(id)?.snapshot.groups?.length)
+      await this.dependencies.steps.closeGroups(id);
     await this.pump();
   }
 
@@ -260,6 +285,10 @@ export class AgentPlanRunEngine {
       const active = this.active.get(id);
       if (!active || active.view.stopRequested)
         throw new AgentError("plan_run_unavailable");
+      if (active.notes)
+        await this.dependencies.notes?.setPaused(active.notes, {
+          isPaused: true,
+        });
       active.view = {
         ...active.view,
         status: "paused",
@@ -285,6 +314,10 @@ export class AgentPlanRunEngine {
         ),
       };
       await this.dependencies.runs.update(active.view);
+      if (active.notes)
+        await this.dependencies.notes?.setPaused(active.notes, {
+          isPaused: false,
+        });
     });
     await this.pump();
   }
@@ -292,12 +325,14 @@ export class AgentPlanRunEngine {
   /** The shutdown hook drains execution before closing DuckDB or the shared CLI runner. */
   public async shutdown(): Promise<void> {
     this.isClosing = true;
+    await this.dependencies.notesCleanup?.shutdown();
     for (const id of this.active.keys()) await this.stop(id);
     await Promise.all([...this.pending]);
     await this.pump();
   }
 
   private async pump(): Promise<void> {
+    await this.closeIdleGroups();
     await this.writes.run(async () => {
       for (const [id, active] of this.active) {
         updateBlocked(active);
@@ -319,11 +354,7 @@ export class AgentPlanRunEngine {
             active.executions.delete(pending);
           });
         }
-        if (
-          active.controllers.size === 0 &&
-          readySteps(active).length === 0 &&
-          (active.view.status !== "paused" || active.view.stopRequested)
-        ) {
+        if (canFinalize(active)) {
           const hasFailure = active.view.steps.some(
             (step) =>
               step.status === "failed" ||
@@ -339,6 +370,8 @@ export class AgentPlanRunEngine {
             active.view,
             active.snapshot,
           );
+          if (active.notes)
+            await this.dependencies.notes?.complete(active.view, active.notes);
           await active.releaseDefinition?.();
           this.active.delete(id);
         }
@@ -346,11 +379,70 @@ export class AgentPlanRunEngine {
     });
   }
 
+  private async closeIdleGroups(): Promise<void> {
+    const closing = await this.writes.run(() => {
+      const idle = [...this.active.values()].filter(
+        (active) =>
+          active.groupCloseout === "open" &&
+          active.controllers.size === 0 &&
+          readySteps(active).length === 0 &&
+          (active.view.status !== "paused" || active.view.stopRequested),
+      );
+      for (const active of idle) active.groupCloseout = "closing";
+      return Promise.resolve(idle);
+    });
+    for (const active of closing) {
+      if (active.snapshot.groups?.length)
+        await this.dependencies.steps.closeGroups(active.view.id);
+      active.groupCloseout = "closed";
+    }
+  }
+
   private runningCount(): number {
     return [...this.active.values()].reduce(
       (count, active) => count + active.controllers.size,
       0,
     );
+  }
+
+  private async failStart(id: string): Promise<void> {
+    const active = this.active.get(id);
+    if (!active) return;
+    requestCancellation(active);
+    for (const controller of active.controllers.values()) controller.abort();
+    if (
+      active.executions.size > 0 ||
+      active.view.steps.some((step) => step.session)
+    ) {
+      await Promise.all([...active.executions]);
+      // Running adapters retain their files until their confirmed closeout and normal finalization.
+      try {
+        await this.pump();
+      } catch (error: unknown) {
+        console.error("Pages could not finalize a failed plan start.", error);
+      }
+      return;
+    }
+    active.view = {
+      ...active.view,
+      status: "failed",
+      steps: active.view.steps.map((step) => ({
+        ...step,
+        status: "cancelled",
+        cancellation: "not_started",
+      })),
+    };
+    if (active.notes) await this.dependencies.notes?.discard(active.notes);
+    await active.releaseDefinition?.();
+    this.active.delete(id);
+    try {
+      await this.dependencies.runs.update(active.view);
+    } catch (error: unknown) {
+      console.error(
+        "Pages could not persist a failed plan start; reservations remain held.",
+        error,
+      );
+    }
   }
 
   private async execute(
@@ -391,6 +483,7 @@ export class AgentPlanRunEngine {
       if (isStopped)
         return { status: "cancelled", cancellation: "not_started" };
       return this.dependencies.steps.run(active.view, active.snapshot, step, {
+        notes: active.notes ?? undefined,
         signal: controller.signal,
         save: (session) => this.saveSession(active, node.id, session),
       });
@@ -430,4 +523,13 @@ export class AgentPlanRunEngine {
       );
     }
   }
+}
+
+function canFinalize(active: ActivePlanRun): boolean {
+  return (
+    active.controllers.size === 0 &&
+    active.groupCloseout === "closed" &&
+    readySteps(active).length === 0 &&
+    (active.view.status !== "paused" || active.view.stopRequested)
+  );
 }

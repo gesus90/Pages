@@ -4,10 +4,18 @@ import {
   isAcpProvider,
 } from "@/definition/AgentConfiguration";
 
-import { bindAgentParameters } from "./AgentParameterBinding";
+import {
+  bindAgentParameters,
+  bindAgentRunContext,
+} from "./AgentParameterBinding";
 import { planStepDirectory } from "./AgentPlanSnapshot";
+import { requireRunNotesId } from "./AgentRunNotesPath";
+import { isApiProvider } from "@/definition/AgentConnection";
+import { scanAgentPlaceholders } from "@/definition/AgentParameters";
 
 import type { AgentTicketInput } from "@/definition/AgentTicketParameter";
+import type { AgentRunNotesContext } from "@/backend/agents/AgentRunNotesContext";
+import type { AgentRunContext } from "@/definition/AgentRunBuiltins";
 import type { TextExecutionInput } from "@/backend/agents/TextExecution";
 import type { AgentRunOptions } from "@/definition/AgentConfiguration";
 import type { AgentPlanNode, AgentPlanRun } from "@/definition/AgentPlan";
@@ -19,6 +27,8 @@ import type {
 } from "./AgentPlanSnapshot";
 import type { AgentProfileService } from "./AgentProfileService";
 import type { AgentParameterService } from "./AgentParameterService";
+import type { PreparedAgentParameters } from "./AgentParameterService";
+import type { AgentReferenceResolvers } from "./AgentParameterBinding";
 import type { AgentPlanAccess } from "./AgentPlanAccess";
 import type { AgentPlanTasks } from "./AgentPlanTasks";
 import type {
@@ -28,6 +38,7 @@ import type {
 
 /** A working directory is a separate process contract, never a prompt convention. */
 export interface AgentPlanExecutionInput extends TextExecutionInput {
+  readonly notes?: AgentRunNotesContext;
   readonly directory: string | null;
   /** Rechecks live access immediately before the adapter's provider request or spawn. */
   readonly beforeStart?: () => Promise<void>;
@@ -38,6 +49,8 @@ export interface AgentPlanExecutionInput extends TextExecutionInput {
 /** A node ready to start: its resolved input, the definition it read and its run options. */
 export interface PreparedPlanStep {
   readonly input: AgentPlanExecutionInput;
+  /** Node instruction with built-ins resolved, also used by the run contract. */
+  readonly instruction?: string;
   /** The `AGENT.md` the prompt was resolved from. */
   readonly definition: {
     readonly path: string;
@@ -110,6 +123,7 @@ export class AgentPlanStepStart {
     run: AgentPlanRun,
     snapshot: AgentPlanSnapshot,
     step: AgentPlanStepSnapshot,
+    notes?: AgentRunNotesContext,
   ): Promise<PreparedPlanStep> {
     await this.dependencies.access.require(run.userId, snapshot.plan.id);
     const selection = {
@@ -150,48 +164,39 @@ export class AgentPlanStepStart {
     );
     validateContext(step, live);
     const { template, definition } = await this.readDefinition(step);
-    const parameters = await bindAgentParameters(template, values, {
-      ticket: async (id) => {
-        const ticket = live.tickets?.[id];
-        if (!ticket) throw new AgentError("parameter_ticket_unavailable");
-        return ticket;
-      },
-      workspace: async (id) => {
-        const reference = step.prepared.references.find(
-          (entry) => entry.id === id,
-        );
-        if (!reference) throw new AgentError("plan_context_changed");
-        return reference;
-      },
-      wiki: async (id) => {
-        const page = step.prepared.wiki[id];
-        if (!page) throw new AgentError("plan_binding_invalid");
-        return page;
-      },
-    });
+    const runContext = stepRunContext(step, template, notes);
+    const parameters = await bindAgentParameters(
+      template,
+      values,
+      stepReferences(step, live, runContext),
+    );
     const options = agentRunOptionsFor(
       resolved.assignment.connection.provider,
       template.run,
     );
     const directory = planStepDirectory(step);
-    const github = this.dependencies.github;
     const beforeStart = (): Promise<void> =>
       this.reauthorize(run, snapshot, step, {
         values,
         connectionId: resolved.assignment.connection.id,
       });
     return {
+      instruction: bindAgentRunContext(step.step.instruction, runContext),
       input: {
         agent: resolved.assignment,
         userId: run.userId,
         directory: directory?.path ?? null,
-        ...(github &&
-        directory &&
-        isAcpProvider(step.provider) &&
-        options.access === "yolo"
-          ? { github: () => github.resolve(run.userId, directory) }
-          : {}),
-        prompt: `${parameters.markdown}\n\n${step.step.instruction}`,
+        ...stepGitHubAccess({
+          github: this.dependencies.github,
+          step,
+          options,
+          userId: run.userId,
+        }),
+        ...stepPrompt(
+          parameters.markdown,
+          step,
+          runContext ? notes : undefined,
+        ),
         ...ticketAssetDelivery(
           this.dependencies.parameters,
           run.userId,
@@ -275,6 +280,85 @@ export class AgentPlanStepStart {
         taskId,
       );
   }
+}
+
+function stepReferences(
+  step: AgentPlanStepSnapshot,
+  live: PreparedAgentParameters,
+  runContext?: AgentRunContext,
+): AgentReferenceResolvers {
+  return {
+    runContext,
+    ticket: async (id) => {
+      const ticket = live.tickets?.[id];
+      if (!ticket) throw new AgentError("parameter_ticket_unavailable");
+      return ticket;
+    },
+    workspace: async (id) => {
+      const reference = step.prepared.references.find(
+        (entry) => entry.id === id,
+      );
+      if (!reference) throw new AgentError("plan_context_changed");
+      return reference;
+    },
+    wiki: async (id) => {
+      const page = step.prepared.wiki[id];
+      if (!page) throw new AgentError("plan_binding_invalid");
+      return page;
+    },
+  };
+}
+
+function stepGitHubAccess(input: {
+  readonly github: StartDependencies["github"];
+  readonly step: AgentPlanStepSnapshot;
+  readonly options: AgentRunOptions;
+  readonly userId: string;
+}): Pick<AgentPlanExecutionInput, "github"> {
+  const { github, step, options, userId } = input;
+  const directory = planStepDirectory(step);
+  return github &&
+    directory &&
+    isAcpProvider(step.provider) &&
+    options.access === "yolo"
+    ? { github: () => github.resolve(userId, directory) }
+    : {};
+}
+
+function stepRunContext(
+  step: AgentPlanStepSnapshot,
+  template: AgentPlanTemplate,
+  notes?: AgentRunNotesContext,
+): AgentRunContext | undefined {
+  if (!isApiProvider(step.provider))
+    return notes ? { notes: notes.directory } : undefined;
+  if (
+    [template.markdown, step.step.instruction].some(
+      (markdown) => scanAgentPlaceholders(markdown).builtins.length > 0,
+    )
+  )
+    throw new AgentError("plan_notes_api");
+  return undefined;
+}
+
+function stepPrompt(
+  markdown: string,
+  step: AgentPlanStepSnapshot,
+  notes?: AgentRunNotesContext,
+): Pick<AgentPlanExecutionInput, "prompt" | "notes"> {
+  const instruction = bindAgentRunContext(
+    step.step.instruction,
+    notes ? { notes: notes.directory } : undefined,
+  );
+  return {
+    ...(notes ? { notes } : {}),
+    prompt: `${markdown}\n\n${instruction}${notes ? notesInstruction(notes, step.step.id) : ""}`,
+  };
+}
+
+function notesInstruction(notes: AgentRunNotesContext, stepId: string): string {
+  requireRunNotesId(stepId);
+  return `\n\nShared run notes: ${notes.directory}\nYour pre-created notes file: ${notes.directory}/${stepId}.md\nRead other step files to share knowledge. Write only your own file when your run permissions allow file changes. Keep existing notes when repeating this step. File ownership within this run is an agent protocol, not an enforced write boundary. There is no shared notes.md. Notes survive pauses and are removed after this run ends; Pages does not archive their contents. Do not copy sensitive notes into your final answer.`;
 }
 
 function resultValues(

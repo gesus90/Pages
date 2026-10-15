@@ -1,3 +1,7 @@
+import { isAgentRunBuiltin } from "./AgentRunBuiltins.js";
+
+import type { AgentBuiltinPlaceholder } from "./AgentRunBuiltins.js";
+
 export type AgentParameterType =
   "text" | "number" | "ticket" | "workspace" | "wiki";
 
@@ -116,23 +120,26 @@ function placeholder(
 /** Scans once; escaped openings stay literal and substitutions are never recursive. */
 export function scanAgentPlaceholders(markdown: string): {
   readonly placeholders: readonly AgentPlaceholder[];
+  readonly builtins: readonly AgentBuiltinPlaceholder[];
   readonly hasInvalidSyntax: boolean;
 } {
   const placeholders: AgentPlaceholder[] = [];
+  const builtins: AgentBuiltinPlaceholder[] = [];
   let hasInvalidSyntax = false;
   const openings = /\{\{/g;
   for (const match of markdown.matchAll(openings)) {
     if (isEscaped(markdown, match.index)) continue;
     const closing = markdown.indexOf("}}", match.index + 2);
-    const found = placeholder(
-      markdown.slice(match.index + 2, closing),
-      match.index,
-      closing + 2,
-    );
+    const token = markdown.slice(match.index + 2, closing);
+    if (closing >= 0 && isAgentRunBuiltin(token)) {
+      builtins.push({ token, start: match.index, end: closing + 2 });
+      continue;
+    }
+    const found = placeholder(token, match.index, closing + 2);
     if (closing < 0 || found === null) hasInvalidSyntax = true;
     else placeholders.push(found);
   }
-  return { placeholders, hasInvalidSyntax };
+  return { placeholders, builtins, hasInvalidSyntax };
 }
 
 /** Checks declared types and explicit directory use before enabling an agent. */
