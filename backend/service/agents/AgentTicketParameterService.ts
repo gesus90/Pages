@@ -1,7 +1,16 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 
+import { MAX_TICKET_ASSET_BYTES } from "./AgentTicketAssetService";
+
 import type { AgentTicketChoice } from "@/definition/AgentParameters";
 import type { AgentTaskContext } from "./AgentTaskAccess";
+import type { AgentTicketAssetService } from "./AgentTicketAssetService";
+import type {
+  ResolvedAgentTicket,
+  AgentTicketInput,
+  AgentTicketAssetContent,
+  AgentTicketAsset,
+} from "@/definition/AgentTicketParameter";
 
 interface TicketParameterContext {
   readonly actor: AgentTaskContext["actor"];
@@ -12,19 +21,19 @@ interface TicketParameterContext {
 }
 
 /** Complete ticket input, including description task lists and separately stored acceptance criteria. */
-export interface AgentTicketParameterText {
-  readonly markdown: string;
-  readonly version: string;
-}
+export type AgentTicketParameterText = ResolvedAgentTicket;
 
 /** Resolves ticket references through the existing ticket service and the executor's live rights. */
 export class AgentTicketParameterService {
   private readonly context: (userId: string) => Promise<TicketParameterContext>;
+  private readonly assets: Pick<AgentTicketAssetService, "references" | "read">;
 
   public constructor(
     context: (userId: string) => Promise<TicketParameterContext>,
+    assets: Pick<AgentTicketAssetService, "references" | "read">,
   ) {
     this.context = context;
+    this.assets = assets;
   }
 
   /** Lists active tickets the authenticated person may currently read. */
@@ -56,11 +65,65 @@ export class AgentTicketParameterService {
         .map((item) => `- [${item.isDone ? "x" : " "}] ${item.title}`)
         .join("\n");
       return {
+        id: ticket.id,
+        key: ticket.key,
+        title: ticket.title,
+        description: ticket.description,
+        assets: await this.assets.references(
+          actor,
+          ticket.id,
+          ticket.description,
+        ),
         markdown: `# ${ticket.key}: ${ticket.title}\n\n${ticket.description}${acceptance ? `\n\n## Acceptance criteria\n\n${acceptance}` : ""}`,
         version: JSON.stringify([ticket.updatedAt, criteria]),
       };
-    } catch {
+    } catch (error: unknown) {
+      if (error instanceof AgentError) throw error;
       throw new AgentError("parameter_ticket_unavailable");
+    }
+  }
+
+  /** Rechecks the ticket, its references and the executing user's file rights for every transmission. */
+  public async readAssets(
+    userId: string,
+    inputs: readonly AgentTicketInput[],
+  ): Promise<readonly AgentTicketAssetContent[]> {
+    const contents: AgentTicketAssetContent[] = [];
+    let size = 0;
+    for (const input of inputs) {
+      const ticket = await this.resolve(userId, input.ticket.id);
+      if (JSON.stringify(ticket) !== JSON.stringify(input.ticket))
+        throw new AgentError("parameter_ticket_changed");
+      for (const asset of ticket.assets) {
+        const { actor } = await this.context(userId);
+        if (!actor.isActive)
+          throw new AgentError("parameter_asset_unavailable");
+        const file = await this.assets.read(actor, asset);
+        size += file.size;
+        if (size > MAX_TICKET_ASSET_BYTES)
+          throw new AgentError("parameter_assets_too_large");
+        contents.push({
+          parameter: input.parameter,
+          ticketId: ticket.id,
+          ticketKey: ticket.key,
+          asset,
+          fileName: file.fileName,
+          content: file.content,
+        });
+      }
+    }
+    return contents;
+  }
+
+  /** Historical results retain the original file references even after a description removes its links. */
+  public async requireAssets(
+    userId: string,
+    assets: readonly AgentTicketAsset[],
+  ): Promise<void> {
+    for (const asset of assets) {
+      const { actor } = await this.context(userId);
+      if (!actor.isActive) throw new AgentError("parameter_asset_unavailable");
+      await this.assets.read(actor, asset);
     }
   }
 }

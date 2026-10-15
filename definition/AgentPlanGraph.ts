@@ -25,6 +25,7 @@ export interface AgentPlanIssue {
     | "duplicate"
     | "cycle"
     | "type"
+    | "ticketHandoff"
     | "source"
     | "required"
     | "start"
@@ -189,6 +190,8 @@ function bindingIssues(
     );
     if (!parameter)
       issues.push({ nodeId: step.id, port: name, reason: "port" });
+    else if (binding.kind === "result" && parameter.type === "ticket")
+      issues.push({ nodeId: step.id, port: name, reason: "ticketHandoff" });
     else if (!fitsBinding(step, binding, plan, parameter.type))
       issues.push({ nodeId: step.id, port: name, reason: "type" });
   }

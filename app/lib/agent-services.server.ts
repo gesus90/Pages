@@ -33,6 +33,7 @@ import { CliGitHubCredentials } from "@/backend/agents/cli/CliGitHubCredentials"
 
 import { createAgentConfigurationServices } from "./agent-workspace-services.server";
 
+import type { AgentTicketAssetDependencies } from "@/backend/service/agents/AgentTicketAssetService";
 import type { Database } from "@/backend/database/Database";
 import type { PlanExecution } from "@/backend/agents/AgentPlanExecution";
 import type { TextExecution } from "@/backend/agents/TextExecution";
@@ -162,13 +163,19 @@ function createGitHubCredentials(input: {
   };
 }
 
+interface AgentServiceResources {
+  readonly agentsDirectory: string;
+  readonly ticketAssets: AgentTicketAssetDependencies;
+}
+
 /** Creates lazy adapters and one shared login/process registry without running any checks. */
 export function createAgentServices(
   database: Database,
   dataDirectory: string,
   tokenKey: Buffer,
-  agentsDirectory: string,
+  resources: AgentServiceResources,
 ): AgentApplicationServices {
+  const { agentsDirectory, ticketAssets } = resources;
   const repository = new AgentConnectionRepository(database);
   const cipher = new InstanceSecretCipher(tokenKey);
   const operations = new AgentOperationRegistry();
@@ -178,6 +185,7 @@ export function createAgentServices(
     agentsDirectory,
     connections: repository,
     operations,
+    ticketAssets,
   });
   const store = new AgentCredentialStore(dataDirectory);
   const locator = new CliLocator();

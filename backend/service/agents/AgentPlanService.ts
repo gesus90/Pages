@@ -455,6 +455,11 @@ export class AgentPlanService {
       await this.dependencies.parameters.requireWiki(userId, pageId);
     for (const ticketId of resources.ticketIds)
       await this.dependencies.parameters.requireTicket(userId, ticketId);
+    if (resources.ticketAssets?.length)
+      await this.dependencies.parameters.requireTicketAssets(
+        userId,
+        resources.ticketAssets,
+      );
     return run;
   }
 

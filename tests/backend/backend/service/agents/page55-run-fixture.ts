@@ -3,6 +3,7 @@ import { AgentParameterService } from "@/backend/service/agents/AgentParameterSe
 import { bindAgentParameters } from "@/backend/service/agents/AgentParameterBinding";
 import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 
+import type { AgentTicketParameterService } from "@/backend/service/agents/AgentTicketParameterService";
 import type { AgentConfiguration } from "@/definition/AgentConfiguration";
 import type { AgentProviderId } from "@/definition/AgentConnection";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
@@ -35,8 +36,9 @@ export interface ParameterRunFixture {
 export async function parameterRunFixture(
   configuration: AgentConfiguration = emptyAgentConfiguration(),
   provider: AgentProviderId = "openrouter",
+  tickets?: Pick<AgentTicketParameterService, "resolve" | "readAssets">,
 ): Promise<ParameterRunFixture> {
-  const prepared = await preparedParameters(configuration);
+  const prepared = await preparedParameters(configuration, tickets);
   const step: AgentPlanStepSnapshot = {
     step: {
       id: "step",
@@ -84,20 +86,14 @@ export async function parameterRunFixture(
     stopRequested: false,
     steps: [],
   };
-  const profile: AgentProfile = {
-    id: "agent",
-    name: "Agent",
-    connectionId: "connection",
-    model: step.model,
-    reasoningEffort: null,
-    isActive: true,
-    purposes: ["agent"],
-    targets: [],
-    configuration,
-    revision: 1,
-  };
+  const profile = fixtureProfile(configuration, step.model);
   const assignment = fixtureAssignment(step.model, provider);
-  const parameters = fixtureParameters({ profile, assignment, prepared });
+  const parameters = fixtureParameters({
+    profile,
+    assignment,
+    prepared,
+    tickets,
+  });
   const start = new AgentPlanStepStart({
     profiles: {
       resolveDefinition: async () => ({
@@ -136,6 +132,10 @@ function fixtureParameters(input: {
   readonly profile: AgentProfile;
   readonly assignment: ResolvedAgentAssignment;
   readonly prepared: PreparedAgentParameters;
+  readonly tickets?: Pick<
+    AgentTicketParameterService,
+    "resolve" | "readAssets"
+  >;
 }): AgentParameterService {
   return new AgentParameterService({
     profiles: {
@@ -156,7 +156,8 @@ function fixtureParameters(input: {
         throw new Error("No wiki access in this fixture");
       },
     },
-    tickets: {
+    tickets: input.tickets ?? {
+      readAssets: async () => [],
       resolve: async (userId, id) => {
         if (userId !== "owner") throw new Error("Unexpected executor");
         const ticket = input.prepared.tickets?.[id];
@@ -169,20 +170,29 @@ function fixtureParameters(input: {
 
 async function preparedParameters(
   configuration: AgentConfiguration,
+  tickets?: Pick<AgentTicketParameterService, "resolve" | "readAssets">,
 ): Promise<PreparedAgentParameters> {
+  const parameters = await bindAgentParameters(
+    configuration,
+    {},
+    {
+      workspace: async () => ({ path: "/synthetic" }),
+      wiki: async () => ({ markdown: "wiki", link: "/wiki", version: "1" }),
+      ticket: tickets
+        ? (id) => tickets.resolve("owner", id)
+        : async () => ({
+            id: "ticket-id",
+            key: "SYN-55",
+            title: "Ticket",
+            description: TICKET_MARKDOWN,
+            assets: [],
+            markdown: TICKET_MARKDOWN,
+            version: "1",
+          }),
+    },
+  );
   return {
-    parameters: await bindAgentParameters(
-      configuration,
-      {},
-      {
-        workspace: async () => ({ path: "/synthetic" }),
-        wiki: async () => ({ markdown: "wiki", link: "/wiki", version: "1" }),
-        ticket: async () => ({
-          markdown: TICKET_MARKDOWN,
-          version: "1",
-        }),
-      },
-    ),
+    parameters,
     workspace: {
       id: "workspace",
       path: "/synthetic",
@@ -196,9 +206,17 @@ async function preparedParameters(
     wiki: {},
     tickets: {
       "ticket-id": {
+        id: "ticket-id",
+        key: "SYN-55",
+        title: "Ticket",
+        description: TICKET_MARKDOWN,
+        assets: [],
         markdown: TICKET_MARKDOWN,
         version: "1",
       },
+      ...Object.fromEntries(
+        Object.values(parameters.tickets).map((ticket) => [ticket.id, ticket]),
+      ),
     },
   };
 }
@@ -222,5 +240,23 @@ function fixtureAssignment(
       cliAccountLabel: null,
       updatedAt: "2026-01-01",
     },
+  };
+}
+
+function fixtureProfile(
+  configuration: AgentConfiguration,
+  model: string,
+): AgentProfile {
+  return {
+    id: "agent",
+    name: "Agent",
+    connectionId: "connection",
+    model,
+    reasoningEffort: null,
+    isActive: true,
+    purposes: ["agent"],
+    targets: [],
+    configuration,
+    revision: 1,
   };
 }

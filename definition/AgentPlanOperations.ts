@@ -45,6 +45,7 @@ export const AGENT_PLAN_ISSUE_PROBLEMS = [
   "duplicate",
   "cycle",
   "type",
+  "ticketHandoff",
   "source",
   "required",
   "start",

@@ -7,6 +7,7 @@ import {
 import { bindAgentParameters } from "./AgentParameterBinding";
 import { planStepDirectory } from "./AgentPlanSnapshot";
 
+import type { AgentTicketInput } from "@/definition/AgentTicketParameter";
 import type { TextExecutionInput } from "@/backend/agents/TextExecution";
 import type { AgentRunOptions } from "@/definition/AgentConfiguration";
 import type { AgentPlanNode, AgentPlanRun } from "@/definition/AgentPlan";
@@ -47,7 +48,8 @@ export interface PreparedPlanStep {
 
 interface StartDependencies {
   readonly profiles: Pick<AgentProfileService, "resolveDefinition">;
-  readonly parameters: Pick<AgentParameterService, "prepare">;
+  readonly parameters: Pick<AgentParameterService, "prepare"> &
+    Partial<Pick<AgentParameterService, "readTicketAssets">>;
   readonly access: Pick<AgentPlanAccess, "require">;
   readonly tasks: Pick<AgentPlanTasks, "snapshot">;
   /** Reads `AGENT.md`; without it the frozen template is used. */
@@ -58,6 +60,24 @@ interface StartDependencies {
 interface StartContext {
   readonly connectionId: string;
   readonly values: Readonly<Record<string, unknown>>;
+}
+
+function ticketAssetDelivery(
+  service: StartDependencies["parameters"],
+  userId: string,
+  inputs: readonly AgentTicketInput[],
+  beforeStart: () => Promise<void>,
+): Pick<TextExecutionInput, "ticketInputs" | "readTicketAssets"> {
+  if (inputs.length === 0) return {};
+  return {
+    ticketInputs: inputs,
+    readTicketAssets: async () => {
+      await beforeStart();
+      if (!service.readTicketAssets)
+        throw new AgentError("parameter_asset_transfer_unsupported");
+      return service.readTicketAssets(userId, inputs);
+    },
+  };
 }
 
 /** Reauthorizes the executor just before each step, without replacing its frozen template or input. */
@@ -114,7 +134,7 @@ export class AgentPlanStepStart {
         snapshot.plan.projectId,
         taskId,
       );
-    const values = resultValues(step, run);
+    const values = resultValues(step, run, snapshot);
     const live = await this.dependencies.parameters.prepare(
       run.userId,
       {
@@ -153,6 +173,11 @@ export class AgentPlanStepStart {
     );
     const directory = planStepDirectory(step);
     const github = this.dependencies.github;
+    const beforeStart = (): Promise<void> =>
+      this.reauthorize(run, snapshot, step, {
+        values,
+        connectionId: resolved.assignment.connection.id,
+      });
     return {
       input: {
         agent: resolved.assignment,
@@ -165,11 +190,13 @@ export class AgentPlanStepStart {
           ? { github: () => github.resolve(run.userId, directory) }
           : {}),
         prompt: `${parameters.markdown}\n\n${step.step.instruction}`,
-        beforeStart: () =>
-          this.reauthorize(run, snapshot, step, {
-            values,
-            connectionId: resolved.assignment.connection.id,
-          }),
+        ...ticketAssetDelivery(
+          this.dependencies.parameters,
+          run.userId,
+          parameters.assetInputs,
+          beforeStart,
+        ),
+        beforeStart,
       },
       definition,
       options,
@@ -251,12 +278,17 @@ export class AgentPlanStepStart {
 function resultValues(
   step: AgentPlanStepSnapshot,
   run: AgentPlanRun,
+  snapshot: AgentPlanSnapshot,
 ): Readonly<Record<string, unknown>> {
   const values: Record<string, unknown> = {
     ...step.prepared.parameters.values,
   };
   for (const [name, binding] of Object.entries(step.step.bindings)) {
     if (binding.kind !== "result") continue;
+    requireTicketHandoff(
+      step,
+      snapshot.steps.find((source) => source.step.id === binding.stepId),
+    );
     const result = run.steps.find((entry) => entry.id === binding.stepId);
     if (result?.status !== "succeeded" || result.output === null)
       throw new AgentError("plan_binding_invalid");
@@ -265,10 +297,36 @@ function resultValues(
   return values;
 }
 
+function requireTicketHandoff(
+  target: AgentPlanStepSnapshot,
+  source: AgentPlanStepSnapshot | undefined,
+): void {
+  for (const input of source?.prepared.parameters.assetInputs ?? []) {
+    if (input.ticket.assets.length === 0) continue;
+    const receiver = target.prepared.parameters.assetInputs?.find(
+      (entry) => entry.ticket.id === input.ticket.id,
+    );
+    if (
+      !receiver ||
+      JSON.stringify(receiver.ticket.assets) !==
+        JSON.stringify(input.ticket.assets)
+    )
+      throw new AgentError("parameter_asset_transfer_unsupported");
+  }
+}
+
 function validateContext(
   step: AgentPlanStepSnapshot,
   live: Awaited<ReturnType<AgentParameterService["prepare"]>>,
 ): void {
+  for (const input of step.prepared.parameters.assetInputs ?? []) {
+    const current = live.parameters.tickets[input.parameter];
+    if (
+      !current ||
+      JSON.stringify(current.assets) !== JSON.stringify(input.ticket.assets)
+    )
+      throw new AgentError("parameter_ticket_changed");
+  }
   for (const previous of [
     step.prepared.workspace,
     ...step.prepared.references,

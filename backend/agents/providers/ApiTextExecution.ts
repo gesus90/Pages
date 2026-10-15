@@ -1,3 +1,5 @@
+import { readTicketAssetInput } from "@/backend/agents/TicketAssetInput";
+import { AgentError } from "@/backend/error/AgentErrors";
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
 import { AGENT_PROVIDERS, isApiProvider } from "@/definition/AgentConnection";
 
@@ -47,7 +49,12 @@ export class ApiTextExecution implements TextExecution {
       throw new TextAssistantError("connectionUnavailable");
     const apiKey = await this.readApiKey(connection.id);
     try {
-      const request = createTextProviderRequest(connection.provider, input);
+      const assets = await readTicketAssetInput(input);
+      const request = createTextProviderRequest(
+        connection.provider,
+        input,
+        assets,
+      );
       signal.throwIfAborted();
       const response = await this.request(
         `${AGENT_PROVIDERS[connection.provider].endpoint}${request.path}`,
@@ -67,7 +74,8 @@ export class ApiTextExecution implements TextExecution {
         webSearch: input.webSearch,
       }).replaceAll(apiKey, "[redacted]");
     } catch (error: unknown) {
-      if (error instanceof TextAssistantError) throw error;
+      if (error instanceof TextAssistantError || error instanceof AgentError)
+        throw error;
       throw new TextAssistantError("providerFailed");
     }
   }

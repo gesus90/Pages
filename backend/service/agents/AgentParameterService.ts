@@ -11,6 +11,11 @@ import type { AgentWorkspaceService } from "./AgentWorkspaceService";
 import type { BoundAgentParameters } from "./AgentParameterBinding";
 import type { AgentPlanTemplate } from "./AgentPlanSnapshot";
 import type {
+  AgentTicketInput,
+  AgentTicketAssetContent,
+  AgentTicketAsset,
+} from "@/definition/AgentTicketParameter";
+import type {
   AgentTicketParameterService,
   AgentTicketParameterText,
 } from "./AgentTicketParameterService";
@@ -47,7 +52,8 @@ interface ParameterDependencies {
   readonly workspaces: Pick<AgentWorkspaceService, "resolve">;
   readonly authorization: Pick<AuthorizationRepository, "snapshot">;
   readonly content: Pick<AgentContentAccess, "wiki">;
-  readonly tickets?: Pick<AgentTicketParameterService, "resolve">;
+  readonly tickets?: Pick<AgentTicketParameterService, "resolve"> &
+    Partial<Pick<AgentTicketParameterService, "readAssets" | "requireAssets">>;
 }
 
 /** Connects the A10.2 binder to live authorized workspace and wiki resolvers. */
@@ -73,6 +79,30 @@ export class AgentParameterService {
     if (!this.dependencies.tickets)
       throw new AgentError("parameter_ticket_unavailable");
     await this.dependencies.tickets.resolve(userId, ticketId);
+  }
+
+  /** Loads files only at the runner boundary; a copied reference never grants access. */
+  public async readTicketAssets(
+    userId: string,
+    inputs: readonly AgentTicketInput[],
+  ): Promise<readonly AgentTicketAssetContent[]> {
+    if (inputs.length === 0) return [];
+    const tickets = this.dependencies.tickets;
+    if (!tickets?.readAssets)
+      throw new AgentError("parameter_asset_transfer_unsupported");
+    return tickets.readAssets(userId, inputs);
+  }
+
+  /** Reauthorizes the original asset references before disclosing a saved result. */
+  public async requireTicketAssets(
+    userId: string,
+    assets: readonly AgentTicketAsset[],
+  ): Promise<void> {
+    if (assets.length === 0) return;
+    const tickets = this.dependencies.tickets;
+    if (!tickets?.requireAssets)
+      throw new AgentError("parameter_asset_transfer_unsupported");
+    await tickets.requireAssets(userId, assets);
   }
 
   /** Resolves context, model access, resource grants and an explicit real working directory. */

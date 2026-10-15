@@ -98,14 +98,17 @@ function parameter(
 }
 
 function ticketService(): AgentTicketParameterService {
-  return new AgentTicketParameterService(async () => ({
-    actor: TICKET_ACTOR,
-    tasks: {
-      findAll: async () => [TICKET],
-      getById: async () => TICKET,
-      findChecklistItems: async () => [...CRITERIA],
-    },
-  }));
+  return new AgentTicketParameterService(
+    async () => ({
+      actor: TICKET_ACTOR,
+      tasks: {
+        findAll: async () => [TICKET],
+        getById: async () => TICKET,
+        findChecklistItems: async () => [...CRITERIA],
+      },
+    }),
+    { references: async () => [], read: vi.fn() },
+  );
 }
 
 it("inserts complete ticket text, strings and numbers at every original position without recursively changing ticket content", async () => {
@@ -193,20 +196,24 @@ it("lists only the ticket projection the existing authorized service returns", a
 
 it("refuses inaccessible, archived and inactive ticket references without disclosing their content", async () => {
   for (const situation of ["hidden", "archived", "inactive"]) {
-    const service = new AgentTicketParameterService(async () => ({
-      actor: { ...TICKET_ACTOR, isActive: situation !== "inactive" },
-      tasks: {
-        findAll: vi.fn(),
-        findChecklistItems: vi.fn(),
-        getById: async () => {
-          if (situation === "hidden") throw new Error("Hidden private content");
-          return {
-            ...TICKET,
-            archivedAt: situation === "archived" ? "2026-01-03" : null,
-          };
+    const service = new AgentTicketParameterService(
+      async () => ({
+        actor: { ...TICKET_ACTOR, isActive: situation !== "inactive" },
+        tasks: {
+          findAll: vi.fn(),
+          findChecklistItems: vi.fn(),
+          getById: async () => {
+            if (situation === "hidden")
+              throw new Error("Hidden private content");
+            return {
+              ...TICKET,
+              archivedAt: situation === "archived" ? "2026-01-03" : null,
+            };
+          },
         },
-      },
-    }));
+      }),
+      { references: async () => [], read: vi.fn() },
+    );
     await expect(service.resolve("owner", "ticket-id")).rejects.toThrow(
       new AgentError("parameter_ticket_unavailable"),
     );

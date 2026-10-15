@@ -44,19 +44,17 @@ import { WikiMaintenanceScheduler } from "@/backend/service/wiki/WikiMaintenance
 import { WikiService } from "@/backend/service/WikiService";
 import { WikiFileStore } from "@/backend/storage/WikiFileStore";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
-import { resolveAgentsDirectory } from "@/backend/config/PagesConfig";
 import { SetupService } from "@/backend/setup/SetupService";
 import mcpManifest from "@/mcp/package.json";
 
-import { createAgentServices } from "./agent-services.server";
+import { startExecutionServices } from "./agent-execution-services.server";
 import { createChatServices } from "./chat-services.server";
 import { createAgentPlanService } from "./agent-plan-services.server";
-import { createTextAssistantServices } from "./text-assistant-services.server";
 import { createMcpServices } from "./mcp-services.server";
 import { createDiscordServices } from "./discord-services.server";
 
-import type { TaskService } from "@/backend/service/TaskService";
 import type { AgentAssetService } from "@/backend/service/agents/AgentAssetService";
+import type { TaskService } from "@/backend/service/TaskService";
 import type { AgentApplicationServices } from "./agent-services.server";
 import type { ChatApplicationServices } from "./chat-services.server";
 import type { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
@@ -248,18 +246,14 @@ async function initializeServices(
   } = createAuthorizationServices(database, passwordHasher, serverCache);
   const userRepository = new UserRepository(database);
   const projectRepository = new ProjectRepository(database);
-  const userSettingsRepository = new UserSettingsRepository(database);
   const userService = new UserService(
     userRepository,
     permissionService,
     administrationService,
   );
-  const settingsService = new SettingsService(userSettingsRepository);
-  const boardPreferencesService = new BoardPreferencesService(
-    new UserBoardPreferencesRepository(database),
-  );
+  const { settingsService, boardPreferencesService } =
+    createPreferenceServices(database);
   const tokenKey = resolveGitHubTokenKey(databasePath);
-  const agentServices = await startAgents(database, databasePath, tokenKey);
   const projectService = new ProjectService(
     projectRepository,
     permissionService,
@@ -272,13 +266,6 @@ async function initializeServices(
     projectService,
     permissionService,
   );
-  const assistantServices = createTextAssistantServices({
-    database,
-    projectService,
-    permissions: permissionService,
-    agents: agentServices,
-  });
-  assistantServices.assistantHistoryScheduler.start();
   const taskServices = createTaskServices({
     database,
     databasePath,
@@ -290,6 +277,17 @@ async function initializeServices(
     userRepository,
     wikiService: workspaceServices.wikiService,
   });
+  const { agentServices, assistantServices } = await startExecutionServices(
+    database,
+    databasePath,
+    {
+      tokenKey,
+      projectService,
+      permissionService,
+      tickets: taskServices.taskAttachmentService,
+      wiki: workspaceServices.wikiService,
+    },
+  );
   const agentPlanService = await preparePlanService(database, {
     agents: agentServices,
     assistant: assistantServices,
@@ -667,19 +665,13 @@ export function activateApplicationServices(
   return globalThis.pagesServices;
 }
 
-/** The agent folders lie next to the configuration file, apart from the data directory. */
-async function startAgents(
+function createPreferenceServices(
   database: Database,
-  databasePath: string,
-  tokenKey: Buffer,
-): Promise<AgentApplicationServices> {
-  const runtime = await getPagesRuntime();
-  const services = createAgentServices(
-    database,
-    path.dirname(databasePath),
-    tokenKey,
-    resolveAgentsDirectory(runtime.configFile.path),
-  );
-  services.agentCatalogScheduler.start();
-  return services;
+): Pick<ApplicationServices, "settingsService" | "boardPreferencesService"> {
+  return {
+    settingsService: new SettingsService(new UserSettingsRepository(database)),
+    boardPreferencesService: new BoardPreferencesService(
+      new UserBoardPreferencesRepository(database),
+    ),
+  };
 }

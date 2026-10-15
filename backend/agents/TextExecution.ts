@@ -1,7 +1,14 @@
 import type { ResolvedTextAgent } from "@/backend/service/assistant/TextAgentRoleService";
+import type {
+  AgentTicketInput,
+  AgentTicketAssetContent,
+} from "@/definition/AgentTicketParameter";
 
 /** Provider execution accepts a resolved role, never a client-chosen provider. */
 export interface TextExecutionInput {
+  /** Structured provenance; file bytes are resolved afresh immediately before transmission. */
+  readonly ticketInputs?: readonly AgentTicketInput[];
+  readonly readTicketAssets?: () => Promise<readonly AgentTicketAssetContent[]>;
   readonly agent: ResolvedTextAgent;
   /**
    * The person on whose behalf the model runs.

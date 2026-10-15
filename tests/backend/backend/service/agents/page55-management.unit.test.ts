@@ -15,6 +15,11 @@ vi.mock("node:fs/promises", async () => {
 });
 
 const resolve = vi.fn(async () => ({
+  id: "ticket-id",
+  key: "SYN-55",
+  title: "Ticket",
+  description: "Synthetic ticket",
+  assets: [],
   markdown: "Synthetic ticket",
   version: "1",
 }));

@@ -97,6 +97,18 @@ export const AGENT_ERROR_MESSAGES = {
     "Supply a valid finite number for every number parameter.",
   parameter_ticket_unavailable:
     "The selected ticket is unavailable or not accessible. Select an accessible ticket.",
+  parameter_asset_unavailable:
+    "A ticket asset is missing, deleted, unreadable or not accessible to the executing user. No incomplete input was sent.",
+  parameter_asset_type_unsupported:
+    "Ticket assets support PNG images and UTF-8 text files. A selected file has an unsupported format.",
+  parameter_asset_transfer_unsupported:
+    "This runner or handoff cannot deliver ticket assets. Use an API agent or an ACP adapter with image support, and bind the ticket to each receiving agent.",
+  parameter_asset_reference_unsupported:
+    "A referenced image or text file is not a Pages asset. Upload it to Pages and reference its attachment address.",
+  parameter_assets_too_large:
+    "Ticket assets exceed the 10 MiB transmission limit. No files were truncated or omitted.",
+  parameter_ticket_changed:
+    "The ticket or its asset references changed before transmission. Start the run again to use the current ticket.",
   parameter_required: "Supply every required parameter.",
   parameter_reference_unavailable:
     "The parameter reference is unavailable or not accessible.",

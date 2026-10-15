@@ -1,6 +1,8 @@
 import { readPlanText } from "./AgentPlanInput";
 import { readAgentObject } from "./AgentPayload";
 
+import type { AgentTicketAsset } from "@/definition/AgentTicketParameter";
+
 /** Live read checks use identifiers from the private snapshot, never copied resource content. */
 export interface AgentPlanRunResources {
   readonly projectId: string;
@@ -9,6 +11,37 @@ export interface AgentPlanRunResources {
   readonly wikiIds: readonly string[];
   readonly ticketIds: readonly string[];
   readonly agentIds: readonly string[];
+  readonly ticketAssets?: readonly AgentTicketAsset[];
+}
+
+function readTicketAssets(
+  parameters: Record<string, unknown>,
+): readonly AgentTicketAsset[] {
+  const assets: AgentTicketAsset[] = [];
+  const inputs: readonly unknown[] = Array.isArray(parameters.assetInputs)
+    ? parameters.assetInputs
+    : [];
+  for (const input of inputs) {
+    const ticket = readAgentObject(readAgentObject(input).ticket);
+    const references: readonly unknown[] = Array.isArray(ticket.assets)
+      ? ticket.assets
+      : [];
+    for (const reference of references) {
+      const asset = readAgentObject(reference);
+      if (
+        asset.source !== "ticket" &&
+        asset.source !== "wiki" &&
+        asset.source !== "agent"
+      )
+        throw new Error("Invalid stored ticket asset source");
+      assets.push({
+        source: asset.source,
+        id: readPlanText(asset.id),
+        link: readPlanText(asset.link),
+      });
+    }
+  }
+  return assets;
 }
 
 /** Extracts only resource identifiers needed to reauthorize output disclosure. */
@@ -20,6 +53,7 @@ export function readPlanRunResources(input: unknown): AgentPlanRunResources {
   const wikiIds = new Set<string>();
   const ticketIds = new Set<string>();
   const agentIds = new Set<string>();
+  const ticketAssets = new Map<string, AgentTicketAsset>();
   const nodes: readonly unknown[] = Array.isArray(plan.nodes) ? plan.nodes : [];
   for (const inputNode of nodes) {
     const node = readAgentObject(inputNode);
@@ -33,6 +67,8 @@ export function readPlanRunResources(input: unknown): AgentPlanRunResources {
     const step = readAgentObject(inputStep);
     const prepared = readAgentObject(step.prepared);
     const parameters = readAgentObject(prepared.parameters);
+    for (const asset of readTicketAssets(parameters))
+      ticketAssets.set(`${asset.source}:${asset.id}`, asset);
     const values = readAgentObject(parameters.values);
     const ids: readonly unknown[] = Array.isArray(step.taskIds)
       ? step.taskIds
@@ -54,5 +90,6 @@ export function readPlanRunResources(input: unknown): AgentPlanRunResources {
     wikiIds: [...wikiIds],
     ticketIds: [...ticketIds],
     agentIds: [...agentIds],
+    ticketAssets: [...ticketAssets.values()],
   };
 }

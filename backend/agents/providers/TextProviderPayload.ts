@@ -1,8 +1,10 @@
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
 
+import { ticketAssetPayload } from "./TicketAssetPayload";
 import { geminiThinkingLevel } from "./GoogleAiStudioProvider";
 
+import type { AgentTicketAssetContent } from "@/definition/AgentTicketParameter";
 import type { ApiProviderId } from "@/definition/AgentConnection";
 import type { TextExecutionInput } from "@/backend/agents/TextExecution";
 
@@ -33,7 +35,10 @@ const OPENAI_SEARCH_ITEMS: ReadonlySet<unknown> = new Set([
   "web_search_call",
 ]);
 
-function googleRequest(input: TextExecutionInput): TextProviderRequest {
+function googleRequest(
+  input: TextExecutionInput,
+  assets: readonly AgentTicketAssetContent[],
+): TextProviderRequest {
   const { model, reasoningEffort } = input.agent;
   return {
     path: `/models/${encodeURIComponent(model.replace(/^models\//, ""))}:generateContent`,
@@ -41,7 +46,7 @@ function googleRequest(input: TextExecutionInput): TextProviderRequest {
       ...(input.instructions === undefined
         ? {}
         : { systemInstruction: { parts: [{ text: input.instructions }] } }),
-      contents: [{ parts: [{ text: input.prompt }] }],
+      contents: [{ parts: ticketAssetPayload("google", input.prompt, assets) }],
       ...(input.webSearch === true ? { tools: [{ google_search: {} }] } : {}),
       generationConfig: {
         maxOutputTokens: MAXIMUM_OUTPUT_TOKENS,
@@ -57,7 +62,10 @@ function googleRequest(input: TextExecutionInput): TextProviderRequest {
   };
 }
 
-function anthropicRequest(input: TextExecutionInput): TextProviderRequest {
+function anthropicRequest(
+  input: TextExecutionInput,
+  assets: readonly AgentTicketAssetContent[],
+): TextProviderRequest {
   const { model, reasoningEffort } = input.agent;
   return {
     path: "/messages",
@@ -67,7 +75,14 @@ function anthropicRequest(input: TextExecutionInput): TextProviderRequest {
       ...(input.instructions === undefined
         ? {}
         : { system: input.instructions }),
-      messages: [{ role: "user", content: input.prompt }],
+      messages: [
+        {
+          role: "user",
+          content: assets.length
+            ? ticketAssetPayload("anthropic", input.prompt, assets)
+            : input.prompt,
+        },
+      ],
       ...(input.webSearch === true ? { tools: [ANTHROPIC_WEB_SEARCH] } : {}),
       ...(reasoningEffort === null
         ? {}
@@ -77,7 +92,10 @@ function anthropicRequest(input: TextExecutionInput): TextProviderRequest {
 }
 
 /** OpenAI offers its search only in the Responses API. */
-function openAiSearchRequest(input: TextExecutionInput): TextProviderRequest {
+function openAiSearchRequest(
+  input: TextExecutionInput,
+  assets: readonly AgentTicketAssetContent[],
+): TextProviderRequest {
   const { model, reasoningEffort } = input.agent;
   return {
     path: "/responses",
@@ -86,7 +104,14 @@ function openAiSearchRequest(input: TextExecutionInput): TextProviderRequest {
       ...(input.instructions === undefined
         ? {}
         : { instructions: input.instructions }),
-      input: input.prompt,
+      input: assets.length
+        ? [
+            {
+              role: "user",
+              content: ticketAssetPayload("responses", input.prompt, assets),
+            },
+          ]
+        : input.prompt,
       tools: [{ type: "web_search" }],
       max_output_tokens: MAXIMUM_OUTPUT_TOKENS,
       store: false,
@@ -100,6 +125,7 @@ function openAiSearchRequest(input: TextExecutionInput): TextProviderRequest {
 function completionsRequest(
   provider: ApiProviderId,
   input: TextExecutionInput,
+  assets: readonly AgentTicketAssetContent[] = [],
 ): TextProviderRequest {
   const { model, reasoningEffort } = input.agent;
   let reasoning: Readonly<Record<string, unknown>> = {};
@@ -109,7 +135,12 @@ function completionsRequest(
         ? { reasoning: { effort: reasoningEffort } }
         : { reasoning_effort: reasoningEffort };
   }
-  const user = { role: "user", content: input.prompt };
+  const user = {
+    role: "user",
+    content: assets.length
+      ? ticketAssetPayload("completions", input.prompt, assets)
+      : input.prompt,
+  };
   return {
     path: "/chat/completions",
     body: {
@@ -137,12 +168,13 @@ function completionsRequest(
 export function createTextProviderRequest(
   provider: ApiProviderId,
   input: TextExecutionInput,
+  assets: readonly AgentTicketAssetContent[] = [],
 ): TextProviderRequest {
-  if (provider === "google_ai_studio") return googleRequest(input);
-  if (provider === "anthropic") return anthropicRequest(input);
+  if (provider === "google_ai_studio") return googleRequest(input, assets);
+  if (provider === "anthropic") return anthropicRequest(input, assets);
   if (provider === "openai" && input.webSearch === true)
-    return openAiSearchRequest(input);
-  return completionsRequest(provider, input);
+    return openAiSearchRequest(input, assets);
+  return completionsRequest(provider, input, assets);
 }
 
 function readTextParts(parts: unknown): string {

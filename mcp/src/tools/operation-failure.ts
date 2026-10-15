@@ -60,6 +60,7 @@ const ISSUE_PROBLEMS: Readonly<Record<AgentPlanIssueProblem, true>> = {
   duplicate: true,
   cycle: true,
   type: true,
+  ticketHandoff: true,
   source: true,
   required: true,
   start: true,

@@ -73,7 +73,15 @@ export class ChatAgentWorld {
   public readonly tickets = vi.fn(async (userId: string, ticketId: string) => {
     if (ticketId !== "ticket-1" || userId === "outsider")
       throw new Error("Unexpected ticket access");
-    return { markdown: "Synthetic ticket", version: "1" };
+    return {
+      id: ticketId,
+      key: "SYN-1",
+      title: "Ticket",
+      description: "Synthetic ticket",
+      assets: [],
+      markdown: "Synthetic ticket",
+      version: "1",
+    };
   });
   public readonly world = new PageAgentWorld({
     choices: async () => [],

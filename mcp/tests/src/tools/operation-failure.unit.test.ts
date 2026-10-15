@@ -233,3 +233,14 @@ describe("operationFailure conflicts and rejection reasons", () => {
     expect(failure?.details).toBeUndefined();
   });
 });
+
+it("preserves an explicit unsupported ticket handoff finding", async () => {
+  const issues = [{ nodeId: "next", port: "ticket", problem: "ticketHandoff" }];
+  const failure = await operationFailure(
+    failureResponse(400, {
+      code: "INVALID_REQUEST",
+      details: { reason: "graph_invalid", issues },
+    }),
+  );
+  expect(failure?.details).toEqual({ reason: "graph_invalid", issues });
+});

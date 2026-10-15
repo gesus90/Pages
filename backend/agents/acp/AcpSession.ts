@@ -5,10 +5,12 @@ import {
   methods,
 } from "@agentclientprotocol/sdk";
 
+import { readTicketAssetInput } from "@/backend/agents/TicketAssetInput";
 import { closeCliSession } from "@/backend/agents/cli/CliSessionCloseout";
 import { noteSessionEvent } from "@/backend/agents/cli/CliSessionEvents";
 import { AgentError } from "@/backend/error/AgentErrors";
 
+import { acpTicketAssetPrompt } from "./AcpTicketAssets";
 import { findAcpSelectOption } from "./AcpConfigOptions";
 import {
   createAcpSessionState,
@@ -18,8 +20,10 @@ import {
 import { PAGES_MCP_SERVER } from "./AcpLaunch";
 import { readMcpServerStatus } from "./AcpMcpStatus";
 
+import type { TextExecutionInput } from "@/backend/agents/TextExecution";
 import type {
   ClientConnection,
+  PromptCapabilities,
   McpServerStdio,
   RequestPermissionRequest,
   RequestPermissionResponse,
@@ -52,7 +56,10 @@ const MCP_CONNECT_WAIT_MS = 20_000;
 const MCP_POLL_MS = 500;
 
 /** What the session runs: exactly the stored model, effort and prompt of the node. */
-export interface AcpSessionRequest {
+export interface AcpSessionRequest extends Pick<
+  TextExecutionInput,
+  "ticketInputs" | "readTicketAssets"
+> {
   readonly directory: string;
   /** The complete prompt; it is sent unchanged as one text block. */
   readonly prompt: string;
@@ -138,6 +145,7 @@ export class AcpSession implements PlanSession {
   private readonly state = createAcpSessionState();
   private lastProgressAt = 0;
   private lastProgress = "";
+  private promptCapabilities: PromptCapabilities | null | undefined;
   private isModelChecked = false;
   private isModelMismatch = false;
   /** The text of a local command such as `/mcp`; `null` while the turn is the node's. */
@@ -189,7 +197,11 @@ export class AcpSession implements PlanSession {
         methods.agent.session.prompt,
         {
           sessionId,
-          prompt: [{ type: "text", text: this.context.request.prompt }],
+          prompt: acpTicketAssetPrompt(
+            this.context.request.prompt,
+            await readTicketAssetInput(this.context.request),
+            this.promptCapabilities,
+          ),
         },
       );
       noteSessionEvent(this.state.events, `turn ${response.stopReason}`);
@@ -213,6 +225,7 @@ export class AcpSession implements PlanSession {
         clientCapabilities: {},
       },
     );
+    this.promptCapabilities = response.agentCapabilities?.promptCapabilities;
     const { driver } = this.context;
     const agent = response.agentInfo;
     const adapter = agent ? `${agent.name} ${agent.version}` : "unknown";

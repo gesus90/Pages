@@ -9,15 +9,17 @@ import {
 
 import type { AgentConfiguration } from "@/definition/AgentConfiguration";
 import type {
+  ResolvedAgentTicket,
+  AgentTicketInput,
+} from "@/definition/AgentTicketParameter";
+import type {
   AgentParameter,
   AgentParameterValue,
 } from "@/definition/AgentParameters";
 
 /** Resolvers must authorize the executing user and project before returning any resource. */
 export interface AgentReferenceResolvers {
-  readonly ticket?: (
-    id: string,
-  ) => Promise<{ readonly markdown: string; readonly version: string }>;
+  readonly ticket?: (id: string) => Promise<ResolvedAgentTicket>;
   readonly workspace: (id: string) => Promise<{ readonly path: string }>;
   readonly wiki: (id: string) => Promise<{
     readonly markdown: string;
@@ -32,12 +34,16 @@ export interface BoundAgentParameters {
   readonly directory: string | null;
   readonly values: Readonly<Record<string, AgentParameterValue | null>>;
   readonly wikiVersions: Readonly<Record<string, string>>;
+  /** Objects keyed by declaration name; a bare ticket or .assets requests file delivery. */
+  readonly tickets: Readonly<Record<string, ResolvedAgentTicket>>;
+  readonly assetInputs: readonly AgentTicketInput[];
 }
 
 interface ParameterResolution {
   readonly replacements: Readonly<Record<string, string>>;
   readonly directory: string | null;
   readonly version: string | null;
+  readonly ticket?: ResolvedAgentTicket;
 }
 
 function readBindings(
@@ -109,9 +115,19 @@ async function resolveParameter(
       throw new AgentError("parameter_ticket_unavailable");
     const ticket = await references.ticket(bound.ticketId);
     return {
-      replacements: { [name]: ticket.markdown },
+      replacements: {
+        [name]: ticket.markdown,
+        [`${name}.description`]: ticket.description,
+        [`${name}.assets`]: JSON.stringify({
+          parameter: name,
+          ticketId: ticket.id,
+          ticketKey: ticket.key,
+          assets: ticket.assets,
+        }),
+      },
       directory: null,
       version: null,
+      ticket,
     };
   }
   if (bound.type === "workspace") {
@@ -155,6 +171,8 @@ export async function bindAgentParameters(
   }
   const replacements: Record<string, string> = {};
   const wikiVersions: Record<string, string> = {};
+  const tickets: Record<string, ResolvedAgentTicket> = {};
+  const assetInputs: AgentTicketInput[] = [];
   let directory: string | null = null;
   for (const parameter of configuration.parameters) {
     const resolved = await resolveParameter(
@@ -163,6 +181,20 @@ export async function bindAgentParameters(
       references,
     );
     Object.assign(replacements, resolved.replacements);
+    if (resolved.ticket) {
+      tickets[parameter.name] = resolved.ticket;
+      if (
+        placeholders.some(
+          (entry) =>
+            entry.name === parameter.name &&
+            (entry.property === "text" || entry.property === "assets"),
+        )
+      )
+        assetInputs.push({
+          parameter: parameter.name,
+          ticket: resolved.ticket,
+        });
+    }
     if (parameter.name === configuration.directoryParameter)
       directory = resolved.directory;
     if (resolved.version !== null)
@@ -184,5 +216,5 @@ export async function bindAgentParameters(
       markdown.slice(placeholder.end);
   }
   if (markdown.length > 1_000_000) throw new AgentError("parameter_invalid");
-  return { markdown, directory, values, wikiVersions };
+  return { markdown, directory, values, wikiVersions, tickets, assetInputs };
 }

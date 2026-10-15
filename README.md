@@ -301,6 +301,84 @@ running definition cannot be changed or deleted. Existing run history is kept.
 Pica receives the actual mutation receipts and safe error codes to explain what
 succeeded or failed.
 
+## Ticket parameters and assets (PAGE-60)
+
+Declare a single parameter of type `ticket`, for example `ticket` or `referenz`.
+Its saved value stays `{ "type": "ticket", "ticketId": "…" }`; users do not
+select an additional asset parameter. At execution, Pages resolves it to:
+
+```ts
+{
+  id: "ticket-id",
+  key: "PAGE-60",
+  title: "Ticket title",
+  description: "The complete, untrimmed ticket description",
+  assets: [
+    { source: "ticket", id: "attachment-id", link: "/aufgaben/attachments/attachment-id" }
+  ],
+  markdown: "# PAGE-60: Ticket title\n\nDescription and stored acceptance criteria",
+  version: "opaque revision"
+}
+```
+
+| Placeholder | Instruction text | Separate file delivery |
+| --- | --- | --- |
+| `{{ticket.description}}` | Exact complete description | None |
+| `{{ticket.assets}}` | Asset references with parameter name, ticket ID and key | All ticket assets |
+| `{{ticket}}` | Compatible complete ticket text, including title and stored criteria | All ticket assets |
+
+The same syntax works with any declared ticket parameter name, such as
+`{{referenz.description}}` and `{{referenz.assets}}`. Substitution happens only
+once: placeholders inside a description or file are literal data. Repeated
+placeholders do not duplicate the files within a parameter. Each delivered file
+carries its parameter name, ticket ID/key, original reference and filename;
+two parameters selecting the same ticket retain two distinct associations.
+An empty asset list is valid and leaves the full description available.
+
+Assets include every ticket attachment and used Markdown image/file references
+to `/aufgaben/attachments/<id>`, `/wiki/attachments/<id>` and
+`/agent-assets/<id>`, including reference-style Markdown links. As with Pages
+wiki references, a server address or deployment prefix can precede these paths;
+only the Pages identifier is resolved, never an external network resource.
+Duplicate references are delivered once per parameter. Code examples do not
+request files. External or relative PNG/TXT links and images must first be
+uploaded to Pages; they fail explicitly instead of becoming filename-only input.
+PNG images and complete UTF-8 text files are supported (including TXT uploaded
+as `application/octet-stream`); other binary formats fail explicitly. The total
+unencoded file contents of one transmission are limited to 10 MiB. Exceeding
+that limit fails the run without truncating or omitting a file.
+
+Direct runs and execution plans share this resolution and delivery path.
+OpenAI, OpenRouter, Anthropic and Google API agents receive native image blocks
+and separate complete text blocks. Codex and Claude ACP sessions receive PNG
+image blocks after the adapter advertises image support; text is an embedded
+resource when supported, otherwise a complete separate text block. OpenCode's
+current stdin-only plan adapter and standalone text-only CLI requests do not
+support file delivery and report `parameter_asset_transfer_unsupported` when
+files are selected. A model/provider that rejects image input fails the run;
+Pages never silently falls back to metadata or another model.
+
+For a following agent in a plan, bind the same ticket source to its ticket
+parameter. Pages resolves that ticket again under the executing user's current
+rights and retains the description, asset references and parameter association.
+An agent result is text: a result-to-ticket connection is refused with the
+explicit `ticketHandoff` graph finding. A text result derived from ticket assets
+also requires those same tickets and asset lists to be bound to the receiving
+agent; otherwise the runtime reports `parameter_asset_transfer_unsupported`.
+Runtime-native subagent delegation is
+outside Pages' structured handoff contract; it is not a way to obtain additional
+Pages permissions or a guaranteed asset transfer.
+
+Every file read uses its original ticket, wiki or staged-asset access policy.
+Ticket selection and sharing never grant file rights. Plan snapshots contain
+references, not file bytes or reusable download credentials. Immediately before
+the API/ACP prompt, Pages rechecks the executor, ticket and each file. A ticket
+or reference list changed between preparation and transmission requires a new
+run. Missing, deleted, inaccessible, unreadable, invalid-UTF-8 and oversized
+files produce an explicit error; the prompt is not sent partially. Historical
+run reads also reauthorize the original asset references, even after their
+links have been removed from the ticket description.
+
 ## Deleting agents in administration
 
 Under **Settings → Agents → Agents**, administrators in admin mode can select

@@ -80,6 +80,8 @@ function snapshotOf(projectId: string, planId: string): AgentPlanSnapshot {
             directory: null,
             values: {},
             wikiVersions: {},
+            tickets: {},
+            assetInputs: [],
           },
           workspace: { ...WORKSPACE, projectId },
           directory: null,

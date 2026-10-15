@@ -19,8 +19,10 @@ import { PageAgentRunRepository } from "@/backend/database/repositories/agent/Pa
 import { UserRepository } from "@/backend/database/repositories/UserRepository";
 import { AgentTicketParameterService } from "@/backend/service/agents/AgentTicketParameterService";
 import { createAgentTaskContext } from "@/backend/service/agents/AgentTaskAccess";
+import { AgentTicketAssetService } from "@/backend/service/agents/AgentTicketAssetService";
 import { AgentError } from "@/backend/error/AgentErrors";
 
+import type { AgentTicketAssetDependencies } from "@/backend/service/agents/AgentTicketAssetService";
 import type { Database } from "@/backend/database/Database";
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import type { AgentOperationRegistry } from "@/backend/service/agents/AgentOperationRegistry";
@@ -69,6 +71,7 @@ export function createAgentConfigurationServices(input: {
   readonly agentsDirectory: string;
   readonly connections: AgentConnectionRepository;
   readonly operations: AgentOperationRegistry;
+  readonly ticketAssets: AgentTicketAssetDependencies;
 }): AgentConfigurationApplicationServices {
   const { database } = input;
   const authorization = new AuthorizationRepository(database);
@@ -83,7 +86,7 @@ export function createAgentConfigurationServices(input: {
     const actor = await users.findById(userId);
     if (!actor?.isActive) throw new AgentError("agent_usage_denied");
     return createAgentTaskContext(database, actor, "chat");
-  });
+  }, new AgentTicketAssetService(input.ticketAssets));
   const agentWorkspaceService = new AgentWorkspaceService({
     workspaces: new AgentWorkspaceRepository(database),
     authorization,

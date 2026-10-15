@@ -1,3 +1,4 @@
+import { readTicketAssetInput } from "@/backend/agents/TicketAssetInput";
 import { acpDriverFor } from "@/backend/agents/acp/AcpDrivers";
 import { AcpLineChannel } from "@/backend/agents/acp/AcpLineChannel";
 import { AcpSession } from "@/backend/agents/acp/AcpSession";
@@ -184,6 +185,8 @@ export class CliSessionExecution implements PlanSessionRunner {
   ): Promise<PlanSession> {
     if (isAcpProvider(start.provider))
       return this.spawnAcp(acpDriverFor(start.provider), input, start, control);
+    if ((await readTicketAssetInput(input)).length > 0)
+      throw new AgentError("parameter_asset_transfer_unsupported");
     const plan = planCliSession(start.provider, {
       instanceId: input.instanceId,
       model: input.agent.model,
@@ -301,6 +304,8 @@ export class CliSessionExecution implements PlanSessionRunner {
         request: {
           directory: input.directory,
           prompt: input.prompt,
+          ticketInputs: input.ticketInputs,
+          readTicketAssets: input.readTicketAssets,
           model: input.agent.model,
           reasoningEffort: input.agent.reasoningEffort,
           mcpServers: launch.mcpServers,

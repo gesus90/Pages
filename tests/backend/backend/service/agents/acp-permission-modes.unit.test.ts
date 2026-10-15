@@ -224,6 +224,8 @@ it.each(ACP_RUNNERS)(
         directory: null,
         values: {},
         wikiVersions: {},
+        tickets: {},
+        assetInputs: [],
       },
       workspace: workspace("plan"),
       directory: null,

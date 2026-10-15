@@ -1,3 +1,5 @@
+import { readTicketAssetInput } from "@/backend/agents/TicketAssetInput";
+import { AgentError } from "@/backend/error/AgentErrors";
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
 import { isApiProvider } from "@/definition/AgentConnection";
 
@@ -128,6 +130,8 @@ export class CliTextExecution implements TextExecution {
     input: TextExecutionInput,
     signal: AbortSignal,
   ): Promise<string> {
+    if ((await readTicketAssetInput(input)).length > 0)
+      throw new AgentError("parameter_asset_transfer_unsupported");
     const { connection } = input.agent;
     if (isApiProvider(connection.provider))
       throw new TextAssistantError("connectionUnavailable");

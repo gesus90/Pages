@@ -6,6 +6,7 @@ import { CODEX_ACP_DRIVER } from "@/backend/agents/acp/CodexAcpDriver";
 
 import { FakeAdapterProcess, fakeCodexAgent } from "./fake-acp-adapter";
 
+import type { TextExecutionInput } from "@/backend/agents/TextExecution";
 import type { Mock } from "vitest";
 import type { PlanSessionObserver } from "@/backend/agents/AgentPlanExecution";
 import type { AcpPermissionMode } from "@/definition/AgentConfiguration";
@@ -28,7 +29,10 @@ export const PROMPT = [
 ].join("\n");
 
 /** What a node configures; everything else is the synthetic default. */
-export interface SyntheticNode {
+export interface SyntheticNode extends Pick<
+  TextExecutionInput,
+  "ticketInputs" | "readTicketAssets"
+> {
   /** The runner of the node; Codex CLI unless named. */
   readonly provider?: "codex_cli" | "claude_code";
   /** Whether the node has the Pages MCP server; it has by default. */
@@ -101,6 +105,8 @@ export function startAcpSession(
     request: {
       directory: WORKSPACE,
       prompt: PROMPT,
+      ticketInputs: node.ticketInputs,
+      readTicketAssets: node.readTicketAssets,
       model: node.model ?? (isClaude ? "claude-sonnet-5-5" : "gpt-synthetic"),
       reasoningEffort:
         node.reasoningEffort === undefined ? "high" : node.reasoningEffort,

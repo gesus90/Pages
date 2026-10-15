@@ -28,7 +28,8 @@ export interface AgentParameter {
 export interface AgentPlaceholder {
   readonly name: string;
   readonly type: AgentParameterType;
-  readonly property: "text" | "path" | "link" | "markdown";
+  readonly property:
+    "text" | "path" | "link" | "markdown" | "description" | "assets";
   readonly start: number;
   readonly end: number;
 }
@@ -47,6 +48,8 @@ const PLACEHOLDER_PROPERTIES = {
   path: "workspace",
   link: "wiki",
   markdown: "wiki",
+  description: "ticket",
+  assets: "ticket",
 } as const;
 
 /** Names are case-sensitive identifiers, without dots or expression syntax. */
@@ -101,7 +104,9 @@ function placeholder(
     property !== "text" &&
     property !== "path" &&
     property !== "link" &&
-    property !== "markdown"
+    property !== "markdown" &&
+    property !== "description" &&
+    property !== "assets"
   )
     return null;
   if (parts.length === 2 && property === "text") return null;
