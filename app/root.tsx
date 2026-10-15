@@ -1,4 +1,5 @@
 import "@fontsource-variable/inter";
+import { useState } from "react";
 import { I18nextProvider, useTranslation } from "react-i18next";
 import {
   isRouteErrorResponse,
@@ -13,6 +14,8 @@ import {
 } from "react-router";
 
 import { useDocumentTheme } from "@/app/components/common/use-document-theme";
+import { DraftProvider } from "@/app/components/common/draft-provider";
+import { BackgroundSaveStatus } from "@/app/components/common/background-save-status";
 import { buttonVariants } from "@/app/components/ui/button";
 import { Toaster } from "@/app/components/ui/toast";
 import { getAuthenticatedUser } from "@/app/lib/auth.server";
@@ -79,6 +82,7 @@ export const middleware: MiddlewareFunction[] = [requireFinishedSetup];
 export async function loader({ request }: Route.LoaderArgs): Promise<{
   language: Language;
   theme: UserTheme;
+  draftOwnerId: string | null;
 }> {
   const { theme: defaultTheme } = DEFAULT_USER_SETTINGS;
 
@@ -86,6 +90,7 @@ export async function loader({ request }: Route.LoaderArgs): Promise<{
     return {
       language: await resolveSetupLanguage(request),
       theme: defaultTheme,
+      draftOwnerId: null,
     };
   }
 
@@ -95,12 +100,17 @@ export async function loader({ request }: Route.LoaderArgs): Promise<{
     const services = await getApplicationServices();
     const settings = await services.settingsService.getUserSettings(user.id);
 
-    return { language: settings.language, theme: settings.theme };
+    return {
+      language: settings.language,
+      theme: settings.theme,
+      draftOwnerId: user.id,
+    };
   }
 
   return {
     language: await resolveAnonymousLanguage(request),
     theme: defaultTheme,
+    draftOwnerId: null,
   };
 }
 
@@ -134,6 +144,14 @@ export function Layout({
   const language = loaderData?.language ?? LANGUAGE.GERMAN;
   const theme = useDocumentTheme(loaderData?.theme);
   const i18n = createI18n(language);
+  const [draftOwnerId, setDraftOwnerId] = useState(
+    loaderData?.draftOwnerId ?? null,
+  );
+  // A route error may omit root data. Keep its account's drafts while the
+  // error page renders; a confirmed session change starts an isolated queue.
+  if (loaderData && loaderData.draftOwnerId !== draftOwnerId) {
+    setDraftOwnerId(loaderData.draftOwnerId);
+  }
 
   return (
     <html lang={language} data-theme={theme}>
@@ -155,8 +173,10 @@ export function Layout({
       </head>
       <body>
         <I18nextProvider i18n={i18n}>
-          {children}
-          <Toaster />
+          <DraftProvider key={draftOwnerId ?? "anonymous"}>
+            {children}
+            <Toaster />
+          </DraftProvider>
         </I18nextProvider>
         <ScrollRestoration />
         <Scripts />
@@ -185,6 +205,7 @@ export function ErrorBoundary(): React.ReactElement {
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-4 py-16 sm:px-6">
       <section className="w-full max-w-md rounded-3xl bg-surface p-6 text-center shadow-floating sm:p-8">
+        <BackgroundSaveStatus />
         {isRouteErrorResponse(error) ? (
           <p className="text-sm font-semibold text-primary">{error.status}</p>
         ) : null}

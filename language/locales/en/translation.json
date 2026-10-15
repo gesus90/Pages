@@ -119,7 +119,8 @@
     "workspaces": "Workspaces",
     "executionPlan": "Execution plan",
     "workspace": "Workspace",
-    "agentList": "Agents list"
+    "agentList": "Agents list",
+    "loading": "Loading view …"
   },
   "role": {
     "admin": "Administrator",
@@ -3497,5 +3498,13 @@
     "nextStep": "Go back to Pages, in the browser tab or on the computer where you started the connection, and confirm server and channel there. You can close this window.",
     "tryAgain": "Start the connection again in Pages under Projects → Interfaces → Discord.",
     "backToPages": "Open Pages"
+  },
+  "backgroundSave": {
+    "saving": "Saving …",
+    "saved": "Saved",
+    "unsaved": "Unsaved draft",
+    "error": "Saving failed. Your input is retained.",
+    "conflict": "Conflict – open the draft to compare versions.",
+    "retry": "Retry"
   }
 }

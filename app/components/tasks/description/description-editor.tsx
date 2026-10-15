@@ -71,7 +71,7 @@ export default function DescriptionEditor({
         fallback={<WikiMarkdown source={state.draft} />}
         features={features}
         hasToolbar
-        isEditable={canEdit && state.status !== "saving"}
+        isEditable={canEdit}
         label={label}
         markdown={state.draft}
         onChange={state.change}

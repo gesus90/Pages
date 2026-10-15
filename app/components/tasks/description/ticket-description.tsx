@@ -11,8 +11,6 @@ import {
   ticketAttachmentPath,
 } from "@/app/lib/ticket-upload";
 
-import { DescriptionLeaveDialog } from "./description-parts";
-import { useDescriptionLeaveGuard } from "./use-description-leave-guard";
 import { useTicketDescription } from "./use-ticket-description";
 
 import type {
@@ -27,7 +25,10 @@ import type { TicketUploadsState } from "./use-ticket-uploads";
 const DescriptionEditor = lazy(() => import("./description-editor"));
 
 interface TicketDescriptionProps {
-  readonly ticket: Pick<WorkItemDetail, "id" | "key" | "description">;
+  readonly ticket: Pick<
+    WorkItemDetail,
+    "id" | "key" | "description" | "updatedAt"
+  >;
   /** Whether the person may change the description now. */
   readonly canEdit: boolean;
   readonly uploads: TicketUploadsState;
@@ -106,7 +107,7 @@ function DescriptionView({
 /**
  * The description of a ticket as in Jira (A8.2-E05): the rendered text, a
  * click turns it into the block editor of A8.1 with a toolbar, and saving
- * or cancelling is explicit. Leaving with unsaved changes asks first.
+ * or cancelling is explicit. Drafts stay available across page changes.
  */
 export function TicketDescription({
   ticket,
@@ -116,7 +117,6 @@ export function TicketDescription({
 }: TicketDescriptionProps): React.ReactElement {
   const { t } = useTranslation();
   const state = useTicketDescription(ticket);
-  const guard = useDescriptionLeaveGuard(state);
   const handle = useRef<BlockEditorHandle | null>(null);
   const [element, setElement] = useState<HTMLElement | null>(null);
   const assistant = useTextAssistant({
@@ -127,7 +127,7 @@ export function TicketDescription({
     },
     title: ticket.key,
     handle,
-    content: state.isEditing ? state.draft : ticket.description,
+    content: state.draft,
     canEdit: canEdit && state.isEditing,
     canSend: state.status !== "saving",
     maximumLength: 65_536,
@@ -140,9 +140,9 @@ export function TicketDescription({
         <h2 className="text-sm font-semibold text-foreground">
           {t("tasks.tabs.description")}
         </h2>
-        {state.status === "saved" ? (
+        {state.status === "saved" || state.status === "saving" ? (
           <span className="ml-auto text-xs text-muted-foreground" role="status">
-            {t("tasks.description.status.saved")}
+            {t(`tasks.description.status.${state.status}`)}
           </span>
         ) : null}
         {canEdit && !state.isEditing ? (
@@ -175,11 +175,10 @@ export function TicketDescription({
       ) : (
         <DescriptionView
           canEdit={canEdit}
-          description={ticket.description}
+          description={state.draft}
           onEdit={state.startEditing}
         />
       )}
-      <DescriptionLeaveDialog guard={guard} />
       <AssistantPanel {...assistant.panel} />
     </section>
   );

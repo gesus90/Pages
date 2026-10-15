@@ -1,17 +1,10 @@
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@/app/components/ui/dialog";
 import { cn } from "@/app/lib/cn";
 import { formatShortcut } from "@/app/lib/editor/editor-shortcuts";
 import { WORK_ITEM_LIMITS } from "@/definition/Task";
 
-import type { DescriptionLeaveGuard } from "./use-description-leave-guard";
 import type { TicketDescriptionState } from "./use-ticket-description";
 
 const STATUS_KEYS: Readonly<Record<string, string>> = {
@@ -42,7 +35,7 @@ function SaveStatus({
         <span className="text-destructive">
           {t("tasks.description.status.failed", {
             reason: t(`tasks.error.${state.errorCode}`, {
-              defaultValue: state.errorCode,
+              defaultValue: t("backgroundSave.error"),
             }),
           })}
         </span>
@@ -78,6 +71,7 @@ export function DescriptionActions({
           className="h-8 px-3 text-xs"
           type="button"
           variant="ghost"
+          disabled={state.status === "saving"}
           onClick={state.cancel}
         >
           {t("tasks.description.cancel")}
@@ -85,7 +79,7 @@ export function DescriptionActions({
         <Button
           className="h-8 px-3 text-xs"
           isPending={state.status === "saving"}
-          disabled={!canSave}
+          disabled={!canSave || !state.isDirty}
           title={t("tasks.description.saveHint", { shortcut: saveKeys })}
           type="button"
           onClick={() => state.save()}
@@ -137,42 +131,5 @@ export function DescriptionConflict({
         </Button>
       </div>
     </div>
-  );
-}
-
-/** Asks what happens to an unsaved description when the person leaves. */
-export function DescriptionLeaveDialog({
-  guard,
-}: {
-  readonly guard: DescriptionLeaveGuard;
-}): React.ReactElement {
-  const { t } = useTranslation();
-
-  return (
-    <Dialog
-      open={guard.isAsking}
-      // The question only closes by itself (Escape, outside click); that stays.
-      onOpenChange={guard.stay}
-    >
-      <DialogContent>
-        <DialogTitle className="text-lg font-semibold">
-          {t("tasks.description.leave.title")}
-        </DialogTitle>
-        <DialogDescription className="mt-2 text-sm text-muted-foreground">
-          {t("tasks.description.leave.body")}
-        </DialogDescription>
-        <footer className="mt-6 flex flex-wrap justify-end gap-2">
-          <Button type="button" variant="ghost" onClick={guard.stay}>
-            {t("tasks.description.leave.stay")}
-          </Button>
-          <Button type="button" variant="outline" onClick={guard.discard}>
-            {t("tasks.description.leave.discard")}
-          </Button>
-          <Button type="button" onClick={guard.saveAndLeave}>
-            {t("tasks.description.leave.save")}
-          </Button>
-        </footer>
-      </DialogContent>
-    </Dialog>
   );
 }

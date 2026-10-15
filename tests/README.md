@@ -38,6 +38,14 @@ the full suites are planned for PAGE-32/PAGE-33 and are not available as usable,
 validated test suites yet. Empty discovery is an error, not a passing suite. CI test execution
 remains absent after PAGE-35. Check and lint are non-test gates.
 
+PAGE-77 adds focused draft/navigation tests under
+`tests/frontend/app/components/drafts/` and `tests/frontend/app/lib/drafts/`, plus
+backend save/route tests under `tests/backend/backend/service/wiki/` and
+`tests/backend/app/routes/background-drafts.unit.test.ts` and
+`tests/backend/backend/service/background-save-order.unit.test.ts`. They simulate delayed
+responses, disconnections, failures, conflicts, retries and unload warnings behind
+loader, fetch and persistence boundaries. They open no real database or network.
+
 | Future command           | Discovery (relative to repository root)  | Environment | Reports              |
 | ------------------------ | ---------------------------------------- | ----------- | -------------------- |
 | `pnpm run test:backend`  | `tests/backend/**/*.unit.test.{ts,tsx}`  | Node        | `coverage/backend/`  |

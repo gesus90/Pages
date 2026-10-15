@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, NavLink, Outlet, useSubmit } from "react-router";
+import { Link, NavLink, useSubmit } from "react-router";
 
 import iconUrl from "@/assets/icon.png";
 import { Button } from "@/app/components/ui/button";
@@ -31,6 +31,8 @@ import {
   SheetTrigger,
 } from "@/app/components/ui/sheet";
 import { InstanceBrand } from "@/app/components/common/instance-brand";
+import { NavigationContent } from "@/app/components/common/navigation-content";
+import { BackgroundSaveStatus } from "@/app/components/common/background-save-status";
 import { UserAvatar } from "@/app/components/common/user-avatar";
 import { TicketSidebarSection } from "@/app/components/tasks/tree/ticket-sidebar-section";
 import { WikiSidebarSection } from "@/app/components/wiki/wiki-sidebar-section";
@@ -350,7 +352,8 @@ export function AppShell({
             {t("users.mode.offline")}
           </p>
         ) : null}
-        <Outlet />
+        <BackgroundSaveStatus />
+        <NavigationContent />
       </main>
     </div>
   );

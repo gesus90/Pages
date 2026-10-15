@@ -1,17 +1,14 @@
 import { useEffect, useState } from "react";
-import { useFetcher, useRevalidator } from "react-router";
 
+import { useDraftStores } from "@/app/components/common/draft-provider";
+
+import type { DraftEntry } from "@/app/lib/drafts/draft-queue";
+import type { DescriptionContent } from "@/definition/BackgroundSave";
 import type { WorkItemDetail } from "@/definition/Task";
 
 /** How far the description editing got. */
 export type DescriptionStatus =
   "viewing" | "editing" | "saving" | "saved" | "failed" | "conflict";
-
-/** The outcome of a ticket action as the action route answers it. */
-interface ActionAnswer {
-  readonly ok: boolean;
-  readonly error?: string;
-}
 
 /** The description of a ticket while a person reads or edits it. */
 export interface TicketDescriptionState {
@@ -34,109 +31,78 @@ export interface TicketDescriptionState {
   readonly takeLatest: () => string;
 }
 
-function isActionAnswer(value: unknown): value is ActionAnswer {
-  return typeof value === "object" && value !== null && "ok" in value;
-}
-
-function readFailure(answer: ActionAnswer): DescriptionStatus {
-  return answer.error === "descriptionConflict" ? "conflict" : "failed";
-}
-
-/**
- * Keeps the description of a ticket while it is read and edited (A8.2-E05):
- * explicit saving with the text it started from, cancelling without a save,
- * and a conflict when someone else saved in between.
- *
- * @param ticket - The ticket as the page loaded it last.
- * @returns The state and the actions of the description.
- */
+/** Keeps the explicit Save action asynchronous and retains drafts between views. */
 export function useTicketDescription(
-  ticket: Pick<WorkItemDetail, "id" | "description">,
+  ticket: Pick<WorkItemDetail, "id" | "key" | "description" | "updatedAt">,
 ): TicketDescriptionState {
-  const fetcher = useFetcher<unknown>();
-  const { revalidate } = useRevalidator();
-  const [status, setStatus] = useState<DescriptionStatus>("viewing");
-  const [draft, setDraft] = useState(ticket.description);
-  const [base, setBase] = useState(ticket.description);
-  const [errorCode, setErrorCode] = useState("");
-  const answer = fetcher.state === "idle" ? fetcher.data : undefined;
-  const isEditing = status !== "viewing" && status !== "saved";
-
+  const { descriptions } = useDraftStores();
+  const entry = descriptions.open({
+    id: ticket.id,
+    href: `/tasks/${ticket.key}`,
+    label: ticket.key,
+    saved: { description: ticket.description, updatedAt: ticket.updatedAt },
+  });
+  const [isEditing, setIsEditing] = useState(false);
   useEffect(() => {
-    if (!isActionAnswer(answer)) {
-      return;
+    if (
+      !isEditing &&
+      Date.parse(ticket.updatedAt) > Date.parse(entry.base.updatedAt)
+    ) {
+      descriptions.adopt(ticket.id, {
+        description: ticket.description,
+        updatedAt: ticket.updatedAt,
+      });
     }
-
-    if (answer.ok) {
-      setStatus("saved");
-      setErrorCode("");
-
-      return;
-    }
-
-    setErrorCode(answer.error ?? "invalidInput");
-    const failureStatus = readFailure(answer);
-
-    if (answer.error === "descriptionConflict") {
-      // HTTP 400 skips the router's automatic reload; the conflict actions
-      // need the latest saved text while the person's draft stays intact.
-      async function reloadLatest(): Promise<void> {
-        await revalidate();
-        setStatus(failureStatus);
-      }
-
-      void reloadLatest();
-
-      return;
-    }
-
-    setStatus(failureStatus);
-  }, [answer, revalidate]);
-
-  function save(overwrite = false): void {
-    const baseDescription = overwrite ? ticket.description : base;
-
-    setStatus("saving");
-    setErrorCode("");
-    setBase(baseDescription);
-    void fetcher.submit(
-      {
-        baseDescription,
-        description: draft,
-        id: ticket.id,
-        intent: "update-description",
-      },
-      { action: "/aufgaben", method: "post" },
-    );
-  }
+  }, [
+    descriptions,
+    ticket.id,
+    ticket.description,
+    ticket.updatedAt,
+    entry.base.updatedAt,
+    isEditing,
+  ]);
+  const needsAttention = entry.hasChanges && !entry.isSaving;
+  const status = descriptionStatus(entry, isEditing);
 
   return {
-    base,
-    cancel: () => {
-      setDraft(ticket.description);
-      setBase(ticket.description);
-      setStatus("viewing");
-      setErrorCode("");
-    },
-    change: setDraft,
-    draft,
-    errorCode,
-    isDirty: isEditing && draft.trim() !== base.trim(),
-    isEditing,
-    save,
-    startEditing: () => {
-      setDraft(ticket.description);
-      setBase(ticket.description);
-      setStatus("editing");
-    },
+    base: entry.base.description,
+    draft: entry.draft.description,
+    errorCode: entry.error ?? "",
+    isDirty: entry.hasChanges || entry.isSaving,
+    isEditing: isEditing || needsAttention || entry.current !== undefined,
     status,
+    change: (description) =>
+      descriptions.change(ticket.id, { ...entry.draft, description }),
+    save: (overwrite = false) => {
+      if (overwrite && entry.current) descriptions.resolve(ticket.id, "mine");
+      else descriptions.save(ticket.id);
+      setIsEditing(false);
+    },
+    cancel: () => {
+      if (entry.current) descriptions.resolve(ticket.id, "theirs");
+      else {
+        descriptions.change(ticket.id, entry.base);
+        if (entry.hasUnconfirmedWrite) descriptions.save(ticket.id);
+      }
+      setIsEditing(false);
+    },
+    startEditing: () => setIsEditing(true),
     takeLatest: () => {
-      setDraft(ticket.description);
-      setBase(ticket.description);
-      setStatus("editing");
-      setErrorCode("");
-
-      return ticket.description;
+      const latest = entry.current ?? entry.base;
+      descriptions.resolve(ticket.id, "theirs");
+      setIsEditing(true);
+      return latest.description;
     },
   };
+}
+
+function descriptionStatus(
+  entry: DraftEntry<DescriptionContent>,
+  isEditing: boolean,
+): DescriptionStatus {
+  if (entry.current) return "conflict";
+  if (entry.error) return "failed";
+  if (entry.isSaving) return "saving";
+  if (isEditing || entry.hasChanges) return "editing";
+  return entry.hasEdited ? "saved" : "viewing";
 }

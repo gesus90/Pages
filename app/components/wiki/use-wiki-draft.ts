@@ -1,20 +1,12 @@
-import { useEffect, useState } from "react";
-import { useFetcher } from "react-router";
+import { useEffect, useMemo } from "react";
 
-import {
-  countCharacters,
-  normalizeWikiTitle,
-  WIKI_LIMITS,
-} from "@/definition/Wiki";
+import { useDraftStores } from "@/app/components/common/draft-provider";
+import { wikiPagePath } from "@/app/lib/wiki-tree";
+import { wikiSaveContentSchema } from "@/definition/BackgroundSave";
 
-import type {
-  WikiActionErrorCode,
-  WikiActionResult,
-} from "@/app/lib/wiki-actions/wiki-action-support.server";
+import type { DraftEntry } from "@/app/lib/drafts/draft-queue";
+import type { WikiSaveContent } from "@/definition/BackgroundSave";
 import type { WikiPage } from "@/definition/Wiki";
-
-/** Milliseconds without typing before a draft is saved. */
-const AUTOSAVE_DELAY = 1200;
 
 /** What the editor shows about the save. */
 export type WikiSaveStatus =
@@ -48,7 +40,7 @@ export interface WikiDraftState {
   readonly draft: WikiDraft;
   readonly setDraft: (draft: WikiDraft) => void;
   readonly status: WikiSaveStatus;
-  readonly errorCode: WikiActionErrorCode | null;
+  readonly errorCode: string | null;
   /** The way out of a conflict, while one is open. */
   readonly conflict: WikiConflict | null;
   /** Saves now instead of waiting for the delay. */
@@ -64,200 +56,62 @@ export interface WikiDraftState {
   readonly adopt: (page: WikiPage) => boolean;
 }
 
-function createSaveRequest(save: {
-  readonly pageId: string;
-  readonly revision: number;
-  readonly title: string;
-  readonly icon: string | null;
-  readonly content: string;
-}): Record<string, string> {
-  return {
-    content: save.content,
-    expectedRevision: String(save.revision),
-    icon: save.icon ?? "",
-    intent: "save",
-    title: save.title,
-  };
-}
-
-function toDraft(page: WikiPage): WikiDraft {
-  return { content: page.content, icon: page.icon ?? "", title: page.title };
-}
-
-/** The ways out of a conflict, while one is open. */
-function createConflictControls(
-  conflict: WikiPage | null,
-  apply: {
-    readonly setBase: (page: WikiPage) => void;
-    readonly setConflict: (page: null) => void;
-    readonly setDraft: (draft: WikiDraft) => void;
-  },
-): WikiConflict | null {
-  if (!conflict) {
-    return null;
-  }
-
-  return {
-    keepMine: () => {
-      apply.setBase(conflict);
-      apply.setConflict(null);
-    },
-    takeTheirs: () => {
-      apply.setDraft(toDraft(conflict));
-      apply.setBase(conflict);
-      apply.setConflict(null);
-    },
-    theirs: conflict,
-  };
-}
-
-function toIcon(icon: string): string | null {
-  const trimmed = icon.trim();
-
-  return trimmed === "" ? null : trimmed;
-}
-
-/**
- * Holds the draft of a page and saves it against its revision.
- *
- * @param page - The page as loaded.
- * @returns The draft, its status and the controls of the editor.
- *
- * @remarks
- * The draft is saved a moment after the last keystroke. Saving sends the
- * revision the draft is based on; when somebody else saved in between, the
- * server answers with a conflict and the person chooses whose text to keep.
- */
+/** Retains the wiki draft and its writes above route lifetimes. */
 export function useWikiDraft(page: WikiPage): WikiDraftState {
-  const fetcher = useFetcher<WikiActionResult<{ page: WikiPage }>>();
-  const [draft, setDraftState] = useState<WikiDraft>(() => toDraft(page));
-  const [base, setBase] = useState(page);
-  const [conflict, setConflict] = useState<WikiPage | null>(null);
-  const [errorCode, setErrorCode] = useState<WikiActionErrorCode | null>(null);
-  const title = normalizeWikiTitle(draft.title);
-  const icon = toIcon(draft.icon);
-  const isClean =
-    title === base.title &&
-    draft.content === base.content &&
-    icon === base.icon;
-  const isTooLong =
-    countCharacters(title) > WIKI_LIMITS.titleLength ||
-    new TextEncoder().encode(draft.content).byteLength >
-      WIKI_LIMITS.contentLength;
-  const isIdle = fetcher.state === "idle";
-  const canSave =
-    !isClean &&
-    !isTooLong &&
-    title !== "" &&
-    conflict === null &&
-    errorCode === null;
-  const result = fetcher.data;
-  const submit = fetcher.submit;
-
-  const pageId = page.id;
-  const revision = base.revision;
-  const content = draft.content;
+  const { wiki } = useDraftStores();
+  const entry = wiki.open({
+    id: page.id,
+    href: wikiPagePath(page.id, page.title),
+    label: page.title,
+    saved: wikiSaveContentSchema.parse(page),
+  });
+  const saved = useMemo(() => {
+    if (page.revision === entry.base.revision) return page;
+    return { ...page, ...entry.base };
+  }, [page, entry.base]);
+  const current = entry.current ? { ...page, ...entry.current } : null;
 
   useEffect(() => {
-    if (!result) {
-      return;
+    if (page.revision > entry.base.revision) {
+      wiki.adopt(page.id, wikiSaveContentSchema.parse(page));
     }
-
-    if (result.ok) {
-      setBase(result.page);
-      setErrorCode(null);
-    } else if (result.current) {
-      setConflict(result.current);
-    } else {
-      setErrorCode(result.error);
-    }
-  }, [result]);
-
-  useEffect(() => {
-    if (!canSave || !isIdle) {
-      return undefined;
-    }
-
-    const timer = setTimeout(() => {
-      void submit(
-        createSaveRequest({ content, icon, pageId, revision, title }),
-        { action: `/wiki/${pageId}`, method: "post" },
-      );
-    }, AUTOSAVE_DELAY);
-
-    return () => clearTimeout(timer);
-  }, [canSave, content, icon, isIdle, pageId, revision, submit, title]);
+  }, [wiki, page, entry.base.revision]);
 
   return {
-    conflict: createConflictControls(conflict, {
-      setBase,
-      setConflict,
-      setDraft: setDraftState,
-    }),
-    draft,
-    errorCode,
-    isClean,
-    saved: base,
-    saveNow: () => {
-      if (canSave && isIdle) {
-        void submit(
-          createSaveRequest({ content, icon, pageId, revision, title }),
-          { action: `/wiki/${pageId}`, method: "post" },
-        );
-      }
+    draft: {
+      title: entry.draft.title,
+      content: entry.draft.content,
+      icon: entry.draft.icon ?? "",
     },
-    setDraft: (next) => {
-      setErrorCode(null);
-      setDraftState(next);
-    },
-    adopt: (next) => {
-      if (!isClean || next.revision <= base.revision) {
-        return false;
-      }
-
-      setBase(next);
-      setDraftState(toDraft(next));
-
-      return true;
-    },
-    status: resolveStatus({
-      conflict,
-      errorCode,
-      isClean,
-      isIdle,
-      isTitleMissing: title === "",
-      isTooLong,
-    }),
+    saved,
+    isClean: !entry.hasChanges && !entry.isSaving,
+    errorCode: entry.error,
+    status: resolveStatus(entry),
+    saveNow: () => wiki.save(page.id),
+    setDraft: (next) =>
+      wiki.change(page.id, {
+        ...entry.draft,
+        ...next,
+        icon: next.icon.trim() || null,
+      }),
+    conflict: current
+      ? {
+          theirs: current,
+          keepMine: () => wiki.resolve(page.id, "mine"),
+          takeTheirs: () => wiki.resolve(page.id, "theirs"),
+        }
+      : null,
+    adopt: (next) =>
+      next.revision > entry.base.revision &&
+      wiki.adopt(page.id, wikiSaveContentSchema.parse(next)),
   };
 }
 
-function resolveStatus(facts: {
-  readonly conflict: WikiPage | null;
-  readonly errorCode: WikiActionErrorCode | null;
-  readonly isClean: boolean;
-  readonly isIdle: boolean;
-  readonly isTitleMissing: boolean;
-  readonly isTooLong: boolean;
-}): WikiSaveStatus {
-  if (facts.conflict) {
-    return "conflict";
-  }
-
-  if (facts.errorCode) {
-    return "error";
-  }
-
-  if (facts.isTooLong) {
-    return "tooLong";
-  }
-
-  if (facts.isTitleMissing) {
-    return "titleRequired";
-  }
-
-  if (!facts.isIdle) {
-    return "saving";
-  }
-
-  return facts.isClean ? "saved" : "unsaved";
+function resolveStatus(entry: DraftEntry<WikiSaveContent>): WikiSaveStatus {
+  if (entry.current) return "conflict";
+  if (entry.error === "titleRequired" || entry.error === "tooLong")
+    return entry.error;
+  if (entry.error) return "error";
+  if (entry.isSaving) return "saving";
+  return entry.hasChanges ? "unsaved" : "saved";
 }

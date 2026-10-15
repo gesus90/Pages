@@ -119,7 +119,8 @@
     "workspaces": "Arbeitsplätze",
     "executionPlan": "Ausführplan",
     "workspace": "Arbeitsverzeichnis",
-    "agentList": "Agents Liste"
+    "agentList": "Agents Liste",
+    "loading": "Ansicht wird geladen …"
   },
   "role": {
     "admin": "Administrator",
@@ -3497,5 +3498,13 @@
     "nextStep": "Gehe in Pages zurück, im Browser-Tab oder auf dem Computer, wo du die Verbindung gestartet hast, und bestätige dort Server und Kanal. Du kannst dieses Fenster schließen.",
     "tryAgain": "Starte die Verbindung in Pages unter Projekte → Schnittstellen → Discord erneut.",
     "backToPages": "Pages öffnen"
+  },
+  "backgroundSave": {
+    "saving": "Wird gespeichert …",
+    "saved": "Gespeichert",
+    "unsaved": "Ungespeicherter Entwurf",
+    "error": "Speichern fehlgeschlagen. Deine Eingaben bleiben erhalten.",
+    "conflict": "Konflikt – Entwurf öffnen und Versionen vergleichen.",
+    "retry": "Erneut versuchen"
   }
 }

@@ -77,6 +77,8 @@ export default [
     route("wiki-api/attachments", "routes/wiki-attachments.ts"),
     route("wiki/attachments/:attachmentId", "routes/wiki-attachment.ts"),
     route("wiki-api/search", "routes/wiki-search.ts"),
+    route("wiki-api/drafts/:pageId", "routes/wiki-draft.ts"),
+    route("ticket-api/drafts/:ticketId", "routes/ticket-draft.ts"),
     route("wiki-api/references", "routes/wiki-references.ts"),
     route("wiki-api/link-titles", "routes/wiki-link-titles.ts"),
     route("wiki", "routes/wiki.tsx", [

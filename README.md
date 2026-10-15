@@ -61,6 +61,27 @@ Routes handle the request, services hold the business logic, repositories hold
 the SQL. React components live in `app/components/`, shared types and contracts
 in `definition/`.
 
+## Navigation and draft saving
+
+Navigation shows the destination and its loading state immediately. Already
+available wiki text and ticket description drafts appear while the target loads.
+Wiki edits autosave after a short pause; ticket descriptions keep their explicit
+Save action and show the new text while saving. Both drafts and background saves
+survive navigation, including a target route that fails to load.
+
+The shared status shows pending changes, backend-confirmed success and failures
+with Retry. Writes to one object run in order; wiki revisions and the ticket's
+original description prevent silently overwriting another edit. Document sequence
+numbers also fence late HTTP attempts after an aborted save, even when the new
+request restores the original text. Conflicts keep
+both versions until the person chooses. Retrying a confirmed text save creates
+no extra edit. Every write still checks authorization and validation on the server.
+
+Drafts belong to the current browser document and account. Reloading or closing
+with pending changes triggers the browser's data-loss warning; continuing past
+that warning discards unconfirmed input. Ticket drafts that have not been saved
+remain available when navigating back, with an unsaved indicator.
+
 ## Ticket and milestone archive rights
 
 UI and MCP archiving share the server decision in `TaskAccessGuard`: the current

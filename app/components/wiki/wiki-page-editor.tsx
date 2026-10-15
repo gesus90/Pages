@@ -5,7 +5,6 @@ import { useNavigate, useRevalidator } from "react-router";
 import { BlockEditor } from "@/app/components/editor/block-editor";
 import { AssistantPanel } from "@/app/components/assistant/assistant-panel";
 import { useWikiTextAssistant } from "./use-wiki-text-assistant";
-import { useSaveBeforeLeave } from "@/app/components/wiki/use-save-before-leave";
 import { useWikiDraft } from "@/app/components/wiki/use-wiki-draft";
 import { useWikiEditorFeatures } from "@/app/components/wiki/use-wiki-editor-features";
 import { useWikiUploads } from "@/app/components/wiki/use-wiki-uploads";
@@ -64,8 +63,19 @@ function SaveStatus({
         )}
       >
         {t(`wiki.editor.status.${state.status}`)}
-        {state.errorCode ? ` – ${t(`wiki.errors.${state.errorCode}`)}` : ""}
+        {state.errorCode
+          ? ` – ${t(`wiki.errors.${state.errorCode}`, { defaultValue: t("backgroundSave.error") })}`
+          : ""}
       </span>
+      {state.status === "error" ? (
+        <button
+          type="button"
+          className="text-primary underline"
+          onClick={state.saveNow}
+        >
+          {t("backgroundSave.retry")}
+        </button>
+      ) : null}
       {length >= WIKI_LIMITS.contentLength * 0.8 ? (
         <span
           className={
@@ -106,7 +116,7 @@ function useSubpageRequest(): {
 /**
  * The page for people who may edit it: cover, emoji and title in place, the
  * block editor below, autosave with revision and conflict dialog, and saving
- * before leaving the page.
+ * in the background across page changes.
  */
 export function WikiPageEditor({
   page,
@@ -141,7 +151,6 @@ export function WikiPageEditor({
     uploads,
   });
 
-  useSaveBeforeLeave(state);
   useAdoptNewerVersion(state, page, handle);
   useReportSaved(state.saved, onSaved);
 
@@ -176,7 +185,7 @@ export function WikiPageEditor({
           features={{ ...features, textAssistant: assistant.editorFeature }}
           isEditable
           label={t("wiki.editor.contentLabel")}
-          markdown={page.content}
+          markdown={draft.content}
           onChange={(content) => {
             setDraft({ ...draft, content });
             onTextChange();

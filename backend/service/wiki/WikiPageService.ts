@@ -194,7 +194,12 @@ export class WikiPageService {
       const reader = new WikiPageReader(repository);
       const current = await reader.require(viewer.scope, id);
 
-      if (current.revision !== input.expectedRevision) {
+      if (
+        current.revision !== input.expectedRevision &&
+        (current.title !== edit.title ||
+          current.content !== edit.content ||
+          current.icon !== edit.icon)
+      ) {
         throw new WikiConflictError(await reader.assemble(current));
       }
 
