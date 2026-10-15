@@ -478,7 +478,10 @@ you reorder, remove and edit each instance independently. The group has one
 outer flow input and output. Add named, typed boundary ports, connect outer
 value nodes to them, and select the same port at several internal agent inputs.
 Required values, incompatible types and removed port references are checked
-before Play. The resolved boundary values are frozen for the run.
+before Play. Boundary values and referenced content are resolved once at group entry and
+frozen for all of its steps; live resource access is still checked before each turn.
+The inspector shows the external source beside the internal port assignments.
+Renaming a boundary preserves its connections.
 
 Groups currently support **Codex CLI over ACP** only. Every child must resolve
 to the same adapter, connection, model, reasoning, workspace/directory, tools,
@@ -487,6 +490,9 @@ identify the agent and setting. OpenRouter and direct Claude Code are different
 adapters, regardless of model names, and are refused for groups. Each accepted
 step continues the same native Codex session with its own turn-scoped instruction.
 A failure or rejected report blocks later children and the outer successor.
+Internal steps must provide a valid `pages-report` proving their todos and
+criteria; standalone steps keep diagnostic-only progress. A missing continuation
+capability, changed native session ID or changed effective runtime fails the group.
 Pause lets the current child settle, retains the native session and starts no
 further child until resume. Stop closes an active or retained paused session.
 Group and child states, the failing child, native session IDs and closeout are

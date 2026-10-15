@@ -153,6 +153,15 @@ it("shows Agents / Gruppen / Tickets / Parameter and saves an editable ordered s
       document.body,
   );
   connectOuterGraph();
+  expect(
+    screen.getByRole("combobox", {
+      name: i18n.t("plans.groups.externalSource", { name: "shared" }),
+    }).textContent,
+  ).toContain("spare");
+  fireEvent.change(
+    screen.getByRole("textbox", { name: i18n.t("plans.groups.portName") }),
+    { target: { value: "common" } },
+  );
   fireEvent.click(screen.getByRole("button", { name: i18n.t("plans.save") }));
   await waitFor(() => expect(server.saved).toHaveLength(1));
   const group = server.saved[0]?.nodes.find((node) => node.type === "group");
@@ -161,7 +170,8 @@ it("shows Agents / Gruppen / Tickets / Parameter and saves an editable ordered s
     "agent-1",
     "agent-0",
   ]);
-  expect(group.bindings.shared).toEqual({ kind: "source", nodeId: "spare" });
+  expect(group.bindings.common).toEqual({ kind: "source", nodeId: "spare" });
+  expect(group.bindings.shared).toBeUndefined();
   expect(group.steps.map((step) => step.bindings.shared)).toEqual([
     { kind: "source", nodeId: group.parameters[0]?.id },
     { kind: "source", nodeId: group.parameters[0]?.id },

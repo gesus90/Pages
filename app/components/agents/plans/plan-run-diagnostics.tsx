@@ -34,6 +34,15 @@ export function PlanRunDiagnostics({
             {t(`plans.nodeType.${step.name}`, { defaultValue: step.name })}
             <PlanStatusBadge status={step.status} isBlocked={step.isBlocked} />
           </p>
+          {step.failedStepId ? (
+            <p>
+              {t("plans.groups.failedAgent", {
+                name:
+                  run.steps.find((entry) => entry.id === step.failedStepId)
+                    ?.name ?? step.failedStepId,
+              })}
+            </p>
+          ) : null}
           {step.error ? (
             <p role="alert" className="text-destructive">
               {t(`settings.agents.error.${step.error}`, {

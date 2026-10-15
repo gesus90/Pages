@@ -93,9 +93,11 @@ function Criteria({
 export function PlanRunContract({
   contract,
   acceptance,
+  requiresAcceptance = false,
 }: {
   readonly contract: AgentPlanContract;
   readonly acceptance: AgentPlanAcceptance | null;
+  readonly requiresAcceptance?: boolean;
 }): React.ReactElement {
   const { t } = useTranslation();
   const verdict = acceptance?.verdict ?? "pending";
@@ -111,7 +113,11 @@ export function PlanRunContract({
       <summary className="cursor-pointer font-medium">{label}</summary>
       <div className="pages-selectable mt-1 space-y-2">
         <p className="text-muted-foreground">
-          {t("plans.session.diagnosticHint")}
+          {t(
+            requiresAcceptance
+              ? "plans.groups.acceptanceHint"
+              : "plans.session.diagnosticHint",
+          )}
         </p>
         <h4 className="font-medium">{t("plans.session.todos")}</h4>
         <Todos contract={contract} acceptance={acceptance} />

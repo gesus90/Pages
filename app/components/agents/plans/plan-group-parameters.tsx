@@ -5,6 +5,10 @@ import { Input } from "@/app/components/ui/input";
 import { Select } from "@/app/components/ui/select";
 import { createRandomUuid } from "@/app/lib/random-uuid";
 
+import { PlanGroupBoundarySource } from "./plan-group-boundary-source";
+
+import type { AgentPlanInput, AgentPlanSources } from "@/definition/AgentPlan";
+
 import type {
   AgentPlanGroup,
   AgentPlanGroupParameter,
@@ -23,12 +27,38 @@ const PARAMETER_TYPES: readonly AgentParameterType[] = [
 export function PlanGroupParameters(props: {
   readonly group: AgentPlanGroup;
   readonly disabled: boolean;
+  readonly draft: AgentPlanInput;
+  readonly sources: AgentPlanSources;
   readonly onChange: (group: AgentPlanGroup) => void;
 }): React.ReactElement {
   const { t } = useTranslation();
   function replace(port: AgentPlanGroupParameter): void {
+    if (
+      props.group.parameters.some(
+        (entry) => entry.id !== port.id && entry.name === port.name,
+      )
+    )
+      return;
+    const previous = props.group.parameters.find(
+      (entry) => entry.id === port.id,
+    );
+    let bindings = props.group.bindings;
+    const binding = previous ? bindings[previous.name] : undefined;
+    if (
+      previous &&
+      previous.name !== port.name &&
+      binding &&
+      !Object.hasOwn(bindings, port.name)
+    )
+      bindings = {
+        ...Object.fromEntries(
+          Object.entries(bindings).filter(([name]) => name !== previous.name),
+        ),
+        [port.name]: binding,
+      };
     props.onChange({
       ...props.group,
+      bindings,
       parameters: props.group.parameters.map((entry) =>
         entry.id === port.id ? port : entry,
       ),
@@ -60,10 +90,19 @@ export function PlanGroupParameters(props: {
           key={port.id}
           group={props.group}
           port={port}
+          draft={props.draft}
+          sources={props.sources}
+          disabled={props.disabled}
+          onGroupChange={props.onChange}
           onChange={replace}
           onRemove={() =>
             props.onChange({
               ...props.group,
+              bindings: Object.fromEntries(
+                Object.entries(props.group.bindings).filter(
+                  ([name]) => name !== port.name,
+                ),
+              ),
               parameters: props.group.parameters.filter(
                 (entry) => entry.id !== port.id,
               ),
@@ -83,6 +122,10 @@ function GroupParameterRow(props: {
   readonly port: AgentPlanGroupParameter;
   readonly onChange: (port: AgentPlanGroupParameter) => void;
   readonly onRemove: () => void;
+  readonly draft: AgentPlanInput;
+  readonly sources: AgentPlanSources;
+  readonly onGroupChange: (group: AgentPlanGroup) => void;
+  readonly disabled: boolean;
 }): React.ReactElement {
   const { t } = useTranslation();
   const { port } = props;
@@ -99,6 +142,7 @@ function GroupParameterRow(props: {
       <Select<AgentParameterType>
         ariaLabel={t("plans.groups.portType")}
         value={port.type}
+        disabled={props.disabled}
         options={PARAMETER_TYPES.map((type) => ({
           value: type,
           label: type,
@@ -117,6 +161,14 @@ function GroupParameterRow(props: {
         />
         {t("plans.groups.required")}
       </label>
+      <PlanGroupBoundarySource
+        group={props.group}
+        port={port}
+        draft={props.draft}
+        sources={props.sources}
+        disabled={props.disabled}
+        onChange={props.onGroupChange}
+      />
       <p className="text-xs text-muted-foreground">
         {port.name} →{" "}
         {props.group.steps

@@ -65,6 +65,10 @@ export const AGENT_ERROR_MESSAGES = {
     "The runner refused actions that the run options do not allow; nothing was approved on its behalf.",
   plan_acceptance_failed:
     "Historical run: the closing report did not prove every todo and acceptance criterion. This stored failure is unchanged; start a new run to use diagnostic-only progress.",
+  plan_group_acceptance_failed:
+    "The group agent did not pass acceptance. Its closing report must prove every todo and criterion; later agents and successors remain blocked.",
+  plan_group_session_unsupported:
+    "This adapter cannot continue a group's native session with a new step instruction. Choose compatible Codex CLI agents.",
   plan_closeout_failed:
     "The session could not be closed completely; processes of it remained.",
   workspace_invalid: "Enter a name, an existing local directory and a project.",

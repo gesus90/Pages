@@ -32,7 +32,7 @@ export interface AgentPlanContractOptions {
    * "Nur Lesen": it reports its tickets instead of setting their entries.
    */
   readonly isReadOnly: boolean;
-  /** Which progress details are requested; absent is `report`. Neither mode gates execution. */
+  /** Which progress details are requested; absent is `report`. */
   readonly completion?: AgentPlanCompletion;
 }
 
@@ -44,6 +44,14 @@ export interface AgentPlanAssignment extends AgentPlanContractOptions {
   readonly runnerLabel: string;
   readonly instanceId: string;
   readonly directory: string;
+  /** Internal group steps must pass acceptance before continuing the native session. */
+  readonly requiresAcceptance?: boolean;
+}
+
+function completionInstruction(assignment: AgentPlanAssignment): string {
+  if (assignment.requiresAcceptance)
+    return "This is an internal group step. Complete every todo and criterion and include a valid pages-report with the required IDs, done todos, met criteria and real evidence. Missing or invalid reports, open todos, unmet criteria and missing evidence fail this group step and block all later steps. Report unfinished work honestly; do not invent completion.";
+  return "Regular runner completion releases the next steps automatically, without business acceptance or manual confirmation. A missing, invalid or incomplete report, unmet criteria, missing proof and ticket changes are diagnostic information only and never fail execution or block successors.";
 }
 
 function itemLine(item: AgentPlanContractItem): string {
@@ -207,7 +215,7 @@ function renderTodoAssignment(assignment: AgentPlanAssignment): string {
       : ["- The ticket lists no todo; the instruction above is the work."]),
     "",
     "### How to work",
-    "- Progress follows the current todo list. This report scope does not assess acceptance criteria or criterion evidence. Regular runner completion releases the next steps automatically; open work and report diagnostics do not block execution.",
+    completionInstruction(assignment),
     "- Work only in the workspace. Nobody answers questions during this run: when a choice is needed, take the recommended option, otherwise decide yourself and name the decision in your closing message.",
     ...(assignment.isReadOnly
       ? [
@@ -217,8 +225,10 @@ function renderTodoAssignment(assignment: AgentPlanAssignment): string {
     ...todoMcpLines(assignment),
     "",
     "### Closing message",
-    "Finish with a short summary: the todos you completed, the todos that stay open and why, and your decisions. Pages shows the todos as they are checked in the ticket after your turn; open ones stay open and do not fail the node.",
-    "A `pages-report` block is optional and only shown. It is the only record of a todo without a ticket entry:",
+    "Finish with a short summary: the todos you completed, the todos that stay open and why, and your decisions. Pages shows ticket todos as they are checked after your turn.",
+    assignment.requiresAcceptance
+      ? "Include this pages-report block; it is also the record of todos without a ticket entry:"
+      : "A pages-report block is optional and only shown. It is the only record of a todo without a ticket entry:",
     "```pages-report",
     example,
     "```",
@@ -274,11 +284,14 @@ export function renderPlanAssignment(assignment: AgentPlanAssignment): string {
     ...mcpLines(assignment),
     "",
     "### Closing message and optional progress report",
-    "Summarize completed and open work honestly, including missing evidence and your decisions. Regular runner completion releases the next steps automatically, without business acceptance or manual confirmation. It does not assert that every todo or criterion is fulfilled.",
-    "You may include a fenced `pages-report` block with a JSON object like this to describe progress:",
+    "Summarize completed and open work honestly, including missing evidence and your decisions.",
+    completionInstruction(assignment),
+    assignment.requiresAcceptance
+      ? "Include a fenced pages-report block with a JSON object like this:"
+      : "You may include a fenced pages-report block with a JSON object like this to describe progress:",
     "```pages-report",
     example,
     "```",
-    'Refer to todos and criteria by their IDs. Use `status: "done"` only for completed work and `met: true` only for a fulfilled criterion; replace `<proof>` with real evidence or leave evidence empty when unknown. Keep open work open. A missing, invalid or incomplete report, unmet criteria, missing proof and ticket changes are diagnostic information only and never fail execution or block successors.',
+    'Refer to todos and criteria by their IDs. Use `status: "done"` only for completed work and `met: true` only for a fulfilled criterion; replace `<proof>` with real evidence or leave evidence empty when unknown. Keep open work open.',
   ].join("\n");
 }

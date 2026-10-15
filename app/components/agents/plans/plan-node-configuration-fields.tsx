@@ -16,6 +16,7 @@ import type { PageAgentInput } from "@/definition/PageAgent";
 /** Chooses what decides that the node finished; it belongs to the node, not to its configuration copy. */
 function PlanCompletionField(props: {
   readonly step: AgentPlanStep;
+  readonly isGroupStep?: boolean;
   readonly onChange: (step: AgentPlanStep) => void;
 }): React.ReactElement {
   const { t } = useTranslation();
@@ -41,7 +42,11 @@ function PlanCompletionField(props: {
         onValueChange={change}
       />
       <p className="text-xs text-muted-foreground">
-        {t(`plans.completion.${step.completion ?? "report"}Hint`)}
+        {t(
+          props.isGroupStep
+            ? "plans.groups.acceptanceHint"
+            : `plans.completion.${step.completion ?? "report"}Hint`,
+        )}
       </p>
     </div>
   );
@@ -52,6 +57,7 @@ export function PlanNodeConfigurationFields(props: {
   readonly step: AgentPlanStep;
   readonly sources: AgentPlanSources;
   readonly disabled: boolean;
+  readonly isGroupStep?: boolean;
   readonly onChange: (step: AgentPlanStep) => void;
 }): React.ReactElement | null {
   const { t } = useTranslation();
@@ -114,7 +120,11 @@ export function PlanNodeConfigurationFields(props: {
           }
         />
       </label>
-      <PlanCompletionField step={props.step} onChange={props.onChange} />
+      <PlanCompletionField
+        step={props.step}
+        isGroupStep={props.isGroupStep}
+        onChange={props.onChange}
+      />
       <PageAgentModelFields
         draft={draft}
         models={models}

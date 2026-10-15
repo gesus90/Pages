@@ -73,6 +73,7 @@ export function PlanGroupStep(props: {
             step={step}
             sources={props.sources}
             disabled={props.disabled}
+            isGroupStep
             onChange={props.onChange}
           />
           <label className="block space-y-1 text-sm">

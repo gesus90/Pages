@@ -135,3 +135,63 @@ it("compares resolved adapter IDs and every shared runtime field, independently 
     }
   }
 });
+
+it("refuses OpenRouter and direct Claude as distinct technical adapters even with the same model label", async () => {
+  const { plan, group, source } = await groupFixture();
+  const providers = ["openrouter", "claude_code"] as const;
+  const changed = {
+    ...group,
+    steps: group.steps.map((step, index) => ({
+      ...step,
+      configuration: step.configuration
+        ? {
+            ...step.configuration,
+            provider: providers[index] ?? "openrouter",
+            model: "claude-identical-label",
+          }
+        : undefined,
+    })),
+  };
+  const issues = planExecutionIssues(
+    {
+      ...plan,
+      nodes: plan.nodes.map((node) => (node.id === group.id ? changed : node)),
+    },
+    [source],
+  );
+  expect(issues).toEqual(
+    expect.arrayContaining([
+      { nodeId: "first", port: "provider/adapter", reason: "groupProvider" },
+      { nodeId: "second", port: "provider/adapter", reason: "groupProvider" },
+      {
+        nodeId: "second",
+        port: "provider/adapter",
+        reason: "groupConfiguration",
+      },
+    ]),
+  );
+});
+
+it.each([
+  { name: "connectionId", change: { connectionId: "other-account" } },
+  { name: "model", change: { model: "other-model" } },
+  { name: "reasoningEffort", change: { reasoningEffort: "high" } },
+])(
+  "identifies the agent and conflicting $name without exposing configuration values",
+  async ({ name, change }) => {
+    const { group, snapshot } = await groupFixture();
+    const [first, second] = snapshot.steps;
+    if (!first || !second) throw new Error("Missing steps");
+    try {
+      validateGroupRuntimes([group], [first, { ...second, ...change }]);
+      throw new Error("Expected refusal");
+    } catch (error: unknown) {
+      if (!(error instanceof AgentPlanValidationError)) throw error;
+      expect(error.issues).toEqual([
+        { nodeId: "second", port: name, reason: "groupConfiguration" },
+      ]);
+      expect(error.message).not.toContain("other-account");
+      expect(error.message).not.toContain("other-model");
+    }
+  },
+);

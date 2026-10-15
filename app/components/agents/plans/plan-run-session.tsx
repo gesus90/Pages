@@ -71,10 +71,12 @@ export function PlanRunSession({
   runId,
   stepId,
   session,
+  requiresAcceptance = false,
 }: {
   readonly runId: string;
   readonly stepId: string;
   readonly session: AgentPlanSessionRecord;
+  readonly requiresAcceptance?: boolean;
 }): React.ReactElement {
   const { t } = useTranslation();
   const facts = useSessionFacts(session);
@@ -123,6 +125,7 @@ export function PlanRunSession({
         <PlanRunContract
           contract={session.contract}
           acceptance={session.acceptance}
+          requiresAcceptance={requiresAcceptance}
         />
       ) : null}
       {session.events.length > 0 ? (

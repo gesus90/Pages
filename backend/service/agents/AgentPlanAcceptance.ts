@@ -152,8 +152,8 @@ function criterionStatus(
  *
  * @remarks
  * `accepted` means that this progress assessment has no outstanding issues;
- * `open` preserves every diagnostic without failing execution. Neither is an
- * execution verdict. Ticket todos follow the actual checkbox, including in
+ * `open` preserves every diagnostic. The group runner requires `accepted`;
+ * standalone steps keep these findings diagnostic. Ticket todos follow the actual checkbox, including in
  * read-only sessions. Missing or invalid reports never manufacture completion.
  */
 export function evaluatePlanAcceptance(
@@ -218,7 +218,8 @@ function todoListStatus(
  * checked. A todo without one has only the report to go by. A missing or
  * malformed report and changed requirements remain diagnostic issues; an
  * unreadable ticket leaves its todos `missing`, never `done`. No issue gates
- * execution or successor release.
+ * execution or successor release for standalone steps. Internal group steps
+ * require an accepted report under the same group policy as other completion modes.
  */
 export function evaluateTodoCompletion(
   contract: AgentPlanContract,

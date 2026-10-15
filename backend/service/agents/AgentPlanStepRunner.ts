@@ -54,7 +54,8 @@ import type {
 import type { AgentRunArchive } from "./AgentRunArchive";
 
 interface StepRunnerDependencies {
-  readonly start: Pick<AgentPlanStepStart, "prepare">;
+  readonly start: Pick<AgentPlanStepStart, "prepare"> &
+    Partial<Pick<AgentPlanStepStart, "prepareGroup">>;
   readonly execution: PlanExecution;
   readonly tasks: Pick<AgentPlanTasks, "checklist">;
   readonly access: Pick<AgentPlanSessionAccess, "grant" | "revoke">;
@@ -78,8 +79,8 @@ interface SessionTerms {
 /** One node from its start to its result; `record` always holds the newest state. */
 interface NodeRun {
   readonly run: AgentPlanRun;
-  readonly snapshot: AgentPlanSnapshot;
-  readonly step: AgentPlanStepSnapshot;
+  snapshot: AgentPlanSnapshot;
+  step: AgentPlanStepSnapshot;
   control: StepRunControl;
   record: AgentPlanSessionRecord | null;
   hasStarted: boolean;
@@ -99,6 +100,15 @@ function hasTimedOut(signal: AbortSignal): boolean {
   );
 }
 
+function groupAcceptanceFailure(
+  node: NodeRun,
+  acceptance: AgentPlanAcceptance | null,
+): "plan_group_acceptance_failed" | null {
+  return node.step.groupId && acceptance?.verdict !== "accepted"
+    ? "plan_group_acceptance_failed"
+    : null;
+}
+
 /**
  * Runs one agent node: request or session, acceptance, closeout and result code.
  *
@@ -107,12 +117,14 @@ function hasTimedOut(signal: AbortSignal): boolean {
  * the acceptance criteria, is stored before any process starts, and the sent
  * prompt is pinned before it leaves. Regular runner completion and a clean,
  * confirmed closeout determine execution success. Business progress and report
- * diagnostics are stored separately and never gate the next step.
+ * diagnostics are stored separately. Within a group, acceptance must also
+ * succeed before its next step can start.
  */
 export class AgentPlanStepRunner {
   private readonly dependencies: StepRunnerDependencies;
   private readonly groups: AgentPlanGroupSessions;
   private readonly retained = new Map<string, NodeRun[]>();
+  private readonly groupInputs = new Map<string, Promise<AgentPlanSnapshot>>();
 
   public constructor(dependencies: StepRunnerDependencies) {
     this.dependencies = dependencies;
@@ -164,9 +176,16 @@ export class AgentPlanStepRunner {
       this.retained.delete(key);
       await this.dependencies.access.revoke(runId, key.slice(runId.length + 1));
     }
+    for (const key of this.groupInputs.keys())
+      if (
+        key === `${runId}/${groupId}` ||
+        (!groupId && key.startsWith(`${runId}/`))
+      )
+        this.groupInputs.delete(key);
   }
 
   private async execute(node: NodeRun): Promise<Partial<AgentPlanStepResult>> {
+    await this.prepareGroup(node);
     const prepared = await this.dependencies.start.prepare(
       node.run,
       node.snapshot,
@@ -184,6 +203,29 @@ export class AgentPlanStepRunner {
     if (isApiProvider(prepared.input.agent.connection.provider))
       return this.request(node, prepared);
     return this.session(node, prepared);
+  }
+
+  private async prepareGroup(node: NodeRun): Promise<void> {
+    const groupId = node.step.groupId;
+    if (!groupId) return;
+    const key = `${node.run.id}/${groupId}`;
+    let inputs = this.groupInputs.get(key);
+    if (!inputs) {
+      if (!this.dependencies.start.prepareGroup)
+        throw new AgentError("plan_group_session_unsupported");
+      inputs = this.dependencies.start.prepareGroup(
+        node.run,
+        node.snapshot,
+        groupId,
+      );
+      this.groupInputs.set(key, inputs);
+    }
+    node.snapshot = await inputs;
+    const step = node.snapshot.steps.find(
+      (entry) => entry.step.id === node.step.step.id,
+    );
+    if (!step) throw new AgentError("plan_binding_invalid");
+    node.step = step;
   }
 
   private async request(
@@ -275,6 +317,7 @@ export class AgentPlanStepRunner {
         runnerLabel: node.record ? runnerLabel(node.record) : "",
         instanceId,
         directory,
+        requiresAcceptance: Boolean(step.groupId),
       },
     )}`;
     await this.pin(node, prompt);
@@ -322,12 +365,13 @@ export class AgentPlanStepRunner {
         ? await this.assess(node, terms, turn.output)
         : null;
     const acceptance = assessed?.acceptance ?? null;
+    const acceptanceFailure = groupAcceptanceFailure(node, acceptance);
     // The closing report and the verdict are kept before the session is ended.
     await this.complete(node, {
       acceptance,
       ...(assessed ? { contract: assessed.contract } : {}),
     });
-    if (this.retain(node, turn))
+    if (!acceptanceFailure && this.retain(node, turn))
       return {
         status: "succeeded",
         output: sanitizePlanOutput(turn.output),
@@ -337,7 +381,7 @@ export class AgentPlanStepRunner {
     const closed = await this.closeSession(node, session);
     const failure = hasTimedOut(node.control.signal)
       ? "timeout"
-      : failureCode(turn, closed);
+      : (failureCode(turn, closed) ?? acceptanceFailure);
     await this.complete(node, {
       exit: closed.exit,
       endedAt: closed.endedAt,
@@ -382,6 +426,7 @@ export class AgentPlanStepRunner {
   ): Promise<PlanSessionClosed> {
     const key = `${node.run.id}/${node.step.groupId ?? node.step.step.id}`;
     const closed = await session.close();
+    this.groupInputs.delete(key);
     for (const previous of this.retained.get(key) ?? [])
       await this.complete(previous, {
         exit: closed.exit,

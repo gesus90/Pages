@@ -7,6 +7,8 @@ import {
 import { scanAgentPlaceholders } from "@/definition/AgentParameters";
 
 import { bindAgentParameters } from "./AgentParameterBinding";
+import { prepareGroupParameters } from "./AgentPlanGroupParameters";
+import { validatePlanParameterContext } from "./AgentPlanParameterContext";
 import { planStepDirectory } from "./AgentPlanSnapshot";
 
 import type { AgentTicketInput } from "@/definition/AgentTicketParameter";
@@ -103,6 +105,16 @@ export class AgentPlanStepStart {
       throw new AgentError("plan_invalid");
   }
 
+  /** Freezes shared resource content at group entry; each turn still rechecks live authorization. */
+  public async prepareGroup(
+    run: AgentPlanRun,
+    snapshot: AgentPlanSnapshot,
+    groupId: string,
+  ): Promise<AgentPlanSnapshot> {
+    await this.dependencies.access.require(run.userId, snapshot.plan.id);
+    return prepareGroupParameters(this.dependencies, run, snapshot, groupId);
+  }
+
   /**
    * Resolves credentials for the current executor and rejects a redirected model or working copy.
    *
@@ -154,7 +166,7 @@ export class AgentPlanStepStart {
       values,
       step.template,
     );
-    validateContext(step, live);
+    validatePlanParameterContext(step, live);
     const { template, definition } = await this.readDefinition(step);
     const parameters = await bindAgentParameters(
       template,
@@ -258,7 +270,7 @@ export class AgentPlanStepStart {
       context.values,
       step.template,
     );
-    validateContext(step, authorized);
+    validatePlanParameterContext(step, authorized);
     for (const taskId of step.taskIds)
       await this.dependencies.tasks.snapshot(
         run.userId,
@@ -274,7 +286,9 @@ function stepReferences(
 ): AgentReferenceResolvers {
   return {
     ticket: async (id) => {
-      const ticket = live.tickets?.[id];
+      const ticket = step.groupId
+        ? step.prepared.tickets?.[id]
+        : live.tickets?.[id];
       if (!ticket) throw new AgentError("parameter_ticket_unavailable");
       return ticket;
     },
@@ -346,35 +360,5 @@ function requireTicketHandoff(
         JSON.stringify(input.ticket.assets)
     )
       throw new AgentError("parameter_asset_transfer_unsupported");
-  }
-}
-
-function validateContext(
-  step: AgentPlanStepSnapshot,
-  live: Awaited<ReturnType<AgentParameterService["prepare"]>>,
-): void {
-  for (const input of step.prepared.parameters.assetInputs ?? []) {
-    const current = live.parameters.tickets[input.parameter];
-    if (
-      !current ||
-      JSON.stringify(current.assets) !== JSON.stringify(input.ticket.assets)
-    )
-      throw new AgentError("parameter_ticket_changed");
-  }
-  for (const previous of [
-    step.prepared.workspace,
-    ...step.prepared.references,
-  ]) {
-    const current = [live.workspace, ...live.references].find(
-      (entry) => entry.id === previous.id,
-    );
-    if (
-      !current ||
-      current.projectId !== previous.projectId ||
-      current.path !== previous.path ||
-      current.directoryIdentity !== previous.directoryIdentity ||
-      JSON.stringify(current.github) !== JSON.stringify(previous.github)
-    )
-      throw new AgentError("plan_context_changed");
   }
 }

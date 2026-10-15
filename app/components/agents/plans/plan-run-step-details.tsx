@@ -166,7 +166,12 @@ export function PlanRunStepDetails({
           <summary className="cursor-pointer font-medium">
             {t("plans.details.technical")}
           </summary>
-          <PlanRunSession runId={run.id} stepId={step.id} session={session} />
+          <PlanRunSession
+            runId={run.id}
+            stepId={step.id}
+            session={session}
+            requiresAcceptance={Boolean(step.groupId)}
+          />
         </details>
       ) : (
         <p className="text-xs text-muted-foreground">

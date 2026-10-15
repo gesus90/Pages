@@ -19,7 +19,8 @@ export type AgentPlanSessionMode = "one_shot" | "interactive" | "request";
  * @remarks
  * `report` describes todos and acceptance criteria. `todos` follows only the
  * current todo list of the bound tickets, which the agent ticks live. Both
- * are diagnostic; regular runner completion releases successors in either mode.
+ * are diagnostic for standalone agents. Internal group steps additionally
+ * require an accepted report before releasing their successor.
  */
 export type AgentPlanCompletion = "report" | "todos";
 
@@ -94,7 +95,8 @@ export interface AgentPlanCriterionStatus {
  * @remarks
  * `accepted` means no progress issues were found; `open` preserves incomplete
  * or unknown work and report issues. `rejected` remains readable in historical
- * records. None of these values controls execution or successor release.
+ * records. Standalone agents use these values as diagnostics; internal group
+ * steps require `accepted` as well as successful runner completion.
  */
 export interface AgentPlanAcceptance {
   readonly verdict: "accepted" | "open" | "rejected";
@@ -102,7 +104,7 @@ export interface AgentPlanAcceptance {
   readonly criteria: readonly AgentPlanCriterionStatus[];
   /** Decisions the agent took on its own instead of asking. */
   readonly decisions: readonly string[];
-  /** Progress and report diagnostics as stable codes; never execution failures. */
+  /** Stable progress and report issue codes used by the group's acceptance gate. */
   readonly issues: readonly string[];
   readonly summary: string;
 }
@@ -119,7 +121,7 @@ export interface AgentPlanProcessExit {
  * @remarks
  * `resultCode` is the normalized execution outcome: 0 for a regular runner
  * completion and clean, confirmed closeout, -1 for a technical failure or
- * cancellation. Progress diagnostics never determine it. The actual process
+ * cancellation or failed group acceptance. Standalone progress remains diagnostic. The actual process
  * exit is kept in `exit`; retained group turns await the shared closeout.
  */
 export interface AgentPlanSessionRecord {

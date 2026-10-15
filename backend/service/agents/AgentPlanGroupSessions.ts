@@ -1,5 +1,6 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
+import { agentRunOptionsFor } from "@/definition/AgentConfiguration";
 
 import type { CliSessionMcp } from "@/backend/agents/cli/CliSessionPlans";
 import type {
@@ -8,6 +9,7 @@ import type {
   PlanSession,
   PlanSessionObserver,
   PlanSessionClosed,
+  PlanSessionTurn,
 } from "@/backend/agents/AgentPlanExecution";
 
 interface GroupSession {
@@ -17,6 +19,8 @@ interface GroupSession {
   readonly session: PlanSession;
   readonly controller: AbortController;
   readonly started: Parameters<PlanSessionObserver["started"]>[0] | null;
+  nativeSessionId: string | null;
+  effective: Readonly<Record<string, string>> | null;
 }
 
 interface GroupTurnInput {
@@ -27,6 +31,10 @@ interface GroupTurnInput {
 }
 
 function runtimeFingerprint(input: AgentPlanSessionInput): string {
+  const options = agentRunOptionsFor(
+    input.agent.connection.provider,
+    input.options,
+  );
   return JSON.stringify({
     adapter: input.agent.connection.provider,
     connection: input.agent.connection.id,
@@ -34,9 +42,9 @@ function runtimeFingerprint(input: AgentPlanSessionInput): string {
     effort: input.agent.reasoningEffort,
     user: input.userId,
     directory: input.directory,
-    access: input.options.access,
-    shell: input.options.shell,
-    web: input.options.web,
+    access: options.access,
+    shell: options.shell,
+    web: options.web,
   });
 }
 
@@ -64,15 +72,23 @@ export class AgentPlanGroupSessions {
     const { key, input, signal, observer } = request;
     const current = this.sessions.get(key);
     if (input.agent.connection.provider !== "codex_cli")
-      throw new AgentError("provider_invalid");
+      throw new AgentError("plan_group_session_unsupported");
+    if (signal.aborted) throw new AgentPlanCancelledError();
     if (current) {
       if (
         current.fingerprint !== runtimeFingerprint(input) ||
         !current.session.next
       )
         throw new AgentError("plan_context_changed");
-      if (current.started) observer.started(current.started);
-      const turn = current.session.next(input, signal, observer);
+      if (current.started)
+        observer.started({
+          ...current.started,
+          startedAt: new Date().toISOString(),
+        });
+      const turn = this.confirmTurn(
+        current,
+        current.session.next(input, signal, observer),
+      );
       return { turn, close: () => this.close(key, current) };
     }
     const controller = new AbortController();
@@ -92,6 +108,10 @@ export class AgentPlanGroupSessions {
           },
         },
       );
+      if (!session.next) {
+        await session.close();
+        throw new AgentError("plan_group_session_unsupported");
+      }
       const entry: GroupSession = {
         session,
         mcp: input.mcp,
@@ -99,9 +119,11 @@ export class AgentPlanGroupSessions {
         started,
         instanceId: input.instanceId,
         fingerprint: runtimeFingerprint(input),
+        nativeSessionId: null,
+        effective: null,
       };
       this.sessions.set(key, entry);
-      const turn = session.turn.finally(() =>
+      const turn = this.confirmTurn(entry, session.turn).finally(() =>
         signal.removeEventListener("abort", cancel),
       );
       return { turn, close: () => this.close(key, entry) };
@@ -129,6 +151,42 @@ export class AgentPlanGroupSessions {
       stopped.push({ key, closed: await this.close(key, entry) });
     }
     return stopped;
+  }
+
+  private async confirmTurn(
+    entry: GroupSession,
+    pending: Promise<PlanSessionTurn>,
+  ): Promise<PlanSessionTurn> {
+    const turn = await pending;
+    if (turn.failure !== null || turn.errorCode !== null) return turn;
+    const fields = entry.effective
+      ? [
+          ...new Set([
+            ...Object.keys(entry.effective),
+            ...Object.keys(turn.effective),
+          ]),
+        ]
+      : [];
+    const conflict = fields.find(
+      (field) => entry.effective?.[field] !== turn.effective[field],
+    );
+    if (
+      !turn.sessionId ||
+      (entry.nativeSessionId && entry.nativeSessionId !== turn.sessionId) ||
+      conflict
+    )
+      return {
+        ...turn,
+        failure: "failed",
+        errorCode: "plan_context_changed",
+        events: [
+          ...turn.events,
+          `group runtime changed: ${conflict ?? "nativeSessionId"}`,
+        ],
+      };
+    entry.nativeSessionId = turn.sessionId;
+    entry.effective = { ...turn.effective };
+    return turn;
   }
 
   private async close(

@@ -107,6 +107,7 @@ function executionFixture(): {
 it("uses one native session, releases the outer successor only after both accepted turns and reports the group", async () => {
   const runtime = executionFixture();
   const world = await groupEngine(runtime.execution);
+  const prepareGroup = vi.spyOn(world.base.start, "prepareGroup");
   const run = await world.engine.start("owner", world.snapshot);
   await vi.waitFor(() => expect(runtime.open).toHaveBeenCalledTimes(1));
   expect(runtime.next).not.toHaveBeenCalled();
@@ -120,11 +121,14 @@ it("uses one native session, releases the outer successor only after both accept
   expect(secondPrompt).toContain("Instruction second");
   expect(secondPrompt).not.toContain("Instruction first");
   expect(secondPrompt).toContain("Shared shared-text");
+  expect(secondPrompt).toContain("Missing or invalid reports");
+  expect(secondPrompt).not.toContain("diagnostic information only");
   runtime.second.resolve(groupTurn());
   await vi.waitFor(() =>
     expect(world.stored.get(run.id)?.status).toBe("succeeded"),
   );
   expect(runtime.open).toHaveBeenCalledTimes(1);
+  expect(prepareGroup).toHaveBeenCalledOnce();
   expect(runtime.close).toHaveBeenCalledTimes(1);
   const agents = world.stored
     .get(run.id)
@@ -142,18 +146,100 @@ it("uses one native session, releases the outer successor only after both accept
   ).toBe("succeeded");
 });
 
-it("continues the group after a missing closing report without blocking the successor", async () => {
+it.each([
+  { name: "missing report", output: "No closing report" },
+  { name: "invalid report", output: "```pages-report\n{invalid}\n```" },
+  { name: "open todo", output: groupTurn().output.replace('"done"', '"open"') },
+  {
+    name: "unmet criterion",
+    output: groupTurn().output.replace('"met":true', '"met":false'),
+  },
+  {
+    name: "missing evidence",
+    output: groupTurn().output.replace("synthetic observable result", ""),
+  },
+])(
+  "fails the group after $name and never starts its next agent",
+  async ({ output }) => {
+    const runtime = executionFixture();
+    const world = await groupEngine(runtime.execution);
+    const run = await world.engine.start("owner", world.snapshot);
+    await vi.waitFor(() => expect(runtime.open).toHaveBeenCalledOnce());
+    runtime.first.resolve(groupTurn({ output }));
+    await vi.waitFor(() =>
+      expect(world.stored.get(run.id)?.status).toBe("failed"),
+    );
+    expect(runtime.next).not.toHaveBeenCalled();
+    expect(runtime.close).toHaveBeenCalledOnce();
+    expect(
+      world.stored.get(run.id)?.steps.find((step) => step.id === "group"),
+    ).toMatchObject({
+      status: "failed",
+      failedStepId: "first",
+      error: "plan_group_acceptance_failed",
+    });
+    expect(
+      world.stored.get(run.id)?.steps.find((step) => step.id === "end"),
+    ).toMatchObject({ status: "waiting", isBlocked: true });
+    expect(
+      world.stored.get(run.id)?.steps.find((step) => step.id === "first")
+        ?.session?.acceptance?.verdict,
+    ).toBe("open");
+  },
+);
+
+it("blocks the outer successor when the final internal agent fails acceptance", async () => {
   const runtime = executionFixture();
   const world = await groupEngine(runtime.execution);
   const run = await world.engine.start("owner", world.snapshot);
   await vi.waitFor(() => expect(runtime.open).toHaveBeenCalledOnce());
-  runtime.first.resolve(groupTurn({ output: "No closing report" }));
+  runtime.first.resolve(groupTurn());
   await vi.waitFor(() => expect(runtime.next).toHaveBeenCalledOnce());
-  runtime.second.resolve(groupTurn());
+  runtime.second.resolve(groupTurn({ output: "No report" }));
   await vi.waitFor(() =>
-    expect(world.stored.get(run.id)?.status).toBe("succeeded"),
+    expect(world.stored.get(run.id)?.status).toBe("failed"),
   );
-  expect(runtime.close).toHaveBeenCalledTimes(1);
+  expect(
+    world.stored.get(run.id)?.steps.find((step) => step.id === "group"),
+  ).toMatchObject({
+    status: "failed",
+    failedStepId: "second",
+    error: "plan_group_acceptance_failed",
+  });
+  expect(
+    world.stored.get(run.id)?.steps.find((step) => step.id === "end")
+      ?.isBlocked,
+  ).toBe(true);
+});
+
+it.each([
+  { name: "native session", change: { sessionId: "different-native-session" } },
+  {
+    name: "effective model",
+    change: { effective: { model: "changed-model" } },
+  },
+])("fails closed when the adapter changes the $name", async ({ change }) => {
+  const runtime = executionFixture();
+  const world = await groupEngine(runtime.execution);
+  const run = await world.engine.start("owner", world.snapshot);
+  await vi.waitFor(() => expect(runtime.open).toHaveBeenCalledOnce());
+  runtime.first.resolve(groupTurn());
+  await vi.waitFor(() => expect(runtime.next).toHaveBeenCalledOnce());
+  runtime.second.resolve(groupTurn(change));
+  await vi.waitFor(() =>
+    expect(world.stored.get(run.id)?.status).toBe("failed"),
+  );
+  expect(
+    world.stored.get(run.id)?.steps.find((step) => step.id === "group"),
+  ).toMatchObject({
+    status: "failed",
+    failedStepId: "second",
+    error: "plan_context_changed",
+  });
+  expect(
+    world.stored.get(run.id)?.steps.find((step) => step.id === "end")
+      ?.isBlocked,
+  ).toBe(true);
 });
 
 it.each([{ name: "provider error", turn: groupTurn({ failure: "failed" }) }])(
@@ -294,4 +380,26 @@ it("does not start the first internal agent after an unsuccessful outer predeces
   expect(
     world.stored.get(run.id)?.steps.find((step) => step.id === "first"),
   ).toMatchObject({ status: "waiting", isBlocked: true });
+});
+
+it("applies the group acceptance gate to TODO-only steps as well", async () => {
+  const runtime = executionFixture();
+  const world = await groupEngine(runtime.execution);
+  const snapshot = {
+    ...world.snapshot,
+    steps: world.snapshot.steps.map((step) => ({
+      ...step,
+      step: { ...step.step, completion: "todos" as const },
+    })),
+  };
+  const run = await world.engine.start("owner", snapshot);
+  await vi.waitFor(() => expect(runtime.open).toHaveBeenCalledOnce());
+  runtime.first.resolve(groupTurn({ output: "Completed without report" }));
+  await vi.waitFor(() =>
+    expect(world.stored.get(run.id)?.status).toBe("failed"),
+  );
+  expect(runtime.next).not.toHaveBeenCalled();
+  expect(
+    world.stored.get(run.id)?.steps.find((step) => step.id === "first")?.error,
+  ).toBe("plan_group_acceptance_failed");
 });

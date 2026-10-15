@@ -78,6 +78,8 @@ export function PlanGroupEditor(props: {
       </p>
       <PlanGroupParameters
         group={group}
+        draft={props.draft}
+        sources={props.sources}
         disabled={props.disabled}
         onChange={props.graph.replaceNode}
       />
@@ -105,15 +107,9 @@ export function PlanGroupEditor(props: {
         sources={props.sources}
         agentId={agentId}
         onChange={setAgentId}
+        disabled={props.disabled}
+        onAdd={add}
       />
-      <Button
-        size="sm"
-        variant="outline"
-        disabled={props.disabled || !agentId}
-        onClick={add}
-      >
-        {t("plans.groups.addAgent")}
-      </Button>
     </fieldset>
   );
 }
@@ -122,25 +118,37 @@ function GroupAgentPicker(props: {
   readonly sources: AgentPlanSources;
   readonly agentId: string;
   readonly onChange: (id: string) => void;
+  readonly disabled: boolean;
+  readonly onAdd: () => void;
 }): React.ReactElement {
   const { t } = useTranslation();
   return (
-    <Select
-      ariaLabel={t("plans.groups.addAgent")}
-      value={props.agentId}
-      onValueChange={props.onChange}
-      options={[
-        { value: "", label: t("plans.groups.addAgent") },
-        ...props.sources.agents
-          .filter(
-            (agent) =>
-              agent.provider === "codex_cli" && agent.availability.isUsable,
-          )
-          .map((agent) => ({
-            value: agent.id,
-            label: `${agent.name} · ${agent.model}`,
-          })),
-      ]}
-    />
+    <>
+      <Select
+        ariaLabel={t("plans.groups.addAgent")}
+        value={props.agentId}
+        onValueChange={props.onChange}
+        options={[
+          { value: "", label: t("plans.groups.addAgent") },
+          ...props.sources.agents
+            .filter(
+              (agent) =>
+                agent.provider === "codex_cli" && agent.availability.isUsable,
+            )
+            .map((agent) => ({
+              value: agent.id,
+              label: `${agent.name} · ${agent.model}`,
+            })),
+        ]}
+      />
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={props.disabled || !props.agentId}
+        onClick={props.onAdd}
+      >
+        {t("plans.groups.addAgent")}
+      </Button>
+    </>
   );
 }
