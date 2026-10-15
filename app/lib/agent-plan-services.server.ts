@@ -1,4 +1,6 @@
 import { AgentRunCredentialRepository } from "@/backend/database/repositories/mcp/AgentRunCredentialRepository";
+import { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
+import { upgradePlanConfigurations } from "@/backend/service/agents/AgentPlanConfigurationUpgrade";
 import { AgentPlanRepository } from "@/backend/database/repositories/agent/AgentPlanRepository";
 import { AgentProfileRepository } from "@/backend/database/repositories/agent/AgentProfileRepository";
 import { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
@@ -32,6 +34,11 @@ export async function createAgentPlanService(input: {
 }): Promise<AgentPlanService> {
   const plans = new AgentPlanRepository(input.database);
   const runs = new AgentPlanRunRepository(input.database);
+  await upgradePlanConfigurations({
+    plans,
+    profiles: new AgentProfileRepository(input.database),
+    connections: new AgentConnectionRepository(input.database),
+  });
   const {
     agentWorkspaceService: workspaces,
     agentProfileService: profiles,

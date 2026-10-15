@@ -371,8 +371,16 @@ An executable plan needs at least one usable agent, an explicit Start and a
 reachable End. Every flow node must be reachable from a Start and lead to an
 End; every required flow IN/OUT must be connected. Required agent inputs,
 including a configured working directory, need connected, nonempty values.
-When inserting an agent, its configured defaults become individual connected
-parameter nodes. Earlier plans keep their values and bindings; old literal
+Agents in the sidebar are editable templates. Each insertion fetches the current
+template and stores an independent node copy of its instruction, model grant,
+reasoning, parameters, directory binding and run options. Its configured defaults
+become individual connected parameter nodes. Double-click an agent node to edit
+its own AGENT.md instruction, released model and reasoning level; the dialog
+identifies these changes as applying only to that node. Template edits, including
+edits during an active run, never change existing nodes. Inserting the same
+template again uses its current defaults. Existing saved plans receive their
+independent copies once at server startup, under their normal revision checks.
+Earlier plans keep their values and bindings; old literal
 bindings can be converted into value nodes in the selection panel. They need
 explicit Start/End nodes and connected required parameters before Play.
 
@@ -409,13 +417,16 @@ adapter of its CLI (`codex-acp` or `claude-agent-acp`, installed for the server
 account next to the CLI, whose sign-in it reuses; see
 [ACP adapters](#acp-adapters-for-the-cli-runners)); an OpenCode connection
 starts a real CLI session in the node's workspace; an API connection stays a
-request without tools. Before a node starts, Pages reads
-the agent's `AGENT.md`, binds every parameter (a placeholder is never sent
-unresolved) and fixes the node's **todo list** (task list items of the node
+request without tools. Play stores a stable snapshot of each node's effective
+configuration. Before a node starts, Pages uses that snapshot and binds every
+parameter (a placeholder is never sent unresolved) and fixes the node's **todo list** (task list items of the node
 instruction and of the bound tickets' descriptions) and **acceptance criteria**
 (the acceptance criteria of the bound tickets). Both are stored with the run and
-appended to the prompt together with the required closing report. The exact
-model, reasoning effort and the agent's run options (workspace access, shell,
+appended to the prompt together with the required closing report. Later template
+or saved-node edits leave the run unchanged; current template usage, model grants
+and referenced resource permissions are still checked before execution. The sent
+prompt and requested model, reasoning and run options remain available in the run
+record. The exact model, reasoning effort and the agent's run options (workspace access, shell,
 web, time limit) are passed with fixed, verified switches; a combination a
 runner cannot enforce, such as read-only access with commands for OpenCode,
 blocks the start. The ACP adapter must offer and confirm the stored model,

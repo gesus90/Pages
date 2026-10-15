@@ -573,6 +573,7 @@
         "workspace_path_changed": "The registered directory was replaced or redirected. Register it again explicitly.",
         "workspace_path_conflict": "Another workspace already registers this directory or an overlapping directory.",
         "workspace_in_use": "Remove the references to the workspace before unregistering or rebinding it.",
+        "plan_sources_failed": "The current agent template could not be loaded. Please insert it again.",
         "plan_invalid": "Check the plan fields and graph nodes.",
         "plan_access_denied": "This plan or run is not accessible.",
         "plan_conflict": "The plan changed. Reload before saving or Play.",
@@ -3039,6 +3040,10 @@
     "save": "Save workspace"
   },
   "plans": {
+    "nodeConfigurationHint": "Changes apply only to this node. The agent template and other nodes remain unchanged.",
+    "nodeMarkdown": "AGENT.md / instruction for this node",
+    "editNode": "Edit selected agent node",
+    "closeNode": "Apply to plan",
     "title": "Execution plan",
     "name": "Name",
     "workspace": "Workspace",

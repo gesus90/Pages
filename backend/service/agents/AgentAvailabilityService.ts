@@ -10,8 +10,10 @@ import { agentParameterIssues } from "@/definition/AgentParameters";
 
 import { resolveAgentAssignmentFor } from "./AgentAssignmentResolution";
 import { canUseAgentConnection } from "./AgentConnectionAccess";
-import { resolvePageAgentModel } from "./PageAgentModels";
+import { resolvePlanModel } from "./AgentPlanModel";
+import { pageAgentModels, resolvePageAgentModel } from "./PageAgentModels";
 
+import type { PageAgentModel } from "@/definition/PageAgent";
 import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
 import type {
   AgentAvailability,
@@ -53,6 +55,7 @@ export class AgentAvailabilityService {
       );
       choices.push({
         id: profile.id,
+        modelProfileId: profile.modelProfileId ?? profile.id,
         name: profile.name,
         model: profile.model,
         reasoningEffort: profile.reasoningEffort,
@@ -64,6 +67,20 @@ export class AgentAvailabilityService {
       });
     }
     return choices;
+  }
+
+  /** Lists the released model choices for independent plan nodes. */
+  public async models(
+    userId: string,
+    projectId: string | null = null,
+  ): Promise<readonly PageAgentModel[]> {
+    const context = await this.context(userId, projectId);
+    return pageAgentModels(
+      this.dependencies,
+      context.viewer,
+      context.profiles,
+      projectId,
+    );
   }
 
   /** Administration may inspect all agents, but gets no execution authorization bypass. */
@@ -113,6 +130,15 @@ export class AgentAvailabilityService {
       throw new AgentError("agent_usage_denied");
     if (!profile.isActive) throw new AgentError("agent_inactive");
     await this.requireProject(profile, context);
+    if (selection.configuration) {
+      const resolved = await resolvePlanModel(
+        this.dependencies,
+        context.viewer,
+        selection.configuration,
+        context,
+      );
+      return { profile, ...resolved };
+    }
     const configuration =
       profile.configuration ?? configurationForTargets(profile.targets);
     if (agentParameterIssues(configuration).length > 0)
@@ -360,6 +386,7 @@ function visibleConfiguration(
     accessMode: configuration.accessMode,
     parameters: configuration.parameters,
     directoryParameter: configuration.directoryParameter,
+    ...(configuration.run === undefined ? {} : { run: configuration.run }),
   };
 }
 

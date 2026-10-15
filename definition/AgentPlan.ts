@@ -1,3 +1,6 @@
+import type { AgentPlanConfiguration } from "./AgentPlanConfiguration";
+import type { PageAgentModel } from "./PageAgent";
+
 import type { AgentDefinitionChoice } from "./AgentAvailability";
 import type { AgentParameterValue } from "./AgentParameters";
 import type { AgentConfiguration } from "./AgentConfiguration";
@@ -25,6 +28,8 @@ export interface AgentPlanStep extends AgentPlanPosition {
   /** null chooses automatic access; an empty string marks a removed explicit assignment. */
   readonly personalAgentId: string | null;
   readonly instruction: string;
+  /** Absent only in plans saved before independent node configurations. */
+  readonly configuration?: AgentPlanConfiguration;
   readonly bindings: Readonly<Record<string, AgentPlanBinding>>;
 }
 
@@ -106,6 +111,7 @@ export interface AgentPlanTask {
 }
 
 export interface AgentPlanSources {
+  readonly models?: readonly PageAgentModel[];
   readonly agents: readonly AgentDefinitionChoice[];
   readonly tasks: readonly AgentPlanTask[];
 }

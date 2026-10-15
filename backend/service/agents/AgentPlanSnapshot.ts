@@ -2,15 +2,12 @@ import { isAcpProvider } from "@/definition/AgentConfiguration";
 
 import type { AgentPlan, AgentPlanStep } from "@/definition/AgentPlan";
 import type { AgentProviderId } from "@/definition/AgentConnection";
-import type { AgentConfiguration } from "@/definition/AgentConfiguration";
+import type { AgentPlanTemplate } from "@/definition/AgentPlanConfiguration";
+
 import type { ResolvedAgentWorkspace } from "@/definition/AgentWorkspace";
 import type { PreparedAgentParameters } from "./AgentParameterService";
 
-/** Secrets and usage grants are excluded from frozen execution configuration. */
-export type AgentPlanTemplate = Pick<
-  AgentConfiguration,
-  "markdown" | "parameters" | "directoryParameter" | "run"
->;
+export type { AgentPlanTemplate } from "@/definition/AgentPlanConfiguration";
 
 /** Model identity is pinned while credentials and permission checks remain live. */
 export interface AgentPlanStepSnapshot {

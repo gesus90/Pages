@@ -2,6 +2,7 @@ import {
   hasAgentParameterValue,
   isAgentParameterName,
 } from "./AgentParameters";
+import { planStepTemplate } from "./AgentPlanConfiguration";
 import { planValueIssue } from "./AgentPlanValue";
 
 import type { AgentDefinitionChoice } from "./AgentAvailability";
@@ -183,7 +184,7 @@ function bindingIssues(
   const agent = agents.find((entry) => entry.id === step.agentId);
   if (!agent) return [{ nodeId: step.id, port: null, reason: "agent" }];
   for (const [name, binding] of Object.entries(step.bindings)) {
-    const parameter = agent.configuration.parameters.find(
+    const parameter = planStepTemplate(step, agents)?.parameters.find(
       (entry) => entry.name === name,
     );
     if (!parameter)
@@ -244,13 +245,18 @@ function requiredParameterIssues(
   agent: AgentDefinitionChoice | undefined,
   plan: AgentPlanInput,
 ): AgentPlanIssue[] {
-  if (!agent?.availability.isUsable || step.personalAgentId === "")
+  if (
+    !agent ||
+    (!step.configuration && !agent.availability.isUsable) ||
+    step.personalAgentId === ""
+  )
     return [{ nodeId: step.id, port: null, reason: "agent" }];
-  return agent.configuration.parameters.flatMap(
+  const configuration = planStepTemplate(step, [agent]);
+  return (configuration?.parameters ?? []).flatMap(
     (parameter): AgentPlanIssue[] => {
       if (
         !parameter.isRequired &&
-        parameter.name !== agent.configuration.directoryParameter
+        parameter.name !== configuration?.directoryParameter
       )
         return [];
       const binding = step.bindings[parameter.name];

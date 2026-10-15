@@ -1,4 +1,5 @@
 import { unsupportedRunOption } from "@/backend/agents/cli/CliSessionPlans";
+import { planStepTemplate } from "@/definition/AgentPlanConfiguration";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { agentRunOptionsFor } from "@/definition/AgentConfiguration";
 import { isApiProvider } from "@/definition/AgentConnection";
@@ -9,7 +10,8 @@ import { planBindings } from "./AgentPlanBindings";
 import { hasPlanPath, planSteps } from "./AgentPlanGraph";
 import { planStepDirectory } from "./AgentPlanSnapshot";
 
-import type { AgentPlan } from "@/definition/AgentPlan";
+import type { AgentProfile } from "@/definition/AgentProfile";
+import type { AgentPlan, AgentPlanStep } from "@/definition/AgentPlan";
 import type { ResolvedAgentWorkspace } from "@/definition/AgentWorkspace";
 import type { AgentProfileService } from "./AgentProfileService";
 import type { AgentParameterService } from "./AgentParameterService";
@@ -20,9 +22,9 @@ import type {
 } from "./AgentPlanSnapshot";
 
 interface PreparationDependencies {
-  readonly profiles: AgentProfileService;
-  readonly parameters: AgentParameterService;
-  readonly tasks: AgentPlanTasks;
+  readonly profiles: Pick<AgentProfileService, "catalog" | "resolveDefinition">;
+  readonly parameters: Pick<AgentParameterService, "prepare">;
+  readonly tasks: Pick<AgentPlanTasks, "snapshot">;
 }
 
 /** Completes every validation before reserving directories or starting provider work. */
@@ -38,10 +40,11 @@ export class AgentPlanPreparation {
     userId: string,
     plan: AgentPlan,
   ): Promise<AgentPlanSnapshot> {
-    const issues = planExecutionIssues(
-      plan,
-      await this.dependencies.profiles.catalog(userId, plan.projectId),
+    const catalog = await this.dependencies.profiles.catalog(
+      userId,
+      plan.projectId,
     );
+    const issues = planExecutionIssues(plan, catalog);
     if (issues.length > 0) throw new AgentPlanValidationError(issues);
     const steps = planSteps(plan);
     if (steps.length === 0) throw new AgentError("plan_invalid");
@@ -66,28 +69,19 @@ export class AgentPlanPreparation {
           agentId: step.agentId,
           personalAgentId: step.personalAgentId,
           projectId: plan.projectId,
+          configuration: step.configuration,
         },
       );
-      const configuration = resolved.profile.configuration;
-      if (!configuration) throw new AgentError("configuration_invalid");
-      const template = {
-        markdown: configuration.markdown,
-        parameters: configuration.parameters,
-        directoryParameter: configuration.directoryParameter,
-        ...(configuration.run === undefined ? {} : { run: configuration.run }),
-      };
-      const bindings = planBindings(
-        plan,
-        step,
-        tasks,
-        configuration.parameters,
-      );
+      const template = planStepTemplate(step, catalog);
+      if (!template) throw new AgentError("configuration_invalid");
+      const bindings = planBindings(plan, step, tasks, template.parameters);
       const prepared = await this.dependencies.parameters.prepare(
         userId,
         {
           agentId: step.agentId,
           personalAgentId: step.personalAgentId,
           workspaceId: plan.workspaceId,
+          configuration: step.configuration,
         },
         bindings,
         template,
@@ -105,7 +99,7 @@ export class AgentPlanPreparation {
         ? null
         : unsupportedRunOption(
             provider,
-            agentRunOptionsFor(provider, configuration.run),
+            agentRunOptionsFor(provider, template.run),
           );
       if (unsupported !== null) throw new AgentError(unsupported);
       const taskIds = Object.values(step.bindings).flatMap((binding) => {
@@ -115,8 +109,7 @@ export class AgentPlanPreparation {
       });
       snapshots.push({
         step,
-        name: resolved.profile.name,
-        revision: resolved.profile.revision ?? 1,
+        ...stepOrigin(step, resolved.profile),
         template,
         provider: resolved.assignment.connection.provider,
         model: resolved.assignment.model,
@@ -167,4 +160,14 @@ function sameWorkingCopy(
       first.directoryIdentity === second.directoryIdentity ||
       first.path === second.path)
   );
+}
+
+function stepOrigin(
+  step: AgentPlanStep,
+  profile: AgentProfile,
+): { name: string; revision: number } {
+  return {
+    name: step.configuration?.name ?? profile.name,
+    revision: step.configuration?.revision ?? profile.revision ?? 1,
+  };
 }

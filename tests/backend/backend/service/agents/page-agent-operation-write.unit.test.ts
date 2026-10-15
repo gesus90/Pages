@@ -283,21 +283,23 @@ it("keeps the stored effort when only the model changes and asks for a valid pai
   });
 });
 
-it("refuses a change while a run holds the agent and accepts it afterwards", async () => {
+it("saves a template during a run and retains revision checks before and after release", async () => {
   const created = await create();
   const release = await world.files.hold([created.id]);
-
   await expect(
     update(created.id, 1, { name: "During the run" }),
+  ).resolves.toMatchObject({ changed: true, revision: 2 });
+  await expect(
+    update(created.id, 1, { name: "Stale edit" }),
   ).rejects.toMatchObject({
     code: "CONFLICT",
-    details: { reason: "agent_running" },
+    details: { currentRevision: 2 },
   });
+  expect((await read(created.id)).name).toBe("During the run");
   await release();
-
   await expect(
-    update(created.id, 1, { name: "After the run" }),
-  ).resolves.toMatchObject({ changed: true, revision: 2 });
+    update(created.id, 2, { name: "After the run" }),
+  ).resolves.toMatchObject({ changed: true, revision: 3 });
 });
 
 it("keeps one revision per change and no-ops a request that matches", async () => {

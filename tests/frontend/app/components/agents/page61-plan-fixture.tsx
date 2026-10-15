@@ -1,3 +1,6 @@
+import { vi } from "vitest";
+import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
+
 import { I18nextProvider } from "react-i18next";
 import {
   createMemoryRouter,
@@ -153,6 +156,7 @@ export function syntheticPlan(): AgentPlanInput {
 /** Server state behind the synthetic loader and action. */
 export interface PlanServer {
   plan: AgentPlanInput | null;
+  sources?: AgentPlanPage["sources"];
   readonly canEdit: boolean;
   readonly saved: AgentPlanInput[];
   readonly deleted: string[];
@@ -192,7 +196,7 @@ function page(server: PlanServer, request: Request): AgentPlanPage {
       },
     ],
     selected: isSelected ? plan : null,
-    sources: SOURCES,
+    sources: server.sources ?? SOURCES,
     runs: [],
     directory: { persons: [], groups: [], departments: [] },
   };
@@ -219,6 +223,15 @@ function Route(): React.ReactElement {
 
 /** Renders the plan page with the plan selected, as opening it from the plan list does. */
 export function renderPlanPage(server: PlanServer): RenderResult {
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+    const url = new URL(String(input), "http://pages.test");
+    const source = (server.sources ?? SOURCES).agents.find(
+      (entry) => entry.id === url.searchParams.get("agentId"),
+    );
+    return source
+      ? Response.json(copyPlanConfiguration(source))
+      : new Response(null, { status: 404 });
+  });
   const router = createMemoryRouter(
     [
       {

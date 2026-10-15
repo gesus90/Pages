@@ -2,6 +2,7 @@ import { Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
+import { planStepTemplate } from "@/definition/AgentPlanConfiguration";
 import { cn } from "@/app/lib/cn";
 
 import {
@@ -34,6 +35,7 @@ interface NodeCardProps {
   readonly graph: PlanGraphActions;
   readonly canEdit: boolean;
   readonly result?: AgentPlanStepResult;
+  readonly onEdit?: (id: string) => void;
 }
 
 /** Node ports are buttons as well as drag targets, allowing keyboard and touch bindings. */
@@ -46,12 +48,17 @@ export function PlanNodeCard(props: NodeCardProps): React.ReactElement {
       : planNodeLabel(node, props.sources) || t("plans.missingAgent");
   const parameters =
     node.type === "agent"
-      ? (props.sources.agents.find((agent) => agent.id === node.agentId)
-          ?.configuration.parameters ?? [])
+      ? (planStepTemplate(node, props.sources.agents)?.parameters ?? [])
       : [];
   const output = OUTPUT_LABELS[node.type];
   return (
     <article
+      onDoubleClick={() => {
+        if (node.type === "agent") {
+          graph.select(node.id);
+          props.onEdit?.(node.id);
+        }
+      }}
       aria-label={label}
       className={cn(
         "absolute rounded-xl border p-3 shadow-xs",

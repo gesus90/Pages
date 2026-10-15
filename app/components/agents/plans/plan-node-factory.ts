@@ -1,3 +1,4 @@
+import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 import { createRandomUuid } from "@/app/lib/random-uuid";
 
 import { PLAN_GRID } from "./plan-layout";
@@ -50,6 +51,7 @@ export function createPlanNode(input: {
       ...base,
       type: "agent",
       agentId: reference,
+      configuration: copyPlanConfiguration(agent),
       personalAgentId: null,
       instruction: "",
       bindings: {},

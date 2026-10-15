@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import { useFetcher, useNavigate } from "react-router";
 
+import { readPlanConfiguration } from "@/backend/agents/AgentPlanConfigurationInput";
+
 import { usePlanDraft } from "./use-plan-draft";
 import { usePlanGraph } from "./use-plan-graph";
 import { usePlanSources } from "./use-plan-sources";
@@ -36,7 +38,18 @@ export function usePlanEditor(page: AgentPlanPage): {
     command.state !== "idle",
   );
   const { sources, sourceError } = usePlanSources(page, draft.workspaceId);
-  const graph = usePlanGraph(draft, setDraft, sources);
+  const graph = usePlanGraph(draft, setDraft, sources, async (agentId) => {
+    const query = new URLSearchParams({
+      workspaceId: draft.workspaceId,
+      agentId,
+    });
+    const response = await fetch(`/agent-api/plan-sources?${query}`, {
+      cache: "no-store",
+    });
+    if (!response.ok) throw new Error("Agent template unavailable");
+    const configuration: unknown = await response.json();
+    return readPlanConfiguration(configuration);
+  });
   const navigate = useNavigate();
   useEffect(() => {
     const result = command.data;
@@ -90,7 +103,7 @@ export function usePlanEditor(page: AgentPlanPage): {
     isDirty,
     canEdit: page.selected?.canEdit ?? true,
     isPending: command.state !== "idle",
-    sourceError,
+    sourceError: graph.insertionError ?? sourceError,
     save,
     play,
     stop: (id) => control("stop-plan", id),

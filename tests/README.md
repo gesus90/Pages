@@ -18,6 +18,10 @@ data, linked and shared objects, failure and repetition; a schema guard reads th
 migration scripts and opens no database) under
 `tests/backend/backend/database/repositories/` and
 `tests/backend/backend/service/{agents,mcp,project}/`,
+the template/node/run isolation tests of PAGE-74 (independent copies, active-run
+template edits, model grants, optimistic revisions, legacy JSON pinning and the
+double-click editor) under `tests/backend/backend/service/agents/` and
+`tests/frontend/app/components/agents/`,
 and the Codex ACP tests of PAGE-63 under
 `tests/backend/backend/agents/` (the adapter is an in-process agent app of the
 ACP SDK behind a fake spawn, never a real process), each with their fixtures;

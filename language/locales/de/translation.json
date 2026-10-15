@@ -573,6 +573,7 @@
         "workspace_path_changed": "Das registrierte Verzeichnis wurde ersetzt oder umgeleitet. Registrieren Sie es ausdrücklich neu.",
         "workspace_path_conflict": "Ein anderer Arbeitsbereich registriert bereits dieses oder ein überlappendes Verzeichnis.",
         "workspace_in_use": "Entfernen Sie die Verweise auf den Arbeitsbereich, bevor Sie die Registrierung entfernen oder neu zuordnen.",
+        "plan_sources_failed": "Die aktuelle Agent-Vorlage konnte nicht geladen werden. Bitte erneut einfügen.",
         "plan_invalid": "Planfelder und Graphknoten prüfen.",
         "plan_access_denied": "Dieser Plan oder Lauf ist nicht zugänglich.",
         "plan_conflict": "Der Plan wurde geändert. Vor Speichern oder Play neu laden.",
@@ -3039,6 +3040,10 @@
     "save": "Arbeitsbereich speichern"
   },
   "plans": {
+    "nodeConfigurationHint": "Änderungen gelten nur für diesen Node. Das Agent-Template und andere Nodes bleiben unverändert.",
+    "nodeMarkdown": "AGENT.md / Anweisung dieses Nodes",
+    "editNode": "Ausgewählten Agent-Node bearbeiten",
+    "closeNode": "In Plan übernehmen",
     "title": "Ausführplan",
     "name": "Name",
     "workspace": "Arbeitsbereich",

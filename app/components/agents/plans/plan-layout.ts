@@ -1,3 +1,5 @@
+import { planStepTemplate } from "@/definition/AgentPlanConfiguration";
+
 import type {
   AgentPlanInput,
   AgentPlanNode,
@@ -22,8 +24,9 @@ export function planNodeHeight(
   sources: AgentPlanSources,
 ): number {
   if (node.type !== "agent") return 140;
-  const agent = sources.agents.find((entry) => entry.id === node.agentId);
-  return 168 + (agent?.configuration.parameters.length ?? 0) * 32;
+  return (
+    168 + (planStepTemplate(node, sources.agents)?.parameters.length ?? 0) * 32
+  );
 }
 
 /** Labels stay readable when a saved resource has become unavailable. */
@@ -38,6 +41,7 @@ export function planNodeLabel(
     return task ? `${task.key}: ${task.title}` : node.taskId;
   }
   return (
+    node.configuration?.name ??
     sources.agents.find((entry) => entry.id === node.agentId)?.name ??
     node.agentId
   );
@@ -64,9 +68,7 @@ export function planOutputY(
   if (node.type === "agent")
     return (
       112 +
-      (sources.agents.find((agent) => agent.id === node.agentId)?.configuration
-        .parameters.length ?? 0) *
-        32
+      (planStepTemplate(node, sources.agents)?.parameters.length ?? 0) * 32
     );
   return 80;
 }
@@ -86,8 +88,7 @@ export function planLinkPoints(
     return { x1, y1: source.y + 72, x2, y2: target.y + 72 };
   const parameters =
     target.type === "agent"
-      ? (sources.agents.find((agent) => agent.id === target.agentId)
-          ?.configuration.parameters ?? [])
+      ? (planStepTemplate(target, sources.agents)?.parameters ?? [])
       : [];
   const index = parameters.findIndex(
     (parameter) => parameter.name === link.parameter,

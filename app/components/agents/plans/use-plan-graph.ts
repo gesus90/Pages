@@ -7,6 +7,7 @@ import {
   snapPlanCoordinate,
 } from "./plan-node-factory";
 import { usePlanConnections } from "./use-plan-connections";
+import { usePlanNodeInsertion } from "./use-plan-node-insertion";
 import { usePlanSelection } from "./use-plan-selection";
 
 import type {
@@ -18,12 +19,14 @@ import type {
 } from "@/definition/AgentPlan";
 import type { Dispatch, SetStateAction } from "react";
 import type { AgentPlanIssue } from "@/definition/AgentPlanGraph";
+import type { AgentPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 import type { AgentParameterValue } from "@/definition/AgentParameters";
 import type { PlanLink } from "./plan-links";
 import type { PlanSelection } from "./use-plan-selection";
 
 /** Editable node operations and validated port interactions of one plan draft. */
 export interface PlanGraphActions extends PlanSelection {
+  readonly insertionError: string | null;
   readonly issues: readonly AgentPlanIssue[];
   readonly connectionIssue: ReturnType<
     typeof usePlanConnections
@@ -56,24 +59,17 @@ export function usePlanGraph(
   draft: AgentPlanInput,
   setDraft: Dispatch<SetStateAction<AgentPlanInput>>,
   sources: AgentPlanSources,
+  loadConfiguration?: (id: string) => Promise<AgentPlanConfiguration>,
 ): PlanGraphActions {
   const selection = usePlanSelection();
   const connections = usePlanConnections(draft, setDraft, sources);
-  function add(
-    kind: AgentPlanNode["type"],
-    reference: string,
-    position?: AgentPlanPosition,
-  ): string | null {
-    const node = createPlanNode({ draft, sources, kind, reference, position });
-    if (!node) return null;
-    const additions = nodeWithDefaults(node, draft, sources);
-    setDraft((previous) => ({
-      ...previous,
-      nodes: [...previous.nodes, ...additions],
-    }));
-    selection.select(node.id);
-    return node.id;
-  }
+  const insertion = usePlanNodeInsertion({
+    draft,
+    setDraft,
+    sources,
+    select: selection.select,
+    loadConfiguration,
+  });
   function move(id: string, x: number, y: number): void {
     setDraft((previous) => ({
       ...previous,
@@ -139,48 +135,11 @@ export function usePlanGraph(
     issues: planExecutionIssues(draft, sources.agents),
     ...selection,
     ...connections,
-    add,
+    ...insertion,
     move,
     remove,
     disconnect,
     replaceStep: replaceNode,
     replaceNode,
   };
-}
-
-/** Existing defaults become visible, individually connected value nodes. */
-function nodeWithDefaults(
-  node: AgentPlanNode,
-  draft: AgentPlanInput,
-  sources: AgentPlanSources,
-): readonly AgentPlanNode[] {
-  if (node.type !== "agent") return [node];
-  const configuration = sources.agents.find(
-    (agent) => agent.id === node.agentId,
-  )?.configuration;
-  if (!configuration) return [node];
-  const parameters: AgentPlanNode[] = [];
-  const bindings = { ...node.bindings };
-  for (const parameter of configuration.parameters) {
-    const value =
-      parameter.defaultValue ??
-      (parameter.name === configuration.directoryParameter
-        ? { type: "workspace" as const, workspaceId: draft.workspaceId }
-        : null);
-    if (!value) continue;
-    const source = createPlanNode({
-      draft,
-      sources,
-      kind: "parameter",
-      reference: parameter.name,
-      position: {
-        x: Math.max(0, node.x - 320),
-        y: node.y + 340 + parameters.length * 160,
-      },
-    });
-    if (source?.type !== "parameter") continue;
-    parameters.push({ ...source, value });
-    bindings[parameter.name] = { kind: "source", nodeId: source.id };
-  }
-  return [{ ...node, bindings }, ...parameters];
 }

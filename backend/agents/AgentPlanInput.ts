@@ -6,6 +6,7 @@ import {
   readAgentParameterValue,
   readAgentTargets,
 } from "./AgentConfigurationInput";
+import { readPlanConfiguration } from "./AgentPlanConfigurationInput";
 import { readAgentObject } from "./AgentPayload";
 
 import type {
@@ -117,6 +118,9 @@ export function readPlanNode(input: unknown): AgentPlanNode {
         ? node.personalAgentId
         : readPlanText(node.personalAgentId),
     instruction: node.instruction,
+    ...(node.configuration === undefined
+      ? {}
+      : { configuration: readPlanConfiguration(node.configuration) }),
     bindings: readBindings(node.bindings),
   };
 }

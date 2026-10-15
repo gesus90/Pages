@@ -30,6 +30,7 @@ export function PlanCanvas(props: {
   readonly graph: PlanGraphActions;
   readonly canEdit: boolean;
   readonly run: AgentPlanRun | null;
+  readonly onEdit?: (id: string) => void;
 }): React.ReactElement {
   const { t } = useTranslation();
   const { graph } = props;
@@ -101,9 +102,7 @@ export function PlanCanvas(props: {
             <PlanNodeCard
               key={node.id}
               node={node}
-              sources={props.sources}
-              graph={graph}
-              canEdit={props.canEdit}
+              {...props}
               result={props.run?.steps.find((step) => step.id === node.id)}
             />
           ))}

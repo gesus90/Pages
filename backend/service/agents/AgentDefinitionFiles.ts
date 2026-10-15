@@ -100,8 +100,8 @@ function parseAgentDefinition(
  * Owns the `AGENT.md` of every agent below the agent directory of the instance.
  *
  * @remarks
- * Only this class writes the file, and only from a persisted definition. While
- * a plan run holds an agent, no save or deletion of that agent is accepted.
+ * Only this class writes the file, and only from a persisted definition.
+ * Runs hold deletion reservations, while saves update the reusable template.
  * When the run lets go, the file is checked against the stored definition, so
  * a changed or lost file is back before the next run can read it.
  */
@@ -127,14 +127,14 @@ export class AgentDefinitionFiles {
     this.loadProfiles = loadProfiles ?? null;
   }
 
-  /** Blocks management changes while any invocation holds this definition. */
+  /** Blocks deletion while any invocation holds this definition. */
   public assertMutable(id: string): void {
     requireArtifactId(id);
     if (this.isHeld(id)) throw new AgentError("profile_running");
   }
 
   /**
-   * Holds definitions immutable through adapter settlement and archive persistence.
+   * Keeps agents from being deleted through adapter settlement and archive persistence.
    *
    * @returns The release, which also checks the held files against the stored
    * definitions; calling it again does nothing.
@@ -187,7 +187,6 @@ export class AgentDefinitionFiles {
     journal?: AgentProfileJournal,
   ): Promise<void> {
     await this.writes.run(async () => {
-      this.assertMutable(profile.id);
       await repository.save(profile, journal);
       const persisted = (await repository.list()).find(
         (entry) => entry.id === profile.id,
@@ -246,7 +245,7 @@ export class AgentDefinitionFiles {
     }
   }
 
-  // A run reads the files, so they are brought up to date before it holds them.
+  // Refresh compatibility files before reserving the agents against deletion.
   private async refresh(ids: readonly string[]): Promise<void> {
     if (this.loadProfiles === null) return;
     const profiles = await this.loadProfiles();

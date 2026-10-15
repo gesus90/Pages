@@ -1,3 +1,4 @@
+import type { AgentPlanConfiguration } from "./AgentPlanConfiguration";
 import type { AgentConfiguration } from "./AgentConfiguration";
 import type { AgentProviderId } from "./AgentConnection";
 import type { AgentProfileChoice, AgentProfilePurpose } from "./AgentProfile";
@@ -13,6 +14,7 @@ export interface AgentAvailability {
 
 /** Authorized reusable content without credentials, foreign assignments or account metadata. */
 export interface AgentDefinitionChoice {
+  readonly modelProfileId?: string;
   readonly id: string;
   readonly name: string;
   readonly model: string;
@@ -26,6 +28,8 @@ export interface AgentDefinitionChoice {
 
 /** An explicit future step selection; the chosen access is never silently replaced. */
 export interface AgentDefinitionSelection {
+  /** Runtime copy selects an independently authorized model grant. */
+  readonly configuration?: AgentPlanConfiguration;
   readonly agentId: string;
   readonly personalAgentId: string | null;
   readonly projectId: string | null;

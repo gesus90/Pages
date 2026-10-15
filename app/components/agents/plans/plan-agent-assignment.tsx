@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 
+import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 import { Select } from "@/app/components/ui/select";
 
 import type { AgentPlanSources, AgentPlanStep } from "@/definition/AgentPlan";
@@ -15,6 +16,16 @@ export function PlanAgentAssignment(props: {
   const { step } = props;
   const agent = props.sources.agents.find((entry) => entry.id === step.agentId);
   const isPersonalMissing = step.personalAgentId === "";
+  function assignAgent(agentId: string): void {
+    const selected = props.sources.agents.find((entry) => entry.id === agentId);
+    if (!selected) return;
+    props.onChange({
+      ...step,
+      agentId,
+      personalAgentId: null,
+      configuration: copyPlanConfiguration(selected),
+    });
+  }
   return (
     <div className="space-y-3">
       {!agent ? (
@@ -33,9 +44,7 @@ export function PlanAgentAssignment(props: {
                 label: entry.name,
               })),
             ]}
-            onValueChange={(agentId) =>
-              props.onChange({ ...step, agentId, personalAgentId: null })
-            }
+            onValueChange={assignAgent}
           />
         </div>
       ) : null}
@@ -73,6 +82,14 @@ export function PlanAgentAssignment(props: {
               props.onChange({
                 ...step,
                 personalAgentId: personalAgentId || null,
+                ...(step.configuration && personalAgentId
+                  ? {
+                      configuration: {
+                        ...step.configuration,
+                        modelProfileId: personalAgentId,
+                      },
+                    }
+                  : {}),
               })
             }
           />

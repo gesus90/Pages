@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 
+import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
+
 import { readPlanNode } from "@/backend/agents/AgentPlanInput";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { removePlanNode } from "@/definition/AgentPlanGraph";
@@ -125,10 +127,11 @@ function withAgentDefaults(
   step: AgentPlanStep,
   context: AgentPlanChangeContext,
 ): AgentPlanInput {
-  const configuration = context.agents.find(
-    (agent) => agent.id === step.agentId,
-  )?.configuration;
-  if (!configuration) return { ...plan, nodes: [...plan.nodes, step] };
+  const agent = context.agents.find((entry) => entry.id === step.agentId);
+  if (!agent) return { ...plan, nodes: [...plan.nodes, step] };
+  const copied = copyPlanConfiguration(agent);
+  step = { ...step, configuration: copied };
+  const configuration = copied.template;
   const values: AgentPlanParameter[] = [];
   const bindings = { ...step.bindings };
   for (const parameter of configuration.parameters) {
@@ -177,6 +180,7 @@ function addNode(
 function updateNode(
   plan: AgentPlanInput,
   change: Extract<AgentPlanChange, { action: "updateNode" }>,
+  context: AgentPlanChangeContext,
 ): AgentPlanInput {
   const current = findNode(plan, change.nodeId);
   const settable = AGENT_PLAN_NODE_FIELDS[current.type];
@@ -188,7 +192,31 @@ function updateNode(
     throw refused("element_missing");
   const node = readPlanNode({ ...current, ...change.fields, id: current.id });
   requireFreeName(plan, node, node.id);
-  return replaceNode(plan, node);
+  return replaceNode(plan, reassignedNode(current, node, context));
+}
+
+function reassignedNode(
+  current: AgentPlanNode,
+  node: AgentPlanNode,
+  context: AgentPlanChangeContext,
+): AgentPlanNode {
+  if (current.type !== "agent" || node.type !== "agent") return node;
+  if (current.agentId !== node.agentId) {
+    const source = context.agents.find((agent) => agent.id === node.agentId);
+    return {
+      ...node,
+      configuration: source ? copyPlanConfiguration(source) : undefined,
+    };
+  }
+  if (current.personalAgentId !== node.personalAgentId && node.configuration)
+    return {
+      ...node,
+      configuration: {
+        ...node.configuration,
+        modelProfileId: node.personalAgentId ?? "",
+      },
+    };
+  return node;
 }
 
 function connect(
@@ -274,7 +302,7 @@ export function applyPlanChanges(
       current = added.plan;
       createdNodeIds.push(added.id);
     } else if (change.action === "updateNode")
-      current = updateNode(current, change);
+      current = updateNode(current, change, context);
     else if (change.action === "removeNode") {
       findNode(current, change.nodeId);
       current = removePlanNode(current, change.nodeId);

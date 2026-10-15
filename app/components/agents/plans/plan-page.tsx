@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { PlanNodeDialog } from "./plan-node-dialog";
 import { PlanCanvas } from "./plan-canvas";
 import { PlanConnections } from "./plan-connections";
 import { PlanFields } from "./plan-fields";
@@ -21,6 +23,7 @@ export function PlanPage({
 }): React.ReactElement {
   const { t } = useTranslation();
   const editor = usePlanEditor(page);
+  const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const running = usePlanRun(page.runs, editor.command.data);
   const disabled = !editor.canEdit || editor.isPending;
   const response = editor.command.data;
@@ -71,6 +74,7 @@ export function PlanPage({
             sources={editor.sources}
             graph={editor.graph}
             canEdit={!disabled && Boolean(editor.draft.workspaceId)}
+            onEdit={setEditingNodeId}
             run={running.run}
           />
         </div>
@@ -97,6 +101,11 @@ export function PlanPage({
         state={running}
         isPending={editor.isPending}
         onStop={editor.stop}
+      />
+      <PlanNodeDialog
+        nodeId={editingNodeId}
+        editor={editor}
+        onClose={() => setEditingNodeId(null)}
       />
       <PlanLeaveGuard isDirty={editor.isDirty} />
     </div>

@@ -83,9 +83,8 @@ export class AgentPlanStepStart {
    * Resolves credentials for the current executor and rejects a redirected model or working copy.
    *
    * @remarks
-   * The prompt comes from the `AGENT.md` of the agent, read now. It must name
-   * the agent and revision the run started with and keep its parameters and
-   * run options; otherwise the node refuses instead of sending another text.
+   * Nodes use their frozen content. Only historical runs without an independent
+   * node copy retain the former AGENT.md compatibility check.
    */
   public async prepare(
     run: AgentPlanRun,
@@ -97,6 +96,7 @@ export class AgentPlanStepStart {
       agentId: step.step.agentId,
       personalAgentId: step.step.personalAgentId,
       projectId: snapshot.plan.projectId,
+      configuration: step.step.configuration,
     };
     const resolved = await this.dependencies.profiles.resolveDefinition(
       run.userId,
@@ -121,6 +121,7 @@ export class AgentPlanStepStart {
         agentId: selection.agentId,
         personalAgentId: selection.personalAgentId,
         workspaceId: snapshot.plan.workspaceId,
+        configuration: step.step.configuration,
       },
       values,
       step.template,
@@ -179,7 +180,7 @@ export class AgentPlanStepStart {
     readonly template: AgentPlanTemplate;
     readonly definition: PreparedPlanStep["definition"];
   }> {
-    if (!this.dependencies.files)
+    if (step.step.configuration || !this.dependencies.files)
       return { template: step.template, definition: null };
     const document = await this.dependencies.files.read(step.step.agentId);
     const { configuration } = document;
@@ -216,6 +217,7 @@ export class AgentPlanStepStart {
         agentId: step.step.agentId,
         personalAgentId: step.step.personalAgentId,
         projectId: snapshot.plan.projectId,
+        configuration: step.step.configuration,
       },
     );
     if (
@@ -231,6 +233,7 @@ export class AgentPlanStepStart {
         agentId: step.step.agentId,
         personalAgentId: step.step.personalAgentId,
         workspaceId: snapshot.plan.workspaceId,
+        configuration: step.step.configuration,
       },
       context.values,
       step.template,

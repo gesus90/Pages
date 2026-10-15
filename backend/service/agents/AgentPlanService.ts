@@ -8,8 +8,10 @@ import {
 import { AgentError } from "@/backend/error/AgentErrors";
 import { ProjectRunsActiveError } from "@/backend/error/ProjectErrors";
 import { requireCredentialFreeText } from "@/backend/service/assistant/TextAssistantValidation";
+import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 import { withoutTicketFlow } from "@/definition/AgentPlanGraph";
 
+import { requireAllowedRunOptions } from "./AgentProfileValidation";
 import { planSteps, validatePlanGraph } from "./AgentPlanGraph";
 import { requireAgentAdministrator } from "./AgentServiceAccess";
 
@@ -247,7 +249,14 @@ export class AgentPlanService {
       this.dependencies.profiles.catalog(userId, workspace.projectId),
       this.dependencies.tasks.list(userId, workspace.projectId),
     ]);
-    return { agents, tasks };
+    return {
+      agents,
+      tasks,
+      models: await this.dependencies.profiles.planModels(
+        userId,
+        workspace.projectId,
+      ),
+    };
   }
 
   /**
@@ -556,7 +565,7 @@ export class AgentPlanService {
     id: string | null,
     input: unknown,
   ): Promise<AgentPlan> {
-    const proposed = readPlanInput(input);
+    let proposed = readPlanInput(input);
     requireCredentialFreeText(JSON.stringify(proposed));
     const previous =
       id === null ? null : await this.dependencies.access.require(userId, id);
@@ -579,6 +588,11 @@ export class AgentPlanService {
       proposed.projectId !== workspace.projectId
     )
       throw new AgentError("plan_context_changed");
+    proposed = await this.pinConfigurations(
+      userId,
+      { ...proposed, projectId: workspace.projectId },
+      previous,
+    );
     await this.validateReferences(userId, proposed, workspace.projectId);
     const plan: AgentPlan = {
       ...proposed,
@@ -589,6 +603,50 @@ export class AgentPlanService {
     };
     await this.dependencies.access.validateSharing(plan);
     return plan;
+  }
+
+  private async pinConfigurations(
+    userId: string,
+    plan: AgentPlanInput,
+    previous: AgentPlanView | null,
+  ): Promise<AgentPlanInput> {
+    const catalog = await this.dependencies.profiles.catalog(
+      userId,
+      plan.projectId ?? null,
+    );
+    const nodes = plan.nodes.map((node) => {
+      if (node.type !== "agent" || node.configuration) return node;
+      const saved = previous?.nodes.find((entry) => entry.id === node.id);
+      if (
+        saved?.type === "agent" &&
+        saved.agentId === node.agentId &&
+        saved.configuration
+      )
+        return { ...node, configuration: structuredClone(saved.configuration) };
+      const source = catalog.find((entry) => entry.id === node.agentId);
+      return source
+        ? { ...node, configuration: copyPlanConfiguration(source) }
+        : node;
+    });
+    for (const node of nodes) {
+      if (node.type !== "agent" || !node.configuration) continue;
+      const resolved = await this.dependencies.profiles.resolveDefinition(
+        userId,
+        {
+          agentId: node.agentId,
+          personalAgentId: node.personalAgentId,
+          projectId: plan.projectId ?? previous?.projectId ?? null,
+          configuration: node.configuration,
+        },
+      );
+      const saved = previous?.nodes.find((entry) => entry.id === node.id);
+      requireAllowedRunOptions(
+        resolved.assignment.connection.provider,
+        node.configuration.template.run,
+        saved?.type === "agent" ? saved.configuration?.template.run : undefined,
+      );
+    }
+    return { ...plan, nodes };
   }
 
   private async validateReferences(
@@ -610,6 +668,9 @@ export class AgentPlanService {
       const values = node.type === "parameter" ? [node.value] : [];
       if (node.type === "agent")
         values.push(
+          ...(node.configuration?.template.parameters.flatMap((parameter) =>
+            parameter.defaultValue ? [parameter.defaultValue] : [],
+          ) ?? []),
           ...Object.values(node.bindings).flatMap((binding) =>
             binding.kind === "literal" && binding.value ? [binding.value] : [],
           ),

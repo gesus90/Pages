@@ -15,15 +15,20 @@ import type { ResolvedAgentAssignment } from "./AgentAssignmentResolution";
  *
  * @remarks
  * It must be active, have the purpose Agent and be released for the viewer. A
- * profile bound to a project is left out: an agent of a user has no project, so
- * it would run the model in every project.
+ * user agent has no project and receives only global models. A plan may also
+ * choose a grant bound to its own project.
  */
-function isModelSource(source: AgentProfile, viewer: AgentViewer): boolean {
+function isModelSource(
+  source: AgentProfile,
+  viewer: AgentViewer,
+  projectId: string | null = null,
+): boolean {
   return (
     source.ownerId === undefined &&
     source.isActive &&
     source.purposes.includes("agent") &&
-    !source.configuration?.projectId &&
+    (!source.configuration?.projectId ||
+      source.configuration.projectId === projectId) &&
     agentProfilePriority(source, viewer, "agent") > 0
   );
 }
@@ -118,10 +123,11 @@ export async function pageAgentModels(
   dependencies: ProfileDependencies,
   viewer: AgentViewer,
   profiles: readonly AgentProfile[],
+  projectId: string | null = null,
 ): Promise<readonly PageAgentModel[]> {
   const choices: PageAgentModel[] = [];
   for (const source of profiles) {
-    if (!isModelSource(source, viewer)) continue;
+    if (!isModelSource(source, viewer, projectId)) continue;
     try {
       const { connection } = await resolveAgentAssignmentFor(
         dependencies.connections,

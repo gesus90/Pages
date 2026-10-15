@@ -2,8 +2,10 @@ import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
+import { planStepTemplate } from "@/definition/AgentPlanConfiguration";
 import { Textarea } from "@/app/components/ui/textarea";
 
+import { PlanNodeConfigurationFields } from "./plan-node-configuration-fields";
 import { PlanValueFields } from "./plan-value-fields";
 import { PlanParameterInput } from "./plan-parameter-input";
 import { PlanAgentAssignment } from "./plan-agent-assignment";
@@ -105,10 +107,16 @@ function StepFields(
 ): React.ReactElement {
   const { t } = useTranslation();
   const { step } = props;
-  const agent = props.sources.agents.find((entry) => entry.id === step.agentId);
+  const template = planStepTemplate(step, props.sources.agents);
   return (
     <fieldset disabled={props.disabled} className="space-y-3">
       <PlanAgentAssignment
+        step={step}
+        sources={props.sources}
+        disabled={props.disabled}
+        onChange={props.graph.replaceStep}
+      />
+      <PlanNodeConfigurationFields
         step={step}
         sources={props.sources}
         disabled={props.disabled}
@@ -128,7 +136,7 @@ function StepFields(
         />
       </label>
       <div className="grid gap-3">
-        {agent?.configuration.parameters.map((parameter) => (
+        {template?.parameters.map((parameter) => (
           <PlanParameterInput
             key={parameter.name}
             parameter={parameter}

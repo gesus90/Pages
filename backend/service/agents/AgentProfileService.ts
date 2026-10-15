@@ -18,6 +18,7 @@ import {
 import { requireAgentAdministrator } from "./AgentServiceAccess";
 import { AgentAvailabilityService } from "./AgentAvailabilityService";
 
+import type { PageAgentModel } from "@/definition/PageAgent";
 import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
 import type { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import type { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
@@ -136,6 +137,14 @@ export class AgentProfileService {
     projectId: string | null = null,
   ): Promise<readonly AgentDefinitionChoice[]> {
     return this.availability.catalog(userId, projectId);
+  }
+
+  /** Lists currently released models for node-specific configuration. */
+  public async planModels(
+    userId: string,
+    projectId: string | null = null,
+  ): Promise<readonly PageAgentModel[]> {
+    return this.availability.models(userId, projectId);
   }
 
   /** Whether the person currently sees the agent in their lists, without judging whether it can run. */

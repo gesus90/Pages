@@ -2,6 +2,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 
 import { bindAgentParameters } from "./AgentParameterBinding";
 
+import type { AgentPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 import type { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import type { ResolvedAgentWorkspace } from "@/definition/AgentWorkspace";
 import type { AgentProfileService } from "./AgentProfileService";
@@ -19,6 +20,7 @@ export interface AgentParameterSelection {
   readonly agentId: string;
   readonly personalAgentId: string | null;
   readonly workspaceId: string;
+  readonly configuration?: AgentPlanConfiguration;
 }
 
 /** Server preparation for A10.4, with no process start, provider request or credentials. */
@@ -90,6 +92,7 @@ export class AgentParameterService {
         agentId: selection.agentId,
         personalAgentId: selection.personalAgentId,
         projectId: workspace.projectId,
+        configuration: selection.configuration,
       },
     );
     const configuration = template ?? resolved.profile.configuration;
