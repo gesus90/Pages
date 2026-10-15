@@ -51,6 +51,9 @@ const REJECTION_REASONS: Readonly<
   workspace_unavailable: true,
   element_missing: true,
   element_exists: true,
+  checklist_items_invalid: true,
+  checklist_item_duplicate: true,
+  checklist_item_unknown: true,
 };
 
 /** Every finding of the plan graph check, so a refused plan names what to fix. */

@@ -22,6 +22,11 @@ the template/node/run isolation tests of PAGE-74 (independent copies, active-run
 template edits, model grants, optimistic revisions, legacy JSON pinning and the
 double-click editor) under `tests/backend/backend/service/agents/` and
 `tests/frontend/app/components/agents/`,
+the checklist tests of PAGE-75 (reading the complete checklist, setting several
+entries atomically with one revision, preserved content, refusals and rights;
+the ticket, its criteria, the revision table and the account facts are held in
+memory behind the repository boundaries, so no database or MCP process is
+opened) under `tests/backend/backend/service/agents/`,
 and the Codex ACP tests of PAGE-63 under
 `tests/backend/backend/agents/` (the adapter is an in-process agent app of the
 ACP SDK behind a fake spawn, never a real process), each with their fixtures;

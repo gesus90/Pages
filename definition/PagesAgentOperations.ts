@@ -251,7 +251,11 @@ export interface AgentRevisionConflict {
  * `workspace_unavailable` (the workspace cannot be used), `element_missing`
  * (a change names a node, connection or input the plan does not have, or one
  * of another kind) and `element_exists` (a node identifier or parameter name
- * is taken).
+ * is taken). The last three belong to the bulk change of checklist entries,
+ * all `INVALID_REQUEST`: `checklist_items_invalid` (the list is not an
+ * array, empty, too long or an entry is malformed), `checklist_item_duplicate` (an
+ * entry is named twice) and `checklist_item_unknown` (an entry is not in the
+ * checklist at the revision that was read).
  */
 export const AGENT_REJECTION_REASONS = [
   "model_unavailable",
@@ -275,6 +279,9 @@ export const AGENT_REJECTION_REASONS = [
   "workspace_unavailable",
   "element_missing",
   "element_exists",
+  "checklist_items_invalid",
+  "checklist_item_duplicate",
+  "checklist_item_unknown",
 ] as const;
 
 export interface AgentRejectionReason {

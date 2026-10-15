@@ -1108,16 +1108,19 @@ Read and write tools are listed to every verified account; Pages enforces the co
 
 ### Ticket checklist
 
-Two tools read and set the checkboxes of one ticket. Pages builds the checklist
+Three tools read and set the checkboxes of one ticket: one call reads the whole
+checklist, one call sets a single entry and one call sets several entries
+together. Pages builds the checklist
 from the same data the ticket page shows: the acceptance criteria of the ticket
 (`source: "criteria"`) and the task list items of its Markdown description
 (`source: "description"`). Only real list items count; a `- [ ]` inside a code
 block is no entry.
 
-| Tool                        | Pages operation            | Arguments (besides `operationId`)                   | Result                                                |
-| --------------------------- | -------------------------- | --------------------------------------------------- | ----------------------------------------------------- |
-| `read_ticket_checklist`     | `ticket.checklist.read`    | `ticketId`                                          | `{ticketId, key, link, revision, items}`              |
-| `set_ticket_checklist_item` | `ticket.checklist.setItem` | `ticketId`, `itemId`, `checked`, `expectedRevision` | `{ticketId, key, itemId, checked, changed, revision}` |
+| Tool                         | Pages operation             | Arguments (besides `operationId`)                            | Result                                                 |
+| ---------------------------- | --------------------------- | ------------------------------------------------------------ | ------------------------------------------------------ |
+| `read_ticket_checklist`      | `ticket.checklist.read`     | `ticketId`                                                   | `{ticketId, key, link, revision, items}`               |
+| `set_ticket_checklist_item`  | `ticket.checklist.setItem`  | `ticketId`, `itemId`, `checked`, `expectedRevision`          | `{ticketId, key, itemId, checked, changed, revision}`  |
+| `set_ticket_checklist_items` | `ticket.checklist.setItems` | `ticketId`, `expectedRevision`, `items: [{itemId, checked}]` | `{ticketId, key, link, revision, items, changedCount}` |
 
 - **Entries.** Every entry has `id`, `source`, `text`, `checked`, `order` (position
   among all entries), `depth` and `parentId` (the enclosing description entry).
@@ -1137,6 +1140,111 @@ block is no entry.
   ticket. Setting needs the write right (`FORBIDDEN` without it). The same
   `operationId` with identical input returns the stored result without writing
   again.
+
+#### Read the whole checklist and set several entries at once
+
+`read_ticket_checklist` already returns the complete structure in one call, so no
+entry needs a separate read: every entry with its stable `id`, `source`, `text`,
+`checked`, `order`, `depth` and `parentId`, and the `revision` a change needs.
+`set_ticket_checklist_items` takes that list as its basis: copy the `id` of every
+entry to change as `itemId`, give it the `checked` state it must have, and send
+the `revision` you read as `expectedRevision`.
+
+Read (`ticketId` may be an ID, a key such as `PAGE-12` or a Pages address):
+
+```json
+{ "ticketId": "PAGE-12" }
+```
+
+```json
+{
+  "ticketId": "6f1c…",
+  "key": "PAGE-12",
+  "link": "/tasks/PAGE-12",
+  "revision": "4",
+  "items": [
+    {
+      "id": "md-1e9a72c8e0003a53",
+      "source": "description",
+      "text": "Parent task",
+      "checked": false,
+      "order": 0,
+      "depth": 0,
+      "parentId": null
+    },
+    {
+      "id": "md-5d2478dbc16dadff",
+      "source": "description",
+      "text": "Nested task",
+      "checked": false,
+      "order": 1,
+      "depth": 1,
+      "parentId": "md-1e9a72c8e0003a53"
+    },
+    {
+      "id": "ac-3b8e…",
+      "source": "criteria",
+      "text": "Criterion A",
+      "checked": false,
+      "order": 2,
+      "depth": 0,
+      "parentId": null
+    }
+  ]
+}
+```
+
+Set two entries together; the entry you leave out stays as it is:
+
+```json
+{
+  "operationId": "page12-checklist-1",
+  "ticketId": "PAGE-12",
+  "expectedRevision": "4",
+  "items": [
+    { "itemId": "md-5d2478dbc16dadff", "checked": true },
+    { "itemId": "ac-3b8e…", "checked": true }
+  ]
+}
+```
+
+The result is the complete checklist as it is now, in the shape of the read, with
+the new `revision` and `changedCount` (here `2`), ready for the next change:
+
+```json
+{
+  "ticketId": "6f1c…",
+  "key": "PAGE-12",
+  "link": "/tasks/PAGE-12",
+  "revision": "5",
+  "items": ["… all entries, with the new checked states …"],
+  "changedCount": 2
+}
+```
+
+- **Only the named entries change.** Entries you leave out, every text and every
+  other field of the ticket stay as they are; for a description entry only the
+  character inside its brackets changes, so the rest of the description keeps
+  every character, including trailing whitespace. An entry that already has the
+  state is left alone. If every named entry already has its state, nothing is
+  written and `revision` stays (`changedCount: 0`). The call never toggles.
+- **Atomic.** Pages validates the whole request first and applies it in one
+  transaction: either every named entry reaches its state or none changes, and
+  the revision grows once per call.
+- **Revision.** `expectedRevision` is compared with the current revision before
+  any named entry is resolved. When anything in the checklist changed since your
+  read, the call returns `CONFLICT` and writes nothing: read again and decide
+  anew. Never reuse an older revision.
+- **Refusals.** All are `INVALID_REQUEST` with `details.reason`:
+  `checklist_items_invalid` (`items` is not a list of 1 to 500 objects with
+  exactly `itemId` and a boolean `checked`), `checklist_item_duplicate` (an
+  `itemId` is named twice) and `checklist_item_unknown` (an `itemId` is not in the
+  checklist at `expectedRevision`). A hidden ticket is `NOT_FOUND`; without the
+  write right the call returns `FORBIDDEN`, exactly as for `set_ticket_checklist_item`.
+- **Repeat.** The same `operationId` with identical input returns the stored
+  result without writing again; changed input returns `CONFLICT`.
+- **Sessions.** An agent plan node with the `tickets` reach can call
+  `set_ticket_checklist_items` on its bound tickets like the single-entry tool.
 
 ### Ticket search, hierarchy, links and assignment
 

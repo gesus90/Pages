@@ -48,3 +48,21 @@ export interface AgentChecklistItemChanged {
   /** The revision after the call, for the next change. */
   readonly revision: string;
 }
+
+/** One entry of a bulk change: the entry and the state it must have afterwards. */
+export interface AgentChecklistItemState {
+  readonly itemId: string;
+  readonly checked: boolean;
+}
+
+/**
+ * The outcome of setting several checklist entries in one call.
+ *
+ * @remarks
+ * It is the complete checklist as it is after the call, in the shape
+ * `ticket.checklist.read` returns, so the next change needs no further read.
+ */
+export interface AgentChecklistItemsChanged extends AgentTicketChecklist {
+  /** How many entries differed from the requested state; `0` when nothing was written. */
+  readonly changedCount: number;
+}

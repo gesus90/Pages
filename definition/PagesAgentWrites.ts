@@ -16,7 +16,10 @@ import type { AgentPlanChanged } from "./AgentPlanOperations.js";
 import type { ChatAgentDeleted } from "./ChatAgentOperations.js";
 import type { PageAgentChanged } from "./PageAgentOperations.js";
 import type { AgentStructuredImportApplied } from "./AgentStructuredImportManifest.js";
-import type { AgentChecklistItemChanged } from "./AgentTicketChecklist.js";
+import type {
+  AgentChecklistItemChanged,
+  AgentChecklistItemsChanged,
+} from "./AgentTicketChecklist.js";
 import type { AgentTicketLinkChanged } from "./AgentTicketNavigation.js";
 import type {
   AgentMilestoneChanged,
@@ -62,6 +65,7 @@ export const PAGES_AGENT_WRITE_OPERATIONS = [
   "ticket.setStatus",
   "ticket.setParent",
   "ticket.checklist.setItem",
+  "ticket.checklist.setItems",
   ...AGENT_TICKET_LINK_OPERATIONS,
   "milestone.create",
   "milestone.setName",
@@ -139,6 +143,7 @@ export interface PagesAgentWriteResponse {
     | AgentTicketChanged
     | AgentTicketDescriptionPatched
     | AgentChecklistItemChanged
+    | AgentChecklistItemsChanged
     | AgentTicketLinkChanged
     | AgentMilestoneCreated
     | AgentMilestoneChanged

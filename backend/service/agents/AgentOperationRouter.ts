@@ -389,7 +389,7 @@ export class AgentOperationRouter {
     };
   }
 
-  /** Reads or sets the checklist of a ticket, or returns `null` for any other operation. */
+  /** Reads or sets the checklist of a ticket, one entry or several, or returns `null` for any other operation. */
   private async handleChecklist(
     identity: AgentIdentity,
     input: Readonly<Record<string, unknown>>,
@@ -397,14 +397,17 @@ export class AgentOperationRouter {
     const { operation, parameters } = input;
     if (
       operation !== "ticket.checklist.read" &&
-      operation !== "ticket.checklist.setItem"
+      operation !== "ticket.checklist.setItem" &&
+      operation !== "ticket.checklist.setItems"
     )
       return null;
     const { planning } = this.dependencies;
     if (!planning) throw new AgentOperationError("INVALID_REQUEST");
-    return operation === "ticket.checklist.read"
-      ? planning.checklists.read(identity, parameters)
-      : planning.checklists.set(identity, parameters);
+    if (operation === "ticket.checklist.read")
+      return planning.checklists.read(identity, parameters);
+    return operation === "ticket.checklist.setItem"
+      ? planning.checklists.set(identity, parameters)
+      : planning.checklists.setItems(identity, parameters);
   }
 
   /** Reads the comments of a page or changes one; commenting needs no write capability. */

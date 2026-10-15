@@ -18,11 +18,13 @@ const SESSION_OPERATIONS = [
   "ticket.read",
   "ticket.checklist.read",
   "ticket.checklist.setItem",
+  "ticket.checklist.setItems",
 ] as const;
 const SESSION_TOOLS = [
   "read_ticket",
   "read_ticket_checklist",
   "set_ticket_checklist_item",
+  "set_ticket_checklist_items",
 ] as const;
 
 // The credential outlives the session limit a little, so a slow closing report still reaches Pages.
