@@ -46,6 +46,16 @@ backend save/route tests under `tests/backend/backend/service/wiki/` and
 responses, disconnections, failures, conflicts, retries and unload warnings behind
 loader, fetch and persistence boundaries. They open no real database or network.
 
+PAGE-59 adds targeted text range and patch tests under
+`tests/backend/backend/service/agents/page59-*.unit.test.ts` and
+`tests/backend/app/routes/page59-text-api.unit.test.ts`. They exercise wiki
+content and ticket descriptions through the Agent API, with repository,
+credential and GitHub boundaries mocked. Cases cover Unicode positions,
+bounded reads, exact patches, preserved metadata, conflicts and rollback,
+current rights, history, synchronization, full-text compatibility and replay.
+Run only these cases with `pnpm run test:backend page59- --maxWorkers=1`.
+No database, network or independent MCP package process is started.
+
 | Future command           | Discovery (relative to repository root)  | Environment | Reports              |
 | ------------------------ | ---------------------------------------- | ----------- | -------------------- |
 | `pnpm run test:backend`  | `tests/backend/**/*.unit.test.{ts,tsx}`  | Node        | `coverage/backend/`  |
