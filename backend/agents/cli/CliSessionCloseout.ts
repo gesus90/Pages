@@ -1,4 +1,4 @@
-import { endTaggedProcesses } from "./CliProcessScan";
+import { endTaggedProcesses, readServerScope } from "./CliProcessScan";
 
 import type { PlanSessionClosed } from "@/backend/agents/AgentPlanExecution";
 import type { CliSessionExit, CliSessionProcess } from "./CliSessionProcess";
@@ -18,7 +18,8 @@ const TERMINATION_WAIT_MS = 10_000;
  * @remarks
  * Closing the input lets a runner end on its own; after the grace period its
  * whole process group is terminated. Helpers that left the group, such as an
- * MCP server, are found by their tag and ended as well.
+ * MCP server, are found by their tag and ended as well. The session was
+ * started by this server process, so no older process can carry its tag.
  */
 export async function closeCliSession(
   process: Pick<CliSessionProcess, "endInput" | "exited" | "cancel">,
@@ -29,7 +30,7 @@ export async function closeCliSession(
   if (exit === null) process.cancel("login_cancelled");
   const settled =
     exit ?? (await waitForExit(process.exited, TERMINATION_WAIT_MS));
-  const cleanup = await endTaggedProcesses(instanceId);
+  const cleanup = await endTaggedProcesses(instanceId, await readServerScope());
   return {
     exit: settled ? { code: settled.code, signal: settled.signal } : null,
     endedAt: new Date().toISOString(),

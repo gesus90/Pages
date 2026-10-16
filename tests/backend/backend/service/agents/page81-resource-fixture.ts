@@ -94,7 +94,12 @@ export function resourceWorld(options: Partial<AcpResourceOptions> = {}): {
   };
   readonly memory: ReturnType<typeof vi.fn<() => Promise<number | null>>>;
   readonly cleanup: ReturnType<
-    typeof vi.fn<(instanceId: string) => Promise<{ remaining: number }>>
+    typeof vi.fn<
+      (
+        instanceId: string,
+        startedAt: string | null,
+      ) => Promise<{ remaining: number }>
+    >
   >;
 } {
   const records = new Map<string, AcpResourceRecord>();
@@ -108,9 +113,12 @@ export function resourceWorld(options: Partial<AcpResourceOptions> = {}): {
     }),
   };
   const memory = vi.fn<() => Promise<number | null>>(async () => 4096);
-  const cleanup = vi.fn<(instanceId: string) => Promise<{ remaining: number }>>(
-    async () => ({ remaining: 0 }),
-  );
+  const cleanup = vi.fn<
+    (
+      instanceId: string,
+      startedAt: string | null,
+    ) => Promise<{ remaining: number }>
+  >(async () => ({ remaining: 0 }));
   const scheduler = new AcpResourceScheduler({
     store,
     options,

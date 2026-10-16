@@ -45,6 +45,12 @@ it("cleans partially started processes before allowing a queued successor", asyn
   expect(start).not.toHaveBeenCalled();
   cleanup.resolve({ remaining: 0 });
   await rejected;
+  // The lease was dated before its runner started, so its start bounds the scan.
+  const lease = world.store.save.mock.calls.find(
+    ([record]) => record.instanceId === "a",
+  )?.[0];
+  expect(lease?.since).toEqual(expect.any(String));
+  expect(world.cleanup).toHaveBeenCalledExactlyOnceWith("a", lease?.since);
   await vi.advanceTimersByTimeAsync(1000);
   await (await pending).close();
   expect(world.records.size).toBe(0);
@@ -206,7 +212,8 @@ it("recovers durable leases before admission and never repeats their native star
   await recovering;
   await vi.advanceTimersByTimeAsync(1000);
   await (await pending).close();
-  expect(world.cleanup).toHaveBeenCalledExactlyOnceWith("old");
+  // The recorded start of the lease bounds which processes can carry its tag.
+  expect(world.cleanup).toHaveBeenCalledExactlyOnceWith("old", "2026-10-16");
   expect(start).toHaveBeenCalledOnce();
   await world.scheduler.shutdown();
 });
@@ -383,7 +390,8 @@ it("adopts pre-journal group sessions once on upgrade and keeps uncertain legacy
   const world = resourceWorld();
   world.cleanup.mockResolvedValue({ remaining: 1 });
   await world.scheduler.recover([...owners, ...owners]);
-  expect(world.cleanup).toHaveBeenCalledExactlyOnceWith("legacy");
+  // An adopted lease is dated at recovery, after its processes started, so no start is passed.
+  expect(world.cleanup).toHaveBeenCalledExactlyOnceWith("legacy", null);
   expect(world.scheduler.snapshot().active).toMatchObject([
     { instanceId: "legacy", state: "cleanup_failed" },
   ]);

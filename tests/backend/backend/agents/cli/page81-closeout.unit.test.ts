@@ -8,6 +8,7 @@ import type { CliSessionExit } from "@/backend/agents/cli/CliSessionProcess";
 
 const scan = vi.hoisted(() => ({
   endTaggedProcesses: vi.fn(async () => ({ found: 0, remaining: 0 })),
+  readServerScope: vi.fn(async () => ({ earliestStart: 4_200 })),
 }));
 vi.mock("@/backend/agents/cli/CliProcessScan", () => scan);
 
@@ -54,8 +55,29 @@ it("bounds an unresponsive exit and keeps it unconfirmed even when no tagged hel
   const pending = closeCliSession(process, "session");
   await vi.advanceTimersByTimeAsync(25000);
   expect(await pending).toMatchObject({ exit: null, isConfirmed: false });
-  expect(scan.endTaggedProcesses).toHaveBeenCalledExactlyOnceWith("session");
+  // The server started the session, so no process older than the server can carry its tag.
+  expect(scan.endTaggedProcesses).toHaveBeenCalledExactlyOnceWith("session", {
+    earliestStart: 4_200,
+  });
   expect(vi.getTimerCount()).toBe(0);
+});
+
+it("never confirms a closeout when the start of the server is unknown", async () => {
+  scan.readServerScope.mockRejectedValueOnce(new Error("no start time"));
+  const process = {
+    exited: Promise.resolve({
+      code: 0,
+      signal: null,
+      errorCode: null,
+      stderrTail: "",
+    }),
+    endInput: vi.fn(),
+    cancel: vi.fn(),
+  };
+  await expect(closeCliSession(process, "session")).rejects.toThrow(
+    "no start time",
+  );
+  expect(scan.endTaggedProcesses).not.toHaveBeenCalled();
 });
 
 it("never treats a failed process scan as confirmed cleanup", async () => {

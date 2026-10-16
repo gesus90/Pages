@@ -1,5 +1,8 @@
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
-import { endTaggedProcesses } from "@/backend/agents/cli/CliProcessScan";
+import {
+  endTaggedProcesses,
+  readScopeSince,
+} from "@/backend/agents/cli/CliProcessScan";
 import { readAcpResourceOptions } from "@/backend/config/AcpResourceConfig";
 import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
@@ -25,9 +28,20 @@ interface SchedulerDependencies {
   readonly store: AcpResourceStore;
   readonly options?: Partial<AcpResourceOptions>;
   readonly memory?: () => Promise<number | null>;
+  /** Ends the processes of a lease; `startedAt` is `null` when its start is unknown. */
   readonly cleanup?: (
     instanceId: string,
+    startedAt: string | null,
   ) => Promise<{ readonly remaining: number }>;
+}
+
+/** A lease records its start before its runner exists, which bounds the start of its processes. */
+async function endLeaseProcesses(
+  instanceId: string,
+  startedAt: string | null,
+): Promise<{ readonly remaining: number }> {
+  const scope = startedAt === null ? null : await readScopeSince(startedAt);
+  return endTaggedProcesses(instanceId, scope);
 }
 
 interface WaitingRequest {
@@ -64,7 +78,7 @@ export class AcpResourceScheduler {
     this.store = dependencies.store;
     this.options = readAcpResourceOptions(dependencies.options, {});
     this.memory = dependencies.memory ?? readAcpAvailableMemory;
-    this.cleanup = dependencies.cleanup ?? endTaggedProcesses;
+    this.cleanup = dependencies.cleanup ?? endLeaseProcesses;
   }
 
   /** Recovers durable leases before admission; never resumes or retries an interrupted job. */
@@ -75,6 +89,8 @@ export class AcpResourceScheduler {
       throw new Error("ACP scheduler already initialized");
     const previous = await this.store.list();
     for (const record of previous) this.active.set(record.instanceId, record);
+    // An adopted lease is dated now, after its processes started, so its start rules nothing out.
+    const adopted = new Set<string>();
     for (const owner of legacyOwners) {
       if (this.active.has(owner.instanceId)) continue;
       const record: AcpResourceRecord = {
@@ -83,11 +99,15 @@ export class AcpResourceScheduler {
         since: new Date().toISOString(),
       };
       this.active.set(record.instanceId, record);
+      adopted.add(record.instanceId);
       await this.writes.run(() => this.store.save(record));
     }
     for (const record of this.active.values()) {
       try {
-        const cleanup = await this.cleanup(record.instanceId);
+        const cleanup = await this.cleanup(
+          record.instanceId,
+          adopted.has(record.instanceId) ? null : record.since,
+        );
         await this.finish(record.instanceId, cleanup.remaining === 0);
       } catch {
         await this.transition(record.instanceId, "cleanup_failed");
@@ -189,13 +209,15 @@ export class AcpResourceScheduler {
       return session;
     } catch (error: unknown) {
       let isConfirmed = !hasAttemptedStart;
+      const startedAt = this.active.get(owner.instanceId)?.since ?? null;
       try {
         if (native) isConfirmed = (await native.close()).isConfirmed;
         else if (
           hasAttemptedStart &&
           !(error instanceof AcpCleanupUnconfirmedError)
         )
-          isConfirmed = (await this.cleanup(owner.instanceId)).remaining === 0;
+          isConfirmed =
+            (await this.cleanup(owner.instanceId, startedAt)).remaining === 0;
       } catch {
         // Any unknown closeout keeps the reservation.
       }

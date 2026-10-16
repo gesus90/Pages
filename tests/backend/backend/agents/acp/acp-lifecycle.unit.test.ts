@@ -26,6 +26,7 @@ const scan = vi.hoisted(() => ({
 }));
 vi.mock("@/backend/agents/cli/CliProcessScan", () => ({
   RUN_INSTANCE_VARIABLE: "PAGES_RUN_INSTANCE",
+  readServerScope: async () => ({ earliestStart: 0 }),
   endTaggedProcesses: scan.endTaggedProcesses,
 }));
 
@@ -61,7 +62,9 @@ it.each(RUNNERS)(
     });
     expect(methodsOf(started.calls).at(-1)).toBe("session/close");
     expect(started.process.inputClosings).toBe(1);
-    expect(scan.endTaggedProcesses).toHaveBeenCalledWith(INSTANCE_ID);
+    expect(scan.endTaggedProcesses).toHaveBeenCalledWith(INSTANCE_ID, {
+      earliestStart: 0,
+    });
     expect(started.secure).toHaveBeenCalledTimes(1);
     expect(await started.session.close()).toBe(closed);
   },
@@ -98,7 +101,9 @@ it.each(RUNNERS)(
     expect(started.process.cancelled).toEqual(["login_cancelled"]);
     const closed = await started.session.close();
     expect(closed.isConfirmed).toBe(true);
-    expect(scan.endTaggedProcesses).toHaveBeenCalledWith(INSTANCE_ID);
+    expect(scan.endTaggedProcesses).toHaveBeenCalledWith(INSTANCE_ID, {
+      earliestStart: 0,
+    });
   },
 );
 

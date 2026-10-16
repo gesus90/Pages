@@ -5,6 +5,7 @@ import { groupFixture } from "../../service/agents/page73-group-fixture";
 
 vi.mock("@/backend/agents/cli/CliProcessScan", () => ({
   RUN_INSTANCE_VARIABLE: "PAGES_RUN_INSTANCE",
+  readServerScope: async () => ({ earliestStart: 0 }),
   endTaggedProcesses: vi.fn(async () => ({ found: 0, remaining: 0 })),
 }));
 
