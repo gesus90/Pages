@@ -10,7 +10,11 @@ import { closeCliSession } from "@/backend/agents/cli/CliSessionCloseout";
 import { noteSessionEvent } from "@/backend/agents/cli/CliSessionEvents";
 import { AgentError } from "@/backend/error/AgentErrors";
 
-import { ACP_STEERING_METHOD, readAcpSteerOutcome } from "./AcpChat";
+import {
+  ACP_STEERING_METHOD,
+  isAcpSteeringSupported,
+  readAcpSteerOutcome,
+} from "./AcpChat";
 import { acpTicketAssetPrompt } from "./AcpTicketAssets";
 import {
   createAcpSessionState,
@@ -100,7 +104,11 @@ export interface AcpSessionContext {
   /** What differs between the adapters of the runners. */
   readonly driver: Pick<
     AcpDriver,
-    "provider" | "errors" | "supportedVersions" | "isSupportedAdapter"
+    | "provider"
+    | "errors"
+    | "supportedVersions"
+    | "isSupportedAdapter"
+    | "steeringMeta"
   >;
   readonly profile: AcpSessionProfile;
   readonly request: AcpSessionRequest;
@@ -169,6 +177,8 @@ export class AcpSession implements PlanSession {
   private isWorking = true;
   /** A `session/prompt` of Pages is running, so a steer can join its turn. */
   private isPrompting = false;
+  /** The adapter announced `_session/steering` in `initialize`. */
+  private isSteeringSupported = false;
   private lastProgressAt = 0;
   private lastProgress = "";
   private promptCapabilities: PromptCapabilities | null | undefined;
@@ -223,28 +233,32 @@ export class AcpSession implements PlanSession {
   }
 
   /**
-   * Adds a prompt to the running turn through the steering extension of codex-acp.
+   * Adds a prompt to the running turn through the steering extension the
+   * adapter announced in `initialize`.
    *
    * @param prompt - The blocks of the additional message.
-   * @returns What became of it; `inactive` without a running prompt of Pages,
-   * so a steer never reaches the adapter between turns.
+   * @returns What became of it; `inactive` without the announced extension or
+   * without a running prompt of Pages, so a steer never reaches the adapter
+   * between turns.
    */
   public async steer(
     prompt: readonly ContentBlock[],
   ): Promise<AcpSteerOutcome> {
     const { sessionId } = this.state;
     if (
-      this.context.driver.provider !== "codex_cli" ||
+      !this.isSteeringSupported ||
       !this.isPrompting ||
       this.closing ||
       sessionId === null
     )
       return "inactive";
+    const { steeringMeta } = this.context.driver;
     try {
       return readAcpSteerOutcome(
         await this.connection.agent.request(ACP_STEERING_METHOD, {
           sessionId,
           prompt: [...prompt],
+          ...(steeringMeta === null ? {} : { _meta: { ...steeringMeta } }),
         }),
       );
     } catch {
@@ -253,13 +267,18 @@ export class AcpSession implements PlanSession {
     }
   }
 
-  /** Continues the native Codex thread with a fresh, turn-scoped step instruction. */
+  /**
+   * Continues the native session with a fresh, turn-scoped prompt: the next
+   * step of a Codex plan group or the next turn of a Pica conversation.
+   *
+   * @throws {AgentError} `provider_invalid` for a profile that runs one turn only.
+   */
   public async next(
     input: AgentPlanExecutionInput,
     signal: AbortSignal,
     observer: PlanSessionObserver,
   ): Promise<PlanSessionTurn> {
-    if (this.context.driver.provider !== "codex_cli")
+    if (!this.context.profile.isContinuable)
       throw new AgentError("provider_invalid");
     await this.turn;
     if (this.isWorking || this.closing || this.state.sessionId === null)
@@ -362,6 +381,7 @@ export class AcpSession implements PlanSession {
       },
     );
     this.promptCapabilities = response.agentCapabilities?.promptCapabilities;
+    this.isSteeringSupported = isAcpSteeringSupported(response._meta);
     const { driver } = this.context;
     const agent = response.agentInfo;
     const adapter = agent ? `${agent.name} ${agent.version}` : "unknown";

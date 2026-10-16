@@ -120,6 +120,7 @@ const READ_ONLY_PROFILE: CodexAcpProfile = {
   reportedOptions: REPORTED_OPTIONS,
   matchesReportedModel: null,
   hasMcpStatusCommand: false,
+  isContinuable: true,
   steps: (request) => codexSteps("read-only", request),
   decide: (request) => decideCodexPermission("read_only", request),
 };
@@ -153,6 +154,7 @@ const YOLO_PROFILE: CodexAcpProfile = {
   reportedOptions: REPORTED_OPTIONS,
   matchesReportedModel: null,
   hasMcpStatusCommand: false,
+  isContinuable: true,
   steps: (request) => codexSteps("agent-full-access", request),
   decide: (request) => decideCodexPermission("yolo", request),
 };
@@ -192,6 +194,7 @@ const CHAT_PROFILE: CodexAcpProfile = {
   reportedOptions: REPORTED_OPTIONS,
   matchesReportedModel: null,
   hasMcpStatusCommand: false,
+  isContinuable: true,
   steps: (request) => codexSteps("read-only", request),
   decide: (request) => decideCodexPermission("read_only", request),
 };

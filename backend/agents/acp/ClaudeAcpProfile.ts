@@ -8,6 +8,7 @@ import type {
   AcpModelRequest,
   AcpPermissionDecision,
   AcpSessionProfile,
+  AcpSessionPurpose,
 } from "./AcpDriver";
 
 /** The permission mode of the Claude ACP adapter that carries a Pages mode. */
@@ -18,11 +19,12 @@ export type ClaudeAcpSessionMode = "default" | "bypassPermissions";
  *
  * @remarks
  * `options` are the Claude options of the session, passed with `session/new`.
- * In both modes no settings file of the user or the workspace applies and only
- * the Pages MCP server of the node is reachable: the account's own connectors
- * and user MCP servers stay out. "Nur Lesen" gives the model nothing but the
- * reading tools, so no file change and no command exists for it; the adapter's
- * session mode only decides what happens to the rest.
+ * In every profile no settings file of the user or the workspace applies and
+ * only the MCP server Pages names is reachable, the Pages MCP server of a node
+ * or Pica's bridge: the account's own connectors and user MCP servers stay
+ * out. "Nur Lesen" gives the model nothing but the reading tools, so no file
+ * change and no command exists for it; the adapter's session mode only decides
+ * what happens to the rest.
  */
 export interface ClaudeAcpProfile extends AcpSessionProfile {
   readonly sessionMode: ClaudeAcpSessionMode;
@@ -39,6 +41,37 @@ const READ_ONLY_DISALLOWED_TOOLS = [
   "Edit",
   "Write",
   "NotebookEdit",
+];
+
+/**
+ * Every built-in tool of Claude Code that could read or change a file, run a
+ * command, reach the web, delegate, schedule or look up deferred tools. Pica's
+ * conversation already starts with no built-in tool at all; naming them again
+ * keeps them out should a release add one to that empty base set. Without
+ * `ToolSearch` Claude Code loads the bridge tools directly instead of deferring them.
+ */
+const CHAT_DISALLOWED_TOOLS = [
+  "Agent",
+  "Task",
+  "Bash",
+  "PowerShell",
+  "Monitor",
+  "Edit",
+  "Write",
+  "NotebookEdit",
+  "Read",
+  "Glob",
+  "Grep",
+  "LSP",
+  "WebSearch",
+  "WebFetch",
+  "ToolSearch",
+  "Skill",
+  "CronCreate",
+  "RemoteTrigger",
+  "EnterWorktree",
+  "ListMcpResourcesTool",
+  "ReadMcpResourceTool",
 ];
 
 /** The built-in tools Pages approves in "Nur Lesen"; reading files needs no approval inside the workspace. */
@@ -134,6 +167,23 @@ export function decideClaudePermission(
   return refusePermission(request);
 }
 
+/**
+ * Answers a permission request of Pica's conversation; nobody is asked.
+ *
+ * @remarks
+ * Only calls of the Pica bridge's tools are approved, and the bridge
+ * authorizes each of them again for the person, the conversation and the
+ * running turn. Everything else is refused, although the session offers no
+ * other tool in the first place.
+ */
+function decideClaudeChatPermission(
+  request: RequestPermissionRequest,
+): AcpPermissionDecision {
+  return isPagesMcpCall(requestedTool(request))
+    ? approvePermission(request)
+    : refusePermission(request);
+}
+
 // The context size of a model may be named with a suffix such as `[1m]`; it does not name another model.
 function withoutContextHint(model: string): string {
   return model.replace(/\[\d+m\]$/iu, "").toLowerCase();
@@ -204,6 +254,7 @@ const READ_ONLY_PROFILE: ClaudeAcpProfile = {
   reportedOptions: REPORTED_OPTIONS,
   matchesReportedModel: claudeModelMatches,
   hasMcpStatusCommand: true,
+  isContinuable: false,
   steps: (request) => claudeSteps("default", request),
   decide: (request) => decideClaudePermission("read_only", request),
 };
@@ -228,16 +279,59 @@ const YOLO_PROFILE: ClaudeAcpProfile = {
   reportedOptions: REPORTED_OPTIONS,
   matchesReportedModel: claudeModelMatches,
   hasMcpStatusCommand: true,
+  isContinuable: false,
   steps: (request) => claudeSteps("bypassPermissions", request),
   decide: (request) => decideClaudePermission("yolo", request),
+};
+
+/**
+ * Pica's conversation (PAGE-90): no built-in tool, no settings file, only the
+ * Pica bridge, whose calls Pages checks one by one. Unlike a plan node the
+ * session is kept on disk, in the connection's credential folder, so the next
+ * job of the conversation continues it with `session/resume`.
+ */
+const CHAT_PROFILE: ClaudeAcpProfile = {
+  mode: "read_only",
+  sessionMode: "default",
+  options: {
+    ...MANAGED_OPTIONS,
+    persistSession: true,
+    tools: [],
+    disallowedTools: CHAT_DISALLOWED_TOOLS,
+  },
+  unattended:
+    "ACP session mode default for Pica without built-in tools; Pages refuses every request except calls of the Pica tool bridge",
+  permissions: {
+    permissionMode: "read_only",
+    sessionMode: "default, every request answered by Pages",
+    tools: "none of Claude Code",
+    files: "none",
+    shell: "off",
+    web: "off",
+    pagesMcp: "Pica tool bridge",
+    settings: "none of the user or the workspace",
+    mcpServers: "Pica tool bridge only",
+  },
+  reportedOptions: REPORTED_OPTIONS,
+  matchesReportedModel: claudeModelMatches,
+  hasMcpStatusCommand: true,
+  isContinuable: true,
+  steps: (request) => claudeSteps("default", request),
+  decide: decideClaudeChatPermission,
 };
 
 /**
  * The adapter configuration of one Pages mode.
  *
  * @param mode - "Nur Lesen" or "YOLO", as the agent stores it.
+ * @param purpose - A Pica conversation always takes the chat profile; the
+ * caller decides beforehand which stored mode it accepts for it.
  * @returns Session mode, Claude options and the recorded permissions.
  */
-export function claudeAcpProfile(mode: AcpPermissionMode): ClaudeAcpProfile {
+export function claudeAcpProfile(
+  mode: AcpPermissionMode,
+  purpose: AcpSessionPurpose = "plan",
+): ClaudeAcpProfile {
+  if (purpose === "chat") return CHAT_PROFILE;
   return mode === "yolo" ? YOLO_PROFILE : READ_ONLY_PROFILE;
 }

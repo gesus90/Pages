@@ -31,16 +31,18 @@ export interface PicaAcpSteeringHost {
 }
 
 /**
- * The messages a person sends while a Pica job answers (PAGE-68).
+ * The messages a person sends while a Pica job answers (PAGE-68, PAGE-90).
  *
  * @remarks
  * A message that arrives while the turn of Pages runs goes to that same turn
- * through codex-acp's steering; it never cancels the turn. A message that
+ * through the adapter's steering; it never cancels the turn. A message that
  * arrives between turns, or that the adapter no longer takes, is answered in
- * a turn of its own after the current one. When the adapter itself started a
- * turn for a steer because its turn ended meanwhile, that turn is followed
- * until it ends. The job closes only inside the queue of the conversation, so
- * a message is either taken by this job or starts the next one.
+ * a turn of its own after the current one: claude-agent-acp hands such a
+ * message back (`promptRequired`), so Pages prompts it exactly once. When
+ * codex-acp itself started a turn for a steer because its turn ended
+ * meanwhile, that turn is followed until it ends. The job closes only inside
+ * the queue of the conversation, so a message is either taken by this job or
+ * starts the next one.
  */
 export class PicaAcpSteering {
   private readonly host: PicaAcpSteeringHost;
@@ -162,6 +164,7 @@ export class PicaAcpSteering {
         await this.host.status(message.id, "followUp");
         return;
       case "inactive":
+      case "promptRequired":
         await this.queue(message);
         return;
       case "failed":

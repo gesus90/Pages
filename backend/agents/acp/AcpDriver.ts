@@ -68,6 +68,12 @@ export interface AcpSessionProfile {
     ((stored: string, reported: string) => boolean) | null;
   /** Whether the Pages MCP server can be checked with the local `/mcp` command. */
   readonly hasMcpStatusCommand: boolean;
+  /**
+   * Whether a further prompt may continue the session after its turn ended:
+   * the Codex sessions and Pica's Claude conversation; a Claude plan node
+   * runs one turn.
+   */
+  readonly isContinuable: boolean;
   /** The options to confirm, in order; a model change resets the effort. */
   steps(request: AcpModelRequest): readonly AcpConfigStep[];
   /** Answers one permission request of the adapter. */
@@ -111,15 +117,20 @@ export interface AcpDriver {
   /** The adapter versions Pages verified, as the run record names them. */
   readonly supportedVersions: string;
   readonly errors: AcpDriverErrors;
+  /**
+   * The `_meta` of a steering request, or `null` for none.
+   *
+   * @remarks
+   * claude-agent-acp takes `steering.idleBehavior: "promptRequired"`: a steer
+   * that finds the turn already ended comes back to Pages instead of starting
+   * a turn whose end the client never learns. codex-acp has no such option.
+   */
+  readonly steeringMeta: Readonly<Record<string, unknown>> | null;
   /** Whether `initialize` came from an adapter version Pages verified. */
   isSupportedAdapter(
     agent: Implementation | null | undefined,
   ): agent is Implementation;
-  /**
-   * The profile of a mode; the chat purpose has its own narrower profile.
-   *
-   * @throws {AgentError} `provider_invalid` for a runner without a chat profile.
-   */
+  /** The profile of a mode; the chat purpose has its own narrower profile. */
   profile(
     mode: AcpPermissionMode,
     purpose?: AcpSessionPurpose,

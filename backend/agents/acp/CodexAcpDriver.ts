@@ -21,6 +21,7 @@ export const CODEX_ACP_DRIVER: AcpDriver = {
     adapterUnsupported: "plan_acp_adapter_unsupported",
     sessionFailed: "plan_acp_session_failed",
   },
+  steeringMeta: null,
   isSupportedAdapter: isSupportedCodexAcp,
   profile: codexAcpProfile,
   plan: (specification) =>

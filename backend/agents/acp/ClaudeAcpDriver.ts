@@ -1,5 +1,3 @@
-import { AgentError } from "@/backend/error/AgentErrors";
-
 import {
   CLAUDE_ACP_BINARY,
   isSupportedClaudeAcp,
@@ -15,7 +13,9 @@ import type { AcpDriver } from "./AcpDriver";
  * @remarks
  * No Claude configuration file can widen a session: the options of the
  * session turn the user and project settings off, so there is nothing to
- * refuse before the start.
+ * refuse before the start. Plan nodes and Pica's conversation (PAGE-90) use
+ * it, each with its own profile. A steer asks the adapter to hand a prompt
+ * that finds no running turn back to Pages.
  */
 export const CLAUDE_ACP_DRIVER: AcpDriver = {
   provider: "claude_code",
@@ -27,16 +27,16 @@ export const CLAUDE_ACP_DRIVER: AcpDriver = {
     adapterUnsupported: "plan_claude_acp_adapter_unsupported",
     sessionFailed: "plan_claude_acp_session_failed",
   },
+  steeringMeta: { steering: { idleBehavior: "promptRequired" } },
   isSupportedAdapter: isSupportedClaudeAcp,
-  profile: (mode, purpose) => {
-    // Pica runs only on Codex over ACP; Claude Code keeps its plan nodes.
-    if (purpose === "chat") throw new AgentError("provider_invalid");
-    return claudeAcpProfile(mode);
-  },
+  profile: claudeAcpProfile,
   plan: (specification) =>
     planClaudeAcpLaunch({
       ...specification,
-      profile: claudeAcpProfile(specification.profile.mode),
+      profile: claudeAcpProfile(
+        specification.profile.mode,
+        specification.purpose,
+      ),
     }),
   requireManagedConfiguration: () => Promise.resolve(),
 };
