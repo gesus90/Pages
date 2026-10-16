@@ -4,6 +4,7 @@ import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { isApiProvider } from "@/definition/AgentConnection";
 import { isPlanFlowNode } from "@/definition/AgentPlanGraph";
 
@@ -11,6 +12,7 @@ import { withGroupResults } from "./AgentPlanGroupResults";
 import { hasPlanPath } from "./AgentPlanGraph";
 import { planStepDirectory } from "./AgentPlanSnapshot";
 
+import type { AcpResourceScheduler } from "./AcpResourceScheduler";
 import type { DatabaseTransaction } from "@/backend/database/Database";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type {
@@ -50,6 +52,7 @@ interface ActivePlanRun {
 const STOP_WAIT_MILLISECONDS = 30_000;
 
 interface EngineDependencies {
+  readonly resources?: Pick<AcpResourceScheduler, "pauseRun" | "resumeRun">;
   readonly runs: Pick<
     AgentPlanRunRepository,
     "insert" | "create" | "update" | "find"
@@ -123,7 +126,7 @@ function readySteps(active: ActivePlanRun): readonly AgentPlanNode[] {
   });
 }
 
-/** Event-driven DAG scheduler; at most two steps run across the whole instance service. */
+/** Event-driven DAG scheduling; native ACP capacity is admitted by the shared resource service. */
 export class AgentPlanRunEngine {
   private readonly dependencies: EngineDependencies;
   private readonly active = new Map<string, ActivePlanRun>();
@@ -268,6 +271,7 @@ export class AgentPlanRunEngine {
       const active = this.active.get(id);
       if (!active || active.view.stopRequested)
         throw new AgentError("plan_run_unavailable");
+      this.dependencies.resources?.pauseRun(id);
       active.view = {
         ...active.view,
         status: "paused",
@@ -293,6 +297,7 @@ export class AgentPlanRunEngine {
         ),
       };
       await this.dependencies.runs.update(active.view);
+      this.dependencies.resources?.resumeRun(id);
     });
     await this.pump();
   }
@@ -301,7 +306,21 @@ export class AgentPlanRunEngine {
   public async shutdown(): Promise<void> {
     this.isClosing = true;
     for (const id of this.active.keys()) await this.stop(id);
-    await Promise.all([...this.pending]);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const drained = await Promise.race([
+        Promise.all([...this.pending]).then(() => true),
+        new Promise<boolean>((resolve) => {
+          timer = setTimeout(() => resolve(false), STOP_WAIT_MILLISECONDS);
+        }),
+      ]);
+      if (!drained)
+        throw new Error(
+          "Agent plan shutdown timed out; reservations remain held.",
+        );
+    } finally {
+      clearTimeout(timer);
+    }
     await this.pump();
   }
 
@@ -315,7 +334,7 @@ export class AgentPlanRunEngine {
             ? []
             : readySteps(active);
         for (const step of ready) {
-          if (this.runningCount() >= 2) break;
+          if (!isAcpStep(active, step.id) && this.runningCount() >= 2) continue;
           const controller = new AbortController();
           active.controllers.set(step.id, controller);
           patchStep(active, step.id, { status: "running" });
@@ -346,6 +365,7 @@ export class AgentPlanRunEngine {
           );
           await active.releaseDefinition?.();
           this.active.delete(id);
+          this.dependencies.resources?.resumeRun(id);
         }
       }
     });
@@ -372,7 +392,10 @@ export class AgentPlanRunEngine {
 
   private runningCount(): number {
     return [...this.active.values()].reduce(
-      (count, active) => count + active.controllers.size,
+      (count, active) =>
+        count +
+        [...active.controllers.keys()].filter((id) => !isAcpStep(active, id))
+          .length,
       0,
     );
   }
@@ -502,4 +525,9 @@ function canFinalize(active: ActivePlanRun): boolean {
     readySteps(active).length === 0 &&
     (active.view.status !== "paused" || active.view.stopRequested)
   );
+}
+
+function isAcpStep(active: ActivePlanRun, id: string): boolean {
+  const step = active.snapshot.steps.find((entry) => entry.step.id === id);
+  return step !== undefined && isAcpProvider(step.provider);
 }

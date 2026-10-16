@@ -1,4 +1,4 @@
-import { expect, it, vi } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
 import { ChatService } from "@/backend/service/chat/ChatService";
@@ -11,6 +11,10 @@ import {
   OWNER,
   SESSION,
 } from "./page48-chat-fixture";
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 it("estimates the bounded context in tokens and exposes the known model limit", async () => {
   const fixture = new ContextFixture();
@@ -185,6 +189,8 @@ it("never hides history for a stale summary boundary and checks ownership", asyn
 });
 
 it("uses the summary in the next real chat turn while the stored transcript stays complete", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-15T12:00:00Z"));
   const fixture = new ContextFixture();
   await fixture.service.compact(OWNER, FIRST);
   const run = vi.fn(async () => "Answer after compaction");

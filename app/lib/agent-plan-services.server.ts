@@ -67,6 +67,7 @@ export async function createAgentPlanService(input: {
   const engine = new AgentPlanRunEngine({
     runs,
     start,
+    resources: input.agents.acpResourceScheduler,
     steps: new AgentPlanStepRunner({
       start,
       execution: input.agents.agentPlanExecution,

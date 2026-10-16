@@ -1,3 +1,4 @@
+import { ProjectRunsActiveError } from "@/backend/error/ProjectErrors";
 import { readTextColumn } from "@/backend/database/RowValue";
 
 import type { DatabaseTransaction } from "@/backend/database/Database";
@@ -40,6 +41,21 @@ export async function deleteProjectAgentData(
   projectId: string,
 ): Promise<AgentRunRecordKey[]> {
   const parameters = { project_id: projectId };
+  const [lease] = await database.query(
+    `
+    SELECT instance_id
+    FROM acp_resource_leases
+    WHERE run_id IN (${PLAN_RUNS})
+    LIMIT 1;
+  `,
+    parameters,
+  );
+  if (lease) throw new ProjectRunsActiveError();
+  // Lease removal belongs to the scheduler's confirmed closeout.
+  await database.execute(
+    `DELETE FROM acp_resource_leases WHERE run_id IN (${PLAN_RUNS});`,
+    parameters,
+  );
   const records = await database.query(
     `
       SELECT

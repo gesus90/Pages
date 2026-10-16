@@ -8,8 +8,11 @@ import {
   acpRunOptions,
 } from "@/definition/AgentConfiguration";
 
+import { resourceWorld } from "../../service/agents/page81-resource-fixture";
+
 import { fakeCliSpawn } from "./fake-cli-spawn";
 
+import type { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceScheduler";
 import type { Mock } from "vitest";
 import type {
   AgentPlanSessionInput,
@@ -85,6 +88,7 @@ interface Harness {
 
 function harness(
   setup: {
+    readonly resources?: AcpResourceScheduler;
     readonly isolation?: CliIsolationOptions;
     readonly hasAdapter?: boolean;
     readonly isLoggedIn?: boolean;
@@ -100,6 +104,7 @@ function harness(
   });
   const secure = vi.fn(async () => {});
   const execution = new CliSessionExecution({
+    resources: setup.resources,
     runtime: { adapter: async () => adapter(setup.isLoggedIn ?? true) },
     store: { prepare: async () => HOME, secure },
     locator: {
@@ -406,3 +411,88 @@ it.each([`${HOME.config}/config.toml`, `${WORKSPACE}/.codex/config.toml`])(
     expect(warn).toHaveBeenCalledWith(expect.stringContaining(file));
   },
 );
+
+it("globally queues Codex and Claude adapters before any native spawn and rechecks authorization on admission", async () => {
+  const world = resourceWorld();
+  await world.scheduler.recover();
+  const codex = harness({ resources: world.scheduler });
+  const claude = harness({
+    resources: world.scheduler,
+    provider: "claude_code",
+  });
+  const first = await codex.execution.open(
+    input("codex_cli", READ_ONLY),
+    new AbortController().signal,
+    observer(),
+  );
+  await first.turn;
+  const beforeStart = vi.fn(async () => {});
+  const second = claude.execution.open(
+    {
+      ...input("claude_code", READ_ONLY),
+      instanceId: "claude-queued",
+      beforeStart,
+    },
+    new AbortController().signal,
+    observer(),
+  );
+  expect(claude.fake.spawned).toHaveLength(0);
+  expect(beforeStart).not.toHaveBeenCalled();
+  expect(world.scheduler.snapshot().waiting).toMatchObject([
+    { provider: "claude_code", reason: "capacity" },
+  ]);
+  await first.close();
+  const session = await second;
+  await session.turn;
+  expect(claude.fake.spawned).toHaveLength(1);
+  expect(beforeStart).toHaveBeenCalledOnce();
+  expect(codex.fake.spawned).toHaveLength(1);
+  await session.close();
+  expect(world.scheduler.snapshot().active).toEqual([]);
+  await world.scheduler.shutdown();
+});
+
+it("cleans a partially started native adapter when observer startup fails without losing its slot", async () => {
+  const world = resourceWorld();
+  await world.scheduler.recover();
+  const runtime = harness({ resources: world.scheduler });
+  await expect(
+    runtime.execution.open(
+      input("codex_cli", READ_ONLY),
+      new AbortController().signal,
+      {
+        started: () => {
+          throw new Error("observer failed");
+        },
+        identified: () => {},
+      },
+    ),
+  ).rejects.toThrow("observer failed");
+  expect(scan.endTaggedProcesses).toHaveBeenCalled();
+  expect(world.scheduler.snapshot().active).toEqual([]);
+  expect(runtime.fake.spawned).toHaveLength(1);
+  await world.scheduler.shutdown();
+});
+
+it("keeps a partial-start lease when process cleanup is unconfirmed even if credential securing also fails", async () => {
+  const world = resourceWorld();
+  await world.scheduler.recover();
+  const runtime = harness({ resources: world.scheduler });
+  scan.endTaggedProcesses.mockResolvedValueOnce({ found: 1, remaining: 1 });
+  runtime.secure.mockRejectedValue(new Error("secure failed"));
+  await expect(
+    runtime.execution.open(
+      input("codex_cli", READ_ONLY),
+      new AbortController().signal,
+      {
+        started: () => {
+          throw new Error("observer failed");
+        },
+        identified: () => {},
+      },
+    ),
+  ).rejects.toMatchObject({ code: "plan_closeout_failed" });
+  expect(world.cleanup).not.toHaveBeenCalled();
+  expect(world.scheduler.snapshot().active[0]?.state).toBe("cleanup_failed");
+  await world.scheduler.shutdown();
+});

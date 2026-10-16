@@ -1,5 +1,5 @@
 import { methods } from "@agentclientprotocol/sdk";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { AgentError } from "@/backend/error/AgentErrors";
@@ -11,6 +11,11 @@ import {
   TEXT,
   ticketAssetWorld,
 } from "../../service/agents/page60-ticket-assets-fixture";
+
+vi.mock("@/backend/agents/cli/CliProcessScan", () => ({
+  RUN_INSTANCE_VARIABLE: "PAGES_RUN_INSTANCE",
+  endTaggedProcesses: vi.fn(async () => ({ found: 0, remaining: 0 })),
+}));
 
 it.each(["codex_cli", "claude_code"] as const)(
   "sends evaluable images and full embedded text over the %s ACP prompt",

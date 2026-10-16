@@ -10,6 +10,7 @@ import {
 const processTable = vi.hoisted(() => ({
   entries: new Map<string, string | Error>(),
   isRootReadable: true,
+  foreign: new Set<string>(),
 }));
 
 vi.mock("node:fs/promises", () => ({
@@ -17,6 +18,11 @@ vi.mock("node:fs/promises", () => ({
     if (!processTable.isRootReadable) throw new Error("ENOENT");
     return [...processTable.entries.keys()];
   },
+  stat: async (file: string) => ({
+    uid: processTable.foreign.has(file.split("/").at(-1) ?? "")
+      ? (process.getuid?.() ?? 0) + 1
+      : (process.getuid?.() ?? 0),
+  }),
   readFile: async (file: string): Promise<string> => {
     const entry = file.split("/").at(-2) ?? "";
     const content = processTable.entries.get(entry);
@@ -36,6 +42,7 @@ function tagged(tag: string): string {
 
 beforeEach(() => {
   processTable.entries.clear();
+  processTable.foreign.clear();
   processTable.isRootReadable = true;
 });
 
@@ -69,15 +76,21 @@ describe("findTaggedProcesses", () => {
     await expect(findTaggedProcesses("run-a")).resolves.toEqual([]);
   });
 
-  it("skips processes it cannot read", async () => {
+  it("skips unreadable processes owned by other accounts", async () => {
     processTable.entries.set("4001", new Error("EACCES"));
+    processTable.foreign.add("4001");
     processTable.entries.set("4002", tagged("run-a"));
     await expect(findTaggedProcesses("run-a")).resolves.toEqual([4002]);
   });
 
-  it("returns nothing where no process file system exists", async () => {
+  it("refuses to confirm absence when its own processes cannot be read", async () => {
+    processTable.entries.set("4001", new Error("EACCES"));
+    await expect(findTaggedProcesses("run-a")).rejects.toThrow("EACCES");
+  });
+
+  it("refuses to confirm absence where no process file system exists", async () => {
     processTable.isRootReadable = false;
-    await expect(findTaggedProcesses("run-a")).resolves.toEqual([]);
+    await expect(findTaggedProcesses("run-a")).rejects.toThrow("ENOENT");
   });
 });
 

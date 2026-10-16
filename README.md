@@ -569,8 +569,8 @@ A failure or rejected report blocks later children and the outer successor.
 Internal steps must provide a valid `pages-report` proving their todos and
 criteria; standalone steps keep diagnostic-only progress. A missing continuation
 capability, changed native session ID or changed effective runtime fails the group.
-Pause lets the current child settle, retains the native session and starts no
-further child until resume. Stop closes an active or retained paused session.
+Pause lets the current child settle, retains the native session until the
+configured idle timeout, and starts no further child until resume. Stop closes an active or retained paused session.
 Group and child states, the failing child, native session IDs and closeout are
 available in the run view.
 
@@ -649,8 +649,9 @@ the older version. Every Play is a new run with its own ID and fresh node
 states: results, errors and blocked nodes of earlier runs carry over neither
 into the run nor into the parameters of its nodes, and earlier runs keep their
 snapshot. While a run of the plan is active or paused, Play waits for it to be
-stopped. Solid branches run independently, with at most two concurrent nodes
-across the service. A join waits for every incoming predecessor to succeed; a
+stopped. Solid branches run independently. Non-ACP execution has at most two
+concurrent nodes across the service; native ACP starts share the separate global
+resource queue described below. A join waits for every incoming predecessor to succeed; a
 failed predecessor blocks its continuation. Independent CLI branches may not
 write to the same working copy. A server restart fails the runs it
 interrupted and ends their processes; their working copies are released once
@@ -865,6 +866,69 @@ dependencies once as CI does:
 ```sh
 pnpm --dir mcp install
 ```
+
+### Native ACP resource scheduling (PAGE-81)
+
+One instance-wide `AcpResourceScheduler` admits both Codex (`codex-acp`) and
+Claude Code (`claude-agent-acp`). The existing DAG still determines which
+steps are executable. ACP admission has a separate shared FIFO queue; queued
+steps have no native ACP process and do not occupy the DAG's two non-ACP
+execution slots. API and OpenCode work retain their existing execution path.
+
+Optional flat keys in the instance's `config.toml` (restart applies changes):
+
+```toml
+maxConcurrentAcpSessions = 1
+memoryAwareScheduling = true
+minimumAvailableMemory = 2048 # MiB, Linux MemAvailable
+acpIdleTimeout = 300000       # milliseconds between native turns
+queueDiscipline = "fifo"
+```
+
+`PAGES_MAX_CONCURRENT_ACP_SESSIONS`, `PAGES_ACP_MEMORY_AWARE` (`true`/`false`
+or `1`/`0`) and `PAGES_ACP_MIN_AVAILABLE_MEMORY_MB` override the first three
+settings. Invalid settings refuse startup. With memory checks enabled, a
+missing measurement or RAM below the reserve blocks new starts. Waiters are
+rechecked every second without another user action. The reserve is a start
+threshold, not a prediction of a model's future consumption.
+
+Starting, running, paused-but-existing, idle and uncertain native sessions
+all occupy capacity. A DuckDB lease is committed before the first start
+operation and removed only after confirmed process-tree closeout. Group
+continuation uses the original lease and native process. Paused waiters keep
+their FIFO position among eligible requests; pausing never frees a live lease.
+Cancelling a queued node removes it without starting its adapter. Node deadlines
+include waiting time.
+
+An idle native session, including a paused group, is closed after five minutes
+by default. Its run record receives the retirement reason and closing outcome.
+Resume after expiry fails with `plan_context_changed`; Pages does not silently
+start a replacement or replay accepted steps. A failed or unconfirmed cleanup
+continues to occupy capacity, visibly, even beyond the idle timeout.
+
+At startup Pages cleans durable leases before admitting work, including a
+crash between reservation and recording the process start. Existing run recovery
+marks interrupted work failed and never retries it. Interrupted sessions from
+before this journal existed are adopted from active runs and retained workspace
+reservations, so an upgrade also accounts for their cleanup failures. Shutdown cancels waiters,
+drains runs and closes native sessions. Cleanup uses the inherited
+`PAGES_RUN_INSTANCE` tag, also for helpers outside the adapter's process group;
+an unreadable process scan cannot prove absence. Unresponsive process exit
+returns an unconfirmed closeout after bounded waits. Cleanup failures and
+uncertain journal writes fail closed; retained leases are retried during the
+next normal startup. No automatic in-process cleanup retry or force-release UI
+is provided.
+
+The **ACP resources** card in Settings → Agents polls `/agent-api/resources`.
+The endpoint rechecks an active personal administrator in admin mode on every
+request and uses `no-store`. It shows occupied sessions, waiting reasons,
+current available RAM, paused blockers and failed cleanup. It exposes no prompts,
+workspace paths, credentials or native conversation identifiers.
+
+This change uses the existing Pages runtime and DuckDB. It does not install
+Mastra Core or introduce another workflow engine. The Mastra integration named
+in PAGE-81's title remains deferred; the native resource scheduler is independent
+of a future orchestration framework.
 
 ### ACP adapters for the CLI runners
 

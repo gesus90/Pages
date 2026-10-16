@@ -1,5 +1,7 @@
 import path from "node:path";
 
+import { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
+import { interruptedAcpOwners } from "@/backend/service/agents/AgentPlanRecovery";
 import { AgentAssetRepository } from "@/backend/database/repositories/agents/AgentAssetRepository";
 import { AgentAssetService } from "@/backend/service/agents/AgentAssetService";
 import { WikiFileStore } from "@/backend/storage/WikiFileStore";
@@ -88,7 +90,13 @@ async function startAgents(
     {
       agentsDirectory: resolveAgentsDirectory(runtime.configFile.path),
       ticketAssets,
+      acpOptions: runtime.getConfig(),
     },
+  );
+  const runs = new AgentPlanRunRepository(database);
+  const interrupted = await Promise.all([runs.unfinished(), runs.reserving()]);
+  await services.acpResourceScheduler.recover(
+    interruptedAcpOwners(interrupted.flat()),
   );
   services.agentCatalogScheduler.start();
   return services;

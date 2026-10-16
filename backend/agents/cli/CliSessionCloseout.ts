@@ -1,10 +1,11 @@
 import { endTaggedProcesses } from "./CliProcessScan";
 
 import type { PlanSessionClosed } from "@/backend/agents/AgentPlanExecution";
-import type { CliSessionProcess } from "./CliSessionProcess";
+import type { CliSessionExit, CliSessionProcess } from "./CliSessionProcess";
 
 // A runner gets this long to end by itself once its input is closed.
 const INPUT_CLOSE_GRACE_MS = 15_000;
+const TERMINATION_WAIT_MS = 10_000;
 
 /**
  * Ends the process of a session, then every process of it that is left.
@@ -24,21 +25,32 @@ export async function closeCliSession(
   instanceId: string,
 ): Promise<PlanSessionClosed> {
   process.endInput();
-  let grace: ReturnType<typeof setTimeout> | undefined;
-  const exit = await Promise.race([
-    process.exited,
-    new Promise<null>((resolve) => {
-      grace = setTimeout(() => resolve(null), INPUT_CLOSE_GRACE_MS);
-    }),
-  ]);
-  clearTimeout(grace);
+  const exit = await waitForExit(process.exited, INPUT_CLOSE_GRACE_MS);
   if (exit === null) process.cancel("login_cancelled");
-  const settled = await process.exited;
+  const settled =
+    exit ?? (await waitForExit(process.exited, TERMINATION_WAIT_MS));
   const cleanup = await endTaggedProcesses(instanceId);
   return {
-    exit: { code: settled.code, signal: settled.signal },
+    exit: settled ? { code: settled.code, signal: settled.signal } : null,
     endedAt: new Date().toISOString(),
     leftovers: cleanup.found,
-    isConfirmed: cleanup.remaining === 0,
+    isConfirmed: settled !== null && cleanup.remaining === 0,
   };
+}
+
+async function waitForExit(
+  exited: Promise<CliSessionExit>,
+  milliseconds: number,
+): Promise<CliSessionExit | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      exited,
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), milliseconds);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
 }

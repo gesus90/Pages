@@ -8,16 +8,16 @@ import {
   expandPlanGroups,
 } from "@/definition/AgentPlanGroup";
 import { readPlanInput } from "@/backend/agents/AgentPlanInput";
-import {
-  endTaggedProcesses,
-  findTaggedProcesses,
-} from "@/backend/agents/cli/CliProcessScan";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { ProjectRunsActiveError } from "@/backend/error/ProjectErrors";
 import { requireCredentialFreeText } from "@/backend/service/assistant/TextAssistantValidation";
 import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 import { withoutTicketFlow } from "@/definition/AgentPlanGraph";
 
+import {
+  endInterruptedSession,
+  hasNoSessionProcesses,
+} from "./AgentPlanRecovery";
 import { requireCompatibleFields } from "./AgentPlanGroupRuntime";
 import { requireAllowedRunOptions } from "./AgentProfileValidation";
 import { planSteps, validatePlanGraph } from "./AgentPlanGraph";
@@ -53,7 +53,6 @@ import type { AgentPlanPreparation } from "./AgentPlanPreparation";
 import type { AgentPlanRunEngine } from "./AgentPlanRunEngine";
 import type { AgentPlanSessionAccess } from "./AgentPlanSessionAccess";
 import type { AgentRunArchive } from "./AgentRunArchive";
-import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 
 interface PlanDependencies {
   readonly plans: AgentPlanRepository;
@@ -69,48 +68,6 @@ interface PlanDependencies {
   readonly sessions?: AgentPlanSessionAccess;
   /** Serves the prompts nodes were sent. */
   readonly archive?: AgentRunArchive;
-}
-
-/**
- * Ends what an interrupted node left behind: its processes and its MCP access.
- *
- * @remarks
- * A server stop can leave a runner and its helpers running in their own
- * process group. Every process of a session carries its instance tag, so the
- * restarted server finds and ends them before it reports the node as failed.
- */
-async function endInterruptedSession(
-  step: AgentPlanStepResult,
-): Promise<AgentPlanStepResult> {
-  const session = step.session;
-  if (!session || session.closeout !== "pending") return step;
-  const cleanup = await endTaggedProcesses(session.instanceId);
-  return {
-    ...step,
-    session: {
-      ...session,
-      endedAt: new Date().toISOString(),
-      closeout: cleanup.remaining === 0 ? "confirmed" : "failed",
-      leftoverProcesses: cleanup.found,
-      resultCode: -1,
-    },
-  };
-}
-
-/**
- * Whether no process of any session of the run is alive any more.
- *
- * @remarks
- * A node stores its session record before its runner starts, so a node
- * without one never started a process.
- */
-async function hasNoSessionProcesses(run: AgentPlanRun): Promise<boolean> {
-  const scans = await Promise.all(
-    run.steps.flatMap((step) =>
-      step.session ? [findTaggedProcesses(step.session.instanceId)] : [],
-    ),
-  );
-  return scans.every((processes) => processes.length === 0);
 }
 
 interface PlanTaskBinding {

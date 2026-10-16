@@ -1,6 +1,9 @@
 import { homedir } from "node:os";
 import path from "node:path";
 
+import { readAcpResourceSettings } from "./AcpResourceSettings";
+
+import type { AcpResourceOptions } from "@/definition/AcpResource";
 import type { TomlTable } from "smol-toml";
 
 const PAGES_DIRECTORY_NAME = ".pages";
@@ -22,7 +25,7 @@ export const CONFIG_KEY = {
 } as const;
 
 /** Settings that do not depend on the setup state. */
-interface BaseConfig {
+interface BaseConfig extends Partial<AcpResourceOptions> {
   readonly port: number;
 }
 
@@ -201,12 +204,13 @@ function readDatabasePath(table: TomlTable, source: string): string | null {
  * a finished setup does not name its database.
  */
 export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
+  const acpResources = readAcpResourceSettings(table);
   const firstRun = readFirstRun(table, source);
   const port = readPort(table, source);
   const databasePath = readDatabasePath(table, source);
 
   if (firstRun) {
-    return { databasePath, firstRun, port };
+    return { ...acpResources, databasePath, firstRun, port };
   }
 
   if (databasePath === null) {
@@ -216,7 +220,7 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
     );
   }
 
-  return { databasePath, firstRun, port };
+  return { ...acpResources, databasePath, firstRun, port };
 }
 
 /**
@@ -235,6 +239,18 @@ export function writePagesConfig(
     [CONFIG_KEY.FIRST_RUN]: config.firstRun,
     [CONFIG_KEY.PORT]: config.port,
   };
+
+  const resourceKeys = [
+    "maxConcurrentAcpSessions",
+    "memoryAwareScheduling",
+    "minimumAvailableMemory",
+    "acpIdleTimeout",
+    "queueDiscipline",
+  ] as const;
+  for (const key of resourceKeys) {
+    const setting = config[key];
+    if (setting !== undefined) document[key] = setting;
+  }
 
   if (config.databasePath === null) {
     delete document[CONFIG_KEY.DATABASE_PATH];

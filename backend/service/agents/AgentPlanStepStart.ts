@@ -34,6 +34,11 @@ import type {
 
 /** A working directory is a separate process contract, never a prompt convention. */
 export interface AgentPlanExecutionInput extends TextExecutionInput {
+  /** Ownership retained across queued starts and group turns; contains no credentials. */
+  readonly resourceContext?: {
+    readonly runId: string;
+    readonly stepId: string;
+  };
   readonly directory: string | null;
   /** Rechecks live access immediately before the adapter's provider request or spawn. */
   readonly beforeStart?: () => Promise<void>;

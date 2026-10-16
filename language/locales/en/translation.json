@@ -1001,6 +1001,26 @@
             "description": "Every tool of the runner without asking: read, create, change and delete files in the workspace, shell, web and every Pages MCP tool with your Pages rights. Runs only inside the bubblewrap isolation."
           }
         }
+      },
+      "resources": {
+        "title": "ACP resources",
+        "unavailable": "Resource status is loading or unavailable.",
+        "summary": "{{active}} / {{limit}} native sessions occupied · {{waiting}} waiting",
+        "ram": "Available RAM: {{available}} MiB · Reserve: {{reserve}} MiB",
+        "memoryEnabled": "Memory check enabled",
+        "memoryDisabled": "Memory check disabled",
+        "storage": "Resource storage failed; admission is blocked.",
+        "starting": "Starting (capacity reserved)",
+        "running": "Running",
+        "idle": "Idle (capacity reserved)",
+        "closing": "Closing process tree",
+        "cleanup_failed": "Cleanup failed or unconfirmed (capacity blocked)",
+        "capacity": "Waiting for capacity",
+        "memory": "Waiting for sufficient RAM",
+        "memory_unknown": "Waiting for a reliable RAM reading",
+        "paused": "Paused",
+        "recovery": "Waiting for startup recovery",
+        "scheduler_error": "Waiting after scheduler error"
       }
     },
     "connections": {

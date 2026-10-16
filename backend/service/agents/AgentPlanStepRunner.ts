@@ -328,6 +328,7 @@ export class AgentPlanStepRunner {
       options: prepared.options,
       instanceId,
       mcp,
+      resourceContext: { runId: run.id, stepId: step.step.id },
     };
     const session = step.groupId
       ? await this.groups.turn({
@@ -517,6 +518,19 @@ export class AgentPlanStepRunner {
 
   private observer(node: NodeRun): PlanSessionObserver {
     return {
+      retired: (closed, reason) => {
+        void this.complete(node, {
+          closeout: closed.isConfirmed ? "confirmed" : "failed",
+          endedAt: closed.endedAt,
+          exit: closed.exit,
+          leftoverProcesses: closed.leftovers,
+          resultCode: closeoutFailureCode(closed) === null ? 0 : -1,
+          events: [
+            ...(node.record?.events ?? []),
+            `resource session retired: ${reason}`,
+          ],
+        });
+      },
       started: (details) => {
         if (!node.record) return;
         void this.complete(node, {

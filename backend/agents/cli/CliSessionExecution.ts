@@ -2,6 +2,7 @@ import { readTicketAssetInput } from "@/backend/agents/TicketAssetInput";
 import { acpDriverFor } from "@/backend/agents/acp/AcpDrivers";
 import { AcpLineChannel } from "@/backend/agents/acp/AcpLineChannel";
 import { AcpSession } from "@/backend/agents/acp/AcpSession";
+import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
 import {
@@ -23,6 +24,7 @@ import type {
   PlanSessionObserver,
   PlanSessionRunner,
 } from "@/backend/agents/AgentPlanExecution";
+import type { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceScheduler";
 import type { AcpDriver } from "@/backend/agents/acp/AcpDriver";
 import type { AcpPermissionMode } from "@/definition/AgentConfiguration";
 import type { CliProviderId } from "@/definition/AgentConnection";
@@ -48,6 +50,7 @@ export interface CliIsolationOptions {
 }
 
 interface SessionDependencies {
+  readonly resources?: AcpResourceScheduler;
   readonly runtime: Pick<AgentCliRuntime, "adapter">;
   readonly store: Pick<AgentCredentialStore, "prepare" | "secure">;
   readonly locator: Pick<CliLocator, "find" | "locate">;
@@ -120,14 +123,40 @@ export class CliSessionExecution implements PlanSessionRunner {
     signal: AbortSignal,
     observer: PlanSessionObserver,
   ): Promise<PlanSession> {
+    const provider = input.agent.connection.provider;
+    if (isAcpProvider(provider) && this.dependencies.resources)
+      return this.dependencies.resources.open(
+        {
+          instanceId: input.instanceId,
+          userId: input.userId,
+          provider,
+          runId: input.resourceContext?.runId ?? null,
+          stepId: input.resourceContext?.stepId ?? null,
+        },
+        signal,
+        (admitted) => this.openAdmitted(input, admitted, observer),
+        observer,
+      );
+    return this.openAdmitted(input, signal, observer);
+  }
+
+  private async openAdmitted(
+    input: AgentPlanSessionInput,
+    signal: AbortSignal,
+    observer: PlanSessionObserver,
+  ): Promise<PlanSession> {
     const start = await this.verify(input, signal);
     try {
       return await this.spawn(input, start, { signal, observer });
     } catch (error: unknown) {
-      await this.dependencies.store.secure(
-        input.agent.connection.id,
-        start.provider,
-      );
+      try {
+        await this.dependencies.store.secure(
+          input.agent.connection.id,
+          start.provider,
+        );
+      } catch (secureError: unknown) {
+        if (!(error instanceof AcpCleanupUnconfirmedError)) throw secureError;
+      }
       throw error;
     }
   }
@@ -319,15 +348,35 @@ export class CliSessionExecution implements PlanSessionRunner {
         secure: () => this.secureAcp(input, start, github),
       });
     } catch (error: unknown) {
-      try {
-        if (child !== null) {
-          child.cancel("login_cancelled");
-          await closeCliSession(child, input.instanceId);
-        }
-      } finally {
-        await github?.cleanup();
-      }
+      await this.cleanupAcpStart(child, input.instanceId, github);
       throw error;
+    }
+  }
+
+  private async cleanupAcpStart(
+    child: CliSessionProcess | null,
+    instanceId: string,
+    github: CliGitHubAccess | null,
+  ): Promise<void> {
+    const isConfirmed =
+      child === null || (await this.closeFailedAcp(child, instanceId));
+    try {
+      await github?.cleanup();
+    } catch {
+      if (isConfirmed) throw new AgentError("credential_cleanup_failed");
+    }
+    if (!isConfirmed) throw new AcpCleanupUnconfirmedError();
+  }
+
+  private async closeFailedAcp(
+    child: CliSessionProcess,
+    instanceId: string,
+  ): Promise<boolean> {
+    try {
+      child.cancel("login_cancelled");
+      return (await closeCliSession(child, instanceId)).isConfirmed;
+    } catch {
+      return false;
     }
   }
 

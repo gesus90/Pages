@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { ProjectRunsActiveError } from "@/backend/error/ProjectErrors";
 import { DATABASE_MIGRATIONS } from "@/backend/database/Migrations";
 import { ProjectLifecycleRepository } from "@/backend/database/repositories/project/ProjectLifecycleRepository";
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
@@ -91,6 +92,25 @@ const SHARED_TABLES = [
 ];
 
 describe("ProjectLifecycleRepository.delete", () => {
+  it("refuses project deletion while a live or uncertain ACP lease still belongs to its runs", async () => {
+    const { connection, statements } = recorder([
+      [/FROM acp_resource_leases/, [["held-instance"]]],
+    ]);
+    await expect(
+      new ProjectLifecycleRepository(connection).delete("p1"),
+    ).rejects.toBeInstanceOf(ProjectRunsActiveError);
+    expect(
+      statements.some((statement) =>
+        statement.startsWith("DELETE FROM acp_resource_leases"),
+      ),
+    ).toBe(false);
+    expect(
+      statements.some((statement) =>
+        statement.startsWith("DELETE FROM agent_plan_runs"),
+      ),
+    ).toBe(false);
+  });
+
   it("returns the files whose rows went, to be removed after the commit", async () => {
     const { connection } = recorder();
     await expect(

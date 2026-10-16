@@ -35,6 +35,11 @@ export interface PlanSessionObserver {
     readonly unattended: string;
   }) => void;
   readonly identified: (sessionId: string) => void;
+  /** Reports automatic retirement so retained run records do not remain silently open. */
+  readonly retired?: (
+    closed: PlanSessionClosed,
+    reason: "idle_timeout" | "process_exit",
+  ) => void;
   /** Reports the newest events while the turn runs; the turn reports them again at its end. */
   readonly progressed?: (events: readonly string[]) => void;
 }
@@ -69,6 +74,8 @@ export interface PlanSessionClosed {
 /** A running session: first its turn, then its closing. */
 export interface PlanSession {
   readonly turn: Promise<PlanSessionTurn>;
+  /** Native process exit, used to clean up crashed idle ACP sessions. */
+  readonly terminated?: Promise<void>;
   /** Starts a new step in this same native session; absent for unsupported runners. */
   next?(
     input: AgentPlanExecutionInput,

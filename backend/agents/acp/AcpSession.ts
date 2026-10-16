@@ -137,6 +137,7 @@ function stopFailure(reason: StopReason): PlanSessionTurn["failure"] {
  */
 export class AcpSession implements PlanSession {
   public readonly turn: Promise<PlanSessionTurn>;
+  public readonly terminated: Promise<void>;
   private readonly process: Pick<
     CliSessionProcess,
     "endInput" | "exited" | "cancel"
@@ -170,6 +171,7 @@ export class AcpSession implements PlanSession {
     context: AcpSessionContext,
   ) {
     this.process = process;
+    this.terminated = process.exited.then(() => undefined);
     this.context = context;
     this.observer = context.observer;
     this.turnSignal = context.signal;

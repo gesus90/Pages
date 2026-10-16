@@ -1,3 +1,6 @@
+import { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceScheduler";
+import { AcpResourceRepository } from "@/backend/database/repositories/agent/AcpResourceRepository";
+import { readAcpResourceOptions } from "@/backend/config/AcpResourceConfig";
 import { CatalogProviderClient } from "@/backend/agents/catalog/CatalogProviderClient";
 import { AgentCatalogRefresh } from "@/backend/service/agents/AgentCatalogRefresh";
 import { AgentCatalogService } from "@/backend/service/agents/AgentCatalogService";
@@ -33,6 +36,7 @@ import { CliGitHubCredentials } from "@/backend/agents/cli/CliGitHubCredentials"
 
 import { createAgentConfigurationServices } from "./agent-workspace-services.server";
 
+import type { AcpResourceOptions } from "@/definition/AcpResource";
 import type { AgentTicketAssetDependencies } from "@/backend/service/agents/AgentTicketAssetService";
 import type { Database } from "@/backend/database/Database";
 import type { PlanExecution } from "@/backend/agents/AgentPlanExecution";
@@ -41,6 +45,7 @@ import type { AgentWorkspaceService } from "@/backend/service/agents/AgentWorksp
 import type { AgentConfigurationApplicationServices } from "./agent-workspace-services.server";
 
 export interface AgentApplicationServices extends AgentConfigurationApplicationServices {
+  readonly acpResourceScheduler: AcpResourceScheduler;
   readonly agentAssignmentService: AgentAssignmentService;
   readonly agentCatalogService: AgentCatalogService;
   readonly agentCatalogScheduler: AgentCatalogScheduler;
@@ -66,6 +71,7 @@ export interface AgentApplicationServices extends AgentConfigurationApplicationS
 }
 
 interface ExecutionInput {
+  readonly resources: AcpResourceScheduler;
   /** Instance folders a CLI agent process must not reach. */
   readonly protectedDirectories: readonly string[];
   /** Operator choice: refuse CLI plan steps where no isolation is possible. */
@@ -131,6 +137,7 @@ function createExecutions(
       new ApiTextExecution(repository, cipher),
       new CliSessionExecution({
         ...cliAdapters,
+        resources: input.resources,
         github: input.github,
         isolation: {
           protectedDirectories: input.protectedDirectories,
@@ -164,6 +171,7 @@ function createGitHubCredentials(input: {
 }
 
 interface AgentServiceResources {
+  readonly acpOptions?: Partial<AcpResourceOptions>;
   readonly agentsDirectory: string;
   readonly ticketAssets: AgentTicketAssetDependencies;
 }
@@ -201,6 +209,10 @@ export function createAgentServices(
   const repository = new AgentConnectionRepository(database);
   const cipher = new InstanceSecretCipher(tokenKey);
   const operations = new AgentOperationRegistry();
+  const acpResourceScheduler = new AcpResourceScheduler({
+    store: new AcpResourceRepository(database),
+    options: readAcpResourceOptions(resources.acpOptions),
+  });
   const configuration = createAgentConfigurationServices({
     database,
     dataDirectory,
@@ -243,6 +255,7 @@ export function createAgentServices(
   return {
     ...configuration,
     ...github,
+    acpResourceScheduler,
     agentAssignmentService: new AgentAssignmentService({
       assignments: new AgentAssignmentRepository(database),
       connections: repository,
@@ -255,6 +268,7 @@ export function createAgentServices(
       configuration.agentProfileService,
     ),
     ...createExecutions({
+      resources: acpResourceScheduler,
       protectedDirectories: [dataDirectory, agentsDirectory],
       isIsolationRequired: process.env.PAGES_CLI_ISOLATION === "required",
       repository,

@@ -123,7 +123,11 @@ function registerShutdownHandler(
       await assistant.assistantHistoryScheduler.shutdown();
       await assistant.textAssistantService.shutdown();
       await agents.chatRequests.shutdown();
-      await plans.shutdown();
+      try {
+        await plans.shutdown();
+      } finally {
+        await agents.acpResourceScheduler.shutdown();
+      }
       await agents.agentCatalogScheduler.shutdown();
       await agents.agentCliLoginService.shutdown();
       await database.close();

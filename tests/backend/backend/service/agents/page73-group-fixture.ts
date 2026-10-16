@@ -9,6 +9,7 @@ import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 
 import { parameterRunFixture } from "./page55-run-fixture";
 
+import type { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceScheduler";
 import type { ParameterRunFixture } from "./page55-run-fixture";
 import type { AgentPlanSnapshot } from "@/backend/service/agents/AgentPlanSnapshot";
 import type {
@@ -139,6 +140,7 @@ export async function groupFixture(): Promise<GroupFixture> {
 /** Builds a scheduler with an in-memory persistence boundary and no external MCP. */
 export async function groupEngine(
   execution: PlanExecution,
+  resources?: AcpResourceScheduler,
 ): Promise<GroupEngineFixture> {
   const fixture = await groupFixture();
   const stored = new Map<string, AgentPlanRun>();
@@ -153,6 +155,7 @@ export async function groupEngine(
     access: { grant: async () => null, revoke: async () => 0 },
   });
   const engine = new AgentPlanRunEngine({
+    resources,
     runs: {
       create: async (run) => {
         stored.set(run.id, structuredClone(run));

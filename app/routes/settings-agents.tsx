@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { data as routeData, useLoaderData } from "react-router";
 
 import { AdminModeRequired } from "@/app/components/settings/admin-mode-required";
+import { AcpResourcesCard } from "@/app/components/settings/agents/acp-resources-card";
 import { AgentsSection } from "@/app/components/settings/agents/agents-section";
 import { readAgentFilters } from "@/definition/AgentFilters";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
@@ -144,20 +145,23 @@ export default function SettingsAgentsRoute(): React.ReactElement {
   const { t } = useTranslation();
   const result = useLoaderData<typeof loader>();
   return result.access === "granted" ? (
-    <AgentsSection
-      connections={result.connections}
-      cliTools={result.cliTools}
-      catalogs={result.catalogs}
-      assistantSettings={result.assistantSettings}
-      assignments={result.assignments}
-      profiles={result.profiles}
-      profileDirectory={result.profileDirectory}
-      availability={result.availability}
-      filters={result.filters}
-      projects={result.projects}
-      workspaceChoices={result.workspaceChoices}
-      taskAssignments={result.taskAssignments}
-    />
+    <div className="space-y-4">
+      <AcpResourcesCard />
+      <AgentsSection
+        connections={result.connections}
+        cliTools={result.cliTools}
+        catalogs={result.catalogs}
+        assistantSettings={result.assistantSettings}
+        assignments={result.assignments}
+        profiles={result.profiles}
+        profileDirectory={result.profileDirectory}
+        availability={result.availability}
+        filters={result.filters}
+        projects={result.projects}
+        workspaceChoices={result.workspaceChoices}
+        taskAssignments={result.taskAssignments}
+      />
+    </div>
   ) : (
     <AdminModeRequired description={t("settings.agents.adminModeRequired")} />
   );

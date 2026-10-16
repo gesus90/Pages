@@ -1001,6 +1001,26 @@
             "description": "Alle Werkzeuge des Runners ohne Rückfragen: Dateien im Workspace lesen, anlegen, ändern und löschen, Shell, Web und alle Pages-MCP-Werkzeuge mit deinen Pages-Rechten. Läuft nur in der Bubblewrap-Abschottung."
           }
         }
+      },
+      "resources": {
+        "title": "ACP-Ressourcen",
+        "unavailable": "Ressourcenstatus wird geladen oder ist nicht verfügbar.",
+        "summary": "{{active}} / {{limit}} native Sessions belegt · {{waiting}} wartend",
+        "ram": "Verfügbarer RAM: {{available}} MiB · Reserve: {{reserve}} MiB",
+        "memoryEnabled": "RAM-Prüfung aktiv",
+        "memoryDisabled": "RAM-Prüfung deaktiviert",
+        "storage": "Ressourcenspeicherung fehlgeschlagen; neue Starts sind blockiert.",
+        "starting": "Startet (Kapazität reserviert)",
+        "running": "Läuft",
+        "idle": "Inaktiv (Kapazität reserviert)",
+        "closing": "Prozessbaum wird beendet",
+        "cleanup_failed": "Bereinigung fehlgeschlagen oder unbestätigt (Kapazität blockiert)",
+        "capacity": "Wartet auf Kapazität",
+        "memory": "Wartet auf ausreichend RAM",
+        "memory_unknown": "Wartet auf verlässliche RAM-Messung",
+        "paused": "Pausiert",
+        "recovery": "Wartet auf Wiederherstellung beim Start",
+        "scheduler_error": "Wartet nach Scheduler-Fehler"
       }
     },
     "connections": {
