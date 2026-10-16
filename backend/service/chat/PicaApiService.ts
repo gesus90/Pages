@@ -18,17 +18,16 @@ import type { User } from "@/definition/User";
 import type { ChatSessionService } from "./ChatSessionService";
 import type { ChatToolExecutor } from "./ChatToolExecutor";
 
-/** Server-built turn data; the current human message is separate from untrusted conversation context. */
+/** Server-built turn data: the person and the conversation the turn belongs to. */
 export interface PicaApiInput extends TextExecutionInput {
   readonly actor: User;
   readonly sessionId: string;
-  readonly message: string;
 }
 
 /** Native API dependencies; there is deliberately no CLI execution or scheduler port. */
 export interface PicaApiDependencies {
   readonly models: Pick<PicaApiModels, "use" | "authorize">;
-  readonly sessions: Pick<ChatSessionService, "require">;
+  readonly sessions: Pick<ChatSessionService, "require" | "confirmationWord">;
   readonly tools: Pick<ChatToolExecutor, "run">;
 }
 
@@ -88,7 +87,7 @@ export class PicaApiService {
       maxSteps: 7,
       tools: createPicaTools({
         tools: this.dependencies.tools,
-        message: input.message,
+        sessions: this.dependencies.sessions,
         authorize: context.authorize,
       }),
     });

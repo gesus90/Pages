@@ -323,7 +323,7 @@
         "instruction": "Ergänzende Anweisung (Markdown, optional)",
         "instructionDefault": "Keine Ergänzung gespeichert. Pica arbeitet nur mit den geschützten Vorgaben aus SOUL.md und AGENTS.md.",
         "instructionCustom": "Eine Ergänzung ist aktiv.",
-        "instructionHint": "Sie gilt ab der nächsten Nachricht und steht unter den geschützten Vorgaben von Pica (SOUL.md, AGENTS.md) und den festen Regeln von Pages (Rechte der Person, Aktionen, Bestätigung beim Löschen). Sie kann diese weder ändern noch aufheben; die geschützten Vorgaben lassen sich hier nicht bearbeiten.",
+        "instructionHint": "Sie gilt ab der nächsten Nachricht und steht unter den geschützten Vorgaben von Pica (SOUL.md, AGENTS.md) und den festen Regeln von Pages (Rechte der Person, Aktionen). Sie kann diese weder ändern noch aufheben; die geschützten Vorgaben lassen sich hier nicht bearbeiten.",
         "modelHint": "Zugang und Modell legst du bei der Systemfunktion Chat fest:",
         "modelLink": "Einstellungen › Agents",
         "save": "Chat-Einstellungen speichern",

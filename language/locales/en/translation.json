@@ -323,7 +323,7 @@
         "instruction": "Supplementary instruction (Markdown, optional)",
         "instructionDefault": "No supplement saved. Pica works with the protected instructions from SOUL.md and AGENTS.md alone.",
         "instructionCustom": "A supplement is active.",
-        "instructionHint": "It applies from the next message on and ranks below the protected instructions of Pica (SOUL.md, AGENTS.md) and the fixed rules of Pages (rights of the person, actions, confirmation of deletions). It can neither change nor override them; the protected instructions cannot be edited here.",
+        "instructionHint": "It applies from the next message on and ranks below the protected instructions of Pica (SOUL.md, AGENTS.md) and the fixed rules of Pages (rights of the person, actions). It can neither change nor override them; the protected instructions cannot be edited here.",
         "modelHint": "Access and model are set at the system function Chat:",
         "modelLink": "Settings › Agents",
         "save": "Save chat settings",

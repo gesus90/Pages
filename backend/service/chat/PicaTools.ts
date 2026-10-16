@@ -2,15 +2,16 @@ import { RuntimeToolRegistry } from "@/backend/agents/runtime/RuntimeToolRegistr
 import { redactAssistantCredentials } from "@/backend/service/assistant/TextAssistantValidation";
 
 import { CHAT_MAXIMUM_ACTIONS } from "./ChatService";
+import { isChatDeleteOperation } from "./ChatToolCatalog";
 import {
   PICA_READ_SCHEMAS,
   PICA_TOOL_OUTCOME,
   PICA_WRITE_SCHEMAS,
   isPicaWriteTool,
 } from "./PicaToolSchemas";
-import { PicaWriteConfirmation } from "./PicaWriteConfirmation";
 
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
+import type { ChatSessionService } from "./ChatSessionService";
 import type { ChatOperation } from "./ChatToolCatalog";
 import type { ChatToolExecutor } from "./ChatToolExecutor";
 import type {
@@ -19,13 +20,12 @@ import type {
   PicaWriteTool,
 } from "./PicaToolSchemas";
 
-/** Services and current input captured by the server for one native tool catalog. */
+/** Services captured by the server for the native tool catalog of one turn. */
 export interface PicaToolsInput {
   readonly tools: Pick<ChatToolExecutor, "run">;
-  readonly message: string;
+  /** The word the deletions of the person's interface language take; Pages passes it, never the model. */
+  readonly sessions: Pick<ChatSessionService, "confirmationWord">;
   readonly authorize: () => Promise<void>;
-  /** Write confirmations of the turn; a steer adds its lines to them. Defaults to the message's own. */
-  readonly confirmations?: PicaWriteConfirmation;
 }
 
 type ToolParameters = Readonly<Record<string, unknown>>;
@@ -41,9 +41,6 @@ interface PicaToolBinding {
   ) => ToolParameters;
 }
 
-const CONFIRMED =
-  "Requires an exact BESTÄTIGEN/CONFIRM line with exactly these arguments in the current human message. Never retry a write automatically.";
-
 const READ_TOOLS: Readonly<Record<PicaReadTool, PicaToolBinding>> = {
   projects_list: {
     description:
@@ -53,6 +50,11 @@ const READ_TOOLS: Readonly<Record<PicaReadTool, PicaToolBinding>> = {
   projects_read: {
     description: "Read the core fields of a visible project by ID.",
     operation: "projects.read",
+  },
+  departments_list: {
+    description:
+      "List the visible departments with ID and name, for example for a new project.",
+    operation: "departments.list",
   },
   tickets_search: {
     description:
@@ -67,7 +69,7 @@ const READ_TOOLS: Readonly<Record<PicaReadTool, PicaToolBinding>> = {
   },
   tickets_read: {
     description:
-      "Read a visible ticket by ID or key, including the current title, description, status ID, assignee and tags before proposing a change.",
+      "Read a visible ticket by ID or key, including the current title, description, status ID, parent, milestone, assignee, tags and descendantCount before a change.",
     operation: "ticket.read",
   },
   assignment_targets_search: {
@@ -79,6 +81,11 @@ const READ_TOOLS: Readonly<Record<PicaReadTool, PicaToolBinding>> = {
     description:
       "List the tag catalog; only these tags can be set on a ticket.",
     operation: "tags.list",
+  },
+  milestones_read: {
+    description:
+      "Read the milestones of a visible project with ID, name, description, status, start and due date.",
+    operation: "milestones.read",
   },
   wiki_search: {
     description:
@@ -103,32 +110,149 @@ const READ_TOOLS: Readonly<Record<PicaReadTool, PicaToolBinding>> = {
 
 const WRITE_TOOLS: Readonly<Record<PicaWriteTool, PicaToolBinding>> = {
   tickets_create: {
-    description: `Create a ticket in a project. statusId null takes the default status, parentId null creates no parent; without assignee the person works on it. ${CONFIRMED}`,
+    description:
+      "Create a ticket in a project. statusId null takes the default status, parentId null creates no parent; without assignee the person works on it.",
     operation: "ticket.create",
   },
   tickets_set_title: {
-    description: `Change only a ticket title with its expected old title. ${CONFIRMED}`,
+    description: "Change only a ticket title with its expected old title.",
     operation: "ticket.setTitle",
   },
   tickets_set_status: {
-    description: `Change only a ticket status with its expected old status ID. ${CONFIRMED}`,
+    description: "Change only a ticket status with its expected old status ID.",
     operation: "ticket.setStatus",
   },
   tickets_set_description: {
-    description: `Replace a ticket description with its expected old description. ${CONFIRMED}`,
+    description:
+      "Replace a ticket description with its expected old description.",
     operation: "ticket.setDescription",
   },
   tickets_set_assignee: {
-    description: `Assign a ticket to a person or group, or to nobody with targetType none and targetId null, with the expected old assignee and group IDs. ${CONFIRMED}`,
+    description:
+      "Assign a ticket to a person or group, or to nobody with targetType none and targetId null, with the expected old assignee and group IDs.",
     operation: "ticket.setAssignee",
   },
   tickets_set_tags: {
-    description: `Set the tags of a ticket from the catalog, with the expected old tag IDs. ${CONFIRMED}`,
+    description:
+      "Set the tags of a ticket from the catalog, with the expected old tag IDs.",
     operation: "ticket.setTags",
   },
+  tickets_set_parent: {
+    description:
+      "Move a ticket under another parent ticket, or to none with parentId null, with the expected old parent ID.",
+    operation: "ticket.setParent",
+  },
+  tickets_set_milestone: {
+    description:
+      "Assign a ticket to a milestone of its project, or to none with milestoneId null, with the expected old milestone ID.",
+    operation: "ticket.assignMilestone",
+  },
+  tickets_delete: {
+    description:
+      "Move a ticket with all its descendants to the trash; the result names how many were moved.",
+    operation: "ticket.delete",
+  },
+  projects_create: {
+    description:
+      "Create a project with status planned, active, paused or completed; departmentIds from departments_list are required when the instance has departments.",
+    operation: "projects.create",
+  },
+  projects_set_name: {
+    description: "Rename a project.",
+    operation: "projects.setName",
+  },
+  projects_set_description: {
+    description: "Replace the description of a project.",
+    operation: "projects.setDescription",
+  },
+  projects_set_status: {
+    description: "Set the status of a project.",
+    operation: "projects.setStatus",
+  },
+  projects_set_dates: {
+    description:
+      "Set the start and target date of a project as YYYY-MM-DD, or remove them with null.",
+    operation: "projects.setDates",
+  },
+  milestones_create: {
+    description:
+      "Create a milestone in a project; start and due date are YYYY-MM-DD or null.",
+    operation: "milestone.create",
+  },
+  milestones_set_name: {
+    description: "Rename a milestone with its expected old name.",
+    operation: "milestone.setName",
+  },
+  milestones_set_description: {
+    description:
+      "Replace a milestone description with its expected old description.",
+    operation: "milestone.setDescription",
+  },
+  milestones_set_status: {
+    description: "Set the status of a milestone with its expected old status.",
+    operation: "milestone.setStatus",
+  },
+  milestones_set_start_at: {
+    description:
+      "Set or remove the start date of a milestone with its expected old start date.",
+    operation: "milestone.setStartAt",
+  },
+  milestones_set_due_at: {
+    description:
+      "Set or remove the due date of a milestone with its expected old due date.",
+    operation: "milestone.setDueAt",
+  },
+  milestones_delete: {
+    description:
+      "Move a milestone of a project to the trash; its dependencies are removed, its tickets stay as they are.",
+    operation: "milestone.delete",
+  },
+  wiki_page_create: {
+    description:
+      "Create a wiki page with Markdown content in a project, or with projectId null in the instance or private wiki named by scope; parentId null puts it on the top level.",
+    operation: "wiki.page.create",
+    // Pica uploads nothing, so a page it creates references no new files.
+    parameters: ({ icon, ...input }) => ({
+      ...input,
+      icon: icon ?? null,
+      assetIds: [],
+    }),
+  },
+  wiki_page_set_title: {
+    description: "Change the title of a wiki page with the revision read last.",
+    operation: "wiki.page.setTitle",
+  },
+  wiki_page_set_content: {
+    description:
+      "Replace the whole Markdown content of a wiki page with the revision read last.",
+    operation: "wiki.page.setContent",
+  },
+  wiki_page_move: {
+    description:
+      "Move a wiki page to a project or wiki, under a parent and before a sibling, with the revision read last; parentId null is the top level, beforeId null the end.",
+    operation: "wiki.page.move",
+  },
+  wiki_page_delete: {
+    description:
+      "Move a wiki page with its subpages to the trash, with the revision read last.",
+    operation: "wiki.page.delete",
+  },
   wiki_comment_add: {
-    description: `Add a comment to a visible wiki page; parentId answers a comment, quote names a passage, both null otherwise. ${CONFIRMED}`,
+    description:
+      "Add a comment to a visible wiki page; parentId answers a comment, quote names a passage, both null otherwise.",
     operation: "wiki.comment.add",
+  },
+  wiki_comment_edit: {
+    description: "Replace the text of a wiki comment.",
+    operation: "wiki.comment.edit",
+  },
+  wiki_comment_resolve: {
+    description: "Resolve a wiki comment thread, or open it again.",
+    operation: "wiki.comment.resolve",
+  },
+  wiki_comment_delete: {
+    description: "Delete a wiki comment.",
+    operation: "wiki.comment.delete",
   },
 };
 
@@ -136,18 +260,34 @@ function isPicaReadTool(name: string): name is PicaReadTool {
   return Object.hasOwn(PICA_READ_SCHEMAS, name);
 }
 
+function refused(error: string): PicaToolOutcome {
+  return { ok: false, result: null, error };
+}
+
+/** The same value with the keys of every object sorted, so field order never matters. */
+function canonical(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (typeof value !== "object" || value === null) return value;
+  return Object.fromEntries(
+    Object.entries(value)
+      .sort(([left], [right]) => (left < right ? -1 : 1))
+      .map(([key, entry]) => [key, canonical(entry)]),
+  );
+}
+
 /**
- * Creates the native tools with fixed service dispatch, fresh rights and exact write confirmations.
+ * Creates the native tools with fixed service dispatch and fresh rights.
  *
  * @remarks
- * Reads find and read projects, tickets and wiki pages. Every write runs once
- * per exact confirmation line of the person. No tool deletes: a deletion
- * still needs the confirmation word, which the tools never pass on.
+ * Reads find and read projects, tickets, milestones and the wiki. Writes
+ * create, change and delete them on user level when the person asks for it,
+ * without a confirmation line: the services check the rights of the person on
+ * every call. Pages adds the confirmation word a deletion needs itself. A
+ * write that failed is not sent again unchanged in the same turn.
  */
 export function createPicaTools(input: PicaToolsInput): RuntimeToolRegistry {
   const registry = new RuntimeToolRegistry();
-  const confirmations =
-    input.confirmations ?? new PicaWriteConfirmation(input.message);
+  const failedWrites = new Set<string>();
   let calls = 0;
   const execute = async (
     binding: PicaToolBinding,
@@ -156,26 +296,39 @@ export function createPicaTools(input: PicaToolsInput): RuntimeToolRegistry {
   ): Promise<PicaToolOutcome> => {
     await input.authorize();
     context.signal.throwIfAborted();
-    if (calls >= CHAT_MAXIMUM_ACTIONS)
-      return { ok: false, result: null, error: "STEP_LIMIT" };
+    if (calls >= CHAT_MAXIMUM_ACTIONS) return refused("STEP_LIMIT");
     calls += 1;
+    const confirmation = isChatDeleteOperation(binding.operation)
+      ? await input.sessions.confirmationWord(context.userId)
+      : null;
     const outcome = await input.tools.run(
       context.userId,
       {
         operation: binding.operation,
         parameters: binding.parameters?.(parameters, context) ?? parameters,
       },
-      null,
+      confirmation,
     );
     context.signal.throwIfAborted();
-    if (!outcome.ok)
-      return { ok: false, result: null, error: outcome.error ?? "FAILED" };
+    if (!outcome.ok) return refused(outcome.error ?? "FAILED");
     const result = redactAssistantCredentials(
       JSON.stringify(outcome.result ?? null),
     );
-    if (result.length > 20_000)
-      return { ok: false, result: null, error: "RESULT_TOO_LARGE" };
+    if (result.length > 20_000) return refused("RESULT_TOO_LARGE");
     return { ok: true, result, error: null };
+  };
+  const write = async (
+    tool: PicaWriteTool,
+    parameters: ToolParameters,
+    context: RuntimeExecutionContext,
+  ): Promise<PicaToolOutcome> => {
+    const attempt = JSON.stringify([tool, canonical(parameters)]);
+    if (failedWrites.has(attempt)) return refused("RETRY_REFUSED");
+    const outcome = await execute(WRITE_TOOLS[tool], parameters, context);
+    // A write the step limit held back never reached a service.
+    if (!outcome.ok && outcome.error !== "STEP_LIMIT")
+      failedWrites.add(attempt);
+    return outcome;
   };
   for (const tool of Object.keys(PICA_READ_SCHEMAS).filter(isPicaReadTool))
     registry.register<ToolParameters, PicaToolOutcome>({
@@ -192,10 +345,7 @@ export function createPicaTools(input: PicaToolsInput): RuntimeToolRegistry {
       description: WRITE_TOOLS[tool].description,
       inputSchema: PICA_WRITE_SCHEMAS[tool],
       outputSchema: PICA_TOOL_OUTCOME,
-      execute: async (parameters, context) =>
-        confirmations.consume(tool, parameters)
-          ? execute(WRITE_TOOLS[tool], parameters, context)
-          : { ok: false, result: null, error: "CONFIRMATION_REQUIRED" },
+      execute: (parameters, context) => write(tool, parameters, context),
     });
   return registry;
 }

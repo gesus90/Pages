@@ -1,17 +1,18 @@
 import { expect, it, vi } from "vitest";
 import { z } from "zod";
 
+import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
 import { ChatToolExecutor } from "@/backend/service/chat/ChatToolExecutor";
 import { PICA_TOOL_OUTCOME } from "@/backend/service/chat/PicaToolSchemas";
 import { createPicaTools } from "@/backend/service/chat/PicaTools";
-import { PicaWriteConfirmation } from "@/backend/service/chat/PicaWriteConfirmation";
 import { PicaBridge } from "@/backend/service/chat/acp/PicaBridge";
 
 import { FIRST, OWNER } from "../page48-chat-fixture";
 
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
 import type { AgentOperationRouter } from "@/backend/service/agents/AgentOperationRouter";
+import type { ChatSessionService } from "@/backend/service/chat/ChatSessionService";
 import type { PicaToolOutcome } from "@/backend/service/chat/PicaToolSchemas";
 import type { PicaBridgeLease } from "@/backend/service/chat/acp/PicaBridge";
 import type { PicaBridgeResponse } from "@/backend/service/chat/acp/PicaBridgeProtocol";
@@ -21,10 +22,12 @@ const BRIDGE_URL = "http://127.0.0.1:3100/api/v1/pica-bridge";
 const READ_TOOLS = [
   "projects_list",
   "projects_read",
+  "departments_list",
   "tickets_search",
   "tickets_read",
   "assignment_targets_search",
   "tags_list",
+  "milestones_read",
   "wiki_search",
   "wiki_tree_read",
   "wiki_page_read",
@@ -38,8 +41,35 @@ const WRITE_TOOLS = [
   "tickets_set_description",
   "tickets_set_assignee",
   "tickets_set_tags",
+  "tickets_set_parent",
+  "tickets_set_milestone",
+  "tickets_delete",
+  "projects_create",
+  "projects_set_name",
+  "projects_set_description",
+  "projects_set_status",
+  "projects_set_dates",
+  "milestones_create",
+  "milestones_set_name",
+  "milestones_set_description",
+  "milestones_set_status",
+  "milestones_set_start_at",
+  "milestones_set_due_at",
+  "milestones_delete",
+  "wiki_page_create",
+  "wiki_page_set_title",
+  "wiki_page_set_content",
+  "wiki_page_move",
+  "wiki_page_delete",
   "wiki_comment_add",
+  "wiki_comment_edit",
+  "wiki_comment_resolve",
+  "wiki_comment_delete",
 ];
+
+/** Names of administration: accounts, agents, connections, instance settings and the tag catalog. */
+const ADMINISTRATION =
+  /^(?:admin|users?|accounts?|agents?|connections?|settings|instance|groups?|departments?_(?:create|set|delete)|tags?_(?:create|set|delete))/u;
 
 const WRITES = [
   [
@@ -111,10 +141,6 @@ const TOOL_LIST = z.object({
   }),
 });
 
-function confirmation(tool: string, parameters: unknown): string {
-  return `BESTÄTIGEN ${tool} ${JSON.stringify(parameters)}`;
-}
-
 function authorizationOf(lease: PicaBridgeLease): string {
   const { server } = lease;
   if (!("type" in server) || server.type !== "http")
@@ -147,8 +173,11 @@ function bridgeWorld(): {
     >
   >;
   readonly authorize: ReturnType<typeof vi.fn<() => Promise<void>>>;
+  readonly confirmationWord: ReturnType<
+    typeof vi.fn<ChatSessionService["confirmationWord"]>
+  >;
   readonly events: unknown[];
-  readonly turn: (message: string) => PicaWriteConfirmation;
+  readonly turn: () => void;
   readonly send: (
     body: unknown,
     authorization?: string,
@@ -169,6 +198,10 @@ function bridgeWorld(): {
     router: { handle: router },
   });
   const authorize = vi.fn(async () => undefined);
+  const confirmationWord = vi.fn<ChatSessionService["confirmationWord"]>(
+    async () => "LÖSCHEN",
+  );
+  const sessions = { confirmationWord };
   const events: unknown[] = [];
   const context: RuntimeExecutionContext = Object.freeze({
     userId: OWNER.id,
@@ -182,18 +215,16 @@ function bridgeWorld(): {
     jobId: "job",
     catalog: createPicaTools({
       tools,
-      message: "",
+      sessions,
       authorize: () => Promise.resolve(),
     }).describe(),
     onTool: (event) => events.push(event),
   });
-  const turn = (message: string): PicaWriteConfirmation => {
-    const confirmations = new PicaWriteConfirmation(message);
+  const turn = (): void => {
     opened.setTurn({
-      tools: createPicaTools({ tools, message, authorize, confirmations }),
+      tools: createPicaTools({ tools, sessions, authorize }),
       context,
     });
-    return confirmations;
   };
   const send = (
     body: unknown,
@@ -218,6 +249,7 @@ function bridgeWorld(): {
     router,
     verify,
     authorize,
+    confirmationWord,
     events,
     turn,
     send,
@@ -225,7 +257,7 @@ function bridgeWorld(): {
   };
 }
 
-it("lets an MCP client initialize and list every native tool with strict schemas and no deletion", async () => {
+it("lets an MCP client initialize and list every native tool with strict schemas and no administration", async () => {
   const world = bridgeWorld();
   const initialized = await world.send({
     jsonrpc: "2.0",
@@ -248,16 +280,14 @@ it("lets an MCP client initialize and list every native tool with strict schemas
   );
   const names = listed.result.tools.map(({ name }) => name);
   expect(names).toEqual([...READ_TOOLS, ...WRITE_TOOLS]);
-  expect(names.some((name) => name.includes("delete"))).toBe(false);
-  for (const tool of listed.result.tools.filter(({ name }) =>
-    WRITE_TOOLS.includes(name),
-  ))
-    expect(tool.description).toContain("BESTÄTIGEN/CONFIRM");
+  expect(names.filter((name) => ADMINISTRATION.test(name))).toEqual([]);
+  for (const tool of listed.result.tools)
+    expect(tool.description).not.toMatch(/BESTÄTIGEN|CONFIRM|LÖSCHEN/u);
 });
 
 it("reads projects, the person's own tickets and the wiki with fresh rights on every call", async () => {
   const world = bridgeWorld();
-  world.turn("Liste die Titel meiner offenen Tickets");
+  world.turn();
   const outcomes = [
     await world.call("projects_list", {}),
     await world.call("tickets_search", {
@@ -302,13 +332,7 @@ it.each([
   "refuses arguments outside the strict schema of %s before any dispatch",
   async (tool, input) => {
     const world = bridgeWorld();
-    world.turn(
-      confirmation("tickets_set_title", {
-        ticketId: "PAGE-1",
-        expectedTitle: "Alt",
-        title: "Neu",
-      }),
-    );
+    world.turn();
     expect(await world.call(tool, input)).toEqual({
       ok: false,
       result: null,
@@ -319,16 +343,11 @@ it.each([
 );
 
 it.each(WRITES)(
-  "runs %s once for the exact confirmation line of the current message",
+  "runs %s for the person on request, without a confirmation line",
   async (tool, operation, parameters) => {
     const world = bridgeWorld();
-    world.turn(`Bitte ausführen\n${confirmation(tool, parameters)}`);
+    world.turn();
     expect(await world.call(tool, parameters)).toMatchObject({ ok: true });
-    expect(await world.call(tool, parameters)).toEqual({
-      ok: false,
-      result: null,
-      error: "CONFIRMATION_REQUIRED",
-    });
     expect(world.router).toHaveBeenCalledOnce();
     const [identity, request] = world.router.mock.calls[0] ?? [];
     expect(identity?.userId).toBe(OWNER.id);
@@ -340,7 +359,7 @@ it.each(WRITES)(
 );
 
 it.each(WRITES)(
-  "refuses %s without a confirmation line or with other arguments",
+  "does not send %s again unchanged after it failed in the same turn",
   async (tool, _, parameters) => {
     const world = bridgeWorld();
     const changed = Object.fromEntries(
@@ -351,53 +370,94 @@ it.each(WRITES)(
           : value,
       ]),
     );
-    world.turn(
-      ["Ja, mach das", "LÖSCHEN", confirmation(tool, changed)].join("\n"),
-    );
+    world.turn();
+    world.router.mockRejectedValue(new AgentOperationError("CONFLICT"));
     expect(await world.call(tool, parameters)).toEqual({
       ok: false,
       result: null,
-      error: "CONFIRMATION_REQUIRED",
+      error: "CONFLICT",
     });
-    expect(world.router).not.toHaveBeenCalled();
+    expect(await world.call(tool, parameters)).toEqual({
+      ok: false,
+      result: null,
+      error: "RETRY_REFUSED",
+    });
+    expect(world.router).toHaveBeenCalledOnce();
+    expect(await world.call(tool, changed)).toMatchObject({
+      error: "CONFLICT",
+    });
+    expect(world.router).toHaveBeenCalledTimes(2);
   },
 );
 
-it("matches a confirmation regardless of key order and accepts the line of a steer", async () => {
+it("recognizes a failed write regardless of key order and refuses it until the next turn", async () => {
   const world = bridgeWorld();
   const tags = {
     ticketId: "PAGE-1",
     tagIds: ["tag-1"],
     expectedTagIds: [],
   };
-  const confirmations = world.turn("Setze die Tags");
+  world.turn();
+  world.router.mockRejectedValueOnce(new AgentOperationError("CONFLICT"));
   expect(await world.call("tickets_set_tags", tags)).toMatchObject({
     ok: false,
-    error: "CONFIRMATION_REQUIRED",
+    error: "CONFLICT",
   });
-  confirmations.add(
-    'CONFIRM tickets_set_tags {"expectedTagIds":[],"tagIds":["tag-1"],"ticketId":"PAGE-1"}',
-  );
+  expect(
+    await world.call("tickets_set_tags", {
+      expectedTagIds: [],
+      tagIds: ["tag-1"],
+      ticketId: "PAGE-1",
+    }),
+  ).toMatchObject({ ok: false, error: "RETRY_REFUSED" });
+  world.turn();
   expect(await world.call("tickets_set_tags", tags)).toMatchObject({
     ok: true,
   });
-  expect(world.router).toHaveBeenCalledOnce();
+  expect(world.router).toHaveBeenCalledTimes(2);
 });
 
-it("offers no deletion and never passes the confirmation word on to a deleting operation", async () => {
+it("deletes with the confirmation word Pages reads for the person, never with one of the model", async () => {
   const world = bridgeWorld();
-  world.turn('LÖSCHEN\nBESTÄTIGEN tickets_delete {"ticketId":"PAGE-1"}');
-  for (const tool of [
-    "tickets_delete",
-    "wiki_comment_delete",
-    "pages_operation",
-  ])
+  world.turn();
+  expect(
+    await world.call("tickets_delete", {
+      ticketId: "PAGE-1",
+      confirmation: "LÖSCHEN",
+    }),
+  ).toMatchObject({ ok: false, error: "INVALID_ARGUMENTS" });
+  for (const tool of ["pages_operation", "users_delete", "agents_delete"])
     expect(await world.call(tool, { ticketId: "PAGE-1" })).toEqual({
       ok: false,
       result: null,
       error: "UNKNOWN_TOOL",
     });
   expect(world.router).not.toHaveBeenCalled();
+  world.confirmationWord.mockResolvedValueOnce("DELETE");
+  expect(
+    await world.call("tickets_delete", { ticketId: "PAGE-1" }),
+  ).toMatchObject({ ok: true });
+  expect(
+    await world.call("wiki_comment_delete", { commentId: "comment-1" }),
+  ).toMatchObject({ ok: true });
+  expect(world.confirmationWord.mock.calls).toEqual([[OWNER.id], [OWNER.id]]);
+  expect(
+    world.router.mock.calls.map(([identity, request]) => [
+      identity.userId,
+      request.operation,
+    ]),
+  ).toEqual([
+    [OWNER.id, "ticket.delete"],
+    [OWNER.id, "wiki.comment.delete"],
+  ]);
+  expect(world.router.mock.calls[0]?.[1].parameters).toMatchObject({
+    ticketId: "PAGE-1",
+    confirmation: "DELETE",
+  });
+  expect(world.router.mock.calls[1]?.[1].parameters).toMatchObject({
+    commentId: "comment-1",
+    confirmation: "LÖSCHEN",
+  });
 });
 
 it("refuses calls between turns, with a foreign token and after revoked access", async () => {
@@ -405,7 +465,7 @@ it("refuses calls between turns, with a foreign token and after revoked access",
   expect(await world.call("projects_list", {})).toMatchObject({
     error: "TURN_INACTIVE",
   });
-  world.turn("Lies die Projekte");
+  world.turn();
   expect(
     (
       await world.send(

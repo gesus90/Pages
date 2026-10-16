@@ -341,7 +341,6 @@ export class ChatService {
           actor: turn.actor,
           userId: turn.actor.id,
           sessionId: turn.request.sessionId,
-          message: turn.request.text,
           agent: turn.agent,
           instructions,
           prompt: createChatPrompt({ ...prompt, steps: [], isLastStep: false }),

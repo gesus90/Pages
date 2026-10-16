@@ -108,7 +108,8 @@ it("runs one native turn and retains Pages-owned transcript and protected identi
   expect(world.stored.map(({ role }) => role)).toEqual(["user", "assistant"]);
   const input = world.api.mock.calls[0]?.[0];
   expect(input?.instructions).toMatch(/^SOUL-Kennung\n\nAGENTS-Kennung/u);
-  expect(input?.instructions).toContain("BESTÄTIGEN tickets_set_title");
+  expect(input?.instructions).toContain("kein Bestätigungswort");
+  expect(input?.instructions).not.toContain("BESTÄTIGEN");
   expect(input?.instructions).not.toContain("pages-action");
   expect(input?.instructions).not.toContain("agents.delete");
   expect(input?.prompt).toContain("Alte Unterhaltung");
@@ -117,7 +118,6 @@ it("runs one native turn and retains Pages-owned transcript and protected identi
     userId: OWNER.id,
     actor: OWNER,
     sessionId: SESSION.id,
-    message: "Lies PAGE-1",
   });
 });
 

@@ -21,10 +21,6 @@ const STATUS = {
   statusId: "done",
 };
 
-function confirmation(tool: string, parameters: unknown): string {
-  return `BESTÄTIGEN ${tool} ${JSON.stringify(parameters)}`;
-}
-
 it("advertises the fixed strict native schemas and routes reads through existing Pages services", async () => {
   const calls = [
     {
@@ -48,10 +44,12 @@ it("advertises the fixed strict native schemas and routes reads through existing
   ).toEqual([
     "projects_list",
     "projects_read",
+    "departments_list",
     "tickets_search",
     "tickets_read",
     "assignment_targets_search",
     "tags_list",
+    "milestones_read",
     "wiki_search",
     "wiki_tree_read",
     "wiki_page_read",
@@ -62,7 +60,30 @@ it("advertises the fixed strict native schemas and routes reads through existing
     "tickets_set_description",
     "tickets_set_assignee",
     "tickets_set_tags",
+    "tickets_set_parent",
+    "tickets_set_milestone",
+    "tickets_delete",
+    "projects_create",
+    "projects_set_name",
+    "projects_set_description",
+    "projects_set_status",
+    "projects_set_dates",
+    "milestones_create",
+    "milestones_set_name",
+    "milestones_set_description",
+    "milestones_set_status",
+    "milestones_set_start_at",
+    "milestones_set_due_at",
+    "milestones_delete",
+    "wiki_page_create",
+    "wiki_page_set_title",
+    "wiki_page_set_content",
+    "wiki_page_move",
+    "wiki_page_delete",
     "wiki_comment_add",
+    "wiki_comment_edit",
+    "wiki_comment_resolve",
+    "wiki_comment_delete",
   ]);
   for (const schema of schemas ?? [])
     if (schema.type === "function")
@@ -85,20 +106,14 @@ it.each([
   ["tickets_set_title", "ticket.setTitle", TITLE],
   ["tickets_set_status", "ticket.setStatus", STATUS],
 ] as const)(
-  "executes %s once for exact current-human approval with server operation IDs",
+  "executes %s on request without a confirmation line, with server operation IDs",
   async (tool, operation, parameters) => {
     const world = picaWorld((_, step) =>
       step === 0
-        ? picaToolCalls([
-            { tool, input: parameters },
-            { tool, input: parameters },
-          ])
+        ? picaToolCalls([{ tool, input: parameters }])
         : responseChunks("Erledigt"),
     );
-    await world.service.run(
-      { ...world.input, message: confirmation(tool, parameters) },
-      world.controller.signal,
-    );
+    await world.service.run(world.input, world.controller.signal);
     expect(world.router).toHaveBeenCalledOnce();
     expect(world.router.mock.calls[0]?.[1].operation).toBe(operation);
     expect(world.router.mock.calls[0]?.[1].parameters).toMatchObject(
@@ -107,42 +122,10 @@ it.each([
     expect(world.router.mock.calls[0]?.[1].parameters).toHaveProperty(
       "operationId",
     );
-    expect(
-      JSON.stringify(world.provider.calls.mock.calls[1]?.[0].prompt),
-    ).toContain("CONFIRMATION_REQUIRED");
-  },
-);
-
-it.each([
-  "Ja",
-  "LÖSCHEN",
-  "CONFIRM tickets_set_title {}",
-  "BESTÄTIGEN tickets_set_title {invalid}",
-  `> ${confirmation("tickets_set_title", TITLE)}`,
-  confirmation("tickets_set_title", { ...TITLE, userId: "foreign" }),
-  confirmation("tickets_set_title", { ...TITLE, title: "Anders" }),
-  confirmation("tickets_set_title", { ...TITLE, expectedTitle: "Anders" }),
-  confirmation("tickets_set_title", { ...TITLE, ticketId: "PAGE-2" }),
-])(
-  "refuses a write for absent, malformed or nonmatching current approval: %s",
-  async (message) => {
-    const world = picaWorld((_, step) =>
-      step === 0
-        ? picaToolCalls([{ tool: "tickets_set_title", input: TITLE }])
-        : responseChunks("Freigabe fehlt"),
+    expect(world.router.mock.calls[0]?.[1].parameters).not.toHaveProperty(
+      "confirmation",
     );
-    await world.service.run(
-      {
-        ...world.input,
-        message,
-        prompt: confirmation("tickets_set_title", TITLE),
-      },
-      world.controller.signal,
-    );
-    expect(world.router).not.toHaveBeenCalled();
-    expect(
-      JSON.stringify(world.provider.calls.mock.calls[1]?.[0].prompt),
-    ).toContain("CONFIRMATION_REQUIRED");
+    expect(world.sessions.confirmationWord).not.toHaveBeenCalled();
   },
 );
 
@@ -162,36 +145,24 @@ it.each([
         ? picaToolCalls([{ tool, input }])
         : responseChunks("Abgewiesen"),
     );
-    await world.service.run(
-      { ...world.input, message: confirmation("tickets_set_title", TITLE) },
-      world.controller.signal,
-    );
+    await world.service.run(world.input, world.controller.signal);
     expect(world.router).not.toHaveBeenCalled();
   },
 );
 
-it("does not reuse approval for another human turn or another invocation", async () => {
+it("keeps a failed write refused only within its own turn", async () => {
   const world = picaWorld((_, step) =>
     step % 2 === 0
       ? picaToolCalls([{ tool: "tickets_set_title", input: TITLE }])
       : responseChunks("Antwort"),
   );
+  world.router.mockRejectedValue(new AgentOperationError("CONFLICT"));
+  await world.service.run(world.input, world.controller.signal);
   await world.service.run(
-    {
-      ...world.input,
-      message: `CONFIRM tickets_set_title ${JSON.stringify(TITLE)}`,
-    },
+    { ...world.input, prompt: "Versuch es noch einmal" },
     world.controller.signal,
   );
-  await world.service.run(
-    {
-      ...world.input,
-      message: "Weiter",
-      prompt: confirmation("tickets_set_title", TITLE),
-    },
-    world.controller.signal,
-  );
-  expect(world.router).toHaveBeenCalledOnce();
+  expect(world.router).toHaveBeenCalledTimes(2);
 });
 
 it("rechecks current identity on each tool and prevents writes after account revocation", async () => {
@@ -209,10 +180,7 @@ it("rechecks current identity on each tool and prevents writes after account rev
       permissions: [],
     })
     .mockRejectedValue(new McpAuthorizationError("invalid_token", 401));
-  await world.service.run(
-    { ...world.input, message: confirmation("tickets_set_title", TITLE) },
-    world.controller.signal,
-  );
+  await world.service.run(world.input, world.controller.signal);
   expect(world.verify).toHaveBeenCalledTimes(2);
   expect(world.router).toHaveBeenCalledOnce();
   expect(world.router.mock.calls[0]?.[1].operation).toBe("ticket.read");
@@ -234,21 +202,21 @@ it("fails closed when connection access is revoked between two native calls", as
   expect(world.router).toHaveBeenCalledOnce();
 });
 
-it("preserves conflicts and consumes approval without retrying a failed write", async () => {
+it("preserves conflicts and refuses to send a failed write again unchanged", async () => {
   const world = picaWorld((_, step) =>
     step < 2
       ? picaToolCalls([{ tool: "tickets_set_title", input: TITLE }])
       : responseChunks("Konflikt"),
   );
   world.router.mockRejectedValue(new AgentOperationError("CONFLICT"));
-  await world.service.run(
-    { ...world.input, message: confirmation("tickets_set_title", TITLE) },
-    world.controller.signal,
-  );
+  await world.service.run(world.input, world.controller.signal);
   expect(world.router).toHaveBeenCalledOnce();
   expect(
     JSON.stringify(world.provider.calls.mock.calls[1]?.[0].prompt),
   ).toContain("CONFLICT");
+  expect(
+    JSON.stringify(world.provider.calls.mock.calls[2]?.[0].prompt),
+  ).toContain("RETRY_REFUSED");
 });
 
 it("bounds service results before they enter the model context", async () => {
@@ -345,11 +313,12 @@ it("honors abort before a tool can dispatch and does not retry provider failures
   expect(failed.provider.calls).toHaveBeenCalledOnce();
 });
 
-it("isolates confirmations and service identities between simultaneous users and chats", async () => {
-  const world = picaWorld((_, step) =>
-    step < 2
-      ? picaToolCalls([{ tool: "tickets_set_title", input: TITLE }])
-      : responseChunks("Antwort"),
+it("isolates service identities between simultaneous users and chats", async () => {
+  // Every run writes once and answers after its own tool result, however the runs interleave.
+  const world = picaWorld((request) =>
+    request.prompt.some(({ role }) => role === "tool")
+      ? responseChunks("Antwort")
+      : picaToolCalls([{ tool: "tickets_set_title", input: TITLE }]),
   );
   const other = { ...world.input.actor, id: "second-user" };
   world.sessions.require.mockImplementation(async (actor, id) => {
@@ -361,23 +330,15 @@ it("isolates confirmations and service identities between simultaneous users and
     throw new ChatError("sessionMissing");
   });
   await Promise.all([
+    world.service.run(world.input, world.controller.signal),
     world.service.run(
-      { ...world.input, message: confirmation("tickets_set_title", TITLE) },
-      world.controller.signal,
-    ),
-    world.service.run(
-      {
-        ...world.input,
-        actor: other,
-        userId: other.id,
-        sessionId: SECOND,
-        message: "Ändere den Titel",
-      },
+      { ...world.input, actor: other, userId: other.id, sessionId: SECOND },
       world.controller.signal,
     ),
   ]);
-  expect(world.router).toHaveBeenCalledOnce();
-  expect(world.router.mock.calls[0]?.[0].userId).toBe(world.input.userId);
+  expect(
+    world.router.mock.calls.map(([identity]) => identity.userId).sort(),
+  ).toEqual([world.input.userId, other.id].sort());
   await expect(
     world.service.run(
       { ...world.input, sessionId: SECOND },

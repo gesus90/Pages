@@ -7,7 +7,6 @@ import { PicaAcpJobError } from "@/backend/error/PicaAcpJobError";
 import { acpRunOptions } from "@/definition/AgentConfiguration";
 
 import { createPicaTools } from "../PicaTools";
-import { PicaWriteConfirmation } from "../PicaWriteConfirmation";
 import {
   picaSteerText,
   picaTurnPrompt,
@@ -70,7 +69,7 @@ export interface PicaAcpJobDependencies {
   readonly tools: Pick<ChatToolExecutor, "run">;
   /** The scope of the connection, checked again before every tool call. */
   readonly access: ExecutionAuthorizer;
-  readonly sessions: Pick<ChatSessionService, "require">;
+  readonly sessions: Pick<ChatSessionService, "require" | "confirmationWord">;
 }
 
 /** One job: the conversation, the pinned agent and the message it answers. */
@@ -128,7 +127,6 @@ export class PicaAcpJob {
   private session: PlanSession | null = null;
   private acpSessionId: string | null = null;
   private capabilities: PromptCapabilities | null | undefined;
-  private confirmations: PicaWriteConfirmation | null = null;
   private usage: Pick<ChatJobUsage, "context" | "cost"> = {
     context: null,
     cost: null,
@@ -222,7 +220,7 @@ export class PicaAcpJob {
       jobId: this.id,
       catalog: createPicaTools({
         tools: this.dependencies.tools,
-        message: "",
+        sessions: this.dependencies.sessions,
         authorize: () => Promise.resolve(),
       }).describe(),
       onTool: (event) => {
@@ -235,8 +233,8 @@ export class PicaAcpJob {
   }
 
   private async execute(signal: AbortSignal): Promise<void> {
-    const { resumeSessionId, message } = this.specification;
-    await this.beginTurn(message, "message");
+    const { resumeSessionId } = this.specification;
+    await this.beginTurn("message");
     let result = await this.openTurn(resumeSessionId, signal);
     let isResumed = resumeSessionId !== null;
     // An agent session that cannot be continued is replaced once, visibly, with the transcript.
@@ -278,7 +276,7 @@ export class PicaAcpJob {
       if (next === null) return;
       const answerId =
         next.origin === "adapter"
-          ? await this.adapterTurn(next.message, signal)
+          ? await this.adapterTurn(signal)
           : await this.followUpTurn(next.message, signal);
       await this.dependencies.steers.answer(next.message.id, answerId);
       this.steering.answered(next.message.id);
@@ -286,11 +284,8 @@ export class PicaAcpJob {
   }
 
   /** Follows a turn codex-acp started for a steer after its own turn ended. */
-  private async adapterTurn(
-    message: PicaAcpMessage,
-    signal: AbortSignal,
-  ): Promise<string> {
-    await this.beginTurn(message, "followUp");
+  private async adapterTurn(signal: AbortSignal): Promise<string> {
+    await this.beginTurn("followUp");
     await this.thread.ended(signal);
     // The adapter returns no usage for a turn it started itself.
     this.recordTokens(this.turn, null);
@@ -306,7 +301,7 @@ export class PicaAcpJob {
   ): Promise<string> {
     const session = this.session;
     if (!session?.next) throw new PicaAcpJobError("providerFailed");
-    await this.beginTurn(message, "followUp");
+    await this.beginTurn("followUp");
     const { brief } = this.specification;
     const input: AgentPlanExecutionInput = {
       ...this.turnInput(message, {
@@ -325,20 +320,14 @@ export class PicaAcpJob {
     return this.storeAnswer(result.output);
   }
 
-  private async beginTurn(
-    message: PicaAcpMessage,
-    origin: "message" | "followUp",
-  ): Promise<void> {
+  private async beginTurn(origin: "message" | "followUp"): Promise<void> {
     const context = this.requireContext();
     this.turn += 1;
-    const confirmations = new PicaWriteConfirmation(message.text);
-    this.confirmations = confirmations;
     this.requireBridge().setTurn({
       tools: createPicaTools({
         tools: this.dependencies.tools,
-        message: message.text,
+        sessions: this.dependencies.sessions,
         authorize: context.authorize,
-        confirmations,
       }),
       context,
     });
@@ -402,8 +391,6 @@ export class PicaAcpJob {
   private async deliver(message: PicaAcpMessage): Promise<AcpSteerOutcome> {
     const session = this.session;
     if (!session?.steer || !this.isTurnRunning) return "inactive";
-    // A confirmation line of the steer is the person's own, for the turn it joins.
-    this.confirmations?.add(message.text);
     const content = await readPicaAttachments(
       message.attachments,
       this.dependencies.attachments,

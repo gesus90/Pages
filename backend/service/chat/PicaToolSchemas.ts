@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { PROJECT_STATUS } from "@/definition/Project";
 import { WORK_ITEM_TYPE } from "@/definition/Task";
 
 const identifier = z
@@ -13,15 +14,28 @@ const cursor = z.string().max(4000);
 const ticketType = z.enum(Object.values(WORK_ITEM_TYPE));
 
 /**
- * The longest text a write takes, such as a description or a comment.
+ * The longest text a write takes, such as a description, a page or a comment.
  *
  * @remarks
- * A write runs only for a confirmation line in a chat message of at most
- * 20 000 characters; old and new description must fit into it together.
+ * A tool result reaches the model with at most 20 000 characters, so a longer
+ * text could never have been read completely before it is replaced.
  */
-const WRITE_TEXT_CHARACTERS = 6_000;
+const WRITE_TEXT_CHARACTERS = 20_000;
 
 const writeText = z.string().max(WRITE_TEXT_CHARACTERS);
+
+const title = z.string().trim().min(1).max(500);
+
+const projectName = z.string().trim().min(1).max(200);
+
+/** Projects keep a shorter description than tickets, pages and milestones. */
+const projectDescription = z.string().max(10_000);
+
+const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/u);
+
+const revision = z.number().int().min(1);
+
+const wikiScope = z.enum(["project", "instance", "private"]);
 
 const assignee = z
   .object({
@@ -34,6 +48,7 @@ const assignee = z
 export const PICA_READ_SCHEMAS = {
   projects_list: z.object({}).strict(),
   projects_read: z.object({ projectId: identifier }).strict(),
+  departments_list: z.object({ cursor: cursor.optional() }).strict(),
   tickets_search: z
     .object({
       projectId: identifier,
@@ -55,6 +70,7 @@ export const PICA_READ_SCHEMAS = {
     })
     .strict(),
   tags_list: z.object({ cursor: cursor.optional() }).strict(),
+  milestones_read: z.object({ projectId: identifier }).strict(),
   wiki_search: z
     .object({
       text: z.string().trim().min(1).max(200),
@@ -69,19 +85,12 @@ export const PICA_READ_SCHEMAS = {
   wiki_comments_read: z.object({ pageId: identifier }).strict(),
 } as const;
 
-/**
- * The native inputs of the writes; each one is confirmed with exactly these fields.
- *
- * @remarks
- * Every field a confirmation binds is required, so a confirmed call and the
- * line of the person parse to the same value; `null` stands for "none".
- */
-export const PICA_WRITE_SCHEMAS = {
+const TICKET_WRITE_SCHEMAS = {
   tickets_create: z
     .object({
       projectId: identifier,
       type: ticketType,
-      title: z.string().trim().min(1).max(500),
+      title,
       description: writeText,
       statusId: identifier.nullable(),
       parentId: identifier.nullable(),
@@ -92,7 +101,7 @@ export const PICA_WRITE_SCHEMAS = {
     .object({
       ticketId: identifier,
       expectedTitle: z.string().max(500),
-      title: z.string().trim().min(1).max(500),
+      title,
     })
     .strict(),
   tickets_set_status: z
@@ -125,6 +134,137 @@ export const PICA_WRITE_SCHEMAS = {
       expectedTagIds: z.array(identifier).max(50),
     })
     .strict(),
+  tickets_set_parent: z
+    .object({
+      ticketId: identifier,
+      expectedParentId: identifier.nullable(),
+      parentId: identifier.nullable(),
+    })
+    .strict(),
+  tickets_set_milestone: z
+    .object({
+      ticketId: identifier,
+      expectedMilestoneId: identifier.nullable(),
+      milestoneId: identifier.nullable(),
+    })
+    .strict(),
+  tickets_delete: z.object({ ticketId: identifier }).strict(),
+} as const;
+
+const PROJECT_WRITE_SCHEMAS = {
+  projects_create: z
+    .object({
+      name: projectName,
+      description: projectDescription,
+      status: z.enum(Object.values(PROJECT_STATUS)),
+      departmentIds: z.array(identifier).max(100),
+    })
+    .strict(),
+  projects_set_name: z
+    .object({ projectId: identifier, name: projectName })
+    .strict(),
+  projects_set_description: z
+    .object({ projectId: identifier, description: projectDescription })
+    .strict(),
+  projects_set_status: z
+    .object({
+      projectId: identifier,
+      status: z.enum(Object.values(PROJECT_STATUS)),
+    })
+    .strict(),
+  projects_set_dates: z
+    .object({
+      projectId: identifier,
+      startDate: date.nullable(),
+      targetDate: date.nullable(),
+    })
+    .strict(),
+} as const;
+
+const MILESTONE_WRITE_SCHEMAS = {
+  milestones_create: z
+    .object({
+      projectId: identifier,
+      name: title,
+      description: writeText,
+      startAt: date.nullable(),
+      dueAt: date.nullable(),
+    })
+    .strict(),
+  milestones_set_name: z
+    .object({
+      milestoneId: identifier,
+      expectedName: z.string().max(500),
+      name: title,
+    })
+    .strict(),
+  milestones_set_description: z
+    .object({
+      milestoneId: identifier,
+      expectedDescription: writeText,
+      description: writeText,
+    })
+    .strict(),
+  milestones_set_status: z
+    .object({
+      milestoneId: identifier,
+      expectedStatus: z.enum(["open", "completed", "archived"]),
+      status: z.enum(["open", "completed", "archived"]),
+    })
+    .strict(),
+  milestones_set_start_at: z
+    .object({
+      milestoneId: identifier,
+      expectedStartAt: date.nullable(),
+      startAt: date.nullable(),
+    })
+    .strict(),
+  milestones_set_due_at: z
+    .object({
+      milestoneId: identifier,
+      expectedDueAt: date.nullable(),
+      dueAt: date.nullable(),
+    })
+    .strict(),
+  milestones_delete: z
+    .object({ projectId: identifier, milestoneId: identifier })
+    .strict(),
+} as const;
+
+const WIKI_WRITE_SCHEMAS = {
+  wiki_page_create: z
+    .object({
+      projectId: identifier.nullable(),
+      scope: wikiScope.optional(),
+      parentId: identifier.nullable(),
+      title,
+      content: writeText,
+      icon: z.string().min(1).max(50).nullable().optional(),
+    })
+    .strict(),
+  wiki_page_set_title: z
+    .object({ pageId: identifier, expectedRevision: revision, title })
+    .strict(),
+  wiki_page_set_content: z
+    .object({
+      pageId: identifier,
+      expectedRevision: revision,
+      content: writeText,
+    })
+    .strict(),
+  wiki_page_move: z
+    .object({
+      pageId: identifier,
+      expectedRevision: revision,
+      projectId: identifier.nullable(),
+      scope: wikiScope.optional(),
+      parentId: identifier.nullable(),
+      beforeId: identifier.nullable(),
+    })
+    .strict(),
+  wiki_page_delete: z
+    .object({ pageId: identifier, expectedRevision: revision })
+    .strict(),
   wiki_comment_add: z
     .object({
       pageId: identifier,
@@ -133,6 +273,30 @@ export const PICA_WRITE_SCHEMAS = {
       quote: z.string().trim().min(1).max(500).nullable(),
     })
     .strict(),
+  wiki_comment_edit: z
+    .object({ commentId: identifier, body: writeText.trim().min(1) })
+    .strict(),
+  wiki_comment_resolve: z
+    .object({ commentId: identifier, resolved: z.boolean() })
+    .strict(),
+  wiki_comment_delete: z.object({ commentId: identifier }).strict(),
+} as const;
+
+/**
+ * The native inputs of the writes on user level: tickets, projects,
+ * milestones, wiki pages and comments.
+ *
+ * @remarks
+ * Changes carry the value or revision the model read last wherever the
+ * operation behind them checks one, so a concurrent change ends in `CONFLICT`
+ * instead of being overwritten; `null` stands for "none". No write manages
+ * accounts, agents, connections, tags of the catalog or instance settings.
+ */
+export const PICA_WRITE_SCHEMAS = {
+  ...TICKET_WRITE_SCHEMAS,
+  ...PROJECT_WRITE_SCHEMAS,
+  ...MILESTONE_WRITE_SCHEMAS,
+  ...WIKI_WRITE_SCHEMAS,
 } as const;
 
 /** Bounded, credential-redacted JSON from existing services; no human-only receipts. */
@@ -148,16 +312,7 @@ export type PicaToolOutcome = z.infer<typeof PICA_TOOL_OUTCOME>;
 export type PicaReadTool = keyof typeof PICA_READ_SCHEMAS;
 export type PicaWriteTool = keyof typeof PICA_WRITE_SCHEMAS;
 
-/** Tells whether a name is one of the native writes, as a confirmation line names it. */
+/** Tells whether a name is one of the native writes. */
 export function isPicaWriteTool(name: string): name is PicaWriteTool {
   return Object.hasOwn(PICA_WRITE_SCHEMAS, name);
-}
-
-/** Parses the input of one write, including its concurrency preconditions. */
-export function readPicaWrite(
-  tool: PicaWriteTool,
-  input: unknown,
-): Readonly<Record<string, unknown>> | null {
-  const parsed = PICA_WRITE_SCHEMAS[tool].safeParse(input);
-  return parsed.success ? parsed.data : null;
 }

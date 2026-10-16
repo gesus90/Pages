@@ -47,6 +47,9 @@ export function picaWorld(
   readonly authorize: ReturnType<typeof vi.fn<PicaApiModels["authorize"]>>;
   readonly sessions: {
     readonly require: ReturnType<typeof vi.fn<ChatSessionService["require"]>>;
+    readonly confirmationWord: ReturnType<
+      typeof vi.fn<ChatSessionService["confirmationWord"]>
+    >;
   };
   readonly router: ReturnType<typeof vi.fn<AgentOperationRouter["handle"]>>;
   readonly verify: ReturnType<
@@ -82,6 +85,9 @@ export function picaWorld(
         throw new Error("Foreign session");
       return SESSION;
     }),
+    confirmationWord: vi.fn<ChatSessionService["confirmationWord"]>(
+      async () => "LÖSCHEN",
+    ),
   };
   const verify = vi.fn(async (userId: string) => ({
     userId,
@@ -109,7 +115,6 @@ export function picaWorld(
       userId: OWNER.id,
       sessionId: FIRST,
       agent: ASSIGNMENT,
-      message: "Lies das Ticket",
       prompt: "Synthetic prompt",
       instructions: "Synthetic Pica",
     },
