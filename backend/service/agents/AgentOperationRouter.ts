@@ -111,14 +111,15 @@ function validateParameters(
   operation: Exclude<PagesAgentReadOperation, "wiki.import.plan">,
   parameters: Readonly<Record<string, unknown>>,
 ): void {
-  const allowed = {
+  const allowed: Readonly<Record<typeof operation, readonly string[]>> = {
+    "projects.list": [],
     "projects.resolve": ["name"],
     "projects.read": ["projectId"],
     "wiki.page.read": ["pageId"],
     "wiki.tree.read": ["projectId", "cursor", "limit"],
     "wiki.search": ["text", "projectId", "cursor", "limit"],
-  }[operation];
-  if (Object.keys(parameters).some((key) => !allowed.includes(key)))
+  };
+  if (Object.keys(parameters).some((key) => !allowed[operation].includes(key)))
     throw new AgentOperationError("INVALID_REQUEST");
 }
 
@@ -173,7 +174,8 @@ export class AgentOperationRouter {
     const projects = new AgentProjectReadService(access);
     const wiki = this.wikiReads(actor, access);
     let result: PagesAgentReadResponse["result"];
-    if (operation === "projects.resolve")
+    if (operation === "projects.list") result = await projects.list(actor);
+    else if (operation === "projects.resolve")
       result = await projects.resolve(actor, readText(parameters, "name"));
     else if (operation === "projects.read")
       result = await projects.read(actor, readText(parameters, "projectId"));

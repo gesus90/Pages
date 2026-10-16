@@ -114,6 +114,8 @@ const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
   "plans.parameter.update": `{${PLAN_TARGET}, parameterId, name?, value?, format?, x?, y?} Parameter-Node ändern`,
   "plans.parameter.remove": `{${PLAN_TARGET}, parameterId} Parameter-Node samt seinen Datenverbindungen entfernen`,
 
+  "projects.list":
+    "{} sichtbare Projekte mit ID, Name und Status, nach Namen sortiert",
   "projects.resolve": "{name} Projekt über den exakten Namen finden",
   "projects.read": "{projectId} Projekt lesen",
   "projects.members.read": `{${PROJECT}} Mitglieder und Abteilungen eines Projekts`,

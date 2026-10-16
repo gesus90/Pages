@@ -4,6 +4,7 @@ import { PAGES_AGENT_LIMITS } from "@/definition/PagesAgentOperations";
 import type { ProjectAccessService } from "@/backend/service/project/ProjectAccessService";
 import type {
   AgentProjectDetails,
+  AgentProjectList,
   AgentProjectReference,
 } from "@/definition/PagesAgentOperations";
 import type { User } from "@/definition/User";
@@ -14,6 +15,28 @@ export class AgentProjectReadService {
 
   public constructor(access: Pick<ProjectAccessService, "findAll">) {
     this.access = access;
+  }
+
+  /**
+   * Lists the visible active projects by name, for an agent that knows no exact name.
+   *
+   * @remarks
+   * Only identifier, name and status leave the service, at most as many as a
+   * resolution offers candidates; `total` counts every visible project.
+   */
+  public async list(actor: User): Promise<AgentProjectList> {
+    const projects = (await this.access.findAll(actor))
+      .map(({ id, name, status }) => ({ id, name, status }))
+      .sort(
+        (left, right) =>
+          left.name.localeCompare(right.name) ||
+          left.id.localeCompare(right.id),
+      );
+    return {
+      projects: projects.slice(0, PAGES_AGENT_LIMITS.candidates),
+      total: projects.length,
+      truncated: projects.length > PAGES_AGENT_LIMITS.candidates,
+    };
   }
 
   /** Resolves a trimmed, case-sensitive exact name; ambiguity always requires a client choice. */

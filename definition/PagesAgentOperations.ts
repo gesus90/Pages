@@ -29,6 +29,7 @@ import type { WikiCover } from "./Wiki.js";
 
 /** Read operations; every verified active account may read and plan within its scope. */
 export const PAGES_AGENT_READ_OPERATIONS = [
+  "projects.list",
   "projects.resolve",
   "projects.read",
   "wiki.page.read",
@@ -105,6 +106,18 @@ export interface AgentProjectReference {
   readonly name: string;
 }
 
+/** A visible project in the list an agent finds a project by when it knows no exact name. */
+export interface AgentProjectSummary extends AgentProjectReference {
+  readonly status: string;
+}
+
+/** The visible projects, ordered by name; `truncated` when more exist than the list holds. */
+export interface AgentProjectList {
+  readonly projects: readonly AgentProjectSummary[];
+  readonly total: number;
+  readonly truncated: boolean;
+}
+
 /** Explicit core fields without people, integration settings or invisible parent references. */
 export interface AgentProjectDetails extends AgentProjectReference {
   readonly description: string;
@@ -174,6 +187,7 @@ export interface PagesAgentReadResponse {
   readonly apiVersion: "1";
   readonly result:
     | AgentProjectReference
+    | AgentProjectList
     | AgentProjectDetails
     | AgentWikiPage
     | AgentWikiPageRange
