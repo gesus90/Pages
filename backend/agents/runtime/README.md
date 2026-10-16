@@ -85,10 +85,11 @@ automatic memory compaction, semantic recall or background worker is added.
 `requireApproval` can suspend the native Mastra loop; durable approval recovery
 needs storage and a Pages-owned authorization/resume design. That integration,
 Pica's partial API composition now supplies its native tools (reads of
-projects, tickets and the wiki, confirmed ticket and comment writes), fixed-host
-SDK providers and its existing Pages prompt/history/attachment context. Over
-Codex ACP the same tools reach the agent through Pages' MCP bridge (PAGE-68).
-The remaining catalog, Mastra Memory and durable deletion approvals stay open.
+projects, tickets, milestones and the wiki; user-level writes and deletions of
+tickets, projects, milestones, wiki pages and comments without a confirmation
+line), fixed-host SDK providers and its existing Pages prompt/history/attachment
+context. Over Codex ACP the same tools reach the agent through Pages' MCP bridge
+(PAGE-68). The remaining catalog and Mastra Memory stay open.
 The ACP text adapter does not translate SDK sampling/token settings to native
 CLI options; native configuration remains the starter's responsibility.
 

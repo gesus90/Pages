@@ -295,36 +295,36 @@ the current account rights:
 
 | Kind | Tools |
 | ---- | ----- |
-| Reads | `projects_list`, `projects_read`, `tickets_search` (in one project; `assignedToMe` for the person's own tickets), `tickets_read`, `assignment_targets_search`, `tags_list`, `wiki_search`, `wiki_tree_read`, `wiki_page_read`, `wiki_comments_read` |
-| Writes | `tickets_create`, `tickets_set_title`, `tickets_set_status`, `tickets_set_description`, `tickets_set_assignee`, `tickets_set_tags`, `wiki_comment_add` |
+| Reads | `projects_list`, `projects_read`, `departments_list`, `tickets_search` (in one project; `assignedToMe` for the person's own tickets), `tickets_read`, `assignment_targets_search`, `tags_list`, `milestones_read`, `wiki_search`, `wiki_tree_read`, `wiki_page_read`, `wiki_comments_read` |
+| Tickets | `tickets_create`, `tickets_set_title`, `tickets_set_status`, `tickets_set_description`, `tickets_set_assignee`, `tickets_set_tags`, `tickets_set_parent`, `tickets_set_milestone`, `tickets_delete` |
+| Projects | `projects_create`, `projects_set_name`, `projects_set_description`, `projects_set_status`, `projects_set_dates` |
+| Milestones | `milestones_create`, `milestones_set_name`, `milestones_set_description`, `milestones_set_status`, `milestones_set_start_at`, `milestones_set_due_at`, `milestones_delete` |
+| Wiki | `wiki_page_create`, `wiki_page_set_title`, `wiki_page_set_content`, `wiki_page_move`, `wiki_page_delete`, `wiki_comment_add`, `wiki_comment_edit`, `wiki_comment_resolve`, `wiki_comment_delete` |
 
-There is no generic operation tool, no deletion and no text-action fallback.
-`projects.list`, the read behind `projects_list`, is also an operation of the
-agent API. Wiki comments are the only comments Pages has; tickets have none.
+There is no generic operation tool, no administration (accounts, agents,
+connections, instance settings, the tag catalog) and no text-action fallback,
+also not for administrators. `projects.list`, the read behind `projects_list`,
+is also an operation of the agent API. Wiki comments are the only comments
+Pages has; tickets have none.
 
-Every write requires an exact confirmation line in the **current** human
-message, for example:
-
-```text
-BESTÄTIGEN tickets_set_title {"ticketId":"PAGE-1","expectedTitle":"Old title","title":"New title"}
-BESTÄTIGEN tickets_set_status {"ticketId":"PAGE-1","expectedStatusId":"todo-id","statusId":"done-id"}
-BESTÄTIGEN tickets_create {"projectId":"project-id","type":"task","title":"Title","description":"","statusId":null,"parentId":null}
-```
-
-`CONFIRM` is also accepted. Pica first reads the target and proposes the
-concrete line with every argument of the tool. The server binds each
-single-use confirmation to exactly these arguments, including the expected old
-values; history, attachments and model arguments cannot approve a write.
-Conflicting changes remain subject to the existing expected-value checks. A
-description or comment of a write holds at most 6,000 characters, so the line
-fits into one message.
+Pica acts on user level when the person asks, without a confirmation line or
+word (PAGE-68), and names the result. Every call runs through the existing
+services with the current rights of the person; a missing right returns
+`FORBIDDEN`, which Pica reports. Changes carry the expected old value or
+revision wherever the operation checks one, so a concurrent change ends in
+`CONFLICT` instead of being overwritten. Tickets, milestones and wiki pages are
+deleted into the trash; Pages adds the confirmation word the deleting
+operations require from the person's language itself, and a model can neither
+pass nor omit it. A write that failed is refused with `RETRY_REFUSED` when it
+is sent again unchanged in the same turn. A text of a write holds at most
+20,000 characters, as much as a tool result can show.
 
 The production composition selects `native-api` explicitly. `legacy-actions`
 preserves the previous broader catalog for compatibility and its regressions;
 it never runs alongside the native path or as an automatic fallback. The agent
 and plan chat sections below describe that retained catalog, not the native
-tools currently exposed in production. Other operations, web search, deletion approvals
-and Mastra Memory remain outside this partial implementation. Pages still owns
+tools currently exposed in production. Other operations, web search and Mastra
+Memory remain outside this partial implementation. Pages still owns
 the transcript, attachments, summaries and `/compact`.
 
 A Codex CLI agent assigned to the chat runs over ACP instead (PAGE-68, next
