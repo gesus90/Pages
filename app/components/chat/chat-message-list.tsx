@@ -6,10 +6,13 @@ import { cn } from "@/app/lib/cn";
 
 import { ChatAttachmentList } from "./chat-attachment-list";
 import { chatErrorText } from "./chat-error";
+import { ChatJobStatus } from "./chat-job-status";
+import { ChatMessageMeta, chatMessageFacts } from "./chat-message-meta";
 import { PicaMascot } from "./pica-mascot";
 
 import type { ChatMessage } from "@/definition/Chat";
 import type { ChatController } from "./use-chat";
+import type { ChatMessageFacts } from "./chat-message-meta";
 
 interface ChatMessageListProps {
   readonly chat: ChatController;
@@ -30,8 +33,11 @@ function hideImages(): boolean {
 /** One message; answers and own messages both render Markdown and code blocks (T6.12.10). */
 function ChatMessageItem({
   message,
+  facts,
 }: {
-  readonly message: Pick<ChatMessage, "role" | "content" | "attachments">;
+  readonly message: Pick<ChatMessage, "role" | "content" | "attachments"> &
+    Partial<Pick<ChatMessage, "id">>;
+  readonly facts?: ChatMessageFacts;
 }): React.ReactElement {
   const { t } = useTranslation();
   const isOwn = message.role === "user";
@@ -54,6 +60,12 @@ function ChatMessageItem({
           />
         ) : null}
         <ChatAttachmentList attachments={message.attachments} />
+        {isOwn && message.id && facts ? (
+          <ChatMessageMeta
+            steer={facts.steers[message.id]}
+            selection={facts.selections[message.id]}
+          />
+        ) : null}
       </div>
     </article>
   );
@@ -83,6 +95,30 @@ function ChatAnswerPending(): React.ReactElement {
   );
 }
 
+/** What the list shows besides the stored messages, and how many rows that makes. */
+function listContent(chat: ChatController): {
+  readonly sending: ChatController["sending"];
+  readonly live: ChatController["jobs"]["live"];
+  readonly facts: ChatMessageFacts;
+  readonly count: number;
+  readonly liveText: string | undefined;
+} {
+  const { messages, session, activity } = chat.view;
+  // A message is only shown in the session it was sent to.
+  const sending =
+    chat.sending !== null && chat.sending.sessionId === session?.id
+      ? chat.sending
+      : null;
+  const { live } = chat.jobs;
+  return {
+    sending,
+    live,
+    facts: chatMessageFacts(activity, live?.steers),
+    count: messages.length + (sending ? 1 : 0) + (live ? 1 : 0),
+    liveText: live?.text,
+  };
+}
+
 /** The conversation of the open session, newest at the bottom. */
 export function ChatMessageList({
   chat,
@@ -90,18 +126,13 @@ export function ChatMessageList({
 }: ChatMessageListProps): React.ReactElement {
   const { t } = useTranslation();
   const end = useRef<HTMLDivElement>(null);
-  const { messages, session } = chat.view;
-  // A message is only shown in the session it was sent to.
-  const sending =
-    chat.sending !== null && chat.sending.sessionId === session?.id
-      ? chat.sending
-      : null;
-  const count = messages.length + (sending ? 1 : 0);
+  const { messages } = chat.view;
+  const { sending, live, facts, count, liveText } = listContent(chat);
 
   useEffect(() => {
     // A hidden panel cannot scroll, so reopening it shows what arrived meanwhile.
     if (isOpen) end.current?.scrollIntoView({ block: "end" });
-  }, [count, chat.error, isOpen]);
+  }, [count, chat.error, isOpen, liveText]);
 
   return (
     <div
@@ -113,8 +144,9 @@ export function ChatMessageList({
         <p className="text-sm text-muted-foreground">{t("chat.empty")}</p>
       ) : null}
       {messages.map((message) => (
-        <ChatMessageItem key={message.id} message={message} />
+        <ChatMessageItem key={message.id} message={message} facts={facts} />
       ))}
+      {live ? <ChatJobStatus live={live} /> : null}
       {sending ? (
         <ChatMessageItem
           message={{ role: "user", content: sending.text, attachments: [] }}

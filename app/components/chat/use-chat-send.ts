@@ -3,15 +3,16 @@ import { useEffect, useRef, useState } from "react";
 import {
   chatApi,
   chatErrorCode,
-  readChatReply,
   readChatSessionView,
 } from "@/app/lib/chat-client";
+import { readChatSendResult } from "@/app/lib/chat-job-client";
 import { createRandomUuid } from "@/app/lib/random-uuid";
 
 import type { Dispatch, SetStateAction } from "react";
 import type { ChatView } from "./use-chat-uploads";
 import type { ChatTemporaryPassword } from "@/definition/AgentAdministration";
 import type { ChatReply } from "@/definition/Chat";
+import type { ChatJob } from "@/definition/ChatJob";
 
 /** Whether the input field keeps its text after a submission. */
 export type ChatSubmitOutcome = "clear" | "restore";
@@ -38,6 +39,10 @@ interface ChatSendOptions {
   readonly view: ChatView;
   readonly setView: Dispatch<SetStateAction<ChatView>>;
   readonly setError: (code: string) => void;
+  /** Follows a job a Codex agent started for the message (PAGE-68). */
+  readonly onJob: (job: ChatJob) => void;
+  /** Reads the conversation again, after the server stored a message. */
+  readonly refresh: (sessionId: string) => Promise<void>;
 }
 
 /** Adds the reply once, and only while the session it belongs to is open. */
@@ -73,6 +78,8 @@ export function useChatSend({
   view,
   setView,
   setError,
+  onJob,
+  refresh,
 }: ChatSendOptions): ChatSender {
   const [sending, setSending] = useState<ChatSending | null>(null);
   const [temporaryPasswords, setTemporaryPasswords] = useState<
@@ -120,9 +127,15 @@ export function useChatSend({
         },
         controller.signal,
       );
-      const reply = readChatReply(result.reply);
-      setTemporaryPasswords(reply.temporaryPasswords ?? []);
-      setView((current) => addReply(current, reply, session.id));
+      const sent = readChatSendResult(result);
+      if (sent.kind === "reply") {
+        setTemporaryPasswords(sent.reply.temporaryPasswords ?? []);
+        setView((current) => addReply(current, sent.reply, session.id));
+        return "clear";
+      }
+      // A Codex job runs on the server; the stored message and its steer status are read back.
+      if (sent.kind === "job") onJob(sent.job.job);
+      await refresh(session.id);
       return "clear";
     } catch (failure: unknown) {
       const isStored = await reload(session.id, view.messages.length);

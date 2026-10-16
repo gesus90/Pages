@@ -604,6 +604,7 @@
         "plan_yolo_isolation_unavailable": "YOLO runs without an approval step of the runner, so it starts only inside the bubblewrap isolation, which does not work for the server account. Install bubblewrap (apt install bubblewrap), allow unprivileged user namespaces for the account, and start the node again; Pages probes the isolation again within a minute.",
         "plan_codex_configuration_unmanaged": "A Codex configuration file (config.toml) outside Pages could change this run. Remove it from the connection folder or the workspace.",
         "plan_acp_session_failed": "The Codex ACP session failed before or during its turn.",
+        "acp_session_resume_failed": "The ACP adapter could not continue the earlier session of this conversation.",
         "plan_claude_acp_session_failed": "The Claude ACP session failed before or during its turn.",
         "plan_definition_changed": "The AGENT.md of the agent is missing or does not match the started revision.",
         "plan_placeholder_unresolved": "The prompt still contains a parameter placeholder; nothing was sent.",
@@ -3016,8 +3017,11 @@
       "general": "That did not work. Please try again.",
       "contextChanged": "The context changed meanwhile. Nothing was overwritten; please try /compact again.",
       "compactionFailed": "The context could not be compacted. Your existing conversation history is preserved.",
-      "apiModeRequired": "Pica currently supports API models with native tools here. Please select an API connection for chat in the agent settings. ACP/coding models are not started here yet; use the existing coding or execution-plan path.",
-      "instructionsUnavailable": "Pica cannot answer right now: the protected instructions of Pica are missing on the server or cannot be read. Your message was not sent. Please contact an administrator."
+      "apiModeRequired": "This needs an API model. Context compaction with /compact is not available for Codex agents; Codex manages the context of its session itself.",
+      "instructionsUnavailable": "Pica cannot answer right now: the protected instructions of Pica are missing on the server or cannot be read. Your message was not sent. Please contact an administrator.",
+      "acpProviderUnsupported": "Pica cannot answer with the assigned chat agent: API connections and Codex CLI over ACP are supported. An admin must assign such an agent for chat under Settings › Agents.",
+      "bridgeUnavailable": "Codex could not connect Pica's Pages tools. Nothing was changed. Please try again or contact an admin.",
+      "interrupted": "The server stopped during the answer. The answer is not repeated automatically."
     },
     "recover": "Start a new session",
     "context": {
@@ -3029,7 +3033,56 @@
       "explanation": "Active session conversation context: bounded history and summary used for the next message. Excludes system instructions, new attachments and action results. Estimate: roughly four characters per token.",
       "limit": "Model limit: {{count}} tokens",
       "limitUnknown": "Model limit unknown.",
-      "utilization": "Estimated conversation share of the model limit: {{percent}}%"
+      "utilization": "Estimated conversation share of the model limit: {{percent}}%",
+      "adapterExplanation": "Context occupancy of the Codex session as the ACP adapter reported it last. Without a report this reads “not available”; Pages does not estimate for Codex."
+    },
+    "job": {
+      "phase": {
+        "starting": "Pica is starting the Codex session …",
+        "running": "Pica is answering …",
+        "finishing": "Pica is finishing …"
+      },
+      "background": "The answer continues on the server, even if you close this window.",
+      "ended": {
+        "completed": "Answer completed.",
+        "stopped": "Answer stopped.",
+        "failed": "The answer failed.",
+        "interrupted": "The server interrupted the answer.",
+        "running": "Pica is answering …"
+      },
+      "partial": "Partial answer up to the end (not saved):",
+      "tools": "Pages tools of this answer",
+      "tool": {
+        "running": "{{tool}} running …",
+        "completed": "{{tool}} done",
+        "failed": "{{tool}} failed ({{error}})"
+      },
+      "usage": {
+        "context": "Context",
+        "tokens": "Tokens",
+        "cost": "Cost",
+        "unavailable": "not available",
+        "contextValue": "{{used}} of {{size}} tokens as reported by the adapter",
+        "tokensValue": "{{total}} (input {{input}}, output {{output}})",
+        "tokensPartial": "at least {{total}} (input {{input}}, output {{output}}); a follow-up turn without adapter data"
+      },
+      "stop": "Stop",
+      "steerHint": "Pica is still answering. A new message joins the running answer; only “Stop” cancels it."
+    },
+    "steer": {
+      "pending": "Sent during the answer · waiting to be passed on",
+      "delivered": "Sent during the answer · passed to Codex",
+      "accepted": "Sent during the answer · joined the running answer",
+      "followUp": "Sent during the answer · answered on its own",
+      "failed": "Sent during the answer · did not arrive"
+    },
+    "selection": {
+      "label": "Transfer of the attachments to Codex",
+      "full": "{{name}}: transferred",
+      "truncated": "{{name}}: only the beginning was transferred (truncated)",
+      "unsupported": "{{name}}: not transferred – this file type is not sent to Codex",
+      "tooLarge": "{{name}}: not transferred – the file is too large",
+      "unreadable": "{{name}}: not transferred – the file could not be read"
     }
   },
   "workspaces": {

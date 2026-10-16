@@ -58,6 +58,7 @@ export function toChatView(view: ChatView): ChatView {
     session: view.session,
     messages: view.messages,
     pending: view.pending,
+    ...(view.activity ? { activity: view.activity } : {}),
   };
 }
 

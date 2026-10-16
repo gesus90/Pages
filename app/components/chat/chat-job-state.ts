@@ -1,0 +1,125 @@
+import type {
+  ChatJob,
+  ChatJobEndEvent,
+  ChatJobEvent,
+  ChatJobPhase,
+  ChatJobToolEvent,
+  ChatJobUpdate,
+  ChatJobUsage,
+  ChatSteerStatus,
+} from "@/definition/ChatJob";
+
+/** What the panel shows of a Pica job while it runs and after it ended. */
+export interface ChatLiveJob {
+  readonly job: ChatJob;
+  /** The sequence of the last journal entry applied. */
+  readonly cursor: number;
+  readonly hasMore: boolean;
+  readonly phase: ChatJobPhase | null;
+  /** Answer text since the last stored answer. */
+  readonly text: string;
+  /** Calls of Pages tools in the current turn, newest status per call. */
+  readonly tools: readonly ChatJobToolEvent[];
+  readonly steers: Readonly<Record<string, ChatSteerStatus>>;
+  readonly usage: ChatJobUsage;
+  readonly isResumed: boolean | null;
+  readonly ended: ChatJobEndEvent | null;
+}
+
+/** The result of applying one read of the journal. */
+export interface AppliedChatJobUpdate {
+  readonly live: ChatLiveJob;
+  /** The read did not continue the cursor; read the journal again from the start. */
+  readonly isStale: boolean;
+  /** A message was stored or the job ended; read the conversation again. */
+  readonly needsReload: boolean;
+}
+
+/** The state of a job before any of its journal was read. */
+export function startChatLiveJob(job: ChatJob): ChatLiveJob {
+  return {
+    job,
+    cursor: 0,
+    hasMore: true,
+    phase: null,
+    text: "",
+    tools: [],
+    steers: {},
+    usage: job.usage,
+    isResumed: null,
+    ended: null,
+  };
+}
+
+function applyEvent(live: ChatLiveJob, event: ChatJobEvent): ChatLiveJob {
+  switch (event.kind) {
+    case "phase":
+      return { ...live, phase: event.phase };
+    case "turn":
+      return { ...live, tools: [] };
+    case "text":
+      return {
+        ...live,
+        text: event.isReset ? event.delta : live.text + event.delta,
+      };
+    case "tool":
+      return {
+        ...live,
+        tools: [
+          ...live.tools.filter(({ callId }) => callId !== event.callId),
+          event,
+        ],
+      };
+    case "steer":
+      return {
+        ...live,
+        steers: { ...live.steers, [event.messageId]: event.status },
+      };
+    case "answer":
+      return { ...live, text: "", tools: [] };
+    case "usage":
+      return { ...live, usage: event.usage };
+    case "session":
+      return { ...live, isResumed: event.isResumed };
+    case "end":
+      return { ...live, ended: event };
+  }
+}
+
+/**
+ * Applies a read of the journal after the cursor of the job.
+ *
+ * @param live - What the panel showed so far.
+ * @param update - The job and the entries after the cursor.
+ * @returns The new state; a read that does not continue the cursor is stale.
+ */
+export function applyChatJobUpdate(
+  live: ChatLiveJob,
+  update: ChatJobUpdate,
+): AppliedChatJobUpdate {
+  const first = update.events.at(0);
+  const isOtherJob = update.job.id !== live.job.id;
+  if (isOtherJob || (first !== undefined && first.sequence !== live.cursor + 1))
+    return {
+      live: startChatLiveJob(update.job),
+      isStale: true,
+      needsReload: isOtherJob,
+    };
+  let next: ChatLiveJob = {
+    ...live,
+    job: update.job,
+    cursor: update.cursor,
+    hasMore: update.hasMore,
+  };
+  let needsReload = false;
+  for (const { event } of update.events) {
+    next = applyEvent(next, event);
+    if (event.kind === "answer" || event.kind === "end") needsReload = true;
+  }
+  return { live: next, isStale: false, needsReload };
+}
+
+/** Whether the job still runs, as far as the panel knows. */
+export function isChatJobRunning(live: ChatLiveJob | null): boolean {
+  return live !== null && live.ended === null && live.job.state === "running";
+}

@@ -1,5 +1,10 @@
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { isChatSessionId } from "@/definition/Chat";
+import {
+  readChatJob,
+  readChatSelectionItems,
+  readChatSteer,
+} from "@/definition/ChatJobReader";
 
 import type {
   ChatAttachment,
@@ -14,6 +19,7 @@ import type {
   ChatSessionView,
 } from "@/definition/Chat";
 import type { ChatTemporaryPassword } from "@/definition/AgentAdministration";
+import type { ChatSessionActivity } from "@/definition/ChatJob";
 
 /** HTTP statuses with which a gateway reports that the answer took too long. */
 const GATEWAY_TIMEOUT_STATUSES: readonly number[] = [408, 504];
@@ -94,6 +100,22 @@ function readConfirmationWord(value: unknown): ChatConfirmationWord {
   return value;
 }
 
+/** Reads the jobs, steers and selection snapshots of a conversation on the Codex path. */
+export function readChatActivity(value: unknown): ChatSessionActivity {
+  const activity = readAgentObject(value);
+  return {
+    job: activity.job === null ? null : readChatJob(activity.job),
+    steers: readList(activity.steers).map(readChatSteer),
+    selections: readList(activity.selections).map((entry) => {
+      const selection = readAgentObject(entry);
+      return {
+        messageId: readText(selection.messageId),
+        items: readChatSelectionItems(selection.items),
+      };
+    }),
+  };
+}
+
 /** Reads one session with its messages and unsent attachments. */
 export function readChatSessionView(value: unknown): ChatSessionView {
   const view = readAgentObject(value);
@@ -101,6 +123,9 @@ export function readChatSessionView(value: unknown): ChatSessionView {
     session: readSession(view.session),
     messages: readList(view.messages).map(readMessage),
     pending: readList(view.pending).map(readAttachment),
+    ...(view.activity === undefined
+      ? {}
+      : { activity: readChatActivity(view.activity) }),
   };
 }
 
@@ -213,7 +238,12 @@ export function readChatContext(value: unknown): ChatContextSize {
     typeof context.isEstimated !== "boolean"
   )
     throw new ChatClientError("general");
-  return { tokens, limit, isEstimated: context.isEstimated };
+  return {
+    tokens,
+    limit,
+    isEstimated: context.isEstimated,
+    ...(context.source === "adapter" ? { source: "adapter" as const } : {}),
+  };
 }
 
 /** Reads the committed deletions and each failure without treating partial success as complete. */

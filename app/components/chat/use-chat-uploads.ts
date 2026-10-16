@@ -13,12 +13,15 @@ import type {
   ChatMessage,
   ChatSession,
 } from "@/definition/Chat";
+import type { ChatSessionActivity } from "@/definition/ChatJob";
 
 /** The session the panel shows, with the attachments for the next message. */
 export interface ChatView {
   readonly session: ChatSession | null;
   readonly messages: readonly ChatMessage[];
   readonly pending: readonly ChatAttachment[];
+  /** Jobs, steers and selection snapshots of a Codex agent (PAGE-68). */
+  readonly activity?: ChatSessionActivity;
 }
 
 /** Attachments of the next message: uploads in flight, adding and removing. */

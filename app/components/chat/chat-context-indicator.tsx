@@ -7,6 +7,13 @@ interface ContextIndicatorProps {
   readonly context: ChatContextSize | null;
 }
 
+/** An occupancy the adapter reported is explained apart from the estimate of Pages. */
+function explanationKey(context: ChatContextSize | null): string {
+  return context?.source === "adapter"
+    ? "chat.context.adapterExplanation"
+    : "chat.context.explanation";
+}
+
 /** Small context estimate with the same explanation on hover, keyboard focus and touch. */
 export function ChatContextIndicator({
   context,
@@ -58,7 +65,7 @@ export function ChatContextIndicator({
         hidden={!isOpen}
         className="absolute top-full right-0 z-50 mt-1 w-64 max-w-[calc(100vw-3rem)] rounded-lg bg-surface p-3 text-xs text-foreground shadow-panel ring-1 ring-border"
       >
-        <span className="block">{t("chat.context.explanation")}</span>
+        <span className="block">{t(explanationKey(context))}</span>
         <span className="mt-1 block">{amount}</span>
         <span className="mt-1 block">
           {hasLimit

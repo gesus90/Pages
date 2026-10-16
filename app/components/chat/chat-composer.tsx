@@ -9,6 +9,7 @@ import { formatBytes } from "@/app/lib/format-bytes";
 
 import { ChatMaintenanceStatus } from "./chat-maintenance-status";
 import { ChatAttachmentList } from "./chat-attachment-list";
+import { ChatJobSteerHint, ChatJobStopButton } from "./chat-job-controls";
 import { useChatEditor } from "./use-chat-editor";
 
 import styles from "./chat-composer.module.css";
@@ -86,6 +87,7 @@ export function ChatComposer({
           {t("chat.commands")}
         </p>
       ) : null}
+      <ChatJobSteerHint jobs={chat.jobs} />
       <div className="mt-2 flex items-center gap-2">
         <Button
           aria-label={t("chat.attach")}
@@ -110,6 +112,7 @@ export function ChatComposer({
             ? t("chat.limit", { size: formatBytes(limits.limitBytes) })
             : null}
         </span>
+        <ChatJobStopButton jobs={chat.jobs} />
         {sending ? (
           <Button onClick={chat.cancel} variant="outline">
             {t("chat.cancel")}

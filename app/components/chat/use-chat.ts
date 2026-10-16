@@ -1,20 +1,23 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import {
   chatApi,
   chatErrorCode,
   readChatOverview,
+  readChatSessionView,
 } from "@/app/lib/chat-client";
 import { readChatCommand } from "@/definition/Chat";
 
 import { toChatView, useChatCommands } from "./use-chat-commands";
 import { useChatContext } from "./use-chat-context";
+import { useChatJob } from "./use-chat-job";
 import { useChatSend } from "./use-chat-send";
 import { useChatUploads } from "./use-chat-uploads";
 
 import type { ChatConfirmationWord, ChatContextSize } from "@/definition/Chat";
 import type { ChatTemporaryPassword } from "@/definition/AgentAdministration";
 import type { ChatCommands } from "./use-chat-commands";
+import type { ChatJobs } from "./use-chat-job";
 import type { ChatSending, ChatSubmitOutcome } from "./use-chat-send";
 import type { ChatUploads, ChatView } from "./use-chat-uploads";
 
@@ -36,6 +39,8 @@ export interface ChatController {
   readonly context: ChatContextSize | null;
   readonly isCompacting: boolean;
   readonly uploads: ChatUploads;
+  /** The server-side job of a Codex agent in the open conversation (PAGE-68). */
+  readonly jobs: ChatJobs;
   submit(text: string): Promise<ChatSubmitOutcome>;
   cancel(): void;
   dismissTemporaryPasswords(): void;
@@ -89,7 +94,27 @@ export function useChat(isOpen: boolean): ChatController {
   const [view, setView] = useState<ChatView>(EMPTY_VIEW);
   const [error, setError] = useState<string | null>(null);
   const { isLoading, limits } = useChatLoad(isOpen, setView, setError);
-  const sender = useChatSend({ isOpen, view, setView, setError });
+  // Stable, so following a job does not restart its reads on every render.
+  const refresh = useCallback(async (sessionId: string): Promise<void> => {
+    try {
+      const result = await chatApi({ intent: "session", sessionId });
+      const fresh = readChatSessionView(result.view);
+      setView((current) =>
+        current.session?.id === sessionId ? fresh : current,
+      );
+    } catch {
+      // The next read of the job reads the conversation again.
+    }
+  }, []);
+  const jobs = useChatJob({ isOpen, view, reload: refresh, setError });
+  const sender = useChatSend({
+    isOpen,
+    view,
+    setView,
+    setError,
+    onJob: jobs.attach,
+    refresh,
+  });
   const commands = useChatCommands({ setView, setError });
   const context = useChatContext({
     isOpen,
@@ -136,6 +161,7 @@ export function useChat(isOpen: boolean): ChatController {
     context: context.context,
     isCompacting: context.isCompacting,
     uploads,
+    jobs,
     submit,
     cancel: sender.cancel,
     dismissTemporaryPasswords: sender.dismissTemporaryPasswords,
