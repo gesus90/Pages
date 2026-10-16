@@ -57,9 +57,11 @@ function ChatComposerActions({
       >
         <Plus aria-hidden="true" className="size-4" />
       </Button>
+      {/* Visually hidden instead of display:none, so a browser tool finds the input by its name and sets a file without the native dialog. */}
       <input
         ref={fileInput}
-        className="hidden"
+        aria-label={t("chat.attachInput")}
+        className="sr-only"
         multiple
         onChange={handleFiles}
         tabIndex={-1}

@@ -2955,6 +2955,7 @@
     "send": "Abschicken",
     "cancel": "Abbrechen",
     "attach": "Anhang hinzufügen",
+    "attachInput": "Datei auswählen",
     "attachments": "Anhänge",
     "removeAttachment": "Anhang {{name}} entfernen",
     "uploading_one": "{{count}} Anhang wird hochgeladen …",

@@ -281,7 +281,7 @@ it("sends a message only after its attachment finished uploading, with the attac
   await openPanel();
   server.holdUploads();
   server.outcome = { kind: "steer" };
-  const fileInput = document.querySelector('input[type="file"]');
+  const fileInput = screen.getByLabelText("Datei auswählen");
   if (!(fileInput instanceof HTMLInputElement))
     throw new Error("The chat has no file input.");
   fireEvent.change(fileInput, {

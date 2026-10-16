@@ -2955,6 +2955,7 @@
     "send": "Send",
     "cancel": "Cancel",
     "attach": "Add attachment",
+    "attachInput": "Choose a file",
     "attachments": "Attachments",
     "removeAttachment": "Remove attachment {{name}}",
     "uploading_one": "Uploading {{count}} attachment …",
