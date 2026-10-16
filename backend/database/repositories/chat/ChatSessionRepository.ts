@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import {
+  readNullableBooleanColumn,
   readNullableTextColumn,
   readTextColumn,
 } from "@/backend/database/RowValue";
@@ -20,7 +21,10 @@ const PREVIEW_CHARACTERS = 80;
 export type StoredChatMessage = Omit<ChatMessage, "attachments">;
 
 /** A message to store. */
-export interface NewChatMessage extends Pick<ChatMessage, "role" | "content"> {
+export interface NewChatMessage extends Pick<
+  ChatMessage,
+  "role" | "content" | "isStopped"
+> {
   /**
    * The ID the browser gave a message the person sent; a second message with
    * the same ID in the conversation is refused (PAGE-68).
@@ -47,6 +51,9 @@ function readMessage(row: readonly DatabaseValue[]): StoredChatMessage {
     role,
     content: readTextColumn(row, 2, "content"),
     createdAt: readTextColumn(row, 3, "created_at"),
+    ...(readNullableBooleanColumn(row, 4, "is_stopped") === true
+      ? { isStopped: true }
+      : {}),
   };
 }
 
@@ -178,7 +185,8 @@ export class ChatSessionRepository {
           id,
           role,
           content,
-          created_at
+          created_at,
+          is_stopped
       FROM chat_messages
       WHERE session_id = $session_id
       ORDER BY position;
@@ -203,7 +211,8 @@ export class ChatSessionRepository {
           id,
           role,
           content,
-          created_at
+          created_at,
+          is_stopped
       FROM chat_messages
       WHERE session_id = $session_id
           AND client_message_id = $client_message_id;
@@ -247,7 +256,8 @@ export class ChatSessionRepository {
             position,
             role,
             content,
-            client_message_id
+            client_message_id,
+            is_stopped
         )
         SELECT
             $id,
@@ -255,7 +265,8 @@ export class ChatSessionRepository {
             COALESCE(MAX(position), 0) + 1,
             $role,
             $content,
-            $client_message_id
+            $client_message_id,
+            $is_stopped
         FROM chat_messages
         WHERE session_id = $session_id
         ON CONFLICT DO NOTHING
@@ -263,7 +274,8 @@ export class ChatSessionRepository {
             id,
             role,
             content,
-            created_at;
+            created_at,
+            is_stopped;
       `,
         {
           id,
@@ -271,6 +283,7 @@ export class ChatSessionRepository {
           role: message.role,
           content: message.content,
           client_message_id: message.clientMessageId ?? null,
+          is_stopped: message.isStopped ?? null,
         },
       );
       if (rows.length === 0) throw new ChatError("messageAlreadySent");

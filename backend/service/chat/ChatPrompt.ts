@@ -42,6 +42,14 @@ export interface ChatPromptAttachment {
   readonly text: string | null;
 }
 
+/** One earlier message as the agent reads it. */
+export interface ChatHistoryEntry {
+  readonly from: string;
+  readonly text: string;
+  /** Pica's answer ended with the person's stop, so the text is incomplete. */
+  readonly stopped?: boolean;
+}
+
 /** What the fixed part of the instruction is built from. */
 export interface ChatInstructionInput {
   /** Pica's protected `SOUL.md` and `AGENTS.md`; they open the instruction. */
@@ -60,7 +68,10 @@ export interface ChatPromptInput {
   readonly personName: string;
   readonly interfaceLanguage: string;
   readonly today: string;
-  readonly history: readonly Pick<ChatMessage, "role" | "content">[];
+  readonly history: readonly Pick<
+    ChatMessage,
+    "role" | "content" | "isStopped"
+  >[];
   readonly summary?: string | null;
   readonly message: string;
   readonly attachments: readonly ChatPromptAttachment[];
@@ -90,8 +101,8 @@ function redact(value: unknown): unknown {
 /** Selects the same bounded conversation history for prompts and context estimates. */
 export function selectChatHistory(
   history: ChatPromptInput["history"],
-): readonly { readonly from: string; readonly text: string }[] {
-  const selected: { from: string; text: string }[] = [];
+): readonly ChatHistoryEntry[] {
+  const selected: ChatHistoryEntry[] = [];
   let characters = 0;
   for (const message of history.slice(-HISTORY_MESSAGES).reverse()) {
     const text = truncate(message.content, HISTORY_MESSAGE_CHARACTERS);
@@ -100,6 +111,8 @@ export function selectChatHistory(
     selected.unshift({
       from: message.role === "user" ? "person" : "pica",
       text,
+      // An answer the person stopped is not taken for a finished one (PAGE-90).
+      ...(message.isStopped === true ? { stopped: true } : {}),
     });
   }
   return selected;

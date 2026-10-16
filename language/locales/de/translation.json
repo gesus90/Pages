@@ -2949,6 +2949,7 @@
     "you": "Deine Nachricht",
     "loading": "Die Session wird geladen …",
     "thinking": "Pica antwortet …",
+    "stoppedAnswer": "Gestoppt: Teilantwort bis zum Stopp.",
     "input": "Nachricht an Pica",
     "placeholder": "Frag Pica etwas oder tippe / für Befehle …",
     "commands": "Chat-Befehle: /new neue Session · /sessions Sessions anzeigen · /delete Sessions löschen · /compact Kontext komprimieren",

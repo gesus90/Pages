@@ -2949,6 +2949,7 @@
     "you": "Your message",
     "loading": "Loading the session …",
     "thinking": "Pica is answering …",
+    "stoppedAnswer": "Stopped: partial answer up to the stop.",
     "input": "Message to Pica",
     "placeholder": "Ask Pica something or type / for commands …",
     "commands": "Chat commands: /new new session · /sessions show sessions · /delete delete sessions · /compact compact context",

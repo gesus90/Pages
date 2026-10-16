@@ -342,7 +342,9 @@ for every new answer, so a change applies from the next message on.
   server. Closing the browser, switching tabs or a lost connection does not end
   it; only *Stop* does. The panel reads the job's journal after its last cursor,
   so returning shows the current state or the finished answer without running
-  anything again.
+  anything again. *Stop* keeps what Pica had written in the running turn as its
+  answer, marked as stopped (migration 054); a new agent session receives it
+  marked as incomplete.
 - **Sent once.** Every message carries a client message ID, which stays the
   same when the browser sends the message again unchanged after a failure. A
   conversation stores each ID once (migration 052): a repeat returns the job

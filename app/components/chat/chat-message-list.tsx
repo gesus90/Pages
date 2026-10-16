@@ -35,7 +35,10 @@ function ChatMessageItem({
   message,
   facts,
 }: {
-  readonly message: Pick<ChatMessage, "role" | "content" | "attachments"> &
+  readonly message: Pick<
+    ChatMessage,
+    "role" | "content" | "attachments" | "isStopped"
+  > &
     Partial<Pick<ChatMessage, "id">>;
   readonly facts?: ChatMessageFacts;
 }): React.ReactElement {
@@ -60,6 +63,11 @@ function ChatMessageItem({
           />
         ) : null}
         <ChatAttachmentList attachments={message.attachments} />
+        {message.isStopped === true ? (
+          <p className="mt-1 text-xs text-muted-foreground">
+            {t("chat.stoppedAnswer")}
+          </p>
+        ) : null}
         {isOwn && message.id && facts ? (
           <ChatMessageMeta
             steer={facts.steers[message.id]}

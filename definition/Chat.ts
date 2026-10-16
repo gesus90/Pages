@@ -73,6 +73,11 @@ export interface ChatMessage {
   readonly content: string;
   readonly createdAt: string;
   readonly attachments: readonly ChatAttachment[];
+  /**
+   * The person stopped this answer of Pica before it ended; it holds what the
+   * agent had written until then (PAGE-90). Absent for every other message.
+   */
+  readonly isStopped?: boolean;
 }
 
 /** Administrator settings of the chat; access and model belong to the agents panel. */

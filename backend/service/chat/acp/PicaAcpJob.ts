@@ -30,7 +30,10 @@ import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeEx
 import type { ExecutionAuthorizer } from "@/backend/agents/ScopedExecution";
 import type { ChatAcpSessionRepository } from "@/backend/database/repositories/chat/ChatAcpSessionRepository";
 import type { ChatJobRepository } from "@/backend/database/repositories/chat/ChatJobRepository";
-import type { ChatSessionRepository } from "@/backend/database/repositories/chat/ChatSessionRepository";
+import type {
+  ChatSessionRepository,
+  NewChatMessage,
+} from "@/backend/database/repositories/chat/ChatSessionRepository";
 import type { ChatSteerRepository } from "@/backend/database/repositories/chat/ChatSteerRepository";
 import type { AgentPlanExecutionInput } from "@/backend/service/agents/AgentPlanStepStart";
 import type { ResolvedAgentAssignment } from "@/backend/service/agents/AgentAssignmentResolution";
@@ -432,12 +435,15 @@ export class PicaAcpJob {
   }
 
   /** Stores the answer of the current turn and returns its message ID. */
-  private async storeAnswer(output: string): Promise<string> {
+  private async storeAnswer(
+    output: string,
+    ending: Pick<NewChatMessage, "isStopped"> = {},
+  ): Promise<string> {
     const content = readAnswer(output);
     const message = await this.dependencies.messages.append(
       this.userId,
       this.specification.sessionId,
-      { role: "assistant", content },
+      { role: "assistant", content, ...ending },
     );
     await this.journal.record({
       kind: "answer",
@@ -566,6 +572,8 @@ export class PicaAcpJob {
     // Intake closes first, so a message sent now starts the next job instead of failing here.
     await this.attempt("intake", () => this.steering.stopIntake());
     this.bridge?.setTurn(null);
+    if (outcome.state === "stopped")
+      await this.attempt("stopped answer", () => this.storeStoppedAnswer());
     await this.attempt("phase", () =>
       this.journal.record({ kind: "phase", phase: "finishing" }),
     );
@@ -581,6 +589,17 @@ export class PicaAcpJob {
     await this.attempt("state", () =>
       this.dependencies.jobs.finish(this.id, outcome.state, outcome.errorCode),
     );
+  }
+
+  /**
+   * Keeps what the agent wrote in the turn the person stopped, marked as
+   * stopped, before the agent session is saved through the last message.
+   */
+  private async storeStoppedAnswer(): Promise<void> {
+    // The text restarts with every turn, so an answer that is stored already is never stored again.
+    const partial = this.updates.answer();
+    if (!partial.trim()) return;
+    await this.storeAnswer(partial, { isStopped: true });
   }
 
   private async closeSession(): Promise<void> {

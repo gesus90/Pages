@@ -71,6 +71,7 @@ function readMessage(value: unknown): ChatMessage {
     content: readText(message.content),
     createdAt: readText(message.createdAt),
     attachments: readList(message.attachments).map(readAttachment),
+    ...(message.isStopped === true ? { isStopped: true } : {}),
   };
 }
 
