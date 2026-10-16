@@ -327,8 +327,8 @@ tools currently exposed in production. Other operations, web search and Mastra
 Memory remain outside this partial implementation. Pages still owns
 the transcript, attachments, summaries and `/compact`.
 
-A Codex CLI agent assigned to the chat runs over ACP instead (PAGE-68, next
-section). Other ACP/coding agents (Claude Code, OpenCode) return a translated
+A Codex CLI agent (PAGE-68) or a Claude Code agent (PAGE-90) assigned to the
+chat runs over ACP instead (next sections). OpenCode returns a translated
 explanation before execution; `/compact` stays an API-model function.
 
 ## Pica over Codex ACP (PAGE-68)
@@ -381,6 +381,53 @@ for every new answer, so a change applies from the next message on.
 
 The capability matrix of the installed adapter is in
 [backend/agents/acp/CodexAcpCapabilities.md](./backend/agents/acp/CodexAcpCapabilities.md).
+
+## Pica over Claude Code ACP (PAGE-90)
+
+When the chat agent under *Settings › Agents* uses a Claude Code connection,
+Pica answers through `claude-agent-acp` on the same server-side jobs, journal,
+steering, attachments and tool bridge as with Codex: jobs run on without the
+browser, a message is stored once, steers and selection snapshots keep their
+statuses, and the native tools act on user level as described in the PAGE-83
+section. This section names what differs.
+
+- **Assignment only.** Connection, model, effort and the permission mode come
+  from the assigned chat agent and nothing else: no model default, no fallback
+  to Codex, an API model or another process. The mode must be *Read only*,
+  because Pica gets nothing but the bridge tools there; an agent stored with
+  YOLO or the earlier write mode is refused with a translated explanation
+  before the message is stored. The agent's timeout limits the adapter process
+  on top of the chat's own deadline. A missing assignment, model, effort,
+  adapter or sign-in fails with its own message.
+- **Claude Max.** The session uses the claude.ai subscription sign-in of the
+  connection (`claude auth login --claudeai`) in its own credential folder;
+  every start checks `claude auth status` for it. No API key, token or
+  settings file reaches the process, and Pages never passes the adapter's
+  `--hide-claude-auth` flag.
+- **Steering.** The adapter announces `_session/steering` in `initialize`; Pages
+  steers only then. A message sent while Pica's prompt runs interrupts the
+  current generation and joins the same turn (*accepted*). A steer that finds
+  the turn already ended comes back with `promptRequired`, because Pages asks
+  for that, and is answered once in a turn of its own (*follow-up*).
+- **Selected data.** Text attachments as embedded resources, PNG/JPEG/GIF/WebP
+  images as image blocks, for the message and for steers. The adapter drops
+  binary resources, so PDFs and other files are listed as not transferred.
+- **Tools.** The session has no built-in tool of Claude Code (`tools: []` plus
+  a disallow list), no settings of the user or workspace and no MCP server but
+  the bridge. Pages approves only calls of `mcp__pages__*`; the bridge
+  authorizes each call again for person, conversation and turn.
+- **Sessions.** Each conversation keeps one Claude session, kept on disk in the
+  connection's credential folder and continued with `session/resume` under
+  the profile `pica-claude-chat-1`.
+- **Consumption and compaction.** Context and tokens are shown as the adapter
+  reports them; the token total includes cache reads and writes. Claude Code's
+  cost is its own estimate at list prices and is marked as such (migration
+  053), never as a billed amount. Claude Code compacts its context on its own;
+  the job shows the compaction as a separate line, and the context reads "not
+  available" until the adapter reports it again.
+
+The capability matrix of the installed adapter is in
+[backend/agents/acp/ClaudeAcpCapabilities.md](./backend/agents/acp/ClaudeAcpCapabilities.md).
 
 ## Pica sessions and conversation context (PAGE-48)
 
