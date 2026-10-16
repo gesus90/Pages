@@ -15,9 +15,13 @@ export interface ChatLiveJob {
   /** The sequence of the last journal entry applied. */
   readonly cursor: number;
   readonly hasMore: boolean;
+  /** At least one read of the journal succeeded. */
+  readonly hasRead: boolean;
   readonly phase: ChatJobPhase | null;
-  /** Answer text since the last stored answer. */
+  /** Answer text of the turn shown last, until its answer is stored. */
   readonly text: string;
+  /** The turn the shown text belongs to. */
+  readonly textTurn: number;
   /** Calls of Pages tools in the current turn, newest status per call. */
   readonly tools: readonly ChatJobToolEvent[];
   readonly steers: Readonly<Record<string, ChatSteerStatus>>;
@@ -41,8 +45,10 @@ export function startChatLiveJob(job: ChatJob): ChatLiveJob {
     job,
     cursor: 0,
     hasMore: true,
+    hasRead: false,
     phase: null,
     text: "",
+    textTurn: 0,
     tools: [],
     steers: {},
     usage: job.usage,
@@ -58,9 +64,14 @@ function applyEvent(live: ChatLiveJob, event: ChatJobEvent): ChatLiveJob {
     case "turn":
       return { ...live, tools: [] };
     case "text":
+      // Text of a later turn replaces what is shown; it may arrive before that turn's entry.
       return {
         ...live,
-        text: event.isReset ? event.delta : live.text + event.delta,
+        text:
+          event.isReset || event.turn !== live.textTurn
+            ? event.delta
+            : live.text + event.delta,
+        textTurn: Math.max(live.textTurn, event.turn),
       };
     case "tool":
       return {
@@ -76,7 +87,10 @@ function applyEvent(live: ChatLiveJob, event: ChatJobEvent): ChatLiveJob {
         steers: { ...live.steers, [event.messageId]: event.status },
       };
     case "answer":
-      return { ...live, text: "", tools: [] };
+      // A stored answer clears only its own turn; a following turn may already show text.
+      return event.turn < live.textTurn
+        ? live
+        : { ...live, text: "", tools: [] };
     case "usage":
       return { ...live, usage: event.usage };
     case "session":
@@ -110,6 +124,7 @@ export function applyChatJobUpdate(
     job: update.job,
     cursor: update.cursor,
     hasMore: update.hasMore,
+    hasRead: true,
   };
   let needsReload = false;
   for (const { event } of update.events) {

@@ -103,12 +103,17 @@ export class PicaAcpSteering {
     this.open.delete(messageId);
   }
 
-  /** Closes the job for further messages; every steer still open failed. */
-  public async close(): Promise<void> {
+  /** Takes no further message; inside the queue, so a sender either got in or starts the next job. */
+  public async stopIntake(): Promise<void> {
     await this.host.gate(() => {
       this.isClosed = true;
       return Promise.resolve();
     });
+  }
+
+  /** Closes the job for further messages; every steer still open failed. */
+  public async close(): Promise<void> {
+    await this.stopIntake();
     await this.settle();
     const failed = [...this.open];
     this.open.clear();

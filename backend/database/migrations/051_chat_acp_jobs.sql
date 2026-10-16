@@ -63,6 +63,8 @@ CREATE TABLE chat_steers (
     status TEXT NOT NULL CHECK (
         status IN ('pending', 'delivered', 'accepted', 'followUp', 'failed')
     ),
+    -- The answer of a follow-up turn; NULL while the follow-up waits for its turn.
+    answer_message_id TEXT,
     updated_at TEXT NOT NULL DEFAULT utc_now()
 );
 

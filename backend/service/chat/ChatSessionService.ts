@@ -46,7 +46,7 @@ export interface ChatSessionDependencies {
 export interface ChatSessionDeletionEffects {
   /** Stops the job of the session and waits until its process is gone. */
   readonly before: (userId: string, sessionId: string) => Promise<void>;
-  /** Removes what the session left outside the database. */
+  /** Removes what the session left outside the database; called after every attempt, it must not throw. */
   readonly after: (sessionId: string) => Promise<void>;
 }
 
@@ -175,11 +175,8 @@ export class ChatSessionService {
     const id = readChatSessionId(sessionId);
     if (confirmation !== (await this.confirmationWord(actor.id)))
       throw new ChatError("confirmationRequired");
-    await this.deletionEffects?.before(actor.id, id);
-    const files = await this.dependencies.sessions.remove(actor.id, id);
-    if (files === null) throw new ChatError("sessionMissing");
+    const files = await this.removeRows(actor.id, id);
     await this.dependencies.files.remove(files);
-    await this.deletionEffects?.after(id);
   }
 
   /**
@@ -200,14 +197,10 @@ export class ChatSessionService {
     const cleanupFailed: string[] = [];
     for (const id of ids) {
       try {
-        // A running answer ends before its conversation disappears.
-        await this.deletionEffects?.before(actor.id, id);
-        const files = await this.dependencies.sessions.remove(actor.id, id);
-        if (files === null) throw new ChatError("sessionMissing");
+        const files = await this.removeRows(actor.id, id);
         deleted.push(id);
         try {
           await this.dependencies.files.remove(files);
-          await this.deletionEffects?.after(id);
         } catch {
           cleanupFailed.push(id);
         }
@@ -240,6 +233,25 @@ export class ChatSessionService {
   public async confirmationWord(userId: string): Promise<ChatConfirmationWord> {
     const settings = await this.dependencies.languages.findByUserId(userId);
     return chatConfirmationWord(settings?.language);
+  }
+
+  /**
+   * Deletes the rows of an own session; a running answer ends before, and its
+   * leftovers outside the database are removed after, also when deleting failed.
+   */
+  private async removeRows(
+    userId: string,
+    sessionId: string,
+  ): Promise<readonly string[]> {
+    const effects = this.deletionEffects;
+    try {
+      await effects?.before(userId, sessionId);
+      const files = await this.dependencies.sessions.remove(userId, sessionId);
+      if (files === null) throw new ChatError("sessionMissing");
+      return files;
+    } finally {
+      await effects?.after(sessionId);
+    }
   }
 
   private async viewOf(

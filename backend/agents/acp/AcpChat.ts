@@ -31,6 +31,8 @@ export interface AcpSessionListener {
   readonly update: (update: SessionUpdate) => void;
   /** The token usage the adapter returned with a prompt, or `null` without one. */
   readonly prompted: (usage: Usage | null) => void;
+  /** The connection to the adapter ended, for example because its process exited. */
+  readonly closed: () => void;
 }
 
 /** What a chat session adds to a plan session: its MCP bridge, its continuation and its updates. */

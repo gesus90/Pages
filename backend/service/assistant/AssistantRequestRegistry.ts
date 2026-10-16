@@ -83,7 +83,12 @@ export class AssistantRequestRegistry {
     await Promise.allSettled(pending.map((request) => request.completed));
   }
 
-  private requireAdmission(userId: string, id: string): void {
+  /**
+   * Refuses work that {@link run} would refuse, before the caller stores anything for it.
+   *
+   * @throws {TextAssistantError} `requestBusy`.
+   */
+  public requireAdmission(userId: string, id: string): void {
     if (
       this.isStopped ||
       this.requests.has(id) ||

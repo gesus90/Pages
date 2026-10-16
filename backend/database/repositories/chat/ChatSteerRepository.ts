@@ -74,6 +74,23 @@ export class ChatSteerRepository {
     );
   }
 
+  /** Records the answer of the follow-up turn a steer got; its status stays `followUp`. */
+  public async answer(
+    messageId: string,
+    answerMessageId: string,
+  ): Promise<void> {
+    await this.database.execute(
+      `
+      UPDATE chat_steers
+      SET
+          answer_message_id = $answer_message_id,
+          updated_at = utc_now()
+      WHERE message_id = $message_id;
+    `,
+      { message_id: messageId, answer_message_id: answerMessageId },
+    );
+  }
+
   /** Lists the steers of a conversation. */
   public async list(sessionId: string): Promise<readonly ChatSteer[]> {
     const rows = await this.database.query(

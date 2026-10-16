@@ -355,7 +355,10 @@ export class ChatJobRepository {
               status = 'failed',
               updated_at = utc_now()
           WHERE job_id = $job_id
-              AND status IN ('pending', 'delivered');
+              AND (
+                  status IN ('pending', 'delivered')
+                  OR (status = 'followUp' AND answer_message_id IS NULL)
+              );
         `,
           { job_id: id },
         );

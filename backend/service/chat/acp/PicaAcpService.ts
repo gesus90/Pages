@@ -93,6 +93,8 @@ export class PicaAcpService {
   private readonly dependencies: PicaAcpServiceDependencies;
   private readonly running = new Map<string, RunningJob>();
   private readonly queues = new Map<string, SerialQueue>();
+  /** Conversations being deleted; no job starts or takes a message for them. */
+  private readonly deleting = new Set<string>();
   private recovery: Promise<void> | null = null;
 
   public constructor(dependencies: PicaAcpServiceDependencies) {
@@ -196,18 +198,37 @@ export class PicaAcpService {
     return { job, steers, selections };
   }
 
-  /** Before a conversation is deleted: stops its job and waits until its process is gone. */
+  /**
+   * Before a conversation is deleted: takes no further message for it, stops
+   * its job and waits until its process is gone.
+   */
   public async forget(userId: string, sessionId: string): Promise<void> {
+    await this.gate(sessionId, () => {
+      this.deleting.add(sessionId);
+      return Promise.resolve();
+    });
     const entry = this.running.get(sessionId);
     if (entry?.job.userId !== userId) return;
     this.cancel(userId, sessionId);
     await entry.completion;
   }
 
-  /** After a conversation was deleted: removes its empty working directory and its queue. */
+  /**
+   * After the deletion of a conversation, successful or not: removes its empty
+   * working directory and takes messages again; a failure is only logged.
+   */
   public async cleanup(sessionId: string): Promise<void> {
-    if (!this.running.has(sessionId)) this.queues.delete(sessionId);
-    await this.dependencies.workspace.remove(sessionId);
+    try {
+      await this.dependencies.workspace.remove(sessionId);
+    } catch (error: unknown) {
+      console.error(
+        "[pages] A Pica working directory could not be removed.",
+        error instanceof Error ? error.name : typeof error,
+      );
+    } finally {
+      this.deleting.delete(sessionId);
+      if (!this.running.has(sessionId)) this.queues.delete(sessionId);
+    }
   }
 
   private cancel(userId: string, sessionId: string): void {
@@ -223,7 +244,8 @@ export class PicaAcpService {
     request: PicaAcpRequest,
   ): Promise<SteerDecision> {
     const entry = this.running.get(sessionId);
-    if (entry?.job.userId !== actor.id) return { kind: "none" };
+    if (this.deleting.has(sessionId) || entry?.job.userId !== actor.id)
+      return { kind: "none" };
     if (!entry.job.isAccepting())
       return { kind: "wait", completion: entry.completion };
     const message = await this.store(actor, sessionId, request);
@@ -249,8 +271,12 @@ export class PicaAcpService {
     sessionId: string,
   ): Promise<ChatJobStart> {
     const { actor, agent } = input;
+    if (this.deleting.has(sessionId)) throw new ChatError("sessionMissing");
     if (this.running.has(sessionId))
       throw new TextAssistantError("requestBusy");
+    const id = randomUUID();
+    // Refused before anything is stored, as the API path refuses a second answer.
+    this.dependencies.requests.requireAdmission(actor.id, id);
     const directory = await this.dependencies.workspace.prepare(sessionId);
     const resumeSessionId = await this.compatibleSession(
       actor.id,
@@ -258,7 +284,6 @@ export class PicaAcpService {
       agent,
     );
     const message = await this.store(actor, sessionId, input.request);
-    const id = randomUUID();
     await this.dependencies.jobs.create({
       id,
       sessionId,
@@ -291,9 +316,8 @@ export class PicaAcpService {
         (signal) => job.run(signal),
       );
     } catch (error: unknown) {
-      void this.dependencies.jobs
-        .finish(job.id, "failed", "requestBusy")
-        .catch(() => undefined);
+      // Another answer of the person started meanwhile; the job ends visibly, with its journal.
+      void this.refuse(job.id).catch(() => undefined);
       throw error;
     }
     const completion = completed
@@ -305,6 +329,15 @@ export class PicaAcpService {
           this.running.delete(sessionId);
       });
     this.running.set(sessionId, { job, completion });
+  }
+
+  private async refuse(id: string): Promise<void> {
+    await this.dependencies.jobs.append(id, 1, {
+      kind: "end",
+      state: "failed",
+      errorCode: "requestBusy",
+    });
+    await this.dependencies.jobs.finish(id, "failed", "requestBusy");
   }
 
   /** Stores a message with exactly its selected, unsent attachments. */

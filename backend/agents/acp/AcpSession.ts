@@ -208,6 +208,11 @@ export class AcpSession implements PlanSession {
         this.receive(notification.params);
       })
       .connect(stream);
+    const { listener } = context;
+    if (listener)
+      this.connection.signal.addEventListener("abort", listener.closed, {
+        once: true,
+      });
     this.turn = this.work();
   }
 

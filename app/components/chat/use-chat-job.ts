@@ -9,7 +9,7 @@ import {
   startChatLiveJob,
 } from "./chat-job-state";
 
-import type { ChatJob } from "@/definition/ChatJob";
+import type { ChatJob, ChatJobUpdate } from "@/definition/ChatJob";
 import type { ChatLiveJob } from "./chat-job-state";
 import type { ChatView } from "./use-chat-uploads";
 
@@ -36,15 +36,76 @@ interface ChatJobOptions {
 }
 
 /**
- * Whether the journal still has entries to read: until its end entry, or
- * while the job row already ended but a page of entries is unread.
+ * Whether the journal still has entries to read: until its end entry while
+ * the job runs, and for an ended job until one read found no further page.
  */
 function isPolling(live: ChatLiveJob | null): live is ChatLiveJob {
   return (
     live !== null &&
     live.ended === null &&
-    (live.job.state === "running" || live.cursor === 0 || live.hasMore)
+    (live.job.state === "running" || !live.hasRead || live.hasMore)
   );
+}
+
+/** Reads the journal of a job after the cursor the panel applied last. */
+async function readJournal(
+  following: ChatLiveJob,
+): Promise<ChatJobUpdate | null> {
+  const { job, cursor } = following;
+  return readChatJobResult(
+    await chatApi({
+      intent: "job",
+      sessionId: job.sessionId,
+      jobId: job.id,
+      after: cursor,
+    }),
+  );
+}
+
+/** The job the panel shows: not one of another conversation, not a completed one. */
+function shownJob(visible: ChatLiveJob | null): ChatLiveJob | null {
+  return visible !== null && visible.ended?.state !== "completed"
+    ? visible
+    : null;
+}
+
+/**
+ * Reads the journal of the followed job, page after page, then at an interval.
+ *
+ * @param following - The job to read, or `null` to read nothing.
+ * @param setLive - Receives each applied read.
+ * @param reload - Reads the conversation again after a stored answer or the end.
+ */
+function useJournalReads(
+  following: ChatLiveJob | null,
+  setLive: (live: ChatLiveJob) => void,
+  reload: (sessionId: string) => Promise<void>,
+): void {
+  useEffect(() => {
+    if (following === null) return undefined;
+    const current: ChatLiveJob = following;
+    let isCurrent = true;
+    async function read(): Promise<void> {
+      try {
+        const update = await readJournal(current);
+        if (!isCurrent || update === null) return;
+        const applied = applyChatJobUpdate(current, update);
+        setLive(applied.live);
+        if (applied.needsReload) await reload(current.job.sessionId);
+      } catch {
+        // A lost read is repeated from the same cursor while the job runs; it runs on regardless.
+        if (isCurrent) setLive({ ...current, hasMore: false, hasRead: true });
+      }
+    }
+    const timer = setTimeout(
+      () => void read(),
+      current.hasMore ? 0 : POLL_INTERVAL_MS,
+    );
+    return () => {
+      isCurrent = false;
+      clearTimeout(timer);
+    };
+  }, [following, setLive, reload]);
 }
 
 /**
@@ -63,54 +124,25 @@ export function useChatJob({
   setError,
 }: ChatJobOptions): ChatJobs {
   const [live, setLive] = useState<ChatLiveJob | null>(null);
-  const [attachedId, setAttachedId] = useState<string | null>(null);
+  const [namedId, setNamedId] = useState<string | null>(null);
   const sessionId = view.session?.id ?? null;
   const latest = view.activity?.job ?? null;
 
-  // The newest job the conversation names replaces an older one; a completed one shows nothing.
-  if (latest !== null && latest.id !== attachedId) {
-    setAttachedId(latest.id);
-    setLive(latest.state === "completed" ? null : startChatLiveJob(latest));
+  // A job the conversation names anew is followed unless it is the one followed already.
+  if (latest !== null && latest.id !== namedId) {
+    setNamedId(latest.id);
+    if (live?.job.id !== latest.id)
+      setLive(latest.state === "completed" ? null : startChatLiveJob(latest));
   }
 
   const visible = live?.job.sessionId === sessionId ? live : null;
-  const polling = isOpen && isPolling(visible) ? visible : null;
-
-  useEffect(() => {
-    if (polling === null) return undefined;
-    const following: ChatLiveJob = polling;
-    let isCurrent = true;
-    const { job, cursor } = following;
-    async function read(): Promise<void> {
-      try {
-        const result = await chatApi({
-          intent: "job",
-          sessionId: job.sessionId,
-          jobId: job.id,
-          after: cursor,
-        });
-        const update = readChatJobResult(result);
-        if (!isCurrent || update === null) return;
-        const applied = applyChatJobUpdate(following, update);
-        setLive(applied.live);
-        if (applied.needsReload) await reload(job.sessionId);
-      } catch {
-        // A lost read is repeated from the same cursor; the job runs on regardless.
-        if (isCurrent) setLive({ ...following, hasMore: false });
-      }
-    }
-    const timer = setTimeout(
-      () => void read(),
-      following.hasMore ? 0 : POLL_INTERVAL_MS,
-    );
-    return () => {
-      isCurrent = false;
-      clearTimeout(timer);
-    };
-  }, [polling, reload]);
+  useJournalReads(
+    isOpen && isPolling(visible) ? visible : null,
+    setLive,
+    reload,
+  );
 
   function attach(job: ChatJob): void {
-    setAttachedId(job.id);
     setLive(startChatLiveJob(job));
   }
 
@@ -122,8 +154,7 @@ export function useChatJob({
   }
 
   return {
-    live:
-      visible !== null && visible.ended?.state !== "completed" ? visible : null,
+    live: shownJob(visible),
     isRunning: isChatJobRunning(visible),
     attach,
     stop,
