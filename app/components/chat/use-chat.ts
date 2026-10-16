@@ -117,6 +117,7 @@ export function useChat(isOpen: boolean): ChatController {
   const context = useChatContext({
     isOpen,
     view,
+    reported: jobs.isRunning ? (jobs.live?.usage.context ?? null) : undefined,
     setError,
     setNotice: commands.setNotice,
   });

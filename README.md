@@ -380,6 +380,7 @@ for every new answer, so a change applies from the next message on.
   folders in `pica-sessions` next to the agent folders.
 - **Consumption.** Context occupancy and tokens are shown only as the adapter
   reports them; codex-acp 2.2.2 reports no cost, shown as "not available".
+  While a job runs, the context in the panel header follows its latest report.
 
 The capability matrix of the installed adapter is in
 [backend/agents/acp/CodexAcpCapabilities.md](./backend/agents/acp/CodexAcpCapabilities.md).

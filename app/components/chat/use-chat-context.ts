@@ -8,20 +8,42 @@ import {
 } from "@/app/lib/chat-client";
 
 import type { ChatContextSize } from "@/definition/Chat";
+import type { ChatContextUsage } from "@/definition/ChatJob";
 import type { ChatNotice } from "./use-chat-commands";
 import type { ChatView } from "./use-chat-uploads";
 
 interface ChatContextOptions {
   readonly isOpen: boolean;
   readonly view: ChatView;
+  /** The occupancy the running job of the session reported last; `undefined` while none runs. */
+  readonly reported: ChatContextUsage | null | undefined;
   readonly setError: (code: string) => void;
   readonly setNotice: (notice: ChatNotice | null) => void;
+}
+
+/**
+ * The context of the session as a read of the server returns it: while a job
+ * runs, its adapter's latest report replaces the one loaded with the last
+ * message (PAGE-90). An estimate of Pages is never replaced.
+ */
+function currentContext(
+  loaded: ChatContextSize | null,
+  reported: ChatContextUsage | null | undefined,
+): ChatContextSize | null {
+  if (reported === undefined || loaded?.source !== "adapter") return loaded;
+  return {
+    tokens: reported?.used ?? null,
+    limit: reported?.size ?? null,
+    isEstimated: false,
+    source: "adapter",
+  };
 }
 
 /** Loads the active context and keeps compaction bound to the session that started it. */
 export function useChatContext({
   isOpen,
   view,
+  reported,
   setError,
   setNotice,
 }: ChatContextOptions): {
@@ -81,10 +103,12 @@ export function useChatContext({
   }
 
   return {
-    context:
+    context: currentContext(
       snapshot !== null && snapshot.sessionId === sessionId
         ? snapshot.context
         : null,
+      reported,
+    ),
     isCompacting,
     compact,
   };
