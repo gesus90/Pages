@@ -266,6 +266,7 @@ describe("a chat turn", () => {
       storageName: "3f6c1d2e-0000-4000-8000-000000000001",
     };
     const chat = new ChatService({
+      mode: "legacy-actions",
       sessions: { require: async () => SESSION },
       messages: {
         messages: async () => [],

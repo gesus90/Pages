@@ -287,6 +287,40 @@ variables, add the redirect in the portal and then:
 6. Switch an event off, disconnect, and check nothing is posted afterwards while
    the bot is still on the server.
 
+## Pica API runtime (PAGE-83, partial)
+
+The production Pica chat now runs API models through the shared Mastra runtime.
+Its initial native catalog contains exactly five tools: search tickets in a
+known project, read a ticket, read a project, change a ticket title and change a
+ticket status. Each tool uses the existing Pages services and current account
+rights. There is no generic operation tool or text-action fallback. Project
+discovery and workflow-status discovery are not yet included; supply known IDs.
+
+Every write requires an exact confirmation line in the **current** human
+message, for example:
+
+```text
+BESTÄTIGEN tickets_set_title {"ticketId":"PAGE-1","expectedTitle":"Old title","title":"New title"}
+BESTÄTIGEN tickets_set_status {"ticketId":"PAGE-1","expectedStatusId":"todo-id","statusId":"done-id"}
+```
+
+`CONFIRM` is also accepted. Pica first reads the ticket and proposes the concrete
+line. The server binds each single-use confirmation to the ticket, expected old
+value and new value; history, attachments and model arguments cannot approve a
+write. Conflicting changes remain subject to the existing expected-value checks.
+
+The production composition selects `native-api` explicitly. `legacy-actions`
+preserves the previous broader catalog for compatibility and its regressions;
+it never runs alongside the native path or as an automatic fallback. The agent
+and plan chat sections below describe that retained catalog, not the five tools
+currently exposed in production. Other operations, web search, deletion approvals
+and Mastra Memory remain outside this partial implementation. Pages still owns
+the transcript, attachments, summaries and `/compact`.
+
+Selecting an ACP/coding model for Pica returns a translated explanation before
+execution, including for explicit compaction. Existing coding and execution-plan
+paths, their scheduler and their process handling are unchanged.
+
 ## Pica sessions and conversation context (PAGE-48)
 
 In the Pica panel, `/delete` opens a selection of the signed-in person's own

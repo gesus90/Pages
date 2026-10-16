@@ -1,4 +1,5 @@
 import { Agent } from "@mastra/core/agent";
+import { noopLogger } from "@mastra/core/logger";
 import { RequestContext } from "@mastra/core/request-context";
 
 import type { MastraLanguageModel } from "@mastra/core/agent";
@@ -32,7 +33,7 @@ export function createRuntimeAgent(options: RuntimeAgentOptions): Agent {
   const maxSteps = options.maxSteps ?? 5;
   if (!Number.isSafeInteger(maxSteps) || maxSteps < 1)
     throw new Error("Runtime maxSteps must be a positive integer");
-  return new Agent({
+  const agent = new Agent({
     id: options.id,
     name: options.name,
     instructions: options.instructions,
@@ -53,4 +54,6 @@ export function createRuntimeAgent(options: RuntimeAgentOptions): Agent {
       modelSettings: { maxRetries: 0 },
     }),
   });
+  agent.__registerPrimitives({ logger: noopLogger });
+  return agent;
 }

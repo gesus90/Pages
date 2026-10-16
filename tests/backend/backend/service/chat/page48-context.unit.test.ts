@@ -206,6 +206,7 @@ it("uses the summary in the next real chat turn while the stored transcript stay
     }),
   );
   const chat = new ChatService({
+    mode: "legacy-actions",
     sessions: { require: async () => SESSION },
     context: fixture.service,
     messages: { messages: async () => fixture.messages, append },

@@ -201,6 +201,7 @@ export class ChatAgentWorld {
   ): Promise<ChatReply> {
     this.replies = [...replies];
     const chat = new ChatService({
+      mode: "legacy-actions",
       sessions: { require: async () => SESSION },
       messages: {
         messages: async () => [...this.messages],

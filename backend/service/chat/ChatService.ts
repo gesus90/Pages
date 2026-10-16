@@ -2,6 +2,7 @@ import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { ChatError } from "@/backend/error/ChatErrors";
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
 import { redactAssistantCredentials } from "@/backend/service/assistant/TextAssistantValidation";
+import { isApiProvider } from "@/definition/AgentConnection";
 import { CHAT_LIMITS, canChatSearchWeb } from "@/definition/Chat";
 
 import { readChatModelReply } from "./ChatActionProtocol";
@@ -43,6 +44,7 @@ import type { ChatSessionService } from "./ChatSessionService";
 import type { ChatSettingsService } from "./ChatSettingsService";
 import type { ChatToolExecutor } from "./ChatToolExecutor";
 import type { PicaInstructions } from "./PicaInstructionFiles";
+import type { PicaApiService } from "./PicaApiService";
 
 /** Actions the agent may run for one message before it has to answer. */
 export const CHAT_MAXIMUM_ACTIONS = 6;
@@ -53,7 +55,7 @@ const ATTACHMENT_CHARACTERS = 30_000;
 const IDENTIFIER = /^[a-zA-Z0-9-]{1,100}$/u;
 
 /** What the chat turns are built from. */
-export interface ChatServiceDependencies {
+interface ChatDependencies {
   readonly sessions: Pick<ChatSessionService, "require">;
   readonly context?: Pick<ChatContextService, "history">;
   readonly messages: Pick<ChatSessionRepository, "messages" | "append">;
@@ -68,13 +70,22 @@ export interface ChatServiceDependencies {
    */
   readonly protectedInstructions: () => Promise<PicaInstructions>;
   readonly agents: Pick<AgentProfileService, "resolve">;
-  readonly execution: TextExecution;
-  readonly tools: Pick<ChatToolExecutor, "run">;
   readonly requests: AssistantRequestRegistry;
   readonly languages: Pick<UserSettingsRepository, "findByUserId">;
   /** Today's date as `YYYY-MM-DD`; the current UTC date by default. */
   readonly today?: () => string;
 }
+
+/** Explicit composition switch: production selects native API; legacy never runs as a fallback. */
+export type ChatServiceDependencies = ChatDependencies &
+  (
+    | { readonly mode: "native-api"; readonly api: Pick<PicaApiService, "run"> }
+    | {
+        readonly mode: "legacy-actions";
+        readonly execution: TextExecution;
+        readonly tools: Pick<ChatToolExecutor, "run">;
+      }
+  );
 
 /** One sent message after validation. */
 interface ChatSendRequest {
@@ -98,6 +109,14 @@ interface ChatTurn {
 interface ChatAnswer {
   readonly text: string;
   readonly temporaryPasswords: readonly ChatTemporaryPassword[];
+}
+
+interface LegacyAnswerInput {
+  readonly turn: ChatTurn;
+  readonly prompt: Omit<ChatPromptInput, "steps" | "isLastStep">;
+  readonly instructions: string;
+  readonly confirmationWord: ChatConfirmationWord;
+  readonly canSearchWeb: boolean;
 }
 
 function readIdentifier(input: unknown): string {
@@ -148,8 +167,9 @@ function readAnswer(text: string): string {
  * Every message resolves the chat assignment anew for the person who sends it,
  * so a running answer keeps its access and model while the next message uses
  * the current assignment (T6.1.18). Every message also reads Pica's protected
- * `SOUL.md` and `AGENTS.md` anew (PAGE-51). The agent works in a loop of at
- * most six actions; each action runs with the rights of the person (T6.12.5).
+ * `SOUL.md` and `AGENTS.md` anew (PAGE-51). Production uses the shared native
+ * API runtime; the explicitly selected legacy mode retains the text loop.
+ * Both modes limit actions and use the person's current rights (T6.12.5).
  * Neither credentials nor server paths enter a prompt, and nothing of the
  * conversation is logged.
  */
@@ -198,6 +218,11 @@ export class ChatService {
     const sent = await attachments.pending(session.id, request.attachmentIds);
     // Access and model are resolved for the person who sends, at the start of every message.
     const agent = await agents.resolve(actor.id, "chat");
+    if (
+      this.dependencies.mode === "native-api" &&
+      !isApiProvider(agent.connection.provider)
+    )
+      throw new ChatError("apiModeRequired");
     const protectedInstructions =
       await this.dependencies.protectedInstructions();
     const context = this.dependencies.context
@@ -245,7 +270,9 @@ export class ChatService {
       turn.actor.id,
     );
     const confirmationWord = chatConfirmationWord(settings?.language);
-    const canSearchWeb = canChatSearchWeb(turn.agent.connection.provider);
+    const isNative = this.dependencies.mode === "native-api";
+    const canSearchWeb =
+      !isNative && canChatSearchWeb(turn.agent.connection.provider);
     const instructions = createChatInstructions({
       protectedInstructions: turn.protectedInstructions,
       supplement: await this.dependencies.settings.instruction(),
@@ -253,6 +280,7 @@ export class ChatService {
       confirmationWord,
       canSearchWeb,
       maximumActions: CHAT_MAXIMUM_ACTIONS,
+      nativeTools: isNative,
     } satisfies ChatInstructionInput);
     const prompt: Omit<ChatPromptInput, "steps" | "isLastStep"> = {
       personName: turn.actor.displayName,
@@ -263,7 +291,39 @@ export class ChatService {
       summary: turn.summary,
       message: turn.request.text,
       attachments: await this.promptAttachments(turn.attachments),
+      nativeTools: isNative,
     };
+    if (this.dependencies.mode === "native-api") {
+      const output = await this.dependencies.api.run(
+        {
+          actor: turn.actor,
+          userId: turn.actor.id,
+          sessionId: turn.request.sessionId,
+          message: turn.request.text,
+          agent: turn.agent,
+          instructions,
+          prompt: createChatPrompt({ ...prompt, steps: [], isLastStep: false }),
+          webSearch: false,
+        },
+        signal,
+      );
+      signal.throwIfAborted();
+      return { text: readAnswer(output), temporaryPasswords: [] };
+    }
+    return this.legacyAnswer(
+      { turn, prompt, instructions, confirmationWord, canSearchWeb },
+      signal,
+    );
+  }
+
+  private async legacyAnswer(
+    input: LegacyAnswerInput,
+    signal: AbortSignal,
+  ): Promise<ChatAnswer> {
+    if (this.dependencies.mode !== "legacy-actions")
+      throw new ChatError("invalidInput");
+    const { turn, prompt, instructions, confirmationWord, canSearchWeb } =
+      input;
     let confirmation = containsWord(turn.request.text, confirmationWord)
       ? confirmationWord
       : null;

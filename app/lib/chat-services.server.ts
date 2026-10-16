@@ -12,6 +12,9 @@ import { ChatService } from "@/backend/service/chat/ChatService";
 import { ChatSessionService } from "@/backend/service/chat/ChatSessionService";
 import { ChatSettingsService } from "@/backend/service/chat/ChatSettingsService";
 import { ChatToolExecutor } from "@/backend/service/chat/ChatToolExecutor";
+import { PicaApiService } from "@/backend/service/chat/PicaApiService";
+import { ChatError } from "@/backend/error/ChatErrors";
+import { isApiProvider } from "@/definition/AgentConnection";
 import { readPicaInstructions } from "@/backend/service/chat/PicaInstructionFiles";
 import { AgentIdentityService } from "@/backend/service/mcp/AgentIdentityService";
 import { WikiFileStore } from "@/backend/storage/WikiFileStore";
@@ -25,6 +28,7 @@ import type { AgentOperationRouter } from "@/backend/service/agents/AgentOperati
 import type { TextExecution } from "@/backend/agents/TextExecution";
 import type { AssistantRequestRegistry } from "@/backend/service/assistant/AssistantRequestRegistry";
 import type { AgentProfileService } from "@/backend/service/agents/AgentProfileService";
+import type { PicaApiModels } from "@/backend/agents/providers/PicaApiModels";
 
 /** The global chat agent Pica: sessions, attachments, settings and turns (A11.4). */
 export interface ChatApplicationServices {
@@ -47,6 +51,7 @@ export function createChatServices(input: {
   readonly agents: {
     readonly agentProfileService: Pick<AgentProfileService, "resolve">;
     readonly agentChatExecution: TextExecution;
+    readonly picaApiModels: PicaApiModels;
     readonly chatRequests: AssistantRequestRegistry;
   };
   readonly router: AgentOperationRouter;
@@ -82,8 +87,21 @@ export function createChatServices(input: {
     contexts: new ChatContextRepository(database),
     agents: input.agents.agentProfileService,
     catalogs: new AgentConnectionRepository(database).catalogs(),
-    execution: input.agents.agentChatExecution,
+    execution: {
+      run: (request, signal) => {
+        if (!isApiProvider(request.agent.connection.provider))
+          throw new ChatError("apiModeRequired");
+        return input.agents.agentChatExecution.run(request, signal);
+      },
+    },
     requests: input.agents.chatRequests,
+  });
+  const tools = new ChatToolExecutor({
+    router: input.router,
+    identities: new AgentIdentityService(
+      input.accounts.users,
+      input.accounts.administration,
+    ),
   });
   return {
     chatContextService,
@@ -91,6 +109,12 @@ export function createChatServices(input: {
     chatAttachmentService,
     chatSettingsService,
     chatService: new ChatService({
+      mode: "native-api",
+      api: new PicaApiService({
+        models: input.agents.picaApiModels,
+        sessions: chatSessionService,
+        tools,
+      }),
       sessions: chatSessionService,
       context: chatContextService,
       messages: sessions,
@@ -98,14 +122,6 @@ export function createChatServices(input: {
       settings: chatSettingsService,
       protectedInstructions: readPicaInstructions,
       agents: input.agents.agentProfileService,
-      execution: input.agents.agentChatExecution,
-      tools: new ChatToolExecutor({
-        router: input.router,
-        identities: new AgentIdentityService(
-          input.accounts.users,
-          input.accounts.administration,
-        ),
-      }),
       requests: input.agents.chatRequests,
       languages,
     }),

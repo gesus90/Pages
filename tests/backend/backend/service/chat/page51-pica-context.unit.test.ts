@@ -104,6 +104,7 @@ class PicaChat {
     > = {},
   ) {
     this.chat = new ChatService({
+      mode: "legacy-actions",
       sessions: {
         require: async (actor, id) => {
           if (actor.id !== OWNER.id || typeof id !== "string")

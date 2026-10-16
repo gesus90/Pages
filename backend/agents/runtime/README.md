@@ -1,7 +1,7 @@
 # Shared agent runtime
 
-This module provides invocation-scoped Mastra agents for the later Pica migration
-(PAGE-83). It does not replace the Pages DAG or start another application server.
+This module provides invocation-scoped Mastra agents, used by Pica's API mode
+(PAGE-83 partial). It does not replace the Pages DAG or start another application server.
 `@mastra/core` is pinned to **1.74.0**, the newest stable release allowed by the
 repository's ten-day package release policy on 16 October 2026. Node and Zod use
 the existing Pages versions. No Mastra storage provider or database is installed.
@@ -23,6 +23,8 @@ the existing Pages versions. No Mastra storage provider or database is installed
    credential selection and internal Mastra streaming wrappers are excluded.
    The factory returns a real `Agent` with `generate` and `stream`, a five-step
    default budget, zero model retries and the bound run/context/signal defaults.
+   The agent uses Mastra's no-op logger so provider errors cannot log prompts or
+   credentials; callers translate failures at their existing error boundary.
    Call options are a trusted server API; never forward client execution options.
    Consume `textStream` for text or `fullStream` for tool and approval events.
 4. `createRuntimeMemory` exposes explicit `history` and `append` operations over
@@ -79,7 +81,9 @@ No workflow, durable agent, plan engine, DAG migration, snapshot storage,
 automatic memory compaction, semantic recall or background worker is added.
 `requireApproval` can suspend the native Mastra loop; durable approval recovery
 needs storage and a Pages-owned authorization/resume design. That integration,
-Pica's tools/prompts, attachments, provider selection and UI wiring remain PAGE-83.
+Pica's partial API composition now supplies five native tools, fixed-host SDK
+providers and its existing Pages prompt/history/attachment context. ACP tools,
+the remaining catalog, Mastra Memory and durable deletion approvals stay open.
 The ACP text adapter does not translate SDK sampling/token settings to native
 CLI options; native configuration remains the starter's responsibility.
 

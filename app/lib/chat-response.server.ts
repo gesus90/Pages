@@ -22,6 +22,7 @@ const STATUSES: Readonly<
   timeout: 504,
   providerFailed: 502,
   instructionsUnavailable: 503,
+  apiModeRequired: 400,
 };
 
 /**

@@ -18,6 +18,7 @@ import { AgentConnectionService } from "@/backend/service/agents/AgentConnection
 import { AgentOperationRegistry } from "@/backend/service/agents/AgentOperationRegistry";
 import { AgentTextExecution } from "@/backend/agents/AgentTextExecution";
 import { ApiTextExecution } from "@/backend/agents/providers/ApiTextExecution";
+import { PicaApiModels } from "@/backend/agents/providers/PicaApiModels";
 import { CliTextExecution } from "@/backend/agents/cli/CliTextExecution";
 import { AgentPlanExecution } from "@/backend/agents/AgentPlanExecution";
 import { ScopedExecution } from "@/backend/agents/ScopedExecution";
@@ -57,6 +58,8 @@ export interface AgentApplicationServices extends AgentConfigurationApplicationS
   readonly agentTextExecution: TextExecution;
   /** Text runs of the chat; parallel chats share a verified connection. */
   readonly agentChatExecution: TextExecution;
+  /** Native Pica models share connection locks and authorization with the existing execution paths. */
+  readonly picaApiModels: PicaApiModels;
   /**
    * Running chat answers. One answer may run several model calls, so its
    * deadline is longer than that of the text assistant; shutdown cancels them
@@ -99,6 +102,7 @@ function createExecutions(
   | "agentChatExecution"
   | "agentPlanExecution"
   | "agentCheckService"
+  | "picaApiModels"
 > {
   const { repository, cipher, operations, access } = input;
   const cliAdapters = {
@@ -108,6 +112,12 @@ function createExecutions(
     runner: input.runner,
   };
   return {
+    picaApiModels: new PicaApiModels({
+      connections: repository,
+      cipher,
+      access,
+      operations,
+    }),
     agentCheckService: new AgentCheckService({
       repository,
       catalog: input.catalog,

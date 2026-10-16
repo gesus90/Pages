@@ -3016,6 +3016,7 @@
       "general": "Das hat nicht geklappt. Bitte versuch es noch einmal.",
       "contextChanged": "Der Kontext wurde inzwischen geändert. Es wurde nichts überschrieben; bitte /compact erneut aufrufen.",
       "compactionFailed": "Der Kontext konnte nicht komprimiert werden. Der vorhandene Gesprächsverlauf bleibt erhalten.",
+      "apiModeRequired": "Pica unterstützt hier derzeit nur API-Modelle mit nativen Tools. Bitte wähle in den Agent-Einstellungen für den Chat eine API-Verbindung. ACP-/Coding-Modelle werden hier noch nicht gestartet; nutze dafür den bisherigen Coding- oder Ausführplan-Pfad.",
       "instructionsUnavailable": "Pica kann gerade nicht antworten: Die geschützten Vorgaben von Pica fehlen auf dem Server oder sind nicht lesbar. Deine Nachricht wurde nicht gesendet. Bitte wende dich an einen Admin."
     },
     "recover": "Neue Session starten",
