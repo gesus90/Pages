@@ -95,3 +95,51 @@ it("lists all own sessions without the optional limit and rejects a foreign dele
     { id: "session", user_id: "foreign" },
   ]);
 });
+
+it("stores a client message ID with its message and refuses a second message with it", async () => {
+  const boundary = queryFixture([["session"]]);
+  const execute = vi.fn(async () => undefined);
+  const repository = new ChatSessionRepository({
+    ...boundary,
+    execute,
+    transaction: async (work) => work({ ...boundary, execute }),
+  });
+  boundary.query
+    .mockResolvedValueOnce([["session"]])
+    .mockResolvedValueOnce([["message-1", "user", "Hallo", "today"]]);
+  expect(
+    await repository.append("owner", "session", {
+      role: "user",
+      content: "Hallo",
+      clientMessageId: "browser-1",
+    }),
+  ).toEqual({
+    id: "message-1",
+    role: "user",
+    content: "Hallo",
+    createdAt: "today",
+  });
+  const [statement, parameters] = boundary.query.mock.calls[1];
+  expect(statement).toContain("ON CONFLICT DO NOTHING");
+  expect(parameters).toMatchObject({ client_message_id: "browser-1" });
+
+  boundary.query.mockResolvedValueOnce([["session"]]).mockResolvedValueOnce([]);
+  await expect(
+    repository.append("owner", "session", {
+      role: "user",
+      content: "Hallo",
+      clientMessageId: "browser-1",
+    }),
+  ).rejects.toMatchObject({ code: "messageAlreadySent" });
+
+  boundary.query.mockResolvedValueOnce([
+    ["message-1", "user", "Hallo", "today"],
+  ]);
+  expect((await repository.findByClientId("session", "browser-1"))?.id).toBe(
+    "message-1",
+  );
+  expect(boundary.query.mock.calls.at(-1)?.[1]).toEqual({
+    session_id: "session",
+    client_message_id: "browser-1",
+  });
+});

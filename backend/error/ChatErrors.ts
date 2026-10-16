@@ -7,6 +7,7 @@ export type ChatErrorCode =
   | "confirmationRequired"
   | "credentialsInText"
   | "emptyMessage"
+  | "messageAlreadySent"
   | "messageTooLong"
   | "tooManyAttachments"
   | "fileEmpty"

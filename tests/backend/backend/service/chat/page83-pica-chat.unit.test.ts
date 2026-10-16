@@ -11,6 +11,7 @@ import { responseChunks } from "../../agents/runtime/runtime-fixture";
 
 import type { ChatServiceDependencies } from "@/backend/service/chat/ChatService";
 import type { StoredChatMessage } from "@/backend/database/repositories/chat/ChatSessionRepository";
+import type { ChatJob } from "@/definition/ChatJob";
 
 function chatWorld(
   options: {
@@ -39,6 +40,8 @@ function chatWorld(
   const api = vi.fn(native.service.run.bind(native.service));
   if (options.fail) api.mockRejectedValue(new ChatError("accessDenied"));
   const stored: StoredChatMessage[] = [];
+  // Like the unique index of the database: one message per client message ID.
+  const sentIds = new Map<string, StoredChatMessage>();
   const dependencies: ChatServiceDependencies = {
     mode: "native-api",
     api: { run: api },
@@ -55,14 +58,20 @@ function chatWorld(
       append: async (userId, sessionId, input) => {
         if (userId !== OWNER.id || sessionId !== FIRST)
           throw new Error("Unexpected chat storage actor");
+        const { clientMessageId, ...content } = input;
+        if (clientMessageId && sentIds.has(clientMessageId))
+          throw new ChatError("messageAlreadySent");
         const message: StoredChatMessage = {
-          ...input,
+          ...content,
           id: `message-${stored.length}`,
           createdAt: "today",
         };
         stored.push(message);
+        if (clientMessageId) sentIds.set(clientMessageId, message);
         return message;
       },
+      findByClientId: async (sessionId, clientMessageId) =>
+        sessionId === FIRST ? (sentIds.get(clientMessageId) ?? null) : null,
     },
     attachments: {
       pending: async () => [],
@@ -181,4 +190,66 @@ it("keeps legacy compatibility explicit and never calls native execution in that
   expect(reply.answer.content).toBe("Legacy answer");
   expect(execution.run).toHaveBeenCalledOnce();
   expect(world.api).not.toHaveBeenCalled();
+});
+
+it("stores a message sent again with the same client message ID only once", async () => {
+  const world = chatWorld();
+  const message = {
+    requestId: "first-attempt",
+    clientMessageId: "message-from-browser",
+    sessionId: FIRST,
+    text: "Lies PAGE-1",
+  };
+  const sent = await world.chat.submit(OWNER, message);
+  expect(sent.kind).toBe("reply");
+  await expect(
+    world.chat.submit(OWNER, { ...message, requestId: "second-attempt" }),
+  ).rejects.toMatchObject({ code: "messageAlreadySent" });
+  expect(world.stored.map(({ role }) => role)).toEqual(["user", "assistant"]);
+  expect(world.api).toHaveBeenCalledOnce();
+  const response = chatFailure(new ChatError("messageAlreadySent"));
+  expect(response.status).toBe(409);
+});
+
+it("answers a Codex message sent again with its job instead of steering or starting anew", async () => {
+  const world = chatWorld({ cli: true });
+  const job: ChatJob = {
+    id: "00000000-0000-4000-8000-000000000068",
+    sessionId: FIRST,
+    state: "running",
+    errorCode: null,
+    createdAt: "today",
+    endedAt: null,
+    usage: { context: null, tokens: null, cost: null },
+  };
+  const first = await world.dependencies.messages.append(OWNER.id, FIRST, {
+    role: "user",
+    content: "Schreibe eine lange Liste",
+    clientMessageId: "codex-message",
+  });
+  const acp = {
+    steer: vi.fn(async () => null),
+    start: vi.fn(async () => ({ job, messageId: "other" })),
+    outcome: vi.fn(async () => ({
+      kind: "job" as const,
+      job: { job, messageId: first.id },
+    })),
+  };
+  const chat = new ChatService({
+    ...world.dependencies,
+    mode: "native-api",
+    api: { run: world.api },
+    acp,
+  });
+  const sent = await chat.submit(OWNER, {
+    requestId: "retry",
+    clientMessageId: "codex-message",
+    sessionId: FIRST,
+    text: "Schreibe eine lange Liste",
+  });
+  expect(sent).toEqual({ kind: "job", job: { job, messageId: first.id } });
+  expect(acp.outcome).toHaveBeenCalledWith(OWNER.id, FIRST, first.id);
+  expect(acp.steer).not.toHaveBeenCalled();
+  expect(acp.start).not.toHaveBeenCalled();
+  expect(world.stored).toHaveLength(1);
 });

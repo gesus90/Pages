@@ -283,6 +283,23 @@ export class ChatJobRepository {
     return rows.length === 0 ? null : readJob(rows[0]);
   }
 
+  /** Returns the own job a stored message started, or `null` for a message that started none. */
+  public async findByMessage(
+    userId: string,
+    messageId: string,
+  ): Promise<ChatJob | null> {
+    const rows = await this.database.query(
+      `
+      SELECT ${JOB_COLUMNS}
+      FROM chat_jobs
+      WHERE chat_jobs.message_id = $message_id
+          AND chat_jobs.user_id = $user_id;
+    `,
+      { message_id: messageId, user_id: userId },
+    );
+    return rows.length === 0 ? null : readJob(rows[0]);
+  }
+
   /** Returns the newest job of an own conversation. */
   public async latest(
     userId: string,

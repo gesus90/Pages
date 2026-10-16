@@ -19,6 +19,15 @@ const PREVIEW_CHARACTERS = 80;
 /** A message as stored; attachments are read separately. */
 export type StoredChatMessage = Omit<ChatMessage, "attachments">;
 
+/** A message to store. */
+export interface NewChatMessage extends Pick<ChatMessage, "role" | "content"> {
+  /**
+   * The ID the browser gave a message the person sent; a second message with
+   * the same ID in the conversation is refused (PAGE-68).
+   */
+  readonly clientMessageId?: string | null;
+}
+
 function readSession(row: readonly DatabaseValue[]): ChatSession {
   const preview = readNullableTextColumn(row, 3, "preview") ?? "";
   return {
@@ -180,14 +189,41 @@ export class ChatSessionRepository {
   }
 
   /**
+   * Returns the message the browser gave this ID in a session, after ownership was checked.
+   *
+   * @returns The message, or `null` when none of the session carries the ID.
+   */
+  public async findByClientId(
+    sessionId: string,
+    clientMessageId: string,
+  ): Promise<StoredChatMessage | null> {
+    const rows = await this.database.query(
+      `
+      SELECT
+          id,
+          role,
+          content,
+          created_at
+      FROM chat_messages
+      WHERE session_id = $session_id
+          AND client_message_id = $client_message_id;
+    `,
+      { session_id: sessionId, client_message_id: clientMessageId },
+    );
+    return rows.length === 0 ? null : readMessage(rows[0]);
+  }
+
+  /**
    * Appends a message to an own session and marks the session as used.
    *
-   * @throws {ChatError} `sessionMissing` when the session was deleted meanwhile.
+   * @throws {ChatError} `sessionMissing` when the session was deleted meanwhile;
+   * `messageAlreadySent` when a message of the session already carries the
+   * client message ID, and then nothing is changed.
    */
   public async append(
     userId: string,
     sessionId: string,
-    message: Pick<ChatMessage, "role" | "content">,
+    message: NewChatMessage,
   ): Promise<StoredChatMessage> {
     const id = randomUUID();
     return this.database.transaction(async (transaction) => {
@@ -202,6 +238,7 @@ export class ChatSessionRepository {
         { session_id: sessionId, user_id: userId },
       );
       if (updated.length === 0) throw new ChatError("sessionMissing");
+      // The unique index on the client message ID refuses a message sent twice.
       const rows = await transaction.query(
         `
         INSERT INTO chat_messages (
@@ -209,16 +246,19 @@ export class ChatSessionRepository {
             session_id,
             position,
             role,
-            content
+            content,
+            client_message_id
         )
         SELECT
             $id,
             $session_id,
             COALESCE(MAX(position), 0) + 1,
             $role,
-            $content
+            $content,
+            $client_message_id
         FROM chat_messages
         WHERE session_id = $session_id
+        ON CONFLICT DO NOTHING
         RETURNING
             id,
             role,
@@ -230,8 +270,10 @@ export class ChatSessionRepository {
           session_id: sessionId,
           role: message.role,
           content: message.content,
+          client_message_id: message.clientMessageId ?? null,
         },
       );
+      if (rows.length === 0) throw new ChatError("messageAlreadySent");
       return readMessage(rows[0]);
     });
   }

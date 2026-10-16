@@ -270,6 +270,7 @@ describe("a chat turn", () => {
       sessions: { require: async () => SESSION },
       messages: {
         messages: async () => [],
+        findByClientId: async () => null,
         append: async (userId, sessionId, input) => {
           if (userId !== OWNER.id || sessionId !== FIRST)
             throw new Error("Unexpected chat storage actor");

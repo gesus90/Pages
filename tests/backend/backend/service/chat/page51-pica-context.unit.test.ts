@@ -112,7 +112,11 @@ class PicaChat {
           return { ...SESSION, id };
         },
       },
-      messages: { messages: async () => [], append: this.append },
+      messages: {
+        messages: async () => [],
+        append: this.append,
+        findByClientId: async () => null,
+      },
       attachments: {
         pending: async () => [],
         link: async () => undefined,
@@ -179,6 +183,7 @@ describe("Pica's protected files in the chat context", () => {
       messages: {
         messages: async () => context.messages,
         append: storeOwn,
+        findByClientId: async () => null,
       },
     });
 

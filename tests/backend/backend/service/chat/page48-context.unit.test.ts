@@ -209,7 +209,11 @@ it("uses the summary in the next real chat turn while the stored transcript stay
     mode: "legacy-actions",
     sessions: { require: async () => SESSION },
     context: fixture.service,
-    messages: { messages: async () => fixture.messages, append },
+    messages: {
+      messages: async () => fixture.messages,
+      append,
+      findByClientId: async () => null,
+    },
     attachments: {
       pending: async () => [],
       link: async () => undefined,

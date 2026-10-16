@@ -131,3 +131,19 @@ it("keeps the running answer while the panel is closed and shows it after reopen
     "Antwort nach dem Schließen",
   ]);
 });
+
+it("gives a message sent again after a failure its client message ID and a new message a new one", async () => {
+  const { result } = await openChat();
+  server.outcome = { kind: "network" };
+  expect(await act(() => result.current.submit("Frage"))).toBe("restore");
+  server.outcome = { kind: "answer", content: "Antwort" };
+  expect(await act(() => result.current.submit("Frage"))).toBe("clear");
+  expect(await act(() => result.current.submit("Frage"))).toBe("clear");
+  expect(await act(() => result.current.submit("Andere Frage"))).toBe("clear");
+
+  const [failed, repeated, next, other] = server.sent;
+  expect(repeated?.clientMessageId).toBe(failed?.clientMessageId);
+  expect(repeated?.requestId).not.toBe(failed?.requestId);
+  expect(next?.clientMessageId).not.toBe(repeated?.clientMessageId);
+  expect(other?.clientMessageId).not.toBe(next?.clientMessageId);
+});

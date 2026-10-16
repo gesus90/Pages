@@ -2994,6 +2994,7 @@
       "confirmationRequired": "The confirmation word does not match. Nothing was deleted.",
       "credentialsInText": "Credentials must not be sent to Pica. Please remove them from the message.",
       "emptyMessage": "Please write a message or add an attachment.",
+      "messageAlreadySent": "This message was already sent and is not stored twice.",
       "messageTooLong": "The message is too long (at most 20,000 characters).",
       "tooManyAttachments": "A message can have at most 10 attachments.",
       "fileEmpty": "The file is empty.",

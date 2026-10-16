@@ -205,6 +205,7 @@ export class ChatAgentWorld {
       sessions: { require: async () => SESSION },
       messages: {
         messages: async () => [...this.messages],
+        findByClientId: async () => null,
         append: async (userId, sessionId, input) => {
           if (userId !== "igor" || sessionId !== SESSION.id)
             throw new Error("Unexpected chat storage actor");

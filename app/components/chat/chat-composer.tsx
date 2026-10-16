@@ -21,6 +21,70 @@ interface ChatComposerProps {
   readonly isOpen: boolean;
 }
 
+interface ChatComposerActionsProps {
+  readonly chat: ChatController;
+  readonly canAttach: boolean;
+  readonly canSend: boolean;
+  readonly onSubmit: () => void;
+}
+
+/** The row under the input: "+", the size limit, "Stoppen" and "Abschicken" or "Abbrechen". */
+function ChatComposerActions({
+  chat,
+  canAttach,
+  canSend,
+  onSubmit,
+}: ChatComposerActionsProps): React.ReactElement {
+  const { t } = useTranslation();
+  const fileInput = useRef<HTMLInputElement>(null);
+  const { uploads, limits, sending } = chat;
+
+  function handleFiles(event: React.ChangeEvent<HTMLInputElement>): void {
+    const files = [...(event.target.files ?? [])];
+    event.target.value = "";
+    void uploads.attach(files);
+  }
+
+  return (
+    <div className="mt-2 flex items-center gap-2">
+      <Button
+        aria-label={t("chat.attach")}
+        disabled={!canAttach}
+        onClick={() => fileInput.current?.click()}
+        size="icon"
+        title={t("chat.attach")}
+        variant="outline"
+      >
+        <Plus aria-hidden="true" className="size-4" />
+      </Button>
+      <input
+        ref={fileInput}
+        className="hidden"
+        multiple
+        onChange={handleFiles}
+        tabIndex={-1}
+        type="file"
+      />
+      <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+        {limits
+          ? t("chat.limit", { size: formatBytes(limits.limitBytes) })
+          : null}
+      </span>
+      <ChatJobStopButton jobs={chat.jobs} />
+      {sending ? (
+        <Button onClick={chat.cancel} variant="outline">
+          {t("chat.cancel")}
+        </Button>
+      ) : (
+        <Button disabled={!canSend} onClick={onSubmit}>
+          <SendHorizontal aria-hidden="true" className="size-4" />
+          {t("chat.send")}
+        </Button>
+      )}
+    </div>
+  );
+}
+
 /**
  * The large input field with "+" for attachments and "Abschicken" (T6.12.1);
  * while an answer runs, the button cancels it instead.
@@ -30,8 +94,9 @@ export function ChatComposer({
   isOpen,
 }: ChatComposerProps): React.ReactElement {
   const { t } = useTranslation();
-  const fileInput = useRef<HTMLInputElement>(null);
-  const { view, uploads, limits, sending } = chat;
+  // Set at once, unlike the state: Enter and a click before the next render submit only once.
+  const isSubmitting = useRef(false);
+  const { view, uploads, sending } = chat;
   const input = useChatEditor({
     label: t("chat.input"),
     placeholder: t("chat.placeholder"),
@@ -51,15 +116,14 @@ export function ChatComposer({
 
   async function handleSubmit(): Promise<void> {
     const text = input.markdown;
-    if (!canSend) return;
+    if (!canSend || isSubmitting.current) return;
+    isSubmitting.current = true;
     input.setMarkdown("");
-    if ((await chat.submit(text)) === "restore") input.setMarkdown(text);
-  }
-
-  function handleFiles(event: React.ChangeEvent<HTMLInputElement>): void {
-    const files = [...(event.target.files ?? [])];
-    event.target.value = "";
-    void uploads.attach(files);
+    try {
+      if ((await chat.submit(text)) === "restore") input.setMarkdown(text);
+    } finally {
+      isSubmitting.current = false;
+    }
   }
 
   return (
@@ -88,42 +152,12 @@ export function ChatComposer({
         </p>
       ) : null}
       <ChatJobSteerHint jobs={chat.jobs} />
-      <div className="mt-2 flex items-center gap-2">
-        <Button
-          aria-label={t("chat.attach")}
-          disabled={isBusy}
-          onClick={() => fileInput.current?.click()}
-          size="icon"
-          title={t("chat.attach")}
-          variant="outline"
-        >
-          <Plus aria-hidden="true" className="size-4" />
-        </Button>
-        <input
-          ref={fileInput}
-          className="hidden"
-          multiple
-          onChange={handleFiles}
-          tabIndex={-1}
-          type="file"
-        />
-        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-          {limits
-            ? t("chat.limit", { size: formatBytes(limits.limitBytes) })
-            : null}
-        </span>
-        <ChatJobStopButton jobs={chat.jobs} />
-        {sending ? (
-          <Button onClick={chat.cancel} variant="outline">
-            {t("chat.cancel")}
-          </Button>
-        ) : (
-          <Button disabled={!canSend} onClick={() => void handleSubmit()}>
-            <SendHorizontal aria-hidden="true" className="size-4" />
-            {t("chat.send")}
-          </Button>
-        )}
-      </div>
+      <ChatComposerActions
+        chat={chat}
+        canAttach={!isBusy}
+        canSend={canSend}
+        onSubmit={() => void handleSubmit()}
+      />
     </footer>
   );
 }

@@ -19,6 +19,7 @@ const STATUSES: Readonly<
   attachmentMissing: 404,
   fileTooLarge: 413,
   requestBusy: 409,
+  messageAlreadySent: 409,
   timeout: 504,
   providerFailed: 502,
   instructionsUnavailable: 503,

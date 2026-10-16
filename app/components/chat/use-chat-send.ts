@@ -45,6 +45,21 @@ interface ChatSendOptions {
   readonly refresh: (sessionId: string) => Promise<void>;
 }
 
+/** A message whose sending is not confirmed; sent again unchanged, it keeps its ID. */
+interface UnconfirmedMessage {
+  /** Session, text and attachments of the message. */
+  readonly key: string;
+  readonly clientMessageId: string;
+}
+
+/** Client message IDs: the same one for a message sent again unchanged until it is confirmed. */
+interface ClientMessageIds {
+  /** The ID of the message with this key: the unconfirmed one's, or a new one. */
+  idFor(key: string): string;
+  /** The server stored the message; the next message gets a new ID. */
+  confirm(): void;
+}
+
 /** Adds the reply once, and only while the session it belongs to is open. */
 function addReply(
   current: ChatView,
@@ -64,6 +79,20 @@ function addReply(
   };
 }
 
+function useClientMessageIds(): ClientMessageIds {
+  const unconfirmed = useRef<UnconfirmedMessage | null>(null);
+  return {
+    idFor(key) {
+      if (unconfirmed.current?.key !== key)
+        unconfirmed.current = { key, clientMessageId: createRandomUuid() };
+      return unconfirmed.current.clientMessageId;
+    },
+    confirm() {
+      unconfirmed.current = null;
+    },
+  };
+}
+
 /**
  * Sends one message at a time with the unsent attachments.
  *
@@ -71,7 +100,10 @@ function addReply(
  * After a failure the session is read again: a message the server already
  * stored stays in the conversation, otherwise its text returns to the input.
  * The answer and the session read again only replace the view while their own
- * session is open, so they never land in another session.
+ * session is open, so they never land in another session. Every message
+ * carries a client message ID; sent again unchanged after a failure, it keeps
+ * that ID, so the server stores it once even when it had stored the first
+ * attempt already (PAGE-68).
  */
 export function useChatSend({
   isOpen,
@@ -86,6 +118,7 @@ export function useChatSend({
     readonly ChatTemporaryPassword[]
   >([]);
   const abort = useRef<AbortController | null>(null);
+  const clientMessageIds = useClientMessageIds();
   const openSessionId = view.session?.id;
 
   useEffect(() => {
@@ -106,10 +139,17 @@ export function useChatSend({
   }
 
   async function send(text: string): Promise<ChatSubmitOutcome> {
+    const outcome = await deliver(text);
+    if (outcome === "clear") clientMessageIds.confirm();
+    return outcome;
+  }
+
+  async function deliver(text: string): Promise<ChatSubmitOutcome> {
     const { session } = view;
     // The ref is set at once, unlike the state, so a second submission in the same moment is refused.
     if (session === null || abort.current !== null) return "restore";
     const requestId = createRandomUuid();
+    const attachmentIds = view.pending.map(({ id }) => id);
     const controller = new AbortController();
     abort.current = controller;
     setSending({ requestId, sessionId: session.id, text });
@@ -120,9 +160,12 @@ export function useChatSend({
           intent: "send",
           message: {
             requestId,
+            clientMessageId: clientMessageIds.idFor(
+              JSON.stringify([session.id, text, attachmentIds]),
+            ),
             sessionId: session.id,
             text,
-            attachmentIds: view.pending.map(({ id }) => id),
+            attachmentIds,
           },
         },
         controller.signal,

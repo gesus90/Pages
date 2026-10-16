@@ -14,6 +14,7 @@ import type { ChatJobRepository } from "@/backend/database/repositories/chat/Cha
 import type { ChatSteerRepository } from "@/backend/database/repositories/chat/ChatSteerRepository";
 import type { AssistantRequestRegistry } from "@/backend/service/assistant/AssistantRequestRegistry";
 import type { ResolvedAgentAssignment } from "@/backend/service/agents/AgentAssignmentResolution";
+import type { ChatSendResult } from "@/definition/Chat";
 import type {
   ChatJobStart,
   ChatJobUpdate,
@@ -46,6 +47,8 @@ export interface PicaAcpServiceDependencies extends PicaAcpJobDependencies {
 
 /** A sent message after validation. */
 export interface PicaAcpRequest {
+  /** The ID the browser gave the message; a message is stored once per ID. */
+  readonly clientMessageId: string | null;
   readonly sessionId: string;
   readonly text: string;
   readonly attachmentIds: unknown;
@@ -182,6 +185,26 @@ export class PicaAcpService {
     const id = readChatSessionId(sessionId);
     await this.dependencies.sessions.require(actor, id);
     this.cancel(actor.id, id);
+  }
+
+  /**
+   * What a stored message of an own conversation became on this path, for a
+   * message the browser sends again because it lost the first answer.
+   *
+   * @returns The job the message started or the steer it joined, or `null` for
+   * a message that took neither path, such as one an API agent answered.
+   */
+  public async outcome(
+    userId: string,
+    sessionId: string,
+    messageId: string,
+  ): Promise<ChatSendResult | null> {
+    await this.ready();
+    const job = await this.dependencies.jobs.findByMessage(userId, messageId);
+    if (job !== null) return { kind: "job", job: { job, messageId } };
+    const steers = await this.dependencies.steers.list(sessionId);
+    const steer = steers.find((entry) => entry.messageId === messageId);
+    return steer ? { kind: "steer", steer } : null;
   }
 
   /** The newest job, the steers and the selection snapshots of an own conversation. */
@@ -351,6 +374,7 @@ export class PicaAcpService {
     const message = await messages.append(actor.id, sessionId, {
       role: "user",
       content: request.text,
+      clientMessageId: request.clientMessageId,
     });
     await attachments.link(sessionId, message.id, sent);
     return { id: message.id, text: request.text, attachments: sent };

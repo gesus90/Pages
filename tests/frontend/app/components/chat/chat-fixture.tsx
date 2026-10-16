@@ -17,6 +17,7 @@ const TIMESTAMP = "2026-10-13T10:00:00Z";
 /** A message as the fake server received it from the panel. */
 export interface SentChatMessage {
   readonly requestId: string;
+  readonly clientMessageId: string;
   readonly sessionId: string;
   readonly text: string;
 }
@@ -174,6 +175,7 @@ export class ChatServerFixture {
   ): Promise<Response> {
     const sent: SentChatMessage = {
       requestId: readText(message.requestId),
+      clientMessageId: readText(message.clientMessageId),
       sessionId: readText(message.sessionId),
       text: readText(message.text),
     };

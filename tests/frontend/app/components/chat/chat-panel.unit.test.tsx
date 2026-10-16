@@ -253,3 +253,26 @@ it("keeps a running answer through closing and reopening the panel", async () =>
   expect(screen.queryByText(THINKING)).toBeNull();
   expect(scroll).toHaveBeenCalledWith({ block: "end" });
 });
+
+it("sends once and keeps the input empty when Enter and Abschicken arrive before the panel updates", async () => {
+  await openPanel();
+  server.hold();
+  await typeChatMessage("Nur einmal senden");
+  const input = await findChatInput();
+  const button = screen.getByRole("button", { name: "Abschicken" });
+
+  act(() => {
+    fireEvent.keyDown(input, { key: "Enter" });
+    fireEvent.click(button);
+  });
+
+  expect(server.sent.map(({ text }) => text)).toEqual(["Nur einmal senden"]);
+  act(() => {
+    server.release({ kind: "answer", content: "Einmal beantwortet." });
+  });
+  expect(
+    await within(messageLog()).findByText("Einmal beantwortet."),
+  ).toBeTruthy();
+  expect(await inputText()).toBe("");
+  expect(ownMessages()).toHaveLength(1);
+});

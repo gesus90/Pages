@@ -64,7 +64,10 @@ const IDENTIFIER = /^[a-zA-Z0-9-]{1,100}$/u;
 interface ChatDependencies {
   readonly sessions: Pick<ChatSessionService, "require">;
   readonly context?: Pick<ChatContextService, "history">;
-  readonly messages: Pick<ChatSessionRepository, "messages" | "append">;
+  readonly messages: Pick<
+    ChatSessionRepository,
+    "messages" | "append" | "findByClientId"
+  >;
   readonly attachments: Pick<
     ChatAttachmentService,
     "pending" | "link" | "readText"
@@ -89,7 +92,7 @@ export type ChatServiceDependencies = ChatDependencies &
         readonly mode: "native-api";
         readonly api: Pick<PicaApiService, "run">;
         /** Codex CLI agents over ACP (PAGE-68); without it only API agents answer. */
-        readonly acp?: Pick<PicaAcpService, "steer" | "start">;
+        readonly acp?: Pick<PicaAcpService, "steer" | "start" | "outcome">;
       }
     | {
         readonly mode: "legacy-actions";
@@ -101,6 +104,11 @@ export type ChatServiceDependencies = ChatDependencies &
 /** One sent message after validation. */
 interface ChatSendRequest {
   readonly requestId: string;
+  /**
+   * The ID the browser gave the message; it stays the same when the browser
+   * sends the message again, so the server stores it once (PAGE-68).
+   */
+  readonly clientMessageId: string | null;
   readonly sessionId: string;
   readonly text: string;
   readonly attachmentIds: unknown;
@@ -165,6 +173,10 @@ function readSendRequest(input: unknown): ChatSendRequest {
     throw new ChatError("credentialsInText");
   return {
     requestId: readIdentifier(request.requestId),
+    clientMessageId:
+      request.clientMessageId === undefined
+        ? null
+        : readIdentifier(request.clientMessageId),
     sessionId: readChatSessionId(request.sessionId),
     text,
     attachmentIds,
@@ -227,16 +239,25 @@ export class ChatService {
    * Sends one message on the path its agent requires (PAGE-68).
    *
    * @param actor - The signed-in person.
-   * @param input - Request ID, session, text and the IDs of unsent attachments.
+   * @param input - Request ID, client message ID, session, text and the IDs of
+   * unsent attachments.
    * @returns The answer of an API agent; for a Codex CLI agent the started job,
    * which runs on without the browser; while such a job runs, the steer that
    * joins it.
    * @throws {ChatError} `acpProviderUnsupported` for an agent that is neither an
    * API connection nor Codex CLI; there is no fallback to another path.
+   * @throws {ChatError} `messageAlreadySent` for a message sent again whose
+   * first sending took neither a job nor a steer.
+   *
+   * @remarks
+   * A message the browser sends again with the same client message ID is not
+   * stored twice; the job or steer it became is returned instead.
    */
   public async submit(actor: User, input: unknown): Promise<ChatSendResult> {
     requireChatActor(actor);
     const request = readSendRequest(input);
+    const repeated = await this.repeated(actor, request);
+    if (repeated) return repeated;
     const acp =
       this.dependencies.mode === "native-api" ? this.dependencies.acp : null;
     if (!acp) return { kind: "reply", reply: await this.send(actor, input) };
@@ -270,6 +291,29 @@ export class ChatService {
     return this.dependencies.requests.shutdown();
   }
 
+  /**
+   * The outcome of a message the browser sent before with the same client
+   * message ID, or `null` when none of the conversation carries the ID.
+   */
+  private async repeated(
+    actor: User,
+    request: ChatSendRequest,
+  ): Promise<ChatSendResult | null> {
+    if (request.clientMessageId === null) return null;
+    const { sessions, messages } = this.dependencies;
+    const session = await sessions.require(actor, request.sessionId);
+    const stored = await messages.findByClientId(
+      session.id,
+      request.clientMessageId,
+    );
+    if (stored === null) return null;
+    const acp =
+      this.dependencies.mode === "native-api" ? this.dependencies.acp : null;
+    const outcome = await acp?.outcome(actor.id, session.id, stored.id);
+    if (outcome) return outcome;
+    throw new ChatError("messageAlreadySent");
+  }
+
   private async execute(
     actor: User,
     request: ChatSendRequest,
@@ -295,6 +339,7 @@ export class ChatService {
     const question = await messages.append(actor.id, session.id, {
       role: "user",
       content: request.text,
+      clientMessageId: request.clientMessageId,
     });
     await attachments.link(session.id, question.id, sent);
     const completed = await this.answer(

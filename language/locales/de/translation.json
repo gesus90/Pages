@@ -2994,6 +2994,7 @@
       "confirmationRequired": "Das Bestätigungswort stimmt nicht. Es wurde nichts gelöscht.",
       "credentialsInText": "Zugangsdaten dürfen nicht an Pica gesendet werden. Bitte entferne sie aus der Nachricht.",
       "emptyMessage": "Bitte schreib eine Nachricht oder füge einen Anhang hinzu.",
+      "messageAlreadySent": "Diese Nachricht wurde schon gesendet und wird nicht doppelt gespeichert.",
       "messageTooLong": "Die Nachricht ist zu lang (höchstens 20.000 Zeichen).",
       "tooManyAttachments": "Pro Nachricht sind höchstens 10 Anhänge möglich.",
       "fileEmpty": "Die Datei ist leer.",
