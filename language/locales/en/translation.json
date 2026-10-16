@@ -3019,10 +3019,11 @@
       "general": "That did not work. Please try again.",
       "contextChanged": "The context changed meanwhile. Nothing was overwritten; please try /compact again.",
       "compactionFailed": "The context could not be compacted. Your existing conversation history is preserved.",
-      "apiModeRequired": "This needs an API model. Context compaction with /compact is not available for Codex agents; Codex manages the context of its session itself.",
+      "apiModeRequired": "This needs an API model. Context compaction with /compact is not available for Codex and Claude Code agents; they manage the context of their session themselves.",
       "instructionsUnavailable": "Pica cannot answer right now: the protected instructions of Pica are missing on the server or cannot be read. Your message was not sent. Please contact an administrator.",
-      "acpProviderUnsupported": "Pica cannot answer with the assigned chat agent: API connections and Codex CLI over ACP are supported. An admin must assign such an agent for chat under Settings › Agents.",
-      "bridgeUnavailable": "Codex could not connect Pica's Pages tools. Nothing was changed. Please try again or contact an admin.",
+      "acpProviderUnsupported": "Pica cannot answer with the assigned chat agent: API connections as well as Codex CLI and Claude Code over ACP are supported. An admin must assign such an agent for chat under Settings › Agents.",
+      "acpPermissionModeUnsupported": "Pica answers with Claude Code only in the “Read only” mode: there Pica gets nothing but the Pages tools, no shell, no files and no web. The assigned chat agent has another mode. An admin sets it to “Read only” under Settings › Agents. Your message was not sent.",
+      "bridgeUnavailable": "The chat agent could not connect Pica's Pages tools. Nothing was changed. Please try again or contact an admin.",
       "interrupted": "The server stopped during the answer. The answer is not repeated automatically."
     },
     "recover": "Start a new session",
@@ -3036,11 +3037,11 @@
       "limit": "Model limit: {{count}} tokens",
       "limitUnknown": "Model limit unknown.",
       "utilization": "Estimated conversation share of the model limit: {{percent}}%",
-      "adapterExplanation": "Context occupancy of the Codex session as the ACP adapter reported it last. Without a report this reads “not available”; Pages does not estimate for Codex."
+      "adapterExplanation": "Context occupancy of the chat agent's session (Codex or Claude Code) as the ACP adapter reported it last. Without a valid report, such as right after a compaction, this reads “not available”; Pages does not estimate here."
     },
     "job": {
       "phase": {
-        "starting": "Pica is starting the Codex session …",
+        "starting": "Pica is starting the chat agent's session …",
         "running": "Pica is answering …",
         "finishing": "Pica is finishing …"
       },
@@ -3066,23 +3067,29 @@
         "unavailable": "not available",
         "contextValue": "{{used}} of {{size}} tokens as reported by the adapter",
         "tokensValue": "{{total}} (input {{input}}, output {{output}})",
-        "tokensPartial": "at least {{total}} (input {{input}}, output {{output}}); a follow-up turn without adapter data"
+        "tokensPartial": "at least {{total}} (input {{input}}, output {{output}}); a follow-up turn without adapter data",
+        "costEstimated": "≈ {{amount}} – the adapter's estimate at list prices, not a billed amount"
+      },
+      "compaction": {
+        "running": "The chat agent is compacting the context of its session …",
+        "completed": "Session context compacted ({{before}} before, {{after}} tokens after, as the adapter reported).",
+        "failed": "The chat agent's context compaction failed."
       },
       "stop": "Stop",
       "steerHint": "Pica is still answering. A new message joins the running answer; only “Stop” cancels it."
     },
     "steer": {
       "pending": "Sent during the answer · waiting to be passed on",
-      "delivered": "Sent during the answer · passed to Codex",
+      "delivered": "Sent during the answer · passed to the chat agent",
       "accepted": "Sent during the answer · joined the running answer",
       "followUp": "Sent during the answer · answered on its own",
       "failed": "Sent during the answer · did not arrive"
     },
     "selection": {
-      "label": "Transfer of the attachments to Codex",
+      "label": "Transfer of the attachments to the chat agent",
       "full": "{{name}}: transferred",
       "truncated": "{{name}}: only the beginning was transferred (truncated)",
-      "unsupported": "{{name}}: not transferred – this file type is not sent to Codex",
+      "unsupported": "{{name}}: not transferred – this file type is not sent to the chat agent",
       "tooLarge": "{{name}}: not transferred – the file is too large",
       "unreadable": "{{name}}: not transferred – the file could not be read"
     }

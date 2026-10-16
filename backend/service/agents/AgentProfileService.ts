@@ -339,11 +339,14 @@ export class AgentProfileService {
       const { viewer, profiles } = await this.candidates(userId, purpose);
       const profile = profiles.find((entry) => entry.id === profileId);
       if (!profile?.isActive) throw new TextAssistantError("accessDenied");
-      return resolveAgentAssignmentFor(
+      const assignment = await resolveAgentAssignmentFor(
         this.dependencies.connections,
         viewer,
         profile,
       );
+      // The run options travel with the assignment, so a CLI chat agent runs as administered (PAGE-90).
+      const run = profile.configuration?.run;
+      return run === undefined ? assignment : { ...assignment, run };
     }
     const { profiles: candidates } = await this.candidates(userId, purpose);
     if (candidates.length === 0) throw new TextAssistantError("roleMissing");

@@ -19,7 +19,8 @@ export type ChatErrorCode =
   | "contextChanged"
   | "compactionFailed"
   | "instructionsUnavailable"
-  | "acpProviderUnsupported";
+  | "acpProviderUnsupported"
+  | "acpPermissionModeUnsupported";
 
 /** Stable, translated chat failures; they never carry message text or provider output. */
 export class ChatError extends Error {

@@ -65,10 +65,18 @@ export interface ChatTokenUsage {
   readonly isPartial: boolean;
 }
 
-/** Costs as the adapter reported them. */
+/**
+ * Costs as the adapter reported them.
+ *
+ * @remarks
+ * `isEstimated` marks an amount the adapter computed itself from token counts
+ * and list prices, as Claude Code does (PAGE-90); it is no billed amount and,
+ * for a subscription sign-in, not charged at all.
+ */
 export interface ChatCost {
   readonly amount: number;
   readonly currency: string;
+  readonly isEstimated: boolean;
 }
 
 /** Consumption of a job; `null` means the adapter did not report it, never zero. */
@@ -131,6 +139,20 @@ export interface ChatJobUsageEvent {
   readonly usage: ChatJobUsage;
 }
 
+/**
+ * The agent compacted the context of its session on its own (PAGE-90).
+ *
+ * @remarks
+ * Compaction is neither a stop nor a steer and ends no turn. The token counts
+ * are the adapter's report, `null` where it named none.
+ */
+export interface ChatJobCompactionEvent {
+  readonly kind: "compaction";
+  readonly status: "running" | "completed" | "failed";
+  readonly tokensBefore: number | null;
+  readonly tokensAfter: number | null;
+}
+
 /** Whether the job continued the earlier agent session or had to start a new one. */
 export interface ChatJobSessionEvent {
   readonly kind: "session";
@@ -153,6 +175,7 @@ export type ChatJobEvent =
   | ChatJobSteerEvent
   | ChatJobAnswerEvent
   | ChatJobUsageEvent
+  | ChatJobCompactionEvent
   | ChatJobSessionEvent
   | ChatJobEndEvent;
 
@@ -201,7 +224,7 @@ export interface ChatSelection {
   readonly items: readonly ChatSelectionItem[];
 }
 
-/** What a conversation shows beyond its messages on the Codex path. */
+/** What a conversation shows beyond its messages on the ACP path (Codex or Claude Code). */
 export interface ChatSessionActivity {
   /** The newest job, running or ended. */
   readonly job: ChatJob | null;
@@ -209,7 +232,7 @@ export interface ChatSessionActivity {
   readonly selections: readonly ChatSelection[];
 }
 
-/** What the server did with a sent message on the Codex path. */
+/** What the server did with a sent message on the ACP path (Codex or Claude Code). */
 export interface ChatJobStart {
   readonly job: ChatJob;
   /** The stored message that started the job. */

@@ -1,5 +1,6 @@
 import type {
   ChatJob,
+  ChatJobCompactionEvent,
   ChatJobEndEvent,
   ChatJobEvent,
   ChatJobPhase,
@@ -26,6 +27,8 @@ export interface ChatLiveJob {
   readonly tools: readonly ChatJobToolEvent[];
   readonly steers: Readonly<Record<string, ChatSteerStatus>>;
   readonly usage: ChatJobUsage;
+  /** The latest context compaction of the agent session, apart from tools, steers and stop. */
+  readonly compaction: ChatJobCompactionEvent | null;
   readonly isResumed: boolean | null;
   readonly ended: ChatJobEndEvent | null;
 }
@@ -52,6 +55,7 @@ export function startChatLiveJob(job: ChatJob): ChatLiveJob {
     tools: [],
     steers: {},
     usage: job.usage,
+    compaction: null,
     isResumed: null,
     ended: null,
   };
@@ -93,6 +97,8 @@ function applyEvent(live: ChatLiveJob, event: ChatJobEvent): ChatLiveJob {
         : { ...live, text: "", tools: [] };
     case "usage":
       return { ...live, usage: event.usage };
+    case "compaction":
+      return { ...live, compaction: event };
     case "session":
       return { ...live, isResumed: event.isResumed };
     case "end":

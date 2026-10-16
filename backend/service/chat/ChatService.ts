@@ -18,6 +18,7 @@ import {
   isChatConfirmationOperation,
   isChatOperation,
 } from "./ChatToolCatalog";
+import { isPicaAcpProvider } from "./acp/PicaAcpRunners";
 
 import type { TextExecution } from "@/backend/agents/TextExecution";
 import type { StoredChatAttachment } from "@/backend/database/repositories/chat/ChatAttachmentRepository";
@@ -91,7 +92,7 @@ export type ChatServiceDependencies = ChatDependencies &
     | {
         readonly mode: "native-api";
         readonly api: Pick<PicaApiService, "run">;
-        /** Codex CLI agents over ACP (PAGE-68); without it only API agents answer. */
+        /** Codex CLI (PAGE-68) and Claude Code (PAGE-90) agents over ACP; without it only API agents answer. */
         readonly acp?: Pick<PicaAcpService, "steer" | "start" | "outcome">;
       }
     | {
@@ -241,11 +242,14 @@ export class ChatService {
    * @param actor - The signed-in person.
    * @param input - Request ID, client message ID, session, text and the IDs of
    * unsent attachments.
-   * @returns The answer of an API agent; for a Codex CLI agent the started job,
-   * which runs on without the browser; while such a job runs, the steer that
-   * joins it.
+   * @returns The answer of an API agent; for a Codex CLI or Claude Code agent
+   * the started job, which runs on without the browser; while such a job runs,
+   * the steer that joins it.
    * @throws {ChatError} `acpProviderUnsupported` for an agent that is neither an
-   * API connection nor Codex CLI; there is no fallback to another path.
+   * API connection nor Codex CLI nor Claude Code; there is no fallback to
+   * another path.
+   * @throws {ChatError} `acpPermissionModeUnsupported` for a Claude Code agent
+   * whose stored mode is not "Nur Lesen".
    * @throws {ChatError} `messageAlreadySent` for a message sent again whose
    * first sending took neither a job nor a steer.
    *
@@ -267,7 +271,7 @@ export class ChatService {
     const agent = await this.dependencies.agents.resolve(actor.id, "chat");
     if (isApiProvider(agent.connection.provider))
       return { kind: "reply", reply: await this.send(actor, input) };
-    if (agent.connection.provider !== "codex_cli")
+    if (!isPicaAcpProvider(agent.connection.provider))
       throw new ChatError("acpProviderUnsupported");
     return {
       kind: "job",
@@ -436,7 +440,7 @@ export class ChatService {
     };
   }
 
-  /** The brief of a Codex job: Pica's protected files, read anew, and the transcript. */
+  /** The brief of an ACP job: Pica's protected files, read anew, and the transcript. */
   private async acpBrief(
     actor: User,
     agent: ResolvedAgentAssignment,

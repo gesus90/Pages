@@ -1,5 +1,6 @@
 import {
   readCountColumn,
+  readNullableBooleanColumn,
   readNullableTextColumn,
   readTextColumn,
 } from "@/backend/database/RowValue";
@@ -56,7 +57,8 @@ const JOB_COLUMNS = `
         FROM chat_job_turns
         WHERE chat_job_turns.job_id = chat_jobs.id
             AND chat_job_turns.total_tokens IS NULL
-    ) AS unreported_turns`;
+    ) AS unreported_turns,
+    chat_jobs.cost_is_estimated`;
 
 function nullableCount(
   row: readonly DatabaseValue[],
@@ -84,7 +86,12 @@ function readCost(row: readonly DatabaseValue[]): ChatCost | null {
   const amount = row[8];
   const currency = readNullableTextColumn(row, 9, "cost_currency");
   return typeof amount === "number" && currency !== null
-    ? { amount, currency }
+    ? {
+        amount,
+        currency,
+        isEstimated:
+          readNullableBooleanColumn(row, 14, "cost_is_estimated") === true,
+      }
     : null;
 }
 
@@ -183,10 +190,17 @@ export class ChatJobRepository {
     );
   }
 
-  /** Replaces the latest context occupancy and cost; a report never adds to an earlier one. */
+  /**
+   * Replaces the latest context occupancy and cost; a report never adds to an earlier one.
+   *
+   * @param id - The job.
+   * @param context - The occupancy, or `null` while the adapter has no valid
+   * one, such as right after a compaction.
+   * @param cost - The cost, with whether it is the adapter's own estimate.
+   */
   public async saveContext(
     id: string,
-    context: ChatContextUsage,
+    context: ChatContextUsage | null,
     cost: ChatCost | null,
   ): Promise<void> {
     await this.database.execute(
@@ -196,15 +210,17 @@ export class ChatJobRepository {
           context_used = $context_used,
           context_size = $context_size,
           cost_amount = $cost_amount,
-          cost_currency = $cost_currency
+          cost_currency = $cost_currency,
+          cost_is_estimated = $cost_is_estimated
       WHERE id = $id;
     `,
       {
         id,
-        context_used: context.used,
-        context_size: context.size,
+        context_used: context?.used ?? null,
+        context_size: context?.size ?? null,
         cost_amount: cost?.amount ?? null,
         cost_currency: cost?.currency ?? null,
+        cost_is_estimated: cost?.isEstimated ?? null,
       },
     );
   }

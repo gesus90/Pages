@@ -7,7 +7,8 @@ import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
 import { isChatJobId } from "@/definition/ChatJob";
 
 import { readChatSessionId } from "../ChatSessionService";
-import { PICA_ACP_PROFILE, PicaAcpJob } from "./PicaAcpJob";
+import { PicaAcpJob } from "./PicaAcpJob";
+import { picaAcpRunner } from "./PicaAcpRunners";
 
 import type { ChatAcpSessionRepository } from "@/backend/database/repositories/chat/ChatAcpSessionRepository";
 import type { ChatJobRepository } from "@/backend/database/repositories/chat/ChatJobRepository";
@@ -23,7 +24,7 @@ import type {
 } from "@/definition/ChatJob";
 import type { User } from "@/definition/User";
 import type { ChatAttachmentService } from "../ChatAttachmentService";
-import type { PicaAcpJobDependencies } from "./PicaAcpJob";
+import type { PicaAcpJobDependencies, PicaAcpRun } from "./PicaAcpJob";
 import type { PicaTurnBrief } from "./PicaAcpContent";
 import type { PicaAcpMessage } from "./PicaAcpSteering";
 import type { PicaAcpWorkspace } from "./PicaAcpWorkspace";
@@ -31,7 +32,7 @@ import type { PicaAcpWorkspace } from "./PicaAcpWorkspace";
 /** Journal entries one read returns at most. */
 const PAGE_ENTRIES = 200;
 
-/** What the Codex path of Pica is built from. */
+/** What the ACP path of Pica is built from. */
 export interface PicaAcpServiceDependencies extends PicaAcpJobDependencies {
   readonly jobs: ChatJobRepository;
   readonly steers: ChatSteerRepository;
@@ -82,7 +83,8 @@ function readCursor(input: unknown): number {
 }
 
 /**
- * Pica over Codex ACP: jobs that run without the browser, steering and their journal (PAGE-68).
+ * Pica over ACP: jobs that run without the browser, steering and their
+ * journal, with Codex CLI (PAGE-68) or Claude Code (PAGE-90).
  *
  * @remarks
  * Every conversation has one queue; a sent message passes it and either joins
@@ -133,17 +135,19 @@ export class PicaAcpService {
    * Stores the message and starts its job, which runs on without the browser.
    *
    * @throws {TextAssistantError} `requestBusy` while another answer of the person runs.
-   * @throws {ChatError} `acpProviderUnsupported` for an agent that is not a Codex CLI connection.
+   * @throws {ChatError} `acpProviderUnsupported` for an agent that is neither a
+   * Codex CLI nor a Claude Code connection, `acpPermissionModeUnsupported` for
+   * a mode the runner does not run Pica in; both before anything is stored.
    */
   public async start(input: PicaAcpStart): Promise<ChatJobStart> {
     await this.ready();
-    if (input.agent.connection.provider !== "codex_cli")
-      throw new ChatError("acpProviderUnsupported");
+    const runner = picaAcpRunner(input.agent);
+    const run: PicaAcpRun = { runner, options: runner.runOptions(input.agent) };
     const session = await this.dependencies.sessions.require(
       input.actor,
       input.request.sessionId,
     );
-    return this.gate(session.id, () => this.launch(input, session.id));
+    return this.gate(session.id, () => this.launch(input, session.id, run));
   }
 
   /**
@@ -292,6 +296,7 @@ export class PicaAcpService {
   private async launch(
     input: PicaAcpStart,
     sessionId: string,
+    run: PicaAcpRun,
   ): Promise<ChatJobStart> {
     const { actor, agent } = input;
     if (this.deleting.has(sessionId)) throw new ChatError("sessionMissing");
@@ -301,11 +306,10 @@ export class PicaAcpService {
     // Refused before anything is stored, as the API path refuses a second answer.
     this.dependencies.requests.requireAdmission(actor.id, id);
     const directory = await this.dependencies.workspace.prepare(sessionId);
-    const resumeSessionId = await this.compatibleSession(
-      actor.id,
-      sessionId,
+    const resumeSessionId = await this.compatibleSession(actor.id, sessionId, {
       agent,
-    );
+      profile: run.runner.profile,
+    });
     const message = await this.store(actor, sessionId, input.request);
     await this.dependencies.jobs.create({
       id,
@@ -318,6 +322,7 @@ export class PicaAcpService {
       actor,
       sessionId,
       agent,
+      run,
       directory,
       message,
       brief: input.brief,
@@ -387,15 +392,19 @@ export class PicaAcpService {
   private async compatibleSession(
     userId: string,
     sessionId: string,
-    agent: ResolvedAgentAssignment,
+    expected: {
+      readonly agent: ResolvedAgentAssignment;
+      readonly profile: string;
+    },
   ): Promise<string | null> {
+    const { agent, profile } = expected;
     const stored = await this.dependencies.acpSessions.find(userId, sessionId);
     if (
       stored === null ||
       stored.connectionId !== agent.connection.id ||
       stored.model !== agent.model ||
       stored.reasoningEffort !== agent.reasoningEffort ||
-      stored.profile !== PICA_ACP_PROFILE
+      stored.profile !== profile
     )
       return null;
     const messages = await this.dependencies.messages.messages(sessionId);

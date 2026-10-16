@@ -69,12 +69,23 @@ function readTokens(value: unknown): ChatTokenUsage | null {
   };
 }
 
+function nullableCount(value: unknown): number | null {
+  return value === null || value === undefined ? null : count(value);
+}
+
 function readCost(value: unknown): ChatCost | null {
   if (value === null || value === undefined) return null;
   const cost = fields(value);
   if (typeof cost.amount !== "number" || !Number.isFinite(cost.amount))
     throw invalid();
-  return { amount: cost.amount, currency: text(cost.currency) };
+  // Entries written before PAGE-90 carry no flag; no adapter estimated a cost then.
+  if (cost.isEstimated !== undefined && typeof cost.isEstimated !== "boolean")
+    throw invalid();
+  return {
+    amount: cost.amount,
+    currency: text(cost.currency),
+    isEstimated: cost.isEstimated === true,
+  };
 }
 
 /** Reads the consumption of a job; missing values stay `null`. */
@@ -144,6 +155,13 @@ function readOutcomeEvent(event: Fields): ChatJobEvent {
       };
     case "usage":
       return { kind: "usage", usage: readChatJobUsage(event.usage) };
+    case "compaction":
+      return {
+        kind: "compaction",
+        status: oneOf(event.status, ["running", "completed", "failed"]),
+        tokensBefore: nullableCount(event.tokensBefore),
+        tokensAfter: nullableCount(event.tokensAfter),
+      };
     case "session":
       if (typeof event.isResumed !== "boolean") throw invalid();
       return { kind: "session", isResumed: event.isResumed };

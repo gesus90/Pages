@@ -4,7 +4,6 @@ import { createRuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeE
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { describeError } from "@/backend/error/ErrorDescription";
 import { PicaAcpJobError } from "@/backend/error/PicaAcpJobError";
-import { acpRunOptions } from "@/definition/AgentConfiguration";
 
 import { createPicaTools } from "../PicaTools";
 import {
@@ -35,9 +34,11 @@ import type { ChatSessionRepository } from "@/backend/database/repositories/chat
 import type { ChatSteerRepository } from "@/backend/database/repositories/chat/ChatSteerRepository";
 import type { AgentPlanExecutionInput } from "@/backend/service/agents/AgentPlanStepStart";
 import type { ResolvedAgentAssignment } from "@/backend/service/agents/AgentAssignmentResolution";
+import type { AgentRunOptions } from "@/definition/AgentConfiguration";
 import type {
   ChatContextUsage,
   ChatCost,
+  ChatJobCompactionEvent,
   ChatJobState,
   ChatJobUsage,
   ChatSelectionItem,
@@ -49,10 +50,14 @@ import type { ChatSessionService } from "../ChatSessionService";
 import type { ChatToolExecutor } from "../ChatToolExecutor";
 import type { PicaBridge, PicaBridgeLease } from "./PicaBridge";
 import type { PicaAttachmentReader, PicaTurnBrief } from "./PicaAcpContent";
+import type { PicaAcpRunner } from "./PicaAcpRunners";
 import type { PicaAcpMessage } from "./PicaAcpSteering";
 
-/** The Codex profile Pica runs in; a stored session of another profile is not continued. */
-export const PICA_ACP_PROFILE = "pica-chat-1";
+/** The runner of a job and the run options it was validated with before anything was stored. */
+export interface PicaAcpRun {
+  readonly runner: PicaAcpRunner;
+  readonly options: AgentRunOptions;
+}
 
 /** What a job needs from Pages; every write path is an existing one. */
 export interface PicaAcpJobDependencies {
@@ -78,6 +83,7 @@ export interface PicaAcpJobSpecification {
   readonly actor: User;
   readonly sessionId: string;
   readonly agent: ResolvedAgentAssignment;
+  readonly run: PicaAcpRun;
   /** The fixed working directory of the conversation. */
   readonly directory: string;
   readonly message: PicaAcpMessage;
@@ -96,7 +102,8 @@ interface PicaAcpOutcome {
 }
 
 /**
- * One Pica answer over Codex ACP that runs on the server (PAGE-68).
+ * One Pica answer over ACP that runs on the server, with Codex CLI (PAGE-68)
+ * or Claude Code (PAGE-90).
  *
  * @remarks
  * The job pins the agent that was assigned when the message was sent. It
@@ -144,17 +151,21 @@ export class PicaAcpJob {
     this.dependencies = dependencies;
     this.specification = specification;
     this.journal = new PicaAcpJournal(dependencies.jobs, specification.id);
-    this.updates = new PicaAcpUpdates({
-      text: (turn, isReset, delta) => this.journal.text(turn, isReset, delta),
-      context: (context, cost) => this.recordContext(context, cost),
-      promptEnded: (turn, tokens) => {
-        // From here on the thread's activity belongs to a turn the adapter starts for a steer.
-        this.thread.reset();
-        this.recordTokens(turn, tokens);
+    this.updates = new PicaAcpUpdates(
+      {
+        text: (turn, isReset, delta) => this.journal.text(turn, isReset, delta),
+        context: (context, cost) => this.recordContext(context, cost),
+        compaction: (compaction) => this.recordCompaction(compaction),
+        promptEnded: (turn, tokens) => {
+          // From here on the thread's activity belongs to a turn the adapter starts for a steer.
+          this.thread.reset();
+          this.recordTokens(turn, tokens);
+        },
+        threadStatus: (isActive) => this.thread.observe(isActive),
+        closed: () => this.thread.close(),
       },
-      threadStatus: (isActive) => this.thread.observe(isActive),
-      closed: () => this.thread.close(),
-    });
+      { isCostEstimated: specification.run.runner.isCostEstimated },
+    );
     this.steering = new PicaAcpSteering({
       gate: specification.gate,
       status: (messageId, status) => this.recordSteer(messageId, status),
@@ -357,7 +368,7 @@ export class PicaAcpJob {
       agent,
       userId: this.userId,
       directory,
-      options: acpRunOptions("read_only", 0),
+      options: this.specification.run.options,
       instanceId: randomUUID(),
       mcp: null,
       chat: {
@@ -400,8 +411,8 @@ export class PicaAcpJob {
       { type: "text", text: picaSteerText(message.text) },
       ...content.blocks,
     ]);
-    // The snapshot tells what reached Codex. A steer the adapter did not take
-    // gets it with its own turn, or fails visibly with all its attachments.
+    // The snapshot tells what reached the agent. A steer the adapter did not
+    // take gets it with its own turn, or fails visibly with all its attachments.
     if (outcome === "injected" || outcome === "startedNewTurn")
       await this.select(message.id, content.items);
     return outcome;
@@ -444,8 +455,17 @@ export class PicaAcpJob {
     await this.journal.record({ kind: "steer", messageId, status });
   }
 
+  /** A compaction is journaled on its own; it is no tool of Pages, no steer and no stop. */
+  private recordCompaction(
+    compaction: Omit<ChatJobCompactionEvent, "kind">,
+  ): void {
+    void this.journal
+      .record({ kind: "compaction", ...compaction })
+      .catch(() => undefined);
+  }
+
   private recordContext(
-    context: ChatContextUsage,
+    context: ChatContextUsage | null,
     cost: ChatCost | null,
   ): void {
     // Context is replaced, never added up; a cost stays until the adapter reports another.
@@ -582,7 +602,7 @@ export class PicaAcpJob {
       connectionId: agent.connection.id,
       model: agent.model,
       reasoningEffort: agent.reasoningEffort,
-      profile: PICA_ACP_PROFILE,
+      profile: this.specification.run.runner.profile,
       acpSessionId: this.acpSessionId,
       throughMessageId: messages.at(-1)?.id ?? null,
     });

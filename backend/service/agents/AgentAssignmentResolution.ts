@@ -5,6 +5,7 @@ import { isApiProvider } from "@/definition/AgentConnection";
 import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import type { AgentConnectionRecord } from "@/backend/database/repositories/agent/AgentConnectionRows";
+import type { AgentRunOptions } from "@/definition/AgentConfiguration";
 import type { TextAgentRole } from "@/definition/TextAssistant";
 
 /** Immutable metadata resolved once at request start, without credentials. */
@@ -12,6 +13,11 @@ export interface ResolvedAgentAssignment {
   readonly connection: AgentConnectionRecord;
   readonly model: string;
   readonly reasoningEffort: string | null;
+  /**
+   * The run options the administration stored with the assigned agent;
+   * absent where the agent names none or the caller resolved a bare role.
+   */
+  readonly run?: AgentRunOptions;
 }
 
 /** Requires verified access and capabilities from exactly the referenced connection. */

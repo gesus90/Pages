@@ -3019,10 +3019,11 @@
       "general": "Das hat nicht geklappt. Bitte versuch es noch einmal.",
       "contextChanged": "Der Kontext wurde inzwischen geändert. Es wurde nichts überschrieben; bitte /compact erneut aufrufen.",
       "compactionFailed": "Der Kontext konnte nicht komprimiert werden. Der vorhandene Gesprächsverlauf bleibt erhalten.",
-      "apiModeRequired": "Das geht nur mit einem API-Modell. Die Kontextkomprimierung mit /compact gibt es für Codex-Agenten nicht; Codex verwaltet den Kontext seiner Sitzung selbst.",
+      "apiModeRequired": "Das geht nur mit einem API-Modell. Die Kontextkomprimierung mit /compact gibt es für Codex- und Claude-Code-Agenten nicht; sie verwalten den Kontext ihrer Sitzung selbst.",
       "instructionsUnavailable": "Pica kann gerade nicht antworten: Die geschützten Vorgaben von Pica fehlen auf dem Server oder sind nicht lesbar. Deine Nachricht wurde nicht gesendet. Bitte wende dich an einen Admin.",
-      "acpProviderUnsupported": "Pica kann mit dem zugewiesenen Chat-Agenten nicht antworten: Unterstützt sind API-Verbindungen und Codex CLI über ACP. Ein Admin muss unter Einstellungen › Agents einen solchen Agenten für den Chat zuweisen.",
-      "bridgeUnavailable": "Codex konnte die Pages-Werkzeuge von Pica nicht verbinden. Es wurde nichts geändert. Bitte versuch es noch einmal oder wende dich an einen Admin.",
+      "acpProviderUnsupported": "Pica kann mit dem zugewiesenen Chat-Agenten nicht antworten: Unterstützt sind API-Verbindungen sowie Codex CLI und Claude Code über ACP. Ein Admin muss unter Einstellungen › Agents einen solchen Agenten für den Chat zuweisen.",
+      "acpPermissionModeUnsupported": "Pica antwortet mit Claude Code nur im Modus „Nur Lesen“: Pica bekommt dort ausschließlich die Pages-Werkzeuge, keine Shell, keine Dateien und kein Web. Der zugewiesene Chat-Agent hat einen anderen Modus. Ein Admin stellt ihn unter Einstellungen › Agents auf „Nur Lesen“. Deine Nachricht wurde nicht gesendet.",
+      "bridgeUnavailable": "Der Chat-Agent konnte die Pages-Werkzeuge von Pica nicht verbinden. Es wurde nichts geändert. Bitte versuch es noch einmal oder wende dich an einen Admin.",
       "interrupted": "Der Server wurde während der Antwort beendet. Die Antwort wird nicht automatisch wiederholt."
     },
     "recover": "Neue Session starten",
@@ -3036,11 +3037,11 @@
       "limit": "Modelllimit: {{count}} Tokens",
       "limitUnknown": "Modelllimit unbekannt.",
       "utilization": "Geschätzter Gesprächsanteil am Modelllimit: {{percent}} %",
-      "adapterExplanation": "Kontextbelegung der Codex-Sitzung, wie der ACP-Adapter sie zuletzt gemeldet hat. Ohne Meldung steht hier „nicht verfügbar“; Pages schätzt bei Codex nicht."
+      "adapterExplanation": "Kontextbelegung der Sitzung des Chat-Agenten (Codex oder Claude Code), wie der ACP-Adapter sie zuletzt gemeldet hat. Ohne gültige Meldung, etwa direkt nach einer Komprimierung, steht hier „nicht verfügbar“; Pages schätzt hier nicht."
     },
     "job": {
       "phase": {
-        "starting": "Pica startet die Codex-Sitzung …",
+        "starting": "Pica startet die Sitzung des Chat-Agenten …",
         "running": "Pica antwortet …",
         "finishing": "Pica schließt ab …"
       },
@@ -3066,23 +3067,29 @@
         "unavailable": "nicht verfügbar",
         "contextValue": "{{used}} von {{size}} Tokens laut Adapter",
         "tokensValue": "{{total}} (Eingabe {{input}}, Ausgabe {{output}})",
-        "tokensPartial": "mindestens {{total}} (Eingabe {{input}}, Ausgabe {{output}}); ein Folgeturn ohne Angabe des Adapters"
+        "tokensPartial": "mindestens {{total}} (Eingabe {{input}}, Ausgabe {{output}}); ein Folgeturn ohne Angabe des Adapters",
+        "costEstimated": "≈ {{amount}} – Schätzung des Adapters nach Listenpreis, kein abgerechneter Betrag"
+      },
+      "compaction": {
+        "running": "Der Chat-Agent komprimiert den Kontext seiner Sitzung …",
+        "completed": "Kontext der Sitzung komprimiert (vorher {{before}}, danach {{after}} Tokens laut Adapter).",
+        "failed": "Die Kontextkomprimierung des Chat-Agenten ist fehlgeschlagen."
       },
       "stop": "Stoppen",
       "steerHint": "Pica antwortet noch. Eine neue Nachricht fließt in die laufende Antwort ein; nur „Stoppen“ bricht sie ab."
     },
     "steer": {
       "pending": "Während der Antwort gesendet · wartet auf Übergabe",
-      "delivered": "Während der Antwort gesendet · an Codex übergeben",
+      "delivered": "Während der Antwort gesendet · an den Chat-Agenten übergeben",
       "accepted": "Während der Antwort gesendet · in die laufende Antwort übernommen",
       "followUp": "Während der Antwort gesendet · eigene Folgeantwort",
       "failed": "Während der Antwort gesendet · nicht angekommen"
     },
     "selection": {
-      "label": "Übertragung der Anhänge an Codex",
+      "label": "Übertragung der Anhänge an den Chat-Agenten",
       "full": "{{name}}: übertragen",
       "truncated": "{{name}}: nur der Anfang übertragen (gekürzt)",
-      "unsupported": "{{name}}: nicht übertragen – dieser Dateityp wird nicht an Codex gesendet",
+      "unsupported": "{{name}}: nicht übertragen – dieser Dateityp wird nicht an den Chat-Agenten gesendet",
       "tooLarge": "{{name}}: nicht übertragen – die Datei ist zu groß",
       "unreadable": "{{name}}: nicht übertragen – die Datei war nicht lesbar"
     }

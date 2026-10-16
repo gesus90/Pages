@@ -7,7 +7,13 @@ import { chatErrorText } from "./chat-error";
 import { isChatJobRunning } from "./chat-job-state";
 import { PicaMascot } from "./pica-mascot";
 
-import type { ChatJobToolEvent, ChatJobUsage } from "@/definition/ChatJob";
+import type { TFunction } from "i18next";
+import type {
+  ChatCost,
+  ChatJobCompactionEvent,
+  ChatJobToolEvent,
+  ChatJobUsage,
+} from "@/definition/ChatJob";
 import type { ChatLiveJob } from "./chat-job-state";
 
 interface ChatJobStatusProps {
@@ -72,6 +78,44 @@ function ChatJobTools({
   );
 }
 
+/**
+ * The latest context compaction of the agent session (PAGE-90); it is neither
+ * a Pages tool nor a stop and ends no answer.
+ */
+function ChatJobCompaction({
+  compaction,
+}: {
+  readonly compaction: ChatJobCompactionEvent | null;
+}): React.ReactElement | null {
+  const { t, i18n } = useTranslation();
+  if (compaction === null) return null;
+  const format = (count: number | null): string =>
+    count === null
+      ? t("chat.job.usage.unavailable")
+      : count.toLocaleString(i18n.language);
+  return (
+    <p
+      className={cn(
+        "text-xs text-muted-foreground",
+        compaction.status === "failed" && "text-destructive",
+      )}
+    >
+      {t(`chat.job.compaction.${compaction.status}`, {
+        before: format(compaction.tokensBefore),
+        after: format(compaction.tokensAfter),
+      })}
+    </p>
+  );
+}
+
+/** A reported cost, or the adapter's own estimate marked as such. */
+function costText(t: TFunction, cost: ChatCost, language: string): string {
+  const amount = `${cost.amount.toLocaleString(language)} ${cost.currency}`;
+  return cost.isEstimated
+    ? t("chat.job.usage.costEstimated", { amount })
+    : amount;
+}
+
 /** Consumption exactly as the adapter reported it; a missing value reads as unavailable. */
 export function ChatJobUsageLine({
   usage,
@@ -100,7 +144,7 @@ export function ChatJobUsageLine({
       )
     : unavailable;
   const cost = usage.cost
-    ? `${usage.cost.amount.toLocaleString(i18n.language)} ${usage.cost.currency}`
+    ? costText(t, usage.cost, i18n.language)
     : unavailable;
   return (
     <dl className="grid grid-cols-[auto_1fr] gap-x-2 text-xs text-muted-foreground">
@@ -116,8 +160,8 @@ export function ChatJobUsageLine({
 
 /**
  * Pica's row for a job that runs on the server (PAGE-68): its stage, the
- * answer so far, the Pages tools and the consumption; after a stop or a
- * failure, how it ended and the unsaved partial answer.
+ * answer so far, the Pages tools, a context compaction and the consumption;
+ * after a stop or a failure, how it ended and the unsaved partial answer.
  */
 export function ChatJobStatus({
   live,
@@ -143,6 +187,7 @@ export function ChatJobStatus({
           </div>
         ) : null}
         <ChatJobTools tools={live.tools} />
+        <ChatJobCompaction compaction={live.compaction} />
         <ChatJobUsageLine usage={live.usage} />
       </div>
     </article>
