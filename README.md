@@ -343,6 +343,11 @@ for every new answer, so a change applies from the next message on.
   it; only *Stop* does. The panel reads the job's journal after its last cursor,
   so returning shows the current state or the finished answer without running
   anything again.
+- **Sent once.** Every message carries a client message ID, which stays the
+  same when the browser sends the message again unchanged after a failure. A
+  conversation stores each ID once (migration 052): a repeat returns the job
+  or steer of the first sending, and on the API path it is refused as already
+  sent. A second Enter or click before the panel updated sends nothing.
 - **Steering.** While Pica answers, sending stays possible. The message goes
   into the running turn through `_session/steering` (status *accepted*); a
   message that arrives between turns, or that the adapter no longer takes, is
@@ -352,7 +357,9 @@ for every new answer, so a change applies from the next message on.
   reach Codex as content blocks: text as an embedded resource (cut after
   30,000 characters), raster images up to 10 MiB. Every other type, a cut text
   or a too large image is listed under the message; the snapshot of each
-  message is stored once and never changed.
+  message is stored once and never changed. Sending waits until every chosen
+  file finished uploading. A steer gets its snapshot once Codex took it; a
+  steer Codex refused shows as failed, without one.
 - **Tools.** Codex reaches Pica's tools only through the MCP endpoint
   `POST /api/v1/pica-bridge`, with a random per-job token held in memory. Each
   call is bound to person, conversation and running turn and is authorized
