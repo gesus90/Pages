@@ -7,6 +7,7 @@ import { CliToolExecution } from "./CliToolExecution";
 import { OpenCodeCli } from "./OpenCodeCli";
 
 import type { AgentConnectionRecord } from "@/backend/database/repositories/agent/AgentConnectionRows";
+import type { InstanceSecretCipher } from "@/backend/security/InstanceSecretCipher";
 import type {
   AgentCheckKind,
   CliProviderId,
@@ -19,6 +20,7 @@ import type { CliLocator } from "./CliLocator";
 import type { CliProcessRunner } from "./CliProcessRunner";
 
 interface RuntimeDependencies {
+  readonly cipher?: InstanceSecretCipher;
   readonly store: AgentCredentialStore;
   readonly locator: CliLocator;
   readonly runner: CliProcessRunner;
@@ -41,7 +43,7 @@ export class AgentCliRuntime {
       case "claude_code":
         return new ClaudeCodeCli(execution);
       case "opencode":
-        return new OpenCodeCli(execution);
+        return new OpenCodeCli(execution, this.dependencies.cipher);
     }
   }
 
@@ -60,7 +62,10 @@ export class AgentCliRuntime {
 
   /** Resolves the OpenCode adapter, which also stores the provider key. */
   public async openCode(): Promise<OpenCodeCli> {
-    return new OpenCodeCli(await this.execution("opencode"));
+    return new OpenCodeCli(
+      await this.execution("opencode"),
+      this.dependencies.cipher,
+    );
   }
 
   /** Version, local login status and the optional test all share the caller's deadline. */
@@ -92,7 +97,14 @@ export class AgentCliRuntime {
             )
           : status.outcome;
       await this.dependencies.store.secure(connection.id, connection.provider);
-      return { ...outcome, detail: { ...outcome.detail, ...version.detail } };
+      return {
+        ...outcome,
+        detail: {
+          ...(connection.provider === "opencode" ? status.outcome.detail : {}),
+          ...outcome.detail,
+          ...version.detail,
+        },
+      };
     } catch (error: unknown) {
       if (error instanceof AgentError)
         return { ok: false, errorCode: error.code, detail: {} };

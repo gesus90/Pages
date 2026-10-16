@@ -19,7 +19,7 @@ export type AgentPlanSessionMode = "one_shot" | "interactive" | "request";
  * @remarks
  * `report` describes todos and acceptance criteria. `todos` follows only the
  * current todo list of the bound tickets, which the agent ticks live. Both
- * are diagnostic for standalone agents. Internal group steps additionally
+ * are diagnostic for standalone Codex and Claude agents. OpenCode nodes and internal group steps additionally
  * require an accepted report before releasing their successor.
  */
 export type AgentPlanCompletion = "report" | "todos";
@@ -95,8 +95,8 @@ export interface AgentPlanCriterionStatus {
  * @remarks
  * `accepted` means no progress issues were found; `open` preserves incomplete
  * or unknown work and report issues. `rejected` remains readable in historical
- * records. Standalone agents use these values as diagnostics; internal group
- * steps require `accepted` as well as successful runner completion.
+ * records. OpenCode nodes and internal group steps require `accepted` as well
+ * as successful runner completion; other standalone agents keep diagnostic progress.
  */
 export interface AgentPlanAcceptance {
   readonly verdict: "accepted" | "open" | "rejected";
@@ -147,7 +147,7 @@ export interface AgentPlanGroupSessionLink {
  * @remarks
  * `resultCode` is the normalized execution outcome: 0 for a regular runner
  * completion and clean, confirmed closeout, -1 for a technical failure or
- * cancellation or failed group acceptance. Standalone progress remains diagnostic. The actual process
+ * cancellation or failed acceptance for OpenCode or a group. Other standalone progress remains diagnostic. The actual process
  * exit is kept in `exit`; retained group turns await the shared closeout.
  */
 export interface AgentPlanSessionRecord {

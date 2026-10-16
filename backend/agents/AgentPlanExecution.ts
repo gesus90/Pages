@@ -1,4 +1,5 @@
 import { AgentError } from "@/backend/error/AgentErrors";
+import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
 import { isApiProvider } from "@/definition/AgentConnection";
@@ -183,10 +184,22 @@ export class AgentPlanExecution implements PlanExecution {
     await this.authorizer.requireUser(input.userId, input.agent.connection.id);
     const release = this.operations.acquireExecution(input.agent.connection.id);
     let session: PlanSession;
+    const mustConfirmCleanup = input.agent.connection.provider === "opencode";
+    function observe(target: PlanSessionObserver): PlanSessionObserver {
+      if (!mustConfirmCleanup) return target;
+      return {
+        ...target,
+        retired: (closed, reason) => {
+          if (closed.isConfirmed) release();
+          target.retired?.(closed, reason);
+        },
+      };
+    }
     try {
-      session = await this.cli.open(input, signal, observer);
+      session = await this.cli.open(input, signal, observe(observer));
     } catch (error: unknown) {
-      release();
+      if (!mustConfirmCleanup || !(error instanceof AcpCleanupUnconfirmedError))
+        release();
       throw error;
     }
     const steer = session.steer?.bind(session);
@@ -206,15 +219,18 @@ export class AgentPlanExecution implements PlanExecution {
               );
               await next.beforeStart?.();
               if (!session.next) throw new AgentError("plan_step_failed");
-              return session.next(next, nextSignal, nextObserver);
+              return session.next(next, nextSignal, observe(nextObserver));
             },
           }
         : {}),
       close: async () => {
+        let isConfirmed = false;
         try {
-          return await session.close();
+          const closed = await session.close();
+          isConfirmed = closed.isConfirmed;
+          return closed;
         } finally {
-          release();
+          if (isConfirmed || !mustConfirmCleanup) release();
         }
       },
     };

@@ -1,4 +1,5 @@
 import { readTicketAssetInput } from "@/backend/agents/TicketAssetInput";
+import { requireManagedOpenCodeConfiguration } from "@/backend/agents/acp/OpenCodeAcpConfiguration";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
 import { isApiProvider } from "@/definition/AgentConnection";
@@ -142,6 +143,13 @@ export class CliTextExecution implements TextExecution {
       const status = await adapter.readStatus(home, signal);
       if (!status.outcome.ok)
         throw new TextAssistantError("connectionUnavailable");
+      if (connection.provider === "opencode") {
+        if (
+          !input.agent.model.startsWith(`${status.credentials?.modelProvider}/`)
+        )
+          throw new AgentError("plan_model_unavailable");
+        await requireManagedOpenCodeConfiguration(home);
+      }
       const location = await locator.find(connection.provider);
       if (!location.path) throw new TextAssistantError("connectionUnavailable");
       const result = await runner.run({
@@ -151,7 +159,10 @@ export class CliTextExecution implements TextExecution {
         arguments: textArguments(input, home.work),
         environment:
           connection.provider === "opencode"
-            ? { OPENCODE_CONFIG_CONTENT: OPENCODE_TEXT_CONFIGURATION }
+            ? {
+                ...status.credentials?.environment,
+                OPENCODE_CONFIG_CONTENT: OPENCODE_TEXT_CONFIGURATION,
+              }
             : undefined,
         stdin: "pipe",
         input:
@@ -163,9 +174,13 @@ export class CliTextExecution implements TextExecution {
       });
       if (result.errorCode !== null || result.exitCode !== 0)
         throw new TextAssistantError("providerFailed");
-      return readCliTextResponse(connection.provider, result.stdout, {
-        webSearch: input.webSearch,
-      });
+      return readCliTextResponse(
+        connection.provider,
+        status.credentials?.redact(result.stdout) ?? result.stdout,
+        {
+          webSearch: input.webSearch,
+        },
+      );
     } finally {
       await store.secure(connection.id, connection.provider);
     }

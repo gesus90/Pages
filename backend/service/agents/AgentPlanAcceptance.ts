@@ -30,6 +30,8 @@ interface PlanReport {
 
 /** The state of the checklist entries of the bound tickets after the turn. */
 export interface AgentPlanTicketStates {
+  /** OpenCode read-only nodes prove ticket todos in the report because they cannot change checkboxes. */
+  readonly canReportTicketTodos?: boolean;
   /** Checked state by `ticketId` and checklist item ID; a missing entry is absent. */
   readonly checked: ReadonlyMap<string, boolean>;
   /** Tickets that could not be read anymore. */
@@ -111,7 +113,11 @@ function todoStatus(
   const reported = report?.todos.get(todo.id);
   const status = todoListStatus(todo, report, states);
   if (status !== "done") issues.push(`todo_${status}:${todo.id}`);
-  if (reported === "done" && ticketState(todo, states) === false)
+  if (
+    !states.canReportTicketTodos &&
+    reported === "done" &&
+    ticketState(todo, states) === false
+  )
     issues.push(`ticket_unchecked:${todo.id}`);
   return { id: todo.id, status };
 }
@@ -152,9 +158,10 @@ function criterionStatus(
  *
  * @remarks
  * `accepted` means that this progress assessment has no outstanding issues;
- * `open` preserves every diagnostic. The group runner requires `accepted`;
- * standalone steps keep these findings diagnostic. Ticket todos follow the actual checkbox, including in
- * read-only sessions. Missing or invalid reports never manufacture completion.
+ * `open` preserves every diagnostic. OpenCode and group runners require `accepted`;
+ * other standalone steps keep these findings diagnostic. Ticket todos follow
+ * the checkbox unless the caller explicitly permits reporting them in read-only
+ * OpenCode sessions. Missing or invalid reports never manufacture completion.
  */
 export function evaluatePlanAcceptance(
   contract: AgentPlanContract,
@@ -196,7 +203,7 @@ function todoListStatus(
   states: AgentPlanTicketStates,
 ): AgentPlanTodoStatus["status"] {
   const reported = report?.todos.get(todo.id);
-  if (todo.ticket === null)
+  if (todo.ticket === null || states.canReportTicketTodos)
     return reported === "done" || reported === "open" ? reported : "missing";
   const checked = states.checked.get(
     `${todo.ticket.id}\n${todo.ticket.itemId}`,
@@ -218,7 +225,7 @@ function todoListStatus(
  * checked. A todo without one has only the report to go by. A missing or
  * malformed report and changed requirements remain diagnostic issues; an
  * unreadable ticket leaves its todos `missing`, never `done`. No issue gates
- * execution or successor release for standalone steps. Internal group steps
+ * execution or successor release for standalone Codex and Claude steps. OpenCode and internal group steps
  * require an accepted report under the same group policy as other completion modes.
  */
 export function evaluateTodoCompletion(

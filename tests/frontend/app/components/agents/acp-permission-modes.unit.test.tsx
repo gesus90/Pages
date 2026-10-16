@@ -150,17 +150,21 @@ it.each(ACP_PROVIDERS)(
   },
 );
 
-it("keeps workspace access, shell and web for runners without ACP and offers them no YOLO", async () => {
+it("requires an explicit ACP mode for a legacy OpenCode agent and offers only Nur Lesen and YOLO", async () => {
   renderModes({ ...WITHOUT_RUN, run: DEFAULT_AGENT_RUN_OPTIONS }, "opencode");
-  expect(
-    screen.queryByRole("combobox", {
-      name: i18n.t("settings.agents.run.mode"),
-    }),
-  ).toBeNull();
-  expect(screen.getAllByRole("checkbox")).toHaveLength(2);
-  const options = await openOptions(screen.getByRole("combobox"));
-  expect(options).toEqual([
+  expect(modeSelect().textContent).toContain(
+    i18n.t("settings.agents.run.chooseMode"),
+  );
+  expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+  const options = await openOptions(modeSelect());
+  expect(options.join(" ")).not.toContain(
     i18n.t("plans.session.access.workspace_write"),
-    i18n.t("plans.session.access.read_only"),
+  );
+  const selectable = screen
+    .getAllByRole("option")
+    .filter((option) => option.getAttribute("aria-disabled") !== "true");
+  expect(selectable.map((option) => option.textContent)).toEqual([
+    expect.stringContaining("Nur Lesen"),
+    expect.stringContaining("YOLO"),
   ]);
 });

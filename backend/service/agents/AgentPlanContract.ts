@@ -44,13 +44,14 @@ export interface AgentPlanAssignment extends AgentPlanContractOptions {
   readonly runnerLabel: string;
   readonly instanceId: string;
   readonly directory: string;
-  /** Internal group steps must pass acceptance before continuing the native session. */
+  /** Group members and OpenCode nodes must pass business acceptance before successors start. */
   readonly requiresAcceptance?: boolean;
+  readonly acceptanceScope?: "node" | "group";
 }
 
 function completionInstruction(assignment: AgentPlanAssignment): string {
   if (assignment.requiresAcceptance)
-    return "This is an internal group step. Complete every todo and criterion and include a valid pages-report with the required IDs, done todos, met criteria and real evidence. Missing or invalid reports, open todos, unmet criteria and missing evidence fail this group step and block all later steps. Report unfinished work honestly; do not invent completion.";
+    return `${assignment.acceptanceScope === "node" ? "This OpenCode node requires business acceptance." : "This is an internal group step."} Complete every todo and criterion and include a valid pages-report with the required IDs, done todos, met criteria and real evidence. Missing or invalid reports, open todos, unmet criteria and missing evidence fail this step and block all later steps. Report unfinished work honestly; do not invent completion.`;
   return "Regular runner completion releases the next steps automatically, without business acceptance or manual confirmation. A missing, invalid or incomplete report, unmet criteria, missing proof and ticket changes are diagnostic information only and never fail execution or block successors.";
 }
 

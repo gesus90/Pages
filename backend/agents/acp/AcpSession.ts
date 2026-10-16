@@ -21,9 +21,13 @@ import {
   readAcpConfiguration,
   readAcpUpdate,
 } from "./AcpEvents";
-import { PAGES_MCP_SERVER } from "./AcpLaunch";
-import { readMcpServerStatus } from "./AcpMcpStatus";
+import { AcpMcpReadiness } from "./AcpMcpReadiness";
 import { confirmAcpConfiguration } from "./AcpSessionConfiguration";
+import {
+  classifyOpenCodeFailure,
+  openCodeAcpFailure,
+  openCodeToolFailure,
+} from "./OpenCodeAcpErrors";
 
 import type { AgentPlanExecutionInput } from "@/backend/service/agents/AgentPlanStepStart";
 import type { TextExecutionInput } from "@/backend/agents/TextExecution";
@@ -36,7 +40,6 @@ import type {
   RequestPermissionResponse,
   SessionConfigOption,
   SessionNotification,
-  SessionUpdate,
   StopReason,
   Stream,
 } from "@agentclientprotocol/sdk";
@@ -54,7 +57,6 @@ import type {
   AcpSteerOutcome,
 } from "./AcpChat";
 import type { AcpDriver, AcpSessionProfile } from "./AcpDriver";
-import type { McpServerStatus } from "./AcpMcpStatus";
 
 /** The JSON-RPC code of an agent that needs a sign-in first. */
 const AUTH_REQUIRED = -32000;
@@ -63,10 +65,6 @@ const PROGRESS_INTERVAL_MS = 5_000;
 /** How long closing waits for the adapter to end the protocol session. */
 const SESSION_CLOSE_WAIT_MS = 5_000;
 const STDERR_EVENT_CHARACTERS = 200;
-/** How long the Pages MCP server may stay in the state of connecting before the node fails. */
-const MCP_CONNECT_WAIT_MS = 20_000;
-const MCP_POLL_MS = 500;
-
 /** What the session runs: exactly the stored model, effort and prompt of the node. */
 export interface AcpSessionRequest extends Pick<
   TextExecutionInput,
@@ -127,12 +125,6 @@ export interface AcpSessionContext {
   readonly listener?: AcpSessionListener;
 }
 
-function delay(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, milliseconds);
-  });
-}
-
 function stopFailure(reason: StopReason): PlanSessionTurn["failure"] {
   switch (reason) {
     case "end_turn":
@@ -145,6 +137,13 @@ function stopFailure(reason: StopReason): PlanSessionTurn["failure"] {
     case "max_turn_requests":
       return "incomplete";
   }
+}
+
+function abortFailure(signal: AbortSignal): "timeout" | "cancelled" {
+  return signal.reason instanceof DOMException &&
+    signal.reason.name === "TimeoutError"
+    ? "timeout"
+    : "cancelled";
 }
 
 /**
@@ -184,9 +183,9 @@ export class AcpSession implements PlanSession {
   private promptCapabilities: PromptCapabilities | null | undefined;
   private isModelChecked = false;
   private isModelMismatch = false;
+  private openCodeFailure: AgentErrorCode | null = null;
   private expectedConfiguration: Readonly<Record<string, string>> | null = null;
-  /** The text of a local command such as `/mcp`; `null` while the turn is the node's. */
-  private localCommandText: string | null = null;
+  private readonly mcpReadiness: AcpMcpReadiness;
   private closing: Promise<PlanSessionClosed> | null = null;
 
   /**
@@ -209,6 +208,11 @@ export class AcpSession implements PlanSession {
     Object.assign(this.state.effective, context.profile.permissions, {
       isolation: context.isolation,
     });
+    if (context.driver.provider === "opencode") {
+      this.state.effective.workspace = context.request.directory;
+      this.state.effective.modelVerification =
+        "ACP model selector; provider response does not report a separate model identity";
+    }
     if (context.github) this.state.effective.github = context.github;
     this.connection = acpClient({ name: "pages" })
       .onRequest(methods.client.session.requestPermission, (request) =>
@@ -218,6 +222,13 @@ export class AcpSession implements PlanSession {
         this.receive(notification.params);
       })
       .connect(stream);
+    this.mcpReadiness = new AcpMcpReadiness(this.connection, this.state);
+    if (context.driver.provider === "opencode") {
+      context.signal.addEventListener("abort", this.abortRequests, {
+        once: true,
+      });
+      if (context.signal.aborted) this.abortRequests();
+    }
     const { listener } = context;
     if (listener)
       this.connection.signal.addEventListener("abort", listener.closed, {
@@ -269,7 +280,7 @@ export class AcpSession implements PlanSession {
 
   /**
    * Continues the ACP session with a fresh, turn-scoped prompt: the next
-   * member of a Codex or Claude Code plan group or the next turn of a Pica
+   * member of a Codex, Claude Code or OpenCode plan group or the next turn of a Pica
    * conversation.
    *
    * @throws {AgentError} `provider_invalid` for a profile that runs one turn only.
@@ -291,8 +302,16 @@ export class AcpSession implements PlanSession {
     this.state.messageId = null;
     this.state.isMessageOpen = false;
     this.state.permissionDenials = 0;
+    this.openCodeFailure = null;
     this.state.tools.clear();
-    const cancel = (): void => this.process.cancel("login_cancelled");
+    const cancel = (): void => {
+      this.process.cancel(
+        abortFailure(signal) === "timeout"
+          ? "check_timeout"
+          : "login_cancelled",
+      );
+      if (this.context.driver.provider === "opencode") this.abortRequests();
+    };
     signal.addEventListener("abort", cancel, { once: true });
     if (signal.aborted) cancel();
     try {
@@ -311,12 +330,18 @@ export class AcpSession implements PlanSession {
     }
   }
 
+  private readonly abortRequests = (): void => this.connection.close();
+
   private async work(): Promise<PlanSessionTurn> {
     try {
       await this.initialize();
       const { sessionId, options } = await this.openSession();
       await this.configure(sessionId, options);
-      await this.requirePagesMcp(sessionId);
+      await this.mcpReadiness.require(
+        sessionId,
+        this.context.profile.hasMcpStatusCommand &&
+          this.context.request.mcpServers.length > 0,
+      );
       return await this.prompt(sessionId, this.context.request);
     } catch (error: unknown) {
       return this.failed(error);
@@ -353,7 +378,9 @@ export class AcpSession implements PlanSession {
       return this.ended("failed", "plan_model_unavailable");
     return this.ended(
       stopFailure(response.stopReason),
-      this.state.isMcpUnavailable ? "plan_mcp_unavailable" : null,
+      this.state.isMcpUnavailable
+        ? "plan_mcp_unavailable"
+        : this.openCodeFailure,
     );
   }
 
@@ -468,6 +495,8 @@ export class AcpSession implements PlanSession {
       profile.steps(request),
     );
     readAcpConfiguration(this.state, options, profile.reportedOptions);
+    if (driver.provider === "opencode")
+      this.state.effective.reasoningEffort ??= "default";
     this.expectedConfiguration = { ...this.state.effective };
   }
 
@@ -488,24 +517,17 @@ export class AcpSession implements PlanSession {
     // An update may arrive before `session/new` answered; it belongs to the only session.
     if (sessionId !== null && notification.sessionId !== sessionId) return;
     const { update } = notification;
-    if (this.localCommandText !== null) {
-      if (update.sessionUpdate === "agent_message_chunk")
-        this.collectLocalCommand(update);
-      return;
-    }
+    if (this.mcpReadiness.receive(update)) return;
     readAcpUpdate(this.state, update, this.context.profile.reportedOptions);
+    if (this.context.driver.provider === "opencode") {
+      const failure = openCodeToolFailure(update);
+      this.openCodeFailure ??= failure;
+      if (failure === "plan_runner_permission_denied")
+        this.state.permissionDenials += 1;
+    }
     this.context.listener?.update(update);
     this.checkReportedModel();
     this.reportProgress();
-  }
-
-  private collectLocalCommand(update: SessionUpdate): void {
-    if (
-      update.sessionUpdate === "agent_message_chunk" &&
-      update.content.type === "text"
-    )
-      this.localCommandText =
-        (this.localCommandText ?? "") + update.content.text;
   }
 
   /**
@@ -549,49 +571,6 @@ export class AcpSession implements PlanSession {
     }
   }
 
-  /**
-   * Waits until the Pages MCP server of the session is connected.
-   *
-   * @remarks
-   * The adapter lists the server states for its local `/mcp` command, which
-   * costs no model call. Codex reports a failed MCP start through its own
-   * startup tool call instead.
-   */
-  private async requirePagesMcp(sessionId: string): Promise<void> {
-    if (this.state.isMcpUnavailable)
-      throw new AgentError("plan_mcp_unavailable");
-    const { profile, request } = this.context;
-    if (!profile.hasMcpStatusCommand || request.mcpServers.length === 0) return;
-    const deadline = Date.now() + MCP_CONNECT_WAIT_MS;
-    let previous: McpServerStatus | null = null;
-    for (;;) {
-      const status = await this.readMcpStatus(sessionId);
-      if (status !== previous)
-        noteSessionEvent(
-          this.state.events,
-          `mcp ${PAGES_MCP_SERVER} ${status}`,
-        );
-      previous = status;
-      if (status === "failed") throw new AgentError("plan_mcp_unavailable");
-      if (status !== "connecting") return;
-      if (Date.now() >= deadline) throw new AgentError("plan_mcp_unavailable");
-      await delay(MCP_POLL_MS);
-    }
-  }
-
-  private async readMcpStatus(sessionId: string): Promise<McpServerStatus> {
-    this.localCommandText = "";
-    try {
-      await this.connection.agent.request(methods.agent.session.prompt, {
-        sessionId,
-        prompt: [{ type: "text", text: "/mcp" }],
-      });
-      return readMcpServerStatus(this.localCommandText ?? "", PAGES_MCP_SERVER);
-    } finally {
-      this.localCommandText = null;
-    }
-  }
-
   private reportProgress(): void {
     const now = Date.now();
     if (now - this.lastProgressAt < PROGRESS_INTERVAL_MS) return;
@@ -606,6 +585,8 @@ export class AcpSession implements PlanSession {
 
   private async failed(error: unknown): Promise<PlanSessionTurn> {
     if (this.turnSignal.aborted) {
+      if (this.context.driver.provider === "opencode")
+        return this.ended(abortFailure(this.turnSignal), null);
       // The stop or deadline ends the process; its exit tells which.
       const exit = await this.process.exited;
       return this.ended(
@@ -620,8 +601,19 @@ export class AcpSession implements PlanSession {
       // The deadline of the process itself can fire before the one of the node.
       if (exit.errorCode === "check_timeout")
         return this.ended("timeout", null);
-      this.noteStderr(exit.stderrTail);
-      return this.ended("failed", sessionFailed);
+      if (this.context.driver.provider !== "opencode")
+        this.noteStderr(exit.stderrTail);
+      return this.ended(
+        "failed",
+        this.context.driver.provider === "opencode"
+          ? classifyOpenCodeFailure(exit.stderrTail)
+          : sessionFailed,
+      );
+    }
+    if (this.context.driver.provider === "opencode") {
+      const code = openCodeAcpFailure(error);
+      noteSessionEvent(this.state.events, `OpenCode failure: ${code}`);
+      return this.ended("failed", code);
     }
     if (error instanceof RequestError && error.code === AUTH_REQUIRED)
       return this.ended("failed", "cli_not_logged_in");
@@ -677,6 +669,7 @@ export class AcpSession implements PlanSession {
       this.connection.close();
       return await closeCliSession(this.process, this.context.instanceId);
     } finally {
+      this.context.signal.removeEventListener("abort", this.abortRequests);
       await this.context.secure();
     }
   }

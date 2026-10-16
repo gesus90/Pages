@@ -70,7 +70,7 @@ export function planStepProvider(
 /**
  * The ACP adapter class of an agent node.
  *
- * @returns The technical adapter ID (`codex_cli`, `claude_code`) of a node
+ * @returns The technical adapter ID (`codex_cli`, `claude_code`, `opencode`) of a node
  * that runs as an ACP plan session, or `null` for API agents and the other
  * runners. The display name of an agent never decides it.
  */

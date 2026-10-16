@@ -1,7 +1,5 @@
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 
-import type { CliPlanRunner } from "./CliSessionPlans";
-
 const MAXIMUM_EVENTS = 60;
 const MAXIMUM_EVENT_CHARACTERS = 200;
 
@@ -106,7 +104,7 @@ function readOpenCode(
  * speak ACP and report through the reader of their session.
  */
 export function readCliSessionLine(
-  provider: CliPlanRunner,
+  provider: "opencode",
   line: string,
   state: CliSessionState,
 ): CliSessionUpdate {

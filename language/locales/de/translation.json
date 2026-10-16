@@ -613,7 +613,7 @@
         "plan_runner_permission_denied": "Der Runner hat Aktionen abgelehnt, die die Laufoptionen nicht erlauben; nichts wurde stellvertretend freigegeben.",
         "plan_acceptance_failed": "Historischer Lauf: Der Abschlussbericht belegte nicht jedes Todo und Kriterium. Dieser gespeicherte Fehler bleibt bestehen; ein neuer Lauf verwendet die Hinweise nur als Diagnose.",
         "plan_group_acceptance_failed": "Der Gruppen-Agent hat die Abnahme nicht bestanden. Sein Abschlussbericht muss jedes Todo und Kriterium belegen; weitere Agents und Nachfolger bleiben gesperrt.",
-        "plan_group_session_unsupported": "Dieser Adapter kann die gemeinsame ACP-Session der Gruppe nicht mit neuer Schrittanweisung fortsetzen. Codex- oder Claude-Code-Agents über ACP verwenden.",
+        "plan_group_session_unsupported": "Dieser Adapter kann die gemeinsame ACP-Session der Gruppe nicht mit neuer Schrittanweisung fortsetzen. Codex-, Claude-Code- oder OpenCode-Agents über ACP verwenden.",
         "plan_closeout_failed": "Die Sitzung ließ sich nicht vollständig schließen; Prozesse blieben übrig.",
         "parameter_number_invalid": "Für jeden Zahlenparameter eine gültige endliche Zahl angeben.",
         "parameter_asset_unavailable": "Ein Ticket-Asset fehlt, wurde gelöscht, ist nicht lesbar oder für den ausführenden Benutzer nicht zugänglich. Es wurde keine unvollständige Eingabe übergeben.",
@@ -625,10 +625,12 @@
         "parameter_ticket_unavailable": "Das gewählte Ticket ist nicht verfügbar oder nicht zugänglich. Ein zugängliches Ticket auswählen.",
         "timeout": "Das harte Zeitlimit des Agents ist abgelaufen. Der laufende Vorgang wurde unterbrochen.",
         "run_notes_unsupported": "Gemeinsame Laufnotizen wurden entfernt. {{@run.notes}} wird nicht mehr unterstützt. Passe den betroffenen Agent oder Plan-Knoten ausdrücklich an.",
+        "opencode_acceptance_failed": "Der OpenCode-Knoten hat nicht alle Todos und Abnahmekriterien im abschließenden pages-report belegt. Offene oder unbelegte Arbeit blockiert Nachfolger auch bei regulärem ACP-Abschluss.",
+        "opencode_permission_mode_required": "OpenCode-Agents laufen nur in „Nur Lesen“ oder „YOLO“. Wähle einen Modus ausdrücklich; alte Workspace-Schreibrechte starten keinen Lauf.",
         "opencode_chat_mode_required": "Pica benötigt für OpenCode Workspace-Zugriff „Nur Lesen“ und bietet ausschließlich die Pages-Toolbrücke an.",
         "opencode_configuration_unmanaged": "OpenCode könnte fremde Einstellungen oder Anweisungen laden. Entferne diese aus dem Konfigurationsordner der Verbindung oder /etc/opencode. Es wurde kein Modell aufgerufen.",
-        "opencode_acp_unsupported": "Pica benötigt den geprüften nativen ACP-Vertrag von OpenCode 1.18.34. Die installierte Version oder ihr Vertrag weicht davon ab; es wurde kein Modell aufgerufen.",
-        "opencode_acp_session_failed": "Die native OpenCode-ACP-Sitzung ist vor oder während der Antwort fehlgeschlagen.",
+        "opencode_acp_unsupported": "Pages benötigt den geprüften nativen ACP-Vertrag von OpenCode 1.18.34. Die installierte Version oder ihr Vertrag weicht davon ab; es wurde kein Modell aufgerufen.",
+        "opencode_acp_session_failed": "Die native OpenCode-ACP-Sitzung ist vor oder während ihres Turns fehlgeschlagen.",
         "plan_group_session_lost": "Die gemeinsame ACP-Session der Gruppe besteht nicht mehr, weil ihr Adapterprozess beendet wurde. Eine ACP-Session lässt sich in keinem anderen Prozess fortsetzen; einen neuen Lauf starten."
       },
       "description": "Verwalten Sie die benannten KI-Anbindungen und Funktionszuordnungen dieser Pages-Instanz.",
@@ -642,7 +644,7 @@
       "apiEmpty": "Noch keine API-Anbindung eingerichtet.",
       "cliEmpty": "Noch keine CLI-Anbindung eingerichtet.",
       "cliMissing": "CLI nicht gefunden",
-      "cliInstallHint": "Installieren Sie Codex CLI bzw. Claude Code nach der Anleitung des Anbieters. Der Pages-Dienst muss die ausführbare Datei über seinen PATH finden. Nach PATH-Änderungen den Dienst neu starten.",
+      "cliInstallHint": "Installieren Sie Codex CLI, Claude Code oder OpenCode nach der Anleitung des Anbieters. Der Pages-Dienst muss die ausführbare Datei über seinen PATH finden. Nach PATH-Änderungen den Dienst neu starten.",
       "name": "Name",
       "providerLabel": "Anbieter/Werkzeug",
       "statusLabel": "Status",
@@ -981,12 +983,12 @@
         "unavailableTicket": "Angebundenes Ticket nicht zugänglich"
       },
       "openCodeKey": "API-Schlüssel für OpenCode",
-      "openCodeKeyHint": "Provider-ID und Schlüssel gehören zusammen. Modell-IDs behalten dieses Providerpräfix. Pages speichert den Schlüssel nur im privaten Anmeldeordner dieser Verbindung; er kommt nicht zum Browser zurück.",
+      "openCodeKeyHint": "Einen OpenCode-eigenen Schlüssel unter OpenCode Console / Zen hinterlegen, einen OpenRouter-Schlüssel unter OpenRouter. Pages speichert neue Schlüssel mit der Instanzverschlüsselung im privaten Verbindungsordner. Sie kommen nicht zum Browser zurück. Die Zugangsprüfung prüft lokal das gespeicherte Format; erst ein expliziter Modelltest prüft Schlüssel, Guthaben und Modell beim Anbieter.",
       "openCodeKeyStore": "Schlüssel hinterlegen",
       "openCodeKeyReplace": "Schlüssel ersetzen",
       "run": {
         "title": "Laufoptionen",
-        "hint": "Workspace-, Shell- und Web-Berechtigungen gelten für den OpenCode-Runner. Sie arbeiten immer unbeaufsichtigt: Was nicht erlaubt ist, wird abgelehnt statt nachgefragt. Eine Kombination, die ein Runner nicht durchsetzen kann, blockiert den Start. Der Timeout gilt auch für API-Agents. Für Pica über OpenCode ist „Nur Lesen“ erforderlich; dort stehen ausschließlich die Pages-Werkzeuge zur Verfügung.",
+        "hint": "Der Timeout gilt auch für API-Agents. Wähle für einen CLI-Agenten einen der angebotenen Berechtigungsmodi. Pica über OpenCode verwendet unabhängig davon ausschließlich die Pages-Toolbrücke.",
         "access": "Zugriff auf den Workspace",
         "timeout": "Timeout (Minuten)",
         "shell": "Befehle im Workspace ausführen (Shell)",
@@ -994,7 +996,7 @@
         "unlimited": "0 · unbegrenzte Laufzeit",
         "hardTimeout": "Harte Grenze: {{minutes}} Minuten",
         "timeoutHint": "0 bedeutet unbegrenzte Laufzeit bis zum Abschluss. Ein positiver Timeout unterbricht den laufenden Vorgang bei Ablauf hart; der Lauf wird als „Gestört“ mit Timeout-Ursache angezeigt.",
-        "acpHint": "Codex-CLI- und Claude-Code-Agents laufen über ACP in genau einem von zwei Modi. Sie arbeiten unbeaufsichtigt: Was der Modus nicht erlaubt, wird abgelehnt statt nachgefragt. Der Timeout gilt zusätzlich, auch für API-Agents.",
+        "acpHint": "Codex-CLI-, Claude-Code- und OpenCode-Agents laufen über ACP in genau einem von zwei Modi. Sie arbeiten unbeaufsichtigt: Was der Modus nicht erlaubt, wird abgelehnt statt nachgefragt. Der Timeout gilt zusätzlich, auch für API-Agents.",
         "mode": "Berechtigungsmodus",
         "chooseMode": "Modus wählen",
         "modeRequired": "Wähle „Nur Lesen“ oder „YOLO“. Ein Agent, der noch mit dem früheren Workspace-Schreibmodus gespeichert ist, startet erst nach dieser Wahl und wird nie von selbst zu YOLO.",
@@ -1029,7 +1031,11 @@
         "recovery": "Wartet auf Wiederherstellung beim Start",
         "scheduler_error": "Wartet nach Scheduler-Fehler"
       },
-      "openCodeProvider": "Modellprovider in OpenCode (z. B. openrouter)"
+      "openCodeProvider": "Schlüsselanbieter für OpenCode",
+      "openCodeKeyProvider": {
+        "opencode": "OpenCode Console / Zen (opencode)",
+        "openrouter": "OpenRouter (openrouter)"
+      }
     },
     "connections": {
       "title": "Verbindungen",
@@ -3338,7 +3344,7 @@
       "json": "Genau einen gültigen JSON-Wert eingeben. Zahlen müssen endlich sein.",
       "number": "Genau eine endliche Zahl eingeben.",
       "groupSize": "Die Gruppe enthält noch keinen Agent. Mindestens einen ACP-Agent hineinziehen, bevor der Plan startet.",
-      "groupProvider": "Dieser Agent passt nicht zur ACP-Klasse der Gruppe oder läuft nicht über ACP. Nur Agents derselben Adapterklasse (Codex oder Claude Code) teilen eine Gruppensession.",
+      "groupProvider": "Dieser Agent passt nicht zur ACP-Klasse der Gruppe oder läuft nicht über ACP. Nur Agents derselben Adapterklasse (Codex, Claude Code oder OpenCode) teilen eine Gruppensession.",
       "groupConfiguration": "Die aufgelöste Laufzeitkonfiguration widerspricht der gemeinsamen Gruppenkonfiguration.",
       "unsupportedRunNotes": "Gemeinsame Laufnotizen wurden entfernt. {{@run.notes}} wird nicht mehr unterstützt. Passe den betroffenen Agent oder Plan-Knoten ausdrücklich an.",
       "groupOrder": "Die Agents einer Gruppe teilen eine Session und brauchen eine eindeutige Reihenfolge: Ablaufverbindungen bilden eine Kette mit genau einem ersten Agent und ohne Verzweigung.",
@@ -3453,7 +3459,7 @@
       "defaultName": "Agent-Gruppe",
       "create": "Gruppe anlegen",
       "name": "Gruppenname",
-      "hint": "Eine ACP-Gruppe teilt pro Plan-Lauf eine Session. Sie beginnt als neutraler Entwurf; der erste ACP-Agent, der beitritt (Codex oder Claude Code), legt ihre Klasse fest. Danach treten nur Agents derselben Klasse mit identischem Zugang und identischer Laufzeitkonfiguration bei. Ohne Agents ist sie wieder neutral. Ein Anschluss verteilt denselben Wert an mehrere Agents.",
+      "hint": "Eine ACP-Gruppe teilt pro Plan-Lauf eine Session. Sie beginnt als neutraler Entwurf; der erste ACP-Agent, der beitritt (Codex, Claude Code oder OpenCode), legt ihre Klasse fest. Danach treten nur Agents derselben Klasse mit identischem Zugang und identischer Laufzeitkonfiguration bei. Ohne Agents ist sie wieder neutral. Ein Anschluss verteilt denselben Wert an mehrere Agents.",
       "interfaces": "Schnittstellenanschlüsse",
       "acceptanceHint": "Interne Gruppen-Agents benötigen einen gültigen pages-report mit erledigten Todos und belegten Kriterien. Fehlende Berichte, offene Punkte und fehlgeschlagene Abnahme stoppen die Gruppe und sperren Nachfolger.",
       "failedAgent": "Betroffener Agent: {{name}}",

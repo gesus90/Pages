@@ -1,4 +1,4 @@
-# Native OpenCode ACP for Pica (PAGE-91)
+# Native OpenCode ACP for Pica and plan nodes (PAGE-91 / PAGE-66)
 
 Observed on 2026-10-16 with the installed OpenCode **1.18.34**. All local
 protocol inspection used empty temporary homes, no credentials and **no
@@ -33,3 +33,33 @@ branch:
 
 Functional behavior with a real model, tool calls, image understanding,
 compaction and cancellation has deliberately not been exercised by Codex.
+
+## PAGE-66 plan path and credential audit
+
+The PAGE-66 inspection on 2026-10-16 ran only `opencode --version` (1.18.34),
+read the installed `opencode-ai` binary and inspected the exact release source.
+It started no ACP server, native agent, model request or live MCP process.
+The protocol observations above belong to PAGE-91 and are not new plan tests.
+
+| Area                  | Release evidence and Pages behavior                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Provider identity     | The installed binary identifies `opencode` as OpenCode Zen with `OPENCODE_API_KEY` and the Zen endpoint. `openrouter` is a separate native provider. Console/Zen keys use `opencode`, never OpenRouter.                                                                                                                                                                                                                                             |
+| Credential format     | [Auth](https://github.com/anomalyco/opencode/blob/v1.18.34/packages/opencode/src/auth/index.ts) accepts one `{type: "api", key: "…"}` entry per provider and reads `OPENCODE_AUTH_CONTENT` before `auth.json`. Pages encrypts newly saved native JSON with the existing connection-bound instance cipher and injects only the process environment. Legacy files retain their provider; explicit replacement encrypts the key and removes plaintext. |
+| Catalog               | [Models command](https://github.com/anomalyco/opencode/blob/v1.18.34/packages/opencode/src/cli/cmd/models.ts) lists the selected provider with full `provider/model` IDs and verbose metadata. Pages filters by the credential's provider, keeps exact IDs and derives variants only from `variants`. This does not verify account entitlement or balance.                                                                                          |
+| Plan entry point      | Existing `OpenCodeAcpDriver`, `opencode acp --port 0 --hostname 127.0.0.1`. CLI version and ACP identity must both match 1.18.34. The former one-shot plan implementation is removed; model tests and unrelated text-only requests keep their separate existing CLI path.                                                                                                                                                                           |
+| Modes                 | Stored `read_only` and `yolo` select managed native primary agents `pages-read-only` and `pages-yolo`. Existing `workspace_write` blocks until an explicit choice; absent settings resolve to Read only. Mode, full model ID and optional exact variant must be offered and confirmed before the prompt.                                                                                                                                            |
+| Read only             | Native deny-by-default permissions allow reading and web tools plus the authorized Pages bridge. Shell, edits, tasks and other mutations are denied. Bubblewrap is mandatory and mounts the workspace read-only; the Pages credential grants only reading operations.                                                                                                                                                                               |
+| YOLO                  | Native `*`: `allow`, with retained explicit environment-file read denials. No extra Pages tool allowlist. [Permission forwarding](https://github.com/anomalyco/opencode/blob/v1.18.34/packages/opencode/src/acp/permission.ts) receives only native ask decisions; Pages approves offered allow options automatically. Native denies remain effective. Both modes retain the outer namespace and Pages authorization.                               |
+| Native availability   | [Tool registry](https://github.com/anomalyco/opencode/blob/v1.18.34/packages/opencode/src/tool/registry.ts) excludes the interactive question tool for the ACP client. Pages adds no question tool, external plugin or arbitrary MCP server. Native subagents and compaction use the same pinned model/variant; title and summary helpers stay disabled.                                                                                            |
+| Prompt and acceptance | Resolved AGENT.md, resolved node instruction and parameters, asset delivery and the existing Pages contract travel through ACP. A Pages heading prevents native slash-command dispatch. Every OpenCode node needs accepted business progress, including a valid report, before successors start. Read-only ticket todos are reported without mutating Pages.                                                                                        |
+| Reported model        | The confirmed ACP selector is recorded separately from the requested model. This release supplies no independent provider-response model identity. `modelVerification` records that limit; Pages never claims a separately observed model response.                                                                                                                                                                                                 |
+| Errors                | [ACP service](https://github.com/anomalyco/opencode/blob/v1.18.34/packages/opencode/src/acp/service.ts) maps provider authentication to ACP auth-required and forwards other failures as service errors. Pages maps recognizable auth, balance/quota, model, rate and permission failures to stable codes; unknown messages remain generic and raw provider diagnostics are not persisted.                                                          |
+| Cleanup               | Cancellation closes pending OpenCode ACP requests and terminates the process group and instance-tagged helpers. Native closeout, resource leases, connection mutation locks and workspace reservations require confirmed cleanup. No process is selected by executable name. Uncertain cleanup stays reserved for normal startup recovery.                                                                                                          |
+
+Native MCP registration still ignores registration failures and exposes no
+verified model-free readiness command. The plan run must not claim a connected
+state on that basis. Credentialed tool execution, permissions in a real model
+loop, native subagents, graceful exit and cancellation effects remain manual
+functional acceptance work. PAGE-66 adds no automated tests or harnesses;
+only existing assertions made obsolete by the changed OpenCode contract are
+adjusted, without executing their suites.

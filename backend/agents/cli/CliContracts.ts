@@ -85,9 +85,17 @@ export interface CliModelSelection {
   readonly reasoningEffort: string | null;
 }
 
+/** Private process input; never included in check details, snapshots or responses. */
+export interface CliCredentialAccess {
+  readonly modelProvider: string;
+  readonly environment: Readonly<Record<string, string>>;
+  readonly redact: (text: string) => string;
+}
+
 export interface CliStatusOutcome {
   readonly outcome: ProviderCheckOutcome;
   readonly accountLabel: string | null;
+  readonly credentials?: CliCredentialAccess;
 }
 
 /** What every CLI runner offers Pages; signing in differs per tool. */

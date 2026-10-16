@@ -133,12 +133,12 @@ it.each(ACP_RUNNERS)(
   },
 );
 
-it("offers YOLO to no runner without ACP", async () => {
-  await expect(
-    saveFromList("opencode", acpRunOptions("yolo", 0)),
-  ).rejects.toEqual(new AgentError("plan_run_option_unsupported"));
-  const id = await saveFromList("opencode", DEFAULT_AGENT_RUN_OPTIONS);
+it("stores OpenCode YOLO over ACP and refuses new legacy workspace-write settings", async () => {
+  const id = await saveFromList("opencode", acpRunOptions("yolo", 0));
   expect(
     world.storedAgents().find((entry) => entry.id === id)?.configuration?.run,
-  ).toEqual(DEFAULT_AGENT_RUN_OPTIONS);
+  ).toEqual(acpRunOptions("yolo", 0));
+  await expect(
+    saveFromList("opencode", DEFAULT_AGENT_RUN_OPTIONS),
+  ).rejects.toEqual(new AgentError("opencode_permission_mode_required"));
 });

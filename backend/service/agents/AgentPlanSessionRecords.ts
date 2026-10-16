@@ -1,3 +1,5 @@
+import { isAcpProvider } from "@/definition/AgentConfiguration";
+
 import { sanitizePlanOutput } from "./AgentPlanOutput";
 
 import type {
@@ -16,7 +18,7 @@ import type { PreparedPlanStep } from "./AgentPlanStepStart";
 const RUNNER_LABELS: Readonly<Record<CliProviderId, string>> = {
   codex_cli: "Codex CLI over ACP",
   claude_code: "Claude Code over ACP",
-  opencode: "OpenCode",
+  opencode: "OpenCode over native ACP",
 };
 
 /** What a new record of a node is built from. */
@@ -27,13 +29,11 @@ export interface SessionRecordStart {
   readonly usesMcp: boolean;
 }
 
-// The ACP sessions of Codex and Claude Code stay open until Pages closes them; OpenCode ends with its turn.
+// Every CLI plan session stays open until Pages confirms its closeout.
 function sessionMode(
   provider: ResolvedAgentAssignment["connection"]["provider"],
 ): AgentPlanSessionRecord["mode"] {
-  if (provider === "claude_code" || provider === "codex_cli")
-    return "interactive";
-  if (provider === "opencode") return "one_shot";
+  if (isAcpProvider(provider)) return "interactive";
   return "request";
 }
 

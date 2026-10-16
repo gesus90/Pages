@@ -1,4 +1,3 @@
-import { readTicketAssetInput } from "@/backend/agents/TicketAssetInput";
 import { acpDriverFor } from "@/backend/agents/acp/AcpDrivers";
 import { AcpLineChannel } from "@/backend/agents/acp/AcpLineChannel";
 import { AcpSession } from "@/backend/agents/acp/AcpSession";
@@ -12,12 +11,9 @@ import {
 import { isApiProvider } from "@/definition/AgentConnection";
 
 import { CliPlanIsolation } from "./CliPlanIsolation";
-import { CliPlanSession } from "./CliPlanSession";
 import { createCliEnvironment } from "./CliEnvironment";
 import { closeCliSession } from "./CliSessionCloseout";
-import { createCliSessionState } from "./CliSessionEvents";
-import { planCliSession, unsupportedRunOption } from "./CliSessionPlans";
-import { readOpenCodeModelProvider } from "./OpenCodeCredentials";
+import { unsupportedRunOption } from "./CliSessionPlans";
 
 import type {
   AgentPlanSessionInput,
@@ -37,7 +33,12 @@ import type {
 import type { CliProviderId } from "@/definition/AgentConnection";
 import type { AgentCliRuntime } from "./AgentCliRuntime";
 import type { AgentCredentialStore } from "./AgentCredentialStore";
-import type { CliHome, CliSessionRequest } from "./CliContracts";
+import type {
+  CliCredentialAccess,
+  CliHome,
+  CliSessionRequest,
+  CliStatusOutcome,
+} from "./CliContracts";
 import type { CliLocator } from "./CliLocator";
 import type { CliProcessRunner } from "./CliProcessRunner";
 import type {
@@ -72,8 +73,9 @@ interface VerifiedStart {
   readonly provider: CliProviderId;
   readonly home: CliHome;
   readonly file: string;
-  /** The ACP adapter of a Codex or Claude Code connection; `null` for the runners without ACP. */
+  /** The ACP entry point of this CLI connection. */
   readonly adapter: string | null;
+  readonly credentials?: CliCredentialAccess;
 }
 
 /** The stop signal and the observer of one session start. */
@@ -96,7 +98,7 @@ interface IsolatedRequest {
  * and effort of the agent and only managed switches. The local sign-in is
  * checked and the executor is authorized again right before the process
  * starts; the prompt and every credential stay out of the argument list.
- * Codex and Claude Code run as ACP sessions through their adapters, each in
+ * Codex, Claude Code and OpenCode run as ACP sessions, each in
  * one of its two modes; there is no fallback to another runner.
  */
 export class CliSessionExecution implements PlanSessionRunner {
@@ -176,18 +178,23 @@ export class CliSessionExecution implements PlanSessionRunner {
     if (isApiProvider(provider)) throw new AgentError("provider_invalid");
     const unsupported = sessionRunOptionError(input);
     if (unsupported !== null) throw new AgentError(unsupported);
-    const { runtime, store, locator } = this.dependencies;
+    const { store, locator } = this.dependencies;
     const home = await store.prepare(id, provider);
     try {
-      const adapter = await runtime.adapter(provider);
-      const status = await adapter.readStatus(home, signal);
+      const status = await this.readStatus(provider, home, signal);
       if (signal.aborted) throw new AgentPlanCancelledError();
       if (!status.outcome.ok)
         throw new AgentError(
-          status.outcome.errorCode === "cli_not_logged_in"
-            ? "cli_not_logged_in"
+          provider === "opencode" ||
+            status.outcome.errorCode === "cli_not_logged_in"
+            ? status.outcome.errorCode
             : "plan_step_failed",
         );
+      if (
+        provider === "opencode" &&
+        !input.agent.model.startsWith(`${status.credentials?.modelProvider}/`)
+      )
+        throw new AgentError("plan_model_unavailable");
       const location = await locator.find(provider);
       if (!location.path) throw new AgentError("cli_not_executable");
       const acpProvider = sessionAcpProvider(input);
@@ -197,11 +204,30 @@ export class CliSessionExecution implements PlanSessionRunner {
           : null;
       await input.beforeStart?.();
       if (signal.aborted) throw new AgentPlanCancelledError();
-      return { provider, home, file: location.path, adapter: acpAdapter };
+      return {
+        provider,
+        home,
+        file: location.path,
+        adapter: acpAdapter,
+        credentials: status.credentials,
+      };
     } catch (error: unknown) {
       await store.secure(id, provider);
       throw error;
     }
+  }
+
+  private async readStatus(
+    provider: CliProviderId,
+    home: CliHome,
+    signal: AbortSignal,
+  ): Promise<CliStatusOutcome> {
+    const adapter = await this.dependencies.runtime.adapter(provider);
+    if (provider === "opencode") {
+      const version = await adapter.version(home, signal);
+      if (!version.ok) throw new AgentError(version.errorCode);
+    }
+    return adapter.readStatus(home, signal);
   }
 
   /** Finds the adapter and refuses configuration files Pages does not manage. */
@@ -210,11 +236,6 @@ export class CliSessionExecution implements PlanSessionRunner {
     input: AgentPlanSessionInput,
     home: CliHome,
   ): Promise<string> {
-    if (driver.provider === "opencode") {
-      const provider = await readOpenCodeModelProvider(home);
-      if (!input.agent.model.startsWith(`${provider}/`))
-        throw new AgentError("plan_model_unavailable");
-    }
     const location = await this.dependencies.locator.locate(driver.binary);
     if (!location.path) throw new AgentError(driver.errors.adapterMissing);
     await driver.requireManagedConfiguration(home, input.directory);
@@ -227,61 +248,8 @@ export class CliSessionExecution implements PlanSessionRunner {
     control: SessionControl,
   ): Promise<PlanSession> {
     const acpProvider = sessionAcpProvider(input);
-    if (acpProvider !== null)
-      return this.spawnAcp(acpDriverFor(acpProvider), input, start, control);
-    if (isAcpProvider(start.provider)) throw new AgentError("provider_invalid");
-    if ((await readTicketAssetInput(input)).length > 0)
-      throw new AgentError("parameter_asset_transfer_unsupported");
-    const plan = planCliSession(start.provider, {
-      instanceId: input.instanceId,
-      model: input.agent.model,
-      reasoningEffort: input.agent.reasoningEffort,
-      options: input.options,
-      directory: input.directory,
-      prompt: input.prompt,
-      mcp: input.mcp,
-    });
-    const state = createCliSessionState();
-    const buffered: string[] = [];
-    let session: CliPlanSession | null = null;
-    const { request } = await this.isolate({
-      file: start.file,
-      provider: start.provider,
-      home: start.home,
-      arguments: plan.arguments,
-      workingDirectory: input.directory,
-      environment: plan.environment,
-      timeoutMs: input.options.timeoutMinutes * 60_000,
-      signal: control.signal,
-      onLine: (line) => {
-        if (session) session.receive(line);
-        else buffered.push(line);
-      },
-    });
-    const child = this.dependencies.runner.startSession(request);
-    session = new CliPlanSession(child, {
-      provider: start.provider,
-      instanceId: input.instanceId,
-      plan,
-      state,
-      observer: control.observer,
-      secure: () =>
-        this.dependencies.store.secure(
-          input.agent.connection.id,
-          start.provider,
-        ),
-    });
-    for (const line of buffered.splice(0)) session.receive(line);
-    control.observer.started({
-      mode: plan.mode,
-      processId: child.processId,
-      startedAt: new Date().toISOString(),
-      arguments: request.arguments,
-      unattended: plan.unattended,
-    });
-    child.write(plan.input);
-    if (plan.mode === "one_shot") child.endInput();
-    return session;
+    if (acpProvider === null) throw new AgentError("provider_invalid");
+    return this.spawnAcp(acpDriverFor(acpProvider), input, start, control);
   }
 
   /**
@@ -319,6 +287,17 @@ export class CliSessionExecution implements PlanSessionRunner {
     });
     const channel = new AcpLineChannel();
     const github = await this.prepareGitHub(input, start, mode);
+    const redact = (text: string): string => {
+      const withoutKey = start.credentials?.redact(text) ?? text;
+      let masked = github?.redact(withoutKey) ?? withoutKey;
+      for (const secret of [
+        input.mcp?.token,
+        launch.environment.OPENCODE_SERVER_PASSWORD,
+      ]) {
+        if (secret) masked = masked.replaceAll(secret, "[redacted]");
+      }
+      return masked;
+    };
     let child: CliSessionProcess | null = null;
     try {
       const { request, isIsolated } = await this.isolate({
@@ -329,10 +308,14 @@ export class CliSessionExecution implements PlanSessionRunner {
         workingDirectory: input.directory,
         isWorkingDirectoryReadOnly: mode === "read_only",
         credentialDirectory: github?.directory,
-        environment: { ...launch.environment, ...github?.environment },
+        environment: {
+          ...launch.environment,
+          ...start.credentials?.environment,
+          ...github?.environment,
+        },
         timeoutMs: input.options.timeoutMinutes * 60_000,
         signal: control.signal,
-        onLine: (line) => channel.receive(github?.redact(line) ?? line),
+        onLine: (line) => channel.receive(redact(line)),
       });
       requireAcpIsolation(isIsolated, mode, input);
       if (control.signal.aborted) throw new AgentPlanCancelledError();
@@ -356,7 +339,7 @@ export class CliSessionExecution implements PlanSessionRunner {
         signal: control.signal,
         isolation: isolationLabel(isIsolated, mode, driver),
         github: github?.status,
-        redact: github?.redact,
+        redact,
         secure: () => this.secureAcp(input, start, github),
         listener: input.chat?.listener,
       });
@@ -463,7 +446,7 @@ export class CliSessionExecution implements PlanSessionRunner {
   }
 }
 
-/** Keeps OpenCode's chat restrictions separate from its existing plan options. */
+/** Keeps Pica's narrower restrictions separate from plan permission modes. */
 function sessionRunOptionError(
   input: AgentPlanSessionInput,
 ): AgentErrorCode | null {
@@ -476,13 +459,12 @@ function sessionRunOptionError(
   return unsupportedRunOption(provider, input.options);
 }
 
-/** Selects ACP for existing plan runners and for Pica's native OpenCode sessions. */
+/** Every CLI plan runner and native Pica runner uses ACP, without a one-shot fallback. */
 function sessionAcpProvider(
   input: AgentPlanSessionInput,
 ): NativeAcpProviderId | null {
   const provider = input.agent.connection.provider;
-  if (isAcpProvider(provider)) return provider;
-  return provider === "opencode" && input.chat ? provider : null;
+  return isAcpProvider(provider) ? provider : null;
 }
 
 /** What the ACP session runs; a chat session brings its own MCP bridge and continuation. */
@@ -504,14 +486,15 @@ function acpSessionRequest(
   };
 }
 
-/** YOLO and Pica's conversations start only inside the namespace. */
+/** OpenCode, YOLO and Pica's conversations start only inside the namespace. */
 function requireAcpIsolation(
   isIsolated: boolean,
   mode: AcpPermissionMode,
   input: AgentPlanSessionInput,
 ): void {
   if (isIsolated) return;
-  if (input.chat) throw new AgentError("cli_isolation_unavailable");
+  if (input.chat || input.agent.connection.provider === "opencode")
+    throw new AgentError("cli_isolation_unavailable");
   if (mode === "yolo") throw new AgentError("plan_yolo_isolation_unavailable");
 }
 

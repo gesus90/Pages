@@ -39,7 +39,7 @@ interface PageAgentFormState {
  * Checks the draft before it is saved.
  *
  * @remarks
- * A Codex CLI or Claude Code agent saved with the earlier write mode must
+ * A Codex CLI, Claude Code or OpenCode agent saved with the earlier write mode must
  * choose one of its two modes first.
  */
 function formState(

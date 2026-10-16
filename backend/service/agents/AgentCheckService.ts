@@ -141,16 +141,31 @@ export class AgentCheckService {
     checkedAt: string,
   ): Promise<void> {
     if (isApiProvider(connection.provider)) return;
-    if (outcome.ok && connection.cliLoggedInAt === null) {
+    const modelProvider =
+      connection.provider === "opencode"
+        ? outcome.detail.modelProvider
+        : undefined;
+    const hasProviderChanged =
+      modelProvider !== undefined &&
+      modelProvider !== connection.cliAccountLabel;
+    if (
+      outcome.ok &&
+      (connection.cliLoggedInAt === null || hasProviderChanged)
+    ) {
       await this.dependencies.repository.setCliAccount(
         connection.id,
-        { loggedInAt: checkedAt, label: null },
+        {
+          loggedInAt: connection.cliLoggedInAt ?? checkedAt,
+          label: modelProvider ?? null,
+        },
         actor.userId,
       );
     } else if (
       !outcome.ok &&
       (outcome.errorCode === "cli_not_logged_in" ||
-        outcome.errorCode === "cli_auth_failed")
+        outcome.errorCode === "cli_auth_failed" ||
+        (connection.provider === "opencode" &&
+          outcome.errorCode === "provider_auth_failed"))
     ) {
       await this.dependencies.repository.setCliAccount(
         connection.id,

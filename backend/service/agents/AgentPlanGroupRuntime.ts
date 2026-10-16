@@ -5,6 +5,7 @@ import {
 } from "@/definition/AgentConfiguration";
 import { claudeAcpProfile } from "@/backend/agents/acp/ClaudeAcpProfile";
 import { codexAcpProfile } from "@/backend/agents/acp/CodexAcpProfile";
+import { openCodeAcpProfile } from "@/backend/agents/acp/OpenCodeAcpProfile";
 
 import { planStepDirectory } from "./AgentPlanSnapshot";
 
@@ -20,6 +21,14 @@ function profileFields(
 ): Readonly<Record<"tools" | "permissions" | "sandbox", string>> {
   const mode = options.access === "yolo" ? "yolo" : "read_only";
   const tools = { shell: options.shell, web: options.web };
+  if (provider === "opencode") {
+    const profile = openCodeAcpProfile(mode);
+    return {
+      tools: JSON.stringify(tools),
+      permissions: JSON.stringify(profile.permissions),
+      sandbox: "bubblewrap",
+    };
+  }
   if (provider === "claude_code") {
     const profile = claudeAcpProfile(mode);
     return {

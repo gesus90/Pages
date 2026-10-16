@@ -2,6 +2,7 @@ import {
   endTaggedProcesses,
   findTaggedProcesses,
 } from "@/backend/agents/cli/CliProcessScan";
+import { isAcpProvider } from "@/definition/AgentConfiguration";
 
 import type { AcpResourceOwner } from "@/definition/AcpResource";
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
@@ -65,7 +66,9 @@ export function interruptedAcpOwners(
       if (
         !session ||
         (session.closeout !== "pending" && session.closeout !== "failed") ||
-        (session.runner !== "codex_cli" && session.runner !== "claude_code")
+        session.runner === "api" ||
+        !isAcpProvider(session.runner) ||
+        session.mode !== "interactive"
       )
         return [];
       return [

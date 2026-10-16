@@ -236,7 +236,7 @@ export function createAgentServices(
   const store = new AgentCredentialStore(dataDirectory);
   const locator = new CliLocator();
   const runner = new CliProcessRunner();
-  const runtime = new AgentCliRuntime({ store, locator, runner });
+  const runtime = new AgentCliRuntime({ store, locator, runner, cipher });
   const refresh = new AgentCatalogRefresh({
     repository,
     cipher,

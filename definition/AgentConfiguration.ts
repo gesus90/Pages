@@ -9,8 +9,8 @@ import type { AgentParameter } from "./AgentParameters";
  * How a session may reach its workspace.
  *
  * @remarks
- * `yolo` is the full access of an agent that runs over ACP, a Codex CLI or a
- * Claude Code agent, and exists for no other runner. `workspace_write` is the
+ * `yolo` is the full access of an agent that runs over ACP: Codex CLI,
+ * Claude Code or OpenCode. It exists for no other runner. `workspace_write` is the
  * earlier write mode; an ACP agent no longer runs with it until one of its two
  * modes is chosen.
  */
@@ -48,17 +48,21 @@ export const DEFAULT_AGENT_RUN_OPTIONS: AgentRunOptions = {
 };
 
 /** The runners whose plan nodes run as Agent Client Protocol (ACP) sessions. */
-export const ACP_PROVIDERS = ["codex_cli", "claude_code"] as const;
+export const ACP_PROVIDERS = ["codex_cli", "claude_code", "opencode"] as const;
 export type AcpProviderId = (typeof ACP_PROVIDERS)[number];
 
-/** Native ACP drivers; OpenCode uses ACP for Pica while its plan runner stays separate. */
-export type NativeAcpProviderId = AcpProviderId | "opencode";
+/** Native ACP drivers shared by plans and Pica. */
+export type NativeAcpProviderId = AcpProviderId;
 
 /** Whether an agent of this provider runs as an ACP session in one of the two modes. */
 export function isAcpProvider(
   provider: AgentProviderId,
 ): provider is AcpProviderId {
-  return provider === "codex_cli" || provider === "claude_code";
+  return (
+    provider === "codex_cli" ||
+    provider === "claude_code" ||
+    provider === "opencode"
+  );
 }
 
 /** The only two modes an ACP agent runs in: "Nur Lesen" and "YOLO". */

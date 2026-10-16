@@ -1,5 +1,6 @@
 import { sanitizeCheckDetail } from "@/backend/agents/AgentCheckDetail";
 import { readAgentObject } from "@/backend/agents/AgentPayload";
+import { classifyOpenCodeFailure } from "@/backend/agents/acp/OpenCodeAcpErrors";
 
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import type { ProviderCheckOutcome } from "@/backend/agents/providers/ProviderContracts";
@@ -84,7 +85,13 @@ export function readOpenCodeTest(output: string): ProviderCheckOutcome {
       const parsed: unknown = JSON.parse(line);
       const event = readAgentObject(parsed);
       const part = readAgentObject(event.part);
-      if (event.type === "error") failure = classifyCliFailure(event);
+      if (event.type === "error") {
+        const classified = classifyOpenCodeFailure(JSON.stringify(event));
+        failure =
+          classified === "opencode_acp_session_failed"
+            ? classifyCliFailure(event)
+            : classified;
+      }
       if (event.type === "text" && typeof part.text === "string")
         hasText = hasText || part.text.trim() !== "";
       if (event.type === "step_finish" && part.reason === "stop")

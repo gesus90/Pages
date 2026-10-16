@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { AgentError } from "@/backend/error/AgentErrors";
+import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
 import { isApiProvider } from "@/definition/AgentConnection";
@@ -8,12 +9,8 @@ import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { planGroupOrder } from "@/definition/AgentPlanGroup";
 
 import { AgentPlanGroupSessions } from "./AgentPlanGroupSessions";
-import {
-  evaluatePlanAcceptance,
-  evaluateTodoCompletion,
-} from "./AgentPlanAcceptance";
+import { AgentPlanStepAssessment } from "./AgentPlanStepAssessment";
 import { buildPlanContract, renderPlanAssignment } from "./AgentPlanContract";
-import { refreshPlanContract } from "./AgentPlanContractRefresh";
 import { sanitizePlanOutput } from "./AgentPlanOutput";
 import { planSessionReach } from "./AgentPlanSessionAccess";
 import {
@@ -34,12 +31,9 @@ import type {
 } from "@/backend/agents/AgentPlanExecution";
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 import type {
-  AgentPlanContract,
   AgentPlanAcceptance,
   AgentPlanSessionRecord,
 } from "@/definition/AgentPlanSession";
-import type { AgentRunReach } from "@/definition/McpAuthorization";
-import type { AgentPlanTicketStates } from "./AgentPlanAcceptance";
 import type { AgentPlanSessionAccess } from "./AgentPlanSessionAccess";
 import type {
   AgentPlanSnapshot,
@@ -49,10 +43,8 @@ import type {
   AgentPlanStepStart,
   PreparedPlanStep,
 } from "./AgentPlanStepStart";
-import type {
-  AgentPlanTasks,
-  AgentPlanTicketChecklist,
-} from "./AgentPlanTasks";
+import type { AgentPlanTasks } from "./AgentPlanTasks";
+import type { AgentPlanSessionTerms } from "./AgentPlanStepAssessment";
 import type { AgentRunArchive } from "./AgentRunArchive";
 
 interface StepRunnerDependencies {
@@ -71,13 +63,6 @@ export interface StepRunControl {
   readonly save: (session: AgentPlanSessionRecord) => Promise<void>;
 }
 
-/** What a session node was started with and is checked against. */
-interface SessionTerms {
-  readonly contract: AgentPlanContract;
-  /** How far the node reaches Pages; `read` cannot set ticket entries. */
-  readonly reach: AgentRunReach;
-}
-
 /** One node from its start to its result; `record` always holds the newest state. */
 interface NodeRun {
   readonly run: AgentPlanRun;
@@ -92,6 +77,19 @@ function errorCode(error: unknown): string {
   if (error instanceof AgentError || error instanceof TextAssistantError)
     return error.code;
   return "plan_step_failed";
+}
+
+function failureCloseout(
+  node: NodeRun,
+  error: unknown,
+): AgentPlanSessionRecord["closeout"] {
+  if (
+    error instanceof AcpCleanupUnconfirmedError ||
+    (node.hasStarted && node.record?.closeout === "pending")
+  )
+    return "failed";
+  const closeout = node.record?.closeout ?? "not_needed";
+  return closeout === "pending" ? "not_needed" : closeout;
 }
 
 function hasTimedOut(signal: AbortSignal): boolean {
@@ -120,13 +118,45 @@ async function waitForTurn(
   if (signal.aborted) throw new AgentPlanCancelledError();
 }
 
-function groupAcceptanceFailure(
+function planAcceptanceFailure(
   node: NodeRun,
   acceptance: AgentPlanAcceptance | null,
-): "plan_group_acceptance_failed" | null {
-  return node.step.groupId && acceptance?.verdict !== "accepted"
-    ? "plan_group_acceptance_failed"
+): "plan_group_acceptance_failed" | "opencode_acceptance_failed" | null {
+  if (acceptance?.verdict === "accepted") return null;
+  if (node.step.groupId) return "plan_group_acceptance_failed";
+  return node.step.provider === "opencode"
+    ? "opencode_acceptance_failed"
     : null;
+}
+
+function resolvedInstruction(
+  prepared: PreparedPlanStep,
+  step: AgentPlanStepSnapshot,
+): string {
+  return prepared.instruction ?? step.step.instruction;
+}
+
+function requiresAcceptance(step: AgentPlanStepSnapshot): boolean {
+  return Boolean(step.groupId) || step.provider === "opencode";
+}
+
+function isConfirmedCancellation(
+  turn: PlanSessionTurn,
+  closed: PlanSessionClosed,
+  signal: AbortSignal,
+): boolean {
+  return (
+    turn.failure === "cancelled" && !hasTimedOut(signal) && closed.isConfirmed
+  );
+}
+
+function completedFailure(
+  turn: PlanSessionTurn,
+  closed: PlanSessionClosed,
+  signal: AbortSignal,
+): string | null {
+  if (!closed.isConfirmed) return "plan_closeout_failed";
+  return hasTimedOut(signal) ? "timeout" : failureCode(turn, closed);
 }
 
 /**
@@ -137,18 +167,20 @@ function groupAcceptanceFailure(
  * the acceptance criteria, is stored before any process starts, and the sent
  * prompt is pinned before it leaves. Regular runner completion and a clean,
  * confirmed closeout determine execution success. Business progress and report
- * diagnostics are stored separately. Within a group, acceptance must also
- * succeed before its next step can start.
+ * diagnostics are stored separately. OpenCode nodes and all group members
+ * additionally require accepted business progress before successors start.
  */
 export class AgentPlanStepRunner {
   private readonly dependencies: StepRunnerDependencies;
   private readonly groups: AgentPlanGroupSessions;
+  private readonly assessment: AgentPlanStepAssessment;
   private readonly retained = new Map<string, NodeRun[]>();
   private readonly groupInputs = new Map<string, Promise<AgentPlanSnapshot>>();
 
   public constructor(dependencies: StepRunnerDependencies) {
     this.dependencies = dependencies;
     this.groups = new AgentPlanGroupSessions(dependencies.execution);
+    this.assessment = new AgentPlanStepAssessment(dependencies.tasks);
   }
 
   /**
@@ -306,7 +338,8 @@ export class AgentPlanStepRunner {
     );
     const isReadOnly = reach === "read";
     const completion = step.step.completion ?? "report";
-    const contract = buildPlanContract(step.step.instruction, tickets, {
+    const instruction = resolvedInstruction(prepared, step);
+    const contract = buildPlanContract(instruction, tickets, {
       isReadOnly,
       completion,
     });
@@ -345,7 +378,8 @@ export class AgentPlanStepRunner {
         runnerLabel: node.record ? runnerLabel(node.record) : "",
         instanceId,
         directory,
-        requiresAcceptance: Boolean(step.groupId),
+        requiresAcceptance: requiresAcceptance(step),
+        acceptanceScope: step.groupId ? "group" : "node",
       },
     )}`;
     await this.pin(node, prompt);
@@ -372,7 +406,7 @@ export class AgentPlanStepRunner {
         );
     node.hasStarted = true;
     try {
-      return await this.finish(node, session, { contract, reach });
+      return await this.finish(node, session, { contract, reach, instruction });
     } catch (error: unknown) {
       // A started session is always ended, also when its evaluation failed.
       await session.close().catch((closeError: unknown) => {
@@ -403,16 +437,20 @@ export class AgentPlanStepRunner {
   private async finish(
     node: NodeRun,
     session: PlanSession,
-    terms: SessionTerms,
+    terms: AgentPlanSessionTerms,
   ): Promise<Partial<AgentPlanStepResult>> {
     const turn = await session.turn;
     if (node.record) node.record = withTurn(node.record, turn);
     const assessed =
       turn.failure === null && turn.errorCode === null
-        ? await this.assess(node, terms, turn.output)
+        ? await this.assessment.assess(terms, turn.output, {
+            userId: node.run.userId,
+            projectId: node.snapshot.plan.projectId,
+            provider: node.step.provider,
+          })
         : null;
     const acceptance = assessed?.acceptance ?? null;
-    const acceptanceFailure = groupAcceptanceFailure(node, acceptance);
+    const acceptanceFailure = planAcceptanceFailure(node, acceptance);
     // The closing report and the verdict are kept before the session is ended.
     await this.complete(node, {
       acceptance,
@@ -426,9 +464,8 @@ export class AgentPlanStepRunner {
         session: node.record,
       };
     const closed = await this.closeSession(node, session);
-    const failure = hasTimedOut(node.control.signal)
-      ? "timeout"
-      : (failureCode(turn, closed) ?? acceptanceFailure);
+    const failure =
+      completedFailure(turn, closed, node.control.signal) ?? acceptanceFailure;
     await this.complete(node, {
       exit: closed.exit,
       endedAt: closed.endedAt,
@@ -437,7 +474,7 @@ export class AgentPlanStepRunner {
       resultCode: failure === null ? 0 : -1,
     });
     const output = sanitizePlanOutput(turn.output);
-    if (turn.failure === "cancelled")
+    if (isConfirmedCancellation(turn, closed, node.control.signal))
       return {
         status: "cancelled",
         cancellation: "confirmed",
@@ -492,78 +529,6 @@ export class AgentPlanStepRunner {
     return closed;
   }
 
-  /**
-   * Describes progress against the current ticket lists in every completion
-   * mode. Stable report IDs prevent old evidence from proving a new requirement.
-   */
-  private async assess(
-    node: NodeRun,
-    terms: SessionTerms,
-    output: string,
-  ): Promise<{
-    readonly acceptance: AgentPlanAcceptance;
-    readonly contract: AgentPlanContract;
-  }> {
-    const tickets = await this.readTickets(node, terms.contract);
-    const states = this.ticketStates(terms, tickets);
-    const contract = refreshPlanContract(
-      node.step.step.instruction,
-      terms.contract,
-      tickets,
-      { isReadOnly: terms.reach === "read" },
-    );
-    const evaluate =
-      contract.completion === "todos"
-        ? evaluateTodoCompletion
-        : evaluatePlanAcceptance;
-    return {
-      acceptance: evaluate(contract, output, states),
-      contract,
-    };
-  }
-
-  private async readTickets(
-    node: NodeRun,
-    contract: AgentPlanContract,
-  ): Promise<readonly AgentPlanTicketChecklist[]> {
-    // Access and persistence failures remain technical errors, not missing evidence.
-    return Promise.all(
-      contract.tickets.map((ticket) =>
-        this.dependencies.tasks.checklist(
-          node.run.userId,
-          node.snapshot.plan.projectId,
-          ticket.id,
-        ),
-      ),
-    );
-  }
-
-  private ticketStates(
-    terms: SessionTerms,
-    tickets: readonly AgentPlanTicketChecklist[],
-  ): AgentPlanTicketStates {
-    const checked = new Map<string, boolean>();
-    const changed: string[] = [];
-    for (const current of tickets) {
-      const start = terms.contract.tickets.find(
-        (ticket) => ticket.id === current.id,
-      );
-      if (
-        start?.requirementsHash !== undefined &&
-        current.checklist.requirementsHash !== start.requirementsHash
-      )
-        changed.push(current.key);
-      for (const item of current.checklist.items)
-        checked.set(`${current.id}\n${item.id}`, item.checked);
-    }
-    return {
-      checked,
-      unreadable: [],
-      changed,
-      isCheckRequired: terms.reach !== "read",
-    };
-  }
-
   private observer(node: NodeRun): PlanSessionObserver {
     return {
       retired: (closed, reason) => {
@@ -580,6 +545,7 @@ export class AgentPlanStepRunner {
         });
       },
       started: (details) => {
+        node.hasStarted = true;
         if (!node.record) return;
         void this.complete(node, {
           mode: details.mode,
@@ -620,12 +586,15 @@ export class AgentPlanStepRunner {
     if (node.record)
       await this.complete(node, {
         endedAt: new Date().toISOString(),
-        closeout:
-          node.record.closeout === "pending"
-            ? "not_needed"
-            : node.record.closeout,
+        closeout: failureCloseout(node, error),
         resultCode: -1,
       });
+    if (node.record?.closeout === "failed")
+      return {
+        status: "failed",
+        error: "plan_closeout_failed",
+        session: node.record,
+      };
     if (hasTimedOut(node.control.signal))
       return { status: "failed", error: "timeout", session: node.record };
     if (error instanceof AgentPlanCancelledError)

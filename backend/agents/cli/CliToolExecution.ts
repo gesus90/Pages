@@ -77,8 +77,14 @@ export class CliToolExecution {
     home: CliHome,
     args: readonly string[],
     signal: AbortSignal,
-    input?: string,
+    input?:
+      | string
+      | {
+          readonly input?: string;
+          readonly environment: Readonly<Record<string, string>>;
+        },
   ): Promise<CliProcessResult> {
+    const request = typeof input === "object" ? input : { input };
     return this.runner.run({
       file: this.file,
       provider: this.provider,
@@ -86,8 +92,8 @@ export class CliToolExecution {
       arguments: args,
       signal,
       timeoutMs: 20_000,
-      stdin: input === undefined ? "ignore" : "pipe",
-      input,
+      stdin: request.input === undefined ? "ignore" : "pipe",
+      ...request,
       maxStdoutBytes: 8 * 1024 * 1024,
     });
   }

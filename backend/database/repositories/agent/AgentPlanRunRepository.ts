@@ -288,7 +288,7 @@ export class AgentPlanRunRepository {
     }));
   }
 
-  /** Stores progress and releases reservations only after every started step has settled. */
+  /** Releases workspace reservations only after every recorded session confirms cleanup. */
   public async update(run: AgentPlanRun): Promise<void> {
     await this.database.transaction(async (transaction) => {
       await transaction.execute(
@@ -300,7 +300,16 @@ export class AgentPlanRunRepository {
       `,
         { id: run.id, status: run.status, view_json: JSON.stringify(run) },
       );
-      if (run.status !== "running" && run.status !== "paused")
+      const hasUnconfirmedCleanup = run.steps.some(
+        (step) =>
+          step.session?.closeout === "pending" ||
+          step.session?.closeout === "failed",
+      );
+      if (
+        run.status !== "running" &&
+        run.status !== "paused" &&
+        !hasUnconfirmedCleanup
+      )
         await transaction.execute(
           "DELETE FROM agent_plan_workspace_locks WHERE run_id = $id;",
           { id: run.id },

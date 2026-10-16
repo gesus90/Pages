@@ -52,6 +52,8 @@ export interface AgentPlanExecutionInput extends TextExecutionInput {
 /** A node ready to start: its resolved input, the definition it read and its run options. */
 export interface PreparedPlanStep {
   readonly input: AgentPlanExecutionInput;
+  /** Resolved node instruction for contract extraction; absent in older preparations. */
+  readonly instruction?: string;
   /** The `AGENT.md` the prompt was resolved from. */
   readonly definition: {
     readonly path: string;
@@ -176,11 +178,7 @@ export class AgentPlanStepStart {
     );
     validatePlanParameterContext(step, live);
     const { template, definition } = await this.readDefinition(step);
-    const parameters = await bindAgentParameters(
-      template,
-      values,
-      stepReferences(step, live),
-    );
+    const parameters = await bindStepParameters(template, step, values, live);
     const options = agentRunOptionsFor(
       resolved.assignment.connection.provider,
       template.run,
@@ -202,7 +200,7 @@ export class AgentPlanStepStart {
           options,
           userId: run.userId,
         }),
-        prompt: `${parameters.markdown}\n\n${step.step.instruction}`,
+        prompt: parameters.prompt,
         ...ticketAssetDelivery(
           this.dependencies.parameters,
           run.userId,
@@ -213,6 +211,7 @@ export class AgentPlanStepStart {
       },
       definition,
       options,
+      instruction: parameters.instruction,
     };
   }
 
@@ -286,6 +285,45 @@ export class AgentPlanStepStart {
         taskId,
       );
   }
+}
+
+async function bindStepParameters(
+  template: AgentPlanTemplate,
+  step: AgentPlanStepSnapshot,
+  values: Readonly<Record<string, unknown>>,
+  live: PreparedAgentParameters,
+): Promise<{
+  readonly prompt: string;
+  readonly instruction: string;
+  readonly assetInputs: readonly AgentTicketInput[];
+}> {
+  const references = stepReferences(step, live);
+  const isOpenCode = step.provider === "opencode";
+  const parameters = await bindAgentParameters(
+    isOpenCode
+      ? {
+          ...template,
+          markdown: `# Pages plan assignment\n\n${template.markdown}\n\n${step.step.instruction}`,
+        }
+      : template,
+    values,
+    references,
+  );
+  const instruction = isOpenCode
+    ? (
+        await bindAgentParameters(
+          { ...template, markdown: step.step.instruction },
+          values,
+          references,
+        )
+      ).markdown
+    : step.step.instruction;
+  const prompt = isOpenCode
+    ? parameters.markdown
+    : `${parameters.markdown}\n\n${instruction}`;
+  if (isOpenCode && scanAgentPlaceholders(prompt).placeholders.length > 0)
+    throw new AgentError("plan_placeholder_unresolved");
+  return { prompt, instruction, assetInputs: parameters.assetInputs };
 }
 
 function stepReferences(

@@ -75,6 +75,7 @@ export function AgentCliLogin({
           ) : null}
           {connection.provider === "opencode" ? (
             <AgentOpenCodeKey
+              key={connection.id}
               connection={connection}
               actions={actions}
               disabled={disabled}

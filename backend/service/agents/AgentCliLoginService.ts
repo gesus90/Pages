@@ -1,8 +1,11 @@
 import { AgentError } from "@/backend/error/AgentErrors";
-import { isApiProvider, isLoginActive } from "@/definition/AgentConnection";
+import {
+  isApiProvider,
+  isLoginActive,
+  isOpenCodeKeyProvider,
+} from "@/definition/AgentConnection";
 import { createCliTerminalCommand } from "@/backend/agents/cli/CliEnvironment";
 import { CLI_BINARIES } from "@/backend/agents/cli/CliLocator";
-import { isOpenCodeModelProvider } from "@/backend/agents/cli/OpenCodeCredentials";
 
 import {
   requireAgentAdministrator,
@@ -134,8 +137,8 @@ export class AgentCliLoginService {
    * `api_key_invalid_format`, or the failure of the confirming status read.
    *
    * @remarks
-   * OpenCode keeps provider keys in its own credential file. Pages writes the
-   * key there, validates the native credential structure and loads the
+   * Pages encrypts the key with the instance cipher in the private credential
+   * folder, validates the native credential structure and loads the
    * model list; the database only learns that a key is stored.
    */
   public async storeKey(
@@ -147,7 +150,7 @@ export class AgentCliLoginService {
     const { apiKey, modelProvider } = input;
     if (!apiKey || apiKey.length > 512 || /[\s\p{Cc}]/u.test(apiKey))
       throw new AgentError("api_key_invalid_format");
-    if (!isOpenCodeModelProvider(modelProvider))
+    if (!isOpenCodeKeyProvider(modelProvider))
       throw new AgentError("provider_invalid");
     await this.dependencies.operations.run(id, "login", async () => {
       const connection = await this.requireCli(id);
@@ -161,7 +164,10 @@ export class AgentCliLoginService {
       );
       const adapter = await runtime.openCode();
       const home = await store.prepare(id, "opencode");
+      const version = await adapter.version(home, AbortSignal.timeout(10_000));
+      if (!version.ok) throw new AgentError(version.errorCode);
       await adapter.storeKey(home, input);
+      await repository.catalogs().invalidate(id);
       const status = await adapter.readStatus(
         home,
         AbortSignal.timeout(25_000),

@@ -211,7 +211,11 @@ function readGroupLink(input: unknown): AgentPlanGroupSessionLink {
   if (turn === null || !Number.isSafeInteger(turn) || turn < 1) throw invalid();
   return {
     groupId: text(link.groupId, 100),
-    adapter: oneOf(link.adapter, ["codex_cli", "claude_code"] as const),
+    adapter: oneOf(link.adapter, [
+      "codex_cli",
+      "claude_code",
+      "opencode",
+    ] as const),
     role: oneOf(link.role, ["created", "continued"] as const),
     creatorStepId: text(link.creatorStepId, 100),
     turn,

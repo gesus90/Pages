@@ -9,6 +9,17 @@ export type AgentProviderId = ApiProviderId | CliProviderId;
 export type AgentAccessKind = "api_key" | "cli_account";
 export type AgentCheckKind = "auth" | "model";
 
+/** Native OpenCode key destinations; a Zen key must never be assigned to OpenRouter. */
+export const OPENCODE_KEY_PROVIDERS = ["opencode", "openrouter"] as const;
+export type OpenCodeKeyProvider = (typeof OPENCODE_KEY_PROVIDERS)[number];
+
+/** Validates an explicitly selected key destination, without guessing from the key. */
+export function isOpenCodeKeyProvider(
+  input: unknown,
+): input is OpenCodeKeyProvider {
+  return OPENCODE_KEY_PROVIDERS.some((provider) => provider === input);
+}
+
 /** Fixed endpoints prevent administrators from redirecting saved credentials. */
 export const AGENT_PROVIDERS = {
   openrouter: {

@@ -64,7 +64,7 @@ export interface AgentPlanSessionGrant {
  *
  * @param provider - The runner of the node.
  * @param options - The run options the runner applies.
- * @returns For an ACP agent (Codex CLI or Claude Code) every read in "Nur
+ * @returns For an ACP agent (Codex CLI, Claude Code or OpenCode) every read in "Nur
  * Lesen" and everything its executor may do in YOLO; for every other runner
  * the bound tickets, as before.
  */

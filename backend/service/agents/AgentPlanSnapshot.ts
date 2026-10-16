@@ -37,7 +37,7 @@ export interface AgentPlanSnapshot {
  *
  * @param step - The provider and the prepared parameters of the node.
  * @returns The workspace of the agent's explicit directory parameter, which
- * takes precedence; for an ACP agent (Codex CLI or Claude Code) without one
+ * takes precedence; for an ACP agent (Codex CLI, Claude Code or OpenCode) without one
  * the workspace of the plan; otherwise `null`, and a CLI node of another
  * runner needs the parameter.
  *

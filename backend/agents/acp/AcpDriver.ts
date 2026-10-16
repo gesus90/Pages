@@ -72,7 +72,7 @@ export interface AcpSessionProfile {
   readonly hasMcpStatusCommand: boolean;
   /**
    * Whether a further prompt may continue the session after its turn ended:
-   * the Codex and Claude Code plan sessions, which the later members of an
+   * the Codex, Claude Code and OpenCode plan sessions, which the later members of an
    * ACP group continue in the same process, and Pica's conversations. A plan
    * node outside a group still runs one turn.
    */

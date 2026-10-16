@@ -438,9 +438,9 @@ the shared ACP client. Pages verifies the native contract of **1.18.34** before
 the prompt. The admin assignment determines the connection, full model ID
 (for example `openrouter/nvidia/...:free`) and exact variant. OpenCode is the
 runner; its model provider is a separate choice. The connection's key form
-accepts the native provider ID and stores exactly one API key in that
-connection's private OpenCode credential file. Existing OpenRouter connections
-keep working with that file. Other credential formats and custom provider
+explicitly distinguishes OpenCode Console / Zen (`opencode`) from OpenRouter
+(`openrouter`) and encrypts new keys with the existing instance cipher. Existing
+OpenRouter native credential files keep their exact provider and model IDs. Other credential formats and custom provider
 configurations are not imported. No model, provider or API fallback is used.
 
 - **Scope and isolation.** Pica requires *Read only* workspace access. It uses
@@ -484,7 +484,8 @@ configurations are not imported. No model, provider or API fallback is used.
 
 The protocol observations and upstream source references are in
 [backend/agents/acp/OpenCodeAcpCapabilities.md](./backend/agents/acp/OpenCodeAcpCapabilities.md).
-The existing OpenCode plan runner continues to use its original CLI path.
+OpenCode plan nodes also use the native ACP entry point; see
+[OpenCode plan setup](#opencode-plan-nodes-with-a-console--zen-key-page-66).
 
 ## Pica sessions and conversation context (PAGE-48)
 
@@ -678,12 +679,11 @@ that limit fails the run without truncating or omitting a file.
 
 Direct runs and execution plans share this resolution and delivery path.
 OpenAI, OpenRouter, Anthropic and Google API agents receive native image blocks
-and separate complete text blocks. Codex and Claude ACP sessions receive PNG
+and separate complete text blocks. Codex, Claude and OpenCode ACP sessions receive PNG
 image blocks after the adapter advertises image support; text is an embedded
-resource when supported, otherwise a complete separate text block. OpenCode's
-current stdin-only plan adapter and standalone text-only CLI requests do not
-support file delivery and report `parameter_asset_transfer_unsupported` when
-files are selected. A model/provider that rejects image input fails the run;
+resource when supported, otherwise a complete separate text block. Standalone
+text-only CLI requests do not support file delivery and report
+`parameter_asset_transfer_unsupported` when files are selected. A model/provider that rejects image input fails the run;
 Pages never silently falls back to metadata or another model.
 
 For a following agent in a plan, bind the same ticket source to its ticket
@@ -759,10 +759,9 @@ The **Groups** tab creates ACP groups. A group is a green frame on the grid
 around its agent nodes, with its own flow IN and OUT, its named boundary ports
 and its ACP class in the header. A new group is a neutral draft and may be saved
 empty. The first agent that joins sets its class from the agent's technical
-adapter: **Codex** or **Claude Code**, both over ACP; display names never decide
-it. Only agents of that class join afterwards; API agents, OpenCode plan nodes
-(which run as a CLI without ACP) and agents of the other class are refused with
-an explanation and stay unchanged. Without members the group is neutral again,
+adapter: **Codex**, **Claude Code** or **OpenCode**, all over ACP; display names never decide
+it. Only agents of that class join afterwards; API agents and agents of another
+class are refused with an explanation and stay unchanged. Without members the group is neutral again,
 and the next agent may give it another class.
 
 Drag an agent into a frame to add it and out of it to take it out; the pointer
@@ -894,9 +893,9 @@ The connection of an agent decides its runner: a Codex CLI or Claude Code
 connection runs the node as an Agent Client Protocol (ACP) session through the
 adapter of its CLI (`codex-acp` or `claude-agent-acp`, installed for the server
 account next to the CLI, whose sign-in it reuses; see
-[ACP adapters](#acp-adapters-for-the-cli-runners)); an OpenCode connection
-starts a real CLI session in the node's workspace; an API connection stays a
-request without tools. Play stores a stable snapshot of each node's effective
+[ACP adapters](#acp-adapters-for-the-cli-runners)); an OpenCode connection starts
+its native `opencode acp` session in the node's workspace, without an adapter
+package or a fallback to `opencode run`; an API connection stays a request without tools. Play stores a stable snapshot of each node's effective
 configuration. Before a node starts, Pages uses that snapshot and binds every
 parameter (a placeholder is never sent unresolved) and fixes the node's **todo list** (task list items of the node
 instruction and of the bound tickets' descriptions) and **acceptance criteria**
@@ -907,8 +906,8 @@ and referenced resource permissions are still checked before execution. The sent
 prompt and requested model, reasoning and run options remain available in the run
 record. The exact model, reasoning effort and the agent's run options (workspace access, shell,
 web, time limit) are passed with fixed, verified switches; a combination a
-runner cannot enforce, such as read-only access with commands for OpenCode,
-blocks the start. The ACP adapter must offer and confirm the stored model,
+runner cannot enforce, including the retired workspace-write mode of a CLI
+agent, blocks the start. The ACP adapter must offer and confirm the stored model,
 effort and mode before the prompt is sent, and an adapter that maps the model
 to a choice of its own (Claude) is checked against the model it reports with
 its first usage update; otherwise the node fails with its own reason, and
@@ -917,7 +916,7 @@ earlier runner. Every runner works unattended:
 nothing waits for a person, and an action the options do not allow is refused
 instead of asked.
 
-A Codex CLI or Claude Code agent runs in exactly one of two permission modes,
+A Codex CLI, Claude Code or OpenCode agent runs in exactly one of two permission modes,
 chosen in the agent list. **Read only** reads the workspace and Pages content
 and may search the web, but creates, changes and deletes no files, runs no
 commands and calls only reading Pages MCP operations; the server offers no
@@ -941,7 +940,7 @@ workspace settings of Claude Code (`settingSources` is empty), reaches only its
 own Pages MCP server (the account's connectors and user MCP servers stay out),
 keeps no session history and switches off the automatic model fallback.
 
-Codex CLI and Claude Code YOLO plan nodes can use the GitHub connection stored
+Codex CLI, Claude Code and OpenCode YOLO plan nodes can use the GitHub connection stored
 in the selected workspace's Pages project. Pages rechecks the executor's
 workspace access and project management rights (the existing GitHub write
 permission) before decrypting that project's token. The agent connection,
@@ -981,34 +980,34 @@ token. Use a token restricted by GitHub when repository isolation is required.
 The handoff exposes only the selected project's token, never credentials of
 another Pages project or connection.
 
-An OpenCode node bound to tickets reaches Pages through the local Pages MCP
-process with a credential of its own: it acts with the executor's current
-rights, only for the bound tickets, and only reads them and sets their
-checklist entries. A Codex CLI or Claude Code node always gets the Pages MCP
-process: in Read only with every reading operation, in YOLO with every
+Every Codex CLI, Claude Code or OpenCode plan node gets the local Pages MCP
+process with its own credential: in Read only with every reading operation, in YOLO with every
 operation of the executor, both under the executor's current rights. The
 credential travels in the process environment or the session request, never in
 arguments, prompts or the interface, and is revoked when the node closes.
 
-A node succeeds after a regular runner turn and a clean, confirmed session
-closeout. Its closing report and business progress never gate execution:
-missing, malformed or incomplete `pages-report` blocks, open or unreported
-todos, unchecked ticket entries, unmet criteria, missing evidence and ticket
-changes remain diagnostics. Combinations of these findings neither fail a node
-nor block its intended successors, internal group steps or the overall run.
-There is no business acceptance or manual confirmation. This applies to existing
-and new nodes regardless of their saved `completion` mode or instruction text.
-Runner failures, incomplete turns, permission denials, timeouts, failed process
-exits, unavailable resources and failed cleanup remain execution failures.
+Every session node requires a regular runner turn and a clean, confirmed
+closeout. **OpenCode nodes and all internal group members additionally require
+business acceptance**: the closing `pages-report` must prove every todo and
+criterion, with real evidence for criteria. A missing, invalid or incomplete
+report fails these nodes and blocks successors. Read-only OpenCode nodes report
+ticket todos because their credential cannot tick the checkboxes. YOLO ticket
+todos must also be checked in Pages. Standalone Codex and Claude nodes retain
+their existing diagnostic-only progress behavior. Runner failures, incomplete
+turns, permission denials, timeouts, failed process exits, unavailable resources
+and failed cleanup remain execution failures. No manual acceptance step is added.
 
 After the turn, Pages rereads the authorized ticket checklists in both report
 scopes and reconciles current requirements with the original report IDs. New or
 edited requirements receive new IDs, so earlier evidence cannot prove different
-work. A bound todo is done only when its current ticket checkbox is checked;
-without a ticket entry, the optional report supplies its status. Open, missing
+work. A bound todo normally follows its current ticket checkbox; read-only
+OpenCode nodes instead need the completed todo in their report. Without a ticket
+entry, the report supplies the status. Open, missing
 and unknown work remains visible, including when the report is absent. Criteria
 keep the reported assessment, evidence diagnostics and current ticket checkbox.
-Execution success makes no claim that all business work was completed. Agents
+For standalone Codex and Claude nodes, execution success makes no claim that
+all business work was completed. OpenCode acceptance checks the report and
+current checklist; it cannot independently prove the truth of reported evidence. Agents
 may tick completed items under the existing server-side rights and optimistic
 revision checks; after a conflict they reread and reconcile the current list.
 A failure to authorize or read the ticket itself remains a technical error,
@@ -1020,17 +1019,19 @@ configuration, diagnostic progress and a link to the original sent prompt. The
 normalized **execution result** is `0` after regular completion and clean
 closeout, and `-1` for technical failure or cancellation. Internal group turns
 release the next step after regular turn completion, retaining the same native
-session; their process result remains pending until its shared closeout. A
+session after accepted business progress; their process result remains pending
+until its shared closeout. A
 process crash is never inferred to be success from a favorable progress report.
 
 The existing `completion` field selects only the progress scope: `report`
 (default) describes todos and acceptance criteria; `todos` describes the current
-todo list without criteria or synthetic defaults. Neither scope blocks
-execution. No setting change or migration of saved node copies is needed. In
-the todo scope, the agent still moves the ticket to in-progress, ticks completed
-todos live and moves it to review when all current todos are done. OpenCode
-retains its existing status tool in that scope; other scopes receive no new
-permissions, and Read only cannot change tickets.
+todo list without criteria or synthetic defaults. Both scopes require an
+accepted report for OpenCode and group members; other standalone nodes retain
+diagnostic progress. In the todo scope, a writing agent moves the ticket to
+in-progress, ticks completed todos live and moves it to review when all current
+todos are done. Read only cannot change tickets. Legacy OpenCode workspace-write
+settings require an explicit mode choice before a new run; saved model IDs and
+historical results are not rewritten.
 
 Run and node status show waiting, running, succeeded, failed, paused or
 cancelled. **Pause** persists the current run and prevents additional nodes
@@ -1102,11 +1103,11 @@ pnpm --dir mcp install
 
 ### Native ACP resource scheduling (PAGE-81)
 
-One instance-wide `AcpResourceScheduler` admits both Codex (`codex-acp`) and
-Claude Code (`claude-agent-acp`). The existing DAG still determines which
+One instance-wide `AcpResourceScheduler` admits Codex (`codex-acp`),
+Claude Code (`claude-agent-acp`) and native OpenCode (`opencode acp`). The existing DAG still determines which
 steps are executable. ACP admission has a separate shared FIFO queue; queued
 steps have no native ACP process and do not occupy the DAG's two non-ACP
-execution slots. API and OpenCode work retain their existing execution path.
+execution slots. API work retains its existing request execution path.
 
 Optional flat keys in the instance's `config.toml` (restart applies changes):
 
@@ -1162,6 +1163,120 @@ This change uses the existing Pages runtime and DuckDB. It does not install
 Mastra Core or introduce another workflow engine. The Mastra integration named
 in PAGE-81's title remains deferred; the native resource scheduler is independent
 of a future orchestration framework.
+
+### OpenCode plan nodes with a Console / Zen key (PAGE-66)
+
+Install the verified native OpenCode **1.18.34** as the account running the
+Pages service. The executable must be on that service's `PATH` or beside its
+Node binary; a login shell's nvm setup alone does not configure a systemd service.
+Set the service environment and restart it when changing `PATH`. Pages discovers
+newly installed binaries on each explicit operation. No additional ACP adapter
+is needed, and an incompatible version is refused before the ACP process starts.
+
+```sh
+# Installation instructions for the operator; these are not run by Pages.
+npm install -g opencode-ai@1.18.34
+opencode --version # 1.18.34
+```
+
+Both OpenCode plan modes require Linux bubblewrap at `/usr/bin/bwrap` and working
+unprivileged user namespaces for the service account. Install it through the
+host's package manager (`apt install bubblewrap` on Debian/Ubuntu). A file-only
+installation check does not prove that namespaces work: Pages performs its
+existing isolated probe on an actual start. `PAGES_CLI_ISOLATION=required` also
+makes isolation mandatory for the other CLI paths. Register an authorized
+workspace, optionally narrow its roots with `PAGES_WORKSPACE_ROOTS`, and provide
+the existing Pages MCP bundle and instance URL as for the other ACP runners.
+OpenCode's native internal HTTP listener uses loopback, an ephemeral port and a
+fresh process password. No fixed OpenCode server or IDE session is reused.
+
+In **Settings → Agents**, create an **OpenCode** connection, select
+**OpenCode Console / Zen (opencode)** in its key form and enter the key obtained
+from OpenCode Console / Zen. No Codex or Claude login and no OpenRouter key is
+required. For an OpenRouter key, explicitly select **OpenRouter (openrouter)**.
+The destination is never guessed from a key's prefix. A provider change requires
+explicitly saving that provider with its matching key; old model IDs remain
+unchanged and must be reselected explicitly when they no longer match.
+
+The inspected package identifies Zen as provider **`opencode`**, with native
+API credentials shaped as `{"opencode":{"type":"api","key":"<redacted>"}}`;
+OpenRouter uses the distinct `openrouter` entry. This is confirmed by the
+installed binary and the versioned [native auth source](https://github.com/anomalyco/opencode/blob/v1.18.34/packages/opencode/src/auth/index.ts)
+and [provider source](https://github.com/anomalyco/opencode/blob/v1.18.34/packages/opencode/src/provider/provider.ts).
+New keys are stored in
+`<data>/agents/<connection-id>/opencode/opencode/auth.pages.encrypted`, with
+owner-only directories and file mode 0600. The existing `InstanceSecretCipher`
+uses AES-256-GCM and binds the encrypted native JSON to the connection ID. Back
+up the existing instance secret with the data; another instance cannot decrypt
+this file. OpenCode receives the JSON only through `OPENCODE_AUTH_CONTENT` in
+its isolated child environment, never through arguments or the prompt. Pages
+does not require an `OPENCODE_API_KEY` in the service environment. Known runtime
+keys, MCP tokens and the process password are redacted before run persistence.
+
+Existing native `auth.json` files remain readable with their original provider;
+they are not reinterpreted or automatically migrated. Replacing a key through
+the form writes the encrypted file atomically and removes the old plaintext
+file. Removing the connection or logging out removes both formats. The local
+access check confirms version, decryption and credential structure; it does not
+prove remote key validity or available credits. The existing explicit **model
+test** makes a provider request and may incur usage. Merely opening Settings
+starts neither a CLI nor a model request.
+
+The connection loads `opencode models <configured-provider> --verbose`. Catalog
+entries keep the complete provider-prefixed ID: `opencode/<model>` for Zen,
+`openrouter/<vendor>/<model>` for OpenRouter. Models and reasoning variants come
+from this native catalog; no OpenRouter catalog is used to validate a Zen key.
+The catalog lists provider capabilities, not a promise of account entitlement or
+balance. The ACP session must offer and confirm the exact saved model, variant
+and managed mode before receiving the resolved `AGENT.md`, node instruction,
+parameters and Pages contract. Undeclared or remaining parameter placeholders
+refuse the node. A leading slash in the agent text is sent as part of a Pages
+assignment, so it cannot turn the whole plan prompt into a native slash command.
+Internal helper and subagent models are pinned to the same model and variant;
+there is no alternate model or `opencode run` fallback for plan steps.
+
+OpenCode offers exactly the saved modes **Read only / Nur Lesen** (`read_only`)
+and **YOLO** (`yolo`). Missing run options mean Read only. A saved
+`workspace_write` configuration stays unchanged and cannot start until someone
+chooses a mode; it is never promoted to YOLO. Read only uses native deny rules
+for edits, commands, delegation and other changing tools, plus a read-only
+workspace mount. Its Pages credential offers only reading operations and the
+server checks every call. YOLO enables all tools available in native ACP and
+the complete Pages MCP catalog authorized for the executor, without an extra
+tool allowlist or user approval loop. Native explicit deny rules still apply;
+Pages retains the explicit `*.env` and `*.env.*` read denials. Unexpected ACP
+permission requests are refused in Read only and automatically approved in
+YOLO only when an allow option exists. User/project OpenCode configuration,
+external skills, default plugins, sharing and updates stay disabled or are
+refused by the existing configuration guard. Pages installs no foreign plugin
+or MCP server. Workspace, connection, project and Pages authorization boundaries
+remain in force. Pica keeps its existing, narrower Pages-only profile.
+
+The run records requested and confirmed model/variant, native mode, workspace,
+effective permission rules, tool events, final answer, ACP session ID and process
+closeout. OpenCode 1.18.34 reports the configured model selector, but no separate
+provider-response model identity; `modelVerification` makes that limit explicit.
+Its ACP registration path also lacks a verified model-free MCP readiness command;
+Pages does not invent a connected status. Tool failures and acceptance remain
+observable, and a real authorized Pages tool call is still part of manual
+functional acceptance.
+
+Native authentication failures, exhausted balance/quota, rate limits, unavailable
+models, permission denial and generic ACP failures have distinct safe error
+codes when OpenCode reports recognizable diagnostics. Unknown provider messages
+remain a generic ACP failure without raw upstream text. Timeout and user stop
+close the ACP channel and end only this task's tagged process group and helpers.
+An uncertain cleanup keeps the native lease, connection mutation lock and
+workspace reservation; retry occurs during normal startup recovery, with no
+force-release UI. Other OpenCode/IDE sessions are never selected by name.
+OpenCode nodes require a valid, completed `pages-report` and accepted business
+progress as well as regular ACP completion and confirmed cleanup.
+
+PAGE-66 validation inspects local version and release source and runs the static
+Pages gates. It deliberately starts no server, model request or agent run and
+adds no automated tests. Credentialed end-to-end behavior, account-specific
+models, live MCP calls, cancellation and native tool effects remain for manual
+functional acceptance.
 
 ### ACP adapters for the CLI runners
 

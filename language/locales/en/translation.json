@@ -613,7 +613,7 @@
         "plan_runner_permission_denied": "The runner refused actions that the run options do not allow; nothing was approved on its behalf.",
         "plan_acceptance_failed": "Historical run: the closing report did not prove every todo and criterion. This stored failure is unchanged; a new run uses these findings only as diagnostics.",
         "plan_group_acceptance_failed": "The group agent did not pass acceptance. Its report must prove every todo and criterion; later agents and successors remain blocked.",
-        "plan_group_session_unsupported": "This adapter cannot continue the group's shared ACP session with a new step instruction. Use Codex or Claude Code agents over ACP.",
+        "plan_group_session_unsupported": "This adapter cannot continue the group's shared ACP session with a new step instruction. Use Codex, Claude Code or OpenCode agents over ACP.",
         "plan_closeout_failed": "The session could not be closed completely; processes of it remained.",
         "parameter_number_invalid": "Supply a valid finite number for every number parameter.",
         "parameter_asset_unavailable": "A ticket asset is missing, deleted, unreadable or not accessible to the executing user. No incomplete input was sent.",
@@ -625,10 +625,12 @@
         "parameter_ticket_unavailable": "The selected ticket is unavailable or not accessible. Select an accessible ticket.",
         "timeout": "The agent’s hard time limit expired. The running operation was interrupted.",
         "run_notes_unsupported": "Shared run notes have been removed. {{@run.notes}} is no longer supported. Update the affected agent or plan node explicitly.",
+        "opencode_acceptance_failed": "The OpenCode node did not prove every todo and acceptance criterion in its closing pages-report. Open or unproven work blocks successors even after regular ACP completion.",
+        "opencode_permission_mode_required": "OpenCode agents run only in Read only or YOLO. Choose a mode explicitly; legacy workspace-write settings cannot start a run.",
         "opencode_chat_mode_required": "Pica requires “Read only” workspace access for OpenCode and offers only the Pages tool bridge.",
         "opencode_configuration_unmanaged": "OpenCode could load external settings or instructions. Remove them from the connection’s configuration folder or /etc/opencode. No model was called.",
-        "opencode_acp_unsupported": "Pica requires the verified native ACP contract of OpenCode 1.18.34. The installed version or contract differs; no model was called.",
-        "opencode_acp_session_failed": "The native OpenCode ACP session failed before or during the answer.",
+        "opencode_acp_unsupported": "Pages requires the verified native ACP contract of OpenCode 1.18.34. The installed version or contract differs; no model was called.",
+        "opencode_acp_session_failed": "The native OpenCode ACP session failed before or during its turn.",
         "plan_group_session_lost": "The group's shared ACP session no longer exists because its adapter process ended. An ACP session cannot be continued in another process; start a new run."
       },
       "description": "Manage the named AI connections and function assignments of this Pages instance.",
@@ -642,7 +644,7 @@
       "apiEmpty": "No API connections configured yet.",
       "cliEmpty": "No CLI connections configured yet.",
       "cliMissing": "CLI not found",
-      "cliInstallHint": "Install Codex CLI or Claude Code using the provider’s instructions. The Pages service must find the executable in its PATH. Restart the service after changing PATH.",
+      "cliInstallHint": "Install Codex CLI, Claude Code or OpenCode using the provider’s instructions. The Pages service must find the executable in its PATH. Restart the service after changing PATH.",
       "name": "Name",
       "providerLabel": "Provider/tool",
       "statusLabel": "Status",
@@ -981,12 +983,12 @@
         "unavailableTicket": "Bound ticket is not accessible"
       },
       "openCodeKey": "API key for OpenCode",
-      "openCodeKeyHint": "The provider ID and key must match. Model IDs keep this provider prefix. Pages stores the key only in this connection’s private credential folder; it never returns to the browser.",
+      "openCodeKeyHint": "Store an OpenCode key under OpenCode Console / Zen, an OpenRouter key under OpenRouter. Pages encrypts new keys with the instance cipher in the private connection folder; they never return to the browser. The access check verifies the stored format locally; only an explicit model test checks the key, balance and model with the provider.",
       "openCodeKeyStore": "Store key",
       "openCodeKeyReplace": "Replace key",
       "run": {
         "title": "Run options",
-        "hint": "Workspace, shell and web permissions apply to the OpenCode runner. They always work unattended: anything not allowed is refused instead of asking. A combination the runner cannot enforce blocks the start. The timeout also applies to API agents. Pica over OpenCode requires “Read only”; only the Pages tools are available there.",
+        "hint": "The timeout also applies to API agents. Choose one of the offered permission modes for a CLI agent. Pica over OpenCode independently keeps its Pages tool bridge only.",
         "access": "Workspace access",
         "timeout": "Timeout (minutes)",
         "shell": "Run commands in the workspace (shell)",
@@ -994,7 +996,7 @@
         "unlimited": "0 · unlimited runtime",
         "hardTimeout": "Hard limit: {{minutes}} minutes",
         "timeoutHint": "0 allows unlimited runtime until completion. A positive timeout interrupts the running operation when it expires; the run is marked as “Failed” with the timeout cause.",
-        "acpHint": "Codex CLI and Claude Code agents run over ACP in exactly one of two modes. They work unattended: anything the mode does not allow is refused instead of asking. The timeout applies on top, also to API agents.",
+        "acpHint": "Codex CLI, Claude Code and OpenCode agents run over ACP in exactly one of two modes. They work unattended: anything the mode does not allow is refused instead of asking. The timeout applies on top, also to API agents.",
         "mode": "Permission mode",
         "chooseMode": "Choose a mode",
         "modeRequired": "Choose “Read only” or “YOLO”. An agent still saved with the earlier workspace write mode starts only after this choice and never becomes YOLO on its own.",
@@ -1029,7 +1031,11 @@
         "recovery": "Waiting for startup recovery",
         "scheduler_error": "Waiting after scheduler error"
       },
-      "openCodeProvider": "Model provider in OpenCode (for example openrouter)"
+      "openCodeProvider": "Key provider for OpenCode",
+      "openCodeKeyProvider": {
+        "opencode": "OpenCode Console / Zen (opencode)",
+        "openrouter": "OpenRouter (openrouter)"
+      }
     },
     "connections": {
       "title": "Connections",
@@ -3338,7 +3344,7 @@
       "json": "Enter exactly one valid JSON value. Numbers must be finite.",
       "number": "Enter exactly one finite number.",
       "groupSize": "The group has no agent yet. Drag at least one ACP agent into it before starting the plan.",
-      "groupProvider": "This agent does not match the group's ACP class or does not run over ACP. Only agents of the same adapter class (Codex or Claude Code) share a group session.",
+      "groupProvider": "This agent does not match the group's ACP class or does not run over ACP. Only agents of the same adapter class (Codex, Claude Code or OpenCode) share a group session.",
       "groupConfiguration": "The resolved runtime field conflicts with the shared group configuration.",
       "unsupportedRunNotes": "Shared run notes have been removed. {{@run.notes}} is no longer supported. Update the affected agent or plan node explicitly.",
       "groupOrder": "The agents of a group share one session and need an unambiguous order: flow connections form one chain with exactly one first agent and no branch.",
@@ -3453,7 +3459,7 @@
       "defaultName": "Agent group",
       "create": "Create group",
       "name": "Group name",
-      "hint": "An ACP group shares one session per plan run. It starts as a neutral draft; the first ACP agent that joins (Codex or Claude Code) sets its class. After that only agents of the same class with identical access and runtime configuration can join. Without agents it is neutral again. A port hands the same value to several agents.",
+      "hint": "An ACP group shares one session per plan run. It starts as a neutral draft; the first ACP agent that joins (Codex, Claude Code or OpenCode) sets its class. After that only agents of the same class with identical access and runtime configuration can join. Without agents it is neutral again. A port hands the same value to several agents.",
       "interfaces": "Boundary ports",
       "acceptanceHint": "Internal group agents require a valid pages-report with completed todos and proven criteria. Missing reports, open work and failed acceptance stop the group and block successors.",
       "failedAgent": "Affected agent: {{name}}",

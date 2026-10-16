@@ -2,10 +2,8 @@ import { expect, it } from "vitest";
 
 import { readAgentConfiguration } from "@/backend/agents/AgentConfigurationInput";
 import { readPlanSessionRecord } from "@/backend/agents/AgentPlanSessionInput";
-import {
-  planCliSession,
-  unsupportedRunOption,
-} from "@/backend/agents/cli/CliSessionPlans";
+import { unsupportedRunOption } from "@/backend/agents/cli/CliSessionPlans";
+import { OPENCODE_ACP_DRIVER } from "@/backend/agents/acp/OpenCodeAcpDriver";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { requireAllowedRunOptions } from "@/backend/service/agents/AgentProfileValidation";
 import { planSessionReach } from "@/backend/service/agents/AgentPlanSessionAccess";
@@ -98,9 +96,9 @@ it.each(ACP_RUNNERS)(
   },
 );
 
-it("keeps the run options of every runner without ACP as they were", () => {
+it("uses read-only defaults for OpenCode and preserves legacy settings without executing them", () => {
   expect(agentRunOptionsFor("opencode", undefined)).toEqual(
-    DEFAULT_AGENT_RUN_OPTIONS,
+    DEFAULT_ACP_RUN_OPTIONS,
   );
   expect(agentRunOptionsFor("opencode", LEGACY_WRITE)).toEqual(LEGACY_WRITE);
   expect(agentRunOptionsFor("openrouter", undefined)).toEqual(
@@ -112,11 +110,11 @@ it("keeps the run options of every runner without ACP as they were", () => {
       access: "read_only",
       shell: true,
     }),
-  ).toBe("plan_run_option_unsupported");
-  expect(unsupportedRunOption("opencode", LEGACY_WRITE)).toBeNull();
-  expect(unsupportedRunOption("opencode", acpRunOptions("yolo", 0))).toBe(
-    "plan_run_option_unsupported",
+  ).toBeNull();
+  expect(unsupportedRunOption("opencode", LEGACY_WRITE)).toBe(
+    "opencode_permission_mode_required",
   );
+  expect(unsupportedRunOption("opencode", acpRunOptions("yolo", 0))).toBeNull();
 });
 
 it.each(ACP_RUNNERS)(
@@ -149,19 +147,19 @@ it.each(ACP_RUNNERS)(
   },
 );
 
-it("offers YOLO to no runner without ACP", () => {
+it("offers YOLO to OpenCode over ACP while refusing a new legacy mode", () => {
   expect(
     isAgentRunOptionsAllowed("opencode", acpRunOptions("yolo", 0), undefined),
-  ).toBe(false);
+  ).toBe(true);
   expect(isAgentRunOptionsAllowed("opencode", LEGACY_WRITE, undefined)).toBe(
-    true,
+    false,
   );
   expect(
     isAgentRunOptionsAllowed("openrouter", acpRunOptions("yolo", 0), undefined),
   ).toBe(false);
   expect(() =>
-    requireAllowedRunOptions("opencode", acpRunOptions("yolo", 0), undefined),
-  ).toThrow(new AgentError("plan_run_option_unsupported"));
+    requireAllowedRunOptions("opencode", LEGACY_WRITE, undefined),
+  ).toThrow(new AgentError("opencode_permission_mode_required"));
 });
 
 it("reads YOLO from AGENT.md and from stored run records", () => {
@@ -206,10 +204,8 @@ it.each(ACP_RUNNERS)(
   },
 );
 
-it("gives every runner without ACP its bound tickets", () => {
-  expect(planSessionReach("opencode", acpRunOptions("yolo", 0))).toBe(
-    "tickets",
-  );
+it("gives OpenCode full authorized reach and leaves API reach unchanged", () => {
+  expect(planSessionReach("opencode", acpRunOptions("yolo", 0))).toBe("full");
   expect(planSessionReach("openrouter", DEFAULT_AGENT_RUN_OPTIONS)).toBe(
     "tickets",
   );
@@ -239,30 +235,37 @@ it.each(ACP_RUNNERS)(
         prepared: { ...prepared, directory: workspace("parameter") },
       })?.id,
     ).toBe("parameter");
-    expect(planStepDirectory({ provider: "opencode", prepared })).toBeNull();
+    expect(planStepDirectory({ provider: "opencode", prepared })?.id).toBe(
+      "plan",
+    );
   },
 );
 
-it("starts OpenCode with exactly the switches it had before", () => {
-  const specification = {
+it("starts OpenCode through its native ACP entry point with no prompt or credential arguments", () => {
+  const launch = OPENCODE_ACP_DRIVER.plan({
     instanceId: "instance",
-    model: "synthetic-model",
-    reasoningEffort: "high",
-    options: { ...DEFAULT_AGENT_RUN_OPTIONS, shell: true },
-    directory: "/synthetic",
-    prompt: "Prompt",
+    runnerFile: "/synthetic/bin/opencode",
+    profile: OPENCODE_ACP_DRIVER.profile("yolo"),
+    model: { model: "opencode/synthetic-model", reasoningEffort: "high" },
     mcp: null,
-  };
-  expect(planCliSession("opencode", specification).arguments).toEqual([
-    "run",
-    "--format",
-    "json",
-    "--pure",
-    "-m",
-    "synthetic-model",
-    "--dir",
-    "/synthetic",
-    "--variant",
-    "high",
-  ]);
+  });
+  const configuration: unknown = JSON.parse(
+    launch.environment.OPENCODE_CONFIG_CONTENT,
+  );
+  expect(configuration).toMatchObject({
+    model: "opencode/synthetic-model",
+    small_model: "opencode/synthetic-model",
+    enabled_providers: ["opencode"],
+    default_agent: "pages-yolo",
+    agent: {
+      "pages-yolo": { model: "opencode/synthetic-model", variant: "high" },
+    },
+  });
+  expect({
+    binary: OPENCODE_ACP_DRIVER.binary,
+    arguments: OPENCODE_ACP_DRIVER.arguments,
+  }).toEqual({
+    binary: "opencode",
+    arguments: ["acp", "--port", "0", "--hostname", "127.0.0.1"],
+  });
 });

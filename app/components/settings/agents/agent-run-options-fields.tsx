@@ -25,7 +25,7 @@ import type { AgentProviderId } from "@/definition/AgentConnection";
  * Edits how CLI runners may work in a plan workspace; no free command or argument is offered.
  *
  * @remarks
- * A Codex CLI or Claude Code agent offers only its two modes, "Nur Lesen" and
+ * A Codex CLI, Claude Code or OpenCode agent offers only its two modes, "Nur Lesen" and
  * YOLO, and no separate switches that could mix them. Every other runner keeps
  * its access, shell and web switches. The timeout applies to all.
  */
