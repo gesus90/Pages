@@ -56,8 +56,11 @@ The starter is an **unscheduled server boundary**. It must enforce connection
 authorization, exact model/effort, credential handling, workspace isolation and
 confirmed process cleanup using the existing Pages ACP machinery. In particular,
 `CliSessionExecution.open` already schedules ACP work: do not inject it beneath
-another scheduler admission. Production composition for Pica belongs to PAGE-83;
-this module does not change the existing CLI or DAG execution paths.
+another scheduler admission. Pica's production Codex path (PAGE-68,
+`backend/service/chat/acp/`) therefore does not use this adapter: it opens its
+session through the existing `PlanExecution.open` (one scheduler admission,
+credential isolation, closeout) and reaches the native Pica tools through
+`RuntimeToolRegistry.invoke`, the same registry the Mastra agent binds.
 
 `createRuntimeAcpModel` adapts that turn to a supported SDK v2 model object. Both
 Mastra `generate` and `stream` are supported, with a **buffered final answer**;
@@ -82,8 +85,9 @@ automatic memory compaction, semantic recall or background worker is added.
 `requireApproval` can suspend the native Mastra loop; durable approval recovery
 needs storage and a Pages-owned authorization/resume design. That integration,
 Pica's partial API composition now supplies five native tools, fixed-host SDK
-providers and its existing Pages prompt/history/attachment context. ACP tools,
-the remaining catalog, Mastra Memory and durable deletion approvals stay open.
+providers and its existing Pages prompt/history/attachment context. Over Codex
+ACP the same five tools reach the agent through Pages' MCP bridge (PAGE-68).
+The remaining catalog, Mastra Memory and durable deletion approvals stay open.
 The ACP text adapter does not translate SDK sampling/token settings to native
 CLI options; native configuration remains the starter's responsibility.
 

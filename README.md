@@ -317,9 +317,49 @@ currently exposed in production. Other operations, web search, deletion approval
 and Mastra Memory remain outside this partial implementation. Pages still owns
 the transcript, attachments, summaries and `/compact`.
 
-Selecting an ACP/coding model for Pica returns a translated explanation before
-execution, including for explicit compaction. Existing coding and execution-plan
-paths, their scheduler and their process handling are unchanged.
+A Codex CLI agent assigned to the chat runs over ACP instead (PAGE-68, next
+section). Other ACP/coding agents (Claude Code, OpenCode) return a translated
+explanation before execution; `/compact` stays an API-model function.
+
+## Pica over Codex ACP (PAGE-68)
+
+When the chat agent under *Settings › Agents* uses a Codex CLI connection, Pica
+answers through `codex-acp` with the same five tools. There is no model choice
+in the chat and no fallback to an API model; the assignment is resolved anew
+for every new answer, so a change applies from the next message on.
+
+- **Server-side jobs.** Sending stores the message and starts a job on the
+  server. Closing the browser, switching tabs or a lost connection does not end
+  it; only *Stop* does. The panel reads the job's journal after its last cursor,
+  so returning shows the current state or the finished answer without running
+  anything again.
+- **Steering.** While Pica answers, sending stays possible. The message goes
+  into the running turn through `_session/steering` (status *accepted*); a
+  message that arrives between turns, or that the adapter no longer takes, is
+  answered in a turn of its own (*follow-up*). Statuses: pending, delivered,
+  accepted, follow-up, failed.
+- **Selected data.** The attachments selected for a message (and for a steer)
+  reach Codex as content blocks: text as an embedded resource (cut after
+  30,000 characters), raster images up to 10 MiB. Every other type, a cut text
+  or a too large image is listed under the message; the snapshot of each
+  message is stored once and never changed.
+- **Tools.** Codex reaches Pica's tools only through the MCP endpoint
+  `POST /api/v1/pica-bridge`, with a random per-job token held in memory. Each
+  call is bound to person, conversation and running turn and is authorized
+  again; the existing limit of six actions per message and the exact
+  confirmation lines apply. The session has no shell, file, image, code, app or
+  web tool, runs read-only inside bubblewrap (required) and gets no other MCP
+  server.
+- **Sessions.** Each conversation keeps one Codex session, continued with
+  `session/resume` while connection, model, effort and profile stay the same
+  and no message arrived on another path. The process holds one lease of the
+  shared ACP scheduler only while a job runs. Working directories are empty
+  folders in `pica-sessions` next to the agent folders.
+- **Consumption.** Context occupancy and tokens are shown only as the adapter
+  reports them; codex-acp 2.2.2 reports no cost, shown as "not available".
+
+The capability matrix of the installed adapter is in
+[backend/agents/acp/CodexAcpCapabilities.md](./backend/agents/acp/CodexAcpCapabilities.md).
 
 ## Pica sessions and conversation context (PAGE-48)
 
