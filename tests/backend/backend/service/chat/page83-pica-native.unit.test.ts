@@ -25,7 +25,7 @@ function confirmation(tool: string, parameters: unknown): string {
   return `BESTÄTIGEN ${tool} ${JSON.stringify(parameters)}`;
 }
 
-it("advertises exactly five strict native schemas and routes reads through existing Pages services", async () => {
+it("advertises the fixed strict native schemas and routes reads through existing Pages services", async () => {
   const calls = [
     {
       tool: "tickets_search",
@@ -46,11 +46,23 @@ it("advertises exactly five strict native schemas and routes reads through exist
   expect(
     schemas?.map((tool) => (tool.type === "function" ? tool.name : "")),
   ).toEqual([
+    "projects_list",
+    "projects_read",
     "tickets_search",
     "tickets_read",
-    "projects_read",
+    "assignment_targets_search",
+    "tags_list",
+    "wiki_search",
+    "wiki_tree_read",
+    "wiki_page_read",
+    "wiki_comments_read",
+    "tickets_create",
     "tickets_set_title",
     "tickets_set_status",
+    "tickets_set_description",
+    "tickets_set_assignee",
+    "tickets_set_tags",
+    "wiki_comment_add",
   ]);
   for (const schema of schemas ?? [])
     if (schema.type === "function")

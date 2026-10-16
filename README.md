@@ -290,11 +290,17 @@ variables, add the redirect in the portal and then:
 ## Pica API runtime (PAGE-83, partial)
 
 The production Pica chat now runs API models through the shared Mastra runtime.
-Its initial native catalog contains exactly five tools: search tickets in a
-known project, read a ticket, read a project, change a ticket title and change a
-ticket status. Each tool uses the existing Pages services and current account
-rights. There is no generic operation tool or text-action fallback. Project
-discovery and workflow-status discovery are not yet included; supply known IDs.
+Its native catalog has fixed tools, each on an existing Pages operation with
+the current account rights:
+
+| Kind | Tools |
+| ---- | ----- |
+| Reads | `projects_list`, `projects_read`, `tickets_search` (in one project; `assignedToMe` for the person's own tickets), `tickets_read`, `assignment_targets_search`, `tags_list`, `wiki_search`, `wiki_tree_read`, `wiki_page_read`, `wiki_comments_read` |
+| Writes | `tickets_create`, `tickets_set_title`, `tickets_set_status`, `tickets_set_description`, `tickets_set_assignee`, `tickets_set_tags`, `wiki_comment_add` |
+
+There is no generic operation tool, no deletion and no text-action fallback.
+`projects.list`, the read behind `projects_list`, is also an operation of the
+agent API. Wiki comments are the only comments Pages has; tickets have none.
 
 Every write requires an exact confirmation line in the **current** human
 message, for example:
@@ -302,18 +308,22 @@ message, for example:
 ```text
 BESTÄTIGEN tickets_set_title {"ticketId":"PAGE-1","expectedTitle":"Old title","title":"New title"}
 BESTÄTIGEN tickets_set_status {"ticketId":"PAGE-1","expectedStatusId":"todo-id","statusId":"done-id"}
+BESTÄTIGEN tickets_create {"projectId":"project-id","type":"task","title":"Title","description":"","statusId":null,"parentId":null}
 ```
 
-`CONFIRM` is also accepted. Pica first reads the ticket and proposes the concrete
-line. The server binds each single-use confirmation to the ticket, expected old
-value and new value; history, attachments and model arguments cannot approve a
-write. Conflicting changes remain subject to the existing expected-value checks.
+`CONFIRM` is also accepted. Pica first reads the target and proposes the
+concrete line with every argument of the tool. The server binds each
+single-use confirmation to exactly these arguments, including the expected old
+values; history, attachments and model arguments cannot approve a write.
+Conflicting changes remain subject to the existing expected-value checks. A
+description or comment of a write holds at most 6,000 characters, so the line
+fits into one message.
 
 The production composition selects `native-api` explicitly. `legacy-actions`
 preserves the previous broader catalog for compatibility and its regressions;
 it never runs alongside the native path or as an automatic fallback. The agent
-and plan chat sections below describe that retained catalog, not the five tools
-currently exposed in production. Other operations, web search, deletion approvals
+and plan chat sections below describe that retained catalog, not the native
+tools currently exposed in production. Other operations, web search, deletion approvals
 and Mastra Memory remain outside this partial implementation. Pages still owns
 the transcript, attachments, summaries and `/compact`.
 
@@ -324,7 +334,7 @@ explanation before execution; `/compact` stays an API-model function.
 ## Pica over Codex ACP (PAGE-68)
 
 When the chat agent under *Settings › Agents* uses a Codex CLI connection, Pica
-answers through `codex-acp` with the same five tools. There is no model choice
+answers through `codex-acp` with the same native tools. There is no model choice
 in the chat and no fallback to an API model; the assignment is resolved anew
 for every new answer, so a change applies from the next message on.
 
@@ -347,9 +357,13 @@ for every new answer, so a change applies from the next message on.
   `POST /api/v1/pica-bridge`, with a random per-job token held in memory. Each
   call is bound to person, conversation and running turn and is authorized
   again; the existing limit of six actions per message and the exact
-  confirmation lines apply. The session has no shell, file, image, code, app or
-  web tool, runs read-only inside bubblewrap (required) and gets no other MCP
-  server.
+  confirmation lines apply. Codex approves nothing itself: the session stays
+  in the read-only mode, Pages answers only the approval requests of MCP tool
+  calls with yes, and every write still needs its confirmation line. The
+  session has no shell, file, image, app or web tool, runs read-only inside
+  bubblewrap (required) and gets no other MCP server. Models whose Codex
+  catalog demands code mode, such as `gpt-6-luna`, call the same tools from
+  Codex's `exec` tool; their names then carry the prefix `mcp__pages__`.
 - **Sessions.** Each conversation keeps one Codex session, continued with
   `session/resume` while connection, model, effort and profile stay the same
   and no message arrived on another path. The process holds one lease of the

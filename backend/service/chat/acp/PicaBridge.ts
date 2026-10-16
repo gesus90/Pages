@@ -69,8 +69,8 @@ function refused(error: string): PicaToolOutcome {
  * The Pica tool bridge for Codex over ACP (PAGE-68).
  *
  * @remarks
- * codex-acp reaches MCP servers over HTTP, so Pages offers the five Pica tools
- * as one MCP endpoint. Every job gets a random token that exists only in
+ * codex-acp reaches MCP servers over HTTP, so Pages offers the native Pica
+ * tools as one MCP endpoint. Every job gets a random token that exists only in
  * memory and reaches the adapter only inside `session/new`. A call runs only
  * while a turn of that job is active, through the same tool registry and
  * executor as the API path, which reauthorizes the person, the conversation
