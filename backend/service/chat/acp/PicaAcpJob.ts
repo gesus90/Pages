@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { createRuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
+import { describeError } from "@/backend/error/ErrorDescription";
 import { PicaAcpJobError } from "@/backend/error/PicaAcpJobError";
 import { acpRunOptions } from "@/definition/AgentConfiguration";
 
@@ -545,11 +546,8 @@ export class PicaAcpJob {
     }
     const code = errorCodeOf(error);
     if (code !== null) return { state: "failed", errorCode: code };
-    // Only the kind of error is logged, never the conversation.
-    console.error(
-      "[pages] A Pica job failed.",
-      error instanceof Error ? error.name : typeof error,
-    );
+    // Only the kind and a short message of the error are logged, never the conversation.
+    console.error("[pages] A Pica job failed.", describeError(error));
     return { state: "failed", errorCode: "general" };
   }
 
@@ -599,7 +597,7 @@ export class PicaAcpJob {
     });
   }
 
-  /** Runs one step of the closeout; a failure is logged by kind and does not skip the others. */
+  /** Runs one step of the closeout; a failure is logged without content and does not skip the others. */
   private async attempt(
     step: string,
     task: () => Promise<void>,
@@ -610,7 +608,7 @@ export class PicaAcpJob {
       console.error(
         "[pages] A Pica job closeout step failed.",
         step,
-        error instanceof Error ? error.name : typeof error,
+        describeError(error),
       );
     }
   }
