@@ -1,6 +1,6 @@
 import type { Migration } from "./Migration";
 
-const migrationScripts = import.meta.glob<string>("./migrations-duckdb/*.sql", {
+const migrationScripts = import.meta.glob<string>("./migrations/*.sql", {
   eager: true,
   import: "default",
   query: "?raw",

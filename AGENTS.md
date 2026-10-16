@@ -154,10 +154,10 @@ For backend work:
 For database work:
 
 - Follow all SQL formatting and structure rules from `GUIDELINES.md`.
+- DuckDB is the only supported database. Do not add another database driver,
+  dialect or fallback.
 - Add a new migration for schema changes, as a numbered `.sql` file in
-  `backend/database/migrations-duckdb/`. The SQLite migrations in
-  `backend/database/migrations/` are frozen; they only describe the old file
-  that `pnpm db:transfer` reads.
+  `backend/database/migrations/`.
 - Do not rewrite previously applied migrations.
 - Keep SQL explicit and readable.
 - Parameterize dynamic values.

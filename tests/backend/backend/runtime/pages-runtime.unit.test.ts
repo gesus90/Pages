@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { bootstrapConfig } from "@/backend/config/ConfigBootstrap";
 import { ConfigError } from "@/backend/config/PagesConfig";
 import { ConfigFile } from "@/backend/config/ConfigFile";
-import { createLegacyDatabaseWarning } from "@/backend/database/DatabasePath";
 import {
   getPagesRuntime,
   initializePagesRuntime,
@@ -20,9 +19,6 @@ import type {
 
 vi.mock("@/backend/config/ConfigBootstrap", () => ({
   bootstrapConfig: vi.fn(),
-}));
-vi.mock("@/backend/database/DatabasePath", () => ({
-  createLegacyDatabaseWarning: vi.fn(),
 }));
 
 const CONFIG_PATH = "/srv/pages/config.toml";
@@ -48,7 +44,6 @@ beforeEach(() => {
 afterEach(() => {
   globalThis.pagesRuntime = undefined;
   vi.mocked(bootstrapConfig).mockReset();
-  vi.mocked(createLegacyDatabaseWarning).mockReset();
 });
 
 describe("a runtime with a pending setup", () => {
@@ -243,47 +238,5 @@ describe("the process runtime", () => {
     const runtime = await initializePagesRuntime(CONFIG_PATH);
 
     expect(runtime.isSetupPending()).toBe(true);
-  });
-});
-
-describe("legacy database warning", () => {
-  it("warns the operator while the setup is pending", async () => {
-    const warn = vi.spyOn(console, "warn").mockReturnValue(undefined);
-    vi.mocked(bootstrapConfig).mockResolvedValue({
-      config: PENDING,
-      isNewConfig: true,
-    });
-    vi.mocked(createLegacyDatabaseWarning).mockReturnValue("Found pages.db");
-
-    await initializePagesRuntime(CONFIG_PATH);
-
-    expect(createLegacyDatabaseWarning).toHaveBeenCalledWith(
-      "/srv/pages/data/pages.duckdb",
-    );
-    expect(warn).toHaveBeenCalledWith("Found pages.db");
-  });
-
-  it("stays quiet when nothing was left behind", async () => {
-    const warn = vi.spyOn(console, "warn").mockReturnValue(undefined);
-    vi.mocked(bootstrapConfig).mockResolvedValue({
-      config: PENDING,
-      isNewConfig: true,
-    });
-    vi.mocked(createLegacyDatabaseWarning).mockReturnValue(null);
-
-    await initializePagesRuntime(CONFIG_PATH);
-
-    expect(warn).not.toHaveBeenCalled();
-  });
-
-  it("does not look for a legacy file after the setup finished", async () => {
-    vi.mocked(bootstrapConfig).mockResolvedValue({
-      config: COMPLETED,
-      isNewConfig: false,
-    });
-
-    await initializePagesRuntime(CONFIG_PATH);
-
-    expect(createLegacyDatabaseWarning).not.toHaveBeenCalled();
   });
 });

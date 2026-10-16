@@ -52,8 +52,8 @@ export const IN_MEMORY_DATABASE_PATH = ":memory:";
  * - `utc_now()` is the current UTC time and `utc_after(time_shift)` the time
  *   `time_shift` (an interval) from now, both as `YYYY-MM-DD HH:MM:SS` text,
  *   the format all timestamp columns store.
- * - NULL values sort first in ascending and last in descending order, like
- *   they did in SQLite, so existing `ORDER BY` clauses keep their meaning.
+ * - NULL values sort first in ascending and last in descending order, which
+ *   is the order the `ORDER BY` clauses of the repositories rely on.
  */
 const CONNECTION_SETUP = `
   SET default_null_order = 'nulls_first_on_asc_last_on_desc';

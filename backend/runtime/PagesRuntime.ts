@@ -2,7 +2,6 @@ import { bootstrapConfig } from "@/backend/config/ConfigBootstrap";
 import { ConfigFile } from "@/backend/config/ConfigFile";
 import { resolveDefaultDatabasePath } from "@/backend/config/PagesConfig";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
-import { createLegacyDatabaseWarning } from "@/backend/database/DatabasePath";
 
 import { SetupToken } from "./SetupToken";
 
@@ -142,19 +141,8 @@ export class PagesRuntime {
 async function createRuntime(configPath: string): Promise<PagesRuntime> {
   const configFile = new ConfigFile(configPath);
   const { config } = await bootstrapConfig(configFile);
-  const runtime = new PagesRuntime(configFile, config);
 
-  if (runtime.isSetupPending()) {
-    const legacyWarning = createLegacyDatabaseWarning(
-      runtime.getSuggestedDatabasePath(),
-    );
-
-    if (legacyWarning) {
-      console.warn(legacyWarning);
-    }
-  }
-
-  return runtime;
+  return new PagesRuntime(configFile, config);
 }
 
 /**

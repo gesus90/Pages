@@ -1,5 +1,4 @@
 allowBuilds:
-  better-sqlite3: true
   esbuild: true
 
 # Supply-chain protection: only install package versions published at least

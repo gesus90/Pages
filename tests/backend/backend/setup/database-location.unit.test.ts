@@ -88,7 +88,7 @@ describe("normalizeDatabasePath", () => {
 
   it.each([
     ["a relative path", "data/pages.duckdb"],
-    ["another extension", "/srv/pages/pages.db"],
+    ["another extension", "/srv/pages/pages.dat"],
     ["a bare extension", "/srv/pages/.duckdb"],
     ["a directory", "/srv/pages/"],
     ["a NUL byte", "/srv/pages/\0pages.duckdb"],

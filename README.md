@@ -1081,7 +1081,7 @@ or service environment, or start the production server with
 `data/` always sit next to the database file, wherever `databasePath` points.
 
 When Pages opens the database, it applies the numbered migrations from
-`backend/database/migrations-duckdb/` that the file has not seen yet. A schema
+`backend/database/migrations/` that the file has not seen yet. A schema
 change is a new migration; Pages rejects an applied migration whose content
 changed. DuckDB allows one writing process per file: a second server or another
 tool cannot open the database while Pages runs.
@@ -1101,7 +1101,6 @@ All commands are scripts in `package.json`; run them with `pnpm run <script>`.
 | `test:backend`  | Backend unit tests with coverage (see [Unit tests](#unit-tests)).                                                                                         |
 | `test:frontend` | Frontend unit tests with coverage (see [Unit tests](#unit-tests)).                                                                                        |
 | `clean`         | Deletes the `build/` directory.                                                                                                                           |
-| `db:transfer`   | One-time copy of a database from the earlier SQLite version into a new DuckDB file: `pnpm db:transfer --source <pages.db> --target <pages.duckdb>`. Stop Pages first and work on a copy of the source. |
 
 There is no `test` script. CI runs `check` and `lint` on pushes to `main` and
 on pull requests.
@@ -1148,7 +1147,7 @@ aliases are in [tests/README.md](./tests/README.md).
 | `definition/`  | Shared types and contracts                                               |
 | `language/`    | i18next setup and the German and English translations                    |
 | `tests/`       | Unit-test scopes and setup                                               |
-| `scripts/`     | Maintenance scripts (`db:transfer`)                                      |
+| `scripts/`     | Maintenance and proof scripts (`acp:smoke`)                              |
 | `mcp/`         | Independent MCP server package with its own manifest and lockfile        |
 | `assets/`      | Logo, README banner and the Pica mascot (`assets/pica/`)                 |
 | `server.mjs`   | Entry point of the production server                                     |
@@ -1173,7 +1172,7 @@ Further documentation:
 - **Do not experiment with production data.** The development server uses the
   `~/.pages/config.toml` of the current operating-system account, the same file
   a production instance of that account uses. Experiment under a separate
-  account or `HOME`, and try transfers or migrations on copies of the database.
+  account or `HOME`, and try migrations on copies of the database.
 - **Treat the setup link as a secret.** While the setup is pending, anyone with
   the link can create the first administrator.
 
