@@ -6,7 +6,11 @@ import {
 } from "@/backend/database/RowValue";
 import { ChatError } from "@/backend/error/ChatErrors";
 
-import type { Database, DatabaseValue } from "@/backend/database/Database";
+import type {
+  Database,
+  DatabaseTransaction,
+  DatabaseValue,
+} from "@/backend/database/Database";
 import type { ChatMessage, ChatSession } from "@/definition/Chat";
 
 /** Characters of the first message shown to recognize a session. */
@@ -49,6 +53,45 @@ const SESSION_COLUMNS = `
         ORDER BY chat_messages.position
         LIMIT 1
     ) AS preview`;
+
+/** Removes the Pica jobs of a session with their journal, steers, selections and agent session. */
+async function removeAcpJobs(
+  transaction: DatabaseTransaction,
+  sessionId: string,
+): Promise<void> {
+  const parameters = { session_id: sessionId };
+  await transaction.execute(
+    `
+    DELETE FROM chat_job_events
+    WHERE job_id IN (
+        SELECT id
+        FROM chat_jobs
+        WHERE session_id = $session_id
+    );
+  `,
+    parameters,
+  );
+  await transaction.execute(
+    `
+    DELETE FROM chat_job_turns
+    WHERE job_id IN (
+        SELECT id
+        FROM chat_jobs
+        WHERE session_id = $session_id
+    );
+  `,
+    parameters,
+  );
+  for (const table of ["chat_jobs", "chat_steers", "chat_selections"] as const)
+    await transaction.execute(
+      `DELETE FROM ${table} WHERE session_id = $session_id;`,
+      parameters,
+    );
+  await transaction.execute(
+    "DELETE FROM chat_acp_sessions WHERE chat_session_id = $session_id;",
+    parameters,
+  );
+}
 
 /** Every session query is bound to its owner; administrators have no other read path. */
 export class ChatSessionRepository {
@@ -221,6 +264,7 @@ export class ChatSessionRepository {
         "DELETE FROM chat_messages WHERE session_id = $session_id;",
         { session_id: sessionId },
       );
+      await removeAcpJobs(transaction, sessionId);
       await transaction.execute(
         "DELETE FROM chat_sessions WHERE id = $session_id;",
         { session_id: sessionId },

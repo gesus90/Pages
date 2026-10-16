@@ -16,6 +16,7 @@ import type {
   ChatSession,
   ChatSessionView,
 } from "@/definition/Chat";
+import type { ChatSessionActivity } from "@/definition/ChatJob";
 import type { User } from "@/definition/User";
 import type { ChatSettingsService } from "./ChatSettingsService";
 
@@ -34,6 +35,19 @@ export interface ChatSessionDependencies {
   readonly files: Pick<WikiFileStore, "remove">;
   /** Draws a session ID; five random words by default. */
   readonly createId?: () => string;
+  /** Jobs, steers and selection snapshots of the Codex path; absent without it. */
+  readonly activity?: (
+    userId: string,
+    sessionId: string,
+  ) => Promise<ChatSessionActivity>;
+}
+
+/** What deleting a session also ends: its running job before, its files after. */
+export interface ChatSessionDeletionEffects {
+  /** Stops the job of the session and waits until its process is gone. */
+  readonly before: (userId: string, sessionId: string) => Promise<void>;
+  /** Removes what the session left outside the database. */
+  readonly after: (sessionId: string) => Promise<void>;
 }
 
 /**
@@ -91,10 +105,20 @@ export function readChatDeletionIds(input: unknown): readonly string[] {
 export class ChatSessionService {
   private readonly dependencies: ChatSessionDependencies;
   private readonly createId: () => string;
+  private deletionEffects: ChatSessionDeletionEffects | null = null;
 
   public constructor(dependencies: ChatSessionDependencies) {
     this.dependencies = dependencies;
     this.createId = dependencies.createId ?? (() => createChatSessionId());
+  }
+
+  /**
+   * Connects deletion to the jobs of the Codex path, which are built on this service.
+   *
+   * @param effects - Stops a running job before and cleans up after each deletion.
+   */
+  public setDeletionEffects(effects: ChatSessionDeletionEffects): void {
+    this.deletionEffects = effects;
   }
 
   /** Opens the most recently used session, or a new one for a first visit. */
@@ -103,7 +127,7 @@ export class ChatSessionService {
     const [latest] = await this.dependencies.sessions.list(actor.id, 1);
     const session = latest ?? (await this.createSession(actor.id));
     const [view, settings, confirmationWord] = await Promise.all([
-      this.viewOf(session),
+      this.viewOf(session, actor.id),
       this.dependencies.settings.read(),
       this.confirmationWord(actor.id),
     ]);
@@ -132,7 +156,7 @@ export class ChatSessionService {
 
   /** Switches to an own session. */
   public async view(actor: User, sessionId: unknown): Promise<ChatSessionView> {
-    return this.viewOf(await this.require(actor, sessionId));
+    return this.viewOf(await this.require(actor, sessionId), actor.id);
   }
 
   /**
@@ -151,9 +175,11 @@ export class ChatSessionService {
     const id = readChatSessionId(sessionId);
     if (confirmation !== (await this.confirmationWord(actor.id)))
       throw new ChatError("confirmationRequired");
+    await this.deletionEffects?.before(actor.id, id);
     const files = await this.dependencies.sessions.remove(actor.id, id);
     if (files === null) throw new ChatError("sessionMissing");
     await this.dependencies.files.remove(files);
+    await this.deletionEffects?.after(id);
   }
 
   /**
@@ -174,11 +200,14 @@ export class ChatSessionService {
     const cleanupFailed: string[] = [];
     for (const id of ids) {
       try {
+        // A running answer ends before its conversation disappears.
+        await this.deletionEffects?.before(actor.id, id);
         const files = await this.dependencies.sessions.remove(actor.id, id);
         if (files === null) throw new ChatError("sessionMissing");
         deleted.push(id);
         try {
           await this.dependencies.files.remove(files);
+          await this.deletionEffects?.after(id);
         } catch {
           cleanupFailed.push(id);
         }
@@ -213,12 +242,17 @@ export class ChatSessionService {
     return chatConfirmationWord(settings?.language);
   }
 
-  private async viewOf(session: ChatSession): Promise<ChatSessionView> {
-    const [messages, attachments] = await Promise.all([
+  private async viewOf(
+    session: ChatSession,
+    userId: string,
+  ): Promise<ChatSessionView> {
+    const [messages, attachments, activity] = await Promise.all([
       this.dependencies.sessions.messages(session.id),
       this.dependencies.attachments.list(session.id),
+      this.dependencies.activity?.(userId, session.id),
     ]);
     return {
+      ...(activity ? { activity } : {}),
       session,
       messages: messages.map((message) => ({
         ...message,

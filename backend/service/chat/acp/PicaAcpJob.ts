@@ -1,0 +1,687 @@
+import { randomUUID } from "node:crypto";
+
+import { createRuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
+import { SerialQueue } from "@/backend/concurrency/SerialQueue";
+import { AgentError } from "@/backend/error/AgentErrors";
+import { ChatError } from "@/backend/error/ChatErrors";
+import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { redactAssistantCredentials } from "@/backend/service/assistant/TextAssistantValidation";
+import { CHAT_LIMITS } from "@/definition/Chat";
+import { acpRunOptions } from "@/definition/AgentConfiguration";
+
+import { createPicaTools } from "../PicaTools";
+import { PicaWriteConfirmation } from "../PicaWriteConfirmation";
+import {
+  picaSteerText,
+  picaTurnPrompt,
+  readPicaAttachments,
+} from "./PicaAcpContent";
+import { PicaAcpJournal } from "./PicaAcpJournal";
+import { PicaAcpSteering } from "./PicaAcpSteering";
+import { PicaAcpUpdates } from "./PicaAcpUpdates";
+
+import type { PromptCapabilities } from "@agentclientprotocol/sdk";
+import type { AcpSteerOutcome } from "@/backend/agents/acp/AcpChat";
+import type {
+  AgentPlanSessionInput,
+  PlanExecution,
+  PlanSession,
+  PlanSessionObserver,
+  PlanSessionTurn,
+} from "@/backend/agents/AgentPlanExecution";
+import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
+import type { ExecutionAuthorizer } from "@/backend/agents/ScopedExecution";
+import type { ChatAcpSessionRepository } from "@/backend/database/repositories/chat/ChatAcpSessionRepository";
+import type { ChatJobRepository } from "@/backend/database/repositories/chat/ChatJobRepository";
+import type { ChatSessionRepository } from "@/backend/database/repositories/chat/ChatSessionRepository";
+import type { ChatSteerRepository } from "@/backend/database/repositories/chat/ChatSteerRepository";
+import type { AgentPlanExecutionInput } from "@/backend/service/agents/AgentPlanStepStart";
+import type { ResolvedAgentAssignment } from "@/backend/service/agents/AgentAssignmentResolution";
+import type {
+  ChatContextUsage,
+  ChatCost,
+  ChatJobState,
+  ChatJobUsage,
+  ChatSelectionItem,
+  ChatSteerStatus,
+  ChatTokenUsage,
+} from "@/definition/ChatJob";
+import type { User } from "@/definition/User";
+import type { ChatSessionService } from "../ChatSessionService";
+import type { ChatToolExecutor } from "../ChatToolExecutor";
+import type { PicaBridge, PicaBridgeLease } from "./PicaBridge";
+import type { PicaAttachmentReader, PicaTurnBrief } from "./PicaAcpContent";
+import type { PicaAcpMessage } from "./PicaAcpSteering";
+
+/** The Codex profile Pica runs in; a stored session of another profile is not continued. */
+export const PICA_ACP_PROFILE = "pica-chat-1";
+
+/** What a job needs from Pages; every write path is an existing one. */
+export interface PicaAcpJobDependencies {
+  readonly plans: Pick<PlanExecution, "open">;
+  readonly jobs: Pick<
+    ChatJobRepository,
+    "append" | "finish" | "saveContext" | "saveTurn"
+  >;
+  readonly steers: Pick<ChatSteerRepository, "update" | "select">;
+  readonly acpSessions: Pick<ChatAcpSessionRepository, "save">;
+  readonly messages: Pick<ChatSessionRepository, "append" | "messages">;
+  readonly attachments: PicaAttachmentReader;
+  readonly bridge: Pick<PicaBridge, "open">;
+  readonly tools: Pick<ChatToolExecutor, "run">;
+  /** The scope of the connection, checked again before every tool call. */
+  readonly access: ExecutionAuthorizer;
+  readonly sessions: Pick<ChatSessionService, "require">;
+}
+
+/** One job: the conversation, the pinned agent and the message it answers. */
+export interface PicaAcpJobSpecification {
+  readonly id: string;
+  readonly actor: User;
+  readonly sessionId: string;
+  readonly agent: ResolvedAgentAssignment;
+  /** The fixed working directory of the conversation. */
+  readonly directory: string;
+  readonly message: PicaAcpMessage;
+  /** Instructions and context with the transcript, for a new agent session. */
+  readonly brief: PicaTurnBrief;
+  /** The agent session to continue; `null` starts a new one. */
+  readonly resumeSessionId: string | null;
+  /** Runs a task in the queue of the conversation. */
+  readonly gate: <Result>(task: () => Promise<Result>) => Promise<Result>;
+}
+
+/** How a job ended. */
+interface PicaAcpOutcome {
+  readonly state: Exclude<ChatJobState, "running">;
+  readonly errorCode: string | null;
+}
+
+/** A turn failed with a stable code. */
+class PicaAcpJobError extends Error {
+  public readonly code: string;
+
+  public constructor(code: string) {
+    super(code);
+    this.name = "PicaAcpJobError";
+    this.code = code;
+  }
+}
+
+/** Waits for the Codex thread to leave the state of a running turn. */
+class PicaAcpThreadWatch {
+  private hasBeenActive = false;
+  private hasEnded = false;
+  private wake: (() => void) | null = null;
+
+  /** Forgets what came before; activity from now on belongs to a turn of the adapter. */
+  public reset(): void {
+    this.hasBeenActive = false;
+    this.hasEnded = false;
+  }
+
+  /** Receives a thread status of the adapter. */
+  public observe(isActive: boolean): void {
+    if (isActive) {
+      this.hasBeenActive = true;
+      return;
+    }
+    if (!this.hasBeenActive) return;
+    this.hasEnded = true;
+    this.wake?.();
+  }
+
+  /** Resolves once a turn began and ended after the last reset. */
+  public async ended(signal: AbortSignal): Promise<void> {
+    if (this.hasEnded) return;
+    await new Promise<void>((resolve, reject) => {
+      const abort = (): void => reject(new PicaAcpJobError("cancelled"));
+      this.wake = () => {
+        signal.removeEventListener("abort", abort);
+        resolve();
+      };
+      signal.addEventListener("abort", abort, { once: true });
+      if (signal.aborted) abort();
+    });
+    this.wake = null;
+  }
+}
+
+function requireCompleted(result: PlanSessionTurn): void {
+  if (result.errorCode !== null)
+    throw new PicaAcpJobError(
+      result.errorCode === "plan_mcp_unavailable"
+        ? "bridgeUnavailable"
+        : result.errorCode,
+    );
+  if (result.failure === null) return;
+  throw new PicaAcpJobError(
+    result.failure === "timeout" ? "timeout" : "providerFailed",
+  );
+}
+
+function readAnswer(output: string): string {
+  const answer = redactAssistantCredentials(output.trim());
+  if (!answer || Array.from(answer).length > CHAT_LIMITS.answerCharacters)
+    throw new PicaAcpJobError("invalidOutput");
+  return answer;
+}
+
+function errorCodeOf(error: unknown): string | null {
+  if (error instanceof PicaAcpJobError) return error.code;
+  if (
+    error instanceof AgentError ||
+    error instanceof ChatError ||
+    error instanceof TextAssistantError
+  )
+    return error.code;
+  return null;
+}
+
+/**
+ * One Pica answer over Codex ACP that runs on the server (PAGE-68).
+ *
+ * @remarks
+ * The job pins the agent that was assigned when the message was sent. It
+ * holds one ACP lease of the shared scheduler while it runs: the turn of its
+ * message, every message steered into that turn and every follow-up turn.
+ * Afterwards it closes the process; the next job continues the same agent
+ * session. Everything the browser shows is in the journal, so the browser
+ * may leave and come back; only an explicit stop ends the job early.
+ */
+export class PicaAcpJob {
+  public readonly id: string;
+  public readonly userId: string;
+  private readonly dependencies: PicaAcpJobDependencies;
+  private readonly specification: PicaAcpJobSpecification;
+  private readonly journal: PicaAcpJournal;
+  private readonly updates: PicaAcpUpdates;
+  private readonly steering: PicaAcpSteering;
+  private readonly thread = new PicaAcpThreadWatch();
+  private readonly writes = new SerialQueue();
+  private readonly tokens = new Map<
+    number,
+    Omit<ChatTokenUsage, "isPartial"> | null
+  >();
+  private readonly selected = new Set<string>();
+  /** Opened when the job runs, so a job that never ran leaves no token behind. */
+  private bridge: PicaBridgeLease | null = null;
+  private context: RuntimeExecutionContext | null = null;
+  private session: PlanSession | null = null;
+  private acpSessionId: string | null = null;
+  private capabilities: PromptCapabilities | null | undefined;
+  private confirmations: PicaWriteConfirmation | null = null;
+  private usage: Pick<ChatJobUsage, "context" | "cost"> = {
+    context: null,
+    cost: null,
+  };
+  private turn = 0;
+  private isTurnRunning = false;
+  private isStopRequested = false;
+
+  public constructor(
+    dependencies: PicaAcpJobDependencies,
+    specification: PicaAcpJobSpecification,
+  ) {
+    this.id = specification.id;
+    this.userId = specification.actor.id;
+    this.dependencies = dependencies;
+    this.specification = specification;
+    this.journal = new PicaAcpJournal(dependencies.jobs, specification.id);
+    this.updates = new PicaAcpUpdates({
+      text: (isReset, delta) => this.journal.text(this.turn, isReset, delta),
+      context: (context, cost) => this.recordContext(context, cost),
+      tokens: (tokens) => this.recordTokens(this.turn, tokens),
+      threadStatus: (isActive) => this.thread.observe(isActive),
+    });
+    this.steering = new PicaAcpSteering({
+      gate: specification.gate,
+      status: (messageId, status) => this.recordSteer(messageId, status),
+      isTurnRunning: () => this.isTurnRunning && this.session !== null,
+      deliver: (message) => this.deliver(message),
+    });
+  }
+
+  /** Whether the job still takes messages; checked inside the queue of the conversation. */
+  public isAccepting(): boolean {
+    return this.steering.isAccepting();
+  }
+
+  /**
+   * Takes a message sent while the job runs; call it inside the queue of the conversation.
+   *
+   * @returns Its first status, or `null` once the job no longer takes messages.
+   */
+  public steer(message: PicaAcpMessage): Promise<ChatSteerStatus | null> {
+    return this.steering.accept(message);
+  }
+
+  /** Marks the coming cancellation as the person's explicit stop. */
+  public stop(): void {
+    this.isStopRequested = true;
+  }
+
+  /**
+   * Runs the job until its last turn ended, it failed or it was stopped.
+   *
+   * @param signal - The stop, the deadline and the server shutdown of the job.
+   */
+  public async run(signal: AbortSignal): Promise<void> {
+    let outcome: PicaAcpOutcome;
+    try {
+      await this.prepare(signal);
+      await this.execute(signal);
+      outcome = { state: "completed", errorCode: null };
+    } catch (error: unknown) {
+      outcome = this.outcomeOf(error, signal);
+    }
+    await this.finish(outcome);
+  }
+
+  private async prepare(signal: AbortSignal): Promise<void> {
+    const { actor, sessionId, agent } = this.specification;
+    const base = await createRuntimeExecutionContext(
+      { actor, sessionId, runId: this.id, signal },
+      this.dependencies.sessions,
+    );
+    this.context = Object.freeze({
+      ...base,
+      authorize: async () => {
+        await base.authorize();
+        await this.dependencies.access.requireUser(
+          actor.id,
+          agent.connection.id,
+        );
+        signal.throwIfAborted();
+      },
+    });
+    this.bridge = this.dependencies.bridge.open({
+      jobId: this.id,
+      catalog: createPicaTools({
+        tools: this.dependencies.tools,
+        message: "",
+        authorize: () => Promise.resolve(),
+      }).describe(),
+      onTool: (event) => {
+        void this.journal
+          .record({ kind: "tool", ...event })
+          .catch(() => undefined);
+      },
+    });
+    await this.journal.record({ kind: "phase", phase: "starting" });
+  }
+
+  private async execute(signal: AbortSignal): Promise<void> {
+    const { resumeSessionId } = this.specification;
+    let result = await this.firstTurn(resumeSessionId, signal);
+    let isResumed = resumeSessionId !== null;
+    // An agent session that cannot be continued is replaced once, visibly, with the transcript.
+    if (isResumed && result.errorCode === "acp_session_resume_failed") {
+      await this.closeSession();
+      isResumed = false;
+      result = await this.firstTurn(null, signal);
+    }
+    await this.journal.record({ kind: "session", isResumed });
+    requireCompleted(result);
+    await this.storeAnswer(result.output);
+    await this.continueTurns(signal);
+  }
+
+  private async firstTurn(
+    resumeSessionId: string | null,
+    signal: AbortSignal,
+  ): Promise<PlanSessionTurn> {
+    const { message, brief } = this.specification;
+    await this.beginTurn(message, "message");
+    // A continued agent session knows the conversation; a new one gets the transcript.
+    const turnBrief =
+      resumeSessionId === null
+        ? brief
+        : { ...brief, prompt: { ...brief.prompt, history: [], summary: null } };
+    const session = await this.dependencies.plans.open(
+      this.sessionInput(message, turnBrief, resumeSessionId),
+      signal,
+      this.observer(),
+    );
+    this.session = session;
+    await this.journal.record({ kind: "phase", phase: "running" });
+    return this.awaitTurn(session.turn);
+  }
+
+  private async continueTurns(signal: AbortSignal): Promise<void> {
+    for (;;) {
+      const next = await this.steering.next();
+      if (next === null) return;
+      if (next.origin === "adapter")
+        await this.adapterTurn(next.message, signal);
+      else await this.followUpTurn(next.message, signal);
+      this.steering.answered(next.message.id);
+    }
+  }
+
+  /** Follows a turn codex-acp started for a steer after its own turn ended. */
+  private async adapterTurn(
+    message: PicaAcpMessage,
+    signal: AbortSignal,
+  ): Promise<void> {
+    await this.beginTurn(message, "followUp");
+    await this.thread.ended(signal);
+    // The adapter returns no usage for a turn it started itself.
+    this.recordTokens(this.turn, null);
+    await this.storeAnswer(this.updates.answer());
+  }
+
+  private async followUpTurn(
+    message: PicaAcpMessage,
+    signal: AbortSignal,
+  ): Promise<void> {
+    const session = this.session;
+    if (!session?.next) throw new PicaAcpJobError("providerFailed");
+    await this.beginTurn(message, "followUp");
+    const { brief } = this.specification;
+    const input: AgentPlanExecutionInput = {
+      ...this.turnInput(message, {
+        ...brief,
+        prompt: { ...brief.prompt, history: [], summary: null },
+      }),
+      agent: this.specification.agent,
+      userId: this.userId,
+      directory: this.specification.directory,
+      beforeStart: () => this.authorize(),
+    };
+    const result = await this.awaitTurn(
+      session.next(input, signal, this.observer()),
+    );
+    requireCompleted(result);
+    await this.storeAnswer(result.output);
+  }
+
+  private async beginTurn(
+    message: PicaAcpMessage,
+    origin: "message" | "followUp",
+  ): Promise<void> {
+    const context = this.requireContext();
+    this.turn += 1;
+    const confirmations = new PicaWriteConfirmation(message.text);
+    this.confirmations = confirmations;
+    this.requireBridge().setTurn({
+      tools: createPicaTools({
+        tools: this.dependencies.tools,
+        message: message.text,
+        authorize: context.authorize,
+        confirmations,
+      }),
+      context,
+    });
+    await this.journal.record({ kind: "turn", turn: this.turn, origin });
+  }
+
+  private async awaitTurn(
+    pending: Promise<PlanSessionTurn>,
+  ): Promise<PlanSessionTurn> {
+    this.isTurnRunning = true;
+    try {
+      return await pending;
+    } finally {
+      this.isTurnRunning = false;
+      // Activity from now on belongs to a turn the adapter starts for a steer.
+      this.thread.reset();
+      await this.steering.settle();
+    }
+  }
+
+  private sessionInput(
+    message: PicaAcpMessage,
+    brief: PicaTurnBrief,
+    resumeSessionId: string | null,
+  ): AgentPlanSessionInput {
+    const { agent, directory } = this.specification;
+    return {
+      ...this.turnInput(message, brief),
+      agent,
+      userId: this.userId,
+      directory,
+      options: acpRunOptions("read_only", 0),
+      instanceId: randomUUID(),
+      mcp: null,
+      chat: {
+        mcpServers: [this.requireBridge().server],
+        resumeSessionId,
+        listener: this.updates,
+      },
+      beforeStart: () => this.authorize(),
+    };
+  }
+
+  private turnInput(
+    message: PicaAcpMessage,
+    brief: PicaTurnBrief,
+  ): Pick<AgentPlanExecutionInput, "prompt" | "promptContent"> {
+    return {
+      prompt: picaTurnPrompt(brief, message.text, message.attachments),
+      promptContent: async (capabilities) => {
+        this.capabilities = capabilities;
+        const content = await readPicaAttachments(
+          message.attachments,
+          this.dependencies.attachments,
+          capabilities,
+        );
+        await this.select(message.id, content.items);
+        return content.blocks;
+      },
+    };
+  }
+
+  private async deliver(message: PicaAcpMessage): Promise<AcpSteerOutcome> {
+    const session = this.session;
+    if (!session?.steer || !this.isTurnRunning) return "inactive";
+    // A confirmation line of the steer is the person's own, for the turn it joins.
+    this.confirmations?.add(message.text);
+    const content = await readPicaAttachments(
+      message.attachments,
+      this.dependencies.attachments,
+      this.capabilities,
+    );
+    await this.select(message.id, content.items);
+    return session.steer([
+      { type: "text", text: picaSteerText(message.text) },
+      ...content.blocks,
+    ]);
+  }
+
+  private async select(
+    messageId: string,
+    items: readonly ChatSelectionItem[],
+  ): Promise<void> {
+    // The snapshot is written once; a repeated prompt of the same message sends the same.
+    if (this.selected.has(messageId)) return;
+    this.selected.add(messageId);
+    await this.dependencies.steers.select(this.specification.sessionId, {
+      messageId,
+      items,
+    });
+  }
+
+  private async storeAnswer(output: string): Promise<void> {
+    const content = readAnswer(output);
+    const message = await this.dependencies.messages.append(
+      this.userId,
+      this.specification.sessionId,
+      { role: "assistant", content },
+    );
+    await this.journal.record({
+      kind: "answer",
+      turn: this.turn,
+      messageId: message.id,
+    });
+  }
+
+  private async recordSteer(
+    messageId: string,
+    status: ChatSteerStatus,
+  ): Promise<void> {
+    await this.dependencies.steers.update(messageId, status);
+    await this.journal.record({ kind: "steer", messageId, status });
+  }
+
+  private recordContext(
+    context: ChatContextUsage,
+    cost: ChatCost | null,
+  ): void {
+    // Context is replaced, never added up; a cost stays until the adapter reports another.
+    this.usage = { context, cost: cost ?? this.usage.cost };
+    const { usage } = this;
+    void this.writes
+      .run(async () => {
+        await this.dependencies.jobs.saveContext(this.id, context, usage.cost);
+        await this.journal.record({
+          kind: "usage",
+          usage: this.currentUsage(),
+        });
+      })
+      .catch(() => {
+        console.error("[pages] The usage of a Pica job could not be stored.");
+      });
+  }
+
+  private recordTokens(
+    turn: number,
+    tokens: Omit<ChatTokenUsage, "isPartial"> | null,
+  ): void {
+    // One entry per turn: a repeated report replaces it instead of counting twice.
+    this.tokens.set(turn, tokens);
+    void this.writes
+      .run(async () => {
+        await this.dependencies.jobs.saveTurn(this.id, turn, tokens);
+        await this.journal.record({
+          kind: "usage",
+          usage: this.currentUsage(),
+        });
+      })
+      .catch(() => {
+        console.error("[pages] The usage of a Pica job could not be stored.");
+      });
+  }
+
+  private currentUsage(): ChatJobUsage {
+    const turns = [...this.tokens.values()];
+    const reported = turns.filter(
+      (entry): entry is Omit<ChatTokenUsage, "isPartial"> => entry !== null,
+    );
+    const sum = (field: "input" | "output" | "total"): number =>
+      reported.reduce((total, entry) => total + entry[field], 0);
+    return {
+      ...this.usage,
+      tokens:
+        reported.length === 0
+          ? null
+          : {
+              input: sum("input"),
+              output: sum("output"),
+              total: sum("total"),
+              isPartial: reported.length < turns.length,
+            },
+    };
+  }
+
+  private observer(): PlanSessionObserver {
+    return {
+      started: () => undefined,
+      identified: (sessionId) => {
+        this.acpSessionId = sessionId;
+      },
+    };
+  }
+
+  private authorize(): Promise<void> {
+    return this.requireContext().authorize();
+  }
+
+  private requireBridge(): PicaBridgeLease {
+    if (this.bridge === null) throw new PicaAcpJobError("general");
+    return this.bridge;
+  }
+
+  private requireContext(): RuntimeExecutionContext {
+    if (this.context === null) throw new PicaAcpJobError("general");
+    return this.context;
+  }
+
+  private outcomeOf(error: unknown, signal: AbortSignal): PicaAcpOutcome {
+    if (signal.aborted) {
+      if (signal.reason === "timeout")
+        return { state: "failed", errorCode: "timeout" };
+      return this.isStopRequested
+        ? { state: "stopped", errorCode: null }
+        : { state: "interrupted", errorCode: "interrupted" };
+    }
+    const code = errorCodeOf(error);
+    if (code !== null) return { state: "failed", errorCode: code };
+    // Only the kind of error is logged, never the conversation.
+    console.error(
+      "[pages] A Pica job failed.",
+      error instanceof Error ? error.name : typeof error,
+    );
+    return { state: "failed", errorCode: "general" };
+  }
+
+  private async finish(outcome: PicaAcpOutcome): Promise<void> {
+    this.bridge?.setTurn(null);
+    await this.attempt("phase", () =>
+      this.journal.record({ kind: "phase", phase: "finishing" }),
+    );
+    await this.closeSession();
+    this.bridge?.close();
+    await this.attempt("steers", () => this.steering.close());
+    await this.attempt("agent session", () => this.saveSession());
+    await this.attempt("end", async () => {
+      await this.writes.idle();
+      await this.journal.record({ kind: "end", ...outcome });
+      await this.journal.drain();
+    });
+    await this.attempt("state", () =>
+      this.dependencies.jobs.finish(this.id, outcome.state, outcome.errorCode),
+    );
+  }
+
+  private async closeSession(): Promise<void> {
+    const session = this.session;
+    this.session = null;
+    if (session === null) return;
+    await this.attempt("closeout", async () => {
+      await session.close();
+    });
+  }
+
+  private async saveSession(): Promise<void> {
+    if (this.acpSessionId === null) return;
+    const { agent, sessionId } = this.specification;
+    const messages = await this.dependencies.messages.messages(sessionId);
+    await this.dependencies.acpSessions.save({
+      chatSessionId: sessionId,
+      userId: this.userId,
+      connectionId: agent.connection.id,
+      model: agent.model,
+      reasoningEffort: agent.reasoningEffort,
+      profile: PICA_ACP_PROFILE,
+      acpSessionId: this.acpSessionId,
+      throughMessageId: messages.at(-1)?.id ?? null,
+    });
+  }
+
+  /** Runs one step of the closeout; a failure is logged by kind and does not skip the others. */
+  private async attempt(
+    step: string,
+    task: () => Promise<void>,
+  ): Promise<void> {
+    try {
+      await task();
+    } catch (error: unknown) {
+      console.error(
+        "[pages] A Pica job closeout step failed.",
+        step,
+        error instanceof Error ? error.name : typeof error,
+      );
+    }
+  }
+}

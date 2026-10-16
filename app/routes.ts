@@ -15,6 +15,7 @@ export default [
   route("health", "routes/health.ts"),
   route("api/v1/agent-assets", "routes/api-v1-agent-assets.ts"),
   route("api/v1/agents", "routes/api-v1-agents.ts"),
+  route("api/v1/pica-bridge", "routes/api-v1-pica-bridge.ts"),
   route("api/v1/pairing/:endpoint?", "routes/api-v1-pairing.ts"),
   route("pair", "routes/pair.tsx"),
   route("discord/callback", "routes/discord-callback.ts"),

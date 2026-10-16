@@ -1,4 +1,5 @@
 import { ChatError } from "@/backend/error/ChatErrors";
+import { isApiProvider } from "@/definition/AgentConnection";
 import { redactAssistantCredentials } from "@/backend/service/assistant/TextAssistantValidation";
 
 import { selectChatHistory } from "./ChatPrompt";
@@ -17,6 +18,7 @@ import type { AgentCatalogRepository } from "@/backend/database/repositories/age
 import type { AgentProfileService } from "@/backend/service/agents/AgentProfileService";
 import type { AssistantRequestRegistry } from "@/backend/service/assistant/AssistantRequestRegistry";
 import type { ChatCompactionResult, ChatContextSize } from "@/definition/Chat";
+import type { ChatContextUsage } from "@/definition/ChatJob";
 import type { User } from "@/definition/User";
 import type { ChatSessionService } from "./ChatSessionService";
 
@@ -38,6 +40,14 @@ interface ChatContextDependencies {
   readonly catalogs: Pick<AgentCatalogRepository, "find">;
   readonly execution: TextExecution;
   readonly requests: AssistantRequestRegistry;
+  /**
+   * The context occupancy the ACP adapter of the session reported last
+   * (PAGE-68); a Codex agent shows only that, never a Pages estimate.
+   */
+  readonly adapterContext?: (
+    userId: string,
+    sessionId: string,
+  ) => Promise<ChatContextUsage | null>;
 }
 
 function effectiveHistory(
@@ -96,10 +106,20 @@ export class ChatContextService {
     return effectiveHistory(stored, messages);
   }
 
-  /** Estimates conversation tokens; a missing model catalog leaves the limit unknown. */
+  /**
+   * Estimates conversation tokens; a missing model catalog leaves the limit unknown.
+   *
+   * @remarks
+   * For an ACP agent the context lives in the agent session, so only what its
+   * adapter reported is shown, and nothing when it reported nothing.
+   */
   public async size(actor: User, input: unknown): Promise<ChatContextSize> {
-    const history = await this.history(actor, readChatSessionId(input));
-    return estimatedSize(history, await this.limit(actor.id));
+    const sessionId = readChatSessionId(input);
+    const history = await this.history(actor, sessionId);
+    return (
+      (await this.adapterSize(actor.id, sessionId)) ??
+      estimatedSize(history, await this.limit(actor.id))
+    );
   }
 
   /** Shares the send registry, preventing simultaneous compaction or sending for this person. */
@@ -178,6 +198,29 @@ export class ChatContextService {
     return {
       status: "compacted",
       context: estimatedSize(replacement, await this.limit(actor.id)),
+    };
+  }
+
+  private async adapterSize(
+    userId: string,
+    sessionId: string,
+  ): Promise<ChatContextSize | null> {
+    const { adapterContext, agents } = this.dependencies;
+    if (!adapterContext) return null;
+    let isAcp: boolean;
+    try {
+      const agent = await agents.resolve(userId, "chat");
+      isAcp = !isApiProvider(agent.connection.provider);
+    } catch {
+      return null;
+    }
+    if (!isAcp) return null;
+    const reported = await adapterContext(userId, sessionId);
+    return {
+      tokens: reported?.used ?? null,
+      limit: reported?.size ?? null,
+      isEstimated: false,
+      source: "adapter",
     };
   }
 

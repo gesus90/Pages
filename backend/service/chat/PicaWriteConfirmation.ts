@@ -19,6 +19,11 @@ export class PicaWriteConfirmation {
   private readonly permitted = new Set<string>();
 
   public constructor(message: string) {
+    this.add(message);
+  }
+
+  /** Adds the lines of another human message of the same turn, such as a steer. */
+  public add(message: string): void {
     for (const line of message.split(/\r?\n/u)) this.readLine(line);
   }
 

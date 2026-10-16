@@ -45,6 +45,7 @@ import { WikiService } from "@/backend/service/WikiService";
 import { WikiFileStore } from "@/backend/storage/WikiFileStore";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 import { SetupService } from "@/backend/setup/SetupService";
+import { PICA_WORKSPACE_DIRECTORY_NAME } from "@/backend/service/chat/acp/PicaAcpWorkspace";
 import mcpManifest from "@/mcp/package.json";
 
 import { startExecutionServices } from "./agent-execution-services.server";
@@ -56,7 +57,10 @@ import { createDiscordServices } from "./discord-services.server";
 import type { AgentAssetService } from "@/backend/service/agents/AgentAssetService";
 import type { TaskService } from "@/backend/service/TaskService";
 import type { AgentApplicationServices } from "./agent-services.server";
-import type { ChatApplicationServices } from "./chat-services.server";
+import type {
+  ChatApplicationServices,
+  PicaAcpSettings,
+} from "./chat-services.server";
 import type { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
 import type { AgentPlanMcpSettings } from "@/backend/service/agents/AgentPlanSessionAccess";
 import type { TextAssistantApplicationServices } from "./text-assistant-services.server";
@@ -304,7 +308,7 @@ async function initializeServices(
     new SessionService(new SessionRepository(database), userService),
   );
 
-  const mcpServices = startMcpWorkspace({
+  const mcpServices = await startMcpWorkspace({
     database,
     databasePath,
     accounts: { users: userService, administration: administrationService },
@@ -359,6 +363,26 @@ function planMcpSettings(port: number): AgentPlanMcpSettings {
   };
 }
 
+/**
+ * Where Pica's Codex sessions reach the tool bridge and keep their working directories.
+ *
+ * @remarks
+ * The bridge uses the same local address as the Pages MCP process of plan
+ * nodes. The working directories lie next to the agent folders, outside the
+ * folders the isolation hides.
+ */
+async function picaAcpSettings(): Promise<PicaAcpSettings> {
+  const runtime = await getPagesRuntime();
+  const { url } = planMcpSettings(runtime.getConfig().port);
+  return {
+    bridgeUrl: `${url.replace(/\/$/u, "")}/api/v1/pica-bridge`,
+    workspaceRoot: path.join(
+      path.dirname(runtime.configFile.path),
+      PICA_WORKSPACE_DIRECTORY_NAME,
+    ),
+  };
+}
+
 /** An environment variable with content; empty counts as unset. */
 function configuredValue(name: string): string | null {
   const value = process.env[name]?.trim();
@@ -395,7 +419,7 @@ async function preparePlanService(
  * Builds the agent write services and the chat on the same operation catalog,
  * and shares the existing maintenance scheduler.
  */
-function startMcpWorkspace(context: {
+async function startMcpWorkspace(context: {
   readonly database: Database;
   readonly databasePath: string;
   readonly accounts: {
@@ -413,7 +437,7 @@ function startMcpWorkspace(context: {
     "gitHubSyncService" | "pagesEventPublisher"
   >;
   readonly serverCache: ServerCache;
-}): McpApplicationServices & ChatApplicationServices {
+}): Promise<McpApplicationServices & ChatApplicationServices> {
   // The publisher of the ticket pages, on its own repository: agent ticket changes
   // follow the same GitHub rule once they are committed.
   const taskRepository = new TaskRepository(context.database);
@@ -443,6 +467,7 @@ function startMcpWorkspace(context: {
       accounts: context.accounts,
       agents: context.agents,
       router: services.chatOperationRouter,
+      acp: await picaAcpSettings(),
     }),
   };
 }

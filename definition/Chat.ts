@@ -1,6 +1,7 @@
 import type { AgentProviderId } from "./AgentConnection";
 import type { ChatTemporaryPassword } from "./AgentAdministration";
 import type { ChatSession } from "./ChatSessionOperations.js";
+import type { ChatJobStart, ChatSessionActivity, ChatSteer } from "./ChatJob";
 
 export type {
   ChatSession,
@@ -99,6 +100,8 @@ export interface ChatSessionView {
   readonly messages: readonly ChatMessage[];
   /** Attachments uploaded for the next message and not sent yet. */
   readonly pending: readonly ChatAttachment[];
+  /** Jobs, steers and selection snapshots of the Codex path (PAGE-68). */
+  readonly activity?: ChatSessionActivity;
 }
 
 /** What the chat panel needs when it opens. */
@@ -115,6 +118,12 @@ export interface ChatReply {
   /** One-time receipts for the signed-in administrator; absent from stored conversation history. */
   readonly temporaryPasswords?: readonly ChatTemporaryPassword[];
 }
+
+/** What became of a sent message: an answer, a job that runs on, or a steer into a running job. */
+export type ChatSendResult =
+  | { readonly kind: "reply"; readonly reply: ChatReply }
+  | { readonly kind: "job"; readonly job: ChatJobStart }
+  | { readonly kind: "steer"; readonly steer: ChatSteer };
 
 /** Session IDs are five lowercase words joined by hyphens (T6.12.2). */
 export const CHAT_SESSION_ID_PATTERN = /^[a-z]{2,12}(?:-[a-z]{2,12}){4}$/u;
@@ -140,6 +149,8 @@ export interface ChatContextSize {
   readonly tokens: number | null;
   readonly limit: number | null;
   readonly isEstimated: boolean;
+  /** `adapter`: the occupancy the ACP adapter reported last, not an estimate of Pages. */
+  readonly source?: "adapter";
 }
 
 /** The manual compaction result; the displayed transcript is never replaced. */

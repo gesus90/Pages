@@ -29,7 +29,11 @@ import type { UserSettingsRepository } from "@/backend/database/repositories/Use
 import type { AssistantRequestRegistry } from "@/backend/service/assistant/AssistantRequestRegistry";
 import type { ResolvedAgentAssignment } from "@/backend/service/agents/AgentAssignmentResolution";
 import type { AgentProfileService } from "@/backend/service/agents/AgentProfileService";
-import type { ChatConfirmationWord, ChatReply } from "@/definition/Chat";
+import type {
+  ChatConfirmationWord,
+  ChatReply,
+  ChatSendResult,
+} from "@/definition/Chat";
 import type { ChatTemporaryPassword } from "@/definition/AgentAdministration";
 import type { User } from "@/definition/User";
 import type { ChatAttachmentService } from "./ChatAttachmentService";
@@ -45,12 +49,14 @@ import type { ChatSettingsService } from "./ChatSettingsService";
 import type { ChatToolExecutor } from "./ChatToolExecutor";
 import type { PicaInstructions } from "./PicaInstructionFiles";
 import type { PicaApiService } from "./PicaApiService";
+import type { PicaAcpService } from "./acp/PicaAcpService";
+import type { PicaTurnBrief } from "./acp/PicaAcpContent";
 
 /** Actions the agent may run for one message before it has to answer. */
 export const CHAT_MAXIMUM_ACTIONS = 6;
 
 /** Characters of one text attachment the agent receives. */
-const ATTACHMENT_CHARACTERS = 30_000;
+export const CHAT_ATTACHMENT_CHARACTERS = 30_000;
 
 const IDENTIFIER = /^[a-zA-Z0-9-]{1,100}$/u;
 
@@ -79,7 +85,12 @@ interface ChatDependencies {
 /** Explicit composition switch: production selects native API; legacy never runs as a fallback. */
 export type ChatServiceDependencies = ChatDependencies &
   (
-    | { readonly mode: "native-api"; readonly api: Pick<PicaApiService, "run"> }
+    | {
+        readonly mode: "native-api";
+        readonly api: Pick<PicaApiService, "run">;
+        /** Codex CLI agents over ACP (PAGE-68); without it only API agents answer. */
+        readonly acp?: Pick<PicaAcpService, "steer" | "start">;
+      }
     | {
         readonly mode: "legacy-actions";
         readonly execution: TextExecution;
@@ -109,6 +120,21 @@ interface ChatTurn {
 interface ChatAnswer {
   readonly text: string;
   readonly temporaryPasswords: readonly ChatTemporaryPassword[];
+}
+
+/** What every prompt of one message is built from, before its attachments. */
+interface ChatBrief extends PicaTurnBrief {
+  readonly confirmationWord: ChatConfirmationWord;
+  readonly canSearchWeb: boolean;
+}
+
+/** The conversation a brief describes. */
+interface ChatBriefInput {
+  readonly actor: User;
+  readonly agent: ResolvedAgentAssignment;
+  readonly protectedInstructions: PicaInstructions;
+  readonly history: readonly StoredChatMessage[];
+  readonly summary?: string | null;
 }
 
 interface LegacyAnswerInput {
@@ -197,6 +223,42 @@ export class ChatService {
     );
   }
 
+  /**
+   * Sends one message on the path its agent requires (PAGE-68).
+   *
+   * @param actor - The signed-in person.
+   * @param input - Request ID, session, text and the IDs of unsent attachments.
+   * @returns The answer of an API agent; for a Codex CLI agent the started job,
+   * which runs on without the browser; while such a job runs, the steer that
+   * joins it.
+   * @throws {ChatError} `acpProviderUnsupported` for an agent that is neither an
+   * API connection nor Codex CLI; there is no fallback to another path.
+   */
+  public async submit(actor: User, input: unknown): Promise<ChatSendResult> {
+    requireChatActor(actor);
+    const request = readSendRequest(input);
+    const acp =
+      this.dependencies.mode === "native-api" ? this.dependencies.acp : null;
+    if (!acp) return { kind: "reply", reply: await this.send(actor, input) };
+    // A running job takes the message first; its agent stays pinned for its turns.
+    const steer = await acp.steer(actor, request);
+    if (steer) return { kind: "steer", steer };
+    const agent = await this.dependencies.agents.resolve(actor.id, "chat");
+    if (isApiProvider(agent.connection.provider))
+      return { kind: "reply", reply: await this.send(actor, input) };
+    if (agent.connection.provider !== "codex_cli")
+      throw new ChatError("acpProviderUnsupported");
+    return {
+      kind: "job",
+      job: await acp.start({
+        actor,
+        request,
+        agent,
+        brief: await this.acpBrief(actor, agent, request.sessionId),
+      }),
+    };
+  }
+
   /** Cancels a running answer of the person; others' requests stay untouched. */
   public cancel(actor: User, requestId: unknown): void {
     requireChatActor(actor);
@@ -266,32 +328,12 @@ export class ChatService {
     turn: ChatTurn,
     signal: AbortSignal,
   ): Promise<ChatAnswer> {
-    const settings = await this.dependencies.languages.findByUserId(
-      turn.actor.id,
-    );
-    const confirmationWord = chatConfirmationWord(settings?.language);
-    const isNative = this.dependencies.mode === "native-api";
-    const canSearchWeb =
-      !isNative && canChatSearchWeb(turn.agent.connection.provider);
-    const instructions = createChatInstructions({
-      protectedInstructions: turn.protectedInstructions,
-      supplement: await this.dependencies.settings.instruction(),
-      personName: turn.actor.displayName,
-      confirmationWord,
-      canSearchWeb,
-      maximumActions: CHAT_MAXIMUM_ACTIONS,
-      nativeTools: isNative,
-    } satisfies ChatInstructionInput);
+    const brief = await this.brief(turn);
+    const { instructions, confirmationWord, canSearchWeb } = brief;
     const prompt: Omit<ChatPromptInput, "steps" | "isLastStep"> = {
-      personName: turn.actor.displayName,
-      interfaceLanguage: settings?.language ?? "de",
-      today:
-        this.dependencies.today?.() ?? new Date().toISOString().slice(0, 10),
-      history: turn.history,
-      summary: turn.summary,
+      ...brief.prompt,
       message: turn.request.text,
       attachments: await this.promptAttachments(turn.attachments),
-      nativeTools: isNative,
     };
     if (this.dependencies.mode === "native-api") {
       const output = await this.dependencies.api.run(
@@ -314,6 +356,63 @@ export class ChatService {
       { turn, prompt, instructions, confirmationWord, canSearchWeb },
       signal,
     );
+  }
+
+  /** Instructions and conversation context of one message, as every path builds them. */
+  private async brief(input: ChatBriefInput): Promise<ChatBrief> {
+    const settings = await this.dependencies.languages.findByUserId(
+      input.actor.id,
+    );
+    const confirmationWord = chatConfirmationWord(settings?.language);
+    const isNative = this.dependencies.mode === "native-api";
+    const canSearchWeb =
+      !isNative && canChatSearchWeb(input.agent.connection.provider);
+    const instructions = createChatInstructions({
+      protectedInstructions: input.protectedInstructions,
+      supplement: await this.dependencies.settings.instruction(),
+      personName: input.actor.displayName,
+      confirmationWord,
+      canSearchWeb,
+      maximumActions: CHAT_MAXIMUM_ACTIONS,
+      nativeTools: isNative,
+    } satisfies ChatInstructionInput);
+    return {
+      instructions,
+      confirmationWord,
+      canSearchWeb,
+      prompt: {
+        personName: input.actor.displayName,
+        interfaceLanguage: settings?.language ?? "de",
+        today:
+          this.dependencies.today?.() ?? new Date().toISOString().slice(0, 10),
+        history: input.history,
+        summary: input.summary,
+        nativeTools: isNative,
+      },
+    };
+  }
+
+  /** The brief of a Codex job: Pica's protected files, read anew, and the transcript. */
+  private async acpBrief(
+    actor: User,
+    agent: ResolvedAgentAssignment,
+    sessionId: string,
+  ): Promise<PicaTurnBrief> {
+    const { sessions, messages } = this.dependencies;
+    const session = await sessions.require(actor, sessionId);
+    const protectedInstructions =
+      await this.dependencies.protectedInstructions();
+    const context = this.dependencies.context
+      ? await this.dependencies.context.history(actor, session.id)
+      : { messages: await messages.messages(session.id), summary: null };
+    const brief = await this.brief({
+      actor,
+      agent,
+      protectedInstructions,
+      history: context.messages,
+      summary: context.summary,
+    });
+    return { instructions: brief.instructions, prompt: brief.prompt };
   }
 
   private async legacyAnswer(
@@ -397,7 +496,7 @@ export class ChatService {
         text: isChatTextAttachment(attachment.contentType)
           ? await this.dependencies.attachments.readText(
               attachment,
-              ATTACHMENT_CHARACTERS,
+              CHAT_ATTACHMENT_CHARACTERS,
             )
           : null,
       });

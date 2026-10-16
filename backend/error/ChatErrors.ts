@@ -17,7 +17,8 @@ export type ChatErrorCode =
   | "stepLimit"
   | "contextChanged"
   | "compactionFailed"
-  | "instructionsUnavailable";
+  | "instructionsUnavailable"
+  | "acpProviderUnsupported";
 
 /** Stable, translated chat failures; they never carry message text or provider output. */
 export class ChatError extends Error {

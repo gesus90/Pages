@@ -60,6 +60,8 @@ export interface AgentApplicationServices extends AgentConfigurationApplicationS
   readonly agentChatExecution: TextExecution;
   /** Native Pica models share connection locks and authorization with the existing execution paths. */
   readonly picaApiModels: PicaApiModels;
+  /** The scope of every connection, checked again before each Pica bridge call (PAGE-68). */
+  readonly agentConnectionAccess: AgentConnectionAccess;
   /**
    * Running chat answers. One answer may run several model calls, so its
    * deadline is longer than that of the text assistant; shutdown cancels them
@@ -266,6 +268,7 @@ export function createAgentServices(
     ...configuration,
     ...github,
     acpResourceScheduler,
+    agentConnectionAccess: access,
     agentAssignmentService: new AgentAssignmentService({
       assignments: new AgentAssignmentRepository(database),
       connections: repository,

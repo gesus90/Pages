@@ -30,13 +30,7 @@ export class AssistantRequestRegistry {
     id: string,
     work: (signal: AbortSignal) => Promise<Result>,
   ): Promise<Result> {
-    if (
-      this.isStopped ||
-      this.requests.has(id) ||
-      this.requests.size >= this.limits.capacity ||
-      [...this.requests.values()].some((entry) => entry.userId === userId)
-    )
-      throw new TextAssistantError("requestBusy");
+    this.requireAdmission(userId, id);
     const controller = new AbortController();
     const timer = setTimeout(
       () => controller.abort("timeout"),
@@ -60,6 +54,21 @@ export class AssistantRequestRegistry {
     }
   }
 
+  /**
+   * Admits work that outlives the request which started it, such as a Pica job.
+   *
+   * @returns The running work; it settles like {@link run}.
+   * @throws {TextAssistantError} `requestBusy` synchronously, before anything runs.
+   */
+  public start<Result>(
+    userId: string,
+    id: string,
+    work: (signal: AbortSignal) => Promise<Result>,
+  ): Promise<Result> {
+    this.requireAdmission(userId, id);
+    return this.run(userId, id, work);
+  }
+
   /** A forged cancellation cannot abort another user's request. */
   public cancel(userId: string, id: string): void {
     const pending = this.requests.get(id);
@@ -72,5 +81,15 @@ export class AssistantRequestRegistry {
     const pending = [...this.requests.values()];
     for (const request of pending) request.controller.abort("cancelled");
     await Promise.allSettled(pending.map((request) => request.completed));
+  }
+
+  private requireAdmission(userId: string, id: string): void {
+    if (
+      this.isStopped ||
+      this.requests.has(id) ||
+      this.requests.size >= this.limits.capacity ||
+      [...this.requests.values()].some((entry) => entry.userId === userId)
+    )
+      throw new TextAssistantError("requestBusy");
   }
 }

@@ -1,6 +1,7 @@
 import { RuntimeToolRegistry } from "@/backend/agents/runtime/RuntimeToolRegistry";
 import { redactAssistantCredentials } from "@/backend/service/assistant/TextAssistantValidation";
 
+import { CHAT_MAXIMUM_ACTIONS } from "./ChatService";
 import { PICA_TOOL_OUTCOME, PICA_TOOL_SCHEMAS } from "./PicaToolSchemas";
 import { PicaWriteConfirmation } from "./PicaWriteConfirmation";
 
@@ -13,12 +14,15 @@ export interface PicaToolsInput {
   readonly tools: Pick<ChatToolExecutor, "run">;
   readonly message: string;
   readonly authorize: () => Promise<void>;
+  /** Write confirmations of the turn; a steer adds its lines to them. Defaults to the message's own. */
+  readonly confirmations?: PicaWriteConfirmation;
 }
 
 /** Creates five native tools with fixed service dispatch, fresh rights and exact write confirmations. */
 export function createPicaTools(input: PicaToolsInput): RuntimeToolRegistry {
   const registry = new RuntimeToolRegistry();
-  const confirmations = new PicaWriteConfirmation(input.message);
+  const confirmations =
+    input.confirmations ?? new PicaWriteConfirmation(input.message);
   let calls = 0;
   const execute = async (
     operation: string,
@@ -27,7 +31,8 @@ export function createPicaTools(input: PicaToolsInput): RuntimeToolRegistry {
   ): Promise<PicaToolOutcome> => {
     await input.authorize();
     context.signal.throwIfAborted();
-    if (calls >= 6) return { ok: false, result: null, error: "STEP_LIMIT" };
+    if (calls >= CHAT_MAXIMUM_ACTIONS)
+      return { ok: false, result: null, error: "STEP_LIMIT" };
     calls += 1;
     const outcome = await input.tools.run(
       context.userId,

@@ -213,6 +213,34 @@ export class ChatAttachmentService {
       .join("");
   }
 
+  /**
+   * Reads a whole attachment for the agent, such as an image.
+   *
+   * @param attachment - An attachment of a session whose owner was checked.
+   * @param maximumBytes - The largest file the agent receives.
+   * @returns The bytes, or `null` when the file is larger.
+   */
+  public async readBytes(
+    attachment: StoredChatAttachment,
+    maximumBytes: number,
+  ): Promise<Buffer | null> {
+    if (attachment.size > maximumBytes) return null;
+    const chunks: Buffer[] = [];
+    let bytes = 0;
+    const stream = this.dependencies.files.open(attachment.storageName);
+    try {
+      // A file stream without an encoding yields buffers.
+      for await (const chunk of stream as AsyncIterable<Buffer>) {
+        bytes += chunk.length;
+        if (bytes > maximumBytes) return null;
+        chunks.push(chunk);
+      }
+    } finally {
+      stream.destroy();
+    }
+    return Buffer.concat(chunks);
+  }
+
   private async require(
     actor: User,
     id: unknown,
