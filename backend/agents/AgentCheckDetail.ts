@@ -29,7 +29,7 @@ export function sanitizeCheckDetail(input: unknown): AgentCheckDetail {
   }
   const effort: unknown = Reflect.get(input, "reasoningEffort");
   if (isReasoningEffortToken(effort)) detail.reasoningEffort = effort;
-  for (const key of ["model", "endpoint", "cliVersion"]) {
+  for (const key of ["model", "endpoint", "cliVersion", "modelProvider"]) {
     const value: unknown = Reflect.get(input, key);
     if (typeof value === "string" && /^[\w.:/+@-]{1,200}$/.test(value))
       detail[key] = value;

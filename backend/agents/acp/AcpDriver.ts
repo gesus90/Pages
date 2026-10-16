@@ -8,7 +8,7 @@ import type { CliHome } from "@/backend/agents/cli/CliContracts";
 import type { CliSessionMcp } from "@/backend/agents/cli/CliSessionPlans";
 import type {
   AcpPermissionMode,
-  AcpProviderId,
+  NativeAcpProviderId,
 } from "@/definition/AgentConfiguration";
 import type { AcpLaunch } from "./AcpLaunch";
 
@@ -32,6 +32,8 @@ export interface AcpConfigStep {
    * only that the adapter accepted it.
    */
   readonly isResolvedByAdapter?: boolean;
+  /** A default reset may be absent for a model with no effort selector. */
+  readonly isOptional?: boolean;
 }
 
 /** The fields of the run record and the identifier of the option each one is read from. */
@@ -100,6 +102,8 @@ export interface AcpLaunchSpecification {
   readonly mcp: CliSessionMcp | null;
   /** A chat session takes the chat profile of the runner; plan nodes are the default. */
   readonly purpose?: AcpSessionPurpose;
+  /** Exact assignment, also used to pin a native runner's internal helper models. */
+  readonly model?: AcpModelRequest;
 }
 
 /**
@@ -111,9 +115,11 @@ export interface AcpLaunchSpecification {
  * could widen a session.
  */
 export interface AcpDriver {
-  readonly provider: AcpProviderId;
+  readonly provider: NativeAcpProviderId;
   /** The executable of the adapter, installed next to the runner CLI. */
   readonly binary: string;
+  /** Native runners have their own subcommand; external adapters need no arguments. */
+  readonly arguments?: readonly string[];
   /** The adapter versions Pages verified, as the run record names them. */
   readonly supportedVersions: string;
   readonly errors: AcpDriverErrors;

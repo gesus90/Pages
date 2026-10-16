@@ -46,7 +46,11 @@ export class AcpResourceRepository implements AcpResourceStore {
     `);
     return rows.map((row) => {
       const provider = readTextColumn(row, 2, "provider");
-      if (provider !== "codex_cli" && provider !== "claude_code")
+      if (
+        provider !== "codex_cli" &&
+        provider !== "claude_code" &&
+        provider !== "opencode"
+      )
         throw new Error("Invalid ACP lease provider");
       return {
         instanceId: readTextColumn(row, 0, "instance_id"),

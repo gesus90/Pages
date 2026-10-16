@@ -84,7 +84,7 @@ function readCursor(input: unknown): number {
 
 /**
  * Pica over ACP: jobs that run without the browser, steering and their
- * journal, with Codex CLI (PAGE-68) or Claude Code (PAGE-90).
+ * journal, with Codex CLI, Claude Code or native OpenCode (PAGE-91).
  *
  * @remarks
  * Every conversation has one queue; a sent message passes it and either joins
@@ -135,8 +135,8 @@ export class PicaAcpService {
    * Stores the message and starts its job, which runs on without the browser.
    *
    * @throws {TextAssistantError} `requestBusy` while another answer of the person runs.
-   * @throws {ChatError} `acpProviderUnsupported` for an agent that is neither a
-   * Codex CLI nor a Claude Code connection, `acpPermissionModeUnsupported` for
+   * @throws {ChatError} `acpProviderUnsupported` for an unsupported ACP
+   * connection, `acpPermissionModeUnsupported` for
    * a mode the runner does not run Pica in; both before anything is stored.
    */
   public async start(input: PicaAcpStart): Promise<ChatJobStart> {

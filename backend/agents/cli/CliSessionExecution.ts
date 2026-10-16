@@ -17,6 +17,7 @@ import { createCliEnvironment } from "./CliEnvironment";
 import { closeCliSession } from "./CliSessionCloseout";
 import { createCliSessionState } from "./CliSessionEvents";
 import { planCliSession, unsupportedRunOption } from "./CliSessionPlans";
+import { readOpenCodeModelProvider } from "./OpenCodeCredentials";
 
 import type {
   AgentPlanSessionInput,
@@ -28,7 +29,11 @@ import type { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceS
 import type { AcpDriver } from "@/backend/agents/acp/AcpDriver";
 import type { AcpLaunch } from "@/backend/agents/acp/AcpLaunch";
 import type { AcpSessionRequest } from "@/backend/agents/acp/AcpSession";
-import type { AcpPermissionMode } from "@/definition/AgentConfiguration";
+import type { AgentErrorCode } from "@/backend/error/AgentErrors";
+import type {
+  AcpPermissionMode,
+  NativeAcpProviderId,
+} from "@/definition/AgentConfiguration";
 import type { CliProviderId } from "@/definition/AgentConnection";
 import type { AgentCliRuntime } from "./AgentCliRuntime";
 import type { AgentCredentialStore } from "./AgentCredentialStore";
@@ -125,8 +130,8 @@ export class CliSessionExecution implements PlanSessionRunner {
     signal: AbortSignal,
     observer: PlanSessionObserver,
   ): Promise<PlanSession> {
-    const provider = input.agent.connection.provider;
-    if (isAcpProvider(provider) && this.dependencies.resources)
+    const provider = sessionAcpProvider(input);
+    if (provider !== null && this.dependencies.resources)
       return this.dependencies.resources.open(
         {
           instanceId: input.instanceId,
@@ -169,7 +174,7 @@ export class CliSessionExecution implements PlanSessionRunner {
   ): Promise<VerifiedStart> {
     const { provider, id } = input.agent.connection;
     if (isApiProvider(provider)) throw new AgentError("provider_invalid");
-    const unsupported = unsupportedRunOption(provider, input.options);
+    const unsupported = sessionRunOptionError(input);
     if (unsupported !== null) throw new AgentError(unsupported);
     const { runtime, store, locator } = this.dependencies;
     const home = await store.prepare(id, provider);
@@ -185,9 +190,11 @@ export class CliSessionExecution implements PlanSessionRunner {
         );
       const location = await locator.find(provider);
       if (!location.path) throw new AgentError("cli_not_executable");
-      const acpAdapter = isAcpProvider(provider)
-        ? await this.verifyAcp(acpDriverFor(provider), input, home)
-        : null;
+      const acpProvider = sessionAcpProvider(input);
+      const acpAdapter =
+        acpProvider !== null
+          ? await this.verifyAcp(acpDriverFor(acpProvider), input, home)
+          : null;
       await input.beforeStart?.();
       if (signal.aborted) throw new AgentPlanCancelledError();
       return { provider, home, file: location.path, adapter: acpAdapter };
@@ -203,6 +210,11 @@ export class CliSessionExecution implements PlanSessionRunner {
     input: AgentPlanSessionInput,
     home: CliHome,
   ): Promise<string> {
+    if (driver.provider === "opencode") {
+      const provider = await readOpenCodeModelProvider(home);
+      if (!input.agent.model.startsWith(`${provider}/`))
+        throw new AgentError("plan_model_unavailable");
+    }
     const location = await this.dependencies.locator.locate(driver.binary);
     if (!location.path) throw new AgentError(driver.errors.adapterMissing);
     await driver.requireManagedConfiguration(home, input.directory);
@@ -214,8 +226,10 @@ export class CliSessionExecution implements PlanSessionRunner {
     start: VerifiedStart,
     control: SessionControl,
   ): Promise<PlanSession> {
-    if (isAcpProvider(start.provider))
-      return this.spawnAcp(acpDriverFor(start.provider), input, start, control);
+    const acpProvider = sessionAcpProvider(input);
+    if (acpProvider !== null)
+      return this.spawnAcp(acpDriverFor(acpProvider), input, start, control);
+    if (isAcpProvider(start.provider)) throw new AgentError("provider_invalid");
     if ((await readTicketAssetInput(input)).length > 0)
       throw new AgentError("parameter_asset_transfer_unsupported");
     const plan = planCliSession(start.provider, {
@@ -298,6 +312,10 @@ export class CliSessionExecution implements PlanSessionRunner {
       profile,
       mcp: input.mcp,
       purpose,
+      model: {
+        model: input.agent.model,
+        reasoningEffort: input.agent.reasoningEffort,
+      },
     });
     const channel = new AcpLineChannel();
     const github = await this.prepareGitHub(input, start, mode);
@@ -307,7 +325,7 @@ export class CliSessionExecution implements PlanSessionRunner {
         file: start.adapter,
         provider: start.provider,
         home: start.home,
-        arguments: [],
+        arguments: driver.arguments ?? [],
         workingDirectory: input.directory,
         isWorkingDirectoryReadOnly: mode === "read_only",
         credentialDirectory: github?.directory,
@@ -443,6 +461,28 @@ export class CliSessionExecution implements PlanSessionRunner {
     }
     return { request, isIsolated: false };
   }
+}
+
+/** Keeps OpenCode's chat restrictions separate from its existing plan options. */
+function sessionRunOptionError(
+  input: AgentPlanSessionInput,
+): AgentErrorCode | null {
+  const provider = input.agent.connection.provider;
+  if (isApiProvider(provider)) return "provider_invalid";
+  if (input.chat && provider === "opencode")
+    return input.options.access === "read_only"
+      ? null
+      : "opencode_chat_mode_required";
+  return unsupportedRunOption(provider, input.options);
+}
+
+/** Selects ACP for existing plan runners and for Pica's native OpenCode sessions. */
+function sessionAcpProvider(
+  input: AgentPlanSessionInput,
+): NativeAcpProviderId | null {
+  const provider = input.agent.connection.provider;
+  if (isAcpProvider(provider)) return provider;
+  return provider === "opencode" && input.chat ? provider : null;
 }
 
 /** What the ACP session runs; a chat session brings its own MCP bridge and continuation. */

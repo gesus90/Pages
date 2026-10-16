@@ -3,7 +3,11 @@ import {
   readAcpUpdate,
 } from "@/backend/agents/acp/AcpEvents";
 
-import type { SessionUpdate, Usage } from "@agentclientprotocol/sdk";
+import type {
+  PromptCapabilities,
+  SessionUpdate,
+  Usage,
+} from "@agentclientprotocol/sdk";
 import type { AcpSessionListener } from "@/backend/agents/acp/AcpChat";
 import type {
   ChatContextUsage,
@@ -17,6 +21,11 @@ const CLAUDE_COMPACTION_TOOL = "compact";
 
 /** Where the updates of a Pica session go. */
 export interface PicaAcpUpdateSink {
+  /** Whether the adapter announced a supported way to inject messages into a running turn. */
+  readonly steering?: (
+    canSteer: boolean,
+    capabilities: PromptCapabilities | null | undefined,
+  ) => void;
   /** New text of the current message of a turn; `isReset` begins another message. */
   readonly text: (turn: number, isReset: boolean, delta: string) => void;
   /** The latest occupancy, `null` while the adapter reports none that holds, and the cost. */
@@ -46,6 +55,8 @@ export interface PicaAcpUpdateSink {
 export interface PicaAcpUpdateOptions {
   /** The adapter computes the cost itself, so every amount is an estimate. */
   readonly isCostEstimated: boolean;
+  /** The reported amount belongs to the native session, including earlier jobs. */
+  readonly isCostSessionTotal?: boolean;
 }
 
 function isCount(value: unknown): value is number {
@@ -59,7 +70,12 @@ function readCost(
   if (!update.cost) return null;
   const { amount, currency } = update.cost;
   return Number.isFinite(amount) && currency
-    ? { amount, currency, isEstimated: options.isCostEstimated }
+    ? {
+        amount,
+        currency,
+        isEstimated: options.isCostEstimated,
+        ...(options.isCostSessionTotal ? { scope: "session" as const } : {}),
+      }
     : null;
 }
 
@@ -154,7 +170,8 @@ function readTokens(
     usage === null ||
     !isCount(usage.inputTokens) ||
     !isCount(usage.outputTokens) ||
-    !isCount(usage.totalTokens)
+    !isCount(usage.totalTokens) ||
+    usage.totalTokens === 0
   )
     return null;
   return {
@@ -187,6 +204,14 @@ export class PicaAcpUpdates implements AcpSessionListener {
     this.sink = sink;
     this.options = options;
   }
+
+  /** Reports the negotiated contract independently of turn and queue state. */
+  public readonly initialized = (
+    canSteer: boolean,
+    capabilities: PromptCapabilities | null | undefined,
+  ): void => {
+    this.sink.steering?.(canSteer, capabilities);
+  };
 
   /** Receives one update of the adapter. */
   public readonly update = (update: SessionUpdate): void => {

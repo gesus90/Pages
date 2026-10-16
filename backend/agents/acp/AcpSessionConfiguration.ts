@@ -75,6 +75,7 @@ async function select(
 ): Promise<readonly SessionConfigOption[]> {
   const option = findAcpSelectOption(selection.options, selection.id);
   if (option === null) {
+    if (selection.isOptional) return selection.options;
     noteRefusal(target, selection, "is not an option of the adapter");
     throw new AgentError(
       selection.refusal === "plan_reasoning_unsupported"

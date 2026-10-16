@@ -357,7 +357,7 @@ export class AcpSession implements PlanSession {
   }
 
   private hasConfigurationChanged(): boolean {
-    if (this.context.driver.provider !== "codex_cli") return false;
+    if (this.context.driver.provider === "claude_code") return false;
     const expected = this.expectedConfiguration;
     if (!expected) return false;
     const conflict = ["sessionMode", "model", "reasoningEffort"].find(
@@ -382,6 +382,10 @@ export class AcpSession implements PlanSession {
     );
     this.promptCapabilities = response.agentCapabilities?.promptCapabilities;
     this.isSteeringSupported = isAcpSteeringSupported(response._meta);
+    this.context.listener?.initialized?.(
+      this.isSteeringSupported,
+      this.promptCapabilities,
+    );
     const { driver } = this.context;
     const agent = response.agentInfo;
     const adapter = agent ? `${agent.name} ${agent.version}` : "unknown";

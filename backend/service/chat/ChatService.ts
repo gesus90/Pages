@@ -92,7 +92,7 @@ export type ChatServiceDependencies = ChatDependencies &
     | {
         readonly mode: "native-api";
         readonly api: Pick<PicaApiService, "run">;
-        /** Codex CLI (PAGE-68) and Claude Code (PAGE-90) agents over ACP; without it only API agents answer. */
+        /** Supported ACP chat runners, including native OpenCode; without it only API agents answer. */
         readonly acp?: Pick<PicaAcpService, "steer" | "start" | "outcome">;
       }
     | {
@@ -242,13 +242,13 @@ export class ChatService {
    * @param actor - The signed-in person.
    * @param input - Request ID, client message ID, session, text and the IDs of
    * unsent attachments.
-   * @returns The answer of an API agent; for a Codex CLI or Claude Code agent
+   * @returns The answer of an API agent; for a supported ACP chat agent
    * the started job, which runs on without the browser; while such a job runs,
    * the steer that joins it.
    * @throws {ChatError} `acpProviderUnsupported` for an agent that is neither an
-   * API connection nor Codex CLI nor Claude Code; there is no fallback to
+   * API connection nor a supported ACP chat runner; there is no fallback to
    * another path.
-   * @throws {ChatError} `acpPermissionModeUnsupported` for a Claude Code agent
+   * @throws {ChatError} `acpPermissionModeUnsupported` for a Claude Code or OpenCode agent
    * whose stored mode is not "Nur Lesen".
    * @throws {ChatError} `messageAlreadySent` for a message sent again whose
    * first sending took neither a job nor a steer.

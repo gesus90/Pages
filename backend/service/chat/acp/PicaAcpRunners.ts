@@ -8,8 +8,8 @@ import type { ResolvedAgentAssignment } from "@/backend/service/agents/AgentAssi
 import type { AgentRunOptions } from "@/definition/AgentConfiguration";
 import type { AgentProviderId } from "@/definition/AgentConnection";
 
-/** The CLI runners Pica answers with over ACP: Codex (PAGE-68) and Claude Code (PAGE-90). */
-export type PicaAcpProvider = "codex_cli" | "claude_code";
+/** The CLI runners Pica answers with over ACP, including native OpenCode (PAGE-91). */
+export type PicaAcpProvider = "codex_cli" | "claude_code" | "opencode";
 
 /** What differs between the runners of Pica's ACP path. */
 export interface PicaAcpRunner {
@@ -18,6 +18,10 @@ export interface PicaAcpRunner {
   readonly profile: string;
   /** Whether the cost the adapter reports is its own estimate rather than a billed amount. */
   readonly isCostEstimated: boolean;
+  /** OpenCode reports only the last model step of a tool loop, never its complete turn. */
+  readonly hasPartialTokenUsage?: boolean;
+  /** Whether the adapter's cost includes the whole native session, across jobs. */
+  readonly isCostSessionTotal?: boolean;
   /**
    * The run options of a job, taken from the assignment.
    *
@@ -57,11 +61,36 @@ const CLAUDE_RUNNER: PicaAcpRunner = {
   },
 };
 
+/** OpenCode's native ACP session shares the chat lifecycle and never exposes built-in tools. */
+const OPENCODE_RUNNER: PicaAcpRunner = {
+  provider: "opencode",
+  profile: "pica-opencode-chat-1",
+  isCostEstimated: true,
+  hasPartialTokenUsage: true,
+  isCostSessionTotal: true,
+  runOptions: (agent) => {
+    const run = agentRunOptionsFor(agent.connection.provider, agent.run);
+    if (run.access !== "read_only")
+      throw new ChatError("acpPermissionModeUnsupported");
+    return run;
+  },
+};
+
+const RUNNERS: Readonly<Record<PicaAcpProvider, PicaAcpRunner>> = {
+  codex_cli: CODEX_RUNNER,
+  claude_code: CLAUDE_RUNNER,
+  opencode: OPENCODE_RUNNER,
+};
+
 /** Whether Pica answers with an agent of this provider over ACP. */
 export function isPicaAcpProvider(
   provider: AgentProviderId,
 ): provider is PicaAcpProvider {
-  return provider === "codex_cli" || provider === "claude_code";
+  return (
+    provider === "codex_cli" ||
+    provider === "claude_code" ||
+    provider === "opencode"
+  );
 }
 
 /**
@@ -76,5 +105,5 @@ export function picaAcpRunner(agent: ResolvedAgentAssignment): PicaAcpRunner {
   const { provider } = agent.connection;
   if (!isPicaAcpProvider(provider))
     throw new ChatError("acpProviderUnsupported");
-  return provider === "codex_cli" ? CODEX_RUNNER : CLAUDE_RUNNER;
+  return RUNNERS[provider];
 }

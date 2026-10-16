@@ -137,7 +137,7 @@ describe("createCliTerminalCommand", () => {
 
   it.each([
     ["claude_code", "'auth' 'login' '--claudeai'"],
-    ["opencode", "'providers' 'login' '--provider' 'openrouter'"],
+    ["opencode", "'providers' 'login'"],
   ] as const)("uses the official sign-in command of %s", (provider, tail) => {
     const command = createCliTerminalCommand(HOME, provider, EXECUTABLE);
     expect(command.endsWith(`'${EXECUTABLE}' ${tail}`)).toBe(true);

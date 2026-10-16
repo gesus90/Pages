@@ -477,7 +477,7 @@
         "anthropic": "Anthropic",
         "codex_cli": "Codex CLI (ChatGPT-Konto)",
         "claude_code": "Claude Code (Claude-Abo)",
-        "opencode": "OpenCode (OpenRouter-Schlüssel)"
+        "opencode": "OpenCode"
       },
       "providerShort": {
         "openrouter": "OpenRouter API",
@@ -624,7 +624,11 @@
         "parameter_ticket_changed": "Die Assetreferenzen des Tickets wurden vor der Übergabe geändert. Den Lauf erneut starten, um die aktuellen Assets zu verwenden.",
         "parameter_ticket_unavailable": "Das gewählte Ticket ist nicht verfügbar oder nicht zugänglich. Ein zugängliches Ticket auswählen.",
         "timeout": "Das harte Zeitlimit des Agents ist abgelaufen. Der laufende Vorgang wurde unterbrochen.",
-        "run_notes_unsupported": "Gemeinsame Laufnotizen wurden entfernt. {{@run.notes}} wird nicht mehr unterstützt. Passe den betroffenen Agent oder Plan-Knoten ausdrücklich an."
+        "run_notes_unsupported": "Gemeinsame Laufnotizen wurden entfernt. {{@run.notes}} wird nicht mehr unterstützt. Passe den betroffenen Agent oder Plan-Knoten ausdrücklich an.",
+        "opencode_chat_mode_required": "Pica benötigt für OpenCode Workspace-Zugriff „Nur Lesen“ und bietet ausschließlich die Pages-Toolbrücke an.",
+        "opencode_configuration_unmanaged": "OpenCode könnte fremde Einstellungen oder Anweisungen laden. Entferne diese aus dem Konfigurationsordner der Verbindung oder /etc/opencode. Es wurde kein Modell aufgerufen.",
+        "opencode_acp_unsupported": "Pica benötigt den geprüften nativen ACP-Vertrag von OpenCode 1.18.34. Die installierte Version oder ihr Vertrag weicht davon ab; es wurde kein Modell aufgerufen.",
+        "opencode_acp_session_failed": "Die native OpenCode-ACP-Sitzung ist vor oder während der Antwort fehlgeschlagen."
       },
       "description": "Verwalten Sie die benannten KI-Anbindungen und Funktionszuordnungen dieser Pages-Instanz.",
       "adminModeRequired": "Die Agents-Einstellungen sind nur im Admin-Modus verfügbar. Ihr Konto ist derzeit im Rollenmodus.",
@@ -791,7 +795,8 @@
         "cliVersion": "CLI-Version",
         "authMethod": "Anmeldeart",
         "costUsd": "Rechnerische Kosten laut CLI (USD)",
-        "reasoningEffort": "Reasoning-Stufe"
+        "reasoningEffort": "Reasoning-Stufe",
+        "modelProvider": "Modellprovider in OpenCode"
       },
       "yes": "Ja",
       "no": "Nein",
@@ -974,13 +979,13 @@
         "chooseTicket": "Ticket auswählen (kein Standardwert)",
         "unavailableTicket": "Angebundenes Ticket nicht zugänglich"
       },
-      "openCodeKey": "OpenRouter-API-Schlüssel für OpenCode",
-      "openCodeKeyHint": "Pages legt den Schlüssel nur im privaten Anmeldeordner dieser Verbindung ab, in OpenCodes eigener Schlüsseldatei. Er erscheint danach nirgends mehr.",
+      "openCodeKey": "API-Schlüssel für OpenCode",
+      "openCodeKeyHint": "Provider-ID und Schlüssel gehören zusammen. Modell-IDs behalten dieses Providerpräfix. Pages speichert den Schlüssel nur im privaten Anmeldeordner dieser Verbindung; er kommt nicht zum Browser zurück.",
       "openCodeKeyStore": "Schlüssel hinterlegen",
       "openCodeKeyReplace": "Schlüssel ersetzen",
       "run": {
         "title": "Laufoptionen",
-        "hint": "Workspace-, Shell- und Web-Berechtigungen gelten für den OpenCode-Runner. Sie arbeiten immer unbeaufsichtigt: Was nicht erlaubt ist, wird abgelehnt statt nachgefragt. Eine Kombination, die ein Runner nicht durchsetzen kann, blockiert den Start. Der Timeout gilt auch für API-Agents.",
+        "hint": "Workspace-, Shell- und Web-Berechtigungen gelten für den OpenCode-Runner. Sie arbeiten immer unbeaufsichtigt: Was nicht erlaubt ist, wird abgelehnt statt nachgefragt. Eine Kombination, die ein Runner nicht durchsetzen kann, blockiert den Start. Der Timeout gilt auch für API-Agents. Für Pica über OpenCode ist „Nur Lesen“ erforderlich; dort stehen ausschließlich die Pages-Werkzeuge zur Verfügung.",
         "access": "Zugriff auf den Workspace",
         "timeout": "Timeout (Minuten)",
         "shell": "Befehle im Workspace ausführen (Shell)",
@@ -1022,7 +1027,8 @@
         "paused": "Pausiert",
         "recovery": "Wartet auf Wiederherstellung beim Start",
         "scheduler_error": "Wartet nach Scheduler-Fehler"
-      }
+      },
+      "openCodeProvider": "Modellprovider in OpenCode (z. B. openrouter)"
     },
     "connections": {
       "title": "Verbindungen",
@@ -2986,7 +2992,8 @@
       "result": "{{count}} Sessions gelöscht.",
       "failed": "Nicht gelöscht bzw. Ergebnis unbestätigt: {{id}}.",
       "cleanupFailed": "Session {{id}} gelöscht; zugehörige Dateien konnten nicht vollständig entfernt werden.",
-      "pending": "Die ausgewählten Sessions werden gelöscht …"
+      "pending": "Die ausgewählten Sessions werden gelöscht …",
+      "nativeRetention": "Die Löschung entfernt den Pages-Verlauf und seine Anhänge. Lokal vom CLI-Agenten gespeicherte Sitzungen und beim Modellanbieter gespeicherte Daten werden dadurch nicht gelöscht."
     },
     "error": {
       "invalidInput": "Bitte die Eingabe prüfen.",
@@ -3020,10 +3027,10 @@
       "general": "Das hat nicht geklappt. Bitte versuch es noch einmal.",
       "contextChanged": "Der Kontext wurde inzwischen geändert. Es wurde nichts überschrieben; bitte /compact erneut aufrufen.",
       "compactionFailed": "Der Kontext konnte nicht komprimiert werden. Der vorhandene Gesprächsverlauf bleibt erhalten.",
-      "apiModeRequired": "Das geht nur mit einem API-Modell. Die Kontextkomprimierung mit /compact gibt es für Codex- und Claude-Code-Agenten nicht; sie verwalten den Kontext ihrer Sitzung selbst.",
+      "apiModeRequired": "Das geht nur mit einem API-Modell. Codex, Claude Code und OpenCode verwalten den Kontext ihrer nativen Sitzung selbst; /compact ist dort nicht verfügbar.",
       "instructionsUnavailable": "Pica kann gerade nicht antworten: Die geschützten Vorgaben von Pica fehlen auf dem Server oder sind nicht lesbar. Deine Nachricht wurde nicht gesendet. Bitte wende dich an einen Admin.",
-      "acpProviderUnsupported": "Pica kann mit dem zugewiesenen Chat-Agenten nicht antworten: Unterstützt sind API-Verbindungen sowie Codex CLI und Claude Code über ACP. Ein Admin muss unter Einstellungen › Agents einen solchen Agenten für den Chat zuweisen.",
-      "acpPermissionModeUnsupported": "Pica antwortet mit Claude Code nur im Modus „Nur Lesen“: Pica bekommt dort ausschließlich die Pages-Werkzeuge, keine Shell, keine Dateien und kein Web. Der zugewiesene Chat-Agent hat einen anderen Modus. Ein Admin stellt ihn unter Einstellungen › Agents auf „Nur Lesen“. Deine Nachricht wurde nicht gesendet.",
+      "acpProviderUnsupported": "Pica unterstützt API-Verbindungen sowie Codex CLI, Claude Code und OpenCode über ACP. Ein Admin muss unter Einstellungen › Agents einen solchen Agenten für den Chat zuweisen.",
+      "acpPermissionModeUnsupported": "Pica antwortet mit Claude Code und OpenCode nur mit Workspace-Zugriff „Nur Lesen“. Es stehen ausschließlich die autorisierten Pages-Werkzeuge zur Verfügung, keine Shell, Dateien oder Webwerkzeuge. Ein Admin muss den Modus des Chat-Agenten anpassen. Deine Nachricht wurde nicht gesendet.",
       "bridgeUnavailable": "Der Chat-Agent konnte die Pages-Werkzeuge von Pica nicht verbinden. Es wurde nichts geändert. Bitte versuch es noch einmal oder wende dich an einen Admin.",
       "interrupted": "Der Server wurde während der Antwort beendet. Die Antwort wird nicht automatisch wiederholt."
     },
@@ -3038,7 +3045,7 @@
       "limit": "Modelllimit: {{count}} Tokens",
       "limitUnknown": "Modelllimit unbekannt.",
       "utilization": "Geschätzter Gesprächsanteil am Modelllimit: {{percent}} %",
-      "adapterExplanation": "Kontextbelegung der Sitzung des Chat-Agenten (Codex oder Claude Code), wie der ACP-Adapter sie zuletzt gemeldet hat. Ohne gültige Meldung, etwa direkt nach einer Komprimierung, steht hier „nicht verfügbar“; Pages schätzt hier nicht."
+      "adapterExplanation": "Kontextbelegung der Sitzung des Chat-Agenten, wie vom Agenten zuletzt gemeldet. Ohne gültige Meldung steht hier „nicht verfügbar“; Pages schätzt hier nicht."
     },
     "job": {
       "phase": {
@@ -3068,8 +3075,9 @@
         "unavailable": "nicht verfügbar",
         "contextValue": "{{used}} von {{size}} Tokens laut Adapter",
         "tokensValue": "{{total}} (Eingabe {{input}}, Ausgabe {{output}})",
-        "tokensPartial": "mindestens {{total}} (Eingabe {{input}}, Ausgabe {{output}}); ein Folgeturn ohne Angabe des Adapters",
-        "costEstimated": "≈ {{amount}} – Schätzung des Adapters nach Listenpreis, kein abgerechneter Betrag"
+        "tokensPartial": "mindestens {{total}} (Eingabe {{input}}, Ausgabe {{output}}); unvollständige Tokenmeldung des Agents",
+        "costEstimated": "≈ {{amount}} – Schätzung des Adapters nach Listenpreis, kein abgerechneter Betrag",
+        "costSession": "Gesamte Agent-Sitzung: {{amount}}"
       },
       "compaction": {
         "running": "Der Chat-Agent komprimiert den Kontext seiner Sitzung …",
@@ -3077,7 +3085,9 @@
         "failed": "Die Kontextkomprimierung des Chat-Agenten ist fehlgeschlagen."
       },
       "stop": "Stoppen",
-      "steerHint": "Pica antwortet noch. Eine neue Nachricht fließt in die laufende Antwort ein; nur „Stoppen“ bricht sie ab."
+      "steerHint": "Pica antwortet noch. Eine neue Nachricht fließt in die laufende Antwort ein; nur „Stoppen“ bricht sie ab.",
+      "preparingHint": "Pica bereitet die Sitzung vor. Weitere Nachrichten werden danach beantwortet. Nur „Stoppen“ bricht den Auftrag ab.",
+      "followUpHint": "Dieser Chat-Agent unterstützt kein Steering in eine laufende Antwort. Eine neue Nachricht erhält danach eine eigene Folgeantwort. Nur „Stoppen“ bricht den Auftrag ab."
     },
     "steer": {
       "pending": "Während der Antwort gesendet · wartet auf Übergabe",

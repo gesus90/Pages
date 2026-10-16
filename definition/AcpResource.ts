@@ -11,7 +11,7 @@ export interface AcpResourceOptions {
 export interface AcpResourceOwner {
   readonly instanceId: string;
   readonly userId: string;
-  readonly provider: "codex_cli" | "claude_code";
+  readonly provider: "codex_cli" | "claude_code" | "opencode";
   readonly runId: string | null;
   readonly stepId: string | null;
 }

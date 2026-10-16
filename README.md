@@ -327,9 +327,8 @@ tools currently exposed in production. Other operations, web search and Mastra
 Memory remain outside this partial implementation. Pages still owns
 the transcript, attachments, summaries and `/compact`.
 
-A Codex CLI agent (PAGE-68) or a Claude Code agent (PAGE-90) assigned to the
-chat runs over ACP instead (next sections). OpenCode returns a translated
-explanation before execution; `/compact` stays an API-model function.
+A Codex CLI, Claude Code or OpenCode agent assigned to the chat runs over ACP
+instead (next sections). `/compact` stays an API-model function.
 
 ## Pica over Codex ACP (PAGE-68)
 
@@ -365,10 +364,10 @@ for every new answer, so a change applies from the next message on.
 - **Tools.** Codex reaches Pica's tools only through the MCP endpoint
   `POST /api/v1/pica-bridge`, with a random per-job token held in memory. Each
   call is bound to person, conversation and running turn and is authorized
-  again; the existing limit of six actions per message and the exact
-  confirmation lines apply. Codex approves nothing itself: the session stays
-  in the read-only mode, Pages answers only the approval requests of MCP tool
-  calls with yes, and every write still needs its confirmation line. The
+  again; the existing limit of six actions per message applies. The shared
+  native tools act on the person's current rights without an additional
+  confirmation line, as described above. The session stays in read-only
+  mode and Pages approves only requests for calls of the tool bridge. The
   session has no shell, file, image, app or web tool, runs read-only inside
   bubblewrap (required) and gets no other MCP server. Models whose Codex
   catalog demands code mode, such as `gpt-6-luna`, call the same tools from
@@ -431,6 +430,61 @@ section. This section names what differs.
 
 The capability matrix of the installed adapter is in
 [backend/agents/acp/ClaudeAcpCapabilities.md](./backend/agents/acp/ClaudeAcpCapabilities.md).
+
+## Pica over native OpenCode ACP (PAGE-91)
+
+An OpenCode chat agent starts the installed `opencode acp` directly through
+the shared ACP client. Pages verifies the native contract of **1.18.34** before
+the prompt. The admin assignment determines the connection, full model ID
+(for example `openrouter/nvidia/...:free`) and exact variant. OpenCode is the
+runner; its model provider is a separate choice. The connection's key form
+accepts the native provider ID and stores exactly one API key in that
+connection's private OpenCode credential file. Existing OpenRouter connections
+keep working with that file. Other credential formats and custom provider
+configurations are not imported. No model, provider or API fallback is used.
+
+- **Scope and isolation.** Pica requires *Read only* workspace access. It uses
+  the existing jobs, scheduler, durable leases, connection locks and process
+  cleanup. Bubblewrap is required; the chat directory is mounted read-only.
+  The managed `pages-pica` mode denies all native tools and permits only
+  `pages_*` from the existing authorized tool bridge. No administrator tools,
+  shell, file tools, database access or other MCP servers are exposed.
+  Project settings, external skills, default plugins, sharing and updates
+  are disabled. Global instructions, plugins or configuration in the isolated
+  home, and system-managed configuration, block startup. Automatic title and
+  summary model calls are disabled; compaction uses the assigned model.
+- **Steering gap.** OpenCode 1.18.34 announces no steering contract and returns
+  JSON-RPC `-32601` for `_session/steering`. Pages sends no concurrent prompt
+  to imitate it. The panel says that an additional message receives its own
+  follow-up answer. Its status is `followUp`, never `accepted` or `delivered`.
+  The shared conversation queue handles a turn-end race exactly once: the
+  current job takes the message, or intake closes and the next job takes it.
+  **Real steering remains unsupported by this native server.**
+- **Selected content.** The shared upload checks still apply. Text and JSON
+  are embedded context, limited to 30,000 characters; PNG, JPEG, GIF and WebP
+  use image blocks up to the existing asset limit. Unsupported, unreadable,
+  truncated or oversized content is shown under its message. Each message's
+  resolved payload is reused unchanged for retries and follow-up turns.
+  The native adapter's generic image capability does not guarantee that the
+  assigned model supports vision; model refusals remain visible.
+- **Sessions.** `session/resume` continues only the same person's chat with
+  the same connection, model, variant and profile `pica-opencode-chat-1`.
+  Losing or closing the browser leaves the server job running. *Stop* ends
+  it explicitly. A server restart marks interrupted jobs and does not replay
+  them. Deleting a Pages conversation removes its Pages mapping, messages
+  and attachments; native CLI archives and provider retention are not erased,
+  which the deletion panel now states.
+- **Consumption.** Context occupancy comes from `usage_update`; absent or
+  invalid reports remain unavailable. OpenCode's prompt usage describes the
+  last model step of a tool loop, so token counts are marked incomplete.
+  Its cost is the cumulative native session estimate, labelled as such and
+  never added again per job. Migration **055** extends the scheduler's
+  provider constraint and retains these usage distinctions. `/compact`
+  explicitly refuses native chat agents; OpenCode manages its own context.
+
+The protocol observations and upstream source references are in
+[backend/agents/acp/OpenCodeAcpCapabilities.md](./backend/agents/acp/OpenCodeAcpCapabilities.md).
+The existing OpenCode plan runner continues to use its original CLI path.
 
 ## Pica sessions and conversation context (PAGE-48)
 

@@ -142,6 +142,9 @@ export class ChatContextService {
     signal: AbortSignal,
   ): Promise<ChatCompactionResult> {
     await this.dependencies.sessions.require(actor, sessionId);
+    const agent = await this.dependencies.agents.resolve(actor.id, "chat");
+    if (!isApiProvider(agent.connection.provider))
+      throw new ChatError("apiModeRequired");
     const stored = await this.dependencies.contexts.read(actor.id, sessionId);
     if (stored === null) throw new ChatError("sessionMissing");
     const messages = await this.dependencies.messages.messages(sessionId);
@@ -159,7 +162,6 @@ export class ChatContextService {
         status: "notNeeded",
         context: estimatedSize(history, await this.limit(actor.id)),
       };
-    const agent = await this.dependencies.agents.resolve(actor.id, "chat");
     const output = await this.dependencies.execution.run(
       {
         agent,

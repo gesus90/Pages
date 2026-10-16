@@ -2,6 +2,14 @@ import type { AgentUsage } from "@/definition/AgentUsage";
 
 /** Stable codes cross the HTTP boundary; upstream error text never does. */
 export const AGENT_ERROR_MESSAGES = {
+  opencode_chat_mode_required:
+    "Pica's native OpenCode session requires read-only access with only the Pages tool bridge.",
+  opencode_configuration_unmanaged:
+    "OpenCode configuration or instructions outside Pages could change this session. Remove them from the connection's config folder or /etc/opencode.",
+  opencode_acp_unsupported:
+    "Pica requires the verified native OpenCode ACP contract of version 1.18.34. No model was called.",
+  opencode_acp_session_failed:
+    "The native OpenCode ACP session failed before or during its turn.",
   plan_json_invalid: "Enter one valid JSON value with finite numbers.",
   plan_number_invalid: "Enter one finite number.",
   plan_run_unavailable: "This run is no longer active. Start a new run.",

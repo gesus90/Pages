@@ -85,6 +85,7 @@ function readCost(value: unknown): ChatCost | null {
     amount: cost.amount,
     currency: text(cost.currency),
     isEstimated: cost.isEstimated === true,
+    ...(cost.scope === "session" ? { scope: "session" as const } : {}),
   };
 }
 
@@ -165,6 +166,9 @@ function readOutcomeEvent(event: Fields): ChatJobEvent {
     case "session":
       if (typeof event.isResumed !== "boolean") throw invalid();
       return { kind: "session", isResumed: event.isResumed };
+    case "capabilities":
+      if (typeof event.canSteer !== "boolean") throw invalid();
+      return { kind: "capabilities", canSteer: event.canSteer };
     case "end":
       return {
         kind: "end",

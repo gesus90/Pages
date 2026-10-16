@@ -51,6 +51,9 @@ export const DEFAULT_AGENT_RUN_OPTIONS: AgentRunOptions = {
 export const ACP_PROVIDERS = ["codex_cli", "claude_code"] as const;
 export type AcpProviderId = (typeof ACP_PROVIDERS)[number];
 
+/** Native ACP drivers; OpenCode uses ACP for Pica while its plan runner stays separate. */
+export type NativeAcpProviderId = AcpProviderId | "opencode";
+
 /** Whether an agent of this provider runs as an ACP session in one of the two modes. */
 export function isAcpProvider(
   provider: AgentProviderId,

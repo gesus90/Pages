@@ -477,7 +477,7 @@
         "anthropic": "Anthropic",
         "codex_cli": "Codex CLI (ChatGPT account)",
         "claude_code": "Claude Code (Claude subscription)",
-        "opencode": "OpenCode (OpenRouter key)"
+        "opencode": "OpenCode"
       },
       "providerShort": {
         "openrouter": "OpenRouter API",
@@ -624,7 +624,11 @@
         "parameter_ticket_changed": "The ticket asset references changed before transmission. Start the run again to use the current assets.",
         "parameter_ticket_unavailable": "The selected ticket is unavailable or not accessible. Select an accessible ticket.",
         "timeout": "The agent’s hard time limit expired. The running operation was interrupted.",
-        "run_notes_unsupported": "Shared run notes have been removed. {{@run.notes}} is no longer supported. Update the affected agent or plan node explicitly."
+        "run_notes_unsupported": "Shared run notes have been removed. {{@run.notes}} is no longer supported. Update the affected agent or plan node explicitly.",
+        "opencode_chat_mode_required": "Pica requires “Read only” workspace access for OpenCode and offers only the Pages tool bridge.",
+        "opencode_configuration_unmanaged": "OpenCode could load external settings or instructions. Remove them from the connection’s configuration folder or /etc/opencode. No model was called.",
+        "opencode_acp_unsupported": "Pica requires the verified native ACP contract of OpenCode 1.18.34. The installed version or contract differs; no model was called.",
+        "opencode_acp_session_failed": "The native OpenCode ACP session failed before or during the answer."
       },
       "description": "Manage the named AI connections and function assignments of this Pages instance.",
       "adminModeRequired": "The agent settings are only available in the admin mode. Your account is currently in the role mode.",
@@ -791,7 +795,8 @@
         "cliVersion": "CLI version",
         "authMethod": "Authentication method",
         "costUsd": "Accounting cost reported by CLI (USD)",
-        "reasoningEffort": "Reasoning effort"
+        "reasoningEffort": "Reasoning effort",
+        "modelProvider": "Model provider in OpenCode"
       },
       "yes": "Yes",
       "no": "No",
@@ -974,13 +979,13 @@
         "chooseTicket": "Select a ticket (no default)",
         "unavailableTicket": "Bound ticket is not accessible"
       },
-      "openCodeKey": "OpenRouter API key for OpenCode",
-      "openCodeKeyHint": "Pages stores the key only in the private sign-in folder of this connection, in OpenCode's own key file. It is never shown again.",
+      "openCodeKey": "API key for OpenCode",
+      "openCodeKeyHint": "The provider ID and key must match. Model IDs keep this provider prefix. Pages stores the key only in this connection’s private credential folder; it never returns to the browser.",
       "openCodeKeyStore": "Store key",
       "openCodeKeyReplace": "Replace key",
       "run": {
         "title": "Run options",
-        "hint": "Workspace, shell and web permissions apply to the OpenCode runner. They always work unattended: anything not allowed is refused instead of asking. A combination the runner cannot enforce blocks the start. The timeout also applies to API agents.",
+        "hint": "Workspace, shell and web permissions apply to the OpenCode runner. They always work unattended: anything not allowed is refused instead of asking. A combination the runner cannot enforce blocks the start. The timeout also applies to API agents. Pica over OpenCode requires “Read only”; only the Pages tools are available there.",
         "access": "Workspace access",
         "timeout": "Timeout (minutes)",
         "shell": "Run commands in the workspace (shell)",
@@ -1022,7 +1027,8 @@
         "paused": "Paused",
         "recovery": "Waiting for startup recovery",
         "scheduler_error": "Waiting after scheduler error"
-      }
+      },
+      "openCodeProvider": "Model provider in OpenCode (for example openrouter)"
     },
     "connections": {
       "title": "Connections",
@@ -2986,7 +2992,8 @@
       "result": "{{count}} sessions deleted.",
       "failed": "Not deleted or result unconfirmed: {{id}}.",
       "cleanupFailed": "Session {{id}} deleted; some associated files could not be removed.",
-      "pending": "Deleting the selected sessions …"
+      "pending": "Deleting the selected sessions …",
+      "nativeRetention": "Deletion removes the Pages conversation and its attachments. Sessions stored locally by the CLI agent and data retained by the model provider are not deleted."
     },
     "error": {
       "invalidInput": "Please check the input.",
@@ -3020,10 +3027,10 @@
       "general": "That did not work. Please try again.",
       "contextChanged": "The context changed meanwhile. Nothing was overwritten; please try /compact again.",
       "compactionFailed": "The context could not be compacted. Your existing conversation history is preserved.",
-      "apiModeRequired": "This needs an API model. Context compaction with /compact is not available for Codex and Claude Code agents; they manage the context of their session themselves.",
+      "apiModeRequired": "This requires an API model. Codex, Claude Code and OpenCode manage their native session context themselves; /compact is unavailable for them.",
       "instructionsUnavailable": "Pica cannot answer right now: the protected instructions of Pica are missing on the server or cannot be read. Your message was not sent. Please contact an administrator.",
-      "acpProviderUnsupported": "Pica cannot answer with the assigned chat agent: API connections as well as Codex CLI and Claude Code over ACP are supported. An admin must assign such an agent for chat under Settings › Agents.",
-      "acpPermissionModeUnsupported": "Pica answers with Claude Code only in the “Read only” mode: there Pica gets nothing but the Pages tools, no shell, no files and no web. The assigned chat agent has another mode. An admin sets it to “Read only” under Settings › Agents. Your message was not sent.",
+      "acpProviderUnsupported": "Pica supports API connections and Codex CLI, Claude Code and OpenCode over ACP. An administrator must assign one of these agents to chat under Settings › Agents.",
+      "acpPermissionModeUnsupported": "Pica requires “Read only” workspace access for Claude Code and OpenCode. Only the authorized Pages tools are available, with no shell, files or web tools. An administrator must update the chat agent’s mode. Your message was not sent.",
       "bridgeUnavailable": "The chat agent could not connect Pica's Pages tools. Nothing was changed. Please try again or contact an admin.",
       "interrupted": "The server stopped during the answer. The answer is not repeated automatically."
     },
@@ -3038,7 +3045,7 @@
       "limit": "Model limit: {{count}} tokens",
       "limitUnknown": "Model limit unknown.",
       "utilization": "Estimated conversation share of the model limit: {{percent}}%",
-      "adapterExplanation": "Context occupancy of the chat agent's session (Codex or Claude Code) as the ACP adapter reported it last. Without a valid report, such as right after a compaction, this reads “not available”; Pages does not estimate here."
+      "adapterExplanation": "Context occupancy of the chat agent’s session as last reported by the agent. Without a valid report, this reads “unavailable”; Pages does not estimate it."
     },
     "job": {
       "phase": {
@@ -3068,8 +3075,9 @@
         "unavailable": "not available",
         "contextValue": "{{used}} of {{size}} tokens as reported by the adapter",
         "tokensValue": "{{total}} (input {{input}}, output {{output}})",
-        "tokensPartial": "at least {{total}} (input {{input}}, output {{output}}); a follow-up turn without adapter data",
-        "costEstimated": "≈ {{amount}} – the adapter's estimate at list prices, not a billed amount"
+        "tokensPartial": "at least {{total}} (input {{input}}, output {{output}}); incomplete token report from the agent",
+        "costEstimated": "≈ {{amount}} – the adapter's estimate at list prices, not a billed amount",
+        "costSession": "Entire agent session: {{amount}}"
       },
       "compaction": {
         "running": "The chat agent is compacting the context of its session …",
@@ -3077,7 +3085,9 @@
         "failed": "The chat agent's context compaction failed."
       },
       "stop": "Stop",
-      "steerHint": "Pica is still answering. A new message joins the running answer; only “Stop” cancels it."
+      "steerHint": "Pica is still answering. A new message joins the running answer; only “Stop” cancels it.",
+      "preparingHint": "Pica is preparing the session. Additional messages will be answered afterwards. Only “Stop” cancels the job.",
+      "followUpHint": "This chat agent does not support steering a running answer. A new message receives its own follow-up answer afterwards. Only “Stop” cancels the job."
     },
     "steer": {
       "pending": "Sent during the answer · waiting to be passed on",

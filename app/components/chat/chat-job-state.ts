@@ -30,6 +30,8 @@ export interface ChatLiveJob {
   /** The latest context compaction of the agent session, apart from tools, steers and stop. */
   readonly compaction: ChatJobCompactionEvent | null;
   readonly isResumed: boolean | null;
+  /** Null until the adapter's handshake was journaled. */
+  readonly canSteer?: boolean | null;
   readonly ended: ChatJobEndEvent | null;
 }
 
@@ -57,6 +59,7 @@ export function startChatLiveJob(job: ChatJob): ChatLiveJob {
     usage: job.usage,
     compaction: null,
     isResumed: null,
+    canSteer: null,
     ended: null,
   };
 }
@@ -101,6 +104,8 @@ function applyEvent(live: ChatLiveJob, event: ChatJobEvent): ChatLiveJob {
       return { ...live, compaction: event };
     case "session":
       return { ...live, isResumed: event.isResumed };
+    case "capabilities":
+      return { ...live, canSteer: event.canSteer };
     case "end":
       return { ...live, ended: event };
   }

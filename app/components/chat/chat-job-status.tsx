@@ -111,9 +111,12 @@ function ChatJobCompaction({
 /** A reported cost, or the adapter's own estimate marked as such. */
 function costText(t: TFunction, cost: ChatCost, language: string): string {
   const amount = `${cost.amount.toLocaleString(language)} ${cost.currency}`;
-  return cost.isEstimated
+  const described = cost.isEstimated
     ? t("chat.job.usage.costEstimated", { amount })
     : amount;
+  return cost.scope === "session"
+    ? t("chat.job.usage.costSession", { amount: described })
+    : described;
 }
 
 /** Consumption exactly as the adapter reported it; a missing value reads as unavailable. */

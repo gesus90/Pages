@@ -95,6 +95,9 @@ export function ChatSessionDeletion({
     >
       <h3 className="text-sm font-semibold">{t("chat.delete.title")}</h3>
       <p className="text-xs text-muted-foreground">{t("chat.delete.hint")}</p>
+      <p className="text-xs text-muted-foreground">
+        {t("chat.delete.nativeRetention")}
+      </p>
       <label className="flex items-center gap-2 text-sm">
         <input
           type="checkbox"

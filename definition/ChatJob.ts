@@ -77,6 +77,8 @@ export interface ChatCost {
   readonly amount: number;
   readonly currency: string;
   readonly isEstimated: boolean;
+  /** OpenCode reports the cumulative native session cost, including earlier jobs. */
+  readonly scope?: "session";
 }
 
 /** Consumption of a job; `null` means the adapter did not report it, never zero. */
@@ -159,6 +161,12 @@ export interface ChatJobSessionEvent {
   readonly isResumed: boolean;
 }
 
+/** Negotiated capabilities; a follow-up queue never establishes steering support. */
+export interface ChatJobCapabilitiesEvent {
+  readonly kind: "capabilities";
+  readonly canSteer: boolean;
+}
+
 /** The job ended. */
 export interface ChatJobEndEvent {
   readonly kind: "end";
@@ -177,6 +185,7 @@ export type ChatJobEvent =
   | ChatJobUsageEvent
   | ChatJobCompactionEvent
   | ChatJobSessionEvent
+  | ChatJobCapabilitiesEvent
   | ChatJobEndEvent;
 
 /** A journal entry with its position; positions of a job are contiguous from 1. */
@@ -224,7 +233,7 @@ export interface ChatSelection {
   readonly items: readonly ChatSelectionItem[];
 }
 
-/** What a conversation shows beyond its messages on the ACP path (Codex or Claude Code). */
+/** What a conversation shows beyond its messages on the shared ACP path. */
 export interface ChatSessionActivity {
   /** The newest job, running or ended. */
   readonly job: ChatJob | null;
@@ -232,7 +241,7 @@ export interface ChatSessionActivity {
   readonly selections: readonly ChatSelection[];
 }
 
-/** What the server did with a sent message on the ACP path (Codex or Claude Code). */
+/** What the server did with a sent message on the shared ACP path. */
 export interface ChatJobStart {
   readonly job: ChatJob;
   /** The stored message that started the job. */

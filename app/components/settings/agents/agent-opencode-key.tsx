@@ -8,7 +8,7 @@ import type { AgentConnectionSummary } from "@/definition/AgentConnection";
 import type { AgentActions } from "./use-agent-actions";
 import type { FormEvent } from "react";
 
-/** Takes the OpenRouter key of an OpenCode connection; the key never comes back to the page. */
+/** Takes a native provider ID and its OpenCode key; the key never comes back to the page. */
 export function AgentOpenCodeKey({
   connection,
   actions,
@@ -20,6 +20,11 @@ export function AgentOpenCodeKey({
 }): React.ReactElement {
   const { t } = useTranslation();
   const [apiKey, setApiKey] = useState("");
+  const [modelProvider, setModelProvider] = useState(
+    connection.cli?.accountLabel?.toLowerCase() ??
+      connection.testModel?.split("/")[0] ??
+      "openrouter",
+  );
   useEffect(() => {
     if (actions.result?.ok && actions.result.intent === "store-cli-key")
       setApiKey("");
@@ -30,10 +35,23 @@ export function AgentOpenCodeKey({
     actions.result.intent === "store-cli-key";
   function submitKey(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
-    actions.submit("store-cli-key", connection.id, { apiKey });
+    actions.submit("store-cli-key", connection.id, { apiKey, modelProvider });
   }
   return (
     <form onSubmit={submitKey} className="space-y-2">
+      <label className="text-sm font-medium" htmlFor="agent-opencode-provider">
+        {t("settings.agents.openCodeProvider")}
+      </label>
+      <Input
+        id="agent-opencode-provider"
+        value={modelProvider}
+        onChange={(event) => setModelProvider(event.target.value)}
+        autoComplete="off"
+        spellCheck={false}
+        maxLength={100}
+        pattern="[a-z0-9][a-z0-9_-]{0,99}"
+        required
+      />
       <label className="text-sm font-medium" htmlFor="agent-opencode-key">
         {t("settings.agents.openCodeKey")}
       </label>
@@ -52,7 +70,11 @@ export function AgentOpenCodeKey({
       <p id="agent-opencode-key-hint" className="text-xs text-muted-foreground">
         {t("settings.agents.openCodeKeyHint")}
       </p>
-      <Button type="submit" size="sm" disabled={disabled || !apiKey.trim()}>
+      <Button
+        type="submit"
+        size="sm"
+        disabled={disabled || !apiKey.trim() || !modelProvider}
+      >
         {t(
           connection.cli?.loggedInAt
             ? "settings.agents.openCodeKeyReplace"

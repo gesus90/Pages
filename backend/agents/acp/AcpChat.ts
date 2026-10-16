@@ -32,6 +32,11 @@ export type AcpPromptContent = (
 
 /** Receives what the adapter reports while a chat session runs; it must not throw. */
 export interface AcpSessionListener {
+  /** The negotiated steering contract, before a model prompt is sent. */
+  readonly initialized?: (
+    canSteer: boolean,
+    capabilities: PromptCapabilities | null | undefined,
+  ) => void;
   readonly update: (update: SessionUpdate) => void;
   /** The token usage the adapter returned with a prompt, or `null` without one. */
   readonly prompted: (usage: Usage | null) => void;

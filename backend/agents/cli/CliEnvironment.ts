@@ -1,7 +1,5 @@
 import path from "node:path";
 
-import { OPENCODE_MODEL_PROVIDER } from "@/definition/AgentConnection";
-
 import type { CliProviderId } from "@/definition/AgentConnection";
 import type { CliHome } from "./CliContracts";
 
@@ -91,7 +89,7 @@ function loginArguments(provider: CliProviderId): readonly string[] {
     case "claude_code":
       return ["auth", "login", "--claudeai"];
     case "opencode":
-      return ["providers", "login", "--provider", OPENCODE_MODEL_PROVIDER];
+      return ["providers", "login"];
   }
 }
 

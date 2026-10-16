@@ -2,6 +2,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { isApiProvider, isLoginActive } from "@/definition/AgentConnection";
 import { createCliTerminalCommand } from "@/backend/agents/cli/CliEnvironment";
 import { CLI_BINARIES } from "@/backend/agents/cli/CliLocator";
+import { isOpenCodeModelProvider } from "@/backend/agents/cli/OpenCodeCredentials";
 
 import {
   requireAgentAdministrator,
@@ -26,6 +27,7 @@ import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import type { AgentAccessCatalog } from "./AgentCheckService";
 import type { AgentOperationRegistry } from "./AgentOperationRegistry";
 import type { CliLoginSession } from "./CliLoginSessionRegistry";
+import type { OpenCodeKeyInput } from "@/backend/agents/cli/OpenCodeCredentials";
 
 interface LoginDependencies {
   readonly repository: AgentConnectionRepository;
@@ -126,24 +128,27 @@ export class AgentCliLoginService {
    *
    * @param actor - An administrator.
    * @param id - The OpenCode connection.
-   * @param apiKey - The key as entered; it is written once and never returned.
+   * @param input - Native model provider ID and its key, never returned.
    * @returns The confirmed sign-in state of the connection.
    * @throws {AgentError} `provider_invalid` for another connection type,
    * `api_key_invalid_format`, or the failure of the confirming status read.
    *
    * @remarks
    * OpenCode keeps provider keys in its own credential file. Pages writes the
-   * key there, confirms it through OpenCode's own key listing and loads the
+   * key there, validates the native credential structure and loads the
    * model list; the database only learns that a key is stored.
    */
   public async storeKey(
     actor: AccountAccess,
     id: string,
-    apiKey: string,
+    input: OpenCodeKeyInput,
   ): Promise<AgentCliState> {
     requireAgentAdministrator(actor);
+    const { apiKey, modelProvider } = input;
     if (!apiKey || apiKey.length > 512 || /[\s\p{Cc}]/u.test(apiKey))
       throw new AgentError("api_key_invalid_format");
+    if (!isOpenCodeModelProvider(modelProvider))
+      throw new AgentError("provider_invalid");
     await this.dependencies.operations.run(id, "login", async () => {
       const connection = await this.requireCli(id);
       if (connection.provider !== "opencode")
@@ -156,7 +161,7 @@ export class AgentCliLoginService {
       );
       const adapter = await runtime.openCode();
       const home = await store.prepare(id, "opencode");
-      await adapter.storeKey(home, apiKey);
+      await adapter.storeKey(home, input);
       const status = await adapter.readStatus(
         home,
         AbortSignal.timeout(25_000),

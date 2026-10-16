@@ -183,11 +183,10 @@ const AGENT_ACTION_HANDLERS: Readonly<Record<string, AgentActionHandler>> = {
     return { ok: true };
   },
   "store-cli-key": async ({ actor, services, formData, id }) => {
-    await services.agentCliLoginService.storeKey(
-      actor,
-      id,
-      readTextOrEmpty(formData, "apiKey"),
-    );
+    await services.agentCliLoginService.storeKey(actor, id, {
+      apiKey: readTextOrEmpty(formData, "apiKey"),
+      modelProvider: readTextOrEmpty(formData, "modelProvider"),
+    });
     return { ok: true, connectionId: id };
   },
 };

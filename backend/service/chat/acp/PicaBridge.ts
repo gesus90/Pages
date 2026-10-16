@@ -66,7 +66,7 @@ function refused(error: string): PicaToolOutcome {
 }
 
 /**
- * The Pica tool bridge for Codex over ACP (PAGE-68).
+ * The shared Pica tool bridge for ACP chat runners (PAGE-68, PAGE-90, PAGE-91).
  *
  * @remarks
  * codex-acp reaches MCP servers over HTTP, so Pages offers the native Pica

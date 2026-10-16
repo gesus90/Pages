@@ -50,16 +50,6 @@ export const AGENT_PROVIDERS = {
   },
 } as const;
 
-/**
- * The model provider an OpenCode connection signs in to.
- *
- * @remarks
- * OpenCode itself can reach many providers. A Pages connection holds exactly
- * one provider key in the credential folder of the connection, so its model
- * IDs always carry this provider prefix.
- */
-export const OPENCODE_MODEL_PROVIDER = "openrouter";
-
 export const ZAI_FREE_MODEL = "glm-4.7-flash";
 export const MODEL_TEST_PROMPT = "Reply with exactly: OK";
 
@@ -87,6 +77,8 @@ export interface AgentCheckDetail {
   readonly endpoint?: string;
   readonly cliVersion?: string;
   readonly authMethod?: "chatgpt" | "claude.ai" | "openrouter";
+  /** Native OpenCode model provider, independent of the Pages runner ID. */
+  readonly modelProvider?: string;
   /** Reasoning effort the model or CLI test requested, if one was configured. */
   readonly reasoningEffort?: string;
   /** Reported accounting cost, not an additional subscription charge. */

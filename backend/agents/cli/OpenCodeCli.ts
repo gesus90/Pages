@@ -1,14 +1,17 @@
+import { constants } from "node:fs";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { AgentError } from "@/backend/error/AgentErrors";
-import {
-  MODEL_TEST_PROMPT,
-  OPENCODE_MODEL_PROVIDER,
-} from "@/definition/AgentConnection";
+import { MODEL_TEST_PROMPT } from "@/definition/AgentConnection";
 
 import { readOpenCodeModels } from "./CliModelCatalog";
 import { readOpenCodeTest } from "./CliResultParser";
+import {
+  openCodeCredentialFile,
+  readOpenCodeModelProvider,
+  requireOpenCodeCredentialDirectory,
+} from "./OpenCodeCredentials";
 
 import type { ProviderCheckOutcome } from "@/backend/agents/providers/ProviderContracts";
 import type { AgentCatalogModel } from "@/definition/AgentModelCatalog";
@@ -19,12 +22,7 @@ import type {
   CliToolAdapter,
 } from "./CliContracts";
 import type { CliToolExecution } from "./CliToolExecution";
-
-// OpenCode colours its listings even with NO_COLOR; the escape sequences are noise here.
-const ESCAPE_SEQUENCE = new RegExp(
-  `${String.fromCharCode(27)}\\[[0-9;?]*[A-Za-z]`,
-  "gu",
-);
+import type { OpenCodeKeyInput } from "./OpenCodeCredentials";
 
 /** A model test may use no tool at all and shares nothing. */
 const TEST_CONFIGURATION = JSON.stringify({
@@ -32,11 +30,6 @@ const TEST_CONFIGURATION = JSON.stringify({
   share: "disabled",
   autoupdate: false,
 });
-
-/** OpenCode's own credential file below the data folder of the connection. */
-function credentialFile(home: CliHome): string {
-  return path.join(home.config, "opencode", "auth.json");
-}
 
 /**
  * Controls the unchanged OpenCode binary with one provider key per connection.
@@ -55,34 +48,24 @@ export class OpenCodeCli implements CliToolAdapter {
     this.execution = execution;
   }
 
-  /** OpenCode lists the keys it stores; only a key of its model provider counts. */
+  /** Confirms the presence of exactly one native provider key without a model call. */
   public async readStatus(
     home: CliHome,
     signal: AbortSignal,
   ): Promise<CliStatusOutcome> {
-    const result = await this.execution.run(
-      home,
-      ["providers", "list"],
-      signal,
-    );
-    if (result.errorCode)
+    signal.throwIfAborted();
+    try {
+      const modelProvider = await readOpenCodeModelProvider(home);
       return {
-        outcome: { ok: false, errorCode: result.errorCode, detail: {} },
+        outcome: { ok: true, detail: { modelProvider } },
+        accountLabel: modelProvider,
+      };
+    } catch {
+      return {
+        outcome: { ok: false, errorCode: "cli_not_logged_in", detail: {} },
         accountLabel: null,
       };
-    const isStored = result.stdout
-      .replace(ESCAPE_SEQUENCE, "")
-      .split("\n")
-      .some((line) => /\bOpenRouter\s+api\b/u.test(line));
-    if (result.exitCode === 0 && isStored)
-      return {
-        outcome: { ok: true, detail: { authMethod: "openrouter" } },
-        accountLabel: "OpenRouter",
-      };
-    return {
-      outcome: { ok: false, errorCode: "cli_not_logged_in", detail: {} },
-      accountLabel: null,
-    };
+    }
   }
 
   /** Reads the installed version only during explicit operations. */
@@ -97,19 +80,27 @@ export class OpenCodeCli implements CliToolAdapter {
    * Stores the provider key in OpenCode's credential file of this connection.
    *
    * @param home - The prepared credential folder of the connection.
-   * @param apiKey - The validated key; it is written once and never read back.
+   * @param input - The validated native provider ID and its key.
    */
-  public async storeKey(home: CliHome, apiKey: string): Promise<void> {
-    await mkdir(path.dirname(credentialFile(home)), {
+  public async storeKey(home: CliHome, input: OpenCodeKeyInput): Promise<void> {
+    await mkdir(path.dirname(openCodeCredentialFile(home)), {
       recursive: true,
       mode: 0o700,
     });
+    await requireOpenCodeCredentialDirectory(home);
     await writeFile(
-      credentialFile(home),
+      openCodeCredentialFile(home),
       JSON.stringify({
-        [OPENCODE_MODEL_PROVIDER]: { type: "api", key: apiKey },
+        [input.modelProvider]: { type: "api", key: input.apiKey },
       }),
-      { mode: 0o600 },
+      {
+        mode: 0o600,
+        flag:
+          constants.O_WRONLY |
+          constants.O_CREAT |
+          constants.O_TRUNC |
+          constants.O_NOFOLLOW,
+      },
     );
   }
 
@@ -143,9 +134,10 @@ export class OpenCodeCli implements CliToolAdapter {
     home: CliHome,
     signal: AbortSignal,
   ): Promise<readonly AgentCatalogModel[]> {
+    const modelProvider = await readOpenCodeModelProvider(home);
     const result = await this.execution.readCatalog(
       home,
-      ["models", OPENCODE_MODEL_PROVIDER, "--verbose"],
+      ["models", modelProvider, "--verbose"],
       signal,
     );
     if (result.errorCode) throw new AgentError(result.errorCode);
@@ -156,7 +148,7 @@ export class OpenCodeCli implements CliToolAdapter {
   /** Removes the stored key; OpenCode keeps no remote session to revoke. */
   public async logout(home: CliHome): Promise<ProviderCheckOutcome> {
     try {
-      await rm(credentialFile(home), { force: true });
+      await rm(openCodeCredentialFile(home), { force: true });
       return { ok: true, detail: {} };
     } catch {
       return { ok: false, errorCode: "credential_cleanup_failed", detail: {} };

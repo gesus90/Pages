@@ -6,12 +6,9 @@ import { describeError } from "@/backend/error/ErrorDescription";
 import { PicaAcpJobError } from "@/backend/error/PicaAcpJobError";
 
 import { createPicaTools } from "../PicaTools";
-import {
-  picaSteerText,
-  picaTurnPrompt,
-  readPicaAttachments,
-} from "./PicaAcpContent";
+import { picaSteerText, picaTurnPrompt } from "./PicaAcpContent";
 import { PicaAcpJournal } from "./PicaAcpJournal";
+import { PicaAcpSelections } from "./PicaAcpSelections";
 import { PicaAcpSteering } from "./PicaAcpSteering";
 import { PicaAcpThreadWatch } from "./PicaAcpThreadWatch";
 import { errorCodeOf, readAnswer, requireCompleted } from "./PicaAcpTurnResult";
@@ -44,7 +41,6 @@ import type {
   ChatJobCompactionEvent,
   ChatJobState,
   ChatJobUsage,
-  ChatSelectionItem,
   ChatSteerStatus,
   ChatTokenUsage,
 } from "@/definition/ChatJob";
@@ -105,8 +101,8 @@ interface PicaAcpOutcome {
 }
 
 /**
- * One Pica answer over ACP that runs on the server, with Codex CLI (PAGE-68)
- * or Claude Code (PAGE-90).
+ * One Pica answer over ACP that runs on the server with the assigned CLI
+ * runner: Codex, Claude Code or OpenCode.
  *
  * @remarks
  * The job pins the agent that was assigned when the message was sent. It
@@ -130,7 +126,7 @@ export class PicaAcpJob {
     number,
     Omit<ChatTokenUsage, "isPartial"> | null
   >();
-  private readonly selected = new Set<string>();
+  private readonly selections: PicaAcpSelections;
   /** Opened when the job runs, so a job that never ran leaves no token behind. */
   private bridge: PicaBridgeLease | null = null;
   private context: RuntimeExecutionContext | null = null;
@@ -144,6 +140,7 @@ export class PicaAcpJob {
   private turn = 0;
   private isTurnRunning = false;
   private isStopRequested = false;
+  private hasSteering: boolean | null = null;
 
   public constructor(
     dependencies: PicaAcpJobDependencies,
@@ -154,8 +151,20 @@ export class PicaAcpJob {
     this.dependencies = dependencies;
     this.specification = specification;
     this.journal = new PicaAcpJournal(dependencies.jobs, specification.id);
+    this.selections = new PicaAcpSelections(
+      dependencies.attachments,
+      (selection) =>
+        dependencies.steers.select(specification.sessionId, selection),
+    );
     this.updates = new PicaAcpUpdates(
       {
+        steering: (canSteer, capabilities) => {
+          this.capabilities = capabilities;
+          this.hasSteering = canSteer;
+          void this.journal
+            .record({ kind: "capabilities", canSteer })
+            .catch(() => undefined);
+        },
         text: (turn, isReset, delta) => this.journal.text(turn, isReset, delta),
         context: (context, cost) => this.recordContext(context, cost),
         compaction: (compaction) => this.recordCompaction(compaction),
@@ -167,12 +176,15 @@ export class PicaAcpJob {
         threadStatus: (isActive) => this.thread.observe(isActive),
         closed: () => this.thread.close(),
       },
-      { isCostEstimated: specification.run.runner.isCostEstimated },
+      specification.run.runner,
     );
     this.steering = new PicaAcpSteering({
       gate: specification.gate,
       status: (messageId, status) => this.recordSteer(messageId, status),
-      isTurnRunning: () => this.isTurnRunning && this.session !== null,
+      isTurnRunning: () =>
+        this.isTurnRunning &&
+        this.session !== null &&
+        this.hasSteering === true,
       deliver: (message) => this.deliver(message),
     });
   }
@@ -391,12 +403,8 @@ export class PicaAcpJob {
       prompt: picaTurnPrompt(brief, message.text, message.attachments),
       promptContent: async (capabilities) => {
         this.capabilities = capabilities;
-        const content = await readPicaAttachments(
-          message.attachments,
-          this.dependencies.attachments,
-          capabilities,
-        );
-        await this.select(message.id, content.items);
+        const content = await this.selections.read(message, capabilities);
+        await this.selections.select(message.id, content.items);
         return content.blocks;
       },
     };
@@ -405,11 +413,7 @@ export class PicaAcpJob {
   private async deliver(message: PicaAcpMessage): Promise<AcpSteerOutcome> {
     const session = this.session;
     if (!session?.steer || !this.isTurnRunning) return "inactive";
-    const content = await readPicaAttachments(
-      message.attachments,
-      this.dependencies.attachments,
-      this.capabilities,
-    );
+    const content = await this.selections.read(message, this.capabilities);
     const outcome = await session.steer([
       { type: "text", text: picaSteerText(message.text) },
       ...content.blocks,
@@ -417,21 +421,8 @@ export class PicaAcpJob {
     // The snapshot tells what reached the agent. A steer the adapter did not
     // take gets it with its own turn, or fails visibly with all its attachments.
     if (outcome === "injected" || outcome === "startedNewTurn")
-      await this.select(message.id, content.items);
+      await this.selections.select(message.id, content.items);
     return outcome;
-  }
-
-  private async select(
-    messageId: string,
-    items: readonly ChatSelectionItem[],
-  ): Promise<void> {
-    // The snapshot is written once; a repeated prompt of the same message sends the same.
-    if (this.selected.has(messageId)) return;
-    this.selected.add(messageId);
-    await this.dependencies.steers.select(this.specification.sessionId, {
-      messageId,
-      items,
-    });
   }
 
   /** Stores the answer of the current turn and returns its message ID. */
@@ -498,7 +489,12 @@ export class PicaAcpJob {
     this.tokens.set(turn, tokens);
     void this.writes
       .run(async () => {
-        await this.dependencies.jobs.saveTurn(this.id, turn, tokens);
+        await this.dependencies.jobs.saveTurn(
+          this.id,
+          turn,
+          tokens,
+          this.specification.run.runner.hasPartialTokenUsage === true,
+        );
         await this.journal.record({
           kind: "usage",
           usage: this.currentUsage(),
@@ -525,7 +521,9 @@ export class PicaAcpJob {
               input: sum("input"),
               output: sum("output"),
               total: sum("total"),
-              isPartial: reported.length < turns.length,
+              isPartial:
+                reported.length < turns.length ||
+                this.specification.run.runner.hasPartialTokenUsage === true,
             },
     };
   }

@@ -56,9 +56,13 @@ const JOB_COLUMNS = `
         SELECT COUNT(*)
         FROM chat_job_turns
         WHERE chat_job_turns.job_id = chat_jobs.id
-            AND chat_job_turns.total_tokens IS NULL
+            AND (
+                chat_job_turns.total_tokens IS NULL
+                OR chat_job_turns.tokens_are_partial = TRUE
+            )
     ) AS unreported_turns,
-    chat_jobs.cost_is_estimated`;
+    chat_jobs.cost_is_estimated,
+    chat_jobs.cost_scope`;
 
 function nullableCount(
   row: readonly DatabaseValue[],
@@ -91,6 +95,7 @@ function readCost(row: readonly DatabaseValue[]): ChatCost | null {
         currency,
         isEstimated:
           readNullableBooleanColumn(row, 14, "cost_is_estimated") === true,
+        ...(row[15] === "session" ? { scope: "session" as const } : {}),
       }
     : null;
 }
@@ -211,7 +216,8 @@ export class ChatJobRepository {
           context_size = $context_size,
           cost_amount = $cost_amount,
           cost_currency = $cost_currency,
-          cost_is_estimated = $cost_is_estimated
+          cost_is_estimated = $cost_is_estimated,
+          cost_scope = $cost_scope
       WHERE id = $id;
     `,
       {
@@ -221,6 +227,7 @@ export class ChatJobRepository {
         cost_amount: cost?.amount ?? null,
         cost_currency: cost?.currency ?? null,
         cost_is_estimated: cost?.isEstimated ?? null,
+        cost_scope: cost?.scope ?? null,
       },
     );
   }
@@ -230,6 +237,7 @@ export class ChatJobRepository {
     id: string,
     turn: number,
     tokens: Omit<ChatTokenUsage, "isPartial"> | null,
+    isPartial = false,
   ): Promise<void> {
     await this.database.execute(
       `
@@ -238,19 +246,22 @@ export class ChatJobRepository {
           turn,
           input_tokens,
           output_tokens,
-          total_tokens
+          total_tokens,
+          tokens_are_partial
       )
       VALUES (
           $job_id,
           $turn,
           $input_tokens,
           $output_tokens,
-          $total_tokens
+          $total_tokens,
+          $tokens_are_partial
       )
       ON CONFLICT (job_id, turn) DO UPDATE SET
           input_tokens = excluded.input_tokens,
           output_tokens = excluded.output_tokens,
-          total_tokens = excluded.total_tokens;
+          total_tokens = excluded.total_tokens,
+          tokens_are_partial = excluded.tokens_are_partial;
     `,
       {
         job_id: id,
@@ -258,6 +269,7 @@ export class ChatJobRepository {
         input_tokens: tokens?.input ?? null,
         output_tokens: tokens?.output ?? null,
         total_tokens: tokens?.total ?? null,
+        tokens_are_partial: isPartial,
       },
     );
   }
