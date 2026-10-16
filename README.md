@@ -773,8 +773,7 @@ configured idle timeout, and starts no further child until resume. Stop closes a
 Group and child states, the failing child, native session IDs and closeout are
 available in the run view.
 
-The practical example and its real provider evidence are in
-`artifacts/PAGE-73/`. Reproduce it with
+The practical example can be reproduced with
 `pnpm exec tsx scripts/agent-group-proof.ts --data <isolated credential data>
 --connection <connection UUID> --workspace <empty workspace> --model <model ID>
 --effort <effort> --output <artifact folder>`.
