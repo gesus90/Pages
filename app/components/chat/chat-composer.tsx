@@ -9,6 +9,7 @@ import { formatBytes } from "@/app/lib/format-bytes";
 
 import { ChatMaintenanceStatus } from "./chat-maintenance-status";
 import { ChatAttachmentList } from "./chat-attachment-list";
+import { ChatContextIndicator } from "./chat-context-indicator";
 import { ChatJobSteerHint, ChatJobStopButton } from "./chat-job-controls";
 import { useChatEditor } from "./use-chat-editor";
 
@@ -23,14 +24,16 @@ interface ChatComposerProps {
 
 interface ChatComposerActionsProps {
   readonly chat: ChatController;
+  readonly isOpen: boolean;
   readonly canAttach: boolean;
   readonly canSend: boolean;
   readonly onSubmit: () => void;
 }
 
-/** The row under the input: "+", the size limit, "Stoppen" and "Abschicken" or "Abbrechen". */
+/** Attachments, job controls, context occupancy and the submit or cancel action. */
 function ChatComposerActions({
   chat,
+  isOpen,
   canAttach,
   canSend,
   onSubmit,
@@ -46,9 +49,10 @@ function ChatComposerActions({
   }
 
   return (
-    <div className="mt-2 flex items-center gap-2">
+    <div className="relative mt-2 flex flex-wrap items-center gap-2">
       <Button
         aria-label={t("chat.attach")}
+        className="shrink-0 border-2 border-primary text-primary hover:border-primary-hover hover:bg-primary-subtle hover:text-primary-hover active:border-primary-hover active:bg-primary/15 disabled:border-primary/60 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
         disabled={!canAttach}
         onClick={() => fileInput.current?.click()}
         size="icon"
@@ -73,16 +77,22 @@ function ChatComposerActions({
           : null}
       </span>
       <ChatJobStopButton jobs={chat.jobs} />
-      {sending ? (
-        <Button onClick={chat.cancel} variant="outline">
-          {t("chat.cancel")}
-        </Button>
-      ) : (
-        <Button disabled={!canSend} onClick={onSubmit}>
-          <SendHorizontal aria-hidden="true" className="size-4" />
-          {t("chat.send")}
-        </Button>
-      )}
+      <div className="ml-auto flex shrink-0 items-center gap-2">
+        <ChatContextIndicator
+          key={`${chat.view.session?.id ?? ""}:${isOpen}`}
+          context={chat.context}
+        />
+        {sending ? (
+          <Button onClick={chat.cancel} variant="outline">
+            {t("chat.cancel")}
+          </Button>
+        ) : (
+          <Button disabled={!canSend} onClick={onSubmit}>
+            <SendHorizontal aria-hidden="true" className="size-4" />
+            {t("chat.send")}
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
@@ -160,6 +170,7 @@ export function ChatComposer({
       <ChatJobSteerHint jobs={chat.jobs} />
       <ChatComposerActions
         chat={chat}
+        isOpen={isOpen}
         canAttach={!isBusy}
         canSend={canSend}
         onSubmit={() => void handleSubmit()}

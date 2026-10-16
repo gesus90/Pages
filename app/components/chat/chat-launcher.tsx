@@ -37,12 +37,13 @@ export function ChatLauncher(): React.ReactElement {
         aria-controls="pica-chat"
         aria-expanded={isOpen}
         aria-label={label}
-        className="fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+4rem)] z-40 flex size-14 items-center justify-center rounded-full bg-surface shadow-floating ring-1 ring-border focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary md:bottom-[calc(env(safe-area-inset-bottom)+1rem)]"
+        className="fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+4rem)] z-40 flex size-14 items-center justify-center rounded-full border-2 border-primary bg-surface shadow-floating transition-colors hover:border-primary-hover hover:bg-primary-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:border-primary-hover active:bg-primary/15 md:bottom-[calc(env(safe-area-inset-bottom)+1rem)]"
         onClick={handleToggle}
         title={label}
         type="button"
       >
-        <PicaMascot className="size-11" />
+        {/* Center the visible SVG bounds (including the wave), whose midpoint is about (329, 335) on its 640-square canvas. */}
+        <PicaMascot className="size-11 -translate-x-[1.5%] -translate-y-[2.35%]" />
       </button>
       {isMounted ? <ChatPanel isOpen={isOpen} onClose={handleClose} /> : null}
     </>

@@ -37,11 +37,7 @@ export function ChatPanel({
       id="pica-chat"
       onKeyDown={handleKeyDown}
     >
-      <ChatHeader
-        onClose={onClose}
-        session={view.session}
-        context={chat.context}
-      />
+      <ChatHeader onClose={onClose} session={view.session} />
       {picker ? (
         <ChatSessionPicker
           key={picker.mode}

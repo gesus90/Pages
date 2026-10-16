@@ -3,21 +3,20 @@ import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
 
-import { ChatContextIndicator } from "./chat-context-indicator";
 import { PicaMascot } from "./pica-mascot";
 
 import type { ChatSession, ChatContextSize } from "@/definition/Chat";
 
 interface ChatHeaderProps {
   readonly session: ChatSession | null;
-  readonly context: ChatContextSize | null;
+  /** Accepted for existing callers; context is displayed by the composer. */
+  readonly context?: ChatContextSize | null;
   readonly onClose: () => void;
 }
 
 /** Name of the agent, the read-only session ID and the close button (T6.12.1). */
 export function ChatHeader({
   session,
-  context,
   onClose,
 }: ChatHeaderProps): React.ReactElement {
   const { t } = useTranslation();
@@ -28,7 +27,7 @@ export function ChatHeader({
   }
 
   return (
-    <header className="flex flex-col gap-3 border-b border-border p-4">
+    <header className="flex flex-col gap-2 border-b border-border px-4 py-3">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <PicaMascot className="size-9" />
@@ -50,17 +49,17 @@ export function ChatHeader({
           <X aria-hidden="true" className="size-4" />
         </Button>
       </div>
-      <div className="flex items-center gap-2 rounded-xl bg-muted px-3 py-1.5 text-xs">
+      <div className="flex items-center gap-1.5 rounded-lg bg-muted px-2 py-0.5 text-xs">
         <span className="text-muted-foreground">{t("chat.session")}</span>
         <input
           aria-label={t("chat.sessionId")}
-          className="min-w-0 flex-1 bg-transparent font-mono font-semibold text-foreground outline-none"
+          className="min-w-0 flex-1 bg-transparent font-mono text-[0.6875rem] leading-5 text-foreground outline-none"
           readOnly
           value={sessionId}
         />
-        <ChatContextIndicator context={context} />
         <Button
           aria-label={t("chat.copySession")}
+          className="size-6 min-h-6 xl:min-h-6"
           disabled={sessionId === ""}
           onClick={handleCopy}
           size="icon-sm"
