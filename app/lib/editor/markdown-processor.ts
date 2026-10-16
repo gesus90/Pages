@@ -3,7 +3,7 @@ import remarkParse from "remark-parse";
 import remarkStringify from "remark-stringify";
 import { unified } from "unified";
 
-import type { Literal, Root, RootContent } from "mdast";
+import type { Literal, Root, RootContent, Text } from "mdast";
 import type { Options as StringifyOptions } from "remark-stringify";
 
 /**
@@ -23,6 +23,12 @@ declare module "mdast" {
     markdownLiteral: MarkdownLiteral;
   }
 }
+
+/**
+ * How plain text is written: `escaped` so that no character of it reads as
+ * markdown, or `typed` exactly as the person typed it, as in a chat message.
+ */
+export type MarkdownTextStyle = "escaped" | "typed";
 
 /** How list markers of one block are written. */
 export interface ListMarkers {
@@ -52,21 +58,59 @@ const STRINGIFY_OPTIONS = {
   strong: "*",
 } satisfies StringifyOptions;
 
+type TextHandler = NonNullable<
+  NonNullable<StringifyOptions["handlers"]>["text"]
+>;
+type Stringify = (tree: Root) => string;
+
+const writeTypedText: TextHandler = (node: Text, parent, state, info) => {
+  const isInside = (construct: string): boolean =>
+    state.stack.some((entered) => entered === construct);
+
+  // A bracket would end a link label and a bar a table cell, so these stay
+  // escaped there.
+  if (isInside("label")) {
+    return state.safe(node.value, info);
+  }
+
+  return isInside("tableCell") ? node.value.replaceAll("|", "\\|") : node.value;
+};
+
+function createStringifier(
+  markers: ListMarkers,
+  textStyle: MarkdownTextStyle,
+): Stringify {
+  const processor = unified()
+    .use(remarkGfm)
+    .use(remarkStringify, {
+      ...STRINGIFY_OPTIONS,
+      bullet: markers.bullet,
+      bulletOrdered: markers.ordered,
+      handlers:
+        textStyle === "typed"
+          ? { ...STRINGIFY_OPTIONS.handlers, text: writeTypedText }
+          : STRINGIFY_OPTIONS.handlers,
+    });
+
+  return (tree) => processor.stringify(tree);
+}
+
 const parser = unified().use(remarkParse).use(remarkGfm);
-const defaultStringifier = unified()
-  .use(remarkGfm)
-  .use(remarkStringify, {
-    ...STRINGIFY_OPTIONS,
-    bullet: DEFAULT_LIST_MARKERS.bullet,
-    bulletOrdered: DEFAULT_LIST_MARKERS.ordered,
-  });
-const alternateStringifier = unified()
-  .use(remarkGfm)
-  .use(remarkStringify, {
-    ...STRINGIFY_OPTIONS,
-    bullet: ALTERNATE_LIST_MARKERS.bullet,
-    bulletOrdered: ALTERNATE_LIST_MARKERS.ordered,
-  });
+const stringifiers: Readonly<
+  Record<
+    MarkdownTextStyle,
+    { readonly regular: Stringify; readonly alternate: Stringify }
+  >
+> = {
+  escaped: {
+    regular: createStringifier(DEFAULT_LIST_MARKERS, "escaped"),
+    alternate: createStringifier(ALTERNATE_LIST_MARKERS, "escaped"),
+  },
+  typed: {
+    regular: createStringifier(DEFAULT_LIST_MARKERS, "typed"),
+    alternate: createStringifier(ALTERNATE_LIST_MARKERS, "typed"),
+  },
+};
 
 /**
  * Parses markdown the way the wiki renderer reads it (CommonMark and GFM).
@@ -83,18 +127,16 @@ export function parseMarkdownTree(source: string): Root {
  *
  * @param block - A top-level block.
  * @param markers - List markers to use for this block.
+ * @param textStyle - Whether plain text is escaped or written as typed.
  * @returns The markdown without the final line break.
  */
 export function stringifyMarkdownBlock(
   block: RootContent,
   markers: ListMarkers = DEFAULT_LIST_MARKERS,
+  textStyle: MarkdownTextStyle = "escaped",
 ): string {
-  const stringifier =
-    markers === ALTERNATE_LIST_MARKERS
-      ? alternateStringifier
-      : defaultStringifier;
+  const { regular, alternate } = stringifiers[textStyle];
+  const stringify = markers === ALTERNATE_LIST_MARKERS ? alternate : regular;
 
-  return stringifier
-    .stringify({ children: [block], type: "root" })
-    .replace(/\n$/, "");
+  return stringify({ children: [block], type: "root" }).replace(/\n$/, "");
 }

@@ -22,7 +22,10 @@ import type {
   TableRow,
   Text,
 } from "mdast";
-import type { ListMarkers } from "@/app/lib/editor/markdown-processor";
+import type {
+  ListMarkers,
+  MarkdownTextStyle,
+} from "@/app/lib/editor/markdown-processor";
 
 /** An inline node together with the marks still to be written around it. */
 interface InlineItem {
@@ -447,6 +450,7 @@ function toMarkdownNode(node: ProseMirrorNode): BlockContent | null {
  *
  * @param node - A block of the document.
  * @param markers - List markers to use for this block.
+ * @param textStyle - Whether plain text is escaped or written as typed.
  * @returns The markdown, or an empty text for an empty paragraph.
  *
  * @remarks
@@ -456,13 +460,15 @@ function toMarkdownNode(node: ProseMirrorNode): BlockContent | null {
 export function serializeEditorBlock(
   node: ProseMirrorNode,
   markers: ListMarkers = DEFAULT_LIST_MARKERS,
+  textStyle: MarkdownTextStyle = "escaped",
 ): string {
   if (node.type.name === EDITOR_NODE.rawMarkdown) {
     return node.textContent;
   }
 
   const block: RootContent | null = toMarkdownNode(node);
-  const markdown = block === null ? "" : stringifyMarkdownBlock(block, markers);
+  const markdown =
+    block === null ? "" : stringifyMarkdownBlock(block, markers, textStyle);
   const anchor = readTextAttribute(node.attrs, "blockId");
 
   return anchor === null || markdown === ""

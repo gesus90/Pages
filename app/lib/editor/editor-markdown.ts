@@ -12,7 +12,10 @@ import {
 } from "@/app/lib/editor/markdown-to-document";
 
 import type { Node as ProseMirrorNode, Schema } from "@tiptap/pm/model";
-import type { ListMarkers } from "@/app/lib/editor/markdown-processor";
+import type {
+  ListMarkers,
+  MarkdownTextStyle,
+} from "@/app/lib/editor/markdown-processor";
 import type {
   EditorJsonNode,
   ParsedBlock,
@@ -48,6 +51,12 @@ export interface MarkdownBaseline {
 /** Which list a block is, so two neighbouring lists keep apart. */
 type ListFamily = "bullet" | "ordered" | null;
 
+/** What every block of one serialization is written against. */
+interface SerializationContext {
+  readonly base: MarkdownBaseline;
+  readonly textStyle: MarkdownTextStyle;
+}
+
 /** What the next block must know about the block written before it. */
 interface WrittenBlock {
   readonly family: ListFamily;
@@ -59,7 +68,9 @@ interface WrittenBlock {
 
 // Documents are immutable trees, so the markdown of a block stays valid as
 // long as the very same node object exists.
-const normalizedCache = new WeakMap<ProseMirrorNode, string>();
+const normalizedCaches: Readonly<
+  Record<MarkdownTextStyle, WeakMap<ProseMirrorNode, string>>
+> = { escaped: new WeakMap(), typed: new WeakMap() };
 
 function familyOf(node: ProseMirrorNode): ListFamily {
   switch (node.type.name) {
@@ -83,16 +94,20 @@ function readMarker(markdown: string, family: ListFamily): string | null {
     : null;
 }
 
-function normalize(node: ProseMirrorNode): string {
-  const cached = normalizedCache.get(node);
+function normalize(
+  node: ProseMirrorNode,
+  textStyle: MarkdownTextStyle,
+): string {
+  const cache = normalizedCaches[textStyle];
+  const cached = cache.get(node);
 
   if (cached !== undefined) {
     return cached;
   }
 
-  const markdown = serializeEditorBlock(node);
+  const markdown = serializeEditorBlock(node, DEFAULT_LIST_MARKERS, textStyle);
 
-  normalizedCache.set(node, markdown);
+  cache.set(node, markdown);
 
   return markdown;
 }
@@ -228,15 +243,16 @@ class BaselineIndex {
 
 function writeBlock(
   node: ProseMirrorNode,
-  base: MarkdownBaseline,
+  context: SerializationContext,
   original: number | null,
   previous: WrittenBlock | null,
 ): WrittenBlock & { readonly markdown: string } {
+  const { base, textStyle } = context;
   const family = familyOf(node);
   const block = original === null ? null : base.blocks[original];
   const markdown = block
     ? base.source.slice(block.start, block.end)
-    : normalize(node);
+    : normalize(node, textStyle);
   const marker = readMarker(markdown, family);
   const collides =
     family !== null &&
@@ -247,7 +263,11 @@ function writeBlock(
     return { family, markdown, marker, original };
   }
 
-  const rewritten = serializeEditorBlock(node, markersAfter(previous));
+  const rewritten = serializeEditorBlock(
+    node,
+    markersAfter(previous),
+    textStyle,
+  );
 
   return {
     family,
@@ -283,6 +303,7 @@ function joinBefore(
  *
  * @param doc - The editor document.
  * @param baseline - The state the document was loaded in, if any.
+ * @param textStyle - Whether plain text is escaped or written as typed.
  * @returns The markdown text of the document.
  *
  * @remarks
@@ -295,8 +316,10 @@ function joinBefore(
 export function serializeMarkdown(
   doc: ProseMirrorNode,
   baseline: MarkdownBaseline | null,
+  textStyle: MarkdownTextStyle = "escaped",
 ): string {
   const base = baseline ?? { blocks: [], source: "", trailing: "\n" };
+  const context: SerializationContext = { base, textStyle };
   const index = new BaselineIndex(base);
   let output = "";
   let previous: WrittenBlock | null = null;
@@ -304,11 +327,11 @@ export function serializeMarkdown(
   for (const node of topLevelBlocks(doc)) {
     const original = index.take(node);
 
-    if (original === null && normalize(node) === "") {
+    if (original === null && normalize(node, textStyle) === "") {
       continue;
     }
 
-    const written = writeBlock(node, base, original, previous);
+    const written = writeBlock(node, context, original, previous);
 
     output += joinBefore(base, previous, written.original) + written.markdown;
     previous = written;

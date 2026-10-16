@@ -93,8 +93,12 @@ export function useChatEditor(options: ChatEditorOptions): ChatEditor {
       enablePasteRules: false,
       extensions,
       immediatelyRender: false,
+      // The message is stored and reaches Pica exactly as typed, without
+      // escaped brackets; the history renders it as Markdown.
       onUpdate: ({ editor: changed }) =>
-        setMarkdownState(serializeMarkdown(changed.state.doc, null).trim()),
+        setMarkdownState(
+          serializeMarkdown(changed.state.doc, null, "typed").trim(),
+        ),
     },
     [],
   );
