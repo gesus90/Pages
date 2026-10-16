@@ -6,10 +6,16 @@ import { Select } from "@/app/components/ui/select";
 import { PlanRunSequence, planRunAgents } from "./plan-run-sequence";
 import { PlanStatusBadge } from "./plan-status";
 import { PlanRunDiagnostics } from "./plan-run-diagnostics";
+import { PlanRunGroupSessions } from "./plan-run-group-sessions";
 
 import type { usePlanRun } from "./use-plan-run";
 
-/** Results contain only final sanitized text, never snapshots, credentials or native diagnostics. */
+/**
+ * Results contain only final sanitized text, never snapshots, credentials or native diagnostics.
+ *
+ * @remarks
+ * It sits in the run details panel below the grid, which supplies the frame.
+ */
 export function PlanRunView(props: {
   readonly state: ReturnType<typeof usePlanRun>;
   readonly onStop: (id: string) => void;
@@ -20,12 +26,9 @@ export function PlanRunView(props: {
   const agents = run ? planRunAgents(run) : [];
   const completed = agents.filter((step) => step.status === "succeeded").length;
   return (
-    <section
-      className="min-w-0 space-y-4 rounded-xl border border-border bg-panel-body p-4"
-      aria-label={t("plans.runView")}
-    >
+    <section className="min-w-0 space-y-4" aria-label={t("plans.runView")}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-semibold">{t("plans.runView")}</h2>
+        <h2 className="sr-only">{t("plans.runView")}</h2>
         <Select
           ariaLabel={t("plans.history")}
           value={props.state.selectedId}
@@ -68,6 +71,7 @@ export function PlanRunView(props: {
             max={Math.max(1, agents.length)}
           />
           <PlanRunSequence key={run.id} run={run} />
+          <PlanRunGroupSessions run={run} />
           <PlanRunDiagnostics run={run} agents={agents} />
         </>
       ) : (

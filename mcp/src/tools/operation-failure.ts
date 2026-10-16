@@ -61,6 +61,8 @@ const ISSUE_PROBLEMS: Readonly<Record<AgentPlanIssueProblem, true>> = {
   groupSize: true,
   groupProvider: true,
   groupConfiguration: true,
+  groupOrder: true,
+  groupBoundary: true,
   unsupportedRunNotes: true,
   duplicateNode: true,
   port: true,

@@ -613,7 +613,7 @@
         "plan_runner_permission_denied": "Der Runner hat Aktionen abgelehnt, die die Laufoptionen nicht erlauben; nichts wurde stellvertretend freigegeben.",
         "plan_acceptance_failed": "Historischer Lauf: Der Abschlussbericht belegte nicht jedes Todo und Kriterium. Dieser gespeicherte Fehler bleibt bestehen; ein neuer Lauf verwendet die Hinweise nur als Diagnose.",
         "plan_group_acceptance_failed": "Der Gruppen-Agent hat die Abnahme nicht bestanden. Sein Abschlussbericht muss jedes Todo und Kriterium belegen; weitere Agents und Nachfolger bleiben gesperrt.",
-        "plan_group_session_unsupported": "Dieser Adapter kann eine gemeinsame native Session mit neuer Schrittanweisung nicht fortsetzen. Wähle kompatible Codex-CLI-Agents.",
+        "plan_group_session_unsupported": "Dieser Adapter kann die gemeinsame ACP-Session der Gruppe nicht mit neuer Schrittanweisung fortsetzen. Codex- oder Claude-Code-Agents über ACP verwenden.",
         "plan_closeout_failed": "Die Sitzung ließ sich nicht vollständig schließen; Prozesse blieben übrig.",
         "parameter_number_invalid": "Für jeden Zahlenparameter eine gültige endliche Zahl angeben.",
         "parameter_asset_unavailable": "Ein Ticket-Asset fehlt, wurde gelöscht, ist nicht lesbar oder für den ausführenden Benutzer nicht zugänglich. Es wurde keine unvollständige Eingabe übergeben.",
@@ -628,7 +628,8 @@
         "opencode_chat_mode_required": "Pica benötigt für OpenCode Workspace-Zugriff „Nur Lesen“ und bietet ausschließlich die Pages-Toolbrücke an.",
         "opencode_configuration_unmanaged": "OpenCode könnte fremde Einstellungen oder Anweisungen laden. Entferne diese aus dem Konfigurationsordner der Verbindung oder /etc/opencode. Es wurde kein Modell aufgerufen.",
         "opencode_acp_unsupported": "Pica benötigt den geprüften nativen ACP-Vertrag von OpenCode 1.18.34. Die installierte Version oder ihr Vertrag weicht davon ab; es wurde kein Modell aufgerufen.",
-        "opencode_acp_session_failed": "Die native OpenCode-ACP-Sitzung ist vor oder während der Antwort fehlgeschlagen."
+        "opencode_acp_session_failed": "Die native OpenCode-ACP-Sitzung ist vor oder während der Antwort fehlgeschlagen.",
+        "plan_group_session_lost": "Die gemeinsame ACP-Session der Gruppe besteht nicht mehr, weil ihr Adapterprozess beendet wurde. Eine ACP-Session lässt sich in keinem anderen Prozess fortsetzen; einen neuen Lauf starten."
       },
       "description": "Verwalten Sie die benannten KI-Anbindungen und Funktionszuordnungen dieser Pages-Instanz.",
       "adminModeRequired": "Die Agents-Einstellungen sind nur im Admin-Modus verfügbar. Ihr Konto ist derzeit im Rollenmodus.",
@@ -3227,7 +3228,7 @@
     "addSource": "{{name}} einsetzen",
     "canvas": "Rastereditor",
     "grid": "Planraster",
-    "canvasHint": "Agents und Tickets ins Raster ziehen. Erst OUT, dann kompatibles IN wählen. Durchgezogen: Ablauf. Gestrichelt: Daten. Ein Ticket liefert seinen Wert ohne Start direkt an einen Ticket-Parameter. Leere Fläche ziehen verschiebt das Raster, das Mausrad zoomt. Eine Verbindung anklicken, um sie zu lösen; Entf löscht die Auswahl.",
+    "canvasHint": "Agents und Tickets ins Raster ziehen. Erst OUT, dann kompatibles IN wählen. Durchgezogen: Ablauf. Gestrichelt: Daten. Ein Ticket liefert seinen Wert ohne Start direkt an einen Ticket-Parameter. Einen Agent in einen grünen Gruppenrahmen ziehen ordnet ihn der Gruppe zu, heraus ziehen löst ihn; maßgeblich ist der Mauszeiger beim Loslassen. Leere Fläche ziehen verschiebt das Raster, das Mausrad zoomt. Eine Verbindung anklicken, um sie zu lösen; Entf löscht die Auswahl.",
     "connectHint": "Jetzt den passenden Ziel-Port wählen.",
     "flowIn": "Ablauf IN",
     "flowOut": "Ablauf OUT",
@@ -3270,7 +3271,7 @@
       "start": "Start",
       "end": "Ende",
       "parameter": "Parameter",
-      "group": "Gruppen"
+      "group": "Gruppe"
     },
     "status": {
       "waiting": "Wartet",
@@ -3287,15 +3288,15 @@
     },
     "chooseProject": "Projekt auswählen",
     "metadata": "Titel, Projekt, Workspace und Freigabe",
-    "pickers": "Quellen",
+    "pickers": "Quellen und Auswahl",
     "tabs": {
       "agents": "Agents",
       "tickets": "Tickets",
       "parameters": "Parameter",
       "groups": "Gruppen"
     },
-    "collapsePanel": "Panel einklappen",
-    "expandPanel": "Panel öffnen",
+    "collapsePanel": "Seitenpanel einklappen",
+    "expandPanel": "Seitenpanel öffnen",
     "addStart": "+ Start",
     "addEnd": "+ Ende",
     "dataIn": "Daten IN",
@@ -3336,10 +3337,12 @@
       "name": "Namen mit kleinem Buchstaben beginnen; nur a–z, 0–9 und Unterstrich, höchstens 64 Zeichen.",
       "json": "Genau einen gültigen JSON-Wert eingeben. Zahlen müssen endlich sein.",
       "number": "Genau eine endliche Zahl eingeben.",
-      "groupSize": "Die Gruppe benötigt mindestens zwei Agents.",
-      "groupProvider": "Dieser Adapter unterstützt die gemeinsame native Session mit wechselnder Schrittanweisung nicht. Verwende Codex CLI.",
+      "groupSize": "Die Gruppe enthält noch keinen Agent. Mindestens einen ACP-Agent hineinziehen, bevor der Plan startet.",
+      "groupProvider": "Dieser Agent passt nicht zur ACP-Klasse der Gruppe oder läuft nicht über ACP. Nur Agents derselben Adapterklasse (Codex oder Claude Code) teilen eine Gruppensession.",
       "groupConfiguration": "Die aufgelöste Laufzeitkonfiguration widerspricht der gemeinsamen Gruppenkonfiguration.",
-      "unsupportedRunNotes": "Gemeinsame Laufnotizen wurden entfernt. {{@run.notes}} wird nicht mehr unterstützt. Passe den betroffenen Agent oder Plan-Knoten ausdrücklich an."
+      "unsupportedRunNotes": "Gemeinsame Laufnotizen wurden entfernt. {{@run.notes}} wird nicht mehr unterstützt. Passe den betroffenen Agent oder Plan-Knoten ausdrücklich an.",
+      "groupOrder": "Die Agents einer Gruppe teilen eine Session und brauchen eine eindeutige Reihenfolge: Ablaufverbindungen bilden eine Kette mit genau einem ersten Agent und ohne Verzweigung.",
+      "groupBoundary": "Ablaufverbindungen kreuzen keinen Gruppenrahmen: äußere Knoten mit Ablauf IN oder OUT der Gruppe verbinden, Agents der Gruppe nur untereinander."
     },
     "createPortValue": "Wert als Parameterknoten",
     "session": {
@@ -3450,7 +3453,7 @@
       "defaultName": "Agent-Gruppe",
       "create": "Gruppe anlegen",
       "name": "Gruppenname",
-      "hint": "Mindestens zwei Codex-Agents in fester Reihenfolge mit identischem Zugang und identischer Laufzeitkonfiguration. Ein Anschluss verteilt denselben Wert an mehrere Agents.",
+      "hint": "Eine ACP-Gruppe teilt pro Plan-Lauf eine Session. Sie beginnt als neutraler Entwurf; der erste ACP-Agent, der beitritt (Codex oder Claude Code), legt ihre Klasse fest. Danach treten nur Agents derselben Klasse mit identischem Zugang und identischer Laufzeitkonfiguration bei. Ohne Agents ist sie wieder neutral. Ein Anschluss verteilt denselben Wert an mehrere Agents.",
       "interfaces": "Schnittstellenanschlüsse",
       "acceptanceHint": "Interne Gruppen-Agents benötigen einen gültigen pages-report mit erledigten Todos und belegten Kriterien. Fehlende Berichte, offene Punkte und fehlgeschlagene Abnahme stoppen die Gruppe und sperren Nachfolger.",
       "failedAgent": "Betroffener Agent: {{name}}",
@@ -3461,10 +3464,62 @@
       "removePort": "Anschluss entfernen",
       "addPort": "Anschluss hinzufügen",
       "addAgent": "Agent zur Gruppe hinzufügen",
-      "order": "Interner Subgraph / Ausführungsreihenfolge",
+      "order": "Agents der Gruppe",
       "up": "Agent nach oben",
       "down": "Agent nach unten",
-      "step": "{{name}} · Schritt {{index}}"
+      "step": "{{name}} · Schritt {{index}}",
+      "adapterLabel": "ACP-Klasse",
+      "adapter": {
+        "codex_cli": "Codex · ACP",
+        "claude_code": "Claude Code · ACP",
+        "neutral": "Neutral"
+      },
+      "refusal": {
+        "notAcp": "{{name}} läuft als Plan-Knoten nicht über ACP und kann keiner ACP-Gruppe beitreten. Das gilt für API-Agents und OpenCode-Plan-Knoten (CLI ohne ACP). Der Agent wurde nicht verändert.",
+        "otherAdapter": "{{name}} gehört zur ACP-Klasse {{adapter}}, die Gruppe zur Klasse {{group}}. Nur Agents derselben Klasse können beitreten. Der Agent wurde nicht verändert.",
+        "missingAgent": "{{name}} hat keinen zugewiesenen Agent und kann keiner Gruppe beitreten."
+      },
+      "frame": "Gruppe {{name}}",
+      "dropHere": "Loslassen: Der Agent tritt dieser Gruppe bei",
+      "portToMember": "Wert von {{name}} an einen Agent der Gruppe geben",
+      "removeTitle": "Gruppe „{{name}}“ entfernen?",
+      "removeDescription": "Agents in der Gruppe: {{count}}. „Rahmen entfernen“ behält die Agents und ihre Ablaufverbindungen untereinander auf dem Raster; Verbindungen am Rahmen und Bindungen an Gruppenanschlüsse entfallen. „Samt Inhalt löschen“ entfernt auch die Agents mit allen ihren Verbindungen.",
+      "removeFrame": "Rahmen entfernen, Agents behalten",
+      "removeWithMembers": "Samt Inhalt löschen ({{count}} Agents)",
+      "moved": "Beim Wechsel über den Gruppenrahmen wurden gelöst: {{edges}} Ablaufverbindungen, {{bindings}} Bindungen an Gruppenanschlüsse. Ablaufverbindungen verbinden nur Knoten derselben Ebene; nach außen führen Ablauf IN und OUT der Gruppe.",
+      "closeNotice": "Hinweis schließen",
+      "membership": "Gruppenzugehörigkeit",
+      "noGroup": "Keine Gruppe",
+      "portOption": "Gruppenanschluss · {{name}}",
+      "orderValue": "Reihenfolge: {{order}}",
+      "orderOpen": "Reihenfolge offen: Die Agents mit Ablaufverbindungen zu einer Kette ohne Verzweigung verbinden. Position und Liste zählen nicht.",
+      "empty": "Noch kein Agent. Einen ACP-Agent in den Rahmen ziehen oder unten hinzufügen.",
+      "selectMember": "Auswählen",
+      "takeOut": "Aus Gruppe lösen",
+      "session": {
+        "label": "session_id",
+        "notCreated": "noch nicht erstellt",
+        "hint": "Automatisch verwaltet und schreibgeschützt: die ACP-Session dieser Gruppe im ausgewählten Lauf. Sie gilt nur für die Agents dieser Gruppe in diesem Lauf, ist kein globaler Planparameter und wird nicht verkabelt.",
+        "state": {
+          "not_created": "noch nicht erstellt",
+          "active": "aktiv",
+          "closed": "beendet",
+          "failed": "abgebrochen oder fehlerhaft beendet"
+        },
+        "inherited": "Gemeinsame Session der Gruppe {{name}} · {{state}}",
+        "title": "Gruppensessions",
+        "acpId": "ACP session_id",
+        "nativeId": "Native Adapter-Session",
+        "nativeMissing": "vom Adapter nicht getrennt gemeldet",
+        "creator": "Erzeugt von",
+        "turns": "Turns in der Session",
+        "role": {
+          "created": "Erzeugt die Gruppensession (Turn {{turn}})",
+          "continued": "Setzt die Gruppensession fort (Turn {{turn}})"
+        },
+        "runScope": "Gilt nur für diesen Lauf; ein neuer Lauf erhält eine neue Session.",
+        "adapter": "ACP-Klasse"
+      }
     },
     "sequence": "Agent-Sequenz",
     "sequenceHint": "Agent auswählen, um Details zu öffnen. Die Reihe fasst die Agents zusammen; unabhängige Agents können parallel laufen.",
@@ -3491,7 +3546,15 @@
       "todoHint": "Aktuelle Position abgeleitet: erster offener Punkt bei laufendem Agent. Der Runner meldet keine aktive TODO-ID.",
       "inputsLoading": "Inputs werden geladen …"
     },
-    "runDiagnostics": "Weitere Laufhinweise"
+    "runDiagnostics": "Weitere Laufhinweise",
+    "configuration": "Plankonfiguration",
+    "detailsPanel": "Ablauf und Details",
+    "collapseDetails": "Details einklappen",
+    "expandDetails": "Details ausklappen",
+    "canvasHelp": "Hilfe zum Planraster",
+    "clearSelection": "Auswahl aufheben",
+    "positionInGroupX": "Position in der Gruppe X",
+    "positionInGroupY": "Position in der Gruppe Y"
   },
   "mcpDuration": {
     "label": "Gültigkeit in Tagen",

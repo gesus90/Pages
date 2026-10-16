@@ -3,6 +3,7 @@ import { readPlanInput } from "@/backend/agents/AgentPlanInput";
 import { readCountColumn, readTextColumn } from "@/backend/database/RowValue";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { withoutTicketFlow } from "@/definition/AgentPlanGraph";
+import { withExplicitGroupFlow } from "@/definition/AgentPlanGroupEdit";
 
 import type {
   Database,
@@ -21,13 +22,15 @@ const PLAN_COLUMNS = `
 
 function readPlan(row: readonly DatabaseValue[]): AgentPlan {
   const input: unknown = JSON.parse(readTextColumn(row, 4, "plan_json"));
-  return withoutTicketFlow({
-    ...readPlanInput(input),
-    id: readTextColumn(row, 0, "id"),
-    ownerId: readTextColumn(row, 1, "owner_id"),
-    projectId: readTextColumn(row, 2, "project_id"),
-    revision: readCountColumn(row, 3, "revision"),
-  });
+  return withExplicitGroupFlow(
+    withoutTicketFlow({
+      ...readPlanInput(input),
+      id: readTextColumn(row, 0, "id"),
+      ownerId: readTextColumn(row, 1, "owner_id"),
+      projectId: readTextColumn(row, 2, "project_id"),
+      revision: readCountColumn(row, 3, "revision"),
+    }),
+  );
 }
 
 async function findPlan(

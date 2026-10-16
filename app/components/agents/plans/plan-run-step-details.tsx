@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { PlanRunInputs } from "./plan-run-inputs";
 import { PlanRunProgress } from "./plan-run-progress";
 import { PlanRunSession } from "./plan-run-session";
+import { PlanRunStepGroupSession } from "./plan-run-group-sessions";
 import { PlanStatusBadge } from "./plan-status";
 
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
@@ -61,22 +62,27 @@ function StepHeading({
 }): React.ReactElement {
   const { t } = useTranslation();
   const group = run.steps.find((entry) => entry.id === step.groupId);
+  // The turn in the shared session is the real position; older records only have their list order.
   const index =
+    step.session?.group?.turn ??
     run.steps
       .filter((entry) => entry.groupId === step.groupId)
       .findIndex((entry) => entry.id === step.id) + 1;
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      <div className="min-w-0">
-        {group ? (
-          <p className="text-xs text-muted-foreground">
-            {t("plans.groups.step", { name: group.name, index })}
-          </p>
-        ) : null}
-        <h3 className="break-words font-semibold">{step.name}</h3>
+    <>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0">
+          {group ? (
+            <p className="text-xs text-muted-foreground">
+              {t("plans.groups.step", { name: group.name, index })}
+            </p>
+          ) : null}
+          <h3 className="break-words font-semibold">{step.name}</h3>
+        </div>
+        <PlanStatusBadge status={step.status} isBlocked={step.isBlocked} />
       </div>
-      <PlanStatusBadge status={step.status} isBlocked={step.isBlocked} />
-    </div>
+      <PlanRunStepGroupSession run={run} step={step} />
+    </>
   );
 }
 

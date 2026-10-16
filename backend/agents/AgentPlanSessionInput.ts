@@ -7,6 +7,7 @@ import type {
   AgentPlanAcceptance,
   AgentPlanContract,
   AgentPlanContractItem,
+  AgentPlanGroupSessionLink,
   AgentPlanProcessExit,
   AgentPlanRunner,
   AgentPlanRunnerConfiguration,
@@ -204,6 +205,21 @@ function readDefinition(input: unknown): AgentPlanSessionRecord["definition"] {
   };
 }
 
+function readGroupLink(input: unknown): AgentPlanGroupSessionLink {
+  const link = readAgentObject(input);
+  const turn = nullableNumber(link.turn);
+  if (turn === null || !Number.isSafeInteger(turn) || turn < 1) throw invalid();
+  return {
+    groupId: text(link.groupId, 100),
+    adapter: oneOf(link.adapter, ["codex_cli", "claude_code"] as const),
+    role: oneOf(link.role, ["created", "continued"] as const),
+    creatorStepId: text(link.creatorStepId, 100),
+    turn,
+    acpSessionId: nullableText(link.acpSessionId),
+    nativeSessionId: nullableText(link.nativeSessionId),
+  };
+}
+
 /**
  * Narrows the persisted record of an agent node; older runs have none.
  *
@@ -238,5 +254,8 @@ export function readPlanSessionRecord(
     contract: readContract(record.contract),
     acceptance: readAcceptance(record.acceptance),
     events: texts(record.events, 100),
+    ...(record.group === undefined || record.group === null
+      ? {}
+      : { group: readGroupLink(record.group) }),
   };
 }

@@ -268,8 +268,9 @@ export class AcpSession implements PlanSession {
   }
 
   /**
-   * Continues the native session with a fresh, turn-scoped prompt: the next
-   * step of a Codex plan group or the next turn of a Pica conversation.
+   * Continues the ACP session with a fresh, turn-scoped prompt: the next
+   * member of a Codex or Claude Code plan group or the next turn of a Pica
+   * conversation.
    *
    * @throws {AgentError} `provider_invalid` for a profile that runs one turn only.
    */

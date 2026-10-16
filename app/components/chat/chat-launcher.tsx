@@ -42,8 +42,8 @@ export function ChatLauncher(): React.ReactElement {
         title={label}
         type="button"
       >
-        {/* Center the visible SVG bounds (including the wave), whose midpoint is about (329, 335) on its 640-square canvas. */}
-        <PicaMascot className="size-11 -translate-x-[1.5%] -translate-y-[2.35%]" />
+        {/* Center the visible SVG bounds (including the wave), whose midpoint is about (329, 335) on its 640-square canvas; the smaller size keeps clear of the orange ring. */}
+        <PicaMascot className="size-9 -translate-x-[1.5%] -translate-y-[2.35%]" />
       </button>
       {isMounted ? <ChatPanel isOpen={isOpen} onClose={handleClose} /> : null}
     </>

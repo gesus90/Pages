@@ -72,8 +72,9 @@ export interface AcpSessionProfile {
   readonly hasMcpStatusCommand: boolean;
   /**
    * Whether a further prompt may continue the session after its turn ended:
-   * the Codex sessions and Pica's Claude conversation; a Claude plan node
-   * runs one turn.
+   * the Codex and Claude Code plan sessions, which the later members of an
+   * ACP group continue in the same process, and Pica's conversations. A plan
+   * node outside a group still runs one turn.
    */
   readonly isContinuable: boolean;
   /** The options to confirm, in order; a model change resets the effort. */

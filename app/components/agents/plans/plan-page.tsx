@@ -1,106 +1,81 @@
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
+
+import { cn } from "@/app/lib/cn";
 
 import { PlanNodeDialog } from "./plan-node-dialog";
 import { PlanCanvas } from "./plan-canvas";
-import { PlanConnections } from "./plan-connections";
-import { PlanFields } from "./plan-fields";
+import { PlanConfigurationPanel } from "./plan-configuration-panel";
+import { PlanDetailsPanel } from "./plan-details-panel";
 import { PlanPanel } from "./plan-panel";
 import { PlanLeaveGuard } from "./plan-leave-guard";
-import { PlanRunView } from "./plan-run-view";
-import { PlanValidation } from "./plan-validation";
-import { PlanActions, PlanHeader } from "./plan-toolbar";
 import { usePlanEditor } from "./use-plan-editor";
 import { usePlanRun } from "./use-plan-run";
 
 import type { AgentPlanPage } from "@/definition/AgentPlan";
 
-/** Keeps metadata compact and the grid dominant, with a collapsible source and selection panel over it. */
+/** Width of the right panel, which the top and bottom panels keep clear of. */
+interface PlanWorkspaceStyle extends React.CSSProperties {
+  readonly "--plan-side": string;
+}
+
+const OPEN_SIDE: PlanWorkspaceStyle = { "--plan-side": "min(24rem, 40%)" };
+const CLOSED_SIDE: PlanWorkspaceStyle = { "--plan-side": "2.25rem" };
+
+/**
+ * The plan grid fills the work area below the global header and blends into the page.
+ *
+ * @remarks
+ * On wide screens the configuration, the source and selection panel and the
+ * run details float over the grid in three separate areas that never overlap
+ * each other; narrow screens stack them around the grid instead.
+ */
 export function PlanPage({
   page,
 }: {
   readonly page: AgentPlanPage;
 }): React.ReactElement {
-  const { t } = useTranslation();
   const editor = usePlanEditor(page);
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
+  const [isSideOpen, setSideOpen] = useState(true);
   const running = usePlanRun(page.runs, editor.command.data);
   const disabled = !editor.canEdit || editor.isPending;
-  const response = editor.command.data;
-  const failure = response?.ok === false ? response.error : editor.sourceError;
-  const issues = [
-    ...editor.graph.issues,
-    ...(response?.ok === false ? (response.issues ?? []) : []),
-    ...(editor.graph.connectionIssue ? [editor.graph.connectionIssue] : []),
-  ];
   return (
-    <div className="w-full space-y-3 px-2 pt-3 pb-10">
-      <PlanHeader page={page} />
-      <details
-        open={!page.selected}
-        className="rounded-xl border border-border p-3"
-      >
-        <summary className="cursor-pointer text-sm font-medium">
-          {t("plans.metadata")}
-          {page.selected ? ` · ${page.selected.name}` : ""}
-        </summary>
-        <div className="pt-3">
-          <PlanFields
-            draft={editor.draft}
-            workspaces={page.workspaces}
-            directory={page.directory}
-            disabled={disabled}
-            onChange={editor.setDraft}
-          />
-        </div>
-      </details>
-      {failure ? (
-        <p role="alert" className="text-sm text-destructive">
-          {t(`settings.agents.error.${failure}`, {
-            defaultValue: t(`assistant.error.${failure}`),
-          })}
-        </p>
-      ) : null}
-      <PlanActions
+    <div
+      className="relative isolate flex flex-col gap-3 xl:block xl:h-[calc(100dvh-8.5rem)] xl:min-h-[34rem]"
+      style={isSideOpen ? OPEN_SIDE : CLOSED_SIDE}
+    >
+      <PlanConfigurationPanel
+        page={page}
         editor={editor}
-        hasSelection={page.selected !== null}
         run={running.run}
+        className="xl:absolute xl:top-0 xl:right-[calc(var(--plan-side)+0.75rem)] xl:left-0 xl:z-10"
       />
-      <p className="text-sm text-muted-foreground">{t("plans.canvasHint")}</p>
-      <div className="relative">
-        <div className="relative h-[max(28rem,calc(100dvh-21rem))] overflow-hidden rounded-xl border border-border">
-          <PlanCanvas
-            draft={editor.draft}
-            sources={editor.sources}
-            graph={editor.graph}
-            canEdit={!disabled && Boolean(editor.draft.workspaceId)}
-            onEdit={setEditingNodeId}
-            run={running.run}
-          />
-        </div>
-        <PlanPanel page={page} editor={editor} />
-      </div>
-      <PlanValidation
-        issues={issues}
-        draft={editor.draft}
-        sources={editor.sources}
-        onSelect={editor.graph.select}
-      />
-      <details>
-        <summary className="cursor-pointer text-sm">
-          {t("plans.dependencies")}
-        </summary>
-        <PlanConnections
+      <div className="relative h-[60dvh] min-h-[24rem] xl:absolute xl:inset-0 xl:h-auto">
+        <PlanCanvas
           draft={editor.draft}
           sources={editor.sources}
           graph={editor.graph}
-          disabled={disabled}
+          canEdit={!disabled && Boolean(editor.draft.workspaceId)}
+          onEdit={setEditingNodeId}
+          run={running.run}
         />
-      </details>
-      <PlanRunView
+      </div>
+      <PlanPanel
+        page={page}
+        editor={editor}
+        run={running.run}
+        isOpen={isSideOpen}
+        onOpenChange={setSideOpen}
+        className={cn(
+          "xl:absolute xl:top-0 xl:right-0 xl:z-10 xl:w-[var(--plan-side)]",
+          isSideOpen && "xl:bottom-0",
+        )}
+      />
+      <PlanDetailsPanel
         state={running}
-        isPending={editor.isPending}
-        onStop={editor.stop}
+        editor={editor}
+        hasRuns={page.runs.length > 0}
+        className="xl:absolute xl:right-[calc(var(--plan-side)+0.75rem)] xl:bottom-0 xl:left-0 xl:z-10"
       />
       <PlanNodeDialog
         nodeId={editingNodeId}

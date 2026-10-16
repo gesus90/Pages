@@ -43,6 +43,8 @@ export const AGENT_PLAN_ISSUE_PROBLEMS = [
   "groupSize",
   "groupProvider",
   "groupConfiguration",
+  "groupOrder",
+  "groupBoundary",
   "unsupportedRunNotes",
   "duplicateNode",
   "port",
@@ -99,11 +101,23 @@ export interface AgentPlanAgentNodeEntry extends AgentPlanNodeBase {
   readonly bindings: Readonly<Record<string, AgentPlanBindingEntry>>;
 }
 
-/** An agent step inside a group; its order in the group is its execution order. */
+/** An agent step inside a group; its position counts from the group's member area. */
 export type AgentPlanGroupStepEntry = Omit<AgentPlanAgentNodeEntry, "label">;
 
+/** A flow edge between two members of the same group. */
+export interface AgentPlanGroupEdgeEntry {
+  readonly from: string;
+  readonly to: string;
+  readonly fromPort: string;
+  readonly toPort: string;
+}
+
 /**
- * A sequential group of agent steps with the inputs at its boundary.
+ * An ACP group of agent steps with the inputs at its boundary.
+ *
+ * The steps share one session per run; their internal flow edges decide the
+ * order, which must form one chain before the plan can run. A group without
+ * `edges` was saved before them and runs its steps in their listed order.
  *
  * @remarks
  * Declared here instead of importing the group of the plan model, because the
@@ -113,6 +127,7 @@ export interface AgentPlanGroupNodeEntry extends AgentPlanNodeBase {
   readonly type: "group";
   readonly name: string;
   readonly steps: readonly AgentPlanGroupStepEntry[];
+  readonly edges?: readonly AgentPlanGroupEdgeEntry[];
   /** The inputs of the group; each has a stable `id` that step bindings refer to. */
   readonly parameters: readonly (AgentParameter & { readonly id: string })[];
   readonly bindings: Readonly<Record<string, AgentPlanBindingEntry>>;

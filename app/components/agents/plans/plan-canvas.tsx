@@ -2,9 +2,19 @@ import { useTranslation } from "react-i18next";
 
 import { PlanCanvasControls } from "./plan-canvas-controls";
 import { PlanEdges } from "./plan-edges";
+import { PlanGroupFrame } from "./plan-group-frame";
+import { planRunGroupSession } from "./plan-group-session";
+import { PlanGroupNoticeBar } from "./plan-group-notice";
+import { PlanGroupRemoval } from "./plan-group-removal";
 import { PlanLinkAction } from "./plan-link-action";
 import { PlanNodeCard } from "./plan-node-card";
-import { PLAN_GRID, planNodeWidth, planNodeHeight } from "./plan-layout";
+import {
+  PLAN_GRID,
+  planMemberPosition,
+  planNodeHeight,
+  planNodeWidth,
+} from "./plan-layout";
+import { usePlanCanvasDrop } from "./use-plan-canvas-drop";
 import { usePlanViewport } from "./use-plan-viewport";
 
 import type {
@@ -16,25 +26,103 @@ import type { PlanGraphActions } from "./use-plan-graph";
 
 // Keys that delete the selected node or connection while the grid has focus.
 const DELETE_KEYS = new Set(["Delete", "Backspace"]);
+// Keeps the first nodes of a plan below the configuration bar that floats over the grid.
+const INITIAL_VIEW = { x: 24, y: 120, zoom: 1 };
 
-/**
- * The plan grid fills its area; dragging the empty grid pans it and the mouse wheel zooms it.
- *
- * @remarks
- * Nodes and connections share one transformed layer, so they keep their
- * positions relative to each other at every offset and zoom level.
- */
-export function PlanCanvas(props: {
+interface CanvasProps {
   readonly draft: AgentPlanInput;
   readonly sources: AgentPlanSources;
   readonly graph: PlanGraphActions;
   readonly canEdit: boolean;
   readonly run: AgentPlanRun | null;
   readonly onEdit?: (id: string) => void;
-}): React.ReactElement {
+}
+
+/** Frames first, then connections, then the cards of members and other nodes on top. */
+function PlanLayer(
+  props: CanvasProps & {
+    readonly dropTarget: string | null;
+    readonly onDragNode: (id: string) => void;
+  },
+): React.ReactElement {
+  const { draft, graph } = props;
+  const groups = draft.nodes.filter((node) => node.type === "group");
+  function result(id: string): AgentPlanRun["steps"][number] | undefined {
+    return props.run?.steps.find((step) => step.id === id);
+  }
+  return (
+    <>
+      {groups.map((group) => (
+        <PlanGroupFrame
+          key={group.id}
+          group={group}
+          sources={props.sources}
+          graph={graph}
+          canEdit={props.canEdit}
+          isDropTarget={props.dropTarget === group.id}
+          session={planRunGroupSession(props.run, group.id)}
+          result={result(group.id)}
+          onEdit={props.onEdit}
+          onDragNode={props.onDragNode}
+        />
+      ))}
+      <PlanEdges
+        plan={draft}
+        sources={props.sources}
+        selected={graph.selectedLink}
+        onSelect={graph.selectLink}
+      />
+      {groups.flatMap((group) =>
+        group.steps.map((step) => (
+          <PlanNodeCard
+            key={step.id}
+            {...props}
+            node={step}
+            position={planMemberPosition(group, step)}
+            result={result(step.id)}
+          />
+        )),
+      )}
+      {draft.nodes
+        .filter((node) => node.type !== "group")
+        .map((node) => (
+          <PlanNodeCard
+            key={node.id}
+            {...props}
+            node={node}
+            result={result(node.id)}
+          />
+        ))}
+      <PlanLinkAction
+        draft={draft}
+        sources={props.sources}
+        graph={graph}
+        canEdit={props.canEdit}
+      />
+    </>
+  );
+}
+
+/**
+ * The plan grid fills its area; dragging the empty grid pans it and the mouse wheel zooms it.
+ *
+ * @remarks
+ * Nodes, frames and connections share one transformed layer, so they keep
+ * their positions relative to each other at every offset and zoom level. The
+ * grid has no surface of its own: it shows the page background with a faint
+ * dot raster, so the panels above it read as floating.
+ */
+export function PlanCanvas(props: CanvasProps): React.ReactElement {
   const { t } = useTranslation();
   const { graph } = props;
-  const viewport = usePlanViewport(() => graph.select(null));
+  const viewport = usePlanViewport(() => graph.select(null), INITIAL_VIEW);
+  const drop = usePlanCanvasDrop({
+    draft: props.draft,
+    sources: props.sources,
+    graph,
+    canEdit: props.canEdit,
+    toGrid: viewport.toGrid,
+  });
   const { view } = viewport;
   const width = Math.max(
     1000,
@@ -46,26 +134,15 @@ export function PlanCanvas(props: {
       (node) => node.y + planNodeHeight(node, props.sources) + 100,
     ),
   );
-  function drop(event: React.DragEvent<HTMLDivElement>): void {
-    event.preventDefault();
-    if (!props.canEdit) return;
-    const [kind, reference] = event.dataTransfer
-      .getData("application/x-pages-plan")
-      .split(":");
-    if (!reference) return;
-    const position = viewport.toGrid(event.clientX, event.clientY);
-    if (kind === "node") graph.move(reference, position.x, position.y);
-    if (kind === "agent" || kind === "task" || kind === "variable")
-      graph.add(kind, reference, position);
-  }
   function deleteSelection(event: React.KeyboardEvent<HTMLDivElement>): void {
     const { selectedLink, selectedId } = graph;
+    // Keys typed into a field or a button inside the grid never delete a node.
     if (event.target !== event.currentTarget) return;
     if (!props.canEdit || !DELETE_KEYS.has(event.key)) return;
     if (!selectedLink && !selectedId) return;
     event.preventDefault();
     if (selectedLink) graph.disconnect(selectedLink);
-    if (selectedId) graph.remove(selectedId);
+    else if (selectedId) graph.remove(selectedId);
   }
   return (
     <section aria-label={t("plans.canvas")} className="absolute inset-0">
@@ -74,11 +151,12 @@ export function PlanCanvas(props: {
         role="region"
         aria-label={t("plans.grid")}
         tabIndex={0}
-        onDragOver={(event) => event.preventDefault()}
-        onDrop={drop}
+        onDragOver={drop.onDragOver}
+        onDragLeave={drop.onDragLeave}
+        onDrop={drop.onDrop}
         onKeyDown={deleteSelection}
         {...viewport.pointer}
-        className="relative size-full cursor-grab touch-none overflow-hidden bg-surface bg-[radial-gradient(var(--color-border)_1px,transparent_1px)] outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset active:cursor-grabbing"
+        className="relative size-full cursor-grab touch-none overflow-hidden rounded-xl bg-transparent bg-[radial-gradient(var(--color-border)_1px,transparent_1px)] outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset active:cursor-grabbing"
         style={{
           backgroundSize: `${PLAN_GRID * view.zoom}px ${PLAN_GRID * view.zoom}px`,
           backgroundPosition: `${view.x}px ${view.y}px`,
@@ -93,25 +171,10 @@ export function PlanCanvas(props: {
             transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`,
           }}
         >
-          <PlanEdges
-            plan={props.draft}
-            sources={props.sources}
-            selected={graph.selectedLink}
-            onSelect={graph.selectLink}
-          />
-          {props.draft.nodes.map((node) => (
-            <PlanNodeCard
-              key={node.id}
-              node={node}
-              {...props}
-              result={props.run?.steps.find((step) => step.id === node.id)}
-            />
-          ))}
-          <PlanLinkAction
-            draft={props.draft}
-            sources={props.sources}
-            graph={graph}
-            canEdit={props.canEdit}
+          <PlanLayer
+            {...props}
+            dropTarget={drop.dropTarget}
+            onDragNode={drop.startNodeDrag}
           />
         </div>
       </div>
@@ -119,6 +182,18 @@ export function PlanCanvas(props: {
         graph={graph}
         canEdit={props.canEdit}
         viewport={viewport}
+      />
+      {graph.notice ? (
+        <PlanGroupNoticeBar
+          notice={graph.notice}
+          onClose={graph.clearNotice}
+          className="absolute top-14 left-1/2 z-[5] -translate-x-1/2 xl:top-48"
+        />
+      ) : null}
+      <PlanGroupRemoval
+        draft={props.draft}
+        graph={graph}
+        canEdit={props.canEdit}
       />
     </section>
   );

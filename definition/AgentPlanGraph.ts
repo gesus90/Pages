@@ -1,4 +1,8 @@
-import { expandPlanGroups } from "./AgentPlanGroup";
+import {
+  allPlanSteps,
+  expandPlanGroups,
+  planGroupEdges,
+} from "./AgentPlanGroup";
 import { planGroupIssues } from "./AgentPlanGroupGraph";
 import {
   hasAgentParameterValue,
@@ -7,9 +11,11 @@ import {
 } from "./AgentParameters";
 import { planStepTemplate } from "./AgentPlanConfiguration";
 import { planValueIssue } from "./AgentPlanValue";
+import { hasPlanPath } from "./AgentPlanPath";
 
 import type { AgentDefinitionChoice } from "./AgentAvailability";
 import type { AgentParameter } from "./AgentParameters";
+import type { AgentPlanGroup } from "./AgentPlanGroup";
 import type {
   AgentPlanEdge,
   AgentPlanInput,
@@ -26,6 +32,8 @@ export interface AgentPlanIssue {
     | "groupSize"
     | "groupProvider"
     | "groupConfiguration"
+    | "groupOrder"
+    | "groupBoundary"
     | "unsupportedRunNotes"
     | "duplicateNode"
     | "port"
@@ -46,25 +54,7 @@ export interface AgentPlanIssue {
     | "number";
 }
 
-/** Follows only flow edges; data connections never create scheduling dependencies. */
-export function hasPlanPath(
-  edges: readonly AgentPlanEdge[],
-  from: string,
-  to: string,
-): boolean {
-  const pending = [from];
-  const visited = new Set<string>();
-  while (pending.length > 0) {
-    const current = pending.pop();
-    if (current === undefined || visited.has(current)) continue;
-    visited.add(current);
-    for (const edge of edges.filter((entry) => entry.from === current)) {
-      if (edge.to === to) return true;
-      pending.push(edge.to);
-    }
-  }
-  return false;
-}
+export { hasPlanPath } from "./AgentPlanPath";
 
 /** Start, end and agent nodes form the execution graph; tickets, parameters and variables only supply values. */
 export function isPlanFlowNode(node: AgentPlanNode): boolean {
@@ -125,27 +115,62 @@ export function withoutTicketFlow<Plan extends AgentPlanInput>(
   return { ...plan, edges };
 }
 
-/** Removing a node also removes its flow and parameter references. */
+/**
+ * Removing a node also removes its flow and parameter references.
+ *
+ * @remarks
+ * The node may be a member of a group; the group then loses the member and
+ * its internal edges. Removing a group removes its members with it, together
+ * with every reference to them; keeping the members is
+ * {@link ungroupPlanGroup}'s work, never a silent fallback.
+ */
 export function removePlanNode<Plan extends AgentPlanInput>(
   draft: Plan,
   id: string,
 ): Plan {
+  const group = draft.nodes.find((node) => node.id === id);
+  const removed = new Set([
+    id,
+    ...(group?.type === "group" ? group.steps.map((step) => step.id) : []),
+  ]);
+  function withoutReferences<Node extends AgentPlanStep | AgentPlanGroup>(
+    node: Node,
+  ): Node {
+    const bindings = Object.fromEntries(
+      Object.entries(node.bindings).filter(
+        ([, binding]) =>
+          !(binding.kind === "source" && removed.has(binding.nodeId)) &&
+          !(binding.kind === "result" && removed.has(binding.stepId)),
+      ),
+    );
+    return { ...node, bindings };
+  }
   return {
     ...draft,
     nodes: draft.nodes
       .filter((node) => node.id !== id)
       .map((node) => {
-        if (node.type !== "agent" && node.type !== "group") return node;
-        const bindings = Object.fromEntries(
-          Object.entries(node.bindings).filter(
-            ([, binding]) =>
-              !(binding.kind === "source" && binding.nodeId === id) &&
-              !(binding.kind === "result" && binding.stepId === id),
-          ),
-        );
-        return { ...node, bindings };
+        if (node.type === "agent") return withoutReferences(node);
+        if (node.type !== "group") return node;
+        const steps = node.steps
+          .filter((step) => step.id !== id)
+          .map(withoutReferences);
+        const hasMember = steps.length !== node.steps.length;
+        return {
+          ...withoutReferences(node),
+          steps,
+          ...(hasMember
+            ? {
+                edges: planGroupEdges(node).filter(
+                  (edge) => edge.from !== id && edge.to !== id,
+                ),
+              }
+            : {}),
+        };
       }),
-    edges: draft.edges.filter((edge) => edge.from !== id && edge.to !== id),
+    edges: draft.edges.filter(
+      (edge) => !removed.has(edge.from) && !removed.has(edge.to),
+    ),
   };
 }
 
@@ -169,6 +194,13 @@ function bridgeNode(
 function edgeIssues(plan: AgentPlanInput): AgentPlanIssue[] {
   const issues: AgentPlanIssue[] = [];
   const seen = new Set<string>();
+  const top = new Set(plan.nodes.map((node) => node.id));
+  // An outer edge that reaches into a frame should end at the frame's own flow port.
+  const members = new Set(
+    allPlanSteps(plan)
+      .map((step) => step.id)
+      .filter((id) => !top.has(id)),
+  );
   for (const edge of plan.edges) {
     const source = plan.nodes.find((node) => node.id === edge.from);
     const target = plan.nodes.find((node) => node.id === edge.to);
@@ -177,9 +209,17 @@ function edgeIssues(plan: AgentPlanInput): AgentPlanIssue[] {
     const validTarget =
       target && ["end", "agent", "group"].includes(target.type);
     if (!validSource || edge.fromPort !== "flow-out")
-      issues.push({ nodeId: edge.from, port: edge.fromPort, reason: "port" });
+      issues.push({
+        nodeId: edge.from,
+        port: edge.fromPort,
+        reason: members.has(edge.from) ? "groupBoundary" : "port",
+      });
     if (!validTarget || edge.toPort !== "flow-in")
-      issues.push({ nodeId: edge.to, port: edge.toPort, reason: "port" });
+      issues.push({
+        nodeId: edge.to,
+        port: edge.toPort,
+        reason: members.has(edge.to) ? "groupBoundary" : "port",
+      });
     const key = JSON.stringify([edge.from, edge.to]);
     if (seen.has(key))
       issues.push({ nodeId: edge.to, port: "flow-in", reason: "duplicate" });
@@ -240,12 +280,10 @@ export function planConnectionIssues(
   agents: readonly AgentDefinitionChoice[],
 ): readonly AgentPlanIssue[] {
   const issues = [...edgeIssues(plan), ...planGroupIssues(plan, agents, false)];
+  // Every agent, members included, is checked where results can cross a frame.
   const expanded = expandPlanGroups(plan);
   for (const node of expanded.nodes)
-    if (
-      node.type === "agent" &&
-      !plan.nodes.some((entry) => entry.id === node.id)
-    )
+    if (node.type === "agent")
       issues.push(...bindingIssues(node, expanded, agents));
   if (new Set(plan.nodes.map((node) => node.id)).size !== plan.nodes.length)
     issues.push({ nodeId: null, port: null, reason: "duplicateNode" });
@@ -256,8 +294,6 @@ export function planConnectionIssues(
       const reason = planValueIssue(node);
       if (reason) issues.push({ nodeId: node.id, port: "value-out", reason });
     }
-    if (node.type === "agent")
-      issues.push(...bindingIssues(node, plan, agents));
     if (node.type === "variable" && !Object.hasOwn(plan.globals, node.name))
       issues.push({ nodeId: node.id, port: "value-out", reason: "source" });
   }

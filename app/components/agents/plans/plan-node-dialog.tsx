@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
+import { findPlanStep } from "@/definition/AgentPlanGroupEdit";
 import {
   Dialog,
   DialogContent,
@@ -20,9 +21,11 @@ export function PlanNodeDialog(props: {
   readonly onClose: () => void;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const step = props.editor.draft.nodes.find(
-    (node) => node.id === props.nodeId,
-  );
+  const step =
+    props.editor.draft.nodes.find((node) => node.id === props.nodeId) ??
+    (props.nodeId === null
+      ? undefined
+      : findPlanStep(props.editor.draft, props.nodeId)?.step);
   return (
     <Dialog
       open={step?.type === "agent" || step?.type === "group"}

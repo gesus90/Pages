@@ -1,6 +1,11 @@
 import { useState } from "react";
 
 import { planConnectionIssues } from "@/definition/AgentPlanGraph";
+import {
+  bindPlanParameter,
+  connectPlanFlow,
+  findPlanStep,
+} from "@/definition/AgentPlanGroupEdit";
 
 import type {
   AgentPlanBinding,
@@ -12,23 +17,19 @@ import type { Dispatch, SetStateAction } from "react";
 
 interface PlanConnection {
   readonly kind: "flow" | "source" | "result";
+  /** A node, or a boundary port of a frame for a source towards its members. */
   readonly nodeId: string;
 }
 
-function bindParameter(
+/** The bindings of an agent node, inside a frame too, or of a frame's boundary. */
+function targetBindings(
   draft: AgentPlanInput,
-  targetId: string,
-  parameter: string,
-  binding: AgentPlanBinding,
-): AgentPlanInput {
-  return {
-    ...draft,
-    nodes: draft.nodes.map((node) =>
-      node.id === targetId && (node.type === "agent" || node.type === "group")
-        ? { ...node, bindings: { ...node.bindings, [parameter]: binding } }
-        : node,
-    ),
-  };
+  id: string,
+): Readonly<Record<string, AgentPlanBinding>> | null {
+  const step = findPlanStep(draft, id)?.step;
+  if (step) return step.bindings;
+  const group = draft.nodes.find((node) => node.id === id);
+  return group?.type === "group" ? group.bindings : null;
 }
 
 /** Uses the same port rules as the server; a connected IN must be disconnected before rebinding. */
@@ -61,56 +62,46 @@ export function usePlanConnections(
       setConnection(null);
     }
   }
+  function bind(
+    targetId: string,
+    parameter: string,
+    binding: AgentPlanBinding,
+  ): void {
+    const bindings = targetBindings(draft, targetId);
+    if (!bindings) return;
+    if (Object.hasOwn(bindings, parameter)) {
+      setIssue({ nodeId: targetId, port: parameter, reason: "duplicate" });
+      return;
+    }
+    accept(bindPlanParameter(draft, targetId, parameter, binding));
+  }
   function connect(id: string, parameter?: string): void {
     if (!connection) return;
     if (connection.kind === "flow" && parameter === undefined) {
-      accept({
-        ...draft,
-        edges: [
-          ...draft.edges,
-          {
-            from: connection.nodeId,
-            to: id,
-            fromPort: "flow-out",
-            toPort: "flow-in",
-          },
-        ],
-      });
+      const next = connectPlanFlow(draft, connection.nodeId, id);
+      if (next === "groupBoundary")
+        setIssue({ nodeId: id, port: "flow-in", reason: "groupBoundary" });
+      else accept(next);
       return;
     }
     if (connection.kind === "flow" || parameter === undefined) {
       setIssue({ nodeId: id, port: parameter ?? "flow-in", reason: "type" });
       return;
     }
-    const target = draft.nodes.find((node) => node.id === id);
-    if (target?.type !== "agent" && target?.type !== "group") return;
-    if (Object.hasOwn(target.bindings, parameter)) {
-      setIssue({ nodeId: id, port: parameter, reason: "duplicate" });
-      return;
-    }
-    const binding: AgentPlanBinding =
+    bind(
+      id,
+      parameter,
       connection.kind === "source"
         ? { kind: "source", nodeId: connection.nodeId }
-        : { kind: "result", stepId: connection.nodeId };
-    accept(bindParameter(draft, id, parameter, binding));
+        : { kind: "result", stepId: connection.nodeId },
+    );
   }
   function bindSource(
     sourceId: string,
     targetId: string,
     parameter: string,
   ): void {
-    const target = draft.nodes.find((node) => node.id === targetId);
-    if (target?.type !== "agent" && target?.type !== "group") return;
-    if (Object.hasOwn(target.bindings, parameter)) {
-      setIssue({ nodeId: targetId, port: parameter, reason: "duplicate" });
-      return;
-    }
-    accept(
-      bindParameter(draft, targetId, parameter, {
-        kind: "source",
-        nodeId: sourceId,
-      }),
-    );
+    bind(targetId, parameter, { kind: "source", nodeId: sourceId });
   }
   return { connection, connectionIssue, begin, connect, bindSource };
 }

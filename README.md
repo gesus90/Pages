@@ -734,12 +734,20 @@ selection narrows the registered workspaces and their ticket picker. Only
 workspaces in accessible projects are offered; unavailable registrations are
 explained and cannot be selected for new work.
 
-The grid is the main editor and spans the page width. Drag its empty area to
-pan it; the mouse wheel or the zoom buttons zoom it, and nodes and connections
-keep their positions relative to each other. On desktop a collapsible panel
-floats over the right edge of the grid without narrowing it; on small screens it
-sits below the grid. Its tabs are **Agents / Groups / Tickets / Parameters**
-(**Agents / Gruppen / Tickets / Parameter** in German).
+The grid is the main editor. It fills the work area below the global header and
+has no surface of its own: it shows the page background with a faint dot raster.
+Drag its empty area to pan it; the mouse wheel or the zoom buttons at its left
+edge zoom it, and nodes, frames and connections keep their positions relative
+to each other. On wide screens three separate panels float over the grid
+without overlapping each other: the plan configuration at the top (plan choice,
+title, project, workspace, sharing, Save, Play, Pause, Stop and the validation
+list), a collapsible side panel at the right and a collapsible run panel at the
+bottom. Narrower windows stack them around the grid. The side panel's tabs are
+**Parameters / Agents / Tickets / Groups** (**Parameter / Agents / Tickets /
+Gruppen** in German); selecting a node opens its details in the tab of its kind.
+The run panel shows the selected run of your own history (steps, status, group,
+session reference, errors and cancellations) and the list of connections;
+without a run it says so.
 Search, filter and sort the authorized agents and project tasks/subtasks, then
 drag them onto the grid. Tickets can also be filtered by their current status:
 open, done, or one workflow status such as To Do or Done. Buttons offer an
@@ -747,31 +755,58 @@ alternative to dragging. Move nodes by their header or edit their grid
 coordinates. The panel edits instances and their inputs; agent definitions
 remain in the existing Agents area.
 
-The **Groups** tab creates and selects sequential subgraphs. A group needs at
-least two agent instances; its inspector shows the directed sequence and lets
-you reorder, remove and edit each instance independently. The group has one
-outer flow input and output. Add named, typed boundary ports, connect outer
-value nodes to them, and select the same port at several internal agent inputs.
-Required values, incompatible types and removed port references are checked
-before Play. Boundary values and referenced content are resolved once at group entry and
-frozen for all of its steps; live resource access is still checked before each turn.
-The inspector shows the external source beside the internal port assignments.
-Renaming a boundary preserves its connections.
+The **Groups** tab creates ACP groups. A group is a green frame on the grid
+around its agent nodes, with its own flow IN and OUT, its named boundary ports
+and its ACP class in the header. A new group is a neutral draft and may be saved
+empty. The first agent that joins sets its class from the agent's technical
+adapter: **Codex** or **Claude Code**, both over ACP; display names never decide
+it. Only agents of that class join afterwards; API agents, OpenCode plan nodes
+(which run as a CLI without ACP) and agents of the other class are refused with
+an explanation and stay unchanged. Without members the group is neutral again,
+and the next agent may give it another class.
 
-Groups currently support **Codex CLI over ACP** only. Every child must resolve
-to the same adapter, connection, model, reasoning, workspace/directory, tools,
-permissions and sandbox; inherited run defaults are resolved first. Conflicts
-identify the agent and setting. OpenRouter and direct Claude Code are different
-adapters, regardless of model names, and are refused for groups. Each accepted
-step continues the same native Codex session with its own turn-scoped instruction.
+Drag an agent into a frame to add it and out of it to take it out; the pointer
+position on release decides, with a margin at the frame's edge, and the frame
+under the pointer is highlighted while dragging. A node keeps the point where
+it was grabbed, also when it leaves a frame. The membership select of an agent
+and the group's member list do the same without a pointer. Flow connections
+join nodes of the same level only: members with each other, outer nodes with
+the frame's flow ports. A node that crosses a frame loses the flow connections
+and boundary bindings of the side it left, and the editor names how many.
+Members read boundary ports through the handle beside each port, value nodes
+outside the frame directly, and results of earlier agents.
+
+The flow connections between members alone decide their order; position and
+list order do not. Before Play they must form one chain with exactly one first
+agent and no branch. Groups saved before internal connections existed are read
+with their former member order as that chain and laid out in one row of their
+frame. Required values, incompatible types and removed port references are
+checked before Play. Boundary values and referenced content are resolved once at
+group entry and frozen for all of its steps; live resource access is still
+checked before each turn. Removing a group with members asks whether to remove
+only the frame, keeping the members and their connections among each other, or
+to delete the members with it.
+
+Every member must resolve to the same adapter, connection, model, reasoning,
+workspace/directory, tools, permissions and sandbox; inherited run defaults are
+resolved first. Conflicts identify the agent and setting. The first member that
+runs opens one ACP session for the group in this run; every later member
+continues it in the same adapter process with its own turn-scoped instruction.
+Turns of a group wait for each other, so a session never has two active turns,
+and a group never opens a second session in the same run. The session's ACP ID
+appears as the read-only runtime value `session_id` at the frame, at its members
+and in the run panel ("not created yet" before the first turn); it applies to
+that group and run only. ACP session IDs cannot be continued in another process:
+if the adapter process ends, for example after the idle timeout of a paused run
+or a server restart, the next member fails instead of starting a new session. A
+new run always opens new group sessions.
 A failure or rejected report blocks later children and the outer successor.
 Internal steps must provide a valid `pages-report` proving their todos and
 criteria; standalone steps keep diagnostic-only progress. A missing continuation
-capability, changed native session ID or changed effective runtime fails the group.
-Pause lets the current child settle, retains the native session until the
-configured idle timeout, and starts no further child until resume. Stop closes an active or retained paused session.
-Group and child states, the failing child, native session IDs and closeout are
-available in the run view.
+capability, changed ACP session ID or changed effective runtime fails the group.
+Pause lets the current child settle, retains the session until the configured
+idle timeout, and starts no further child until resume. Stop closes an active or
+retained paused session of that run only.
 
 The practical example can be reproduced with
 `pnpm exec tsx scripts/agent-group-proof.ts --data <isolated credential data>

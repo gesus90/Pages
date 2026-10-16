@@ -31,9 +31,9 @@ export function PlanHeader({
     );
   }
   return (
-    <header className="flex flex-wrap items-center justify-between gap-3">
-      <h1 className="text-2xl font-bold">{t("plans.title")}</h1>
-      <div className="flex flex-wrap items-center gap-2">
+    <header className="flex min-w-0 flex-wrap items-center gap-2">
+      <h1 className="pr-1 text-lg font-semibold">{t("plans.title")}</h1>
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
         <Select
           ariaLabel={t("plans.choosePlan")}
           value={page.selected?.id ?? ""}
@@ -62,7 +62,7 @@ export function PlanActions(props: {
   const { t } = useTranslation();
   const { editor, run } = props;
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2 xl:ml-auto">
       <Button
         size="sm"
         disabled={

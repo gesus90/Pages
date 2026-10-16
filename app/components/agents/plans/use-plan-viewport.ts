@@ -80,11 +80,16 @@ function wheelFactor(event: WheelEvent): number {
  * Pans the grid by dragging its empty area and zooms it with the mouse wheel.
  *
  * @param onBackgroundClick - Called for a press on the empty grid that did not pan.
+ * @param initial - The view at the start and after a reset, such as an
+ * offset that keeps the first nodes clear of a panel floating over the grid.
  */
-export function usePlanViewport(onBackgroundClick: () => void): PlanViewport {
+export function usePlanViewport(
+  onBackgroundClick: () => void,
+  initial: PlanView = { x: 0, y: 0, zoom: 1 },
+): PlanViewport {
   const viewportRef = useRef<HTMLDivElement>(null);
   const panStart = useRef<PanStart | null>(null);
-  const [view, setView] = useState<PlanView>({ x: 0, y: 0, zoom: 1 });
+  const [view, setView] = useState<PlanView>(initial);
   useEffect(() => {
     const element = viewportRef.current;
     if (!element) return undefined;
@@ -156,7 +161,7 @@ export function usePlanViewport(onBackgroundClick: () => void): PlanViewport {
     pointer: { onPointerDown, onPointerMove, onPointerUp, onPointerCancel },
     zoomBy: (factor) =>
       setView((previous) => zoomPlanView(previous, center(), factor)),
-    reset: () => setView({ x: 0, y: 0, zoom: 1 }),
+    reset: () => setView(initial),
     toGrid,
   };
 }

@@ -1,5 +1,5 @@
 import type { CliProviderId } from "./AgentConnection";
-import type { AgentRunOptions } from "./AgentConfiguration";
+import type { AcpProviderId, AgentRunOptions } from "./AgentConfiguration";
 
 /** The runner of a node: a CLI tool, or a request to an API connection. */
 export type AgentPlanRunner = CliProviderId | "api";
@@ -116,6 +116,32 @@ export interface AgentPlanProcessExit {
 }
 
 /**
+ * How a member of an ACP group took part in the group's shared session of one run.
+ *
+ * @remarks
+ * Three identifiers stay apart: the ACP session ID the adapter issued, which
+ * only the adapter process that issued it can continue; the adapter's own
+ * native session ID, which Pages records only when an adapter reports it apart
+ * from the ACP ID; and the Pages run and node IDs. The session's lifetime is
+ * the process of the creating node: its start, end and closeout.
+ */
+export interface AgentPlanGroupSessionLink {
+  readonly groupId: string;
+  /** The technical adapter ID of the group's ACP class. */
+  readonly adapter: AcpProviderId;
+  /** Whether this node opened the shared session or continued it. */
+  readonly role: "created" | "continued";
+  /** The Pages node whose turn opened the session in this run. */
+  readonly creatorStepId: string;
+  /** The place of this node's turn in the shared session, from 1. */
+  readonly turn: number;
+  /** The ACP session ID; `null` until the adapter issued it. */
+  readonly acpSessionId: string | null;
+  /** The adapter's own session ID apart from the ACP one; no adapter Pages runs reports one. */
+  readonly nativeSessionId: string | null;
+}
+
+/**
  * The observable record of one node: runner, session, process, acceptance and result.
  *
  * @remarks
@@ -151,4 +177,6 @@ export interface AgentPlanSessionRecord {
   readonly acceptance: AgentPlanAcceptance | null;
   /** Short, redacted lines of what happened in the session. */
   readonly events: readonly string[];
+  /** The shared session of the node's ACP group; absent outside groups and in older records. */
+  readonly group?: AgentPlanGroupSessionLink;
 }

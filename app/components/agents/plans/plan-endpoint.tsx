@@ -5,6 +5,7 @@ import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/lib/cn";
 
 import { PLAN_ENDPOINT_SIZE } from "./plan-layout";
+import { startPlanNodeDrag } from "./plan-drag";
 import { PlanNodeActions } from "./plan-node-actions";
 import { planStatusClass } from "./plan-status";
 
@@ -28,8 +29,7 @@ export function PlanEndpoint(props: {
   const status = props.result?.status === "succeeded" ? "succeeded" : "waiting";
   const Icon = isStart ? ArrowRight : ArrowLeft;
   function startDrag(event: React.DragEvent<HTMLButtonElement>): void {
-    event.dataTransfer.setData("application/x-pages-plan", `node:${node.id}`);
-    event.dataTransfer.effectAllowed = "move";
+    startPlanNodeDrag(event, node);
   }
   return (
     <article

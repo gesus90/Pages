@@ -269,6 +269,12 @@ function readPlanObject(input: unknown): Record<string, unknown> {
   return readAgentObject(input);
 }
 
+function readGroupEdges(input: unknown): readonly AgentPlanEdge[] {
+  if (!Array.isArray(input) || input.length > 100)
+    throw new AgentError("plan_invalid");
+  return input.map(readEdge);
+}
+
 function readGroupNode(
   node: Record<string, unknown>,
   base: AgentPlanPosition & { readonly id: string },
@@ -302,6 +308,8 @@ function readGroupNode(
     type: "group",
     name: readPlanText(node.name, 120),
     steps,
+    // Absent edges mark a group saved before them; it keeps reading as the chain of its members.
+    ...(node.edges === undefined ? {} : { edges: readGroupEdges(node.edges) }),
     parameters,
     bindings: readBindings(node.bindings),
   };

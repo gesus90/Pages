@@ -11,6 +11,7 @@ import {
   planNodeHeight,
   planNodeLabel,
 } from "./plan-layout";
+import { startPlanNodeDrag } from "./plan-drag";
 import { PlanPorts } from "./plan-ports";
 import { PlanFlowPorts } from "./plan-flow-ports";
 import { PlanEndpoint } from "./plan-endpoint";
@@ -19,6 +20,7 @@ import { PlanStatusBadge } from "./plan-status";
 
 import type {
   AgentPlanNode,
+  AgentPlanPosition,
   AgentPlanSources,
   AgentPlanStepResult,
   AgentPlanStepStatus,
@@ -41,6 +43,10 @@ interface NodeCardProps {
   readonly canEdit: boolean;
   readonly result?: AgentPlanStepResult;
   readonly onEdit?: (id: string) => void;
+  /** Where the card is drawn; a member's own position counts from its frame. */
+  readonly position?: AgentPlanPosition;
+  /** Called when the card starts to be dragged, for drop targets on the grid. */
+  readonly onDragNode?: (id: string) => void;
 }
 
 function ticketStatus(
@@ -79,8 +85,8 @@ export function PlanNodeCard(props: NodeCardProps): React.ReactElement {
           "border-destructive",
       )}
       style={{
-        left: node.x,
-        top: node.y,
+        left: props.position?.x ?? node.x,
+        top: props.position?.y ?? node.y,
         width: PLAN_NODE_WIDTH,
         height: planNodeHeight(node, props.sources),
       }}
@@ -131,8 +137,8 @@ function NodeHeader(
     if (node.type === "agent" || node.type === "group") props.onEdit?.(node.id);
   }
   function startDrag(event: React.DragEvent<HTMLButtonElement>): void {
-    event.dataTransfer.setData("application/x-pages-plan", `node:${node.id}`);
-    event.dataTransfer.effectAllowed = "move";
+    startPlanNodeDrag(event, node);
+    props.onDragNode?.(node.id);
   }
   return (
     <div className="mb-2 flex h-9 items-center gap-1">

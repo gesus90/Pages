@@ -17,10 +17,7 @@ export function PlanValidation(props: {
   const { t } = useTranslation();
   if (props.issues.length === 0) return null;
   return (
-    <details
-      className="rounded-lg border border-destructive/40 p-2 text-sm"
-      open
-    >
+    <details className="rounded-lg border border-destructive/40 p-2 text-sm">
       <summary className="cursor-pointer font-medium text-destructive">
         {t("plans.validationTitle", { count: props.issues.length })}
       </summary>
@@ -38,15 +35,7 @@ export function PlanValidation(props: {
               <button
                 type="button"
                 className="text-left hover:underline"
-                onClick={() =>
-                  props.onSelect(
-                    props.draft.nodes.find(
-                      (entry) =>
-                        entry.type === "group" &&
-                        entry.steps.some((step) => step.id === issue.nodeId),
-                    )?.id ?? issue.nodeId,
-                  )
-                }
+                onClick={() => props.onSelect(issue.nodeId)}
               >
                 {node ? `${planNodeLabel(node, props.sources)} · ` : ""}
                 {issue.port ? `${issue.port}: ` : ""}

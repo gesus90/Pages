@@ -15,12 +15,56 @@ import type {
   AgentParameter,
   AgentParameterValue,
 } from "@/definition/AgentParameters";
+import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 import type { PlanGraphActions } from "./use-plan-graph";
+
+interface SourceOption {
+  readonly value: string;
+  readonly label: string;
+}
+
+/** The boundary ports of a member's frame and the value nodes that fit the input, with the bound one. */
+function useSourceOptions(
+  props: {
+    readonly parameter: AgentParameter;
+    readonly group?: AgentPlanGroup;
+    readonly draft: AgentPlanInput;
+    readonly sources: AgentPlanSources;
+  },
+  selected: string,
+): readonly SourceOption[] {
+  const { t } = useTranslation();
+  const { parameter } = props;
+  const options: SourceOption[] = [
+    ...(props.group?.parameters ?? [])
+      .filter((port) => port.type === parameter.type)
+      .map((port) => ({
+        value: port.id,
+        label: t("plans.groups.portOption", { name: port.name }),
+      })),
+    ...props.draft.nodes
+      .filter((node) => fitsPlanParameter(node, parameter.type))
+      .map((node) => ({
+        value: node.id,
+        label: planNodeLabel(node, props.sources),
+      })),
+  ];
+  if (selected && !options.some((option) => option.value === selected)) {
+    const source = props.draft.nodes.find((node) => node.id === selected);
+    options.push({
+      value: selected,
+      label: source ? planNodeLabel(source, props.sources) : selected,
+    });
+  }
+  return options;
+}
 
 /** A named input selects one compatible source; legacy literals can become explicit value nodes. */
 export function PlanParameterInput(props: {
   readonly parameter: AgentParameter;
   readonly step: AgentPlanStep;
+  /** The frame of a member, whose boundary ports it may read. */
+  readonly group?: AgentPlanGroup;
   readonly draft: AgentPlanInput;
   readonly sources: AgentPlanSources;
   readonly graph: PlanGraphActions;
@@ -34,19 +78,7 @@ export function PlanParameterInput(props: {
   let selected = "";
   if (binding?.kind === "source") selected = binding.nodeId;
   if (binding?.kind === "result") selected = binding.stepId;
-  const options = props.draft.nodes
-    .filter((node) => fitsPlanParameter(node, parameter.type))
-    .map((node) => ({
-      value: node.id,
-      label: planNodeLabel(node, props.sources),
-    }));
-  if (selected && !options.some((option) => option.value === selected)) {
-    const source = props.draft.nodes.find((node) => node.id === selected);
-    options.push({
-      value: selected,
-      label: source ? planNodeLabel(source, props.sources) : selected,
-    });
-  }
+  const options = useSourceOptions(props, selected);
   function disconnect(): void {
     graph.replaceStep({
       ...step,

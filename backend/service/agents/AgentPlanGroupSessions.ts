@@ -1,6 +1,9 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
-import { agentRunOptionsFor } from "@/definition/AgentConfiguration";
+import {
+  agentRunOptionsFor,
+  isAcpProvider,
+} from "@/definition/AgentConfiguration";
 
 import type { CliSessionMcp } from "@/backend/agents/cli/CliSessionPlans";
 import type {
@@ -11,6 +14,8 @@ import type {
   PlanSessionClosed,
   PlanSessionTurn,
 } from "@/backend/agents/AgentPlanExecution";
+import type { AcpProviderId } from "@/definition/AgentConfiguration";
+import type { AgentPlanGroupSessionLink } from "@/definition/AgentPlanSession";
 
 interface GroupSession {
   readonly instanceId: string;
@@ -19,7 +24,15 @@ interface GroupSession {
   readonly session: PlanSession;
   readonly controller: AbortController;
   readonly started: Parameters<PlanSessionObserver["started"]>[0] | null;
-  nativeSessionId: string | null;
+  readonly adapter: AcpProviderId;
+  /** The Pages node whose turn opened the session. */
+  readonly creatorStepId: string;
+  /** Turns sent to the session so far, the opening one included. */
+  turns: number;
+  /** The ACP session ID, once the adapter issued it. */
+  acpSessionId: string | null;
+  /** The process ended or was retired; the session cannot be continued. */
+  isLost: boolean;
   effective: Readonly<Record<string, string>> | null;
 }
 
@@ -28,6 +41,14 @@ interface GroupTurnInput {
   readonly input: AgentPlanSessionInput;
   readonly signal: AbortSignal;
   readonly observer: PlanSessionObserver;
+}
+
+/** A place in the queue of one group's turns. */
+export interface GroupTurnSlot {
+  /** Resolves once every earlier turn of the group has settled. */
+  readonly ready: Promise<void>;
+  /** Lets the next turn of the group start; call it exactly once. */
+  readonly release: () => void;
 }
 
 function runtimeFingerprint(input: AgentPlanSessionInput): string {
@@ -48,9 +69,20 @@ function runtimeFingerprint(input: AgentPlanSessionInput): string {
   });
 }
 
-/** Holds one process and native session between accepted turns, including while paused. */
+/**
+ * Holds one process and ACP session per group and run between accepted turns, including while paused.
+ *
+ * @remarks
+ * The first member that really runs opens the session; every later member
+ * continues it with its own step instruction. Turns of one group wait in a
+ * queue, so a session never has two active turns. An ACP session ID belongs
+ * to the adapter process that issued it: once that process is gone, the
+ * group cannot continue, and no second session is opened in its place.
+ */
 export class AgentPlanGroupSessions {
   private readonly sessions = new Map<string, GroupSession>();
+  private readonly opened = new Set<string>();
+  private readonly queues = new Map<string, Promise<void>>();
   private readonly execution: PlanExecution;
 
   public constructor(execution: PlanExecution) {
@@ -67,41 +99,72 @@ export class AgentPlanGroupSessions {
     return this.sessions.get(key)?.mcp ?? null;
   }
 
+  /**
+   * Queues a turn of the group behind the earlier ones, in the order of the calls.
+   *
+   * @param key - The run and group, as `runId/groupId`.
+   */
+  public reserve(key: string): GroupTurnSlot {
+    const previous = this.queues.get(key) ?? Promise.resolve();
+    let release: () => void = () => undefined;
+    const settled = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    this.queues.set(
+      key,
+      previous.then(() => settled),
+    );
+    return { ready: previous, release };
+  }
+
+  /**
+   * How the next turn of a group relates to its shared session.
+   *
+   * @param key - The run and group, as `runId/groupId`.
+   * @param step - The member that takes the turn, and the group's adapter class.
+   */
+  public link(
+    key: string,
+    step: {
+      readonly groupId: string;
+      readonly stepId: string;
+      readonly adapter: AcpProviderId;
+    },
+  ): AgentPlanGroupSessionLink {
+    const current = this.sessions.get(key);
+    return {
+      groupId: step.groupId,
+      adapter: current?.adapter ?? step.adapter,
+      role: current ? "continued" : "created",
+      creatorStepId: current?.creatorStepId ?? step.stepId,
+      turn: (current?.turns ?? 0) + 1,
+      acpSessionId: current?.acpSessionId ?? null,
+      nativeSessionId: null,
+    };
+  }
+
   /** Starts or continues a group without replacing its resolved runtime configuration. */
   public async turn(request: GroupTurnInput): Promise<PlanSession> {
     const { key, input, signal, observer } = request;
     const current = this.sessions.get(key);
-    if (input.agent.connection.provider !== "codex_cli")
+    if (!isAcpProvider(input.agent.connection.provider))
       throw new AgentError("plan_group_session_unsupported");
     if (signal.aborted) throw new AgentPlanCancelledError();
-    if (current) {
-      if (
-        current.fingerprint !== runtimeFingerprint(input) ||
-        !current.session.next
-      )
-        throw new AgentError("plan_context_changed");
-      if (current.started)
-        observer.started({
-          ...current.started,
-          startedAt: new Date().toISOString(),
-        });
-      const turn = this.confirmTurn(
-        current,
-        current.session.next(input, signal, observer),
-      );
-      return { turn, close: () => this.close(key, current) };
-    }
+    if (current) return this.continueTurn(key, current, request);
+    // A group opens one session per run; a lost one is never replaced silently.
+    if (this.opened.has(key)) throw new AgentError("plan_group_session_lost");
     const controller = new AbortController();
     const cancel = (): void => controller.abort();
     signal.addEventListener("abort", cancel, { once: true });
     let started: GroupSession["started"] = null;
     try {
       if (signal.aborted) throw new AgentPlanCancelledError();
+      const holder: { entry: GroupSession | null } = { entry: null };
       const session = await this.execution.open(
         { ...input, options: { ...input.options, timeoutMinutes: 0 } },
         controller.signal,
         {
-          ...observer,
+          ...this.watch(holder, observer),
           started: (details) => {
             started = details;
             observer.started(details);
@@ -119,10 +182,16 @@ export class AgentPlanGroupSessions {
         started,
         instanceId: input.instanceId,
         fingerprint: runtimeFingerprint(input),
-        nativeSessionId: null,
+        adapter: input.agent.connection.provider,
+        creatorStepId: input.resourceContext?.stepId ?? "",
+        turns: 1,
+        acpSessionId: null,
+        isLost: false,
         effective: null,
       };
+      holder.entry = entry;
       this.sessions.set(key, entry);
+      this.opened.add(key);
       const turn = this.confirmTurn(entry, session.turn).finally(() =>
         signal.removeEventListener("abort", cancel),
       );
@@ -153,6 +222,65 @@ export class AgentPlanGroupSessions {
     return stopped;
   }
 
+  /** Forgets the groups of a finished run; only its own keys are touched. */
+  public forget(runId: string): void {
+    for (const key of [...this.opened, ...this.queues.keys()])
+      if (key.startsWith(`${runId}/`)) {
+        this.opened.delete(key);
+        this.queues.delete(key);
+      }
+  }
+
+  private continueTurn(
+    key: string,
+    current: GroupSession,
+    request: GroupTurnInput,
+  ): PlanSession {
+    const { input, signal, observer } = request;
+    if (current.isLost) {
+      this.sessions.delete(key);
+      throw new AgentError("plan_group_session_lost");
+    }
+    if (
+      current.fingerprint !== runtimeFingerprint(input) ||
+      !current.session.next
+    )
+      throw new AgentError("plan_context_changed");
+    if (current.started)
+      observer.started({
+        ...current.started,
+        startedAt: new Date().toISOString(),
+      });
+    current.turns += 1;
+    const turn = this.confirmTurn(
+      current,
+      current.session.next(
+        input,
+        signal,
+        this.watch({ entry: current }, observer),
+      ),
+    );
+    return { turn, close: () => this.close(key, current) };
+  }
+
+  /** Notes the ACP session ID and a retirement of the process for the group. */
+  private watch(
+    holder: { readonly entry: GroupSession | null },
+    observer: PlanSessionObserver,
+  ): PlanSessionObserver {
+    return {
+      ...observer,
+      identified: (sessionId) => {
+        if (holder.entry) holder.entry.acpSessionId = sessionId;
+        observer.identified(sessionId);
+      },
+      retired: (closed, reason) => {
+        if (holder.entry) holder.entry.isLost = true;
+        observer.retired?.(closed, reason);
+      },
+    };
+  }
+
   private async confirmTurn(
     entry: GroupSession,
     pending: Promise<PlanSessionTurn>,
@@ -172,7 +300,7 @@ export class AgentPlanGroupSessions {
     );
     if (
       !turn.sessionId ||
-      (entry.nativeSessionId && entry.nativeSessionId !== turn.sessionId) ||
+      (entry.acpSessionId && entry.acpSessionId !== turn.sessionId) ||
       conflict
     )
       return {
@@ -181,10 +309,10 @@ export class AgentPlanGroupSessions {
         errorCode: "plan_context_changed",
         events: [
           ...turn.events,
-          `group runtime changed: ${conflict ?? "nativeSessionId"}`,
+          `group runtime changed: ${conflict ?? "acpSessionId"}`,
         ],
       };
-    entry.nativeSessionId = turn.sessionId;
+    entry.acpSessionId = turn.sessionId;
     entry.effective = { ...turn.effective };
     return turn;
   }

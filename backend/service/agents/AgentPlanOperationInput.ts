@@ -25,7 +25,7 @@ export const AGENT_PLAN_NODE_FIELDS: Readonly<
   Record<AgentPlanNode["type"], readonly string[]>
 > = {
   start: [],
-  group: ["name", "steps", "parameters", "bindings"],
+  group: ["name", "steps", "edges", "parameters", "bindings"],
   end: [],
   agent: ["agentId", "personalAgentId", "instruction", "completion"],
   task: ["taskId"],

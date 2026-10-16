@@ -1,12 +1,27 @@
+import { allPlanSteps, planGroupEdges } from "@/definition/AgentPlanGroup";
+import {
+  disconnectPlanGroupFlow,
+  findPlanStep,
+  replacePlanNode,
+} from "@/definition/AgentPlanGroupEdit";
+
 import { planNodeLabel } from "./plan-layout";
 
-import type { AgentPlanInput, AgentPlanSources } from "@/definition/AgentPlan";
+import type {
+  AgentPlanBinding,
+  AgentPlanInput,
+  AgentPlanSources,
+  AgentPlanStep,
+} from "@/definition/AgentPlan";
+import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 
 /** A flow edge between steps; it orders execution. */
 interface PlanFlowLink {
   readonly kind: "flow";
   readonly from: string;
   readonly to: string;
+  /** The frame of an edge between two of its members. */
+  readonly groupId?: string;
 }
 
 /** A source or result bound to one named parameter of an agent node. */
@@ -15,25 +30,63 @@ interface PlanDataLink {
   readonly from: string;
   readonly to: string;
   readonly parameter: string;
+  /** The boundary port a member reads; `from` then names its frame. */
+  readonly port?: string;
 }
 
 /** One connection the grid draws, selects and removes on its own. */
 export type PlanLink = PlanFlowLink | PlanDataLink;
 
-/** Lists flow edges and parameter bindings whose two nodes both exist. */
+function bindingLinks(
+  target: AgentPlanStep | AgentPlanGroup,
+  ids: ReadonlySet<string>,
+  frame: AgentPlanGroup | null,
+): readonly PlanLink[] {
+  return Object.entries(target.bindings).flatMap(
+    ([parameter, binding]: [string, AgentPlanBinding]): PlanLink[] => {
+      if (binding.kind === "literal") return [];
+      const from = binding.kind === "source" ? binding.nodeId : binding.stepId;
+      const port = frame?.parameters.find((entry) => entry.id === from);
+      if (frame && port)
+        return [
+          {
+            kind: "data",
+            from: frame.id,
+            to: target.id,
+            parameter,
+            port: port.id,
+          },
+        ];
+      return ids.has(from)
+        ? [{ kind: "data", from, to: target.id, parameter }]
+        : [];
+    },
+  );
+}
+
+/** Lists flow edges and parameter bindings whose two nodes both exist, inside frames too. */
 export function planLinks(plan: AgentPlanInput): readonly PlanLink[] {
-  const ids = new Set(plan.nodes.map((node) => node.id));
+  const ids = new Set([
+    ...plan.nodes.map((node) => node.id),
+    ...allPlanSteps(plan).map((step) => step.id),
+  ]);
   const links: PlanLink[] = plan.edges
     .filter((edge) => ids.has(edge.from) && ids.has(edge.to))
     .map((edge) => ({ kind: "flow", from: edge.from, to: edge.to }));
   for (const target of plan.nodes) {
-    if (target.type !== "agent" && target.type !== "group") continue;
-    for (const [parameter, binding] of Object.entries(target.bindings)) {
-      if (binding.kind === "literal") continue;
-      const from = binding.kind === "source" ? binding.nodeId : binding.stepId;
-      if (ids.has(from))
-        links.push({ kind: "data", from, to: target.id, parameter });
-    }
+    if (target.type === "agent") links.push(...bindingLinks(target, ids, null));
+    if (target.type !== "group") continue;
+    links.push(...bindingLinks(target, ids, null));
+    for (const edge of planGroupEdges(target))
+      if (ids.has(edge.from) && ids.has(edge.to))
+        links.push({
+          kind: "flow",
+          from: edge.from,
+          to: edge.to,
+          groupId: target.id,
+        });
+    for (const step of target.steps)
+      links.push(...bindingLinks(step, ids, target));
   }
   return links;
 }
@@ -50,6 +103,8 @@ export function removePlanLink(
   draft: AgentPlanInput,
   link: PlanLink,
 ): AgentPlanInput {
+  if (link.kind === "flow" && link.groupId !== undefined)
+    return disconnectPlanGroupFlow(draft, link.groupId, link);
   if (link.kind === "flow")
     return {
       ...draft,
@@ -57,22 +112,21 @@ export function removePlanLink(
         (edge) => edge.from !== link.from || edge.to !== link.to,
       ),
     };
-  return {
-    ...draft,
-    nodes: draft.nodes.map((node) => {
-      if (
-        node.id !== link.to ||
-        (node.type !== "agent" && node.type !== "group")
-      )
-        return node;
-      const bindings = Object.fromEntries(
-        Object.entries(node.bindings).filter(
-          ([parameter]) => parameter !== link.parameter,
-        ),
-      );
-      return { ...node, bindings };
-    }),
-  };
+  const target =
+    findPlanStep(draft, link.to)?.step ??
+    draft.nodes.find(
+      (node): node is AgentPlanGroup =>
+        node.type === "group" && node.id === link.to,
+    );
+  if (!target) return draft;
+  return replacePlanNode(draft, {
+    ...target,
+    bindings: Object.fromEntries(
+      Object.entries(target.bindings).filter(
+        ([parameter]) => parameter !== link.parameter,
+      ),
+    ),
+  });
 }
 
 /**
@@ -86,9 +140,20 @@ export function planLinkLabel(
   link: PlanLink,
 ): string {
   function label(id: string): string {
-    const node = draft.nodes.find((entry) => entry.id === id);
+    const node =
+      draft.nodes.find((entry) => entry.id === id) ??
+      findPlanStep(draft, id)?.step;
     return node ? planNodeLabel(node, sources) : id;
   }
-  const ends = `${label(link.from)} → ${label(link.to)}`;
+  const group =
+    link.kind === "data" && link.port !== undefined
+      ? draft.nodes.find((node) => node.id === link.from)
+      : undefined;
+  const port =
+    group?.type === "group" && link.kind === "data"
+      ? group.parameters.find((entry) => entry.id === link.port)?.name
+      : undefined;
+  const start = port ? `${label(link.from)} · ${port}` : label(link.from);
+  const ends = `${start} → ${label(link.to)}`;
   return link.kind === "data" ? `${ends} · ${link.parameter}` : ends;
 }

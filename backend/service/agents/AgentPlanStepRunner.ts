@@ -4,6 +4,8 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
 import { isApiProvider } from "@/definition/AgentConnection";
+import { isAcpProvider } from "@/definition/AgentConfiguration";
+import { planGroupOrder } from "@/definition/AgentPlanGroup";
 
 import { AgentPlanGroupSessions } from "./AgentPlanGroupSessions";
 import {
@@ -100,6 +102,24 @@ function hasTimedOut(signal: AbortSignal): boolean {
   );
 }
 
+/** Waits for the group's earlier turns; a stop while waiting cancels the node before it starts. */
+async function waitForTurn(
+  ready: Promise<void>,
+  signal: AbortSignal,
+): Promise<void> {
+  let stop: () => void = () => undefined;
+  const stopped = new Promise<void>((resolve) => {
+    stop = () => resolve();
+    signal.addEventListener("abort", stop, { once: true });
+  });
+  try {
+    if (!signal.aborted) await Promise.race([ready, stopped]);
+  } finally {
+    signal.removeEventListener("abort", stop);
+  }
+  if (signal.aborted) throw new AgentPlanCancelledError();
+}
+
 function groupAcceptanceFailure(
   node: NodeRun,
   acceptance: AgentPlanAcceptance | null,
@@ -154,16 +174,24 @@ export class AgentPlanStepRunner {
       record: null,
       hasStarted: false,
     };
+    // The place in the group's queue is taken before any await, in the order the engine starts its members.
+    const slot = step.groupId
+      ? this.groups.reserve(`${run.id}/${step.groupId}`)
+      : null;
     try {
+      if (slot) await waitForTurn(slot.ready, control.signal);
       return await this.execute(node);
     } catch (error: unknown) {
       return this.failure(node, error);
+    } finally {
+      slot?.release();
     }
   }
 
   /** Ends retained native sessions when the plan is cancelled or finishes. */
   public async closeGroups(runId: string, groupId?: string): Promise<void> {
     const stopped = await this.groups.stop(runId, groupId);
+    if (groupId === undefined) this.groups.forget(runId);
     for (const { key, closed } of stopped) {
       for (const node of this.retained.get(key) ?? [])
         await this.complete(node, {
@@ -284,15 +312,15 @@ export class AgentPlanStepRunner {
     });
     const groupKey = `${run.id}/${step.groupId ?? step.step.id}`;
     const instanceId = this.groups.instanceId(groupKey) ?? randomUUID();
-    await this.save(
-      node,
-      createSessionRecord({
+    await this.save(node, {
+      ...createSessionRecord({
         instanceId,
         prepared,
         contract,
         usesMcp: reach !== "tickets" || contract.tickets.length > 0,
       }),
-    );
+      ...this.groupLink(node, prepared, groupKey),
+    });
     const mcp = this.groups.instanceId(groupKey)
       ? this.groups.mcp(groupKey)
       : await this.dependencies.access.grant({
@@ -354,6 +382,24 @@ export class AgentPlanStepRunner {
     }
   }
 
+  /** Records whether a group member opens its group's shared session or continues it. */
+  private groupLink(
+    node: NodeRun,
+    prepared: PreparedPlanStep,
+    groupKey: string,
+  ): Pick<AgentPlanSessionRecord, "group"> {
+    const { groupId } = node.step;
+    const provider = prepared.input.agent.connection.provider;
+    if (!groupId || !isAcpProvider(provider)) return {};
+    return {
+      group: this.groups.link(groupKey, {
+        groupId,
+        stepId: node.step.step.id,
+        adapter: provider,
+      }),
+    };
+  }
+
   private async finish(
     node: NodeRun,
     session: PlanSession,
@@ -407,9 +453,11 @@ export class AgentPlanStepRunner {
     const group = node.snapshot.groups?.find(
       (entry) => entry.id === node.step.groupId,
     );
+    if (!group) return false;
+    // The internal edges decide which member ends the group and its shared session.
+    const last = (planGroupOrder(group) ?? group.steps).at(-1);
     if (
-      !group ||
-      group.steps.at(-1)?.id === node.step.step.id ||
+      last?.id === node.step.step.id ||
       turnFailureCode(turn) !== null ||
       node.control.signal.aborted
     )
@@ -545,7 +593,11 @@ export class AgentPlanStepRunner {
         });
       },
       identified: (sessionId) => {
-        void this.complete(node, { sessionId });
+        const group = node.record?.group;
+        void this.complete(node, {
+          sessionId,
+          ...(group ? { group: { ...group, acpSessionId: sessionId } } : {}),
+        });
       },
       progressed: (events) => {
         void this.complete(node, {

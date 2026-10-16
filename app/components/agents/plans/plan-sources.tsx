@@ -6,6 +6,7 @@ import { Select } from "@/app/components/ui/select";
 import { VerticalScrollArea } from "@/app/components/ui/vertical-scroll-area";
 import { Button } from "@/app/components/ui/button";
 
+import { PLAN_AGENT_DRAG } from "./plan-drag";
 import { usePlanTaskFilter } from "./use-plan-task-filter";
 
 import type { AgentPlanNode, AgentPlanSources } from "@/definition/AgentPlan";
@@ -189,6 +190,8 @@ function SourceButton(props: {
       "application/x-pages-plan",
       `${props.kind}:${props.reference}`,
     );
+    if (props.kind === "agent")
+      event.dataTransfer.setData(PLAN_AGENT_DRAG, props.reference);
     event.dataTransfer.effectAllowed = "copy";
   }
   return (

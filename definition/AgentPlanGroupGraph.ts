@@ -4,12 +4,20 @@ import {
   isAgentParameterName,
 } from "./AgentParameters";
 import { planStepTemplate } from "./AgentPlanConfiguration";
+import {
+  planGroupEdges,
+  planGroupEntries,
+  planGroupOrder,
+  planGroupRefusal,
+} from "./AgentPlanGroup";
+import { hasPlanPath } from "./AgentPlanPath";
 
 import type { AgentDefinitionChoice } from "./AgentAvailability";
 import type {
   AgentPlanInput,
   AgentPlanBinding,
   AgentPlanNode,
+  AgentPlanStep,
 } from "./AgentPlan";
 import type { AgentPlanGroupParameter } from "./AgentPlanGroup";
 import type { AgentPlanGroup } from "./AgentPlanGroup";
@@ -82,44 +90,125 @@ function boundaryIssues(
   return issues;
 }
 
+/** Where a member's input may come from: a boundary port, a value node outside or a result. */
+function memberBindingIssue(
+  group: AgentPlanGroup,
+  step: AgentPlanStep,
+  plan: AgentPlanInput,
+  binding: AgentPlanBinding,
+): "source" | null {
+  if (binding.kind === "literal") return null;
+  if (binding.kind === "result") {
+    // A member's result needs an internal path; an outer agent's is checked in the expanded plan.
+    if (group.steps.some((entry) => entry.id === binding.stepId))
+      return hasPlanPath(planGroupEdges(group), binding.stepId, step.id)
+        ? null
+        : "source";
+    return plan.nodes.some(
+      (node) => node.id === binding.stepId && node.type === "agent",
+    )
+      ? null
+      : "source";
+  }
+  if (group.parameters.some((port) => port.id === binding.nodeId)) return null;
+  // Value nodes outside the frame feed members directly; their type is checked in the expanded plan.
+  return plan.nodes.some(
+    (node) =>
+      node.id === binding.nodeId &&
+      (node.type === "parameter" ||
+        node.type === "variable" ||
+        node.type === "task"),
+  )
+    ? null
+    : "source";
+}
+
 function internalIssues(
   group: AgentPlanGroup,
+  plan: AgentPlanInput,
   agents: readonly AgentDefinitionChoice[],
 ): AgentPlanIssue[] {
   const issues: AgentPlanIssue[] = [];
-  group.steps.forEach((step, index) => {
+  for (const step of group.steps) {
     const template = planStepTemplate(step, agents);
-    const configuration = step.configuration;
-    const source = agents.find((entry) => entry.id === step.agentId);
-    if ((configuration?.provider ?? source?.provider) !== "codex_cli")
+    const refusal = planGroupRefusal(group, step, agents);
+    // A node without an agent is reported by the agent check instead.
+    if (refusal === "notAcp" || refusal === "otherAdapter")
       issues.push({
         nodeId: step.id,
         port: "provider/adapter",
         reason: "groupProvider",
       });
     for (const [name, binding] of Object.entries(step.bindings)) {
+      const reason = memberBindingIssue(group, step, plan, binding);
+      if (reason) {
+        issues.push({ nodeId: step.id, port: name, reason });
+        continue;
+      }
+      const port =
+        binding.kind === "source"
+          ? group.parameters.find((entry) => entry.id === binding.nodeId)
+          : undefined;
       const parameter = template?.parameters.find(
         (entry) => entry.name === name,
       );
-      if (binding.kind === "literal") continue;
-      if (binding.kind === "result") {
-        if (
-          !group.steps
-            .slice(0, index)
-            .some((entry) => entry.id === binding.stepId)
-        )
-          issues.push({ nodeId: step.id, port: name, reason: "source" });
-        continue;
-      }
-      const port = group.parameters.find(
-        (entry) => entry.id === binding.nodeId,
-      );
-      if (!port) issues.push({ nodeId: step.id, port: name, reason: "source" });
-      else if (parameter?.type !== port.type)
+      if (port && parameter?.type !== port.type)
         issues.push({ nodeId: step.id, port: name, reason: "type" });
     }
-  });
+  }
   return issues;
+}
+
+/** Internal edges join two members of the same frame, once, without a cycle. */
+function internalEdgeIssues(group: AgentPlanGroup): AgentPlanIssue[] {
+  const issues: AgentPlanIssue[] = [];
+  const members = new Set(group.steps.map((step) => step.id));
+  const edges = planGroupEdges(group);
+  const seen = new Set<string>();
+  for (const edge of edges) {
+    if (!members.has(edge.from) || !members.has(edge.to)) {
+      issues.push({
+        nodeId: members.has(edge.from) ? edge.to : edge.from,
+        port: members.has(edge.from) ? "flow-in" : "flow-out",
+        reason: "groupBoundary",
+      });
+      continue;
+    }
+    if (edge.fromPort !== "flow-out" || edge.toPort !== "flow-in")
+      issues.push({ nodeId: edge.to, port: edge.toPort, reason: "port" });
+    const key = JSON.stringify([edge.from, edge.to]);
+    if (seen.has(key))
+      issues.push({ nodeId: edge.to, port: "flow-in", reason: "duplicate" });
+    seen.add(key);
+    if (edge.from === edge.to || hasPlanPath(edges, edge.to, edge.from))
+      issues.push({ nodeId: edge.from, port: "flow-out", reason: "cycle" });
+  }
+  return issues;
+}
+
+/**
+ * A shared session runs one turn after another, so a runnable group is one chain.
+ *
+ * @remarks
+ * Each member that branches, joins or starts a second chain is named, so the
+ * editor can show which connection to set or remove.
+ */
+function orderIssues(group: AgentPlanGroup): AgentPlanIssue[] {
+  if (group.steps.length === 0 || planGroupOrder(group)) return [];
+  const edges = planGroupEdges(group);
+  const entries = planGroupEntries(group);
+  const issues: AgentPlanIssue[] = [];
+  for (const step of group.steps) {
+    const incoming = edges.filter((edge) => edge.to === step.id).length;
+    const outgoing = edges.filter((edge) => edge.from === step.id).length;
+    if (incoming > 1 || (incoming === 0 && entries.length > 1))
+      issues.push({ nodeId: step.id, port: "flow-in", reason: "groupOrder" });
+    if (outgoing > 1)
+      issues.push({ nodeId: step.id, port: "flow-out", reason: "groupOrder" });
+  }
+  return issues.length > 0
+    ? issues
+    : [{ nodeId: group.id, port: null, reason: "groupOrder" }];
 }
 
 function configurationIssues(
@@ -174,7 +263,8 @@ export function planGroupIssues(
   const ids = new Set(plan.nodes.map((node) => node.id));
   for (const node of plan.nodes) {
     if (node.type !== "group") continue;
-    if (isExecution && node.steps.length < 2)
+    // A neutral group may be saved empty; it needs one agent before it runs.
+    if (isExecution && node.steps.length === 0)
       issues.push({ nodeId: node.id, port: null, reason: "groupSize" });
     for (const step of node.steps) {
       if (ids.has(step.id))
@@ -183,8 +273,10 @@ export function planGroupIssues(
     }
     issues.push(
       ...boundaryIssues(node, plan, isExecution),
-      ...internalIssues(node, agents),
+      ...internalIssues(node, plan, agents),
+      ...internalEdgeIssues(node),
       ...configurationIssues(node, agents),
+      ...(isExecution ? orderIssues(node) : []),
     );
   }
   return issues;

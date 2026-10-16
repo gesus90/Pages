@@ -1,12 +1,15 @@
 import { planExecutionIssues } from "@/definition/AgentPlanGraph";
+import { findPlanStep, replacePlanNode } from "@/definition/AgentPlanGroupEdit";
 
 import { planLinkKey, removePlanLink } from "./plan-links";
+import { planNodeBox } from "./plan-layout";
 import {
   createPlanNode,
   removePlanNode,
   snapPlanCoordinate,
 } from "./plan-node-factory";
 import { usePlanConnections } from "./use-plan-connections";
+import { usePlanGroupActions } from "./use-plan-group-actions";
 import { usePlanNodeInsertion } from "./use-plan-node-insertion";
 import { usePlanSelection } from "./use-plan-selection";
 
@@ -23,9 +26,10 @@ import type { AgentPlanConfiguration } from "@/definition/AgentPlanConfiguration
 import type { AgentParameterValue } from "@/definition/AgentParameters";
 import type { PlanLink } from "./plan-links";
 import type { PlanSelection } from "./use-plan-selection";
+import type { PlanGroupActions } from "./use-plan-group-actions";
 
 /** Editable node operations and validated port interactions of one plan draft. */
-export interface PlanGraphActions extends PlanSelection {
+export interface PlanGraphActions extends PlanSelection, PlanGroupActions {
   readonly insertionError: string | null;
   readonly issues: readonly AgentPlanIssue[];
   readonly connectionIssue: ReturnType<
@@ -35,13 +39,22 @@ export interface PlanGraphActions extends PlanSelection {
   readonly begin: ReturnType<typeof usePlanConnections>["begin"];
   readonly connect: ReturnType<typeof usePlanConnections>["connect"];
   readonly bindSource: ReturnType<typeof usePlanConnections>["bindSource"];
+  /** Adds a node; with `groupId` an agent joins that group, if it may. */
   readonly add: (
     kind: AgentPlanNode["type"],
     reference: string,
     position?: AgentPlanPosition,
+    groupId?: string,
   ) => string | null;
+  /** Moves a node; a member's position counts from its frame's member area. */
   readonly move: (id: string, x: number, y: number) => void;
-  /** Removes a node together with every connection that reaches it. */
+  /**
+   * Removes a node together with every connection that reaches it.
+   *
+   * @remarks
+   * A frame with members is not removed at once: it waits for the choice
+   * between keeping and deleting its members.
+   */
   readonly remove: (id: string) => void;
   /** Removes one connection and keeps both of its nodes. */
   readonly disconnect: (link: PlanLink) => void;
@@ -54,6 +67,41 @@ export interface PlanGraphActions extends PlanSelection {
   ) => void;
 }
 
+/** A new value node beside an agent node, inside a frame too, bound to one of its inputs. */
+function boundValueNode(
+  draft: AgentPlanInput,
+  sources: AgentPlanSources,
+  request: {
+    readonly step: AgentPlanStep;
+    readonly name: string;
+    readonly value: AgentParameterValue;
+  },
+): { readonly node: AgentPlanNode; readonly step: AgentPlanStep } | null {
+  const { step, name, value } = request;
+  const box = planNodeBox(draft, step.id, sources);
+  const source = createPlanNode({
+    draft,
+    sources,
+    kind: "parameter",
+    reference: name,
+    position: {
+      x: Math.max(0, (box?.x ?? step.x) - 320),
+      y: (box?.y ?? step.y) + 340,
+    },
+  });
+  if (source?.type !== "parameter") return null;
+  return {
+    node: { ...source, value },
+    step: {
+      ...step,
+      bindings: {
+        ...step.bindings,
+        [name]: { kind: "source", nodeId: source.id },
+      },
+    },
+  };
+}
+
 /** Graph edits leave definitions untouched; the plan owns every node instance and binding. */
 export function usePlanGraph(
   draft: AgentPlanInput,
@@ -63,29 +111,47 @@ export function usePlanGraph(
 ): PlanGraphActions {
   const selection = usePlanSelection();
   const connections = usePlanConnections(draft, setDraft, sources);
+  const groups = usePlanGroupActions({
+    draft,
+    setDraft,
+    sources,
+    onRemoved: forget,
+  });
   const insertion = usePlanNodeInsertion({
     draft,
     setDraft,
     sources,
     select: selection.select,
     loadConfiguration,
+    onRefused: groups.refuse,
   });
-  function move(id: string, x: number, y: number): void {
-    setDraft((previous) => ({
-      ...previous,
-      nodes: previous.nodes.map((node) =>
-        node.id === id
-          ? { ...node, x: snapPlanCoordinate(x), y: snapPlanCoordinate(y) }
-          : node,
-      ),
-    }));
-  }
-  function remove(id: string): void {
-    setDraft((previous) => removePlanNode(previous, id));
+  function forget(id: string): void {
     const link = selection.selectedLink;
     if (selection.selectedId === id || link?.from === id || link?.to === id)
       selection.select(null);
     if (connections.connection?.nodeId === id) connections.begin(null);
+  }
+  function move(id: string, x: number, y: number): void {
+    const node =
+      findPlanStep(draft, id)?.step ??
+      draft.nodes.find((entry) => entry.id === id);
+    if (!node) return;
+    setDraft((previous) =>
+      replacePlanNode(previous, {
+        ...node,
+        x: snapPlanCoordinate(x),
+        y: snapPlanCoordinate(y),
+      }),
+    );
+  }
+  function remove(id: string): void {
+    const node = draft.nodes.find((entry) => entry.id === id);
+    if (node?.type === "group" && node.steps.length > 0) {
+      groups.requestRemoval(id);
+      return;
+    }
+    setDraft((previous) => removePlanNode(previous, id));
+    forget(id);
   }
   function disconnect(link: PlanLink): void {
     setDraft((previous) => removePlanLink(previous, link));
@@ -95,40 +161,21 @@ export function usePlanGraph(
     )
       selection.selectLink(null);
   }
-  function replaceNode(step: AgentPlanNode): void {
-    setDraft((previous) => ({
-      ...previous,
-      nodes: previous.nodes.map((node) => (node.id === step.id ? step : node)),
-    }));
+  function replaceNode(node: AgentPlanNode): void {
+    setDraft((previous) => replacePlanNode(previous, node));
   }
   function insertValue(
     step: AgentPlanStep,
     name: string,
     value: AgentParameterValue,
   ): void {
-    const source = createPlanNode({
-      draft,
-      sources,
-      kind: "parameter",
-      reference: name,
-      position: { x: Math.max(0, step.x - 320), y: step.y + 340 },
+    const bound = boundValueNode(draft, sources, { step, name, value });
+    if (!bound) return;
+    setDraft((previous) => {
+      const replaced = replacePlanNode(previous, bound.step);
+      return { ...replaced, nodes: [...replaced.nodes, bound.node] };
     });
-    if (source?.type !== "parameter") return;
-    const next = {
-      ...step,
-      bindings: {
-        ...step.bindings,
-        [name]: { kind: "source" as const, nodeId: source.id },
-      },
-    };
-    setDraft((previous) => ({
-      ...previous,
-      nodes: [
-        ...previous.nodes.map((node) => (node.id === step.id ? next : node)),
-        { ...source, value },
-      ],
-    }));
-    selection.select(source.id);
+    selection.select(bound.node.id);
   }
   return {
     insertValue,
@@ -136,6 +183,7 @@ export function usePlanGraph(
     ...selection,
     ...connections,
     ...insertion,
+    ...groups,
     move,
     remove,
     disconnect,

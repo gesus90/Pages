@@ -12,6 +12,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { ProjectRunsActiveError } from "@/backend/error/ProjectErrors";
 import { requireCredentialFreeText } from "@/backend/service/assistant/TextAssistantValidation";
 import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
+import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { withoutTicketFlow } from "@/definition/AgentPlanGraph";
 
 import {
@@ -630,7 +631,7 @@ export class AgentPlanService {
           "provider/adapter": resolved.assignment.connection.provider,
           connectionId: resolved.assignment.connection.id,
         };
-        if (fields["provider/adapter"] !== "codex_cli")
+        if (!isAcpProvider(fields["provider/adapter"]))
           throw new AgentPlanValidationError([
             {
               nodeId: node.id,

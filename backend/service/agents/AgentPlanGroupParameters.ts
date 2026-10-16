@@ -98,7 +98,8 @@ async function bindGroupStep(
   for (const [name, binding] of Object.entries(child.bindings)) {
     if (binding.kind !== "source") continue;
     const port = group.parameters.find((entry) => entry.id === binding.nodeId);
-    if (!port) throw new AgentError("plan_binding_invalid");
+    // A value node outside the frame was bound when the snapshot was prepared.
+    if (!port) continue;
     values[name] = shared.parameters.values[port.name] ?? null;
   }
   const references = new Map(

@@ -254,7 +254,7 @@ const READ_ONLY_PROFILE: ClaudeAcpProfile = {
   reportedOptions: REPORTED_OPTIONS,
   matchesReportedModel: claudeModelMatches,
   hasMcpStatusCommand: true,
-  isContinuable: false,
+  isContinuable: true,
   steps: (request) => claudeSteps("default", request),
   decide: (request) => decideClaudePermission("read_only", request),
 };
@@ -279,7 +279,7 @@ const YOLO_PROFILE: ClaudeAcpProfile = {
   reportedOptions: REPORTED_OPTIONS,
   matchesReportedModel: claudeModelMatches,
   hasMcpStatusCommand: true,
-  isContinuable: false,
+  isContinuable: true,
   steps: (request) => claudeSteps("bypassPermissions", request),
   decide: (request) => decideClaudePermission("yolo", request),
 };

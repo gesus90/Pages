@@ -613,7 +613,7 @@
         "plan_runner_permission_denied": "The runner refused actions that the run options do not allow; nothing was approved on its behalf.",
         "plan_acceptance_failed": "Historical run: the closing report did not prove every todo and criterion. This stored failure is unchanged; a new run uses these findings only as diagnostics.",
         "plan_group_acceptance_failed": "The group agent did not pass acceptance. Its report must prove every todo and criterion; later agents and successors remain blocked.",
-        "plan_group_session_unsupported": "This adapter cannot continue a shared native session with a new step instruction. Choose compatible Codex CLI agents.",
+        "plan_group_session_unsupported": "This adapter cannot continue the group's shared ACP session with a new step instruction. Use Codex or Claude Code agents over ACP.",
         "plan_closeout_failed": "The session could not be closed completely; processes of it remained.",
         "parameter_number_invalid": "Supply a valid finite number for every number parameter.",
         "parameter_asset_unavailable": "A ticket asset is missing, deleted, unreadable or not accessible to the executing user. No incomplete input was sent.",
@@ -628,7 +628,8 @@
         "opencode_chat_mode_required": "Pica requires “Read only” workspace access for OpenCode and offers only the Pages tool bridge.",
         "opencode_configuration_unmanaged": "OpenCode could load external settings or instructions. Remove them from the connection’s configuration folder or /etc/opencode. No model was called.",
         "opencode_acp_unsupported": "Pica requires the verified native ACP contract of OpenCode 1.18.34. The installed version or contract differs; no model was called.",
-        "opencode_acp_session_failed": "The native OpenCode ACP session failed before or during the answer."
+        "opencode_acp_session_failed": "The native OpenCode ACP session failed before or during the answer.",
+        "plan_group_session_lost": "The group's shared ACP session no longer exists because its adapter process ended. An ACP session cannot be continued in another process; start a new run."
       },
       "description": "Manage the named AI connections and function assignments of this Pages instance.",
       "adminModeRequired": "The agent settings are only available in the admin mode. Your account is currently in the role mode.",
@@ -3227,7 +3228,7 @@
     "addSource": "Insert {{name}}",
     "canvas": "Grid editor",
     "grid": "Plan grid",
-    "canvasHint": "Drag agents and tickets onto the grid. Select OUT, then a compatible IN. Solid: flow. Dashed: data. A ticket supplies its value to a ticket parameter directly, without a start. Drag the empty grid to pan it; the mouse wheel zooms. Click a connection to disconnect it; Delete removes the selection.",
+    "canvasHint": "Drag agents and tickets onto the grid. Choose an OUT first, then a compatible IN. Solid: flow. Dashed: data. A ticket hands its value straight to a ticket parameter without a start. Dragging an agent into a green group frame adds it to the group, dragging it out removes it; the pointer position on release decides. Dragging the empty grid pans it, the mouse wheel zooms. Click a connection to remove it; Delete removes the selection.",
     "connectHint": "Choose the matching target port now.",
     "flowIn": "Flow IN",
     "flowOut": "Flow OUT",
@@ -3270,7 +3271,7 @@
       "start": "Start",
       "end": "End",
       "parameter": "Parameter",
-      "group": "Groups"
+      "group": "Group"
     },
     "status": {
       "waiting": "Waiting",
@@ -3287,15 +3288,15 @@
     },
     "chooseProject": "Choose project",
     "metadata": "Title, project, workspace and sharing",
-    "pickers": "Sources",
+    "pickers": "Sources and selection",
     "tabs": {
       "agents": "Agents",
       "tickets": "Tickets",
       "parameters": "Parameters",
       "groups": "Groups"
     },
-    "collapsePanel": "Collapse panel",
-    "expandPanel": "Open panel",
+    "collapsePanel": "Collapse side panel",
+    "expandPanel": "Open side panel",
     "addStart": "+ Start",
     "addEnd": "+ End",
     "dataIn": "Data IN",
@@ -3336,10 +3337,12 @@
       "name": "Start names with a lowercase letter; use only a–z, 0–9 and underscore, up to 64 characters.",
       "json": "Enter exactly one valid JSON value. Numbers must be finite.",
       "number": "Enter exactly one finite number.",
-      "groupSize": "A group requires at least two agents.",
-      "groupProvider": "This adapter cannot continue the same native session with a new step instruction. Use Codex CLI.",
+      "groupSize": "The group has no agent yet. Drag at least one ACP agent into it before starting the plan.",
+      "groupProvider": "This agent does not match the group's ACP class or does not run over ACP. Only agents of the same adapter class (Codex or Claude Code) share a group session.",
       "groupConfiguration": "The resolved runtime field conflicts with the shared group configuration.",
-      "unsupportedRunNotes": "Shared run notes have been removed. {{@run.notes}} is no longer supported. Update the affected agent or plan node explicitly."
+      "unsupportedRunNotes": "Shared run notes have been removed. {{@run.notes}} is no longer supported. Update the affected agent or plan node explicitly.",
+      "groupOrder": "The agents of a group share one session and need an unambiguous order: flow connections form one chain with exactly one first agent and no branch.",
+      "groupBoundary": "Flow connections do not cross a group frame: connect outer nodes to the group's flow IN or OUT, and the group's agents only with each other."
     },
     "createPortValue": "Value as parameter node",
     "session": {
@@ -3450,7 +3453,7 @@
       "defaultName": "Agent group",
       "create": "Create group",
       "name": "Group name",
-      "hint": "At least two Codex agents in a fixed sequence with the same connection and runtime configuration. A boundary port distributes the same value to multiple agents.",
+      "hint": "An ACP group shares one session per plan run. It starts as a neutral draft; the first ACP agent that joins (Codex or Claude Code) sets its class. After that only agents of the same class with identical access and runtime configuration can join. Without agents it is neutral again. A port hands the same value to several agents.",
       "interfaces": "Boundary ports",
       "acceptanceHint": "Internal group agents require a valid pages-report with completed todos and proven criteria. Missing reports, open work and failed acceptance stop the group and block successors.",
       "failedAgent": "Affected agent: {{name}}",
@@ -3461,10 +3464,62 @@
       "removePort": "Remove port",
       "addPort": "Add port",
       "addAgent": "Add agent to group",
-      "order": "Internal subgraph / execution order",
+      "order": "Agents of the group",
       "up": "Move agent up",
       "down": "Move agent down",
-      "step": "{{name}} · Step {{index}}"
+      "step": "{{name}} · Step {{index}}",
+      "adapterLabel": "ACP class",
+      "adapter": {
+        "codex_cli": "Codex · ACP",
+        "claude_code": "Claude Code · ACP",
+        "neutral": "Neutral"
+      },
+      "refusal": {
+        "notAcp": "{{name}} does not run as an ACP plan node and cannot join an ACP group. This applies to API agents and OpenCode plan nodes (CLI without ACP). The agent was not changed.",
+        "otherAdapter": "{{name}} belongs to the ACP class {{adapter}}, the group to {{group}}. Only agents of the same class can join. The agent was not changed.",
+        "missingAgent": "{{name}} has no assigned agent and cannot join a group."
+      },
+      "frame": "Group {{name}}",
+      "dropHere": "Release: the agent joins this group",
+      "portToMember": "Hand the value of {{name}} to an agent of the group",
+      "removeTitle": "Remove group “{{name}}”?",
+      "removeDescription": "Agents in the group: {{count}}. “Remove frame” keeps the agents and their flow connections among each other on the grid; connections at the frame and bindings to group ports are dropped. “Delete with contents” also removes the agents with all their connections.",
+      "removeFrame": "Remove frame, keep agents",
+      "removeWithMembers": "Delete with contents ({{count}} agents)",
+      "moved": "Crossing the group frame dropped: {{edges}} flow connections, {{bindings}} bindings to group ports. Flow connections only join nodes of the same level; the group's flow IN and OUT lead outside.",
+      "closeNotice": "Close notice",
+      "membership": "Group membership",
+      "noGroup": "No group",
+      "portOption": "Group port · {{name}}",
+      "orderValue": "Order: {{order}}",
+      "orderOpen": "Order open: connect the agents with flow connections into one chain without branches. Position and list do not count.",
+      "empty": "No agent yet. Drag an ACP agent into the frame or add one below.",
+      "selectMember": "Select",
+      "takeOut": "Take out of group",
+      "session": {
+        "label": "session_id",
+        "notCreated": "not created yet",
+        "hint": "Managed automatically and read-only: the ACP session of this group in the selected run. It applies only to this group's agents in this run, is no global plan parameter and is not wired.",
+        "state": {
+          "not_created": "not created yet",
+          "active": "active",
+          "closed": "ended",
+          "failed": "cancelled or ended with an error"
+        },
+        "inherited": "Shared session of the group {{name}} · {{state}}",
+        "title": "Group sessions",
+        "acpId": "ACP session_id",
+        "nativeId": "Native adapter session",
+        "nativeMissing": "not reported separately by the adapter",
+        "creator": "Created by",
+        "turns": "Turns in the session",
+        "role": {
+          "created": "Creates the group session (turn {{turn}})",
+          "continued": "Continues the group session (turn {{turn}})"
+        },
+        "runScope": "Applies to this run only; a new run gets a new session.",
+        "adapter": "ACP class"
+      }
     },
     "sequence": "Agent sequence",
     "sequenceHint": "Select an agent to open its details. The row summarizes the agents; independent agents may run in parallel.",
@@ -3491,7 +3546,15 @@
       "todoHint": "Current position is inferred: the first open item while the agent is running. The runner does not report an active TODO ID.",
       "inputsLoading": "Loading inputs …"
     },
-    "runDiagnostics": "Additional run diagnostics"
+    "runDiagnostics": "Additional run diagnostics",
+    "configuration": "Plan configuration",
+    "detailsPanel": "Run and details",
+    "collapseDetails": "Collapse details",
+    "expandDetails": "Expand details",
+    "canvasHelp": "Help for the plan grid",
+    "clearSelection": "Clear selection",
+    "positionInGroupX": "Position in group X",
+    "positionInGroupY": "Position in group Y"
   },
   "mcpDuration": {
     "label": "Validity in days",
