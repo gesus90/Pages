@@ -6,7 +6,11 @@ import { ChatPanel } from "@/app/components/chat/chat-panel";
 import { createI18n } from "@/app/lib/i18n";
 
 import type { RenderResult } from "@testing-library/react";
-import type { ChatMessage, ChatSession } from "@/definition/Chat";
+import type {
+  ChatAttachment,
+  ChatMessage,
+  ChatSession,
+} from "@/definition/Chat";
 
 /** Session IDs of the fake server; the first one opens with the panel. */
 export const FIRST_SESSION = "apfel-birne-kirsche-pflaume-traube";
@@ -20,6 +24,7 @@ export interface SentChatMessage {
   readonly clientMessageId: string;
   readonly sessionId: string;
   readonly text: string;
+  readonly attachmentIds: readonly string[];
 }
 
 /** How the fake server answers one sent message. */
@@ -33,11 +38,16 @@ export type ChatSendOutcome =
       readonly storesQuestion: boolean;
     }
   | { readonly kind: "gateway"; readonly status: number }
-  | { readonly kind: "network" };
+  | { readonly kind: "network" }
+  /** The message joins a running Codex job, as a steer. */
+  | { readonly kind: "steer" };
 
 interface HeldSend {
   readonly resolve: (outcome: ChatSendOutcome) => void;
 }
+
+/** A request that waits until the test releases it. */
+type HeldRequest = () => void;
 
 function readRecord(input: unknown): Readonly<Record<string, unknown>> {
   if (typeof input !== "object" || input === null || Array.isArray(input))
@@ -83,13 +93,19 @@ export class ChatServerFixture {
     [SECOND_SESSION, []],
   ]);
   private held: HeldSend[] | null = null;
+  private heldUploads: HeldRequest[] | null = null;
+  private heldReads: HeldRequest[] | null = null;
+  private readonly pending = new Map<string, ChatAttachment[]>();
   private nextMessage = 1;
+  private nextAttachment = 1;
 
   /** Answers one request of the panel; pass it as the global `fetch`. */
   public readonly fetch = async (
-    _: RequestInfo | URL,
+    url: RequestInfo | URL,
     init: RequestInit = {},
   ): Promise<Response> => {
+    if (String(url).startsWith("/chat-api/attachments?"))
+      return this.upload(new URL(String(url), "http://pages.test"), init);
     const parsed: unknown = JSON.parse(readText(init.body));
     const input = readRecord(parsed);
     switch (input.intent) {
@@ -103,7 +119,7 @@ export class ChatServerFixture {
           },
         });
       case "session":
-        return json({ ok: true, view: this.view(readText(input.sessionId)) });
+        return this.read(readText(input.sessionId));
       case "sessions":
         return json({
           ok: true,
@@ -126,6 +142,38 @@ export class ChatServerFixture {
     this.held = [];
   }
 
+  /** Keeps every following upload waiting until {@link releaseUpload} is called. */
+  public holdUploads(): void {
+    this.heldUploads = [];
+  }
+
+  /** Finishes the oldest waiting upload. */
+  public releaseUpload(): void {
+    const next = this.heldUploads?.shift();
+    if (!next) throw new Error("No upload is waiting.");
+    next();
+  }
+
+  /**
+   * Keeps every following read of a session waiting until {@link releaseRead};
+   * the read answers with the session as it was when the read began.
+   */
+  public holdReads(): void {
+    this.heldReads = [];
+  }
+
+  /** How many reads of a session wait for {@link releaseRead}. */
+  public get waitingReads(): number {
+    return this.heldReads?.length ?? 0;
+  }
+
+  /** Answers the oldest waiting read of a session. */
+  public releaseRead(): void {
+    const next = this.heldReads?.shift();
+    if (!next) throw new Error("No read is waiting.");
+    next();
+  }
+
   /** Answers the oldest waiting send with the given outcome. */
   public release(outcome: ChatSendOutcome): void {
     const next = this.held?.shift();
@@ -140,21 +188,63 @@ export class ChatServerFixture {
 
   private view(sessionId: string): Readonly<Record<string, unknown>> {
     const messages = this.messages(sessionId);
-    return { session: session(sessionId, messages), messages, pending: [] };
+    return {
+      session: session(sessionId, messages),
+      messages: [...messages],
+      pending: [...(this.pending.get(sessionId) ?? [])],
+    };
+  }
+
+  private async read(sessionId: string): Promise<Response> {
+    const view = this.view(sessionId);
+    const reads = this.heldReads;
+    if (reads)
+      await new Promise<void>((resolve) => {
+        reads.push(resolve);
+      });
+    return json({ ok: true, view });
+  }
+
+  private async upload(url: URL, init: RequestInit): Promise<Response> {
+    const sessionId = url.searchParams.get("session") ?? "";
+    const body = init.body;
+    const attachment: ChatAttachment = {
+      id: `attachment-${this.nextAttachment}`,
+      fileName: url.searchParams.get("name") ?? "",
+      contentType: "text/plain",
+      size: body instanceof Blob ? body.size : 0,
+    };
+    this.nextAttachment += 1;
+    const uploads = this.heldUploads;
+    if (uploads)
+      await new Promise<void>((resolve) => {
+        uploads.push(resolve);
+      });
+    this.pending.set(sessionId, [
+      ...(this.pending.get(sessionId) ?? []),
+      attachment,
+    ]);
+    return json({ ok: true, attachment });
   }
 
   private store(
     sessionId: string,
     role: ChatMessage["role"],
     content: string,
+    attachmentIds: readonly string[] = [],
   ): ChatMessage {
+    const unsent = this.pending.get(sessionId) ?? [];
     const message: ChatMessage = {
       id: `message-${this.nextMessage}`,
       role,
       content,
       createdAt: TIMESTAMP,
-      attachments: [],
+      attachments: unsent.filter(({ id }) => attachmentIds.includes(id)),
     };
+    this.pending.set(
+      sessionId,
+      unsent.filter(({ id }) => !attachmentIds.includes(id)),
+    );
     this.nextMessage += 1;
     this.sessions.get(sessionId)?.push(message);
     return message;
@@ -178,6 +268,9 @@ export class ChatServerFixture {
       clientMessageId: readText(message.clientMessageId),
       sessionId: readText(message.sessionId),
       text: readText(message.text),
+      attachmentIds: Array.isArray(message.attachmentIds)
+        ? message.attachmentIds.map(readText)
+        : [],
     };
     this.sent.push(sent);
     const outcome = this.held ? await this.wait(signal) : this.outcome;
@@ -186,8 +279,25 @@ export class ChatServerFixture {
 
   private respond(sent: SentChatMessage, outcome: ChatSendOutcome): Response {
     switch (outcome.kind) {
+      case "steer": {
+        const steer = this.store(
+          sent.sessionId,
+          "user",
+          sent.text,
+          sent.attachmentIds,
+        );
+        return json({
+          ok: true,
+          steer: { messageId: steer.id, jobId: "job-1", status: "pending" },
+        });
+      }
       case "answer": {
-        const question = this.store(sent.sessionId, "user", sent.text);
+        const question = this.store(
+          sent.sessionId,
+          "user",
+          sent.text,
+          sent.attachmentIds,
+        );
         const answer = this.store(sent.sessionId, "assistant", outcome.content);
         return json({
           ok: true,

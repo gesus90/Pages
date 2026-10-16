@@ -40,6 +40,30 @@ interface ChatUploadOptions {
 }
 
 /**
+ * Applies a read of a session to the view while that session is open.
+ *
+ * @param current - The view as the panel shows it now.
+ * @param fresh - The session as the server returned it.
+ * @returns The fresh session; an attachment that finished uploading after the
+ * read began stays selected for the next message, unless the read shows it
+ * sent with a message.
+ */
+export function applyChatSessionRead(
+  current: ChatView,
+  fresh: ChatView,
+): ChatView {
+  if (current.session?.id !== fresh.session?.id) return current;
+  const known = new Set(
+    [
+      ...fresh.pending,
+      ...fresh.messages.flatMap(({ attachments }) => attachments),
+    ].map(({ id }) => id),
+  );
+  const uploaded = current.pending.filter(({ id }) => !known.has(id));
+  return { ...fresh, pending: [...fresh.pending, ...uploaded] };
+}
+
+/**
  * Uploads files for the next message one after another.
  *
  * @remarks

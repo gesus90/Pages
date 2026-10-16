@@ -108,7 +108,11 @@ export function ChatComposer({
     view.session === null ||
     chat.isCompacting ||
     chat.commands.isDeleting;
-  const canSend = !isBusy && (input.markdown !== "" || view.pending.length > 0);
+  // A file still uploading would miss the message; it is sent once it is selected.
+  const canSend =
+    !isBusy &&
+    uploads.uploading.length === 0 &&
+    (input.markdown !== "" || view.pending.length > 0);
 
   useEffect(() => {
     if (isOpen) editor?.commands.focus("end");

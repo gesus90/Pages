@@ -147,3 +147,27 @@ it("gives a message sent again after a failure its client message ID and a new m
   expect(next?.clientMessageId).not.toBe(repeated?.clientMessageId);
   expect(other?.clientMessageId).not.toBe(next?.clientMessageId);
 });
+
+it("keeps an attachment selected that finished uploading while the session was read again", async () => {
+  const { result } = await openChat();
+  server.outcome = { kind: "steer" };
+  server.holdReads();
+  let sent: Promise<ChatSubmitOutcome> = Promise.resolve("restore");
+  act(() => {
+    sent = result.current.submit("Zusatz während der Antwort");
+  });
+  await waitFor(() => {
+    expect(server.waitingReads).toBe(1);
+  });
+
+  await act(() =>
+    result.current.uploads.attach([new File(["Marker"], "steer.txt")]),
+  );
+  server.releaseRead();
+
+  expect(await act(() => sent)).toBe("clear");
+  expect(contents(result.current)).toEqual(["Zusatz während der Antwort"]);
+  expect(result.current.view.pending.map(({ fileName }) => fileName)).toEqual([
+    "steer.txt",
+  ]);
+});

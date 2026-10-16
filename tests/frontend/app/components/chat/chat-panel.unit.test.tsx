@@ -276,3 +276,36 @@ it("sends once and keeps the input empty when Enter and Abschicken arrive before
   expect(await inputText()).toBe("");
   expect(ownMessages()).toHaveLength(1);
 });
+
+it("sends a message only after its attachment finished uploading, with the attachment", async () => {
+  await openPanel();
+  server.holdUploads();
+  server.outcome = { kind: "steer" };
+  const fileInput = document.querySelector('input[type="file"]');
+  if (!(fileInput instanceof HTMLInputElement))
+    throw new Error("The chat has no file input.");
+  fireEvent.change(fileInput, {
+    target: { files: [new File(["Marker"], "steer.txt")] },
+  });
+  await typeChatMessage("Zusatz: Bitte beachte den Anhang.");
+
+  expect(await screen.findByText("1 Anhang wird hochgeladen …")).toBeTruthy();
+  const button = screen.getByRole("button", { name: "Abschicken" });
+  expect(button.hasAttribute("disabled")).toBe(true);
+  fireEvent.keyDown(await findChatInput(), { key: "Enter" });
+  expect(server.sent).toHaveLength(0);
+
+  act(() => {
+    server.releaseUpload();
+  });
+  expect(await screen.findByText("steer.txt")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Abschicken" }));
+
+  expect(
+    await within(messageLog()).findByRole("link", { name: "steer.txt" }),
+  ).toBeTruthy();
+  expect(server.sent.map(({ attachmentIds }) => attachmentIds)).toEqual([
+    ["attachment-1"],
+  ]);
+  expect(await inputText()).toBe("");
+});

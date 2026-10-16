@@ -396,11 +396,15 @@ export class PicaAcpJob {
       this.dependencies.attachments,
       this.capabilities,
     );
-    await this.select(message.id, content.items);
-    return session.steer([
+    const outcome = await session.steer([
       { type: "text", text: picaSteerText(message.text) },
       ...content.blocks,
     ]);
+    // The snapshot tells what reached Codex. A steer the adapter did not take
+    // gets it with its own turn, or fails visibly with all its attachments.
+    if (outcome === "injected" || outcome === "startedNewTurn")
+      await this.select(message.id, content.items);
+    return outcome;
   }
 
   private async select(

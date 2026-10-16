@@ -12,7 +12,7 @@ import { toChatView, useChatCommands } from "./use-chat-commands";
 import { useChatContext } from "./use-chat-context";
 import { useChatJob } from "./use-chat-job";
 import { useChatSend } from "./use-chat-send";
-import { useChatUploads } from "./use-chat-uploads";
+import { applyChatSessionRead, useChatUploads } from "./use-chat-uploads";
 
 import type { ChatConfirmationWord, ChatContextSize } from "@/definition/Chat";
 import type { ChatTemporaryPassword } from "@/definition/AgentAdministration";
@@ -99,9 +99,7 @@ export function useChat(isOpen: boolean): ChatController {
     try {
       const result = await chatApi({ intent: "session", sessionId });
       const fresh = readChatSessionView(result.view);
-      setView((current) =>
-        current.session?.id === sessionId ? fresh : current,
-      );
+      setView((current) => applyChatSessionRead(current, fresh));
     } catch {
       // The next read of the job reads the conversation again.
     }

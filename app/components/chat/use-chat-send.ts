@@ -8,6 +8,8 @@ import {
 import { readChatSendResult } from "@/app/lib/chat-job-client";
 import { createRandomUuid } from "@/app/lib/random-uuid";
 
+import { applyChatSessionRead } from "./use-chat-uploads";
+
 import type { Dispatch, SetStateAction } from "react";
 import type { ChatView } from "./use-chat-uploads";
 import type { ChatTemporaryPassword } from "@/definition/AgentAdministration";
@@ -129,9 +131,7 @@ export function useChatSend({
     try {
       const result = await chatApi({ intent: "session", sessionId });
       const fresh = readChatSessionView(result.view);
-      setView((current) =>
-        current.session?.id === sessionId ? fresh : current,
-      );
+      setView((current) => applyChatSessionRead(current, fresh));
       return fresh.messages.length > before;
     } catch {
       return false;
