@@ -1,3 +1,5 @@
+import { AgentError } from "@/backend/error/AgentErrors";
+
 import {
   CLAUDE_ACP_BINARY,
   isSupportedClaudeAcp,
@@ -26,7 +28,11 @@ export const CLAUDE_ACP_DRIVER: AcpDriver = {
     sessionFailed: "plan_claude_acp_session_failed",
   },
   isSupportedAdapter: isSupportedClaudeAcp,
-  profile: claudeAcpProfile,
+  profile: (mode, purpose) => {
+    // Pica runs only on Codex over ACP; Claude Code keeps its plan nodes.
+    if (purpose === "chat") throw new AgentError("provider_invalid");
+    return claudeAcpProfile(mode);
+  },
   plan: (specification) =>
     planClaudeAcpLaunch({
       ...specification,

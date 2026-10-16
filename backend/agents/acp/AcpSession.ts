@@ -10,8 +10,8 @@ import { closeCliSession } from "@/backend/agents/cli/CliSessionCloseout";
 import { noteSessionEvent } from "@/backend/agents/cli/CliSessionEvents";
 import { AgentError } from "@/backend/error/AgentErrors";
 
+import { ACP_STEERING_METHOD, readAcpSteerOutcome } from "./AcpChat";
 import { acpTicketAssetPrompt } from "./AcpTicketAssets";
-import { findAcpSelectOption } from "./AcpConfigOptions";
 import {
   createAcpSessionState,
   readAcpConfiguration,
@@ -19,13 +19,15 @@ import {
 } from "./AcpEvents";
 import { PAGES_MCP_SERVER } from "./AcpLaunch";
 import { readMcpServerStatus } from "./AcpMcpStatus";
+import { confirmAcpConfiguration } from "./AcpSessionConfiguration";
 
 import type { AgentPlanExecutionInput } from "@/backend/service/agents/AgentPlanStepStart";
 import type { TextExecutionInput } from "@/backend/agents/TextExecution";
 import type {
   ClientConnection,
+  ContentBlock,
   PromptCapabilities,
-  McpServerStdio,
+  McpServer,
   RequestPermissionRequest,
   RequestPermissionResponse,
   SessionConfigOption,
@@ -42,7 +44,12 @@ import type {
 } from "@/backend/agents/AgentPlanExecution";
 import type { CliSessionProcess } from "@/backend/agents/cli/CliSessionProcess";
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
-import type { AcpConfigStep, AcpDriver, AcpSessionProfile } from "./AcpDriver";
+import type {
+  AcpPromptContent,
+  AcpSessionListener,
+  AcpSteerOutcome,
+} from "./AcpChat";
+import type { AcpDriver, AcpSessionProfile } from "./AcpDriver";
 import type { McpServerStatus } from "./AcpMcpStatus";
 
 /** The JSON-RPC code of an agent that needs a sign-in first. */
@@ -67,9 +74,25 @@ export interface AcpSessionRequest extends Pick<
   readonly model: string;
   /** `null` leaves the effort to the model's default, as the agent stores it. */
   readonly reasoningEffort: string | null;
-  readonly mcpServers: readonly McpServerStdio[];
+  readonly mcpServers: readonly McpServer[];
   readonly sessionMeta: Readonly<Record<string, unknown>>;
+  /** Blocks after the prompt text, such as the attachments of a chat message. */
+  readonly promptContent?: AcpPromptContent;
+  /** A protocol session to continue with `session/resume` instead of starting one. */
+  readonly resumeSessionId?: string | null;
 }
+
+/** The protocol session that was opened and the options it reported. */
+interface OpenedSession {
+  readonly sessionId: string;
+  readonly options: readonly SessionConfigOption[];
+}
+
+/** What one prompt of the session sends. */
+type AcpPromptRequest = Pick<
+  AcpSessionRequest,
+  "prompt" | "ticketInputs" | "readTicketAssets" | "promptContent"
+>;
 
 /** What one ACP session needs from its surroundings. */
 export interface AcpSessionContext {
@@ -92,12 +115,8 @@ export interface AcpSessionContext {
   readonly redact?: (text: string) => string;
   /** Safe availability diagnostic, including an explicit reason when credentials are missing. */
   readonly github?: string;
-}
-
-/** One configuration option the session must take, with the options the adapter showed last. */
-interface ConfigSelection extends AcpConfigStep {
-  readonly sessionId: string;
-  readonly options: readonly SessionConfigOption[];
+  /** Receives every update and the usage of every prompt, as a chat session shows them. */
+  readonly listener?: AcpSessionListener;
 }
 
 function delay(milliseconds: number): Promise<void> {
@@ -148,6 +167,8 @@ export class AcpSession implements PlanSession {
   private observer: PlanSessionObserver;
   private turnSignal: AbortSignal;
   private isWorking = true;
+  /** A `session/prompt` of Pages is running, so a steer can join its turn. */
+  private isPrompting = false;
   private lastProgressAt = 0;
   private lastProgress = "";
   private promptCapabilities: PromptCapabilities | null | undefined;
@@ -194,6 +215,37 @@ export class AcpSession implements PlanSession {
   public close(): Promise<PlanSessionClosed> {
     this.closing ??= this.shutDown();
     return this.closing;
+  }
+
+  /**
+   * Adds a prompt to the running turn through the steering extension of codex-acp.
+   *
+   * @param prompt - The blocks of the additional message.
+   * @returns What became of it; `inactive` without a running prompt of Pages,
+   * so a steer never reaches the adapter between turns.
+   */
+  public async steer(
+    prompt: readonly ContentBlock[],
+  ): Promise<AcpSteerOutcome> {
+    const { sessionId } = this.state;
+    if (
+      this.context.driver.provider !== "codex_cli" ||
+      !this.isPrompting ||
+      this.closing ||
+      sessionId === null
+    )
+      return "inactive";
+    try {
+      return readAcpSteerOutcome(
+        await this.connection.agent.request(ACP_STEERING_METHOD, {
+          sessionId,
+          prompt: [...prompt],
+        }),
+      );
+    } catch {
+      // The adapter refused the steer or the connection is gone; the turn decides the rest.
+      return "failed";
+    }
   }
 
   /** Continues the native Codex thread with a fresh, turn-scoped step instruction. */
@@ -250,24 +302,25 @@ export class AcpSession implements PlanSession {
 
   private async prompt(
     sessionId: string,
-    request: Pick<
-      TextExecutionInput,
-      "prompt" | "ticketInputs" | "readTicketAssets"
-    >,
+    request: AcpPromptRequest,
   ): Promise<PlanSessionTurn> {
     if (this.hasConfigurationChanged())
       return this.ended("failed", "plan_context_changed");
-    const response = await this.connection.agent.request(
-      methods.agent.session.prompt,
-      {
-        sessionId,
-        prompt: acpTicketAssetPrompt(
-          request.prompt,
-          await readTicketAssetInput(request),
-          this.promptCapabilities,
-        ),
-      },
-    );
+    const prompt: ContentBlock[] = [
+      ...acpTicketAssetPrompt(
+        request.prompt,
+        await readTicketAssetInput(request),
+        this.promptCapabilities,
+      ),
+      ...((await request.promptContent?.(this.promptCapabilities)) ?? []),
+    ];
+    this.isPrompting = true;
+    const response = await this.connection.agent
+      .request(methods.agent.session.prompt, { sessionId, prompt })
+      .finally(() => {
+        this.isPrompting = false;
+      });
+    this.context.listener?.prompted(response.usage ?? null);
     noteSessionEvent(this.state.events, `turn ${response.stopReason}`);
     if (this.hasConfigurationChanged())
       return this.ended("failed", "plan_context_changed");
@@ -321,11 +374,10 @@ export class AcpSession implements PlanSession {
     throw new AgentError(driver.errors.adapterUnsupported);
   }
 
-  private async openSession(): Promise<{
-    readonly sessionId: string;
-    readonly options: readonly SessionConfigOption[];
-  }> {
+  private async openSession(): Promise<OpenedSession> {
     const { request } = this.context;
+    const resumeSessionId = request.resumeSessionId ?? null;
+    if (resumeSessionId !== null) return this.resumeSession(resumeSessionId);
     const response = await this.connection.agent.request(
       methods.agent.session.new,
       {
@@ -334,96 +386,59 @@ export class AcpSession implements PlanSession {
         _meta: { ...request.sessionMeta },
       },
     );
-    this.state.sessionId = response.sessionId;
-    noteSessionEvent(this.state.events, `session ${response.sessionId}`);
-    this.observer.identified(this.redact(response.sessionId));
-    return {
-      sessionId: response.sessionId,
-      options: response.configOptions ?? [],
-    };
+    return this.opened(response.sessionId, response.configOptions);
+  }
+
+  /** Continues an earlier protocol session of the same working directory. */
+  private async resumeSession(sessionId: string): Promise<OpenedSession> {
+    const { request } = this.context;
+    noteSessionEvent(this.state.events, "resume session");
+    try {
+      const response = await this.connection.agent.request(
+        methods.agent.session.resume,
+        {
+          sessionId,
+          cwd: request.directory,
+          mcpServers: [...request.mcpServers],
+          _meta: { ...request.sessionMeta },
+        },
+      );
+      return this.opened(sessionId, response.configOptions);
+    } catch (error: unknown) {
+      // The adapter refused the session; a lost connection fails as it always does.
+      if (error instanceof RequestError && !this.connection.signal.aborted)
+        throw new AgentError("acp_session_resume_failed");
+      throw error;
+    }
+  }
+
+  private opened(
+    sessionId: string,
+    options: readonly SessionConfigOption[] | null | undefined,
+  ): OpenedSession {
+    this.state.sessionId = sessionId;
+    noteSessionEvent(this.state.events, `session ${sessionId}`);
+    this.observer.identified(this.redact(sessionId));
+    return { sessionId, options: options ?? [] };
   }
 
   private async configure(
     sessionId: string,
     initial: readonly SessionConfigOption[],
   ): Promise<void> {
-    const { profile, request } = this.context;
-    let options = initial;
-    for (const step of profile.steps(request))
-      options = await this.select({ ...step, sessionId, options });
+    const { profile, request, driver } = this.context;
+    const options = await confirmAcpConfiguration(
+      {
+        connection: this.connection,
+        state: this.state,
+        errors: driver.errors,
+        sessionId,
+      },
+      initial,
+      profile.steps(request),
+    );
     readAcpConfiguration(this.state, options, profile.reportedOptions);
     this.expectedConfiguration = { ...this.state.effective };
-  }
-
-  private async select(
-    selection: ConfigSelection,
-  ): Promise<readonly SessionConfigOption[]> {
-    const { driver } = this.context;
-    const option = findAcpSelectOption(selection.options, selection.id);
-    if (option === null) {
-      this.noteRefusal(selection, "is not an option of the adapter");
-      throw new AgentError(
-        selection.refusal === "plan_reasoning_unsupported"
-          ? selection.refusal
-          : driver.errors.adapterUnsupported,
-      );
-    }
-    const isResolved = selection.isResolvedByAdapter === true;
-    if (!isResolved && !option.values.includes(selection.value))
-      throw this.refused(selection, `is not among ${option.values.join(", ")}`);
-    if (!isResolved && option.currentValue === selection.value)
-      return selection.options;
-    const options = await this.setOption(selection);
-    const confirmed = findAcpSelectOption(options, selection.id);
-    if (confirmed === null)
-      throw this.refused(selection, "was not confirmed by the adapter");
-    if (!isResolved && confirmed.currentValue !== selection.value)
-      throw this.refused(
-        selection,
-        `was not confirmed, the adapter kept ${confirmed.currentValue}`,
-      );
-    noteSessionEvent(
-      this.state.events,
-      isResolved
-        ? `${selection.id} ${selection.value} as ${confirmed.currentValue}`
-        : `${selection.id} ${selection.value} confirmed`,
-    );
-    return options;
-  }
-
-  private async setOption(
-    selection: ConfigSelection,
-  ): Promise<readonly SessionConfigOption[]> {
-    try {
-      const response = await this.connection.agent.request(
-        methods.agent.session.setConfigOption,
-        {
-          sessionId: selection.sessionId,
-          configId: selection.id,
-          value: selection.value,
-        },
-      );
-      return response.configOptions;
-    } catch (error: unknown) {
-      // A refusal of the adapter, not a lost connection, means the value is not offered.
-      if (error instanceof RequestError && !this.connection.signal.aborted)
-        throw this.refused(selection, "was refused by the adapter");
-      throw error;
-    }
-  }
-
-  /** Records which stored setting the adapter did not take, so the run record names it. */
-  private noteRefusal(selection: ConfigSelection, reason: string): void {
-    const adapter = this.state.effective.adapter ?? "the adapter";
-    noteSessionEvent(
-      this.state.events,
-      `${selection.id} ${selection.value} ${reason} (${adapter})`,
-    );
-  }
-
-  private refused(selection: ConfigSelection, reason: string): AgentError {
-    this.noteRefusal(selection, reason);
-    return new AgentError(selection.refusal);
   }
 
   private decide(request: RequestPermissionRequest): RequestPermissionResponse {
@@ -449,6 +464,7 @@ export class AcpSession implements PlanSession {
       return;
     }
     readAcpUpdate(this.state, update, this.context.profile.reportedOptions);
+    this.context.listener?.update(update);
     this.checkReportedModel();
     this.reportProgress();
   }

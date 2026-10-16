@@ -51,6 +51,8 @@ export const AGENT_ERROR_MESSAGES = {
     "A Codex configuration file (config.toml) outside Pages could change this run. Remove it from the connection folder or the workspace.",
   plan_acp_session_failed:
     "The Codex ACP session failed before or during its turn.",
+  acp_session_resume_failed:
+    "The ACP adapter could not continue the earlier session of this conversation.",
   plan_claude_acp_session_failed:
     "The Claude ACP session failed before or during its turn.",
   plan_definition_changed:

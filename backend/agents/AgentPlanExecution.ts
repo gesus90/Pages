@@ -3,7 +3,12 @@ import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
 import { isApiProvider } from "@/definition/AgentConnection";
 
+import type { ContentBlock } from "@agentclientprotocol/sdk";
 import type { ExecutionAuthorizer } from "./ScopedExecution";
+import type {
+  AcpChatOptions,
+  AcpSteerOutcome,
+} from "@/backend/agents/acp/AcpChat";
 import type { TextExecution } from "./TextExecution";
 import type { CliSessionMcp } from "@/backend/agents/cli/CliSessionPlans";
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
@@ -23,6 +28,8 @@ export interface AgentPlanSessionInput extends AgentPlanExecutionInput {
   readonly instanceId: string;
   /** The local MCP process, when the node is bound to tickets. */
   readonly mcp: CliSessionMcp | null;
+  /** Makes the session a Pica chat session: its own profile, MCP bridge, resume and updates. */
+  readonly chat?: AcpChatOptions;
 }
 
 /** Receives the milestones of a session while it runs. */
@@ -82,6 +89,8 @@ export interface PlanSession {
     signal: AbortSignal,
     observer: PlanSessionObserver,
   ): Promise<PlanSessionTurn>;
+  /** Adds a prompt to the running turn; absent for runners without steering. */
+  steer?(prompt: readonly ContentBlock[]): Promise<AcpSteerOutcome>;
   /** Ends the session and its helpers; resolves only after the confirmation. */
   close(): Promise<PlanSessionClosed>;
 }
@@ -180,8 +189,10 @@ export class AgentPlanExecution implements PlanExecution {
       release();
       throw error;
     }
+    const steer = session.steer?.bind(session);
     return {
       turn: session.turn,
+      ...(steer ? { steer } : {}),
       ...(session.next
         ? {
             next: async (

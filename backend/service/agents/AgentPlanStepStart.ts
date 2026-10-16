@@ -13,6 +13,7 @@ import { planStepDirectory } from "./AgentPlanSnapshot";
 
 import type { AgentTicketInput } from "@/definition/AgentTicketParameter";
 import type { TextExecutionInput } from "@/backend/agents/TextExecution";
+import type { AcpPromptContent } from "@/backend/agents/acp/AcpChat";
 import type { AgentRunOptions } from "@/definition/AgentConfiguration";
 import type { AgentPlanNode, AgentPlanRun } from "@/definition/AgentPlan";
 import type { AgentDefinitionFiles } from "./AgentDefinitionFiles";
@@ -44,6 +45,8 @@ export interface AgentPlanExecutionInput extends TextExecutionInput {
   readonly beforeStart?: () => Promise<void>;
   /** Resolves live project credentials only for a YOLO spawn; never serialized or bound to a prompt. */
   readonly github?: () => Promise<AgentPlanGitHubAccess>;
+  /** ACP blocks after the prompt text, such as the attachments of a chat message. */
+  readonly promptContent?: AcpPromptContent;
 }
 
 /** A node ready to start: its resolved input, the definition it read and its run options. */

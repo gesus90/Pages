@@ -26,6 +26,8 @@ import type {
 } from "@/backend/agents/AgentPlanExecution";
 import type { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceScheduler";
 import type { AcpDriver } from "@/backend/agents/acp/AcpDriver";
+import type { AcpLaunch } from "@/backend/agents/acp/AcpLaunch";
+import type { AcpSessionRequest } from "@/backend/agents/acp/AcpSession";
 import type { AcpPermissionMode } from "@/definition/AgentConfiguration";
 import type { CliProviderId } from "@/definition/AgentConnection";
 import type { AgentCliRuntime } from "./AgentCliRuntime";
@@ -288,12 +290,14 @@ export class CliSessionExecution implements PlanSessionRunner {
       throw new AgentError(driver.errors.modeRequired);
     if (start.adapter === null)
       throw new AgentError(driver.errors.adapterMissing);
-    const profile = driver.profile(mode);
+    const purpose = input.chat ? "chat" : "plan";
+    const profile = driver.profile(mode, purpose);
     const launch = driver.plan({
       instanceId: input.instanceId,
       runnerFile: start.file,
       profile,
       mcp: input.mcp,
+      purpose,
     });
     const channel = new AcpLineChannel();
     const github = await this.prepareGitHub(input, start, mode);
@@ -312,8 +316,7 @@ export class CliSessionExecution implements PlanSessionRunner {
         signal: control.signal,
         onLine: (line) => channel.receive(github?.redact(line) ?? line),
       });
-      if (mode === "yolo" && !isIsolated)
-        throw new AgentError("plan_yolo_isolation_unavailable");
+      requireAcpIsolation(isIsolated, mode, input);
       if (control.signal.aborted) throw new AgentPlanCancelledError();
       child = this.dependencies.runner.startSession(request);
       const running = child;
@@ -330,22 +333,14 @@ export class CliSessionExecution implements PlanSessionRunner {
         instanceId: input.instanceId,
         driver,
         profile,
-        request: {
-          directory: input.directory,
-          prompt: input.prompt,
-          ticketInputs: input.ticketInputs,
-          readTicketAssets: input.readTicketAssets,
-          model: input.agent.model,
-          reasoningEffort: input.agent.reasoningEffort,
-          mcpServers: launch.mcpServers,
-          sessionMeta: launch.sessionMeta,
-        },
+        request: acpSessionRequest(input, launch),
         observer: control.observer,
         signal: control.signal,
         isolation: isolationLabel(isIsolated, mode, driver),
         github: github?.status,
         redact: github?.redact,
         secure: () => this.secureAcp(input, start, github),
+        listener: input.chat?.listener,
       });
     } catch (error: unknown) {
       await this.cleanupAcpStart(child, input.instanceId, github);
@@ -448,6 +443,36 @@ export class CliSessionExecution implements PlanSessionRunner {
     }
     return { request, isIsolated: false };
   }
+}
+
+/** What the ACP session runs; a chat session brings its own MCP bridge and continuation. */
+function acpSessionRequest(
+  input: AgentPlanSessionInput,
+  launch: AcpLaunch,
+): AcpSessionRequest {
+  return {
+    directory: input.directory,
+    prompt: input.prompt,
+    ticketInputs: input.ticketInputs,
+    readTicketAssets: input.readTicketAssets,
+    model: input.agent.model,
+    reasoningEffort: input.agent.reasoningEffort,
+    mcpServers: input.chat?.mcpServers ?? launch.mcpServers,
+    sessionMeta: launch.sessionMeta,
+    promptContent: input.promptContent,
+    resumeSessionId: input.chat?.resumeSessionId ?? null,
+  };
+}
+
+/** YOLO and Pica's conversations start only inside the namespace. */
+function requireAcpIsolation(
+  isIsolated: boolean,
+  mode: AcpPermissionMode,
+  input: AgentPlanSessionInput,
+): void {
+  if (isIsolated) return;
+  if (input.chat) throw new AgentError("cli_isolation_unavailable");
+  if (mode === "yolo") throw new AgentError("plan_yolo_isolation_unavailable");
 }
 
 function isolationLabel(

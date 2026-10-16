@@ -1,6 +1,8 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 
+import type { ContentBlock } from "@agentclientprotocol/sdk";
 import type { AgentPlanExecutionInput } from "@/backend/service/agents/AgentPlanStepStart";
+import type { AcpSteerOutcome } from "@/backend/agents/acp/AcpChat";
 import type {
   PlanSession,
   PlanSessionClosed,
@@ -58,6 +60,14 @@ export class ScheduledAcpSession implements PlanSession {
     await this.lifecycle.transition("running", input.resourceContext?.stepId);
     if (this.closing) throw new AgentError("plan_context_changed");
     return this.observeTurn(this.session.next(input, signal, observer));
+  }
+
+  /** Steering joins the running turn of the same lease; it changes no lifecycle state. */
+  public async steer(
+    prompt: readonly ContentBlock[],
+  ): Promise<AcpSteerOutcome> {
+    if (this.closing || !this.session.steer) return "inactive";
+    return this.session.steer(prompt);
   }
 
   /** Serializes closeout and only returns confirmed when capacity can safely be released. */

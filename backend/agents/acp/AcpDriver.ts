@@ -82,6 +82,9 @@ export interface AcpDriverErrors {
   readonly sessionFailed: AgentErrorCode;
 }
 
+/** What a session serves: a plan node, or a conversation with Pica. */
+export type AcpSessionPurpose = "plan" | "chat";
+
 /** What starting the adapter for one session needs; nothing of it is free user input. */
 export interface AcpLaunchSpecification {
   readonly instanceId: string;
@@ -89,6 +92,8 @@ export interface AcpLaunchSpecification {
   readonly runnerFile: string;
   readonly profile: AcpSessionProfile;
   readonly mcp: CliSessionMcp | null;
+  /** A chat session takes the chat profile of the runner; plan nodes are the default. */
+  readonly purpose?: AcpSessionPurpose;
 }
 
 /**
@@ -110,7 +115,15 @@ export interface AcpDriver {
   isSupportedAdapter(
     agent: Implementation | null | undefined,
   ): agent is Implementation;
-  profile(mode: AcpPermissionMode): AcpSessionProfile;
+  /**
+   * The profile of a mode; the chat purpose has its own narrower profile.
+   *
+   * @throws {AgentError} `provider_invalid` for a runner without a chat profile.
+   */
+  profile(
+    mode: AcpPermissionMode,
+    purpose?: AcpSessionPurpose,
+  ): AcpSessionProfile;
   plan(specification: AcpLaunchSpecification): AcpLaunch;
   /**
    * Refuses a start when a configuration file that Pages did not write could

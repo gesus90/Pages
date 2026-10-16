@@ -7,6 +7,7 @@ import type {
   AcpModelRequest,
   AcpPermissionDecision,
   AcpSessionProfile,
+  AcpSessionPurpose,
 } from "./AcpDriver";
 
 /** The session mode of the Codex ACP adapter that carries a Pages mode. */
@@ -157,11 +158,55 @@ const YOLO_PROFILE: CodexAcpProfile = {
 };
 
 /**
+ * Pica's conversation: no command, file, image, code or app tool and no web
+ * search, only the tools of the Pica bridge, which Pages checks on every call.
+ */
+const CHAT_PROFILE: CodexAcpProfile = {
+  mode: "read_only",
+  sessionMode: "read-only",
+  configuration: {
+    ...ACCOUNT_CONFIGURATION,
+    web_search: "disabled",
+    features: {
+      shell_tool: false,
+      unified_exec: false,
+      view_image: false,
+      js_repl: false,
+      code_mode: false,
+      apps: false,
+      plugins: false,
+      multi_agent: false,
+    },
+  },
+  unattended:
+    "ACP session mode read-only for Pica; Pages refuses every request except calls of the Pica tool bridge",
+  permissions: {
+    permissionMode: "read_only",
+    approvalPolicy: "on-request, answered by Pages",
+    sandbox: "read-only",
+    files: "none",
+    shell: "off",
+    web: "off",
+    pagesMcp: "Pica tool bridge",
+  },
+  reportedOptions: REPORTED_OPTIONS,
+  matchesReportedModel: null,
+  hasMcpStatusCommand: false,
+  steps: (request) => codexSteps("read-only", request),
+  decide: (request) => decideCodexPermission("read_only", request),
+};
+
+/**
  * The adapter configuration of one Pages mode.
  *
  * @param mode - "Nur Lesen" or "YOLO", as the agent stores it.
+ * @param purpose - A Pica conversation always takes the chat profile.
  * @returns Session mode, configuration and the recorded permissions.
  */
-export function codexAcpProfile(mode: AcpPermissionMode): CodexAcpProfile {
+export function codexAcpProfile(
+  mode: AcpPermissionMode,
+  purpose: AcpSessionPurpose = "plan",
+): CodexAcpProfile {
+  if (purpose === "chat") return CHAT_PROFILE;
   return mode === "yolo" ? YOLO_PROFILE : READ_ONLY_PROFILE;
 }

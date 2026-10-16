@@ -26,7 +26,10 @@ export const CODEX_ACP_DRIVER: AcpDriver = {
   plan: (specification) =>
     planCodexAcpLaunch({
       ...specification,
-      profile: codexAcpProfile(specification.profile.mode),
+      profile: codexAcpProfile(
+        specification.profile.mode,
+        specification.purpose,
+      ),
     }),
   requireManagedConfiguration: async (home, directory) => {
     const unmanaged = await findUnmanagedCodexConfiguration(
