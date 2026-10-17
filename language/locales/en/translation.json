@@ -2972,7 +2972,7 @@
     "stoppedAnswer": "Stopped: partial answer up to the stop.",
     "input": "Message to Pica",
     "placeholder": "Ask Pica something or type / for commands …",
-    "commands": "Chat commands: /new new session · /sessions show sessions · /delete delete sessions · /compact compact context",
+    "commands": "Chat commands: /new new session · /sessions show sessions · /delete delete sessions · /compact compact context · /quota quota demo (simulated)",
     "send": "Send",
     "cancel": "Cancel",
     "attach": "Add attachment",
@@ -2986,10 +2986,11 @@
       "newSession": "New session started.",
       "switched": "Session switched.",
       "deleted": "Selected sessions permanently deleted.",
-      "unknownCommand": "Unknown chat command. Available: /new, /sessions, /delete and /compact.",
+      "unknownCommand": "Unknown chat command. Available: /new, /sessions, /delete, /compact and /quota.",
       "compacting": "Compacting the conversation context …",
       "compacted": "Context compacted. The complete conversation history is preserved.",
-      "notNeeded": "No compaction needed: the older context is too short or cannot be reduced further."
+      "notNeeded": "No compaction needed: the older context is too short or cannot be reduced further.",
+      "quotaDemoReset": "Demo reset: the simulated quota is available again. Pica sent nothing on its own; send your message again to continue."
     },
     "sessions": {
       "title": "Your sessions",
@@ -3111,6 +3112,25 @@
       "steerHint": "Pica is still answering. A new message joins the running answer; only “Stop” cancels it.",
       "preparingHint": "Pica is preparing the session. Additional messages will be answered afterwards. Only “Stop” cancels the job.",
       "followUpHint": "This chat agent does not support steering a running answer. A new message receives its own follow-up answer afterwards. Only “Stop” cancels the job."
+    },
+    "quotaDemo": {
+      "badge": "Demo",
+      "exhausted": {
+        "title": "Quota used up (simulated)",
+        "description": "Only a demonstration in this window: Pages did not query any provider quota. While the demo runs, Pica sends no message to the chat agent; the conversation stays unchanged.",
+        "status": "Waiting for {{elapsed}} · as of {{checked}}",
+        "switch": "Show the OpenCode case"
+      },
+      "unreported": {
+        "title": "Budget status not available",
+        "description": "Example OpenCode: OpenCode reports no budget. Missing data does not count as a used-up quota; messages go to Pica as usual. Pages queried nothing.",
+        "status": "Demo for {{elapsed}} · as of {{checked}}",
+        "switch": "Show a used-up quota"
+      },
+      "refresh": "Refresh",
+      "reset": "Reset",
+      "answer": "My quota is used up (simulated), so I did not send your message to the chat agent. It is back in the input field, and the conversation stays as it is. Reset the demo and send it again – I will not ask again on my own.",
+      "held": "Message held back: {{time}}"
     },
     "steer": {
       "pending": "Sent during the answer · waiting to be passed on",

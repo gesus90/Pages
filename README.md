@@ -519,6 +519,25 @@ MCP session deletion uses a separate adapter and still requires exactly
 **LÖSCHEN**, including with an English interface. See the
 [MCP session tools](./mcp/README.md#pica-sessions).
 
+## Pica quota demo (PAGE-96)
+
+Pages does not detect quotas or budgets of Claude Code, Codex or OpenCode and
+asks no provider about them. To show how Pica reports a used-up quota, `/quota`
+starts a simulated state that exists only in the open browser tab and is marked
+**Demo** wherever it appears; reloading the page ends it.
+
+- **Quota used up (simulated).** A card above the input names the state and
+  the time waited so far as of the last refresh; there is no countdown and no
+  reset time. A message sent meanwhile does not reach the server: Pica answers
+  with a simulated, unsaved notice and the text stays in the input, so the
+  conversation is unchanged.
+- **Budget status not available.** The card can switch to the OpenCode case:
+  OpenCode reports no budget, missing data is not read as a used-up quota, and
+  messages are sent as usual.
+- **Refresh and reset.** *Refresh* updates the waited time; *Reset* ends the
+  demo. Nothing is sent again on its own; sending the message again is the
+  person's own action.
+
 ## Pica's mascot and protected instructions (PAGE-51)
 
 ### Mascot

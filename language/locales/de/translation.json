@@ -2972,7 +2972,7 @@
     "stoppedAnswer": "Gestoppt: Teilantwort bis zum Stopp.",
     "input": "Nachricht an Pica",
     "placeholder": "Frag Pica etwas oder tippe / für Befehle …",
-    "commands": "Chat-Befehle: /new neue Session · /sessions Sessions anzeigen · /delete Sessions löschen · /compact Kontext komprimieren",
+    "commands": "Chat-Befehle: /new neue Session · /sessions Sessions anzeigen · /delete Sessions löschen · /compact Kontext komprimieren · /quota Kontingent-Demo (simuliert)",
     "send": "Abschicken",
     "cancel": "Abbrechen",
     "attach": "Anhang hinzufügen",
@@ -2986,10 +2986,11 @@
       "newSession": "Neue Session gestartet.",
       "switched": "Session gewechselt.",
       "deleted": "Ausgewählte Sessions endgültig gelöscht.",
-      "unknownCommand": "Unbekannter Chat-Befehl. Verfügbar sind /new, /sessions, /delete und /compact.",
+      "unknownCommand": "Unbekannter Chat-Befehl. Verfügbar sind /new, /sessions, /delete, /compact und /quota.",
       "compacting": "Der Gesprächskontext wird komprimiert …",
       "compacted": "Kontext komprimiert. Der vollständige Gesprächsverlauf bleibt erhalten.",
-      "notNeeded": "Keine Komprimierung erforderlich: Der ältere Kontext ist zu kurz oder lässt sich nicht weiter verkleinern."
+      "notNeeded": "Keine Komprimierung erforderlich: Der ältere Kontext ist zu kurz oder lässt sich nicht weiter verkleinern.",
+      "quotaDemoReset": "Demo zurückgesetzt: Das simulierte Kontingent ist wieder frei. Pica hat nichts von selbst gesendet; schick deine Nachricht erneut ab, um fortzufahren."
     },
     "sessions": {
       "title": "Deine Sessions",
@@ -3111,6 +3112,25 @@
       "steerHint": "Pica antwortet noch. Eine neue Nachricht fließt in die laufende Antwort ein; nur „Stoppen“ bricht sie ab.",
       "preparingHint": "Pica bereitet die Sitzung vor. Weitere Nachrichten werden danach beantwortet. Nur „Stoppen“ bricht den Auftrag ab.",
       "followUpHint": "Dieser Chat-Agent unterstützt kein Steering in eine laufende Antwort. Eine neue Nachricht erhält danach eine eigene Folgeantwort. Nur „Stoppen“ bricht den Auftrag ab."
+    },
+    "quotaDemo": {
+      "badge": "Demo",
+      "exhausted": {
+        "title": "Kontingent verbraucht (simuliert)",
+        "description": "Nur eine Vorführung in diesem Fenster: Pages hat kein Anbieterkontingent abgefragt. Solange die Demo läuft, schickt Pica keine Nachricht an den Chat-Agenten; der Verlauf bleibt unverändert.",
+        "status": "Wartet seit {{elapsed}} · Stand {{checked}}",
+        "switch": "OpenCode-Fall zeigen"
+      },
+      "unreported": {
+        "title": "Budgetstatus nicht verfügbar",
+        "description": "Beispiel OpenCode: OpenCode meldet kein Budget. Fehlende Angaben gelten nicht als aufgebrauchtes Kontingent; Nachrichten gehen wie gewohnt an Pica. Pages hat nichts abgefragt.",
+        "status": "Demo seit {{elapsed}} · Stand {{checked}}",
+        "switch": "Verbrauchtes Kontingent zeigen"
+      },
+      "refresh": "Aktualisieren",
+      "reset": "Zurücksetzen",
+      "answer": "Mein Kontingent ist aufgebraucht (simuliert), deshalb habe ich deine Nachricht nicht an den Chat-Agenten geschickt. Sie steht wieder im Eingabefeld, und der Verlauf bleibt, wie er ist. Setz die Demo zurück und schick sie erneut ab – von selbst frage ich nicht nach.",
+      "held": "Nachricht zurückgehalten: {{time}}"
     },
     "steer": {
       "pending": "Während der Antwort gesendet · wartet auf Übergabe",

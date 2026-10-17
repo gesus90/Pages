@@ -11,6 +11,7 @@ import { readChatCommand } from "@/definition/Chat";
 import { toChatView, useChatCommands } from "./use-chat-commands";
 import { useChatContext } from "./use-chat-context";
 import { useChatJob } from "./use-chat-job";
+import { isQuotaDemoCommand, useChatQuotaDemo } from "./use-chat-quota-demo";
 import { useChatSend } from "./use-chat-send";
 import { applyChatSessionRead, useChatUploads } from "./use-chat-uploads";
 
@@ -18,6 +19,7 @@ import type { ChatConfirmationWord, ChatContextSize } from "@/definition/Chat";
 import type { ChatTemporaryPassword } from "@/definition/AgentAdministration";
 import type { ChatCommands } from "./use-chat-commands";
 import type { ChatJobs } from "./use-chat-job";
+import type { ChatQuotaDemo } from "./use-chat-quota-demo";
 import type { ChatSending, ChatSubmitOutcome } from "./use-chat-send";
 import type { ChatUploads, ChatView } from "./use-chat-uploads";
 
@@ -41,6 +43,8 @@ export interface ChatController {
   readonly uploads: ChatUploads;
   /** The server-side job of a Codex agent in the open conversation (PAGE-68). */
   readonly jobs: ChatJobs;
+  /** The simulated quota state of the panel, started with `/quota` (PAGE-96). */
+  readonly quotaDemo: ChatQuotaDemo;
   submit(text: string): Promise<ChatSubmitOutcome>;
   cancel(): void;
   dismissTemporaryPasswords(): void;
@@ -121,6 +125,7 @@ export function useChat(isOpen: boolean): ChatController {
     setError,
     setNotice: commands.setNotice,
   });
+  const quotaDemo = useChatQuotaDemo({ setNotice: commands.setNotice });
   const uploads = useChatUploads({
     view,
     limitBytes: limits?.limitBytes ?? null,
@@ -132,6 +137,11 @@ export function useChat(isOpen: boolean): ChatController {
     if (context.isCompacting || commands.isDeleting) return "restore";
     setError(null);
     commands.setNotice(null);
+    if (isQuotaDemoCommand(text)) {
+      commands.closePicker();
+      quotaDemo.start();
+      return "clear";
+    }
     const command = readChatCommand(text);
     if (command !== null) {
       if (command === "/compact") {
@@ -146,6 +156,12 @@ export function useChat(isOpen: boolean): ChatController {
     }
     // The conversation replaces the session list, so the answer and its progress stay in view.
     commands.closePicker();
+    const sessionId = view.session?.id;
+    // The simulated quota keeps the message in the input; only sending it again asks the agent.
+    if (quotaDemo.isHolding && sessionId !== undefined) {
+      quotaDemo.hold(sessionId);
+      return "restore";
+    }
     return sender.send(text);
   }
 
@@ -161,6 +177,7 @@ export function useChat(isOpen: boolean): ChatController {
     isCompacting: context.isCompacting,
     uploads,
     jobs,
+    quotaDemo,
     submit,
     cancel: sender.cancel,
     dismissTemporaryPasswords: sender.dismissTemporaryPasswords,

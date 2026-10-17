@@ -8,11 +8,14 @@ import { ChatAttachmentList } from "./chat-attachment-list";
 import { chatErrorText } from "./chat-error";
 import { ChatJobStatus } from "./chat-job-status";
 import { ChatMessageMeta, chatMessageFacts } from "./chat-message-meta";
+import { ChatQuotaDemoAnswer } from "./chat-quota-demo";
 import { PicaMascot } from "./pica-mascot";
+import { shownQuotaDemoHold } from "./use-chat-quota-demo";
 
 import type { ChatMessage } from "@/definition/Chat";
 import type { ChatController } from "./use-chat";
 import type { ChatMessageFacts } from "./chat-message-meta";
+import type { ChatQuotaDemoHold } from "./use-chat-quota-demo";
 
 interface ChatMessageListProps {
   readonly chat: ChatController;
@@ -108,6 +111,7 @@ function listContent(chat: ChatController): {
   readonly sending: ChatController["sending"];
   readonly live: ChatController["jobs"]["live"];
   readonly facts: ChatMessageFacts;
+  readonly quotaHold: ChatQuotaDemoHold | null;
   readonly count: number;
   readonly liveText: string | undefined;
 } {
@@ -118,11 +122,17 @@ function listContent(chat: ChatController): {
       ? chat.sending
       : null;
   const { live } = chat.jobs;
+  const quotaHold = shownQuotaDemoHold(chat.quotaDemo, session?.id);
   return {
     sending,
     live,
     facts: chatMessageFacts(activity, live?.steers),
-    count: messages.length + (sending ? 1 : 0) + (live ? 1 : 0),
+    quotaHold,
+    count:
+      messages.length +
+      (sending ? 1 : 0) +
+      (live ? 1 : 0) +
+      (quotaHold ? 1 : 0),
     liveText: live?.text,
   };
 }
@@ -135,12 +145,14 @@ export function ChatMessageList({
   const { t } = useTranslation();
   const end = useRef<HTMLDivElement>(null);
   const { messages } = chat.view;
-  const { sending, live, facts, count, liveText } = listContent(chat);
+  const { sending, live, facts, quotaHold, count, liveText } =
+    listContent(chat);
+  const heldAt = quotaHold?.heldAt;
 
   useEffect(() => {
     // A hidden panel cannot scroll, so reopening it shows what arrived meanwhile.
     if (isOpen) end.current?.scrollIntoView({ block: "end" });
-  }, [count, chat.error, isOpen, liveText]);
+  }, [count, chat.error, isOpen, liveText, heldAt]);
 
   return (
     <div
@@ -155,6 +167,7 @@ export function ChatMessageList({
         <ChatMessageItem key={message.id} message={message} facts={facts} />
       ))}
       {live ? <ChatJobStatus live={live} /> : null}
+      {quotaHold ? <ChatQuotaDemoAnswer hold={quotaHold} /> : null}
       {sending ? (
         <ChatMessageItem
           message={{ role: "user", content: sending.text, attachments: [] }}

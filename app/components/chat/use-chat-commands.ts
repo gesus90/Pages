@@ -26,7 +26,8 @@ export type ChatNotice =
   | "unknownCommand"
   | "compacted"
   | "notNeeded"
-  | "compacting";
+  | "compacting"
+  | "quotaDemoReset";
 
 /** The own sessions a command listed, to switch to one or to delete one. */
 export interface ChatPicker {

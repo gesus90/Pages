@@ -11,6 +11,7 @@ import { ChatMaintenanceStatus } from "./chat-maintenance-status";
 import { ChatAttachmentList } from "./chat-attachment-list";
 import { ChatContextIndicator } from "./chat-context-indicator";
 import { ChatJobSteerHint, ChatJobStopButton } from "./chat-job-controls";
+import { ChatQuotaDemoStatus } from "./chat-quota-demo";
 import { useChatEditor } from "./use-chat-editor";
 
 import styles from "./chat-composer.module.css";
@@ -144,6 +145,7 @@ export function ChatComposer({
 
   return (
     <footer className="border-t border-border p-3">
+      <ChatQuotaDemoStatus demo={chat.quotaDemo} />
       <ChatMaintenanceStatus chat={chat} />
       <ChatAttachmentList
         attachments={view.pending}
