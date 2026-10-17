@@ -1,4 +1,5 @@
 import { AgentError } from "@/backend/error/AgentErrors";
+import { sessionAttemptId } from "@/definition/AgentSessionJournal";
 
 import type { AcpProviderId } from "@/definition/AgentConfiguration";
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
@@ -57,9 +58,10 @@ export function attemptIdOf(
   record: AgentPlanSessionRecord,
   stepId: string,
 ): { readonly attemptId: string; readonly isLegacy: boolean } {
-  return record.attemptId === undefined
-    ? { attemptId: `${record.instanceId}:${stepId}`, isLegacy: true }
-    : { attemptId: record.attemptId, isLegacy: false };
+  return {
+    attemptId: sessionAttemptId(record, stepId),
+    isLegacy: record.attemptId === undefined,
+  };
 }
 
 /**

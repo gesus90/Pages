@@ -860,9 +860,15 @@ including a configured working directory, need connected, nonempty values.
 Agents in the sidebar are editable templates. Each insertion fetches the current
 template and stores an independent node copy of its instruction, model grant,
 reasoning, parameters, directory binding and run options. Its configured defaults
-become individual connected parameter nodes. Double-click an agent node to edit
+become individual connected parameter nodes. **Edit** in the node menu opens
 its own AGENT.md instruction, released model and reasoning level; the dialog
-identifies these changes as applying only to that node. Template edits, including
+identifies these changes as applying only to that node. Double-clicking an
+agent node opens its PageAgentCLI console instead: the fixed ticket panel over
+the dimmed plan with the node's session history, workspace and Git state,
+requested and confirmed model and reasoning, context occupancy, token and cache
+counts, and an instruction field. Opening it starts no process and closing it
+stops neither the session nor the run. A group asks which of its agent steps to
+open, and runs other than the newest active one are read only. Template edits, including
 edits during an active run, never change existing nodes. Inserting the same
 template again uses its current defaults. Existing saved plans receive their
 independent copies once at server startup, under their normal revision checks.

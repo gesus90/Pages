@@ -3,10 +3,7 @@ import { DetailDialogs } from "@/app/components/tasks/detail/detail-dialogs";
 import { DetailHeader } from "@/app/components/tasks/detail/detail-header";
 import { useDetailPanelState } from "@/app/components/tasks/detail/use-detail-panel-state";
 import { useTaskPanelActions } from "@/app/components/tasks/detail/use-task-panel-actions";
-import { FloatingPanel } from "@/app/components/ui/card";
-import { cn } from "@/app/lib/cn";
-
-import styles from "./task-detail-panel.module.css";
+import { ForegroundPanel } from "@/app/components/ui/foreground-panel";
 
 import type { GitHubPullRequest } from "@/definition/GitHub";
 import type { Project } from "@/definition/Project";
@@ -80,72 +77,59 @@ export function TaskDetailPanel({
   const dialogs = useDetailPanelState(onClose);
 
   return (
-    <>
-      <div aria-hidden="true" className={styles.backdrop} />
-      <div className={styles.positioner}>
-        <FloatingPanel
-          aria-label={`${task.key} ${task.title}`}
-          aria-modal="false"
-          className={cn(
-            styles.panel,
-            "pointer-events-auto h-full max-h-none w-full overflow-hidden p-0",
-          )}
-          role="dialog"
-        >
-          <DetailHeader
-            descendants={descendants}
-            isArchived={task.archivedAt !== null}
-            isArchiving={isArchiving}
-            onChangeStatus={actions.changeStatus}
-            onClose={onClose}
-            onEdit={onEdit}
-            onSaveTitle={(title) => actions.update({ title })}
-            onSelectTask={onSelectTask}
-            statuses={statuses}
-            task={task}
-          />
+    <ForegroundPanel aria-label={`${task.key} ${task.title}`}>
+      <DetailHeader
+        descendants={descendants}
+        isArchived={task.archivedAt !== null}
+        isArchiving={isArchiving}
+        onChangeStatus={actions.changeStatus}
+        onClose={onClose}
+        onEdit={onEdit}
+        onSaveTitle={(title) => actions.update({ title })}
+        onSelectTask={onSelectTask}
+        statuses={statuses}
+        task={task}
+      />
 
-          <DetailBody
-            actions={actions}
-            attachments={attachments}
-            descendants={descendants}
-            assignees={assignees}
-            assigneesByProject={assigneesByProject}
-            checklist={checklist}
-            isArchiving={isArchiving}
-            isSyncing={isSyncing}
-            links={links}
-            milestones={milestones}
-            onCreateSubtask={onCreateSubtask}
-            onEditLabels={() => dialogs.setIsLabelPickerOpen(true)}
-            onOpenTask={onOpenTask}
-            onChangeProject={dialogs.openMoveDialog}
-            onSelectTask={onSelectTask}
-            projects={projects}
-            subtasks={subtasks}
-            task={task}
-            taskLabels={taskLabels}
-            workItems={workItems}
-          />
+      <DetailBody
+        actions={actions}
+        attachments={attachments}
+        descendants={descendants}
+        assignees={assignees}
+        assigneesByProject={assigneesByProject}
+        checklist={checklist}
+        isArchiving={isArchiving}
+        isSyncing={isSyncing}
+        links={links}
+        milestones={milestones}
+        onCreateSubtask={onCreateSubtask}
+        onEditLabels={() => dialogs.setIsLabelPickerOpen(true)}
+        onOpenTask={onOpenTask}
+        onChangeProject={dialogs.openMoveDialog}
+        onSelectTask={onSelectTask}
+        projects={projects}
+        subtasks={subtasks}
+        task={task}
+        taskLabels={taskLabels}
+        workItems={workItems}
+      />
 
-          <DetailDialogs
-            assigneesByProject={assigneesByProject}
-            isLabelPickerOpen={dialogs.isLabelPickerOpen}
-            isMoveDialogOpen={dialogs.isMoveDialogOpen}
-            isSyncing={isSyncing}
-            labelUsage={labelUsage}
-            milestones={milestones}
-            onLabelPickerOpenChange={dialogs.setIsLabelPickerOpen}
-            onMoveDialogClose={dialogs.closeMoveDialog}
-            pendingProjectId={dialogs.pendingProjectId}
-            labels={labels}
-            projects={projects}
-            task={task}
-            taskLabels={taskLabels}
-            workItems={workItems}
-          />
-        </FloatingPanel>
-      </div>
-    </>
+      <DetailDialogs
+        assigneesByProject={assigneesByProject}
+        isLabelPickerOpen={dialogs.isLabelPickerOpen}
+        isMoveDialogOpen={dialogs.isMoveDialogOpen}
+        isSyncing={isSyncing}
+        labelUsage={labelUsage}
+        milestones={milestones}
+        onLabelPickerOpenChange={dialogs.setIsLabelPickerOpen}
+        onMoveDialogClose={dialogs.closeMoveDialog}
+        pendingProjectId={dialogs.pendingProjectId}
+        labels={labels}
+        projects={projects}
+        task={task}
+        taskLabels={taskLabels}
+        workItems={workItems}
+      />
+    </ForegroundPanel>
   );
 }

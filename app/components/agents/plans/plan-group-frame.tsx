@@ -38,6 +38,8 @@ interface GroupFrameProps {
   readonly session: PlanGroupSessionView;
   readonly result?: AgentPlanStepResult;
   readonly onEdit?: (id: string) => void;
+  /** Opens the member list of the group, from which a member's console opens. */
+  readonly onOpen?: (id: string) => void;
 }
 
 /**
@@ -122,7 +124,10 @@ function FrameHeader(
         type="button"
         data-plan-handle={group.id}
         onClick={() => graph.select(group.id)}
-        onDoubleClick={edit}
+        onDoubleClick={() => {
+          graph.select(group.id);
+          props.onOpen?.(group.id);
+        }}
         className={cn(
           "h-9 min-w-0 flex-1 text-left text-sm font-semibold",
           props.canEdit && "cursor-grab active:cursor-grabbing",

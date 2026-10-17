@@ -99,22 +99,43 @@ it("opens the existing agent editor from its menu and keeps Delete inside a cont
   expect(onEdit).toHaveBeenCalledWith("first");
 });
 
-it("keeps mutation menus disabled for read-only plans", () => {
+it("keeps mutation menus disabled for read-only plans", async () => {
   render(<Canvas canEdit={false} />);
-  for (const name of ["Start", "Ende", "Reviewer", "SYN-1: Open work", "spare"])
+  for (const name of ["Start", "Ende", "SYN-1: Open work", "spare"])
     expect(
       within(node(name)).getByRole("button", {
         name: i18n.t("settings.agents.actionsFor", { name }),
       }),
     ).toHaveProperty("disabled", true);
+  // An agent keeps its menu for the read-only node dialog, but offers no removal.
+  expect(
+    within(node("Reviewer")).getByRole("button", {
+      name: i18n.t("settings.agents.actionsFor", { name: "Reviewer" }),
+    }),
+  ).toHaveProperty("disabled", false);
+  await openActions("Reviewer");
+  expect(
+    screen
+      .getByRole("menuitem", {
+        name: i18n.t("plans.deleteNode", { name: "Reviewer" }),
+      })
+      .getAttribute("aria-disabled"),
+  ).toBe("true");
 });
 
 it("disables an already open action menu when editing becomes unavailable", async () => {
   const mounted = render(<Canvas />);
   await openActions("Reviewer");
   mounted.rerender(<Canvas canEdit={false} />);
+  // The read-only node dialog stays reachable; every mutation is disabled.
+  expect(
+    screen
+      .getByRole("menuitem", { name: i18n.t("settings.agents.edit") })
+      .getAttribute("aria-disabled"),
+  ).toBeNull();
   for (const item of screen.getAllByRole("menuitem"))
-    expect(item.getAttribute("aria-disabled")).toBe("true");
+    if (item.textContent !== i18n.t("settings.agents.edit"))
+      expect(item.getAttribute("aria-disabled")).toBe("true");
   fireEvent.click(
     screen.getByRole("menuitem", {
       name: i18n.t("plans.deleteNode", { name: "Reviewer" }),

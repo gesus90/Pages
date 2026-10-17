@@ -62,6 +62,8 @@ import type {
   PicaAcpSettings,
 } from "./chat-services.server";
 import type { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
+import type { AgentSessionService } from "@/backend/service/agents/sessions/AgentSessionService";
+import type { AgentPlanServices } from "./agent-plan-services.server";
 import type { AgentPlanMcpSettings } from "@/backend/service/agents/AgentPlanSessionAccess";
 import type { TextAssistantApplicationServices } from "./text-assistant-services.server";
 import type { McpApplicationServices } from "./mcp-services.server";
@@ -77,6 +79,8 @@ export interface ApplicationServices
     DiscordApplicationServices {
   readonly administrationService: AdministrationService;
   readonly agentPlanService: AgentPlanService;
+  /** The PageAgentCLI sessions of plan nodes: history, live events and instructions. */
+  readonly agentSessionService: AgentSessionService;
   readonly groupAdministrationService: GroupAdministrationService;
   readonly authService: AuthService;
   readonly sessionService: SessionService;
@@ -296,7 +300,7 @@ async function initializeServices(
       wiki: workspaceServices.wikiService,
     },
   );
-  const agentPlanService = await preparePlanService(database, {
+  const planServices = await preparePlanService(database, {
     agents: agentServices,
     assistant: assistantServices,
     projects: projectService,
@@ -312,14 +316,14 @@ async function initializeServices(
     database,
     databasePath,
     accounts: { users: userService, administration: administrationService },
-    agents: { ...agentServices, agentPlanService },
+    agents: { ...agentServices, ...planServices },
     wiki: workspaceServices.wikiService,
     tasks: taskServices,
     serverCache,
   });
   return {
     ...agentServices,
-    agentPlanService,
+    ...planServices,
     ...mcpServices,
     ...assistantServices,
     administrationService,
@@ -398,21 +402,22 @@ async function preparePlanService(
     readonly tasks: TaskService;
     readonly users: UserService;
   },
-): Promise<AgentPlanService> {
+): Promise<AgentPlanServices> {
   const runtime = await getPagesRuntime();
-  const plans = await createAgentPlanService({
+  const services = await createAgentPlanService({
     database,
     agents: input.agents,
     tasks: input.tasks,
     users: input.users,
     mcp: planMcpSettings(runtime.getConfig().port),
   });
+  const plans = services.agentPlanService;
   // Deleting a project has to end its plan runs and clear their files first.
   input.projects.setDeletionEffects(
     new ProjectDeletionStorage(plans, path.dirname(runtime.getDatabasePath())),
   );
   registerShutdownHandler(database, input.agents, input.assistant, plans);
-  return plans;
+  return services;
 }
 
 /**

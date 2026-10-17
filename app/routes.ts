@@ -45,6 +45,14 @@ export default [
       "agent-api/plan-runs/:runId/steps/:stepId/prompt",
       "routes/agent-plan-prompt.ts",
     ),
+    route(
+      "agent-api/plan-runs/:runId/steps/:stepId/session",
+      "routes/agent-plan-session.ts",
+    ),
+    route(
+      "agent-api/plan-runs/:runId/steps/:stepId/session/events",
+      "routes/agent-plan-session-events.ts",
+    ),
     route("dashboard", "routes/dashboard.tsx"),
     route("users", "routes/users.tsx"),
     route("settings", "routes/settings.tsx", [

@@ -632,7 +632,8 @@
         "opencode_acp_unsupported": "Pages requires the verified native ACP contract of OpenCode 1.18.34. The installed version or contract differs; no model was called.",
         "opencode_acp_session_failed": "The native OpenCode ACP session failed before or during its turn.",
         "plan_group_session_lost": "The group's shared ACP session no longer exists because its adapter process ended. An ACP session cannot be continued in another process; start a new run.",
-        "plan_session_unavailable": "This agent session has no open native session that could take another instruction. Its history stays readable."
+        "plan_session_unavailable": "This agent session has no open native session that could take another instruction. Its history stays readable.",
+        "offline": "Pages cannot be reached. Check the connection; the agent keeps running."
       },
       "description": "Manage the named AI connections and function assignments of this Pages instance.",
       "adminModeRequired": "The agent settings are only available in the admin mode. Your account is currently in the role mode.",
@@ -3561,7 +3562,148 @@
     "canvasHelp": "Help for the plan grid",
     "clearSelection": "Clear selection",
     "positionInGroupX": "Position in group X",
-    "positionInGroupY": "Position in group Y"
+    "positionInGroupY": "Position in group Y",
+    "console": {
+      "label": "Agent console {{name}}",
+      "kicker": "{{type}} · PageAgentCLI",
+      "close": "Close agent console",
+      "run": "Run of this node",
+      "readOnly": "History · read only",
+      "backToGroup": "Back to the group members",
+      "pickMember": "A group shares one process between its agents, but every agent has its own session. Choose the agent step whose session you want to open.",
+      "noMembers": "This group has no agent steps yet.",
+      "loading": "Loading the session…",
+      "details": "Session details",
+      "metadata": "Session",
+      "unknown": "unknown",
+      "copy": "Copy {{value}}",
+      "field": {
+        "directory": "Directory",
+        "branch": "Git branch",
+        "requestedModel": "Model requested",
+        "confirmedModel": "Model confirmed",
+        "requestedReasoning": "Reasoning requested",
+        "confirmedReasoning": "Reasoning confirmed",
+        "sessionId": "Session ID",
+        "lastActivity": "Last activity"
+      },
+      "git": {
+        "detached": "Detached HEAD at {{commit}}",
+        "no_repository": "No Git repository",
+        "unreadable": "Git state unreadable"
+      },
+      "usage": "Context and tokens",
+      "usageScope": "Token counts of",
+      "scope": {
+        "turn": "Last turn",
+        "attempt": "This session",
+        "run": "Whole run"
+      },
+      "context": "Context window occupancy",
+      "contextValue": "{{used}} of {{limit}} tokens in context ({{percent}} %)",
+      "contextUnavailable": "Context occupancy not available: the adapter has not reported both occupancy and window size.",
+      "tokens": {
+        "in": "In",
+        "out": "Out",
+        "cacheRead": "Cache Read",
+        "cacheWrite": "Cache Write"
+      },
+      "cacheIncluded": "Input tokens include the cache reads.",
+      "cacheApart": "Input tokens exclude the cache reads; they are counted separately.",
+      "cacheUnverified": "Whether input tokens include cache reads is not verified for this adapter.",
+      "cacheReadHint": "Tokens read again from the prompt cache. Every turn reads the cached prefix again, so the cumulative count can exceed the context window.",
+      "cacheWriteHint": "Tokens written to the prompt cache.",
+      "partial": "Partial: a turn reported no count, or the adapter counts only part of the work.",
+      "noTokens": "No token counts reported yet.",
+      "history": "Session history",
+      "noEvents": "No entries yet.",
+      "legacy": "Run from before structured histories: only the short event lines of the record are known.",
+      "retained": "Older entries were removed by the retention limit.",
+      "earlier": "Show earlier entries ({{count}} hidden)",
+      "expand": "Show tool output ({{count}} characters)",
+      "truncated": "Shortened to the storage limit.",
+      "turn": "Turn {{turn}}",
+      "kind": {
+        "user_instruction": "Your instruction",
+        "repair_instruction": "Repair instruction",
+        "agent_message": "Agent",
+        "tool_started": "Tool started",
+        "tool_completed": "Tool finished",
+        "tool_failed": "Tool failed",
+        "plan": "Plan",
+        "status": "Status",
+        "error": "Warning",
+        "recovery": "Recovery",
+        "usage": "Usage"
+      },
+      "state": {
+        "starting": "Starting",
+        "running": "Turn running",
+        "waiting_for_input": "Waiting for input",
+        "idle": "Idle",
+        "waiting_for_capacity": "Waiting for a free agent slot",
+        "recovering": "Recovering",
+        "ended": "Ended",
+        "failed": "Failed",
+        "cancelled": "Cancelled"
+      },
+      "connection": {
+        "loading": "Loading…",
+        "live": "Live",
+        "reconnecting": "Connection lost, reconnecting…",
+        "closed": "No live updates: the run is not active.",
+        "connecting": "Connecting to live updates…"
+      },
+      "instruction": "Instruction to the agent",
+      "placeholder": "Instruction … (Enter sends, Shift+Enter adds a line)",
+      "send": "Send instruction",
+      "queueHint": "A turn is running: a new instruction is queued and follows once it ended.",
+      "lock": {
+        "history": "This run is history and read only.",
+        "noSession": "The session takes no instruction right now."
+      },
+      "result": {
+        "queued": "Instruction stored and queued; it follows the running turn.",
+        "started": "Instruction stored; delivery to the agent has begun. Its status shows under open instructions until it is delivered.",
+        "turn_cancelled": "The running turn was cancelled.",
+        "run_stopped": "The run was stopped.",
+        "nothing_running": "Nothing was running; nothing changed."
+      },
+      "continuation": {
+        "title": "Continuation",
+        "mode": {
+          "live": "Same session: the next instruction continues the open native session.",
+          "resume": "Native recovery (resume) of the earlier session.",
+          "load": "Native recovery (load) that replays the earlier session.",
+          "reconstructed": "New session with bounded context from this history.",
+          "unavailable": "This session cannot be continued."
+        },
+        "reason": {
+          "access_denied": "You no longer have the rights for this run.",
+          "configuration_incompatible": "The node configuration changed and no longer fits the session.",
+          "native_session_ended": "The native session ended with its process.",
+          "pages_resume_unavailable": "The adapter could continue the session, but Pages offers no path for it yet.",
+          "capabilities_unknown": "The adapter did not report whether it can continue a session."
+        }
+      },
+      "waitingForCapacity": "The node waits for a free agent slot; it starts once one is free.",
+      "cancelTurn": "Cancel turn",
+      "stopRun": "Stop run",
+      "confirmStop": "Really stop the whole run?",
+      "empty": {
+        "no_run": "No run yet. The session appears once a run executes this node.",
+        "not_started": "This node has no session in the selected run yet.",
+        "no_cli_session": "This node runs over an API connection and has no CLI session."
+      },
+      "openMessages": "Open instructions",
+      "message": {
+        "queued": "Queued",
+        "delivering": "Delivering",
+        "uncertain": "Delivery uncertain (server stopped; not repeated)",
+        "failed": "Not delivered"
+      },
+      "cacheExplained": "How cache tokens count"
+    }
   },
   "mcpDuration": {
     "label": "Validity in days",

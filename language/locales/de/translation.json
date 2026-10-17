@@ -632,7 +632,8 @@
         "opencode_acp_unsupported": "Pages benötigt den geprüften nativen ACP-Vertrag von OpenCode 1.18.34. Die installierte Version oder ihr Vertrag weicht davon ab; es wurde kein Modell aufgerufen.",
         "opencode_acp_session_failed": "Die native OpenCode-ACP-Sitzung ist vor oder während ihres Turns fehlgeschlagen.",
         "plan_group_session_lost": "Die gemeinsame ACP-Session der Gruppe besteht nicht mehr, weil ihr Adapterprozess beendet wurde. Eine ACP-Session lässt sich in keinem anderen Prozess fortsetzen; einen neuen Lauf starten.",
-        "plan_session_unavailable": "Diese Agenten-Session hat keine offene native Session, die eine weitere Anweisung annehmen könnte. Ihr Verlauf bleibt lesbar."
+        "plan_session_unavailable": "Diese Agenten-Session hat keine offene native Session, die eine weitere Anweisung annehmen könnte. Ihr Verlauf bleibt lesbar.",
+        "offline": "Pages ist nicht erreichbar. Prüfe die Verbindung; der Agent läuft weiter."
       },
       "description": "Verwalten Sie die benannten KI-Anbindungen und Funktionszuordnungen dieser Pages-Instanz.",
       "adminModeRequired": "Die Agents-Einstellungen sind nur im Admin-Modus verfügbar. Ihr Konto ist derzeit im Rollenmodus.",
@@ -3561,7 +3562,148 @@
     "canvasHelp": "Hilfe zum Planraster",
     "clearSelection": "Auswahl aufheben",
     "positionInGroupX": "Position in der Gruppe X",
-    "positionInGroupY": "Position in der Gruppe Y"
+    "positionInGroupY": "Position in der Gruppe Y",
+    "console": {
+      "label": "Agentenkonsole {{name}}",
+      "kicker": "{{type}} · PageAgentCLI",
+      "close": "Agentenkonsole schließen",
+      "run": "Lauf dieses Knotens",
+      "readOnly": "Verlauf · schreibgeschützt",
+      "backToGroup": "Zurück zu den Gruppenmitgliedern",
+      "pickMember": "Eine Gruppe teilt einen Prozess zwischen ihren Agenten, aber jeder Agent hat eine eigene Session. Wähle den Agent-Schritt, dessen Session du öffnen willst.",
+      "noMembers": "Diese Gruppe hat noch keine Agent-Schritte.",
+      "loading": "Session wird geladen …",
+      "details": "Session-Details",
+      "metadata": "Session",
+      "unknown": "unbekannt",
+      "copy": "{{value}} kopieren",
+      "field": {
+        "directory": "Verzeichnis",
+        "branch": "Git-Branch",
+        "requestedModel": "Modell angefragt",
+        "confirmedModel": "Modell bestätigt",
+        "requestedReasoning": "Reasoning angefragt",
+        "confirmedReasoning": "Reasoning bestätigt",
+        "sessionId": "Session-ID",
+        "lastActivity": "Letzte Aktivität"
+      },
+      "git": {
+        "detached": "Detached HEAD bei {{commit}}",
+        "no_repository": "Kein Git-Repository",
+        "unreadable": "Git-Zustand nicht lesbar"
+      },
+      "usage": "Kontext und Tokens",
+      "usageScope": "Tokenzähler für",
+      "scope": {
+        "turn": "Letzter Turn",
+        "attempt": "Diese Session",
+        "run": "Ganzer Lauf"
+      },
+      "context": "Belegung des Kontextfensters",
+      "contextValue": "{{used}} von {{limit}} Tokens im Kontext ({{percent}} %)",
+      "contextUnavailable": "Kontextbelegung nicht verfügbar: Der Adapter hat nicht Belegung und Fenstergröße gemeldet.",
+      "tokens": {
+        "in": "In",
+        "out": "Out",
+        "cacheRead": "Cache Read",
+        "cacheWrite": "Cache Write"
+      },
+      "cacheIncluded": "Die Eingabe-Tokens enthalten die Cache-Lesezugriffe.",
+      "cacheApart": "Die Eingabe-Tokens enthalten die Cache-Lesezugriffe nicht; sie werden getrennt gezählt.",
+      "cacheUnverified": "Ob die Eingabe-Tokens Cache-Lesezugriffe enthalten, ist für diesen Adapter nicht geprüft.",
+      "cacheReadHint": "Aus dem Prompt-Cache erneut gelesene Tokens. Jeder Turn liest den gecachten Anfang erneut, daher kann die Summe das Kontextfenster übersteigen.",
+      "cacheWriteHint": "In den Prompt-Cache geschriebene Tokens.",
+      "partial": "Teilweise: Ein Turn hat keinen Zähler gemeldet, oder der Adapter zählt nur einen Teil der Arbeit.",
+      "noTokens": "Noch keine Tokenzähler gemeldet.",
+      "history": "Session-Verlauf",
+      "noEvents": "Noch keine Einträge.",
+      "legacy": "Lauf aus der Zeit vor strukturierten Verläufen: Bekannt sind nur die kurzen Ereigniszeilen des Protokolls.",
+      "retained": "Ältere Einträge wurden durch die Aufbewahrungsgrenze entfernt.",
+      "earlier": "Frühere Einträge anzeigen ({{count}} ausgeblendet)",
+      "expand": "Tool-Ausgabe anzeigen ({{count}} Zeichen)",
+      "truncated": "Auf die Speichergrenze gekürzt.",
+      "turn": "Turn {{turn}}",
+      "kind": {
+        "user_instruction": "Deine Anweisung",
+        "repair_instruction": "Reparaturanweisung",
+        "agent_message": "Agent",
+        "tool_started": "Tool gestartet",
+        "tool_completed": "Tool beendet",
+        "tool_failed": "Tool fehlgeschlagen",
+        "plan": "Plan",
+        "status": "Status",
+        "error": "Warnung",
+        "recovery": "Wiederherstellung",
+        "usage": "Verbrauch"
+      },
+      "state": {
+        "starting": "Startet",
+        "running": "Turn läuft",
+        "waiting_for_input": "Wartet auf Eingabe",
+        "idle": "Bereit",
+        "waiting_for_capacity": "Wartet auf freien Agenten-Platz",
+        "recovering": "Wird wiederhergestellt",
+        "ended": "Beendet",
+        "failed": "Fehlgeschlagen",
+        "cancelled": "Abgebrochen"
+      },
+      "connection": {
+        "loading": "Lädt …",
+        "live": "Live",
+        "reconnecting": "Verbindung unterbrochen, verbinde neu …",
+        "closed": "Keine Live-Aktualisierung: Der Lauf ist nicht aktiv.",
+        "connecting": "Verbinde mit Live-Aktualisierung …"
+      },
+      "instruction": "Anweisung an den Agenten",
+      "placeholder": "Anweisung … (Enter sendet, Umschalt+Enter fügt eine Zeile ein)",
+      "send": "Anweisung senden",
+      "queueHint": "Ein Turn läuft: Eine neue Anweisung wird vorgemerkt und folgt, sobald er endet.",
+      "lock": {
+        "history": "Dieser Lauf ist Verlauf und schreibgeschützt.",
+        "noSession": "Die Session nimmt gerade keine Anweisung an."
+      },
+      "result": {
+        "queued": "Anweisung gespeichert und vorgemerkt; sie folgt dem laufenden Turn.",
+        "started": "Anweisung gespeichert; die Zustellung an den Agenten hat begonnen. Ihr Status steht bei den offenen Anweisungen, bis sie zugestellt ist.",
+        "turn_cancelled": "Der laufende Turn wurde abgebrochen.",
+        "run_stopped": "Der Lauf wurde gestoppt.",
+        "nothing_running": "Es lief nichts; nichts wurde geändert."
+      },
+      "continuation": {
+        "title": "Fortsetzung",
+        "mode": {
+          "live": "Gleiche Session: Die nächste Anweisung setzt die offene native Session fort.",
+          "resume": "Native Wiederherstellung (resume) der früheren Session.",
+          "load": "Native Wiederherstellung (load), die die frühere Session wiedergibt.",
+          "reconstructed": "Neue Session mit begrenztem Kontext aus diesem Verlauf.",
+          "unavailable": "Diese Session kann nicht fortgesetzt werden."
+        },
+        "reason": {
+          "access_denied": "Du hast keine Rechte mehr für diesen Lauf.",
+          "configuration_incompatible": "Die Knotenkonfiguration hat sich geändert und passt nicht mehr zur Session.",
+          "native_session_ended": "Die native Session endete mit ihrem Prozess.",
+          "pages_resume_unavailable": "Der Adapter könnte die Session fortsetzen, aber Pages bietet dafür noch keinen Weg.",
+          "capabilities_unknown": "Der Adapter hat nicht gemeldet, ob er eine Session fortsetzen kann."
+        }
+      },
+      "waitingForCapacity": "Der Knoten wartet auf einen freien Agenten-Platz; er startet, sobald einer frei ist.",
+      "cancelTurn": "Turn abbrechen",
+      "stopRun": "Lauf stoppen",
+      "confirmStop": "Wirklich den ganzen Lauf stoppen?",
+      "empty": {
+        "no_run": "Noch kein Lauf. Die Session erscheint, sobald ein Lauf diesen Knoten ausführt.",
+        "not_started": "Dieser Knoten hat im gewählten Lauf noch keine Session.",
+        "no_cli_session": "Dieser Knoten läuft über eine API-Verbindung und hat keine CLI-Session."
+      },
+      "openMessages": "Offene Anweisungen",
+      "message": {
+        "queued": "Vorgemerkt",
+        "delivering": "Wird zugestellt",
+        "uncertain": "Zustellung ungewiss (Server gestoppt; nicht wiederholt)",
+        "failed": "Nicht zugestellt"
+      },
+      "cacheExplained": "Wie Cache-Tokens zählen"
+    }
   },
   "mcpDuration": {
     "label": "Gültigkeit in Tagen",

@@ -1,4 +1,7 @@
-import type { AgentPlanRunner } from "./AgentPlanSession";
+import type {
+  AgentPlanRunner,
+  AgentPlanSessionRecord,
+} from "./AgentPlanSession";
 
 /**
  * Which node attempt a PageAgentCLI session belongs to.
@@ -230,4 +233,18 @@ export interface AgentSessionView {
   readonly continuation: AgentSessionContinuation;
   readonly messages: readonly AgentSessionMessage[];
   readonly actions: AgentSessionActions;
+}
+
+/**
+ * The attempt ID of a node's session record.
+ *
+ * @remarks
+ * Records from before PAGE-85 have none. Instance and node identify their
+ * only attempt: members of an ACP group share the instance, never the node.
+ */
+export function sessionAttemptId(
+  record: Pick<AgentPlanSessionRecord, "attemptId" | "instanceId">,
+  stepId: string,
+): string {
+  return record.attemptId ?? `${record.instanceId}:${stepId}`;
 }

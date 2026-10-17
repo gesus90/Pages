@@ -3,7 +3,7 @@
 PageAgentCLI is the controlled chat interface to the ACP session of a plan
 node. It is no system shell: an instruction reaches the agent only as a prompt
 of its native ACP session, and only for the executor of the run. This document
-covers the backend only; no surface uses it yet.
+covers the backend; the plan console of PAGE-86 is its only surface.
 
 ## Verified starting point
 
@@ -169,8 +169,11 @@ not part of the input, for the others the column says it is unknown.
 
 ## Open points
 
-- No HTTP or MCP route exposes the service yet; `AgentSessionService` is built
-  in `createAgentPlanService` and used by the step runner only.
+- No MCP tool exposes the service. The plan console (PAGE-86) reads and
+  steers it over `agent-api/plan-runs/:runId/steps/:stepId/session` (view and
+  one history page after `after`; POST `send` and `cancel`) and follows it over
+  `…/session/events`, a server-sent event stream that resumes from
+  `Last-Event-ID`. Both take `planId` and `attemptId` in the query.
 - Standalone nodes close their session right after their turn, so only group
   members (between turns and while a run is paused) can take instructions.
 - Resume, load and reconstructed sessions, a recovery API for failed runs and

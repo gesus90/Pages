@@ -84,6 +84,21 @@ function serverWithCopies(canEdit = true): PlanServer {
   return server;
 }
 
+/** A double click opens the agent console; the node dialog opens from the action menu. */
+async function openNodeDialog(card: HTMLElement): Promise<void> {
+  fireEvent.keyDown(
+    within(card).getByRole("button", {
+      name: i18n.t("settings.agents.actionsFor", { name: "Reviewer" }),
+    }),
+    { key: "Enter" },
+  );
+  fireEvent.click(
+    await screen.findByRole("menuitem", {
+      name: i18n.t("settings.agents.edit"),
+    }),
+  );
+}
+
 async function choose(label: string, option: string): Promise<void> {
   const dialog = screen.getByRole("dialog");
   fireEvent.keyDown(within(dialog).getByRole("combobox", { name: label }), {
@@ -92,11 +107,11 @@ async function choose(label: string, option: string): Promise<void> {
   fireEvent.click(await screen.findByRole("option", { name: option }));
 }
 
-it("double-clicks one of two copies, changes only its instruction/model/reasoning, and persists it", async () => {
+it("opens one of two copies from its menu, changes only its instruction/model/reasoning, and persists it", async () => {
   const server = serverWithCopies();
   renderPlanPage(server);
   const cards = await screen.findAllByRole("article", { name: "Reviewer" });
-  fireEvent.doubleClick(cards[0]);
+  await openNodeDialog(cards[0]);
   const dialog = await screen.findByRole("dialog", {
     name: i18n.t("plans.editNode"),
   });
@@ -141,13 +156,11 @@ it("double-clicks one of two copies, changes only its instruction/model/reasonin
     template: { markdown: "X" },
   });
   expect(server.sources?.agents[0].configuration.markdown).toBe("X");
-  fireEvent.doubleClick(
-    screen.getAllByRole("article", { name: "Reviewer" })[1],
-  );
+  await openNodeDialog(screen.getAllByRole("article", { name: "Reviewer" })[1]);
   expect(
-    within(screen.getByRole("dialog")).getByDisplayValue("X"),
+    within(await screen.findByRole("dialog")).getByDisplayValue("X"),
   ).toBeDefined();
-});
+}, 20_000);
 
 it("fetches the current template on every sidebar insertion and keeps previous copies unchanged", async () => {
   const server = serverWithCopies();
@@ -198,7 +211,7 @@ it("fetches the current template on every sidebar insertion and keeps previous c
 
 it("opens a read-only node dialog when the plan is shared without edit rights", async () => {
   renderPlanPage(serverWithCopies(false));
-  fireEvent.doubleClick(
+  await openNodeDialog(
     (await screen.findAllByRole("article", { name: "Reviewer" }))[0],
   );
   const dialog = await screen.findByRole("dialog");

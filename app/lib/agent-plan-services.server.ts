@@ -28,6 +28,12 @@ import type { TaskService } from "@/backend/service/TaskService";
 import type { UserService } from "@/backend/service/UserService";
 import type { AgentApplicationServices } from "./agent-services.server";
 
+/** The plan service and the PageAgentCLI sessions of its nodes, built on one run access. */
+export interface AgentPlanServices {
+  readonly agentPlanService: AgentPlanService;
+  readonly agentSessionService: AgentSessionService;
+}
+
 /** Shares the existing user, ticket, model and workspace boundaries; no second catalog or runner. */
 export async function createAgentPlanService(input: {
   readonly database: Database;
@@ -36,7 +42,7 @@ export async function createAgentPlanService(input: {
   readonly users: UserService;
   /** How sessions of ticket-bound nodes reach Pages through MCP. */
   readonly mcp: AgentPlanMcpSettings;
-}): Promise<AgentPlanService> {
+}): Promise<AgentPlanServices> {
   const plans = new AgentPlanRepository(input.database);
   const runs = new AgentPlanRunRepository(input.database);
   await upgradePlanConfigurations({
@@ -109,7 +115,7 @@ export async function createAgentPlanService(input: {
   await input.agents.agentCliGitHubCredentials.recover();
   // Interrupted runs ended just now, so their records are repaired as well.
   await repairAgentFiles(input);
-  return service;
+  return { agentPlanService: service, agentSessionService: pageAgentSessions };
 }
 
 /**

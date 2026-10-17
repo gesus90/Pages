@@ -41,6 +41,8 @@ interface CanvasProps {
   readonly canEdit: boolean;
   readonly run: AgentPlanRun | null;
   readonly onEdit?: (id: string) => void;
+  /** Opens the PageAgentCLI console of an agent node or the member list of a group. */
+  readonly onOpen?: (id: string) => void;
 }
 
 /** The layer is as large as its content, so connections are not clipped by it. */
@@ -118,6 +120,7 @@ function PlanLayer(
           session={planRunGroupSession(props.run, group.id)}
           result={result(group.id)}
           onEdit={props.onEdit}
+          onOpen={props.onOpen}
         />
       ))}
       <PlanEdges

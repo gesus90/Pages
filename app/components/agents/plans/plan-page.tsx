@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { cn } from "@/app/lib/cn";
 
+import { PlanAgentConsole } from "./plan-agent-console";
 import { PlanNodeDialog } from "./plan-node-dialog";
 import { PlanCanvas } from "./plan-canvas";
 import { PlanConfigurationPanel } from "./plan-configuration-panel";
@@ -36,9 +37,21 @@ export function PlanPage({
 }): React.ReactElement {
   const editor = usePlanEditor(page);
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
+  const [consoleNodeId, setConsoleNodeId] = useState<string | null>(null);
   const [isSideOpen, setSideOpen] = useState(true);
   const running = usePlanRun(page.runs, editor.command.data);
   const disabled = !editor.canEdit || editor.isPending;
+  function closeConsole(): void {
+    const nodeId = consoleNodeId;
+    setConsoleNodeId(null);
+    // Focus returns to the node that opened the console, without moving the canvas.
+    if (nodeId)
+      document
+        .querySelector<HTMLElement>(
+          `[data-plan-handle="${CSS.escape(nodeId)}"]`,
+        )
+        ?.focus({ preventScroll: true });
+  }
   return (
     <div
       className="relative isolate flex flex-col gap-3 xl:block xl:h-[calc(100dvh-8.5rem)] xl:min-h-[34rem]"
@@ -57,6 +70,7 @@ export function PlanPage({
           graph={editor.graph}
           canEdit={!disabled && Boolean(editor.draft.workspaceId)}
           onEdit={setEditingNodeId}
+          onOpen={setConsoleNodeId}
           run={running.run}
         />
       </div>
@@ -82,6 +96,15 @@ export function PlanPage({
         editor={editor}
         onClose={() => setEditingNodeId(null)}
       />
+      {consoleNodeId ? (
+        <PlanAgentConsole
+          nodeId={consoleNodeId}
+          draft={editor.draft}
+          sources={editor.sources}
+          running={running}
+          onClose={closeConsole}
+        />
+      ) : null}
       <PlanLeaveGuard isDirty={editor.isDirty} />
     </div>
   );

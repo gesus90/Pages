@@ -42,8 +42,18 @@ interface NodeCardProps {
   readonly canEdit: boolean;
   readonly result?: AgentPlanStepResult;
   readonly onEdit?: (id: string) => void;
+  /** Opens the PageAgentCLI console of an agent node. */
+  readonly onOpen?: (id: string) => void;
   /** Where the card is drawn; a member's own position counts from its frame. */
   readonly position?: AgentPlanPosition;
+}
+
+/** Ports and the OUT keep their own clicks; a double click on them opens nothing. */
+function isPortTarget(target: EventTarget): boolean {
+  return (
+    target instanceof Element &&
+    target.closest("[data-plan-in], [data-plan-out]") !== null
+  );
 }
 
 function ticketStatus(
@@ -71,11 +81,10 @@ export function PlanNodeCard(props: NodeCardProps): React.ReactElement {
   const output = OUTPUT_LABELS[node.type];
   return (
     <article
-      onDoubleClick={() => {
-        if (node.type === "agent" || node.type === "group") {
-          graph.select(node.id);
-          props.onEdit?.(node.id);
-        }
+      onDoubleClick={(event) => {
+        if (node.type !== "agent" || isPortTarget(event.target)) return;
+        graph.select(node.id);
+        props.onOpen?.(node.id);
       }}
       aria-label={label}
       className={cn(
@@ -138,7 +147,7 @@ function NodeHeader(
   const status = props.result?.status ?? ticketStatus(task);
   function edit(): void {
     graph.select(node.id);
-    if (node.type === "agent" || node.type === "group") props.onEdit?.(node.id);
+    props.onEdit?.(node.id);
   }
   return (
     <div className="mb-2 flex h-9 items-center gap-1">
@@ -168,7 +177,9 @@ function NodeHeader(
         label={props.label}
         disabled={!props.canEdit}
         onRemove={() => graph.remove(node.id)}
-        onEdit={node.type === "task" ? undefined : edit}
+        onEdit={
+          node.type === "agent" || node.type === "group" ? edit : undefined
+        }
       />
     </div>
   );
