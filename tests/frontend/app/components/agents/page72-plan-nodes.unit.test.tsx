@@ -84,7 +84,13 @@ it("opens the existing agent editor from its menu and keeps Delete inside a cont
     name: i18n.t("plans.selectNode", { name: "Reviewer" }),
   });
   fireEvent.click(select);
-  fireEvent.keyDown(select, { key: "Delete" });
+  // Only the grid and the handle of the selected node delete; other controls keep the key.
+  fireEvent.keyDown(
+    within(node("Reviewer")).getByRole("button", {
+      name: i18n.t("settings.agents.actionsFor", { name: "Reviewer" }),
+    }),
+    { key: "Delete" },
+  );
   expect(node("Reviewer")).toBeDefined();
   await openActions("Reviewer");
   fireEvent.click(

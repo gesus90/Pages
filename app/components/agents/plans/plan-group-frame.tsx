@@ -6,7 +6,6 @@ import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/lib/cn";
 
 import { PlanGroupAdapterBadge } from "./plan-group-adapter";
-import { startPlanNodeDrag } from "./plan-drag";
 import { PlanFlowPorts } from "./plan-flow-ports";
 import {
   PLAN_FRAME_FOOTER,
@@ -39,7 +38,6 @@ interface GroupFrameProps {
   readonly session: PlanGroupSessionView;
   readonly result?: AgentPlanStepResult;
   readonly onEdit?: (id: string) => void;
-  readonly onDragNode?: (id: string) => void;
 }
 
 /**
@@ -114,10 +112,6 @@ function FrameHeader(
 ): React.ReactElement {
   const { t } = useTranslation();
   const { group, graph } = props;
-  function startDrag(event: React.DragEvent<HTMLButtonElement>): void {
-    startPlanNodeDrag(event, group);
-    props.onDragNode?.(group.id);
-  }
   function edit(): void {
     graph.select(group.id);
     props.onEdit?.(group.id);
@@ -126,11 +120,13 @@ function FrameHeader(
     <div className="mb-2 flex h-9 items-center gap-1">
       <button
         type="button"
-        draggable={props.canEdit}
-        onDragStart={startDrag}
+        data-plan-handle={group.id}
         onClick={() => graph.select(group.id)}
         onDoubleClick={edit}
-        className="h-9 min-w-0 flex-1 cursor-grab text-left text-sm font-semibold"
+        className={cn(
+          "h-9 min-w-0 flex-1 text-left text-sm font-semibold",
+          props.canEdit && "cursor-grab active:cursor-grabbing",
+        )}
         aria-label={t("plans.selectNode", { name: props.label })}
       >
         <span className="flex items-center gap-1 text-xs font-normal text-plan-group">
@@ -170,7 +166,9 @@ function PortHandles(props: GroupFrameProps): React.ReactElement {
           key={port.id}
           size="icon-sm"
           variant="ghost"
-          className="absolute size-7 text-plan-group"
+          className="absolute size-7 cursor-crosshair text-plan-group"
+          data-plan-out={port.id}
+          data-plan-out-kind="source"
           style={{
             left: PLAN_FRAME_PORT_HANDLE - 14,
             top: 104 + index * 32 - 14,

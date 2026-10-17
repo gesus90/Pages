@@ -38,6 +38,7 @@ export interface PlanGraphActions extends PlanSelection, PlanGroupActions {
   readonly connection: ReturnType<typeof usePlanConnections>["connection"];
   readonly begin: ReturnType<typeof usePlanConnections>["begin"];
   readonly connect: ReturnType<typeof usePlanConnections>["connect"];
+  readonly canConnect: ReturnType<typeof usePlanConnections>["canConnect"];
   readonly bindSource: ReturnType<typeof usePlanConnections>["bindSource"];
   /** Adds a node; with `groupId` an agent joins that group, if it may. */
   readonly add: (

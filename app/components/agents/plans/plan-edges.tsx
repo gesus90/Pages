@@ -8,6 +8,7 @@ import { planLinkKey, planLinks } from "./plan-links";
 import type { AgentPlanInput, AgentPlanSources } from "@/definition/AgentPlan";
 import type { PlanLinkPoints } from "./plan-layout";
 import type { PlanLink } from "./plan-links";
+import type { PlanLinkPreview } from "./use-plan-link-drag";
 
 function curve({ x1, y1, x2, y2 }: PlanLinkPoints): string {
   const bend = Math.max(40, Math.abs(x2 - x1) / 2);
@@ -33,21 +34,52 @@ function ArrowMarker(props: {
   );
 }
 
+/** The line from a dragged OUT to the pointer, colored by whether the IN below takes it. */
+function PreviewLine(props: {
+  readonly preview: PlanLinkPreview;
+  readonly isValid: boolean | null;
+  readonly markerId: string;
+}): React.ReactElement {
+  const { from, to } = props.preview;
+  return (
+    <path
+      d={curve({ x1: from.x, y1: from.y, x2: to.x, y2: to.y })}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeDasharray="4 4"
+      markerEnd={`url(#${props.markerId})`}
+      className={cn(
+        "text-primary",
+        props.isValid === true && "text-success",
+        props.isValid === false && "text-destructive",
+      )}
+    />
+  );
+}
+
 /**
  * Solid flow arrows and dashed input arrows keep execution and parameter wiring distinct.
  *
  * @remarks
- * Each line has a wider invisible stroke that selects it. The connection list
- * below the grid offers the same selection without a pointer.
+ * Each line has a wider invisible stroke that highlights it on hover and
+ * selects it on click. The connection list of the plan offers the same
+ * selection without a pointer.
  */
 export function PlanEdges(props: {
   readonly plan: AgentPlanInput;
   readonly sources: AgentPlanSources;
   readonly selected: PlanLink | null;
   readonly onSelect: (link: PlanLink) => void;
+  /** The connection being dragged, and whether the IN under the pointer takes it. */
+  readonly preview?: {
+    readonly line: PlanLinkPreview;
+    readonly isValid: boolean | null;
+  } | null;
 }): React.ReactElement {
   const markerId = useId();
   const selectedMarkerId = useId();
+  const previewMarkerId = useId();
   const selectedKey = props.selected ? planLinkKey(props.selected) : null;
   return (
     <svg
@@ -57,6 +89,7 @@ export function PlanEdges(props: {
       <defs>
         <ArrowMarker id={markerId} />
         <ArrowMarker id={selectedMarkerId} className="text-primary" />
+        <ArrowMarker id={previewMarkerId} />
       </defs>
       {planLinks(props.plan).map((link) => {
         const points = planLinkPoints(props.plan, props.sources, link);
@@ -65,12 +98,18 @@ export function PlanEdges(props: {
         const isSelected = key === selectedKey;
         const path = curve(points);
         return (
-          <g key={key} className={cn(isSelected && "text-primary")}>
+          <g
+            key={key}
+            className={cn(
+              "group/link hover:text-foreground",
+              isSelected && "text-primary hover:text-primary",
+            )}
+          >
             <path
               d={path}
               fill="none"
               stroke="transparent"
-              strokeWidth="14"
+              strokeWidth="20"
               pointerEvents="stroke"
               className="cursor-pointer"
               data-plan-link={key}
@@ -81,6 +120,7 @@ export function PlanEdges(props: {
               fill="none"
               stroke="currentColor"
               strokeWidth={isSelected ? 3 : 2}
+              className="group-hover/link:stroke-[3]"
               strokeDasharray={link.kind === "flow" ? undefined : "6 4"}
               markerEnd={`url(#${isSelected ? selectedMarkerId : markerId})`}
             />
@@ -96,6 +136,13 @@ export function PlanEdges(props: {
           </g>
         );
       })}
+      {props.preview ? (
+        <PreviewLine
+          preview={props.preview.line}
+          isValid={props.preview.isValid}
+          markerId={previewMarkerId}
+        />
+      ) : null}
     </svg>
   );
 }

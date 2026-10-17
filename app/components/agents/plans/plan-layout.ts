@@ -14,6 +14,8 @@ import type { PlanLink } from "./plan-links";
 export const PLAN_GRID = 20;
 export const PLAN_NODE_WIDTH = 280;
 export const PLAN_ENDPOINT_SIZE = 64;
+/** The center of a start's or end's circle, where its flow connection meets it. */
+export const PLAN_ENDPOINT_PORT_Y = 72;
 /** Space between a frame's edge and its members. */
 export const PLAN_FRAME_PADDING = 20;
 /** The center of the handles where a frame's boundary ports hand values to members. */

@@ -11,7 +11,6 @@ import {
   planNodeHeight,
   planNodeLabel,
 } from "./plan-layout";
-import { startPlanNodeDrag } from "./plan-drag";
 import { PlanPorts } from "./plan-ports";
 import { PlanFlowPorts } from "./plan-flow-ports";
 import { PlanEndpoint } from "./plan-endpoint";
@@ -45,8 +44,6 @@ interface NodeCardProps {
   readonly onEdit?: (id: string) => void;
   /** Where the card is drawn; a member's own position counts from its frame. */
   readonly position?: AgentPlanPosition;
-  /** Called when the card starts to be dragged, for drop targets on the grid. */
-  readonly onDragNode?: (id: string) => void;
 }
 
 function ticketStatus(
@@ -58,7 +55,12 @@ function ticketStatus(
   return "waiting";
 }
 
-/** Node ports are buttons as well as drag targets, allowing keyboard and touch bindings. */
+/**
+ * A node card: its header moves it, its OUT starts a connection and its INs end one.
+ *
+ * @remarks
+ * Every port stays a button, so clicks connect without a drag as well.
+ */
 export function PlanNodeCard(props: NodeCardProps): React.ReactElement {
   const { t } = useTranslation();
   const { node, graph } = props;
@@ -104,9 +106,11 @@ export function PlanNodeCard(props: NodeCardProps): React.ReactElement {
       ) : null}
       {output ? (
         <Button
-          className="mt-2 ml-auto flex"
+          className="mt-2 ml-auto flex cursor-crosshair"
           size="sm"
           variant="ghost"
+          data-plan-out={node.id}
+          data-plan-out-kind={node.type === "agent" ? "result" : "source"}
           disabled={!props.canEdit}
           onClick={() =>
             graph.begin({
@@ -136,18 +140,16 @@ function NodeHeader(
     graph.select(node.id);
     if (node.type === "agent" || node.type === "group") props.onEdit?.(node.id);
   }
-  function startDrag(event: React.DragEvent<HTMLButtonElement>): void {
-    startPlanNodeDrag(event, node);
-    props.onDragNode?.(node.id);
-  }
   return (
     <div className="mb-2 flex h-9 items-center gap-1">
       <button
         type="button"
-        draggable={props.canEdit}
-        onDragStart={startDrag}
+        data-plan-handle={node.id}
         onClick={() => graph.select(node.id)}
-        className="h-9 min-w-0 flex-1 cursor-grab text-left text-sm font-semibold"
+        className={cn(
+          "h-9 min-w-0 flex-1 text-left text-sm font-semibold",
+          props.canEdit && "cursor-grab active:cursor-grabbing",
+        )}
         aria-label={t("plans.selectNode", { name: props.label })}
       >
         <span className="flex items-center gap-2 text-xs font-normal text-muted-foreground">

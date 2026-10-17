@@ -735,7 +735,9 @@ workspaces in accessible projects are offered; unavailable registrations are
 explained and cannot be selected for new work.
 
 The grid is the main editor. It fills the work area below the global header and
-has no surface of its own: it shows the page background with a faint dot raster.
+has no surface of its own: it shows the page background with a faint dot raster
+that fades out towards every edge of the visible area, so the grid blends into
+the page while it pans and zooms; nodes, ports and connections do not fade.
 Drag its empty area to pan it; the mouse wheel or the zoom buttons at its left
 edge zoom it, and nodes, frames and connections keep their positions relative
 to each other. On wide screens three separate panels float over the grid
@@ -750,9 +752,13 @@ session reference, errors and cancellations) and the list of connections;
 without a run it says so.
 Search, filter and sort the authorized agents and project tasks/subtasks, then
 drag them onto the grid. Tickets can also be filtered by their current status:
-open, done, or one workflow status such as To Do or Done. Buttons offer an
-alternative to dragging. Move nodes by their header or edit their grid
-coordinates. The panel edits instances and their inputs; agent definitions
+open, done, or one workflow status such as To Do or Done. **Start** and
+**End** (**Ende** in German) sit above the tabs and are dragged onto the grid the same way; a
+dropped start or end lands with its circle under the pointer. Buttons offer an
+alternative to dragging. Move nodes, frames, starts and ends by their header or
+circle, or edit their grid coordinates; the grabbed point stays under the
+pointer at every zoom level and positions snap to the raster. Grid coordinates
+range from 0 to 6000, so a node stops at the edge of that area. The panel edits instances and their inputs; agent definitions
 remain in the existing Agents area.
 
 The **Groups** tab creates ACP groups. A group is a green frame on the grid
@@ -822,7 +828,9 @@ text to the existing agent text parameters. Workspace and wiki references are
 single values of their existing types and require matching input ports and
 current resource access.
 
-Select an **OUT** port, then a compatible **IN** port:
+Drag from an **OUT** port to a compatible **IN** port, or click the OUT and
+then the IN. While a connection is open, INs that accept it are marked green
+and the others dashed; a release on the empty grid or Escape adds nothing:
 
 - Solid **Flow OUT → Flow IN** edges control order. Agents have both ports;
   a **Start** has only OUT and an **End** only IN.
@@ -840,9 +848,10 @@ Select an **OUT** port, then a compatible **IN** port:
   require a flow path from the producing agent to the consuming agent.
 
 Click a connection, or choose it in the **Connections** list below the grid, to
-disconnect it alone; both of its nodes stay. The bin on a node removes the node
-together with all of its connections; the Delete key removes the selected node
-or connection.
+disconnect it alone; both of its nodes stay. The node menu removes the node
+together with all of its connections; Delete or Backspace removes the selected
+node or connection while the grid or the selected node's header has focus, but
+never while a field, menu or dialog has it.
 
 An executable plan needs at least one usable agent, an explicit Start and a
 reachable End. Every flow node must be reachable from a Start and lead to an

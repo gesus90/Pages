@@ -6,7 +6,7 @@ import { Button } from "@/app/components/ui/button";
 import { Tabs, TabsContent } from "@/app/components/ui/tabs";
 import { cn } from "@/app/lib/cn";
 
-import { AgentSources, TaskSources } from "./plan-sources";
+import { AgentSources, EndpointSources, TaskSources } from "./plan-sources";
 import { PlanGroupSources } from "./plan-group-sources";
 import { PlanParameters } from "./plan-parameters";
 import { PlanInspector, selectedPlanNode } from "./plan-inspector";
@@ -87,6 +87,7 @@ function PlanPanelTabs(props: {
   }
   return (
     <>
+      <EndpointSources graph={editor.graph} canEdit={!disabled} />
       <Tabs
         value={tab}
         onValueChange={setTab}

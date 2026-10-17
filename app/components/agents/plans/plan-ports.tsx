@@ -2,12 +2,14 @@ import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 
+import { planInTargetClass } from "./plan-flow-ports";
+
 import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 import type { AgentPlanStep } from "@/definition/AgentPlan";
 import type { AgentParameter } from "@/definition/AgentParameters";
 import type { PlanGraphActions } from "./use-plan-graph";
 
-/** Every named data IN validates the source type; disconnecting is an explicit operation. */
+/** Every named data IN validates the source type; a dragged OUT ends on its row, and disconnecting is an explicit operation. */
 export function PlanPorts(props: {
   readonly node: AgentPlanStep | AgentPlanGroup;
   readonly label: string;
@@ -16,25 +18,17 @@ export function PlanPorts(props: {
   readonly canEdit: boolean;
 }): React.ReactElement {
   const { t } = useTranslation();
-  function drop(
-    event: React.DragEvent<HTMLButtonElement>,
-    parameter: string,
-  ): void {
-    const [kind, reference] = event.dataTransfer
-      .getData("application/x-pages-plan")
-      .split(":");
-    if (kind !== "node" || !reference || !props.canEdit) return;
-    event.preventDefault();
-    event.stopPropagation();
-    props.graph.bindSource(reference, props.node.id, parameter);
-  }
   function disconnect(name: string): void {
-    props.graph.replaceNode({
-      ...props.node,
+    const { graph, node } = props;
+    graph.replaceNode({
+      ...node,
       bindings: Object.fromEntries(
-        Object.entries(props.node.bindings).filter(([key]) => key !== name),
+        Object.entries(node.bindings).filter(([key]) => key !== name),
       ),
     });
+    const link = graph.selectedLink;
+    if (link?.kind === "data" && link.to === node.id && link.parameter === name)
+      graph.selectLink(null);
   }
   return (
     <>
@@ -47,19 +41,18 @@ export function PlanPorts(props: {
           <div key={parameter.name} className="flex h-8 items-center gap-1">
             <button
               type="button"
+              data-plan-in={props.node.id}
+              data-plan-parameter={parameter.name}
               className={cn(
-                "flex min-w-0 flex-1 items-center gap-1 text-left text-xs hover:underline disabled:opacity-60",
+                "flex h-7 min-w-0 flex-1 items-center gap-1 rounded-md border border-transparent px-1 text-left text-xs hover:underline disabled:opacity-60",
                 hasIssue && "text-destructive",
+                planInTargetClass(props.graph, props.node.id, parameter.name),
               )}
               aria-label={t("plans.bindPort", {
                 parameter: parameter.name,
                 name: props.label,
               })}
               disabled={!props.canEdit}
-              onDragOver={(event) => {
-                if (props.canEdit) event.preventDefault();
-              }}
-              onDrop={(event) => drop(event, parameter.name)}
               onClick={() => props.graph.connect(props.node.id, parameter.name)}
             >
               <span

@@ -5,7 +5,7 @@ import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/lib/cn";
 
 import { PLAN_ENDPOINT_SIZE } from "./plan-layout";
-import { startPlanNodeDrag } from "./plan-drag";
+import { planInTargetClass } from "./plan-flow-ports";
 import { PlanNodeActions } from "./plan-node-actions";
 import { planStatusClass } from "./plan-status";
 
@@ -15,7 +15,7 @@ import type {
 } from "@/definition/AgentPlan";
 import type { PlanGraphActions } from "./use-plan-graph";
 
-/** A small draggable checkpoint with its original IN or OUT connection action. */
+/** A small movable checkpoint: its circle moves it, start offers the flow OUT and end the flow IN. */
 export function PlanEndpoint(props: {
   readonly node: AgentPlanNode;
   readonly graph: PlanGraphActions;
@@ -28,9 +28,6 @@ export function PlanEndpoint(props: {
   const isStart = node.type === "start";
   const status = props.result?.status === "succeeded" ? "succeeded" : "waiting";
   const Icon = isStart ? ArrowRight : ArrowLeft;
-  function startDrag(event: React.DragEvent<HTMLButtonElement>): void {
-    startPlanNodeDrag(event, node);
-  }
   return (
     <article
       aria-label={label}
@@ -51,13 +48,13 @@ export function PlanEndpoint(props: {
       </div>
       <button
         type="button"
-        draggable={props.canEdit}
-        onDragStart={startDrag}
+        data-plan-handle={node.id}
         onClick={() => graph.select(node.id)}
         aria-label={t("plans.selectNode", { name: label })}
         title={t(`plans.status.${status}`)}
         className={cn(
-          "flex size-16 cursor-grab items-center justify-center rounded-full border text-xs font-semibold",
+          "flex size-16 items-center justify-center rounded-full border text-xs font-semibold",
+          props.canEdit && "cursor-grab active:cursor-grabbing",
           planStatusClass(status),
           graph.selectedId === node.id &&
             "ring-2 ring-info ring-offset-2 ring-offset-surface",
@@ -70,9 +67,13 @@ export function PlanEndpoint(props: {
       <Button
         size="icon-sm"
         variant="outline"
+        data-plan-out={isStart ? node.id : undefined}
+        data-plan-out-kind={isStart ? "flow" : undefined}
+        data-plan-in={isStart ? undefined : node.id}
         className={cn(
           "absolute top-14 size-8 rounded-full",
-          isStart ? "-right-4" : "-left-4",
+          isStart ? "-right-4 cursor-crosshair" : "-left-4",
+          !isStart && planInTargetClass(graph, node.id),
         )}
         aria-label={t(isStart ? "plans.flowOut" : "plans.flowIn")}
         disabled={!props.canEdit || (!isStart && !graph.connection)}

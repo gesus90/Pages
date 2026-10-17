@@ -10,7 +10,7 @@ import type { PlanViewport } from "./use-plan-viewport";
 const ZOOM_STEP = 1.25;
 
 /**
- * Boundary nodes, zoom buttons and the grid help float at the left edge of the grid.
+ * Zoom buttons and the grid help float at the left edge of the grid.
  *
  * @remarks
  * The middle of the left edge stays clear of the configuration bar above and
@@ -18,7 +18,6 @@ const ZOOM_STEP = 1.25;
  */
 export function PlanCanvasControls(props: {
   readonly graph: PlanGraphActions;
-  readonly canEdit: boolean;
   readonly viewport: PlanViewport;
 }): React.ReactElement {
   const { t } = useTranslation();
@@ -37,22 +36,6 @@ export function PlanCanvasControls(props: {
         </div>
       ) : null}
       <div className="absolute top-1/2 left-2 z-[5] flex -translate-y-1/2 flex-col items-stretch gap-1 rounded-lg border border-border bg-surface/95 p-1 shadow-xs">
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={!props.canEdit}
-          onClick={() => graph.add("start", "start")}
-        >
-          {t("plans.addStart")}
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={!props.canEdit}
-          onClick={() => graph.add("end", "end")}
-        >
-          {t("plans.addEnd")}
-        </Button>
         <Button
           size="icon-sm"
           variant="ghost"

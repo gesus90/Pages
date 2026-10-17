@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { planConnectionIssues } from "@/definition/AgentPlanGraph";
 import {
@@ -21,6 +21,10 @@ interface PlanConnection {
   readonly nodeId: string;
 }
 
+/** The plan with the new connection, or the issue that refuses it. */
+type PlanConnectionAttempt =
+  { readonly plan: AgentPlanInput } | { readonly issue: AgentPlanIssue };
+
 /** The bindings of an agent node, inside a frame too, or of a frame's boundary. */
 function targetBindings(
   draft: AgentPlanInput,
@@ -30,6 +34,72 @@ function targetBindings(
   if (step) return step.bindings;
   const group = draft.nodes.find((node) => node.id === id);
   return group?.type === "group" ? group.bindings : null;
+}
+
+function checked(
+  next: AgentPlanInput,
+  sources: AgentPlanSources,
+): PlanConnectionAttempt {
+  const issue = planConnectionIssues(next, sources.agents)[0];
+  return issue ? { issue } : { plan: next };
+}
+
+/**
+ * Applies the port rules of the server to one connection without changing the draft.
+ *
+ * @remarks
+ * A data IN takes one binding; a connected IN must be disconnected before it
+ * is bound again.
+ */
+function attemptConnection(
+  context: {
+    readonly draft: AgentPlanInput;
+    readonly sources: AgentPlanSources;
+    readonly connection: PlanConnection;
+  },
+  id: string,
+  parameter?: string,
+): PlanConnectionAttempt | null {
+  const { draft, sources, connection } = context;
+  if (connection.kind === "flow" && parameter === undefined) {
+    const next = connectPlanFlow(draft, connection.nodeId, id);
+    return next === "groupBoundary"
+      ? { issue: { nodeId: id, port: "flow-in", reason: "groupBoundary" } }
+      : checked(next, sources);
+  }
+  if (connection.kind === "flow" || parameter === undefined)
+    return {
+      issue: { nodeId: id, port: parameter ?? "flow-in", reason: "type" },
+    };
+  const bindings = targetBindings(draft, id);
+  if (!bindings) return null;
+  if (Object.hasOwn(bindings, parameter))
+    return { issue: { nodeId: id, port: parameter, reason: "duplicate" } };
+  const binding: AgentPlanBinding =
+    connection.kind === "source"
+      ? { kind: "source", nodeId: connection.nodeId }
+      : { kind: "result", stepId: connection.nodeId };
+  return checked(bindPlanParameter(draft, id, parameter, binding), sources);
+}
+
+/** Answers whether the open connection may end at an IN, each IN checked once. */
+function connectionVerdicts(context: {
+  readonly draft: AgentPlanInput;
+  readonly sources: AgentPlanSources;
+  readonly connection: PlanConnection | null;
+}): (id: string, parameter?: string) => boolean {
+  const { connection } = context;
+  const known = new Map<string, boolean>();
+  return (id, parameter) => {
+    if (!connection) return false;
+    const key = `${id}:${parameter ?? ""}`;
+    const cached = known.get(key);
+    if (cached !== undefined) return cached;
+    const result = attemptConnection({ ...context, connection }, id, parameter);
+    const isAllowed = result !== null && "plan" in result;
+    known.set(key, isAllowed);
+    return isAllowed;
+  };
 }
 
 /** Uses the same port rules as the server; a connected IN must be disconnected before rebinding. */
@@ -42,6 +112,8 @@ export function usePlanConnections(
   readonly connectionIssue: AgentPlanIssue | null;
   readonly begin: (connection: PlanConnection | null) => void;
   readonly connect: (id: string, parameter?: string) => void;
+  /** Whether the open connection may end at this IN, without changing the draft. */
+  readonly canConnect: (id: string, parameter?: string) => boolean;
   readonly bindSource: (
     sourceId: string,
     targetId: string,
@@ -50,58 +122,56 @@ export function usePlanConnections(
 } {
   const [connection, setConnection] = useState<PlanConnection | null>(null);
   const [connectionIssue, setIssue] = useState<AgentPlanIssue | null>(null);
+  // Every IN asks while a connection is dragged, on each pointer move; the
+  // answers only change with the draft or the open connection.
+  const canConnect = useMemo(
+    () => connectionVerdicts({ draft, sources, connection }),
+    [draft, sources, connection],
+  );
   function begin(next: PlanConnection | null): void {
     setConnection(next);
     setIssue(null);
   }
-  function accept(next: AgentPlanInput): void {
-    const issue = planConnectionIssues(next, sources.agents)[0] ?? null;
-    setIssue(issue);
-    if (!issue) {
-      setDraft(next);
-      setConnection(null);
-    }
+  function attempt(
+    id: string,
+    parameter?: string,
+  ): PlanConnectionAttempt | null {
+    if (!connection) return null;
+    return attemptConnection({ draft, sources, connection }, id, parameter);
   }
-  function bind(
-    targetId: string,
-    parameter: string,
-    binding: AgentPlanBinding,
-  ): void {
-    const bindings = targetBindings(draft, targetId);
-    if (!bindings) return;
-    if (Object.hasOwn(bindings, parameter)) {
-      setIssue({ nodeId: targetId, port: parameter, reason: "duplicate" });
+  function accept(result: PlanConnectionAttempt | null): void {
+    if (!result) return;
+    if ("issue" in result) {
+      setIssue(result.issue);
       return;
     }
-    accept(bindPlanParameter(draft, targetId, parameter, binding));
+    setIssue(null);
+    setDraft(result.plan);
+    setConnection(null);
   }
   function connect(id: string, parameter?: string): void {
-    if (!connection) return;
-    if (connection.kind === "flow" && parameter === undefined) {
-      const next = connectPlanFlow(draft, connection.nodeId, id);
-      if (next === "groupBoundary")
-        setIssue({ nodeId: id, port: "flow-in", reason: "groupBoundary" });
-      else accept(next);
-      return;
-    }
-    if (connection.kind === "flow" || parameter === undefined) {
-      setIssue({ nodeId: id, port: parameter ?? "flow-in", reason: "type" });
-      return;
-    }
-    bind(
-      id,
-      parameter,
-      connection.kind === "source"
-        ? { kind: "source", nodeId: connection.nodeId }
-        : { kind: "result", stepId: connection.nodeId },
-    );
+    accept(attempt(id, parameter));
   }
   function bindSource(
     sourceId: string,
     targetId: string,
     parameter: string,
   ): void {
-    bind(targetId, parameter, { kind: "source", nodeId: sourceId });
+    const source: PlanConnection = { kind: "source", nodeId: sourceId };
+    accept(
+      attemptConnection(
+        { draft, sources, connection: source },
+        targetId,
+        parameter,
+      ),
+    );
   }
-  return { connection, connectionIssue, begin, connect, bindSource };
+  return {
+    connection,
+    connectionIssue,
+    begin,
+    connect,
+    canConnect,
+    bindSource,
+  };
 }

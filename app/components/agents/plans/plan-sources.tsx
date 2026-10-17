@@ -1,3 +1,4 @@
+import { Flag, Play } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -6,7 +7,7 @@ import { Select } from "@/app/components/ui/select";
 import { VerticalScrollArea } from "@/app/components/ui/vertical-scroll-area";
 import { Button } from "@/app/components/ui/button";
 
-import { PLAN_AGENT_DRAG } from "./plan-drag";
+import { PLAN_AGENT_DRAG, PLAN_SOURCE_DRAG } from "./plan-drag";
 import { usePlanTaskFilter } from "./use-plan-task-filter";
 
 import type { AgentPlanNode, AgentPlanSources } from "@/definition/AgentPlan";
@@ -16,6 +17,78 @@ export interface SourceProps {
   readonly sources: AgentPlanSources;
   readonly graph: PlanGraphActions;
   readonly canEdit: boolean;
+}
+
+// Start and end in the order of the flow, each with the icon of its meaning.
+const ENDPOINTS = [
+  { kind: "start", Icon: Play },
+  { kind: "end", Icon: Flag },
+] as const;
+
+/** One endpoint to drag onto the grid or to add with a click. */
+function EndpointSource(props: {
+  readonly kind: "start" | "end";
+  readonly Icon: typeof Play;
+  readonly graph: PlanGraphActions;
+  readonly canEdit: boolean;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const { kind, Icon } = props;
+  const label = t(`plans.nodeType.${kind}`);
+  function startDrag(event: React.DragEvent<HTMLButtonElement>): void {
+    event.dataTransfer.setData(PLAN_SOURCE_DRAG, `${kind}:${kind}`);
+    event.dataTransfer.effectAllowed = "copy";
+  }
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      className="cursor-grab justify-start bg-surface"
+      draggable={props.canEdit}
+      disabled={!props.canEdit}
+      onDragStart={startDrag}
+      onClick={() => props.graph.add(kind, kind)}
+      aria-label={t("plans.addSource", { name: label })}
+    >
+      <Icon className="size-4" aria-hidden="true" />
+      {label}
+    </Button>
+  );
+}
+
+/**
+ * Start and end of the flow, offered like the other sources.
+ *
+ * @remarks
+ * A plan may have several starts and ends; Play needs at least one of each.
+ * Nothing is added or restored without the user's action.
+ */
+export function EndpointSources(props: {
+  readonly graph: PlanGraphActions;
+  readonly canEdit: boolean;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <section
+      aria-label={t("plans.endpointSources")}
+      className="space-y-2 rounded-xl border border-border p-3"
+    >
+      <h2 className="text-sm font-semibold">{t("plans.endpointSources")}</h2>
+      <div className="grid grid-cols-2 gap-2">
+        {ENDPOINTS.map((endpoint) => (
+          <EndpointSource
+            key={endpoint.kind}
+            {...endpoint}
+            graph={props.graph}
+            canEdit={props.canEdit}
+          />
+        ))}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {t("plans.endpointSourcesHint")}
+      </p>
+    </section>
+  );
 }
 
 /** Searches only the server-authorized agent catalog. */
@@ -187,7 +260,7 @@ function SourceButton(props: {
   const { t } = useTranslation();
   function startDrag(event: React.DragEvent<HTMLButtonElement>): void {
     event.dataTransfer.setData(
-      "application/x-pages-plan",
+      PLAN_SOURCE_DRAG,
       `${props.kind}:${props.reference}`,
     );
     if (props.kind === "agent")
