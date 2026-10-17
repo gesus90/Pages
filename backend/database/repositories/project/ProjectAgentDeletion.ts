@@ -23,6 +23,33 @@ const PLAN_RUN_OWNED_TABLES = [
   "page_agent_run_records",
 ] as const;
 
+/** Deletes the PageAgentCLI attempts of the plan runs with their events, usage and instructions. */
+async function deleteSessionJournal(
+  database: DatabaseTransaction,
+  parameters: { project_id: string },
+): Promise<void> {
+  for (const table of [
+    "agent_session_events",
+    "agent_session_turn_usage",
+    "agent_session_messages",
+  ] as const)
+    await database.execute(
+      `
+        DELETE FROM ${table}
+        WHERE attempt_id IN (
+            SELECT attempt_id
+            FROM agent_session_attempts
+            WHERE run_id IN (${PLAN_RUNS})
+        );
+      `,
+      parameters,
+    );
+  await database.execute(
+    `DELETE FROM agent_session_attempts WHERE run_id IN (${PLAN_RUNS});`,
+    parameters,
+  );
+}
+
 /**
  * Deletes the execution plans of a project with their runs, workspaces and imports.
  *
@@ -74,6 +101,7 @@ export async function deleteProjectAgentData(
       parameters,
     );
   }
+  await deleteSessionJournal(database, parameters);
   await database.execute(
     `DELETE FROM agent_run_credentials WHERE run_id IN (${PLAN_RUNS});`,
     parameters,
