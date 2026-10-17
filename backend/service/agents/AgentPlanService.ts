@@ -112,9 +112,14 @@ export class AgentPlanService {
    * first; nothing is started again. A working copy stays reserved only while
    * a process of one of the run's sessions is still alive, so a confirmed
    * cleanup lets the next run of a plan start.
+   *
+   * @param retained - Sessions whose leftover cleanup could not be confirmed;
+   * their runs keep the working copies reserved until a later start.
    */
-  public async recoverInterruptedRuns(): Promise<void> {
-    await new AgentPlanStartupRecovery(this.dependencies).recover();
+  public async recoverInterruptedRuns(
+    retained: ReadonlySet<string> = new Set(),
+  ): Promise<void> {
+    await new AgentPlanStartupRecovery(this.dependencies).recover(retained);
   }
 
   /**

@@ -5,10 +5,10 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { AcpResourcesCard } from "@/app/components/settings/agents/acp-resources-card";
 import { createI18n } from "@/app/lib/i18n";
 
-import type { AcpResourceSnapshot } from "@/definition/AcpResource";
+import type { AcpResourceDiagnostics } from "@/definition/AcpResource";
 
 const fetcher = vi.hoisted(() => ({
-  resources: undefined as AcpResourceSnapshot | undefined,
+  resources: undefined as AcpResourceDiagnostics | undefined,
   load: vi.fn(async () => {}),
 }));
 vi.mock("react-router", () => ({
@@ -79,6 +79,7 @@ it("shows occupied slots, FIFO wait reasons, memory and failed cleanup without p
         since: "today",
       },
     ],
+    leftovers: [],
   };
   const view = renderCard();
   expect(

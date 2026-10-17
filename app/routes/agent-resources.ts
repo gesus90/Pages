@@ -6,16 +6,19 @@ import {
   AGENT_NO_STORE,
 } from "@/app/lib/settings-actions/settings-agents-response.server";
 
+import type { AcpResourceDiagnostics } from "@/definition/AcpResource";
 import type { Route } from "./+types/agent-resources";
 
-/** Exposes global process occupancy only to a fresh personal administrator in admin mode. */
+/** Exposes global process occupancy and unconfirmed crash leftovers only to a fresh personal administrator in admin mode. */
 export async function loader({ context }: Route.LoaderArgs): Promise<Response> {
   try {
     const services = await getApplicationServices();
     await requireAgentAccount(services, context.get(authenticatedUserContext));
-    return Response.json(await services.acpResourceScheduler.inspect(), {
-      headers: AGENT_NO_STORE,
-    });
+    const diagnostics: AcpResourceDiagnostics = {
+      ...(await services.acpResourceScheduler.inspect()),
+      leftovers: services.agentCliGitHubCredentials.leftovers(),
+    };
+    return Response.json(diagnostics, { headers: AGENT_NO_STORE });
   } catch (error: unknown) {
     return agentFailureResponse(error);
   }

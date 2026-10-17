@@ -34,13 +34,19 @@ it("bounds the startup scan by the creation of a leftover directory", async () =
   expect(await readdir(dataDirectory)).toEqual([]);
 });
 
-it("keeps unrelated directories and fails when a session process remains", async () => {
+it("keeps unrelated directories and reports a leftover whose session process remains", async () => {
   await mkdir(path.join(dataDirectory, "agents"));
   await mkdir(path.join(dataDirectory, `acp-github-${INSTANCE}-abc123`));
   scan.endTaggedProcesses.mockResolvedValueOnce({ found: 1, remaining: 1 });
   await expect(
     new CliGitHubCredentials(dataDirectory).recover(),
-  ).rejects.toThrow();
+  ).resolves.toEqual([
+    {
+      directory: `acp-github-${INSTANCE}-abc123`,
+      instanceId: INSTANCE,
+      reason: "processes",
+    },
+  ]);
   expect(await readdir(dataDirectory)).toContain(
     `acp-github-${INSTANCE}-abc123`,
   );

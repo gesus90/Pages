@@ -1031,7 +1031,12 @@
         "memory_unknown": "Waiting for a reliable RAM reading",
         "paused": "Paused",
         "recovery": "Waiting for startup recovery",
-        "scheduler_error": "Waiting after scheduler error"
+        "scheduler_error": "Waiting after scheduler error",
+        "leftovers": "Cleanup after a crash is unconfirmed. The leftover directories are in the data directory and are kept; Pages retries the cleanup on every start. The server log has the details.",
+        "leftover": {
+          "processes": "{{directory}} (session {{instance}}): a process of this session may still be running. Capacity and the workspace reservation stay occupied. End the processes with PAGES_RUN_INSTANCE={{instance}} and restart Pages.",
+          "removal": "{{directory}} (session {{instance}}): its processes ended, but the directory could not be removed. Capacity and the workspace reservation stay occupied. Check the directory permissions and restart Pages."
+        }
       },
       "openCodeProvider": "Key provider for OpenCode",
       "openCodeKeyProvider": {

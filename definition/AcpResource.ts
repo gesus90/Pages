@@ -46,3 +46,23 @@ export interface AcpResourceSnapshot {
     readonly reason: AcpWaitReason;
   })[];
 }
+
+/**
+ * A crash leftover of one session's GitHub credentials whose cleanup the
+ * startup could not confirm; each start tries again until it succeeds.
+ */
+export interface AcpCredentialLeftover {
+  /** The name of the directory inside the data directory, never its full path. */
+  readonly directory: string;
+  readonly instanceId: string;
+  /**
+   * `processes` while a process of the session may still run; `removal` when
+   * they ended but the directory could not be removed.
+   */
+  readonly reason: "processes" | "removal";
+}
+
+/** What the ACP resources card shows: occupancy and the leftovers a startup could not clean up. */
+export interface AcpResourceDiagnostics extends AcpResourceSnapshot {
+  readonly leftovers: readonly AcpCredentialLeftover[];
+}

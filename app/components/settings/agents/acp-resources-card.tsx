@@ -2,13 +2,16 @@ import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
 
-import type { AcpResourceSnapshot } from "@/definition/AcpResource";
+import type {
+  AcpCredentialLeftover,
+  AcpResourceDiagnostics,
+} from "@/definition/AcpResource";
 
 /** Polls the authorized resource endpoint without starting native processes or provider checks. */
 export function AcpResourcesCard(): React.ReactElement {
   const { t } = useTranslation();
   const { data: resources, load } = useFetcher<
-    AcpResourceSnapshot | { error: string }
+    AcpResourceDiagnostics | { error: string }
   >();
   useEffect(() => {
     void load("/agent-api/resources");
@@ -34,10 +37,39 @@ export function AcpResourcesCard(): React.ReactElement {
   );
 }
 
+/** Names each crash leftover the startup could not clean up and how it clears. */
+function LeftoverNotice({
+  leftovers,
+}: {
+  readonly leftovers: readonly AcpCredentialLeftover[];
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <div
+      role="alert"
+      className="space-y-1 rounded-md border border-destructive/40 bg-destructive/5 p-3"
+    >
+      <p className="font-medium text-destructive">
+        {t("settings.agents.resources.leftovers")}
+      </p>
+      <ul className="space-y-1">
+        {leftovers.map((leftover) => (
+          <li key={leftover.directory} className="break-words">
+            {t(`settings.agents.resources.leftover.${leftover.reason}`, {
+              directory: leftover.directory,
+              instance: leftover.instanceId,
+            })}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function ResourceDetails({
   resources,
 }: {
-  readonly resources: AcpResourceSnapshot;
+  readonly resources: AcpResourceDiagnostics;
 }): React.ReactElement {
   const { t } = useTranslation();
   return (
@@ -66,6 +98,9 @@ function ResourceDetails({
         <p role="alert" className="text-destructive">
           {t("settings.agents.resources.storage")}
         </p>
+      ) : null}
+      {resources.leftovers.length > 0 ? (
+        <LeftoverNotice leftovers={resources.leftovers} />
       ) : null}
       <ul className="space-y-1">
         {resources.active.map((entry) => (

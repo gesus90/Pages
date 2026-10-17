@@ -1031,7 +1031,12 @@
         "memory_unknown": "Wartet auf verlässliche RAM-Messung",
         "paused": "Pausiert",
         "recovery": "Wartet auf Wiederherstellung beim Start",
-        "scheduler_error": "Wartet nach Scheduler-Fehler"
+        "scheduler_error": "Wartet nach Scheduler-Fehler",
+        "leftovers": "Bereinigung nach einem Absturz nicht bestätigt. Die Restverzeichnisse liegen im Datenverzeichnis und bleiben erhalten; Pages versucht die Bereinigung bei jedem Start erneut. Details stehen im Serverlog.",
+        "leftover": {
+          "processes": "{{directory}} (Sitzung {{instance}}): Ein Prozess dieser Sitzung läuft möglicherweise noch. Kapazität und Workspace-Sperre bleiben belegt. Beenden Sie die Prozesse mit PAGES_RUN_INSTANCE={{instance}} und starten Sie Pages neu.",
+          "removal": "{{directory}} (Sitzung {{instance}}): Die Prozesse sind beendet, aber das Verzeichnis ließ sich nicht löschen. Kapazität und Workspace-Sperre bleiben belegt. Prüfen Sie die Berechtigungen des Verzeichnisses und starten Sie Pages neu."
+        }
       },
       "openCodeProvider": "Schlüsselanbieter für OpenCode",
       "openCodeKeyProvider": {

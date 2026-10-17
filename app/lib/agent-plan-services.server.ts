@@ -115,8 +115,14 @@ export async function createAgentPlanService(input: {
     sessions,
     archive: input.agents.agentRunArchive,
   });
-  await service.recoverInterruptedRuns();
-  await input.agents.agentCliGitHubCredentials.recover();
+  // The credential leftovers were cleaned up when the agent services started.
+  await service.recoverInterruptedRuns(
+    new Set(
+      input.agents.agentCliGitHubCredentials
+        .leftovers()
+        .map((leftover) => leftover.instanceId),
+    ),
+  );
   // Interrupted runs ended just now, so their records are repaired as well.
   await repairAgentFiles(input);
   return {

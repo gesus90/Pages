@@ -75,7 +75,13 @@ function ticketAssetDependencies(
   };
 }
 
-/** The agent folders lie next to the configuration file, apart from the data directory. */
+/**
+ * The agent folders lie next to the configuration file, apart from the data directory.
+ *
+ * @remarks
+ * Credential leftovers are cleaned up first, so a session whose leftover
+ * stays unconfirmed keeps its capacity without another scan.
+ */
 async function startAgents(
   database: Database,
   databasePath: string,
@@ -93,10 +99,12 @@ async function startAgents(
       acpOptions: runtime.getConfig(),
     },
   );
+  const leftovers = await services.agentCliGitHubCredentials.recover();
   const runs = new AgentPlanRunRepository(database);
   const interrupted = await Promise.all([runs.unfinished(), runs.reserving()]);
   await services.acpResourceScheduler.recover(
     interruptedAcpOwners(interrupted.flat()),
+    new Set(leftovers.map((leftover) => leftover.instanceId)),
   );
   services.agentCatalogScheduler.start();
   return services;

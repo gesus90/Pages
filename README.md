@@ -997,6 +997,14 @@ HTTPS for the process. Git settings travel through the environment and never
 change the working copy's `.git/config`. Normal closeout and cancellation end
 session processes before removing the directory; failed launches clean it up,
 and startup recovery removes interrupted sessions' credential directories.
+Each leftover directory is handled on its own. When Pages cannot confirm that
+every process of its session ended, or cannot remove it, the directory stays,
+the server log names it, the server starts normally and the next start tries
+again. Until then the session keeps its ACP capacity and its run keeps the
+working copy reserved. A file system without a creation time for the directory
+cannot bound the process scan, so an unreadable process of the server account
+then leaves the cleanup unconfirmed, unless the directory predates the last
+boot.
 Codex shells preserve the environment Pages has already allowlisted, including
 `GIT_CONFIG_KEY_*`, without loading a user shell profile.
 
@@ -1069,12 +1077,15 @@ retain their working-copy reservations. **Stop** cancels a run and ends the
 running sessions with their whole process group. Reloading the page retains its
 persisted state. After a server interruption, unfinished runs are marked failed
 rather than silently replaying work; processes and MCP credentials the
-interrupted sessions left behind are ended at startup. A new run is an explicit
-action. Historical runs that failed only because of report or business findings
-retain their stored failure and blocked successors. They are not rewritten or
-restarted. Resume applies only to an active paused run and does not retry failed
-nodes; an ended historical run requires an explicitly started new Play run,
-which uses the current diagnostic-only completion rule.
+interrupted sessions left behind are ended at startup. These scans skip
+unreadable processes of the server account that started before the run, such
+as its service manager; a later unreadable process keeps the cleanup
+unconfirmed. A new run is an explicit action. Historical runs that failed only
+because of report or business findings retain their stored failure and blocked
+successors. They are not rewritten or restarted. Resume applies only to an
+active paused run and does not retry failed nodes; an ended historical run
+requires an explicitly started new Play run, which uses the current
+diagnostic-only completion rule.
 
 Plans may be private, global, or shared with Pages groups and departments
 using OR/AND membership. Global sharing still requires access to the plan's
@@ -1265,8 +1276,10 @@ is provided.
 The **ACP resources** card in Settings → Agents polls `/agent-api/resources`.
 The endpoint rechecks an active personal administrator in admin mode on every
 request and uses `no-store`. It shows occupied sessions, waiting reasons,
-current available RAM, paused blockers and failed cleanup. It exposes no prompts,
-workspace paths, credentials or native conversation identifiers.
+current available RAM, paused blockers and failed cleanup, and names each
+credential leftover whose cleanup the last start could not confirm, with what
+clears it. It exposes no prompts, workspace paths, credentials or native
+conversation identifiers.
 
 This change uses the existing Pages runtime and DuckDB. It does not install
 Mastra Core or introduce another workflow engine. The Mastra integration named

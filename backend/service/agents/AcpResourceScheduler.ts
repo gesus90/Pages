@@ -81,9 +81,16 @@ export class AcpResourceScheduler {
     this.cleanup = dependencies.cleanup ?? endLeaseProcesses;
   }
 
-  /** Recovers durable leases before admission; never resumes or retries an interrupted job. */
+  /**
+   * Recovers durable leases before admission; never resumes or retries an interrupted job.
+   *
+   * @param legacyOwners - Interrupted sessions from before the lease journal.
+   * @param retained - Sessions whose cleanup an earlier startup step could not
+   * confirm; their leases keep capacity until a later start confirms it.
+   */
   public async recover(
     legacyOwners: readonly AcpResourceOwner[] = [],
+    retained: ReadonlySet<string> = new Set(),
   ): Promise<void> {
     if (this.isReady || this.isClosing)
       throw new Error("ACP scheduler already initialized");
@@ -103,6 +110,10 @@ export class AcpResourceScheduler {
       await this.writes.run(() => this.store.save(record));
     }
     for (const record of this.active.values()) {
+      if (retained.has(record.instanceId)) {
+        await this.transition(record.instanceId, "cleanup_failed");
+        continue;
+      }
       try {
         const cleanup = await this.cleanup(
           record.instanceId,

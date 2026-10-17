@@ -34,6 +34,21 @@ function interruptedStep(
   return step;
 }
 
+/** A session whose leftover stayed unconfirmed keeps a failed closeout, so its run retains its working copies. */
+function retainUnconfirmed(
+  previous: AgentPlanStepResult,
+  ended: AgentPlanStepResult,
+  retained: ReadonlySet<string>,
+): AgentPlanStepResult {
+  if (
+    !ended.session ||
+    previous.session?.closeout !== "pending" ||
+    !retained.has(ended.session.instanceId)
+  )
+    return ended;
+  return { ...ended, session: { ...ended.session, closeout: "failed" } };
+}
+
 /** Reconciles owned processes and durable views without dispatching any work. */
 export class AgentPlanStartupRecovery {
   private readonly dependencies: StartupRecoveryDependencies;
@@ -42,12 +57,27 @@ export class AgentPlanStartupRecovery {
     this.dependencies = dependencies;
   }
 
-  /** Preserves successful work and explicit cancellation; a process crash is a separate recoverable reason. */
-  public async recover(): Promise<void> {
+  /**
+   * Preserves successful work and explicit cancellation; a process crash is a separate recoverable reason.
+   *
+   * @param retained - Sessions whose leftover cleanup could not be confirmed;
+   * their runs keep the working copies reserved.
+   */
+  public async recover(
+    retained: ReadonlySet<string> = new Set(),
+  ): Promise<void> {
     const endSession = this.dependencies.endSession ?? endInterruptedSession;
     for (const previous of await this.dependencies.runs.unfinished()) {
       await this.dependencies.sessions?.revoke(previous.id, null);
-      const steps = await Promise.all(previous.steps.map(endSession));
+      const steps = await Promise.all(
+        previous.steps.map(async (step) =>
+          retainUnconfirmed(
+            step,
+            await endSession(step, previous.startedAt),
+            retained,
+          ),
+        ),
+      );
       const hasTerminalFailure = previous.steps.some(
         (step) =>
           step.status === "failed" && classifyPlanFailure(step) === "terminal",
@@ -71,8 +101,12 @@ export class AgentPlanStartupRecovery {
     }
     const hasNoProcesses =
       this.dependencies.hasNoProcesses ?? hasNoSessionProcesses;
-    for (const run of await this.dependencies.runs.reserving())
-      if (await hasNoProcesses(run))
+    for (const run of await this.dependencies.runs.reserving()) {
+      const isRetained = run.steps.some(
+        (step) => step.session && retained.has(step.session.instanceId),
+      );
+      if (!isRetained && (await hasNoProcesses(run)))
         await this.dependencies.runs.release(run.id);
+    }
   }
 }

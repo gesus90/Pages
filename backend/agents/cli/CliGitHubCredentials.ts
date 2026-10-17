@@ -17,6 +17,7 @@ import { endTaggedProcesses, readScopeSince } from "./CliProcessScan";
 import type { TaggedProcessScope } from "./CliProcessScan";
 
 import type { AgentPlanGitHubAccess } from "@/backend/service/agents/AgentPlanGitHubCredentials";
+import type { AcpCredentialLeftover } from "@/definition/AcpResource";
 
 const INSTANCE_PATTERN = /^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/iu;
 const CREDENTIAL_DIRECTORY_PATTERN = /^acp-github-([a-f\d-]{36})-[a-z\d]{6}$/iu;
@@ -95,18 +96,29 @@ function redactor(token: string): (text: string) => string {
     );
 }
 
-/** The scan scope from the creation of a directory; null when the file system does not record it. */
+/**
+ * The scan scope from the creation of a directory, or null when it rules nothing out.
+ *
+ * @remarks
+ * Without a recorded creation, the last status change, which follows it, only
+ * helps when it precedes the last boot. Otherwise the scan stays unbounded, so
+ * an unreadable process of this account leaves the cleanup unconfirmed
+ * instead of being skipped.
+ */
 async function creationScope(
   directory: string,
 ): Promise<TaggedProcessScope | null> {
-  const { birthtimeMs } = await stat(directory);
-  if (!(birthtimeMs > 0)) return null;
-  return readScopeSince(new Date(birthtimeMs).toISOString());
+  const { birthtimeMs, ctimeMs } = await stat(directory);
+  if (birthtimeMs > 0)
+    return readScopeSince(new Date(birthtimeMs).toISOString());
+  const scope = await readScopeSince(new Date(ctimeMs).toISOString());
+  return scope.earliestStart === Number.POSITIVE_INFINITY ? scope : null;
 }
 
 /** Creates per-session credentials under a protected instance folder, outside every connection HOME. */
 export class CliGitHubCredentials {
   private readonly root: string;
+  private unconfirmed: readonly AcpCredentialLeftover[] = [];
 
   public constructor(dataDirectory: string) {
     this.root = dataDirectory;
@@ -139,14 +151,18 @@ export class CliGitHubCredentials {
   /**
    * Removes crash leftovers at server startup, after ending every process tagged with their session.
    *
+   * @returns The leftovers whose cleanup stayed unconfirmed; they remain for the next start.
+   *
    * @remarks
    * The creation of a leftover directory precedes the runner of its session,
    * so it bounds the scan: unreadable processes of this account that started
-   * earlier, such as its service manager, cannot carry the tag and must not
-   * abort the startup.
+   * earlier, such as its service manager, cannot carry the tag. Each leftover
+   * is handled on its own: a failure is logged and keeps only that directory,
+   * it never aborts the startup or the cleanup of the others.
    */
-  public async recover(): Promise<void> {
+  public async recover(): Promise<readonly AcpCredentialLeftover[]> {
     const root = await realpath(this.root);
+    const unconfirmed: AcpCredentialLeftover[] = [];
     for (const entry of await readdir(root, { withFileTypes: true })) {
       const instanceId = CREDENTIAL_DIRECTORY_PATTERN.exec(entry.name)?.[1];
       if (
@@ -155,12 +171,16 @@ export class CliGitHubCredentials {
         !INSTANCE_PATTERN.test(instanceId)
       )
         continue;
-      const scope = await creationScope(path.join(root, entry.name));
-      const cleanup = await endTaggedProcesses(instanceId, scope);
-      if (cleanup.remaining !== 0)
-        throw new AgentError("credential_cleanup_failed");
-      await this.remove(path.join(root, entry.name));
+      const leftover = await this.recoverLeftover(root, entry.name, instanceId);
+      if (leftover) unconfirmed.push(leftover);
     }
+    this.unconfirmed = unconfirmed;
+    return unconfirmed;
+  }
+
+  /** The leftovers the startup could not clean up; secret-free, for administrators only. */
+  public leftovers(): readonly AcpCredentialLeftover[] {
+    return this.unconfirmed;
   }
 
   private async configure(
@@ -233,6 +253,46 @@ export class CliGitHubCredentials {
         ]),
       },
     };
+  }
+
+  /** Ends the processes of one leftover and removes it; null once both are confirmed. */
+  private async recoverLeftover(
+    root: string,
+    name: string,
+    instanceId: string,
+  ): Promise<AcpCredentialLeftover | null> {
+    const directory = path.join(root, name);
+    try {
+      const cleanup = await endTaggedProcesses(
+        instanceId,
+        await creationScope(directory),
+      );
+      if (cleanup.remaining !== 0) {
+        console.error(
+          `[pages] ${cleanup.remaining} process(es) of the interrupted session ${instanceId} could not be ended. Its credential leftover ${name} stays until a later start confirms the cleanup.`,
+        );
+        return { directory: name, instanceId, reason: "processes" };
+      }
+    } catch (error: unknown) {
+      console.error(
+        `[pages] Pages could not confirm that no process of the interrupted session ${instanceId} still runs. Its credential leftover ${name} stays until a later start confirms the cleanup.`,
+        error,
+      );
+      return { directory: name, instanceId, reason: "processes" };
+    }
+    try {
+      await rm(directory, { recursive: true, force: true });
+    } catch (error: unknown) {
+      console.error(
+        `[pages] The processes of the interrupted session ${instanceId} ended, but its credential leftover ${name} could not be removed. A later start tries again.`,
+        error,
+      );
+      return { directory: name, instanceId, reason: "removal" };
+    }
+    console.info(
+      `[pages] Removed the credential leftover ${name} of the interrupted session ${instanceId}.`,
+    );
+    return null;
   }
 
   private async remove(directory: string): Promise<void> {

@@ -13,6 +13,7 @@ vi.mock("@/app/lib/services.server", () => ({
   getApplicationServices: async () => ({
     administrationService: { getContext: services.getContext },
     acpResourceScheduler: { inspect: services.snapshot },
+    agentCliGitHubCredentials: { leftovers: () => [] },
   }),
 }));
 
@@ -78,7 +79,7 @@ it("returns the authorized snapshot without caching and rechecks the account on 
   services.snapshot.mockReturnValue(snapshot);
   const result = await request();
   expect(result.status).toBe(200);
-  expect(await result.json()).toEqual(snapshot);
+  expect(await result.json()).toEqual({ ...snapshot, leftovers: [] });
   expect(result.headers.get("Cache-Control")).toBe("no-store");
   services.getContext.mockResolvedValueOnce(account({ isAdmin: false }));
   expect((await request()).status).toBe(403);
