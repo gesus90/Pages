@@ -2,6 +2,7 @@ import { Server } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { SettingsSectionHeader } from "@/app/components/settings/settings-layout";
+import { AcpResourcesCard } from "@/app/components/settings/agents/acp-resources-card";
 import { ChatSettingsCard } from "@/app/components/settings/system/chat-settings-card";
 import { InstanceCard } from "@/app/components/settings/system/instance-card";
 import { ServerCard } from "@/app/components/settings/system/server-card";
@@ -59,6 +60,7 @@ export function SystemSection({
         <div className="flex flex-col gap-4">
           <InstanceCard branding={branding} />
           <WikiSettingsCard settings={wikiSettings} />
+          <AcpResourcesCard canConfigure />
         </div>
         <div className="flex flex-col gap-4">
           <StatusCard status={status} />

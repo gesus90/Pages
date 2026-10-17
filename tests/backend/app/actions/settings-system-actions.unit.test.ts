@@ -20,6 +20,7 @@ import type { FormFields } from "./action-fixtures";
 
 const holder = vi.hoisted(() => ({
   updatePort: vi.fn(),
+  updateAcpResources: vi.fn(),
   created: [] as unknown[][],
 }));
 
@@ -31,6 +32,7 @@ vi.mock("@/backend/service/ServerSettingsService", () => {
 
   class ServerSettingsService {
     public readonly updatePort = holder.updatePort;
+    public readonly updateAcpResources = holder.updateAcpResources;
 
     public constructor(...parameters: unknown[]) {
       holder.created.push(parameters);
@@ -45,7 +47,7 @@ vi.mock("@/backend/service/ServerSettingsService", () => {
 
 const services = {
   permissionService: { allows: vi.fn() },
-  administrationService: { setMode: vi.fn() },
+  administrationService: { setMode: vi.fn(), getContext: vi.fn() },
 };
 
 beforeEach(() => {
@@ -179,6 +181,35 @@ describe("handleSystemSettingsAction", () => {
     expect(services.administrationService.setMode).toHaveBeenCalledWith(
       ACTOR.id,
       "role",
+    );
+  });
+
+  it("dispatches the ACP limit form to the existing system settings service", async () => {
+    services.administrationService.getContext.mockResolvedValue({
+      isActive: true,
+      isAdmin: true,
+      mode: "admin",
+    });
+    holder.updateAcpResources.mockResolvedValue({
+      ok: false,
+      error: "invalidSetting",
+    });
+    const result = await handleSystemSettingsAction(
+      "update-acp-resources",
+      settingsContext(services, { maxConcurrentAcpSessions: "invalid" }),
+    );
+    expect(await outcomeOf(result)).toMatchObject({
+      status: 400,
+      body: {
+        intent: "update-acp-resources",
+        ok: false,
+        error: "invalidSetting",
+      },
+    });
+    expect(holder.updateAcpResources).toHaveBeenCalledWith(
+      ACTOR,
+      Number.NaN,
+      undefined,
     );
   });
 });

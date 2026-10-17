@@ -54,6 +54,7 @@ it("shows occupied slots, FIFO wait reasons, memory and failed cleanup without p
       acpIdleTimeout: 300000,
       queueDiscipline: "fifo",
     },
+    limitSource: "config",
     availableMemory: 1024,
     problem: "storage",
     active: [
@@ -83,7 +84,7 @@ it("shows occupied slots, FIFO wait reasons, memory and failed cleanup without p
   };
   const view = renderCard();
   expect(
-    screen.getByText("1 / 1 native Sessions belegt · 1 wartend"),
+    screen.getByText("Belegt: 1 · Limit: 1 · Warteschlange: 1"),
   ).toBeTruthy();
   expect(screen.getByText(/Verfügbarer RAM: 1024 MiB/)).toBeTruthy();
   expect(

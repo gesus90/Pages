@@ -6,6 +6,7 @@ import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { readSettingsRequest } from "@/app/lib/settings-actions/settings-request.server";
 import { resolveSystemSettingsAccess } from "@/app/lib/settings-actions/settings-system-access.server";
+import { AGENT_NO_STORE } from "@/app/lib/settings-actions/settings-agents-response.server";
 import {
   createServerSettingsService,
   handleSystemSettingsAction,
@@ -35,6 +36,13 @@ type SettingsSystemLoaderData =
       readonly chatSettings: ChatAdministration;
     }
   | { readonly access: "adminModeRequired" };
+
+/** Keeps administrator data and confirmed ACP snapshots out of document and data caches. */
+export const headers: Route.HeadersFunction = ({ parentHeaders }) => {
+  const responseHeaders = new Headers(parentHeaders);
+  responseHeaders.set("Cache-Control", AGENT_NO_STORE["Cache-Control"]);
+  return responseHeaders;
+};
 
 /**
  * Loads the system settings for an administrator in the admin mode.

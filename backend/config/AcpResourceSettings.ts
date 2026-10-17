@@ -36,20 +36,19 @@ export function readAcpResourceSettings(
     throw new Error("Invalid ACP memory reserve");
   if (acpIdleTimeout !== undefined && typeof acpIdleTimeout !== "number")
     throw new Error("Invalid ACP idle timeout");
-  return readAcpResourceOptions(
-    {
-      ...(maxConcurrentAcpSessions === undefined
-        ? {}
-        : { maxConcurrentAcpSessions }),
-      ...(memoryAwareScheduling === undefined ? {} : { memoryAwareScheduling }),
-      ...(minimumAvailableMemory === undefined
-        ? {}
-        : { minimumAvailableMemory }),
-      ...(acpIdleTimeout === undefined ? {} : { acpIdleTimeout }),
-      queueDiscipline: readQueueDiscipline(table.queueDiscipline),
-    },
-    {},
-  );
+  const settings: Partial<AcpResourceOptions> = {
+    ...(maxConcurrentAcpSessions === undefined
+      ? {}
+      : { maxConcurrentAcpSessions }),
+    ...(memoryAwareScheduling === undefined ? {} : { memoryAwareScheduling }),
+    ...(minimumAvailableMemory === undefined ? {} : { minimumAvailableMemory }),
+    ...(acpIdleTimeout === undefined ? {} : { acpIdleTimeout }),
+    ...(table.queueDiscipline === undefined
+      ? {}
+      : { queueDiscipline: readQueueDiscipline(table.queueDiscipline) }),
+  };
+  readAcpResourceOptions(settings, {});
+  return settings;
 }
 
 function readQueueDiscipline(input: unknown): "fifo" {

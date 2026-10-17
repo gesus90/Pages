@@ -1,4 +1,6 @@
 import { DEFAULT_PORT, isValidPort } from "@/backend/config/PagesConfig";
+import { SerialQueue } from "@/backend/concurrency/SerialQueue";
+import { isAcpSessionLimit } from "@/definition/AcpResource";
 import { PERMISSION } from "@/definition/Role";
 import { PAGES_VERSION } from "@/definition/Version";
 import {
@@ -13,6 +15,8 @@ import {
 
 import type { PermissionService } from "@/backend/auth/PermissionService";
 import type { ConfigFile } from "@/backend/config/ConfigFile";
+import type { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceScheduler";
+import type { AcpResourceUpdateResult } from "@/definition/AcpResource";
 import type { User } from "@/definition/User";
 import type { LoggingStatus } from "@/definition/Logging";
 
@@ -37,10 +41,14 @@ export interface ServerStatus {
  * Reads and changes the server settings stored in the configuration file.
  *
  * @remarks
- * Changes are written to `config.toml` and take effect when Pages starts
- * the next time; a `--port` start parameter still wins over them.
+ * Changes are written to `config.toml`. ACP admission and log retention apply
+ * immediately; the port applies after restart and start parameters still win.
  */
 export class ServerSettingsService {
+  private static readonly acpUpdates = new WeakMap<
+    AcpResourceScheduler,
+    SerialQueue
+  >();
   private readonly configFile: ConfigFile;
   private readonly permissionService: PermissionService;
 
@@ -112,6 +120,37 @@ export class ServerSettingsService {
     });
     await updateLogRetention(days);
     return true;
+  }
+
+  /** Serializes persistence and live admission changes across all administrator requests. */
+  public async updateAcpResources(
+    actor: User,
+    limit: number,
+    scheduler: AcpResourceScheduler,
+  ): Promise<AcpResourceUpdateResult> {
+    const updates =
+      ServerSettingsService.acpUpdates.get(scheduler) ?? new SerialQueue();
+    ServerSettingsService.acpUpdates.set(scheduler, updates);
+    return updates.run(async () => {
+      if (!(await this.canManage(actor))) throw new ServerSettingsDeniedError();
+      if (!isAcpSessionLimit(limit))
+        return { ok: false, error: "invalidSetting" };
+      if (scheduler.snapshot().limitSource === "environment")
+        return { ok: false, error: "environmentOverride" };
+      await this.configFile.update((config) => ({
+        ...config,
+        maxConcurrentAcpSessions: limit,
+      }));
+      const resources = scheduler.updateMaxConcurrentAcpSessions(limit);
+      logEvent({
+        level: "info",
+        event: "acp.resources.limit.changed",
+        component: "ServerSettingsService",
+        message: "Administrator changed global ACP admission limit",
+        metadata: { userId: actor.id, maxConcurrentAcpSessions: limit },
+      });
+      return { ok: true, resources };
+    });
   }
 
   /**

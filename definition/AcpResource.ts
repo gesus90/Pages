@@ -1,5 +1,30 @@
+/** Absolute admission ceiling, including the configured unlimited mode. */
+export const MAX_ACP_SESSIONS = 999;
+
+/** Accepts only numeric, whole instance limits; zero means unlimited up to the ceiling. */
+export function isAcpSessionLimit(input: unknown): input is number {
+  return (
+    typeof input === "number" &&
+    Number.isInteger(input) &&
+    input >= 0 &&
+    input <= MAX_ACP_SESSIONS
+  );
+}
+
+/** Parses decimal form or environment text without accepting empty, fractional or coercible strings. */
+export function parseAcpSessionLimit(input: unknown): number | null {
+  const candidate =
+    typeof input === "string" && /^\d+$/u.test(input.trim())
+      ? Number(input.trim())
+      : input;
+  return isAcpSessionLimit(candidate) ? candidate : null;
+}
+
+export type AcpResourceLimitSource = "default" | "config" | "environment";
+
 /** Limits for native ACP processes; memory and idle duration use MiB and milliseconds. */
 export interface AcpResourceOptions {
+  /** Zero uses the absolute ceiling instead of disabling admission. */
   readonly maxConcurrentAcpSessions: number;
   readonly memoryAwareScheduling: boolean;
   readonly minimumAvailableMemory: number;
@@ -36,6 +61,7 @@ export type AcpWaitReason =
 /** Instance-wide diagnostics, served only after administrative authorization. */
 export interface AcpResourceSnapshot {
   readonly options: AcpResourceOptions;
+  readonly limitSource: AcpResourceLimitSource;
   readonly availableMemory: number | null;
   readonly problem: "storage" | null;
   readonly active: readonly (AcpResourceRecord & {
@@ -46,6 +72,14 @@ export interface AcpResourceSnapshot {
     readonly reason: AcpWaitReason;
   })[];
 }
+
+/** A limit is acknowledged only after persistence and application to the shared scheduler. */
+export type AcpResourceUpdateResult =
+  | { readonly ok: true; readonly resources: AcpResourceSnapshot }
+  | {
+      readonly ok: false;
+      readonly error: "invalidSetting" | "environmentOverride" | "general";
+    };
 
 /**
  * A crash leftover of one session's GitHub credentials whose cleanup the

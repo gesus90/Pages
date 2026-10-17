@@ -1038,7 +1038,7 @@
       "resources": {
         "title": "ACP resources",
         "unavailable": "Resource status is loading or unavailable.",
-        "summary": "{{active}} / {{limit}} native sessions occupied · {{waiting}} waiting",
+        "summary": "Occupied: {{active}} · Limit: {{limit}} · Queue: {{waiting}}",
         "ram": "Available RAM: {{available}} MiB · Reserve: {{reserve}} MiB",
         "memoryEnabled": "Memory check enabled",
         "memoryDisabled": "Memory check disabled",
@@ -1058,6 +1058,25 @@
         "leftover": {
           "processes": "{{directory}} (session {{instance}}): a process of this session may still be running. Capacity and the workspace reservation stay occupied. End the processes with PAGES_RUN_INSTANCE={{instance}} and restart Pages.",
           "removal": "{{directory}} (session {{instance}}): its processes ended, but the directory could not be removed. Capacity and the workspace reservation stay occupied. Check the directory permissions and restart Pages."
+        },
+        "description": "Shared native ACP capacity for Pica and Agent Plans. Every reserved session occupies capacity, including starting, idle and until cleanup is confirmed.",
+        "unlimited": "Unlimited (max. 999)",
+        "limitLabel": "Maximum ACP instances",
+        "limitHint": "Whole numbers from 0 to 999. 0 = unlimited, up to 999. Memory checks and safe cleanup still apply.",
+        "applyHint": "Applies system-wide immediately and survives a restart. Reducing the limit does not end occupied sessions.",
+        "environmentHint": "PAGES_MAX_CONCURRENT_ACP_SESSIONS determines the effective limit. Editing is disabled here; change the environment variable when starting the server.",
+        "save": "Apply",
+        "saving": "Saving and applying …",
+        "saved": "ACP limit saved and applied.",
+        "source": {
+          "default": "Source: default",
+          "config": "Source: instance configuration (config.toml)",
+          "environment": "Source: environment variable PAGES_MAX_CONCURRENT_ACP_SESSIONS"
+        },
+        "error": {
+          "invalidSetting": "Enter a whole number from 0 to 999.",
+          "environmentOverride": "The environment variable overrides the limit. It cannot be changed here.",
+          "general": "The ACP limit could not be fully saved and applied. The effective limit is shown below."
         }
       },
       "openCodeProvider": "Key provider for OpenCode",

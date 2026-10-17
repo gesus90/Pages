@@ -1,18 +1,34 @@
-import { useEffect } from "react";
+import { Cpu } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
+
+import { SettingsCard } from "@/app/components/settings/settings-layout";
+
+import { AcpResourceLimitForm } from "./acp-resource-limit-form";
 
 import type {
   AcpCredentialLeftover,
   AcpResourceDiagnostics,
+  AcpResourceSnapshot,
 } from "@/definition/AcpResource";
 
+interface AcpResourcesCardProps {
+  readonly canConfigure?: boolean;
+}
+
 /** Polls the authorized resource endpoint without starting native processes or provider checks. */
-export function AcpResourcesCard(): React.ReactElement {
+export function AcpResourcesCard({
+  canConfigure = false,
+}: AcpResourcesCardProps): React.ReactElement {
   const { t } = useTranslation();
   const { data: resources, load } = useFetcher<
     AcpResourceDiagnostics | { error: string }
-  >();
+  >({ key: "acp-resources" });
+  const [applied, setApplied] = useState<{
+    readonly previous: typeof resources;
+    readonly snapshot: AcpResourceSnapshot;
+  } | null>(null);
   useEffect(() => {
     void load("/agent-api/resources");
     const timer = setInterval(() => {
@@ -20,20 +36,37 @@ export function AcpResourcesCard(): React.ReactElement {
     }, 5000);
     return () => clearInterval(timer);
   }, [load]);
+  let current = resources;
+  if (current && "active" in current && applied?.previous === current)
+    current = { ...current, ...applied.snapshot };
+
+  function handleApplied(snapshot: AcpResourceSnapshot): void {
+    setApplied({ previous: resources, snapshot });
+    void load("/agent-api/resources");
+  }
+
   return (
-    <section
-      className="space-y-3 rounded-lg border border-border bg-surface p-4"
-      aria-label={t("settings.agents.resources.title")}
+    <SettingsCard
+      title={t("settings.agents.resources.title")}
+      description={t("settings.agents.resources.description")}
+      icon={<Cpu className="size-4" aria-hidden="true" />}
     >
-      <h2 className="font-semibold">{t("settings.agents.resources.title")}</h2>
-      {resources && "active" in resources ? (
-        <ResourceDetails resources={resources} />
+      {current && "active" in current ? (
+        <div className="space-y-4">
+          {canConfigure ? (
+            <AcpResourceLimitForm
+              resources={current}
+              onApplied={handleApplied}
+            />
+          ) : null}
+          <ResourceDetails resources={current} />
+        </div>
       ) : (
-        <p className="text-sm text-muted-foreground">
+        <p role="status" className="text-sm text-muted-foreground">
           {t("settings.agents.resources.unavailable")}
         </p>
       )}
-    </section>
+    </SettingsCard>
   );
 }
 
@@ -72,14 +105,21 @@ function ResourceDetails({
   readonly resources: AcpResourceDiagnostics;
 }): React.ReactElement {
   const { t } = useTranslation();
+  const limit =
+    resources.options.maxConcurrentAcpSessions === 0
+      ? t("settings.agents.resources.unlimited")
+      : resources.options.maxConcurrentAcpSessions;
   return (
     <div className="space-y-2 text-sm">
-      <p>
+      <p role="status" aria-live="polite" aria-atomic="true">
         {t("settings.agents.resources.summary", {
           active: resources.active.length,
-          limit: resources.options.maxConcurrentAcpSessions,
+          limit,
           waiting: resources.waiting.length,
         })}
+      </p>
+      <p className="text-muted-foreground">
+        {t(`settings.agents.resources.source.${resources.limitSource}`)}
       </p>
       <p className="text-muted-foreground">
         {t("settings.agents.resources.ram", {

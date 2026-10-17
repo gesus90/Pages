@@ -1362,10 +1362,10 @@ steps are executable. ACP admission has a separate shared FIFO queue; queued
 steps have no native ACP process and do not occupy the DAG's two non-ACP
 execution slots. API work retains its existing request execution path.
 
-Optional flat keys in the instance's `config.toml` (restart applies changes):
+Optional flat keys in the instance's `config.toml` (manual edits apply after restart):
 
 ```toml
-maxConcurrentAcpSessions = 1
+maxConcurrentAcpSessions = 2  # 0–999; 0 = unlimited up to the absolute ceiling of 999
 memoryAwareScheduling = true
 minimumAvailableMemory = 2048 # MiB, Linux MemAvailable
 acpIdleTimeout = 300000       # milliseconds between native turns
@@ -1378,6 +1378,17 @@ settings. Invalid settings refuse startup. With memory checks enabled, a
 missing measurement or RAM below the reserve blocks new starts. Waiters are
 rechecked every second without another user action. The reserve is a start
 threshold, not a prediction of a model's future consumption.
+
+Without an explicit concurrency setting the default is **2**; an existing saved
+value, including **1**, is preserved. In **Settings → System → ACP resources**,
+an active administrator in admin mode can save a whole number from **0 to 999**.
+The change is persisted to the instance configuration and applied to the shared
+Pica/Agent Plans scheduler immediately. Raising the limit wakes eligible FIFO
+waiters without resubmission; lowering it preserves every occupied lease and
+waiter. **0** displays as **Unlimited (max. 999)** and keeps RAM, cleanup and
+recovery checks active. The ceiling does not imply hardware capacity for 999
+processes. When `PAGES_MAX_CONCURRENT_ACP_SESSIONS` controls admission, the card
+shows that source and disables edits; direct form submissions are refused too.
 
 Starting, running, paused-but-existing, idle and uncertain native sessions
 all occupy capacity. A DuckDB lease is committed before the first start
@@ -1406,7 +1417,10 @@ uncertain journal writes fail closed; retained leases are retried during the
 next normal startup. No automatic in-process cleanup retry or force-release UI
 is provided.
 
-The **ACP resources** card in Settings → Agents polls `/agent-api/resources`.
+The shared **ACP resources** card in Settings → System and Settings → Agents
+polls `/agent-api/resources` every five seconds while open and refreshes after
+a confirmed limit change. It shows global occupied leases, the effective limit,
+its source and the combined Pica/Agent Plans queue.
 The endpoint rechecks an active personal administrator in admin mode on every
 request and uses `no-store`. It shows occupied sessions, waiting reasons,
 current available RAM, paused blockers and failed cleanup, and names each

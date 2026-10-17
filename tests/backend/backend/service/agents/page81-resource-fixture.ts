@@ -77,7 +77,7 @@ export function nativeSession(): PlanSession & {
   };
 }
 
-/** Memory and durable storage are controlled boundaries; no real database is opened. */
+/** Controlled boundaries with an explicit single-slot limit for the original FIFO/lifecycle regressions. */
 export function resourceWorld(options: Partial<AcpResourceOptions> = {}): {
   readonly scheduler: AcpResourceScheduler;
   readonly records: Map<string, AcpResourceRecord>;
@@ -121,7 +121,7 @@ export function resourceWorld(options: Partial<AcpResourceOptions> = {}): {
   >(async () => ({ remaining: 0 }));
   const scheduler = new AcpResourceScheduler({
     store,
-    options,
+    options: { maxConcurrentAcpSessions: 1, ...options },
     memory,
     cleanup,
   });

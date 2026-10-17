@@ -109,6 +109,7 @@ it("checks saved active CLI sign-ins after startup without changing login metada
     runtime: { check },
     resources: {
       snapshot: () => ({
+        limitSource: "config",
         options: {
           maxConcurrentAcpSessions: 1,
           memoryAwareScheduling: true,

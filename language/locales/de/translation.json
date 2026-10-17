@@ -1038,7 +1038,7 @@
       "resources": {
         "title": "ACP-Ressourcen",
         "unavailable": "Ressourcenstatus wird geladen oder ist nicht verfügbar.",
-        "summary": "{{active}} / {{limit}} native Sessions belegt · {{waiting}} wartend",
+        "summary": "Belegt: {{active}} · Limit: {{limit}} · Warteschlange: {{waiting}}",
         "ram": "Verfügbarer RAM: {{available}} MiB · Reserve: {{reserve}} MiB",
         "memoryEnabled": "RAM-Prüfung aktiv",
         "memoryDisabled": "RAM-Prüfung deaktiviert",
@@ -1058,6 +1058,25 @@
         "leftover": {
           "processes": "{{directory}} (Sitzung {{instance}}): Ein Prozess dieser Sitzung läuft möglicherweise noch. Kapazität und Workspace-Sperre bleiben belegt. Beenden Sie die Prozesse mit PAGES_RUN_INSTANCE={{instance}} und starten Sie Pages neu.",
           "removal": "{{directory}} (Sitzung {{instance}}): Die Prozesse sind beendet, aber das Verzeichnis ließ sich nicht löschen. Kapazität und Workspace-Sperre bleiben belegt. Prüfen Sie die Berechtigungen des Verzeichnisses und starten Sie Pages neu."
+        },
+        "description": "Gemeinsame native ACP-Kapazität für Pica und Agent Plans. Alle reservierten Sessions zählen als belegt, auch beim Start, im Idle und bis zur bestätigten Bereinigung.",
+        "unlimited": "Unbegrenzt (max. 999)",
+        "limitLabel": "Maximale ACP-Instanzen",
+        "limitHint": "Ganze Zahlen von 0 bis 999. 0 = unbegrenzt, maximal 999. RAM-Prüfung und sichere Bereinigung gelten weiterhin.",
+        "applyHint": "Gilt systemweit sofort und bleibt nach einem Neustart erhalten. Eine Reduktion beendet keine belegten Sessions.",
+        "environmentHint": "PAGES_MAX_CONCURRENT_ACP_SESSIONS bestimmt das wirksame Limit. Änderungen sind hier gesperrt; die Umgebungsvariable muss beim Serverstart geändert werden.",
+        "save": "Übernehmen",
+        "saving": "Wird gespeichert und angewendet …",
+        "saved": "ACP-Limit gespeichert und angewendet.",
+        "source": {
+          "default": "Quelle: Standardwert",
+          "config": "Quelle: Instanzkonfiguration (config.toml)",
+          "environment": "Quelle: Umgebungsvariable PAGES_MAX_CONCURRENT_ACP_SESSIONS"
+        },
+        "error": {
+          "invalidSetting": "Bitte eine ganze Zahl von 0 bis 999 eingeben.",
+          "environmentOverride": "Die Umgebungsvariable überschreibt das Limit. Hier ist keine Änderung möglich.",
+          "general": "Das ACP-Limit konnte nicht vollständig gespeichert und angewendet werden. Das wirksame Limit wird unten angezeigt."
         }
       },
       "openCodeProvider": "Schlüsselanbieter für OpenCode",

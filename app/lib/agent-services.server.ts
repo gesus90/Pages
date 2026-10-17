@@ -5,7 +5,10 @@ import { createAgentToolManager } from "@/backend/service/agents/tools/AgentTool
 import { AgentToolStartupService } from "@/backend/service/agents/tools/AgentToolStartupService";
 import { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceScheduler";
 import { AcpResourceRepository } from "@/backend/database/repositories/agent/AcpResourceRepository";
-import { readAcpResourceOptions } from "@/backend/config/AcpResourceConfig";
+import {
+  readAcpResourceLimitSource,
+  readAcpResourceOptions,
+} from "@/backend/config/AcpResourceConfig";
 import { CatalogProviderClient } from "@/backend/agents/catalog/CatalogProviderClient";
 import { AgentCatalogRefresh } from "@/backend/service/agents/AgentCatalogRefresh";
 import { AgentCatalogService } from "@/backend/service/agents/AgentCatalogService";
@@ -300,6 +303,7 @@ export function createAgentServices(
   const acpResourceScheduler = new AcpResourceScheduler({
     store: new AcpResourceRepository(database),
     options: readAcpResourceOptions(resources.acpOptions),
+    limitSource: readAcpResourceLimitSource(resources.acpOptions),
   });
   const configuration = createAgentConfigurationServices({
     database,

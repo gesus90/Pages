@@ -7,6 +7,7 @@ import { readAcpResourceOptions } from "@/backend/config/AcpResourceConfig";
 import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
 import { logCaughtError } from "@/backend/logging/Logger";
+import { isAcpSessionLimit, MAX_ACP_SESSIONS } from "@/definition/AcpResource";
 
 import { readAcpAvailableMemory } from "./resources/AcpMemory";
 import { ScheduledAcpSession } from "./resources/ScheduledAcpSession";
@@ -17,6 +18,7 @@ import type {
 } from "@/backend/agents/AgentPlanExecution";
 import type {
   AcpResourceOptions,
+  AcpResourceLimitSource,
   AcpResourceOwner,
   AcpResourceRecord,
   AcpResourceSnapshot,
@@ -28,6 +30,7 @@ import type { AcpResourceStore } from "./resources/AcpResourceStore";
 interface SchedulerDependencies {
   readonly store: AcpResourceStore;
   readonly options?: Partial<AcpResourceOptions>;
+  readonly limitSource?: AcpResourceLimitSource;
   readonly memory?: () => Promise<number | null>;
   /** Ends the processes of a lease; `startedAt` is `null` when its start is unknown. */
   readonly cleanup?: (
@@ -57,7 +60,8 @@ interface WaitingRequest {
 /** Shared FIFO admission for ACP processes, independent of DAG scheduling and provider. */
 export class AcpResourceScheduler {
   private readonly store: AcpResourceStore;
-  private readonly options: AcpResourceOptions;
+  private options: AcpResourceOptions;
+  private limitSource: AcpResourceLimitSource;
   private readonly memory: () => Promise<number | null>;
   private readonly cleanup: NonNullable<SchedulerDependencies["cleanup"]>;
   private readonly writes = new SerialQueue();
@@ -78,6 +82,11 @@ export class AcpResourceScheduler {
   public constructor(dependencies: SchedulerDependencies) {
     this.store = dependencies.store;
     this.options = readAcpResourceOptions(dependencies.options, {});
+    this.limitSource =
+      dependencies.limitSource ??
+      (dependencies.options?.maxConcurrentAcpSessions === undefined
+        ? "default"
+        : "config");
     this.memory = dependencies.memory ?? readAcpAvailableMemory;
     this.cleanup = dependencies.cleanup ?? endLeaseProcesses;
   }
@@ -164,10 +173,23 @@ export class AcpResourceScheduler {
     return this.snapshot();
   }
 
+  /** Changes admission immediately and wakes FIFO waiters without interrupting occupied leases. */
+  public updateMaxConcurrentAcpSessions(limit: number): AcpResourceSnapshot {
+    if (!isAcpSessionLimit(limit))
+      throw new Error("Invalid ACP resource setting: maxConcurrentAcpSessions");
+    if (this.limitSource === "environment")
+      throw new Error("ACP concurrency is controlled by the environment");
+    this.options = { ...this.options, maxConcurrentAcpSessions: limit };
+    this.limitSource = "config";
+    this.wake();
+    return this.snapshot();
+  }
+
   /** Returns secret-free global diagnostics; callers must require administrative access. */
   public snapshot(): AcpResourceSnapshot {
     return {
       options: this.options,
+      limitSource: this.limitSource,
       availableMemory: this.availableMemory,
       problem: this.problem,
       active: [...this.active.values()].map((record) => ({
@@ -305,15 +327,12 @@ export class AcpResourceScheduler {
   }
 
   private async pump(): Promise<void> {
-    while (
-      this.isReady &&
-      !this.isClosing &&
-      !this.problem &&
-      this.active.size < this.options.maxConcurrentAcpSessions
-    ) {
+    while (this.canAdmit()) {
       const request = this.waiting.find((entry) => !this.isPaused(entry));
       if (!request) return;
       await this.refreshMemory();
+      // A live reduction or shutdown may have happened during the memory probe.
+      if (!this.canAdmit()) return;
       if (
         this.options.memoryAwareScheduling &&
         (this.availableMemory === null ||
@@ -429,12 +448,26 @@ export class AcpResourceScheduler {
     );
   }
 
+  private admissionCap(): number {
+    return this.options.maxConcurrentAcpSessions === 0
+      ? MAX_ACP_SESSIONS
+      : this.options.maxConcurrentAcpSessions;
+  }
+
+  private canAdmit(): boolean {
+    return (
+      this.isReady &&
+      !this.isClosing &&
+      !this.problem &&
+      this.active.size < this.admissionCap()
+    );
+  }
+
   private waitReason(request: WaitingRequest): AcpWaitReason {
     if (this.isPaused(request)) return "paused";
     if (!this.isReady) return "recovery";
     if (this.problem) return "scheduler_error";
-    if (this.active.size >= this.options.maxConcurrentAcpSessions)
-      return "capacity";
+    if (this.active.size >= this.admissionCap()) return "capacity";
     if (this.options.memoryAwareScheduling && this.availableMemory === null)
       return "memory_unknown";
     if (
