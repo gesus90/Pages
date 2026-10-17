@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
+import { agentToolFailureEvents } from "@/backend/service/agents/tools/AgentToolSession";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
@@ -606,6 +607,7 @@ export class AgentPlanStepRunner {
         endedAt: new Date().toISOString(),
         closeout: failureCloseout(node, error),
         resultCode: -1,
+        events: agentToolFailureEvents(error, node.record.events),
       });
     if (node.record?.closeout === "failed")
       return {

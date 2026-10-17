@@ -2,6 +2,7 @@ import { resolveDefaultConfigPath } from "@/backend/config/PagesConfig";
 import { logCaughtError, initializeLogging } from "@/backend/logging/Logger";
 
 import { installProcessLogging, shutdownProcess } from "./ProcessLifecycle";
+import { startAgentTools } from "./AgentToolsStartup";
 import { announceServer } from "./PagesServer";
 import { initializePagesRuntime } from "./PagesRuntime";
 import { logRequest } from "./RequestLogging";
@@ -38,6 +39,8 @@ export async function startDevelopmentRuntime(
     installRequests?.((request, response, next) =>
       logRequest(request, response, next),
     );
+
+    void startAgentTools(runtime);
     announceServer(
       runtime,
       serverUrls.map((url) => url.replace(/\/$/u, "")),

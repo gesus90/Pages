@@ -1,3 +1,14 @@
+import { agentPlaywrightServer } from "@/backend/service/agents/tools/AgentPlaywrightSession";
+
+import {
+  pinnedAgentToolDriver,
+  agentToolAdapterVersion,
+  prepareAgentToolSession,
+  observeAgentToolSession,
+  superviseAgentToolSession,
+} from "@/backend/service/agents/tools/AgentToolSession";
+import { providerToolIds } from "@/backend/service/agents/tools/AgentToolRegistry";
+
 import { acpDriverFor } from "@/backend/agents/acp/AcpDrivers";
 import { AcpLineChannel } from "@/backend/agents/acp/AcpLineChannel";
 import { AcpSession } from "@/backend/agents/acp/AcpSession";
@@ -16,6 +27,9 @@ import { createCliEnvironment } from "./CliEnvironment";
 import { closeCliSession } from "./CliSessionCloseout";
 import { unsupportedRunOption } from "./CliSessionPlans";
 
+import type { AgentToolManagerService } from "@/backend/service/agents/tools/AgentToolManagerService";
+import type { AgentToolId } from "@/definition/AgentTools";
+import type { AgentToolLocation } from "@/backend/service/agents/tools/AgentToolContracts";
 import type {
   AgentPlanSessionInput,
   PlanSession,
@@ -54,11 +68,16 @@ export interface CliIsolationOptions {
   readonly protectedDirectories: readonly string[];
   /** Refuse a run instead of starting it unisolated when bubblewrap does not work. */
   readonly isRequired: boolean;
+  /** Explicit read-only tool mounts after the service home has been hidden. */
+  readonly readOnlyDirectories?: readonly string[];
+  /** Service homes hidden before rebinding the authorized workspace and this connection. */
+  readonly hiddenDirectories?: readonly string[];
   /** Decides whether bubblewrap works; defaults to a real probe. */
   readonly probe?: () => Promise<boolean>;
 }
 
 interface SessionDependencies {
+  readonly tools?: AgentToolManagerService;
   readonly resources?: AcpResourceScheduler;
   readonly runtime: Pick<AgentCliRuntime, "adapter">;
   readonly store: Pick<AgentCredentialStore, "prepare" | "secure">;
@@ -76,7 +95,9 @@ interface VerifiedStart {
   readonly file: string;
   /** The ACP entry point of this CLI connection. */
   readonly adapter: string | null;
+  readonly adapterVersion?: string | null;
   readonly credentials?: CliCredentialAccess;
+  readonly browser?: Awaited<ReturnType<typeof agentPlaywrightServer>>;
 }
 
 /** The stop signal and the observer of one session start. */
@@ -112,9 +133,14 @@ export class CliSessionExecution implements PlanSessionRunner {
     this.dependencies = dependencies;
     const { isolation } = dependencies;
     this.isolation = isolation
-      ? new CliPlanIsolation(isolation.protectedDirectories, isolation.probe)
+      ? new CliPlanIsolation(
+          isolation.protectedDirectories,
+          isolation.probe,
+          isolation,
+        )
       : null;
-    this.isIsolationRequired = isolation?.isRequired === true;
+    this.isIsolationRequired =
+      dependencies.tools !== undefined || isolation?.isRequired === true;
   }
 
   /**
@@ -155,22 +181,43 @@ export class CliSessionExecution implements PlanSessionRunner {
     signal: AbortSignal,
     observer: PlanSessionObserver,
   ): Promise<PlanSession> {
-    const start = await this.verify(input, signal);
+    const { tools } = this.dependencies;
+    const locations = tools
+      ? await prepareAgentToolSession({
+          manager: tools,
+          request: input,
+          signal,
+        })
+      : undefined;
+    let hasVerified = false;
     try {
-      return await this.spawn(input, start, { signal, observer });
+      const start = await this.verify(input, signal, locations);
+      hasVerified = true;
+      const watched = tools
+        ? observeAgentToolSession(tools, input.instanceId, observer)
+        : observer;
+      const session = await this.spawn(input, start, {
+        signal,
+        observer: watched,
+      });
+      return tools
+        ? superviseAgentToolSession(tools, input.instanceId, session)
+        : session;
     } catch (error: unknown) {
       logCaughtError("CliSessionExecution", error);
 
-      try {
-        await this.dependencies.store.secure(
-          input.agent.connection.id,
-          start.provider,
-        );
-      } catch (secureError: unknown) {
-        logCaughtError("CliSessionExecution", secureError);
+      if (!(error instanceof AcpCleanupUnconfirmedError))
+        tools?.supervisor.release(input.instanceId);
+      const provider = input.agent.connection.provider;
+      if (hasVerified && !isApiProvider(provider))
+        await this.dependencies.store
+          .secure(input.agent.connection.id, provider)
+          .catch((secureError: unknown) => {
+            logCaughtError("CliSessionExecution", secureError);
 
-        if (!(error instanceof AcpCleanupUnconfirmedError)) throw secureError;
-      }
+            if (!(error instanceof AcpCleanupUnconfirmedError))
+              throw secureError;
+          });
       throw error;
     }
   }
@@ -178,6 +225,7 @@ export class CliSessionExecution implements PlanSessionRunner {
   private async verify(
     input: AgentPlanSessionInput,
     signal: AbortSignal,
+    locations?: ReadonlyMap<AgentToolId, AgentToolLocation>,
   ): Promise<VerifiedStart> {
     const { provider, id } = input.agent.connection;
     if (isApiProvider(provider)) throw new AgentError("provider_invalid");
@@ -186,26 +234,23 @@ export class CliSessionExecution implements PlanSessionRunner {
     const { store, locator } = this.dependencies;
     const home = await store.prepare(id, provider);
     try {
-      const status = await this.readStatus(provider, home, signal);
-      if (signal.aborted) throw new AgentPlanCancelledError();
-      if (!status.outcome.ok)
-        throw new AgentError(
-          provider === "opencode" ||
-            status.outcome.errorCode === "cli_not_logged_in"
-            ? status.outcome.errorCode
-            : "plan_step_failed",
-        );
-      if (
-        provider === "opencode" &&
-        !input.agent.model.startsWith(`${status.credentials?.modelProvider}/`)
-      )
-        throw new AgentError("plan_model_unavailable");
-      const location = await locator.find(provider);
+      const pinned = locations?.get(providerToolIds(provider)[0])?.file;
+      const status = await this.readStatus(provider, home, signal, pinned);
+      this.dependencies.tools?.recordAuthentication(
+        id,
+        provider,
+        status.outcome.ok,
+      );
+      validateSessionStatus(input, status, signal);
+      const location = pinned ? { path: pinned } : await locator.find(provider);
       if (!location.path) throw new AgentError("cli_not_executable");
       const acpProvider = sessionAcpProvider(input);
       const acpAdapter =
         acpProvider !== null
-          ? await this.verifyAcp(acpDriverFor(acpProvider), input, home)
+          ? await this.verifyAcp(acpDriverFor(acpProvider), input, {
+              home,
+              locations,
+            })
           : null;
       await input.beforeStart?.();
       if (signal.aborted) throw new AgentPlanCancelledError();
@@ -214,7 +259,11 @@ export class CliSessionExecution implements PlanSessionRunner {
         home,
         file: location.path,
         adapter: acpAdapter,
+        adapterVersion: agentToolAdapterVersion(provider, locations),
         credentials: status.credentials,
+        browser: locations
+          ? await agentPlaywrightServer(input, locations)
+          : null,
       };
     } catch (error: unknown) {
       logCaughtError("CliSessionExecution", error);
@@ -228,8 +277,11 @@ export class CliSessionExecution implements PlanSessionRunner {
     provider: CliProviderId,
     home: CliHome,
     signal: AbortSignal,
+    file?: string,
   ): Promise<CliStatusOutcome> {
-    const adapter = await this.dependencies.runtime.adapter(provider);
+    const adapter = file
+      ? await this.dependencies.runtime.adapter(provider, file)
+      : await this.dependencies.runtime.adapter(provider);
     if (provider === "opencode") {
       const version = await adapter.version(home, signal);
       if (!version.ok) throw new AgentError(version.errorCode);
@@ -241,9 +293,17 @@ export class CliSessionExecution implements PlanSessionRunner {
   private async verifyAcp(
     driver: AcpDriver,
     input: AgentPlanSessionInput,
-    home: CliHome,
+    verified: {
+      readonly home: CliHome;
+      readonly locations?: ReadonlyMap<AgentToolId, AgentToolLocation>;
+    },
   ): Promise<string> {
-    const location = await this.dependencies.locator.locate(driver.binary);
+    const { home, locations } = verified;
+    const adapterId = providerToolIds(driver.provider).at(-1);
+    const pinned = adapterId ? locations?.get(adapterId) : null;
+    const location = pinned
+      ? { path: pinned.file }
+      : await this.dependencies.locator.locate(driver.binary);
     if (!location.path) throw new AgentError(driver.errors.adapterMissing);
     await driver.requireManagedConfiguration(home, input.directory);
     return location.path;
@@ -315,6 +375,7 @@ export class CliSessionExecution implements PlanSessionRunner {
         workingDirectory: input.directory,
         isWorkingDirectoryReadOnly: mode === "read_only",
         credentialDirectory: github?.directory,
+        readOnlyFiles: input.mcp ? [input.mcp.bundle] : [],
         environment: {
           ...launch.environment,
           ...start.credentials?.environment,
@@ -339,9 +400,14 @@ export class CliSessionExecution implements PlanSessionRunner {
       });
       return new AcpSession(child, channel.stream, {
         instanceId: input.instanceId,
-        driver,
+        driver: pinnedAgentToolDriver(driver, start.adapterVersion),
         profile,
-        request: acpSessionRequest(input, launch),
+        request: acpSessionRequest(input, {
+          ...launch,
+          mcpServers: start.browser
+            ? [...launch.mcpServers, start.browser]
+            : launch.mcpServers,
+        }),
         observer: control.observer,
         signal: control.signal,
         isolation: isolationLabel(isIsolated, mode, driver),
@@ -444,7 +510,11 @@ export class CliSessionExecution implements PlanSessionRunner {
    * unless the operator demanded isolation: then the node fails before any process.
    */
   private async isolate(request: CliSessionRequest): Promise<IsolatedRequest> {
-    if (this.isolation === null) return { request, isIsolated: false };
+    if (this.isolation === null) {
+      if (this.isIsolationRequired)
+        throw new AgentError("cli_isolation_unavailable");
+      return { request, isIsolated: false };
+    }
     const isolated = await this.isolation.isolate(request);
     if (isolated !== null) return { request: isolated, isIsolated: true };
     if (this.isIsolationRequired)
@@ -525,4 +595,25 @@ function isolationLabel(
   return mode === "read_only"
     ? "bubblewrap, workspace read-only"
     : "bubblewrap";
+}
+
+function validateSessionStatus(
+  input: AgentPlanSessionInput,
+  status: CliStatusOutcome,
+  signal: AbortSignal,
+): void {
+  const provider = input.agent.connection.provider;
+  if (signal.aborted) throw new AgentPlanCancelledError();
+  if (!status.outcome.ok)
+    throw new AgentError(
+      provider === "opencode" ||
+        status.outcome.errorCode === "cli_not_logged_in"
+        ? status.outcome.errorCode
+        : "plan_step_failed",
+    );
+  if (
+    provider === "opencode" &&
+    !input.agent.model.startsWith(`${status.credentials?.modelProvider}/`)
+  )
+    throw new AgentError("plan_model_unavailable");
 }

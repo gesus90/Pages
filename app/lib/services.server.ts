@@ -47,12 +47,12 @@ import { WikiFileStore } from "@/backend/storage/WikiFileStore";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 import { SetupService } from "@/backend/setup/SetupService";
 import { PICA_WORKSPACE_DIRECTORY_NAME } from "@/backend/service/chat/acp/PicaAcpWorkspace";
-import mcpManifest from "@/mcp/package.json";
 import {
   logCaughtError,
   logDiagnostic,
   logEvent,
 } from "@/backend/logging/Logger";
+import { pagesMcpBundlePath } from "@/backend/agents/cli/PagesMcpBundle";
 
 import { startExecutionServices } from "./agent-execution-services.server";
 import { createChatServices } from "./chat-services.server";
@@ -145,6 +145,8 @@ function registerShutdownHandler(
         await agents.acpResourceScheduler.shutdown();
       }
       await agents.agentCatalogScheduler.shutdown();
+      await agents.agentToolManagerService.shutdown();
+      await agents.agentToolStartupService.shutdown();
       await agents.agentCliLoginService.shutdown();
       await database.close();
     } catch (error: unknown) {
@@ -371,12 +373,8 @@ async function initializeServices(
  * a reverse proxy.
  */
 function planMcpSettings(port: number): AgentPlanMcpSettings {
-  const bundle = configuredValue("PAGES_MCP_BUNDLE");
   return {
-    bundle: path.resolve(
-      bundle ??
-        path.join("mcp", "dist", `pages-mcp-v${mcpManifest.version}.cjs`),
-    ),
+    bundle: pagesMcpBundlePath(),
     url: configuredValue("PAGES_AGENT_API_URL") ?? `http://127.0.0.1:${port}`,
     node: process.execPath,
   };

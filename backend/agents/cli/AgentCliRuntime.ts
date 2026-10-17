@@ -20,7 +20,10 @@ import type { CliLoginAdapter, CliToolAdapter } from "./CliContracts";
 import type { CliLocator } from "./CliLocator";
 import type { CliProcessRunner } from "./CliProcessRunner";
 
+import type { AgentToolManagerService } from "@/backend/service/agents/tools/AgentToolManagerService";
+
 interface RuntimeDependencies {
+  readonly tools?: AgentToolManagerService;
   readonly cipher?: InstanceSecretCipher;
   readonly store: AgentCredentialStore;
   readonly locator: CliLocator;
@@ -35,9 +38,12 @@ export class AgentCliRuntime {
     this.dependencies = dependencies;
   }
 
-  /** Resolves the installed binary without executing or installing it. */
-  public async adapter(provider: CliProviderId): Promise<CliToolAdapter> {
-    const execution = await this.execution(provider);
+  /** Ensures the approved CLI for an operation, or uses a generation pinned by a verified session. */
+  public async adapter(
+    provider: CliProviderId,
+    file?: string,
+  ): Promise<CliToolAdapter> {
+    const execution = await this.execution(provider, file);
     switch (provider) {
       case "codex_cli":
         return new CodexCli(execution);
@@ -161,7 +167,13 @@ export class AgentCliRuntime {
     await this.dependencies.store.remove(connection.id, connection.provider);
   }
 
-  private async execution(provider: CliProviderId): Promise<CliToolExecution> {
+  private async execution(
+    provider: CliProviderId,
+    file?: string,
+  ): Promise<CliToolExecution> {
+    if (file)
+      return new CliToolExecution(this.dependencies.runner, file, provider);
+    await this.dependencies.tools?.ensureProvider(provider);
     const location = await this.dependencies.locator.find(provider);
     if (!location.path) throw new AgentError("cli_not_found");
     return new CliToolExecution(

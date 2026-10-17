@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import { spawn } from "node:child_process";
 
 import { AgentError } from "@/backend/error/AgentErrors";
@@ -6,6 +8,8 @@ import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 import { CliChildProcess } from "./CliChildProcess";
 import { createCliEnvironment } from "./CliEnvironment";
 import { CliSessionProcess } from "./CliSessionProcess";
+
+import type { AgentToolActivity } from "@/definition/AgentTools";
 
 import type {
   CliGroupSignal,
@@ -26,6 +30,10 @@ export class CliProcessRunner {
   private readonly spawnProcess: CliSpawn;
   private readonly signalGroup: CliGroupSignal;
   private readonly active = new Set<CliRunningProcess>();
+  private readonly requests = new Map<
+    CliRunningProcess,
+    CliRunRequest | CliSessionRequest
+  >();
   private isShuttingDown = false;
 
   public constructor(dependencies: RunnerDependencies = {}) {
@@ -72,6 +80,7 @@ export class CliProcessRunner {
       message: "CLI check or login process started",
       metadata: { provider: request.provider },
     });
+    this.requests.set(running, request);
     void running.completed.then((result) => {
       logEvent({
         level: result.exitCode === 0 ? "info" : "warn",
@@ -85,6 +94,7 @@ export class CliProcessRunner {
         },
       });
       this.active.delete(running);
+      this.requests.delete(running);
     });
     return running;
   }
@@ -128,8 +138,10 @@ export class CliProcessRunner {
       process.umask(previousMask);
     }
     this.active.add(session);
+    this.requests.set(session, request);
     void session.completed.then(() => {
       this.active.delete(session);
+      this.requests.delete(session);
     });
     return session;
   }
@@ -149,6 +161,25 @@ export class CliProcessRunner {
           error instanceof AgentError ? error.code : "cli_not_executable",
       };
     }
+  }
+
+  /** Includes login, probe and text processes that are outside persistent ACP session leases. */
+  public toolActivities(directory: string): readonly AgentToolActivity[] {
+    return [...this.requests]
+      .filter(([, request]) =>
+        [
+          request.file,
+          request.toolFile,
+          request.environment?.CODEX_PATH,
+          request.environment?.CLAUDE_CODE_EXECUTABLE,
+        ].some((file) => file?.startsWith(`${directory}${path.sep}`)),
+      )
+      .map(([child, request]) => ({
+        instanceId:
+          request.environment?.PAGES_RUN_INSTANCE ?? "local-operation",
+        processId: child.processId ?? null,
+        sessionId: null,
+      }));
   }
 
   /** Drains process groups before the application closes its database and exits. */

@@ -125,6 +125,7 @@ function readRunOptions(input: unknown): AgentRunOptions {
       options.access !== "yolo") ||
     typeof options.shell !== "boolean" ||
     typeof options.web !== "boolean" ||
+    (options.browser !== undefined && typeof options.browser !== "boolean") ||
     typeof minutes !== "number" ||
     !Number.isSafeInteger(minutes) ||
     minutes < AGENT_RUN_TIMEOUT_MINUTES.minimum ||
@@ -136,6 +137,9 @@ function readRunOptions(input: unknown): AgentRunOptions {
     shell: options.shell,
     web: options.web,
     timeoutMinutes: minutes,
+    ...(options.browser === undefined
+      ? {}
+      : { browser: options.browser === true }),
   };
 }
 

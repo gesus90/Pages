@@ -1234,11 +1234,125 @@ days ago (`minimumReleaseAge` in `pnpm-workspace.yaml`).
 
 The `mcp/` folder is a separate package with its own manifest and lockfile.
 `pnpm run lint` also checks its source with type information, so install its
-dependencies once as CI does:
+dependencies once as CI does (also required on the builder for the shipped Pages MCP artifact):
 
 ```sh
 pnpm --dir mcp install
 ```
+
+### Agent Tool & Runtime Manager (PAGE-69)
+
+**Settings → Agents → Tools** is available only to an active personal system
+administrator in admin mode. Every loader and action rechecks persisted rights;
+mutations also require the same origin. Status reads poll cached metadata and
+never install or execute tools. Opening a page is not a model test.
+
+The fixed registry manages Codex CLI **0.160.0**, Claude Code **2.1.293**,
+OpenCode **1.18.34**, Codex ACP **2.2.2** (adoption also accepts **2.1.1**), and
+Playwright MCP **0.0.83**. Playwright MCP itself pins
+`playwright@1.64.0-alpha-1790635538000`; its browser revision is used for Chromium
+and optional Firefox. The selected versions were checked against the actual
+npm registry; see [registry evidence](./evidence/registry.json). The existing
+protocol-driver ranges remain available to standalone consumers. There are no
+new Pages library dependencies.
+
+Tools, npm cache, probe home, enablement and release pointers live in
+`<directory containing config.toml>/tools/`. Saved connection credentials remain
+in the existing data directory. The service account needs write access to this
+instance-owned tools directory, a supported Node/npm installation and outbound
+access to the official npm registry and Playwright browser CDN. It receives no
+additional host privileges. npm dependency scripts are disabled; the fixed
+Claude/OpenCode package setup scripts run separately in the private home.
+
+Each install, repair and update creates a separate generation and verifies it
+before an atomic activation. Failed candidates are discarded; the previous
+working release and login files stay intact. Explicit rollback health-checks the
+previous generation before publishing it. An update already at its approved
+target is a no-op. Active sessions keep their original paths; removal is blocked
+while a session, login, text request, probe or uncertain cleanup uses the tool.
+Old generations remain until an explicit managed removal; operators should
+monitor disk usage. Removal affects only the selected tool's managed directory,
+never system packages or logins. A required removed tool is installed again on
+its next use. At startup, managed tools can automatically move to a newly
+reviewed registry target after a successful probe. An explicit rollback records
+that target and remains in place across restarts until a different target is
+reviewed. Compatible adopted system tools remain untouched by automatic updates.
+Admins can also trigger an update explicitly. There is no periodic registry
+polling; adding an approved target is a reviewed source change, with no
+uncontrolled major upgrade.
+
+After listening, Pages reconstructs required dependencies from active CLI
+connections and saved optional integrations in the background. It checks local
+sign-ins without a model request. Other Pages features remain available while
+optional checks fail. Native runs wait for readiness, including an executable
+CLI, approved adapter, workspace, functional bubblewrap and required MCP/browser
+components. The existing ACP handshake still confirms the exact model, effort
+and permission mode before the prompt. No provider, model or runner fallback is
+introduced. Readiness failures appear in run events and the Tools inventory.
+A local sign-in check cannot establish remote subscription entitlement or token
+validity; the existing model test remains an explicit operation.
+
+Playwright requires both **Enable integration** on its Tools card and **Allow
+Playwright browser tools** in the agent's YOLO configuration. Read-only agents
+and Pica receive no browser grant. Group members must agree on this permission.
+Chromium is provided proactively; MCP runs headless with an isolated profile,
+keeps its sandbox enabled, saves sessions and screenshots under the workspace's
+`.pages-artifacts/<session>/`, and inherits the existing process ownership tag.
+Use a separate authorized test instance and test data. Playwright's URL filtering
+is not treated as a security boundary. Firefox can be provisioned and tested,
+but plan sessions currently select Chromium.
+
+A model-free health check initializes ACP without creating a session; Playwright
+MCP initialization also confirms a nonempty tool catalog. The Pages production build runs the independent MCP package build and ships
+`pages-mcp-v<version>.cjs` next to the server entry; runtime installation of that
+private package is unnecessary. The MCP test suite stays independent. Pages MCP initialization
+checks its bundled version without a real token or API request; authorized
+session startup and the existing MCP readiness machinery perform the later
+credential-scoped checks. Browser checks actually launch/close a headless browser;
+bubblewrap checks actually create a namespace. Installed, ready and running are
+separate inventory facts. Checks have bounded deadlines; they expose safe
+structured diagnoses, never raw npm output, prompts or secrets.
+
+#### Linux provisioning and container deployment
+
+Node **>=22.22.0** is a prerequisite for Pages itself. Native agent tools use
+the standalone Pages MCP package, whose declared runtime minimum is **Node 24**;
+the tool manager enforces that requirement. Node must be supplied by the
+operator from a trusted distribution. Pages cannot replace the runtime of
+its own running process. npm must be available on the service PATH. Bubblewrap
+and browser system libraries require a separate authorized host setup; the web
+process never runs a host package manager or changes kernel/security policy.
+
+`scripts/provision-agent-tools.sh` prints a fixed reviewed package plan by
+default for Debian 12 and Ubuntu 24.04. Only an operator's explicit `--apply`
+invocation in a privileged setup context installs these OS packages. Review it
+before use. Unsupported distributions stop with a diagnosis and require their
+own authorized OS provisioning. The script is never called from the UI. After
+provisioning, run **Test functionality** as the ordinary Pages service account.
+A binary alone does not establish working namespaces or browser libraries.
+
+No Docker deployment was previously supplied by this repository. For a custom
+container image, install these OS libraries at image build time (for example in
+a supported Debian-based official Node image), then switch to a non-root runtime
+user. Pin and verify the chosen base image digest in the deployment. Persist the
+instance directory, including `tools/`, the main configuration, data, instance
+secret and saved logins; preserve ownership and never copy credential directories
+into the image. Mount workspaces separately from instance data. The runtime
+container must support the existing unprivileged bubblewrap and browser
+sandboxes; restricted environments produce a readiness refusal. No privileged
+container, disabled seccomp profile or sandbox bypass is a supported repair.
+
+On new installation, configure the instance and its CLI connections normally;
+startup/preflight supplies approved managed packages. After restart, persisted
+release pointers are checked and reused rather than installed globally. After a
+Pages update, startup can apply newly reviewed registry targets; review these
+changes before deployment and use controlled Update/Rollback when needed.
+For read-only/offline hosts, provision compatible trusted system tools or populate
+the instance's managed tools in an authorized connected staging environment and
+verify health on the target. Missing npm, network access, write permissions,
+external Claude ACP, system libraries or namespaces remain concrete operator
+diagnoses. Cleanup uncertainty stays pinned by the existing ACP recovery journal
+and blocks destructive maintenance until a later startup confirms cleanup.
 
 ### Native ACP resource scheduling (PAGE-81)
 
@@ -1307,18 +1421,13 @@ of a future orchestration framework.
 
 ### OpenCode plan nodes with a Console / Zen key (PAGE-66)
 
-Install the verified native OpenCode **1.18.34** as the account running the
-Pages service. The executable must be on that service's `PATH` or beside its
-Node binary; a login shell's nvm setup alone does not configure a systemd service.
-Set the service environment and restart it when changing `PATH`. Pages discovers
-newly installed binaries on each explicit operation. No additional ACP adapter
-is needed, and an incompatible version is refused before the ACP process starts.
-
-```sh
-# Installation instructions for the operator; these are not run by Pages.
-npm install -g opencode-ai@1.18.34
-opencode --version # 1.18.34
-```
+Pages manages the verified native OpenCode **1.18.34** under the instance's
+`tools/` directory. Create an active OpenCode connection or use **Settings →
+Agents → Tools → Install**. No global npm installation or separate OpenCode ACP
+adapter is needed. A compatible trusted system installation can be adopted;
+otherwise Pages installs its approved version locally. The service needs Node
+and npm from operator provisioning; a login shell's nvm setup alone does not
+configure a systemd service.
 
 Both OpenCode plan modes require Linux bubblewrap at `/usr/bin/bwrap` and working
 unprivileged user namespaces for the service account. Install it through the
@@ -1421,31 +1530,36 @@ functional acceptance.
 
 ### ACP adapters for the CLI runners
 
-A Codex CLI or Claude Code connection runs plan nodes through an Agent Client
-Protocol adapter that is installed once for the account of the Pages server,
-next to the CLI. The adapter is a normal npm package; Pages starts it as a
-child process of the node, with the CLI of the connection and its isolated
-sign-in, and finds it on the `PATH` of the server or next to the Node binary
-that runs it.
+A Codex connection uses the instance-local Codex CLI and ACP adapter managed by
+**Settings → Agents → Tools** (PAGE-69). Startup and native session preflight
+install or repair approved missing dependencies; neither requires a global npm
+installation. Compatible system tools under trusted system/Node installation
+paths can be adopted. The manager's exact allowlist is narrower than the ACP
+protocol driver's historical compatibility range below.
+
+The existing Claude ACP adapter remains an externally provisioned dependency;
+PAGE-69 adds no new Claude/OpenCode adapter. Pages continues to start its process
+for each authorized session and use the connection's isolated sign-in.
 
 | Runner      | Package                                  | Executable         | Pages accepts   | Verified with |
 | ----------- | ---------------------------------------- | ------------------ | --------------- | ------------- |
 | Codex CLI   | `@agentclientprotocol/codex-acp`         | `codex-acp`        | 2.1.1 up to 3.0 | 2.2.2         |
 | Claude Code | `@agentclientprotocol/claude-agent-acp`  | `claude-agent-acp` | 0.90.x          | 0.90.0        |
 
-```sh
-# Install (or update to the verified version) as the account of the Pages server.
-npm install -g @agentclientprotocol/codex-acp@2
-npm install -g @agentclientprotocol/claude-agent-acp@0.90.0
+For the external Claude adapter only, an operator can install the fixed package
+into a dedicated directory owned by the service account and add its `.bin`
+directory to the service PATH:
 
-codex-acp --version        # 2.2.2 at the time of writing
-claude-agent-acp --version # 0.90.0
+```sh
+npm install --prefix /srv/pages-external-acp @agentclientprotocol/claude-agent-acp@0.90.0
+# Add /srv/pages-external-acp/node_modules/.bin to the Pages service PATH.
 ```
+
 
 The adapter packages a Claude CLI binary of its own, which Pages never uses:
 it always points the adapter at the `claude` CLI of the host
 (`CLAUDE_CODE_EXECUTABLE`), so the sign-in, the version and the catalog the
-other Pages checks use are the ones the node runs with. The adapter is only
+other Pages checks use are the ones the node runs with. The external Claude adapter is only
 found when its folder is on the `PATH` of the running server; the service
 needs no restart after installing it, because the executable is looked up at
 every node start. Previews and other majors are refused. A 0.x adapter may
@@ -1483,8 +1597,11 @@ node like the stop button, `--timeout <minutes>` applies a deadline,
 server.
 
 YOLO needs [bubblewrap](https://github.com/containers/bubblewrap)
-(`apt install bubblewrap`) with unprivileged user namespaces for the server
-account; without it a YOLO node fails with `plan_yolo_isolation_unavailable`
+with working unprivileged user namespaces for the server
+account. The managed production path now requires it for every native ACP
+session; a failed readiness check reports the tool and cause through
+`agent_tool_not_ready`. Low-level standalone smoke runs still report
+`plan_yolo_isolation_unavailable` for YOLO
 before any process starts. Pages probes the isolation again a minute after a
 failed probe, so installing bubblewrap needs no restart either.
 
@@ -1501,7 +1618,8 @@ Prompt and final-answer archiving keeps its existing behavior.
 
 | Run record or error                                      | Cause and remedy                                                                 |
 | -------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `plan_acp_adapter_missing`, `plan_claude_acp_adapter_missing` | The adapter is not on the `PATH` of the server account. Install it as above. |
+| `agent_tool_not_ready` | The run events name a tool and concrete readiness cause; inspect Settings → Agents → Tools. |
+| `plan_acp_adapter_missing`, `plan_claude_acp_adapter_missing` | Check the managed Codex installation, or the externally provisioned Claude ACP adapter. |
 | `plan_acp_adapter_unsupported`, `plan_claude_acp_adapter_unsupported` | The run record names the installed adapter and the verified range. |
 | `plan_yolo_isolation_unavailable`                        | bubblewrap is missing or user namespaces are off. Install or allow it.           |
 | `plan_permission_mode_unenforceable`                     | The adapter did not offer or confirm the mode, for Claude Code for example a managed setting that disables `bypassPermissions`, or a server running as root. |

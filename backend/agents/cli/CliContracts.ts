@@ -53,6 +53,8 @@ export interface CliSessionRequest {
   readonly isWorkingDirectoryReadOnly?: boolean;
   /** Only this session's temporary GitHub configuration is mounted, read-only, outside its HOME. */
   readonly credentialDirectory?: string;
+  /** Server-approved bundles rebound read-only after the service home is hidden. */
+  readonly readOnlyFiles?: readonly string[];
   /** Variables added to the isolated environment; credentials stay out of the arguments. */
   readonly environment: Readonly<Record<string, string>>;
   readonly timeoutMs: number;
@@ -62,6 +64,7 @@ export interface CliSessionRequest {
 }
 
 export interface CliRunningProcess {
+  readonly processId?: number | null;
   readonly completed: Promise<CliProcessResult>;
   cancel(code: AgentErrorCode): void;
   write(code: string): boolean;

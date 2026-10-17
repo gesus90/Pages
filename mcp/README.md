@@ -309,6 +309,13 @@ PAGES_URL=http://127.0.0.1:3000 node /absolute/path/pages-mcp-vX.Y.Z.cjs
 ```
 
 Normally the MCP client launches this process and manages its stdio pipes.
+
+The fixed `health-check` argument is reserved for Pages' local Tool Manager.
+It initializes MCP without reading paired credentials or contacting Pages. This
+mode uses only an unreachable loopback address and a synthetic credential;
+environment settings cannot grant it access to instance data. It confirms the
+bundle's protocol readiness, not an account's authorization. Normal startup and
+all tool requests continue to verify authorization.
 Use `command`, `args` and `env` in the client's local MCP server configuration:
 
 ```json

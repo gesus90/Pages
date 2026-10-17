@@ -65,6 +65,7 @@ export default [
       route("connections", "routes/settings-connections.tsx"),
       route("system", "routes/settings-system.tsx"),
       route("agents", "routes/settings-agents.tsx"),
+      route("agents/tools", "routes/settings-agent-tools.tsx"),
     ]),
     route(
       "settings-api/agents/:connectionId/login",

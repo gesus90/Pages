@@ -1,0 +1,53 @@
+{
+  "checkedOn": "2026-10-17",
+  "packages": [
+    {
+      "name": "@openai/codex",
+      "version": "0.160.0",
+      "registry": "https://registry.npmjs.org/%40openai%2Fcodex/0.160.0",
+      "integrity": "sha512-kEtVGzjRAYAMOwJxN39bGcna7LT3IDQgq64NNJ/dDTfu4OzZaocJcyNb5/gGJ/IVF/Vj7oK7E2m3nmTan7lpjg=="
+    },
+    {
+      "name": "@openai/codex",
+      "version": "0.160.1",
+      "registry": "https://registry.npmjs.org/%40openai%2Fcodex/0.160.1",
+      "integrity": "sha512-f1yrJhwgimKQI1kYQlxdPJcFwkNZxZrbz7Hf89EAcnLqkQ7TiESzr2FgSZn13Ga5RuHjlVUfurzwq10wk9zw2g=="
+    },
+    {
+      "name": "@anthropic-ai/claude-code",
+      "version": "2.1.293",
+      "registry": "https://registry.npmjs.org/%40anthropic-ai%2Fclaude-code/2.1.293",
+      "integrity": "sha512-PfPSvsd0zH1R1NhLKLebYdEXg/KcGCXc7LBntE186EWuZtBXa7sMnBqs0/uW/BvzkBEfHKqww/WbK/kMAk0TXg=="
+    },
+    {
+      "name": "opencode-ai",
+      "version": "1.18.34",
+      "registry": "https://registry.npmjs.org/opencode-ai/1.18.34",
+      "integrity": "sha512-9WUS2T0t4HHDVzXvuwTHF0nvhXvZ9mQ0r+ozCvKdJu0LVoQpOzqAW4qWTC3ygNc5Oedcc7j+Oct24JYlQYnySA=="
+    },
+    {
+      "name": "@agentclientprotocol/codex-acp",
+      "version": "2.1.1",
+      "registry": "https://registry.npmjs.org/%40agentclientprotocol%2Fcodex-acp/2.1.1",
+      "integrity": "sha512-dppZxW3f8kNbTDbR25+lBLtNst5DIC/Sm7GtRF69PI1Ilqv12tDSsIb0hJQW0iNzkx+JdDvX76HOyv5Uibu1qQ=="
+    },
+    {
+      "name": "@agentclientprotocol/codex-acp",
+      "version": "2.2.2",
+      "registry": "https://registry.npmjs.org/%40agentclientprotocol%2Fcodex-acp/2.2.2",
+      "integrity": "sha512-vNdeNV3jxbqaH7MYvVWzyB6cMOz+YGIV9W1xyBDsQfoii92DulZLM+ahCL2T2G6uohlaB1Yma347p2kLfAab2w=="
+    },
+    {
+      "name": "@playwright/mcp",
+      "version": "0.0.83",
+      "registry": "https://registry.npmjs.org/%40playwright%2Fmcp/0.0.83",
+      "integrity": "sha512-oNcl+Ae2/IAjhfPeP46BfIkSakfmprY+aOtkv5MjrQ4lPav4/yNtPhL0iq8SlIM90oApWgBDUxaNKvktazUKOg=="
+    },
+    {
+      "name": "playwright",
+      "version": "1.64.0-alpha-1790635538000",
+      "registry": "https://registry.npmjs.org/playwright/1.64.0-alpha-1790635538000",
+      "integrity": "sha512-/5XDUMxpOd/9AojJtWDFIRV3EJZNQ0AwvK69wgt3CPzy8wTgiBG9pX45VfxtqtvIRGwfWzMhrvawNKreG69Snw=="
+    }
+  ]
+}

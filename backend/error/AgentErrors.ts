@@ -2,6 +2,8 @@ import type { AgentUsage } from "@/definition/AgentUsage";
 
 /** Stable codes cross the HTTP boundary; upstream error text never does. */
 export const AGENT_ERROR_MESSAGES = {
+  agent_tool_not_ready:
+    "A required agent tool is not ready. The run events name the tool and cause; an administrator can inspect Settings → Agents → Tools.",
   opencode_acceptance_failed:
     "The OpenCode node did not prove every todo and acceptance criterion in its closing pages-report. Open or unproven work blocks successors even when ACP completed its turn.",
   opencode_permission_mode_required:
@@ -44,7 +46,7 @@ export const AGENT_ERROR_MESSAGES = {
   claude_permission_mode_required:
     "Claude Code agents run only in “Read only” or “YOLO”. Choose one of the two modes for this agent.",
   plan_acp_adapter_missing:
-    "The Codex ACP adapter (codex-acp) is not installed for the server account. Install it next to the Codex CLI with npm install -g @agentclientprotocol/codex-acp@2 (see the README, ACP adapters) and start the node again.",
+    "Codex ACP is not ready. Check the managed installation and diagnostics under Settings → Agents → Tools.",
   plan_claude_acp_adapter_missing:
     "The Claude ACP adapter (claude-agent-acp) is not installed for the server account. Install it next to the Claude CLI with npm install -g @agentclientprotocol/claude-agent-acp@0.90.0 (see the README, ACP adapters) and start the node again.",
   plan_acp_adapter_unsupported:

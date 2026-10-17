@@ -21,13 +21,17 @@ export const CLI_BINARIES: Readonly<Record<CliProviderId, string>> = {
 export class CliLocator {
   private readonly searchPath: string;
   private readonly nodePath: string;
+  private readonly managed:
+    ((binary: string) => Promise<CliToolLocation | null>) | undefined;
 
   public constructor(
     searchPath: string = process.env.PATH ?? "",
     nodePath: string = process.execPath,
+    managed?: (binary: string) => Promise<CliToolLocation | null>,
   ) {
     this.searchPath = searchPath;
     this.nodePath = nodePath;
+    this.managed = managed;
   }
 
   /** PATH wins, followed by the running Node binary's directory for nvm installations. */
@@ -42,6 +46,8 @@ export class CliLocator {
    * @returns Its path, searched like {@link CliLocator.find}.
    */
   public async locate(binary: string): Promise<CliToolLocation> {
+    const managed = await this.managed?.(binary);
+    if (managed?.path) return managed;
     const directories = [
       ...new Set([
         ...this.searchPath

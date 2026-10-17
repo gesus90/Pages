@@ -80,6 +80,21 @@ describe("start credential commands", () => {
 });
 
 describe("start stdio server", () => {
+  it("initializes health checks without reading credentials or verifying Pages", async () => {
+    await startWith("health-check");
+    const factory = vi.mocked(serveStdio).mock.calls[0]?.[0];
+    await factory?.({ era: "legacy" });
+    const resolve = vi.mocked(createServer).mock.calls[0]?.[0];
+    expect(resolve?.()).toEqual({
+      agentsUrl: new URL("http://127.0.0.1:1/api/v1/agents"),
+      token: "pages-tool-health-probe",
+    });
+    expect(readStdioConfiguration).not.toHaveBeenCalled();
+    expect(verifyPages).not.toHaveBeenCalled();
+    expect(runCredentialCommand).not.toHaveBeenCalled();
+    expect(process.exitCode).toBeUndefined();
+  });
+
   it("verifies Pages before serving stdio with the resolved configuration", async () => {
     const server = Object.create(null) as McpServer;
     vi.mocked(readStdioConfiguration).mockResolvedValue(CONFIGURATION);

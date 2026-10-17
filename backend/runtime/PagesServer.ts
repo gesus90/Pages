@@ -20,6 +20,7 @@ import {
   logEvent,
 } from "@/backend/logging/Logger";
 
+import { startAgentTools } from "./AgentToolsStartup";
 import { initializePagesRuntime } from "./PagesRuntime";
 import { serveStaticAsset } from "./StaticAssets";
 import { logRequest } from "./RequestLogging";
@@ -285,6 +286,7 @@ export async function startPagesServer(
     await persistPort(runtime, port);
   }
 
+  void startAgentTools(runtime);
   announceServer(runtime, listServerOrigins(port));
 
   return EXIT_SUCCESS;

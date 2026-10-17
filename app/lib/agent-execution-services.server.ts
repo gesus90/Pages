@@ -106,6 +106,11 @@ async function startAgents(
     interruptedAcpOwners(interrupted.flat()),
     new Set(leftovers.map((leftover) => leftover.instanceId)),
   );
+  void services.agentToolStartupService.start().catch(() => {
+    console.warn(
+      "[pages] Agent tool startup checks could not finish; other Pages functions remain available.",
+    );
+  });
   services.agentCatalogScheduler.start();
   return services;
 }

@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
 
+import { Checkbox } from "@/app/components/ui/checkbox";
+
 import {
   DEFAULT_AGENT_RUN_OPTIONS,
   acpRunOptions,
@@ -49,7 +51,12 @@ export function AgentRunOptionsFields(props: {
   function chooseMode(mode: AcpPermissionMode): void {
     props.onChange({
       ...props.configuration,
-      run: acpRunOptions(mode, options.timeoutMinutes),
+      run: {
+        ...acpRunOptions(mode, options.timeoutMinutes),
+        ...(options.browser === undefined
+          ? {}
+          : { browser: mode === "yolo" && options.browser }),
+      },
     });
   }
   return (
@@ -82,6 +89,15 @@ export function AgentRunOptionsFields(props: {
       <p className="text-xs text-muted-foreground">
         {t("settings.agents.run.timeoutHint")}
       </p>
+      {isAcp && options.access === "yolo" ? (
+        <label className="flex items-center gap-2 text-sm">
+          <Checkbox
+            checked={options.browser === true}
+            onChange={(event) => change({ browser: event.target.checked })}
+          />
+          {t("agentTools.browserPermission")}
+        </label>
+      ) : null}
       {isAcp ? null : <RunnerToolFields options={options} onChange={change} />}
     </fieldset>
   );

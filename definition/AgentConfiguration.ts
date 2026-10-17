@@ -34,6 +34,8 @@ export interface AgentRunOptions {
   readonly web: boolean;
   /** Hard duration limit in minutes; zero allows the session to finish without a deadline. */
   readonly timeoutMinutes: number;
+  /** Explicit opt-in to the administrator-enabled Playwright MCP; absent denies access. */
+  readonly browser?: boolean;
 }
 
 /** Limits of {@link AgentRunOptions.timeoutMinutes}. */
@@ -126,7 +128,10 @@ export function agentRunOptionsFor(
 ): AgentRunOptions {
   if (run === undefined) return defaultAgentRunOptions(provider);
   if (!isAcpProvider(provider) || !isAcpPermissionMode(run.access)) return run;
-  return acpRunOptions(run.access, run.timeoutMinutes);
+  return {
+    ...acpRunOptions(run.access, run.timeoutMinutes),
+    ...(run.browser === undefined ? {} : { browser: run.browser }),
+  };
 }
 
 /**
@@ -148,6 +153,11 @@ export function isAgentRunOptionsAllowed(
   run: AgentRunOptions | undefined,
   previous: AgentRunOptions | undefined,
 ): boolean {
+  if (
+    run?.browser === true &&
+    (!isAcpProvider(provider) || run.access !== "yolo")
+  )
+    return false;
   if (!isAcpProvider(provider)) return run?.access !== "yolo";
   if (run === undefined || isAcpPermissionMode(run.access)) return true;
   return JSON.stringify(run) === JSON.stringify(previous);

@@ -2,6 +2,7 @@ import { serveStdio } from "@modelcontextprotocol/server/stdio";
 
 import { CredentialStoreError } from "./credential-store.js";
 import { runCredentialCommand } from "./credential-command.js";
+import { readConfiguration } from "./configuration.js";
 import { readStdioConfiguration } from "./stdio-configuration.js";
 import { createServer } from "./server.js";
 import { verifyPages } from "./verification.js";
@@ -10,6 +11,14 @@ import { verifyPages } from "./verification.js";
 export async function start(): Promise<void> {
   try {
     const argumentsList = process.argv.slice(2);
+    if (argumentsList.length === 1 && argumentsList[0] === "health-check") {
+      const configuration = readConfiguration({
+        PAGES_URL: "http://127.0.0.1:1",
+        PAGES_TOKEN: "pages-tool-health-probe",
+      });
+      serveStdio(() => createServer(() => configuration));
+      return;
+    }
     if (["pair", "rotate", "unpair", "status"].includes(argumentsList[0])) {
       process.exitCode = await runCredentialCommand(argumentsList, process.env);
       return;

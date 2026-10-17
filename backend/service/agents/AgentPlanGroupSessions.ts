@@ -69,6 +69,7 @@ function runtimeFingerprint(input: AgentPlanSessionInput): string {
     access: options.access,
     shell: options.shell,
     web: options.web,
+    browser: options.browser === true,
   });
 }
 

@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { data as routeData, useLoaderData } from "react-router";
+import { data as routeData, Link, useLoaderData } from "react-router";
 
 import { AdminModeRequired } from "@/app/components/settings/admin-mode-required";
 import { AcpResourcesCard } from "@/app/components/settings/agents/acp-resources-card";
@@ -151,6 +151,12 @@ export default function SettingsAgentsRoute(): React.ReactElement {
   const result = useLoaderData<typeof loader>();
   return result.access === "granted" ? (
     <div className="space-y-4">
+      <Link
+        className="inline-flex rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-primary-text hover:bg-surface-hover"
+        to="/settings/agents/tools"
+      >
+        {t("agentTools.title")}
+      </Link>
       <AcpResourcesCard />
       <AgentsSection
         connections={result.connections}

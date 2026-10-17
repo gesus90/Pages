@@ -1,3 +1,8 @@
+import path from "node:path";
+import { homedir } from "node:os";
+
+import { createAgentToolManager } from "@/backend/service/agents/tools/AgentToolServices";
+import { AgentToolStartupService } from "@/backend/service/agents/tools/AgentToolStartupService";
 import { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceScheduler";
 import { AcpResourceRepository } from "@/backend/database/repositories/agent/AcpResourceRepository";
 import { readAcpResourceOptions } from "@/backend/config/AcpResourceConfig";
@@ -37,6 +42,7 @@ import { CliGitHubCredentials } from "@/backend/agents/cli/CliGitHubCredentials"
 
 import { createAgentConfigurationServices } from "./agent-workspace-services.server";
 
+import type { AgentToolManagerService } from "@/backend/service/agents/tools/AgentToolManagerService";
 import type { AcpResourceOptions } from "@/definition/AcpResource";
 import type { AgentTicketAssetDependencies } from "@/backend/service/agents/AgentTicketAssetService";
 import type { Database } from "@/backend/database/Database";
@@ -46,6 +52,8 @@ import type { AgentWorkspaceService } from "@/backend/service/agents/AgentWorksp
 import type { AgentConfigurationApplicationServices } from "./agent-workspace-services.server";
 
 export interface AgentApplicationServices extends AgentConfigurationApplicationServices {
+  readonly agentToolManagerService: AgentToolManagerService;
+  readonly agentToolStartupService: AgentToolStartupService;
   readonly acpResourceScheduler: AcpResourceScheduler;
   readonly agentAssignmentService: AgentAssignmentService;
   readonly agentCatalogService: AgentCatalogService;
@@ -76,6 +84,7 @@ export interface AgentApplicationServices extends AgentConfigurationApplicationS
 }
 
 interface ExecutionInput {
+  readonly tools: AgentToolManagerService;
   readonly resources: AcpResourceScheduler;
   /** Instance folders a CLI agent process must not reach. */
   readonly protectedDirectories: readonly string[];
@@ -149,11 +158,22 @@ function createExecutions(
       new ApiTextExecution(repository, cipher),
       new CliSessionExecution({
         ...cliAdapters,
+        tools: input.tools,
         resources: input.resources,
         github: input.github,
         isolation: {
           protectedDirectories: input.protectedDirectories,
           isRequired: input.isIsolationRequired,
+          readOnlyDirectories: [
+            input.tools.directory,
+            path.dirname(process.execPath),
+            path.join(
+              path.dirname(path.dirname(process.execPath)),
+              "lib",
+              "node_modules",
+            ),
+          ],
+          hiddenDirectories: [homedir()],
         },
       }),
       operations,
@@ -210,6 +230,62 @@ function createAgentCatalogServices(
   };
 }
 
+function createCliRuntime(input: {
+  readonly dataDirectory: string;
+  readonly agentsDirectory: string;
+  readonly cipher: InstanceSecretCipher;
+}): {
+  readonly store: AgentCredentialStore;
+  readonly locator: CliLocator;
+  readonly runner: CliProcessRunner;
+  readonly runtime: AgentCliRuntime;
+  readonly agentToolManagerService: AgentToolManagerService;
+} {
+  const { dataDirectory, agentsDirectory, cipher } = input;
+  const store = new AgentCredentialStore(dataDirectory);
+  const runner = new CliProcessRunner();
+  const agentToolManagerService = createAgentToolManager({
+    instanceDirectory: path.dirname(agentsDirectory),
+    locator: new CliLocator(),
+    runner,
+  });
+  const locator = new CliLocator(undefined, undefined, (binary) =>
+    agentToolManagerService.locate(binary),
+  );
+  const runtime = new AgentCliRuntime({
+    store,
+    locator,
+    runner,
+    cipher,
+    tools: agentToolManagerService,
+  });
+  return { store, locator, runner, runtime, agentToolManagerService };
+}
+
+function createAssignments(
+  database: Database,
+  repository: AgentConnectionRepository,
+  operations: AgentOperationRegistry,
+  profiles: AgentApplicationServices["agentProfileService"],
+): Pick<
+  AgentApplicationServices,
+  "agentAssignmentService" | "textAgentRoleService"
+> {
+  return {
+    agentAssignmentService: new AgentAssignmentService({
+      assignments: new AgentAssignmentRepository(database),
+      connections: repository,
+      operations,
+    }),
+    textAgentRoleService: new TextAgentRoleService(
+      new TextAssistantSettingsRepository(database),
+      repository,
+      operations,
+      profiles,
+    ),
+  };
+}
+
 /** Creates lazy adapters and one shared login/process registry without running any checks. */
 export function createAgentServices(
   database: Database,
@@ -233,10 +309,8 @@ export function createAgentServices(
     operations,
     ticketAssets,
   });
-  const store = new AgentCredentialStore(dataDirectory);
-  const locator = new CliLocator();
-  const runner = new CliProcessRunner();
-  const runtime = new AgentCliRuntime({ store, locator, runner, cipher });
+  const { store, locator, runner, runtime, agentToolManagerService } =
+    createCliRuntime({ dataDirectory, agentsDirectory, cipher });
   const refresh = new AgentCatalogRefresh({
     repository,
     cipher,
@@ -268,19 +342,22 @@ export function createAgentServices(
     ...configuration,
     ...github,
     acpResourceScheduler,
-    agentConnectionAccess: access,
-    agentAssignmentService: new AgentAssignmentService({
-      assignments: new AgentAssignmentRepository(database),
+    agentToolManagerService,
+    agentToolStartupService: new AgentToolStartupService({
+      manager: agentToolManagerService,
       connections: repository,
-      operations,
+      runtime,
+      resources: acpResourceScheduler,
     }),
-    textAgentRoleService: new TextAgentRoleService(
-      new TextAssistantSettingsRepository(database),
+    agentConnectionAccess: access,
+    ...createAssignments(
+      database,
       repository,
       operations,
       configuration.agentProfileService,
     ),
     ...createExecutions({
+      tools: agentToolManagerService,
       resources: acpResourceScheduler,
       protectedDirectories: [dataDirectory, agentsDirectory],
       isIsolationRequired: process.env.PAGES_CLI_ISOLATION === "required",

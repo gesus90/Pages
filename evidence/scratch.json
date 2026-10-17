@@ -1,0 +1,203 @@
+{
+  "toolInstallations": {
+    "codex": {
+      "status": "ready",
+      "installedVersion": "0.160.0",
+      "source": "managed"
+    },
+    "claude": {
+      "status": "ready",
+      "installedVersion": "2.1.293",
+      "source": "managed"
+    },
+    "opencode": {
+      "status": "ready",
+      "installedVersion": "1.18.34",
+      "source": "managed"
+    },
+    "codex_acp": {
+      "status": "ready",
+      "installedVersion": "2.1.1",
+      "source": "managed"
+    },
+    "playwright_mcp": {
+      "status": "ready",
+      "installedVersion": "0.0.83",
+      "source": "managed"
+    }
+  },
+  "updateAndRollback": true,
+  "syntheticCredentialsPreserved": true,
+  "readinessWithoutModelCall": "ready_without_model_call",
+  "processAndRunGuard": {
+    "aborted": true,
+    "parentTerminated": true,
+    "descendantTerminated": true,
+    "readinessBlocked": true,
+    "cause": {
+      "tool": "node",
+      "status": "missing_dependency",
+      "diagnostic": "not_installed"
+    },
+    "planRunBlocked": true,
+    "planCause": {
+      "tool": "node",
+      "status": "missing_dependency",
+      "diagnostic": "not_installed"
+    },
+    "credentialReads": 0,
+    "nativeSpawns": 0
+  },
+  "http": {
+    "adminGet": 200,
+    "noStore": true,
+    "inventoryRendered": true,
+    "adminNodeCheck": 200,
+    "unknownToolRejected": 400,
+    "foreignOriginRejected": 400,
+    "readerGet": 403,
+    "readerPost": 403,
+    "anonymousGet": 302,
+    "anonymousPost": 302
+  },
+  "browser": {
+    "downloadCompleted": true,
+    "realStart": "blocked_by_host_sandbox",
+    "diagnostic": "browser_sandbox_unavailable",
+    "hostPolicyChanged": false
+  },
+  "automaticUpdate": {
+    "automaticallyUpdated": true,
+    "rollbackVersion": "2.1.1",
+    "approvedTarget": "2.2.2",
+    "retainedAfterRestart": true,
+    "restartWithoutInstall": true
+  },
+  "initialStartup": [
+    {
+      "id": "node",
+      "status": "ready",
+      "diagnostic": "ready",
+      "installedVersion": "24.19.0"
+    },
+    {
+      "id": "bubblewrap",
+      "status": "ready",
+      "diagnostic": "ready",
+      "installedVersion": null
+    },
+    {
+      "id": "codex",
+      "status": "ready",
+      "diagnostic": "ready",
+      "installedVersion": "0.160.0"
+    },
+    {
+      "id": "claude",
+      "status": "ready",
+      "diagnostic": "ready",
+      "installedVersion": "2.1.293"
+    },
+    {
+      "id": "opencode",
+      "status": "ready",
+      "diagnostic": "ready",
+      "installedVersion": "1.18.34"
+    },
+    {
+      "id": "codex_acp",
+      "status": "ready",
+      "diagnostic": "ready",
+      "installedVersion": "2.1.1"
+    },
+    {
+      "id": "claude_acp",
+      "status": "missing_dependency",
+      "diagnostic": "not_checked",
+      "installedVersion": null
+    },
+    {
+      "id": "pages_mcp",
+      "status": "ready",
+      "diagnostic": "ready",
+      "installedVersion": "0.1.0"
+    },
+    {
+      "id": "playwright_mcp",
+      "status": "ready",
+      "diagnostic": "ready",
+      "installedVersion": "0.0.83"
+    },
+    {
+      "id": "chromium",
+      "status": "failed",
+      "diagnostic": "installation_failed",
+      "installedVersion": null
+    },
+    {
+      "id": "firefox",
+      "status": "missing_dependency",
+      "diagnostic": "not_checked",
+      "installedVersion": null
+    }
+  ],
+  "playwrightSessionArguments": {
+    "argumentsAccepted": true,
+    "protocol": "2025-11-25",
+    "serverVersion": "1.64.0-alpha-1790635538000"
+  },
+  "finalHttpStartup": {
+    "activeGenerationPointersUnchanged": true,
+    "statuses": {
+      "Node.js": "Betriebsbereit",
+      "Bubblewrap": "Betriebsbereit",
+      "OpenAI Codex CLI": "Betriebsbereit",
+      "Claude Code CLI": "Betriebsbereit",
+      "OpenCode CLI / natives ACP": "Betriebsbereit",
+      "Codex ACP": "Betriebsbereit",
+      "Claude ACP (extern)": "Abhängigkeit fehlt",
+      "Pages MCP": "Betriebsbereit",
+      "Playwright MCP": "Betriebsbereit",
+      "Chromium": "Fehlgeschlagen",
+      "Firefox (optional)": "Abhängigkeit fehlt"
+    },
+    "codexAcpRetestedReady": true,
+    "chromiumSafeHostDiagnosis": true
+  },
+  "browserHttp": {
+    "enableHttp": 409,
+    "fixedDiagnosisPresent": true,
+    "hostExplanationVisible": true,
+    "httpStillAvailable": true
+  },
+  "codexAcpFinalProbe": {
+    "executableAccess": true,
+    "symlinkExecutableDiffers": true,
+    "privateHomeAccessible": true,
+    "protocolVersion": "2.1.1",
+    "health": {
+      "status": "ready",
+      "diagnostic": "ready",
+      "version": "2.1.1"
+    }
+  },
+  "serverShutdown": {
+    "stoppedPid": 598340,
+    "port3190Closed": true,
+    "method": "kill <PID>"
+  },
+  "resumeObservations": {
+    "initialAcpDiagnostic": "permission_denied",
+    "finalAcpDiagnostic": "ready",
+    "acpSourceOrPermissionChangesForRetry": false,
+    "initialAcpCauseIsolated": false,
+    "browserDownloadInitiallyBlockedByScratchQuota": true,
+    "finalBrowserDiagnosis": "browser_sandbox_unavailable"
+  },
+  "cleanup": {
+    "scratchDirectoryRemoved": true,
+    "temporaryRuntimeArchivesRemoved": true,
+    "port3190Closed": true,
+    "serverStoppedByExactPid": true
+  }
+}

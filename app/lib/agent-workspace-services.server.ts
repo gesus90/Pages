@@ -94,7 +94,10 @@ export function createAgentConfigurationServices(input: {
     paths: new AgentWorkspacePath({
       ...resolveWorkspaceRoots(),
       protectedDirectory: input.dataDirectory,
-      additionalProtectedDirectories: [input.agentsDirectory],
+      additionalProtectedDirectories: [
+        input.agentsDirectory,
+        path.join(path.dirname(input.agentsDirectory), "tools"),
+      ],
     }),
   });
   const profiles = new AgentProfileRepository(database);

@@ -69,6 +69,8 @@ export async function probeBubblewrap(
 export class CliPlanIsolation {
   private readonly protectedDirectories: readonly string[];
   private readonly probe: () => Promise<boolean>;
+  private readonly readOnlyDirectories: readonly string[];
+  private readonly hiddenDirectories: readonly string[];
   private result: { readonly isWorking: boolean; readonly at: number } | null =
     null;
   private probing: Promise<boolean> | null = null;
@@ -83,9 +85,15 @@ export class CliPlanIsolation {
   public constructor(
     protectedDirectories: readonly string[],
     probe: () => Promise<boolean> = probeBubblewrap,
+    mounts: {
+      readonly readOnlyDirectories?: readonly string[];
+      readonly hiddenDirectories?: readonly string[];
+    } = {},
   ) {
     this.protectedDirectories = protectedDirectories;
     this.probe = probe;
+    this.readOnlyDirectories = mounts.readOnlyDirectories ?? [];
+    this.hiddenDirectories = mounts.hiddenDirectories ?? [];
   }
 
   /**
@@ -113,6 +121,11 @@ export class CliPlanIsolation {
         }),
       ),
     );
+    const readOnly = await this.existingDirectories(this.readOnlyDirectories);
+    const readOnlyFiles = await this.existingDirectories(
+      request.readOnlyFiles ?? [],
+    );
+    const privateHomes = await this.existingDirectories(this.hiddenDirectories);
     const hidden = resolved.filter((entry): entry is string => entry !== null);
     if (hidden.some((entry) => containsWorkspacePath(entry, workingDirectory)))
       throw new AgentError("workspace_path_outside_roots");
@@ -133,12 +146,15 @@ export class CliPlanIsolation {
         "/dev",
         "--tmpfs",
         "/tmp",
+        ...privateHomes.flatMap((entry) => ["--tmpfs", entry]),
         request.isWorkingDirectoryReadOnly === true ? "--ro-bind" : "--bind",
         workingDirectory,
         workingDirectory,
         ...[...new Set(hidden)]
           .sort((first, second) => first.length - second.length)
           .flatMap((entry) => ["--tmpfs", entry]),
+        ...readOnly.flatMap((entry) => ["--ro-bind", entry, entry]),
+        ...readOnlyFiles.flatMap((entry) => ["--ro-bind", entry, entry]),
         "--bind",
         homeRoot,
         homeRoot,
@@ -156,6 +172,15 @@ export class CliPlanIsolation {
         ...request.arguments,
       ],
     };
+  }
+
+  private async existingDirectories(
+    directories: readonly string[],
+  ): Promise<readonly string[]> {
+    const resolved = await Promise.all(
+      directories.map((entry) => realpath(entry).catch(() => null)),
+    );
+    return resolved.filter((entry): entry is string => entry !== null);
   }
 
   private async isAvailable(): Promise<boolean> {

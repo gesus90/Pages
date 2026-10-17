@@ -69,6 +69,11 @@ export class CliChildProcess implements CliRunningProcess {
     if (request.input !== undefined) child.stdin?.end(request.input);
   }
 
+  /** Native process group ID, exposed only to instance-level runtime diagnostics. */
+  public get processId(): number | null {
+    return this.child.pid ?? null;
+  }
+
   /** SIGKILL still follows SIGTERM if the wrapper exits before its descendants. */
   public cancel(code: AgentErrorCode): void {
     if (this.isFinished || this.escalation !== null) return;

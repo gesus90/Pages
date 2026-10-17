@@ -33,6 +33,10 @@ import type {
 } from "node:os";
 import type { PagesConfig } from "@/backend/config/PagesConfig";
 
+vi.mock("@/backend/runtime/AgentToolsStartup", () => ({
+  startAgentTools: vi.fn(async () => undefined),
+}));
+
 vi.mock("node:os", () => ({
   homedir: () => "/home/pages",
   networkInterfaces: vi.fn(),

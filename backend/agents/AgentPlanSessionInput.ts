@@ -81,6 +81,9 @@ function readOptions(input: unknown): AgentRunOptions | null {
     shell: options.shell,
     web: options.web,
     timeoutMinutes: nullableNumber(options.timeoutMinutes) ?? 0,
+    ...(options.browser === undefined
+      ? {}
+      : { browser: options.browser === true }),
   };
 }
 

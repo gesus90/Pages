@@ -20,7 +20,11 @@ function profileFields(
   options: AgentRunOptions,
 ): Readonly<Record<"tools" | "permissions" | "sandbox", string>> {
   const mode = options.access === "yolo" ? "yolo" : "read_only";
-  const tools = { shell: options.shell, web: options.web };
+  const tools = {
+    shell: options.shell,
+    web: options.web,
+    browser: options.browser === true,
+  };
   if (provider === "opencode") {
     const profile = openCodeAcpProfile(mode);
     return {
