@@ -4,6 +4,7 @@ import {
   readdir,
   realpath,
   rm,
+  stat,
   writeFile,
 } from "node:fs/promises";
 import path from "node:path";
@@ -11,7 +12,9 @@ import path from "node:path";
 import { AgentError } from "@/backend/error/AgentErrors";
 
 import { quoteCliArgument } from "./CliEnvironment";
-import { endTaggedProcesses } from "./CliProcessScan";
+import { endTaggedProcesses, readScopeSince } from "./CliProcessScan";
+
+import type { TaggedProcessScope } from "./CliProcessScan";
 
 import type { AgentPlanGitHubAccess } from "@/backend/service/agents/AgentPlanGitHubCredentials";
 
@@ -92,6 +95,15 @@ function redactor(token: string): (text: string) => string {
     );
 }
 
+/** The scan scope from the creation of a directory; null when the file system does not record it. */
+async function creationScope(
+  directory: string,
+): Promise<TaggedProcessScope | null> {
+  const { birthtimeMs } = await stat(directory);
+  if (!(birthtimeMs > 0)) return null;
+  return readScopeSince(new Date(birthtimeMs).toISOString());
+}
+
 /** Creates per-session credentials under a protected instance folder, outside every connection HOME. */
 export class CliGitHubCredentials {
   private readonly root: string;
@@ -124,7 +136,15 @@ export class CliGitHubCredentials {
     }
   }
 
-  /** Removes crash leftovers at server startup, after ending every process tagged with their session. */
+  /**
+   * Removes crash leftovers at server startup, after ending every process tagged with their session.
+   *
+   * @remarks
+   * The creation of a leftover directory precedes the runner of its session,
+   * so it bounds the scan: unreadable processes of this account that started
+   * earlier, such as its service manager, cannot carry the tag and must not
+   * abort the startup.
+   */
   public async recover(): Promise<void> {
     const root = await realpath(this.root);
     for (const entry of await readdir(root, { withFileTypes: true })) {
@@ -135,7 +155,8 @@ export class CliGitHubCredentials {
         !INSTANCE_PATTERN.test(instanceId)
       )
         continue;
-      const cleanup = await endTaggedProcesses(instanceId);
+      const scope = await creationScope(path.join(root, entry.name));
+      const cleanup = await endTaggedProcesses(instanceId, scope);
       if (cleanup.remaining !== 0)
         throw new AgentError("credential_cleanup_failed");
       await this.remove(path.join(root, entry.name));
