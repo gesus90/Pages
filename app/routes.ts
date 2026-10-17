@@ -42,6 +42,10 @@ export default [
     route("agent-api/plan-sources", "routes/agent-plan-sources.ts"),
     route("agent-api/plan-runs", "routes/agent-plan-runs.ts"),
     route(
+      "agent-api/plan-runs/:runId/recovery",
+      "routes/agent-plan-recovery.ts",
+    ),
+    route(
       "agent-api/plan-runs/:runId/steps/:stepId/prompt",
       "routes/agent-plan-prompt.ts",
     ),

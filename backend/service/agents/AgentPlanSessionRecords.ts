@@ -153,3 +153,35 @@ export function failureCode(
 ): AgentErrorCode | "timeout" | null {
   return turnFailureCode(turn) ?? closeoutFailureCode(closed);
 }
+
+/** Identifies a deadline separately from an explicit user stop. */
+export function hasPlanStepTimedOut(signal: AbortSignal): boolean {
+  return (
+    signal.aborted &&
+    signal.reason instanceof DOMException &&
+    signal.reason.name === "TimeoutError"
+  );
+}
+
+/** A runner cancellation is confirmed only after cleanup and never for a timeout. */
+export function isConfirmedPlanCancellation(
+  turn: PlanSessionTurn,
+  closed: PlanSessionClosed,
+  signal: AbortSignal,
+): boolean {
+  return (
+    turn.failure === "cancelled" &&
+    !hasPlanStepTimedOut(signal) &&
+    closed.isConfirmed
+  );
+}
+
+/** Combines deadline, turn and cleanup without inferring business acceptance. */
+export function planCompletedFailure(
+  turn: PlanSessionTurn,
+  closed: PlanSessionClosed,
+  signal: AbortSignal,
+): string | null {
+  if (!closed.isConfirmed) return "plan_closeout_failed";
+  return hasPlanStepTimedOut(signal) ? "timeout" : failureCode(turn, closed);
+}

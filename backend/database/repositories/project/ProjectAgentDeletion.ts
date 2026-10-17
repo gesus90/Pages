@@ -101,6 +101,14 @@ export async function deleteProjectAgentData(
       parameters,
     );
   }
+  for (const table of [
+    "agent_plan_checkpoints",
+    "agent_plan_repair_attempts",
+  ] as const)
+    await database.execute(
+      `DELETE FROM ${table} WHERE run_id IN (${PLAN_RUNS});`,
+      parameters,
+    );
   await deleteSessionJournal(database, parameters);
   await database.execute(
     `DELETE FROM agent_run_credentials WHERE run_id IN (${PLAN_RUNS});`,

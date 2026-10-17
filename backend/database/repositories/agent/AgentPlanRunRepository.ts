@@ -4,11 +4,14 @@ import { readPlanRunResources } from "@/backend/agents/AgentPlanRunResources";
 import { readTextColumn } from "@/backend/database/RowValue";
 import { AgentError } from "@/backend/error/AgentErrors";
 
+import { AgentPlanProgressRepository } from "./AgentPlanProgressRepository";
+
 import type {
   Database,
   DatabaseTransaction,
 } from "@/backend/database/Database";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
+import type { AgentPlanCheckpointInput } from "@/definition/AgentPlanRecovery";
 import type { AgentPlanSnapshot } from "@/backend/service/agents/AgentPlanSnapshot";
 import type { AgentPlanRunResources } from "@/backend/agents/AgentPlanRunResources";
 
@@ -33,10 +36,17 @@ function readRunStatus(input: string): AgentPlanRun["status"] {
 
 /** Durable sanitized run views and transactional working-copy reservations. */
 export class AgentPlanRunRepository {
-  private readonly database: Database;
+  private readonly database: Pick<
+    Database,
+    "query" | "execute" | "transaction"
+  >;
+  private readonly progress: AgentPlanProgressRepository;
 
-  public constructor(database: Database) {
+  public constructor(
+    database: Pick<Database, "query" | "execute" | "transaction">,
+  ) {
     this.database = database;
+    this.progress = new AgentPlanProgressRepository(database);
   }
 
   /** Rejects stale Play requests and reserves all writing directories before any starts. */
@@ -182,16 +192,7 @@ export class AgentPlanRunRepository {
 
   /** Persists interrupted progress while retaining reservations for unknown processes. */
   public async interrupt(run: AgentPlanRun): Promise<void> {
-    await this.database.execute(
-      `
-        UPDATE agent_plan_runs
-        SET status = $status,
-            view_json = $view_json
-        WHERE id = $id
-            AND status IN ('running', 'paused');
-      `,
-      { id: run.id, status: run.status, view_json: JSON.stringify(run) },
-    );
+    await this.progress.interrupt(run);
   }
 
   /**
@@ -289,31 +290,10 @@ export class AgentPlanRunRepository {
   }
 
   /** Releases workspace reservations only after every recorded session confirms cleanup. */
-  public async update(run: AgentPlanRun): Promise<void> {
-    await this.database.transaction(async (transaction) => {
-      await transaction.execute(
-        `
-        UPDATE agent_plan_runs
-        SET status = $status,
-            view_json = $view_json
-        WHERE id = $id;
-      `,
-        { id: run.id, status: run.status, view_json: JSON.stringify(run) },
-      );
-      const hasUnconfirmedCleanup = run.steps.some(
-        (step) =>
-          step.session?.closeout === "pending" ||
-          step.session?.closeout === "failed",
-      );
-      if (
-        run.status !== "running" &&
-        run.status !== "paused" &&
-        !hasUnconfirmedCleanup
-      )
-        await transaction.execute(
-          "DELETE FROM agent_plan_workspace_locks WHERE run_id = $id;",
-          { id: run.id },
-        );
-    });
+  public async update(
+    run: AgentPlanRun,
+    checkpoint?: AgentPlanCheckpointInput,
+  ): Promise<void> {
+    await this.progress.update(run, checkpoint);
   }
 }

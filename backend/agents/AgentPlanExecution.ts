@@ -17,6 +17,7 @@ import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import type { AgentOperationRegistry } from "@/backend/service/agents/AgentOperationRegistry";
 import type { AgentPlanExecutionInput } from "@/backend/service/agents/AgentPlanStepStart";
 import type { AgentRunOptions } from "@/definition/AgentConfiguration";
+import type { AgentPlanContinuationCapabilities } from "@/definition/AgentPlanRecovery";
 import type {
   AgentPlanProcessExit,
   AgentPlanSessionMode,
@@ -46,6 +47,10 @@ export interface PlanSessionObserver {
     readonly unattended: string;
   }) => void;
   readonly identified: (sessionId: string) => void;
+  /** Announced by a supported adapter; never inferred from a provider name. */
+  readonly capabilities?: (
+    capabilities: AgentPlanContinuationCapabilities,
+  ) => void;
   /** Reports automatic retirement so retained run records do not remain silently open. */
   readonly retired?: (
     closed: PlanSessionClosed,

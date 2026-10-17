@@ -1,6 +1,10 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 
 import { readAgentObject } from "./AgentPayload";
+import {
+  readPlanContinuationCapabilities,
+  readPlanContentDigest,
+} from "./AgentPlanRecoveryInput";
 
 import type { AgentRunOptions } from "@/definition/AgentConfiguration";
 import type {
@@ -246,6 +250,20 @@ export function readPlanSessionRecord(
     ...(typeof record.attemptId === "string"
       ? { attemptId: text(record.attemptId, 100) }
       : {}),
+    ...(record.dispatchedPromptDigest === undefined
+      ? {}
+      : {
+          dispatchedPromptDigest: readPlanContentDigest(
+            record.dispatchedPromptDigest,
+          ),
+        }),
+    ...(record.continuationCapabilities === undefined
+      ? {}
+      : {
+          continuationCapabilities: readPlanContinuationCapabilities(
+            record.continuationCapabilities,
+          ),
+        }),
     sessionId: nullableText(record.sessionId),
     processId: nullableNumber(record.processId),
     startedAt: nullableText(record.startedAt),

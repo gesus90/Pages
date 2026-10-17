@@ -61,6 +61,8 @@ export interface AgentSessionServiceDependencies {
   readonly inbox: AgentSessionInbox;
   /** Whether a node waits for a free ACP slot. */
   readonly isWaitingForCapacity?: (runId: string, stepId: string) => boolean;
+  /** A Pages completion is independent of native ACP continuation capabilities. */
+  readonly hasPlanCheckpoint?: (runId: string) => Promise<boolean>;
   readonly clock?: () => string;
 }
 
@@ -216,12 +218,16 @@ export class AgentSessionService {
         isConfigurationCompatible: true,
         isProcessAlive: isLive,
         acpSessionId: attempt.record.sessionId,
-        capabilities: recorder?.capabilities ?? null,
+        capabilities:
+          recorder?.capabilities ??
+          attempt.record.continuationCapabilities ??
+          null,
         // Plan nodes have no resume or load path yet; it is reported, never offered.
         canUseCapabilities: false,
         // No path starts a reconstructed session yet; it is never offered.
         canReconstruct: false,
-        hasPlanCheckpoint: false,
+        hasPlanCheckpoint:
+          (await this.dependencies.hasPlanCheckpoint?.(run.id)) ?? false,
       }),
       messages: await this.dependencies.store.listMessages(key.attemptId),
       actions: {

@@ -51,6 +51,9 @@ export interface StartedSession {
   readonly observer: {
     readonly started: Mock<PlanSessionObserver["started"]>;
     readonly identified: Mock<PlanSessionObserver["identified"]>;
+    readonly capabilities: Mock<
+      NonNullable<PlanSessionObserver["capabilities"]>
+    >;
     readonly progressed: Mock<(events: readonly string[]) => void>;
   };
   readonly secure: Mock<() => Promise<void>>;
@@ -95,6 +98,7 @@ export function startAcpSession(
   const observer = {
     started: vi.fn<PlanSessionObserver["started"]>(),
     identified: vi.fn<PlanSessionObserver["identified"]>(),
+    capabilities: vi.fn<NonNullable<PlanSessionObserver["capabilities"]>>(),
     progressed: vi.fn<(events: readonly string[]) => void>(),
   };
   const secure = vi.fn(async () => {});

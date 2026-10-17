@@ -1,5 +1,6 @@
 import type { CliProviderId } from "./AgentConnection";
 import type { AcpProviderId, AgentRunOptions } from "./AgentConfiguration";
+import type { AgentPlanContinuationCapabilities } from "./AgentPlanRecovery";
 
 /** The runner of a node: a CLI tool, or a request to an API connection. */
 export type AgentPlanRunner = CliProviderId | "api";
@@ -161,6 +162,10 @@ export interface AgentPlanSessionRecord {
    * in records from before PAGE-85.
    */
   readonly attemptId?: string;
+  /** SHA-256 of the dispatched prompt, without another stored copy of its content. */
+  readonly dispatchedPromptDigest?: string;
+  /** Announced by the verified adapter; does not imply a Pages plan-resume path. */
+  readonly continuationCapabilities?: AgentPlanContinuationCapabilities;
   /** The runner's own session or thread identifier, once it reported one. */
   readonly sessionId: string | null;
   readonly processId: number | null;

@@ -9,6 +9,7 @@ import { readTicketAssetInput } from "@/backend/agents/TicketAssetInput";
 import { closeCliSession } from "@/backend/agents/cli/CliSessionCloseout";
 import { noteSessionEvent } from "@/backend/agents/cli/CliSessionEvents";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { readContinuationCapabilities } from "@/backend/service/agents/sessions/AgentSessionContinuation";
 
 import {
   ACP_STEERING_METHOD,
@@ -423,8 +424,13 @@ export class AcpSession implements PlanSession {
     if (
       response.protocolVersion === PROTOCOL_VERSION &&
       driver.isSupportedAdapter(agent)
-    )
+    ) {
+      this.observer.capabilities?.({
+        ...readContinuationCapabilities(response.agentCapabilities),
+        adapter,
+      });
       return;
+    }
     noteSessionEvent(
       this.state.events,
       `adapter ${adapter} is not supported, Pages verified ${driver.supportedVersions}`,

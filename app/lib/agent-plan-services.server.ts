@@ -4,6 +4,9 @@ import { upgradePlanConfigurations } from "@/backend/service/agents/AgentPlanCon
 import { AgentPlanRepository } from "@/backend/database/repositories/agent/AgentPlanRepository";
 import { AgentProfileRepository } from "@/backend/database/repositories/agent/AgentProfileRepository";
 import { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
+import { AgentPlanCheckpointRepository } from "@/backend/database/repositories/agent/AgentPlanCheckpointRepository";
+import { AgentPlanRecoveryRepository } from "@/backend/database/repositories/agent/AgentPlanRecoveryRepository";
+import { AgentPlanRecoveryService } from "@/backend/service/agents/recovery/AgentPlanRecoveryService";
 import { AgentPlanAccess } from "@/backend/service/agents/AgentPlanAccess";
 import { AgentPlanPreparation } from "@/backend/service/agents/AgentPlanPreparation";
 import { AgentPlanRunEngine } from "@/backend/service/agents/AgentPlanRunEngine";
@@ -32,6 +35,7 @@ import type { AgentApplicationServices } from "./agent-services.server";
 export interface AgentPlanServices {
   readonly agentPlanService: AgentPlanService;
   readonly agentSessionService: AgentSessionService;
+  readonly agentPlanRecoveryService: AgentPlanRecoveryService;
 }
 
 /** Shares the existing user, ticket, model and workspace boundaries; no second catalog or runner. */
@@ -115,7 +119,15 @@ export async function createAgentPlanService(input: {
   await input.agents.agentCliGitHubCredentials.recover();
   // Interrupted runs ended just now, so their records are repaired as well.
   await repairAgentFiles(input);
-  return { agentPlanService: service, agentSessionService: pageAgentSessions };
+  return {
+    agentPlanService: service,
+    agentSessionService: pageAgentSessions,
+    agentPlanRecoveryService: new AgentPlanRecoveryService({
+      runs: service,
+      recovery: new AgentPlanRecoveryRepository(input.database),
+      checkpoints: new AgentPlanCheckpointRepository(input.database),
+    }),
+  };
 }
 
 /**
@@ -141,6 +153,9 @@ async function createPageAgentSessions(
     store,
     journal,
     inbox,
+    hasPlanCheckpoint: async (runId) =>
+      (await new AgentPlanCheckpointRepository(input.database).find(runId)) !==
+      null,
     isWaitingForCapacity: (runId, stepId) =>
       input.agents.acpResourceScheduler
         .snapshot()

@@ -3,6 +3,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { readPlanText } from "./AgentPlanInput";
 import { readPlanSessionRecord } from "./AgentPlanSessionInput";
 import { readAgentObject } from "./AgentPayload";
+import { readPlanRecoveryReason } from "./AgentPlanRecoveryInput";
 
 import type {
   AgentPlanRun,
@@ -75,6 +76,9 @@ export function readPlanRun(input: unknown): AgentPlanRun {
     planRevision,
     status,
     stopRequested,
+    ...(run.recovery === undefined
+      ? {}
+      : { recovery: readPlanRecoveryReason(run.recovery) }),
     steps: run.steps.map(readResult),
   };
 }

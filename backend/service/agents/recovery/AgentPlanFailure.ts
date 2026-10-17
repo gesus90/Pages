@@ -1,0 +1,58 @@
+import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
+import type {
+  AgentPlanFailureClass,
+  AgentPlanRecoveryReason,
+} from "@/definition/AgentPlanRecovery";
+
+const FAILURE_CLASSES: Readonly<Record<string, AgentPlanFailureClass>> = {
+  provider_unreachable: "provider",
+  provider_unavailable: "provider",
+  provider_rate_limited: "provider",
+  providerFailed: "provider",
+  connectionUnavailable: "configuration",
+  modelUnavailable: "configuration",
+  accessDenied: "approval",
+  roleMissing: "approval",
+  plan_runner_permission_denied: "approval",
+  provider_permission_denied: "approval",
+  plan_group_acceptance_failed: "business",
+  opencode_acceptance_failed: "business",
+  plan_context_changed: "configuration",
+  plan_definition_changed: "configuration",
+  plan_model_unavailable: "configuration",
+  parameter_ticket_changed: "configuration",
+  workspace_path_changed: "configuration",
+  timeout: "timeout",
+  check_timeout: "timeout",
+  plan_interrupted: "interruption",
+  plan_group_session_lost: "interruption",
+  plan_acp_session_failed: "interruption",
+  plan_claude_acp_session_failed: "interruption",
+  opencode_acp_session_failed: "interruption",
+  plan_closeout_failed: "cleanup",
+};
+
+/** Unknown failures remain terminal; an explicit stop always overrides classification. */
+export function classifyPlanFailure(
+  step: AgentPlanStepResult,
+): AgentPlanFailureClass {
+  if (step.status === "cancelled") return "cancelled";
+  const error = step.error ?? "";
+  return Object.hasOwn(FAILURE_CLASSES, error)
+    ? FAILURE_CLASSES[error]
+    : "terminal";
+}
+
+/** Marks only known reparable failures, without claiming that any effect is safe to replay. */
+export function planRecoveryReason(
+  run: AgentPlanRun,
+): AgentPlanRecoveryReason | undefined {
+  if (run.stopRequested || run.status === "cancelled") return undefined;
+  const failures = run.steps.filter((step) => step.status === "failed");
+  if (
+    failures.length === 0 ||
+    failures.some((step) => classifyPlanFailure(step) === "terminal")
+  )
+    return undefined;
+  return { state: "recoverable", requiresReconciliation: true };
+}

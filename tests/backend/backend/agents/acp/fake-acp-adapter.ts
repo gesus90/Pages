@@ -9,6 +9,7 @@ import { AcpLineChannel } from "@/backend/agents/acp/AcpLineChannel";
 
 import type {
   AgentConnection,
+  AgentCapabilities,
   PromptCapabilities,
   AgentContext,
   Implementation,
@@ -63,6 +64,10 @@ export interface FakeTurn {
 
 /** How the fake adapter behaves; everything is synthetic. */
 export interface FakeAdapterOptions {
+  readonly continuation?: Pick<
+    AgentCapabilities,
+    "loadSession" | "sessionCapabilities"
+  >;
   readonly promptCapabilities?: PromptCapabilities;
   /** Which adapter it imitates: Codex by default. */
   readonly flavor?: "codex" | "claude";
@@ -331,7 +336,10 @@ export function fakeAcpAgent(options: FakeAdapterOptions = {}): FakeCodexAgent {
     .onRequest(methods.agent.initialize, (context) => {
       record(methods.agent.initialize, context.params);
       return {
-        agentCapabilities: { promptCapabilities: options.promptCapabilities },
+        agentCapabilities: {
+          promptCapabilities: options.promptCapabilities,
+          ...options.continuation,
+        },
         protocolVersion: options.protocolVersion ?? 1,
         agentInfo:
           options.agentInfo === undefined ? defaultInfo : options.agentInfo,

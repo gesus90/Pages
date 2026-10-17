@@ -15,10 +15,7 @@ import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { withoutTicketFlow } from "@/definition/AgentPlanGraph";
 
-import {
-  endInterruptedSession,
-  hasNoSessionProcesses,
-} from "./AgentPlanRecovery";
+import { AgentPlanStartupRecovery } from "./recovery/AgentPlanStartupRecovery";
 import { requireCompatibleFields } from "./AgentPlanGroupRuntime";
 import { requireAllowedRunOptions } from "./AgentProfileValidation";
 import { planSteps, validatePlanGraph } from "./AgentPlanGraph";
@@ -108,7 +105,7 @@ export class AgentPlanService {
   }
 
   /**
-   * Fails orphaned runs at startup without releasing unknown reservations.
+   * Records orphaned runs as interrupted without inventing a user stop or replaying work.
    *
    * @remarks
    * Processes and MCP access that interrupted sessions left behind are ended
@@ -117,31 +114,7 @@ export class AgentPlanService {
    * cleanup lets the next run of a plan start.
    */
   public async recoverInterruptedRuns(): Promise<void> {
-    for (const previous of await this.dependencies.runs.unfinished()) {
-      await this.dependencies.sessions?.revoke(previous.id, null);
-      const steps = await Promise.all(
-        previous.steps.map(endInterruptedSession),
-      );
-      const run: AgentPlanRun = {
-        ...previous,
-        status: "failed",
-        stopRequested: true,
-        steps: steps.map((step) => {
-          if (step.status === "running")
-            return {
-              ...step,
-              status: "failed",
-              cancellation: "requested",
-              error: "plan_interrupted",
-            };
-          if (step.status === "waiting" || step.status === "paused")
-            return { ...step, isBlocked: true, error: "plan_interrupted" };
-          return step;
-        }),
-      };
-      await this.dependencies.runs.interrupt(run);
-    }
-    await this.releaseAbandonedReservations();
+    await new AgentPlanStartupRecovery(this.dependencies).recover();
   }
 
   /**
@@ -703,12 +676,6 @@ export class AgentPlanService {
           );
       }
     }
-  }
-
-  private async releaseAbandonedReservations(): Promise<void> {
-    for (const run of await this.dependencies.runs.reserving())
-      if (await hasNoSessionProcesses(run))
-        await this.dependencies.runs.release(run.id);
   }
 
   private async history(

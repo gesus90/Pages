@@ -11,6 +11,8 @@ import { isPlanFlowNode } from "@/definition/AgentPlanGraph";
 import { withGroupResults } from "./AgentPlanGroupResults";
 import { hasPlanPath } from "./AgentPlanGraph";
 import { planStepDirectory } from "./AgentPlanSnapshot";
+import { createPlanCheckpoint } from "./recovery/AgentPlanCheckpoint";
+import { planRecoveryReason } from "./recovery/AgentPlanFailure";
 
 import type { AcpResourceScheduler } from "./AcpResourceScheduler";
 import type { DatabaseTransaction } from "@/backend/database/Database";
@@ -40,6 +42,7 @@ export type AgentPlanRunRecording = (
 
 interface ActivePlanRun {
   groupCloseout: "open" | "closing" | "closed";
+  hasPersistenceFailure: boolean;
   view: AgentPlanRun;
   readonly snapshot: AgentPlanSnapshot;
   readonly controllers: Map<string, AbortController>;
@@ -206,6 +209,7 @@ export class AgentPlanRunEngine {
     }
     this.active.set(view.id, {
       groupCloseout: "open",
+      hasPersistenceFailure: false,
       view: initialView,
       snapshot,
       controllers: new Map(),
@@ -287,7 +291,13 @@ export class AgentPlanRunEngine {
   public async resume(id: string): Promise<void> {
     await this.writes.run(async () => {
       const active = this.active.get(id);
-      if (!active || this.isClosing || active.view.stopRequested)
+      if (
+        !active ||
+        this.isClosing ||
+        active.view.stopRequested ||
+        active.hasPersistenceFailure ||
+        (active.view.status !== "paused" && active.view.status !== "running")
+      )
         throw new AgentError("plan_run_unavailable");
       active.view = {
         ...active.view,
@@ -329,10 +339,7 @@ export class AgentPlanRunEngine {
     await this.writes.run(async () => {
       for (const [id, active] of this.active) {
         updateBlocked(active);
-        const ready =
-          active.view.stopRequested || active.view.status === "paused"
-            ? []
-            : readySteps(active);
+        const ready = canSchedule(active) ? readySteps(active) : [];
         for (const step of ready) {
           if (!isAcpStep(active, step.id) && this.runningCount() >= 2) continue;
           const controller = new AbortController();
@@ -357,7 +364,13 @@ export class AgentPlanRunEngine {
           let status: AgentPlanRun["status"] = "succeeded";
           if (hasFailure) status = "failed";
           if (active.view.stopRequested) status = "cancelled";
-          active.view = { ...active.view, status };
+          const recovery =
+            status === "failed" ? planRecoveryReason(active.view) : undefined;
+          active.view = {
+            ...active.view,
+            status,
+            ...(recovery ? { recovery } : {}),
+          };
           await this.dependencies.runs.update(active.view);
           await this.dependencies.archive?.complete(
             active.view,
@@ -447,15 +460,26 @@ export class AgentPlanRunEngine {
     const changes = await this.outcome(active, node, controller);
     try {
       await this.writes.run(async () => {
+        const previous = active.view;
         patchStep(active, node.id, changes);
         active.controllers.delete(node.id);
-        await this.dependencies.runs.update(active.view);
+        try {
+          const checkpoint =
+            changes.status === "succeeded"
+              ? createPlanCheckpoint(active.view, active.snapshot, node.id)
+              : undefined;
+          await this.dependencies.runs.update(active.view, checkpoint);
+        } catch (error: unknown) {
+          active.view = previous;
+          active.hasPersistenceFailure = true;
+          throw error;
+        }
         await this.dependencies.archive?.complete(active.view, active.snapshot);
       });
       await this.pump();
     } catch {
       // Keep persistent reservations if progress cannot be saved; no further providers may start.
-      requestCancellation(active);
+      active.hasPersistenceFailure = true;
       for (const running of active.controllers.values()) running.abort();
       console.error(
         "Pages could not persist agent plan progress; workspace reservations remain held.",
@@ -514,12 +538,23 @@ export class AgentPlanRunEngine {
         "Pages could not store the record of an agent node.",
         error,
       );
+      active.hasPersistenceFailure = true;
+      for (const controller of active.controllers.values()) controller.abort();
     }
   }
 }
 
+function canSchedule(active: ActivePlanRun): boolean {
+  return (
+    !active.view.stopRequested &&
+    active.view.status !== "paused" &&
+    !active.hasPersistenceFailure
+  );
+}
+
 function canFinalize(active: ActivePlanRun): boolean {
   return (
+    !active.hasPersistenceFailure &&
     active.controllers.size === 0 &&
     active.groupCloseout === "closed" &&
     readySteps(active).length === 0 &&

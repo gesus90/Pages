@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
@@ -17,7 +18,9 @@ import { planSessionReach } from "./AgentPlanSessionAccess";
 import {
   createSessionRecord,
   closeoutFailureCode,
-  failureCode,
+  hasPlanStepTimedOut,
+  isConfirmedPlanCancellation,
+  planCompletedFailure,
   runnerLabel,
   turnFailureCode,
   withTurn,
@@ -34,6 +37,7 @@ import type {
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 import type {
   AgentPlanAcceptance,
+  AgentPlanContract,
   AgentPlanSessionRecord,
 } from "@/definition/AgentPlanSession";
 import type { AgentPlanSessionAccess } from "./AgentPlanSessionAccess";
@@ -100,14 +104,6 @@ function failureCloseout(
   return closeout === "pending" ? "not_needed" : closeout;
 }
 
-function hasTimedOut(signal: AbortSignal): boolean {
-  return (
-    signal.aborted &&
-    signal.reason instanceof DOMException &&
-    signal.reason.name === "TimeoutError"
-  );
-}
-
 /** Waits for the group's earlier turns; a stop while waiting cancels the node before it starts. */
 async function waitForTurn(
   ready: Promise<void>,
@@ -137,34 +133,8 @@ function planAcceptanceFailure(
     : null;
 }
 
-function resolvedInstruction(
-  prepared: PreparedPlanStep,
-  step: AgentPlanStepSnapshot,
-): string {
-  return prepared.instruction ?? step.step.instruction;
-}
-
 function requiresAcceptance(step: AgentPlanStepSnapshot): boolean {
   return Boolean(step.groupId) || step.provider === "opencode";
-}
-
-function isConfirmedCancellation(
-  turn: PlanSessionTurn,
-  closed: PlanSessionClosed,
-  signal: AbortSignal,
-): boolean {
-  return (
-    turn.failure === "cancelled" && !hasTimedOut(signal) && closed.isConfirmed
-  );
-}
-
-function completedFailure(
-  turn: PlanSessionTurn,
-  closed: PlanSessionClosed,
-  signal: AbortSignal,
-): string | null {
-  if (!closed.isConfirmed) return "plan_closeout_failed";
-  return hasTimedOut(signal) ? "timeout" : failureCode(turn, closed);
 }
 
 /**
@@ -348,7 +318,7 @@ export class AgentPlanStepRunner {
     );
     const isReadOnly = reach === "read";
     const completion = step.step.completion ?? "report";
-    const instruction = resolvedInstruction(prepared, step);
+    const instruction = prepared.instruction ?? step.step.instruction;
     const contract = buildPlanContract(instruction, tickets, {
       isReadOnly,
       completion,
@@ -377,32 +347,11 @@ export class AgentPlanStepRunner {
           reach,
           canSetStatus: completion === "todos",
         });
-    const instructionScope = step.groupId
-      ? "This is a new step in a sequential group. Only the instruction in this turn is active for this step. Earlier step instructions are completed historical context, not continuing tasks. Retain facts from that context.\n\n"
-      : "";
-    const prompt = `${instructionScope}${prepared.input.prompt}\n\n${renderPlanAssignment(
-      {
-        contract,
-        usesMcp: mcp !== null,
-        isReadOnly,
-        runnerLabel: node.record ? runnerLabel(node.record) : "",
-        instanceId,
-        directory,
-        requiresAcceptance: requiresAcceptance(step),
-        acceptanceScope: step.groupId ? "group" : "node",
-      },
-    )}`;
-    await this.pin(node, prompt);
-    const input = {
-      ...prepared.input,
-      prompt,
-      directory,
-      options: prepared.options,
-      instanceId,
+    const input = await this.sessionInput(node, prepared, {
+      contract,
       mcp,
-      resourceContext: { runId: run.id, stepId: step.step.id },
-      journal: this.dependencies.sessions?.listen(node, instanceId),
-    };
+      instanceId,
+    });
     const session = step.groupId
       ? await this.groups.turn({
           key: groupKey,
@@ -426,6 +375,47 @@ export class AgentPlanStepRunner {
       });
       throw error;
     }
+  }
+
+  private async sessionInput(
+    node: NodeRun,
+    prepared: PreparedPlanStep,
+    terms: {
+      readonly contract: AgentPlanContract;
+      readonly mcp: AgentPlanSessionInput["mcp"];
+      readonly instanceId: string;
+    },
+  ): Promise<AgentPlanSessionInput> {
+    const directory = prepared.input.directory;
+    if (directory === null) throw new AgentError("plan_directory_required");
+    const scope = node.step.groupId
+      ? "This is a new step in a sequential group. Only the instruction in this turn is active for this step. Earlier step instructions are completed historical context, not continuing tasks. Retain facts from that context.\n\n"
+      : "";
+    const prompt = `${scope}${prepared.input.prompt}\n\n${renderPlanAssignment({
+      contract: terms.contract,
+      usesMcp: terms.mcp !== null,
+      isReadOnly:
+        planSessionReach(
+          prepared.input.agent.connection.provider,
+          prepared.options,
+        ) === "read",
+      runnerLabel: node.record ? runnerLabel(node.record) : "",
+      instanceId: terms.instanceId,
+      directory,
+      requiresAcceptance: requiresAcceptance(node.step),
+      acceptanceScope: node.step.groupId ? "group" : "node",
+    })}`;
+    await this.pin(node, prompt);
+    return {
+      ...prepared.input,
+      prompt,
+      directory,
+      options: prepared.options,
+      instanceId: terms.instanceId,
+      mcp: terms.mcp,
+      resourceContext: { runId: node.run.id, stepId: node.step.step.id },
+      journal: this.dependencies.sessions?.listen(node, terms.instanceId),
+    };
   }
 
   /** Lets the executor instruct a group member's open session through the group's queue. */
@@ -489,7 +479,8 @@ export class AgentPlanStepRunner {
       };
     const closed = await this.closeSession(node, session);
     const failure =
-      completedFailure(turn, closed, node.control.signal) ?? acceptanceFailure;
+      planCompletedFailure(turn, closed, node.control.signal) ??
+      acceptanceFailure;
     await this.complete(node, {
       exit: closed.exit,
       endedAt: closed.endedAt,
@@ -498,7 +489,7 @@ export class AgentPlanStepRunner {
       resultCode: failure === null ? 0 : -1,
     });
     const output = sanitizePlanOutput(turn.output);
-    if (isConfirmedCancellation(turn, closed, node.control.signal))
+    if (isConfirmedPlanCancellation(turn, closed, node.control.signal))
       return {
         status: "cancelled",
         cancellation: "confirmed",
@@ -556,6 +547,9 @@ export class AgentPlanStepRunner {
 
   private observer(node: NodeRun): PlanSessionObserver {
     return {
+      capabilities: (continuationCapabilities) => {
+        void this.complete(node, { continuationCapabilities });
+      },
       retired: (closed, reason) => {
         void this.complete(node, {
           closeout: closed.isConfirmed ? "confirmed" : "failed",
@@ -624,7 +618,7 @@ export class AgentPlanStepRunner {
         error: "plan_closeout_failed",
         session: node.record,
       };
-    if (hasTimedOut(node.control.signal))
+    if (hasPlanStepTimedOut(node.control.signal))
       return { status: "failed", error: "timeout", session: node.record };
     if (error instanceof AgentPlanCancelledError)
       return {
@@ -636,11 +630,15 @@ export class AgentPlanStepRunner {
   }
 
   private async pin(node: NodeRun, prompt: string): Promise<void> {
+    await this.complete(node, {
+      dispatchedPromptDigest: planContentDigest(prompt),
+    });
     await this.dependencies.archive?.input(
       node.run.id,
       node.step.step.id,
       prompt,
     );
+    if (node.control.signal.aborted) throw new AgentPlanCancelledError();
   }
 
   private async complete(

@@ -10,6 +10,7 @@ import type {
 } from "./AgentPlanSession";
 import type { AgentWorkspaceChoice, WorkspaceGitHub } from "./AgentWorkspace";
 import type { AgentPlanGroup } from "./AgentPlanGroup";
+import type { AgentPlanRecoveryReason } from "./AgentPlanRecovery";
 
 /** Plan sources and execution dependencies are deliberately separate contracts. */
 export type AgentPlanBinding =
@@ -160,6 +161,8 @@ export interface AgentPlanRun {
   readonly startedAt: string;
   readonly status: "running" | "succeeded" | "failed" | "cancelled" | "paused";
   readonly stopRequested: boolean;
+  /** Absent in old failed records, which remain terminal; this never authorizes replay. */
+  readonly recovery?: AgentPlanRecoveryReason;
   readonly steps: readonly AgentPlanStepResult[];
 }
 

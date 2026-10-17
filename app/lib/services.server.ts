@@ -63,6 +63,7 @@ import type {
 } from "./chat-services.server";
 import type { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
 import type { AgentSessionService } from "@/backend/service/agents/sessions/AgentSessionService";
+import type { AgentPlanRecoveryService } from "@/backend/service/agents/recovery/AgentPlanRecoveryService";
 import type { AgentPlanServices } from "./agent-plan-services.server";
 import type { AgentPlanMcpSettings } from "@/backend/service/agents/AgentPlanSessionAccess";
 import type { TextAssistantApplicationServices } from "./text-assistant-services.server";
@@ -81,6 +82,7 @@ export interface ApplicationServices
   readonly agentPlanService: AgentPlanService;
   /** The PageAgentCLI sessions of plan nodes: history, live events and instructions. */
   readonly agentSessionService: AgentSessionService;
+  readonly agentPlanRecoveryService: AgentPlanRecoveryService;
   readonly groupAdministrationService: GroupAdministrationService;
   readonly authService: AuthService;
   readonly sessionService: SessionService;

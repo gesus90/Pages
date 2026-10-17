@@ -16,6 +16,7 @@ import type {
 } from "@/backend/agents/AgentPlanExecution";
 import type { AcpProviderId } from "@/definition/AgentConfiguration";
 import type { AgentPlanGroupSessionLink } from "@/definition/AgentPlanSession";
+import type { AgentPlanContinuationCapabilities } from "@/definition/AgentPlanRecovery";
 
 interface GroupSession {
   readonly instanceId: string;
@@ -34,6 +35,7 @@ interface GroupSession {
   /** The process ended or was retired; the session cannot be continued. */
   isLost: boolean;
   effective: Readonly<Record<string, string>> | null;
+  readonly capabilities: AgentPlanContinuationCapabilities | null;
 }
 
 interface GroupTurnInput {
@@ -157,6 +159,7 @@ export class AgentPlanGroupSessions {
     const cancel = (): void => controller.abort();
     signal.addEventListener("abort", cancel, { once: true });
     let started: GroupSession["started"] = null;
+    let capabilities: AgentPlanContinuationCapabilities | null = null;
     try {
       if (signal.aborted) throw new AgentPlanCancelledError();
       const holder: { entry: GroupSession | null } = { entry: null };
@@ -165,6 +168,10 @@ export class AgentPlanGroupSessions {
         controller.signal,
         {
           ...this.watch(holder, observer),
+          capabilities: (announced) => {
+            capabilities = announced;
+            observer.capabilities?.(announced);
+          },
           started: (details) => {
             started = details;
             observer.started(details);
@@ -188,6 +195,7 @@ export class AgentPlanGroupSessions {
         acpSessionId: null,
         isLost: false,
         effective: null,
+        capabilities,
       };
       holder.entry = entry;
       this.sessions.set(key, entry);
@@ -271,6 +279,7 @@ export class AgentPlanGroupSessions {
         startedAt: new Date().toISOString(),
       });
     current.turns += 1;
+    if (current.capabilities) observer.capabilities?.(current.capabilities);
     const turn = this.confirmTurn(
       current,
       current.session.next(
