@@ -115,11 +115,6 @@ export function usePlanConnections(
   readonly connect: (id: string, parameter?: string) => void;
   /** Whether the open connection may end at this IN, without changing the draft. */
   readonly canConnect: (id: string, parameter?: string) => boolean;
-  readonly bindSource: (
-    sourceId: string,
-    targetId: string,
-    parameter: string,
-  ) => void;
   /** Checks explicit source and target ports without relying on a preceding state update. */
   readonly canConnectFrom: (
     source: PlanConnection,
@@ -165,13 +160,6 @@ export function usePlanConnections(
   function connect(id: string, parameter?: string): void {
     accept(attempt(id, parameter));
   }
-  function bindSource(
-    sourceId: string,
-    targetId: string,
-    parameter: string,
-  ): void {
-    connectFrom({ kind: "source", nodeId: sourceId }, targetId, parameter);
-  }
   function canConnectFrom(
     source: PlanConnection,
     id: string,
@@ -199,7 +187,6 @@ export function usePlanConnections(
     begin,
     connect,
     canConnect,
-    bindSource,
     canConnectFrom,
     connectFrom,
   };

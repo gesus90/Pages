@@ -1,7 +1,13 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterAll, beforeAll, expect, it, vi } from "vitest";
 
-import { i18n, planServer, renderPlanPage } from "./page61-plan-fixture";
+import {
+  collectToasts,
+  i18n,
+  planServer,
+  pressSave,
+  renderPlanPage,
+} from "./page61-plan-fixture";
 
 const pointerCapture = HTMLElement.prototype.setPointerCapture;
 const scrollIntoView = HTMLElement.prototype.scrollIntoView;
@@ -36,7 +42,7 @@ function node(name: string): HTMLElement {
 }
 
 function layer(container: HTMLElement): HTMLElement {
-  const element = container.querySelector<HTMLElement>("[data-plan-layer]");
+  const element = container.querySelector<HTMLElement>(".react-flow__viewport");
   if (!element) throw new Error("Missing plan layer");
   return element;
 }
@@ -107,6 +113,7 @@ it("deletes a node with every connection it had and keeps the rest of the graph"
 
 it("saves the removal so that the reopened plan still lacks the node and its connections", async () => {
   const server = planServer();
+  const toasts = collectToasts();
   const first = renderPlanPage(server);
   await ready(first.container);
   fireEvent.keyDown(
@@ -120,11 +127,9 @@ it("saves the removal so that the reopened plan still lacks the node and its con
       name: i18n.t("plans.deleteNode", { name: "Writer" }),
     }),
   );
-  fireEvent.click(screen.getByRole("button", { name: i18n.t("plans.save") }));
+  pressSave();
   await waitFor(() => expect(server.saved).toHaveLength(1));
-  await waitFor(() =>
-    expect(screen.queryByText(i18n.t("plans.saveBeforePlay"))).toBeNull(),
-  );
+  await waitFor(() => expect(toasts).toEqual([i18n.t("plans.saved")]));
   first.unmount();
   const reopened = renderPlanPage(server);
   await ready(reopened.container);
@@ -152,9 +157,8 @@ it("offers a ticket node one ticket OUT, no flow port, and binds it to the ticke
   expect(
     within(ticket).queryByRole("button", { name: "Ablauf OUT" }),
   ).toBeNull();
-  expect(
-    screen.getByRole("button", { name: i18n.t("plans.play") }),
-  ).toHaveProperty("disabled", false);
+  // The plan is executable as it is: no node or port carries an issue.
+  expect(grid().querySelectorAll(".border-destructive")).toHaveLength(0);
   fireEvent.click(
     within(node("Reviewer")).getByRole("button", {
       name: i18n.t("plans.disconnect", { name: "ticket" }),
@@ -211,24 +215,19 @@ it("pans by dragging the empty grid and zooms with the wheel, keeping nodes and 
   ).toBe(curve);
 });
 
-it("lays the graph over the whole work area and floats the side panel over it", async () => {
+it("lays the graph over the whole work area beside the navigation without any panel", async () => {
   renderPlanPage(planServer());
   await screen.findByRole("region", { name: i18n.t("plans.canvas") });
   const canvas = screen.getByRole("region", { name: i18n.t("plans.canvas") });
-  const panel = screen.getByRole("complementary", {
-    name: i18n.t("plans.pickers"),
-  });
   const area = canvas.parentElement;
-  expect(area?.parentElement).toBe(panel.parentElement);
-  expect(area?.className).toContain("h-[max(28rem,calc(100dvh-21rem))]");
-  expect(canvas.className).toBe("absolute inset-0");
-  expect(panel.className).toContain("lg:absolute");
-  expect(panel.className).toContain("lg:top-2 lg:right-2");
-  fireEvent.click(
-    screen.getByRole("button", { name: i18n.t("plans.collapsePanel") }),
-  );
-  expect(canvas.className).toBe("absolute inset-0");
+  expect(area?.className).toContain("fixed inset-x-0 top-19 bottom-0");
+  expect(area?.className).toContain("md:left-(--app-sidebar-width)");
+  expect(canvas.className).toContain("absolute inset-0");
+  expect(screen.queryByRole("complementary")).toBeNull();
   expect(
-    screen.getByRole("button", { name: i18n.t("plans.expandPanel") }),
-  ).toBeDefined();
+    screen.queryByRole("button", { name: i18n.t("plans.collapsePanel") }),
+  ).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: i18n.t("plans.expandPanel") }),
+  ).toBeNull();
 });

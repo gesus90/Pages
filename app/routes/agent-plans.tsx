@@ -6,6 +6,7 @@ import {
 } from "react-router";
 
 import { PlanPage } from "@/app/components/agents/plans/plan-page";
+import { defaultPlanId } from "@/app/lib/agent-plan-default";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { readSettingsRequest } from "@/app/lib/settings-actions/settings-request.server";
@@ -17,6 +18,7 @@ import { readPlanInput, readPlanText } from "@/backend/agents/AgentPlanInput";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
+import type { AgentPlanOpening } from "@/app/lib/agent-plan-default";
 import type { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
 import type {
   AgentPlanInput,
@@ -25,6 +27,11 @@ import type {
 } from "@/definition/AgentPlan";
 import type { Route } from "./+types/agent-plans";
 
+/** The plan page together with how the editor came to its plan. */
+interface AgentPlansView extends AgentPlanPage {
+  readonly opening: AgentPlanOpening;
+}
+
 /** Graphs and execution results are always private, uncacheable responses. */
 export const headers: Route.HeadersFunction = ({ parentHeaders }) => {
   const response = new Headers(parentHeaders);
@@ -32,21 +39,25 @@ export const headers: Route.HeadersFunction = ({ parentHeaders }) => {
   return response;
 };
 
-/** Workspace and project context are derived by the service, never trusted from query fields. */
+/**
+ * Workspace and project context are derived by the service, never trusted from query fields.
+ *
+ * @remarks
+ * Without a plan in the address the editor opens the provisional default plan.
+ */
 export async function loader({
   context,
   request,
-}: Route.LoaderArgs): Promise<ReturnType<typeof routeData<AgentPlanPage>>> {
+}: Route.LoaderArgs): Promise<ReturnType<typeof routeData<AgentPlansView>>> {
   try {
     const user = context.get(authenticatedUserContext);
     if (!user) throw new AgentError("plan_access_denied");
     const query = new URL(request.url).searchParams;
-    const plan = query.get("planId");
     const workspace = query.get("workspaceId");
     const services = await getApplicationServices();
     return routeData(
-      await services.agentPlanService.page(user.id, {
-        planId: plan === null ? null : readPlanText(plan),
+      await openPlan(services.agentPlanService, user.id, {
+        planId: query.get("planId"),
         workspaceId: workspace === null ? null : readPlanText(workspace),
       }),
       { headers: AGENT_NO_STORE },
@@ -111,7 +122,7 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
   }
 }
 
-/** The page composes Pages plan controls with the React Flow graph editor. */
+/** The page shows the plan in the React Flow graph editor and nothing beside it. */
 export default function AgentPlansRoute(): React.ReactElement {
   const page = useLoaderData<typeof loader>();
   const location = useLocation();
@@ -119,8 +130,65 @@ export default function AgentPlansRoute(): React.ReactElement {
     <PlanPage
       key={`${page.selected?.id ?? "new"}:${location.key}`}
       page={page}
+      opening={page.opening}
     />
   );
+}
+
+/** A malformed plan identifier in the address names no plan; it is not an error page. */
+function readRequestedPlan(value: string): string | null {
+  try {
+    return readPlanText(value);
+  } catch (error: unknown) {
+    if (error instanceof AgentError) return null;
+    throw error;
+  }
+}
+
+/** The page with the plan, or `null` when the plan is missing or not readable. */
+async function readablePage(
+  service: AgentPlanService,
+  userId: string,
+  selection: { readonly planId: string; readonly workspaceId: string | null },
+): Promise<AgentPlanPage | null> {
+  try {
+    return await service.page(userId, selection);
+  } catch (error: unknown) {
+    if (error instanceof AgentError && error.code === "plan_access_denied")
+      return null;
+    throw error;
+  }
+}
+
+/**
+ * Opens the plan the address names, or the default plan when it names none.
+ *
+ * @remarks
+ * A plan that is missing or not readable leaves the canvas empty and says so;
+ * it never opens another plan instead.
+ */
+async function openPlan(
+  service: AgentPlanService,
+  userId: string,
+  selection: {
+    readonly planId: string | null;
+    readonly workspaceId: string | null;
+  },
+): Promise<AgentPlansView> {
+  const isDefault = selection.planId === null;
+  const planId =
+    selection.planId === null
+      ? defaultPlanId(await service.visible(userId), userId)
+      : readRequestedPlan(selection.planId);
+  const page =
+    planId === null
+      ? null
+      : await readablePage(service, userId, { ...selection, planId });
+  if (page) return { ...page, opening: isDefault ? "default" : "requested" };
+  return {
+    ...(await service.page(userId, { ...selection, planId: null })),
+    opening: isDefault ? "defaultMissing" : "requestedMissing",
+  };
 }
 
 function readPlanContent(formData: FormData): AgentPlanInput {

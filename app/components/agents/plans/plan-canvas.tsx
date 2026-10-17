@@ -1,21 +1,24 @@
 import {
   Background,
+  Panel,
   ReactFlow,
   ReactFlowProvider,
-  useReactFlow,
+  useConnection,
 } from "@xyflow/react";
 import { useTranslation } from "react-i18next";
 
-import { PlanCanvasControls } from "./plan-canvas-controls";
+import { Button } from "@/app/components/ui/button";
+import { cn } from "@/app/lib/cn";
+
+import { PLAN_FIT_VIEW, PlanCanvasControls } from "./plan-canvas-controls";
 import { PlanFlowConnectionLine } from "./plan-flow-connection-line";
-import { PlanFlowContext } from "./plan-flow-context";
+import { PlanFlowContext, usePlanFlowContext } from "./plan-flow-context";
 import { PlanFlowEdgeView } from "./plan-flow-edge";
 import { planFlowEdges, planFlowNodes } from "./plan-flow-model";
 import { PlanGroupNoticeBar } from "./plan-group-notice";
 import { PlanGroupRemoval } from "./plan-group-removal";
 import { PLAN_GRID } from "./plan-layout";
 import { PlanNodeCard } from "./plan-node-card";
-import { usePlanCanvasDrop } from "./use-plan-canvas-drop";
 import { usePlanCanvasKeys } from "./use-plan-canvas-keys";
 import { usePlanFlowAria } from "./use-plan-flow-aria";
 import { usePlanFlowConnections } from "./use-plan-flow-connections";
@@ -28,8 +31,16 @@ import type { PlanFlowEdge, PlanFlowNode } from "./plan-flow-model";
 
 const NODE_TYPES = { plan: PlanNodeCard };
 const EDGE_TYPES = { plan: PlanFlowEdgeView };
+// Hides React Flow's corner link; the MIT license permits it and the notice stays with the source.
+const PRO_OPTIONS = { hideAttribution: true };
 
-/** The execution plan uses React Flow for rendering, measurement, connections and viewport gestures. */
+/**
+ * The execution plan uses React Flow for rendering, measurement, connections and viewport gestures.
+ *
+ * @remarks
+ * The canvas fills its container and shows nothing but the graph, the zoom
+ * bar and notices that an action of the person caused.
+ */
 export function PlanCanvas(props: PlanCanvasProps): React.ReactElement {
   return (
     <ReactFlowProvider
@@ -51,19 +62,13 @@ export function PlanCanvas(props: PlanCanvasProps): React.ReactElement {
 
 function PlanFlowCanvas(props: PlanCanvasProps): React.ReactElement {
   const { t } = useTranslation();
-  const { graph } = props;
-  const flow = useReactFlow<PlanFlowNode, PlanFlowEdge>();
   const movement = usePlanFlowMovement(props);
   const { cancel: cancelConnection, ...connections } =
     usePlanFlowConnections(props);
-  const drop = usePlanCanvasDrop({
-    ...props,
-    toGrid: (x, y) => flow.screenToFlowPosition({ x, y }),
-  });
   const onKeyDown = usePlanCanvasKeys({ ...props, onCancel: cancel });
   const context = {
     ...props,
-    dropTarget: drop.dropTarget ?? movement.dropTarget,
+    dropTarget: movement.dropTarget,
     cancelConnection,
   };
   function cancel(): void {
@@ -76,32 +81,16 @@ function PlanFlowCanvas(props: PlanCanvasProps): React.ReactElement {
         aria-label={t("plans.canvas")}
         tabIndex={0}
         onKeyDown={onKeyDown}
-        onDragOver={drop.onDragOver}
-        onDragLeave={drop.onDragLeave}
-        onDrop={drop.onDrop}
-        className="absolute inset-0 overflow-hidden rounded-2xl border border-border bg-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className="absolute inset-0 overflow-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
       >
         <PlanFlowGraph
           canvas={props}
           movement={movement}
           connections={connections}
         />
-        {props.draft.nodes.length === 0 ? (
-          <CanvasEmpty
-            hasWorkspace={Boolean(props.draft.workspaceId)}
-            isReadOnly={props.isReadOnly ?? !props.canEdit}
-          />
-        ) : null}
-        {graph.notice ? (
-          <PlanGroupNoticeBar
-            notice={graph.notice}
-            onClose={graph.clearNotice}
-            className="absolute top-20 left-3 z-10"
-          />
-        ) : null}
         <PlanGroupRemoval
           draft={props.draft}
-          graph={graph}
+          graph={props.graph}
           canEdit={props.canEdit}
         />
       </section>
@@ -155,36 +144,59 @@ function PlanFlowGraph({
       snapGrid={[PLAN_GRID, PLAN_GRID]}
       defaultViewport={{ x: 40, y: 80, zoom: 1 }}
       fitView
-      fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
+      fitViewOptions={PLAN_FIT_VIEW}
+      zIndexMode="manual"
+      proOptions={PRO_OPTIONS}
       aria-label={t("plans.grid")}
       ariaLabelConfig={ariaLabelConfig}
     >
-      <Background gap={PLAN_GRID} size={1} />
-      <PlanCanvasControls />
+      <Background
+        gap={PLAN_GRID}
+        size={1}
+        bgColor="transparent"
+        className={styles.grid}
+      />
+      <Panel
+        position="top-left"
+        className="pointer-events-none flex flex-col items-start gap-2"
+      >
+        <PlanCanvasControls />
+        <PlanConnectionHint />
+        {canvas.graph.notice ? (
+          <PlanGroupNoticeBar
+            notice={canvas.graph.notice}
+            onClose={canvas.graph.clearNotice}
+            className="pointer-events-auto"
+          />
+        ) : null}
+        {canvas.status}
+      </Panel>
     </ReactFlow>
   );
 }
 
-function CanvasEmpty(props: {
-  readonly hasWorkspace: boolean;
-  readonly isReadOnly: boolean;
-}): React.ReactElement {
+/**
+ * Port buttons connect in two steps; while no drag shows the line, this tells
+ * what comes next and why a chosen IN refused the connection.
+ */
+function PlanConnectionHint(): React.ReactElement | null {
   const { t } = useTranslation();
-  let hint = "plans.flow.workspaceHint";
-  if (props.hasWorkspace) hint = "plans.flow.emptyHint";
-  if (props.isReadOnly) hint = "plans.flow.emptyReadOnlyHint";
+  const { graph, cancelConnection } = usePlanFlowContext();
+  const isDragging = useConnection((connection) => connection.inProgress);
+  if (!graph.connection || isDragging) return null;
+  const issue = graph.connectionIssue;
   return (
-    <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-8">
-      <div className="max-w-sm rounded-2xl border border-dashed border-border bg-surface/90 p-6 text-center shadow-xs">
-        <p className="mb-2 text-sm font-semibold">
-          {t(
-            props.isReadOnly
-              ? "plans.flow.emptyReadOnlyTitle"
-              : "plans.flow.emptyTitle",
-          )}
-        </p>
-        <p className="text-sm text-muted-foreground">{t(hint)}</p>
-      </div>
+    <div
+      role="status"
+      className={cn(
+        "pointer-events-auto flex items-center gap-2 rounded-lg border bg-surface p-1.5 pl-3 text-xs shadow-xs",
+        issue ? "border-destructive/40 text-destructive" : "border-border",
+      )}
+    >
+      {issue ? t(`plans.validation.${issue.reason}`) : t("plans.connectHint")}
+      <Button size="xs" variant="ghost" onClick={cancelConnection}>
+        {t("settings.agents.cancel")}
+      </Button>
     </div>
   );
 }

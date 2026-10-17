@@ -7,42 +7,32 @@
   --xy-node-color: var(--color-foreground);
   --xy-handle-background-color: var(--color-muted-foreground);
   --xy-handle-border-color: var(--color-surface);
-  --xy-controls-button-background-color: var(--color-surface);
-  --xy-controls-button-background-color-hover: var(--color-muted);
-  --xy-controls-button-color: var(--color-foreground);
-  --xy-controls-button-color-hover: var(--color-foreground);
-  --xy-controls-button-border-color: var(--color-border);
-  --xy-controls-box-shadow: var(--shadow-xs);
-  --xy-minimap-background-color: var(--color-surface);
-  --xy-minimap-node-background-color: var(--color-muted-foreground);
-  --xy-minimap-node-stroke-color: var(--color-border);
-  --xy-attribution-background-color: var(--color-surface);
   --xy-selection-background-color: var(--color-info-subtle);
   --xy-selection-border: 1px solid var(--color-info);
 }
 
-.canvas :global(.react-flow__controls) {
-  overflow: hidden;
-  border: 1px solid var(--color-border);
-  border-radius: 0.75rem;
-  background: var(--color-surface);
-}
-
-.canvas :global(.react-flow__controls-button) {
-  width: 2.25rem;
-  height: 2.25rem;
-}
-
-.canvas :global(.react-flow__controls-button:focus-visible),
 .canvas :global(.react-flow__node:focus-visible),
-.canvas :global(.react-flow__edge:focus-visible),
-.canvas :global(.react-flow__minimap:focus-visible) {
+.canvas :global(.react-flow__edge:focus-visible) {
   outline: 2px solid var(--color-ring);
   outline-offset: 3px;
 }
 
-.canvas :global(.react-flow__attribution a) {
-  color: var(--color-muted-foreground);
+/* Labels of connections lie above the lines (layer 1) and below the cards
+   (layer 3), see plan-flow-model.ts. */
+.canvas :global(.react-flow__edgelabel-renderer) {
+  z-index: 2;
+}
+
+/* The dots fade out softly towards every edge, so the canvas shows no border.
+   The layer of the dots is transparent and one radial gradient fades it, so
+   the Pages background below shows no seams; the mask only reads the alpha
+   of its color. */
+.grid {
+  mask-image: radial-gradient(
+    closest-side,
+    var(--color-foreground) 72%,
+    transparent
+  );
 }
 
 /* Empty frame areas stay pannable even when a large group covers the canvas. */

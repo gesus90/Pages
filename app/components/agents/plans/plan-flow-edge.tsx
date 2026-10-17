@@ -1,9 +1,4 @@
-import {
-  BaseEdge,
-  EdgeLabelRenderer,
-  getBezierPath,
-  getSmoothStepPath,
-} from "@xyflow/react";
+import { BaseEdge, EdgeLabelRenderer, getBezierPath } from "@xyflow/react";
 import { Unlink } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -15,7 +10,7 @@ import { usePlanFlowContext } from "./plan-flow-context";
 import type { EdgeProps } from "@xyflow/react";
 import type { PlanFlowEdge } from "./plan-flow-model";
 
-/** Flow uses solid curves; parameter bindings use dashed orthogonal paths and a named input. */
+/** Every connection is a soft curve; flow is solid, a parameter binding is dashed and names its input. */
 export function PlanFlowEdgeView(
   props: EdgeProps<PlanFlowEdge>,
 ): React.ReactElement | null {
@@ -24,9 +19,7 @@ export function PlanFlowEdgeView(
   const details = props.data;
   if (!details) return null;
   const isData = details.link.kind === "data";
-  const [path, labelX, labelY] = isData
-    ? getSmoothStepPath(props)
-    : getBezierPath(props);
+  const [path, labelX, labelY] = getBezierPath(props);
   const label =
     details.link.kind === "data"
       ? details.link.parameter

@@ -1,17 +1,21 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterAll, beforeAll, expect, it, vi } from "vitest";
 
+import { acpRunOptions } from "@/definition/AgentConfiguration";
 import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 
 import {
   i18n,
   planServer,
+  pressSave,
   renderPlanPage,
   SOURCES,
 } from "./page61-plan-fixture";
 
 import type { AgentPlanSources } from "@/definition/AgentPlan";
 import type { PlanServer } from "./page61-plan-fixture";
+
+const GROUP = i18n.t("plans.groups.defaultName");
 
 const scrollIntoView = HTMLElement.prototype.scrollIntoView;
 beforeAll(() => {
@@ -21,12 +25,16 @@ afterAll(() => {
   HTMLElement.prototype.scrollIntoView = scrollIntoView;
 });
 
-function sources(): AgentPlanSources {
+/** The Reviewer template; an ACP template may also join a group, where insertions happen now. */
+function sources(
+  provider: "openrouter" | "codex_cli" = "openrouter",
+): AgentPlanSources {
   const agent = SOURCES.agents[0];
   return {
     agents: [
       {
         ...agent,
+        provider,
         modelProfileId: "model-a",
         model: "M",
         reasoningEffort: "low",
@@ -34,6 +42,9 @@ function sources(): AgentPlanSources {
           ...agent.configuration,
           markdown: "X",
           parameters: [],
+          ...(provider === "codex_cli"
+            ? { run: acpRunOptions("read_only", 0) }
+            : {}),
         },
       },
     ],
@@ -63,9 +74,12 @@ function sources(): AgentPlanSources {
   };
 }
 
-function serverWithCopies(canEdit = true): PlanServer {
+function serverWithCopies(
+  canEdit = true,
+  provider: "openrouter" | "codex_cli" = "openrouter",
+): PlanServer {
   const server = planServer(canEdit);
-  const current = sources();
+  const current = sources(provider);
   server.sources = current;
   if (!server.plan) throw new Error("Missing plan");
   server.plan = {
@@ -82,6 +96,65 @@ function serverWithCopies(canEdit = true): PlanServer {
     ),
   };
   return server;
+}
+
+/** Two ACP copies and an empty group, whose dialog inserts further copies. */
+function serverWithGroup(): PlanServer {
+  const server = serverWithCopies(true, "codex_cli");
+  if (!server.plan) throw new Error("Missing plan");
+  server.plan = {
+    ...server.plan,
+    nodes: [
+      ...server.plan.nodes,
+      {
+        id: "group",
+        type: "group",
+        name: GROUP,
+        x: 1280,
+        y: 0,
+        steps: [],
+        parameters: [],
+        bindings: {},
+      },
+    ],
+  };
+  return server;
+}
+
+/** Opens the group dialog from the frame's menu, unless it is open, and inserts one Reviewer copy. */
+async function insertIntoGroup(): Promise<HTMLElement> {
+  if (!screen.queryByRole("dialog")) {
+    const frame = await screen.findByRole("region", {
+      name: i18n.t("plans.groups.frame", { name: GROUP }),
+    });
+    fireEvent.keyDown(
+      within(frame).getByRole("button", {
+        name: i18n.t("settings.agents.actionsFor", { name: GROUP }),
+      }),
+      { key: "Enter" },
+    );
+    fireEvent.click(
+      await screen.findByRole("menuitem", {
+        name: i18n.t("settings.agents.edit"),
+      }),
+    );
+  }
+  const dialog = await screen.findByRole("dialog", {
+    name: i18n.t("plans.editNode"),
+  });
+  fireEvent.keyDown(
+    within(dialog).getByRole("combobox", {
+      name: i18n.t("plans.groups.addAgent"),
+    }),
+    { key: "Enter" },
+  );
+  fireEvent.click(await screen.findByRole("option", { name: /^Reviewer ·/ }));
+  fireEvent.click(
+    within(dialog).getByRole("button", {
+      name: i18n.t("plans.groups.addAgent"),
+    }),
+  );
+  return dialog;
 }
 
 /** A double click opens the agent console; the node dialog opens from the action menu. */
@@ -127,18 +200,10 @@ it("opens one of two copies from its menu, changes only its instruction/model/re
   fireEvent.click(
     within(dialog).getByRole("button", { name: i18n.t("plans.closeNode") }),
   );
-  const sidebar = screen.getByRole("region", {
-    name: i18n.t("plans.agentSources"),
-  });
-  fireEvent.click(within(sidebar).getByRole("button", { name: /Reviewer/ }));
-  await waitFor(() =>
-    expect(screen.getAllByRole("article", { name: "Reviewer" })).toHaveLength(
-      3,
-    ),
-  );
-  fireEvent.click(screen.getByRole("button", { name: i18n.t("plans.save") }));
+  pressSave();
   await waitFor(() => expect(server.saved).toHaveLength(1));
   const nodes = server.saved[0].nodes.filter((node) => node.type === "agent");
+  expect(nodes).toHaveLength(2);
   expect(nodes[0].configuration).toMatchObject({
     model: "N",
     modelProfileId: "model-b",
@@ -150,11 +215,6 @@ it("opens one of two copies from its menu, changes only its instruction/model/re
     reasoningEffort: "low",
     template: { markdown: "X" },
   });
-  expect(nodes[2].configuration).toMatchObject({
-    model: "M",
-    reasoningEffort: "low",
-    template: { markdown: "X" },
-  });
   expect(server.sources?.agents[0].configuration.markdown).toBe("X");
   await openNodeDialog(screen.getAllByRole("article", { name: "Reviewer" })[1]);
   expect(
@@ -162,20 +222,16 @@ it("opens one of two copies from its menu, changes only its instruction/model/re
   ).toBeDefined();
 }, 20_000);
 
-it("fetches the current template on every sidebar insertion and keeps previous copies unchanged", async () => {
-  const server = serverWithCopies();
+it("fetches the current template on every insertion into a group and keeps previous copies unchanged", async () => {
+  const server = serverWithGroup();
   renderPlanPage(server);
-  const sidebar = await screen.findByRole("region", {
-    name: i18n.t("plans.agentSources"),
-  });
-  const insert = within(sidebar).getByRole("button", { name: /Reviewer/ });
-  fireEvent.click(insert);
+  const dialog = await insertIntoGroup();
   await waitFor(() =>
-    expect(screen.getAllByRole("article", { name: "Reviewer" })).toHaveLength(
-      3,
-    ),
+    expect(
+      screen.getAllByRole("article", { name: "Reviewer", hidden: true }),
+    ).toHaveLength(3),
   );
-  const current = sources();
+  const current = sources("codex_cli");
   server.sources = {
     ...current,
     agents: [
@@ -186,15 +242,21 @@ it("fetches the current template on every sidebar insertion and keeps previous c
       },
     ],
   };
-  fireEvent.click(insert);
+  await insertIntoGroup();
   await waitFor(() =>
-    expect(screen.getAllByRole("article", { name: "Reviewer" })).toHaveLength(
-      4,
-    ),
+    expect(
+      screen.getAllByRole("article", { name: "Reviewer", hidden: true }),
+    ).toHaveLength(4),
   );
-  fireEvent.click(screen.getByRole("button", { name: i18n.t("plans.save") }));
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: i18n.t("plans.closeNode") }),
+  );
+  pressSave();
   await waitFor(() => expect(server.saved).toHaveLength(1));
-  const copies = server.saved[0].nodes.filter((node) => node.type === "agent");
+  const copies = server.saved[0].nodes.flatMap((node) => {
+    if (node.type === "agent") return [node];
+    return node.type === "group" ? node.steps : [];
+  });
   expect(copies.map((node) => node.configuration?.template.markdown)).toEqual([
     "X",
     "X",
@@ -219,20 +281,24 @@ it("opens a read-only node dialog when the plan is shared without edit rights", 
   expect(textarea.closest("fieldset")?.disabled).toBe(true);
 });
 
-it("refuses insertion when the current template cannot be loaded instead of reusing stale sidebar content", async () => {
-  const server = serverWithCopies();
+it("refuses insertion when the current template cannot be loaded instead of reusing stale page sources", async () => {
+  const server = serverWithGroup();
   renderPlanPage(server);
-  const sidebar = await screen.findByRole("region", {
-    name: i18n.t("plans.agentSources"),
+  await screen.findByRole("region", {
+    name: i18n.t("plans.groups.frame", { name: GROUP }),
   });
   vi.spyOn(console, "error").mockImplementation(() => {});
   vi.spyOn(globalThis, "fetch").mockResolvedValue(
     new Response(null, { status: 403 }),
   );
-  fireEvent.click(within(sidebar).getByRole("button", { name: /Reviewer/ }));
-  expect(await screen.findByRole("alert")).toBeDefined();
+  const dialog = await insertIntoGroup();
+  expect(await within(dialog).findByRole("alert")).toBeDefined();
   expect(
-    screen.getByText(i18n.t("settings.agents.error.plan_sources_failed")),
+    within(dialog).getByText(
+      i18n.t("settings.agents.error.plan_sources_failed"),
+    ),
   ).toBeDefined();
-  expect(screen.getAllByRole("article", { name: "Reviewer" })).toHaveLength(2);
+  expect(
+    screen.getAllByRole("article", { name: "Reviewer", hidden: true }),
+  ).toHaveLength(2);
 });

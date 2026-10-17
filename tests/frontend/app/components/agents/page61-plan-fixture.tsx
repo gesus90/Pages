@@ -4,11 +4,10 @@ import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 import { I18nextProvider } from "react-i18next";
 import {
   createMemoryRouter,
-  redirect,
   RouterProvider,
   useLoaderData,
 } from "react-router";
-import { render } from "@testing-library/react";
+import { fireEvent, render } from "@testing-library/react";
 
 import { PlanPage } from "@/app/components/agents/plans/plan-page";
 import { createI18n } from "@/app/lib/i18n";
@@ -16,6 +15,7 @@ import { readPlanInput } from "@/backend/agents/AgentPlanInput";
 import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 
 import type { RenderResult } from "@testing-library/react";
+import type { AgentPlanOpening } from "@/app/lib/agent-plan-default";
 import type { AgentDefinitionChoice } from "@/definition/AgentAvailability";
 import type {
   AgentPlanInput,
@@ -159,7 +159,13 @@ export interface PlanServer {
   sources?: AgentPlanPage["sources"];
   readonly canEdit: boolean;
   readonly saved: AgentPlanInput[];
-  readonly deleted: string[];
+  /** An error code the next saves are refused with. */
+  failure?: string;
+}
+
+/** The loader data of the plan route: the page and how the editor came to its plan. */
+interface PlanRouteData extends AgentPlanPage {
+  readonly opening: AgentPlanOpening;
 }
 
 function view(server: PlanServer): AgentPlanView | null {
@@ -176,11 +182,17 @@ function view(server: PlanServer): AgentPlanView | null {
   };
 }
 
-function page(server: PlanServer, request: Request): AgentPlanPage {
+function opening(isRequested: boolean, isSelected: boolean): AgentPlanOpening {
+  if (isSelected) return "requested";
+  return isRequested ? "requestedMissing" : "defaultMissing";
+}
+
+function page(server: PlanServer, request: Request): PlanRouteData {
   const plan = view(server);
-  const isSelected =
-    plan !== null && new URL(request.url).searchParams.get("planId") !== null;
+  const isRequested = new URL(request.url).searchParams.get("planId") !== null;
+  const isSelected = plan !== null && isRequested;
   return {
+    opening: opening(isRequested, isSelected),
     userId: "owner",
     plans: plan ? [plan] : [],
     workspaces: [
@@ -204,11 +216,8 @@ function page(server: PlanServer, request: Request): AgentPlanPage {
 
 async function act(server: PlanServer, request: Request): Promise<unknown> {
   const form = await request.formData();
-  if (form.get("intent") === "delete-plan") {
-    server.deleted.push(String(form.get("planId")));
-    server.plan = null;
-    return redirect("/agents/plans");
-  }
+  if (server.failure)
+    return { ok: false, intent: "save-plan", error: server.failure };
   const plan = readPlanInput(JSON.parse(String(form.get("plan"))) as unknown);
   const revision = (plan.revision ?? 0) + 1;
   server.saved.push(plan);
@@ -217,12 +226,44 @@ async function act(server: PlanServer, request: Request): Promise<unknown> {
 }
 
 function Route(): React.ReactElement {
-  const loaded = useLoaderData<AgentPlanPage>();
-  return <PlanPage key={loaded.selected?.id ?? "new"} page={loaded} />;
+  const loaded = useLoaderData<PlanRouteData>();
+  return (
+    <PlanPage
+      key={loaded.selected?.id ?? "new"}
+      page={loaded}
+      opening={loaded.opening}
+    />
+  );
 }
 
-/** Renders the plan page with the plan selected, as opening it from the plan list does. */
-export function renderPlanPage(server: PlanServer): RenderResult {
+/** Presses Ctrl+S, or Cmd+S as on macOS, where the focus is. */
+export function pressSave(modifier: "ctrl" | "meta" = "ctrl"): void {
+  fireEvent.keyDown(document.activeElement ?? document.body, {
+    key: "s",
+    ctrlKey: modifier === "ctrl",
+    metaKey: modifier === "meta",
+  });
+}
+
+/** Collects the success toasts the page announces from now on. */
+export function collectToasts(): readonly string[] {
+  const messages: string[] = [];
+  window.addEventListener("pages:success", (event) => {
+    if (event instanceof CustomEvent) messages.push(String(event.detail));
+  });
+  return messages;
+}
+
+/**
+ * Renders the plan page as opening a plan link does.
+ *
+ * @param server - The synthetic server state.
+ * @param address - The address; without `planId` no plan is selected.
+ */
+export function renderPlanPage(
+  server: PlanServer,
+  address = "/agents/plans?planId=plan",
+): RenderResult {
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
     const url = new URL(String(input), "http://pages.test");
     const source = (server.sources ?? SOURCES).agents.find(
@@ -241,7 +282,7 @@ export function renderPlanPage(server: PlanServer): RenderResult {
         action: ({ request }) => act(server, request),
       },
     ],
-    { initialEntries: ["/agents/plans?planId=plan"] },
+    { initialEntries: [address] },
   );
   return render(
     <I18nextProvider i18n={i18n}>
@@ -252,5 +293,5 @@ export function renderPlanPage(server: PlanServer): RenderResult {
 
 /** Starts a server holding the synthetic plan. */
 export function planServer(canEdit = true): PlanServer {
-  return { plan: syntheticPlan(), canEdit, saved: [], deleted: [] };
+  return { plan: syntheticPlan(), canEdit, saved: [] };
 }

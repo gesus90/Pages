@@ -1,126 +1,87 @@
-import { Controls, MiniMap, Panel, useViewport } from "@xyflow/react";
-import { CircleHelp, LockKeyhole, MousePointer2 } from "lucide-react";
+import { useReactFlow, useStore } from "@xyflow/react";
+import { Minus, Plus, Scan } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import reactFlowLicense from "@/assets/react-flow-LICENSE.txt?url";
 import { Button } from "@/app/components/ui/button";
 
-import { usePlanFlowContext } from "./plan-flow-context";
+import type { FitViewOptions } from "@xyflow/react";
+import type { PlanFlowEdge, PlanFlowNode } from "./plan-flow-model";
 
-import type { PlanFlowNode } from "./plan-flow-model";
+/**
+ * Fitting keeps the graph clear of the zoom bar above it and of the canvas edges.
+ *
+ * @remarks
+ * Fitting never enlarges a small plan beyond its natural size.
+ */
+export const PLAN_FIT_VIEW: FitViewOptions<PlanFlowNode> = {
+  padding: { top: "84px", right: "56px", bottom: "56px", left: "56px" },
+  maxZoom: 1,
+};
 
-function minimapColor(node: PlanFlowNode): string {
-  const colors = {
-    agent: "var(--color-plan-agent)",
-    group: "var(--color-plan-group-subtle)",
-    task: "var(--color-plan-ticket)",
-    parameter: "var(--color-plan-parameter)",
-    variable: "var(--color-plan-parameter)",
-    start: "var(--color-muted-foreground)",
-    end: "var(--color-muted-foreground)",
-  };
-  return colors[node.data.node.type];
-}
-
-function canvasMode(options: {
-  readonly isReadOnly: boolean;
-  readonly canEdit: boolean;
-  readonly hasWorkspace: boolean;
-}): string {
-  if (options.isReadOnly) return "plans.flow.readOnly";
-  if (!options.hasWorkspace) return "plans.flow.chooseWorkspace";
-  return options.canEdit ? "plans.flow.editable" : "plans.flow.busy";
-}
-
-/** Native React Flow controls, viewport overview and a compact legend share the Pages palette. */
+/**
+ * The only canvas control: zoom out, the current zoom, zoom in and fit.
+ *
+ * @remarks
+ * The percentage reads React Flow's viewport, so wheel, pinch and the
+ * buttons always show the zoom the canvas really has.
+ */
 export function PlanCanvasControls(): React.ReactElement {
   const { t } = useTranslation();
-  const { graph, draft, canEdit, isReadOnly, cancelConnection } =
-    usePlanFlowContext();
-  const viewport = useViewport();
-  const hasReadOnlyAccess = isReadOnly ?? !canEdit;
-  const ModeIcon = hasReadOnlyAccess ? LockKeyhole : MousePointer2;
-  const mode = canvasMode({
-    isReadOnly: hasReadOnlyAccess,
-    canEdit,
-    hasWorkspace: Boolean(draft.workspaceId),
-  });
+  const flow = useReactFlow<PlanFlowNode, PlanFlowEdge>();
+  const zoom = useStore((state) => state.transform[2]);
+  const isSmallest = useStore((state) => state.transform[2] <= state.minZoom);
+  const isLargest = useStore((state) => state.transform[2] >= state.maxZoom);
+  function zoomOut(): void {
+    void flow.zoomOut();
+  }
+  function zoomIn(): void {
+    void flow.zoomIn();
+  }
+  function fit(): void {
+    void flow.fitView(PLAN_FIT_VIEW);
+  }
   return (
-    <>
-      <Panel position="top-left" className="max-w-[calc(100%-6rem)] space-y-2">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-border bg-surface/95 px-3 py-2 text-xs shadow-xs backdrop-blur">
-          <span className="flex items-center gap-1.5 font-medium">
-            <ModeIcon className="size-3.5" aria-hidden="true" />
-            {t(mode)}
-          </span>
-          <span className="text-muted-foreground">
-            → {t("plans.linkKind.flow")}
-          </span>
-          <span className="text-muted-foreground">
-            ┄ ◇ {t("plans.linkKind.data")}
-          </span>
-        </div>
-        {graph.connection ? (
-          <div
-            role="status"
-            className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface p-2 text-xs shadow-xs"
-          >
-            {t("plans.connectHint")}
-            <Button size="xs" variant="ghost" onClick={cancelConnection}>
-              {t("settings.agents.cancel")}
-            </Button>
-          </div>
-        ) : null}
-      </Panel>
-      <Controls
-        position="bottom-left"
-        orientation="horizontal"
-        showInteractive={false}
-        fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
-        aria-label={t("plans.flow.tools")}
+    <div
+      role="toolbar"
+      aria-label={t("plans.flow.tools")}
+      className="pointer-events-auto flex items-center gap-0.5 rounded-xl border border-border/70 bg-surface/80 p-1 text-foreground shadow-xs backdrop-blur-sm"
+    >
+      <Button
+        size="icon-sm"
+        variant="ghost"
+        aria-label={t("plans.zoomOut")}
+        title={t("plans.zoomOut")}
+        disabled={isSmallest}
+        onClick={zoomOut}
       >
-        <output
-          aria-label={t("plans.zoomLevel")}
-          className="flex min-w-14 items-center justify-center px-2 text-xs tabular-nums"
-        >
-          {Math.round(viewport.zoom * 100)} %
-        </output>
-      </Controls>
-      <MiniMap<PlanFlowNode>
-        position="bottom-right"
-        pannable
-        zoomable
-        nodeColor={minimapColor}
-        nodeStrokeColor="var(--color-border)"
-        nodeStrokeWidth={2}
-        maskColor="color-mix(in srgb, var(--color-background) 75%, transparent)"
-        maskStrokeColor="var(--color-info)"
-        ariaLabel={t("plans.flow.miniMap")}
-        className="hidden overflow-hidden rounded-xl border border-border shadow-xs sm:block"
-        style={{ width: 144, height: 96 }}
-      />
-      <Panel position="top-right">
-        <details className="relative">
-          <summary
-            className="flex size-9 cursor-pointer list-none items-center justify-center rounded-lg border border-border bg-surface text-muted-foreground shadow-xs focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label={t("plans.canvasHelp")}
-            title={t("plans.canvasHelp")}
-          >
-            <CircleHelp className="size-4" aria-hidden="true" />
-          </summary>
-          <div className="absolute top-11 right-0 w-64 space-y-2 rounded-xl border border-border bg-surface p-3 text-xs text-muted-foreground shadow-floating sm:w-80">
-            <p>{t("plans.canvasHint")}</p>
-            <a
-              href={reactFlowLicense}
-              target="_blank"
-              rel="noreferrer"
-              className="text-primary-text underline focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              React Flow · MIT
-            </a>
-          </div>
-        </details>
-      </Panel>
-    </>
+        <Minus className="size-4" aria-hidden="true" />
+      </Button>
+      <output
+        aria-label={t("plans.zoomLevel")}
+        className="min-w-12 text-center text-xs font-medium text-muted-foreground tabular-nums"
+      >
+        {Math.round(zoom * 100)} %
+      </output>
+      <Button
+        size="icon-sm"
+        variant="ghost"
+        aria-label={t("plans.zoomIn")}
+        title={t("plans.zoomIn")}
+        disabled={isLargest}
+        onClick={zoomIn}
+      >
+        <Plus className="size-4" aria-hidden="true" />
+      </Button>
+      <span aria-hidden="true" className="mx-0.5 h-5 w-px bg-border" />
+      <Button
+        size="icon-sm"
+        variant="ghost"
+        aria-label={t("plans.flow.fitView")}
+        title={t("plans.flow.fitView")}
+        onClick={fit}
+      >
+        <Scan className="size-4" aria-hidden="true" />
+      </Button>
+    </div>
   );
 }

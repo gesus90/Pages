@@ -7,6 +7,7 @@ import {
   SOURCES,
   i18n,
   planServer,
+  pressSave,
   renderPlanPage,
 } from "./page61-plan-fixture";
 
@@ -25,9 +26,21 @@ function groupServer(): PlanServer {
   if (!server.plan) throw new Error("Missing plan");
   server.plan = {
     ...server.plan,
-    nodes: server.plan.nodes.filter((node) =>
-      ["start", "end", "spare"].includes(node.id),
-    ),
+    nodes: [
+      ...server.plan.nodes.filter((node) =>
+        ["start", "end", "spare"].includes(node.id),
+      ),
+      {
+        id: "group",
+        type: "group",
+        name: i18n.t("plans.groups.defaultName"),
+        x: 320,
+        y: 0,
+        steps: [],
+        parameters: [],
+        bindings: {},
+      },
+    ],
     edges: [],
   };
   server.sources = {
@@ -56,113 +69,150 @@ function groupServer(): PlanServer {
   return server;
 }
 
-async function choose(
-  name: string,
-  option: string,
-  scope: HTMLElement = document.body,
-): Promise<void> {
-  fireEvent.keyDown(within(scope).getByRole("combobox", { name }), {
-    key: "Enter",
-  });
-  fireEvent.click(await screen.findByRole("option", { name: option }));
+const GROUP = i18n.t("plans.groups.defaultName");
+
+function canvas(): HTMLElement {
+  return screen.getByRole("region", { name: i18n.t("plans.canvas") });
 }
 
-async function createGroup(): Promise<void> {
-  await screen.findByRole("tab", { name: "Gruppen" });
-  fireEvent.mouseDown(screen.getByRole("tab", { name: "Gruppen" }));
-  fireEvent.click(
-    screen.getByRole("button", { name: i18n.t("plans.groups.create") }),
+function card(name: string): HTMLElement {
+  return within(canvas()).getByRole("article", { name });
+}
+
+function frame(): HTMLElement {
+  return within(canvas()).getByRole("region", {
+    name: i18n.t("plans.groups.frame", { name: GROUP }),
+  });
+}
+
+/** The group's settings open from its node menu, as every node dialog does. */
+async function openGroupDialog(): Promise<HTMLElement> {
+  fireEvent.keyDown(
+    within(frame()).getByRole("button", {
+      name: i18n.t("settings.agents.actionsFor", { name: GROUP }),
+    }),
+    { key: "Enter" },
   );
-  for (const index of [1, 2]) {
-    await choose(
-      i18n.t("plans.groups.addAgent"),
-      `Test ${index} · synthetic-free:free`,
+  fireEvent.click(
+    await screen.findByRole("menuitem", {
+      name: i18n.t("settings.agents.edit"),
+    }),
+  );
+  return screen.findByRole("dialog", { name: i18n.t("plans.editNode") });
+}
+
+function closeDialog(dialog: HTMLElement): void {
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: i18n.t("plans.closeNode") }),
+  );
+}
+
+async function addMembers(dialog: HTMLElement): Promise<void> {
+  for (const name of ["Test 2", "Test 1"]) {
+    fireEvent.keyDown(
+      within(dialog).getByRole("combobox", {
+        name: i18n.t("plans.groups.addAgent"),
+      }),
+      { key: "Enter" },
     );
     fireEvent.click(
-      screen.getByRole("button", { name: i18n.t("plans.groups.addAgent") }),
+      await screen.findByRole("option", { name: new RegExp(`^${name} ·`) }),
     );
+    fireEvent.click(
+      within(dialog).getByRole("button", {
+        name: i18n.t("plans.groups.addAgent"),
+      }),
+    );
+    await within(
+      within(dialog).getByRole("list", { name: i18n.t("plans.groups.order") }),
+    ).findByText(new RegExp(name));
   }
   fireEvent.click(
-    screen.getByRole("button", { name: i18n.t("plans.groups.addPort") }),
+    within(dialog).getByRole("button", {
+      name: i18n.t("plans.groups.addPort"),
+    }),
   );
   fireEvent.change(
-    screen.getByRole("textbox", { name: i18n.t("plans.groups.portName") }),
+    within(dialog).getByRole("textbox", {
+      name: i18n.t("plans.groups.portName"),
+    }),
     { target: { value: "shared" } },
   );
 }
 
-async function bindInternalPorts(): Promise<void> {
-  const list = screen.getByRole("list", { name: i18n.t("plans.groups.order") });
-  for (const row of within(list).getAllByRole("listitem")) {
-    fireEvent.click(within(row).getByText(i18n.t("plans.editNode")));
-    await choose(
-      i18n.t("plans.bindingSource", { name: "shared" }),
-      "shared (text) → shared",
-      row,
+/** Each member reads the boundary port through the handle beside it. */
+function bindInternalPorts(): void {
+  for (const name of ["Test 2", "Test 1"]) {
+    fireEvent.click(
+      within(frame()).getByRole("button", {
+        name: i18n.t("plans.groups.portToMember", { name: "shared" }),
+      }),
+    );
+    fireEvent.click(
+      within(card(name)).getByRole("button", {
+        name: i18n.t("plans.bindPort", { parameter: "shared", name }),
+      }),
     );
   }
 }
 
 function connectOuterGraph(): void {
-  const grid = screen.getByRole("region", { name: i18n.t("plans.grid") });
-  const start = within(grid).getByRole("article", { name: "Start" });
-  const group = within(grid).getByRole("article", {
-    name: i18n.t("plans.groups.defaultName"),
-  });
-  const end = within(grid).getByRole("article", { name: "Ende" });
-  const value = within(grid).getByRole("article", { name: "spare" });
   fireEvent.click(
-    within(start).getByRole("button", { name: i18n.t("plans.flowOut") }),
+    within(card("Start")).getByRole("button", {
+      name: i18n.t("plans.flowOut"),
+    }),
   );
   fireEvent.click(
-    within(group).getByRole("button", { name: i18n.t("plans.flowIn") }),
+    within(frame()).getAllByRole("button", {
+      name: i18n.t("plans.flowIn"),
+    })[0] ?? document.body,
   );
   fireEvent.click(
-    within(group).getByRole("button", { name: i18n.t("plans.flowOut") }),
+    within(frame()).getAllByRole("button", {
+      name: i18n.t("plans.flowOut"),
+    })[0] ?? document.body,
   );
   fireEvent.click(
-    within(end).getByRole("button", { name: i18n.t("plans.flowIn") }),
+    within(card("Ende")).getByRole("button", { name: i18n.t("plans.flowIn") }),
   );
   fireEvent.click(
-    within(value).getByRole("button", { name: i18n.t("plans.valueOut") }),
+    within(card("spare")).getByRole("button", {
+      name: i18n.t("plans.valueOut"),
+    }),
   );
   fireEvent.click(
-    within(group).getByRole("button", {
-      name: i18n.t("plans.bindPort", {
-        parameter: "shared",
-        name: i18n.t("plans.groups.defaultName"),
-      }),
+    within(frame()).getByRole("button", {
+      name: i18n.t("plans.bindPort", { parameter: "shared", name: GROUP }),
     }),
   );
 }
 
-it("shows Agents / Gruppen / Tickets / Parameter and saves an editable ordered subgraph with a visible shared port", async () => {
+it("edits a group from its node menu on the canvas and saves an ordered subgraph with a visible shared port", async () => {
   const server = groupServer();
   const rendered = renderPlanPage(server);
-  await screen.findByRole("tab", { name: "Gruppen" });
-  expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
-    "Agents",
-    "Gruppen",
-    "Tickets",
-    "Parameter",
-  ]);
-  await createGroup();
-  await bindInternalPorts();
-  fireEvent.click(
-    screen.getAllByRole("button", { name: i18n.t("plans.groups.up") })[1] ??
-      document.body,
-  );
+  await screen.findByRole("region", { name: i18n.t("plans.canvas") });
+  // The source tabs of the former side panel are gone; the canvas offers the group itself.
+  expect(screen.queryAllByRole("tab")).toHaveLength(0);
+  const dialog = await openGroupDialog();
+  await addMembers(dialog);
+  closeDialog(dialog);
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  bindInternalPorts();
   connectOuterGraph();
+  const reopened = await openGroupDialog();
   expect(
-    screen.getByRole("combobox", {
+    within(reopened).getByRole("combobox", {
       name: i18n.t("plans.groups.externalSource", { name: "shared" }),
     }).textContent,
   ).toContain("spare");
   fireEvent.change(
-    screen.getByRole("textbox", { name: i18n.t("plans.groups.portName") }),
+    within(reopened).getByRole("textbox", {
+      name: i18n.t("plans.groups.portName"),
+    }),
     { target: { value: "common" } },
   );
-  fireEvent.click(screen.getByRole("button", { name: i18n.t("plans.save") }));
+  closeDialog(reopened);
+  pressSave();
   await waitFor(() => expect(server.saved).toHaveLength(1));
   const group = server.saved[0]?.nodes.find((node) => node.type === "group");
   if (group?.type !== "group") throw new Error("Missing saved group");
@@ -179,23 +229,22 @@ it("shows Agents / Gruppen / Tickets / Parameter and saves an editable ordered s
   expect(server.saved[0]?.edges).toHaveLength(2);
   rendered.unmount();
   renderPlanPage(server);
-  await screen.findByRole("tab", { name: "Gruppen" });
-  fireEvent.click(
-    screen.getByRole("button", {
-      name: i18n.t("plans.selectNode", { name: group.name }),
-    }),
-  );
+  await screen.findByRole("region", { name: i18n.t("plans.canvas") });
+  const saved = await openGroupDialog();
   expect(
-    screen.getByRole("list", { name: i18n.t("plans.groups.order") }),
+    within(saved).getByRole("list", { name: i18n.t("plans.groups.order") }),
   ).toBeDefined();
   fireEvent.click(
-    screen.getByRole("button", { name: i18n.t("plans.groups.removePort") }),
+    within(saved).getByRole("button", {
+      name: i18n.t("plans.groups.removePort"),
+    }),
   );
-  expect(
-    screen.getAllByText(i18n.t("plans.validation.source"), { exact: false })
-      .length,
-  ).toBeGreaterThan(0);
-  expect(
-    screen.getByRole("button", { name: i18n.t("plans.play") }),
-  ).toHaveProperty("disabled", true);
+  closeDialog(saved);
+  // Without the port the members lose their source; the cards mark the issue
+  // instead of a validation list, and the editor offers no Play.
+  await waitFor(() =>
+    expect(card("Test 2").className).toContain("border-destructive"),
+  );
+  expect(card("Test 1").className).toContain("border-destructive");
+  expect(screen.queryByRole("button", { name: "Play" })).toBeNull();
 }, 20_000);

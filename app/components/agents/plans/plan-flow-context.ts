@@ -13,11 +13,11 @@ export interface PlanCanvasProps {
   readonly sources: AgentPlanSources;
   readonly graph: PlanGraphActions;
   readonly canEdit: boolean;
-  /** Distinguishes permission-based read-only access from a pending command or missing workspace. */
-  readonly isReadOnly?: boolean;
   readonly run: AgentPlanRun | null;
   readonly onEdit?: (id: string) => void;
   readonly onOpen?: (id: string) => void;
+  /** Notices of the page, such as a refused save, below the zoom bar. */
+  readonly status?: React.ReactNode;
 }
 
 /** Editor actions stay outside the domain objects projected into React Flow. */

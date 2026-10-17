@@ -21,6 +21,13 @@ import type {
 import type { PlanLink } from "./plan-links";
 import type { PlanConnection } from "./use-plan-connections";
 
+// Layers of the canvas (React Flow's manual z-index mode): frames lie below
+// the connections, cards above them, so a line never crosses a card or its
+// text; the labels of connections lie in between (plan-canvas.module.css).
+const FRAME_LAYER = 0;
+const EDGE_LAYER = 1;
+const CARD_LAYER = 3;
+
 /** A projection of a Pages node; React Flow metadata is never saved as a plan. */
 export type PlanFlowNode = Node<{ readonly node: AgentPlanNode }, "plan">;
 
@@ -61,6 +68,7 @@ export function planFlowNodes(
       draggable: options.canEdit,
       deletable: false,
       dragHandle: "[data-plan-handle]",
+      zIndex: node.type === "group" ? FRAME_LAYER : CARD_LAYER,
       className: node.type === "group" ? styles.groupNode : undefined,
       ariaLabel: planNodeLabel(node, options.sources),
       initialWidth: width,
@@ -103,7 +111,7 @@ export function planFlowEdges(
     selected: planLinkKey(link) === selectedKey,
     deletable: false,
     reconnectable: false,
-    zIndex: 1,
+    zIndex: EDGE_LAYER,
     ariaLabel: planLinkLabel(plan, sources, link),
     markerEnd: {
       type: MarkerType.ArrowClosed,

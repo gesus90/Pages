@@ -20,7 +20,7 @@ export function planStatusClass(status: AgentPlanStepStatus): string {
 }
 
 /** Supplements color with a distinct icon; motion respects reduced-motion preferences. */
-export function PlanStatusIcon({
+function PlanStatusIcon({
   status,
 }: {
   readonly status: AgentPlanStepStatus;

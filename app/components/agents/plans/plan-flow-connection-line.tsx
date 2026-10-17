@@ -1,10 +1,10 @@
-import { getBezierPath, getSmoothStepPath } from "@xyflow/react";
+import { getBezierPath } from "@xyflow/react";
 
 import { usePlanFlowContext } from "./plan-flow-context";
 
 import type { ConnectionLineComponentProps } from "@xyflow/react";
 
-/** The live preview follows the same flow/data line grammar and marks invalid targets. */
+/** The live preview is the same soft curve as the finished connection and marks invalid targets. */
 export function PlanFlowConnectionLine(
   props: ConnectionLineComponentProps,
 ): React.ReactElement | null {
@@ -19,7 +19,7 @@ export function PlanFlowConnectionLine(
     targetY: props.toY,
     targetPosition: props.toPosition,
   };
-  const [path] = isData ? getSmoothStepPath(options) : getBezierPath(options);
+  const [path] = getBezierPath(options);
   const color =
     props.connectionStatus === "invalid"
       ? "var(--color-destructive)"

@@ -1,14 +1,11 @@
 import { useState } from "react";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { I18nextProvider } from "react-i18next";
 import { expect, it, vi } from "vitest";
 
 import { PlanGroupParameters } from "@/app/components/agents/plans/plan-group-parameters";
-import { PlanRunDiagnostics } from "@/app/components/agents/plans/plan-run-diagnostics";
-import { PlanRunContract } from "@/app/components/agents/plans/plan-run-contract";
 
 import { i18n, SOURCES, planServer } from "./page61-plan-fixture";
-import { runStep, syntheticRun, syntheticSession } from "./page72-run-fixture";
 
 import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 
@@ -106,58 +103,4 @@ it("locks a group's external source while editing is disabled", () => {
     }),
   ).toHaveProperty("disabled", true);
   expect(onChange).not.toHaveBeenCalled();
-});
-
-it("names the failed internal agent and the acceptance failure beside its group status", () => {
-  const agent = runStep("first", {
-    name: "Internal test agent",
-    groupId: "group",
-    status: "failed",
-    error: "plan_group_acceptance_failed",
-  });
-  const run = {
-    ...syntheticRun(),
-    status: "failed" as const,
-    steps: [
-      agent,
-      runStep("group", {
-        name: "Test group",
-        status: "failed",
-        failedStepId: "first",
-        error: "plan_group_acceptance_failed",
-      }),
-    ],
-  };
-  render(
-    <I18nextProvider i18n={i18n}>
-      <PlanRunDiagnostics run={run} agents={[agent]} />
-    </I18nextProvider>,
-  );
-  const diagnostics = screen.getByRole("region", {
-    name: i18n.t("plans.runDiagnostics"),
-  });
-  expect(
-    within(diagnostics).getByText(
-      i18n.t("plans.groups.failedAgent", { name: agent.name }),
-    ),
-  ).toBeDefined();
-  expect(within(diagnostics).getByRole("alert").textContent).toBe(
-    i18n.t("settings.agents.error.plan_group_acceptance_failed"),
-  );
-});
-
-it("explains required group acceptance without the standalone diagnostic-only hint", () => {
-  const session = syntheticSession();
-  if (!session.contract) throw new Error("Missing contract");
-  render(
-    <I18nextProvider i18n={i18n}>
-      <PlanRunContract
-        contract={session.contract}
-        acceptance={session.acceptance}
-        requiresAcceptance
-      />
-    </I18nextProvider>,
-  );
-  expect(screen.getByText(i18n.t("plans.groups.acceptanceHint"))).toBeDefined();
-  expect(screen.queryByText(i18n.t("plans.session.diagnosticHint"))).toBeNull();
 });

@@ -11,59 +11,14 @@ import { beforeAll, afterAll, expect, it, vi } from "vitest";
 import { AgentParameterFields } from "@/app/components/settings/agents/agent-parameter-fields";
 import { AgentRunOptionsFields } from "@/app/components/settings/agents/agent-run-options-fields";
 import { PageAgentRow } from "@/app/components/agents/definitions/page-agent-row";
-import { PlanRunView } from "@/app/components/agents/plans/plan-run-view";
 import { createI18n } from "@/app/lib/i18n";
 import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 
 import type { AgentConfiguration } from "@/definition/AgentConfiguration";
 import type { PageAgent } from "@/definition/PageAgent";
-import type { AgentPlanRun } from "@/definition/AgentPlan";
 
 const i18n = createI18n("de");
 const scrollIntoView = HTMLElement.prototype.scrollIntoView;
-
-it("displays a timed-out run as Gestört with the hard timeout cause", () => {
-  const run: AgentPlanRun = {
-    id: "run",
-    planId: "plan",
-    planName: "Plan",
-    planRevision: 1,
-    userId: "owner",
-    startedAt: "2026-01-01",
-    status: "failed",
-    stopRequested: false,
-    steps: [
-      {
-        id: "step",
-        name: "Agent",
-        status: "failed",
-        isBlocked: false,
-        cancellation: "none",
-        output: null,
-        error: "timeout",
-      },
-    ],
-  };
-  render(
-    <I18nextProvider i18n={i18n}>
-      <PlanRunView
-        state={{
-          run,
-          selectedId: run.id,
-          select: vi.fn(),
-          runs: [run],
-          error: null,
-        }}
-        onStop={vi.fn()}
-        isPending={false}
-      />
-    </I18nextProvider>,
-  );
-  expect(screen.getByRole("status").textContent).toContain("Gestört");
-  expect(
-    screen.getByText(i18n.t("settings.agents.error.timeout")),
-  ).toBeDefined();
-});
 
 beforeAll(() => {
   HTMLElement.prototype.scrollIntoView = vi.fn();

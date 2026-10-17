@@ -747,41 +747,36 @@ The separate owner and Pica deletion rules above still apply.
 
 ## Agents execution plans
 
-Under **Agents → Ausführplan** (`/agents/plans`), choose a saved plan or use
-**+** to create one. Set its title, project, workspace and sharing. The project
-selection narrows the registered workspaces and their ticket picker. Only
-workspaces in accessible projects are offered; unavailable registrations are
-explained and cannot be selected for new work.
+Under **Agents → Ausführplan** (`/agents/plans`) the plan editor is one
+[React Flow](https://reactflow.dev/) canvas over the whole content area beside
+the global navigation, from the global header to the bottom of the window
+(PAGE-102). It shows only the nodes, their connections and one compact zoom bar
+at the top left: **−**, the current zoom in percent, **+** and **Fit all nodes**.
+There are no panels, toolbars, MiniMap, help or React Flow attribution, and the
+canvas has no frame and no scroll area of its own. The Pages background and its
+dotted raster continue under the graph in the light/dark semantic palette; the
+dots fade out towards the edges. Drag the empty area to pan; the wheel or pinch
+gesture zooms. Fitting keeps the existing positions and leaves room for the zoom
+bar. The initial fit runs when the graph opens; run-status updates keep the
+viewport and selection, and the canvas follows window and sidebar resizing.
 
-The main editor uses [React Flow](https://reactflow.dev/) with a framed, dotted
-canvas and the Pages light/dark semantic palette. Drag its empty area to pan;
-the wheel, pinch gesture or native zoom buttons zoom it. **Fit all nodes** fits
-the existing positions without rearranging them. The MiniMap offers an overview
-and pointer navigation; it is hidden on small screens to leave room for controls.
-The initial fit runs when the graph opens; subsequent run-status updates keep
-the viewport and selection. The plan configuration sits above the canvas
-(plan choice, title, project, workspace, sharing, Save, Play, Pause, Stop and
-validation), with a collapsible inspector beside it on wide screens and a
-collapsible run panel below. Narrower windows stack the panels. The inspector
-always shows the current node or connection independently of the source tabs:
-**Parameters / Agents / Tickets / Groups** (**Parameter / Agents / Tickets /
-Gruppen** in German).
-The run panel shows the selected run of your own history (steps, status, group,
-session reference, errors and cancellations) and the list of connections;
-without a run it says so.
-Search, filter and sort the authorized agents and project tasks/subtasks, then
-drag them onto the grid. Tickets can also be filtered by their current status:
-open, done, or one workflow status such as To Do or Done. **Start** and
-**End** (**Ende** in German) sit above the tabs and are dragged onto the grid the same way; a
-dropped start or end lands with its checkpoint symbol under the pointer. Buttons offer an
-alternative to dragging. Move nodes, frames, starts and ends by their header or
-checkpoint symbol, or edit their grid coordinates; the grabbed point stays under the
-pointer at every zoom level and positions snap to the raster. Grid coordinates
-range from 0 to 6000; dropping or keyboard movement commits a snapped, bounded
-position. The panel edits instances and their inputs; agent definitions
-remain in the existing Agents area.
+Without a `planId` in the address the editor opens the plan named **Task2**
+among the plans you may read, your own one first. This is a provisional
+default, not a stored setting, and nothing is created for it. A `planId` in the
+address takes precedence. If the requested plan or Task2 is missing or not
+readable, the canvas stays empty and says so; no other plan is opened instead.
+The editor offers no plan choice and no title, project, workspace, sharing,
+Save, Play, Pause, Stop or Delete plan controls. Plans are created and their
+metadata, structure and parameters changed through Pica and the MCP `plans.*`
+tools; the server actions described below remain.
 
-The **Groups** tab creates ACP groups. A group is a green frame on the grid
+Move nodes, frames, starts and ends by their header or checkpoint symbol; the
+grabbed point stays under the pointer at every zoom level and positions snap
+to the raster. Grid coordinates range from 0 to 6000; dropping or keyboard
+movement commits a snapped, bounded position. Agent definitions remain in the
+existing Agents area.
+
+An ACP group is a green frame on the grid
 around its agent nodes, with its own flow IN and OUT, its named boundary ports
 and its ACP class in the header. A new group is a neutral draft and may be saved
 empty. The first agent that joins sets its class from the agent's technical
@@ -793,8 +788,8 @@ and the next agent may give it another class.
 Drag an agent into a frame to add it and out of it to take it out; the pointer
 position on release decides, with a margin at the frame's edge, and the frame
 under the pointer is highlighted while dragging. A node keeps the point where
-it was grabbed, also when it leaves a frame. The membership select of an agent
-and the group's member list do the same without a pointer. Flow connections
+it was grabbed, also when it leaves a frame. The member list in the group's
+node dialog adds and takes out members without a pointer. Flow connections
 join nodes of the same level only: members with each other, outer nodes with
 the frame's flow ports. A node that crosses a frame loses the flow connections
 and boundary bindings of the side it left, and the editor names how many.
@@ -819,8 +814,8 @@ runs opens one ACP session for the group in this run; every later member
 continues it in the same adapter process with its own turn-scoped instruction.
 Turns of a group wait for each other, so a session never has two active turns,
 and a group never opens a second session in the same run. The session's ACP ID
-appears as the read-only runtime value `session_id` at the frame, at its members
-and in the run panel ("not created yet" before the first turn); it applies to
+appears as the read-only runtime value `session_id` at the frame ("not created
+yet" before the first turn); it applies to
 that group and run only. ACP session IDs cannot be continued in another process:
 if the adapter process ends, for example after the idle timeout of a paused run
 or a server restart, the next member fails instead of starting a new session. A
@@ -867,14 +862,15 @@ and the others dashed; a release on the empty grid or Escape adds nothing:
   are rejected. Existing predecessor-result connections remain available and
   require a flow path from the producing agent to the consuming agent.
 
-Click a connection or its labelled chip, or choose it in the **Connections** list
-below the grid, then use **Disconnect** to remove it alone; both nodes stay.
-Connections also have an inspector with their type, endpoints and removal action.
+Click a connection or its labelled chip, then use its **Disconnect** button to
+remove it alone; both nodes stay.
 Square flow handles and round data handles have larger pointer hit areas;
 labelled port buttons offer the same validated connections from the keyboard.
-Data connections use dashed orthogonal paths, flow connections solid curves;
-both have directional arrows, labels and visible selection. Invalid targets
-are marked in the preview and existing validation explains the rejected port.
+Every connection is a soft Bezier curve, also its preview while it is drawn and
+while nodes move: flow connections are solid, data connections dashed; both
+have directional arrows, labels and visible selection. Invalid targets are
+marked in the preview, and a refused IN chosen with the port buttons is named
+below the zoom bar.
 The node menu removes the node
 together with all of its connections; Delete or Backspace removes the selected
 node or connection while the grid or the selected node's header has focus, but
@@ -884,7 +880,8 @@ An executable plan needs at least one usable agent, an explicit Start and a
 reachable End. Every flow node must be reachable from a Start and lead to an
 End; every required flow IN/OUT must be connected. Required agent inputs,
 including a configured working directory, need connected, nonempty values.
-Agents in the sidebar are editable templates. Each insertion fetches the current
+Agent templates stay editable in the Agents area. Each insertion of an agent,
+also into a group from its node dialog, fetches the current
 template and stores an independent node copy of its instruction, model grant,
 reasoning, parameters, directory binding and run options. Its configured defaults
 become individual connected parameter nodes. **Edit** in the node menu opens
@@ -899,26 +896,27 @@ open, and runs other than the newest active one are read only. Template edits, i
 edits during an active run, never change existing nodes. Inserting the same
 template again uses its current defaults. Existing saved plans receive their
 independent copies once at server startup, under their normal revision checks.
-Earlier plans keep their values and bindings; old literal
-bindings can be converted into value nodes in the selection panel. They need
-explicit Start/End nodes and connected required parameters before Play.
+Earlier plans keep their values and bindings. They need explicit Start/End
+nodes and connected required parameters before Play.
 
-**Save** persists the metadata, positions, port references, connections and
-values. Incomplete drafts can be saved; invalid connections cannot. Revision
-checks reject conflicting writes. Navigation and tab closing warn about
-unsaved changes, and run polling does not replace an edited draft.
-The toolbar distinguishes an unsaved draft, processing, save failure, saved
-content and read-only access. Plan navigation, source loading and the insertion
-of a current agent configuration have their own loading feedback. Read-only
-access also disables React Flow dragging and connection creation; selection,
-pan/zoom, run inspection and the existing read-only node dialog stay available.
+**Ctrl+S** (**Cmd+S** on macOS) saves the plan wherever the focus is in the
+editor; nothing is saved automatically. A save persists the metadata,
+positions, port references, connections and values. Incomplete drafts can be
+saved; invalid connections cannot. Revision checks reject conflicting writes.
+Navigation and tab closing warn about unsaved changes, and run polling does not
+replace an edited draft. A stored plan is confirmed by a toast; a running save,
+a refused save and a read-only plan are named in a short notice below the zoom
+bar. An agent whose current template cannot be loaded is not inserted, and the
+group dialog says so. Read-only access also disables React Flow
+dragging and connection creation; selection, pan/zoom, the agent console and
+the existing read-only node dialog stay available.
 
-**Delete plan** removes a plan for everyone it is shared with. Only its owner,
-who may also edit it, is offered the action, and the server refuses anyone
-else. A plan with a running or paused run cannot be deleted; finished runs stay
-in the run records of the agents.
+Deleting a plan removes it for everyone it is shared with. Only its owner may,
+and the server refuses anyone else; the editor offers no delete action. A plan
+with a running or paused run cannot be deleted; finished runs stay in the run
+records of the agents.
 
-**Play** validates and executes the plan as the editor shows it, using the
+**Play**, the server's start action, validates and executes the plan as sent, using the
 Pages execution service. Unsaved changes of the owner are saved first, under
 the same plan, as the next revision, and that revision is started; the new
 revision and the run are stored together, so a refused save starts nothing and
@@ -1164,8 +1162,9 @@ accept the repository's React 19 versions. The library supports
 receives the initial graph and nodes have initial dimensions; client hydration
 measures their handles and draws the edges. The Pages static type gate checks
 the integration against the installed types.
-The free built-in components and attribution are used; the complete MIT notice
-is linked from canvas help and included as a Vite URL asset.
+PAGE-87 used the free built-in components and attribution and linked the MIT
+notice from canvas help; PAGE-102 replaced them with the zoom bar, hid the
+attribution and keeps the notice with the source (see License).
 
 Verification boundaries on 2026-10-17:
 
@@ -2036,6 +2035,6 @@ Pages is open source under the [MIT License](./LICENSE).
 
 React Flow (`@xyflow/react` and `@xyflow/system`) is MIT licensed. Its complete
 [copyright and license notice](./assets/react-flow-LICENSE.txt) is retained
-with the source and linked from the plan editor as a bundled asset. The editor
-uses the free library and its built-in attribution; no Pro assets or services
-are required.
+with the source. The plan editor uses the free library and hides its corner
+attribution, which the MIT license permits; no Pro assets or services are
+required.

@@ -44,10 +44,8 @@ export function usePlanNodeInsertion(options: InsertionOptions): {
     groupId?: string,
   ) => string | null;
   readonly insertionError: string | null;
-  readonly isInserting: boolean;
 } {
   const [insertionError, setInsertionError] = useState<string | null>(null);
-  const [pendingInsertions, setPendingInsertions] = useState(0);
   const { draft, sources, setDraft, select, loadConfiguration } = options;
   function targetGroup(groupId: string | undefined): AgentPlanGroup | null {
     return (
@@ -90,7 +88,6 @@ export function usePlanNodeInsertion(options: InsertionOptions): {
     group: AgentPlanGroup | null,
   ): Promise<void> {
     if (!loadConfiguration) return;
-    setPendingInsertions((count) => count + 1);
     try {
       const configuration = await loadConfiguration(node.agentId);
       const current = { ...node, configuration };
@@ -99,8 +96,6 @@ export function usePlanNodeInsertion(options: InsertionOptions): {
     } catch (error: unknown) {
       console.error("Pages could not copy the current agent template.", error);
       setInsertionError("plan_sources_failed");
-    } finally {
-      setPendingInsertions((count) => count - 1);
     }
   }
   function add(
@@ -118,7 +113,7 @@ export function usePlanNodeInsertion(options: InsertionOptions): {
     }
     return insert(node, group);
   }
-  return { add, insertionError, isInserting: pendingInsertions > 0 };
+  return { add, insertionError };
 }
 
 /** The position of a new member, counted from the member area of its frame. */

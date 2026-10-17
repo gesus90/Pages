@@ -141,7 +141,12 @@ function GroupMembers(props: GroupEditorProps): React.ReactElement {
   );
 }
 
-/** Offers only usable agents that may join: ACP agents of the group's class, or of any class while it is neutral. */
+/**
+ * Offers only usable agents that may join: ACP agents of the group's class, or of any class while it is neutral.
+ *
+ * @remarks
+ * A template that cannot be loaded adds nothing and is named here, where the agent was chosen.
+ */
 function GroupAgentPicker(props: GroupEditorProps): React.ReactElement {
   const { t } = useTranslation();
   const [agentId, setAgentId] = useState("");
@@ -189,6 +194,11 @@ function GroupAgentPicker(props: GroupEditorProps): React.ReactElement {
       >
         {t("plans.groups.addAgent")}
       </Button>
+      {props.graph.insertionError ? (
+        <p role="alert" className="text-sm text-destructive">
+          {t(`settings.agents.error.${props.graph.insertionError}`)}
+        </p>
+      ) : null}
     </div>
   );
 }

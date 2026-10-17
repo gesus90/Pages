@@ -1,42 +1,41 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { PlanAgentConsole } from "./plan-agent-console";
 import { PlanNodeDialog } from "./plan-node-dialog";
 import { PlanCanvas } from "./plan-canvas";
-import { PlanConfigurationPanel } from "./plan-configuration-panel";
-import { PlanDetailsPanel } from "./plan-details-panel";
-import { PlanPanel } from "./plan-panel";
+import { PlanCanvasEmpty } from "./plan-canvas-empty";
 import { PlanLeaveGuard } from "./plan-leave-guard";
+import { PlanSaveNotice } from "./plan-save-notice";
 import { usePlanEditor } from "./use-plan-editor";
 import { usePlanRun } from "./use-plan-run";
+import { usePlanSave } from "./use-plan-save";
 
+import type { AgentPlanOpening } from "@/app/lib/agent-plan-default";
 import type { AgentPlanPage } from "@/definition/AgentPlan";
 
-/** Width of the right panel, which the top and bottom panels keep clear of. */
-interface PlanWorkspaceStyle extends React.CSSProperties {
-  readonly "--plan-side": string;
-}
-
-const OPEN_SIDE: PlanWorkspaceStyle = { "--plan-side": "min(23rem, 40vw)" };
-const CLOSED_SIDE: PlanWorkspaceStyle = { "--plan-side": "2.25rem" };
-
 /**
- * A framed canvas keeps the toolbar, inspector and run details in their own layout areas.
+ * The plan editor: one canvas over the whole content area beside the navigation.
  *
  * @remarks
- * The inspector sits beside the graph on desktop and tablet; narrow screens
- * stack the collapsible panels. Run updates never remount the canvas.
+ * The canvas runs from the global header to the bottom of the window and
+ * shows only nodes, connections and the zoom bar. The node dialog and the
+ * agent console appear only when a node asks for them, and Ctrl+S or Cmd+S
+ * saves. Run updates never remount the canvas.
  */
 export function PlanPage({
   page,
+  opening,
 }: {
   readonly page: AgentPlanPage;
+  readonly opening: AgentPlanOpening;
 }): React.ReactElement {
+  const { t } = useTranslation();
   const editor = usePlanEditor(page);
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [consoleNodeId, setConsoleNodeId] = useState<string | null>(null);
-  const [isSideOpen, setSideOpen] = useState(true);
   const running = usePlanRun(page.runs, editor.command.data);
+  const saving = usePlanSave(editor, page.selected !== null);
   const disabled = !editor.canEdit || editor.isPending;
   function closeConsole(): void {
     const nodeId = consoleNodeId;
@@ -50,42 +49,30 @@ export function PlanPage({
         ?.focus({ preventScroll: true });
   }
   return (
-    <div
-      className="relative isolate flex flex-col gap-3 lg:h-[calc(100dvh-8.5rem)] lg:min-h-[42rem]"
-      style={isSideOpen ? OPEN_SIDE : CLOSED_SIDE}
-    >
-      <PlanConfigurationPanel
-        page={page}
-        editor={editor}
+    <div className="fixed inset-x-0 top-19 bottom-0 isolate md:left-(--app-sidebar-width)">
+      <h1 className="sr-only">
+        {page.selected
+          ? `${t("plans.title")} · ${page.selected.name}`
+          : t("plans.title")}
+      </h1>
+      <PlanCanvas
+        draft={editor.draft}
+        sources={editor.sources}
+        graph={editor.graph}
+        canEdit={!disabled && Boolean(editor.draft.workspaceId)}
+        onEdit={setEditingNodeId}
+        onOpen={setConsoleNodeId}
         run={running.run}
-        className="shrink-0"
-      />
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:min-h-[24rem] lg:grid-cols-[minmax(0,1fr)_var(--plan-side)]">
-        <div className="relative h-[60dvh] min-h-[24rem] min-w-0 lg:h-auto">
-          <PlanCanvas
-            draft={editor.draft}
-            sources={editor.sources}
-            graph={editor.graph}
-            canEdit={!disabled && Boolean(editor.draft.workspaceId)}
-            isReadOnly={!editor.canEdit}
-            onEdit={setEditingNodeId}
-            onOpen={setConsoleNodeId}
-            run={running.run}
+        status={
+          <PlanSaveNotice
+            feedback={saving.feedback}
+            onDismiss={saving.dismiss}
           />
-        </div>
-        <PlanPanel
-          page={page}
-          editor={editor}
-          run={running.run}
-          isOpen={isSideOpen}
-          onOpenChange={setSideOpen}
-        />
-      </div>
-      <PlanDetailsPanel
-        state={running}
-        editor={editor}
-        hasRuns={page.runs.length > 0}
-        className="max-h-[35dvh] shrink-0"
+        }
+      />
+      <PlanCanvasEmpty
+        opening={opening}
+        isEmptyPlan={editor.draft.nodes.length === 0}
       />
       <PlanNodeDialog
         nodeId={editingNodeId}

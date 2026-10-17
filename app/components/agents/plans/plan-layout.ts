@@ -11,9 +11,7 @@ import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 
 export const PLAN_GRID = 20;
 export const PLAN_NODE_WIDTH = 280;
-export const PLAN_ENDPOINT_SIZE = 64;
-/** The center of a start's or end's circle, where its flow connection meets it. */
-export const PLAN_ENDPOINT_PORT_Y = 72;
+const PLAN_ENDPOINT_SIZE = 64;
 /** Space between a frame's edge and its members. */
 export const PLAN_FRAME_PADDING = 20;
 const FRAME_MIN_WIDTH = 360;
@@ -22,16 +20,6 @@ const FRAME_MIN_MEMBER_AREA = 160;
 export const PLAN_FRAME_FOOTER = 32;
 // A pointer this close to a frame's edge does not take a node into the frame.
 const FRAME_EDGE = 16;
-
-/** Where a node is drawn: absolute grid position and size, and the frame around a member. */
-export interface PlanNodeBox {
-  readonly node: AgentPlanNode;
-  readonly x: number;
-  readonly y: number;
-  readonly width: number;
-  readonly height: number;
-  readonly group: AgentPlanGroup | null;
-}
 
 function agentHeight(step: AgentPlanStep, sources: AgentPlanSources): number {
   return (
@@ -105,36 +93,6 @@ export function planNodeHeight(
   if (node.type === "group") return groupHeight(node, sources);
   if (node.type !== "agent") return 128;
   return agentHeight(node, sources);
-}
-
-/** Finds where a node is drawn, members of frames included. */
-export function planNodeBox(
-  plan: AgentPlanInput,
-  id: string,
-  sources: AgentPlanSources,
-): PlanNodeBox | null {
-  for (const node of plan.nodes) {
-    if (node.id === id)
-      return {
-        node,
-        x: node.x,
-        y: node.y,
-        width: planNodeWidth(node),
-        height: planNodeHeight(node, sources),
-        group: null,
-      };
-    if (node.type !== "group") continue;
-    const step = node.steps.find((entry) => entry.id === id);
-    if (step)
-      return {
-        node: step,
-        ...planMemberPosition(node, step),
-        width: PLAN_NODE_WIDTH,
-        height: agentHeight(step, sources),
-        group: node,
-      };
-  }
-  return null;
 }
 
 /**
