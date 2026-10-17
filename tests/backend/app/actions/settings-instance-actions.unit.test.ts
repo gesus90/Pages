@@ -349,7 +349,7 @@ describe("handleUpdateChatSettings", () => {
     expect(status).toBe(403);
   });
 
-  it("logs only the error name, never the instruction or the message", async () => {
+  it("logs safe structured errors, never the instruction or the message", async () => {
     const logged = silenceErrors();
     services.chatSettingsService.update.mockRejectedValue(
       new Error("rejected instruction: sk-synthetic-secret"),
@@ -362,7 +362,11 @@ describe("handleUpdateChatSettings", () => {
     expect(JSON.stringify(logged.mock.calls)).not.toContain("sk-synthetic");
     expect(logged).toHaveBeenCalledWith(
       "[pages] The chat settings could not be stored.",
-      "Error",
+      expect.objectContaining({
+        type: "Error",
+        message:
+          "Error reported; free-form diagnostic text omitted to protect user content",
+      }),
     );
   });
 });

@@ -1,3 +1,5 @@
+import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
+
 import type { DiscordInstanceStatus } from "@/definition/Discord";
 
 /** The Discord application of this Pages instance; every value is a server-side secret. */
@@ -109,9 +111,13 @@ export function resolvePublicBaseUrl(
       if (url.protocol === "https:" || url.protocol === "http:") {
         return url.origin;
       }
-    } catch {
-      console.warn(
-        `Pages ignores ${PUBLIC_URL_SETTING_NAME}: it is not a valid address.`,
+    } catch (caughtError: unknown) {
+      logCaughtError("DiscordConfig", caughtError);
+
+      logDiagnostic(
+        "DiscordConfig",
+        "warn",
+        "Pages ignores PAGES_PUBLIC_URL: it is not a valid address.",
       );
     }
   }

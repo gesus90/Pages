@@ -8,6 +8,7 @@ import {
   sanitizeFileName,
 } from "@/backend/service/wiki/WikiFileTypes";
 import { WIKI_LIMITS, countCharacters } from "@/definition/Wiki";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type {
   AgentAssetRepository,
@@ -70,6 +71,8 @@ export class AgentAssetService {
         },
       })
       .catch((error: unknown) => {
+        logCaughtError("AgentAssetService", error);
+
         throw error instanceof FileTooLargeError
           ? new AgentOperationError("PAYLOAD_TOO_LARGE")
           : error;
@@ -103,6 +106,8 @@ export class AgentAssetService {
         expiresAt: asset.expiresAt,
       };
     } catch (error: unknown) {
+      logCaughtError("AgentAssetService", error);
+
       await this.dependencies.files.remove([stored.storageName]);
       throw error;
     }

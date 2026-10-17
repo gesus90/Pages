@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { AgentImportRepository } from "@/backend/database/repositories/agents/AgentImportRepository";
 import { AgentOperationKeyRepository } from "@/backend/database/repositories/agents/AgentOperationKeyRepository";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import {
   requireWikiImportPage,
@@ -109,6 +110,8 @@ export class WikiImportUpdateService {
         this.dependencies.events.publish({ type: "wiki.page.updated", id });
       return { apiVersion: "1", result: outcome.result };
     } catch (error: unknown) {
+      logCaughtError("WikiImportUpdateService", error);
+
       if (error instanceof AgentOperationError) throw error;
       const code = wikiImportErrorCode(error);
       if (code && code !== "AUTH_INVALID" && code !== "AUTH_UNAVAILABLE")

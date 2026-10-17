@@ -1,6 +1,8 @@
 import { homedir } from "node:os";
 import path from "node:path";
 
+import { isLogRetentionDays } from "@/definition/Logging";
+
 import { readAcpResourceSettings } from "./AcpResourceSettings";
 
 import type { AcpResourceOptions } from "@/definition/AcpResource";
@@ -27,6 +29,8 @@ export const CONFIG_KEY = {
 /** Settings that do not depend on the setup state. */
 interface BaseConfig extends Partial<AcpResourceOptions> {
   readonly port: number;
+  /** Missing on older configurations: 30 calendar days, including today. */
+  readonly logRetentionDays?: number;
 }
 
 /**
@@ -208,9 +212,10 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
   const firstRun = readFirstRun(table, source);
   const port = readPort(table, source);
   const databasePath = readDatabasePath(table, source);
+  const logging = readLoggingConfig(table, source);
 
   if (firstRun) {
-    return { ...acpResources, databasePath, firstRun, port };
+    return { ...acpResources, ...logging, databasePath, firstRun, port };
   }
 
   if (databasePath === null) {
@@ -220,7 +225,21 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
     );
   }
 
-  return { ...acpResources, databasePath, firstRun, port };
+  return { ...acpResources, ...logging, databasePath, firstRun, port };
+}
+
+function readLoggingConfig(
+  table: TomlTable,
+  source: string,
+): Pick<BaseConfig, "logRetentionDays"> {
+  const days = table.logRetentionDays;
+  if (days === undefined) return {};
+  if (!isLogRetentionDays(days))
+    throw invalidConfig(
+      source,
+      '"logRetentionDays" must be a whole number from 0 to 365.',
+    );
+  return { logRetentionDays: days };
 }
 
 /**
@@ -239,6 +258,8 @@ export function writePagesConfig(
     [CONFIG_KEY.FIRST_RUN]: config.firstRun,
     [CONFIG_KEY.PORT]: config.port,
   };
+  if (config.logRetentionDays !== undefined)
+    document.logRetentionDays = config.logRetentionDays;
 
   const resourceKeys = [
     "maxConcurrentAcpSessions",

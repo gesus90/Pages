@@ -4,6 +4,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { ChatError } from "@/backend/error/ChatErrors";
+import {
+  logEvent,
+  logCaughtError,
+  logDiagnostic,
+} from "@/backend/logging/Logger";
 
 /**
  * Directory of Pica's protected files, fixed by the location of the server code.
@@ -36,11 +41,14 @@ type PicaFileDefect = "notARegularFile" | "tooLarge" | "notUtf8" | "empty";
 /** A protected file that exists but cannot serve as an instruction. */
 class PicaFileDefectError extends Error {
   public readonly defect: PicaFileDefect;
+  /** Stable operational code, independent of protected file content. */
+  public readonly code: PicaFileDefect;
 
   public constructor(defect: PicaFileDefect) {
     super(defect);
     this.name = "PicaFileDefectError";
     this.defect = defect;
+    this.code = defect;
   }
 }
 
@@ -74,13 +82,22 @@ async function readOrReport(file: PicaInstructionFile): Promise<string> {
   try {
     return await readProtectedFile(location);
   } catch (error: unknown) {
+    logCaughtError("PicaInstructionFiles", error);
+
     const reason = failureReason(error);
-    // Path and reason only; the content of the file never reaches the log.
-    console.error(
+    logEvent({
+      level: "error",
+      event: "pica.instructions.unavailable",
+      component: "PicaInstructionFiles",
+      message: "Protected instructions unavailable",
+      metadata: { reason },
+    });
+    // Report only operational metadata, never protected instruction content.
+    logDiagnostic(
+      "PicaInstructionFiles",
+      "error",
       "[pages] A protected instruction file of Pica cannot be used; the chat does not answer.",
-      location,
-      reason === "ENOENT" ? "missing" : "unreadable",
-      reason,
+      error,
     );
     throw new ChatError("instructionsUnavailable");
   }
@@ -96,7 +113,7 @@ async function readOrReport(file: PicaInstructionFile): Promise<string> {
  * The files are read anew for every message, so they apply in every session
  * and after every compaction. They are read from the fixed directory only, and
  * nothing in Pages writes them. There is no fallback: a missing or unreadable
- * file is logged with its path and reason, and the chat answers with an error
+ * file is logged with a safe operational code, and the chat answers with an error
  * instead of with other instructions.
  */
 export async function readPicaInstructions(): Promise<PicaInstructions> {

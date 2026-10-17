@@ -5,6 +5,7 @@ import {
 } from "@/app/lib/form-fields.server";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { isAgentFunction } from "@/definition/AgentAssignment";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { badRequest } from "./settings-action-support.server";
 import { requireAgentAccount } from "./settings-agents-access.server";
@@ -32,7 +33,9 @@ function readScopeField(formData: FormData): unknown {
   if (content.length > 50_000) throw new AgentError("connection_scope_invalid");
   try {
     return JSON.parse(content);
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("settings_agents_actions", caughtError);
+
     // The parser's own message would echo request content.
     throw new AgentError("connection_scope_invalid");
   }

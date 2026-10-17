@@ -3,6 +3,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 import { isAgentParameterName } from "@/definition/AgentParameters";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import {
   readParameterRecord,
@@ -33,6 +34,8 @@ export function readPageAgentParameters(
       parameters: input,
     }).parameters;
   } catch (error: unknown) {
+    logCaughtError("PageAgentParameterChanges", error);
+
     if (error instanceof AgentError)
       throw new AgentOperationError("INVALID_REQUEST", {
         reason: "configuration_invalid",

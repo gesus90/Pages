@@ -2,6 +2,7 @@ import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { readSearchParams } from "@/app/lib/wiki-search-params";
 import { WikiValidationError } from "@/backend/error/WikiErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { Route } from "./+types/wiki-search";
 
@@ -29,6 +30,8 @@ export async function loader({
   try {
     return Response.json(await wikiService.search(actor, input));
   } catch (error: unknown) {
+    logCaughtError("wiki_search", error);
+
     if (error instanceof WikiValidationError) {
       return Response.json({ results: [], total: 0 });
     }

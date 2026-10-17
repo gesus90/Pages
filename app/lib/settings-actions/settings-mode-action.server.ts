@@ -1,5 +1,8 @@
 import { data } from "react-router";
+
 import { AdministrationError } from "@/backend/error/AdministrationError";
+import { logCaughtError } from "@/backend/logging/Logger";
+
 import { badRequest } from "./settings-action-support.server";
 
 import type {
@@ -22,6 +25,8 @@ export const handleSetMode: (
     await services.administrationService.setMode(user.id, mode);
     return data<SettingsActionData>({ intent: "set-mode", ok: true });
   } catch (error: unknown) {
+    logCaughtError("settings_mode_action", error);
+
     if (!(error instanceof AdministrationError)) throw error;
     return data<SettingsActionData>(
       { intent: "set-mode", ok: false },

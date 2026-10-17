@@ -6,6 +6,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
 import { isAgentProfilePurpose } from "@/definition/AgentProfile";
 import { matchesAgentFilters } from "@/definition/AgentFilters";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import {
   resolveAgentAssignment,
@@ -312,6 +313,8 @@ export class AgentProfileService {
           reasoningEffort: profile.reasoningEffort,
         });
       } catch (error: unknown) {
+        logCaughtError("AgentProfileService", error);
+
         if (!(error instanceof TextAssistantError)) throw error;
       }
     }

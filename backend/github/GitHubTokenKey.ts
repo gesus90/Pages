@@ -2,6 +2,8 @@ import { randomBytes } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
+import { logCaughtError } from "@/backend/logging/Logger";
+
 const TOKEN_KEY_ENVIRONMENT_VARIABLE = "PAGES_GITHUB_TOKEN_KEY";
 const TOKEN_KEY_FILE_NAME = "github-token.key";
 const TOKEN_KEY_BYTES = 32;
@@ -44,6 +46,7 @@ export function resolveGitHubTokenKey(databasePath: string): Buffer {
       !("code" in error) ||
       error.code !== "ENOENT"
     ) {
+      logCaughtError("GitHubTokenKey", error);
       throw error;
     }
   }

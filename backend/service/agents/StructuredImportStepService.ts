@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { AgentImportRepository } from "@/backend/database/repositories/agents/AgentImportRepository";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { agentTransactionScope } from "./AgentTransactionScope";
 import { translateAgentTicketError } from "./AgentTicketErrors";
@@ -172,6 +173,8 @@ export class StructuredImportStepService {
         },
       );
     } catch (error: unknown) {
+      logCaughtError("StructuredImportStepService", error);
+
       await this.recordFailure(run, step, ordinal, error);
       return;
     }

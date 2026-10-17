@@ -1,5 +1,6 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AGENT_PROVIDERS } from "@/definition/AgentConnection";
+import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 
 import { classifyProviderError } from "../providers/ProviderErrors";
 import { requestHeaders } from "../providers/ProviderHttpClient";
@@ -37,6 +38,13 @@ export class CatalogHttpClient {
           redirect: "error",
         },
       );
+      logEvent({
+        level: response.ok ? "debug" : "warn",
+        event: "integration.catalog.response",
+        component: "CatalogHttpClient",
+        message: "Provider catalog response received",
+        metadata: { provider, statusCode: response.status },
+      });
       if (!response.ok)
         throw new AgentError(
           classifyProviderError(
@@ -54,6 +62,8 @@ export class CatalogHttpClient {
       if (structuredError) throw new AgentError(structuredError);
       return { payload, bytes: result.bytes };
     } catch (error: unknown) {
+      logCaughtError("CatalogHttpClient", error);
+
       if (signal.aborted) throw new AgentError("check_timeout");
       if (error instanceof AgentError) throw error;
       throw new AgentError(
@@ -77,7 +87,9 @@ export class CatalogHttpClient {
       );
       const payload: unknown = JSON.parse(result.text);
       return payload;
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("CatalogHttpClient", caughtError);
+
       return null;
     }
   }

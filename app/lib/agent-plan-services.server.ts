@@ -23,6 +23,7 @@ import { AgentSessionJournal } from "@/backend/service/agents/sessions/AgentSess
 import { AgentSessionService } from "@/backend/service/agents/sessions/AgentSessionService";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
+import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import type { Database } from "@/backend/database/Database";
 import type { AgentPlanMcpSettings } from "@/backend/service/agents/AgentPlanSessionAccess";
@@ -181,7 +182,11 @@ async function repairAgentFiles(input: {
       await new AgentProfileRepository(input.database).list(),
     );
   } catch (error: unknown) {
-    console.error(
+    logCaughtError("agent_plan_services", error);
+
+    logDiagnostic(
+      "agent_plan_services",
+      "error",
       "Pages could not read the agents to repair their definition files.",
       error,
     );

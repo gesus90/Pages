@@ -2,6 +2,7 @@ import { lstat } from "node:fs/promises";
 import path from "node:path";
 
 import { AgentError } from "@/backend/error/AgentErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { CliHome } from "./CliContracts";
 
@@ -36,7 +37,9 @@ export function readOpenCodeKey(content: string): OpenCodeKeyInput {
     )
       throw new AgentError("cli_not_logged_in");
     return { modelProvider: provider, apiKey };
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("OpenCodeCredentials", caughtError);
+
     throw new AgentError("cli_not_logged_in");
   }
 }

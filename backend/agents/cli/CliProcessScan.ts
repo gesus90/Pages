@@ -1,5 +1,7 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 
+import { logCaughtError } from "@/backend/logging/Logger";
+
 /** The variable that tags every process of one plan session. */
 export const RUN_INSTANCE_VARIABLE = "PAGES_RUN_INSTANCE";
 
@@ -45,8 +47,9 @@ function delay(milliseconds: number): Promise<void> {
 function signalProcess(processId: number, signal: NodeJS.Signals): void {
   try {
     process.kill(processId, signal);
-  } catch {
+  } catch (caughtError: unknown) {
     // The process ended between the scan and the signal.
+    if (!isVanished(caughtError)) logCaughtError("CliProcessScan", caughtError);
   }
 }
 
@@ -126,6 +129,7 @@ export async function findTaggedProcesses(
       if (environment.split("\0").includes(marker)) found.push(Number(entry));
     } catch (error: unknown) {
       if (await cannotCarryTag(error, directory, scope)) continue;
+      logCaughtError("CliProcessScan", error);
       throw error;
     }
   }
@@ -188,6 +192,7 @@ async function isForeignOrVanished(directory: string): Promise<boolean> {
     return process.getuid !== undefined && metadata.uid !== process.getuid();
   } catch (error: unknown) {
     if (isVanished(error)) return true;
+    logCaughtError("CliProcessScan", error);
     throw error;
   }
 }
@@ -199,6 +204,7 @@ async function readProcessStart(directory: string): Promise<number | null> {
     line = await readFile(`${directory}/stat`, "utf8");
   } catch (error: unknown) {
     if (isVanished(error)) return null;
+    logCaughtError("CliProcessScan", error);
     throw error;
   }
   // The name in parentheses may contain spaces; the fields after it are numbers.

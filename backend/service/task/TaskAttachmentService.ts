@@ -10,6 +10,7 @@ import {
 } from "@/backend/service/wiki/WikiFileTypes";
 import { FileTooLargeError } from "@/backend/storage/WikiFileStore";
 import { countCharacters, WIKI_LIMITS } from "@/definition/Wiki";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { ReadStream } from "node:fs";
 import type {
@@ -147,6 +148,8 @@ export class TaskAttachmentService {
         },
       })
       .catch((error: unknown) => {
+        logCaughtError("TaskAttachmentService", error);
+
         throw error instanceof FileTooLargeError
           ? new WorkItemValidationError("attachmentTooLarge")
           : error;
@@ -178,6 +181,8 @@ export class TaskAttachmentService {
         uploadedByName: actor.displayName,
       });
     } catch (error: unknown) {
+      logCaughtError("TaskAttachmentService", error);
+
       await this.files.remove([stored.storageName]);
 
       throw error;

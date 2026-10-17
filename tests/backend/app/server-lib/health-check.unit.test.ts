@@ -54,7 +54,11 @@ describe("checkHealth", () => {
     expect(await checkHealth()).toBe("unavailable");
     expect(logged).toHaveBeenCalledWith(
       "[pages] The health check failed.",
-      failure,
+      expect.objectContaining({
+        type: "Error",
+        message:
+          "Error reported; free-form diagnostic text omitted to protect user content",
+      }),
     );
     expect(vi.getTimerCount()).toBe(0);
   });

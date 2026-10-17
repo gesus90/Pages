@@ -3,6 +3,7 @@ import {
   WikiPageNotFoundError,
   WikiValidationError,
 } from "@/backend/error/WikiErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { AgentWikiCreateTransaction } from "./AgentWikiCreateTransaction";
 
@@ -46,6 +47,8 @@ export class AgentWikiCreateService {
         creation.create(actor, input, transaction),
       );
     } catch (error: unknown) {
+      logCaughtError("AgentWikiCreateService", error);
+
       await creation.rollback();
       if (error instanceof WikiPageNotFoundError)
         throw new AgentOperationError("NOT_FOUND");

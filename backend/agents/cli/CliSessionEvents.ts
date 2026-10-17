@@ -1,4 +1,5 @@
 import { readAgentObject } from "@/backend/agents/AgentPayload";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 const MAXIMUM_EVENTS = 60;
 const MAXIMUM_EVENT_CHARACTERS = 200;
@@ -112,7 +113,9 @@ export function readCliSessionLine(
   try {
     const parsed: unknown = JSON.parse(line);
     event = readAgentObject(parsed);
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("CliSessionEvents", caughtError);
+
     return {};
   }
   switch (provider) {

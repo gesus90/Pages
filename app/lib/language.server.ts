@@ -1,6 +1,7 @@
 import { createCookie } from "react-router";
 
 import { isLanguage, LANGUAGE, resolveLanguage } from "@/language/Language";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { Language } from "@/language/Language";
 
@@ -54,7 +55,10 @@ async function readSelectedLanguage(
 ): Promise<Language | null> {
   const cookieValue: unknown = await languageCookie
     .parse(request.headers.get("Cookie"))
-    .catch(() => null);
+    .catch((caughtError: unknown) => {
+      logCaughtError("language", caughtError);
+      return null;
+    });
 
   return isLanguage(cookieValue) ? cookieValue : null;
 }

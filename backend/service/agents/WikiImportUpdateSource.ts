@@ -6,6 +6,7 @@ import {
   validateContent,
 } from "@/backend/service/wiki/WikiValidation";
 import { WIKI_SCOPE } from "@/definition/Wiki";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { wikiImportSourceFingerprint } from "./WikiImportPackage";
 import {
@@ -271,6 +272,8 @@ export async function updateWikiImportSource(
     const target = await locate(scope, source);
     return "action" in target ? target : await decide(scope, target);
   } catch (error: unknown) {
+    logCaughtError("WikiImportUpdateSource", error);
+
     const code = wikiImportErrorCode(error);
     if (!code || code === "AUTH_INVALID" || code === "AUTH_UNAVAILABLE")
       throw error;

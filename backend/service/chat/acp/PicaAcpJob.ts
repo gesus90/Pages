@@ -2,8 +2,14 @@ import { randomUUID } from "node:crypto";
 
 import { createRuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
-import { describeError } from "@/backend/error/ErrorDescription";
 import { PicaAcpJobError } from "@/backend/error/PicaAcpJobError";
+import { withDatabaseLogMetrics } from "@/backend/logging/DatabaseLogMetrics";
+import {
+  logCaughtError,
+  logDiagnostic,
+  logEvent,
+  withLogContext,
+} from "@/backend/logging/Logger";
 
 import { createPicaTools } from "../PicaTools";
 import { picaSteerText, picaTurnPrompt } from "./PicaAcpContent";
@@ -15,6 +21,7 @@ import { errorCodeOf, readAnswer, requireCompleted } from "./PicaAcpTurnResult";
 import { PicaAcpUpdates } from "./PicaAcpUpdates";
 
 import type { PromptCapabilities } from "@agentclientprotocol/sdk";
+import type { DatabaseLogMetrics } from "@/backend/logging/DatabaseLogMetrics";
 import type { AcpSteerOutcome } from "@/backend/agents/acp/AcpChat";
 import type {
   AgentPlanSessionInput,
@@ -39,7 +46,6 @@ import type {
   ChatContextUsage,
   ChatCost,
   ChatJobCompactionEvent,
-  ChatJobState,
   ChatJobUsage,
   ChatSteerStatus,
   ChatTokenUsage,
@@ -51,6 +57,7 @@ import type { PicaBridge, PicaBridgeLease } from "./PicaBridge";
 import type { PicaAttachmentReader, PicaTurnBrief } from "./PicaAcpContent";
 import type { PicaAcpRunner } from "./PicaAcpRunners";
 import type { PicaAcpMessage } from "./PicaAcpSteering";
+import type { PicaAcpOutcome } from "./PicaAcpTurnResult";
 
 /** The runner of a job and the run options it was validated with before anything was stored. */
 export interface PicaAcpRun {
@@ -92,12 +99,6 @@ export interface PicaAcpJobSpecification {
   readonly resumeSessionId: string | null;
   /** Runs a task in the queue of the conversation. */
   readonly gate: <Result>(task: () => Promise<Result>) => Promise<Result>;
-}
-
-/** How a job ended. */
-interface PicaAcpOutcome {
-  readonly state: Exclude<ChatJobState, "running">;
-  readonly errorCode: string | null;
 }
 
 /**
@@ -163,7 +164,10 @@ export class PicaAcpJob {
           this.hasSteering = canSteer;
           void this.journal
             .record({ kind: "capabilities", canSteer })
-            .catch(() => undefined);
+            .catch((caughtError: unknown) => {
+              logCaughtError("PicaAcpJob", caughtError);
+              return undefined;
+            });
         },
         text: (turn, isReset, delta) => this.journal.text(turn, isReset, delta),
         context: (context, cost) => this.recordContext(context, cost),
@@ -214,15 +218,43 @@ export class PicaAcpJob {
    * @param signal - The stop, the deadline and the server shutdown of the job.
    */
   public async run(signal: AbortSignal): Promise<void> {
+    return withLogContext({ jobId: this.id, runId: this.id }, () =>
+      withDatabaseLogMetrics((metrics) => this.runJob(signal, metrics)),
+    );
+  }
+
+  private async runJob(
+    signal: AbortSignal,
+    metrics: DatabaseLogMetrics,
+  ): Promise<void> {
+    logEvent({
+      level: "info",
+      event: "pica.job.started",
+      component: "PicaAcpJob",
+      message: "Pica job started",
+    });
     let outcome: PicaAcpOutcome;
     try {
       await this.prepare(signal);
       await this.execute(signal);
       outcome = { state: "completed", errorCode: null };
     } catch (error: unknown) {
+      logCaughtError("PicaAcpJob", error);
+
       outcome = this.outcomeOf(error, signal);
     }
     await this.finish(outcome);
+    logEvent({
+      level: outcome.state === "failed" ? "error" : "info",
+      event: "pica.job.completed",
+      component: "PicaAcpJob",
+      message: "Pica job ended and cleanup attempted",
+      metadata: {
+        status: outcome.state,
+        code: outcome.errorCode,
+        ...metrics.finish(),
+      },
+    });
   }
 
   private async prepare(signal: AbortSignal): Promise<void> {
@@ -252,7 +284,10 @@ export class PicaAcpJob {
       onTool: (event) => {
         void this.journal
           .record({ kind: "tool", ...event })
-          .catch(() => undefined);
+          .catch((caughtError: unknown) => {
+            logCaughtError("PicaAcpJob", caughtError);
+            return undefined;
+          });
       },
     });
     await this.journal.record({ kind: "phase", phase: "starting" });
@@ -458,7 +493,10 @@ export class PicaAcpJob {
   ): void {
     void this.journal
       .record({ kind: "compaction", ...compaction })
-      .catch(() => undefined);
+      .catch((caughtError: unknown) => {
+        logCaughtError("PicaAcpJob", caughtError);
+        return undefined;
+      });
   }
 
   private recordContext(
@@ -476,8 +514,14 @@ export class PicaAcpJob {
           usage: this.currentUsage(),
         });
       })
-      .catch(() => {
-        console.error("[pages] The usage of a Pica job could not be stored.");
+      .catch((caughtError: unknown) => {
+        logCaughtError("PicaAcpJob", caughtError);
+
+        logDiagnostic(
+          "PicaAcpJob",
+          "error",
+          "[pages] The usage of a Pica job could not be stored.",
+        );
       });
   }
 
@@ -500,8 +544,14 @@ export class PicaAcpJob {
           usage: this.currentUsage(),
         });
       })
-      .catch(() => {
-        console.error("[pages] The usage of a Pica job could not be stored.");
+      .catch((caughtError: unknown) => {
+        logCaughtError("PicaAcpJob", caughtError);
+
+        logDiagnostic(
+          "PicaAcpJob",
+          "error",
+          "[pages] The usage of a Pica job could not be stored.",
+        );
       });
   }
 
@@ -562,7 +612,7 @@ export class PicaAcpJob {
     const code = errorCodeOf(error);
     if (code !== null) return { state: "failed", errorCode: code };
     // Only the kind and a short message of the error are logged, never the conversation.
-    console.error("[pages] A Pica job failed.", describeError(error));
+    logDiagnostic("PicaAcpJob", "error", "[pages] A Pica job failed.", error);
     return { state: "failed", errorCode: "general" };
   }
 
@@ -633,10 +683,13 @@ export class PicaAcpJob {
     try {
       await task();
     } catch (error: unknown) {
-      console.error(
+      logCaughtError("PicaAcpJob", error);
+
+      logDiagnostic(
+        "PicaAcpJob",
+        "error",
         "[pages] A Pica job closeout step failed.",
-        step,
-        describeError(error),
+        error,
       );
     }
   }

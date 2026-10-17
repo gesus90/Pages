@@ -9,6 +9,7 @@ import { readWikiRequest } from "@/app/lib/wiki-actions/wiki-action-support.serv
 import { handleWikiPageAction } from "@/app/lib/wiki-actions/wiki-page-actions.server";
 import { slugifyTitle, wikiPagePath } from "@/app/lib/wiki-tree";
 import { WikiPageNotFoundError } from "@/backend/error/WikiErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { WikiAttachmentEntry } from "@/app/components/wiki/wiki-attachments-view";
 import type { WikiActionOutcome } from "@/app/lib/wiki-actions/wiki-action-support.server";
@@ -100,6 +101,8 @@ export async function loader({
       view: result.view,
     };
   } catch (error: unknown) {
+    logCaughtError("wiki_page", error);
+
     if (error instanceof WikiPageNotFoundError) {
       return { kind: "notFound" };
     }

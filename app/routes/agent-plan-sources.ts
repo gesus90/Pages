@@ -7,6 +7,7 @@ import {
 import { readPlanText } from "@/backend/agents/AgentPlanInput";
 import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { Route } from "./+types/agent-plan-sources";
 
@@ -44,6 +45,8 @@ export async function loader({
       { headers: AGENT_NO_STORE },
     );
   } catch (error: unknown) {
+    logCaughtError("agent_plan_sources", error);
+
     return agentFailureResponse(error);
   }
 }

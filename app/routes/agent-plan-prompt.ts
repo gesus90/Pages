@@ -3,6 +3,7 @@ import { getApplicationServices } from "@/app/lib/services.server";
 import { agentFailureResponse } from "@/app/lib/settings-actions/settings-agents-response.server";
 import { readPlanText } from "@/backend/agents/AgentPlanInput";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { Route } from "./+types/agent-plan-prompt";
 
@@ -28,6 +29,8 @@ export async function loader({
       },
     });
   } catch (error: unknown) {
+    logCaughtError("agent_plan_prompt", error);
+
     return agentFailureResponse(error, "plan-prompt");
   }
 }

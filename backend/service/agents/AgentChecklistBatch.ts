@@ -1,5 +1,6 @@
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { setDescriptionCheckbox } from "@/backend/service/task/TicketChecklist";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import {
   readIdentifier,
@@ -54,6 +55,8 @@ function readItemState(input: unknown): AgentChecklistItemState {
       throw new AgentOperationError("INVALID_REQUEST");
     return { itemId: readIdentifier(fields.itemId), checked: fields.checked };
   } catch (error: unknown) {
+    logCaughtError("AgentChecklistBatch", error);
+
     // The shared readers only say "invalid"; here the entry list is what to fix.
     if (error instanceof AgentOperationError)
       throw invalid("checklist_items_invalid");

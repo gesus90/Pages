@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 /** Validated list window; the context binds a cursor to the account and query. */
 export interface AgentListWindow {
@@ -24,7 +25,9 @@ function readAfter(window: AgentListWindow): string | null {
     parsed = JSON.parse(
       Buffer.from(window.cursor, "base64url").toString("utf8"),
     );
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("AgentCursor", caughtError);
+
     throw new AgentOperationError("INVALID_REQUEST");
   }
   if (

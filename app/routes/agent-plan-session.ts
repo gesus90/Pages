@@ -10,6 +10,7 @@ import {
 } from "@/app/lib/settings-actions/settings-agents-response.server";
 import { readSettingsRequest } from "@/app/lib/settings-actions/settings-request.server";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { Route } from "./+types/agent-plan-session";
 
@@ -42,6 +43,8 @@ export async function loader({
     });
     return Response.json({ ok: true, view, page }, { headers: AGENT_NO_STORE });
   } catch (error: unknown) {
+    logCaughtError("agent_plan_session", error);
+
     return agentFailureResponse(error, "session-read");
   }
 }
@@ -80,6 +83,8 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
       { headers: AGENT_NO_STORE },
     );
   } catch (error: unknown) {
+    logCaughtError("agent_plan_session", error);
+
     return agentFailureResponse(error, intent);
   }
 }

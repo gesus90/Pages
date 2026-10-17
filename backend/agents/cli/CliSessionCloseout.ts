@@ -1,3 +1,5 @@
+import { logEvent } from "@/backend/logging/Logger";
+
 import { endTaggedProcesses, readServerScope } from "./CliProcessScan";
 
 import type { PlanSessionClosed } from "@/backend/agents/AgentPlanExecution";
@@ -31,6 +33,16 @@ export async function closeCliSession(
   const settled =
     exit ?? (await waitForExit(process.exited, TERMINATION_WAIT_MS));
   const cleanup = await endTaggedProcesses(instanceId, await readServerScope());
+  logEvent({
+    level: settled !== null && cleanup.remaining === 0 ? "info" : "warn",
+    event: "cli.session.cleanup",
+    component: "CliSessionCloseout",
+    message: "CLI process cleanup finished",
+    metadata: {
+      leftovers: cleanup.found,
+      isConfirmed: settled !== null && cleanup.remaining === 0,
+    },
+  });
   return {
     exit: settled ? { code: settled.code, signal: settled.signal } : null,
     endedAt: new Date().toISOString(),

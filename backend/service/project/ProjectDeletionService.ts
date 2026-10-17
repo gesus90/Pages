@@ -3,6 +3,7 @@ import {
   ProjectManagementDeniedError,
   ProjectNotFoundError,
 } from "@/backend/error/ProjectErrors";
+import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import { ProjectAccessService } from "./ProjectAccessService";
 
@@ -66,7 +67,11 @@ export async function finishProjectDeletion(
   try {
     await effects?.removeFiles(files);
   } catch (error: unknown) {
-    console.warn(
+    logCaughtError("ProjectDeletionService", error);
+
+    logDiagnostic(
+      "ProjectDeletionService",
+      "warn",
       "Pages could not remove the files of a deleted project.",
       error,
     );

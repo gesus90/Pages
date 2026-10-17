@@ -10,7 +10,9 @@ import { closeCliSession } from "@/backend/agents/cli/CliSessionCloseout";
 import { noteSessionEvent } from "@/backend/agents/cli/CliSessionEvents";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { readContinuationCapabilities } from "@/backend/service/agents/sessions/AgentSessionContinuation";
+import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 
+import { abortFailure, stopFailure } from "./AcpSessionOutcome";
 import {
   ACP_STEERING_METHOD,
   isAcpSteeringSupported,
@@ -30,18 +32,20 @@ import {
   openCodeToolFailure,
 } from "./OpenCodeAcpErrors";
 
+import type {
+  AcpSessionContext,
+  AcpPromptRequest,
+  OpenedSession,
+} from "./AcpSessionContracts";
 import type { AgentPlanExecutionInput } from "@/backend/service/agents/AgentPlanStepStart";
-import type { TextExecutionInput } from "@/backend/agents/TextExecution";
 import type {
   ClientConnection,
   ContentBlock,
   PromptCapabilities,
-  McpServer,
   RequestPermissionRequest,
   RequestPermissionResponse,
-  SessionConfigOption,
   SessionNotification,
-  StopReason,
+  SessionConfigOption,
   Stream,
 } from "@agentclientprotocol/sdk";
 import type {
@@ -52,12 +56,12 @@ import type {
 } from "@/backend/agents/AgentPlanExecution";
 import type { CliSessionProcess } from "@/backend/agents/cli/CliSessionProcess";
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
-import type {
-  AcpPromptContent,
-  AcpSessionListener,
-  AcpSteerOutcome,
-} from "./AcpChat";
-import type { AcpDriver, AcpSessionProfile } from "./AcpDriver";
+import type { AcpSteerOutcome } from "./AcpChat";
+
+export type {
+  AcpSessionContext,
+  AcpSessionRequest,
+} from "./AcpSessionContracts";
 
 /** The JSON-RPC code of an agent that needs a sign-in first. */
 const AUTH_REQUIRED = -32000;
@@ -66,87 +70,6 @@ const PROGRESS_INTERVAL_MS = 5_000;
 /** How long closing waits for the adapter to end the protocol session. */
 const SESSION_CLOSE_WAIT_MS = 5_000;
 const STDERR_EVENT_CHARACTERS = 200;
-/** What the session runs: exactly the stored model, effort and prompt of the node. */
-export interface AcpSessionRequest extends Pick<
-  TextExecutionInput,
-  "ticketInputs" | "readTicketAssets"
-> {
-  readonly directory: string;
-  /** The complete prompt; it is sent unchanged as one text block. */
-  readonly prompt: string;
-  readonly model: string;
-  /** `null` leaves the effort to the model's default, as the agent stores it. */
-  readonly reasoningEffort: string | null;
-  readonly mcpServers: readonly McpServer[];
-  readonly sessionMeta: Readonly<Record<string, unknown>>;
-  /** Blocks after the prompt text, such as the attachments of a chat message. */
-  readonly promptContent?: AcpPromptContent;
-  /** A protocol session to continue with `session/resume` instead of starting one. */
-  readonly resumeSessionId?: string | null;
-}
-
-/** The protocol session that was opened and the options it reported. */
-interface OpenedSession {
-  readonly sessionId: string;
-  readonly options: readonly SessionConfigOption[];
-}
-
-/** What one prompt of the session sends. */
-type AcpPromptRequest = Pick<
-  AcpSessionRequest,
-  "prompt" | "ticketInputs" | "readTicketAssets" | "promptContent"
->;
-
-/** What one ACP session needs from its surroundings. */
-export interface AcpSessionContext {
-  readonly instanceId: string;
-  /** What differs between the adapters of the runners. */
-  readonly driver: Pick<
-    AcpDriver,
-    | "provider"
-    | "errors"
-    | "supportedVersions"
-    | "isSupportedAdapter"
-    | "steeringMeta"
-  >;
-  readonly profile: AcpSessionProfile;
-  readonly request: AcpSessionRequest;
-  readonly observer: PlanSessionObserver;
-  /** The stop and deadline of the node; the process ends with it. */
-  readonly signal: AbortSignal;
-  /** How the process is isolated, as the run records it. */
-  readonly isolation: string;
-  /** Restores the modes of the credential folder after the session. */
-  readonly secure: () => Promise<void>;
-  /** Masks the exact project credential before any text reaches the observer or turn result. */
-  readonly redact?: (text: string) => string;
-  /** Safe availability diagnostic, including an explicit reason when credentials are missing. */
-  readonly github?: string;
-  /** Receives every update and the usage of every prompt, as a chat session shows them. */
-  readonly listener?: AcpSessionListener;
-}
-
-function stopFailure(reason: StopReason): PlanSessionTurn["failure"] {
-  switch (reason) {
-    case "end_turn":
-      return null;
-    case "cancelled":
-      return "cancelled";
-    case "refusal":
-      return "failed";
-    case "max_tokens":
-    case "max_turn_requests":
-      return "incomplete";
-  }
-}
-
-function abortFailure(signal: AbortSignal): "timeout" | "cancelled" {
-  return signal.reason instanceof DOMException &&
-    signal.reason.name === "TimeoutError"
-    ? "timeout"
-    : "cancelled";
-}
-
 /**
  * The ACP session of one plan node, from the handshake to the closeout.
  *
@@ -273,7 +196,9 @@ export class AcpSession implements PlanSession {
           ...(steeringMeta === null ? {} : { _meta: { ...steeringMeta } }),
         }),
       );
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("AcpSession", caughtError);
+
       // The adapter refused the steer or the connection is gone; the turn decides the rest.
       return "failed";
     }
@@ -324,6 +249,8 @@ export class AcpSession implements PlanSession {
       );
       return await this.prompt(this.state.sessionId, input);
     } catch (error: unknown) {
+      logCaughtError("AcpSession", error);
+
       return this.failed(error);
     } finally {
       signal.removeEventListener("abort", cancel);
@@ -345,6 +272,8 @@ export class AcpSession implements PlanSession {
       );
       return await this.prompt(sessionId, this.context.request);
     } catch (error: unknown) {
+      logCaughtError("AcpSession", error);
+
       return this.failed(error);
     } finally {
       this.isWorking = false;
@@ -469,6 +398,8 @@ export class AcpSession implements PlanSession {
       );
       return this.opened(sessionId, response.configOptions);
     } catch (error: unknown) {
+      logCaughtError("AcpSession", error);
+
       // The adapter refused the session; a lost connection fails as it always does.
       if (error instanceof RequestError && !this.connection.signal.aborted)
         throw new AgentError("acp_session_resume_failed");
@@ -481,6 +412,13 @@ export class AcpSession implements PlanSession {
     options: readonly SessionConfigOption[] | null | undefined,
   ): OpenedSession {
     this.state.sessionId = sessionId;
+    logEvent({
+      level: "info",
+      event: "acp.session.opened",
+      component: "AcpSession",
+      message: "ACP session opened",
+      metadata: { sessionId, provider: this.context.driver.provider },
+    });
     noteSessionEvent(this.state.events, `session ${sessionId}`);
     this.observer.identified(this.redact(sessionId));
     return { sessionId, options: options ?? [] };
@@ -510,6 +448,13 @@ export class AcpSession implements PlanSession {
   private decide(request: RequestPermissionRequest): RequestPermissionResponse {
     const decision = this.context.profile.decide(request);
     if (decision.isDenied) {
+      logEvent({
+        level: "warn",
+        event: "acp.permission.denied",
+        component: "AcpSession",
+        message: "ACP tool permission denied",
+        metadata: { sessionId: this.state.sessionId },
+      });
       this.state.permissionDenials += 1;
       noteSessionEvent(
         this.state.events,
@@ -524,6 +469,22 @@ export class AcpSession implements PlanSession {
     // An update may arrive before `session/new` answered; it belongs to the only session.
     if (sessionId !== null && notification.sessionId !== sessionId) return;
     const { update } = notification;
+    if (
+      update.sessionUpdate === "tool_call" ||
+      update.sessionUpdate === "tool_call_update"
+    )
+      logEvent({
+        level: update.status === "failed" ? "warn" : "debug",
+        event: "acp.tool.updated",
+        component: "AcpSession",
+        message: "ACP tool lifecycle update",
+        metadata: {
+          sessionId,
+          toolId: update.toolCallId,
+          status: update.status,
+          kind: update.sessionUpdate,
+        },
+      });
     if (this.mcpReadiness.receive(update)) return;
     readAcpUpdate(this.state, update, this.context.profile.reportedOptions);
     if (this.context.driver.provider === "opencode") {
@@ -570,6 +531,8 @@ export class AcpSession implements PlanSession {
         sessionId,
       });
     } catch (error: unknown) {
+      logCaughtError("AcpSession", error);
+
       // The turn ends with the connection anyway; the mismatch is already recorded.
       noteSessionEvent(
         this.state.events,
@@ -649,6 +612,17 @@ export class AcpSession implements PlanSession {
     errorCode: AgentErrorCode | null,
   ): PlanSessionTurn {
     const { state } = this;
+    logEvent({
+      level: failure === "failed" ? "error" : "info",
+      event: "acp.turn.completed",
+      component: "AcpSession",
+      message: "ACP turn ended",
+      metadata: {
+        sessionId: state.sessionId,
+        status: failure ?? "completed",
+        code: errorCode,
+      },
+    });
     return {
       output: this.redact(state.text),
       sessionId: state.sessionId === null ? null : this.redact(state.sessionId),
@@ -694,7 +668,9 @@ export class AcpSession implements PlanSession {
           wait = setTimeout(resolve, SESSION_CLOSE_WAIT_MS);
         }),
       ]);
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("AcpSession", caughtError);
+
       // The adapter may be gone already; ending its process below ends the session anyway.
     } finally {
       clearTimeout(wait);

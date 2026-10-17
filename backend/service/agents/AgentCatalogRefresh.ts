@@ -2,6 +2,7 @@ import { defaultCatalogModel } from "@/backend/agents/catalog/CatalogDefaults";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { isApiProvider } from "@/definition/AgentConnection";
 import { supportsModelCatalog } from "@/definition/AgentModelCatalog";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { requireAgentConnection } from "./AgentServiceAccess";
 
@@ -84,6 +85,8 @@ export class AgentCatalogRefresh {
     try {
       await this.track(this.execute(id));
     } catch (error: unknown) {
+      logCaughtError("AgentCatalogRefresh", error);
+
       if (!(error instanceof AgentError)) throw error;
     }
   }
@@ -120,6 +123,8 @@ export class AgentCatalogRefresh {
         ? await this.listApiModels(connection.id, connection.provider, signal)
         : await this.dependencies.cli.listModels(connection, signal);
     } catch (error: unknown) {
+      logCaughtError("AgentCatalogRefresh", error);
+
       errorCode =
         error instanceof AgentError ? error.code : "provider_unreachable";
     }
@@ -153,7 +158,9 @@ export class AgentCatalogRefresh {
     try {
       if (encrypted === null) throw new AgentError("secret_unavailable");
       apiKey = cipher.decrypt(id, encrypted);
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("AgentCatalogRefresh", caughtError);
+
       throw new AgentError("secret_unavailable");
     }
     return client.list(provider, apiKey, signal);

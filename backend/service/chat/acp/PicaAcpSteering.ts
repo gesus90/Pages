@@ -1,3 +1,5 @@
+import { logCaughtError } from "@/backend/logging/Logger";
+
 import type { AcpSteerOutcome } from "@/backend/agents/acp/AcpChat";
 import type { StoredChatAttachment } from "@/backend/database/repositories/chat/ChatAttachmentRepository";
 import type { ChatSteerStatus } from "@/definition/ChatJob";
@@ -143,10 +145,17 @@ export class PicaAcpSteering {
       }
       await this.host.status(message.id, "delivered");
       await this.settleOutcome(message, await this.host.deliver(message));
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("PicaAcpSteering", caughtError);
+
       // The adapter or the database refused; the message did not reach the agent.
       this.open.delete(message.id);
-      await this.host.status(message.id, "failed").catch(() => undefined);
+      await this.host
+        .status(message.id, "failed")
+        .catch((statusError: unknown) => {
+          logCaughtError("PicaAcpSteering", statusError);
+          return undefined;
+        });
     }
   }
 

@@ -1,3 +1,5 @@
+import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
+
 import type { Database } from "@/backend/database/Database";
 
 /** Tells whether the database answers, for the `/health` endpoint. */
@@ -24,7 +26,11 @@ export class HealthService {
 
       return true;
     } catch (error: unknown) {
-      console.error(
+      logCaughtError("HealthService", error);
+
+      logDiagnostic(
+        "HealthService",
+        "error",
         "[pages] The health check could not query the database.",
         error,
       );

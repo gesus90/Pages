@@ -1,4 +1,5 @@
 import { isDiscordEventType } from "@/definition/Discord";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { DiscordMessageBody } from "@/backend/discord/DiscordApiClient";
 import type { DiscordEventType } from "@/definition/Discord";
@@ -146,7 +147,9 @@ export function parseNotificationContent(
 
   try {
     value = JSON.parse(json);
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("DiscordMessage", caughtError);
+
     return null;
   }
 

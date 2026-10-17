@@ -5,6 +5,7 @@ import {
   AGENT_NO_STORE,
 } from "@/app/lib/settings-actions/settings-agents-response.server";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { Route } from "./+types/agent-workspace-choices";
 
@@ -30,6 +31,8 @@ export async function loader({
       { headers: AGENT_NO_STORE },
     );
   } catch (error: unknown) {
+    logCaughtError("agent_workspace_choices", error);
+
     return agentFailureResponse(error);
   }
 }

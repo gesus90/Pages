@@ -1,4 +1,5 @@
 import { AgentError } from "@/backend/error/AgentErrors";
+import { logDiagnostic } from "@/backend/logging/Logger";
 
 import { findUnmanagedCodexConfiguration } from "./CodexAcpConfigurationGuard";
 import {
@@ -38,7 +39,9 @@ export const CODEX_ACP_DRIVER: AcpDriver = {
       directory,
     );
     if (unmanaged === null) return;
-    console.warn(
+    logDiagnostic(
+      "CodexAcpDriver",
+      "warn",
       `Pages refused a Codex plan node because of ${unmanaged}, a Codex configuration file that Pages does not manage.`,
     );
     throw new AgentError("plan_codex_configuration_unmanaged");

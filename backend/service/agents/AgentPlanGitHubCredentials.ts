@@ -1,6 +1,7 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 import { decryptGitHubToken } from "@/backend/github/GitHubTokenCrypto";
 import { parseGitHubRepository } from "@/backend/service/github/GitHubSyncContextLoader";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import type { ResolvedAgentWorkspace } from "@/definition/AgentWorkspace";
@@ -99,7 +100,9 @@ export class AgentPlanGitHubCredentials {
         repository,
         token,
       };
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("AgentPlanGitHubCredentials", caughtError);
+
       return {
         status: "unavailable",
         reason: "project GitHub token cannot be decrypted",
@@ -112,6 +115,8 @@ export class AgentPlanGitHubCredentials {
       await this.dependencies.workspaces.requireManagement(userId, projectId);
       return true;
     } catch (error: unknown) {
+      logCaughtError("AgentPlanGitHubCredentials", error);
+
       if (
         !(error instanceof AgentError) ||
         error.code !== "workspace_management_denied"

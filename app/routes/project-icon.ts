@@ -7,6 +7,7 @@ import {
   ProjectManagementDeniedError,
   ProjectNotFoundError,
 } from "@/backend/error/ProjectErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { User } from "@/definition/User";
 import type { Route } from "./+types/project-icon";
@@ -66,6 +67,8 @@ export async function loader({
       },
     });
   } catch (error: unknown) {
+    logCaughtError("project_icon", error);
+
     if (error instanceof ProjectNotFoundError) {
       throw new Response("Not Found", { status: 404 });
     }
@@ -112,6 +115,8 @@ export async function action({
       mimeType: icon.type,
     });
   } catch (error: unknown) {
+    logCaughtError("project_icon", error);
+
     if (error instanceof ProjectNotFoundError) {
       throw new Response("Not Found", { status: 404 });
     }

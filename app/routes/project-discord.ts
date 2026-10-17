@@ -5,6 +5,7 @@ import {
 } from "@/app/lib/discord-actions.server";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { DiscordActionResult } from "@/definition/Discord";
 import type { Route } from "./+types/project-discord";
@@ -47,6 +48,8 @@ export async function loader({
 
     return respond({ ok: true, state, test: null });
   } catch (error: unknown) {
+    logCaughtError("project_discord", error);
+
     return respond(toDiscordFailure(error).result);
   }
 }
@@ -81,6 +84,8 @@ export async function action({
       }),
     );
   } catch (error: unknown) {
+    logCaughtError("project_discord", error);
+
     return respond(toDiscordFailure(error).result);
   }
 }

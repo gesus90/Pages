@@ -7,6 +7,7 @@ import {
 import { getApplicationServices } from "@/app/lib/services.server";
 import { toUploadedFile } from "@/app/lib/wiki-actions/wiki-upload.server";
 import { ChatError } from "@/backend/error/ChatErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { Route } from "./+types/chat-attachments";
 
@@ -35,6 +36,8 @@ export async function action({
     );
     return Response.json({ ok: true, attachment }, { headers: CHAT_NO_STORE });
   } catch (error: unknown) {
+    logCaughtError("chat_attachments", error);
+
     return chatFailure(error);
   }
 }

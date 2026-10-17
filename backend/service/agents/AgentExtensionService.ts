@@ -24,6 +24,7 @@ import {
   AGENT_EXTENSION_WRITE_OPERATIONS,
 } from "@/definition/AgentExtensions";
 import { PAGES_AGENT_LIMITS } from "@/definition/PagesAgentOperations";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { translateAgentTicketError } from "./AgentTicketErrors";
 import { agentTransactionScope } from "./AgentTransactionScope";
@@ -165,6 +166,8 @@ export class AgentExtensionService {
         return await this.read(identity, command.operation, parameters);
       return await this.write(identity, command.operation, parameters);
     } catch (error: unknown) {
+      logCaughtError("AgentExtensionService", error);
+
       throw translate(error);
     }
   }

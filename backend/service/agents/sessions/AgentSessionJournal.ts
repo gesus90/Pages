@@ -1,5 +1,11 @@
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { sanitizePlanOutput } from "@/backend/service/agents/AgentPlanOutput";
+import {
+  logCaughtError,
+  logDiagnostic,
+  logEvent,
+  withLogContext,
+} from "@/backend/logging/Logger";
 
 import type {
   AgentSessionEvent,
@@ -81,7 +87,21 @@ export class AgentSessionJournal {
     const stored = await this.queue(attemptId).run(() =>
       this.store.appendEvents(attemptId, events, RETAINED_EVENTS),
     );
-    for (const event of stored) this.publish(attemptId, event);
+    for (const event of stored) {
+      withLogContext({ attemptId }, () =>
+        logEvent({
+          level:
+            event.kind === "error" || event.kind === "tool_failed"
+              ? "warn"
+              : "debug",
+          event: "agent.session.event",
+          component: "AgentSessionJournal",
+          message: "Agent session event persisted",
+          metadata: { kind: event.kind, sequence: event.sequence },
+        }),
+      );
+      this.publish(attemptId, event);
+    }
     return stored;
   }
 
@@ -134,6 +154,8 @@ export class AgentSessionJournal {
     try {
       await this.replay(attemptId, follower);
     } catch (error: unknown) {
+      logCaughtError("AgentSessionJournal", error);
+
       stop();
       throw error;
     }
@@ -165,8 +187,15 @@ export class AgentSessionJournal {
     try {
       follower.listener(event);
     } catch (error: unknown) {
+      logCaughtError("AgentSessionJournal", error);
+
       // A failing reader must not stop the session or the other readers.
-      console.warn("PageAgentCLI follower failed", error);
+      logDiagnostic(
+        "AgentSessionJournal",
+        "warn",
+        "PageAgentCLI follower failed",
+        error,
+      );
     }
   }
 

@@ -4,6 +4,7 @@ import {
   createEmptySyncCounters,
 } from "@/backend/service/github/GitHubSyncRun";
 import { WORK_ITEM_TYPE } from "@/definition/Task";
+import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import type { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import type { TaskRepository } from "@/backend/database/repositories/TaskRepository";
@@ -170,9 +171,13 @@ export class GitHubSyncRunner {
         await this.runProject(owner, entry.projectId);
         completed += 1;
       } catch (error: unknown) {
+        logCaughtError("GitHubSyncRunner", error);
+
         failed += 1;
-        console.error(
-          `Pages could not synchronize project "${entry.projectId}" with GitHub.`,
+        logDiagnostic(
+          "GitHubSyncRunner",
+          "error",
+          "Pages could not synchronize a project with GitHub.",
           error,
         );
       }

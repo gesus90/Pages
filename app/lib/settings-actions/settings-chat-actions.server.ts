@@ -2,8 +2,8 @@ import { data } from "react-router";
 
 import { ChatError } from "@/backend/error/ChatErrors";
 import { InstanceSettingsDeniedError } from "@/backend/service/InstanceSettingsService";
-
 import { readText } from "@/app/lib/form-fields.server";
+import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import { forbidden } from "./settings-action-support.server";
 
@@ -47,6 +47,8 @@ export const handleUpdateChatSettings: SettingsActionHandler = async ({
       ok: true,
     });
   } catch (error: unknown) {
+    logCaughtError("settings_chat_actions", error);
+
     if (error instanceof InstanceSettingsDeniedError) {
       throw forbidden();
     }
@@ -65,9 +67,11 @@ export const handleUpdateChatSettings: SettingsActionHandler = async ({
       );
     }
 
-    console.error(
+    logDiagnostic(
+      "settings_chat_actions",
+      "error",
       "[pages] The chat settings could not be stored.",
-      error instanceof Error ? error.name : typeof error,
+      error,
     );
 
     return data<SettingsActionData>(

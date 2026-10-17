@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { isDiscordEventType } from "@/definition/Discord";
+import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import type { DiscordConnectionStore } from "@/backend/database/repositories/discord/DiscordConnectionRepository";
 import type { DiscordDeliveryStore } from "@/backend/database/repositories/discord/DiscordDeliveryRepository";
@@ -104,8 +105,15 @@ export class DiscordNotificationService {
     try {
       await this.enqueue(event.type, event.id);
     } catch (error: unknown) {
+      logCaughtError("DiscordNotificationService", error);
+
       // A failed notification must never be seen as a failed Pages change.
-      console.error("Pages could not store a Discord notification.", error);
+      logDiagnostic(
+        "DiscordNotificationService",
+        "error",
+        "Pages could not store a Discord notification.",
+        error,
+      );
     }
   }
 

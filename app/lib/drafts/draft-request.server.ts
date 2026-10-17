@@ -5,6 +5,7 @@ import {
   SupersededBackgroundSaveError,
 } from "@/backend/service/BackgroundSaveCoordinator";
 import { draftOrderSchema } from "@/definition/BackgroundSave";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { RouterContextProvider } from "react-router";
 import type { z } from "zod";
@@ -45,6 +46,8 @@ export async function readDraftRequest<T>(
   try {
     payload = await args.request.json();
   } catch (error: unknown) {
+    logCaughtError("draft_request", error);
+
     if (!(error instanceof SyntaxError)) throw error;
     throw Response.json({ ok: false, error: "invalidInput" }, { status: 400 });
   }
@@ -65,6 +68,8 @@ export async function runDraftWrite(
   try {
     return await backgroundSaveCoordinator.run(order, work);
   } catch (error: unknown) {
+    logCaughtError("draft_request", error);
+
     if (error instanceof SupersededBackgroundSaveError) {
       return Response.json({ ok: false, error: "superseded" }, { status: 409 });
     }

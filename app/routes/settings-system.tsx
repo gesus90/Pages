@@ -13,6 +13,7 @@ import {
 
 import type { ServerStatus } from "@/backend/service/ServerSettingsService";
 import type { ChatAdministration } from "@/definition/Chat";
+import type { LoggingStatus } from "@/definition/Logging";
 import type { InstanceBranding } from "@/definition/Instance";
 import type { WikiSettings } from "@/definition/Wiki";
 import type { SettingsActionResult } from "@/app/lib/settings-actions/settings-action-support.server";
@@ -23,6 +24,10 @@ type SettingsSystemLoaderData =
       readonly access: "granted";
       /** Port stored for the next start. */
       readonly port: number;
+      readonly logging: {
+        readonly retentionDays: number;
+        readonly status: LoggingStatus;
+      };
       readonly branding: InstanceBranding;
       readonly status: ServerStatus;
       readonly wikiSettings: WikiSettings;
@@ -53,19 +58,21 @@ export async function loader({
 
   const serverSettings = await createServerSettingsService({ services });
 
-  const [port, status, branding, wikiSettings, chatSettings] =
+  const [port, status, branding, wikiSettings, chatSettings, logging] =
     await Promise.all([
       serverSettings.readPort(),
       serverSettings.readStatus(),
       services.instanceSettingsService.getBranding(),
       services.wikiService.getSettings(),
       services.chatSettingsService.administration(user),
+      serverSettings.readLogging(user),
     ]);
 
   return {
     access: "granted",
     branding,
     chatSettings,
+    logging,
     port,
     status,
     wikiSettings,
@@ -98,6 +105,7 @@ export default function SettingsSystemRoute(): React.ReactElement {
     <SystemSection
       branding={loaderData.branding}
       chatSettings={loaderData.chatSettings}
+      logging={loaderData.logging}
       port={loaderData.port}
       status={loaderData.status}
       wikiSettings={loaderData.wikiSettings}

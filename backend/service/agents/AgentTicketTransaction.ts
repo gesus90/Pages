@@ -8,6 +8,7 @@ import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
 import { agentChannelPolicy } from "@/backend/auth/McpActorContext";
 import { CAPABILITY } from "@/definition/Authorization";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { createAgentTaskContext } from "./AgentTaskAccess";
 import { agentTransactionScope } from "./AgentTransactionScope";
@@ -99,6 +100,8 @@ export class AgentTicketTransaction {
         this.execute(transaction, run),
       );
     } catch (error: unknown) {
+      logCaughtError("AgentTicketTransaction", error);
+
       throw translateAgentTicketError(error);
     }
   }
@@ -119,6 +122,8 @@ export class AgentTicketTransaction {
     try {
       return await this.execute(transaction, run);
     } catch (error: unknown) {
+      logCaughtError("AgentTicketTransaction", error);
+
       throw translateAgentTicketError(error);
     }
   }

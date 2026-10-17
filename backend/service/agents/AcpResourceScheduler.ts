@@ -6,6 +6,7 @@ import {
 import { readAcpResourceOptions } from "@/backend/config/AcpResourceConfig";
 import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { readAcpAvailableMemory } from "./resources/AcpMemory";
 import { ScheduledAcpSession } from "./resources/ScheduledAcpSession";
@@ -120,7 +121,9 @@ export class AcpResourceScheduler {
           adopted.has(record.instanceId) ? null : record.since,
         );
         await this.finish(record.instanceId, cleanup.remaining === 0);
-      } catch {
+      } catch (caughtError: unknown) {
+        logCaughtError("AcpResourceScheduler", caughtError);
+
         await this.transition(record.instanceId, "cleanup_failed");
       }
     }
@@ -219,6 +222,8 @@ export class AcpResourceScheduler {
       this.sessions.set(owner.instanceId, session);
       return session;
     } catch (error: unknown) {
+      logCaughtError("AcpResourceScheduler", error);
+
       let isConfirmed = !hasAttemptedStart;
       const startedAt = this.active.get(owner.instanceId)?.since ?? null;
       try {
@@ -229,7 +234,9 @@ export class AcpResourceScheduler {
         )
           isConfirmed =
             (await this.cleanup(owner.instanceId, startedAt)).remaining === 0;
-      } catch {
+      } catch (caughtError: unknown) {
+        logCaughtError("AcpResourceScheduler", caughtError);
+
         // Any unknown closeout keeps the reservation.
       }
       await this.finish(owner.instanceId, isConfirmed);
@@ -280,7 +287,9 @@ export class AcpResourceScheduler {
     clearTimeout(this.timer);
     this.isPumping = true;
     void this.pump()
-      .catch(() => {
+      .catch((caughtError: unknown) => {
+        logCaughtError("AcpResourceScheduler", caughtError);
+
         this.problem = "storage";
       })
       .finally(() => {
@@ -328,7 +337,9 @@ export class AcpResourceScheduler {
       try {
         await this.writes.run(() => this.store.save(record));
         request.resolve();
-      } catch {
+      } catch (caughtError: unknown) {
+        logCaughtError("AcpResourceScheduler", caughtError);
+
         this.problem = "storage";
         this.active.set(record.instanceId, {
           ...record,
@@ -355,7 +366,9 @@ export class AcpResourceScheduler {
       this.active.set(instanceId, record);
       try {
         await this.store.save(record);
-      } catch {
+      } catch (caughtError: unknown) {
+        logCaughtError("AcpResourceScheduler", caughtError);
+
         this.problem = "storage";
         this.active.set(instanceId, { ...record, state: "cleanup_failed" });
       }
@@ -375,7 +388,9 @@ export class AcpResourceScheduler {
           await this.store.remove(instanceId);
           this.active.delete(instanceId);
           return true;
-        } catch {
+        } catch (caughtError: unknown) {
+          logCaughtError("AcpResourceScheduler", caughtError);
+
           this.problem = "storage";
         }
       }
@@ -383,7 +398,9 @@ export class AcpResourceScheduler {
       this.active.set(instanceId, record);
       try {
         await this.store.save(record);
-      } catch {
+      } catch (caughtError: unknown) {
+        logCaughtError("AcpResourceScheduler", caughtError);
+
         this.problem = "storage";
       }
       return false;
@@ -399,7 +416,9 @@ export class AcpResourceScheduler {
         available !== null && Number.isFinite(available) && available >= 0
           ? available
           : null;
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("AcpResourceScheduler", caughtError);
+
       this.availableMemory = null;
     }
   }

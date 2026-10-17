@@ -4,6 +4,7 @@ import {
   agentRunOptionsFor,
   isAcpProvider,
 } from "@/definition/AgentConfiguration";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { CliSessionMcp } from "@/backend/agents/cli/CliSessionPlans";
 import type {
@@ -205,6 +206,8 @@ export class AgentPlanGroupSessions {
       );
       return { turn, close: () => this.close(key, entry) };
     } catch (error: unknown) {
+      logCaughtError("AgentPlanGroupSessions", error);
+
       signal.removeEventListener("abort", cancel);
       throw error;
     }

@@ -11,6 +11,7 @@ import {
 } from "@/backend/error/WikiErrors";
 import { WikiPageReader } from "@/backend/service/wiki/WikiPageReader";
 import { WIKI_SCOPE } from "@/definition/Wiki";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { AgentWikiCreateTransaction } from "./AgentWikiCreateTransaction";
 import {
@@ -145,6 +146,8 @@ export class WikiImportSourceService {
         await repository.recordItem(run.id, source.ordinal, item);
       });
     } catch (error: unknown) {
+      logCaughtError("WikiImportSourceService", error);
+
       await creation.rollback();
       const code = wikiImportErrorCode(error);
       if (!code) throw error;

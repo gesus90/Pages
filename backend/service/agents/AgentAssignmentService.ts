@@ -2,6 +2,7 @@ import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
 import { isAgentFunction } from "@/definition/AgentAssignment";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { resolveAgentAssignment } from "./AgentAssignmentResolution";
 import { requireAgentAdministrator } from "./AgentServiceAccess";
@@ -43,6 +44,8 @@ export class AgentAssignmentService {
           await resolveAgentAssignment(this.connections, assignment);
           return { ...assignment, error: null };
         } catch (error: unknown) {
+          logCaughtError("AgentAssignmentService", error);
+
           if (!(error instanceof TextAssistantError)) throw error;
           return { ...assignment, error: error.code };
         }

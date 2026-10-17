@@ -1,3 +1,5 @@
+import { logCaughtError } from "@/backend/logging/Logger";
+
 import { pageAgentEntries } from "./AgentCursor";
 import { readAgentDirectory } from "./AgentDirectoryService";
 import { readAgentTicketTags } from "./AgentPlanningEnrichment";
@@ -113,6 +115,8 @@ export class AgentTicketSearchService {
         nextCursor: page.nextCursor,
       });
     } catch (error: unknown) {
+      logCaughtError("AgentTicketSearchService", error);
+
       throw translateAgentTicketError(error);
     }
   }

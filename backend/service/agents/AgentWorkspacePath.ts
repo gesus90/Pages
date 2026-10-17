@@ -3,6 +3,7 @@ import { access, readdir, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 
 import { AgentError } from "@/backend/error/AgentErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { canonicalProspectivePath } from "./AgentCanonicalPath";
 
@@ -98,7 +99,9 @@ async function folderTarget(
   try {
     const target = await realpath(child);
     return (await stat(target)).isDirectory() ? target : null;
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("AgentWorkspacePath", caughtError);
+
     // A broken or unreadable link is not offered; it does not fail the level.
     return null;
   }
@@ -201,6 +204,8 @@ export class AgentWorkspacePath {
       await access(directory, constants.R_OK | constants.W_OK | constants.X_OK);
       return { path: directory, identity: `${metadata.dev}:${metadata.ino}` };
     } catch (error: unknown) {
+      logCaughtError("AgentWorkspacePath", error);
+
       if (error instanceof AgentError) throw error;
       throw new AgentError("workspace_path_unavailable");
     }
@@ -263,6 +268,8 @@ export class AgentWorkspacePath {
         ),
       };
     } catch (error: unknown) {
+      logCaughtError("AgentWorkspacePath", error);
+
       if (error instanceof AgentError) throw error;
       throw new AgentError(
         isPermissionError(error)
@@ -350,7 +357,9 @@ export class AgentWorkspacePath {
         containsWorkspacePath(root, directory),
       );
       return isWithin ? directory : roots[0];
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("AgentWorkspacePath", caughtError);
+
       return roots[0];
     }
   }
@@ -383,6 +392,8 @@ export class AgentWorkspacePath {
       await this.inspect(directory);
       return null;
     } catch (error: unknown) {
+      logCaughtError("AgentWorkspacePath", error);
+
       if (!(error instanceof AgentError)) throw error;
       const holdsInstanceData = protectedDirectories.some((entry) =>
         containsWorkspacePath(directory, entry),
@@ -407,7 +418,9 @@ export class AgentWorkspacePath {
   ): Promise<string> {
     try {
       return await realpath(input);
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("AgentWorkspacePath", caughtError);
+
       const typed = path.resolve(input);
       const isWithin = [
         ...canonicalRoots,

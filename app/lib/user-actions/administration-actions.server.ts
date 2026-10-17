@@ -1,7 +1,11 @@
 import { randomUUID } from "node:crypto";
+
 import { data } from "react-router";
+
 import { AdministrationError } from "@/backend/error/AdministrationError";
 import { isCapability } from "@/definition/Authorization";
+import { logCaughtError } from "@/backend/logging/Logger";
+
 import { toActionError } from "./user-action-support.server";
 
 import type {
@@ -34,6 +38,8 @@ function handler(
       await operation(context);
       return data<UsersActionData>({ intent, ok: true });
     } catch (error: unknown) {
+      logCaughtError("administration_actions", error);
+
       return toActionError(error, intent);
     }
   };

@@ -8,11 +8,13 @@ import {
 } from "@/backend/database/RowValue";
 import { isRole } from "@/definition/Role";
 import { isUserAvatarType } from "@/definition/User";
-import { provisionAccount } from "./LegacyAccountProvisioning";
 import {
   EmailTakenError,
   UsernameTakenError,
 } from "@/backend/error/UserErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
+
+import { provisionAccount } from "./LegacyAccountProvisioning";
 
 import type { Database, DatabaseValue } from "@/backend/database/Database";
 import type { Role } from "@/definition/Role";
@@ -301,6 +303,8 @@ export class UserRepository {
         await provisionAccount(transaction, user);
       });
     } catch (error: unknown) {
+      logCaughtError("UserRepository", error);
+
       if (this.isUsernameConstraintViolation(error)) {
         throw new UsernameTakenError(user.username);
       }
@@ -393,6 +397,8 @@ export class UserRepository {
         },
       );
     } catch (error: unknown) {
+      logCaughtError("UserRepository", error);
+
       if (this.isUsernameConstraintViolation(error)) {
         throw new UsernameTakenError(profile.username);
       }

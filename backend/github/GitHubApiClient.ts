@@ -1,3 +1,5 @@
+import { logCaughtError, logEvent } from "@/backend/logging/Logger";
+
 /** Remote issue data exchanged with the GitHub REST API. */
 export interface GitHubIssueData {
   readonly number: number;
@@ -167,6 +169,8 @@ async function readRejectionMessage(
       }
     }
   } catch (error: unknown) {
+    logCaughtError("GitHubApiClient", error);
+
     // Keep the generic status message when GitHub sends no readable error body.
     void error;
   }
@@ -301,7 +305,16 @@ export class GitHubApiClient {
         },
         method,
       });
+      logEvent({
+        level: response.ok ? "debug" : "warn",
+        event: "integration.github.response",
+        component: "GitHubApiClient",
+        message: "GitHub request finished",
+        metadata: { method, statusCode: response.status },
+      });
     } catch (error: unknown) {
+      logCaughtError("GitHubApiClient", error);
+
       throw new GitHubApiError(
         503,
         error instanceof Error

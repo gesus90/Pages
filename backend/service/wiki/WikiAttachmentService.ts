@@ -5,6 +5,7 @@ import {
 } from "@/backend/error/WikiErrors";
 import { FileTooLargeError } from "@/backend/storage/WikiFileStore";
 import { countCharacters, WIKI_LIMITS } from "@/definition/Wiki";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { canManagePage } from "./WikiAccess";
 import {
@@ -145,6 +146,8 @@ export class WikiAttachmentService {
         },
       })
       .catch((error: unknown) => {
+        logCaughtError("WikiAttachmentService", error);
+
         throw error instanceof FileTooLargeError
           ? new WikiValidationError("fileTooLarge")
           : error;
@@ -175,6 +178,8 @@ export class WikiAttachmentService {
         uploadedByName: actor.displayName,
       });
     } catch (error: unknown) {
+      logCaughtError("WikiAttachmentService", error);
+
       await this.files.remove([stored.storageName]);
 
       throw error;

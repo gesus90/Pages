@@ -1,3 +1,6 @@
+import { loggedJob } from "@/backend/logging/LoggedOperation";
+import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
+
 import type { WikiService } from "@/backend/service/WikiService";
 
 /** Cleans up the wiki once at the start and then at a fixed interval. */
@@ -52,11 +55,20 @@ export class WikiMaintenanceScheduler {
    */
   public async runOnce(): Promise<boolean> {
     try {
-      await this.wikiService.runMaintenance();
+      await loggedJob("WikiMaintenanceScheduler", "job.wiki_maintenance", () =>
+        this.wikiService.runMaintenance(),
+      );
 
       return true;
     } catch (error: unknown) {
-      console.error("Pages wiki maintenance failed.", error);
+      logCaughtError("WikiMaintenanceScheduler", error);
+
+      logDiagnostic(
+        "WikiMaintenanceScheduler",
+        "error",
+        "Pages wiki maintenance failed.",
+        error,
+      );
 
       return false;
     }

@@ -6,6 +6,7 @@ import { WikiPageNotFoundError } from "@/backend/error/WikiErrors";
 import { WikiPageReader } from "@/backend/service/wiki/WikiPageReader";
 import { PAGES_AGENT_LIMITS } from "@/definition/PagesAgentOperations";
 import { WIKI_SCOPE } from "@/definition/Wiki";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { agentTransactionScope } from "./AgentTransactionScope";
 import { translateAgentTicketError } from "./AgentTicketErrors";
@@ -157,6 +158,8 @@ export class StructuredImportService {
       this.requireSize(response);
       return response;
     } catch (error: unknown) {
+      logCaughtError("StructuredImportService", error);
+
       throw translateAgentTicketError(error);
     }
   }
@@ -189,6 +192,8 @@ export class StructuredImportService {
       this.requireSize(response);
       return response;
     } catch (error: unknown) {
+      logCaughtError("StructuredImportService", error);
+
       if (error instanceof AgentOperationError) throw error;
       const code = wikiImportErrorCode(translateAgentTicketError(error));
       if (code && code !== "AUTH_INVALID" && code !== "AUTH_UNAVAILABLE")
@@ -381,6 +386,8 @@ export class StructuredImportService {
         entry.targetId,
       );
     } catch (error: unknown) {
+      logCaughtError("StructuredImportService", error);
+
       if (error instanceof WikiPageNotFoundError)
         throw new AgentOperationError("NOT_FOUND");
       throw error;

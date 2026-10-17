@@ -1,6 +1,7 @@
 import { ChatError } from "@/backend/error/ChatErrors";
 import { isApiProvider } from "@/definition/AgentConnection";
 import { redactAssistantCredentials } from "@/backend/service/assistant/TextAssistantValidation";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { selectChatHistory } from "./ChatPrompt";
 import { readChatSessionId, requireChatActor } from "./ChatSessionService";
@@ -213,7 +214,9 @@ export class ChatContextService {
     try {
       const agent = await agents.resolve(userId, "chat");
       isAcp = !isApiProvider(agent.connection.provider);
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("ChatContextService", caughtError);
+
       return null;
     }
     if (!isAcp) return null;
@@ -240,7 +243,9 @@ export class ChatContextService {
         limit > 0
         ? limit
         : null;
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("ChatContextService", caughtError);
+
       return null;
     }
   }

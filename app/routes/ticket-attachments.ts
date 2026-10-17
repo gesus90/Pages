@@ -2,6 +2,7 @@ import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { describeTicketUploadFailure } from "@/app/lib/task-actions/ticket-upload.server";
 import { toUploadedFile } from "@/app/lib/wiki-actions/wiki-upload.server";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { Route } from "./+types/ticket-attachments";
 
@@ -42,6 +43,8 @@ export async function action({
 
     return Response.json({ attachment });
   } catch (error: unknown) {
+    logCaughtError("ticket_attachments", error);
+
     const failure = describeTicketUploadFailure(error);
 
     if (failure === null) {

@@ -7,6 +7,7 @@ import {
 } from "@/app/lib/chat-response.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { ChatError } from "@/backend/error/ChatErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { ApplicationServices } from "@/app/lib/services.server";
 import type { ChatSendResult } from "@/definition/Chat";
@@ -113,6 +114,8 @@ export async function action({
     );
     return Response.json({ ok: true, ...result }, { headers: CHAT_NO_STORE });
   } catch (error: unknown) {
+    logCaughtError("chat_api", error);
+
     return chatFailure(error);
   }
 }

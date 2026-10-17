@@ -2,6 +2,7 @@ import { WorkItemValidationError } from "@/backend/error/WorkItemErrors";
 import { validateMilestoneInput } from "@/backend/service/MilestoneValidation";
 import { validateWorkItemText } from "@/backend/service/task/WorkItemValidation";
 import { WORK_ITEM_PARENT_TYPE } from "@/definition/Task";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { isStructuredKey } from "./StructuredImportManifestReader";
 
@@ -152,6 +153,8 @@ function checkFields(index: Index, errors: AgentStructuredIssue[]): void {
     try {
       validateWorkItemText(ticket.title.trim(), ticket.description.trim());
     } catch (error: unknown) {
+      logCaughtError("StructuredImportPlanner", error);
+
       if (!(error instanceof WorkItemValidationError)) throw error;
       errors.push(
         issue("invalid_field", [structuredKey("ticket", ticket.key)]),
@@ -167,6 +170,8 @@ function checkFields(index: Index, errors: AgentStructuredIssue[]): void {
         dueAt: milestone.dueAt,
       });
     } catch (error: unknown) {
+      logCaughtError("StructuredImportPlanner", error);
+
       if (!(error instanceof WorkItemValidationError)) throw error;
       errors.push(
         issue("invalid_field", [structuredKey("milestone", milestone.key)]),

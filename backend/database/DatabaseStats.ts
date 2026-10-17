@@ -1,3 +1,9 @@
+import { createHash } from "node:crypto";
+
+import { logEvent } from "@/backend/logging/Logger";
+import { recordDatabaseLogMetrics } from "@/backend/logging/DatabaseLogMetrics";
+import { readSlowOperationThresholdMs } from "@/backend/logging/LogTiming";
+
 /** Aggregate counters describing database access since the last reset. */
 export interface DatabaseStats {
   readonly queries: number;
@@ -8,15 +14,6 @@ const counters = {
   queries: 0,
   totalMs: 0,
 };
-
-function readSlowQueryThresholdMs(): number {
-  const parsed =
-    process.env.PAGES_SLOW_QUERY_MS === undefined
-      ? Number.NaN
-      : Number(process.env.PAGES_SLOW_QUERY_MS);
-
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 50;
-}
 
 /** Resets the aggregate database counters, e.g. around a measurement. */
 export function resetDatabaseStats(): void {
@@ -34,9 +31,9 @@ export function readDatabaseStats(): DatabaseStats {
  *
  * @remarks
  * Counting stays always on because two additions per query are negligible
- * next to DuckDB itself. Individual statements are only logged in
- * development when they exceed `PAGES_SLOW_QUERY_MS` (default 50ms), so
- * production logs stay clean.
+ * next to DuckDB itself. Statements log an operation and stable hash, never
+ * SQL text or parameter values. Ordinary statements contribute to enclosing
+ * operation totals; only slow statements also emit an individual warning.
  *
  * @param statement - SQL text of the finished statement.
  * @param durationMs - Wall-clock duration of the statement.
@@ -48,14 +45,21 @@ export function recordDatabaseQuery(
   counters.queries += 1;
   counters.totalMs += durationMs;
 
-  if (process.env.NODE_ENV !== "development") {
-    return;
-  }
-
-  if (durationMs < readSlowQueryThresholdMs()) {
-    return;
-  }
-
-  const preview = statement.replace(/\s+/g, " ").trim().slice(0, 120);
-  console.warn(`[pages][slow-query] ${durationMs.toFixed(1)}ms ${preview}`);
+  const operation =
+    /^\s*(SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|CHECKPOINT|BEGIN|COMMIT|ROLLBACK|SET|WITH)\b/iu
+      .exec(statement)?.[1]
+      ?.toUpperCase() ?? "OTHER";
+  const statementId = createHash("sha256")
+    .update(statement)
+    .digest("hex")
+    .slice(0, 16);
+  recordDatabaseLogMetrics(operation, statementId, durationMs);
+  if (durationMs < readSlowOperationThresholdMs()) return;
+  logEvent({
+    level: "warn",
+    event: "database.statement.slow",
+    component: "Database",
+    message: "Database statement exceeded the slow-statement threshold",
+    metadata: { operation, statementId, durationMs },
+  });
 }

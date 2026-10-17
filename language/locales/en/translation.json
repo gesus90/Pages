@@ -334,6 +334,23 @@
           "credentialsInText": "The supplement must not contain credentials.",
           "general": "The settings could not be saved."
         }
+      },
+      "logging": {
+        "title": "Server logging",
+        "description": "Instance-wide retention of daily operational logs. Changes take effect immediately.",
+        "label": "Log retention (days)",
+        "save": "Save",
+        "hint": "Whole numbers from 0 to 365. 0 = Unlimited. For N > 0, today and the preceding N−1 calendar days are retained. Reducing retention deletes older daily logs immediately after saving.",
+        "unlimited": "Unlimited (no automatic age-based deletion)",
+        "currentlySaved": "Currently saved: {{retention}}",
+        "retained_one": "{{count}} calendar day including today",
+        "retained_other": "{{count}} calendar days including today",
+        "saved": "Log retention saved. Cleanup has been requested.",
+        "degraded": "File logging impaired ({{code}}). Entries not persisted to the file: {{count}}; queued: {{pending}}. Check server stderr.",
+        "error": {
+          "invalidSetting": "Enter a whole number from 0 to 365.",
+          "general": "Log retention could not be saved."
+        }
       }
     },
     "profile": {

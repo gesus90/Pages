@@ -9,6 +9,7 @@ import {
   WorkItemValidationError,
 } from "@/backend/error/WorkItemErrors";
 import { ProjectAccessDeniedError } from "@/backend/error/ProjectErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { Route } from "./+types/ticket-draft";
 
@@ -38,6 +39,8 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
           saved: descriptionContentSchema.parse(ticket),
         });
       } catch (error: unknown) {
+        logCaughtError("ticket_draft", error);
+
         if (error instanceof WorkItemValidationError) {
           const current =
             error.code === "descriptionConflict"

@@ -4,6 +4,7 @@ import {
   readScopeSince,
 } from "@/backend/agents/cli/CliProcessScan";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { TaggedProcessScope } from "@/backend/agents/cli/CliProcessScan";
 import type { AcpResourceOwner } from "@/definition/AcpResource";
@@ -15,7 +16,9 @@ async function runScope(
 ): Promise<TaggedProcessScope | null> {
   try {
     return await readScopeSince(runStartedAt);
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("AgentPlanRecovery", caughtError);
+
     // Without a readable start the scan stays unbounded, and therefore strict.
     return null;
   }
@@ -43,7 +46,10 @@ export async function endInterruptedSession(
   const cleanup = await endTaggedProcesses(
     session.instanceId,
     await runScope(runStartedAt),
-  ).catch(() => ({ found: 0, remaining: 1 }));
+  ).catch((cleanupError: unknown) => {
+    logCaughtError("AgentPlanRecovery", cleanupError);
+    return { found: 0, remaining: 1 };
+  });
   return {
     ...step,
     session: {
@@ -71,7 +77,14 @@ export async function hasNoSessionProcesses(
   const scans = await Promise.all(
     run.steps.flatMap((step) =>
       step.session
-        ? [findTaggedProcesses(step.session.instanceId, scope).catch(() => [0])]
+        ? [
+            findTaggedProcesses(step.session.instanceId, scope).catch(
+              (caughtError: unknown) => {
+                logCaughtError("AgentPlanRecovery", caughtError);
+                return [0];
+              },
+            ),
+          ]
         : [],
     ),
   );

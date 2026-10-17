@@ -1,4 +1,5 @@
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { pageAgentEntries } from "./AgentCursor";
 import { createAgentReadContext, respondAgentRead } from "./AgentReadContext";
@@ -130,6 +131,8 @@ export class AgentTicketLinkService {
         nextCursor: page.nextCursor,
       });
     } catch (error: unknown) {
+      logCaughtError("AgentTicketLinkService", error);
+
       throw translateAgentTicketError(error);
     }
   }

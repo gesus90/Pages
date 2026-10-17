@@ -107,7 +107,11 @@ describe("the scheduler", () => {
     await expect(scheduler.runOnce()).resolves.toBe(false);
     expect(error).toHaveBeenCalledWith(
       "Pages wiki maintenance failed.",
-      expect.objectContaining({ message: "locked" }),
+      expect.objectContaining({
+        type: "Error",
+        message:
+          "Error reported; free-form diagnostic text omitted to protect user content",
+      }),
     );
     await expect(scheduler.runOnce()).resolves.toBe(true);
   });

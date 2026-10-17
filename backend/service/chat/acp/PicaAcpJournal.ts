@@ -1,4 +1,5 @@
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
+import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import type { ChatJobRepository } from "@/backend/database/repositories/chat/ChatJobRepository";
 import type { ChatJobEvent, ChatJobTextEvent } from "@/definition/ChatJob";
@@ -65,7 +66,9 @@ export class PicaAcpJournal {
     if (pending === null) return;
     this.pendingText = null;
     const event: ChatJobTextEvent = { kind: "text", ...pending };
-    void this.enqueue(event).catch(() => {
+    void this.enqueue(event).catch((caughtError: unknown) => {
+      logCaughtError("PicaAcpJournal", caughtError);
+
       // The reason was logged by enqueue; the next entry keeps the numbering.
     });
   }
@@ -76,11 +79,14 @@ export class PicaAcpJournal {
       try {
         await this.repository.append(this.jobId, sequence, event);
       } catch (error: unknown) {
+        logCaughtError("PicaAcpJournal", error);
+
         // Only the kind of the entry is logged, never its text.
-        console.error(
+        logDiagnostic(
+          "PicaAcpJournal",
+          "error",
           "[pages] A Pica job entry could not be stored.",
-          event.kind,
-          error instanceof Error ? error.name : typeof error,
+          error,
         );
         throw error;
       }

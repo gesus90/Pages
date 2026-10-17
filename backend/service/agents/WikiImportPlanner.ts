@@ -9,6 +9,7 @@ import {
   WIKI_LIMITS,
   WIKI_SCOPE,
 } from "@/definition/Wiki";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { duplicateImportPaths, isValidImportPath } from "./ImportPathValidator";
 import { readImportTitle } from "./ImportMarkdownTitle";
@@ -437,6 +438,8 @@ export class WikiImportPlanner {
         parentId = page.parentId;
       }
     } catch (error: unknown) {
+      logCaughtError("WikiImportPlanner", error);
+
       if (error instanceof WikiPageNotFoundError)
         throw new AgentOperationError("NOT_FOUND");
       throw error;

@@ -1,5 +1,7 @@
 import { LRUCache } from "lru-cache";
 
+import { logCaughtError, logEvent } from "@/backend/logging/Logger";
+
 /**
  * Time-to-live values per cache entry group in milliseconds.
  *
@@ -42,7 +44,9 @@ export function stableIdKey(ids: readonly string[]): string {
 function estimateSizeInBytes(value: unknown): number {
   try {
     return JSON.stringify(value)?.length ?? 64;
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("ServerCache", caughtError);
+
     return 1024;
   }
 }
@@ -59,7 +63,6 @@ function estimateSizeInBytes(value: unknown): number {
 export class ServerCache {
   private readonly cache: LRUCache<string, object>;
   private readonly enabled: boolean;
-  private readonly debug: boolean;
   private hits = 0;
   private misses = 0;
   private invalidations = 0;
@@ -67,7 +70,7 @@ export class ServerCache {
   /**
    * Creates a server cache.
    *
-   * @param options - Quota, debug logging, or a disabled no-op instance.
+   * @param options - Quota or a disabled no-op instance; the legacy debug option is retained for compatibility.
    */
   public constructor(
     options: {
@@ -78,7 +81,6 @@ export class ServerCache {
     } = {},
   ) {
     this.enabled = options.disabled !== true;
-    this.debug = options.debug ?? process.env.PAGES_CACHE_DEBUG === "1";
     this.cache = new LRUCache<string, object>({
       max: options.maxEntries ?? 500,
       maxSize: options.maxBytes ?? 30_000_000,
@@ -220,8 +222,25 @@ export class ServerCache {
   }
 
   private log(event: "HIT" | "MISS" | "INVALIDATE", key: string): void {
-    if (this.debug) {
-      console.debug(`[pages][cache] ${event} ${key}`);
-    }
+    const group = key.split(":")[0] ?? "";
+    const source = [
+      "project",
+      "projects",
+      "workitems",
+      "labels",
+      "assignees",
+      "users",
+      "github",
+      "authorization",
+    ].includes(group)
+      ? group
+      : "other";
+    logEvent({
+      level: "trace",
+      event: "cache.access",
+      component: "ServerCache",
+      message: "Cache operation",
+      metadata: { kind: event, source },
+    });
   }
 }

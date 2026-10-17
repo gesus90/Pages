@@ -10,6 +10,7 @@ import { DiscordAuthorizationService } from "@/backend/service/discord/DiscordAu
 import { DiscordChannelCatalog } from "@/backend/service/discord/DiscordChannelCatalog";
 import { DiscordConnectionService } from "@/backend/service/discord/DiscordConnectionService";
 import { DiscordDeliveryScheduler } from "@/backend/service/discord/DiscordDeliveryScheduler";
+import { registerShutdownTask } from "@/backend/runtime/ProcessLifecycle";
 import { DiscordDeliveryWorker } from "@/backend/service/discord/DiscordDeliveryWorker";
 import { DiscordNotificationService } from "@/backend/service/discord/DiscordNotificationService";
 import { DiscordSubjectLookup } from "@/backend/service/discord/DiscordSubjectLookup";
@@ -122,4 +123,7 @@ function startDelivery(input: {
 
   globalThis.pagesDiscordSchedulerStarted = true;
   scheduler.start();
+  registerShutdownTask(async () => {
+    scheduler.stop();
+  });
 }

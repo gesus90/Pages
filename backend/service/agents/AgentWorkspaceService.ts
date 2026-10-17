@@ -6,6 +6,7 @@ import { ProjectPolicyService } from "@/backend/auth/ProjectPolicyService";
 import { UserPolicyService } from "@/backend/auth/UserPolicyService";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { ActorChannel } from "@/backend/auth/McpActorContext";
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
@@ -623,6 +624,8 @@ export class AgentWorkspaceService {
       await this.dependencies.paths.resolve(workspace);
       return null;
     } catch (error: unknown) {
+      logCaughtError("AgentWorkspaceService", error);
+
       if (!(error instanceof AgentError)) throw error;
       return error.code;
     }

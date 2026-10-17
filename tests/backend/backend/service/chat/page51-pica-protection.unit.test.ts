@@ -200,8 +200,8 @@ describe("the defined error state", () => {
   ];
 
   it.each(cases)(
-    "$name is logged with path and reason and stops the chat without a fallback",
-    async ({ file, entry, failure, problem, reason }) => {
+    "$name is logged with a safe code and stops the chat without a fallback",
+    async ({ file, entry, failure, reason }) => {
       if (entry === undefined) disk.entries.delete(file);
       else disk.entries.set(file, entry);
       if (failure !== undefined) disk.failures.set(file, failure);
@@ -215,7 +215,7 @@ describe("the defined error state", () => {
       const call: readonly unknown[] = logged.mock.calls[0] ?? [];
       const [message, ...details] = call;
       expect(String(message)).toMatch(/^\[pages\] /u);
-      expect(details).toEqual([file, problem, reason]);
+      expect(details).toEqual([expect.objectContaining({ code: reason })]);
       const log = JSON.stringify(logged.mock.calls);
       expect(log).not.toContain("Kennung");
       expect(log).not.toContain("Vertraulicher Inhalt");

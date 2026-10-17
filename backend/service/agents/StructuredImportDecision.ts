@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import { WorkItemNotFoundError } from "@/backend/error/WorkItemErrors";
 import { validateMilestoneInput } from "@/backend/service/MilestoneValidation";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { StoredAgentImportSource } from "@/backend/database/repositories/agents/AgentImportRepository";
 import type {
@@ -146,6 +147,8 @@ export async function compareTicketTarget(
       mapping.targetId,
     );
   } catch (error: unknown) {
+    logCaughtError("StructuredImportDecision", error);
+
     if (error instanceof WorkItemNotFoundError) return REMOVED;
     throw error;
   }

@@ -5,6 +5,7 @@ import {
   materializeTicketChecklist,
   setDescriptionCheckbox,
 } from "@/backend/service/task/TicketChecklist";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import {
   applyChecklistMarkers,
@@ -177,6 +178,8 @@ export class AgentTicketChecklistService {
       );
       return { apiVersion: "1", result };
     } catch (error: unknown) {
+      logCaughtError("AgentTicketChecklistService", error);
+
       throw translateAgentTicketError(error);
     }
   }

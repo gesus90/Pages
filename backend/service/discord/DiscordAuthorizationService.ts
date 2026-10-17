@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import { buildAuthorizationUrl } from "@/backend/discord/DiscordApiClient";
 import { DiscordError } from "@/backend/error/DiscordErrors";
+import { logDiagnostic } from "@/backend/logging/Logger";
 
 import type {
   DiscordApiClient,
@@ -366,7 +367,9 @@ export class DiscordAuthorizationService {
 
   private reportFailure(failure: DiscordFailure): void {
     if (isClientFailure(failure)) {
-      console.error(
+      logDiagnostic(
+        "DiscordAuthorizationService",
+        "error",
         "Pages could not authorize with Discord: the application credentials are invalid.",
       );
     }

@@ -1,3 +1,6 @@
+import { loggedJob } from "@/backend/logging/LoggedOperation";
+import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
+
 import type { AssistantConversationRepository } from "@/backend/database/repositories/assistant/AssistantConversationRepository";
 
 /** Deletes expired histories even when nobody opens the assistant. */
@@ -35,12 +38,22 @@ export class AssistantHistoryScheduler {
   /** Reports only a fixed diagnostic; messages and credentials cannot enter logs. */
   public async runOnce(): Promise<void> {
     if (this.pending !== null) return;
-    const operation = this.repository.sweep();
+    const operation = loggedJob(
+      "AssistantHistoryScheduler",
+      "job.assistant_history",
+      () => this.repository.sweep(),
+    );
     this.pending = operation;
     try {
       await operation;
-    } catch {
-      console.warn("Pages could not delete expired assistant histories.");
+    } catch (caughtError: unknown) {
+      logCaughtError("AssistantHistoryScheduler", caughtError);
+
+      logDiagnostic(
+        "AssistantHistoryScheduler",
+        "warn",
+        "Pages could not delete expired assistant histories.",
+      );
     } finally {
       this.pending = null;
     }

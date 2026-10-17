@@ -1,3 +1,5 @@
+import { logCaughtError } from "@/backend/logging/Logger";
+
 import { pageAgentEntries } from "./AgentCursor";
 import { readAgentDirectory } from "./AgentDirectoryService";
 import { createAgentReadContext, respondAgentRead } from "./AgentReadContext";
@@ -158,6 +160,8 @@ export class AgentAssignmentTargetService {
         nextCursor: page.nextCursor,
       });
     } catch (error: unknown) {
+      logCaughtError("AgentAssignmentTargetService", error);
+
       throw translateAgentTicketError(error);
     }
   }

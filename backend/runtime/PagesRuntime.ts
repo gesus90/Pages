@@ -2,6 +2,13 @@ import { bootstrapConfig } from "@/backend/config/ConfigBootstrap";
 import { ConfigFile } from "@/backend/config/ConfigFile";
 import { resolveDefaultDatabasePath } from "@/backend/config/PagesConfig";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
+import { registerLogSecret } from "@/backend/logging/LogRedaction";
+import { DEFAULT_LOG_RETENTION_DAYS } from "@/definition/Logging";
+import {
+  logCaughtError,
+  logEvent,
+  updateLogRetention,
+} from "@/backend/logging/Logger";
 
 import { SetupToken } from "./SetupToken";
 
@@ -52,6 +59,7 @@ export class PagesRuntime {
     this.file = file;
     this.config = config;
     this.setupToken = config.firstRun ? SetupToken.create() : null;
+    if (this.setupToken !== null) registerLogSecret(this.setupToken.value);
   }
 
   /** Configuration file of the instance. */
@@ -70,7 +78,7 @@ export class PagesRuntime {
   }
 
   /**
-   * Returns the setup token for the operator console.
+   * Returns the setup token for direct output on the operator console.
    *
    * @returns The secret, or `null` when no setup is pending.
    */
@@ -141,6 +149,16 @@ export class PagesRuntime {
 async function createRuntime(configPath: string): Promise<PagesRuntime> {
   const configFile = new ConfigFile(configPath);
   const { config } = await bootstrapConfig(configFile);
+  await updateLogRetention(
+    config.logRetentionDays ?? DEFAULT_LOG_RETENTION_DAYS,
+    "startup",
+  );
+  logEvent({
+    level: "info",
+    event: "runtime.initialized",
+    component: "PagesRuntime",
+    message: "Instance configuration loaded",
+  });
 
   return new PagesRuntime(configFile, config);
 }
@@ -157,6 +175,8 @@ export function initializePagesRuntime(
 ): Promise<PagesRuntime> {
   globalThis.pagesRuntime ??= createRuntime(configPath).catch(
     (error: unknown) => {
+      logCaughtError("PagesRuntime", error);
+
       // Keep no failed start, so a corrected configuration can be retried.
       globalThis.pagesRuntime = undefined;
 

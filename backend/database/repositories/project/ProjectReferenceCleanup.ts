@@ -1,5 +1,6 @@
 import { readTextColumn } from "@/backend/database/RowValue";
 import { BOARD_FILTER_ALL } from "@/definition/BoardPreferences";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { DatabaseTransaction } from "@/backend/database/Database";
 
@@ -22,7 +23,9 @@ function parseBoardPreferences(text: string): Record<string, unknown> | null {
     if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed))
       return null;
     return { ...parsed };
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("ProjectReferenceCleanup", caughtError);
+
     return null;
   }
 }

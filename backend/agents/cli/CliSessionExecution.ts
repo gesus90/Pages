@@ -9,6 +9,7 @@ import {
   isAcpProvider,
 } from "@/definition/AgentConfiguration";
 import { isApiProvider } from "@/definition/AgentConnection";
+import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import { CliPlanIsolation } from "./CliPlanIsolation";
 import { createCliEnvironment } from "./CliEnvironment";
@@ -158,12 +159,16 @@ export class CliSessionExecution implements PlanSessionRunner {
     try {
       return await this.spawn(input, start, { signal, observer });
     } catch (error: unknown) {
+      logCaughtError("CliSessionExecution", error);
+
       try {
         await this.dependencies.store.secure(
           input.agent.connection.id,
           start.provider,
         );
       } catch (secureError: unknown) {
+        logCaughtError("CliSessionExecution", secureError);
+
         if (!(error instanceof AcpCleanupUnconfirmedError)) throw secureError;
       }
       throw error;
@@ -212,6 +217,8 @@ export class CliSessionExecution implements PlanSessionRunner {
         credentials: status.credentials,
       };
     } catch (error: unknown) {
+      logCaughtError("CliSessionExecution", error);
+
       await store.secure(id, provider);
       throw error;
     }
@@ -344,6 +351,8 @@ export class CliSessionExecution implements PlanSessionRunner {
         listener: input.chat?.listener ?? input.journal,
       });
     } catch (error: unknown) {
+      logCaughtError("CliSessionExecution", error);
+
       await this.cleanupAcpStart(child, input.instanceId, github);
       throw error;
     }
@@ -358,7 +367,9 @@ export class CliSessionExecution implements PlanSessionRunner {
       child === null || (await this.closeFailedAcp(child, instanceId));
     try {
       await github?.cleanup();
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("CliSessionExecution", caughtError);
+
       if (isConfirmed) throw new AgentError("credential_cleanup_failed");
     }
     if (!isConfirmed) throw new AcpCleanupUnconfirmedError();
@@ -371,7 +382,9 @@ export class CliSessionExecution implements PlanSessionRunner {
     try {
       child.cancel("login_cancelled");
       return (await closeCliSession(child, instanceId)).isConfirmed;
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("CliSessionExecution", caughtError);
+
       return false;
     }
   }
@@ -438,7 +451,9 @@ export class CliSessionExecution implements PlanSessionRunner {
       throw new AgentError("cli_isolation_unavailable");
     if (!this.hasWarnedWithoutIsolation) {
       this.hasWarnedWithoutIsolation = true;
-      console.warn(
+      logDiagnostic(
+        "CliSessionExecution",
+        "warn",
         "Pages runs CLI agents without a mount namespace because bubblewrap does not work on this host. Install it, or set PAGES_CLI_ISOLATION=required to refuse such runs.",
       );
     }

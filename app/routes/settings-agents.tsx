@@ -14,6 +14,7 @@ import {
   agentFailureResponse,
   AGENT_NO_STORE,
 } from "@/app/lib/settings-actions/settings-agents-response.server";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
 import type {
@@ -127,6 +128,8 @@ export async function loader({
       { headers: AGENT_NO_STORE },
     );
   } catch (error: unknown) {
+    logCaughtError("settings_agents", error);
+
     throw agentFailureResponse(error);
   }
 }
@@ -136,6 +139,8 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
   try {
     return await handleAgentsAction(await readSettingsRequest(args));
   } catch (error: unknown) {
+    logCaughtError("settings_agents", error);
+
     return agentFailureResponse(error);
   }
 }

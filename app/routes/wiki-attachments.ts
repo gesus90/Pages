@@ -4,6 +4,7 @@ import {
   describeUploadFailure,
   toUploadedFile,
 } from "@/app/lib/wiki-actions/wiki-upload.server";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { Route } from "./+types/wiki-attachments";
 
@@ -45,6 +46,8 @@ export async function action({
 
     return Response.json({ attachment });
   } catch (error: unknown) {
+    logCaughtError("wiki_attachments", error);
+
     const failure = describeUploadFailure(error);
 
     if (failure === null) {

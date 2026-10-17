@@ -1,3 +1,5 @@
+import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
+
 import { readContinuationCapabilities } from "./AgentSessionContinuation";
 import {
   ACP_USAGE_CAPABILITIES,
@@ -267,8 +269,15 @@ export class AgentSessionRecorder implements AcpSessionListener {
 
   private enqueue(write: () => Promise<void>): void {
     this.writes = this.writes.then(write).catch((error: unknown) => {
+      logCaughtError("AgentSessionRecorder", error);
+
       // The session goes on; the history then lacks this entry, which the log names.
-      console.warn("PageAgentCLI could not store a session entry", error);
+      logDiagnostic(
+        "AgentSessionRecorder",
+        "warn",
+        "PageAgentCLI could not store a session entry",
+        error,
+      );
     });
   }
 }

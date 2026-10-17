@@ -8,7 +8,9 @@ import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
 import { isApiProvider } from "@/definition/AgentConnection";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { planGroupOrder } from "@/definition/AgentPlanGroup";
+import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
+import { waitForTurn } from "./AgentPlanTurn";
 import { offerGroupInstructions } from "./AgentPlanGroupInstructions";
 import { AgentPlanGroupSessions } from "./AgentPlanGroupSessions";
 import { AgentPlanStepAssessment } from "./AgentPlanStepAssessment";
@@ -104,24 +106,6 @@ function failureCloseout(
   return closeout === "pending" ? "not_needed" : closeout;
 }
 
-/** Waits for the group's earlier turns; a stop while waiting cancels the node before it starts. */
-async function waitForTurn(
-  ready: Promise<void>,
-  signal: AbortSignal,
-): Promise<void> {
-  let stop: () => void = () => undefined;
-  const stopped = new Promise<void>((resolve) => {
-    stop = () => resolve();
-    signal.addEventListener("abort", stop, { once: true });
-  });
-  try {
-    if (!signal.aborted) await Promise.race([ready, stopped]);
-  } finally {
-    signal.removeEventListener("abort", stop);
-  }
-  if (signal.aborted) throw new AgentPlanCancelledError();
-}
-
 function planAcceptanceFailure(
   node: NodeRun,
   acceptance: AgentPlanAcceptance | null,
@@ -192,6 +176,8 @@ export class AgentPlanStepRunner {
       if (slot) await waitForTurn(slot.ready, control.signal);
       return await this.execute(node);
     } catch (error: unknown) {
+      logCaughtError("AgentPlanStepRunner", error);
+
       return this.failure(node, error);
     } finally {
       slot?.release();
@@ -369,9 +355,18 @@ export class AgentPlanStepRunner {
     try {
       return await this.finish(node, session, { contract, reach, instruction });
     } catch (error: unknown) {
+      logCaughtError("AgentPlanStepRunner", error);
+
       // A started session is always ended, also when its evaluation failed.
       await session.close().catch((closeError: unknown) => {
-        console.error("Pages could not close an agent session.", closeError);
+        logCaughtError("AgentPlanStepRunner", closeError);
+
+        logDiagnostic(
+          "AgentPlanStepRunner",
+          "error",
+          "Pages could not close an agent session.",
+          closeError,
+        );
       });
       throw error;
     }

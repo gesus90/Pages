@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 
+import { logCaughtError } from "@/backend/logging/Logger";
+
 import type { RuntimeToolDescription } from "@/backend/agents/runtime/RuntimeToolRegistry";
 import type { PicaToolOutcome } from "../PicaToolSchemas";
 
@@ -95,7 +97,9 @@ export async function answerPicaBridgeMessage(
   let parsed: unknown;
   try {
     parsed = JSON.parse(body);
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("PicaBridgeProtocol", caughtError);
+
     return failure(null, -32700, "Parse error");
   }
   const message = readFields(parsed);

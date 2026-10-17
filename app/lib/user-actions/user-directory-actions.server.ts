@@ -1,5 +1,7 @@
 import { data } from "react-router";
 
+import { logCaughtError } from "@/backend/logging/Logger";
+
 import { invalidInput, toActionError } from "./user-action-support.server";
 import {
   parseCreateUserInput,
@@ -34,6 +36,8 @@ export const handleCreateUser: UsersActionHandler = async ({
       },
     );
   } catch (error: unknown) {
+    logCaughtError("user_directory_actions", error);
+
     return toActionError(error, "create-user");
   }
 };
@@ -61,6 +65,8 @@ export const handleSetActive: UsersActionHandler = async ({
       isActive === "true",
     );
   } catch (error: unknown) {
+    logCaughtError("user_directory_actions", error);
+
     return toActionError(error, "set-active");
   }
 
@@ -86,6 +92,8 @@ export const handleUpdateUser: UsersActionHandler = async ({
       input,
     );
   } catch (error: unknown) {
+    logCaughtError("user_directory_actions", error);
+
     return toActionError(error, "update-user");
   }
 
@@ -108,6 +116,8 @@ export const handleSetRole: UsersActionHandler = async ({
   try {
     await services.administrationService.assignRole(actor.id, userId, role);
   } catch (error: unknown) {
+    logCaughtError("user_directory_actions", error);
+
     return toActionError(error, "set-role");
   }
 
@@ -146,6 +156,8 @@ export const handleResetPassword: UsersActionHandler = async ({
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error: unknown) {
+    logCaughtError("user_directory_actions", error);
+
     return toActionError(error, "reset-password");
   }
 };

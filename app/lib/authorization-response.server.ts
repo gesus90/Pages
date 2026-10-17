@@ -1,4 +1,5 @@
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 /** Sends a credential-safe personal authorization response that cannot be cached. */
 export function authorizationResponse(result: unknown, status = 200): Response {
@@ -36,7 +37,9 @@ export async function readAuthorizationJson(
   let input: unknown;
   try {
     input = JSON.parse(text);
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("authorization_response", caughtError);
+
     throw new McpAuthorizationError("invalid_request");
   }
   if (typeof input !== "object" || input === null || Array.isArray(input))

@@ -6,6 +6,7 @@ import {
 import { getApplicationServices } from "@/app/lib/services.server";
 import { agentFailureResponse } from "@/app/lib/settings-actions/settings-agents-response.server";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import type { Route } from "./+types/agent-plan-session-events";
 import type { AgentSessionEvent } from "@/definition/AgentSessionJournal";
@@ -71,7 +72,11 @@ function sessionStream(
       try {
         stopFollowing = await source.follow((event) => send(eventFrame(event)));
       } catch (error: unknown) {
-        console.warn(
+        logCaughtError("agent_plan_session_events", error);
+
+        logDiagnostic(
+          "agent_plan_session_events",
+          "warn",
           "[pages] A PageAgentCLI session stream could not read its history.",
           error,
         );
@@ -84,7 +89,10 @@ function sessionStream(
       }
       heartbeat = setInterval(() => {
         send(encoder.encode(": keep-alive\n\n"));
-        void source.check().catch(() => end());
+        void source.check().catch((caughtError: unknown) => {
+          logCaughtError("agent_plan_session_events", caughtError);
+          return end();
+        });
       }, HEARTBEAT_INTERVAL);
     },
     cancel: stop,
@@ -134,6 +142,8 @@ export async function loader({
       },
     });
   } catch (error: unknown) {
+    logCaughtError("agent_plan_session_events", error);
+
     return agentFailureResponse(error, "session-follow");
   }
 }

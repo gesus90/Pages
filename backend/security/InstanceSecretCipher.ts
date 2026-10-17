@@ -6,6 +6,7 @@ import {
 } from "node:crypto";
 
 import { AgentError } from "@/backend/error/AgentErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 const CIPHER = "aes-256-gcm";
 const PAYLOAD_PATTERN =
@@ -60,7 +61,9 @@ export class InstanceSecretCipher {
         decipher.update(Buffer.from(match[2], "base64url")),
         decipher.final(),
       ]).toString("utf8");
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("InstanceSecretCipher", caughtError);
+
       throw new AgentError("secret_unavailable");
     }
   }

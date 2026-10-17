@@ -1,7 +1,7 @@
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { MODEL_TEST_PROMPT } from "@/definition/AgentConnection";
-
 import { AgentError } from "@/backend/error/AgentErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { readClaudeChallenge } from "./CliLoginParser";
 import { readClaudeModels } from "./CliModelCatalog";
@@ -57,7 +57,9 @@ export class ClaudeCodeCli implements CliLoginAdapter {
     try {
       const parsed: unknown = JSON.parse(result.stdout);
       status = readAgentObject(parsed);
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("ClaudeCodeCli", caughtError);
+
       return {
         outcome: { ok: false, errorCode: "cli_unexpected_output", detail: {} },
         accountLabel: null,

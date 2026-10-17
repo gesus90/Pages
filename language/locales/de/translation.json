@@ -334,6 +334,23 @@
           "credentialsInText": "Die Ergänzung darf keine Zugangsdaten enthalten.",
           "general": "Die Einstellungen konnten nicht gespeichert werden."
         }
+      },
+      "logging": {
+        "title": "Serverlogging",
+        "description": "Instanzweite Aufbewahrung der täglichen Betriebslogs. Änderungen gelten sofort.",
+        "label": "Log-Aufbewahrung (Tage)",
+        "save": "Speichern",
+        "hint": "Ganze Zahlen von 0 bis 365. 0 = Unbegrenzt. Bei N > 0 bleiben heute und die letzten N−1 Kalendertage erhalten. Eine Verkürzung löscht ältere Tageslogs unmittelbar nach dem Speichern.",
+        "unlimited": "Unbegrenzt (keine automatische Alterslöschung)",
+        "currentlySaved": "Aktuell gespeichert: {{retention}}",
+        "retained_one": "{{count}} Kalendertag einschließlich heute",
+        "retained_other": "{{count}} Kalendertage einschließlich heute",
+        "saved": "Log-Aufbewahrung gespeichert. Die Bereinigung wurde angestoßen.",
+        "degraded": "Dateilog gestört ({{code}}). Nicht in die Datei übernommene Einträge: {{count}}; wartend: {{pending}}. Server-stderr prüfen.",
+        "error": {
+          "invalidSetting": "Bitte eine ganze Zahl von 0 bis 365 eingeben.",
+          "general": "Die Log-Aufbewahrung konnte nicht gespeichert werden."
+        }
       }
     },
     "profile": {

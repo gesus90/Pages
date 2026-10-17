@@ -6,6 +6,13 @@ import { redactAssistantCredentials } from "@/backend/service/assistant/TextAssi
 import { CHAT_LIMITS } from "@/definition/Chat";
 
 import type { PlanSessionTurn } from "@/backend/agents/AgentPlanExecution";
+import type { ChatJobState } from "@/definition/ChatJob";
+
+/** The terminal state and safe code produced by one Pica job. */
+export interface PicaAcpOutcome {
+  readonly state: Exclude<ChatJobState, "running">;
+  readonly errorCode: string | null;
+}
 
 /**
  * Requires a turn the runner completed.

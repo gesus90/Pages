@@ -4,6 +4,15 @@ import path from "node:path";
 import { DuckDBBlobValue, DuckDBInstance } from "@duckdb/node-api";
 
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
+import {
+  recordDatabaseTransaction,
+  withDatabaseLogMetrics,
+} from "@/backend/logging/DatabaseLogMetrics";
+import {
+  logCaughtError,
+  logDiagnostic,
+  logEvent,
+} from "@/backend/logging/Logger";
 
 import { recordDatabaseQuery } from "./DatabaseStats";
 import {
@@ -108,16 +117,25 @@ export class Database {
    * @returns An open database.
    */
   public static async create(databasePath: string): Promise<Database> {
-    if (databasePath !== IN_MEMORY_DATABASE_PATH) {
-      await mkdir(path.dirname(databasePath), { recursive: true });
-    }
+    return withDatabaseLogMetrics(async (metrics) => {
+      if (databasePath !== IN_MEMORY_DATABASE_PATH) {
+        await mkdir(path.dirname(databasePath), { recursive: true });
+      }
 
-    const instance = await openInstance(databasePath);
-    const connection = await instance.connect();
+      const instance = await openInstance(databasePath);
+      const connection = await instance.connect();
 
-    await connection.run(CONNECTION_SETUP);
+      await runStatement(connection, CONNECTION_SETUP, {});
+      logEvent({
+        level: "info",
+        event: "database.opened",
+        component: "Database",
+        message: "DuckDB connection initialized",
+        metadata: { ...metrics.finish() },
+      });
 
-    return new Database(instance, connection);
+      return new Database(instance, connection);
+    });
   }
 
   /** Waits for queued statements, then releases the database. */
@@ -126,6 +144,12 @@ export class Database {
 
     this.connection.closeSync();
     this.instance.closeSync();
+    logEvent({
+      level: "info",
+      event: "database.closed",
+      component: "Database",
+      message: "DuckDB connection closed",
+    });
   }
 
   /**
@@ -137,40 +161,49 @@ export class Database {
    * @throws When a migration fails; it is rolled back completely.
    */
   public async migrate(migrations: readonly Migration[]): Promise<void> {
-    await this.execute(CREATE_MIGRATIONS_TABLE);
+    return withDatabaseLogMetrics(async (metrics) => {
+      await this.execute(CREATE_MIGRATIONS_TABLE);
 
-    const appliedChecksums = await this.readAppliedChecksums();
-    const knownNames = new Set(migrations.map((migration) => migration.name));
+      const appliedChecksums = await this.readAppliedChecksums();
+      const knownNames = new Set(migrations.map((migration) => migration.name));
 
-    for (const appliedName of appliedChecksums.keys()) {
-      if (!knownNames.has(appliedName)) {
-        throw new UnknownMigrationError(appliedName);
+      for (const appliedName of appliedChecksums.keys()) {
+        if (!knownNames.has(appliedName)) {
+          throw new UnknownMigrationError(appliedName);
+        }
       }
-    }
 
-    const orderedMigrations = [...migrations].sort((first, second) =>
-      first.name.localeCompare(second.name),
-    );
-    let appliedCount = 0;
+      const orderedMigrations = [...migrations].sort((first, second) =>
+        first.name.localeCompare(second.name),
+      );
+      let appliedCount = 0;
 
-    for (const migration of orderedMigrations) {
-      const checksum = createMigrationChecksum(migration.sql);
-      const appliedChecksum = appliedChecksums.get(migration.name);
+      for (const migration of orderedMigrations) {
+        const checksum = createMigrationChecksum(migration.sql);
+        const appliedChecksum = appliedChecksums.get(migration.name);
 
-      if (appliedChecksum === undefined) {
-        await this.applyMigration(migration, checksum);
-        appliedCount += 1;
-      } else if (appliedChecksum !== checksum) {
-        throw new MigrationChecksumError(migration.name);
+        if (appliedChecksum === undefined) {
+          await this.applyMigration(migration, checksum);
+          appliedCount += 1;
+        } else if (appliedChecksum !== checksum) {
+          throw new MigrationChecksumError(migration.name);
+        }
       }
-    }
 
-    // DuckDB cannot replay an ALTER TABLE on a table whose defaults call
-    // utc_now() from the write-ahead log; writing the schema change into the
-    // file right away keeps a later unclean stop from leaving such a log.
-    if (appliedCount > 0) {
-      await this.execute("CHECKPOINT;");
-    }
+      // DuckDB cannot replay an ALTER TABLE on a table whose defaults call
+      // utc_now() from the write-ahead log; writing the schema change into the
+      // file right away keeps a later unclean stop from leaving such a log.
+      if (appliedCount > 0) {
+        await this.execute("CHECKPOINT;");
+      }
+      logEvent({
+        level: "info",
+        event: "database.migrations.completed",
+        component: "Database",
+        message: "Database migrations verified",
+        metadata: { count: appliedCount, ...metrics.finish() },
+      });
+    });
   }
 
   /**
@@ -258,6 +291,8 @@ export class Database {
         );
       });
     } catch (error: unknown) {
+      logCaughtError("Database", error);
+
       throw new Error(
         `Failed to apply database migration "${migration.name}".`,
         {
@@ -289,13 +324,17 @@ async function openInstance(databasePath: string): Promise<DuckDBInstance> {
   try {
     return await DuckDBInstance.create(databasePath);
   } catch (error: unknown) {
+    logCaughtError("Database", error);
+
     if (!String(error).includes(WAL_REPLAY_FAILURE)) {
       throw error;
     }
 
     await replayWriteAheadLog(databasePath);
-    console.warn(
-      `[pages] Replayed the write-ahead log of ${databasePath} through an attached database.`,
+    logDiagnostic(
+      "Database",
+      "warn",
+      "[pages] Replayed the write-ahead log through an attached database.",
     );
 
     return DuckDBInstance.create(databasePath);
@@ -324,24 +363,47 @@ async function runInTransaction<Result>(
   connection: DuckDBConnection,
   work: (transaction: DatabaseTransaction) => Promise<Result>,
 ): Promise<Result> {
-  await connection.run("BEGIN TRANSACTION;");
+  return withDatabaseLogMetrics(async (metrics) => {
+    await runStatement(connection, "BEGIN TRANSACTION;", {});
 
-  try {
-    const result = await work({
-      execute: (statement, parameters = {}) =>
-        runStatement(connection, statement, parameters),
-      query: (statement, parameters = {}) =>
-        readRows(connection, statement, parameters),
-    });
+    try {
+      const result = await work({
+        execute: (statement, parameters = {}) =>
+          runStatement(connection, statement, parameters),
+        query: (statement, parameters = {}) =>
+          readRows(connection, statement, parameters),
+      });
 
-    await connection.run("COMMIT;");
+      await runStatement(connection, "COMMIT;", {});
+      const hasParent = recordDatabaseTransaction("committed");
+      const summary = metrics.finish();
+      if (!hasParent)
+        logEvent({
+          level: "debug",
+          event: "database.transaction.committed",
+          component: "Database",
+          message: "Database transaction committed",
+          metadata: { ...summary },
+        });
 
-    return result;
-  } catch (error: unknown) {
-    await connection.run("ROLLBACK;");
+      return result;
+    } catch (error: unknown) {
+      logCaughtError("Database", error);
 
-    throw error;
-  }
+      await runStatement(connection, "ROLLBACK;", {});
+      recordDatabaseTransaction("rolled_back");
+      logEvent({
+        level: "warn",
+        event: "database.transaction.rolled_back",
+        component: "Database",
+        message: "Database transaction rolled back",
+        error,
+        metadata: { ...metrics.finish() },
+      });
+
+      throw error;
+    }
+  });
 }
 
 async function runStatement(
@@ -353,6 +415,16 @@ async function runStatement(
 
   try {
     await connection.run(statement, toBindings(parameters));
+  } catch (error: unknown) {
+    logEvent({
+      level: "error",
+      event: "database.statement.failed",
+      component: "Database",
+      message: "Database statement failed",
+      error,
+      metadata: { parameterCount: Object.keys(parameters).length },
+    });
+    throw error;
   } finally {
     recordDatabaseQuery(statement, performance.now() - startedAt);
   }
@@ -372,6 +444,16 @@ async function readRows(
     );
 
     return reader.getRows().map((row) => row.map(toDatabaseValue));
+  } catch (error: unknown) {
+    logEvent({
+      level: "error",
+      event: "database.query.failed",
+      component: "Database",
+      message: "Database query failed",
+      error,
+      metadata: { parameterCount: Object.keys(parameters).length },
+    });
+    throw error;
   } finally {
     recordDatabaseQuery(statement, performance.now() - startedAt);
   }

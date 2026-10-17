@@ -15,10 +15,11 @@ import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { publishesNewTasks } from "@/definition/Project";
 import { WORK_ITEM_CHILD_TYPE } from "@/definition/Task";
-
-import { action } from "./tasks";
 import { ProjectAccessDeniedError } from "@/backend/error/ProjectErrors";
 import { WorkItemNotFoundError } from "@/backend/error/WorkItemErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
+
+import { action } from "./tasks";
 
 import type { ApplicationServices } from "@/app/lib/services.server";
 import type { GitHubPullRequest } from "@/definition/GitHub";
@@ -105,6 +106,8 @@ async function loadParent(
   try {
     return await services.taskService.getById(actor, parentId);
   } catch (error: unknown) {
+    logCaughtError("task_detail", error);
+
     // A parent from an inaccessible project stays hidden instead of
     // failing the whole ticket view.
     if (
@@ -142,6 +145,8 @@ export async function loader({
   try {
     ticket = await services.taskService.getByKey(actor, ticketKey);
   } catch (error: unknown) {
+    logCaughtError("task_detail", error);
+
     if (error instanceof WorkItemNotFoundError) {
       throw new Response("Not Found", { status: 404 });
     }

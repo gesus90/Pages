@@ -20,6 +20,7 @@ import {
   isChatOnlyAdminWriteOperation,
 } from "@/definition/AgentAdministration";
 import { PAGES_AGENT_LIMITS } from "@/definition/PagesAgentOperations";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import {
   readAdminChanged,
@@ -108,6 +109,8 @@ export class AgentAdministrationService {
       }
       return response;
     } catch (error: unknown) {
+      logCaughtError("AgentAdministrationService", error);
+
       throw translateAdminError(error);
     }
   }

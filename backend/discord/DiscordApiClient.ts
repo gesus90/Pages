@@ -1,4 +1,5 @@
 import { DISCORD_INSTALL_PERMISSIONS } from "@/backend/discord/DiscordPermissions";
+import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 
 import type { DiscordApplication } from "@/backend/discord/DiscordConfig";
 import type {
@@ -102,7 +103,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 async function readJson(response: Response): Promise<unknown> {
   try {
     return await response.json();
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("DiscordApiClient", caughtError);
+
     return null;
   }
 }
@@ -173,7 +176,9 @@ function parseRole(value: unknown): DiscordRole | null {
 
   try {
     return { id, permissions: BigInt(permissions) };
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("DiscordApiClient", caughtError);
+
     return null;
   }
 }
@@ -196,7 +201,9 @@ function parseOverwrite(value: unknown): DiscordOverwrite | null {
 
   try {
     return { allow: BigInt(allow), deny: BigInt(deny), id, type };
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("DiscordApiClient", caughtError);
+
     return null;
   }
 }
@@ -478,12 +485,21 @@ export class DiscordApiClient {
         headers: { ...init.headers, "User-Agent": USER_AGENT },
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
+      logEvent({
+        level: response.ok ? "debug" : "warn",
+        event: "integration.discord.response",
+        component: "DiscordApiClient",
+        message: "Discord request finished",
+        metadata: { statusCode: response.status },
+      });
       const body = await readJson(response);
 
       return response.ok
         ? { ok: true, value: { body } }
         : problemFromStatus(response, body, missingProblem);
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("DiscordApiClient", caughtError);
+
       // The error of a failed call can name the request; only the fact is kept.
       return failure("unavailable", null);
     }

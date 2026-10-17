@@ -1,4 +1,5 @@
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import {
   readChatAgentCloneRequest,
@@ -50,6 +51,8 @@ export class ChatAgentOperationService {
         );
       return await this.operations.handle(identity, operation, input);
     } catch (error: unknown) {
+      logCaughtError("ChatAgentOperationService", error);
+
       throw translatePageAgentError(error);
     }
   }

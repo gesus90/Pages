@@ -1,5 +1,6 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 import { materializeTicketChecklist } from "@/backend/service/task/TicketChecklist";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { MaterializedChecklist } from "@/backend/service/task/TicketChecklist";
 import type { TaskService } from "@/backend/service/TaskService";
@@ -84,6 +85,8 @@ export class AgentPlanTasks {
         checklist: materializeTicketChecklist(task.description, criteria),
       };
     } catch (error: unknown) {
+      logCaughtError("AgentPlanTasks", error);
+
       if (error instanceof AgentError) throw error;
       throw new AgentError("plan_binding_invalid");
     }
@@ -111,6 +114,8 @@ export class AgentPlanTasks {
         version: task.updatedAt,
       };
     } catch (error: unknown) {
+      logCaughtError("AgentPlanTasks", error);
+
       if (error instanceof AgentError) throw error;
       throw new AgentError("plan_binding_invalid");
     }

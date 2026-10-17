@@ -5,6 +5,7 @@ import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { ChatError } from "@/backend/error/ChatErrors";
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
 import { isChatJobId } from "@/definition/ChatJob";
+import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import { readChatSessionId } from "../ChatSessionService";
 import { PicaAcpJob } from "./PicaAcpJob";
@@ -248,9 +249,13 @@ export class PicaAcpService {
     try {
       await this.dependencies.workspace.remove(sessionId);
     } catch (error: unknown) {
-      console.error(
+      logCaughtError("PicaAcpService", error);
+
+      logDiagnostic(
+        "PicaAcpService",
+        "error",
         "[pages] A Pica working directory could not be removed.",
-        error instanceof Error ? error.name : typeof error,
+        error,
       );
     } finally {
       this.deleting.delete(sessionId);
@@ -344,12 +349,19 @@ export class PicaAcpService {
         (signal) => job.run(signal),
       );
     } catch (error: unknown) {
+      logCaughtError("PicaAcpService", error);
+
       // Another answer of the person started meanwhile; the job ends visibly, with its journal.
-      void this.refuse(job.id).catch(() => undefined);
+      void this.refuse(job.id).catch((caughtError: unknown) => {
+        logCaughtError("PicaAcpService", caughtError);
+        return undefined;
+      });
       throw error;
     }
     const completion = completed
-      .catch(() => {
+      .catch((caughtError: unknown) => {
+        logCaughtError("PicaAcpService", caughtError);
+
         // The job recorded its own end; the registry reports only the cancellation.
       })
       .finally(() => {

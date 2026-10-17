@@ -1,5 +1,7 @@
 import { stripVTControlCharacters } from "node:util";
 
+import { logCaughtError } from "@/backend/logging/Logger";
+
 import type { CliLoginChallenge } from "./CliContracts";
 
 function readUrls(output: string): URL[] {
@@ -9,7 +11,9 @@ function readUrls(output: string): URL[] {
   ) ?? []) {
     try {
       urls.push(new URL(candidate));
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("CliLoginParser", caughtError);
+
       continue;
     }
   }

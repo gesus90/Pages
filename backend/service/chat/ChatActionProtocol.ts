@@ -1,4 +1,5 @@
 import { readAgentObject } from "@/backend/agents/AgentPayload";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 /** Info string of the fenced block in which the agent requests one Pages action. */
 export const CHAT_ACTION_FENCE = "pages-action";
@@ -35,7 +36,9 @@ export function readChatModelReply(output: string): ChatModelReply {
   let parsed: unknown;
   try {
     parsed = JSON.parse(block[1]);
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("ChatActionProtocol", caughtError);
+
     return { kind: "invalid" };
   }
   const action = readAgentObject(parsed);

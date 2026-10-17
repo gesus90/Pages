@@ -22,6 +22,7 @@ import {
 } from "@/definition/BoardPreferences";
 import { ProjectAccessDeniedError } from "@/backend/error/ProjectErrors";
 import { WorkItemNotFoundError } from "@/backend/error/WorkItemErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { ShouldRevalidateFunctionArgs } from "react-router";
 import type { ApplicationServices } from "@/app/lib/services.server";
@@ -397,6 +398,8 @@ async function findSelectedWorkItem(
   try {
     return await services.taskService.getByKey(actor, selectedKey);
   } catch (error: unknown) {
+    logCaughtError("tasks", error);
+
     // Missing or inaccessible tickets simply leave the detail panel closed.
     if (
       error instanceof WorkItemNotFoundError ||

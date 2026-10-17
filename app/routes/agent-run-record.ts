@@ -5,6 +5,7 @@ import {
   agentFailureResponse,
 } from "@/app/lib/settings-actions/settings-agents-response.server";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { Route } from "./+types/agent-run-record";
 
@@ -39,6 +40,8 @@ export async function loader({
       },
     });
   } catch (error: unknown) {
+    logCaughtError("agent_run_record", error);
+
     return agentFailureResponse(error);
   }
 }

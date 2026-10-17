@@ -6,6 +6,7 @@ import { reactRouter } from "@react-router/dev/vite";
 import { defineConfig } from "vite";
 
 import type { Plugin } from "vite";
+import type { DevelopmentRequestLogger } from "./backend/runtime/DevelopmentRuntime";
 
 /** Pica's protected `SOUL.md` and `AGENTS.md` in the source tree (PAGE-51). */
 const PICA_INSTRUCTION_SOURCE = new URL(
@@ -26,10 +27,15 @@ function pagesDevelopmentRuntime(): Plugin {
         void server
           .ssrLoadModule("/backend/runtime/DevelopmentRuntime.ts")
           .then((runtimeModule) =>
-            runtimeModule.startDevelopmentRuntime([
-              ...(server.resolvedUrls?.local ?? []),
-              ...(server.resolvedUrls?.network ?? []),
-            ]),
+            runtimeModule.startDevelopmentRuntime(
+              [
+                ...(server.resolvedUrls?.local ?? []),
+                ...(server.resolvedUrls?.network ?? []),
+              ],
+              (listener: DevelopmentRequestLogger) => {
+                server.middlewares.use(listener);
+              },
+            ),
           );
       });
     },

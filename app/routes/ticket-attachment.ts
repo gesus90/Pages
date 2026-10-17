@@ -4,6 +4,7 @@ import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { contentDisposition } from "@/app/lib/content-disposition";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { describeTicketUploadFailure } from "@/app/lib/task-actions/ticket-upload.server";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { Route } from "./+types/ticket-attachment";
 
@@ -56,6 +57,8 @@ export async function loader({
       },
     });
   } catch (error: unknown) {
+    logCaughtError("ticket_attachment", error);
+
     if (describeTicketUploadFailure(error)?.status === 404) {
       throw new Response("Not Found", { status: 404 });
     }

@@ -1,4 +1,5 @@
 import { AgentError } from "@/backend/error/AgentErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { ContentBlock } from "@agentclientprotocol/sdk";
 import type { AgentPlanExecutionInput } from "@/backend/service/agents/AgentPlanStepStart";
@@ -41,7 +42,9 @@ export class ScheduledAcpSession implements PlanSession {
     this.turn = this.observeTurn(session.turn);
     void session.terminated
       ?.then(() => this.retire("process_exit"))
-      .catch(() => {
+      .catch((caughtError: unknown) => {
+        logCaughtError("ScheduledAcpSession", caughtError);
+
         // close() records an unconfirmed lease on every failure.
       });
   }
@@ -93,7 +96,9 @@ export class ScheduledAcpSession implements PlanSession {
   private armIdleTimer(): void {
     if (this.closing) return;
     this.idleTimer = setTimeout(() => {
-      void this.retire("idle_timeout").catch(() => {
+      void this.retire("idle_timeout").catch((caughtError: unknown) => {
+        logCaughtError("ScheduledAcpSession", caughtError);
+
         // The lease stays occupied; the resource overview reports cleanup_failed.
       });
     }, this.lifecycle.idleTimeout);
@@ -106,6 +111,8 @@ export class ScheduledAcpSession implements PlanSession {
       const closed = await this.close();
       this.observer?.retired?.(closed, reason);
     } catch (error: unknown) {
+      logCaughtError("ScheduledAcpSession", error);
+
       this.observer?.retired?.(
         {
           exit: null,
@@ -127,6 +134,8 @@ export class ScheduledAcpSession implements PlanSession {
       const isConfirmed = await this.lifecycle.finish(closed.isConfirmed);
       return { ...closed, isConfirmed };
     } catch (error: unknown) {
+      logCaughtError("ScheduledAcpSession", error);
+
       await this.lifecycle.finish(false);
       throw error;
     }

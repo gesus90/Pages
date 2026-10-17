@@ -10,6 +10,7 @@ import {
 } from "@/app/lib/authorization-response.server";
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
 import { PairingRateError } from "@/backend/service/mcp/PairingThrottle";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { Route } from "./+types/api-v1-pairing";
 
@@ -38,6 +39,8 @@ export async function action({
       201,
     );
   } catch (error: unknown) {
+    logCaughtError("api_v1_pairing", error);
+
     const response = authorizationFailure(error);
     if (error instanceof PairingRateError)
       response.headers.set("Retry-After", String(error.retryAfter));

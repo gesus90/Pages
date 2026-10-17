@@ -1,3 +1,6 @@
+import { loggedJob } from "@/backend/logging/LoggedOperation";
+import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
+
 import type { AgentCatalogRepository } from "@/backend/database/repositories/agent/AgentCatalogRepository";
 import type { AgentCatalogRefresh } from "./AgentCatalogRefresh";
 
@@ -41,7 +44,11 @@ export class AgentCatalogScheduler {
   /** Performs at most one due refresh; transient conflicts retry on the next tick. */
   public async runOnce(): Promise<void> {
     if (this.pendingRun !== null || this.isStopped) return;
-    const operation = this.execute();
+    const operation = loggedJob(
+      "AgentCatalogScheduler",
+      "job.agent_catalog",
+      () => this.execute(),
+    );
     this.pendingRun = operation;
     try {
       await operation;
@@ -54,9 +61,15 @@ export class AgentCatalogScheduler {
     try {
       const id = await this.repository.nextDue(new Date().toISOString());
       if (id !== null && !this.isStopped) await this.refresh.run(id);
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("AgentCatalogScheduler", caughtError);
+
       // Disk errors and operation conflicts must not expose provider or credential diagnostics.
-      console.warn("Pages model catalog refresh could not complete.");
+      logDiagnostic(
+        "AgentCatalogScheduler",
+        "warn",
+        "Pages model catalog refresh could not complete.",
+      );
     }
   }
 }

@@ -1,6 +1,8 @@
 import { redirect } from "react-router";
 
 import { ProjectAccessDeniedError } from "@/backend/error/ProjectErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
+
 import { invalidInput } from "./project-action-support.server";
 
 import type { ProjectActionResponse } from "./project-action-support.server";
@@ -38,6 +40,8 @@ export async function handleProjectScopeAction(
     await services.projectService.getById(actor, projectId);
     return redirect(`/projekte/${encodeURIComponent(projectId)}`);
   } catch (error: unknown) {
+    logCaughtError("project_scope_actions", error);
+
     if (error instanceof ProjectAccessDeniedError) return redirect("/projekte");
     throw error;
   }

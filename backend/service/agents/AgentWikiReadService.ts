@@ -1,6 +1,7 @@
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { WikiPageNotFoundError } from "@/backend/error/WikiErrors";
 import { PAGES_AGENT_LIMITS } from "@/definition/PagesAgentOperations";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { pageAgentEntries } from "./AgentCursor";
 import { indexText, readTextRange } from "./AgentTextRange";
@@ -80,6 +81,8 @@ export class AgentWikiReadService {
         anchors: (await this.anchors?.findAnchors(id)) ?? [],
       };
     } catch (error: unknown) {
+      logCaughtError("AgentWikiReadService", error);
+
       if (error instanceof WikiPageNotFoundError)
         throw new AgentOperationError("NOT_FOUND");
       throw error;
@@ -112,6 +115,8 @@ export class AgentWikiReadService {
         ...readTextRange(indexText(content), range),
       };
     } catch (error: unknown) {
+      logCaughtError("AgentWikiReadService", error);
+
       if (error instanceof WikiPageNotFoundError)
         throw new AgentOperationError("NOT_FOUND");
       throw error;

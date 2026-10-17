@@ -22,11 +22,11 @@ import { sessionCookie } from "@/app/lib/session.server";
 import { loginDestination } from "@/app/lib/login-destination.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { TooManyLoginAttemptsError } from "@/backend/auth/LoginThrottle";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { LoginFormError } from "@/app/components/login/login-form";
 import type { LoginResult } from "@/backend/auth/AuthService";
 import type { InstanceBranding } from "@/definition/Instance";
-
 import type { Language } from "@/language/Language";
 import type { Route } from "./+types/login";
 
@@ -105,6 +105,8 @@ export async function action({
       getClientAddress(request),
     );
   } catch (error: unknown) {
+    logCaughtError("login", error);
+
     if (error instanceof TooManyLoginAttemptsError) {
       return data<LoginActionData>(
         { error: "tooManyAttempts" },

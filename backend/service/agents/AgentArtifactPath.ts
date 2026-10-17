@@ -10,6 +10,7 @@ import {
 import path from "node:path";
 
 import { AgentError } from "@/backend/error/AgentErrors";
+import { logFileProbeError } from "@/backend/logging/Logger";
 
 const DIRECTORY_MODE = 0o700;
 const FILE_MODE = 0o400;
@@ -22,7 +23,10 @@ export function requireArtifactId(id: string): void {
 
 /** Creates one private directory, or accepts an existing real directory. */
 async function ensureDirectory(directory: string): Promise<void> {
-  const entry = await lstat(directory).catch(() => null);
+  const entry = await lstat(directory).catch((caughtError: unknown) => {
+    logFileProbeError("AgentArtifactPath", caughtError);
+    return null;
+  });
   if (entry === null) {
     // Recursive creation does not fail when another writer made it first.
     await mkdir(directory, { recursive: true, mode: DIRECTORY_MODE });
@@ -62,7 +66,10 @@ export async function artifactDirectory(
 export async function artifactExists(filename: string): Promise<boolean> {
   return lstat(filename).then(
     () => true,
-    () => false,
+    (error: unknown) => {
+      logFileProbeError("AgentArtifactPath", error);
+      return false;
+    },
   );
 }
 
@@ -82,9 +89,15 @@ export async function writeArtifact(
   content: string,
 ): Promise<void> {
   // Only a regular file is read: a pipe or a device in its place must not stall the caller.
-  const entry = await lstat(filename).catch(() => null);
+  const entry = await lstat(filename).catch((caughtError: unknown) => {
+    logFileProbeError("AgentArtifactPath", caughtError);
+    return null;
+  });
   const existing = entry?.isFile()
-    ? await readFile(filename, "utf8").catch(() => null)
+    ? await readFile(filename, "utf8").catch((caughtError: unknown) => {
+        logFileProbeError("AgentArtifactPath", caughtError);
+        return null;
+      })
     : null;
   if (existing === content) return;
   const temporary = path.join(path.dirname(filename), `${randomUUID()}.tmp`);

@@ -5,6 +5,7 @@ import { contentDisposition } from "@/app/lib/content-disposition";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { WikiPageNotFoundError } from "@/backend/error/WikiErrors";
 import { isEmbeddableType } from "@/backend/service/wiki/WikiFileTypes";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { Route } from "./+types/agent-asset";
 
@@ -37,6 +38,8 @@ export async function loader({
       },
     });
   } catch (error: unknown) {
+    logCaughtError("agent_asset", error);
+
     if (error instanceof WikiPageNotFoundError)
       throw new Response("Not Found", { status: 404 });
     throw error;

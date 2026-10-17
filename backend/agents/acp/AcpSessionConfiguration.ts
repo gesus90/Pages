@@ -2,6 +2,7 @@ import { RequestError, methods } from "@agentclientprotocol/sdk";
 
 import { noteSessionEvent } from "@/backend/agents/cli/CliSessionEvents";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { findAcpSelectOption } from "./AcpConfigOptions";
 
@@ -62,6 +63,8 @@ async function setOption(
     );
     return response.configOptions;
   } catch (error: unknown) {
+    logCaughtError("AcpSessionConfiguration", error);
+
     // A refusal of the adapter, not a lost connection, means the value is not offered.
     if (error instanceof RequestError && !target.connection.signal.aborted)
       throw refused(target, selection, "was refused by the adapter");

@@ -8,6 +8,7 @@ import {
   DATABASE_LOCATION_STATUS,
   MAXIMUM_DATABASE_PATH_LENGTH,
 } from "@/definition/Setup";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { Stats } from "node:fs";
 import type { DatabaseLocationStatus } from "@/definition/Setup";
@@ -55,7 +56,9 @@ async function isAccessible(target: string, mode: number): Promise<boolean> {
     await access(target, mode);
 
     return true;
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("DatabaseLocation", caughtError);
+
     return false;
   }
 }
@@ -66,7 +69,9 @@ async function readStats(
 ): Promise<Stats | null> {
   try {
     return await read(target);
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("DatabaseLocation", caughtError);
+
     return null;
   }
 }

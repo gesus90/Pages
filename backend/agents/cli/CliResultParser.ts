@@ -1,6 +1,7 @@
 import { sanitizeCheckDetail } from "@/backend/agents/AgentCheckDetail";
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { classifyOpenCodeFailure } from "@/backend/agents/acp/OpenCodeAcpErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import type { ProviderCheckOutcome } from "@/backend/agents/providers/ProviderContracts";
@@ -35,7 +36,9 @@ export function readCodexTest(output: string): ProviderCheckOutcome {
       if (event.type === "turn.failed" || event.type === "error")
         failure = classifyCliFailure(event);
     }
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("CliResultParser", caughtError);
+
     return { ok: false, errorCode: "cli_unexpected_output", detail: {} };
   }
   if (failure !== null || completed === null)
@@ -55,7 +58,9 @@ export function readClaudeTest(output: string): ProviderCheckOutcome {
   try {
     const parsed: unknown = JSON.parse(output);
     result = readAgentObject(parsed);
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("CliResultParser", caughtError);
+
     return { ok: false, errorCode: "cli_unexpected_output", detail: {} };
   }
   if (result.is_error !== false || result.subtype !== "success")
@@ -97,7 +102,9 @@ export function readOpenCodeTest(output: string): ProviderCheckOutcome {
       if (event.type === "step_finish" && part.reason === "stop")
         finished = part;
     }
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("CliResultParser", caughtError);
+
     return { ok: false, errorCode: "cli_unexpected_output", detail: {} };
   }
   if (failure !== null || finished === null || !hasText)

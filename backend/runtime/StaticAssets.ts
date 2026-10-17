@@ -2,6 +2,12 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import path from "node:path";
 
+import {
+  logCaughtError,
+  logEvent,
+  logFileProbeError,
+} from "@/backend/logging/Logger";
+
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 const CONTENT_TYPES: Readonly<Record<string, string>> = {
@@ -34,7 +40,8 @@ function decodePathname(requestUrl: string): string | null {
     );
 
     return pathname.includes("\0") ? null : pathname;
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("StaticAssets", caughtError);
     return null;
   }
 }
@@ -66,7 +73,9 @@ async function readFileSize(filePath: string): Promise<number | null> {
     const stats = await stat(filePath);
 
     return stats.isFile() ? stats.size : null;
-  } catch {
+  } catch (caughtError: unknown) {
+    logFileProbeError("StaticAssets", caughtError);
+
     return null;
   }
 }
@@ -122,7 +131,16 @@ export async function serveStaticAsset(
   } else {
     // A file removed after the size check ends the response instead of the process.
     createReadStream(filePath)
-      .on("error", () => response.destroy())
+      .on("error", (error: Error) => {
+        logEvent({
+          level: "error",
+          event: "http.asset.failed",
+          component: "StaticAssets",
+          message: "Static asset stream failed",
+          error,
+        });
+        response.destroy();
+      })
       .pipe(response);
   }
 

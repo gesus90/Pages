@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { AgentError } from "@/backend/error/AgentErrors";
 import { isMissingPath } from "@/backend/service/agents/AgentCanonicalPath";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type {
   AgentSessionGitState,
@@ -42,6 +43,7 @@ async function isDirectory(target: string): Promise<boolean | null> {
     return (await stat(target)).isDirectory();
   } catch (error: unknown) {
     if (isMissingPath(error)) return null;
+    logCaughtError("AgentSessionWorkspace", error);
     throw error;
   }
 }
@@ -99,7 +101,9 @@ export async function readWorkspaceGit(
     const commit = COMMIT.exec(head)?.groups?.commit;
     if (commit !== undefined) return { state: "detached", commit };
     return { state: "unreadable" };
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("AgentSessionWorkspace", caughtError);
+
     // An unreadable repository is reported as such; the session itself is unaffected.
     return { state: "unreadable" };
   }
@@ -126,7 +130,9 @@ export async function checkSessionWorkspace(
       files.realpath(assignment.directory),
       files.realpath(assignment.workspace),
     ]);
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("AgentSessionWorkspace", caughtError);
+
     throw new AgentError("workspace_path_invalid");
   }
   if (

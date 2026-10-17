@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import { ChatError } from "@/backend/error/ChatErrors";
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import { PICA_TOOL_OUTCOME } from "../PicaToolSchemas";
 import { answerPicaBridgeMessage } from "./PicaBridgeProtocol";
@@ -165,14 +166,17 @@ export class PicaBridge {
       if (!invoked.isValid) return refused("INVALID_ARGUMENTS");
       return PICA_TOOL_OUTCOME.parse(invoked.output);
     } catch (error: unknown) {
+      logCaughtError("PicaBridge", error);
+
       if (turn.context.signal.aborted) return refused("CANCELLED");
       if (error instanceof ChatError || error instanceof TextAssistantError)
         return refused(error.code === "accessDenied" ? "FORBIDDEN" : "FAILED");
       // Only the tool and the kind of error are logged, never arguments or results.
-      console.error(
+      logDiagnostic(
+        "PicaBridge",
+        "error",
         "[pages] A Pica bridge call failed.",
-        name.slice(0, 100),
-        error instanceof Error ? error.name : typeof error,
+        error,
       );
       return refused("FAILED");
     }

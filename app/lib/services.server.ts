@@ -1,5 +1,6 @@
 import path from "node:path";
 
+import { registerShutdownTask } from "@/backend/runtime/ProcessLifecycle";
 import { AuthService } from "@/backend/auth/AuthService";
 import { LoginThrottle } from "@/backend/auth/LoginThrottle";
 import { PasswordHasher } from "@/backend/auth/PasswordHasher";
@@ -47,6 +48,11 @@ import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 import { SetupService } from "@/backend/setup/SetupService";
 import { PICA_WORKSPACE_DIRECTORY_NAME } from "@/backend/service/chat/acp/PicaAcpWorkspace";
 import mcpManifest from "@/mcp/package.json";
+import {
+  logCaughtError,
+  logDiagnostic,
+  logEvent,
+} from "@/backend/logging/Logger";
 
 import { startExecutionServices } from "./agent-execution-services.server";
 import { createChatServices } from "./chat-services.server";
@@ -141,15 +147,20 @@ function registerShutdownHandler(
       await agents.agentCatalogScheduler.shutdown();
       await agents.agentCliLoginService.shutdown();
       await database.close();
-      process.exit(0);
     } catch (error: unknown) {
-      console.error("[pages] Closing the database failed.", error);
-      process.exit(1);
+      logCaughtError("services", error);
+
+      logDiagnostic(
+        "services",
+        "error",
+        "[pages] Closing the database failed.",
+        error,
+      );
+      throw error;
     }
   };
 
-  process.once("SIGINT", () => void shutdown());
-  process.once("SIGTERM", () => void shutdown());
+  registerShutdownTask(shutdown);
 }
 
 /**
@@ -200,7 +211,9 @@ async function prepareSessions(
   sessionService: SessionService,
 ): Promise<SessionService> {
   if (await setupService.migrateLegacyBootstrapAdministrator()) {
-    console.info(
+    logDiagnostic(
+      "services",
+      "info",
       '[pages] Migrated the default administrator "admin" to the current password hashing algorithm.',
     );
   }
@@ -614,7 +627,14 @@ async function sweepTicketAttachments(
   try {
     await service.sweep();
   } catch (error: unknown) {
-    console.warn("Pages could not sweep ticket attachment files.", error);
+    logCaughtError("services", error);
+
+    logDiagnostic(
+      "services",
+      "warn",
+      "Pages could not sweep ticket attachment files.",
+      error,
+    );
   }
 }
 
@@ -633,7 +653,11 @@ function startGitHubSyncScheduler(gitHubSyncService: GitHubSyncService): void {
   }
 
   globalThis.pagesSyncSchedulerStarted = true;
-  new GitHubSyncScheduler(gitHubSyncService).start();
+  const scheduler = new GitHubSyncScheduler(gitHubSyncService);
+  scheduler.start();
+  registerShutdownTask(async () => {
+    scheduler.stop();
+  });
 }
 
 /**
@@ -651,19 +675,39 @@ function startWikiMaintenanceScheduler(
   }
 
   globalThis.pagesWikiMaintenanceStarted = true;
-  new WikiMaintenanceScheduler({
+  const scheduler = new WikiMaintenanceScheduler({
     runMaintenance: async () => {
       await wikiService.runMaintenance();
       await assets.runMaintenance();
     },
-  }).start();
+  });
+  scheduler.start();
+  registerShutdownTask(async () => {
+    scheduler.stop();
+  });
 }
 
 async function openConfiguredServices(): Promise<ApplicationServices> {
+  logEvent({
+    level: "info",
+    event: "services.initialization.started",
+    component: "ApplicationServices",
+    message: "Application services initializing",
+  });
   const runtime = await getPagesRuntime();
   const databasePath = runtime.getDatabasePath();
 
-  return initializeServices(await Database.create(databasePath), databasePath);
+  const services = await initializeServices(
+    await Database.create(databasePath),
+    databasePath,
+  );
+  logEvent({
+    level: "info",
+    event: "services.initialization.completed",
+    component: "ApplicationServices",
+    message: "Application services initialized",
+  });
+  return services;
 }
 
 /**
@@ -675,6 +719,8 @@ async function openConfiguredServices(): Promise<ApplicationServices> {
 export function getApplicationServices(): Promise<ApplicationServices> {
   globalThis.pagesServices ??= openConfiguredServices().catch(
     (error: unknown) => {
+      logCaughtError("services", error);
+
       // Keep no failed start, so a later request can try again.
       globalThis.pagesServices = undefined;
 

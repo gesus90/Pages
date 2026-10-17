@@ -2,6 +2,7 @@ import * as filesystem from "node:fs/promises";
 import path from "node:path";
 
 import { AgentError } from "@/backend/error/AgentErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { CliProviderId } from "@/definition/AgentConnection";
 import type { CliHome } from "./CliContracts";
@@ -59,7 +60,9 @@ export class AgentCredentialStore {
       }
       await this.secureTree(home.root);
       return home;
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("AgentCredentialStore", caughtError);
+
       throw new AgentError("cli_not_executable");
     }
   }
@@ -81,7 +84,9 @@ export class AgentCredentialStore {
       await this.requireDirectory(this.root);
       await this.requireDirectory(home.root);
       await this.secureTree(home.root);
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("AgentCredentialStore", caughtError);
+
       throw new AgentError("cli_not_executable");
     }
   }
@@ -95,7 +100,9 @@ export class AgentCredentialStore {
       if (!(await this.exists(home.root))) return;
       await this.requireDirectory(home.root);
       await this.files.rm(home.root, { recursive: true, force: true });
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("AgentCredentialStore", caughtError);
+
       throw new AgentError("credential_cleanup_failed");
     }
   }
@@ -112,6 +119,7 @@ export class AgentCredentialStore {
         error.code === "ENOENT"
       )
         return false;
+      logCaughtError("AgentCredentialStore", error);
       throw error;
     }
   }

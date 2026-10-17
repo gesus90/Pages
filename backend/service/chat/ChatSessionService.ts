@@ -1,5 +1,6 @@
 import { ChatError } from "@/backend/error/ChatErrors";
 import { isChatSessionId } from "@/definition/Chat";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { createChatSessionId } from "./ChatSessionWords";
 
@@ -201,10 +202,14 @@ export class ChatSessionService {
         deleted.push(id);
         try {
           await this.dependencies.files.remove(files);
-        } catch {
+        } catch (caughtError: unknown) {
+          logCaughtError("ChatSessionService", caughtError);
+
           cleanupFailed.push(id);
         }
       } catch (error: unknown) {
+        logCaughtError("ChatSessionService", error);
+
         failed.push({
           sessionId: id,
           error: error instanceof ChatError ? error.code : "general",

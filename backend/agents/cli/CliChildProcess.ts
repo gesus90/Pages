@@ -1,5 +1,7 @@
 import { EventEmitter } from "node:events";
 
+import { logCaughtError, logEvent } from "@/backend/logging/Logger";
+
 import type { ChildProcess } from "node:child_process";
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import type {
@@ -40,7 +42,14 @@ export class CliChildProcess implements CliRunningProcess {
       this.completion.once("complete", resolve);
     });
     this.deadline = setTimeout(this.abort, request.timeoutMs);
-    child.once("error", () => {
+    child.once("error", (error: Error) => {
+      logEvent({
+        level: "error",
+        event: "cli.command.failed",
+        component: "CliChildProcess",
+        message: "CLI child process failed",
+        error,
+      });
       this.errorCode = this.errorCode ?? "cli_not_executable";
       if (this.escalation === null) this.finish();
     });
@@ -63,6 +72,13 @@ export class CliChildProcess implements CliRunningProcess {
   /** SIGKILL still follows SIGTERM if the wrapper exits before its descendants. */
   public cancel(code: AgentErrorCode): void {
     if (this.isFinished || this.escalation !== null) return;
+    logEvent({
+      level: "info",
+      event: "cli.command.cancel_requested",
+      component: "CliChildProcess",
+      message: "CLI child cancellation requested",
+      metadata: { code },
+    });
     this.errorCode = code;
     this.escalation = setTimeout(() => {
       this.sendSignal("SIGKILL");
@@ -82,7 +98,9 @@ export class CliChildProcess implements CliRunningProcess {
     try {
       this.child.stdin.write(`${code}\n`);
       return true;
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("CliChildProcess", caughtError);
+
       this.cancel("login_code_rejected");
       return false;
     }
@@ -102,7 +120,9 @@ export class CliChildProcess implements CliRunningProcess {
     this.output[stream] += chunk;
     try {
       this.request.onOutput?.(this.output.stdout, this.output.stderr);
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("CliChildProcess", caughtError);
+
       this.cancel("cli_unexpected_output");
     }
   }
@@ -111,7 +131,9 @@ export class CliChildProcess implements CliRunningProcess {
     if (this.child.pid === undefined) return;
     try {
       this.signalGroup(-this.child.pid, signal);
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("CliChildProcess", caughtError);
+
       // The group may already have exited; a direct signal also covers spawn races.
       this.child.kill(signal);
     }

@@ -1,4 +1,5 @@
 import { AgentError } from "@/backend/error/AgentErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { MAX_TICKET_ASSET_BYTES } from "./AgentTicketAssetService";
 
@@ -78,6 +79,8 @@ export class AgentTicketParameterService {
         version: JSON.stringify([ticket.updatedAt, criteria]),
       };
     } catch (error: unknown) {
+      logCaughtError("AgentTicketParameterService", error);
+
       if (error instanceof AgentError) throw error;
       throw new AgentError("parameter_ticket_unavailable");
     }

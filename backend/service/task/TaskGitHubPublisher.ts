@@ -1,3 +1,5 @@
+import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
+
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type { TaskRepository } from "@/backend/database/repositories/TaskRepository";
 import type { GitHubSyncService } from "@/backend/service/GitHubSyncService";
@@ -59,6 +61,8 @@ export class TaskGitHubPublisher {
         this.cache.invalidateWorkItems();
       }
     } catch (error: unknown) {
+      logCaughtError("TaskGitHubPublisher", error);
+
       await this.recordFailure(actor, item, error);
     }
   }
@@ -73,8 +77,10 @@ export class TaskGitHubPublisher {
         ? error.message.slice(0, MAXIMUM_ERROR_MESSAGE_LENGTH)
         : "GitHub synchronization failed.";
 
-    console.error(
-      `Pages could not publish task "${item.key}" to GitHub.`,
+    logDiagnostic(
+      "TaskGitHubPublisher",
+      "error",
+      "Pages could not publish a task to GitHub.",
       error,
     );
 

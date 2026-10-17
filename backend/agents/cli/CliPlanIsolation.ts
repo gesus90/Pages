@@ -5,6 +5,7 @@ import { promisify } from "node:util";
 
 import { AgentError } from "@/backend/error/AgentErrors";
 import { containsWorkspacePath } from "@/backend/service/agents/AgentWorkspacePath";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { CliSessionRequest } from "./CliContracts";
 
@@ -44,7 +45,9 @@ export async function probeBubblewrap(
       TRUE_BINARY,
     ]);
     return true;
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("CliPlanIsolation", caughtError);
+
     return false;
   }
 }
@@ -104,7 +107,10 @@ export class CliPlanIsolation {
     // A folder that does not exist yet has nothing to hide.
     const resolved = await Promise.all(
       this.protectedDirectories.map((entry) =>
-        realpath(entry).catch(() => null),
+        realpath(entry).catch((caughtError: unknown) => {
+          logCaughtError("CliPlanIsolation", caughtError);
+          return null;
+        }),
       ),
     );
     const hidden = resolved.filter((entry): entry is string => entry !== null);

@@ -4,6 +4,7 @@ import {
 } from "@/app/lib/drafts/draft-request.server";
 import { toWikiActionError } from "@/app/lib/wiki-actions/wiki-action-support.server";
 import { wikiSaveContentSchema } from "@/definition/BackgroundSave";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { Route } from "./+types/wiki-draft";
 
@@ -35,6 +36,8 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
           saved: wikiSaveContentSchema.parse(page),
         });
       } catch (error: unknown) {
+        logCaughtError("wiki_draft", error);
+
         const failure = toWikiActionError(error);
         return Response.json(failure.data, failure.init ?? undefined);
       }

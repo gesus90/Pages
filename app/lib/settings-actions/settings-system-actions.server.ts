@@ -6,6 +6,7 @@ import {
   ServerSettingsService,
 } from "@/backend/service/ServerSettingsService";
 import { readText } from "@/app/lib/form-fields.server";
+import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import { forbidden, runSettingsAction } from "./settings-action-support.server";
 import {
@@ -16,6 +17,7 @@ import {
 } from "./settings-instance-actions.server";
 import { handleUpdateChatSettings } from "./settings-chat-actions.server";
 import { handleSetMode } from "./settings-mode-action.server";
+import { handleUpdateLogging } from "./settings-logging-action.server";
 
 import type {
   SettingsActionContext,
@@ -68,11 +70,18 @@ export async function handleUpdatePort(
       );
     }
   } catch (error: unknown) {
+    logCaughtError("settings_system_actions", error);
+
     if (error instanceof ServerSettingsDeniedError) {
       throw forbidden();
     }
 
-    console.error("[pages] The port could not be stored.", error);
+    logDiagnostic(
+      "settings_system_actions",
+      "error",
+      "[pages] The port could not be stored.",
+      error,
+    );
 
     return data<SettingsActionData>(
       { error: "general", intent: "update-port", ok: false },
@@ -84,6 +93,8 @@ export async function handleUpdatePort(
 }
 
 const SYSTEM_ACTION_HANDLERS = {
+  "update-logging": async (context: SettingsActionContext) =>
+    handleUpdateLogging(context, await createServerSettingsService(context)),
   "remove-logo": handleRemoveLogo,
   "set-mode": handleSetMode,
   "update-chat-settings": handleUpdateChatSettings,

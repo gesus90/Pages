@@ -1,6 +1,7 @@
 import { sanitizeCheckDetail } from "@/backend/agents/AgentCheckDetail";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { isApiProvider } from "@/definition/AgentConnection";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import {
   requireAgentAdministrator,
@@ -113,7 +114,9 @@ export class AgentCheckService {
     try {
       if (encrypted === null) throw new AgentError("secret_unavailable");
       apiKey = cipher.decrypt(connection.id, encrypted);
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("AgentCheckService", caughtError);
+
       return { ok: false, errorCode: "secret_unavailable", detail: {} };
     }
     const provider = providers[connection.provider];

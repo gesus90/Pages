@@ -28,7 +28,7 @@ export class SetupToken {
     return new SetupToken(randomBytes(SETUP_TOKEN_BYTES).toString("base64url"));
   }
 
-  /** The secret, only for the setup link printed to the operator console. */
+  /** The secret, written only to the operator console through stdout. */
   public get value(): string {
     return this.secret;
   }

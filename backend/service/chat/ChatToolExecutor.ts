@@ -3,6 +3,11 @@ import { randomUUID } from "node:crypto";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { ChatError } from "@/backend/error/ChatErrors";
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
+import {
+  logCaughtError,
+  logDiagnostic,
+  logEvent,
+} from "@/backend/logging/Logger";
 
 import {
   isChatConfirmationOperation,
@@ -75,6 +80,13 @@ export class ChatToolExecutor {
     const { operation } = action;
     if (!isChatOperation(operation))
       return { ok: false, error: "UNKNOWN_OPERATION" };
+    logEvent({
+      level: "debug",
+      event: "chat.tool.started",
+      component: "ChatToolExecutor",
+      message: "Chat tool operation started",
+      metadata: { operation, userId },
+    });
     const isConfirmed = isChatConfirmationOperation(operation);
     const typedConfirmation =
       operation === "agents.delete" ? agentConfirmation : confirmation;
@@ -97,6 +109,13 @@ export class ChatToolExecutor {
         operation,
         parameters,
       });
+      logEvent({
+        level: "info",
+        event: "chat.tool.completed",
+        component: "ChatToolExecutor",
+        message: "Chat tool operation completed",
+        metadata: { operation, userId },
+      });
       return {
         ok: true,
         result: response.result,
@@ -105,6 +124,8 @@ export class ChatToolExecutor {
           : {}),
       };
     } catch (error: unknown) {
+      logCaughtError("ChatToolExecutor", error);
+
       return failure(operation, error);
     }
   }
@@ -113,6 +134,8 @@ export class ChatToolExecutor {
     try {
       return await this.dependencies.identities.verify(userId);
     } catch (error: unknown) {
+      logCaughtError("ChatToolExecutor", error);
+
       if (error instanceof McpAuthorizationError)
         throw new ChatError("accessDenied");
       throw error;
@@ -128,10 +151,11 @@ function failure(operation: string, error: unknown): ChatActionOutcome {
   if (error instanceof McpAuthorizationError)
     return { ok: false, error: "FORBIDDEN" };
   // Only the operation and the kind of error are logged, never parameters or content.
-  console.error(
+  logDiagnostic(
+    "ChatToolExecutor",
+    "error",
     "[pages] A chat action failed.",
-    operation,
-    error instanceof Error ? error.name : typeof error,
+    error,
   );
   return { ok: false, error: "FAILED" };
 }

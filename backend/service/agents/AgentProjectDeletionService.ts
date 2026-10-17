@@ -15,6 +15,7 @@ import {
   finishProjectDeletion,
   ProjectDeletionService,
 } from "@/backend/service/project/ProjectDeletionService";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { requireAgentAdministratorActor } from "./AgentAdministratorAccess";
 import { requireProjectDeletionConfirmation } from "./AgentConfirmation";
@@ -141,6 +142,8 @@ export class AgentProjectDeletionService {
         return await this.delete(identity, readDeleteRequest(input));
       return null;
     } catch (error: unknown) {
+      logCaughtError("AgentProjectDeletionService", error);
+
       throw translate(error);
     }
   }

@@ -2,8 +2,8 @@ import { data } from "react-router";
 
 import { WikiValidationError } from "@/backend/error/WikiErrors";
 import { InstanceSettingsDeniedError } from "@/backend/service/InstanceSettingsService";
-
 import { readText } from "@/app/lib/form-fields.server";
+import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import { parseLogoUpload } from "./logo-upload.server";
 import { forbidden } from "./settings-action-support.server";
@@ -23,7 +23,12 @@ function failInstanceAction(
     throw forbidden();
   }
 
-  console.error("[pages] The instance settings could not be stored.", error);
+  logDiagnostic(
+    "settings_instance_actions",
+    "error",
+    "[pages] The instance settings could not be stored.",
+    error,
+  );
 
   return data<SettingsActionData>(failure, { status: 500 });
 }
@@ -53,6 +58,8 @@ export const handleUpdateCompanyName: SettingsActionHandler = async ({
           { status: 400 },
         );
   } catch (error: unknown) {
+    logCaughtError("settings_instance_actions", error);
+
     return failInstanceAction(error, failure);
   }
 };
@@ -81,6 +88,8 @@ export const handleUpdateLogo: SettingsActionHandler = async ({
 
     return data<SettingsActionData>({ intent: "update-logo", ok: true });
   } catch (error: unknown) {
+    logCaughtError("settings_instance_actions", error);
+
     return failInstanceAction(error, {
       error: "general",
       intent: "update-logo",
@@ -99,6 +108,8 @@ export const handleRemoveLogo: SettingsActionHandler = async ({
 
     return data<SettingsActionData>({ intent: "remove-logo", ok: true });
   } catch (error: unknown) {
+    logCaughtError("settings_instance_actions", error);
+
     return failInstanceAction(error, { intent: "remove-logo", ok: false });
   }
 };
@@ -138,6 +149,8 @@ export const handleUpdateWikiSettings: SettingsActionHandler = async ({
       ok: true,
     });
   } catch (error: unknown) {
+    logCaughtError("settings_instance_actions", error);
+
     if (error instanceof WikiValidationError) {
       return data<SettingsActionData>(
         { ...failure, error: "invalidSetting" },

@@ -5,6 +5,7 @@ import {
   agentFailureResponse,
   AGENT_NO_STORE,
 } from "@/app/lib/settings-actions/settings-agents-response.server";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { Route } from "./+types/settings-agents-login";
 
@@ -27,6 +28,8 @@ export async function loader({
     );
     return Response.json(login, { headers: AGENT_NO_STORE });
   } catch (error: unknown) {
+    logCaughtError("settings_agents_login", error);
+
     return agentFailureResponse(error);
   }
 }

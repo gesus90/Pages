@@ -3,6 +3,7 @@ import { access } from "node:fs/promises";
 
 import { AgentError } from "@/backend/error/AgentErrors";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { CliSessionMcp } from "@/backend/agents/cli/CliSessionPlans";
 import type { AgentRunCredentialService } from "@/backend/service/mcp/AgentRunCredentialService";
@@ -114,7 +115,9 @@ export class AgentPlanSessionAccess {
     if (bundle === null) throw new AgentError("plan_mcp_unavailable");
     try {
       await access(bundle, constants.R_OK);
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("AgentPlanSessionAccess", caughtError);
+
       throw new AgentError("plan_mcp_unavailable");
     }
     const withStatus = grant.canSetStatus === true;

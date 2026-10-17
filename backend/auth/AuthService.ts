@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 
+import { logCaughtError, logEvent } from "@/backend/logging/Logger";
+
 import type { LoginThrottle } from "@/backend/auth/LoginThrottle";
 import type { PasswordHasher } from "@/backend/auth/PasswordHasher";
 import type { SessionService } from "@/backend/auth/SessionService";
@@ -75,6 +77,12 @@ export class AuthService {
 
     if (!credentials || !isPasswordValid || !credentials.user.isActive) {
       this.loginThrottle.recordFailure(username, clientAddress);
+      logEvent({
+        level: "warn",
+        event: "auth.login.rejected",
+        component: "AuthService",
+        message: "Login credentials rejected",
+      });
 
       return null;
     }
@@ -85,6 +93,13 @@ export class AuthService {
       credentials.user.id,
       userAgent,
     );
+    logEvent({
+      level: "info",
+      event: "auth.login.succeeded",
+      component: "AuthService",
+      message: "User signed in",
+      metadata: { userId: credentials.user.id },
+    });
 
     return { user: credentials.user, sessionToken };
   }
@@ -147,6 +162,12 @@ export class AuthService {
    */
   public async logout(sessionToken: string | null): Promise<void> {
     await this.sessionService.revoke(sessionToken);
+    logEvent({
+      level: "info",
+      event: "auth.logout.completed",
+      component: "AuthService",
+      message: "Browser session revoked",
+    });
   }
 
   /**
@@ -165,6 +186,8 @@ export class AuthService {
     this.decoyPasswordHash ??= this.passwordHasher
       .hash(randomUUID())
       .catch((error: unknown) => {
+        logCaughtError("AuthService", error);
+
         // Do not keep a failed attempt, so the next login can try again.
         this.decoyPasswordHash = undefined;
 

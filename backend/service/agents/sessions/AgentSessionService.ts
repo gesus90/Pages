@@ -1,4 +1,5 @@
 import { AgentError } from "@/backend/error/AgentErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import {
   describeSessionModel,
@@ -477,6 +478,8 @@ export class AgentSessionService {
       if (recorder.current.key.attemptId !== attemptId) return;
       await this.update(recorder, (current) => ({ ...current, workspace }));
     } catch (error: unknown) {
+      logCaughtError("AgentSessionService", error);
+
       recorder.note({
         kind: "error",
         text: `workspace unavailable: ${error instanceof AgentError ? error.code : "unreadable"}`,

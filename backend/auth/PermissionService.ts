@@ -1,6 +1,7 @@
 import { PERMISSION, ROLE } from "@/definition/Role";
 import { CAPABILITY } from "@/definition/Authorization";
 import { UserPolicyService } from "@/backend/auth/UserPolicyService";
+import { logEvent } from "@/backend/logging/Logger";
 
 import type { Permission, Role } from "@/definition/Role";
 import type { AccountAccess, Capability } from "@/definition/Authorization";
@@ -65,23 +66,16 @@ export class PermissionService {
 
   /** Resolves legacy route permissions against current account facts in the running app. */
   public async allows(actor: User, permission: Permission): Promise<boolean> {
-    if (!this.resolveAccount) return this.hasPermission(actor.role, permission);
-    const account = await this.resolveAccount(actor.id);
-    const policy = new UserPolicyService();
-    if (permission === PERMISSION.MANAGE_APPLICATION)
-      return policy.isAdministrator(account);
-    if (permission === PERMISSION.PARTICIPATE_IN_PROJECTS) {
-      return (
-        account.isActive &&
-        (policy.isAdministrator(account) || account.role !== null)
-      );
-    }
-    if (permission === PERMISSION.VIEW_USERS) return policy.canEnter(account);
-    const capability =
-      permission === PERMISSION.MANAGE_USERS
-        ? CAPABILITY.MANAGE_USERS
-        : CAPABILITY.MANAGE_PROJECTS;
-    return policy.has(account, capability);
+    const allowed = await this.evaluatePermission(actor, permission);
+    if (!allowed)
+      logEvent({
+        level: "warn",
+        event: "authorization.permission.denied",
+        component: "PermissionService",
+        message: "Account permission denied",
+        metadata: { userId: actor.id, operation: permission },
+      });
+    return allowed;
   }
 
   /**
@@ -135,5 +129,27 @@ export class PermissionService {
     }
 
     return false;
+  }
+  private async evaluatePermission(
+    actor: User,
+    permission: Permission,
+  ): Promise<boolean> {
+    if (!this.resolveAccount) return this.hasPermission(actor.role, permission);
+    const account = await this.resolveAccount(actor.id);
+    const policy = new UserPolicyService();
+    if (permission === PERMISSION.MANAGE_APPLICATION)
+      return policy.isAdministrator(account);
+    if (permission === PERMISSION.PARTICIPATE_IN_PROJECTS) {
+      return (
+        account.isActive &&
+        (policy.isAdministrator(account) || account.role !== null)
+      );
+    }
+    if (permission === PERMISSION.VIEW_USERS) return policy.canEnter(account);
+    const capability =
+      permission === PERMISSION.MANAGE_USERS
+        ? CAPABILITY.MANAGE_USERS
+        : CAPABILITY.MANAGE_PROJECTS;
+    return policy.has(account, capability);
   }
 }

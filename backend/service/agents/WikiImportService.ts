@@ -4,6 +4,7 @@ import { AgentImportRepository } from "@/backend/database/repositories/agents/Ag
 import { AgentOperationKeyRepository } from "@/backend/database/repositories/agents/AgentOperationKeyRepository";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { PAGES_AGENT_LIMITS } from "@/definition/PagesAgentOperations";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { readWikiImportApply } from "./WikiImportApplyReader";
 import {
@@ -74,6 +75,8 @@ export class WikiImportService {
         });
       return response;
     } catch (error: unknown) {
+      logCaughtError("WikiImportService", error);
+
       if (error instanceof AgentOperationError) throw error;
       const code = wikiImportErrorCode(error);
       if (code && code !== "AUTH_INVALID" && code !== "AUTH_UNAVAILABLE")

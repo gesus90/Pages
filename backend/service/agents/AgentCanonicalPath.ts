@@ -1,6 +1,8 @@
 import { realpath } from "node:fs/promises";
 import path from "node:path";
 
+import { logCaughtError } from "@/backend/logging/Logger";
+
 /** Resolves existing ancestors when the protected directory has not been created yet. */
 export async function canonicalProspectivePath(
   directory: string,
@@ -8,7 +10,10 @@ export async function canonicalProspectivePath(
   try {
     return await realpath(directory);
   } catch (error: unknown) {
-    if (!isMissingPath(error)) throw error;
+    if (!isMissingPath(error)) {
+      logCaughtError("AgentCanonicalPath", error);
+      throw error;
+    }
     const parent = path.dirname(directory);
     if (parent === directory) throw error;
     return path.join(

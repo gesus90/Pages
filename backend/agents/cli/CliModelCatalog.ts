@@ -6,6 +6,7 @@ import {
   reasoningWithoutLevels,
 } from "@/backend/agents/catalog/CatalogParsing";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { AgentCatalogModel } from "@/definition/AgentModelCatalog";
 
@@ -71,7 +72,9 @@ export function readCodexModels(stdout: string): readonly AgentCatalogModel[] {
   let payload: unknown;
   try {
     payload = JSON.parse(stdout);
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("CliModelCatalog", caughtError);
+
     throw unexpected();
   }
   const entries = readAgentObject(payload).models;
@@ -123,7 +126,9 @@ export function readClaudeModels(stdout: string): readonly AgentCatalogModel[] {
       .trim()
       .split("\n")
       .map((line) => JSON.parse(line));
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("CliModelCatalog", caughtError);
+
     throw unexpected();
   }
   const message = messages
@@ -214,7 +219,9 @@ export function readOpenCodeModels(
     try {
       const parsed: unknown = JSON.parse(match[2]);
       entry = readAgentObject(parsed);
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("CliModelCatalog", caughtError);
+
       throw unexpected();
     }
     if (!isCatalogModelId(match[1]) || entry.status === "deprecated") continue;

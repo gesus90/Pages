@@ -10,6 +10,7 @@ import {
   AGENT_NO_STORE,
 } from "@/app/lib/settings-actions/settings-agents-response.server";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { AgentWorkspacePage } from "@/definition/AgentWorkspace";
 import type { Route } from "./+types/agent-workspaces";
@@ -35,6 +36,8 @@ export async function loader({
       headers: AGENT_NO_STORE,
     });
   } catch (error: unknown) {
+    logCaughtError("agent_workspaces", error);
+
     throw agentFailureResponse(error);
   }
 }
@@ -72,6 +75,8 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
     } else throw new AgentError("workspace_invalid");
     return Response.json({ ok: true, intent }, { headers: AGENT_NO_STORE });
   } catch (error: unknown) {
+    logCaughtError("agent_workspaces", error);
+
     return agentFailureResponse(error, intent);
   }
 }

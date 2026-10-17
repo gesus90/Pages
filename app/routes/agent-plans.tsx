@@ -15,6 +15,7 @@ import {
 } from "@/app/lib/settings-actions/settings-agents-response.server";
 import { readPlanInput, readPlanText } from "@/backend/agents/AgentPlanInput";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
 import type {
@@ -51,6 +52,8 @@ export async function loader({
       { headers: AGENT_NO_STORE },
     );
   } catch (error: unknown) {
+    logCaughtError("agent_plans", error);
+
     throw agentFailureResponse(error);
   }
 }
@@ -99,6 +102,8 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
     }
     throw new AgentError("plan_invalid");
   } catch (error: unknown) {
+    logCaughtError("agent_plans", error);
+
     return agentFailureResponse(
       error instanceof SyntaxError ? new AgentError("plan_invalid") : error,
       intent,

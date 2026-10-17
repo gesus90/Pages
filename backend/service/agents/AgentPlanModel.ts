@@ -1,6 +1,7 @@
 import { agentProfilePriority } from "@/backend/auth/AgentProfilePolicy";
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { resolveAgentAssignmentFor } from "./AgentAssignmentResolution";
 
@@ -87,6 +88,8 @@ async function resolvePersonalModel(
         ),
       );
     } catch (error: unknown) {
+      logCaughtError("AgentPlanModel", error);
+
       if (
         !(error instanceof AgentError) &&
         !(error instanceof TextAssistantError)

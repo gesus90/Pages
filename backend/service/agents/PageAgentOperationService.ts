@@ -12,6 +12,7 @@ import {
   PAGE_AGENT_WRITE_OPERATIONS,
 } from "@/definition/PageAgentOperations";
 import { PAGES_AGENT_LIMITS } from "@/definition/PagesAgentOperations";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import {
   definitionKey,
@@ -196,6 +197,8 @@ export class PageAgentOperationService {
         return await this.write(identity.userId, operation, input ?? {});
       return null;
     } catch (error: unknown) {
+      logCaughtError("PageAgentOperationService", error);
+
       throw translatePageAgentError(error);
     }
   }
@@ -265,6 +268,8 @@ export class PageAgentOperationService {
         await this.create(userId, request, recorder);
       else await this.update(userId, request, recorder);
     } catch (error: unknown) {
+      logCaughtError("PageAgentOperationService", error);
+
       // A parallel call with the same operation ID may have committed between
       // the lookup and the write; whatever refused this one, that call's
       // result is the answer.
@@ -432,6 +437,8 @@ export class PageAgentOperationService {
           }),
       );
     } catch (error: unknown) {
+      logCaughtError("PageAgentOperationService", error);
+
       if (error instanceof AgentError && error.code === "profile_conflict")
         throw await this.conflict(userId, current.id);
       throw error;

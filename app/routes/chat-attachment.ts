@@ -4,6 +4,7 @@ import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { contentDisposition } from "@/app/lib/content-disposition";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { ChatError } from "@/backend/error/ChatErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { Route } from "./+types/chat-attachment";
 
@@ -43,6 +44,8 @@ export async function loader({
       },
     });
   } catch (error: unknown) {
+    logCaughtError("chat_attachment", error);
+
     if (error instanceof ChatError)
       throw new Response("Not Found", { status: 404 });
     throw error;

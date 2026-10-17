@@ -1,3 +1,5 @@
+import { logCaughtError } from "@/backend/logging/Logger";
+
 /** Bytes at the start of a file that identify its format. */
 const HEAD_BYTES = 4096;
 
@@ -92,7 +94,9 @@ export class ChatFileProbe {
           ? this.decoder.decode()
           : this.decoder.decode(chunk, { stream: true });
       this.isText = !BINARY_CHARACTERS.test(text);
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("ChatFileProbe", caughtError);
+
       this.isText = false;
     }
   }

@@ -10,6 +10,7 @@ import {
   UsernameTakenError,
 } from "@/backend/error/UserErrors";
 import { EMAIL_PATTERN, USER_AVATAR_TYPE } from "@/definition/User";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { parseAvatarUpload } from "./avatar-upload.server";
 import { forbidden } from "./settings-action-support.server";
@@ -164,6 +165,8 @@ export const handleUpdateProfile: SettingsActionHandler = async ({
 
     return data<SettingsActionData>({ intent: "update-profile", ok: true });
   } catch (error: unknown) {
+    logCaughtError("settings_profile_actions", error);
+
     return profileFailure(toProfileErrorCode(error));
   }
 };
@@ -194,7 +197,9 @@ export const handleUpdateAvatar: SettingsActionHandler = async ({
     await storeAvatar(services, user.id, avatarUpload.avatar);
 
     return data<SettingsActionData>({ intent: "update-avatar", ok: true });
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("settings_profile_actions", caughtError);
+
     return data<SettingsActionData>(
       { intent: "update-avatar", ok: false, error: "general" },
       { status: 400 },

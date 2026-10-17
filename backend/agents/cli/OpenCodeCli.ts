@@ -1,6 +1,7 @@
 import { requireManagedOpenCodeConfiguration } from "@/backend/agents/acp/OpenCodeAcpConfiguration";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { MODEL_TEST_PROMPT } from "@/definition/AgentConnection";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { readOpenCodeModels } from "./CliModelCatalog";
 import { readOpenCodeTest } from "./CliResultParser";
@@ -63,6 +64,8 @@ export class OpenCodeCli implements CliToolAdapter {
         credentials,
       };
     } catch (error: unknown) {
+      logCaughtError("OpenCodeCli", error);
+
       return {
         outcome: {
           ok: false,
@@ -171,7 +174,9 @@ export class OpenCodeCli implements CliToolAdapter {
     try {
       await this.credentials.remove(home);
       return { ok: true, detail: {} };
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("OpenCodeCli", caughtError);
+
       return { ok: false, errorCode: "credential_cleanup_failed", detail: {} };
     }
   }

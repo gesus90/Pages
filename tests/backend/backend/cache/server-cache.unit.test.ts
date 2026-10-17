@@ -123,7 +123,7 @@ describe("ServerCache limits and switches", () => {
     });
   });
 
-  it("traces hits, misses and invalidations only in debug mode", () => {
+  it("keeps raw cache keys out of the console with either legacy debug option", () => {
     const debug = vi.spyOn(console, "debug").mockImplementation(() => {});
     const quiet = new ServerCache({ debug: false });
     quiet.set("a", { value: 1 }, 1_000);
@@ -136,11 +136,13 @@ describe("ServerCache limits and switches", () => {
     verbose.get("b");
     verbose.invalidateExact("a");
 
-    expect(debug.mock.calls.map(([line]) => line)).toEqual([
-      "[pages][cache] HIT a",
-      "[pages][cache] MISS b",
-      "[pages][cache] INVALIDATE a",
-    ]);
+    expect(debug).not.toHaveBeenCalled();
+    expect(verbose.readStats()).toEqual({
+      entries: 0,
+      hits: 1,
+      invalidations: 1,
+      misses: 1,
+    });
   });
 
   it("copes with values that cannot be serialized for the size estimate", () => {

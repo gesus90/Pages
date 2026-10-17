@@ -1,6 +1,7 @@
 import { data } from "react-router";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
+import { recordAccountAuthorizationVersion } from "@/backend/logging/AccountAuthorizationLog";
 
 import type { Route } from "./+types/account-version";
 
@@ -11,8 +12,7 @@ export async function loader({
   const user = context.get(authenticatedUserContext);
   if (!user) throw new Response("Forbidden", { status: 403 });
   const services = await getApplicationServices();
-  return data(
-    { version: await services.administrationService.version(user.id) },
-    { headers: { "Cache-Control": "no-store" } },
-  );
+  const version = await services.administrationService.version(user.id);
+  recordAccountAuthorizationVersion(user.id, version);
+  return data({ version }, { headers: { "Cache-Control": "no-store" } });
 }

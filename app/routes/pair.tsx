@@ -23,6 +23,7 @@ import { destroySessionCookie } from "@/app/lib/session.server";
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
 import { PairingRateError } from "@/backend/service/mcp/PairingThrottle";
 import { normalizePairingCode } from "@/backend/service/mcp/PairingValidation";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { McpPairingView } from "@/definition/McpPairing";
 import type { Route } from "./+types/pair";
@@ -59,6 +60,8 @@ export async function loader({
       { headers: PAIR_HEADERS },
     );
   } catch (error: unknown) {
+    logCaughtError("pair", error);
+
     if (error instanceof Response) throw error;
     if (error instanceof PairingRateError)
       return Response.json(
@@ -121,6 +124,8 @@ export async function action({ request }: Route.ActionArgs): Promise<Response> {
     }
     return redirect(`/pair?code=${code}`, { headers: PAIR_HEADERS });
   } catch (error: unknown) {
+    logCaughtError("pair", error);
+
     if (error instanceof Response) throw error;
     const response = authorizationFailure(error);
     response.headers.set("Referrer-Policy", "no-referrer");

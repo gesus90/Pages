@@ -1,5 +1,7 @@
+import { loggedOperation } from "@/backend/logging/LoggedOperation";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { resolveAgentTicketReference } from "./agents/AgentTicketValidation";
 import {
@@ -78,6 +80,8 @@ export class PagesAgentApiService {
     try {
       return await this.personal.verify(token);
     } catch (error: unknown) {
+      logCaughtError("PagesAgentApiService", error);
+
       if (!(error instanceof McpAuthorizationError) || this.runs === null)
         throw error;
       const session = await this.runs.verify(token);
@@ -107,9 +111,15 @@ export class PagesAgentApiService {
     | { readonly revoked: true }
   > {
     const identity = await this.verify(token);
-    if (identity.run)
-      return this.handleSession(identity, identity.run, token, input);
-    return this.handlePersonal(identity, token, input);
+    return loggedOperation(
+      "PagesAgentApiService",
+      "integration.agent_api",
+      async () => {
+        if (identity.run)
+          return this.handleSession(identity, identity.run, token, input);
+        return this.handlePersonal(identity, token, input);
+      },
+    );
   }
 
   /** Serves a personal credential with the full current rights of its owner. */

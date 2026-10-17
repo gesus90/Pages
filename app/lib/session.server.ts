@@ -2,6 +2,7 @@ import { createCookie } from "react-router";
 
 import { resolveCookieSecure } from "@/app/lib/cookie-security.server";
 import { SESSION_LIFETIME_SECONDS } from "@/backend/auth/SessionService";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 const SESSION_COOKIE_NAME = "pages_session";
 
@@ -29,7 +30,9 @@ export async function getSessionToken(
     );
 
     return typeof token === "string" ? token : null;
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("session", caughtError);
+
     return null;
   }
 }

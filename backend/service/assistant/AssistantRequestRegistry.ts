@@ -1,4 +1,5 @@
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 interface PendingRequest {
   readonly userId: string;
@@ -43,6 +44,8 @@ export class AssistantRequestRegistry {
       controller.signal.throwIfAborted();
       return result;
     } catch (error: unknown) {
+      logCaughtError("AssistantRequestRegistry", error);
+
       if (controller.signal.aborted)
         throw new TextAssistantError(
           controller.signal.reason === "timeout" ? "timeout" : "cancelled",

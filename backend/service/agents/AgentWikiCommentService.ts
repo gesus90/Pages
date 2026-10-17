@@ -15,6 +15,7 @@ import {
 import { WikiCommentService } from "@/backend/service/wiki/WikiCommentService";
 import { WikiPageReader } from "@/backend/service/wiki/WikiPageReader";
 import { PAGES_AGENT_LIMITS } from "@/definition/PagesAgentOperations";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { requireAgentConfirmation } from "./AgentConfirmation";
 import { pageAgentEntries } from "./AgentCursor";
@@ -182,6 +183,8 @@ export class AgentWikiCommentService {
     try {
       threads = await context.comments.list(context.actor, pageId);
     } catch (error: unknown) {
+      logCaughtError("AgentWikiCommentService", error);
+
       throw translate(error);
     }
     const paged = pageAgentEntries(
@@ -248,6 +251,8 @@ export class AgentWikiCommentService {
         this.run(transaction, identity.userId, request),
       );
     } catch (error: unknown) {
+      logCaughtError("AgentWikiCommentService", error);
+
       throw translate(error);
     }
     if (outcome.changedPageId !== null)

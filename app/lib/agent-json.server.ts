@@ -1,5 +1,6 @@
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { PAGES_AGENT_LIMITS } from "@/definition/PagesAgentOperations";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 /** Reads bounded JSON; wiki text accepts its 1 MiB content budget in a larger envelope of UTF-8 JSON, cancelling an oversized stream before parsing it. */
 export async function readAgentJson(
@@ -51,7 +52,9 @@ function parseEnvelope(bytes: Uint8Array): Readonly<Record<string, unknown>> {
   let input: unknown;
   try {
     input = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("agent_json", caughtError);
+
     throw new AgentOperationError("INVALID_REQUEST");
   }
   if (typeof input !== "object" || input === null || Array.isArray(input))

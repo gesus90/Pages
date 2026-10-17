@@ -1,6 +1,7 @@
 import { WikiPageNotFoundError } from "@/backend/error/WikiErrors";
 import { WikiPageReader } from "@/backend/service/wiki/WikiPageReader";
 import { WIKI_SCOPE } from "@/definition/Wiki";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { emptyContribution } from "./StructuredImportStepPreview";
 import { structuredWikiApplyInput } from "./StructuredImportWiki";
@@ -106,6 +107,8 @@ async function compareWikiMapping(
       mapping.targetId,
     );
   } catch (error: unknown) {
+    logCaughtError("StructuredImportWikiPreview", error);
+
     if (error instanceof WikiPageNotFoundError) return removed;
     throw error;
   }

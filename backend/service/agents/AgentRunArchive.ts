@@ -5,6 +5,7 @@ import path from "node:path";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
 import { readArchiveSteps } from "@/backend/agents/PageAgentRecordInput";
+import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import {
   artifactDirectory,
@@ -263,7 +264,14 @@ export class AgentRunArchive {
     try {
       await work();
     } catch (error: unknown) {
-      console.error(`Pages could not ${action}.`, error);
+      logCaughtError("AgentRunArchive", error);
+
+      logDiagnostic(
+        "AgentRunArchive",
+        "error",
+        "Pages could not complete an agent run archive operation.",
+        error,
+      );
     }
   }
 

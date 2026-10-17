@@ -1,5 +1,11 @@
 import { EventEmitter } from "node:events";
 
+import {
+  logCaughtError,
+  logEvent,
+  logDiagnostic,
+} from "@/backend/logging/Logger";
+
 import type { ChildProcess } from "node:child_process";
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import type {
@@ -66,6 +72,12 @@ export class CliSessionProcess implements CliRunningProcess {
     signalGroup: CliGroupSignal,
   ) {
     this.child = child;
+    logEvent({
+      level: "info",
+      event: "cli.process.started",
+      component: "CliSessionProcess",
+      message: "CLI session process started",
+    });
     this.callbacks = callbacks;
     this.signalGroup = signalGroup;
     this.abort = () =>
@@ -88,7 +100,14 @@ export class CliSessionProcess implements CliRunningProcess {
       callbacks.timeoutMs > 0
         ? setTimeout(() => this.cancel("check_timeout"), callbacks.timeoutMs)
         : null;
-    child.once("error", () => {
+    child.once("error", (error: Error) => {
+      logEvent({
+        level: "error",
+        event: "cli.process.failed",
+        component: "CliSessionProcess",
+        message: "CLI session process failed",
+        error,
+      });
       this.errorCode = this.errorCode ?? "cli_not_executable";
       this.finish(null, null);
     });
@@ -140,6 +159,13 @@ export class CliSessionProcess implements CliRunningProcess {
   /** Terminates the whole process group, with a kill after the grace period. */
   public cancel(code: AgentErrorCode): void {
     if (this.isFinished || this.escalation !== null) return;
+    logEvent({
+      level: "info",
+      event: "cli.process.cancel_requested",
+      component: "CliSessionProcess",
+      message: "CLI session cancellation requested",
+      metadata: { code },
+    });
     this.errorCode = code;
     this.escalation = setTimeout(() => {
       this.sendSignal("SIGKILL");
@@ -168,7 +194,14 @@ export class CliSessionProcess implements CliRunningProcess {
     try {
       this.callbacks.onLine(line);
     } catch (error: unknown) {
-      console.error("Pages could not read an event of a CLI session.", error);
+      logCaughtError("CliSessionProcess", error);
+
+      logDiagnostic(
+        "CliSessionProcess",
+        "error",
+        "Pages could not read an event of a CLI session.",
+        error,
+      );
     }
   }
 
@@ -176,7 +209,9 @@ export class CliSessionProcess implements CliRunningProcess {
     if (this.child.pid === undefined) return;
     try {
       this.signalGroup(-this.child.pid, signal);
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("CliSessionProcess", caughtError);
+
       // The group may already have exited; a direct signal also covers spawn races.
       this.child.kill(signal);
     }
@@ -185,6 +220,13 @@ export class CliSessionProcess implements CliRunningProcess {
   private finish(code: number | null, signal: NodeJS.Signals | null): void {
     if (this.isFinished) return;
     this.isFinished = true;
+    logEvent({
+      level: code === 0 ? "info" : "warn",
+      event: "cli.process.exited",
+      component: "CliSessionProcess",
+      message: "CLI session process exited",
+      metadata: { exitCode: code, signal, code: this.errorCode },
+    });
     if (this.pending) this.deliver(this.pending);
     this.pending = "";
     if (this.deadline !== null) clearTimeout(this.deadline);

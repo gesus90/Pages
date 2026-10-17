@@ -2,6 +2,7 @@ import { lstat } from "node:fs/promises";
 import path from "node:path";
 
 import { AgentError } from "@/backend/error/AgentErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { CliHome } from "@/backend/agents/cli/CliContracts";
 
@@ -16,6 +17,7 @@ export async function requireManagedOpenCodeConfiguration(
   const directory = await lstat(config).catch((error: unknown) => {
     if (error instanceof Error && "code" in error && error.code === "ENOENT")
       return null;
+    logCaughtError("OpenCodeAcpConfiguration", error);
     throw new AgentError("opencode_configuration_unmanaged");
   });
   if (
@@ -48,6 +50,7 @@ export async function requireManagedOpenCodeConfiguration(
     } catch (error: unknown) {
       if (error instanceof Error && "code" in error && error.code === "ENOENT")
         continue;
+      logCaughtError("OpenCodeAcpConfiguration", error);
       throw new AgentError("opencode_configuration_unmanaged");
     }
     throw new AgentError("opencode_configuration_unmanaged");

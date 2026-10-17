@@ -5,7 +5,6 @@ import { createRequestListener } from "@react-router/node";
 import { RouterContextProvider } from "react-router";
 
 import { clientSocketAddressContext } from "@/app/lib/client-address.server";
-
 import {
   ConfigError,
   resolveDefaultConfigPath,
@@ -15,9 +14,20 @@ import {
   START_USAGE,
   StartOptionsError,
 } from "@/backend/config/StartOptions";
+import {
+  logCaughtError,
+  logDiagnostic,
+  logEvent,
+} from "@/backend/logging/Logger";
 
 import { initializePagesRuntime } from "./PagesRuntime";
 import { serveStaticAsset } from "./StaticAssets";
+import { logRequest } from "./RequestLogging";
+import { withLoggedRoutes } from "./LoggedRoutes";
+import {
+  installProcessLogging,
+  registerShutdownTask,
+} from "./ProcessLifecycle";
 
 import type { RequestListener, Server } from "node:http";
 import type { ServerBuild } from "react-router";
@@ -52,19 +62,24 @@ export function listServerOrigins(port: number): string[] {
 }
 
 /**
- * Prints where Pages runs and, while the setup is pending, the setup link.
+ * Announces the server and writes a pending setup link directly to operator stdout.
  *
  * @param runtime - Runtime of the process.
  * @param origins - Addresses the server can be reached at.
  *
  * @remarks
- * The operator console is the only place the setup token is ever written to.
+ * The operator console is the only output for the setup capability. It must
+ * bypass the logger, including its normal console mirror and error paths.
  */
 export function announceServer(
   runtime: PagesRuntime,
   origins: readonly string[],
 ): void {
-  console.info(`[pages] Pages is running at ${origins.join(" and ")}.`);
+  logDiagnostic(
+    "PagesServer",
+    "info",
+    `[pages] Pages is running at ${origins.join(" and ")}.`,
+  );
 
   const token = runtime.getSetupToken();
 
@@ -72,13 +87,11 @@ export function announceServer(
     return;
   }
 
-  console.info(
-    "[pages] Pages is not set up yet. Open the setup wizard with this one-time link:",
+  process.stdout.write(
+    "[pages] Pages is not set up yet. Open the setup wizard with this one-time link:\n",
   );
-
-  for (const origin of origins) {
-    console.info(`[pages]   ${origin}/setup?token=${token}`);
-  }
+  for (const origin of origins)
+    process.stdout.write(`[pages]   ${origin}/setup?token=${token}\n`);
 }
 
 /**
@@ -87,14 +100,14 @@ export function announceServer(
  * @param build - Server build of the application.
  * @param clientDirectory - Absolute path of the client build output.
  * @returns A listener that serves build files first and the application
- * otherwise. Requests are not logged, so setup links never reach a log.
+ * otherwise. Request logs omit queries, headers, bodies and opaque path segments.
  */
 export function createPagesRequestListener(
   build: ServerBuild,
   clientDirectory: string,
 ): RequestListener {
   const handleApplication = createRequestListener({
-    build,
+    build: withLoggedRoutes(build),
     mode: "production",
     getLoadContext: (request, client) => {
       const context = new RouterContextProvider();
@@ -104,13 +117,28 @@ export function createPagesRequestListener(
   });
 
   return (request, response) => {
-    void serveStaticAsset(request, response, clientDirectory).then(
-      (isServed) => {
-        if (!isServed) {
-          void handleApplication(request, response);
+    logRequest(request, response, () => {
+      void (async () => {
+        try {
+          if (!(await serveStaticAsset(request, response, clientDirectory)))
+            await handleApplication(request, response);
+        } catch (error: unknown) {
+          logCaughtError("PagesServer", error);
+
+          logEvent({
+            level: "error",
+            event: "http.request.failed",
+            component: "PagesServer",
+            message: "Request listener failed",
+            error,
+          });
+          if (!response.headersSent) {
+            response.statusCode = 500;
+            response.end("Internal Server Error");
+          } else response.destroy();
         }
-      },
-    );
+      })();
+    });
   };
 }
 
@@ -156,7 +184,14 @@ async function persistPort(runtime: PagesRuntime, port: number): Promise<void> {
   try {
     await runtime.configFile.update((config) => ({ ...config, port }));
   } catch (error: unknown) {
-    console.warn(`[pages] The port ${port} could not be stored.`, error);
+    logCaughtError("PagesServer", error);
+
+    logDiagnostic(
+      "PagesServer",
+      "warn",
+      `[pages] The port ${port} could not be stored.`,
+      error,
+    );
   }
 }
 
@@ -177,14 +212,21 @@ async function loadRuntime(argumentList: readonly string[]): Promise<{
       runtime,
     };
   } catch (error: unknown) {
+    logCaughtError("PagesServer", error);
+
     if (error instanceof StartOptionsError) {
-      console.error(`[pages] ${error.message}\n\n${START_USAGE}`);
+      logDiagnostic(
+        "PagesServer",
+        "error",
+        `[pages] Unknown start parameter or invalid value.\n\n${START_USAGE}`,
+        error,
+      );
 
       return null;
     }
 
     if (error instanceof ConfigError) {
-      console.error(`[pages] ${error.message}`);
+      logDiagnostic("PagesServer", "error", `[pages] ${error.message}`, error);
 
       return null;
     }
@@ -207,6 +249,7 @@ async function loadRuntime(argumentList: readonly string[]): Promise<{
 export async function startPagesServer(
   options: PagesServerOptions,
 ): Promise<number> {
+  installProcessLogging();
   const loaded = await loadRuntime(options.argumentList);
 
   if (loaded === null) {
@@ -217,17 +260,23 @@ export async function startPagesServer(
   const server = createServer(
     createPagesRequestListener(options.build, options.clientDirectory),
   );
+  registerShutdownTask(async () => {
+    server.close();
+    server.closeIdleConnections();
+  });
 
   try {
     await listen(server, port);
   } catch (error: unknown) {
+    logCaughtError("PagesServer", error);
+
     const message = describeListenError(error, port);
 
     if (message === null) {
       throw error;
     }
 
-    console.error(message);
+    logDiagnostic("PagesServer", "error", message);
 
     return EXIT_FAILURE;
   }

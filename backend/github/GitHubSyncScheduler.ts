@@ -1,3 +1,6 @@
+import { loggedJob } from "@/backend/logging/LoggedOperation";
+import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
+
 import type { GitHubSyncService } from "@/backend/service/GitHubSyncService";
 
 /** Runs project synchronizations on a fixed server-side interval. */
@@ -50,9 +53,18 @@ export class GitHubSyncScheduler {
     readonly failed: number;
   }> {
     try {
-      return await this.syncService.runScheduledSyncs();
+      return await loggedJob("GitHubSyncScheduler", "job.github_sync", () =>
+        this.syncService.runScheduledSyncs(),
+      );
     } catch (error: unknown) {
-      console.error("Pages scheduled GitHub synchronization failed.", error);
+      logCaughtError("GitHubSyncScheduler", error);
+
+      logDiagnostic(
+        "GitHubSyncScheduler",
+        "error",
+        "Pages scheduled GitHub synchronization failed.",
+        error,
+      );
 
       return { completed: 0, failed: 0 };
     }

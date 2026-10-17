@@ -7,6 +7,7 @@ import {
   WorkItemNotFoundError,
   WorkItemValidationError,
 } from "@/backend/error/WorkItemErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { ApplicationServices } from "@/app/lib/services.server";
 import type { WorkItemErrorCode } from "@/backend/error/WorkItemErrors";
@@ -113,6 +114,8 @@ export async function runTaskAction(
 
     return data<TaskActionResult>({ intent, ok: true });
   } catch (error: unknown) {
+    logCaughtError("task_action_support", error);
+
     return handleTaskActionError(error, intent);
   }
 }
@@ -135,6 +138,8 @@ export async function runTaskActionThenRedirect(
 
     return redirect(target);
   } catch (error: unknown) {
+    logCaughtError("task_action_support", error);
+
     return handleTaskActionError(error, intent);
   }
 }
@@ -156,6 +161,8 @@ export async function runTicketAction(
 
     return data<TaskActionResult>({ intent, key: ticket.key, ok: true });
   } catch (error: unknown) {
+    logCaughtError("task_action_support", error);
+
     return handleTaskActionError(error, intent);
   }
 }

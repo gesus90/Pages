@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 
+import { logCaughtError } from "@/backend/logging/Logger";
+
 import type {
   AgentSessionMessage,
   AgentSessionMessageKind,
@@ -181,6 +183,8 @@ export class AgentSessionInbox {
       await delivery({ ...message, status: "delivering" });
       await this.store.updateMessage(message.id, ["delivering"], "delivered");
     } catch (error: unknown) {
+      logCaughtError("AgentSessionInbox", error);
+
       // A failed write is reported once; repeating it could repeat its side effects.
       await this.store.updateMessage(message.id, ["delivering"], "failed");
       await this.journal.append(message.attemptId, [

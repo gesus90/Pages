@@ -1,13 +1,17 @@
 import { access } from "node:fs/promises";
 import path from "node:path";
 
+import { logCaughtError } from "@/backend/logging/Logger";
+
 const CONFIGURATION_FILE = "config.toml";
 
 async function exists(file: string): Promise<boolean> {
   try {
     await access(file);
     return true;
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("CodexAcpConfigurationGuard", caughtError);
+
     return false;
   }
 }

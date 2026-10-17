@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
 import { AGENT_PROVIDERS, isApiProvider } from "@/definition/AgentConnection";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { AgentExecutionOptions } from "@mastra/core/agent";
 import type { RuntimeModel } from "@/backend/agents/runtime/RuntimeAgent";
@@ -137,7 +138,9 @@ export class PicaApiModels {
     let apiKey: string;
     try {
       apiKey = this.dependencies.cipher.decrypt(id, encrypted);
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("PicaApiModels", caughtError);
+
       throw new TextAssistantError("connectionUnavailable");
     }
     if (!apiKey.trim()) throw new TextAssistantError("connectionUnavailable");

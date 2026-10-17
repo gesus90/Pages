@@ -5,6 +5,7 @@ import { createRuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeE
 import { ChatError } from "@/backend/error/ChatErrors";
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
 import { isApiProvider } from "@/definition/AgentConnection";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { createPicaTools } from "./PicaTools";
 
@@ -66,6 +67,8 @@ export class PicaApiService {
         this.generate(input, context, resolved),
       );
     } catch (error: unknown) {
+      logCaughtError("PicaApiService", error);
+
       signal.throwIfAborted();
       if (error instanceof ChatError || error instanceof TextAssistantError)
         throw error;

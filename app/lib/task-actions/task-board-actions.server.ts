@@ -1,4 +1,5 @@
 import { readRequiredText } from "@/app/lib/form-fields.server";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { invalidInput, runTaskAction } from "./task-action-support.server";
 
@@ -8,7 +9,9 @@ import type { TaskActionHandler } from "./task-action-support.server";
 function parsePreferences(text: string): unknown {
   try {
     return JSON.parse(text);
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("task_board_actions", caughtError);
+
     // A body that is no JSON is invalid input, not a server fault.
     return undefined;
   }

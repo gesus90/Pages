@@ -1,5 +1,6 @@
 import { redactAssistantCredentials } from "@/backend/service/assistant/TextAssistantValidation";
 import { MAX_TICKET_ASSET_BYTES } from "@/backend/service/agents/AgentTicketAssetService";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { isChatTextAttachment } from "../ChatAttachmentService";
 import { createChatPrompt } from "../ChatPrompt";
@@ -146,7 +147,9 @@ async function readAttachment(
       blocks: [label(attachment, "unsupported")],
       transfer: "unsupported",
     };
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("PicaAcpContent", caughtError);
+
     // A missing or unreadable file is reported, never silently left out.
     return {
       blocks: [label(attachment, "unreadable")],

@@ -126,19 +126,22 @@ describe("announceServer", () => {
     );
   });
 
-  it("prints a one-time setup link for every address while pending", () => {
-    const info = vi.spyOn(console, "info").mockReturnValue(undefined);
+  it("prints pending setup links directly to operator stdout", () => {
+    const stdout = vi.spyOn(process.stdout, "write").mockReturnValue(true);
     const runtime = new PagesRuntime(new ConfigFile("/srv/c.toml"), PENDING);
     const token = runtime.getSetupToken() ?? "";
 
     announceServer(runtime, ["http://localhost:3000", "http://10.0.0.5:3000"]);
 
-    const lines = info.mock.calls.map((call) => String(call[0]));
+    const lines = stdout.mock.calls.map((call) => String(call[0]));
     expect(lines).toContain(
-      `[pages]   http://localhost:3000/setup?token=${token}`,
+      "[pages] Pages is not set up yet. Open the setup wizard with this one-time link:\n",
     );
     expect(lines).toContain(
-      `[pages]   http://10.0.0.5:3000/setup?token=${token}`,
+      `[pages]   http://localhost:3000/setup?token=${token}\n`,
+    );
+    expect(lines).toContain(
+      `[pages]   http://10.0.0.5:3000/setup?token=${token}\n`,
     );
   });
 });
@@ -244,6 +247,11 @@ describe("startPagesServer: start parameters", () => {
     expect(code).toBe(1);
     expect(error).toHaveBeenCalledWith(
       "[pages] The configuration file is not valid TOML.",
+      expect.objectContaining({
+        type: "ConfigError",
+        message:
+          "Error reported; free-form diagnostic text omitted to protect user content",
+      }),
     );
     expect(createServer).not.toHaveBeenCalled();
   });
@@ -374,12 +382,16 @@ describe("startPagesServer: listening", () => {
     expect(code).toBe(0);
     expect(warn).toHaveBeenCalledWith(
       "[pages] The port 5200 could not be stored.",
-      expect.any(ConfigError),
+      expect.objectContaining({
+        type: "ConfigError",
+        message:
+          "Error reported; free-form diagnostic text omitted to protect user content",
+      }),
     );
   });
 
-  it("prints the setup link while the setup is pending", async () => {
-    const info = vi.spyOn(console, "info").mockReturnValue(undefined);
+  it("prints pending setup links to stdout after the server starts", async () => {
+    const stdout = vi.spyOn(process.stdout, "write").mockReturnValue(true);
     const { runtime } = createRuntime(PENDING);
     vi.mocked(initializePagesRuntime).mockResolvedValue(runtime);
     vi.mocked(createServer).mockReturnValue(createFakeServer().server);
@@ -390,9 +402,12 @@ describe("startPagesServer: listening", () => {
       clientDirectory: "/srv/client",
     });
 
-    const lines = info.mock.calls.map((call) => String(call[0]));
+    const lines = stdout.mock.calls.map((call) => String(call[0]));
     expect(lines).toContain(
-      `[pages]   http://localhost:3000/setup?token=${runtime.getSetupToken()}`,
+      "[pages] Pages is not set up yet. Open the setup wizard with this one-time link:\n",
+    );
+    expect(lines).toContain(
+      `[pages]   http://localhost:3000/setup?token=${runtime.getSetupToken() ?? ""}\n`,
     );
   });
 });

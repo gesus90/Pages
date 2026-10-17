@@ -2,6 +2,8 @@ import { constants } from "node:fs";
 import { access, stat } from "node:fs/promises";
 import path from "node:path";
 
+import { logCaughtError } from "@/backend/logging/Logger";
+
 import type {
   CliProviderId,
   CliToolLocation,
@@ -54,7 +56,9 @@ export class CliLocator {
         await access(candidate, constants.X_OK);
         if ((await stat(candidate)).isFile())
           return { found: true, path: candidate };
-      } catch {
+      } catch (caughtError: unknown) {
+        logCaughtError("CliLocator", caughtError);
+
         // Missing and non-executable candidates do not prevent the fallback lookup.
         continue;
       }

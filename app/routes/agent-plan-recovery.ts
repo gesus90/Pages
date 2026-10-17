@@ -5,6 +5,7 @@ import { getApplicationServices } from "@/app/lib/services.server";
 import { AGENT_NO_STORE } from "@/app/lib/settings-actions/settings-agents-response.server";
 import { readPlanText } from "@/backend/agents/AgentPlanInput";
 import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { Route } from "./+types/agent-plan-recovery";
 
@@ -33,6 +34,8 @@ export async function loader({
       { headers: AGENT_NO_STORE },
     );
   } catch (error: unknown) {
+    logCaughtError("agent_plan_recovery", error);
+
     return planRecoveryFailure(error);
   }
 }
@@ -62,6 +65,8 @@ export async function action({
     );
     return Response.json({ ok: true, result }, { headers: AGENT_NO_STORE });
   } catch (error: unknown) {
+    logCaughtError("agent_plan_recovery", error);
+
     return planRecoveryFailure(error);
   }
 }

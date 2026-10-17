@@ -3,6 +3,7 @@ import { readAgentAssetUpload } from "@/app/lib/agent-asset-upload.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { PagesAgentApiErrorCode } from "@/definition/PagesAgentApi";
 import type { Route } from "./+types/api-v1-agent-assets";
@@ -43,6 +44,8 @@ async function upload(request: Request): Promise<Response> {
       },
     );
   } catch (error: unknown) {
+    logCaughtError("api_v1_agent_assets", error);
+
     if (error instanceof AgentOperationError)
       return uploadFailure(error.code, error.status);
     if (error instanceof McpAuthorizationError)

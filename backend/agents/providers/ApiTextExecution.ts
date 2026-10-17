@@ -2,6 +2,7 @@ import { readTicketAssetInput } from "@/backend/agents/TicketAssetInput";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
 import { AGENT_PROVIDERS, isApiProvider } from "@/definition/AgentConnection";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { classifyProviderError } from "./ProviderErrors";
 import { requestHeaders } from "./ProviderHttpClient";
@@ -74,6 +75,8 @@ export class ApiTextExecution implements TextExecution {
         webSearch: input.webSearch,
       }).replaceAll(apiKey, "[redacted]");
     } catch (error: unknown) {
+      logCaughtError("ApiTextExecution", error);
+
       if (error instanceof TextAssistantError || error instanceof AgentError)
         throw error;
       throw new TextAssistantError("providerFailed");
@@ -90,7 +93,9 @@ export class ApiTextExecution implements TextExecution {
       throw new TextAssistantError("connectionUnavailable");
     try {
       return this.cipher.decrypt(connectionId, encrypted);
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("ApiTextExecution", caughtError);
+
       throw new TextAssistantError("connectionUnavailable");
     }
   }

@@ -9,6 +9,7 @@ import {
   canUseDatabaseLocation,
   DATABASE_LOCATION_STATUS,
 } from "@/definition/Setup";
+import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import { checkDatabaseLocation } from "./DatabaseLocation";
 import { SetupDatabaseWriter } from "./SetupDatabaseWriter";
@@ -161,7 +162,14 @@ export class SetupWizardService {
       try {
         return await this.completePendingSetup(input);
       } catch (error: unknown) {
-        console.error("[pages] The setup could not be finished.", error);
+        logCaughtError("SetupWizardService", error);
+
+        logDiagnostic(
+          "SetupWizardService",
+          "error",
+          "[pages] The setup could not be finished.",
+          error,
+        );
 
         return { status: "failed" };
       }
@@ -216,6 +224,8 @@ export class SetupWizardService {
 
       config = { databasePath, firstRun: false, port: stored.port };
     } catch (error: unknown) {
+      logCaughtError("SetupWizardService", error);
+
       await prepared.database.close();
 
       throw error;
@@ -226,8 +236,15 @@ export class SetupWizardService {
     try {
       await this.activateServices(prepared.database, databasePath);
     } catch (error: unknown) {
+      logCaughtError("SetupWizardService", error);
+
       // The setup is stored; a restart opens the database normally.
-      console.error("[pages] The services could not be started.", error);
+      logDiagnostic(
+        "SetupWizardService",
+        "error",
+        "[pages] The services could not be started.",
+        error,
+      );
     }
 
     return { sessionToken: prepared.sessionToken, status: "completed" };
@@ -255,6 +272,8 @@ export class SetupWizardService {
         status: "prepared",
       };
     } catch (error: unknown) {
+      logCaughtError("SetupWizardService", error);
+
       await database.close();
 
       throw error;
@@ -329,6 +348,7 @@ export class SetupWizardService {
       if (isFileExistsError(error)) {
         return false;
       }
+      logCaughtError("SetupWizardService", error);
 
       return this.copyWithoutReplacing(stagingPath, databasePath);
     }
@@ -349,6 +369,7 @@ export class SetupWizardService {
       if (isFileExistsError(error)) {
         return false;
       }
+      logCaughtError("SetupWizardService", error);
 
       // The exclusive copy created the file, so a partial copy is ours.
       await rm(databasePath, { force: true });

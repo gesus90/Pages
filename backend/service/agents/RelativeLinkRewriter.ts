@@ -1,3 +1,5 @@
+import { logCaughtError } from "@/backend/logging/Logger";
+
 import {
   isRelativeAssetLink,
   parseMarkdown,
@@ -58,7 +60,9 @@ export function resolveAssetPath(
   let decoded: string;
   try {
     decoded = decodeURIComponent(target);
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("RelativeLinkRewriter", caughtError);
+
     return null;
   }
   if (/[\\\u0000-\u001f]/u.test(decoded)) return null;

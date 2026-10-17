@@ -1,6 +1,7 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { AgentOperationKeyRepository } from "@/backend/database/repositories/agents/AgentOperationKeyRepository";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import {
   fingerprintOperation,
@@ -138,6 +139,8 @@ export class AgentPlanWriteOperations {
         await this.create(userId, request, recorder);
       else await this.update(userId, request, recorder);
     } catch (error: unknown) {
+      logCaughtError("AgentPlanWriteOperations", error);
+
       // A parallel call with the same operation ID may have committed first;
       // its result is the answer to this one.
       const completed =
@@ -195,6 +198,8 @@ export class AgentPlanWriteOperations {
     try {
       agents = await this.agents(userId, request.workspaceId, request.changes);
     } catch (error: unknown) {
+      logCaughtError("AgentPlanWriteOperations", error);
+
       // A workspace the person cannot use for plans is an input to change, not a missing plan.
       if (error instanceof AgentError && error.code === "plan_access_denied")
         throw new AgentOperationError("INVALID_REQUEST", {
@@ -296,6 +301,8 @@ export class AgentPlanWriteOperations {
           }),
       );
     } catch (error: unknown) {
+      logCaughtError("AgentPlanWriteOperations", error);
+
       if (error instanceof AgentError && error.code === "plan_conflict")
         throw await this.conflict(userId, current.id);
       throw error;
@@ -313,6 +320,8 @@ export class AgentPlanWriteOperations {
         currentRevision: plan.revision,
       });
     } catch (error: unknown) {
+      logCaughtError("AgentPlanWriteOperations", error);
+
       if (error instanceof AgentError)
         return new AgentOperationError("NOT_FOUND");
       throw error;

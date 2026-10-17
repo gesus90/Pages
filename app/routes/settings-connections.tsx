@@ -14,6 +14,7 @@ import {
   requireAuthorizationOrigin,
 } from "@/app/lib/authorization-response.server";
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { McpConnectionsView } from "@/definition/McpConnections";
 import type { ApplicationServices } from "@/app/lib/services.server";
@@ -48,6 +49,8 @@ export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
     };
     return authorizationResponse(view);
   } catch (error: unknown) {
+    logCaughtError("settings_connections", error);
+
     throw authorizationFailure(error);
   }
 }
@@ -91,6 +94,8 @@ export async function action({ request }: Route.ActionArgs): Promise<Response> {
     } else throw new McpAuthorizationError("invalid_request");
     return authorizationResponse({ updated: true });
   } catch (error: unknown) {
+    logCaughtError("settings_connections", error);
+
     return authorizationFailure(error);
   }
 }

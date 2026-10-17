@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 
 import { AgentError } from "@/backend/error/AgentErrors";
+import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 
 import { CliChildProcess } from "./CliChildProcess";
 import { createCliEnvironment } from "./CliEnvironment";
@@ -56,13 +57,33 @@ export class CliProcessRunner {
         stdio: [request.stdin, "pipe", "pipe"],
       });
       running = new CliChildProcess(child, request, this.signalGroup);
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("CliProcessRunner", caughtError);
+
       throw new AgentError("cli_not_executable");
     } finally {
       process.umask(previousMask);
     }
     this.active.add(running);
-    void running.completed.then(() => {
+    logEvent({
+      level: "debug",
+      event: "cli.command.started",
+      component: "CliProcessRunner",
+      message: "CLI check or login process started",
+      metadata: { provider: request.provider },
+    });
+    void running.completed.then((result) => {
+      logEvent({
+        level: result.exitCode === 0 ? "info" : "warn",
+        event: "cli.command.completed",
+        component: "CliProcessRunner",
+        message: "CLI check or login process completed",
+        metadata: {
+          provider: request.provider,
+          exitCode: result.exitCode,
+          code: result.errorCode,
+        },
+      });
       this.active.delete(running);
     });
     return running;
@@ -99,7 +120,9 @@ export class CliProcessRunner {
         stdio: ["pipe", "pipe", "pipe"],
       });
       session = new CliSessionProcess(child, request, this.signalGroup);
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("CliProcessRunner", caughtError);
+
       throw new AgentError("cli_not_executable");
     } finally {
       process.umask(previousMask);
@@ -116,6 +139,8 @@ export class CliProcessRunner {
     try {
       return await this.start(request).completed;
     } catch (error: unknown) {
+      logCaughtError("CliProcessRunner", error);
+
       return {
         exitCode: null,
         stdout: "",

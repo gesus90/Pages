@@ -19,6 +19,7 @@ import {
   ProjectAccessDeniedError,
   ProjectNotFoundError,
 } from "@/backend/error/ProjectErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { ApplicationServices } from "@/app/lib/services.server";
 import type { ProjectActionResponse } from "@/app/lib/project-actions/project-action-support.server";
@@ -248,7 +249,9 @@ async function findAssignableUsers(
 ): Promise<User[]> {
   try {
     return await services.taskService.findEligibleAssignees(actor, projectId);
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("project_detail", caughtError);
+
     return [];
   }
 }
@@ -294,6 +297,8 @@ export async function loader({
       statuses: [],
     };
   } catch (error: unknown) {
+    logCaughtError("project_detail", error);
+
     if (error instanceof ProjectNotFoundError) {
       throw new Response("Not Found", { status: 404 });
     }
@@ -339,6 +344,8 @@ export async function action({
     const scopeResult = await handleProjectScopeAction(intent, actionContext);
     return scopeResult ?? (await handleProjectAction(intent, actionContext));
   } catch (error: unknown) {
+    logCaughtError("project_detail", error);
+
     return toActionError(error);
   }
 }

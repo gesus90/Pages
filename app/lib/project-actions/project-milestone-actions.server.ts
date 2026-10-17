@@ -4,9 +4,10 @@ import {
   isMilestoneIcon,
   isMilestoneLinkType,
 } from "@/definition/Task";
+import { WorkItemValidationError } from "@/backend/error/WorkItemErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { invalidInput, succeeded } from "./project-action-support.server";
-import { WorkItemValidationError } from "@/backend/error/WorkItemErrors";
 
 import type {
   ProjectActionContext,
@@ -62,7 +63,9 @@ function isLinkChange(entry: unknown): entry is MilestoneLinkChange {
 function parseJson(text: string): unknown {
   try {
     return JSON.parse(text);
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("project_milestone_actions", caughtError);
+
     return undefined;
   }
 }
@@ -158,6 +161,8 @@ async function removeMilestoneLinks(
     try {
       await services.taskService.removeDependency(actor, projectId, removedId);
     } catch (error: unknown) {
+      logCaughtError("project_milestone_actions", error);
+
       const isStillStored = async (): Promise<boolean> =>
         (await findLinks()).some((link) => link.id === removedId);
 
@@ -198,6 +203,8 @@ async function addMilestoneLinks(
         targetId: change.targetId,
       });
     } catch (error: unknown) {
+      logCaughtError("project_milestone_actions", error);
+
       if (
         !(error instanceof WorkItemValidationError) ||
         !(await findLinks()).some(isStored)

@@ -5,6 +5,7 @@ import { SettingsSectionHeader } from "@/app/components/settings/settings-layout
 import { ChatSettingsCard } from "@/app/components/settings/system/chat-settings-card";
 import { InstanceCard } from "@/app/components/settings/system/instance-card";
 import { ServerCard } from "@/app/components/settings/system/server-card";
+import { LoggingCard } from "@/app/components/settings/system/logging-card";
 import { StatusCard } from "@/app/components/settings/system/status-card";
 import { WikiSettingsCard } from "@/app/components/settings/system/wiki-settings-card";
 
@@ -12,8 +13,13 @@ import type { ServerStatus } from "@/backend/service/ServerSettingsService";
 import type { ChatAdministration } from "@/definition/Chat";
 import type { InstanceBranding } from "@/definition/Instance";
 import type { WikiSettings } from "@/definition/Wiki";
+import type { LoggingStatus } from "@/definition/Logging";
 
 interface SystemSectionProps {
+  readonly logging: {
+    readonly retentionDays: number;
+    readonly status: LoggingStatus;
+  };
   /** Port stored in the configuration for the next start. */
   readonly port: number;
   readonly branding: InstanceBranding;
@@ -38,6 +44,7 @@ export function SystemSection({
   status,
   wikiSettings,
   chatSettings,
+  logging,
 }: SystemSectionProps): React.ReactElement {
   const { t } = useTranslation();
 
@@ -56,6 +63,10 @@ export function SystemSection({
         <div className="flex flex-col gap-4">
           <StatusCard status={status} />
           <ServerCard port={port} />
+          <LoggingCard
+            retentionDays={logging.retentionDays}
+            status={logging.status}
+          />
           <ChatSettingsCard settings={chatSettings} />
         </div>
       </div>

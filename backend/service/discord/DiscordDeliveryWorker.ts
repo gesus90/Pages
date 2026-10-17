@@ -4,6 +4,7 @@ import {
   buildNotificationMessage,
   parseNotificationContent,
 } from "@/backend/discord/DiscordMessage";
+import { logDiagnostic } from "@/backend/logging/Logger";
 
 import type { DiscordConnectionStore } from "@/backend/database/repositories/discord/DiscordConnectionRepository";
 import type {
@@ -247,8 +248,10 @@ export class DiscordDeliveryWorker {
       now: this.now().toISOString(),
       problem,
     });
-    console.warn(
-      `Pages gave up a Discord notification after ${attempts} attempt(s): ${problem}.`,
+    logDiagnostic(
+      "DiscordDeliveryWorker",
+      "warn",
+      "Pages exhausted the delivery attempts for a Discord notification.",
     );
 
     return { kind: "failed", pauseUntil: null };

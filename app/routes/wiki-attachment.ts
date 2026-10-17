@@ -4,6 +4,7 @@ import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { contentDisposition } from "@/app/lib/content-disposition";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { WikiPageNotFoundError } from "@/backend/error/WikiErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { Route } from "./+types/wiki-attachment";
 
@@ -62,6 +63,8 @@ export async function loader({
       },
     });
   } catch (error: unknown) {
+    logCaughtError("wiki_attachment", error);
+
     if (error instanceof WikiPageNotFoundError) {
       throw new Response("Not Found", { status: 404 });
     }

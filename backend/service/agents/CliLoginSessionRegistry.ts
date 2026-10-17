@@ -1,5 +1,6 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 import { isLoginActive } from "@/definition/AgentConnection";
+import { logEvent } from "@/backend/logging/Logger";
 
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import type {
@@ -41,6 +42,13 @@ export class CliLoginSessionRegistry {
     if (this.active().length >= 3) throw new AgentError("login_limit_reached");
     this.forget(session.id);
     this.sessions.set(session.id, session);
+    logEvent({
+      level: "info",
+      event: "cli.login.started",
+      component: "CliLoginSessionRegistry",
+      message: "CLI login session reserved",
+      metadata: { sessionId: session.id, provider: session.provider },
+    });
   }
 
   /** Finds the current session without restoring an incomplete login after restart. */
@@ -81,6 +89,18 @@ export class CliLoginSessionRegistry {
   ): void {
     if (!isLoginActive(session.state)) return;
     session.state = state;
+    logEvent({
+      level: state === "failed" ? "warn" : "info",
+      event: "cli.login.completed",
+      component: "CliLoginSessionRegistry",
+      message: "CLI login session ended",
+      metadata: {
+        sessionId: session.id,
+        provider: session.provider,
+        status: state,
+        code: errorCode,
+      },
+    });
     session.errorCode = errorCode;
     session.verificationUrl = undefined;
     session.userCode = undefined;

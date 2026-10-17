@@ -10,6 +10,7 @@ import {
   ASSISTANT_NO_STORE,
   textAssistantFailure,
 } from "@/app/lib/text-assistant-response.server";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { Route } from "./+types/text-assistant";
 
@@ -88,6 +89,8 @@ export async function action({
     }
     return Response.json({ ok: true }, { headers: ASSISTANT_NO_STORE });
   } catch (error: unknown) {
+    logCaughtError("text_assistant", error);
+
     return textAssistantFailure(error);
   }
 }

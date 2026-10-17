@@ -10,12 +10,12 @@ import {
 import path from "node:path";
 
 import { AgentError } from "@/backend/error/AgentErrors";
+import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import { quoteCliArgument } from "./CliEnvironment";
 import { endTaggedProcesses, readScopeSince } from "./CliProcessScan";
 
 import type { TaggedProcessScope } from "./CliProcessScan";
-
 import type { AgentPlanGitHubAccess } from "@/backend/service/agents/AgentPlanGitHubCredentials";
 import type { AcpCredentialLeftover } from "@/definition/AcpResource";
 
@@ -142,7 +142,9 @@ export class CliGitHubCredentials {
       );
       await chmod(directory, 0o700);
       return await this.configure(directory, input);
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("CliGitHubCredentials", caughtError);
+
       if (directory !== null) await this.remove(directory);
       throw new AgentError("secret_unavailable");
     }
@@ -268,14 +270,20 @@ export class CliGitHubCredentials {
         await creationScope(directory),
       );
       if (cleanup.remaining !== 0) {
-        console.error(
-          `[pages] ${cleanup.remaining} process(es) of the interrupted session ${instanceId} could not be ended. Its credential leftover ${name} stays until a later start confirms the cleanup.`,
+        logDiagnostic(
+          "CliGitHubCredentials",
+          "error",
+          "[pages] Interrupted session processes remain; credential cleanup will be retried at a later start.",
         );
         return { directory: name, instanceId, reason: "processes" };
       }
     } catch (error: unknown) {
-      console.error(
-        `[pages] Pages could not confirm that no process of the interrupted session ${instanceId} still runs. Its credential leftover ${name} stays until a later start confirms the cleanup.`,
+      logCaughtError("CliGitHubCredentials", error);
+
+      logDiagnostic(
+        "CliGitHubCredentials",
+        "error",
+        "[pages] Interrupted session process cleanup could not be confirmed; credentials remain for a later retry.",
         error,
       );
       return { directory: name, instanceId, reason: "processes" };
@@ -283,14 +291,20 @@ export class CliGitHubCredentials {
     try {
       await rm(directory, { recursive: true, force: true });
     } catch (error: unknown) {
-      console.error(
-        `[pages] The processes of the interrupted session ${instanceId} ended, but its credential leftover ${name} could not be removed. A later start tries again.`,
+      logCaughtError("CliGitHubCredentials", error);
+
+      logDiagnostic(
+        "CliGitHubCredentials",
+        "error",
+        "[pages] Interrupted session processes ended, but credential cleanup failed and will be retried.",
         error,
       );
       return { directory: name, instanceId, reason: "removal" };
     }
-    console.info(
-      `[pages] Removed the credential leftover ${name} of the interrupted session ${instanceId}.`,
+    logDiagnostic(
+      "CliGitHubCredentials",
+      "info",
+      "[pages] Removed credentials of an interrupted session.",
     );
     return null;
   }
@@ -298,7 +312,9 @@ export class CliGitHubCredentials {
   private async remove(directory: string): Promise<void> {
     try {
       await rm(directory, { recursive: true, force: true });
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("CliGitHubCredentials", caughtError);
+
       throw new AgentError("credential_cleanup_failed");
     }
   }

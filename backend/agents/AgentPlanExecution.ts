@@ -3,6 +3,7 @@ import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirme
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
 import { isApiProvider } from "@/definition/AgentConnection";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { ContentBlock } from "@agentclientprotocol/sdk";
 import type { ExecutionAuthorizer } from "./ScopedExecution";
@@ -167,6 +168,8 @@ export class AgentPlanExecution implements PlanExecution {
         signal.throwIfAborted();
         return output;
       } catch (error: unknown) {
+        logCaughtError("AgentPlanExecution", error);
+
         if (
           signal.aborted &&
           signal.reason instanceof DOMException &&
@@ -206,6 +209,8 @@ export class AgentPlanExecution implements PlanExecution {
     try {
       session = await this.cli.open(input, signal, observe(observer));
     } catch (error: unknown) {
+      logCaughtError("AgentPlanExecution", error);
+
       if (!mustConfirmCleanup || !(error instanceof AcpCleanupUnconfirmedError))
         release();
       throw error;

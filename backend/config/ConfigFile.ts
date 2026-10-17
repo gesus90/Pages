@@ -4,6 +4,9 @@ import path from "node:path";
 
 import { parse, stringify } from "smol-toml";
 
+import { SerialQueue } from "@/backend/concurrency/SerialQueue";
+import { logCaughtError } from "@/backend/logging/Logger";
+
 import { ConfigError, readPagesConfig, writePagesConfig } from "./PagesConfig";
 
 import type { TomlTable } from "smol-toml";
@@ -37,6 +40,7 @@ function isMissingFileError(error: unknown): boolean {
  */
 export class ConfigFile {
   private readonly filePath: string;
+  private readonly writes = new SerialQueue();
 
   /**
    * Creates access to one configuration file.
@@ -73,9 +77,7 @@ export class ConfigFile {
    * one cannot be written.
    */
   public async write(config: PagesConfig): Promise<void> {
-    const document = (await this.readDocument()) ?? {};
-
-    await this.replaceFile(stringify(writePagesConfig(document, config)));
+    await this.writes.run(() => this.writeConfig(config));
   }
 
   /**
@@ -89,19 +91,26 @@ export class ConfigFile {
   public async update(
     change: (current: PagesConfig) => PagesConfig,
   ): Promise<PagesConfig> {
-    const current = await this.read();
+    return this.writes.run(async () => {
+      const current = await this.read();
 
-    if (current === null) {
-      throw new ConfigError(
-        `The configuration file "${this.filePath}" does not exist.`,
-      );
-    }
+      if (current === null) {
+        throw new ConfigError(
+          `The configuration file "${this.filePath}" does not exist.`,
+        );
+      }
 
-    const next = change(current);
+      const next = change(current);
 
-    await this.write(next);
+      await this.writeConfig(next);
 
-    return next;
+      return next;
+    });
+  }
+
+  private async writeConfig(config: PagesConfig): Promise<void> {
+    const document = (await this.readDocument()) ?? {};
+    await this.replaceFile(stringify(writePagesConfig(document, config)));
   }
 
   private async readDocument(): Promise<TomlTable | null> {
@@ -113,6 +122,7 @@ export class ConfigFile {
       if (isMissingFileError(error)) {
         return null;
       }
+      logCaughtError("ConfigFile", error);
 
       throw new ConfigError(
         `The configuration file "${this.filePath}" cannot be read.`,
@@ -123,6 +133,8 @@ export class ConfigFile {
     try {
       return parse(text);
     } catch (error: unknown) {
+      logCaughtError("ConfigFile", error);
+
       throw new ConfigError(
         `The configuration file "${this.filePath}" is not valid TOML. Fix or remove it and start Pages again.`,
         { cause: error },
@@ -148,6 +160,8 @@ export class ConfigFile {
       });
       await rename(temporaryPath, this.filePath);
     } catch (error: unknown) {
+      logCaughtError("ConfigFile", error);
+
       await rm(temporaryPath, { force: true });
 
       throw new ConfigError(

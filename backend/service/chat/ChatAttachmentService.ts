@@ -2,6 +2,7 @@ import { ChatError } from "@/backend/error/ChatErrors";
 import { sanitizeFileName } from "@/backend/service/wiki/WikiFileTypes";
 import { FileTooLargeError } from "@/backend/storage/WikiFileStore";
 import { CHAT_LIMITS } from "@/definition/Chat";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { ChatFileProbe } from "./ChatFileProbe";
 import { classifyChatFile } from "./ChatFileTypes";
@@ -116,6 +117,8 @@ export class ChatAttachmentService {
       if (attachment === null) throw new ChatError("sessionMissing");
       return publicChatAttachment(attachment);
     } catch (error: unknown) {
+      logCaughtError("ChatAttachmentService", error);
+
       await this.dependencies.files.remove([stored.storageName]);
       throw error;
     }
@@ -264,6 +267,8 @@ export class ChatAttachmentService {
         limitFor: () => limit,
       });
     } catch (error: unknown) {
+      logCaughtError("ChatAttachmentService", error);
+
       if (error instanceof FileTooLargeError)
         throw new ChatError("fileTooLarge");
       throw error;

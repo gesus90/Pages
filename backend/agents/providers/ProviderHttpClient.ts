@@ -1,5 +1,6 @@
 import { sanitizeCheckDetail } from "@/backend/agents/AgentCheckDetail";
 import { AGENT_PROVIDERS } from "@/definition/AgentConnection";
+import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 
 import { classifyProviderError } from "./ProviderErrors";
 
@@ -63,7 +64,16 @@ export class ProviderHttpClient {
         signal,
         redirect: "error",
       });
-    } catch {
+      logEvent({
+        level: response.status < 400 ? "debug" : "warn",
+        event: "integration.provider.response",
+        component: "ProviderHttpClient",
+        message: "Provider check response received",
+        metadata: { provider: input.provider, statusCode: response.status },
+      });
+    } catch (caughtError: unknown) {
+      logCaughtError("ProviderHttpClient", caughtError);
+
       return {
         ok: false,
         errorCode: signal.aborted ? "check_timeout" : "provider_unreachable",
@@ -73,7 +83,9 @@ export class ProviderHttpClient {
     let payload: unknown;
     try {
       payload = await response.json();
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("ProviderHttpClient", caughtError);
+
       return {
         ok: false,
         errorCode: signal.aborted

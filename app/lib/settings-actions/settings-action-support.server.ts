@@ -1,5 +1,4 @@
 import type { data } from "react-router";
-
 import type { ApplicationServices } from "@/app/lib/services.server";
 import type { User } from "@/definition/User";
 
@@ -27,6 +26,16 @@ type AvatarUpdateErrorCode = "invalidInput" | "invalidAvatar" | "general";
 
 /** What the settings screen receives after a submitted form. */
 export type SettingsActionData =
+  | {
+      readonly intent: "update-logging";
+      readonly ok: true;
+      readonly retentionDays: number;
+    }
+  | {
+      readonly intent: "update-logging";
+      readonly ok: false;
+      readonly error: "invalidSetting" | "general";
+    }
   | { readonly intent: "set-mode"; readonly ok: boolean }
   | {
       readonly intent: "change-password";

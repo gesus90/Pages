@@ -1,3 +1,5 @@
+import { logCaughtError } from "@/backend/logging/Logger";
+
 import type { AnyMessage, Stream } from "@agentclientprotocol/sdk";
 
 /** Whether a parsed line is a JSON-RPC message; the SDK validates its content. */
@@ -55,7 +57,9 @@ export class AcpLineChannel {
     let message: unknown;
     try {
       message = JSON.parse(line);
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("AcpLineChannel", caughtError);
+
       return;
     }
     if (isJsonRpcMessage(message)) this.controller?.enqueue(message);

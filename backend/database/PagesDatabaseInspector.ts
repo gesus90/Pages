@@ -1,5 +1,8 @@
 import { DuckDBInstance } from "@duckdb/node-api";
 
+import { logCaughtError } from "@/backend/logging/Logger";
+import { recordDatabaseQuery } from "./DatabaseStats";
+
 /** What an existing file turned out to be. */
 export type PagesDatabaseInspection =
   | {
@@ -50,10 +53,14 @@ async function readCount(
   statement: string,
   parameters?: Record<string, string>,
 ): Promise<number[]> {
-  const reader = await connection.runAndReadAll(statement, parameters);
-  const [row = []] = reader.getRows();
-
-  return row.map((value) => Number(value));
+  const started = performance.now();
+  try {
+    const reader = await connection.runAndReadAll(statement, parameters);
+    const [row = []] = reader.getRows();
+    return row.map((value) => Number(value));
+  } finally {
+    recordDatabaseQuery(statement, performance.now() - started);
+  }
 }
 
 /** DuckDB reports a file that another process holds open this way. */
@@ -118,6 +125,8 @@ export async function inspectPagesDatabase(
       access_mode: "READ_ONLY",
     });
   } catch (error: unknown) {
+    logCaughtError("PagesDatabaseInspector", error);
+
     return isLockError(error) ? { kind: "locked" } : { kind: "foreign" };
   }
 
@@ -129,7 +138,9 @@ export async function inspectPagesDatabase(
     } finally {
       connection.closeSync();
     }
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("PagesDatabaseInspector", caughtError);
+
     return { kind: "foreign" };
   } finally {
     instance.closeSync();

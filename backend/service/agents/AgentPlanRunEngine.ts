@@ -4,9 +4,16 @@ import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { withDatabaseLogMetrics } from "@/backend/logging/DatabaseLogMetrics";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { isApiProvider } from "@/definition/AgentConnection";
 import { isPlanFlowNode } from "@/definition/AgentPlanGraph";
+import {
+  logCaughtError,
+  logDiagnostic,
+  logEvent,
+  withLogContext,
+} from "@/backend/logging/Logger";
 
 import { withGroupResults } from "./AgentPlanGroupResults";
 import { hasPlanPath } from "./AgentPlanGraph";
@@ -15,6 +22,7 @@ import { createPlanCheckpoint } from "./recovery/AgentPlanCheckpoint";
 import { planRecoveryReason } from "./recovery/AgentPlanFailure";
 
 import type { AcpResourceScheduler } from "./AcpResourceScheduler";
+import type { DatabaseLogMetrics } from "@/backend/logging/DatabaseLogMetrics";
 import type { DatabaseTransaction } from "@/backend/database/Database";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type {
@@ -180,6 +188,15 @@ export class AgentPlanRunEngine {
       })),
     };
     const initialView = withGroupResults(view, snapshot);
+    withLogContext({ runId: view.id }, () =>
+      logEvent({
+        level: "info",
+        event: "agent.run.started",
+        component: "AgentPlanRunEngine",
+        message: "Agent plan run starting",
+        metadata: { userId },
+      }),
+    );
     const workspaceIds = snapshot.steps.flatMap((step) => {
       const directory = planStepDirectory(step);
       return !isApiProvider(step.provider) && directory ? [directory.id] : [];
@@ -204,6 +221,8 @@ export class AgentPlanRunEngine {
           workspaceIds,
         );
     } catch (error: unknown) {
+      logCaughtError("AgentPlanRunEngine", error);
+
       await releaseDefinition?.();
       throw error;
     }
@@ -220,6 +239,8 @@ export class AgentPlanRunEngine {
       await this.pump();
       return (await this.dependencies.runs.find(view.id)) ?? view;
     } catch (error: unknown) {
+      logCaughtError("AgentPlanRunEngine", error);
+
       await this.failStart(view.id);
       throw error;
     }
@@ -227,6 +248,14 @@ export class AgentPlanRunEngine {
 
   /** Stop is persisted first; confirmed cancellation is reported only by a settled adapter. */
   public async stop(id: string): Promise<void> {
+    withLogContext({ runId: id }, () =>
+      logEvent({
+        level: "info",
+        event: "agent.run.stop_requested",
+        component: "AgentPlanRunEngine",
+        message: "Agent plan stop requested",
+      }),
+    );
     await this.writes.run(async () => {
       const active = this.active.get(id);
       if (!active) return;
@@ -378,6 +407,15 @@ export class AgentPlanRunEngine {
           );
           await active.releaseDefinition?.();
           this.active.delete(id);
+          withLogContext({ runId: id }, () =>
+            logEvent({
+              level: "info",
+              event: "agent.run.completed",
+              component: "AgentPlanRunEngine",
+              message: "Agent plan run completed",
+              metadata: { status },
+            }),
+          );
           this.dependencies.resources?.resumeRun(id);
         }
       }
@@ -427,7 +465,14 @@ export class AgentPlanRunEngine {
       try {
         await this.pump();
       } catch (error: unknown) {
-        console.error("Pages could not finalize a failed plan start.", error);
+        logCaughtError("AgentPlanRunEngine", error);
+
+        logDiagnostic(
+          "AgentPlanRunEngine",
+          "error",
+          "Pages could not finalize a failed plan start.",
+          error,
+        );
       }
       return;
     }
@@ -445,7 +490,11 @@ export class AgentPlanRunEngine {
     try {
       await this.dependencies.runs.update(active.view);
     } catch (error: unknown) {
-      console.error(
+      logCaughtError("AgentPlanRunEngine", error);
+
+      logDiagnostic(
+        "AgentPlanRunEngine",
+        "error",
         "Pages could not persist a failed plan start; reservations remain held.",
         error,
       );
@@ -457,7 +506,37 @@ export class AgentPlanRunEngine {
     node: AgentPlanNode,
     controller: AbortController,
   ): Promise<void> {
+    return withLogContext({ runId: active.view.id }, () =>
+      withDatabaseLogMetrics((metrics) =>
+        this.executeNode(active, node, controller, metrics),
+      ),
+    );
+  }
+
+  private async executeNode(
+    active: ActivePlanRun,
+    node: AgentPlanNode,
+    controller: AbortController,
+    metrics: DatabaseLogMetrics,
+  ): Promise<void> {
+    logEvent({
+      level: "debug",
+      event: "agent.step.started",
+      component: "AgentPlanRunEngine",
+      message: "Agent plan step started",
+    });
     const changes = await this.outcome(active, node, controller);
+    logEvent({
+      level: changes.status === "failed" ? "error" : "info",
+      event: "agent.step.completed",
+      component: "AgentPlanRunEngine",
+      message: "Agent plan step completed",
+      metadata: {
+        status: changes.status,
+        code: changes.error,
+        ...metrics.finish(),
+      },
+    });
     try {
       await this.writes.run(async () => {
         const previous = active.view;
@@ -470,6 +549,8 @@ export class AgentPlanRunEngine {
               : undefined;
           await this.dependencies.runs.update(active.view, checkpoint);
         } catch (error: unknown) {
+          logCaughtError("AgentPlanRunEngine", error);
+
           active.view = previous;
           active.hasPersistenceFailure = true;
           throw error;
@@ -477,11 +558,15 @@ export class AgentPlanRunEngine {
         await this.dependencies.archive?.complete(active.view, active.snapshot);
       });
       await this.pump();
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("AgentPlanRunEngine", caughtError);
+
       // Keep persistent reservations if progress cannot be saved; no further providers may start.
       active.hasPersistenceFailure = true;
       for (const running of active.controllers.values()) running.abort();
-      console.error(
+      logDiagnostic(
+        "AgentPlanRunEngine",
+        "error",
         "Pages could not persist agent plan progress; workspace reservations remain held.",
       );
     }
@@ -510,6 +595,8 @@ export class AgentPlanRunEngine {
       await this.dependencies.start.control(active.view, active.snapshot, node);
       return { status: "succeeded", output: null, error: null };
     } catch (error: unknown) {
+      logCaughtError("AgentPlanRunEngine", error);
+
       if (error instanceof AgentPlanCancelledError)
         return { status: "cancelled", cancellation: "not_started" };
       return {
@@ -534,7 +621,11 @@ export class AgentPlanRunEngine {
         await this.dependencies.runs.update(active.view);
       });
     } catch (error: unknown) {
-      console.error(
+      logCaughtError("AgentPlanRunEngine", error);
+
+      logDiagnostic(
+        "AgentPlanRunEngine",
+        "error",
         "Pages could not store the record of an agent node.",
         error,
       );

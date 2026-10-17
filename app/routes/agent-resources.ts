@@ -5,6 +5,7 @@ import {
   agentFailureResponse,
   AGENT_NO_STORE,
 } from "@/app/lib/settings-actions/settings-agents-response.server";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { AcpResourceDiagnostics } from "@/definition/AcpResource";
 import type { Route } from "./+types/agent-resources";
@@ -20,6 +21,8 @@ export async function loader({ context }: Route.LoaderArgs): Promise<Response> {
     };
     return Response.json(diagnostics, { headers: AGENT_NO_STORE });
   } catch (error: unknown) {
+    logCaughtError("agent_resources", error);
+
     return agentFailureResponse(error);
   }
 }

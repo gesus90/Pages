@@ -14,6 +14,7 @@ import { requireCredentialFreeText } from "@/backend/service/assistant/TextAssis
 import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { withoutTicketFlow } from "@/definition/AgentPlanGraph";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { AgentPlanStartupRecovery } from "./recovery/AgentPlanStartupRecovery";
 import { requireCompatibleFields } from "./AgentPlanGroupRuntime";
@@ -692,6 +693,8 @@ export class AgentPlanService {
       try {
         history.push(await this.run(userId, run.id));
       } catch (error: unknown) {
+        logCaughtError("AgentPlanService", error);
+
         if (!(error instanceof AgentError)) throw error;
       }
     }

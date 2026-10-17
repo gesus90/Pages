@@ -5,6 +5,7 @@ import {
   AGENT_NO_STORE,
 } from "@/app/lib/settings-actions/settings-agents-response.server";
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { Route } from "./+types/agent-definitions";
 
@@ -27,6 +28,8 @@ export async function loader({
       { headers: AGENT_NO_STORE },
     );
   } catch (error: unknown) {
+    logCaughtError("agent_definitions", error);
+
     return agentFailureResponse(error);
   }
 }

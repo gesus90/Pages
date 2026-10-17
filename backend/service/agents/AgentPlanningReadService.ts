@@ -1,6 +1,7 @@
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
 import { PAGES_AGENT_LIMITS } from "@/definition/PagesAgentOperations";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { pageAgentEntries } from "./AgentCursor";
 import { readAgentDirectory } from "./AgentDirectoryService";
@@ -120,6 +121,8 @@ export class AgentPlanningReadService {
           null,
       });
     } catch (error: unknown) {
+      logCaughtError("AgentPlanningReadService", error);
+
       throw translateAgentTicketError(error);
     }
   }
@@ -151,6 +154,8 @@ export class AgentPlanningReadService {
         ...readTextRange(indexText(ticket.description), request.range),
       });
     } catch (error: unknown) {
+      logCaughtError("AgentPlanningReadService", error);
+
       throw translateAgentTicketError(error);
     }
   }
@@ -213,6 +218,8 @@ export class AgentPlanningReadService {
         nextCursor: result.nextCursor,
       });
     } catch (error: unknown) {
+      logCaughtError("AgentPlanningReadService", error);
+
       throw translateAgentTicketError(error);
     }
   }
@@ -223,13 +230,7 @@ export class AgentPlanningReadService {
     parameters: unknown,
   ): Promise<PagesAgentReadResponse> {
     const fields = readParameterRecord(parameters);
-    if (
-      Object.keys(fields).some(
-        (key) => !["projectId", "cursor", "limit"].includes(key),
-      )
-    )
-      throw new AgentOperationError("INVALID_REQUEST");
-    const projectId = readAgentMilestonesRead({ projectId: fields.projectId });
+    const projectId = readMilestoneProject(fields);
     const context = await this.context(identity);
     try {
       await context.projects.getById(context.actor, projectId);
@@ -315,6 +316,8 @@ export class AgentPlanningReadService {
       };
       return this.respond(result);
     } catch (error: unknown) {
+      logCaughtError("AgentPlanningReadService", error);
+
       throw translateAgentTicketError(error);
     }
   }
@@ -345,4 +348,16 @@ export class AgentPlanningReadService {
       throw new AgentOperationError("PAYLOAD_TOO_LARGE");
     return response;
   }
+}
+
+function readMilestoneProject(
+  fields: Readonly<Record<string, unknown>>,
+): string {
+  if (
+    Object.keys(fields).some(
+      (key) => !["projectId", "cursor", "limit"].includes(key),
+    )
+  )
+    throw new AgentOperationError("INVALID_REQUEST");
+  return readAgentMilestonesRead({ projectId: fields.projectId });
 }

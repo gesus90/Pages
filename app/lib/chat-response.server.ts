@@ -1,6 +1,7 @@
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { ChatError } from "@/backend/error/ChatErrors";
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import type { ChatErrorCode } from "@/backend/error/ChatErrors";
 import type { TextAssistantErrorCode } from "@/backend/error/TextAssistantErrors";
@@ -48,7 +49,9 @@ export async function readChatJson(
   try {
     const parsed: unknown = JSON.parse(content);
     return readAgentObject(parsed);
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("chat_response", caughtError);
+
     throw new ChatError("invalidInput");
   }
 }
@@ -67,9 +70,11 @@ function failureResponse(code: string, status: number): Response {
 export function chatFailure(error: unknown): Response {
   if (error instanceof ChatError || error instanceof TextAssistantError)
     return failureResponse(error.code, STATUSES[error.code] ?? 400);
-  console.error(
+  logDiagnostic(
+    "chat_response",
+    "error",
     "[pages] A chat request failed.",
-    error instanceof Error ? error.name : typeof error,
+    error,
   );
   return failureResponse("general", 500);
 }

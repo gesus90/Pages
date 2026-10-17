@@ -1,3 +1,5 @@
+import { logCaughtError } from "@/backend/logging/Logger";
+
 import type { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import type { GitHubSyncAccessGuard } from "@/backend/service/github/GitHubSyncAccessGuard";
 import type { GitHubSyncContextLoader } from "@/backend/service/github/GitHubSyncContextLoader";
@@ -67,7 +69,9 @@ export class GitHubConnectionTester {
       });
 
       return true;
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("GitHubConnectionTester", caughtError);
+
       await this.persistConnectionResult(sync.integration, projectId, {
         isConnected: false,
         repoName: sync.integration.repoName,

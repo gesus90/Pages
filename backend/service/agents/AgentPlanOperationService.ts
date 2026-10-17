@@ -2,6 +2,7 @@ import {
   AGENT_PLAN_READ_OPERATIONS,
   AGENT_PLAN_WRITE_OPERATIONS,
 } from "@/definition/AgentPlanOperations";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { translatePlanError } from "./AgentPlanOperationErrors";
 import { AgentPlanReadOperations } from "./AgentPlanReadOperations";
@@ -72,6 +73,8 @@ export class AgentPlanOperationService {
         return await this.writes.write(identity.userId, operation, input ?? {});
       return null;
     } catch (error: unknown) {
+      logCaughtError("AgentPlanOperationService", error);
+
       throw translatePlanError(error);
     }
   }

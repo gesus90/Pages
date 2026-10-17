@@ -1,3 +1,5 @@
+import { logCaughtError } from "@/backend/logging/Logger";
+
 /**
  * Elements an SVG logo may not contain: scripts, embedded documents and
  * media, and elements that rewrite attributes while the image runs. A
@@ -69,7 +71,9 @@ export function isSafeSvg(fileBytes: Buffer): boolean {
 
   try {
     markup = new TextDecoder("utf-8", { fatal: true }).decode(fileBytes);
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("svg_safety", caughtError);
+
     return false;
   }
 

@@ -2,6 +2,7 @@ import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { ChatError } from "@/backend/error/ChatErrors";
 import { readChatDeletionIds } from "@/backend/service/chat/ChatSessionService";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { ChatSessionService } from "@/backend/service/chat/ChatSessionService";
 import type { UserService } from "@/backend/service/UserService";
@@ -74,6 +75,8 @@ export class AgentChatSessionOperationService {
         result: await this.dependencies.sessions.removeSelected(actor, ids),
       };
     } catch (error: unknown) {
+      logCaughtError("AgentChatSessionOperationService", error);
+
       if (!(error instanceof ChatError)) throw error;
       const code =
         error.code === "sessionMissing" ? "NOT_FOUND" : "INVALID_REQUEST";

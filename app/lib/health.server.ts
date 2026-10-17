@@ -1,4 +1,5 @@
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
+import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import { getApplicationServices } from "./services.server";
 
@@ -39,7 +40,9 @@ export async function checkHealth(
   try {
     return await Promise.race([queryDatabase(), timeout]);
   } catch (error: unknown) {
-    console.error("[pages] The health check failed.", error);
+    logCaughtError("health", error);
+
+    logDiagnostic("health", "error", "[pages] The health check failed.", error);
 
     return "unavailable";
   } finally {

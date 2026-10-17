@@ -12,6 +12,7 @@ import {
   GLOBAL_CONNECTION_SCOPE,
   UNSET_CONNECTION_SCOPE,
 } from "@/definition/AgentConnectionScope";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import {
   readAgentConnectionScope,
@@ -235,6 +236,8 @@ export class AgentConnectionService {
     try {
       await operation();
     } catch (error: unknown) {
+      logCaughtError("AgentConnectionService", error);
+
       if (
         isUniqueViolationOn(error, 'lower("name")') ||
         isUniqueViolationOn(error, "lower(name)")

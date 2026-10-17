@@ -5,6 +5,7 @@ import { readAgentConfiguration } from "@/backend/agents/AgentConfigurationInput
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
+import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import {
   artifactDirectory,
@@ -91,7 +92,9 @@ function parseAgentDefinition(
       revision,
       configuration: readAgentConfiguration(definition.configuration),
     };
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("AgentDefinitionFiles", caughtError);
+
     throw new AgentError("plan_definition_changed");
   }
 }
@@ -160,7 +163,9 @@ export class AgentDefinitionFiles {
     let text: string;
     try {
       text = await readFile(file, "utf8");
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("AgentDefinitionFiles", caughtError);
+
       throw new AgentError("plan_definition_changed");
     }
     const document = parseAgentDefinition(file, text);
@@ -274,7 +279,11 @@ export class AgentDefinitionFiles {
       const profiles = await this.loadProfiles();
       await this.restore(profiles.filter((entry) => ids.includes(entry.id)));
     } catch (error: unknown) {
-      console.error(
+      logCaughtError("AgentDefinitionFiles", error);
+
+      logDiagnostic(
+        "AgentDefinitionFiles",
+        "error",
         "Pages could not check the definition files after a run.",
         error,
       );
@@ -285,8 +294,12 @@ export class AgentDefinitionFiles {
     try {
       await this.writeDefinition(profile);
     } catch (error: unknown) {
-      console.error(
-        `Pages could not write the definition file of agent ${profile.id}.`,
+      logCaughtError("AgentDefinitionFiles", error);
+
+      logDiagnostic(
+        "AgentDefinitionFiles",
+        "error",
+        "Pages could not write an agent definition file.",
         error,
       );
     }

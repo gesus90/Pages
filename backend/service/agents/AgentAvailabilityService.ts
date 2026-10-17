@@ -10,6 +10,7 @@ import {
   agentParameterIssues,
   scanAgentPlaceholders,
 } from "@/definition/AgentParameters";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { resolveAgentAssignmentFor } from "./AgentAssignmentResolution";
 import { canUseAgentConnection } from "./AgentConnectionAccess";
@@ -327,6 +328,8 @@ export class AgentAvailabilityService {
       );
       return { isUsable: true, reason: null, personalChoices: [] };
     } catch (error: unknown) {
+      logCaughtError("AgentAvailabilityService", error);
+
       if (
         !(error instanceof AgentError) &&
         !(error instanceof TextAssistantError)
@@ -375,6 +378,8 @@ export class AgentAvailabilityService {
         );
         candidates.push(source);
       } catch (error: unknown) {
+        logCaughtError("AgentAvailabilityService", error);
+
         if (!(error instanceof TextAssistantError)) throw error;
       }
     }

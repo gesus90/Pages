@@ -197,8 +197,14 @@ it("does not expose upstream diagnostics when an unexpected operation error occu
   });
   expect(report).toHaveBeenCalledWith(
     "[pages] A chat action failed.",
-    "agents.read",
-    "Error",
+    expect.objectContaining({
+      type: "Error",
+      message:
+        "Error reported; free-form diagnostic text omitted to protect user content",
+    }),
+  );
+  expect(JSON.stringify(report.mock.calls)).not.toContain(
+    "Private upstream diagnostic",
   );
   vi.spyOn(chat.operations, "handle").mockRejectedValueOnce(
     new AgentOperationError("FORBIDDEN"),

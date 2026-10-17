@@ -6,6 +6,7 @@ import {
 } from "@/definition/AgentConnection";
 import { createCliTerminalCommand } from "@/backend/agents/cli/CliEnvironment";
 import { CLI_BINARIES } from "@/backend/agents/cli/CliLocator";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import {
   requireAgentAdministrator,
@@ -121,6 +122,8 @@ export class AgentCliLoginService {
       session.task = this.launch(actor, session);
       return { state: "starting", expiresAt: session.expiresAt };
     } catch (error: unknown) {
+      logCaughtError("AgentCliLoginService", error);
+
       release();
       throw error;
     }
@@ -344,6 +347,8 @@ export class AgentCliLoginService {
       await this.dependencies.catalog.loadAfterAccess(session.id);
       this.sessions.finish(session, "succeeded");
     } catch (error: unknown) {
+      logCaughtError("AgentCliLoginService", error);
+
       const code =
         session.errorCode ??
         (error instanceof AgentError ? error.code : "login_failed");

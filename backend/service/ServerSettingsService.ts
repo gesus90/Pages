@@ -1,10 +1,20 @@
 import { DEFAULT_PORT, isValidPort } from "@/backend/config/PagesConfig";
 import { PERMISSION } from "@/definition/Role";
 import { PAGES_VERSION } from "@/definition/Version";
+import {
+  DEFAULT_LOG_RETENTION_DAYS,
+  isLogRetentionDays,
+} from "@/definition/Logging";
+import {
+  logEvent,
+  readLoggingStatus,
+  updateLogRetention,
+} from "@/backend/logging/Logger";
 
 import type { PermissionService } from "@/backend/auth/PermissionService";
 import type { ConfigFile } from "@/backend/config/ConfigFile";
 import type { User } from "@/definition/User";
+import type { LoggingStatus } from "@/definition/Logging";
 
 /** Thrown when an actor may not change settings of the whole instance. */
 export class ServerSettingsDeniedError extends Error {
@@ -71,6 +81,39 @@ export class ServerSettingsService {
     };
   }
 
+  /** Reads retention and writer health only after a current system-admin authorization. */
+  public async readLogging(actor: User): Promise<{
+    readonly retentionDays: number;
+    readonly status: LoggingStatus;
+  }> {
+    await this.requireLoggingManager(actor);
+    return {
+      retentionDays:
+        (await this.configFile.read())?.logRetentionDays ??
+        DEFAULT_LOG_RETENTION_DAYS,
+      status: readLoggingStatus(),
+    };
+  }
+
+  /** Persists validated retention before applying cleanup immediately to the running instance. */
+  public async updateLogging(actor: User, days: number): Promise<boolean> {
+    await this.requireLoggingManager(actor);
+    if (!isLogRetentionDays(days)) return false;
+    await this.configFile.update((config) => ({
+      ...config,
+      logRetentionDays: days,
+    }));
+    logEvent({
+      level: "info",
+      event: "logging.retention.changed",
+      component: "ServerSettingsService",
+      message: "Administrator changed log retention",
+      metadata: { userId: actor.id, retentionDays: days },
+    });
+    await updateLogRetention(days);
+    return true;
+  }
+
   /**
    * Stores the port for the next start.
    *
@@ -91,5 +134,17 @@ export class ServerSettingsService {
     await this.configFile.update((config) => ({ ...config, port }));
 
     return true;
+  }
+
+  private async requireLoggingManager(actor: User): Promise<void> {
+    if (await this.canManage(actor)) return;
+    logEvent({
+      level: "warn",
+      event: "authorization.logging.denied",
+      component: "ServerSettingsService",
+      message: "System log settings access denied",
+      metadata: { userId: actor.id },
+    });
+    throw new ServerSettingsDeniedError();
   }
 }

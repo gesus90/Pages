@@ -1,5 +1,6 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 import { isApiProvider } from "@/definition/AgentConnection";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { ClaudeCodeCli } from "./ClaudeCodeCli";
 import { CodexCli } from "./CodexCli";
@@ -106,6 +107,8 @@ export class AgentCliRuntime {
         },
       };
     } catch (error: unknown) {
+      logCaughtError("AgentCliRuntime", error);
+
       if (error instanceof AgentError)
         return { ok: false, errorCode: error.code, detail: {} };
       throw error;
@@ -150,7 +153,9 @@ export class AgentCliRuntime {
         connection.provider,
       );
       await adapter.logout(home, AbortSignal.timeout(15_000));
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("AgentCliRuntime", caughtError);
+
       // Directory removal is the authoritative local cleanup, including a missing CLI.
     }
     await this.dependencies.store.remove(connection.id, connection.provider);

@@ -1,5 +1,7 @@
 import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 
+import { logCaughtError } from "@/backend/logging/Logger";
+
 const SCRYPT_ALGORITHM_NAME = "scrypt";
 const SCRYPT_COST_FACTOR = 32768;
 const SCRYPT_BLOCK_SIZE = 8;
@@ -86,7 +88,9 @@ export class PasswordHasher {
         candidateKey.length === parsed.derivedKey.length &&
         timingSafeEqual(candidateKey, parsed.derivedKey)
       );
-    } catch {
+    } catch (caughtError: unknown) {
+      logCaughtError("PasswordHasher", caughtError);
+
       return false;
     }
   }

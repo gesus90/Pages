@@ -1,6 +1,8 @@
 import { lstat, mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 
+import { logCaughtError } from "@/backend/logging/Logger";
+
 import { readChatSessionId } from "../ChatSessionService";
 
 /** The name of the folder of Pica's working directories, next to the agent folders. */
@@ -54,8 +56,10 @@ export class PicaAcpWorkspace {
         error instanceof Error &&
         "code" in error &&
         error.code === "EEXIST"
-      ))
+      )) {
+        logCaughtError("PicaAcpWorkspace", error);
         throw error;
+      }
     }
     await requireOwnDirectory(directory);
     return directory;

@@ -19,6 +19,7 @@ import { WikiPageReader } from "@/backend/service/wiki/WikiPageReader";
 import { WikiPageService } from "@/backend/service/wiki/WikiPageService";
 import { PAGES_AGENT_LIMITS } from "@/definition/PagesAgentOperations";
 import { WIKI_SCOPE, formatWikiCover } from "@/definition/Wiki";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { agentTransactionScope } from "./AgentTransactionScope";
 import { applyTextPatch, indexText } from "./AgentTextRange";
@@ -155,6 +156,8 @@ export class AgentWikiFieldService {
         this.run(transaction, identity.userId, operation, request),
       );
     } catch (error: unknown) {
+      logCaughtError("AgentWikiFieldService", error);
+
       throw translate(error);
     }
     if (outcome.changedPageId !== null)

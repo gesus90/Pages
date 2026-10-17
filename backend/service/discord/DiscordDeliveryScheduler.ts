@@ -1,3 +1,6 @@
+import { loggedJob } from "@/backend/logging/LoggedOperation";
+import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
+
 import type { DiscordDeliveryWorker } from "@/backend/service/discord/DiscordDeliveryWorker";
 
 /** Delivers stored Discord messages on a fixed interval and on request. */
@@ -60,11 +63,20 @@ export class DiscordDeliveryScheduler {
    */
   public async run(): Promise<boolean> {
     try {
-      await this.worker.runDue();
+      await loggedJob("DiscordDeliveryScheduler", "job.discord_delivery", () =>
+        this.worker.runDue(),
+      );
 
       return true;
     } catch (error: unknown) {
-      console.error("Pages could not deliver Discord notifications.", error);
+      logCaughtError("DiscordDeliveryScheduler", error);
+
+      logDiagnostic(
+        "DiscordDeliveryScheduler",
+        "error",
+        "Pages could not deliver Discord notifications.",
+        error,
+      );
 
       return false;
     }

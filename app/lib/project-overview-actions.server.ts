@@ -9,6 +9,7 @@ import {
   ProjectNotFoundError,
 } from "@/backend/error/ProjectErrors";
 import { isProjectStatus } from "@/definition/Project";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { ApplicationServices } from "@/app/lib/services.server";
 import type { ProjectStatus } from "@/definition/Project";
@@ -172,6 +173,8 @@ async function createProject({
         )
       : await services.projectService.create(actor, project);
   } catch (error: unknown) {
+    logCaughtError("project_overview_actions", error);
+
     return getProjectActionError(error);
   }
 

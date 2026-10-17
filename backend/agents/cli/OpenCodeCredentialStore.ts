@@ -11,6 +11,7 @@ import {
 import path from "node:path";
 
 import { AgentError } from "@/backend/error/AgentErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import {
   openCodeCredentialFile,
@@ -39,6 +40,7 @@ async function readPrivateFile(file: string): Promise<string | null> {
   const facts = await lstat(file).catch((error: unknown) => {
     if (error instanceof Error && "code" in error && error.code === "ENOENT")
       return null;
+    logCaughtError("OpenCodeCredentialStore", error);
     throw new AgentError("cli_not_logged_in");
   });
   if (facts === null) return null;

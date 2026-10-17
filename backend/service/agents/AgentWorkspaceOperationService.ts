@@ -8,6 +8,7 @@ import {
   AGENT_WORKSPACE_READ_OPERATIONS,
   AGENT_WORKSPACE_WRITE_OPERATIONS,
 } from "@/definition/AgentWorkspaceOperations";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { pageAgentEntries } from "./AgentCursor";
 import { translateWorkspaceError } from "./AgentWorkspaceOperationErrors";
@@ -226,6 +227,8 @@ export class AgentWorkspaceOperationService {
         return await this.write(identity.userId, operation, input ?? {});
       return null;
     } catch (error: unknown) {
+      logCaughtError("AgentWorkspaceOperationService", error);
+
       throw translateWorkspaceError(error);
     }
   }
@@ -274,6 +277,8 @@ export class AgentWorkspaceOperationService {
     try {
       await this.apply(userId, request, recorder);
     } catch (error: unknown) {
+      logCaughtError("AgentWorkspaceOperationService", error);
+
       // A parallel call with the same operation ID may have committed between
       // the lookup and the write; whatever refused this one, that call's
       // result is the answer.

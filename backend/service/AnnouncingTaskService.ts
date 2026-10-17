@@ -1,4 +1,5 @@
 import { TaskService } from "@/backend/service/TaskService";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type { PermissionService } from "@/backend/auth/PermissionService";
@@ -161,7 +162,12 @@ export class AnnouncingTaskService extends TaskService {
     sortOrder: number,
   ): Promise<WorkItemDetail> {
     // A failed read here is left to the write below, which reports it.
-    const before = await this.getById(actor, id).catch(() => null);
+    const before = await this.getById(actor, id).catch(
+      (caughtError: unknown) => {
+        logCaughtError("AnnouncingTaskService", caughtError);
+        return null;
+      },
+    );
     const updated = await super.updateStatusAndOrder(
       actor,
       id,
@@ -330,7 +336,10 @@ export class AnnouncingTaskService extends TaskService {
     // The removal drops the link, so its source is read before. A failed read
     // is left to the removal, which reports it.
     const dependencies = await this.findDependencies(actor, [projectId]).catch(
-      () => [],
+      (caughtError: unknown) => {
+        logCaughtError("AnnouncingTaskService", caughtError);
+        return [];
+      },
     );
     const dependency = dependencies.find(
       (candidate) => candidate.id === dependencyId,

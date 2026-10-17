@@ -1,5 +1,6 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 import { detectFileType } from "@/backend/service/wiki/WikiFileTypes";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { ticketAssetReferences } from "./AgentTicketAssetReferences";
 
@@ -69,6 +70,8 @@ export class AgentTicketAssetService {
         references.set(reference.link, reference);
       return [...references.values()];
     } catch (error: unknown) {
+      logCaughtError("AgentTicketAssetService", error);
+
       if (error instanceof AgentError) throw error;
       throw new AgentError("parameter_asset_unavailable");
     }
@@ -94,6 +97,8 @@ export class AgentTicketAssetService {
         size: bytes.length,
       };
     } catch (error: unknown) {
+      logCaughtError("AgentTicketAssetService", error);
+
       if (error instanceof AgentError) throw error;
       throw new AgentError("parameter_asset_unavailable");
     }
@@ -147,7 +152,9 @@ function fileContent(bytes: Buffer): AgentTicketAssetContent["content"] {
     if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/u.test(text))
       throw new Error("Binary file");
     return { type: "text", text };
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("AgentTicketAssetService", caughtError);
+
     throw new AgentError("parameter_asset_type_unsupported");
   }
 }

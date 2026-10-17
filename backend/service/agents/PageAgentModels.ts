@@ -1,6 +1,7 @@
 import { agentProfilePriority } from "@/backend/auth/AgentProfilePolicy";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { resolveAgentAssignmentFor } from "./AgentAssignmentResolution";
 
@@ -150,6 +151,8 @@ export async function pageAgentModels(
         provider: connection.provider,
       });
     } catch (error: unknown) {
+      logCaughtError("PageAgentModels", error);
+
       if (!(error instanceof TextAssistantError)) throw error;
     }
   }

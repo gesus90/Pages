@@ -5,6 +5,8 @@ import path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
+import { logCaughtError, logFileProbeError } from "@/backend/logging/Logger";
+
 import type { ReadStream } from "node:fs";
 
 /** Bytes of the start of a file that the type detection looks at. */
@@ -112,6 +114,8 @@ export class WikiFileStore {
       await pipeline(Readable.from(guarded()), createWriteStream(partial));
       await rename(partial, path.join(this.directory, storageName));
     } catch (error: unknown) {
+      logCaughtError("WikiFileStore", error);
+
       await rm(partial, { force: true });
 
       throw error;
@@ -135,6 +139,8 @@ export class WikiFileStore {
       );
       return copyName;
     } catch (error: unknown) {
+      logCaughtError("WikiFileStore", error);
+
       await rm(destination, { force: true });
       throw error;
     }
@@ -175,7 +181,12 @@ export class WikiFileStore {
     known: ReadonlySet<string>,
     olderThanMilliseconds: number,
   ): Promise<number> {
-    const names = await readdir(this.directory).catch(() => [] as string[]);
+    const names = await readdir(this.directory).catch(
+      (caughtError: unknown) => {
+        logFileProbeError("WikiFileStore", caughtError);
+        return [] as string[];
+      },
+    );
     const cutoff = Date.now() - olderThanMilliseconds;
     let removed = 0;
 

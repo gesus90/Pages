@@ -1,4 +1,5 @@
 import { readAgentObject } from "@/backend/agents/AgentPayload";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { REPORT_EVIDENCE_PLACEHOLDER } from "./AgentPlanContract";
 import { sanitizePlanOutput } from "./AgentPlanOutput";
@@ -66,7 +67,9 @@ function readPlanReport(output: string): PlanReport | "invalid" | null {
   try {
     const parsed: unknown = JSON.parse(last[1]);
     report = readAgentObject(parsed);
-  } catch {
+  } catch (caughtError: unknown) {
+    logCaughtError("AgentPlanAcceptance", caughtError);
+
     return "invalid";
   }
   return {

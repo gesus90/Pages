@@ -1,5 +1,6 @@
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { CliProviderId } from "@/definition/AgentConnection";
 
@@ -83,6 +84,8 @@ export function readCliTextResponse(
       ? readClaudeText(output)
       : readCodexText(output, options.webSearch === true);
   } catch (error: unknown) {
+    logCaughtError("CliTextResponse", error);
+
     if (error instanceof TextAssistantError) throw error;
     throw new TextAssistantError("invalidOutput");
   }

@@ -10,6 +10,7 @@ import {
   WikiValidationError,
 } from "@/backend/error/WikiErrors";
 import { InstanceSettingsDeniedError } from "@/backend/service/InstanceSettingsService";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { RouterContextProvider } from "react-router";
 import type { ApplicationServices } from "@/app/lib/services.server";
@@ -175,6 +176,8 @@ export async function runWikiAction(
   try {
     return await handler(context);
   } catch (error: unknown) {
+    logCaughtError("wiki_action_support", error);
+
     return toWikiActionError(error);
   }
 }
