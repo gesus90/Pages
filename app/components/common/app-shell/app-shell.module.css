@@ -1,0 +1,34 @@
+/* One width drives the sidebar, the header and the main area (PAGE-95). The
+   custom properties are global on purpose: panels placed against the main area
+   read `--app-content-start`. The chosen width only ever comes in as
+   `--app-sidebar-preferred`; the clamp keeps it between the designed width and
+   half the viewport for every window size, zoom level and breakpoint. */
+.shell {
+  --app-sidebar-minimum: 18.25rem;
+  --app-sidebar-gap: 1.25rem;
+  --app-sidebar-width: clamp(
+    var(--app-sidebar-minimum),
+    var(--app-sidebar-preferred, 0px),
+    50vw
+  );
+  --app-content-start: calc(var(--app-sidebar-width) + var(--app-sidebar-gap));
+}
+
+@media (min-width: 80rem) {
+  .shell {
+    --app-sidebar-minimum: 14rem;
+    --app-sidebar-gap: 2rem;
+  }
+}
+
+.collapsed {
+  --app-sidebar-width: 3rem;
+}
+
+/* While the edge is dragged, nothing gets selected and the cursor stays the
+   resize cursor, even where the pointer leaves the narrow edge. */
+.resizing,
+.resizing * {
+  cursor: col-resize;
+  user-select: none;
+}

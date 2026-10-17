@@ -50,14 +50,15 @@
 
 @media (min-width: 48rem) {
   .positioner {
-    left: 19.5rem;
+    /* Follows the main area when the sidebar width changes (PAGE-95). */
+    left: var(--app-content-start, 19.5rem);
   }
 }
 
 @media (min-width: 80rem) {
   .positioner {
     right: 2.5rem;
-    left: 16rem;
+    left: var(--app-content-start, 16rem);
   }
 }
 

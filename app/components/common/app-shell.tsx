@@ -9,7 +9,7 @@ import {
   SquareCheck,
   Users,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, NavLink, useSubmit } from "react-router";
 
@@ -39,9 +39,19 @@ import { WikiSidebarSection } from "@/app/components/wiki/wiki-sidebar-section";
 import { AgentNavigation } from "@/app/components/settings/agents/agent-navigation";
 import { cn } from "@/app/lib/cn";
 
+import styles from "./app-shell/app-shell.module.css";
+import { SidebarResizeHandle } from "./app-shell/sidebar-resize-handle";
+import { SidebarToggle } from "./app-shell/sidebar-toggle";
+import { useSidebarLayout } from "./app-shell/use-sidebar-layout";
+
 import type { InstanceBranding } from "@/definition/Instance";
 import type { User } from "@/definition/User";
 import type { AccountAccess } from "@/definition/Authorization";
+import type { RefObject } from "react";
+import type { SidebarLayout } from "./app-shell/use-sidebar-layout";
+
+/** Viewports from which the permanent sidebar replaces the mobile menu. */
+const PERMANENT_SIDEBAR_QUERY = "(min-width: 48rem)";
 
 interface AppShellProps {
   readonly isOffline?: boolean;
@@ -50,6 +60,15 @@ interface AppShellProps {
   readonly canViewProjects?: boolean;
   readonly canViewUsers: boolean;
   readonly branding: InstanceBranding;
+}
+
+interface DesktopSidebarProps {
+  readonly layout: SidebarLayout;
+  readonly shellRef: RefObject<HTMLDivElement | null>;
+  readonly branding: InstanceBranding;
+  readonly canViewProjects: boolean;
+  readonly canViewUsers: boolean;
+  readonly canManageAgents: boolean;
 }
 
 interface NavigationLinksProps {
@@ -243,6 +262,22 @@ function MobileNavigation({
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
 
+  // The permanent sidebar takes over on wider screens; an open menu would
+  // show the navigation twice.
+  useEffect(() => {
+    const query = window.matchMedia(PERMANENT_SIDEBAR_QUERY);
+
+    function handleChange(event: MediaQueryListEvent): void {
+      if (event.matches) {
+        setIsOpen(false);
+      }
+    }
+
+    query.addEventListener("change", handleChange);
+
+    return () => query.removeEventListener("change", handleChange);
+  }, []);
+
   function handleClose(): void {
     setIsOpen(false);
   }
@@ -290,19 +325,47 @@ function MobileNavigation({
   );
 }
 
-/** Renders the responsive authenticated Pages frame. */
-export function AppShell({
-  isOffline = false,
-  account,
-  user,
-  canViewProjects = false,
-  canViewUsers,
+/**
+ * The permanent sidebar of tablets and desktops: resizable at its right edge
+ * up to half the viewport, and collapsible to a narrow strip.
+ *
+ * @remarks
+ * A collapsed sidebar keeps its navigation mounted but hidden, so open tree
+ * branches stay open and nothing hidden stays in the tab order.
+ */
+function DesktopSidebar({
+  layout,
+  shellRef,
   branding,
-}: AppShellProps): React.ReactElement {
-  const { t } = useTranslation();
+  canViewProjects,
+  canViewUsers,
+  canManageAgents,
+}: DesktopSidebarProps): React.ReactElement {
+  const sidebarRef = useRef<HTMLElement>(null);
+  const sidebarId = useId();
+  const contentId = useId();
+
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <aside className="fixed inset-y-0 left-0 hidden w-[18.25rem] flex-col bg-background px-5 pt-7 pb-13 md:flex xl:w-56 xl:px-4 xl:pt-5 xl:pb-6">
+    <aside
+      ref={sidebarRef}
+      id={sidebarId}
+      className={cn(
+        "fixed inset-y-0 left-0 hidden w-(--app-sidebar-width) flex-col bg-background px-5 pt-7 pb-13 md:flex xl:px-4 xl:pt-5 xl:pb-6",
+        !layout.isCollapsed && "min-w-(--app-sidebar-minimum)",
+      )}
+    >
+      <SidebarToggle
+        controlsId={contentId}
+        isCollapsed={layout.isCollapsed}
+        onToggle={layout.toggleCollapsed}
+      />
+      <div
+        id={contentId}
+        className={cn(
+          "flex min-h-0 flex-1 flex-col",
+          layout.isCollapsed && "hidden",
+        )}
+      >
         <img
           className="pages-logo pointer-events-none w-57 xl:w-32"
           src={iconUrl}
@@ -314,22 +377,67 @@ export function AppShell({
           <NavigationLinks
             canViewProjects={canViewProjects}
             canViewUsers={canViewUsers}
-            canManageAgents={
-              account.isActive && account.isAdmin && account.mode === "admin"
-            }
+            canManageAgents={canManageAgents}
           />
         </div>
-      </aside>
+      </div>
+      {layout.isCollapsed ? null : (
+        <SidebarResizeHandle
+          controlsId={sidebarId}
+          isResizing={layout.isResizing}
+          preferredWidth={layout.preferredWidth}
+          shellRef={shellRef}
+          sidebarRef={sidebarRef}
+          onResizeEnd={layout.commitWidth}
+          onResizeStart={layout.startResize}
+        />
+      )}
+    </aside>
+  );
+}
 
-      <header className="fixed inset-x-0 top-0 z-20 flex min-h-19 items-center justify-between bg-background/85 backdrop-blur px-5 md:bg-transparent md:backdrop-blur-none md:pl-[18.25rem] xl:pl-56">
+/** Renders the responsive authenticated Pages frame. */
+export function AppShell({
+  isOffline = false,
+  account,
+  user,
+  canViewProjects = false,
+  canViewUsers,
+  branding,
+}: AppShellProps): React.ReactElement {
+  const { t } = useTranslation();
+  const shellRef = useRef<HTMLDivElement>(null);
+  const layout = useSidebarLayout();
+  const canManageAgents =
+    account.isActive && account.isAdmin && account.mode === "admin";
+
+  return (
+    <div
+      ref={shellRef}
+      className={cn(
+        "min-h-screen bg-background text-foreground",
+        styles.shell,
+        layout.isCollapsed && styles.collapsed,
+        layout.isResizing && styles.resizing,
+      )}
+      style={layout.shellStyle}
+    >
+      <DesktopSidebar
+        branding={branding}
+        canManageAgents={canManageAgents}
+        canViewProjects={canViewProjects}
+        canViewUsers={canViewUsers}
+        layout={layout}
+        shellRef={shellRef}
+      />
+
+      <header className="fixed inset-x-0 top-0 z-20 flex min-h-19 items-center justify-between bg-background/85 backdrop-blur px-5 md:left-(--app-sidebar-width) md:bg-transparent md:pl-0 md:backdrop-blur-none">
         <div className="justify-self-start md:hidden">
           <MobileNavigation
             branding={branding}
             canViewProjects={canViewProjects}
             canViewUsers={canViewUsers}
-            canManageAgents={
-              account.isActive && account.isAdmin && account.mode === "admin"
-            }
+            canManageAgents={canManageAgents}
           />
         </div>
         <img
@@ -343,7 +451,7 @@ export function AppShell({
         </div>
       </header>
 
-      <main className="px-4 pt-24 pb-10 md:pl-[19.5rem] md:pr-8 xl:pl-64 xl:pr-10">
+      <main className="px-4 pt-24 pb-10 md:pr-8 md:pl-(--app-content-start) xl:pr-10">
         {isOffline ? (
           <p
             role="status"

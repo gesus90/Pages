@@ -106,6 +106,10 @@
   },
   "navigation": {
     "close": "Close navigation",
+    "collapse": "Collapse navigation",
+    "expand": "Expand navigation",
+    "resize": "Resize navigation",
+    "resizeValue": "{{width}} of at most {{maximum}} pixels",
     "dashboard": "Dashboard",
     "label": "Main navigation",
     "menu": "Open navigation",
