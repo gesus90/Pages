@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { useState } from "react";
 import { I18nextProvider } from "react-i18next";
 import { expect, it, vi } from "vitest";
@@ -146,7 +152,7 @@ it("disables an already open action menu when editing becomes unavailable", asyn
   ).not.toBeNull();
 });
 
-it("renders compact circular endpoints, retains their ports and colors only completed checkpoints green", () => {
+it("renders compact rounded endpoints, retains their ports and colors only completed checkpoints green", async () => {
   const run = {
     ...syntheticRun(),
     steps: [
@@ -157,11 +163,15 @@ it("renders compact circular endpoints, retains their ports and colors only comp
   const mounted = render(<Canvas run={run} />);
   const start = node("Start");
   const end = node("Ende");
-  expect(Number.parseInt(start.style.width)).toBeLessThan(100);
+  expect(
+    Number.parseInt(
+      (start.closest(".react-flow__node") as HTMLElement).style.width,
+    ),
+  ).toBeLessThan(100);
   const startButton = within(start).getByRole("button", {
     name: i18n.t("plans.selectNode", { name: "Start" }),
   });
-  expect(startButton.className).toContain("rounded-full");
+  expect(startButton.className).toContain("rounded-2xl");
   expect(startButton.className).toContain("text-success");
   expect(
     within(end).getByRole("button", {
@@ -176,11 +186,13 @@ it("renders compact circular endpoints, retains their ports and colors only comp
       name: i18n.t("plans.flowIn"),
     }),
   ).toHaveProperty("disabled", false);
-  expect(
-    mounted.container
-      .querySelector('[data-plan-link="flow:start:first"]')
-      ?.getAttribute("d"),
-  ).toMatch(/^M 64 72 /);
+  await waitFor(() =>
+    expect(
+      mounted.container.querySelector(
+        '.react-flow__edge[data-id="flow:start:first"]',
+      ),
+    ).not.toBeNull(),
+  );
 });
 
 it("keeps type tints while agent execution statuses change", () => {

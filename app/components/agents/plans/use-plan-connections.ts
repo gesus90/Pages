@@ -15,7 +15,8 @@ import type {
 import type { AgentPlanIssue } from "@/definition/AgentPlanGraph";
 import type { Dispatch, SetStateAction } from "react";
 
-interface PlanConnection {
+/** The source half of a control, value or predecessor-result connection. */
+export interface PlanConnection {
   readonly kind: "flow" | "source" | "result";
   /** A node, or a boundary port of a frame for a source towards its members. */
   readonly nodeId: string;
@@ -119,6 +120,18 @@ export function usePlanConnections(
     targetId: string,
     parameter: string,
   ) => void;
+  /** Checks explicit source and target ports without relying on a preceding state update. */
+  readonly canConnectFrom: (
+    source: PlanConnection,
+    id: string,
+    parameter?: string,
+  ) => boolean;
+  /** Applies the existing validation to a complete library connection event. */
+  readonly connectFrom: (
+    source: PlanConnection,
+    id: string,
+    parameter?: string,
+  ) => void;
 } {
   const [connection, setConnection] = useState<PlanConnection | null>(null);
   const [connectionIssue, setIssue] = useState<AgentPlanIssue | null>(null);
@@ -157,13 +170,27 @@ export function usePlanConnections(
     targetId: string,
     parameter: string,
   ): void {
-    const source: PlanConnection = { kind: "source", nodeId: sourceId };
+    connectFrom({ kind: "source", nodeId: sourceId }, targetId, parameter);
+  }
+  function canConnectFrom(
+    source: PlanConnection,
+    id: string,
+    parameter?: string,
+  ): boolean {
+    const result = attemptConnection(
+      { draft, sources, connection: source },
+      id,
+      parameter,
+    );
+    return result !== null && "plan" in result;
+  }
+  function connectFrom(
+    source: PlanConnection,
+    id: string,
+    parameter?: string,
+  ): void {
     accept(
-      attemptConnection(
-        { draft, sources, connection: source },
-        targetId,
-        parameter,
-      ),
+      attemptConnection({ draft, sources, connection: source }, id, parameter),
     );
   }
   return {
@@ -173,5 +200,7 @@ export function usePlanConnections(
     connect,
     canConnect,
     bindSource,
+    canConnectFrom,
+    connectFrom,
   };
 }

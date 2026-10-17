@@ -13,6 +13,20 @@ import type {
   AgentPlanPage,
   AgentPlanSources,
 } from "@/definition/AgentPlan";
+import type { AgentPlanConfiguration } from "@/definition/AgentPlanConfiguration";
+
+async function loadNodeConfiguration(
+  workspaceId: string,
+  agentId: string,
+): Promise<AgentPlanConfiguration> {
+  const query = new URLSearchParams({ workspaceId, agentId });
+  const response = await fetch(`/agent-api/plan-sources?${query}`, {
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error("Agent template unavailable");
+  const configuration: unknown = await response.json();
+  return readPlanConfiguration(configuration);
+}
 
 /** Saved graphs, unsaved edits and immutable run commands remain separate state; Play saves unsaved edits first. */
 export function usePlanEditor(page: AgentPlanPage): {
@@ -25,6 +39,7 @@ export function usePlanEditor(page: AgentPlanPage): {
   readonly canEdit: boolean;
   readonly isPending: boolean;
   readonly sourceError: string | null;
+  readonly isLoadingSources: boolean;
   readonly save: () => void;
   readonly play: () => void;
   readonly stop: (id: string) => void;
@@ -37,19 +52,14 @@ export function usePlanEditor(page: AgentPlanPage): {
     command.data,
     command.state !== "idle",
   );
-  const { sources, sourceError } = usePlanSources(page, draft.workspaceId);
-  const graph = usePlanGraph(draft, setDraft, sources, async (agentId) => {
-    const query = new URLSearchParams({
-      workspaceId: draft.workspaceId,
-      agentId,
-    });
-    const response = await fetch(`/agent-api/plan-sources?${query}`, {
-      cache: "no-store",
-    });
-    if (!response.ok) throw new Error("Agent template unavailable");
-    const configuration: unknown = await response.json();
-    return readPlanConfiguration(configuration);
-  });
+  const {
+    sources,
+    sourceError,
+    isLoading: isLoadingSources,
+  } = usePlanSources(page, draft.workspaceId);
+  const graph = usePlanGraph(draft, setDraft, sources, (agentId) =>
+    loadNodeConfiguration(draft.workspaceId, agentId),
+  );
   const navigate = useNavigate();
   useEffect(() => {
     const result = command.data;
@@ -104,6 +114,7 @@ export function usePlanEditor(page: AgentPlanPage): {
     canEdit: page.selected?.canEdit ?? true,
     isPending: command.state !== "idle",
     sourceError: graph.insertionError ?? sourceError,
+    isLoadingSources,
     save,
     play,
     stop: (id) => control("stop-plan", id),

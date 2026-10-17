@@ -18,9 +18,11 @@ function deletesSelection(
   const target = event.target;
   if (target === event.currentTarget) return true;
   return (
-    target instanceof HTMLElement &&
-    selectedId !== null &&
-    target.dataset.planHandle === selectedId
+    target instanceof Element &&
+    ((target instanceof HTMLElement &&
+      selectedId !== null &&
+      target.dataset.planHandle === selectedId) ||
+      target.matches(".react-flow__pane, .react-flow__node, .react-flow__edge"))
   );
 }
 

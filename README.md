@@ -734,19 +734,19 @@ selection narrows the registered workspaces and their ticket picker. Only
 workspaces in accessible projects are offered; unavailable registrations are
 explained and cannot be selected for new work.
 
-The grid is the main editor. It fills the work area below the global header and
-has no surface of its own: it shows the page background with a faint dot raster
-that fades out towards every edge of the visible area, so the grid blends into
-the page while it pans and zooms; nodes, ports and connections do not fade.
-Drag its empty area to pan it; the mouse wheel or the zoom buttons at its left
-edge zoom it, and nodes, frames and connections keep their positions relative
-to each other. On wide screens three separate panels float over the grid
-without overlapping each other: the plan configuration at the top (plan choice,
-title, project, workspace, sharing, Save, Play, Pause, Stop and the validation
-list), a collapsible side panel at the right and a collapsible run panel at the
-bottom. Narrower windows stack them around the grid. The side panel's tabs are
+The main editor uses [React Flow](https://reactflow.dev/) with a framed, dotted
+canvas and the Pages light/dark semantic palette. Drag its empty area to pan;
+the wheel, pinch gesture or native zoom buttons zoom it. **Fit all nodes** fits
+the existing positions without rearranging them. The MiniMap offers an overview
+and pointer navigation; it is hidden on small screens to leave room for controls.
+The initial fit runs when the graph opens; subsequent run-status updates keep
+the viewport and selection. The plan configuration sits above the canvas
+(plan choice, title, project, workspace, sharing, Save, Play, Pause, Stop and
+validation), with a collapsible inspector beside it on wide screens and a
+collapsible run panel below. Narrower windows stack the panels. The inspector
+always shows the current node or connection independently of the source tabs:
 **Parameters / Agents / Tickets / Groups** (**Parameter / Agents / Tickets /
-Gruppen** in German); selecting a node opens its details in the tab of its kind.
+Gruppen** in German).
 The run panel shows the selected run of your own history (steps, status, group,
 session reference, errors and cancellations) and the list of connections;
 without a run it says so.
@@ -754,11 +754,12 @@ Search, filter and sort the authorized agents and project tasks/subtasks, then
 drag them onto the grid. Tickets can also be filtered by their current status:
 open, done, or one workflow status such as To Do or Done. **Start** and
 **End** (**Ende** in German) sit above the tabs and are dragged onto the grid the same way; a
-dropped start or end lands with its circle under the pointer. Buttons offer an
+dropped start or end lands with its checkpoint symbol under the pointer. Buttons offer an
 alternative to dragging. Move nodes, frames, starts and ends by their header or
-circle, or edit their grid coordinates; the grabbed point stays under the
+checkpoint symbol, or edit their grid coordinates; the grabbed point stays under the
 pointer at every zoom level and positions snap to the raster. Grid coordinates
-range from 0 to 6000, so a node stops at the edge of that area. The panel edits instances and their inputs; agent definitions
+range from 0 to 6000; dropping or keyboard movement commits a snapped, bounded
+position. The panel edits instances and their inputs; agent definitions
 remain in the existing Agents area.
 
 The **Groups** tab creates ACP groups. A group is a green frame on the grid
@@ -847,8 +848,15 @@ and the others dashed; a release on the empty grid or Escape adds nothing:
   are rejected. Existing predecessor-result connections remain available and
   require a flow path from the producing agent to the consuming agent.
 
-Click a connection, or choose it in the **Connections** list below the grid, to
-disconnect it alone; both of its nodes stay. The node menu removes the node
+Click a connection or its labelled chip, or choose it in the **Connections** list
+below the grid, then use **Disconnect** to remove it alone; both nodes stay.
+Connections also have an inspector with their type, endpoints and removal action.
+Square flow handles and round data handles have larger pointer hit areas;
+labelled port buttons offer the same validated connections from the keyboard.
+Data connections use dashed orthogonal paths, flow connections solid curves;
+both have directional arrows, labels and visible selection. Invalid targets
+are marked in the preview and existing validation explains the rejected port.
+The node menu removes the node
 together with all of its connections; Delete or Backspace removes the selected
 node or connection while the grid or the selected node's header has focus, but
 never while a field, menu or dialog has it.
@@ -880,6 +888,11 @@ explicit Start/End nodes and connected required parameters before Play.
 values. Incomplete drafts can be saved; invalid connections cannot. Revision
 checks reject conflicting writes. Navigation and tab closing warn about
 unsaved changes, and run polling does not replace an edited draft.
+The toolbar distinguishes an unsaved draft, processing, save failure, saved
+content and read-only access. Plan navigation, source loading and the insertion
+of a current agent configuration have their own loading feedback. Read-only
+access also disables React Flow dragging and connection creation; selection,
+pan/zoom, run inspection and the existing read-only node dialog stay available.
 
 **Delete plan** removes a plan for everyone it is shared with. Only its owner,
 who may also edit it, is offered the action, and the server refuses anyone
@@ -1069,6 +1082,87 @@ project and workspace. Only the owner may edit. Every executor needs their own
 current agent/model and ticket/wiki permissions; sharing never delegates
 credentials. Only the executor may read, pause, resume or stop their run, and
 resource access is rechecked on the server before execution and disclosure.
+
+### React Flow migration inventory and acceptance (PAGE-87)
+
+The inventory below is from the domain definitions, editor, input readers,
+repository, permission service and run views on the PAGE-86 base. It describes
+the preserved contracts, not a claim that a live database roundtrip was run.
+
+| Model or behavior | Preserved contract |
+| --- | --- |
+| Start / End | Stored IDs and coordinates; only Flow OUT / IN respectively; completed checkpoints turn green, other checkpoints stay neutral. |
+| Agent | Independent configuration (name/revision, model grant, model, provider, reasoning, complete template and run options), personal assignment, instruction, completion scope and bindings. |
+| Ticket | Task reference and live workflow badge; a value source with no flow ports; legacy ticket-to-text bindings remain supported. |
+| Parameter | Name, format (string/number/JSON), typed text/number/ticket/workspace/wiki value and data output. |
+| Variable | Legacy named global text value and data output. |
+| Group | Name, position, ordered membership records, member-relative coordinates, explicit internal edges (or existing legacy-chain reading), boundary port IDs/types/defaults/required flags, bindings and shared-session display. |
+| Flow | Outer and internal edges remain separate; only same-level flow ports connect; duplicate edges and cycles are refused. |
+| Data | Literal bindings stay in the model; source bindings refer to nodes or group boundary IDs; result bindings retain predecessor/path requirements. Data never becomes a scheduling edge. |
+| Editing | Existing source filters, button/drag insertion, copied template defaults, movement, selection, node dialog, inspector, group assignment/removal choice, disconnect and node removal remain attached to domain actions. Double-click still opens the PAGE-86 node/group console. |
+| Runs | Waiting/running/succeeded/failed/paused/cancelled, blocked/cancellation diagnostics, group sessions, historical runs, progress, console and run controls keep their existing meanings. |
+| Access and persistence | Owner-only editing, executor-only run access, server authorization, optimistic revisions, Save/Play payloads, dirty-draft leave guard, in-flight edit preservation and run polling retain their existing implementations. |
+
+`plan-flow-model.ts` is a one-way rendering projection, not a new save format.
+It keeps references to Pages domain nodes and maps members to React Flow
+`parentId` with the existing member-area offset. A committed move uses the
+existing move/place actions; connection events use the existing domain validator
+with an explicit source and target, avoiding a state-update race between
+starting and completing a connection. Measurements, drag previews, selection
+metadata, viewport and MiniMap state never enter the saved plan. Opening or
+polling a plan performs no layout or replacement of pinned configurations.
+No schema, backend execution, scheduler, authorization or Mastra change is part
+of this migration. Project/milestone diagram implementations remain unchanged.
+
+Source comparison of the implemented interface (not screenshot evidence):
+
+| Before PAGE-87 | After PAGE-87 |
+| --- | --- |
+| Custom transformed canvas, pointer gestures and SVG curves | React Flow canvas, measured handles, native dragging, zoom/fit controls and MiniMap |
+| Floating configuration/source/run panels over a fading raster | Framed canvas with separate configuration, selection/source and run areas; collapsible narrow-screen panels |
+| Node title/type and custom port buttons | Symbol plus type/title hierarchy, semantic type border, existing run badge, 24px pointer handles and keyboard port buttons |
+| Custom curves for both connection kinds | Solid flow curves, dashed data paths, direction markers, named chips and a connection inspector |
+| Selection details inside the tab of the selected type | One inspector above independently usable source tabs; explicit draft/save/read-only/loading feedback |
+
+The superseded plan SVG renderer, line-action positioning, pointer/link/move
+gesture hooks and viewport implementation are removed. Shared domain editing,
+source dropping, geometry for group membership and the keyboard deletion guard
+remain because they enforce Pages behavior rather than implement a parallel
+canvas engine. React Flow 12.12.0 is pinned; its declared React/React DOM peers
+accept the repository's React 19 versions. The library supports
+[SSR](https://reactflow.dev/learn/advanced-use/ssr-ssg-configuration): the provider
+receives the initial graph and nodes have initial dimensions; client hydration
+measures their handles and draws the edges. The Pages static type gate checks
+the integration against the installed types.
+The free built-in components and attribution are used; the complete MIT notice
+is linked from canvas help and included as a Vite URL asset.
+
+Verification boundaries on 2026-10-17:
+
+- Final static gates: `pnpm run check` exited **0** (React Router typegen,
+  `tsc --noEmit`, `prettier --check .`); the subsequent
+  `node --max-old-space-size=3072 node_modules/eslint/bin/eslint.js . --max-warnings=0`
+  exited **0**. These results establish no runtime or visual acceptance.
+- Only the required static `check` (route type generation, TypeScript and
+  Prettier) and ESLint gates are run. Existing tests remain unchanged; no tests,
+  coverage, harness, build, provider/model call or real agent execution is run.
+- Read-only port inspection found existing listeners on both 3000 and 3100.
+  Neither is started, stopped, replaced or used for mutations. The current
+  task forbids server changes and test runs, and an existing 3100 listener is
+  not evidence that it serves this implementation from an isolated snapshot.
+- No database is opened/copied/migrated, no test-user credential is read, and
+  no external service or original dataset is changed.
+- TODO 1 (inventory), 2 (dependency/license) and 8 (old renderer removal and
+  affected documentation) are implemented. TODO 3–6 have their code changes,
+  but their live acceptance remains open: actual save/reload comparison of
+  larger plans, all editing/connection/group actions, read-only gestures,
+  conflict/in-flight-edit handling and status-update viewport stability.
+- TODO 7 is **not performed**: login to a task-owned isolated copy, browser
+  console inspection, Light/Dark and desktop/tablet/narrow visual inspection,
+  keyboard/pointer checks and real before/after screenshots are outstanding.
+  No screenshots or successful runtime/model execution are inferred from the
+  source comparison or the static gates. Existing tests that describe details
+  of the former renderer have neither been adapted nor executed in this task.
 
 ### Plans over MCP and in the Pica chat
 
@@ -1542,3 +1636,9 @@ Further documentation:
 ## License
 
 Pages is open source under the [MIT License](./LICENSE).
+
+React Flow (`@xyflow/react` and `@xyflow/system`) is MIT licensed. Its complete
+[copyright and license notice](./assets/react-flow-LICENSE.txt) is retained
+with the source and linked from the plan editor as a bundled asset. The editor
+uses the free library and its built-in attribution; no Pro assets or services
+are required.

@@ -16,13 +16,19 @@ afterAll(() => {
 });
 
 function grid(): HTMLElement {
-  return screen.getByRole("region", { name: i18n.t("plans.grid") });
+  return screen.getByRole("region", { name: i18n.t("plans.canvas") });
 }
 
 function links(container: HTMLElement): readonly string[] {
-  return [...container.querySelectorAll("[data-plan-link]")].map(
-    (path) => path.getAttribute("data-plan-link") ?? "",
+  return [...container.querySelectorAll(".react-flow__edge")].map(
+    (edge) => edge.getAttribute("data-id") ?? "",
   );
+}
+
+async function ready(container: HTMLElement): Promise<void> {
+  await screen.findByRole("region", { name: i18n.t("plans.canvas") });
+  // React Flow draws the edges once its nodes are measured.
+  await waitFor(() => expect(links(container)).not.toHaveLength(0));
 }
 
 function node(name: string): HTMLElement {
@@ -37,33 +43,38 @@ function layer(container: HTMLElement): HTMLElement {
 
 it("selects one connection on the grid and disconnects it while both nodes stay", async () => {
   const { container } = renderPlanPage(planServer());
-  await screen.findByRole("region", { name: i18n.t("plans.grid") });
-  const ticketLink = container.querySelector(
-    '[data-plan-link="data:first:ticket"]',
-  );
+  await ready(container);
+  const [ticketLink] = screen.getAllByRole("button", {
+    name: /SYN-1: Open work → Reviewer · ticket/,
+    pressed: false,
+  });
   if (!ticketLink) throw new Error("Missing ticket connection");
   fireEvent.click(ticketLink);
   fireEvent.click(
-    within(grid()).getByRole("button", {
+    await within(grid()).findByRole("button", {
       name: i18n.t("plans.removeLink", {
         name: "SYN-1: Open work → Reviewer · ticket",
       }),
     }),
   );
-  expect(links(container)).toEqual([
-    "flow:start:first",
-    "flow:first:second",
-    "flow:second:end",
-    "data:second:notes",
-  ]);
+  await waitFor(() =>
+    expect(links(container)).toEqual([
+      "flow:start:first",
+      "flow:first:second",
+      "flow:second:end",
+      "data:second:notes",
+    ]),
+  );
   expect(node("SYN-1: Open work")).toBeDefined();
   expect(node("Reviewer")).toBeDefined();
 });
 
 it("disconnects a selected flow edge with the Delete key", async () => {
   const { container } = renderPlanPage(planServer());
-  await screen.findByRole("region", { name: i18n.t("plans.grid") });
-  const edge = container.querySelector('[data-plan-link="flow:first:second"]');
+  await ready(container);
+  const edge = container.querySelector(
+    '.react-flow__edge[data-id="flow:first:second"]',
+  );
   if (!edge) throw new Error("Missing flow edge");
   fireEvent.click(edge);
   fireEvent.keyDown(grid(), { key: "Delete" });
@@ -74,7 +85,7 @@ it("disconnects a selected flow edge with the Delete key", async () => {
 
 it("deletes a node with every connection it had and keeps the rest of the graph", async () => {
   const { container } = renderPlanPage(planServer());
-  await screen.findByRole("region", { name: i18n.t("plans.grid") });
+  await ready(container);
   fireEvent.keyDown(
     within(node("Writer")).getByRole("button", {
       name: i18n.t("settings.agents.actionsFor", { name: "Writer" }),
@@ -87,7 +98,9 @@ it("deletes a node with every connection it had and keeps the rest of the graph"
     }),
   );
   expect(within(grid()).queryByRole("article", { name: "Writer" })).toBeNull();
-  expect(links(container)).toEqual(["flow:start:first", "data:first:ticket"]);
+  await waitFor(() =>
+    expect(links(container)).toEqual(["flow:start:first", "data:first:ticket"]),
+  );
   for (const name of ["Start", "Reviewer", "Ende", "SYN-1: Open work", "spare"])
     expect(node(name)).toBeDefined();
 });
@@ -95,7 +108,7 @@ it("deletes a node with every connection it had and keeps the rest of the graph"
 it("saves the removal so that the reopened plan still lacks the node and its connections", async () => {
   const server = planServer();
   const first = renderPlanPage(server);
-  await screen.findByRole("region", { name: i18n.t("plans.grid") });
+  await ready(first.container);
   fireEvent.keyDown(
     within(node("Writer")).getByRole("button", {
       name: i18n.t("settings.agents.actionsFor", { name: "Writer" }),
@@ -114,7 +127,7 @@ it("saves the removal so that the reopened plan still lacks the node and its con
   );
   first.unmount();
   const reopened = renderPlanPage(server);
-  await screen.findByRole("region", { name: i18n.t("plans.grid") });
+  await ready(reopened.container);
   expect(within(grid()).queryByRole("article", { name: "Writer" })).toBeNull();
   expect(links(reopened.container)).toEqual([
     "flow:start:first",
@@ -131,7 +144,7 @@ it("saves the removal so that the reopened plan still lacks the node and its con
 
 it("offers a ticket node one ticket OUT, no flow port, and binds it to the ticket parameter", async () => {
   const { container } = renderPlanPage(planServer());
-  await screen.findByRole("region", { name: i18n.t("plans.grid") });
+  await ready(container);
   const ticket = node("SYN-1: Open work");
   expect(
     within(ticket).queryByRole("button", { name: "Ablauf IN" }),
@@ -147,7 +160,9 @@ it("offers a ticket node one ticket OUT, no flow port, and binds it to the ticke
       name: i18n.t("plans.disconnect", { name: "ticket" }),
     }),
   );
-  expect(links(container)).not.toContain("data:first:ticket");
+  await waitFor(() =>
+    expect(links(container)).not.toContain("data:first:ticket"),
+  );
   const outputs = within(ticket).getAllByRole("button", {
     name: i18n.t("plans.ticketOut"),
   });
@@ -158,17 +173,17 @@ it("offers a ticket node one ticket OUT, no flow port, and binds it to the ticke
       name: i18n.t("plans.bindPort", { parameter: "ticket", name: "Reviewer" }),
     }),
   );
-  expect(links(container)).toContain("data:first:ticket");
+  await waitFor(() => expect(links(container)).toContain("data:first:ticket"));
   expect(ticket.className).not.toContain("border-destructive");
 });
 
 it("pans by dragging the empty grid and zooms with the wheel, keeping nodes and connections aligned", async () => {
   const { container } = renderPlanPage(planServer());
-  await screen.findByRole("region", { name: i18n.t("plans.grid") });
+  await screen.findByRole("region", { name: i18n.t("plans.canvas") });
   const reviewer = node("Reviewer");
   const position = [reviewer.style.left, reviewer.style.top];
   const curve = container
-    .querySelector('[data-plan-link="flow:first:second"]')
+    .querySelector('.react-flow__edge[data-id="flow:first:second"]')
     ?.getAttribute("d");
   fireEvent.pointerDown(grid(), {
     pointerId: 1,
@@ -191,14 +206,14 @@ it("pans by dragging the empty grid and zooms with the wheel, keeping nodes and 
   expect([reviewer.style.left, reviewer.style.top]).toEqual(position);
   expect(
     container
-      .querySelector('[data-plan-link="flow:first:second"]')
+      .querySelector('.react-flow__edge[data-id="flow:first:second"]')
       ?.getAttribute("d"),
   ).toBe(curve);
 });
 
 it("lays the graph over the whole work area and floats the side panel over it", async () => {
   renderPlanPage(planServer());
-  await screen.findByRole("region", { name: i18n.t("plans.grid") });
+  await screen.findByRole("region", { name: i18n.t("plans.canvas") });
   const canvas = screen.getByRole("region", { name: i18n.t("plans.canvas") });
   const panel = screen.getByRole("complementary", {
     name: i18n.t("plans.pickers"),

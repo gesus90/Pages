@@ -11,7 +11,11 @@ type PlanSourceResponse =
 export function usePlanSources(
   page: AgentPlanPage,
   workspaceId: string,
-): { readonly sources: AgentPlanSources; readonly sourceError: string | null } {
+): {
+  readonly sources: AgentPlanSources;
+  readonly sourceError: string | null;
+  readonly isLoading: boolean;
+} {
   const request = useFetcher<PlanSourceResponse>();
   const { load } = request;
   const response = request.data;
@@ -28,6 +32,7 @@ export function usePlanSources(
   }, [workspaceId, page.selected?.workspaceId, load]);
   return {
     sources,
+    isLoading: request.state !== "idle",
     sourceError: response && "error" in response ? response.error : null,
   };
 }

@@ -5,6 +5,7 @@ import { cn } from "@/app/lib/cn";
 import { PlanFields } from "./plan-fields";
 import { PlanValidation } from "./plan-validation";
 import { PlanActions, PlanHeader } from "./plan-toolbar";
+import { PlanSaveStatus } from "./plan-save-status";
 
 import type { AgentPlanPage, AgentPlanRun } from "@/definition/AgentPlan";
 import type { usePlanEditor } from "./use-plan-editor";
@@ -43,6 +44,7 @@ export function PlanConfigurationPanel(props: {
     >
       <div className="flex flex-wrap items-center gap-2">
         <PlanHeader page={page} />
+        <PlanSaveStatus editor={editor} />
         <PlanActions
           editor={editor}
           hasSelection={page.selected !== null}

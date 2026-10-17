@@ -106,7 +106,7 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
   }
 }
 
-/** The page composes existing Pages controls with a small native graph editor. */
+/** The page composes Pages plan controls with the React Flow graph editor. */
 export default function AgentPlansRoute(): React.ReactElement {
   const page = useLoaderData<typeof loader>();
   const location = useLocation();

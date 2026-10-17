@@ -1,7 +1,5 @@
 import { useState } from "react";
 
-import { cn } from "@/app/lib/cn";
-
 import { PlanAgentConsole } from "./plan-agent-console";
 import { PlanNodeDialog } from "./plan-node-dialog";
 import { PlanCanvas } from "./plan-canvas";
@@ -19,16 +17,15 @@ interface PlanWorkspaceStyle extends React.CSSProperties {
   readonly "--plan-side": string;
 }
 
-const OPEN_SIDE: PlanWorkspaceStyle = { "--plan-side": "min(24rem, 40%)" };
+const OPEN_SIDE: PlanWorkspaceStyle = { "--plan-side": "min(23rem, 40vw)" };
 const CLOSED_SIDE: PlanWorkspaceStyle = { "--plan-side": "2.25rem" };
 
 /**
- * The plan grid fills the work area below the global header and blends into the page.
+ * A framed canvas keeps the toolbar, inspector and run details in their own layout areas.
  *
  * @remarks
- * On wide screens the configuration, the source and selection panel and the
- * run details float over the grid in three separate areas that never overlap
- * each other; narrow screens stack them around the grid instead.
+ * The inspector sits beside the graph on desktop and tablet; narrow screens
+ * stack the collapsible panels. Run updates never remount the canvas.
  */
 export function PlanPage({
   page,
@@ -54,42 +51,41 @@ export function PlanPage({
   }
   return (
     <div
-      className="relative isolate flex flex-col gap-3 xl:block xl:h-[calc(100dvh-8.5rem)] xl:min-h-[34rem]"
+      className="relative isolate flex flex-col gap-3 lg:h-[calc(100dvh-8.5rem)] lg:min-h-[42rem]"
       style={isSideOpen ? OPEN_SIDE : CLOSED_SIDE}
     >
       <PlanConfigurationPanel
         page={page}
         editor={editor}
         run={running.run}
-        className="xl:absolute xl:top-0 xl:right-[calc(var(--plan-side)+0.75rem)] xl:left-0 xl:z-10"
+        className="shrink-0"
       />
-      <div className="relative h-[60dvh] min-h-[24rem] xl:absolute xl:inset-0 xl:h-auto">
-        <PlanCanvas
-          draft={editor.draft}
-          sources={editor.sources}
-          graph={editor.graph}
-          canEdit={!disabled && Boolean(editor.draft.workspaceId)}
-          onEdit={setEditingNodeId}
-          onOpen={setConsoleNodeId}
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:min-h-[24rem] lg:grid-cols-[minmax(0,1fr)_var(--plan-side)]">
+        <div className="relative h-[60dvh] min-h-[24rem] min-w-0 lg:h-auto">
+          <PlanCanvas
+            draft={editor.draft}
+            sources={editor.sources}
+            graph={editor.graph}
+            canEdit={!disabled && Boolean(editor.draft.workspaceId)}
+            isReadOnly={!editor.canEdit}
+            onEdit={setEditingNodeId}
+            onOpen={setConsoleNodeId}
+            run={running.run}
+          />
+        </div>
+        <PlanPanel
+          page={page}
+          editor={editor}
           run={running.run}
+          isOpen={isSideOpen}
+          onOpenChange={setSideOpen}
         />
       </div>
-      <PlanPanel
-        page={page}
-        editor={editor}
-        run={running.run}
-        isOpen={isSideOpen}
-        onOpenChange={setSideOpen}
-        className={cn(
-          "xl:absolute xl:top-0 xl:right-0 xl:z-10 xl:w-[var(--plan-side)]",
-          isSideOpen && "xl:bottom-0",
-        )}
-      />
       <PlanDetailsPanel
         state={running}
         editor={editor}
         hasRuns={page.runs.length > 0}
-        className="xl:absolute xl:right-[calc(var(--plan-side)+0.75rem)] xl:bottom-0 xl:left-0 xl:z-10"
+        className="max-h-[35dvh] shrink-0"
       />
       <PlanNodeDialog
         nodeId={editingNodeId}

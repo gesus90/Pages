@@ -1,19 +1,13 @@
-import { ArrowRight, Boxes } from "lucide-react";
+import { Boxes } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { planGroupAdapter } from "@/definition/AgentPlanGroup";
-import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/lib/cn";
 
 import { PlanGroupAdapterBadge } from "./plan-group-adapter";
 import { PlanFlowPorts } from "./plan-flow-ports";
-import {
-  PLAN_FRAME_FOOTER,
-  PLAN_FRAME_PORT_HANDLE,
-  PLAN_NODE_WIDTH,
-  planNodeHeight,
-  planNodeWidth,
-} from "./plan-layout";
+import { keepPlanControlKeys } from "./plan-flow-keys";
+import { PLAN_FRAME_FOOTER, PLAN_NODE_WIDTH } from "./plan-layout";
 import { PlanGroupSessionValue } from "./plan-group-session";
 import { PlanNodeActions } from "./plan-node-actions";
 import { PlanPorts } from "./plan-ports";
@@ -47,9 +41,8 @@ interface GroupFrameProps {
  * group's own flow and boundary ports in its header.
  *
  * @remarks
- * Members are drawn by the grid on top of the frame. The frame's background
- * stays part of the grid, so dragging it pans and a press on it clears the
- * selection like a press on the empty grid.
+ * React Flow parents the members to the frame; the domain keeps their
+ * coordinates relative to its member area. Only the header moves the frame.
  */
 export function PlanGroupFrame(props: GroupFrameProps): React.ReactElement {
   const { t } = useTranslation();
@@ -59,22 +52,17 @@ export function PlanGroupFrame(props: GroupFrameProps): React.ReactElement {
   return (
     <section
       aria-label={t("plans.groups.frame", { name: label })}
+      onKeyDown={keepPlanControlKeys}
       className={cn(
-        "absolute rounded-xl border border-plan-group/60 bg-plan-group-subtle/60",
+        "relative size-full rounded-2xl border border-plan-group/60 bg-plan-group-subtle/60 shadow-xs",
         props.isDropTarget &&
           "border-plan-group bg-plan-group-subtle ring-2 ring-plan-group/40",
         graph.selectedId === group.id &&
           "ring-2 ring-info ring-offset-2 ring-offset-background",
         hasIssue && "border-destructive",
       )}
-      style={{
-        left: group.x,
-        top: group.y,
-        width: planNodeWidth(group),
-        height: planNodeHeight(group, props.sources),
-      }}
     >
-      <div className="p-3">
+      <div className="pointer-events-auto p-3">
         <FrameHeader {...props} label={label} />
         <PlanFlowPorts node={group} graph={graph} canEdit={props.canEdit} />
         <div style={{ width: PLAN_NODE_WIDTH - 24 }}>
@@ -87,9 +75,8 @@ export function PlanGroupFrame(props: GroupFrameProps): React.ReactElement {
           />
         </div>
       </div>
-      <PortHandles {...props} />
       <div
-        className="absolute inset-x-3 bottom-0 flex items-center gap-2"
+        className="pointer-events-auto absolute inset-x-3 bottom-0 flex items-center gap-2"
         style={{ height: PLAN_FRAME_FOOTER }}
       >
         <PlanGroupSessionValue
@@ -124,15 +111,12 @@ function FrameHeader(
         type="button"
         data-plan-handle={group.id}
         onClick={() => graph.select(group.id)}
-        onDoubleClick={() => {
-          graph.select(group.id);
-          props.onOpen?.(group.id);
-        }}
         className={cn(
-          "h-9 min-w-0 flex-1 text-left text-sm font-semibold",
+          "h-9 min-w-0 flex-1 rounded text-left text-sm font-semibold focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
           props.canEdit && "cursor-grab active:cursor-grabbing",
         )}
         aria-label={t("plans.selectNode", { name: props.label })}
+        title={props.label}
       >
         <span className="flex items-center gap-1 text-xs font-normal text-plan-group">
           <Boxes className="size-3" aria-hidden="true" />
@@ -150,42 +134,14 @@ function FrameHeader(
           isBlocked={props.result.isBlocked}
         />
       ) : null}
-      <PlanNodeActions
-        label={props.label}
-        disabled={!props.canEdit}
-        onRemove={() => graph.remove(group.id)}
-        onEdit={edit}
-      />
-    </div>
-  );
-}
-
-/** A handle per boundary port that hands its value on to a member. */
-function PortHandles(props: GroupFrameProps): React.ReactElement {
-  const { t } = useTranslation();
-  const { group, graph } = props;
-  return (
-    <>
-      {group.parameters.map((port, index) => (
-        <Button
-          key={port.id}
-          size="icon-sm"
-          variant="ghost"
-          className="absolute size-7 cursor-crosshair text-plan-group"
-          data-plan-out={port.id}
-          data-plan-out-kind="source"
-          style={{
-            left: PLAN_FRAME_PORT_HANDLE - 14,
-            top: 104 + index * 32 - 14,
-          }}
+      <div className="nodrag nopan">
+        <PlanNodeActions
+          label={props.label}
           disabled={!props.canEdit}
-          aria-label={t("plans.groups.portToMember", { name: port.name })}
-          title={t("plans.groups.portToMember", { name: port.name })}
-          onClick={() => graph.begin({ kind: "source", nodeId: port.id })}
-        >
-          <ArrowRight className="size-3" aria-hidden="true" />
-        </Button>
-      ))}
-    </>
+          onRemove={() => graph.remove(group.id)}
+          onEdit={edit}
+        />
+      </div>
+    </div>
   );
 }

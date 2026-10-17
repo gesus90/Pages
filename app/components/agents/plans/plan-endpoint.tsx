@@ -1,12 +1,13 @@
-import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/lib/cn";
 
-import { PLAN_ENDPOINT_SIZE } from "./plan-layout";
+import { PlanFlowHandle } from "./plan-flow-handle";
+import { keepPlanControlKeys } from "./plan-flow-keys";
 import { planInTargetClass } from "./plan-flow-ports";
 import { PlanNodeActions } from "./plan-node-actions";
+import { PlanNodeIcon } from "./plan-node-icon";
 import { planStatusClass } from "./plan-status";
 
 import type {
@@ -15,7 +16,7 @@ import type {
 } from "@/definition/AgentPlan";
 import type { PlanGraphActions } from "./use-plan-graph";
 
-/** A small movable checkpoint: its circle moves it, start offers the flow OUT and end the flow IN. */
+/** Compact checkpoints retain their stored coordinates and expose only their legal flow direction. */
 export function PlanEndpoint(props: {
   readonly node: AgentPlanNode;
   readonly graph: PlanGraphActions;
@@ -27,19 +28,13 @@ export function PlanEndpoint(props: {
   const label = t(`plans.nodeType.${node.type}`);
   const isStart = node.type === "start";
   const status = props.result?.status === "succeeded" ? "succeeded" : "waiting";
-  const Icon = isStart ? ArrowRight : ArrowLeft;
   return (
     <article
       aria-label={label}
-      className="absolute"
-      style={{
-        left: node.x,
-        top: node.y,
-        width: PLAN_ENDPOINT_SIZE,
-        height: 104,
-      }}
+      className="size-full"
+      onKeyDown={keepPlanControlKeys}
     >
-      <div className="flex h-10 justify-end">
+      <div className="nodrag nopan flex h-10 justify-end">
         <PlanNodeActions
           label={label}
           disabled={!props.canEdit}
@@ -53,7 +48,7 @@ export function PlanEndpoint(props: {
         aria-label={t("plans.selectNode", { name: label })}
         title={t(`plans.status.${status}`)}
         className={cn(
-          "flex size-16 items-center justify-center rounded-full border text-xs font-semibold",
+          "flex size-16 flex-col items-center justify-center gap-1 rounded-2xl border text-xs font-semibold shadow-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
           props.canEdit && "cursor-grab active:cursor-grabbing",
           planStatusClass(status),
           graph.selectedId === node.id &&
@@ -62,28 +57,32 @@ export function PlanEndpoint(props: {
             "border-destructive",
         )}
       >
+        <PlanNodeIcon type={node.type} />
         {label}
       </button>
+      <div className="absolute inset-x-0 top-[72px]">
+        <PlanFlowHandle
+          id={isStart ? "flow-out" : "flow-in"}
+          type={isStart ? "source" : "target"}
+          kind="flow"
+          style={isStart ? { right: 0 } : { left: 0 }}
+        />
+      </div>
       <Button
-        size="icon-sm"
-        variant="outline"
-        data-plan-out={isStart ? node.id : undefined}
-        data-plan-out-kind={isStart ? "flow" : undefined}
-        data-plan-in={isStart ? undefined : node.id}
+        size="xs"
+        variant="ghost"
         className={cn(
-          "absolute top-14 size-8 rounded-full",
-          isStart ? "-right-4 cursor-crosshair" : "-left-4",
+          "nodrag nopan absolute -bottom-7 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px]",
           !isStart && planInTargetClass(graph, node.id),
         )}
-        aria-label={t(isStart ? "plans.flowOut" : "plans.flowIn")}
-        disabled={!props.canEdit || (!isStart && !graph.connection)}
+        disabled={!props.canEdit}
         onClick={() =>
           isStart
             ? graph.begin({ kind: "flow", nodeId: node.id })
             : graph.connect(node.id)
         }
       >
-        <Icon className="size-3" aria-hidden="true" />
+        {t(isStart ? "plans.flowOut" : "plans.flowIn")}
       </Button>
     </article>
   );

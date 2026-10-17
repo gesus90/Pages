@@ -30,7 +30,7 @@ function listedTickets(): readonly string[] {
 
 it("filters the ticket list by the actual status and updates it on every change", async () => {
   renderPlanPage(planServer());
-  await screen.findByRole("region", { name: i18n.t("plans.grid") });
+  await screen.findByRole("region", { name: i18n.t("plans.canvas") });
   fireEvent.mouseDown(screen.getByRole("tab", { name: "Tickets" }));
   await screen.findByRole("region", { name: i18n.t("plans.taskSources") });
   expect(listedTickets()).toEqual([
@@ -59,7 +59,7 @@ it("filters the ticket list by the actual status and updates it on every change"
 it("lets the owner delete the plan, after which the plan list no longer offers it", async () => {
   const server = planServer();
   renderPlanPage(server);
-  await screen.findByRole("region", { name: i18n.t("plans.grid") });
+  await screen.findByRole("region", { name: i18n.t("plans.canvas") });
   const chooser = screen.getByRole("combobox", {
     name: i18n.t("plans.choosePlan"),
   });
@@ -85,7 +85,7 @@ it("lets the owner delete the plan, after which the plan list no longer offers i
 
 it("offers no deletion to a user who may use but not edit the plan", async () => {
   renderPlanPage(planServer(false));
-  await screen.findByRole("region", { name: i18n.t("plans.grid") });
+  await screen.findByRole("region", { name: i18n.t("plans.canvas") });
   expect(
     screen.queryByRole("button", { name: i18n.t("plans.deletePlan") }),
   ).toBeNull();

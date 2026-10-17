@@ -1,4 +1,10 @@
-import { PanelRightClose, PanelRightOpen } from "lucide-react";
+import {
+  LoaderCircle,
+  PanelRightClose,
+  PanelRightOpen,
+  Unlink,
+  X,
+} from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -9,71 +15,25 @@ import { cn } from "@/app/lib/cn";
 import { AgentSources, EndpointSources, TaskSources } from "./plan-sources";
 import { PlanGroupSources } from "./plan-group-sources";
 import { PlanParameters } from "./plan-parameters";
-import { PlanInspector, selectedPlanNode } from "./plan-inspector";
+import { PlanInspector } from "./plan-inspector";
+import { planLinkLabel } from "./plan-links";
 
-import type {
-  AgentPlanNode,
-  AgentPlanPage,
-  AgentPlanRun,
-} from "@/definition/AgentPlan";
+import type { AgentPlanPage, AgentPlanRun } from "@/definition/AgentPlan";
 import type { usePlanEditor } from "./use-plan-editor";
 
-type PlanPanelTab = "parameters" | "agents" | "tickets" | "groups";
-
-// The tab that shows a selected node; start and end belong to no tab and show in the open one.
-const NODE_TABS: Partial<Record<AgentPlanNode["type"], PlanPanelTab>> = {
-  agent: "agents",
-  group: "groups",
-  task: "tickets",
-  parameter: "parameters",
-  variable: "parameters",
-};
-
-function isPanelTab(value: string): value is PlanPanelTab {
-  return ["parameters", "agents", "tickets", "groups"].includes(value);
-}
-
-/**
- * Picks the open tab: a new selection opens its own tab, a tab chosen by hand
- * stays open for the selection it was chosen with.
- */
-function usePanelTab(
-  selectedTab: PlanPanelTab | null,
-  selectedId: string | null,
-): readonly [PlanPanelTab, (tab: string) => void] {
-  const [choice, setChoice] = useState<{
-    readonly tab: PlanPanelTab;
-    readonly selection: string | null;
-  }>({ tab: "agents", selection: null });
-  const tab =
-    choice.selection === selectedId || selectedTab === null
-      ? choice.tab
-      : selectedTab;
-  function choose(next: string): void {
-    if (isPanelTab(next)) setChoice({ tab: next, selection: selectedId });
-  }
-  return [tab, choose];
-}
-
-/** The tabs of the side panel, each with the details of a selected node of its kind. */
-function PlanPanelTabs(props: {
+interface PanelContentsProps {
   readonly page: AgentPlanPage;
   readonly editor: ReturnType<typeof usePlanEditor>;
   readonly run: AgentPlanRun | null;
-}): React.ReactElement {
+}
+
+function PlanSelectionDetails(props: PanelContentsProps): React.ReactElement {
   const { t } = useTranslation();
   const { editor } = props;
   const disabled =
     !editor.canEdit || editor.isPending || !editor.draft.workspaceId;
-  const selected = selectedPlanNode(
-    editor.draft,
-    editor.graph.selectedId,
-  )?.node;
-  const selectedTab = selected ? (NODE_TABS[selected.type] ?? null) : null;
-  const [tab, setTab] = usePanelTab(selectedTab, editor.graph.selectedId);
-  function details(owner: PlanPanelTab): React.ReactElement | null {
-    if (!selected || (selectedTab !== null && selectedTab !== owner))
-      return null;
+  const link = editor.graph.selectedLink;
+  if (!link)
     return (
       <PlanInspector
         draft={editor.draft}
@@ -84,9 +44,72 @@ function PlanPanelTabs(props: {
         run={props.run}
       />
     );
-  }
+  const name = planLinkLabel(editor.draft, editor.sources, link);
   return (
-    <>
+    <section
+      className="space-y-3 rounded-xl border border-info/30 bg-info-subtle/40 p-3"
+      aria-label={t("plans.dependencies")}
+    >
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="mb-1 text-xs text-muted-foreground">
+            {t(`plans.linkKind.${link.kind}`)}
+          </p>
+          <p className="text-sm font-semibold break-words">{name}</p>
+        </div>
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          aria-label={t("plans.clearSelection")}
+          onClick={() => editor.graph.selectLink(null)}
+        >
+          <X className="size-4" aria-hidden="true" />
+        </Button>
+      </div>
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={disabled}
+        onClick={() => editor.graph.disconnect(link)}
+      >
+        <Unlink className="size-4" aria-hidden="true" />
+        {t("plans.unlink")}
+      </Button>
+    </section>
+  );
+}
+
+/** Source tabs remain available independently of the single inspector above them. */
+function PlanPanelTabs({ editor }: PanelContentsProps): React.ReactElement {
+  const { t } = useTranslation();
+  const [tab, setTab] = useState("agents");
+  const disabled =
+    !editor.canEdit || editor.isPending || !editor.draft.workspaceId;
+  return (
+    <section
+      className="space-y-3 border-t border-border pt-3"
+      aria-label={t("plans.flow.insert")}
+      aria-busy={editor.isLoadingSources || editor.graph.isInserting}
+    >
+      <h2 className="text-xs font-semibold tracking-wide text-muted-foreground">
+        {t("plans.flow.insert")}
+      </h2>
+      {editor.isLoadingSources || editor.graph.isInserting ? (
+        <p
+          role="status"
+          className="flex items-center gap-2 text-xs text-muted-foreground"
+        >
+          <LoaderCircle
+            className="size-3.5 motion-safe:animate-spin"
+            aria-hidden="true"
+          />
+          {t(
+            editor.graph.isInserting
+              ? "plans.flow.inserting"
+              : "plans.flow.loadingSources",
+          )}
+        </p>
+      ) : null}
       <EndpointSources graph={editor.graph} canEdit={!disabled} />
       <Tabs
         value={tab}
@@ -100,7 +123,6 @@ function PlanPanelTabs(props: {
         ]}
       >
         <TabsContent value="parameters" className="space-y-3 pt-3">
-          {details("parameters")}
           <PlanParameters
             draft={editor.draft}
             graph={editor.graph}
@@ -109,7 +131,6 @@ function PlanPanelTabs(props: {
           />
         </TabsContent>
         <TabsContent value="agents" className="space-y-3 pt-3">
-          {details("agents")}
           <AgentSources
             sources={editor.sources}
             graph={editor.graph}
@@ -117,7 +138,6 @@ function PlanPanelTabs(props: {
           />
         </TabsContent>
         <TabsContent value="tickets" className="space-y-3 pt-3">
-          {details("tickets")}
           <TaskSources
             sources={editor.sources}
             graph={editor.graph}
@@ -125,7 +145,6 @@ function PlanPanelTabs(props: {
           />
         </TabsContent>
         <TabsContent value="groups" className="space-y-3 pt-3">
-          {details("groups")}
           <PlanGroupSources
             draft={editor.draft}
             sources={editor.sources}
@@ -134,61 +153,50 @@ function PlanPanelTabs(props: {
           />
         </TabsContent>
       </Tabs>
-      {selected ? null : (
-        <p className="pt-3 text-sm text-muted-foreground">
-          {t("plans.inspectorHint")}
-        </p>
-      )}
-    </>
+    </section>
   );
 }
 
-/**
- * The independent panel at the right edge: sources by kind and the details of the selected node.
- *
- * @remarks
- * The details of a selection open in the tab of its kind, above the sources of
- * that kind, so the panel never shows a second inspector on top of another.
- */
-export function PlanPanel(props: {
-  readonly page: AgentPlanPage;
-  readonly editor: ReturnType<typeof usePlanEditor>;
-  /** The selected run, whose group sessions the details show. */
-  readonly run: AgentPlanRun | null;
-  readonly isOpen: boolean;
-  readonly onOpenChange: (isOpen: boolean) => void;
-  readonly className?: string;
-}): React.ReactElement {
+/** A collapsible side panel keeps one selection inspector beside the canvas and groups insertion sources. */
+export function PlanPanel(
+  props: PanelContentsProps & {
+    readonly isOpen: boolean;
+    readonly onOpenChange: (isOpen: boolean) => void;
+    readonly className?: string;
+  },
+): React.ReactElement {
   const { t } = useTranslation();
   const { isOpen } = props;
   const Toggle = isOpen ? PanelRightClose : PanelRightOpen;
   return (
     <aside
       aria-label={t("plans.pickers")}
-      className={cn("flex min-h-0 flex-col items-end gap-2", props.className)}
+      className={cn("flex min-h-0 min-w-0 flex-col gap-2", props.className)}
     >
-      <Button
-        size="icon-sm"
-        variant="outline"
-        className="bg-surface shadow-xs"
-        aria-expanded={isOpen}
-        aria-controls="plan-picker-panel"
-        aria-label={t(isOpen ? "plans.collapsePanel" : "plans.expandPanel")}
-        title={t(isOpen ? "plans.collapsePanel" : "plans.expandPanel")}
-        onClick={() => props.onOpenChange(!isOpen)}
-      >
-        <Toggle className="size-4" aria-hidden="true" />
-      </Button>
+      <div className="flex items-center justify-between gap-2">
+        {isOpen ? (
+          <h2 className="text-sm font-semibold">{t("plans.flow.inspector")}</h2>
+        ) : null}
+        <Button
+          size="icon-sm"
+          variant="outline"
+          className="shrink-0 bg-surface shadow-xs"
+          aria-expanded={isOpen}
+          aria-controls="plan-picker-panel"
+          aria-label={t(isOpen ? "plans.collapsePanel" : "plans.expandPanel")}
+          title={t(isOpen ? "plans.collapsePanel" : "plans.expandPanel")}
+          onClick={() => props.onOpenChange(!isOpen)}
+        >
+          <Toggle className="size-4" aria-hidden="true" />
+        </Button>
+      </div>
       <div
         id="plan-picker-panel"
         hidden={!isOpen}
-        className="min-h-0 w-full flex-1 overflow-y-auto rounded-xl border border-border bg-surface/95 p-3 shadow-panel backdrop-blur xl:pb-16"
+        className="max-h-[65dvh] min-h-0 flex-1 space-y-4 overflow-y-auto rounded-2xl border border-border bg-surface p-3 shadow-xs lg:max-h-none"
       >
-        <PlanPanelTabs
-          page={props.page}
-          editor={props.editor}
-          run={props.run}
-        />
+        <PlanSelectionDetails {...props} />
+        <PlanPanelTabs {...props} />
       </div>
     </aside>
   );

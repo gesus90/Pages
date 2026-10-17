@@ -1,4 +1,3 @@
-import { planNodeParameters } from "@/definition/AgentPlanGroup";
 import { planStepTemplate } from "@/definition/AgentPlanConfiguration";
 
 import type {
@@ -9,7 +8,6 @@ import type {
   AgentPlanStep,
 } from "@/definition/AgentPlan";
 import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
-import type { PlanLink } from "./plan-links";
 
 export const PLAN_GRID = 20;
 export const PLAN_NODE_WIDTH = 280;
@@ -18,22 +16,12 @@ export const PLAN_ENDPOINT_SIZE = 64;
 export const PLAN_ENDPOINT_PORT_Y = 72;
 /** Space between a frame's edge and its members. */
 export const PLAN_FRAME_PADDING = 20;
-/** The center of the handles where a frame's boundary ports hand values to members. */
-export const PLAN_FRAME_PORT_HANDLE = 296;
 const FRAME_MIN_WIDTH = 360;
 const FRAME_MIN_MEMBER_AREA = 160;
 /** The line below the members that shows the group's `session_id`. */
 export const PLAN_FRAME_FOOTER = 32;
 // A pointer this close to a frame's edge does not take a node into the frame.
 const FRAME_EDGE = 16;
-
-/** End points of a drawn connection in grid coordinates. */
-export interface PlanLinkPoints {
-  readonly x1: number;
-  readonly y1: number;
-  readonly x2: number;
-  readonly y2: number;
-}
 
 /** Where a node is drawn: absolute grid position and size, and the frame around a member. */
 export interface PlanNodeBox {
@@ -47,7 +35,7 @@ export interface PlanNodeBox {
 
 function agentHeight(step: AgentPlanStep, sources: AgentPlanSources): number {
   return (
-    168 + (planStepTemplate(step, sources.agents)?.parameters.length ?? 0) * 32
+    152 + (planStepTemplate(step, sources.agents)?.parameters.length ?? 0) * 32
   );
 }
 
@@ -108,14 +96,14 @@ export function planNodeWidth(node: AgentPlanNode): number {
     : PLAN_NODE_WIDTH;
 }
 
-/** Shared geometry keeps rendered cards and SVG ports aligned. */
+/** Bounds size React Flow nodes and keep group membership hit areas consistent. */
 export function planNodeHeight(
   node: AgentPlanNode,
   sources: AgentPlanSources,
 ): number {
   if (node.type === "start" || node.type === "end") return 104;
   if (node.type === "group") return groupHeight(node, sources);
-  if (node.type !== "agent") return 140;
+  if (node.type !== "agent") return 128;
   return agentHeight(node, sources);
 }
 
@@ -222,77 +210,4 @@ export function planNodeClass(type: AgentPlanNode["type"]): string {
     end: "border-l-muted-foreground/40",
   };
   return `border-border border-l-4 bg-surface ${edges[type]}`;
-}
-
-/** Port centers share the card geometry so a line always names the port it actually reaches. */
-export function planOutputY(
-  node: AgentPlanNode,
-  sources: AgentPlanSources,
-): number {
-  if (node.type === "agent")
-    return (
-      112 +
-      (planStepTemplate(node, sources.agents)?.parameters.length ?? 0) * 32
-    );
-  return 80;
-}
-
-/** The row of a named data input of a card or a frame. */
-function inputY(
-  box: PlanNodeBox,
-  parameter: string,
-  sources: AgentPlanSources,
-): number {
-  const index = planNodeParameters(box.node, sources.agents).findIndex(
-    (entry) => entry.name === parameter,
-  );
-  return box.y + 104 + Math.max(0, index) * 32;
-}
-
-/** Where a data connection starts: a node's OUT, or a frame's boundary port towards its members. */
-function outputPoint(
-  source: PlanNodeBox,
-  link: PlanLink,
-  sources: AgentPlanSources,
-): { readonly x: number; readonly y: number } {
-  if (
-    link.kind === "data" &&
-    link.port !== undefined &&
-    source.node.type === "group"
-  ) {
-    const index = source.node.parameters.findIndex(
-      (port) => port.id === link.port,
-    );
-    return {
-      x: source.x + PLAN_FRAME_PORT_HANDLE + 14,
-      y: source.y + 104 + Math.max(0, index) * 32,
-    };
-  }
-  return {
-    x: source.x + source.width,
-    y:
-      source.y +
-      (link.kind === "flow" ? 72 : planOutputY(source.node, sources)),
-  };
-}
-
-/** Flow edges join the flow ports; data links join an OUT with its parameter row. */
-export function planLinkPoints(
-  plan: AgentPlanInput,
-  sources: AgentPlanSources,
-  link: PlanLink,
-): PlanLinkPoints | null {
-  const source = planNodeBox(plan, link.from, sources);
-  const target = planNodeBox(plan, link.to, sources);
-  if (!source || !target) return null;
-  const start = outputPoint(source, link, sources);
-  return {
-    x1: start.x,
-    y1: start.y,
-    x2: target.x,
-    y2:
-      link.kind === "flow"
-        ? target.y + 72
-        : inputY(target, link.parameter, sources),
-  };
 }

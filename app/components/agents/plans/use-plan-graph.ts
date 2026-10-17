@@ -31,6 +31,7 @@ import type { PlanGroupActions } from "./use-plan-group-actions";
 /** Editable node operations and validated port interactions of one plan draft. */
 export interface PlanGraphActions extends PlanSelection, PlanGroupActions {
   readonly insertionError: string | null;
+  readonly isInserting: boolean;
   readonly issues: readonly AgentPlanIssue[];
   readonly connectionIssue: ReturnType<
     typeof usePlanConnections
@@ -40,6 +41,10 @@ export interface PlanGraphActions extends PlanSelection, PlanGroupActions {
   readonly connect: ReturnType<typeof usePlanConnections>["connect"];
   readonly canConnect: ReturnType<typeof usePlanConnections>["canConnect"];
   readonly bindSource: ReturnType<typeof usePlanConnections>["bindSource"];
+  readonly canConnectFrom: ReturnType<
+    typeof usePlanConnections
+  >["canConnectFrom"];
+  readonly connectFrom: ReturnType<typeof usePlanConnections>["connectFrom"];
   /** Adds a node; with `groupId` an agent joins that group, if it may. */
   readonly add: (
     kind: AgentPlanNode["type"],

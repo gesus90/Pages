@@ -4,6 +4,8 @@ import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/lib/cn";
 import { isPlanFlowNode } from "@/definition/AgentPlanGraph";
 
+import { PlanFlowHandle } from "./plan-flow-handle";
+
 import type { AgentPlanNode } from "@/definition/AgentPlan";
 import type { PlanGraphActions } from "./use-plan-graph";
 
@@ -44,17 +46,18 @@ export function PlanFlowPorts(props: {
     );
   }
   return (
-    <div className="flex h-8 items-center justify-between gap-2">
+    <div className="relative flex h-8 items-center justify-between gap-2">
       {node.type !== "start" ? (
         <Button
           size="sm"
           variant="outline"
           data-plan-in={node.id}
           className={cn(
+            "nodrag nopan h-7 min-h-7 px-2 text-xs focus-visible:ring-2 focus-visible:ring-ring xl:min-h-7",
             issue("flow-in") && "border-destructive text-destructive",
             planInTargetClass(graph, node.id),
           )}
-          disabled={!props.canEdit || !graph.connection}
+          disabled={!props.canEdit}
           onClick={() => graph.connect(node.id)}
         >
           {t("plans.flowIn")}
@@ -69,7 +72,7 @@ export function PlanFlowPorts(props: {
           data-plan-out={node.id}
           data-plan-out-kind="flow"
           className={cn(
-            "cursor-crosshair",
+            "nodrag nopan h-7 min-h-7 cursor-crosshair px-2 text-xs focus-visible:ring-2 focus-visible:ring-ring xl:min-h-7",
             issue("flow-out") && "border-destructive text-destructive",
             graph.connection?.nodeId === node.id &&
               graph.connection.kind === "flow" &&
@@ -80,6 +83,22 @@ export function PlanFlowPorts(props: {
         >
           {t("plans.flowOut")}
         </Button>
+      ) : null}
+      {node.type !== "start" ? (
+        <PlanFlowHandle
+          id="flow-in"
+          type="target"
+          kind="flow"
+          hasIssue={issue("flow-in")}
+        />
+      ) : null}
+      {node.type !== "end" ? (
+        <PlanFlowHandle
+          id="flow-out"
+          type="source"
+          kind="flow"
+          hasIssue={issue("flow-out")}
+        />
       ) : null}
     </div>
   );

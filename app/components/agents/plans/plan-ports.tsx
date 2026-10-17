@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/app/lib/cn";
 
 import { planInTargetClass } from "./plan-flow-ports";
+import { PlanFlowHandle } from "./plan-flow-handle";
 
 import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 import type { AgentPlanStep } from "@/definition/AgentPlan";
@@ -38,13 +39,22 @@ export function PlanPorts(props: {
             issue.nodeId === props.node.id && issue.port === parameter.name,
         );
         return (
-          <div key={parameter.name} className="flex h-8 items-center gap-1">
+          <div
+            key={parameter.name}
+            className="relative flex h-8 items-center gap-1"
+          >
+            <PlanFlowHandle
+              id={`input:${parameter.name}`}
+              type="target"
+              kind="data"
+              hasIssue={hasIssue}
+            />
             <button
               type="button"
               data-plan-in={props.node.id}
               data-plan-parameter={parameter.name}
               className={cn(
-                "flex h-7 min-w-0 flex-1 items-center gap-1 rounded-md border border-transparent px-1 text-left text-xs hover:underline disabled:opacity-60",
+                "nodrag nopan flex h-7 min-w-0 flex-1 items-center gap-1 rounded-md border border-transparent px-1 text-left text-xs hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60",
                 hasIssue && "text-destructive",
                 planInTargetClass(props.graph, props.node.id, parameter.name),
               )}
@@ -67,7 +77,7 @@ export function PlanPorts(props: {
             {props.node.bindings[parameter.name] ? (
               <button
                 type="button"
-                className="px-1 text-xs hover:underline"
+                className="nodrag nopan rounded px-1 text-xs hover:underline focus-visible:ring-2 focus-visible:ring-ring"
                 disabled={!props.canEdit}
                 aria-label={t("plans.disconnect", { name: parameter.name })}
                 onClick={() => disconnect(parameter.name)}
@@ -75,9 +85,50 @@ export function PlanPorts(props: {
                 ×
               </button>
             ) : null}
+            {props.node.type === "group" ? (
+              <BoundaryOutput
+                group={props.node}
+                name={parameter.name}
+                graph={props.graph}
+                canEdit={props.canEdit}
+              />
+            ) : null}
           </div>
         );
       })}
     </>
+  );
+}
+
+function BoundaryOutput(props: {
+  readonly group: AgentPlanGroup;
+  readonly name: string;
+  readonly graph: PlanGraphActions;
+  readonly canEdit: boolean;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  const port = props.group.parameters.find(
+    (entry) => entry.name === props.name,
+  );
+  if (!port) return null;
+  return (
+    <div className="absolute -right-10 flex h-7 w-7 items-center justify-center">
+      <button
+        type="button"
+        className="nodrag nopan rounded text-plan-group focus-visible:ring-2 focus-visible:ring-ring"
+        disabled={!props.canEdit}
+        aria-label={t("plans.groups.portToMember", { name: port.name })}
+        title={t("plans.groups.portToMember", { name: port.name })}
+        onClick={() => props.graph.begin({ kind: "source", nodeId: port.id })}
+      >
+        →
+      </button>
+      <PlanFlowHandle
+        id={`boundary:${port.id}`}
+        type="source"
+        kind="data"
+        style={{ right: -8 }}
+      />
+    </div>
   );
 }

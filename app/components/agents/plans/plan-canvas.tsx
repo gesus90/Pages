@@ -1,266 +1,190 @@
+import {
+  Background,
+  ReactFlow,
+  ReactFlowProvider,
+  useReactFlow,
+} from "@xyflow/react";
 import { useTranslation } from "react-i18next";
 
-import { cn } from "@/app/lib/cn";
-
-import styles from "./plan-canvas.module.css";
 import { PlanCanvasControls } from "./plan-canvas-controls";
-import { PlanEdges } from "./plan-edges";
-import { PlanGroupFrame } from "./plan-group-frame";
-import { planRunGroupSession } from "./plan-group-session";
+import { PlanFlowConnectionLine } from "./plan-flow-connection-line";
+import { PlanFlowContext } from "./plan-flow-context";
+import { PlanFlowEdgeView } from "./plan-flow-edge";
+import { planFlowEdges, planFlowNodes } from "./plan-flow-model";
 import { PlanGroupNoticeBar } from "./plan-group-notice";
 import { PlanGroupRemoval } from "./plan-group-removal";
-import { PlanLinkAction } from "./plan-link-action";
+import { PLAN_GRID } from "./plan-layout";
 import { PlanNodeCard } from "./plan-node-card";
-import {
-  PLAN_GRID,
-  planMemberPosition,
-  planNodeHeight,
-  planNodeWidth,
-} from "./plan-layout";
 import { usePlanCanvasDrop } from "./use-plan-canvas-drop";
 import { usePlanCanvasKeys } from "./use-plan-canvas-keys";
-import { usePlanPointerGestures } from "./use-plan-pointer-gestures";
-import { usePlanViewport } from "./use-plan-viewport";
+import { usePlanFlowAria } from "./use-plan-flow-aria";
+import { usePlanFlowConnections } from "./use-plan-flow-connections";
+import { usePlanFlowMovement } from "./use-plan-flow-movement";
+import { usePlanFlowSelection } from "./use-plan-flow-selection";
+import styles from "./plan-canvas.module.css";
 
-import type {
-  AgentPlanInput,
-  AgentPlanSources,
-  AgentPlanRun,
-} from "@/definition/AgentPlan";
-import type { PlanGraphActions } from "./use-plan-graph";
-import type { PlanPointerGestures } from "./use-plan-pointer-gestures";
-import type { PlanViewport, PlanViewportPointer } from "./use-plan-viewport";
+import type { PlanCanvasProps } from "./plan-flow-context";
+import type { PlanFlowEdge, PlanFlowNode } from "./plan-flow-model";
 
-// Keeps the first nodes of a plan below the configuration bar that floats over the grid.
-const INITIAL_VIEW = { x: 24, y: 120, zoom: 1 };
+const NODE_TYPES = { plan: PlanNodeCard };
+const EDGE_TYPES = { plan: PlanFlowEdgeView };
 
-interface CanvasProps {
-  readonly draft: AgentPlanInput;
-  readonly sources: AgentPlanSources;
-  readonly graph: PlanGraphActions;
-  readonly canEdit: boolean;
-  readonly run: AgentPlanRun | null;
-  readonly onEdit?: (id: string) => void;
-  /** Opens the PageAgentCLI console of an agent node or the member list of a group. */
-  readonly onOpen?: (id: string) => void;
-}
-
-/** The layer is as large as its content, so connections are not clipped by it. */
-function planLayerSize(
-  draft: AgentPlanInput,
-  sources: AgentPlanSources,
-): { readonly width: number; readonly height: number } {
-  return {
-    width: Math.max(
-      1000,
-      ...draft.nodes.map((node) => node.x + planNodeWidth(node) + 100),
-    ),
-    height: Math.max(
-      500,
-      ...draft.nodes.map(
-        (node) => node.y + planNodeHeight(node, sources) + 100,
-      ),
-    ),
-  };
-}
-
-/**
- * Node moves and dragged connections take a press first; a press on the empty
- * grid falls through to panning.
- */
-function combinePointerHandlers(
-  gestures: PlanPointerGestures,
-  viewport: PlanViewport,
-): PlanViewportPointer {
-  const { pointer } = viewport;
-  return {
-    onPointerDown: (event) => {
-      gestures.onPointerDown(event);
-      pointer.onPointerDown(event);
-    },
-    onPointerMove: (event) => {
-      gestures.onPointerMove(event);
-      pointer.onPointerMove(event);
-    },
-    onPointerUp: (event) => {
-      gestures.onPointerUp(event);
-      pointer.onPointerUp(event);
-    },
-    onPointerCancel: (event) => {
-      gestures.cancel();
-      pointer.onPointerCancel(event);
-    },
-  };
-}
-
-/** Frames first, then connections, then the cards of members and other nodes on top. */
-function PlanLayer(
-  props: CanvasProps & {
-    readonly dropTarget: string | null;
-    readonly gestures: PlanPointerGestures;
-  },
-): React.ReactElement {
-  const { draft, graph, gestures } = props;
-  const groups = draft.nodes.filter((node) => node.type === "group");
-  const { nodePreview, linkPreview } = gestures;
-  const target = linkPreview?.target;
-  function result(id: string): AgentPlanRun["steps"][number] | undefined {
-    return props.run?.steps.find((step) => step.id === id);
-  }
+/** The execution plan uses React Flow for rendering, measurement, connections and viewport gestures. */
+export function PlanCanvas(props: PlanCanvasProps): React.ReactElement {
   return (
-    <>
-      {groups.map((group) => (
-        <PlanGroupFrame
-          key={group.id}
-          group={group}
-          sources={props.sources}
-          graph={graph}
-          canEdit={props.canEdit}
-          isDropTarget={props.dropTarget === group.id}
-          session={planRunGroupSession(props.run, group.id)}
-          result={result(group.id)}
-          onEdit={props.onEdit}
-          onOpen={props.onOpen}
-        />
-      ))}
-      <PlanEdges
-        plan={draft}
-        sources={props.sources}
-        selected={graph.selectedLink}
-        onSelect={graph.selectLink}
-        preview={
-          linkPreview && {
-            line: linkPreview,
-            isValid: target
-              ? graph.canConnect(target.id, target.parameter)
-              : null,
-          }
-        }
-      />
-      {groups.flatMap((group) =>
-        group.steps.map((step) => (
-          <PlanNodeCard
-            key={step.id}
-            {...props}
-            node={step}
-            position={
-              nodePreview?.id === step.id
-                ? nodePreview
-                : planMemberPosition(group, step)
-            }
-            result={result(step.id)}
-          />
-        )),
+    <ReactFlowProvider
+      initialNodes={planFlowNodes(props.draft, {
+        sources: props.sources,
+        selectedId: props.graph.selectedId,
+        canEdit: props.canEdit,
+      })}
+      initialEdges={planFlowEdges(
+        props.draft,
+        props.sources,
+        props.graph.selectedLink,
       )}
-      {draft.nodes
-        .filter((node) => node.type !== "group")
-        .map((node) => (
-          <PlanNodeCard
-            key={node.id}
-            {...props}
-            node={node}
-            result={result(node.id)}
-          />
-        ))}
-      <PlanLinkAction
-        draft={draft}
-        sources={props.sources}
-        graph={graph}
-        canEdit={props.canEdit}
-      />
-    </>
+    >
+      <PlanFlowCanvas {...props} />
+    </ReactFlowProvider>
   );
 }
 
-/**
- * The plan grid fills its area; dragging the empty grid pans it and the mouse wheel zooms it.
- *
- * @remarks
- * Nodes, frames and connections share one transformed layer, so they keep
- * their positions relative to each other at every offset and zoom level. The
- * grid has no surface of its own: it shows the page background with a faint
- * dot raster that fades out towards every edge of the visible area, so the
- * grid blends into the page and the panels above it read as floating. Only
- * the raster fades; nodes, ports and connections stay fully visible.
- */
-export function PlanCanvas(props: CanvasProps): React.ReactElement {
+function PlanFlowCanvas(props: PlanCanvasProps): React.ReactElement {
   const { t } = useTranslation();
   const { graph } = props;
-  const viewport = usePlanViewport(() => graph.select(null), INITIAL_VIEW);
+  const flow = useReactFlow<PlanFlowNode, PlanFlowEdge>();
+  const movement = usePlanFlowMovement(props);
+  const { cancel: cancelConnection, ...connections } =
+    usePlanFlowConnections(props);
   const drop = usePlanCanvasDrop({
-    draft: props.draft,
-    sources: props.sources,
-    graph,
-    canEdit: props.canEdit,
-    toGrid: viewport.toGrid,
+    ...props,
+    toGrid: (x, y) => flow.screenToFlowPosition({ x, y }),
   });
-  const gestures = usePlanPointerGestures({
-    draft: props.draft,
-    sources: props.sources,
-    graph,
-    canEdit: props.canEdit,
-    toGrid: viewport.toGrid,
-  });
-  const onKeyDown = usePlanCanvasKeys({
-    graph,
-    canEdit: props.canEdit,
-    onCancel: gestures.cancel,
-  });
-  const pointer = combinePointerHandlers(gestures, viewport);
-  const { view } = viewport;
+  const onKeyDown = usePlanCanvasKeys({ ...props, onCancel: cancel });
+  const context = {
+    ...props,
+    dropTarget: drop.dropTarget ?? movement.dropTarget,
+    cancelConnection,
+  };
+  function cancel(): void {
+    movement.cancel();
+    cancelConnection();
+  }
   return (
-    <section aria-label={t("plans.canvas")} className="absolute inset-0">
-      <div
-        ref={viewport.viewportRef}
-        role="region"
-        aria-label={t("plans.grid")}
+    <PlanFlowContext value={context}>
+      <section
+        aria-label={t("plans.canvas")}
         tabIndex={0}
+        onKeyDown={onKeyDown}
         onDragOver={drop.onDragOver}
         onDragLeave={drop.onDragLeave}
         onDrop={drop.onDrop}
-        onKeyDown={onKeyDown}
-        {...pointer}
-        className="relative size-full cursor-grab touch-none overflow-hidden outline-none select-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset active:cursor-grabbing"
+        className="absolute inset-0 overflow-hidden rounded-2xl border border-border bg-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
-        <div
-          aria-hidden="true"
-          className={cn(
-            "pointer-events-none absolute inset-0",
-            styles.gridBackground,
-          )}
-          style={{
-            backgroundSize: `${PLAN_GRID * view.zoom}px ${PLAN_GRID * view.zoom}px`,
-            backgroundPosition: `${view.x}px ${view.y}px`,
-          }}
+        <PlanFlowGraph
+          canvas={props}
+          movement={movement}
+          connections={connections}
         />
-        <div
-          data-plan-layer=""
-          className="absolute top-0 left-0 origin-top-left"
-          style={{
-            ...planLayerSize(props.draft, props.sources),
-            transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`,
-          }}
-        >
-          <PlanLayer
-            {...props}
-            dropTarget={drop.dropTarget ?? gestures.dropTarget}
-            gestures={gestures}
+        {props.draft.nodes.length === 0 ? (
+          <CanvasEmpty
+            hasWorkspace={Boolean(props.draft.workspaceId)}
+            isReadOnly={props.isReadOnly ?? !props.canEdit}
           />
-        </div>
-      </div>
-      <PlanCanvasControls graph={graph} viewport={viewport} />
-      {graph.notice ? (
-        <PlanGroupNoticeBar
-          notice={graph.notice}
-          onClose={graph.clearNotice}
-          className="absolute top-14 left-1/2 z-[5] -translate-x-1/2 xl:top-48"
+        ) : null}
+        {graph.notice ? (
+          <PlanGroupNoticeBar
+            notice={graph.notice}
+            onClose={graph.clearNotice}
+            className="absolute top-20 left-3 z-10"
+          />
+        ) : null}
+        <PlanGroupRemoval
+          draft={props.draft}
+          graph={graph}
+          canEdit={props.canEdit}
         />
-      ) : null}
-      <PlanGroupRemoval
-        draft={props.draft}
-        graph={graph}
-        canEdit={props.canEdit}
-      />
-    </section>
+      </section>
+    </PlanFlowContext>
+  );
+}
+
+function PlanFlowGraph({
+  canvas,
+  movement,
+  connections,
+}: {
+  readonly canvas: PlanCanvasProps;
+  readonly movement: ReturnType<typeof usePlanFlowMovement>;
+  readonly connections: Omit<
+    ReturnType<typeof usePlanFlowConnections>,
+    "cancel"
+  >;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const selection = usePlanFlowSelection(canvas);
+  const ariaLabelConfig = usePlanFlowAria();
+  return (
+    <ReactFlow<PlanFlowNode, PlanFlowEdge>
+      className={styles.canvas}
+      nodes={movement.nodes}
+      edges={planFlowEdges(
+        canvas.draft,
+        canvas.sources,
+        canvas.graph.selectedLink,
+      )}
+      nodeTypes={NODE_TYPES}
+      edgeTypes={EDGE_TYPES}
+      onNodesChange={movement.onNodesChange}
+      onNodeDragStart={movement.onNodeDragStart}
+      onNodeDrag={movement.onNodeDrag}
+      onNodeDragStop={movement.onNodeDragStop}
+      {...selection}
+      {...connections}
+      connectionLineComponent={PlanFlowConnectionLine}
+      nodesDraggable={canvas.canEdit}
+      nodesConnectable={canvas.canEdit}
+      edgesReconnectable={false}
+      deleteKeyCode={null}
+      multiSelectionKeyCode={null}
+      selectionKeyCode={null}
+      zoomOnDoubleClick={false}
+      minZoom={0.01}
+      maxZoom={2}
+      snapToGrid
+      snapGrid={[PLAN_GRID, PLAN_GRID]}
+      defaultViewport={{ x: 40, y: 80, zoom: 1 }}
+      fitView
+      fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
+      aria-label={t("plans.grid")}
+      ariaLabelConfig={ariaLabelConfig}
+    >
+      <Background gap={PLAN_GRID} size={1} />
+      <PlanCanvasControls />
+    </ReactFlow>
+  );
+}
+
+function CanvasEmpty(props: {
+  readonly hasWorkspace: boolean;
+  readonly isReadOnly: boolean;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  let hint = "plans.flow.workspaceHint";
+  if (props.hasWorkspace) hint = "plans.flow.emptyHint";
+  if (props.isReadOnly) hint = "plans.flow.emptyReadOnlyHint";
+  return (
+    <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-8">
+      <div className="max-w-sm rounded-2xl border border-dashed border-border bg-surface/90 p-6 text-center shadow-xs">
+        <p className="mb-2 text-sm font-semibold">
+          {t(
+            props.isReadOnly
+              ? "plans.flow.emptyReadOnlyTitle"
+              : "plans.flow.emptyTitle",
+          )}
+        </p>
+        <p className="text-sm text-muted-foreground">{t(hint)}</p>
+      </div>
+    </div>
   );
 }

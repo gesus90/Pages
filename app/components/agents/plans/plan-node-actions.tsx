@@ -45,6 +45,8 @@ export function PlanNodeActions({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
+        onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => event.stopPropagation()}
         onDoubleClick={(event) => event.stopPropagation()}
       >
         {onEdit ? (
