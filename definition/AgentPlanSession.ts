@@ -155,6 +155,12 @@ export interface AgentPlanSessionRecord {
   readonly mode: AgentPlanSessionMode;
   /** Pages' identifier of this process instance; it tags every process of the session. */
   readonly instanceId: string;
+  /**
+   * The PageAgentCLI attempt of this node: its journal, usage and messages.
+   * Members of an ACP group share the instance but never the attempt; absent
+   * in records from before PAGE-85.
+   */
+  readonly attemptId?: string;
   /** The runner's own session or thread identifier, once it reported one. */
   readonly sessionId: string | null;
   readonly processId: number | null;

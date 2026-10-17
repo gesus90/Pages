@@ -85,6 +85,8 @@ export const AGENT_ERROR_MESSAGES = {
     "This adapter cannot continue a group's shared ACP session with a new step instruction. Use Codex or Claude Code agents over ACP.",
   plan_group_session_lost:
     "The group's shared ACP session no longer exists because its adapter process ended. An ACP session cannot be continued in another process; start a new run.",
+  plan_session_unavailable:
+    "This agent session has no open native session that could take another instruction. Its history stays readable.",
   plan_closeout_failed:
     "The session could not be closed completely; processes of it remained.",
   workspace_invalid: "Enter a name, an existing local directory and a project.",

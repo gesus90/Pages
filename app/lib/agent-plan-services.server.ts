@@ -14,11 +14,16 @@ import { AgentPlanStepStart } from "@/backend/service/agents/AgentPlanStepStart"
 import { AgentRunCredentialService } from "@/backend/service/mcp/AgentRunCredentialService";
 import { AgentPlanTasks } from "@/backend/service/agents/AgentPlanTasks";
 import { AgentPlanSharing } from "@/backend/service/agents/AgentPlanSharing";
+import { AgentSessionRepository } from "@/backend/database/repositories/agent/AgentSessionRepository";
+import { AgentSessionInbox } from "@/backend/service/agents/sessions/AgentSessionInbox";
+import { AgentSessionJournal } from "@/backend/service/agents/sessions/AgentSessionJournal";
+import { AgentSessionService } from "@/backend/service/agents/sessions/AgentSessionService";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 
 import type { Database } from "@/backend/database/Database";
 import type { AgentPlanMcpSettings } from "@/backend/service/agents/AgentPlanSessionAccess";
+import type { AgentSessionRunAccess } from "@/backend/service/agents/sessions/AgentSessionService";
 import type { TaskService } from "@/backend/service/TaskService";
 import type { UserService } from "@/backend/service/UserService";
 import type { AgentApplicationServices } from "./agent-services.server";
@@ -64,6 +69,10 @@ export async function createAgentPlanService(input: {
     ),
     input.mcp,
   );
+  const pageAgentSessions = await createPageAgentSessions(input, {
+    run: (userId, id) => service.run(userId, id),
+    stop: (userId, id) => service.stop(userId, id),
+  });
   const engine = new AgentPlanRunEngine({
     runs,
     start,
@@ -74,6 +83,7 @@ export async function createAgentPlanService(input: {
       tasks,
       access: sessions,
       archive: input.agents.agentRunArchive,
+      sessions: pageAgentSessions,
     }),
     archive: input.agents.agentRunArchive,
     files: input.agents.agentDefinitionFiles,
@@ -100,6 +110,38 @@ export async function createAgentPlanService(input: {
   // Interrupted runs ended just now, so their records are repaired as well.
   await repairAgentFiles(input);
   return service;
+}
+
+/**
+ * Builds the PageAgentCLI sessions of plan nodes on the plan service's run access.
+ *
+ * @remarks
+ * Deliveries a stopped server left on the way become `uncertain` before any
+ * run starts; none is repeated automatically.
+ */
+async function createPageAgentSessions(
+  input: {
+    readonly database: Database;
+    readonly agents: AgentApplicationServices;
+  },
+  runs: AgentSessionRunAccess,
+): Promise<AgentSessionService> {
+  const store = new AgentSessionRepository(input.database);
+  const journal = new AgentSessionJournal(store);
+  const inbox = new AgentSessionInbox(store, journal);
+  await inbox.recover();
+  return new AgentSessionService({
+    runs,
+    store,
+    journal,
+    inbox,
+    isWaitingForCapacity: (runId, stepId) =>
+      input.agents.acpResourceScheduler
+        .snapshot()
+        .waiting.some(
+          (request) => request.runId === runId && request.stepId === stepId,
+        ),
+  });
 }
 
 /** A problem with these copies is reported and never keeps the server from starting. */

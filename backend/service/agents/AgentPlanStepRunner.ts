@@ -8,6 +8,7 @@ import { isApiProvider } from "@/definition/AgentConnection";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { planGroupOrder } from "@/definition/AgentPlanGroup";
 
+import { offerGroupInstructions } from "./AgentPlanGroupInstructions";
 import { AgentPlanGroupSessions } from "./AgentPlanGroupSessions";
 import { AgentPlanStepAssessment } from "./AgentPlanStepAssessment";
 import { buildPlanContract, renderPlanAssignment } from "./AgentPlanContract";
@@ -23,6 +24,7 @@ import {
 } from "./AgentPlanSessionRecords";
 
 import type {
+  AgentPlanSessionInput,
   PlanExecution,
   PlanSession,
   PlanSessionObserver,
@@ -46,6 +48,7 @@ import type {
 import type { AgentPlanTasks } from "./AgentPlanTasks";
 import type { AgentPlanSessionTerms } from "./AgentPlanStepAssessment";
 import type { AgentRunArchive } from "./AgentRunArchive";
+import type { AgentSessionService } from "./sessions/AgentSessionService";
 
 interface StepRunnerDependencies {
   readonly start: Pick<AgentPlanStepStart, "prepare"> &
@@ -54,6 +57,11 @@ interface StepRunnerDependencies {
   readonly tasks: Pick<AgentPlanTasks, "checklist">;
   readonly access: Pick<AgentPlanSessionAccess, "grant" | "revoke">;
   readonly archive?: Pick<AgentRunArchive, "input">;
+  /** Records the PageAgentCLI history and usage of every ACP node. */
+  readonly sessions?: Pick<
+    AgentSessionService,
+    "listen" | "settle" | "released" | "offer" | "abandon"
+  >;
 }
 
 /** How a running node reports its record and learns about a stop. */
@@ -225,7 +233,8 @@ export class AgentPlanStepRunner {
     const stopped = await this.groups.stop(runId, groupId);
     if (groupId === undefined) this.groups.forget(runId);
     for (const { key, closed } of stopped) {
-      for (const node of this.retained.get(key) ?? [])
+      for (const node of this.retained.get(key) ?? []) {
+        await this.dependencies.sessions?.released(node.record);
         await this.complete(node, {
           closeout: closed.isConfirmed ? "confirmed" : "failed",
           exit: closed.exit,
@@ -233,6 +242,7 @@ export class AgentPlanStepRunner {
           endedAt: closed.endedAt,
           resultCode: closeoutFailureCode(closed) === null ? 0 : -1,
         });
+      }
       this.retained.delete(key);
       await this.dependencies.access.revoke(runId, key.slice(runId.length + 1));
     }
@@ -391,6 +401,7 @@ export class AgentPlanStepRunner {
       instanceId,
       mcp,
       resourceContext: { runId: run.id, stepId: step.step.id },
+      journal: this.dependencies.sessions?.listen(node, instanceId),
     };
     const session = step.groupId
       ? await this.groups.turn({
@@ -404,6 +415,7 @@ export class AgentPlanStepRunner {
           node.control.signal,
           this.observer(node),
         );
+    this.offerInstructions(node, groupKey, input);
     node.hasStarted = true;
     try {
       return await this.finish(node, session, { contract, reach, instruction });
@@ -414,6 +426,17 @@ export class AgentPlanStepRunner {
       });
       throw error;
     }
+  }
+
+  /** Lets the executor instruct a group member's open session through the group's queue. */
+  private offerInstructions(
+    node: NodeRun,
+    key: string,
+    input: AgentPlanSessionInput,
+  ): void {
+    const { sessions } = this.dependencies;
+    if (!sessions || !node.step.groupId) return;
+    offerGroupInstructions({ sessions, groups: this.groups, node, key, input });
   }
 
   /** Records whether a group member opens its group's shared session or continues it. */
@@ -441,6 +464,7 @@ export class AgentPlanStepRunner {
   ): Promise<Partial<AgentPlanStepResult>> {
     const turn = await session.turn;
     if (node.record) node.record = withTurn(node.record, turn);
+    await this.dependencies.sessions?.settle(node.record, turn);
     const assessed =
       turn.failure === null && turn.errorCode === null
         ? await this.assessment.assess(terms, turn.output, {
@@ -512,6 +536,7 @@ export class AgentPlanStepRunner {
   ): Promise<PlanSessionClosed> {
     const key = `${node.run.id}/${node.step.groupId ?? node.step.step.id}`;
     const closed = await session.close();
+    await this.dependencies.sessions?.released(node.record);
     this.groupInputs.delete(key);
     for (const previous of this.retained.get(key) ?? [])
       await this.complete(previous, {
@@ -582,6 +607,10 @@ export class AgentPlanStepRunner {
     await this.dependencies.access.revoke(
       node.run.id,
       node.step.groupId ?? node.step.step.id,
+    );
+    await this.dependencies.sessions?.abandon(
+      node.record,
+      error instanceof AgentPlanCancelledError ? "cancelled" : "failed",
     );
     if (node.record)
       await this.complete(node, {

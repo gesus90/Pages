@@ -1,4 +1,5 @@
 import type {
+  AgentCapabilities,
   ContentBlock,
   McpServer,
   PromptCapabilities,
@@ -36,6 +37,10 @@ export interface AcpSessionListener {
   readonly initialized?: (
     canSteer: boolean,
     capabilities: PromptCapabilities | null | undefined,
+  ) => void;
+  /** The capabilities the adapter announced in `initialize`, such as resuming a session. */
+  readonly announced?: (
+    capabilities: AgentCapabilities | null | undefined,
   ) => void;
   readonly update: (update: SessionUpdate) => void;
   /** The token usage the adapter returned with a prompt, or `null` without one. */

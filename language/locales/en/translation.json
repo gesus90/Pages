@@ -631,7 +631,8 @@
         "opencode_configuration_unmanaged": "OpenCode could load external settings or instructions. Remove them from the connection’s configuration folder or /etc/opencode. No model was called.",
         "opencode_acp_unsupported": "Pages requires the verified native ACP contract of OpenCode 1.18.34. The installed version or contract differs; no model was called.",
         "opencode_acp_session_failed": "The native OpenCode ACP session failed before or during its turn.",
-        "plan_group_session_lost": "The group's shared ACP session no longer exists because its adapter process ended. An ACP session cannot be continued in another process; start a new run."
+        "plan_group_session_lost": "The group's shared ACP session no longer exists because its adapter process ended. An ACP session cannot be continued in another process; start a new run.",
+        "plan_session_unavailable": "This agent session has no open native session that could take another instruction. Its history stays readable."
       },
       "description": "Manage the named AI connections and function assignments of this Pages instance.",
       "adminModeRequired": "The agent settings are only available in the admin mode. Your account is currently in the role mode.",

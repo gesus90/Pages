@@ -341,7 +341,7 @@ export class CliSessionExecution implements PlanSessionRunner {
         github: github?.status,
         redact,
         secure: () => this.secureAcp(input, start, github),
-        listener: input.chat?.listener,
+        listener: input.chat?.listener ?? input.journal,
       });
     } catch (error: unknown) {
       await this.cleanupAcpStart(child, input.instanceId, github);

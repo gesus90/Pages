@@ -414,6 +414,7 @@ export class AcpSession implements PlanSession {
       this.isSteeringSupported,
       this.promptCapabilities,
     );
+    this.context.listener?.announced?.(response.agentCapabilities);
     const { driver } = this.context;
     const agent = response.agentInfo;
     const adapter = agent ? `${agent.name} ${agent.version}` : "unknown";

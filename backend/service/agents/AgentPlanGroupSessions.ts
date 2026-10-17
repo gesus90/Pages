@@ -202,6 +202,25 @@ export class AgentPlanGroupSessions {
     }
   }
 
+  /**
+   * Runs an executor's instruction as a turn of the group's open session, behind every earlier turn.
+   *
+   * @param request - The member's input with the instruction as its prompt.
+   * @throws {AgentError} `plan_session_unavailable` when the group's session is closed or lost.
+   */
+  public async instruct(request: GroupTurnInput): Promise<PlanSessionTurn> {
+    const slot = this.reserve(request.key);
+    try {
+      await slot.ready;
+      const current = this.sessions.get(request.key);
+      if (!current || current.isLost)
+        throw new AgentError("plan_session_unavailable");
+      return await this.continueTurn(request.key, current, request).turn;
+    } finally {
+      slot.release();
+    }
+  }
+
   /** Closes idle paused groups as well as an active turn when their plan is stopped. */
   public async stop(
     runId: string,

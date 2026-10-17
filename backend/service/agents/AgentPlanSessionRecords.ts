@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { isAcpProvider } from "@/definition/AgentConfiguration";
 
 import { sanitizePlanOutput } from "./AgentPlanOutput";
@@ -66,6 +68,7 @@ export function createSessionRecord(
     runner: isRequest ? "api" : provider,
     mode: sessionMode(provider),
     instanceId: start.instanceId,
+    attemptId: randomUUID(),
     sessionId: null,
     processId: null,
     startedAt: null,

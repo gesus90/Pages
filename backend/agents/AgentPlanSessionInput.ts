@@ -243,6 +243,9 @@ export function readPlanSessionRecord(
     runner: oneOf(record.runner, RUNNERS),
     mode: oneOf(record.mode, MODES),
     instanceId: text(record.instanceId, 100),
+    ...(typeof record.attemptId === "string"
+      ? { attemptId: text(record.attemptId, 100) }
+      : {}),
     sessionId: nullableText(record.sessionId),
     processId: nullableNumber(record.processId),
     startedAt: nullableText(record.startedAt),
