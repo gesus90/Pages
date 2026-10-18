@@ -10,9 +10,20 @@ import type {
 import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 
 export const PLAN_GRID = 20;
+/** The width of the port rows in a frame's header. */
 export const PLAN_NODE_WIDTH = 280;
-const PLAN_ENDPOINT_WIDTH = 192;
-const PLAN_ENDPOINT_HEIGHT = 112;
+// Card sizes keep their order: compact start and end, medium value sources,
+// agents widest and as tall as their inputs. The heights count the rows of
+// plan-node-card and its 1 px border.
+const PLAN_AGENT_WIDTH = 320;
+const PLAN_SOURCE_WIDTH = 260;
+const PLAN_ENDPOINT_WIDTH = 160;
+const PLAN_ENDPOINT_HEIGHT = 56;
+const PLAN_PARAMETER_HEIGHT = 166;
+const PLAN_TICKET_HEIGHT = 116;
+const PLAN_VARIABLE_HEIGHT = 90;
+const AGENT_BASE_HEIGHT = 172;
+const AGENT_INPUT_HEIGHT = 38;
 /** Space between a frame's edge and its members. */
 export const PLAN_FRAME_PADDING = 20;
 const FRAME_MIN_WIDTH = 360;
@@ -23,9 +34,8 @@ export const PLAN_FRAME_FOOTER = 32;
 const FRAME_EDGE = 16;
 
 function agentHeight(step: AgentPlanStep, sources: AgentPlanSources): number {
-  return (
-    152 + (planStepTemplate(step, sources.agents)?.parameters.length ?? 0) * 32
-  );
+  const inputs = planStepTemplate(step, sources.agents)?.parameters.length ?? 0;
+  return AGENT_BASE_HEIGHT + inputs * AGENT_INPUT_HEIGHT;
 }
 
 /**
@@ -43,7 +53,7 @@ export function planGroupHeaderHeight(group: AgentPlanGroup): number {
 export function planGroupWidth(group: AgentPlanGroup): number {
   const right = Math.max(
     0,
-    ...group.steps.map((step) => step.x + PLAN_NODE_WIDTH),
+    ...group.steps.map((step) => step.x + PLAN_AGENT_WIDTH),
   );
   return Math.max(FRAME_MIN_WIDTH, right + 2 * PLAN_FRAME_PADDING);
 }
@@ -77,23 +87,36 @@ export function planMemberPosition(
   return { x: origin.x + step.x, y: origin.y + step.y };
 }
 
-/** Endpoint cards keep their original coordinates without changing saved plans. */
+/** Cards keep their stored top left corner; only their size follows the card type. */
 export function planNodeWidth(node: AgentPlanNode): number {
   if (node.type === "group") return planGroupWidth(node);
+  if (node.type === "agent") return PLAN_AGENT_WIDTH;
   return node.type === "start" || node.type === "end"
     ? PLAN_ENDPOINT_WIDTH
-    : PLAN_NODE_WIDTH;
+    : PLAN_SOURCE_WIDTH;
 }
 
-/** Bounds size React Flow nodes and keep group membership hit areas consistent. */
+/**
+ * Bounds size React Flow nodes and keep group membership hit areas consistent.
+ *
+ * @remarks
+ * A card is at least this tall; larger text lets it grow, and React Flow
+ * then measures its ports again.
+ */
 export function planNodeHeight(
   node: AgentPlanNode,
   sources: AgentPlanSources,
 ): number {
-  if (node.type === "start" || node.type === "end") return PLAN_ENDPOINT_HEIGHT;
+  const heights = {
+    start: PLAN_ENDPOINT_HEIGHT,
+    end: PLAN_ENDPOINT_HEIGHT,
+    parameter: PLAN_PARAMETER_HEIGHT,
+    task: PLAN_TICKET_HEIGHT,
+    variable: PLAN_VARIABLE_HEIGHT,
+  };
   if (node.type === "group") return groupHeight(node, sources);
-  if (node.type !== "agent") return 128;
-  return agentHeight(node, sources);
+  if (node.type === "agent") return agentHeight(node, sources);
+  return heights[node.type];
 }
 
 /**
@@ -152,21 +175,39 @@ export function planNodeLabel(
   );
 }
 
+const NODE_TINTS = {
+  start: "border-plan-checkpoint/60 bg-plan-checkpoint-subtle",
+  end: "border-plan-checkpoint/60 bg-plan-checkpoint-subtle",
+  agent: "border-plan-agent/60 bg-plan-agent-subtle",
+  group: "border-plan-group/60 bg-plan-group-subtle",
+  task: "border-plan-ticket/70 bg-plan-ticket-subtle",
+  variable: "border-plan-parameter/60 bg-plan-parameter-subtle",
+  parameter: "border-plan-parameter/60 bg-plan-parameter-subtle",
+};
+
+const NODE_ACCENTS = {
+  start: "text-plan-checkpoint",
+  end: "text-plan-checkpoint",
+  agent: "text-plan-agent",
+  group: "text-plan-group",
+  task: "text-plan-ticket",
+  variable: "text-plan-parameter",
+  parameter: "text-plan-parameter",
+};
+
 /**
- * Neutral cards whose type shows in a thin colored edge besides the type label.
+ * A calm tint and border in the color of the node type.
  *
  * @remarks
- * The edge colors stay apart from the status badges in both theme palettes.
+ * The type colors stay apart from the run status colors in both theme
+ * palettes; a card shows its status colors instead only while a run of the
+ * same revision is shown.
  */
 export function planNodeClass(type: AgentPlanNode["type"]): string {
-  if (type === "start" || type === "end")
-    return "border-plan-checkpoint/50 bg-plan-checkpoint-subtle text-plan-checkpoint";
-  const edges = {
-    agent: "border-l-plan-agent",
-    group: "border-l-plan-group",
-    task: "border-l-plan-ticket",
-    variable: "border-l-plan-parameter",
-    parameter: "border-l-plan-parameter",
-  };
-  return `border-border border-l-4 bg-surface ${edges[type]}`;
+  return NODE_TINTS[type];
+}
+
+/** The type color of a card's icon. */
+export function planNodeAccent(type: AgentPlanNode["type"]): string {
+  return NODE_ACCENTS[type];
 }

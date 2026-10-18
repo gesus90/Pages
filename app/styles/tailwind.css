@@ -49,15 +49,17 @@
   --color-warning: #b45309;
   --color-ring: #f97316;
 
-  /* Plan node types stay distinct from their execution status. */
-  --color-plan-agent: #1d4ed8;
-  --color-plan-agent-subtle: #eff6ff;
+  /* Plan node types stay distinct from their execution status: start and end
+     green, parameters violet, agents teal, tickets yellow, apart from the
+     orange of the flow ports and of a running node. */
+  --color-plan-agent: #0e7490;
+  --color-plan-agent-subtle: #e6f3f6;
   --color-plan-parameter: #6d28d9;
   --color-plan-parameter-subtle: #f1ecfb;
-  --color-plan-ticket: #9a4a0c;
-  --color-plan-ticket-subtle: #fff1e6;
-  --color-plan-checkpoint: #0f766e;
-  --color-plan-checkpoint-subtle: #eaf7f4;
+  --color-plan-ticket: #a37800;
+  --color-plan-ticket-subtle: #fcf5d4;
+  --color-plan-checkpoint: #15803d;
+  --color-plan-checkpoint-subtle: #e8f5eb;
   /* ACP groups frame their agents in a calm green, apart from the success status. */
   --color-plan-group: #3f7d58;
   --color-plan-group-subtle: #f1f7f3;
@@ -219,14 +221,14 @@
     --color-warning: #fbbf24;
     --color-ring: #fb923c;
 
-    --color-plan-agent: #60a5fa;
-    --color-plan-agent-subtle: #12233d;
+    --color-plan-agent: #3cc6d6;
+    --color-plan-agent-subtle: #0f262d;
     --color-plan-parameter: #a78bfa;
     --color-plan-parameter-subtle: #211a36;
-    --color-plan-ticket: #fdba74;
-    --color-plan-ticket-subtle: #2a1d12;
-    --color-plan-checkpoint: #5eead4;
-    --color-plan-checkpoint-subtle: #102b29;
+    --color-plan-ticket: #facc15;
+    --color-plan-ticket-subtle: #29250f;
+    --color-plan-checkpoint: #4ade80;
+    --color-plan-checkpoint-subtle: #10261a;
     --color-plan-group: #6fbf8e;
     --color-plan-group-subtle: #13221a;
     --color-status-active: #fb923c;

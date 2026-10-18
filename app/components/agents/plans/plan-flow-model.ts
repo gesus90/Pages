@@ -59,6 +59,8 @@ export function planFlowNodes(
   function project(node: AgentPlanNode, parentId?: string): PlanFlowNode {
     const width = planNodeWidth(node);
     const height = planNodeHeight(node, options.sources);
+    const isFrame = node.type === "group";
+    const isEndpoint = node.type === "start" || node.type === "end";
     return {
       id: node.id,
       type: "plan",
@@ -68,12 +70,12 @@ export function planFlowNodes(
       draggable: options.canEdit,
       deletable: false,
       dragHandle: "[data-plan-handle]",
-      zIndex: node.type === "group" ? FRAME_LAYER : CARD_LAYER,
-      className: node.type === "group" ? styles.groupNode : undefined,
+      zIndex: isFrame ? FRAME_LAYER : CARD_LAYER,
+      className: isFrame ? styles.groupNode : styles.cardNode,
       ariaLabel: planNodeLabel(node, options.sources),
       initialWidth: width,
       initialHeight: height,
-      style: { width, height },
+      style: cardStyle(width, height, { isFrame, isEndpoint }),
       ...(parentId ? { parentId } : {}),
     };
   }
@@ -91,6 +93,21 @@ export function planFlowNodes(
       })),
     ];
   });
+}
+
+/**
+ * A frame keeps its computed size; a card grows with larger text, and start
+ * and end also grow wide enough for their name, status and menu. React Flow
+ * then measures the ports again.
+ */
+function cardStyle(
+  width: number,
+  height: number,
+  kind: { readonly isFrame: boolean; readonly isEndpoint: boolean },
+): React.CSSProperties {
+  if (kind.isFrame) return { width, height };
+  if (kind.isEndpoint) return { minWidth: width, minHeight: height };
+  return { width, minHeight: height };
 }
 
 /** Projects execution edges and data bindings separately, including group boundary sources. */

@@ -10,8 +10,41 @@ import {
 import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 
 import type { AgentPlanSources, AgentPlanStep } from "@/definition/AgentPlan";
+import type { AgentPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 import type { AgentPlanCompletion } from "@/definition/AgentPlanSession";
-import type { PageAgentInput } from "@/definition/PageAgent";
+import type { PageAgentInput, PageAgentModel } from "@/definition/PageAgent";
+
+/**
+ * The node with another released model and reasoning level.
+ *
+ * @remarks
+ * Only the node's own configuration copy changes, never its template. A
+ * model of another provider resets the run options to that provider's
+ * defaults.
+ */
+export function planStepWithModel(
+  step: AgentPlanStep,
+  configuration: AgentPlanConfiguration,
+  model: PageAgentModel,
+  reasoningEffort: string | null,
+): AgentPlanStep {
+  return {
+    ...step,
+    configuration: {
+      ...configuration,
+      modelProfileId: model.id,
+      model: model.model,
+      provider: model.provider,
+      reasoningEffort,
+      template: {
+        ...configuration.template,
+        ...(model.provider === configuration.provider
+          ? {}
+          : { run: defaultAgentRunOptions(model.provider) }),
+      },
+    },
+  };
+}
 
 /** Chooses what decides that the node finished; it belongs to the node, not to its configuration copy. */
 function PlanCompletionField(props: {
@@ -78,22 +111,14 @@ export function PlanNodeConfigurationFields(props: {
     if (!configuration) return;
     const model = models.find((entry) => entry.id === input.modelProfileId);
     if (!model) return;
-    props.onChange({
-      ...props.step,
-      configuration: {
-        ...configuration,
-        modelProfileId: model.id,
-        model: model.model,
-        provider: model.provider,
-        reasoningEffort: input.reasoningEffort,
-        template: {
-          ...configuration.template,
-          ...(model.provider === configuration.provider
-            ? {}
-            : { run: defaultAgentRunOptions(model.provider) }),
-        },
-      },
-    });
+    props.onChange(
+      planStepWithModel(
+        props.step,
+        configuration,
+        model,
+        input.reasoningEffort,
+      ),
+    );
   }
   return (
     <fieldset disabled={props.disabled} className="space-y-3">

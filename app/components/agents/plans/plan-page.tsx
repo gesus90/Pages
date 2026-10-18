@@ -43,6 +43,9 @@ export function PlanPage({
       : null;
   const saving = usePlanSave(editor, page.selected !== null);
   const disabled = !editor.canEdit || editor.isPending;
+  const projectId = page.workspaces.find(
+    (workspace) => workspace.id === editor.draft.workspaceId,
+  )?.projectId;
   function closeConsole(): void {
     const nodeId = consoleNodeId;
     setConsoleNodeId(null);
@@ -69,6 +72,9 @@ export function PlanPage({
         onEdit={setEditingNodeId}
         onOpen={setConsoleNodeId}
         run={displayedRun}
+        workspaces={page.workspaces.filter(
+          (workspace) => workspace.projectId === projectId,
+        )}
         status={
           <PlanSaveNotice
             feedback={saving.feedback}

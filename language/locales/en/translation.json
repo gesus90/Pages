@@ -3496,7 +3496,43 @@
         "failed": "Not delivered"
       },
       "cacheExplained": "How cache tokens count"
-    }
+    },
+    "flowInShort": "In",
+    "flowOutShort": "Out",
+    "resultShort": "Result",
+    "ticketsCard": "Tickets",
+    "field": {
+      "name": "Name",
+      "type": "Type",
+      "value": "Value …",
+      "ticket": "Ticket"
+    },
+    "valueTypes": {
+      "string": "Text",
+      "number": "Number",
+      "json": "JSON",
+      "ticket": "Ticket",
+      "workspace": "Workspace",
+      "wiki": "Wiki page"
+    },
+    "parameterName": "Parameter name",
+    "parameterType": "Type of {{name}}",
+    "parameterValue": "Value of {{name}}",
+    "chooseTicket": "Choose a ticket",
+    "chooseWorkspace": "Choose a workspace",
+    "ticketChoice": "Selected ticket",
+    "ticketUnavailable": "Ticket unavailable",
+    "ticketUnavailableHint": "Deleted or not readable – choose another ticket",
+    "ticketWorkflowStatus": "Ticket status: {{status}}",
+    "workspaceUnavailable": "Workspace unavailable",
+    "resultOf": "Result of {{name}}",
+    "groupPortValue": "Group port {{name}}",
+    "boundValue": "{{parameter}} is connected: {{source}}",
+    "boundTo": "Connected to",
+    "inputValue": "Input {{parameter}} of {{name}}",
+    "defaultValue": "Default: {{value}}",
+    "noValue": "No value",
+    "inputsOf": "Inputs of {{name}}"
   },
   "mcpDuration": {
     "label": "Validity in days",

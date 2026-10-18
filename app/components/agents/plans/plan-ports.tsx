@@ -10,6 +10,29 @@ import type { AgentPlanStep } from "@/definition/AgentPlan";
 import type { AgentParameter } from "@/definition/AgentParameters";
 import type { PlanGraphActions } from "./use-plan-graph";
 
+/**
+ * Removes the binding of one data IN; a selected connection to it is no longer selected.
+ *
+ * @param graph - The editor actions of the plan.
+ * @param node - The agent node or frame that owns the IN.
+ * @param name - The parameter of the IN.
+ */
+export function disconnectPlanInput(
+  graph: PlanGraphActions,
+  node: AgentPlanStep | AgentPlanGroup,
+  name: string,
+): void {
+  graph.replaceNode({
+    ...node,
+    bindings: Object.fromEntries(
+      Object.entries(node.bindings).filter(([key]) => key !== name),
+    ),
+  });
+  const link = graph.selectedLink;
+  if (link?.kind === "data" && link.to === node.id && link.parameter === name)
+    graph.selectLink(null);
+}
+
 /** Every named data IN validates the source type; a dragged OUT ends on its row, and disconnecting is an explicit operation. */
 export function PlanPorts(props: {
   readonly node: AgentPlanStep | AgentPlanGroup;
@@ -20,16 +43,7 @@ export function PlanPorts(props: {
 }): React.ReactElement {
   const { t } = useTranslation();
   function disconnect(name: string): void {
-    const { graph, node } = props;
-    graph.replaceNode({
-      ...node,
-      bindings: Object.fromEntries(
-        Object.entries(node.bindings).filter(([key]) => key !== name),
-      ),
-    });
-    const link = graph.selectedLink;
-    if (link?.kind === "data" && link.to === node.id && link.parameter === name)
-      graph.selectLink(null);
+    disconnectPlanInput(props.graph, props.node, name);
   }
   return (
     <>

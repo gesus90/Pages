@@ -114,7 +114,12 @@ it("shows nothing but the canvas with its nodes, connections and one zoom bar", 
     expect(screen.queryByRole("region", { name })).toBeNull();
   expect(screen.queryByRole("complementary")).toBeNull();
   expect(screen.queryAllByRole("tab")).toHaveLength(0);
-  expect(screen.queryAllByRole("combobox")).toHaveLength(0);
+  // Node cards edit their own fields in place (PAGE-108); the canvas around them has no selects.
+  expect(
+    screen
+      .queryAllByRole("combobox")
+      .filter((field) => !field.closest(".react-flow__node")),
+  ).toHaveLength(0);
   expect(
     container.querySelector(
       ".react-flow__minimap, .react-flow__controls, .react-flow__attribution",

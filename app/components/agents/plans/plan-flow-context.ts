@@ -5,6 +5,7 @@ import type {
   AgentPlanRun,
   AgentPlanSources,
 } from "@/definition/AgentPlan";
+import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
 import type { PlanGraphActions } from "./use-plan-graph";
 
 /** The Pages contracts accepted by the graph rendering layer. */
@@ -14,6 +15,8 @@ export interface PlanCanvasProps {
   readonly graph: PlanGraphActions;
   readonly canEdit: boolean;
   readonly run: AgentPlanRun | null;
+  /** The workspaces of the plan's project, offered for workspace values. */
+  readonly workspaces?: readonly AgentWorkspaceChoice[];
   readonly onEdit?: (id: string) => void;
   readonly onOpen?: (id: string) => void;
   /** Notices of the page, such as a refused save, below the zoom bar. */

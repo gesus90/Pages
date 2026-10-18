@@ -52,6 +52,12 @@
   mask-composite: intersect;
 }
 
+/* A card fills its node at least to the planned height and grows with its
+   content, for example with a larger font size. */
+.canvas .cardNode {
+  display: flex;
+}
+
 /* Empty frame areas stay pannable even when a large group covers the canvas. */
 .canvas .groupNode {
   pointer-events: none;

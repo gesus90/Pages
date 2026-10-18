@@ -6,7 +6,7 @@ import { cn } from "@/app/lib/cn";
 import { PlanFlowHandle } from "./plan-flow-handle";
 import { keepPlanControlKeys } from "./plan-flow-keys";
 import { planInTargetClass } from "./plan-flow-ports";
-import { planNodeClass } from "./plan-layout";
+import { planNodeAccent, planNodeClass } from "./plan-layout";
 import { PlanNodeActions } from "./plan-node-actions";
 import { PlanNodeIcon } from "./plan-node-icon";
 import { PlanStatusBadge, planStatusClass } from "./plan-status";
@@ -25,7 +25,14 @@ interface PlanEndpointProps {
   readonly result?: AgentPlanStepResult;
 }
 
-/** Rounded checkpoints retain their stored coordinates and expose only their legal flow direction. */
+/**
+ * Compact horizontal checkpoints: the icon left of the name, the run status
+ * and the menu at the right, and only their legal flow port.
+ *
+ * @remarks
+ * The cards keep their stored coordinates. The icon only marks the node; it
+ * starts nothing.
+ */
 export function PlanEndpoint(props: PlanEndpointProps): React.ReactElement {
   const { t } = useTranslation();
   const { node, graph } = props;
@@ -38,7 +45,7 @@ export function PlanEndpoint(props: PlanEndpointProps): React.ReactElement {
     <article
       aria-label={label}
       className={cn(
-        "relative size-full rounded-3xl border shadow-sm",
+        "relative flex w-full items-center gap-1 rounded-2xl border pr-1.5 shadow-xs",
         props.hasRun
           ? planStatusClass(status, props.result?.isBlocked)
           : planNodeClass(node.type),
@@ -49,7 +56,34 @@ export function PlanEndpoint(props: PlanEndpointProps): React.ReactElement {
       )}
       onKeyDown={keepPlanControlKeys}
     >
-      <div className="nodrag nopan absolute top-1.5 right-1.5">
+      <button
+        type="button"
+        data-plan-handle={node.id}
+        onClick={() => graph.select(node.id)}
+        aria-label={t("plans.selectNode", { name: label })}
+        title={props.hasRun ? statusLabel : label}
+        className={cn(
+          "flex h-full flex-1 items-center gap-2 rounded-2xl pl-3.5 text-base font-semibold focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+          props.canEdit && "cursor-grab active:cursor-grabbing",
+        )}
+      >
+        <PlanNodeIcon
+          type={node.type}
+          className={cn(
+            "size-5 shrink-0",
+            !props.hasRun && planNodeAccent(node.type),
+          )}
+        />
+        <span className="whitespace-nowrap">{label}</span>
+      </button>
+      {props.hasRun ? (
+        <PlanStatusBadge
+          compact
+          status={status}
+          isBlocked={props.result?.isBlocked}
+        />
+      ) : null}
+      <div className="nodrag nopan">
         <PlanNodeActions
           label={label}
           disabled={!props.canEdit}
@@ -58,29 +92,6 @@ export function PlanEndpoint(props: PlanEndpointProps): React.ReactElement {
           shouldFocusCanvasOnRemove
         />
       </div>
-      <button
-        type="button"
-        data-plan-handle={node.id}
-        onClick={() => graph.select(node.id)}
-        aria-label={t("plans.selectNode", { name: label })}
-        title={props.hasRun ? statusLabel : label}
-        className={cn(
-          "flex size-full items-center gap-3 rounded-3xl px-6 text-lg font-semibold focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-          props.canEdit && "cursor-grab active:cursor-grabbing",
-        )}
-      >
-        <PlanNodeIcon type={node.type} className="size-6 shrink-0" />
-        {label}
-      </button>
-      {props.hasRun ? (
-        <div className="pointer-events-none absolute bottom-2 left-6">
-          <PlanStatusBadge
-            isConcise
-            status={status}
-            isBlocked={props.result?.isBlocked}
-          />
-        </div>
-      ) : null}
       <EndpointFlowPort {...props} />
     </article>
   );

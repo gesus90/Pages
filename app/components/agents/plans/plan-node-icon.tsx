@@ -2,7 +2,7 @@ import {
   Bot,
   Boxes,
   Braces,
-  CircleStop,
+  FlagTriangleRight,
   Play,
   Ticket,
   Variable,
@@ -17,7 +17,7 @@ const NODE_ICONS = {
   parameter: Braces,
   variable: Variable,
   start: Play,
-  end: CircleStop,
+  end: FlagTriangleRight,
 };
 
 /** Node types have distinct symbols as well as their semantic color and label. */

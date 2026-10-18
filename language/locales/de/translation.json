@@ -3496,7 +3496,43 @@
         "failed": "Nicht zugestellt"
       },
       "cacheExplained": "Wie Cache-Tokens zählen"
-    }
+    },
+    "flowInShort": "In",
+    "flowOutShort": "Out",
+    "resultShort": "Ergebnis",
+    "ticketsCard": "Tickets",
+    "field": {
+      "name": "Name",
+      "type": "Typ",
+      "value": "Wert …",
+      "ticket": "Ticket"
+    },
+    "valueTypes": {
+      "string": "Text",
+      "number": "Zahl",
+      "json": "JSON",
+      "ticket": "Ticket",
+      "workspace": "Workspace",
+      "wiki": "Wiki-Seite"
+    },
+    "parameterName": "Name des Parameters",
+    "parameterType": "Typ von {{name}}",
+    "parameterValue": "Wert von {{name}}",
+    "chooseTicket": "Ticket wählen",
+    "chooseWorkspace": "Workspace wählen",
+    "ticketChoice": "Ausgewähltes Ticket",
+    "ticketUnavailable": "Ticket nicht verfügbar",
+    "ticketUnavailableHint": "Gelöscht oder nicht lesbar – anderes Ticket wählen",
+    "ticketWorkflowStatus": "Ticketstatus: {{status}}",
+    "workspaceUnavailable": "Workspace nicht verfügbar",
+    "resultOf": "Ergebnis von {{name}}",
+    "groupPortValue": "Gruppenport {{name}}",
+    "boundValue": "{{parameter}} ist verbunden: {{source}}",
+    "boundTo": "Verbunden mit",
+    "inputValue": "Eingabe {{parameter}} von {{name}}",
+    "defaultValue": "Standard: {{value}}",
+    "noValue": "Kein Wert",
+    "inputsOf": "Eingaben von {{name}}"
   },
   "mcpDuration": {
     "label": "Gültigkeit in Tagen",
