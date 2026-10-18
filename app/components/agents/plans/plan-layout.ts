@@ -11,7 +11,8 @@ import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 
 export const PLAN_GRID = 20;
 export const PLAN_NODE_WIDTH = 280;
-const PLAN_ENDPOINT_SIZE = 64;
+const PLAN_ENDPOINT_WIDTH = 192;
+const PLAN_ENDPOINT_HEIGHT = 112;
 /** Space between a frame's edge and its members. */
 export const PLAN_FRAME_PADDING = 20;
 const FRAME_MIN_WIDTH = 360;
@@ -76,11 +77,11 @@ export function planMemberPosition(
   return { x: origin.x + step.x, y: origin.y + step.y };
 }
 
-/** Compact endpoints keep their original coordinates without changing saved plans. */
+/** Endpoint cards keep their original coordinates without changing saved plans. */
 export function planNodeWidth(node: AgentPlanNode): number {
   if (node.type === "group") return planGroupWidth(node);
   return node.type === "start" || node.type === "end"
-    ? PLAN_ENDPOINT_SIZE
+    ? PLAN_ENDPOINT_WIDTH
     : PLAN_NODE_WIDTH;
 }
 
@@ -89,7 +90,7 @@ export function planNodeHeight(
   node: AgentPlanNode,
   sources: AgentPlanSources,
 ): number {
-  if (node.type === "start" || node.type === "end") return 104;
+  if (node.type === "start" || node.type === "end") return PLAN_ENDPOINT_HEIGHT;
   if (node.type === "group") return groupHeight(node, sources);
   if (node.type !== "agent") return 128;
   return agentHeight(node, sources);
@@ -158,14 +159,14 @@ export function planNodeLabel(
  * The edge colors stay apart from the status badges in both theme palettes.
  */
 export function planNodeClass(type: AgentPlanNode["type"]): string {
+  if (type === "start" || type === "end")
+    return "border-plan-checkpoint/50 bg-plan-checkpoint-subtle text-plan-checkpoint";
   const edges = {
     agent: "border-l-plan-agent",
     group: "border-l-plan-group",
     task: "border-l-plan-ticket",
     variable: "border-l-plan-parameter",
     parameter: "border-l-plan-parameter",
-    start: "border-l-muted-foreground/40",
-    end: "border-l-muted-foreground/40",
   };
   return `border-border border-l-4 bg-surface ${edges[type]}`;
 }

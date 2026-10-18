@@ -35,6 +35,12 @@ export function PlanPage({
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [consoleNodeId, setConsoleNodeId] = useState<string | null>(null);
   const running = usePlanRun(page.runs, editor.command.data);
+  const displayedRun =
+    !editor.isDirty &&
+    running.run?.planId === page.selected?.id &&
+    running.run?.planRevision === editor.draft.revision
+      ? running.run
+      : null;
   const saving = usePlanSave(editor, page.selected !== null);
   const disabled = !editor.canEdit || editor.isPending;
   function closeConsole(): void {
@@ -62,7 +68,7 @@ export function PlanPage({
         canEdit={!disabled && Boolean(editor.draft.workspaceId)}
         onEdit={setEditingNodeId}
         onOpen={setConsoleNodeId}
-        run={running.run}
+        run={displayedRun}
         status={
           <PlanSaveNotice
             feedback={saving.feedback}

@@ -16,7 +16,7 @@ import { planNodeClass, planNodeLabel } from "./plan-layout";
 import { PlanNodeActions } from "./plan-node-actions";
 import { PlanNodeIcon } from "./plan-node-icon";
 import { PlanPorts } from "./plan-ports";
-import { PlanStatusBadge } from "./plan-status";
+import { PlanStatusBadge, planStatusClass } from "./plan-status";
 import { usePlanFlowPorts } from "./use-plan-flow-ports";
 
 import type { NodeProps } from "@xyflow/react";
@@ -58,6 +58,7 @@ export function PlanNodeCard({
         node={node}
         graph={graph}
         canEdit={canEdit}
+        hasRun={run !== null}
         result={result}
       />
     );
@@ -69,6 +70,7 @@ export function PlanNodeCard({
         isDropTarget={context.dropTarget === node.id}
         session={planRunGroupSession(run, node.id)}
         result={result}
+        hasRun={run !== null}
       />
     );
   const label = planNodeLabel(node, sources) || t("plans.missingAgent");
@@ -79,7 +81,9 @@ export function PlanNodeCard({
       onKeyDown={keepPlanControlKeys}
       className={cn(
         "size-full rounded-xl border shadow-sm transition-shadow",
-        planNodeClass(node.type),
+        run
+          ? planStatusClass(result?.status ?? "waiting", result?.isBlocked)
+          : planNodeClass(node.type),
         graph.selectedId === node.id &&
           "ring-2 ring-info ring-offset-2 ring-offset-surface",
         graph.issues.some((issue) => issue.nodeId === node.id) &&
@@ -163,10 +167,10 @@ function NodeHeader(props: {
           {props.label}
         </span>
       </button>
-      {result || task ? (
+      {run || task ? (
         <PlanStatusBadge
           compact
-          status={result?.status ?? ticketStatus(task)}
+          status={run ? (result?.status ?? "waiting") : ticketStatus(task)}
           isBlocked={result?.isBlocked}
         />
       ) : null}

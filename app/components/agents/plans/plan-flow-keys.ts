@@ -3,6 +3,8 @@ export function keepPlanControlKeys(
   event: React.KeyboardEvent<HTMLElement>,
 ): void {
   const target = event.target;
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s")
+    return;
   if (event.key === "Escape" || !(target instanceof Element)) return;
   if (target.closest("[data-plan-handle]")) return;
   if (

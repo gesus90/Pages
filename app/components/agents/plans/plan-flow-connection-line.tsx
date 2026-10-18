@@ -20,10 +20,7 @@ export function PlanFlowConnectionLine(
     targetPosition: props.toPosition,
   };
   const [path] = getBezierPath(options);
-  const color =
-    props.connectionStatus === "invalid"
-      ? "var(--color-destructive)"
-      : "var(--color-info)";
+  const color = "var(--color-muted-foreground)";
   return (
     <g>
       <path
@@ -38,7 +35,11 @@ export function PlanFlowConnectionLine(
         cy={props.toY}
         r={4}
         fill="var(--color-surface)"
-        stroke={color}
+        stroke={
+          props.connectionStatus === "invalid"
+            ? "var(--color-destructive)"
+            : color
+        }
         strokeWidth={2}
       />
     </g>

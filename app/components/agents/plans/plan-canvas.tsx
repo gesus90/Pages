@@ -133,6 +133,7 @@ function PlanFlowGraph({
       connectionLineComponent={PlanFlowConnectionLine}
       nodesDraggable={canvas.canEdit}
       nodesConnectable={canvas.canEdit}
+      selectNodesOnDrag={canvas.graph.selectedLink === null}
       edgesReconnectable={false}
       deleteKeyCode={null}
       multiSelectionKeyCode={null}

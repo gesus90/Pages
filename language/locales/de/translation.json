@@ -3386,7 +3386,11 @@
     },
     "ticketOut": "Ticket OUT",
     "deleteNode": "Knoten {{name}} löschen",
+    "removeEndpoint": "Entfernen",
+    "blockedShort": "Blockiert",
     "removeLink": "Verbindung {{name}} lösen",
+    "removeLinkAtSource": "Verbindung {{name}} an der Quelle lösen",
+    "removeLinkAtTarget": "Verbindung {{name}} am Ziel lösen",
     "linkKind": {
       "flow": "Ablauf",
       "data": "Daten"

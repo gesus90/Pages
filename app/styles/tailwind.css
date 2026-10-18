@@ -56,6 +56,8 @@
   --color-plan-parameter-subtle: #f1ecfb;
   --color-plan-ticket: #9a4a0c;
   --color-plan-ticket-subtle: #fff1e6;
+  --color-plan-checkpoint: #0f766e;
+  --color-plan-checkpoint-subtle: #eaf7f4;
   /* ACP groups frame their agents in a calm green, apart from the success status. */
   --color-plan-group: #3f7d58;
   --color-plan-group-subtle: #f1f7f3;
@@ -223,6 +225,8 @@
     --color-plan-parameter-subtle: #211a36;
     --color-plan-ticket: #fdba74;
     --color-plan-ticket-subtle: #2a1d12;
+    --color-plan-checkpoint: #5eead4;
+    --color-plan-checkpoint-subtle: #102b29;
     --color-plan-group: #6fbf8e;
     --color-plan-group-subtle: #13221a;
     --color-status-active: #fb923c;

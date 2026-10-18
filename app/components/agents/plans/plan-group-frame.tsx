@@ -11,7 +11,7 @@ import { PLAN_FRAME_FOOTER, PLAN_NODE_WIDTH } from "./plan-layout";
 import { PlanGroupSessionValue } from "./plan-group-session";
 import { PlanNodeActions } from "./plan-node-actions";
 import { PlanPorts } from "./plan-ports";
-import { PlanStatusBadge } from "./plan-status";
+import { PlanStatusBadge, planStatusClass } from "./plan-status";
 
 import type {
   AgentPlanSources,
@@ -31,6 +31,7 @@ interface GroupFrameProps {
   /** The group's shared session in the selected run. */
   readonly session: PlanGroupSessionView;
   readonly result?: AgentPlanStepResult;
+  readonly hasRun?: boolean;
   readonly onEdit?: (id: string) => void;
   /** Opens the member list of the group, from which a member's console opens. */
   readonly onOpen?: (id: string) => void;
@@ -54,9 +55,17 @@ export function PlanGroupFrame(props: GroupFrameProps): React.ReactElement {
       aria-label={t("plans.groups.frame", { name: label })}
       onKeyDown={keepPlanControlKeys}
       className={cn(
-        "relative size-full rounded-2xl border border-plan-group/60 bg-plan-group-subtle/60 shadow-xs",
+        "relative size-full rounded-2xl border shadow-xs",
+        props.hasRun
+          ? planStatusClass(
+              props.result?.status ?? "waiting",
+              props.result?.isBlocked,
+            )
+          : "border-plan-group/60 bg-plan-group-subtle/60",
+        props.isDropTarget && "ring-2 ring-plan-group/40",
         props.isDropTarget &&
-          "border-plan-group bg-plan-group-subtle ring-2 ring-plan-group/40",
+          !props.hasRun &&
+          "border-plan-group bg-plan-group-subtle",
         graph.selectedId === group.id &&
           "ring-2 ring-info ring-offset-2 ring-offset-background",
         hasIssue && "border-destructive",
@@ -127,11 +136,11 @@ function FrameHeader(
       <PlanGroupAdapterBadge
         adapter={planGroupAdapter(group, props.sources.agents)}
       />
-      {props.result ? (
+      {props.hasRun ? (
         <PlanStatusBadge
           compact
-          status={props.result.status}
-          isBlocked={props.result.isBlocked}
+          status={props.result?.status ?? "waiting"}
+          isBlocked={props.result?.isBlocked}
         />
       ) : null}
       <div className="nodrag nopan">

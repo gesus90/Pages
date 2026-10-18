@@ -3386,7 +3386,11 @@
     },
     "ticketOut": "Ticket OUT",
     "deleteNode": "Delete node {{name}}",
+    "removeEndpoint": "Delete",
+    "blockedShort": "Blocked",
     "removeLink": "Disconnect {{name}}",
+    "removeLinkAtSource": "Disconnect {{name}} at source",
+    "removeLinkAtTarget": "Disconnect {{name}} at target",
     "linkKind": {
       "flow": "Flow",
       "data": "Data"
