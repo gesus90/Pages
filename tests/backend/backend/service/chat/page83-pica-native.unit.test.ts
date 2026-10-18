@@ -237,19 +237,21 @@ it("bounds service results before they enter the model context", async () => {
   expect(prompt).not.toContain("x".repeat(20_001));
 });
 
-it("limits a native turn to six service calls even when a model requests more in one step", async () => {
+it("limits a native turn to 256 service calls even when a model requests more in one step", async () => {
   const world = picaWorld((_, step) =>
     step === 0
       ? picaToolCalls(
-          Array.from({ length: 8 }, () => ({
+          Array.from({ length: 257 }, () => ({
             tool: "tickets_read",
             input: { ticketId: "PAGE-1" },
           })),
         )
       : responseChunks("Limit"),
   );
-  await world.service.run(world.input, world.controller.signal);
-  expect(world.router).toHaveBeenCalledTimes(6);
+  await expect(
+    world.service.run(world.input, world.controller.signal),
+  ).rejects.toMatchObject({ code: "stepLimit" });
+  expect(world.router).toHaveBeenCalledTimes(256);
   expect(
     JSON.stringify(world.provider.calls.mock.calls[1]?.[0].prompt),
   ).toContain("STEP_LIMIT");
@@ -262,8 +264,8 @@ it("stops a model that keeps calling tools at the shared runtime step limit", as
   await expect(
     world.service.run(world.input, world.controller.signal),
   ).rejects.toMatchObject({ code: "stepLimit" });
-  expect(world.router).toHaveBeenCalledTimes(6);
-  expect(world.provider.calls).toHaveBeenCalledTimes(7);
+  expect(world.router).toHaveBeenCalledTimes(256);
+  expect(world.provider.calls).toHaveBeenCalledTimes(258);
 });
 
 it("never starts a CLI model and rejects a foreign actor before model execution", async () => {

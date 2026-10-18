@@ -5,6 +5,10 @@ import { redactAssistantCredentials } from "@/backend/service/assistant/TextAssi
 import { isApiProvider } from "@/definition/AgentConnection";
 import { CHAT_LIMITS, canChatSearchWeb } from "@/definition/Chat";
 
+import {
+  CHAT_MAXIMUM_ACTIONS,
+  CHAT_MAXIMUM_MODEL_STEPS,
+} from "./ChatExecutionLimits";
 import { readChatModelReply } from "./ChatActionProtocol";
 import { isChatTextAttachment } from "./ChatAttachmentService";
 import { createChatInstructions, createChatPrompt } from "./ChatPrompt";
@@ -53,8 +57,8 @@ import type { PicaApiService } from "./PicaApiService";
 import type { PicaAcpService } from "./acp/PicaAcpService";
 import type { PicaTurnBrief } from "./acp/PicaAcpContent";
 
-/** Actions the agent may run for one message before it has to answer. */
-export const CHAT_MAXIMUM_ACTIONS = 6;
+/** Retains the existing public limit export for callers. */
+export { CHAT_MAXIMUM_ACTIONS } from "./ChatExecutionLimits";
 
 /** Characters of one text attachment the agent receives. */
 export const CHAT_ATTACHMENT_CHARACTERS = 30_000;
@@ -479,7 +483,9 @@ export class ChatService {
       : null;
     const steps: ChatStep[] = [];
     const temporaryPasswords: ChatTemporaryPassword[] = [];
-    for (let round = 0; round <= CHAT_MAXIMUM_ACTIONS; round += 1) {
+    let calls = 0;
+    for (let round = 0; round < CHAT_MAXIMUM_MODEL_STEPS; round += 1) {
+      signal.throwIfAborted();
       const output = await this.dependencies.execution.run(
         {
           agent: turn.agent,
@@ -488,7 +494,9 @@ export class ChatService {
           prompt: createChatPrompt({
             ...prompt,
             steps,
-            isLastStep: round === CHAT_MAXIMUM_ACTIONS,
+            isLastStep:
+              calls === CHAT_MAXIMUM_ACTIONS ||
+              round === CHAT_MAXIMUM_MODEL_STEPS - 1,
           }),
           webSearch: canSearchWeb,
         },
@@ -498,7 +506,7 @@ export class ChatService {
       const reply = readChatModelReply(output);
       if (reply.kind === "answer")
         return { text: readAnswer(reply.text), temporaryPasswords };
-      if (round === CHAT_MAXIMUM_ACTIONS) break;
+      if (calls === CHAT_MAXIMUM_ACTIONS) break;
       if (reply.kind === "invalid") {
         steps.push({
           operation: "",
@@ -507,6 +515,7 @@ export class ChatService {
         });
         continue;
       }
+      calls += 1;
       const { temporaryPassword, ...outcome } =
         await this.dependencies.tools.run(
           turn.actor.id,

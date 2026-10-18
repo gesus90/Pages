@@ -29,6 +29,8 @@ export class ScheduledAcpSession implements PlanSession {
   private idleTimer: ReturnType<typeof setTimeout> | undefined;
   private closing: Promise<PlanSessionClosed> | null = null;
   private isWorking = true;
+  private pendingSteers = 0;
+  private hasAdapterTurn = false;
   private observer: PlanSessionObserver | undefined;
 
   public constructor(
@@ -58,6 +60,7 @@ export class ScheduledAcpSession implements PlanSession {
     if (this.closing || this.isWorking || !this.session.next)
       throw new AgentError("plan_context_changed");
     clearTimeout(this.idleTimer);
+    this.hasAdapterTurn = false;
     this.observer = observer;
     this.isWorking = true;
     await this.lifecycle.transition("running", input.resourceContext?.stepId);
@@ -65,12 +68,24 @@ export class ScheduledAcpSession implements PlanSession {
     return this.observeTurn(this.session.next(input, signal, observer));
   }
 
-  /** Steering joins the running turn of the same lease; it changes no lifecycle state. */
+  /** An adapter-started follow-up is active work, bounded by its owner's signal rather than idle expiry. */
   public async steer(
     prompt: readonly ContentBlock[],
   ): Promise<AcpSteerOutcome> {
     if (this.closing || !this.session.steer) return "inactive";
-    return this.session.steer(prompt);
+    this.pendingSteers += 1;
+    clearTimeout(this.idleTimer);
+    try {
+      const outcome = await this.session.steer(prompt);
+      if (outcome === "startedNewTurn" && !this.closing) {
+        this.hasAdapterTurn = true;
+        await this.lifecycle.transition("running");
+      }
+      return outcome;
+    } finally {
+      this.pendingSteers -= 1;
+      this.armIdleTimer();
+    }
   }
 
   /** Serializes closeout and only returns confirmed when capacity can safely be released. */
@@ -86,7 +101,7 @@ export class ScheduledAcpSession implements PlanSession {
       return await pending;
     } finally {
       this.isWorking = false;
-      if (!this.closing) {
+      if (!this.closing && !this.hasAdapterTurn) {
         await this.lifecycle.transition("idle");
         this.armIdleTimer();
       }
@@ -94,7 +109,14 @@ export class ScheduledAcpSession implements PlanSession {
   }
 
   private armIdleTimer(): void {
-    if (this.closing) return;
+    clearTimeout(this.idleTimer);
+    if (
+      this.closing ||
+      this.isWorking ||
+      this.hasAdapterTurn ||
+      this.pendingSteers > 0
+    )
+      return;
     this.idleTimer = setTimeout(() => {
       void this.retire("idle_timeout").catch((caughtError: unknown) => {
         logCaughtError("ScheduledAcpSession", caughtError);

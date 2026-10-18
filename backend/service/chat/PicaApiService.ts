@@ -7,6 +7,7 @@ import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
 import { isApiProvider } from "@/definition/AgentConnection";
 import { logCaughtError } from "@/backend/logging/Logger";
 
+import { CHAT_MAXIMUM_MODEL_STEPS } from "./ChatExecutionLimits";
 import { createPicaTools } from "./PicaTools";
 
 import type {
@@ -81,17 +82,21 @@ export class PicaApiService {
     context: RuntimeExecutionContext,
     resolved: PicaApiModel,
   ): Promise<string> {
+    let isLimitExceeded = false;
     const agent = createRuntimeAgent({
       id: "pica-api",
       name: "Pica",
       instructions: input.instructions ?? "",
       model: resolved.model,
       context,
-      maxSteps: 7,
+      maxSteps: CHAT_MAXIMUM_MODEL_STEPS,
       tools: createPicaTools({
         tools: this.dependencies.tools,
         sessions: this.dependencies.sessions,
         authorize: context.authorize,
+        onLimit: () => {
+          isLimitExceeded = true;
+        },
       }),
     });
     const result = await agent.generate(input.prompt, {
@@ -101,7 +106,8 @@ export class PicaApiService {
     });
     context.signal.throwIfAborted();
     await context.authorize();
-    if (result.finishReason === "tool-calls") throw new ChatError("stepLimit");
+    if (isLimitExceeded || result.finishReason === "tool-calls")
+      throw new ChatError("stepLimit");
     if (result.finishReason !== "stop" || !result.text.trim())
       throw new TextAssistantError("invalidOutput");
     return resolved.redact(result.text);

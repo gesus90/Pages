@@ -3009,7 +3009,6 @@
     "empty": "Frag Pica etwas zu Wiki, Tickets oder Projekten. Mit / rufst du Chat-Befehle auf.",
     "you": "Deine Nachricht",
     "loading": "Die Session wird geladen …",
-    "thinking": "Pica antwortet …",
     "stoppedAnswer": "Gestoppt: Teilantwort bis zum Stopp.",
     "input": "Nachricht an Pica",
     "placeholder": "Frag Pica etwas oder tippe / für Befehle …",
@@ -3022,7 +3021,6 @@
     "removeAttachment": "Anhang {{name}} entfernen",
     "uploading_one": "{{count}} Anhang wird hochgeladen …",
     "uploading_other": "{{count}} Anhänge werden hochgeladen …",
-    "limit": "Anhänge bis {{size}}",
     "notice": {
       "newSession": "Neue Session gestartet.",
       "switched": "Session gewechselt.",
@@ -3067,7 +3065,7 @@
       "fileNameTooLong": "Der Dateiname ist zu lang.",
       "fileTypeNotAllowed": "Dieser Dateityp ist nicht erlaubt oder der Inhalt passt nicht zum Dateinamen. Ausführbare Dateien sind gesperrt.",
       "invalidSetting": "Bitte die Eingabe prüfen.",
-      "stepLimit": "Pica konnte die Anfrage nicht in den erlaubten Schritten abschließen. Bitte teil sie in kleinere Schritte auf.",
+      "stepLimit": "Pica hat das Ausführungslimit erreicht (höchstens 256 Werkzeugaufrufe pro Auftrag). Bisherige Änderungen bleiben erhalten. Bitte schicke weitere Arbeit als neuen Auftrag.",
       "roleMissing": "Für den Chat ist noch kein Agent zugewiesen. Ein Admin legt ihn unter Einstellungen › Agents mit der Systemfunktion Chat fest.",
       "profileSelectionRequired": "Mehrere Chat-Agents passen gleichrangig. Ein Admin muss die Zuweisung eindeutig machen.",
       "connectionUnavailable": "Der Zugang des Chat-Agenten ist nicht verfügbar. Bitte wende dich an einen Admin.",
@@ -3113,42 +3111,13 @@
       "adapterExplanation": "Kontextbelegung der Sitzung des Chat-Agenten, wie vom Agenten zuletzt gemeldet. Ohne gültige Meldung steht hier „nicht verfügbar“; Pages schätzt hier nicht."
     },
     "job": {
-      "phase": {
-        "starting": "Pica startet die Sitzung des Chat-Agenten …",
-        "running": "Pica antwortet …",
-        "finishing": "Pica schließt ab …"
-      },
-      "background": "Die Antwort läuft auf dem Server weiter, auch wenn du das Fenster schließt.",
       "ended": {
         "completed": "Antwort abgeschlossen.",
         "stopped": "Antwort gestoppt.",
         "failed": "Die Antwort ist fehlgeschlagen.",
-        "interrupted": "Der Server hat die Antwort unterbrochen.",
-        "running": "Pica antwortet …"
+        "interrupted": "Der Server hat die Antwort unterbrochen."
       },
       "partial": "Teilantwort bis zum Abbruch (nicht gespeichert):",
-      "tools": "Pages-Werkzeuge dieser Antwort",
-      "tool": {
-        "running": "{{tool}} läuft …",
-        "completed": "{{tool}} erledigt",
-        "failed": "{{tool}} fehlgeschlagen ({{error}})"
-      },
-      "usage": {
-        "context": "Kontext",
-        "tokens": "Tokens",
-        "cost": "Kosten",
-        "unavailable": "nicht verfügbar",
-        "contextValue": "{{used}} von {{size}} Tokens laut Adapter",
-        "tokensValue": "{{total}} (Eingabe {{input}}, Ausgabe {{output}})",
-        "tokensPartial": "mindestens {{total}} (Eingabe {{input}}, Ausgabe {{output}}); unvollständige Tokenmeldung des Agents",
-        "costEstimated": "≈ {{amount}} – Schätzung des Adapters nach Listenpreis, kein abgerechneter Betrag",
-        "costSession": "Gesamte Agent-Sitzung: {{amount}}"
-      },
-      "compaction": {
-        "running": "Der Chat-Agent komprimiert den Kontext seiner Sitzung …",
-        "completed": "Kontext der Sitzung komprimiert (vorher {{before}}, danach {{after}} Tokens laut Adapter).",
-        "failed": "Die Kontextkomprimierung des Chat-Agenten ist fehlgeschlagen."
-      },
       "stop": "Stoppen",
       "steerHint": "Pica antwortet noch. Eine neue Nachricht fließt in die laufende Antwort ein; nur „Stoppen“ bricht sie ab.",
       "preparingHint": "Pica bereitet die Sitzung vor. Weitere Nachrichten werden danach beantwortet. Nur „Stoppen“ bricht den Auftrag ab.",
@@ -3187,6 +3156,13 @@
       "unsupported": "{{name}}: nicht übertragen – dieser Dateityp wird nicht an den Chat-Agenten gesendet",
       "tooLarge": "{{name}}: nicht übertragen – die Datei ist zu groß",
       "unreadable": "{{name}}: nicht übertragen – die Datei war nicht lesbar"
+    },
+    "live": {
+      "label": "Pica bearbeitet deine Anfrage",
+      "elapsed": "Verstrichene Bearbeitungszeit",
+      "browsing": "Ich blättere das für dich durch …",
+      "working": "Einen Augenblick, ich kümmere mich darum …",
+      "moment": "Ich bin noch für dich dran …"
     }
   },
   "workspaces": {

@@ -484,3 +484,25 @@ it("refuses calls between turns, with a foreign token and after revoked access",
   ).toBe(401);
   expect(world.router).not.toHaveBeenCalled();
 });
+
+it("enforces 256 actual MCP executions across concurrent calls and renews only for a new turn", async () => {
+  const world = bridgeWorld();
+  world.turn();
+  // Malformed or unknown calls never dispatch a service or consume an execution.
+  expect((await world.call("projects_list", { forged: true })).error).toBe(
+    "INVALID_ARGUMENTS",
+  );
+  expect((await world.call("unknown", {})).error).toBe("UNKNOWN_TOOL");
+  const outcomes = await Promise.all(
+    Array.from({ length: 257 }, () => world.call("projects_list", {})),
+  );
+  expect(outcomes.filter((outcome) => outcome.ok)).toHaveLength(256);
+  expect(
+    outcomes.filter((outcome) => outcome.error === "STEP_LIMIT"),
+  ).toHaveLength(1);
+  expect(world.router).toHaveBeenCalledTimes(256);
+  world.turn();
+  expect((await world.call("projects_list", {})).ok).toBe(true);
+  expect(world.router).toHaveBeenCalledTimes(257);
+  world.lease.close();
+});

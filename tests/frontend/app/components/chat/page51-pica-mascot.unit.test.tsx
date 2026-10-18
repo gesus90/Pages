@@ -104,7 +104,7 @@ it("shows the mascot in the launcher, whose button names Pica", () => {
   );
   const launcher = screen.getByRole("button", { name: "Pica öffnen" });
 
-  expectMascot(launcher, "size-11");
+  expectMascot(launcher, "size-9");
   expect(launcher.getAttribute("title")).toBe("Pica öffnen");
 });
 
@@ -136,9 +136,9 @@ it("marks the pending row and every answer of Pica with the mascot, never an own
   await typeChatMessage("Hallo Pica");
   fireEvent.click(screen.getByRole("button", { name: "Abschicken" }));
 
-  const pending = (await screen.findByText("Pica antwortet …")).closest(
-    "[role='status']",
-  );
+  const pending = (
+    await screen.findByText("Ich blättere das für dich durch …")
+  ).closest("[role='status']");
   expect(pending).toBeInstanceOf(HTMLElement);
   expectMascot(
     pending instanceof HTMLElement ? pending : document.body,

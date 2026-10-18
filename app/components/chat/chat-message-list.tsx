@@ -7,12 +7,14 @@ import { cn } from "@/app/lib/cn";
 import { ChatAttachmentList } from "./chat-attachment-list";
 import { chatErrorText } from "./chat-error";
 import { ChatJobStatus } from "./chat-job-status";
+import { ChatLiveStatus } from "./chat-live-status";
 import { ChatMessageMeta, chatMessageFacts } from "./chat-message-meta";
 import { ChatQuotaDemoAnswer } from "./chat-quota-demo";
 import { PicaMascot } from "./pica-mascot";
 import { shownQuotaDemoHold } from "./use-chat-quota-demo";
 
 import type { ChatMessage } from "@/definition/Chat";
+import type { ChatJobState } from "@/definition/ChatJob";
 import type { ChatController } from "./use-chat";
 import type { ChatMessageFacts } from "./chat-message-meta";
 import type { ChatQuotaDemoHold } from "./use-chat-quota-demo";
@@ -21,13 +23,6 @@ interface ChatMessageListProps {
   readonly chat: ChatController;
   readonly isOpen: boolean;
 }
-
-/** Start offsets of the three dots, so they light up one after the other. */
-const DOT_DELAYS = [
-  "[animation-delay:0ms]",
-  "[animation-delay:300ms]",
-  "[animation-delay:600ms]",
-] as const;
 
 function hideImages(): boolean {
   return false;
@@ -82,38 +77,14 @@ function ChatMessageItem({
   );
 }
 
-/** Pica's row while the answer runs (T6.12.1): avatar, moving dots and "Pica antwortet …". */
-function ChatAnswerPending(): React.ReactElement {
-  const { t } = useTranslation();
-  return (
-    <div className="flex items-center gap-2" role="status">
-      <PicaMascot className="size-7" />
-      <p className="flex items-center gap-2.5 rounded-2xl bg-surface px-3 py-2 text-sm font-medium ring-1 ring-border">
-        <span aria-hidden="true" className="flex gap-1">
-          {DOT_DELAYS.map((delay) => (
-            <span
-              key={delay}
-              className={cn(
-                "size-2 animate-pulse rounded-full bg-primary motion-reduce:animate-none",
-                delay,
-              )}
-            />
-          ))}
-        </span>
-        {t("chat.thinking")}
-      </p>
-    </div>
-  );
-}
-
 /** What the list shows besides the stored messages, and how many rows that makes. */
 function listContent(chat: ChatController): {
   readonly sending: ChatController["sending"];
   readonly live: ChatController["jobs"]["live"];
+  readonly jobState: ChatJobState | undefined;
   readonly facts: ChatMessageFacts;
   readonly quotaHold: ChatQuotaDemoHold | null;
   readonly count: number;
-  readonly liveText: string | undefined;
 } {
   const { messages, session, activity } = chat.view;
   // A message is only shown in the session it was sent to.
@@ -126,6 +97,7 @@ function listContent(chat: ChatController): {
   return {
     sending,
     live,
+    jobState: live?.ended?.state ?? live?.job.state,
     facts: chatMessageFacts(activity, live?.steers),
     quotaHold,
     count:
@@ -133,7 +105,6 @@ function listContent(chat: ChatController): {
       (sending ? 1 : 0) +
       (live ? 1 : 0) +
       (quotaHold ? 1 : 0),
-    liveText: live?.text,
   };
 }
 
@@ -145,19 +116,20 @@ export function ChatMessageList({
   const { t } = useTranslation();
   const end = useRef<HTMLDivElement>(null);
   const { messages } = chat.view;
-  const { sending, live, facts, quotaHold, count, liveText } =
+  const { sending, live, jobState, facts, quotaHold, count } =
     listContent(chat);
   const heldAt = quotaHold?.heldAt;
 
   useEffect(() => {
     // A hidden panel cannot scroll, so reopening it shows what arrived meanwhile.
+    // A terminal status expands the row; hidden intermediate text never moves the list.
     if (isOpen) end.current?.scrollIntoView({ block: "end" });
-  }, [count, chat.error, isOpen, liveText, heldAt]);
+  }, [count, chat.error, isOpen, heldAt, jobState]);
 
   return (
     <div
       aria-label={t("chat.messages")}
-      className="pages-thin-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4"
+      className="pages-thin-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 mask-[linear-gradient(to_bottom,transparent,var(--color-surface)_1rem,var(--color-surface)_calc(100%_-_1rem),transparent)]"
       role="log"
     >
       {count === 0 && !chat.isLoading ? (
@@ -166,14 +138,16 @@ export function ChatMessageList({
       {messages.map((message) => (
         <ChatMessageItem key={message.id} message={message} facts={facts} />
       ))}
-      {live ? <ChatJobStatus live={live} /> : null}
+      {live ? <ChatJobStatus live={live} isOpen={isOpen} /> : null}
       {quotaHold ? <ChatQuotaDemoAnswer hold={quotaHold} /> : null}
       {sending ? (
         <ChatMessageItem
           message={{ role: "user", content: sending.text, attachments: [] }}
         />
       ) : null}
-      {sending ? <ChatAnswerPending /> : null}
+      {sending && !chat.jobs.isRunning ? (
+        <ChatLiveStatus startedAt={sending.startedAt} isOpen={isOpen} />
+      ) : null}
       {chat.isLoading ? (
         <p className="text-sm text-muted-foreground" role="status">
           {t("chat.loading")}

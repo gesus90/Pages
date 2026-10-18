@@ -3,6 +3,7 @@ import { ChatError } from "@/backend/error/ChatErrors";
 import { PicaAcpJobError } from "@/backend/error/PicaAcpJobError";
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
 import { redactAssistantCredentials } from "@/backend/service/assistant/TextAssistantValidation";
+import { logDiagnostic } from "@/backend/logging/Logger";
 import { CHAT_LIMITS } from "@/definition/Chat";
 
 import type { PlanSessionTurn } from "@/backend/agents/AgentPlanExecution";
@@ -55,4 +56,28 @@ export function errorCodeOf(error: unknown): string | null {
   )
     return error.code;
   return null;
+}
+
+/** Maps cancellation, deadlines and tool exhaustion to the status persisted in the job journal. */
+export function picaAcpOutcome(
+  error: unknown,
+  cancellation: {
+    readonly signal: AbortSignal;
+    readonly isStopRequested: boolean;
+  },
+): PicaAcpOutcome {
+  const { signal, isStopRequested } = cancellation;
+  if (signal.aborted) {
+    if (signal.reason === "stepLimit")
+      return { state: "failed", errorCode: "stepLimit" };
+    if (signal.reason === "timeout")
+      return { state: "failed", errorCode: "timeout" };
+    return isStopRequested
+      ? { state: "stopped", errorCode: null }
+      : { state: "interrupted", errorCode: "interrupted" };
+  }
+  const code = errorCodeOf(error);
+  if (code !== null) return { state: "failed", errorCode: code };
+  logDiagnostic("PicaAcpJob", "error", "[pages] A Pica job failed.", error);
+  return { state: "failed", errorCode: "general" };
 }

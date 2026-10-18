@@ -16,7 +16,11 @@ export function ChatJobStopButton({
   const { t } = useTranslation();
   if (!jobs.isRunning) return null;
   return (
-    <Button onClick={jobs.stop} variant="outline">
+    <Button
+      className="gap-1 px-1.5 text-sm xl:gap-1.5 xl:px-3"
+      onClick={jobs.stop}
+      variant="outline"
+    >
       <Square aria-hidden="true" className="size-4" />
       {t("chat.job.stop")}
     </Button>

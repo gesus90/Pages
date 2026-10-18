@@ -3009,7 +3009,6 @@
     "empty": "Ask Pica about the wiki, tickets or projects. Type / for chat commands.",
     "you": "Your message",
     "loading": "Loading the session …",
-    "thinking": "Pica is answering …",
     "stoppedAnswer": "Stopped: partial answer up to the stop.",
     "input": "Message to Pica",
     "placeholder": "Ask Pica something or type / for commands …",
@@ -3022,7 +3021,6 @@
     "removeAttachment": "Remove attachment {{name}}",
     "uploading_one": "Uploading {{count}} attachment …",
     "uploading_other": "Uploading {{count}} attachments …",
-    "limit": "Attachments up to {{size}}",
     "notice": {
       "newSession": "New session started.",
       "switched": "Session switched.",
@@ -3067,7 +3065,7 @@
       "fileNameTooLong": "The file name is too long.",
       "fileTypeNotAllowed": "This file type is not allowed or the content does not match the file name. Executable files are blocked.",
       "invalidSetting": "Please check the input.",
-      "stepLimit": "Pica could not finish the request within the allowed steps. Please split it into smaller steps.",
+      "stepLimit": "Pica reached the execution limit (up to 256 tool calls per request). Changes already made are retained. Please send further work as a new request.",
       "roleMissing": "No agent is assigned to the chat yet. An administrator sets it under Settings › Agents with the system function Chat.",
       "profileSelectionRequired": "Several chat agents match with the same priority. An administrator has to make the assignment unique.",
       "connectionUnavailable": "The access of the chat agent is not available. Please contact an administrator.",
@@ -3113,42 +3111,13 @@
       "adapterExplanation": "Context occupancy of the chat agent’s session as last reported by the agent. Without a valid report, this reads “unavailable”; Pages does not estimate it."
     },
     "job": {
-      "phase": {
-        "starting": "Pica is starting the chat agent's session …",
-        "running": "Pica is answering …",
-        "finishing": "Pica is finishing …"
-      },
-      "background": "The answer continues on the server, even if you close this window.",
       "ended": {
         "completed": "Answer completed.",
         "stopped": "Answer stopped.",
         "failed": "The answer failed.",
-        "interrupted": "The server interrupted the answer.",
-        "running": "Pica is answering …"
+        "interrupted": "The server interrupted the answer."
       },
       "partial": "Partial answer up to the end (not saved):",
-      "tools": "Pages tools of this answer",
-      "tool": {
-        "running": "{{tool}} running …",
-        "completed": "{{tool}} done",
-        "failed": "{{tool}} failed ({{error}})"
-      },
-      "usage": {
-        "context": "Context",
-        "tokens": "Tokens",
-        "cost": "Cost",
-        "unavailable": "not available",
-        "contextValue": "{{used}} of {{size}} tokens as reported by the adapter",
-        "tokensValue": "{{total}} (input {{input}}, output {{output}})",
-        "tokensPartial": "at least {{total}} (input {{input}}, output {{output}}); incomplete token report from the agent",
-        "costEstimated": "≈ {{amount}} – the adapter's estimate at list prices, not a billed amount",
-        "costSession": "Entire agent session: {{amount}}"
-      },
-      "compaction": {
-        "running": "The chat agent is compacting the context of its session …",
-        "completed": "Session context compacted ({{before}} before, {{after}} tokens after, as the adapter reported).",
-        "failed": "The chat agent's context compaction failed."
-      },
       "stop": "Stop",
       "steerHint": "Pica is still answering. A new message joins the running answer; only “Stop” cancels it.",
       "preparingHint": "Pica is preparing the session. Additional messages will be answered afterwards. Only “Stop” cancels the job.",
@@ -3187,6 +3156,13 @@
       "unsupported": "{{name}}: not transferred – this file type is not sent to the chat agent",
       "tooLarge": "{{name}}: not transferred – the file is too large",
       "unreadable": "{{name}}: not transferred – the file could not be read"
+    },
+    "live": {
+      "label": "Pica is working on your request",
+      "elapsed": "Elapsed processing time",
+      "browsing": "I’m looking through this for you …",
+      "working": "One moment, I’m working on it …",
+      "moment": "I’m still on it for you …"
     }
   },
   "workspaces": {

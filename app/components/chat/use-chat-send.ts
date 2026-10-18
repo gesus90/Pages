@@ -22,6 +22,8 @@ export type ChatSubmitOutcome = "clear" | "restore";
 /** The message that is being answered, shown until the answer arrives. */
 export interface ChatSending {
   readonly requestId: string;
+  /** Wall-clock start retained while the panel is hidden or the session refreshes. */
+  readonly startedAt: number;
   /** The session the message went to; its answer belongs to this session only. */
   readonly sessionId: string;
   readonly text: string;
@@ -152,7 +154,12 @@ export function useChatSend({
     const attachmentIds = view.pending.map(({ id }) => id);
     const controller = new AbortController();
     abort.current = controller;
-    setSending({ requestId, sessionId: session.id, text });
+    setSending({
+      requestId,
+      sessionId: session.id,
+      text,
+      startedAt: Date.now(),
+    });
     setTemporaryPasswords([]);
     try {
       const result = await chatApi(

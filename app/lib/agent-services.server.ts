@@ -36,6 +36,7 @@ import { AgentConnectionAccess } from "@/backend/service/agents/AgentConnectionA
 import { CliSessionExecution } from "@/backend/agents/cli/CliSessionExecution";
 import { TextAssistantSettingsRepository } from "@/backend/database/repositories/assistant/TextAssistantSettingsRepository";
 import { TextAgentRoleService } from "@/backend/service/assistant/TextAgentRoleService";
+import { CHAT_REQUEST_TIMEOUT_MS } from "@/backend/service/chat/ChatExecutionLimits";
 import { AssistantRequestRegistry } from "@/backend/service/assistant/AssistantRequestRegistry";
 import { AgentAssignmentRepository } from "@/backend/database/repositories/agent/AgentAssignmentRepository";
 import { AgentAssignmentService } from "@/backend/service/agents/AgentAssignmentService";
@@ -377,7 +378,7 @@ export function createAgentServices(
       catalog: refresh,
     }),
     chatRequests: new AssistantRequestRegistry({
-      timeoutMs: 300_000,
+      timeoutMs: CHAT_REQUEST_TIMEOUT_MS,
       capacity: 16,
     }),
     ...createAgentCatalogServices(repository, refresh, operations),

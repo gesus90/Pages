@@ -5,7 +5,6 @@ import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/lib/cn";
-import { formatBytes } from "@/app/lib/format-bytes";
 
 import { ChatMaintenanceStatus } from "./chat-maintenance-status";
 import { ChatAttachmentList } from "./chat-attachment-list";
@@ -41,7 +40,7 @@ function ChatComposerActions({
 }: ChatComposerActionsProps): React.ReactElement {
   const { t } = useTranslation();
   const fileInput = useRef<HTMLInputElement>(null);
-  const { uploads, limits, sending } = chat;
+  const { uploads, sending } = chat;
 
   function handleFiles(event: React.ChangeEvent<HTMLInputElement>): void {
     const files = [...(event.target.files ?? [])];
@@ -72,23 +71,22 @@ function ChatComposerActions({
         tabIndex={-1}
         type="file"
       />
-      <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-        {limits
-          ? t("chat.limit", { size: formatBytes(limits.limitBytes) })
-          : null}
-      </span>
-      <ChatJobStopButton jobs={chat.jobs} />
-      <div className="ml-auto flex shrink-0 items-center gap-2">
+      <div className="ml-auto flex shrink-0 items-center gap-1 xl:gap-2">
         <ChatContextIndicator
           key={`${chat.view.session?.id ?? ""}:${isOpen}`}
           context={chat.context}
         />
-        {sending ? (
+        <ChatJobStopButton jobs={chat.jobs} />
+        {sending && !chat.jobs.isRunning ? (
           <Button onClick={chat.cancel} variant="outline">
             {t("chat.cancel")}
           </Button>
         ) : (
-          <Button disabled={!canSend} onClick={onSubmit}>
+          <Button
+            className="gap-1 px-1.5 text-sm xl:gap-1.5 xl:px-3"
+            disabled={!canSend}
+            onClick={onSubmit}
+          >
             <SendHorizontal aria-hidden="true" className="size-4" />
             {t("chat.send")}
           </Button>
@@ -144,7 +142,7 @@ export function ChatComposer({
   }
 
   return (
-    <footer className="border-t border-border p-3">
+    <footer className="p-3">
       <ChatQuotaDemoStatus demo={chat.quotaDemo} />
       <ChatMaintenanceStatus chat={chat} />
       <ChatAttachmentList

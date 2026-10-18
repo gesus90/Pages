@@ -1,7 +1,7 @@
 import { RuntimeToolRegistry } from "@/backend/agents/runtime/RuntimeToolRegistry";
 import { redactAssistantCredentials } from "@/backend/service/assistant/TextAssistantValidation";
 
-import { CHAT_MAXIMUM_ACTIONS } from "./ChatService";
+import { CHAT_MAXIMUM_ACTIONS } from "./ChatExecutionLimits";
 import { isChatDeleteOperation } from "./ChatToolCatalog";
 import {
   PICA_READ_SCHEMAS,
@@ -26,6 +26,8 @@ export interface PicaToolsInput {
   /** The word the deletions of the person's interface language take; Pages passes it, never the model. */
   readonly sessions: Pick<ChatSessionService, "confirmationWord">;
   readonly authorize: () => Promise<void>;
+  /** Ends or marks the run when a call would exceed the actual execution budget. */
+  readonly onLimit?: () => void;
 }
 
 type ToolParameters = Readonly<Record<string, unknown>>;
@@ -296,7 +298,10 @@ export function createPicaTools(input: PicaToolsInput): RuntimeToolRegistry {
   ): Promise<PicaToolOutcome> => {
     await input.authorize();
     context.signal.throwIfAborted();
-    if (calls >= CHAT_MAXIMUM_ACTIONS) return refused("STEP_LIMIT");
+    if (calls >= CHAT_MAXIMUM_ACTIONS) {
+      input.onLimit?.();
+      return refused("STEP_LIMIT");
+    }
     calls += 1;
     const confirmation = isChatDeleteOperation(binding.operation)
       ? await input.sessions.confirmationWord(context.userId)

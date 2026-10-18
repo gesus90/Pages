@@ -11,7 +11,7 @@ import {
   waitForSession,
 } from "./chat-fixture";
 
-const THINKING = "Pica antwortet …";
+const THINKING = "Ich blättere das für dich durch …";
 
 const MARKDOWN_ANSWER = [
   "## Ergebnis",

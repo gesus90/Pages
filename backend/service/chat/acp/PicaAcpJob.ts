@@ -16,8 +16,13 @@ import { picaSteerText, picaTurnPrompt } from "./PicaAcpContent";
 import { PicaAcpJournal } from "./PicaAcpJournal";
 import { PicaAcpSelections } from "./PicaAcpSelections";
 import { PicaAcpSteering } from "./PicaAcpSteering";
+import { PicaAcpToolTurns } from "./PicaAcpToolTurns";
 import { PicaAcpThreadWatch } from "./PicaAcpThreadWatch";
-import { errorCodeOf, readAnswer, requireCompleted } from "./PicaAcpTurnResult";
+import {
+  picaAcpOutcome,
+  readAnswer,
+  requireCompleted,
+} from "./PicaAcpTurnResult";
 import { PicaAcpUpdates } from "./PicaAcpUpdates";
 
 import type { PromptCapabilities } from "@agentclientprotocol/sdk";
@@ -139,6 +144,7 @@ export class PicaAcpJob {
     cost: null,
   };
   private turn = 0;
+  private readonly toolTurns: PicaAcpToolTurns;
   private isTurnRunning = false;
   private isStopRequested = false;
   private hasSteering: boolean | null = null;
@@ -150,6 +156,7 @@ export class PicaAcpJob {
     this.id = specification.id;
     this.userId = specification.actor.id;
     this.dependencies = dependencies;
+    this.toolTurns = new PicaAcpToolTurns(dependencies);
     this.specification = specification;
     this.journal = new PicaAcpJournal(dependencies.jobs, specification.id);
     this.selections = new PicaAcpSelections(
@@ -175,6 +182,12 @@ export class PicaAcpJob {
         promptEnded: (turn, tokens) => {
           // From here on the thread's activity belongs to a turn the adapter starts for a steer.
           this.thread.reset();
+          // A steered adapter turn can call the bridge before Pages dequeues it.
+          this.toolTurns.bind(
+            turn + 1,
+            this.requireContext(),
+            this.requireBridge(),
+          );
           this.recordTokens(turn, tokens);
         },
         threadStatus: (isActive) => this.thread.observe(isActive),
@@ -219,7 +232,9 @@ export class PicaAcpJob {
    */
   public async run(signal: AbortSignal): Promise<void> {
     return withLogContext({ jobId: this.id, runId: this.id }, () =>
-      withDatabaseLogMetrics((metrics) => this.runJob(signal, metrics)),
+      withDatabaseLogMetrics((metrics) =>
+        this.runJob(AbortSignal.any([signal, this.toolTurns.signal]), metrics),
+      ),
     );
   }
 
@@ -241,7 +256,10 @@ export class PicaAcpJob {
     } catch (error: unknown) {
       logCaughtError("PicaAcpJob", error);
 
-      outcome = this.outcomeOf(error, signal);
+      outcome = picaAcpOutcome(error, {
+        signal,
+        isStopRequested: this.isStopRequested,
+      });
     }
     await this.finish(outcome);
     logEvent({
@@ -305,6 +323,7 @@ export class PicaAcpJob {
       result = await this.openTurn(null, signal);
     }
     await this.journal.record({ kind: "session", isResumed });
+    signal.throwIfAborted();
     requireCompleted(result);
     await this.storeAnswer(result.output);
     await this.continueTurns(signal);
@@ -348,6 +367,7 @@ export class PicaAcpJob {
   private async adapterTurn(signal: AbortSignal): Promise<string> {
     await this.beginTurn("followUp");
     await this.thread.ended(signal);
+    signal.throwIfAborted();
     // The adapter returns no usage for a turn it started itself.
     this.recordTokens(this.turn, null);
     const answer = this.updates.answer();
@@ -377,21 +397,14 @@ export class PicaAcpJob {
     const result = await this.awaitTurn(
       session.next(input, signal, this.observer()),
     );
+    signal.throwIfAborted();
     requireCompleted(result);
     return this.storeAnswer(result.output);
   }
 
   private async beginTurn(origin: "message" | "followUp"): Promise<void> {
-    const context = this.requireContext();
     this.turn += 1;
-    this.requireBridge().setTurn({
-      tools: createPicaTools({
-        tools: this.dependencies.tools,
-        sessions: this.dependencies.sessions,
-        authorize: context.authorize,
-      }),
-      context,
-    });
+    this.toolTurns.bind(this.turn, this.requireContext(), this.requireBridge());
     await this.journal.record({ kind: "turn", turn: this.turn, origin });
   }
 
@@ -599,21 +612,6 @@ export class PicaAcpJob {
   private requireContext(): RuntimeExecutionContext {
     if (this.context === null) throw new PicaAcpJobError("general");
     return this.context;
-  }
-
-  private outcomeOf(error: unknown, signal: AbortSignal): PicaAcpOutcome {
-    if (signal.aborted) {
-      if (signal.reason === "timeout")
-        return { state: "failed", errorCode: "timeout" };
-      return this.isStopRequested
-        ? { state: "stopped", errorCode: null }
-        : { state: "interrupted", errorCode: "interrupted" };
-    }
-    const code = errorCodeOf(error);
-    if (code !== null) return { state: "failed", errorCode: code };
-    // Only the kind and a short message of the error are logged, never the conversation.
-    logDiagnostic("PicaAcpJob", "error", "[pages] A Pica job failed.", error);
-    return { state: "failed", errorCode: "general" };
   }
 
   private async finish(outcome: PicaAcpOutcome): Promise<void> {

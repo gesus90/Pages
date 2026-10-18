@@ -330,6 +330,36 @@ the transcript, attachments, summaries and `/compact`.
 A Codex CLI, Claude Code or OpenCode agent assigned to the chat runs over ACP
 instead (next sections). `/compact` stays an API-model function.
 
+## Pica execution budgets (PAGE-103)
+
+API, ACP and legacy actions permit up to **256 actual Pages tool executions
+per turn**. Validated calls reserve their place before dispatch, including
+failed service calls; rejected schemas, unknown tools and refused repeated
+failed writes do not execute a service. Call 257 is refused as `STEP_LIMIT`.
+ACP stops the job with the translated limit status and retains its journal;
+the API path reports the limit even if the model subsequently returns text.
+
+Injected steering shares the current budget. A separate follow-up gets a fresh
+budget at the native prompt boundary, including adapter-started turns whose
+first calls arrive before Pages dequeues them. A new message in a resumed
+session also starts fresh; the one-time failed-resume fallback keeps the same
+turn budget. Rights, abort signals, client-message idempotency and failed-write
+retry protection remain in force.
+
+The Mastra ceiling is **258 model steps**: 256 single-call steps, one possible
+refusal and one final text step. Multiple calls in one step still share the
+256-call budget. Legacy mode separately bounds model iterations to 258, so
+malformed actions cannot create an unbounded loop. Provider retries stay off.
+
+The chat request registry allows **90 minutes per request/job**, with the
+existing capacity of 16 and one request per person. This budgets 20 seconds
+per model/tool cycle plus 280 seconds for startup and completion. Follow-ups
+share the job deadline; steering does not extend it. Explicit shorter Claude
+Code/OpenCode agent timeouts still apply; Codex keeps the chat deadline as
+before. Provider context limits, bounded history, attachment/result size
+limits and resource admission still apply, so 256 calls is a ceiling rather
+than a guarantee for arbitrary workloads.
+
 ## Pica over Codex ACP (PAGE-68)
 
 When the chat agent under *Settings › Agents* uses a Codex CLI connection, Pica
@@ -364,7 +394,7 @@ for every new answer, so a change applies from the next message on.
 - **Tools.** Codex reaches Pica's tools only through the MCP endpoint
   `POST /api/v1/pica-bridge`, with a random per-job token held in memory. Each
   call is bound to person, conversation and running turn and is authorized
-  again; the existing limit of six actions per message applies. The shared
+  again; up to 256 actual tool executions are allowed per agent turn. The shared
   native tools act on the person's current rights without an additional
   confirmation line, as described above. The session stays in read-only
   mode and Pages approves only requests for calls of the tool bridge. The
@@ -377,9 +407,9 @@ for every new answer, so a change applies from the next message on.
   and no message arrived on another path. The process holds one lease of the
   shared ACP scheduler only while a job runs. Working directories are empty
   folders in `pica-sessions` next to the agent folders.
-- **Consumption.** Context occupancy and tokens are shown only as the adapter
-  reports them; codex-acp 2.2.2 reports no cost, shown as "not available".
-  While a job runs, the context in the panel header follows its latest report.
+- **Consumption.** Context occupancy follows the adapter's latest valid
+  report in the composer doughnut. Token and cost reports remain in the job
+  journal; they are not displayed in the live activity row.
 
 The capability matrix of the installed adapter is in
 [backend/agents/acp/CodexAcpCapabilities.md](./backend/agents/acp/CodexAcpCapabilities.md).
@@ -421,12 +451,12 @@ section. This section names what differs.
 - **Sessions.** Each conversation keeps one Claude session, kept on disk in the
   connection's credential folder and continued with `session/resume` under
   the profile `pica-claude-chat-1`.
-- **Consumption and compaction.** Context and tokens are shown as the adapter
-  reports them; the token total includes cache reads and writes. Claude Code's
-  cost is its own estimate at list prices and is marked as such (migration
-  053), never as a billed amount. Claude Code compacts its context on its own;
-  the job shows the compaction as a separate line, and the context reads "not
-  available" until the adapter reports it again.
+- **Consumption and compaction.** The journal retains reported context and
+  tokens, including cache reads and writes, and marks Claude Code's cost as
+  its estimate at list prices (migration 053), never as a billed amount.
+  Claude Code compacts its context on its own. The live row hides these
+  events; the doughnut reads "not available" until valid occupancy is reported
+  again.
 
 The capability matrix of the installed adapter is in
 [backend/agents/acp/ClaudeAcpCapabilities.md](./backend/agents/acp/ClaudeAcpCapabilities.md).
@@ -476,8 +506,8 @@ configurations are not imported. No model, provider or API fallback is used.
   which the deletion panel now states.
 - **Consumption.** Context occupancy comes from `usage_update`; absent or
   invalid reports remain unavailable. OpenCode's prompt usage describes the
-  last model step of a tool loop, so token counts are marked incomplete.
-  Its cost is the cumulative native session estimate, labelled as such and
+  last model step of a tool loop, so stored token counts are marked incomplete.
+  Its cost is the cumulative native session estimate, recorded as such and
   never added again per job. Migration **055** extends the scheduler's
   provider constraint and retains these usage distinctions. `/compact`
   explicitly refuses native chat agents; OpenCode manages its own context.
@@ -486,6 +516,28 @@ The protocol observations and upstream source references are in
 [backend/agents/acp/OpenCodeAcpCapabilities.md](./backend/agents/acp/OpenCodeAcpCapabilities.md).
 OpenCode plan nodes also use the native ACP entry point; see
 [OpenCode plan setup](#opencode-plan-nodes-with-a-console--zen-key-page-66).
+
+## Pica live activity (PAGE-103)
+
+While an API request or ACP job runs, the message list shows one compact row:
+the unchanged Pica mascot, three orange dots, a neutral phrase that changes
+every 20 seconds, and elapsed wall time. The timer updates once per second
+from `ChatJob.createdAt`, or the local API request start until a server job is
+known. Closing and reopening the panel keeps that start; hidden panels need
+no timer interval. Reduced-motion preference disables dot animation. The
+activity has an accessible status label and the timer does not announce every
+second. Tool badges, intermediate answer text, usage and compaction events
+remain internal while processing. Final answers appear as ordinary messages;
+failed/interrupted jobs keep their journal text visible, and stopped answers
+stay stored with their stopped marker.
+
+The attachment caption is removed; uploads, limits and errors are unchanged.
+The composer shows exactly one context doughnut, directly before Stop while a
+job runs and beside Send when idle. Its existing pointer, touch and keyboard
+details remain available. Header and composer share the panel surface without
+horizontal borders, and a transparent mask fades the message edges. The outer
+panel frame and mascot asset stay unchanged. The launcher uses the panel
+surface, shadow, subtle hover/active fills, keyboard focus and an open ring.
 
 ## Pica sessions and conversation context (PAGE-48)
 
@@ -1398,7 +1450,9 @@ Cancelling a queued node removes it without starting its adapter. Node deadlines
 include waiting time.
 
 An idle native session, including a paused group, is closed after five minutes
-by default. Its run record receives the retirement reason and closing outcome.
+by default. A follow-up started by the adapter through steering is active work,
+so it remains under the owning job deadline until Pages closes it or starts
+the next prompt; idle expiry does not interrupt that follow-up. Its run record receives the retirement reason and closing outcome.
 Resume after expiry fails with `plan_context_changed`; Pages does not silently
 start a replacement or replay accepted steps. A failed or unconfirmed cleanup
 continues to occupy capacity, visibly, even beyond the idle timeout.

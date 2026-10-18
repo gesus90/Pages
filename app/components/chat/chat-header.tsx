@@ -27,7 +27,7 @@ export function ChatHeader({
   }
 
   return (
-    <header className="flex flex-col gap-2 border-b border-border px-4 py-3">
+    <header className="flex flex-col gap-2 px-4 py-3">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <PicaMascot className="size-9" />
