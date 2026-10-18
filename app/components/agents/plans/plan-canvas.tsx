@@ -1,6 +1,5 @@
 import {
   Background,
-  Panel,
   ReactFlow,
   ReactFlowProvider,
   useConnection,
@@ -19,6 +18,8 @@ import { PlanGroupNoticeBar } from "./plan-group-notice";
 import { PlanGroupRemoval } from "./plan-group-removal";
 import { PLAN_GRID } from "./plan-layout";
 import { PlanNodeCard } from "./plan-node-card";
+import { PlanNodePalette } from "./plan-node-palette";
+import { usePlanNodePalette } from "./use-plan-node-palette";
 import { usePlanCanvasKeys } from "./use-plan-canvas-keys";
 import { usePlanFlowAria } from "./use-plan-flow-aria";
 import { usePlanFlowConnections } from "./use-plan-flow-connections";
@@ -63,6 +64,7 @@ export function PlanCanvas(props: PlanCanvasProps): React.ReactElement {
 function PlanFlowCanvas(props: PlanCanvasProps): React.ReactElement {
   const { t } = useTranslation();
   const movement = usePlanFlowMovement(props);
+  const palette = usePlanNodePalette(props);
   const { cancel: cancelConnection, ...connections } =
     usePlanFlowConnections(props);
   const onKeyDown = usePlanCanvasKeys({ ...props, onCancel: cancel });
@@ -81,6 +83,8 @@ function PlanFlowCanvas(props: PlanCanvasProps): React.ReactElement {
         aria-label={t("plans.canvas")}
         tabIndex={0}
         onKeyDown={onKeyDown}
+        onDragOver={palette.dragOver}
+        onDrop={palette.drop}
         className="absolute inset-0 overflow-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
       >
         <PlanFlowGraph
@@ -94,7 +98,7 @@ function PlanFlowCanvas(props: PlanCanvasProps): React.ReactElement {
           canEdit={props.canEdit}
         />
       </section>
-      <PlanCanvasOverlay canvas={props} />
+      <PlanCanvasOverlay canvas={props} palette={palette} />
     </PlanFlowContext>
   );
 }
@@ -164,28 +168,30 @@ function PlanFlowGraph({
 
 function PlanCanvasOverlay({
   canvas,
+  palette,
 }: {
   readonly canvas: PlanCanvasProps;
+  readonly palette: ReturnType<typeof usePlanNodePalette>;
 }): React.ReactElement {
   return (
-    <Panel
-      position="top-left"
-      className="pointer-events-none z-10 flex max-h-[calc(100%-5rem)] w-[calc(100%-2rem)] max-w-3xl flex-col items-start gap-2"
-    >
-      {canvas.panel}
-      <div className="flex w-full shrink-0 flex-col items-start gap-2">
-        <PlanCanvasControls />
-        <PlanConnectionHint />
-        {canvas.graph.notice ? (
-          <PlanGroupNoticeBar
-            notice={canvas.graph.notice}
-            onClose={canvas.graph.clearNotice}
-            className="pointer-events-auto"
-          />
-        ) : null}
-        {canvas.status}
+    <div className="pointer-events-none absolute inset-4 bottom-[calc(env(safe-area-inset-bottom)+8rem)] z-10 flex min-h-0 flex-col items-start gap-3 @5xl:flex-row @5xl:justify-between md:bottom-[calc(env(safe-area-inset-bottom)+5rem)]">
+      <div className="flex max-h-1/2 w-full max-w-3xl shrink-0 flex-col items-start gap-2 @5xl:max-h-full @5xl:min-w-0 @5xl:flex-1">
+        {canvas.panel}
+        <div className="flex w-full shrink-0 flex-col items-start gap-2">
+          <PlanCanvasControls />
+          <PlanConnectionHint />
+          {canvas.graph.notice ? (
+            <PlanGroupNoticeBar
+              notice={canvas.graph.notice}
+              onClose={canvas.graph.clearNotice}
+              className="pointer-events-auto"
+            />
+          ) : null}
+          {canvas.status}
+        </div>
       </div>
-    </Panel>
+      <PlanNodePalette canvas={canvas} palette={palette} />
+    </div>
   );
 }
 

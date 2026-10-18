@@ -112,7 +112,11 @@ it("keeps the canvas with its nodes, connections and one zoom bar free of plan c
     expect(within(canvas()).queryByRole("button", { name })).toBeNull();
   for (const name of REMOVED_AREAS)
     expect(screen.queryByRole("region", { name })).toBeNull();
-  expect(screen.queryByRole("complementary")).toBeNull();
+  expect(
+    screen
+      .getAllByRole("complementary")
+      .map((panel) => panel.getAttribute("aria-label")),
+  ).toEqual([i18n.t("plans.palette.label")]);
   expect(screen.queryAllByRole("tab")).toHaveLength(0);
   // Node cards edit their own fields in place (PAGE-108); the canvas around them has no selects.
   expect(
@@ -136,8 +140,8 @@ it("keeps the canvas with its nodes, connections and one zoom bar free of plan c
     i18n.t("plans.zoomIn"),
     i18n.t("plans.flow.fitView"),
   ]);
-  expect(zoomBar().closest(".react-flow__panel")?.className).toContain(
-    "top left",
+  expect(zoomBar().closest(".absolute")?.className).toContain(
+    "absolute inset-4",
   );
   expect(card("Reviewer")).toBeDefined();
   // The page keeps a heading for assistive technology without showing a title.

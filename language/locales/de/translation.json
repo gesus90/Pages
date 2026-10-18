@@ -3654,7 +3654,42 @@
     },
     "resultUsed": "{{source}} füllt {{placeholder}} in AGENT.md",
     "resultUnused": "{{source}} ist verbunden, aber AGENT.md verwendet {{placeholder}} nicht – das Ergebnis wird nicht übergeben",
-    "resultUnusedShort": "ungenutzt"
+    "resultUnusedShort": "ungenutzt",
+    "palette": {
+      "title": "Nodes",
+      "label": "Node-Auswahl",
+      "collapse": "Node-Auswahl einklappen",
+      "expand": "Node-Auswahl öffnen",
+      "type": {
+        "start": "Start",
+        "end": "End",
+        "agent": "Agents",
+        "parameter": "Parameter",
+        "task": "Tickets",
+        "group": "Groups"
+      },
+      "hint": {
+        "start": "Beginn eines Ablaufs hinzufügen.",
+        "end": "Ende eines Ablaufs hinzufügen.",
+        "agent": "Einen Schritt aus einer verfügbaren Agentdefinition hinzufügen.",
+        "parameter": "Einen benannten Eingabewert bereitstellen.",
+        "task": "Ein lesbares Ticket als Datenquelle verwenden.",
+        "group": "Agents in einer gemeinsamen ACP-Gruppe organisieren."
+      },
+      "addTitle": "{{type}} hinzufügen",
+      "add": "Hinzufügen",
+      "chooseAgent": "Agentdefinition wählen",
+      "workspaceRequired": "Zuerst einen gültigen Workspace in der Plansteuerung wählen.",
+      "editBlocked": "Der Plan ist derzeit nicht bearbeitbar. Schreibrechte und Laufzustand in der Plansteuerung prüfen.",
+      "configure": {
+        "agent": "Eine verfügbare Agentdefinition ausdrücklich auswählen. Die Vorlage wird als eigener Schritt kopiert.",
+        "task": "Ein Ticket des aktuellen Projekts auswählen. Das Ticket selbst bleibt unverändert.",
+        "parameter": "Einen gültigen Parameternamen eingeben. Der Textwert beginnt leer und ist anschließend in der Karte editierbar.",
+        "group": "Die neue Gruppe benennen. Anschließend passende ACP-Agents hinzufügen."
+      },
+      "noAgents": "In diesem Workspace ist keine nutzbare Agentdefinition verfügbar.",
+      "noTickets": "In diesem Projekt sind keine lesbaren Tickets verfügbar."
+    }
   },
   "mcpDuration": {
     "label": "Gültigkeit in Tagen",

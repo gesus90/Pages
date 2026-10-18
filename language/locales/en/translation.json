@@ -3654,7 +3654,42 @@
     },
     "resultUsed": "{{source}} fills {{placeholder}} in AGENT.md",
     "resultUnused": "{{source}} is connected, but AGENT.md does not use {{placeholder}} – the result is not passed on",
-    "resultUnusedShort": "unused"
+    "resultUnusedShort": "unused",
+    "palette": {
+      "title": "Nodes",
+      "label": "Node selection",
+      "collapse": "Collapse node selection",
+      "expand": "Open node selection",
+      "type": {
+        "start": "Start",
+        "end": "End",
+        "agent": "Agents",
+        "parameter": "Parameter",
+        "task": "Tickets",
+        "group": "Groups"
+      },
+      "hint": {
+        "start": "Add the beginning of a flow.",
+        "end": "Add the end of a flow.",
+        "agent": "Add a step from an available agent definition.",
+        "parameter": "Provide a named input value.",
+        "task": "Use a readable ticket as a data source.",
+        "group": "Organize agents in a shared ACP group."
+      },
+      "addTitle": "Add {{type}}",
+      "add": "Add",
+      "chooseAgent": "Choose an agent definition",
+      "workspaceRequired": "Choose a valid workspace in the plan controls first.",
+      "editBlocked": "The plan cannot currently be edited. Check edit rights and run state in the plan controls.",
+      "configure": {
+        "agent": "Explicitly choose an available agent definition. Its template is copied into a separate step.",
+        "task": "Choose a ticket from the current project. The ticket itself stays unchanged.",
+        "parameter": "Enter a valid parameter name. Its text value starts empty and can then be edited on the card.",
+        "group": "Name the new group. Then add compatible ACP agents."
+      },
+      "noAgents": "No usable agent definition is available in this workspace.",
+      "noTickets": "No readable tickets are available in this project."
+    }
   },
   "mcpDuration": {
     "label": "Validity in days",

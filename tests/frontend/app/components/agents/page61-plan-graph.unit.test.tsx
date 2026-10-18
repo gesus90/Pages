@@ -215,7 +215,7 @@ it("pans by dragging the empty grid and zooms with the wheel, keeping nodes and 
   ).toBe(curve);
 });
 
-it("lays the graph over the whole work area beside the navigation without any panel", async () => {
+it("lays the graph over the whole work area beside the navigation with the floating node palette", async () => {
   renderPlanPage(planServer());
   await screen.findByRole("region", { name: i18n.t("plans.canvas") });
   const canvas = screen.getByRole("region", { name: i18n.t("plans.canvas") });
@@ -223,7 +223,11 @@ it("lays the graph over the whole work area beside the navigation without any pa
   expect(area?.className).toContain("fixed inset-x-0 top-19 bottom-0");
   expect(area?.className).toContain("md:left-(--app-sidebar-width)");
   expect(canvas.className).toContain("absolute inset-0");
-  expect(screen.queryByRole("complementary")).toBeNull();
+  expect(
+    screen
+      .getAllByRole("complementary")
+      .map((panel) => panel.getAttribute("aria-label")),
+  ).toEqual([i18n.t("plans.palette.label")]);
   expect(
     screen.queryByRole("button", { name: i18n.t("plans.collapsePanel") }),
   ).toBeNull();
