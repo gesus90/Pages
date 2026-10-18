@@ -237,7 +237,7 @@ export const PLAN_READ_TOOLS: readonly {
     tool: readTool({
       name: "list_plans",
       title: "List agent plans",
-      description: `Lists the visible agent plans ordered by name: id, name, project, workspaceId, ownerId, canEdit, sharing, revision, nodeCount, state (idle, running or paused by the account's own runs) and latestRun. text keeps plans whose name contains it (case-insensitive), projectId those of one project. Pass nextCursor with the same query to continue. ${SEE_DESCRIPTION}`,
+      description: `Lists the visible agent plans ordered by name: id, name, project, workspaceId, ownerId, canEdit, sharing, revision, nodeCount, state (idle, running, pausing, paused or stopping by the account's own runs) and latestRun. text keeps plans whose name contains it (case-insensitive), projectId those of one project. Pass nextCursor with the same query to continue. ${SEE_DESCRIPTION}`,
       properties: {
         text: NAME,
         projectId: IDENTIFIER,
@@ -271,7 +271,7 @@ export const PLAN_READ_TOOLS: readonly {
     tool: readTool({
       name: "list_plan_runs",
       title: "List plan runs",
-      description: `Lists the account's runs of a visible plan: runId, planId, planName, startedAt (ISO 8601) and status (running, paused, succeeded, failed or cancelled). order newest (default) or oldest sorts by start. 20 runs per page unless limit says otherwise; pass nextCursor with the same query to continue, total counts all runs. ${RUN_DESCRIPTION}`,
+      description: `Lists the account's runs of a visible plan: runId, planId, planName, startedAt (ISO 8601) and status (running, pausing, paused, stopping, succeeded, failed or cancelled). order newest (default) or oldest sorts by start. 20 runs per page unless limit says otherwise; pass nextCursor with the same query to continue, total counts all runs. ${RUN_DESCRIPTION}`,
       properties: {
         planId: IDENTIFIER,
         order: { enum: ["newest", "oldest"] },

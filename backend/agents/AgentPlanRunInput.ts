@@ -1,5 +1,9 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 
+import {
+  readPlanContinuation,
+  readPlanPauseBoundary,
+} from "./AgentPlanContinuationInput";
 import { readPlanText } from "./AgentPlanInput";
 import { readPlanSessionRecord } from "./AgentPlanSessionInput";
 import { readAgentObject } from "./AgentPayload";
@@ -50,14 +54,7 @@ function readResult(input: unknown): AgentPlanStepResult {
 export function readPlanRun(input: unknown): AgentPlanRun {
   const run = readAgentObject(input);
   const { status, planRevision, stopRequested } = run;
-  if (
-    status !== "running" &&
-    status !== "succeeded" &&
-    status !== "failed" &&
-    status !== "cancelled" &&
-    status !== "paused"
-  )
-    throw new AgentError("plan_invalid");
+  if (!isRunStatus(status)) throw new AgentError("plan_invalid");
   if (
     typeof planRevision !== "number" ||
     !Number.isSafeInteger(planRevision) ||
@@ -76,11 +73,31 @@ export function readPlanRun(input: unknown): AgentPlanRun {
     planRevision,
     status,
     stopRequested,
+    ...(run.controlError === "plan_step_failed"
+      ? { controlError: run.controlError }
+      : {}),
+    ...readPlanPauseBoundary(run.pauseBoundary),
+    ...readPlanContinuation(run.continuation),
     ...(run.recovery === undefined
       ? {}
       : { recovery: readPlanRecoveryReason(run.recovery) }),
     steps: run.steps.map(readResult),
   };
+}
+
+function isRunStatus(input: unknown): input is AgentPlanRun["status"] {
+  return (
+    typeof input === "string" &&
+    [
+      "running",
+      "pausing",
+      "stopping",
+      "succeeded",
+      "failed",
+      "cancelled",
+      "paused",
+    ].includes(input)
+  );
 }
 
 function isStepStatus(input: unknown): input is AgentPlanStepStatus {

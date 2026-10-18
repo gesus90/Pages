@@ -148,6 +148,8 @@ export interface AgentPlanRecoveryView {
   readonly revision: number;
   readonly state:
     | "running"
+    | "pausing"
+    | "stopping"
     | "paused"
     | "recoverable"
     | "interrupted"

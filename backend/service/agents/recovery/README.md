@@ -41,7 +41,9 @@ not permission to execute or a claim that a native session survived.
 | Logical state | Public status / reason | Allowed next states and decisions |
 | --- | --- | --- |
 | running | running | pause, explicit cancel, succeeded, recoverable failure, terminal failure |
-| paused | paused | resume the same live run after authorization, or cancel |
+| pausing | pausing | drain all dispatched work; no new starts; then paused or actual completion/failure |
+| paused | paused | adopt a revalidated saved plan revision at the persisted frontier of the same run, or stop |
+| stopping | stopping + stopRequested | confirm owned execution/session closeout; never resume |
 | waiting for input | session state only | the existing session inbox; no new plan scheduler |
 | waiting for resources | running plus scheduler wait reason | existing global ACP admission, pause, cancel; waiting is not failure |
 | recoverable | failed + recoverable | inspect, record a separate repair instruction, reconcile unknown effects, cancel; execution requires the missing workflow integration |

@@ -10,7 +10,7 @@ import {
   syntheticPlan,
 } from "./page61-plan-fixture";
 
-// Labels of the controls the editor showed before PAGE-102; their texts are gone with them.
+// The former editor controls stay outside the canvas; PAGE-106 floats run actions beside it.
 const REMOVED_CONTROLS = [
   "Plan speichern",
   "Play",
@@ -105,11 +105,11 @@ async function removeWriter(): Promise<void> {
   );
 }
 
-it("shows nothing but the canvas with its nodes, connections and one zoom bar", async () => {
+it("keeps the canvas with its nodes, connections and one zoom bar free of plan controls", async () => {
   const { container } = renderPlanPage(planServer());
   await ready(container);
   for (const name of REMOVED_CONTROLS)
-    expect(screen.queryByRole("button", { name })).toBeNull();
+    expect(within(canvas()).queryByRole("button", { name })).toBeNull();
   for (const name of REMOVED_AREAS)
     expect(screen.queryByRole("region", { name })).toBeNull();
   expect(screen.queryByRole("complementary")).toBeNull();
@@ -281,7 +281,8 @@ it("keeps a refused save visible until it is closed", async () => {
   await ready(container);
   await removeWriter();
   pressSave();
-  const alert = await within(canvas()).findByRole("alert");
+  const notices = within(zoomBar().parentElement ?? document.body);
+  const alert = await notices.findByRole("alert");
   expect(alert.textContent).toContain(i18n.t("plans.flow.storage.failed"));
   expect(alert.textContent).toContain(
     i18n.t("settings.agents.error.plan_conflict"),
@@ -291,7 +292,7 @@ it("keeps a refused save visible until it is closed", async () => {
       name: i18n.t("plans.groups.closeNotice"),
     }),
   );
-  expect(within(canvas()).queryByRole("alert")).toBeNull();
+  expect(notices.queryByRole("alert")).toBeNull();
   expect(server.saved).toHaveLength(0);
 });
 
@@ -301,7 +302,9 @@ it("names a read-only plan on Ctrl+S and saves nothing", async () => {
   await ready(container);
   pressSave();
   expect(
-    await within(canvas()).findByText(i18n.t("plans.flow.storage.readOnly")),
+    await within(zoomBar().parentElement ?? document.body).findByText(
+      i18n.t("plans.flow.storage.readOnly"),
+    ),
   ).toBeDefined();
   expect(server.saved).toHaveLength(0);
 });

@@ -655,7 +655,11 @@
         "plan_group_session_lost": "Die gemeinsame ACP-Session der Gruppe besteht nicht mehr, weil ihr Adapterprozess beendet wurde. Eine ACP-Session lässt sich in keinem anderen Prozess fortsetzen; einen neuen Lauf starten.",
         "plan_session_unavailable": "Diese Agenten-Session hat keine offene native Session, die eine weitere Anweisung annehmen könnte. Ihr Verlauf bleibt lesbar.",
         "offline": "Pages ist nicht erreichbar. Prüfe die Verbindung; der Agent läuft weiter.",
-        "agent_tool_not_ready": "Ein benötigtes Agent-Tool ist nicht betriebsbereit. Tool und Ursache stehen in den Run-Ereignissen; siehe Einstellungen → Agents → Tools."
+        "agent_tool_not_ready": "Ein benötigtes Agent-Tool ist nicht betriebsbereit. Tool und Ursache stehen in den Run-Ereignissen; siehe Einstellungen → Agents → Tools.",
+        "plan_continuation_deleted": "Fortsetzungspunkt gelöscht – Neustart erforderlich. Zuerst stoppen, danach mit Play neu starten.",
+        "plan_completed_changed": "Diese Änderung würde abgeschlossene Arbeit wiederholen. Stoppen Sie den Run und starten Sie neu.",
+        "plan_pause_required": "Zuerst pausieren und warten, bis alle laufenden Schritte beendet sind.",
+        "plan_connection_unavailable": "Verbindung unterbrochen. Der angezeigte Status ist der zuletzt empfangene; Aktionen sind gesperrt. Die Verbindung wird automatisch erneut geprüft."
       },
       "description": "Verwalten Sie die benannten KI-Anbindungen und Funktionszuordnungen dieser Pages-Instanz.",
       "adminModeRequired": "Die Agents-Einstellungen sind nur im Admin-Modus verfügbar. Ihr Konto ist derzeit im Rollenmodus.",
@@ -3249,7 +3253,9 @@
       "succeeded": "Erfolgreich",
       "failed": "Gestört",
       "cancelled": "Abgebrochen",
-      "paused": "Pausiert"
+      "paused": "Pausiert",
+      "pausing": "Pausiert wird …",
+      "stopping": "Stop · Closeout läuft"
     },
     "dataIn": "Daten IN",
     "disconnect": "Datenverbindung für {{name}} entfernen",
@@ -3532,7 +3538,44 @@
     "inputValue": "Eingabe {{parameter}} von {{name}}",
     "defaultValue": "Standard: {{value}}",
     "noValue": "Kein Wert",
-    "inputsOf": "Eingaben von {{name}}"
+    "inputsOf": "Eingaben von {{name}}",
+    "panel": {
+      "label": "Plan und Ausführung",
+      "workspace": "Arbeitsbereich",
+      "actions": "Run-Steuerung",
+      "play": "Play",
+      "pause": "Pause",
+      "resume": "Weiter",
+      "stop": "Stop",
+      "expand": "Planpanel aufklappen",
+      "collapse": "Planpanel einklappen",
+      "stopFirst": "Play gesperrt: zuerst stoppen. Neustart erst nach beendetem Closeout.",
+      "newRunHint": "Play startet alle Schritte neu. Bereits ausgeführte Änderungen bleiben bestehen.",
+      "contextHint": "Kontextwechsel wird mit dem Plan gespeichert. Ein pausierter Run bleibt an seinen bisherigen Projekt- und Arbeitsbereich gebunden.",
+      "name": "Planname",
+      "openPlan": "Plan öffnen",
+      "save": "Plan speichern",
+      "manageWorkspaces": "Arbeitsbereiche verwalten",
+      "unsaved": "Ungespeicherte Änderungen – vor Play oder Weiter speichern.",
+      "pausedHint": "Stillstand bestätigt. Ausstehende Schritte bearbeiten, speichern und mit Weiter übernehmen. Abgeschlossene Schritte werden nicht wiederholt. Änderungen an abgeschlossenen Schritten wirken erst bei einem neuen Play.",
+      "stoppingHint": "Abbruch angefordert. Ausführungen und Sessions werden beendet; Reservierungen bleiben bis zum bestätigten Ende bestehen.",
+      "revision": "Fortsetzung {{version}} · übernommene Planrevision {{revision}}",
+      "reason": "Hinderungsgrund anzeigen",
+      "error": "Die Aktion konnte nicht ausgeführt werden.",
+      "status": {
+        "idle": "Idle · bereit",
+        "running": "Run · läuft",
+        "pausing": "Pausiert wird …",
+        "paused": "Paused · pausiert",
+        "stopping": "Stop · Closeout läuft",
+        "succeeded": "Erfolgreich beendet",
+        "failed": "Blocked · fehlgeschlagen",
+        "cancelled": "Gestoppt",
+        "blocked": "Blocked · blockiert"
+      },
+      "draftRevision": "Gespeicherte Entwurfsrevision {{revision}}",
+      "actualState": "Runzustand: {{state}}"
+    }
   },
   "mcpDuration": {
     "label": "Gültigkeit in Tagen",

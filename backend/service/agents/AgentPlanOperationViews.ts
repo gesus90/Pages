@@ -1,3 +1,4 @@
+import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 import { planExecutionIssues } from "@/definition/AgentPlanGraph";
 
 import { sharingEntry } from "./PageAgentOperationDefinition";
@@ -71,15 +72,10 @@ export function planState(
   plan: AgentPlanView,
   entries: readonly AgentPlanRunEntry[],
 ): Pick<AgentPlanStatusEntry, "state" | "latestRun" | "runCount"> {
-  const active = entries.find(
-    (entry) => entry.status === "running" || entry.status === "paused",
-  );
+  const active = entries.find((entry) => isActivePlanRun(entry.status));
   const latest = entries.at(0);
   return {
-    state:
-      active?.status === "running" || active?.status === "paused"
-        ? active.status
-        : "idle",
+    state: active && isActivePlanRun(active.status) ? active.status : "idle",
     latestRun: latest ? runSummary(plan, latest) : null,
     runCount: entries.length,
   };
@@ -215,7 +211,7 @@ function stepStatus(step: AgentPlanStepResult): AgentPlanRunStepEntry {
 
 /** The time the last node ended; an active run has not ended. */
 function runEnd(run: AgentPlanRun): string | null {
-  if (run.status === "running" || run.status === "paused") return null;
+  if (isActivePlanRun(run.status)) return null;
   const ends = run.steps.flatMap((step) =>
     step.session?.endedAt ? [step.session.endedAt] : [],
   );

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { rm } from "node:fs/promises";
 import path from "node:path";
 
+import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
 import { readArchiveSteps } from "@/backend/agents/PageAgentRecordInput";
@@ -241,7 +242,7 @@ export class AgentRunArchive {
       await this.repository.discardInput(run.id, step.stepId);
       await this.materialize(record);
     }
-    if (run.status !== "running" && run.status !== "paused")
+    if (!isActivePlanRun(run.status))
       await this.repository.markArchived(run.id);
   }
 

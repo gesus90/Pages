@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { PlanRunPanel } from "./plan-run-panel";
+import { usePlanControl } from "./use-plan-control";
 import { PlanAgentConsole } from "./plan-agent-console";
 import { PlanNodeDialog } from "./plan-node-dialog";
 import { PlanCanvas } from "./plan-canvas";
@@ -19,9 +21,9 @@ import type { AgentPlanPage } from "@/definition/AgentPlan";
  *
  * @remarks
  * The canvas runs from the global header to the bottom of the window and
- * shows only nodes, connections and the zoom bar. The node dialog and the
- * agent console appear only when a node asks for them, and Ctrl+S or Cmd+S
- * saves. Run updates never remount the canvas.
+ * shows nodes, connections and the zoom bar beneath a floating run panel.
+ * The node dialog and agent console appear only when requested; Ctrl+S or
+ * Cmd+S saves. Run updates never remount the canvas.
  */
 export function PlanPage({
   page,
@@ -31,16 +33,24 @@ export function PlanPage({
   readonly opening: AgentPlanOpening;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const editor = usePlanEditor(page);
+  const draftEditor = usePlanEditor(page);
+  const controls = usePlanControl(
+    page.selected?.id,
+    page.control,
+    draftEditor.command.data,
+  );
+  const editor = {
+    ...draftEditor,
+    canEdit:
+      draftEditor.canEdit &&
+      (!controls.error || controls.error === "plan_connection_unavailable") &&
+      (controls.control?.canEdit ?? true),
+  };
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [consoleNodeId, setConsoleNodeId] = useState<string | null>(null);
   const running = usePlanRun(page.runs, editor.command.data);
   const displayedRun =
-    !editor.isDirty &&
-    running.run?.planId === page.selected?.id &&
-    running.run?.planRevision === editor.draft.revision
-      ? running.run
-      : null;
+    running.run?.planId === page.selected?.id ? running.run : null;
   const saving = usePlanSave(editor, page.selected !== null);
   const disabled = !editor.canEdit || editor.isPending;
   const projectId = page.workspaces.find(
@@ -58,7 +68,7 @@ export function PlanPage({
         ?.focus({ preventScroll: true });
   }
   return (
-    <div className="fixed inset-x-0 top-19 bottom-0 isolate md:left-(--app-sidebar-width)">
+    <div className="fixed inset-x-0 top-19 bottom-0 isolate @container md:left-(--app-sidebar-width)">
       <h1 className="sr-only">
         {page.selected
           ? `${t("plans.title")} · ${page.selected.name}`
@@ -79,6 +89,14 @@ export function PlanPage({
           <PlanSaveNotice
             feedback={saving.feedback}
             onDismiss={saving.dismiss}
+          />
+        }
+        panel={
+          <PlanRunPanel
+            page={page}
+            editor={editor}
+            control={controls.control}
+            error={controls.error}
           />
         }
       />

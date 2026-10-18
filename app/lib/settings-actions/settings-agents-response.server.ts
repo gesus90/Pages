@@ -4,9 +4,9 @@ import {
   AgentInUseError,
 } from "@/backend/error/AgentErrors";
 import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
+import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
-import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import type { AgentExecutionErrorCode } from "@/backend/error/AgentExecutionErrors";
 import type {
   AgentCheckSummary,
@@ -58,6 +58,10 @@ const ERROR_STATUS: Partial<Record<AgentErrorCode, number>> = {
   plan_access_denied: 403,
   plan_conflict: 409,
   plan_running: 409,
+  plan_run_unavailable: 409,
+  plan_pause_required: 409,
+  plan_continuation_deleted: 409,
+  plan_completed_changed: 409,
   plan_workspace_conflict: 409,
   plan_context_changed: 409,
 };

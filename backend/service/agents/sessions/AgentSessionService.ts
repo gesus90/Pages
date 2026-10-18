@@ -78,7 +78,7 @@ const ACTIVE_STATES: ReadonlySet<AgentSessionState> = new Set([
 ]);
 
 function isRunActive(run: AgentPlanRun): boolean {
-  return run.status === "running" || run.status === "paused";
+  return ["running", "pausing", "paused", "stopping"].includes(run.status);
 }
 
 function legacyState(attempt: AgentSessionAttempt): AgentSessionState {
@@ -291,7 +291,8 @@ export class AgentSessionService {
     input: { readonly kind: AgentSessionMessageKind; readonly text: string },
   ): Promise<AgentSessionSendResult> {
     const { run, attempt } = await this.authorize(userId, key);
-    if (!isRunActive(run)) throw new AgentError("plan_run_unavailable");
+    if (run.status !== "running" || run.stopRequested)
+      throw new AgentError("plan_run_unavailable");
     const text = input.text.trim();
     if (text === "") throw new AgentError("plan_invalid");
     if (!this.live.has(key.attemptId))
@@ -307,7 +308,11 @@ export class AgentSessionService {
         // Rights, run and session are checked again right before the native write.
         const current = await this.authorize(userId, key);
         const live = this.live.get(key.attemptId);
-        if (!isRunActive(current.run) || !live)
+        if (
+          current.run.status !== "running" ||
+          current.run.stopRequested ||
+          !live
+        )
           throw new AgentError("plan_session_unavailable");
         await live.turn.instruct(message.text);
       },

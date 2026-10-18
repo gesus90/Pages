@@ -1,0 +1,124 @@
+import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
+import { readAgentObject } from "@/backend/agents/AgentPayload";
+
+import type { AgentPlanActionResult } from "./agent-plan-response";
+import type { AgentPlanControl } from "@/definition/AgentPlanControl";
+import type { AgentPlanIssue } from "@/definition/AgentPlanGraph";
+
+function nullableText(input: unknown): string | null {
+  if (input === null || typeof input === "string") return input;
+  throw new Error("Invalid plan response");
+}
+
+function readNumber(input: unknown): number {
+  if (typeof input === "number" && Number.isSafeInteger(input) && input >= 0)
+    return input;
+  throw new Error("Invalid plan response");
+}
+
+function readBoolean(input: unknown): boolean {
+  if (typeof input === "boolean") return input;
+  throw new Error("Invalid plan response");
+}
+
+function isStatus(input: unknown): input is AgentPlanControl["status"] {
+  return (
+    typeof input === "string" &&
+    [
+      "idle",
+      "running",
+      "pausing",
+      "paused",
+      "stopping",
+      "succeeded",
+      "failed",
+      "cancelled",
+    ].includes(input)
+  );
+}
+
+function isIssueReason(input: unknown): input is AgentPlanIssue["reason"] {
+  return (
+    typeof input === "string" &&
+    [
+      "groupSize",
+      "groupProvider",
+      "groupConfiguration",
+      "groupOrder",
+      "groupBoundary",
+      "unsupportedRunNotes",
+      "duplicateNode",
+      "port",
+      "duplicate",
+      "cycle",
+      "type",
+      "ticketHandoff",
+      "source",
+      "required",
+      "start",
+      "end",
+      "flowIn",
+      "flowOut",
+      "unreachable",
+      "agent",
+      "name",
+      "json",
+      "number",
+    ].includes(input)
+  );
+}
+
+function readIssue(input: unknown): AgentPlanIssue {
+  const issue = readAgentObject(input);
+  if (!isIssueReason(issue.reason)) throw new Error("Invalid plan response");
+  return {
+    nodeId: nullableText(issue.nodeId),
+    port: nullableText(issue.port),
+    reason: issue.reason,
+  };
+}
+
+function readControl(input: unknown): AgentPlanControl {
+  const control = readAgentObject(input);
+  if (!isStatus(control.status) || !Array.isArray(control.frontierStepIds))
+    throw new Error("Invalid plan response");
+  const frontierStepIds = control.frontierStepIds.map((id: unknown) => {
+    if (typeof id !== "string") throw new Error("Invalid plan response");
+    return id;
+  });
+  return {
+    runId: nullableText(control.runId),
+    status: control.status,
+    canPlay: readBoolean(control.canPlay),
+    canPause: readBoolean(control.canPause),
+    canResume: readBoolean(control.canResume),
+    canStop: readBoolean(control.canStop),
+    canEdit: readBoolean(control.canEdit),
+    issue: nullableText(control.issue),
+    issues: Array.isArray(control.issues)
+      ? control.issues.map(readIssue)
+      : undefined,
+    planRevision:
+      control.planRevision === null ? null : readNumber(control.planRevision),
+    continuationVersion: readNumber(control.continuationVersion),
+    frontierStepIds,
+  };
+}
+
+/** Reads the two polling responses without trusting a failed or redirected request as current state. */
+export function readPlanPollingResponse(input: unknown): AgentPlanActionResult {
+  const response = readAgentObject(input);
+  const intent = typeof response.intent === "string" ? response.intent : "poll";
+  if (response.ok === false)
+    return {
+      ok: false,
+      intent,
+      error: typeof response.error === "string" ? response.error : "general",
+    };
+  if (response.ok !== true) throw new Error("Invalid plan response");
+  if (response.control !== undefined)
+    return { ok: true, intent, control: readControl(response.control) };
+  if (response.run !== undefined)
+    return { ok: true, intent, run: readPlanRun(response.run) };
+  throw new Error("Invalid plan response");
+}

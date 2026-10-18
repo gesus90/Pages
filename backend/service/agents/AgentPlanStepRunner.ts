@@ -1,16 +1,22 @@
 import { randomUUID } from "node:crypto";
 
+import { AgentPlanPausedError } from "@/backend/error/AgentPlanPausedError";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import { agentToolFailureEvents } from "@/backend/service/agents/tools/AgentToolSession";
 import { AgentError } from "@/backend/error/AgentErrors";
-import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
-import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { isApiProvider } from "@/definition/AgentConnection";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { planGroupOrder } from "@/definition/AgentPlanGroup";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
+import { guardPlanStepStart } from "./AgentPlanStepDispatch";
+import {
+  errorCode,
+  failureCloseout,
+  planAcceptanceFailure,
+  requiresAcceptance,
+} from "./AgentPlanStepFailure";
 import { waitForTurn } from "./AgentPlanTurn";
 import { offerGroupInstructions } from "./AgentPlanGroupInstructions";
 import { AgentPlanGroupSessions } from "./AgentPlanGroupSessions";
@@ -29,6 +35,7 @@ import {
   withTurn,
 } from "./AgentPlanSessionRecords";
 
+import type { PlanInstructionWork } from "./AgentPlanInstructionControl";
 import type {
   AgentPlanSessionInput,
   PlanExecution,
@@ -39,7 +46,6 @@ import type {
 } from "@/backend/agents/AgentPlanExecution";
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 import type {
-  AgentPlanAcceptance,
   AgentPlanContract,
   AgentPlanSessionRecord,
 } from "@/definition/AgentPlanSession";
@@ -74,6 +80,14 @@ interface StepRunnerDependencies {
 /** How a running node reports its record and learns about a stop. */
 export interface StepRunControl {
   readonly signal: AbortSignal;
+  /** Claims dispatch only while the engine gate remains open. */
+  readonly claimStart?: () => void;
+  /** Explicitly identifies preparation/admission work that has not dispatched yet. */
+  readonly awaitDispatch?: () => void;
+  /** Keeps additional console turns inside the engine drain and stop boundary. */
+  readonly runInstruction?: (
+    work: PlanInstructionWork,
+  ) => Promise<PlanSessionTurn>;
   /** Persists the newest record of the node; never throws. */
   readonly save: (session: AgentPlanSessionRecord) => Promise<void>;
 }
@@ -86,40 +100,6 @@ interface NodeRun {
   control: StepRunControl;
   record: AgentPlanSessionRecord | null;
   hasStarted: boolean;
-}
-
-function errorCode(error: unknown): string {
-  if (error instanceof AgentError || error instanceof AgentExecutionError)
-    return error.code;
-  return "plan_step_failed";
-}
-
-function failureCloseout(
-  node: NodeRun,
-  error: unknown,
-): AgentPlanSessionRecord["closeout"] {
-  if (
-    error instanceof AcpCleanupUnconfirmedError ||
-    (node.hasStarted && node.record?.closeout === "pending")
-  )
-    return "failed";
-  const closeout = node.record?.closeout ?? "not_needed";
-  return closeout === "pending" ? "not_needed" : closeout;
-}
-
-function planAcceptanceFailure(
-  node: NodeRun,
-  acceptance: AgentPlanAcceptance | null,
-): "plan_group_acceptance_failed" | "opencode_acceptance_failed" | null {
-  if (acceptance?.verdict === "accepted") return null;
-  if (node.step.groupId) return "plan_group_acceptance_failed";
-  return node.step.provider === "opencode"
-    ? "opencode_acceptance_failed"
-    : null;
-}
-
-function requiresAcceptance(step: AgentPlanStepSnapshot): boolean {
-  return Boolean(step.groupId) || step.provider === "opencode";
 }
 
 /**
@@ -161,6 +141,7 @@ export class AgentPlanStepRunner {
     step: AgentPlanStepSnapshot,
     control: StepRunControl,
   ): Promise<Partial<AgentPlanStepResult>> {
+    control.awaitDispatch?.();
     const node: NodeRun = {
       run,
       snapshot,
@@ -179,10 +160,23 @@ export class AgentPlanStepRunner {
     } catch (error: unknown) {
       logCaughtError("AgentPlanStepRunner", error);
 
+      if (
+        !node.hasStarted &&
+        (error instanceof AgentPlanPausedError ||
+          control.signal.reason instanceof AgentPlanPausedError)
+      ) {
+        return this.pauseUnstarted(node);
+      }
       return this.failure(node, error);
     } finally {
       slot?.release();
     }
+  }
+
+  /** Refreshes shared inputs after adoption while preserving the existing native sessions. */
+  public revise(runId: string): void {
+    for (const key of this.groupInputs.keys())
+      if (key.startsWith(`${runId}/`)) this.groupInputs.delete(key);
   }
 
   /** Ends retained native sessions when the plan is cancelled or finishes. */
@@ -227,9 +221,23 @@ export class AgentPlanStepRunner {
           AbortSignal.timeout(prepared.options.timeoutMinutes * 60_000),
         ]),
       };
+    const guarded = guardPlanStepStart(node, prepared);
     if (isApiProvider(prepared.input.agent.connection.provider))
-      return this.request(node, prepared);
-    return this.session(node, prepared);
+      return this.request(node, guarded);
+    return this.session(node, guarded);
+  }
+
+  private async pauseUnstarted(
+    node: NodeRun,
+  ): Promise<Partial<AgentPlanStepResult>> {
+    const group = node.step.groupId;
+    const retained = group && this.groups.instanceId(`${node.run.id}/${group}`);
+    if (node.record && !retained)
+      await this.dependencies.access.revoke(
+        node.run.id,
+        group ?? node.step.step.id,
+      );
+    return { status: "paused", session: null, error: null };
   }
 
   private async prepareGroup(node: NodeRun): Promise<void> {
@@ -269,7 +277,6 @@ export class AgentPlanStepRunner {
       startedAt: new Date().toISOString(),
     });
     await this.pin(node, prepared.input.prompt);
-    node.hasStarted = true;
     const output = sanitizePlanOutput(
       await this.dependencies.execution.run(
         prepared.input,
@@ -351,6 +358,7 @@ export class AgentPlanStepRunner {
           node.control.signal,
           this.observer(node),
         );
+    node.control.claimStart?.();
     this.offerInstructions(node, groupKey, input);
     node.hasStarted = true;
     try {

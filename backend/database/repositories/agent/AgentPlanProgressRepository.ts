@@ -1,9 +1,11 @@
+import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { readTextColumn } from "@/backend/database/RowValue";
 import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 
+import { CURRENT_PLAN_SNAPSHOT } from "./AgentPlanContinuationRepository";
 import { AgentPlanCheckpointRepository } from "./AgentPlanCheckpointRepository";
 
 import type {
@@ -119,8 +121,7 @@ export class AgentPlanProgressRepository {
   public async interrupt(run: AgentPlanRun): Promise<void> {
     await this.database.transaction(async (transaction) => {
       const previous = await this.read(transaction, run.id);
-      if (previous.run.status !== "running" && previous.run.status !== "paused")
-        return;
+      if (!isActivePlanRun(previous.run.status)) return;
       await this.save(transaction, previous, run);
     });
   }
@@ -134,7 +135,7 @@ export class AgentPlanProgressRepository {
         SELECT
             view_json,
             recovery_revision,
-            snapshot_json
+            ${CURRENT_PLAN_SNAPSHOT} AS snapshot_json
         FROM agent_plan_runs
         WHERE id = $id;
       `,
@@ -196,11 +197,7 @@ export class AgentPlanProgressRepository {
         step.session?.closeout === "pending" ||
         step.session?.closeout === "failed",
     );
-    if (
-      run.status !== "running" &&
-      run.status !== "paused" &&
-      !hasUnconfirmedCleanup
-    )
+    if (!isActivePlanRun(run.status) && !hasUnconfirmedCleanup)
       await transaction.execute(
         "DELETE FROM agent_plan_workspace_locks WHERE run_id = $id;",
         { id: run.id },

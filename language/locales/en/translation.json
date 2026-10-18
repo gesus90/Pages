@@ -655,7 +655,11 @@
         "plan_group_session_lost": "The group's shared ACP session no longer exists because its adapter process ended. An ACP session cannot be continued in another process; start a new run.",
         "plan_session_unavailable": "This agent session has no open native session that could take another instruction. Its history stays readable.",
         "offline": "Pages cannot be reached. Check the connection; the agent keeps running.",
-        "agent_tool_not_ready": "A required agent tool is not ready. The run events show the tool and cause; see Settings → Agents → Tools."
+        "agent_tool_not_ready": "A required agent tool is not ready. The run events show the tool and cause; see Settings → Agents → Tools.",
+        "plan_continuation_deleted": "Continuation point deleted – restart required. Stop first, then start again with Play.",
+        "plan_completed_changed": "This change would repeat completed work. Stop the run and start again.",
+        "plan_pause_required": "Pause first and wait for every running step to finish.",
+        "plan_connection_unavailable": "Connection interrupted. The displayed state is the last received state; actions are disabled. Reconnecting automatically."
       },
       "description": "Manage the named AI connections and function assignments of this Pages instance.",
       "adminModeRequired": "The agent settings are only available in the admin mode. Your account is currently in the role mode.",
@@ -3249,7 +3253,9 @@
       "succeeded": "Succeeded",
       "failed": "Failed",
       "cancelled": "Cancelled",
-      "paused": "Paused"
+      "paused": "Paused",
+      "pausing": "Pausing …",
+      "stopping": "Stop · closing"
     },
     "dataIn": "Data IN",
     "disconnect": "Remove data connection for {{name}}",
@@ -3532,7 +3538,44 @@
     "inputValue": "Input {{parameter}} of {{name}}",
     "defaultValue": "Default: {{value}}",
     "noValue": "No value",
-    "inputsOf": "Inputs of {{name}}"
+    "inputsOf": "Inputs of {{name}}",
+    "panel": {
+      "label": "Plan and execution",
+      "workspace": "Workspace",
+      "actions": "Run controls",
+      "play": "Play",
+      "pause": "Pause",
+      "resume": "Resume",
+      "stop": "Stop",
+      "expand": "Expand plan panel",
+      "collapse": "Collapse plan panel",
+      "stopFirst": "Play disabled: stop first. Restart after closeout finishes.",
+      "newRunHint": "Play starts every step again. Changes already made remain in place.",
+      "contextHint": "Save applies the context to the plan. A paused run keeps its original project and workspace.",
+      "name": "Plan name",
+      "openPlan": "Open plan",
+      "save": "Save plan",
+      "manageWorkspaces": "Manage workspaces",
+      "unsaved": "Unsaved changes – save before Play or Resume.",
+      "pausedHint": "All steps are quiet. Edit pending work, save and adopt it with Resume. Completed steps will not repeat. Changes to completed steps apply only to a new Play run.",
+      "stoppingHint": "Cancellation requested. Executions and sessions are closing; reservations remain until their end is confirmed.",
+      "revision": "Continuation {{version}} · adopted plan revision {{revision}}",
+      "reason": "Show blocking reason",
+      "error": "The action could not be completed.",
+      "status": {
+        "idle": "Idle · ready",
+        "running": "Run · running",
+        "pausing": "Pausing …",
+        "paused": "Paused",
+        "stopping": "Stop · closing",
+        "succeeded": "Succeeded",
+        "failed": "Blocked · failed",
+        "cancelled": "Stopped",
+        "blocked": "Blocked"
+      },
+      "draftRevision": "Saved draft revision {{revision}}",
+      "actualState": "Run state: {{state}}"
+    }
   },
   "mcpDuration": {
     "label": "Validity in days",

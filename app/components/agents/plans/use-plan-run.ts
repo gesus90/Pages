@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { useFetcher } from "react-router";
+
+import { usePlanPoll } from "./use-plan-poll";
 
 import type { AgentPlanActionResult } from "@/app/lib/agent-plan-response";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
@@ -28,7 +29,7 @@ function selectedRun(
   );
 }
 
-/** Polling follows one own run and stops on completion, permission loss or unmount. */
+/** Polling follows one own run and stops on completion or unmount; access errors hide its view. */
 export function usePlanRun(
   history: readonly AgentPlanRun[],
   command: AgentPlanActionResult | undefined,
@@ -40,41 +41,25 @@ export function usePlanRun(
   readonly error: string | null;
 } {
   const [selectedId, select] = useState(history[0]?.id ?? "");
-  const poll = useFetcher<AgentPlanActionResult>();
-  const { load: loadRun } = poll;
+  const poll = usePlanPoll(
+    selectedId
+      ? `/agent-api/plan-runs?runId=${encodeURIComponent(selectedId)}`
+      : null,
+    command,
+    "active",
+  );
   const latest = command?.ok ? command.run : undefined;
-  const polled = poll.data?.ok ? poll.data.run : undefined;
+  const polled = poll.response?.ok ? poll.response.run : undefined;
   const runs = knownRuns(history, latest, polled);
   const run = selectedRun(runs, selectedId, polled);
-  const hasError = poll.data?.ok === false && poll.data.runId === selectedId;
   useEffect(() => {
-    if (latest) {
-      select(latest.id);
-      void loadRun(
-        `/agent-api/plan-runs?runId=${encodeURIComponent(latest.id)}`,
-      );
-    }
-  }, [latest, loadRun]);
-  useEffect(() => {
-    if (
-      !selectedId ||
-      (run?.status !== "running" && run?.status !== "paused") ||
-      hasError ||
-      poll.state !== "idle"
-    )
-      return undefined;
-    const interval = window.setInterval(() => {
-      void loadRun(
-        `/agent-api/plan-runs?runId=${encodeURIComponent(selectedId)}`,
-      );
-    }, 1000);
-    return () => window.clearInterval(interval);
-  }, [selectedId, run?.status, hasError, loadRun, poll.state]);
+    if (latest) select(latest.id);
+  }, [latest]);
   return {
-    run: hasError ? null : run,
+    run: poll.error ? null : run,
     selectedId,
     select,
     runs,
-    error: hasError && poll.data?.ok === false ? poll.data.error : null,
+    error: poll.error,
   };
 }

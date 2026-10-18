@@ -1908,12 +1908,12 @@ session (the credential of a running node) gets none of them.
   `updateNode` with `{"completion": "todos"}` switches an existing node and keeps
   its configuration copy; setting `agentId` to another agent and back inside one
   `changes` list replaces that copy with the agent's current template.
-- **Status.** `read_plan` returns `status`: `state` (`idle`, `running` or `paused`
+- **Status.** `read_plan` returns `status`: `state` (`idle`, `running`, `pausing`, `paused` or `stopping`
   by the account's own runs), `runCount`, `latestRun`, and `isRunnable` with the
   `issues` the plan page shows before Play.
 - **Runs.** Runs belong to the account that started them; other accounts' runs are
   never listed or read. Every run carries `runId`, `planId`, `planName`,
-  `startedAt` (ISO 8601) and `status` (`running`, `paused`, `succeeded`, `failed`
+  `startedAt` (ISO 8601) and `status` (`running`, `pausing`, `paused`, `stopping`, `succeeded`, `failed`
   or `cancelled`). Reading a run or its reports also needs current access to the
   agents, workspaces, tickets and pages it used.
 - **Reports.** A report belongs to one node of one run (`runId`, `stepId`) and

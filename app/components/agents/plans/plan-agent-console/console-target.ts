@@ -48,7 +48,7 @@ export function findConsoleNode(
 
 /** Whether a run can still change: only then live events, instructions and stops apply. */
 export function isRunActive(run: AgentPlanRun): boolean {
-  return run.status === "running" || run.status === "paused";
+  return ["running", "pausing", "paused", "stopping"].includes(run.status);
 }
 
 /**

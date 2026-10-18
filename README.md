@@ -802,8 +802,10 @@ Under **Agents → Agent Plan** (`/agents/plans`) the plan editor is one
 the global navigation, from the global header to the bottom of the window
 (PAGE-102). It shows only the nodes, their connections and one compact zoom bar
 at the top left: **−**, the current zoom in percent, **+** and **Fit all nodes**.
-There are no panels, toolbars, MiniMap, help or React Flow attribution, and the
-canvas has no frame and no scroll area of its own. The Pages background and its
+An expandable plan/run panel floats inside the editor, alongside the zoom bar
+on wide canvases and below it on narrow ones (PAGE-106). It is independent of
+the graph and its zoom. There are no permanent side/bottom panels or MiniMap;
+the canvas has no frame and no scroll area of its own. The Pages background and its
 dotted raster continue under the graph in the light/dark semantic palette; the
 dots fade out towards the edges. Drag the empty area to pan; the wheel or pinch
 gesture zooms. Fitting keeps the existing positions and leaves room for the zoom
@@ -815,10 +817,21 @@ among the plans you may read, your own one first. This is a provisional
 default, not a stored setting, and nothing is created for it. A `planId` in the
 address takes precedence. If the requested plan or Task2 is missing or not
 readable, the canvas stays empty and says so; no other plan is opened instead.
-The editor offers no plan choice and no title, project, workspace, sharing,
-Save, Play, Pause, Stop or Delete plan controls. Plans are created and their
-metadata, structure and parameters changed through Pica and the MCP `plans.*`
-tools; the server actions described below remain.
+The panel starts collapsed on every page opening; its state is not stored.
+Its header shows project, workspace, server status and Play/Pause/Resume/Stop.
+Expand it to choose a plan, rename it, select a project and one of its
+workspaces, and explicitly save. Full context names stay available in the
+expanded panel. Workspace administration uses the existing management page.
+The existing Pica/MCP plan operations and owner-only save paths remain.
+Shared readers see control metadata without private run outputs and cannot
+edit or run the plan.
+Polling failures leave the editor and local draft mounted. Run actions remain
+disabled until the server can be reached again; reconnect only reads state and
+never resends a mutation. The panel's controls stay visible while its expanded
+content scrolls.
+The zoom bar sits directly below the panel in the same floating stack and
+follows its expanded or collapsed height. The stack stays inside the editor
+when the navigation or window changes size; pan and zoom move only the graph.
 
 Move nodes, frames, starts and ends by their header or checkpoint symbol; the
 grabbed point stays under the pointer at every zoom level and positions snap
@@ -966,8 +979,9 @@ and the server refuses anyone else; the editor offers no delete action. A plan
 with a running or paused run cannot be deleted; finished runs stay in the run
 records of the agents.
 
-**Play**, the server's start action, validates and executes the plan as sent, using the
-Pages execution service. Unsaved changes of the owner are saved first, under
+**Play** in the panel requires an explicitly saved draft and always starts a
+new run. The server also retains its combined save-and-play action: unsaved
+changes of the owner are saved first, under
 the same plan, as the next revision, and that revision is started; the new
 revision and the run are stored together, so a refused save starts nothing and
 a refused start leaves the plan unchanged and the edits in the editor. A plan
@@ -975,8 +989,9 @@ that changed elsewhere in the meantime is a conflict and is never replaced by
 the older version. Every Play is a new run with its own ID and fresh node
 states: results, errors and blocked nodes of earlier runs carry over neither
 into the run nor into the parameters of its nodes, and earlier runs keep their
-snapshot. While a run of the plan is active or paused, Play waits for it to be
-stopped. Solid branches run independently. Non-ACP execution has at most two
+snapshot. During Run, Pausing, Paused and Stop closeout, Play is disabled
+with a stop-first explanation. Concurrent starts are rejected for the entire
+plan, and working-copy reservations also protect other plans. Solid branches run independently. Non-ACP execution has at most two
 concurrent nodes across the service; native ACP starts share the separate global
 resource queue described below. A join waits for every incoming predecessor to succeed; a
 failed predecessor blocks its continuation. Independent CLI branches may not
@@ -1136,13 +1151,29 @@ todos are done. Read only cannot change tickets. Legacy OpenCode workspace-write
 settings require an explicit mode choice before a new run; saved model IDs and
 historical results are not rewritten.
 
-Run and node status show waiting, running, succeeded, failed, paused or
-cancelled. **Pause** persists the current run and prevents additional nodes
-from starting; nodes already running may finish and close normally. **Resume**
-continues that same snapshot without repeating completed nodes. Paused runs
-retain their working-copy reservations. **Stop** cancels a run and ends the
-running sessions with their whole process group. Reloading the page retains its
-persisted state. After a server interruption, unfinished runs are marked failed
+Run status distinguishes Running, Pausing, stable Paused, Stopping, Succeeded,
+Failed and Cancelled. Blocked details explain validation failures and execution
+errors. **Pause** closes the dispatch gate: queued work yields without starting,
+while every dispatched branch and console turn drains. Only then is the full
+stable-ID frontier persisted and editing enabled. Failures remain failures;
+terminal End markers acknowledge completed work without a pointless Resume.
+**Resume** reauthorizes the executor and prepares the saved plan revision.
+It atomically checks the paused boundary and current draft revision, reserves
+any additional writing copies, and appends an immutable continuation basis in
+`agent_plan_continuations` (migration 060). The original snapshot, successful
+step contracts, inputs and results remain unchanged. The panel distinguishes
+unsaved edits, the saved draft revision and the adopted continuation revision.
+Changed pending inputs and connections apply to the same run without replay.
+Edits to already completed node configurations only affect a new Play run.
+Deleting a required frontier node blocks Resume with a restart explanation;
+changing dependencies of completed work also requires a restart. Existing
+group sessions retain their runtime identity; incompatible changes are refused.
+A paused run cannot move to another project or workspace through Resume.
+**Stop** persists its irreversible request first, exposes closeout while owned
+work settles, and releases reservations only after confirmed cleanup. An
+unconfirmed closeout remains a visible failure and keeps its reservations.
+Stopping never rolls back external changes. Reload preserves server state.
+After a server interruption, unfinished runs are marked failed
 rather than silently replaying work; processes and MCP credentials the
 interrupted sessions left behind are ended at startup. These scans skip
 unreadable processes of the server account that started before the run, such
@@ -1156,7 +1187,7 @@ diagnostic-only completion rule.
 
 Plans may be private, global, or shared with Pages groups and departments
 using OR/AND membership. Global sharing still requires access to the plan's
-project and workspace. Only the owner may edit. Every executor needs their own
+project and workspace. Only the owner may edit or start a run. Every executor needs their own
 current agent/model and ticket/wiki permissions; sharing never delegates
 credentials. Only the executor may read, pause, resume or stop their run, and
 resource access is rechecked on the server before execution and disclosure.

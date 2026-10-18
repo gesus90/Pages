@@ -241,10 +241,13 @@ it("edits a group from its node menu on the canvas and saves an ordered subgraph
   );
   closeDialog(saved);
   // Without the port the members lose their source; the cards mark the issue
-  // instead of a validation list, and the editor offers no Play.
+  // and the panel keeps Play disabled until the graph can be run.
   await waitFor(() =>
     expect(card("Test 2").className).toContain("border-destructive"),
   );
   expect(card("Test 1").className).toContain("border-destructive");
-  expect(screen.queryByRole("button", { name: "Play" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Play" })).toHaveProperty(
+    "disabled",
+    true,
+  );
 }, 20_000);

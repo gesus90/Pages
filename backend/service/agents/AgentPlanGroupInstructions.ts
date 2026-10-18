@@ -1,6 +1,11 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 
 import type {
+  PlanInstructionControl,
+  PlanInstructionWork,
+} from "./AgentPlanInstructionControl";
+import type { PlanSessionTurn } from "@/backend/agents/AgentPlanExecution";
+import type {
   AgentPlanSessionInput,
   PlanSessionObserver,
 } from "@/backend/agents/AgentPlanExecution";
@@ -19,7 +24,12 @@ export interface GroupInstructionOffer {
   readonly sessions: Pick<AgentSessionService, "offer" | "listen" | "settle">;
   readonly groups: Pick<AgentPlanGroupSessions, "instruct">;
   readonly node: AgentSessionNode & {
-    readonly control: { readonly signal: AbortSignal };
+    readonly control: {
+      readonly signal: AbortSignal;
+      readonly runInstruction?: (
+        work: PlanInstructionWork,
+      ) => Promise<PlanSessionTurn>;
+    };
   };
   /** The run and group, as `runId/groupId`. */
   readonly key: string;
@@ -48,16 +58,29 @@ export function offerGroupInstructions(offer: GroupInstructionOffer): void {
       instruct: async (text) => {
         if (node.control.signal.aborted)
           throw new AgentError("plan_session_unavailable");
-        const turn = await groups.instruct({
-          key,
-          input: {
-            ...input,
-            prompt: text,
-            journal: sessions.listen(node, input.instanceId),
-          },
-          signal: node.control.signal,
-          observer: JOURNAL_ONLY,
-        });
+        const instruct = (
+          control: PlanInstructionControl,
+        ): Promise<PlanSessionTurn> =>
+          groups.instruct({
+            key,
+            input: {
+              ...input,
+              prompt: text,
+              journal: sessions.listen(node, input.instanceId),
+              beforeStart: async () => {
+                await input.beforeStart?.();
+                control.claimStart();
+              },
+            },
+            signal: control.signal,
+            observer: JOURNAL_ONLY,
+          });
+        const turn = node.control.runInstruction
+          ? await node.control.runInstruction(instruct)
+          : await instruct({
+              signal: node.control.signal,
+              claimStart: () => undefined,
+            });
         await sessions.settle(node.record, turn);
       },
     },

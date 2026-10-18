@@ -102,10 +102,15 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
           services.agentPlanService,
         ),
       };
-      const run = await operations[intent](
-        user.id,
-        readPlanText(formData.get("runId")),
-      );
+      const runId = readPlanText(formData.get("runId"));
+      const run =
+        intent === "resume-plan"
+          ? await services.agentPlanService.resume(
+              user.id,
+              runId,
+              Number(formData.get("revision")),
+            )
+          : await operations[intent](user.id, runId);
       return Response.json(
         { ok: true, intent, run },
         { headers: AGENT_NO_STORE },

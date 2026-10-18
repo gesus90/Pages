@@ -19,6 +19,11 @@ export const AGENT_ERROR_MESSAGES = {
   plan_json_invalid: "Enter one valid JSON value with finite numbers.",
   plan_number_invalid: "Enter one finite number.",
   plan_run_unavailable: "This run is no longer active. Start a new run.",
+  plan_continuation_deleted: "Continuation point deleted – restart required.",
+  plan_completed_changed:
+    "This change requires completed work to run again. Stop and start a new run.",
+  plan_pause_required:
+    "Pause the run and wait until all steps have drained before editing.",
   plan_invalid: "Check the plan fields and graph nodes.",
   plan_access_denied: "This plan or run is not accessible.",
   plan_conflict: "The plan changed. Reload it before saving or starting.",

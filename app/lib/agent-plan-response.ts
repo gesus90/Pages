@@ -1,3 +1,4 @@
+import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type { AgentPlanIssue } from "@/definition/AgentPlanGraph";
 
@@ -9,6 +10,7 @@ export type AgentPlanActionResult =
       readonly planId?: string;
       readonly revision?: number;
       readonly run?: AgentPlanRun;
+      readonly control?: AgentPlanControl;
     }
   | {
       readonly ok: false;

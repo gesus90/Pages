@@ -16,12 +16,14 @@ import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { withoutTicketFlow } from "@/definition/AgentPlanGraph";
 import { logCaughtError } from "@/backend/logging/Logger";
 
+import { AgentPlanControlService } from "./AgentPlanControlService";
 import { AgentPlanStartupRecovery } from "./recovery/AgentPlanStartupRecovery";
 import { requireCompatibleFields } from "./AgentPlanGroupRuntime";
 import { requireAllowedRunOptions } from "./AgentProfileValidation";
 import { planSteps, validatePlanGraph } from "./AgentPlanGraph";
 import { requireAgentAdministrator } from "./AgentServiceAccess";
 
+import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 import type { DatabaseTransaction } from "@/backend/database/Database";
 import type { AgentPlanRepository } from "@/backend/database/repositories/agent/AgentPlanRepository";
 import type {
@@ -100,9 +102,11 @@ function planTaskBindings(plan: AgentPlan): readonly PlanTaskBinding[] {
 /** Route-facing plan facade; graph, authorization and execution responsibilities stay in small services. */
 export class AgentPlanService {
   private readonly dependencies: PlanDependencies;
+  private readonly controls: AgentPlanControlService;
 
   public constructor(dependencies: PlanDependencies) {
     this.dependencies = dependencies;
+    this.controls = new AgentPlanControlService(dependencies);
   }
 
   /**
@@ -181,6 +185,7 @@ export class AgentPlanService {
         ? await this.sources(userId, workspace.id)
         : { agents: [], tasks: [] },
       runs: selected ? await this.history(userId, selected.id) : [],
+      control: selected ? await this.control(userId, selected.id) : undefined,
       directory: await this.dependencies.access.directory(userId),
     };
   }
@@ -334,6 +339,7 @@ export class AgentPlanService {
     revision: number,
   ): Promise<AgentPlanRun> {
     const plan = await this.dependencies.access.require(userId, id);
+    if (!plan.canEdit) throw new AgentError("plan_access_denied");
     if (plan.revision !== revision) throw new AgentError("plan_conflict");
     const snapshot = await this.dependencies.preparation.prepare(userId, plan);
     await this.dependencies.access.require(userId, id);
@@ -411,23 +417,50 @@ export class AgentPlanService {
 
   /** Other workspace users or plan owners cannot stop an executor's private run. */
   public async stop(userId: string, id: string): Promise<AgentPlanRun> {
-    await this.run(userId, id);
+    const run = await this.run(userId, id);
+    if (!(await this.dependencies.access.require(userId, run.planId)).canEdit)
+      throw new AgentError("plan_access_denied");
     await this.dependencies.engine.stop(id);
     return this.run(userId, id);
   }
 
   /** Only the executor with current plan and resource access may pause this run. */
   public async pause(userId: string, id: string): Promise<AgentPlanRun> {
-    await this.run(userId, id);
+    const run = await this.run(userId, id);
+    if (!(await this.dependencies.access.require(userId, run.planId)).canEdit)
+      throw new AgentError("plan_access_denied");
     await this.dependencies.engine.pause(id);
     return this.run(userId, id);
   }
 
-  /** Reauthorizes the original executor; the engine keeps the original run snapshot. */
-  public async resume(userId: string, id: string): Promise<AgentPlanRun> {
+  /** Revalidates the saved draft and adopts it at the live run's durable pause boundary. */
+  public async resume(
+    userId: string,
+    id: string,
+    revision?: number,
+  ): Promise<AgentPlanRun> {
+    const run = await this.run(userId, id);
+    const plan = await this.dependencies.access.require(userId, run.planId);
+    if (!plan.canEdit) throw new AgentError("plan_access_denied");
+    if (revision === undefined || plan.revision !== revision)
+      throw new AgentError("plan_conflict");
+    if (run.status !== "paused" || run.stopRequested)
+      throw new AgentError("plan_run_unavailable");
+    const control = await this.control(userId, run.planId);
+    if (control.issue === "plan_continuation_deleted")
+      throw new AgentError("plan_continuation_deleted");
+    const snapshot = await this.dependencies.preparation.prepare(userId, plan);
     await this.run(userId, id);
-    await this.dependencies.engine.resume(id);
+    await this.dependencies.engine.resume(id, snapshot);
     return this.run(userId, id);
+  }
+
+  /** Public control metadata lets shared readers see true state without disclosing run output. */
+  public async control(
+    userId: string,
+    planId: string,
+  ): Promise<AgentPlanControl> {
+    return this.controls.read(userId, planId);
   }
 
   /**
@@ -524,12 +557,6 @@ export class AgentPlanService {
       throw new AgentError("plan_access_denied");
     if (previous && proposed.revision !== previous.revision)
       throw new AgentError("plan_conflict");
-    if (
-      previous &&
-      previous.workspaceId !== proposed.workspaceId &&
-      proposed.nodes.length > 0
-    )
-      throw new AgentError("plan_context_changed");
     const workspace = await this.dependencies.workspaces.resolve(
       userId,
       proposed.workspaceId,

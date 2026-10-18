@@ -20,8 +20,21 @@ export async function loader({
   try {
     const user = context.get(authenticatedUserContext);
     if (!user) throw new AgentError("plan_access_denied");
-    runId = readPlanText(new URL(request.url).searchParams.get("runId"));
+    const query = new URL(request.url).searchParams;
     const services = await getApplicationServices();
+    if (query.has("planId"))
+      return Response.json(
+        {
+          ok: true,
+          intent: "poll-control",
+          control: await services.agentPlanService.control(
+            user.id,
+            readPlanText(query.get("planId")),
+          ),
+        },
+        { headers: AGENT_NO_STORE },
+      );
+    runId = readPlanText(query.get("runId"));
     return Response.json(
       {
         ok: true,

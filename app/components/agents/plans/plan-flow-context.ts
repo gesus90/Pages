@@ -19,6 +19,8 @@ export interface PlanCanvasProps {
   readonly workspaces?: readonly AgentWorkspaceChoice[];
   readonly onEdit?: (id: string) => void;
   readonly onOpen?: (id: string) => void;
+  /** Page controls stacked above the zoom bar, outside canvas gestures. */
+  readonly panel?: React.ReactNode;
   /** Notices of the page, such as a refused save, below the zoom bar. */
   readonly status?: React.ReactNode;
 }

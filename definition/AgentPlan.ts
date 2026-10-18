@@ -1,3 +1,8 @@
+import type { AgentPlanControl } from "./AgentPlanControl";
+import type {
+  AgentPlanContinuation,
+  AgentPlanPauseBoundary,
+} from "./AgentPlanContinuation";
 import type { AgentPlanConfiguration } from "./AgentPlanConfiguration";
 import type { PageAgentModel } from "./PageAgent";
 import type { AgentDefinitionChoice } from "./AgentAvailability";
@@ -125,6 +130,7 @@ export interface AgentPlanSources {
 
 export interface AgentPlanPage {
   readonly userId: string;
+  readonly control?: AgentPlanControl;
   readonly plans: readonly AgentPlanView[];
   readonly workspaces: readonly AgentWorkspaceChoice[];
   readonly selected: AgentPlanView | null;
@@ -159,8 +165,19 @@ export interface AgentPlanRun {
   readonly planRevision: number;
   readonly userId: string;
   readonly startedAt: string;
-  readonly status: "running" | "succeeded" | "failed" | "cancelled" | "paused";
+  readonly status:
+    | "running"
+    | "pausing"
+    | "paused"
+    | "stopping"
+    | "succeeded"
+    | "failed"
+    | "cancelled";
+  readonly pauseBoundary?: AgentPlanPauseBoundary;
+  readonly continuation?: AgentPlanContinuation;
   readonly stopRequested: boolean;
+  /** Safe failure of an additional session turn, separate from completed graph results. */
+  readonly controlError?: "plan_step_failed";
   /** Absent in old failed records, which remain terminal; this never authorizes replay. */
   readonly recovery?: AgentPlanRecoveryReason;
   readonly steps: readonly AgentPlanStepResult[];

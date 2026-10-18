@@ -25,7 +25,7 @@ export interface AgentPlanStepSnapshot {
   readonly taskVersions: Readonly<Record<string, string>>;
 }
 
-/** This server-only record is persisted once and never sent as a run response. */
+/** Each server-only execution basis is appended once; no basis is overwritten or sent as a run response. */
 export interface AgentPlanSnapshot {
   readonly plan: AgentPlan;
   readonly groups?: readonly AgentPlanGroup[];

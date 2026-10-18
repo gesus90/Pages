@@ -4,8 +4,10 @@ import { readPlanRunResources } from "@/backend/agents/AgentPlanRunResources";
 import { readTextColumn } from "@/backend/database/RowValue";
 import { AgentError } from "@/backend/error/AgentErrors";
 
+import { AgentPlanContinuationRepository } from "./AgentPlanContinuationRepository";
 import { AgentPlanProgressRepository } from "./AgentPlanProgressRepository";
 
+import type { PlanContinuationWrite } from "./AgentPlanContinuationRepository";
 import type {
   Database,
   DatabaseTransaction,
@@ -25,6 +27,8 @@ export interface AgentPlanRunEntry {
 function readRunStatus(input: string): AgentPlanRun["status"] {
   if (
     input !== "running" &&
+    input !== "pausing" &&
+    input !== "stopping" &&
     input !== "succeeded" &&
     input !== "failed" &&
     input !== "cancelled" &&
@@ -40,12 +44,14 @@ export class AgentPlanRunRepository {
     Database,
     "query" | "execute" | "transaction"
   >;
+  private readonly continuations: AgentPlanContinuationRepository;
   private readonly progress: AgentPlanProgressRepository;
 
   public constructor(
     database: Pick<Database, "query" | "execute" | "transaction">,
   ) {
     this.database = database;
+    this.continuations = new AgentPlanContinuationRepository(database);
     this.progress = new AgentPlanProgressRepository(database);
   }
 
@@ -85,10 +91,10 @@ export class AgentPlanRunRepository {
       SELECT id
       FROM agent_plan_runs
       WHERE plan_id = $plan_id
-          AND user_id = $user_id
-          AND status IN ('running', 'paused');
+          AND (status IN ('running', 'pausing', 'paused', 'stopping')
+              OR id IN (SELECT run_id FROM agent_plan_workspace_locks));
     `,
-      { plan_id: run.planId, user_id: run.userId },
+      { plan_id: run.planId },
     );
     if (active) throw new AgentError("plan_run_unavailable");
     for (const workspaceId of new Set(workspaceIds)) {
@@ -133,6 +139,37 @@ export class AgentPlanRunRepository {
     );
   }
 
+  /** Latest state is summarized by the service before being exposed to other plan readers. */
+  public async latest(planId: string): Promise<AgentPlanRun | null> {
+    const [row] = await this.database.query(
+      `
+      SELECT view_json
+      FROM agent_plan_runs
+      WHERE plan_id = $plan_id
+      ORDER BY started_at DESC, id DESC
+      LIMIT 1;
+    `,
+      { plan_id: planId },
+    );
+    return row
+      ? readPlanRun(JSON.parse(readTextColumn(row, 0, "view_json")))
+      : null;
+  }
+
+  /** Unconfirmed cleanup prevents another start even after a terminal error. */
+  public async hasReservation(runId: string): Promise<boolean> {
+    const [row] = await this.database.query(
+      `
+      SELECT workspace_id
+      FROM agent_plan_workspace_locks
+      WHERE run_id = $run_id
+      LIMIT 1;
+    `,
+      { run_id: runId },
+    );
+    return Boolean(row);
+  }
+
   /** Reads only the public record; service authorization still precedes delivery. */
   public async find(id: string): Promise<AgentPlanRun | null> {
     const [row] = await this.database.query(
@@ -147,27 +184,27 @@ export class AgentPlanRunRepository {
 
   /** Keeps private snapshot content off the read API while exposing references for live authorization. */
   public async resources(id: string): Promise<AgentPlanRunResources> {
-    const [row] = await this.database.query(
-      "SELECT snapshot_json FROM agent_plan_runs WHERE id = $id;",
-      { id },
-    );
-    if (!row) throw new AgentError("plan_access_denied");
-    const snapshot: unknown = JSON.parse(
-      readTextColumn(row, 0, "snapshot_json"),
-    );
-    return readPlanRunResources(snapshot);
+    const snapshots = await this.continuations.snapshots(id);
+    const references = snapshots.map(readPlanRunResources);
+    const first = references[0];
+    if (!first) throw new AgentError("plan_access_denied");
+    return {
+      projectId: first.projectId,
+      workspaceIds: [
+        ...new Set(references.flatMap((entry) => entry.workspaceIds)),
+      ],
+      agentIds: [...new Set(references.flatMap((entry) => entry.agentIds))],
+      taskIds: [...new Set(references.flatMap((entry) => entry.taskIds))],
+      wikiIds: [...new Set(references.flatMap((entry) => entry.wikiIds))],
+      ticketIds: [...new Set(references.flatMap((entry) => entry.ticketIds))],
+      ticketAssets: references.flatMap((entry) => entry.ticketAssets ?? []),
+    };
   }
 
   /** Names the agent of one node from the private snapshot, without disclosing anything else. */
   public async stepAgent(id: string, stepId: string): Promise<string | null> {
-    const [row] = await this.database.query(
-      "SELECT snapshot_json FROM agent_plan_runs WHERE id = $id;",
-      { id },
-    );
-    if (!row) return null;
-    const snapshot = readAgentObject(
-      JSON.parse(readTextColumn(row, 0, "snapshot_json")),
-    );
+    const snapshots = await this.continuations.snapshots(id);
+    const snapshot = readAgentObject(snapshots[0]);
     const steps: readonly unknown[] = Array.isArray(snapshot.steps)
       ? snapshot.steps
       : [];
@@ -182,7 +219,7 @@ export class AgentPlanRunRepository {
   /** Returns unfinished public records for service-controlled recovery after restart. */
   public async unfinished(): Promise<readonly AgentPlanRun[]> {
     const rows = await this.database.query(
-      "SELECT view_json FROM agent_plan_runs WHERE status IN ('running', 'paused');",
+      "SELECT view_json FROM agent_plan_runs WHERE status IN ('running', 'pausing', 'paused', 'stopping');",
     );
     return rows.map((row) => {
       const input: unknown = JSON.parse(readTextColumn(row, 0, "view_json"));
@@ -206,7 +243,7 @@ export class AgentPlanRunRepository {
     const rows = await this.database.query(`
       SELECT view_json
       FROM agent_plan_runs
-      WHERE status NOT IN ('running', 'paused')
+      WHERE status NOT IN ('running', 'pausing', 'paused', 'stopping')
           AND id IN (
               SELECT run_id
               FROM agent_plan_workspace_locks
@@ -227,7 +264,7 @@ export class AgentPlanRunRepository {
             AND run_id IN (
                 SELECT id
                 FROM agent_plan_runs
-                WHERE status NOT IN ('running', 'paused')
+                WHERE status NOT IN ('running', 'pausing', 'paused', 'stopping')
             );
       `,
       { id },
@@ -293,7 +330,9 @@ export class AgentPlanRunRepository {
   public async update(
     run: AgentPlanRun,
     checkpoint?: AgentPlanCheckpointInput,
+    continuation?: Omit<PlanContinuationWrite, "run">,
   ): Promise<void> {
-    await this.progress.update(run, checkpoint);
+    if (continuation) await this.continuations.adopt({ ...continuation, run });
+    else await this.progress.update(run, checkpoint);
   }
 }

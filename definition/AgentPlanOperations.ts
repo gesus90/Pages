@@ -157,7 +157,13 @@ export interface AgentPlanEdgeEntry {
 }
 
 export type AgentPlanRunStatus =
-  "running" | "succeeded" | "failed" | "cancelled" | "paused";
+  | "running"
+  | "succeeded"
+  | "failed"
+  | "cancelled"
+  | "paused"
+  | "pausing"
+  | "stopping";
 
 /** A run of the connected account, assigned to its plan by `planId`. */
 export interface AgentPlanRunSummary {
@@ -173,12 +179,12 @@ export interface AgentPlanRunSummary {
  * What a plan is doing for the connected account.
  *
  * @remarks
- * `state` follows the account's own runs: `running` or `paused` while one of
+ * `state` follows the account's own runs: `running`, `pausing`, `paused` or `stopping` while one of
  * them is active, `idle` otherwise. `isRunnable` and `issues` are the checks
  * the plan page runs before Play, with the agents the account may use now.
  */
 export interface AgentPlanStatusEntry {
-  readonly state: "idle" | "running" | "paused";
+  readonly state: "idle" | "running" | "paused" | "pausing" | "stopping";
   readonly runCount: number;
   readonly latestRun: AgentPlanRunSummary | null;
   readonly isRunnable: boolean;

@@ -38,8 +38,8 @@ const PRO_OPTIONS = { hideAttribution: true };
  * The execution plan uses React Flow for rendering, measurement, connections and viewport gestures.
  *
  * @remarks
- * The canvas fills its container and shows nothing but the graph, the zoom
- * bar and notices that an action of the person caused.
+ * The canvas fills its container. Page controls, the zoom bar and notices
+ * share a floating stack outside its gestures and keyboard shortcuts.
  */
 export function PlanCanvas(props: PlanCanvasProps): React.ReactElement {
   return (
@@ -94,6 +94,7 @@ function PlanFlowCanvas(props: PlanCanvasProps): React.ReactElement {
           canEdit={props.canEdit}
         />
       </section>
+      <PlanCanvasOverlay canvas={props} />
     </PlanFlowContext>
   );
 }
@@ -157,10 +158,22 @@ function PlanFlowGraph({
         bgColor="transparent"
         className={styles.grid}
       />
-      <Panel
-        position="top-left"
-        className="pointer-events-none flex flex-col items-start gap-2"
-      >
+    </ReactFlow>
+  );
+}
+
+function PlanCanvasOverlay({
+  canvas,
+}: {
+  readonly canvas: PlanCanvasProps;
+}): React.ReactElement {
+  return (
+    <Panel
+      position="top-left"
+      className="pointer-events-none z-10 flex max-h-[calc(100%-5rem)] w-[calc(100%-2rem)] max-w-3xl flex-col items-start gap-2"
+    >
+      {canvas.panel}
+      <div className="flex w-full shrink-0 flex-col items-start gap-2">
         <PlanCanvasControls />
         <PlanConnectionHint />
         {canvas.graph.notice ? (
@@ -171,8 +184,8 @@ function PlanFlowGraph({
           />
         ) : null}
         {canvas.status}
-      </Panel>
-    </ReactFlow>
+      </div>
+    </Panel>
   );
 }
 

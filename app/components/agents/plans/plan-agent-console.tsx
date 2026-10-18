@@ -125,7 +125,10 @@ export function PlanAgentConsole(
       ? opened.group.steps.find((step) => step.id === memberId)
       : opened.step;
   const isReadOnly =
-    run !== null && (!isRunActive(run) || running.runs[0]?.id !== run.id);
+    run !== null &&
+    (run.status !== "running" ||
+      run.stopRequested ||
+      running.runs[0]?.id !== run.id);
   const title =
     opened.kind === "group"
       ? opened.group.name

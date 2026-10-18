@@ -1,5 +1,6 @@
 import { CHAT_AGENT_WRITE_OPERATIONS } from "@/definition/ChatAgentOperations";
 import { PAGES_AGENT_WRITE_OPERATIONS } from "@/definition/PagesAgentWrites";
+
 import {
   CHAT_ADMIN_OPERATIONS,
   isChatAdminWriteOperation,
@@ -100,7 +101,7 @@ const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
   "agents.delete":
     "{agentId, expectedRevision} eigenen Benutzer-Agent entfernen; vorher lesen und ausdrücklich mit LÖSCHEN in der aktuellen Nachricht bestätigen",
 
-  "plans.list": `{text?, projectId?, ${WINDOW}} sichtbare Agent Plans nach Name mit Projekt, Freigabe, canEdit, revision, state (idle|running|paused) und latestRun; text sucht im Namen`,
+  "plans.list": `{text?, projectId?, ${WINDOW}} sichtbare Agent Plans nach Name mit Projekt, Freigabe, canEdit, revision, state (idle|running|pausing|paused|stopping) und latestRun; text sucht im Namen`,
   "plans.read":
     "{planId} Agent Plan mit nodes (label, Agent, Ticket, Parameter, bindings), edges (Ablauf from → to), Freigabe, revision und status (state, runCount, latestRun, isRunnable, issues) lesen",
   "plans.sources.read":

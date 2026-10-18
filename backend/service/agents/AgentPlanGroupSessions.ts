@@ -6,6 +6,8 @@ import {
 } from "@/definition/AgentConfiguration";
 import { logCaughtError } from "@/backend/logging/Logger";
 
+import { waitForTurn } from "./AgentPlanTurn";
+
 import type { CliSessionMcp } from "@/backend/agents/cli/CliSessionPlans";
 import type {
   AgentPlanSessionInput,
@@ -223,11 +225,12 @@ export class AgentPlanGroupSessions {
   public async instruct(request: GroupTurnInput): Promise<PlanSessionTurn> {
     const slot = this.reserve(request.key);
     try {
-      await slot.ready;
+      await waitForTurn(slot.ready, request.signal);
       const current = this.sessions.get(request.key);
       if (!current || current.isLost)
         throw new AgentError("plan_session_unavailable");
-      return await this.continueTurn(request.key, current, request).turn;
+      const session = await this.continueTurn(request.key, current, request);
+      return await session.turn;
     } finally {
       slot.release();
     }
@@ -262,11 +265,11 @@ export class AgentPlanGroupSessions {
       }
   }
 
-  private continueTurn(
+  private async continueTurn(
     key: string,
     current: GroupSession,
     request: GroupTurnInput,
-  ): PlanSession {
+  ): Promise<PlanSession> {
     const { input, signal, observer } = request;
     if (current.isLost) {
       this.sessions.delete(key);
@@ -277,6 +280,10 @@ export class AgentPlanGroupSessions {
       !current.session.next
     )
       throw new AgentError("plan_context_changed");
+    await input.beforeStart?.();
+    if (signal.aborted) throw new AgentPlanCancelledError();
+    if (!current.session.next)
+      throw new AgentError("plan_group_session_unsupported");
     if (current.started)
       observer.started({
         ...current.started,
@@ -284,15 +291,17 @@ export class AgentPlanGroupSessions {
       });
     current.turns += 1;
     if (current.capabilities) observer.capabilities?.(current.capabilities);
-    const turn = this.confirmTurn(
-      current,
-      current.session.next(
-        input,
-        signal,
-        this.watch({ entry: current }, observer),
+    return {
+      turn: this.confirmTurn(
+        current,
+        current.session.next(
+          input,
+          signal,
+          this.watch({ entry: current }, observer),
+        ),
       ),
-    );
-    return { turn, close: () => this.close(key, current) };
+      close: () => this.close(key, current),
+    };
   }
 
   /** Notes the ACP session ID and a retirement of the process for the group. */
@@ -355,6 +364,15 @@ export class AgentPlanGroupSessions {
   ): ReturnType<PlanSession["close"]> {
     try {
       return await entry.session.close();
+    } catch (error: unknown) {
+      logCaughtError("AgentPlanGroupSessions", error);
+
+      return {
+        exit: null,
+        endedAt: new Date().toISOString(),
+        leftovers: 0,
+        isConfirmed: false,
+      };
     } finally {
       this.sessions.delete(key);
     }

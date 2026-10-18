@@ -14,6 +14,7 @@ import { readTextColumn } from "@/backend/database/RowValue";
 import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
 import { canRecordPlanRepair } from "@/definition/AgentPlanRecovery";
 
+import { CURRENT_PLAN_SNAPSHOT } from "./AgentPlanContinuationRepository";
 import { AgentPlanCheckpointRepository } from "./AgentPlanCheckpointRepository";
 
 import type {
@@ -170,7 +171,7 @@ export class AgentPlanRecoveryRepository {
         SELECT
             view_json,
             recovery_revision,
-            snapshot_json
+            ${CURRENT_PLAN_SNAPSHOT} AS snapshot_json
         FROM agent_plan_runs
         WHERE id = $id;
       `,

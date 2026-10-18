@@ -103,6 +103,7 @@ export class AgentPlanRepository {
       );
       if (!workspace || workspace[0] !== plan.projectId)
         throw new AgentError("plan_context_changed");
+      await requirePlanEditable(transaction, plan.id);
       await requirePlanAgents(transaction, plan);
       await transaction.execute(
         `
@@ -158,7 +159,7 @@ export class AgentPlanRepository {
         SELECT id
         FROM agent_plan_runs
         WHERE plan_id = $plan_id
-            AND status IN ('running', 'paused')
+            AND status IN ('running', 'pausing', 'paused', 'stopping')
         LIMIT 1;
       `,
         { plan_id: id },
@@ -197,4 +198,22 @@ async function requirePlanAgents(
     );
     if (!profile) throw new AgentError("plan_context_changed");
   }
+}
+
+/** Saving must not race a running scheduler or the adoption of a paused revision. */
+async function requirePlanEditable(
+  transaction: DatabaseTransaction,
+  id: string,
+): Promise<void> {
+  const [active] = await transaction.query(
+    `
+    SELECT id
+    FROM agent_plan_runs
+    WHERE plan_id = $id
+        AND status IN ('running', 'pausing', 'stopping')
+    LIMIT 1;
+  `,
+    { id },
+  );
+  if (active) throw new AgentError("plan_pause_required");
 }

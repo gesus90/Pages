@@ -1,10 +1,14 @@
+import { useEffect } from "react";
+import { useNavigate } from "react-router";
 import { useFetcher } from "react-router";
 
 import { readPlanConfiguration } from "@/backend/agents/AgentPlanConfigurationInput";
 
 import { usePlanDraft } from "./use-plan-draft";
 import { usePlanGraph } from "./use-plan-graph";
+import { usePlanSources } from "./use-plan-sources";
 
+import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
 import type { AgentPlanActionResult } from "@/app/lib/agent-plan-response";
 import type {
   AgentPlanInput,
@@ -35,15 +39,33 @@ export function usePlanEditor(page: AgentPlanPage): {
   readonly isDirty: boolean;
   readonly canEdit: boolean;
   readonly isPending: boolean;
+  readonly sourceError: string | null;
   readonly save: () => void;
+  readonly rename: (name: string) => void;
+  readonly changeContext: (workspace: AgentWorkspaceChoice) => void;
 } {
   const command = useFetcher<AgentPlanActionResult>();
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (!page.selected && command.data?.ok && command.data.planId)
+      void navigate(
+        `/agents/plans?planId=${encodeURIComponent(command.data.planId)}`,
+      );
+  }, [command.data, page.selected, navigate]);
   const { draft, setDraft, isDirty, submitted } = usePlanDraft(
     page,
     command.data,
     command.state !== "idle",
   );
-  const sources = page.sources;
+  const sourceState = usePlanSources(page, draft.workspaceId);
+  const { sources } = sourceState;
+  function changeContext(workspace: AgentWorkspaceChoice): void {
+    setDraft((previous) => ({
+      ...previous,
+      workspaceId: workspace.id,
+      projectId: workspace.projectId,
+    }));
+  }
   const graph = usePlanGraph(draft, setDraft, sources, (agentId) =>
     loadNodeConfiguration(draft.workspaceId, agentId),
   );
@@ -66,7 +88,10 @@ export function usePlanEditor(page: AgentPlanPage): {
     command,
     isDirty,
     canEdit: page.selected?.canEdit ?? true,
-    isPending: command.state !== "idle",
+    isPending: command.state !== "idle" || sourceState.isPending,
+    sourceError: sourceState.error,
     save,
+    rename: (name) => setDraft((previous) => ({ ...previous, name })),
+    changeContext,
   };
 }
