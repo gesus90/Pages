@@ -4,8 +4,11 @@ import { FileTooLargeError } from "@/backend/storage/WikiFileStore";
 import { CHAT_LIMITS } from "@/definition/Chat";
 import { logCaughtError } from "@/backend/logging/Logger";
 
+import { chatPreviewKind } from "@/definition/ChatPreview";
+
 import { ChatFileProbe } from "./ChatFileProbe";
 import { classifyChatFile } from "./ChatFileTypes";
+import { readChatAttachmentPreview } from "./ChatAttachmentPreviews";
 import {
   publicChatAttachment,
   readChatSessionId,
@@ -21,6 +24,7 @@ import type { ChatSessionRepository } from "@/backend/database/repositories/chat
 import type { UploadedFile } from "@/backend/service/wiki/WikiAttachmentService";
 import type { WikiFileStore } from "@/backend/storage/WikiFileStore";
 import type { ChatAttachment } from "@/definition/Chat";
+import type { ChatAttachmentPreview } from "@/definition/ChatPreview";
 import type { User } from "@/definition/User";
 import type { ChatSettingsService } from "./ChatSettingsService";
 
@@ -48,9 +52,10 @@ function readAttachmentId(input: unknown): string {
   return input;
 }
 
-/** Tells whether an attachment reaches the agent as text. */
-export function isChatTextAttachment(contentType: string): boolean {
-  return contentType.startsWith("text/") || contentType === "application/json";
+export { isChatTextAttachment } from "./ChatAttachmentContent";
+
+function isUpload(attachment: StoredChatAttachment): boolean {
+  return attachment.origin !== "assistant";
 }
 
 /**
@@ -64,6 +69,8 @@ export function isChatTextAttachment(contentType: string): boolean {
  */
 export class ChatAttachmentService {
   private readonly dependencies: ChatAttachmentDependencies;
+  /** Uploads per session that streamed past the count and are not stored yet. */
+  private readonly reserved = new Map<string, number>();
 
   public constructor(dependencies: ChatAttachmentDependencies) {
     this.dependencies = dependencies;
@@ -91,36 +98,20 @@ export class ChatAttachmentService {
       throw new ChatError("fileNameTooLong");
     const unsent = (
       await this.dependencies.attachments.list(session.id)
-    ).filter((attachment) => attachment.messageId === null);
-    if (unsent.length >= CHAT_LIMITS.attachmentsPerMessage)
+    ).filter(
+      (attachment) => attachment.messageId === null && isUpload(attachment),
+    );
+    // Counted with the uploads still streaming, so parallel requests cannot pass the check together.
+    const reserved = this.reserved.get(session.id) ?? 0;
+    if (unsent.length + reserved >= CHAT_LIMITS.attachmentsPerMessage)
       throw new ChatError("tooManyAttachments");
-    const limit = (await this.dependencies.settings.read())
-      .attachmentLimitBytes;
-    if (file.contentLength !== null && file.contentLength > limit)
-      throw new ChatError("fileTooLarge");
-    const probe = new ChatFileProbe();
-    const stored = await this.store(probe.observe(file.body), limit);
+    this.reserved.set(session.id, reserved + 1);
     try {
-      if (stored.size === 0) throw new ChatError("fileEmpty");
-      const type = classifyChatFile(
-        fileName,
-        probe.facts(),
-        this.dependencies.isSafeSvg,
-      );
-      const attachment = await this.dependencies.attachments.insert(actor.id, {
-        sessionId: session.id,
-        fileName,
-        contentType: type.contentType,
-        size: stored.size,
-        storageName: stored.storageName,
-      });
-      if (attachment === null) throw new ChatError("sessionMissing");
-      return publicChatAttachment(attachment);
-    } catch (error: unknown) {
-      logCaughtError("ChatAttachmentService", error);
-
-      await this.dependencies.files.remove([stored.storageName]);
-      throw error;
+      return await this.receive(actor, session.id, fileName, file);
+    } finally {
+      const left = (this.reserved.get(session.id) ?? 1) - 1;
+      if (left > 0) this.reserved.set(session.id, left);
+      else this.reserved.delete(session.id);
     }
   }
 
@@ -135,6 +126,39 @@ export class ChatAttachmentService {
       attachment: publicChatAttachment(attachment),
       stream: this.dependencies.files.open(attachment.storageName),
     };
+  }
+
+  /**
+   * Opens an image of an own session to be shown as a thumbnail (PAGE-92).
+   *
+   * @throws {ChatError} `attachmentMissing` for an unknown or foreign
+   * attachment and for a file that is no image.
+   */
+  public async openImage(
+    actor: User,
+    id: unknown,
+  ): Promise<OpenedChatAttachment> {
+    const attachment = await this.require(actor, id);
+    if (chatPreviewKind(attachment.contentType) !== "image")
+      throw new ChatError("attachmentMissing");
+    return {
+      attachment: publicChatAttachment(attachment),
+      stream: this.dependencies.files.open(attachment.storageName),
+    };
+  }
+
+  /**
+   * Reads the bounded content preview of a text, PDF or Office attachment of an
+   * own session (PAGE-92).
+   *
+   * @throws {ChatError} `attachmentMissing` for an unknown or foreign attachment.
+   */
+  public async preview(
+    actor: User,
+    id: unknown,
+  ): Promise<ChatAttachmentPreview> {
+    const attachment = await this.require(actor, id);
+    return readChatAttachmentPreview(attachment, this);
   }
 
   /**
@@ -168,7 +192,9 @@ export class ChatAttachmentService {
     const wanted = new Set(ids.map(readAttachmentId));
     const unsent = (await this.dependencies.attachments.list(sessionId)).filter(
       (attachment) =>
-        attachment.messageId === null && wanted.has(attachment.id),
+        attachment.messageId === null &&
+        isUpload(attachment) &&
+        wanted.has(attachment.id),
     );
     if (unsent.length !== wanted.size) throw new ChatError("attachmentMissing");
     return unsent;
@@ -242,6 +268,49 @@ export class ChatAttachmentService {
       stream.destroy();
     }
     return Buffer.concat(chunks);
+  }
+
+  /** Streams an upload to the disk, decides its type and records it within the limit. */
+  private async receive(
+    actor: User,
+    sessionId: string,
+    fileName: string,
+    file: UploadedFile,
+  ): Promise<ChatAttachment> {
+    const limit = (await this.dependencies.settings.read())
+      .attachmentLimitBytes;
+    if (file.contentLength !== null && file.contentLength > limit)
+      throw new ChatError("fileTooLarge");
+    const probe = new ChatFileProbe();
+    const stored = await this.store(probe.observe(file.body), limit);
+    try {
+      if (stored.size === 0) throw new ChatError("fileEmpty");
+      const type = classifyChatFile(
+        fileName,
+        probe.facts(),
+        this.dependencies.isSafeSvg,
+      );
+      const inserted = await this.dependencies.attachments.insertUpload(
+        actor.id,
+        {
+          sessionId,
+          fileName,
+          contentType: type.contentType,
+          size: stored.size,
+          storageName: stored.storageName,
+        },
+        CHAT_LIMITS.attachmentsPerMessage,
+      );
+      if (inserted.kind === "full") throw new ChatError("tooManyAttachments");
+      if (inserted.kind === "sessionMissing")
+        throw new ChatError("sessionMissing");
+      return publicChatAttachment(inserted.attachment);
+    } catch (error: unknown) {
+      logCaughtError("ChatAttachmentService", error);
+
+      await this.dependencies.files.remove([stored.storageName]);
+      throw error;
+    }
   }
 
   private async require(

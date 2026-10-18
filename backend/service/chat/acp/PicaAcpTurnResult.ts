@@ -7,7 +7,12 @@ import { logDiagnostic } from "@/backend/logging/Logger";
 import { CHAT_LIMITS } from "@/definition/Chat";
 
 import type { PlanSessionTurn } from "@/backend/agents/AgentPlanExecution";
-import type { ChatJobState, ChatJobTurnEvent } from "@/definition/ChatJob";
+import type {
+  ChatJobState,
+  ChatJobTurnEvent,
+  ChatJobUsage,
+  ChatTokenUsage,
+} from "@/definition/ChatJob";
 
 /** The terminal state and safe code produced by one Pica job. */
 export interface PicaAcpOutcome {
@@ -90,4 +95,35 @@ export function picaAcpOutcome(
   if (code !== null) return { state: "failed", errorCode: code };
   logDiagnostic("PicaAcpJob", "error", "[pages] A Pica job failed.", error);
   return { state: "failed", errorCode: "general" };
+}
+
+/**
+ * Sums the tokens of the turns of a job; a turn without a report makes the sum partial.
+ *
+ * @param usage - Context and cost as the adapter reported them last.
+ * @param turns - The tokens of every turn, `null` for a turn without a report.
+ * @param isAlwaysPartial - The runner never reports every token of a turn.
+ */
+export function sumJobUsage(
+  usage: Pick<ChatJobUsage, "context" | "cost">,
+  turns: readonly (Omit<ChatTokenUsage, "isPartial"> | null)[],
+  isAlwaysPartial: boolean,
+): ChatJobUsage {
+  const reported = turns.filter(
+    (entry): entry is Omit<ChatTokenUsage, "isPartial"> => entry !== null,
+  );
+  const sum = (field: "input" | "output" | "total"): number =>
+    reported.reduce((total, entry) => total + entry[field], 0);
+  return {
+    ...usage,
+    tokens:
+      reported.length === 0
+        ? null
+        : {
+            input: sum("input"),
+            output: sum("output"),
+            total: sum("total"),
+            isPartial: reported.length < turns.length || isAlwaysPartial,
+          },
+  };
 }

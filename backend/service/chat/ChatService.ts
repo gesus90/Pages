@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { ChatError } from "@/backend/error/ChatErrors";
 import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
@@ -10,7 +12,11 @@ import {
   CHAT_MAXIMUM_MODEL_STEPS,
 } from "./ChatExecutionLimits";
 import { readChatModelReply } from "./ChatActionProtocol";
-import { isChatTextAttachment } from "./ChatAttachmentService";
+import {
+  CHAT_AGENT_IMAGE_TYPES,
+  chatSelectionItem,
+  readChatAgentAttachment,
+} from "./ChatAttachmentContent";
 import { createChatInstructions, createChatPrompt } from "./ChatPrompt";
 import {
   chatConfirmationWord,
@@ -40,7 +46,10 @@ import type {
   ChatSendResult,
 } from "@/definition/Chat";
 import type { ChatTemporaryPassword } from "@/definition/AgentAdministration";
+import type { ChatSelection, ChatSelectionItem } from "@/definition/ChatJob";
 import type { User } from "@/definition/User";
+import type { ChatAnswerFileService } from "./ChatAnswerFileService";
+import type { ChatAttachmentReader } from "./ChatAttachmentContent";
 import type { ChatAttachmentService } from "./ChatAttachmentService";
 import type {
   ChatInstructionInput,
@@ -53,7 +62,7 @@ import type { ChatSessionService } from "./ChatSessionService";
 import type { ChatSettingsService } from "./ChatSettingsService";
 import type { ChatToolExecutor } from "./ChatToolExecutor";
 import type { PicaInstructions } from "./PicaInstructionFiles";
-import type { PicaApiService } from "./PicaApiService";
+import type { PicaApiImage, PicaApiService } from "./PicaApiService";
 import type { PicaAcpService } from "./acp/PicaAcpService";
 import type { PicaTurnBrief } from "./acp/PicaAcpContent";
 
@@ -61,7 +70,7 @@ import type { PicaTurnBrief } from "./acp/PicaAcpContent";
 export { CHAT_MAXIMUM_ACTIONS } from "./ChatExecutionLimits";
 
 /** Characters of one text attachment the agent receives. */
-export const CHAT_ATTACHMENT_CHARACTERS = 30_000;
+export { CHAT_ATTACHMENT_CHARACTERS } from "./ChatAttachmentContent";
 
 const IDENTIFIER = /^[a-zA-Z0-9-]{1,100}$/u;
 
@@ -76,7 +85,15 @@ interface ChatDependencies {
   readonly attachments: Pick<
     ChatAttachmentService,
     "pending" | "link" | "readText"
-  >;
+  > &
+    Partial<Pick<ChatAttachmentService, "readBytes">>;
+  /** Links the files Pica wrote to its answer, or removes them without one (PAGE-92). */
+  readonly answerFiles?: Pick<ChatAnswerFileService, "claim" | "discard">;
+  /** Records how each attachment of a message reached the agent (PAGE-92). */
+  readonly selections?: (
+    sessionId: string,
+    selection: ChatSelection,
+  ) => Promise<void>;
   readonly settings: Pick<ChatSettingsService, "instruction">;
   /**
    * Loads Pica's protected `SOUL.md` and `AGENTS.md` for every message; a
@@ -127,12 +144,21 @@ interface ChatTurn {
   readonly history: readonly StoredChatMessage[];
   readonly summary?: string | null;
   readonly request: ChatSendRequest;
-  readonly attachments: readonly StoredChatAttachment[];
+  readonly attachments: ChatTurnAttachments;
+  /** The server run the answer files of this turn belong to. */
+  readonly runId: string;
 }
 
 interface ChatAnswer {
   readonly text: string;
   readonly temporaryPasswords: readonly ChatTemporaryPassword[];
+}
+
+/** What of the attachments of a message reaches the agent, and the snapshot of it. */
+interface ChatTurnAttachments {
+  readonly described: readonly ChatPromptAttachment[];
+  readonly images: readonly PicaApiImage[];
+  readonly items: readonly ChatSelectionItem[];
 }
 
 /** What every prompt of one message is built from, before its attachments. */
@@ -350,31 +376,46 @@ export class ChatService {
       clientMessageId: request.clientMessageId,
     });
     await attachments.link(session.id, question.id, sent);
-    const completed = await this.answer(
-      {
-        actor,
-        agent,
-        protectedInstructions,
-        history,
-        summary: context.summary,
-        request,
-        attachments: sent,
-      },
-      signal,
-    );
-    signal.throwIfAborted();
-    const answer = await messages.append(actor.id, session.id, {
-      role: "assistant",
-      content: completed.text,
-    });
-    return {
-      session: await sessions.require(actor, session.id),
-      question: { ...question, attachments: sent.map(publicChatAttachment) },
-      answer: { ...answer, attachments: [] },
-      ...(completed.temporaryPasswords.length > 0
-        ? { temporaryPasswords: completed.temporaryPasswords }
-        : {}),
-    };
+    const run = { sessionId: session.id, runId: randomUUID() };
+    try {
+      const described = await this.turnAttachments(sent);
+      if (described.items.length > 0)
+        await this.dependencies.selections?.(session.id, {
+          messageId: question.id,
+          items: described.items,
+        });
+      const completed = await this.answer(
+        {
+          actor,
+          agent,
+          protectedInstructions,
+          history,
+          summary: context.summary,
+          request,
+          attachments: described,
+          runId: run.runId,
+        },
+        signal,
+      );
+      signal.throwIfAborted();
+      const answer = await messages.append(actor.id, session.id, {
+        role: "assistant",
+        content: completed.text,
+      });
+      const files =
+        (await this.dependencies.answerFiles?.claim(run, answer.id)) ?? [];
+      return {
+        session: await sessions.require(actor, session.id),
+        question: { ...question, attachments: sent.map(publicChatAttachment) },
+        answer: { ...answer, attachments: files },
+        ...(completed.temporaryPasswords.length > 0
+          ? { temporaryPasswords: completed.temporaryPasswords }
+          : {}),
+      };
+    } finally {
+      // Files of a run whose answer was not stored are removed; claimed ones stay.
+      await this.dependencies.answerFiles?.discard(run);
+    }
   }
 
   private async answer(
@@ -386,7 +427,7 @@ export class ChatService {
     const prompt: Omit<ChatPromptInput, "steps" | "isLastStep"> = {
       ...brief.prompt,
       message: turn.request.text,
-      attachments: await this.promptAttachments(turn.attachments),
+      attachments: turn.attachments.described,
     };
     if (this.dependencies.mode === "native-api") {
       const output = await this.dependencies.api.run(
@@ -394,6 +435,8 @@ export class ChatService {
           actor: turn.actor,
           userId: turn.actor.id,
           sessionId: turn.request.sessionId,
+          runId: turn.runId,
+          images: turn.attachments.images,
           agent: turn.agent,
           instructions,
           prompt: createChatPrompt({ ...prompt, steps: [], isLastStep: false }),
@@ -541,22 +584,50 @@ export class ChatService {
     throw new ChatError("stepLimit");
   }
 
-  private async promptAttachments(
+  /**
+   * Reads what of each attachment reaches the agent: text and extracted
+   * document text into the prompt, raster images as image content of the
+   * native API path; the legacy text path names images only.
+   */
+  private async turnAttachments(
     attachments: readonly StoredChatAttachment[],
-  ): Promise<readonly ChatPromptAttachment[]> {
+  ): Promise<ChatTurnAttachments> {
+    const canSendImages = this.dependencies.mode === "native-api";
+    const { attachments: files } = this.dependencies;
+    // Without a byte reader, images and documents are reported as unreadable, never left out.
+    const reader: ChatAttachmentReader = {
+      readText: (attachment, maximum) => files.readText(attachment, maximum),
+      readBytes: (attachment, maximum) =>
+        files.readBytes
+          ? files.readBytes(attachment, maximum)
+          : Promise.reject(new ChatError("attachmentMissing")),
+    };
     const described: ChatPromptAttachment[] = [];
-    for (const attachment of attachments)
+    const images: PicaApiImage[] = [];
+    const items: ChatSelectionItem[] = [];
+    for (const attachment of attachments) {
+      const content = await readChatAgentAttachment(
+        attachment,
+        reader,
+        canSendImages && CHAT_AGENT_IMAGE_TYPES.has(attachment.contentType),
+      );
+      if (content.kind === "image")
+        images.push({ data: content.data, mediaType: attachment.contentType });
+      items.push(chatSelectionItem(attachment, content));
       described.push({
         fileName: attachment.fileName,
         contentType: attachment.contentType,
         size: attachment.size,
-        text: isChatTextAttachment(attachment.contentType)
-          ? await this.dependencies.attachments.readText(
-              attachment,
-              CHAT_ATTACHMENT_CHARACTERS,
-            )
-          : null,
+        transfer: content.transfer,
+        text: content.kind === "text" ? content.text : null,
+        ...(content.kind === "text" && content.isExtracted
+          ? { note: "Text aus dem Dokument, ohne Layout und Bilder" }
+          : {}),
+        ...(content.kind === "image"
+          ? { note: "Bild folgt als Bildinhalt dieser Nachricht" }
+          : {}),
       });
-    return described;
+    }
+    return { described, images, items };
   }
 }

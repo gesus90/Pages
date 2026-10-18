@@ -7,7 +7,7 @@ import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/lib/cn";
 
 import { ChatMaintenanceStatus } from "./chat-maintenance-status";
-import { ChatAttachmentList } from "./chat-attachment-list";
+import { ChatComposerFiles } from "./chat-composer-files";
 import { ChatContextIndicator } from "./chat-context-indicator";
 import { ChatJobSteerHint, ChatJobStopButton } from "./chat-job-controls";
 import { ChatQuotaDemoStatus } from "./chat-quota-demo";
@@ -41,6 +41,12 @@ function ChatComposerActions({
   const { t } = useTranslation();
   const fileInput = useRef<HTMLInputElement>(null);
   const { uploads, sending } = chat;
+
+  // Abbrechen takes the place of Abschicken; the second click of a double click on Abschicken must not cancel.
+  function handleCancel(event: React.MouseEvent<HTMLButtonElement>): void {
+    if (event.detail > 1) return;
+    chat.cancel();
+  }
 
   function handleFiles(event: React.ChangeEvent<HTMLInputElement>): void {
     const files = [...(event.target.files ?? [])];
@@ -78,7 +84,7 @@ function ChatComposerActions({
         />
         <ChatJobStopButton jobs={chat.jobs} />
         {sending && !chat.jobs.isRunning ? (
-          <Button onClick={chat.cancel} variant="outline">
+          <Button onClick={handleCancel} variant="outline">
             {t("chat.cancel")}
           </Button>
         ) : (
@@ -114,16 +120,17 @@ export function ChatComposer({
     onSubmit: () => void handleSubmit(),
   });
   const { editor } = input;
-  const isBusy =
-    sending !== null ||
-    view.session === null ||
-    chat.isCompacting ||
-    chat.commands.isDeleting;
-  // A file still uploading would miss the message; it is sent once it is selected.
+  const canAttach =
+    view.session !== null && !chat.isCompacting && !chat.commands.isDeleting;
+  const isBusy = sending !== null || !canAttach;
+  // A file still uploading would miss the message, a failed one would be left out without a word;
+  // a chat command such as /sessions sends no files, so it runs while files upload.
+  const isCommand = input.markdown.startsWith("/");
   const canSend =
     !isBusy &&
-    uploads.uploading.length === 0 &&
-    (input.markdown !== "" || view.pending.length > 0);
+    (isCommand ||
+      (uploads.items.length === 0 &&
+        (input.markdown !== "" || view.pending.length > 0)));
 
   useEffect(() => {
     if (isOpen) editor?.commands.focus("end");
@@ -145,15 +152,7 @@ export function ChatComposer({
     <footer className="p-3">
       <ChatQuotaDemoStatus demo={chat.quotaDemo} />
       <ChatMaintenanceStatus chat={chat} />
-      <ChatAttachmentList
-        attachments={view.pending}
-        onRemove={(id) => void uploads.discard(id)}
-      />
-      {uploads.uploading.length > 0 ? (
-        <p className="mt-1 text-xs text-muted-foreground" role="status">
-          {t("chat.uploading", { count: uploads.uploading.length })}
-        </p>
-      ) : null}
+      <ChatComposerFiles chat={chat} />
       <div
         className={cn(
           "mt-2 rounded-xl bg-field px-3 py-2 ring-1 ring-field-border focus-within:ring-2 focus-within:ring-primary",
@@ -171,7 +170,7 @@ export function ChatComposer({
       <ChatComposerActions
         chat={chat}
         isOpen={isOpen}
-        canAttach={!isBusy}
+        canAttach={canAttach}
         canSend={canSend}
         onSubmit={() => void handleSubmit()}
       />

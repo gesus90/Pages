@@ -142,7 +142,11 @@ export function ChatMessageList({
       {quotaHold ? <ChatQuotaDemoAnswer hold={quotaHold} /> : null}
       {sending ? (
         <ChatMessageItem
-          message={{ role: "user", content: sending.text, attachments: [] }}
+          message={{
+            role: "user",
+            content: sending.text,
+            attachments: sending.attachments,
+          }}
         />
       ) : null}
       {sending && !chat.jobs.isRunning ? (

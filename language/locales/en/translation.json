@@ -3155,7 +3155,12 @@
       "truncated": "{{name}}: only the beginning was transferred (truncated)",
       "unsupported": "{{name}}: not transferred – this file type is not sent to the chat agent",
       "tooLarge": "{{name}}: not transferred – the file is too large",
-      "unreadable": "{{name}}: not transferred – the file could not be read"
+      "unreadable": "{{name}}: not transferred – the file could not be read",
+      "extracted": "{{name}}: sent as text (without layout and images)",
+      "truncatedCharacters": "{{name}}: sent cut – only the first {{characters}} characters",
+      "truncatedPages": "{{name}}: sent cut – pages 1–{{read}} of {{total}} read, {{characters}} characters sent",
+      "encrypted": "{{name}}: not sent – the file is protected by a password",
+      "noText": "{{name}}: not sent – the file holds no readable text (for example a scan)"
     },
     "live": {
       "label": "Pica is working on your request",
@@ -3163,6 +3168,53 @@
       "browsing": "I’m looking through this for you …",
       "working": "One moment, I’m working on it …",
       "moment": "I’m still on it for you …"
+    },
+    "files": {
+      "count": "{{count}} of {{limit}} files for this message",
+      "rejected": {
+        "limit": "Not added – at most {{limit}} files per message: {{names}}",
+        "folder": "Folders are not added, only single files: {{names}}"
+      },
+      "dismissRejected": "Dismiss notice",
+      "drop": {
+        "title": "Drop files here",
+        "hint": "Images and documents · {{count}} of {{limit}} places left",
+        "full": "All {{limit}} places of this message are taken."
+      },
+      "uploadingItem": "Uploading …",
+      "retry": "Try again",
+      "retryName": "Try uploading {{name}} again",
+      "cancelUpload": "Cancel upload of {{name}}",
+      "resolveFailed": "Remove failed files or try them again, then you can send.",
+      "download": "Download {{name}}",
+      "downloadButton": "Download",
+      "openPreview": "Open preview of {{name}}",
+      "fromPica": "from Pica",
+      "fromYou": "from you",
+      "close": "Close",
+      "imageAlt": "Image {{name}}",
+      "pdfPage": "Page {{page}} of {{count}}",
+      "previousPage": "Previous page",
+      "nextPage": "Next page",
+      "section": {
+        "page": "Page {{number}}",
+        "slide": "Slide {{number}}"
+      },
+      "sheet": "Sheet “{{name}}”",
+      "truncated": "The preview shows only the start. Download the file to get all of it.",
+      "loading": "Loading preview …",
+      "noPreview": "There is no preview for this file type.",
+      "unavailable": {
+        "unsupported": "There is no preview for this file type.",
+        "tooLarge": "Too large for a preview.",
+        "encrypted": "Protected by a password – no preview.",
+        "noText": "No readable text (for example a scan).",
+        "unreadable": "Damaged or not readable.",
+        "failed": "Preview not available."
+      },
+      "fromPicaBadge": "From Pica",
+      "showAll": "Show all {{count}} files",
+      "showFewer": "Show fewer"
     }
   },
   "workspaces": {

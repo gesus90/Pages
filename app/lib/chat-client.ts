@@ -20,6 +20,11 @@ import type {
 } from "@/definition/Chat";
 import type { ChatTemporaryPassword } from "@/definition/AgentAdministration";
 import type { ChatSessionActivity } from "@/definition/ChatJob";
+import type {
+  ChatAttachmentPreview,
+  ChatPreviewSection,
+  ChatPreviewUnavailableReason,
+} from "@/definition/ChatPreview";
 
 /** HTTP statuses with which a gateway reports that the answer took too long. */
 const GATEWAY_TIMEOUT_STATUSES: readonly number[] = [408, 504];
@@ -58,6 +63,9 @@ function readAttachment(value: unknown): ChatAttachment {
     fileName: readText(attachment.fileName),
     contentType: readText(attachment.contentType),
     size: readSize(attachment.size),
+    ...(attachment.origin === "assistant"
+      ? { origin: "assistant" as const }
+      : {}),
   };
 }
 
@@ -185,17 +193,40 @@ export async function chatApi(
   return readResult(response);
 }
 
-/** Uploads a file for the next message of a session. */
+/** Uploads a file for the next message of a session; the signal cancels it. */
 export async function uploadChatAttachment(
   sessionId: string,
   file: File,
+  signal?: AbortSignal,
 ): Promise<ChatAttachment> {
   const query = new URLSearchParams({ session: sessionId, name: file.name });
   const response = await request(`/chat-api/attachments?${query.toString()}`, {
     method: "PUT",
     body: file,
+    signal,
   });
   return readAttachment((await readResult(response)).attachment);
+}
+
+/** The download address of an own attachment; it carries no credential. */
+export function chatAttachmentUrl(id: string): string {
+  return `/chat/attachments/${encodeURIComponent(id)}`;
+}
+
+/** The address of the shown image of an own attachment. */
+export function chatAttachmentImageUrl(id: string): string {
+  return `${chatAttachmentUrl(id)}/preview`;
+}
+
+/** Reads the bounded content preview of an own text, PDF or Office attachment. */
+export async function fetchChatAttachmentPreview(
+  id: string,
+  signal?: AbortSignal,
+): Promise<ChatAttachmentPreview> {
+  const response = await request(`${chatAttachmentUrl(id)}/content`, {
+    signal,
+  });
+  return readChatAttachmentPreview((await readResult(response)).preview);
 }
 
 /** Tells the code of a failure; anything unexpected is `general`. */
@@ -272,4 +303,68 @@ export function readChatCompaction(value: unknown): ChatCompactionResult {
     status: compaction.status,
     context: readChatContext(compaction.context),
   };
+}
+
+const UNAVAILABLE_REASONS: readonly ChatPreviewUnavailableReason[] = [
+  "unsupported",
+  "tooLarge",
+  "encrypted",
+  "noText",
+  "unreadable",
+];
+
+function readFlag(value: unknown): boolean {
+  if (typeof value !== "boolean") throw new ChatClientError("general");
+  return value;
+}
+
+function readSection(value: unknown): ChatPreviewSection {
+  const section = readAgentObject(value);
+  if (
+    section.kind !== "document" &&
+    section.kind !== "page" &&
+    section.kind !== "slide"
+  )
+    throw new ChatClientError("general");
+  return {
+    kind: section.kind,
+    number: readSize(section.number),
+    text: readText(section.text),
+  };
+}
+
+/** Reads a content preview; every text in it stays plain text. */
+export function readChatAttachmentPreview(
+  value: unknown,
+): ChatAttachmentPreview {
+  const preview = readAgentObject(value);
+  switch (preview.kind) {
+    case "text":
+      return {
+        kind: "text",
+        text: readText(preview.text),
+        isTruncated: readFlag(preview.isTruncated),
+      };
+    case "table":
+      return {
+        kind: "table",
+        sheet: preview.sheet === null ? null : readText(preview.sheet),
+        rows: readList(preview.rows).map((row) => readList(row).map(readText)),
+        isTruncated: readFlag(preview.isTruncated),
+      };
+    case "sections":
+      return {
+        kind: "sections",
+        sections: readList(preview.sections).map(readSection),
+        isTruncated: readFlag(preview.isTruncated),
+      };
+    default: {
+      const reason = UNAVAILABLE_REASONS.find(
+        (entry) => entry === preview.reason,
+      );
+      if (preview.kind !== "unavailable" || reason === undefined)
+        throw new ChatClientError("general");
+      return { kind: "unavailable", reason };
+    }
+  }
 }

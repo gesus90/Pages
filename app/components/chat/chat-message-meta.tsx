@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 
+import type { TFunction } from "i18next";
 import type {
   ChatSelectionItem,
   ChatSessionActivity,
@@ -42,6 +43,24 @@ export function chatMessageFacts(
   };
 }
 
+/** How one attachment reached the agent; a cut text names how much of it arrived (PAGE-92). */
+function selectionText(t: TFunction, item: ChatSelectionItem): string {
+  const { scope } = item;
+  if (item.transfer !== "truncated" || scope === undefined)
+    return t(`chat.selection.${item.transfer}`, { name: item.fileName });
+  return t(
+    scope.pages
+      ? "chat.selection.truncatedPages"
+      : "chat.selection.truncatedCharacters",
+    {
+      name: item.fileName,
+      characters: scope.characters.toLocaleString(),
+      read: scope.pages?.read ?? 0,
+      total: scope.pages?.total ?? 0,
+    },
+  );
+}
+
 interface ChatMessageMetaProps {
   readonly steer: ChatSteerStatus | undefined;
   readonly selection: readonly ChatSelectionItem[] | undefined;
@@ -68,9 +87,7 @@ export function ChatMessageMeta({
       {incomplete.length === 0 ? null : (
         <ul aria-label={t("chat.selection.label")}>
           {incomplete.map((item) => (
-            <li key={item.attachmentId}>
-              {t(`chat.selection.${item.transfer}`, { name: item.fileName })}
-            </li>
+            <li key={item.attachmentId}>{selectionText(t, item)}</li>
           ))}
         </ul>
       )}

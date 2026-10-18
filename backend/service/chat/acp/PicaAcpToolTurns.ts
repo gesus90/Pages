@@ -6,11 +6,16 @@ import type { PicaBridgeLease } from "./PicaBridge";
 
 /** Owns ACP tool budgets across prompt boundaries, independent of the follow-up queue. */
 export class PicaAcpToolTurns {
-  private readonly dependencies: Pick<PicaToolsInput, "tools" | "sessions">;
+  private readonly dependencies: Pick<
+    PicaToolsInput,
+    "tools" | "sessions" | "answerFiles"
+  >;
   private readonly controller = new AbortController();
   private turn = 0;
 
-  public constructor(dependencies: Pick<PicaToolsInput, "tools" | "sessions">) {
+  public constructor(
+    dependencies: Pick<PicaToolsInput, "tools" | "sessions" | "answerFiles">,
+  ) {
     this.dependencies = dependencies;
   }
 
@@ -33,6 +38,9 @@ export class PicaAcpToolTurns {
         sessions: this.dependencies.sessions,
         authorize: context.authorize,
         onLimit: () => this.controller.abort("stepLimit"),
+        ...(this.dependencies.answerFiles
+          ? { answerFiles: this.dependencies.answerFiles }
+          : {}),
       }),
       context,
     });

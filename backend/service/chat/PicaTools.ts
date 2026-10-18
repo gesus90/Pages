@@ -3,14 +3,20 @@ import { redactAssistantCredentials } from "@/backend/service/assistant/TextAssi
 
 import { CHAT_MAXIMUM_ACTIONS } from "./ChatExecutionLimits";
 import { isChatDeleteOperation } from "./ChatToolCatalog";
+import { ChatAnswerFileError } from "./ChatAnswerFileService";
 import {
+  PICA_FILE_EXTENSIONS,
+  PICA_FILE_SCHEMA,
+  PICA_FILE_TOOL,
   PICA_READ_SCHEMAS,
   PICA_TOOL_OUTCOME,
   PICA_WRITE_SCHEMAS,
   isPicaWriteTool,
 } from "./PicaToolSchemas";
 
+import type { z } from "zod";
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
+import type { ChatAnswerFileService } from "./ChatAnswerFileService";
 import type { ChatSessionService } from "./ChatSessionService";
 import type { ChatOperation } from "./ChatToolCatalog";
 import type { ChatToolExecutor } from "./ChatToolExecutor";
@@ -28,7 +34,14 @@ export interface PicaToolsInput {
   readonly authorize: () => Promise<void>;
   /** Ends or marks the run when a call would exceed the actual execution budget. */
   readonly onLimit?: () => void;
+  /** Stores the files Pica writes for its answer; without it the file tool is not offered. */
+  readonly answerFiles?: Pick<ChatAnswerFileService, "stage"> | undefined;
 }
+
+type PicaFileParameters = z.infer<typeof PICA_FILE_SCHEMA>;
+
+const FILE_TOOL_DESCRIPTION =
+  "Attach a file you write to your answer: Markdown (.md), text (.txt), CSV (.csv), JSON (.json) or an SVG image (.svg) without scripts or external references. Give the complete content. The person sees and downloads the file with your answer once it is stored. Use it only when the person asks for a file; never invent download links or paths.";
 
 type ToolParameters = Readonly<Record<string, unknown>>;
 
@@ -277,6 +290,67 @@ function canonical(value: unknown): unknown {
   );
 }
 
+/** The tool calls of one turn so far; reads, writes and files share the budget. */
+interface ToolBudget {
+  calls: number;
+}
+
+/** Counts one call, or marks the limit when the budget is spent. */
+function spend(input: PicaToolsInput, budget: ToolBudget): boolean {
+  if (budget.calls >= CHAT_MAXIMUM_ACTIONS) {
+    input.onLimit?.();
+    return false;
+  }
+  budget.calls += 1;
+  return true;
+}
+
+/** Stores a file Pica wrote for the answer of the run of this call. */
+async function createAnswerFile(
+  input: PicaToolsInput,
+  budget: ToolBudget,
+  call: {
+    readonly parameters: PicaFileParameters;
+    readonly context: RuntimeExecutionContext;
+  },
+): Promise<PicaToolOutcome> {
+  const { parameters, context } = call;
+  await input.authorize();
+  context.signal.throwIfAborted();
+  if (!spend(input, budget)) return refused("STEP_LIMIT");
+  if (!input.answerFiles) return refused("FAILED");
+  try {
+    const file = await input.answerFiles.stage(
+      {
+        userId: context.userId,
+        sessionId: context.sessionId,
+        runId: context.runId,
+      },
+      {
+        fileName: parameters.fileName,
+        bytes: Buffer.from(
+          redactAssistantCredentials(parameters.content),
+          "utf8",
+        ),
+        extensions: PICA_FILE_EXTENSIONS,
+      },
+    );
+    return {
+      ok: true,
+      result: JSON.stringify({
+        fileName: file.fileName,
+        contentType: file.contentType,
+        size: file.size,
+        delivery: "attached to your answer when it is stored",
+      }),
+      error: null,
+    };
+  } catch (error: unknown) {
+    if (error instanceof ChatAnswerFileError) return refused(error.code);
+    throw error;
+  }
+}
+
 /**
  * Creates the native tools with fixed service dispatch and fresh rights.
  *
@@ -290,7 +364,7 @@ function canonical(value: unknown): unknown {
 export function createPicaTools(input: PicaToolsInput): RuntimeToolRegistry {
   const registry = new RuntimeToolRegistry();
   const failedWrites = new Set<string>();
-  let calls = 0;
+  const budget: ToolBudget = { calls: 0 };
   const execute = async (
     binding: PicaToolBinding,
     parameters: ToolParameters,
@@ -298,11 +372,7 @@ export function createPicaTools(input: PicaToolsInput): RuntimeToolRegistry {
   ): Promise<PicaToolOutcome> => {
     await input.authorize();
     context.signal.throwIfAborted();
-    if (calls >= CHAT_MAXIMUM_ACTIONS) {
-      input.onLimit?.();
-      return refused("STEP_LIMIT");
-    }
-    calls += 1;
+    if (!spend(input, budget)) return refused("STEP_LIMIT");
     const confirmation = isChatDeleteOperation(binding.operation)
       ? await input.sessions.confirmationWord(context.userId)
       : null;
@@ -351,6 +421,15 @@ export function createPicaTools(input: PicaToolsInput): RuntimeToolRegistry {
       inputSchema: PICA_WRITE_SCHEMAS[tool],
       outputSchema: PICA_TOOL_OUTCOME,
       execute: (parameters, context) => write(tool, parameters, context),
+    });
+  if (input.answerFiles)
+    registry.register<PicaFileParameters, PicaToolOutcome>({
+      id: PICA_FILE_TOOL,
+      description: FILE_TOOL_DESCRIPTION,
+      inputSchema: PICA_FILE_SCHEMA,
+      outputSchema: PICA_TOOL_OUTCOME,
+      execute: (parameters, context) =>
+        createAnswerFile(input, budget, { parameters, context }),
     });
   return registry;
 }

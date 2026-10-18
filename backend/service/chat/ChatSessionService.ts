@@ -83,6 +83,9 @@ export function publicChatAttachment(
     fileName: attachment.fileName,
     contentType: attachment.contentType,
     size: attachment.size,
+    ...(attachment.origin === "assistant"
+      ? { origin: "assistant" as const }
+      : {}),
   };
 }
 
@@ -277,8 +280,12 @@ export class ChatSessionService {
           .filter((attachment) => attachment.messageId === message.id)
           .map(publicChatAttachment),
       })),
+      // A file of Pica stays out until its answer is stored; only uploads wait for a message.
       pending: attachments
-        .filter((attachment) => attachment.messageId === null)
+        .filter(
+          (attachment) =>
+            attachment.messageId === null && attachment.origin !== "assistant",
+        )
         .map(publicChatAttachment),
     };
   }

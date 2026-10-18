@@ -129,6 +129,9 @@ export function useChat(isOpen: boolean): ChatController {
   const uploads = useChatUploads({
     view,
     limitBytes: limits?.limitBytes ?? null,
+    sendingIds: new Set(
+      (sender.sending?.attachments ?? []).map(({ id }) => id),
+    ),
     setView,
     setError,
   });

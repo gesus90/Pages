@@ -12,6 +12,7 @@ import type {
   ChatJobUpdate,
   ChatJobUsage,
   ChatSelectionItem,
+  ChatSelectionScope,
   ChatSteer,
   ChatTokenUsage,
 } from "./ChatJob";
@@ -232,18 +233,32 @@ export function readChatJobUpdate(value: unknown): ChatJobUpdate {
   };
 }
 
+/** Reads how much of a cut text reached the agent; snapshots before PAGE-92 have none. */
+function readSelectionScope(value: unknown): ChatSelectionScope | undefined {
+  if (value === undefined) return undefined;
+  const scope = fields(value);
+  if (scope.pages === undefined) return { characters: count(scope.characters) };
+  const pages = fields(scope.pages);
+  return {
+    characters: count(scope.characters),
+    pages: { read: count(pages.read), total: count(pages.total) },
+  };
+}
+
 /** Reads the attachments of a selection snapshot. */
 export function readChatSelectionItems(
   value: unknown,
 ): readonly ChatSelectionItem[] {
   return list(value).map((entry) => {
     const item = fields(entry);
+    const scope = readSelectionScope(item.scope);
     return {
       attachmentId: text(item.attachmentId),
       fileName: text(item.fileName),
       contentType: text(item.contentType),
       size: count(item.size),
       transfer: oneOf(item.transfer, CHAT_SELECTION_TRANSFERS),
+      ...(scope ? { scope } : {}),
     };
   });
 }

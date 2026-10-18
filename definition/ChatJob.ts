@@ -31,15 +31,33 @@ export const CHAT_STEER_STATUSES = [
 ] as const;
 export type ChatSteerStatus = (typeof CHAT_STEER_STATUSES)[number];
 
-/** How a selected attachment reached the agent. */
+/**
+ * How a selected attachment reached the agent.
+ *
+ * @remarks
+ * `extracted` is the complete text of a document such as a PDF or an Office
+ * file, without its layout and images; `encrypted` and `noText` are documents
+ * whose text could not be read (PAGE-92).
+ */
 export const CHAT_SELECTION_TRANSFERS = [
   "full",
+  "extracted",
   "truncated",
   "unsupported",
   "tooLarge",
   "unreadable",
+  "encrypted",
+  "noText",
 ] as const;
 export type ChatSelectionTransfer = (typeof CHAT_SELECTION_TRANSFERS)[number];
+
+/** How much of a cut text reached the agent. */
+export interface ChatSelectionScope {
+  /** Characters that reached the agent. */
+  readonly characters: number;
+  /** Pages of a PDF that were read, and how many it has. */
+  readonly pages?: { readonly read: number; readonly total: number };
+}
 
 /** One attachment of an immutable selection snapshot. */
 export interface ChatSelectionItem {
@@ -48,6 +66,8 @@ export interface ChatSelectionItem {
   readonly contentType: string;
   readonly size: number;
   readonly transfer: ChatSelectionTransfer;
+  /** For a cut text: how much reached the agent (PAGE-92). */
+  readonly scope?: ChatSelectionScope;
 }
 
 /** Context occupancy exactly as the adapter reported it. */

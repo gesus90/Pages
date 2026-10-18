@@ -4,6 +4,7 @@ import {
 } from "@/backend/agents/acp/AcpEvents";
 
 import type {
+  ContentBlock,
   PromptCapabilities,
   SessionUpdate,
   Usage,
@@ -47,6 +48,8 @@ export interface PicaAcpUpdateSink {
   ) => void;
   /** The Codex thread became active or stopped being active. */
   readonly threadStatus: (isActive: boolean) => void;
+  /** An image or embedded file the agent returned in its message (PAGE-92). */
+  readonly content?: (block: ContentBlock) => void;
   /** The connection to the adapter ended. */
   readonly closed: () => void;
 }
@@ -226,6 +229,11 @@ export class PicaAcpUpdates implements AcpSessionListener {
     }
     const compaction = readCompaction(update);
     if (compaction !== null) this.sink.compaction(compaction);
+    if (
+      update.sessionUpdate === "agent_message_chunk" &&
+      update.content.type !== "text"
+    )
+      this.sink.content?.(update.content);
     readAcpUpdate(this.state, update, {});
     this.show();
   };

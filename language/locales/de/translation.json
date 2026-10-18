@@ -3155,7 +3155,12 @@
       "truncated": "{{name}}: nur der Anfang übertragen (gekürzt)",
       "unsupported": "{{name}}: nicht übertragen – dieser Dateityp wird nicht an den Chat-Agenten gesendet",
       "tooLarge": "{{name}}: nicht übertragen – die Datei ist zu groß",
-      "unreadable": "{{name}}: nicht übertragen – die Datei war nicht lesbar"
+      "unreadable": "{{name}}: nicht übertragen – die Datei war nicht lesbar",
+      "extracted": "{{name}}: als Text übertragen (ohne Layout und Bilder)",
+      "truncatedCharacters": "{{name}}: gekürzt übertragen – nur die ersten {{characters}} Zeichen",
+      "truncatedPages": "{{name}}: gekürzt übertragen – Seiten 1–{{read}} von {{total}} gelesen, {{characters}} Zeichen übertragen",
+      "encrypted": "{{name}}: nicht übertragen – die Datei ist mit einem Passwort geschützt",
+      "noText": "{{name}}: nicht übertragen – die Datei enthält keinen lesbaren Text (z. B. ein Scan)"
     },
     "live": {
       "label": "Pica bearbeitet deine Anfrage",
@@ -3163,6 +3168,53 @@
       "browsing": "Ich blättere das für dich durch …",
       "working": "Einen Augenblick, ich kümmere mich darum …",
       "moment": "Ich bin noch für dich dran …"
+    },
+    "files": {
+      "count": "{{count}} von {{limit}} Dateien für diese Nachricht",
+      "rejected": {
+        "limit": "Nicht übernommen – höchstens {{limit}} Dateien pro Nachricht: {{names}}",
+        "folder": "Ordner werden nicht übernommen, nur einzelne Dateien: {{names}}"
+      },
+      "dismissRejected": "Hinweis schließen",
+      "drop": {
+        "title": "Dateien hier ablegen",
+        "hint": "Bilder und Dokumente · noch {{count}} von {{limit}} Plätzen frei",
+        "full": "Alle {{limit}} Plätze dieser Nachricht sind belegt."
+      },
+      "uploadingItem": "Wird hochgeladen …",
+      "retry": "Erneut versuchen",
+      "retryName": "Upload von {{name}} erneut versuchen",
+      "cancelUpload": "Upload von {{name}} abbrechen",
+      "resolveFailed": "Entferne fehlgeschlagene Dateien oder versuche sie erneut, dann kannst du senden.",
+      "download": "{{name}} herunterladen",
+      "downloadButton": "Herunterladen",
+      "openPreview": "Vorschau von {{name}} öffnen",
+      "fromPica": "von Pica",
+      "fromYou": "von dir",
+      "close": "Schließen",
+      "imageAlt": "Bild {{name}}",
+      "pdfPage": "Seite {{page}} von {{count}}",
+      "previousPage": "Vorherige Seite",
+      "nextPage": "Nächste Seite",
+      "section": {
+        "page": "Seite {{number}}",
+        "slide": "Folie {{number}}"
+      },
+      "sheet": "Tabelle „{{name}}“",
+      "truncated": "Die Vorschau zeigt nur den Anfang. Die vollständige Datei bekommst du per Download.",
+      "loading": "Vorschau wird geladen …",
+      "noPreview": "Für diesen Dateityp gibt es keine Vorschau.",
+      "unavailable": {
+        "unsupported": "Für diesen Dateityp gibt es keine Vorschau.",
+        "tooLarge": "Zu groß für die Vorschau.",
+        "encrypted": "Mit Passwort geschützt – keine Vorschau.",
+        "noText": "Kein lesbarer Text (z. B. ein Scan).",
+        "unreadable": "Beschädigt oder nicht lesbar.",
+        "failed": "Vorschau nicht verfügbar."
+      },
+      "fromPicaBadge": "Von Pica",
+      "showAll": "Alle {{count}} Dateien anzeigen",
+      "showFewer": "Weniger anzeigen"
     }
   },
   "workspaces": {

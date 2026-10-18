@@ -43,6 +43,7 @@
     "isbot": "^5.2.2",
     "lru-cache": "^11.5.3",
     "lucide-react": "^1.48.0",
+    "pdfjs-dist": "^6.4.299",
     "pino": "10.4.0",
     "qrcode-generator": "^2.0.4",
     "react": "^19.3.0",

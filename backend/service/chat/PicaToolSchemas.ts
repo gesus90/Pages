@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { CHAT_LIMITS } from "@/definition/Chat";
 import { PROJECT_STATUS } from "@/definition/Project";
 import { WORK_ITEM_TYPE } from "@/definition/Task";
 
@@ -298,6 +299,32 @@ export const PICA_WRITE_SCHEMAS = {
   ...MILESTONE_WRITE_SCHEMAS,
   ...WIKI_WRITE_SCHEMAS,
 } as const;
+
+/** The tool with which Pica attaches a file it wrote to its answer (PAGE-92). */
+export const PICA_FILE_TOOL = "chat_file_create";
+
+/** The extensions of the files Pica writes: text documents and SVG images. */
+export const PICA_FILE_EXTENSIONS: ReadonlySet<string> = new Set([
+  "md",
+  "markdown",
+  "txt",
+  "csv",
+  "json",
+  "svg",
+]);
+
+/** A file name with one of {@link PICA_FILE_EXTENSIONS} and the complete text of the file. */
+export const PICA_FILE_SCHEMA = z
+  .object({
+    fileName: z
+      .string()
+      .trim()
+      .min(3)
+      .max(CHAT_LIMITS.fileNameCharacters)
+      .regex(/\.(?:md|markdown|txt|csv|json|svg)$/iu),
+    content: z.string().min(1).max(CHAT_LIMITS.answerFileCharacters),
+  })
+  .strict();
 
 /** Bounded, credential-redacted JSON from existing services; no human-only receipts. */
 export const PICA_TOOL_OUTCOME = z

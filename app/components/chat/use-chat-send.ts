@@ -13,7 +13,7 @@ import { applyChatSessionRead } from "./use-chat-uploads";
 import type { Dispatch, SetStateAction } from "react";
 import type { ChatView } from "./use-chat-uploads";
 import type { ChatTemporaryPassword } from "@/definition/AgentAdministration";
-import type { ChatReply } from "@/definition/Chat";
+import type { ChatAttachment, ChatReply } from "@/definition/Chat";
 import type { ChatJob } from "@/definition/ChatJob";
 
 /** Whether the input field keeps its text after a submission. */
@@ -27,6 +27,8 @@ export interface ChatSending {
   /** The session the message went to; its answer belongs to this session only. */
   readonly sessionId: string;
   readonly text: string;
+  /** The attachments sent with the message: a snapshot taken when it was sent (PAGE-92). */
+  readonly attachments: readonly ChatAttachment[];
 }
 
 /** Sending a message and cancelling its answer. */
@@ -64,7 +66,10 @@ interface ClientMessageIds {
   confirm(): void;
 }
 
-/** Adds the reply once, and only while the session it belongs to is open. */
+/**
+ * Adds the reply once, and only while the session it belongs to is open;
+ * files chosen after the message was sent stay selected for the next one.
+ */
 function addReply(
   current: ChatView,
   reply: ChatReply,
@@ -72,6 +77,7 @@ function addReply(
 ): ChatView {
   if (current.session?.id !== sessionId) return current;
   const added = new Set([reply.question.id, reply.answer.id]);
+  const sent = new Set(reply.question.attachments.map(({ id }) => id));
   return {
     session: reply.session,
     messages: [
@@ -79,8 +85,24 @@ function addReply(
       reply.question,
       reply.answer,
     ],
-    pending: [],
+    pending: current.pending.filter(({ id }) => !sent.has(id)),
   };
+}
+
+/** Reads the session again after a failure; tells whether the message was stored meanwhile. */
+async function reloadSession(
+  sessionId: string,
+  before: number,
+  setView: Dispatch<SetStateAction<ChatView>>,
+): Promise<boolean> {
+  try {
+    const result = await chatApi({ intent: "session", sessionId });
+    const fresh = readChatSessionView(result.view);
+    setView((current) => applyChatSessionRead(current, fresh));
+    return fresh.messages.length > before;
+  } catch {
+    return false;
+  }
 }
 
 function useClientMessageIds(): ClientMessageIds {
@@ -129,17 +151,6 @@ export function useChatSend({
     setTemporaryPasswords([]);
   }, [isOpen, openSessionId]);
 
-  async function reload(sessionId: string, before: number): Promise<boolean> {
-    try {
-      const result = await chatApi({ intent: "session", sessionId });
-      const fresh = readChatSessionView(result.view);
-      setView((current) => applyChatSessionRead(current, fresh));
-      return fresh.messages.length > before;
-    } catch {
-      return false;
-    }
-  }
-
   async function send(text: string): Promise<ChatSubmitOutcome> {
     const outcome = await deliver(text);
     if (outcome === "clear") clientMessageIds.confirm();
@@ -151,13 +162,15 @@ export function useChatSend({
     // The ref is set at once, unlike the state, so a second submission in the same moment is refused.
     if (session === null || abort.current !== null) return "restore";
     const requestId = createRandomUuid();
-    const attachmentIds = view.pending.map(({ id }) => id);
+    const attachments = view.pending;
+    const attachmentIds = attachments.map(({ id }) => id);
     const controller = new AbortController();
     abort.current = controller;
     setSending({
       requestId,
       sessionId: session.id,
       text,
+      attachments,
       startedAt: Date.now(),
     });
     setTemporaryPasswords([]);
@@ -181,6 +194,9 @@ export function useChatSend({
       if (sent.kind === "reply") {
         setTemporaryPasswords(sent.reply.temporaryPasswords ?? []);
         setView((current) => addReply(current, sent.reply, session.id));
+        // How each attachment reached the agent is stored with the session, not sent with the reply (PAGE-92).
+        if (sent.reply.question.attachments.length > 0)
+          await refresh(session.id);
         return "clear";
       }
       // A Codex job runs on the server; the stored message and its steer status are read back.
@@ -188,7 +204,11 @@ export function useChatSend({
       await refresh(session.id);
       return "clear";
     } catch (failure: unknown) {
-      const isStored = await reload(session.id, view.messages.length);
+      const isStored = await reloadSession(
+        session.id,
+        view.messages.length,
+        setView,
+      );
       // Set after reading again, so the error appears together with the end of the loading state.
       setError(chatErrorCode(failure));
       return isStored ? "clear" : "restore";

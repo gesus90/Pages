@@ -24,6 +24,13 @@ export const CHAT_LIMITS = {
   answerCharacters: 200_000,
   instructionCharacters: 20_000,
   attachmentsPerMessage: 10,
+  /**
+   * Files Pica may attach to one answer (PAGE-92); a bound for storage, not
+   * the person's limit of ten files per sent message.
+   */
+  filesPerAnswer: 20,
+  /** Characters of one text file Pica writes as an answer file. */
+  answerFileCharacters: 200_000,
   fileNameCharacters: 255,
   sessionsListed: 200,
 } as const;
@@ -64,6 +71,11 @@ export interface ChatAttachment {
   readonly fileName: string;
   readonly contentType: string;
   readonly size: number;
+  /**
+   * `assistant` for a file Pica attached to its answer (PAGE-92); absent for a
+   * file the person uploaded, as for every attachment stored before.
+   */
+  readonly origin?: "assistant";
 }
 
 /** A message of a session, with the attachments sent along with it. */

@@ -14,16 +14,28 @@ import type {
   PicaApiModels,
   PicaApiModel,
 } from "@/backend/agents/providers/PicaApiModels";
+import type { Agent } from "@mastra/core/agent";
 import type { TextExecutionInput } from "@/backend/agents/TextExecution";
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
 import type { User } from "@/definition/User";
+import type { ChatAnswerFileService } from "./ChatAnswerFileService";
 import type { ChatSessionService } from "./ChatSessionService";
 import type { ChatToolExecutor } from "./ChatToolExecutor";
+
+/** A raster image of the current message, sent to the model as image content. */
+export interface PicaApiImage {
+  readonly data: Buffer;
+  readonly mediaType: string;
+}
 
 /** Server-built turn data: the person and the conversation the turn belongs to. */
 export interface PicaApiInput extends TextExecutionInput {
   readonly actor: User;
   readonly sessionId: string;
+  /** The run the answer files of this turn belong to; a fresh one by default. */
+  readonly runId?: string;
+  /** Images of the current message; the model reads them next to the prompt (PAGE-92). */
+  readonly images?: readonly PicaApiImage[];
 }
 
 /** Native API dependencies; there is deliberately no CLI execution or scheduler port. */
@@ -31,6 +43,27 @@ export interface PicaApiDependencies {
   readonly models: Pick<PicaApiModels, "use" | "authorize">;
   readonly sessions: Pick<ChatSessionService, "require" | "confirmationWord">;
   readonly tools: Pick<ChatToolExecutor, "run">;
+  /** Stores files Pica writes for its answer; without it the file tool is not offered. */
+  readonly answerFiles?: Pick<ChatAnswerFileService, "stage">;
+}
+
+/** The prompt alone, or the prompt with the images of the message as one user message. */
+function modelInput(input: PicaApiInput): Parameters<Agent["generate"]>[0] {
+  const images = input.images ?? [];
+  if (images.length === 0) return input.prompt;
+  return [
+    {
+      role: "user",
+      content: [
+        { type: "text", text: input.prompt },
+        ...images.map((image) => ({
+          type: "image" as const,
+          image: image.data,
+          mediaType: image.mediaType,
+        })),
+      ],
+    },
+  ];
 }
 
 /** Runs Pica through the shared Mastra agent and its native schema-bound tools. */
@@ -50,7 +83,7 @@ export class PicaApiService {
       {
         actor: input.actor,
         sessionId: input.sessionId,
-        runId: randomUUID(),
+        runId: input.runId ?? randomUUID(),
         signal,
       },
       this.dependencies.sessions,
@@ -97,9 +130,12 @@ export class PicaApiService {
         onLimit: () => {
           isLimitExceeded = true;
         },
+        ...(this.dependencies.answerFiles
+          ? { answerFiles: this.dependencies.answerFiles }
+          : {}),
       }),
     });
-    const result = await agent.generate(input.prompt, {
+    const result = await agent.generate(modelInput(input), {
       providerOptions: resolved.providerOptions,
       modelSettings: { maxRetries: 0, maxOutputTokens: 16_384 },
       toolCallConcurrency: { limit: 1, strategy: "called" },

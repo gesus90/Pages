@@ -14,11 +14,13 @@ import {
 import { createPicaTools } from "../PicaTools";
 import { picaSteerText, picaTurnPrompt } from "./PicaAcpContent";
 import { PicaAcpJournal } from "./PicaAcpJournal";
+import { PicaAcpAnswerOutput } from "./PicaAcpAnswerOutput";
 import { PicaAcpSelections } from "./PicaAcpSelections";
 import { PicaAcpSteering } from "./PicaAcpSteering";
 import { PicaAcpToolTurns } from "./PicaAcpToolTurns";
 import { PicaAcpThreadWatch } from "./PicaAcpThreadWatch";
 import {
+  sumJobUsage,
   picaAcpOutcome,
   readAnswer,
   requireCompleted,
@@ -60,6 +62,7 @@ import type { User } from "@/definition/User";
 import type { ChatSessionService } from "../ChatSessionService";
 import type { ChatToolExecutor } from "../ChatToolExecutor";
 import type { PicaBridge, PicaBridgeLease } from "./PicaBridge";
+import type { PicaAnswerFiles } from "./PicaAcpAnswerOutput";
 import type { PicaAttachmentReader, PicaTurnBrief } from "./PicaAcpContent";
 import type { PicaAcpRunner } from "./PicaAcpRunners";
 import type { PicaAcpMessage } from "./PicaAcpSteering";
@@ -87,6 +90,8 @@ export interface PicaAcpJobDependencies {
   /** The scope of the connection, checked again before every tool call. */
   readonly access: ExecutionAuthorizer;
   readonly sessions: Pick<ChatSessionService, "require" | "confirmationWord">;
+  /** Files Pica writes or returns for its answers, linked once an answer is stored (PAGE-92). */
+  readonly answerFiles?: PicaAnswerFiles;
 }
 
 /** One job: the conversation, the pinned agent and the message it answers. */
@@ -134,6 +139,7 @@ export class PicaAcpJob {
     Omit<ChatTokenUsage, "isPartial"> | null
   >();
   private readonly selections: PicaAcpSelections;
+  private readonly answerOutput: PicaAcpAnswerOutput;
   /** Opened when the job runs, so a job that never ran leaves no token behind. */
   private bridge: PicaBridgeLease | null = null;
   private context: RuntimeExecutionContext | null = null;
@@ -160,6 +166,10 @@ export class PicaAcpJob {
     this.toolTurns = new PicaAcpToolTurns(dependencies);
     this.specification = specification;
     this.journal = new PicaAcpJournal(dependencies.jobs, specification.id);
+    this.answerOutput = new PicaAcpAnswerOutput(
+      dependencies.answerFiles,
+      specification,
+    );
     this.selections = new PicaAcpSelections(
       dependencies.attachments,
       (selection) =>
@@ -192,6 +202,7 @@ export class PicaAcpJob {
           this.recordTokens(turn, tokens);
         },
         threadStatus: (isActive) => this.thread.observe(isActive),
+        content: (block) => this.answerOutput.take(block),
         closed: () => this.thread.close(),
       },
       specification.run.runner,
@@ -299,6 +310,7 @@ export class PicaAcpJob {
         tools: this.dependencies.tools,
         sessions: this.dependencies.sessions,
         authorize: () => Promise.resolve(),
+        answerFiles: this.dependencies.answerFiles,
       }).describe(),
       onTool: (event) => {
         void this.journal
@@ -485,6 +497,8 @@ export class PicaAcpJob {
       this.specification.sessionId,
       { role: "assistant", content, ...ending },
     );
+    // Files of this turn are linked before the answer event, so the browser reads them with it.
+    await this.answerOutput.claim(message.id);
     await this.journal.record({
       kind: "answer",
       turn: this.turn,
@@ -570,26 +584,11 @@ export class PicaAcpJob {
   }
 
   private currentUsage(): ChatJobUsage {
-    const turns = [...this.tokens.values()];
-    const reported = turns.filter(
-      (entry): entry is Omit<ChatTokenUsage, "isPartial"> => entry !== null,
+    return sumJobUsage(
+      this.usage,
+      [...this.tokens.values()],
+      this.specification.run.runner.hasPartialTokenUsage === true,
     );
-    const sum = (field: "input" | "output" | "total"): number =>
-      reported.reduce((total, entry) => total + entry[field], 0);
-    return {
-      ...this.usage,
-      tokens:
-        reported.length === 0
-          ? null
-          : {
-              input: sum("input"),
-              output: sum("output"),
-              total: sum("total"),
-              isPartial:
-                reported.length < turns.length ||
-                this.specification.run.runner.hasPartialTokenUsage === true,
-            },
-    };
   }
 
   private observer(): PlanSessionObserver {
@@ -626,6 +625,7 @@ export class PicaAcpJob {
     );
     await this.closeSession();
     this.bridge?.close();
+    await this.attempt("answer files", () => this.answerOutput.discard());
     await this.attempt("steers", () => this.steering.close());
     await this.attempt("agent session", () => this.saveSession());
     await this.attempt("end", async () => {

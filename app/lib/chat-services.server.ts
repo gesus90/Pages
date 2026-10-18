@@ -10,6 +10,7 @@ import { ChatAttachmentRepository } from "@/backend/database/repositories/chat/C
 import { ChatSessionRepository } from "@/backend/database/repositories/chat/ChatSessionRepository";
 import { ChatSettingsRepository } from "@/backend/database/repositories/chat/ChatSettingsRepository";
 import { UserSettingsRepository } from "@/backend/database/repositories/UserSettingsRepository";
+import { ChatAnswerFileService } from "@/backend/service/chat/ChatAnswerFileService";
 import { ChatAttachmentService } from "@/backend/service/chat/ChatAttachmentService";
 import { ChatService } from "@/backend/service/chat/ChatService";
 import { ChatSessionService } from "@/backend/service/chat/ChatSessionService";
@@ -73,6 +74,7 @@ interface PicaAcpParts {
   readonly sessions: ChatSessionService;
   readonly messages: ChatSessionRepository;
   readonly attachments: ChatAttachmentService;
+  readonly answerFiles: ChatAnswerFileService;
   readonly tools: ChatToolExecutor;
 }
 
@@ -91,6 +93,7 @@ function createPicaAcp(
     acpSessions: new ChatAcpSessionRepository(parts.database),
     messages: parts.messages,
     attachments: parts.attachments,
+    answerFiles: parts.answerFiles,
     bridge: picaBridge,
     tools: parts.tools,
     access,
@@ -178,13 +181,18 @@ export function createChatServices(
     files,
     activity,
   });
-  const chatAttachmentService = new ChatAttachmentService({
-    sessions,
+  const fileParts = {
     attachments,
     settings: chatSettingsService,
     files,
     isSafeSvg,
+  };
+  const chatAttachmentService = new ChatAttachmentService({
+    sessions,
+    ...fileParts,
   });
+  const answerFiles = new ChatAnswerFileService(fileParts);
+  const steers = new ChatSteerRepository(database);
   const chatContextService = new ChatContextService({
     sessions: chatSessionService,
     messages: sessions,
@@ -217,6 +225,7 @@ export function createChatServices(
     sessions: chatSessionService,
     messages: sessions,
     attachments: chatAttachmentService,
+    answerFiles,
     tools,
   });
   return {
@@ -231,12 +240,15 @@ export function createChatServices(
         models: input.agents.picaApiModels,
         sessions: chatSessionService,
         tools,
+        answerFiles,
       }),
       ...(acp.picaAcpService ? { acp: acp.picaAcpService } : {}),
       sessions: chatSessionService,
       context: chatContextService,
       messages: sessions,
       attachments: chatAttachmentService,
+      answerFiles,
+      selections: (sessionId, selection) => steers.select(sessionId, selection),
       settings: chatSettingsService,
       protectedInstructions: readPicaInstructions,
       agents: input.agents.agentProfileService,

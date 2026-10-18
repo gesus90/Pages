@@ -1,9 +1,11 @@
 import { ChatComposer } from "./chat-composer";
+import { ChatDropArea } from "./chat-drop-area";
 import { ChatHeader } from "./chat-header";
 import { ChatMessageList } from "./chat-message-list";
 import { ChatPasswordReceipts } from "./chat-password-receipts";
 import { ChatSessionPicker } from "./chat-session-picker";
 import { useChat } from "./use-chat";
+import { useChatDropzone } from "./use-chat-dropzone";
 
 interface ChatPanelProps {
   readonly isOpen: boolean;
@@ -21,6 +23,12 @@ export function ChatPanel({
   const chat = useChat(isOpen);
   const { picker } = chat.commands;
   const { view } = chat;
+  const dropzone = useChatDropzone({
+    isOpen,
+    canDrop:
+      view.session !== null && !chat.isCompacting && !chat.commands.isDeleting,
+    onFiles: (files, folders) => void chat.uploads.attach(files, folders),
+  });
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLElement>): void {
     if (event.key !== "Escape") return;
@@ -36,7 +44,9 @@ export function ChatPanel({
       hidden={!isOpen}
       id="pica-chat"
       onKeyDown={handleKeyDown}
+      {...dropzone.handlers}
     >
+      {dropzone.isActive ? <ChatDropArea chat={chat} /> : null}
       <ChatHeader onClose={onClose} session={view.session} />
       {picker ? (
         <ChatSessionPicker
