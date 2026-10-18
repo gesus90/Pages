@@ -19,7 +19,7 @@ import type { WorkspaceFolderListing } from "@/definition/AgentWorkspace";
 
 /** Stable error codes are translated here; the server never sends error text. */
 function errorMessage(t: TFunction, code: string): string {
-  return t(`assistant.error.${code}`, {
+  return t(`agentExecution.error.${code}`, {
     defaultValue: t(`settings.agents.error.${code}`, {
       defaultValue: t("workspaces.folders.loadError"),
     }),

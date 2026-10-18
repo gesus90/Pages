@@ -31,7 +31,7 @@ export interface EditorOverlayState {
   readonly emojiAnchor: DOMRect | null;
   readonly setEmojiAnchor: (anchor: DOMRect | null) => void;
   readonly fileInput: React.RefObject<HTMLInputElement | null>;
-  readonly openAtCaret: (editor: Editor, showAssistant: boolean) => void;
+  readonly openAtCaret: (editor: Editor) => void;
 }
 
 interface EditorOverlaysProps {
@@ -80,7 +80,6 @@ function EditingTools({
       />
       <EditorTypingMenus
         editor={editor}
-        features={features}
         id={id}
         isApple={isApple}
         stores={stores}
@@ -140,7 +139,7 @@ export function EditorOverlays({
           stores={stores}
           onEmoji={openEmoji}
           onLink={openLink}
-          onMenu={() => overlays.openAtCaret(editor, false)}
+          onMenu={() => overlays.openAtCaret(editor)}
           onNotice={notice.show}
         />
       ) : null}

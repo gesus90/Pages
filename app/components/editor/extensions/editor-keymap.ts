@@ -19,10 +19,6 @@ export interface EditorKeymapOptions {
   readonly onLink: (editor: Editor) => void;
   /** Opens the context menu at the caret (`Shift+F10`, menu key). */
   readonly onContextMenu: (editor: Editor) => void;
-  /** Opens the text assistant actions at the caret (`Mod+J`). */
-  readonly onTextAssistant: (editor: Editor) => void;
-  /** Opens the sidebar directly without choosing an AI action. */
-  readonly onAssistantChat?: (editor: Editor) => void;
 }
 
 /**
@@ -74,8 +70,7 @@ export const EditorKeymap = Extension.create<EditorKeymapOptions>({
   // take precedence so keyboard and menu changes share undo boundaries.
   priority: 1100,
   addKeyboardShortcuts() {
-    const { onContextMenu, onLink, onTextAssistant, onAssistantChat } =
-      this.options;
+    const { onContextMenu, onLink } = this.options;
 
     return {
       ContextMenu: ({ editor }) => {
@@ -89,15 +84,6 @@ export const EditorKeymap = Extension.create<EditorKeymapOptions>({
       "Mod-Alt-1": ({ editor }) => transformSelectedBlock(editor, "heading1"),
       "Mod-Alt-2": ({ editor }) => transformSelectedBlock(editor, "heading2"),
       "Mod-Alt-3": ({ editor }) => transformSelectedBlock(editor, "heading3"),
-      "Mod-Alt-Shift-j": ({ editor }) => {
-        onAssistantChat?.(editor);
-        return onAssistantChat !== undefined;
-      },
-      "Mod-j": ({ editor }) => {
-        onTextAssistant(editor);
-
-        return true;
-      },
       "Mod-k": ({ editor }) => {
         if (editor.isEditable) {
           onLink(editor);
@@ -120,7 +106,6 @@ export const EditorKeymap = Extension.create<EditorKeymapOptions>({
     return {
       onContextMenu: () => {},
       onLink: () => {},
-      onTextAssistant: () => {},
     };
   },
   addProseMirrorPlugins() {

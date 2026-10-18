@@ -1,7 +1,7 @@
 import type { AgentConfiguration } from "./AgentConfiguration";
 
 /** Model access and optional reusable task configuration form one agent. */
-export const AGENT_PROFILE_PURPOSES = ["text", "chat", "agent"] as const;
+export const AGENT_PROFILE_PURPOSES = ["chat", "agent"] as const;
 export type AgentProfilePurpose = (typeof AGENT_PROFILE_PURPOSES)[number];
 export type AgentProfileTargetKind =
   "person" | "group" | "department" | "system";
@@ -56,7 +56,7 @@ export interface AgentProfileDirectory {
 export function isAgentProfilePurpose(
   input: unknown,
 ): input is AgentProfilePurpose {
-  return input === "text" || input === "chat" || input === "agent";
+  return input === "chat" || input === "agent";
 }
 
 /** Narrows stored and external scope kinds without widening authorization targets. */

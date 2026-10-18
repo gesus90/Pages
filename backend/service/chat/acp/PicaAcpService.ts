@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { ChatError } from "@/backend/error/ChatErrors";
-import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { isChatJobId } from "@/definition/ChatJob";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
@@ -14,7 +14,7 @@ import { picaAcpRunner } from "./PicaAcpRunners";
 import type { ChatAcpSessionRepository } from "@/backend/database/repositories/chat/ChatAcpSessionRepository";
 import type { ChatJobRepository } from "@/backend/database/repositories/chat/ChatJobRepository";
 import type { ChatSteerRepository } from "@/backend/database/repositories/chat/ChatSteerRepository";
-import type { AssistantRequestRegistry } from "@/backend/service/assistant/AssistantRequestRegistry";
+import type { ChatRequestRegistry } from "@/backend/service/chat/ChatRequestRegistry";
 import type { ResolvedAgentAssignment } from "@/backend/service/agents/AgentAssignmentResolution";
 import type { ChatSendResult } from "@/definition/Chat";
 import type {
@@ -43,7 +43,7 @@ export interface PicaAcpServiceDependencies extends PicaAcpJobDependencies {
     "pending" | "link" | "readText" | "readBytes"
   >;
   /** The registry of running chat answers: one per person, its deadline and the shutdown. */
-  readonly requests: AssistantRequestRegistry;
+  readonly requests: ChatRequestRegistry;
   readonly workspace: PicaAcpWorkspace;
 }
 
@@ -135,7 +135,7 @@ export class PicaAcpService {
   /**
    * Stores the message and starts its job, which runs on without the browser.
    *
-   * @throws {TextAssistantError} `requestBusy` while another answer of the person runs.
+   * @throws {AgentExecutionError} `requestBusy` while another answer of the person runs.
    * @throws {ChatError} `acpProviderUnsupported` for an unsupported ACP
    * connection, `acpPermissionModeUnsupported` for
    * a mode the runner does not run Pica in; both before anything is stored.
@@ -306,7 +306,7 @@ export class PicaAcpService {
     const { actor, agent } = input;
     if (this.deleting.has(sessionId)) throw new ChatError("sessionMissing");
     if (this.running.has(sessionId))
-      throw new TextAssistantError("requestBusy");
+      throw new AgentExecutionError("requestBusy");
     const id = randomUUID();
     // Refused before anything is stored, as the API path refuses a second answer.
     this.dependencies.requests.requireAdmission(actor.id, id);

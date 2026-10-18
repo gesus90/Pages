@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import { readCliTextResponse } from "@/backend/agents/cli/CliTextResponse";
-import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 
 import { jsonLines } from "./cli-output-lines";
 
-import type { TextAssistantErrorCode } from "@/backend/error/TextAssistantErrors";
+import type { AgentExecutionErrorCode } from "@/backend/error/AgentExecutionErrors";
 import type { CliProviderId } from "@/definition/AgentConnection";
 
 function expectFailure(
   provider: CliProviderId,
   output: string,
-  code: TextAssistantErrorCode,
+  code: AgentExecutionErrorCode,
   options: { readonly webSearch?: boolean } = {},
 ): void {
   let thrown: unknown;
@@ -20,7 +20,7 @@ function expectFailure(
   } catch (error: unknown) {
     thrown = error;
   }
-  expect(thrown).toBeInstanceOf(TextAssistantError);
+  expect(thrown).toBeInstanceOf(AgentExecutionError);
   expect(thrown).toMatchObject({ code });
 }
 

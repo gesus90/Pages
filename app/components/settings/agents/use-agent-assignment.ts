@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { AGENT_PROVIDERS } from "@/definition/AgentConnection";
 
-import type { AgentAssignment } from "@/definition/AgentAssignment";
+import type { AgentModelSelection } from "@/definition/AgentModelSelection";
 import type {
   AgentConnectionSummary,
   AgentProviderId,
@@ -52,7 +52,7 @@ function keepUnavailable(
 
 /** Preserves invalid saved values and clears dependent choices only on an explicit change. */
 export function useAgentAssignment(input: {
-  readonly assignment: AgentAssignment | null;
+  readonly assignment: AgentModelSelection | null;
   readonly connections: readonly AgentConnectionSummary[];
   readonly catalogs: Readonly<Record<string, AgentModelCatalog>>;
 }): AssignmentChoices {
@@ -101,7 +101,7 @@ export function useAgentAssignment(input: {
         })),
       ],
       effort,
-      t("assistant.settings.unavailable"),
+      t("settings.agents.modelSelection.unavailable"),
     ),
     chooseConnection: (id) => {
       setConnectionId(id);

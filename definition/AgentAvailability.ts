@@ -3,12 +3,12 @@ import type { AgentConfiguration } from "./AgentConfiguration";
 import type { AgentProviderId } from "./AgentConnection";
 import type { AgentProfileChoice, AgentProfilePurpose } from "./AgentProfile";
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
-import type { TextAssistantErrorCode } from "@/backend/error/TextAssistantErrors";
+import type { AgentExecutionErrorCode } from "@/backend/error/AgentExecutionErrors";
 
 /** Availability is computed for the current executor; never stored as an agent status. */
 export interface AgentAvailability {
   readonly isUsable: boolean;
-  readonly reason: AgentErrorCode | TextAssistantErrorCode | null;
+  readonly reason: AgentErrorCode | AgentExecutionErrorCode | null;
   readonly personalChoices: readonly AgentProfileChoice[];
 }
 

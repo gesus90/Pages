@@ -1,6 +1,4 @@
-import { useCallback, useRef, useState } from "react";
-import { AssistantPanel } from "@/app/components/assistant/assistant-panel";
-import { useTextAssistant } from "@/app/components/assistant/use-text-assistant";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 
@@ -30,7 +28,6 @@ import { WikiPageMenu } from "@/app/components/wiki/wiki-page-menu";
 import { wikiPagePath } from "@/app/lib/wiki-tree";
 
 import type { WikiAttachmentEntry } from "@/app/components/wiki/wiki-attachments-view";
-import type { BlockEditorHandle } from "@/app/components/editor/block-editor-types";
 import type { QuoteReference } from "@/app/lib/wiki-highlight";
 import type { WikiVersionEntry } from "@/app/components/wiki/wiki-history-dialog";
 import type { WikiPageDialog } from "@/app/components/wiki/wiki-page-menu";
@@ -192,35 +189,15 @@ function WikiPageReading({
   readonly meta: React.ReactNode;
   readonly onTextElement: (element: HTMLElement | null) => void;
 }): React.ReactElement {
-  const handle = useRef<BlockEditorHandle | null>(null);
-  const [element, setElement] = useState<HTMLElement | null>(null);
-  const assistant = useTextAssistant({
-    context: { kind: "wiki", id: page.id, version: String(page.revision) },
-    title: page.title,
-    handle,
-    content: page.content,
-    canEdit: false,
-    canSend: true,
-    maximumLength: 200_000,
-    selectionElement: element,
-  });
-  const reportElement = useCallback(
-    (node: HTMLElement | null): void => {
-      setElement(node);
-      onTextElement(node);
-    },
-    [onTextElement],
-  );
   return (
     <div className="space-y-4">
       <WikiPageHero page={page} />
       <div className="mx-auto w-full max-w-[46rem] space-y-4">
         {meta}
-        <div ref={reportElement}>
+        <div ref={onTextElement}>
           <WikiMarkdown className="text-base" source={page.content} />
         </div>
       </div>
-      <AssistantPanel {...assistant.panel} />
     </div>
   );
 }

@@ -9,7 +9,6 @@ import { AgentAlert } from "./agent-alert";
 import { AgentConfirmation } from "./agent-confirmation";
 import { AgentConnectionPanel } from "./agent-connection-panel";
 import { AgentConnectionsCard } from "./agent-connections-card";
-import { TextAgentSettings } from "./text-agent-settings";
 import { AgentProfiles } from "./agent-profiles";
 import { readBlockingAgents } from "./use-agent-actions";
 import { useAgentManagement } from "./use-agent-management";
@@ -21,7 +20,6 @@ import type {
   AgentProfileDirectory,
 } from "@/definition/AgentProfile";
 import type { AgentModelCatalog } from "@/definition/AgentModelCatalog";
-import type { TextAssistantSettings } from "@/definition/TextAssistant";
 import type { AgentAssignmentView } from "@/definition/AgentAssignment";
 import type {
   AgentConnectionSummary,
@@ -38,7 +36,6 @@ interface AgentsSectionProps {
   readonly connections: readonly AgentConnectionSummary[];
   readonly cliTools: CliToolLocations;
   readonly catalogs?: Readonly<Record<string, AgentModelCatalog>>;
-  readonly assistantSettings?: TextAssistantSettings;
   readonly profiles?: readonly AgentProfile[];
   readonly profileDirectory?: AgentProfileDirectory;
   readonly assignments?: readonly AgentAssignmentView[];
@@ -55,7 +52,6 @@ export function AgentsSection({
   connections,
   cliTools,
   catalogs = {},
-  assistantSettings = { role: null, retentionDays: 30 },
   assignments = [],
   profiles = [],
   profileDirectory = { persons: [], groups: [], departments: [] },
@@ -118,7 +114,6 @@ export function AgentsSection({
         onEdit={edit}
         onCommand={command}
       />
-      <TextAgentSettings settings={assistantSettings} />
       <Dialog open={selection !== null} onOpenChange={() => setSelection(null)}>
         {selection ? (
           <AgentConnectionPanel

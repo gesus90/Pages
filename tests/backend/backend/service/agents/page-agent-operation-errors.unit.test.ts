@@ -1,18 +1,18 @@
 import { expect, it } from "vitest";
 
 import { AgentError } from "@/backend/error/AgentErrors";
-import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { translatePageAgentError } from "@/backend/service/agents/PageAgentOperationErrors";
 
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
-import type { TextAssistantErrorCode } from "@/backend/error/TextAssistantErrors";
+import type { AgentExecutionErrorCode } from "@/backend/error/AgentExecutionErrors";
 
 function agent(code: AgentErrorCode): unknown {
   return translatePageAgentError(new AgentError(code));
 }
 
-function assistant(code: TextAssistantErrorCode): unknown {
-  return translatePageAgentError(new TextAssistantError(code));
+function assistant(code: AgentExecutionErrorCode): unknown {
+  return translatePageAgentError(new AgentExecutionError(code));
 }
 
 it("turns refusals of a definition into a public code and a fixed reason", () => {

@@ -9,7 +9,7 @@ import { ChatSettingsRepository } from "@/backend/database/repositories/chat/Cha
 import { UserSettingsRepository } from "@/backend/database/repositories/UserSettingsRepository";
 import { PicaApiModels } from "@/backend/agents/providers/PicaApiModels";
 import { AgentOperationRouter } from "@/backend/service/agents/AgentOperationRouter";
-import { AssistantRequestRegistry } from "@/backend/service/assistant/AssistantRequestRegistry";
+import { ChatRequestRegistry } from "@/backend/service/chat/ChatRequestRegistry";
 import { readPicaInstructions } from "@/backend/service/chat/PicaInstructionFiles";
 
 import { bareInstance } from "../tasks/bare-instance";
@@ -107,7 +107,7 @@ function composition(cli = false): {
       },
       agentChatExecution: { run: textRun },
       picaApiModels: models,
-      chatRequests: new AssistantRequestRegistry(),
+      chatRequests: new ChatRequestRegistry(),
     },
     router,
   });

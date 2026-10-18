@@ -2,7 +2,7 @@ import path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { AssistantRequestRegistry } from "@/backend/service/assistant/AssistantRequestRegistry";
+import { ChatRequestRegistry } from "@/backend/service/chat/ChatRequestRegistry";
 import { CHAT_ACTION_FENCE } from "@/backend/service/chat/ChatActionProtocol";
 import { ChatService } from "@/backend/service/chat/ChatService";
 import { ChatToolExecutor } from "@/backend/service/chat/ChatToolExecutor";
@@ -299,7 +299,7 @@ describe("a chat turn", () => {
         router: { handle: router },
         identities: { verify },
       }),
-      requests: new AssistantRequestRegistry(),
+      requests: new ChatRequestRegistry(),
       languages: { findByUserId: async () => null },
       today: () => "2026-10-16",
     });

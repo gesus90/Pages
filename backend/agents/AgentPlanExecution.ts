@@ -1,7 +1,7 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
-import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { isApiProvider } from "@/definition/AgentConnection";
 import { logCaughtError } from "@/backend/logging/Logger";
 
@@ -175,7 +175,7 @@ export class AgentPlanExecution implements PlanExecution {
           signal.reason instanceof DOMException &&
           signal.reason.name === "TimeoutError"
         )
-          throw new TextAssistantError("timeout");
+          throw new AgentExecutionError("timeout");
         if (signal.aborted) throw new AgentPlanCancelledError();
         throw error;
       }

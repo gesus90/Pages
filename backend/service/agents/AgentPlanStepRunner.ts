@@ -5,7 +5,7 @@ import { agentToolFailureEvents } from "@/backend/service/agents/tools/AgentTool
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
-import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { isApiProvider } from "@/definition/AgentConnection";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { planGroupOrder } from "@/definition/AgentPlanGroup";
@@ -89,7 +89,7 @@ interface NodeRun {
 }
 
 function errorCode(error: unknown): string {
-  if (error instanceof AgentError || error instanceof TextAssistantError)
+  if (error instanceof AgentError || error instanceof AgentExecutionError)
     return error.code;
   return "plan_step_failed";
 }

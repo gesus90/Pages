@@ -1,8 +1,8 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 import { ChatError } from "@/backend/error/ChatErrors";
 import { PicaAcpJobError } from "@/backend/error/PicaAcpJobError";
-import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
-import { redactAssistantCredentials } from "@/backend/service/assistant/TextAssistantValidation";
+import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
+import { redactCredentials } from "@/backend/security/AgentTextSafety";
 import { logDiagnostic } from "@/backend/logging/Logger";
 import { CHAT_LIMITS } from "@/definition/Chat";
 
@@ -55,7 +55,7 @@ export function requireCompleted(result: PlanSessionTurn): void {
  * @throws {PicaAcpJobError} `invalidOutput` for an empty or too long answer.
  */
 export function readAnswer(output: string): string {
-  const answer = redactAssistantCredentials(output.trim());
+  const answer = redactCredentials(output.trim());
   if (!answer || Array.from(answer).length > CHAT_LIMITS.answerCharacters)
     throw new PicaAcpJobError("invalidOutput");
   return answer;
@@ -67,7 +67,7 @@ export function errorCodeOf(error: unknown): string | null {
   if (
     error instanceof AgentError ||
     error instanceof ChatError ||
-    error instanceof TextAssistantError
+    error instanceof AgentExecutionError
   )
     return error.code;
   return null;

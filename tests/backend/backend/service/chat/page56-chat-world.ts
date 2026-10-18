@@ -3,7 +3,7 @@ import { vi } from "vitest";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
 import { ChatAgentOperationService } from "@/backend/service/agents/ChatAgentOperationService";
-import { AssistantRequestRegistry } from "@/backend/service/assistant/AssistantRequestRegistry";
+import { ChatRequestRegistry } from "@/backend/service/chat/ChatRequestRegistry";
 import { ChatService } from "@/backend/service/chat/ChatService";
 import { ChatToolExecutor } from "@/backend/service/chat/ChatToolExecutor";
 import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
@@ -245,7 +245,7 @@ export class ChatAgentWorld {
         },
       },
       tools: this.tools,
-      requests: new AssistantRequestRegistry({
+      requests: new ChatRequestRegistry({
         timeoutMs: 10_000,
         capacity: 1,
       }),

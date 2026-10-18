@@ -3,7 +3,6 @@ import { useEditorState } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import {
   Bold,
-  Bot,
   Code,
   Italic,
   Link,
@@ -61,7 +60,7 @@ export function shouldShowSelectionToolbar(
 
 /**
  * The formatting bar above selected text (as in Notion): bold, italic,
- * strike, code, link, a comment on the passage and the text assistant.
+ * strike, code, link, a comment on the passage.
  */
 export function EditorSelectionToolbar({
   editor,
@@ -144,18 +143,6 @@ export function EditorSelectionToolbar({
             onClick={features.comment}
           />
         ) : null}
-        <EditorToolbarButton
-          icon={Bot}
-          isApple={isApple}
-          isDisabled={!features.textAssistant}
-          label={
-            features.textAssistant
-              ? t("editor.menu.assistant")
-              : t("editor.assistant.unavailable")
-          }
-          shortcut="textAssistant"
-          onClick={() => features.textAssistant?.open()}
-        />
       </div>
     </BubbleMenu>
   );

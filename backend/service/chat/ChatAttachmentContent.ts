@@ -1,5 +1,5 @@
 import { logCaughtError } from "@/backend/logging/Logger";
-import { redactAssistantCredentials } from "@/backend/service/assistant/TextAssistantValidation";
+import { redactCredentials } from "@/backend/security/AgentTextSafety";
 import { MAX_TICKET_ASSET_BYTES } from "@/backend/service/agents/AgentTicketAssetService";
 
 import {
@@ -81,7 +81,7 @@ async function readTextFile(
   const text = read.slice(0, CHAT_ATTACHMENT_CHARACTERS).join("");
   return {
     kind: "text",
-    text: redactAssistantCredentials(text),
+    text: redactCredentials(text),
     transfer: isTruncated ? "truncated" : "full",
     ...(isTruncated
       ? { scope: { characters: CHAT_ATTACHMENT_CHARACTERS } }
@@ -106,7 +106,7 @@ async function readDocument(
   const { pages } = reading.document;
   return {
     kind: "text",
-    text: redactAssistantCredentials(extracted.text),
+    text: redactCredentials(extracted.text),
     transfer: extracted.isTruncated ? "truncated" : "extracted",
     ...(extracted.isTruncated
       ? {

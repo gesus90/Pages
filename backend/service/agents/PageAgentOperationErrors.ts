@@ -1,9 +1,9 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
-import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
-import type { TextAssistantErrorCode } from "@/backend/error/TextAssistantErrors";
+import type { AgentExecutionErrorCode } from "@/backend/error/AgentExecutionErrors";
 import type { AgentRejectionReason } from "@/definition/PagesAgentOperations";
 
 type Reason = AgentRejectionReason["reason"];
@@ -39,7 +39,7 @@ const AGENT_REASONS: Readonly<Partial<Record<AgentErrorCode, Reason>>> = {
  * so it is the scope of the model's connection that no longer admits the
  * person. FORBIDDEN stays what the documentation says: not the owner.
  */
-const MODEL_CODES: ReadonlySet<TextAssistantErrorCode> = new Set([
+const MODEL_CODES: ReadonlySet<AgentExecutionErrorCode> = new Set([
   "accessDenied",
   "connectionUnavailable",
   "accessUnverified",
@@ -66,8 +66,8 @@ function translateAgentError(error: AgentError): AgentOperationError {
     : rejected(reason);
 }
 
-function translateAssistantError(
-  error: TextAssistantError,
+function translateExecutionError(
+  error: AgentExecutionError,
 ): AgentOperationError {
   if (MODEL_CODES.has(error.code)) return rejected("model_unavailable");
   if (error.code === "reasoningUnsupported")
@@ -90,7 +90,7 @@ function translateAssistantError(
  */
 export function translatePageAgentError(error: unknown): unknown {
   if (error instanceof AgentError) return translateAgentError(error);
-  if (error instanceof TextAssistantError)
-    return translateAssistantError(error);
+  if (error instanceof AgentExecutionError)
+    return translateExecutionError(error);
   return error;
 }

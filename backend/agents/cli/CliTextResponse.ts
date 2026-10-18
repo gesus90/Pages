@@ -1,5 +1,5 @@
 import { readAgentObject } from "@/backend/agents/AgentPayload";
-import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { CliProviderId } from "@/definition/AgentConnection";
@@ -12,7 +12,7 @@ function readClaudeText(output: string): string {
     result.subtype !== "success" ||
     typeof result.result !== "string"
   )
-    throw new TextAssistantError("invalidOutput");
+    throw new AgentExecutionError("invalidOutput");
   return result.result;
 }
 
@@ -33,7 +33,7 @@ function readCodexText(output: string, isSearchAllowed: boolean): string {
     const event = readAgentObject(parsed);
     const item = readAgentObject(event.item);
     if (event.type === "turn.failed" || event.type === "error")
-      throw new TextAssistantError("providerFailed");
+      throw new AgentExecutionError("providerFailed");
     if (
       event.type === "item.completed" &&
       item.type === "agent_message" &&
@@ -44,10 +44,10 @@ function readCodexText(output: string, isSearchAllowed: boolean): string {
       (event.type === "item.started" || event.type === "item.completed") &&
       !isTextItem(item.type, isSearchAllowed)
     )
-      throw new TextAssistantError("invalidOutput");
+      throw new AgentExecutionError("invalidOutput");
     if (event.type === "turn.completed") isComplete = true;
   }
-  if (!isComplete || !text) throw new TextAssistantError("invalidOutput");
+  if (!isComplete || !text) throw new AgentExecutionError("invalidOutput");
   return text;
 }
 
@@ -59,16 +59,16 @@ function readOpenCodeText(output: string): string {
     const parsed: unknown = JSON.parse(line);
     const event = readAgentObject(parsed);
     const part = readAgentObject(event.part);
-    if (event.type === "error") throw new TextAssistantError("providerFailed");
+    if (event.type === "error") throw new AgentExecutionError("providerFailed");
     if (event.type === "tool_use")
-      throw new TextAssistantError("invalidOutput");
+      throw new AgentExecutionError("invalidOutput");
     if (event.type === "step_start") text = "";
     if (event.type === "text" && typeof part.text === "string")
       text += part.text;
     if (event.type === "step_finish") isComplete = part.reason === "stop";
   }
   if (!isComplete || !text.trim())
-    throw new TextAssistantError("invalidOutput");
+    throw new AgentExecutionError("invalidOutput");
   return text;
 }
 
@@ -86,7 +86,7 @@ export function readCliTextResponse(
   } catch (error: unknown) {
     logCaughtError("CliTextResponse", error);
 
-    if (error instanceof TextAssistantError) throw error;
-    throw new TextAssistantError("invalidOutput");
+    if (error instanceof AgentExecutionError) throw error;
+    throw new AgentExecutionError("invalidOutput");
   }
 }

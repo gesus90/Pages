@@ -2,7 +2,7 @@ import { expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
-import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { ChatToolExecutor } from "@/backend/service/chat/ChatToolExecutor";
 import { PICA_TOOL_OUTCOME } from "@/backend/service/chat/PicaToolSchemas";
 import { createPicaTools } from "@/backend/service/chat/PicaTools";
@@ -474,7 +474,7 @@ it("refuses calls between turns, with a foreign token and after revoked access",
       )
     ).status,
   ).toBe(401);
-  world.authorize.mockRejectedValue(new TextAssistantError("accessDenied"));
+  world.authorize.mockRejectedValue(new AgentExecutionError("accessDenied"));
   expect(await world.call("projects_list", {})).toMatchObject({
     error: "FORBIDDEN",
   });

@@ -1,7 +1,7 @@
 import { expect, it, vi } from "vitest";
 
 import { ChatService } from "@/backend/service/chat/ChatService";
-import { AssistantRequestRegistry } from "@/backend/service/assistant/AssistantRequestRegistry";
+import { ChatRequestRegistry } from "@/backend/service/chat/ChatRequestRegistry";
 import { chatFailure } from "@/app/lib/chat-response.server";
 import { ChatError } from "@/backend/error/ChatErrors";
 
@@ -92,7 +92,7 @@ function chatWorld(
         },
       }),
     },
-    requests: new AssistantRequestRegistry(),
+    requests: new ChatRequestRegistry(),
     languages: { findByUserId: async () => null },
   };
   return {

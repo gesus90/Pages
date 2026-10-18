@@ -111,7 +111,7 @@ function filterFields(
     },
     {
       name: "purpose",
-      options: ["text", "chat", "agent"].map((purpose) => ({
+      options: ["chat", "agent"].map((purpose) => ({
         value: purpose,
         label: t(`settings.agents.profiles.purpose.${purpose}`),
       })),

@@ -9,31 +9,24 @@ import { resolveAgentsDirectory } from "@/backend/config/PagesConfig";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 
 import { createAgentServices } from "./agent-services.server";
-import { createTextAssistantServices } from "./text-assistant-services.server";
 
 import type { Database } from "@/backend/database/Database";
-import type { PermissionService } from "@/backend/auth/PermissionService";
-import type { ProjectService } from "@/backend/service/ProjectService";
 import type { TaskAttachmentService } from "@/backend/service/task/TaskAttachmentService";
 import type { WikiService } from "@/backend/service/WikiService";
 import type { AgentTicketAssetDependencies } from "@/backend/service/agents/AgentTicketAssetService";
 import type { AgentApplicationServices } from "./agent-services.server";
-import type { TextAssistantApplicationServices } from "./text-assistant-services.server";
 
-/** Wires ticket asset readers before starting the shared agent and assistant runtimes. */
+/** Wires ticket asset readers before starting the shared agent runtimes. */
 export async function startExecutionServices(
   database: Database,
   databasePath: string,
   context: {
     readonly tokenKey: Buffer;
-    readonly projectService: ProjectService;
-    readonly permissionService: PermissionService;
     readonly tickets: TaskAttachmentService;
     readonly wiki: WikiService;
   },
 ): Promise<{
   readonly agentServices: AgentApplicationServices;
-  readonly assistantServices: TextAssistantApplicationServices;
 }> {
   const agentServices = await startAgents(
     database,
@@ -46,14 +39,7 @@ export async function startExecutionServices(
       context.wiki,
     ),
   );
-  const assistantServices = createTextAssistantServices({
-    database,
-    projectService: context.projectService,
-    permissions: context.permissionService,
-    agents: agentServices,
-  });
-  assistantServices.assistantHistoryScheduler.start();
-  return { agentServices, assistantServices };
+  return { agentServices };
 }
 
 function ticketAssetDependencies(

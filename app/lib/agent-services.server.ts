@@ -34,10 +34,8 @@ import { AuthorizationRepository } from "@/backend/database/repositories/Authori
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 import { AgentConnectionAccess } from "@/backend/service/agents/AgentConnectionAccess";
 import { CliSessionExecution } from "@/backend/agents/cli/CliSessionExecution";
-import { TextAssistantSettingsRepository } from "@/backend/database/repositories/assistant/TextAssistantSettingsRepository";
-import { TextAgentRoleService } from "@/backend/service/assistant/TextAgentRoleService";
 import { CHAT_REQUEST_TIMEOUT_MS } from "@/backend/service/chat/ChatExecutionLimits";
-import { AssistantRequestRegistry } from "@/backend/service/assistant/AssistantRequestRegistry";
+import { ChatRequestRegistry } from "@/backend/service/chat/ChatRequestRegistry";
 import { AgentAssignmentRepository } from "@/backend/database/repositories/agent/AgentAssignmentRepository";
 import { AgentAssignmentService } from "@/backend/service/agents/AgentAssignmentService";
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
@@ -65,9 +63,6 @@ export interface AgentApplicationServices extends AgentConfigurationApplicationS
   readonly agentConnectionService: AgentConnectionService;
   readonly agentCheckService: AgentCheckService;
   readonly agentCliLoginService: AgentCliLoginService;
-  readonly textAgentRoleService: TextAgentRoleService;
-  /** Every model run passes the scope of its connection before the provider is called. */
-  readonly agentTextExecution: TextExecution;
   /** Text runs of the chat; parallel chats share a verified connection. */
   readonly agentChatExecution: TextExecution;
   /** Native Pica models share connection locks and authorization with the existing execution paths. */
@@ -75,11 +70,10 @@ export interface AgentApplicationServices extends AgentConfigurationApplicationS
   /** The scope of every connection, checked again before each Pica bridge call (PAGE-68). */
   readonly agentConnectionAccess: AgentConnectionAccess;
   /**
-   * Running chat answers. One answer may run several model calls, so its
-   * deadline is longer than that of the text assistant; shutdown cancels them
-   * before the database closes.
+   * Running chat answers may use several model calls within one deadline.
+   * Shutdown cancels them before the database closes.
    */
-  readonly chatRequests: AssistantRequestRegistry;
+  readonly chatRequests: ChatRequestRegistry;
   readonly agentPlanExecution: PlanExecution;
   /** Server-only project credentials, resolved live for YOLO plan nodes. */
   readonly agentPlanGitHubCredentials: AgentPlanGitHubCredentials;
@@ -113,7 +107,6 @@ function createExecutions(
   input: ExecutionInput,
 ): Pick<
   AgentApplicationServices,
-  | "agentTextExecution"
   | "agentChatExecution"
   | "agentPlanExecution"
   | "agentCheckService"
@@ -141,14 +134,6 @@ function createExecutions(
       cli: input.runtime,
       providers: createApiProviderRegistry(),
     }),
-    agentTextExecution: new ScopedExecution(
-      new AgentTextExecution(
-        new ApiTextExecution(repository, cipher),
-        new CliTextExecution(cliAdapters),
-        operations,
-      ),
-      access,
-    ),
     agentChatExecution: new ScopedExecution(
       new AgentTextExecution(
         new ApiTextExecution(repository, cipher),
@@ -269,24 +254,12 @@ function createCliRuntime(input: {
 function createAssignments(
   database: Database,
   repository: AgentConnectionRepository,
-  operations: AgentOperationRegistry,
-  profiles: AgentApplicationServices["agentProfileService"],
-): Pick<
-  AgentApplicationServices,
-  "agentAssignmentService" | "textAgentRoleService"
-> {
+): Pick<AgentApplicationServices, "agentAssignmentService"> {
   return {
     agentAssignmentService: new AgentAssignmentService({
       assignments: new AgentAssignmentRepository(database),
       connections: repository,
-      operations,
     }),
-    textAgentRoleService: new TextAgentRoleService(
-      new TextAssistantSettingsRepository(database),
-      repository,
-      operations,
-      profiles,
-    ),
   };
 }
 
@@ -355,12 +328,7 @@ export function createAgentServices(
       resources: acpResourceScheduler,
     }),
     agentConnectionAccess: access,
-    ...createAssignments(
-      database,
-      repository,
-      operations,
-      configuration.agentProfileService,
-    ),
+    ...createAssignments(database, repository),
     ...createExecutions({
       tools: agentToolManagerService,
       resources: acpResourceScheduler,
@@ -377,7 +345,7 @@ export function createAgentServices(
       github: github.agentCliGitHubCredentials,
       catalog: refresh,
     }),
-    chatRequests: new AssistantRequestRegistry({
+    chatRequests: new ChatRequestRegistry({
       timeoutMs: CHAT_REQUEST_TIMEOUT_MS,
       capacity: 16,
     }),

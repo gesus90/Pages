@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 
-import { AssistantRequestRegistry } from "@/backend/service/assistant/AssistantRequestRegistry";
+import { ChatRequestRegistry } from "@/backend/service/chat/ChatRequestRegistry";
 import {
   CHAT_MAXIMUM_ACTIONS,
   CHAT_MAXIMUM_MODEL_STEPS,
@@ -90,7 +90,7 @@ it("keeps the chat deadline above five minutes, cancels at 90 minutes and releas
   vi.useFakeTimers();
   expect(CHAT_MAXIMUM_ACTIONS).toBe(256);
   expect(CHAT_REQUEST_TIMEOUT_MS).toBe(256 * 20000 + 280000);
-  const registry = new AssistantRequestRegistry({
+  const registry = new ChatRequestRegistry({
     timeoutMs: CHAT_REQUEST_TIMEOUT_MS,
     capacity: 16,
   });

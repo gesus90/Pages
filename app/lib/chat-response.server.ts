@@ -1,10 +1,10 @@
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { ChatError } from "@/backend/error/ChatErrors";
-import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import type { ChatErrorCode } from "@/backend/error/ChatErrors";
-import type { TextAssistantErrorCode } from "@/backend/error/TextAssistantErrors";
+import type { AgentExecutionErrorCode } from "@/backend/error/AgentExecutionErrors";
 
 /** Chat answers never land in a cache. */
 export const CHAT_NO_STORE = { "Cache-Control": "no-store" } as const;
@@ -13,7 +13,7 @@ export const CHAT_NO_STORE = { "Cache-Control": "no-store" } as const;
 const MAXIMUM_REQUEST_CHARACTERS = 100_000;
 
 const STATUSES: Readonly<
-  Partial<Record<ChatErrorCode | TextAssistantErrorCode, number>>
+  Partial<Record<ChatErrorCode | AgentExecutionErrorCode, number>>
 > = {
   accessDenied: 403,
   sessionMissing: 404,
@@ -68,7 +68,7 @@ function failureResponse(code: string, status: number): Response {
  * reach the answer or the log.
  */
 export function chatFailure(error: unknown): Response {
-  if (error instanceof ChatError || error instanceof TextAssistantError)
+  if (error instanceof ChatError || error instanceof AgentExecutionError)
     return failureResponse(error.code, STATUSES[error.code] ?? 400);
   logDiagnostic(
     "chat_response",

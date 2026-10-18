@@ -25,8 +25,7 @@ decide what each account can see and change.
 - Wiki pages per project or for the whole instance, with search, attachments
   and a trash
 - Optional AI model connections (API keys, or Codex CLI, Claude Code and
-  OpenCode accounts), managed by administrators, for the text assistant, the
-  chat and agents
+  OpenCode accounts), managed by administrators, for Pica chat and agents
 - German and English interface; light, dark and system theme
 
 Pages is in early development (version 0.1.0).
@@ -628,8 +627,7 @@ and `AGENTS.md`, followed by the optional supplement of the administrator, the
 fixed working rules of Pages and the action catalog. The instruction is rebuilt
 for every message and is never part of the conversation, so the files apply in
 new sessions and after `/compact`, which summarizes only the conversation. Only
-the Pica chat loads them. The text assistant, plan nodes and user agents keep
-their own instructions. Their `AGENT.md` files, working directories and
+the Pica chat loads them. Plan nodes and user agents keep their own instructions. Their `AGENT.md` files, working directories and
 configurations stay untouched.
 
 **Protection in the product.** Pages has no function that edits, replaces or
@@ -1981,7 +1979,7 @@ polling exception above); production loader/action
 lifecycle aggregates and individual failures/control responses; login/logout and
 permission denials and delivered account-authorization changes; committed wiki/ticket/milestone events; DuckDB statement
 aggregates, slow statements, transactions and errors; cache operations; GitHub, wiki,
-Discord, assistant-history and model-catalog jobs; provider/integration responses;
+Discord and model-catalog jobs; provider/integration responses;
 Pages-owned Agent API/MCP requests; plan/run/step, CLI/ACP session, tool, cancellation,
 closeout and persistence diagnostics, including Pica jobs. Browser telemetry,
 third-party internals, full CLI stdout, prompts and content chunks are intentionally

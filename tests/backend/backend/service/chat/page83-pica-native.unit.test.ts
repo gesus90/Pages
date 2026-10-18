@@ -3,7 +3,7 @@ import { expect, it, vi } from "vitest";
 import { ChatError } from "@/backend/error/ChatErrors";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
-import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 
 import { responseChunks } from "../../agents/runtime/runtime-fixture";
 import { picaToolCalls, picaWorld } from "./page83-pica-fixture";
@@ -193,7 +193,7 @@ it("fails closed when connection access is revoked between two native calls", as
       : responseChunks("Antwort"),
   );
   world.router.mockImplementation(async () => {
-    world.authorize.mockRejectedValue(new TextAssistantError("accessDenied"));
+    world.authorize.mockRejectedValue(new AgentExecutionError("accessDenied"));
     return { apiVersion: "1", result: { id: "project", name: "Project" } };
   });
   await expect(

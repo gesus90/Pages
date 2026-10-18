@@ -1,6 +1,5 @@
 import {
   Bold,
-  Bot,
   ClipboardPaste,
   Code,
   Copy,
@@ -21,7 +20,6 @@ import {
   runClipboardCommand,
 } from "@/app/components/editor/editor-clipboard";
 import {
-  AssistantItems,
   BlockActionItems,
   BlockKindItems,
   MenuEntry,
@@ -34,6 +32,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from "@/app/components/ui/dropdown-menu";
+
 import { formatShortcut } from "@/app/lib/editor/editor-shortcuts";
 
 import type { Editor } from "@tiptap/core";
@@ -41,10 +40,7 @@ import type { BlockEditorFeatures } from "@/app/components/editor/block-editor-t
 import type { ScreenPoint } from "@/app/components/editor/menus/anchored-menu";
 
 /** An open request for the context menu. */
-export interface ContextMenuRequest extends ScreenPoint {
-  /** Opens only the text assistant actions (`Mod+J`). */
-  readonly showAssistant?: boolean;
-}
+export type ContextMenuRequest = ScreenPoint;
 
 interface EditorContextMenuProps {
   readonly editor: Editor;
@@ -252,7 +248,7 @@ function BlockSections({
 
 /**
  * The context menu of the editor: clipboard, undo, formatting, block
- * actions and the text assistant, each with its shortcut. It opens at the
+ * actions, each with its shortcut. It opens at the
  * pointer, or at the caret for the keyboard, and leaves the selection as it
  * was. Reading without the right to write keeps copy and select all.
  */
@@ -268,19 +264,6 @@ export function EditorContextMenu({
 }: EditorContextMenuProps): React.ReactElement {
   const { t } = useTranslation();
   const isEditable = editor.isEditable;
-
-  if (request?.showAssistant === true) {
-    return (
-      <AnchoredMenu
-        anchor={request}
-        label={t("editor.menu.assistant")}
-        onClose={onClose}
-        onReturnFocus={() => returnFocus(editor)}
-      >
-        <AssistantItems features={features} isApple={isApple} />
-      </AnchoredMenu>
-    );
-  }
 
   return (
     <AnchoredMenu
@@ -306,19 +289,6 @@ export function EditorContextMenu({
         label={t("editor.menu.emoji")}
         onSelect={onEmoji}
       />
-      <DropdownMenuSeparator />
-      <DropdownMenuSub>
-        <DropdownMenuSubTrigger>
-          <Bot aria-hidden="true" className="mr-2 size-4" />
-          {t("editor.menu.assistant")}
-          <span className="ml-auto pl-4 text-xs text-muted-foreground">
-            {formatShortcut("textAssistant", isApple)}
-          </span>
-        </DropdownMenuSubTrigger>
-        <DropdownMenuSubContent>
-          <AssistantItems features={features} isApple={isApple} />
-        </DropdownMenuSubContent>
-      </DropdownMenuSub>
     </AnchoredMenu>
   );
 }

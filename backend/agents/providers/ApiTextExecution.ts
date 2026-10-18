@@ -1,6 +1,6 @@
 import { readTicketAssetInput } from "@/backend/agents/TicketAssetInput";
 import { AgentError } from "@/backend/error/AgentErrors";
-import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { AGENT_PROVIDERS, isApiProvider } from "@/definition/AgentConnection";
 import { logCaughtError } from "@/backend/logging/Logger";
 
@@ -44,10 +44,10 @@ export class ApiTextExecution implements TextExecution {
   ): Promise<string> {
     const { connection } = input.agent;
     if (!isApiProvider(connection.provider))
-      throw new TextAssistantError("connectionUnavailable");
+      throw new AgentExecutionError("connectionUnavailable");
     const current = await this.repository.find(connection.id);
     if (!current || current.provider !== connection.provider)
-      throw new TextAssistantError("connectionUnavailable");
+      throw new AgentExecutionError("connectionUnavailable");
     const apiKey = await this.readApiKey(connection.id);
     try {
       const assets = await readTicketAssetInput(input);
@@ -70,16 +70,16 @@ export class ApiTextExecution implements TextExecution {
       const payload = await this.readBody(response);
       signal.throwIfAborted();
       if (classifyProviderError(response.status, payload))
-        throw new TextAssistantError("providerFailed");
+        throw new AgentExecutionError("providerFailed");
       return readTextProviderResponse(connection.provider, payload, {
         webSearch: input.webSearch,
       }).replaceAll(apiKey, "[redacted]");
     } catch (error: unknown) {
       logCaughtError("ApiTextExecution", error);
 
-      if (error instanceof TextAssistantError || error instanceof AgentError)
+      if (error instanceof AgentExecutionError || error instanceof AgentError)
         throw error;
-      throw new TextAssistantError("providerFailed");
+      throw new AgentExecutionError("providerFailed");
     }
   }
 
@@ -90,18 +90,18 @@ export class ApiTextExecution implements TextExecution {
   private async readApiKey(connectionId: string): Promise<string> {
     const encrypted = await this.repository.findSecretEncrypted(connectionId);
     if (encrypted === null)
-      throw new TextAssistantError("connectionUnavailable");
+      throw new AgentExecutionError("connectionUnavailable");
     try {
       return this.cipher.decrypt(connectionId, encrypted);
     } catch (caughtError: unknown) {
       logCaughtError("ApiTextExecution", caughtError);
 
-      throw new TextAssistantError("connectionUnavailable");
+      throw new AgentExecutionError("connectionUnavailable");
     }
   }
 
   private async readBody(response: Response): Promise<unknown> {
-    if (!response.body) throw new TextAssistantError("invalidOutput");
+    if (!response.body) throw new AgentExecutionError("invalidOutput");
     const reader = response.body.getReader();
     const chunks: Uint8Array[] = [];
     let bytes = 0;
@@ -110,7 +110,7 @@ export class ApiTextExecution implements TextExecution {
         const chunk = await reader.read();
         if (chunk.done) break;
         bytes += chunk.value.byteLength;
-        if (bytes > 1024 * 1024) throw new TextAssistantError("invalidOutput");
+        if (bytes > 1024 * 1024) throw new AgentExecutionError("invalidOutput");
         chunks.push(chunk.value);
       }
       const payload: unknown = JSON.parse(

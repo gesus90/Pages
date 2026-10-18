@@ -1,16 +1,12 @@
-export type TextAssistantErrorCode =
+export type AgentExecutionErrorCode =
   | "invalidInput"
   | "accessDenied"
-  | "contextMissing"
   | "profileSelectionRequired"
   | "roleMissing"
   | "connectionUnavailable"
   | "accessUnverified"
   | "modelUnavailable"
   | "reasoningUnsupported"
-  | "emptySelection"
-  | "versionConflict"
-  | "conversationMissing"
   | "requestBusy"
   | "cancelled"
   | "timeout"
@@ -19,12 +15,12 @@ export type TextAssistantErrorCode =
   | "credentialsInText";
 
 /** Stable, translated failures never carry provider diagnostics or credentials. */
-export class TextAssistantError extends Error {
-  public readonly code: TextAssistantErrorCode;
+export class AgentExecutionError extends Error {
+  public readonly code: AgentExecutionErrorCode;
 
-  public constructor(code: TextAssistantErrorCode) {
+  public constructor(code: AgentExecutionErrorCode) {
     super(code);
-    this.name = "TextAssistantError";
+    this.name = "AgentExecutionError";
     this.code = code;
   }
 }

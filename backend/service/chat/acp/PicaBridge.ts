@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import { ChatError } from "@/backend/error/ChatErrors";
-import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import { PICA_TOOL_OUTCOME } from "../PicaToolSchemas";
@@ -169,7 +169,7 @@ export class PicaBridge {
       logCaughtError("PicaBridge", error);
 
       if (turn.context.signal.aborted) return refused("CANCELLED");
-      if (error instanceof ChatError || error instanceof TextAssistantError)
+      if (error instanceof ChatError || error instanceof AgentExecutionError)
         return refused(error.code === "accessDenied" ? "FORBIDDEN" : "FAILED");
       // Only the tool and the kind of error are logged, never arguments or results.
       logDiagnostic(

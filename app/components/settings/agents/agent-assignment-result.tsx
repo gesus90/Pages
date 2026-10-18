@@ -10,10 +10,11 @@ export function AgentAssignmentResult({
 }): React.ReactElement | null {
   const { t } = useTranslation();
   if (!result) return null;
-  if (result.ok) return <p role="status">{t("assistant.settings.saved")}</p>;
+  if (result.ok)
+    return <p role="status">{t("settings.agents.modelSelection.saved")}</p>;
   return (
     <p role="alert" className="text-sm text-destructive">
-      {t(`assistant.error.${result.error}`, {
+      {t(`agentExecution.error.${result.error}`, {
         defaultValue: t(`settings.agents.error.${result.error}`),
       })}
     </p>

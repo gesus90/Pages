@@ -23,7 +23,6 @@ export default [
   route("instance-logo", "routes/instance-logo.ts"),
   layout("routes/authenticated.tsx", [
     route("account-version", "routes/account-version.ts"),
-    route("assistant-api", "routes/text-assistant.ts"),
     route("chat-api", "routes/chat-api.ts"),
     route("chat-api/attachments", "routes/chat-attachments.ts"),
     route("chat/attachments/:attachmentId", "routes/chat-attachment.ts"),

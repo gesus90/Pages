@@ -1,7 +1,7 @@
 import { vi } from "vitest";
 
 import { ChatError } from "@/backend/error/ChatErrors";
-import { AssistantRequestRegistry } from "@/backend/service/assistant/AssistantRequestRegistry";
+import { ChatRequestRegistry } from "@/backend/service/chat/ChatRequestRegistry";
 import { ChatContextService } from "@/backend/service/chat/ChatContextService";
 import { ChatSessionService } from "@/backend/service/chat/ChatSessionService";
 import { emptyModelCatalog } from "@/definition/AgentModelCatalog";
@@ -164,7 +164,7 @@ export class ContextFixture {
       return true;
     },
   );
-  public readonly requests = new AssistantRequestRegistry();
+  public readonly requests = new ChatRequestRegistry();
   public readonly service = new ChatContextService({
     sessions: {
       require: async (actor, id) => {

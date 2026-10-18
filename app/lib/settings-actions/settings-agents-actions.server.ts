@@ -4,7 +4,6 @@ import {
   readTextOrEmpty,
 } from "@/app/lib/form-fields.server";
 import { AgentError } from "@/backend/error/AgentErrors";
-import { isAgentFunction } from "@/definition/AgentAssignment";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import { badRequest } from "./settings-action-support.server";
@@ -94,19 +93,10 @@ const AGENT_ACTION_HANDLERS: Readonly<Record<string, AgentActionHandler>> = {
       readTextOrEmpty(formData, "profileId"),
     ),
   }),
-  "create-assignment": (context) => saveAssignment(context, "create"),
-  "update-assignment": (context) => saveAssignment(context, "update"),
   "delete-assignment": async ({ actor, services, formData }) => {
     await services.agentAssignmentService.remove(
       actor,
       readTextOrEmpty(formData, "function"),
-    );
-    return { ok: true };
-  },
-  "configure-retention": async ({ actor, services, formData }) => {
-    await services.textAgentRoleService.saveRetention(
-      actor,
-      Number(readTextOrEmpty(formData, "retentionDays")),
     );
     return { ok: true };
   },
@@ -137,21 +127,6 @@ const AGENT_ACTION_HANDLERS: Readonly<Record<string, AgentActionHandler>> = {
       interval ? Number(interval) : NaN,
     );
     return { ok: true, connectionId: id };
-  },
-  "configure-text": async ({ actor, services, formData }) => {
-    const connectionId = readTextOrEmpty(formData, "connectionId");
-    await services.textAgentRoleService.save(actor, {
-      retentionDays: Number(readTextOrEmpty(formData, "retentionDays")),
-      role:
-        connectionId === ""
-          ? null
-          : {
-              connectionId,
-              model: readTextOrEmpty(formData, "model"),
-              reasoningEffort: readText(formData, "reasoningEffort"),
-            },
-    });
-    return { ok: true };
   },
   "refresh-catalog": async ({ actor, services, id }) => {
     await services.agentCatalogService.run(actor, id);
@@ -194,33 +169,11 @@ const AGENT_ACTION_HANDLERS: Readonly<Record<string, AgentActionHandler>> = {
   },
 };
 
-async function saveAssignment(
-  { actor, services, formData, id }: AgentActionContext,
-  mode: "create" | "update",
-): Promise<{ ok: true }> {
-  const assignedFunction = readText(formData, "function");
-  if (!isAgentFunction(assignedFunction))
-    throw new AgentError("function_invalid");
-  await services.agentAssignmentService.save(
-    actor,
-    {
-      function: assignedFunction,
-      connectionId: id,
-      model: readTextOrEmpty(formData, "model"),
-      reasoningEffort: readText(formData, "reasoningEffort"),
-    },
-    mode,
-  );
-  return { ok: true };
-}
-
 const CONNECTION_FREE_INTENTS = new Set([
   "save-profile",
   "delete-profile",
   "profile-usages",
   "create-connection",
-  "configure-text",
-  "configure-retention",
   "delete-assignment",
 ]);
 

@@ -4,7 +4,7 @@ import {
   readAgentTargets,
 } from "@/backend/agents/AgentConfigurationInput";
 import { AgentError } from "@/backend/error/AgentErrors";
-import { requireCredentialFreeText } from "@/backend/service/assistant/TextAssistantValidation";
+import { requireCredentialFreeText } from "@/backend/security/AgentTextSafety";
 import { isAgentProfilePurpose } from "@/definition/AgentProfile";
 import { agentParameterIssues } from "@/definition/AgentParameters";
 import { isAgentRunOptionsAllowed } from "@/definition/AgentConfiguration";
@@ -69,7 +69,7 @@ export function readAgentProfileInput(input: unknown): AgentProfileInput {
 }
 
 function readPurposes(input: unknown): AgentProfilePurpose[] {
-  if (!Array.isArray(input) || input.length === 0 || input.length > 3)
+  if (!Array.isArray(input) || input.length === 0 || input.length > 2)
     throw new AgentError("profile_invalid");
   const purposes = input.map((purpose: unknown) => {
     if (!isAgentProfilePurpose(purpose))

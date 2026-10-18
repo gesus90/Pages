@@ -1,5 +1,5 @@
 import { agentProfilePriority } from "@/backend/auth/AgentProfilePolicy";
-import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
@@ -92,7 +92,7 @@ async function resolvePersonalModel(
 
       if (
         !(error instanceof AgentError) &&
-        !(error instanceof TextAssistantError)
+        !(error instanceof AgentExecutionError)
       )
         throw error;
     }

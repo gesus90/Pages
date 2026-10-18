@@ -1,7 +1,7 @@
 import { UserPolicyService } from "@/backend/auth/UserPolicyService";
 import { ChatError } from "@/backend/error/ChatErrors";
 import { InstanceSettingsDeniedError } from "@/backend/service/InstanceSettingsService";
-import { redactAssistantCredentials } from "@/backend/service/assistant/TextAssistantValidation";
+import { redactCredentials } from "@/backend/security/AgentTextSafety";
 import {
   CHAT_ATTACHMENT_LIMITS,
   CHAT_LIMITS,
@@ -27,7 +27,7 @@ function readInstruction(input: string | null): string | null {
   if (instruction.length > CHAT_LIMITS.instructionCharacters)
     throw new ChatError("invalidSetting");
   // The supplement reaches the provider with every message, so it must not carry secrets.
-  if (redactAssistantCredentials(instruction) !== instruction)
+  if (redactCredentials(instruction) !== instruction)
     throw new ChatError("credentialsInText");
   return instruction;
 }

@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { agentProfilePriority } from "@/backend/auth/AgentProfilePolicy";
 import { AgentError } from "@/backend/error/AgentErrors";
-import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { isAgentProfilePurpose } from "@/definition/AgentProfile";
 import { matchesAgentFilters } from "@/definition/AgentFilters";
 import { logCaughtError } from "@/backend/logging/Logger";
@@ -315,7 +315,7 @@ export class AgentProfileService {
       } catch (error: unknown) {
         logCaughtError("AgentProfileService", error);
 
-        if (!(error instanceof TextAssistantError)) throw error;
+        if (!(error instanceof AgentExecutionError)) throw error;
       }
     }
     return choices;
@@ -329,7 +329,7 @@ export class AgentProfileService {
   ): Promise<ResolvedAgentAssignment> {
     if (purpose === "agent") {
       if (profileId === null)
-        throw new TextAssistantError("profileSelectionRequired");
+        throw new AgentExecutionError("profileSelectionRequired");
       return (
         await this.resolveDefinition(userId, {
           agentId: profileId,
@@ -341,7 +341,7 @@ export class AgentProfileService {
     if (profileId !== null) {
       const { viewer, profiles } = await this.candidates(userId, purpose);
       const profile = profiles.find((entry) => entry.id === profileId);
-      if (!profile?.isActive) throw new TextAssistantError("accessDenied");
+      if (!profile?.isActive) throw new AgentExecutionError("accessDenied");
       const assignment = await resolveAgentAssignmentFor(
         this.dependencies.connections,
         viewer,
@@ -352,9 +352,9 @@ export class AgentProfileService {
       return run === undefined ? assignment : { ...assignment, run };
     }
     const { profiles: candidates } = await this.candidates(userId, purpose);
-    if (candidates.length === 0) throw new TextAssistantError("roleMissing");
+    if (candidates.length === 0) throw new AgentExecutionError("roleMissing");
     if (candidates.length > 1)
-      throw new TextAssistantError("profileSelectionRequired");
+      throw new AgentExecutionError("profileSelectionRequired");
     return this.resolve(userId, purpose, candidates[0].id);
   }
 
@@ -362,7 +362,7 @@ export class AgentProfileService {
     const account = (
       await this.dependencies.authorization.snapshot()
     ).accounts.find((entry) => entry.userId === userId);
-    if (!account?.isActive) throw new TextAssistantError("accessDenied");
+    if (!account?.isActive) throw new AgentExecutionError("accessDenied");
     return account;
   }
 
@@ -393,7 +393,7 @@ export class AgentProfileService {
   }> {
     const actor = await this.account(userId);
     if (!isAgentProfilePurpose(purpose))
-      throw new TextAssistantError("invalidInput");
+      throw new AgentExecutionError("invalidInput");
     const [profiles, groups] = await Promise.all([
       this.dependencies.profiles.list(),
       this.dependencies.groups.findIdsByMember(userId),

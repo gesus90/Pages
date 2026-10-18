@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from "vitest";
 
 import { PicaApiModels } from "@/backend/agents/providers/PicaApiModels";
 import { AgentOperationRegistry } from "@/backend/service/agents/AgentOperationRegistry";
-import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 
 import { ASSIGNMENT } from "../../service/chat/page48-chat-fixture";
 
@@ -177,7 +177,7 @@ it.each([
       });
     if (failure === "denied")
       world.access.requireUser.mockRejectedValue(
-        new TextAssistantError("accessDenied"),
+        new AgentExecutionError("accessDenied"),
       );
     if (failure === "decrypt")
       world.cipher.decrypt.mockImplementation(() => {
@@ -191,7 +191,7 @@ it.each([
         new AbortController().signal,
         run,
       ),
-    ).rejects.toBeInstanceOf(TextAssistantError);
+    ).rejects.toBeInstanceOf(AgentExecutionError);
     expect(run).not.toHaveBeenCalled();
     world.operations.acquire(ASSIGNMENT.connection.id, "write")();
   },

@@ -45,12 +45,12 @@ export function AgentModelField({
   const hasPrices = selection.models.some(
     (model) => model.promptPrice !== null && model.completionPrice !== null,
   );
-  const unavailable = t("assistant.settings.unavailable");
+  const unavailable = t("settings.agents.modelSelection.unavailable");
   return (
     <section className="min-w-0 space-y-3">
       <SearchableSelect
         id="assignment-connection"
-        label={t("assistant.settings.connection")}
+        label={t("settings.agents.modelSelection.connection")}
         value={selection.connectionId}
         options={selection.connectionOptions}
         onValueChange={selection.chooseConnection}
@@ -66,7 +66,7 @@ export function AgentModelField({
       />
       <SearchableSelect
         id="assignment-model"
-        label={t("assistant.settings.model")}
+        label={t("settings.agents.modelSelection.model")}
         value={selection.modelId}
         options={selection.models.map((model) => modelOption(model, freeLabel))}
         onValueChange={selection.chooseModel}
@@ -79,7 +79,7 @@ export function AgentModelField({
           ...(hasPrices ? [{ tag: FREE_TAG, label: freeLabel }] : []),
         ]}
         texts={{
-          placeholder: t("assistant.settings.chooseModel"),
+          placeholder: t("settings.agents.modelSelection.chooseModel"),
           unavailable,
           search: t("settings.agents.catalog.search"),
           empty: t("settings.agents.assignments.filters.empty"),

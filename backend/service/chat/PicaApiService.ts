@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { createRuntimeAgent } from "@/backend/agents/runtime/RuntimeAgent";
 import { createRuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
 import { ChatError } from "@/backend/error/ChatErrors";
-import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { isApiProvider } from "@/definition/AgentConnection";
 import { logCaughtError } from "@/backend/logging/Logger";
 
@@ -104,9 +104,9 @@ export class PicaApiService {
       logCaughtError("PicaApiService", error);
 
       signal.throwIfAborted();
-      if (error instanceof ChatError || error instanceof TextAssistantError)
+      if (error instanceof ChatError || error instanceof AgentExecutionError)
         throw error;
-      throw new TextAssistantError("providerFailed");
+      throw new AgentExecutionError("providerFailed");
     }
   }
 
@@ -145,7 +145,7 @@ export class PicaApiService {
     if (isLimitExceeded || result.finishReason === "tool-calls")
       throw new ChatError("stepLimit");
     if (result.finishReason !== "stop" || !result.text.trim())
-      throw new TextAssistantError("invalidOutput");
+      throw new AgentExecutionError("invalidOutput");
     return resolved.redact(result.text);
   }
 }

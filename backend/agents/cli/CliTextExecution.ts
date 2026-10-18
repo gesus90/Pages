@@ -1,7 +1,7 @@
 import { readTicketAssetInput } from "@/backend/agents/TicketAssetInput";
 import { requireManagedOpenCodeConfiguration } from "@/backend/agents/acp/OpenCodeAcpConfiguration";
 import { AgentError } from "@/backend/error/AgentErrors";
-import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { isApiProvider } from "@/definition/AgentConnection";
 
 import { readCliTextResponse } from "./CliTextResponse";
@@ -135,14 +135,14 @@ export class CliTextExecution implements TextExecution {
       throw new AgentError("parameter_asset_transfer_unsupported");
     const { connection } = input.agent;
     if (isApiProvider(connection.provider))
-      throw new TextAssistantError("connectionUnavailable");
+      throw new AgentExecutionError("connectionUnavailable");
     const { runtime, store, locator, runner } = this.dependencies;
     const home = await store.prepare(connection.id, connection.provider);
     try {
       const adapter = await runtime.adapter(connection.provider);
       const status = await adapter.readStatus(home, signal);
       if (!status.outcome.ok)
-        throw new TextAssistantError("connectionUnavailable");
+        throw new AgentExecutionError("connectionUnavailable");
       if (connection.provider === "opencode") {
         if (
           !input.agent.model.startsWith(`${status.credentials?.modelProvider}/`)
@@ -151,7 +151,8 @@ export class CliTextExecution implements TextExecution {
         await requireManagedOpenCodeConfiguration(home);
       }
       const location = await locator.find(connection.provider);
-      if (!location.path) throw new TextAssistantError("connectionUnavailable");
+      if (!location.path)
+        throw new AgentExecutionError("connectionUnavailable");
       const result = await runner.run({
         file: location.path,
         provider: connection.provider,
@@ -173,7 +174,7 @@ export class CliTextExecution implements TextExecution {
         timeoutMs: 120_000,
       });
       if (result.errorCode !== null || result.exitCode !== 0)
-        throw new TextAssistantError("providerFailed");
+        throw new AgentExecutionError("providerFailed");
       return readCliTextResponse(
         connection.provider,
         status.credentials?.redact(result.stdout) ?? result.stdout,

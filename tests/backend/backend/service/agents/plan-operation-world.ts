@@ -2,7 +2,7 @@ import { readPlanInput } from "@/backend/agents/AgentPlanInput";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanOperationService } from "@/backend/service/agents/AgentPlanOperationService";
 import { validatePlanGraph } from "@/backend/service/agents/AgentPlanGraph";
-import { requireCredentialFreeText } from "@/backend/service/assistant/TextAssistantValidation";
+import { requireCredentialFreeText } from "@/backend/security/AgentTextSafety";
 import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 
 import type { DatabaseTransaction } from "@/backend/database/Database";

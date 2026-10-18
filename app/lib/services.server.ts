@@ -72,7 +72,6 @@ import type { AgentSessionService } from "@/backend/service/agents/sessions/Agen
 import type { AgentPlanRecoveryService } from "@/backend/service/agents/recovery/AgentPlanRecoveryService";
 import type { AgentPlanServices } from "./agent-plan-services.server";
 import type { AgentPlanMcpSettings } from "@/backend/service/agents/AgentPlanSessionAccess";
-import type { TextAssistantApplicationServices } from "./text-assistant-services.server";
 import type { McpApplicationServices } from "./mcp-services.server";
 import type { DiscordApplicationServices } from "./discord-services.server";
 
@@ -81,7 +80,6 @@ export interface ApplicationServices
   extends
     AgentApplicationServices,
     ChatApplicationServices,
-    TextAssistantApplicationServices,
     McpApplicationServices,
     DiscordApplicationServices {
   readonly administrationService: AdministrationService;
@@ -125,7 +123,6 @@ declare global {
 function registerShutdownHandler(
   database: Database,
   agents: AgentApplicationServices,
-  assistant: TextAssistantApplicationServices,
   plans: AgentPlanService,
 ): void {
   if (globalThis.pagesShutdownHandlerRegistered) {
@@ -136,8 +133,6 @@ function registerShutdownHandler(
 
   const shutdown = async (): Promise<void> => {
     try {
-      await assistant.assistantHistoryScheduler.shutdown();
-      await assistant.textAssistantService.shutdown();
       await agents.chatRequests.shutdown();
       try {
         await plans.shutdown();
@@ -306,20 +301,17 @@ async function initializeServices(
     userRepository,
     wikiService: workspaceServices.wikiService,
   });
-  const { agentServices, assistantServices } = await startExecutionServices(
+  const { agentServices } = await startExecutionServices(
     database,
     databasePath,
     {
       tokenKey,
-      projectService,
-      permissionService,
       tickets: taskServices.taskAttachmentService,
       wiki: workspaceServices.wikiService,
     },
   );
   const planServices = await preparePlanService(database, {
     agents: agentServices,
-    assistant: assistantServices,
     projects: projectService,
     tasks: taskServices.taskService,
     users: userService,
@@ -342,7 +334,6 @@ async function initializeServices(
     ...agentServices,
     ...planServices,
     ...mcpServices,
-    ...assistantServices,
     administrationService,
     authService: new AuthService(
       userService,
@@ -410,7 +401,6 @@ async function preparePlanService(
   database: Database,
   input: {
     readonly agents: AgentApplicationServices;
-    readonly assistant: TextAssistantApplicationServices;
     readonly projects: ProjectService;
     readonly tasks: TaskService;
     readonly users: UserService;
@@ -429,7 +419,7 @@ async function preparePlanService(
   input.projects.setDeletionEffects(
     new ProjectDeletionStorage(plans, path.dirname(runtime.getDatabasePath())),
   );
-  registerShutdownHandler(database, input.agents, input.assistant, plans);
+  registerShutdownHandler(database, input.agents, plans);
   return services;
 }
 

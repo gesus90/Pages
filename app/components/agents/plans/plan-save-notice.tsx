@@ -76,7 +76,7 @@ export function PlanSaveNotice(props: {
           <p className="min-w-0">
             {t("plans.flow.storage.failed")}:{" "}
             {t(`settings.agents.error.${feedback.error}`, {
-              defaultValue: t(`assistant.error.${feedback.error}`),
+              defaultValue: t(`agentExecution.error.${feedback.error}`),
             })}
           </p>
         </NoticeFrame>

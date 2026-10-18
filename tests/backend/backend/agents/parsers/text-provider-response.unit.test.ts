@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { readTextProviderResponse } from "@/backend/agents/providers/TextProviderPayload";
-import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 
 import type { ApiProviderId } from "@/definition/AgentConnection";
 
@@ -16,7 +16,7 @@ function expectInvalid(
   } catch (error: unknown) {
     thrown = error;
   }
-  expect(thrown).toBeInstanceOf(TextAssistantError);
+  expect(thrown).toBeInstanceOf(AgentExecutionError);
   expect(thrown).toMatchObject({ code: "invalidOutput" });
 }
 

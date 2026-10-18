@@ -1,7 +1,7 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
-import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import type { AgentPlanIssueEntry } from "@/definition/AgentPlanOperations";
@@ -70,7 +70,7 @@ function translateAgentError(error: AgentError): AgentOperationError {
  */
 export function translatePlanError(error: unknown): unknown {
   if (error instanceof AgentError) return translateAgentError(error);
-  if (error instanceof TextAssistantError)
+  if (error instanceof AgentExecutionError)
     return error.code === "credentialsInText"
       ? rejected("credentials_in_text")
       : new AgentOperationError("INVALID_REQUEST");

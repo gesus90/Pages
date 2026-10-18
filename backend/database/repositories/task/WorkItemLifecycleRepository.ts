@@ -6,7 +6,6 @@ import {
 
 import { createInClause } from "./InClause";
 import { createWorkItemVisibility } from "./WorkItemVisibility";
-import { deleteAssistantConversations } from "../assistant/AssistantConversationDeletion";
 
 import type { DatabaseTransaction } from "@/backend/database/Database";
 import type { TaskDatabase } from "./TaskDatabase";
@@ -213,11 +212,6 @@ export class WorkItemLifecycleRepository {
       }
 
       const { parameters, placeholders } = createInClause("item_id", ids);
-
-      await deleteAssistantConversations(transaction, {
-        condition: `context_kind = 'ticket' AND context_id IN (${placeholders})`,
-        parameters,
-      });
 
       for (const table of OWNED_ROW_TABLES) {
         await transaction.execute(

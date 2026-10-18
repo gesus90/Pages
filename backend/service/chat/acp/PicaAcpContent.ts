@@ -1,4 +1,4 @@
-import { redactAssistantCredentials } from "@/backend/service/assistant/TextAssistantValidation";
+import { redactCredentials } from "@/backend/security/AgentTextSafety";
 
 import {
   chatSelectionItem,
@@ -167,5 +167,5 @@ export function picaTurnPrompt(
  * @returns The block text; its attachments follow as blocks.
  */
 export function picaSteerText(message: string): string {
-  return `Weitere Nachricht der Person, während du noch antwortest. Berücksichtige sie in dieser Antwort: ${JSON.stringify(redactAssistantCredentials(message))}`;
+  return `Weitere Nachricht der Person, während du noch antwortest. Berücksichtige sie in dieser Antwort: ${JSON.stringify(redactCredentials(message))}`;
 }

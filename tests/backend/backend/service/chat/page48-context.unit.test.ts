@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 
-import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { ChatService } from "@/backend/service/chat/ChatService";
 import { createChatPrompt } from "@/backend/service/chat/ChatPrompt";
 
@@ -27,7 +27,7 @@ it("estimates the bounded context in tokens and exposes the known model limit", 
     limit: 128_000,
     isEstimated: true,
   });
-  fixture.resolve.mockRejectedValueOnce(new TextAssistantError("roleMissing"));
+  fixture.resolve.mockRejectedValueOnce(new AgentExecutionError("roleMissing"));
   expect(await fixture.service.size(OWNER, FIRST)).toMatchObject({
     limit: null,
   });
@@ -105,11 +105,11 @@ it("keeps the previous summary and transcript after provider failure or unavaila
     revision: 2,
   };
   const before = structuredClone(fixture.messages);
-  fixture.run.mockRejectedValueOnce(new TextAssistantError("providerFailed"));
+  fixture.run.mockRejectedValueOnce(new AgentExecutionError("providerFailed"));
   await expect(fixture.service.compact(OWNER, FIRST)).rejects.toMatchObject({
     code: "providerFailed",
   });
-  fixture.resolve.mockRejectedValueOnce(new TextAssistantError("roleMissing"));
+  fixture.resolve.mockRejectedValueOnce(new AgentExecutionError("roleMissing"));
   await expect(fixture.service.compact(OWNER, FIRST)).rejects.toMatchObject({
     code: "roleMissing",
   });

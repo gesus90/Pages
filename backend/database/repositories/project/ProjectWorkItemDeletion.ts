@@ -1,5 +1,4 @@
 import { readTextColumn } from "@/backend/database/RowValue";
-import { deleteAssistantConversations } from "../assistant/AssistantConversationDeletion";
 
 import type { DatabaseTransaction } from "@/backend/database/Database";
 
@@ -43,10 +42,6 @@ export async function deleteProjectWorkItemData(
     parameters,
   );
 
-  await deleteAssistantConversations(database, {
-    condition: `context_kind = 'ticket' AND context_id IN (${PROJECT_WORK_ITEMS})`,
-    parameters,
-  });
   for (const table of WORK_ITEM_OWNED_TABLES) {
     await database.execute(
       `DELETE FROM ${table} WHERE work_item_id IN (${PROJECT_WORK_ITEMS});`,

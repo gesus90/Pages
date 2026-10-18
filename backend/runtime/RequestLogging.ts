@@ -14,7 +14,7 @@ import { RequestLogLifecycle } from "./RequestLogLifecycle";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 const ROUTE_SEGMENTS = new Set(
-  "api v1 agent-assets agents pica-bridge pairing pair login logout setup health settings system profile connections resources definitions workspaces ticket-choices workspace-folders run-records plan-sources plan-runs recovery steps prompt session events dashboard users projekte aufgaben tasks wiki trash wiki-api ticket-api attachments drafts search references link-titles instance-logo agent-api agent-assets chat-api assistant-api discord callback result settings-api account-version set-language change-password assets".split(
+  "api v1 agent-assets agents pica-bridge pairing pair login logout setup health settings system profile connections resources definitions workspaces ticket-choices workspace-folders run-records plan-sources plan-runs recovery steps prompt session events dashboard users projekte aufgaben tasks wiki trash wiki-api ticket-api attachments drafts search references link-titles instance-logo agent-api agent-assets chat-api discord callback result settings-api account-version set-language change-password assets".split(
     " ",
   ),
 );

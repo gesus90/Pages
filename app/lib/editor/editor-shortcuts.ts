@@ -7,13 +7,11 @@ type ShortcutKey =
  * entries; the editor binds the same keys, so both run the same action.
  *
  * @remarks
- * `Mod+J` opens the AI part of the context menu (as in Notion). `Mod+Shift+
- * ArrowUp/ArrowDown` moves a block (as in Notion); inside the editor it
+ * `Mod+Shift+ArrowUp/ArrowDown` moves a block (as in Notion); inside the editor it
  * replaces the native "select to start/end of the document". `Mod+Enter`
  * saves a ticket description (as in Jira); the wiki saves by itself.
  */
 export const EDITOR_SHORTCUTS = {
-  assistantChat: ["Mod", "Alt", "Shift", "J"],
   bold: ["Mod", "B"],
   bulletList: ["Mod", "Shift", "8"],
   code: ["Mod", "E"],
@@ -39,7 +37,6 @@ export const EDITOR_SHORTCUTS = {
   selectAll: ["Mod", "A"],
   strike: ["Mod", "Shift", "S"],
   taskList: ["Mod", "Shift", "9"],
-  textAssistant: ["Mod", "J"],
   undo: ["Mod", "Z"],
 } as const satisfies Readonly<Record<string, readonly ShortcutKey[]>>;
 

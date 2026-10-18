@@ -137,7 +137,7 @@ it("disables repeat submission while pending and keeps the row with a translated
   expect(screen.queryByRole("dialog")).toBeNull();
   finish?.();
   expect((await screen.findByRole("alert")).textContent).toBe(
-    i18n.t("assistant.error.general"),
+    i18n.t("agentExecution.error.general"),
   );
   expect(screen.getByText(PROFILE.name)).toBeDefined();
   expect(action).toHaveBeenCalledTimes(1);

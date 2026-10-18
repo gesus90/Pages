@@ -1,10 +1,9 @@
 import { NodeSelection, TextSelection } from "@tiptap/pm/state";
-import { Bot, GripVertical, Plus, Type } from "lucide-react";
+import { GripVertical, Plus, Type } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
-  AssistantItems,
   BlockActionItems,
   BlockKindItems,
 } from "@/app/components/editor/editor-menu-items";
@@ -12,7 +11,6 @@ import { returnFocus } from "@/app/components/editor/editor-geometry";
 import { AnchoredMenu } from "@/app/components/editor/menus/anchored-menu";
 import { useHoveredBlock } from "@/app/components/editor/use-hovered-block";
 import {
-  DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
@@ -176,16 +174,6 @@ export function EditorBlockHandle({
           position={menu?.position ?? null}
           onNotice={onNotice}
         />
-        <DropdownMenuSeparator />
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger>
-            <Bot aria-hidden="true" className="mr-2 size-4" />
-            {t("editor.menu.assistant")}
-          </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent>
-            <AssistantItems features={features} isApple={isApple} />
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
       </AnchoredMenu>
     </>
   );

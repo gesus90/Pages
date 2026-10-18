@@ -5,7 +5,7 @@ import {
 } from "@/backend/auth/AgentProfilePolicy";
 import { UserPolicyService } from "@/backend/auth/UserPolicyService";
 import { AgentError } from "@/backend/error/AgentErrors";
-import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import {
   agentParameterIssues,
   scanAgentPlaceholders,
@@ -93,7 +93,7 @@ export class AgentAvailabilityService {
   ): Promise<Readonly<Record<string, AgentAvailability>>> {
     const context = await this.context(userId, null);
     if (!new UserPolicyService().isAdministrator(context.viewer.actor))
-      throw new TextAssistantError("accessDenied");
+      throw new AgentExecutionError("accessDenied");
     // The agents of users are none of the administration's business, not even their identifiers.
     const entries = await Promise.all(
       context.profiles
@@ -236,7 +236,7 @@ export class AgentAvailabilityService {
     const actor = snapshot.accounts.find(
       (account) => account.userId === userId,
     );
-    if (!actor?.isActive) throw new TextAssistantError("accessDenied");
+    if (!actor?.isActive) throw new AgentExecutionError("accessDenied");
     const viewer = { actor, groupIds };
     if (projectId !== null && !(await this.canReadProject(viewer, projectId)))
       throw new AgentError("agent_usage_denied");
@@ -332,7 +332,7 @@ export class AgentAvailabilityService {
 
       if (
         !(error instanceof AgentError) &&
-        !(error instanceof TextAssistantError)
+        !(error instanceof AgentExecutionError)
       )
         throw error;
       return { isUsable: false, reason: error.code, personalChoices: [] };
@@ -380,7 +380,7 @@ export class AgentAvailabilityService {
       } catch (error: unknown) {
         logCaughtError("AgentAvailabilityService", error);
 
-        if (!(error instanceof TextAssistantError)) throw error;
+        if (!(error instanceof AgentExecutionError)) throw error;
       }
     }
     return candidates;

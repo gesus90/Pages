@@ -44,7 +44,7 @@ export interface EditorMenuContext {
  * @param option - An entry of the slash menu.
  * @param features - What the application lets the editor do.
  * @returns Whether the entry is offered; uploads and subpages need their
- * feature, the text assistant is always listed (as unavailable without it).
+ * feature.
  */
 export function isBlockOptionAvailable(
   option: BlockOption,
@@ -117,8 +117,6 @@ export function applyBlockOption(
     context.requests().files();
   } else if (option.key === "emoji") {
     context.requests().emoji(editor);
-  } else if (option.key === "assistant") {
-    context.features().textAssistant?.open();
   } else if (option.key === "page") {
     void insertCreatedPage(editor, context.features());
   } else {

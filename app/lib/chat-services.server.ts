@@ -33,7 +33,7 @@ import type { AdministrationService } from "@/backend/service/AdministrationServ
 import type { UserService } from "@/backend/service/UserService";
 import type { AgentOperationRouter } from "@/backend/service/agents/AgentOperationRouter";
 import type { TextExecution } from "@/backend/agents/TextExecution";
-import type { AssistantRequestRegistry } from "@/backend/service/assistant/AssistantRequestRegistry";
+import type { ChatRequestRegistry } from "@/backend/service/chat/ChatRequestRegistry";
 import type { AgentProfileService } from "@/backend/service/agents/AgentProfileService";
 import type { PicaApiModels } from "@/backend/agents/providers/PicaApiModels";
 import type { PlanExecution } from "@/backend/agents/AgentPlanExecution";
@@ -70,7 +70,7 @@ interface PicaAcpParts {
   readonly plans: PlanExecution | undefined;
   readonly access: ExecutionAuthorizer | undefined;
   readonly database: Database;
-  readonly requests: AssistantRequestRegistry;
+  readonly requests: ChatRequestRegistry;
   readonly sessions: ChatSessionService;
   readonly messages: ChatSessionRepository;
   readonly attachments: ChatAttachmentService;
@@ -148,7 +148,7 @@ export interface ChatServicesInput {
     readonly agentProfileService: Pick<AgentProfileService, "resolve">;
     readonly agentChatExecution: TextExecution;
     readonly picaApiModels: PicaApiModels;
-    readonly chatRequests: AssistantRequestRegistry;
+    readonly chatRequests: ChatRequestRegistry;
     /** With the two below and `acp`, Codex CLI agents answer over ACP; without, only API agents. */
     readonly agentPlanExecution?: PlanExecution;
     readonly agentConnectionAccess?: ExecutionAuthorizer;

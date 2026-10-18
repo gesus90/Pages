@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { ChatError } from "@/backend/error/ChatErrors";
-import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
-import { redactAssistantCredentials } from "@/backend/service/assistant/TextAssistantValidation";
+import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
+import { redactCredentials } from "@/backend/security/AgentTextSafety";
 import { isApiProvider } from "@/definition/AgentConnection";
 import { CHAT_LIMITS, canChatSearchWeb } from "@/definition/Chat";
 
@@ -37,7 +37,7 @@ import type {
   StoredChatMessage,
 } from "@/backend/database/repositories/chat/ChatSessionRepository";
 import type { UserSettingsRepository } from "@/backend/database/repositories/UserSettingsRepository";
-import type { AssistantRequestRegistry } from "@/backend/service/assistant/AssistantRequestRegistry";
+import type { ChatRequestRegistry } from "@/backend/service/chat/ChatRequestRegistry";
 import type { ResolvedAgentAssignment } from "@/backend/service/agents/AgentAssignmentResolution";
 import type { AgentProfileService } from "@/backend/service/agents/AgentProfileService";
 import type {
@@ -101,7 +101,7 @@ interface ChatDependencies {
    */
   readonly protectedInstructions: () => Promise<PicaInstructions>;
   readonly agents: Pick<AgentProfileService, "resolve">;
-  readonly requests: AssistantRequestRegistry;
+  readonly requests: ChatRequestRegistry;
   readonly languages: Pick<UserSettingsRepository, "findByUserId">;
   /** Today's date as `YYYY-MM-DD`; the current UTC date by default. */
   readonly today?: () => string;
@@ -200,7 +200,7 @@ function readSendRequest(input: unknown): ChatSendRequest {
   if (Array.from(text).length > CHAT_LIMITS.messageCharacters)
     throw new ChatError("messageTooLong");
   // Credentials typed into the chat are refused instead of being sent to a provider.
-  if (redactAssistantCredentials(text) !== text)
+  if (redactCredentials(text) !== text)
     throw new ChatError("credentialsInText");
   return {
     requestId: readIdentifier(request.requestId),
@@ -223,9 +223,9 @@ function containsWord(text: string, word: ChatConfirmationWord): boolean {
 }
 
 function readAnswer(text: string): string {
-  const answer = redactAssistantCredentials(text.trim());
+  const answer = redactCredentials(text.trim());
   if (!answer || Array.from(answer).length > CHAT_LIMITS.answerCharacters)
-    throw new TextAssistantError("invalidOutput");
+    throw new AgentExecutionError("invalidOutput");
   return answer;
 }
 

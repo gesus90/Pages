@@ -4,14 +4,12 @@ import { SuggestionMenu } from "@/app/components/editor/menus/suggestion-menu";
 import { formatShortcut } from "@/app/lib/editor/editor-shortcuts";
 
 import type { Editor } from "@tiptap/core";
-import type { BlockEditorFeatures } from "@/app/components/editor/block-editor-types";
 import type { BlockOption } from "@/app/components/editor/editor-block-catalog";
 import type { EditorMenuStores } from "@/app/components/editor/editor-menu-extensions";
 
 interface EditorTypingMenusProps {
   readonly editor: Editor;
   readonly stores: EditorMenuStores;
-  readonly features: BlockEditorFeatures;
   readonly isApple: boolean;
   /** Prefix of the list identifiers, unique per editor. */
   readonly id: string;
@@ -55,7 +53,6 @@ function BlockOptionRow({
 export function EditorTypingMenus({
   editor,
   stores,
-  features,
   isApple,
   id,
 }: EditorTypingMenusProps): React.ReactElement {
@@ -69,9 +66,6 @@ export function EditorTypingMenus({
         getKey={(option) => option.key}
         groupLabel={(option) => t(`editor.blockGroups.${option.group}`)}
         id={`${id}-slash`}
-        isEnabled={(option) =>
-          option.key !== "assistant" || features.textAssistant !== undefined
-        }
         label={t("editor.menu.blocks")}
         renderItem={(option) => (
           <BlockOptionRow isApple={isApple} option={option} />

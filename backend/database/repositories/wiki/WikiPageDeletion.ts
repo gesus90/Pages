@@ -1,5 +1,4 @@
 import { readTextColumn } from "@/backend/database/RowValue";
-import { deleteAssistantConversations } from "../assistant/AssistantConversationDeletion";
 
 import type {
   DatabaseTransaction,
@@ -38,10 +37,6 @@ export async function deleteWikiPages(
   database: DatabaseTransaction,
   selection: WikiPageSelection,
 ): Promise<string[]> {
-  await deleteAssistantConversations(database, {
-    condition: `context_kind = 'wiki' AND context_id IN (${selection.sql})`,
-    parameters: selection.parameters,
-  });
   const files = await database.query(
     `
       SELECT storage_name

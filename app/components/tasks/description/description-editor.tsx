@@ -19,7 +19,6 @@ interface DescriptionEditorProps {
   readonly features: BlockEditorFeatures;
   readonly variant: "page" | "panel";
   readonly canEdit?: boolean;
-  readonly assistantHandle?: React.RefObject<BlockEditorHandle | null>;
 }
 
 /**
@@ -32,7 +31,6 @@ export default function DescriptionEditor({
   features,
   variant,
   canEdit = true,
-  assistantHandle,
 }: DescriptionEditorProps): React.ReactElement {
   const handle = useRef<BlockEditorHandle | null>(null);
   const [isApple] = useState(
@@ -43,14 +41,10 @@ export default function DescriptionEditor({
   // The editor hands its controls out again whenever this callback changes;
   // a new callback per render would put the caret back to the start after
   // every keystroke.
-  const handleReady = useCallback(
-    (ready: BlockEditorHandle | null): void => {
-      handle.current = ready;
-      if (assistantHandle) assistantHandle.current = ready;
-      ready?.focusStart();
-    },
-    [assistantHandle],
-  );
+  const handleReady = useCallback((ready: BlockEditorHandle | null): void => {
+    handle.current = ready;
+    ready?.focusStart();
+  }, []);
 
   function handleKeyDown(event: React.KeyboardEvent): void {
     if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {

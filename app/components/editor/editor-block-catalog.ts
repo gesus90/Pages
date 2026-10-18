@@ -1,5 +1,4 @@
 import {
-  Bot,
   ChevronRight,
   Code2,
   FilePlus2,
@@ -24,10 +23,10 @@ import type { InsertKind } from "@/app/lib/editor/editor-commands";
 import type { EditorShortcut } from "@/app/lib/editor/editor-shortcuts";
 
 /** Groups of the slash menu. */
-export type BlockOptionGroup = "basic" | "media" | "advanced" | "assistant";
+export type BlockOptionGroup = "basic" | "media" | "advanced";
 
 /** Entries that need more than a document change. */
-export type SpecialBlockKey = "file" | "page" | "emoji" | "assistant";
+export type SpecialBlockKey = "file" | "page" | "emoji";
 
 /** An entry of the slash and plus menu. */
 export interface BlockOption {
@@ -161,13 +160,6 @@ export const BLOCK_OPTIONS: readonly BlockOption[] = [
     icon: ListTree,
     key: "contents",
     keywords: "toc contents outline inhaltsverzeichnis",
-  },
-  {
-    group: "assistant",
-    icon: Bot,
-    key: "assistant",
-    keywords: "ai assistant ki assistent textassistenz",
-    shortcut: "textAssistant",
   },
 ];
 

@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
-import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { withDatabaseLogMetrics } from "@/backend/logging/DatabaseLogMetrics";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { isApiProvider } from "@/definition/AgentConnection";
@@ -602,7 +602,7 @@ export class AgentPlanRunEngine {
       return {
         status: "failed",
         error:
-          error instanceof AgentError || error instanceof TextAssistantError
+          error instanceof AgentError || error instanceof AgentExecutionError
             ? error.code
             : "plan_step_failed",
       };

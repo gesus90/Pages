@@ -95,7 +95,7 @@ function AgentProfileUsability(props: {
       </p>
       {reason ? (
         <p className="pages-selectable max-w-56 text-xs text-muted-foreground">
-          {t(`assistant.error.${reason}`, {
+          {t(`agentExecution.error.${reason}`, {
             defaultValue: t(`settings.agents.error.${reason}`),
           })}
         </p>

@@ -3,8 +3,6 @@ import { useTranslation } from "react-i18next";
 import { useNavigate, useRevalidator } from "react-router";
 
 import { BlockEditor } from "@/app/components/editor/block-editor";
-import { AssistantPanel } from "@/app/components/assistant/assistant-panel";
-import { useWikiTextAssistant } from "./use-wiki-text-assistant";
 import { useWikiDraft } from "@/app/components/wiki/use-wiki-draft";
 import { useWikiEditorFeatures } from "@/app/components/wiki/use-wiki-editor-features";
 import { useWikiUploads } from "@/app/components/wiki/use-wiki-uploads";
@@ -132,7 +130,6 @@ export function WikiPageEditor({
   const state = useWikiDraft(page);
   const { conflict, draft, setDraft } = state;
   const handle = useRef<BlockEditorHandle | null>(null);
-  const assistant = useWikiTextAssistant(state, page, handle);
   const navigate = useNavigate();
   const subpage = useSubpageRequest();
   const [pendingLink, setPendingLink] = useState<string | null>(null);
@@ -182,7 +179,7 @@ export function WikiPageEditor({
           fallback={
             <WikiMarkdown className="text-base" source={page.content} />
           }
-          features={{ ...features, textAssistant: assistant.editorFeature }}
+          features={features}
           isEditable
           label={t("wiki.editor.contentLabel")}
           markdown={draft.content}
@@ -196,7 +193,6 @@ export function WikiPageEditor({
           }}
         />
       </div>
-      <AssistantPanel {...assistant.panel} />
       {conflict ? (
         <WikiConflictDialog
           mine={draft.content}

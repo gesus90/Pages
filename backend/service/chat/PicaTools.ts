@@ -1,5 +1,5 @@
 import { RuntimeToolRegistry } from "@/backend/agents/runtime/RuntimeToolRegistry";
-import { redactAssistantCredentials } from "@/backend/service/assistant/TextAssistantValidation";
+import { redactCredentials } from "@/backend/security/AgentTextSafety";
 
 import { CHAT_MAXIMUM_ACTIONS } from "./ChatExecutionLimits";
 import { isChatDeleteOperation } from "./ChatToolCatalog";
@@ -328,10 +328,7 @@ async function createAnswerFile(
       },
       {
         fileName: parameters.fileName,
-        bytes: Buffer.from(
-          redactAssistantCredentials(parameters.content),
-          "utf8",
-        ),
+        bytes: Buffer.from(redactCredentials(parameters.content), "utf8"),
         extensions: PICA_FILE_EXTENSIONS,
       },
     );
@@ -386,9 +383,7 @@ export function createPicaTools(input: PicaToolsInput): RuntimeToolRegistry {
     );
     context.signal.throwIfAborted();
     if (!outcome.ok) return refused(outcome.error ?? "FAILED");
-    const result = redactAssistantCredentials(
-      JSON.stringify(outcome.result ?? null),
-    );
+    const result = redactCredentials(JSON.stringify(outcome.result ?? null));
     if (result.length > 20_000) return refused("RESULT_TOO_LARGE");
     return { ok: true, result, error: null };
   };

@@ -872,7 +872,6 @@
         "verifyHint": "Verify the connection and load its catalog first. Models and levels come only from that catalog.",
         "skillsHint": "SKILLS can only be assigned; its meaning and execution are not defined yet.",
         "functions": {
-          "text": "Text",
           "skills": "SKILLS"
         },
         "noEffort": "No reasoning level available",
@@ -907,7 +906,6 @@
         "editNamed": "Edit agent {{name}}",
         "removeNamed": "Remove agent {{name}}",
         "purpose": {
-          "text": "Text",
           "chat": "Chat",
           "agent": "Agent execution"
         },
@@ -948,7 +946,7 @@
         "discardTitle": "Discard changes?",
         "discardDescription": "Unsaved changes to this agent will be lost.",
         "discard": "Discard changes",
-        "assignmentHint": "Assignments are maintained here only. Each assignment has exactly one scope. These targets authorize model access; System → Text and Chat are function assignments. Template usage is shared separately.",
+        "assignmentHint": "Assignments are maintained here only. Each assignment has exactly one scope. These targets authorize model access; System → Chat is a function assignment. Template usage is shared separately.",
         "assignedTo": "Assigned to",
         "planTasks": "Project tasks and tickets",
         "planTasksHint": "Agent Plans bind these tickets to the agent. Change them in the Agent Plan.",
@@ -1083,6 +1081,14 @@
       "openCodeKeyProvider": {
         "opencode": "OpenCode Console / Zen (opencode)",
         "openrouter": "OpenRouter (openrouter)"
+      },
+      "modelSelection": {
+        "connection": "Connection",
+        "model": "Model",
+        "reasoning": "Reasoning level",
+        "unavailable": "Unavailable",
+        "chooseModel": "Choose a listed model",
+        "saved": "Setting saved."
       }
     },
     "connections": {
@@ -2474,14 +2480,12 @@
       "codeBlock": "Code block",
       "table": "Table",
       "divider": "Divider",
-      "contents": "Table of contents",
-      "assistant": "Text assistant"
+      "contents": "Table of contents"
     },
     "blockGroups": {
       "basic": "Blocks",
       "media": "Media",
-      "advanced": "More",
-      "assistant": "Text assistant"
+      "advanced": "More"
     },
     "menu": {
       "label": "Editor menu",
@@ -2496,7 +2500,6 @@
       "turnInto": "Turn into",
       "block": "Block",
       "emoji": "Insert emoji",
-      "assistant": "Text assistant",
       "noMatch": "No matches",
       "blocks": "Blocks",
       "references": "Link"
@@ -2514,15 +2517,6 @@
       "moveDown": "Move down",
       "copyLink": "Copy link to block",
       "delete": "Delete"
-    },
-    "assistant": {
-      "unavailable": "The text assistant is not available yet.",
-      "translate": "Translate",
-      "proofread": "Proofread",
-      "generate": "Generate text",
-      "summarize": "Summarize",
-      "explain": "Explain",
-      "instruct": "Custom instruction …"
     },
     "notice": {
       "linkCopied": "Link to block copied.",
@@ -2904,93 +2898,6 @@
       "title": "New subpage",
       "description": "The subpage lives below this page and is linked here."
     }
-  },
-  "assistant": {
-    "title": "Text assistant",
-    "toggle": "Toggle text assistant",
-    "close": "Close assistant",
-    "action": "Action",
-    "context": "Context to send",
-    "contextHint": "Only the chosen scope is sent. Other pages, projects and previous conversation history are not sent.",
-    "writeIntent": "Requested change",
-    "targetLanguage": "Target language (language code, e.g. en)",
-    "instruction": "Instruction or question",
-    "autoApply": "Apply AI text changes automatically",
-    "waitForSave": "Please wait for the current save to complete.",
-    "send": "Send",
-    "cancel": "Cancel request",
-    "running": "Waiting for the configured Text connection …",
-    "preview": "Text suggestion",
-    "before": "Show original text",
-    "apply": "Apply",
-    "discard": "Discard",
-    "applied": "Text changed. One undo restores the entire change.",
-    "newConversation": "New conversation",
-    "deleteConversation": "Delete my conversation",
-    "history": "My history",
-    "conversation": "Conversation {{number}}",
-    "actions": {
-      "chat": "Question / chat",
-      "translate": "Translate",
-      "proofread": "Proofread",
-      "generate": "Generate / extend",
-      "summarize": "Summarize",
-      "explain": "Explain",
-      "instruct": "Custom instruction"
-    },
-    "scope": {
-      "none": "No document content",
-      "selection": "Pinned selection",
-      "document": "Current page / ticket description"
-    },
-    "change": {
-      "answer": "Answer without changing text",
-      "replace": "Replace chosen text",
-      "insert": "Insert text at the pinned position"
-    },
-    "message": {
-      "user": "You",
-      "assistant": "Assistant",
-      "suggestion": "Text suggestion; apply it in the editor."
-    },
-    "settings": {
-      "title": "Agent function role “Text”",
-      "description": "Instance connection for wiki and ticket descriptions. Only listed models and reasoning levels are usable. Users change personal preferences in the assistant.",
-      "connection": "Connection",
-      "model": "Model",
-      "reasoning": "Reasoning level",
-      "retention": "Chat retention after the last message (1–365 days)",
-      "unavailable": "Unavailable",
-      "chooseModel": "Choose a listed model",
-      "invalid": "The assignment is unavailable. Please check the connection, model and reasoning.",
-      "saved": "Text configuration saved.",
-      "save": "Save text settings",
-      "retentionTitle": "Chat retention"
-    },
-    "error": {
-      "invalidInput": "Please check the input.",
-      "accessDenied": "Your current permissions do not allow this action.",
-      "contextMissing": "The page or ticket is no longer available.",
-      "roleMissing": "The Text role is unassigned. An admin can configure it in Agent settings.",
-      "connectionUnavailable": "The assigned connection or login is unavailable.",
-      "modelUnavailable": "The configured model is absent from the available catalog.",
-      "reasoningUnsupported": "The configured reasoning level is unsupported.",
-      "emptySelection": "The pinned selection is empty. Select text or explicitly choose the document scope.",
-      "versionConflict": "The text or context changed. Your draft is preserved. Select the intended scope again and repeat the request.",
-      "conversationMissing": "This conversation was deleted or expired. Start a new conversation.",
-      "requestBusy": "A request is already running. Wait for it or cancel it.",
-      "cancelled": "Request cancelled; your text is preserved.",
-      "timeout": "The request timed out. Sending again explicitly starts a new request.",
-      "providerFailed": "The text connection could not respond. Your text is preserved. Send again to retry.",
-      "invalidOutput": "The response is incomplete or unusable as safe text. Nothing was applied.",
-      "credentialsInText": "Credentials cannot be sent to the text assistant. Remove them from the chosen context or instruction.",
-      "general": "The setting could not be saved.",
-      "accessUnverified": "Access to this connection is not verified. Verify it in the agent settings first.",
-      "profileSelectionRequired": "Multiple profiles are available. Explicitly choose a connection."
-    },
-    "profile": "Execution profile",
-    "chooseProfile": "Choose a profile",
-    "noProfiles": "No active assigned profile is available."
   },
   "chat": {
     "passwordReceipt": {
@@ -3848,5 +3755,24 @@
     "browserVersion": "Browser version",
     "browserRevision": "Playwright version",
     "browserTarget": "Approved Playwright version"
+  },
+  "agentExecution": {
+    "error": {
+      "invalidInput": "Please check the input.",
+      "accessDenied": "Your current permissions do not allow this action.",
+      "roleMissing": "No chat agent is assigned. An administrator can configure it in Agent settings.",
+      "connectionUnavailable": "The assigned connection or login is unavailable.",
+      "modelUnavailable": "The configured model is absent from the available catalog.",
+      "reasoningUnsupported": "The configured reasoning level is unsupported.",
+      "requestBusy": "A request is already running. Wait for it or cancel it.",
+      "cancelled": "Request cancelled.",
+      "timeout": "The request timed out. Sending again explicitly starts a new request.",
+      "providerFailed": "The model connection could not respond. Send again to retry.",
+      "invalidOutput": "The response is incomplete or unusable as safe text.",
+      "credentialsInText": "Credentials cannot be sent to a model provider. Remove them from the context or instruction.",
+      "general": "The setting could not be saved.",
+      "accessUnverified": "Access to this connection is not verified. Verify it in the agent settings first.",
+      "profileSelectionRequired": "Multiple profiles are available. Explicitly choose a connection."
+    }
   }
 }

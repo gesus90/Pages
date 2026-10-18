@@ -1,7 +1,5 @@
 import { Edit3 } from "lucide-react";
-import { lazy, Suspense, useRef, useState } from "react";
-import { AssistantPanel } from "@/app/components/assistant/assistant-panel";
-import { useTextAssistant } from "@/app/components/assistant/use-text-assistant";
+import { lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 
 import { WikiMarkdown } from "@/app/components/wiki/wiki-markdown";
@@ -13,10 +11,7 @@ import {
 
 import { useTicketDescription } from "./use-ticket-description";
 
-import type {
-  BlockEditorFeatures,
-  BlockEditorHandle,
-} from "@/app/components/editor/block-editor-types";
+import type { BlockEditorFeatures } from "@/app/components/editor/block-editor-types";
 import type { WorkItemDetail } from "@/definition/Task";
 import type { TicketUploadsState } from "./use-ticket-uploads";
 
@@ -117,25 +112,9 @@ export function TicketDescription({
 }: TicketDescriptionProps): React.ReactElement {
   const { t } = useTranslation();
   const state = useTicketDescription(ticket);
-  const handle = useRef<BlockEditorHandle | null>(null);
-  const [element, setElement] = useState<HTMLElement | null>(null);
-  const assistant = useTextAssistant({
-    context: {
-      kind: "ticket",
-      id: ticket.id,
-      version: state.isEditing ? state.base : ticket.description,
-    },
-    title: ticket.key,
-    handle,
-    content: state.draft,
-    canEdit: canEdit && state.isEditing,
-    canSend: state.status !== "saving",
-    maximumLength: 65_536,
-    selectionElement: element,
-  });
 
   return (
-    <section ref={setElement} className="flex flex-col gap-2 pb-20">
+    <section className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-foreground">
           {t("tasks.tabs.description")}
@@ -162,11 +141,7 @@ export function TicketDescription({
         >
           <DescriptionEditor
             canEdit={canEdit}
-            features={{
-              ...createFeatures(uploads),
-              textAssistant: assistant.editorFeature,
-            }}
-            assistantHandle={handle}
+            features={createFeatures(uploads)}
             label={t("tasks.description.editorLabel", { key: ticket.key })}
             state={state}
             variant={variant}
@@ -179,7 +154,6 @@ export function TicketDescription({
           onEdit={state.startEditing}
         />
       )}
-      <AssistantPanel {...assistant.panel} />
     </section>
   );
 }

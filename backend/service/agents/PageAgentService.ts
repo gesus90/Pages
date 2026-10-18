@@ -6,9 +6,9 @@ import { hasAgentUsage } from "@/backend/auth/AgentProfilePolicy";
 import { UserPolicyService } from "@/backend/auth/UserPolicyService";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { AgentError } from "@/backend/error/AgentErrors";
-import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { agentParameterIssues } from "@/definition/AgentParameters";
-import { requireCredentialFreeText } from "@/backend/service/assistant/TextAssistantValidation";
+import { requireCredentialFreeText } from "@/backend/security/AgentTextSafety";
 
 import { requireAllowedRunOptions } from "./AgentProfileValidation";
 import { pageAgentModels, resolvePageAgentModel } from "./PageAgentModels";
@@ -316,7 +316,7 @@ export class PageAgentService {
       this.dependencies.groups.findIdsByMember(userId),
     ]);
     const actor = snapshot.accounts.find((entry) => entry.userId === userId);
-    if (!actor?.isActive) throw new TextAssistantError("accessDenied");
+    if (!actor?.isActive) throw new AgentExecutionError("accessDenied");
     return { actor, groupIds };
   }
 

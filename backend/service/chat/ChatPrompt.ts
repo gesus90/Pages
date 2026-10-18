@@ -1,4 +1,4 @@
-import { redactAssistantCredentials } from "@/backend/service/assistant/TextAssistantValidation";
+import { redactCredentials } from "@/backend/security/AgentTextSafety";
 
 import { CHAT_ACTION_FENCE } from "./ChatActionProtocol";
 import { describeChatOperations } from "./ChatToolCatalog";
@@ -107,7 +107,7 @@ function truncate(text: string, limit: number): string {
 
 /** Masks credentials in every text of a value before it reaches a provider. */
 function redact(value: unknown): unknown {
-  if (typeof value === "string") return redactAssistantCredentials(value);
+  if (typeof value === "string") return redactCredentials(value);
   if (Array.isArray(value)) return value.map(redact);
   if (typeof value === "object" && value !== null)
     return Object.fromEntries(

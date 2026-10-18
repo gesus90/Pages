@@ -22,7 +22,6 @@ import type {
   AgentProfileDirectory,
 } from "@/definition/AgentProfile";
 import type { AgentModelCatalog } from "@/definition/AgentModelCatalog";
-import type { TextAssistantSettings } from "@/definition/TextAssistant";
 import type { AgentAssignmentView } from "@/definition/AgentAssignment";
 import type {
   AgentConnectionSummary,
@@ -40,7 +39,6 @@ type AgentsLoaderData =
       readonly connections: readonly AgentConnectionSummary[];
       readonly cliTools: CliToolLocations;
       readonly catalogs: Readonly<Record<string, AgentModelCatalog>>;
-      readonly assistantSettings: TextAssistantSettings;
       readonly profiles: readonly AgentProfile[];
       readonly profileDirectory: AgentProfileDirectory;
       readonly assignments: readonly AgentAssignmentView[];
@@ -90,7 +88,6 @@ export async function loader({
       connections,
       cliTools,
       catalogs,
-      assistantSettings,
       assignments,
       agentList,
       profileDirectory,
@@ -101,7 +98,6 @@ export async function loader({
       services.agentConnectionService.list(actor),
       services.agentCliLoginService.tools(actor),
       services.agentCatalogService.list(actor),
-      services.textAgentRoleService.read(actor),
       services.agentAssignmentService.list(actor),
       services.agentProfileService.filteredList(actor, filters),
       services.agentProfileService.directory(actor),
@@ -115,7 +111,6 @@ export async function loader({
         connections,
         cliTools,
         catalogs,
-        assistantSettings,
         assignments,
         profiles: agentList.profiles,
         availability: agentList.availability,
@@ -162,7 +157,6 @@ export default function SettingsAgentsRoute(): React.ReactElement {
         connections={result.connections}
         cliTools={result.cliTools}
         catalogs={result.catalogs}
-        assistantSettings={result.assistantSettings}
         assignments={result.assignments}
         profiles={result.profiles}
         profileDirectory={result.profileDirectory}

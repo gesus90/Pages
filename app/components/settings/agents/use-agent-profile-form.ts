@@ -45,7 +45,7 @@ export function useAgentProfileForm(props: AgentProfileFormProps): {
   const draft = useAgentProfileDraft(props.profile);
   const selection = useAgentAssignment({
     ...props,
-    assignment: props.profile ? { function: "text", ...props.profile } : null,
+    assignment: props.profile,
   });
   const input: AgentProfileInput = {
     name: draft.name,

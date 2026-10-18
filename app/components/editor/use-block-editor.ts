@@ -15,10 +15,6 @@ import { MarkdownLinkRule } from "@/app/components/editor/extensions/markdown-li
 import { SuggestionStore } from "@/app/components/editor/menus/suggestion-store";
 import { createPlainTextSlice } from "@/app/lib/editor/editor-commands";
 import {
-  applyAssistantText,
-  captureAssistantTarget,
-} from "@/app/lib/editor/editor-assistant";
-import {
   createBaseline,
   parseMarkdownSlice,
   readMarkdown,
@@ -32,7 +28,6 @@ import type { TFunction } from "i18next";
 import type {
   BlockEditorFeatures,
   EditorReference,
-  BlockEditorHandle,
 } from "@/app/components/editor/block-editor-types";
 import type { BlockOption } from "@/app/components/editor/editor-block-catalog";
 import type { EditorMenuStores } from "@/app/components/editor/editor-menu-extensions";
@@ -44,7 +39,6 @@ export interface BlockEditorEvents {
   readonly onChange: (markdown: string) => void;
   readonly onLink: () => void;
   readonly onContextMenu: (editor: Editor) => void;
-  readonly onTextAssistant: (editor: Editor) => void;
   /** Asks for files to upload, from the slash menu. */
   readonly onRequestFiles: () => void;
   /** Asks for the emoji picker at the caret, from the slash menu. */
@@ -66,12 +60,6 @@ export interface BlockEditorControls {
   readonly getMarkdown: () => string;
   /** Replaces the document and the state it counts as unchanged. */
   readonly replaceMarkdown: (markdown: string) => void;
-  readonly captureAssistantTarget: NonNullable<
-    BlockEditorHandle["captureAssistantTarget"]
-  >;
-  readonly applyAssistantText: NonNullable<
-    BlockEditorHandle["applyAssistantText"]
-  >;
 }
 
 /** The editor with what its menus need. */
@@ -186,10 +174,8 @@ function createExtensions(
       placeholder: t("editor.placeholder"),
     }),
     EditorKeymap.configure({
-      onAssistantChat: () => live.features().textAssistant?.open(),
       onContextMenu: (editor) => live.events().onContextMenu(editor),
       onLink: () => live.events().onLink(),
-      onTextAssistant: (editor) => live.events().onTextAssistant(editor),
     }),
     MarkdownLinkRule,
     ...createMenuExtensions(stores, {
@@ -203,15 +189,11 @@ function createExtensions(
   ];
 }
 
-function createStores(live: LiveOptions): EditorMenuStores {
+function createStores(): EditorMenuStores {
   return {
     emoji: new SuggestionStore<EmojiEntry>(),
     references: new SuggestionStore<EditorReference>(),
-    slash: new SuggestionStore<BlockOption>(
-      (option) =>
-        option.key !== "assistant" ||
-        live.features().textAssistant !== undefined,
-    ),
+    slash: new SuggestionStore<BlockOption>(),
   };
 }
 
@@ -223,10 +205,6 @@ function createControls(
   return {
     editor,
     getMarkdown: () => serializeMarkdown(editor.state.doc, baseline.current),
-    captureAssistantTarget: () =>
-      captureAssistantTarget(editor, baseline.current),
-    applyAssistantText: (change) =>
-      applyAssistantText(editor, baseline.current, change),
     replaceMarkdown: (next) => {
       const replacement = readMarkdown(next, editor.schema);
 
@@ -272,7 +250,7 @@ export function useBlockEditor({
       events: () => eventsRef.current,
       features: () => featuresRef.current,
     };
-    const stores = createStores(live);
+    const stores = createStores();
 
     return {
       extensions: createExtensions(t, live, stores),

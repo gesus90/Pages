@@ -1,7 +1,6 @@
 import { readTextColumn } from "@/backend/database/RowValue";
 
 import { readCount } from "./WikiPageRows";
-import { deleteAssistantConversations } from "../assistant/AssistantConversationDeletion";
 
 import type { DatabaseTransaction } from "@/backend/database/Database";
 import type { WikiScope } from "@/definition/Wiki";
@@ -365,11 +364,6 @@ export class WikiPageWriteRepository {
       `,
       { page_id: id, user_id: userId },
     );
-    await deleteAssistantConversations(this.database, {
-      condition:
-        "context_kind = 'wiki' AND context_id IN (SELECT id FROM wiki_pages WHERE deleted_root_id = $page_id)",
-      parameters: { page_id: id },
-    });
   }
 
   /**

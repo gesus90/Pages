@@ -29,7 +29,7 @@ export function PageAgentRow(props: {
     reason === null
       ? t("pageAgents.ready")
       : t(`settings.agents.error.${reason}`, {
-          defaultValue: t(`assistant.error.${reason}`),
+          defaultValue: t(`agentExecution.error.${reason}`),
         });
   return (
     <tr>

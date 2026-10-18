@@ -1,5 +1,5 @@
 import { isInAgentConnectionScope } from "@/backend/auth/AgentConnectionScopePolicy";
-import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 
 import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
@@ -42,7 +42,7 @@ export class AgentConnectionAccess {
    *
    * @param userId - The person on whose behalf the model runs.
    * @param connectionId - The connection that would run the model.
-   * @throws {TextAssistantError} `accessDenied` for an unknown or inactive
+   * @throws {AgentExecutionError} `accessDenied` for an unknown or inactive
    * account and for a connection whose scope excludes the person.
    *
    * @remarks
@@ -67,6 +67,6 @@ export class AgentConnectionAccess {
         connectionId,
       ))
     )
-      throw new TextAssistantError("accessDenied");
+      throw new AgentExecutionError("accessDenied");
   }
 }

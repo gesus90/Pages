@@ -1,16 +1,4 @@
-import {
-  ArrowDown,
-  ArrowUp,
-  Copy,
-  Languages,
-  Link2,
-  MessageSquareText,
-  PenLine,
-  Sparkles,
-  SpellCheck,
-  Trash2,
-  WandSparkles,
-} from "lucide-react";
+import { ArrowDown, ArrowUp, Copy, Link2, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { BLOCK_OPTIONS } from "@/app/components/editor/editor-block-catalog";
@@ -37,16 +25,6 @@ import type { BlockEditorFeatures } from "@/app/components/editor/block-editor-t
 import type { BlockOption } from "@/app/components/editor/editor-block-catalog";
 import type { BlockKind } from "@/app/lib/editor/editor-commands";
 import type { EditorShortcut } from "@/app/lib/editor/editor-shortcuts";
-
-/** The text assistant actions of the AI menu (A8 §3/§5). */
-export const ASSISTANT_ACTIONS = [
-  { icon: Languages, key: "translate" },
-  { icon: SpellCheck, key: "proofread" },
-  { icon: PenLine, key: "generate" },
-  { icon: Sparkles, key: "summarize" },
-  { icon: MessageSquareText, key: "explain" },
-  { icon: WandSparkles, key: "instruct" },
-] as const;
 
 /** The entries of the slash menu that are block types, in menu order. */
 const KIND_OPTIONS = BLOCK_OPTIONS.filter(
@@ -216,38 +194,6 @@ export function BlockActionItems({
         label={t("editor.block.delete")}
         onSelect={() => run((start) => deleteBlock(editor, start))}
       />
-    </>
-  );
-}
-
-/** The actions of the text assistant, unavailable until it is connected. */
-export function AssistantItems({
-  features,
-  isApple,
-}: {
-  readonly features: BlockEditorFeatures;
-  readonly isApple: boolean;
-}): React.ReactElement {
-  const { t } = useTranslation();
-  const assistant = features.textAssistant;
-
-  return (
-    <>
-      {assistant ? null : (
-        <p className="max-w-64 px-3 py-2 text-xs text-muted-foreground">
-          {t("editor.assistant.unavailable")}
-        </p>
-      )}
-      {ASSISTANT_ACTIONS.map(({ icon, key }) => (
-        <MenuEntry
-          key={key}
-          icon={icon}
-          isApple={isApple}
-          isDisabled={!assistant}
-          label={t(`editor.assistant.${key}`)}
-          onSelect={() => assistant?.open(key)}
-        />
-      ))}
     </>
   );
 }

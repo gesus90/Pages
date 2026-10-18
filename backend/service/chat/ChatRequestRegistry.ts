@@ -1,4 +1,4 @@
-import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 interface PendingRequest {
@@ -8,19 +8,19 @@ interface PendingRequest {
 }
 
 /** Deadline of one request and how many requests may run at once. */
-export interface AssistantRequestLimits {
+export interface ChatRequestLimits {
   readonly timeoutMs: number;
   readonly capacity: number;
 }
 
 /** Pins cancellation to the owning user and drains requests before database shutdown. */
-export class AssistantRequestRegistry {
+export class ChatRequestRegistry {
   private readonly requests = new Map<string, PendingRequest>();
-  private readonly limits: AssistantRequestLimits;
+  private readonly limits: ChatRequestLimits;
   private isStopped = false;
 
   public constructor(
-    limits: AssistantRequestLimits = { timeoutMs: 120_000, capacity: 8 },
+    limits: ChatRequestLimits = { timeoutMs: 120_000, capacity: 8 },
   ) {
     this.limits = limits;
   }
@@ -44,10 +44,10 @@ export class AssistantRequestRegistry {
       controller.signal.throwIfAborted();
       return result;
     } catch (error: unknown) {
-      logCaughtError("AssistantRequestRegistry", error);
+      logCaughtError("ChatRequestRegistry", error);
 
       if (controller.signal.aborted)
-        throw new TextAssistantError(
+        throw new AgentExecutionError(
           controller.signal.reason === "timeout" ? "timeout" : "cancelled",
         );
       throw error;
@@ -61,7 +61,7 @@ export class AssistantRequestRegistry {
    * Admits work that outlives the request which started it, such as a Pica job.
    *
    * @returns The running work; it settles like {@link run}.
-   * @throws {TextAssistantError} `requestBusy` synchronously, before anything runs.
+   * @throws {AgentExecutionError} `requestBusy` synchronously, before anything runs.
    */
   public start<Result>(
     userId: string,
@@ -89,7 +89,7 @@ export class AssistantRequestRegistry {
   /**
    * Refuses work that {@link run} would refuse, before the caller stores anything for it.
    *
-   * @throws {TextAssistantError} `requestBusy`.
+   * @throws {AgentExecutionError} `requestBusy`.
    */
   public requireAdmission(userId: string, id: string): void {
     if (
@@ -98,6 +98,6 @@ export class AssistantRequestRegistry {
       this.requests.size >= this.limits.capacity ||
       [...this.requests.values()].some((entry) => entry.userId === userId)
     )
-      throw new TextAssistantError("requestBusy");
+      throw new AgentExecutionError("requestBusy");
   }
 }

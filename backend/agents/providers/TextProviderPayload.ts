@@ -1,5 +1,5 @@
 import { readAgentObject } from "@/backend/agents/AgentPayload";
-import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 
 import { ticketAssetPayload } from "./TicketAssetPayload";
 import { geminiThinkingLevel } from "./GoogleAiStudioProvider";
@@ -178,12 +178,12 @@ export function createTextProviderRequest(
 }
 
 function readTextParts(parts: unknown): string {
-  if (!Array.isArray(parts)) throw new TextAssistantError("invalidOutput");
+  if (!Array.isArray(parts)) throw new AgentExecutionError("invalidOutput");
   return parts
     .map((part: unknown) => {
       const entry = readAgentObject(part);
       if (typeof entry.text !== "string" || entry.thought === true)
-        throw new TextAssistantError("invalidOutput");
+        throw new AgentExecutionError("invalidOutput");
       return entry.text;
     })
     .join("");
@@ -191,13 +191,13 @@ function readTextParts(parts: unknown): string {
 
 /** Joins the text blocks of an answer that used Anthropic's search. */
 function readAnthropicSearchText(content: unknown): string {
-  if (!Array.isArray(content)) throw new TextAssistantError("invalidOutput");
+  if (!Array.isArray(content)) throw new AgentExecutionError("invalidOutput");
   const texts: string[] = [];
   for (const block of content.map(readAgentObject)) {
     if (block.type === "text" && typeof block.text === "string")
       texts.push(block.text);
     else if (!ANTHROPIC_SEARCH_BLOCKS.has(block.type))
-      throw new TextAssistantError("invalidOutput");
+      throw new AgentExecutionError("invalidOutput");
   }
   return texts.join("");
 }
@@ -205,15 +205,15 @@ function readAnthropicSearchText(content: unknown): string {
 /** Reads a completed OpenAI response; refusals and unknown items are rejected. */
 function readOpenAiSearchText(response: Record<string, unknown>): string {
   if (response.status !== "completed" || !Array.isArray(response.output))
-    throw new TextAssistantError("invalidOutput");
+    throw new AgentExecutionError("invalidOutput");
   const texts: string[] = [];
   for (const item of response.output.map(readAgentObject)) {
     if (OPENAI_SEARCH_ITEMS.has(item.type)) continue;
     if (item.type !== "message" || !Array.isArray(item.content))
-      throw new TextAssistantError("invalidOutput");
+      throw new AgentExecutionError("invalidOutput");
     for (const part of item.content.map(readAgentObject)) {
       if (part.type !== "output_text" || typeof part.text !== "string")
-        throw new TextAssistantError("invalidOutput");
+        throw new AgentExecutionError("invalidOutput");
       texts.push(part.text);
     }
   }
@@ -231,7 +231,7 @@ export function readTextProviderResponse(
     return readOpenAiSearchText(response);
   if (provider === "anthropic") {
     if (response.stop_reason !== "end_turn")
-      throw new TextAssistantError("invalidOutput");
+      throw new AgentExecutionError("invalidOutput");
     return options.webSearch === true
       ? readAnthropicSearchText(response.content)
       : readTextParts(response.content);
@@ -241,7 +241,7 @@ export function readTextProviderResponse(
       Array.isArray(response.candidates) ? response.candidates[0] : null,
     );
     if (candidate.finishReason !== "STOP")
-      throw new TextAssistantError("invalidOutput");
+      throw new AgentExecutionError("invalidOutput");
     return readTextParts(readAgentObject(candidate.content).parts);
   }
   const choice = readAgentObject(
@@ -254,6 +254,6 @@ export function readTextProviderResponse(
     message.tool_calls !== undefined ||
     message.refusal
   )
-    throw new TextAssistantError("invalidOutput");
+    throw new AgentExecutionError("invalidOutput");
   return message.content;
 }

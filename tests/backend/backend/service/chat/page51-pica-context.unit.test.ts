@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { ChatError } from "@/backend/error/ChatErrors";
 import { InstanceSettingsDeniedError } from "@/backend/service/InstanceSettingsService";
-import { AssistantRequestRegistry } from "@/backend/service/assistant/AssistantRequestRegistry";
+import { ChatRequestRegistry } from "@/backend/service/chat/ChatRequestRegistry";
 import { ChatService } from "@/backend/service/chat/ChatService";
 import { ChatSettingsService } from "@/backend/service/chat/ChatSettingsService";
 
@@ -132,7 +132,7 @@ class PicaChat {
         },
       },
       tools: { run: this.tools },
-      requests: new AssistantRequestRegistry(),
+      requests: new ChatRequestRegistry(),
       languages: { findByUserId: async () => null },
       today: () => "2026-10-16",
       ...overrides,

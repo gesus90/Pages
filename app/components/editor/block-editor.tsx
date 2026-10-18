@@ -59,8 +59,6 @@ function useReadyHandle(
       },
       getMarkdown: controls.getMarkdown,
       replaceMarkdown: controls.replaceMarkdown,
-      captureAssistantTarget: controls.captureAssistantTarget,
-      applyAssistantText: controls.applyAssistantText,
     });
 
     return () => onReady(null);
@@ -86,10 +84,10 @@ function useOverlayState(): EditorOverlayState {
     fileInput,
     isLinkOpen,
     menu,
-    openAtCaret: (editor, showAssistant) => {
+    openAtCaret: (editor) => {
       const rect = caretRect(editor);
 
-      openMenu({ showAssistant, x: rect.left, y: rect.bottom });
+      openMenu({ x: rect.left, y: rect.bottom });
     },
     openMenu,
     setEmojiAnchor,
@@ -132,11 +130,10 @@ export function BlockEditor({
   const state = useBlockEditor({
     events: {
       onChange: (next) => onChange?.(next),
-      onContextMenu: (current) => openAtCaret(current, false),
+      onContextMenu: (current) => openAtCaret(current),
       onLink: () => setIsLinkOpen(true),
       onRequestEmoji: (current) => setEmojiAnchor(caretRect(current)),
       onRequestFiles: () => fileInput.current?.click(),
-      onTextAssistant: (current) => openAtCaret(current, true),
     },
     features,
     isEditable,
@@ -173,7 +170,7 @@ export function BlockEditor({
           onEmoji={() => setEmojiAnchor(caretRect(editor))}
           onFiles={() => fileInput.current?.click()}
           onLink={() => setIsLinkOpen(true)}
-          onMenu={() => openAtCaret(editor, false)}
+          onMenu={() => openAtCaret(editor)}
         />
       ) : null}
       <EditorContent editor={editor} />

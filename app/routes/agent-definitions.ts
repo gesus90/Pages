@@ -4,7 +4,7 @@ import {
   agentFailureResponse,
   AGENT_NO_STORE,
 } from "@/app/lib/settings-actions/settings-agents-response.server";
-import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { Route } from "./+types/agent-definitions";
@@ -16,10 +16,10 @@ export async function loader({
 }: Route.LoaderArgs): Promise<Response> {
   try {
     const user = context.get(authenticatedUserContext);
-    if (!user) throw new TextAssistantError("accessDenied");
+    if (!user) throw new AgentExecutionError("accessDenied");
     const projectId = new URL(request.url).searchParams.get("projectId");
     if (projectId !== null && (!projectId.trim() || projectId.length > 100))
-      throw new TextAssistantError("invalidInput");
+      throw new AgentExecutionError("invalidInput");
     const services = await getApplicationServices();
     return Response.json(
       {

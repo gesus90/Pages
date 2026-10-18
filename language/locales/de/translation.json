@@ -872,7 +872,6 @@
         "verifyHint": "Anbindung zuerst verifizieren und ihren Katalog laden. Modelle und Stufen stammen nur aus diesem Katalog.",
         "skillsHint": "SKILLS ist nur zuweisbar; Bedeutung und Ausführung sind noch nicht festgelegt.",
         "functions": {
-          "text": "Text",
           "skills": "SKILLS"
         },
         "noEffort": "Keine Reasoning-Stufe verfügbar",
@@ -907,7 +906,6 @@
         "editNamed": "Agent {{name}} bearbeiten",
         "removeNamed": "Agent {{name}} entfernen",
         "purpose": {
-          "text": "Text",
           "chat": "Chat",
           "agent": "Agent-Ausführung"
         },
@@ -948,7 +946,7 @@
         "discardTitle": "Änderungen verwerfen?",
         "discardDescription": "Die ungespeicherten Änderungen an diesem Agent gehen verloren.",
         "discard": "Änderungen verwerfen",
-        "assignmentHint": "Zuweisungen werden nur hier gepflegt. Jede Zuweisung hat genau eine Geltung. Die Ziele erlauben den Modellzugang; System → Text und Chat sind Funktionszuweisungen. Die Nutzungsfreigabe der Vorlage folgt separat.",
+        "assignmentHint": "Zuweisungen werden nur hier gepflegt. Jede Zuweisung hat genau eine Geltung. Die Ziele erlauben den Modellzugang; System → Chat ist eine Funktionszuweisung. Die Nutzungsfreigabe der Vorlage folgt separat.",
         "assignedTo": "Zugewiesen an",
         "planTasks": "Projekt-Aufgaben und Tickets",
         "planTasksHint": "Agent Plans verbinden diese Tickets mit dem Agent. Geändert wird im Agent Plan.",
@@ -1083,6 +1081,14 @@
       "openCodeKeyProvider": {
         "opencode": "OpenCode Console / Zen (opencode)",
         "openrouter": "OpenRouter (openrouter)"
+      },
+      "modelSelection": {
+        "connection": "Anbindung",
+        "model": "Modell",
+        "reasoning": "Reasoning-Stufe",
+        "unavailable": "Nicht verfügbar",
+        "chooseModel": "Gelistetes Modell wählen",
+        "saved": "Einstellung gespeichert."
       }
     },
     "connections": {
@@ -2474,14 +2480,12 @@
       "codeBlock": "Codeblock",
       "table": "Tabelle",
       "divider": "Trennlinie",
-      "contents": "Inhaltsverzeichnis",
-      "assistant": "Textassistenz"
+      "contents": "Inhaltsverzeichnis"
     },
     "blockGroups": {
       "basic": "Blöcke",
       "media": "Medien",
-      "advanced": "Weitere",
-      "assistant": "Textassistenz"
+      "advanced": "Weitere"
     },
     "menu": {
       "label": "Editormenü",
@@ -2496,7 +2500,6 @@
       "turnInto": "Umwandeln in",
       "block": "Block",
       "emoji": "Emoji einfügen",
-      "assistant": "Textassistenz",
       "noMatch": "Keine Treffer",
       "blocks": "Blöcke",
       "references": "Verknüpfen"
@@ -2514,15 +2517,6 @@
       "moveDown": "Nach unten verschieben",
       "copyLink": "Link zum Block kopieren",
       "delete": "Löschen"
-    },
-    "assistant": {
-      "unavailable": "Die Textassistenz ist noch nicht verfügbar.",
-      "translate": "Übersetzen",
-      "proofread": "Lektorieren",
-      "generate": "Text generieren",
-      "summarize": "Zusammenfassen",
-      "explain": "Erklären",
-      "instruct": "Freie Anweisung …"
     },
     "notice": {
       "linkCopied": "Link zum Block kopiert.",
@@ -2904,93 +2898,6 @@
       "title": "Neue Unterseite",
       "description": "Die Unterseite liegt unter dieser Seite und wird hier verlinkt."
     }
-  },
-  "assistant": {
-    "title": "Textassistent",
-    "toggle": "Textassistent öffnen/schließen",
-    "close": "Assistent schließen",
-    "action": "Aktion",
-    "context": "Gesendeter Kontext",
-    "contextHint": "Nur der gewählte Umfang wird gesendet. Andere Seiten, Projekte und der bisherige Verlauf werden nicht mitgesendet.",
-    "writeIntent": "Gewünschte Wirkung",
-    "targetLanguage": "Zielsprache (Sprachcode, z. B. en)",
-    "instruction": "Anweisung oder Frage",
-    "autoApply": "AI-Textänderungen direkt übernehmen",
-    "waitForSave": "Bitte zuerst die laufende Speicherung abschließen.",
-    "send": "Senden",
-    "cancel": "Anfrage abbrechen",
-    "running": "Die konfigurierte Text-Anbindung antwortet …",
-    "preview": "Textvorschlag",
-    "before": "Ausgangstext anzeigen",
-    "apply": "Übernehmen",
-    "discard": "Verwerfen",
-    "applied": "Text geändert. Ein Undo nimmt die gesamte Änderung zurück.",
-    "newConversation": "Neue Unterhaltung",
-    "deleteConversation": "Eigene Unterhaltung löschen",
-    "history": "Eigener Verlauf",
-    "conversation": "Unterhaltung {{number}}",
-    "actions": {
-      "chat": "Frage / Chat",
-      "translate": "Übersetzen",
-      "proofread": "Lektorieren",
-      "generate": "Generieren / ergänzen",
-      "summarize": "Zusammenfassen",
-      "explain": "Erklären",
-      "instruct": "Freie Anweisung"
-    },
-    "scope": {
-      "none": "Kein Dokumentinhalt",
-      "selection": "Fixierte Auswahl",
-      "document": "Aktuelle Seite / Ticketbeschreibung"
-    },
-    "change": {
-      "answer": "Antwort ohne Textänderung",
-      "replace": "Gewählten Text ersetzen",
-      "insert": "Text an der fixierten Position einfügen"
-    },
-    "message": {
-      "user": "Du",
-      "assistant": "Assistent",
-      "suggestion": "Textvorschlag; Übernehmen erfolgt im Editor."
-    },
-    "settings": {
-      "title": "Agent-Funktionsrolle „Text“",
-      "description": "Instanzweite Anbindung für Wiki und Ticketbeschreibung. Nur gelistete Modelle und Reasoning-Stufen sind verwendbar. Persönliche Präferenzen ändern Benutzer im Assistenten.",
-      "connection": "Anbindung",
-      "model": "Modell",
-      "reasoning": "Reasoning-Stufe",
-      "retention": "Chat-Aufbewahrung nach der letzten Nachricht (1–365 Tage)",
-      "unavailable": "Nicht verfügbar",
-      "chooseModel": "Gelistetes Modell wählen",
-      "invalid": "Die gespeicherte Zuordnung ist nicht verfügbar. Bitte Anbindung, Modell und Reasoning prüfen.",
-      "saved": "Text-Konfiguration gespeichert.",
-      "save": "Text-Einstellungen speichern",
-      "retentionTitle": "Chat-Aufbewahrung"
-    },
-    "error": {
-      "invalidInput": "Bitte die Eingaben prüfen.",
-      "accessDenied": "Für diese Aktion fehlen die aktuellen Rechte.",
-      "contextMissing": "Seite oder Ticket ist nicht mehr verfügbar.",
-      "roleMissing": "Die Rolle „Text“ ist noch nicht zugewiesen. Ein Admin kann sie in den Agent-Einstellungen konfigurieren.",
-      "connectionUnavailable": "Die zugewiesene Anbindung oder Anmeldung ist nicht verfügbar.",
-      "modelUnavailable": "Das konfigurierte Modell ist nicht im verfügbaren Katalog.",
-      "reasoningUnsupported": "Die konfigurierte Reasoning-Stufe wird nicht unterstützt.",
-      "emptySelection": "Die fixierte Auswahl ist leer. Bitte Text auswählen oder ausdrücklich den Dokumentumfang wählen.",
-      "versionConflict": "Der Text oder Kontext hat sich geändert. Dein Entwurf bleibt erhalten. Bitte den gewünschten Umfang neu auswählen und die Anfrage wiederholen.",
-      "conversationMissing": "Diese eigene Unterhaltung ist gelöscht oder abgelaufen. Bitte eine neue Unterhaltung beginnen.",
-      "requestBusy": "Es läuft bereits eine Anfrage. Bitte abschließen oder abbrechen.",
-      "cancelled": "Anfrage abgebrochen; der Text bleibt erhalten.",
-      "timeout": "Die Anfrage hat zu lange gedauert. Eine Wiederholung startet nur durch erneutes Senden.",
-      "providerFailed": "Die Text-Anbindung konnte nicht antworten. Der Text bleibt erhalten. Erneutes Senden wiederholt die Anfrage.",
-      "invalidOutput": "Die Antwort ist unvollständig oder nicht als sicherer Text verwendbar. Es wurde nichts übernommen.",
-      "credentialsInText": "Zugangsdaten dürfen nicht an die Textassistenz gesendet werden. Bitte aus dem gewählten Kontext oder der Anweisung entfernen.",
-      "general": "Die Einstellung konnte nicht gespeichert werden.",
-      "accessUnverified": "Der Zugang dieser Anbindung ist nicht bestätigt. Verifiziere sie zuerst in den Agent-Einstellungen.",
-      "profileSelectionRequired": "Mehrere Profile sind verfügbar. Bitte einen Zugang ausdrücklich auswählen."
-    },
-    "profile": "Ausführungsprofil",
-    "chooseProfile": "Profil wählen",
-    "noProfiles": "Kein aktives, zugewiesenes Profil verfügbar."
   },
   "chat": {
     "passwordReceipt": {
@@ -3848,5 +3755,24 @@
     "browserVersion": "Browser-Version",
     "browserRevision": "Playwright-Version",
     "browserTarget": "Freigegebene Playwright-Version"
+  },
+  "agentExecution": {
+    "error": {
+      "invalidInput": "Bitte die Eingaben prüfen.",
+      "accessDenied": "Für diese Aktion fehlen die aktuellen Rechte.",
+      "roleMissing": "Kein Chat-Agent ist zugewiesen. Die Administration kann ihn unter Agents konfigurieren.",
+      "connectionUnavailable": "Die zugewiesene Anbindung oder Anmeldung ist nicht verfügbar.",
+      "modelUnavailable": "Das konfigurierte Modell ist nicht im verfügbaren Katalog.",
+      "reasoningUnsupported": "Die konfigurierte Reasoning-Stufe wird nicht unterstützt.",
+      "requestBusy": "Es läuft bereits eine Anfrage. Bitte abschließen oder abbrechen.",
+      "cancelled": "Anfrage abgebrochen.",
+      "timeout": "Die Anfrage hat zu lange gedauert. Eine Wiederholung startet nur durch erneutes Senden.",
+      "providerFailed": "Der Modellzugang konnte nicht antworten. Zum Wiederholen erneut senden.",
+      "invalidOutput": "Die Antwort ist unvollständig oder nicht als sicherer Text verwendbar.",
+      "credentialsInText": "Zugangsdaten dürfen nicht an einen Modellanbieter gesendet werden. Entferne sie aus dem Kontext oder der Anweisung.",
+      "general": "Die Einstellung konnte nicht gespeichert werden.",
+      "accessUnverified": "Der Zugang dieser Anbindung ist nicht bestätigt. Verifiziere sie zuerst in den Agent-Einstellungen.",
+      "profileSelectionRequired": "Mehrere Profile sind verfügbar. Bitte einen Zugang ausdrücklich auswählen."
+    }
   }
 }

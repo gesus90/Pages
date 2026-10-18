@@ -27,31 +27,6 @@ export interface EditorPageLink {
   readonly icon: string | null;
 }
 
-/**
- * The text assistant supplied by the hosting document. Without it the
- * editor shows its entries as not yet available and sends nothing anywhere.
- */
-export interface EditorTextAssistant {
-  /** Opens the assistant for the current selection or block. */
-  readonly open: (
-    action?:
-      | "translate"
-      | "proofread"
-      | "generate"
-      | "summarize"
-      | "explain"
-      | "instruct",
-  ) => void;
-}
-
-/** Selection and draft pinned before the assistant takes focus. */
-export interface AssistantEditorTarget {
-  readonly from: number;
-  readonly to: number;
-  readonly selectionMarkdown: string;
-  readonly documentMarkdown: string;
-}
-
 /** What the surrounding application lets the editor do. */
 export interface BlockEditorFeatures {
   /** Tells whether an image address may be shown. */
@@ -70,7 +45,6 @@ export interface BlockEditorFeatures {
   readonly blockLink?: (anchor: string) => string;
   /** Starts a comment on the selected text. */
   readonly comment?: () => void;
-  readonly textAssistant?: EditorTextAssistant;
 }
 
 /** Controls of a mounted editor for its surrounding component. */
@@ -83,16 +57,4 @@ export interface BlockEditorHandle {
   readonly focusStart: () => void;
   /** The element that holds the editable text. */
   readonly element: HTMLElement;
-  /** Captures selection without changing the editor or saving anything. */
-  readonly captureAssistantTarget?: () => AssistantEditorTarget;
-  /** Applies one complete text suggestion as one isolated undo step. */
-  readonly applyAssistantText?: (change: {
-    readonly target: AssistantEditorTarget;
-    readonly text: string;
-    readonly scope: "none" | "selection" | "document";
-    readonly kind: "replace" | "insert";
-    readonly maximumLength: number;
-    /** Wiki counts Unicode characters; ticket descriptions count UTF-16 units. */
-    readonly lengthUnit?: "codePoint" | "codeUnit";
-  }) => boolean;
 }

@@ -1,4 +1,4 @@
-import { redactAssistantCredentials } from "@/backend/service/assistant/TextAssistantValidation";
+import { redactCredentials } from "@/backend/security/AgentTextSafety";
 
 /** Longest text a run keeps, whatever its source. */
 const PLAN_OUTPUT_LIMIT = 200_000;
@@ -30,6 +30,6 @@ export function sanitizePlanOutput(output: string): string {
  * @returns The masked text, with a note when it was shortened.
  */
 export function sanitizeArtifactText(text: string): string {
-  const masked = sanitizePlanOutput(redactAssistantCredentials(text));
+  const masked = sanitizePlanOutput(redactCredentials(text));
   return text.length > PLAN_OUTPUT_LIMIT ? `${masked}\n[truncated]` : masked;
 }

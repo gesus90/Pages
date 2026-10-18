@@ -1,7 +1,7 @@
 import { ModelsDevGateway } from "@mastra/core/llm";
 import { z } from "zod";
 
-import { TextAssistantError } from "@/backend/error/TextAssistantErrors";
+import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { AGENT_PROVIDERS, isApiProvider } from "@/definition/AgentConnection";
 import { logCaughtError } from "@/backend/logging/Logger";
 
@@ -96,7 +96,7 @@ export class PicaApiModels {
     agent: ResolvedAgentAssignment,
   ): Promise<void> {
     if (!isApiProvider(agent.connection.provider))
-      throw new TextAssistantError("connectionUnavailable");
+      throw new AgentExecutionError("connectionUnavailable");
     await this.dependencies.access.requireUser(userId, agent.connection.id);
     const current = await this.dependencies.connections.find(
       agent.connection.id,
@@ -106,7 +106,7 @@ export class PicaApiModels {
       !current.hasApiKey ||
       current.provider !== agent.connection.provider
     )
-      throw new TextAssistantError("connectionUnavailable");
+      throw new AgentExecutionError("connectionUnavailable");
   }
 
   /** Holds the existing shared connection lock for the complete native model/tool turn. */
@@ -130,20 +130,20 @@ export class PicaApiModels {
   private async resolve(agent: ResolvedAgentAssignment): Promise<PicaApiModel> {
     const { id, provider } = agent.connection;
     if (!isApiProvider(provider))
-      throw new TextAssistantError("connectionUnavailable");
+      throw new AgentExecutionError("connectionUnavailable");
     const encrypted =
       await this.dependencies.connections.findSecretEncrypted(id);
     if (encrypted === null)
-      throw new TextAssistantError("connectionUnavailable");
+      throw new AgentExecutionError("connectionUnavailable");
     let apiKey: string;
     try {
       apiKey = this.dependencies.cipher.decrypt(id, encrypted);
     } catch (caughtError: unknown) {
       logCaughtError("PicaApiModels", caughtError);
 
-      throw new TextAssistantError("connectionUnavailable");
+      throw new AgentExecutionError("connectionUnavailable");
     }
-    if (!apiKey.trim()) throw new TextAssistantError("connectionUnavailable");
+    if (!apiKey.trim()) throw new AgentExecutionError("connectionUnavailable");
     const model = await new PagesModelGateway(provider).resolveLanguageModel({
       providerId: provider === "google_ai_studio" ? "google" : provider,
       modelId:

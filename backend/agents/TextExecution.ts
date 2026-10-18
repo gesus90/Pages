@@ -1,4 +1,4 @@
-import type { ResolvedTextAgent } from "@/backend/service/assistant/TextAgentRoleService";
+import type { ResolvedAgentAssignment } from "@/backend/service/agents/AgentAssignmentResolution";
 import type {
   AgentTicketInput,
   AgentTicketAssetContent,
@@ -9,7 +9,7 @@ export interface TextExecutionInput {
   /** Structured provenance; file bytes are resolved afresh immediately before transmission. */
   readonly ticketInputs?: readonly AgentTicketInput[];
   readonly readTicketAssets?: () => Promise<readonly AgentTicketAssetContent[]>;
-  readonly agent: ResolvedTextAgent;
+  readonly agent: ResolvedAgentAssignment;
   /**
    * The person on whose behalf the model runs.
    *

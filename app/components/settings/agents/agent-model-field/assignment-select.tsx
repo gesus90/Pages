@@ -13,7 +13,7 @@ export function AssignmentSelect({
   "value" | "options" | "disabled" | "onValueChange"
 >): React.ReactElement {
   const { t } = useTranslation();
-  const label = t(`assistant.settings.${field}`);
+  const label = t(`settings.agents.modelSelection.${field}`);
   return (
     <div className="min-w-0 space-y-2">
       <label
