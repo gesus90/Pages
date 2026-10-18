@@ -120,12 +120,26 @@ export interface AgentPlanTask {
   readonly statusName: string;
   /** Whether the ticket's current workflow status counts as done. */
   readonly isDone: boolean;
+  /** When the ticket was created, as stored: `YYYY-MM-DD HH:MM:SS` in UTC. */
+  readonly createdAt: string;
+  /** When the ticket last changed, in the same form as `createdAt`. */
+  readonly updatedAt: string;
+}
+
+/** A column of the project's Kanban workflow, which the ticket choice filters by. */
+export interface AgentPlanPhase {
+  /** The stable status key, such as `in_progress`; tickets name it as `statusKey`. */
+  readonly key: string;
+  readonly name: string;
+  readonly isDone: boolean;
 }
 
 export interface AgentPlanSources {
   readonly models?: readonly PageAgentModel[];
   readonly agents: readonly AgentDefinitionChoice[];
   readonly tasks: readonly AgentPlanTask[];
+  /** The workflow of the plan's project in board order; absent before a workspace is chosen. */
+  readonly phases?: readonly AgentPlanPhase[];
 }
 
 export interface AgentPlanPage {

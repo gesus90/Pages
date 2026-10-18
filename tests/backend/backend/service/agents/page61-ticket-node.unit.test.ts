@@ -96,7 +96,10 @@ describe("ticket node in the plan graph", () => {
     const plan = ticketPlan();
     const ticket = plan.nodes.find((node) => node.type === "task");
     expect(ticket && isPlanFlowNode(ticket)).toBe(false);
-    expect(planExecutionIssues(plan, [AGENT])).toEqual([]);
+    // `{{notes}}` has no source; the check names it before a run (PAGE-109).
+    expect(planExecutionIssues(plan, [AGENT])).toEqual([
+      { nodeId: "step", port: "notes", reason: "resultMissing" },
+    ]);
   });
 
   it("rejects a flow edge into or out of the ticket node", () => {
@@ -184,7 +187,10 @@ describe("ticket node in the plan graph", () => {
       { from: "start", to: "step", fromPort: "flow-out", toPort: "flow-in" },
     ]);
     expect(current.nodes).toEqual(legacy.nodes);
-    expect(planExecutionIssues(current, [AGENT])).toEqual([]);
+    // `{{notes}}` has no source; the check names it before a run (PAGE-109).
+    expect(planExecutionIssues(current, [AGENT])).toEqual([
+      { nodeId: "step", port: "notes", reason: "resultMissing" },
+    ]);
     expect(withoutTicketFlow(plan)).toBe(plan);
   });
 });

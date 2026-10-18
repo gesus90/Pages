@@ -12,7 +12,7 @@ import {
 
 import { PlanGroupAdapterBadge } from "./plan-group-adapter";
 import { PlanGroupParameters } from "./plan-group-parameters";
-import { planMemberOrigin, planNodeLabel } from "./plan-layout";
+import { planAgentName, planMemberOrigin } from "./plan-layout";
 import { PlanNodeActions } from "./plan-node-actions";
 
 import type {
@@ -94,7 +94,7 @@ function GroupMembers(props: GroupEditorProps): React.ReactElement {
   const order = planGroupOrder(group);
   const members = order ?? group.steps;
   function label(step: AgentPlanStep): string {
-    return planNodeLabel(step, props.sources) || t("plans.missingAgent");
+    return planAgentName(step, props.sources) || t("plans.missingAgent");
   }
   let summary = t("plans.groups.orderOpen");
   if (group.steps.length === 0) summary = t("plans.groups.empty");

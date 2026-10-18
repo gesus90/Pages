@@ -7,7 +7,7 @@ import { planNodeParameters } from "@/definition/AgentPlanGroup";
 import { usePlanFlowContext } from "../plan-flow-context";
 import { PlanFlowHandle } from "../plan-flow-handle";
 import { PlanFlowPorts } from "../plan-flow-ports";
-import { planNodeLabel } from "../plan-layout";
+import { planAgentName } from "../plan-layout";
 import { PlanStatusBadge, planStatusClass } from "../plan-status";
 import { PlanAgentInput } from "./plan-agent-input";
 import { PlanAgentModel } from "./plan-agent-model";
@@ -34,7 +34,7 @@ export function PlanAgentCard(props: {
   const { t } = useTranslation();
   const { sources, graph, canEdit, onEdit } = usePlanFlowContext();
   const { step, result } = props;
-  const label = planNodeLabel(step, sources) || t("plans.missingAgent");
+  const label = planAgentName(step, sources) || t("plans.missingAgent");
   const parameters = planNodeParameters(step, sources.agents);
   const status = result?.status ?? "waiting";
   function edit(): void {
@@ -102,7 +102,7 @@ function ResultOut(props: {
         variant="ghost"
         aria-label={t("plans.resultOut")}
         className={cn(
-          "nodrag nopan h-7 min-h-7 cursor-crosshair px-1.5 text-xs font-medium hover:bg-surface/70 xl:min-h-7",
+          "nodrag nopan -mr-1.25 h-7 min-h-7 cursor-crosshair border border-transparent px-1 text-xs font-medium hover:bg-surface/70 xl:min-h-7 xl:px-1",
           isActive && "text-primary",
         )}
         disabled={!canEdit}

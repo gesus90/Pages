@@ -8,6 +8,7 @@ import type { ComponentProps } from "react";
 export const DropdownMenu = DropdownMenuPrimitive.Root;
 export const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
 export const DropdownMenuSub = DropdownMenuPrimitive.Sub;
+export const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup;
 
 /** Renders a positioned Radix dropdown surface with Pages styling. */
 export function DropdownMenuContent({
@@ -94,6 +95,30 @@ export function DropdownMenuCheckboxItem({
       </span>
       {children}
     </DropdownMenuPrimitive.CheckboxItem>
+  );
+}
+
+/** Renders one Radix dropdown item of a single choice, checked while chosen. */
+export function DropdownMenuRadioItem({
+  className,
+  children,
+  ...properties
+}: ComponentProps<typeof DropdownMenuPrimitive.RadioItem>): React.ReactElement {
+  return (
+    <DropdownMenuPrimitive.RadioItem
+      className={cn(
+        "flex min-h-9 cursor-pointer items-center gap-2 rounded-md px-3 text-xs text-foreground outline-none data-highlighted:bg-muted data-disabled:pointer-events-none data-disabled:opacity-50",
+        className,
+      )}
+      {...properties}
+    >
+      <span className="flex size-4 shrink-0 items-center justify-center">
+        <DropdownMenuPrimitive.ItemIndicator>
+          <Check className="size-3.5 text-primary" aria-hidden="true" />
+        </DropdownMenuPrimitive.ItemIndicator>
+      </span>
+      {children}
+    </DropdownMenuPrimitive.RadioItem>
   );
 }
 

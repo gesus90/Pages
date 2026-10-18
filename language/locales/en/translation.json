@@ -3261,6 +3261,10 @@
     "disconnect": "Remove data connection for {{name}}",
     "validation": {
       "ticketHandoff": "Agent results are text and cannot forward ticket assets. Bind the same ticket source to the receiving agent’s ticket parameter.",
+      "resultSource": "The bound result source is missing or not an agent. Release the data connection and connect the result of an existing agent.",
+      "resultOrder": "The result source does not run before this agent. Only the result of an agent earlier in the flow can be connected.",
+      "resultMissing": "AGENT.md uses this placeholder, but nothing fills it. A predecessor’s result is never taken automatically: bind the wanted result to this input or enter a value.",
+      "resultAmbiguous": "AGENT.md uses this placeholder, but nothing fills it, and several earlier agents could be its source. Bind the wanted result to this input explicitly.",
       "duplicateNode": "The node identifier is duplicated.",
       "port": "This port does not exist or has the wrong direction. Only OUT → IN is allowed.",
       "duplicate": "This connection or data IN is already occupied. Disconnect it first.",
@@ -3298,8 +3302,6 @@
       }
     },
     "ticketOut": "Ticket OUT",
-    "deleteNode": "Delete node {{name}}",
-    "removeEndpoint": "Delete",
     "blockedShort": "Blocked",
     "removeLink": "Disconnect {{name}}",
     "removeLinkAtSource": "Disconnect {{name}} at source",
@@ -3529,7 +3531,6 @@
     "ticketChoice": "Selected ticket",
     "ticketUnavailable": "Ticket unavailable",
     "ticketUnavailableHint": "Deleted or not readable – choose another ticket",
-    "ticketWorkflowStatus": "Ticket status: {{status}}",
     "workspaceUnavailable": "Workspace unavailable",
     "resultOf": "Result of {{name}}",
     "groupPortValue": "Group port {{name}}",
@@ -3575,7 +3576,85 @@
       },
       "draftRevision": "Saved draft revision {{revision}}",
       "actualState": "Run state: {{state}}"
-    }
+    },
+    "ticketPicker": {
+      "choose": "Choose a ticket",
+      "dialog": "Ticket choice",
+      "searchLabel": "Search tickets by key or title",
+      "search": "Search ticket key or title …",
+      "phase": "Kanban phase",
+      "phaseFilter": "Filter Kanban phase: {{value}}",
+      "allPhases": "All phases",
+      "phaseCount_one": "{{count}} phase",
+      "phaseCount_other": "{{count}} phases",
+      "all": "All",
+      "sortLabel": "Sort",
+      "sortField": "Order: {{value}}",
+      "direction": "Reverse direction, now: {{value}}",
+      "sort": {
+        "title": "Title A–Z",
+        "created": "Creation date",
+        "updated": "Change date"
+      },
+      "order": {
+        "title": {
+          "asc": "Title A–Z",
+          "desc": "Title Z–A"
+        },
+        "created": {
+          "asc": "Oldest created",
+          "desc": "Newest created"
+        },
+        "updated": {
+          "asc": "Least recently changed",
+          "desc": "Last changed"
+        }
+      },
+      "time": {
+        "updated": {
+          "today": "Changed today, {{time}}",
+          "yesterday": "Changed yesterday, {{time}}",
+          "other": "Changed {{date}}, {{time}}",
+          "missing": "Change time unknown"
+        },
+        "created": {
+          "today": "Created today, {{time}}",
+          "yesterday": "Created yesterday, {{time}}",
+          "other": "Created {{date}}, {{time}}",
+          "missing": "Creation time unknown"
+        },
+        "exact": "Created {{created}} · Changed {{updated}}"
+      },
+      "list": "Tickets",
+      "selected": "Selected",
+      "count_one": "{{count}} ticket",
+      "count_other": "{{count}} tickets",
+      "matches_one": "{{count}} of {{total}} tickets",
+      "matches_other": "{{count}} of {{total}} tickets",
+      "keys": {
+        "navigate": "Navigate",
+        "choose": "Enter Choose",
+        "close": "Esc Close"
+      },
+      "loading": "Loading tickets …",
+      "refreshing": "updating …",
+      "refreshFailed": "Update failed – try again",
+      "error": "The tickets could not be loaded.",
+      "retry": "Try again",
+      "empty": "This project has no active tickets.",
+      "noMatch": "No ticket matches the search and phases.",
+      "reset": "Reset filters"
+    },
+    "delete": "Delete",
+    "editNamed": "Edit {{name}}",
+    "requiredValue": "Required value",
+    "modelRefusal": {
+      "otherAdapter": "The group runs on {{adapter}} – drag the agent out of the frame to use {{runner}}",
+      "notAcp": "{{runner}} shares no ACP group session – drag the agent out of the frame to use this model"
+    },
+    "resultUsed": "{{source}} fills {{placeholder}} in AGENT.md",
+    "resultUnused": "{{source}} is connected, but AGENT.md does not use {{placeholder}} – the result is not passed on",
+    "resultUnusedShort": "unused"
   },
   "mcpDuration": {
     "label": "Validity in days",

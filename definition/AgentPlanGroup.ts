@@ -117,6 +117,33 @@ export function planGroupRefusal(
   return adapter !== null && adapter !== provider ? "otherAdapter" : null;
 }
 
+/**
+ * Tells why a member of a group may not run on a provider, or `null` when it may.
+ *
+ * @param group - The group that holds the member.
+ * @param stepId - The member whose model would change.
+ * @param provider - The provider of the model it would run on.
+ * @param agents - The agents the editor or the server knows.
+ * @returns `notAcp` for a runner without ACP plan sessions and
+ * `otherAdapter` when another member runs on a different ACP adapter; the
+ * members of a group share one session, which never spans adapters.
+ */
+export function planMemberProviderRefusal(
+  group: AgentPlanGroup,
+  stepId: string,
+  provider: AgentProviderId,
+  agents: readonly AgentDefinitionChoice[],
+): Extract<AgentPlanGroupRefusal, "notAcp" | "otherAdapter"> | null {
+  if (!isAcpProvider(provider)) return "notAcp";
+  const others = group.steps.filter((step) => step.id !== stepId);
+  return others.some((step) => {
+    const adapter = planStepAdapter(step, agents);
+    return adapter !== null && adapter !== provider;
+  })
+    ? "otherAdapter"
+    : null;
+}
+
 /** The flow edges between the members of a group; an older group reads as the chain of its member order. */
 export function planGroupEdges(
   group: AgentPlanGroup,

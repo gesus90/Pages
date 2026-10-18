@@ -1,7 +1,10 @@
-import { Link2, X } from "lucide-react";
+import { Link2, Link2Off, X } from "lucide-react";
+import { useId } from "react";
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
+import { placeholderNames } from "@/definition/AgentParameters";
+import { planStepTemplate } from "@/definition/AgentPlanConfiguration";
 
 import { usePlanFlowContext } from "../plan-flow-context";
 import { PlanFlowHandle } from "../plan-flow-handle";
@@ -14,6 +17,7 @@ import {
   planValuePreview,
 } from "./plan-value-preview";
 
+import type { TFunction } from "i18next";
 import type { AgentParameter } from "@/definition/AgentParameters";
 import type { AgentPlanBinding, AgentPlanStep } from "@/definition/AgentPlan";
 import type { AgentParameterValue } from "@/definition/AgentParameters";
@@ -46,6 +50,7 @@ export function PlanAgentInput(props: PlanAgentInputProps): React.ReactElement {
   const { graph, canEdit } = usePlanFlowContext();
   const { step, parameter } = props;
   const binding = step.bindings[parameter.name];
+  const requiredId = useId();
   const hasIssue = graph.issues.some(
     (issue) => issue.nodeId === step.id && issue.port === parameter.name,
   );
@@ -62,7 +67,7 @@ export function PlanAgentInput(props: PlanAgentInputProps): React.ReactElement {
         data-plan-in={step.id}
         data-plan-parameter={parameter.name}
         className={cn(
-          "nodrag nopan flex h-7 min-w-0 items-center rounded-md border border-transparent px-1 text-left text-xs font-medium hover:bg-surface/70 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-default",
+          "nodrag nopan -ml-1.25 flex h-7 min-w-0 items-center rounded-md border border-transparent px-1 text-left text-xs font-medium hover:bg-surface/70 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-default",
           hasIssue && "text-destructive",
           planInTargetClass(graph, step.id, parameter.name),
         )}
@@ -70,17 +75,18 @@ export function PlanAgentInput(props: PlanAgentInputProps): React.ReactElement {
           parameter: parameter.name,
           name: props.label,
         })}
+        aria-describedby={parameter.isRequired ? requiredId : undefined}
         title={parameter.description || parameter.name}
         disabled={!canEdit}
         onClick={() => graph.connect(step.id, parameter.name)}
       >
         <span className="truncate">{parameter.name}</span>
-        {parameter.isRequired ? (
-          <span aria-hidden="true" className="shrink-0 pl-0.5">
-            *
-          </span>
-        ) : null}
       </button>
+      {parameter.isRequired ? (
+        <span id={requiredId} className="sr-only">
+          {t("plans.requiredValue")}
+        </span>
+      ) : null}
       {binding && binding.kind !== "literal" ? (
         <BoundValue {...props} binding={binding} />
       ) : (
@@ -90,25 +96,68 @@ export function PlanAgentInput(props: PlanAgentInputProps): React.ReactElement {
   );
 }
 
-/** A connected source, read only, distinct from a typed value. */
+/**
+ * How a bound input reads in its tooltip: a result names the placeholder of
+ * `AGENT.md` it fills, or that `AGENT.md` does not use it.
+ */
+function boundTitle(
+  props: PlanAgentInputProps & { readonly binding: AgentPlanBinding },
+  input: {
+    readonly preview: string;
+    readonly isUnused: boolean;
+    readonly translate: TFunction;
+  },
+): string {
+  const { translate, preview } = input;
+  const name = props.parameter.name;
+  if (props.binding.kind !== "result")
+    return translate("plans.boundValue", { parameter: name, source: preview });
+  return translate(input.isUnused ? "plans.resultUnused" : "plans.resultUsed", {
+    source: preview,
+    placeholder: `{{${name}}}`,
+  });
+}
+
+/**
+ * A connected source, read only, distinct from a typed value.
+ *
+ * @remarks
+ * A predecessor's result reaches the agent only where `AGENT.md` names the
+ * input; a result bound to an input it does not name is marked unused.
+ */
 function BoundValue(
   props: PlanAgentInputProps & { readonly binding: AgentPlanBinding },
 ): React.ReactElement {
   const { t } = useTranslation();
-  const { graph, canEdit } = usePlanFlowContext();
+  const { graph, canEdit, sources } = usePlanFlowContext();
   const preview = planBindingPreview(props.binding, usePlanValueContext());
   const name = props.parameter.name;
+  const markdown = planStepTemplate(props.step, sources.agents)?.markdown ?? "";
+  const isUnused =
+    props.binding.kind === "result" && !placeholderNames(markdown).has(name);
+  const Icon = isUnused ? Link2Off : Link2;
   return (
     <div
-      className="flex h-8 min-w-0 items-center gap-1 rounded-lg border border-dashed border-plan-parameter/70 bg-plan-parameter-subtle pl-2 text-xs text-foreground"
-      title={t("plans.boundValue", { parameter: name, source: preview })}
+      className={cn(
+        "flex h-8 min-w-0 items-center gap-1 rounded-lg border border-dashed border-plan-parameter/70 bg-plan-parameter-subtle pl-2 text-xs text-foreground",
+        isUnused && "text-muted-foreground",
+      )}
+      title={boundTitle(props, { preview, isUnused, translate: t })}
     >
-      <Link2
-        className="size-3.5 shrink-0 text-plan-parameter"
+      <Icon
+        className={cn(
+          "size-3.5 shrink-0",
+          isUnused ? "text-muted-foreground" : "text-plan-parameter",
+        )}
         aria-hidden="true"
       />
       <span className="sr-only">{t("plans.boundTo")}</span>
       <span className="min-w-0 flex-1 truncate">{preview}</span>
+      {isUnused ? (
+        <span className="shrink-0 rounded-sm bg-surface/70 px-1 text-[10px] leading-4 font-medium">
+          {t("plans.resultUnusedShort")}
+        </span>
+      ) : null}
       <button
         type="button"
         className="nodrag nopan flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-surface hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-50"

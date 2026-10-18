@@ -31,6 +31,8 @@ it("lists each ticket with the key and done flag of its current workflow status"
       statusKey: "todo",
       statusName: "Todo",
       isDone: false,
+      createdAt: "2026-01-01",
+      updatedAt: "2026-01-02",
     },
     {
       id: "done-id",
@@ -41,6 +43,8 @@ it("lists each ticket with the key and done flag of its current workflow status"
       statusKey: "done",
       statusName: "Done",
       isDone: true,
+      createdAt: "2026-01-01",
+      updatedAt: "2026-01-02",
     },
   ]);
   expect(findAll).toHaveBeenCalledWith(TICKET_ACTOR, {

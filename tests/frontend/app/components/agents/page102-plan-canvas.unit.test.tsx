@@ -100,7 +100,7 @@ async function removeWriter(): Promise<void> {
   );
   fireEvent.click(
     await screen.findByRole("menuitem", {
-      name: i18n.t("plans.deleteNode", { name: "Writer" }),
+      name: i18n.t("plans.delete"),
     }),
   );
 }

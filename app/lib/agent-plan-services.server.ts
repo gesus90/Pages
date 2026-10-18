@@ -15,6 +15,7 @@ import { AgentPlanSessionAccess } from "@/backend/service/agents/AgentPlanSessio
 import { AgentPlanStepRunner } from "@/backend/service/agents/AgentPlanStepRunner";
 import { AgentPlanStepStart } from "@/backend/service/agents/AgentPlanStepStart";
 import { AgentRunCredentialService } from "@/backend/service/mcp/AgentRunCredentialService";
+import { AgentPlanPhases } from "@/backend/service/agents/AgentPlanPhases";
 import { AgentPlanTasks } from "@/backend/service/agents/AgentPlanTasks";
 import { AgentPlanSharing } from "@/backend/service/agents/AgentPlanSharing";
 import { AgentSessionRepository } from "@/backend/database/repositories/agent/AgentSessionRepository";
@@ -106,6 +107,7 @@ export async function createAgentPlanService(input: {
     profiles,
     parameters,
     tasks,
+    phases: new AgentPlanPhases(input.tasks, input.users),
     access,
     preparation: new AgentPlanPreparation({
       profiles,

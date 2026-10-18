@@ -128,3 +128,58 @@ export function formatDateTime(
 
   return `${DATE_COMPOSERS[region.dateFormat](date)} ${hour}:${minute}`;
 }
+
+/**
+ * Formats the time of day of a stored timestamp.
+ *
+ * @param value - Timestamp such as `2026-09-30 14:05:00` (UTC).
+ * @param region - Time zone and date format of the visitor.
+ * @returns The time such as `16:05`, or `null` for a calendar date or
+ * unreadable text.
+ */
+export function formatTimeOfDay(
+  value: string,
+  region: RegionFormat,
+): string | null {
+  const instant = parseInstant(value);
+
+  if (instant === null) {
+    return null;
+  }
+
+  const { hour, minute } = readZonedParts(instant, region.timeZone);
+
+  return `${hour}:${minute}`;
+}
+
+function readZonedDayNumber(date: Date, timeZone: string): number {
+  const { year, month, day } = readZonedParts(date, timeZone);
+
+  return Date.UTC(Number(year), Number(month) - 1, Number(day)) / 86_400_000;
+}
+
+/**
+ * Counts the calendar days from a stored timestamp to a moment.
+ *
+ * @param value - Timestamp such as `2026-09-30 14:05:00` (UTC).
+ * @param now - The moment to count to, usually the current time.
+ * @param region - Time zone and date format of the visitor.
+ * @returns `0` on the same day and `1` on the day before, both in the
+ * visitor's time zone; `null` for a calendar date or unreadable text.
+ */
+export function calendarDaysBefore(
+  value: string,
+  now: Date,
+  region: RegionFormat,
+): number | null {
+  const instant = parseInstant(value);
+
+  if (instant === null) {
+    return null;
+  }
+
+  return (
+    readZonedDayNumber(now, region.timeZone) -
+    readZonedDayNumber(instant, region.timeZone)
+  );
+}

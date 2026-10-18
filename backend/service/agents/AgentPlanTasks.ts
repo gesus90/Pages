@@ -55,6 +55,8 @@ export class AgentPlanTasks {
           statusKey: item.statusKey,
           statusName: item.statusName,
           isDone: item.isDone,
+          createdAt: item.createdAt,
+          updatedAt: item.updatedAt,
         },
       ];
     });

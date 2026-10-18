@@ -7,6 +7,7 @@ import { planGroupIssues } from "./AgentPlanGroupGraph";
 import {
   hasAgentParameterValue,
   isAgentParameterName,
+  placeholderNames,
   scanAgentPlaceholders,
 } from "./AgentParameters";
 import { planStepTemplate } from "./AgentPlanConfiguration";
@@ -41,6 +42,10 @@ export interface AgentPlanIssue {
     | "cycle"
     | "type"
     | "ticketHandoff"
+    | "resultSource"
+    | "resultOrder"
+    | "resultMissing"
+    | "resultAmbiguous"
     | "source"
     | "required"
     | "start"
@@ -246,10 +251,24 @@ function bindingIssues(
       issues.push({ nodeId: step.id, port: name, reason: "port" });
     else if (binding.kind === "result" && parameter.type === "ticket")
       issues.push({ nodeId: step.id, port: name, reason: "ticketHandoff" });
-    else if (!fitsBinding(step, binding, plan, parameter.type))
+    else if (binding.kind === "result" && parameter.type === "text") {
+      const reason = resultIssue(step, binding.stepId, plan);
+      if (reason) issues.push({ nodeId: step.id, port: name, reason });
+    } else if (!fitsBinding(step, binding, plan, parameter.type))
       issues.push({ nodeId: step.id, port: name, reason: "type" });
   }
   return issues;
+}
+
+/** Why a result binding of a text input cannot deliver, or `null` when it can. */
+function resultIssue(
+  step: AgentPlanStep,
+  sourceId: string,
+  plan: AgentPlanInput,
+): "resultSource" | "resultOrder" | null {
+  if (!plan.nodes.some((node) => node.id === sourceId && node.type === "agent"))
+    return "resultSource";
+  return hasPlanPath(plan.edges, sourceId, step.id) ? null : "resultOrder";
 }
 
 function fitsBinding(
@@ -300,6 +319,44 @@ export function planConnectionIssues(
   return issues;
 }
 
+/**
+ * Text inputs that `AGENT.md` names but nothing fills: no binding, no typed
+ * value and no default.
+ *
+ * @remarks
+ * A predecessor's result is never taken by itself, not even with a single
+ * candidate; with several agents before the node the missing choice is named
+ * as ambiguous.
+ */
+function placeholderIssues(
+  step: AgentPlanStep,
+  parameters: readonly AgentParameter[],
+  input: { readonly markdown: string; readonly plan: AgentPlanInput },
+): AgentPlanIssue[] {
+  const named = placeholderNames(input.markdown);
+  const candidates = input.plan.nodes.filter(
+    (node) =>
+      node.type === "agent" &&
+      node.id !== step.id &&
+      hasPlanPath(input.plan.edges, node.id, step.id),
+  ).length;
+  return parameters.flatMap((parameter): AgentPlanIssue[] => {
+    if (parameter.type !== "text" || !named.has(parameter.name)) return [];
+    const binding = step.bindings[parameter.name];
+    if (binding?.kind === "result" || binding?.kind === "source") return [];
+    if (binding?.kind === "literal" && hasAgentParameterValue(binding.value))
+      return [];
+    if (!binding && hasAgentParameterValue(parameter.defaultValue)) return [];
+    return [
+      {
+        nodeId: step.id,
+        port: parameter.name,
+        reason: candidates > 1 ? "resultAmbiguous" : "resultMissing",
+      },
+    ];
+  });
+}
+
 function requiredParameterIssues(
   step: AgentPlanStep,
   agent: AgentDefinitionChoice | undefined,
@@ -318,21 +375,26 @@ function requiredParameterIssues(
     step.personalAgentId === ""
   )
     return [{ nodeId: step.id, port: null, reason: "agent" }];
-  return (configuration?.parameters ?? []).flatMap(
-    (parameter): AgentPlanIssue[] => {
-      if (
-        !parameter.isRequired &&
-        parameter.name !== configuration?.directoryParameter
-      )
-        return [];
-      const binding = step.bindings[parameter.name];
-      if (!binding && hasAgentParameterValue(parameter.defaultValue)) return [];
-      if (binding?.kind === "literal" && hasAgentParameterValue(binding.value))
-        return [];
-      if (hasConnectedValue(binding, plan)) return [];
-      return [{ nodeId: step.id, port: parameter.name, reason: "required" }];
-    },
-  );
+  const parameters = configuration?.parameters ?? [];
+  const unfilled = placeholderIssues(step, parameters, {
+    markdown: configuration?.markdown ?? "",
+    plan,
+  });
+  return parameters.flatMap((parameter): AgentPlanIssue[] => {
+    const placeholder = unfilled.find((issue) => issue.port === parameter.name);
+    if (placeholder) return [placeholder];
+    if (
+      !parameter.isRequired &&
+      parameter.name !== configuration?.directoryParameter
+    )
+      return [];
+    const binding = step.bindings[parameter.name];
+    if (!binding && hasAgentParameterValue(parameter.defaultValue)) return [];
+    if (binding?.kind === "literal" && hasAgentParameterValue(binding.value))
+      return [];
+    if (hasConnectedValue(binding, plan)) return [];
+    return [{ nodeId: step.id, port: parameter.name, reason: "required" }];
+  });
 }
 
 function hasConnectedValue(

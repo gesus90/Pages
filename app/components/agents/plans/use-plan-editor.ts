@@ -16,6 +16,7 @@ import type {
   AgentPlanSources,
 } from "@/definition/AgentPlan";
 import type { AgentPlanConfiguration } from "@/definition/AgentPlanConfiguration";
+import type { PlanTicketRefresh } from "./use-plan-ticket-refresh";
 
 async function loadNodeConfiguration(
   workspaceId: string,
@@ -40,6 +41,7 @@ export function usePlanEditor(page: AgentPlanPage): {
   readonly canEdit: boolean;
   readonly isPending: boolean;
   readonly sourceError: string | null;
+  readonly tickets: PlanTicketRefresh;
   readonly save: () => void;
   readonly rename: (name: string) => void;
   readonly changeContext: (workspace: AgentWorkspaceChoice) => void;
@@ -90,6 +92,7 @@ export function usePlanEditor(page: AgentPlanPage): {
     canEdit: page.selected?.canEdit ?? true,
     isPending: command.state !== "idle" || sourceState.isPending,
     sourceError: sourceState.error,
+    tickets: sourceState.tickets,
     save,
     rename: (name) => setDraft((previous) => ({ ...previous, name })),
     changeContext,

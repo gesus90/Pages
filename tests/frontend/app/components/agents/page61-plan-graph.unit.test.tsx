@@ -100,7 +100,7 @@ it("deletes a node with every connection it had and keeps the rest of the graph"
   );
   fireEvent.click(
     await screen.findByRole("menuitem", {
-      name: i18n.t("plans.deleteNode", { name: "Writer" }),
+      name: i18n.t("plans.delete"),
     }),
   );
   expect(within(grid()).queryByRole("article", { name: "Writer" })).toBeNull();
@@ -124,7 +124,7 @@ it("saves the removal so that the reopened plan still lacks the node and its con
   );
   fireEvent.click(
     await screen.findByRole("menuitem", {
-      name: i18n.t("plans.deleteNode", { name: "Writer" }),
+      name: i18n.t("plans.delete"),
     }),
   );
   pressSave();

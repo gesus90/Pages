@@ -3,11 +3,14 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
+import { isAgentParameterName } from "@/definition/AgentParameters";
 import { expandPlanGroups } from "@/definition/AgentPlanGroup";
 
+import { planAgentName } from "./plan-layout";
 import { PlanPanelContext } from "./plan-panel-context";
 import { PlanRunActions } from "./plan-run-actions";
 
+import type { TFunction } from "i18next";
 import type { AgentPlanIssue } from "@/definition/AgentPlanGraph";
 import type { AgentPlanPage } from "@/definition/AgentPlan";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
@@ -115,6 +118,7 @@ function PlanPanelBody(
         issue={issue ?? null}
         error={error}
         isDirty={editor.isDirty}
+        editor={editor}
         issues={
           editor.command.data?.ok === false
             ? editor.command.data.issues
@@ -130,6 +134,7 @@ function PlanPanelFeedback(props: {
   readonly issue: string | null;
   readonly error: string | null;
   readonly isDirty: boolean;
+  readonly editor: ReturnType<typeof usePlanEditor>;
   readonly issues?: readonly AgentPlanIssue[];
 }): React.ReactElement {
   const { t } = useTranslation();
@@ -174,7 +179,7 @@ function PlanPanelFeedback(props: {
           ) : null}
         </details>
       ) : null}
-      <PlanPanelIssues issues={props.issues} />
+      <PlanPanelIssues issues={props.issues} editor={props.editor} />
       {props.error ? (
         <p role="alert" className="text-destructive">
           {t(`settings.agents.error.${props.error}`, {
@@ -221,10 +226,37 @@ function panelStatus(
   return issue ? "blocked" : (control?.status ?? "idle");
 }
 
+/** Names the node and input of a finding by their names, never by an identifier. */
+function issueSubject(
+  issue: AgentPlanIssue,
+  editor: ReturnType<typeof usePlanEditor>,
+  translate: TFunction,
+): string {
+  // Frames are replaced by their members when groups are expanded.
+  const node = [
+    ...editor.draft.nodes,
+    ...expandPlanGroups(editor.draft).nodes,
+  ].find((entry) => entry.id === issue.nodeId);
+  let name = "";
+  if (node?.type === "agent")
+    name =
+      planAgentName(node, editor.sources) || translate("plans.missingAgent");
+  else if (node?.type === "task") {
+    const task = editor.sources.tasks.find((entry) => entry.id === node.taskId);
+    name = task ? task.key : translate("plans.ticketUnavailable");
+  } else if (node?.type === "start" || node?.type === "end")
+    name = translate(`plans.nodeType.${node.type}`);
+  else if (node) name = node.name;
+  const port = issue.port && isAgentParameterName(issue.port) ? issue.port : "";
+  return [name, port].filter(Boolean).join(" · ");
+}
+
 function PlanPanelIssues({
   issues = [],
+  editor,
 }: {
   readonly issues: readonly AgentPlanIssue[] | undefined;
+  readonly editor: ReturnType<typeof usePlanEditor>;
 }): React.ReactElement | null {
   const { t } = useTranslation();
   if (issues.length === 0) return null;
@@ -235,7 +267,12 @@ function PlanPanelIssues({
     >
       {issues.slice(0, 5).map((issue, index) => (
         <li key={index}>
-          {issue.nodeId}: {t(`plans.validation.${issue.reason}`)}
+          {[
+            issueSubject(issue, editor, t),
+            t(`plans.validation.${issue.reason}`),
+          ]
+            .filter(Boolean)
+            .join(": ")}
         </li>
       ))}
     </ul>

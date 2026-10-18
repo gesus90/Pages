@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
@@ -42,6 +43,7 @@ export function PlanPorts(props: {
   readonly canEdit: boolean;
 }): React.ReactElement {
   const { t } = useTranslation();
+  const requiredId = useId();
   function disconnect(name: string): void {
     disconnectPlanInput(props.graph, props.node, name);
   }
@@ -76,6 +78,11 @@ export function PlanPorts(props: {
                 parameter: parameter.name,
                 name: props.label,
               })}
+              aria-describedby={
+                parameter.isRequired
+                  ? `${requiredId}-${parameter.name}`
+                  : undefined
+              }
               disabled={!props.canEdit}
               onClick={() => props.graph.connect(props.node.id, parameter.name)}
             >
@@ -85,9 +92,13 @@ export function PlanPorts(props: {
               />
               <span className="truncate">
                 {t("plans.dataIn")} · {parameter.name} ({parameter.type})
-                {parameter.isRequired ? " *" : ""}
               </span>
             </button>
+            {parameter.isRequired ? (
+              <span id={`${requiredId}-${parameter.name}`} className="sr-only">
+                {t("plans.requiredValue")}
+              </span>
+            ) : null}
             {props.node.bindings[parameter.name] ? (
               <button
                 type="button"

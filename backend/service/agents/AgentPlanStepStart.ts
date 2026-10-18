@@ -4,7 +4,10 @@ import {
   isAcpProvider,
 } from "@/definition/AgentConfiguration";
 
-import { scanAgentPlaceholders } from "@/definition/AgentParameters";
+import {
+  placeholderNames,
+  scanAgentPlaceholders,
+} from "@/definition/AgentParameters";
 
 import { bindAgentParameters } from "./AgentParameterBinding";
 import { prepareGroupParameters } from "./AgentPlanGroupParameters";
@@ -164,7 +167,12 @@ export class AgentPlanStepStart {
         snapshot.plan.projectId,
         taskId,
       );
-    const values = resultValues(step, run, snapshot);
+    const { template, definition } = await this.readDefinition(step);
+    const values = resultValues(
+      step,
+      { run, snapshot },
+      promptParameters(template, step),
+    );
     const live = await this.dependencies.parameters.prepare(
       run.userId,
       {
@@ -177,7 +185,6 @@ export class AgentPlanStepStart {
       step.template,
     );
     validatePlanParameterContext(step, live);
-    const { template, definition } = await this.readDefinition(step);
     const parameters = await bindStepParameters(template, step, values, live);
     const options = agentRunOptionsFor(
       resolved.assignment.connection.provider,
@@ -369,16 +376,40 @@ function stepGitHubAccess(input: {
     : {};
 }
 
+/**
+ * The parameters the node's prompt names: its `AGENT.md`, and on OpenCode
+ * also its instruction, which is bound there as well.
+ */
+function promptParameters(
+  template: AgentPlanTemplate,
+  step: AgentPlanStepSnapshot,
+): ReadonlySet<string> {
+  const names = new Set(placeholderNames(template.markdown));
+  if (step.provider === "opencode")
+    for (const name of placeholderNames(step.step.instruction)) names.add(name);
+  return names;
+}
+
+/**
+ * Fills each result binding the prompt uses with the predecessor's answer.
+ *
+ * @remarks
+ * A result reaches the receiver only as the value of a declared parameter
+ * that its prompt names, such as `{{ergebnis}}`, and only once: the answer
+ * is data, so placeholders in it stay text. A binding the prompt does not
+ * name passes nothing and does not wait for the result's content.
+ */
 function resultValues(
   step: AgentPlanStepSnapshot,
-  run: AgentPlanRun,
-  snapshot: AgentPlanSnapshot,
+  state: { readonly run: AgentPlanRun; readonly snapshot: AgentPlanSnapshot },
+  used: ReadonlySet<string>,
 ): Readonly<Record<string, unknown>> {
+  const { run, snapshot } = state;
   const values: Record<string, unknown> = {
     ...step.prepared.parameters.values,
   };
   for (const [name, binding] of Object.entries(step.step.bindings)) {
-    if (binding.kind !== "result") continue;
+    if (binding.kind !== "result" || !used.has(name)) continue;
     requireTicketHandoff(
       step,
       snapshot.steps.find((source) => source.step.id === binding.stepId),

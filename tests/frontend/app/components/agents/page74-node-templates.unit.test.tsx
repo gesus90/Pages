@@ -121,21 +121,15 @@ function serverWithGroup(): PlanServer {
   return server;
 }
 
-/** Opens the group dialog from the frame's menu, unless it is open, and inserts one Reviewer copy. */
+/** Opens the group dialog from the frame's edit button, unless it is open, and inserts one Reviewer copy. */
 async function insertIntoGroup(): Promise<HTMLElement> {
   if (!screen.queryByRole("dialog")) {
     const frame = await screen.findByRole("region", {
       name: i18n.t("plans.groups.frame", { name: GROUP }),
     });
-    fireEvent.keyDown(
-      within(frame).getByRole("button", {
-        name: i18n.t("settings.agents.actionsFor", { name: GROUP }),
-      }),
-      { key: "Enter" },
-    );
     fireEvent.click(
-      await screen.findByRole("menuitem", {
-        name: i18n.t("settings.agents.edit"),
+      within(frame).getByRole("button", {
+        name: i18n.t("plans.editNamed", { name: GROUP }),
       }),
     );
   }
@@ -157,17 +151,11 @@ async function insertIntoGroup(): Promise<HTMLElement> {
   return dialog;
 }
 
-/** A double click opens the agent console; the node dialog opens from the action menu. */
+/** A double click opens the agent console; the node dialog opens from the edit button. */
 async function openNodeDialog(card: HTMLElement): Promise<void> {
-  fireEvent.keyDown(
-    within(card).getByRole("button", {
-      name: i18n.t("settings.agents.actionsFor", { name: "Reviewer" }),
-    }),
-    { key: "Enter" },
-  );
   fireEvent.click(
-    await screen.findByRole("menuitem", {
-      name: i18n.t("settings.agents.edit"),
+    await within(card).findByRole("button", {
+      name: i18n.t("plans.editNamed", { name: "Reviewer" }),
     }),
   );
 }

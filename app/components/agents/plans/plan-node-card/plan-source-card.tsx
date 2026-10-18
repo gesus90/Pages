@@ -1,14 +1,13 @@
-import { TriangleAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { usePlanFlowContext } from "../plan-flow-context";
 import { planNodeLabel } from "../plan-layout";
 import { PlanCard } from "./plan-card";
 import { PlanParameterFields } from "./plan-parameter-fields";
-import { PlanValueInput } from "./plan-value-input";
+import { PlanTicketPicker } from "./plan-ticket-picker";
 import { PlanValueOut } from "./plan-value-out";
 
-import type { AgentPlanNode, AgentPlanTask } from "@/definition/AgentPlan";
+import type { AgentPlanNode, AgentPlanSources } from "@/definition/AgentPlan";
 
 type PlanSourceNode = Extract<
   AgentPlanNode,
@@ -16,6 +15,16 @@ type PlanSourceNode = Extract<
 >;
 type PlanTicketNode = Extract<AgentPlanNode, { type: "task" }>;
 type PlanVariableNode = Extract<AgentPlanNode, { type: "variable" }>;
+
+/** The ticket's key and title; a ticket that is gone is named, not identified. */
+function ticketLabel(
+  node: PlanTicketNode,
+  sources: AgentPlanSources,
+  unavailable: string,
+): string {
+  const task = sources.tasks.find((entry) => entry.id === node.taskId);
+  return task ? `${task.key}: ${task.title}` : unavailable;
+}
 
 /**
  * Cards of value sources: violet parameters, yellow tickets and variables.
@@ -39,7 +48,12 @@ export function PlanSourceCard(props: {
     );
   if (node.type === "task")
     return (
-      <PlanCard node={node} label={label} title={t("plans.ticketsCard")}>
+      <PlanCard
+        node={node}
+        label={ticketLabel(node, sources, t("plans.ticketUnavailable"))}
+        title={t("plans.ticketsCard")}
+        size="large"
+      >
         <TicketFields node={node} />
       </PlanCard>
     );
@@ -63,63 +77,24 @@ function TicketFields(props: {
   readonly node: PlanTicketNode;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const { sources, graph, canEdit } = usePlanFlowContext();
+  const { graph, canEdit } = usePlanFlowContext();
   const { node } = props;
-  const task = sources.tasks.find((entry) => entry.id === node.taskId);
   return (
-    <div className="flex flex-col gap-1.5 px-3 pb-3">
-      <div className="relative grid h-8 grid-cols-[3rem_minmax(0,1fr)] items-center gap-2">
-        <span className="truncate text-xs text-muted-foreground">
+    <div className="px-3 pb-[0.9375rem]">
+      {/* The row keeps the card's 12 px inset, so its data OUT sits on the edge. */}
+      <div className="relative grid h-8 grid-cols-[3.125rem_minmax(0,1fr)] items-center gap-2 px-1">
+        <span className="truncate text-[13px] text-foreground">
           {t("plans.field.ticket")}
         </span>
-        <PlanValueInput
-          type="ticket"
-          value={{ type: "ticket", ticketId: node.taskId }}
+        <PlanTicketPicker
+          taskId={node.taskId}
           label={t("plans.ticketChoice")}
-          hasIssue={!task}
           disabled={!canEdit}
-          onChange={(value) => {
-            if (value.type === "ticket" && value.ticketId)
-              graph.replaceNode({ ...node, taskId: value.ticketId });
-          }}
+          onSelect={(taskId) => graph.replaceNode({ ...node, taskId })}
         />
         <PlanValueOut nodeId={node.id} labelKey="plans.ticketOut" />
       </div>
-      <TicketSummary task={task} />
     </div>
-  );
-}
-
-/** The chosen ticket's title and workflow status, apart from any run status. */
-function TicketSummary(props: {
-  readonly task: AgentPlanTask | undefined;
-}): React.ReactElement {
-  const { t } = useTranslation();
-  const { task } = props;
-  if (!task)
-    return (
-      <p className="flex h-5 min-w-0 items-center gap-1.5 text-xs text-destructive">
-        <TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />
-        <span className="truncate" title={t("plans.ticketUnavailableHint")}>
-          {t("plans.ticketUnavailableHint")}
-        </span>
-      </p>
-    );
-  return (
-    <p className="flex h-5 min-w-0 items-center gap-2 text-xs">
-      <span
-        className="min-w-0 flex-1 truncate text-muted-foreground"
-        title={`${task.key}: ${task.title}`}
-      >
-        {task.title}
-      </span>
-      <span
-        className="shrink-0 rounded-full border border-border bg-surface px-1.5 text-[11px] leading-4 text-muted-foreground"
-        title={t("plans.ticketWorkflowStatus", { status: task.statusName })}
-      >
-        {task.statusName}
-      </span>
-    </p>
   );
 }
 

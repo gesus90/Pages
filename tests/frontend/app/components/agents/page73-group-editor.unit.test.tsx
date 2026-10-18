@@ -85,17 +85,11 @@ function frame(): HTMLElement {
   });
 }
 
-/** The group's settings open from its node menu, as every node dialog does. */
+/** The group's settings open from its edit button, as every node dialog does. */
 async function openGroupDialog(): Promise<HTMLElement> {
-  fireEvent.keyDown(
-    within(frame()).getByRole("button", {
-      name: i18n.t("settings.agents.actionsFor", { name: GROUP }),
-    }),
-    { key: "Enter" },
-  );
   fireEvent.click(
-    await screen.findByRole("menuitem", {
-      name: i18n.t("settings.agents.edit"),
+    within(frame()).getByRole("button", {
+      name: i18n.t("plans.editNamed", { name: GROUP }),
     }),
   );
   return screen.findByRole("dialog", { name: i18n.t("plans.editNode") });

@@ -58,6 +58,8 @@
   --color-plan-parameter-subtle: #f1ecfb;
   --color-plan-ticket: #a37800;
   --color-plan-ticket-subtle: #fcf5d4;
+  /* The outline of a ticket card, in the dark theme a lighter lemon than its icon. */
+  --color-plan-ticket-edge: #a37800;
   --color-plan-checkpoint: #15803d;
   --color-plan-checkpoint-subtle: #e8f5eb;
   /* ACP groups frame their agents in a calm green, apart from the success status. */
@@ -65,6 +67,29 @@
   --color-plan-group-subtle: #f1f7f3;
   --color-status-active: #b94b08;
   --color-status-active-subtle: #fff1e6;
+
+  /* The ticket choice of a plan's ticket card: a neutral panel apart from the
+     yellow card, with its own outline, fields, lines and hover; the active
+     phase filter is orange. Phase badges follow the board's workflow. */
+  --color-ticket-picker: #ffffff;
+  --color-ticket-picker-foreground: #171717;
+  --color-ticket-picker-muted: #5d6574;
+  --color-ticket-picker-outline: #c4c9d2;
+  --color-ticket-picker-field: #d3d8e0;
+  --color-ticket-picker-line: #e6e9ee;
+  --color-ticket-picker-hover: #f1f3f6;
+  --color-ticket-picker-chip: #f7f8fa;
+  --color-ticket-picker-active: #fff1e6;
+  --color-ticket-picker-active-edge: #ea580c;
+  --color-ticket-picker-active-foreground: #9a3c0a;
+  --color-phase-neutral: #64748b;
+  --color-phase-neutral-subtle: #f1f5f9;
+  --color-phase-progress: #2563eb;
+  --color-phase-progress-subtle: #eff6ff;
+  --color-phase-review: #7c3aed;
+  --color-phase-review-subtle: #f5f3ff;
+  --color-phase-done: #15803d;
+  --color-phase-done-subtle: #f0fdf4;
 
   /* Notice of a ticket archived: the strong tone for text, two tints. */
   --color-notice: oklch(55.3% 0.195 38.402);
@@ -227,12 +252,33 @@
     --color-plan-parameter-subtle: #211a36;
     --color-plan-ticket: #facc15;
     --color-plan-ticket-subtle: #29250f;
+    --color-plan-ticket-edge: #f8e646;
     --color-plan-checkpoint: #4ade80;
     --color-plan-checkpoint-subtle: #10261a;
     --color-plan-group: #6fbf8e;
     --color-plan-group-subtle: #13221a;
     --color-status-active: #fb923c;
     --color-status-active-subtle: #2a1b11;
+
+    --color-ticket-picker: #1a1f24;
+    --color-ticket-picker-foreground: #f8f9fb;
+    --color-ticket-picker-muted: #c2cbda;
+    --color-ticket-picker-outline: #808792;
+    --color-ticket-picker-field: #626a76;
+    --color-ticket-picker-line: #393f48;
+    --color-ticket-picker-hover: #262c35;
+    --color-ticket-picker-chip: #2a2e38;
+    --color-ticket-picker-active: #8f4706;
+    --color-ticket-picker-active-edge: #f59e0b;
+    --color-ticket-picker-active-foreground: #ffffff;
+    --color-phase-neutral: #6f7b90;
+    --color-phase-neutral-subtle: #2f3747;
+    --color-phase-progress: #6f97cc;
+    --color-phase-progress-subtle: #34435b;
+    --color-phase-review: #6e66a6;
+    --color-phase-review-subtle: #312d4e;
+    --color-phase-done: #5f9a6c;
+    --color-phase-done-subtle: #22392d;
 
     --color-notice: #fdba74;
     --color-notice-subtle: #2a1d12;

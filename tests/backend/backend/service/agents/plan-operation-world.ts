@@ -160,6 +160,8 @@ export class PlanWorld {
       statusKey: "open",
       statusName: "Open",
       isDone: false,
+      createdAt: "2026-01-01 08:00:00",
+      updatedAt: "2026-01-02 09:00:00",
     },
   ];
   public saves = 0;

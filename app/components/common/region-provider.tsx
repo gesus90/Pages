@@ -2,6 +2,7 @@ import { createContext, useContext, useSyncExternalStore } from "react";
 
 import { formatDate, formatDateTime } from "@/app/lib/region-format";
 
+import type { RegionFormat } from "@/app/lib/region-format";
 import type { UserDateFormat, UserTimezone } from "@/definition/Settings";
 import type { ReactNode } from "react";
 
@@ -51,21 +52,32 @@ export function RegionProvider({
 }
 
 /**
- * Returns formatters for the date format and time zone of the user.
+ * Returns the date format and the time zone dates are shown in.
  *
  * @remarks
  * Without a chosen time zone, the zone of the browser applies. The server
  * does not know it, so it renders UTC and the browser takes over right after
  * hydration, which keeps both renderings identical while hydrating.
  */
-export function useRegionFormatter(): RegionFormatter {
+export function useRegionFormat(): RegionFormat {
   const { dateFormat, timezone } = useContext(RegionContext);
   const browserTimeZone = useSyncExternalStore(
     subscribeToNothing,
     readBrowserTimeZone,
     readServerTimeZone,
   );
-  const region = { dateFormat, timeZone: timezone ?? browserTimeZone };
+
+  return { dateFormat, timeZone: timezone ?? browserTimeZone };
+}
+
+/**
+ * Returns formatters for the date format and time zone of the user.
+ *
+ * @remarks
+ * The time zone follows {@link useRegionFormat}.
+ */
+export function useRegionFormatter(): RegionFormatter {
+  const region = useRegionFormat();
 
   return {
     formatDate: (value) => formatDate(value, region),

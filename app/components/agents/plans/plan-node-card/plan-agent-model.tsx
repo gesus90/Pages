@@ -1,6 +1,11 @@
 import { useTranslation } from "react-i18next";
 
 import { Select } from "@/app/components/ui/select";
+import {
+  planMemberProviderRefusal,
+  planStepProvider,
+} from "@/definition/AgentPlanGroup";
+import { findPlanStep } from "@/definition/AgentPlanGroupEdit";
 import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 
 import { usePlanFlowContext } from "../plan-flow-context";
@@ -9,6 +14,7 @@ import { PLAN_FIELD_CLASS } from "./plan-value-input";
 
 import type { AgentPlanStep } from "@/definition/AgentPlan";
 import type { AgentPlanConfiguration } from "@/definition/AgentPlanConfiguration";
+import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 import type { PageAgentModel } from "@/definition/PageAgent";
 
 const FOOTER_CLASS =
@@ -18,16 +24,20 @@ const FOOTER_CLASS =
  * Model and reasoning of an agent node, compact at the bottom of its card.
  *
  * @remarks
- * The lists offer only models the administrator released for this user,
- * and only those of the node's provider, so the card never switches the
- * provider; the node dialog keeps that choice. Without edit rights or
- * without a released model the card shows the effective values read only.
+ * The list offers every model the administrator released to the user for
+ * the plan's project, of any provider. Choosing one pins its model profile,
+ * model, provider and the model's own reasoning default on this node only;
+ * other nodes and the agent template stay as they are. A member of an ACP
+ * group shares the group's session, which never spans runners, so models of
+ * another runner stay listed but disabled, naming the way out: drag the
+ * agent out of the frame. Without edit rights or without a released model
+ * the card shows the effective values read only.
  */
 export function PlanAgentModel(props: {
   readonly step: AgentPlanStep;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const { sources, canEdit } = usePlanFlowContext();
+  const { sources, canEdit, draft } = usePlanFlowContext();
   const { step } = props;
   const agent = sources.agents.find((entry) => entry.id === step.agentId);
   const configuration =
@@ -40,9 +50,7 @@ export function PlanAgentModel(props: {
         </span>
       </footer>
     );
-  const models = (sources.models ?? []).filter(
-    (entry) => entry.provider === configuration.provider,
-  );
+  const models = sources.models ?? [];
   const model = models.find(
     (entry) => entry.id === configuration.modelProfileId,
   );
@@ -59,6 +67,7 @@ export function PlanAgentModel(props: {
       configuration={configuration}
       models={models}
       model={model}
+      group={findPlanStep(draft, step.id)?.group ?? null}
     />
   );
 }
@@ -90,18 +99,71 @@ function ModelValues(props: {
   );
 }
 
+/**
+ * The choices of the model list: runner and model id tell equal names apart.
+ *
+ * @remarks
+ * A model the node's group cannot share stays visible, disabled, with the
+ * reason and the way to choose it.
+ */
+function useModelOptions(input: {
+  readonly step: AgentPlanStep;
+  readonly models: readonly PageAgentModel[];
+  readonly group: AgentPlanGroup | null;
+}): readonly {
+  readonly value: string;
+  readonly label: string;
+  readonly description: string;
+  readonly disabled: boolean;
+}[] {
+  const { t } = useTranslation();
+  const { sources } = usePlanFlowContext();
+  const { group } = input;
+  const adapter = group?.steps
+    .filter((member) => member.id !== input.step.id)
+    .map((member) => planStepProvider(member, sources.agents))
+    .find((provider) => provider !== null);
+  return input.models.map((entry) => {
+    const refusal = group
+      ? planMemberProviderRefusal(
+          group,
+          input.step.id,
+          entry.provider,
+          sources.agents,
+        )
+      : null;
+    const runner = t(`settings.agents.providerShort.${entry.provider}`);
+    return {
+      value: entry.id,
+      label: entry.name,
+      description: refusal
+        ? t(`plans.modelRefusal.${refusal}`, {
+            runner,
+            adapter: adapter
+              ? t(`settings.agents.providerShort.${adapter}`)
+              : "",
+          })
+        : `${runner} · ${entry.model}`,
+      disabled: refusal !== null,
+    };
+  });
+}
+
 function ModelChoice(props: {
   readonly step: AgentPlanStep;
   readonly configuration: AgentPlanConfiguration;
   readonly models: readonly PageAgentModel[];
   readonly model: PageAgentModel | undefined;
+  readonly group: AgentPlanGroup | null;
 }): React.ReactElement {
   const { t } = useTranslation();
   const { graph } = usePlanFlowContext();
   const { step, configuration, model } = props;
+  const options = useModelOptions(props);
   const efforts = model?.reasoningEfforts ?? [];
   function selectModel(id: string): void {
     const selected = props.models.find((entry) => entry.id === id);
+    // The model's own default is a level it knows; an earlier one may not be.
     if (selected)
       graph.replaceNode(
         planStepWithModel(
@@ -139,11 +201,7 @@ function ModelChoice(props: {
                   disabled: true,
                 },
               ]),
-          ...props.models.map((entry) => ({
-            value: entry.id,
-            label: entry.name,
-            description: entry.model,
-          })),
+          ...options,
         ]}
         onValueChange={selectModel}
       />

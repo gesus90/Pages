@@ -1,4 +1,4 @@
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, Pencil } from "lucide-react";
 import { useId, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -11,28 +11,34 @@ import {
 } from "@/app/components/ui/dropdown-menu";
 
 interface PlanNodeActionsProps {
+  /** The node's name for the menu button; never a technical identifier. */
   readonly label: string;
   readonly disabled: boolean;
   readonly onRemove: () => void;
-  readonly onEdit?: () => void;
-  readonly removeLabel?: string;
   readonly shouldFocusCanvasOnRemove?: boolean;
+  /** The large ticket card shows larger dots. */
+  readonly size?: "default" | "large";
+}
+
+// Pointer and key events of the menu stay out of the canvas: no drag, pan or second delete.
+function keepInMenu(event: React.SyntheticEvent): void {
+  event.stopPropagation();
 }
 
 /**
- * Keeps destructive node actions inside the same keyboard-accessible menu.
+ * The three-dot menu of a node, which for now holds only Delete.
  *
  * @remarks
- * Opening the node dialog stays possible without edit rights, where it is
- * read only; a double click opens the agent console instead.
+ * Delete removes the node and its own connections from the plan, never the
+ * ticket, agent or runs it refers to. Without edit rights the menu is
+ * locked; the node dialog opens from {@link PlanNodeEditButton}.
  */
 export function PlanNodeActions({
   label,
   disabled,
   onRemove,
-  onEdit,
-  removeLabel,
   shouldFocusCanvasOnRemove = false,
+  size = "default",
 }: PlanNodeActionsProps): React.ReactElement {
   const { t } = useTranslation();
   const triggerId = useId();
@@ -61,35 +67,71 @@ export function PlanNodeActions({
           size="icon-sm"
           variant="ghost"
           className="nodrag nopan shrink-0 text-muted-foreground"
-          disabled={disabled && !onEdit}
+          disabled={disabled}
           aria-label={t("settings.agents.actionsFor", { name: label })}
-          onPointerDown={(event) => event.stopPropagation()}
-          onClick={(event) => event.stopPropagation()}
-          onDoubleClick={(event) => event.stopPropagation()}
+          onPointerDown={keepInMenu}
+          onClick={keepInMenu}
+          onDoubleClick={keepInMenu}
         >
-          <MoreHorizontal className="size-4" aria-hidden="true" />
+          {size === "large" ? (
+            <MoreHorizontal
+              className="size-[1.625rem]"
+              strokeWidth={2.35}
+              aria-hidden="true"
+            />
+          ) : (
+            <MoreHorizontal className="size-4" aria-hidden="true" />
+          )}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
         onCloseAutoFocus={restoreFocus}
-        onClick={(event) => event.stopPropagation()}
-        onKeyDown={(event) => event.stopPropagation()}
-        onDoubleClick={(event) => event.stopPropagation()}
+        onClick={keepInMenu}
+        onKeyDown={keepInMenu}
+        onDoubleClick={keepInMenu}
       >
-        {onEdit ? (
-          <DropdownMenuItem onSelect={onEdit}>
-            {t("settings.agents.edit")}
-          </DropdownMenuItem>
-        ) : null}
         <DropdownMenuItem
           disabled={disabled}
           className="text-destructive"
           onSelect={remove}
         >
-          {removeLabel ?? t("plans.deleteNode", { name: label })}
+          {t("plans.delete")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+/**
+ * Opens the node dialog of an agent or a group beside its menu.
+ *
+ * @remarks
+ * Instructions, completion, model and group members are edited there. It
+ * stays available without edit rights, where the dialog is read only.
+ */
+export function PlanNodeEditButton(props: {
+  /** The node's name; never a technical identifier. */
+  readonly label: string;
+  readonly onEdit: () => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const label = t("plans.editNamed", { name: props.label });
+  return (
+    <Button
+      size="icon-sm"
+      variant="ghost"
+      className="nodrag nopan shrink-0 text-muted-foreground"
+      aria-label={label}
+      title={label}
+      onPointerDown={keepInMenu}
+      onClick={(event) => {
+        keepInMenu(event);
+        props.onEdit();
+      }}
+      onDoubleClick={keepInMenu}
+    >
+      <Pencil className="size-3.5" aria-hidden="true" />
+    </Button>
   );
 }

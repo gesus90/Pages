@@ -59,6 +59,8 @@ function task(
     type: "task",
     parentId: null,
     ...status,
+    createdAt: "2026-01-01 08:00:00",
+    updatedAt: "2026-01-02 09:00:00",
   };
 }
 

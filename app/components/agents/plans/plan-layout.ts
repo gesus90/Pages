@@ -20,7 +20,7 @@ const PLAN_SOURCE_WIDTH = 260;
 const PLAN_ENDPOINT_WIDTH = 160;
 const PLAN_ENDPOINT_HEIGHT = 56;
 const PLAN_PARAMETER_HEIGHT = 166;
-const PLAN_TICKET_HEIGHT = 116;
+const PLAN_TICKET_HEIGHT = 101;
 const PLAN_VARIABLE_HEIGHT = 90;
 const AGENT_BASE_HEIGHT = 172;
 const AGENT_INPUT_HEIGHT = 38;
@@ -152,6 +152,23 @@ export function planDropGroup(
   return null;
 }
 
+/**
+ * The name of an agent node: its own copy first, else its agent.
+ *
+ * @returns An empty text when neither is known; callers name the missing
+ * agent instead of showing its identifier.
+ */
+export function planAgentName(
+  step: AgentPlanStep,
+  sources: AgentPlanSources,
+): string {
+  return (
+    step.configuration?.name ??
+    sources.agents.find((entry) => entry.id === step.agentId)?.name ??
+    ""
+  );
+}
+
 /** Labels stay readable when a saved resource has become unavailable. */
 export function planNodeLabel(
   node: AgentPlanNode,
@@ -180,7 +197,7 @@ const NODE_TINTS = {
   end: "border-plan-checkpoint/60 bg-plan-checkpoint-subtle",
   agent: "border-plan-agent/60 bg-plan-agent-subtle",
   group: "border-plan-group/60 bg-plan-group-subtle",
-  task: "border-plan-ticket/70 bg-plan-ticket-subtle",
+  task: "border-plan-ticket-edge bg-plan-ticket-subtle",
   variable: "border-plan-parameter/60 bg-plan-parameter-subtle",
   parameter: "border-plan-parameter/60 bg-plan-parameter-subtle",
 };

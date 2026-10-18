@@ -14,7 +14,8 @@ import type { PlanGraphActions } from "./use-plan-graph";
 const PORT_STYLES = {
   compact: {
     row: "h-7",
-    port: "nodrag nopan h-7 min-h-7 border-transparent bg-transparent px-1.5 text-xs font-medium shadow-none hover:bg-surface/70 focus-visible:ring-2 focus-visible:ring-ring xl:min-h-7",
+    // The labels share the left text edge of the input names below them.
+    port: "nodrag nopan h-7 min-h-7 border-transparent bg-transparent px-1 text-xs font-medium shadow-none hover:bg-surface/70 focus-visible:ring-2 focus-visible:ring-ring xl:min-h-7 xl:px-1",
     inLabel: "plans.flowInShort",
     outLabel: "plans.flowOutShort",
   },
@@ -80,6 +81,7 @@ export function PlanFlowPorts(props: {
           aria-label={t("plans.flowIn")}
           className={cn(
             style.port,
+            isCompact && "-ml-1.25",
             issue("flow-in") && "border-destructive text-destructive",
             planInTargetClass(graph, node.id),
           )}
@@ -100,6 +102,7 @@ export function PlanFlowPorts(props: {
           aria-label={t("plans.flowOut")}
           className={cn(
             style.port,
+            isCompact && "-mr-1.25",
             "cursor-crosshair",
             issue("flow-out") && "border-destructive text-destructive",
             graph.connection?.nodeId === node.id &&

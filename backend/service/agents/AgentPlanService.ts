@@ -48,6 +48,7 @@ import type { AgentTaskAssignment } from "@/definition/AgentUsage";
 import type { AgentWorkspaceService } from "./AgentWorkspaceService";
 import type { AgentProfileService } from "./AgentProfileService";
 import type { AgentParameterService } from "./AgentParameterService";
+import type { AgentPlanPhases } from "./AgentPlanPhases";
 import type { AgentPlanTasks } from "./AgentPlanTasks";
 import type { AgentPlanAccess } from "./AgentPlanAccess";
 import type { AgentPlanPreparation } from "./AgentPlanPreparation";
@@ -62,6 +63,7 @@ interface PlanDependencies {
   readonly profiles: AgentProfileService;
   readonly parameters: AgentParameterService;
   readonly tasks: AgentPlanTasks;
+  readonly phases: AgentPlanPhases;
   readonly access: AgentPlanAccess;
   readonly preparation: AgentPlanPreparation;
   readonly engine: AgentPlanRunEngine;
@@ -196,13 +198,15 @@ export class AgentPlanService {
     workspaceId: string,
   ): Promise<AgentPlanSources> {
     const workspace = await this.workspace(userId, workspaceId);
-    const [agents, tasks] = await Promise.all([
+    const [agents, tasks, phases] = await Promise.all([
       this.dependencies.profiles.catalog(userId, workspace.projectId),
       this.dependencies.tasks.list(userId, workspace.projectId),
+      this.dependencies.phases.list(userId, workspace.projectId),
     ]);
     return {
       agents,
       tasks,
+      phases,
       models: await this.dependencies.profiles.planModels(
         userId,
         workspace.projectId,

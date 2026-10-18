@@ -88,7 +88,6 @@ export function PlanEndpoint(props: PlanEndpointProps): React.ReactElement {
           label={label}
           disabled={!props.canEdit}
           onRemove={() => graph.remove(node.id)}
-          removeLabel={t("plans.removeEndpoint")}
           shouldFocusCanvasOnRemove
         />
       </div>

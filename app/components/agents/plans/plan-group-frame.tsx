@@ -9,7 +9,7 @@ import { PlanFlowPorts } from "./plan-flow-ports";
 import { keepPlanControlKeys } from "./plan-flow-keys";
 import { PLAN_FRAME_FOOTER, PLAN_NODE_WIDTH } from "./plan-layout";
 import { PlanGroupSessionValue } from "./plan-group-session";
-import { PlanNodeActions } from "./plan-node-actions";
+import { PlanNodeActions, PlanNodeEditButton } from "./plan-node-actions";
 import { PlanPorts } from "./plan-ports";
 import { PlanStatusBadge, planStatusClass } from "./plan-status";
 
@@ -143,12 +143,12 @@ function FrameHeader(
           isBlocked={props.result?.isBlocked}
         />
       ) : null}
+      <PlanNodeEditButton label={props.label} onEdit={edit} />
       <div className="nodrag nopan">
         <PlanNodeActions
           label={props.label}
           disabled={!props.canEdit}
           onRemove={() => graph.remove(group.id)}
-          onEdit={edit}
         />
       </div>
     </div>

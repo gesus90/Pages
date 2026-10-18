@@ -3261,6 +3261,10 @@
     "disconnect": "Datenverbindung für {{name}} entfernen",
     "validation": {
       "ticketHandoff": "Agent-Ergebnisse sind Text und können keine Ticket-Assets weitergeben. Dieselbe Ticketquelle an den Ticketparameter des empfangenden Agents binden.",
+      "resultSource": "Die gebundene Ergebnisquelle fehlt oder ist kein Agent. Die Datenverbindung lösen und das Ergebnis eines vorhandenen Agents verbinden.",
+      "resultOrder": "Die Ergebnisquelle läuft nicht vor diesem Agent. Nur das Ergebnis eines Agents, der im Ablauf vorher liegt, kann verbunden werden.",
+      "resultMissing": "AGENT.md verwendet diesen Platzhalter, aber nichts füllt ihn. Ein Vorgängerergebnis wird nie automatisch übernommen: das gewünschte Ergebnis an diesen Eingang binden oder einen Wert eintragen.",
+      "resultAmbiguous": "AGENT.md verwendet diesen Platzhalter, aber nichts füllt ihn, und mehrere vorherige Agents kommen als Quelle in Frage. Das gewünschte Ergebnis ausdrücklich an diesen Eingang binden.",
       "duplicateNode": "Die Knotenkennung ist doppelt.",
       "port": "Dieser Port existiert nicht oder hat die falsche Richtung. Nur OUT → IN ist erlaubt.",
       "duplicate": "Diese Verbindung bzw. dieser Daten-IN ist bereits belegt. Erst die Verbindung entfernen.",
@@ -3298,8 +3302,6 @@
       }
     },
     "ticketOut": "Ticket OUT",
-    "deleteNode": "Knoten {{name}} löschen",
-    "removeEndpoint": "Entfernen",
     "blockedShort": "Blockiert",
     "removeLink": "Verbindung {{name}} lösen",
     "removeLinkAtSource": "Verbindung {{name}} an der Quelle lösen",
@@ -3529,7 +3531,6 @@
     "ticketChoice": "Ausgewähltes Ticket",
     "ticketUnavailable": "Ticket nicht verfügbar",
     "ticketUnavailableHint": "Gelöscht oder nicht lesbar – anderes Ticket wählen",
-    "ticketWorkflowStatus": "Ticketstatus: {{status}}",
     "workspaceUnavailable": "Workspace nicht verfügbar",
     "resultOf": "Ergebnis von {{name}}",
     "groupPortValue": "Gruppenport {{name}}",
@@ -3575,7 +3576,85 @@
       },
       "draftRevision": "Gespeicherte Entwurfsrevision {{revision}}",
       "actualState": "Runzustand: {{state}}"
-    }
+    },
+    "ticketPicker": {
+      "choose": "Ticket auswählen",
+      "dialog": "Ticketauswahl",
+      "searchLabel": "Tickets nach Key oder Titel suchen",
+      "search": "Ticket-Key oder Titel suchen …",
+      "phase": "Kanban-Phase",
+      "phaseFilter": "Kanban-Phase filtern: {{value}}",
+      "allPhases": "Alle Phasen",
+      "phaseCount_one": "{{count}} Phase",
+      "phaseCount_other": "{{count}} Phasen",
+      "all": "Alle",
+      "sortLabel": "Sortieren",
+      "sortField": "Sortierung: {{value}}",
+      "direction": "Richtung umkehren, jetzt: {{value}}",
+      "sort": {
+        "title": "Titel A–Z",
+        "created": "Erstellungsdatum",
+        "updated": "Änderungsdatum"
+      },
+      "order": {
+        "title": {
+          "asc": "Titel A–Z",
+          "desc": "Titel Z–A"
+        },
+        "created": {
+          "asc": "Zuerst erstellt",
+          "desc": "Zuletzt erstellt"
+        },
+        "updated": {
+          "asc": "Zuerst geändert",
+          "desc": "Zuletzt geändert"
+        }
+      },
+      "time": {
+        "updated": {
+          "today": "Geändert heute, {{time}}",
+          "yesterday": "Geändert gestern, {{time}}",
+          "other": "Geändert {{date}}, {{time}}",
+          "missing": "Änderungszeit unbekannt"
+        },
+        "created": {
+          "today": "Erstellt heute, {{time}}",
+          "yesterday": "Erstellt gestern, {{time}}",
+          "other": "Erstellt {{date}}, {{time}}",
+          "missing": "Erstellungszeit unbekannt"
+        },
+        "exact": "Erstellt {{created}} · Geändert {{updated}}"
+      },
+      "list": "Tickets",
+      "selected": "Ausgewählt",
+      "count_one": "{{count}} Ticket",
+      "count_other": "{{count}} Tickets",
+      "matches_one": "{{count}} von {{total}} Tickets",
+      "matches_other": "{{count}} von {{total}} Tickets",
+      "keys": {
+        "navigate": "Navigieren",
+        "choose": "Enter Auswählen",
+        "close": "Esc Schließen"
+      },
+      "loading": "Tickets werden geladen …",
+      "refreshing": "wird aktualisiert …",
+      "refreshFailed": "Aktualisierung fehlgeschlagen – erneut versuchen",
+      "error": "Die Tickets konnten nicht geladen werden.",
+      "retry": "Erneut versuchen",
+      "empty": "Dieses Projekt hat keine aktiven Tickets.",
+      "noMatch": "Kein Ticket passt zu Suche und Phasen.",
+      "reset": "Filter zurücksetzen"
+    },
+    "delete": "Löschen",
+    "editNamed": "{{name}} bearbeiten",
+    "requiredValue": "Pflichtwert",
+    "modelRefusal": {
+      "otherAdapter": "Die Gruppe läuft mit {{adapter}} – Agent aus dem Rahmen ziehen, um {{runner}} zu nutzen",
+      "notAcp": "{{runner}} teilt keine ACP-Gruppensession – Agent aus dem Rahmen ziehen, um dieses Modell zu nutzen"
+    },
+    "resultUsed": "{{source}} füllt {{placeholder}} in AGENT.md",
+    "resultUnused": "{{source}} ist verbunden, aber AGENT.md verwendet {{placeholder}} nicht – das Ergebnis wird nicht übergeben",
+    "resultUnusedShort": "ungenutzt"
   },
   "mcpDuration": {
     "label": "Gültigkeit in Tagen",

@@ -920,10 +920,25 @@ and the others dashed; a release on the empty grid or Escape adds nothing:
   text parameter of an earlier plan still receives the ticket markdown. Plans
   that used tickets as flow checkpoints open with direct edges between the
   neighbours of those tickets. A ticket's status never changes implicitly.
+- The ticket field of a ticket node opens a large choice below it (PAGE-109):
+  search by key or title, a **Kanban phase** filter from the project's own
+  workflow (menu and chips share one state; several phases combine with OR,
+  the search with AND), and an order by title, creation or change time in
+  either direction, newest change first by default. Opening it reads the
+  project's visible, active tasks and subtasks again; archived, hidden and
+  other projects' tickets never appear, also not in the count. Only choosing a
+  row changes the node's ticket; arrows move, Enter chooses, Escape closes, and
+  keys typed there never reach the canvas.
 - A data IN accepts one source. Disconnect before rebinding. Wrong directions,
   unknown ports, incompatible types, duplicate connections and flow cycles
-  are rejected. Existing predecessor-result connections remain available and
-  require a flow path from the producing agent to the consuming agent.
+  are rejected. Predecessor-result connections are optional and require a flow
+  path from the producing agent to the consuming agent. A flow edge alone
+  passes no result: the result reaches an agent only through a declared text
+  input bound to that result whose placeholder, such as `{{ergebnis}}`, its
+  AGENT.md uses, once and as plain text. A bound result that AGENT.md does not
+  use is marked unused and passes nothing. A placeholder without a source is
+  refused before Play, named as ambiguous when several earlier agents could
+  provide it; a result is never picked by itself.
 
 Click a connection or its labelled chip, then use its **Disconnect** button to
 remove it alone; both nodes stay.
@@ -934,8 +949,9 @@ while nodes move: flow connections are solid, data connections dashed; both
 have directional arrows, labels and visible selection. Invalid targets are
 marked in the preview, and a refused IN chosen with the port buttons is named
 below the zoom bar.
-The node menu removes the node
-together with all of its connections; Delete or Backspace removes the selected
+The node menu holds only **Delete** (PAGE-109): it removes the node together
+with its own connections, never the referenced ticket, agent or run history.
+Delete or Backspace removes the selected
 node or connection while the grid or the selected node's header has focus, but
 never while a field, menu or dialog has it.
 
@@ -947,9 +963,15 @@ Agent templates stay editable in the Agents area. Each insertion of an agent,
 also into a group from its node dialog, fetches the current
 template and stores an independent node copy of its instruction, model grant,
 reasoning, parameters, directory binding and run options. Its configured defaults
-become individual connected parameter nodes. **Edit** in the node menu opens
-its own AGENT.md instruction, released model and reasoning level; the dialog
-identifies these changes as applying only to that node. Double-clicking an
+become individual connected parameter nodes. The pencil button beside the
+menu opens its own AGENT.md instruction, released model and reasoning level;
+the dialog identifies these changes as applying only to that node. The model
+list of an agent card offers every model released to you for the plan's
+project, of any provider, and switches model, grant and provider of that node
+only; reasoning levels follow the chosen model. Inside an ACP group, models of
+another runner stay listed but disabled, since a group shares one session:
+drag the agent out of the frame to use them. A withdrawn grant is named and
+refused at save and Play, without falling back to another model. Double-clicking an
 agent node opens its PageAgentCLI console instead: the fixed ticket panel over
 the dimmed plan with the node's session history, workspace and Git state,
 requested and confirmed model and reasoning, context occupancy, token and cache

@@ -139,6 +139,19 @@ export function scanAgentPlaceholders(markdown: string): {
   return { placeholders, hasUnsupportedRunNotes, hasInvalidSyntax };
 }
 
+/**
+ * The parameters a template really names, read with the one placeholder scanner.
+ *
+ * @param markdown - A template such as a node's `AGENT.md`.
+ * @returns The names of its placeholders, such as `ergebnis` for
+ * `{{ergebnis}}`; escaped placeholders do not count.
+ */
+export function placeholderNames(markdown: string): ReadonlySet<string> {
+  return new Set(
+    scanAgentPlaceholders(markdown).placeholders.map((found) => found.name),
+  );
+}
+
 /** Checks declared types and explicit directory use before enabling an agent. */
 export function agentParameterIssues(input: {
   readonly markdown: string;

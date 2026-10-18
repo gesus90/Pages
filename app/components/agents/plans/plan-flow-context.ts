@@ -7,6 +7,7 @@ import type {
 } from "@/definition/AgentPlan";
 import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
 import type { PlanGraphActions } from "./use-plan-graph";
+import type { PlanTicketRefresh } from "./use-plan-ticket-refresh";
 
 /** The Pages contracts accepted by the graph rendering layer. */
 export interface PlanCanvasProps {
@@ -17,6 +18,8 @@ export interface PlanCanvasProps {
   readonly run: AgentPlanRun | null;
   /** The workspaces of the plan's project, offered for workspace values. */
   readonly workspaces?: readonly AgentWorkspaceChoice[];
+  /** Reads the tickets of the plan's project again for the ticket choice. */
+  readonly tickets?: PlanTicketRefresh;
   readonly onEdit?: (id: string) => void;
   readonly onOpen?: (id: string) => void;
   /** Page controls stacked above the zoom bar, outside canvas gestures. */
