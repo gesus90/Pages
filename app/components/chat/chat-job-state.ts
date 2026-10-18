@@ -5,6 +5,7 @@ import type {
   ChatJobEvent,
   ChatJobPhase,
   ChatJobToolEvent,
+  ChatJobTurnEvent,
   ChatJobUpdate,
   ChatJobUsage,
   ChatSteerStatus,
@@ -33,6 +34,8 @@ export interface ChatLiveJob {
   /** Null until the adapter's handshake was journaled. */
   readonly canSteer?: boolean | null;
   readonly ended: ChatJobEndEvent | null;
+  /** When the running follow-up turn began; the first turn counts from the job's creation. */
+  readonly turnStartedAt?: string;
 }
 
 /** The result of applying one read of the journal. */
@@ -64,12 +67,22 @@ export function startChatLiveJob(job: ChatJob): ChatLiveJob {
   };
 }
 
+function beginTurn(live: ChatLiveJob, event: ChatJobTurnEvent): ChatLiveJob {
+  return {
+    ...live,
+    tools: [],
+    ...(event.startedAt === undefined
+      ? {}
+      : { turnStartedAt: event.startedAt }),
+  };
+}
+
 function applyEvent(live: ChatLiveJob, event: ChatJobEvent): ChatLiveJob {
   switch (event.kind) {
     case "phase":
       return { ...live, phase: event.phase };
     case "turn":
-      return { ...live, tools: [] };
+      return beginTurn(live, event);
     case "text":
       // Text of a later turn replaces what is shown; it may arrive before that turn's entry.
       return {

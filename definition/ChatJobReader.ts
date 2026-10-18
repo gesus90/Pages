@@ -118,6 +118,9 @@ function readProgressEvent(event: Fields): ChatJobEvent | null {
         kind: "turn",
         turn: count(event.turn),
         origin: oneOf(event.origin, ["message", "followUp"]),
+        ...(typeof event.startedAt === "string"
+          ? { startedAt: event.startedAt }
+          : {}),
       };
     case "text":
       if (typeof event.isReset !== "boolean") throw invalid();

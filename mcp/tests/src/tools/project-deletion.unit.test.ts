@@ -170,7 +170,7 @@ describe("project deletion tool definitions", () => {
     expect(description).toMatch(/no archive and no trash/);
     expect(description).toMatch(/tickets including all subtickets/);
     expect(description).toMatch(/wiki trash included/);
-    expect(description).toMatch(/execution plans with their runs/);
+    expect(description).toMatch(/agent plans with their runs/);
     expect(description).toMatch(/Shared objects stay/);
     expect(description).toMatch(/LÖSCHEN or DELETE \(both words are valid/);
     expect(description).toMatch(/Never infer confirmation/);

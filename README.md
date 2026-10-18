@@ -748,7 +748,7 @@ as `application/octet-stream`); other binary formats fail explicitly. The total
 unencoded file contents of one transmission are limited to 10 MiB. Exceeding
 that limit fails the run without truncating or omitting a file.
 
-Direct runs and execution plans share this resolution and delivery path.
+Direct runs and Agent Plans share this resolution and delivery path.
 OpenAI, OpenRouter, Anthropic and Google API agents receive native image blocks
 and separate complete text blocks. Codex, Claude and OpenCode ACP sessions receive PNG
 image blocks after the adapter advertises image support; text is an embedded
@@ -797,9 +797,9 @@ editors must reload before saving. Historical run records remain unchanged;
 definitions reserved by an active run retain their existing temporary lock.
 The separate owner and Pica deletion rules above still apply.
 
-## Agents execution plans
+## Agent Plans
 
-Under **Agents → Ausführplan** (`/agents/plans`) the plan editor is one
+Under **Agents → Agent Plan** (`/agents/plans`) the plan editor is one
 [React Flow](https://reactflow.dev/) canvas over the whole content area beside
 the global navigation, from the global header to the bottom of the window
 (PAGE-102). It shows only the nodes, their connections and one compact zoom bar

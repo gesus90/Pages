@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 
 import { WikiMarkdown } from "@/app/components/wiki/wiki-markdown";
+import { parseInstant } from "@/app/lib/region-format";
 
 import { chatErrorText } from "./chat-error";
 import { isChatJobRunning } from "./chat-job-state";
@@ -18,6 +19,17 @@ function hideImages(): boolean {
   return false;
 }
 
+/**
+ * The start of the request being answered: the follow-up turn if one runs,
+ * otherwise the job. Stored times are UTC text without a zone.
+ */
+function requestStart(live: ChatLiveJob): number {
+  return (
+    parseInstant(live.turnStartedAt ?? live.job.createdAt)?.getTime() ??
+    Number.NaN
+  );
+}
+
 /** Activity while running; afterwards the actual failure or stop and any unsaved answer. */
 export function ChatJobStatus({
   live,
@@ -25,12 +37,7 @@ export function ChatJobStatus({
 }: ChatJobStatusProps): React.ReactElement {
   const { t } = useTranslation();
   if (isChatJobRunning(live))
-    return (
-      <ChatLiveStatus
-        startedAt={Date.parse(live.job.createdAt)}
-        isOpen={isOpen}
-      />
-    );
+    return <ChatLiveStatus startedAt={requestStart(live)} isOpen={isOpen} />;
   const state = live.ended?.state ?? live.job.state;
   const errorCode = live.ended?.errorCode ?? live.job.errorCode;
   return (

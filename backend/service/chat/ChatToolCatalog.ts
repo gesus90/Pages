@@ -100,15 +100,15 @@ const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
   "agents.delete":
     "{agentId, expectedRevision} eigenen Benutzer-Agent entfernen; vorher lesen und ausdrücklich mit LÖSCHEN in der aktuellen Nachricht bestätigen",
 
-  "plans.list": `{text?, projectId?, ${WINDOW}} sichtbare Ausführpläne nach Name mit Projekt, Freigabe, canEdit, revision, state (idle|running|paused) und latestRun; text sucht im Namen`,
+  "plans.list": `{text?, projectId?, ${WINDOW}} sichtbare Agent Plans nach Name mit Projekt, Freigabe, canEdit, revision, state (idle|running|paused) und latestRun; text sucht im Namen`,
   "plans.read":
-    "{planId} Ausführplan mit nodes (label, Agent, Ticket, Parameter, bindings), edges (Ablauf from → to), Freigabe, revision und status (state, runCount, latestRun, isRunnable, issues) lesen",
+    "{planId} Agent Plan mit nodes (label, Agent, Ticket, Parameter, bindings), edges (Ablauf from → to), Freigabe, revision und status (state, runCount, latestRun, isRunnable, issues) lesen",
   "plans.sources.read":
     "{workspaceId?} Arbeitsbereiche für neue Pläne; mit workspaceId auch die Agents mit ihren Parametern für Agent-Nodes",
   "plans.runs.list": `{planId, order?: newest|oldest, ${WINDOW}} eigene Runs eines Plans mit runId, planId, startedAt und status, seitenweise (Standard 20 pro Seite)`,
   "plans.run.read": `{${RUN}} einen eigenen Run mit Start, Ende, Status und Status jedes Nodes lesen`,
   "plans.run.reports.read": `{${RUN}, stepId?} Berichte eines eigenen Runs lesen: je Node runId, stepId, Ausführungsstatus, Ergebnis, Fehler, Fortschritt, Kriterien und Todos`,
-  "plans.create": `{name, workspaceId, sharing?: {scope: private|global|restricted, operator?, groupIds?, departmentIds?}, ${CHANGES}} Ausführplan anlegen, ohne Freigabe privat`,
+  "plans.create": `{name, workspaceId, sharing?: {scope: private|global|restricted, operator?, groupIds?, departmentIds?}, ${CHANGES}} Agent Plan anlegen, ohne Freigabe privat`,
   "plans.update": `{${PLAN_TARGET}, name?, sharing?, ${CHANGES}} Struktur, Name oder Freigabe eines eigenen Plans ändern; alle changes gelten zusammen oder gar nicht`,
   "plans.parameter.create": `{${PLAN_TARGET}, name, value: {type: text, text}|{type: number, number}|{type: ticket, ticketId}|{type: workspace, workspaceId}|{type: wiki, pageId}, format?: string|number|json, x?, y?} Parameter-Node anlegen`,
   "plans.parameter.update": `{${PLAN_TARGET}, parameterId, name?, value?, format?, x?, y?} Parameter-Node ändern`,

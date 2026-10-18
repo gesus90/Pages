@@ -102,6 +102,8 @@ export interface ChatJobTurnEvent {
   readonly kind: "turn";
   readonly turn: number;
   readonly origin: "message" | "followUp";
+  /** UTC instant a follow-up turn began, so its elapsed time is its own; absent for the first turn. */
+  readonly startedAt?: string;
 }
 
 /** New answer text of the running turn; `isReset` starts a new message of the agent. */

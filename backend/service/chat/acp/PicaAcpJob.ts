@@ -22,6 +22,7 @@ import {
   picaAcpOutcome,
   readAnswer,
   requireCompleted,
+  turnBeganEvent,
 } from "./PicaAcpTurnResult";
 import { PicaAcpUpdates } from "./PicaAcpUpdates";
 
@@ -405,7 +406,7 @@ export class PicaAcpJob {
   private async beginTurn(origin: "message" | "followUp"): Promise<void> {
     this.turn += 1;
     this.toolTurns.bind(this.turn, this.requireContext(), this.requireBridge());
-    await this.journal.record({ kind: "turn", turn: this.turn, origin });
+    await this.journal.record(turnBeganEvent(this.turn, origin));
   }
 
   private async awaitTurn(

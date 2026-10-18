@@ -1857,7 +1857,7 @@ Error codes of these tools, with `details.reason` where Pages names one:
 
 ### Agent plans
 
-An agent plan (Ausführplan) is the graph of the plan page: start and end nodes,
+An agent plan is the graph of the plan page: start and end nodes,
 agent nodes with their own work order, ticket nodes and parameter nodes, flow
 connections between them and the inputs of each agent node. These tools work on
 the same plans as the plan page and under its rules; they add no right of their
@@ -2028,7 +2028,7 @@ good: no archiving and no move to the trash. That is all tickets including
 subtickets with their attachments, checklists, history, labels and links; all
 milestones, milestone initiatives and dependencies; all wiki pages of the project
 with comments, mentions, versions, attachments and favorites, including pages
-already in the wiki trash; execution plans with their runs, run records, MCP
+already in the wiki trash; agent plans with their runs, run records, MCP
 credentials and workspace reservations; registered workspaces (the directory on
 disk is never touched); import records and sources; member and department
 assignments, goals, events, activity, tags, the project key, icon and project

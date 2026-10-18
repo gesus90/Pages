@@ -7,12 +7,22 @@ import { logDiagnostic } from "@/backend/logging/Logger";
 import { CHAT_LIMITS } from "@/definition/Chat";
 
 import type { PlanSessionTurn } from "@/backend/agents/AgentPlanExecution";
-import type { ChatJobState } from "@/definition/ChatJob";
+import type { ChatJobState, ChatJobTurnEvent } from "@/definition/ChatJob";
 
 /** The terminal state and safe code produced by one Pica job. */
 export interface PicaAcpOutcome {
   readonly state: Exclude<ChatJobState, "running">;
   readonly errorCode: string | null;
+}
+
+/** The journal entry of a turn that began; a follow-up turn carries its start so its elapsed time is its own. */
+export function turnBeganEvent(
+  turn: number,
+  origin: ChatJobTurnEvent["origin"],
+): ChatJobTurnEvent {
+  return origin === "followUp"
+    ? { kind: "turn", turn, origin, startedAt: new Date().toISOString() }
+    : { kind: "turn", turn, origin };
 }
 
 /**

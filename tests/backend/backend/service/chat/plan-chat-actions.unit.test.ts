@@ -89,7 +89,7 @@ it("finds a plan by name, reads its newest run and answers with date and status"
     '"startedAt":"2026-10-14T13:42:00.000Z","status":"succeeded"',
   );
   const { instructions } = chat.prompts[0];
-  expect(instructions).toContain("## Ausführpläne");
+  expect(instructions).toContain("## Agent Plans");
   expect(instructions).toContain("frage nach, welcher gemeint ist");
   expect(instructions).toContain("succeeded = erfolgreich");
   expect(instructions).toContain("Datum und Uhrzeit des Starts");

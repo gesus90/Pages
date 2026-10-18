@@ -78,11 +78,9 @@ it("counts early adapter follow-up calls before dequeue and refuses its 257th ca
   for (let call = 0; call < 256; call += 1) await world.call();
   await world.job.steer(STEER);
   await vi.waitFor(() =>
-    expect(world.events).toContainEqual({
-      kind: "turn",
-      turn: 2,
-      origin: "followUp",
-    }),
+    expect(world.events).toContainEqual(
+      expect.objectContaining({ kind: "turn", turn: 2, origin: "followUp" }),
+    ),
   );
   expect((await world.call()).error).toBe("STEP_LIMIT");
   await completion;
