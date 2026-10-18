@@ -23,16 +23,33 @@
   z-index: 2;
 }
 
-/* The dots fade out softly towards every edge, so the canvas shows no border.
-   The layer of the dots is transparent and one radial gradient fades it, so
-   the Pages background below shows no seams; the mask only reads the alpha
-   of its color. */
+/* The dots fade out in a narrow band at every edge, so the canvas meets the
+   navigation, the header and the window without a border and keeps its full
+   raster everywhere else. Only the transparent layer of the dots is masked;
+   the canvas paints the Pages background below it, so no tint shows a seam.
+   The two bands are intersected: a corner fades as the product of its two
+   edges, without a darker spot or an overlapping stripe. The layer always
+   covers the visible canvas, so pan and zoom never move the band. The mask
+   only reads the alpha of its colors. */
 .grid {
-  mask-image: radial-gradient(
-    closest-side,
-    var(--color-foreground) 72%,
-    transparent
-  );
+  --plan-grid-fade: 2.5rem;
+
+  mask-image:
+    linear-gradient(
+      to right,
+      transparent,
+      var(--color-foreground) var(--plan-grid-fade),
+      var(--color-foreground) calc(100% - var(--plan-grid-fade)),
+      transparent
+    ),
+    linear-gradient(
+      to bottom,
+      transparent,
+      var(--color-foreground) var(--plan-grid-fade),
+      var(--color-foreground) calc(100% - var(--plan-grid-fade)),
+      transparent
+    );
+  mask-composite: intersect;
 }
 
 /* Empty frame areas stay pannable even when a large group covers the canvas. */
