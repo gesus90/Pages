@@ -1,21 +1,23 @@
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
+import { isPlanTemplateNode } from "@/definition/AgentPlanNodeTemplate";
 
 import { usePlanFlowContext } from "../plan-flow-context";
 import { keepPlanControlKeys } from "../plan-flow-keys";
 import { planNodeAccent, planNodeClass } from "../plan-layout";
 import { PlanNodeActions, PlanNodeEditButton } from "../plan-node-actions";
 import { PlanNodeIcon } from "../plan-node-icon";
+import { PLAN_NODE_ICON, PLAN_NODE_TEXT } from "../plan-node-text";
 
 import type { AgentPlanNode } from "@/definition/AgentPlan";
 
 // Header rows: plain cards, cards with a type line above the title, and the
-// large ticket card.
+// large ticket card, whose title keeps the shared size.
 const HEADER_CLASSES = {
   default: "h-11 gap-2 pr-1.5 pl-3",
   subtitle: "h-12 gap-2 pr-1.5 pl-3",
-  large: "h-[3.1875rem] gap-4 pr-3 pl-[0.9375rem]",
+  large: "h-[3.1875rem] gap-2 pr-3 pl-3",
 };
 
 interface PlanCardProps {
@@ -73,7 +75,7 @@ function headerSize(props: PlanCardProps): keyof typeof HEADER_CLASSES {
 
 function PlanCardHeader(props: PlanCardProps): React.ReactElement {
   const { t } = useTranslation();
-  const { graph, canEdit } = usePlanFlowContext();
+  const { graph, canEdit, requestTemplate } = usePlanFlowContext();
   const { node } = props;
   return (
     <header
@@ -85,7 +87,7 @@ function PlanCardHeader(props: PlanCardProps): React.ReactElement {
       <PlanNodeIcon
         type={node.type}
         className={cn(
-          props.size === "large" ? "size-7" : "size-4.5",
+          PLAN_NODE_ICON,
           "shrink-0",
           !props.runClass && planNodeAccent(node.type),
         )}
@@ -96,25 +98,22 @@ function PlanCardHeader(props: PlanCardProps): React.ReactElement {
         onClick={() => graph.select(node.id)}
         className={cn(
           "min-w-0 flex-1 rounded text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-          props.size === "large" && "mt-1.5",
           canEdit && "cursor-grab active:cursor-grabbing",
         )}
         aria-label={t("plans.selectNode", { name: props.label })}
         title={props.label}
       >
         {props.subtitle ? (
-          <span className="block text-[11px] leading-4 font-medium text-muted-foreground">
+          <span
+            className={cn(
+              "block font-medium text-muted-foreground",
+              PLAN_NODE_TEXT.meta,
+            )}
+          >
             {props.subtitle}
           </span>
         ) : null}
-        <span
-          className={cn(
-            "block truncate",
-            props.size === "large"
-              ? "text-[1.1875rem] leading-7 font-bold tracking-tight"
-              : "text-sm leading-5 font-semibold",
-          )}
-        >
+        <span className={cn("block truncate", PLAN_NODE_TEXT.title)}>
           {props.title}
         </span>
       </button>
@@ -132,6 +131,11 @@ function PlanCardHeader(props: PlanCardProps): React.ReactElement {
           label={props.label}
           disabled={!canEdit}
           onRemove={() => graph.remove(node.id)}
+          onSaveTemplate={
+            isPlanTemplateNode(node)
+              ? () => requestTemplate(node.id)
+              : undefined
+          }
           size={props.size}
         />
       </div>

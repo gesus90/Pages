@@ -7,6 +7,7 @@ import { isAgentParameterName } from "@/definition/AgentParameters";
 import { planValueIssue } from "@/definition/AgentPlanValue";
 
 import { usePlanFlowContext } from "../plan-flow-context";
+import { PLAN_NODE_TEXT } from "../plan-node-text";
 import { PLAN_FIELD_CLASS, PlanValueInput } from "./plan-value-input";
 import { PlanValueOut } from "./plan-value-out";
 
@@ -60,7 +61,9 @@ function FieldRow(props: {
 }): React.ReactElement {
   return (
     <div className="grid h-8 grid-cols-[3rem_minmax(0,1fr)] items-center gap-2">
-      <span className="truncate text-xs text-muted-foreground">
+      <span
+        className={cn("truncate text-muted-foreground", PLAN_NODE_TEXT.field)}
+      >
         {props.label}
       </span>
       {props.children}
@@ -133,12 +136,12 @@ export function PlanParameterFields(props: {
         <PlanValueOut nodeId={node.id} labelKey="plans.valueOut" />
       </div>
       {!isNameValid ? (
-        <p role="alert" className="text-[11px] leading-4 text-destructive">
+        <p role="alert" className={cn("text-destructive", PLAN_NODE_TEXT.meta)}>
           {t("plans.validation.name")}
         </p>
       ) : null}
       {issue ? (
-        <p role="alert" className="text-[11px] leading-4 text-destructive">
+        <p role="alert" className={cn("text-destructive", PLAN_NODE_TEXT.meta)}>
           {t(`plans.validation.${issue}`)}
         </p>
       ) : null}

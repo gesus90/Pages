@@ -97,6 +97,7 @@ export function PlanPage({
         sources={editor.sources}
         graph={editor.graph}
         canEdit={!disabled && Boolean(editor.draft.workspaceId)}
+        planId={page.selected?.id}
         onEdit={setEditingNodeId}
         onOpen={setConsoleNodeId}
         run={display.run}

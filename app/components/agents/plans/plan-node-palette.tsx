@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
-import { useId, useState } from "react";
+import { useId } from "react";
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
@@ -9,8 +9,11 @@ import { keepPlanControlKeys } from "./plan-flow-keys";
 import { PlanNodeIcon } from "./plan-node-icon";
 import { PlanPaletteButton } from "./plan-palette-button";
 import { PlanPaletteDialog } from "./plan-palette-dialog";
+import { PlanPaletteTabs } from "./plan-palette-tabs";
+import { PlanTemplateList } from "./plan-templates/plan-template-list";
 
 import type { PlanCanvasProps } from "./plan-flow-context";
+import type { PlanTemplates } from "./plan-templates/use-plan-templates";
 import type {
   PlanPaletteKind,
   usePlanNodePalette,
@@ -25,23 +28,34 @@ const PALETTE_KINDS: readonly PlanPaletteKind[] = [
   "group",
 ];
 
-/** A local, collapsible overlay; it never changes the graph's viewport or dimensions. */
+interface PlanNodePaletteProps {
+  readonly canvas: PlanCanvasProps;
+  readonly palette: ReturnType<typeof usePlanNodePalette>;
+  readonly templates: PlanTemplates;
+}
+
+/**
+ * A local, collapsible overlay with two tabs: node types and saved templates.
+ *
+ * @remarks
+ * Neither the tabs nor collapsing change the graph, the canvas size or its
+ * viewport; collapsed, only the arrow to open it again remains.
+ */
 export function PlanNodePalette({
   canvas,
   palette,
-}: {
-  readonly canvas: PlanCanvasProps;
-  readonly palette: ReturnType<typeof usePlanNodePalette>;
-}): React.ReactElement {
+  templates,
+}: PlanNodePaletteProps): React.ReactElement {
   const { t } = useTranslation();
-  const [isOpen, setOpen] = useState(true);
-  const contentId = useId();
+  const { view } = templates;
+  const baseId = useId();
+  const contentId = `${baseId}-panel`;
   const toggleLabel = t(
-    isOpen ? "plans.palette.collapse" : "plans.palette.expand",
+    view.isOpen ? "plans.palette.collapse" : "plans.palette.expand",
   );
   function toggle(event: React.MouseEvent<HTMLButtonElement>): void {
     event.currentTarget.focus({ preventScroll: true });
-    setOpen(!isOpen);
+    view.toggle();
   }
   const toggleButton = (
     <PlanPaletteButton
@@ -49,16 +63,16 @@ export function PlanNodePalette({
       variant="ghost"
       tooltip={toggleLabel}
       aria-label={toggleLabel}
-      aria-expanded={isOpen}
-      aria-controls={isOpen ? contentId : undefined}
+      aria-expanded={view.isOpen}
+      aria-controls={view.isOpen ? contentId : undefined}
       onClick={toggle}
       className={cn(
         "size-8 min-h-8 shrink-0 rounded-md p-0 xl:size-8 xl:min-h-8 xl:p-0 [@media(pointer:coarse)]:size-11 [@media(pointer:coarse)]:min-h-11",
-        !isOpen &&
+        !view.isOpen &&
           "border border-border/70 bg-surface/95 shadow-xs backdrop-blur-sm",
       )}
     >
-      {isOpen ? (
+      {view.isOpen ? (
         <ChevronRight className="size-4" aria-hidden="true" />
       ) : (
         <ChevronLeft className="size-4" aria-hidden="true" />
@@ -73,29 +87,36 @@ export function PlanNodePalette({
         onKeyDown={keepPlanControlKeys}
         className={cn(
           "pointer-events-auto flex min-h-0 max-h-full max-w-full flex-col self-end text-foreground @5xl:self-start",
-          isOpen &&
-            "w-44 shrink-0 rounded-lg border border-border bg-surface/95 p-2 shadow-floating backdrop-blur-sm",
+          view.isOpen &&
+            "w-56 shrink-0 rounded-xl border border-border bg-surface/95 p-2 shadow-floating backdrop-blur-sm",
         )}
       >
         <div
           className={cn(
-            "flex shrink-0 items-center justify-between gap-2",
-            isOpen && "mb-1.5 min-h-8",
+            "flex shrink-0 items-center justify-between gap-1",
+            view.isOpen && "mb-1.5 min-h-8",
           )}
         >
-          {isOpen ? (
-            <h2 className="min-w-0 text-xs leading-4.5 font-semibold wrap-anywhere">
-              {t("plans.palette.title")}
-            </h2>
-          ) : null}
+          {view.isOpen ? <PlanPaletteTabs view={view} baseId={baseId} /> : null}
           {toggleButton}
         </div>
-        {isOpen ? (
+        {view.isOpen ? (
           <div
             id={contentId}
+            role="tabpanel"
+            aria-labelledby={`${baseId}-${view.tab}`}
             className="flex min-h-0 flex-col gap-1 overflow-y-auto overscroll-contain"
           >
-            <PlanPaletteRows palette={palette} />
+            {view.tab === "nodes" ? (
+              <PlanPaletteRows palette={palette} />
+            ) : (
+              <PlanTemplateList
+                canvas={canvas}
+                list={templates.list}
+                insertion={templates.insertion}
+                blocked={palette.blocked}
+              />
+            )}
             {canvas.graph.insertionError ? (
               <p role="alert" className="pt-2 text-xs text-destructive">
                 {t(`settings.agents.error.${canvas.graph.insertionError}`)}

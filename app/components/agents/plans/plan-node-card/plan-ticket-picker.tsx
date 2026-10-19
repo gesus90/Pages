@@ -101,7 +101,7 @@ export function PlanTicketPicker(
         title={props.taskId ? title : undefined}
         disabled={props.disabled}
         className={cn(
-          "nodrag nopan nokey flex h-8 w-full min-w-0 items-center gap-2 rounded-[0.3125rem] border border-ticket-picker-outline bg-ticket-picker pr-2.5 pl-2.5 text-left text-[13px] text-ticket-picker-foreground outline-none hover:bg-ticket-picker-hover focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:opacity-70",
+          "nodrag nopan nokey flex h-8 w-full min-w-0 items-center gap-2 rounded-[0.3125rem] border border-ticket-picker-outline bg-ticket-picker pr-2.5 pl-2.5 text-left text-xs leading-4.5 text-ticket-picker-foreground outline-none hover:bg-ticket-picker-hover focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:opacity-70",
           Boolean(props.taskId) && !task && "border-destructive",
         )}
         onPointerDown={keepOnField}

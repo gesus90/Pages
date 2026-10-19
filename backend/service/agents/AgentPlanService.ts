@@ -17,6 +17,7 @@ import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { withoutTicketFlow } from "@/definition/AgentPlanGraph";
 import { logCaughtError } from "@/backend/logging/Logger";
+import { emptyAgentPlan } from "@/definition/AgentPlan";
 
 import { withPlanProgress } from "./AgentPlanProgressView";
 import { AgentPlanControlService } from "./AgentPlanControlService";
@@ -39,6 +40,7 @@ import type { AgentDefinitionChoice } from "@/definition/AgentAvailability";
 import type {
   AgentPlan,
   AgentPlanInput,
+  AgentPlanNode,
   AgentPlanPage,
   AgentPlanRun,
   AgentPlanSources,
@@ -228,6 +230,34 @@ export class AgentPlanService {
   ): Promise<readonly AgentDefinitionChoice[]> {
     const workspace = await this.workspace(userId, workspaceId);
     return this.dependencies.profiles.catalog(userId, workspace.projectId);
+  }
+
+  /**
+   * Checks nodes that are about to join a plan in the workspace, as a save would.
+   *
+   * @remarks
+   * Node templates use it: agents, models, run options, group adapters and
+   * referenced values must be available to the person in the workspace's
+   * project now. Nothing is stored or replaced.
+   *
+   * @throws {AgentError} The code of the first reference that is no longer available.
+   */
+  public async checkNodes(
+    userId: string,
+    workspaceId: string,
+    nodes: readonly AgentPlanNode[],
+  ): Promise<void> {
+    const workspace = await this.dependencies.workspaces.resolve(
+      userId,
+      workspaceId,
+    );
+    const plan = { ...emptyAgentPlan(), workspaceId, nodes };
+    const pinned = await this.pinConfigurations(
+      userId,
+      { ...plan, projectId: workspace.projectId },
+      null,
+    );
+    await this.validateReferences(userId, pinned, workspace.projectId);
   }
 
   /** Returns the workspaces of the projects the person may open, the choices of a new plan. */

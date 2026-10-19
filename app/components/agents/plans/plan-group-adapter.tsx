@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 
+import { PLAN_NODE_TEXT } from "./plan-node-text";
+
 import type { AcpProviderId } from "@/definition/AgentConfiguration";
 
 /**
@@ -21,7 +23,8 @@ export function PlanGroupAdapterBadge({
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap",
+        "inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 font-medium whitespace-nowrap",
+        PLAN_NODE_TEXT.meta,
         adapter === null
           ? "border-border text-muted-foreground"
           : "border-plan-group/40 bg-plan-group-subtle text-plan-group",

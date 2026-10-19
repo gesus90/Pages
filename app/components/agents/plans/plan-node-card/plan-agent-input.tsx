@@ -9,6 +9,7 @@ import { planStepTemplate } from "@/definition/AgentPlanConfiguration";
 import { usePlanFlowContext } from "../plan-flow-context";
 import { PlanFlowHandle } from "../plan-flow-handle";
 import { planInTargetClass } from "../plan-flow-ports";
+import { PLAN_NODE_TEXT } from "../plan-node-text";
 import { disconnectPlanInput } from "../plan-ports";
 import { PlanValueInput } from "./plan-value-input";
 import {
@@ -67,7 +68,8 @@ export function PlanAgentInput(props: PlanAgentInputProps): React.ReactElement {
         data-plan-in={step.id}
         data-plan-parameter={parameter.name}
         className={cn(
-          "nodrag nopan -ml-1.25 flex h-7 min-w-0 items-center rounded-md border border-transparent px-1 text-left text-xs font-medium hover:bg-surface/70 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-default",
+          "nodrag nopan -ml-1.25 flex h-7 min-w-0 items-center rounded-md border border-transparent px-1 text-left font-medium hover:bg-surface/70 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-default",
+          PLAN_NODE_TEXT.field,
           hasIssue && "text-destructive",
           planInTargetClass(graph, step.id, parameter.name),
         )}
@@ -139,7 +141,8 @@ function BoundValue(
   return (
     <div
       className={cn(
-        "flex h-8 min-w-0 items-center gap-1 rounded-lg border border-dashed border-plan-parameter/70 bg-plan-parameter-subtle pl-2 text-xs text-foreground",
+        "flex h-8 min-w-0 items-center gap-1 rounded-lg border border-dashed border-plan-parameter/70 bg-plan-parameter-subtle pl-2 text-foreground",
+        PLAN_NODE_TEXT.field,
         isUnused && "text-muted-foreground",
       )}
       title={boundTitle(props, { preview, isUnused, translate: t })}
@@ -154,7 +157,12 @@ function BoundValue(
       <span className="sr-only">{t("plans.boundTo")}</span>
       <span className="min-w-0 flex-1 truncate">{preview}</span>
       {isUnused ? (
-        <span className="shrink-0 rounded-sm bg-surface/70 px-1 text-[10px] leading-4 font-medium">
+        <span
+          className={cn(
+            "shrink-0 rounded-sm bg-surface/70 px-1 font-medium",
+            PLAN_NODE_TEXT.meta,
+          )}
+        >
           {t("plans.resultUnusedShort")}
         </span>
       ) : null}

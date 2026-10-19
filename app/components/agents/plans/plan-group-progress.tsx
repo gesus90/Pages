@@ -2,6 +2,8 @@ import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 
+import { PLAN_NODE_TEXT } from "./plan-node-text";
+
 import type {
   PlanGroupProgress,
   PlanGroupState,
@@ -20,13 +22,16 @@ const STATE_TONES: Record<PlanGroupState, string> = {
   unavailable: "text-destructive",
 };
 
-/** A readable status remains separate from the group's yellow type identity. */
+/**
+ * A readable status remains separate from the group's yellow type identity.
+ *
+ * @remarks
+ * Expanded and collapsed frames show it in the same extra-information role.
+ */
 export function PlanGroupStatus({
   progress,
-  isCompact = false,
 }: {
   readonly progress: PlanGroupProgress;
-  readonly isCompact?: boolean;
 }): React.ReactElement {
   const { t } = useTranslation();
   const label = t(`plans.groups.state.${progress.state}`);
@@ -39,7 +44,7 @@ export function PlanGroupStatus({
       }
       className={cn(
         "inline-flex shrink-0 items-center gap-1.5",
-        isCompact ? "text-[11px] leading-4" : "text-xs",
+        PLAN_NODE_TEXT.meta,
         STATE_TONES[progress.state],
       )}
     >
@@ -107,12 +112,19 @@ export function PlanGroupCount({
         aria-hidden="true"
         className={cn(
           "tabular-nums",
-          isCompact ? "text-xs" : "min-w-20 text-sm font-semibold",
+          "font-medium",
+          PLAN_NODE_TEXT.field,
+          !isCompact && "min-w-20",
         )}
       >
         <span className="block">{count}</span>
         {!isCompact ? (
-          <span className="mt-0.5 block text-[10px] font-normal text-muted-foreground">
+          <span
+            className={cn(
+              "block font-normal text-muted-foreground",
+              PLAN_NODE_TEXT.meta,
+            )}
+          >
             {t("plans.progress.completed")}
           </span>
         ) : null}

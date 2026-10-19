@@ -628,6 +628,10 @@
         "workspace_in_use": "Remove the references to the workspace before unregistering or rebinding it.",
         "plan_sources_failed": "The current agent template could not be loaded. Please insert it again.",
         "plan_invalid": "Check the plan fields and graph nodes.",
+        "template_name_required": "Enter a name for the template.",
+        "template_name_taken": "You already have a template with this name. Choose another name.",
+        "template_not_found": "The template no longer exists.",
+        "template_invalid": "This node cannot be saved as a template.",
         "plan_access_denied": "This plan or run is not accessible.",
         "plan_conflict": "The plan changed. Reload before saving or Play.",
         "plan_running": "A run of this plan is still active. Stop it before deleting the plan.",
@@ -3710,7 +3714,11 @@
     "resultUnused": "{{source}} is connected, but AGENT.md does not use {{placeholder}} – the result is not passed on",
     "resultUnusedShort": "unused",
     "palette": {
-      "title": "Nodes",
+      "tabs": "Node selection view",
+      "tab": {
+        "nodes": "Nodes",
+        "templates": "Templates"
+      },
       "label": "Node selection",
       "collapse": "Collapse node selection",
       "expand": "Open node selection",
@@ -3743,6 +3751,34 @@
       },
       "noAgents": "No usable agent definition is available in this workspace.",
       "noTickets": "No readable tickets are available in this project."
+    },
+    "templates": {
+      "saveAction": "Save as template…",
+      "saveTitle": "Save as template",
+      "saveDescription": {
+        "parameter": "Reuse the current parameter configuration later.",
+        "agent": "Reuse the current agent configuration later.",
+        "group": "Reuse the current group with its agents and internal connections later."
+      },
+      "name": "Name",
+      "nameRequired": "Enter a name for the template.",
+      "save": "Save",
+      "saving": "Saving …",
+      "saveFailed": "Not saved: {{reason}}",
+      "list": "Saved templates",
+      "loading": "Loading templates …",
+      "loadFailed": "The templates could not be loaded.",
+      "retry": "Load again",
+      "empty": "No templates yet. Save a parameter, agent or group node as a template from its “…” menu.",
+      "insert": "Insert template “{{name}}”",
+      "hint": "Click or press Enter to insert a new, independent copy; drag it onto the canvas to place it. Outer connections are not copied.",
+      "inserting": "Inserting …",
+      "inserted": "“{{name}}” inserted.",
+      "openInputs": "To complete: {{inputs}}.",
+      "insertFailed": "“{{name}}” was not inserted: {{reason}}",
+      "dismiss": "Close notice",
+      "members_one": "{{count}} agent",
+      "members_other": "{{count}} agents"
     },
     "progress": {
       "label": "Run progress",

@@ -117,7 +117,12 @@ it("keeps the canvas with its nodes, connections and one zoom bar free of plan c
       .getAllByRole("complementary")
       .map((panel) => panel.getAttribute("aria-label")),
   ).toEqual([i18n.t("plans.palette.label")]);
-  expect(screen.queryAllByRole("tab")).toHaveLength(0);
+  // Only the palette has tabs, Nodes and Templates (PAGE-117); no side panel returns.
+  expect(
+    screen
+      .queryAllByRole("tab")
+      .filter((tab) => !tab.closest("[data-plan-palette]")),
+  ).toHaveLength(0);
   // Node cards edit their own fields in place (PAGE-108); the canvas around them has no selects.
   expect(
     screen

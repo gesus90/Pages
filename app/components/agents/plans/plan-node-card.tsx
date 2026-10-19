@@ -43,6 +43,7 @@ export function PlanNodeCard({
         session={planRunGroupSession(run, node.id)}
         isCollapsed={context.collapsedGroups.has(node.id)}
         onToggle={() => context.toggleGroup(node.id)}
+        onSaveTemplate={context.requestTemplate}
       />
     );
   if (node.type === "agent")

@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 
 import { Select } from "@/app/components/ui/select";
+import { cn } from "@/app/lib/cn";
 import {
   planMemberProviderRefusal,
   planStepProvider,
@@ -10,6 +11,7 @@ import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 
 import { usePlanFlowContext } from "../plan-flow-context";
 import { planStepWithModel } from "../plan-node-configuration-fields";
+import { PLAN_NODE_TEXT } from "../plan-node-text";
 import { PLAN_FIELD_CLASS } from "./plan-value-input";
 
 import type { AgentPlanStep } from "@/definition/AgentPlan";
@@ -45,7 +47,12 @@ export function PlanAgentModel(props: {
   if (!configuration)
     return (
       <footer className={FOOTER_CLASS}>
-        <span className="col-span-2 truncate text-xs text-muted-foreground">
+        <span
+          className={cn(
+            "col-span-2 truncate text-muted-foreground",
+            PLAN_NODE_TEXT.field,
+          )}
+        >
           {t("pageAgents.missingModel")}
         </span>
       </footer>
@@ -82,14 +89,14 @@ function ModelValues(props: {
   return (
     <footer className={FOOTER_CLASS}>
       <p
-        className="truncate text-xs"
+        className={cn("truncate", PLAN_NODE_TEXT.field)}
         title={`${t("pageAgents.model")}: ${props.model}`}
       >
         <span className="sr-only">{t("pageAgents.model")}: </span>
         {props.model}
       </p>
       <p
-        className="truncate text-xs"
+        className={cn("truncate", PLAN_NODE_TEXT.field)}
         title={`${t("pageAgents.reasoning")}: ${reasoning}`}
       >
         <span className="sr-only">{t("pageAgents.reasoning")}: </span>

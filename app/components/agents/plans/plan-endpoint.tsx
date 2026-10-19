@@ -9,6 +9,7 @@ import { planInTargetClass } from "./plan-flow-ports";
 import { planNodeAccent, planNodeClass } from "./plan-layout";
 import { PlanNodeActions } from "./plan-node-actions";
 import { PlanNodeIcon } from "./plan-node-icon";
+import { PLAN_NODE_ICON, PLAN_NODE_TEXT } from "./plan-node-text";
 import { PlanStatusBadge, planStatusClass } from "./plan-status";
 
 import type {
@@ -63,14 +64,16 @@ export function PlanEndpoint(props: PlanEndpointProps): React.ReactElement {
         aria-label={t("plans.selectNode", { name: label })}
         title={props.hasRun ? statusLabel : label}
         className={cn(
-          "flex h-full flex-1 items-center gap-2 rounded-2xl pl-3.5 text-base font-semibold focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+          "flex h-full flex-1 items-center gap-2 rounded-2xl pl-3.5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+          PLAN_NODE_TEXT.title,
           props.canEdit && "cursor-grab active:cursor-grabbing",
         )}
       >
         <PlanNodeIcon
           type={node.type}
           className={cn(
-            "size-5 shrink-0",
+            PLAN_NODE_ICON,
+            "shrink-0",
             !props.hasRun && planNodeAccent(node.type),
           )}
         />

@@ -5,7 +5,11 @@ import { planGroupRefusal } from "@/definition/AgentPlanGroup";
 import { placePlanStep } from "@/definition/AgentPlanGroupEdit";
 
 import { planMemberOrigin } from "./plan-layout";
-import { createPlanNode, snapPlanCoordinate } from "./plan-node-factory";
+import {
+  createPlanNode,
+  planInsertPosition,
+  snapPlanCoordinate,
+} from "./plan-node-factory";
 
 import type { Dispatch, SetStateAction } from "react";
 import type {
@@ -16,6 +20,7 @@ import type {
   AgentPlanStep,
 } from "@/definition/AgentPlan";
 import type { AgentPlanConfiguration } from "@/definition/AgentPlanConfiguration";
+import type { AgentPlanTemplateNode } from "@/definition/AgentPlanNodeTemplate";
 import type {
   AgentPlanGroup,
   AgentPlanGroupRefusal,
@@ -35,16 +40,32 @@ interface InsertionOptions {
   ) => void;
 }
 
-/** Fetches the template at insertion time, then gives the new node its own defaults. */
-export function usePlanNodeInsertion(options: InsertionOptions): {
+/** Adding nodes of the palette and copies of saved node templates. */
+export interface PlanNodeInsertion {
   readonly add: (
     kind: AgentPlanNode["type"],
     reference: string,
     position?: AgentPlanPosition,
     groupId?: string,
   ) => string | null;
+  readonly insertTemplate: (
+    node: AgentPlanTemplateNode,
+    position?: AgentPlanPosition,
+    groupId?: string,
+  ) => string | null;
   readonly insertionError: string | null;
-} {
+}
+
+/**
+ * Fetches the template at insertion time, then gives the new node its own defaults.
+ *
+ * @remarks
+ * A copy of a saved node template joins as it is, like a node of the
+ * palette: in one draft change, into a frame only if the frame admits it.
+ */
+export function usePlanNodeInsertion(
+  options: InsertionOptions,
+): PlanNodeInsertion {
   const [insertionError, setInsertionError] = useState<string | null>(null);
   const { draft, sources, setDraft, select, loadConfiguration } = options;
   function targetGroup(groupId: string | undefined): AgentPlanGroup | null {
@@ -63,8 +84,15 @@ export function usePlanNodeInsertion(options: InsertionOptions): {
     options.onRefused?.(refusal, node, group);
     return false;
   }
-  function insert(node: AgentPlanNode, group: AgentPlanGroup | null): string {
-    const additions = nodeWithDefaults(node, draft, sources);
+  function insert(
+    node: AgentPlanNode,
+    group: AgentPlanGroup | null,
+    additions: readonly AgentPlanNode[] = nodeWithDefaults(
+      node,
+      draft,
+      sources,
+    ),
+  ): string {
     setDraft((previous) => {
       if (previous.workspaceId !== draft.workspaceId) return previous;
       const added = { ...previous, nodes: [...previous.nodes, ...additions] };
@@ -113,7 +141,24 @@ export function usePlanNodeInsertion(options: InsertionOptions): {
     }
     return insert(node, group);
   }
-  return { add, insertionError };
+  function insertTemplate(
+    node: AgentPlanTemplateNode,
+    position?: AgentPlanPosition,
+    groupId?: string,
+  ): string | null {
+    if (!draft.workspaceId) return null;
+    const at = position ?? planInsertPosition(draft);
+    const placed = {
+      ...node,
+      x: snapPlanCoordinate(at.x),
+      y: snapPlanCoordinate(at.y),
+    };
+    const group = targetGroup(groupId);
+    if (!admits(placed, group)) return null;
+    // The copy keeps its own configuration; no default value nodes join it.
+    return insert(placed, group, [placed]);
+  }
+  return { add, insertTemplate, insertionError };
 }
 
 /** The position of a new member, counted from the member area of its frame. */

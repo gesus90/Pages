@@ -64,6 +64,8 @@ const ERROR_STATUS: Partial<Record<AgentErrorCode, number>> = {
   plan_completed_changed: 409,
   plan_workspace_conflict: 409,
   plan_context_changed: 409,
+  template_name_taken: 409,
+  template_not_found: 404,
 };
 
 /** Keeps every error response uncacheable and never echoes a native error or form secret. */

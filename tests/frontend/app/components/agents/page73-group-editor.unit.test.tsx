@@ -186,7 +186,12 @@ it("edits a group from its node menu on the canvas and saves an ordered subgraph
   const rendered = renderPlanPage(server);
   await screen.findByRole("region", { name: i18n.t("plans.canvas") });
   // The source tabs of the former side panel are gone; the canvas offers the group itself.
-  expect(screen.queryAllByRole("tab")).toHaveLength(0);
+  // Only the palette has tabs, Nodes and Templates (PAGE-117).
+  expect(
+    screen
+      .queryAllByRole("tab")
+      .filter((tab) => !tab.closest("[data-plan-palette]")),
+  ).toHaveLength(0);
   const dialog = await openGroupDialog();
   await addMembers(dialog);
   closeDialog(dialog);

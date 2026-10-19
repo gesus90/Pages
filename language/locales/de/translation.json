@@ -628,6 +628,10 @@
         "workspace_in_use": "Entfernen Sie die Verweise auf den Arbeitsbereich, bevor Sie die Registrierung entfernen oder neu zuordnen.",
         "plan_sources_failed": "Die aktuelle Agent-Vorlage konnte nicht geladen werden. Bitte erneut einfügen.",
         "plan_invalid": "Planfelder und Graphknoten prüfen.",
+        "template_name_required": "Gib einen Namen für die Vorlage ein.",
+        "template_name_taken": "Du hast bereits eine Vorlage mit diesem Namen. Wähle einen anderen Namen.",
+        "template_not_found": "Die Vorlage existiert nicht mehr.",
+        "template_invalid": "Diese Node kann nicht als Vorlage gespeichert werden.",
         "plan_access_denied": "Dieser Plan oder Lauf ist nicht zugänglich.",
         "plan_conflict": "Der Plan wurde geändert. Vor Speichern oder Play neu laden.",
         "plan_running": "Ein Lauf dieses Plans ist noch aktiv. Stoppen Sie ihn, bevor Sie den Plan löschen.",
@@ -3710,7 +3714,11 @@
     "resultUnused": "{{source}} ist verbunden, aber AGENT.md verwendet {{placeholder}} nicht – das Ergebnis wird nicht übergeben",
     "resultUnusedShort": "ungenutzt",
     "palette": {
-      "title": "Nodes",
+      "tabs": "Ansicht der Node-Auswahl",
+      "tab": {
+        "nodes": "Nodes",
+        "templates": "Vorlagen"
+      },
       "label": "Node-Auswahl",
       "collapse": "Node-Auswahl einklappen",
       "expand": "Node-Auswahl öffnen",
@@ -3743,6 +3751,34 @@
       },
       "noAgents": "In diesem Workspace ist keine nutzbare Agentdefinition verfügbar.",
       "noTickets": "In diesem Projekt sind keine lesbaren Tickets verfügbar."
+    },
+    "templates": {
+      "saveAction": "Als Vorlage speichern…",
+      "saveTitle": "Als Vorlage speichern",
+      "saveDescription": {
+        "parameter": "Die aktuelle Parameter-Konfiguration später wiederverwenden.",
+        "agent": "Die aktuelle Agent-Konfiguration später wiederverwenden.",
+        "group": "Die aktuelle Gruppe mit ihren Agents und internen Verbindungen später wiederverwenden."
+      },
+      "name": "Name",
+      "nameRequired": "Gib einen Namen für die Vorlage ein.",
+      "save": "Speichern",
+      "saving": "Speichert …",
+      "saveFailed": "Nicht gespeichert: {{reason}}",
+      "list": "Gespeicherte Vorlagen",
+      "loading": "Vorlagen werden geladen …",
+      "loadFailed": "Die Vorlagen konnten nicht geladen werden.",
+      "retry": "Erneut laden",
+      "empty": "Noch keine Vorlagen. Speichere eine Parameter-, Agent- oder Gruppen-Node über ihr Menü „…“ als Vorlage.",
+      "insert": "Vorlage „{{name}}“ einfügen",
+      "hint": "Klicken oder Enter fügt eine neue, unabhängige Kopie ein; zum Platzieren auf die Arbeitsfläche ziehen. Externe Verbindungen werden nicht übernommen.",
+      "inserting": "Wird eingefügt …",
+      "inserted": "„{{name}}“ eingefügt.",
+      "openInputs": "Zu vervollständigen: {{inputs}}.",
+      "insertFailed": "„{{name}}“ wurde nicht eingefügt: {{reason}}",
+      "dismiss": "Hinweis schließen",
+      "members_one": "{{count}} Agent",
+      "members_other": "{{count}} Agents"
     },
     "progress": {
       "label": "Lauffortschritt",

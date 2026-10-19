@@ -25,6 +25,11 @@ export const AGENT_ERROR_MESSAGES = {
   plan_pause_required:
     "Pause the run and wait until all steps have drained before editing.",
   plan_invalid: "Check the plan fields and graph nodes.",
+  template_name_required: "Enter a name for the template.",
+  template_name_taken:
+    "You already have a template with this name. Choose another name.",
+  template_not_found: "The template no longer exists.",
+  template_invalid: "This node cannot be saved as a template.",
   plan_access_denied: "This plan or run is not accessible.",
   plan_conflict: "The plan changed. Reload it before saving or starting.",
   plan_running:

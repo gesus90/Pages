@@ -120,7 +120,7 @@ export function PlanPaletteButton({
               id={tooltipId}
               role="tooltip"
               style={{ visibility: "hidden" }}
-              className="pointer-events-none fixed z-50 max-w-[min(18rem,calc(100vw-1rem))] rounded-lg border border-border bg-surface px-3 py-2 text-xs leading-relaxed text-foreground shadow-panel"
+              className="pointer-events-none fixed z-50 max-w-[min(18rem,calc(100vw-1rem))] rounded-lg border border-border bg-surface px-3 py-2 text-xs leading-relaxed whitespace-pre-line text-foreground shadow-panel"
             >
               {tooltip}
             </span>,

@@ -1,4 +1,4 @@
-import { MoreHorizontal, Pencil } from "lucide-react";
+import { MoreHorizontal, Pencil, Save, Trash2 } from "lucide-react";
 import { useId, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -7,6 +7,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/app/components/ui/dropdown-menu";
 
@@ -15,6 +16,8 @@ interface PlanNodeActionsProps {
   readonly label: string;
   readonly disabled: boolean;
   readonly onRemove: () => void;
+  /** Saves the node's configuration as a template; only parameter, agent and group nodes offer it. */
+  readonly onSaveTemplate?: () => void;
   readonly shouldFocusCanvasOnRemove?: boolean;
   /** The large ticket card shows larger dots. */
   readonly size?: "default" | "large";
@@ -26,23 +29,27 @@ function keepInMenu(event: React.SyntheticEvent): void {
 }
 
 /**
- * The three-dot menu of a node, which for now holds only Delete.
+ * The three-dot menu of a node: Save as template, where the node type offers
+ * it, and Delete.
  *
  * @remarks
- * Delete removes the node and its own connections from the plan, never the
- * ticket, agent or runs it refers to. Without edit rights the menu is
- * locked; the node dialog opens from {@link PlanNodeEditButton}.
+ * Saving a template leaves the plan unchanged. Delete removes the node and
+ * its own connections from the plan, never the ticket, agent, template or
+ * runs it refers to. Without edit rights the menu is locked; the node dialog
+ * opens from {@link PlanNodeEditButton}.
  */
 export function PlanNodeActions({
   label,
   disabled,
   onRemove,
+  onSaveTemplate,
   shouldFocusCanvasOnRemove = false,
   size = "default",
 }: PlanNodeActionsProps): React.ReactElement {
   const { t } = useTranslation();
   const triggerId = useId();
   const removeFocus = useRef<HTMLElement | null>(null);
+  const isDialogOpening = useRef(false);
   function remove(): void {
     if (disabled) return;
     if (shouldFocusCanvasOnRemove)
@@ -53,7 +60,18 @@ export function PlanNodeActions({
           ?.closest("section") ?? null;
     onRemove();
   }
+  function saveTemplate(): void {
+    if (disabled || !onSaveTemplate) return;
+    isDialogOpening.current = true;
+    onSaveTemplate();
+  }
   function restoreFocus(event: Event): void {
+    // The save dialog takes the focus; the trigger must not pull it back.
+    if (isDialogOpening.current) {
+      isDialogOpening.current = false;
+      event.preventDefault();
+      return;
+    }
     if (!removeFocus.current) return;
     event.preventDefault();
     removeFocus.current.focus({ preventScroll: true });
@@ -91,11 +109,25 @@ export function PlanNodeActions({
         onKeyDown={keepInMenu}
         onDoubleClick={keepInMenu}
       >
+        {onSaveTemplate ? (
+          <>
+            <DropdownMenuItem
+              disabled={disabled}
+              className="gap-2.5"
+              onSelect={saveTemplate}
+            >
+              <Save className="size-4 shrink-0" aria-hidden="true" />
+              {t("plans.templates.saveAction")}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        ) : null}
         <DropdownMenuItem
           disabled={disabled}
-          className="text-destructive"
+          className="gap-2.5 text-destructive"
           onSelect={remove}
         >
+          <Trash2 className="size-4 shrink-0" aria-hidden="true" />
           {t("plans.delete")}
         </DropdownMenuItem>
       </DropdownMenuContent>

@@ -15,13 +15,13 @@ const PORT_STYLES = {
   compact: {
     row: "h-7",
     // The labels share the left text edge of the input names below them.
-    port: "nodrag nopan h-7 min-h-7 border-transparent bg-transparent px-1 text-xs font-medium shadow-none hover:bg-surface/70 focus-visible:ring-2 focus-visible:ring-ring xl:min-h-7 xl:px-1",
+    port: "nodrag nopan h-7 min-h-7 border-transparent bg-transparent px-1 text-xs leading-4.5 font-medium shadow-none hover:bg-surface/70 focus-visible:ring-2 focus-visible:ring-ring xl:min-h-7 xl:px-1 xl:text-xs",
     inLabel: "plans.flowInShort",
     outLabel: "plans.flowOutShort",
   },
   regular: {
     row: "h-8",
-    port: "nodrag nopan h-7 min-h-7 px-2 text-xs focus-visible:ring-2 focus-visible:ring-ring xl:min-h-7",
+    port: "nodrag nopan h-7 min-h-7 px-2 text-xs leading-4.5 focus-visible:ring-2 focus-visible:ring-ring xl:min-h-7 xl:text-xs",
     inLabel: "plans.flowIn",
     outLabel: "plans.flowOut",
   },

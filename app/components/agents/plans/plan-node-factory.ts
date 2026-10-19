@@ -22,6 +22,14 @@ export function snapPlanCoordinate(coordinate: number): number {
   );
 }
 
+/** Where a node added without a pointer goes: the next cell of a three-column grid. */
+export function planInsertPosition(draft: AgentPlanInput): AgentPlanPosition {
+  return {
+    x: 40 + (draft.nodes.length % 3) * 320,
+    y: 40 + Math.floor(draft.nodes.length / 3) * 340,
+  };
+}
+
 /** Creates an instance only from known source IDs, with an explicit default directory binding. */
 export function createPlanNode(input: {
   readonly draft: AgentPlanInput;
@@ -32,10 +40,7 @@ export function createPlanNode(input: {
 }): AgentPlanNode | null {
   const { draft, sources, kind, reference } = input;
   if (!draft.workspaceId) return null;
-  const position = input.position ?? {
-    x: 40 + (draft.nodes.length % 3) * 320,
-    y: 40 + Math.floor(draft.nodes.length / 3) * 340,
-  };
+  const position = input.position ?? planInsertPosition(draft);
   const base = {
     id: createRandomUuid(),
     x: snapPlanCoordinate(position.x),

@@ -18,7 +18,7 @@ import type {
  * Sized for the 32 px rows that plan-layout.ts counts.
  */
 export const PLAN_FIELD_CLASS =
-  "nodrag nopan nokey h-8 min-h-8 w-full min-w-0 rounded-lg border border-border bg-surface px-2.5 text-xs shadow-none xl:h-8 xl:px-2.5 xl:text-xs";
+  "nodrag nopan nokey h-8 min-h-8 w-full min-w-0 rounded-lg border border-border bg-surface px-2.5 text-xs leading-4.5 shadow-none xl:h-8 xl:px-2.5 xl:text-xs";
 
 interface PlanValueInputProps {
   readonly type: AgentParameterType;

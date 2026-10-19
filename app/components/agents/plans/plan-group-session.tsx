@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 
+import { PLAN_NODE_TEXT } from "./plan-node-text";
+
 import type { AcpProviderId } from "@/definition/AgentConfiguration";
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { AgentPlanSessionRecord } from "@/definition/AgentPlanSession";
@@ -86,7 +88,8 @@ export function PlanGroupSessionValue({
   return (
     <p
       className={cn(
-        "flex min-w-0 items-center gap-1 text-xs text-muted-foreground",
+        "flex min-w-0 items-center gap-1 text-muted-foreground",
+        PLAN_NODE_TEXT.meta,
         className,
       )}
       title={t("plans.groups.session.hint")}

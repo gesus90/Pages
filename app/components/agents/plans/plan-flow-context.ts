@@ -15,6 +15,8 @@ export interface PlanCanvasProps {
   readonly sources: AgentPlanSources;
   readonly graph: PlanGraphActions;
   readonly canEdit: boolean;
+  /** The saved plan; absent before its first save. */
+  readonly planId?: string;
   readonly run: AgentPlanRun | null;
   /** Access or connection failure of the same run polling path. */
   readonly runError?: string | null;
@@ -36,6 +38,8 @@ export interface PlanFlowContextValue extends PlanCanvasProps {
   readonly toggleGroup: (id: string) => void;
   readonly dropTarget: string | null;
   readonly cancelConnection: () => void;
+  /** Opens the dialog that saves a parameter, agent or group node as a template. */
+  readonly requestTemplate: (nodeId: string) => void;
 }
 
 export const PlanFlowContext = createContext<PlanFlowContextValue | null>(null);

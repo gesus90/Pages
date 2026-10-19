@@ -2,6 +2,7 @@ import { AgentRunCredentialRepository } from "@/backend/database/repositories/mc
 import { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import { upgradePlanConfigurations } from "@/backend/service/agents/AgentPlanConfigurationUpgrade";
 import { AgentPlanRepository } from "@/backend/database/repositories/agent/AgentPlanRepository";
+import { AgentPlanTemplateRepository } from "@/backend/database/repositories/agent/AgentPlanTemplateRepository";
 import { AgentProfileRepository } from "@/backend/database/repositories/agent/AgentProfileRepository";
 import { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import { AgentPlanCheckpointRepository } from "@/backend/database/repositories/agent/AgentPlanCheckpointRepository";
@@ -11,6 +12,7 @@ import { AgentPlanAccess } from "@/backend/service/agents/AgentPlanAccess";
 import { AgentPlanPreparation } from "@/backend/service/agents/AgentPlanPreparation";
 import { AgentPlanRunEngine } from "@/backend/service/agents/AgentPlanRunEngine";
 import { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
+import { AgentPlanTemplateService } from "@/backend/service/agents/AgentPlanTemplateService";
 import { AgentPlanSessionAccess } from "@/backend/service/agents/AgentPlanSessionAccess";
 import { AgentPlanStepRunner } from "@/backend/service/agents/AgentPlanStepRunner";
 import { AgentPlanStepStart } from "@/backend/service/agents/AgentPlanStepStart";
@@ -36,6 +38,8 @@ import type { AgentApplicationServices } from "./agent-services.server";
 /** The plan service and the PageAgentCLI sessions of its nodes, built on one run access. */
 export interface AgentPlanServices {
   readonly agentPlanService: AgentPlanService;
+  /** The personal node templates of the plan editor, checked by the plan service. */
+  readonly agentPlanTemplateService: AgentPlanTemplateService;
   readonly agentSessionService: AgentSessionService;
   readonly agentPlanRecoveryService: AgentPlanRecoveryService;
 }
@@ -130,6 +134,10 @@ export async function createAgentPlanService(input: {
   await repairAgentFiles(input);
   return {
     agentPlanService: service,
+    agentPlanTemplateService: new AgentPlanTemplateService({
+      templates: new AgentPlanTemplateRepository(input.database),
+      plans: service,
+    }),
     agentSessionService: pageAgentSessions,
     agentPlanRecoveryService: new AgentPlanRecoveryService({
       runs: service,

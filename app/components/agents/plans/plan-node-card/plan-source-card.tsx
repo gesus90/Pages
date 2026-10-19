@@ -1,7 +1,10 @@
 import { useTranslation } from "react-i18next";
 
 import { usePlanFlowContext } from "../plan-flow-context";
+import { cn } from "@/app/lib/cn";
+
 import { planNodeLabel } from "../plan-layout";
+import { PLAN_NODE_TEXT } from "../plan-node-text";
 import { PlanCard } from "./plan-card";
 import { PlanParameterFields } from "./plan-parameter-fields";
 import { PlanTicketPicker } from "./plan-ticket-picker";
@@ -83,7 +86,7 @@ function TicketFields(props: {
     <div className="px-3 pb-[0.9375rem]">
       {/* The row keeps the card's 12 px inset, so its data OUT sits on the edge. */}
       <div className="relative grid h-8 grid-cols-[3.125rem_minmax(0,1fr)] items-center gap-2 px-1">
-        <span className="truncate text-[13px] text-foreground">
+        <span className={cn("truncate text-foreground", PLAN_NODE_TEXT.field)}>
           {t("plans.field.ticket")}
         </span>
         <PlanTicketPicker
@@ -108,7 +111,10 @@ function VariableFields(props: {
     <div className="px-3 pb-3">
       <div className="relative flex h-8 items-center">
         <span
-          className="min-w-0 truncate text-xs text-muted-foreground"
+          className={cn(
+            "min-w-0 truncate text-muted-foreground",
+            PLAN_NODE_TEXT.field,
+          )}
           title={value}
         >
           {value}

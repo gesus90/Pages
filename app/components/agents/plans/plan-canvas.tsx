@@ -28,10 +28,13 @@ import { usePlanFlowConnections } from "./use-plan-flow-connections";
 import { usePlanFlowMovement } from "./use-plan-flow-movement";
 import { usePlanFlowSelection } from "./use-plan-flow-selection";
 import { usePlanGroupCollapse } from "./use-plan-group-collapse";
+import { PlanTemplateDialog } from "./plan-templates/plan-template-dialog";
+import { usePlanTemplates } from "./plan-templates/use-plan-templates";
 import styles from "./plan-canvas.module.css";
 
 import type { PlanCanvasProps } from "./plan-flow-context";
 import type { PlanFlowEdge, PlanFlowNode } from "./plan-flow-model";
+import type { PlanTemplates } from "./plan-templates/use-plan-templates";
 
 const NODE_TYPES = { plan: PlanNodeCard };
 const EDGE_TYPES = { plan: PlanFlowEdgeView };
@@ -70,6 +73,7 @@ function PlanFlowCanvas(props: PlanCanvasProps): React.ReactElement {
   const collapse = usePlanGroupCollapse(props.draft, props.graph);
   const movement = usePlanFlowMovement({ ...props, ...collapse });
   const palette = usePlanNodePalette(props);
+  const templates = usePlanTemplates(props, palette.blocked);
   const { cancel: cancelConnection, ...connections } =
     usePlanFlowConnections(props);
   const onKeyDown = usePlanCanvasKeys({ ...props, onCancel: cancel });
@@ -78,10 +82,20 @@ function PlanFlowCanvas(props: PlanCanvasProps): React.ReactElement {
     ...collapse,
     dropTarget: movement.dropTarget,
     cancelConnection,
+    requestTemplate: templates.requestSave,
   };
   function cancel(): void {
     movement.cancel();
     cancelConnection();
+  }
+  // Node types and saved templates drop onto the same canvas.
+  function dragOver(event: React.DragEvent): void {
+    palette.dragOver(event);
+    templates.insertion.dragOver(event);
+  }
+  function drop(event: React.DragEvent): void {
+    palette.drop(event);
+    templates.insertion.drop(event);
   }
   return (
     <PlanFlowContext value={context}>
@@ -89,8 +103,8 @@ function PlanFlowCanvas(props: PlanCanvasProps): React.ReactElement {
         aria-label={t("plans.canvas")}
         tabIndex={0}
         onKeyDown={onKeyDown}
-        onDragOver={palette.dragOver}
-        onDrop={palette.drop}
+        onDragOver={dragOver}
+        onDrop={drop}
         className="absolute inset-0 overflow-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
       >
         <PlanFlowGraph
@@ -108,8 +122,10 @@ function PlanFlowCanvas(props: PlanCanvasProps): React.ReactElement {
       <PlanCanvasOverlay
         canvas={props}
         palette={palette}
+        templates={templates}
         isStatusOpen={isStatusOpen}
       />
+      <PlanTemplateSave canvas={props} templates={templates} />
       <PlanRunStatus
         canvas={props}
         isOpen={isStatusOpen}
@@ -188,10 +204,12 @@ function PlanFlowGraph({
 function PlanCanvasOverlay({
   canvas,
   palette,
+  templates,
   isStatusOpen,
 }: {
   readonly canvas: PlanCanvasProps;
   readonly palette: ReturnType<typeof usePlanNodePalette>;
+  readonly templates: PlanTemplates;
   readonly isStatusOpen: boolean;
 }): React.ReactElement {
   return (
@@ -221,8 +239,42 @@ function PlanCanvasOverlay({
           {canvas.status}
         </div>
       </div>
-      <PlanNodePalette canvas={canvas} palette={palette} />
+      <PlanNodePalette
+        canvas={canvas}
+        palette={palette}
+        templates={templates}
+      />
     </div>
+  );
+}
+
+/** The save dialog of a node template, while one is requested. */
+function PlanTemplateSave({
+  canvas,
+  templates,
+}: {
+  readonly canvas: PlanCanvasProps;
+  readonly templates: PlanTemplates;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (!templates.saving) return null;
+  return (
+    <PlanTemplateDialog
+      key={templates.saving.id}
+      node={templates.saving}
+      target={{
+        planId: canvas.planId ?? "",
+        workspaceId: canvas.draft.workspaceId,
+      }}
+      context={{
+        draft: canvas.draft,
+        sources: canvas.sources,
+        workspaces: canvas.workspaces ?? [],
+        translate: t,
+      }}
+      onSaved={templates.saved}
+      onClose={templates.closeSave}
+    />
   );
 }
 

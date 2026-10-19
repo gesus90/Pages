@@ -21,6 +21,7 @@ import type { AgentPlanConfiguration } from "@/definition/AgentPlanConfiguration
 import type { PlanLink } from "./plan-links";
 import type { PlanSelection } from "./use-plan-selection";
 import type { PlanGroupActions } from "./use-plan-group-actions";
+import type { PlanNodeInsertion } from "./use-plan-node-insertion";
 
 /** Editable node operations and validated port interactions of one plan draft. */
 export interface PlanGraphActions extends PlanSelection, PlanGroupActions {
@@ -44,6 +45,8 @@ export interface PlanGraphActions extends PlanSelection, PlanGroupActions {
     position?: AgentPlanPosition,
     groupId?: string,
   ) => string | null;
+  /** Adds a checked copy of a node template; an agent joins the group `groupId` if it may. */
+  readonly insertTemplate: PlanNodeInsertion["insertTemplate"];
   /** Moves a node; a member's position counts from its frame's member area. */
   readonly move: (id: string, x: number, y: number) => void;
   /**

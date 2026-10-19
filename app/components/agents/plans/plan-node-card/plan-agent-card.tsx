@@ -8,6 +8,7 @@ import { usePlanFlowContext } from "../plan-flow-context";
 import { PlanFlowHandle } from "../plan-flow-handle";
 import { PlanFlowPorts } from "../plan-flow-ports";
 import { planAgentName } from "../plan-layout";
+import { PLAN_NODE_TEXT } from "../plan-node-text";
 import { PlanStatusBadge, planStatusClass } from "../plan-status";
 import { PlanAgentInput } from "./plan-agent-input";
 import { PlanAgentModel } from "./plan-agent-model";
@@ -102,7 +103,8 @@ function ResultOut(props: {
         variant="ghost"
         aria-label={t("plans.resultOut")}
         className={cn(
-          "nodrag nopan -mr-1.25 h-7 min-h-7 cursor-crosshair border border-transparent px-1 text-xs font-medium hover:bg-surface/70 xl:min-h-7 xl:px-1",
+          "nodrag nopan -mr-1.25 h-7 min-h-7 cursor-crosshair border border-transparent px-1 font-medium hover:bg-surface/70 xl:min-h-7 xl:px-1 xl:text-xs",
+          PLAN_NODE_TEXT.field,
           isActive && "text-primary",
         )}
         disabled={!canEdit}

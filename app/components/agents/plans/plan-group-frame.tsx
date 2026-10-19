@@ -10,6 +10,7 @@ import { keepPlanControlKeys } from "./plan-flow-keys";
 import { PLAN_FRAME_FOOTER } from "./plan-layout";
 import { PlanGroupSessionValue } from "./plan-group-session";
 import { PlanNodeActions, PlanNodeEditButton } from "./plan-node-actions";
+import { PLAN_NODE_TEXT } from "./plan-node-text";
 import { PlanPaletteButton } from "./plan-palette-button";
 import { PlanGroupCount, PlanGroupStatus } from "./plan-group-progress";
 import { PlanGroupRoutes } from "./plan-group-routes";
@@ -31,6 +32,8 @@ interface GroupFrameProps {
   readonly isCollapsed: boolean;
   readonly onToggle: () => void;
   readonly onEdit?: (id: string) => void;
+  /** Opens the dialog that saves the group with its members as a template. */
+  readonly onSaveTemplate: (id: string) => void;
 }
 
 function groupFrameClass(props: GroupFrameProps): string {
@@ -101,7 +104,7 @@ export function PlanGroupFrame(props: GroupFrameProps): React.ReactElement {
           <div className="mt-3 flex items-center justify-between gap-1">
             <PlanGroupAdapterBadge adapter={adapter} />
             <PlanGroupCount progress={progress} isCompact />
-            <PlanGroupStatus progress={progress} isCompact />
+            <PlanGroupStatus progress={progress} />
           </div>
         ) : null}
         {hasIssue ? (
@@ -110,7 +113,12 @@ export function PlanGroupFrame(props: GroupFrameProps): React.ReactElement {
       </div>
       {!isCollapsed ? <GroupFooter {...props} /> : null}
       {!isCollapsed && group.steps.length === 0 ? (
-        <p className="absolute inset-x-5 top-28 text-sm text-muted-foreground">
+        <p
+          className={cn(
+            "absolute inset-x-5 top-28 text-muted-foreground",
+            PLAN_NODE_TEXT.field,
+          )}
+        >
           {t(
             props.canEdit ? "plans.groups.empty" : "plans.groups.emptyReadOnly",
           )}
@@ -141,13 +149,19 @@ function GroupHeaderContent(
         data-plan-handle={group.id}
         onClick={() => graph.select(group.id)}
         className={cn(
-          "min-w-0 flex-1 rounded text-left text-sm font-semibold focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+          "min-w-0 flex-1 rounded text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+          PLAN_NODE_TEXT.title,
           props.canEdit && "cursor-grab active:cursor-grabbing",
         )}
         aria-label={t("plans.selectNode", { name: label })}
         title={label}
       >
-        <span className="mb-1 flex items-center gap-1 text-xs font-normal text-plan-group">
+        <span
+          className={cn(
+            "mb-1 flex items-center gap-1 font-medium text-plan-group",
+            PLAN_NODE_TEXT.meta,
+          )}
+        >
           <Boxes className="size-3" aria-hidden="true" />
           {t("plans.nodeType.group")}
           {needsRepair ? (
@@ -183,6 +197,7 @@ function GroupHeaderContent(
               label={label}
               disabled={!props.canEdit}
               onRemove={() => graph.remove(group.id)}
+              onSaveTemplate={() => props.onSaveTemplate(group.id)}
             />
           </div>
         </>
@@ -199,7 +214,7 @@ function GroupFooter(props: GroupFrameProps): React.ReactElement {
       style={{ height: PLAN_FRAME_FOOTER }}
     >
       {props.runError ? (
-        <p className="text-xs text-destructive">
+        <p className={cn("text-destructive", PLAN_NODE_TEXT.meta)}>
           {t("plans.progress.unavailable")}
         </p>
       ) : (
@@ -211,7 +226,10 @@ function GroupFooter(props: GroupFrameProps): React.ReactElement {
       {props.isDropTarget ? (
         <p
           role="status"
-          className="shrink-0 text-xs font-medium text-plan-group"
+          className={cn(
+            "shrink-0 font-medium text-plan-group",
+            PLAN_NODE_TEXT.meta,
+          )}
         >
           {t("plans.groups.dropHere")}
         </p>
