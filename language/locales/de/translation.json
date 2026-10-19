@@ -355,6 +355,37 @@
           "invalidSetting": "Bitte eine ganze Zahl von 0 bis 365 eingeben.",
           "general": "Die Log-Aufbewahrung konnte nicht gespeichert werden."
         }
+      },
+      "interpreters": {
+        "title": "Script-Interpreter",
+        "description": "Verfügbare Interpreterprofile und ihre Programmpfade.",
+        "profile": "Profil",
+        "version": "Version",
+        "path": "Pfad",
+        "status": "Status",
+        "profileName": "Profilname",
+        "programPath": "Programmpfad: {{name}}",
+        "add": "Interpreterprofil hinzufügen",
+        "save": "Speichern",
+        "syncProfile": "Profil {{name}} prüfen",
+        "checking": "Prüft",
+        "ok": "OK",
+        "errorStatus": "Fehler",
+        "saved": "Gespeichert.",
+        "invalid": "Namen müssen eindeutig und Pfade vollständig sein.",
+        "conflict": "Profile wurden zwischenzeitlich geändert. Bitte die Seite neu laden.",
+        "unchecked": "Geänderte Profile sind nicht erreichbar. Bitte erneut prüfen.",
+        "general": "Die Profile konnten nicht gespeichert werden.",
+        "errors": {
+          "missing": "Programm nicht gefunden.",
+          "notExecutable": "Programm ist nicht ausführbar.",
+          "timeout": "Zeitlimit von 3 Sekunden überschritten.",
+          "outputLimit": "Ausgabe überschreitet 8 KiB.",
+          "exit": "Programm mit Fehler beendet.",
+          "noVersion": "Keine Versionsnummer in der Ausgabe.",
+          "failed": "Prüfung fehlgeschlagen. Bitte erneut prüfen."
+        },
+        "loading": "Profile werden geladen …"
       }
     },
     "profile": {

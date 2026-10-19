@@ -2,8 +2,9 @@ import type { PagesRuntime } from "./PagesRuntime";
 
 /** Warms application services after listening; optional tools never stop HTTP availability. */
 export async function startAgentTools(runtime: PagesRuntime): Promise<void> {
-  if (runtime.isSetupPending()) return;
   try {
+    await runtime.interpreterProfiles.initialize();
+    if (runtime.isSetupPending()) return;
     const { getApplicationServices } =
       await import("@/app/lib/services.server");
     await getApplicationServices();

@@ -1,10 +1,12 @@
 import { homedir } from "node:os";
 import path from "node:path";
 
+import { interpreterProfilesSchema } from "@/definition/InterpreterProfile";
 import { isLogRetentionDays } from "@/definition/Logging";
 
 import { readAcpResourceSettings } from "./AcpResourceSettings";
 
+import type { InterpreterProfile } from "@/definition/InterpreterProfile";
 import type { AcpResourceOptions } from "@/definition/AcpResource";
 import type { TomlTable } from "smol-toml";
 
@@ -29,6 +31,7 @@ export const CONFIG_KEY = {
 /** Settings that do not depend on the setup state. */
 interface BaseConfig extends Partial<AcpResourceOptions> {
   readonly port: number;
+  readonly interpreterProfiles?: readonly InterpreterProfile[];
   /** Missing on older configurations: 30 calendar days, including today. */
   readonly logRetentionDays?: number;
 }
@@ -213,9 +216,17 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
   const port = readPort(table, source);
   const databasePath = readDatabasePath(table, source);
   const logging = readLoggingConfig(table, source);
+  const interpreters = readInterpreterConfig(table, source);
 
   if (firstRun) {
-    return { ...acpResources, ...logging, databasePath, firstRun, port };
+    return {
+      ...acpResources,
+      ...logging,
+      ...interpreters,
+      databasePath,
+      firstRun,
+      port,
+    };
   }
 
   if (databasePath === null) {
@@ -225,7 +236,25 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
     );
   }
 
-  return { ...acpResources, ...logging, databasePath, firstRun, port };
+  return {
+    ...acpResources,
+    ...logging,
+    ...interpreters,
+    databasePath,
+    firstRun,
+    port,
+  };
+}
+
+function readInterpreterConfig(
+  table: TomlTable,
+  source: string,
+): Pick<BaseConfig, "interpreterProfiles"> {
+  if (table.interpreterProfiles === undefined) return {};
+  const parsed = interpreterProfilesSchema.safeParse(table.interpreterProfiles);
+  if (!parsed.success)
+    throw invalidConfig(source, "Invalid interpreter profiles.");
+  return { interpreterProfiles: parsed.data };
 }
 
 function readLoggingConfig(
@@ -258,6 +287,10 @@ export function writePagesConfig(
     [CONFIG_KEY.FIRST_RUN]: config.firstRun,
     [CONFIG_KEY.PORT]: config.port,
   };
+  if (config.interpreterProfiles !== undefined)
+    document.interpreterProfiles = config.interpreterProfiles.map(
+      (profile) => ({ ...profile }),
+    );
   if (config.logRetentionDays !== undefined)
     document.logRetentionDays = config.logRetentionDays;
 

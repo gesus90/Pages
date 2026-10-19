@@ -1,3 +1,5 @@
+import { InterpreterProfiles } from "@/backend/service/interpreters/InterpreterProfiles";
+
 import { bootstrapConfig } from "@/backend/config/ConfigBootstrap";
 import { ConfigFile } from "@/backend/config/ConfigFile";
 import { resolveDefaultDatabasePath } from "@/backend/config/PagesConfig";
@@ -44,6 +46,7 @@ export class RuntimeNotInitializedError extends Error {
  * setup is pending, the one-time setup token.
  */
 export class PagesRuntime {
+  public readonly interpreterProfiles: InterpreterProfiles;
   private readonly file: ConfigFile;
   private readonly setupQueue = new SerialQueue();
   private config: PagesConfig;
@@ -57,6 +60,7 @@ export class PagesRuntime {
    */
   public constructor(file: ConfigFile, config: PagesConfig) {
     this.file = file;
+    this.interpreterProfiles = new InterpreterProfiles(file);
     this.config = config;
     this.setupToken = config.firstRun ? SetupToken.create() : null;
     if (this.setupToken !== null) registerLogSecret(this.setupToken.value);

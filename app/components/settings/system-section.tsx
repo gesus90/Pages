@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { SettingsSectionHeader } from "@/app/components/settings/settings-layout";
 import { AcpResourcesCard } from "@/app/components/settings/agents/acp-resources-card";
 import { ChatSettingsCard } from "@/app/components/settings/system/chat-settings-card";
+import { InterpreterCard } from "@/app/components/settings/system/interpreter-card";
 import { InstanceCard } from "@/app/components/settings/system/instance-card";
 import { ServerCard } from "@/app/components/settings/system/server-card";
 import { LoggingCard } from "@/app/components/settings/system/logging-card";
@@ -57,7 +58,8 @@ export function SystemSection({
         title={t("settings.system.title")}
       />
       <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
-        <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-4">
+          <InterpreterCard />
           <InstanceCard branding={branding} />
           <WikiSettingsCard settings={wikiSettings} />
           <AcpResourcesCard canConfigure />

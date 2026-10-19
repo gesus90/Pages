@@ -355,6 +355,37 @@
           "invalidSetting": "Enter a whole number from 0 to 365.",
           "general": "Log retention could not be saved."
         }
+      },
+      "interpreters": {
+        "title": "Script interpreters",
+        "description": "Available interpreter profiles and their program paths.",
+        "profile": "Profile",
+        "version": "Version",
+        "path": "Path",
+        "status": "Status",
+        "profileName": "Profile name",
+        "programPath": "Program path: {{name}}",
+        "add": "Add interpreter profile",
+        "save": "Save",
+        "syncProfile": "Check profile {{name}}",
+        "checking": "Checking",
+        "ok": "OK",
+        "errorStatus": "Error",
+        "saved": "Saved.",
+        "invalid": "Names must be unique and paths absolute.",
+        "conflict": "Profiles have changed in the meantime. Please reload the page.",
+        "unchecked": "Changed profiles are unavailable. Please check again.",
+        "general": "The profiles could not be saved.",
+        "errors": {
+          "missing": "Program not found.",
+          "notExecutable": "Program is not executable.",
+          "timeout": "3 second timeout exceeded.",
+          "outputLimit": "Output exceeds 8 KiB.",
+          "exit": "Program exited with an error.",
+          "noVersion": "No version number in the output.",
+          "failed": "Check failed. Please try again."
+        },
+        "loading": "Loading profiles …"
       }
     },
     "profile": {

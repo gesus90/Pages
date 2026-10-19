@@ -22,6 +22,7 @@ export default [
   route("discord/result", "routes/discord-result.tsx"),
   route("instance-logo", "routes/instance-logo.ts"),
   layout("routes/authenticated.tsx", [
+    route("settings-api/interpreters", "routes/settings-interpreters.ts"),
     route("account-version", "routes/account-version.ts"),
     route("chat-api", "routes/chat-api.ts"),
     route("chat-api/attachments", "routes/chat-attachments.ts"),
