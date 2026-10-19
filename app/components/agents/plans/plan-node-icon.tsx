@@ -35,8 +35,29 @@ export function PlanTicketIcon(props: {
   );
 }
 
+/** Angle brackets around a slash, the code symbol of script nodes, drawn like the lucide icons. */
+export function PlanScriptIcon(props: {
+  readonly className?: string;
+}): React.ReactElement {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={props.className}
+    >
+      <path d="m8 7-5 5 5 5M16 7l5 5-5 5M14 4l-4 16" />
+    </svg>
+  );
+}
+
 const NODE_ICONS = {
   agent: Bot,
+  script: PlanScriptIcon,
   group: Boxes,
   task: PlanTicketIcon,
   parameter: Braces,

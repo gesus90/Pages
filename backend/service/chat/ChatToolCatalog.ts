@@ -73,8 +73,9 @@ const CONFIRMED = "Bestätigung der Person nötig";
 const PLAN_TARGET = "planId, expectedRevision";
 const RUN =
   "runId | planId + select: latest|first; runId optional mit planId zur Prüfung";
-const CHANGES =
-  "changes?: [{action: addNode, node: {type: start|end|agent|task|parameter, id?, x?, y?, agentId?, personalAgentId?, instruction?, taskId?, name?, format?, value?}} | {action: updateNode, nodeId, fields: {x?, y?, agentId?, personalAgentId?, instruction?, taskId?, name?, format?, value?}} | {action: removeNode, nodeId} | {action: connect|disconnect, from, to} | {action: bind, nodeId, parameter, binding: {kind: source, nodeId}|{kind: result, stepId}|{kind: literal, value}} | {action: unbind, nodeId, parameter}]";
+const SCRIPT_FIELDS =
+  "interpreterProfileId?, content?, inputs?: [{name, type: text, isRequired}], outputs?: [{name, type: text}], timeoutSeconds?";
+const CHANGES = `changes?: [{action: addNode, node: {type: start|end|agent|script|task|parameter, id?, x?, y?, agentId?, personalAgentId?, instruction?, taskId?, name?, format?, value?, ${SCRIPT_FIELDS}}} | {action: updateNode, nodeId, fields: {x?, y?, agentId?, personalAgentId?, instruction?, taskId?, name?, format?, value?, ${SCRIPT_FIELDS}}} | {action: removeNode, nodeId} | {action: connect|disconnect, from, to} | {action: bind, nodeId, parameter, binding: {kind: source, nodeId}|{kind: result, stepId}|{kind: literal, value}} | {action: unbind, nodeId, parameter}]`;
 
 /**
  * Parameters and purpose of every chat operation, as the agent reads them.
@@ -103,9 +104,9 @@ const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
 
   "plans.list": `{text?, projectId?, ${WINDOW}} sichtbare Agent Plans nach Name mit Projekt, Freigabe, canEdit, revision, state (idle|running|pausing|paused|stopping) und latestRun; text sucht im Namen`,
   "plans.read":
-    "{planId} Agent Plan mit nodes (label, Agent, Ticket, Parameter, bindings), edges (Ablauf from → to), Freigabe, revision und status (state, runCount, latestRun, isRunnable, issues) lesen",
+    "{planId} Agent Plan mit nodes (label, Agent, Script, Ticket, Parameter, bindings), edges (Ablauf from → to), Freigabe, revision und status (state, runCount, latestRun, isRunnable, issues) lesen",
   "plans.sources.read":
-    "{workspaceId?} Arbeitsbereiche für neue Pläne; mit workspaceId auch die Agents mit ihren Parametern für Agent-Nodes",
+    "{workspaceId?} Arbeitsbereiche für neue Pläne; mit workspaceId auch die Agents mit ihren Parametern für Agent-Nodes und die Interpreterprofile (id, name, status, version) für Script-Nodes",
   "plans.runs.list": `{planId, order?: newest|oldest, ${WINDOW}} eigene Runs eines Plans mit runId, planId, startedAt und status, seitenweise (Standard 20 pro Seite)`,
   "plans.run.read": `{${RUN}} einen eigenen Run mit Start, Ende, Status und Status jedes Nodes lesen`,
   "plans.run.reports.read": `{${RUN}, stepId?} Berichte eines eigenen Runs lesen: je Node runId, stepId, Ausführungsstatus, Ergebnis, Fehler, Fortschritt, Kriterien und Todos`,

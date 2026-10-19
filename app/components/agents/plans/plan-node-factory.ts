@@ -9,6 +9,13 @@ import type {
   AgentPlanPosition,
   AgentPlanSources,
 } from "@/definition/AgentPlan";
+import type {
+  AgentPlanScript,
+  AgentPlanScriptConfiguration,
+} from "@/definition/AgentPlanScript";
+
+/** The node types the palette adds by a reference; a script brings its whole configuration. */
+export type PlanReferenceKind = Exclude<AgentPlanNode["type"], "script">;
 
 // The plan page and the agent API remove nodes by the same rule.
 export { removePlanNode } from "@/definition/AgentPlanGraph";
@@ -30,11 +37,34 @@ export function planInsertPosition(draft: AgentPlanInput): AgentPlanPosition {
   };
 }
 
+/**
+ * Creates a script node from a configuration the script dialog checked.
+ *
+ * @returns `null` before the plan has a workspace, whose working copy the
+ * script would use.
+ */
+export function createPlanScript(input: {
+  readonly draft: AgentPlanInput;
+  readonly configuration: AgentPlanScriptConfiguration;
+  readonly position?: AgentPlanPosition;
+}): AgentPlanScript | null {
+  if (!input.draft.workspaceId) return null;
+  const position = input.position ?? planInsertPosition(input.draft);
+  return {
+    ...structuredClone(input.configuration),
+    id: createRandomUuid(),
+    type: "script",
+    x: snapPlanCoordinate(position.x),
+    y: snapPlanCoordinate(position.y),
+    bindings: {},
+  };
+}
+
 /** Creates an instance only from known source IDs, with an explicit default directory binding. */
 export function createPlanNode(input: {
   readonly draft: AgentPlanInput;
   readonly sources: AgentPlanSources;
-  readonly kind: AgentPlanNode["type"];
+  readonly kind: PlanReferenceKind;
   readonly reference: string;
   readonly position?: AgentPlanPosition;
 }): AgentPlanNode | null {

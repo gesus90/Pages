@@ -7,6 +7,7 @@ import { placePlanStep } from "@/definition/AgentPlanGroupEdit";
 import { planMemberOrigin } from "./plan-layout";
 import {
   createPlanNode,
+  createPlanScript,
   planInsertPosition,
   snapPlanCoordinate,
 } from "./plan-node-factory";
@@ -21,6 +22,8 @@ import type {
 } from "@/definition/AgentPlan";
 import type { AgentPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 import type { AgentPlanTemplateNode } from "@/definition/AgentPlanNodeTemplate";
+import type { AgentPlanScriptConfiguration } from "@/definition/AgentPlanScript";
+import type { PlanReferenceKind } from "./plan-node-factory";
 import type {
   AgentPlanGroup,
   AgentPlanGroupRefusal,
@@ -43,10 +46,15 @@ interface InsertionOptions {
 /** Adding nodes of the palette and copies of saved node templates. */
 export interface PlanNodeInsertion {
   readonly add: (
-    kind: AgentPlanNode["type"],
+    kind: PlanReferenceKind,
     reference: string,
     position?: AgentPlanPosition,
     groupId?: string,
+  ) => string | null;
+  /** Adds a script with a checked configuration; it never joins a group. */
+  readonly addScript: (
+    configuration: AgentPlanScriptConfiguration,
+    position?: AgentPlanPosition,
   ) => string | null;
   readonly insertTemplate: (
     node: AgentPlanTemplateNode,
@@ -68,14 +76,6 @@ export function usePlanNodeInsertion(
 ): PlanNodeInsertion {
   const [insertionError, setInsertionError] = useState<string | null>(null);
   const { draft, sources, setDraft, select, loadConfiguration } = options;
-  function targetGroup(groupId: string | undefined): AgentPlanGroup | null {
-    return (
-      draft.nodes.find(
-        (node): node is AgentPlanGroup =>
-          node.type === "group" && node.id === groupId,
-      ) ?? null
-    );
-  }
   /** Whether the agent may join; a refusal is told and stops the insertion. */
   function admits(node: AgentPlanNode, group: AgentPlanGroup | null): boolean {
     if (!group || node.type !== "agent") return true;
@@ -127,13 +127,13 @@ export function usePlanNodeInsertion(
     }
   }
   function add(
-    kind: AgentPlanNode["type"],
+    kind: PlanReferenceKind,
     reference: string,
     position?: AgentPlanPosition,
     groupId?: string,
   ): string | null {
     const node = createPlanNode({ draft, sources, kind, reference, position });
-    const group = targetGroup(groupId);
+    const group = findGroup(draft, groupId);
     if (!node || !admits(node, group)) return null;
     if (node.type === "agent" && loadConfiguration) {
       void insertCurrent(node, group);
@@ -153,12 +153,32 @@ export function usePlanNodeInsertion(
       x: snapPlanCoordinate(at.x),
       y: snapPlanCoordinate(at.y),
     };
-    const group = targetGroup(groupId);
+    const group = findGroup(draft, groupId);
     if (!admits(placed, group)) return null;
     // The copy keeps its own configuration; no default value nodes join it.
     return insert(placed, group, [placed]);
   }
-  return { add, insertTemplate, insertionError };
+  function addScript(
+    configuration: AgentPlanScriptConfiguration,
+    position?: AgentPlanPosition,
+  ): string | null {
+    const node = createPlanScript({ draft, configuration, position });
+    return node ? insert(node, null, [node]) : null;
+  }
+  return { add, addScript, insertTemplate, insertionError };
+}
+
+/** The frame a new node is meant to join, if it exists. */
+function findGroup(
+  draft: AgentPlanInput,
+  groupId: string | undefined,
+): AgentPlanGroup | null {
+  return (
+    draft.nodes.find(
+      (node): node is AgentPlanGroup =>
+        node.type === "group" && node.id === groupId,
+    ) ?? null
+  );
 }
 
 /** The position of a new member, counted from the member area of its frame. */

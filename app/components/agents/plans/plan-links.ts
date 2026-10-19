@@ -1,6 +1,7 @@
 import { allPlanSteps, planGroupEdges } from "@/definition/AgentPlanGroup";
 import {
   disconnectPlanGroupFlow,
+  findPlanBindingTarget,
   findPlanStep,
   replacePlanNode,
 } from "@/definition/AgentPlanGroupEdit";
@@ -14,6 +15,7 @@ import type {
   AgentPlanStep,
 } from "@/definition/AgentPlan";
 import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
+import type { AgentPlanScript } from "@/definition/AgentPlanScript";
 
 /** A flow edge between steps; it orders execution. */
 interface PlanFlowLink {
@@ -38,7 +40,7 @@ interface PlanDataLink {
 export type PlanLink = PlanFlowLink | PlanDataLink;
 
 function bindingLinks(
-  target: AgentPlanStep | AgentPlanGroup,
+  target: AgentPlanStep | AgentPlanScript | AgentPlanGroup,
   ids: ReadonlySet<string>,
   frame: AgentPlanGroup | null,
 ): readonly PlanLink[] {
@@ -74,7 +76,8 @@ export function planLinks(plan: AgentPlanInput): readonly PlanLink[] {
     .filter((edge) => ids.has(edge.from) && ids.has(edge.to))
     .map((edge) => ({ kind: "flow", from: edge.from, to: edge.to }));
   for (const target of plan.nodes) {
-    if (target.type === "agent") links.push(...bindingLinks(target, ids, null));
+    if (target.type === "agent" || target.type === "script")
+      links.push(...bindingLinks(target, ids, null));
     if (target.type !== "group") continue;
     links.push(...bindingLinks(target, ids, null));
     for (const edge of planGroupEdges(target))
@@ -112,12 +115,7 @@ export function removePlanLink(
         (edge) => edge.from !== link.from || edge.to !== link.to,
       ),
     };
-  const target =
-    findPlanStep(draft, link.to)?.step ??
-    draft.nodes.find(
-      (node): node is AgentPlanGroup =>
-        node.type === "group" && node.id === link.to,
-    );
+  const target = findPlanBindingTarget(draft, link.to);
   if (!target) return draft;
   return replacePlanNode(draft, {
     ...target,

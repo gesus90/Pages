@@ -10,10 +10,12 @@ import {
 import { planStepTemplate } from "./AgentPlanConfiguration";
 import { planValueIssue } from "./AgentPlanValue";
 import { hasPlanPath } from "./AgentPlanPath";
+import { planScriptParameters } from "./AgentPlanScript";
 
 import type { AgentDefinitionChoice } from "./AgentAvailability";
 import type { AgentParameter } from "./AgentParameters";
 import type { AgentPlanGroup } from "./AgentPlanGroup";
+import type { AgentPlanScript } from "./AgentPlanScript";
 import type {
   AgentPlanEdge,
   AgentPlanInput,
@@ -54,14 +56,27 @@ export interface AgentPlanIssue {
     | "agent"
     | "name"
     | "json"
-    | "number";
+    | "number"
+    | "scriptUnavailable";
 }
 
 export { hasPlanPath } from "./AgentPlanPath";
 
-/** Start, end and agent nodes form the execution graph; tickets, parameters and variables only supply values. */
+/** Start, end, agent and script nodes form the execution graph; tickets, parameters and variables only supply values. */
 export function isPlanFlowNode(node: AgentPlanNode): boolean {
-  return node.type === "start" || node.type === "end" || node.type === "agent";
+  return (
+    node.type === "start" ||
+    node.type === "end" ||
+    node.type === "agent" ||
+    node.type === "script"
+  );
+}
+
+/** Agents and scripts hand their result on through their result port. */
+export function isPlanResultNode(
+  node: AgentPlanNode | undefined,
+): node is AgentPlanStep | AgentPlanScript {
+  return node?.type === "agent" || node?.type === "script";
 }
 
 /** Data sources use the established agent types; a ticket node supplies a ticket reference. */
@@ -131,9 +146,9 @@ export function removePlanNode<Plan extends AgentPlanInput>(
     id,
     ...(group?.type === "group" ? group.steps.map((step) => step.id) : []),
   ]);
-  function withoutReferences<Node extends AgentPlanStep | AgentPlanGroup>(
-    node: Node,
-  ): Node {
+  function withoutReferences<
+    Node extends AgentPlanStep | AgentPlanScript | AgentPlanGroup,
+  >(node: Node): Node {
     const bindings = Object.fromEntries(
       Object.entries(node.bindings).filter(
         ([, binding]) =>
@@ -148,7 +163,8 @@ export function removePlanNode<Plan extends AgentPlanInput>(
     nodes: draft.nodes
       .filter((node) => node.id !== id)
       .map((node) => {
-        if (node.type === "agent") return withoutReferences(node);
+        if (node.type === "agent" || node.type === "script")
+          return withoutReferences(node);
         if (node.type !== "group") return node;
         const steps = node.steps
           .filter((step) => step.id !== id)
@@ -195,8 +211,10 @@ function edgeIssues(plan: AgentPlanInput): AgentPlanIssue[] {
   for (const edge of plan.edges) {
     const source = plan.nodes.find((node) => node.id === edge.from);
     const target = plan.nodes.find((node) => node.id === edge.to);
-    const validSource = source && ["start", "agent"].includes(source.type);
-    const validTarget = target && ["end", "agent"].includes(target.type);
+    const validSource =
+      source && ["start", "agent", "script"].includes(source.type);
+    const validTarget =
+      target && ["end", "agent", "script"].includes(target.type);
     if (!validSource || edge.fromPort !== "flow-out")
       issues.push({
         nodeId: edge.from,
@@ -219,18 +237,29 @@ function edgeIssues(plan: AgentPlanInput): AgentPlanIssue[] {
   return issues;
 }
 
+/** The inputs of an agent's template or a script's declaration. */
+function inputParameters(
+  step: AgentPlanStep | AgentPlanScript,
+  agents: readonly AgentDefinitionChoice[],
+): readonly AgentParameter[] {
+  if (step.type === "script") return planScriptParameters(step);
+  return planStepTemplate(step, agents)?.parameters ?? [];
+}
+
 function bindingIssues(
-  step: AgentPlanStep,
+  step: AgentPlanStep | AgentPlanScript,
   plan: AgentPlanInput,
   agents: readonly AgentDefinitionChoice[],
 ): AgentPlanIssue[] {
   const issues: AgentPlanIssue[] = [];
-  const agent = agents.find((entry) => entry.id === step.agentId);
-  if (!agent) return [{ nodeId: step.id, port: null, reason: "agent" }];
+  if (
+    step.type === "agent" &&
+    !agents.some((entry) => entry.id === step.agentId)
+  )
+    return [{ nodeId: step.id, port: null, reason: "agent" }];
+  const parameters = inputParameters(step, agents);
   for (const [name, binding] of Object.entries(step.bindings)) {
-    const parameter = planStepTemplate(step, agents)?.parameters.find(
-      (entry) => entry.name === name,
-    );
+    const parameter = parameters.find((entry) => entry.name === name);
     if (!parameter)
       issues.push({ nodeId: step.id, port: name, reason: "port" });
     else if (binding.kind === "result" && parameter.type === "ticket")
@@ -246,17 +275,17 @@ function bindingIssues(
 
 /** Why a result binding of a text input cannot deliver, or `null` when it can. */
 function resultIssue(
-  step: AgentPlanStep,
+  step: AgentPlanStep | AgentPlanScript,
   sourceId: string,
   plan: AgentPlanInput,
 ): "resultSource" | "resultOrder" | null {
-  if (!plan.nodes.some((node) => node.id === sourceId && node.type === "agent"))
+  if (!isPlanResultNode(plan.nodes.find((node) => node.id === sourceId)))
     return "resultSource";
   return hasPlanPath(plan.edges, sourceId, step.id) ? null : "resultOrder";
 }
 
 function fitsBinding(
-  step: AgentPlanStep,
+  step: AgentPlanStep | AgentPlanScript,
   binding: AgentPlanBinding,
   plan: AgentPlanInput,
   parameterType: AgentParameter["type"],
@@ -270,9 +299,7 @@ function fitsBinding(
     );
   return (
     parameterType === "text" &&
-    plan.nodes.some(
-      (node) => node.id === binding.stepId && node.type === "agent",
-    ) &&
+    isPlanResultNode(plan.nodes.find((node) => node.id === binding.stepId)) &&
     hasPlanPath(plan.edges, binding.stepId, step.id)
   );
 }
@@ -289,7 +316,7 @@ export function planConnectionIssues(
     ...planGroupIssues(plan, agents, false),
   ];
   for (const node of expanded.nodes)
-    if (node.type === "agent")
+    if (isPlanResultNode(node))
       issues.push(...bindingIssues(node, expanded, agents));
   if (new Set(plan.nodes.map((node) => node.id)).size !== plan.nodes.length)
     issues.push({ nodeId: null, port: null, reason: "duplicateNode" });
@@ -384,6 +411,35 @@ function requiredParameterIssues(
   });
 }
 
+/**
+ * Required script inputs without a value, and the refusal to run the script.
+ *
+ * @remarks
+ * Pages does not run scripts yet. A plan with a script node is therefore
+ * never runnable: Play stays blocked with this reason instead of skipping
+ * the script or reporting it as done.
+ */
+function scriptIssues(
+  script: AgentPlanScript,
+  plan: AgentPlanInput,
+): AgentPlanIssue[] {
+  const issues: AgentPlanIssue[] = script.inputs.flatMap(
+    (input): AgentPlanIssue[] => {
+      const binding = script.bindings[input.name];
+      if (
+        !input.isRequired ||
+        (binding?.kind === "literal" &&
+          hasAgentParameterValue(binding.value)) ||
+        hasConnectedValue(binding, plan)
+      )
+        return [];
+      return [{ nodeId: script.id, port: input.name, reason: "required" }];
+    },
+  );
+  issues.push({ nodeId: script.id, port: null, reason: "scriptUnavailable" });
+  return issues;
+}
+
 function hasConnectedValue(
   binding: AgentPlanBinding | undefined,
   plan: AgentPlanInput,
@@ -396,6 +452,41 @@ function hasConnectedValue(
     return Boolean(plan.globals[source.name]?.trim());
   if (source?.type !== "parameter") return false;
   return hasAgentParameterValue(source.value);
+}
+
+/** The connections a flow node needs and the values its inputs miss. */
+function flowNodeIssues(
+  node: AgentPlanNode,
+  plan: AgentPlanInput,
+  agents: readonly AgentDefinitionChoice[],
+): AgentPlanIssue[] {
+  const issues: AgentPlanIssue[] = [];
+  const starts = plan.nodes.filter((entry) => entry.type === "start");
+  const ends = plan.nodes.filter((entry) => entry.type === "end");
+  if (node.type !== "start" && !plan.edges.some((edge) => edge.to === node.id))
+    issues.push({ nodeId: node.id, port: "flow-in", reason: "flowIn" });
+  if (node.type !== "end" && !plan.edges.some((edge) => edge.from === node.id))
+    issues.push({ nodeId: node.id, port: "flow-out", reason: "flowOut" });
+  if (
+    node.type !== "start" &&
+    !starts.some((start) => hasPlanPath(plan.edges, start.id, node.id))
+  )
+    issues.push({ nodeId: node.id, port: "flow-in", reason: "unreachable" });
+  if (
+    node.type !== "end" &&
+    !ends.some((end) => hasPlanPath(plan.edges, node.id, end.id))
+  )
+    issues.push({ nodeId: node.id, port: "flow-out", reason: "end" });
+  if (node.type === "agent")
+    issues.push(
+      ...requiredParameterIssues(
+        node,
+        agents.find((agent) => agent.id === node.agentId),
+        plan,
+      ),
+    );
+  if (node.type === "script") issues.push(...scriptIssues(node, plan));
+  return issues;
 }
 
 /** A runnable DAG has explicit boundaries and no unreachable or unfinished flow branch. */
@@ -420,35 +511,7 @@ export function planExecutionIssues(
     issues.push({ nodeId: null, port: null, reason: "end" });
   if (!plan.nodes.some((node) => node.type === "agent"))
     issues.push({ nodeId: null, port: null, reason: "agent" });
-  for (const node of plan.nodes.filter(isPlanFlowNode)) {
-    if (
-      node.type !== "start" &&
-      !plan.edges.some((edge) => edge.to === node.id)
-    )
-      issues.push({ nodeId: node.id, port: "flow-in", reason: "flowIn" });
-    if (
-      node.type !== "end" &&
-      !plan.edges.some((edge) => edge.from === node.id)
-    )
-      issues.push({ nodeId: node.id, port: "flow-out", reason: "flowOut" });
-    if (
-      node.type !== "start" &&
-      !starts.some((start) => hasPlanPath(plan.edges, start.id, node.id))
-    )
-      issues.push({ nodeId: node.id, port: "flow-in", reason: "unreachable" });
-    if (
-      node.type !== "end" &&
-      !ends.some((end) => hasPlanPath(plan.edges, node.id, end.id))
-    )
-      issues.push({ nodeId: node.id, port: "flow-out", reason: "end" });
-    if (node.type === "agent")
-      issues.push(
-        ...requiredParameterIssues(
-          node,
-          agents.find((agent) => agent.id === node.agentId),
-          plan,
-        ),
-      );
-  }
+  for (const node of plan.nodes.filter(isPlanFlowNode))
+    issues.push(...flowNodeIssues(node, plan, agents));
   return issues;
 }

@@ -16,6 +16,7 @@ import type {
   AgentPlanStep,
 } from "./AgentPlan";
 import type { AgentPlanGroup, AgentPlanGroupRefusal } from "./AgentPlanGroup";
+import type { AgentPlanScript } from "./AgentPlanScript";
 
 /** Grid columns between members when an older group is laid out in its frame. */
 const MEMBER_COLUMN = 320;
@@ -63,6 +64,24 @@ export function findPlanStep(
     if (step) return { step, group: node };
   }
   return null;
+}
+
+/**
+ * Finds the node whose inputs a binding fills: an agent, also inside a
+ * frame, a script, or a frame with its retained legacy inputs.
+ */
+export function findPlanBindingTarget(
+  plan: AgentPlanInput,
+  id: string,
+): AgentPlanStep | AgentPlanScript | AgentPlanGroup | null {
+  return (
+    findPlanStep(plan, id)?.step ??
+    plan.nodes.find(
+      (node): node is AgentPlanScript | AgentPlanGroup =>
+        (node.type === "script" || node.type === "group") && node.id === id,
+    ) ??
+    null
+  );
 }
 
 /** Replaces a node by its identifier, also an agent inside a frame. */
@@ -338,19 +357,14 @@ export function withExplicitGroupFlow<Plan extends AgentPlanInput>(
   };
 }
 
-/** Binds an input of an agent node, also of one inside a frame. */
+/** Binds an input of an agent node, also of one inside a frame, or of a script. */
 export function bindPlanParameter<Plan extends AgentPlanInput>(
   plan: Plan,
   targetId: string,
   parameter: string,
   binding: AgentPlanBinding,
 ): Plan {
-  const target =
-    findPlanStep(plan, targetId)?.step ??
-    plan.nodes.find(
-      (node): node is AgentPlanGroup =>
-        node.type === "group" && node.id === targetId,
-    );
+  const target = findPlanBindingTarget(plan, targetId);
   if (!target) return plan;
   return replacePlanNode(plan, {
     ...target,

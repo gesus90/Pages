@@ -2,8 +2,8 @@
  * The shared type roles of every plan node family.
  *
  * @remarks
- * Start, end, agent, parameter, ticket and group cards differ in size and
- * color, never in these roles: a title is 14 px on 20 px in semibold, a
+ * Start, end, agent, script, parameter, ticket and group cards differ in
+ * size and color, never in these roles: a title is 14 px on 20 px in semibold, a
  * field or value 12 px on 18 px, a type line or extra information 11 px on
  * 16 px. Larger cards get no larger titles; the canvas zoom scales all roles
  * together.

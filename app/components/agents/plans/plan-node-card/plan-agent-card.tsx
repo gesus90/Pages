@@ -1,18 +1,15 @@
 import { useTranslation } from "react-i18next";
 
-import { Button } from "@/app/components/ui/button";
-import { cn } from "@/app/lib/cn";
 import { planNodeParameters } from "@/definition/AgentPlanGroup";
 
 import { usePlanFlowContext } from "../plan-flow-context";
-import { PlanFlowHandle } from "../plan-flow-handle";
 import { PlanFlowPorts } from "../plan-flow-ports";
 import { planAgentName } from "../plan-layout";
-import { PLAN_NODE_TEXT } from "../plan-node-text";
 import { PlanStatusBadge, planStatusClass } from "../plan-status";
 import { PlanAgentInput } from "./plan-agent-input";
 import { PlanAgentModel } from "./plan-agent-model";
 import { PlanCard } from "./plan-card";
+import { PlanResultOut } from "./plan-result-out";
 
 import type {
   AgentPlanStep,
@@ -80,39 +77,9 @@ export function PlanAgentCard(props: {
             ))}
           </div>
         ) : null}
-        <ResultOut step={step} />
+        <PlanResultOut nodeId={step.id} />
       </div>
       <PlanAgentModel step={step} />
     </PlanCard>
-  );
-}
-
-/** The violet data OUT that hands the agent's result to a later agent. */
-function ResultOut(props: {
-  readonly step: AgentPlanStep;
-}): React.ReactElement {
-  const { t } = useTranslation();
-  const { graph, canEdit } = usePlanFlowContext();
-  const isActive =
-    graph.connection?.nodeId === props.step.id &&
-    graph.connection.kind === "result";
-  return (
-    <div className="relative flex h-7 items-center justify-end">
-      <Button
-        size="xs"
-        variant="ghost"
-        aria-label={t("plans.resultOut")}
-        className={cn(
-          "nodrag nopan -mr-1.25 h-7 min-h-7 cursor-crosshair border border-transparent px-1 font-medium hover:bg-surface/70 xl:min-h-7 xl:px-1 xl:text-xs",
-          PLAN_NODE_TEXT.field,
-          isActive && "text-primary",
-        )}
-        disabled={!canEdit}
-        onClick={() => graph.begin({ kind: "result", nodeId: props.step.id })}
-      >
-        {t("plans.resultShort")}
-      </Button>
-      <PlanFlowHandle id="value-out" type="source" kind="data" />
-    </div>
   );
 }

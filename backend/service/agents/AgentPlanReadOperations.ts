@@ -39,7 +39,6 @@ export type AgentPlanReads = Pick<
   | "view"
   | "directory"
   | "sources"
-  | "agents"
   | "workspaces"
   | "runEntries"
   | "runOverview"
@@ -175,8 +174,14 @@ export class AgentPlanReadOperations {
   ): Promise<AgentPlanReadResult> {
     const workspaceId = readPlanSourcesRequest(input);
     const workspaces = await this.plans.workspaces(userId);
-    const agents =
-      workspaceId === null ? [] : await this.plans.agents(userId, workspaceId);
+    // The sources of the workspace's project, as the plan page loads them.
+    const sources =
+      workspaceId === null
+        ? null
+        : await this.plans.sources(userId, workspaceId);
+    const interpreters = sources?.interpreters?.map(
+      ({ id, name, status, version }) => ({ id, name, status, version }),
+    );
     return {
       workspaces: workspaces.map((workspace) => ({
         id: workspace.id,
@@ -185,7 +190,8 @@ export class AgentPlanReadOperations {
         projectName: workspace.projectName,
         isUsable: workspace.isUsable,
       })),
-      agents: agents.map(agentEntry),
+      agents: (sources?.agents ?? []).map(agentEntry),
+      ...(interpreters === undefined ? {} : { interpreters }),
     };
   }
 

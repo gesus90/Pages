@@ -68,6 +68,7 @@ function isIssueReason(input: unknown): input is AgentPlanIssue["reason"] {
       "name",
       "json",
       "number",
+      "scriptUnavailable",
     ].includes(input)
   );
 }

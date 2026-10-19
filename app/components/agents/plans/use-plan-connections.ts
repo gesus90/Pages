@@ -4,7 +4,7 @@ import { planConnectionIssues } from "@/definition/AgentPlanGraph";
 import {
   bindPlanParameter,
   connectPlanFlow,
-  findPlanStep,
+  findPlanBindingTarget,
 } from "@/definition/AgentPlanGroupEdit";
 
 import type {
@@ -26,14 +26,13 @@ export interface PlanConnection {
 type PlanConnectionAttempt =
   { readonly plan: AgentPlanInput } | { readonly issue: AgentPlanIssue };
 
-/** The bindings of an agent node, inside a frame too, or of a frame's boundary. */
+/** The bindings of an agent node, inside a frame too, or of a script. */
 function targetBindings(
   draft: AgentPlanInput,
   id: string,
 ): Readonly<Record<string, AgentPlanBinding>> | null {
-  const step = findPlanStep(draft, id)?.step;
-  if (step) return step.bindings;
-  return null;
+  const target = findPlanBindingTarget(draft, id);
+  return target && target.type !== "group" ? target.bindings : null;
 }
 
 function checked(

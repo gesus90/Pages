@@ -8,13 +8,14 @@ import type {
   AgentPlanStep,
 } from "@/definition/AgentPlan";
 import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
+import type { AgentPlanScript } from "@/definition/AgentPlanScript";
 
 export const PLAN_GRID = 20;
 /** The width of the port rows in a frame's header. */
 export const PLAN_NODE_WIDTH = 280;
 // Card sizes keep their order: compact start and end, medium value sources,
-// agents widest and as tall as their inputs. The heights count the rows of
-// plan-node-card and its 1 px border.
+// agents and scripts widest and as tall as their inputs. The heights count
+// the rows of plan-node-card and its 1 px border.
 const PLAN_AGENT_WIDTH = 320;
 const PLAN_SOURCE_WIDTH = 260;
 const PLAN_ENDPOINT_WIDTH = 160;
@@ -39,6 +40,11 @@ const FRAME_EDGE = 16;
 function agentHeight(step: AgentPlanStep, sources: AgentPlanSources): number {
   const inputs = planStepTemplate(step, sources.agents)?.parameters.length ?? 0;
   return AGENT_BASE_HEIGHT + inputs * AGENT_INPUT_HEIGHT;
+}
+
+/** A script card has the rows of an agent card: its inputs, its output and its profile. */
+function scriptHeight(script: AgentPlanScript): number {
+  return AGENT_BASE_HEIGHT + script.inputs.length * AGENT_INPUT_HEIGHT;
 }
 
 /**
@@ -89,7 +95,7 @@ export function planMemberPosition(
 /** Cards keep their stored top left corner; only their size follows the card type. */
 export function planNodeWidth(node: AgentPlanNode): number {
   if (node.type === "group") return planGroupWidth(node);
-  if (node.type === "agent") return PLAN_AGENT_WIDTH;
+  if (node.type === "agent" || node.type === "script") return PLAN_AGENT_WIDTH;
   return node.type === "start" || node.type === "end"
     ? PLAN_ENDPOINT_WIDTH
     : PLAN_SOURCE_WIDTH;
@@ -115,6 +121,7 @@ export function planNodeHeight(
   };
   if (node.type === "group") return groupHeight(node, sources);
   if (node.type === "agent") return agentHeight(node, sources);
+  if (node.type === "script") return scriptHeight(node);
   return heights[node.type];
 }
 
@@ -177,7 +184,8 @@ export function planNodeLabel(
   if (
     node.type === "variable" ||
     node.type === "parameter" ||
-    node.type === "group"
+    node.type === "group" ||
+    node.type === "script"
   )
     return node.name;
   if (node.type === "task") {
@@ -195,6 +203,7 @@ const NODE_TINTS = {
   start: "border-plan-checkpoint/60 bg-plan-checkpoint-subtle",
   end: "border-plan-checkpoint/60 bg-plan-checkpoint-subtle",
   agent: "border-plan-agent/60 bg-plan-agent-subtle",
+  script: "border-plan-script/60 bg-plan-script-subtle",
   group: "border-plan-group/60 bg-plan-group-subtle",
   task: "border-plan-ticket-edge bg-plan-ticket-subtle",
   variable: "border-plan-parameter/60 bg-plan-parameter-subtle",
@@ -205,6 +214,7 @@ const NODE_ACCENTS = {
   start: "text-plan-checkpoint",
   end: "text-plan-checkpoint",
   agent: "text-plan-agent",
+  script: "text-plan-script",
   group: "text-plan-group",
   task: "text-plan-ticket",
   variable: "text-plan-parameter",

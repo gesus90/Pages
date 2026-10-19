@@ -3,6 +3,7 @@ import { planExecutionIssues } from "@/definition/AgentPlanGraph";
 import { planControl } from "./AgentPlanControl";
 
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
+import type { AgentPlanIssue } from "@/definition/AgentPlanGraph";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type { AgentPlanAccess } from "./AgentPlanAccess";
 import type { AgentProfileService } from "./AgentProfileService";
@@ -15,6 +16,16 @@ interface ControlDependencies {
     "latest" | "hasReservation" | "resources"
   >;
 }
+/**
+ * The reason a plan does not start: a script, which Pages cannot run yet, is
+ * named as such; every other finding of the graph check as an invalid plan.
+ */
+function issueCode(issues: readonly AgentPlanIssue[]): string {
+  return issues.some((issue) => issue.reason === "scriptUnavailable")
+    ? "plan_script_unavailable"
+    : "plan_invalid";
+}
+
 /** Server-side action availability, including current graph and execution-context refusals. */
 export class AgentPlanControlService {
   private readonly dependencies: ControlDependencies;
@@ -56,7 +67,7 @@ export class AgentPlanControlService {
     return {
       ...control,
       issues,
-      issue: issue ?? "plan_invalid",
+      issue: issue ?? issueCode(issues),
       canPlay: false,
       canResume: false,
     };

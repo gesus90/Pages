@@ -7,25 +7,31 @@ import type {
   AgentPlanStep,
 } from "./AgentPlan";
 import type { AgentPlanGroup } from "./AgentPlanGroup";
+import type { AgentPlanScript } from "./AgentPlanScript";
 
 /** The longest template name, as long as a group name. */
 export const PLAN_TEMPLATE_NAME_LENGTH = 120;
 
-const TEMPLATE_TYPES: readonly string[] = ["parameter", "agent", "group"];
+const TEMPLATE_TYPES: readonly string[] = [
+  "parameter",
+  "agent",
+  "script",
+  "group",
+];
 
 /**
  * The node types a template can hold.
  *
  * @remarks
  * Saved templates store their type as plain text beside the content, so a
- * later node type, such as a script node, joins this union without a
- * migration of the templates saved before.
+ * later node type joins this union without a migration of the templates
+ * saved before; the script type joined this way.
  */
-export type AgentPlanTemplateType = "parameter" | "agent" | "group";
+export type AgentPlanTemplateType = "parameter" | "agent" | "script" | "group";
 
 /** A node whose configuration can be saved as a template. */
 export type AgentPlanTemplateNode =
-  AgentPlanParameter | AgentPlanStep | AgentPlanGroup;
+  AgentPlanParameter | AgentPlanStep | AgentPlanScript | AgentPlanGroup;
 
 /**
  * A named node configuration of one person.
@@ -55,7 +61,10 @@ export function isPlanTemplateNode(
   node: AgentPlanNode,
 ): node is AgentPlanTemplateNode {
   return (
-    node.type === "parameter" || node.type === "agent" || node.type === "group"
+    node.type === "parameter" ||
+    node.type === "agent" ||
+    node.type === "script" ||
+    node.type === "group"
   );
 }
 
@@ -93,13 +102,15 @@ function internalBindings(
  * uses another plan's data; its inputs then show what is left to connect.
  * A group keeps its members with their positions in the frame, their typed
  * values, the results they hand each other and the flow edges between them.
- * The node moves to the grid origin; insertion places it.
+ * A script keeps its profile reference, content, declared inputs and
+ * output, timeout and typed input values. The node moves to the grid
+ * origin; insertion places it.
  */
 export function planTemplateNode(
   node: AgentPlanTemplateNode,
 ): AgentPlanTemplateNode {
   if (node.type === "parameter") return { ...node, x: 0, y: 0 };
-  if (node.type === "agent")
+  if (node.type === "agent" || node.type === "script")
     return {
       ...node,
       x: 0,

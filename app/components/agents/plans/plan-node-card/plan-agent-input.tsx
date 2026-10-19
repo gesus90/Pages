@@ -21,12 +21,14 @@ import {
 import type { TFunction } from "i18next";
 import type { AgentParameter } from "@/definition/AgentParameters";
 import type { AgentPlanBinding, AgentPlanStep } from "@/definition/AgentPlan";
+import type { AgentPlanScript } from "@/definition/AgentPlanScript";
 import type { AgentParameterValue } from "@/definition/AgentParameters";
 import type { PlanValueContext } from "./plan-value-preview";
 
 interface PlanAgentInputProps {
-  readonly step: AgentPlanStep;
-  /** The agent's name, which the controls of the row name. */
+  /** An agent, or a script with its declared text inputs. */
+  readonly step: AgentPlanStep | AgentPlanScript;
+  /** The node's name, which the controls of the row name. */
   readonly label: string;
   readonly parameter: AgentParameter;
 }
@@ -38,7 +40,7 @@ function usePlanValueContext(): PlanValueContext {
 }
 
 /**
- * One input of an agent: its violet data IN, its name and its value.
+ * One input of an agent or a script: its violet data IN, its name and its value.
  *
  * @remarks
  * An input holds one binding. A connection shows its source read only and
@@ -100,7 +102,8 @@ export function PlanAgentInput(props: PlanAgentInputProps): React.ReactElement {
 
 /**
  * How a bound input reads in its tooltip: a result names the placeholder of
- * `AGENT.md` it fills, or that `AGENT.md` does not use it.
+ * `AGENT.md` it fills, or that `AGENT.md` does not use it; a script input
+ * names its source.
  */
 function boundTitle(
   props: PlanAgentInputProps & { readonly binding: AgentPlanBinding },
@@ -112,7 +115,7 @@ function boundTitle(
 ): string {
   const { translate, preview } = input;
   const name = props.parameter.name;
-  if (props.binding.kind !== "result")
+  if (props.binding.kind !== "result" || props.step.type === "script")
     return translate("plans.boundValue", { parameter: name, source: preview });
   return translate(input.isUnused ? "plans.resultUnused" : "plans.resultUsed", {
     source: preview,
@@ -134,9 +137,16 @@ function BoundValue(
   const { graph, canEdit, sources } = usePlanFlowContext();
   const preview = planBindingPreview(props.binding, usePlanValueContext());
   const name = props.parameter.name;
-  const markdown = planStepTemplate(props.step, sources.agents)?.markdown ?? "";
+  const { step } = props;
+  // A script receives every declared input; only AGENT.md can leave one unused.
+  const markdown =
+    step.type === "agent"
+      ? (planStepTemplate(step, sources.agents)?.markdown ?? "")
+      : null;
   const isUnused =
-    props.binding.kind === "result" && !placeholderNames(markdown).has(name);
+    props.binding.kind === "result" &&
+    markdown !== null &&
+    !placeholderNames(markdown).has(name);
   const Icon = isUnused ? Link2Off : Link2;
   return (
     <div

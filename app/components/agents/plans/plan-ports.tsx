@@ -7,6 +7,7 @@ import { planInTargetClass } from "./plan-flow-ports";
 import { PlanFlowHandle } from "./plan-flow-handle";
 
 import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
+import type { AgentPlanScript } from "@/definition/AgentPlanScript";
 import type { AgentPlanStep } from "@/definition/AgentPlan";
 import type { AgentParameter } from "@/definition/AgentParameters";
 import type { PlanGraphActions } from "./use-plan-graph";
@@ -15,12 +16,12 @@ import type { PlanGraphActions } from "./use-plan-graph";
  * Removes the binding of one data IN; a selected connection to it is no longer selected.
  *
  * @param graph - The editor actions of the plan.
- * @param node - The agent node or frame that owns the IN.
+ * @param node - The agent node, script or frame that owns the IN.
  * @param name - The parameter of the IN.
  */
 export function disconnectPlanInput(
   graph: PlanGraphActions,
-  node: AgentPlanStep | AgentPlanGroup,
+  node: AgentPlanStep | AgentPlanScript | AgentPlanGroup,
   name: string,
 ): void {
   graph.replaceNode({

@@ -25,6 +25,12 @@ export const AGENT_ERROR_MESSAGES = {
   plan_pause_required:
     "Pause the run and wait until all steps have drained before editing.",
   plan_invalid: "Check the plan fields and graph nodes.",
+  plan_script_invalid:
+    "Check the script: name, interpreter profile, content, unique input and output names and a timeout of 1 to 300 seconds.",
+  plan_script_profile_missing:
+    "The script's interpreter profile is not configured on this server. Choose a configured profile.",
+  plan_script_unavailable:
+    "Script execution is not available yet. A plan with a script node cannot start.",
   template_name_required: "Enter a name for the template.",
   template_name_taken:
     "You already have a template with this name. Choose another name.",

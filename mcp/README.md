@@ -1858,8 +1858,9 @@ Error codes of these tools, with `details.reason` where Pages names one:
 ### Agent plans
 
 An agent plan is the graph of the plan page: start and end nodes,
-agent nodes with their own work order, ticket nodes and parameter nodes, flow
-connections between them and the inputs of each agent node. These tools work on
+agent nodes with their own work order, script nodes, ticket nodes and parameter
+nodes, flow connections between them and the inputs of each agent and script
+node. These tools work on
 the same plans as the plan page and under its rules; they add no right of their
 own. They neither start, pause, resume, stop nor delete a plan, and a plan
 session (the credential of a running node) gets none of them.
@@ -1868,7 +1869,7 @@ session (the credential of a running node) gets none of them.
 | ----------------------- | ------------------------ | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | `list_plans`            | `plans.list`             | optional `text`, `projectId`, `cursor`, `limit`                                                 | The visible plans by name, with state and latest own run                  |
 | `read_plan`             | `plans.read`             | `planId`                                                                                        | One plan with nodes, edges, share, revision and status                    |
-| `read_plan_sources`     | `plans.sources.read`     | optional `workspaceId`                                                                          | Workspaces for new plans; with `workspaceId` the agents a node can run    |
+| `read_plan_sources`     | `plans.sources.read`     | optional `workspaceId`                                                                          | Workspaces for new plans; with `workspaceId` agents and interpreters      |
 | `list_plan_runs`        | `plans.runs.list`        | `planId`, optional `order` (`newest`, `oldest`), `cursor`, `limit`                              | The account's runs of a plan with date and status, 20 per page by default |
 | `read_plan_run`         | `plans.run.read`         | `runId` (optional `planId` to check it), or `planId` with `select` `latest` or `first`          | One run with the state of every node                                      |
 | `read_plan_run_reports` | `plans.run.reports.read` | as `read_plan_run`, optional `stepId`                                                           | The reports of a run, each with `runId` and `stepId`                      |
@@ -1888,9 +1889,11 @@ session (the credential of a running node) gets none of them.
   nothing. A request that matches the stored plan returns `changed:false`.
 - **Structure.** `changes` is a list applied in order and saved as one revision:
   `addNode` (`start`, `end`, `agent` with `agentId` from `read_plan_sources`,
-  `task` with the `taskId` of a task or subtask of the project, `parameter` with
-  `name`, `value` and optional `format`), `updateNode` (fields of the node's kind,
-  `x` and `y` for every node), `removeNode` (also removes its connections and the
+  `script` with `name`, `interpreterProfileId`, `content`, exactly one entry in
+  `outputs` and optional `inputs` and `timeoutSeconds`, `task` with the `taskId`
+  of a task or subtask of the project, `parameter` with `name`, `value` and
+  optional `format`), `updateNode` (fields of the node's kind, `x` and `y` for
+  every node), `removeNode` (also removes its connections and the
   inputs it fed), `connect` and `disconnect` (flow `from` → `to`), `bind`
   (`kind` `source`, `result` or `literal`) and `unbind`. An `id` in `addNode`
   lets later changes of the same call refer to the node; `createdNodeIds` returns
@@ -1908,6 +1911,21 @@ session (the credential of a running node) gets none of them.
   `updateNode` with `{"completion": "todos"}` switches an existing node and keeps
   its configuration copy; setting `agentId` to another agent and back inside one
   `changes` list replaces that copy with the agent's current template.
+- **Scripts.** A script node names an interpreter profile by the `id` that
+  `read_plan_sources` lists (with `name`, `status` and `version`, never a path).
+  Pages checks it like the plan page: a name of up to 120 characters, content of
+  1 to 100000 characters (one request is at most 64 KiB, so longer content is
+  set on the plan page), up to 16 `inputs` (`{name, type: "text", isRequired}`),
+  exactly one output (`{name, type: "text"}`) that the result port hands on,
+  `timeoutSeconds` from 1 to 300 (default 60), and input and output names that
+  start with a letter, use letters, digits and `_` and are unique together. A new
+  or changed profile must be configured on the server; an unchanged reference to
+  a since removed profile stays as it is. `bind` fills a script input like an
+  agent input (text only; a result only from a node earlier in the flow), and an
+  `updateNode` of `inputs` keeps the bindings of the inputs that remain. Scripts
+  never join groups and have no workspace, model or reasoning; they use the
+  plan's workspace. Pages does not run scripts yet: a plan with a script node
+  reports the issue `scriptUnavailable` and does not start.
 - **Status.** `read_plan` returns `status`: `state` (`idle`, `running`, `pausing`, `paused` or `stopping`
   by the account's own runs), `runCount`, `latestRun`, and `isRunnable` with the
   `issues` the plan page shows before Play.
@@ -1926,7 +1944,9 @@ session (the credential of a running node) gets none of them.
   `workspace_unavailable`, `element_missing` (a named node, connection or input
   does not exist or has another kind), `element_exists` (an id, connection or
   parameter name is taken), `parameter_reference_unavailable`,
-  `sharing_target_unavailable` or `credentials_in_text`.
+  `plan_script_invalid` (a script field breaks its rules),
+  `plan_script_profile_missing` (a new or changed `interpreterProfileId` names
+  no configured profile), `sharing_target_unavailable` or `credentials_in_text`.
 - **Repeat.** Writes take an `operationId`: repeating a call with identical
   parameters returns its stored result and never changes twice; other
   parameters return `CONFLICT`.

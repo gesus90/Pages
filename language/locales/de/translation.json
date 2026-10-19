@@ -628,6 +628,9 @@
         "workspace_in_use": "Entfernen Sie die Verweise auf den Arbeitsbereich, bevor Sie die Registrierung entfernen oder neu zuordnen.",
         "plan_sources_failed": "Die aktuelle Agent-Vorlage konnte nicht geladen werden. Bitte erneut einfügen.",
         "plan_invalid": "Planfelder und Graphknoten prüfen.",
+        "plan_script_invalid": "Script prüfen: Name, Interpreterprofil, Inhalt (höchstens 100.000 Zeichen), eindeutige Ein- und Ausgabenamen und ein Zeitlimit von 1 bis 300 Sekunden.",
+        "plan_script_profile_missing": "Das Interpreterprofil des Scripts ist auf diesem Server nicht konfiguriert. Ein konfiguriertes Profil wählen.",
+        "plan_script_unavailable": "Script-Ausführung ist noch nicht verfügbar. Ein Plan mit Script-Node startet nicht.",
         "template_name_required": "Gib einen Namen für die Vorlage ein.",
         "template_name_taken": "Du hast bereits eine Vorlage mit diesem Namen. Wähle einen anderen Namen.",
         "template_not_found": "Die Vorlage existiert nicht mehr.",
@@ -3275,6 +3278,7 @@
     "discardHint": "Ungespeicherte Planänderungen gehen verloren. Laufende Ausführungen behalten ihren Snapshot.",
     "nodeType": {
       "agent": "Agent",
+      "script": "Script",
       "task": "Ticket",
       "variable": "Variable",
       "start": "Start",
@@ -3322,7 +3326,8 @@
       "unsupportedRunNotes": "Gemeinsame Laufnotizen wurden entfernt. {{@run.notes}} wird nicht mehr unterstützt. Passe den betroffenen Agent oder Plan-Knoten ausdrücklich an.",
       "groupOrder": "Die Agents einer Gruppe teilen eine Session und brauchen eine eindeutige Reihenfolge: Ablaufverbindungen bilden eine Kette mit genau einem ersten Agent und ohne Verzweigung.",
       "groupBoundary": "Alte Rahmenkante ist nicht eindeutig: Im Gruppeneditor den tatsächlichen Agent-Endpunkt auswählen. Bis dahin ist der Start blockiert; keine Verbindung wird verworfen.",
-      "groupBinding": "Alte Gruppenbindung ist nicht eindeutig. Die betroffene Agent-Eingabe ausdrücklich trennen und mit der gewünschten Quelle verbinden; der Start bleibt bis dahin blockiert."
+      "groupBinding": "Alte Gruppenbindung ist nicht eindeutig. Die betroffene Agent-Eingabe ausdrücklich trennen und mit der gewünschten Quelle verbinden; der Start bleibt bis dahin blockiert.",
+      "scriptUnavailable": "Script-Ausführung ist noch nicht verfügbar. Ein Plan mit Script-Node startet nicht."
     },
     "session": {
       "runner": {
@@ -3726,6 +3731,7 @@
         "start": "Start",
         "end": "End",
         "agent": "Agents",
+        "script": "Script",
         "parameter": "Parameter",
         "task": "Tickets",
         "group": "Groups"
@@ -3734,6 +3740,7 @@
         "start": "Beginn eines Ablaufs hinzufügen.",
         "end": "Ende eines Ablaufs hinzufügen.",
         "agent": "Einen Schritt aus einer verfügbaren Agentdefinition hinzufügen.",
+        "script": "Einen Script-Schritt mit Interpreterprofil hinzufügen. Pages führt Scripts noch nicht aus.",
         "parameter": "Einen benannten Eingabewert bereitstellen.",
         "task": "Ein lesbares Ticket als Datenquelle verwenden.",
         "group": "Agents in einer gemeinsamen ACP-Gruppe organisieren."
@@ -3758,6 +3765,7 @@
       "saveDescription": {
         "parameter": "Die aktuelle Parameter-Konfiguration später wiederverwenden.",
         "agent": "Die aktuelle Agent-Konfiguration später wiederverwenden.",
+        "script": "Die aktuelle Script-Konfiguration später wiederverwenden.",
         "group": "Die aktuelle Gruppe mit ihren Agents und internen Verbindungen später wiederverwenden."
       },
       "name": "Name",
@@ -3769,7 +3777,7 @@
       "loading": "Vorlagen werden geladen …",
       "loadFailed": "Die Vorlagen konnten nicht geladen werden.",
       "retry": "Erneut laden",
-      "empty": "Noch keine Vorlagen. Speichere eine Parameter-, Agent- oder Gruppen-Node über ihr Menü „…“ als Vorlage.",
+      "empty": "Noch keine Vorlagen. Speichere eine Parameter-, Agent-, Script- oder Gruppen-Node über ihr Menü „…“ als Vorlage.",
       "insert": "Vorlage „{{name}}“ einfügen",
       "hint": "Klicken oder Enter fügt eine neue, unabhängige Kopie ein; zum Platzieren auf die Arbeitsfläche ziehen. Externe Verbindungen werden nicht übernommen.",
       "inserting": "Wird eingefügt …",
@@ -3778,7 +3786,63 @@
       "insertFailed": "„{{name}}“ wurde nicht eingefügt: {{reason}}",
       "dismiss": "Hinweis schließen",
       "members_one": "{{count}} Agent",
-      "members_other": "{{count}} Agents"
+      "members_other": "{{count}} Agents",
+      "inputs_one": "{{count}} Eingabe",
+      "inputs_other": "{{count}} Eingaben"
+    },
+    "scripts": {
+      "editTitle": "Script bearbeiten",
+      "description": "Das Script läuft im Workspace des aktuellen Plans. Pages führt Scripts noch nicht aus: Ein Plan mit Script-Node startet nicht.",
+      "name": "Name",
+      "profile": "Interpreterprofil",
+      "chooseProfile": "Interpreterprofil wählen",
+      "missingProfile": "Profil fehlt ({{id}})",
+      "missingReason": "Dieses Interpreterprofil ist auf dem Server nicht konfiguriert.",
+      "profileStatus": "Interpreterprofil {{name}}: {{status}}",
+      "workspace": "Workspace des aktuellen Plans",
+      "content": "Scriptinhalt",
+      "contentCount": "{{count}} von {{maximum}} Zeichen",
+      "inputs": "Eingaben",
+      "inputsHint": "Jede Eingabe ist Text. Auf der Karte wird sie wie eine Agent-Eingabe mit einem Parameter, Ticket oder Ergebnis verbunden.",
+      "inputName": "Name der Eingabe {{index}}",
+      "required": "Pflicht",
+      "removeInput": "Eingabe {{name}} entfernen",
+      "addInput": "Eingabe hinzufügen",
+      "inputLimit": "Höchstens {{count}} Eingaben.",
+      "output": "Ausgabe",
+      "outputHint": "Typ Text. Der Ergebnis-Port der Karte gibt sie an spätere Nodes weiter.",
+      "defaultOutput": "ergebnis",
+      "outputOut": "Daten OUT · Ergebnis {{name}}",
+      "timeout": "Zeitlimit in Sekunden",
+      "timeoutHint": "Ganze Sekunden von {{minimum}} bis {{maximum}}; Standard {{initial}}.",
+      "close": "Schließen",
+      "status": {
+        "ok": "Erreichbar",
+        "error": "Nicht erreichbar",
+        "unchecked": "Ungeprüft",
+        "missing": "Nicht konfiguriert",
+        "unknown": "Kein Workspace"
+      },
+      "reasonShort": {
+        "missing": "Nicht gefunden",
+        "notExecutable": "Nicht ausführbar",
+        "timeout": "Zeitlimit",
+        "outputLimit": "Ausgabe zu groß",
+        "exit": "Fehler beim Start",
+        "noVersion": "Keine Version",
+        "failed": "Prüfung fehlgeschlagen"
+      },
+      "validation": {
+        "name": "Gib einen Namen ein (höchstens 120 Zeichen).",
+        "profile": "Wähle ein Interpreterprofil.",
+        "profileMissing": "Dieses Interpreterprofil ist auf dem Server nicht konfiguriert. Wähle ein konfiguriertes Profil.",
+        "content": "Gib den Scriptinhalt ein.",
+        "contentLength": "Der Inhalt ist zu lang: höchstens {{maximum}} Zeichen.",
+        "timeout": "Gib ganze Sekunden von {{minimum}} bis {{timeout}} ein.",
+        "inputName": "Mit einem Buchstaben beginnen; nur Buchstaben, Ziffern und Unterstrich, höchstens 64 Zeichen.",
+        "outputName": "Mit einem Buchstaben beginnen; nur Buchstaben, Ziffern und Unterstrich, höchstens 64 Zeichen.",
+        "duplicateName": "Dieser Name ist schon vergeben. Ein- und Ausgaben brauchen eindeutige Namen."
+      }
     },
     "progress": {
       "label": "Lauffortschritt",

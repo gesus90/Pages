@@ -4,11 +4,7 @@ import { withPortlessPlanGroups } from "@/definition/AgentPlanGroupUpgrade";
 
 import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
 import { planExecutionIssues } from "@/definition/AgentPlanGraph";
-import {
-  allPlanSteps,
-  mapPlanSteps,
-  expandPlanGroups,
-} from "@/definition/AgentPlanGroup";
+import { allPlanSteps, mapPlanSteps } from "@/definition/AgentPlanGroup";
 import { readPlanInput } from "@/backend/agents/AgentPlanInput";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { ProjectRunsActiveError } from "@/backend/error/ProjectErrors";
@@ -26,6 +22,8 @@ import { requireCompatibleFields } from "./AgentPlanGroupRuntime";
 import { requireAllowedRunOptions } from "./AgentProfileValidation";
 import { planSteps, validatePlanGraph } from "./AgentPlanGraph";
 import { requireAgentAdministrator } from "./AgentServiceAccess";
+import { AgentPlanScripts } from "./AgentPlanScripts";
+import { planTaskBindings } from "./AgentPlanTaskBindings";
 
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 import type { DatabaseTransaction } from "@/backend/database/Database";
@@ -76,44 +74,20 @@ interface PlanDependencies {
   readonly sessions?: AgentPlanSessionAccess;
   /** Serves the prompts nodes were sent. */
   readonly archive?: AgentRunArchive;
-}
-
-interface PlanTaskBinding {
-  readonly agentId: string;
-  readonly taskId: string;
-}
-
-/** Lists each agent and ticket pair once per plan, including a step's personal access agent. */
-function planTaskBindings(plan: AgentPlan): readonly PlanTaskBinding[] {
-  plan = expandPlanGroups(plan);
-  const tickets = new Map<string, string>();
-  for (const node of plan.nodes)
-    if (node.type === "task") tickets.set(node.id, node.taskId);
-  const pairs = new Map<string, PlanTaskBinding>();
-  for (const step of planSteps(plan)) {
-    const agentIds =
-      step.personalAgentId === null
-        ? [step.agentId]
-        : [step.agentId, step.personalAgentId];
-    for (const binding of Object.values(step.bindings)) {
-      const taskId =
-        binding.kind === "source" ? tickets.get(binding.nodeId) : undefined;
-      if (taskId === undefined) continue;
-      for (const agentId of agentIds)
-        pairs.set(`${agentId}\n${taskId}`, { agentId, taskId });
-    }
-  }
-  return [...pairs.values()];
+  /** The interpreter profiles of script nodes; absent, no profile exists. */
+  readonly scripts?: AgentPlanScripts;
 }
 
 /** Route-facing plan facade; graph, authorization and execution responsibilities stay in small services. */
 export class AgentPlanService {
   private readonly dependencies: PlanDependencies;
   private readonly controls: AgentPlanControlService;
+  private readonly scripts: AgentPlanScripts;
 
   public constructor(dependencies: PlanDependencies) {
     this.dependencies = dependencies;
     this.controls = new AgentPlanControlService(dependencies);
+    this.scripts = dependencies.scripts ?? new AgentPlanScripts(null);
   }
 
   /**
@@ -216,6 +190,7 @@ export class AgentPlanService {
         userId,
         workspace.projectId,
       ),
+      interpreters: await this.scripts.interpreters(),
     };
   }
 
@@ -636,6 +611,7 @@ export class AgentPlanService {
     plan: AgentPlanInput,
     previous: AgentPlanView | null,
   ): Promise<AgentPlanInput> {
+    await this.scripts.requireProfiles(plan.nodes, previous?.nodes ?? []);
     const catalog = await this.dependencies.profiles.catalog(
       userId,
       plan.projectId ?? null,

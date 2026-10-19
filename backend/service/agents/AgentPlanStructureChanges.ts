@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
+import { PLAN_SCRIPT_TIMEOUT } from "@/definition/AgentPlanScript";
 
 import { readPlanNode } from "@/backend/agents/AgentPlanInput";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
@@ -15,6 +16,7 @@ import type {
   AgentPlanParameter,
   AgentPlanStep,
 } from "@/definition/AgentPlan";
+import type { AgentPlanScript } from "@/definition/AgentPlanScript";
 import type { AgentRejectionReason } from "@/definition/PagesAgentOperations";
 import type { AgentPlanChange } from "./AgentPlanOperationInput";
 
@@ -59,9 +61,14 @@ function findNode(plan: AgentPlanInput, id: string): AgentPlanNode {
   return node;
 }
 
-function findStep(plan: AgentPlanInput, id: string): AgentPlanStep {
+/** The node whose inputs a binding fills: an agent or a script outside every frame. */
+function findInputNode(
+  plan: AgentPlanInput,
+  id: string,
+): AgentPlanStep | AgentPlanScript {
   const node = findNode(plan, id);
-  if (node.type !== "agent") throw refused("element_missing");
+  if (node.type !== "agent" && node.type !== "script")
+    throw refused("element_missing");
   return node;
 }
 
@@ -110,7 +117,32 @@ function newNodeFields(
     return { personalAgentId: null, instruction: "", bindings: {} };
   if (change.type === "parameter")
     return { format: defaultFormat(change.fields.value) };
+  // As in the script dialog: no inputs and the default timeout until named.
+  if (change.type === "script")
+    return {
+      inputs: [],
+      timeoutSeconds: PLAN_SCRIPT_TIMEOUT.initial,
+      bindings: {},
+    };
   return {};
+}
+
+/**
+ * A script keeps the connections of the inputs it still declares.
+ *
+ * @remarks
+ * The script dialog drops the connection of a removed input as well; a
+ * renamed input is a new one here and needs to be bound again.
+ */
+function withDeclaredBindings(node: AgentPlanNode): AgentPlanNode {
+  if (node.type !== "script") return node;
+  const names = new Set(node.inputs.map((input) => input.name));
+  return {
+    ...node,
+    bindings: Object.fromEntries(
+      Object.entries(node.bindings).filter(([name]) => names.has(name)),
+    ),
+  };
 }
 
 /**
@@ -190,7 +222,9 @@ function updateNode(
     )
   )
     throw refused("element_missing");
-  const node = readPlanNode({ ...current, ...change.fields, id: current.id });
+  const node = withDeclaredBindings(
+    readPlanNode({ ...current, ...change.fields, id: current.id }),
+  );
   requireFreeName(plan, node, node.id);
   return replaceNode(plan, reassignedNode(current, node, context));
 }
@@ -256,7 +290,7 @@ function bindInput(
   plan: AgentPlanInput,
   change: Extract<AgentPlanChange, { action: "bind" | "unbind" }>,
 ): AgentPlanInput {
-  const step = findStep(plan, change.nodeId);
+  const step = findInputNode(plan, change.nodeId);
   if (change.action === "bind")
     return replaceNode(plan, {
       ...step,

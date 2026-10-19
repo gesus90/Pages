@@ -16,8 +16,8 @@ import { planNodeAccent } from "../plan-layout";
 import { PlanNodeIcon } from "../plan-node-icon";
 import { savePlanTemplate } from "./plan-template-requests";
 import {
-  planTemplateDetails,
   planTemplateError,
+  planTemplateSaveDetails,
   planTemplateSuggestion,
 } from "./plan-template-summary";
 
@@ -229,7 +229,7 @@ function TemplateTypeLine(props: {
         {t(`plans.nodeType.${node.type}`)}
       </span>
       <span className="min-w-0 truncate text-muted-foreground">
-        {planTemplateDetails(node, props.context).join(" · ")}
+        {planTemplateSaveDetails(node, props.context).join(" · ")}
       </span>
     </div>
   );

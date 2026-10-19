@@ -33,7 +33,8 @@ export function planTemplateSuggestion(
  * A short line about a template's configuration, after its type.
  *
  * @returns The value type and value of a parameter, the model and reasoning
- * effort of an agent, or the number of agents in a group.
+ * effort of an agent, the interpreter profile of a script, or the number of
+ * agents in a group.
  */
 export function planTemplateDetails(
   node: AgentPlanTemplateNode,
@@ -42,6 +43,12 @@ export function planTemplateDetails(
   const { translate } = context;
   if (node.type === "group")
     return [translate("plans.templates.members", { count: node.steps.length })];
+  if (node.type === "script") {
+    const profile = context.sources.interpreters?.find(
+      (entry) => entry.id === node.interpreterProfileId,
+    );
+    return [profile?.name ?? node.interpreterProfileId];
+  }
   if (node.type === "parameter") {
     const kind = node.value.type === "text" ? node.format : node.value.type;
     const value = shortened(planValuePreview(node.value, context));
@@ -58,6 +65,22 @@ export function planTemplateDetails(
   ]
     .map((part) => part.trim())
     .filter(Boolean);
+}
+
+/**
+ * The line about a configuration in the save dialog: the list's line, and
+ * for a script the number of its inputs as well.
+ */
+export function planTemplateSaveDetails(
+  node: AgentPlanTemplateNode,
+  context: PlanValueContext,
+): readonly string[] {
+  const details = planTemplateDetails(node, context);
+  if (node.type !== "script") return details;
+  return [
+    ...details,
+    context.translate("plans.templates.inputs", { count: node.inputs.length }),
+  ];
 }
 
 /** The translated reason of a refused template request. */

@@ -28,6 +28,7 @@ import type {
 // The template saved last keeps the border color of its node type.
 const SAVED_BORDERS: Record<AgentPlanTemplateType, string> = {
   agent: "border-plan-agent/70",
+  script: "border-plan-script/70",
   parameter: "border-plan-parameter/70",
   group: "border-plan-group/70",
 };

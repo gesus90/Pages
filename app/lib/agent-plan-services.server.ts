@@ -10,6 +10,7 @@ import { AgentPlanRecoveryRepository } from "@/backend/database/repositories/age
 import { AgentPlanRecoveryService } from "@/backend/service/agents/recovery/AgentPlanRecoveryService";
 import { AgentPlanAccess } from "@/backend/service/agents/AgentPlanAccess";
 import { AgentPlanPreparation } from "@/backend/service/agents/AgentPlanPreparation";
+import { AgentPlanScripts } from "@/backend/service/agents/AgentPlanScripts";
 import { AgentPlanRunEngine } from "@/backend/service/agents/AgentPlanRunEngine";
 import { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
 import { AgentPlanTemplateService } from "@/backend/service/agents/AgentPlanTemplateService";
@@ -27,6 +28,7 @@ import { AgentSessionService } from "@/backend/service/agents/sessions/AgentSess
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
+import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 
 import type { Database } from "@/backend/database/Database";
 import type { AgentPlanMcpSettings } from "@/backend/service/agents/AgentPlanSessionAccess";
@@ -42,6 +44,14 @@ export interface AgentPlanServices {
   readonly agentPlanTemplateService: AgentPlanTemplateService;
   readonly agentSessionService: AgentSessionService;
   readonly agentPlanRecoveryService: AgentPlanRecoveryService;
+}
+
+/** The interpreter profiles of script nodes, read when needed so a changed list applies without a restart. */
+function planScripts(): AgentPlanScripts {
+  return new AgentPlanScripts({
+    snapshot: async () =>
+      (await getPagesRuntime()).interpreterProfiles.snapshot(),
+  });
 }
 
 /** Shares the existing user, ticket, model and workspace boundaries; no second catalog or runner. */
@@ -121,6 +131,7 @@ export async function createAgentPlanService(input: {
     engine,
     sessions,
     archive: input.agents.agentRunArchive,
+    scripts: planScripts(),
   });
   // The credential leftovers were cleaned up when the agent services started.
   await service.recoverInterruptedRuns(

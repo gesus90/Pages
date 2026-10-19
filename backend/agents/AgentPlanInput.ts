@@ -2,6 +2,7 @@ import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { isAgentParameterName } from "@/definition/AgentParameters";
 import { planValueIssue } from "@/definition/AgentPlanValue";
+import { planScriptIssues } from "@/definition/AgentPlanScript";
 
 import {
   readAgentParameterValue,
@@ -12,6 +13,11 @@ import { readPlanConfiguration } from "./AgentPlanConfigurationInput";
 import { readAgentObject } from "./AgentPayload";
 
 import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
+import type {
+  AgentPlanScript,
+  AgentPlanScriptInput,
+  AgentPlanScriptOutput,
+} from "@/definition/AgentPlanScript";
 import type { AgentPlanCompletion } from "@/definition/AgentPlanSession";
 import type {
   AgentPlanBinding,
@@ -102,6 +108,7 @@ export function readPlanNode(input: unknown): AgentPlanNode {
     return { ...base, type: node.type };
   if (node.type === "parameter") return readParameterNode(node, base);
   if (node.type === "group") return readGroupNode(node, base);
+  if (node.type === "script") return readScriptNode(node, base);
   if (node.type === "task")
     return { ...base, type: "task", taskId: readPlanText(node.taskId) };
   if (node.type === "variable") {
@@ -146,6 +153,67 @@ function readCompletion(input: unknown): AgentPlanCompletion {
   if (input === undefined || input === "report") return "report";
   if (input === "todos") return "todos";
   throw new AgentError("plan_invalid");
+}
+
+/** Reads declared inputs or outputs: text entries with a name and further flags. */
+function readScriptEntries(
+  input: unknown,
+): readonly { readonly name: string; readonly isRequired: unknown }[] {
+  if (!Array.isArray(input) || input.length > 64)
+    throw new AgentError("plan_script_invalid");
+  return input.map((entry: unknown) => {
+    const { name, type, isRequired } = readPlanObject(entry);
+    if (typeof name !== "string" || type !== "text")
+      throw new AgentError("plan_script_invalid");
+    return { name, isRequired };
+  });
+}
+
+function readScriptInputs(input: unknown): readonly AgentPlanScriptInput[] {
+  return readScriptEntries(input).map(({ name, isRequired }) => {
+    if (typeof isRequired !== "boolean")
+      throw new AgentError("plan_script_invalid");
+    return { name, type: "text", isRequired };
+  });
+}
+
+function readScriptOutputs(input: unknown): readonly AgentPlanScriptOutput[] {
+  return readScriptEntries(input).map(({ name }) => ({ name, type: "text" }));
+}
+
+/**
+ * Parses a script node; its own configuration is checked completely here.
+ *
+ * @throws {AgentError} `plan_script_invalid` for a missing or malformed field,
+ * an empty or too long content, invalid or repeated names or a timeout out of
+ * bounds. Whether the profile exists is checked when the plan is saved.
+ */
+function readScriptNode(
+  node: Record<string, unknown>,
+  base: AgentPlanPosition & { readonly id: string },
+): AgentPlanScript {
+  const { name, interpreterProfileId, content, timeoutSeconds } = node;
+  if (
+    typeof name !== "string" ||
+    typeof interpreterProfileId !== "string" ||
+    typeof content !== "string" ||
+    typeof timeoutSeconds !== "number"
+  )
+    throw new AgentError("plan_script_invalid");
+  const script: AgentPlanScript = {
+    ...base,
+    type: "script",
+    name: name.trim(),
+    interpreterProfileId,
+    content,
+    inputs: readScriptInputs(node.inputs),
+    outputs: readScriptOutputs(node.outputs),
+    timeoutSeconds,
+    bindings: readBindings(node.bindings),
+  };
+  if (planScriptIssues(script).length > 0)
+    throw new AgentError("plan_script_invalid");
+  return script;
 }
 
 function readEdge(input: unknown): AgentPlanEdge {

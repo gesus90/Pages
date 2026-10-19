@@ -25,6 +25,9 @@ const PLAN_REASONS: Readonly<Partial<Record<AgentErrorCode, Reason>>> = {
   parameter_reference_unavailable: "parameter_reference_unavailable",
   parameter_ticket_unavailable: "parameter_reference_unavailable",
   agent_usage_denied: "parameter_reference_unavailable",
+  // Script nodes keep the codes of the plan page.
+  plan_script_invalid: "plan_script_invalid",
+  plan_script_profile_missing: "plan_script_profile_missing",
 };
 
 function rejected(reason: Reason): AgentOperationError {

@@ -11,7 +11,6 @@ import { usePlanSelection } from "./use-plan-selection";
 import type {
   AgentPlanInput,
   AgentPlanNode,
-  AgentPlanPosition,
   AgentPlanSources,
   AgentPlanStep,
 } from "@/definition/AgentPlan";
@@ -39,12 +38,8 @@ export interface PlanGraphActions extends PlanSelection, PlanGroupActions {
   >["canConnectFrom"];
   readonly connectFrom: ReturnType<typeof usePlanConnections>["connectFrom"];
   /** Adds a node; with `groupId` an agent joins that group, if it may. */
-  readonly add: (
-    kind: AgentPlanNode["type"],
-    reference: string,
-    position?: AgentPlanPosition,
-    groupId?: string,
-  ) => string | null;
+  readonly add: PlanNodeInsertion["add"];
+  readonly addScript: PlanNodeInsertion["addScript"];
   /** Adds a checked copy of a node template; an agent joins the group `groupId` if it may. */
   readonly insertTemplate: PlanNodeInsertion["insertTemplate"];
   /** Moves a node; a member's position counts from its frame's member area. */
@@ -67,6 +62,22 @@ export interface PlanGraphActions extends PlanSelection, PlanGroupActions {
   ) => void;
   readonly replaceStep: (step: AgentPlanStep) => void;
   readonly replaceNode: (node: AgentPlanNode) => void;
+}
+
+/**
+ * The findings the canvas marks on nodes and ports.
+ *
+ * @remarks
+ * A script is not at fault for being unable to run yet: the run panel names
+ * that reason, the card is not marked as invalid for it.
+ */
+function canvasIssues(
+  draft: AgentPlanInput,
+  sources: AgentPlanSources,
+): readonly AgentPlanIssue[] {
+  return planExecutionIssues(draft, sources.agents).filter(
+    (issue) => issue.reason !== "scriptUnavailable",
+  );
 }
 
 /** Graph edits leave definitions untouched; the plan owns every node instance and binding. */
@@ -156,7 +167,7 @@ export function usePlanGraph(
     setDraft((previous) => replacePlanNode(previous, node));
   }
   return {
-    issues: planExecutionIssues(draft, sources.agents),
+    issues: canvasIssues(draft, sources),
     ...selection,
     ...connections,
     ...insertion,

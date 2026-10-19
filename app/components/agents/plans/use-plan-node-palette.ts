@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { planDropGroup } from "./plan-layout";
 
 import type { AgentPlanNode, AgentPlanPosition } from "@/definition/AgentPlan";
+import type { AgentPlanScriptConfiguration } from "@/definition/AgentPlanScript";
 import type { PlanCanvasProps } from "./plan-flow-context";
 
 export type PlanPaletteKind = Exclude<AgentPlanNode["type"], "variable">;
@@ -25,6 +26,8 @@ export function usePlanNodePalette(canvas: PlanCanvasProps): {
   readonly dragOver: (event: React.DragEvent) => void;
   readonly drop: (event: React.DragEvent) => void;
   readonly confirm: (reference: string) => void;
+  /** Adds the script the script dialog configured, where the request asked for it. */
+  readonly confirmScript: (configuration: AgentPlanScriptConfiguration) => void;
   readonly close: () => void;
 } {
   const { t } = useTranslation();
@@ -83,12 +86,17 @@ export function usePlanNodePalette(canvas: PlanCanvasProps): {
     );
   }
   function confirm(reference: string): void {
-    if (!request || blocked) return;
+    if (!request || blocked || request.kind === "script") return;
     const group =
       request.kind === "agent" && request.position
         ? planDropGroup(canvas.draft, request.position, canvas.sources, null)
         : null;
     canvas.graph.add(request.kind, reference, request.position, group?.id);
+    setRequest(null);
+  }
+  function confirmScript(configuration: AgentPlanScriptConfiguration): void {
+    if (request?.kind !== "script" || blocked) return;
+    canvas.graph.addScript(configuration, request.position);
     setRequest(null);
   }
   return {
@@ -100,6 +108,7 @@ export function usePlanNodePalette(canvas: PlanCanvasProps): {
     dragOver,
     drop,
     confirm,
+    confirmScript,
     close: () => setRequest(null),
   };
 }

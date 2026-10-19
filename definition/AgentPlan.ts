@@ -16,6 +16,7 @@ import type {
 } from "./AgentPlanSession";
 import type { AgentWorkspaceChoice, WorkspaceGitHub } from "./AgentWorkspace";
 import type { AgentPlanGroup } from "./AgentPlanGroup";
+import type { AgentPlanInterpreter, AgentPlanScript } from "./AgentPlanScript";
 import type { AgentPlanRecoveryReason } from "./AgentPlanRecovery";
 
 /** Plan sources and execution dependencies are deliberately separate contracts. */
@@ -57,6 +58,7 @@ export interface AgentPlanParameter extends AgentPlanPosition {
 /** Source nodes provide input; they never create an execution dependency. */
 export type AgentPlanNode =
   | AgentPlanStep
+  | AgentPlanScript
   | AgentPlanGroup
   | AgentPlanParameter
   | (AgentPlanPosition & { readonly id: string; readonly type: "end" })
@@ -141,6 +143,8 @@ export interface AgentPlanSources {
   readonly tasks: readonly AgentPlanTask[];
   /** The workflow of the plan's project in board order; absent before a workspace is chosen. */
   readonly phases?: readonly AgentPlanPhase[];
+  /** The configured interpreter profiles of script nodes; absent before a workspace is chosen. */
+  readonly interpreters?: readonly AgentPlanInterpreter[];
 }
 
 export interface AgentPlanPage {

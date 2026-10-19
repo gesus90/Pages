@@ -51,6 +51,8 @@ const REJECTION_REASONS: Readonly<
   workspace_unavailable: true,
   element_missing: true,
   element_exists: true,
+  plan_script_invalid: true,
+  plan_script_profile_missing: true,
   checklist_items_invalid: true,
   checklist_item_duplicate: true,
   checklist_item_unknown: true,
@@ -86,6 +88,7 @@ const ISSUE_PROBLEMS: Readonly<Record<AgentPlanIssueProblem, true>> = {
   name: true,
   json: true,
   number: true,
+  scriptUnavailable: true,
 };
 
 /** Findings a refusal carries at most. */

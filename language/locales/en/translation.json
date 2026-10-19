@@ -628,6 +628,9 @@
         "workspace_in_use": "Remove the references to the workspace before unregistering or rebinding it.",
         "plan_sources_failed": "The current agent template could not be loaded. Please insert it again.",
         "plan_invalid": "Check the plan fields and graph nodes.",
+        "plan_script_invalid": "Check the script: name, interpreter profile, content (at most 100,000 characters), unique input and output names and a timeout of 1 to 300 seconds.",
+        "plan_script_profile_missing": "The script's interpreter profile is not configured on this server. Choose a configured profile.",
+        "plan_script_unavailable": "Script execution is not available yet. A plan with a script node does not start.",
         "template_name_required": "Enter a name for the template.",
         "template_name_taken": "You already have a template with this name. Choose another name.",
         "template_not_found": "The template no longer exists.",
@@ -3275,6 +3278,7 @@
     "discardHint": "Unsaved plan changes will be lost. Running executions keep their snapshot.",
     "nodeType": {
       "agent": "Agent",
+      "script": "Script",
       "task": "Ticket",
       "variable": "Variable",
       "start": "Start",
@@ -3322,7 +3326,8 @@
       "unsupportedRunNotes": "Shared run notes have been removed. {{@run.notes}} is no longer supported. Update the affected agent or plan node explicitly.",
       "groupOrder": "The agents of a group share one session and need an unambiguous order: flow connections form one chain with exactly one first agent and no branch.",
       "groupBoundary": "A legacy frame edge is ambiguous: choose the actual agent endpoint in the group editor. Starting stays blocked; no connection is discarded.",
-      "groupBinding": "A legacy group input is ambiguous. Explicitly disconnect the affected agent input and connect its intended source; starting remains blocked until repaired."
+      "groupBinding": "A legacy group input is ambiguous. Explicitly disconnect the affected agent input and connect its intended source; starting remains blocked until repaired.",
+      "scriptUnavailable": "Script execution is not available yet. A plan with a script node does not start."
     },
     "session": {
       "runner": {
@@ -3726,6 +3731,7 @@
         "start": "Start",
         "end": "End",
         "agent": "Agents",
+        "script": "Script",
         "parameter": "Parameter",
         "task": "Tickets",
         "group": "Groups"
@@ -3734,6 +3740,7 @@
         "start": "Add the beginning of a flow.",
         "end": "Add the end of a flow.",
         "agent": "Add a step from an available agent definition.",
+        "script": "Add a script step with an interpreter profile. Pages does not run scripts yet.",
         "parameter": "Provide a named input value.",
         "task": "Use a readable ticket as a data source.",
         "group": "Organize agents in a shared ACP group."
@@ -3758,6 +3765,7 @@
       "saveDescription": {
         "parameter": "Reuse the current parameter configuration later.",
         "agent": "Reuse the current agent configuration later.",
+        "script": "Reuse the current script configuration later.",
         "group": "Reuse the current group with its agents and internal connections later."
       },
       "name": "Name",
@@ -3769,7 +3777,7 @@
       "loading": "Loading templates …",
       "loadFailed": "The templates could not be loaded.",
       "retry": "Load again",
-      "empty": "No templates yet. Save a parameter, agent or group node as a template from its “…” menu.",
+      "empty": "No templates yet. Save a parameter, agent, script or group node as a template from its “…” menu.",
       "insert": "Insert template “{{name}}”",
       "hint": "Click or press Enter to insert a new, independent copy; drag it onto the canvas to place it. Outer connections are not copied.",
       "inserting": "Inserting …",
@@ -3778,7 +3786,63 @@
       "insertFailed": "“{{name}}” was not inserted: {{reason}}",
       "dismiss": "Close notice",
       "members_one": "{{count}} agent",
-      "members_other": "{{count}} agents"
+      "members_other": "{{count}} agents",
+      "inputs_one": "{{count}} input",
+      "inputs_other": "{{count}} inputs"
+    },
+    "scripts": {
+      "editTitle": "Edit script",
+      "description": "The script runs in the workspace of the current plan. Pages does not run scripts yet: a plan with a script node does not start.",
+      "name": "Name",
+      "profile": "Interpreter profile",
+      "chooseProfile": "Choose an interpreter profile",
+      "missingProfile": "Profile missing ({{id}})",
+      "missingReason": "This interpreter profile is not configured on the server.",
+      "profileStatus": "Interpreter profile {{name}}: {{status}}",
+      "workspace": "Workspace of the current plan",
+      "content": "Script content",
+      "contentCount": "{{count}} of {{maximum}} characters",
+      "inputs": "Inputs",
+      "inputsHint": "Each input is text. On the card it connects like an agent input to a parameter, ticket or result.",
+      "inputName": "Name of input {{index}}",
+      "required": "Required",
+      "removeInput": "Remove input {{name}}",
+      "addInput": "Add input",
+      "inputLimit": "At most {{count}} inputs.",
+      "output": "Output",
+      "outputHint": "Type text. The card's result port hands it on to later nodes.",
+      "defaultOutput": "result",
+      "outputOut": "Data OUT · Result {{name}}",
+      "timeout": "Timeout in seconds",
+      "timeoutHint": "Whole seconds from {{minimum}} to {{maximum}}; default {{initial}}.",
+      "close": "Close",
+      "status": {
+        "ok": "Available",
+        "error": "Unavailable",
+        "unchecked": "Not checked",
+        "missing": "Not configured",
+        "unknown": "No workspace"
+      },
+      "reasonShort": {
+        "missing": "Not found",
+        "notExecutable": "Not executable",
+        "timeout": "Timed out",
+        "outputLimit": "Output too large",
+        "exit": "Exited with error",
+        "noVersion": "No version",
+        "failed": "Check failed"
+      },
+      "validation": {
+        "name": "Enter a name (at most 120 characters).",
+        "profile": "Choose an interpreter profile.",
+        "profileMissing": "This interpreter profile is not configured on the server. Choose a configured profile.",
+        "content": "Enter the script content.",
+        "contentLength": "The content is too long: at most {{maximum}} characters.",
+        "timeout": "Enter whole seconds from {{minimum}} to {{timeout}}.",
+        "inputName": "Start with a letter; only letters, digits and underscores, at most 64 characters.",
+        "outputName": "Start with a letter; only letters, digits and underscores, at most 64 characters.",
+        "duplicateName": "This name is already used. Inputs and the output need unique names."
+      }
     },
     "progress": {
       "label": "Run progress",

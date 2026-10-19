@@ -1,5 +1,6 @@
 import { isAcpProvider } from "./AgentConfiguration";
 import { planStepTemplate } from "./AgentPlanConfiguration";
+import { planScriptParameters } from "./AgentPlanScript";
 
 import type { AgentDefinitionChoice } from "./AgentAvailability";
 import type { AcpProviderId } from "./AgentConfiguration";
@@ -254,6 +255,7 @@ export function planNodeParameters(
   agents: readonly AgentDefinitionChoice[],
 ): readonly AgentParameter[] {
   if (node.type === "group") return [];
+  if (node.type === "script") return planScriptParameters(node);
   return node.type === "agent"
     ? (planStepTemplate(node, agents)?.parameters ?? [])
     : [];

@@ -1,6 +1,6 @@
 import { MarkerType } from "@xyflow/react";
 
-import { isPlanFlowNode } from "@/definition/AgentPlanGraph";
+import { isPlanFlowNode, isPlanResultNode } from "@/definition/AgentPlanGraph";
 
 import {
   PLAN_FRAME_PADDING,
@@ -201,7 +201,7 @@ export function planFlowSource(
   if (!node) return null;
   if (handle === "flow-out" && isPlanFlowNode(node) && node.type !== "end")
     return { kind: "flow", nodeId: id };
-  if (handle === "value-out" && node.type === "agent")
+  if (handle === "value-out" && isPlanResultNode(node))
     return { kind: "result", nodeId: id };
   if (
     handle === "value-out" &&

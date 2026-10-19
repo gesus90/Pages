@@ -84,7 +84,11 @@ export function planBindingPreview(
   if (binding.kind === "literal")
     return planValuePreview(binding.value, context);
   if (binding.kind === "result") {
-    const step = findPlanStep(draft, binding.stepId)?.step;
+    const step =
+      findPlanStep(draft, binding.stepId)?.step ??
+      draft.nodes.find(
+        (node) => node.type === "script" && node.id === binding.stepId,
+      );
     return translate("plans.resultOf", {
       name: step ? planNodeLabel(step, sources) : binding.stepId,
     });

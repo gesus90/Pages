@@ -31,6 +31,8 @@ export function usePlanFlowSelection(
       graph.select(node.id);
       if (node.data.node.type === "agent" || node.data.node.type === "group")
         props.onOpen?.(node.id);
+      // A script has no session to open; double-click edits it instead.
+      if (node.data.node.type === "script") props.onEdit?.(node.id);
     },
     onEdgeClick: (event, edge) => graph.selectLink(edge.data?.link ?? null),
     onEdgesChange: (changes) => {

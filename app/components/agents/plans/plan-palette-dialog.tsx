@@ -15,8 +15,11 @@ import { isAgentParameterName } from "@/definition/AgentParameters";
 import type { AgentPlanSources } from "@/definition/AgentPlan";
 import type { PlanPaletteRequest } from "./use-plan-node-palette";
 
+/** The kinds this dialog asks a reference for; a script has its own dialog. */
+type ReferenceKind = Exclude<PlanPaletteRequest["kind"], "script">;
+
 interface PaletteDialogProps {
-  readonly request: PlanPaletteRequest;
+  readonly request: PlanPaletteRequest & { readonly kind: ReferenceKind };
   readonly sources: AgentPlanSources;
   readonly blocked: string | null;
   readonly onConfirm: (reference: string) => void;
@@ -103,7 +106,7 @@ export function PlanPaletteDialog(
 }
 
 function PaletteSourceNotice(props: {
-  readonly kind: PlanPaletteRequest["kind"];
+  readonly kind: ReferenceKind;
   readonly sources: AgentPlanSources;
 }): React.ReactElement | null {
   const { t } = useTranslation();
@@ -123,7 +126,7 @@ function PaletteSourceNotice(props: {
 }
 
 function PaletteReference(props: {
-  readonly kind: PlanPaletteRequest["kind"];
+  readonly kind: ReferenceKind;
   readonly reference: string;
   readonly onChange: (reference: string) => void;
   readonly sources: AgentPlanSources;

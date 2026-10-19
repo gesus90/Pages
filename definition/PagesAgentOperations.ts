@@ -295,6 +295,8 @@ export const AGENT_REJECTION_REASONS = [
   "workspace_unavailable",
   "element_missing",
   "element_exists",
+  "plan_script_invalid",
+  "plan_script_profile_missing",
   "checklist_items_invalid",
   "checklist_item_duplicate",
   "checklist_item_unknown",

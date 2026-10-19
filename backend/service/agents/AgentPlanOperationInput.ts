@@ -28,13 +28,28 @@ export const AGENT_PLAN_NODE_FIELDS: Readonly<
   group: ["name", "steps", "edges", "parameters", "bindings"],
   end: [],
   agent: ["agentId", "personalAgentId", "instruction", "completion"],
+  script: [
+    "name",
+    "interpreterProfileId",
+    "content",
+    "inputs",
+    "outputs",
+    "timeoutSeconds",
+  ],
   task: ["taskId"],
   parameter: ["name", "format", "value"],
   // Variables name a global value of older plans; only their position changes.
   variable: [],
 };
 /** Variables of older plans are kept, but no new one is added. */
-const ADDABLE_TYPES = ["start", "end", "agent", "task", "parameter"] as const;
+const ADDABLE_TYPES = [
+  "start",
+  "end",
+  "agent",
+  "script",
+  "task",
+  "parameter",
+] as const;
 const POSITION_FIELDS = ["x", "y"];
 
 /** One change of the structure of a plan, applied in the order given. */

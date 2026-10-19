@@ -68,6 +68,7 @@ export const AGENT_PLAN_ISSUE_PROBLEMS = [
   "name",
   "json",
   "number",
+  "scriptUnavailable",
 ] as const;
 
 export type AgentPlanIssueProblem = (typeof AGENT_PLAN_ISSUE_PROBLEMS)[number];
@@ -146,9 +147,33 @@ export interface AgentPlanParameterNodeEntry extends AgentPlanNodeBase {
   readonly value: AgentParameterValue;
 }
 
+/**
+ * A script step: its content, interpreter profile and declared text inputs and output.
+ *
+ * @remarks
+ * Pages does not run scripts yet; a plan with a script reports the problem
+ * `scriptUnavailable` and does not start.
+ */
+export interface AgentPlanScriptNodeEntry extends AgentPlanNodeBase {
+  readonly type: "script";
+  readonly name: string;
+  /** The stable identifier of an interpreter profile, not its display name. */
+  readonly interpreterProfileId: string;
+  readonly content: string;
+  readonly inputs: readonly {
+    readonly name: string;
+    readonly type: "text";
+    readonly isRequired: boolean;
+  }[];
+  readonly outputs: readonly { readonly name: string; readonly type: "text" }[];
+  readonly timeoutSeconds: number;
+  readonly bindings: Readonly<Record<string, AgentPlanBindingEntry>>;
+}
+
 /** A node as a client reads it and writes it back in a change. */
 export type AgentPlanNodeEntry =
   | AgentPlanAgentNodeEntry
+  | AgentPlanScriptNodeEntry
   | AgentPlanGroupNodeEntry
   | AgentPlanParameterNodeEntry
   | (AgentPlanNodeBase & { readonly type: "start" | "end" })
@@ -260,11 +285,26 @@ export interface AgentPlanAgentEntry {
   }[];
 }
 
-/** What a plan can be built from: workspaces, and the agents of one of them. */
+/**
+ * An interpreter profile a script node can name, without its program path.
+ *
+ * @remarks
+ * `unchecked` means no check of the configured program has finished yet.
+ */
+export interface AgentPlanInterpreterEntry {
+  readonly id: string;
+  readonly name: string;
+  readonly status: "ok" | "error" | "unchecked";
+  readonly version: string | null;
+}
+
+/** What a plan can be built from: workspaces, and the agents and interpreter profiles of one of them. */
 export interface AgentPlanSourceList {
   readonly workspaces: readonly AgentPlanWorkspaceEntry[];
   /** Empty unless a workspace was named. */
   readonly agents: readonly AgentPlanAgentEntry[];
+  /** The profiles script nodes name by id; present when a workspace was named. */
+  readonly interpreters?: readonly AgentPlanInterpreterEntry[];
 }
 
 /** One page of the runs of a plan, in the requested order of their start. */

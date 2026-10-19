@@ -10,6 +10,7 @@ import { PlanNodeIcon } from "./plan-node-icon";
 import { PlanPaletteButton } from "./plan-palette-button";
 import { PlanPaletteDialog } from "./plan-palette-dialog";
 import { PlanPaletteTabs } from "./plan-palette-tabs";
+import { PlanScriptDialog } from "./plan-script/plan-script-dialog";
 import { PlanTemplateList } from "./plan-templates/plan-template-list";
 
 import type { PlanCanvasProps } from "./plan-flow-context";
@@ -23,6 +24,7 @@ const PALETTE_KINDS: readonly PlanPaletteKind[] = [
   "start",
   "end",
   "agent",
+  "script",
   "parameter",
   "task",
   "group",
@@ -125,18 +127,50 @@ export function PlanNodePalette({
           </div>
         ) : null}
       </aside>
-      {palette.request ? (
-        <PlanPaletteDialog
-          key={palette.request.kind}
-          request={palette.request}
-          sources={canvas.sources}
-          blocked={palette.blocked}
-          onConfirm={palette.confirm}
-          onClose={palette.close}
-        />
-      ) : null}
+      <PlanPaletteRequestDialog canvas={canvas} palette={palette} />
     </>
   );
+}
+
+/** Asks for what a node of the palette needs: a script its configuration, other types their reference. */
+function PlanPaletteRequestDialog({
+  canvas,
+  palette,
+}: {
+  readonly canvas: PlanCanvasProps;
+  readonly palette: ReturnType<typeof usePlanNodePalette>;
+}): React.ReactElement | null {
+  const { request } = palette;
+  if (!request) return null;
+  if (request.kind === "script")
+    return (
+      <PlanScriptDialog
+        script={null}
+        interpreters={canvas.sources.interpreters}
+        disabled={Boolean(palette.blocked)}
+        onApply={palette.confirmScript}
+        onClose={palette.close}
+        onCloseAutoFocus={restorePaletteFocus}
+      />
+    );
+  return (
+    <PlanPaletteDialog
+      key={request.kind}
+      request={{ ...request, kind: request.kind }}
+      sources={canvas.sources}
+      blocked={palette.blocked}
+      onConfirm={palette.confirm}
+      onClose={palette.close}
+    />
+  );
+}
+
+/** A closed script dialog returns the focus to the palette's Script entry. */
+function restorePaletteFocus(event: Event): void {
+  event.preventDefault();
+  document
+    .querySelector<HTMLButtonElement>('[data-plan-palette-kind="script"]')
+    ?.focus({ preventScroll: true });
 }
 
 function PlanPaletteRows({

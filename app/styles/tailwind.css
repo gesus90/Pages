@@ -50,10 +50,12 @@
   --color-ring: #f97316;
 
   /* Plan node types stay distinct from their execution status: start and end
-     green, parameters violet, agents teal, tickets yellow, apart from the
-     orange of the flow ports and of a running node. */
+     green, parameters violet, agents teal, scripts rose, tickets yellow, apart
+     from the orange of the flow ports and of a running node. */
   --color-plan-agent: #0e7490;
   --color-plan-agent-subtle: #e6f3f6;
+  --color-plan-script: #be185d;
+  --color-plan-script-subtle: #fdf2f8;
   --color-plan-parameter: #6d28d9;
   --color-plan-parameter-subtle: #f1ecfb;
   --color-plan-ticket: #a37800;
@@ -255,6 +257,8 @@
 
     --color-plan-agent: #3cc6d6;
     --color-plan-agent-subtle: #0f262d;
+    --color-plan-script: #f472b6;
+    --color-plan-script-subtle: #2b1825;
     --color-plan-parameter: #a78bfa;
     --color-plan-parameter-subtle: #211a36;
     --color-plan-ticket: #facc15;
