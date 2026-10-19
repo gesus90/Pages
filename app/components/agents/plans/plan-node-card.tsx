@@ -41,8 +41,8 @@ export function PlanNodeCard({
         group={node}
         isDropTarget={context.dropTarget === node.id}
         session={planRunGroupSession(run, node.id)}
-        result={result}
-        hasRun={run !== null}
+        isCollapsed={context.collapsedGroups.has(node.id)}
+        onToggle={() => context.toggleGroup(node.id)}
       />
     );
   if (node.type === "agent")

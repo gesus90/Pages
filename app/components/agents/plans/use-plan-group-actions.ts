@@ -48,6 +48,7 @@ export type PlanGroupNotice =
 /** A node dropped on the grid: where the pointer was and where the node's corner lands. */
 export interface PlanDrop {
   readonly pointer: AgentPlanPosition;
+  readonly excludedGroups?: ReadonlySet<string>;
   readonly position: AgentPlanPosition;
 }
 
@@ -166,7 +167,10 @@ export function usePlanGroupActions(options: {
     const found = findPlanStep(draft, id);
     if (!found) return;
     const group = planDropGroup(
-      draft,
+      {
+        ...draft,
+        nodes: draft.nodes.filter((node) => !drop.excludedGroups?.has(node.id)),
+      },
       drop.pointer,
       sources,
       found.group?.id ?? null,

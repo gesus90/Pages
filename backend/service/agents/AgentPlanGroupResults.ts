@@ -1,63 +1,49 @@
+import { planGroupProgress } from "@/definition/AgentPlanGroupProgress";
+
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
+import type { PlanGroupState } from "@/definition/AgentPlanGroupProgress";
 import type { AgentPlanSnapshot } from "./AgentPlanSnapshot";
 
-/** Derives the outer group status from its children without creating a second scheduler. */
+const STEP_STATUS: Record<PlanGroupState, AgentPlanStepResult["status"]> = {
+  ready: "waiting",
+  running: "running",
+  pausing: "running",
+  paused: "paused",
+  stopping: "running",
+  stopped: "cancelled",
+  completed: "succeeded",
+  blocked: "waiting",
+  failed: "failed",
+  unavailable: "waiting",
+};
+
+/** Derives read-only group summaries from real member results without scheduling the frame. */
 export function withGroupResults(
   run: AgentPlanRun,
   snapshot: AgentPlanSnapshot,
 ): AgentPlanRun {
   const groups: AgentPlanStepResult[] = (snapshot.groups ?? []).map((group) => {
-    const children = group.steps.flatMap((step) =>
-      run.steps.filter((entry) => entry.id === step.id),
+    const children = run.steps.filter((step) =>
+      group.steps.some((member) => member.id === step.id),
     );
     const failed = children.find((step) => step.status === "failed");
     const cancelled = children.find((step) => step.status === "cancelled");
-    const status = groupStatus({
-      children,
-      required: group.steps.length,
-      isPaused: run.status === "paused",
-      hasFailure: Boolean(failed),
-      hasCancellation: Boolean(cancelled),
-    });
+    const progress = planGroupProgress(group, run);
     return {
       id: group.id,
       name: group.name,
-      status,
+      status: STEP_STATUS[progress.state],
       isBlocked:
-        !failed && !cancelled && children.some((step) => step.isBlocked),
+        progress.state === "blocked" || progress.state === "unavailable",
       cancellation: cancelled?.cancellation ?? "none",
       failedStepId: failed?.id,
-      output: failed ? failed.name : null,
-      error: failed?.error ?? null,
+      output: failed?.name ?? null,
+      error: progress.error,
     };
   });
-  const groupIds = new Set(groups.map((group) => group.id));
+  const ids = new Set(groups.map((group) => group.id));
   return {
     ...run,
-    steps: [...run.steps.filter((step) => !groupIds.has(step.id)), ...groups],
+    steps: [...run.steps.filter((step) => !ids.has(step.id)), ...groups],
   };
-}
-
-function groupStatus(progress: {
-  readonly children: readonly AgentPlanStepResult[];
-  readonly required: number;
-  readonly isPaused: boolean;
-  readonly hasFailure: boolean;
-  readonly hasCancellation: boolean;
-}): AgentPlanStepResult["status"] {
-  if (progress.hasFailure) return "failed";
-  if (progress.hasCancellation) return "cancelled";
-  if (
-    progress.children.length === progress.required &&
-    progress.children.every((step) => step.status === "succeeded")
-  )
-    return "succeeded";
-  if (progress.isPaused) return "paused";
-  if (
-    progress.children.some(
-      (step) => step.status === "running" || step.status === "succeeded",
-    )
-  )
-    return "running";
-  return "waiting";
 }

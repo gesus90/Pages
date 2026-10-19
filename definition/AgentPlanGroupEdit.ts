@@ -1,4 +1,10 @@
-import { planGroupEdges, planGroupRefusal } from "./AgentPlanGroup";
+import {
+  planGroupEdges,
+  planGroupRefusal,
+  planGroupEntries,
+  planGroupExits,
+  resolvePlanGroupBinding,
+} from "./AgentPlanGroup";
 
 import type { AgentDefinitionChoice } from "./AgentAvailability";
 import type {
@@ -24,9 +30,8 @@ export interface PlanStepLocation {
  * A plan after an agent node crossed a frame, with what it had to give up.
  *
  * @remarks
- * Flow edges never cross a frame, and boundary ports belong to their frame, so
- * a node that crosses one loses those connections. Callers name the counts to
- * the person instead of removing them silently.
+ * Membership changes preserve connections; legacy aliases are resolved before
+ * detaching. The counters remain for callers of the established edit API.
  */
 export interface PlanGroupMove<Plan extends AgentPlanInput> {
   readonly plan: Plan;
@@ -82,17 +87,19 @@ export function replacePlanNode<Plan extends AgentPlanInput>(
   };
 }
 
-function withoutPorts(
+function withResolvedBindings(
   step: AgentPlanStep,
   group: AgentPlanGroup,
-): { readonly step: AgentPlanStep; readonly removed: number } {
-  const ports = new Set(group.parameters.map((port) => port.id));
-  const kept = Object.entries(step.bindings).filter(
-    ([, binding]) => !(binding.kind === "source" && ports.has(binding.nodeId)),
-  );
+  plan: AgentPlanInput,
+): AgentPlanStep {
   return {
-    step: { ...step, bindings: Object.fromEntries(kept) },
-    removed: Object.keys(step.bindings).length - kept.length,
+    ...step,
+    bindings: Object.fromEntries(
+      Object.entries(step.bindings).map(([name, binding]) => [
+        name,
+        resolvePlanGroupBinding(binding, group, plan),
+      ]),
+    ),
   };
 }
 
@@ -153,22 +160,19 @@ function leave<Plan extends AgentPlanInput>(
   moved: AgentPlanStep,
 ): PlanGroupMove<Plan> & { readonly step: AgentPlanStep } {
   const { group } = found;
-  if (!group) {
-    const edges = plan.edges.filter((edge) => !touches(edge, moved.id));
+  if (!group)
     return {
       plan: {
         ...plan,
         nodes: plan.nodes.filter((node) => node.id !== moved.id),
-        edges,
       },
       step: moved,
-      removedEdges: plan.edges.length - edges.length,
+      removedEdges: 0,
       removedBindings: 0,
     };
-  }
   const internal = planGroupEdges(group);
   const edges = internal.filter((edge) => !touches(edge, moved.id));
-  const detached = withoutPorts(moved, group);
+  const detached = withResolvedBindings(moved, group, plan);
   const nodes = plan.nodes.map((node) =>
     node.id === group.id
       ? {
@@ -179,10 +183,17 @@ function leave<Plan extends AgentPlanInput>(
       : node,
   );
   return {
-    plan: { ...plan, nodes },
-    step: detached.step,
-    removedEdges: internal.length - edges.length,
-    removedBindings: detached.removed,
+    plan: {
+      ...plan,
+      nodes,
+      edges: [
+        ...plan.edges,
+        ...internal.filter((edge) => touches(edge, moved.id)),
+      ],
+    },
+    step: detached,
+    removedEdges: 0,
+    removedBindings: 0,
   };
 }
 
@@ -193,8 +204,8 @@ function leave<Plan extends AgentPlanInput>(
  * @param groupId - The frame to remove.
  * @param positionOf - The absolute grid position of a member, so it stays
  * where the frame showed it.
- * @returns The plan; the internal edges become outer edges, while the edges
- * at the frame and the bindings to its ports go with it and are counted.
+ * @returns Members with direct bindings and all explicit edges. Ambiguous legacy
+ * connections leave the plan intact until the caller repairs them.
  */
 export function ungroupPlanGroup<Plan extends AgentPlanInput>(
   plan: Plan,
@@ -206,29 +217,51 @@ export function ungroupPlanGroup<Plan extends AgentPlanInput>(
       node.type === "group" && node.id === groupId,
   );
   if (!group) return { plan, removedEdges: 0, removedBindings: 0 };
-  let removedBindings = 0;
-  const members = group.steps.map((step) => {
-    const detached = withoutPorts(step, group);
-    removedBindings += detached.removed;
-    return { ...detached.step, ...positionOf(step) };
-  });
-  const edges = plan.edges.filter((edge) => !touches(edge, groupId));
+  const members = group.steps.map((step) => ({
+    ...withResolvedBindings(step, group, plan),
+    ...positionOf(step),
+  }));
+  // Unresolved aliases and ambiguous frame edges need explicit repair first.
+  if (
+    members.some((step) =>
+      Object.values(step.bindings).some(
+        (binding) =>
+          binding.kind === "source" &&
+          group.parameters.some((port) => port.id === binding.nodeId),
+      ),
+    )
+  )
+    return { plan, removedEdges: 0, removedBindings: 0 };
+  const entries = planGroupEntries(group);
+  const exits = planGroupExits(group);
+  if (
+    plan.edges.some(
+      (edge) =>
+        (edge.to === groupId && entries.length !== 1) ||
+        (edge.from === groupId && exits.length !== 1),
+    )
+  )
+    return { plan, removedEdges: 0, removedBindings: 0 };
+  const edges = plan.edges.map((edge) => ({
+    ...edge,
+    from: edge.from === groupId ? (exits[0]?.id ?? edge.from) : edge.from,
+    to: edge.to === groupId ? (entries[0]?.id ?? edge.to) : edge.to,
+  }));
   return {
     plan: {
       ...plan,
       nodes: [...plan.nodes.filter((node) => node.id !== groupId), ...members],
       edges: [...edges, ...planGroupEdges(group)],
     },
-    removedEdges: plan.edges.length - edges.length,
-    removedBindings,
+    removedEdges: 0,
+    removedBindings: 0,
   };
 }
 
 /**
- * Adds a flow edge between two nodes of the same level: outside every frame or inside one.
+ * Adds an explicit edge between actual agents or checkpoints, across frames too.
  *
- * @returns The plan, or `groupBoundary` when the edge would cross a frame,
- * which only the frame's own flow ports may do.
+ * @returns The plan, or `groupBoundary` when an endpoint names a frame.
  */
 export function connectPlanFlow<Plan extends AgentPlanInput>(
   plan: Plan,
@@ -237,9 +270,15 @@ export function connectPlanFlow<Plan extends AgentPlanInput>(
 ): Plan | "groupBoundary" {
   const source = findPlanStep(plan, from)?.group ?? null;
   const target = findPlanStep(plan, to)?.group ?? null;
-  if (source?.id !== target?.id) return "groupBoundary";
+  if (
+    plan.nodes.some(
+      (node) => node.type === "group" && (node.id === from || node.id === to),
+    )
+  )
+    return "groupBoundary";
   const edge = { from, to, fromPort: "flow-out", toPort: "flow-in" };
-  if (!source) return { ...plan, edges: [...plan.edges, edge] };
+  if (!source || source.id !== target?.id)
+    return { ...plan, edges: [...plan.edges, edge] };
   return replacePlanNode(plan, {
     ...source,
     edges: [...planGroupEdges(source), edge],

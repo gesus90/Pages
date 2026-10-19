@@ -4,12 +4,15 @@ import { isPlanFlowNode } from "@/definition/AgentPlanGraph";
 
 import {
   PLAN_FRAME_PADDING,
+  PLAN_GROUP_COMPACT_WIDTH,
+  PLAN_GROUP_COMPACT_HEIGHT,
   planGroupHeaderHeight,
   planNodeHeight,
   planNodeLabel,
   planNodeWidth,
 } from "./plan-layout";
 import { planLinkKey, planLinkLabel, planLinks } from "./plan-links";
+import { planGroupRouteLabel } from "./plan-group-routing";
 import styles from "./plan-canvas.module.css";
 
 import type { Connection, Edge, Node } from "@xyflow/react";
@@ -33,7 +36,12 @@ export type PlanFlowNode = Node<{ readonly node: AgentPlanNode }, "plan">;
 
 /** A rendered connection keeps the domain link used by selection and removal. */
 export type PlanFlowEdge = Edge<
-  { readonly link: PlanLink; readonly name: string },
+  {
+    readonly link: PlanLink;
+    readonly name: string;
+    readonly routeEnd?: "from" | "to";
+    readonly routeLabelOffsetY?: number;
+  },
   "plan"
 >;
 
@@ -54,11 +62,16 @@ export function planFlowNodes(
     readonly sources: AgentPlanSources;
     readonly selectedId: string | null;
     readonly canEdit: boolean;
+    readonly collapsedGroups?: ReadonlySet<string>;
   },
 ): PlanFlowNode[] {
   function project(node: AgentPlanNode, parentId?: string): PlanFlowNode {
-    const width = planNodeWidth(node);
-    const height = planNodeHeight(node, options.sources);
+    const isCollapsed =
+      node.type === "group" && options.collapsedGroups?.has(node.id);
+    const width = isCollapsed ? PLAN_GROUP_COMPACT_WIDTH : planNodeWidth(node);
+    const height = isCollapsed
+      ? PLAN_GROUP_COMPACT_HEIGHT
+      : planNodeHeight(node, options.sources);
     const isFrame = node.type === "group";
     const isEndpoint = node.type === "start" || node.type === "end";
     return {
@@ -86,9 +99,10 @@ export function planFlowNodes(
       parent,
       ...node.steps.map((step) => ({
         ...project(step, node.id),
+        hidden: options.collapsedGroups?.has(node.id) ?? false,
         position: {
           x: step.x + PLAN_FRAME_PADDING,
-          y: step.y + planGroupHeaderHeight(node),
+          y: step.y + planGroupHeaderHeight(),
         },
       })),
     ];
@@ -110,31 +124,62 @@ function cardStyle(
   return { width, minHeight: height };
 }
 
-/** Projects execution edges and data bindings separately, including group boundary sources. */
+/** Projects execution edges and data bindings separately, with noninteractive routes for collapsed members. */
 export function planFlowEdges(
   plan: AgentPlanInput,
   sources: AgentPlanSources,
   selected: PlanLink | null,
+  collapsedGroups: ReadonlySet<string> = new Set(),
 ): PlanFlowEdge[] {
   const selectedKey = selected ? planLinkKey(selected) : null;
-  return planLinks(plan).map((link) => ({
-    id: planLinkKey(link),
-    type: "plan",
-    source: link.from,
-    target: link.to,
-    sourceHandle: sourceHandle(link),
-    targetHandle: link.kind === "flow" ? "flow-in" : `input:${link.parameter}`,
-    data: { link, name: planLinkLabel(plan, sources, link) },
-    selected: planLinkKey(link) === selectedKey,
-    deletable: false,
-    reconnectable: false,
-    zIndex: EDGE_LAYER,
-    ariaLabel: planLinkLabel(plan, sources, link),
-    markerEnd: {
-      type: MarkerType.ArrowClosed,
-      color: "var(--color-muted-foreground)",
-    },
-  }));
+  function frame(id: string): string {
+    return (
+      plan.nodes.find(
+        (node) =>
+          node.type === "group" &&
+          collapsedGroups.has(node.id) &&
+          node.steps.some((step) => step.id === id),
+      )?.id ?? id
+    );
+  }
+  const legacyFrames = new Set(
+    plan.nodes.filter((node) => node.type === "group").map((node) => node.id),
+  );
+  return planLinks(plan)
+    .filter(
+      (link) => !legacyFrames.has(link.from) && !legacyFrames.has(link.to),
+    )
+    .filter((link) => frame(link.from) !== frame(link.to))
+    .map((link) => ({
+      id: planLinkKey(link),
+      type: "plan",
+      source: frame(link.from),
+      target: frame(link.to),
+      sourceHandle:
+        frame(link.from) === link.from
+          ? sourceHandle(link)
+          : `route:${planLinkKey(link)}:from`,
+      targetHandle: targetHandle(link, frame(link.to)),
+      data: {
+        link,
+        name: planLinkLabel(plan, sources, link),
+        ...planGroupRouteLabel(plan, link, collapsedGroups),
+      },
+      selected: planLinkKey(link) === selectedKey,
+      deletable: false,
+      reconnectable: false,
+      zIndex: EDGE_LAYER,
+      ariaLabel: planLinkLabel(plan, sources, link),
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        color: "var(--color-muted-foreground)",
+      },
+    }));
+}
+
+function targetHandle(link: PlanLink, targetId: string): string {
+  if (targetId !== link.to) return `route:${planLinkKey(link)}:to`;
+  return link.kind === "flow" ? "flow-in" : `input:${link.parameter}`;
 }
 
 function sourceHandle(link: PlanLink): string {
@@ -142,7 +187,7 @@ function sourceHandle(link: PlanLink): string {
   return link.port === undefined ? "value-out" : `boundary:${link.port}`;
 }
 
-/** Resolves a visible source handle to its Pages source, including a group's port ID. */
+/** Resolves a visible source handle to its Pages source, never a visual group route. */
 export function planFlowSource(
   plan: AgentPlanInput,
   id: string,
@@ -163,11 +208,7 @@ export function planFlowSource(
     ["task", "parameter", "variable"].includes(node.type)
   )
     return { kind: "source", nodeId: id };
-  if (node.type !== "group" || !handle?.startsWith("boundary:")) return null;
-  const port = node.parameters.find(
-    (entry) => `boundary:${entry.id}` === handle,
-  );
-  return port ? { kind: "source", nodeId: port.id } : null;
+  return null;
 }
 
 /** Converts only explicit, known handle kinds into a domain connection request. */

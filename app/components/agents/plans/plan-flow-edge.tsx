@@ -17,6 +17,7 @@ import type { EdgeProps } from "@xyflow/react";
 import type { PlanFlowEdge } from "./plan-flow-model";
 
 const ACTION_OFFSET = 32;
+const ROUTE_LABEL_GAP = 16;
 const PORT_DIRECTIONS = {
   [Position.Left]: { x: -1, y: 0 },
   [Position.Right]: { x: 1, y: 0 },
@@ -34,11 +35,10 @@ export function PlanFlowEdgeView(
   const details = props.data;
   if (!details) return null;
   const isData = details.link.kind === "data";
-  const [path, labelX, labelY] = getBezierPath(props);
-  const label =
-    details.link.kind === "data"
-      ? details.link.parameter
-      : t("plans.linkKind.flow");
+  const [path, labelX, labelY] = renderedEdgePath(props);
+  let label = t("plans.linkKind.flow");
+  if (details.link.kind === "data") label = details.link.parameter;
+  if (details.routeEnd) label = details.name;
   function disconnect(event: React.MouseEvent<HTMLButtonElement>): void {
     event.preventDefault();
     event.stopPropagation();
@@ -66,7 +66,7 @@ export function PlanFlowEdgeView(
         <div
           className="nodrag nopan pointer-events-auto absolute flex items-center gap-1"
           style={{
-            transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
+            transform: edgeLabelTransform(props, { x: labelX, y: labelY }),
           }}
         >
           <button
@@ -108,6 +108,62 @@ export function PlanFlowEdgeView(
       </EdgeLabelRenderer>
     </>
   );
+}
+
+function edgeLabelTransform(
+  props: EdgeProps<PlanFlowEdge>,
+  midpoint: { readonly x: number; readonly y: number },
+): string {
+  const point = routeLabelPoint(props);
+  if (!point)
+    return `translate(-50%, -50%) translate(${midpoint.x}px, ${midpoint.y}px)`;
+  const anchor = point.isSource ? "0" : "-100%";
+  return `translate(${anchor}, -50%) translate(${point.x}px, ${point.y}px)`;
+}
+
+interface GroupRoutePoint {
+  readonly x: number;
+  readonly y: number;
+  readonly isSource: boolean;
+}
+
+function routeLabelPoint(
+  props: EdgeProps<PlanFlowEdge>,
+): GroupRoutePoint | null {
+  const offset = props.data?.routeLabelOffsetY ?? 0;
+  if (props.data?.routeEnd === "from")
+    return {
+      x: props.sourceX + ROUTE_LABEL_GAP,
+      y: props.sourceY + offset,
+      isSource: true,
+    };
+  if (props.data?.routeEnd === "to")
+    return {
+      x: props.targetX - ROUTE_LABEL_GAP,
+      y: props.targetY + offset,
+      isSource: false,
+    };
+  return null;
+}
+
+function renderedEdgePath(
+  props: EdgeProps<PlanFlowEdge>,
+): ReturnType<typeof getBezierPath> {
+  const point = routeLabelPoint(props);
+  if (!point) return getBezierPath(props);
+  const [path, x, y, offsetX, offsetY] = getBezierPath({
+    ...props,
+    sourceX: point.isSource ? point.x : props.sourceX,
+    sourceY: point.isSource ? point.y : props.sourceY,
+    targetX: point.isSource ? props.targetX : point.x,
+    targetY: point.isSource ? props.targetY : point.y,
+  });
+  // One continuous subpath gives the edge exactly one terminal arrow.
+  const curve = path.slice(path.indexOf("C"));
+  const routed = point.isSource
+    ? `M${props.sourceX},${props.sourceY}L${point.x},${point.y} ${curve}`
+    : `${path}L${props.targetX},${props.targetY}`;
+  return [routed, x, y, offsetX, offsetY];
 }
 
 interface EdgeEndActionProps {

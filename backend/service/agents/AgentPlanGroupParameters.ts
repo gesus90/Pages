@@ -1,3 +1,4 @@
+import { hasPlanGroupAliases } from "@/definition/AgentPlanGroup";
 import { AgentError } from "@/backend/error/AgentErrors";
 
 import { bindAgentParameters } from "./AgentParameterBinding";
@@ -36,6 +37,7 @@ export async function prepareGroupParameters(
   const group = snapshot.groups?.find((entry) => entry.id === groupId);
   const first = snapshot.steps.find((entry) => entry.groupId === groupId);
   if (!group || !first) throw new AgentError("plan_invalid");
+  if (!hasPlanGroupAliases(group)) return snapshot;
   const tasks = await Promise.all(
     snapshot.plan.nodes.flatMap((node) =>
       node.type === "task" &&

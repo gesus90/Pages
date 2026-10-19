@@ -16,15 +16,20 @@ export interface PlanGroupSessionView {
   readonly turns: number;
 }
 
-/** The lifetime of the session follows the record of the member that opened it. */
+/** Retirement takes precedence over an older creator record that still looked active. */
 function sessionState(
   record: AgentPlanSessionRecord | null,
   acpSessionId: string | null,
+  run: AgentPlanRun | null,
 ): PlanGroupSessionView["state"] {
   if (!record) return "not_created";
   if (acpSessionId === null)
     return record.resultCode === -1 ? "failed" : "not_created";
-  if (record.closeout === "pending") return "active";
+  if (record.closeout === "pending") {
+    if (run && ["succeeded", "failed", "cancelled"].includes(run.status))
+      return "failed";
+    return "active";
+  }
   return record.resultCode === -1 ? "failed" : "closed";
 }
 
@@ -47,9 +52,14 @@ export function planRunGroupSession(
     members
       .map((step) => step.session?.group?.acpSessionId ?? null)
       .find((id) => id !== null) ?? null;
-  const record = creator?.session ?? null;
+  const retired = members.find((step) =>
+    step.session?.events.some((event) =>
+      event.startsWith("resource session retired:"),
+    ),
+  );
+  const record = retired?.session ?? creator?.session ?? null;
   return {
-    state: sessionState(record, acpSessionId),
+    state: sessionState(record, acpSessionId, run),
     acpSessionId,
     creator,
     adapter: record?.group?.adapter ?? null,
@@ -58,7 +68,7 @@ export function planRunGroupSession(
 }
 
 /**
- * The read-only runtime parameter `session_id` of a group, as the run reported it.
+ * Read-only session information from the selected run, never a plan parameter.
  *
  * @remarks
  * Before the first member opened the session it says so instead of showing a

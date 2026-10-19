@@ -14,7 +14,26 @@ import { usePlanRun } from "./use-plan-run";
 import { usePlanSave } from "./use-plan-save";
 
 import type { AgentPlanOpening } from "@/app/lib/agent-plan-default";
-import type { AgentPlanPage } from "@/definition/AgentPlan";
+import type { AgentPlanPage, AgentPlanRun } from "@/definition/AgentPlan";
+import type { AgentPlanControl } from "@/definition/AgentPlanControl";
+
+interface PlanRunDisplay {
+  readonly run: AgentPlanRun | null;
+  readonly error: string | null;
+}
+
+function planRunDisplay(
+  page: AgentPlanPage,
+  control: AgentPlanControl | undefined,
+  running: ReturnType<typeof usePlanRun>,
+): PlanRunDisplay {
+  const run = running.run?.planId === page.selected?.id ? running.run : null;
+  let error = running.error;
+  // Shared control metadata never grants access to the executor's run details.
+  if (!error && page.selected?.canEdit === false && control?.runId && !run)
+    error = "plan_run_unavailable";
+  return { run, error };
+}
 
 /**
  * The plan editor: one canvas over the whole content area beside the navigation.
@@ -49,8 +68,7 @@ export function PlanPage({
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [consoleNodeId, setConsoleNodeId] = useState<string | null>(null);
   const running = usePlanRun(page.runs, editor.command.data);
-  const displayedRun =
-    running.run?.planId === page.selected?.id ? running.run : null;
+  const display = planRunDisplay(page, controls.control, running);
   const saving = usePlanSave(editor, page.selected !== null);
   const disabled = !editor.canEdit || editor.isPending;
   const projectId = page.workspaces.find(
@@ -81,8 +99,8 @@ export function PlanPage({
         canEdit={!disabled && Boolean(editor.draft.workspaceId)}
         onEdit={setEditingNodeId}
         onOpen={setConsoleNodeId}
-        run={displayedRun}
-        runError={running.error}
+        run={display.run}
+        runError={display.error}
         tickets={editor.tickets}
         workspaces={page.workspaces.filter(
           (workspace) => workspace.projectId === projectId,

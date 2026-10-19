@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 
+import { withPortlessPlanGroups } from "@/definition/AgentPlanGroupUpgrade";
+
 import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
 import { planExecutionIssues } from "@/definition/AgentPlanGraph";
 import {
@@ -557,7 +559,7 @@ export class AgentPlanService {
     id: string | null,
     input: unknown,
   ): Promise<AgentPlan> {
-    let proposed = readPlanInput(input);
+    let proposed = withPortlessPlanGroups(readPlanInput(input));
     requireCredentialFreeText(JSON.stringify(proposed));
     const previous =
       id === null ? null : await this.dependencies.access.require(userId, id);

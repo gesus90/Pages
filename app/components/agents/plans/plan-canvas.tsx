@@ -27,6 +27,7 @@ import { usePlanFlowAria } from "./use-plan-flow-aria";
 import { usePlanFlowConnections } from "./use-plan-flow-connections";
 import { usePlanFlowMovement } from "./use-plan-flow-movement";
 import { usePlanFlowSelection } from "./use-plan-flow-selection";
+import { usePlanGroupCollapse } from "./use-plan-group-collapse";
 import styles from "./plan-canvas.module.css";
 
 import type { PlanCanvasProps } from "./plan-flow-context";
@@ -66,13 +67,15 @@ export function PlanCanvas(props: PlanCanvasProps): React.ReactElement {
 function PlanFlowCanvas(props: PlanCanvasProps): React.ReactElement {
   const { t } = useTranslation();
   const [isStatusOpen, setStatusOpen] = useState(false);
-  const movement = usePlanFlowMovement(props);
+  const collapse = usePlanGroupCollapse(props.draft, props.graph);
+  const movement = usePlanFlowMovement({ ...props, ...collapse });
   const palette = usePlanNodePalette(props);
   const { cancel: cancelConnection, ...connections } =
     usePlanFlowConnections(props);
   const onKeyDown = usePlanCanvasKeys({ ...props, onCancel: cancel });
   const context = {
     ...props,
+    ...collapse,
     dropTarget: movement.dropTarget,
     cancelConnection,
   };
@@ -92,6 +95,7 @@ function PlanFlowCanvas(props: PlanCanvasProps): React.ReactElement {
       >
         <PlanFlowGraph
           canvas={props}
+          collapsedGroups={collapse.collapsedGroups}
           movement={movement}
           connections={connections}
         />
@@ -118,9 +122,11 @@ function PlanFlowCanvas(props: PlanCanvasProps): React.ReactElement {
 function PlanFlowGraph({
   canvas,
   movement,
+  collapsedGroups,
   connections,
 }: {
   readonly canvas: PlanCanvasProps;
+  readonly collapsedGroups: ReadonlySet<string>;
   readonly movement: ReturnType<typeof usePlanFlowMovement>;
   readonly connections: Omit<
     ReturnType<typeof usePlanFlowConnections>,
@@ -138,6 +144,7 @@ function PlanFlowGraph({
         canvas.draft,
         canvas.sources,
         canvas.graph.selectedLink,
+        collapsedGroups,
       )}
       nodeTypes={NODE_TYPES}
       edgeTypes={EDGE_TYPES}

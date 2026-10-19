@@ -32,6 +32,8 @@ export interface PlanCanvasProps {
 
 /** Editor actions stay outside the domain objects projected into React Flow. */
 export interface PlanFlowContextValue extends PlanCanvasProps {
+  readonly collapsedGroups: ReadonlySet<string>;
+  readonly toggleGroup: (id: string) => void;
   readonly dropTarget: string | null;
   readonly cancelConnection: () => void;
 }

@@ -6,12 +6,11 @@ import { Input } from "@/app/components/ui/input";
 import { Select } from "@/app/components/ui/select";
 import {
   planGroupAdapter,
-  planGroupOrder,
   planGroupRefusal,
 } from "@/definition/AgentPlanGroup";
 
 import { PlanGroupAdapterBadge } from "./plan-group-adapter";
-import { PlanGroupParameters } from "./plan-group-parameters";
+import { PlanGroupLegacy } from "./plan-group-legacy";
 import { planAgentName, planMemberOrigin } from "./plan-layout";
 import { PlanNodeActions } from "./plan-node-actions";
 
@@ -32,12 +31,12 @@ interface GroupEditorProps {
 }
 
 /**
- * The settings of a selected group: name, ACP class, order, ports and members.
+ * The settings of a selected session container and its retained legacy contracts.
  *
  * @remarks
- * The order follows the flow edges between the members on the grid; this
- * view only reads it. Members are configured by selecting them like any
- * other agent node.
+ * Membership is listed in stored order; only explicit edges determine the
+ * schedule. Members are configured by selecting them like any other agent
+ * node, and ambiguous legacy connections require an explicit choice.
  */
 export function PlanGroupEditor(props: GroupEditorProps): React.ReactElement {
   const { t } = useTranslation();
@@ -55,12 +54,12 @@ export function PlanGroupEditor(props: GroupEditorProps): React.ReactElement {
         />
       </label>
       <GroupClass group={group} sources={props.sources} />
-      <PlanGroupParameters
+      <PlanGroupLegacy
         group={group}
         draft={props.draft}
         sources={props.sources}
         disabled={props.disabled}
-        onChange={props.graph.replaceNode}
+        graph={props.graph}
       />
       <GroupMembers {...props} />
       <GroupAgentPicker {...props} />
@@ -87,34 +86,26 @@ function GroupClass(props: {
   );
 }
 
-/** Members in execution order, or in joining order while the edges leave the order open. */
+/** Membership is shown in stored order; only the full agent graph determines dependencies. */
 function GroupMembers(props: GroupEditorProps): React.ReactElement {
   const { t } = useTranslation();
   const { group, graph } = props;
-  const order = planGroupOrder(group);
-  const members = order ?? group.steps;
+  const members = group.steps;
   function label(step: AgentPlanStep): string {
     return planAgentName(step, props.sources) || t("plans.missingAgent");
   }
   let summary = t("plans.groups.orderOpen");
   if (group.steps.length === 0) summary = t("plans.groups.empty");
-  if (order && order.length > 0)
-    summary = t("plans.groups.orderValue", {
-      order: order.map(label).join(" → "),
-    });
   return (
     <div className="space-y-2">
       <p className="text-sm">{summary}</p>
       <ol className="space-y-1" aria-label={t("plans.groups.order")}>
-        {members.map((step, index) => (
+        {members.map((step) => (
           <li
             key={step.id}
             className="flex items-center gap-1 rounded-lg border border-border bg-surface p-1 pl-2 text-sm"
           >
-            <span className="min-w-0 flex-1 truncate">
-              {order ? `${index + 1}. ` : ""}
-              {label(step)}
-            </span>
+            <span className="min-w-0 flex-1 truncate">{label(step)}</span>
             <Button
               size="sm"
               variant="ghost"

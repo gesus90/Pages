@@ -652,7 +652,7 @@
         "opencode_configuration_unmanaged": "OpenCode könnte fremde Einstellungen oder Anweisungen laden. Entferne diese aus dem Konfigurationsordner der Verbindung oder /etc/opencode. Es wurde kein Modell aufgerufen.",
         "opencode_acp_unsupported": "Pages benötigt den geprüften nativen ACP-Vertrag von OpenCode 1.18.34. Die installierte Version oder ihr Vertrag weicht davon ab; es wurde kein Modell aufgerufen.",
         "opencode_acp_session_failed": "Die native OpenCode-ACP-Sitzung ist vor oder während ihres Turns fehlgeschlagen.",
-        "plan_group_session_lost": "Die gemeinsame ACP-Session der Gruppe besteht nicht mehr, weil ihr Adapterprozess beendet wurde. Eine ACP-Session lässt sich in keinem anderen Prozess fortsetzen; einen neuen Lauf starten.",
+        "plan_group_session_lost": "Die gemeinsame Gruppensession ist nach dem Ende ihres Adapterprozesses nicht mehr verfügbar. Pages setzt diese Gruppensession nicht in einem neuen Prozess fort. Einen neuen Lauf bewusst starten.",
         "plan_session_unavailable": "Diese Agenten-Session hat keine offene native Session, die eine weitere Anweisung annehmen könnte. Ihr Verlauf bleibt lesbar.",
         "offline": "Pages ist nicht erreichbar. Prüfe die Verbindung; der Agent läuft weiter.",
         "agent_tool_not_ready": "Ein benötigtes Agent-Tool ist nicht betriebsbereit. Tool und Ursache stehen in den Run-Ereignissen; siehe Einstellungen → Agents → Tools.",
@@ -3286,7 +3286,8 @@
       "groupConfiguration": "Die aufgelöste Laufzeitkonfiguration widerspricht der gemeinsamen Gruppenkonfiguration.",
       "unsupportedRunNotes": "Gemeinsame Laufnotizen wurden entfernt. {{@run.notes}} wird nicht mehr unterstützt. Passe den betroffenen Agent oder Plan-Knoten ausdrücklich an.",
       "groupOrder": "Die Agents einer Gruppe teilen eine Session und brauchen eine eindeutige Reihenfolge: Ablaufverbindungen bilden eine Kette mit genau einem ersten Agent und ohne Verzweigung.",
-      "groupBoundary": "Ablaufverbindungen kreuzen keinen Gruppenrahmen: äußere Knoten mit Ablauf IN oder OUT der Gruppe verbinden, Agents der Gruppe nur untereinander."
+      "groupBoundary": "Alte Rahmenkante ist nicht eindeutig: Im Gruppeneditor den tatsächlichen Agent-Endpunkt auswählen. Bis dahin ist der Start blockiert; keine Verbindung wird verworfen.",
+      "groupBinding": "Alte Gruppenbindung ist nicht eindeutig. Die betroffene Agent-Eingabe ausdrücklich trennen und mit der gewünschten Quelle verbinden; der Start bleibt bis dahin blockiert."
     },
     "session": {
       "runner": {
@@ -3316,7 +3317,7 @@
     "groups": {
       "defaultName": "Agent-Gruppe",
       "name": "Gruppenname",
-      "hint": "Eine ACP-Gruppe teilt pro Plan-Lauf eine Session. Sie beginnt als neutraler Entwurf; der erste ACP-Agent, der beitritt (Codex, Claude Code oder OpenCode), legt ihre Klasse fest. Danach treten nur Agents derselben Klasse mit identischem Zugang und identischer Laufzeitkonfiguration bei. Ohne Agents ist sie wieder neutral. Ein Anschluss verteilt denselben Wert an mehrere Agents.",
+      "hint": "Sessioncontainer für Agents derselben Runnerklasse. Nur die gezeichneten Agentverbindungen bestimmen Abhängigkeiten; Turns derselben Session werden nacheinander ausgeführt.",
       "interfaces": "Schnittstellenanschlüsse",
       "acceptanceHint": "Interne Gruppen-Agents benötigen einen gültigen pages-report mit erledigten Todos und belegten Kriterien. Fehlende Berichte, offene Punkte und fehlgeschlagene Abnahme stoppen die Gruppe und sperren Nachfolger.",
       "externalSource": "Externe Quelle für {{name}}",
@@ -3331,10 +3332,11 @@
       "adapter": {
         "codex_cli": "Codex · ACP",
         "claude_code": "Claude Code · ACP",
-        "neutral": "Neutral"
+        "neutral": "Neutral",
+        "opencode": "OpenCode · ACP"
       },
       "refusal": {
-        "notAcp": "{{name}} läuft als Plan-Knoten nicht über ACP und kann keiner ACP-Gruppe beitreten. Das gilt für API-Agents und OpenCode-Plan-Knoten (CLI ohne ACP). Der Agent wurde nicht verändert.",
+        "notAcp": "{{name}} läuft als Plan-Knoten nicht über ACP und kann keiner Sessiongruppe beitreten. Der Agent wurde nicht verändert.",
         "otherAdapter": "{{name}} gehört zur ACP-Klasse {{adapter}}, die Gruppe zur Klasse {{group}}. Nur Agents derselben Klasse können beitreten. Der Agent wurde nicht verändert.",
         "missingAgent": "{{name}} hat keinen zugewiesenen Agent und kann keiner Gruppe beitreten."
       },
@@ -3342,14 +3344,14 @@
       "dropHere": "Loslassen: Der Agent tritt dieser Gruppe bei",
       "portToMember": "Wert von {{name}} an einen Agent der Gruppe geben",
       "removeTitle": "Gruppe „{{name}}“ entfernen?",
-      "removeDescription": "Agents in der Gruppe: {{count}}. „Rahmen entfernen“ behält die Agents und ihre Ablaufverbindungen untereinander auf dem Raster; Verbindungen am Rahmen und Bindungen an Gruppenanschlüsse entfallen. „Samt Inhalt löschen“ entfernt auch die Agents mit allen ihren Verbindungen.",
+      "removeDescription": "Agents in der Gruppe: {{count}}. „Rahmen entfernen“ behält alle Agents mit ihren Ablaufverbindungen und Eingabebindungen. Mehrdeutige Altverbindungen müssen zuerst aufgelöst werden. „Samt Inhalt löschen“ entfernt auch die Agents mit allen ihren Verbindungen.",
       "removeFrame": "Rahmen entfernen, Agents behalten",
       "removeWithMembers": "Samt Inhalt löschen ({{count}} Agents)",
-      "moved": "Beim Wechsel über den Gruppenrahmen wurden gelöst: {{edges}} Ablaufverbindungen, {{bindings}} Bindungen an Gruppenanschlüsse. Ablaufverbindungen verbinden nur Knoten derselben Ebene; nach außen führen Ablauf IN und OUT der Gruppe.",
+      "moved": "Gruppenzuordnung geändert. Agentverbindungen und Eingabebindungen bleiben erhalten.",
       "closeNotice": "Hinweis schließen",
       "orderValue": "Reihenfolge: {{order}}",
-      "orderOpen": "Reihenfolge offen: Die Agents mit Ablaufverbindungen zu einer Kette ohne Verzweigung verbinden. Position und Liste zählen nicht.",
-      "empty": "Noch kein Agent. Einen ACP-Agent in den Rahmen ziehen oder unten hinzufügen.",
+      "orderOpen": "Die Agentverbindungen bestimmen den Ablauf; gleichzeitig bereite Mitglieder verwenden die Session in gespeicherter Reihenfolge.",
+      "empty": "Noch kein Agent. Einen ACP-Agent hineinziehen oder im Gruppeneditor hinzufügen.",
       "selectMember": "Auswählen",
       "takeOut": "Aus Gruppe lösen",
       "session": {
@@ -3362,7 +3364,28 @@
           "closed": "beendet",
           "failed": "abgebrochen oder fehlerhaft beendet"
         }
-      }
+      },
+      "collapse": "Gruppe einklappen",
+      "expand": "Gruppe aufklappen",
+      "needsRepair": "Gruppe vor dem Start prüfen.",
+      "chooseEndpoint": "Agent-Endpunkt auswählen",
+      "repairBeforeUngroup": "Alte Rahmenkanten zuerst im Gruppeneditor auflösen.",
+      "legacy": "Übernommene Gruppeneingaben (lesend)",
+      "legacyHint": "Eindeutige Bindungen wurden an die Agents übertragen. Diese bisherigen Definitionen bleiben als lesbare Herkunft erhalten; neue Verbindungen führen direkt zu den Agents. Nicht eindeutig auflösbare Bindungen an der betroffenen Agent-Eingabe ausdrücklich neu verbinden.",
+      "state": {
+        "ready": "Bereit",
+        "running": "Running",
+        "pausing": "Pausiert gleich",
+        "paused": "Pausiert",
+        "stopping": "Stoppt",
+        "stopped": "Gestoppt",
+        "completed": "Abgeschlossen",
+        "blocked": "Blockiert",
+        "failed": "Fehlgeschlagen",
+        "unavailable": "Nicht verfügbar"
+      },
+      "emptyReadOnly": "Noch keine Agents in dieser Gruppe.",
+      "removeLegacyEdge": "Diese Altverbindung entfernen"
     },
     "console": {
       "label": "Agentenkonsole {{name}}",

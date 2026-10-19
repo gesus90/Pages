@@ -91,7 +91,7 @@ export const AGENT_ERROR_MESSAGES = {
   plan_group_session_unsupported:
     "This adapter cannot continue a group's shared ACP session with a new step instruction. Use Codex or Claude Code agents over ACP.",
   plan_group_session_lost:
-    "The group's shared ACP session no longer exists because its adapter process ended. An ACP session cannot be continued in another process; start a new run.",
+    "The group's shared ACP session is unavailable after its adapter process ended. Pages does not continue this group session in a new process; deliberately start a new run.",
   plan_session_unavailable:
     "This agent session has no open native session that could take another instruction. Its history stays readable.",
   plan_closeout_failed:

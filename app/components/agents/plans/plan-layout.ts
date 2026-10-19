@@ -26,8 +26,11 @@ const AGENT_BASE_HEIGHT = 172;
 const AGENT_INPUT_HEIGHT = 38;
 /** Space between a frame's edge and its members. */
 export const PLAN_FRAME_PADDING = 20;
-const FRAME_MIN_WIDTH = 360;
+const FRAME_MIN_WIDTH = 680;
+export const PLAN_GROUP_COMPACT_WIDTH = 310;
+export const PLAN_GROUP_COMPACT_HEIGHT = 115;
 const FRAME_MIN_MEMBER_AREA = 160;
+const FRAME_MEMBER_BOTTOM_GAP = 32;
 /** The line below the members that shows the group's `session_id`. */
 export const PLAN_FRAME_FOOTER = 32;
 // A pointer this close to a frame's edge does not take a node into the frame.
@@ -39,14 +42,10 @@ function agentHeight(step: AgentPlanStep, sources: AgentPlanSources): number {
 }
 
 /**
- * The height of a frame's header: name, flow ports and boundary ports.
- *
- * @remarks
- * Its rows follow a node card's geometry, so connections reach a frame's
- * ports exactly as they reach a card's.
+ * Space for the portless frame header and the gap before its first member row.
  */
-export function planGroupHeaderHeight(group: AgentPlanGroup): number {
-  return 104 + group.parameters.length * 32;
+export function planGroupHeaderHeight(): number {
+  return 108;
 }
 
 /** A frame grows with its members; an empty frame keeps room to drop the first one. */
@@ -64,8 +63,8 @@ function groupHeight(group: AgentPlanGroup, sources: AgentPlanSources): number {
     ...group.steps.map((step) => step.y + agentHeight(step, sources)),
   );
   return (
-    planGroupHeaderHeight(group) +
-    Math.max(FRAME_MIN_MEMBER_AREA, bottom + PLAN_FRAME_PADDING) +
+    planGroupHeaderHeight() +
+    Math.max(FRAME_MIN_MEMBER_AREA, bottom + FRAME_MEMBER_BOTTOM_GAP) +
     PLAN_FRAME_FOOTER
   );
 }
@@ -74,7 +73,7 @@ function groupHeight(group: AgentPlanGroup, sources: AgentPlanSources): number {
 export function planMemberOrigin(group: AgentPlanGroup): AgentPlanPosition {
   return {
     x: group.x + PLAN_FRAME_PADDING,
-    y: group.y + planGroupHeaderHeight(group),
+    y: group.y + planGroupHeaderHeight(),
   };
 }
 

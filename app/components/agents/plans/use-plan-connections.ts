@@ -33,8 +33,7 @@ function targetBindings(
 ): Readonly<Record<string, AgentPlanBinding>> | null {
   const step = findPlanStep(draft, id)?.step;
   if (step) return step.bindings;
-  const group = draft.nodes.find((node) => node.id === id);
-  return group?.type === "group" ? group.bindings : null;
+  return null;
 }
 
 function checked(

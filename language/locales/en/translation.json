@@ -652,7 +652,7 @@
         "opencode_configuration_unmanaged": "OpenCode could load external settings or instructions. Remove them from the connection’s configuration folder or /etc/opencode. No model was called.",
         "opencode_acp_unsupported": "Pages requires the verified native ACP contract of OpenCode 1.18.34. The installed version or contract differs; no model was called.",
         "opencode_acp_session_failed": "The native OpenCode ACP session failed before or during its turn.",
-        "plan_group_session_lost": "The group's shared ACP session no longer exists because its adapter process ended. An ACP session cannot be continued in another process; start a new run.",
+        "plan_group_session_lost": "The shared group session is unavailable after its adapter process ended. Pages does not continue this group session in a new process. Deliberately start a new run.",
         "plan_session_unavailable": "This agent session has no open native session that could take another instruction. Its history stays readable.",
         "offline": "Pages cannot be reached. Check the connection; the agent keeps running.",
         "agent_tool_not_ready": "A required agent tool is not ready. The run events show the tool and cause; see Settings → Agents → Tools.",
@@ -3286,7 +3286,8 @@
       "groupConfiguration": "The resolved runtime field conflicts with the shared group configuration.",
       "unsupportedRunNotes": "Shared run notes have been removed. {{@run.notes}} is no longer supported. Update the affected agent or plan node explicitly.",
       "groupOrder": "The agents of a group share one session and need an unambiguous order: flow connections form one chain with exactly one first agent and no branch.",
-      "groupBoundary": "Flow connections do not cross a group frame: connect outer nodes to the group's flow IN or OUT, and the group's agents only with each other."
+      "groupBoundary": "A legacy frame edge is ambiguous: choose the actual agent endpoint in the group editor. Starting stays blocked; no connection is discarded.",
+      "groupBinding": "A legacy group input is ambiguous. Explicitly disconnect the affected agent input and connect its intended source; starting remains blocked until repaired."
     },
     "session": {
       "runner": {
@@ -3316,7 +3317,7 @@
     "groups": {
       "defaultName": "Agent group",
       "name": "Group name",
-      "hint": "An ACP group shares one session per plan run. It starts as a neutral draft; the first ACP agent that joins (Codex, Claude Code or OpenCode) sets its class. After that only agents of the same class with identical access and runtime configuration can join. Without agents it is neutral again. A port hands the same value to several agents.",
+      "hint": "A session container for agents of the same runner class. Only drawn agent connections determine dependencies; turns of one session run sequentially.",
       "interfaces": "Boundary ports",
       "acceptanceHint": "Internal group agents require a valid pages-report with completed todos and proven criteria. Missing reports, open work and failed acceptance stop the group and block successors.",
       "externalSource": "External source for {{name}}",
@@ -3331,10 +3332,11 @@
       "adapter": {
         "codex_cli": "Codex · ACP",
         "claude_code": "Claude Code · ACP",
-        "neutral": "Neutral"
+        "neutral": "Neutral",
+        "opencode": "OpenCode · ACP"
       },
       "refusal": {
-        "notAcp": "{{name}} does not run as an ACP plan node and cannot join an ACP group. This applies to API agents and OpenCode plan nodes (CLI without ACP). The agent was not changed.",
+        "notAcp": "{{name}} does not run plan nodes over ACP and cannot join a session group. The agent was not changed.",
         "otherAdapter": "{{name}} belongs to the ACP class {{adapter}}, the group to {{group}}. Only agents of the same class can join. The agent was not changed.",
         "missingAgent": "{{name}} has no assigned agent and cannot join a group."
       },
@@ -3342,14 +3344,14 @@
       "dropHere": "Release: the agent joins this group",
       "portToMember": "Hand the value of {{name}} to an agent of the group",
       "removeTitle": "Remove group “{{name}}”?",
-      "removeDescription": "Agents in the group: {{count}}. “Remove frame” keeps the agents and their flow connections among each other on the grid; connections at the frame and bindings to group ports are dropped. “Delete with contents” also removes the agents with all their connections.",
+      "removeDescription": "Agents in this group: {{count}}. Removing only the frame keeps every agent with its flow connections and input bindings. Ambiguous legacy connections need repair first. Deleting the contents also removes the agents and their connections.",
       "removeFrame": "Remove frame, keep agents",
       "removeWithMembers": "Delete with contents ({{count}} agents)",
-      "moved": "Crossing the group frame dropped: {{edges}} flow connections, {{bindings}} bindings to group ports. Flow connections only join nodes of the same level; the group's flow IN and OUT lead outside.",
+      "moved": "Group membership changed. Agent connections and input bindings are preserved.",
       "closeNotice": "Close notice",
       "orderValue": "Order: {{order}}",
-      "orderOpen": "Order open: connect the agents with flow connections into one chain without branches. Position and list do not count.",
-      "empty": "No agent yet. Drag an ACP agent into the frame or add one below.",
+      "orderOpen": "Agent connections determine dependencies; simultaneously ready members use the session in stored order.",
+      "empty": "No agents yet. Drag in an ACP agent or add one in the group editor.",
       "selectMember": "Select",
       "takeOut": "Take out of group",
       "session": {
@@ -3362,7 +3364,28 @@
           "closed": "ended",
           "failed": "cancelled or ended with an error"
         }
-      }
+      },
+      "collapse": "Collapse group",
+      "expand": "Expand group",
+      "needsRepair": "Check this group before starting.",
+      "chooseEndpoint": "Choose agent endpoint",
+      "repairBeforeUngroup": "Resolve legacy frame edges in the group editor first.",
+      "legacy": "Retained group inputs (read only)",
+      "legacyHint": "Unambiguous bindings were transferred to the agents. These original definitions remain readable for provenance; new connections go directly to agents. Explicitly reconnect ambiguous bindings at the affected agent input.",
+      "state": {
+        "ready": "Ready",
+        "running": "Running",
+        "pausing": "Pausing",
+        "paused": "Paused",
+        "stopping": "Stopping",
+        "stopped": "Stopped",
+        "completed": "Completed",
+        "blocked": "Blocked",
+        "failed": "Failed",
+        "unavailable": "Unavailable"
+      },
+      "emptyReadOnly": "This group has no agents yet.",
+      "removeLegacyEdge": "Remove this legacy connection"
     },
     "console": {
       "label": "Agent console {{name}}",

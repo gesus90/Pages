@@ -839,57 +839,68 @@ to the raster. Grid coordinates range from 0 to 6000; dropping or keyboard
 movement commits a snapped, bounded position. Agent definitions remain in the
 existing Agents area.
 
-An ACP group is a green frame on the grid
-around its agent nodes, with its own flow IN and OUT, its named boundary ports
-and its ACP class in the header. A new group is a neutral draft and may be saved
-empty. The first agent that joins sets its class from the agent's technical
-adapter: **Codex**, **Claude Code** or **OpenCode**, all over ACP; display names never decide
-it. Only agents of that class join afterwards; API agents and agents of another
-class are refused with an explanation and stay unchanged. Without members the group is neutral again,
-and the next agent may give it another class.
+An ACP group is a yellow session container on the grid (PAGE-113), with no
+flow, input, result or session ports. Agent connections determine execution;
+the frame is never an additional executable step. The first member sets the
+technical runner class: Codex, Claude Code or OpenCode over ACP. Other runner
+classes and API agents are refused without reconfiguration. Empty groups remain
+neutral drafts and may be saved, but cannot run.
 
-Drag an agent into a frame to add it and out of it to take it out; the pointer
-position on release decides, with a margin at the frame's edge, and the frame
-under the pointer is highlighted while dragging. A node keeps the point where
-it was grabbed, also when it leaves a frame. The member list in the group's
-node dialog adds and takes out members without a pointer. Flow connections
-join nodes of the same level only: members with each other, outer nodes with
-the frame's flow ports. A node that crosses a frame loses the flow connections
-and boundary bindings of the side it left, and the editor names how many.
-Members read boundary ports through the handle beside each port, value nodes
-outside the frame directly, and results of earlier agents.
+Members keep their own ports and may connect to agents inside or outside any
+frame. Moving an agent across a frame preserves its connections and bindings.
+Only explicit flow edges add dependencies; the group's positions and membership
+order add none. Simultaneously ready turns of the same group queue in the
+scheduler's stored frontier order. Independent groups keep their own concurrency.
+The common workspace of one group is protected by this serial turn queue.
 
-The flow connections between members alone decide their order; position and
-list order do not. Before Play they must form one chain with exactly one first
-agent and no branch. Groups saved before internal connections existed are read
-with their former member order as that chain and laid out in one row of their
-frame. Required values, incompatible types and removed port references are
-checked before Play. Boundary values and referenced content are resolved once at
-group entry and frozen for all of its steps; live resource access is still
-checked before each turn. Removing a group with members asks whether to remove
-only the frame, keeping the members and their connections among each other, or
-to delete the members with it.
+The header shows the runner, a readable status and successful agent steps over
+the known group membership of the selected run. Failures and blocked inputs
+precede activity; unfinished groups reflect pause and stop controls. Failed or
+cancelled steps never count as successful. Missing run membership or access
+errors show an unknown total; an empty total paints no completed ring. The finite
+DAG scheduler does not implement dynamic iterations.
+
+The chevron collapses the frame into a compact card with a small ring and its
+count beside it. This is local React state, initially open and reset by a new
+visit/reload; it neither saves the plan nor controls execution. Hidden members
+remain in the graph. External lines keep their original agent names and link
+identities, ending at noninteractive visual anchors on the compact card. These
+anchors are not group ports and cannot create new connections. Dense external
+links have spaced labels naming the actual agents and short leader lines to
+their noninteractive anchors; the frame stays compact. Expanding restores
+the same member positions, internal/external edges and selection without moving
+the viewport. Names remain available through focus and tooltips.
+
+Older JSON plans are upgraded idempotently when read and before saving or run
+preparation. A legacy frame edge is resolved only when exactly one entering or
+leaving member exists. Otherwise the original edge remains and blocks execution;
+the group editor offers an explicit agent endpoint choice. Legacy input aliases
+become their actual member bindings/defaults; original boundary definitions stay
+readable as provenance. No historical run snapshot is rewritten. The existing
+JSON schema needs no SQL migration. Removing only a frame requires unresolved
+legacy frame edges to be repaired first and keeps all member connections.
 
 Every member must resolve to the same adapter, connection, model, reasoning,
-workspace/directory, tools, permissions and sandbox; inherited run defaults are
+workspace/directory, tools, permissions and sandbox; inherited defaults are
 resolved first. Conflicts identify the agent and setting. The first member that
-runs opens one ACP session for the group in this run; every later member
-continues it in the same adapter process with its own turn-scoped instruction.
-Turns of a group wait for each other, so a session never has two active turns,
-and a group never opens a second session in the same run. The session's ACP ID
-appears as the read-only runtime value `session_id` at the frame ("not created
-yet" before the first turn); it applies to
-that group and run only. ACP session IDs cannot be continued in another process:
-if the adapter process ends, for example after the idle timeout of a paused run
-or a server restart, the next member fails instead of starting a new session. A
-new run always opens new group sessions.
-A failure or rejected report blocks later children and the outer successor.
-Internal steps must provide a valid `pages-report` proving their todos and
-criteria; standalone steps keep diagnostic-only progress. A missing continuation
-capability, changed ACP session ID or changed effective runtime fails the group.
-Pause lets the current child settle, retains the session until the configured
-idle timeout, and starts no further child until resume. Stop closes an active or
-retained paused session of that run only.
+actually runs opens one ACP session per group and run. Subsequent members send
+turn-scoped instructions through `AcpSession.next` and `session/prompt` to that
+same session in the same process. The session is retained until every actual
+member has succeeded, or run closeout/Stop ends it. This includes a later
+frontier whose member depends on work outside the group. A failed
+opening, missing continuation method, changed effective runtime or lost process
+never permits a silent replacement session. Each turn reauthorizes access.
+
+The footer's read-only ACP identifier belongs to the selected run and group;
+without a real recorded identifier it says "not created yet". ACP identifiers
+are not native thread IDs, process IDs or durable restart handles. After an idle
+timeout or host restart, continuation of a lost retained session blocks rather
+than opening an empty context. A deliberately new run gets a new session. Every
+group turn still requires accepted business progress. Pause drains active work
+and preserves retained sessions within existing idle limits; Stop revokes access
+and closes active or idle retained sessions. Credentialed provider continuation
+must be verified separately for each installed runner version; a local dummy ACP
+peer proves only Pages' protocol, queue and error handling.
 
 The practical example can be reproduced with
 `pnpm exec tsx scripts/agent-group-proof.ts --data <isolated credential data>
@@ -1227,9 +1238,9 @@ the preserved contracts, not a claim that a live database roundtrip was run.
 | Ticket | Task reference and live workflow badge; a value source with no flow ports; legacy ticket-to-text bindings remain supported. |
 | Parameter | Name, format (string/number/JSON), typed text/number/ticket/workspace/wiki value and data output. |
 | Variable | Legacy named global text value and data output. |
-| Group | Name, position, ordered membership records, member-relative coordinates, explicit internal edges (or existing legacy-chain reading), boundary port IDs/types/defaults/required flags, bindings and shared-session display. |
+| Group | Name, position, ordered membership records, member-relative coordinates, explicit internal edges (or existing legacy-chain reading), retained legacy boundary metadata, direct member bindings and shared-session display. |
 | Flow | Outer and internal edges remain separate; only same-level flow ports connect; duplicate edges and cycles are refused. |
-| Data | Literal bindings stay in the model; source bindings refer to nodes or group boundary IDs; result bindings retain predecessor/path requirements. Data never becomes a scheduling edge. |
+| Data | Literal bindings stay in the model; source bindings refer directly to value nodes; legacy group aliases are resolved on read; result bindings retain predecessor/path requirements. Data never becomes a scheduling edge. |
 | Editing | Existing source filters, button/drag insertion, copied template defaults, movement, selection, node dialog, inspector, group assignment/removal choice, disconnect and node removal remain attached to domain actions. Double-click still opens the PAGE-86 node/group console. |
 | Runs | Waiting/running/succeeded/failed/paused/cancelled, blocked/cancellation diagnostics, group sessions, historical runs, progress, console and run controls keep their existing meanings. |
 | Access and persistence | Owner-only editing, executor-only run access, server authorization, optimistic revisions, Save/Play payloads, dirty-draft leave guard, in-flight edit preservation and run polling retain their existing implementations. |

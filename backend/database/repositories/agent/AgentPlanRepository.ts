@@ -3,7 +3,7 @@ import { readPlanInput } from "@/backend/agents/AgentPlanInput";
 import { readCountColumn, readTextColumn } from "@/backend/database/RowValue";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { withoutTicketFlow } from "@/definition/AgentPlanGraph";
-import { withExplicitGroupFlow } from "@/definition/AgentPlanGroupEdit";
+import { withPortlessPlanGroups } from "@/definition/AgentPlanGroupUpgrade";
 
 import type {
   Database,
@@ -22,7 +22,7 @@ const PLAN_COLUMNS = `
 
 function readPlan(row: readonly DatabaseValue[]): AgentPlan {
   const input: unknown = JSON.parse(readTextColumn(row, 4, "plan_json"));
-  return withExplicitGroupFlow(
+  return withPortlessPlanGroups(
     withoutTicketFlow({
       ...readPlanInput(input),
       id: readTextColumn(row, 0, "id"),

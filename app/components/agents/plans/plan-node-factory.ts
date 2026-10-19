@@ -48,6 +48,7 @@ export function createPlanNode(input: {
       type: "group",
       name: reference,
       steps: [],
+      edges: [],
       parameters: [],
       bindings: {},
     };

@@ -1,3 +1,4 @@
+import { withPortlessPlanGroups } from "@/definition/AgentPlanGroupUpgrade";
 import { expandPlanGroups } from "@/definition/AgentPlanGroup";
 import { unsupportedRunOption } from "@/backend/agents/cli/CliSessionPlans";
 import { planStepTemplate } from "@/definition/AgentPlanConfiguration";
@@ -43,6 +44,7 @@ export class AgentPlanPreparation {
     userId: string,
     plan: AgentPlan,
   ): Promise<AgentPlanSnapshot> {
+    plan = withPortlessPlanGroups(plan);
     const catalog = await this.dependencies.profiles.catalog(
       userId,
       plan.projectId,
@@ -147,6 +149,7 @@ function validateWorkingCopies(
     for (const second of writing) {
       if (
         first.step.id === second.step.id ||
+        (first.groupId !== undefined && first.groupId === second.groupId) ||
         !sameWorkingCopy(planStepDirectory(first), planStepDirectory(second))
       )
         continue;

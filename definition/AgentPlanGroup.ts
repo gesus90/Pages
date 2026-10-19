@@ -14,7 +14,7 @@ import type {
   AgentPlanNode,
 } from "./AgentPlan";
 
-/** A stable boundary port; internal source bindings refer to its ID. */
+/** Legacy boundary metadata, retained for lossless reads of older plans. */
 export interface AgentPlanGroupParameter extends AgentParameter {
   readonly id: string;
 }
@@ -51,6 +51,7 @@ export interface AgentPlanGroup extends AgentPlanPosition {
    * was their execution order; {@link planGroupEdges} reads them as that chain.
    */
   readonly edges?: readonly AgentPlanEdge[];
+  /** Legacy metadata only. New connections always name a member. */
   readonly parameters: readonly AgentPlanGroupParameter[];
   readonly bindings: Readonly<Record<string, AgentPlanBinding>>;
 }
@@ -180,8 +181,8 @@ export function planGroupExits(
 /**
  * The members in execution order, following the internal flow edges.
  *
- * @returns `null` unless the edges join every member into one chain without
- * a branch, which is what a shared session can run one turn after another.
+ * @returns `null` unless the internal edges form one chain. This historical
+ * diagnostic does not constrain the session container or add dependencies.
  */
 export function planGroupOrder(
   group: AgentPlanGroup,
@@ -230,52 +231,19 @@ export function mapPlanSteps<Plan extends AgentPlanInput>(
  * Expands only scheduling and boundary bindings; the saved outer graph stays intact.
  *
  * @remarks
- * Members become plain agent nodes. An edge into the frame reaches the
- * entering members, an edge out of it starts at the leaving members, and the
- * internal edges stay as they are; no edge is derived from positions.
+ * Members become plain agent nodes with their explicit internal and external
+ * edges. Legacy frame edges must first be resolved by withPortlessPlanGroups;
+ * ambiguous ones remain invalid instead of becoming invisible dependencies.
  */
 export function expandPlanGroups<Plan extends AgentPlanInput>(
   plan: Plan,
 ): Plan {
   const groups = plan.nodes.filter((node) => node.type === "group");
-  const nodes: AgentPlanNode[] = plan.nodes.flatMap((node) => {
+  const nodes = plan.nodes.flatMap<AgentPlanNode>((node) => {
     if (node.type !== "group") return [node];
-    return [
-      ...node.steps.map((step) => ({
-        ...step,
-        bindings: Object.fromEntries(
-          Object.entries(step.bindings).map(([name, binding]) => {
-            if (binding.kind !== "source") return [name, binding];
-            const port = node.parameters.find(
-              (entry) => entry.id === binding.nodeId,
-            );
-            return [
-              name,
-              port
-                ? (node.bindings[port.name] ?? {
-                    kind: "literal",
-                    value: port.defaultValue,
-                  })
-                : binding,
-            ];
-          }),
-        ),
-      })),
-    ];
+    return node.steps;
   });
-  // An edge at the frame reaches the members where the flow enters and leaves; an empty group keeps it.
-  const ends = (id: string, side: "from" | "to"): readonly string[] => {
-    const group = groups.find((entry) => entry.id === id);
-    if (!group) return [id];
-    const members =
-      side === "from" ? planGroupExits(group) : planGroupEntries(group);
-    return members.length > 0 ? members.map((step) => step.id) : [id];
-  };
-  const edges: AgentPlanEdge[] = plan.edges.flatMap((edge) =>
-    ends(edge.from, "from").flatMap((from) =>
-      ends(edge.to, "to").map((to) => ({ ...edge, from, to })),
-    ),
-  );
+  const edges: AgentPlanEdge[] = [...plan.edges];
   for (const group of groups) edges.push(...planGroupEdges(group));
   return { ...plan, nodes, edges };
 }
@@ -285,8 +253,36 @@ export function planNodeParameters(
   node: AgentPlanNode,
   agents: readonly AgentDefinitionChoice[],
 ): readonly AgentParameter[] {
-  if (node.type === "group") return node.parameters;
+  if (node.type === "group") return [];
   return node.type === "agent"
     ? (planStepTemplate(node, agents)?.parameters ?? [])
     : [];
+}
+
+/** Resolves one unambiguous historical input alias while retaining invalid aliases for repair. */
+export function resolvePlanGroupBinding(
+  binding: AgentPlanBinding,
+  group: AgentPlanGroup,
+  plan: AgentPlanInput,
+): AgentPlanBinding {
+  if (binding.kind !== "source") return binding;
+  const ports = group.parameters.filter((port) => port.id === binding.nodeId);
+  const port = ports.length === 1 ? ports[0] : undefined;
+  if (!port || plan.nodes.some((node) => node.id === port.id)) return binding;
+  if (group.parameters.filter((entry) => entry.name === port.name).length !== 1)
+    return binding;
+  return (
+    group.bindings[port.name] ?? { kind: "literal", value: port.defaultValue }
+  );
+}
+
+/** Whether a retained input alias still needs explicit repair before detaching its member. */
+export function hasPlanGroupAliases(group: AgentPlanGroup): boolean {
+  return group.steps.some((step) =>
+    Object.values(step.bindings).some(
+      (binding) =>
+        binding.kind === "source" &&
+        group.parameters.some((port) => port.id === binding.nodeId),
+    ),
+  );
 }

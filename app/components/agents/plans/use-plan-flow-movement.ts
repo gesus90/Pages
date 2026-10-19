@@ -18,6 +18,7 @@ interface MovementOptions {
   readonly sources: AgentPlanSources;
   readonly graph: PlanGraphActions;
   readonly canEdit: boolean;
+  readonly collapsedGroups: ReadonlySet<string>;
 }
 
 function memberGroup(
@@ -32,7 +33,7 @@ function storedPosition(plan: AgentPlanInput, node: PlanFlowNode): XYPosition {
   if (group?.type !== "group") return node.position;
   return {
     x: node.position.x - PLAN_FRAME_PADDING,
-    y: node.position.y - planGroupHeaderHeight(group),
+    y: node.position.y - planGroupHeaderHeight(),
   };
 }
 
@@ -118,6 +119,7 @@ export function usePlanFlowMovement(
       if (node.data.node.type === "agent")
         graph.place(node.id, {
           position,
+          excludedGroups: options.collapsedGroups,
           pointer: pointer ? flow.screenToFlowPosition(pointer) : position,
         });
       else graph.move(node.id, position.x, position.y);
@@ -146,7 +148,9 @@ export function usePlanFlowMovement(
       options.sources,
       node.parentId ?? null,
     );
-    setDropTarget(group?.id ?? null);
+    setDropTarget(
+      group && !options.collapsedGroups.has(group.id) ? group.id : null,
+    );
   };
   return {
     nodes,

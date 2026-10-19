@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
 
+import { hasPlanGroupAliases } from "@/definition/AgentPlanGroup";
+
 import { Button } from "@/app/components/ui/button";
 import {
   Dialog,
@@ -49,6 +51,14 @@ export function PlanGroupRemoval(props: {
           </Button>
           <Button
             variant="outline"
+            disabled={
+              (group?.type === "group" && hasPlanGroupAliases(group)) ||
+              props.draft.edges.some(
+                (edge) =>
+                  edge.from === graph.removalId || edge.to === graph.removalId,
+              )
+            }
+            title={t("plans.groups.repairBeforeUngroup")}
             onClick={() => {
               if (graph.removalId) graph.removeGroup(graph.removalId, true);
             }}

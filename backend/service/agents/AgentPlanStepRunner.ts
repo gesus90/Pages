@@ -7,9 +7,9 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
 import { isApiProvider } from "@/definition/AgentConnection";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
-import { planGroupOrder } from "@/definition/AgentPlanGroup";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
+import { retiredPlanGroupSession } from "./AgentPlanGroupRetirement";
 import { createPlanSessionObserver } from "./AgentPlanSessionObserver";
 import { guardPlanStepStart } from "./AgentPlanStepDispatch";
 import {
@@ -511,16 +511,17 @@ export class AgentPlanStepRunner {
       (entry) => entry.id === node.step.groupId,
     );
     if (!group) return false;
-    // The internal edges decide which member ends the group and its shared session.
-    const last = (planGroupOrder(group) ?? group.steps).at(-1);
-    if (
-      last?.id === node.step.step.id ||
-      turnFailureCode(turn) !== null ||
-      node.control.signal.aborted
-    )
+    // Retain until every actual member has succeeded, independent of chain or
+    // membership order. A later frontier may return from outside the frame.
+    if (turnFailureCode(turn) !== null || node.control.signal.aborted)
       return false;
     const key = `${node.run.id}/${group.id}`;
     const nodes = this.retained.get(key) ?? [];
+    const completed = new Set([
+      ...nodes.map((entry) => entry.step.step.id),
+      node.step.step.id,
+    ]);
+    if (group.steps.every((step) => completed.has(step.id))) return false;
     nodes.push(node);
     this.retained.set(key, nodes);
     return true;
@@ -551,9 +552,40 @@ export class AgentPlanStepRunner {
   }
 
   private observer(node: NodeRun): PlanSessionObserver {
-    return createPlanSessionObserver(node, (changes) =>
+    const observer = createPlanSessionObserver(node, (changes) =>
       this.complete(node, changes),
     );
+    if (!node.step.groupId) return observer;
+    return {
+      ...observer,
+      retired: (closed, reason) => {
+        void this.retireGroup(node, closed, reason).catch((error: unknown) => {
+          logCaughtError("AgentPlanStepRunner", error);
+        });
+      },
+    };
+  }
+
+  private async retireGroup(
+    node: NodeRun,
+    closed: PlanSessionClosed,
+    reason: string,
+  ): Promise<void> {
+    const key = `${node.run.id}/${node.step.groupId}`;
+    const previous = this.retained.get(key) ?? [];
+    const members = previous.includes(node) ? previous : [...previous, node];
+    for (const member of members)
+      await this.complete(
+        member,
+        retiredPlanGroupSession(member.record, closed, reason),
+      );
+    await this.dependencies.sessions?.released(node.record);
+    await this.dependencies.access.revoke(
+      node.run.id,
+      node.step.groupId ?? node.step.step.id,
+    );
+    this.retained.delete(key);
+    this.groupInputs.delete(key);
   }
 
   private async failure(

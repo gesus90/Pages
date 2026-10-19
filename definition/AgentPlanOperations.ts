@@ -45,6 +45,7 @@ export const AGENT_PLAN_ISSUE_PROBLEMS = [
   "groupConfiguration",
   "groupOrder",
   "groupBoundary",
+  "groupBinding",
   "unsupportedRunNotes",
   "duplicateNode",
   "port",
@@ -117,11 +118,11 @@ export interface AgentPlanGroupEdgeEntry {
 }
 
 /**
- * An ACP group of agent steps with the inputs at its boundary.
+ * A portless ACP session container with retained legacy input metadata.
  *
- * The steps share one session per run; their internal flow edges decide the
- * order, which must form one chain before the plan can run. A group without
- * `edges` was saved before them and runs its steps in their listed order.
+ * Explicit internal and external agent edges determine dependencies. Ready
+ * members share a serial session per run. Missing `edges` marks a historical
+ * ordered group; its former chain is made explicit on read.
  *
  * @remarks
  * Declared here instead of importing the group of the plan model, because the
@@ -132,7 +133,7 @@ export interface AgentPlanGroupNodeEntry extends AgentPlanNodeBase {
   readonly name: string;
   readonly steps: readonly AgentPlanGroupStepEntry[];
   readonly edges?: readonly AgentPlanGroupEdgeEntry[];
-  /** The inputs of the group; each has a stable `id` that step bindings refer to. */
+  /** Retained historical inputs; current bindings name the actual value source. */
   readonly parameters: readonly (AgentParameter & { readonly id: string })[];
   readonly bindings: Readonly<Record<string, AgentPlanBindingEntry>>;
 }

@@ -14,8 +14,6 @@ export function usePlanFlowPorts(
   const id = node.id;
   const ports = JSON.stringify({
     inputs: planNodeParameters(node, sources.agents).map((port) => port.name),
-    outputs:
-      node.type === "group" ? node.parameters.map((port) => port.id) : [],
   });
   useEffect(() => {
     update(id);

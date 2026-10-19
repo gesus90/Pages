@@ -167,6 +167,7 @@ export class AgentPlanGroupSessions {
     try {
       if (signal.aborted) throw new AgentPlanCancelledError();
       const holder: { entry: GroupSession | null } = { entry: null };
+      this.opened.add(key);
       const session = await this.execution.open(
         { ...input, options: { ...input.options, timeoutMinutes: 0 } },
         controller.signal,
@@ -183,7 +184,8 @@ export class AgentPlanGroupSessions {
         },
       );
       if (!session.next) {
-        await session.close();
+        const closed = await session.close();
+        observer.retired?.(closed, "process_exit");
         throw new AgentError("plan_group_session_unsupported");
       }
       const entry: GroupSession = {
@@ -271,10 +273,7 @@ export class AgentPlanGroupSessions {
     request: GroupTurnInput,
   ): Promise<PlanSession> {
     const { input, signal, observer } = request;
-    if (current.isLost) {
-      this.sessions.delete(key);
-      throw new AgentError("plan_group_session_lost");
-    }
+    if (current.isLost) throw new AgentError("plan_group_session_lost");
     if (
       current.fingerprint !== runtimeFingerprint(input) ||
       !current.session.next
@@ -312,7 +311,10 @@ export class AgentPlanGroupSessions {
     return {
       ...observer,
       identified: (sessionId) => {
-        if (holder.entry) holder.entry.acpSessionId = sessionId;
+        const entry = holder.entry;
+        if (entry?.acpSessionId && entry.acpSessionId !== sessionId)
+          entry.isLost = true;
+        else if (entry) entry.acpSessionId = sessionId;
         observer.identified(sessionId);
       },
       retired: (closed, reason) => {
@@ -327,7 +329,10 @@ export class AgentPlanGroupSessions {
     pending: Promise<PlanSessionTurn>,
   ): Promise<PlanSessionTurn> {
     const turn = await pending;
-    if (turn.failure !== null || turn.errorCode !== null) return turn;
+    if (turn.failure !== null || turn.errorCode !== null) {
+      entry.isLost = true;
+      return turn;
+    }
     const fields = entry.effective
       ? [
           ...new Set([
@@ -340,10 +345,12 @@ export class AgentPlanGroupSessions {
       (field) => entry.effective?.[field] !== turn.effective[field],
     );
     if (
+      entry.isLost ||
       !turn.sessionId ||
       (entry.acpSessionId && entry.acpSessionId !== turn.sessionId) ||
       conflict
-    )
+    ) {
+      entry.isLost = true;
       return {
         ...turn,
         failure: "failed",
@@ -353,6 +360,7 @@ export class AgentPlanGroupSessions {
           `group runtime changed: ${conflict ?? "acpSessionId"}`,
         ],
       };
+    }
     entry.acpSessionId = turn.sessionId;
     entry.effective = { ...turn.effective };
     return turn;

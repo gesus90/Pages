@@ -1,8 +1,5 @@
-import {
-  allPlanSteps,
-  expandPlanGroups,
-  planGroupEdges,
-} from "./AgentPlanGroup";
+import { expandPlanGroups, planGroupEdges } from "./AgentPlanGroup";
+import { withPortlessPlanGroups } from "./AgentPlanGroupUpgrade";
 import { planGroupIssues } from "./AgentPlanGroupGraph";
 import {
   hasAgentParameterValue,
@@ -35,6 +32,7 @@ export interface AgentPlanIssue {
     | "groupConfiguration"
     | "groupOrder"
     | "groupBoundary"
+    | "groupBinding"
     | "unsupportedRunNotes"
     | "duplicateNode"
     | "port"
@@ -63,12 +61,7 @@ export { hasPlanPath } from "./AgentPlanPath";
 
 /** Start, end and agent nodes form the execution graph; tickets, parameters and variables only supply values. */
 export function isPlanFlowNode(node: AgentPlanNode): boolean {
-  return (
-    node.type === "start" ||
-    node.type === "end" ||
-    node.type === "agent" ||
-    node.type === "group"
-  );
+  return node.type === "start" || node.type === "end" || node.type === "agent";
 }
 
 /** Data sources use the established agent types; a ticket node supplies a ticket reference. */
@@ -199,31 +192,22 @@ function bridgeNode(
 function edgeIssues(plan: AgentPlanInput): AgentPlanIssue[] {
   const issues: AgentPlanIssue[] = [];
   const seen = new Set<string>();
-  const top = new Set(plan.nodes.map((node) => node.id));
-  // An outer edge that reaches into a frame should end at the frame's own flow port.
-  const members = new Set(
-    allPlanSteps(plan)
-      .map((step) => step.id)
-      .filter((id) => !top.has(id)),
-  );
   for (const edge of plan.edges) {
     const source = plan.nodes.find((node) => node.id === edge.from);
     const target = plan.nodes.find((node) => node.id === edge.to);
-    const validSource =
-      source && ["start", "agent", "group"].includes(source.type);
-    const validTarget =
-      target && ["end", "agent", "group"].includes(target.type);
+    const validSource = source && ["start", "agent"].includes(source.type);
+    const validTarget = target && ["end", "agent"].includes(target.type);
     if (!validSource || edge.fromPort !== "flow-out")
       issues.push({
         nodeId: edge.from,
         port: edge.fromPort,
-        reason: members.has(edge.from) ? "groupBoundary" : "port",
+        reason: source?.type === "group" ? "groupBoundary" : "port",
       });
     if (!validTarget || edge.toPort !== "flow-in")
       issues.push({
         nodeId: edge.to,
         port: edge.toPort,
-        reason: members.has(edge.to) ? "groupBoundary" : "port",
+        reason: target?.type === "group" ? "groupBoundary" : "port",
       });
     const key = JSON.stringify([edge.from, edge.to]);
     if (seen.has(key))
@@ -298,9 +282,12 @@ export function planConnectionIssues(
   plan: AgentPlanInput,
   agents: readonly AgentDefinitionChoice[],
 ): readonly AgentPlanIssue[] {
-  const issues = [...edgeIssues(plan), ...planGroupIssues(plan, agents, false)];
-  // Every agent, members included, is checked where results can cross a frame.
+  plan = withPortlessPlanGroups(plan);
   const expanded = expandPlanGroups(plan);
+  const issues = [
+    ...edgeIssues(expanded),
+    ...planGroupIssues(plan, agents, false),
+  ];
   for (const node of expanded.nodes)
     if (node.type === "agent")
       issues.push(...bindingIssues(node, expanded, agents));
@@ -416,6 +403,7 @@ export function planExecutionIssues(
   plan: AgentPlanInput,
   agents: readonly AgentDefinitionChoice[],
 ): readonly AgentPlanIssue[] {
+  plan = withPortlessPlanGroups(plan);
   if (plan.nodes.some((node) => node.type === "group")) {
     return [
       ...planConnectionIssues(plan, agents),

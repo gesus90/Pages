@@ -56,6 +56,12 @@ export interface PlanGraphActions extends PlanSelection, PlanGroupActions {
   readonly remove: (id: string) => void;
   /** Removes one connection and keeps both of its nodes. */
   readonly disconnect: (link: PlanLink) => void;
+  /** Replaces one unresolved legacy frame endpoint with an explicitly chosen member. */
+  readonly resolveGroupEdge: (
+    groupId: string,
+    edgeIndex: number,
+    memberId: string,
+  ) => void;
   readonly replaceStep: (step: AgentPlanStep) => void;
   readonly replaceNode: (node: AgentPlanNode) => void;
 }
@@ -119,6 +125,30 @@ export function usePlanGraph(
     )
       selection.selectLink(null);
   }
+  function resolveGroupEdge(
+    groupId: string,
+    edgeIndex: number,
+    memberId: string,
+  ): void {
+    const group = draft.nodes.find((node) => node.id === groupId);
+    if (
+      group?.type !== "group" ||
+      !group.steps.some((step) => step.id === memberId)
+    )
+      return;
+    setDraft((previous) => ({
+      ...previous,
+      edges: previous.edges.map((edge, index) =>
+        index !== edgeIndex
+          ? edge
+          : {
+              ...edge,
+              from: edge.from === groupId ? memberId : edge.from,
+              to: edge.to === groupId ? memberId : edge.to,
+            },
+      ),
+    }));
+  }
   function replaceNode(node: AgentPlanNode): void {
     setDraft((previous) => replacePlanNode(previous, node));
   }
@@ -131,6 +161,7 @@ export function usePlanGraph(
     move,
     remove,
     disconnect,
+    resolveGroupEdge,
     replaceStep: replaceNode,
     replaceNode,
   };
