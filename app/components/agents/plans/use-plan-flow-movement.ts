@@ -7,8 +7,14 @@ import {
   planDropGroup,
 } from "./plan-layout";
 import { planFlowNodes } from "./plan-flow-model";
+import { usePlanFlowMeasurements } from "./use-plan-flow-measurements";
 
-import type { NodeChange, OnNodeDrag, XYPosition } from "@xyflow/react";
+import type {
+  Dimensions,
+  NodeChange,
+  OnNodeDrag,
+  XYPosition,
+} from "@xyflow/react";
 import type { AgentPlanInput, AgentPlanSources } from "@/definition/AgentPlan";
 import type { PlanFlowNode } from "./plan-flow-model";
 import type { PlanGraphActions } from "./use-plan-graph";
@@ -52,6 +58,22 @@ function clientPoint(event: MouseEvent | TouchEvent): XYPosition | null {
   return touch ? { x: touch.clientX, y: touch.clientY } : null;
 }
 
+function movementNodes(
+  options: MovementOptions,
+  positions: Readonly<Record<string, XYPosition>>,
+  measurements: Readonly<Record<string, Dimensions>>,
+): PlanFlowNode[] {
+  return planFlowNodes(options.draft, {
+    ...options,
+    selectedId: options.graph.selectedId,
+  }).map((node) => ({
+    ...node,
+    // Omitting measured resets every handle bound when React Flow adopts these nodes.
+    measured: measurements[node.id],
+    position: positions[node.id] ?? node.position,
+  }));
+}
+
 interface FlowMovementActions {
   readonly nodes: PlanFlowNode[];
   readonly onNodesChange: (changes: NodeChange<PlanFlowNode>[]) => void;
@@ -68,6 +90,7 @@ export function usePlanFlowMovement(
 ): FlowMovementActions {
   const { draft, graph, canEdit } = options;
   const flow = useReactFlow<PlanFlowNode>();
+  const { measurements, measure } = usePlanFlowMeasurements();
   const [positions, setPositions] = useState<
     Readonly<Record<string, XYPosition>>
   >({});
@@ -81,14 +104,9 @@ export function usePlanFlowMovement(
     );
     setDropTarget(null);
   }, [canEdit]);
-  const nodes = planFlowNodes(draft, {
-    ...options,
-    selectedId: graph.selectedId,
-  }).map((node) => ({
-    ...node,
-    position: positions[node.id] ?? node.position,
-  }));
+  const nodes = movementNodes(options, positions, measurements);
   function onNodesChange(changes: NodeChange<PlanFlowNode>[]): void {
+    measure(changes);
     for (const change of changes) {
       if (change.type === "select" && change.selected) graph.select(change.id);
       if (
