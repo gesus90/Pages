@@ -1,3 +1,4 @@
+import { readPlanProgress } from "./AgentPlanProgressInput";
 import { AgentError } from "@/backend/error/AgentErrors";
 
 import {
@@ -47,6 +48,9 @@ function readResult(input: unknown): AgentPlanStepResult {
     output,
     error,
     session: readPlanSessionRecord(step.session),
+    ...(step.progress === undefined
+      ? {}
+      : { progress: readPlanProgress(step.progress) }),
   };
 }
 
@@ -70,6 +74,9 @@ export function readPlanRun(input: unknown): AgentPlanRun {
     planName: readPlanText(run.planName, 120),
     userId: readPlanText(run.userId),
     startedAt: readPlanText(run.startedAt),
+    ...(run.endedAt === undefined
+      ? {}
+      : { endedAt: readPlanText(run.endedAt) }),
     planRevision,
     status,
     stopRequested,

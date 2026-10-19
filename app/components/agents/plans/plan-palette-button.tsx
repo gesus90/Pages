@@ -8,12 +8,16 @@ import {
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { cn } from "@/app/lib/cn";
+
 import { Button } from "@/app/components/ui/button";
 
 import type { ButtonProps } from "@/app/components/ui/button";
 
 interface PaletteButtonProps extends ButtonProps {
   readonly tooltip: string;
+  /** Layout of the tooltip anchor when used in a bounded sequence. */
+  readonly wrapperClassName?: string;
 }
 
 function usePaletteTooltipVisibility(): {
@@ -46,6 +50,7 @@ function usePaletteTooltipVisibility(): {
 /** A Pages button with a hover/focus description above the editor overlays. */
 export function PlanPaletteButton({
   tooltip,
+  wrapperClassName,
   ...properties
 }: PaletteButtonProps): React.ReactElement {
   const tooltipId = useId();
@@ -92,7 +97,7 @@ export function PlanPaletteButton({
   return (
     <span
       ref={trigger}
-      className="block min-w-0"
+      className={cn("block min-w-0", wrapperClassName)}
       onMouseEnter={enter}
       onMouseLeave={leave}
       onFocus={focus}

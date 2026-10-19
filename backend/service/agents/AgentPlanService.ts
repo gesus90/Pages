@@ -16,6 +16,7 @@ import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { withoutTicketFlow } from "@/definition/AgentPlanGraph";
 import { logCaughtError } from "@/backend/logging/Logger";
 
+import { withPlanProgress } from "./AgentPlanProgressView";
 import { AgentPlanControlService } from "./AgentPlanControlService";
 import { AgentPlanStartupRecovery } from "./recovery/AgentPlanStartupRecovery";
 import { requireCompatibleFields } from "./AgentPlanGroupRuntime";
@@ -416,7 +417,10 @@ export class AgentPlanService {
         userId,
         resources.ticketAssets,
       );
-    return run;
+    return withPlanProgress(run, {
+      projectId: resources.projectId,
+      tasks: this.dependencies.tasks,
+    });
   }
 
   /** Other workspace users or plan owners cannot stop an executor's private run. */

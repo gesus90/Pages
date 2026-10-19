@@ -3689,6 +3689,74 @@
       },
       "noAgents": "In diesem Workspace ist keine nutzbare Agentdefinition verfügbar.",
       "noTickets": "In diesem Projekt sind keine lesbaren Tickets verfügbar."
+    },
+    "progress": {
+      "label": "Lauffortschritt",
+      "sequence": "Schritte der ausgeführten Runrevision",
+      "completed": "abgeschlossen",
+      "count": "{{completed}} von {{total}} Schritten erfolgreich abgeschlossen",
+      "unknownTotal": "Keine ausgeführte Schrittmenge bekannt",
+      "elapsed": "Verstrichene Zeit einschließlich Pausen",
+      "open": "Laufdetails öffnen",
+      "close": "Laufdetails schließen",
+      "unavailable": "Nicht verfügbar",
+      "noRun": "Noch kein Lauf",
+      "noSelection": "Kein Schritt dieses Laufs verfügbar",
+      "step": "Schritt {{number}}",
+      "configuration": "Konfiguration",
+      "requested": "Angefordert: {{value}}",
+      "notReported": "Nicht gemeldet",
+      "field": {
+        "runner": "Runner",
+        "model": "Modell",
+        "reasoning": "Reasoning",
+        "permissions": "Berechtigungen",
+        "directory": "Arbeitsverzeichnis",
+        "stepTime": "Schrittzeit"
+      },
+      "activity": "Aktueller Arbeitsschritt",
+      "noActivity": "Noch kein aktueller Arbeitsschritt gemeldet.",
+      "noLiveActivity": "Keine Live-Aktivität für diesen Schritt. Ein detaillierter Arbeitsschritt wurde nicht gemeldet.",
+      "noConfiguration": "Für diesen Schritt liegt keine Runner-Konfiguration vor.",
+      "locate": "Node im Plan anzeigen",
+      "nodeMissing": "Node nicht mehr im Plan vorhanden",
+      "todos": "Agent-TODO",
+      "todoList": "Agent-TODO-Liste, vertikal scrollbar",
+      "todoCount": "{{completed}}/{{total}} erledigt",
+      "noTodos": "Für diesen Schritt wurde keine TODO-Liste gemeldet.",
+      "emptyTodos": "Die gemeldete TODO-Liste enthält keine Einträge.",
+      "source": {
+        "live": "Ticket-TODOs · kein aktueller Punkt gemeldet",
+        "historical": "Gespeicherte TODO-Liste dieses Schritts",
+        "contract": "Aufgaben dieses Schritts · Fortschritt noch nicht gemeldet"
+      },
+      "todoState": {
+        "done": "Erledigt",
+        "open": "Offen",
+        "missing": "Meldung fehlt oder Eintrag nicht mehr vorhanden",
+        "unreported": "Fortschritt noch nicht gemeldet"
+      },
+      "state": {
+        "idle": "Idle",
+        "running": "RUN",
+        "pausing": "Pausiert …",
+        "paused": "Pausiert",
+        "stopping": "Stoppt …",
+        "succeeded": "Fertig",
+        "cancelled": "Gestoppt",
+        "failed": "Fehler",
+        "blocked": "Blockiert"
+      },
+      "agent": "Agent: {{name}}",
+      "lastActivity": "Zuletzt gemeldeter Arbeitsschritt",
+      "activitySource": "Vom Agent gemeldet · {{time}}",
+      "runner": {
+        "codex_cli": "Codex CLI",
+        "claude_code": "Claude Code",
+        "opencode": "OpenCode",
+        "api": "API"
+      },
+      "notApplicable": "Nicht anwendbar"
     }
   },
   "mcpDuration": {

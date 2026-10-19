@@ -65,6 +65,12 @@
   /* ACP groups frame their agents in a calm green, apart from the success status. */
   --color-plan-group: #3f7d58;
   --color-plan-group-subtle: #f1f7f3;
+  --color-plan-progress-surface: var(--color-surface);
+  --color-plan-progress-shade: var(--color-foreground);
+  --color-plan-progress-active-label: var(--color-foreground);
+  --color-plan-progress-done: #258c42;
+  --color-plan-progress-waiting: #d5dbe4;
+  --color-plan-progress-label: #ffffff;
   --color-status-active: #b94b08;
   --color-status-active-subtle: #fff1e6;
 
@@ -257,6 +263,16 @@
     --color-plan-checkpoint-subtle: #10261a;
     --color-plan-group: #6fbf8e;
     --color-plan-group-subtle: #13221a;
+    --color-plan-progress-surface: color-mix(
+      in srgb,
+      var(--color-background) 65%,
+      var(--color-plan-agent-subtle)
+    );
+    --color-plan-progress-shade: var(--color-background);
+    --color-plan-progress-active-label: var(--color-background);
+    --color-plan-progress-done: #51df5c;
+    --color-plan-progress-waiting: #3d4858;
+    --color-plan-progress-label: #ffffff;
     --color-status-active: #fb923c;
     --color-status-active-subtle: #2a1b11;
 

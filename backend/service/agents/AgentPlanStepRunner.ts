@@ -10,6 +10,7 @@ import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { planGroupOrder } from "@/definition/AgentPlanGroup";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
+import { createPlanSessionObserver } from "./AgentPlanSessionObserver";
 import { guardPlanStepStart } from "./AgentPlanStepDispatch";
 import {
   errorCode,
@@ -550,50 +551,9 @@ export class AgentPlanStepRunner {
   }
 
   private observer(node: NodeRun): PlanSessionObserver {
-    return {
-      capabilities: (continuationCapabilities) => {
-        void this.complete(node, { continuationCapabilities });
-      },
-      retired: (closed, reason) => {
-        void this.complete(node, {
-          closeout: closed.isConfirmed ? "confirmed" : "failed",
-          endedAt: closed.endedAt,
-          exit: closed.exit,
-          leftoverProcesses: closed.leftovers,
-          resultCode: closeoutFailureCode(closed) === null ? 0 : -1,
-          events: [
-            ...(node.record?.events ?? []),
-            `resource session retired: ${reason}`,
-          ],
-        });
-      },
-      started: (details) => {
-        node.hasStarted = true;
-        if (!node.record) return;
-        void this.complete(node, {
-          mode: details.mode,
-          processId: details.processId,
-          startedAt: details.startedAt,
-          requested: {
-            ...node.record.requested,
-            unattended: details.unattended,
-          },
-          effective: { arguments: details.arguments.join(" ").slice(0, 2_000) },
-        });
-      },
-      identified: (sessionId) => {
-        const group = node.record?.group;
-        void this.complete(node, {
-          sessionId,
-          ...(group ? { group: { ...group, acpSessionId: sessionId } } : {}),
-        });
-      },
-      progressed: (events) => {
-        void this.complete(node, {
-          events: events.map((line) => sanitizePlanOutput(line)),
-        });
-      },
-    };
+    return createPlanSessionObserver(node, (changes) =>
+      this.complete(node, changes),
+    );
   }
 
   private async failure(

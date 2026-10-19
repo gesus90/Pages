@@ -4,6 +4,7 @@ import {
   ReactFlowProvider,
   useConnection,
 } from "@xyflow/react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
@@ -18,6 +19,7 @@ import { PlanGroupNoticeBar } from "./plan-group-notice";
 import { PlanGroupRemoval } from "./plan-group-removal";
 import { PLAN_GRID } from "./plan-layout";
 import { PlanNodeCard } from "./plan-node-card";
+import { PlanRunStatus } from "./plan-run-status";
 import { PlanNodePalette } from "./plan-node-palette";
 import { usePlanNodePalette } from "./use-plan-node-palette";
 import { usePlanCanvasKeys } from "./use-plan-canvas-keys";
@@ -63,6 +65,7 @@ export function PlanCanvas(props: PlanCanvasProps): React.ReactElement {
 
 function PlanFlowCanvas(props: PlanCanvasProps): React.ReactElement {
   const { t } = useTranslation();
+  const [isStatusOpen, setStatusOpen] = useState(false);
   const movement = usePlanFlowMovement(props);
   const palette = usePlanNodePalette(props);
   const { cancel: cancelConnection, ...connections } =
@@ -98,7 +101,16 @@ function PlanFlowCanvas(props: PlanCanvasProps): React.ReactElement {
           canEdit={props.canEdit}
         />
       </section>
-      <PlanCanvasOverlay canvas={props} palette={palette} />
+      <PlanCanvasOverlay
+        canvas={props}
+        palette={palette}
+        isStatusOpen={isStatusOpen}
+      />
+      <PlanRunStatus
+        canvas={props}
+        isOpen={isStatusOpen}
+        onToggle={() => setStatusOpen(!isStatusOpen)}
+      />
     </PlanFlowContext>
   );
 }
@@ -169,13 +181,25 @@ function PlanFlowGraph({
 function PlanCanvasOverlay({
   canvas,
   palette,
+  isStatusOpen,
 }: {
   readonly canvas: PlanCanvasProps;
   readonly palette: ReturnType<typeof usePlanNodePalette>;
+  readonly isStatusOpen: boolean;
 }): React.ReactElement {
   return (
-    <div className="pointer-events-none absolute inset-4 bottom-[calc(env(safe-area-inset-bottom)+8rem)] z-10 flex min-h-0 flex-col items-start gap-3 @5xl:flex-row @5xl:justify-between md:bottom-[calc(env(safe-area-inset-bottom)+5rem)]">
-      <div className="flex max-h-1/2 w-full max-w-3xl shrink-0 flex-col items-start gap-2 @5xl:max-h-full @5xl:min-w-0 @5xl:flex-1">
+    <div
+      className={cn(
+        "pointer-events-none absolute inset-4 z-10 flex min-h-0 flex-col items-start gap-3 @5xl:flex-row @5xl:justify-between",
+        isStatusOpen
+          ? "bottom-[calc(36%+9.5rem)] md:bottom-[calc(58%+6rem)]"
+          : "bottom-[calc(env(safe-area-inset-bottom)+18rem)] md:bottom-[calc(env(safe-area-inset-bottom)+8rem)]",
+      )}
+    >
+      <div
+        data-plan-upper-stack
+        className="flex max-h-full w-full max-w-3xl shrink-0 flex-col items-start gap-2 @5xl:max-h-full @5xl:min-w-0 @5xl:flex-1"
+      >
         {canvas.panel}
         <div className="flex w-full shrink-0 flex-col items-start gap-2">
           <PlanCanvasControls />

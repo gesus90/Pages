@@ -3689,6 +3689,74 @@
       },
       "noAgents": "No usable agent definition is available in this workspace.",
       "noTickets": "No readable tickets are available in this project."
+    },
+    "progress": {
+      "label": "Run progress",
+      "sequence": "Steps of the executed run revision",
+      "completed": "completed",
+      "count": "{{completed}} of {{total}} steps completed successfully",
+      "unknownTotal": "Executed step count unknown",
+      "elapsed": "Elapsed time including pauses",
+      "open": "Open run details",
+      "close": "Close run details",
+      "unavailable": "Unavailable",
+      "noRun": "No run yet",
+      "noSelection": "No step of this run available",
+      "step": "Step {{number}}",
+      "configuration": "Configuration",
+      "requested": "Requested: {{value}}",
+      "notReported": "Not reported",
+      "field": {
+        "runner": "Runner",
+        "model": "Model",
+        "reasoning": "Reasoning",
+        "permissions": "Permissions",
+        "directory": "Working directory",
+        "stepTime": "Step time"
+      },
+      "activity": "Current work step",
+      "noActivity": "No current work step reported yet.",
+      "noLiveActivity": "No live activity for this step. No detailed work step was reported.",
+      "noConfiguration": "No runner configuration is available for this step.",
+      "locate": "Show node in plan",
+      "nodeMissing": "Node no longer present in plan",
+      "todos": "Agent TODO",
+      "todoList": "Agent TODO list, scroll vertically",
+      "todoCount": "{{completed}}/{{total}} done",
+      "noTodos": "No TODO list was reported for this step.",
+      "emptyTodos": "The reported TODO list has no entries.",
+      "source": {
+        "live": "Ticket TODOs · no current item reported",
+        "historical": "Saved TODO list of this step",
+        "contract": "Tasks of this step · progress not reported yet"
+      },
+      "todoState": {
+        "done": "Done",
+        "open": "Open",
+        "missing": "Report missing or item no longer present",
+        "unreported": "Progress not reported yet"
+      },
+      "state": {
+        "idle": "Idle",
+        "running": "RUN",
+        "pausing": "Pausing …",
+        "paused": "Paused",
+        "stopping": "Stopping …",
+        "succeeded": "Completed",
+        "cancelled": "Stopped",
+        "failed": "Failed",
+        "blocked": "Blocked"
+      },
+      "agent": "Agent: {{name}}",
+      "lastActivity": "Last reported work step",
+      "activitySource": "Reported by the agent · {{time}}",
+      "runner": {
+        "codex_cli": "Codex CLI",
+        "claude_code": "Claude Code",
+        "opencode": "OpenCode",
+        "api": "API"
+      },
+      "notApplicable": "Not applicable"
     }
   },
   "mcpDuration": {

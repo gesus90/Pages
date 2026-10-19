@@ -1,3 +1,4 @@
+import type { AgentPlanProgress } from "./AgentPlanProgress";
 import type { AgentPlanControl } from "./AgentPlanControl";
 import type {
   AgentPlanContinuation,
@@ -169,6 +170,8 @@ export interface AgentPlanStepResult {
   readonly error: string | null;
   /** Runner, session, process, contract, acceptance and result of an agent node. */
   readonly session?: AgentPlanSessionRecord | null;
+  /** Authorized read-time projection, separate from persisted acceptance. */
+  readonly progress?: AgentPlanProgress;
 }
 
 /** Only the executor may read this sanitized view or request its stop. */
@@ -179,6 +182,8 @@ export interface AgentPlanRun {
   readonly planRevision: number;
   readonly userId: string;
   readonly startedAt: string;
+  /** Actual terminal decision time; absent in older records without one. */
+  readonly endedAt?: string;
   readonly status:
     | "running"
     | "pausing"

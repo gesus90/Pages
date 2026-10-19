@@ -72,7 +72,7 @@ export function PlanNodePalette({
         data-plan-palette
         onKeyDown={keepPlanControlKeys}
         className={cn(
-          "pointer-events-auto flex min-h-0 max-w-full flex-col self-end text-foreground @5xl:self-start",
+          "pointer-events-auto flex min-h-0 max-h-full max-w-full flex-col self-end text-foreground @5xl:self-start",
           isOpen &&
             "w-56 rounded-xl border border-border/70 bg-surface/95 p-3 shadow-floating backdrop-blur-sm",
         )}

@@ -6,6 +6,7 @@ import {
   readPlanContentDigest,
 } from "./AgentPlanRecoveryInput";
 
+import type { AgentPlanActivity } from "@/definition/AgentPlanProgress";
 import type { AgentRunOptions } from "@/definition/AgentConfiguration";
 import type {
   AgentPlanAcceptance,
@@ -231,6 +232,15 @@ function readGroupLink(input: unknown): AgentPlanGroupSessionLink {
   };
 }
 
+function readActivity(input: unknown): AgentPlanActivity {
+  const activity = readAgentObject(input);
+  if (!Array.isArray(activity.titles)) throw invalid();
+  return {
+    reportedAt: text(activity.reportedAt, 100),
+    titles: activity.titles.map((title: unknown) => text(title)),
+  };
+}
+
 /**
  * Narrows the persisted record of an agent node; older runs have none.
  *
@@ -282,6 +292,9 @@ export function readPlanSessionRecord(
     contract: readContract(record.contract),
     acceptance: readAcceptance(record.acceptance),
     events: texts(record.events, 100),
+    ...(record.activity === undefined
+      ? {}
+      : { activity: readActivity(record.activity) }),
     ...(record.group === undefined || record.group === null
       ? {}
       : { group: readGroupLink(record.group) }),

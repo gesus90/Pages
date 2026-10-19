@@ -24,6 +24,7 @@ import {
   readAcpConfiguration,
   readAcpUpdate,
 } from "./AcpEvents";
+import { reportAcpPlanActivity } from "./AcpPlanActivity";
 import { AcpMcpReadiness } from "./AcpMcpReadiness";
 import { confirmAcpConfiguration } from "./AcpSessionConfiguration";
 import {
@@ -493,6 +494,7 @@ export class AcpSession implements PlanSession {
       if (failure === "plan_runner_permission_denied")
         this.state.permissionDenials += 1;
     }
+    reportAcpPlanActivity(update, this.observer, (text) => this.redact(text));
     this.context.listener?.update(update);
     this.checkReportedModel();
     this.reportProgress();

@@ -26,6 +26,7 @@ import {
   isAcpStep,
   settlePlanPause,
   finalPlanStatus,
+  endedPlanRun,
   hasUnconfirmedCloseout,
   countRunningPlanRequests,
 } from "./AgentPlanRunState";
@@ -386,8 +387,7 @@ export class AgentPlanRunEngine {
           const recovery =
             status === "failed" ? planRecoveryReason(active.view) : undefined;
           active.view = {
-            ...active.view,
-            status,
+            ...endedPlanRun(active.view, status),
             ...(recovery ? { recovery } : {}),
           };
           await this.dependencies.runs.update(active.view);
@@ -490,8 +490,7 @@ export class AgentPlanRunEngine {
       return;
     }
     active.view = {
-      ...active.view,
-      status: "failed",
+      ...endedPlanRun(active.view, "failed"),
       steps: active.view.steps.map((step) => ({
         ...step,
         status: "cancelled",

@@ -82,6 +82,7 @@ export function PlanPage({
         onEdit={setEditingNodeId}
         onOpen={setConsoleNodeId}
         run={displayedRun}
+        runError={running.error}
         tickets={editor.tickets}
         workspaces={page.workspaces.filter(
           (workspace) => workspace.projectId === projectId,

@@ -180,3 +180,11 @@ export function finalPlanStatus(
 export function hasUnconfirmedCloseout(active: ActivePlanRun): boolean {
   return active.view.steps.some((step) => step.session?.closeout === "failed");
 }
+
+/** Stamps the actual terminal decision without estimating an older run's end. */
+export function endedPlanRun(
+  run: AgentPlanRun,
+  status: AgentPlanRun["status"],
+): AgentPlanRun {
+  return { ...run, status, endedAt: new Date().toISOString() };
+}

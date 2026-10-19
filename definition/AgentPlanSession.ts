@@ -1,3 +1,4 @@
+import type { AgentPlanActivity } from "./AgentPlanProgress";
 import type { CliProviderId } from "./AgentConnection";
 import type { AcpProviderId, AgentRunOptions } from "./AgentConfiguration";
 import type { AgentPlanContinuationCapabilities } from "./AgentPlanRecovery";
@@ -188,6 +189,8 @@ export interface AgentPlanSessionRecord {
   readonly acceptance: AgentPlanAcceptance | null;
   /** Short, redacted lines of what happened in the session. */
   readonly events: readonly string[];
+  /** Last explicit ACP plan activity; absence means no such update was reported. */
+  readonly activity?: AgentPlanActivity;
   /** The shared session of the node's ACP group; absent outside groups and in older records. */
   readonly group?: AgentPlanGroupSessionLink;
 }

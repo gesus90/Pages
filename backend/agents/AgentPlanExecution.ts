@@ -5,6 +5,7 @@ import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { isApiProvider } from "@/definition/AgentConnection";
 import { logCaughtError } from "@/backend/logging/Logger";
 
+import type { AgentPlanActivity } from "@/definition/AgentPlanProgress";
 import type { ContentBlock } from "@agentclientprotocol/sdk";
 import type { ExecutionAuthorizer } from "./ScopedExecution";
 import type {
@@ -59,6 +60,8 @@ export interface PlanSessionObserver {
   ) => void;
   /** Reports the newest events while the turn runs; the turn reports them again at its end. */
   readonly progressed?: (events: readonly string[]) => void;
+  /** Explicit public ACP plan entries marked in progress, already redacted. */
+  readonly activity?: (activity: AgentPlanActivity) => void;
 }
 
 /** How the runner ended its turn, independently of business progress or report content. */
