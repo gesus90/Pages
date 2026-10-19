@@ -4,7 +4,7 @@ import { fetchPlanTemplates } from "./plan-template-requests";
 
 import type { AgentPlanNodeTemplate } from "@/definition/AgentPlanNodeTemplate";
 
-/** The person's templates as far as they are known. */
+/** The templates the person works with as far as they are known. */
 export interface PlanTemplateList {
   readonly status: "idle" | "loading" | "ready" | "failed";
   readonly templates: readonly AgentPlanNodeTemplate[];
@@ -16,17 +16,26 @@ export interface PlanTemplateList {
   readonly add: (template: AgentPlanNodeTemplate) => void;
 }
 
-/** Loads the templates when the tab first needs them, and again on request. */
-export function usePlanTemplateList(): PlanTemplateList {
-  const [status, setStatus] = useState<PlanTemplateList["status"]>("idle");
+/**
+ * Loads the templates when the tab first needs them, and again on request.
+ *
+ * @param workspaceId - The workspace of the open plan. Its project decides
+ * which shared templates are listed, so a list read for another workspace
+ * counts as not loaded yet.
+ */
+export function usePlanTemplateList(workspaceId: string): PlanTemplateList {
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const [state, setStatus] = useState<PlanTemplateList["status"]>("idle");
+  const status = loadedFor === workspaceId ? state : "idle";
   const [templates, setTemplates] = useState<readonly AgentPlanNodeTemplate[]>(
     [],
   );
   const [savedId, setSavedId] = useState<string | null>(null);
   async function read(): Promise<void> {
+    setLoadedFor(workspaceId);
     setStatus("loading");
     try {
-      setTemplates(await fetchPlanTemplates());
+      setTemplates(await fetchPlanTemplates(workspaceId));
       setStatus("ready");
     } catch (error: unknown) {
       console.error("Pages could not list the node templates.", error);
@@ -43,7 +52,7 @@ export function usePlanTemplateList(): PlanTemplateList {
   }
   return {
     status,
-    templates,
+    templates: status === "idle" ? [] : templates,
     savedId,
     load: () => void read(),
     add,

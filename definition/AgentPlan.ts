@@ -100,13 +100,25 @@ export interface AgentPlanInput {
 
 export interface AgentPlan extends AgentPlanInput {
   readonly id: string;
+  /** The creator; saving by another person never changes it. */
   readonly ownerId: string;
   readonly projectId: string;
   readonly revision: number;
+  /**
+   * The department whose members and leaders share the plan, set when the plan is created.
+   *
+   * @remarks
+   * Together with the access to the project it decides who reads, changes and
+   * runs the plan besides its owner. Absent or `null` for a plan without a
+   * team: one stored before teams, or created by a person with no or several
+   * departments. Saving never derives it again.
+   */
+  readonly departmentId?: string | null;
 }
 
 /** Current links are derived on read, rather than copied into editable fields. */
 export interface AgentPlanView extends AgentPlan {
+  /** Whether the person changes and runs the plan: its owner, or a member or leader of its team. */
   readonly canEdit: boolean;
   readonly projectName: string;
   readonly github: WorkspaceGitHub | null;
@@ -149,6 +161,8 @@ export interface AgentPlanSources {
 
 export interface AgentPlanPage {
   readonly userId: string;
+  /** The department a plan created now would belong to; `null` when the person has none or several. */
+  readonly teamDepartmentId?: string | null;
   readonly control?: AgentPlanControl;
   readonly plans: readonly AgentPlanView[];
   readonly workspaces: readonly AgentWorkspaceChoice[];

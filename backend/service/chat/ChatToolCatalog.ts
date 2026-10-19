@@ -102,7 +102,7 @@ const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
   "agents.delete":
     "{agentId, expectedRevision} eigenen Benutzer-Agent entfernen; vorher lesen und ausdrücklich mit LÖSCHEN in der aktuellen Nachricht bestätigen",
 
-  "plans.list": `{text?, projectId?, ${WINDOW}} sichtbare Agent Plans nach Name mit Projekt, Freigabe, canEdit, revision, state (idle|running|pausing|paused|stopping) und latestRun; text sucht im Namen`,
+  "plans.list": `{text?, projectId?, ${WINDOW}} sichtbare Agent Plans nach Name mit Projekt, team (Abteilung des Plans), Freigabe, canEdit, revision, state (idle|running|pausing|paused|stopping) und latestRun; text sucht im Namen`,
   "plans.read":
     "{planId} Agent Plan mit nodes (label, Agent, Script, Ticket, Parameter, bindings), edges (Ablauf from → to), Freigabe, revision und status (state, runCount, latestRun, isRunnable, issues) lesen",
   "plans.sources.read":
@@ -110,8 +110,8 @@ const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
   "plans.runs.list": `{planId, order?: newest|oldest, ${WINDOW}} eigene Runs eines Plans mit runId, planId, startedAt und status, seitenweise (Standard 20 pro Seite)`,
   "plans.run.read": `{${RUN}} einen eigenen Run mit Start, Ende, Status und Status jedes Nodes lesen`,
   "plans.run.reports.read": `{${RUN}, stepId?} Berichte eines eigenen Runs lesen: je Node runId, stepId, Ausführungsstatus, Ergebnis, Fehler, Fortschritt, Kriterien und Todos`,
-  "plans.create": `{name, workspaceId, sharing?: {scope: private|global|restricted, operator?, groupIds?, departmentIds?}, ${CHANGES}} Agent Plan anlegen, ohne Freigabe privat`,
-  "plans.update": `{${PLAN_TARGET}, name?, sharing?, ${CHANGES}} Struktur, Name oder Freigabe eines eigenen Plans ändern; alle changes gelten zusammen oder gar nicht`,
+  "plans.create": `{name, workspaceId, sharing?: {scope: private|global|restricted, operator?, groupIds?, departmentIds?}, ${CHANGES}} Agent Plan anlegen; gehört dem Team der Abteilung der Person (Mitglied oder Leiter, nur bei genau einer Abteilung), ohne Freigabe sonst privat`,
+  "plans.update": `{${PLAN_TARGET}, name?, sharing?, workspaceId?, ${CHANGES}} Struktur, Name, Freigabe oder Arbeitsbereich eines Plans ändern (Eigentümer oder Mitglied/Leiter des Teams; ein anderer Arbeitsbereich nur im Projekt des Plans, ein anderes Projekt nur der Eigentümer); alle changes gelten zusammen oder gar nicht`,
   "plans.parameter.create": `{${PLAN_TARGET}, name, value: {type: text, text}|{type: number, number}|{type: ticket, ticketId}|{type: workspace, workspaceId}|{type: wiki, pageId}, format?: string|number|json, x?, y?} Parameter-Node anlegen`,
   "plans.parameter.update": `{${PLAN_TARGET}, parameterId, name?, value?, format?, x?, y?} Parameter-Node ändern`,
   "plans.parameter.remove": `{${PLAN_TARGET}, parameterId} Parameter-Node samt seinen Datenverbindungen entfernen`,

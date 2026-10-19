@@ -4,6 +4,8 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/lib/cn";
 
+import { PlanReloadButton } from "./plan-reload-button";
+
 import type { PlanSaveFeedback } from "./use-plan-save";
 
 function NoticeFrame(props: {
@@ -79,6 +81,7 @@ export function PlanSaveNotice(props: {
               defaultValue: t(`agentExecution.error.${feedback.error}`),
             })}
           </p>
+          {feedback.error === "plan_conflict" ? <PlanReloadButton /> : null}
         </NoticeFrame>
       ) : null}
     </>

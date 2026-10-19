@@ -22,6 +22,7 @@ import type {
   AgentPlanRunSummary,
   AgentPlanStatusEntry,
   AgentPlanSummary,
+  AgentPlanTeamEntry,
 } from "@/definition/AgentPlanOperations";
 import type { AgentProfileDirectory } from "@/definition/AgentProfile";
 import type { PageAgentSharingEntry } from "@/definition/PageAgentOperations";
@@ -46,6 +47,17 @@ function planSharing(
       departments: [],
     };
   return sharingEntry(plan.sharing, directory);
+}
+
+/** The department a plan was created for, as long as it still exists. */
+function planTeam(
+  plan: AgentPlanView,
+  directory: AgentProfileDirectory,
+): AgentPlanTeamEntry | null {
+  const department = directory.departments.find(
+    (entry) => entry.id === plan.departmentId,
+  );
+  return department ? { id: department.id, name: department.name } : null;
 }
 
 /** A run of the plan by its start and status. */
@@ -94,6 +106,7 @@ function planBase(
     workspaceId: plan.workspaceId,
     ownerId: plan.ownerId,
     canEdit: plan.canEdit,
+    team: planTeam(plan, directory),
     sharing: planSharing(plan, directory),
     revision: plan.revision,
     nodeCount: plan.nodes.length,

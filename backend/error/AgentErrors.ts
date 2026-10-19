@@ -38,6 +38,9 @@ export const AGENT_ERROR_MESSAGES = {
   template_invalid: "This node cannot be saved as a template.",
   plan_access_denied: "This plan or run is not accessible.",
   plan_conflict: "The plan changed. Reload it before saving or starting.",
+  plan_name_taken: "This plan name is already taken. Choose another name.",
+  plan_project_owner_only:
+    "Only the owner moves a plan to another project. Choose a workspace of the plan's project.",
   plan_running:
     "A run of this plan is still active. Stop it before deleting the plan.",
   plan_cycle: "Execution dependencies contain a cycle.",

@@ -8,7 +8,9 @@ import { expandPlanGroups } from "@/definition/AgentPlanGroup";
 
 import { planAgentName } from "./plan-layout";
 import { keepPlanControlKeys } from "./plan-flow-keys";
+import { isPlanNameRefused } from "./plan-name-issue";
 import { PlanPanelContext } from "./plan-panel-context";
+import { PlanReloadButton } from "./plan-reload-button";
 import { PlanRunActions } from "./plan-run-actions";
 
 import type { TFunction } from "i18next";
@@ -28,6 +30,17 @@ export function PlanRunPanel(props: {
   const { t } = useTranslation();
   const [isOpen, setOpen] = useState(false);
   const { editor, control } = props;
+  // A refused name is fixed in the context section, so a closed panel opens on it once.
+  const [shownRefusal, setShownRefusal] = useState(false);
+  const isRefused = isPlanNameRefused(
+    editor.command.data,
+    editor.submittedName,
+    editor.draft.name,
+  );
+  if (isRefused !== shownRefusal) {
+    setShownRefusal(isRefused);
+    if (isRefused) setOpen(true);
+  }
   const workspace = props.page.workspaces.find(
     (entry) => entry.id === editor.draft.workspaceId,
   );
@@ -192,10 +205,14 @@ function PlanPanelFeedback(props: {
       ) : null}
       <PlanPanelIssues issues={props.issues} editor={props.editor} />
       {props.error ? (
-        <p role="alert" className="basis-full text-destructive">
+        <p
+          role="alert"
+          className="flex basis-full flex-wrap items-center gap-2 text-destructive"
+        >
           {t(`settings.agents.error.${props.error}`, {
             defaultValue: t("plans.panel.error"),
           })}
+          {props.error === "plan_conflict" ? <PlanReloadButton /> : null}
         </p>
       ) : null}
     </div>

@@ -51,14 +51,19 @@ async function post(
 }
 
 /**
- * Reads the signed-in person's own templates.
+ * Reads the templates the signed-in person works with.
  *
+ * @param workspaceId - The workspace of the open plan; the server adds the
+ * shared templates of its project, for the departments the person belongs to.
  * @throws When the server cannot list them; the list then says so.
  */
-export async function fetchPlanTemplates(): Promise<
-  readonly AgentPlanNodeTemplate[]
-> {
-  const response = await fetch(TEMPLATES_URL, { cache: "no-store" });
+export async function fetchPlanTemplates(
+  workspaceId: string,
+): Promise<readonly AgentPlanNodeTemplate[]> {
+  const query = workspaceId ? `?${new URLSearchParams({ workspaceId })}` : "";
+  const response = await fetch(`${TEMPLATES_URL}${query}`, {
+    cache: "no-store",
+  });
   if (!response.ok) throw new Error("Node templates unavailable");
   const body: unknown = await response.json();
   const templates =

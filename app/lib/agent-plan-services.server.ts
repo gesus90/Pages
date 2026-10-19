@@ -1,6 +1,7 @@
 import { AgentRunCredentialRepository } from "@/backend/database/repositories/mcp/AgentRunCredentialRepository";
 import { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import { upgradePlanConfigurations } from "@/backend/service/agents/AgentPlanConfigurationUpgrade";
+import { shareLegacyPlans } from "@/backend/service/agents/AgentPlanLegacyShare";
 import { AgentPlanRepository } from "@/backend/database/repositories/agent/AgentPlanRepository";
 import { AgentPlanTemplateRepository } from "@/backend/database/repositories/agent/AgentPlanTemplateRepository";
 import { AgentProfileRepository } from "@/backend/database/repositories/agent/AgentProfileRepository";
@@ -54,6 +55,28 @@ function planScripts(): AgentPlanScripts {
   });
 }
 
+/**
+ * Brings the plans stored by an earlier version up to date when the server starts.
+ *
+ * @remarks
+ * Legacy node configurations are pinned, and the plans of before teams are
+ * shared once with the team of their owner; the second step never throws.
+ */
+async function upgradeStoredPlans(
+  database: Database,
+  plans: AgentPlanRepository,
+): Promise<void> {
+  await upgradePlanConfigurations({
+    plans,
+    profiles: new AgentProfileRepository(database),
+    connections: new AgentConnectionRepository(database),
+  });
+  await shareLegacyPlans({
+    plans,
+    authorization: new AuthorizationRepository(database),
+  });
+}
+
 /** Shares the existing user, ticket, model and workspace boundaries; no second catalog or runner. */
 export async function createAgentPlanService(input: {
   readonly database: Database;
@@ -65,11 +88,7 @@ export async function createAgentPlanService(input: {
 }): Promise<AgentPlanServices> {
   const plans = new AgentPlanRepository(input.database);
   const runs = new AgentPlanRunRepository(input.database);
-  await upgradePlanConfigurations({
-    plans,
-    profiles: new AgentProfileRepository(input.database),
-    connections: new AgentConnectionRepository(input.database),
-  });
+  await upgradeStoredPlans(input.database, plans);
   const {
     agentWorkspaceService: workspaces,
     agentProfileService: profiles,

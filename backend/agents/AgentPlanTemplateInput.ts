@@ -55,11 +55,12 @@ export function readPlanTemplateNode(input: unknown): AgentPlanTemplateNode {
  * template of a node type this version knows.
  */
 export function readPlanTemplate(input: unknown): AgentPlanNodeTemplate {
-  const { id, name, type, createdAt, node } = readAgentObject(input);
+  const { id, name, type, isShared, createdAt, node } = readAgentObject(input);
   if (
     typeof id !== "string" ||
     typeof name !== "string" ||
     typeof type !== "string" ||
+    typeof isShared !== "boolean" ||
     typeof createdAt !== "string" ||
     !isPlanTemplateType(type)
   )
@@ -67,5 +68,5 @@ export function readPlanTemplate(input: unknown): AgentPlanNodeTemplate {
   const templateNode = readPlanNode(node);
   if (templateNode.type !== type || !isPlanTemplateNode(templateNode))
     throw new AgentError("template_invalid");
-  return { id, name, type, createdAt, node: templateNode };
+  return { id, name, type, isShared, createdAt, node: templateNode };
 }

@@ -40,7 +40,7 @@ function isWriteOperation(value: unknown): value is AgentPlanWriteOperation {
  * @remarks
  * The adapter holds no right of its own: every call runs through the plan
  * service with the rules of the plan page. Plans are visible through their
- * workspace and share, only the owner changes one, and runs and their reports
+ * workspace and share, the owner and the team of a plan change it, and runs and their reports
  * belong to the person who started them.
  */
 export class AgentPlanOperationService {

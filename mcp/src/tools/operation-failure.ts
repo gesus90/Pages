@@ -53,6 +53,7 @@ const REJECTION_REASONS: Readonly<
   element_exists: true,
   plan_script_invalid: true,
   plan_script_profile_missing: true,
+  plan_name_taken: true,
   checklist_items_invalid: true,
   checklist_item_duplicate: true,
   checklist_item_unknown: true,

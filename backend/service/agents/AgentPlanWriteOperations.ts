@@ -33,7 +33,10 @@ import type { PageAgentSharingRequest } from "./PageAgentOperationInput";
 /** The plan service functions the changes use, and the database their results are stored in. */
 export interface AgentPlanWriteDependencies {
   readonly database: Pick<Database, "transaction">;
-  readonly plans: Pick<AgentPlanService, "view" | "agents" | "save">;
+  readonly plans: Pick<
+    AgentPlanService,
+    "view" | "agents" | "save" | "workspaces"
+  >;
 }
 
 /** The usage and share a plan stores for a requested share. */
@@ -50,6 +53,8 @@ function planSharing(
 function planKey(plan: AgentPlanInput): string {
   return JSON.stringify([
     plan.name,
+    plan.workspaceId,
+    plan.projectId ?? null,
     plan.usage,
     plan.sharing ?? null,
     plan.nodes,
@@ -103,13 +108,16 @@ function needsAgents(changes: readonly AgentPlanChange[]): boolean {
 }
 
 /**
- * Creates plans and changes their structure, share and parameters for their owner.
+ * Creates plans and changes their structure, share and parameters.
  *
  * @remarks
  * Every change is saved by the plan service exactly like the plan page saves
- * it: only the owner changes a plan, against the revision read last, and the
- * graph, the agents, tickets and references are checked on save. A change is
- * repeatable by its operation ID, whose result commits with the plan.
+ * it: the owner or a member or leader of the plan's team changes a plan, against the
+ * revision read last, and the graph, the agents, tickets and references are
+ * checked on save for the person who saves. Every one of them may change the
+ * share and move the plan to another workspace of its project; only the owner
+ * moves it to another project. A change is repeatable by its operation ID,
+ * whose result commits with the plan.
  */
 export class AgentPlanWriteOperations {
   private readonly dependencies: AgentPlanWriteDependencies;
@@ -162,7 +170,7 @@ export class AgentPlanWriteOperations {
     );
   }
 
-  /** Shows a stored result again only while the person still owns the plan. */
+  /** Shows a stored result again only while the person may still change the plan. */
   private async replay(
     userId: string,
     request: AgentPlanWriteRequest,
@@ -238,7 +246,7 @@ export class AgentPlanWriteOperations {
     );
   }
 
-  /** The plan as the client last read it: visible, owned and not changed since. */
+  /** The plan as the client last read it: visible, changeable by the person and not changed since. */
   private async current(
     userId: string,
     request: AgentPlanUpdateRequest,
@@ -266,14 +274,17 @@ export class AgentPlanWriteOperations {
     recorder: OperationRecorder<AgentPlanChanged>,
   ): Promise<void> {
     const current = await this.current(userId, request);
+    const workspace = await this.targetWorkspace(userId, current, request);
     const before = editable(current);
     const changed = applyPlanChanges(before, request.changes, {
-      agents: await this.agents(userId, current.workspaceId, request.changes),
+      agents: await this.agents(userId, workspace.id, request.changes),
     });
     const proposed: AgentPlanInput = {
       ...changed.plan,
       ...(request.name === null ? {} : { name: request.name }),
       ...(request.sharing === null ? {} : planSharing(request.sharing)),
+      workspaceId: workspace.id,
+      projectId: workspace.projectId,
     };
     const revision = request.expectedRevision;
     if (planKey(proposed) === planKey(before)) {
@@ -307,6 +318,37 @@ export class AgentPlanWriteOperations {
         throw await this.conflict(userId, current.id);
       throw error;
     }
+  }
+
+  /**
+   * The workspace the plan is saved with: the current one, or the one the request names.
+   *
+   * @remarks
+   * The workspace must be one the person may use now; the owner's access never
+   * stands in. Another workspace of the plan's project is open to every team
+   * member, a workspace of another project only to the owner.
+   *
+   * @throws {AgentOperationError} `INVALID_REQUEST` with `workspace_unavailable`
+   * for a workspace the person cannot use, `FORBIDDEN` for another project
+   * without owning the plan.
+   */
+  private async targetWorkspace(
+    userId: string,
+    current: AgentPlanView,
+    request: AgentPlanUpdateRequest,
+  ): Promise<{ readonly id: string; readonly projectId: string }> {
+    const id = request.workspaceId ?? current.workspaceId;
+    if (id === current.workspaceId) return { id, projectId: current.projectId };
+    const choice = (await this.dependencies.plans.workspaces(userId)).find(
+      (entry) => entry.id === id,
+    );
+    if (!choice)
+      throw new AgentOperationError("INVALID_REQUEST", {
+        reason: "workspace_unavailable",
+      });
+    if (choice.projectId !== current.projectId && current.ownerId !== userId)
+      throw new AgentOperationError("FORBIDDEN");
+    return { id, projectId: choice.projectId };
   }
 
   /** A save lost to a change made in between answers with the revision to read next. */

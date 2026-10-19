@@ -133,6 +133,8 @@ export interface AgentPlanUpdateRequest extends AgentPlanTarget {
   readonly operation: Exclude<AgentPlanWriteOperation, "plans.create">;
   readonly name: string | null;
   readonly sharing: PageAgentSharingRequest | null;
+  /** The workspace to move the plan to; absent or `null` keeps the current one. */
+  readonly workspaceId?: string | null;
   readonly changes: readonly AgentPlanChange[];
   /** The parameter node a parameter operation must find, `null` otherwise. */
   readonly parameterId: string | null;
@@ -484,18 +486,25 @@ export function readPlanWriteRequest(
   }
   if (operation !== "plans.update")
     return readParameterWrite(operation, parameters);
-  requireParameterKeys(parameters, TARGET_KEYS, ["name", "sharing", "changes"]);
+  requireParameterKeys(parameters, TARGET_KEYS, [
+    "name",
+    "sharing",
+    "workspaceId",
+    "changes",
+  ]);
   const request: AgentPlanUpdateRequest = {
     operation,
     ...readTarget(parameters),
     name: parameters.name === undefined ? null : readName(parameters.name),
     sharing: readSharing(parameters.sharing),
+    workspaceId: readOptionalIdentifier(parameters.workspaceId),
     changes: readChanges(parameters.changes),
     parameterId: null,
   };
   if (
     request.name === null &&
     request.sharing === null &&
+    request.workspaceId === null &&
     request.changes.length === 0
   )
     throw invalid();

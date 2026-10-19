@@ -57,6 +57,8 @@ const ERROR_STATUS: Partial<Record<AgentErrorCode, number>> = {
   workspace_path_conflict: 409,
   plan_access_denied: 403,
   plan_conflict: 409,
+  plan_name_taken: 409,
+  plan_project_owner_only: 403,
   plan_running: 409,
   plan_run_unavailable: 409,
   plan_pause_required: 409,

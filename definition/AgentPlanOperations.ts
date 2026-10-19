@@ -18,7 +18,7 @@ export const AGENT_PLAN_READ_OPERATIONS = [
   "plans.run.reports.read",
 ] as const;
 
-/** Changes of agent plans; only the owner changes a plan, as on the plan page. */
+/** Changes of agent plans; the owner and the team change a plan, as on the plan page. */
 export const AGENT_PLAN_WRITE_OPERATIONS = [
   "plans.create",
   "plans.update",
@@ -221,6 +221,12 @@ export interface AgentPlanStatusEntry {
   readonly issues: readonly AgentPlanIssueEntry[];
 }
 
+/** The department whose members and leaders share a plan. */
+export interface AgentPlanTeamEntry {
+  readonly id: string;
+  readonly name: string;
+}
+
 /** A visible plan without its graph. */
 export interface AgentPlanSummary {
   readonly id: string;
@@ -229,8 +235,14 @@ export interface AgentPlanSummary {
   readonly projectName: string;
   readonly workspaceId: string;
   readonly ownerId: string;
-  /** Whether the connected account owns the plan and may change it. */
+  /**
+   * Whether the connected account may change and run the plan: its owner, or
+   * a member or leader of its team who can open the project.
+   */
   readonly canEdit: boolean;
+  /** The team of the plan, or `null` when only its owner works with it. */
+  readonly team: AgentPlanTeamEntry | null;
+  /** The read-only usage share; it never lets anyone change the plan. */
   readonly sharing: PageAgentSharingEntry;
   /** Value to pass as `expectedRevision` to a change. */
   readonly revision: number;

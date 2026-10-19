@@ -25,6 +25,7 @@ const PLAN_REASONS: Readonly<Partial<Record<AgentErrorCode, Reason>>> = {
   parameter_reference_unavailable: "parameter_reference_unavailable",
   parameter_ticket_unavailable: "parameter_reference_unavailable",
   agent_usage_denied: "parameter_reference_unavailable",
+  plan_name_taken: "plan_name_taken",
   // Script nodes keep the codes of the plan page.
   plan_script_invalid: "plan_script_invalid",
   plan_script_profile_missing: "plan_script_profile_missing",
@@ -51,6 +52,8 @@ function translateAgentError(error: AgentError): AgentOperationError {
   // A plan that is hidden answers like a missing one, as on the plan page.
   if (error.code === "plan_access_denied")
     return new AgentOperationError("NOT_FOUND");
+  if (error.code === "plan_project_owner_only")
+    return new AgentOperationError("FORBIDDEN");
   if (error.code === "plan_conflict" || error.code === "plan_context_changed")
     return new AgentOperationError("CONFLICT");
   if (error.code.startsWith("workspace_"))

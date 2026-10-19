@@ -822,9 +822,10 @@ Its header shows project, workspace, server status and Play/Pause/Resume/Stop.
 Expand it to choose a plan, rename it, select a project and one of its
 workspaces, and explicitly save. Full context names stay available in the
 expanded panel. Workspace administration uses the existing management page.
-The existing Pica/MCP plan operations and owner-only save paths remain.
-Shared readers see control metadata without private run outputs and cannot
-edit or run the plan.
+The existing Pica/MCP plan operations and their save paths remain: the owner and
+the members and leaders of a plan's team (see Team plans and templates) save and run it.
+Readers a plan is only shared with see control metadata without private run
+outputs and cannot edit or run the plan.
 Polling failures leave the editor and local draft mounted. Run actions remain
 disabled until the server can be reached again; reconnect only reads state and
 never resends a mutation. The panel's controls stay visible while its expanded
@@ -1220,10 +1221,87 @@ diagnostic-only completion rule.
 
 Plans may be private, global, or shared with Pages groups and departments
 using OR/AND membership. Global sharing still requires access to the plan's
-project and workspace. Only the owner may edit or start a run. Every executor needs their own
+project and workspace. Only the owner and the members and leaders of the plan's team may edit or start a run;
+everyone else a plan is shared with only reads it. A department target of a share
+matches members and leaders alike. Every executor needs their own
 current agent/model and ticket/wiki permissions; sharing never delegates
 credentials. Only the executor may read, pause, resume or stop their run, and
 resource access is rechecked on the server before execution and disclosure.
+
+### Team plans and templates (PAGE-118)
+
+A person who is a member or the leader of exactly one department creates plans
+and node templates for the team of that department. Leading a department
+(`managed_departments`) counts like being a member (`department_members`) here
+and only in the agent plan area: the union of both relations decides, each
+department once, so someone who is member and leader of the same department
+belongs to one department, while a member of one and leader of another belongs
+to two. The department is stored with the object when it is created and is never
+derived again from whoever saves it later. A person with no or several
+departments creates objects without a team, which stay as private as before; no
+department is guessed for them.
+
+- **Access.** The members and leaders of the department who can also open the
+  project of the plan read, change and run the same plan, and list and insert the same
+  templates in the Templates tab (after a normal reload; there is no live
+  co-editing). Both conditions are checked again on every server operation and
+  for every access path: the plan page, the Agent API, MCP and Pica. A project
+  access alone, a membership or leadership alone, and an administrator role
+  never count (an administrator who neither belongs to nor leads the department
+  has no access to its plans; project access itself stays as the project rules
+  define it, so a leader who is not a member of a department-bound project needs
+  that access from elsewhere). The existing share of a plan with departments
+  reads the same departments: a leader matches a department target without the
+  `manage_users` capability that sharing an agent asks for. A revoked membership or leadership, a revoked project access or a
+  deactivated account takes effect in an editor that is already open: its next
+  save is refused. Templates stored before PAGE-118 have no team and stay
+  personal.
+- **Plans of before teams.** Migration 062 marks the plans that exist when it
+  runs (`legacy_share_pending`; plans created later are never marked). Each
+  server start decides the marked plans once with the rule that applies when a
+  plan is created: an owner who now belongs (as member or leader) to exactly one department brings
+  the plan into that department, and it is a normal team plan afterwards
+  (owner, revision, content, runs and the recorded editor unchanged). An owner
+  without a department keeps the plan marked, so a later start shares it once
+  the owner has joined or leads one; an owner with several distinct departments keeps it private
+  and the mark is dropped (no department is guessed), as does a name the
+  department already uses in the project. Nothing is renamed, merged or deleted.
+  Plans competing for one name in one department are decided by ascending plan
+  ID, so the smallest ID wins; plan IDs are random and no creation time is
+  stored, so this is only reproducible, not a judgement of age. A plan created
+  after the migration is never shared retroactively. The step is idempotent and
+  logs only counts; a failure never stops the server from starting.
+- **Saving.** A save by another member raises the revision of the same plan; plan
+  ID, owner, team and project stay. Every team member may also change the
+  workspace of the plan to another workspace **of the same project** that the
+  person may use (checked for the person who saves, never through the owner's
+  access) and may change the usage and the share, with the same validation as
+  the owner; a share only lets others read the plan, never change it. Moving
+  the plan to a workspace of **another project** and deleting the plan stay with
+  the owner: project and department form the shared area and the name space,
+  so a move would shift who sees the plan and which names it collides with
+  (`plan_project_owner_only`, HTTP 403). The plan page has no share editor, so
+  the share is changed through the Agent API, MCP and Pica; a save from the plan
+  page carries the share unchanged. Runs, workspace reservations and the
+  pause rules are unchanged: a paused run keeps its original workspace and
+  cannot resume on a plan that was moved. The person who saved
+  last is recorded (`updated_by`, `updated_at` of `agent_plans`) and not shown. A
+  stale revision is a conflict that overwrites nothing and copies nothing; the
+  editor offers to reload the plan and asks before it drops unsaved edits.
+- **Names.** The name of a plan is compared trimmed, NFC-normalized and without
+  case (`agentPlanNameKey`), by the plan page as an early warning, by the server
+  and by a unique index on project, department and normalized name. Two plans of
+  one team and project cannot share a name, whoever created them; a parallel
+  creation or rename has exactly one winner, and the other gets a localized
+  message at the name field (`plan_name_taken`) that names no plan, department or
+  person. Nothing is renamed or numbered. Plans without a team are outside this
+  rule, so existing duplicates stay as they are and cannot make the migration
+  fail; a legacy plan whose name a team already uses stays without a team. Template
+  names stay unique per owner, as before.
+- **Credentials.** A team never lends access. Whoever saves or starts a plan needs
+  their own current agent, model, ticket and wiki rights; there is no fallback to
+  the creator or the last editor, and every run belongs to the person who
+  started it.
 
 ### React Flow migration inventory and acceptance (PAGE-87)
 
@@ -1315,7 +1393,8 @@ visible plans with their nodes, connections and status (`idle`, `running` or
 their structure (nodes, flow connections and agent inputs) and their parameter
 nodes one by one, list one's own runs of a plan newest or oldest first in pages,
 select the newest, the first or a named run, and read the reports of a run, each
-tied to its run and node. Only the owner changes a plan; a hidden plan answers
+tied to its run and node. Only the owner and the members and leaders of the plan's team
+change a plan, its share and its workspace within the project (another project and deleting only the owner); a hidden plan answers
 like a missing one, and runs stay private to the person who started them. Pica
 finds a plan by name, asks back when several match, shows run dates and statuses
 in plain words, and cannot start, stop or delete plans. The tools and their

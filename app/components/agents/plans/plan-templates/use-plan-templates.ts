@@ -42,7 +42,7 @@ export function usePlanTemplates(
   blocked: string | null,
 ): PlanTemplates {
   const view = usePlanPaletteView();
-  const list = usePlanTemplateList();
+  const list = usePlanTemplateList(canvas.draft.workspaceId);
   const insertion = usePlanTemplateInsertion(canvas, blocked);
   const [saving, setSaving] = useState<AgentPlanTemplateNode | null>(null);
   function requestSave(nodeId: string): void {

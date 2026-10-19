@@ -637,6 +637,8 @@
         "template_invalid": "This node cannot be saved as a template.",
         "plan_access_denied": "This plan or run is not accessible.",
         "plan_conflict": "The plan changed. Reload before saving or Play.",
+        "plan_name_taken": "This plan name is already taken. Choose another name.",
+        "plan_project_owner_only": "Only the owner moves a plan to another project. Choose a workspace of the plan's project.",
         "plan_running": "A run of this plan is still active. Stop it before deleting the plan.",
         "plan_cycle": "Execution dependencies contain a cycle.",
         "plan_binding_invalid": "Check parameter ports and source/result bindings.",
@@ -3254,7 +3256,8 @@
       "storage": {
         "readOnly": "Read only",
         "saving": "Processing …",
-        "failed": "Not saved"
+        "failed": "Not saved",
+        "reload": "Reload plan"
       }
     },
     "opening": {
@@ -3616,6 +3619,13 @@
       "stopFirst": "Play disabled: stop first. Restart after closeout finishes.",
       "newRunHint": "Play starts every step again. Changes already made remain in place.",
       "contextHint": "Save applies the context to the plan. A paused run keeps its original project and workspace.",
+      "projectOwnerOnly": "Every team member may choose another workspace of this project; only the owner moves the plan to another project.",
+      "team": {
+        "shared": "Shared with the team of the department “{{name}}”: its members and leaders who can open the project read, change and run this plan. Every person runs it with their own access.",
+        "new": "A new plan is shared with the team of the department “{{name}}”: its members and leaders who can open the project read, change and run it.",
+        "none": "This plan is not shared with a team. Only a person who is a member or leader of exactly one department creates plans for a team.",
+        "unknown": "unknown"
+      },
       "name": "Plan name",
       "openPlan": "Open plan",
       "save": "Save plan",
@@ -3774,6 +3784,7 @@
       "saving": "Saving …",
       "saveFailed": "Not saved: {{reason}}",
       "list": "Saved templates",
+      "shared": "Team",
       "loading": "Loading templates …",
       "loadFailed": "The templates could not be loaded.",
       "retry": "Load again",

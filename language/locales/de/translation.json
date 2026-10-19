@@ -637,6 +637,8 @@
         "template_invalid": "Diese Node kann nicht als Vorlage gespeichert werden.",
         "plan_access_denied": "Dieser Plan oder Lauf ist nicht zugänglich.",
         "plan_conflict": "Der Plan wurde geändert. Vor Speichern oder Play neu laden.",
+        "plan_name_taken": "Dieser Planname ist bereits vergeben. Wähle einen anderen Namen.",
+        "plan_project_owner_only": "Nur der Besitzer verschiebt einen Plan in ein anderes Projekt. Wähle einen Arbeitsbereich des Projekts dieses Plans.",
         "plan_running": "Ein Lauf dieses Plans ist noch aktiv. Stoppen Sie ihn, bevor Sie den Plan löschen.",
         "plan_cycle": "Die Ablaufabhängigkeiten enthalten einen Zyklus.",
         "plan_binding_invalid": "Parameter-Ports sowie Quellen- und Ergebnisbindungen prüfen.",
@@ -3254,7 +3256,8 @@
       "storage": {
         "readOnly": "Schreibgeschützt",
         "saving": "Wird verarbeitet …",
-        "failed": "Nicht gespeichert"
+        "failed": "Nicht gespeichert",
+        "reload": "Plan neu laden"
       }
     },
     "opening": {
@@ -3616,6 +3619,13 @@
       "stopFirst": "Play gesperrt: zuerst stoppen. Neustart erst nach beendetem Closeout.",
       "newRunHint": "Play startet alle Schritte neu. Bereits ausgeführte Änderungen bleiben bestehen.",
       "contextHint": "Kontextwechsel wird mit dem Plan gespeichert. Ein pausierter Run bleibt an seinen bisherigen Projekt- und Arbeitsbereich gebunden.",
+      "projectOwnerOnly": "Jedes Teammitglied darf einen anderen Arbeitsbereich dieses Projekts wählen; nur der Besitzer verschiebt den Plan in ein anderes Projekt.",
+      "team": {
+        "shared": "Geteilt mit dem Team der Abteilung „{{name}}“: Deren Mitglieder und Leiter, die das Projekt öffnen können, lesen, ändern und starten diesen Plan. Jede Person startet ihn mit ihren eigenen Zugängen.",
+        "new": "Ein neuer Plan wird mit dem Team der Abteilung „{{name}}“ geteilt: Deren Mitglieder und Leiter, die das Projekt öffnen können, lesen, ändern und starten ihn.",
+        "none": "Dieser Plan ist mit keinem Team geteilt. Nur wer Mitglied oder Leiter genau einer Abteilung ist, legt Pläne für ein Team an.",
+        "unknown": "unbekannt"
+      },
       "name": "Planname",
       "openPlan": "Plan öffnen",
       "save": "Plan speichern",
@@ -3774,6 +3784,7 @@
       "saving": "Speichert …",
       "saveFailed": "Nicht gespeichert: {{reason}}",
       "list": "Gespeicherte Vorlagen",
+      "shared": "Team",
       "loading": "Vorlagen werden geladen …",
       "loadFailed": "Die Vorlagen konnten nicht geladen werden.",
       "retry": "Erneut laden",

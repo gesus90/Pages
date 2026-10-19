@@ -25,14 +25,30 @@ function readTemplateContext(formData: FormData): AgentPlanTemplateContext {
   };
 }
 
-/** Lists only the signed-in person's own node templates. */
-export async function loader({ context }: Route.LoaderArgs): Promise<Response> {
+/**
+ * Lists the node templates the signed-in person works with.
+ *
+ * @remarks
+ * The person's personal templates and, with the workspace of the open plan, the
+ * shared templates of its project that belong to a department the person is
+ * a member or leader of now. Nothing else is returned, whatever the query names.
+ */
+export async function loader({
+  context,
+  request,
+}: Route.LoaderArgs): Promise<Response> {
   try {
     const user = context.get(authenticatedUserContext);
     if (!user) throw new AgentError("plan_access_denied");
+    const workspaceId = new URL(request.url).searchParams.get("workspaceId");
     const services = await getApplicationServices();
     return Response.json(
-      { templates: await services.agentPlanTemplateService.list(user.id) },
+      {
+        templates: await services.agentPlanTemplateService.list(
+          user.id,
+          workspaceId ? readPlanText(workspaceId) : null,
+        ),
+      },
       { headers: AGENT_NO_STORE },
     );
   } catch (error: unknown) {

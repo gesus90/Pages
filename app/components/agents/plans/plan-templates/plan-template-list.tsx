@@ -48,6 +48,7 @@ function templateLine(
 ): string {
   return [
     t(`plans.nodeType.${template.type}`),
+    ...(template.isShared ? [t("plans.templates.shared")] : []),
     ...planTemplateDetails(template.node, {
       draft: canvas.draft,
       sources: canvas.sources,

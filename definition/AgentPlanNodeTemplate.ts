@@ -34,16 +34,21 @@ export type AgentPlanTemplateNode =
   AgentPlanParameter | AgentPlanStep | AgentPlanScript | AgentPlanGroup;
 
 /**
- * A named node configuration of one person.
+ * A named node configuration of one person, or of a team.
  *
  * @remarks
- * Only its owner lists and inserts it; it is never shared. The node holds no
- * link into the plan it came from: no outer connection, no run state.
+ * A personal template is listed and inserted by its owner alone. A shared one
+ * belongs to a project and a department: the members and leaders of the department who
+ * can open the project list and insert the same stored template. The node
+ * holds no link into the plan it came from: no outer connection, no run
+ * state.
  */
 export interface AgentPlanNodeTemplate {
   readonly id: string;
   readonly name: string;
   readonly type: AgentPlanTemplateType;
+  /** Whether the template is shared with a team instead of personal. */
+  readonly isShared: boolean;
   /** When it was saved, as stored: `YYYY-MM-DD HH:MM:SS` in UTC. */
   readonly createdAt: string;
   readonly node: AgentPlanTemplateNode;

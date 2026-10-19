@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { useFetcher } from "react-router";
 
@@ -42,12 +42,15 @@ export function usePlanEditor(page: AgentPlanPage): {
   readonly isPending: boolean;
   readonly sourceError: string | null;
   readonly tickets: PlanTicketRefresh;
+  /** The plan name the last save carried; `null` before any save. */
+  readonly submittedName: string | null;
   readonly save: () => void;
   readonly rename: (name: string) => void;
   readonly changeContext: (workspace: AgentWorkspaceChoice) => void;
 } {
   const command = useFetcher<AgentPlanActionResult>();
   const navigate = useNavigate();
+  const [submittedName, setSubmittedName] = useState<string | null>(null);
   useEffect(() => {
     if (!page.selected && command.data?.ok && command.data.planId)
       void navigate(
@@ -74,6 +77,7 @@ export function usePlanEditor(page: AgentPlanPage): {
   // Flushing the pending state ignores a second save until the first one answered.
   function save(): void {
     submitted.current = draft;
+    setSubmittedName(draft.name);
     void command.submit(
       {
         intent: "save-plan",
@@ -93,6 +97,7 @@ export function usePlanEditor(page: AgentPlanPage): {
     isPending: command.state !== "idle" || sourceState.isPending,
     sourceError: sourceState.error,
     tickets: sourceState.tickets,
+    submittedName,
     save,
     rename: (name) => setDraft((previous) => ({ ...previous, name })),
     changeContext,

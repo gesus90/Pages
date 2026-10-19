@@ -131,6 +131,11 @@ export async function deleteProjectAgentData(
     "DELETE FROM agent_plans WHERE project_id = $project_id;",
     parameters,
   );
+  // Templates shared in the project go with it; personal ones belong to no project.
+  await database.execute(
+    "DELETE FROM agent_plan_templates WHERE project_id = $project_id;",
+    parameters,
+  );
   await database.execute(
     "DELETE FROM agent_workspaces WHERE project_id = $project_id;",
     parameters,

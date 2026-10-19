@@ -1873,20 +1873,42 @@ session (the credential of a running node) gets none of them.
 | `list_plan_runs`        | `plans.runs.list`        | `planId`, optional `order` (`newest`, `oldest`), `cursor`, `limit`                              | The account's runs of a plan with date and status, 20 per page by default |
 | `read_plan_run`         | `plans.run.read`         | `runId` (optional `planId` to check it), or `planId` with `select` `latest` or `first`          | One run with the state of every node                                      |
 | `read_plan_run_reports` | `plans.run.reports.read` | as `read_plan_run`, optional `stepId`                                                           | The reports of a run, each with `runId` and `stepId`                      |
-| `create_plan`           | `plans.create`           | `operationId`, `name`, `workspaceId`, optional `sharing`, `changes`                             | Creates a plan owned by the connected account, private unless shared      |
-| `update_plan`           | `plans.update`           | `operationId`, `planId`, `expectedRevision`, one or more of `name`, `sharing`, `changes`        | Changes name, share or structure in one revision                          |
+| `create_plan`           | `plans.create`           | `operationId`, `name`, `workspaceId`, optional `sharing`, `changes`                             | Creates a plan owned by the connected account, for its team if it has one |
+| `update_plan`           | `plans.update`           | `operationId`, `planId`, `expectedRevision`, one or more of `name`, `sharing`, `workspaceId`, `changes` | Changes name, share, workspace or structure in one revision |
 | `create_plan_parameter` | `plans.parameter.create` | `operationId`, `planId`, `expectedRevision`, `name`, `value`, optional `format`, `x`, `y`       | Adds one parameter node                                                   |
 | `update_plan_parameter` | `plans.parameter.update` | `operationId`, `planId`, `expectedRevision`, `parameterId`, one or more of `name`, `value`, ... | Changes one parameter node                                                |
 | `remove_plan_parameter` | `plans.parameter.remove` | `operationId`, `planId`, `expectedRevision`, `parameterId`                                      | Removes one parameter node and the inputs it fed                          |
 
 - **Visibility.** A plan is visible while the account can open the project of its
-  workspace and the plan is its own or shared with it (`global`, or `restricted`
-  to groups and departments). A hidden plan answers `NOT_FOUND`, exactly like a
+  workspace and the plan is its own, belongs to a department the account is a
+  member or leader of (its `team`) or is shared with it (`global`, or `restricted` to
+  groups and departments). A hidden plan answers `NOT_FOUND`, exactly like a
   missing one. Administrators do not see other people's private plans.
-- **Owner.** Only the owner (`canEdit`) changes a plan; a person it is shared with
-  gets `FORBIDDEN`. Changes take the `revision` read last as `expectedRevision`;
-  a stale value returns `CONFLICT` with `details.currentRevision` and changes
-  nothing. A request that matches the stored plan returns `changed:false`.
+- **Team.** A plan of an account that is a member or leader of exactly one
+  department is created for that department and keeps it for good (leading
+  counts like being a member; one department that is both is one department,
+  a member of one and leader of another belongs to two): every member and
+  leader of the department who can open the project reads, changes and runs the
+  same plan
+  (`canEdit`), and a save by another member keeps the plan, its owner, its
+  workspace and its team. Neither project access alone nor membership or leadership alone
+  (nor the administrator role) is enough; both are checked on every call. An account with no
+  or several departments creates plans without a team (`team` is `null`). Each
+  person works with their own access to agents, models, tickets and pages; a
+  team never lends the access of its owner or last editor. The name of a plan
+  is unique among the plans of its team in the project, ignoring case and
+  surrounding spaces; a taken name is `INVALID_REQUEST` with `plan_name_taken`
+  and nothing is written.
+- **Owner.** The owner or a member or leader of the plan's team (`canEdit`) changes a plan;
+  a person it is only shared with gets `FORBIDDEN`. Every team member may also
+  pass `sharing` (the same validation as for the owner; it only lets others
+  read the plan) and `workspaceId` (another workspace of the plan's project that
+  the account may use; `INVALID_REQUEST` with `workspace_unavailable` otherwise).
+  A `workspaceId` of another project is `FORBIDDEN` for everybody but the owner,
+  who alone also deletes the plan on the plan page. Changes take the `revision` read last as
+  `expectedRevision`; a stale value returns `CONFLICT` with
+  `details.currentRevision` and changes nothing. A request that matches the
+  stored plan returns `changed:false`.
 - **Structure.** `changes` is a list applied in order and saved as one revision:
   `addNode` (`start`, `end`, `agent` with `agentId` from `read_plan_sources`,
   `script` with `name`, `interpreterProfileId`, `content`, exactly one entry in
@@ -1946,7 +1968,8 @@ session (the credential of a running node) gets none of them.
   parameter name is taken), `parameter_reference_unavailable`,
   `plan_script_invalid` (a script field breaks its rules),
   `plan_script_profile_missing` (a new or changed `interpreterProfileId` names
-  no configured profile), `sharing_target_unavailable` or `credentials_in_text`.
+  no configured profile), `plan_name_taken` (another plan of the team in the
+  project has the name), `sharing_target_unavailable` or `credentials_in_text`.
 - **Repeat.** Writes take an `operationId`: repeating a call with identical
   parameters returns its stored result and never changes twice; other
   parameters return `CONFLICT`.

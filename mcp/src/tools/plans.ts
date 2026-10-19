@@ -202,11 +202,11 @@ const SHARING: Schema = {
 };
 
 const SEE_DESCRIPTION =
-  "Pages applies the rules of its plan page on every call: a plan is visible while the account can open the project of its workspace and the plan is its own or shared with it; a hidden plan answers NOT_FOUND like a missing one.";
+  "Pages applies the rules of its plan page on every call: a plan is visible while the account can open the project of its workspace and the plan is its own, belongs to a department the account is a member or leader of (its team) or is shared with it; a hidden plan answers NOT_FOUND like a missing one.";
 const RUN_DESCRIPTION =
   "Runs belong to the account that started them; other accounts' runs are never listed or read, and reading a run also needs current access to the agents, workspaces, tickets and pages it used. Name the run by runId (planId may be added and must match), or by planId with select latest (newest start) or first (oldest start). A missing or hidden run is NOT_FOUND.";
 const CHANGE_DESCRIPTION =
-  "Only the owner (canEdit) changes a plan; a plan that is only shared with the account is FORBIDDEN. Pass the revision read last as expectedRevision; CONFLICT with details.currentRevision means it changed meanwhile and nothing was written. Pages checks the saved plan like its plan page: INVALID_REQUEST with details.reason graph_invalid and details.issues (nodeId, port, problem) for a refused graph, parameter_value_invalid, workspace_unavailable, parameter_reference_unavailable (a ticket, page or workspace the account cannot use), plan_script_invalid (a script field breaks its rules), plan_script_profile_missing (a new or changed interpreterProfileId names no configured profile), sharing_target_unavailable or credentials_in_text (also in script content). Reuse operationId with identical parameters after response loss to receive the stored result without a second change; the same operationId with other parameters is CONFLICT. The result is { planId, changed, revision, createdNodeIds }.";
+  "Only the owner or a member or leader of the plan's team (canEdit) changes a plan; a plan that is only shared with the account is FORBIDDEN, and so is a move to a workspace of another project by a team member who is not the owner. Whoever saves works with their own access: agents, models, tickets and pages are checked for the connected account. The owner and the team of a plan never change by a save. Pass the revision read last as expectedRevision; CONFLICT with details.currentRevision means it changed meanwhile and nothing was written. Pages checks the saved plan like its plan page: INVALID_REQUEST with details.reason graph_invalid and details.issues (nodeId, port, problem) for a refused graph, parameter_value_invalid, workspace_unavailable, parameter_reference_unavailable (a ticket, page or workspace the account cannot use), plan_script_invalid (a script field breaks its rules), plan_script_profile_missing (a new or changed interpreterProfileId names no configured profile), plan_name_taken (another plan of the team in the same project has the name, ignoring case and surrounding spaces; nothing was written), sharing_target_unavailable or credentials_in_text (also in script content). Reuse operationId with identical parameters after response loss to receive the stored result without a second change; the same operationId with other parameters is CONFLICT. The result is { planId, changed, revision, createdNodeIds }.";
 const STRUCTURE_DESCRIPTION =
   "changes apply in order and together or not at all. addNode adds start, end, agent (agentId from read_plan_sources, optional personalAgentId, instruction and completion), script (name up to 120 characters, interpreterProfileId of a profile from read_plan_sources, content: the script text, 1 to 100000 characters, though one request is at most 64 KiB (PAYLOAD_TOO_LARGE), so longer content is set on the plan page; outputs: exactly one {name, type text}, which the script's result port hands on; optional inputs: up to 16 {name, type text, isRequired}; optional timeoutSeconds 1 to 300, default 60; input and output names start with a letter, use letters, digits and _ and are unique together; no workspace, model or reasoning: a script runs in the plan's workspace), task (taskId of a task or subtask of the project) or parameter (name a-z0-9_, value, optional format string|number|json) nodes; id is optional and lets later changes of the same call refer to the node, x and y default to the next free slot. A new agent node gets value nodes for its defaults and its directory parameter as in the editor. updateNode sets fields of the node's kind (x, y for every node); a script keeps the bindings of the inputs it still declares, so a renamed input must be bound again. completion selects progress scope only: report (default) describes todos and acceptance criteria; todos follows the current ticket todo list, ticked live. In both modes, regular runner completion automatically releases successors, including internal group steps. Missing or invalid reports, open todos, unmet criteria, missing evidence and ticket changes are diagnostics and never fail execution; open or unknown work stays visible. Technical runner errors, access denials and explicit pause/stop remain effective. removeNode also removes its connections and the inputs it fed. connect and disconnect change flow connections from → to (start, agent and script nodes to agent, script and end nodes). bind sets where an input of an agent or script node takes its value: kind source (a parameter or task node), result (the text result of an earlier agent or script node in flow order) or literal; script inputs take text only; unbind removes it. Scripts never join groups. Pages does not run scripts yet: a plan with a script node is not runnable (issue scriptUnavailable) and does not start. element_missing (INVALID_REQUEST) means a named node, connection or input does not exist or has another kind; element_exists means an id, connection or parameter name is taken.";
 
@@ -291,7 +291,7 @@ export const PLAN_READ_TOOLS: readonly {
     tool: readTool({
       name: "list_plans",
       title: "List agent plans",
-      description: `Lists the visible agent plans ordered by name: id, name, project, workspaceId, ownerId, canEdit, sharing, revision, nodeCount, state (idle, running, pausing, paused or stopping by the account's own runs) and latestRun. text keeps plans whose name contains it (case-insensitive), projectId those of one project. Pass nextCursor with the same query to continue. ${SEE_DESCRIPTION}`,
+      description: `Lists the visible agent plans ordered by name: id, name, project, workspaceId, ownerId, canEdit, team (the department whose members and leaders share the plan, or null), sharing, revision, nodeCount, state (idle, running, pausing, paused or stopping by the account's own runs) and latestRun. text keeps plans whose name contains it (case-insensitive), projectId those of one project. Pass nextCursor with the same query to continue. ${SEE_DESCRIPTION}`,
       properties: {
         text: NAME,
         projectId: IDENTIFIER,
@@ -363,7 +363,7 @@ const PARAMETER_FIELDS: Properties = {
   y: COORDINATE,
 };
 
-/** Changes of agent plans; only the owner changes a plan. */
+/** Changes of agent plans; the owner and the members and leaders of the plan's team change a plan. */
 export const PLAN_WRITE_TOOLS: readonly {
   readonly operation: AgentPlanWriteOperation;
   readonly tool: Tool;
@@ -373,7 +373,7 @@ export const PLAN_WRITE_TOOLS: readonly {
     tool: writeTool({
       name: "create_plan",
       title: "Create agent plan",
-      description: `Creates an agent plan owned by the connected account in a workspace from read_plan_sources. sharing is private when omitted; global shares it with everyone who can open the project, restricted with groupIds and/or departmentIds (operator or/and). A share never lets anyone else change the plan. ${STRUCTURE_DESCRIPTION} ${CHANGE_DESCRIPTION}`,
+      description: `Creates an agent plan owned by the connected account in a workspace from read_plan_sources. A plan of an account that is a member or leader of exactly one department also belongs to that department's team: its members and leaders who can open the project read, change and run it, each with their own access (an account with no or several departments creates plans without a team; leading and being a member of the same department is one department). The name is unique among the team's plans of a project, ignoring case and surrounding spaces. sharing is private when omitted; global shares it with everyone who can open the project, restricted with groupIds and/or departmentIds (operator or/and). A share only lets others read the plan, never change it. ${STRUCTURE_DESCRIPTION} ${CHANGE_DESCRIPTION}`,
       properties: {
         name: NAME,
         workspaceId: IDENTIFIER,
@@ -389,9 +389,15 @@ export const PLAN_WRITE_TOOLS: readonly {
     tool: writeTool({
       name: "update_plan",
       title: "Update agent plan",
-      description: `Changes the name, the share or the structure of a plan; at least one of them is required. A request that matches the stored plan returns changed false. The workspace of a plan does not change. ${STRUCTURE_DESCRIPTION} ${CHANGE_DESCRIPTION}`,
-      properties: { ...TARGET, name: NAME, sharing: SHARING, changes: CHANGES },
-      optionalKeys: ["name", "sharing", "changes"],
+      description: `Changes the name, the share, the workspace or the structure of a plan; at least one of them is required. Every team member may change the share (the same checks as for the owner; it only lets others read the plan) and may move the plan to another workspace of its project that the connected account can use (workspace_unavailable otherwise); a workspace of another project is the owner's alone (FORBIDDEN). A request that matches the stored plan returns changed false. ${STRUCTURE_DESCRIPTION} ${CHANGE_DESCRIPTION}`,
+      properties: {
+        ...TARGET,
+        name: NAME,
+        sharing: SHARING,
+        workspaceId: IDENTIFIER,
+        changes: CHANGES,
+      },
+      optionalKeys: ["name", "sharing", "workspaceId", "changes"],
       isDestructive: true,
     }),
   },

@@ -22,6 +22,10 @@ import { requireCompatibleFields } from "./AgentPlanGroupRuntime";
 import { requireAllowedRunOptions } from "./AgentProfileValidation";
 import { planSteps, validatePlanGraph } from "./AgentPlanGraph";
 import { requireAgentAdministrator } from "./AgentServiceAccess";
+import {
+  planOwnership,
+  requireOwnerForProjectChange,
+} from "./AgentPlanOwnership";
 import { AgentPlanScripts } from "./AgentPlanScripts";
 import { planTaskBindings } from "./AgentPlanTaskBindings";
 
@@ -53,7 +57,7 @@ import type { AgentProfileService } from "./AgentProfileService";
 import type { AgentParameterService } from "./AgentParameterService";
 import type { AgentPlanPhases } from "./AgentPlanPhases";
 import type { AgentPlanTasks } from "./AgentPlanTasks";
-import type { AgentPlanAccess } from "./AgentPlanAccess";
+import type { AgentPlanAccess, AgentPlanTeam } from "./AgentPlanAccess";
 import type { AgentPlanPreparation } from "./AgentPlanPreparation";
 import type { AgentPlanRunEngine } from "./AgentPlanRunEngine";
 import type { AgentPlanSessionAccess } from "./AgentPlanSessionAccess";
@@ -159,6 +163,8 @@ export class AgentPlanService {
       throw new AgentError("plan_access_denied");
     return {
       userId,
+      teamDepartmentId: (await this.dependencies.access.team(userId, null))
+        .departmentId,
       plans,
       workspaces,
       selected,
@@ -242,6 +248,20 @@ export class AgentPlanService {
     return this.dependencies.workspaces.choices(userId);
   }
 
+  /**
+   * Resolves the project and departments that decide which shared objects the person works with.
+   *
+   * @param userId - The signed-in person.
+   * @param workspaceId - The workspace being worked in, or `null` without one.
+   * @throws {AgentError} `plan_access_denied` for a workspace the person cannot use.
+   */
+  public async team(
+    userId: string,
+    workspaceId: string | null,
+  ): Promise<AgentPlanTeam> {
+    return this.dependencies.access.team(userId, workspaceId);
+  }
+
   /** Lists the plans the person may read now, ordered by name. */
   public async visible(userId: string): Promise<readonly AgentPlanView[]> {
     return this.dependencies.access.list(userId);
@@ -303,13 +323,21 @@ export class AgentPlanService {
   }
 
   /**
-   * Creates or owner-edits a graph without silently rebinding nodes to another project.
+   * Creates a plan or saves its next revision without silently rebinding nodes to another project.
    *
-   * @param userId - The authenticated owner.
+   * @remarks
+   * The owner and the department of a plan are fixed at creation: a member or
+   * leader of its team who saves it changes the same plan, and the plan stays with its
+   * owner and its team.
+   *
+   * @param userId - The authenticated person: the creator of a new plan, or
+   * its owner or a team member when `id` names a plan.
    * @param id - The plan to change, or `null` to create one.
    * @param input - The proposed plan, validated here.
    * @param journal - Runs in the transaction of the write with the plan identifier.
    * @returns The identifier of the saved plan.
+   * @throws {AgentError} `plan_name_taken` when another plan of the team has
+   * the name, `plan_conflict` for a stale revision.
    */
   public async save(
     userId: string,
@@ -325,12 +353,13 @@ export class AgentPlanService {
       plan,
       id === null,
       journal && ((transaction) => journal(transaction, plan.id)),
+      userId,
     );
     return plan.id;
   }
 
   /**
-   * Deletes a plan with the same right that edits it: its owner's.
+   * Deletes a plan; only its owner may, however many people share it.
    *
    * @param userId - The authenticated requester.
    * @param id - The plan to delete.
@@ -340,11 +369,17 @@ export class AgentPlanService {
    */
   public async remove(userId: string, id: string): Promise<void> {
     const plan = await this.dependencies.access.require(userId, id);
-    if (!plan.canEdit) throw new AgentError("plan_access_denied");
+    if (plan.ownerId !== userId) throw new AgentError("plan_access_denied");
     await this.dependencies.plans.remove(plan.id, userId);
   }
 
-  /** Play uses the saved revision and never executes an unsaved client graph. */
+  /**
+   * Play uses the saved revision and never executes an unsaved client graph.
+   *
+   * @remarks
+   * The person who presses Play executes the run with their own access to
+   * agents, models, workspaces and tickets; the owner's access never stands in.
+   */
   public async play(
     userId: string,
     id: string,
@@ -359,7 +394,7 @@ export class AgentPlanService {
   }
 
   /**
-   * Saves the owner's edited plan as its next revision and starts exactly that revision.
+   * Saves the edited plan as its next revision and starts exactly that revision.
    *
    * @remarks
    * The revision is prepared like any Play before anything is stored. The
@@ -367,7 +402,7 @@ export class AgentPlanService {
    * so a refused start leaves the plan unchanged and a refused save starts
    * nothing; the old revision is never started instead.
    *
-   * @param userId - The owner, who also executes the run.
+   * @param userId - The owner or a team member, who also executes the run.
    * @param id - The plan.
    * @param input - The edited plan with the revision it was based on.
    * @returns The new run; it names the saved revision.
@@ -388,7 +423,7 @@ export class AgentPlanService {
     );
     await this.dependencies.access.require(userId, id);
     return this.dependencies.engine.start(userId, snapshot, (create) =>
-      this.dependencies.plans.save(plan, false, create),
+      this.dependencies.plans.save(plan, false, create, userId),
     );
   }
 
@@ -557,6 +592,13 @@ export class AgentPlanService {
   /**
    * Validates a proposed plan and returns it as it is stored, with the revision it was based on.
    *
+   * @remarks
+   * A new plan belongs to its creator and, when the creator is a member or
+   * leader of exactly one department, to that department. An existing plan keeps its
+   * owner and its department whoever saves it. Every team member may change
+   * the workspace within the plan's project, the usage and the share, with the
+   * checks the owner has; only the owner moves the plan to another project.
+   *
    * @throws {AgentError} `plan_conflict` when an existing plan is no longer at that revision.
    */
   private async revise(
@@ -572,10 +614,13 @@ export class AgentPlanService {
       throw new AgentError("plan_access_denied");
     if (previous && proposed.revision !== previous.revision)
       throw new AgentError("plan_conflict");
+    // The workspace is resolved for the person who saves: the owner's access never stands in.
     const workspace = await this.dependencies.workspaces.resolve(
       userId,
       proposed.workspaceId,
     );
+    if (previous)
+      requireOwnerForProjectChange(userId, previous, workspace.projectId);
     if (
       proposed.projectId !== undefined &&
       proposed.projectId !== workspace.projectId
@@ -589,8 +634,8 @@ export class AgentPlanService {
     await this.validateReferences(userId, proposed, workspace.projectId);
     const plan: AgentPlan = {
       ...proposed,
+      ...(await planOwnership(this.dependencies.access, userId, previous)),
       id: id ?? randomUUID(),
-      ownerId: userId,
       projectId: workspace.projectId,
       revision: proposed.revision ?? 1,
     };
