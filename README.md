@@ -1804,6 +1804,37 @@ Pages does not load a `.env` file by itself: export the variables in the shell
 or service environment, or start the production server with
 `node --env-file=.env server.mjs`.
 
+### Behind a reverse proxy
+
+A reverse proxy that ends TLS (Caddy, nginx, Traefik) hands requests to Pages
+over plain HTTP. The browser still sends `Origin: https://…` with every form
+post, and Pages refuses a post whose `Origin` is not the address of the
+request, so signing in through the proxy fails with HTTP 400 until Pages
+knows which proxy to believe. List the proxy in `config.toml` (a manual edit
+that applies after a restart):
+
+```toml
+trustedProxies = ["127.0.0.1", "::1"] # addresses or ranges such as "172.18.0.0/16"
+```
+
+- An entry is the address Pages sees the proxy connect from, not the address
+  of the people who use Pages. For a proxy in a container that is the address
+  of the container or of its network. Host names and the range `/0` are
+  refused: an invalid entry makes the server exit with code 1 at the start,
+  like any other invalid key of `config.toml`.
+- Only a connection from a listed address may say that the request was HTTPS,
+  through `X-Forwarded-Proto: https`. Pages then compares `Origin` with the
+  `https://` address; the comparison stays on for everyone. From any other
+  address, and for any value but `http` or `https`, the header is ignored.
+- The proxy has to set `X-Forwarded-Proto` itself to the protocol the browser
+  used, replacing any value the browser sent, and has to pass the `Host` of
+  the browser on. Caddy's `reverse_proxy` does both
+  by default; nginx needs `proxy_set_header Host $http_host;` (it keeps a
+  port such as `:1080`, which `$host` drops) and
+  `proxy_set_header X-Forwarded-Proto $scheme;`.
+- Without `trustedProxies`, no proxy is trusted and nothing changes for an
+  installation that is reached directly or without TLS in front.
+
 ### Data and runtime directories
 
 ```text

@@ -1,7 +1,8 @@
 import { createServer } from "node:http";
 import { networkInterfaces } from "node:os";
 
-import { createRequestListener } from "@react-router/node";
+import { createRequestListener } from "@remix-run/node-fetch-server";
+import { RouterContextProvider, createRequestHandler } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { clientSocketAddressContext } from "@/app/lib/client-address.server";
@@ -32,6 +33,7 @@ import type {
   NetworkInterfaceInfoIPv6,
 } from "node:os";
 import type { PagesConfig } from "@/backend/config/PagesConfig";
+import type { RequestHandler } from "react-router";
 
 vi.mock("@/backend/runtime/AgentToolsStartup", () => ({
   startAgentTools: vi.fn(async () => undefined),
@@ -45,7 +47,13 @@ vi.mock("node:http", async (importOriginal) => ({
   ...(await importOriginal<object>()),
   createServer: vi.fn(),
 }));
-vi.mock("@react-router/node", () => ({ createRequestListener: vi.fn() }));
+vi.mock("@remix-run/node-fetch-server", () => ({
+  createRequestListener: vi.fn(),
+}));
+vi.mock("react-router", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  createRequestHandler: vi.fn(),
+}));
 vi.mock("@/backend/runtime/StaticAssets", () => ({
   serveStaticAsset: vi.fn(),
 }));
@@ -91,6 +99,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.mocked(createServer).mockReset();
   vi.mocked(createRequestListener).mockReset();
+  vi.mocked(createRequestHandler).mockReset();
   vi.mocked(serveStaticAsset).mockReset();
   vi.mocked(initializePagesRuntime).mockReset();
 });
@@ -189,18 +198,70 @@ describe("the request listener", () => {
   });
 
   it("runs the application in production mode with the socket address", async () => {
+    const handleRequest = vi
+      .fn<RequestHandler>()
+      .mockResolvedValue(new Response("unused"));
+    vi.mocked(createRequestHandler).mockReturnValue(handleRequest);
     vi.mocked(createRequestListener).mockReturnValue(vi.fn());
 
     createPagesRequestListener(SERVER_BUILD, "/srv/client");
 
-    const options = vi.mocked(createRequestListener).mock.calls[0]?.[0];
-    expect(options?.build).toBe(SERVER_BUILD);
-    expect(options?.mode).toBe("production");
-    const context = await options?.getLoadContext?.(
-      new Request("http://pages.invalid/"),
-      { address: "203.0.113.9", family: "IPv4", port: 51_000 },
+    expect(createRequestHandler).toHaveBeenCalledWith(
+      SERVER_BUILD,
+      "production",
     );
-    expect(context?.get(clientSocketAddressContext)).toBe("203.0.113.9");
+    const handleFetch = vi.mocked(createRequestListener).mock.calls[0]?.[0];
+    await handleFetch?.(new Request("http://pages.invalid/"), {
+      address: "203.0.113.9",
+      family: "IPv4",
+      port: 51_000,
+    });
+    const context = handleRequest.mock.calls[0]?.[1];
+    expect(
+      context instanceof RouterContextProvider
+        ? context.get(clientSocketAddressContext)
+        : null,
+    ).toBe("203.0.113.9");
+  });
+
+  it("builds https URLs only on the second listener", () => {
+    vi.mocked(createRequestListener).mockReturnValue(vi.fn());
+
+    createPagesRequestListener(SERVER_BUILD, "/srv/client");
+
+    expect(
+      vi.mocked(createRequestListener).mock.calls.map((call) => call[1]),
+    ).toEqual([undefined, { protocol: "https:" }]);
+  });
+
+  it("uses the https listener only for a trusted proxy that forwards HTTPS", async () => {
+    const direct = vi.fn();
+    const forwardedHttps = vi.fn();
+    vi.mocked(createRequestListener)
+      .mockReturnValueOnce(direct)
+      .mockReturnValueOnce(forwardedHttps);
+    vi.mocked(serveStaticAsset).mockResolvedValue(false);
+    const listener = createPagesRequestListener(SERVER_BUILD, "/srv/client", [
+      "192.0.2.10",
+    ]);
+
+    for (const [peer, protocol] of [
+      ["192.0.2.10", "https"],
+      ["192.0.2.10", "http"],
+      ["198.51.100.7", "https"],
+    ] as const) {
+      const exchange = createStaticExchange("POST", "/login");
+      Object.defineProperty(exchange.request.socket, "remoteAddress", {
+        value: peer,
+      });
+      exchange.request.headers = { "x-forwarded-proto": protocol };
+      listener(exchange.request, exchange.response);
+    }
+
+    await vi.waitFor(() => {
+      expect(direct).toHaveBeenCalledTimes(2);
+    });
+    expect(forwardedHttps).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -1,8 +1,8 @@
 import { createServer } from "node:http";
 import { networkInterfaces } from "node:os";
 
-import { createRequestListener } from "@react-router/node";
-import { RouterContextProvider } from "react-router";
+import { createRequestListener } from "@remix-run/node-fetch-server";
+import { createRequestHandler, RouterContextProvider } from "react-router";
 
 import { clientSocketAddressContext } from "@/app/lib/client-address.server";
 import {
@@ -21,6 +21,7 @@ import {
 } from "@/backend/logging/Logger";
 
 import { startAgentTools } from "./AgentToolsStartup";
+import { createForwardedHttpsCheck } from "./ForwardedProtocol";
 import { initializePagesRuntime } from "./PagesRuntime";
 import { serveStaticAsset } from "./StaticAssets";
 import { logRequest } from "./RequestLogging";
@@ -31,6 +32,7 @@ import {
 } from "./ProcessLifecycle";
 
 import type { RequestListener, Server } from "node:http";
+import type { FetchHandler } from "@remix-run/node-fetch-server";
 import type { ServerBuild } from "react-router";
 import type { PagesRuntime } from "./PagesRuntime";
 
@@ -100,29 +102,46 @@ export function announceServer(
  *
  * @param build - Server build of the application.
  * @param clientDirectory - Absolute path of the client build output.
+ * @param trustedProxies - Addresses or ranges of reverse proxies whose
+ * `X-Forwarded-Proto` is believed; empty by default.
  * @returns A listener that serves build files first and the application
  * otherwise. Request logs omit queries, headers, bodies and opaque path segments.
+ *
+ * @remarks
+ * A request that a trusted proxy forwarded from HTTPS is given an `https:`
+ * URL, so React Router compares the browser's `Origin` with the address the
+ * browser used. The comparison itself stays on for every request.
  */
 export function createPagesRequestListener(
   build: ServerBuild,
   clientDirectory: string,
+  trustedProxies: readonly string[] = [],
 ): RequestListener {
-  const handleApplication = createRequestListener({
-    build: withLoggedRoutes(build),
-    mode: "production",
-    getLoadContext: (request, client) => {
-      const context = new RouterContextProvider();
-      context.set(clientSocketAddressContext, client.address);
-      return context;
-    },
+  const handleRequest = createRequestHandler(
+    withLoggedRoutes(build),
+    "production",
+  );
+  const handleFetch: FetchHandler = (request, client) => {
+    const context = new RouterContextProvider();
+    context.set(clientSocketAddressContext, client.address);
+    return handleRequest(request, context);
+  };
+  const handleDirect = createRequestListener(handleFetch);
+  const handleForwardedHttps = createRequestListener(handleFetch, {
+    protocol: "https:",
   });
+  const isForwardedHttps = createForwardedHttpsCheck(trustedProxies);
 
   return (request, response) => {
     logRequest(request, response, () => {
       void (async () => {
         try {
-          if (!(await serveStaticAsset(request, response, clientDirectory)))
+          if (!(await serveStaticAsset(request, response, clientDirectory))) {
+            const handleApplication = isForwardedHttps(request)
+              ? handleForwardedHttps
+              : handleDirect;
             await handleApplication(request, response);
+          }
         } catch (error: unknown) {
           logCaughtError("PagesServer", error);
 
@@ -259,7 +278,11 @@ export async function startPagesServer(
 
   const { runtime, port, isPortGiven } = loaded;
   const server = createServer(
-    createPagesRequestListener(options.build, options.clientDirectory),
+    createPagesRequestListener(
+      options.build,
+      options.clientDirectory,
+      runtime.getConfig().trustedProxies,
+    ),
   );
   registerShutdownTask(async () => {
     server.close();

@@ -5,6 +5,7 @@ import { interpreterProfilesSchema } from "@/definition/InterpreterProfile";
 import { isLogRetentionDays } from "@/definition/Logging";
 
 import { readAcpResourceSettings } from "./AcpResourceSettings";
+import { parseTrustedProxyEntry } from "./TrustedProxies";
 
 import type { InterpreterProfile } from "@/definition/InterpreterProfile";
 import type { AcpResourceOptions } from "@/definition/AcpResource";
@@ -34,6 +35,11 @@ interface BaseConfig extends Partial<AcpResourceOptions> {
   readonly interpreterProfiles?: readonly InterpreterProfile[];
   /** Missing on older configurations: 30 calendar days, including today. */
   readonly logRetentionDays?: number;
+  /**
+   * Addresses or ranges of the reverse proxies whose `X-Forwarded-Proto` is
+   * believed. Missing: no proxy is trusted and the header is ignored.
+   */
+  readonly trustedProxies?: readonly string[];
 }
 
 /**
@@ -217,12 +223,14 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
   const databasePath = readDatabasePath(table, source);
   const logging = readLoggingConfig(table, source);
   const interpreters = readInterpreterConfig(table, source);
+  const proxies = readProxyConfig(table, source);
 
   if (firstRun) {
     return {
       ...acpResources,
       ...logging,
       ...interpreters,
+      ...proxies,
       databasePath,
       firstRun,
       port,
@@ -240,10 +248,35 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
     ...acpResources,
     ...logging,
     ...interpreters,
+    ...proxies,
     databasePath,
     firstRun,
     port,
   };
+}
+
+function isTrustedProxyList(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (entry) =>
+        typeof entry === "string" && parseTrustedProxyEntry(entry) !== null,
+    )
+  );
+}
+
+function readProxyConfig(
+  table: TomlTable,
+  source: string,
+): Pick<BaseConfig, "trustedProxies"> {
+  const entries = table.trustedProxies;
+  if (entries === undefined) return {};
+  if (!isTrustedProxyList(entries))
+    throw invalidConfig(
+      source,
+      '"trustedProxies" must be a list of IP addresses or ranges such as "127.0.0.1" or "10.0.0.0/8"; a range must not be /0.',
+    );
+  return { trustedProxies: entries };
 }
 
 function readInterpreterConfig(
@@ -293,6 +326,8 @@ export function writePagesConfig(
     );
   if (config.logRetentionDays !== undefined)
     document.logRetentionDays = config.logRetentionDays;
+  if (config.trustedProxies !== undefined)
+    document.trustedProxies = [...config.trustedProxies];
 
   const resourceKeys = [
     "maxConcurrentAcpSessions",

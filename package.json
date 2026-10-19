@@ -27,6 +27,7 @@
     "@radix-ui/react-select": "^2.3.7",
     "@radix-ui/react-tabs": "^1.1.21",
     "@react-router/node": "^8.4.0",
+    "@remix-run/node-fetch-server": "^0.14.1",
     "@tiptap/core": "^3.31.3",
     "@tiptap/extension-code": "^3.31.3",
     "@tiptap/extension-list": "^3.31.3",

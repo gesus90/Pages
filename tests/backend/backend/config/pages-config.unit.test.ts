@@ -95,6 +95,45 @@ describe("readPagesConfig", () => {
       /"\/etc\/pages\.toml" is invalid/u,
     );
   });
+
+  it("reads the trusted proxies of a pending and of a finished setup", () => {
+    const trustedProxies = ["127.0.0.1", "::1", "172.18.0.0/16"];
+
+    expect(readPagesConfig({ trustedProxies }, "config.toml")).toMatchObject({
+      firstRun: true,
+      trustedProxies,
+    });
+    expect(
+      readPagesConfig(
+        { databasePath: "/srv/pages.duckdb", firstRun: false, trustedProxies },
+        "config.toml",
+      ),
+    ).toMatchObject({ firstRun: false, trustedProxies });
+  });
+
+  it("trusts no proxy when the setting is missing or empty", () => {
+    expect(readPagesConfig({}, "config.toml").trustedProxies).toBeUndefined();
+    expect(
+      readPagesConfig({ trustedProxies: [] }, "config.toml").trustedProxies,
+    ).toEqual([]);
+  });
+
+  it.each([
+    { problem: "not a list", trustedProxies: "127.0.0.1" },
+    { problem: "a host name", trustedProxies: ["proxy.internal"] },
+    { problem: "a wildcard", trustedProxies: ["*"] },
+    { problem: "a range of every address", trustedProxies: ["0.0.0.0/0"] },
+    { problem: "a prefix that is too long", trustedProxies: ["10.0.0.0/33"] },
+    { problem: "an entry that is not text", trustedProxies: [127] },
+    {
+      problem: "one bad entry among good ones",
+      trustedProxies: ["127.0.0.1", "nope"],
+    },
+  ])("refuses trustedProxies that are $problem", ({ trustedProxies }) => {
+    expect(() =>
+      readPagesConfig({ trustedProxies }, "/etc/pages.toml"),
+    ).toThrow(/"\/etc\/pages\.toml" is invalid: "trustedProxies" must be/u);
+  });
 });
 
 describe("writePagesConfig", () => {
@@ -110,6 +149,30 @@ describe("writePagesConfig", () => {
       firstRun: false,
       port: 2,
     });
+  });
+
+  it("stores the trusted proxies without sharing the list", () => {
+    const trustedProxies = ["127.0.0.1"];
+    const document = writePagesConfig(
+      {},
+      { databasePath: null, firstRun: true, port: 1, trustedProxies },
+    );
+
+    expect(document).toEqual({
+      firstRun: true,
+      port: 1,
+      trustedProxies: ["127.0.0.1"],
+    });
+    expect(document.trustedProxies).not.toBe(trustedProxies);
+  });
+
+  it("keeps the trusted proxies of the file when the configuration names none", () => {
+    expect(
+      writePagesConfig(
+        { trustedProxies: ["127.0.0.1"] },
+        { databasePath: null, firstRun: true, port: 1 },
+      ),
+    ).toMatchObject({ trustedProxies: ["127.0.0.1"] });
   });
 
   it("removes the database path when none is set and does not change its input", () => {
