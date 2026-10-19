@@ -197,10 +197,10 @@ function PlanCanvasOverlay({
   return (
     <div
       className={cn(
-        "pointer-events-none absolute inset-4 z-10 flex min-h-0 flex-col items-start gap-3 @5xl:flex-row @5xl:justify-between",
+        "pointer-events-none absolute inset-4 z-10 flex min-h-0 flex-col items-start gap-3 overflow-y-auto overscroll-contain @5xl:flex-row @5xl:overflow-visible @5xl:justify-between",
         isStatusOpen
-          ? "bottom-[calc(36%+9.5rem)] md:bottom-[calc(58%+6rem)]"
-          : "bottom-[calc(env(safe-area-inset-bottom)+18rem)] md:bottom-[calc(env(safe-area-inset-bottom)+8rem)]",
+          ? "bottom-[calc(min(26rem,36%)+9.5rem)] md:bottom-[calc(min(21.25rem,58%)+2.5rem)] @5xl:bottom-4"
+          : "bottom-[calc(env(safe-area-inset-bottom)+14rem)] md:bottom-[calc(env(safe-area-inset-bottom)+7rem)] @5xl:bottom-4",
       )}
     >
       <div

@@ -53,7 +53,7 @@ export function PlanNodePalette({
       aria-controls={isOpen ? contentId : undefined}
       onClick={toggle}
       className={cn(
-        "shrink-0",
+        "size-8 min-h-8 shrink-0 rounded-md p-0 xl:size-8 xl:min-h-8 xl:p-0 [@media(pointer:coarse)]:size-11 [@media(pointer:coarse)]:min-h-11",
         !isOpen &&
           "border border-border/70 bg-surface/95 shadow-xs backdrop-blur-sm",
       )}
@@ -74,17 +74,17 @@ export function PlanNodePalette({
         className={cn(
           "pointer-events-auto flex min-h-0 max-h-full max-w-full flex-col self-end text-foreground @5xl:self-start",
           isOpen &&
-            "w-56 rounded-xl border border-border/70 bg-surface/95 p-3 shadow-floating backdrop-blur-sm",
+            "w-44 shrink-0 rounded-lg border border-border bg-surface/95 p-2 shadow-floating backdrop-blur-sm",
         )}
       >
         <div
           className={cn(
             "flex shrink-0 items-center justify-between gap-2",
-            isOpen && "mb-2",
+            isOpen && "mb-1.5 min-h-8",
           )}
         >
           {isOpen ? (
-            <h2 className="min-w-0 text-base font-semibold wrap-anywhere">
+            <h2 className="min-w-0 text-xs leading-4.5 font-semibold wrap-anywhere">
               {t("plans.palette.title")}
             </h2>
           ) : null}
@@ -93,7 +93,7 @@ export function PlanNodePalette({
         {isOpen ? (
           <div
             id={contentId}
-            className="min-h-0 space-y-2.5 overflow-y-auto p-0.5"
+            className="flex min-h-0 flex-col gap-1 overflow-y-auto overscroll-contain"
           >
             <PlanPaletteRows palette={palette} />
             {canvas.graph.insertionError ? (
@@ -139,17 +139,17 @@ function PlanPaletteRows({
           onDragStart={(event) => palette.dragStart(event, kind)}
           onDragEnd={palette.dragEnd}
           onClick={() => palette.activate(kind)}
-          className="h-12.5 w-full min-w-0 justify-start gap-3 rounded-lg px-3 text-sm font-medium aria-disabled:cursor-default aria-disabled:opacity-60 shadow-none xl:min-h-12.5 xl:gap-3 xl:px-3"
+          className="h-8 min-h-8 w-full min-w-0 justify-start gap-2 rounded-md px-2 text-xs leading-4.5 font-medium aria-disabled:cursor-default aria-disabled:opacity-60 shadow-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none xl:min-h-8 xl:gap-2 xl:px-2 xl:text-xs [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:min-h-11"
         >
           <PlanNodeIcon
             type={kind}
-            className={cn("size-6 shrink-0", planNodeAccent(kind))}
+            className={cn("size-4.5 shrink-0", planNodeAccent(kind))}
           />
           <span className="min-w-0 flex-1 truncate text-left">
             {t(`plans.palette.type.${kind}`)}
           </span>
           <GripVertical
-            className="size-4 shrink-0 text-muted-foreground"
+            className="size-3 shrink-0 text-muted-foreground"
             aria-hidden="true"
           />
         </PlanPaletteButton>

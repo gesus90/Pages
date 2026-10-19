@@ -70,12 +70,12 @@ export function PlanStatusSequence({
     return () => observer.disconnect();
   }, [anchorId, run.id, steps.length]);
   return (
-    <div className="min-w-0 flex-1 px-2 @3xl:px-4">
+    <div className="min-w-0 flex-1 px-2">
       <div
         ref={viewport}
         role="group"
         aria-label={t("plans.progress.sequence")}
-        className="relative flex -space-x-1 overflow-x-auto py-2 [scrollbar-width:none] [mask-image:linear-gradient(to_right,transparent,black_16px,black_calc(100%-16px),transparent)]"
+        className="relative flex -space-x-1 gap-0.75 overflow-x-auto [scrollbar-width:none] [mask-image:linear-gradient(to_right,transparent,black_16px,black_calc(100%-16px),transparent)]"
       >
         {steps.map((step, index) => {
           const label = `${index + 1} · ${step.name} · ${t(step.isBlocked ? "plans.blocked" : `plans.status.${step.status}`)}`;
@@ -91,7 +91,7 @@ export function PlanStatusSequence({
               aria-pressed={selectedId === step.id}
               onClick={() => onSelect(step.id)}
               className={cn(
-                "relative h-11 w-16 shrink-0 cursor-pointer rounded-none p-0 xl:p-0 xl:text-xl [clip-path:polygon(0_0,74%_0,100%_50%,74%_100%,0_100%,25%_50%)] text-xl font-bold tabular-nums after:absolute after:inset-0 hover:brightness-110 focus-visible:outline-none focus-visible:after:border-y-4 focus-visible:after:border-ring",
+                "relative h-7.5 min-h-7.5 w-11 shrink-0 cursor-pointer rounded-none p-0 xl:min-h-7.5 xl:p-0 xl:text-xs [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:w-14 [clip-path:polygon(0_0,74%_0,100%_50%,74%_100%,0_100%,25%_50%)] text-xs font-bold tabular-nums after:absolute after:inset-0 hover:brightness-110 focus-visible:outline-none focus-visible:after:border-y-4 focus-visible:after:border-ring",
                 statusTone(step, run),
                 selectedId === step.id &&
                   "after:border-y-2 after:border-foreground/60",

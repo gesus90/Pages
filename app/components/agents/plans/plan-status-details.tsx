@@ -29,25 +29,37 @@ export function PlanStatusDetails({
   const { t } = useTranslation();
   if (!step)
     return (
-      <p className="p-6 text-sm text-muted-foreground">
+      <p className="px-4 py-3 text-xs leading-4.5 text-muted-foreground">
         {t("plans.progress.noSelection")}
       </p>
     );
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto border-t border-border/80 px-5 py-4 @3xl:grid @3xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] @3xl:gap-0 @3xl:overflow-hidden @3xl:px-9">
-      <div className="min-w-0 shrink-0 pr-1 @3xl:min-h-0 @3xl:overflow-y-auto @3xl:border-r @3xl:border-border/80 @3xl:pr-9">
+    <div
+      tabIndex={0}
+      role="region"
+      aria-label={t("plans.progress.open")}
+      className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain border-t border-border/80 px-4 py-3 text-xs leading-4.5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none @2xl/status:grid @2xl/status:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] @2xl/status:overflow-hidden"
+    >
+      <div
+        tabIndex={0}
+        role="region"
+        aria-label={t("plans.progress.step", { number })}
+        className="min-w-0 shrink-0 overscroll-contain pr-1 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none @2xl/status:min-h-0 @2xl/status:overflow-y-auto @2xl/status:border-r @2xl/status:border-border/80 @2xl/status:pr-4"
+      >
         <div className="mb-3 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="text-lg font-semibold wrap-anywhere @3xl:text-2xl">
+            <h3 className="text-sm leading-5 font-semibold wrap-anywhere">
               {t("plans.progress.step", { number })} · {step.name}
             </h3>
-            <p className="text-sm text-muted-foreground wrap-anywhere">
+            <p className="text-xs leading-4.5 text-muted-foreground wrap-anywhere">
               {t("plans.progress.agent", { name: step.name })}
             </p>
           </div>
-          <span className="shrink-0 [&>span]:rounded-md [&>span]:px-3 [&>span]:py-1.5 [&>span]:text-sm">
-            <PlanStatusBadge status={step.status} isBlocked={step.isBlocked} />
-          </span>
+          <PlanStatusBadge
+            status={step.status}
+            isBlocked={step.isBlocked}
+            className="rounded-sm px-1.5 py-0.5 text-[0.6875rem] leading-4"
+          />
         </div>
         {step.session ? (
           <PlanStatusConfiguration
@@ -56,7 +68,7 @@ export function PlanStatusDetails({
             isRunning={step.status === "running"}
           />
         ) : (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs leading-4.5 text-muted-foreground">
             {t("plans.progress.noConfiguration")}
           </p>
         )}
@@ -64,7 +76,7 @@ export function PlanStatusDetails({
         <Button
           size="sm"
           variant="ghost"
-          className="mt-2 h-auto min-h-0 max-w-full justify-start px-0 py-0.5 text-sm text-muted-foreground whitespace-normal xl:min-h-0 xl:text-sm [@media(pointer:coarse)]:min-h-11"
+          className="mt-2 h-auto min-h-8 max-w-full justify-start rounded-md px-0 text-xs leading-4.5 text-muted-foreground whitespace-normal xl:min-h-8 xl:px-0 xl:text-xs [@media(pointer:coarse)]:min-h-11"
           onClick={onLocate}
           disabled={!canLocate}
         >

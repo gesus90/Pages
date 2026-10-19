@@ -41,11 +41,11 @@ export function PlanStatusTodos({
   }, [items]);
   return (
     <section
-      className="flex shrink-0 flex-col @3xl:min-h-0 @3xl:pl-9"
+      className="flex min-w-0 shrink-0 flex-col overscroll-contain @2xl/status:min-h-0 @2xl/status:shrink @2xl/status:overflow-y-auto"
       aria-label={t("plans.progress.todos")}
     >
       <div className="flex shrink-0 items-baseline justify-between gap-3">
-        <h3 className="text-lg font-semibold @3xl:text-2xl">
+        <h3 className="text-sm leading-5 font-semibold">
           {t("plans.progress.todos")}
         </h3>
         <span className="text-xs text-muted-foreground tabular-nums">
@@ -58,17 +58,17 @@ export function PlanStatusTodos({
             : "—"}
         </span>
       </div>
-      <p className="mb-1 border-b border-border/80 pb-2 text-sm text-muted-foreground wrap-anywhere">
+      <p className="mb-1 shrink-0 border-b border-border/80 pb-2 text-xs leading-4.5 text-muted-foreground wrap-anywhere">
         {step.name} · {t("plans.progress.step", { number })}
       </p>
       {progress ? (
-        <p className="mb-1 shrink-0 text-[10px] text-muted-foreground">
+        <p className="mb-1 shrink-0 text-xs leading-4.5 text-muted-foreground">
           {t(
             `plans.progress.source.${progress.source === "live" && !step.session?.contract?.tickets.length ? "contract" : progress.source}`,
           )}
         </p>
       ) : null}
-      <div className="relative h-36 shrink-0 overflow-hidden @3xl:h-auto @3xl:min-h-0 @3xl:flex-1">
+      <div className="relative h-36 shrink-0 overflow-hidden @2xl/status:h-auto @2xl/status:min-h-20 @2xl/status:flex-1">
         <div
           ref={viewport}
           tabIndex={0}
@@ -84,7 +84,7 @@ export function PlanStatusTodos({
                 ))}
               </ul>
             ) : (
-              <p className="p-2 text-sm text-muted-foreground">
+              <p className="p-2 text-xs leading-4.5 text-muted-foreground">
                 {t(
                   progress
                     ? "plans.progress.emptyTodos"
@@ -120,16 +120,16 @@ function TodoRow({
   const isDone = item.status === "done";
   const Icon = isDone ? Check : Square;
   return (
-    <li className="flex items-start gap-4 border-b border-muted-foreground/15 px-2 py-1.5 text-base leading-5">
+    <li className="flex items-start gap-2 border-b border-muted-foreground/15 py-1.5 text-xs leading-4.5">
       <span
         className={cn(
-          "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-[3px]",
+          "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-[3px]",
           isDone
             ? "bg-plan-progress-done bg-linear-to-br from-plan-progress-shade/50 to-plan-progress-shade/35 text-plan-progress-label"
             : "text-muted-foreground",
         )}
       >
-        <Icon aria-hidden="true" className="size-4" />
+        <Icon aria-hidden="true" className="size-3" />
       </span>
       <span
         className={cn(

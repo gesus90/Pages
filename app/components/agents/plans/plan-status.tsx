@@ -66,11 +66,13 @@ export function PlanStatusBadge({
   isBlocked = false,
   compact = false,
   isConcise = false,
+  className,
 }: {
   readonly status: AgentPlanStepStatus;
   readonly isBlocked?: boolean;
   readonly compact?: boolean;
   readonly isConcise?: boolean;
+  readonly className?: string;
 }): React.ReactElement {
   const { t } = useTranslation();
   const label = t(isBlocked ? "plans.blocked" : `plans.status.${status}`);
@@ -81,6 +83,7 @@ export function PlanStatusBadge({
       className={cn(
         "relative inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs",
         planStatusClass(status, isBlocked),
+        className,
       )}
     >
       <PlanStatusIcon status={status} isBlocked={isBlocked} />

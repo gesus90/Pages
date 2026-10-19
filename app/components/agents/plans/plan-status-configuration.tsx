@@ -95,10 +95,10 @@ export function PlanStatusConfiguration({
   ];
   return (
     <section>
-      <h4 className="mb-2 text-base font-semibold">
+      <h4 className="mb-2 text-xs leading-4.5 font-semibold">
         {t("plans.progress.configuration")}
       </h4>
-      <dl className="grid grid-cols-[minmax(0,9rem)_minmax(0,1fr)] gap-x-4 gap-y-0.5 text-sm @3xl:grid-cols-[minmax(0,10rem)_minmax(0,1fr)]">
+      <dl className="grid grid-cols-[minmax(0,6.5625rem)_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs leading-4.5">
         {rows.map(([name, content]) => (
           <div className="contents" key={name}>
             <dt className="wrap-anywhere text-muted-foreground">

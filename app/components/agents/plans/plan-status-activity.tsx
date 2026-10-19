@@ -22,7 +22,7 @@ export function PlanStatusActivity({
     : "plans.progress.lastActivity";
   return (
     <section className="mt-4 border-t border-border/80 pt-3">
-      <h4 className="border-l-4 border-primary pl-3 text-sm font-medium text-muted-foreground">
+      <h4 className="border-l-4 border-primary pl-3 text-xs leading-4.5 font-medium text-muted-foreground">
         {t(heading)}
       </h4>
       {titles.length ? (
@@ -31,9 +31,11 @@ export function PlanStatusActivity({
             const [title, ...description] = content.split("\n");
             return (
               <li key={`${index}:${title}`}>
-                <p className="text-base font-semibold wrap-anywhere">{title}</p>
+                <p className="text-xs leading-4.5 font-semibold wrap-anywhere">
+                  {title}
+                </p>
                 {description.length ? (
-                  <p className="mt-1 text-sm whitespace-pre-wrap text-muted-foreground wrap-anywhere">
+                  <p className="mt-1 text-xs leading-4.5 whitespace-pre-wrap text-muted-foreground wrap-anywhere">
                     {description.join("\n")}
                   </p>
                 ) : null}
@@ -42,7 +44,7 @@ export function PlanStatusActivity({
           })}
         </ul>
       ) : (
-        <p className="mt-2 text-sm text-muted-foreground">
+        <p className="mt-2 text-xs leading-4.5 text-muted-foreground">
           {t(
             isRunning
               ? "plans.progress.noActivity"
@@ -56,7 +58,7 @@ export function PlanStatusActivity({
         </p>
       ) : null}
       {step.isBlocked && step.error ? (
-        <p className="mt-2 text-sm text-destructive">
+        <p className="mt-2 text-xs leading-4.5 text-destructive">
           {t(`settings.agents.error.${step.error}`, {
             defaultValue: t("plans.blocked"),
           })}
