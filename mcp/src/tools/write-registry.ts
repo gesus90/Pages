@@ -1,3 +1,4 @@
+import { PLAN_COMMAND_TOOLS } from "./plan-resources.js";
 import { CHAT_SESSIONS_DELETE_TOOL } from "./chat-sessions.js";
 import { EXTENSION_WRITE_TOOLS } from "./extensions.js";
 import { ADMIN_WRITE_TOOLS } from "./administration.js";
@@ -62,6 +63,7 @@ export const WRITE_TOOLS: readonly {
   ...WORKSPACE_WRITE_TOOLS,
   ...AGENT_WRITE_TOOLS,
   ...PLAN_WRITE_TOOLS,
+  ...PLAN_COMMAND_TOOLS,
   { operation: "assets.upload.prepare", tool: ASSET_UPLOAD_TOOL },
   { operation: "wiki.page.create", tool: WIKI_CREATE_TOOL },
   { operation: "wiki.import.apply", tool: WIKI_IMPORT_APPLY_TOOL },

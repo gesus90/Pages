@@ -18,6 +18,13 @@ export const AGENT_PLAN_READ_OPERATIONS = [
   "plans.run.reports.read",
 ] as const;
 
+/** Additional personal-client resource reads; existing plan/chat reads keep their original registry. */
+export const AGENT_PLAN_RESOURCE_READ_OPERATIONS = [
+  "plans.templates.list",
+  "plans.templates.read",
+  "plans.control.read",
+] as const;
+
 /** Changes of agent plans; the owner and the team change a plan, as on the plan page. */
 export const AGENT_PLAN_WRITE_OPERATIONS = [
   "plans.create",
@@ -28,7 +35,8 @@ export const AGENT_PLAN_WRITE_OPERATIONS = [
 ] as const;
 
 export type AgentPlanReadOperation =
-  (typeof AGENT_PLAN_READ_OPERATIONS)[number];
+  | (typeof AGENT_PLAN_READ_OPERATIONS)[number]
+  | (typeof AGENT_PLAN_RESOURCE_READ_OPERATIONS)[number];
 export type AgentPlanWriteOperation =
   (typeof AGENT_PLAN_WRITE_OPERATIONS)[number];
 
@@ -94,6 +102,28 @@ interface AgentPlanNodeBase {
   readonly label: string;
 }
 
+/** Secret-free pinned configuration; mutations accept patches, never a replacement graph or credentials. */
+export interface AgentPlanConfigurationEntry {
+  readonly name: string;
+  readonly revision: number;
+  readonly modelProfileId: string;
+  readonly model: string;
+  readonly provider: string | null;
+  readonly reasoningEffort: string | null;
+  readonly template: {
+    readonly markdown: string;
+    readonly parameters: readonly AgentParameter[];
+    readonly directoryParameter: string | null;
+    readonly run?: {
+      readonly access: "read_only" | "workspace_write" | "yolo";
+      readonly shell: boolean;
+      readonly web: boolean;
+      readonly timeoutMinutes: number;
+      readonly browser?: boolean;
+    };
+  };
+}
+
 /** An agent step with its own work order and the sources of its parameters. */
 export interface AgentPlanAgentNodeEntry extends AgentPlanNodeBase {
   readonly type: "agent";
@@ -104,6 +134,7 @@ export interface AgentPlanAgentNodeEntry extends AgentPlanNodeBase {
   readonly instruction: string;
   /** Progress scope only; neither mode gates execution. Absent means `report`. */
   readonly completion?: "report" | "todos";
+  readonly configuration?: AgentPlanConfigurationEntry;
   readonly bindings: Readonly<Record<string, AgentPlanBindingEntry>>;
 }
 
@@ -184,6 +215,8 @@ export type AgentPlanNodeEntry =
 export interface AgentPlanEdgeEntry {
   readonly from: string;
   readonly to: string;
+  readonly fromPort: string;
+  readonly toPort: string;
 }
 
 export type AgentPlanRunStatus =
@@ -288,6 +321,7 @@ export interface AgentPlanAgentEntry {
   readonly name: string;
   readonly model: string;
   readonly isUsable: boolean;
+  readonly configuration: AgentPlanConfigurationEntry;
   readonly directoryParameter: string | null;
   readonly parameters: readonly {
     readonly name: string;
@@ -316,6 +350,25 @@ export interface AgentPlanSourceList {
   /** Empty unless a workspace was named. */
   readonly agents: readonly AgentPlanAgentEntry[];
   /** The profiles script nodes name by id; present when a workspace was named. */
+  readonly models?: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly model: string;
+    readonly provider: string;
+    readonly reasoning: string;
+    readonly reasoningEfforts: readonly string[];
+    readonly catalogDefaultReasoningEffort: string | null;
+    readonly reasoningEffort: string | null;
+  }[];
+  readonly limits?: {
+    readonly nodes: number;
+    readonly edges: number;
+    readonly groupMembers: number;
+    readonly coordinateMinimum: number;
+    readonly coordinateMaximum: number;
+    readonly changes: number;
+    readonly timeoutMinutes: readonly number[];
+  };
   readonly interpreters?: readonly AgentPlanInterpreterEntry[];
 }
 
@@ -408,4 +461,51 @@ export type AgentPlanReadResult =
   | AgentPlanSourceList
   | AgentPlanRunList
   | AgentPlanRunRead
-  | AgentPlanReportList;
+  | AgentPlanReportList
+  | { readonly templates: readonly AgentPlanTemplateEntry[] }
+  | { readonly template: AgentPlanTemplateEntry }
+  | { readonly control: AgentPlanControlEntry };
+
+/** Existing editor templates are append-only; update/delete are not product operations. */
+export interface AgentPlanTemplateEntry {
+  readonly id: string;
+  readonly name: string;
+  readonly type: string;
+  readonly isShared: boolean;
+  readonly createdAt: string;
+  readonly node:
+    | Omit<AgentPlanAgentNodeEntry, "label">
+    | Omit<AgentPlanScriptNodeEntry, "label">
+    | Omit<AgentPlanGroupNodeEntry, "label">
+    | Omit<AgentPlanParameterNodeEntry, "label">;
+}
+
+/** Available saved-plan controls, without another executor's results. */
+export interface AgentPlanControlEntry {
+  readonly canPlay: boolean;
+  readonly canPause: boolean;
+  readonly canResume: boolean;
+  readonly canStop: boolean;
+  readonly issue: string | null;
+}
+
+/** Explicit commands, separate from graph edits and parameter aliases. */
+export const AGENT_PLAN_COMMAND_OPERATIONS = [
+  "plans.delete",
+  "plans.play",
+  "plans.pause",
+  "plans.resume",
+  "plans.stop",
+  "plans.templates.save",
+] as const;
+export type AgentPlanCommandOperation =
+  (typeof AGENT_PLAN_COMMAND_OPERATIONS)[number];
+
+/** Journaled command acknowledgement; run contents always require a fresh private read. */
+export interface AgentPlanCommandResult {
+  readonly planId: string;
+  readonly revision: number;
+  readonly runId?: string;
+  readonly templateId?: string;
+  readonly deleted?: boolean;
+}

@@ -17,6 +17,9 @@ export function PairingDetails({
   const { t } = useTranslation();
   const fields: readonly (readonly [string, ReactNode])[] = [
     [t("mcpPairing.details.client"), view.clientName],
+    ...(view.instanceOrigin
+      ? [[t("mcpHttp.instance"), view.instanceOrigin] as const]
+      : []),
     [t("mcpPairing.details.device"), view.device],
     [t("mcpPairing.details.version"), view.packageVersion],
     [

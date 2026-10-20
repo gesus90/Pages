@@ -14,6 +14,7 @@ import {
   requireAuthorizationOrigin,
 } from "@/app/lib/authorization-response.server";
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
+import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { McpConnectionsView } from "@/definition/McpConnections";
@@ -41,7 +42,9 @@ export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
       services.personalAgentTokenService.list(owner),
       services.pairingService.validity(owner),
     ]);
+    const httpOrigin = (await getPagesRuntime()).getConfig().mcpHttp?.publicUrl;
     const view: McpConnectionsView = {
+      ...(httpOrigin ? { httpEndpoint: `${httpOrigin}/mcp` } : {}),
       origin: new URL(request.url).origin,
       packageVersion: manifest.version,
       tokens,

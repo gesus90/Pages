@@ -1,3 +1,4 @@
+import { PLAN_RESOURCE_READ_TOOLS } from "./plan-resources.js";
 import { CHAT_SESSIONS_LIST_TOOL } from "./chat-sessions.js";
 import { EXTENSION_READ_TOOLS } from "./extensions.js";
 import { ADMIN_READ_TOOLS } from "./administration.js";
@@ -67,6 +68,7 @@ export const READ_TOOLS: readonly ReadTool[] = [
   ...WORKSPACE_READ_TOOLS,
   ...AGENT_READ_TOOLS,
   ...PLAN_READ_TOOLS,
+  ...PLAN_RESOURCE_READ_TOOLS,
   {
     operation: "projects.resolve",
     tool: {

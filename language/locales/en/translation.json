@@ -1139,8 +1139,8 @@
       "title": "Connections",
       "description": "MCP clients that access Pages on your behalf. They never get more permissions than your account.",
       "stdio": {
-        "title": "MCP clients (stdio)",
-        "description": "Paired clients on your devices. New clients are paired in the terminal.",
+        "title": "Personal MCP connections",
+        "description": "Manage stdio, HTTP pairing and OAuth connections for your account.",
         "pair": "Pair client",
         "column": {
           "name": "Name",
@@ -1152,7 +1152,8 @@
         },
         "source": {
           "pairing": "Paired",
-          "manual": "Created manually"
+          "manual": "Created manually",
+          "oauth": "HTTP · OAuth"
         },
         "status": {
           "active": "Active",
@@ -4200,5 +4201,17 @@
       "accessUnverified": "Access to this connection is not verified. Verify it in the agent settings first.",
       "profileSelectionRequired": "Multiple profiles are available. Explicitly choose a connection."
     }
+  },
+  "mcpHttp": {
+    "title": "Connect an MCP client",
+    "description": "Approve access with your current Pages permissions. Client labels are supplied by the requesting application.",
+    "instance": "Pages instance",
+    "lifetime": "Access expires after one hour or earlier if revoked or your account loses access. Renew by signing in and approving again.",
+    "approve": "Allow access",
+    "deny": "Deny",
+    "error": "This request is invalid, expired or already used. Start a new connection in your client.",
+    "pair": "Enter a pairing code",
+    "endpoint": "HTTP MCP endpoint",
+    "hint": "Use OAuth in a compatible HTTP client, or enter a pairing code. Keep bearer tokens in the client’s protected credentials."
   }
 }

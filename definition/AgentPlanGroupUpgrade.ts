@@ -3,7 +3,10 @@ import {
   planGroupExits,
   resolvePlanGroupBinding,
 } from "./AgentPlanGroup";
-import { withExplicitGroupFlow } from "./AgentPlanGroupEdit";
+import {
+  withExplicitGroupFlow,
+  withInternalGroupEdges,
+} from "./AgentPlanGroupEdit";
 
 import type { AgentPlanInput } from "./AgentPlan";
 
@@ -29,7 +32,7 @@ export function withPortlessPlanGroups<Plan extends AgentPlanInput>(
       side === "from" ? planGroupExits(group) : planGroupEntries(group);
     return candidates.length === 1 ? (candidates[0]?.id ?? id) : id;
   }
-  return {
+  return withInternalGroupEdges({
     ...plan,
     nodes: plan.nodes.map((node) =>
       node.type !== "group"
@@ -52,5 +55,5 @@ export function withPortlessPlanGroups<Plan extends AgentPlanInput>(
       from: endpoint(edge.from, "from"),
       to: endpoint(edge.to, "to"),
     })),
-  };
+  });
 }

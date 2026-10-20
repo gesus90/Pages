@@ -1,6 +1,11 @@
+import {
+  PLAN_NODE_FIELDS,
+  PLAN_ADDABLE_TYPES,
+} from "@/definition/AgentPlanChangeFields";
 import { readPlanBinding } from "@/backend/agents/AgentPlanInput";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 
+import { readPlanGroupChange } from "./AgentPlanGroupChangeInput";
 import {
   readIdentifier,
   readParameterRecord,
@@ -23,33 +28,8 @@ const MAXIMUM_TEXT_FILTER_LENGTH = 200;
 /** Node fields a change may set, by the kind of node; positions are always settable. */
 export const AGENT_PLAN_NODE_FIELDS: Readonly<
   Record<AgentPlanNode["type"], readonly string[]>
-> = {
-  start: [],
-  group: ["name", "steps", "edges", "parameters", "bindings"],
-  end: [],
-  agent: ["agentId", "personalAgentId", "instruction", "completion"],
-  script: [
-    "name",
-    "interpreterProfileId",
-    "content",
-    "inputs",
-    "outputs",
-    "timeoutSeconds",
-  ],
-  task: ["taskId"],
-  parameter: ["name", "format", "value"],
-  // Variables name a global value of older plans; only their position changes.
-  variable: [],
-};
-/** Variables of older plans are kept, but no new one is added. */
-const ADDABLE_TYPES = [
-  "start",
-  "end",
-  "agent",
-  "script",
-  "task",
-  "parameter",
-] as const;
+> = PLAN_NODE_FIELDS;
+const ADDABLE_TYPES = PLAN_ADDABLE_TYPES;
 const POSITION_FIELDS = ["x", "y"];
 
 /** One change of the structure of a plan, applied in the order given. */
@@ -66,6 +46,28 @@ export type AgentPlanChange =
       readonly action: "updateNode";
       readonly nodeId: string;
       readonly fields: Readonly<Record<string, unknown>>;
+    }
+  | {
+      readonly action: "placeNode";
+      readonly nodeId: string;
+      readonly groupId: string | null;
+      readonly x: number;
+      readonly y: number;
+    }
+  | {
+      readonly action: "ungroup";
+      readonly nodeId: string;
+      readonly positions: readonly {
+        readonly nodeId: string;
+        readonly x: number;
+        readonly y: number;
+      }[];
+    }
+  | {
+      readonly action: "insertTemplate";
+      readonly templateId: string;
+      readonly x: number;
+      readonly y: number;
     }
   | { readonly action: "removeNode"; readonly nodeId: string }
   | { readonly action: "connect"; readonly from: string; readonly to: string }
@@ -246,6 +248,12 @@ function readInputChange(
 function readChange(input: unknown): AgentPlanChange {
   const change = readParameterRecord(input);
   const { action } = change;
+  if (
+    action === "placeNode" ||
+    action === "ungroup" ||
+    action === "insertTemplate"
+  )
+    return readPlanGroupChange(change);
   if (action === "addNode") return readAddNode(change);
   if (action === "updateNode") return readUpdateNode(change);
   if (action === "removeNode") {

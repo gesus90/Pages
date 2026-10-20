@@ -1,4 +1,4 @@
-# Pages MCP 0.1.0
+# Pages MCP 0.2.0
 
 The Pages adapter implements the Model Context Protocol (MCP), which lets external
 clients discover and call tools through a common protocol. It connects those
@@ -18,7 +18,7 @@ Pages Agent API
 Pages services → repositories → database
 ```
 
-**Stdio is the only supported MCP transport.** The client launches the local
+**Stdio remains a local client-started transport.** The client launches the local
 process and exchanges MCP messages through its stdin and stdout. stdout is
 reserved for the protocol; diagnostics and credential-command messages go to
 stderr. The adapter has no direct database access and opens no network listener.
@@ -27,6 +27,199 @@ stderr. The adapter has no direct database access and opens no network listener.
 Pages API requests and browser pairing links need network access to Pages.
 Start without arguments, or use the credential commands; any other start argument
 fails before credential lookup or any Pages request.
+
+## Central HTTP MCP and personal authorization
+
+Pages also serves **Streamable HTTP at `/mcp` in its existing web server**.
+The shared `src/operations-server.ts` registers the same external tool names,
+schemas, projections and public business errors for stdio and HTTP. HTTP calls
+use the same Pages Agent API service directly; stdio uses its authenticated API.
+Neither transport supplies business rights. Personal MCP admin interpretation,
+revision checks and `operationId` rules remain in the existing services.
+Pica's native tools and temporary job-token `/api/v1/pica-bridge` are separate.
+
+### Server configuration
+
+HTTP MCP is opt-in. Add to the existing private TOML configuration:
+
+```toml
+firstRun = false
+port = 3000
+listenAddress = "127.0.0.1"
+databasePath = "/absolute/private/data/pages.duckdb"
+trustedProxies = ["127.0.0.1"]
+
+[mcpHttp]
+publicUrl = "https://pages.example.com"
+```
+
+`listenAddress` is an optional IP to bind (existing unspecified binding is the
+default); `port` and `--port` select the Pages listening port. `--config` selects
+this file. `mcpHttp.publicUrl` is an explicitly trusted **origin**, with no path,
+credentials, query, fragment or trailing slash. It supplies the canonical MCP
+resource `${publicUrl}/mcp`, discovery, authorization and token URLs. A
+non-default external port belongs in that origin. HTTPS defaults to 443, HTTP
+to 80. No Host or Forwarded-Host header establishes this trusted origin.
+
+For local use set `publicUrl = "http://127.0.0.1:3000"`. Direct clear HTTP is
+accepted only for exact loopback hosts, the configured Pages port and a loopback
+socket peer. `127.0.0.1` always means the connecting client's machine.
+Network access requires HTTPS. An operator-provisioned reverse proxy may terminate
+TLS and forward locally; configure only that proxy's source IP/range in
+`trustedProxies`, forward the configured public Host, and set
+`X-Forwarded-Proto: https`. Pages checks that header only for trusted peers.
+Host and browser Origin must match an allowed address; cross-origin browser
+requests are refused without wildcard CORS. This configuration does not alter
+existing stdio/Agent API transport rules or provision a reverse proxy or TLS.
+
+### HTTP protocol
+
+The SDK **2.2.0** Web Standard Streamable HTTP transport handles MCP framing,
+initialization, protocol negotiation, headers and notifications. Supported
+versions are `2025-11-25`, `2025-06-18`, `2025-03-26`, `2024-11-05` and
+`2024-10-07`. The endpoint uses **stateless JSON responses**, without retained
+sessions, server streams, resumable events or server-initiated requests.
+Initialize normally; send `Accept: application/json, text/event-stream` and
+`Content-Type: application/json`, then the negotiated `MCP-Protocol-Version`.
+Every request requires `Authorization: Bearer <credential>`. Session-ID headers
+are rejected with 400; they never convey authority. Authenticated GET/DELETE and
+other unsupported methods return 405 (`Allow: POST`). Notifications return 202.
+Bodies are limited to 64 KiB. HTTP authorization failures use 401 with protected
+resource discovery; business refusals use the same MCP `isError` payload as stdio.
+No tool call implicitly starts a model/plan execution.
+
+### OAuth login
+
+Discovery is available at `/.well-known/oauth-protected-resource/mcp` (also the
+root protected-resource location) and `/.well-known/oauth-authorization-server`.
+The 401 `WWW-Authenticate` challenge includes the configured resource metadata
+URL. Pages supports public **Dynamic Client Registration** at `/oauth/register`
+(RFC 7591), Authorization Code with **mandatory S256 PKCE**, and exact registered
+redirect matching. Public registrations use `token_endpoint_auth_method: none`,
+`grant_types: ["authorization_code"]`, `response_types: ["code"]`, a display
+`client_name`, and up to ten HTTPS or loopback HTTP `redirect_uris` without
+fragments or userinfo. Registrations expire after 30 days; register again when
+necessary. If a client requests both authorization-code and refresh grants,
+registration returns only `grant_types: ["authorization_code"]`: RFC 7591 section
+3.2.1 permits the server to replace requested metadata and requires clients to
+check the returned contract. This accommodates clients that request refresh by
+default without advertising or issuing refresh tokens. Client metadata documents, confidential clients, implicit/password/
+client-credentials grants and refresh tokens are not implemented or advertised.
+
+The client sends `client_id`, `redirect_uri`, `response_type=code`, nonempty
+`state`, `code_challenge`, `code_challenge_method=S256`, and
+`resource=<configured origin>/mcp` to `/oauth/authorize`. `scope=pages` identifies
+the MCP surface and grants no additional business permission. The consent page
+requires an existing active Pages account and shows the client-supplied name,
+canonical instance, acting account and lifetime. Opening it grants nothing;
+approval/denial requires a session-bound CSRF nonce and same-origin POST. Login
+preserves only a validated internal consent destination.
+
+Exchange the code with form-encoded POST `/oauth/token`, including
+`grant_type=authorization_code`, `client_id`, the exact `redirect_uri`,
+`code_verifier`, and the same `resource`. The maintained
+`@node-oauth/oauth2-server` **5.3.0** library validates the grant, client,
+redirect and PKCE; Pages adds resource binding, approval and current account
+checks. Codes last **120 seconds**, are hashed in storage, and are consumed
+before PKCE verification; a failed verifier requires a fresh authorization.
+Consent requests last **10 minutes**, are process-local and end on restart.
+The token response body is `no-store`, with a **one-hour maximum** access
+lifetime (also bounded by the personal validity preference). There is no refresh
+token: authorize again after expiry. Changing personal validity never extends or
+revives an OAuth access token. Access tokens are hashed, audience-bound, owner
+revocable and revalidated on every request. OAuth connection metadata appears in
+**Settings → Connections**, including expiry, status and last usage. Account
+blocking and current object/operation rights apply immediately to later calls.
+
+Registration, authorization starts and exchanges share the existing bounded
+per-socket throttling: 5/minute, 20/hour, with `429` and `Retry-After` on excess;
+registrations are globally bounded to 1,000 and pending consent requests to 500.
+Invalid input and library errors never echo credentials. Tokens, device secrets
+and refresh secrets must never be placed in URLs, command arguments, diagnostics
+or screenshots; keep credentials in protected client storage or environment.
+The short-lived authorization code is sent only to its registered callback.
+
+### Code pairing for HTTP clients
+
+`/mcp-login` also opens the existing browser code entry at `/pair`; a link may
+include only `?code=XXXX-XXXX`. Start with POST `/api/v1/pairing` and JSON
+`{"clientName":"My HTTP client","device":"My laptop","packageVersion":"1"}`.
+Keep the returned `deviceSecret` private; display only `userCode` and the browser
+link. The account explicitly approves or denies the request, seeing the client,
+device, instance and account. Poll POST `/api/v1/pairing/token` with
+`{"userCode":"XXXX-XXXX","deviceSecret":"<private secret>"}` in the body,
+respecting the returned five-second interval and `slow_down` replies. Only that
+requester can collect the approved token once. Use the token in the MCP
+Authorization header; the same personal credential can also serve stdio.
+Requests expire after ten minutes; denial, cancellation, expiry, wrong secrets
+and reuse never grant access. POST `/api/v1/pairing/cancel` cancels with the same
+body. Existing stdio pair/status/rotate/unpair, local 0700/0600 storage, 30-day
+default personal validity and rotation semantics are retained. Changing the
+personal default does not revive ended connections. Always use HTTPS for remote
+pairing and secure client storage; opening a link on another device does not
+make that device's localhost reach the server.
+
+### Client setup and verification scope
+
+For stdio use the existing examples below, pair under the operating-system
+account which launches the adapter, and substitute your absolute bundle path.
+For HTTP use your reachable configured public URL, not a server-local loopback
+address on a different machine. These commands are configuration instructions;
+actual version-specific evidence and remaining limitations belong to the
+PAGE-120 verification report, not an assumed compatibility guarantee.
+
+```sh
+# Claude Code (not Claude Desktop or Web)
+claude mcp add --transport http pages https://pages.example.com/mcp
+claude mcp login pages --no-browser
+
+# Codex CLI
+codex mcp add pages --url https://pages.example.com/mcp
+codex mcp login pages
+
+# OpenClaw; these are explicit operator config actions, not Gateway restarts
+openclaw mcp add pages --transport streamable-http --url https://pages.example.com/mcp --auth oauth --no-probe
+openclaw mcp login pages
+openclaw mcp probe pages --json
+```
+
+Manually verified on 2026-10-20 against an isolated existing database copy,
+using certificate verification and no model generation:
+
+| Installed client                 | Verified access                     | Actual protocol evidence                                                            |
+| -------------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------- |
+| Claude Code 2.1.293              | HTTPS OAuth                         | `mcp login`, connected health check, native stream-json `mcp_call` read             |
+| Codex CLI 0.160.0                | stdio, HTTPS bearer and HTTPS OAuth | OAuth login; app-server `mcpServerStatus/list` and `mcpServer/tool/call` reads      |
+| OpenClaw 2026.9.8 (fc23bc8)      | HTTPS OAuth                         | Isolated CLI login/probe; installed core transport and OAuth store performed a read |
+| MCP TypeScript client SDK 1.30.0 | stdio, loopback HTTP and HTTPS      | Initialize, identical catalogs/results, writes/readback, authorization refusals     |
+
+These observations cover the versions and operations shown, not every client
+feature or future version. Claude Desktop/Web, remote-device reachability and
+Pica model/runner execution were not claimed. Claude's native `mcp_call` and
+Codex's app-server tool-call operations allow model-free verification; OpenClaw
+needs no Gateway restart for isolated CLI/core protocol checks. All client
+configuration, cookies, CA trust and credentials used in this verification were
+private task-owned copies. No original client configuration was changed.
+
+Alternative Codex configuration, using an isolated credential supplied by the
+operator rather than OAuth:
+
+```toml
+[mcp_servers.pages]
+url = "https://pages.example.com/mcp"
+bearer_token_env_var = "PAGES_HTTP_TOKEN"
+```
+
+Claude Code accepts `--header "Authorization: Bearer ..."` but this exposes a
+literal secret to process arguments/configuration: prefer its OAuth credential
+store. OpenClaw supports protected OAuth storage and an explicitly scoped
+configuration; do not change global/Gateway settings merely to test a server.
+Keep TLS verification enabled and install the proper trust chain for private CAs.
+The official [MCP authorization specification](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization),
+[OAuth library PKCE guide](https://node-oauth.github.io/node-oauth2-server/guide/pkce.html)
+and [Codex MCP documentation](https://developers.openai.com/codex/mcp) explain
+these protocol and client boundaries. No Claude Desktop/Web or untested client
+surface is implied by the CLI instructions.
 
 ## Supported functions
 
@@ -39,7 +232,7 @@ listed and read, and registered, changed and unregistered by those who manage th
 project. User agents, the agents people create on the Pages agent page, can be
 listed, read, created and changed by their owner, together with the models that
 may be given to them. Agent plans can be listed, read, created and changed in
-their structure and parameters by their owner, and the account's own runs of a
+their structure and parameters by their owner or authorized department team, and the account's own runs of a
 plan and their reports can be listed and read. Personal administrators can also read administration information and
 change existing roles, accounts and memberships within the offered operations,
 and permanently delete a whole project after a confirmation.
@@ -153,7 +346,7 @@ step.
 `node24`, `format: "cjs"` and no code splitting. It clears `mcp/dist/` and writes
 `mcp/dist/pages-mcp-v<version>.cjs`, using the version from `package.json`.
 With the development manifest in this checkout, the output is
-`pages-mcp-v0.1.0.cjs`; this names a build artifact and does not establish a
+`pages-mcp-v0.2.0.cjs`; this names a build artifact and does not establish a
 published release.
 
 JavaScript dependencies are bundled into that single CommonJS file; Node
@@ -408,7 +601,7 @@ again. A generic authorization error alone does not identify this case.
 | Symptom                                                                                      | What to check                                                                                                                                                                                                                                                                     |
 | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Node cannot be found, or the bundle cannot be loaded                                         | Use Node.js 24 or newer, ensure the client can find its executable, use the real absolute bundle path and keep the `.cjs` extension. The single bundle does not need pnpm or a runtime dependency installation.                                                                   |
-| Startup reports unsupported arguments                                                        | Start without options; use only the documented credential subcommands. MCP transport is stdio.                                                                                                                                                                                    |
+| Startup reports unsupported arguments                                                        | Start without options; use only the documented credential subcommands. The standalone adapter transport is stdio; HTTP uses the Pages `/mcp` URL.                                                                                                                                 |
 | Pages cannot be reached, or pairing reports the wrong instance                               | Check the base URL, deployment prefix and connectivity from the adapter's machine. Loopback refers to that machine. Confirm that the address serves Pages and that setup has finished. Redirects are rejected.                                                                    |
 | The instance is reachable but unhealthy                                                      | Pages exposes `/health` beneath its deployment prefix: `ok` means healthy, `setup` means setup is pending (status 200), and `unavailable` means unhealthy (status 503). Availability or health does not prove authorization. Consult Pages diagnostics for an unhealthy instance. |
 | No paired credential                                                                         | Pair for the same normalized URL under the account/configuration location used by the client. Check for a defined `PAGES_TOKEN` overriding that entry.                                                                                                                            |
@@ -462,7 +655,7 @@ message `Pages authorization failed.` without project data.
 ### Project and wiki reads
 
 The `list_project_names` tool returns names only. The following
-read-only tools use the same stdio transport and verify current rights
+read-only tools use the shared external contract and verify current rights
 on every call. Reading wiki content does not record a visit.
 
 | Tool              | Pages operation    | Arguments                    | Result                                                                               |
@@ -1862,22 +2055,21 @@ agent nodes with their own work order, script nodes, ticket nodes and parameter
 nodes, flow connections between them and the inputs of each agent and script
 node. These tools work on
 the same plans as the plan page and under its rules; they add no right of their
-own. They neither start, pause, resume, stop nor delete a plan, and a plan
-session (the credential of a running node) gets none of them.
+own. Graph editing never starts a run. Explicit saved-revision commands offer Play, Pause, Resume, Stop and owner-only deletion. New commands and resource reads require a personal client; the existing plan-session catalog is not expanded.
 
-| Tool                    | Pages operation          | Arguments                                                                                       | Does                                                                      |
-| ----------------------- | ------------------------ | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `list_plans`            | `plans.list`             | optional `text`, `projectId`, `cursor`, `limit`                                                 | The visible plans by name, with state and latest own run                  |
-| `read_plan`             | `plans.read`             | `planId`                                                                                        | One plan with nodes, edges, share, revision and status                    |
-| `read_plan_sources`     | `plans.sources.read`     | optional `workspaceId`                                                                          | Workspaces for new plans; with `workspaceId` agents and interpreters      |
-| `list_plan_runs`        | `plans.runs.list`        | `planId`, optional `order` (`newest`, `oldest`), `cursor`, `limit`                              | The account's runs of a plan with date and status, 20 per page by default |
-| `read_plan_run`         | `plans.run.read`         | `runId` (optional `planId` to check it), or `planId` with `select` `latest` or `first`          | One run with the state of every node                                      |
-| `read_plan_run_reports` | `plans.run.reports.read` | as `read_plan_run`, optional `stepId`                                                           | The reports of a run, each with `runId` and `stepId`                      |
-| `create_plan`           | `plans.create`           | `operationId`, `name`, `workspaceId`, optional `sharing`, `changes`                             | Creates a plan owned by the connected account, for its team if it has one |
-| `update_plan`           | `plans.update`           | `operationId`, `planId`, `expectedRevision`, one or more of `name`, `sharing`, `workspaceId`, `changes` | Changes name, share, workspace or structure in one revision |
-| `create_plan_parameter` | `plans.parameter.create` | `operationId`, `planId`, `expectedRevision`, `name`, `value`, optional `format`, `x`, `y`       | Adds one parameter node                                                   |
-| `update_plan_parameter` | `plans.parameter.update` | `operationId`, `planId`, `expectedRevision`, `parameterId`, one or more of `name`, `value`, ... | Changes one parameter node                                                |
-| `remove_plan_parameter` | `plans.parameter.remove` | `operationId`, `planId`, `expectedRevision`, `parameterId`                                      | Removes one parameter node and the inputs it fed                          |
+| Tool                    | Pages operation          | Arguments                                                                                               | Does                                                                      |
+| ----------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `list_plans`            | `plans.list`             | optional `text`, `projectId`, `cursor`, `limit`                                                         | The visible plans by name, with state and latest own run                  |
+| `read_plan`             | `plans.read`             | `planId`                                                                                                | One plan with nodes, edges, share, revision and status                    |
+| `read_plan_sources`     | `plans.sources.read`     | optional `workspaceId`                                                                                  | Workspaces for new plans; with `workspaceId` agents and interpreters      |
+| `list_plan_runs`        | `plans.runs.list`        | `planId`, optional `order` (`newest`, `oldest`), `cursor`, `limit`                                      | The account's runs of a plan with date and status, 20 per page by default |
+| `read_plan_run`         | `plans.run.read`         | `runId` (optional `planId` to check it), or `planId` with `select` `latest` or `first`                  | One run with the state of every node                                      |
+| `read_plan_run_reports` | `plans.run.reports.read` | as `read_plan_run`, optional `stepId`                                                                   | The reports of a run, each with `runId` and `stepId`                      |
+| `create_plan`           | `plans.create`           | `operationId`, `name`, `workspaceId`, optional `sharing`, `changes`                                     | Creates a plan owned by the connected account, for its team if it has one |
+| `update_plan`           | `plans.update`           | `operationId`, `planId`, `expectedRevision`, one or more of `name`, `sharing`, `workspaceId`, `changes` | Changes name, share, workspace or structure in one revision               |
+| `create_plan_parameter` | `plans.parameter.create` | `operationId`, `planId`, `expectedRevision`, `name`, `value`, optional `format`, `x`, `y`               | Adds one parameter node                                                   |
+| `update_plan_parameter` | `plans.parameter.update` | `operationId`, `planId`, `expectedRevision`, `parameterId`, one or more of `name`, `value`, ...         | Changes one parameter node                                                |
+| `remove_plan_parameter` | `plans.parameter.remove` | `operationId`, `planId`, `expectedRevision`, `parameterId`                                              | Removes one parameter node and the inputs it fed                          |
 
 - **Visibility.** A plan is visible while the account can open the project of its
   workspace and the plan is its own, belongs to a department the account is a
@@ -1914,7 +2106,7 @@ session (the credential of a running node) gets none of them.
   `script` with `name`, `interpreterProfileId`, `content`, exactly one entry in
   `outputs` and optional `inputs` and `timeoutSeconds`, `task` with the `taskId`
   of a task or subtask of the project, `parameter` with `name`, `value` and
-  optional `format`), `updateNode` (fields of the node's kind, `x` and `y` for
+  optional `format`, `group` with `name`), `updateNode` (fields of the node's kind, `x` and `y` for
   every node), `removeNode` (also removes its connections and the
   inputs it fed), `connect` and `disconnect` (flow `from` → `to`), `bind`
   (`kind` `source`, `result` or `literal`) and `unbind`. An `id` in `addNode`
@@ -1973,6 +2165,70 @@ session (the credential of a running node) gets none of them.
 - **Repeat.** Writes take an `operationId`: repeating a call with identical
   parameters returns its stored result and never changes twice; other
   parameters return `CONFLICT`.
+
+#### Plan contract 0.2.0 (PAGE-119)
+
+Both stdio and HTTP use the same shared catalog. Existing tool names and
+parameter aliases remain; clients should upgrade the versioned stdio bundle
+and refresh their tool catalog. The Agent API envelope stays version 1. New commands and resource tools are personal-client operations; existing plan-session rights are not extended. There
+is no legacy parallel graph handler, credential migration or database reset.
+The inventory and pre-reset matrix are in [PAGE-119 inventory](docs/PAGE-119-inventory.md).
+
+| Tool                | Operation            | Required arguments besides operationId on commands |
+| ------------------- | -------------------- | -------------------------------------------------- |
+| list_plan_templates | plans.templates.list | workspaceId                                        |
+| read_plan_template  | plans.templates.read | workspaceId, templateId                            |
+| read_plan_control   | plans.control.read   | planId                                             |
+| save_plan_template  | plans.templates.save | planId, expectedRevision, nodeId, name             |
+| delete_plan         | plans.delete         | planId, expectedRevision                           |
+| play_plan           | plans.play           | planId, expectedRevision                           |
+| pause_plan          | plans.pause          | planId, expectedRevision, runId                    |
+| resume_plan         | plans.resume         | planId, expectedRevision, runId                    |
+| stop_plan           | plans.stop           | planId, expectedRevision, runId                    |
+
+`read_plan` includes pinned agent configuration, member IDs/positions, internal
+and external edge ports. `read_plan_sources` additionally offers the authorized
+models with profile IDs, providers and allowed reasoning levels, source
+configuration copies, and editor limits. No connection or credential is exposed.
+
+`updateNode.fields.configuration` is a targeted patch of `name`,
+`modelProfileId`, `reasoningEffort`, and `template` (`markdown`, `parameters`,
+`directoryParameter`, `run`). Omitted fields stay intact. Parameter declarations
+use the editor's typed defaults; a run patch merges individual access, shell,
+web, timeoutMinutes and browser fields. The shared service enforces model,
+reasoning, provider, permissions, references and run-option restrictions.
+Changing provider takes its editor defaults. No raw replacement graph, provider
+credential or caller-supplied connection is accepted.
+
+`addNode` also creates a portless `group` with `name`. `placeNode` takes
+`nodeId`, `groupId` (null detaches), and `x/y`; member positions are relative to
+the frame's member area. `updateNode` and `bind/unbind` resolve members by ID;
+`connect/disconnect` handle internal and cross-frame flow. Membership changes
+retain edges/bindings and never start/restart a session. `ungroup` takes `nodeId`
+and `positions: [{nodeId,x,y}]` covering every member, keeps them and their
+connections, and refuses unresolved legacy aliases. `removeNode` of a group
+explicitly deletes its members. Multiple updates position a selection atomically.
+Coordinates match the editor: integers from 0 to 6000. Parameter display names may repeat, as in the editor; IDs identify nodes. Internal edges saved in the outer graph by older membership edits are losslessly placed in their containing group on read/save and reparenting, so templates retain them; run snapshots are not rewritten.
+
+`save_plan_template` saves a node of the named saved revision; group members,
+internal edges/results and configuration remain. External references stay
+behind, exactly as in the editor. `insertTemplate` within create_plan or
+update_plan takes `templateId,x,y`, validates access again, and inserts independent
+IDs with internal reference remapping. `createdNodeIds` includes the inserted
+root followed by its members. Repeated insertions instantiate separately.
+The product has no template update/delete service and cannot execute scripts;
+these remain explicitly unsupported, with no placeholder tools.
+
+Play/Resume are annotated as open-world, potentially destructive actions because configured agents may invoke models and modify workspaces; their operationId replay remains idempotent.
+
+Commands return `planId,revision` and `runId`, `templateId` or `deleted:true`.
+They journal operationId atomically with durable state. Play executes only the
+saved revision. Pause/Resume/Stop require the executor's own run and current
+resource access; shared editing grants no foreign run rights. Delete is owner-only,
+checks revision and active runs, and preserves finished history. Replays check
+current access again; a deleted-plan acknowledgement is available only to the
+original authenticated caller. Stale revision or changed operationId input is
+CONFLICT. Saves, template operations and reads never execute a runner.
 
 ### Administration
 
@@ -2114,10 +2370,10 @@ repeats the project and the counts as they were deleted. The deletion is recorde
 in the administration audit trail (`read_admin_activity`) with the actor,
 `admin.projects.delete`, the project ID and `source:mcp`.
 
-**Transports.** Stdio is the only transport of this adapter. It forwards the
-tools to the Pages Agent API, whose operation catalog is the only place the
-deletion is implemented: the stdio adapter, a client that calls the Agent API
-directly and the interface all end in the same service.
+**Transports.** The standalone stdio adapter forwards tools to the Pages Agent
+API; central HTTP MCP dispatches directly to that same service. The operation
+catalog is the only place the deletion is implemented, and the interface also
+ends in the same service.
 
 The chat uses the existing UI administration services in **active admin mode**.
 It additionally supports user creation, admin eligibility, blocking/unblocking,

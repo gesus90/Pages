@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import { readPlanTemplateName } from "@/backend/agents/AgentPlanTemplateInput";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { requireCredentialFreeText } from "@/backend/security/AgentTextSafety";
 import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
@@ -10,6 +11,7 @@ import {
   planTemplateNode,
 } from "@/definition/AgentPlanNodeTemplate";
 
+import type { DatabaseTransaction } from "@/backend/database/Database";
 import type {
   AgentPlanTemplateRepository,
   AgentPlanTemplateScope,
@@ -110,8 +112,12 @@ export class AgentPlanTemplateService {
     userId: string,
     context: AgentPlanTemplateContext,
     draft: AgentPlanTemplateDraft,
+    journal?: (
+      transaction: DatabaseTransaction,
+      template: AgentPlanNodeTemplate,
+    ) => Promise<void>,
   ): Promise<AgentPlanNodeTemplate> {
-    if (!draft.name.trim()) throw new AgentError("template_name_required");
+    const name = readPlanTemplateName(draft.name);
     await this.requireEditable(userId, context);
     // The template gets identifiers of its own, so it names no node of the source plan.
     const node = await this.pinned(
@@ -127,16 +133,19 @@ export class AgentPlanTemplateService {
       userId,
       context.workspaceId,
     );
-    return this.dependencies.templates.create({
-      id: randomUUID(),
-      ownerId: userId,
-      name: draft.name.trim(),
-      node,
-      team:
-        team.projectId !== null && team.departmentId !== null
-          ? { projectId: team.projectId, departmentId: team.departmentId }
-          : null,
-    });
+    return this.dependencies.templates.create(
+      {
+        id: randomUUID(),
+        ownerId: userId,
+        name,
+        node,
+        team:
+          team.projectId !== null && team.departmentId !== null
+            ? { projectId: team.projectId, departmentId: team.departmentId }
+            : null,
+      },
+      journal,
+    );
   }
 
   /**

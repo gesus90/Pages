@@ -1,14 +1,25 @@
 import { randomUUID } from "node:crypto";
 
+import {
+  connectPlanFlow,
+  disconnectPlanGroupFlow,
+  findPlanStep,
+  placePlanStep,
+  replacePlanNode,
+  ungroupPlanGroup,
+} from "@/definition/AgentPlanGroupEdit";
+import { planGroupEdges } from "@/definition/AgentPlanGroup";
 import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 import { PLAN_SCRIPT_TIMEOUT } from "@/definition/AgentPlanScript";
-
 import { readPlanNode } from "@/backend/agents/AgentPlanInput";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { removePlanNode } from "@/definition/AgentPlanGraph";
 
+import { patchPlanConfiguration } from "./AgentPlanConfigurationChanges";
 import { AGENT_PLAN_NODE_FIELDS } from "./AgentPlanOperationInput";
 
+import type { PageAgentModel } from "@/definition/PageAgent";
+import type { AgentPlanTemplateNode } from "@/definition/AgentPlanNodeTemplate";
 import type { AgentDefinitionChoice } from "@/definition/AgentAvailability";
 import type {
   AgentPlanInput,
@@ -30,6 +41,8 @@ const LIMIT = 6000;
 export interface AgentPlanChangeContext {
   /** The agents the plan's workspace offers; an added agent node takes its defaults from them. */
   readonly agents: readonly AgentDefinitionChoice[];
+  readonly models?: readonly PageAgentModel[];
+  readonly templates?: ReadonlyMap<AgentPlanChange, AgentPlanTemplateNode>;
 }
 
 /** The changed plan and the identifiers of the nodes the changes added. */
@@ -56,12 +69,13 @@ function nextPosition(plan: AgentPlanInput): { x: number; y: number } {
 }
 
 function findNode(plan: AgentPlanInput, id: string): AgentPlanNode {
-  const node = plan.nodes.find((entry) => entry.id === id);
+  const node =
+    plan.nodes.find((entry) => entry.id === id) ?? findPlanStep(plan, id)?.step;
   if (!node) throw refused("element_missing");
   return node;
 }
 
-/** The node whose inputs a binding fills: an agent or a script outside every frame. */
+/** The node whose inputs a binding fills: an agent (also a group member) or a script. */
 function findInputNode(
   plan: AgentPlanInput,
   id: string,
@@ -70,34 +84,6 @@ function findInputNode(
   if (node.type !== "agent" && node.type !== "script")
     throw refused("element_missing");
   return node;
-}
-
-/** Parameter names name one value each, so a client and a person can find it by name. */
-function requireFreeName(
-  plan: AgentPlanInput,
-  node: AgentPlanNode,
-  exceptId: string | null,
-): void {
-  if (
-    node.type === "parameter" &&
-    plan.nodes.some(
-      (entry) =>
-        entry.type === "parameter" &&
-        entry.name === node.name &&
-        entry.id !== exceptId,
-    )
-  )
-    throw refused("element_exists");
-}
-
-function replaceNode(
-  plan: AgentPlanInput,
-  node: AgentPlanNode,
-): AgentPlanInput {
-  return {
-    ...plan,
-    nodes: plan.nodes.map((entry) => (entry.id === node.id ? node : entry)),
-  };
 }
 
 /** The format a parameter takes when none is given: a number stays a number. */
@@ -115,6 +101,8 @@ function newNodeFields(
 ): Readonly<Record<string, unknown>> {
   if (change.type === "agent")
     return { personalAgentId: null, instruction: "", bindings: {} };
+  if (change.type === "group")
+    return { steps: [], edges: [], parameters: [], bindings: {} };
   if (change.type === "parameter")
     return { format: defaultFormat(change.fields.value) };
   // As in the script dialog: no inputs and the default timeout until named.
@@ -194,18 +182,30 @@ function addNode(
   context: AgentPlanChangeContext,
 ): { plan: AgentPlanInput; id: string } {
   const id = change.id ?? randomUUID();
-  if (plan.nodes.some((node) => node.id === id))
+  if (plan.nodes.some((node) => node.id === id) || findPlanStep(plan, id))
     throw refused("element_exists");
+  const { configuration, ...fields } = change.fields;
   const node = readPlanNode({
     ...nextPosition(plan),
     ...newNodeFields(change),
-    ...change.fields,
+    ...fields,
     id,
     type: change.type,
   });
-  requireFreeName(plan, node, null);
-  if (node.type === "agent")
-    return { plan: withAgentDefaults(plan, node, context), id };
+  if (node.type === "agent") {
+    const added = withAgentDefaults(plan, node, context);
+    return {
+      plan:
+        configuration === undefined
+          ? added
+          : updateNode(
+              added,
+              { action: "updateNode", nodeId: id, fields: { configuration } },
+              context,
+            ),
+      id,
+    };
+  }
   return { plan: { ...plan, nodes: [...plan.nodes, node] }, id };
 }
 
@@ -222,11 +222,20 @@ function updateNode(
     )
   )
     throw refused("element_missing");
-  const node = withDeclaredBindings(
-    readPlanNode({ ...current, ...change.fields, id: current.id }),
+  const { configuration, ...fields } = change.fields;
+  let node = reassignedNode(
+    current,
+    withDeclaredBindings(
+      readPlanNode({ ...current, ...fields, id: current.id }),
+    ),
+    context,
   );
-  requireFreeName(plan, node, node.id);
-  return replaceNode(plan, reassignedNode(current, node, context));
+  if (configuration !== undefined && node.type === "agent")
+    node = readPlanNode({
+      ...node,
+      configuration: patchPlanConfiguration(node, configuration, context),
+    });
+  return replacePlanNode(plan, node);
 }
 
 function reassignedNode(
@@ -259,31 +268,32 @@ function connect(
 ): AgentPlanInput {
   findNode(plan, change.from);
   findNode(plan, change.to);
-  const exists = plan.edges.some(
+  const edges = [
+    ...plan.edges,
+    ...plan.nodes.flatMap((node) =>
+      node.type === "group" ? planGroupEdges(node) : [],
+    ),
+  ];
+  const exists = edges.some(
     (edge) => edge.from === change.from && edge.to === change.to,
   );
   if (change.action === "connect") {
     if (exists) throw refused("element_exists");
-    return {
-      ...plan,
-      edges: [
-        ...plan.edges,
-        {
-          from: change.from,
-          to: change.to,
-          fromPort: "flow-out",
-          toPort: "flow-in",
-        },
-      ],
-    };
+    const connected = connectPlanFlow(plan, change.from, change.to);
+    if (typeof connected === "string") throw refused("graph_invalid");
+    return connected;
   }
   if (!exists) throw refused("element_missing");
-  return {
+  let disconnected = {
     ...plan,
     edges: plan.edges.filter(
       (edge) => edge.from !== change.from || edge.to !== change.to,
     ),
   };
+  for (const node of plan.nodes)
+    if (node.type === "group")
+      disconnected = disconnectPlanGroupFlow(disconnected, node.id, change);
+  return disconnected;
 }
 
 function bindInput(
@@ -292,13 +302,13 @@ function bindInput(
 ): AgentPlanInput {
   const step = findInputNode(plan, change.nodeId);
   if (change.action === "bind")
-    return replaceNode(plan, {
+    return replacePlanNode(plan, {
       ...step,
       bindings: { ...step.bindings, [change.parameter]: change.binding },
     });
   if (!Object.hasOwn(step.bindings, change.parameter))
     throw refused("element_missing");
-  return replaceNode(plan, {
+  return replacePlanNode(plan, {
     ...step,
     bindings: Object.fromEntries(
       Object.entries(step.bindings).filter(
@@ -342,7 +352,67 @@ export function applyPlanChanges(
       current = removePlanNode(current, change.nodeId);
     } else if (change.action === "connect" || change.action === "disconnect")
       current = connect(current, change);
-    else current = bindInput(current, change);
+    else if (change.action === "bind" || change.action === "unbind")
+      current = bindInput(current, change);
+    else {
+      const result = applyMembershipChange(current, change, context);
+      current = result.plan;
+      createdNodeIds.push(...result.createdNodeIds);
+    }
   }
   return { plan: current, createdNodeIds };
+}
+
+function applyMembershipChange(
+  plan: AgentPlanInput,
+  change: Extract<
+    AgentPlanChange,
+    { action: "placeNode" | "ungroup" | "insertTemplate" }
+  >,
+  context: AgentPlanChangeContext,
+): AgentPlanChangeResult {
+  if (change.action === "insertTemplate") {
+    const node = context.templates?.get(change);
+    if (!node) throw refused("element_missing");
+    const copy = { ...node, x: change.x, y: change.y };
+    return {
+      plan: { ...plan, nodes: [...plan.nodes, copy] },
+      createdNodeIds: [
+        copy.id,
+        ...(copy.type === "group" ? copy.steps.map((step) => step.id) : []),
+      ],
+    };
+  }
+  if (change.action === "placeNode") {
+    const result = placePlanStep(
+      plan,
+      {
+        stepId: change.nodeId,
+        groupId: change.groupId,
+        position: { x: change.x, y: change.y },
+      },
+      context.agents,
+    );
+    if (typeof result === "string") throw refused("graph_invalid");
+    return { plan: result.plan, createdNodeIds: [] };
+  }
+  const group = findNode(plan, change.nodeId);
+  if (
+    group.type !== "group" ||
+    change.positions.length !== group.steps.length ||
+    new Set(change.positions.map((entry) => entry.nodeId)).size !==
+      group.steps.length ||
+    group.steps.some(
+      (step) => !change.positions.some((entry) => entry.nodeId === step.id),
+    )
+  )
+    throw refused("element_missing");
+  const result = ungroupPlanGroup(plan, group.id, (step) => {
+    const position =
+      change.positions.find((entry) => entry.nodeId === step.id) ?? step;
+    return { x: position.x, y: position.y };
+  });
+  if (result.plan.nodes.some((node) => node.id === group.id))
+    throw refused("graph_invalid");
+  return { plan: result.plan, createdNodeIds: [] };
 }

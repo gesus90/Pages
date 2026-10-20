@@ -249,11 +249,20 @@ export class AgentPlanRepository {
    * @throws {AgentError} `plan_access_denied` when the plan no longer belongs
    * to the owner, `plan_running` while a run is running or paused.
    */
-  public async remove(id: string, ownerId: string): Promise<void> {
+  public async remove(
+    id: string,
+    ownerId: string,
+    options?: {
+      readonly revision: number;
+      readonly journal: (transaction: DatabaseTransaction) => Promise<void>;
+    },
+  ): Promise<void> {
     await this.database.transaction(async (transaction) => {
       const previous = await findPlan(transaction, id);
       if (previous?.ownerId !== ownerId)
         throw new AgentError("plan_access_denied");
+      if (options && previous.revision !== options.revision)
+        throw new AgentError("plan_conflict");
       const [active] = await transaction.query(
         `
         SELECT id
@@ -272,6 +281,7 @@ export class AgentPlanRepository {
       `,
         { id },
       );
+      await options?.journal(transaction);
     });
   }
 }
@@ -408,4 +418,18 @@ async function requirePlanEditable(
     { id },
   );
   if (active) throw new AgentError("plan_pause_required");
+}
+
+/** Checks the saved revision within an operation's write transaction, before recording a no-op or run command. */
+export async function requirePlanRevision(
+  transaction: DatabaseTransaction,
+  id: string,
+  revision: number,
+): Promise<void> {
+  const [row] = await transaction.query(
+    "SELECT revision FROM agent_plans WHERE id = $id;",
+    { id },
+  );
+  if (!row || Number(row[0]) !== revision)
+    throw new AgentError("plan_conflict");
 }

@@ -8,6 +8,7 @@ import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import { CURRENT_PLAN_SNAPSHOT } from "./AgentPlanContinuationRepository";
 import { AgentPlanCheckpointRepository } from "./AgentPlanCheckpointRepository";
 
+import type { AgentPlanRunJournal } from "@/backend/service/agents/AgentPlanJournal";
 import type {
   Database,
   DatabaseTransaction,
@@ -110,10 +111,12 @@ export class AgentPlanProgressRepository {
   public async update(
     run: AgentPlanRun,
     checkpoint?: AgentPlanCheckpointInput,
+    journal?: AgentPlanRunJournal,
   ): Promise<void> {
     await this.database.transaction(async (transaction) => {
       const previous = await this.read(transaction, run.id);
       await this.save(transaction, previous, run, checkpoint);
+      await journal?.(transaction, run);
     });
   }
 

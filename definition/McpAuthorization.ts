@@ -51,7 +51,7 @@ export interface PersonalAgentToken {
   readonly createdAt: number;
   readonly expiresAt: number | null;
   readonly revokedAt: number | null;
-  readonly source: "manual" | "pairing";
+  readonly source: "manual" | "pairing" | "oauth";
   readonly device: string | null;
   readonly lastUsedAt: number | null;
   readonly rotatedAt: number | null;

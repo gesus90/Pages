@@ -191,6 +191,16 @@ export class AgentPlanReadOperations {
         isUsable: workspace.isUsable,
       })),
       agents: (sources?.agents ?? []).map(agentEntry),
+      models: sources?.models ?? [],
+      limits: {
+        nodes: 100,
+        edges: 500,
+        groupMembers: 50,
+        coordinateMinimum: 0,
+        coordinateMaximum: 6000,
+        changes: 200,
+        timeoutMinutes: [0, 120],
+      },
       ...(interpreters === undefined ? {} : { interpreters }),
     };
   }

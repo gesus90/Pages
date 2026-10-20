@@ -23,6 +23,7 @@ import { destroySessionCookie } from "@/app/lib/session.server";
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
 import { PairingRateError } from "@/backend/service/mcp/PairingThrottle";
 import { normalizePairingCode } from "@/backend/service/mcp/PairingValidation";
+import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { McpPairingView } from "@/definition/McpPairing";
@@ -48,15 +49,21 @@ export async function loader({
   try {
     const browser = await pairingBrowserIdentity(request);
     const services = await getApplicationServices();
+    const view = await services.pairingService.view(
+      new URL(request.url).searchParams.get("code"),
+      browser,
+      {
+        socket: context.get(clientSocketAddressContext),
+        forwarded: getClientAddress(request),
+      },
+    );
     return Response.json(
-      await services.pairingService.view(
-        new URL(request.url).searchParams.get("code"),
-        browser,
-        {
-          socket: context.get(clientSocketAddressContext),
-          forwarded: getClientAddress(request),
-        },
-      ),
+      {
+        ...view,
+        instanceOrigin:
+          (await getPagesRuntime()).getConfig().mcpHttp?.publicUrl ??
+          new URL(request.url).origin,
+      },
       { headers: PAIR_HEADERS },
     );
   } catch (error: unknown) {

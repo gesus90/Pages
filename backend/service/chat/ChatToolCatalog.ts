@@ -14,6 +14,7 @@ import type {
 import type { AgentExtensionReadOperation } from "@/definition/AgentExtensions";
 import type { AgentProjectDeletionWriteOperation } from "@/definition/AgentProjectDeletion";
 import type {
+  AgentPlanCommandOperation,
   AgentPlanReadOperation,
   AgentPlanWriteOperation,
 } from "@/definition/AgentPlanOperations";
@@ -47,7 +48,11 @@ type ExcludedOperation =
   | "chat.sessions.delete"
   | AgentTextRangeWriteOperation
   | AgentWorkspaceWriteOperation
-  | AgentProjectDeletionWriteOperation;
+  | AgentProjectDeletionWriteOperation
+  | AgentPlanCommandOperation
+  | "plans.templates.list"
+  | "plans.templates.read"
+  | "plans.control.read";
 
 /** A Pages operation the chat agent may request; the same operations MCP clients use (T6.12.5). */
 export type ChatOperation = Exclude<
@@ -75,7 +80,7 @@ const RUN =
   "runId | planId + select: latest|first; runId optional mit planId zur Prüfung";
 const SCRIPT_FIELDS =
   "interpreterProfileId?, content?, inputs?: [{name, type: text, isRequired}], outputs?: [{name, type: text}], timeoutSeconds?";
-const CHANGES = `changes?: [{action: addNode, node: {type: start|end|agent|script|task|parameter, id?, x?, y?, agentId?, personalAgentId?, instruction?, taskId?, name?, format?, value?, ${SCRIPT_FIELDS}}} | {action: updateNode, nodeId, fields: {x?, y?, agentId?, personalAgentId?, instruction?, taskId?, name?, format?, value?, ${SCRIPT_FIELDS}}} | {action: removeNode, nodeId} | {action: connect|disconnect, from, to} | {action: bind, nodeId, parameter, binding: {kind: source, nodeId}|{kind: result, stepId}|{kind: literal, value}} | {action: unbind, nodeId, parameter}]`;
+const CHANGES = `placeNode(nodeId, groupId|null, x, y), ungroup(nodeId, positions), insertTemplate(templateId, x, y) und changes?: [{action: addNode, node: {type: start|end|agent|script|task|parameter|group, id?, x?, y?, agentId?, personalAgentId?, configuration?: gezielter Konfigurationspatch, instruction?, taskId?, name?, format?, value?, ${SCRIPT_FIELDS}}} | {action: updateNode, nodeId, fields: {x?, y?, agentId?, personalAgentId?, configuration?: gezielter Konfigurationspatch, instruction?, taskId?, name?, format?, value?, ${SCRIPT_FIELDS}}} | {action: removeNode, nodeId} | {action: connect|disconnect, from, to} | {action: bind, nodeId, parameter, binding: {kind: source, nodeId}|{kind: result, stepId}|{kind: literal, value}} | {action: unbind, nodeId, parameter}]`;
 
 /**
  * Parameters and purpose of every chat operation, as the agent reads them.

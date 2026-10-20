@@ -179,10 +179,10 @@ function describeListenError(error: unknown, port: number): string | null {
   return null;
 }
 
-function listen(server: Server, port: number): Promise<void> {
+function listen(server: Server, port: number, address?: string): Promise<void> {
   return new Promise((resolve, reject) => {
     server.once("error", reject);
-    server.listen(port, () => {
+    server.listen(port, address, () => {
       server.off("error", reject);
       resolve();
     });
@@ -290,7 +290,7 @@ export async function startPagesServer(
   });
 
   try {
-    await listen(server, port);
+    await listen(server, port, runtime.getConfig().listenAddress);
   } catch (error: unknown) {
     logCaughtError("PagesServer", error);
 
@@ -310,7 +310,12 @@ export async function startPagesServer(
   }
 
   void startAgentTools(runtime);
-  announceServer(runtime, listServerOrigins(port));
+  const address = runtime.getConfig().listenAddress;
+  const origins =
+    address && !["0.0.0.0", "::"].includes(address)
+      ? [`http://${address.includes(":") ? `[${address}]` : address}:${port}`]
+      : listServerOrigins(port);
+  announceServer(runtime, origins);
 
   return EXIT_SUCCESS;
 }

@@ -1401,6 +1401,23 @@ in plain words, and cannot start, stop or delete plans. The tools and their
 errors are listed in the
 [MCP reference](./mcp/README.md#agent-plans).
 
+### External MCP over stdio and HTTP
+
+External clients may use the client-started stdio adapter or the opt-in central
+`/mcp` Streamable HTTP endpoint of the existing Pages server. Both use shared
+tools and current personal authorization. HTTP supports OAuth discovery, public
+registration and Authorization Code with S256 PKCE, plus the existing explicit
+browser code-pairing flow through `/mcp-login`. Personal connections, expiry,
+last usage and revocation appear under Settings → Connections. Pica retains its
+native tools and internal job-token bridge, with no external OAuth dependency.
+
+Configure the optional `listenAddress` and `[mcpHttp].publicUrl` in the existing
+TOML file; keep listener address, public HTTPS origin and trusted reverse proxies
+separate. HTTP is limited to loopback. See the [MCP configuration, protocol,
+authorization and client instructions](./mcp/README.md#central-http-mcp-and-personal-authorization)
+for concrete settings, lifetimes and supported boundaries. No production proxy,
+TLS, database or deployment changes are part of enabling this source feature.
+
 ## Getting started
 
 ### Requirements

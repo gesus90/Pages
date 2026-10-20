@@ -182,6 +182,10 @@ export class AgentPlanTemplateRepository {
    */
   public async create(
     template: AgentPlanTemplateWrite,
+    journal?: (
+      transaction: DatabaseTransaction,
+      template: AgentPlanNodeTemplate,
+    ) => Promise<void>,
   ): Promise<AgentPlanNodeTemplate> {
     const nameKey = planTemplateNameKey(template.name);
     try {
@@ -240,6 +244,7 @@ export class AgentPlanTemplateRepository {
           template.id,
         );
         if (!created) throw new AgentError("template_invalid");
+        await journal?.(transaction, created);
         return created;
       });
     } catch (error: unknown) {

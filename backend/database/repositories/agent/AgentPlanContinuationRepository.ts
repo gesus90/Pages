@@ -2,6 +2,7 @@ import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
 import { readTextColumn } from "@/backend/database/RowValue";
 import { AgentError } from "@/backend/error/AgentErrors";
 
+import type { AgentPlanRunJournal } from "@/backend/service/agents/AgentPlanJournal";
 import type {
   Database,
   DatabaseTransaction,
@@ -35,7 +36,10 @@ export class AgentPlanContinuationRepository {
   }
 
   /** Compares the paused boundary and plan revision before adopting and reserving new work. */
-  public async adopt(input: PlanContinuationWrite): Promise<void> {
+  public async adopt(
+    input: PlanContinuationWrite,
+    journal?: AgentPlanRunJournal,
+  ): Promise<void> {
     await this.database.transaction(async (transaction) => {
       await this.requireCurrent(transaction, input);
       await this.reserve(transaction, input);
@@ -73,6 +77,7 @@ export class AgentPlanContinuationRepository {
       `,
         { id: run.id, status: run.status, view: JSON.stringify(run) },
       );
+      await journal?.(transaction, input.run);
     });
   }
 

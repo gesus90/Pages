@@ -1,3 +1,10 @@
+import {
+  CHANGES,
+  FORMAT,
+  VALUE,
+  PARAMETER_NAME,
+} from "./plan-change-schema.js";
+
 import type { Tool } from "@modelcontextprotocol/server";
 import type {
   AgentPlanReadOperation,
@@ -14,180 +21,6 @@ const COORDINATE = { type: "integer", minimum: 0, maximum: 6000 } as const;
 const CURSOR: Schema = { type: ["string", "null"], maxLength: 2048 };
 const LIMIT = { type: "integer", minimum: 1, maximum: 100 } as const;
 const SELECT: Schema = { enum: ["latest", "first"] };
-const FORMAT: Schema = { enum: ["string", "number", "json"] };
-
-const VALUE: Schema = {
-  oneOf: [
-    {
-      type: "object",
-      properties: {
-        type: { const: "text" },
-        text: { type: "string", maxLength: 200_000 },
-      },
-      required: ["type", "text"],
-      additionalProperties: false,
-    },
-    {
-      type: "object",
-      properties: { type: { const: "number" }, number: { type: "number" } },
-      required: ["type", "number"],
-      additionalProperties: false,
-    },
-    ...(
-      [
-        ["ticket", "ticketId"],
-        ["workspace", "workspaceId"],
-        ["wiki", "pageId"],
-      ] as const
-    ).map(([type, key]) => ({
-      type: "object",
-      properties: { type: { const: type }, [key]: IDENTIFIER },
-      required: ["type", key],
-      additionalProperties: false,
-    })),
-  ],
-};
-
-const BINDING: Schema = {
-  oneOf: [
-    {
-      type: "object",
-      properties: {
-        kind: { const: "literal" },
-        value: { oneOf: [{ type: "null" }, VALUE] },
-      },
-      required: ["kind", "value"],
-      additionalProperties: false,
-    },
-    {
-      type: "object",
-      properties: { kind: { const: "source" }, nodeId: IDENTIFIER },
-      required: ["kind", "nodeId"],
-      additionalProperties: false,
-    },
-    {
-      type: "object",
-      properties: { kind: { const: "result" }, stepId: IDENTIFIER },
-      required: ["kind", "stepId"],
-      additionalProperties: false,
-    },
-  ],
-};
-
-const PARAMETER_NAME = {
-  type: "string",
-  pattern: "^[a-z][a-z0-9_]{0,63}$",
-} as const;
-const INPUT_NAME = {
-  type: "string",
-  pattern: "^[a-zA-Z][a-zA-Z0-9_]{0,63}$",
-} as const;
-
-/** The fields of a script node, checked by Pages exactly as on the plan page. */
-const SCRIPT_FIELDS: Properties = {
-  interpreterProfileId: {
-    type: "string",
-    pattern: "^[a-zA-Z0-9-]{1,80}$",
-    description: "id of an interpreter profile from read_plan_sources",
-  },
-  content: { type: "string", maxLength: 100_000 },
-  inputs: {
-    type: "array",
-    maxItems: 16,
-    items: {
-      type: "object",
-      properties: {
-        name: INPUT_NAME,
-        type: { const: "text" },
-        isRequired: { type: "boolean" },
-      },
-      required: ["name", "type", "isRequired"],
-      additionalProperties: false,
-    },
-  },
-  outputs: {
-    type: "array",
-    minItems: 1,
-    maxItems: 1,
-    items: {
-      type: "object",
-      properties: { name: INPUT_NAME, type: { const: "text" } },
-      required: ["name", "type"],
-      additionalProperties: false,
-    },
-  },
-  timeoutSeconds: { type: "integer", minimum: 1, maximum: 300 },
-};
-
-const NODE_FIELDS: Properties = {
-  x: COORDINATE,
-  y: COORDINATE,
-  agentId: { type: "string", maxLength: 100 },
-  personalAgentId: { type: ["string", "null"], maxLength: 100 },
-  instruction: { type: "string", maxLength: 200_000 },
-  completion: { enum: ["report", "todos"] },
-  taskId: { type: "string", minLength: 1, maxLength: 100 },
-  name: {
-    type: "string",
-    minLength: 1,
-    maxLength: 120,
-    description:
-      "parameter: a-z, 0-9 and _ starting with a letter; script: the name its card shows",
-  },
-  format: FORMAT,
-  value: VALUE,
-  ...SCRIPT_FIELDS,
-};
-
-function change(action: string, properties: Properties): Schema {
-  return {
-    type: "object",
-    properties: { action: { const: action }, ...properties },
-    required: ["action", ...Object.keys(properties)],
-    additionalProperties: false,
-  };
-}
-
-const CHANGES: Schema = {
-  type: "array",
-  maxItems: 200,
-  items: {
-    oneOf: [
-      change("addNode", {
-        node: {
-          type: "object",
-          properties: {
-            type: {
-              enum: ["start", "end", "agent", "script", "task", "parameter"],
-            },
-            id: { type: "string", minLength: 1, maxLength: 100 },
-            ...NODE_FIELDS,
-          },
-          required: ["type"],
-          additionalProperties: false,
-        },
-      }),
-      change("updateNode", {
-        nodeId: IDENTIFIER,
-        fields: {
-          type: "object",
-          properties: NODE_FIELDS,
-          minProperties: 1,
-          additionalProperties: false,
-        },
-      }),
-      change("removeNode", { nodeId: IDENTIFIER }),
-      change("connect", { from: IDENTIFIER, to: IDENTIFIER }),
-      change("disconnect", { from: IDENTIFIER, to: IDENTIFIER }),
-      change("bind", {
-        nodeId: IDENTIFIER,
-        parameter: INPUT_NAME,
-        binding: BINDING,
-      }),
-      change("unbind", { nodeId: IDENTIFIER, parameter: IDENTIFIER }),
-    ],
-  },
-};
 
 const SHARING: Schema = {
   type: "object",
@@ -208,7 +41,7 @@ const RUN_DESCRIPTION =
 const CHANGE_DESCRIPTION =
   "Only the owner or a member or leader of the plan's team (canEdit) changes a plan; a plan that is only shared with the account is FORBIDDEN, and so is a move to a workspace of another project by a team member who is not the owner. Whoever saves works with their own access: agents, models, tickets and pages are checked for the connected account. The owner and the team of a plan never change by a save. Pass the revision read last as expectedRevision; CONFLICT with details.currentRevision means it changed meanwhile and nothing was written. Pages checks the saved plan like its plan page: INVALID_REQUEST with details.reason graph_invalid and details.issues (nodeId, port, problem) for a refused graph, parameter_value_invalid, workspace_unavailable, parameter_reference_unavailable (a ticket, page or workspace the account cannot use), plan_script_invalid (a script field breaks its rules), plan_script_profile_missing (a new or changed interpreterProfileId names no configured profile), plan_name_taken (another plan of the team in the same project has the name, ignoring case and surrounding spaces; nothing was written), sharing_target_unavailable or credentials_in_text (also in script content). Reuse operationId with identical parameters after response loss to receive the stored result without a second change; the same operationId with other parameters is CONFLICT. The result is { planId, changed, revision, createdNodeIds }.";
 const STRUCTURE_DESCRIPTION =
-  "changes apply in order and together or not at all. addNode adds start, end, agent (agentId from read_plan_sources, optional personalAgentId, instruction and completion), script (name up to 120 characters, interpreterProfileId of a profile from read_plan_sources, content: the script text, 1 to 100000 characters, though one request is at most 64 KiB (PAYLOAD_TOO_LARGE), so longer content is set on the plan page; outputs: exactly one {name, type text}, which the script's result port hands on; optional inputs: up to 16 {name, type text, isRequired}; optional timeoutSeconds 1 to 300, default 60; input and output names start with a letter, use letters, digits and _ and are unique together; no workspace, model or reasoning: a script runs in the plan's workspace), task (taskId of a task or subtask of the project) or parameter (name a-z0-9_, value, optional format string|number|json) nodes; id is optional and lets later changes of the same call refer to the node, x and y default to the next free slot. A new agent node gets value nodes for its defaults and its directory parameter as in the editor. updateNode sets fields of the node's kind (x, y for every node); a script keeps the bindings of the inputs it still declares, so a renamed input must be bound again. completion selects progress scope only: report (default) describes todos and acceptance criteria; todos follows the current ticket todo list, ticked live. In both modes, regular runner completion automatically releases successors, including internal group steps. Missing or invalid reports, open todos, unmet criteria, missing evidence and ticket changes are diagnostics and never fail execution; open or unknown work stays visible. Technical runner errors, access denials and explicit pause/stop remain effective. removeNode also removes its connections and the inputs it fed. connect and disconnect change flow connections from → to (start, agent and script nodes to agent, script and end nodes). bind sets where an input of an agent or script node takes its value: kind source (a parameter or task node), result (the text result of an earlier agent or script node in flow order) or literal; script inputs take text only; unbind removes it. Scripts never join groups. Pages does not run scripts yet: a plan with a script node is not runnable (issue scriptUnavailable) and does not start. element_missing (INVALID_REQUEST) means a named node, connection or input does not exist or has another kind; element_exists means an id, connection or parameter name is taken.";
+  "Changes are ordered and atomic. addNode creates start/end/agent/script/task/parameter/group; group needs name and starts empty/portless. New agents copy their source defaults. updateNode changes only the fields of that family, also for agent members inside groups. configuration is a PATCH: name, modelProfileId and reasoningEffort, template.markdown/parameters/directoryParameter/run; omitted fields survive. Model/provider facts derive from read_plan_sources.models, reasoning must be one of that model's choices. Run patches merge; provider changes use that provider's defaults, as in the editor. x/y are integers 0..6000 exactly as in the editor. Batch multiple updates for joint positioning. placeNode moves an agent into groupId (null detaches), x/y relative inside a group, absolute outside. Edges and bindings survive membership changes. Frames never have ports or nested frames. connect/disconnect name actual members, including internal and cross-group edges. bind/unbind target agent members or scripts with source/result/literal typed values. removeNode removes the node and its incident references; a group removal deletes its members. ungroup keeps all members/edges/bindings and requires an explicit absolute position for each member; ambiguous legacy aliases are refused. insertTemplate inserts a checked independent copy of templateId at x/y and returns all new IDs. Scripts retain text inputs/output, interpreter profile, content and timeout, but execution is unavailable (scriptUnavailable). Saving never starts a run. Unknown fields, raw groups/steps/edges replacement and arbitrary credentials are refused.";
 
 const READ_ANNOTATIONS = {
   readOnlyHint: true,
@@ -232,9 +65,12 @@ interface WriteToolOptions extends ToolOptions {
   readonly optionalKeys: readonly string[];
   /** Whether the change can remove nodes, connections or inputs. */
   readonly isDestructive: boolean;
+  /** Whether executing the tool can invoke models or affect workspaces beyond Pages records. */
+  readonly isOpenWorld?: boolean;
 }
 
-function readTool(options: ReadToolOptions): Tool {
+/** Builds a read tool in the shared external plan catalog. */
+export function readTool(options: ReadToolOptions): Tool {
   const { name, title, description, properties, required = [] } = options;
   return {
     name,
@@ -250,7 +86,8 @@ function readTool(options: ReadToolOptions): Tool {
   };
 }
 
-function writeTool(options: WriteToolOptions): Tool {
+/** Builds a journaled write tool in the shared external plan catalog. */
+export function writeTool(options: WriteToolOptions): Tool {
   const { name, title, description, properties, optionalKeys } = options;
   return {
     name,
@@ -269,7 +106,7 @@ function writeTool(options: WriteToolOptions): Tool {
       readOnlyHint: false,
       destructiveHint: options.isDestructive,
       idempotentHint: true,
-      openWorldHint: false,
+      openWorldHint: options.isOpenWorld ?? false,
     },
   };
 }
@@ -316,7 +153,7 @@ export const PLAN_READ_TOOLS: readonly {
       name: "read_plan_sources",
       title: "Read plan sources",
       description:
-        "Lists the workspaces a plan can be created in (projects the account can open), and with workspaceId the agents a node of a plan there can run: id, name, model, isUsable, directoryParameter and the parameters each declares, and the interpreter profiles a script node can name: id, name, status (ok, error or unchecked) and version. No credential, connection or path is part of it. Tickets for task nodes are found with search_tickets.",
+        "Also returns authorized models with profile IDs, provider, model and allowed reasoningEfforts, secret-free source configuration copies and editor limits. Lists the workspaces a plan can be created in (projects the account can open), and with workspaceId the agents a node of a plan there can run: id, name, model, isUsable, directoryParameter and the parameters each declares, and the interpreter profiles a script node can name: id, name, status (ok, error or unchecked) and version. No credential, connection or path is part of it. Tickets for task nodes are found with search_tickets.",
       properties: { workspaceId: IDENTIFIER },
     }),
   },
@@ -406,7 +243,7 @@ export const PLAN_WRITE_TOOLS: readonly {
     tool: writeTool({
       name: "create_plan_parameter",
       title: "Create plan parameter",
-      description: `Adds one parameter node to a plan: a name (a-z, 0-9, _; unique in the plan, element_exists otherwise) and a value of type text, number, ticket, workspace or wiki. format string (default; number for a number value), number or json says how a text value is checked; numbers and JSON reach text inputs as text. Bind it to an agent input with update_plan. createdNodeIds holds its id. ${CHANGE_DESCRIPTION}`,
+      description: `Adds one parameter node to a plan: a display name (letters, digits and _, starting with a letter; nodes are identified by ID) and a value of type text, number, ticket, workspace or wiki. format string (default; number for a number value), number or json says how a text value is checked; numbers and JSON reach text inputs as text. Bind it to an agent input with update_plan. createdNodeIds holds its id. ${CHANGE_DESCRIPTION}`,
       properties: { ...TARGET, ...PARAMETER_FIELDS },
       optionalKeys: ["format", "x", "y"],
       isDestructive: false,

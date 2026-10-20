@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 
 import { withPortlessPlanGroups } from "@/definition/AgentPlanGroupUpgrade";
-
 import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
 import { planExecutionIssues } from "@/definition/AgentPlanGraph";
 import { allPlanSteps, mapPlanSteps } from "@/definition/AgentPlanGroup";
@@ -12,9 +11,9 @@ import { requireCredentialFreeText } from "@/backend/security/AgentTextSafety";
 import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { withoutTicketFlow } from "@/definition/AgentPlanGraph";
-import { logCaughtError } from "@/backend/logging/Logger";
 import { emptyAgentPlan } from "@/definition/AgentPlan";
 
+import { readPlanHistory } from "./AgentPlanHistory";
 import { withPlanProgress } from "./AgentPlanProgressView";
 import { AgentPlanControlService } from "./AgentPlanControlService";
 import { AgentPlanStartupRecovery } from "./recovery/AgentPlanStartupRecovery";
@@ -29,6 +28,7 @@ import {
 import { AgentPlanScripts } from "./AgentPlanScripts";
 import { planTaskBindings } from "./AgentPlanTaskBindings";
 
+import type { AgentPlanRunJournal } from "./AgentPlanJournal";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 import type { DatabaseTransaction } from "@/backend/database/Database";
 import type { AgentPlanRepository } from "@/backend/database/repositories/agent/AgentPlanRepository";
@@ -367,10 +367,17 @@ export class AgentPlanService {
    * the requester or belongs to someone else, `plan_running` while one of its
    * runs is active.
    */
-  public async remove(userId: string, id: string): Promise<void> {
+  public async remove(
+    userId: string,
+    id: string,
+    options?: {
+      readonly revision: number;
+      readonly journal: (transaction: DatabaseTransaction) => Promise<void>;
+    },
+  ): Promise<void> {
     const plan = await this.dependencies.access.require(userId, id);
     if (plan.ownerId !== userId) throw new AgentError("plan_access_denied");
-    await this.dependencies.plans.remove(plan.id, userId);
+    await this.dependencies.plans.remove(plan.id, userId, options);
   }
 
   /**
@@ -384,13 +391,14 @@ export class AgentPlanService {
     userId: string,
     id: string,
     revision: number,
+    journal?: AgentPlanRunJournal,
   ): Promise<AgentPlanRun> {
     const plan = await this.dependencies.access.require(userId, id);
     if (!plan.canEdit) throw new AgentError("plan_access_denied");
     if (plan.revision !== revision) throw new AgentError("plan_conflict");
     const snapshot = await this.dependencies.preparation.prepare(userId, plan);
     await this.dependencies.access.require(userId, id);
-    return this.dependencies.engine.start(userId, snapshot);
+    return this.dependencies.engine.start(userId, snapshot, undefined, journal);
   }
 
   /**
@@ -466,20 +474,28 @@ export class AgentPlanService {
   }
 
   /** Other workspace users or plan owners cannot stop an executor's private run. */
-  public async stop(userId: string, id: string): Promise<AgentPlanRun> {
+  public async stop(
+    userId: string,
+    id: string,
+    journal?: AgentPlanRunJournal,
+  ): Promise<AgentPlanRun> {
     const run = await this.run(userId, id);
     if (!(await this.dependencies.access.require(userId, run.planId)).canEdit)
       throw new AgentError("plan_access_denied");
-    await this.dependencies.engine.stop(id);
+    await this.dependencies.engine.stop(id, journal);
     return this.run(userId, id);
   }
 
   /** Only the executor with current plan and resource access may pause this run. */
-  public async pause(userId: string, id: string): Promise<AgentPlanRun> {
+  public async pause(
+    userId: string,
+    id: string,
+    journal?: AgentPlanRunJournal,
+  ): Promise<AgentPlanRun> {
     const run = await this.run(userId, id);
     if (!(await this.dependencies.access.require(userId, run.planId)).canEdit)
       throw new AgentError("plan_access_denied");
-    await this.dependencies.engine.pause(id);
+    await this.dependencies.engine.pause(id, journal);
     return this.run(userId, id);
   }
 
@@ -488,6 +504,7 @@ export class AgentPlanService {
     userId: string,
     id: string,
     revision?: number,
+    journal?: AgentPlanRunJournal,
   ): Promise<AgentPlanRun> {
     const run = await this.run(userId, id);
     const plan = await this.dependencies.access.require(userId, run.planId);
@@ -501,7 +518,7 @@ export class AgentPlanService {
       throw new AgentError("plan_continuation_deleted");
     const snapshot = await this.dependencies.preparation.prepare(userId, plan);
     await this.run(userId, id);
-    await this.dependencies.engine.resume(id, snapshot);
+    await this.dependencies.engine.resume(id, snapshot, journal);
     return this.run(userId, id);
   }
 
@@ -776,16 +793,6 @@ export class AgentPlanService {
     userId: string,
     planId: string,
   ): Promise<readonly AgentPlanRun[]> {
-    const history: AgentPlanRun[] = [];
-    for (const run of await this.dependencies.runs.list(userId, planId)) {
-      try {
-        history.push(await this.run(userId, run.id));
-      } catch (error: unknown) {
-        logCaughtError("AgentPlanService", error);
-
-        if (!(error instanceof AgentError)) throw error;
-      }
-    }
-    return history;
+    return readPlanHistory(this, this.dependencies.runs, userId, planId);
   }
 }

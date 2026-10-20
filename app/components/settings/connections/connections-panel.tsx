@@ -36,6 +36,18 @@ export function ConnectionsPanel({
         />
       ) : (
         <div className="space-y-4">
+          {view.httpEndpoint ? (
+            <div className="rounded-2xl border border-border p-4 text-sm">
+              <p className="font-medium">{t("mcpHttp.endpoint")}</p>
+              <code className="pages-selectable break-all">
+                {view.httpEndpoint}
+              </code>
+              <p className="my-2 text-muted-foreground">{t("mcpHttp.hint")}</p>
+              <a href="/mcp-login" className="underline">
+                {t("mcpHttp.pair")}
+              </a>
+            </div>
+          ) : null}
           <StdioConnectionsCard
             tokens={view.tokens}
             days={view.validityDays}

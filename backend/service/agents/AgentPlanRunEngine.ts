@@ -14,6 +14,7 @@ import {
   withLogContext,
 } from "@/backend/logging/Logger";
 
+import { AgentPlanRunCommands } from "./AgentPlanRunCommands";
 import { completePlanDrain } from "./AgentPlanDrain";
 import { runPlanInstruction } from "./AgentPlanInstructionControl";
 import {
@@ -30,14 +31,12 @@ import {
   hasUnconfirmedCloseout,
   countRunningPlanRequests,
 } from "./AgentPlanRunState";
-import {
-  preparePlanContinuation,
-  planWritingWorkspaces,
-} from "./AgentPlanContinuation";
+import { planWritingWorkspaces } from "./AgentPlanContinuation";
 import { withGroupResults } from "./AgentPlanGroupResults";
 import { createPlanCheckpoint } from "./recovery/AgentPlanCheckpoint";
 import { planRecoveryReason } from "./recovery/AgentPlanFailure";
 
+import type { AgentPlanRunJournal } from "./AgentPlanJournal";
 import type { PlanInstructionWork } from "./AgentPlanInstructionControl";
 import type { PlanSessionTurn } from "@/backend/agents/AgentPlanExecution";
 import type { ActivePlanRun } from "./AgentPlanRunState";
@@ -71,7 +70,8 @@ export type AgentPlanRunRecording = (
 /** How long a stopped run may take to close before the caller gives up waiting. */
 const STOP_WAIT_MILLISECONDS = 30_000;
 
-interface EngineDependencies {
+/** Runtime boundaries shared with the run command aggregate. */
+export interface EngineDependencies {
   readonly resources?: Pick<AcpResourceScheduler, "pauseRun" | "resumeRun">;
   readonly runs: Pick<
     AgentPlanRunRepository,
@@ -87,6 +87,7 @@ interface EngineDependencies {
 /** Event-driven DAG scheduling; native ACP capacity is admitted by the shared resource service. */
 export class AgentPlanRunEngine {
   private readonly dependencies: EngineDependencies;
+  private readonly commands: AgentPlanRunCommands;
   private readonly active = new Map<string, ActivePlanRun>();
   private readonly writes = new SerialQueue();
   private readonly pending = new Set<Promise<void>>();
@@ -94,6 +95,13 @@ export class AgentPlanRunEngine {
 
   public constructor(dependencies: EngineDependencies) {
     this.dependencies = dependencies;
+    this.commands = new AgentPlanRunCommands({
+      ...dependencies,
+      active: this.active,
+      writes: this.writes,
+      isClosing: () => this.isClosing,
+      pump: () => this.pump(),
+    });
   }
 
   /**
@@ -109,6 +117,7 @@ export class AgentPlanRunEngine {
     userId: string,
     snapshot: AgentPlanSnapshot,
     recording?: AgentPlanRunRecording,
+    journal?: AgentPlanRunJournal,
   ): Promise<AgentPlanRun> {
     if (this.isClosing) throw new AgentError("plan_access_denied");
     const view: AgentPlanRun = {
@@ -163,6 +172,7 @@ export class AgentPlanRunEngine {
           initialView,
           snapshot,
           workspaceIds,
+          journal,
         );
     } catch (error: unknown) {
       logCaughtError("AgentPlanRunEngine", error);
@@ -191,24 +201,23 @@ export class AgentPlanRunEngine {
     }
   }
 
-  /** Stop is persisted first; confirmed cancellation is reported only by a settled adapter. */
-  public async stop(id: string): Promise<void> {
-    withLogContext({ runId: id }, () =>
-      logEvent({
-        level: "info",
-        event: "agent.run.stop_requested",
-        component: "AgentPlanRunEngine",
-        message: "Agent plan stop requested",
-      }),
-    );
-    await this.writes.run(async () => {
-      const active = this.active.get(id);
-      if (!active) return;
-      requestCancellation(active);
-      await this.dependencies.runs.update(active.view);
-      for (const controller of active.controllers.values()) controller.abort();
-    });
-    this.schedulePump();
+  /** Persists an explicit stop before aborting any execution. */
+  public async stop(id: string, journal?: AgentPlanRunJournal): Promise<void> {
+    await this.commands.stop(id, journal);
+  }
+
+  /** Persists an explicit pause before releasing the execution gate. */
+  public async pause(id: string, journal?: AgentPlanRunJournal): Promise<void> {
+    await this.commands.pause(id, journal);
+  }
+
+  /** Adopts a saved revision and journals the resume at its durable boundary. */
+  public async resume(
+    id: string,
+    snapshot?: AgentPlanSnapshot,
+    journal?: AgentPlanRunJournal,
+  ): Promise<void> {
+    await this.commands.resume(id, snapshot, journal);
   }
 
   /**
@@ -241,59 +250,6 @@ export class AgentPlanRunEngine {
     }
   }
 
-  /** Persists pause before scheduling can start another node; in-flight nodes settle normally. */
-  public async pause(id: string): Promise<void> {
-    await this.writes.run(async () => {
-      const active = this.active.get(id);
-      if (
-        !active ||
-        active.view.stopRequested ||
-        active.view.status !== "running"
-      )
-        throw new AgentError("plan_run_unavailable");
-      active.view = {
-        ...active.view,
-        status: "pausing",
-        steps: active.view.steps.map((step) =>
-          step.status === "waiting" ? { ...step, status: "paused" } : step,
-        ),
-      };
-      await this.dependencies.runs.update(active.view);
-      for (const [stepId, controller] of active.controllers)
-        if (!active.dispatched.has(stepId))
-          controller.abort(new AgentPlanPausedError());
-    });
-    await this.pump();
-  }
-
-  /** Adopts a prepared revision without reopening the gate until its transaction commits. */
-  public async resume(id: string, snapshot?: AgentPlanSnapshot): Promise<void> {
-    await this.writes.run(async () => {
-      const active = this.active.get(id);
-      if (
-        !active ||
-        this.isClosing ||
-        active.view.stopRequested ||
-        active.hasPersistenceFailure ||
-        active.view.status !== "paused" ||
-        active.controllers.size !== 0
-      )
-        throw new AgentError("plan_run_unavailable");
-      const proposed = snapshot ?? active.snapshot;
-      const next = preparePlanContinuation(
-        active.view,
-        active.snapshot,
-        proposed,
-      );
-      await this.adoptContinuation(active, next);
-      active.snapshot = next.snapshot;
-      active.view = next.run;
-      this.dependencies.steps.revise?.(id);
-      this.dependencies.resources?.resumeRun(id);
-    });
-    await this.pump();
-  }
-
   /** The shutdown hook drains execution before closing DuckDB or the shared CLI runner. */
   public async shutdown(): Promise<void> {
     this.isClosing = true;
@@ -314,30 +270,6 @@ export class AgentPlanRunEngine {
       clearTimeout(timer);
     }
     await this.pump();
-  }
-
-  private async adoptContinuation(
-    active: ActivePlanRun,
-    next: ReturnType<typeof preparePlanContinuation>,
-  ): Promise<void> {
-    const release = await this.dependencies.files?.hold(
-      next.snapshot.steps.map((step) => step.step.agentId),
-    );
-    try {
-      await this.dependencies.runs.update(next.run, undefined, {
-        previous: active.view,
-        snapshot: next.snapshot,
-        workspaceIds: planWritingWorkspaces(next.snapshot),
-      });
-    } catch (error: unknown) {
-      await release?.();
-      throw error;
-    }
-    const previousRelease = active.releaseDefinition;
-    active.releaseDefinition = async () => {
-      await previousRelease?.();
-      await release?.();
-    };
   }
 
   private schedulePump(): void {

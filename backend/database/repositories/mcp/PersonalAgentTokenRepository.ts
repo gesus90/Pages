@@ -98,8 +98,7 @@ export class PersonalAgentTokenRepository {
       revokedAt: nullableTimestamp(
         readNullableTextColumn(row, 5, "revoked_at"),
       ),
-      source:
-        readTextColumn(row, 6, "source") === "pairing" ? "pairing" : "manual",
+      source: readTokenSource(readTextColumn(row, 6, "source")),
       device: readNullableTextColumn(row, 7, "device_label"),
       lastUsedAt: nullableTimestamp(
         readNullableTextColumn(row, 8, "last_used_at"),
@@ -124,7 +123,12 @@ export class PersonalAgentTokenRepository {
       FROM personal_agent_tokens
       WHERE (token_hash = $token_hash OR (previous_token_hash = $token_hash AND previous_valid_until > $now))
           AND revoked_at IS NULL
-          AND (expires_at IS NULL OR expires_at > $now);
+          AND (expires_at IS NULL OR expires_at > $now)
+          AND (source IS DISTINCT FROM 'oauth' OR EXISTS (
+              SELECT token_hash FROM mcp_http_access
+              WHERE mcp_http_access.token_hash = personal_agent_tokens.token_hash
+                  AND mcp_http_access.expires_at > $now
+          ));
     `,
       { token_hash: tokenHash, now },
     );
@@ -237,4 +241,9 @@ export class PersonalAgentTokenRepository {
 
 function nullableTimestamp(timestamp: string | null): number | null {
   return timestamp === null ? null : Number(timestamp);
+}
+
+function readTokenSource(source: string): PersonalAgentToken["source"] {
+  if (source === "oauth" || source === "pairing") return source;
+  return "manual";
 }

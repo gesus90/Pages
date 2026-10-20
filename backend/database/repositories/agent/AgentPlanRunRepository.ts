@@ -7,6 +7,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanContinuationRepository } from "./AgentPlanContinuationRepository";
 import { AgentPlanProgressRepository } from "./AgentPlanProgressRepository";
 
+import type { AgentPlanRunJournal } from "@/backend/service/agents/AgentPlanJournal";
 import type { PlanContinuationWrite } from "./AgentPlanContinuationRepository";
 import type {
   Database,
@@ -60,10 +61,12 @@ export class AgentPlanRunRepository {
     run: AgentPlanRun,
     snapshot: AgentPlanSnapshot,
     workspaceIds: readonly string[],
+    journal?: AgentPlanRunJournal,
   ): Promise<void> {
-    await this.database.transaction((transaction) =>
-      this.insert(transaction, run, snapshot, workspaceIds),
-    );
+    await this.database.transaction(async (transaction) => {
+      await this.insert(transaction, run, snapshot, workspaceIds);
+      await journal?.(transaction, run);
+    });
   }
 
   /**
@@ -331,8 +334,10 @@ export class AgentPlanRunRepository {
     run: AgentPlanRun,
     checkpoint?: AgentPlanCheckpointInput,
     continuation?: Omit<PlanContinuationWrite, "run">,
+    journal?: AgentPlanRunJournal,
   ): Promise<void> {
-    if (continuation) await this.continuations.adopt({ ...continuation, run });
-    else await this.progress.update(run, checkpoint);
+    if (continuation)
+      await this.continuations.adopt({ ...continuation, run }, journal);
+    else await this.progress.update(run, checkpoint, journal);
   }
 }

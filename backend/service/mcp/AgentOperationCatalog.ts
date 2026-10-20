@@ -4,7 +4,11 @@ import {
   AGENT_PROJECT_DELETION_READ_OPERATIONS,
   AGENT_PROJECT_DELETION_WRITE_OPERATIONS,
 } from "@/definition/AgentProjectDeletion";
-import { AGENT_PLAN_READ_OPERATIONS } from "@/definition/AgentPlanOperations";
+import {
+  AGENT_PLAN_COMMAND_OPERATIONS,
+  AGENT_PLAN_READ_OPERATIONS,
+  AGENT_PLAN_RESOURCE_READ_OPERATIONS,
+} from "@/definition/AgentPlanOperations";
 import { AGENT_TEXT_RANGE_READ_OPERATIONS } from "@/definition/AgentTextRange";
 import { AGENT_WORKSPACE_READ_OPERATIONS } from "@/definition/AgentWorkspaceOperations";
 import { PAGE_AGENT_READ_OPERATIONS } from "@/definition/PageAgentOperations";
@@ -36,6 +40,7 @@ const READING_OPERATIONS: readonly PagesAgentApiBusinessOperation[] = [
   ...AGENT_EXTENSION_READ_OPERATIONS,
   ...AGENT_WORKSPACE_READ_OPERATIONS,
   ...AGENT_PLAN_READ_OPERATIONS,
+  ...AGENT_PLAN_RESOURCE_READ_OPERATIONS,
   ...PAGE_AGENT_READ_OPERATIONS,
   "chat.sessions.list",
 ];
@@ -59,6 +64,7 @@ export function ownerOperations(
     ...AGENT_EXTENSION_READ_OPERATIONS,
     ...AGENT_WORKSPACE_READ_OPERATIONS,
     ...AGENT_PLAN_READ_OPERATIONS,
+    ...AGENT_PLAN_RESOURCE_READ_OPERATIONS,
     ...PAGE_AGENT_READ_OPERATIONS,
     "chat.sessions.list",
     ...PAGES_AGENT_WRITE_OPERATIONS.filter(
@@ -129,6 +135,10 @@ export function sessionOperations(
 ): readonly PagesAgentApiBusinessOperation[] {
   return forSession(scope, isAdmin).filter(
     (operation) =>
+      !AGENT_PLAN_COMMAND_OPERATIONS.some((command) => command === operation) &&
+      operation !== "plans.templates.list" &&
+      operation !== "plans.templates.read" &&
+      operation !== "plans.control.read" &&
       !AGENT_PROJECT_DELETION_WRITE_OPERATIONS.some(
         (deletion) => deletion === operation,
       ),

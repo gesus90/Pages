@@ -1,5 +1,7 @@
 import path from "node:path";
 
+import { AgentPlanTemplateService } from "@/backend/service/agents/AgentPlanTemplateService";
+import { AgentPlanTemplateRepository } from "@/backend/database/repositories/agent/AgentPlanTemplateRepository";
 import { AgentChatSessionOperationService } from "@/backend/service/agents/AgentChatSessionOperationService";
 import { ChatSessionService } from "@/backend/service/chat/ChatSessionService";
 import { ChatSettingsService } from "@/backend/service/chat/ChatSettingsService";
@@ -33,6 +35,7 @@ import { AgentPlanOperationService } from "@/backend/service/agents/AgentPlanOpe
 import { ChatAgentOperationService } from "@/backend/service/agents/ChatAgentOperationService";
 import { PageAgentOperationService } from "@/backend/service/agents/PageAgentOperationService";
 import { AgentRunCredentialRepository } from "@/backend/database/repositories/mcp/AgentRunCredentialRepository";
+import { OAuthRepository } from "@/backend/database/repositories/mcp/OAuthRepository";
 import { PersonalAgentTokenRepository } from "@/backend/database/repositories/mcp/PersonalAgentTokenRepository";
 import { PairingRepository } from "@/backend/database/repositories/mcp/PairingRepository";
 import { PairingService } from "@/backend/service/mcp/PairingService";
@@ -41,6 +44,7 @@ import { ProjectRepository } from "@/backend/database/repositories/ProjectReposi
 import { AgentIdentityService } from "@/backend/service/mcp/AgentIdentityService";
 import { AgentProjectService } from "@/backend/service/mcp/AgentProjectService";
 import { AgentRunCredentialService } from "@/backend/service/mcp/AgentRunCredentialService";
+import { OAuthService } from "@/backend/service/mcp/OAuthService";
 import { PersonalAgentTokenService } from "@/backend/service/mcp/PersonalAgentTokenService";
 
 import type { AgentChannel } from "@/backend/auth/McpActorContext";
@@ -58,6 +62,7 @@ import type { UserService } from "@/backend/service/UserService";
 
 /** Personal authentication and operation services shared by stdio clients and Pages. */
 export interface McpApplicationServices {
+  readonly oauthService: OAuthService;
   readonly agentAssetService: AgentAssetService;
   /** The same operation catalog for the chat agent: UI role mode, changes marked as AI actions. */
   readonly chatOperationRouter: AgentOperationRouter;
@@ -145,6 +150,13 @@ function createMcpOperationRouter(
     plans: new AgentPlanOperationService({
       database: context.database,
       plans: context.plans,
+      resources: {
+        plans: context.plans,
+        templates: new AgentPlanTemplateService({
+          plans: context.plans,
+          templates: new AgentPlanTemplateRepository(context.database),
+        }),
+      },
     }),
     projects: new ProjectRepository(context.database),
     wiki: new WikiRepository(context.database),
@@ -189,6 +201,13 @@ function createChatOperationRouter(
     plans: new AgentPlanOperationService({
       database: context.database,
       plans: context.plans,
+      resources: {
+        plans: context.plans,
+        templates: new AgentPlanTemplateService({
+          plans: context.plans,
+          templates: new AgentPlanTemplateRepository(context.database),
+        }),
+      },
     }),
     projects: new ProjectRepository(context.database),
     wiki: new WikiRepository(context.database),
@@ -321,6 +340,12 @@ export function createMcpServices(
   };
   return {
     agentAssetService,
+    oauthService: new OAuthService({
+      repository: new OAuthRepository(database),
+      identities,
+      personal: personalAgentTokenService,
+      pairing: pairingService,
+    }),
     chatOperationRouter: createChatOperationRouter(
       routers,
       workspace.pageAgents,

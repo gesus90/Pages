@@ -10,6 +10,7 @@ export type McpPairingStatus =
 
 /** Session-bound browser view; never includes the device secret or a token. */
 export interface McpPairingView {
+  readonly instanceOrigin?: string;
   readonly status: McpPairingStatus | "invalid" | "entry";
   readonly code: string;
   readonly csrf?: string;

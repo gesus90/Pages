@@ -1139,8 +1139,8 @@
       "title": "Verbindungen",
       "description": "MCP-Clients, die in Ihrem Namen auf Pages zugreifen. Sie erhalten nie mehr Rechte als Ihr Konto.",
       "stdio": {
-        "title": "MCP-Clients (stdio)",
-        "description": "Gekoppelte Clients auf Ihren Geräten. Ein neuer Client wird im Terminal gekoppelt.",
+        "title": "Persönliche MCP-Verbindungen",
+        "description": "Verwalte stdio-, HTTP-Pairing- und OAuth-Verbindungen deines Kontos.",
         "pair": "Client koppeln",
         "column": {
           "name": "Name",
@@ -1152,7 +1152,8 @@
         },
         "source": {
           "pairing": "Gekoppelt",
-          "manual": "Manuell erstellt"
+          "manual": "Manuell erstellt",
+          "oauth": "HTTP · OAuth"
         },
         "status": {
           "active": "Aktiv",
@@ -4200,5 +4201,17 @@
       "accessUnverified": "Der Zugang dieser Anbindung ist nicht bestätigt. Verifiziere sie zuerst in den Agent-Einstellungen.",
       "profileSelectionRequired": "Mehrere Profile sind verfügbar. Bitte einen Zugang ausdrücklich auswählen."
     }
+  },
+  "mcpHttp": {
+    "title": "MCP-Client verbinden",
+    "description": "Zugriff mit deinen aktuellen Pages-Rechten erlauben. Clientnamen stammen von der anfragenden Anwendung.",
+    "instance": "Pages-Instanz",
+    "lifetime": "Der Zugriff endet nach einer Stunde oder früher bei Widerruf oder Rechteentzug. Für die Erneuerung erneut anmelden und zustimmen.",
+    "approve": "Zugriff erlauben",
+    "deny": "Ablehnen",
+    "error": "Diese Anfrage ist ungültig, abgelaufen oder bereits verwendet. Starte die Verbindung im Client erneut.",
+    "pair": "Pairing-Code eingeben",
+    "endpoint": "HTTP-MCP-Endpunkt",
+    "hint": "OAuth in einem kompatiblen HTTP-Client verwenden oder einen Pairing-Code eingeben. Bearer-Tokens geschützt im Client ablegen."
   }
 }

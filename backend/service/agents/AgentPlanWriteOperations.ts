@@ -1,3 +1,4 @@
+import { requirePlanRevision } from "@/backend/database/repositories/agent/AgentPlanRepository";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { AgentOperationKeyRepository } from "@/backend/database/repositories/agents/AgentOperationKeyRepository";
@@ -12,9 +13,11 @@ import { readPlanWriteRequest } from "./AgentPlanOperationInput";
 import { applyPlanChanges } from "./AgentPlanStructureChanges";
 import { toSharing } from "./PageAgentOperationDefinition";
 
+import type { AgentPlanTemplateService } from "./AgentPlanTemplateService";
+import type { AgentPlanChangeContext } from "./AgentPlanStructureChanges";
+import type { AgentPlanTemplateNode } from "@/definition/AgentPlanNodeTemplate";
 import type { Database } from "@/backend/database/Database";
 import type { StoredAgentOperation } from "@/backend/database/repositories/agents/AgentOperationKeyRepository";
-import type { AgentDefinitionChoice } from "@/definition/AgentAvailability";
 import type { AgentPlanInput, AgentPlanView } from "@/definition/AgentPlan";
 import type {
   AgentPlanChanged,
@@ -33,9 +36,10 @@ import type { PageAgentSharingRequest } from "./PageAgentOperationInput";
 /** The plan service functions the changes use, and the database their results are stored in. */
 export interface AgentPlanWriteDependencies {
   readonly database: Pick<Database, "transaction">;
+  readonly templates?: AgentPlanTemplateService;
   readonly plans: Pick<
     AgentPlanService,
-    "view" | "agents" | "save" | "workspaces"
+    "view" | "agents" | "save" | "workspaces" | "sources"
   >;
 }
 
@@ -99,12 +103,6 @@ function readStoredResult(json: string): AgentPlanChanged {
       (id): id is string => typeof id === "string",
     ),
   };
-}
-
-function needsAgents(changes: readonly AgentPlanChange[]): boolean {
-  return changes.some(
-    (change) => change.action === "addNode" && change.type === "agent",
-  );
 }
 
 /**
@@ -187,14 +185,43 @@ export class AgentPlanWriteOperations {
     return { apiVersion: "1", result };
   }
 
-  private async agents(
+  private async context(
     userId: string,
+    planId: string | null,
     workspaceId: string,
     changes: readonly AgentPlanChange[],
-  ): Promise<readonly AgentDefinitionChoice[]> {
-    return needsAgents(changes)
-      ? this.dependencies.plans.agents(userId, workspaceId)
-      : [];
+  ): Promise<AgentPlanChangeContext> {
+    const sources = await this.sources(userId, workspaceId);
+    const templates = new Map<AgentPlanChange, AgentPlanTemplateNode>();
+    for (const change of changes) {
+      if (change.action !== "insertTemplate") continue;
+      if (!this.dependencies.templates)
+        throw new AgentOperationError("INVALID_REQUEST");
+      templates.set(
+        change,
+        await this.dependencies.templates.insert(
+          userId,
+          { planId, workspaceId },
+          change.templateId,
+        ),
+      );
+    }
+    return { agents: sources.agents, models: sources.models, templates };
+  }
+
+  private async sources(
+    userId: string,
+    workspaceId: string,
+  ): ReturnType<AgentPlanService["sources"]> {
+    try {
+      return await this.dependencies.plans.sources(userId, workspaceId);
+    } catch (error: unknown) {
+      if (error instanceof AgentError && error.code === "plan_access_denied")
+        throw new AgentOperationError("INVALID_REQUEST", {
+          reason: "workspace_unavailable",
+        });
+      throw error;
+    }
   }
 
   private async create(
@@ -202,19 +229,6 @@ export class AgentPlanWriteOperations {
     request: AgentPlanCreateRequest,
     recorder: OperationRecorder<AgentPlanChanged>,
   ): Promise<void> {
-    let agents: readonly AgentDefinitionChoice[];
-    try {
-      agents = await this.agents(userId, request.workspaceId, request.changes);
-    } catch (error: unknown) {
-      logCaughtError("AgentPlanWriteOperations", error);
-
-      // A workspace the person cannot use for plans is an input to change, not a missing plan.
-      if (error instanceof AgentError && error.code === "plan_access_denied")
-        throw new AgentOperationError("INVALID_REQUEST", {
-          reason: "workspace_unavailable",
-        });
-      throw error;
-    }
     const base: AgentPlanInput = {
       name: request.name,
       workspaceId: request.workspaceId,
@@ -230,7 +244,12 @@ export class AgentPlanWriteOperations {
       edges: [],
     };
     const { plan, createdNodeIds } = applyPlanChanges(base, request.changes, {
-      agents,
+      ...(await this.context(
+        userId,
+        null,
+        request.workspaceId,
+        request.changes,
+      )),
     });
     await this.dependencies.plans.save(
       userId,
@@ -277,7 +296,12 @@ export class AgentPlanWriteOperations {
     const workspace = await this.targetWorkspace(userId, current, request);
     const before = editable(current);
     const changed = applyPlanChanges(before, request.changes, {
-      agents: await this.agents(userId, workspace.id, request.changes),
+      ...(await this.context(
+        userId,
+        current.id,
+        workspace.id,
+        request.changes,
+      )),
     });
     const proposed: AgentPlanInput = {
       ...changed.plan,
@@ -288,14 +312,15 @@ export class AgentPlanWriteOperations {
     };
     const revision = request.expectedRevision;
     if (planKey(proposed) === planKey(before)) {
-      await this.dependencies.database.transaction((transaction) =>
-        recorder.store(transaction, {
+      await this.dependencies.database.transaction(async (transaction) => {
+        await requirePlanRevision(transaction, current.id, revision);
+        await recorder.store(transaction, {
           planId: current.id,
           changed: false,
           revision,
           createdNodeIds: [],
-        }),
-      );
+        });
+      });
       return;
     }
     try {

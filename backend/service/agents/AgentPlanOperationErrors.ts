@@ -20,11 +20,15 @@ const PLAN_REASONS: Readonly<Partial<Record<AgentErrorCode, Reason>>> = {
   plan_json_invalid: "parameter_value_invalid",
   plan_number_invalid: "parameter_value_invalid",
   parameter_invalid: "parameter_value_invalid",
+  configuration_invalid: "configuration_invalid",
+  template_name_taken: "element_exists",
+  template_invalid: "graph_invalid",
   parameter_number_invalid: "parameter_value_invalid",
   profile_target_invalid: "sharing_target_unavailable",
   parameter_reference_unavailable: "parameter_reference_unavailable",
   parameter_ticket_unavailable: "parameter_reference_unavailable",
   agent_usage_denied: "parameter_reference_unavailable",
+  agent_inactive: "parameter_reference_unavailable",
   plan_name_taken: "plan_name_taken",
   // Script nodes keep the codes of the plan page.
   plan_script_invalid: "plan_script_invalid",
@@ -50,7 +54,10 @@ function translateAgentError(error: AgentError): AgentOperationError {
     });
   }
   // A plan that is hidden answers like a missing one, as on the plan page.
-  if (error.code === "plan_access_denied")
+  if (
+    error.code === "plan_access_denied" ||
+    error.code === "template_not_found"
+  )
     return new AgentOperationError("NOT_FOUND");
   if (error.code === "plan_project_owner_only")
     return new AgentOperationError("FORBIDDEN");

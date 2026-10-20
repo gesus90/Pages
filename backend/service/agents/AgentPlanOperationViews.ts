@@ -1,3 +1,4 @@
+import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 import { planExecutionIssues } from "@/definition/AgentPlanGraph";
 
@@ -179,7 +180,7 @@ export function planDetail(
       issues,
     },
     nodes: plan.nodes.map((node) => nodeEntry(node, context.sources)),
-    edges: plan.edges.map((edge) => ({ from: edge.from, to: edge.to })),
+    edges: plan.edges.map((edge) => ({ ...edge })),
     globals: plan.globals,
   };
 }
@@ -192,6 +193,7 @@ export function agentEntry(agent: AgentDefinitionChoice): AgentPlanAgentEntry {
     name: agent.name,
     model: agent.model,
     isUsable: agent.availability.isUsable,
+    configuration: copyPlanConfiguration(agent),
     directoryParameter: configuration.directoryParameter,
     parameters: configuration.parameters.map((parameter) => ({
       name: parameter.name,

@@ -32,7 +32,14 @@ export class PairingPreferenceRepository {
     await this.database.execute(
       `
       UPDATE personal_agent_tokens
-      SET expires_at = CASE WHEN $days = 0 THEN NULL ELSE created_at + $days * 86400000 END
+      SET expires_at = CASE
+          WHEN source = 'oauth' THEN CASE
+              WHEN $days = 0 THEN expires_at
+              ELSE LEAST(expires_at, created_at + $days * 86400000)
+          END
+          WHEN $days = 0 THEN NULL
+          ELSE created_at + $days * 86400000
+      END
       WHERE user_id = $user_id
           AND revoked_at IS NULL
           AND (expires_at IS NULL OR expires_at > $now);

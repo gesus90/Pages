@@ -147,7 +147,7 @@ export function placePlanStep<Plan extends AgentPlanInput>(
   const moved = { ...found.step, ...placement.position };
   if ((found.group?.id ?? null) === placement.groupId)
     return {
-      plan: replacePlanNode(plan, moved),
+      plan: withInternalGroupEdges(replacePlanNode(plan, moved)),
       removedEdges: 0,
       removedBindings: 0,
     };
@@ -166,7 +166,7 @@ export function placePlanStep<Plan extends AgentPlanInput>(
       )
     : [...left.plan.nodes, left.step];
   return {
-    plan: { ...left.plan, nodes },
+    plan: withInternalGroupEdges({ ...left.plan, nodes }),
     removedEdges: left.removedEdges,
     removedBindings: left.removedBindings,
   };
@@ -370,4 +370,39 @@ export function bindPlanParameter<Plan extends AgentPlanInput>(
     ...target,
     bindings: { ...target.bindings, [parameter]: binding },
   });
+}
+
+/** Keeps edges between members in their container, including after reparenting, so group templates retain every internal connection. */
+export function withInternalGroupEdges<Plan extends AgentPlanInput>(
+  plan: Plan,
+): Plan {
+  const groups = plan.nodes.filter((node) => node.type === "group");
+  const internal = new Set(
+    plan.edges.filter((edge) =>
+      groups.some((group) => isMemberEdge(group, edge)),
+    ),
+  );
+  if (internal.size === 0) return plan;
+  return {
+    ...plan,
+    edges: plan.edges.filter((edge) => !internal.has(edge)),
+    nodes: plan.nodes.map((node) =>
+      node.type === "group"
+        ? {
+            ...node,
+            edges: [
+              ...planGroupEdges(node),
+              ...[...internal].filter((edge) => isMemberEdge(node, edge)),
+            ],
+          }
+        : node,
+    ),
+  };
+}
+
+function isMemberEdge(group: AgentPlanGroup, edge: AgentPlanEdge): boolean {
+  return (
+    group.steps.some((step) => step.id === edge.from) &&
+    group.steps.some((step) => step.id === edge.to)
+  );
 }

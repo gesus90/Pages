@@ -4,9 +4,12 @@ import path from "node:path";
 import { interpreterProfilesSchema } from "@/definition/InterpreterProfile";
 import { isLogRetentionDays } from "@/definition/Logging";
 
+import { readMcpHttpConfig } from "./McpHttpConfig";
+
 import { readAcpResourceSettings } from "./AcpResourceSettings";
 import { parseTrustedProxyEntry } from "./TrustedProxies";
 
+import type { McpHttpConfig } from "./McpHttpConfig";
 import type { InterpreterProfile } from "@/definition/InterpreterProfile";
 import type { AcpResourceOptions } from "@/definition/AcpResource";
 import type { TomlTable } from "smol-toml";
@@ -32,6 +35,8 @@ export const CONFIG_KEY = {
 /** Settings that do not depend on the setup state. */
 interface BaseConfig extends Partial<AcpResourceOptions> {
   readonly port: number;
+  readonly listenAddress?: string;
+  readonly mcpHttp?: McpHttpConfig;
   readonly interpreterProfiles?: readonly InterpreterProfile[];
   /** Missing on older configurations: 30 calendar days, including today. */
   readonly logRetentionDays?: number;
@@ -218,6 +223,7 @@ function readDatabasePath(table: TomlTable, source: string): string | null {
  */
 export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
   const acpResources = readAcpResourceSettings(table);
+  const mcpHttp = readMcpHttpConfig(table);
   const firstRun = readFirstRun(table, source);
   const port = readPort(table, source);
   const databasePath = readDatabasePath(table, source);
@@ -228,6 +234,7 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
   if (firstRun) {
     return {
       ...acpResources,
+      ...mcpHttp,
       ...logging,
       ...interpreters,
       ...proxies,
@@ -246,6 +253,7 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
 
   return {
     ...acpResources,
+    ...mcpHttp,
     ...logging,
     ...interpreters,
     ...proxies,
@@ -320,6 +328,9 @@ export function writePagesConfig(
     [CONFIG_KEY.FIRST_RUN]: config.firstRun,
     [CONFIG_KEY.PORT]: config.port,
   };
+  if (config.listenAddress !== undefined)
+    document.listenAddress = config.listenAddress;
+  if (config.mcpHttp !== undefined) document.mcpHttp = { ...config.mcpHttp };
   if (config.interpreterProfiles !== undefined)
     document.interpreterProfiles = config.interpreterProfiles.map(
       (profile) => ({ ...profile }),
