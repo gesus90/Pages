@@ -3,6 +3,7 @@ import { logEvent } from "@/backend/logging/Logger";
 import { endTaggedProcesses, readServerScope } from "./CliProcessScan";
 
 import type { PlanSessionClosed } from "@/backend/agents/AgentPlanExecution";
+import type { TaggedProcessScope } from "./CliProcessScan";
 import type { CliSessionExit, CliSessionProcess } from "./CliSessionProcess";
 
 // A runner gets this long to end by itself once its input is closed.
@@ -14,6 +15,7 @@ const TERMINATION_WAIT_MS = 10_000;
  *
  * @param process - The runner process of the session.
  * @param instanceId - The tag every process of the session carries.
+ * @param scope - The boundary captured before spawning; defaults to this server's start.
  * @returns The actual exit, how many processes outlived the runner and
  * whether none is left.
  *
@@ -26,13 +28,17 @@ const TERMINATION_WAIT_MS = 10_000;
 export async function closeCliSession(
   process: Pick<CliSessionProcess, "endInput" | "exited" | "cancel">,
   instanceId: string,
+  scope?: TaggedProcessScope,
 ): Promise<PlanSessionClosed> {
   process.endInput();
   const exit = await waitForExit(process.exited, INPUT_CLOSE_GRACE_MS);
   if (exit === null) process.cancel("login_cancelled");
   const settled =
     exit ?? (await waitForExit(process.exited, TERMINATION_WAIT_MS));
-  const cleanup = await endTaggedProcesses(instanceId, await readServerScope());
+  const cleanup = await endTaggedProcesses(
+    instanceId,
+    scope ?? (await readServerScope()),
+  );
   logEvent({
     level: settled !== null && cleanup.remaining === 0 ? "info" : "warn",
     event: "cli.session.cleanup",

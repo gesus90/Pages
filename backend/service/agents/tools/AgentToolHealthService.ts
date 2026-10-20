@@ -12,6 +12,7 @@ import { probeBubblewrap } from "@/backend/agents/cli/CliPlanIsolation";
 
 import { isAgentToolVersionSupported } from "./AgentToolRegistry";
 import { AgentToolProtocolProbe } from "./AgentToolProtocolProbe";
+import { AgentToolReadinessError } from "./AgentToolReadinessError";
 
 import type { CliProviderId } from "@/definition/AgentConnection";
 import type { CliProcessRunner } from "@/backend/agents/cli/CliProcessRunner";
@@ -43,6 +44,18 @@ const READY: AgentToolHealth = {
   diagnostic: "ready",
   version: null,
 };
+
+function isFileAccessDenied(error: unknown, file: string): boolean {
+  return (
+    error instanceof Error &&
+    "code" in error &&
+    (error.code === "EACCES" || error.code === "EPERM") &&
+    "syscall" in error &&
+    error.syscall === "access" &&
+    "path" in error &&
+    error.path === file
+  );
+}
 
 /** Performs bounded local probes with an empty Pages-owned home and no model call. */
 export class AgentToolHealthService implements AgentToolHealthChecks {
@@ -85,11 +98,17 @@ export class AgentToolHealthService implements AgentToolHealthChecks {
         return await this.protocol(tool, location, signal);
       return await this.version(tool, location, signal);
     } catch (error: unknown) {
-      const isDenied =
-        error instanceof Error && "code" in error && error.code === "EACCES";
+      if (error instanceof AgentToolReadinessError)
+        return {
+          status: error.status,
+          diagnostic: error.diagnostic,
+          version: null,
+        };
       return {
         status: "failed",
-        diagnostic: isDenied ? "permission_denied" : "execution_failed",
+        diagnostic: isFileAccessDenied(error, location.file)
+          ? "permission_denied"
+          : "execution_failed",
         version: null,
       };
     }

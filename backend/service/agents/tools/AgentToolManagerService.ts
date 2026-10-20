@@ -393,7 +393,8 @@ export class AgentToolManagerService {
     const tool = agentToolDefinition(id);
     if (
       (!tool.packageName && tool.kind !== "browser") ||
-      state?.health.diagnostic === "permission_denied"
+      state?.health.diagnostic === "permission_denied" ||
+      state?.health.diagnostic === "active_sessions"
     )
       throw this.refusal(id);
     await this.install(

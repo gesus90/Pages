@@ -157,20 +157,39 @@ export async function findTaggedProcesses(
  * @param tag - The instance identifier of the session.
  * @param scope - When the session began; without it no unreadable process is ruled out.
  * @returns How many processes were still running and how many could not be ended.
+ *
+ * @remarks
+ * A process can lose environment access while exiting, before its process entry
+ * disappears. One bounded rescan must prove absence or readable ownership;
+ * persistent access failures still leave cleanup unconfirmed.
  */
 export async function endTaggedProcesses(
   tag: string,
   scope: TaggedProcessScope | null = null,
 ): Promise<TaggedProcessCleanup> {
-  const found = await findTaggedProcesses(tag, scope);
+  const found = await findTaggedProcessesAfterExit(tag, scope);
   if (found.length === 0) return { found: 0, remaining: 0 };
   for (const processId of found) signalProcess(processId, "SIGTERM");
   await delay(TERMINATION_WAIT_MS);
-  const lingering = await findTaggedProcesses(tag, scope);
+  const lingering = await findTaggedProcessesAfterExit(tag, scope);
   for (const processId of lingering) signalProcess(processId, "SIGKILL");
   if (lingering.length > 0) await delay(KILL_WAIT_MS);
-  const remaining = await findTaggedProcesses(tag, scope);
+  const remaining = await findTaggedProcessesAfterExit(tag, scope);
   return { found: found.length, remaining: remaining.length };
+}
+
+async function findTaggedProcessesAfterExit(
+  tag: string,
+  scope: TaggedProcessScope | null,
+): Promise<readonly number[]> {
+  try {
+    return await findTaggedProcesses(tag, scope);
+  } catch (error: unknown) {
+    if (!isAccessDenied(error)) throw error;
+    // Exiting children can briefly remain in /proc after losing their environment.
+    await delay(KILL_WAIT_MS);
+    return findTaggedProcesses(tag, scope);
+  }
 }
 
 function isVanished(error: unknown): boolean {

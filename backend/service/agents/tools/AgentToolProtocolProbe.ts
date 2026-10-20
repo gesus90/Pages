@@ -2,6 +2,10 @@ import { randomUUID } from "node:crypto";
 
 import { acpDriverFor } from "@/backend/agents/acp/AcpDrivers";
 import { closeCliSession } from "@/backend/agents/cli/CliSessionCloseout";
+import { readSpawnScope } from "@/backend/agents/cli/CliProcessScan";
+import { logCaughtError } from "@/backend/logging/Logger";
+
+import { AgentToolReadinessError } from "./AgentToolReadinessError";
 
 import type { Implementation } from "@agentclientprotocol/sdk";
 import type { CliProcessRunner } from "@/backend/agents/cli/CliProcessRunner";
@@ -39,6 +43,7 @@ export class AgentToolProtocolProbe {
     const { tool } = input;
     const instanceId = randomUUID();
     let receive: (line: string) => void = () => undefined;
+    const scope = await readSpawnScope();
     const child = this.runner.startSession({
       file: tool.id === "pages_mcp" ? process.execPath : input.file,
       arguments: tool.id === "pages_mcp" ? [input.file, "health-check"] : [],
@@ -107,9 +112,15 @@ export class AgentToolProtocolProbe {
       return await Promise.race([answer, child.exited.then(() => null)]);
     } finally {
       child.cancel("login_cancelled");
-      const closed = await closeCliSession(child, instanceId);
-      if (!closed.isConfirmed)
-        throw new Error("Tool probe cleanup unconfirmed");
+      let isConfirmed = false;
+      try {
+        isConfirmed = (await closeCliSession(child, instanceId, scope))
+          .isConfirmed;
+      } catch (error: unknown) {
+        logCaughtError("AgentToolProtocolProbe", error);
+      }
+      if (!isConfirmed)
+        throw new AgentToolReadinessError(tool.id, "failed", "active_sessions");
     }
   }
 
