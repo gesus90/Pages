@@ -1,3 +1,4 @@
+import { findPlanLoopMember } from "@/definition/AgentPlanLoopEdit";
 import { findPlanStep } from "@/definition/AgentPlanGroupEdit";
 
 import { planNodeLabel } from "../plan-layout";
@@ -10,6 +11,24 @@ import type {
   AgentPlanSources,
 } from "@/definition/AgentPlan";
 import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
+
+/** Names the result a binding hands on, and whether it is the previous iteration's. */
+function resultBindingPreview(
+  binding: Extract<AgentPlanBinding, { stepId: string }>,
+  context: PlanValueContext,
+): string {
+  const { draft, sources, translate } = context;
+  const step =
+    findPlanStep(draft, binding.stepId)?.step ??
+    findPlanLoopMember(draft, binding.stepId)?.member ??
+    draft.nodes.find(
+      (node) => node.type === "script" && node.id === binding.stepId,
+    );
+  return translate(
+    binding.kind === "result" ? "plans.resultOf" : "plans.loops.previousOf",
+    { name: step ? planNodeLabel(step, sources) : binding.stepId },
+  );
+}
 
 /** What a card needs to name a value without reading more than the editor already shows. */
 export interface PlanValueContext {
@@ -83,16 +102,8 @@ export function planBindingPreview(
   const { draft, sources, translate } = context;
   if (binding.kind === "literal")
     return planValuePreview(binding.value, context);
-  if (binding.kind === "result") {
-    const step =
-      findPlanStep(draft, binding.stepId)?.step ??
-      draft.nodes.find(
-        (node) => node.type === "script" && node.id === binding.stepId,
-      );
-    return translate("plans.resultOf", {
-      name: step ? planNodeLabel(step, sources) : binding.stepId,
-    });
-  }
+  if (binding.kind === "result" || binding.kind === "previous")
+    return resultBindingPreview(binding, context);
   const source = draft.nodes.find((node) => node.id === binding.nodeId);
   if (source?.type === "parameter")
     return planValuePreview(source.value, context);

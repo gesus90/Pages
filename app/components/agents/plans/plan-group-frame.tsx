@@ -46,7 +46,7 @@ function groupFrameClass(props: GroupFrameProps): string {
   );
 }
 
-/** A portless yellow session container; collapsing changes only the canvas projection. */
+/** A portless turquoise session container; collapsing changes only the canvas projection. */
 export function PlanGroupFrame(props: GroupFrameProps): React.ReactElement {
   const { t } = useTranslation();
   const { group, graph, isCollapsed } = props;

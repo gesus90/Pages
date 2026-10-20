@@ -62,8 +62,8 @@ function attemptConnection(
   const { draft, sources, connection } = context;
   if (connection.kind === "flow" && parameter === undefined) {
     const next = connectPlanFlow(draft, connection.nodeId, id);
-    return next === "groupBoundary"
-      ? { issue: { nodeId: id, port: "flow-in", reason: "groupBoundary" } }
+    return typeof next === "string"
+      ? { issue: { nodeId: id, port: "flow-in", reason: next } }
       : checked(next, sources);
   }
   if (connection.kind === "flow" || parameter === undefined)

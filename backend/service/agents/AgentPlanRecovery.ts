@@ -4,6 +4,7 @@ import {
   readScopeSince,
 } from "@/backend/agents/cli/CliProcessScan";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
+import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { TaggedProcessScope } from "@/backend/agents/cli/CliProcessScan";
@@ -75,7 +76,7 @@ export async function hasNoSessionProcesses(
 ): Promise<boolean> {
   const scope = await runScope(run.startedAt);
   const scans = await Promise.all(
-    run.steps.flatMap((step) =>
+    allPlanRunResults(run).flatMap((step) =>
       step.session
         ? [
             findTaggedProcesses(step.session.instanceId, scope).catch(
@@ -96,7 +97,7 @@ export function interruptedAcpOwners(
   runs: readonly AgentPlanRun[],
 ): readonly AcpResourceOwner[] {
   return runs.flatMap((run) =>
-    run.steps.flatMap((step) => {
+    allPlanRunResults(run).flatMap((step) => {
       const session = step.session;
       if (
         !session ||

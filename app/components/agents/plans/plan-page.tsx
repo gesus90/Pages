@@ -128,6 +128,7 @@ export function PlanPage({
       <PlanNodeDialog
         nodeId={editingNodeId}
         editor={editor}
+        run={display.run}
         onClose={() => setEditingNodeId(null)}
       />
       {consoleNodeId ? (

@@ -3,8 +3,10 @@ import { useState } from "react";
 import { planStepTemplate } from "@/definition/AgentPlanConfiguration";
 import { planGroupRefusal } from "@/definition/AgentPlanGroup";
 import { placePlanStep } from "@/definition/AgentPlanGroupEdit";
+import { placePlanLoopNode } from "@/definition/AgentPlanLoopEdit";
 
 import { planMemberOrigin } from "./plan-layout";
+import type { PlanFrame } from "./plan-layout";
 import {
   createPlanNode,
   createPlanScript,
@@ -51,10 +53,11 @@ export interface PlanNodeInsertion {
     position?: AgentPlanPosition,
     groupId?: string,
   ) => string | null;
-  /** Adds a script with a checked configuration; it never joins a group. */
+  /** Adds a script with a checked configuration; it joins a loop, never a group. */
   readonly addScript: (
     configuration: AgentPlanScriptConfiguration,
     position?: AgentPlanPosition,
+    loopId?: string,
   ) => string | null;
   readonly insertTemplate: (
     node: AgentPlanTemplateNode,
@@ -77,8 +80,8 @@ export function usePlanNodeInsertion(
   const [insertionError, setInsertionError] = useState<string | null>(null);
   const { draft, sources, setDraft, select, loadConfiguration } = options;
   /** Whether the agent may join; a refusal is told and stops the insertion. */
-  function admits(node: AgentPlanNode, group: AgentPlanGroup | null): boolean {
-    if (!group || node.type !== "agent") return true;
+  function admits(node: AgentPlanNode, group: PlanFrame | null): boolean {
+    if (group?.type !== "group" || node.type !== "agent") return true;
     const refusal = planGroupRefusal(group, node, sources.agents);
     if (refusal === null) return true;
     options.onRefused?.(refusal, node, group);
@@ -86,7 +89,7 @@ export function usePlanNodeInsertion(
   }
   function insert(
     node: AgentPlanNode,
-    group: AgentPlanGroup | null,
+    group: PlanFrame | null,
     additions: readonly AgentPlanNode[] = nodeWithDefaults(
       node,
       draft,
@@ -97,23 +100,14 @@ export function usePlanNodeInsertion(
       if (previous.workspaceId !== draft.workspaceId) return previous;
       const added = { ...previous, nodes: [...previous.nodes, ...additions] };
       if (!group) return added;
-      const placed = placePlanStep(
-        added,
-        {
-          stepId: node.id,
-          groupId: group.id,
-          position: memberOffset(group, node),
-        },
-        sources.agents,
-      );
-      return typeof placed === "string" ? previous : placed.plan;
+      return joinFrame(added, { node, group }, sources) ?? previous;
     });
     select(node.id);
     return node.id;
   }
   async function insertCurrent(
     node: Extract<AgentPlanNode, { type: "agent" }>,
-    group: AgentPlanGroup | null,
+    group: PlanFrame | null,
   ): Promise<void> {
     if (!loadConfiguration) return;
     try {
@@ -133,7 +127,7 @@ export function usePlanNodeInsertion(
     groupId?: string,
   ): string | null {
     const node = createPlanNode({ draft, sources, kind, reference, position });
-    const group = findGroup(draft, groupId);
+    const group = findFrame(draft, groupId);
     if (!node || !admits(node, group)) return null;
     if (node.type === "agent" && loadConfiguration) {
       void insertCurrent(node, group);
@@ -153,7 +147,7 @@ export function usePlanNodeInsertion(
       x: snapPlanCoordinate(at.x),
       y: snapPlanCoordinate(at.y),
     };
-    const group = findGroup(draft, groupId);
+    const group = findFrame(draft, groupId);
     if (!admits(placed, group)) return null;
     // The copy keeps its own configuration; no default value nodes join it.
     return insert(placed, group, [placed]);
@@ -161,29 +155,58 @@ export function usePlanNodeInsertion(
   function addScript(
     configuration: AgentPlanScriptConfiguration,
     position?: AgentPlanPosition,
+    loopId?: string,
   ): string | null {
     const node = createPlanScript({ draft, configuration, position });
-    return node ? insert(node, null, [node]) : null;
+    const frame = findFrame(draft, loopId);
+    return node
+      ? insert(node, frame?.type === "loop" ? frame : null, [node])
+      : null;
   }
   return { add, addScript, insertTemplate, insertionError };
 }
 
-/** The frame a new node is meant to join, if it exists. */
-function findGroup(
+/** The plan with the new node placed in its frame, or `null` when the frame refuses it. */
+function joinFrame(
+  plan: AgentPlanInput,
+  target: { readonly node: AgentPlanNode; readonly group: PlanFrame },
+  sources: AgentPlanSources,
+): AgentPlanInput | null {
+  const { node, group } = target;
+  const position = memberOffset(group, node);
+  if (group.type === "loop") {
+    if (node.type !== "agent" && node.type !== "script") return plan;
+    const joined = placePlanLoopNode(
+      plan,
+      { nodeId: node.id, loopId: group.id, position },
+      { agents: sources.agents, detachFromGroup: (current) => current },
+    );
+    return typeof joined === "string" ? null : joined.plan;
+  }
+  const placed = placePlanStep(
+    plan,
+    { stepId: node.id, groupId: group.id, position },
+    sources.agents,
+  );
+  return typeof placed === "string" ? null : placed.plan;
+}
+
+/** The frame, a group or a loop, a new node is meant to join, if it exists. */
+function findFrame(
   draft: AgentPlanInput,
-  groupId: string | undefined,
-): AgentPlanGroup | null {
+  frameId: string | undefined,
+): PlanFrame | null {
   return (
     draft.nodes.find(
-      (node): node is AgentPlanGroup =>
-        node.type === "group" && node.id === groupId,
+      (node): node is PlanFrame =>
+        (node.type === "group" || node.type === "loop") && node.id === frameId,
     ) ?? null
   );
 }
 
 /** The position of a new member, counted from the member area of its frame. */
 function memberOffset(
-  group: AgentPlanGroup,
+  group: PlanFrame,
   position: AgentPlanPosition,
 ): AgentPlanPosition {
   const origin = planMemberOrigin(group);

@@ -97,6 +97,16 @@
   right: -13px;
 }
 
+/* Anchors share the place of a visible dot and only hold the end of a line. */
+.canvas .anchorHandle {
+  pointer-events: none;
+}
+
+.canvas .anchorHandle::before,
+.canvas .anchorHandle::after {
+  display: none;
+}
+
 .canvas .flowHandle {
   --plan-port-color: var(--color-status-active);
 }

@@ -4,6 +4,7 @@ import {
   Braces,
   FlagTriangleRight,
   Play,
+  Repeat2,
   Variable,
 } from "lucide-react";
 
@@ -59,6 +60,7 @@ const NODE_ICONS = {
   agent: Bot,
   script: PlanScriptIcon,
   group: Boxes,
+  loop: Repeat2,
   task: PlanTicketIcon,
   parameter: Braces,
   variable: Variable,

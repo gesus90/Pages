@@ -2,8 +2,23 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { planInterpreters } from "@/definition/AgentPlanScript";
 
 import type { AgentPlanNode } from "@/definition/AgentPlan";
+import type { AgentPlanScript } from "@/definition/AgentPlanScript";
 import type { AgentPlanInterpreter } from "@/definition/AgentPlanScript";
 import type { InterpreterSnapshot } from "@/definition/InterpreterProfile";
+
+/** The script nodes of a plan, those inside loops included. */
+function scriptsOf(
+  nodes: readonly AgentPlanNode[],
+): readonly AgentPlanScript[] {
+  const scripts: AgentPlanScript[] = [];
+  for (const node of nodes) {
+    const candidates: readonly AgentPlanNode[] =
+      node.type === "loop" ? node.steps : [node];
+    for (const candidate of candidates)
+      if (candidate.type === "script") scripts.push(candidate);
+  }
+  return scripts;
+}
 
 /** Reads the configured interpreter profiles and their last checks. */
 export interface AgentPlanInterpreterSource {
@@ -50,17 +65,17 @@ export class AgentPlanScripts {
     nodes: readonly AgentPlanNode[],
     saved: readonly AgentPlanNode[],
   ): Promise<void> {
-    const scripts = nodes.filter((node) => node.type === "script");
+    const scripts = scriptsOf(nodes);
     if (scripts.length === 0) return;
     const profiles = await this.interpreters();
     for (const script of scripts) {
-      const previous = saved.find((node) => node.id === script.id);
+      const previous = scriptsOf(saved).find((node) => node.id === script.id);
       if (
         !profiles.some(
           (profile) => profile.id === script.interpreterProfileId,
         ) &&
         !(
-          previous?.type === "script" &&
+          previous !== undefined &&
           previous.interpreterProfileId === script.interpreterProfileId
         )
       )

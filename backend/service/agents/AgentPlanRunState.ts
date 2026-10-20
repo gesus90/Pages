@@ -1,4 +1,5 @@
 import { isAcpProvider } from "@/definition/AgentConfiguration";
+import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 
 import { withGroupResults } from "./AgentPlanGroupResults";
 import { hasPlanPath } from "./AgentPlanGraph";
@@ -111,10 +112,10 @@ export function canFinalize(active: ActivePlanRun): boolean {
   );
 }
 
-/** ACP capacity is separately managed. */
-export function isAcpStep(active: ActivePlanRun, id: string): boolean {
+/** Only an agent node of a request runner takes one of the limited request slots. */
+export function isRequestStep(active: ActivePlanRun, id: string): boolean {
   const step = active.snapshot.steps.find((entry) => entry.step.id === id);
-  return step !== undefined && isAcpProvider(step.provider);
+  return step !== undefined && !isAcpProvider(step.provider);
 }
 
 /** API requests retain their existing concurrency limit independently of ACP capacity. */
@@ -124,7 +125,7 @@ export function countRunningPlanRequests(
   return [...runs].reduce(
     (count, active) =>
       count +
-      [...active.controllers.keys()].filter((id) => !isAcpStep(active, id))
+      [...active.controllers.keys()].filter((id) => isRequestStep(active, id))
         .length,
     0,
   );
@@ -178,7 +179,9 @@ export function finalPlanStatus(
 
 /** Failed session cleanup keeps the run's definitions and working copies reserved. */
 export function hasUnconfirmedCloseout(active: ActivePlanRun): boolean {
-  return active.view.steps.some((step) => step.session?.closeout === "failed");
+  return allPlanRunResults(active.view).some(
+    (step) => step.session?.closeout === "failed",
+  );
 }
 
 /** Stamps the actual terminal decision without estimating an older run's end. */

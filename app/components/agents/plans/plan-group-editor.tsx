@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
@@ -13,6 +13,7 @@ import { PlanGroupAdapterBadge } from "./plan-group-adapter";
 import { PlanGroupLegacy } from "./plan-group-legacy";
 import { planAgentName, planMemberOrigin } from "./plan-layout";
 import { PlanNodeActions } from "./plan-node-actions";
+import { PanelField, PanelNote } from "./plan-panel-controls";
 
 import type {
   AgentPlanInput,
@@ -36,23 +37,27 @@ interface GroupEditorProps {
  * @remarks
  * Membership is listed in stored order; only explicit edges determine the
  * schedule. Members are configured by selecting them like any other agent
- * node, and ambiguous legacy connections require an explicit choice.
+ * node, and ambiguous legacy connections require an explicit choice. A group
+ * has no runs and no end condition; the note at the end says so.
  */
 export function PlanGroupEditor(props: GroupEditorProps): React.ReactElement {
   const { t } = useTranslation();
   const { group } = props;
+  const nameId = useId();
   return (
-    <fieldset disabled={props.disabled} className="space-y-3">
-      <label className="block space-y-1 text-sm">
-        <span>{t("plans.groups.name")}</span>
+    <fieldset disabled={props.disabled} className="flex flex-col gap-4">
+      <PanelField id={nameId} label={t("plans.groups.panel.name")}>
         <Input
+          id={nameId}
+          size="sm"
           value={group.name}
           maxLength={120}
           onChange={(event) =>
             props.graph.replaceNode({ ...group, name: event.target.value })
           }
+          className="h-8 bg-muted/50"
         />
-      </label>
+      </PanelField>
       <GroupClass group={group} sources={props.sources} />
       <PlanGroupLegacy
         group={group}
@@ -63,6 +68,7 @@ export function PlanGroupEditor(props: GroupEditorProps): React.ReactElement {
       />
       <GroupMembers {...props} />
       <GroupAgentPicker {...props} />
+      <PanelNote>{t("plans.groups.panel.note")}</PanelNote>
     </fieldset>
   );
 }
@@ -74,15 +80,17 @@ function GroupClass(props: {
 }): React.ReactElement {
   const { t } = useTranslation();
   return (
-    <>
-      <p className="flex flex-wrap items-center gap-2 text-sm">
+    <div className="flex flex-col items-start gap-1.5">
+      <span className="text-xs font-semibold">
         {t("plans.groups.adapterLabel")}
-        <PlanGroupAdapterBadge
-          adapter={planGroupAdapter(props.group, props.sources.agents)}
-        />
+      </span>
+      <PlanGroupAdapterBadge
+        adapter={planGroupAdapter(props.group, props.sources.agents)}
+      />
+      <p className="text-xs text-muted-foreground">
+        {t("plans.groups.panel.classHint")}
       </p>
-      <p className="text-sm text-muted-foreground">{t("plans.groups.hint")}</p>
-    </>
+    </div>
   );
 }
 
@@ -90,35 +98,40 @@ function GroupClass(props: {
 function GroupMembers(props: GroupEditorProps): React.ReactElement {
   const { t } = useTranslation();
   const { group, graph } = props;
-  const members = group.steps;
   function label(step: AgentPlanStep): string {
     return planAgentName(step, props.sources) || t("plans.missingAgent");
   }
-  let summary = t("plans.groups.orderOpen");
-  if (group.steps.length === 0) summary = t("plans.groups.empty");
   return (
-    <div className="space-y-2">
-      <p className="text-sm">{summary}</p>
-      <ol className="space-y-1" aria-label={t("plans.groups.order")}>
-        {members.map((step) => (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-xs font-semibold">
+        {t("plans.groups.panel.members")}
+      </span>
+      <ol
+        className="flex flex-col gap-1.5"
+        aria-label={t("plans.groups.order")}
+      >
+        {group.steps.map((step) => (
           <li
             key={step.id}
-            className="flex items-center gap-1 rounded-lg border border-border bg-surface p-1 pl-2 text-sm"
+            className="flex items-center gap-1 rounded-lg border border-border bg-muted/50 py-1 pr-1 pl-3 text-sm"
           >
             <span className="min-w-0 flex-1 truncate">{label(step)}</span>
             <Button
-              size="sm"
+              size="xs"
               variant="ghost"
+              className="h-7 min-h-7 px-1.5 text-[11px] font-normal text-muted-foreground"
               onClick={() => graph.select(step.id)}
             >
               {t("plans.groups.selectMember")}
             </Button>
             <Button
-              size="sm"
+              size="xs"
               variant="ghost"
+              className="h-7 min-h-7 px-1.5 text-[11px] font-normal text-muted-foreground"
+              aria-label={t("plans.groups.takeOut")}
               onClick={() => graph.assign(step.id, null)}
             >
-              {t("plans.groups.takeOut")}
+              {t("plans.groups.panel.takeOut")}
             </Button>
             <PlanNodeActions
               label={label(step)}
@@ -128,6 +141,13 @@ function GroupMembers(props: GroupEditorProps): React.ReactElement {
           </li>
         ))}
       </ol>
+      <p className="text-xs text-muted-foreground">
+        {t(
+          group.steps.length === 0
+            ? "plans.groups.empty"
+            : "plans.groups.orderOpen",
+        )}
+      </p>
     </div>
   );
 }
@@ -154,13 +174,17 @@ function GroupAgentPicker(props: GroupEditorProps): React.ReactElement {
     setAgentId("");
   }
   return (
-    <div className="space-y-2">
+    <div className="flex flex-col items-start gap-1.5">
+      <span className="text-xs font-semibold">
+        {t("plans.groups.panel.addLabel")}
+      </span>
       <Select
+        className="h-8 w-full"
         ariaLabel={t("plans.groups.addAgent")}
         value={agentId}
         onValueChange={setAgentId}
         options={[
-          { value: "", label: t("plans.groups.addAgent") },
+          { value: "", label: t("plans.groups.panel.addPlaceholder") },
           ...props.sources.agents
             .filter(
               (agent) =>

@@ -146,6 +146,19 @@ export function closeoutFailureCode(
     : "plan_runner_failed";
 }
 
+/** The fields of a record that a closed session settles: its exit, cleanup and result code. */
+export function closedSessionChanges(
+  closed: PlanSessionClosed,
+): Partial<AgentPlanSessionRecord> {
+  return {
+    exit: closed.exit,
+    endedAt: closed.endedAt,
+    closeout: closed.isConfirmed ? "confirmed" : "failed",
+    leftoverProcesses: closed.leftovers,
+    resultCode: closeoutFailureCode(closed) === null ? 0 : -1,
+  };
+}
+
 /** Combines the runner turn and its actual closeout without consulting business diagnostics. */
 export function failureCode(
   turn: PlanSessionTurn,

@@ -92,12 +92,16 @@ async function openGroupDialog(): Promise<HTMLElement> {
       name: i18n.t("plans.editNamed", { name: GROUP }),
     }),
   );
-  return screen.findByRole("dialog", { name: i18n.t("plans.editNode") });
+  return screen.findByRole("dialog", {
+    name: i18n.t("plans.groups.panel.label", { name: GROUP }),
+  });
 }
 
 function closeDialog(dialog: HTMLElement): void {
   fireEvent.click(
-    within(dialog).getByRole("button", { name: i18n.t("plans.closeNode") }),
+    within(dialog).getByRole("button", {
+      name: i18n.t("plans.groups.panel.closeButton"),
+    }),
   );
 }
 

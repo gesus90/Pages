@@ -1,3 +1,5 @@
+import { connectLoopFlow, replaceLoopMember } from "./AgentPlanLoopEdit";
+import { planLoopOf } from "./AgentPlanLoop";
 import {
   planGroupEdges,
   planGroupRefusal,
@@ -16,15 +18,17 @@ import type {
   AgentPlanStep,
 } from "./AgentPlan";
 import type { AgentPlanGroup, AgentPlanGroupRefusal } from "./AgentPlanGroup";
+import type { AgentPlanLoop } from "./AgentPlanLoop";
 import type { AgentPlanScript } from "./AgentPlanScript";
 
 /** Grid columns between members when an older group is laid out in its frame. */
 const MEMBER_COLUMN = 320;
 
-/** An agent node and the group it belongs to; `null` for a node outside every frame. */
+/** An agent node and the frame it belongs to; both `null` for a node outside every frame. */
 export interface PlanStepLocation {
   readonly step: AgentPlanStep;
   readonly group: AgentPlanGroup | null;
+  readonly loop: AgentPlanLoop | null;
 }
 
 /**
@@ -58,10 +62,15 @@ export function findPlanStep(
 ): PlanStepLocation | null {
   for (const node of plan.nodes) {
     if (node.type === "agent" && node.id === id)
-      return { step: node, group: null };
+      return { step: node, group: null, loop: null };
+    if (node.type === "loop") {
+      const member = node.steps.find((entry) => entry.id === id);
+      if (member?.type === "agent")
+        return { step: member, group: null, loop: node };
+    }
     if (node.type !== "group") continue;
     const step = node.steps.find((entry) => entry.id === id);
-    if (step) return { step, group: node };
+    if (step) return { step, group: node, loop: null };
   }
   return null;
 }
@@ -73,12 +82,19 @@ export function findPlanStep(
 export function findPlanBindingTarget(
   plan: AgentPlanInput,
   id: string,
-): AgentPlanStep | AgentPlanScript | AgentPlanGroup | null {
+): AgentPlanStep | AgentPlanScript | AgentPlanGroup | AgentPlanLoop | null {
   return (
     findPlanStep(plan, id)?.step ??
+    planLoopOf(plan, id)?.steps.find(
+      (member): member is AgentPlanScript =>
+        member.type === "script" && member.id === id,
+    ) ??
     plan.nodes.find(
-      (node): node is AgentPlanScript | AgentPlanGroup =>
-        (node.type === "script" || node.type === "group") && node.id === id,
+      (node): node is AgentPlanScript | AgentPlanGroup | AgentPlanLoop =>
+        (node.type === "script" ||
+          node.type === "group" ||
+          node.type === "loop") &&
+        node.id === id,
     ) ??
     null
   );
@@ -89,6 +105,11 @@ export function replacePlanNode<Plan extends AgentPlanInput>(
   plan: Plan,
   replacement: AgentPlanNode,
 ): Plan {
+  if (
+    (replacement.type === "agent" || replacement.type === "script") &&
+    planLoopOf(plan, replacement.id)
+  )
+    return replaceLoopMember(plan, replacement);
   return {
     ...plan,
     nodes: plan.nodes.map((node) => {
@@ -280,13 +301,26 @@ export function ungroupPlanGroup<Plan extends AgentPlanInput>(
 /**
  * Adds an explicit edge between actual agents or checkpoints, across frames too.
  *
- * @returns The plan, or `groupBoundary` when an endpoint names a frame.
+ * @returns The plan, or `groupBoundary` when an endpoint names a group and
+ * `loopBoundary` when an edge would join a member of a loop to anything
+ * outside it. A loop itself is an ordinary node of the outer graph.
  */
 export function connectPlanFlow<Plan extends AgentPlanInput>(
   plan: Plan,
   from: string,
   to: string,
-): Plan | "groupBoundary" {
+): Plan | "groupBoundary" | "loopBoundary" {
+  const sourceLoop = planLoopOf(plan, from);
+  const targetLoop = planLoopOf(plan, to);
+  if (sourceLoop || targetLoop) {
+    if (sourceLoop?.id !== targetLoop?.id || !sourceLoop) return "loopBoundary";
+    return connectLoopFlow(plan, sourceLoop, {
+      from,
+      to,
+      fromPort: "flow-out",
+      toPort: "flow-in",
+    });
+  }
   const source = findPlanStep(plan, from)?.group ?? null;
   const target = findPlanStep(plan, to)?.group ?? null;
   if (

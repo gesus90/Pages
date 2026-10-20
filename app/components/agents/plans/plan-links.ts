@@ -1,4 +1,6 @@
 import { allPlanSteps, planGroupEdges } from "@/definition/AgentPlanGroup";
+import { allPlanLoopMembers } from "@/definition/AgentPlanLoop";
+import { disconnectLoopFlow } from "@/definition/AgentPlanLoopEdit";
 import {
   disconnectPlanGroupFlow,
   findPlanBindingTarget,
@@ -15,6 +17,7 @@ import type {
   AgentPlanStep,
 } from "@/definition/AgentPlan";
 import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
+import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
 import type { AgentPlanScript } from "@/definition/AgentPlanScript";
 
 /** A flow edge between steps; it orders execution. */
@@ -24,6 +27,8 @@ interface PlanFlowLink {
   readonly to: string;
   /** The frame of an edge between two of its members. */
   readonly groupId?: string;
+  /** The loop of an edge between two of its members. */
+  readonly loopId?: string;
 }
 
 /** A source or result bound to one named parameter of an agent node. */
@@ -46,7 +51,9 @@ function bindingLinks(
 ): readonly PlanLink[] {
   return Object.entries(target.bindings).flatMap(
     ([parameter, binding]: [string, AgentPlanBinding]): PlanLink[] => {
-      if (binding.kind === "literal") return [];
+      // A previous iteration's result needs no line: the input names its source, and a
+      // line from a later member back to an earlier one would cross every card between them.
+      if (binding.kind === "literal" || binding.kind === "previous") return [];
       const from = binding.kind === "source" ? binding.nodeId : binding.stepId;
       const port = frame?.parameters.find((entry) => entry.id === from);
       if (frame && port)
@@ -66,11 +73,31 @@ function bindingLinks(
   );
 }
 
+/** The internal flow edges and member bindings of a loop. */
+function loopLinks(
+  loop: AgentPlanLoop,
+  ids: ReadonlySet<string>,
+): readonly PlanLink[] {
+  const edges = loop.edges
+    .filter((edge) => ids.has(edge.from) && ids.has(edge.to))
+    .map((edge): PlanLink => ({
+      kind: "flow",
+      from: edge.from,
+      to: edge.to,
+      loopId: loop.id,
+    }));
+  return [
+    ...edges,
+    ...loop.steps.flatMap((member) => bindingLinks(member, ids, null)),
+  ];
+}
+
 /** Lists flow edges and parameter bindings whose two nodes both exist, inside frames too. */
 export function planLinks(plan: AgentPlanInput): readonly PlanLink[] {
   const ids = new Set([
     ...plan.nodes.map((node) => node.id),
     ...allPlanSteps(plan).map((step) => step.id),
+    ...allPlanLoopMembers(plan).map((step) => step.id),
   ]);
   const links: PlanLink[] = plan.edges
     .filter((edge) => ids.has(edge.from) && ids.has(edge.to))
@@ -78,6 +105,7 @@ export function planLinks(plan: AgentPlanInput): readonly PlanLink[] {
   for (const target of plan.nodes) {
     if (target.type === "agent" || target.type === "script")
       links.push(...bindingLinks(target, ids, null));
+    if (target.type === "loop") links.push(...loopLinks(target, ids));
     if (target.type !== "group") continue;
     links.push(...bindingLinks(target, ids, null));
     for (const edge of planGroupEdges(target))
@@ -106,6 +134,8 @@ export function removePlanLink(
   draft: AgentPlanInput,
   link: PlanLink,
 ): AgentPlanInput {
+  if (link.kind === "flow" && link.loopId !== undefined)
+    return disconnectLoopFlow(draft, link.loopId, link);
   if (link.kind === "flow" && link.groupId !== undefined)
     return disconnectPlanGroupFlow(draft, link.groupId, link);
   if (link.kind === "flow")

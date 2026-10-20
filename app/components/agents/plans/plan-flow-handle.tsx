@@ -12,20 +12,24 @@ export function PlanFlowHandle(props: {
   readonly kind: "flow" | "data";
   readonly hasIssue?: boolean;
   readonly style?: React.CSSProperties;
+  /** Only anchors a line; it can neither start nor end a connection and shows no dot. */
+  readonly isDecorative?: boolean;
 }): React.ReactElement {
   const { canEdit } = usePlanFlowContext();
+  const isConnectable = canEdit && !props.isDecorative;
   return (
     <Handle
       id={props.id}
       type={props.type}
       position={props.type === "source" ? Position.Right : Position.Left}
-      isConnectable={canEdit}
-      isConnectableStart={canEdit && props.type === "source"}
-      isConnectableEnd={canEdit && props.type === "target"}
+      isConnectable={isConnectable}
+      isConnectableStart={isConnectable && props.type === "source"}
+      isConnectableEnd={isConnectable && props.type === "target"}
       aria-hidden="true"
       className={cn(
         styles.portHandle,
         props.kind === "flow" ? styles.flowHandle : styles.dataHandle,
+        props.isDecorative && styles.anchorHandle,
         props.hasIssue && styles.invalidHandle,
       )}
       style={props.style}

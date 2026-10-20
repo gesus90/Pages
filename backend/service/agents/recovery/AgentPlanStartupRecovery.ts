@@ -1,8 +1,11 @@
+import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
+
 import {
   endInterruptedSession,
   hasNoSessionProcesses,
 } from "../AgentPlanRecovery";
 import { classifyPlanFailure } from "./AgentPlanFailure";
+import { interruptedLoopRuns } from "./AgentPlanLoopRecovery";
 
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
@@ -69,15 +72,21 @@ export class AgentPlanStartupRecovery {
     const endSession = this.dependencies.endSession ?? endInterruptedSession;
     for (const previous of await this.dependencies.runs.unfinished()) {
       await this.dependencies.sessions?.revoke(previous.id, null);
-      const steps = await Promise.all(
-        previous.steps.map(async (step) =>
-          retainUnconfirmed(
-            step,
-            await endSession(step, previous.startedAt),
-            retained,
-          ),
-        ),
-      );
+      const endNode = async (
+        step: AgentPlanStepResult,
+      ): Promise<AgentPlanStepResult> =>
+        retainUnconfirmed(
+          step,
+          await endSession(step, previous.startedAt),
+          retained,
+        );
+      const steps = await Promise.all(previous.steps.map(endNode));
+      const loops = previous.loops
+        ? await interruptedLoopRuns(previous.loops, {
+            end: endNode,
+            interrupt: (step) => interruptedStep(step, previous.stopRequested),
+          })
+        : undefined;
       const hasTerminalFailure = previous.steps.some(
         (step) =>
           step.status === "failed" && classifyPlanFailure(step) === "terminal",
@@ -96,13 +105,14 @@ export class AgentPlanStartupRecovery {
         steps: steps.map((step) =>
           interruptedStep(step, previous.stopRequested),
         ),
+        ...(loops ? { loops } : {}),
       };
       await this.dependencies.runs.interrupt(run);
     }
     const hasNoProcesses =
       this.dependencies.hasNoProcesses ?? hasNoSessionProcesses;
     for (const run of await this.dependencies.runs.reserving()) {
-      const isRetained = run.steps.some(
+      const isRetained = allPlanRunResults(run).some(
         (step) => step.session && retained.has(step.session.instanceId),
       );
       if (!isRetained && (await hasNoProcesses(run)))

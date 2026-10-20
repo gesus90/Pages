@@ -11,6 +11,7 @@ import { PlanFlowHandle } from "../plan-flow-handle";
 import { planInTargetClass } from "../plan-flow-ports";
 import { PLAN_NODE_TEXT } from "../plan-node-text";
 import { disconnectPlanInput } from "../plan-ports";
+import { PlanPreviousMenu } from "./plan-previous-menu";
 import { PlanValueInput } from "./plan-value-input";
 import {
   isEmptyPlanValue,
@@ -214,7 +215,7 @@ function ManualValue(
       },
     });
   }
-  return (
+  const input = (
     <PlanValueInput
       type={parameter.type}
       value={value}
@@ -232,5 +233,16 @@ function ManualValue(
       disabled={!canEdit}
       onChange={change}
     />
+  );
+  if (parameter.type !== "text") return input;
+  return (
+    <div className="flex min-w-0 items-center gap-1">
+      <div className="min-w-0 flex-1">{input}</div>
+      <PlanPreviousMenu
+        step={step}
+        parameter={parameter.name}
+        label={props.label}
+      />
+    </div>
   );
 }

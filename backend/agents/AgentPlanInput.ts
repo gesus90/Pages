@@ -3,6 +3,11 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { isAgentParameterName } from "@/definition/AgentParameters";
 import { planValueIssue } from "@/definition/AgentPlanValue";
 import { planScriptIssues } from "@/definition/AgentPlanScript";
+import {
+  PLAN_LOOP_MEMBER_COUNT,
+  PLAN_LOOP_NAME_LENGTH,
+  isPlanLoopRuns,
+} from "@/definition/AgentPlanLoop";
 
 import {
   readAgentParameterValue,
@@ -10,9 +15,14 @@ import {
   readAgentTargets,
 } from "./AgentConfigurationInput";
 import { readPlanConfiguration } from "./AgentPlanConfigurationInput";
+import { readPlanLoopCondition } from "./AgentPlanLoopInput";
 import { readAgentObject } from "./AgentPayload";
 
 import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
+import type {
+  AgentPlanLoop,
+  AgentPlanLoopMember,
+} from "@/definition/AgentPlanLoop";
 import type {
   AgentPlanScript,
   AgentPlanScriptInput,
@@ -64,11 +74,13 @@ export function readPlanBinding(input: unknown): AgentPlanBinding {
     literal: ["kind", "value"],
     source: ["kind", "nodeId"],
     result: ["kind", "stepId"],
+    previous: ["kind", "stepId"],
   };
   if (
     binding.kind !== "literal" &&
     binding.kind !== "source" &&
-    binding.kind !== "result"
+    binding.kind !== "result" &&
+    binding.kind !== "previous"
   )
     throw new AgentError("plan_invalid");
   const keys = allowed[binding.kind];
@@ -84,7 +96,7 @@ export function readPlanBinding(input: unknown): AgentPlanBinding {
     return { kind: "source", nodeId: readPlanText(binding.nodeId) };
   if (binding.kind === "result")
     return { kind: "result", stepId: readPlanText(binding.stepId) };
-  throw new AgentError("plan_invalid");
+  return { kind: "previous", stepId: readPlanText(binding.stepId) };
 }
 
 function readBindings(
@@ -108,6 +120,7 @@ export function readPlanNode(input: unknown): AgentPlanNode {
     return { ...base, type: node.type };
   if (node.type === "parameter") return readParameterNode(node, base);
   if (node.type === "group") return readGroupNode(node, base);
+  if (node.type === "loop") return readLoopNode(node, base);
   if (node.type === "script") return readScriptNode(node, base);
   if (node.type === "task")
     return { ...base, type: "task", taskId: readPlanText(node.taskId) };
@@ -309,7 +322,9 @@ export function readPlanInput(input: unknown): AgentPlanInput {
   if (
     nodes.reduce(
       (count, node) =>
-        count + 1 + (node.type === "group" ? node.steps.length : 0),
+        count +
+        1 +
+        (node.type === "group" || node.type === "loop" ? node.steps.length : 0),
       0,
     ) > 100
   )
@@ -380,5 +395,49 @@ function readGroupNode(
     ...(node.edges === undefined ? {} : { edges: readGroupEdges(node.edges) }),
     parameters,
     bindings: readBindings(node.bindings),
+  };
+}
+
+/**
+ * Parses a loop node with its members; its own fields are checked completely here.
+ *
+ * @throws {AgentError} `plan_loop_invalid` for a malformed field or a member
+ * that is neither an agent nor a script, `plan_loop_runs_invalid` for a saved
+ * count outside the whole numbers 1 to 999. A count is never corrected.
+ */
+function readLoopNode(
+  node: Record<string, unknown>,
+  base: AgentPlanPosition & { readonly id: string },
+): AgentPlanLoop {
+  if (
+    !Array.isArray(node.steps) ||
+    node.steps.length > PLAN_LOOP_MEMBER_COUNT ||
+    (node.countMode !== "max" && node.countMode !== "expected") ||
+    (node.sessionPolicy !== "reuse" && node.sessionPolicy !== "fresh") ||
+    (node.runsSource !== "value" && node.runsSource !== "parameter")
+  )
+    throw new AgentError("plan_loop_invalid");
+  if (!isPlanLoopRuns(node.runs))
+    throw new AgentError("plan_loop_runs_invalid");
+  const steps = node.steps.map((input: unknown): AgentPlanLoopMember => {
+    const member = readPlanNode(input);
+    if (member.type === "loop" || member.type === "group")
+      throw new AgentError("plan_loop_nested");
+    if (member.type !== "agent" && member.type !== "script")
+      throw new AgentError("plan_loop_invalid");
+    return member;
+  });
+  return {
+    ...base,
+    type: "loop",
+    name: readPlanText(node.name, PLAN_LOOP_NAME_LENGTH),
+    steps,
+    edges: readGroupEdges(node.edges),
+    runs: node.runs,
+    runsSource: node.runsSource,
+    bindings: readBindings(node.bindings),
+    countMode: node.countMode,
+    sessionPolicy: node.sessionPolicy,
+    condition: readPlanLoopCondition(node.condition),
   };
 }

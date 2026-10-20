@@ -1,5 +1,6 @@
 import { planExecutionIssues } from "@/definition/AgentPlanGraph";
-import { findPlanStep, replacePlanNode } from "@/definition/AgentPlanGroupEdit";
+import { replacePlanNode } from "@/definition/AgentPlanGroupEdit";
+import { findPlanNodeLocation } from "@/definition/AgentPlanLoopEdit";
 
 import { planLinkKey, removePlanLink } from "./plan-links";
 import { removePlanNode, snapPlanCoordinate } from "./plan-node-factory";
@@ -80,6 +81,36 @@ function canvasIssues(
   );
 }
 
+/** Replaces one frame endpoint of an outer edge with a member of that group; anything else stays as it was. */
+function withResolvedGroupEdge(
+  plan: AgentPlanInput,
+  target: {
+    readonly groupId: string;
+    readonly edgeIndex: number;
+    readonly memberId: string;
+  },
+): AgentPlanInput {
+  const { groupId, edgeIndex, memberId } = target;
+  const group = plan.nodes.find((node) => node.id === groupId);
+  if (
+    group?.type !== "group" ||
+    !group.steps.some((step) => step.id === memberId)
+  )
+    return plan;
+  return {
+    ...plan,
+    edges: plan.edges.map((edge, index) =>
+      index !== edgeIndex
+        ? edge
+        : {
+            ...edge,
+            from: edge.from === groupId ? memberId : edge.from,
+            to: edge.to === groupId ? memberId : edge.to,
+          },
+    ),
+  };
+}
+
 /** Graph edits leave definitions untouched; the plan owns every node instance and binding. */
 export function usePlanGraph(
   draft: AgentPlanInput,
@@ -111,7 +142,7 @@ export function usePlanGraph(
   }
   function move(id: string, x: number, y: number): void {
     const node =
-      findPlanStep(draft, id)?.step ??
+      findPlanNodeLocation(draft, id)?.node ??
       draft.nodes.find((entry) => entry.id === id);
     if (!node) return;
     setDraft((previous) =>
@@ -124,7 +155,10 @@ export function usePlanGraph(
   }
   function remove(id: string): void {
     const node = draft.nodes.find((entry) => entry.id === id);
-    if (node?.type === "group" && node.steps.length > 0) {
+    if (
+      (node?.type === "group" || node?.type === "loop") &&
+      node.steps.length > 0
+    ) {
       groups.requestRemoval(id);
       return;
     }
@@ -144,24 +178,9 @@ export function usePlanGraph(
     edgeIndex: number,
     memberId: string,
   ): void {
-    const group = draft.nodes.find((node) => node.id === groupId);
-    if (
-      group?.type !== "group" ||
-      !group.steps.some((step) => step.id === memberId)
-    )
-      return;
-    setDraft((previous) => ({
-      ...previous,
-      edges: previous.edges.map((edge, index) =>
-        index !== edgeIndex
-          ? edge
-          : {
-              ...edge,
-              from: edge.from === groupId ? memberId : edge.from,
-              to: edge.to === groupId ? memberId : edge.to,
-            },
-      ),
-    }));
+    setDraft((previous) =>
+      withResolvedGroupEdge(previous, { groupId, edgeIndex, memberId }),
+    );
   }
   function replaceNode(node: AgentPlanNode): void {
     setDraft((previous) => replacePlanNode(previous, node));

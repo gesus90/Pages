@@ -50,7 +50,7 @@
   --color-ring: #f97316;
 
   /* Plan node types stay distinct from their execution status: start and end
-     green, parameters violet, agents teal, scripts rose, tickets yellow, apart
+     green, parameters violet, agents cyan, scripts rose, tickets yellow, apart
      from the orange of the flow ports and of a running node. */
   --color-plan-agent: #0e7490;
   --color-plan-agent-subtle: #e6f3f6;
@@ -64,10 +64,14 @@
   --color-plan-ticket-edge: #a37800;
   --color-plan-checkpoint: #15803d;
   --color-plan-checkpoint-subtle: #e8f5eb;
-  /* Yellow identifies the session container, independently of its run status. */
-  --color-plan-group: #9b7300;
-  --color-plan-group-edge: #9b7300;
-  --color-plan-group-subtle: #fffbea;
+  /* Turquoise identifies the session group and a reddish orange the loop,
+     each independently of its run status; yellow stays with the tickets. */
+  --color-plan-group: #0f766e;
+  --color-plan-group-edge: #2f9a8f;
+  --color-plan-group-subtle: #e8f6f3;
+  --color-plan-loop: #c2410c;
+  --color-plan-loop-edge: #cf5a3b;
+  --color-plan-loop-subtle: #fff1ec;
   --color-plan-progress-surface: var(--color-surface);
   --color-plan-progress-shade: var(--color-foreground);
   --color-plan-progress-active-label: var(--color-foreground);
@@ -266,9 +270,12 @@
     --color-plan-ticket-edge: #f8e646;
     --color-plan-checkpoint: #4ade80;
     --color-plan-checkpoint-subtle: #10261a;
-    --color-plan-group: #eabf25;
-    --color-plan-group-edge: #ae851c;
-    --color-plan-group-subtle: #211d10;
+    --color-plan-group: #55d8c9;
+    --color-plan-group-edge: #3e9189;
+    --color-plan-group-subtle: #112a29;
+    --color-plan-loop: #fb8a6e;
+    --color-plan-loop-edge: #b65744;
+    --color-plan-loop-subtle: #2d1a18;
     --color-plan-progress-surface: color-mix(
       in srgb,
       var(--color-background) 65%,

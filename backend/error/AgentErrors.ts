@@ -106,6 +106,30 @@ export const AGENT_ERROR_MESSAGES = {
     "This adapter cannot continue a group's shared ACP session with a new step instruction. Use Codex or Claude Code agents over ACP.",
   plan_group_session_lost:
     "The group's shared ACP session is unavailable after its adapter process ended. Pages does not continue this group session in a new process; deliberately start a new run.",
+  plan_loop_invalid:
+    "Check the loop: its name, members, connections, number of iterations, session setting and end condition.",
+  plan_loop_nested:
+    "A loop holds only agents and scripts. Loops inside loops and groups inside loops are not supported; keep the subgraph flat.",
+  plan_loop_runs_invalid:
+    "The number of iterations must be a whole number from 1 to 999. Pages does not round, cut or replace it.",
+  plan_loop_runs_unavailable:
+    "The parameter that sets the number of iterations is missing, not readable or not a number. The loop did not start.",
+  plan_loop_condition_source:
+    "The end condition names a source node that is not an agent or script of this loop.",
+  plan_loop_condition_path:
+    "The JSON path of the end condition is not valid. Use a path such as $.end or $.review.end.",
+  plan_loop_output_missing:
+    "The source of the end condition returned no JSON. Return one JSON value or exactly one pages-loop-result block.",
+  plan_loop_output_invalid:
+    "The block with the result of the end condition is not valid JSON.",
+  plan_loop_output_ambiguous:
+    "The source of the end condition returned more than one pages-loop-result block. Return exactly one.",
+  plan_loop_condition_field:
+    "The JSON result has no field at the path of the end condition.",
+  plan_loop_condition_type:
+    "The value at the path of the end condition has another type than the expected value. Pages never converts types.",
+  plan_loop_session_lost:
+    "The retained ACP session of a loop agent is unavailable after its adapter process ended. Pages does not open a new session under the same identity; deliberately start a new run.",
   plan_session_unavailable:
     "This agent session has no open native session that could take another instruction. Its history stays readable.",
   plan_closeout_failed:

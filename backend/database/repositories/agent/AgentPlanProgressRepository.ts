@@ -4,9 +4,15 @@ import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { readTextColumn } from "@/backend/database/RowValue";
 import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
+import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
+import {
+  loopIterationCheckpoints,
+  requireImmutableIterations,
+} from "@/backend/service/agents/recovery/AgentPlanLoopCheckpoint";
 
 import { CURRENT_PLAN_SNAPSHOT } from "./AgentPlanContinuationRepository";
 import { AgentPlanCheckpointRepository } from "./AgentPlanCheckpointRepository";
+import { AgentPlanLoopIterationRepository } from "./AgentPlanLoopIterationRepository";
 
 import type { AgentPlanRunJournal } from "@/backend/service/agents/AgentPlanJournal";
 import type {
@@ -66,6 +72,7 @@ function requireImmutableSuccess(
   run: AgentPlanRun,
 ): void {
   requireRunIdentity(previous, run);
+  requireImmutableIterations(previous, run, successfulWorkDigest);
   for (const completed of previous.steps.filter(
     (step) => step.status === "succeeded",
   )) {
@@ -101,6 +108,7 @@ function requireCompletionCheckpoint(
 export class AgentPlanProgressRepository {
   private readonly database: Pick<Database, "transaction">;
   private readonly checkpoints: AgentPlanCheckpointRepository;
+  private readonly iterations = new AgentPlanLoopIterationRepository();
 
   public constructor(database: Pick<Database, "transaction" | "query">) {
     this.database = database;
@@ -178,6 +186,8 @@ export class AgentPlanProgressRepository {
         throw new AgentPlanRecoveryError("checkpoint_invalid");
       await this.checkpoints.append(transaction, checkpoint, revision);
     }
+    for (const iteration of loopIterationCheckpoints(previous.run, run))
+      await this.iterations.append(transaction, iteration, revision);
     await transaction.execute(
       `
         UPDATE agent_plan_runs
@@ -195,7 +205,7 @@ export class AgentPlanProgressRepository {
         previous_revision: previous.revision,
       },
     );
-    const hasUnconfirmedCleanup = run.steps.some(
+    const hasUnconfirmedCleanup = allPlanRunResults(run).some(
       (step) =>
         step.session?.closeout === "pending" ||
         step.session?.closeout === "failed",

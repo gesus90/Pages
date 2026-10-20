@@ -7,6 +7,11 @@ import {
   ungroupPlanGroup,
 } from "@/definition/AgentPlanGroupEdit";
 import { removePlanNode } from "@/definition/AgentPlanGraph";
+import {
+  findPlanNodeLocation,
+  placePlanLoopNode,
+  ungroupPlanLoop,
+} from "@/definition/AgentPlanLoopEdit";
 
 import {
   planDropGroup,
@@ -29,6 +34,11 @@ import type {
   AgentPlanGroupRefusal,
 } from "@/definition/AgentPlanGroup";
 import type { PlanGroupMove } from "@/definition/AgentPlanGroupEdit";
+import type {
+  PlanNodeLocation,
+  PlanNodePlacement,
+} from "@/definition/AgentPlanLoopEdit";
+import type { PlanFrame } from "./plan-layout";
 
 /** What the editor tells about the last change of a group's membership. */
 export type PlanGroupNotice =
@@ -41,6 +51,7 @@ export type PlanGroupNotice =
     }
   | {
       readonly kind: "moved";
+      readonly frame: "group" | "loop";
       readonly removedEdges: number;
       readonly removedBindings: number;
     };
@@ -83,7 +94,7 @@ function snap(position: AgentPlanPosition): AgentPlanPosition {
 
 /** The position of a node inside a frame, counted from its member area. */
 function memberOffset(
-  group: AgentPlanGroup,
+  group: PlanFrame,
   position: AgentPlanPosition,
 ): AgentPlanPosition {
   const origin = planMemberOrigin(group);
@@ -117,13 +128,85 @@ function refusalNotice(
 /** Names the connections a move dropped; a move that dropped none needs no notice. */
 function moveNotice(
   result: PlanGroupMove<AgentPlanInput>,
+  frame: "group" | "loop",
 ): PlanGroupNotice | null {
   if (result.removedEdges + result.removedBindings === 0) return null;
   return {
     kind: "moved",
+    frame,
     removedEdges: result.removedEdges,
     removedBindings: result.removedBindings,
   };
+}
+
+/** Moves an agent or script into a loop or out of it; a group frees an agent first. */
+function moveToLoop(
+  draft: AgentPlanInput,
+  sources: AgentPlanSources,
+  placement: PlanNodePlacement,
+): ReturnType<typeof placePlanLoopNode<AgentPlanInput>> {
+  return placePlanLoopNode(draft, placement, {
+    agents: sources.agents,
+    detachFromGroup: (plan, step, at) => {
+      const moved = placePlanStep(
+        plan,
+        { stepId: step.id, groupId: null, position: at },
+        sources.agents,
+      );
+      return typeof moved === "string" ? moved : moved.plan;
+    },
+  });
+}
+
+/** The frame under the pointer of a drop, ignoring frames the canvas shows collapsed. */
+function dropFrame(
+  draft: AgentPlanInput,
+  sources: AgentPlanSources,
+  target: { readonly found: PlanNodeLocation; readonly drop: PlanDrop },
+): PlanFrame | null {
+  const { found, drop } = target;
+  return planDropGroup(
+    {
+      ...draft,
+      nodes: draft.nodes.filter((node) => !drop.excludedGroups?.has(node.id)),
+    },
+    drop.pointer,
+    sources,
+    found.group?.id ?? found.loop?.id ?? null,
+  );
+}
+
+/** The plan without a group, with or without its members; `null` when the group is gone. */
+function groupRemoval(
+  draft: AgentPlanInput,
+  id: string,
+  keepMembers: boolean,
+): PlanGroupMove<AgentPlanInput> | null {
+  const group = draft.nodes.find(
+    (node): node is PlanFrame =>
+      (node.type === "group" || node.type === "loop") && node.id === id,
+  );
+  if (!group) return null;
+  if (!keepMembers)
+    return {
+      plan: removePlanNode(draft, id),
+      removedEdges: 0,
+      removedBindings: 0,
+    };
+  if (group.type === "loop")
+    return ungroupPlanLoop(draft, id, (member) =>
+      snap(planMemberPosition(group, member)),
+    );
+  return ungroupPlanGroup(draft, id, (step) =>
+    snap(planMemberPosition(group, step)),
+  );
+}
+
+/** Whether a frame of the plan is a loop; every other frame is a group. */
+function frameKind(draft: AgentPlanInput, id: string): "group" | "loop" {
+  return draft.nodes.some((node) => node.id === id && node.type === "loop")
+    ? "loop"
+    : "group";
 }
 
 /** Keeps group membership edits, their notices and the removal choice of one plan draft. */
@@ -158,25 +241,29 @@ export function usePlanGroupActions(options: {
       return;
     }
     setDraft(result.plan);
-    report(result);
-  }
-  function report(result: PlanGroupMove<AgentPlanInput>): void {
-    setNotice(moveNotice(result));
+    setNotice(moveNotice(result, "group"));
   }
   function place(id: string, drop: PlanDrop): void {
-    const found = findPlanStep(draft, id);
+    const found = findPlanNodeLocation(draft, id);
     if (!found) return;
-    const group = planDropGroup(
-      {
-        ...draft,
-        nodes: draft.nodes.filter((node) => !drop.excludedGroups?.has(node.id)),
-      },
-      drop.pointer,
-      sources,
-      found.group?.id ?? null,
-    );
+    const frame = dropFrame(draft, sources, { found, drop });
+    if (found.loop || frame?.type === "loop" || found.node.type === "script") {
+      const loop = frame?.type === "loop" ? frame : null;
+      const result = moveToLoop(draft, sources, {
+        nodeId: found.node.id,
+        loopId: loop?.id ?? null,
+        position: loop
+          ? memberOffset(loop, drop.position)
+          : snap(drop.position),
+      });
+      if (typeof result === "string") return;
+      setDraft(result.plan);
+      setNotice(moveNotice(result, "loop"));
+      return;
+    }
+    const group = frame?.type === "group" ? frame : null;
     apply(
-      found.step,
+      found.node,
       group,
       group ? memberOffset(group, drop.position) : snap(drop.position),
     );
@@ -199,17 +286,10 @@ export function usePlanGroupActions(options: {
   }
   function removeGroup(id: string, keepMembers: boolean): void {
     setRemovalId(null);
-    const group = draft.nodes.find(
-      (node): node is AgentPlanGroup => node.type === "group" && node.id === id,
-    );
-    if (!group) return;
-    if (keepMembers) {
-      const result = ungroupPlanGroup(draft, id, (step) =>
-        snap(planMemberPosition(group, step)),
-      );
-      setDraft(result.plan);
-      report(result);
-    } else setDraft(removePlanNode(draft, id));
+    const result = groupRemoval(draft, id, keepMembers);
+    if (!result) return;
+    setDraft(result.plan);
+    if (keepMembers) setNotice(moveNotice(result, frameKind(draft, id)));
     options.onRemoved(id);
   }
   return {

@@ -1,3 +1,4 @@
+import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { sessionAttemptId } from "@/definition/AgentSessionJournal";
 
@@ -100,7 +101,8 @@ export function sessionStart(
 export function listSessionAttempts(
   run: AgentPlanRun,
 ): readonly AgentSessionAttempt[] {
-  return run.steps.flatMap((step) => {
+  // Members of a loop keep one attempt per iteration in their loop's record.
+  return allPlanRunResults(run).flatMap((step) => {
     const record = step.session;
     if (!record || record.runner === "api") return [];
     const { attemptId, isLegacy } = attemptIdOf(record, step.id);

@@ -1,4 +1,5 @@
 import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
+import { emptyPlanLoop } from "@/definition/AgentPlanLoop";
 import { createRandomUuid } from "@/app/lib/random-uuid";
 
 import { PLAN_GRID } from "./plan-layout";
@@ -77,6 +78,7 @@ export function createPlanNode(input: {
     y: snapPlanCoordinate(position.y),
   };
   if (kind === "start" || kind === "end") return { ...base, type: kind };
+  if (kind === "loop") return emptyPlanLoop(base.id, reference, base);
   if (kind === "group")
     return {
       ...base,

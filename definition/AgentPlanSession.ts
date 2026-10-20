@@ -144,6 +144,29 @@ export interface AgentPlanGroupSessionLink {
 }
 
 /**
+ * How a member of a loop took part in the session of its agent node.
+ *
+ * @remarks
+ * Pages' run, loop and node identifiers, the iteration, the ACP session ID the
+ * adapter issued, the native ID of an adapter that reports one apart from it
+ * and the process instance of the record stay separate. The iteration is
+ * never part of a session's identity: with `reuse` every iteration continues
+ * the session the first one opened, with `fresh` each opens its own.
+ */
+export interface AgentPlanLoopSessionLink {
+  readonly loopId: string;
+  /** Counts from 1. */
+  readonly iteration: number;
+  readonly policy: "reuse" | "fresh";
+  /** `created` opened the session, `continued` sent a further turn to it, `fresh` used a session of its own. */
+  readonly role: "created" | "continued" | "fresh";
+  /** The place of this turn in the session of the node, from 1. */
+  readonly turn: number;
+  readonly acpSessionId: string | null;
+  readonly nativeSessionId: string | null;
+}
+
+/**
  * The observable record of one node: runner, session, process, acceptance and result.
  *
  * @remarks
@@ -193,4 +216,6 @@ export interface AgentPlanSessionRecord {
   readonly activity?: AgentPlanActivity;
   /** The shared session of the node's ACP group; absent outside groups and in older records. */
   readonly group?: AgentPlanGroupSessionLink;
+  /** The loop iteration and session role of a loop member; absent outside loops. */
+  readonly loop?: AgentPlanLoopSessionLink;
 }

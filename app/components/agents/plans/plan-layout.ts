@@ -8,7 +8,11 @@ import type {
   AgentPlanStep,
 } from "@/definition/AgentPlan";
 import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
+import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
 import type { AgentPlanScript } from "@/definition/AgentPlanScript";
+
+/** A container of nodes on the grid: a session group or a loop. */
+export type PlanFrame = AgentPlanGroup | AgentPlanLoop;
 
 export const PLAN_GRID = 20;
 /** The width of the port rows in a frame's header. */
@@ -54,8 +58,17 @@ export function planGroupHeaderHeight(): number {
   return 108;
 }
 
+function memberHeight(
+  member: AgentPlanStep | AgentPlanScript,
+  sources: AgentPlanSources,
+): number {
+  return member.type === "script"
+    ? scriptHeight(member)
+    : agentHeight(member, sources);
+}
+
 /** A frame grows with its members; an empty frame keeps room to drop the first one. */
-export function planGroupWidth(group: AgentPlanGroup): number {
+export function planGroupWidth(group: PlanFrame): number {
   const right = Math.max(
     0,
     ...group.steps.map((step) => step.x + PLAN_AGENT_WIDTH),
@@ -63,10 +76,10 @@ export function planGroupWidth(group: AgentPlanGroup): number {
   return Math.max(FRAME_MIN_WIDTH, right + 2 * PLAN_FRAME_PADDING);
 }
 
-function groupHeight(group: AgentPlanGroup, sources: AgentPlanSources): number {
+function groupHeight(group: PlanFrame, sources: AgentPlanSources): number {
   const bottom = Math.max(
     0,
-    ...group.steps.map((step) => step.y + agentHeight(step, sources)),
+    ...group.steps.map((step) => step.y + memberHeight(step, sources)),
   );
   return (
     planGroupHeaderHeight() +
@@ -76,7 +89,7 @@ function groupHeight(group: AgentPlanGroup, sources: AgentPlanSources): number {
 }
 
 /** The top left corner of a frame's member area; member positions count from here. */
-export function planMemberOrigin(group: AgentPlanGroup): AgentPlanPosition {
+export function planMemberOrigin(group: PlanFrame): AgentPlanPosition {
   return {
     x: group.x + PLAN_FRAME_PADDING,
     y: group.y + planGroupHeaderHeight(),
@@ -85,8 +98,8 @@ export function planMemberOrigin(group: AgentPlanGroup): AgentPlanPosition {
 
 /** The absolute grid position of a member. */
 export function planMemberPosition(
-  group: AgentPlanGroup,
-  step: AgentPlanStep,
+  group: PlanFrame,
+  step: AgentPlanStep | AgentPlanScript,
 ): AgentPlanPosition {
   const origin = planMemberOrigin(group);
   return { x: origin.x + step.x, y: origin.y + step.y };
@@ -94,7 +107,8 @@ export function planMemberPosition(
 
 /** Cards keep their stored top left corner; only their size follows the card type. */
 export function planNodeWidth(node: AgentPlanNode): number {
-  if (node.type === "group") return planGroupWidth(node);
+  if (node.type === "group" || node.type === "loop")
+    return planGroupWidth(node);
   if (node.type === "agent" || node.type === "script") return PLAN_AGENT_WIDTH;
   return node.type === "start" || node.type === "end"
     ? PLAN_ENDPOINT_WIDTH
@@ -119,7 +133,8 @@ export function planNodeHeight(
     task: PLAN_TICKET_HEIGHT,
     variable: PLAN_VARIABLE_HEIGHT,
   };
-  if (node.type === "group") return groupHeight(node, sources);
+  if (node.type === "group" || node.type === "loop")
+    return groupHeight(node, sources);
   if (node.type === "agent") return agentHeight(node, sources);
   if (node.type === "script") return scriptHeight(node);
   return heights[node.type];
@@ -132,17 +147,20 @@ export function planNodeHeight(
  * @param point - The pointer in grid coordinates.
  * @param sources - The agents whose templates size the members.
  * @param memberOf - The frame the node belongs to now, if any.
- * @returns The topmost frame under the pointer. A node joins a frame only
- * with the pointer clearly inside it, and a member leaves only once the
- * pointer is outside, so a drop near an edge never flips the membership.
+ * @returns The topmost frame, a group or a loop, under the pointer. A node
+ * joins a frame only with the pointer clearly inside it, and a member leaves
+ * only once the pointer is outside, so a drop near an edge never flips the
+ * membership.
  */
 export function planDropGroup(
   plan: AgentPlanInput,
   point: AgentPlanPosition,
   sources: AgentPlanSources,
   memberOf: string | null,
-): AgentPlanGroup | null {
-  const groups = plan.nodes.filter((node) => node.type === "group");
+): PlanFrame | null {
+  const groups = plan.nodes.filter(
+    (node) => node.type === "group" || node.type === "loop",
+  );
   for (const group of [...groups].reverse()) {
     const inset = group.id === memberOf ? 0 : FRAME_EDGE;
     const right = group.x + planGroupWidth(group) - inset;
@@ -185,6 +203,7 @@ export function planNodeLabel(
     node.type === "variable" ||
     node.type === "parameter" ||
     node.type === "group" ||
+    node.type === "loop" ||
     node.type === "script"
   )
     return node.name;
@@ -205,6 +224,7 @@ const NODE_TINTS = {
   agent: "border-plan-agent/60 bg-plan-agent-subtle",
   script: "border-plan-script/60 bg-plan-script-subtle",
   group: "border-plan-group/60 bg-plan-group-subtle",
+  loop: "border-plan-loop-edge/60 bg-plan-loop-subtle",
   task: "border-plan-ticket-edge bg-plan-ticket-subtle",
   variable: "border-plan-parameter/60 bg-plan-parameter-subtle",
   parameter: "border-plan-parameter/60 bg-plan-parameter-subtle",
@@ -216,6 +236,7 @@ const NODE_ACCENTS = {
   agent: "text-plan-agent",
   script: "text-plan-script",
   group: "text-plan-group",
+  loop: "text-plan-loop",
   task: "text-plan-ticket",
   variable: "text-plan-parameter",
   parameter: "text-plan-parameter",

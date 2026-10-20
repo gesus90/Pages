@@ -28,6 +28,7 @@ const PALETTE_KINDS: readonly PlanPaletteKind[] = [
   "parameter",
   "task",
   "group",
+  "loop",
 ];
 
 interface PlanNodePaletteProps {

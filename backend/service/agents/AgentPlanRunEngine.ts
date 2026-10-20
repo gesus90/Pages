@@ -7,6 +7,7 @@ import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { withDatabaseLogMetrics } from "@/backend/logging/DatabaseLogMetrics";
 import { isPlanFlowNode } from "@/definition/AgentPlanGraph";
+import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import {
   logCaughtError,
   logDiagnostic,
@@ -24,7 +25,7 @@ import {
   readySteps,
   canSchedule,
   canFinalize,
-  isAcpStep,
+  isRequestStep,
   settlePlanPause,
   finalPlanStatus,
   endedPlanRun,
@@ -34,6 +35,9 @@ import {
 import { planWritingWorkspaces } from "./AgentPlanContinuation";
 import { withGroupResults } from "./AgentPlanGroupResults";
 import { createPlanCheckpoint } from "./recovery/AgentPlanCheckpoint";
+import { createLoopHost } from "./loop/AgentPlanLoopEngineHost";
+import { initialLoopRuns } from "./loop/AgentPlanLoopRecord";
+import { AgentPlanLoopRunner } from "./loop/AgentPlanLoopRunner";
 import { planRecoveryReason } from "./recovery/AgentPlanFailure";
 
 import type { AgentPlanRunJournal } from "./AgentPlanJournal";
@@ -49,6 +53,7 @@ import type {
   AgentPlanRun,
   AgentPlanStepResult,
 } from "@/definition/AgentPlan";
+import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
 import type { AgentPlanSessionRecord } from "@/definition/AgentPlanSession";
 import type { AgentPlanSnapshot } from "./AgentPlanSnapshot";
 import type { AgentPlanStepRunner } from "./AgentPlanStepRunner";
@@ -88,6 +93,7 @@ export interface EngineDependencies {
 export class AgentPlanRunEngine {
   private readonly dependencies: EngineDependencies;
   private readonly commands: AgentPlanRunCommands;
+  private readonly loops: AgentPlanLoopRunner;
   private readonly active = new Map<string, ActivePlanRun>();
   private readonly writes = new SerialQueue();
   private readonly pending = new Set<Promise<void>>();
@@ -95,6 +101,7 @@ export class AgentPlanRunEngine {
 
   public constructor(dependencies: EngineDependencies) {
     this.dependencies = dependencies;
+    this.loops = new AgentPlanLoopRunner(dependencies.steps);
     this.commands = new AgentPlanRunCommands({
       ...dependencies,
       active: this.active,
@@ -135,7 +142,7 @@ export class AgentPlanRunEngine {
           ?.groupId,
         name:
           snapshot.steps.find((step) => step.step.id === node.id)?.name ??
-          node.type,
+          (node.type === "loop" ? node.name : node.type),
         status: "waiting",
         isBlocked: false,
         cancellation: "none",
@@ -143,7 +150,11 @@ export class AgentPlanRunEngine {
         error: null,
       })),
     };
-    const initialView = withGroupResults(view, snapshot);
+    const loops = initialLoopRuns(snapshot);
+    const initialView = withGroupResults(
+      loops.length > 0 ? { ...view, loops } : view,
+      snapshot,
+    );
     withLogContext({ runId: view.id }, () =>
       logEvent({
         level: "info",
@@ -295,7 +306,7 @@ export class AgentPlanRunEngine {
         const ready = canSchedule(active) ? readySteps(active) : [];
         for (const step of ready) {
           if (
-            !isAcpStep(active, step.id) &&
+            isRequestStep(active, step.id) &&
             countRunningPlanRequests(this.active.values()) >= 2
           )
             continue;
@@ -358,7 +369,10 @@ export class AgentPlanRunEngine {
       return Promise.resolve(idle);
     });
     for (const active of closing) {
-      if (active.snapshot.groups?.length)
+      if (
+        active.snapshot.groups?.length ||
+        active.snapshot.plan.nodes.some((node) => node.type === "loop")
+      )
         await this.dependencies.steps.closeGroups(active.view.id);
       active.groupCloseout = "closed";
     }
@@ -403,7 +417,7 @@ export class AgentPlanRunEngine {
     for (const controller of active.controllers.values()) controller.abort();
     if (
       active.executions.size > 0 ||
-      active.view.steps.some((step) => step.session)
+      allPlanRunResults(active.view).some((step) => step.session)
     ) {
       await Promise.all([...active.executions]);
       // Running adapters settle before normal finalization releases their definitions.
@@ -555,6 +569,8 @@ export class AgentPlanRunEngine {
       if (isStopped) throw new AgentPlanCancelledError();
       if (active.view.status !== "running") throw new AgentPlanPausedError();
       active.dispatched.add(node.id);
+      if (node.type === "loop")
+        return await this.runLoop(active, node, controller);
       await this.dependencies.start.control(active.view, active.snapshot, node);
       return { status: "succeeded", output: null, error: null };
     } catch (error: unknown) {
@@ -571,6 +587,21 @@ export class AgentPlanRunEngine {
             : "plan_step_failed",
       };
     }
+  }
+
+  /** A loop is one node: its iterations run inside it and it settles only when they have. */
+  private runLoop(
+    active: ActivePlanRun,
+    node: AgentPlanLoop,
+    controller: AbortController,
+  ): Promise<Partial<AgentPlanStepResult>> {
+    const host = createLoopHost(active, controller.signal, {
+      writes: this.writes,
+      runs: this.dependencies.runs,
+      authorize: () =>
+        this.dependencies.start.control(active.view, active.snapshot, node),
+    });
+    return this.loops.run(node, host);
   }
 
   /** Stores the newest record of a running node; a failure is reported, never thrown. */

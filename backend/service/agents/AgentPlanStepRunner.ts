@@ -20,6 +20,12 @@ import {
 } from "./AgentPlanStepFailure";
 import { waitForTurn } from "./AgentPlanTurn";
 import { offerGroupInstructions } from "./AgentPlanGroupInstructions";
+import {
+  loopSessionTerms,
+  planSessionGroup,
+  planSessionLink,
+  planTurnScope,
+} from "./loop/AgentPlanLoopSession";
 import { AgentPlanGroupSessions } from "./AgentPlanGroupSessions";
 import { AgentPlanStepAssessment } from "./AgentPlanStepAssessment";
 import { buildPlanContract, renderPlanAssignment } from "./AgentPlanContract";
@@ -27,7 +33,7 @@ import { sanitizePlanOutput } from "./AgentPlanOutput";
 import { planSessionReach } from "./AgentPlanSessionAccess";
 import {
   createSessionRecord,
-  closeoutFailureCode,
+  closedSessionChanges,
   hasPlanStepTimedOut,
   isConfirmedPlanCancellation,
   planCompletedFailure,
@@ -37,6 +43,7 @@ import {
 } from "./AgentPlanSessionRecords";
 
 import type { PlanInstructionWork } from "./AgentPlanInstructionControl";
+import type { LoopSessionTerms } from "./loop/AgentPlanLoopSession";
 import type {
   AgentPlanSessionInput,
   PlanExecution,
@@ -91,6 +98,8 @@ export interface StepRunControl {
   ) => Promise<PlanSessionTurn>;
   /** Persists the newest record of the node; never throws. */
   readonly save: (session: AgentPlanSessionRecord) => Promise<void>;
+  /** The iteration of a loop member, which decides how its session is named and kept. */
+  readonly iteration?: number;
 }
 
 /** One node from its start to its result; `record` always holds the newest state. */
@@ -101,6 +110,10 @@ interface NodeRun {
   control: StepRunControl;
   record: AgentPlanSessionRecord | null;
   hasStarted: boolean;
+  /** The loop and iteration of a loop member. */
+  readonly loop: LoopSessionTerms | null;
+  /** The session container of the node: its group, or the loop's session of its agent. */
+  readonly sessionGroup: string | undefined;
 }
 
 /**
@@ -143,6 +156,7 @@ export class AgentPlanStepRunner {
     control: StepRunControl,
   ): Promise<Partial<AgentPlanStepResult>> {
     control.awaitDispatch?.();
+    const loop = loopSessionTerms(step, snapshot, control.iteration);
     const node: NodeRun = {
       run,
       snapshot,
@@ -150,10 +164,12 @@ export class AgentPlanStepRunner {
       control,
       record: null,
       hasStarted: false,
+      loop,
+      sessionGroup: planSessionGroup(step, loop),
     };
     // The place in the group's queue is taken before any await, in the order the engine starts its members.
-    const slot = step.groupId
-      ? this.groups.reserve(`${run.id}/${step.groupId}`)
+    const slot = node.sessionGroup
+      ? this.groups.reserve(`${run.id}/${node.sessionGroup}`)
       : null;
     try {
       if (slot) await waitForTurn(slot.ready, control.signal);
@@ -182,18 +198,20 @@ export class AgentPlanStepRunner {
 
   /** Ends retained native sessions when the plan is cancelled or finishes. */
   public async closeGroups(runId: string, groupId?: string): Promise<void> {
+    await this.closeSessionGroups(runId, groupId);
+  }
+
+  /** Ends the sessions of a group or loop agent, or of the whole run, and tells how each one closed. */
+  private async closeSessionGroups(
+    runId: string,
+    groupId?: string,
+  ): Promise<Awaited<ReturnType<AgentPlanGroupSessions["stop"]>>> {
     const stopped = await this.groups.stop(runId, groupId);
     if (groupId === undefined) this.groups.forget(runId);
     for (const { key, closed } of stopped) {
       for (const node of this.retained.get(key) ?? []) {
         await this.dependencies.sessions?.released(node.record);
-        await this.complete(node, {
-          closeout: closed.isConfirmed ? "confirmed" : "failed",
-          exit: closed.exit,
-          leftoverProcesses: closed.leftovers,
-          endedAt: closed.endedAt,
-          resultCode: closeoutFailureCode(closed) === null ? 0 : -1,
-        });
+        await this.complete(node, closedSessionChanges(closed));
       }
       this.retained.delete(key);
       await this.dependencies.access.revoke(runId, key.slice(runId.length + 1));
@@ -204,6 +222,7 @@ export class AgentPlanStepRunner {
         (!groupId && key.startsWith(`${runId}/`))
       )
         this.groupInputs.delete(key);
+    return stopped;
   }
 
   private async execute(node: NodeRun): Promise<Partial<AgentPlanStepResult>> {
@@ -231,7 +250,7 @@ export class AgentPlanStepRunner {
   private async pauseUnstarted(
     node: NodeRun,
   ): Promise<Partial<AgentPlanStepResult>> {
-    const group = node.step.groupId;
+    const group = node.sessionGroup;
     const retained = group && this.groups.instanceId(`${node.run.id}/${group}`);
     if (node.record && !retained)
       await this.dependencies.access.revoke(
@@ -318,7 +337,7 @@ export class AgentPlanStepRunner {
       isReadOnly,
       completion,
     });
-    const groupKey = `${run.id}/${step.groupId ?? step.step.id}`;
+    const groupKey = `${run.id}/${node.sessionGroup ?? step.step.id}`;
     const instanceId = this.groups.instanceId(groupKey) ?? randomUUID();
     await this.save(node, {
       ...createSessionRecord({
@@ -327,16 +346,16 @@ export class AgentPlanStepRunner {
         contract,
         usesMcp: reach !== "tickets" || contract.tickets.length > 0,
       }),
-      ...this.groupLink(node, prepared, groupKey),
+      ...this.sessionLink(node, prepared, groupKey),
     });
     const mcp = this.groups.instanceId(groupKey)
       ? this.groups.mcp(groupKey)
       : await this.dependencies.access.grant({
           userId: run.userId,
           runId: run.id,
-          stepId: step.groupId ?? step.step.id,
+          stepId: node.sessionGroup ?? step.step.id,
           tickets: contract.tickets,
-          lifetimeMs: step.groupId
+          lifetimeMs: node.sessionGroup
             ? 0
             : prepared.options.timeoutMinutes * 60_000,
           reach,
@@ -347,7 +366,7 @@ export class AgentPlanStepRunner {
       mcp,
       instanceId,
     });
-    const session = step.groupId
+    const session = node.sessionGroup
       ? await this.groups.turn({
           key: groupKey,
           input,
@@ -393,9 +412,7 @@ export class AgentPlanStepRunner {
   ): Promise<AgentPlanSessionInput> {
     const directory = prepared.input.directory;
     if (directory === null) throw new AgentError("plan_directory_required");
-    const scope = node.step.groupId
-      ? "This is a new step in a sequential group. Only the instruction in this turn is active for this step. Earlier step instructions are completed historical context, not continuing tasks. Retain facts from that context.\n\n"
-      : "";
+    const scope = planTurnScope(node.step, node.loop);
     const prompt = `${scope}${prepared.input.prompt}\n\n${renderPlanAssignment({
       contract: terms.contract,
       usesMcp: terms.mcp !== null,
@@ -434,22 +451,22 @@ export class AgentPlanStepRunner {
     offerGroupInstructions({ sessions, groups: this.groups, node, key, input });
   }
 
-  /** Records whether a group member opens its group's shared session or continues it. */
-  private groupLink(
+  /** Records whether a member opens its group's or loop's session or continues it. */
+  private sessionLink(
     node: NodeRun,
     prepared: PreparedPlanStep,
     groupKey: string,
-  ): Pick<AgentPlanSessionRecord, "group"> {
-    const { groupId } = node.step;
+  ): Pick<AgentPlanSessionRecord, "group" | "loop"> {
     const provider = prepared.input.agent.connection.provider;
-    if (!groupId || !isAcpProvider(provider)) return {};
-    return {
-      group: this.groups.link(groupKey, {
-        groupId,
-        stepId: node.step.step.id,
-        adapter: provider,
-      }),
-    };
+    if (!isAcpProvider(provider)) return {};
+    const shared = node.sessionGroup
+      ? this.groups.link(groupKey, {
+          groupId: node.sessionGroup,
+          stepId: node.step.step.id,
+          adapter: provider,
+        })
+      : null;
+    return planSessionLink(node, shared);
   }
 
   private async finish(
@@ -507,23 +524,23 @@ export class AgentPlanStepRunner {
   }
 
   private retain(node: NodeRun, turn: PlanSessionTurn): boolean {
-    const group = node.snapshot.groups?.find(
-      (entry) => entry.id === node.step.groupId,
-    );
-    if (!group) return false;
     // Retain until every actual member has succeeded, independent of chain or
     // membership order. A later frontier may return from outside the frame.
     if (turnFailureCode(turn) !== null || node.control.signal.aborted)
       return false;
-    const key = `${node.run.id}/${group.id}`;
+    const group = node.snapshot.groups?.find(
+      (entry) => entry.id === node.step.groupId,
+    );
+    // A loop keeps the session of each agent open until the loop itself ends or fails.
+    if (!group && node.loop?.policy !== "reuse") return false;
+    const key = `${node.run.id}/${group?.id ?? node.sessionGroup}`;
     const nodes = this.retained.get(key) ?? [];
     const completed = new Set([
       ...nodes.map((entry) => entry.step.step.id),
       node.step.step.id,
     ]);
-    if (group.steps.every((step) => completed.has(step.id))) return false;
-    nodes.push(node);
-    this.retained.set(key, nodes);
+    if (group?.steps.every((step) => completed.has(step.id))) return false;
+    this.retained.set(key, [...nodes, node]);
     return true;
   }
 
@@ -531,22 +548,16 @@ export class AgentPlanStepRunner {
     node: NodeRun,
     session: PlanSession,
   ): Promise<PlanSessionClosed> {
-    const key = `${node.run.id}/${node.step.groupId ?? node.step.step.id}`;
+    const key = `${node.run.id}/${node.sessionGroup ?? node.step.step.id}`;
     const closed = await session.close();
     await this.dependencies.sessions?.released(node.record);
     this.groupInputs.delete(key);
     for (const previous of this.retained.get(key) ?? [])
-      await this.complete(previous, {
-        exit: closed.exit,
-        endedAt: closed.endedAt,
-        closeout: closed.isConfirmed ? "confirmed" : "failed",
-        leftoverProcesses: closed.leftovers,
-        resultCode: closeoutFailureCode(closed) === null ? 0 : -1,
-      });
+      await this.complete(previous, closedSessionChanges(closed));
     this.retained.delete(key);
     await this.dependencies.access.revoke(
       node.run.id,
-      node.step.groupId ?? node.step.step.id,
+      node.sessionGroup ?? node.step.step.id,
     );
     return closed;
   }
@@ -555,7 +566,7 @@ export class AgentPlanStepRunner {
     const observer = createPlanSessionObserver(node, (changes) =>
       this.complete(node, changes),
     );
-    if (!node.step.groupId) return observer;
+    if (!node.sessionGroup) return observer;
     return {
       ...observer,
       retired: (closed, reason) => {
@@ -571,7 +582,7 @@ export class AgentPlanStepRunner {
     closed: PlanSessionClosed,
     reason: string,
   ): Promise<void> {
-    const key = `${node.run.id}/${node.step.groupId}`;
+    const key = `${node.run.id}/${node.sessionGroup}`;
     const previous = this.retained.get(key) ?? [];
     const members = previous.includes(node) ? previous : [...previous, node];
     for (const member of members)
@@ -582,7 +593,7 @@ export class AgentPlanStepRunner {
     await this.dependencies.sessions?.released(node.record);
     await this.dependencies.access.revoke(
       node.run.id,
-      node.step.groupId ?? node.step.step.id,
+      node.sessionGroup ?? node.step.step.id,
     );
     this.retained.delete(key);
     this.groupInputs.delete(key);
@@ -592,11 +603,12 @@ export class AgentPlanStepRunner {
     node: NodeRun,
     error: unknown,
   ): Promise<Partial<AgentPlanStepResult>> {
-    if (node.step.groupId)
-      await this.closeGroups(node.run.id, node.step.groupId);
+    const stopped = node.sessionGroup
+      ? await this.closeSessionGroups(node.run.id, node.sessionGroup)
+      : [];
     await this.dependencies.access.revoke(
       node.run.id,
-      node.step.groupId ?? node.step.step.id,
+      node.sessionGroup ?? node.step.step.id,
     );
     await this.dependencies.sessions?.abandon(
       node.record,
@@ -605,7 +617,7 @@ export class AgentPlanStepRunner {
     if (node.record)
       await this.complete(node, {
         endedAt: new Date().toISOString(),
-        closeout: failureCloseout(node, error),
+        closeout: failureCloseout(node, error, stopped.at(0)?.closed),
         resultCode: -1,
         events: agentToolFailureEvents(error, node.record.events),
       });

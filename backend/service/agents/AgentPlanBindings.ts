@@ -4,13 +4,24 @@ import type {
   AgentParameter,
   AgentParameterValue,
 } from "@/definition/AgentParameters";
-import type { AgentPlan, AgentPlanStep } from "@/definition/AgentPlan";
+import type {
+  AgentPlan,
+  AgentPlanBinding,
+  AgentPlanStep,
+} from "@/definition/AgentPlan";
 
 /** Snapshotted task markdown and revisions come from authorized project ticket reads. */
 export interface AgentPlanTaskSnapshot {
   readonly id: string;
   readonly markdown: string;
   readonly version: string;
+}
+
+/** A result of another node, or of the previous iteration, is filled in when the step starts. */
+function isPendingResult(
+  binding: AgentPlanBinding,
+): binding is Extract<AgentPlanBinding, { stepId: string }> {
+  return binding.kind === "result" || binding.kind === "previous";
 }
 
 /**
@@ -31,7 +42,7 @@ export function planBindings(
   return Object.fromEntries(
     Object.entries(step.bindings).map(([name, binding]) => {
       if (binding.kind === "literal") return [name, binding.value];
-      if (binding.kind === "result")
+      if (isPendingResult(binding))
         return [name, { type: "text", text: "[pending predecessor result]" }];
       const source = plan.nodes.find((node) => node.id === binding.nodeId);
       if (source?.type === "parameter") return [name, source.value];

@@ -1,6 +1,8 @@
 import { usePlanFlowContext } from "./plan-flow-context";
 import { PlanEndpoint } from "./plan-endpoint";
 import { PlanGroupFrame } from "./plan-group-frame";
+import { PlanLoopFrame } from "./plan-loop-frame";
+import { planLoopMemberResult } from "./plan-loop-summary";
 import { planRunGroupSession } from "./plan-group-session";
 import { PlanAgentCard } from "./plan-node-card/plan-agent-card";
 import { PlanScriptCard } from "./plan-node-card/plan-script-card";
@@ -24,7 +26,9 @@ export function PlanNodeCard({
   const context = usePlanFlowContext();
   const { sources, graph, canEdit, run } = context;
   usePlanFlowPorts(node, sources);
-  const result = run?.steps.find((step) => step.id === node.id);
+  const result =
+    run?.steps.find((step) => step.id === node.id) ??
+    planLoopMemberResult(run, node.id);
   if (node.type === "start" || node.type === "end")
     return (
       <PlanEndpoint
@@ -45,6 +49,14 @@ export function PlanNodeCard({
         isCollapsed={context.collapsedGroups.has(node.id)}
         onToggle={() => context.toggleGroup(node.id)}
         onSaveTemplate={context.requestTemplate}
+      />
+    );
+  if (node.type === "loop")
+    return (
+      <PlanLoopFrame
+        {...context}
+        loop={node}
+        isDropTarget={context.dropTarget === node.id}
       />
     );
   if (node.type === "agent")

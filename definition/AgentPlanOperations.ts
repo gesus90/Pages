@@ -54,6 +54,12 @@ export const AGENT_PLAN_ISSUE_PROBLEMS = [
   "groupOrder",
   "groupBoundary",
   "groupBinding",
+  "loopSize",
+  "loopBoundary",
+  "loopRuns",
+  "loopCondition",
+  "loopPrevious",
+  "loopProvider",
   "unsupportedRunNotes",
   "duplicateNode",
   "port",
@@ -92,7 +98,8 @@ export interface AgentPlanIssueEntry {
 export type AgentPlanBindingEntry =
   | { readonly kind: "literal"; readonly value: AgentParameterValue | null }
   | { readonly kind: "source"; readonly nodeId: string }
-  | { readonly kind: "result"; readonly stepId: string };
+  | { readonly kind: "result"; readonly stepId: string }
+  | { readonly kind: "previous"; readonly stepId: string };
 
 interface AgentPlanNodeBase {
   readonly id: string;
@@ -201,11 +208,45 @@ export interface AgentPlanScriptNodeEntry extends AgentPlanNodeBase {
   readonly bindings: Readonly<Record<string, AgentPlanBindingEntry>>;
 }
 
+/**
+ * A loop as a client reads it; the operations offer no way to change one.
+ *
+ * @remarks
+ * Declared here for the same reason as the group: the MCP package checks this
+ * file on its own. The loop's own settings are listed as the plan stores them.
+ */
+export interface AgentPlanLoopNodeEntry extends AgentPlanNodeBase {
+  readonly type: "loop";
+  readonly name: string;
+  readonly steps: readonly (
+    | Omit<AgentPlanAgentNodeEntry, "label">
+    | Omit<AgentPlanScriptNodeEntry, "label">
+  )[];
+  readonly edges: readonly AgentPlanGroupEdgeEntry[];
+  readonly runs: number;
+  readonly runsSource: "value" | "parameter";
+  readonly bindings: Readonly<Record<string, AgentPlanBindingEntry>>;
+  readonly countMode: "max" | "expected";
+  readonly sessionPolicy: "reuse" | "fresh";
+  readonly condition: {
+    readonly isEnabled: boolean;
+    readonly sourceNodeId: string;
+    readonly outputPath: string;
+    readonly operator: "equals";
+    readonly expected:
+      | { readonly type: "boolean"; readonly value: boolean }
+      | { readonly type: "number"; readonly value: number }
+      | { readonly type: "string"; readonly value: string }
+      | { readonly type: "null" };
+  } | null;
+}
+
 /** A node as a client reads it and writes it back in a change. */
 export type AgentPlanNodeEntry =
   | AgentPlanAgentNodeEntry
   | AgentPlanScriptNodeEntry
   | AgentPlanGroupNodeEntry
+  | AgentPlanLoopNodeEntry
   | AgentPlanParameterNodeEntry
   | (AgentPlanNodeBase & { readonly type: "start" | "end" })
   | (AgentPlanNodeBase & { readonly type: "task"; readonly taskId: string })

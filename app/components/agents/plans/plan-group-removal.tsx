@@ -27,10 +27,13 @@ export function PlanGroupRemoval(props: {
 }): React.ReactElement {
   const { t } = useTranslation();
   const { graph } = props;
-  const group = props.draft.nodes.find((node) => node.id === graph.removalId);
-  const isOpen = group?.type === "group" && props.canEdit;
-  const name = group?.type === "group" ? group.name : "";
-  const count = group?.type === "group" ? group.steps.length : 0;
+  const found = props.draft.nodes.find((node) => node.id === graph.removalId);
+  const frame =
+    found?.type === "group" || found?.type === "loop" ? found : null;
+  const kind = frame?.type === "loop" ? "loops" : "groups";
+  const isOpen = frame !== null && props.canEdit;
+  const name = frame?.name ?? "";
+  const count = frame?.steps.length ?? 0;
   return (
     <Dialog
       open={isOpen}
@@ -40,10 +43,10 @@ export function PlanGroupRemoval(props: {
     >
       <DialogContent className="space-y-4">
         <DialogTitle className="text-lg font-semibold">
-          {t("plans.groups.removeTitle", { name })}
+          {t(`plans.${kind}.removeTitle`, { name })}
         </DialogTitle>
         <DialogDescription className="text-sm text-muted-foreground">
-          {t("plans.groups.removeDescription", { count })}
+          {t(`plans.${kind}.removeDescription`, { count })}
         </DialogDescription>
         <div className="flex flex-wrap justify-end gap-2">
           <Button variant="outline" onClick={graph.cancelRemoval}>
@@ -52,18 +55,20 @@ export function PlanGroupRemoval(props: {
           <Button
             variant="outline"
             disabled={
-              (group?.type === "group" && hasPlanGroupAliases(group)) ||
-              props.draft.edges.some(
-                (edge) =>
-                  edge.from === graph.removalId || edge.to === graph.removalId,
-              )
+              frame?.type === "group" &&
+              (hasPlanGroupAliases(frame) ||
+                props.draft.edges.some(
+                  (edge) =>
+                    edge.from === graph.removalId ||
+                    edge.to === graph.removalId,
+                ))
             }
             title={t("plans.groups.repairBeforeUngroup")}
             onClick={() => {
               if (graph.removalId) graph.removeGroup(graph.removalId, true);
             }}
           >
-            {t("plans.groups.removeFrame")}
+            {t(`plans.${kind}.removeFrame`)}
           </Button>
           <Button
             variant="destructive"
@@ -71,7 +76,7 @@ export function PlanGroupRemoval(props: {
               if (graph.removalId) graph.removeGroup(graph.removalId, false);
             }}
           >
-            {t("plans.groups.removeWithMembers", { count })}
+            {t(`plans.${kind}.removeWithMembers`, { count })}
           </Button>
         </div>
       </DialogContent>

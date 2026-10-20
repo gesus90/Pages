@@ -3,6 +3,7 @@ export const PLAN_NODE_FIELDS = {
   start: [],
   end: [],
   group: ["name"],
+  loop: [],
   agent: [
     "agentId",
     "personalAgentId",

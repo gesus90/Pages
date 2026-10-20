@@ -1,5 +1,6 @@
 import { withPortlessPlanGroups } from "@/definition/AgentPlanGroupUpgrade";
 import { expandPlanGroups } from "@/definition/AgentPlanGroup";
+import { expandPlanLoops } from "@/definition/AgentPlanLoop";
 import { unsupportedRunOption } from "@/backend/agents/cli/CliSessionPlans";
 import { planStepTemplate } from "@/definition/AgentPlanConfiguration";
 import { AgentError } from "@/backend/error/AgentErrors";
@@ -16,6 +17,7 @@ import { overlapsWorkspacePath } from "./AgentWorkspacePath";
 
 import type { AgentProfile } from "@/definition/AgentProfile";
 import type { AgentPlan, AgentPlanStep } from "@/definition/AgentPlan";
+import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
 import type { ResolvedAgentWorkspace } from "@/definition/AgentWorkspace";
 import type { AgentProfileService } from "./AgentProfileService";
 import type { AgentParameterService } from "./AgentParameterService";
@@ -53,7 +55,10 @@ export class AgentPlanPreparation {
     if (issues.length > 0) throw new AgentPlanValidationError(issues);
     const groups = plan.nodes.filter((node) => node.type === "group");
     plan = expandPlanGroups(plan);
-    const steps = planSteps(plan);
+    // The loop stays one node of the snapshot; its members are prepared like any agent.
+    const loops = plan.nodes.filter((node) => node.type === "loop");
+    const flat = expandPlanLoops(plan);
+    const steps = planSteps(flat);
     if (steps.length === 0) throw new AgentError("plan_invalid");
     const tasks = await Promise.all(
       plan.nodes.flatMap((node) =>
@@ -81,7 +86,7 @@ export class AgentPlanPreparation {
       );
       const template = planStepTemplate(step, catalog);
       if (!template) throw new AgentError("configuration_invalid");
-      const bindings = planBindings(plan, step, tasks, template.parameters);
+      const bindings = planBindings(flat, step, tasks, template.parameters);
       const prepared = await this.dependencies.parameters.prepare(
         userId,
         {
@@ -111,7 +116,7 @@ export class AgentPlanPreparation {
       if (unsupported !== null) throw new AgentError(unsupported);
       const taskIds = Object.values(step.bindings).flatMap((binding) => {
         if (binding.kind !== "source") return [];
-        const node = plan.nodes.find((entry) => entry.id === binding.nodeId);
+        const node = flat.nodes.find((entry) => entry.id === binding.nodeId);
         return node?.type === "task" ? [node.taskId] : [];
       });
       snapshots.push({
@@ -119,6 +124,7 @@ export class AgentPlanPreparation {
         groupId: groups.find((group) =>
           group.steps.some((entry) => entry.id === step.id),
         )?.id,
+        ...loopMembership(loops, step),
         connectionId: resolved.assignment.connection.id,
         ...stepOrigin(step, resolved.profile),
         template,
@@ -135,9 +141,19 @@ export class AgentPlanPreparation {
       });
     }
     validateGroupRuntimes(groups, snapshots);
-    validateWorkingCopies(plan, snapshots);
+    validateWorkingCopies(flat, snapshots);
     return structuredClone({ plan, groups, steps: snapshots });
   }
+}
+
+function loopMembership(
+  loops: readonly AgentPlanLoop[],
+  step: AgentPlanStep,
+): { readonly loopId?: string } {
+  const loop = loops.find((entry) =>
+    entry.steps.some((member) => member.id === step.id),
+  );
+  return loop ? { loopId: loop.id } : {};
 }
 
 function validateWorkingCopies(
@@ -150,6 +166,7 @@ function validateWorkingCopies(
       if (
         first.step.id === second.step.id ||
         (first.groupId !== undefined && first.groupId === second.groupId) ||
+        (first.loopId !== undefined && first.loopId === second.loopId) ||
         !sameWorkingCopy(planStepDirectory(first), planStepDirectory(second))
       )
         continue;

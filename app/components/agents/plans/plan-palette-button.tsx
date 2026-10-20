@@ -16,6 +16,8 @@ import type { ButtonProps } from "@/app/components/ui/button";
 
 interface PaletteButtonProps extends ButtonProps {
   readonly tooltip: string;
+  /** A press shows the tooltip until the next press elsewhere, so touch and pointer users can read it. */
+  readonly showsOnPress?: boolean;
   /** Layout of the tooltip anchor when used in a bounded sequence. */
   readonly wrapperClassName?: string;
 }
@@ -27,12 +29,22 @@ function usePaletteTooltipVisibility(): {
   readonly focus: () => void;
   readonly blur: () => void;
   readonly dismiss: () => void;
+  readonly isPinned: boolean;
+  readonly togglePin: () => void;
+  readonly unpin: () => void;
 } {
   const [isHovered, setHovered] = useState(false);
   const [isFocused, setFocused] = useState(false);
   const [isDismissed, setDismissed] = useState(false);
+  const [isPinned, setPinned] = useState(false);
   return {
-    isOpen: (isHovered || isFocused) && !isDismissed,
+    isOpen: ((isHovered || isFocused) && !isDismissed) || isPinned,
+    isPinned,
+    togglePin: () => {
+      setDismissed(false);
+      setPinned((pinned) => !pinned);
+    },
+    unpin: () => setPinned(false),
     enter: () => {
       setHovered(true);
       setDismissed(false);
@@ -50,14 +62,26 @@ function usePaletteTooltipVisibility(): {
 /** A Pages button with a hover/focus description above the editor overlays. */
 export function PlanPaletteButton({
   tooltip,
+  showsOnPress = false,
   wrapperClassName,
   ...properties
 }: PaletteButtonProps): React.ReactElement {
   const tooltipId = useId();
   const trigger = useRef<HTMLSpanElement>(null);
   const floating = useRef<HTMLSpanElement>(null);
-  const { isOpen, enter, leave, focus, blur, dismiss } =
-    usePaletteTooltipVisibility();
+  const visibility = usePaletteTooltipVisibility();
+  const { isOpen, enter, leave, focus, blur, dismiss } = visibility;
+  const { isPinned, togglePin, unpin } = visibility;
+  useEffect(() => {
+    if (!isPinned) return;
+    function closeOutside(event: PointerEvent): void {
+      const { target } = event;
+      if (target instanceof Node && trigger.current?.contains(target)) return;
+      unpin();
+    }
+    document.addEventListener("pointerdown", closeOutside);
+    return () => document.removeEventListener("pointerdown", closeOutside);
+  }, [isPinned, unpin]);
   useEffect(() => {
     const reference = trigger.current;
     const panel = floating.current;
@@ -102,11 +126,13 @@ export function PlanPaletteButton({
       onMouseLeave={leave}
       onFocus={focus}
       onBlur={blur}
-      onPointerDown={dismiss}
+      onPointerDown={showsOnPress ? undefined : dismiss}
       onDragStartCapture={dismiss}
-      onClickCapture={dismiss}
+      onClickCapture={showsOnPress ? togglePin : dismiss}
       onKeyDown={(event) => {
-        if (event.key === "Escape") dismiss();
+        if (event.key !== "Escape") return;
+        dismiss();
+        unpin();
       }}
     >
       <Button

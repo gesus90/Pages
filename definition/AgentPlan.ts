@@ -16,14 +16,24 @@ import type {
 } from "./AgentPlanSession";
 import type { AgentWorkspaceChoice, WorkspaceGitHub } from "./AgentWorkspace";
 import type { AgentPlanGroup } from "./AgentPlanGroup";
+import type { AgentPlanLoop } from "./AgentPlanLoop";
+import type { AgentPlanLoopRun } from "./AgentPlanLoopRun";
 import type { AgentPlanInterpreter, AgentPlanScript } from "./AgentPlanScript";
 import type { AgentPlanRecoveryReason } from "./AgentPlanRecovery";
 
-/** Plan sources and execution dependencies are deliberately separate contracts. */
+/**
+ * Plan sources and execution dependencies are deliberately separate contracts.
+ *
+ * @remarks
+ * `previous` is only valid on a member of a loop: it hands the result a member
+ * had in the previous iteration to an input. The first iteration has no such
+ * result, so the input must then have a default value of its own.
+ */
 export type AgentPlanBinding =
   | { readonly kind: "literal"; readonly value: AgentParameterValue | null }
   | { readonly kind: "source"; readonly nodeId: string }
-  | { readonly kind: "result"; readonly stepId: string };
+  | { readonly kind: "result"; readonly stepId: string }
+  | { readonly kind: "previous"; readonly stepId: string };
 
 export interface AgentPlanPosition {
   readonly x: number;
@@ -60,6 +70,7 @@ export type AgentPlanNode =
   | AgentPlanStep
   | AgentPlanScript
   | AgentPlanGroup
+  | AgentPlanLoop
   | AgentPlanParameter
   | (AgentPlanPosition & { readonly id: string; readonly type: "end" })
   | (AgentPlanPosition & {
@@ -218,6 +229,8 @@ export interface AgentPlanRun {
   /** Absent in old failed records, which remain terminal; this never authorizes replay. */
   readonly recovery?: AgentPlanRecoveryReason;
   readonly steps: readonly AgentPlanStepResult[];
+  /** The iterations and sessions of the loops of the plan; absent in runs without a loop. */
+  readonly loops?: readonly AgentPlanLoopRun[];
 }
 
 /** Creates an unsaved plan without guessing a workspace or granting other users access. */

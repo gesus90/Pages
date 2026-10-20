@@ -134,7 +134,7 @@ async function insertIntoGroup(): Promise<HTMLElement> {
     );
   }
   const dialog = await screen.findByRole("dialog", {
-    name: i18n.t("plans.editNode"),
+    name: i18n.t("plans.groups.panel.label", { name: GROUP }),
   });
   fireEvent.keyDown(
     within(dialog).getByRole("combobox", {
@@ -237,7 +237,9 @@ it("fetches the current template on every insertion into a group and keeps previ
     ).toHaveLength(4),
   );
   fireEvent.click(
-    within(dialog).getByRole("button", { name: i18n.t("plans.closeNode") }),
+    within(dialog).getByRole("button", {
+      name: i18n.t("plans.groups.panel.closeButton"),
+    }),
   );
   pressSave();
   await waitFor(() => expect(server.saved).toHaveLength(1));

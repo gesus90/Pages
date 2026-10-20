@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { planDropGroup } from "./plan-layout";
 
+import type { TFunction } from "i18next";
 import type { AgentPlanNode, AgentPlanPosition } from "@/definition/AgentPlan";
 import type { AgentPlanScriptConfiguration } from "@/definition/AgentPlanScript";
 import type { PlanCanvasProps } from "./plan-flow-context";
@@ -12,8 +13,18 @@ export type PlanPaletteKind = Exclude<AgentPlanNode["type"], "variable">;
 
 /** An unconfirmed choice never enters the draft. Its position survives the source dialog. */
 export interface PlanPaletteRequest {
-  readonly kind: Exclude<PlanPaletteKind, "start" | "end">;
+  readonly kind: Exclude<PlanPaletteKind, "start" | "end" | "loop">;
   readonly position?: AgentPlanPosition;
+}
+
+/** Why the palette cannot add a node now, or `null`. */
+function paletteBlock(
+  canvas: PlanCanvasProps,
+  translate: TFunction,
+): string | null {
+  if (!canvas.draft.workspaceId)
+    return translate("plans.palette.workspaceRequired");
+  return canvas.canEdit ? null : translate("plans.palette.editBlocked");
 }
 
 /** Shares native drag and keyboard insertion through the existing graph actions. */
@@ -35,13 +46,16 @@ export function usePlanNodePalette(canvas: PlanCanvasProps): {
   const [request, setRequest] = useState<PlanPaletteRequest | null>(null);
   const dragged = useRef<PlanPaletteKind | null>(null);
   const suppressClick = useRef(false);
-  let blocked: string | null = null;
-  if (!canvas.draft.workspaceId) blocked = t("plans.palette.workspaceRequired");
-  else if (!canvas.canEdit) blocked = t("plans.palette.editBlocked");
+  const blocked = paletteBlock(canvas, t);
   function insert(kind: PlanPaletteKind, position?: AgentPlanPosition): void {
     if (blocked) return;
-    if (kind === "start" || kind === "end") {
-      canvas.graph.add(kind, "", position);
+    // Start, end and loop need no choice; their node is added at once.
+    if (kind === "start" || kind === "end" || kind === "loop") {
+      canvas.graph.add(
+        kind,
+        kind === "loop" ? t("plans.loops.defaultName") : "",
+        position,
+      );
       return;
     }
     setRequest({ kind, position });
@@ -96,7 +110,10 @@ export function usePlanNodePalette(canvas: PlanCanvasProps): {
   }
   function confirmScript(configuration: AgentPlanScriptConfiguration): void {
     if (request?.kind !== "script" || blocked) return;
-    canvas.graph.addScript(configuration, request.position);
+    const frame = request.position
+      ? planDropGroup(canvas.draft, request.position, canvas.sources, null)
+      : null;
+    canvas.graph.addScript(configuration, request.position, frame?.id);
     setRequest(null);
   }
   return {

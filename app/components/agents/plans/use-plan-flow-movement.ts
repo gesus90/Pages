@@ -36,7 +36,7 @@ function memberGroup(
 
 function storedPosition(plan: AgentPlanInput, node: PlanFlowNode): XYPosition {
   const group = memberGroup(plan, node);
-  if (group?.type !== "group") return node.position;
+  if (group?.type !== "group" && group?.type !== "loop") return node.position;
   return {
     x: node.position.x - PLAN_FRAME_PADDING,
     y: node.position.y - planGroupHeaderHeight(),
@@ -48,7 +48,7 @@ function absolutePosition(
   node: PlanFlowNode,
 ): XYPosition {
   const group = memberGroup(plan, node);
-  if (group?.type !== "group") return node.position;
+  if (group?.type !== "group" && group?.type !== "loop") return node.position;
   return { x: group.x + node.position.x, y: group.y + node.position.y };
 }
 
@@ -72,6 +72,11 @@ function movementNodes(
     measured: measurements[node.id],
     position: positions[node.id] ?? node.position,
   }));
+}
+
+/** Agents and scripts can join a loop; only agents can join a group. */
+function isPlaceable(type: AgentPlanInput["nodes"][number]["type"]): boolean {
+  return type === "agent" || type === "script";
 }
 
 interface FlowMovementActions {
@@ -134,7 +139,7 @@ export function usePlanFlowMovement(
     if (canEdit && dragState.current !== "cancelled") {
       const position = absolutePosition(draft, node);
       const pointer = clientPoint(event);
-      if (node.data.node.type === "agent")
+      if (isPlaceable(node.data.node.type))
         graph.place(node.id, {
           position,
           excludedGroups: options.collapsedGroups,
@@ -157,7 +162,7 @@ export function usePlanFlowMovement(
       !canEdit ||
       dragState.current === "cancelled" ||
       !pointer ||
-      node.data.node.type !== "agent"
+      !isPlaceable(node.data.node.type)
     )
       return;
     const group = planDropGroup(

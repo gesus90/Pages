@@ -107,14 +107,19 @@ export class AgentPlanStepStart {
     this.dependencies = dependencies;
   }
 
-  /** Start and end are authorized checkpoints; they do not call a model. */
+  /**
+   * Start and end are authorized checkpoints; they do not call a model.
+   *
+   * @remarks
+   * A loop rechecks the executor's access here before its first iteration.
+   */
   public async control(
     run: AgentPlanRun,
     snapshot: AgentPlanSnapshot,
     node: AgentPlanNode,
   ): Promise<void> {
     await this.dependencies.access.require(run.userId, snapshot.plan.id);
-    if (node.type !== "start" && node.type !== "end")
+    if (node.type !== "start" && node.type !== "end" && node.type !== "loop")
       throw new AgentError("plan_invalid");
   }
 

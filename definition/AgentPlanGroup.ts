@@ -204,11 +204,14 @@ export function planGroupOrder(
   return order.length === group.steps.length ? order : null;
 }
 
-/** Visits each agent once, including the members of group nodes. */
+/** Visits each agent once, including the members of group and loop nodes. */
 export function allPlanSteps(plan: AgentPlanInput): readonly AgentPlanStep[] {
   return plan.nodes.flatMap((node) => {
     if (node.type === "agent") return [node];
-    return node.type === "group" ? node.steps : [];
+    if (node.type === "group") return node.steps;
+    return node.type === "loop"
+      ? node.steps.filter((member) => member.type === "agent")
+      : [];
   });
 }
 
@@ -221,6 +224,13 @@ export function mapPlanSteps<Plan extends AgentPlanInput>(
     ...plan,
     nodes: plan.nodes.map((node) => {
       if (node.type === "agent") return transform(node);
+      if (node.type === "loop")
+        return {
+          ...node,
+          steps: node.steps.map((member) =>
+            member.type === "agent" ? transform(member) : member,
+          ),
+        };
       return node.type === "group"
         ? { ...node, steps: node.steps.map(transform) }
         : node;

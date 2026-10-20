@@ -4,6 +4,7 @@ import { isApiProvider } from "@/definition/AgentConnection";
 
 import { withGroupResults } from "./AgentPlanGroupResults";
 import { groupRuntimeFields } from "./AgentPlanGroupRuntime";
+import { initialLoopRun } from "./loop/AgentPlanLoopRecord";
 import { planStepDirectory } from "./AgentPlanSnapshot";
 
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
@@ -122,6 +123,51 @@ function requireCompletedGroups(
   }
 }
 
+/**
+ * Refuses to change a loop that has already started.
+ *
+ * @remarks
+ * Once a loop resolved its count and ran an iteration, its members, count,
+ * mode, condition and session policy are fixed for the run; adopting another
+ * version would make the recorded iterations mean something else.
+ */
+function requireStartedLoops(
+  run: AgentPlanRun,
+  previous: AgentPlanSnapshot,
+  next: AgentPlanSnapshot,
+): void {
+  for (const record of run.loops ?? []) {
+    if (record.count === null) continue;
+    const old = previous.plan.nodes.find((node) => node.id === record.id);
+    const adopted = next.plan.nodes.find((node) => node.id === record.id);
+    const members = (snapshot: AgentPlanSnapshot): string =>
+      JSON.stringify(
+        snapshot.steps.filter((step) => step.loopId === record.id),
+      );
+    if (
+      JSON.stringify(old) !== JSON.stringify(adopted) ||
+      members(previous) !== members(next)
+    )
+      throw new AgentError("plan_context_changed");
+  }
+}
+
+/** Keeps the state of every loop of the adopted plan and starts new ones empty. */
+function resumedLoops(
+  run: AgentPlanRun,
+  next: AgentPlanSnapshot,
+): AgentPlanRun["loops"] {
+  const loops = next.plan.nodes.flatMap((node) =>
+    node.type === "loop"
+      ? [
+          run.loops?.find((entry) => entry.id === node.id) ??
+            initialLoopRun(node),
+        ]
+      : [],
+  );
+  return loops.length > 0 ? loops : undefined;
+}
+
 function resumedSteps(
   run: AgentPlanRun,
   next: AgentPlanSnapshot,
@@ -133,7 +179,7 @@ function resumedSteps(
     return {
       id: node.id,
       groupId: snapshot?.groupId,
-      name: snapshot?.name ?? node.type,
+      name: snapshot?.name ?? (node.type === "loop" ? node.name : node.type),
       status: "waiting",
       isBlocked: false,
       cancellation: "none",
@@ -155,6 +201,7 @@ export function preparePlanContinuation(
   requireBoundary(run, previous, proposed);
   requireCompletedGroups(run, previous, proposed);
   requireRetainedGroups(run, previous, proposed);
+  requireStartedLoops(run, previous, proposed);
   const completed = new Set(run.pauseBoundary?.completedStepIds);
   const snapshot: AgentPlanSnapshot = {
     ...proposed,
@@ -175,6 +222,7 @@ export function preparePlanContinuation(
     run: withGroupResults(
       {
         ...run,
+        loops: resumedLoops(run, snapshot),
         status: "running",
         pauseBoundary: undefined,
         continuation,

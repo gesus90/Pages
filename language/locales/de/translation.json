@@ -693,13 +693,25 @@
         "opencode_acp_unsupported": "Pages benötigt den geprüften nativen ACP-Vertrag von OpenCode 1.18.34. Die installierte Version oder ihr Vertrag weicht davon ab; es wurde kein Modell aufgerufen.",
         "opencode_acp_session_failed": "Die native OpenCode-ACP-Sitzung ist vor oder während ihres Turns fehlgeschlagen.",
         "plan_group_session_lost": "Die gemeinsame Gruppensession ist nach dem Ende ihres Adapterprozesses nicht mehr verfügbar. Pages setzt diese Gruppensession nicht in einem neuen Prozess fort. Einen neuen Lauf bewusst starten.",
+        "plan_loop_invalid": "Loop prüfen: Name, Mitglieder, Verbindungen, Anzahl der Durchläufe, Session-Einstellung und Endbedingung.",
+        "plan_loop_runs_invalid": "Die Anzahl der Durchläufe muss eine ganze Zahl von 1 bis 999 sein. Pages rundet, kappt oder ersetzt sie nicht.",
+        "plan_loop_runs_unavailable": "Der Parameter für die Anzahl der Durchläufe fehlt, ist nicht lesbar oder keine Zahl. Der Loop wurde nicht gestartet.",
+        "plan_loop_condition_source": "Die Endbedingung nennt eine Quelle, die kein Agent und kein Script dieses Loops ist.",
+        "plan_loop_condition_path": "Der JSON-Pfad der Endbedingung ist ungültig. Verwende einen Pfad wie $.end oder $.review.end.",
+        "plan_loop_output_missing": "Die Quelle der Endbedingung lieferte kein JSON. Sie muss einen JSON-Wert oder genau einen pages-loop-result-Block liefern.",
+        "plan_loop_output_invalid": "Der pages-loop-result-Block der Endbedingung ist kein gültiges JSON.",
+        "plan_loop_output_ambiguous": "Die Quelle der Endbedingung lieferte mehr als einen pages-loop-result-Block. Sie muss genau einen liefern.",
+        "plan_loop_condition_field": "Das JSON-Ergebnis hat am Pfad der Endbedingung kein Feld.",
+        "plan_loop_condition_type": "Der Wert am Pfad der Endbedingung hat einen anderen Typ als der erwartete Wert. Pages wandelt Typen nie um.",
+        "plan_loop_session_lost": "Die behaltene ACP-Session eines Loop-Agents ist nach dem Ende ihres Adapterprozesses nicht mehr verfügbar. Pages öffnet unter derselben Identität keine neue Session. Einen neuen Lauf bewusst starten.",
         "plan_session_unavailable": "Diese Agenten-Session hat keine offene native Session, die eine weitere Anweisung annehmen könnte. Ihr Verlauf bleibt lesbar.",
         "offline": "Pages ist nicht erreichbar. Prüfe die Verbindung; der Agent läuft weiter.",
         "agent_tool_not_ready": "Ein benötigtes Agent-Tool ist nicht betriebsbereit. Tool und Ursache stehen in den Run-Ereignissen; siehe Einstellungen → Agents → Tools.",
         "plan_continuation_deleted": "Fortsetzungspunkt gelöscht – Neustart erforderlich. Zuerst stoppen, danach mit Play neu starten.",
         "plan_completed_changed": "Diese Änderung würde abgeschlossene Arbeit wiederholen. Stoppen Sie den Run und starten Sie neu.",
         "plan_pause_required": "Zuerst pausieren und warten, bis alle laufenden Schritte beendet sind.",
-        "plan_connection_unavailable": "Verbindung unterbrochen. Der angezeigte Status ist der zuletzt empfangene; Aktionen sind gesperrt. Die Verbindung wird automatisch erneut geprüft."
+        "plan_connection_unavailable": "Verbindung unterbrochen. Der angezeigte Status ist der zuletzt empfangene; Aktionen sind gesperrt. Die Verbindung wird automatisch erneut geprüft.",
+        "plan_loop_nested": "Ein Loop enthält nur Agents und Scripts. Loops in Loops und Gruppen in Loops werden nicht unterstützt; halte den Untergraph flach."
       },
       "description": "Verwalten Sie die benannten KI-Anbindungen und Funktionszuordnungen dieser Pages-Instanz.",
       "adminModeRequired": "Die Agents-Einstellungen sind nur im Admin-Modus verfügbar. Ihr Konto ist derzeit im Rollenmodus.",
@@ -3288,7 +3300,8 @@
       "start": "Start",
       "end": "Ende",
       "parameter": "Parameter",
-      "group": "Gruppe"
+      "group": "Gruppe",
+      "loop": "Loop"
     },
     "status": {
       "waiting": "Wartet",
@@ -3331,7 +3344,13 @@
       "groupOrder": "Die Agents einer Gruppe teilen eine Session und brauchen eine eindeutige Reihenfolge: Ablaufverbindungen bilden eine Kette mit genau einem ersten Agent und ohne Verzweigung.",
       "groupBoundary": "Alte Rahmenkante ist nicht eindeutig: Im Gruppeneditor den tatsächlichen Agent-Endpunkt auswählen. Bis dahin ist der Start blockiert; keine Verbindung wird verworfen.",
       "groupBinding": "Alte Gruppenbindung ist nicht eindeutig. Die betroffene Agent-Eingabe ausdrücklich trennen und mit der gewünschten Quelle verbinden; der Start bleibt bis dahin blockiert.",
-      "scriptUnavailable": "Script-Ausführung ist noch nicht verfügbar. Ein Plan mit Script-Node startet nicht."
+      "scriptUnavailable": "Script-Ausführung ist noch nicht verfügbar. Ein Plan mit Script-Node startet nicht.",
+      "loopSize": "Der Loop enthält noch keinen Agent. Ziehe mindestens einen Agent hinein, bevor der Plan startet.",
+      "loopBoundary": "Ein Loop wird nur über seinen eigenen Ein- und Ausgang verbunden. Verbindungen und Ergebnisbindungen dürfen seine Grenze nicht überqueren.",
+      "loopRuns": "Die Anzahl der Runs muss eine ganze Zahl von 1 bis 999 sein. Eine gebundene Anzahl braucht einen vorhandenen Parameter mit einem solchen Wert.",
+      "loopCondition": "Die Endbedingung braucht einen Quell-Agent oder ein Quell-Script dieses Loops und einen gültigen JSON-Pfad wie $.end.",
+      "loopPrevious": "Ein Ergebnis des vorherigen Durchlaufs gilt nur innerhalb eines Loops, von einem seiner Mitglieder, und braucht für den ersten Durchlauf einen Standardwert.",
+      "loopProvider": "Ein Agent, der seine Session behält, braucht einen ACP-Runner (Codex, Claude Code oder OpenCode). Stelle den Loop auf neue Session je Run um oder wähle einen anderen Agent."
     },
     "session": {
       "runner": {
@@ -3429,7 +3448,21 @@
         "unavailable": "Nicht verfügbar"
       },
       "emptyReadOnly": "Noch keine Agents in dieser Gruppe.",
-      "removeLegacyEdge": "Diese Altverbindung entfernen"
+      "removeLegacyEdge": "Diese Altverbindung entfernen",
+      "panel": {
+        "label": "Einstellungen der Gruppe {{name}}",
+        "kicker": "Group bearbeiten",
+        "close": "Group-Einstellungen schließen",
+        "closeButton": "Schließen",
+        "draftHint": "Entwurf · startet keinen Lauf",
+        "name": "Name",
+        "classHint": "Wird durch die Mitglieder bestimmt. Nur kompatible ACP-Agents teilen die Session.",
+        "members": "Mitglieder",
+        "addLabel": "Agent hinzufügen",
+        "addPlaceholder": "Kompatiblen ACP-Agent auswählen …",
+        "note": "Group bündelt eine Session. Keine Runs und keine Loop-Endbedingung.",
+        "takeOut": "Herausnehmen"
+      }
     },
     "console": {
       "label": "Agentenkonsole {{name}}",
@@ -3745,7 +3778,8 @@
         "script": "Script",
         "parameter": "Parameter",
         "task": "Tickets",
-        "group": "Groups"
+        "group": "Groups",
+        "loop": "Loop"
       },
       "hint": {
         "start": "Beginn eines Ablaufs hinzufügen.",
@@ -3754,7 +3788,8 @@
         "script": "Einen Script-Schritt mit Interpreterprofil hinzufügen. Pages führt Scripts noch nicht aus.",
         "parameter": "Einen benannten Eingabewert bereitstellen.",
         "task": "Ein lesbares Ticket als Datenquelle verwenden.",
-        "group": "Agents in einer gemeinsamen ACP-Gruppe organisieren."
+        "group": "Agents in einer gemeinsamen ACP-Gruppe organisieren.",
+        "loop": "Agents und Scripts als Untergraph wiederholen, mit eigener Session je Agent."
       },
       "addTitle": "{{type}} hinzufügen",
       "add": "Hinzufügen",
@@ -3923,6 +3958,155 @@
         "api": "API"
       },
       "notApplicable": "Nicht anwendbar"
+    },
+    "loops": {
+      "defaultName": "Loop",
+      "frame": "Loop {{name}}",
+      "needsRepair": "Der Loop braucht eine Korrektur; öffne seine Einstellungen.",
+      "empty": "Leerer Loop. Ziehe Agents und Scripts hinein und verbinde sie.",
+      "emptyReadOnly": "Der Loop ist leer.",
+      "members": "{{count}} interne Nodes",
+      "dropHere": "Loslassen, um zum Loop hinzuzufügen",
+      "flowIn": "Ablauf-Eingang des Loops {{name}}",
+      "flowOut": "Ablauf-Ausgang des Loops {{name}}",
+      "summary": "{{mode}} · {{count}} Runs",
+      "summaryUnresolved": "{{mode}} · Runs offen",
+      "previousOf": "Vorheriger Run: {{name}}",
+      "previousChoose": "Ergebnis des vorherigen Durchlaufs",
+      "name": "Name",
+      "mode": {
+        "maxShort": "max",
+        "expectedShort": "exakt",
+        "maxTooltip": "Führt höchstens die eingestellte Anzahl aus. Eine aktivierte Endbedingung kann früher beenden. Nach der letzten erlaubten Iteration endet der Loop regulär.",
+        "expectedTooltip": "Führt genau die eingestellte Anzahl aus. Eine Endbedingung verkürzt sie nicht. Fehler oder ein manueller Abbruch können trotzdem vorzeitig stoppen.",
+        "maxLine": "max · höchstens {{count}} Durchläufe",
+        "expectedLine": "exakt · genau {{count}} Durchläufe",
+        "maxExplain": "Höchstens {{count}} Durchläufe. Die aktivierte Endbedingung kann früher beenden; sonst endet der Loop nach Durchlauf {{count}}.",
+        "expectedExplain": "Genau {{count}} Durchläufe. Eine Endbedingung verkürzt die Anzahl nicht; Fehler und ein manueller Abbruch beenden den Loop trotzdem vorzeitig.",
+        "maxUnresolved": "max · die Anzahl der Runs ist noch nicht aufgelöst.",
+        "expectedUnresolved": "exakt · die Anzahl der Runs ist noch nicht aufgelöst."
+      },
+      "status": {
+        "notStarted": "Noch nicht gestartet",
+        "waiting": "Wartet",
+        "running": "Läuft",
+        "paused": "Pausiert",
+        "succeeded": "Erfolgreich",
+        "failed": "Fehlgeschlagen",
+        "cancelled": "Gestoppt"
+      },
+      "completion": {
+        "count_reached": "Anzahl erreicht",
+        "condition_met": "Endbedingung erfüllt"
+      },
+      "session": {
+        "title": "Agent-Sessions behalten",
+        "infoLabel": "Zum Behalten der Sessions",
+        "info": "An: Jeder Agent setzt seine eigene ACP-Session in jedem Run mit einem neuen Turn fort. Aus: Jeder Run öffnet je Agent eine neue Session und beendet sie mit dem Node; nur die gebundenen Eingaben werden weitergegeben.",
+        "reuseNote": "Jeder Agent behält eine Session für alle Runs dieses Loops und bekommt nur den neuen Turn und seine gebundenen Eingaben. Die Sessions enden mit dem Loop.",
+        "freshNote": "Jeder Run öffnet je Agent eine neue Session und beendet sie mit dem Node. Nur die gebundenen Eingaben werden weitergegeben.",
+        "reuseShort": "Sessions zwischen Durchläufen behalten",
+        "freshShort": "Neue Session je Durchlauf"
+      },
+      "source": {
+        "label": "Anzahlquelle",
+        "value": "Wert",
+        "parameter": "Parameter"
+      },
+      "runs": {
+        "label": "Runs",
+        "infoLabel": "Zu den Runs",
+        "info": "Anzahl der Durchläufe innerhalb dieses Loops. Standard: 1. Erlaubt sind ganze Zahlen von 1 bis 999.",
+        "hint": "Ganze Zahlen von {{minimum}} bis {{maximum}}.",
+        "invalid": "Nicht übernommen: ganze Zahl von {{minimum}} bis {{maximum}} verwenden. Nichts wird gerundet oder ersetzt.",
+        "parameterLabel": "Runs",
+        "parameterInfoLabel": "Zur Parameterquelle",
+        "parameterInfo": "Verwendet den gebundenen Parameter als Anzahl. Vor dem Loop wird der Wert geprüft: ganze Zahl von 1 bis 999. Bei 3 bedeutet max höchstens 3 und exakt genau 3 Durchläufe.",
+        "parameterPlaceholder": "Parameter-Node wählen",
+        "parameterNone": "Kein Parameter",
+        "noParameters": "Der Plan hat keinen Parameter-Node. Füge zuerst einen aus der Palette hinzu.",
+        "parameterInvalid": "Der gebundene Parameter fehlt oder ist keine ganze Zahl von 1 bis 999. Der Loop startet nicht; der gespeicherte Wert wird nicht ersatzweise verwendet.",
+        "parameterValue": "Gebundener Parameter {{name}} · Wert {{count}}."
+      },
+      "exact": {
+        "label": "Exakt ausführen",
+        "infoLabel": "Zur exakten Ausführung",
+        "info": "Führt genau die eingestellte Anzahl aus. Eine Endbedingung verkürzt sie nicht. Fehler oder ein manueller Abbruch können trotzdem vorzeitig stoppen."
+      },
+      "condition": {
+        "title": "Früher beenden, wenn …",
+        "infoLabel": "Zur Endbedingung",
+        "info": "Nach einer vollständigen Iteration liest der Loop einen JSON-Wert aus einem Quell-Agent oder -Script und vergleicht ihn ohne Typumwandlung. Er rät nie aus dem Antworttext.",
+        "inactive": "Im Modus exakt inaktiv; die gespeicherte Bedingung bleibt erhalten.",
+        "inactiveNote": "Im Modus exakt zählt nur die Anzahl. Die gespeicherte Bedingung wird nicht ausgewertet und verkürzt die Runs nicht.",
+        "source": "Ergebnisquelle · innerhalb dieses Loops",
+        "sourcePlaceholder": "Agent oder Script wählen",
+        "path": "JSON-Pfad im Ergebnis",
+        "pathInfoLabel": "Zum JSON-Pfad",
+        "pathInfo": "Ein Pfad wie $.end oder $.review.end. Erlaubt sind Namen nach Punkten und Array-Positionen wie [0]. Keine Platzhalter, Filter oder Code.",
+        "pathInvalid": "Nicht übernommen: Pfad wie $.end oder $.review.end verwenden.",
+        "operator": "Vergleich",
+        "equals": "ist gleich (===)",
+        "type": "Typ",
+        "types": {
+          "boolean": "Boolean",
+          "number": "Zahl",
+          "string": "Text",
+          "null": "null"
+        },
+        "value": "Erwarteter Wert",
+        "nullValue": "Das Feld muss JSON-null sein.",
+        "summary": "{{source}} → {{path}} === {{value}} · {{type}}, nie aus Text umgewandelt. Ohne Treffer endet max bei {{count}}.",
+        "noteOn": "Die Quelle liefert einen JSON-Wert, z. B. {\"end\": true}, oder genau einen mit pages-loop-result markierten Block. Der Loop prüft ihn nach jeder vollständigen Iteration; aus dem Antworttext wird nichts erraten.",
+        "noteOff": "Die Bedingung ist aus: Der Loop läuft bis zur Anzahl. Eingeschaltet muss die Quelle einen JSON-Wert oder genau einen mit pages-loop-result markierten Block liefern."
+      },
+      "panel": {
+        "label": "Einstellungen des Loops {{name}}",
+        "kicker": "Loop bearbeiten",
+        "close": "Loop-Einstellungen schließen",
+        "closeButton": "Schließen",
+        "draftHint": "Entwurf · startet keinen Lauf"
+      },
+      "run": {
+        "title": "Lauf",
+        "summary": "{{done}} von {{count}} Durchläufen fertig · {{mode}} · Anzahl aus {{source}}",
+        "iteration": "Durchlauf {{number}}",
+        "conditionMet": "Bedingung erfüllt",
+        "conditionNotMet": "Bedingung nicht erfüllt",
+        "conditionFailed": "Bedingung nicht auswertbar: {{reason}}",
+        "notEvaluated": {
+          "disabled": "Endbedingung aus, nicht ausgewertet",
+          "expected": "Endbedingung inaktiv (exakt), nicht ausgewertet",
+          "incomplete": "Noch nicht ausgewertet"
+        },
+        "acpSession": "ACP-Session",
+        "nativeSession": "Native Session",
+        "process": "Prozess",
+        "created": "Eröffnet in",
+        "sessionState": {
+          "open": "offen behalten · {{count}} Turns",
+          "closed": "geschlossen · {{count}} Turns",
+          "lost": "verloren · {{count}} Turns",
+          "not_retained": "neue Session je Durchlauf"
+        },
+        "closeout": {
+          "pending": "Cleanup offen",
+          "confirmed": "Cleanup bestätigt",
+          "failed": "Cleanup nicht bestätigt",
+          "not_needed": "kein Cleanup nötig"
+        },
+        "cleanup": {
+          "not_needed": "keine Sessions zu schließen",
+          "pending": "Cleanup offen",
+          "confirmed": "Sessions geschlossen, Cleanup bestätigt",
+          "failed": "Cleanup nicht bestätigt"
+        }
+      },
+      "removeTitle": "Loop „{{name}}“ entfernen?",
+      "removeDescription": "Interne Nodes in diesem Loop: {{count}}. Nur den Container zu entfernen behält jeden Node mit seinen Ablaufverbindungen; eine Bindung an den vorherigen Run endet mit dem Loop. Das Löschen mit Inhalt entfernt auch die Nodes und ihre Verbindungen.",
+      "removeFrame": "Container entfernen, Nodes behalten",
+      "removeWithMembers": "Mit Inhalt löschen ({{count}} Nodes)",
+      "moved": "Loop-Zuordnung geändert. Entfernt: Ablaufverbindungen {{edges}}, Bindungen {{bindings}}."
     }
   },
   "mcpDuration": {

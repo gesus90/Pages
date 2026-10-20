@@ -13,6 +13,8 @@ export type { AgentPlanTemplate } from "@/definition/AgentPlanConfiguration";
 export interface AgentPlanStepSnapshot {
   readonly step: AgentPlanStep;
   readonly groupId?: string;
+  /** The loop this member belongs to; the node runs once per iteration inside it. */
+  readonly loopId?: string;
   readonly connectionId?: string;
   readonly name: string;
   readonly revision: number;

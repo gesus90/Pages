@@ -9,7 +9,7 @@ import type { PlanGroupNotice } from "./use-plan-group-actions";
 function useNoticeText(notice: PlanGroupNotice): string {
   const { t } = useTranslation();
   if (notice.kind === "moved")
-    return t("plans.groups.moved", {
+    return t(`plans.${notice.frame === "loop" ? "loops" : "groups"}.moved`, {
       edges: notice.removedEdges,
       bindings: notice.removedBindings,
     });

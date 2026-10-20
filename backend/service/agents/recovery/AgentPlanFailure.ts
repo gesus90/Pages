@@ -26,6 +26,7 @@ const FAILURE_CLASSES: Readonly<Record<string, AgentPlanFailureClass>> = {
   check_timeout: "timeout",
   plan_interrupted: "interruption",
   plan_group_session_lost: "interruption",
+  plan_loop_session_lost: "interruption",
   plan_acp_session_failed: "interruption",
   plan_claude_acp_session_failed: "interruption",
   opencode_acp_session_failed: "interruption",

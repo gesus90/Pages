@@ -1,5 +1,7 @@
 import { sessionAttemptId } from "@/definition/AgentSessionJournal";
 
+import { planLoopMemberResult } from "../plan-loop-summary";
+
 import type {
   AgentPlanInput,
   AgentPlanRun,
@@ -38,6 +40,10 @@ export function findConsoleNode(
   for (const node of draft.nodes) {
     if (node.id === id && node.type === "agent")
       return { kind: "agent", step: node };
+    if (node.type === "loop") {
+      const member = node.steps.find((step) => step.id === id);
+      if (member?.type === "agent") return { kind: "agent", step: member };
+    }
     if (node.type !== "group") continue;
     if (node.id === id) return { kind: "group", group: node };
     const member = node.steps.find((step) => step.id === id);
@@ -65,7 +71,9 @@ export function consoleSession(
   stepId: string,
 ): ConsoleSession {
   if (!run) return { kind: "no_run" };
-  const step = run.steps.find((entry) => entry.id === stepId);
+  const step =
+    run.steps.find((entry) => entry.id === stepId) ??
+    planLoopMemberResult(run, stepId);
   const record = step?.session;
   if (!step || !record) return { kind: "not_started" };
   if (record.runner === "api") return { kind: "no_cli_session" };

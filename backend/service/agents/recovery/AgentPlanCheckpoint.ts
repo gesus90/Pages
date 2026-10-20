@@ -18,7 +18,9 @@ import type {
 
 function bindingReference(binding: AgentPlanBinding): string | null {
   if (binding.kind === "source") return binding.nodeId;
-  return binding.kind === "result" ? binding.stepId : null;
+  return binding.kind === "result" || binding.kind === "previous"
+    ? binding.stepId
+    : null;
 }
 
 function checkpointInputs(

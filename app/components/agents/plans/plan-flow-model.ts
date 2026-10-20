@@ -1,6 +1,7 @@
 import { MarkerType } from "@xyflow/react";
 
 import { isPlanFlowNode, isPlanResultNode } from "@/definition/AgentPlanGraph";
+import { planLoopEntries, planLoopExits } from "@/definition/AgentPlanLoop";
 
 import {
   PLAN_FRAME_PADDING,
@@ -21,6 +22,7 @@ import type {
   AgentPlanNode,
   AgentPlanSources,
 } from "@/definition/AgentPlan";
+import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
 import type { PlanLink } from "./plan-links";
 import type { PlanConnection } from "./use-plan-connections";
 
@@ -41,6 +43,8 @@ export type PlanFlowEdge = Edge<
     readonly name: string;
     readonly routeEnd?: "from" | "to";
     readonly routeLabelOffsetY?: number;
+    /** A line from a loop's entry dot to a member or from a member to its exit dot; it has no label and is not selectable. */
+    readonly isBoundary?: boolean;
   },
   "plan"
 >;
@@ -72,7 +76,7 @@ export function planFlowNodes(
     const height = isCollapsed
       ? PLAN_GROUP_COMPACT_HEIGHT
       : planNodeHeight(node, options.sources);
-    const isFrame = node.type === "group";
+    const isFrame = node.type === "group" || node.type === "loop";
     const isEndpoint = node.type === "start" || node.type === "end";
     return {
       id: node.id,
@@ -94,7 +98,7 @@ export function planFlowNodes(
   }
   return plan.nodes.flatMap((node) => {
     const parent = project(node);
-    if (node.type !== "group") return [parent];
+    if (node.type !== "group" && node.type !== "loop") return [parent];
     return [
       parent,
       ...node.steps.map((step) => ({
@@ -145,7 +149,10 @@ export function planFlowEdges(
   const legacyFrames = new Set(
     plan.nodes.filter((node) => node.type === "group").map((node) => node.id),
   );
-  return planLinks(plan)
+  const boundary = plan.nodes.flatMap((node) =>
+    node.type === "loop" ? loopBoundaryEdges(node) : [],
+  );
+  const links: PlanFlowEdge[] = planLinks(plan)
     .filter(
       (link) => !legacyFrames.has(link.from) && !legacyFrames.has(link.to),
     )
@@ -175,6 +182,51 @@ export function planFlowEdges(
         color: "var(--color-muted-foreground)",
       },
     }));
+  return [...boundary, ...links];
+}
+
+/** The lines from a loop's entry dot to its first members and from its last members to its exit dot. */
+function loopBoundaryEdges(loop: AgentPlanLoop): PlanFlowEdge[] {
+  const base = {
+    type: "plan" as const,
+    selectable: false,
+    focusable: false,
+    deletable: false,
+    reconnectable: false,
+    zIndex: EDGE_LAYER,
+    markerEnd: {
+      type: MarkerType.ArrowClosed,
+      color: "var(--color-muted-foreground)",
+    },
+  };
+  return [
+    ...planLoopEntries(loop).map((entry): PlanFlowEdge => ({
+      ...base,
+      id: `loop-in:${loop.id}:${entry.id}`,
+      source: loop.id,
+      sourceHandle: "inner-in",
+      target: entry.id,
+      targetHandle: "flow-in",
+      data: {
+        link: { kind: "flow", from: loop.id, to: entry.id },
+        name: "",
+        isBoundary: true,
+      },
+    })),
+    ...planLoopExits(loop).map((exit): PlanFlowEdge => ({
+      ...base,
+      id: `loop-out:${loop.id}:${exit.id}`,
+      source: exit.id,
+      sourceHandle: "flow-out",
+      target: loop.id,
+      targetHandle: "inner-out",
+      data: {
+        link: { kind: "flow", from: exit.id, to: loop.id },
+        name: "",
+        isBoundary: true,
+      },
+    })),
+  ];
 }
 
 function targetHandle(link: PlanLink, targetId: string): string {
@@ -196,7 +248,9 @@ export function planFlowSource(
   const node =
     plan.nodes.find((entry) => entry.id === id) ??
     plan.nodes
-      .flatMap((entry) => (entry.type === "group" ? entry.steps : []))
+      .flatMap((entry) =>
+        entry.type === "group" || entry.type === "loop" ? entry.steps : [],
+      )
       .find((entry) => entry.id === id);
   if (!node) return null;
   if (handle === "flow-out" && isPlanFlowNode(node) && node.type !== "end")

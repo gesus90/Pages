@@ -125,7 +125,8 @@ export function planSummary(
 }
 
 function nodeLabel(node: AgentPlanNode, sources: AgentPlanSources): string {
-  if (node.type === "group" || node.type === "script") return node.name;
+  if (node.type === "group" || node.type === "script" || node.type === "loop")
+    return node.name;
   if (node.type === "agent")
     return (
       sources.agents.find((agent) => agent.id === node.agentId)?.name ?? ""

@@ -46,7 +46,7 @@ export interface AgentPlanCheckpointInput {
   }[];
   readonly inputs: readonly {
     readonly name: string;
-    readonly kind: "literal" | "source" | "result";
+    readonly kind: "literal" | "source" | "result" | "previous";
     readonly reference: string | null;
     readonly digest: string;
   }[];

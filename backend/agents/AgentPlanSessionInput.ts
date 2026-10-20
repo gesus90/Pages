@@ -13,6 +13,7 @@ import type {
   AgentPlanContract,
   AgentPlanContractItem,
   AgentPlanGroupSessionLink,
+  AgentPlanLoopSessionLink,
   AgentPlanProcessExit,
   AgentPlanRunner,
   AgentPlanRunnerConfiguration,
@@ -232,6 +233,30 @@ function readGroupLink(input: unknown): AgentPlanGroupSessionLink {
   };
 }
 
+function readLoopLink(input: unknown): AgentPlanLoopSessionLink {
+  const link = readAgentObject(input);
+  const turn = nullableNumber(link.turn);
+  const iteration = nullableNumber(link.iteration);
+  if (
+    turn === null ||
+    !Number.isSafeInteger(turn) ||
+    turn < 1 ||
+    iteration === null ||
+    !Number.isSafeInteger(iteration) ||
+    iteration < 1
+  )
+    throw invalid();
+  return {
+    loopId: text(link.loopId, 100),
+    iteration,
+    policy: oneOf(link.policy, ["reuse", "fresh"] as const),
+    role: oneOf(link.role, ["created", "continued", "fresh"] as const),
+    turn,
+    acpSessionId: nullableText(link.acpSessionId),
+    nativeSessionId: nullableText(link.nativeSessionId),
+  };
+}
+
 function readActivity(input: unknown): AgentPlanActivity {
   const activity = readAgentObject(input);
   if (!Array.isArray(activity.titles)) throw invalid();
@@ -298,5 +323,8 @@ export function readPlanSessionRecord(
     ...(record.group === undefined || record.group === null
       ? {}
       : { group: readGroupLink(record.group) }),
+    ...(record.loop === undefined || record.loop === null
+      ? {}
+      : { loop: readLoopLink(record.loop) }),
   };
 }

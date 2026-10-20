@@ -103,6 +103,7 @@ export async function deleteProjectAgentData(
   }
   for (const table of [
     "agent_plan_checkpoints",
+    "agent_plan_loop_iterations",
     "agent_plan_continuations",
     "agent_plan_repair_attempts",
   ] as const)

@@ -693,13 +693,25 @@
         "opencode_acp_unsupported": "Pages requires the verified native ACP contract of OpenCode 1.18.34. The installed version or contract differs; no model was called.",
         "opencode_acp_session_failed": "The native OpenCode ACP session failed before or during its turn.",
         "plan_group_session_lost": "The shared group session is unavailable after its adapter process ended. Pages does not continue this group session in a new process. Deliberately start a new run.",
+        "plan_loop_invalid": "Check the loop: name, members, connections, number of iterations, session setting and end condition.",
+        "plan_loop_runs_invalid": "The number of iterations must be a whole number from 1 to 999. Pages does not round, cut or replace it.",
+        "plan_loop_runs_unavailable": "The parameter that sets the number of iterations is missing, not readable or not a number. The loop did not start.",
+        "plan_loop_condition_source": "The end condition names a source that is not an agent or script of this loop.",
+        "plan_loop_condition_path": "The JSON path of the end condition is not valid. Use a path such as $.end or $.review.end.",
+        "plan_loop_output_missing": "The source of the end condition returned no JSON. It must return one JSON value or exactly one pages-loop-result block.",
+        "plan_loop_output_invalid": "The pages-loop-result block of the end condition is not valid JSON.",
+        "plan_loop_output_ambiguous": "The source of the end condition returned more than one pages-loop-result block. It must return exactly one.",
+        "plan_loop_condition_field": "The JSON result has no field at the path of the end condition.",
+        "plan_loop_condition_type": "The value at the path of the end condition has another type than the expected value. Pages never converts types.",
+        "plan_loop_session_lost": "The retained ACP session of a loop agent is unavailable after its adapter process ended. Pages does not open a new session under the same identity. Deliberately start a new run.",
         "plan_session_unavailable": "This agent session has no open native session that could take another instruction. Its history stays readable.",
         "offline": "Pages cannot be reached. Check the connection; the agent keeps running.",
         "agent_tool_not_ready": "A required agent tool is not ready. The run events show the tool and cause; see Settings → Agents → Tools.",
         "plan_continuation_deleted": "Continuation point deleted – restart required. Stop first, then start again with Play.",
         "plan_completed_changed": "This change would repeat completed work. Stop the run and start again.",
         "plan_pause_required": "Pause first and wait for every running step to finish.",
-        "plan_connection_unavailable": "Connection interrupted. The displayed state is the last received state; actions are disabled. Reconnecting automatically."
+        "plan_connection_unavailable": "Connection interrupted. The displayed state is the last received state; actions are disabled. Reconnecting automatically.",
+        "plan_loop_nested": "A loop holds only agents and scripts. Loops inside loops and groups inside loops are not supported; keep the subgraph flat."
       },
       "description": "Manage the named AI connections and function assignments of this Pages instance.",
       "adminModeRequired": "The agent settings are only available in the admin mode. Your account is currently in the role mode.",
@@ -3288,7 +3300,8 @@
       "start": "Start",
       "end": "End",
       "parameter": "Parameter",
-      "group": "Group"
+      "group": "Group",
+      "loop": "Loop"
     },
     "status": {
       "waiting": "Waiting",
@@ -3331,7 +3344,13 @@
       "groupOrder": "The agents of a group share one session and need an unambiguous order: flow connections form one chain with exactly one first agent and no branch.",
       "groupBoundary": "A legacy frame edge is ambiguous: choose the actual agent endpoint in the group editor. Starting stays blocked; no connection is discarded.",
       "groupBinding": "A legacy group input is ambiguous. Explicitly disconnect the affected agent input and connect its intended source; starting remains blocked until repaired.",
-      "scriptUnavailable": "Script execution is not available yet. A plan with a script node does not start."
+      "scriptUnavailable": "Script execution is not available yet. A plan with a script node does not start.",
+      "loopSize": "The loop has no agent yet. Drag at least one agent into it before starting the plan.",
+      "loopBoundary": "A loop is connected only through its own entry and exit. Connections and result bindings may not cross its border.",
+      "loopRuns": "The number of runs must be a whole number from 1 to 999. A bound count needs an existing parameter with such a value.",
+      "loopCondition": "The end condition needs a source agent or script of this loop and a valid JSON path such as $.end.",
+      "loopPrevious": "A result of the previous iteration is only valid inside a loop, from one of its members, and needs a default value for the first iteration.",
+      "loopProvider": "An agent that keeps its session needs an ACP runner (Codex, Claude Code or OpenCode). Switch the loop to a new session per run or choose another agent."
     },
     "session": {
       "runner": {
@@ -3429,7 +3448,21 @@
         "unavailable": "Unavailable"
       },
       "emptyReadOnly": "This group has no agents yet.",
-      "removeLegacyEdge": "Remove this legacy connection"
+      "removeLegacyEdge": "Remove this legacy connection",
+      "panel": {
+        "label": "Settings of group {{name}}",
+        "kicker": "Edit group",
+        "close": "Close group settings",
+        "closeButton": "Close",
+        "draftHint": "Draft · starts no run",
+        "name": "Name",
+        "classHint": "Decided by the members. Only compatible ACP agents share the session.",
+        "members": "Members",
+        "addLabel": "Add agent",
+        "addPlaceholder": "Choose a compatible ACP agent …",
+        "note": "A group bundles one session. No runs and no loop end condition.",
+        "takeOut": "Take out"
+      }
     },
     "console": {
       "label": "Agent console {{name}}",
@@ -3745,7 +3778,8 @@
         "script": "Script",
         "parameter": "Parameter",
         "task": "Tickets",
-        "group": "Groups"
+        "group": "Groups",
+        "loop": "Loop"
       },
       "hint": {
         "start": "Add the beginning of a flow.",
@@ -3754,7 +3788,8 @@
         "script": "Add a script step with an interpreter profile. Pages does not run scripts yet.",
         "parameter": "Provide a named input value.",
         "task": "Use a readable ticket as a data source.",
-        "group": "Organize agents in a shared ACP group."
+        "group": "Organize agents in a shared ACP group.",
+        "loop": "Repeat agents and scripts as one subgraph, with a session of its own per agent."
       },
       "addTitle": "Add {{type}}",
       "add": "Add",
@@ -3923,6 +3958,155 @@
         "api": "API"
       },
       "notApplicable": "Not applicable"
+    },
+    "loops": {
+      "defaultName": "Loop",
+      "frame": "Loop {{name}}",
+      "needsRepair": "The loop needs repair; open its settings.",
+      "empty": "Empty loop. Drag agents and scripts in and connect them.",
+      "emptyReadOnly": "The loop is empty.",
+      "members": "{{count}} inner nodes",
+      "dropHere": "Drop to add to the loop",
+      "flowIn": "Flow IN of loop {{name}}",
+      "flowOut": "Flow OUT of loop {{name}}",
+      "summary": "{{mode}} · {{count}} Runs",
+      "summaryUnresolved": "{{mode}} · Runs unresolved",
+      "previousOf": "Previous run: {{name}}",
+      "previousChoose": "Result of the previous iteration",
+      "name": "Name",
+      "mode": {
+        "maxShort": "max",
+        "expectedShort": "exact",
+        "maxTooltip": "Runs at most the set number. An enabled end condition can end earlier. After the last allowed iteration the loop ends regularly.",
+        "expectedTooltip": "Runs exactly the set number. An end condition does not shorten it. Errors or a manual stop can still end it early.",
+        "maxLine": "max · at most {{count}} runs",
+        "expectedLine": "exact · exactly {{count}} runs",
+        "maxExplain": "At most {{count}} runs. An enabled end condition can end earlier; otherwise the loop ends regularly after run {{count}}.",
+        "expectedExplain": "Exactly {{count}} runs. An end condition does not shorten the number; errors and a manual stop still end the loop early.",
+        "maxUnresolved": "max · the number of runs is not resolved yet.",
+        "expectedUnresolved": "exact · the number of runs is not resolved yet."
+      },
+      "status": {
+        "notStarted": "Not started yet",
+        "waiting": "Waiting",
+        "running": "Running",
+        "paused": "Paused",
+        "succeeded": "Succeeded",
+        "failed": "Failed",
+        "cancelled": "Stopped"
+      },
+      "completion": {
+        "count_reached": "Count reached",
+        "condition_met": "End condition met"
+      },
+      "session": {
+        "title": "Keep agent sessions",
+        "infoLabel": "About keeping sessions",
+        "info": "On: each agent continues its own ACP session with a new turn in every run. Off: each run opens a new session per agent and ends it with the node; only the bound inputs carry over.",
+        "reuseNote": "Each agent keeps one session for all runs of this loop and receives only the new turn and its bound inputs. Sessions end with the loop.",
+        "freshNote": "Each run opens a new session per agent and ends it with the node. Nothing but the bound inputs carries over.",
+        "reuseShort": "Sessions are kept between runs",
+        "freshShort": "A new session per run"
+      },
+      "source": {
+        "label": "Source of the count",
+        "value": "Value",
+        "parameter": "Parameter"
+      },
+      "runs": {
+        "label": "Runs",
+        "infoLabel": "About runs",
+        "info": "Number of runs inside this loop. Default: 1. Whole numbers from 1 to 999 are allowed.",
+        "hint": "Whole numbers from {{minimum}} to {{maximum}}.",
+        "invalid": "Not saved: use a whole number from {{minimum}} to {{maximum}}. Nothing is rounded or replaced.",
+        "parameterLabel": "Runs",
+        "parameterInfoLabel": "About the parameter source",
+        "parameterInfo": "Uses the bound parameter as the count. Before the loop starts the value is checked: a whole number from 1 to 999. With 3, max means at most 3 and exact exactly 3 runs.",
+        "parameterPlaceholder": "Choose a parameter node",
+        "parameterNone": "No parameter",
+        "noParameters": "The plan has no parameter node. Add one from the palette first.",
+        "parameterInvalid": "The bound parameter is missing or not a whole number from 1 to 999. The loop will not start; the saved value is not used instead.",
+        "parameterValue": "Bound parameter {{name}} · value {{count}}."
+      },
+      "exact": {
+        "label": "Run exactly",
+        "infoLabel": "About exact runs",
+        "info": "Runs exactly the set number. An end condition does not shorten it. Errors or a manual stop can still end it early."
+      },
+      "condition": {
+        "title": "End early when …",
+        "infoLabel": "About the end condition",
+        "info": "After a complete iteration the loop reads one JSON value from a source agent or script and compares it without converting types. It never guesses from the answer text.",
+        "inactive": "Inactive in exact mode; the saved condition is kept.",
+        "inactiveNote": "In exact mode only the count matters. The saved condition is not evaluated and does not shorten the number of runs.",
+        "source": "Result source · inside this loop",
+        "sourcePlaceholder": "Choose an agent or script",
+        "path": "JSON path in the result",
+        "pathInfoLabel": "About the JSON path",
+        "pathInfo": "A path such as $.end or $.review.end. Allowed: names after dots and array positions such as [0]. No wildcards, filters or code.",
+        "pathInvalid": "Not saved: use a path such as $.end or $.review.end.",
+        "operator": "Comparison",
+        "equals": "is equal (===)",
+        "type": "Type",
+        "types": {
+          "boolean": "Boolean",
+          "number": "Number",
+          "string": "Text",
+          "null": "null"
+        },
+        "value": "Expected value",
+        "nullValue": "The field must be JSON null.",
+        "summary": "{{source}} → {{path}} === {{value}} · {{type}}, never converted from text. Without a match a max loop ends at {{count}}.",
+        "noteOn": "The source returns one JSON value, such as {\"end\": true}, or exactly one block marked pages-loop-result. The loop checks it after each complete iteration; nothing is guessed from the answer text.",
+        "noteOff": "The condition is off: the loop runs to its count. When switched on, the source must return one JSON value or exactly one block marked pages-loop-result."
+      },
+      "panel": {
+        "label": "Settings of loop {{name}}",
+        "kicker": "Edit loop",
+        "close": "Close loop settings",
+        "closeButton": "Close",
+        "draftHint": "Draft · starts no run"
+      },
+      "run": {
+        "title": "Run",
+        "summary": "{{done}} of {{count}} runs complete · {{mode}} · count from {{source}}",
+        "iteration": "Run {{number}}",
+        "conditionMet": "Condition met",
+        "conditionNotMet": "Condition not met",
+        "conditionFailed": "Condition could not be evaluated: {{reason}}",
+        "notEvaluated": {
+          "disabled": "End condition off, not evaluated",
+          "expected": "End condition inactive in exact mode, not evaluated",
+          "incomplete": "Not evaluated yet"
+        },
+        "acpSession": "ACP session",
+        "nativeSession": "Native session",
+        "process": "Process",
+        "created": "Opened in",
+        "sessionState": {
+          "open": "kept open · {{count}} turns",
+          "closed": "closed · {{count}} turns",
+          "lost": "lost · {{count}} turns",
+          "not_retained": "new session per run"
+        },
+        "closeout": {
+          "pending": "cleanup pending",
+          "confirmed": "cleanup confirmed",
+          "failed": "cleanup not confirmed",
+          "not_needed": "no cleanup needed"
+        },
+        "cleanup": {
+          "not_needed": "no sessions to close",
+          "pending": "cleanup pending",
+          "confirmed": "sessions closed, cleanup confirmed",
+          "failed": "cleanup not confirmed"
+        }
+      },
+      "removeTitle": "Remove loop “{{name}}”?",
+      "removeDescription": "Inner nodes in this loop: {{count}}. Removing only the container keeps every node with its flow connections; a binding to the previous run ends with the loop. Deleting the contents also removes the nodes and their connections.",
+      "removeFrame": "Remove container, keep nodes",
+      "removeWithMembers": "Delete with contents ({{count}} nodes)",
+      "moved": "Loop membership changed. Removed: flow connections {{edges}}, bindings {{bindings}}."
     }
   },
   "mcpDuration": {

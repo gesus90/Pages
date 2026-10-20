@@ -34,6 +34,19 @@ export function PlanFlowEdgeView(
   const isDisconnecting = useRef(false);
   const details = props.data;
   if (!details) return null;
+  if (details.isBoundary)
+    return (
+      <BaseEdge
+        id={props.id}
+        path={getBezierPath(props)[0]}
+        markerEnd={props.markerEnd}
+        interactionWidth={0}
+        style={{
+          stroke: "var(--color-muted-foreground)",
+          strokeWidth: 1.75,
+        }}
+      />
+    );
   const isData = details.link.kind === "data";
   const [path, labelX, labelY] = renderedEdgePath(props);
   let label = t("plans.linkKind.flow");

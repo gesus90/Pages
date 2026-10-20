@@ -4,7 +4,7 @@ import { planStepTemplate } from "./AgentPlanConfiguration";
 import { planGroupEdges, planGroupRefusal } from "./AgentPlanGroup";
 
 import type { AgentDefinitionChoice } from "./AgentAvailability";
-import type { AgentPlanInput } from "./AgentPlan";
+import type { AgentPlanEdge, AgentPlanInput } from "./AgentPlan";
 import type { AgentPlanGroup } from "./AgentPlanGroup";
 import type { AgentPlanIssue } from "./AgentPlanGraph";
 
@@ -33,9 +33,23 @@ function internalIssues(
 
 /** Internal edges join two members of the same frame, once, without a cycle. */
 function internalEdgeIssues(group: AgentPlanGroup): AgentPlanIssue[] {
+  return containerEdgeIssues(
+    new Set(group.steps.map((step) => step.id)),
+    planGroupEdges(group),
+  );
+}
+
+/**
+ * The checks of the internal edges of a group or a loop.
+ *
+ * @param members - The IDs of the members of the container.
+ * @param edges - Its internal edges.
+ */
+export function containerEdgeIssues(
+  members: ReadonlySet<string>,
+  edges: readonly AgentPlanEdge[],
+): AgentPlanIssue[] {
   const issues: AgentPlanIssue[] = [];
-  const members = new Set(group.steps.map((step) => step.id));
-  const edges = planGroupEdges(group);
   const seen = new Set<string>();
   for (const edge of edges) {
     if (!members.has(edge.from) || !members.has(edge.to)) {
