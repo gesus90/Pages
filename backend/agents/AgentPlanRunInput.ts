@@ -8,7 +8,10 @@ import { readPlanText } from "./AgentPlanInput";
 import { readPlanLoopRuns } from "./AgentPlanLoopRunInput";
 import { readPlanStepResult } from "./AgentPlanStepResultInput";
 import { readAgentObject } from "./AgentPayload";
-import { readPlanRecoveryReason } from "./AgentPlanRecoveryInput";
+import {
+  readPlanRecoveryReason,
+  readPlanRunOrigin,
+} from "./AgentPlanRecoveryInput";
 
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 
@@ -46,6 +49,9 @@ export function readPlanRun(input: unknown): AgentPlanRun {
     ...(run.recovery === undefined
       ? {}
       : { recovery: readPlanRecoveryReason(run.recovery) }),
+    ...(run.origin === undefined
+      ? {}
+      : { origin: readPlanRunOrigin(run.origin) }),
     steps: run.steps.map(readPlanStepResult),
     ...(run.loops === undefined ? {} : { loops: readPlanLoopRuns(run.loops) }),
   };

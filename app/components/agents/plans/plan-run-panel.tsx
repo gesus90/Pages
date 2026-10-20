@@ -10,6 +10,7 @@ import { planAgentName } from "./plan-layout";
 import { keepPlanControlKeys } from "./plan-flow-keys";
 import { isPlanNameRefused } from "./plan-name-issue";
 import { PlanPanelContext } from "./plan-panel-context";
+import { PlanRecoveryPanel } from "./plan-recovery-panel";
 import { PlanReloadButton } from "./plan-reload-button";
 import { PlanRunActions } from "./plan-run-actions";
 
@@ -26,6 +27,8 @@ export function PlanRunPanel(props: {
   readonly editor: ReturnType<typeof usePlanEditor>;
   readonly control: AgentPlanControl | undefined;
   readonly error: string | null;
+  /** Shows a run that a restart or resume started. */
+  readonly onRunStarted: (runId: string) => void;
 }): React.ReactElement {
   const { t } = useTranslation();
   const [isOpen, setOpen] = useState(false);
@@ -141,6 +144,12 @@ function PlanPanelBody(
             : control?.issues
         }
       />
+      {props.page.selected?.canEdit === false ? null : (
+        <PlanRecoveryPanel
+          control={control}
+          onRunStarted={props.onRunStarted}
+        />
+      )}
     </>
   );
 }

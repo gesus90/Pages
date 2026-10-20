@@ -1389,6 +1389,56 @@ Verification boundaries on 2026-10-17:
   source comparison or the static gates. Existing tests that describe details
   of the former renderer have neither been adapted nor executed in this task.
 
+### Restart and resume after a disturbance (PAGE-127)
+
+When the newest run of a plan failed or was stopped, its executor sees a
+**Recover the run** section in the run panel: the state (recoverable,
+interrupted by a server stop, failure not classified, stopped on purpose), the
+failure point with its reason, the last verified checkpoint, the plan revision
+the run executed and the one saved now, the origin of a run that came from an
+earlier one, and every concrete blocker. Two separate actions follow:
+
+- **Start from the start** creates a new run with a new identity from the
+  saved revision shown on the button. The earlier run, its results,
+  checkpoints and journal stay unchanged and link to the new run. Files and
+  branches are not reset; the executor confirms that every node runs again,
+  including actions that may already have taken effect.
+- **Continue from the last safe state** creates a new run linked to the
+  earlier one. Successful results whose checkpoint names the same output
+  digest are taken over unchanged; nothing else counts as done. Only open,
+  failed or interrupted work runs again, each as a new attempt with the saved
+  revision, which must keep every completed node, its dependencies, its group
+  and every started loop unchanged (`plan_completed_changed`). A loop keeps its
+  completed iterations and the completed members of its unfinished iteration.
+  Every node that had started — an agent session or a script process — needs
+  the executor's explicit reviewed decision first (`review_required`); its
+  prompt then begins with a recovery notice. **Continue the earlier agent
+  session** is offered only where the adapter announced `session/resume`, the
+  session ID is known and the profile keeps sessions on disk: Codex plan nodes
+  and Pica; Claude Code plan nodes run with `persistSession: false` and loops
+  start fresh sessions, so they offer **New agent session** only. A refused
+  native resume fails the node visibly (`acp_session_resume_failed`); there is
+  no silent fallback. A run stopped on purpose is never continued, only
+  restarted; only the newest run of a plan can be continued, once.
+
+Before anything starts, current plan, agent, workspace, ticket and asset
+rights are checked again and processes of the earlier run must be proven
+gone: every session and script whose end was not confirmed is ended by its own
+tag and unit, then its working copies and ACP leases are released; otherwise
+the action fails with `cleanup_unconfirmed` and nothing starts. **Release**
+does this alone. A server shutdown records running work as interrupted; an
+explicit stop stays final; nothing is resumed automatically at startup.
+
+`POST /agent-api/plan-runs/:runId/recovery` accepts the same actions with the
+run's current recovery `revision` and an idempotency key:
+`{"action":"restart","revision":4,"confirmRepeat":true}`,
+`{"action":"resume","mode":"native_resume"|"new_session","reviewedStepIds":[…]}`
+or `{"action":"release"}`. The decision is journaled in the transaction that
+creates the new run; a repeated key returns the first result, an older
+revision is refused, and a plan with an active run starts nothing second. The
+answer names the new run (`runId`). `GET` on the same path returns the view
+the panel shows.
+
 ### Plans over MCP and in the Pica chat
 
 MCP clients and Pica reach the same plans under the same rules: list and read
@@ -1624,13 +1674,18 @@ crash between reservation and recording the process start. Existing run recovery
 marks interrupted work failed and never retries it. Interrupted sessions from
 before this journal existed are adopted from active runs and retained workspace
 reservations, so an upgrade also accounts for their cleanup failures. Shutdown cancels waiters,
-drains runs and closes native sessions. Cleanup uses the inherited
+drains runs and closes native sessions; a run that the shutdown ends is
+recorded as interrupted, not as stopped by its executor, so it can be resumed
+after the restart (PAGE-127). Cleanup uses the inherited
 `PAGES_RUN_INSTANCE` tag, also for helpers outside the adapter's process group;
 an unreadable process scan cannot prove absence. Unresponsive process exit
 returns an unconfirmed closeout after bounded waits. Cleanup failures and
 uncertain journal writes fail closed; retained leases are retried during the
-next normal startup. No automatic in-process cleanup retry or force-release UI
-is provided.
+next normal startup. While a request waits only because uncertain leases hold
+the capacity, Pages checks them again at most once a minute by their own
+instance tag and worker unit and releases each one whose processes are proven
+gone (PAGE-127); an unconfirmed lease keeps its capacity. There is no
+force-release UI.
 
 The shared **ACP resources** card in Settings → System and Settings → Agents
 polls `/agent-api/resources` every five seconds while open and refreshes after
@@ -1647,6 +1702,56 @@ This change uses the existing Pages runtime and DuckDB. It does not install
 Mastra Core or introduce another workflow engine. The Mastra integration named
 in PAGE-81's title remains deferred; the native resource scheduler is independent
 of a future orchestration framework.
+
+### Limited worker units (PAGE-127)
+
+Every ACP worker — the adapter, its CLI runner, the MCP bridge and every
+helper they start — runs inside the bubblewrap namespace **and** in a
+transient unit of the server account's systemd user manager, named
+`pages-acp-<instance>-<random>.service` in `pages-acp.slice`. The unit is a
+cgroup of its own with hard limits:
+
+| Limit | Value | Why |
+| --- | --- | --- |
+| `MemoryMax` | 1536 MiB | measured peaks were ≤ 430 MiB (Codex, Claude Code) and ≤ 810 MiB (OpenCode); two workers stay far below what the 8 GiB host can lose |
+| `MemorySwapMax` | 256 MiB | a growing worker fails itself instead of slowing the host |
+| `TasksMax` | 512 | processes and threads of the whole worker tree; measured ≤ 100 |
+| `CPUQuota` | 200 % | at most two of four cores |
+| `RuntimeMaxSec` | node deadline + 120 s, else 24 h | a backstop if Pages itself hangs |
+| `OOMPolicy=kill` | — | an exceeded limit ends the whole worker, inside its cgroup only |
+
+The kernel ends a worker that exceeds its memory inside that cgroup
+(`CONSTRAINT_MEMCG`), so neither the gateway nor Pages meet the global OOM
+killer for it; the node or Pica job fails visibly with `acp_worker_limit`.
+A worker whose output holds a line longer than 4 Mi characters, with or
+without a line break, is ended the same way: the line and everything after it
+are discarded, and the job fails with `acp_output_overflow` instead of
+continuing on a truncated or oversized frame.
+Values reach the worker through a 0600 environment file in
+`<data>/worker-units/`, removed once the worker started, never through an
+argument list. The manager's own variables — session bus, SSH and GPG agents,
+runtime directory — are removed, and the namespace hides `/run/user/<uid>`,
+so no socket of the account's service manager, desktop bus or SSH agent is
+reachable from inside. Stop, timeout and cleanup signal the unit by its name,
+which carries the session's random instance tag: ownership is the unit's
+cgroup, never a process ID, and helpers that left the process group are
+included.
+
+Pica never starts without a unit (`acp_worker_unit_unavailable`, no model is
+called). Plan nodes use the unit wherever the service manager provides one and
+otherwise start as before, with one warning. The unit works the same whether
+Pages runs as a system or as a user service, because the user manager starts
+the process itself; the server account needs a running user manager
+(`loginctl enable-linger <account>`), reached through `/run/user/<uid>/bus`.
+`systemctl --user list-units 'pages-acp-*'` lists the live workers.
+
+When DuckDB reports that a fatal error invalidated the open database, Pages
+ends with exit code 1 (`database_invalidated`) instead of answering without a
+usable database; the service manager starts it again and the startup recovery
+records interrupted runs as resumable. Observed in PAGE-127 only after hard
+kills of a test instance (`Failed to delete all rows from index` on
+`chat_sessions`); rebuilding the affected index (`DROP INDEX … ; CREATE INDEX
+…; CHECKPOINT;` with the server stopped) repaired the file.
 
 ### OpenCode plan nodes with a Console / Zen key (PAGE-66)
 

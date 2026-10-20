@@ -111,4 +111,20 @@ export class AgentPlanCheckpointRepository {
         )
       : null;
   }
+
+  /** Every completion of a run, by version; at most one per node. */
+  public async list(runId: string): Promise<readonly AgentPlanCheckpoint[]> {
+    const rows = await this.database.query(
+      `
+        SELECT checkpoint_json
+        FROM agent_plan_checkpoints
+        WHERE run_id = $run_id
+        ORDER BY version;
+      `,
+      { run_id: runId },
+    );
+    return rows.map((row) =>
+      readPlanCheckpoint(JSON.parse(readTextColumn(row, 0, "checkpoint_json"))),
+    );
+  }
 }

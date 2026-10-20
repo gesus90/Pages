@@ -198,6 +198,42 @@ function resumedSteps(
   });
 }
 
+/**
+ * Validates a saved revision against the completed work of an ended run.
+ *
+ * @param boundary - The ended run, with the verified completions it keeps as its pause boundary.
+ * @param previous - The frozen plan the ended run executed.
+ * @param proposed - The saved revision, prepared with the executor's current rights.
+ * @returns The snapshot of the new run: completed nodes keep their frozen contracts.
+ * @throws {AgentError} `plan_context_changed` for another project or workspace,
+ * `plan_completed_changed` when a completed node, its dependencies, its group
+ * or a started loop changed.
+ *
+ * @remarks
+ * Unlike a live continuation, no group session is required to still run: a
+ * resumed run continues a group session through the adapter's resume or
+ * opens a new one, and says which.
+ */
+export function prepareRecoveredPlan(
+  boundary: AgentPlanRun,
+  previous: AgentPlanSnapshot,
+  proposed: AgentPlanSnapshot,
+): AgentPlanSnapshot {
+  requireBoundary(boundary, previous, proposed);
+  requireCompletedGroups(boundary, previous, proposed);
+  for (const step of proposed.steps) {
+    const old = previous.steps.find((entry) => entry.step.id === step.step.id);
+    if (
+      old &&
+      old.groupId !== step.groupId &&
+      boundary.pauseBoundary?.completedStepIds.includes(step.step.id)
+    )
+      throw new AgentError("plan_completed_changed");
+  }
+  requireStartedLoops(boundary, previous, proposed);
+  return keptContracts(boundary, previous, proposed);
+}
+
 /** Keeps completed contracts and results while applying the validated draft to pending work. */
 export function preparePlanContinuation(
   run: AgentPlanRun,
@@ -211,23 +247,7 @@ export function preparePlanContinuation(
   requireCompletedGroups(run, previous, proposed);
   requireRetainedGroups(run, previous, proposed);
   requireStartedLoops(run, previous, proposed);
-  const completed = new Set(run.pauseBoundary?.completedStepIds);
-  const snapshot: AgentPlanSnapshot = {
-    ...proposed,
-    scripts: proposed.scripts?.map((script) =>
-      completed.has(script.step.id)
-        ? (previous.scripts?.find(
-            (entry) => entry.step.id === script.step.id,
-          ) ?? script)
-        : script,
-    ),
-    steps: proposed.steps.map((step) =>
-      completed.has(step.step.id)
-        ? (previous.steps.find((entry) => entry.step.id === step.step.id) ??
-          step)
-        : step,
-    ),
-  };
+  const snapshot = keptContracts(run, previous, proposed);
   const continuation = {
     version: (run.continuation?.version ?? 0) + 1,
     planRevision: proposed.plan.revision,
@@ -245,6 +265,31 @@ export function preparePlanContinuation(
         steps: resumedSteps(run, snapshot),
       },
       snapshot,
+    ),
+  };
+}
+
+/** The proposed snapshot with the frozen contracts of every completed node. */
+function keptContracts(
+  run: AgentPlanRun,
+  previous: AgentPlanSnapshot,
+  proposed: AgentPlanSnapshot,
+): AgentPlanSnapshot {
+  const completed = new Set(run.pauseBoundary?.completedStepIds);
+  return {
+    ...proposed,
+    scripts: proposed.scripts?.map((script) =>
+      completed.has(script.step.id)
+        ? (previous.scripts?.find(
+            (entry) => entry.step.id === script.step.id,
+          ) ?? script)
+        : script,
+    ),
+    steps: proposed.steps.map((step) =>
+      completed.has(step.step.id)
+        ? (previous.steps.find((entry) => entry.step.id === step.step.id) ??
+          step)
+        : step,
     ),
   };
 }

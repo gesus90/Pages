@@ -12,6 +12,8 @@ import type {
   CliGroupSignal,
   CliProcessResult,
   CliRunningProcess,
+  CliWorkerUnitHandle,
+  CliWorkerUnitResult,
 } from "./CliContracts";
 
 // One event line of a runner may be large (a file it read), never unbounded.
@@ -36,6 +38,15 @@ export interface CliSessionCallbacks {
   readonly signal: AbortSignal;
   /** Receives every complete line of the standard output, in order. */
   readonly onLine: (line: string) => void;
+  /** The limited unit of the session; its processes are signalled through it. */
+  readonly unit?: CliWorkerUnitHandle;
+}
+
+/** What the end of a unit means for the session, beyond what Pages itself decided. */
+function unitErrorCode(result: CliWorkerUnitResult): AgentErrorCode | null {
+  if (result === "oom-kill" || result === "resources")
+    return "acp_worker_limit";
+  return result === "timeout" ? "check_timeout" : null;
 }
 
 /**
@@ -65,6 +76,7 @@ export class CliSessionProcess implements CliRunningProcess {
   private pending = "";
   private stderrTail = "";
   private isFinished = false;
+  private isOverflowed = false;
 
   public constructor(
     child: ChildProcess,
@@ -174,19 +186,36 @@ export class CliSessionProcess implements CliRunningProcess {
   }
 
   private receive(chunk: string): void {
+    // Output proves that the unit started and has read its environment file.
+    this.callbacks.unit?.started();
+    if (this.isOverflowed) return;
     this.pending += chunk;
     let newline = this.pending.indexOf("\n");
     while (newline >= 0) {
+      if (newline > MAXIMUM_LINE_CHARACTERS) {
+        this.overflow();
+        return;
+      }
       const line = this.pending.slice(0, newline);
       this.pending = this.pending.slice(newline + 1);
       this.deliver(line);
       newline = this.pending.indexOf("\n");
     }
-    // A runaway line is cut, not buffered without end.
-    if (this.pending.length > MAXIMUM_LINE_CHARACTERS) {
-      this.deliver(this.pending.slice(0, MAXIMUM_LINE_CHARACTERS));
-      this.pending = "";
-    }
+    if (this.pending.length > MAXIMUM_LINE_CHARACTERS) this.overflow();
+  }
+
+  /** A runaway line ends the session; neither it nor anything after it reaches the caller. */
+  private overflow(): void {
+    this.isOverflowed = true;
+    this.pending = "";
+    logEvent({
+      level: "warn",
+      event: "cli.process.output_overflow",
+      component: "CliSessionProcess",
+      message: "CLI session output line exceeded its limit",
+      metadata: { code: "acp_output_overflow", count: MAXIMUM_LINE_CHARACTERS },
+    });
+    this.cancel("acp_output_overflow");
   }
 
   private deliver(line: string): void {
@@ -206,6 +235,7 @@ export class CliSessionProcess implements CliRunningProcess {
   }
 
   private sendSignal(signal: NodeJS.Signals): void {
+    this.callbacks.unit?.signal(signal);
     if (this.child.pid === undefined) return;
     try {
       this.signalGroup(-this.child.pid, signal);
@@ -233,6 +263,33 @@ export class CliSessionProcess implements CliRunningProcess {
     if (this.escalation !== null) clearTimeout(this.escalation);
     if (this.closing !== null) clearTimeout(this.closing);
     this.callbacks.signal.removeEventListener("abort", this.abort);
+    const { unit } = this.callbacks;
+    if (!unit) {
+      this.emitExit(code, signal);
+      return;
+    }
+    void this.settleUnit(unit, { code, signal });
+  }
+
+  /** The session ends only after its unit stopped, so nothing of it outlives the exit. */
+  private async settleUnit(
+    unit: CliWorkerUnitHandle,
+    ended: {
+      readonly code: number | null;
+      readonly signal: NodeJS.Signals | null;
+    },
+  ): Promise<void> {
+    try {
+      // The unit settles even when Pages ended it, so its environment file never stays.
+      const result = await unit.settle();
+      this.errorCode = this.errorCode ?? unitErrorCode(result);
+    } catch (caughtError: unknown) {
+      logCaughtError("CliSessionProcess", caughtError);
+    }
+    this.emitExit(ended.code, ended.signal);
+  }
+
+  private emitExit(code: number | null, signal: NodeJS.Signals | null): void {
     const exit: CliSessionExit = {
       code,
       signal,

@@ -24,6 +24,7 @@ import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import { CliPlanIsolation } from "./CliPlanIsolation";
 import { createCliEnvironment } from "./CliEnvironment";
+import { ACP_WORKER_LIMITS } from "./CliWorkerUnit";
 import { closeCliSession } from "./CliSessionCloseout";
 import { unsupportedRunOption } from "./CliSessionPlans";
 
@@ -61,6 +62,7 @@ import type {
   CliGitHubCredentials,
 } from "./CliGitHubCredentials";
 import type { CliSessionProcess } from "./CliSessionProcess";
+import type { CliWorkerUnits } from "./CliWorkerUnit";
 
 /** How CLI runs are kept away from the instance folders. */
 export interface CliIsolationOptions {
@@ -85,6 +87,8 @@ interface SessionDependencies {
   readonly runner: Pick<CliProcessRunner, "startSession">;
   /** Absent disables the isolation. */
   readonly isolation?: CliIsolationOptions;
+  /** The limited units every worker starts in; Pica refuses to start without them. */
+  readonly units?: Pick<CliWorkerUnits, "isAvailable" | "wrap">;
   readonly github?: Pick<CliGitHubCredentials, "prepare">;
 }
 
@@ -112,6 +116,13 @@ interface IsolatedRequest {
   readonly isIsolated: boolean;
 }
 
+/** A session request, wrapped in its limited unit where the service manager provides one. */
+interface LimitedRequest {
+  readonly request: CliSessionRequest;
+  /** How the run record describes the limits. */
+  readonly label: string;
+}
+
 /**
  * Starts the CLI sessions of plan nodes in their authorized workspaces.
  *
@@ -128,6 +139,7 @@ export class CliSessionExecution implements PlanSessionRunner {
   private readonly isolation: CliPlanIsolation | null;
   private readonly isIsolationRequired: boolean;
   private hasWarnedWithoutIsolation = false;
+  private hasWarnedWithoutUnits = false;
 
   public constructor(dependencies: SessionDependencies) {
     this.dependencies = dependencies;
@@ -366,6 +378,7 @@ export class CliSessionExecution implements PlanSessionRunner {
       return masked;
     };
     let child: CliSessionProcess | null = null;
+    let limited: LimitedRequest | null = null;
     try {
       const { request, isIsolated } = await this.isolate({
         file: start.adapter,
@@ -386,16 +399,12 @@ export class CliSessionExecution implements PlanSessionRunner {
         onLine: (line) => channel.receive(redact(line)),
       });
       requireAcpIsolation(isIsolated, mode, input);
+      limited = await this.limit(request, input);
       if (control.signal.aborted) throw new AgentPlanCancelledError();
-      child = this.dependencies.runner.startSession(request);
-      const running = child;
-      channel.attach((line) => running.write(line));
-      void child.exited.then(() => channel.close());
-      control.observer.started({
-        mode: "interactive",
-        processId: child.processId,
-        startedAt: new Date().toISOString(),
-        arguments: request.arguments,
+      child = this.dependencies.runner.startSession(limited.request);
+      connectChild(child, channel, {
+        observer: control.observer,
+        arguments: limited.request.arguments,
         unattended: profile.unattended,
       });
       return new AcpSession(child, channel.stream, {
@@ -410,7 +419,7 @@ export class CliSessionExecution implements PlanSessionRunner {
         }),
         observer: control.observer,
         signal: control.signal,
-        isolation: isolationLabel(isIsolated, mode, driver),
+        isolation: `${isolationLabel(isIsolated, mode, driver)}; ${limited.label}`,
         github: github?.status,
         redact,
         secure: () => this.secureAcp(input, start, github),
@@ -419,7 +428,7 @@ export class CliSessionExecution implements PlanSessionRunner {
     } catch (error: unknown) {
       logCaughtError("CliSessionExecution", error);
 
-      await this.cleanupAcpStart(child, input.instanceId, github);
+      await this.cleanupAcpStart(child, input.instanceId, github, limited);
       throw error;
     }
   }
@@ -428,7 +437,10 @@ export class CliSessionExecution implements PlanSessionRunner {
     child: CliSessionProcess | null,
     instanceId: string,
     github: CliGitHubAccess | null,
+    limited: LimitedRequest | null,
   ): Promise<void> {
+    // A unit that never got its process still has an environment file to remove.
+    if (child === null) await limited?.request.unit?.settle();
     const isConfirmed =
       child === null || (await this.closeFailedAcp(child, instanceId));
     try {
@@ -503,6 +515,38 @@ export class CliSessionExecution implements PlanSessionRunner {
   }
 
   /**
+   * Starts the worker in a limited unit of the service manager.
+   *
+   * @remarks
+   * Pica's conversations never start without one. A plan node starts
+   * without it, as before, where the host has no service manager for the
+   * server account; one warning says so.
+   */
+  private async limit(
+    request: CliSessionRequest,
+    input: AgentPlanSessionInput,
+  ): Promise<LimitedRequest> {
+    const { units } = this.dependencies;
+    if (units && (await units.isAvailable())) {
+      const wrapped = await units.wrap(request, input.instanceId);
+      return {
+        request: { ...wrapped.request, unit: wrapped.unit },
+        label: `unit ${wrapped.unit.name}: memory ${ACP_WORKER_LIMITS.memoryMax}, swap ${ACP_WORKER_LIMITS.memorySwapMax}, tasks ${ACP_WORKER_LIMITS.tasksMax}, CPU ${ACP_WORKER_LIMITS.cpuQuota}`,
+      };
+    }
+    if (input.chat) throw new AgentError("acp_worker_unit_unavailable");
+    if (!this.hasWarnedWithoutUnits) {
+      this.hasWarnedWithoutUnits = true;
+      logDiagnostic(
+        "CliSessionExecution",
+        "warn",
+        "Pages runs plan agents without a limited service unit because the service manager of the server account does not start one.",
+      );
+    }
+    return { request, label: "no limited unit" };
+  }
+
+  /**
    * Runs in a mount namespace that hides the instance folders, where bubblewrap works.
    *
    * @remarks
@@ -544,6 +588,27 @@ function sessionRunOptionError(
   return unsupportedRunOption(provider, input.options);
 }
 
+/** Lets the session talk to its started adapter and reports the start. */
+function connectChild(
+  child: CliSessionProcess,
+  channel: AcpLineChannel,
+  start: {
+    readonly observer: PlanSessionObserver;
+    readonly arguments: readonly string[];
+    readonly unattended: string;
+  },
+): void {
+  channel.attach((line) => child.write(line));
+  void child.exited.then(() => channel.close());
+  start.observer.started({
+    mode: "interactive",
+    processId: child.processId,
+    startedAt: new Date().toISOString(),
+    arguments: start.arguments,
+    unattended: start.unattended,
+  });
+}
+
 /** Every CLI plan runner and native Pica runner uses ACP, without a one-shot fallback. */
 function sessionAcpProvider(
   input: AgentPlanSessionInput,
@@ -567,7 +632,8 @@ function acpSessionRequest(
     mcpServers: input.chat?.mcpServers ?? launch.mcpServers,
     sessionMeta: launch.sessionMeta,
     promptContent: input.promptContent,
-    resumeSessionId: input.chat?.resumeSessionId ?? null,
+    resumeSessionId:
+      input.chat?.resumeSessionId ?? input.resumeSessionId ?? null,
   };
 }
 

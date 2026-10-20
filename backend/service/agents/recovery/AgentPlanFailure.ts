@@ -37,6 +37,19 @@ const FAILURE_CLASSES: Readonly<Record<string, AgentPlanFailureClass>> = {
   plan_claude_acp_session_failed: "interruption",
   opencode_acp_session_failed: "interruption",
   plan_closeout_failed: "cleanup",
+  plan_script_exit: "business",
+  plan_script_signal: "interruption",
+  plan_script_output_limit: "business",
+  plan_script_encoding: "business",
+  plan_script_input_required: "configuration",
+  plan_script_input_limit: "configuration",
+  plan_script_spawn: "configuration",
+  plan_script_unavailable: "configuration",
+  acp_worker_limit: "interruption",
+  acp_output_overflow: "business",
+  acp_worker_unit_unavailable: "configuration",
+  acp_session_resume_failed: "interruption",
+  cli_not_logged_in: "configuration",
 };
 
 /** Unknown failures remain terminal; an explicit stop always overrides classification. */

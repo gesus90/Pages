@@ -604,6 +604,9 @@
         "profile_running": "Der Agent ist Teil eines laufenden Plans. Nach dem Ende des Laufs ändern.",
         "profile_limit_reached": "Pro Person sind höchstens 100 Agents möglich.",
         "cli_isolation_unavailable": "CLI-Agents brauchen eine abgeschottete Umgebung, die dieser Server nicht bereitstellen kann.",
+        "acp_worker_unit_unavailable": "Picas Agents starten nur in einer begrenzten Dienst-Unit, die der Dienstmanager des Server-Kontos nicht bereitstellt. Es wurde kein Modell aufgerufen.",
+        "acp_worker_limit": "Der Agent-Prozess hat sein Speicher- oder Prozesslimit überschritten und wurde in seiner eigenen Unit beendet. Andere Läufe und Dienste waren nicht betroffen.",
+        "acp_output_overflow": "Der Agent-Prozess hat eine Ausgabezeile mit mehr als 4 Mi Zeichen geschrieben und wurde beendet. Seine Ausgabe wurde nicht verwendet.",
         "profile_scope_invalid": "Ziele innerhalb der gewählten Geltung auswählen. Persönliche Geltung nutzt ausschließlich eigene persönliche Zugänge.",
         "personal_access_missing": "Kein passender eigener persönlicher Modellzugang zugewiesen.",
         "personal_access_selection_required": "Einen passenden eigenen persönlichen Zugang ausdrücklich auswählen.",
@@ -4145,6 +4148,86 @@
       "removeFrame": "Container entfernen, Nodes behalten",
       "removeWithMembers": "Mit Inhalt löschen ({{count}} Nodes)",
       "moved": "Loop-Zuordnung geändert. Entfernt: Ablaufverbindungen {{edges}}, Bindungen {{bindings}}."
+    },
+    "recovery": {
+      "title": "Lauf wiederherstellen",
+      "stateLabel": "Zustand",
+      "state": {
+        "running": "Läuft",
+        "pausing": "Wird pausiert",
+        "stopping": "Wird gestoppt",
+        "paused": "Pausiert",
+        "recoverable": "Gescheitert, wiederherstellbar",
+        "interrupted": "Durch Serverstopp unterbrochen",
+        "failed_terminal": "Gescheitert, Ursache nicht eingeordnet",
+        "cancelled": "Bewusst gestoppt",
+        "succeeded": "Erfolgreich"
+      },
+      "failedAt": "Abbruchstelle",
+      "noFailure": "Kein Knoten ist gescheitert.",
+      "checkpoint": "Letzter verifizierter Stand",
+      "checkpointValue": "Checkpoint {{version}} · {{step}} · {{time}}",
+      "checkpointNone": "Kein verifizierter Checkpoint – nichts kann übernommen werden.",
+      "revisions": "Planrevision",
+      "revisionValue": "Lauf nutzte Revision {{run}} · gespeichert ist jetzt Revision {{current}}",
+      "originLabel": "Herkunft",
+      "origin": {
+        "restart": "Von vorne neu gestartet nach Lauf {{run}}",
+        "resume": "Fortgesetzt aus Lauf {{run}} ({{mode}}): {{reused}} Ergebnisse übernommen, {{retried}} Knoten erneut ausgeführt"
+      },
+      "mode": {
+        "native_resume": "Frühere Agent-Sitzung fortsetzen",
+        "new_session": "Neue Agent-Sitzung"
+      },
+      "modeHint": {
+        "native_resume": "der Adapter setzt die gespeicherte Sitzung mit ihrem Verlauf fort.",
+        "new_session": "der Agent startet ohne Erinnerung an den früheren Versuch und erhält Auftrag, übernommene Ergebnisse und einen Wiederherstellungshinweis."
+      },
+      "modeUnavailable": "hier nicht möglich: der Adapter kann die Sitzung nicht fortsetzen oder sie ist unbekannt.",
+      "resume": "Ab letztem sicheren Stand fortsetzen",
+      "resumeHint_one": "Unverändert übernommen: {{reused}}. Nur offene, gescheiterte oder unterbrochene Arbeit läuft erneut, als neuer Versuch mit der gespeicherten Planrevision.",
+      "resumeHint_other": "Unverändert übernommen ({{count}}): {{reused}}. Nur offene, gescheiterte oder unterbrochene Arbeit läuft erneut, als neuer Versuch mit der gespeicherten Planrevision.",
+      "resumeHint_zero": "Kein verifiziertes Ergebnis zum Übernehmen. Nur offene, gescheiterte oder unterbrochene Arbeit läuft erneut, als neuer Versuch mit der gespeicherten Planrevision.",
+      "review": "Ich habe mögliche Auswirkungen von „{{step}}“ (Dateien, Branches, Tickets) geprüft und will den Schritt erneut ausführen.",
+      "resumeAction": "Lauf fortsetzen",
+      "restart": "Von vorne starten",
+      "restartHint": "Startet einen neuen Lauf mit der gespeicherten Planrevision {{revision}}. Der frühere Lauf, seine Ergebnisse und sein Journal bleiben erhalten; vorhandene Dateien und Branches werden nicht zurückgesetzt.",
+      "confirmRepeat": "Alle Knoten laufen erneut, auch Aktionen, die bereits gewirkt haben können.",
+      "restartAction": "Revision {{revision}} von vorne starten",
+      "releaseAction": "Restprozesse beenden und Arbeitskopien freigeben",
+      "blocker": {
+        "run_active": "Der Lauf ist noch aktiv. Zuerst stoppen.",
+        "plan_run_active": "Ein anderer Lauf dieses Plans ist aktiv. Auf ihn warten oder ihn stoppen.",
+        "plan_read_only": "Dieser Plan ist nur lesbar, nicht ausführbar.",
+        "cancelled_by_user": "Der Lauf wurde bewusst gestoppt und wird nie fortgesetzt. Stattdessen von vorne starten.",
+        "succeeded": "Der Lauf war erfolgreich; es gibt nichts fortzusetzen.",
+        "superseded": "Es gibt einen neueren Lauf dieses Plans; nur der neueste Lauf kann fortgesetzt werden.",
+        "already_continued": "Dieser Lauf wurde bereits neu gestartet oder fortgesetzt.",
+        "cleanup_unconfirmed": "Ein Prozess des Laufs könnte noch leben. Zuerst Restprozesse beenden.",
+        "plan_completed_changed": "Abgeschlossene Arbeit wurde im gespeicherten Plan geändert; nur ein Start von vorne ist möglich.",
+        "plan_context_changed": "Projekt oder Workspace des Plans haben sich geändert; nur ein Start von vorne ist möglich.",
+        "plan_definition_changed": "Eine Agent-Definition hat sich geändert; nur ein Start von vorne ist möglich.",
+        "checkpoint_mismatch": "Ein abgeschlossenes Ergebnis hat keinen passenden Checkpoint und kann nicht sicher übernommen werden. Von vorne starten.",
+        "nothing_to_release": "Es wird nichts mehr gehalten.",
+        "workflow_unavailable": "Neustart und Fortsetzen sind in dieser Serverzusammensetzung nicht verfügbar.",
+        "context_not_verified": "Der Ausführungskontext konnte nicht geprüft werden."
+      },
+      "result": {
+        "started": "Der neue Lauf wurde gestartet.",
+        "released": "Restprozesse beendet und Arbeitskopien freigegeben.",
+        "recorded": "Festgehalten.",
+        "cancelled": "Lauf abgebrochen."
+      },
+      "error": {
+        "review_required": "Die Prüfung jedes erneut laufenden Knotens bestätigen.",
+        "cleanup_unconfirmed": "Ein Prozess des Laufs könnte noch leben; es wurde nichts gestartet. Gleich erneut versuchen oder die Administration fragen.",
+        "native_resume_unavailable": "Die frühere Sitzung kann nicht fortgesetzt werden; eine neue Sitzung wählen.",
+        "revision_conflict": "Der Lauf hat sich inzwischen geändert. Die Ansicht wurde neu geladen; prüfen und erneut entscheiden.",
+        "idempotency_conflict": "Diese Anfrage wurde bereits für eine andere Entscheidung verwendet.",
+        "action_unavailable": "Diese Aktion ist im aktuellen Zustand des Laufs nicht möglich.",
+        "workflow_unavailable": "Neustart und Fortsetzen sind hier nicht verfügbar.",
+        "plan_conflict": "Der Plan wurde inzwischen gespeichert. Plan neu laden und die angezeigte Revision starten."
+      }
     }
   },
   "mcpDuration": {

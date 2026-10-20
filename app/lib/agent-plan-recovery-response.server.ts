@@ -17,6 +17,9 @@ const RECOVERY_STATUS: Readonly<Record<AgentPlanRecoveryErrorCode, number>> = {
   workflow_unavailable: 409,
   checkpoint_invalid: 500,
   checkpoint_too_large: 413,
+  review_required: 409,
+  cleanup_unconfirmed: 409,
+  native_resume_unavailable: 409,
 };
 
 /** Returns fixed, uncacheable recovery failures with no private snapshot or native error text. */

@@ -255,6 +255,8 @@ const READ_ONLY_PROFILE: ClaudeAcpProfile = {
   matchesReportedModel: claudeModelMatches,
   hasMcpStatusCommand: true,
   isContinuable: true,
+  // MANAGED_OPTIONS keep no session on disk, so no later process can resume a plan node.
+  keepsSession: false,
   steps: (request) => claudeSteps("default", request),
   decide: (request) => decideClaudePermission("read_only", request),
 };
@@ -280,6 +282,7 @@ const YOLO_PROFILE: ClaudeAcpProfile = {
   matchesReportedModel: claudeModelMatches,
   hasMcpStatusCommand: true,
   isContinuable: true,
+  keepsSession: false,
   steps: (request) => claudeSteps("bypassPermissions", request),
   decide: (request) => decideClaudePermission("yolo", request),
 };

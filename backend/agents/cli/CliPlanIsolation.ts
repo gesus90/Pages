@@ -59,7 +59,9 @@ export async function probeBubblewrap(
  * File modes alone cannot protect `AGENT.md` and the run records from a model
  * process that runs under the account of the server. The namespace makes the
  * system read-only, leaves only the working copy and the credential home
- * writable, and replaces every protected folder with an empty one. A
+ * writable, and replaces every protected folder with an empty one. The
+ * account's runtime folder is replaced as well, so no socket of its service
+ * manager, session bus or SSH agent is reachable from inside. A
  * read-only session gets its working copy read-only as well. The prompt
  * still travels over stdin, never through the argument list. A host where
  * bubblewrap does not work relies on the sandbox of the CLI itself and on
@@ -125,7 +127,11 @@ export class CliPlanIsolation {
     const readOnlyFiles = await this.existingDirectories(
       request.readOnlyFiles ?? [],
     );
-    const privateHomes = await this.existingDirectories(this.hiddenDirectories);
+    const privateHomes = await this.existingDirectories([
+      ...this.hiddenDirectories,
+      // The runtime folder of the account holds its service manager's bus and its SSH agent.
+      ...(process.getuid ? [`/run/user/${process.getuid()}`] : []),
+    ]);
     const hidden = resolved.filter((entry): entry is string => entry !== null);
     if (hidden.some((entry) => containsWorkspacePath(entry, workingDirectory)))
       throw new AgentError("workspace_path_outside_roots");

@@ -23,7 +23,10 @@ import type {
   AgentPlanScript,
   AgentPlanScriptRun,
 } from "./AgentPlanScript";
-import type { AgentPlanRecoveryReason } from "./AgentPlanRecovery";
+import type {
+  AgentPlanRecoveryReason,
+  AgentPlanRunOrigin,
+} from "./AgentPlanRecovery";
 
 /**
  * Plan sources and execution dependencies are deliberately separate contracts.
@@ -234,6 +237,8 @@ export interface AgentPlanRun {
   readonly controlError?: "plan_step_failed";
   /** Absent in old failed records, which remain terminal; this never authorizes replay. */
   readonly recovery?: AgentPlanRecoveryReason;
+  /** The earlier run an explicit restart or resume came from. */
+  readonly origin?: AgentPlanRunOrigin;
   readonly steps: readonly AgentPlanStepResult[];
   /** The iterations and sessions of the loops of the plan; absent in runs without a loop. */
   readonly loops?: readonly AgentPlanLoopRun[];

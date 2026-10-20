@@ -4,6 +4,7 @@ import path from "node:path";
 import { DuckDBBlobValue, DuckDBInstance } from "@duckdb/node-api";
 
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
+import { shutdownProcess } from "@/backend/runtime/ProcessLifecycle";
 import {
   recordDatabaseTransaction,
   withDatabaseLogMetrics,
@@ -406,6 +407,23 @@ async function runInTransaction<Result>(
   });
 }
 
+/** Text DuckDB reports for every statement once a fatal error invalidated the open database. */
+const DATABASE_INVALIDATED = "database has been invalidated";
+
+/**
+ * Ends the process when DuckDB invalidated the database.
+ *
+ * @remarks
+ * DuckDB refuses every later statement and must be opened by a new process.
+ * Staying alive would leave Pages answering without a usable database; the
+ * explicit fatal exit lets the service manager start it again, and the
+ * startup recovery records interrupted work as resumable.
+ */
+function requireUsableDatabase(error: unknown): void {
+  if (error instanceof Error && error.message.includes(DATABASE_INVALIDATED))
+    void shutdownProcess(1, "database_invalidated", error);
+}
+
 async function runStatement(
   connection: DuckDBConnection,
   statement: string,
@@ -424,6 +442,7 @@ async function runStatement(
       error,
       metadata: { parameterCount: Object.keys(parameters).length },
     });
+    requireUsableDatabase(error);
     throw error;
   } finally {
     recordDatabaseQuery(statement, performance.now() - startedAt);
@@ -453,6 +472,7 @@ async function readRows(
       error,
       metadata: { parameterCount: Object.keys(parameters).length },
     });
+    requireUsableDatabase(error);
     throw error;
   } finally {
     recordDatabaseQuery(statement, performance.now() - startedAt);

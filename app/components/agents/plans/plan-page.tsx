@@ -118,6 +118,7 @@ export function PlanPage({
             editor={editor}
             control={controls.control}
             error={controls.error}
+            onRunStarted={running.select}
           />
         }
       />

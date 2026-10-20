@@ -1,4 +1,39 @@
-# Recoverable plan runs (PAGE-84)
+# Recoverable plan runs (PAGE-84, executing since PAGE-127)
+
+## PAGE-127: restart, resume and release
+
+PAGE-127 connects the recovery contract below to the existing engine instead
+of a workflow framework; no second engine or scheduler was introduced. Where
+this document says that execution "requires the missing workflow
+integration", the PAGE-127 rules apply:
+
+- `AgentPlanRecoveryActions` executes `restart`, `resume` and `release`.
+  Each command is checked against the run's recovery revision and the
+  executor's current rights, is idempotent by its key and is journaled in
+  `agent_plan_recovery_executions` (migration 065) inside the transaction that
+  creates the new run. The earlier run is never reopened or rewritten.
+- A restart starts the saved revision from the start through
+  `AgentPlanRunEngine.startRecovered` with `origin.kind = "restart"`.
+- A resume builds a new run from the earlier run's frozen snapshot and the
+  saved revision (`prepareRecoveredPlan`): completed nodes keep their frozen
+  contracts, their results are taken over only when the checkpoint's output
+  digest matches, and their checkpoints are copied into the new run, so a later
+  resume can verify them again. Loops keep completed iterations and members.
+  Started work (sessions, scripts, started loop iterations) needs a reviewed
+  decision and gets a recovery notice in its prompt; the snapshot's
+  `recovery` directive names the native sessions to continue.
+- `native_resume` requires the adapter's announced `session/resume`, a known
+  session ID and a profile that keeps sessions (`keepsSession`); Claude Code
+  plan profiles do not, so they record no resume capability. `live` is never
+  available for an ended run.
+- Before a start, unconfirmed sessions and scripts of the earlier run are
+  ended by their tags and worker units; only proven absence releases the
+  working copies and ACP leases (`cleanup_unconfirmed` otherwise).
+- A graceful server shutdown records running work as `interrupted`
+  (`AgentPlanRunCommands.interrupt`), no longer as an explicit stop. An
+  explicit stop still never resumes.
+- Without its execution boundary (`execution` dependency) the service keeps the
+  PAGE-84 behaviour: preparations only, `workflow_unavailable` for a resume.
 
 ## Verified integration boundary
 

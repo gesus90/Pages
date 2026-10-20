@@ -4,6 +4,28 @@ import type { CliProviderId } from "@/definition/AgentConnection";
 import type { ProviderCheckOutcome } from "@/backend/agents/providers/ProviderContracts";
 import type { AgentCatalogModel } from "@/definition/AgentModelCatalog";
 
+/** How the unit of a worker ended, as systemd reports it. */
+export type CliWorkerUnitResult =
+  | "success"
+  | "oom-kill"
+  | "timeout"
+  | "exit-code"
+  | "signal"
+  | "core-dump"
+  | "resources"
+  | "unknown";
+
+/** The unit one worker runs in; only this handle stops or signals it. */
+export interface CliWorkerUnitHandle {
+  readonly name: string;
+  /** Sends a signal to every process in the unit's cgroup, never to anything outside it. */
+  signal(signal: NodeJS.Signals): void;
+  /** Called once output arrived: the unit read its environment file, which is removed now. */
+  started(): void;
+  /** Stops what is left of the unit, reads its result and removes its traces. */
+  settle(): Promise<CliWorkerUnitResult>;
+}
+
 /** All paths are owned by a single Pages connection, never a user's private CLI home. */
 export interface CliHome {
   readonly root: string;
@@ -61,6 +83,8 @@ export interface CliSessionRequest {
   readonly signal: AbortSignal;
   /** Receives every complete line of the standard output, in order. */
   readonly onLine: (line: string) => void;
+  /** The limited unit the session runs in; signals and the closeout go through it. */
+  readonly unit?: CliWorkerUnitHandle;
 }
 
 export interface CliRunningProcess {

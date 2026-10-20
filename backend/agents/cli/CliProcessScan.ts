@@ -2,6 +2,8 @@ import { readdir, readFile, stat } from "node:fs/promises";
 
 import { logCaughtError } from "@/backend/logging/Logger";
 
+import { stopWorkerUnits } from "./CliWorkerUnit";
+
 /** The variable that tags every process of one plan session. */
 export const RUN_INSTANCE_VARIABLE = "PAGES_RUN_INSTANCE";
 
@@ -167,6 +169,10 @@ export async function endTaggedProcesses(
   tag: string,
   scope: TaggedProcessScope | null = null,
 ): Promise<TaggedProcessCleanup> {
+  // A worker unit holds its whole cgroup; stopping it by its owned name comes before any PID.
+  await stopWorkerUnits(tag).catch((caughtError: unknown) => {
+    logCaughtError("CliProcessScan", caughtError);
+  });
   const found = await findTaggedProcessesAfterExit(tag, scope);
   if (found.length === 0) return { found: 0, remaining: 0 };
   for (const processId of found) signalProcess(processId, "SIGTERM");

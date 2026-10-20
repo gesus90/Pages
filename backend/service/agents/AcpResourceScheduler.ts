@@ -48,6 +48,9 @@ async function endLeaseProcesses(
   return endTaggedProcesses(instanceId, scope);
 }
 
+/** Uncertain leases are checked again at most this often while they block admission. */
+const LEASE_RECHECK_MS = 60_000;
+
 interface WaitingRequest {
   readonly owner: AcpResourceOwner;
   readonly since: string;
@@ -78,6 +81,7 @@ export class AcpResourceScheduler {
   private isClosing = false;
   private isPumping = false;
   private hasPendingWake = false;
+  private lastLeaseCheck = 0;
 
   public constructor(dependencies: SchedulerDependencies) {
     this.store = dependencies.store;
@@ -204,6 +208,37 @@ export class AcpResourceScheduler {
     };
   }
 
+  /**
+   * Checks uncertain leases again and releases each one whose processes are proven gone.
+   *
+   * @param runId - Only the leases of this plan run; `undefined` checks every uncertain lease.
+   * @returns How many leases stay uncertain.
+   *
+   * @remarks
+   * Ownership is the lease's own instance tag and worker unit, never a PID.
+   * A lease whose cleanup is still unconfirmed keeps its capacity.
+   */
+  public async reconcile(runId?: string): Promise<number> {
+    const uncertain = [...this.active.values()].filter(
+      (record) =>
+        record.state === "cleanup_failed" &&
+        !this.sessions.has(record.instanceId) &&
+        (runId === undefined || record.runId === runId),
+    );
+    let remaining = 0;
+    for (const record of uncertain) {
+      let isConfirmed = false;
+      try {
+        isConfirmed =
+          (await this.cleanup(record.instanceId, record.since)).remaining === 0;
+      } catch (caughtError: unknown) {
+        logCaughtError("AcpResourceScheduler", caughtError);
+      }
+      if (!(await this.finish(record.instanceId, isConfirmed))) remaining += 1;
+    }
+    return remaining;
+  }
+
   /** Cancels all waiters and drains sessions; uncertain leases survive server exit. */
   public async shutdown(): Promise<void> {
     this.isClosing = true;
@@ -327,6 +362,7 @@ export class AcpResourceScheduler {
   }
 
   private async pump(): Promise<void> {
+    await this.recheckBlockingLeases();
     while (this.canAdmit()) {
       const request = this.waiting.find((entry) => !this.isPaused(entry));
       if (!request) return;
@@ -426,6 +462,23 @@ export class AcpResourceScheduler {
     });
     this.wake();
     return released;
+  }
+
+  /** A waiting request blocked only by uncertain leases gets them checked again, bounded in time. */
+  private async recheckBlockingLeases(): Promise<void> {
+    if (
+      !this.isReady ||
+      this.isClosing ||
+      this.waiting.length === 0 ||
+      this.active.size < this.admissionCap() ||
+      Date.now() - this.lastLeaseCheck < LEASE_RECHECK_MS ||
+      ![...this.active.values()].some(
+        (record) => record.state === "cleanup_failed",
+      )
+    )
+      return;
+    this.lastLeaseCheck = Date.now();
+    await this.reconcile();
   }
 
   private async refreshMemory(): Promise<void> {

@@ -77,6 +77,13 @@ export interface AcpSessionProfile {
    * node outside a group still runs one turn.
    */
   readonly isContinuable: boolean;
+  /**
+   * Whether the adapter keeps the session after its process ended, so a later
+   * process can resume it; absent counts as kept. A profile that tells the
+   * adapter to forget the session offers no native continuation, whatever
+   * the adapter announces.
+   */
+  readonly keepsSession?: boolean;
   /** The options to confirm, in order; a model change resets the effort. */
   steps(request: AcpModelRequest): readonly AcpConfigStep[];
   /** Answers one permission request of the adapter. */

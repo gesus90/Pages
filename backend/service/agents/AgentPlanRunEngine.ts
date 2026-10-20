@@ -1,12 +1,9 @@
-import { randomUUID } from "node:crypto";
-
 import { AgentPlanPausedError } from "@/backend/error/AgentPlanPausedError";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { withDatabaseLogMetrics } from "@/backend/logging/DatabaseLogMetrics";
-import { isPlanFlowNode } from "@/definition/AgentPlanGraph";
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import {
   logCaughtError,
@@ -31,17 +28,18 @@ import {
   endedPlanRun,
   hasUnconfirmedCloseout,
   countRunningPlanRequests,
+  interruptedPlanRun,
 } from "./AgentPlanRunState";
 import { planWritingWorkspaces } from "./AgentPlanContinuation";
-import { withGroupResults } from "./AgentPlanGroupResults";
 import { createPlanCheckpoint } from "./recovery/AgentPlanCheckpoint";
 import { createLoopHost } from "./loop/AgentPlanLoopEngineHost";
-import { initialLoopRuns } from "./loop/AgentPlanLoopRecord";
+import { initialPlanRun, recoveredPlanRun } from "./AgentPlanRunStart";
 import { AgentPlanLoopRunner } from "./loop/AgentPlanLoopRunner";
 import { planRecoveryReason } from "./recovery/AgentPlanFailure";
 import { dispatchPlanScript } from "./AgentPlanScriptDispatch";
 
 import type { AgentPlanRunJournal } from "./AgentPlanJournal";
+import type { RecoveredRunStart } from "./AgentPlanRunStart";
 import type { PlanInstructionWork } from "./AgentPlanInstructionControl";
 import type { PlanSessionTurn } from "@/backend/agents/AgentPlanExecution";
 import type { ActivePlanRun } from "./AgentPlanRunState";
@@ -130,91 +128,33 @@ export class AgentPlanRunEngine {
     journal?: AgentPlanRunJournal,
   ): Promise<AgentPlanRun> {
     if (this.isClosing) throw new AgentError("plan_access_denied");
-    const view: AgentPlanRun = {
-      id: randomUUID(),
-      planId: snapshot.plan.id,
-      planName: snapshot.plan.name,
-      planRevision: snapshot.plan.revision,
-      userId,
-      startedAt: new Date().toISOString(),
-      status: "running",
-      stopRequested: false,
-      steps: snapshot.plan.nodes.filter(isPlanFlowNode).map((node) => ({
-        id: node.id,
-        groupId: snapshot.steps.find((step) => step.step.id === node.id)
-          ?.groupId,
-        name:
-          snapshot.steps.find((step) => step.step.id === node.id)?.name ??
-          (node.type === "loop" || node.type === "script"
-            ? node.name
-            : node.type),
-        status: "waiting",
-        isBlocked: false,
-        cancellation: "none",
-        output: null,
-        error: null,
-      })),
-    };
-    const loops = initialLoopRuns(snapshot);
-    const initialView = withGroupResults(
-      loops.length > 0 ? { ...view, loops } : view,
-      snapshot,
-    );
-    withLogContext({ runId: view.id }, () =>
-      logEvent({
-        level: "info",
-        event: "agent.run.started",
-        component: "AgentPlanRunEngine",
-        message: "Agent plan run starting",
-        metadata: { userId },
-      }),
-    );
-    const workspaceIds = planWritingWorkspaces(snapshot);
-    const releaseDefinition = await this.dependencies.files?.hold(
-      snapshot.steps.map((step) => step.step.agentId),
-    );
-    try {
-      if (recording)
-        await recording((transaction) =>
-          this.dependencies.runs.insert(
-            transaction,
-            initialView,
-            snapshot,
-            workspaceIds,
-          ),
-        );
-      else
-        await this.dependencies.runs.create(
-          initialView,
-          snapshot,
-          workspaceIds,
-          journal,
-        );
-    } catch (error: unknown) {
-      logCaughtError("AgentPlanRunEngine", error);
-
-      await releaseDefinition?.();
-      throw error;
-    }
-    this.active.set(view.id, {
-      groupCloseout: "open",
-      hasPersistenceFailure: false,
-      view: initialView,
-      snapshot,
-      dispatched: new Set(),
-      controllers: new Map(),
-      executions: new Set(),
-      releaseDefinition,
+    return this.launch(initialPlanRun(userId, snapshot), snapshot, {
+      recording,
+      journal,
     });
-    try {
-      await this.pump();
-      return (await this.dependencies.runs.find(view.id)) ?? view;
-    } catch (error: unknown) {
-      logCaughtError("AgentPlanRunEngine", error);
+  }
 
-      await this.failStart(view.id);
-      throw error;
-    }
+  /**
+   * Starts the run an explicit restart or resume of an earlier run asked for.
+   *
+   * @param userId - The executor.
+   * @param snapshot - The prepared revision of the new run.
+   * @param recovered - The origin and what is taken over from the earlier run.
+   * @param journal - Records the decision in the transaction that creates the run.
+   * @returns The new run; the earlier one is not changed.
+   */
+  public async startRecovered(
+    userId: string,
+    snapshot: AgentPlanSnapshot,
+    recovered: RecoveredRunStart,
+    journal: AgentPlanRunJournal,
+  ): Promise<AgentPlanRun> {
+    if (this.isClosing) throw new AgentError("plan_access_denied");
+    return this.launch(
+      recoveredPlanRun(userId, snapshot, recovered),
+      snapshot,
+      { journal },
+    );
   }
 
   /** Persists an explicit stop before aborting any execution. */
@@ -269,7 +209,8 @@ export class AgentPlanRunEngine {
   /** The shutdown hook drains execution before closing DuckDB or the shared CLI runner. */
   public async shutdown(): Promise<void> {
     this.isClosing = true;
-    for (const id of this.active.keys()) await this.stop(id);
+    // A shutdown is no decision of the executor: the runs close as interrupted, not stopped.
+    for (const id of this.active.keys()) await this.commands.interrupt(id);
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       const drained = await Promise.race([
@@ -292,6 +233,73 @@ export class AgentPlanRunEngine {
     void this.pump().catch((error: unknown) => {
       logCaughtError("AgentPlanRunEngine", error);
     });
+  }
+
+  /** Persists the view and reserves writing copies before the first node is scheduled. */
+  private async launch(
+    view: AgentPlanRun,
+    snapshot: AgentPlanSnapshot,
+    terms: {
+      readonly recording?: AgentPlanRunRecording;
+      readonly journal?: AgentPlanRunJournal;
+    },
+  ): Promise<AgentPlanRun> {
+    const { recording, journal } = terms;
+    withLogContext({ runId: view.id }, () =>
+      logEvent({
+        level: "info",
+        event: "agent.run.started",
+        component: "AgentPlanRunEngine",
+        message: "Agent plan run starting",
+        metadata: { userId: view.userId, origin: view.origin?.kind ?? null },
+      }),
+    );
+    const workspaceIds = planWritingWorkspaces(snapshot);
+    const releaseDefinition = await this.dependencies.files?.hold(
+      snapshot.steps.map((step) => step.step.agentId),
+    );
+    try {
+      if (recording)
+        await recording((transaction) =>
+          this.dependencies.runs.insert(
+            transaction,
+            view,
+            snapshot,
+            workspaceIds,
+          ),
+        );
+      else
+        await this.dependencies.runs.create(
+          view,
+          snapshot,
+          workspaceIds,
+          journal,
+        );
+    } catch (error: unknown) {
+      logCaughtError("AgentPlanRunEngine", error);
+
+      await releaseDefinition?.();
+      throw error;
+    }
+    this.active.set(view.id, {
+      groupCloseout: "open",
+      hasPersistenceFailure: false,
+      view: view,
+      snapshot,
+      dispatched: new Set(),
+      controllers: new Map(),
+      executions: new Set(),
+      releaseDefinition,
+    });
+    try {
+      await this.pump();
+      return (await this.dependencies.runs.find(view.id)) ?? view;
+    } catch (error: unknown) {
+      logCaughtError("AgentPlanRunEngine", error);
+
+      await this.failStart(view.id);
+      throw error;
+    }
   }
 
   private async pump(): Promise<void> {
@@ -338,6 +346,8 @@ export class AgentPlanRunEngine {
             ...endedPlanRun(active.view, status),
             ...(recovery ? { recovery } : {}),
           };
+          if (active.isInterrupted)
+            active.view = interruptedPlanRun(active.view);
           await this.dependencies.runs.update(active.view);
           await this.dependencies.archive?.complete(
             active.view,
@@ -367,8 +377,10 @@ export class AgentPlanRunEngine {
         (active) =>
           active.groupCloseout === "open" &&
           active.controllers.size === 0 &&
-          readySteps(active).length === 0 &&
-          (active.view.status !== "paused" || active.view.stopRequested),
+          (readySteps(active).length === 0 || active.isInterrupted) &&
+          (active.view.status !== "paused" ||
+            active.view.stopRequested ||
+            active.isInterrupted),
       );
       for (const active of idle) active.groupCloseout = "closing";
       return Promise.resolve(idle);
@@ -383,7 +395,13 @@ export class AgentPlanRunEngine {
     }
   }
 
-  private track(active: ActivePlanRun, pending: Promise<void>): void {
+  private track(active: ActivePlanRun, execution: Promise<void>): void {
+    // A node that fails outside its own handling ends this run's dispatch, never the server.
+    const pending = execution.catch((error: unknown) => {
+      logCaughtError("AgentPlanRunEngine", error);
+      active.hasPersistenceFailure = true;
+      for (const controller of active.controllers.values()) controller.abort();
+    });
     this.pending.add(pending);
     active.executions.add(pending);
     void pending.then(() => {
@@ -488,7 +506,12 @@ export class AgentPlanRunEngine {
       component: "AgentPlanRunEngine",
       message: "Agent plan step started",
     });
-    const changes = await this.outcome(active, node, controller);
+    const changes = await this.outcome(active, node, controller).catch(
+      (error: unknown): Partial<AgentPlanStepResult> => {
+        logCaughtError("AgentPlanRunEngine", error);
+        return { status: "failed", error: "plan_step_failed" };
+      },
+    );
     logEvent({
       level: changes.status === "failed" ? "error" : "info",
       event: "agent.step.completed",

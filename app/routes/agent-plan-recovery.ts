@@ -40,7 +40,7 @@ export async function loader({
   }
 }
 
-/** Records a revision-fenced repair/reconciliation or cancellation; ended-run resume is explicitly unavailable. */
+/** Records a repair or reconciliation, cancels, or explicitly restarts, resumes or releases an ended run; every command is revision-fenced and idempotent. */
 export async function action({
   request,
   params,

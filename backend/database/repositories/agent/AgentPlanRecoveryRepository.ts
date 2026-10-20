@@ -49,11 +49,17 @@ function requireRecoverable(run: AgentPlanRun): void {
     throw new AgentPlanRecoveryError("action_unavailable");
 }
 
+/** The preparations and the cancellation this journal records; executing actions have their own. */
+type PreparationCommand = Extract<
+  AgentPlanRecoveryCommand,
+  { readonly action: "record_repair" | "reconcile" | "cancel" }
+>;
+
 function commandStep(
   progress: RecoveryProgress,
-  command: AgentPlanRecoveryCommand,
+  command: PreparationCommand,
 ): string | null {
-  if (command.action === "cancel" || command.action === "resume") return null;
+  if (command.action === "cancel") return null;
   if (
     !progress.agentStepIds.includes(command.stepId) ||
     !progress.run.steps.some(
@@ -64,7 +70,7 @@ function commandStep(
   return command.stepId;
 }
 
-function commandText(command: AgentPlanRecoveryCommand): string | null {
+function commandText(command: PreparationCommand): string | null {
   if (command.action === "record_repair") return command.instruction;
   return command.action === "reconcile" ? command.note : null;
 }
@@ -114,6 +120,9 @@ export class AgentPlanRecoveryRepository {
     originalDigest?: string,
   ): Promise<AgentPlanRecoveryResult> {
     const command = readPlanRecoveryCommand(input);
+    // A restart or release starts or ends processes; this journal only records decisions.
+    if (command.action === "restart" || command.action === "release")
+      throw new AgentPlanRecoveryError("action_unavailable");
     const requestDigest =
       originalDigest === undefined
         ? planContentDigest(command)
@@ -132,6 +141,7 @@ export class AgentPlanRecoveryRepository {
       if (progress.revision !== command.expectedRevision)
         throw new AgentPlanRecoveryError("revision_conflict");
       requireRecoverable(progress.run);
+      // Without the execution boundary of the service, a resume has no engine to run in.
       if (command.action === "resume")
         throw new AgentPlanRecoveryError("workflow_unavailable");
       const revision = progress.revision + 1;

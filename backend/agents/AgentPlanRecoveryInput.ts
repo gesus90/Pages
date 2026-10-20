@@ -10,7 +10,9 @@ import type {
   AgentPlanRecoveryReason,
   AgentPlanRecoveryResult,
   AgentPlanRecoveryErrorCode,
+  AgentPlanRecoveryExecution,
   AgentPlanRepairAttempt,
+  AgentPlanRunOrigin,
 } from "@/definition/AgentPlanRecovery";
 
 const identifier = z.string().min(1).max(200);
@@ -130,8 +132,36 @@ const command = z.discriminatedUnion("action", [
     ...commandIdentity,
     action: z.literal("resume"),
     mode: z.enum(["live", "native_resume", "new_session"]),
+    reviewedStepIds: z.array(identifier).max(100).default([]),
   }),
+  z.strictObject({
+    ...commandIdentity,
+    action: z.literal("restart"),
+    revision: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+    confirmRepeat: z.literal(true),
+  }),
+  z.strictObject({ ...commandIdentity, action: z.literal("release") }),
 ]);
+const origin = z.strictObject({
+  kind: z.enum(["restart", "resume"]),
+  runId: identifier,
+  mode: z.enum(["native_resume", "new_session"]).nullable(),
+  checkpointVersion: z.number().int().positive().nullable(),
+  reusedStepIds: z.array(identifier).max(100),
+  retriedStepIds: z.array(identifier).max(100),
+  reviewedStepIds: z.array(identifier).max(100),
+  requestedAt: z.string().max(64),
+});
+const execution = z.strictObject({
+  id: identifier,
+  runId: identifier,
+  userId: identifier,
+  action: z.enum(["restart", "resume", "release"]),
+  targetRunId: identifier.nullable(),
+  origin: origin.nullable(),
+  revision,
+  createdAt: z.string().max(64),
+});
 const attempt = z.strictObject({
   id: identifier,
   runId: identifier,
@@ -146,7 +176,8 @@ const attempt = z.strictObject({
 const result = z.strictObject({
   commandId: identifier,
   revision,
-  outcome: z.enum(["recorded", "cancelled"]),
+  outcome: z.enum(["recorded", "cancelled", "started", "released"]),
+  runId: identifier.optional(),
 });
 
 function parseRecovery<T>(
@@ -200,4 +231,20 @@ export function readPlanRecoveryResult(
   input: unknown,
 ): AgentPlanRecoveryResult {
   return parseRecovery(result, input, "checkpoint_invalid");
+}
+
+/** Reads the origin of a restarted or resumed run; absent for every other run. */
+export function readPlanRunOrigin(
+  input: unknown,
+): AgentPlanRunOrigin | undefined {
+  return input === undefined
+    ? undefined
+    : parseRecovery(origin, input, "checkpoint_invalid");
+}
+
+/** Narrows one journaled restart, resume or release. */
+export function readPlanRecoveryExecution(
+  input: unknown,
+): AgentPlanRecoveryExecution {
+  return parseRecovery(execution, input, "checkpoint_invalid");
 }

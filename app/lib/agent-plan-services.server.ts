@@ -8,6 +8,7 @@ import { AgentProfileRepository } from "@/backend/database/repositories/agent/Ag
 import { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import { AgentPlanCheckpointRepository } from "@/backend/database/repositories/agent/AgentPlanCheckpointRepository";
 import { AgentPlanRecoveryRepository } from "@/backend/database/repositories/agent/AgentPlanRecoveryRepository";
+import { AgentPlanRecoveryExecutionRepository } from "@/backend/database/repositories/agent/AgentPlanRecoveryExecutionRepository";
 import { AgentPlanRecoveryService } from "@/backend/service/agents/recovery/AgentPlanRecoveryService";
 import { AgentPlanAccess } from "@/backend/service/agents/AgentPlanAccess";
 import { AgentPlanPreparation } from "@/backend/service/agents/AgentPlanPreparation";
@@ -137,6 +138,12 @@ export async function createAgentPlanService(input: {
     archive: input.agents.agentRunArchive,
     files: input.agents.agentDefinitionFiles,
   });
+  const preparation = new AgentPlanPreparation({
+    scripts: scriptPreparation,
+    profiles,
+    parameters,
+    tasks,
+  });
   const service = new AgentPlanService({
     plans,
     runs,
@@ -146,17 +153,35 @@ export async function createAgentPlanService(input: {
     tasks,
     phases: new AgentPlanPhases(input.tasks, input.users),
     access,
-    preparation: new AgentPlanPreparation({
-      scripts: scriptPreparation,
-      profiles,
-      parameters,
-      tasks,
-    }),
+    preparation,
     engine,
     sessions,
     archive: input.agents.agentRunArchive,
     scripts,
   });
+  await recoverRuns(input, service);
+  return {
+    agentPlanService: service,
+    agentPlanTemplateService: new AgentPlanTemplateService({
+      templates: new AgentPlanTemplateRepository(input.database),
+      plans: service,
+    }),
+    agentSessionService: pageAgentSessions,
+    agentPlanRecoveryService: createRecoveryService(input, {
+      service,
+      access,
+      preparation,
+      engine,
+      runs,
+    }),
+  };
+}
+
+/** Records the runs a server stop interrupted and repairs their files; nothing starts again. */
+async function recoverRuns(
+  input: Parameters<typeof createAgentPlanService>[0],
+  service: AgentPlanService,
+): Promise<void> {
   // The credential leftovers were cleaned up when the agent services started.
   await service.recoverInterruptedRuns(
     new Set(
@@ -167,19 +192,35 @@ export async function createAgentPlanService(input: {
   );
   // Interrupted runs ended just now, so their records are repaired as well.
   await repairAgentFiles(input);
-  return {
-    agentPlanService: service,
-    agentPlanTemplateService: new AgentPlanTemplateService({
-      templates: new AgentPlanTemplateRepository(input.database),
-      plans: service,
-    }),
-    agentSessionService: pageAgentSessions,
-    agentPlanRecoveryService: new AgentPlanRecoveryService({
-      runs: service,
-      recovery: new AgentPlanRecoveryRepository(input.database),
-      checkpoints: new AgentPlanCheckpointRepository(input.database),
-    }),
-  };
+}
+
+/** Inspection, preparations and the explicit restart, resume and release of disturbed runs. */
+function createRecoveryService(
+  input: Pick<
+    Parameters<typeof createAgentPlanService>[0],
+    "database" | "agents"
+  >,
+  parts: {
+    readonly service: AgentPlanService;
+    readonly access: AgentPlanAccess;
+    readonly preparation: AgentPlanPreparation;
+    readonly engine: AgentPlanRunEngine;
+    readonly runs: AgentPlanRunRepository;
+  },
+): AgentPlanRecoveryService {
+  return new AgentPlanRecoveryService({
+    runs: parts.service,
+    recovery: new AgentPlanRecoveryRepository(input.database),
+    checkpoints: new AgentPlanCheckpointRepository(input.database),
+    execution: {
+      access: parts.access,
+      preparation: parts.preparation,
+      engine: parts.engine,
+      planRuns: parts.runs,
+      resources: input.agents.acpResourceScheduler,
+      executions: new AgentPlanRecoveryExecutionRepository(input.database),
+    },
+  });
 }
 
 function createScriptRuntime(

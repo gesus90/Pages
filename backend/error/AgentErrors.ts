@@ -276,6 +276,12 @@ export const AGENT_ERROR_MESSAGES = {
   cli_not_executable: "The CLI cannot be executed.",
   cli_isolation_unavailable:
     "CLI agents need an isolated environment, which this server cannot provide.",
+  acp_worker_unit_unavailable:
+    "Pica's agents start only in a limited service unit, which the service manager of the server account does not provide. No model was called.",
+  acp_worker_limit:
+    "The agent process exceeded its memory or process limit and was ended inside its own unit. Other runs and services were not affected.",
+  acp_output_overflow:
+    "The agent process wrote an output line longer than 4 Mi characters and was ended. Its output was not used.",
   cli_not_logged_in: "Sign in to the CLI account first.",
   cli_auth_failed: "The CLI account was rejected. Sign in again.",
   cli_check_failed: "The CLI test failed.",

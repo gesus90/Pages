@@ -4,12 +4,22 @@ import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
 import { canRecordPlanRepair } from "@/definition/AgentPlanRecovery";
 
 import { sanitizeArtifactText } from "../AgentPlanOutput";
+import { AgentPlanRecoveryActions } from "./AgentPlanRecoveryActions";
 import { classifyPlanFailure } from "./AgentPlanFailure";
+import {
+  continuedRun,
+  nodeModes,
+  planResume,
+  releaseOption,
+  restartOption,
+  resumeOption,
+} from "./AgentPlanRecoveryPlanning";
 
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type {
   AgentPlanCheckpoint,
   AgentPlanContinuationCapabilities,
+  AgentPlanRecoveryBlocker,
   AgentPlanRecoveryCommand,
   AgentPlanRecoveryResult,
   AgentPlanRecoveryView,
@@ -17,22 +27,61 @@ import type {
 } from "@/definition/AgentPlanRecovery";
 import type { AgentPlanCheckpointRepository } from "@/backend/database/repositories/agent/AgentPlanCheckpointRepository";
 import type { AgentPlanRecoveryRepository } from "@/backend/database/repositories/agent/AgentPlanRecoveryRepository";
-import type { AgentPlanService } from "../AgentPlanService";
+import type { RecoveryActionDependencies } from "./AgentPlanRecoveryActions";
+import type { RecoveryFacts } from "./AgentPlanRecoveryPlanning";
 
 interface RecoveryDependencies {
-  readonly runs: Pick<AgentPlanService, "run">;
+  readonly runs: RecoveryActionDependencies["runs"];
   readonly recovery: AgentPlanRecoveryRepository;
   readonly checkpoints: AgentPlanCheckpointRepository;
+  /**
+   * The engine, plan and lease boundary that executes a restart, resume or
+   * release; without it these stay unavailable, as they were before.
+   */
+  readonly execution?: Omit<RecoveryActionDependencies, "runs" | "checkpoints">;
 }
 
-function recoveryState(run: AgentPlanRun): AgentPlanRecoveryView["state"] {
-  if (run.stopRequested || run.status === "cancelled") return "cancelled";
-  if (run.status !== "failed") return run.status;
-  return run.recovery?.state ?? "failed_terminal";
+const UNAVAILABLE = {
+  available: false,
+  reason: "workflow_unavailable",
+} as const;
+
+/** The view of a composition without an execution boundary, which can only record decisions. */
+function recordingOnly(
+  run: AgentPlanRun,
+): Pick<
+  AgentPlanRecoveryView,
+  | "planRevision"
+  | "currentPlanRevision"
+  | "continuedBy"
+  | "executions"
+  | "restart"
+  | "resume"
+  | "release"
+  | "isCleanupUnconfirmed"
+  | "blockers"
+> {
+  return {
+    planRevision: run.continuation?.planRevision ?? run.planRevision,
+    currentPlanRevision: run.planRevision,
+    continuedBy: null,
+    executions: [],
+    isCleanupUnconfirmed: false,
+    restart: UNAVAILABLE,
+    release: UNAVAILABLE,
+    resume: {
+      ...UNAVAILABLE,
+      modes: [],
+      reusedStepIds: [],
+      reviewStepIds: [],
+    },
+    blockers: ["workflow_unavailable", "context_not_verified"],
+  };
 }
 
-function recoveryModes(
-  capabilities: AgentPlanContinuationCapabilities | undefined,
+/** Without an execution boundary, no session mode can be executed. */
+function recordingModes(
+  capabilities: AgentPlanContinuationCapabilities | null | undefined,
 ): AgentPlanRecoveryView["nodes"][number]["modes"] {
   let nativeReason: AgentPlanRecoveryView["nodes"][number]["modes"][number]["reason"] =
     "capabilities_unknown";
@@ -48,11 +97,22 @@ function recoveryModes(
   ];
 }
 
+function recoveryState(run: AgentPlanRun): AgentPlanRecoveryView["state"] {
+  if (run.stopRequested || run.status === "cancelled") return "cancelled";
+  if (run.status !== "failed") return run.status;
+  return run.recovery?.state ?? "failed_terminal";
+}
+
 function recoveryNodes(
   run: AgentPlanRun,
   attempts: readonly AgentPlanRepairAttempt[],
-  agentStepIds: readonly string[],
+  terms: {
+    readonly agentStepIds: readonly string[];
+    readonly canExecute: boolean;
+  },
 ): AgentPlanRecoveryView["nodes"] {
+  const { agentStepIds } = terms;
+  const loopIds = (run.loops ?? []).map((loop) => loop.id);
   return run.steps
     .filter((step) => step.status === "failed")
     .map((step) => ({
@@ -68,16 +128,85 @@ function recoveryNodes(
         ? "reviewed"
         : "unknown",
       capabilities: step.session?.continuationCapabilities ?? null,
-      modes: recoveryModes(step.session?.continuationCapabilities),
+      modes: terms.canExecute
+        ? nodeModes(step, loopIds.includes(step.id))
+        : recordingModes(step.session?.continuationCapabilities),
     }));
 }
 
-/** Authorized recovery inspection and preparations; execution stays behind the workflow prerequisite. */
+function recoveryActions(
+  run: AgentPlanRun,
+  agentStepIds: readonly string[],
+): AgentPlanRecoveryView["allowedActions"] {
+  if (!canRecordPlanRepair(run)) return [];
+  return run.steps.some(
+    (step) => step.status === "failed" && agentStepIds.includes(step.id),
+  )
+    ? ["record_repair", "reconcile", "cancel"]
+    : ["cancel"];
+}
+
+/** The actions of a disturbed run, each checked against the current state and rights. */
+function executingOptions(
+  facts: RecoveryFacts,
+): ReturnType<typeof recordingOnly> {
+  const plan = planResume(facts);
+  const resume = resumeOption(facts, plan);
+  const restart = restartOption(facts);
+  const release = releaseOption(facts);
+  return {
+    planRevision:
+      facts.run.continuation?.planRevision ?? facts.run.planRevision,
+    currentPlanRevision: facts.plan.revision,
+    continuedBy: continuedRun(facts.executions),
+    executions: facts.executions,
+    isCleanupUnconfirmed: facts.isReserved,
+    blockers: [
+      ...new Set(
+        [restart.reason, resume.reason, release.reason].filter(
+          (reason): reason is AgentPlanRecoveryBlocker =>
+            reason !== null && reason !== "nothing_to_release",
+        ),
+      ),
+    ],
+    restart,
+    release,
+    resume: {
+      ...resume,
+      modes: [
+        {
+          mode: "native_resume",
+          available: resume.available && plan.canResumeNatively,
+        },
+        { mode: "new_session", available: resume.available },
+      ],
+      reusedStepIds: plan.reused.map((step) => step.id),
+      reviewStepIds: plan.retriedStepIds,
+    },
+  };
+}
+
+/**
+ * Authorized inspection and the explicit restart, resume and release of a
+ * disturbed run, besides the recorded repair preparations.
+ *
+ * @remarks
+ * Restart and resume each start a new run through the existing engine; the
+ * disturbed run, its failures, checkpoints and journal stay unchanged.
+ */
 export class AgentPlanRecoveryService {
   private readonly dependencies: RecoveryDependencies;
+  private readonly actions: AgentPlanRecoveryActions | null;
 
   public constructor(dependencies: RecoveryDependencies) {
     this.dependencies = dependencies;
+    this.actions = dependencies.execution
+      ? new AgentPlanRecoveryActions({
+          ...dependencies.execution,
+          runs: dependencies.runs,
+          checkpoints: dependencies.checkpoints,
+        })
+      : null;
   }
 
   /** Rechecks the executor's current plan, agent, workspace, ticket and asset rights on every read. */
@@ -89,15 +218,26 @@ export class AgentPlanRecoveryService {
     const record = await this.dependencies.recovery.inspect(runId);
     if (record.run.userId !== userId)
       throw new AgentPlanRecoveryError("access_denied");
+    const options = this.actions
+      ? executingOptions((await this.actions.facts(userId, runId)).facts)
+      : recordingOnly(record.run);
     return {
       runId,
+      planId: record.run.planId,
+      stepNames: Object.fromEntries(
+        record.run.steps.map((step) => [step.id, step.name]),
+      ),
       revision: record.revision,
+      origin: record.run.origin ?? null,
+      ...options,
       state: recoveryState(record.run),
       checkpoint: record.checkpoint,
       attempts: record.attempts,
-      nodes: recoveryNodes(record.run, record.attempts, record.agentStepIds),
+      nodes: recoveryNodes(record.run, record.attempts, {
+        agentStepIds: record.agentStepIds,
+        canExecute: this.actions !== null,
+      }),
       allowedActions: recoveryActions(record.run, record.agentStepIds),
-      blockers: ["workflow_unavailable", "context_not_verified"],
     };
   }
 
@@ -116,7 +256,15 @@ export class AgentPlanRecoveryService {
     return this.dependencies.checkpoints.find(runId, version);
   }
 
-  /** Records a separate repair/reconciliation decision or cancels; never dispatches a retry. */
+  /**
+   * Records a repair or reconciliation, cancels, or explicitly restarts,
+   * resumes or releases the run.
+   *
+   * @remarks
+   * Every command needs the run's current recovery revision and an
+   * idempotency key; a repeated request returns its first result and never
+   * starts a second run.
+   */
   public async control(
     userId: string,
     runId: string,
@@ -124,12 +272,20 @@ export class AgentPlanRecoveryService {
   ): Promise<AgentPlanRecoveryResult> {
     await this.dependencies.runs.run(userId, runId);
     const original = readPlanRecoveryCommand(input);
+    const requestDigest = planContentDigest(original);
     const command = this.sanitize(original);
+    const { actions } = this;
+    if (actions && command.action === "restart")
+      return actions.restart({ userId, runId, command, requestDigest });
+    if (actions && command.action === "resume")
+      return actions.resume({ userId, runId, command, requestDigest });
+    if (actions && command.action === "release")
+      return actions.release({ userId, runId, command, requestDigest });
     return this.dependencies.recovery.control(
       userId,
       runId,
       command,
-      planContentDigest(original),
+      requestDigest,
     );
   }
 
@@ -145,16 +301,4 @@ export class AgentPlanRecoveryService {
       return { ...command, note: sanitizeArtifactText(command.note) };
     return command;
   }
-}
-
-function recoveryActions(
-  run: AgentPlanRun,
-  agentStepIds: readonly string[],
-): AgentPlanRecoveryView["allowedActions"] {
-  if (!canRecordPlanRepair(run)) return [];
-  return run.steps.some(
-    (step) => step.status === "failed" && agentStepIds.includes(step.id),
-  )
-    ? ["record_repair", "reconcile", "cancel"]
-    : ["cancel"];
 }

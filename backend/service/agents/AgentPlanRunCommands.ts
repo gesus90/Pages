@@ -6,6 +6,8 @@ import {
   withLogContext,
 } from "@/backend/logging/Logger";
 
+import { isActivePlanRun } from "@/definition/AgentPlanRunState";
+
 import { requestCancellation } from "./AgentPlanRunState";
 import {
   preparePlanContinuation,
@@ -69,6 +71,27 @@ export class AgentPlanRunCommands {
       } catch (error: unknown) {
         active.view = previous;
         throw error;
+      }
+      for (const controller of active.controllers.values()) controller.abort();
+    });
+    this.schedulePump();
+  }
+
+  /**
+   * Ends a run because the server shuts down, without recording a stop of its executor.
+   *
+   * @remarks
+   * Dispatch closes and every execution is aborted like a stop, but the run
+   * closes as interrupted, so its executor can resume it after the restart.
+   */
+  public async interrupt(id: string): Promise<void> {
+    await this.dependencies.writes.run(async () => {
+      const active = this.dependencies.active.get(id);
+      if (!active) return;
+      active.isInterrupted = true;
+      if (isActivePlanRun(active.view.status)) {
+        active.view = { ...active.view, status: "stopping" };
+        await this.dependencies.runs.update(active.view);
       }
       for (const controller of active.controllers.values()) controller.abort();
     });

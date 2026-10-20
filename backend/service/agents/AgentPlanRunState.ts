@@ -22,6 +22,8 @@ export interface ActivePlanRun {
   /** The nodes of this run that are executing, so a caller can wait for exactly this run. */
   readonly executions: Set<Promise<void>>;
   releaseDefinition?: () => Promise<void>;
+  /** A server shutdown, not a person, ended the run; it closes as interrupted and can be resumed. */
+  isInterrupted?: boolean;
 }
 
 /** Updates one result and derives group summaries. */
@@ -101,15 +103,58 @@ export function canSchedule(active: ActivePlanRun): boolean {
   );
 }
 
-/** Stable pauses keep their live sessions and reservations. */
+/** Stable pauses keep their live sessions and reservations; an interrupted run leaves pending work waiting. */
 export function canFinalize(active: ActivePlanRun): boolean {
   return (
     !active.hasPersistenceFailure &&
     active.controllers.size === 0 &&
     active.groupCloseout === "closed" &&
-    readySteps(active).length === 0 &&
-    (active.view.status !== "paused" || active.view.stopRequested)
+    (readySteps(active).length === 0 || active.isInterrupted === true) &&
+    (active.view.status !== "paused" ||
+      active.view.stopRequested ||
+      active.isInterrupted === true)
   );
+}
+
+/** A node a shutdown aborted failed as interrupted; one it never started waits again. */
+function interruptedStep(step: AgentPlanStepResult): AgentPlanStepResult {
+  if (step.status !== "cancelled" && step.status !== "running") return step;
+  if (step.cancellation === "not_started")
+    return { ...step, status: "waiting", cancellation: "none", error: null };
+  return {
+    ...step,
+    status: "failed",
+    cancellation: "none",
+    error: step.script ? "plan_script_interrupted" : "plan_interrupted",
+  };
+}
+
+/**
+ * The end of a run that a server shutdown interrupted.
+ *
+ * @remarks
+ * Unlike an explicit stop, nobody decided to end the run: it is recorded as
+ * an interrupted failure that its executor can resume or restart. Nothing
+ * runs again by itself.
+ */
+export function interruptedPlanRun(run: AgentPlanRun): AgentPlanRun {
+  return {
+    ...run,
+    status: "failed",
+    recovery: { state: "interrupted", requiresReconciliation: true },
+    steps: run.steps.map(interruptedStep),
+    ...(run.loops
+      ? {
+          loops: run.loops.map((loop) => ({
+            ...loop,
+            iterations: loop.iterations.map((iteration) => ({
+              ...iteration,
+              nodes: iteration.nodes.map(interruptedStep),
+            })),
+          })),
+        }
+      : {}),
+  };
 }
 
 /** Direct scripts and request agents share the existing two execution slots; ACP has its own admission. */

@@ -35,6 +35,8 @@ export interface AgentPlanSessionInput extends AgentPlanExecutionInput {
   readonly mcp: CliSessionMcp | null;
   /** Makes the session a Pica chat session: its own profile, MCP bridge, resume and updates. */
   readonly chat?: AcpChatOptions;
+  /** The native session a resumed plan node continues through the adapter's own resume. */
+  readonly resumeSessionId?: string | null;
   /** Records the updates of a plan session into its PageAgentCLI history; a chat uses its own listener. */
   readonly journal?: AcpSessionListener;
 }

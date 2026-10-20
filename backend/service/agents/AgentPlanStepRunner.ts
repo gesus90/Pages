@@ -31,6 +31,7 @@ import { AgentPlanStepAssessment } from "./AgentPlanStepAssessment";
 import { buildPlanContract, renderPlanAssignment } from "./AgentPlanContract";
 import { sanitizePlanOutput } from "./AgentPlanOutput";
 import { planSessionReach } from "./AgentPlanSessionAccess";
+import { planRecoveryTerms } from "./recovery/AgentPlanRecoveryPrompt";
 import {
   createSessionRecord,
   closedSessionChanges,
@@ -412,7 +413,8 @@ export class AgentPlanStepRunner {
   ): Promise<AgentPlanSessionInput> {
     const directory = prepared.input.directory;
     if (directory === null) throw new AgentError("plan_directory_required");
-    const scope = planTurnScope(node.step, node.loop);
+    const recovery = planRecoveryTerms(node.snapshot, node.step.step.id, node);
+    const scope = `${recovery.note}${planTurnScope(node.step, node.loop)}`;
     const prompt = `${scope}${prepared.input.prompt}\n\n${renderPlanAssignment({
       contract: terms.contract,
       usesMcp: terms.mcp !== null,
@@ -435,6 +437,7 @@ export class AgentPlanStepRunner {
       options: prepared.options,
       instanceId: terms.instanceId,
       mcp: terms.mcp,
+      resumeSessionId: recovery.resumeSessionId,
       resourceContext: { runId: node.run.id, stepId: node.step.step.id },
       journal: this.dependencies.sessions?.listen(node, terms.instanceId),
     };

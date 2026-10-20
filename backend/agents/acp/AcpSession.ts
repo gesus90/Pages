@@ -355,10 +355,11 @@ export class AcpSession implements PlanSession {
       response.protocolVersion === PROTOCOL_VERSION &&
       driver.isSupportedAdapter(agent)
     ) {
-      this.observer.capabilities?.({
-        ...readContinuationCapabilities(response.agentCapabilities),
-        adapter,
-      });
+      const continuation =
+        this.context.profile.keepsSession === false
+          ? { canResume: false, canLoad: false }
+          : readContinuationCapabilities(response.agentCapabilities);
+      this.observer.capabilities?.({ ...continuation, adapter });
       return;
     }
     noteSessionEvent(
@@ -573,6 +574,11 @@ export class AcpSession implements PlanSession {
       // The deadline of the process itself can fire before the one of the node.
       if (exit.errorCode === "check_timeout")
         return this.ended("timeout", null);
+      if (
+        exit.errorCode === "acp_worker_limit" ||
+        exit.errorCode === "acp_output_overflow"
+      )
+        return this.ended("failed", exit.errorCode);
       if (this.context.driver.provider !== "opencode")
         this.noteStderr(exit.stderrTail);
       return this.ended(

@@ -34,6 +34,7 @@ import { AuthorizationRepository } from "@/backend/database/repositories/Authori
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 import { AgentConnectionAccess } from "@/backend/service/agents/AgentConnectionAccess";
 import { CliSessionExecution } from "@/backend/agents/cli/CliSessionExecution";
+import { CliWorkerUnits } from "@/backend/agents/cli/CliWorkerUnit";
 import { CHAT_REQUEST_TIMEOUT_MS } from "@/backend/service/chat/ChatExecutionLimits";
 import { ChatRequestRegistry } from "@/backend/service/chat/ChatRequestRegistry";
 import { AgentAssignmentRepository } from "@/backend/database/repositories/agent/AgentAssignmentRepository";
@@ -88,6 +89,8 @@ interface ExecutionInput {
   readonly protectedDirectories: readonly string[];
   /** Operator choice: refuse CLI plan steps where no isolation is possible. */
   readonly isIsolationRequired: boolean;
+  /** Private folder of the environment files of limited worker units. */
+  readonly workerUnitDirectory: string;
   readonly repository: AgentConnectionRepository;
   readonly cipher: InstanceSecretCipher;
   readonly operations: AgentOperationRegistry;
@@ -150,6 +153,7 @@ function createExecutions(
         tools: input.tools,
         resources: input.resources,
         github: input.github,
+        units: new CliWorkerUnits(input.workerUnitDirectory),
         isolation: {
           protectedDirectories: input.protectedDirectories,
           isRequired: input.isIsolationRequired,
@@ -334,6 +338,7 @@ export function createAgentServices(
       resources: acpResourceScheduler,
       protectedDirectories: [dataDirectory, agentsDirectory],
       isIsolationRequired: process.env.PAGES_CLI_ISOLATION === "required",
+      workerUnitDirectory: path.join(dataDirectory, "worker-units"),
       repository,
       cipher,
       operations,

@@ -604,6 +604,9 @@
         "profile_running": "The agent is part of a running plan. Change it after the run ended.",
         "profile_limit_reached": "At most 100 agents per person can be created.",
         "cli_isolation_unavailable": "CLI agents need an isolated environment, which this server cannot provide.",
+        "acp_worker_unit_unavailable": "Pica's agents start only in a limited service unit, which the service manager of the server account does not provide. No model was called.",
+        "acp_worker_limit": "The agent process exceeded its memory or process limit and was ended inside its own unit. Other runs and services were not affected.",
+        "acp_output_overflow": "The agent process wrote an output line longer than 4 Mi characters and was ended. Its output was not used.",
         "profile_scope_invalid": "Choose targets within the selected scope. Personal scope uses only the executor’s personal access.",
         "personal_access_missing": "No matching personal model access is assigned.",
         "personal_access_selection_required": "Choose a matching personal access explicitly.",
@@ -4145,6 +4148,86 @@
       "removeFrame": "Remove container, keep nodes",
       "removeWithMembers": "Delete with contents ({{count}} nodes)",
       "moved": "Loop membership changed. Removed: flow connections {{edges}}, bindings {{bindings}}."
+    },
+    "recovery": {
+      "title": "Recover the run",
+      "stateLabel": "State",
+      "state": {
+        "running": "Running",
+        "pausing": "Pausing",
+        "stopping": "Stopping",
+        "paused": "Paused",
+        "recoverable": "Failed, recoverable",
+        "interrupted": "Interrupted by a server stop",
+        "failed_terminal": "Failed, cause not classified",
+        "cancelled": "Stopped on purpose",
+        "succeeded": "Succeeded"
+      },
+      "failedAt": "Stopped at",
+      "noFailure": "No node failed.",
+      "checkpoint": "Last verified state",
+      "checkpointValue": "Checkpoint {{version}} · {{step}} · {{time}}",
+      "checkpointNone": "No verified checkpoint – nothing can be taken over.",
+      "revisions": "Plan revision",
+      "revisionValue": "Run executed revision {{run}} · saved revision now {{current}}",
+      "originLabel": "Origin",
+      "origin": {
+        "restart": "Restarted from the start after run {{run}}",
+        "resume": "Continued from run {{run}} ({{mode}}): {{reused}} results taken over, {{retried}} nodes run again"
+      },
+      "mode": {
+        "native_resume": "Continue the earlier agent session",
+        "new_session": "New agent session"
+      },
+      "modeHint": {
+        "native_resume": "the adapter resumes the stored session with its history.",
+        "new_session": "the agent starts without memory of the earlier attempt and gets the assignment, the taken-over results and a recovery notice."
+      },
+      "modeUnavailable": "not possible here: the adapter cannot resume the session, or the session is unknown.",
+      "resume": "Continue from the last safe state",
+      "resumeHint_one": "Taken over unchanged: {{reused}}. Only open, failed or interrupted work runs again, as a new attempt with the saved plan revision.",
+      "resumeHint_other": "Taken over unchanged ({{count}}): {{reused}}. Only open, failed or interrupted work runs again, as a new attempt with the saved plan revision.",
+      "resumeHint_zero": "No verified result to take over. Only open, failed or interrupted work runs again, as a new attempt with the saved plan revision.",
+      "review": "I checked the possible effects of “{{step}}” (files, branches, tickets) and want it to run again.",
+      "resumeAction": "Continue run",
+      "restart": "Start from the start",
+      "restartHint": "Starts a new run with the saved plan revision {{revision}}. The earlier run, its results and its journal stay as they are; existing files and branches are not reset.",
+      "confirmRepeat": "Every node runs again, including actions that may already have taken effect.",
+      "restartAction": "Start revision {{revision}} from the start",
+      "releaseAction": "End leftover processes and release working copies",
+      "blocker": {
+        "run_active": "The run is still active. Stop it first.",
+        "plan_run_active": "Another run of this plan is active. Wait for it or stop it.",
+        "plan_read_only": "You can read this plan but not run it.",
+        "cancelled_by_user": "The run was stopped on purpose; it is never continued. Start it from the start instead.",
+        "succeeded": "The run succeeded; there is nothing to continue.",
+        "superseded": "A newer run of this plan exists; only the newest run can be continued.",
+        "already_continued": "This run was already restarted or continued.",
+        "cleanup_unconfirmed": "A process of the run may still be alive. End leftover processes first.",
+        "plan_completed_changed": "Completed work changed in the saved plan; only a start from the start is possible.",
+        "plan_context_changed": "The plan's project or workspace changed; only a start from the start is possible.",
+        "plan_definition_changed": "An agent definition changed; only a start from the start is possible.",
+        "checkpoint_mismatch": "A completed result has no matching checkpoint, so it cannot be taken over safely. Start from the start.",
+        "nothing_to_release": "Nothing is held.",
+        "workflow_unavailable": "Restart and resume are not available in this server composition.",
+        "context_not_verified": "The execution context could not be verified."
+      },
+      "result": {
+        "started": "The new run started.",
+        "released": "Leftover processes ended and working copies released.",
+        "recorded": "Recorded.",
+        "cancelled": "Run cancelled."
+      },
+      "error": {
+        "review_required": "Confirm the review of every node that runs again.",
+        "cleanup_unconfirmed": "A process of the run may still be alive; nothing was started. Try again shortly, or ask an administrator.",
+        "native_resume_unavailable": "The earlier session cannot be continued; choose a new session.",
+        "revision_conflict": "The run changed meanwhile. The view was reloaded; check it and decide again.",
+        "idempotency_conflict": "This request was already used for another decision.",
+        "action_unavailable": "This action is not possible in the run's current state.",
+        "workflow_unavailable": "Restart and resume are not available here.",
+        "plan_conflict": "The plan was saved meanwhile. Reload the plan and start the revision you see."
+      }
     }
   },
   "mcpDuration": {
