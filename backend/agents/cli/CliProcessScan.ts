@@ -68,6 +68,21 @@ export async function readServerScope(
 }
 
 /**
+ * Bounds a fresh spawn by monotonic boot time, rather than the lifetime of its server.
+ *
+ * @remarks
+ * Call before creating the child. An older process cannot inherit this attempt's
+ * new tag, including unrelated processes whose environment the kernel withholds.
+ */
+export async function readSpawnScope(
+  root = PROCESS_ROOT,
+): Promise<TaggedProcessScope> {
+  return {
+    earliestStart: Math.floor((await readUptime(root)) * TICKS_PER_SECOND),
+  };
+}
+
+/**
  * The scope of a session that began at a recorded time, possibly in an earlier
  * server process or before the last boot.
  *

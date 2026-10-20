@@ -6,6 +6,7 @@ import {
 import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import { logCaughtError } from "@/backend/logging/Logger";
+import { endInterruptedScript } from "./AgentPlanScriptRecovery";
 
 import type { TaggedProcessScope } from "@/backend/agents/cli/CliProcessScan";
 import type { AcpResourceOwner } from "@/definition/AcpResource";
@@ -42,6 +43,7 @@ export async function endInterruptedSession(
   step: AgentPlanStepResult,
   runStartedAt: string,
 ): Promise<AgentPlanStepResult> {
+  if (step.script) return endInterruptedScript(step);
   const session = step.session;
   if (!session || session.closeout !== "pending") return step;
   const cleanup = await endTaggedProcesses(
@@ -77,14 +79,15 @@ export async function hasNoSessionProcesses(
   const scope = await runScope(run.startedAt);
   const scans = await Promise.all(
     allPlanRunResults(run).flatMap((step) =>
-      step.session
+      step.session || step.script
         ? [
-            findTaggedProcesses(step.session.instanceId, scope).catch(
-              (caughtError: unknown) => {
-                logCaughtError("AgentPlanRecovery", caughtError);
-                return [0];
-              },
-            ),
+            findTaggedProcesses(
+              step.session?.instanceId ?? step.script?.instanceId ?? "",
+              scope,
+            ).catch((caughtError: unknown) => {
+              logCaughtError("AgentPlanRecovery", caughtError);
+              return [0];
+            }),
           ]
         : [],
     ),

@@ -46,7 +46,8 @@ function usePlanValueContext(): PlanValueContext {
  * @remarks
  * An input holds one binding. A connection shows its source read only and
  * is released with the X; without one, the field takes a manual value,
- * and emptying it restores the agent's default. A connection is refused
+ * and emptying it restores the agent's default. Scripts keep empty text bound
+ * until it is explicitly disconnected. A connection is refused
  * while a manual value is set, as before.
  */
 export function PlanAgentInput(props: PlanAgentInputProps): React.ReactElement {
@@ -202,8 +203,13 @@ function ManualValue(
   const binding = step.bindings[parameter.name];
   const value = binding?.kind === "literal" ? binding.value : null;
   const fallback = planValuePreview(parameter.defaultValue, context);
+  let placeholder = fallback
+    ? t("plans.defaultValue", { value: fallback })
+    : t("plans.noValue");
+  if (step.type === "script" && value?.type === "text" && value.text === "")
+    placeholder = t("plans.scripts.emptyInput");
   function change(next: AgentParameterValue): void {
-    if (isEmptyPlanValue(next)) {
+    if (step.type !== "script" && isEmptyPlanValue(next)) {
       disconnectPlanInput(graph, step, parameter.name);
       return;
     }
@@ -223,11 +229,7 @@ function ManualValue(
         parameter: parameter.name,
         name: props.label,
       })}
-      placeholder={
-        fallback
-          ? t("plans.defaultValue", { value: fallback })
-          : t("plans.noValue")
-      }
+      placeholder={placeholder}
       isEmptyAllowed
       hasIssue={props.hasIssue}
       disabled={!canEdit}
@@ -238,11 +240,39 @@ function ManualValue(
   return (
     <div className="flex min-w-0 items-center gap-1">
       <div className="min-w-0 flex-1">{input}</div>
+      <ScriptLiteralDisconnect {...props} />
       <PlanPreviousMenu
         step={step}
         parameter={parameter.name}
         label={props.label}
       />
     </div>
+  );
+}
+
+/** Disconnecting a literal is explicit for scripts because empty text remains a bound value. */
+function ScriptLiteralDisconnect(
+  props: PlanAgentInputProps,
+): React.ReactElement | null {
+  const { t } = useTranslation();
+  const { graph, canEdit } = usePlanFlowContext();
+  const { step, parameter } = props;
+  if (
+    step.type !== "script" ||
+    step.bindings[parameter.name]?.kind !== "literal"
+  )
+    return null;
+  const label = t("plans.disconnect", { name: parameter.name });
+  return (
+    <button
+      type="button"
+      className="nodrag nopan flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-surface hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-50"
+      disabled={!canEdit}
+      aria-label={label}
+      title={label}
+      onClick={() => disconnectPlanInput(graph, step, parameter.name)}
+    >
+      <X className="size-3.5" aria-hidden="true" />
+    </button>
   );
 }

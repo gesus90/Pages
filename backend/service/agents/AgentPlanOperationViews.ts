@@ -207,7 +207,11 @@ export function agentEntry(agent: AgentDefinitionChoice): AgentPlanAgentEntry {
 
 /** Whether a node of a run has a result, an error or a session to report. */
 export function hasReport(step: AgentPlanStepResult): boolean {
-  return step.output !== null || step.error !== null || Boolean(step.session);
+  return (
+    step.output !== null ||
+    step.error !== null ||
+    Boolean(step.session ?? step.script)
+  );
 }
 
 function stepStatus(step: AgentPlanStepResult): AgentPlanRunStepEntry {
@@ -219,8 +223,8 @@ function stepStatus(step: AgentPlanStepResult): AgentPlanRunStepEntry {
     isBlocked: step.isBlocked,
     error: step.error,
     verdict: session?.acceptance?.verdict ?? null,
-    startedAt: session?.startedAt ?? null,
-    endedAt: session?.endedAt ?? null,
+    startedAt: step.script?.startedAt ?? session?.startedAt ?? null,
+    endedAt: step.script?.endedAt ?? session?.endedAt ?? null,
     hasReport: hasReport(step),
   };
 }
@@ -228,9 +232,11 @@ function stepStatus(step: AgentPlanStepResult): AgentPlanRunStepEntry {
 /** The time the last node ended; an active run has not ended. */
 function runEnd(run: AgentPlanRun): string | null {
   if (isActivePlanRun(run.status)) return null;
-  const ends = run.steps.flatMap((step) =>
-    step.session?.endedAt ? [step.session.endedAt] : [],
-  );
+  if (run.endedAt) return run.endedAt;
+  const ends = run.steps.flatMap((step) => {
+    const endedAt = step.script?.endedAt ?? step.session?.endedAt;
+    return endedAt ? [endedAt] : [];
+  });
   return ends.sort().at(-1) ?? null;
 }
 

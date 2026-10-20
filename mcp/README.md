@@ -2103,7 +2103,7 @@ own. Graph editing never starts a run. Explicit saved-revision commands offer Pl
   stored plan returns `changed:false`.
 - **Structure.** `changes` is a list applied in order and saved as one revision:
   `addNode` (`start`, `end`, `agent` with `agentId` from `read_plan_sources`,
-  `script` with `name`, `interpreterProfileId`, `content`, exactly one entry in
+  `script` with `name`, `interpreterProfileId`, `content`, zero or one entry in
   `outputs` and optional `inputs` and `timeoutSeconds`, `task` with the `taskId`
   of a task or subtask of the project, `parameter` with `name`, `value` and
   optional `format`, `group` with `name`), `updateNode` (fields of the node's kind, `x` and `y` for
@@ -2130,16 +2130,22 @@ own. Graph editing never starts a run. Explicit saved-revision commands offer Pl
   Pages checks it like the plan page: a name of up to 120 characters, content of
   1 to 100000 characters (one request is at most 64 KiB, so longer content is
   set on the plan page), up to 16 `inputs` (`{name, type: "text", isRequired}`),
-  exactly one output (`{name, type: "text"}`) that the result port hands on,
-  `timeoutSeconds` from 1 to 300 (default 60), and input and output names that
+  zero or one output (`{name, type: "text"}`) that the result port hands on,
+  `timeoutSeconds` from 1 to 86400 (default 60, always finite), and input and output names that
   start with a letter, use letters, digits and `_` and are unique together. A new
   or changed profile must be configured on the server; an unchanged reference to
   a since removed profile stays as it is. `bind` fills a script input like an
   agent input (text only; a result only from a node earlier in the flow), and an
   `updateNode` of `inputs` keeps the bindings of the inputs that remain. Scripts
   never join groups and have no workspace, model or reasoning; they use the
-  plan's workspace. Pages does not run scripts yet: a plan with a script node
-  reports the issue `scriptUnavailable` and does not start.
+  plan's approved workspace. Explicit authorized Play executes them as processes,
+  with active administrator mode and current plan/project/workspace rights.
+  stdin receives one JSON object of declared text values, followed by EOF;
+  optional unbound values are omitted and explicit empty text remains empty.
+  stdout stays exact UTF-8 text, stderr is diagnostic, with 128 KiB per stream.
+  See the [script runtime contract](../backend/service/agents/ScriptRuntime.md)
+  for limits, pause/stop, environment, process diagnostics and recovery.
+  Script members inside loops remain explicitly unsupported.
 - **Status.** `read_plan` returns `status`: `state` (`idle`, `running`, `pausing`, `paused` or `stopping`
   by the account's own runs), `runCount`, `latestRun`, and `isRunnable` with the
   `issues` the plan page shows before Play.

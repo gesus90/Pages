@@ -39,6 +39,7 @@ import { createLoopHost } from "./loop/AgentPlanLoopEngineHost";
 import { initialLoopRuns } from "./loop/AgentPlanLoopRecord";
 import { AgentPlanLoopRunner } from "./loop/AgentPlanLoopRunner";
 import { planRecoveryReason } from "./recovery/AgentPlanFailure";
+import { dispatchPlanScript } from "./AgentPlanScriptDispatch";
 
 import type { AgentPlanRunJournal } from "./AgentPlanJournal";
 import type { PlanInstructionWork } from "./AgentPlanInstructionControl";
@@ -60,6 +61,7 @@ import type { AgentPlanStepRunner } from "./AgentPlanStepRunner";
 import type { AgentPlanStepStart } from "./AgentPlanStepStart";
 import type { AgentRunArchive } from "./AgentRunArchive";
 import type { AgentDefinitionFiles } from "./AgentDefinitionFiles";
+import type { AgentPlanScriptRunner } from "./AgentPlanScriptRunner";
 
 /**
  * Creates the record of a new run inside a transaction that the caller opens.
@@ -77,6 +79,7 @@ const STOP_WAIT_MILLISECONDS = 30_000;
 
 /** Runtime boundaries shared with the run command aggregate. */
 export interface EngineDependencies {
+  readonly scripts?: Pick<AgentPlanScriptRunner, "run">;
   readonly resources?: Pick<AcpResourceScheduler, "pauseRun" | "resumeRun">;
   readonly runs: Pick<
     AgentPlanRunRepository,
@@ -142,7 +145,9 @@ export class AgentPlanRunEngine {
           ?.groupId,
         name:
           snapshot.steps.find((step) => step.step.id === node.id)?.name ??
-          (node.type === "loop" ? node.name : node.type),
+          (node.type === "loop" || node.type === "script"
+            ? node.name
+            : node.type),
         status: "waiting",
         isBlocked: false,
         cancellation: "none",
@@ -502,7 +507,7 @@ export class AgentPlanRunEngine {
           active,
           node.id,
           changes.status === "paused" && active.view.stopRequested
-            ? { status: "cancelled", cancellation: "not_started" }
+            ? { ...changes, status: "cancelled", cancellation: "not_started" }
             : changes,
         );
         active.controllers.delete(node.id);
@@ -544,6 +549,12 @@ export class AgentPlanRunEngine {
     controller: AbortController,
   ): Promise<Partial<AgentPlanStepResult>> {
     const isStopped = active.view.stopRequested || controller.signal.aborted;
+    if (node.type === "script")
+      return dispatchPlanScript(active, node.id, controller, {
+        scripts: this.dependencies.scripts,
+        writes: this.writes,
+        runs: this.dependencies.runs,
+      });
     const step = active.snapshot.steps.find(
       (entry) => entry.step.id === node.id,
     );

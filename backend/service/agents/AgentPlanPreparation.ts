@@ -23,6 +23,11 @@ import type { AgentProfileService } from "./AgentProfileService";
 import type { AgentParameterService } from "./AgentParameterService";
 import type { AgentPlanTasks } from "./AgentPlanTasks";
 import type {
+  AgentPlanScriptPreparation,
+  AgentPlanScriptSnapshot,
+} from "./AgentPlanScriptPreparation";
+import type { AgentPlanTaskSnapshot } from "./AgentPlanBindings";
+import type {
   AgentPlanSnapshot,
   AgentPlanStepSnapshot,
 } from "./AgentPlanSnapshot";
@@ -31,6 +36,7 @@ interface PreparationDependencies {
   readonly profiles: Pick<AgentProfileService, "catalog" | "resolveDefinition">;
   readonly parameters: Pick<AgentParameterService, "prepare">;
   readonly tasks: Pick<AgentPlanTasks, "snapshot">;
+  readonly scripts?: Pick<AgentPlanScriptPreparation, "prepare" | "validate">;
 }
 
 /** Completes every validation before reserving directories or starting provider work. */
@@ -39,6 +45,11 @@ export class AgentPlanPreparation {
 
   public constructor(dependencies: PreparationDependencies) {
     this.dependencies = dependencies;
+  }
+
+  /** Checks live script start rights for the existing control panel without executing script content. */
+  public async validateScripts(userId: string, plan: AgentPlan): Promise<void> {
+    await this.dependencies.scripts?.validate(userId, plan);
   }
 
   /** Freezes definitions, values, resource revisions and graph order, while excluding credentials. */
@@ -59,7 +70,11 @@ export class AgentPlanPreparation {
     const loops = plan.nodes.filter((node) => node.type === "loop");
     const flat = expandPlanLoops(plan);
     const steps = planSteps(flat);
-    if (steps.length === 0) throw new AgentError("plan_invalid");
+    if (
+      steps.length === 0 &&
+      !plan.nodes.some((node) => node.type === "script")
+    )
+      throw new AgentError("plan_invalid");
     const tasks = await Promise.all(
       plan.nodes.flatMap((node) =>
         node.type === "task"
@@ -74,6 +89,7 @@ export class AgentPlanPreparation {
       ),
     );
     const snapshots: AgentPlanStepSnapshot[] = [];
+    const scripts = await this.prepareScripts(userId, plan, tasks);
     for (const step of steps) {
       const resolved = await this.dependencies.profiles.resolveDefinition(
         userId,
@@ -98,22 +114,8 @@ export class AgentPlanPreparation {
         bindings,
         template,
       );
-      if (prepared.workspace.projectId !== plan.projectId)
-        throw new AgentError("plan_context_changed");
       const { provider } = resolved.assignment.connection;
-      if (
-        !isApiProvider(provider) &&
-        planStepDirectory({ provider, prepared }) === null
-      )
-        throw new AgentError("plan_directory_required");
-      // Options the runner cannot enforce stop the whole plan before any node starts.
-      const unsupported = isApiProvider(provider)
-        ? null
-        : unsupportedRunOption(
-            provider,
-            agentRunOptionsFor(provider, template.run),
-          );
-      if (unsupported !== null) throw new AgentError(unsupported);
+      requirePreparedRuntime(plan, { provider, prepared, template });
       const taskIds = Object.values(step.bindings).flatMap((binding) => {
         if (binding.kind !== "source") return [];
         const node = flat.nodes.find((entry) => entry.id === binding.nodeId);
@@ -142,8 +144,43 @@ export class AgentPlanPreparation {
     }
     validateGroupRuntimes(groups, snapshots);
     validateWorkingCopies(flat, snapshots);
-    return structuredClone({ plan, groups, steps: snapshots });
+    return structuredClone({
+      plan,
+      groups,
+      steps: snapshots,
+      ...(scripts?.length ? { scripts } : {}),
+    });
   }
+  private async prepareScripts(
+    userId: string,
+    plan: AgentPlan,
+    tasks: readonly AgentPlanTaskSnapshot[],
+  ): Promise<readonly AgentPlanScriptSnapshot[] | undefined> {
+    const scripts = await this.dependencies.scripts?.prepare(
+      userId,
+      plan,
+      tasks,
+    );
+    if (plan.nodes.some((node) => node.type === "script") && !scripts)
+      throw new AgentError("plan_script_interpreter_unavailable");
+    return scripts;
+  }
+}
+
+function requirePreparedRuntime(
+  plan: AgentPlan,
+  step: Pick<AgentPlanStepSnapshot, "provider" | "prepared" | "template">,
+): void {
+  if (step.prepared.workspace.projectId !== plan.projectId)
+    throw new AgentError("plan_context_changed");
+  if (isApiProvider(step.provider)) return;
+  if (planStepDirectory(step) === null)
+    throw new AgentError("plan_directory_required");
+  const unsupported = unsupportedRunOption(
+    step.provider,
+    agentRunOptionsFor(step.provider, step.template.run),
+  );
+  if (unsupported !== null) throw new AgentError(unsupported);
 }
 
 function loopMembership(

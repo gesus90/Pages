@@ -35,7 +35,7 @@ function isPendingResult(
  */
 export function planBindings(
   plan: AgentPlan,
-  step: AgentPlanStep,
+  step: Pick<AgentPlanStep, "bindings">,
   tasks: readonly AgentPlanTaskSnapshot[],
   parameters: readonly AgentParameter[],
 ): Readonly<Record<string, AgentParameterValue | null>> {

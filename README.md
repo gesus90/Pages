@@ -16,6 +16,10 @@
 
 ## About
 
+Agent Plan supports direct Bash, Python and Node.js script steps through configured
+interpreter profiles. See the [script runtime contract](backend/service/agents/ScriptRuntime.md)
+for authorization, stdin/stdout, limits, parallel joins, pause/stop and recovery.
+
 Pages is a self-hosted web application for planning projects, tracking tickets
 and keeping a wiki. Several users share one instance; roles and departments
 decide what each account can see and change.

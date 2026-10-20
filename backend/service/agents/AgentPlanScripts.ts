@@ -1,10 +1,17 @@
+import { constants } from "node:fs";
+import { access, stat } from "node:fs/promises";
+
 import { AgentError } from "@/backend/error/AgentErrors";
 import { planInterpreters } from "@/definition/AgentPlanScript";
+import { interpreterProfileSchema } from "@/definition/InterpreterProfile";
 
 import type { AgentPlanNode } from "@/definition/AgentPlan";
 import type { AgentPlanScript } from "@/definition/AgentPlanScript";
 import type { AgentPlanInterpreter } from "@/definition/AgentPlanScript";
-import type { InterpreterSnapshot } from "@/definition/InterpreterProfile";
+import type {
+  InterpreterProfile,
+  InterpreterSnapshot,
+} from "@/definition/InterpreterProfile";
 
 /** The script nodes of a plan, those inside loops included. */
 function scriptsOf(
@@ -45,6 +52,25 @@ export class AgentPlanScripts {
     if (!this.source) return [];
     const snapshot = await this.source.snapshot();
     return planInterpreters(snapshot.profiles, snapshot.checks);
+  }
+
+  /** Resolves the exact stable profile and checks its executable, without running script content. */
+  public async executable(id: string): Promise<InterpreterProfile> {
+    const snapshot = await this.source?.snapshot();
+    const profile = snapshot?.profiles.find((entry) => entry.id === id);
+    if (!profile) throw new AgentError("plan_script_profile_missing");
+    if (!interpreterProfileSchema.safeParse(profile).success)
+      throw new AgentError("plan_script_invalid");
+    try {
+      await access(profile.path, constants.X_OK);
+      if (!(await stat(profile.path)).isFile())
+        throw new AgentError("plan_script_interpreter_unavailable");
+    } catch {
+      throw new AgentError("plan_script_interpreter_unavailable");
+    }
+    if (snapshot?.checks[id]?.status === "error")
+      throw new AgentError("plan_script_interpreter_unavailable");
+    return profile;
   }
 
   /**

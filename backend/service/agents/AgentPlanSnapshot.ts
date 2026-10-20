@@ -6,6 +6,7 @@ import type { AgentProviderId } from "@/definition/AgentConnection";
 import type { AgentPlanTemplate } from "@/definition/AgentPlanConfiguration";
 import type { ResolvedAgentWorkspace } from "@/definition/AgentWorkspace";
 import type { PreparedAgentParameters } from "./AgentParameterService";
+import type { AgentPlanScriptSnapshot } from "./AgentPlanScriptPreparation";
 
 export type { AgentPlanTemplate } from "@/definition/AgentPlanConfiguration";
 
@@ -32,6 +33,7 @@ export interface AgentPlanSnapshot {
   readonly plan: AgentPlan;
   readonly groups?: readonly AgentPlanGroup[];
   readonly steps: readonly AgentPlanStepSnapshot[];
+  readonly scripts?: readonly AgentPlanScriptSnapshot[];
 }
 
 /**

@@ -82,10 +82,10 @@ check requires (`loopPrevious`). Every iteration keeps its own results.
 
 ## Scripts
 
-Script members use the existing script contract. Pages has no script runtime
-yet, so a plan with a script node (loop member or not) is not runnable
-(`scriptUnavailable`) and the runner fails a script member with
-`plan_script_unavailable` instead of skipping it.
+Top-level script steps execute through the [PAGE-123 script runtime](../ScriptRuntime.md).
+Script members inside loops remain stored but are refused specifically with
+`loopScriptUnsupported`. Loop script execution is outside PAGE-123; the member
+runner retains its defensive refusal instead of skipping saved work.
 
 ## Persistence
 

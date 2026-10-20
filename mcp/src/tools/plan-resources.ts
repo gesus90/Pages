@@ -45,7 +45,7 @@ export const PLAN_RESOURCE_READ_TOOLS: readonly {
       name: "read_plan_control",
       title: "Read plan controls",
       description:
-        "Reads current canPlay/canPause/canResume/canStop action availability, without private run IDs, results or errors. Recheck after a conflict. Script execution is unavailable in the product.",
+        "Reads current canPlay/canPause/canResume/canStop action availability, without private run IDs, results or errors. Recheck after a conflict. Direct scripts require active administrator mode, current resource rights and an executable configured profile.",
       properties: { planId: IDENTIFIER },
       required: ["planId"],
     }),
@@ -78,7 +78,7 @@ export const PLAN_COMMAND_TOOLS: readonly {
     tool: writeTool({
       name: `${action}_plan`,
       title: `${action} plan`,
-      description: `Explicit ${action} of the saved expectedRevision. ${action === "delete" ? "Owner only; active runs prevent deletion; finished history is retained." : "Requires canEdit and current access to every referenced resource. Play starts the saved graph only; pause/resume/stop also require runId of the connected executor and the same plan. Resume adopts the saved revision at its durable pause boundary. Play and Resume may invoke configured models and change workspaces under the saved run permissions. Scripts cannot execute."} operationId is recorded atomically with the durable change. Identical replay returns the original acknowledgement after fresh access checks; different content or a stale revision is CONFLICT. No credential or client graph is accepted.`,
+      description: `Explicit ${action} of the saved expectedRevision. ${action === "delete" ? "Owner only; active runs prevent deletion; finished history is retained." : "Requires canEdit and current access to every referenced resource. Play starts the saved graph only; pause/resume/stop also require runId of the connected executor and the same plan. Resume adopts the saved revision at its durable pause boundary. Play and Resume may invoke configured models and change workspaces under the saved run permissions. Direct scripts execute configured interpreters in the approved workspace and require active administrator mode; no model or agent session is used for scripts. Active scripts drain on Pause; Stop ends owned processes."} operationId is recorded atomically with the durable change. Identical replay returns the original acknowledgement after fresh access checks; different content or a stale revision is CONFLICT. No credential or client graph is accepted.`,
       properties: {
         ...TARGET,
         ...(action === "pause" || action === "resume" || action === "stop"

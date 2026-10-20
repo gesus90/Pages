@@ -14,10 +14,15 @@ import type { AgentPlanSnapshot } from "./AgentPlanSnapshot";
 export function planWritingWorkspaces(
   snapshot: AgentPlanSnapshot,
 ): readonly string[] {
-  return snapshot.steps.flatMap((step) => {
-    const directory = planStepDirectory(step);
-    return !isApiProvider(step.provider) && directory ? [directory.id] : [];
-  });
+  return [
+    ...new Set([
+      ...snapshot.steps.flatMap((step) => {
+        const directory = planStepDirectory(step);
+        return !isApiProvider(step.provider) && directory ? [directory.id] : [];
+      }),
+      ...(snapshot.scripts ?? []).map((script) => script.workspace.id),
+    ]),
+  ];
 }
 
 function requireBoundary(
@@ -179,7 +184,11 @@ function resumedSteps(
     return {
       id: node.id,
       groupId: snapshot?.groupId,
-      name: snapshot?.name ?? (node.type === "loop" ? node.name : node.type),
+      name:
+        snapshot?.name ??
+        (node.type === "loop" || node.type === "script"
+          ? node.name
+          : node.type),
       status: "waiting",
       isBlocked: false,
       cancellation: "none",
@@ -205,6 +214,13 @@ export function preparePlanContinuation(
   const completed = new Set(run.pauseBoundary?.completedStepIds);
   const snapshot: AgentPlanSnapshot = {
     ...proposed,
+    scripts: proposed.scripts?.map((script) =>
+      completed.has(script.step.id)
+        ? (previous.scripts?.find(
+            (entry) => entry.step.id === script.step.id,
+          ) ?? script)
+        : script,
+    ),
     steps: proposed.steps.map((step) =>
       completed.has(step.step.id)
         ? (previous.steps.find((entry) => entry.step.id === step.step.id) ??

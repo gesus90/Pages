@@ -154,7 +154,7 @@ const SCRIPT_FIELDS: Properties = {
   },
   outputs: {
     type: "array",
-    minItems: 1,
+    minItems: 0,
     maxItems: 1,
     items: {
       type: "object",
@@ -163,7 +163,7 @@ const SCRIPT_FIELDS: Properties = {
       additionalProperties: false,
     },
   },
-  timeoutSeconds: { type: "integer", minimum: 1, maximum: 300 },
+  timeoutSeconds: { type: "integer", minimum: 1, maximum: 86_400 },
 };
 
 const NODE_FIELDS: Properties = {

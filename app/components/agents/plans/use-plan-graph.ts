@@ -65,20 +65,12 @@ export interface PlanGraphActions extends PlanSelection, PlanGroupActions {
   readonly replaceNode: (node: AgentPlanNode) => void;
 }
 
-/**
- * The findings the canvas marks on nodes and ports.
- *
- * @remarks
- * A script is not at fault for being unable to run yet: the run panel names
- * that reason, the card is not marked as invalid for it.
- */
+/** The current execution findings marked on canvas nodes and ports. */
 function canvasIssues(
   draft: AgentPlanInput,
   sources: AgentPlanSources,
 ): readonly AgentPlanIssue[] {
-  return planExecutionIssues(draft, sources.agents).filter(
-    (issue) => issue.reason !== "scriptUnavailable",
-  );
+  return planExecutionIssues(draft, sources.agents);
 }
 
 /** Replaces one frame endpoint of an outer edge with a member of that group; anything else stays as it was. */

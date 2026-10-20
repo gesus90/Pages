@@ -12,6 +12,8 @@ import { AgentPlanRecoveryService } from "@/backend/service/agents/recovery/Agen
 import { AgentPlanAccess } from "@/backend/service/agents/AgentPlanAccess";
 import { AgentPlanPreparation } from "@/backend/service/agents/AgentPlanPreparation";
 import { AgentPlanScripts } from "@/backend/service/agents/AgentPlanScripts";
+import { AgentPlanScriptPreparation } from "@/backend/service/agents/AgentPlanScriptPreparation";
+import { AgentPlanScriptRunner } from "@/backend/service/agents/AgentPlanScriptRunner";
 import { AgentPlanRunEngine } from "@/backend/service/agents/AgentPlanRunEngine";
 import { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
 import { AgentPlanTemplateService } from "@/backend/service/agents/AgentPlanTemplateService";
@@ -99,7 +101,8 @@ export async function createAgentPlanService(input: {
     new UserGroupRepository(input.database),
   );
   const access = new AgentPlanAccess(plans, workspaces, sharing);
-  const tasks = new AgentPlanTasks(input.tasks, input.users);
+  const runtime = createScriptRuntime(input, access, workspaces);
+  const { tasks, scripts, scriptPreparation } = runtime;
   const start = new AgentPlanStepStart({
     access,
     tasks,
@@ -119,6 +122,7 @@ export async function createAgentPlanService(input: {
     stop: (userId, id) => service.stop(userId, id),
   });
   const engine = new AgentPlanRunEngine({
+    scripts: new AgentPlanScriptRunner(scriptPreparation),
     runs,
     start,
     resources: input.agents.acpResourceScheduler,
@@ -143,6 +147,7 @@ export async function createAgentPlanService(input: {
     phases: new AgentPlanPhases(input.tasks, input.users),
     access,
     preparation: new AgentPlanPreparation({
+      scripts: scriptPreparation,
       profiles,
       parameters,
       tasks,
@@ -150,7 +155,7 @@ export async function createAgentPlanService(input: {
     engine,
     sessions,
     archive: input.agents.agentRunArchive,
-    scripts: planScripts(),
+    scripts,
   });
   // The credential leftovers were cleaned up when the agent services started.
   await service.recoverInterruptedRuns(
@@ -173,6 +178,33 @@ export async function createAgentPlanService(input: {
       runs: service,
       recovery: new AgentPlanRecoveryRepository(input.database),
       checkpoints: new AgentPlanCheckpointRepository(input.database),
+    }),
+  };
+}
+
+function createScriptRuntime(
+  input: Pick<
+    Parameters<typeof createAgentPlanService>[0],
+    "database" | "tasks" | "users"
+  >,
+  access: AgentPlanAccess,
+  workspaces: AgentApplicationServices["agentWorkspaceService"],
+): {
+  readonly tasks: AgentPlanTasks;
+  readonly scripts: AgentPlanScripts;
+  readonly scriptPreparation: AgentPlanScriptPreparation;
+} {
+  const tasks = new AgentPlanTasks(input.tasks, input.users);
+  const scripts = planScripts();
+  return {
+    tasks,
+    scripts,
+    scriptPreparation: new AgentPlanScriptPreparation({
+      scripts,
+      workspaces,
+      access,
+      tasks,
+      authorization: new AuthorizationRepository(input.database),
     }),
   };
 }

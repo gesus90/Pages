@@ -12,7 +12,7 @@ import {
 import { planStepTemplate } from "./AgentPlanConfiguration";
 import { planValueIssue } from "./AgentPlanValue";
 import { hasPlanPath } from "./AgentPlanPath";
-import { planScriptParameters } from "./AgentPlanScript";
+import { planScriptIssues, planScriptParameters } from "./AgentPlanScript";
 
 import type { AgentDefinitionChoice } from "./AgentAvailability";
 import type { AgentParameter } from "./AgentParameters";
@@ -66,6 +66,8 @@ export interface AgentPlanIssue {
     | "name"
     | "json"
     | "number"
+    | "scriptConfiguration"
+    | "loopScriptUnsupported"
     | "scriptUnavailable";
 }
 
@@ -86,7 +88,10 @@ export function isPlanFlowNode(node: AgentPlanNode): boolean {
 export function isPlanResultNode(
   node: AgentPlanNode | undefined,
 ): node is AgentPlanStep | AgentPlanScript {
-  return node?.type === "agent" || node?.type === "script";
+  return (
+    node?.type === "agent" ||
+    (node?.type === "script" && node.outputs.length === 1)
+  );
 }
 
 /** Data sources use the established agent types; a ticket node supplies a ticket reference. */
@@ -350,7 +355,7 @@ export function planConnectionIssues(
     ...planLoopIssues(plan, agents, false),
   ];
   for (const node of expanded.nodes)
-    if (isPlanResultNode(node))
+    if (node.type === "agent" || node.type === "script")
       issues.push(...bindingIssues(node, expanded, agents));
   if (new Set(plan.nodes.map((node) => node.id)).size !== plan.nodes.length)
     issues.push({ nodeId: null, port: null, reason: "duplicateNode" });
@@ -450,14 +455,7 @@ function requiredParameterIssues(
   });
 }
 
-/**
- * Required script inputs without a value, and the refusal to run the script.
- *
- * @remarks
- * Pages does not run scripts yet. A plan with a script node is therefore
- * never runnable: Play stays blocked with this reason instead of skipping
- * the script or reporting it as done.
- */
+/** Checks the shared configuration and missing required inputs before Play. */
 function scriptIssues(
   script: AgentPlanScript,
   plan: AgentPlanInput,
@@ -475,7 +473,12 @@ function scriptIssues(
       return [{ nodeId: script.id, port: input.name, reason: "required" }];
     },
   );
-  issues.push({ nodeId: script.id, port: null, reason: "scriptUnavailable" });
+  if (planScriptIssues(script).length > 0)
+    issues.push({
+      nodeId: script.id,
+      port: null,
+      reason: "scriptConfiguration",
+    });
   return issues;
 }
 
@@ -540,7 +543,9 @@ function flowExecutionIssues(
     issues.push({ nodeId: null, port: null, reason: "start" });
   if (ends.length === 0)
     issues.push({ nodeId: null, port: null, reason: "end" });
-  if (!plan.nodes.some((node) => node.type === "agent"))
+  if (
+    !plan.nodes.some((node) => node.type === "agent" || node.type === "script")
+  )
     issues.push({ nodeId: null, port: null, reason: "agent" });
   for (const node of plan.nodes.filter(isPlanFlowNode))
     issues.push(...flowNodeIssues(node, plan, agents));
@@ -553,6 +558,19 @@ export function planExecutionIssues(
   agents: readonly AgentDefinitionChoice[],
 ): readonly AgentPlanIssue[] {
   plan = withPortlessPlanGroups(plan);
+  const unsupported = plan.nodes.flatMap((node): AgentPlanIssue[] =>
+    node.type === "loop"
+      ? node.steps
+          .filter((member) => member.type === "script")
+          .map((member) => ({
+            nodeId: member.id,
+            port: null,
+            reason: "loopScriptUnsupported",
+          }))
+      : [],
+  );
+  if (unsupported.length > 0)
+    return [...planConnectionIssues(plan, agents), ...unsupported];
   if (plan.nodes.some((node) => node.type === "group")) {
     return [
       ...planConnectionIssues(plan, agents),

@@ -101,7 +101,7 @@ function initialValues(
       isRequired: input.isRequired,
       original: input.name,
     })),
-    output: script.outputs[0]?.name ?? output,
+    output: script.outputs[0]?.name ?? "",
     timeout: String(script.timeoutSeconds),
   };
 }
@@ -118,7 +118,9 @@ function configurationOf(
       type: "text",
       isRequired: input.isRequired,
     })),
-    outputs: [{ name: values.output.trim(), type: "text" }],
+    outputs: values.output.trim()
+      ? [{ name: values.output.trim(), type: "text" }]
+      : [],
     timeoutSeconds: /^\d+$/u.test(values.timeout.trim())
       ? Number(values.timeout.trim())
       : Number.NaN,
@@ -170,7 +172,9 @@ function formIssues(
     const issue = nameIssue(row.name.trim(), names);
     if (issue) rows.set(row.key, issue);
   });
-  const output = nameIssue(values.output.trim(), names);
+  const output = values.output.trim()
+    ? nameIssue(values.output.trim(), names)
+    : null;
   return {
     fields,
     rows,

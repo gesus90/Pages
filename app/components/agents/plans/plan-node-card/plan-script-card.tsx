@@ -80,10 +80,9 @@ export function PlanScriptCard(props: {
             ))}
           </div>
         ) : null}
-        <PlanResultOut
-          nodeId={script.id}
-          output={script.outputs[0]?.name ?? t("plans.resultShort")}
-        />
+        {script.outputs[0] ? (
+          <PlanResultOut nodeId={script.id} output={script.outputs[0].name} />
+        ) : null}
       </div>
       <PlanScriptProfile script={script} />
     </PlanCard>

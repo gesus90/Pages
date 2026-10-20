@@ -6,6 +6,7 @@ import {
 } from "../AgentPlanRecovery";
 import { classifyPlanFailure } from "./AgentPlanFailure";
 import { interruptedLoopRuns } from "./AgentPlanLoopRecovery";
+import { endInterruptedScript } from "../AgentPlanScriptRecovery";
 
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
@@ -15,7 +16,8 @@ interface StartupRecoveryDependencies {
   readonly runs: Pick<
     AgentPlanRunRepository,
     "unfinished" | "interrupt" | "reserving" | "release"
-  >;
+  > &
+    Partial<Pick<AgentPlanRunRepository, "update">>;
   readonly sessions?: Pick<AgentPlanSessionAccess, "revoke">;
   readonly endSession?: typeof endInterruptedSession;
   readonly hasNoProcesses?: typeof hasNoSessionProcesses;
@@ -30,7 +32,7 @@ function interruptedStep(
       ...step,
       status: "failed",
       cancellation: wasStopped ? "requested" : "none",
-      error: "plan_interrupted",
+      error: interruptionCode(step),
     };
   if (step.status === "waiting" || step.status === "paused")
     return { ...step, isBlocked: true, error: "plan_interrupted" };
@@ -93,6 +95,7 @@ export class AgentPlanStartupRecovery {
       );
       const run: AgentPlanRun = {
         ...previous,
+        endedAt: new Date().toISOString(),
         status: previous.stopRequested ? "cancelled" : "failed",
         ...(previous.stopRequested || hasTerminalFailure
           ? { recovery: undefined }
@@ -111,7 +114,14 @@ export class AgentPlanStartupRecovery {
     }
     const hasNoProcesses =
       this.dependencies.hasNoProcesses ?? hasNoSessionProcesses;
-    for (const run of await this.dependencies.runs.reserving()) {
+    for (const reserved of await this.dependencies.runs.reserving()) {
+      const run = await this.reconcileScripts(reserved);
+      if (
+        allPlanRunResults(run).some(
+          (step) => step.script?.closeout === "failed",
+        )
+      )
+        continue;
       const isRetained = allPlanRunResults(run).some(
         (step) => step.session && retained.has(step.session.instanceId),
       );
@@ -119,4 +129,23 @@ export class AgentPlanStartupRecovery {
         await this.dependencies.runs.release(run.id);
     }
   }
+
+  private async reconcileScripts(run: AgentPlanRun): Promise<AgentPlanRun> {
+    if (
+      !this.dependencies.runs.update ||
+      !run.steps.some(
+        (step) => step.script && step.script.closeout !== "confirmed",
+      )
+    )
+      return run;
+    const steps = await Promise.all(run.steps.map(endInterruptedScript));
+    const reconciled = { ...run, steps };
+    await this.dependencies.runs.update(reconciled);
+    return reconciled;
+  }
+}
+
+function interruptionCode(step: AgentPlanStepResult): string {
+  if (step.script?.closeout === "failed") return "plan_script_cleanup";
+  return step.script ? "plan_script_interrupted" : "plan_interrupted";
 }

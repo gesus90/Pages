@@ -18,7 +18,11 @@ import type { AgentWorkspaceChoice, WorkspaceGitHub } from "./AgentWorkspace";
 import type { AgentPlanGroup } from "./AgentPlanGroup";
 import type { AgentPlanLoop } from "./AgentPlanLoop";
 import type { AgentPlanLoopRun } from "./AgentPlanLoopRun";
-import type { AgentPlanInterpreter, AgentPlanScript } from "./AgentPlanScript";
+import type {
+  AgentPlanInterpreter,
+  AgentPlanScript,
+  AgentPlanScriptRun,
+} from "./AgentPlanScript";
 import type { AgentPlanRecoveryReason } from "./AgentPlanRecovery";
 
 /**
@@ -199,6 +203,8 @@ export interface AgentPlanStepResult {
   readonly error: string | null;
   /** Runner, session, process, contract, acceptance and result of an agent node. */
   readonly session?: AgentPlanSessionRecord | null;
+  /** A script is an ordinary process, never an agent session. */
+  readonly script?: AgentPlanScriptRun;
   /** Authorized read-time projection, separate from persisted acceptance. */
   readonly progress?: AgentPlanProgress;
 }

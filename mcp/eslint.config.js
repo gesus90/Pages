@@ -12,7 +12,12 @@ import {
 /** Standalone MCP rules with package-local type information and dependencies. */
 export default tseslint.config(
   { ignores: ["**/dist/**", "**/coverage/**", "**/node_modules/**"] },
-  { linterOptions: { noInlineConfig: true } },
+  {
+    linterOptions: { noInlineConfig: true },
+    languageOptions: {
+      parserOptions: { tsconfigRootDir: import.meta.dirname },
+    },
+  },
   ...tseslint.configs.recommended,
   {
     files: ["**/*.{js,mjs,ts}"],

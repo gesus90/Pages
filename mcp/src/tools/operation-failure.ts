@@ -96,6 +96,8 @@ const ISSUE_PROBLEMS: Readonly<Record<AgentPlanIssueProblem, true>> = {
   json: true,
   number: true,
   scriptUnavailable: true,
+  scriptConfiguration: true,
+  loopScriptUnsupported: true,
 };
 
 /** Findings a refusal carries at most. */

@@ -83,6 +83,8 @@ export const AGENT_PLAN_ISSUE_PROBLEMS = [
   "json",
   "number",
   "scriptUnavailable",
+  "scriptConfiguration",
+  "loopScriptUnsupported",
 ] as const;
 
 export type AgentPlanIssueProblem = (typeof AGENT_PLAN_ISSUE_PROBLEMS)[number];
@@ -189,8 +191,9 @@ export interface AgentPlanParameterNodeEntry extends AgentPlanNodeBase {
  * A script step: its content, interpreter profile and declared text inputs and output.
  *
  * @remarks
- * Pages does not run scripts yet; a plan with a script reports the problem
- * `scriptUnavailable` and does not start.
+ * Explicit authorized runs execute the selected interpreter in the resolved
+ * plan workspace. Declared text inputs arrive as one JSON object on stdin;
+ * stdout is the optional single text result, stderr is diagnostic.
  */
 export interface AgentPlanScriptNodeEntry extends AgentPlanNodeBase {
   readonly type: "script";

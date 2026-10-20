@@ -7,6 +7,10 @@ import {
 
 import { PlanPage } from "@/app/components/agents/plans/plan-page";
 import { defaultPlanId } from "@/app/lib/agent-plan-default";
+import {
+  lastSelectedPlan,
+  rememberSelectedPlan,
+} from "@/app/lib/agent-plan-selection.server";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { readSettingsRequest } from "@/app/lib/settings-actions/settings-request.server";
@@ -33,8 +37,13 @@ interface AgentPlansView extends AgentPlanPage {
 }
 
 /** Graphs and execution results are always private, uncacheable responses. */
-export const headers: Route.HeadersFunction = ({ parentHeaders }) => {
+export const headers: Route.HeadersFunction = ({
+  parentHeaders,
+  loaderHeaders,
+}) => {
   const response = new Headers(parentHeaders);
+  const selection = loaderHeaders.get("Set-Cookie");
+  if (selection) response.append("Set-Cookie", selection);
   response.set("Cache-Control", "no-store");
   return response;
 };
@@ -43,7 +52,8 @@ export const headers: Route.HeadersFunction = ({ parentHeaders }) => {
  * Workspace and project context are derived by the service, never trusted from query fields.
  *
  * @remarks
- * Without a plan in the address the editor opens the provisional default plan.
+ * Without explicit plan/workspace context the editor restores the account's
+ * browser preference, then uses the provisional default if no preference exists.
  */
 export async function loader({
   context,
@@ -55,13 +65,19 @@ export async function loader({
     const query = new URL(request.url).searchParams;
     const workspace = query.get("workspaceId");
     const services = await getApplicationServices();
-    return routeData(
-      await openPlan(services.agentPlanService, user.id, {
-        planId: query.get("planId"),
-        workspaceId: workspace === null ? null : readPlanText(workspace),
-      }),
-      { headers: AGENT_NO_STORE },
-    );
+    const page = await openPlan(services.agentPlanService, user.id, {
+      planId:
+        query.get("planId") ??
+        (workspace === null ? await lastSelectedPlan(request, user.id) : null),
+      workspaceId: workspace === null ? null : readPlanText(workspace),
+    });
+    const responseHeaders = new Headers(AGENT_NO_STORE);
+    if (page.selected)
+      responseHeaders.append(
+        "Set-Cookie",
+        await rememberSelectedPlan(request, user.id, page.selected.id),
+      );
+    return routeData(page, { headers: responseHeaders });
   } catch (error: unknown) {
     logCaughtError("agent_plans", error);
 
@@ -166,7 +182,7 @@ async function readablePage(
 }
 
 /**
- * Opens the plan the address names, or the default plan when it names none.
+ * Opens the explicit or remembered selection, using the default only without either.
  *
  * @remarks
  * A plan that is missing or not readable leaves the canvas empty and says so;

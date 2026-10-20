@@ -16,9 +16,50 @@ export const PLAN_SCRIPT_INPUT_COUNT = 16;
 /** The allowed run time of a script, in whole seconds. */
 export const PLAN_SCRIPT_TIMEOUT = {
   minimum: 1,
-  maximum: 300,
+  maximum: 86_400,
   initial: 60,
 } as const;
+
+/** UTF-8 byte limits; exceeding a limit fails the step, never truncates a successful result. */
+export const PLAN_SCRIPT_BYTES = {
+  input: 1_048_576,
+  stdout: 131_072,
+  stderr: 131_072,
+} as const;
+
+/** Why the process ended, independently of any business meaning of its output. */
+export type AgentPlanScriptFailure =
+  | "spawn"
+  | "exit"
+  | "signal"
+  | "timeout"
+  | "cancelled"
+  | "output_limit"
+  | "encoding"
+  | "credentials"
+  | "io"
+  | "cleanup"
+  | "interrupted";
+
+/** Process diagnostics within the existing node result; identifiers never authorize killing a PID. */
+export interface AgentPlanScriptRun {
+  readonly attemptId: string;
+  readonly instanceId: string;
+  readonly interpreterProfileId: string;
+  readonly directory: string;
+  readonly userId: string;
+  readonly uid: number;
+  readonly gid: number;
+  readonly processId: number | null;
+  readonly startedAt: string;
+  readonly endedAt: string | null;
+  readonly exitCode: number | null;
+  readonly signal: string | null;
+  readonly failure: AgentPlanScriptFailure | null;
+  readonly closeout: "pending" | "confirmed" | "failed";
+  readonly stdout: string | null;
+  readonly stderr: string;
+}
 
 /** One declared text input; a parameter, a ticket or a result fills it. */
 export interface AgentPlanScriptInput {
@@ -41,8 +82,11 @@ export interface AgentPlanScriptOutput {
  * The profile is named by its stable identifier (PAGE-116), never by its
  * label, so a renamed profile stays the same and a removed one stays
  * visibly missing. A script has no workspace, model or reasoning of its
- * own. Pages does not run scripts yet: a plan with a script node does not
- * start, see the `scriptUnavailable` issue of the plan graph.
+ * own. An authorized explicit run sends one UTF-8 JSON object on stdin:
+ * declared names map to text, optional unbound inputs are omitted, explicit
+ * empty strings are retained. stdout stays exact text; stderr is diagnostic.
+ * Runs require active administrator mode and live workspace and plan rights.
+ * Timeout is always finite; the shared bounds apply to editor and runtime.
  */
 export interface AgentPlanScript extends AgentPlanPosition {
   readonly id: string;
@@ -51,7 +95,7 @@ export interface AgentPlanScript extends AgentPlanPosition {
   readonly interpreterProfileId: string;
   readonly content: string;
   readonly inputs: readonly AgentPlanScriptInput[];
-  /** Exactly one output for now: the result port carries one value. */
+  /** Zero or one text output. Flow OUT is independent of the data result. */
   readonly outputs: readonly AgentPlanScriptOutput[];
   readonly timeoutSeconds: number;
   readonly bindings: Readonly<Record<string, AgentPlanBinding>>;
@@ -108,7 +152,7 @@ function nameIssues(
   if (configuration.inputs.some((input) => !isAgentParameterName(input.name)))
     issues.push("inputName");
   if (
-    configuration.outputs.length !== 1 ||
+    configuration.outputs.length > 1 ||
     configuration.outputs.some((output) => !isAgentParameterName(output.name))
   )
     issues.push("outputName");

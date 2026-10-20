@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
+import { planScriptRunSchema } from "./AgentPlanScriptRunInput";
 
 import type {
   AgentPlanCheckpoint,
@@ -85,6 +86,7 @@ const checkpoint = z.strictObject({
   }),
   dispatchedPromptDigest: digest.nullable(),
   result: z.strictObject({
+    script: planScriptRunSchema.optional(),
     output: z.string().max(200_000).nullable(),
     isOutputReduced: z.boolean().default(false),
     outputDigest: digest,

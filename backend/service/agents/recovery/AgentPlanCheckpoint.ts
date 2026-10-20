@@ -84,21 +84,17 @@ function checkpointContext(
 function checkpointResult(
   result: AgentPlanStepResult,
 ): AgentPlanCheckpointInput["result"] {
-  const output =
-    result.output === null
-      ? null
-      : sanitizePlanOutput(result.output).replace(
-          /data:[a-z0-9.+-]+\/[a-z0-9.+-]+(?:;[a-z0-9=.+-]+)*;base64,[a-z0-9+/=]+/giu,
-          "[inline asset omitted]",
-        );
+  const output = checkpointOutput(result);
   const acceptance = result.session?.acceptance;
   return {
+    // The declared output already holds stdout; duplicating it can exceed the checkpoint byte budget.
+    ...(result.script ? { script: { ...result.script, stdout: null } } : {}),
     output,
     isOutputReduced: output !== result.output,
     outputDigest: planContentDigest(result.output),
     technical: {
       resultCode: result.session?.resultCode ?? null,
-      closeout: result.session?.closeout ?? null,
+      closeout: result.script?.closeout ?? result.session?.closeout ?? null,
     },
     acceptance: acceptance
       ? {
@@ -112,6 +108,14 @@ function checkpointResult(
         }
       : null,
   };
+}
+
+function checkpointOutput(result: AgentPlanStepResult): string | null {
+  if (result.script || result.output === null) return result.output;
+  return sanitizePlanOutput(result.output).replace(
+    /data:[a-z0-9.+-]+\/[a-z0-9.+-]+(?:;[a-z0-9=.+-]+)*;base64,[a-z0-9+/=]+/giu,
+    "[inline asset omitted]",
+  );
 }
 
 function checkpointSession(
@@ -136,6 +140,7 @@ export function createPlanCheckpoint(
   if (result?.status !== "succeeded")
     throw new AgentPlanRecoveryError("checkpoint_invalid");
   const step = snapshot.steps.find((entry) => entry.step.id === stepId);
+  const script = snapshot.scripts?.find((entry) => entry.step.id === stepId);
   return {
     schemaVersion: 1,
     runId: run.id,
@@ -159,20 +164,38 @@ export function createPlanCheckpoint(
           run.steps.find((entry) => entry.id === edge.from)?.status ??
           "unknown",
       })),
-    inputs: checkpointInputs(step),
-    configurationDigest: configurationDigest(step),
+    inputs: script
+      ? Object.entries(script.step.bindings).map(([name, binding]) => ({
+          name,
+          kind: binding.kind,
+          reference: bindingReference(binding),
+          digest: planContentDigest(binding),
+        }))
+      : checkpointInputs(step),
+    configurationDigest: script
+      ? planContentDigest({
+          step: script.step,
+          interpreter: script.interpreter,
+        })
+      : configurationDigest(step),
     workspaceDigest: planContentDigest(
-      step
-        ? {
-            workspace: step.prepared.workspace,
-            directory: planStepDirectory(step),
-            references: step.prepared.references,
-          }
-        : snapshot.plan.workspaceId,
+      script?.workspace ?? checkpointWorkspace(step, snapshot.plan.workspaceId),
     ),
     context: checkpointContext(step, result, snapshot.plan.workspaceId),
     dispatchedPromptDigest: result.session?.dispatchedPromptDigest ?? null,
     result: checkpointResult(result),
     session: checkpointSession(result.session),
+  };
+}
+
+function checkpointWorkspace(
+  step: AgentPlanStepSnapshot | undefined,
+  workspaceId: string,
+): unknown {
+  if (!step) return workspaceId;
+  return {
+    workspace: step.prepared.workspace,
+    directory: planStepDirectory(step),
+    references: step.prepared.references,
   };
 }

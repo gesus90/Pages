@@ -7,6 +7,7 @@ import { PlanStatusActivity } from "./plan-status-activity";
 import { PlanStatusBadge } from "./plan-status";
 import { PlanStatusConfiguration } from "./plan-status-configuration";
 import { PlanStatusTodos } from "./plan-status-todos";
+import { PlanScriptRun } from "./plan-script-run";
 
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 
@@ -52,7 +53,9 @@ export function PlanStatusDetails({
               {t("plans.progress.step", { number })} · {step.name}
             </h3>
             <p className="text-xs leading-4.5 text-muted-foreground wrap-anywhere">
-              {t("plans.progress.agent", { name: step.name })}
+              {step.script
+                ? t("plans.nodeType.script")
+                : t("plans.progress.agent", { name: step.name })}
             </p>
           </div>
           <PlanStatusBadge
@@ -61,18 +64,8 @@ export function PlanStatusDetails({
             className="rounded-sm px-1.5 py-0.5 text-[0.6875rem] leading-4"
           />
         </div>
-        {step.session ? (
-          <PlanStatusConfiguration
-            session={step.session}
-            end={end}
-            isRunning={step.status === "running"}
-          />
-        ) : (
-          <p className="text-xs leading-4.5 text-muted-foreground">
-            {t("plans.progress.noConfiguration")}
-          </p>
-        )}
-        <PlanStatusActivity step={step} />
+        <StepConfiguration step={step} end={end} />
+        {step.script ? null : <PlanStatusActivity step={step} />}
         <Button
           size="sm"
           variant="ghost"
@@ -86,7 +79,31 @@ export function PlanStatusDetails({
           )}
         </Button>
       </div>
-      <PlanStatusTodos key={step.id} step={step} number={number} />
+      {step.script ? null : (
+        <PlanStatusTodos key={step.id} step={step} number={number} />
+      )}
     </div>
+  );
+}
+
+function StepConfiguration({
+  step,
+  end,
+}: Pick<StatusDetailsProps, "step" | "end">): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (!step) return null;
+  if (step.script) return <PlanScriptRun step={step} />;
+  if (step.session)
+    return (
+      <PlanStatusConfiguration
+        session={step.session}
+        end={end}
+        isRunning={step.status === "running"}
+      />
+    );
+  return (
+    <p className="text-xs leading-4.5 text-muted-foreground">
+      {t("plans.progress.noConfiguration")}
+    </p>
   );
 }

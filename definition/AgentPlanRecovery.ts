@@ -1,5 +1,6 @@
 import type { AgentPlanAcceptance } from "./AgentPlanSession";
 import type { AgentPlanRun } from "./AgentPlan";
+import type { AgentPlanScriptRun } from "./AgentPlanScript";
 
 /** Additive reasons keep older run statuses readable without reopening old failures. */
 export interface AgentPlanRecoveryReason {
@@ -63,6 +64,8 @@ export interface AgentPlanCheckpointInput {
   };
   readonly dispatchedPromptDigest: string | null;
   readonly result: {
+    /** Process evidence; stdout is null here because the declared data is stored once in output. */
+    readonly script?: AgentPlanScriptRun;
     readonly output: string | null;
     /** Inline assets and credential-shaped text may be omitted from this display copy. */
     readonly isOutputReduced: boolean;

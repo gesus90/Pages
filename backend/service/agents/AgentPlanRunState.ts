@@ -112,13 +112,18 @@ export function canFinalize(active: ActivePlanRun): boolean {
   );
 }
 
-/** Only an agent node of a request runner takes one of the limited request slots. */
+/** Direct scripts and request agents share the existing two execution slots; ACP has its own admission. */
 export function isRequestStep(active: ActivePlanRun, id: string): boolean {
   const step = active.snapshot.steps.find((entry) => entry.step.id === id);
-  return step !== undefined && !isAcpProvider(step.provider);
+  return (
+    (step !== undefined && !isAcpProvider(step.provider)) ||
+    active.snapshot.plan.nodes.some(
+      (node) => node.id === id && node.type === "script",
+    )
+  );
 }
 
-/** API requests retain their existing concurrency limit independently of ACP capacity. */
+/** Requests and direct scripts share the existing limit independently of ACP capacity. */
 export function countRunningPlanRequests(
   runs: Iterable<ActivePlanRun>,
 ): number {
@@ -180,7 +185,8 @@ export function finalPlanStatus(
 /** Failed session cleanup keeps the run's definitions and working copies reserved. */
 export function hasUnconfirmedCloseout(active: ActivePlanRun): boolean {
   return allPlanRunResults(active.view).some(
-    (step) => step.session?.closeout === "failed",
+    (step) =>
+      step.session?.closeout === "failed" || step.script?.closeout === "failed",
   );
 }
 

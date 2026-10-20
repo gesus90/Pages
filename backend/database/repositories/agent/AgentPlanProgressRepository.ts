@@ -32,6 +32,7 @@ function successfulWorkDigest(step: AgentPlanStepResult): string {
   const session = step.session;
   return planContentDigest({
     output: step.output,
+    script: step.script ?? null,
     session: session
       ? {
           instanceId: session.instanceId,
@@ -208,7 +209,9 @@ export class AgentPlanProgressRepository {
     const hasUnconfirmedCleanup = allPlanRunResults(run).some(
       (step) =>
         step.session?.closeout === "pending" ||
-        step.session?.closeout === "failed",
+        step.session?.closeout === "failed" ||
+        step.script?.closeout === "pending" ||
+        step.script?.closeout === "failed",
     );
     if (!isActivePlanRun(run.status) && !hasUnconfirmedCleanup)
       await transaction.execute(

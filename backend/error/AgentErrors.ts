@@ -26,11 +26,42 @@ export const AGENT_ERROR_MESSAGES = {
     "Pause the run and wait until all steps have drained before editing.",
   plan_invalid: "Check the plan fields and graph nodes.",
   plan_script_invalid:
-    "Check the script: name, interpreter profile, content, unique input and output names and a timeout of 1 to 300 seconds.",
+    "Check the script: name, interpreter profile, content, unique input and output names and a timeout of 1 to 86400 seconds.",
   plan_script_profile_missing:
     "The script's interpreter profile is not configured on this server. Choose a configured profile.",
+  plan_script_interpreter_unavailable:
+    "The configured interpreter is unavailable or not executable. Check this exact profile on the server.",
+  plan_script_permission_denied:
+    "Direct scripts require active administrator mode and current plan, project and approved workspace access.",
+  plan_script_platform_unsupported:
+    "Script execution requires Linux process ownership and cleanup support.",
+  plan_script_input_required:
+    "A required script input has no text value. Check its declared binding.",
+  plan_script_input_limit:
+    "The script input JSON exceeds the 1 MiB UTF-8 limit.",
+  plan_script_spawn:
+    "The configured interpreter could not be started. No replacement was used.",
+  plan_script_exit:
+    "The script exited with an error. See its exit code and stderr in the run details.",
+  plan_script_signal: "The script ended through a signal. See the run details.",
+  plan_script_timeout:
+    "The configured timeout elapsed. See the owned process cleanup status.",
+  plan_script_cancelled:
+    "The script was stopped. See its process cleanup status.",
+  plan_script_output_limit:
+    "stdout or stderr exceeded 128 KiB. The step failed; no truncated success result is forwarded.",
+  plan_script_encoding:
+    "The script emitted invalid UTF-8. No replacement text is forwarded.",
+  plan_script_credentials:
+    "stdout contains credential-shaped text. The result was withheld; the step failed.",
+  plan_script_io:
+    "The script input/output or durable attempt recording failed.",
+  plan_script_cleanup:
+    "Process or temporary-resource cleanup could not be confirmed. The workspace remains reserved.",
+  plan_script_interrupted:
+    "The backend lost this process attempt. Side effects are uncertain; it is never replayed automatically.",
   plan_script_unavailable:
-    "Script execution is not available yet. A plan with a script node cannot start.",
+    "This script configuration or container is not supported by the runtime.",
   template_name_required: "Enter a name for the template.",
   template_name_taken:
     "You already have a template with this name. Choose another name.",

@@ -4,6 +4,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { readPlanText } from "./AgentPlanInput";
 import { readPlanSessionRecord } from "./AgentPlanSessionInput";
 import { readAgentObject } from "./AgentPayload";
+import { readPlanScriptRun } from "./AgentPlanScriptRunInput";
 
 import type {
   AgentPlanStepResult,
@@ -43,6 +44,9 @@ export function readPlanStepResult(input: unknown): AgentPlanStepResult {
     output,
     error,
     session: readPlanSessionRecord(step.session),
+    ...(step.script === undefined
+      ? {}
+      : { script: readPlanScriptRun(step.script) }),
     ...(step.progress === undefined
       ? {}
       : { progress: readPlanProgress(step.progress) }),

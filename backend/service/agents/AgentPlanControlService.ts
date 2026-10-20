@@ -1,31 +1,24 @@
 import { planExecutionIssues } from "@/definition/AgentPlanGraph";
+import { AgentError } from "@/backend/error/AgentErrors";
 
 import { planControl } from "./AgentPlanControl";
 
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
-import type { AgentPlanIssue } from "@/definition/AgentPlanGraph";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type { AgentPlanAccess } from "./AgentPlanAccess";
 import type { AgentProfileService } from "./AgentProfileService";
+import type { AgentPlanPreparation } from "./AgentPlanPreparation";
+import type { AgentPlan } from "@/definition/AgentPlan";
 
 interface ControlDependencies {
   readonly access: Pick<AgentPlanAccess, "require">;
   readonly profiles: Pick<AgentProfileService, "catalog">;
+  readonly preparation?: Pick<AgentPlanPreparation, "validateScripts">;
   readonly runs: Pick<
     AgentPlanRunRepository,
     "latest" | "hasReservation" | "resources"
   >;
 }
-/**
- * The reason a plan does not start: a script, which Pages cannot run yet, is
- * named as such; every other finding of the graph check as an invalid plan.
- */
-function issueCode(issues: readonly AgentPlanIssue[]): string {
-  return issues.some((issue) => issue.reason === "scriptUnavailable")
-    ? "plan_script_unavailable"
-    : "plan_invalid";
-}
-
 /** Server-side action availability, including current graph and execution-context refusals. */
 export class AgentPlanControlService {
   private readonly dependencies: ControlDependencies;
@@ -54,7 +47,7 @@ export class AgentPlanControlService {
       plan,
       await this.dependencies.profiles.catalog(userId, plan.projectId),
     );
-    let issue = control.issue;
+    let issue = (await this.scriptIssue(userId, plan)) ?? control.issue;
     if (run?.status === "paused") {
       const resources = await this.dependencies.runs.resources(run.id);
       if (
@@ -67,9 +60,22 @@ export class AgentPlanControlService {
     return {
       ...control,
       issues,
-      issue: issue ?? issueCode(issues),
+      issue: issue ?? "plan_invalid",
       canPlay: false,
       canResume: false,
     };
+  }
+
+  private async scriptIssue(
+    userId: string,
+    plan: AgentPlan,
+  ): Promise<string | null> {
+    try {
+      await this.dependencies.preparation?.validateScripts(userId, plan);
+      return null;
+    } catch (error: unknown) {
+      if (!(error instanceof AgentError)) throw error;
+      return error.code;
+    }
   }
 }
