@@ -20,6 +20,7 @@ import type { AgentOperationRegistry } from "@/backend/service/agents/AgentOpera
 import type { AgentPlanExecutionInput } from "@/backend/service/agents/AgentPlanStepStart";
 import type { AgentRunOptions } from "@/definition/AgentConfiguration";
 import type { AgentPlanContinuationCapabilities } from "@/definition/AgentPlanRecovery";
+import type { AgentProviderFailure } from "@/definition/AgentPlanRetry";
 import type {
   AgentPlanProcessExit,
   AgentPlanSessionMode,
@@ -68,6 +69,8 @@ export interface PlanSessionObserver {
 
 /** How the runner ended its turn, independently of business progress or report content. */
 export interface PlanSessionTurn {
+  /** An explicit provider failure can carry a safe reset time for plan retries. */
+  readonly providerFailure?: AgentProviderFailure;
   /** The final answer of the agent, unredacted; the caller redacts before storing. */
   readonly output: string;
   readonly sessionId: string | null;

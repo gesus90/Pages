@@ -1,6 +1,7 @@
 import { readPlanRecoveryCommand } from "@/backend/agents/AgentPlanRecoveryInput";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
+import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { canRecordPlanRepair } from "@/definition/AgentPlanRecovery";
 
 import { sanitizeArtifactText } from "../AgentPlanOutput";
@@ -197,6 +198,7 @@ function executingOptions(
 export class AgentPlanRecoveryService {
   private readonly dependencies: RecoveryDependencies;
   private readonly actions: AgentPlanRecoveryActions | null;
+  private readonly controls = new SerialQueue();
 
   public constructor(dependencies: RecoveryDependencies) {
     this.dependencies = dependencies;
@@ -266,6 +268,15 @@ export class AgentPlanRecoveryService {
    * starts a second run.
    */
   public async control(
+    userId: string,
+    runId: string,
+    input: unknown,
+  ): Promise<AgentPlanRecoveryResult> {
+    // The idempotency read must also cover preparation, before another command can create its run.
+    return this.controls.run(() => this.executeControl(userId, runId, input));
+  }
+
+  private async executeControl(
     userId: string,
     runId: string,
     input: unknown,

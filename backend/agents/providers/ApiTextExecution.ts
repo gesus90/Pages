@@ -1,11 +1,14 @@
 import { readTicketAssetInput } from "@/backend/agents/TicketAssetInput";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
+import { AgentProviderError } from "@/backend/error/AgentProviderError";
+import { isPlanRetryCode } from "@/backend/agents/AgentProviderFailure";
 import { AGENT_PROVIDERS, isApiProvider } from "@/definition/AgentConnection";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import { classifyProviderError } from "./ProviderErrors";
 import { requestHeaders } from "./ProviderHttpClient";
+import { httpProviderReset } from "./ProviderReset";
 import {
   createTextProviderRequest,
   readTextProviderResponse,
@@ -67,10 +70,18 @@ export class ApiTextExecution implements TextExecution {
           redirect: "error",
         },
       );
-      const payload = await this.readBody(response);
+      const payload = await this.readBody(response).catch((error: unknown) => {
+        if (response.status >= 400) return null;
+        throw error;
+      });
       signal.throwIfAborted();
-      if (classifyProviderError(response.status, payload))
-        throw new AgentExecutionError("providerFailed");
+      const code = classifyProviderError(response.status, payload);
+      if (isPlanRetryCode(code))
+        throw new AgentProviderError({
+          code,
+          resetAt: httpProviderReset(response, payload, code),
+        });
+      if (code) throw new AgentError(code);
       return readTextProviderResponse(connection.provider, payload, {
         webSearch: input.webSearch,
       }).replaceAll(apiKey, "[redacted]");
@@ -79,7 +90,11 @@ export class ApiTextExecution implements TextExecution {
 
       if (error instanceof AgentExecutionError || error instanceof AgentError)
         throw error;
-      throw new AgentExecutionError("providerFailed");
+      if (signal.aborted) signal.throwIfAborted();
+      throw new AgentProviderError({
+        code: "provider_unreachable",
+        resetAt: null,
+      });
     }
   }
 
@@ -113,10 +128,14 @@ export class ApiTextExecution implements TextExecution {
         if (bytes > 1024 * 1024) throw new AgentExecutionError("invalidOutput");
         chunks.push(chunk.value);
       }
-      const payload: unknown = JSON.parse(
-        Buffer.concat(chunks).toString("utf8"),
-      );
-      return payload;
+      try {
+        const payload: unknown = JSON.parse(
+          Buffer.concat(chunks).toString("utf8"),
+        );
+        return payload;
+      } catch {
+        throw new AgentExecutionError("invalidOutput");
+      }
     } finally {
       await reader.cancel();
       reader.releaseLock();

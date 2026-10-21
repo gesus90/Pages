@@ -3265,6 +3265,28 @@
     "save": "Save workspace"
   },
   "plans": {
+    "retry": {
+      "state": {
+        "waiting": "Waiting for automatic retry",
+        "running": "Retry running",
+        "blocked": "Automatic retry blocked",
+        "completed": "Completed after retry",
+        "cancelled": "Retry stopped"
+      },
+      "reason": {
+        "transient": "The connection is temporarily unavailable. Further attempts use increasing delays.",
+        "quota": "The quota is exhausted. The next attempt runs no earlier than one minute after the reported reset.",
+        "reset_unknown": "No unambiguous reset time was reported. The node stays blocked; no other model is used.",
+        "exhausted": "All ten retries are exhausted. The node stays blocked with the last cause.",
+        "unsafe": "An automatic retry cannot safely preserve the shared session or actions already started. Review side effects and explicitly continue."
+      },
+      "count": "Retries: {{count}} of {{maximum}}",
+      "resetAt": "Reported reset: {{time}}",
+      "nextAt": "Next attempt: {{time}}",
+      "history": "Failed attempts",
+      "completedHint": "The node completed successfully. Earlier failures remain in its history.",
+      "lastCause": "Last failure: {{cause}}"
+    },
     "completion": {
       "label": "Progress report",
       "report": "Todos and acceptance criteria",
@@ -4179,11 +4201,11 @@
       },
       "mode": {
         "native_resume": "Continue the earlier agent session",
-        "new_session": "New agent session"
+        "new_session": "New attempt"
       },
       "modeHint": {
         "native_resume": "the adapter resumes the stored session with its history.",
-        "new_session": "the agent starts without memory of the earlier attempt and gets the assignment, the taken-over results and a recovery notice."
+        "new_session": "unfinished steps start as a new attempt. Agents get a new session with their assignment, reused results and recovery notice."
       },
       "modeUnavailable": "not possible here: the adapter cannot resume the session, or the session is unknown.",
       "resume": "Continue from the last safe state",

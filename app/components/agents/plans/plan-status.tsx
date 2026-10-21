@@ -32,6 +32,15 @@ export function planStatusClass(
   return STATUS_CLASSES[status];
 }
 
+/** Only a waiting successor is blocked by a predecessor; a failed node names its own block. */
+export function planStatusKey(
+  status: AgentPlanStepStatus,
+  isBlocked = false,
+): string {
+  if (!isBlocked) return `plans.status.${status}`;
+  return status === "waiting" ? "plans.blocked" : "plans.blockedShort";
+}
+
 /** Supplements color with a distinct icon; motion respects reduced-motion preferences. */
 function PlanStatusIcon({
   status,
@@ -75,7 +84,7 @@ export function PlanStatusBadge({
   readonly className?: string;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const label = t(isBlocked ? "plans.blocked" : `plans.status.${status}`);
+  const label = t(planStatusKey(status, isBlocked));
   const visibleLabel = isBlocked && isConcise ? t("plans.blockedShort") : label;
   return (
     <span

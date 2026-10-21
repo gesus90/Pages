@@ -10,7 +10,7 @@ import { planNodeAccent, planNodeClass } from "./plan-layout";
 import { PlanNodeActions } from "./plan-node-actions";
 import { PlanNodeIcon } from "./plan-node-icon";
 import { PLAN_NODE_ICON, PLAN_NODE_TEXT } from "./plan-node-text";
-import { PlanStatusBadge, planStatusClass } from "./plan-status";
+import { PlanStatusBadge, planStatusClass, planStatusKey } from "./plan-status";
 
 import type {
   AgentPlanNode,
@@ -39,9 +39,7 @@ export function PlanEndpoint(props: PlanEndpointProps): React.ReactElement {
   const { node, graph } = props;
   const label = t(`plans.nodeType.${node.type}`);
   const status = props.result?.status ?? "waiting";
-  const statusLabel = t(
-    props.result?.isBlocked ? "plans.blocked" : `plans.status.${status}`,
-  );
+  const statusLabel = t(planStatusKey(status, props.result?.isBlocked));
   return (
     <article
       aria-label={label}

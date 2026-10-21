@@ -1,5 +1,15 @@
 # Recoverable plan runs (PAGE-84, executing since PAGE-127)
 
+## PAGE-128: stopped runs and provider waits
+
+A reviewed `resume` can now also continue the newest explicitly stopped run
+as a new linked run. The original remains stopped and its history is unchanged;
+successful checkpoints are reused, started unfinished nodes require the same
+side-effect review and cleanup checks. No stop is undone automatically.
+Known provider failures have the bounded, in-process waiting policy described
+in [PlanRetries.md](../PlanRetries.md). The historical PAGE-84 limitations below
+do not override these executing paths.
+
 ## PAGE-127: restart, resume and release
 
 PAGE-127 connects the recovery contract below to the existing engine instead
@@ -31,7 +41,7 @@ integration", the PAGE-127 rules apply:
   working copies and ACP leases (`cleanup_unconfirmed` otherwise).
 - A graceful server shutdown records running work as `interrupted`
   (`AgentPlanRunCommands.interrupt`), no longer as an explicit stop. An
-  explicit stop still never resumes.
+  explicit stop can continue only through the reviewed PAGE-128 action.
 - Without its execution boundary (`execution` dependency) the service keeps the
   PAGE-84 behaviour: preparations only, `workflow_unavailable` for a resume.
 

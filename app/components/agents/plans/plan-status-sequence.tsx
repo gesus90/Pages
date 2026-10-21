@@ -6,6 +6,7 @@ import { cn } from "@/app/lib/cn";
 
 import { PlanPaletteButton } from "./plan-palette-button";
 import { statusTone } from "./plan-run-status-model";
+import { planStatusKey } from "./plan-status";
 
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 
@@ -80,7 +81,7 @@ export function PlanStatusSequence({
         className="flex -space-x-1 gap-0.75 overflow-x-auto"
       >
         {steps.map((step, index) => {
-          const label = `${index + 1} · ${step.name} · ${t(step.isBlocked ? "plans.blocked" : `plans.status.${step.status}`)}`;
+          const label = `${index + 1} · ${step.name} · ${t(planStatusKey(step.status, step.isBlocked))}`;
           return (
             <PlanPaletteButton
               key={step.id}

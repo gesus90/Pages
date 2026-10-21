@@ -2,6 +2,7 @@ import type { AgentPlanActivity } from "./AgentPlanProgress";
 import type { CliProviderId } from "./AgentConnection";
 import type { AcpProviderId, AgentRunOptions } from "./AgentConfiguration";
 import type { AgentPlanContinuationCapabilities } from "./AgentPlanRecovery";
+import type { AgentPlanRetry, AgentProviderFailure } from "./AgentPlanRetry";
 
 /** The runner of a node: a CLI tool, or a request to an API connection. */
 export type AgentPlanRunner = CliProviderId | "api";
@@ -176,6 +177,10 @@ export interface AgentPlanLoopSessionLink {
  * exit is kept in `exit`; retained group turns await the shared closeout.
  */
 export interface AgentPlanSessionRecord {
+  /** Safe provider cause and release time, without upstream diagnostics. */
+  readonly providerFailure?: AgentProviderFailure;
+  /** Previous failed attempts and an automatic wait of this unfinished node. */
+  readonly retry?: AgentPlanRetry;
   readonly runner: AgentPlanRunner;
   readonly mode: AgentPlanSessionMode;
   /** Pages' identifier of this process instance; it tags every process of the session. */

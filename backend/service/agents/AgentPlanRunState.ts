@@ -52,6 +52,19 @@ export function requestCancellation(active: ActivePlanRun): void {
         status: "cancelled",
         cancellation: "not_started",
         isBlocked: false,
+        // A paused wait has no running attempt left to cancel its stored deadline.
+        ...(step.session?.retry
+          ? {
+              session: {
+                ...step.session,
+                retry: {
+                  ...step.session.retry,
+                  state: "cancelled",
+                  nextAttemptAt: null,
+                },
+              },
+            }
+          : {}),
       });
     if (step.status === "running")
       patchStep(active, step.id, { cancellation: "requested" });

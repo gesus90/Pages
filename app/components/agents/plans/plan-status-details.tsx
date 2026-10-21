@@ -9,6 +9,7 @@ import { PlanStatusBadge } from "./plan-status";
 import { PlanStatusConfiguration } from "./plan-status-configuration";
 import { PlanStatusTodos } from "./plan-status-todos";
 import { PlanScriptRun } from "./plan-script-run";
+import { PlanStatusRetry } from "./plan-status-retry";
 
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 
@@ -100,11 +101,14 @@ function StepConfiguration({
   if (step.script) return <PlanScriptRun step={step} />;
   if (step.session)
     return (
-      <PlanStatusConfiguration
-        session={step.session}
-        end={end}
-        isRunning={step.status === "running"}
-      />
+      <>
+        <PlanStatusRetry session={step.session} />
+        <PlanStatusConfiguration
+          session={step.session}
+          end={end}
+          isRunning={step.status === "running"}
+        />
+      </>
     );
   return (
     <p className="text-xs leading-4.5 text-muted-foreground">

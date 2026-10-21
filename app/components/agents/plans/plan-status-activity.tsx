@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
 
+import { planStatusKey } from "./plan-status";
+
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 
 /** Displays explicit public activity; contract items never imply an active task. */
@@ -60,7 +62,7 @@ export function PlanStatusActivity({
       {step.isBlocked && step.error ? (
         <p className="mt-2 text-xs leading-4.5 text-destructive">
           {t(`settings.agents.error.${step.error}`, {
-            defaultValue: t("plans.blocked"),
+            defaultValue: t(planStatusKey(step.status, step.isBlocked)),
           })}
         </p>
       ) : null}

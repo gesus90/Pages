@@ -1,4 +1,5 @@
 import { noteSessionEvent } from "@/backend/agents/cli/CliSessionEvents";
+import { acpProviderFailure } from "@/backend/agents/AgentProviderFailure";
 
 import { findAcpSelectOption } from "./AcpConfigOptions";
 import { PAGES_MCP_SERVER } from "./AcpLaunch";
@@ -10,9 +11,11 @@ import type {
   ToolCallUpdate,
 } from "@agentclientprotocol/sdk";
 import type { AcpReportedOptions } from "./AcpDriver";
+import type { AgentProviderFailure } from "@/definition/AgentPlanRetry";
 
 /** What Pages learned from the updates of one ACP session so far. */
 export interface AcpSessionState {
+  providerFailure: AgentProviderFailure | null;
   sessionId: string | null;
   /** The newest message of the agent; its final answer once the turn ended. */
   text: string;
@@ -44,6 +47,7 @@ const MESSAGE_BOUNDARIES: ReadonlySet<SessionUpdate["sessionUpdate"]> = new Set(
 /** Creates the state of a session that has not reported anything yet. */
 export function createAcpSessionState(): AcpSessionState {
   return {
+    providerFailure: null,
     sessionId: null,
     text: "",
     messageId: null,
@@ -129,6 +133,8 @@ export function readAcpUpdate(
   update: SessionUpdate,
   fields: AcpReportedOptions,
 ): void {
+  if (update._meta && Object.hasOwn(update._meta, "_claude/rateLimit"))
+    state.providerFailure = acpProviderFailure(update._meta);
   state.reportedModel ??= readReportedModel(update);
   if (update.sessionUpdate === "agent_message_chunk") {
     readMessage(state, update);
@@ -151,4 +157,19 @@ export function readAcpUpdate(
   } else if (update.sessionUpdate === "config_option_update") {
     readAcpConfiguration(state, update.configOptions, fields);
   }
+}
+
+/** Keeps the last adapter diagnostic bounded and redacted before it enters a session record. */
+export function noteAcpStderr(
+  state: AcpSessionState,
+  tail: string,
+  redact: (line: string) => string,
+): void {
+  const line = tail
+    .split("\n")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .at(-1);
+  if (line)
+    noteSessionEvent(state.events, `adapter ${redact(line).slice(0, 200)}`);
 }

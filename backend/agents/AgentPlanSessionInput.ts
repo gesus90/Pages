@@ -1,6 +1,7 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 
 import { readAgentObject } from "./AgentPayload";
+import { readPlanProviderFailure, readPlanRetry } from "./AgentPlanRetryInput";
 import {
   readPlanContinuationCapabilities,
   readPlanContentDigest,
@@ -266,6 +267,19 @@ function readActivity(input: unknown): AgentPlanActivity {
   };
 }
 
+function readRetryMetadata(
+  record: Record<string, unknown>,
+): Pick<AgentPlanSessionRecord, "providerFailure" | "retry"> {
+  return {
+    ...(record.providerFailure === undefined
+      ? {}
+      : { providerFailure: readPlanProviderFailure(record.providerFailure) }),
+    ...(record.retry === undefined
+      ? {}
+      : { retry: readPlanRetry(record.retry) }),
+  };
+}
+
 /**
  * Narrows the persisted record of an agent node; older runs have none.
  *
@@ -283,6 +297,7 @@ export function readPlanSessionRecord(
     throw invalid();
   return {
     runner: oneOf(record.runner, RUNNERS),
+    ...readRetryMetadata(record),
     mode: oneOf(record.mode, MODES),
     instanceId: text(record.instanceId, 100),
     ...(typeof record.attemptId === "string"

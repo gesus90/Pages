@@ -576,8 +576,8 @@ MCP session deletion uses a separate adapter and still requires exactly
 
 ## Pica quota demo (PAGE-96)
 
-Pages does not detect quotas or budgets of Claude Code, Codex or OpenCode and
-asks no provider about them. To show how Pica reports a used-up quota, `/quota`
+Pica's quota panel does not query provider budgets. Agent Plan's provider waits
+are separate from this demonstration. To show how Pica reports a used-up quota, `/quota`
 starts a simulated state that exists only in the open browser tab and is marked
 **Demo** wherever it appears; reloading the page ends it.
 
@@ -1412,18 +1412,26 @@ earlier one, and every concrete blocker. Two separate actions follow:
   session** is offered only where the adapter announced `session/resume`, the
   session ID is known and the profile keeps sessions on disk: Codex plan nodes
   and Pica; Claude Code plan nodes run with `persistSession: false` and loops
-  start fresh sessions, so they offer **New agent session** only. A refused
+  start fresh sessions, so they offer **New attempt** only. A refused
   native resume fails the node visibly (`acp_session_resume_failed`); there is
-  no silent fallback. A run stopped on purpose is never continued, only
-  restarted; only the newest run of a plan can be continued, once.
+  no silent fallback. A run stopped on purpose can also continue through this
+  reviewed action; the stopped original stays unchanged. Only the newest run
+  of a plan can be continued, once.
 
 Before anything starts, current plan, agent, workspace, ticket and asset
 rights are checked again and processes of the earlier run must be proven
 gone: every session and script whose end was not confirmed is ended by its own
 tag and unit, then its working copies and ACP leases are released; otherwise
 the action fails with `cleanup_unconfirmed` and nothing starts. **Release**
-does this alone. A server shutdown records running work as interrupted; an
-explicit stop stays final; nothing is resumed automatically at startup.
+does this alone. A server shutdown records running work as interrupted;
+nothing is resumed automatically at startup.
+
+Agent Plan retries known temporary provider failures up to ten times with
+increasing delays. An exhausted quota with an explicit reset waits until one
+minute after that reset; an unknown reset stays blocked. The run details retain
+the attempts, cause and scheduled time. Routing never switches models. Shared
+native sessions and attempts with tool activity require reviewed recovery
+instead of an automatic replay. See the [plan retry contract](backend/service/agents/PlanRetries.md).
 
 `POST /agent-api/plan-runs/:runId/recovery` accepts the same actions with the
 run's current recovery `revision` and an idempotency key:

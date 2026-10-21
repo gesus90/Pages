@@ -173,6 +173,27 @@ function resumedLoops(
   return loops.length > 0 ? loops : undefined;
 }
 
+function requireRetryRouting(
+  run: AgentPlanRun,
+  previous: AgentPlanSnapshot,
+  next: AgentPlanSnapshot,
+): void {
+  for (const result of run.steps) {
+    if (result.status === "succeeded" || !result.session?.retry) continue;
+    const original = previous.steps.find((step) => step.step.id === result.id);
+    const adopted = next.steps.find((step) => step.step.id === result.id);
+    if (
+      !original ||
+      !adopted ||
+      original.provider !== adopted.provider ||
+      original.connectionId !== adopted.connectionId ||
+      original.model !== adopted.model ||
+      original.reasoningEffort !== adopted.reasoningEffort
+    )
+      throw new AgentError("plan_context_changed");
+  }
+}
+
 function resumedSteps(
   run: AgentPlanRun,
   next: AgentPlanSnapshot,
@@ -194,6 +215,7 @@ function resumedSteps(
       cancellation: "none",
       output: null,
       error: null,
+      ...(previous?.session?.retry ? { session: previous.session } : {}),
     };
   });
 }
@@ -247,6 +269,7 @@ export function preparePlanContinuation(
   requireCompletedGroups(run, previous, proposed);
   requireRetainedGroups(run, previous, proposed);
   requireStartedLoops(run, previous, proposed);
+  requireRetryRouting(run, previous, proposed);
   const snapshot = keptContracts(run, previous, proposed);
   const continuation = {
     version: (run.continuation?.version ?? 0) + 1,

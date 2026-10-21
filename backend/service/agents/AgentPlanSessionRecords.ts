@@ -108,6 +108,7 @@ export function withTurn(
 ): AgentPlanSessionRecord {
   return {
     ...record,
+    ...(turn.providerFailure ? { providerFailure: turn.providerFailure } : {}),
     sessionId: turn.sessionId ?? record.sessionId,
     turnEndedAt: turn.endedAt,
     effective: Object.fromEntries(

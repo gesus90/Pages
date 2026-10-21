@@ -5,6 +5,7 @@ import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import { agentToolFailureEvents } from "@/backend/service/agents/tools/AgentToolSession";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
+import { AgentProviderError } from "@/backend/error/AgentProviderError";
 import { isApiProvider } from "@/definition/AgentConnection";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
@@ -30,6 +31,7 @@ import { AgentPlanGroupSessions } from "./AgentPlanGroupSessions";
 import { AgentPlanStepAssessment } from "./AgentPlanStepAssessment";
 import { buildPlanContract, renderPlanAssignment } from "./AgentPlanContract";
 import { sanitizePlanOutput } from "./AgentPlanOutput";
+import { runPlanNodeAttempts } from "./AgentPlanStepAttempts";
 import { planSessionReach } from "./AgentPlanSessionAccess";
 import { planRecoveryTerms } from "./recovery/AgentPlanRecoveryPrompt";
 import {
@@ -43,8 +45,6 @@ import {
   withTurn,
 } from "./AgentPlanSessionRecords";
 
-import type { PlanInstructionWork } from "./AgentPlanInstructionControl";
-import type { LoopSessionTerms } from "./loop/AgentPlanLoopSession";
 import type {
   AgentPlanSessionInput,
   PlanExecution,
@@ -72,6 +72,9 @@ import type { AgentPlanSessionTerms } from "./AgentPlanStepAssessment";
 import type { AgentRunArchive } from "./AgentRunArchive";
 import type { AgentSessionService } from "./sessions/AgentSessionService";
 
+import type { NodeRun, StepRunControl } from "./AgentPlanStepContext";
+export type { StepRunControl } from "./AgentPlanStepContext";
+
 interface StepRunnerDependencies {
   readonly start: Pick<AgentPlanStepStart, "prepare"> &
     Partial<Pick<AgentPlanStepStart, "prepareGroup">>;
@@ -84,37 +87,6 @@ interface StepRunnerDependencies {
     AgentSessionService,
     "listen" | "settle" | "released" | "offer" | "abandon"
   >;
-}
-
-/** How a running node reports its record and learns about a stop. */
-export interface StepRunControl {
-  readonly signal: AbortSignal;
-  /** Claims dispatch only while the engine gate remains open. */
-  readonly claimStart?: () => void;
-  /** Explicitly identifies preparation/admission work that has not dispatched yet. */
-  readonly awaitDispatch?: () => void;
-  /** Keeps additional console turns inside the engine drain and stop boundary. */
-  readonly runInstruction?: (
-    work: PlanInstructionWork,
-  ) => Promise<PlanSessionTurn>;
-  /** Persists the newest record of the node; never throws. */
-  readonly save: (session: AgentPlanSessionRecord) => Promise<void>;
-  /** The iteration of a loop member, which decides how its session is named and kept. */
-  readonly iteration?: number;
-}
-
-/** One node from its start to its result; `record` always holds the newest state. */
-interface NodeRun {
-  readonly run: AgentPlanRun;
-  snapshot: AgentPlanSnapshot;
-  step: AgentPlanStepSnapshot;
-  control: StepRunControl;
-  record: AgentPlanSessionRecord | null;
-  hasStarted: boolean;
-  /** The loop and iteration of a loop member. */
-  readonly loop: LoopSessionTerms | null;
-  /** The session container of the node: its group, or the loop's session of its agent. */
-  readonly sessionGroup: string | undefined;
 }
 
 /**
@@ -157,14 +129,18 @@ export class AgentPlanStepRunner {
     control: StepRunControl,
   ): Promise<Partial<AgentPlanStepResult>> {
     control.awaitDispatch?.();
+    const previous = run.steps.find(
+      (result) => result.id === step.step.id,
+    )?.session;
     const loop = loopSessionTerms(step, snapshot, control.iteration);
     const node: NodeRun = {
       run,
       snapshot,
       step,
       control,
-      record: null,
+      record: previous?.retry ? previous : null,
       hasStarted: false,
+      retry: previous?.retry ?? null,
       loop,
       sessionGroup: planSessionGroup(step, loop),
     };
@@ -174,17 +150,16 @@ export class AgentPlanStepRunner {
       : null;
     try {
       if (slot) await waitForTurn(slot.ready, control.signal);
-      return await this.execute(node);
+      return await runPlanNodeAttempts(node, {
+        execute: () => this.execute(node),
+        failure: (error) => this.failure(node, error),
+        paused: () => this.pauseUnstarted(node),
+        save: (changes) => this.complete(node, changes),
+      });
     } catch (error: unknown) {
       logCaughtError("AgentPlanStepRunner", error);
-
-      if (
-        !node.hasStarted &&
-        (error instanceof AgentPlanPausedError ||
-          control.signal.reason instanceof AgentPlanPausedError)
-      ) {
+      if (control.signal.reason instanceof AgentPlanPausedError)
         return this.pauseUnstarted(node);
-      }
       return this.failure(node, error);
     } finally {
       slot?.release();
@@ -258,7 +233,11 @@ export class AgentPlanStepRunner {
         node.run.id,
         group ?? node.step.step.id,
       );
-    return { status: "paused", session: null, error: null };
+    return {
+      status: "paused",
+      session: node.retry ? node.record : null,
+      error: null,
+    };
   }
 
   private async prepareGroup(node: NodeRun): Promise<void> {
@@ -619,6 +598,9 @@ export class AgentPlanStepRunner {
     );
     if (node.record)
       await this.complete(node, {
+        ...(error instanceof AgentProviderError
+          ? { providerFailure: error.failure }
+          : {}),
         endedAt: new Date().toISOString(),
         closeout: failureCloseout(node, error, stopped.at(0)?.closed),
         resultCode: -1,
@@ -665,7 +647,7 @@ export class AgentPlanStepRunner {
     node: NodeRun,
     record: AgentPlanSessionRecord,
   ): Promise<void> {
-    node.record = record;
-    await node.control.save(record);
+    node.record = node.retry ? { ...record, retry: node.retry } : record;
+    await node.control.save(node.record);
   }
 }

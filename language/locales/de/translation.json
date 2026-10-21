@@ -3265,6 +3265,28 @@
     "save": "Arbeitsbereich speichern"
   },
   "plans": {
+    "retry": {
+      "state": {
+        "waiting": "Wartet auf automatische Wiederholung",
+        "running": "Wiederholung läuft",
+        "blocked": "Automatische Wiederholung blockiert",
+        "completed": "Nach Wiederholung abgeschlossen",
+        "cancelled": "Wiederholung gestoppt"
+      },
+      "reason": {
+        "transient": "Die Anbindung ist vorübergehend nicht verfügbar. Die Abstände zwischen weiteren Versuchen werden größer.",
+        "quota": "Das Kontingent ist verbraucht. Der nächste Versuch erfolgt frühestens eine Minute nach dem gemeldeten Reset.",
+        "reset_unknown": "Kein eindeutiger Reset-Zeitpunkt gemeldet. Der Node bleibt blockiert; es wird kein anderes Modell verwendet.",
+        "exhausted": "Alle zehn Wiederholungen sind ausgeschöpft. Der Node bleibt mit der letzten Ursache blockiert.",
+        "unsafe": "Eine automatische Wiederholung kann die gemeinsame Session oder bereits begonnene Aktionen nicht sicher erhalten. Seiteneffekte prüfen und ausdrücklich fortsetzen."
+      },
+      "count": "Wiederholungen: {{count}} von {{maximum}}",
+      "resetAt": "Gemeldeter Reset: {{time}}",
+      "nextAt": "Nächster Versuch: {{time}}",
+      "history": "Fehlgeschlagene Versuche",
+      "completedHint": "Der Node wurde erfolgreich abgeschlossen. Frühere Fehler bleiben im Verlauf erhalten.",
+      "lastCause": "Letzte Fehlerursache: {{cause}}"
+    },
     "completion": {
       "label": "Fortschrittsbericht",
       "report": "TODOs und Abnahmekriterien",
@@ -4179,11 +4201,11 @@
       },
       "mode": {
         "native_resume": "Frühere Agent-Sitzung fortsetzen",
-        "new_session": "Neue Agent-Sitzung"
+        "new_session": "Neuer Versuch"
       },
       "modeHint": {
         "native_resume": "der Adapter setzt die gespeicherte Sitzung mit ihrem Verlauf fort.",
-        "new_session": "der Agent startet ohne Erinnerung an den früheren Versuch und erhält Auftrag, übernommene Ergebnisse und einen Wiederherstellungshinweis."
+        "new_session": "offene Schritte starten als neuer Versuch. Agents erhalten eine neue Sitzung mit Auftrag, übernommenen Ergebnissen und Wiederherstellungshinweis."
       },
       "modeUnavailable": "hier nicht möglich: der Adapter kann die Sitzung nicht fortsetzen oder sie ist unbekannt.",
       "resume": "Ab letztem sicheren Stand fortsetzen",

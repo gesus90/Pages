@@ -96,10 +96,11 @@ export function restartOption(facts: RecoveryFacts): AgentPlanRecoveryOption {
 }
 
 /**
- * A resume continues only the newest, failed run of the plan, once.
+ * A resume continues only the newest ended, unfinished run of the plan, once.
  *
  * @remarks
- * An explicit stop stays final, and a successful run has nothing to resume.
+ * An explicit stop ends the original run; a reviewed resume starts a new linked run.
+ * A successful run has nothing to resume.
  * Uncertain cleanup is settled by the resume itself, or named when it cannot be.
  */
 export function resumeOption(
@@ -110,8 +111,6 @@ export function resumeOption(
   if (!restart.available) return restart;
   const { run } = facts;
   if (run.status === "succeeded") return blocked("succeeded");
-  if (run.stopRequested || run.status === "cancelled")
-    return blocked("cancelled_by_user");
   if (continuedRun(facts.executions) !== null)
     return blocked("already_continued");
   if (facts.latest && facts.latest.id !== run.id) return blocked("superseded");

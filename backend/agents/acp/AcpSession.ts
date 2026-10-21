@@ -9,6 +9,7 @@ import { readTicketAssetInput } from "@/backend/agents/TicketAssetInput";
 import { closeCliSession } from "@/backend/agents/cli/CliSessionCloseout";
 import { noteSessionEvent } from "@/backend/agents/cli/CliSessionEvents";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { diagnosticProviderFailure } from "@/backend/agents/AgentProviderFailure";
 import { readContinuationCapabilities } from "@/backend/service/agents/sessions/AgentSessionContinuation";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 
@@ -23,6 +24,7 @@ import {
   createAcpSessionState,
   readAcpConfiguration,
   readAcpUpdate,
+  noteAcpStderr,
 } from "./AcpEvents";
 import { reportAcpPlanActivity } from "./AcpPlanActivity";
 import { AcpMcpReadiness } from "./AcpMcpReadiness";
@@ -70,7 +72,6 @@ const AUTH_REQUIRED = -32000;
 const PROGRESS_INTERVAL_MS = 5_000;
 /** How long closing waits for the adapter to end the protocol session. */
 const SESSION_CLOSE_WAIT_MS = 5_000;
-const STDERR_EVENT_CHARACTERS = 200;
 /**
  * The ACP session of one plan node, from the handshake to the closeout.
  *
@@ -229,6 +230,7 @@ export class AcpSession implements PlanSession {
     this.state.messageId = null;
     this.state.isMessageOpen = false;
     this.state.permissionDenials = 0;
+    this.state.providerFailure = null;
     this.openCodeFailure = null;
     this.state.tools.clear();
     const cancel = (): void => {
@@ -311,7 +313,7 @@ export class AcpSession implements PlanSession {
       stopFailure(response.stopReason),
       this.state.isMcpUnavailable
         ? "plan_mcp_unavailable"
-        : this.openCodeFailure,
+        : (this.state.providerFailure?.code ?? this.openCodeFailure),
     );
   }
 
@@ -568,26 +570,14 @@ export class AcpSession implements PlanSession {
       );
     }
     if (error instanceof AgentError) return this.ended("failed", error.code);
-    const { sessionFailed } = this.context.driver.errors;
-    if (this.connection.signal.aborted) {
-      const exit = await this.process.exited;
-      // The deadline of the process itself can fire before the one of the node.
-      if (exit.errorCode === "check_timeout")
-        return this.ended("timeout", null);
-      if (
-        exit.errorCode === "acp_worker_limit" ||
-        exit.errorCode === "acp_output_overflow"
-      )
-        return this.ended("failed", exit.errorCode);
-      if (this.context.driver.provider !== "opencode")
-        this.noteStderr(exit.stderrTail);
-      return this.ended(
-        "failed",
-        this.context.driver.provider === "opencode"
-          ? classifyOpenCodeFailure(exit.stderrTail)
-          : sessionFailed,
-      );
+    const providerFailure =
+      diagnosticProviderFailure(error) ?? this.state.providerFailure;
+    if (providerFailure) {
+      this.state.providerFailure = providerFailure;
+      return this.ended("failed", providerFailure.code);
     }
+    const { sessionFailed } = this.context.driver.errors;
+    if (this.connection.signal.aborted) return this.disconnected();
     if (this.context.driver.provider === "opencode") {
       const code = openCodeAcpFailure(error);
       noteSessionEvent(this.state.events, `OpenCode failure: ${code}`);
@@ -602,17 +592,23 @@ export class AcpSession implements PlanSession {
     return this.ended("failed", sessionFailed);
   }
 
-  private noteStderr(tail: string): void {
-    const line = tail
-      .split("\n")
-      .map((entry) => entry.trim())
-      .filter(Boolean)
-      .at(-1);
-    if (line)
-      noteSessionEvent(
-        this.state.events,
-        `adapter ${this.redact(line).slice(0, STDERR_EVENT_CHARACTERS)}`,
-      );
+  private async disconnected(): Promise<PlanSessionTurn> {
+    const exit = await this.process.exited;
+    // The deadline of the process itself can fire before the one of the node.
+    if (exit.errorCode === "check_timeout") return this.ended("timeout", null);
+    if (
+      exit.errorCode === "acp_worker_limit" ||
+      exit.errorCode === "acp_output_overflow"
+    )
+      return this.ended("failed", exit.errorCode);
+    if (this.context.driver.provider !== "opencode")
+      noteAcpStderr(this.state, exit.stderrTail, (line) => this.redact(line));
+    return this.ended(
+      "failed",
+      this.context.driver.provider === "opencode"
+        ? classifyOpenCodeFailure(exit.stderrTail)
+        : this.context.driver.errors.sessionFailed,
+    );
   }
 
   private ended(
@@ -636,6 +632,9 @@ export class AcpSession implements PlanSession {
       sessionId: state.sessionId === null ? null : this.redact(state.sessionId),
       failure,
       errorCode,
+      ...(state.providerFailure
+        ? { providerFailure: state.providerFailure }
+        : {}),
       endedAt: new Date().toISOString(),
       permissionDenials: state.permissionDenials,
       effective: Object.fromEntries(
