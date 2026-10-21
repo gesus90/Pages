@@ -44,6 +44,7 @@ import { AgentPlanGitHubCredentials } from "@/backend/service/agents/AgentPlanGi
 import { CliGitHubCredentials } from "@/backend/agents/cli/CliGitHubCredentials";
 
 import { createAgentConfigurationServices } from "./agent-workspace-services.server";
+import { createRemoteServices } from "./remote-services.server";
 
 import type { AgentToolManagerService } from "@/backend/service/agents/tools/AgentToolManagerService";
 import type { AcpResourceOptions } from "@/definition/AcpResource";
@@ -53,8 +54,10 @@ import type { PlanExecution } from "@/backend/agents/AgentPlanExecution";
 import type { TextExecution } from "@/backend/agents/TextExecution";
 import type { AgentWorkspaceService } from "@/backend/service/agents/AgentWorkspaceService";
 import type { AgentConfigurationApplicationServices } from "./agent-workspace-services.server";
+import type { RemoteApplicationServices } from "./remote-services.server";
 
-export interface AgentApplicationServices extends AgentConfigurationApplicationServices {
+export interface AgentApplicationServices
+  extends AgentConfigurationApplicationServices, RemoteApplicationServices {
   readonly agentToolManagerService: AgentToolManagerService;
   readonly agentToolStartupService: AgentToolStartupService;
   readonly acpResourceScheduler: AcpResourceScheduler;
@@ -323,6 +326,7 @@ export function createAgentServices(
   return {
     ...configuration,
     ...github,
+    ...createRemoteServices({ database, cipher }),
     acpResourceScheduler,
     agentToolManagerService,
     agentToolStartupService: new AgentToolStartupService({

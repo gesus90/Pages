@@ -229,7 +229,10 @@ export function SearchableSelectPanel({
     <div
       ref={revealElement}
       role="presentation"
-      className="absolute inset-x-0 top-full z-50 mt-1 space-y-2 rounded-xl bg-surface p-2 shadow-panel"
+      className={cn(
+        "absolute inset-x-0 z-50 space-y-2 rounded-xl bg-surface p-2 shadow-panel",
+        state.placement === "above" ? "bottom-full mb-1" : "top-full mt-1",
+      )}
       onMouseDown={keepSearchFocus}
     >
       <Input

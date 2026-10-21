@@ -39,9 +39,13 @@ export interface SearchableSelectSection {
   readonly groups: readonly SearchableSelectGroup[];
 }
 
+/** Where the open panel lies: below the trigger, or above it when there is no room below. */
+export type SearchableSelectPlacement = "below" | "above";
+
 /** State of one searchable select, shared by its trigger and its panel. */
 export interface SearchableSelectState {
   readonly isOpen: boolean;
+  readonly placement: SearchableSelectPlacement;
   readonly query: string;
   readonly pressedTags: readonly string[];
   readonly sections: readonly SearchableSelectSection[];
@@ -70,6 +74,38 @@ const ARROW_OFFSETS: Partial<Record<string, number>> = {
   ArrowDown: 1,
   ArrowUp: -1,
 };
+
+/** Room the open panel needs below the trigger before it opens upwards. */
+const PANEL_HEIGHT = 320;
+
+/** The visible band of the page around an element, narrowed by every clipping ancestor such as a dialog. */
+function visibleBand(element: HTMLElement): {
+  readonly top: number;
+  readonly bottom: number;
+} {
+  let top = 0;
+  let bottom = window.innerHeight;
+  for (let parent = element.parentElement; parent;) {
+    if (getComputedStyle(parent).overflowY !== "visible") {
+      const bounds = parent.getBoundingClientRect();
+      top = Math.max(top, bounds.top);
+      bottom = Math.min(bottom, bounds.bottom);
+    }
+    parent = parent.parentElement;
+  }
+  return { top, bottom };
+}
+
+function choosePlacement(
+  trigger: HTMLElement | null,
+): SearchableSelectPlacement {
+  if (!trigger) return "below";
+  const band = visibleBand(trigger);
+  const bounds = trigger.getBoundingClientRect();
+  const below = band.bottom - bounds.bottom;
+  const above = bounds.top - band.top;
+  return below < PANEL_HEIGHT && above > below ? "above" : "below";
+}
 
 function isEnabled(option: SearchableSelectOption): boolean {
   return option.disabled !== true;
@@ -158,6 +194,8 @@ export function useSearchableSelect(input: {
   readonly disabled: boolean;
 }): SearchableSelectState {
   const [isExpanded, setIsOpen] = useState(false);
+  const [placement, setPlacement] =
+    useState<SearchableSelectPlacement>("below");
   // A disabled select, for example while its form saves, shows no panel.
   const isOpen = isExpanded && !input.disabled;
   const [query, setQuery] = useState("");
@@ -195,6 +233,7 @@ export function useSearchableSelect(input: {
   function open(): void {
     setQuery("");
     setActiveValue(input.value);
+    setPlacement(choosePlacement(trigger.current));
     setIsOpen(true);
   }
 
@@ -226,6 +265,7 @@ export function useSearchableSelect(input: {
 
   return {
     isOpen,
+    placement,
     query,
     pressedTags,
     sections,

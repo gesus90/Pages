@@ -81,9 +81,9 @@ const COUNT_STATEMENTS: Readonly<Record<ProjectDeletionCountKey, string>> = {
   plans: "SELECT COUNT(*) FROM agent_plans WHERE project_id = $project_id;",
   planRuns: `SELECT COUNT(*) FROM (${PLAN_RUNS}) AS plan_runs;`,
   workspaces: `
-    SELECT COUNT(*)
-    FROM agent_workspaces
-    WHERE project_id = $project_id;
+    SELECT
+        (SELECT COUNT(*) FROM agent_workspaces WHERE project_id = $project_id)
+        + (SELECT COUNT(*) FROM remote_workspaces WHERE project_id = $project_id);
   `,
   importRuns: `
     SELECT COUNT(*)

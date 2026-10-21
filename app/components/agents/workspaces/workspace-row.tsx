@@ -58,6 +58,21 @@ function WorkspaceActions(props: {
   );
 }
 
+/** Name and project of a registration in one cell, as local and remote rows show them. */
+export function WorkspaceNameCell(props: {
+  readonly name: string;
+  readonly projectName: string;
+}): React.ReactElement {
+  return (
+    <th scope="row" className="px-4 py-3 text-left font-medium">
+      <span className="pages-selectable block">{props.name}</span>
+      <span className="pages-selectable block text-xs font-normal text-muted-foreground">
+        {props.projectName}
+      </span>
+    </th>
+  );
+}
+
 /** Keeps path failures visible and registration administration separate from usage. */
 export function WorkspaceRow(props: {
   readonly workspace: AgentWorkspaceView;
@@ -68,11 +83,12 @@ export function WorkspaceRow(props: {
   const { t } = useTranslation();
   const { workspace } = props;
   return (
-    <tr>
-      <th scope="row" className="pages-selectable px-4 py-3 font-medium">
-        {workspace.name}
-      </th>
-      <td className="pages-selectable px-4 py-3">{workspace.projectName}</td>
+    <tr className="align-top">
+      <WorkspaceNameCell
+        name={workspace.name}
+        projectName={workspace.projectName}
+      />
+      <td className="px-4 py-3">{t("remote.workspace.localLocation")}</td>
       <td className="pages-selectable max-w-80 px-4 py-3 font-mono break-all">
         {workspace.path}
       </td>

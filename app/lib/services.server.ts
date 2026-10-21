@@ -143,6 +143,8 @@ function registerShutdownHandler(
       await agents.agentToolManagerService.shutdown();
       await agents.agentToolStartupService.shutdown();
       await agents.agentCliLoginService.shutdown();
+      await agents.remoteSessions.shutdown();
+      await agents.sshClient.dispose();
       await database.close();
     } catch (error: unknown) {
       logCaughtError("services", error);

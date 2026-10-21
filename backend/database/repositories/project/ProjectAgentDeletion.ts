@@ -142,6 +142,11 @@ export async function deleteProjectAgentData(
     "DELETE FROM agent_workspaces WHERE project_id = $project_id;",
     parameters,
   );
+  // Remote profiles go with their project; the remote directories stay untouched.
+  await database.execute(
+    "DELETE FROM remote_workspaces WHERE project_id = $project_id;",
+    parameters,
+  );
   await database.execute(
     `DELETE FROM agent_import_items WHERE run_id IN (${IMPORT_RUNS});`,
     parameters,

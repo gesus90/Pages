@@ -7,7 +7,8 @@ import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { AgentPlanRetry } from "@/definition/AgentPlanRetry";
 import type { AgentPlanSessionRecord } from "@/definition/AgentPlanSession";
 
-const RETRY_DELAYS = [
+/** Growing waits before each of the ten retries; remote reconnects follow the same scheme. */
+export const PLAN_RETRY_DELAYS = [
   1_000, 5_000, 10_000, 20_000, 30_000, 60_000, 120_000, 180_000, 240_000,
   300_000,
 ] as const;
@@ -68,7 +69,7 @@ function retryDecision(
     return { ...base, state: "blocked", reason: "reset_unknown" };
   if (attempts.length > PLAN_MAXIMUM_RETRIES)
     return { ...base, state: "blocked", reason: "exhausted" };
-  const delay = RETRY_DELAYS[attempts.length - 1];
+  const delay = PLAN_RETRY_DELAYS[attempts.length - 1];
   const release =
     resetAt === null ? 0 : Date.parse(resetAt) + RESET_GRACE_MILLISECONDS;
   return {

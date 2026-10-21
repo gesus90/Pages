@@ -798,6 +798,63 @@ files produce an explicit error; the prompt is not sent partially. Historical
 run reads also reauthorize the original asset references, even after their
 links have been removed from the ticket description.
 
+## Remote working directories (PAGE-138)
+
+The page **Agents → Arbeitsverzeichnis** lists remote connections above the
+workspaces. A remote connection is SSH access to a Linux machine, for example
+an Ubuntu container on a NAS; Pages itself stays where it runs.
+
+- **Configuration.** Only administrators add, edit, test and remove
+  connections: name, host name or address, SSH port, SSH user, sign-in method
+  (password, private key, private key with passphrase) and exactly one
+  department. Members of that department use the connection; there is no
+  global or per-person sharing. Every action rereads account, memberships and
+  project rights, so a revoked membership blocks the next use.
+- **Secrets.** Passwords, keys and passphrases are encrypted with the existing
+  instance cipher (the key next to the database, or `PAGES_GITHUB_TOKEN_KEY`),
+  bound to the connection and the kind of secret. No response and no log
+  contains them; the dialog only says whether one is stored. They are separate
+  from Codex, Claude and OpenCode logins.
+- **Host key.** "Verbindung testen" checks reachability, host key and sign-in
+  separately. The machine's key is shown with its SHA-256 fingerprint and must
+  be confirmed before a password or key is sent; every later connection
+  accepts only that key. A new host or port drops the confirmed key. While no
+  key is confirmed, the status asks to confirm it in the dialog, because no
+  reconnect attempt can sign in without it.
+- **Workspace profiles.** A connection can carry several profiles. Each has a
+  stable identifier, one project (whose GitHub link is shown and used) and the
+  canonical absolute path that a read-only check over SSH found readable,
+  writable and traversable. A `host:path` text is no connection.
+- **Allowed directories.** Each connection lists the absolute directories its
+  profiles must lie in ("Erlaubte Verzeichnisse"); without an entry only the
+  SSH user's home `/home/<user>` is allowed. The check compares the canonical
+  path on the machine with the directories as written and as resolved there,
+  so neither `..` nor a symbolic link leads outside; a path outside is refused
+  as such. A changed list leaves the stored state of registered profiles as
+  it is; their row shows "Prüfung veraltet" until "Prüfen" applies the new
+  list. Profiles are not rechecked automatically.
+- **Logical connection.** Checks open one OpenSSH connection per remote
+  connection, watched by keepalive probes and closed after ten idle minutes.
+  A lost transport starts at most ten reconnect attempts at the growing
+  intervals of plan retries (1 s to 5 min); the page shows count, next attempt
+  and cause. A first connect or a test of a closed connection starts the same
+  series when the machine is not reachable or its host key is not confirmed
+  yet; a confirmed key that differs and a refused sign-in are refused at once,
+  because they need a person's input. Afterwards the connection is blocked
+  until "Erneut verbinden" starts a new series. A command whose transport
+  broke is reported as interrupted and is never repeated on its own.
+
+Pages runs the OpenSSH client of the server (`ssh`, `ssh-keyscan`,
+`ssh-keygen`, OpenSSH 8.4 or newer) with its own options: the account's
+`~/.ssh` configuration, keys, agent and `known_hosts` are not used. Private
+files of a running connection (pinned key, control socket, a key file that is
+removed after the sign-in) live in an owner-only `pages-ssh-*` folder in the
+temporary directory. The target needs a POSIX login shell.
+
+Remote profiles are not yet offered to Agent Plans and the MCP workspace
+operations; running plan nodes and CLI/ACP adapters on the remote machine is a
+follow-up.
+
 ## Agent Plans
 
 Under **Agents → Agent Plan** (`/agents/plans`) the plan editor is one

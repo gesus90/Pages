@@ -3,6 +3,7 @@ import { data as routeData, useLoaderData } from "react-router";
 import { WorkspaceLoadError } from "@/app/components/agents/workspaces/workspace-load-error";
 import { WorkspacePage } from "@/app/components/agents/workspaces/workspace-page";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
+import { loadRemoteOverview } from "@/app/lib/remote-actions.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { readSettingsRequest } from "@/app/lib/settings-actions/settings-request.server";
 import {
@@ -12,8 +13,18 @@ import {
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
+import type { ShouldRevalidateFunctionArgs } from "react-router";
 import type { AgentWorkspacePage } from "@/definition/AgentWorkspace";
+import type { RemoteOverview } from "@/definition/RemoteConnection";
 import type { Route } from "./+types/agent-workspaces";
+
+const REMOTE_ACTION = "/agents/workspaces/remote";
+
+/** Local registrations and the remote connections and profiles of one page. */
+interface WorkspaceOverview {
+  readonly page: AgentWorkspacePage;
+  readonly remote: RemoteOverview;
+}
 
 /** Keeps directory metadata and action responses out of browser and proxy caches. */
 export const headers: Route.HeadersFunction = ({ parentHeaders }) => {
@@ -22,19 +33,22 @@ export const headers: Route.HeadersFunction = ({ parentHeaders }) => {
   return response;
 };
 
-/** Loads only the registrations of accessible projects and the management controls the person holds. */
+/**
+ * Loads only the registrations of accessible projects, the remote connections
+ * the person may use and the management controls the person holds.
+ */
 export async function loader({
   context,
-}: Route.LoaderArgs): Promise<
-  ReturnType<typeof routeData<AgentWorkspacePage>>
-> {
+}: Route.LoaderArgs): Promise<ReturnType<typeof routeData<WorkspaceOverview>>> {
   try {
     const user = context.get(authenticatedUserContext);
     if (!user) throw new AgentError("workspace_access_denied");
     const services = await getApplicationServices();
-    return routeData(await services.agentWorkspaceService.page(user.id), {
-      headers: AGENT_NO_STORE,
-    });
+    const [page, remote] = await Promise.all([
+      services.agentWorkspaceService.page(user.id),
+      loadRemoteOverview(services, user.id),
+    ]);
+    return routeData({ page, remote }, { headers: AGENT_NO_STORE });
   } catch (error: unknown) {
     logCaughtError("agent_workspaces", error);
 
@@ -81,9 +95,25 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
   }
 }
 
+/**
+ * Reloads the page after every remote action, a refused one included.
+ *
+ * @remarks
+ * A refused check can still have stored a new result or started a series,
+ * but React Router skips the reload after a 4xx answer; the row would keep
+ * its old state next to the message until the next poll.
+ */
+export function shouldRevalidate({
+  formAction,
+  defaultShouldRevalidate,
+}: ShouldRevalidateFunctionArgs): boolean {
+  return formAction === REMOTE_ACTION || defaultShouldRevalidate;
+}
+
 /** Shares the existing Pages cards and dialogs with the central agent administration. */
 export default function AgentWorkspacesRoute(): React.ReactElement {
-  return <WorkspacePage page={useLoaderData<typeof loader>()} />;
+  const { page, remote } = useLoaderData<typeof loader>();
+  return <WorkspacePage page={page} remote={remote} />;
 }
 
 /** A failed load keeps the page chrome and offers a retry. */

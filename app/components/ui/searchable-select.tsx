@@ -48,7 +48,9 @@ function triggerText(
  * The trigger is a select-only combobox; the open panel holds the search
  * field, optional prefilter toggles, a live match count and the listbox,
  * whose options are listed under their section and group headings.
- * The panel stays inside the surrounding form or dialog instead of a portal,
+ * The panel is anchored to the trigger and opens upwards when the dialog or
+ * page has no room below it. It stays inside the surrounding form or dialog
+ * instead of a portal,
  * so a modal dialog keeps the focus and pointer within reach. A saved value
  * without an option stays visible, marked as unavailable.
  */
@@ -75,41 +77,43 @@ export function SearchableSelect({
       <label id={labelId} htmlFor={id} className="block text-sm font-medium">
         {label}
       </label>
-      <button
-        ref={state.trigger}
-        id={id}
-        type="button"
-        role="combobox"
-        aria-labelledby={labelId}
-        aria-haspopup="listbox"
-        aria-expanded={state.isOpen}
-        aria-controls={state.isOpen ? state.listboxId : undefined}
-        disabled={disabled}
-        className={cn(
-          "flex min-h-9 w-full items-center justify-between gap-2 rounded-lg bg-surface px-2.5 py-1.5 text-left text-xs font-medium text-foreground shadow-xs outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-60",
-          className,
-        )}
-        onClick={state.toggle}
-        onKeyDown={state.handleTriggerKeyDown}
-      >
-        <span className="min-w-0 flex-1 wrap-anywhere">
-          {triggerText(options, value, texts)}
-        </span>
-        <ChevronDown
-          className="size-3.5 shrink-0 text-muted-foreground"
-          aria-hidden="true"
-        />
-      </button>
-      {state.isOpen ? (
-        <SearchableSelectPanel
-          state={state}
-          labelId={labelId}
-          value={value}
-          total={options.length}
-          filters={filters}
-          texts={texts}
-        />
-      ) : null}
+      <div className="relative">
+        <button
+          ref={state.trigger}
+          id={id}
+          type="button"
+          role="combobox"
+          aria-labelledby={labelId}
+          aria-haspopup="listbox"
+          aria-expanded={state.isOpen}
+          aria-controls={state.isOpen ? state.listboxId : undefined}
+          disabled={disabled}
+          className={cn(
+            "flex min-h-9 w-full items-center justify-between gap-2 rounded-lg bg-surface px-2.5 py-1.5 text-left text-xs font-medium text-foreground shadow-xs outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-60",
+            className,
+          )}
+          onClick={state.toggle}
+          onKeyDown={state.handleTriggerKeyDown}
+        >
+          <span className="min-w-0 flex-1 wrap-anywhere">
+            {triggerText(options, value, texts)}
+          </span>
+          <ChevronDown
+            className="size-3.5 shrink-0 text-muted-foreground"
+            aria-hidden="true"
+          />
+        </button>
+        {state.isOpen ? (
+          <SearchableSelectPanel
+            state={state}
+            labelId={labelId}
+            value={value}
+            total={options.length}
+            filters={filters}
+            texts={texts}
+          />
+        ) : null}
+      </div>
     </div>
   );
 }

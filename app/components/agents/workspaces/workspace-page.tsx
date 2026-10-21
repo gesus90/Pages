@@ -9,28 +9,43 @@ import { Dialog } from "@/app/components/ui/dialog";
 import { HorizontalScrollArea } from "@/app/components/ui/horizontal-scroll-area";
 import { useManagementPending } from "@/app/components/users/use-management-pending";
 
+import { RemoteConnectionsCard } from "./remote/remote-connections-card";
+import { RemoteWorkspaceRow } from "./remote/remote-workspace-row";
 import { WorkspaceForm } from "./workspace-form";
 import { WorkspaceRow } from "./workspace-row";
 
-import type {
-  AgentWorkspacePage,
-  AgentWorkspaceView,
-} from "@/definition/AgentWorkspace";
+import type { AgentWorkspacePage } from "@/definition/AgentWorkspace";
+import type { RemoteOverview } from "@/definition/RemoteConnection";
+import type { WorkspaceSubject } from "./use-workspace-form";
 
-/** Shows the local workspaces of accessible projects; managers get the registration controls. */
+const COLUMNS = [
+  "nameProject",
+  "location",
+  "pathColumn",
+  "githubColumn",
+  "state",
+];
+
+/**
+ * Shows the remote connections and the local and remote workspaces of
+ * accessible projects; managers get the registration controls.
+ */
 export function WorkspacePage({
   page,
+  remote,
 }: {
   readonly page: AgentWorkspacePage;
+  readonly remote: RemoteOverview;
 }): React.ReactElement {
   const { t } = useTranslation();
   const isLoading = useManagementPending();
-  const [selected, setSelected] = useState<AgentWorkspaceView | "new" | null>(
-    null,
-  );
+  const [selected, setSelected] = useState<WorkspaceSubject | "new">(null);
+  const isOpen = selected !== null;
   function close(): void {
     setSelected(null);
   }
+  const canRegister =
+    page.canManage && (page.isConfigured || remote.choices.length > 0);
   return (
     <div className="mx-auto w-full max-w-6xl space-y-5 px-2 pt-3 pb-10">
       <header className="flex flex-wrap items-center justify-between gap-3">
@@ -44,6 +59,7 @@ export function WorkspacePage({
           </Link>
         ) : null}
       </header>
+      <RemoteConnectionsCard overview={remote} />
       <SettingsCard
         icon={<Folder className="size-5" />}
         title={t("workspaces.listTitle")}
@@ -53,7 +69,7 @@ export function WorkspacePage({
           page.canManage ? (
             <Button
               size="sm"
-              disabled={!page.isConfigured}
+              disabled={!canRegister}
               onClick={() => setSelected("new")}
             >
               <Plus className="size-4" aria-hidden="true" />
@@ -71,19 +87,26 @@ export function WorkspacePage({
             )}
           </p>
         ) : null}
-        <WorkspaceList page={page} isLoading={isLoading} onEdit={setSelected} />
+        <WorkspaceList
+          page={page}
+          remote={remote}
+          isLoading={isLoading}
+          onEdit={setSelected}
+        />
       </SettingsCard>
       <Dialog
-        open={selected !== null}
+        open={isOpen}
         onOpenChange={(open) => {
           if (!open) close();
         }}
       >
-        {selected !== null ? (
+        {isOpen ? (
           <WorkspaceForm
-            workspace={selected === "new" ? null : selected}
+            subject={selected === "new" ? null : selected}
             projects={page.projects}
             canBrowse={page.canManage}
+            connections={remote.choices}
+            defaultLocation={page.isConfigured ? "local" : "remote"}
             onSaved={close}
           />
         ) : null}
@@ -94,8 +117,9 @@ export function WorkspacePage({
 
 function WorkspaceList(props: {
   readonly page: AgentWorkspacePage;
+  readonly remote: RemoteOverview;
   readonly isLoading: boolean;
-  readonly onEdit: (workspace: AgentWorkspaceView) => void;
+  readonly onEdit: (subject: WorkspaceSubject) => void;
 }): React.ReactElement {
   const { t } = useTranslation();
   if (props.isLoading)
@@ -110,7 +134,10 @@ function WorkspaceList(props: {
         ))}
       </div>
     );
-  if (props.page.workspaces.length === 0)
+  if (
+    props.page.workspaces.length === 0 &&
+    props.remote.workspaces.length === 0
+  )
     return (
       <p className="py-6 text-center text-sm text-muted-foreground">
         {t(
@@ -118,20 +145,21 @@ function WorkspaceList(props: {
         )}
       </p>
     );
-  return (
-    <WorkspaceTable workspaces={props.page.workspaces} onEdit={props.onEdit} />
-  );
+  return <WorkspaceTable {...props} />;
 }
 
 function WorkspaceTable(props: {
-  readonly workspaces: readonly AgentWorkspaceView[];
-  readonly onEdit: (workspace: AgentWorkspaceView) => void;
+  readonly page: AgentWorkspacePage;
+  readonly remote: RemoteOverview;
+  readonly onEdit: (subject: WorkspaceSubject) => void;
 }): React.ReactElement {
   const { t } = useTranslation();
-  // People who may manage none of the listed workspaces get no empty actions column.
-  const hasActions = props.workspaces.some((workspace) => workspace.canManage);
-  const columns = ["name", "project", "path", "github", "state"];
-  if (hasActions) columns.push("actions");
+  const { workspaces } = props.page;
+  // Remote rows always offer a check; local rows only to those who manage them.
+  const hasActions =
+    props.remote.workspaces.length > 0 ||
+    workspaces.some((workspace) => workspace.canManage);
+  const columns = hasActions ? [...COLUMNS, "actions"] : COLUMNS;
   return (
     <HorizontalScrollArea>
       <table className="w-full text-left text-sm">
@@ -145,12 +173,19 @@ function WorkspaceTable(props: {
           </tr>
         </thead>
         <tbody className="divide-y divide-border/60">
-          {props.workspaces.map((workspace) => (
+          {workspaces.map((workspace) => (
             <WorkspaceRow
               key={workspace.id}
               workspace={workspace}
               hasActions={hasActions}
-              onEdit={() => props.onEdit(workspace)}
+              onEdit={() => props.onEdit({ location: "local", workspace })}
+            />
+          ))}
+          {props.remote.workspaces.map((workspace) => (
+            <RemoteWorkspaceRow
+              key={workspace.id}
+              workspace={workspace}
+              onEdit={() => props.onEdit({ location: "remote", workspace })}
             />
           ))}
         </tbody>

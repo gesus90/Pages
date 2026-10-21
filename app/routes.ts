@@ -51,6 +51,7 @@ export default [
     route("agent-api/ticket-choices", "routes/agent-ticket-choices.ts"),
     route("agent-api/workspace-folders", "routes/agent-workspace-folders.ts"),
     route("agents/workspaces", "routes/agent-workspaces.tsx"),
+    route("agents/workspaces/remote", "routes/agent-remote.ts"),
     route("agents/agents", "routes/page-agents.tsx"),
     route(
       "agent-api/run-records/:agentId/:runId",
