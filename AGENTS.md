@@ -285,3 +285,20 @@ Do not:
 - hardcode secrets or environment-specific values
 - edit generated files instead of their sources
 - invent a new coding style when `GUIDELINES.md` already defines one
+
+---
+
+## 14. Independent Mobile App
+
+`mobile/` is the independent native Pica app (Expo, React Native, TypeScript),
+meant to become a Git submodule. It has its own `AGENTS.md`, manifest, lockfile,
+dependencies, tests and builds.
+
+- Work in `mobile/` follows `mobile/AGENTS.md` and its own gates. The Pages
+  gates (`pnpm run check`, `pnpm run lint`, `react-router build`) ignore
+  `mobile/` and must stay green without installing its dependencies.
+- Do not add a mobile dependency to the Pages, backend or MCP manifests, and do
+  not import code from `mobile/` into Pages or the reverse. Pages tests do not
+  start or import the app.
+- Do not touch `mobile/` for a Pages task or the other way round unless the task
+  names both.

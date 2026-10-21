@@ -1,0 +1,15 @@
+allowBuilds:
+  esbuild: true
+
+# Supply-chain protection, the same ten days as in Pages: only install package
+# versions published at least 10 days (14400 minutes) ago, transitive
+# dependencies included. With the strict mode a range without such a version
+# fails to resolve instead of falling back to a younger release.
+minimumReleaseAge: 14400
+
+# Optional peer dependencies of Expo packages (react-native-reanimated,
+# react-native-worklets, react-native-gesture-handler, react-native-web, ...)
+# are not installed on their own: pnpm would pick versions that do not match the
+# Expo SDK, and Expo autolinking would compile them into every native build.
+# A package the app really uses is added to package.json explicitly.
+autoInstallPeers: false

@@ -1,0 +1,29 @@
+node_modules/
+dist/
+coverage/
+.expo/
+web-build/
+
+# Native projects are generated from app.config.ts (continuous native
+# generation); EAS Build and `expo run:*` create them when needed.
+/android/
+/ios/
+
+.env
+.env.*
+!.env.example
+
+*.log
+
+# Signing material and store credentials never belong in the repository.
+*.jks
+*.keystore
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+google-services.json
+GoogleService-Info.plist
+
+.DS_Store

@@ -2339,6 +2339,65 @@ kinds and fixtures do not match just because they share a directory. There is no
 general `pnpm run test` or aggregate test script. Scope rules, source includes and
 aliases are in [tests/README.md](./tests/README.md).
 
+## Pica Mobile (submodule)
+
+`mobile/` is the native Pica app for Android and iOS (PAGE-99): Expo, React
+Native and TypeScript. It has its own repository, manifest, lockfile,
+dependencies, tests and builds, and Pages needs nothing from it. `pnpm run
+check`, `lint` and `build` of Pages ignore `mobile/`, the Pages tests never
+import from it, and no mobile dependency enters the Pages or MCP manifests. See
+[mobile/README.md](./mobile/README.md) for the app, its builds and its
+architecture.
+
+**Set up** (after the conversion below). A clone gets the app with the
+submodule; Pages works without it:
+
+```sh
+git clone --recurse-submodules <url of Pages>   # new clone
+git submodule update --init mobile               # existing clone
+pnpm --dir mobile install                        # its own dependencies
+```
+
+**Update** to the newest commit of the app and record it in Pages:
+
+```sh
+git submodule update --remote mobile
+git add mobile
+git commit -m "chore(mobile): update Pica Mobile"
+```
+
+Work on the app inside `mobile/`: it is a normal repository there. Commit and
+push in `mobile/` first, then commit the new `mobile` pointer in Pages. A CI
+checkout of Pages does not fetch submodules (the default of `actions/checkout`),
+so Pages CI stays independent; the app's CI runs in its own repository.
+
+**One-time conversion (open step).** The app is committed as a plain folder
+`mobile/` because creating the repository needs a GitHub login that the
+implementation did not have. Run once, in the Pages checkout, with the history of
+the folder moving into the new repository:
+
+```sh
+# 1. The empty repository, under the owner of Pages.
+gh repo create gesus90/pica-mobile --private \
+  --description "Pica Mobile: native Android and iOS app for Pages"
+
+# 2. Publish the history of mobile/ as the history of the new repository.
+git subtree split --prefix=mobile --branch mobile-main
+git push git@github.com:gesus90/pica-mobile.git mobile-main:main
+git branch -D mobile-main
+
+# 3. Replace the folder with the submodule.
+git rm -r mobile
+rm -rf mobile                # also removes the ignored node_modules/
+git submodule add -b main git@github.com:gesus90/pica-mobile.git mobile
+git commit -m "chore(mobile): register Pica Mobile as a submodule"
+
+pnpm --dir mobile install
+```
+
+Use the HTTPS address instead of SSH if collaborators clone without SSH keys; a
+private repository needs access for each of them.
+
 ## Repository layout
 
 | Path           | Contents                                                                 |
@@ -2350,6 +2409,7 @@ aliases are in [tests/README.md](./tests/README.md).
 | `tests/`       | Unit-test scopes and setup                                               |
 | `scripts/`     | Maintenance and proof scripts (`acp:smoke`)                              |
 | `mcp/`         | Independent MCP server package with its own manifest and lockfile        |
+| `mobile/`      | Independent Pica Mobile app (Expo); a submodule once converted           |
 | `assets/`      | Logo, README banner and the Pica mascot (`assets/pica/`)                 |
 | `server.mjs`   | Entry point of the production server                                     |
 
@@ -2362,6 +2422,8 @@ Further documentation:
 - [tests/README.md](./tests/README.md): unit-test scopes and coverage
 - [mcp/README.md](./mcp/README.md): the independent stdio MCP adapter, setup and
   tool reference
+- [mobile/README.md](./mobile/README.md): the independent Pica Mobile app, its
+  architecture and builds (see [Pica Mobile](#pica-mobile-submodule))
 - [.env.example](./.env.example): optional environment variables
 
 ## Security notes

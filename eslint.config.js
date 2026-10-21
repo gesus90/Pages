@@ -26,7 +26,14 @@ const typedSourceFiles = [
 /** ESLint flat configuration for Pages. */
 export default tseslint.config(
   {
-    ignores: ["build/**", "**/coverage/**", ".react-router/**", "**/dist/**"],
+    // `mobile/` is an independent package with its own ESLint configuration.
+    ignores: [
+      "build/**",
+      "**/coverage/**",
+      ".react-router/**",
+      "**/dist/**",
+      "mobile/**",
+    ],
   },
   {
     // Rules cannot be switched off with `eslint-disable` comments.
