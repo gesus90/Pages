@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { Checkbox } from "@/app/components/ui/checkbox";
 import { WikiActionDialog } from "@/app/components/wiki/wiki-action-dialog";
 import { wikiPagePath } from "@/app/lib/wiki-tree";
@@ -27,7 +28,11 @@ function Group({
   return entries.length === 0 ? null : (
     <fieldset className="space-y-1">
       <legend className="mb-1 text-sm font-medium">{title}</legend>
-      <div className="max-h-40 space-y-1 overflow-y-auto">
+      <ScrollViewport
+        axis="vertical"
+        containerClassName="max-h-40"
+        className="space-y-1 overflow-y-auto"
+      >
         {entries.map((entry) => (
           <label key={entry.value} className="flex items-center gap-2 text-sm">
             <Checkbox
@@ -38,7 +43,7 @@ function Group({
             {entry.label}
           </label>
         ))}
-      </div>
+      </ScrollViewport>
     </fieldset>
   );
 }

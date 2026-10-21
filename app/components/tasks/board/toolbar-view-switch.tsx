@@ -2,6 +2,7 @@ import { Flag, Kanban, List, Network } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { SegmentedControl } from "@/app/components/ui/segmented-control";
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 
 import type { SegmentedControlOption } from "@/app/components/ui/segmented-control";
 import type { BoardView } from "@/definition/BoardPreferences";
@@ -42,12 +43,14 @@ export function ToolbarViewSwitch({
   ];
 
   return (
-    <SegmentedControl
-      ariaLabel={t("tasks.view.label")}
-      className="max-w-full overflow-x-auto"
-      onValueChange={onViewChange}
-      options={options}
-      value={view}
-    />
+    <ScrollViewport axis="horizontal" containerClassName="max-w-full">
+      <SegmentedControl
+        ariaLabel={t("tasks.view.label")}
+        className="w-max min-w-full"
+        onValueChange={onViewChange}
+        options={options}
+        value={view}
+      />
+    </ScrollViewport>
   );
 }

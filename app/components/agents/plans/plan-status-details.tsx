@@ -1,6 +1,7 @@
 import { Crosshair } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { Button } from "@/app/components/ui/button";
 
 import { PlanStatusActivity } from "./plan-status-activity";
@@ -35,17 +36,21 @@ export function PlanStatusDetails({
       </p>
     );
   return (
-    <div
+    <ScrollViewport
+      axis="vertical"
       tabIndex={0}
       role="region"
       aria-label={t("plans.progress.open")}
-      className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain border-t border-border/80 px-4 py-3 text-xs leading-4.5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none @2xl/status:grid @2xl/status:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] @2xl/status:overflow-hidden"
+      containerClassName="min-h-0 flex-1"
+      className="flex flex-col gap-4 overflow-y-auto overscroll-contain border-t border-border/80 px-4 py-3 text-xs leading-4.5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none @2xl/status:grid @2xl/status:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] @2xl/status:overflow-hidden"
     >
-      <div
+      <ScrollViewport
+        axis="vertical"
         tabIndex={0}
         role="region"
         aria-label={t("plans.progress.step", { number })}
-        className="min-w-0 shrink-0 overscroll-contain pr-1 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none @2xl/status:min-h-0 @2xl/status:overflow-y-auto @2xl/status:border-r @2xl/status:border-border/80 @2xl/status:pr-4"
+        containerClassName="min-w-0 shrink-0 @2xl/status:min-h-0"
+        className="overflow-visible overscroll-contain pr-1 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none @2xl/status:overflow-x-hidden @2xl/status:overflow-y-auto @2xl/status:border-r @2xl/status:border-border/80 @2xl/status:pr-4"
       >
         <div className="mb-3 flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -78,11 +83,11 @@ export function PlanStatusDetails({
             canLocate ? "plans.progress.locate" : "plans.progress.nodeMissing",
           )}
         </Button>
-      </div>
+      </ScrollViewport>
       {step.script ? null : (
         <PlanStatusTodos key={step.id} step={step} number={number} />
       )}
-    </div>
+    </ScrollViewport>
   );
 }
 

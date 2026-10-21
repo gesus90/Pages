@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
+
 import { TasksListHead } from "./list/tasks-list-head";
 import { TasksListRow } from "./list/tasks-list-row";
 
@@ -60,7 +62,10 @@ export function TasksList({
   }
 
   return (
-    <div className="overflow-x-auto rounded-2xl bg-surface shadow-card">
+    <ScrollViewport
+      axis="horizontal"
+      className="overflow-x-auto rounded-2xl bg-surface shadow-card"
+    >
       <table className="w-full text-left text-xs">
         <TasksListHead onSort={handleHeaderClick} />
         <tbody className="divide-y divide-muted/60">
@@ -87,6 +92,6 @@ export function TasksList({
           {t("tasks.view.showMore", { count: hiddenCount })}
         </button>
       ) : null}
-    </div>
+    </ScrollViewport>
   );
 }

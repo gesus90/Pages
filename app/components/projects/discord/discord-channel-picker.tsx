@@ -2,6 +2,7 @@ import { Hash, Megaphone } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/lib/cn";
 
@@ -122,7 +123,12 @@ export function DiscordChannelPicker({
           {t("projectDetail.discord.channels.none")}
         </p>
       ) : (
-        <ul className="flex max-h-72 flex-col gap-2 overflow-y-auto pr-1">
+        <ScrollViewport
+          as="ul"
+          axis="vertical"
+          containerClassName="max-h-72"
+          className="flex flex-col gap-2 overflow-y-auto pr-1"
+        >
           {channels.map((channel) => (
             <ChannelOption
               channel={channel}
@@ -131,7 +137,7 @@ export function DiscordChannelPicker({
               onSelect={setSelectedId}
             />
           ))}
-        </ul>
+        </ScrollViewport>
       )}
       <div className="flex flex-wrap gap-2">
         <Button

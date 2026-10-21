@@ -1,10 +1,10 @@
 import { Check, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { cn } from "@/app/lib/cn";
 
 import { PlanTicketIcon } from "../../plan-node-icon";
-
 import { isFilteredTicketQuery, phaseTone } from "./ticket-picker-results";
 import { useTicketTime } from "./use-ticket-time";
 
@@ -173,14 +173,17 @@ export function TicketPickerList(props: ListProps): React.ReactElement {
       <ListNotice {...props} />
       {/* The list reaches into the panel's padding, so a highlighted row
           stands out over the column edge without being clipped. */}
-      <ul
+      <ScrollViewport
+        as="ul"
+        axis="vertical"
         id={state.listboxId}
         role="listbox"
         aria-label={t("plans.ticketPicker.list")}
-        className={cn(
-          "pages-thin-scrollbar -mx-2.5 h-full overflow-y-auto overscroll-contain px-2.5",
+        containerClassName={cn(
+          "h-full",
           state.results.length === 0 && "hidden",
         )}
+        className="-mx-2.5 overscroll-contain px-2.5"
       >
         {state.results.map((task, index) => (
           <TicketRow
@@ -191,7 +194,7 @@ export function TicketPickerList(props: ListProps): React.ReactElement {
             list={props}
           />
         ))}
-      </ul>
+      </ScrollViewport>
     </div>
   );
 }

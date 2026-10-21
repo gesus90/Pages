@@ -181,7 +181,7 @@ function ToolVersionFacts({
             : "agentTools.approved",
         )}
       </dt>
-      <dd>{tool.approvedVersion ?? "—"}</dd>
+      <dd className="break-words">{tool.approvedVersion ?? "—"}</dd>
     </>
   );
 }

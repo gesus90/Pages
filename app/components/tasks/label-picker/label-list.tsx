@@ -1,3 +1,4 @@
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { LabelListItem } from "@/app/components/tasks/label-picker/label-list-item";
 
 import type { LabelEditing } from "@/app/components/tasks/label-picker/use-label-editing";
@@ -22,7 +23,12 @@ export function LabelList({
   onToggle,
 }: LabelListProps): React.ReactElement {
   return (
-    <ul className="mt-3 flex max-h-64 flex-col gap-1 overflow-y-auto">
+    <ScrollViewport
+      as="ul"
+      axis="vertical"
+      containerClassName="mt-3 max-h-64"
+      className="flex flex-col gap-1 overflow-y-auto"
+    >
       {labels.map((label) => (
         <LabelListItem
           key={label.id}
@@ -34,6 +40,6 @@ export function LabelList({
           usage={labelUsage[label.id] ?? 0}
         />
       ))}
-    </ul>
+    </ScrollViewport>
   );
 }

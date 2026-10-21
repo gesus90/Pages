@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { Input } from "@/app/components/ui/input";
 import { focusOnMount } from "@/app/lib/focus-on-mount";
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 
 import type { ChangeEvent, KeyboardEvent } from "react";
 
@@ -92,7 +93,12 @@ export function MilestoneSearchSelect<Option extends SearchOption>({
               aria-label={searchPlaceholder}
               onChange={handleQueryChange}
             />
-            <ul className="mt-1 max-h-48 overflow-y-auto">
+            <ScrollViewport
+              as="ul"
+              axis="vertical"
+              containerClassName="mt-1 max-h-48"
+              className="overflow-y-auto"
+            >
               {matches.map((option) => (
                 <li key={option.id}>
                   <button
@@ -111,7 +117,7 @@ export function MilestoneSearchSelect<Option extends SearchOption>({
                   {searchPlaceholder}
                 </li>
               ) : null}
-            </ul>
+            </ScrollViewport>
           </div>
         </>
       ) : null}

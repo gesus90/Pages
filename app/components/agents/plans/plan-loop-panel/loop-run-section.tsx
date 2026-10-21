@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { cn } from "@/app/lib/cn";
 
 import { PLAN_NODE_TEXT } from "../plan-node-text";
@@ -110,9 +111,14 @@ function IterationRow(props: {
                 </span>
               </p>
               {node.output ? (
-                <pre className="mt-1 max-h-28 overflow-auto rounded-md bg-muted px-2 py-1.5 font-mono text-[11px] leading-4 whitespace-pre-wrap">
+                <ScrollViewport
+                  as="pre"
+                  axis="both"
+                  containerClassName="mt-1 max-h-28"
+                  className="overflow-auto rounded-md bg-muted px-2 py-1.5 font-mono text-[11px] leading-4 whitespace-pre-wrap"
+                >
                   {node.output}
-                </pre>
+                </ScrollViewport>
               ) : null}
               {node.error ? (
                 <p className="mt-1 text-destructive">

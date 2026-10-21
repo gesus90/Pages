@@ -45,7 +45,7 @@ export function PlanGroupEditor(props: GroupEditorProps): React.ReactElement {
   const { group } = props;
   const nameId = useId();
   return (
-    <fieldset disabled={props.disabled} className="flex flex-col gap-4">
+    <fieldset disabled={props.disabled} className="flex min-w-0 flex-col gap-4">
       <PanelField id={nameId} label={t("plans.groups.panel.name")}>
         <Input
           id={nameId}

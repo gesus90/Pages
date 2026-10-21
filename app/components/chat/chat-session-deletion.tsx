@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { Button } from "@/app/components/ui/button";
 
 import { chatErrorText } from "./chat-error";
@@ -89,9 +90,11 @@ export function ChatSessionDeletion({
   }
 
   return (
-    <div
+    <ScrollViewport
+      axis="vertical"
       aria-busy={isDeleting}
-      className="pages-thin-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto p-4"
+      containerClassName="min-h-0 flex-1"
+      className="space-y-3 overflow-y-auto p-4"
     >
       <h3 className="text-sm font-semibold">{t("chat.delete.title")}</h3>
       <p className="text-xs text-muted-foreground">{t("chat.delete.hint")}</p>
@@ -146,6 +149,6 @@ export function ChatSessionDeletion({
           {t("chat.cancel")}
         </Button>
       </div>
-    </div>
+    </ScrollViewport>
   );
 }

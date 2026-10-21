@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { Button } from "@/app/components/ui/button";
 
 import { ChatSessionDeletion } from "./chat-session-deletion";
@@ -40,7 +41,11 @@ export function ChatSessionPicker({
       />
     );
   return (
-    <div className="pages-thin-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
+    <ScrollViewport
+      axis="vertical"
+      containerClassName="min-h-0 flex-1"
+      className="space-y-3 overflow-y-auto p-4"
+    >
       <h3 className="text-sm font-semibold">{t("chat.sessions.title")}</h3>
       <ul className="space-y-1.5">
         {picker.sessions.map((session) => (
@@ -61,6 +66,6 @@ export function ChatSessionPicker({
       <Button onClick={onClose} variant="outline">
         {t("chat.sessions.close")}
       </Button>
-    </div>
+    </ScrollViewport>
   );
 }

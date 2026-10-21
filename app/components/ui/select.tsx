@@ -3,6 +3,8 @@ import { Check, ChevronDown } from "lucide-react";
 
 import { cn } from "@/app/lib/cn";
 
+import { ScrollViewport } from "./scroll-viewport";
+
 import type { ReactNode } from "react";
 
 interface SelectOption<Value extends string = string> {
@@ -120,46 +122,56 @@ export function Select<Value extends string = string>({
           position="popper"
           sideOffset={6}
         >
-          <SelectPrimitive.Viewport className="p-1">
-            {options.map((option) => (
-              <SelectPrimitive.Item
-                key={option.value === "" ? EMPTY_OPTION_SENTINEL : option.value}
-                value={toRadixValue(option.value)}
-                disabled={option.disabled}
-                className={cn(
-                  "flex min-h-8 cursor-pointer items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-foreground outline-none data-disabled:pointer-events-none data-disabled:opacity-50 data-highlighted:bg-muted",
-                  option.description && "items-start py-2",
-                )}
-              >
-                {option.icon ? (
-                  <span
-                    className="flex shrink-0 items-center pt-0.5"
-                    aria-hidden="true"
-                  >
-                    {option.icon}
-                  </span>
-                ) : null}
-                <span className="flex min-w-0 flex-1 flex-col break-words">
-                  <SelectPrimitive.ItemText>
-                    {option.label}
-                  </SelectPrimitive.ItemText>
-                  {option.description ? (
-                    <span
-                      className="text-xs leading-relaxed font-normal text-muted-foreground"
-                      aria-hidden="true"
-                    >
-                      {option.description}
-                    </span>
-                  ) : null}
-                </span>
-                <SelectPrimitive.ItemIndicator>
-                  <Check className="size-3.5 text-primary" aria-hidden="true" />
-                </SelectPrimitive.ItemIndicator>
-              </SelectPrimitive.Item>
-            ))}
+          <SelectPrimitive.Viewport asChild>
+            <ScrollViewport containerClassName="max-h-72" className="p-1">
+              <SelectItems options={options} />
+            </ScrollViewport>
           </SelectPrimitive.Viewport>
         </SelectPrimitive.Content>
       </SelectPrimitive.Portal>
     </SelectPrimitive.Root>
+  );
+}
+
+function SelectItems<Value extends string>({
+  options,
+}: Pick<SelectProps<Value>, "options">): React.ReactElement {
+  return (
+    <>
+      {options.map((option) => (
+        <SelectPrimitive.Item
+          key={option.value === "" ? EMPTY_OPTION_SENTINEL : option.value}
+          value={toRadixValue(option.value)}
+          disabled={option.disabled}
+          className={cn(
+            "flex min-h-8 cursor-pointer items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-foreground outline-none data-disabled:pointer-events-none data-disabled:opacity-50 data-highlighted:bg-muted",
+            option.description && "items-start py-2",
+          )}
+        >
+          {option.icon ? (
+            <span
+              className="flex shrink-0 items-center pt-0.5"
+              aria-hidden="true"
+            >
+              {option.icon}
+            </span>
+          ) : null}
+          <span className="flex min-w-0 flex-1 flex-col break-words">
+            <SelectPrimitive.ItemText>{option.label}</SelectPrimitive.ItemText>
+            {option.description ? (
+              <span
+                className="text-xs leading-relaxed font-normal text-muted-foreground"
+                aria-hidden="true"
+              >
+                {option.description}
+              </span>
+            ) : null}
+          </span>
+          <SelectPrimitive.ItemIndicator>
+            <Check className="size-3.5 text-primary" aria-hidden="true" />
+          </SelectPrimitive.ItemIndicator>
+        </SelectPrimitive.Item>
+      ))}
+    </>
   );
 }

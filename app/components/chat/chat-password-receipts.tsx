@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 
@@ -18,8 +19,10 @@ export function ChatPasswordReceipts({
   const { t } = useTranslation();
   if (receipts.length === 0) return null;
   return (
-    <div
-      className="max-h-[30dvh] shrink-0 space-y-2 overflow-y-auto border-t border-border bg-muted p-4"
+    <ScrollViewport
+      axis="vertical"
+      containerClassName="max-h-[30dvh] shrink-0"
+      className="space-y-2 overflow-y-auto border-t border-border bg-muted p-4"
       role="status"
     >
       <p className="text-sm text-muted-foreground">
@@ -40,6 +43,6 @@ export function ChatPasswordReceipts({
       <Button onClick={onDismiss} size="sm" variant="ghost">
         {t("chat.passwordReceipt.dismiss")}
       </Button>
-    </div>
+    </ScrollViewport>
   );
 }

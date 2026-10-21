@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/app/components/ui/button";
 import { isAgentParameterName } from "@/definition/AgentParameters";
 import { expandPlanGroups } from "@/definition/AgentPlanGroup";
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 
 import { planAgentName } from "./plan-layout";
 import { keepPlanControlKeys } from "./plan-flow-keys";
@@ -61,11 +62,14 @@ export function PlanRunPanel(props: {
     );
   }
   return (
-    <section
+    <ScrollViewport
+      as="section"
+      axis="vertical"
       aria-label={t("plans.panel.label")}
       data-plan-panel
       onKeyDown={keepPlanControlKeys}
-      className="pointer-events-auto min-h-0 w-full overflow-y-auto rounded-xl border border-border/70 bg-surface/95 text-foreground shadow-panel backdrop-blur-sm"
+      containerClassName="min-h-0 w-full"
+      className="pointer-events-auto overflow-y-auto rounded-xl border border-border/70 bg-surface/95 text-foreground shadow-panel backdrop-blur-sm"
     >
       <div className="sticky top-0 z-10 grid min-h-[46px] min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-1.5 bg-surface px-2.5 py-1.5 @2xl:flex">
         <div className="col-span-2 flex min-w-0 items-center gap-2 @2xl:flex-1">
@@ -115,7 +119,7 @@ export function PlanRunPanel(props: {
       </div>
       <PlanPanelBody {...props} />
       {isOpen ? <PlanPanelContext page={props.page} editor={editor} /> : null}
-    </section>
+    </ScrollViewport>
   );
 }
 

@@ -3,6 +3,8 @@ import { Check, ChevronRight } from "lucide-react";
 
 import { cn } from "@/app/lib/cn";
 
+import { ScrollViewport } from "./scroll-viewport";
+
 import type { ComponentProps } from "react";
 
 export const DropdownMenu = DropdownMenuPrimitive.Root;
@@ -19,13 +21,19 @@ export function DropdownMenuContent({
   return (
     <DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.Content
-        className={cn(
-          "z-50 min-w-44 rounded-xl bg-surface p-1 shadow-panel outline-none",
-          className,
-        )}
+        asChild
         sideOffset={sideOffset}
         {...properties}
-      />
+      >
+        <ScrollViewport
+          className={cn(
+            "z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-44 rounded-xl bg-surface p-1 shadow-panel outline-none",
+            className,
+          )}
+        >
+          {properties.children}
+        </ScrollViewport>
+      </DropdownMenuPrimitive.Content>
     </DropdownMenuPrimitive.Portal>
   );
 }
@@ -153,14 +161,16 @@ export function DropdownMenuSubContent({
 >): React.ReactElement {
   return (
     <DropdownMenuPrimitive.Portal>
-      <DropdownMenuPrimitive.SubContent
-        className={cn(
-          "z-50 min-w-44 rounded-xl bg-surface p-1 shadow-panel outline-none",
-          className,
-        )}
-        sideOffset={4}
-        {...properties}
-      />
+      <DropdownMenuPrimitive.SubContent asChild sideOffset={4} {...properties}>
+        <ScrollViewport
+          className={cn(
+            "z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-44 rounded-xl bg-surface p-1 shadow-panel outline-none",
+            className,
+          )}
+        >
+          {properties.children}
+        </ScrollViewport>
+      </DropdownMenuPrimitive.SubContent>
     </DropdownMenuPrimitive.Portal>
   );
 }

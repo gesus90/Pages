@@ -1,6 +1,8 @@
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
+
 import { ChatContextDetails } from "./chat-context-details";
 import { useChatContextDetails } from "./use-chat-context-details";
 
@@ -119,13 +121,18 @@ export function ChatContextIndicator({
         hidden={!details.isOpen}
         className="absolute inset-x-0 bottom-full z-50 pb-2"
       >
-        <span className="block max-h-[min(22rem,calc(100dvh-16rem))] overflow-y-auto rounded-lg bg-surface p-3 text-xs leading-relaxed text-foreground shadow-panel ring-1 ring-border">
+        <ScrollViewport
+          as="span"
+          axis="vertical"
+          containerClassName="max-h-[min(22rem,calc(100dvh-16rem))]"
+          className="block overflow-y-auto rounded-lg bg-surface p-3 text-xs leading-relaxed text-foreground shadow-panel ring-1 ring-border"
+        >
           <ChatContextDetails
             context={context}
             amount={amount}
             percent={percent}
           />
-        </span>
+        </ScrollViewport>
       </span>
     </span>
   );

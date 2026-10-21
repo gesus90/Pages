@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
+
 import { ConsoleComposer } from "./console-composer";
 import { ConsoleControls } from "./console-controls";
 import { ConsoleHistory } from "./console-history";
@@ -88,9 +90,12 @@ export function ConsoleSession(props: ConsoleSessionProps): React.ReactElement {
               commands={commands}
             />
           </div>
-          <aside
+          <ScrollViewport
+            as="aside"
+            axis="vertical"
             aria-label={t("plans.console.details")}
-            className="order-first max-h-[35%] shrink-0 space-y-5 overflow-y-auto border-b border-border px-5 py-4 lg:order-none lg:max-h-none lg:w-80 lg:border-b-0 lg:border-l"
+            containerClassName="order-first max-h-[35%] shrink-0 lg:order-none lg:max-h-none lg:w-80"
+            className="space-y-5 overflow-y-auto border-b border-border px-5 py-4 lg:border-b-0 lg:border-l"
           >
             <ConsoleControls
               view={view}
@@ -106,7 +111,7 @@ export function ConsoleSession(props: ConsoleSessionProps): React.ReactElement {
                 step,
               )}
             />
-          </aside>
+          </ScrollViewport>
         </div>
       ) : null}
     </>

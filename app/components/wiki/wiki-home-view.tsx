@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { useRegionFormatter } from "@/app/components/common/region-provider";
 import { WikiFeedView } from "@/app/components/wiki/wiki-feed-view";
 import { WikiPrivateMark } from "@/app/components/wiki/wiki-private-mark";
@@ -120,7 +121,10 @@ export function WikiHomeView({
             {t("wiki.home.empty")}
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-2xl border border-border">
+          <ScrollViewport
+            axis="horizontal"
+            className="overflow-x-auto rounded-2xl border border-border"
+          >
             <table className="w-full text-left text-sm">
               <thead className="bg-muted text-xs text-muted-foreground uppercase">
                 <tr>
@@ -149,7 +153,7 @@ export function WikiHomeView({
                 ))}
               </tbody>
             </table>
-          </div>
+          </ScrollViewport>
         )}
       </section>
     </div>

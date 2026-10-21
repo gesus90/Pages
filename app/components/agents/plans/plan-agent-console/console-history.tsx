@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/lib/cn";
 
@@ -136,10 +137,12 @@ export function ConsoleHistory({
   // The newest sequence keeps growing after the list reached its size limit.
   const scroll = useStickToEnd(events.at(-1)?.sequence ?? 0);
   return (
-    <div
+    <ScrollViewport
+      axis="vertical"
       ref={scroll.ref}
       onScroll={scroll.onScroll}
-      className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4"
+      containerClassName="min-h-0 flex-1"
+      className="overflow-y-auto overscroll-contain px-5 py-4"
     >
       {source === "legacy_record" ? (
         <p className="mb-3 text-xs text-muted-foreground">
@@ -178,6 +181,6 @@ export function ConsoleHistory({
           ))}
         </ol>
       )}
-    </div>
+    </ScrollViewport>
   );
 }

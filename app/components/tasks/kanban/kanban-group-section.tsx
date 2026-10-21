@@ -1,6 +1,8 @@
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
+
 import type { BoardGroupSection } from "@/app/lib/board-groups";
 
 interface KanbanGroupSectionProps {
@@ -45,11 +47,14 @@ export function KanbanGroupSection({
         </span>
       </h2>
       {/* The lane is as tall as its fullest column up to a cap, and every column stretches to it; taller columns scroll inside. */}
-      <div className="pages-hover-scrollbar overflow-x-auto overflow-y-hidden pb-2">
+      <ScrollViewport
+        axis="horizontal"
+        className="overflow-x-auto overflow-y-hidden pb-2"
+      >
         <div className="flex max-h-[34rem] w-max min-w-full items-stretch gap-4 px-1 md:gap-5 [&>section]:h-auto">
           {children}
         </div>
-      </div>
+      </ScrollViewport>
     </section>
   );
 }

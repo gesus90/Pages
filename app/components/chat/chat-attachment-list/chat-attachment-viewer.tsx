@@ -16,6 +16,7 @@ import {
 } from "@/app/lib/chat-client";
 import { formatBytes } from "@/app/lib/format-bytes";
 import { CHAT_DOCUMENT_BYTES, chatPreviewKind } from "@/definition/ChatPreview";
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 
 import { attachmentTypeLabel } from "./attachment-type";
 import { useAttachmentPreview } from "./use-attachment-preview";
@@ -63,14 +64,18 @@ function PdfViewer({
   const count = pdf.pageCount ?? 1;
   return (
     <div className="space-y-2">
-      <div className="max-h-[60dvh] overflow-auto rounded-lg bg-muted p-2">
+      <ScrollViewport
+        axis="both"
+        containerClassName="max-h-[60dvh]"
+        className="overflow-auto rounded-lg bg-muted p-2"
+      >
         <canvas
           ref={pdf.canvas}
           aria-label={t("chat.files.pdfPage", { page, count })}
           className="mx-auto h-auto w-full max-w-[35rem] bg-surface shadow-sm"
           role="img"
         />
-      </div>
+      </ScrollViewport>
       <div className="flex items-center justify-center gap-2 text-sm">
         <Button
           aria-label={t("chat.files.previousPage")}
@@ -107,7 +112,11 @@ function TablePreview({
 }): React.ReactElement {
   const { t } = useTranslation();
   return (
-    <div className="max-h-[60dvh] overflow-auto rounded-lg ring-1 ring-border">
+    <ScrollViewport
+      axis="both"
+      containerClassName="max-h-[60dvh]"
+      className="overflow-auto rounded-lg ring-1 ring-border"
+    >
       <table className="min-w-full border-collapse text-xs">
         {preview.sheet ? (
           <caption className="bg-muted px-2 py-1 text-left font-medium">
@@ -129,7 +138,7 @@ function TablePreview({
           ))}
         </tbody>
       </table>
-    </div>
+    </ScrollViewport>
   );
 }
 
@@ -149,12 +158,21 @@ function ContentPreview({
     <div className="space-y-2">
       {preview.kind === "table" ? <TablePreview preview={preview} /> : null}
       {preview.kind === "text" ? (
-        <pre className="max-h-[60dvh] overflow-auto rounded-lg bg-muted p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap">
+        <ScrollViewport
+          as="pre"
+          axis="both"
+          containerClassName="max-h-[60dvh]"
+          className="overflow-auto rounded-lg bg-muted p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap"
+        >
           {preview.text}
-        </pre>
+        </ScrollViewport>
       ) : null}
       {preview.kind === "sections" ? (
-        <div className="max-h-[60dvh] space-y-3 overflow-auto rounded-lg bg-muted p-3 text-sm">
+        <ScrollViewport
+          axis="both"
+          containerClassName="max-h-[60dvh]"
+          className="space-y-3 overflow-auto rounded-lg bg-muted p-3 text-sm"
+        >
           {preview.sections.map((section) => (
             <section key={`${section.kind}-${section.number}`}>
               {section.kind === "document" ? null : (
@@ -167,7 +185,7 @@ function ContentPreview({
               <p className="whitespace-pre-wrap">{section.text}</p>
             </section>
           ))}
-        </div>
+        </ScrollViewport>
       ) : null}
       {preview.isTruncated ? <Notice text={t("chat.files.truncated")} /> : null}
     </div>
@@ -183,13 +201,17 @@ function ViewerBody({
   switch (chatPreviewKind(attachment.contentType)) {
     case "image":
       return (
-        <div className="flex max-h-[65dvh] justify-center overflow-auto rounded-lg bg-muted p-2">
+        <ScrollViewport
+          axis="both"
+          containerClassName="max-h-[65dvh]"
+          className="flex justify-center overflow-auto rounded-lg bg-muted p-2"
+        >
           <img
             alt={t("chat.files.imageAlt", { name: attachment.fileName })}
             className="h-auto max-h-[62dvh] w-auto max-w-full object-contain"
             src={chatAttachmentImageUrl(attachment.id)}
           />
-        </div>
+        </ScrollViewport>
       );
     case "pdf":
       return <PdfViewer attachment={attachment} />;

@@ -4,10 +4,10 @@ import { useEffect, useId, useRef, useState } from "react";
 import { caretRect } from "@/app/components/editor/editor-geometry";
 import { EditorFixedToolbar } from "@/app/components/editor/editor-fixed-toolbar";
 import { EditorOverlays } from "@/app/components/editor/editor-overlays";
+import { EditorScrollFades } from "@/app/components/editor/editor-scroll-fades";
 import { useBlockEditor } from "@/app/components/editor/use-block-editor";
 import { cn } from "@/app/lib/cn";
 import { isApplePlatform } from "@/app/lib/editor/editor-shortcuts";
-
 import styles from "@/app/components/editor/block-editor.module.css";
 
 import type {
@@ -151,7 +151,11 @@ export function BlockEditor({
   return (
     <div
       ref={setContainer}
-      className={cn("relative", styles.content, className)}
+      className={cn(
+        "pages-editor-scroll-surface relative",
+        styles.content,
+        className,
+      )}
       onContextMenu={(event) => {
         if (
           event.target instanceof Node &&
@@ -174,6 +178,7 @@ export function BlockEditor({
         />
       ) : null}
       <EditorContent editor={editor} />
+      <EditorScrollFades container={container} />
       <EditorOverlays
         container={container}
         editor={editor}

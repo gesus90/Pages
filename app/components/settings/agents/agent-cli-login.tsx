@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { useRegionFormatter } from "@/app/components/common/region-provider";
 import { Button } from "@/app/components/ui/button";
 import { isLoginActive } from "@/definition/AgentConnection";
@@ -161,9 +162,13 @@ function TerminalAlternative({
       <p className="text-xs text-muted-foreground">
         {t("settings.agents.terminalHint")}
       </p>
-      <pre className="pages-selectable overflow-x-auto rounded-xl bg-muted p-3 text-xs whitespace-pre-wrap break-all">
+      <ScrollViewport
+        as="pre"
+        axis="horizontal"
+        className="pages-selectable overflow-x-auto rounded-xl bg-muted p-3 text-xs whitespace-pre-wrap break-all"
+      >
         {terminalCommand}
-      </pre>
+      </ScrollViewport>
       <AgentCopyButton
         text={terminalCommand}
         label={t("settings.agents.copyCommand")}

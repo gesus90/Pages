@@ -2,6 +2,7 @@ import { Columns3, ListTree } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, useParams, useRouteLoaderData } from "react-router";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { cn } from "@/app/lib/cn";
 import { TICKET_LAYOUT_ROUTE_ID } from "@/app/lib/ticket-tree";
 
@@ -135,8 +136,12 @@ export function TicketSidebarSection({
   }
 
   return (
-    <div className="pages-hover-scrollbar mt-1 ml-4 min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto border-l border-border pl-2">
+    <ScrollViewport
+      axis="vertical"
+      containerClassName="mt-1 ml-4 min-h-0 min-w-0 flex-1"
+      className="overflow-x-hidden overflow-y-auto border-l border-border pl-2"
+    >
       <TicketNavigation layout={layout} onNavigate={onNavigate} />
-    </div>
+    </ScrollViewport>
   );
 }

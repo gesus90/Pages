@@ -1,3 +1,4 @@
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { Checkbox } from "@/app/components/ui/checkbox";
 
 interface TemplateShareListProps {
@@ -25,7 +26,11 @@ export function TemplateShareList({
       {choices.length === 0 ? (
         <p className="text-xs text-muted-foreground">{emptyHint}</p>
       ) : (
-        <div className="flex max-h-40 flex-col gap-1 overflow-y-auto">
+        <ScrollViewport
+          axis="vertical"
+          containerClassName="max-h-40"
+          className="flex flex-col gap-1 overflow-y-auto"
+        >
           {choices.map((choice) => (
             <label
               key={choice.id}
@@ -40,7 +45,7 @@ export function TemplateShareList({
               <span className="min-w-0 break-words">{choice.name}</span>
             </label>
           ))}
-        </div>
+        </ScrollViewport>
       )}
     </fieldset>
   );

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { WikiMarkdown } from "@/app/components/wiki/wiki-markdown";
 import { cn } from "@/app/lib/cn";
 
@@ -127,9 +128,11 @@ export function ChatMessageList({
   }, [count, chat.error, isOpen, heldAt, jobState]);
 
   return (
-    <div
+    <ScrollViewport
+      axis="vertical"
       aria-label={t("chat.messages")}
-      className="pages-thin-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 mask-[linear-gradient(to_bottom,transparent,var(--color-surface)_1rem,var(--color-surface)_calc(100%_-_1rem),transparent)]"
+      containerClassName="min-h-0 flex-1"
+      className="space-y-4 overflow-y-auto overscroll-contain p-4"
       role="log"
     >
       {count === 0 && !chat.isLoading ? (
@@ -171,6 +174,6 @@ export function ChatMessageList({
         </p>
       ) : null}
       <div ref={end} />
-    </div>
+    </ScrollViewport>
   );
 }

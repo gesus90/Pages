@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { cn } from "@/app/lib/cn";
 
 import { planNodeAccent } from "./plan-layout";
@@ -91,7 +92,7 @@ export function PlanNodePalette({
         className={cn(
           "pointer-events-auto flex min-h-0 max-h-full max-w-full flex-col self-end text-foreground @5xl:self-start",
           view.isOpen &&
-            "w-56 shrink-0 rounded-xl border border-border bg-surface/95 p-2 shadow-floating backdrop-blur-sm",
+            "w-56 flex-1 rounded-xl border border-border bg-surface/95 p-2 shadow-floating backdrop-blur-sm @5xl:flex-none",
         )}
       >
         <div
@@ -104,11 +105,13 @@ export function PlanNodePalette({
           {toggleButton}
         </div>
         {view.isOpen ? (
-          <div
+          <ScrollViewport
+            axis="vertical"
             id={contentId}
             role="tabpanel"
             aria-labelledby={`${baseId}-${view.tab}`}
-            className="flex min-h-0 flex-col gap-1 overflow-y-auto overscroll-contain"
+            containerClassName="min-h-0"
+            className="flex flex-col gap-1 overflow-y-auto overscroll-contain"
           >
             {view.tab === "nodes" ? (
               <PlanPaletteRows palette={palette} />
@@ -125,7 +128,7 @@ export function PlanNodePalette({
                 {t(`settings.agents.error.${canvas.graph.insertionError}`)}
               </p>
             ) : null}
-          </div>
+          </ScrollViewport>
         ) : null}
       </aside>
       <PlanPaletteRequestDialog canvas={canvas} palette={palette} />

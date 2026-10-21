@@ -4,6 +4,7 @@ import remarkGfm from "remark-gfm";
 import { MarkdownLink } from "@/app/components/markdown/markdown-link";
 import { cn } from "@/app/lib/cn";
 import { transformMarkdownUrl } from "@/app/lib/markdown-links";
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 
 import type { Components } from "react-markdown";
 
@@ -61,9 +62,14 @@ export const MARKDOWN_COMPONENTS: Components = {
     </blockquote>
   ),
   pre: ({ children }) => (
-    <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs text-foreground">
+    <ScrollViewport
+      as="pre"
+      axis="horizontal"
+      containerClassName="mt-2"
+      className="overflow-x-auto rounded-lg bg-muted p-3 text-xs text-foreground"
+    >
       {children}
-    </pre>
+    </ScrollViewport>
   ),
   code: ({ children, className }) => (
     <code
@@ -76,11 +82,15 @@ export const MARKDOWN_COMPONENTS: Components = {
     </code>
   ),
   table: ({ children }) => (
-    <div className="mt-2 overflow-x-auto">
+    <ScrollViewport
+      axis="horizontal"
+      containerClassName="mt-2"
+      className="overflow-x-auto"
+    >
       <table className="w-full border-collapse text-left text-xs">
         {children}
       </table>
-    </div>
+    </ScrollViewport>
   ),
   th: ({ children }) => (
     <th className="border-b border-border px-2 py-1 font-semibold text-foreground">

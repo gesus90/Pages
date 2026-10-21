@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 
 import { useFloatingStyle } from "@/app/components/editor/menus/use-floating-style";
 import { cn } from "@/app/lib/cn";
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 
 import type { Editor } from "@tiptap/core";
 import type { SuggestionStore } from "@/app/components/editor/menus/suggestion-store";
@@ -81,10 +82,12 @@ export function SuggestionMenu<Item>({
   }
 
   return createPortal(
-    <div
+    <ScrollViewport
+      axis="vertical"
       ref={setElement}
-      className="pages-floating-panel z-50 max-h-80 w-72 overflow-y-auto p-1"
-      style={style}
+      containerClassName="z-50 max-h-80 w-72"
+      className="pages-floating-panel overflow-y-auto p-1"
+      containerStyle={style}
     >
       <ul aria-label={label} id={id} role="listbox">
         {snapshot.items.map((item, index) => {
@@ -126,7 +129,7 @@ export function SuggestionMenu<Item>({
           {emptyLabel}
         </p>
       ) : null}
-    </div>,
+    </ScrollViewport>,
     document.body,
   );
 }

@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Form } from "react-router";
+
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { Button } from "@/app/components/ui/button";
 import { Checkbox } from "@/app/components/ui/checkbox";
 import {
@@ -15,6 +17,7 @@ import {
   useIsSubmitting,
   useUsersError,
 } from "@/app/components/users/use-users-action";
+
 import type { ManagedUser } from "@/definition/Authorization";
 import type { ManagedGroup } from "@/definition/UserGroup";
 
@@ -64,7 +67,11 @@ export function GroupEditor({
             <p className="text-xs text-muted-foreground">
               {t("users.groups.membersHint")}
             </p>
-            <div className="flex max-h-56 flex-col gap-3 overflow-y-auto">
+            <ScrollViewport
+              axis="vertical"
+              containerClassName="max-h-56"
+              className="flex flex-col gap-3 overflow-y-auto"
+            >
               {candidates.map((user) => (
                 <label
                   key={user.id}
@@ -78,7 +85,7 @@ export function GroupEditor({
                   <span className="pages-selectable">{user.displayName}</span>
                 </label>
               ))}
-            </div>
+            </ScrollViewport>
             {candidates.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 {t("users.groups.noCandidates")}

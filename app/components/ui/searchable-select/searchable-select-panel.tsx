@@ -4,6 +4,7 @@ import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { cn } from "@/app/lib/cn";
 import { focusOnMount } from "@/app/lib/focus-on-mount";
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 
 import type { MouseEvent } from "react";
 import type {
@@ -151,11 +152,14 @@ export function SearchableSelectPanel({
       <p role="status" className="px-1 text-xs text-muted-foreground">
         {texts.count(state.visible.length, total)}
       </p>
-      <ul
+      <ScrollViewport
+        as="ul"
+        axis="vertical"
         id={state.listboxId}
         role="listbox"
         aria-labelledby={labelId}
-        className="max-h-64 overflow-y-auto"
+        containerClassName="max-h-64"
+        className="overflow-y-auto"
       >
         {state.visible.map((option, index) => (
           <SearchableSelectItem
@@ -166,7 +170,7 @@ export function SearchableSelectPanel({
             isSelected={option.value === value}
           />
         ))}
-      </ul>
+      </ScrollViewport>
       {state.visible.length === 0 ? (
         <p className="px-1 pb-1 text-xs text-muted-foreground">{texts.empty}</p>
       ) : null}

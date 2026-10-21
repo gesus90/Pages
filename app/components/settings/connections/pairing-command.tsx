@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { Button } from "@/app/components/ui/button";
 
 /** Shows a selectable command and reports clipboard success or failure without losing it. */
@@ -21,14 +22,17 @@ export function PairingCommand({
   }
   return (
     <>
-      <pre
+      <ScrollViewport
+        as="pre"
+        axis="horizontal"
         tabIndex={0}
         role="region"
         aria-label={t("settings.connections.guide.step1")}
-        className="pages-selectable mt-2 overflow-x-auto rounded-xl bg-muted/40 p-4 text-xs"
+        containerClassName="mt-2"
+        className="pages-selectable overflow-x-auto rounded-xl bg-muted/40 p-4 text-xs"
       >
         <code>{command}</code>
-      </pre>
+      </ScrollViewport>
       <Button
         variant="outline"
         className="mt-2"

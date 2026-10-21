@@ -21,6 +21,7 @@ import {
 } from "@/app/components/editor/editor-toolbar-button";
 import { useKeyboardInset } from "@/app/components/editor/use-keyboard-inset";
 import { EDITOR_NODE } from "@/app/lib/editor/editor-schema";
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 
 import type { Editor } from "@tiptap/core";
 
@@ -77,20 +78,43 @@ export function EditorMobileToolbar({
     editor,
     selector: ({ editor: current }) => current.isFocused,
   });
-  const chain = (): ReturnType<Editor["chain"]> => editor.chain().focus();
 
   if (!isFocused) {
     return null;
   }
 
   return (
-    <div
+    <ScrollViewport
+      axis="horizontal"
       aria-label={t("editor.toolbar.mobile")}
-      className="pages-thin-scrollbar fixed inset-x-0 z-20 flex gap-0.5 overflow-x-auto border-t border-border bg-surface px-2 py-1 pb-[max(0.25rem,env(safe-area-inset-bottom))] md:hidden"
+      containerClassName="fixed inset-x-0 z-20 md:hidden"
+      className="flex gap-0.5 overflow-x-auto border-t border-border bg-surface px-2 py-1 pb-[max(0.25rem,env(safe-area-inset-bottom))]"
       role="toolbar"
-      style={{ bottom: inset }}
+      containerStyle={{ bottom: inset }}
       onKeyDown={moveToolbarFocus}
     >
+      <EditorMobileToolbarButtons
+        editor={editor}
+        isApple={isApple}
+        onLink={onLink}
+        onEmoji={onEmoji}
+        onMenu={onMenu}
+      />
+    </ScrollViewport>
+  );
+}
+
+function EditorMobileToolbarButtons({
+  editor,
+  isApple,
+  onLink,
+  onEmoji,
+  onMenu,
+}: EditorMobileToolbarProps): React.ReactElement {
+  const { t } = useTranslation();
+  const chain = (): ReturnType<Editor["chain"]> => editor.chain().focus();
+  return (
+    <>
       <EditorToolbarButton
         icon={Plus}
         isApple={isApple}
@@ -163,6 +187,6 @@ export function EditorMobileToolbar({
         label={t("editor.menu.label")}
         onClick={onMenu}
       />
-    </div>
+    </>
   );
 }

@@ -1,0 +1,21 @@
+/* Radix injects an unlayered rule that hides native scrollbars. Keep its
+   real viewport and restore the common native scrollbar instead. */
+.nativeViewport[data-radix-select-viewport] {
+  scrollbar-width: thin;
+}
+
+.nativeViewport[data-radix-select-viewport]::-webkit-scrollbar {
+  display: block;
+}
+
+@supports selector(::-webkit-scrollbar) {
+  .nativeViewport[data-radix-select-viewport] {
+    scrollbar-width: auto;
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .nativeViewport[data-radix-select-viewport] {
+    scrollbar-width: thin;
+  }
+}

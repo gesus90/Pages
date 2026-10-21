@@ -1,10 +1,10 @@
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { cn } from "@/app/lib/cn";
 
 import { PlanPaletteButton } from "./plan-palette-button";
-
 import { statusTone } from "./plan-run-status-model";
 
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
@@ -71,11 +71,13 @@ export function PlanStatusSequence({
   }, [anchorId, run.id, steps.length]);
   return (
     <div className="min-w-0 flex-1 px-2">
-      <div
+      <ScrollViewport
+        axis="horizontal"
         ref={viewport}
         role="group"
         aria-label={t("plans.progress.sequence")}
-        className="relative flex -space-x-1 gap-0.75 overflow-x-auto [scrollbar-width:none] [mask-image:linear-gradient(to_right,transparent,black_16px,black_calc(100%-16px),transparent)]"
+        containerClassName="relative"
+        className="flex -space-x-1 gap-0.75 overflow-x-auto"
       >
         {steps.map((step, index) => {
           const label = `${index + 1} · ${step.name} · ${t(step.isBlocked ? "plans.blocked" : `plans.status.${step.status}`)}`;
@@ -101,7 +103,7 @@ export function PlanStatusSequence({
             </PlanPaletteButton>
           );
         })}
-      </div>
+      </ScrollViewport>
     </div>
   );
 }

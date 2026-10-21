@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { useRegionFormatter } from "@/app/components/common/region-provider";
 import { Button } from "@/app/components/ui/button";
 import {
@@ -112,12 +113,14 @@ export function WikiHistoryDialog({
           </p>
         ) : null}
         {shown ? (
-          <div
+          <ScrollViewport
+            axis="vertical"
             aria-label={t("wiki.dialog.history.previewLabel")}
-            className="mt-4 max-h-72 overflow-y-auto rounded-xl border border-border p-4"
+            containerClassName="mt-4 max-h-72"
+            className="overflow-y-auto rounded-xl border border-border p-4"
           >
             <WikiMarkdown source={shown.content} />
-          </div>
+          </ScrollViewport>
         ) : null}
         <div className="mt-4 flex justify-end">
           <Button variant="ghost" onClick={onClose}>

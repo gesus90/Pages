@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { Button } from "@/app/components/ui/button";
 import { Select } from "@/app/components/ui/select";
 
@@ -86,13 +87,18 @@ export function PlanGroupLegacy({
           <p className="my-2 text-muted-foreground">
             {t("plans.groups.legacyHint")}
           </p>
-          <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-all text-xs">
+          <ScrollViewport
+            as="pre"
+            axis="both"
+            containerClassName="max-h-60"
+            className="overflow-auto whitespace-pre-wrap break-all text-xs"
+          >
             {JSON.stringify(
               { parameters: group.parameters, bindings: group.bindings },
               null,
               2,
             )}
-          </pre>
+          </ScrollViewport>
         </details>
       ) : null}
     </div>

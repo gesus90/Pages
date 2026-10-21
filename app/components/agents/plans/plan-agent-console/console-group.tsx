@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
+
 import { planNodeLabel } from "../plan-layout";
 import { PlanStatusBadge } from "../plan-status";
 
@@ -26,7 +28,11 @@ export function ConsoleGroup({
 }): React.ReactElement {
   const { t } = useTranslation();
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+    <ScrollViewport
+      axis="vertical"
+      containerClassName="min-h-0 flex-1"
+      className="overflow-y-auto px-5 py-4"
+    >
       <p className="mb-3 text-sm text-muted-foreground">
         {t("plans.console.pickMember")}
       </p>
@@ -61,6 +67,6 @@ export function ConsoleGroup({
           })}
         </ul>
       )}
-    </div>
+    </ScrollViewport>
   );
 }

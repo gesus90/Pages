@@ -152,6 +152,7 @@ export function ConsoleComposer({
       ) : null}
       <div className="flex items-end gap-2">
         <Textarea
+          containerClassName="flex-1"
           ref={field}
           rows={2}
           value={text}

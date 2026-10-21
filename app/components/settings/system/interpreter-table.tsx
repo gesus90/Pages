@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
+
 import { InterpreterProfileRow } from "./interpreter-row";
 
 import type { useInterpreterProfiles } from "./use-interpreter-profiles";
@@ -13,8 +15,10 @@ export function InterpreterTable({
   const { t } = useTranslation();
   const { rows, saved, isSaving, update, checkProfile } = editor;
   return (
-    <div
-      className="pages-thin-scrollbar relative overflow-x-auto rounded-md"
+    <ScrollViewport
+      axis="horizontal"
+      containerClassName="relative"
+      className="overflow-x-auto rounded-md"
       role="region"
       aria-label={t("settings.system.interpreters.title")}
       tabIndex={0}
@@ -68,6 +72,6 @@ export function InterpreterTable({
           ))}
         </tbody>
       </table>
-    </div>
+    </ScrollViewport>
   );
 }

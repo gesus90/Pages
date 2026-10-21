@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { useRegionFormatter } from "@/app/components/common/region-provider";
 import { Button } from "@/app/components/ui/button";
 import { WikiActionDialog } from "@/app/components/wiki/wiki-action-dialog";
@@ -40,7 +41,10 @@ export function WikiTrashView({
           {t("wiki.trash.empty")}
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-border">
+        <ScrollViewport
+          axis="horizontal"
+          className="overflow-x-auto rounded-2xl border border-border"
+        >
           <table className="w-full text-left text-sm">
             <thead className="bg-muted text-xs text-muted-foreground uppercase">
               <tr>
@@ -84,7 +88,7 @@ export function WikiTrashView({
               ))}
             </tbody>
           </table>
-        </div>
+        </ScrollViewport>
       )}
       {choice ? (
         <WikiActionDialog

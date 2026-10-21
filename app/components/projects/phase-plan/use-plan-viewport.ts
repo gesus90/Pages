@@ -3,7 +3,6 @@ import { useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 import { DAY_IN_MS } from "@/app/lib/phase-plan/plan-dates";
 import {
   PIXELS_PER_DAY,
-  SCROLL_EDGE_TOLERANCE,
   buildColumns,
   buildDefaultWindow,
   buildSuperSegments,
@@ -28,8 +27,6 @@ export interface PlanViewport {
   readonly trackWidth: number;
   readonly columns: readonly TimelineColumn[];
   readonly superSegments: readonly SuperSegment[];
-  readonly hasStartFade: boolean;
-  readonly hasEndFade: boolean;
   /** Attach to the scrolling element of the timeline. */
   readonly scrollRef: RefObject<HTMLDivElement | null>;
   readonly timeToX: (time: number) => number;
@@ -37,25 +34,6 @@ export interface PlanViewport {
   readonly reset: () => void;
   readonly shift: (direction: "start" | "end") => void;
   readonly handleScroll: (event: UIEvent<HTMLDivElement>) => void;
-}
-
-/** Whether the timeline fades at its start and end, and how to update that. */
-interface PlanFades {
-  readonly hasStartFade: boolean;
-  readonly hasEndFade: boolean;
-  readonly setFades: (scrollLeft: number, maxScrollLeft: number) => void;
-}
-
-function usePlanFades(): PlanFades {
-  const [hasStartFade, setHasStartFade] = useState(false);
-  const [hasEndFade, setHasEndFade] = useState(true);
-
-  function setFades(scrollLeft: number, maxScrollLeft: number): void {
-    setHasStartFade(scrollLeft > SCROLL_EDGE_TOLERANCE);
-    setHasEndFade(scrollLeft < maxScrollLeft - SCROLL_EDGE_TOLERANCE);
-  }
-
-  return { hasEndFade, hasStartFade, setFades };
 }
 
 /**
@@ -81,15 +59,10 @@ export function usePlanViewport(
   );
   const [fillPixelsPerDay, setFillPixelsPerDay] = useState<number | null>(null);
   const [resetCounter, setResetCounter] = useState(0);
-  const { hasEndFade, hasStartFade, setFades } = usePlanFades();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const pendingShift = useRef(0);
 
   const pixelsPerDay = fillPixelsPerDay ?? PIXELS_PER_DAY[view];
-
-  function updateFades(viewport: HTMLElement): void {
-    setFades(viewport.scrollLeft, viewport.scrollWidth - viewport.clientWidth);
-  }
 
   function changeView(nextView: PlanView): void {
     setView(nextView);
@@ -108,8 +81,6 @@ export function usePlanViewport(
 
   function handleScroll(event: UIEvent<HTMLDivElement>): void {
     const viewport = event.currentTarget;
-
-    updateFades(viewport);
 
     const maxScrollLeft = viewport.scrollWidth - viewport.clientWidth;
 
@@ -141,7 +112,6 @@ export function usePlanViewport(
 
     viewport.scrollLeft += pendingShift.current;
     pendingShift.current = 0;
-    updateFades(viewport);
   });
 
   // Fits the window to the viewport with the window and view of the moment it
@@ -155,7 +125,6 @@ export function usePlanViewport(
 
     setFillPixelsPerDay(fitted.pixelsPerDay);
     viewport.scrollLeft = fitted.scrollLeft;
-    setFades(fitted.scrollLeft, fitted.maxScrollLeft);
   });
 
   // Only explicit navigation resets the virtual scroll position on purpose.
@@ -173,8 +142,6 @@ export function usePlanViewport(
     changeView,
     columns: buildColumns(window, view, pixelsPerDay),
     handleScroll,
-    hasEndFade,
-    hasStartFade,
     pixelsPerDay,
     reset,
     scrollRef,

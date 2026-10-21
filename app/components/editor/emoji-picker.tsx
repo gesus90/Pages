@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { Input } from "@/app/components/ui/input";
-import { cn } from "@/app/lib/cn";
 import { EMOJI_CATEGORIES, searchEmoji } from "@/app/lib/editor/emoji-catalog";
 
 import type { EmojiEntry } from "@/app/lib/editor/emoji-catalog";
@@ -103,8 +103,10 @@ export function EmojiPicker({
           </button>
         ) : null}
       </div>
-      <div
-        className={cn("max-h-64 overflow-y-auto pr-1", "pages-thin-scrollbar")}
+      <ScrollViewport
+        axis="vertical"
+        containerClassName="max-h-64"
+        className="pr-1"
       >
         {isSearching ? (
           <EmojiGrid entries={results} onPick={onPick} />
@@ -129,7 +131,7 @@ export function EmojiPicker({
             {t("editor.emoji.empty")}
           </p>
         ) : null}
-      </div>
+      </ScrollViewport>
     </div>
   );
 }

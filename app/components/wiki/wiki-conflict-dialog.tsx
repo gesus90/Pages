@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { Button } from "@/app/components/ui/button";
 import {
   Dialog,
@@ -47,9 +48,12 @@ export function WikiConflictDialog({
           {t("wiki.conflict.description")}
         </DialogDescription>
         {isComparing ? (
-          <pre
+          <ScrollViewport
+            as="pre"
+            axis="both"
             aria-label={t("wiki.conflict.differences")}
-            className="mt-4 max-h-72 overflow-auto rounded-lg bg-muted p-3 text-xs"
+            containerClassName="mt-4 max-h-72"
+            className="overflow-auto rounded-lg bg-muted p-3 text-xs"
           >
             {diffLines(theirs, mine).map((line, index) => (
               <div
@@ -60,7 +64,7 @@ export function WikiConflictDialog({
                 {line.text}
               </div>
             ))}
-          </pre>
+          </ScrollViewport>
         ) : null}
         <div className="mt-4 flex flex-wrap justify-end gap-2">
           <Button

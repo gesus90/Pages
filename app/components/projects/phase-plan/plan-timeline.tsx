@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { PlanLinksOverlay } from "@/app/components/projects/phase-plan/plan-links-overlay";
 import { TimelineMilestone } from "@/app/components/projects/phase-plan/timeline-milestone";
 import {
@@ -147,10 +148,11 @@ export function PlanTimeline({
 
   return (
     <div className="relative min-w-0 flex-1">
-      <div
+      <ScrollViewport
+        axis="horizontal"
         ref={viewport.scrollRef}
         onScroll={viewport.handleScroll}
-        className="pages-thin-scrollbar overflow-x-auto overscroll-contain"
+        className="overflow-x-auto overscroll-contain"
       >
         <div className="w-max min-w-full" style={{ width: `${trackWidth}px` }}>
           <TimelineHeader
@@ -182,19 +184,7 @@ export function PlanTimeline({
             ) : null}
           </div>
         </div>
-      </div>
-      <div
-        aria-hidden="true"
-        className={`pages-scroll-fade-start pointer-events-none absolute top-16 bottom-0 left-0 z-10 w-10 transition-opacity duration-200 ${
-          viewport.hasStartFade ? "opacity-100" : "opacity-0"
-        }`}
-      />
-      <div
-        aria-hidden="true"
-        className={`pages-scroll-fade-end pointer-events-none absolute top-16 right-0 bottom-0 z-10 w-10 transition-opacity duration-200 ${
-          viewport.hasEndFade ? "opacity-100" : "opacity-0"
-        }`}
-      />
+      </ScrollViewport>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { cn } from "@/app/lib/cn";
 
 import { ChatAttachmentCard } from "./chat-attachment-list/chat-attachment-card";
@@ -46,10 +47,13 @@ export function ChatAttachmentList({
   const shown = isFolded ? attachments.slice(0, FOLDED_CARDS) : attachments;
   return (
     <>
-      <ul
+      <ScrollViewport
+        as="ul"
+        axis="horizontal"
+        containerClassName="mt-1.5"
         className={cn(
-          "mt-1.5 flex gap-2",
-          isCompact ? "pages-thin-scrollbar overflow-x-auto pb-1" : "flex-wrap",
+          "flex gap-2",
+          isCompact ? "overflow-x-auto pb-1" : "flex-wrap",
         )}
         aria-label={t("chat.attachments")}
       >
@@ -69,7 +73,7 @@ export function ChatAttachmentList({
             onRetry={(key) => onRetry?.(key)}
           />
         ))}
-      </ul>
+      </ScrollViewport>
       {!isCompact && attachments.length > FOLDED_CARDS + 1 ? (
         <button
           aria-expanded={!isFolded}

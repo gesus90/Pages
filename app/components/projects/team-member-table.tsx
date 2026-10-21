@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { TeamMemberRow } from "@/app/components/projects/team-member-row";
 import { TeamSortHeader } from "@/app/components/projects/team-sort-header";
 import { PROJECT_ROLE } from "@/definition/Project";
@@ -31,7 +32,11 @@ export function TeamMemberTable({
   const sortProps = { onSort, sortDirection, sortField };
 
   return (
-    <div className="mt-4 overflow-x-auto rounded-2xl bg-surface shadow-card">
+    <ScrollViewport
+      axis="horizontal"
+      containerClassName="mt-4"
+      className="overflow-x-auto rounded-2xl bg-surface shadow-card"
+    >
       <table className="w-full min-w-[1100px] table-fixed text-left text-sm">
         <colgroup>
           <col className="w-[32%]" />
@@ -82,6 +87,6 @@ export function TeamMemberTable({
           ))}
         </tbody>
       </table>
-    </div>
+    </ScrollViewport>
   );
 }

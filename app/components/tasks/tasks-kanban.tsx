@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { KanbanScrollArea } from "@/app/components/tasks/kanban-scroll-area";
 import { groupWorkItems } from "@/app/lib/board-groups";
 
@@ -91,7 +92,11 @@ export function TasksKanban({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto pr-1">
+    <ScrollViewport
+      axis="vertical"
+      containerClassName="min-h-0 flex-1"
+      className="flex flex-col gap-6 overflow-y-auto pr-1"
+    >
       {groupWorkItems(workItems, group, groupLookups).map((section) => (
         <KanbanGroupSection key={section.key} section={section}>
           <KanbanStatusColumns
@@ -101,6 +106,6 @@ export function TasksKanban({
           />
         </KanbanGroupSection>
       ))}
-    </div>
+    </ScrollViewport>
   );
 }

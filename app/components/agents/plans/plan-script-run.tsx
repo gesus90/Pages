@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
+
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 
 /** Process diagnostics within the ordinary run view, without suggesting an agent session. */
@@ -69,13 +71,16 @@ function ScriptStream({
   return (
     <div className="space-y-1">
       <h5 className="font-medium">{name}</h5>
-      <pre
+      <ScrollViewport
+        as="pre"
+        axis="both"
         tabIndex={0}
         aria-label={name}
-        className="max-h-64 overflow-auto rounded-md border border-border bg-muted p-2 font-mono text-xs whitespace-pre-wrap wrap-anywhere"
+        containerClassName="max-h-64"
+        className="overflow-auto rounded-md border border-border bg-muted p-2 font-mono text-xs whitespace-pre-wrap wrap-anywhere"
       >
         {text === null || text === "" ? t("plans.scripts.run.empty") : text}
-      </pre>
+      </ScrollViewport>
     </div>
   );
 }

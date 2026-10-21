@@ -1,9 +1,10 @@
 import { EditorContent } from "@tiptap/react";
 import { Plus, SendHorizontal } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
+import { EditorScrollFades } from "@/app/components/editor/editor-scroll-fades";
 import { cn } from "@/app/lib/cn";
 
 import { ChatMaintenanceStatus } from "./chat-maintenance-status";
@@ -12,7 +13,6 @@ import { ChatContextIndicator } from "./chat-context-indicator";
 import { ChatJobSteerHint, ChatJobStopButton } from "./chat-job-controls";
 import { ChatQuotaDemoStatus } from "./chat-quota-demo";
 import { useChatEditor } from "./use-chat-editor";
-
 import styles from "./chat-composer.module.css";
 
 import type { ChatController } from "./use-chat";
@@ -113,6 +113,7 @@ export function ChatComposer({
   const { t } = useTranslation();
   // Set at once, unlike the state: Enter and a click before the next render submit only once.
   const isSubmitting = useRef(false);
+  const [container, setContainer] = useState<HTMLDivElement | null>(null);
   const { view, uploads, sending } = chat;
   const input = useChatEditor({
     label: t("chat.input"),
@@ -154,12 +155,14 @@ export function ChatComposer({
       <ChatMaintenanceStatus chat={chat} />
       <ChatComposerFiles chat={chat} />
       <div
+        ref={setContainer}
         className={cn(
-          "mt-2 rounded-xl bg-field px-3 py-2 ring-1 ring-field-border focus-within:ring-2 focus-within:ring-primary",
+          "pages-editor-scroll-surface relative mt-2 rounded-xl bg-field px-3 py-2 ring-1 ring-field-border focus-within:ring-2 focus-within:ring-primary",
           styles.input,
         )}
       >
         <EditorContent editor={editor} />
+        <EditorScrollFades container={container} />
       </div>
       {input.markdown.startsWith("/") ? (
         <p className="mt-1 text-xs text-muted-foreground">

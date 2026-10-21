@@ -1,7 +1,7 @@
 import { Check, CircleHelp, Square } from "lucide-react";
-import { useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { cn } from "@/app/lib/cn";
 
 import type { AgentPlanProgressItem } from "@/definition/AgentPlanProgress";
@@ -18,30 +18,14 @@ export function PlanStatusTodos({
   readonly number: number;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const viewport = useRef<HTMLDivElement>(null);
-  const [edges, setEdges] = useState({ top: false, bottom: false });
   const progress = step.progress;
   const items = progress?.todos ?? EMPTY_TODOS;
-  function measure(): void {
-    const element = viewport.current;
-    if (!element) return;
-    setEdges({
-      top: element.scrollTop > 1,
-      bottom:
-        element.scrollTop + element.clientHeight < element.scrollHeight - 1,
-    });
-  }
-  useLayoutEffect(() => {
-    const element = viewport.current;
-    if (!element) return;
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [items]);
   return (
-    <section
-      className="flex min-w-0 shrink-0 flex-col overscroll-contain @2xl/status:min-h-0 @2xl/status:shrink @2xl/status:overflow-y-auto"
+    <ScrollViewport
+      as="section"
+      axis="vertical"
+      containerClassName="min-w-0 shrink-0 @2xl/status:min-h-0 @2xl/status:shrink"
+      className="flex flex-col overflow-visible overscroll-contain @2xl/status:overflow-x-hidden @2xl/status:overflow-y-auto"
       aria-label={t("plans.progress.todos")}
     >
       <div className="flex shrink-0 items-baseline justify-between gap-3">
@@ -69,12 +53,12 @@ export function PlanStatusTodos({
         </p>
       ) : null}
       <div className="relative h-36 shrink-0 overflow-hidden @2xl/status:h-auto @2xl/status:min-h-20 @2xl/status:flex-1">
-        <div
-          ref={viewport}
+        <ScrollViewport
+          axis="vertical"
           tabIndex={0}
-          onScroll={measure}
           aria-label={t("plans.progress.todoList")}
-          className="h-full max-h-80 overflow-y-auto overscroll-contain pr-2 [scrollbar-color:var(--color-muted-foreground)_transparent] [scrollbar-gutter:stable] [scrollbar-width:thin] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none"
+          containerClassName="h-full max-h-80"
+          className="overflow-y-auto overscroll-contain pr-2 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none"
         >
           <div className="min-h-full py-2">
             {items.length ? (
@@ -93,21 +77,9 @@ export function PlanStatusTodos({
               </p>
             )}
           </div>
-        </div>
-        {edges.top ? (
-          <span
-            aria-hidden="true"
-            className="pointer-events-none absolute top-0 right-5 left-0 h-6 bg-linear-to-b from-plan-progress-surface to-transparent"
-          />
-        ) : null}
-        {edges.bottom ? (
-          <span
-            aria-hidden="true"
-            className="pointer-events-none absolute right-5 bottom-0 left-0 h-6 bg-linear-to-t from-plan-progress-surface to-transparent"
-          />
-        ) : null}
+        </ScrollViewport>
       </div>
-    </section>
+    </ScrollViewport>
   );
 }
 
