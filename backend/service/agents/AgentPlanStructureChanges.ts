@@ -9,13 +9,19 @@ import {
   ungroupPlanGroup,
 } from "@/definition/AgentPlanGroupEdit";
 import { planGroupEdges } from "@/definition/AgentPlanGroup";
-import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
+import {
+  copyPlanConfiguration,
+  planConfigurationForModel,
+} from "@/definition/AgentPlanConfiguration";
 import { PLAN_SCRIPT_TIMEOUT } from "@/definition/AgentPlanScript";
 import { readPlanNode } from "@/backend/agents/AgentPlanInput";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { removePlanNode } from "@/definition/AgentPlanGraph";
 
-import { patchPlanConfiguration } from "./AgentPlanConfigurationChanges";
+import {
+  patchPlanConfiguration,
+  selectedPlanModel,
+} from "./AgentPlanConfigurationChanges";
 import { AGENT_PLAN_NODE_FIELDS } from "./AgentPlanOperationInput";
 
 import type { PageAgentModel } from "@/definition/PageAgent";
@@ -116,15 +122,20 @@ function newNodeFields(
 }
 
 /**
- * A script keeps the connections of the inputs it still declares.
+ * An edited node keeps the connections of the inputs it still declares.
  *
  * @remarks
- * The script dialog drops the connection of a removed input as well; a
+ * The node dialogs drop the connection of a removed input as well; a
  * renamed input is a new one here and needs to be bound again.
  */
 function withDeclaredBindings(node: AgentPlanNode): AgentPlanNode {
-  if (node.type !== "script") return node;
-  const names = new Set(node.inputs.map((input) => input.name));
+  if (node.type !== "script" && node.type !== "agent") return node;
+  const parameters =
+    node.type === "script"
+      ? node.inputs
+      : node.configuration?.template.parameters;
+  if (!parameters) return node;
+  const names = new Set(parameters.map((input) => input.name));
   return {
     ...node,
     bindings: Object.fromEntries(
@@ -148,8 +159,9 @@ function withAgentDefaults(
   context: AgentPlanChangeContext,
 ): AgentPlanInput {
   const agent = context.agents.find((entry) => entry.id === step.agentId);
-  if (!agent) return { ...plan, nodes: [...plan.nodes, step] };
-  const copied = copyPlanConfiguration(agent);
+  const copied =
+    step.configuration ?? (agent ? copyPlanConfiguration(agent) : null);
+  if (!copied) return { ...plan, nodes: [...plan.nodes, step] };
   step = { ...step, configuration: copied };
   const configuration = copied.template;
   const values: AgentPlanParameter[] = [];
@@ -188,6 +200,16 @@ function addNode(
   const node = readPlanNode({
     ...nextPosition(plan),
     ...newNodeFields(change),
+    ...(change.type === "agent" ? { agentId: id } : {}),
+    ...(change.type === "agent" &&
+    fields.agentId === undefined &&
+    configuration !== undefined
+      ? {
+          configuration: planConfigurationForModel(
+            selectedPlanModel(configuration, context),
+          ),
+        }
+      : {}),
     ...fields,
     id,
     type: change.type,

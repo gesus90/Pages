@@ -206,7 +206,10 @@ export class AgentPlanTemplateService {
   ): Promise<readonly AgentDefinitionChoice[]> {
     const agents = await this.dependencies.plans.agents(userId, workspaceId);
     for (const step of allPlanSteps(templatePlan(node)))
-      if (!agents.some((agent) => agent.id === step.agentId))
+      if (
+        !step.configuration &&
+        !agents.some((agent) => agent.id === step.agentId)
+      )
         throw new AgentError("agent_usage_denied");
     return agents;
   }

@@ -6,6 +6,7 @@ import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Select } from "@/app/components/ui/select";
 import { AGENT_PROVIDERS, isAgentProvider } from "@/definition/AgentConnection";
+import { supportsModelCatalog } from "@/definition/AgentModelCatalog";
 
 import { AgentScopeFields } from "./agent-scope-fields";
 
@@ -176,6 +177,7 @@ export function AgentFormFields({
           isExisting={isExisting}
         />
       ) : null}
+      <AgentManualModelField form={form} />
       <AgentScopeFields
         scope={form.fields.scope}
         directory={directory}
@@ -186,5 +188,35 @@ export function AgentFormFields({
         {t("settings.agents.assignments.connectionHint")}
       </p>
     </fieldset>
+  );
+}
+
+function AgentManualModelField({
+  form,
+}: {
+  readonly form: AgentForm;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (supportsModelCatalog(form.fields.provider)) return null;
+  return (
+    <section className="space-y-2">
+      <label htmlFor="agent-manual-model" className="text-sm font-medium">
+        {t("settings.agents.modelId")}
+      </label>
+      <Input
+        id="agent-manual-model"
+        value={form.fields.testModel}
+        maxLength={200}
+        onChange={(event) => {
+          form.setField("testModel", event.target.value);
+          form.setField("reasoningEffort", "");
+        }}
+        aria-describedby="agent-manual-model-hint"
+      />
+      <p id="agent-manual-model-hint" className="text-xs text-muted-foreground">
+        {t("settings.agents.modelState.manualOnly")}{" "}
+        {t("settings.agents.reasoning.manual")}
+      </p>
+    </section>
   );
 }

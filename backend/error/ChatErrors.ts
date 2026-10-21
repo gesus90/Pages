@@ -1,4 +1,5 @@
 export type ChatErrorCode =
+  | "disabled"
   | "apiModeRequired"
   | "invalidInput"
   | "accessDenied"

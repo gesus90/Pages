@@ -18,6 +18,7 @@ import {
 } from "./AgentProfileValidation";
 import { requireAgentAdministrator } from "./AgentServiceAccess";
 import { AgentAvailabilityService } from "./AgentAvailabilityService";
+import { canUseAgentConnection } from "./AgentConnectionAccess";
 
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
@@ -51,6 +52,7 @@ import type { AgentFilters } from "@/definition/AgentFilters";
 import type { AgentUsage } from "@/definition/AgentUsage";
 import type { AgentDefinitionFiles } from "./AgentDefinitionFiles";
 import type { AgentTicketParameterService } from "./AgentTicketParameterService";
+import type { PicaSettingsService } from "../chat/PicaSettingsService";
 
 /** Shared persistence and live authorization boundaries of the central agent aggregate. */
 export interface ProfileDependencies {
@@ -63,6 +65,7 @@ export interface ProfileDependencies {
   readonly workspaces?: AgentWorkspaceService;
   readonly files?: AgentDefinitionFiles;
   readonly tickets?: Pick<AgentTicketParameterService, "choices" | "resolve">;
+  readonly pica?: Pick<PicaSettingsService, "resolve">;
 }
 
 /** Rechecks persisted grants at selection and execution; no admin execution bypass or fallback. */
@@ -151,6 +154,25 @@ export class AgentProfileService {
   /** Whether the person currently sees the agent in their lists, without judging whether it can run. */
   public async isVisible(userId: string, agentId: string): Promise<boolean> {
     return this.availability.isVisible(userId, agentId);
+  }
+
+  /** Checks current connection scope for reading a direct node's historical output. */
+  public async requireConnection(
+    userId: string,
+    connectionId: string,
+  ): Promise<void> {
+    const viewer = {
+      actor: await this.account(userId),
+      groupIds: await this.dependencies.groups.findIdsByMember(userId),
+    };
+    if (
+      !(await canUseAgentConnection(
+        this.dependencies.connections,
+        viewer,
+        connectionId,
+      ))
+    )
+      throw new AgentExecutionError("accessDenied");
   }
 
   /** Resolves only access and the template snapshot; starting runners belongs to A10.4. */
@@ -327,6 +349,8 @@ export class AgentProfileService {
     purpose: AgentProfilePurpose,
     profileId: string | null = null,
   ): Promise<ResolvedAgentAssignment> {
+    if (purpose === "chat" && this.dependencies.pica)
+      return this.dependencies.pica.resolve(userId);
     if (purpose === "agent") {
       if (profileId === null)
         throw new AgentExecutionError("profileSelectionRequired");

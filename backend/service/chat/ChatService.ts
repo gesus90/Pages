@@ -289,6 +289,7 @@ export class ChatService {
    */
   public async submit(actor: User, input: unknown): Promise<ChatSendResult> {
     requireChatActor(actor);
+    const agent = await this.dependencies.agents.resolve(actor.id, "chat");
     const request = readSendRequest(input);
     const repeated = await this.repeated(actor, request);
     if (repeated) return repeated;
@@ -298,7 +299,6 @@ export class ChatService {
     // A running job takes the message first; its agent stays pinned for its turns.
     const steer = await acp.steer(actor, request);
     if (steer) return { kind: "steer", steer };
-    const agent = await this.dependencies.agents.resolve(actor.id, "chat");
     if (isApiProvider(agent.connection.provider))
       return { kind: "reply", reply: await this.send(actor, input) };
     if (!isPicaAcpProvider(agent.connection.provider))

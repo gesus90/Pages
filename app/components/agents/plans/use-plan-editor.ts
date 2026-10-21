@@ -34,6 +34,7 @@ async function loadNodeConfiguration(
 /** Saved graphs and unsaved edits remain separate state; only an explicit save stores the draft. */
 export function usePlanEditor(page: AgentPlanPage): {
   readonly draft: AgentPlanInput;
+  readonly workspaces: readonly AgentWorkspaceChoice[];
   readonly sources: AgentPlanSources;
   readonly graph: ReturnType<typeof usePlanGraph>;
   readonly command: ReturnType<typeof useFetcher<AgentPlanActionResult>>;
@@ -89,6 +90,7 @@ export function usePlanEditor(page: AgentPlanPage): {
   }
   return {
     draft,
+    workspaces: page.workspaces,
     sources,
     graph,
     command,

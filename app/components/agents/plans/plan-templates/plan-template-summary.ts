@@ -1,3 +1,4 @@
+import { planConfigurationModelKey } from "@/definition/AgentPlanConfiguration";
 import { planAgentName } from "../plan-layout";
 import { planValuePreview } from "../plan-node-card/plan-value-preview";
 
@@ -57,7 +58,7 @@ export function planTemplateDetails(
   const configuration = node.configuration;
   if (!configuration) return [];
   const model = context.sources.models?.find(
-    (entry) => entry.id === configuration.modelProfileId,
+    (entry) => entry.id === planConfigurationModelKey(configuration),
   );
   return [
     model?.name ?? configuration.model,

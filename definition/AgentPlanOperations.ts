@@ -116,6 +116,7 @@ export interface AgentPlanConfigurationEntry {
   readonly name: string;
   readonly revision: number;
   readonly modelProfileId: string;
+  readonly connectionId?: string;
   readonly model: string;
   readonly provider: string | null;
   readonly reasoningEffort: string | null;

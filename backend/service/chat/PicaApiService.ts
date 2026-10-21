@@ -45,6 +45,7 @@ export interface PicaApiDependencies {
   readonly tools: Pick<ChatToolExecutor, "run">;
   /** Stores files Pica writes for its answer; without it the file tool is not offered. */
   readonly answerFiles?: Pick<ChatAnswerFileService, "stage">;
+  readonly requireCurrent?: (input: PicaApiInput) => Promise<void>;
 }
 
 /** The prompt alone, or the prompt with the images of the message as one user message. */
@@ -76,6 +77,7 @@ export class PicaApiService {
 
   /** Creates a fresh server run and executes one bounded, non-retrying model/tool turn. */
   public async run(input: PicaApiInput, signal: AbortSignal): Promise<string> {
+    await this.dependencies.requireCurrent?.(input);
     if (!isApiProvider(input.agent.connection.provider))
       throw new ChatError("apiModeRequired");
     if (input.actor.id !== input.userId) throw new ChatError("accessDenied");
@@ -92,6 +94,7 @@ export class PicaApiService {
       ...sessionContext,
       authorize: async () => {
         await sessionContext.authorize();
+        await this.dependencies.requireCurrent?.(input);
         await this.dependencies.models.authorize(input.userId, input.agent);
         signal.throwIfAborted();
       },

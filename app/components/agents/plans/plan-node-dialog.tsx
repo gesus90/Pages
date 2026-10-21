@@ -142,6 +142,7 @@ export function PlanNodeDialog(props: PlanNodeDialogProps): React.ReactElement {
           <PlanNodeConfigurationFields
             step={step}
             sources={props.editor.sources}
+            workspaces={props.editor.workspaces}
             disabled={!props.editor.canEdit || props.editor.isPending}
             onChange={props.editor.graph.replaceStep}
           />

@@ -29,6 +29,10 @@ export interface PageAgent extends PageAgentInput {
 /** Only models assigned by administrators and verified for the requesting executor appear here. */
 export interface PageAgentModel {
   readonly id: string;
+  /** Exact connection for direct choices; absent only on legacy profile projections. */
+  readonly connectionId?: string;
+  /** Providers without a catalog expose their explicitly configured model ID. */
+  readonly isManual?: boolean;
   readonly name: string;
   readonly model: string;
   readonly reasoning: AgentReasoningSupport;

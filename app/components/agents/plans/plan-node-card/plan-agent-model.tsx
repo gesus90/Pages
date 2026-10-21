@@ -7,7 +7,10 @@ import {
   planStepProvider,
 } from "@/definition/AgentPlanGroup";
 import { findPlanStep } from "@/definition/AgentPlanGroupEdit";
-import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
+import {
+  copyPlanConfiguration,
+  planConfigurationModelKey,
+} from "@/definition/AgentPlanConfiguration";
 
 import { usePlanFlowContext } from "../plan-flow-context";
 import { planStepWithModel } from "../plan-node-configuration-fields";
@@ -26,10 +29,9 @@ const FOOTER_CLASS =
  * Model and reasoning of an agent node, compact at the bottom of its card.
  *
  * @remarks
- * The list offers every model the administrator released to the user for
- * the plan's project, of any provider. Choosing one pins its model profile,
- * model, provider and the model's own reasoning default on this node only;
- * other nodes and the agent template stay as they are. A member of an ACP
+ * The list offers known models of connections currently shared with the person.
+ * Choosing one pins its connection, model and provider on this node only;
+ * instructions, bindings, reasoning and run options stay as they are. A member of an ACP
  * group shares the group's session, which never spans runners, so models of
  * another runner stay listed but disabled, naming the way out: drag the
  * agent out of the frame. Without edit rights or without a released model
@@ -59,13 +61,14 @@ export function PlanAgentModel(props: {
     );
   const models = sources.models ?? [];
   const model = models.find(
-    (entry) => entry.id === configuration.modelProfileId,
+    (entry) => entry.id === planConfigurationModelKey(configuration),
   );
   if (!canEdit || models.length === 0)
     return (
       <ModelValues
         model={model?.name ?? configuration.model}
         reasoning={configuration.reasoningEffort}
+        isUnavailable={!model}
       />
     );
   return (
@@ -83,16 +86,24 @@ export function PlanAgentModel(props: {
 function ModelValues(props: {
   readonly model: string;
   readonly reasoning: string | null;
+  readonly isUnavailable: boolean;
 }): React.ReactElement {
   const { t } = useTranslation();
   const reasoning = props.reasoning ?? t("pageAgents.defaultReasoning");
   return (
     <footer className={FOOTER_CLASS}>
       <p
-        className={cn("truncate", PLAN_NODE_TEXT.field)}
-        title={`${t("pageAgents.model")}: ${props.model}`}
+        className={cn(
+          "truncate",
+          PLAN_NODE_TEXT.field,
+          props.isUnavailable && "text-warning",
+        )}
+        title={`${t("pageAgents.model")}: ${props.model}${props.isUnavailable ? ` · ${t("pageAgents.missingModel")}` : ""}`}
       >
         <span className="sr-only">{t("pageAgents.model")}: </span>
+        {props.isUnavailable ? (
+          <span>{t("pageAgents.missingModel")} · </span>
+        ) : null}
         {props.model}
       </p>
       <p
@@ -170,14 +181,14 @@ function ModelChoice(props: {
   const efforts = model?.reasoningEfforts ?? [];
   function selectModel(id: string): void {
     const selected = props.models.find((entry) => entry.id === id);
-    // The model's own default is a level it knows; an earlier one may not be.
+    // Retain the saved effort so an unsupported choice remains explicit.
     if (selected)
       graph.replaceNode(
         planStepWithModel(
           step,
           configuration,
           selected,
-          selected.reasoningEffort,
+          configuration.reasoningEffort,
         ),
       );
   }
@@ -196,15 +207,15 @@ function ModelChoice(props: {
     <footer className={FOOTER_CLASS}>
       <Select
         ariaLabel={t("pageAgents.model")}
-        value={configuration.modelProfileId}
+        value={planConfigurationModelKey(configuration)}
         className={`${PLAN_FIELD_CLASS} [&>span]:min-w-0 [&>span]:truncate`}
         options={[
           ...(model
             ? []
             : [
                 {
-                  value: configuration.modelProfileId,
-                  label: t("pageAgents.missingModel"),
+                  value: planConfigurationModelKey(configuration),
+                  label: `${t("pageAgents.missingModel")} · ${configuration.model}`,
                   disabled: true,
                 },
               ]),
@@ -215,13 +226,24 @@ function ModelChoice(props: {
       <Select
         ariaLabel={t("pageAgents.reasoning")}
         value={configuration.reasoningEffort ?? ""}
-        disabled={efforts.length === 0}
-        className={`${PLAN_FIELD_CLASS} [&>span]:min-w-0 [&>span]:truncate`}
-        options={
-          efforts.length > 0
-            ? efforts.map((effort) => ({ value: effort, label: effort }))
-            : [{ value: "", label: t("pageAgents.defaultReasoning") }]
+        disabled={
+          efforts.length === 0 && configuration.reasoningEffort === null
         }
+        className={`${PLAN_FIELD_CLASS} [&>span]:min-w-0 [&>span]:truncate`}
+        options={[
+          { value: "", label: t("pageAgents.defaultReasoning") },
+          ...efforts.map((effort) => ({ value: effort, label: effort })),
+          ...(configuration.reasoningEffort &&
+          !efforts.includes(configuration.reasoningEffort)
+            ? [
+                {
+                  value: configuration.reasoningEffort,
+                  label: `${configuration.reasoningEffort}${model ? ` · ${t("picaSettings.unsupportedEffort")}` : ""}`,
+                  disabled: true,
+                },
+              ]
+            : []),
+        ]}
         onValueChange={selectEffort}
       />
     </footer>

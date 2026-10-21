@@ -35,6 +35,7 @@ const PAGE_ENTRIES = 200;
 
 /** What the ACP path of Pica is built from. */
 export interface PicaAcpServiceDependencies extends PicaAcpJobDependencies {
+  readonly admit?: <Result>(work: () => Promise<Result>) => Promise<Result>;
   readonly jobs: ChatJobRepository;
   readonly steers: ChatSteerRepository;
   readonly acpSessions: ChatAcpSessionRepository;
@@ -45,6 +46,10 @@ export interface PicaAcpServiceDependencies extends PicaAcpJobDependencies {
   /** The registry of running chat answers: one per person, its deadline and the shutdown. */
   readonly requests: ChatRequestRegistry;
   readonly workspace: PicaAcpWorkspace;
+  readonly requireCurrent?: (
+    userId: string,
+    assignment: ResolvedAgentAssignment,
+  ) => Promise<void>;
 }
 
 /** A sent message after validation. */
@@ -148,7 +153,9 @@ export class PicaAcpService {
       input.actor,
       input.request.sessionId,
     );
-    return this.gate(session.id, () => this.launch(input, session.id, run));
+    const launch = (): Promise<ChatJobStart> =>
+      this.gate(session.id, () => this.launch(input, session.id, run));
+    return this.dependencies.admit ? this.dependencies.admit(launch) : launch();
   }
 
   /**
@@ -241,6 +248,14 @@ export class PicaAcpService {
     await entry.completion;
   }
 
+  /** Stops only Pica jobs at the existing cancellation boundary, retaining all chats. */
+  public async stopAll(): Promise<void> {
+    const pending = [...this.running.entries()];
+    for (const [sessionId, entry] of pending)
+      this.cancel(entry.job.userId, sessionId);
+    await Promise.allSettled(pending.map(([, entry]) => entry.completion));
+  }
+
   /**
    * After the deletion of a conversation, successful or not: removes its empty
    * working directory and takes messages again; a failure is only logged.
@@ -304,6 +319,7 @@ export class PicaAcpService {
     run: PicaAcpRun,
   ): Promise<ChatJobStart> {
     const { actor, agent } = input;
+    await this.dependencies.requireCurrent?.(actor.id, agent);
     if (this.deleting.has(sessionId)) throw new ChatError("sessionMissing");
     if (this.running.has(sessionId))
       throw new AgentExecutionError("requestBusy");

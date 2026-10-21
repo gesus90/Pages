@@ -1,10 +1,11 @@
 import { useTranslation } from "react-i18next";
+import { Bot } from "lucide-react";
 import { data as routeData, Link, useLoaderData } from "react-router";
 
 import { AdminModeRequired } from "@/app/components/settings/admin-mode-required";
-import { AcpResourcesCard } from "@/app/components/settings/agents/acp-resources-card";
+import { SettingsSectionHeader } from "@/app/components/settings/settings-layout";
+import { PicaSettingsCard } from "@/app/components/settings/agents/pica-settings-card";
 import { AgentsSection } from "@/app/components/settings/agents/agents-section";
-import { readAgentFilters } from "@/definition/AgentFilters";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { readSettingsRequest } from "@/app/lib/settings-actions/settings-request.server";
@@ -16,21 +17,15 @@ import {
 } from "@/app/lib/settings-actions/settings-agents-response.server";
 import { logCaughtError } from "@/backend/logging/Logger";
 
-import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
-import type {
-  AgentProfile,
-  AgentProfileDirectory,
-} from "@/definition/AgentProfile";
+import type { AgentProfileDirectory } from "@/definition/AgentProfile";
 import type { AgentModelCatalog } from "@/definition/AgentModelCatalog";
-import type { AgentAssignmentView } from "@/definition/AgentAssignment";
 import type {
   AgentConnectionSummary,
   CliToolLocations,
 } from "@/definition/AgentConnection";
+import type { PageAgentModel } from "@/definition/PageAgent";
+import type { PicaAdministration } from "@/definition/PicaSettings";
 import type { Route } from "./+types/settings-agents";
-import type { AgentAvailability } from "@/definition/AgentAvailability";
-import type { AgentFilters } from "@/definition/AgentFilters";
-import type { AgentTaskAssignment } from "@/definition/AgentUsage";
 
 type AgentsLoaderData =
   | { readonly access: "adminModeRequired" }
@@ -39,19 +34,11 @@ type AgentsLoaderData =
       readonly connections: readonly AgentConnectionSummary[];
       readonly cliTools: CliToolLocations;
       readonly catalogs: Readonly<Record<string, AgentModelCatalog>>;
-      readonly profiles: readonly AgentProfile[];
       readonly profileDirectory: AgentProfileDirectory;
-      readonly assignments: readonly AgentAssignmentView[];
-      readonly workspaceChoices: readonly AgentWorkspaceChoice[];
-      readonly availability: Readonly<Record<string, AgentAvailability>>;
-      readonly filters: AgentFilters;
-      readonly projects: readonly {
-        readonly id: string;
-        readonly name: string;
-      }[];
-      readonly taskAssignments: Readonly<
-        Record<string, readonly AgentTaskAssignment[]>
-      >;
+      readonly pica: {
+        readonly settings: PicaAdministration;
+        readonly models: readonly PageAgentModel[];
+      };
     };
 
 /**
@@ -70,7 +57,6 @@ export const headers: Route.HeadersFunction = ({ parentHeaders }) => {
 /** Loads secret-free metadata only for personal administrators in the active admin mode. */
 export async function loader({
   context,
-  request,
 }: Route.LoaderArgs): Promise<ReturnType<typeof routeData<AgentsLoaderData>>> {
   try {
     const services = await getApplicationServices();
@@ -83,42 +69,22 @@ export async function loader({
         { access: "adminModeRequired" },
         { headers: AGENT_NO_STORE },
       );
-    const filters = readAgentFilters(new URL(request.url).searchParams);
-    const [
-      connections,
-      cliTools,
-      catalogs,
-      assignments,
-      agentList,
-      profileDirectory,
-      projects,
-      workspaceChoices,
-      taskAssignments,
-    ] = await Promise.all([
-      services.agentConnectionService.list(actor),
-      services.agentCliLoginService.tools(actor),
-      services.agentCatalogService.list(actor),
-      services.agentAssignmentService.list(actor),
-      services.agentProfileService.filteredList(actor, filters),
-      services.agentProfileService.directory(actor),
-      services.agentProfileService.projects(actor),
-      services.agentWorkspaceService.choices(actor.userId),
-      services.agentPlanService.taskAssignments(actor),
-    ]);
+    const [connections, cliTools, catalogs, profileDirectory, pica] =
+      await Promise.all([
+        services.agentConnectionService.list(actor),
+        services.agentCliLoginService.tools(actor),
+        services.agentCatalogService.list(actor),
+        services.agentProfileService.directory(actor),
+        services.picaSettingsService.administration(actor.userId),
+      ]);
     return routeData<AgentsLoaderData>(
       {
         access: "granted",
         connections,
         cliTools,
         catalogs,
-        assignments,
-        profiles: agentList.profiles,
-        availability: agentList.availability,
-        filters,
-        projects,
         profileDirectory,
-        workspaceChoices,
-        taskAssignments,
+        pica,
       },
       { headers: AGENT_NO_STORE },
     );
@@ -146,26 +112,26 @@ export default function SettingsAgentsRoute(): React.ReactElement {
   const result = useLoaderData<typeof loader>();
   return result.access === "granted" ? (
     <div className="space-y-4">
+      <SettingsSectionHeader
+        icon={<Bot className="size-4" aria-hidden="true" />}
+        title={t("settings.agents.title")}
+      />
+      <PicaSettingsCard
+        settings={result.pica.settings}
+        models={result.pica.models}
+      />
+      <AgentsSection
+        connections={result.connections}
+        cliTools={result.cliTools}
+        catalogs={result.catalogs}
+        profileDirectory={result.profileDirectory}
+      />
       <Link
         className="inline-flex rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-primary-text hover:bg-surface-hover"
         to="/settings/agents/tools"
       >
         {t("agentTools.title")}
       </Link>
-      <AcpResourcesCard />
-      <AgentsSection
-        connections={result.connections}
-        cliTools={result.cliTools}
-        catalogs={result.catalogs}
-        assignments={result.assignments}
-        profiles={result.profiles}
-        profileDirectory={result.profileDirectory}
-        availability={result.availability}
-        filters={result.filters}
-        projects={result.projects}
-        workspaceChoices={result.workspaceChoices}
-        taskAssignments={result.taskAssignments}
-      />
     </div>
   ) : (
     <AdminModeRequired description={t("settings.agents.adminModeRequired")} />

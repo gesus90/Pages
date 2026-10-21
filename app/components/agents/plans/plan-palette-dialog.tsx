@@ -36,8 +36,8 @@ export function PlanPaletteDialog(
   let isValid = reference.trim().length > 0;
   if (kind === "parameter") isValid = isAgentParameterName(reference);
   if (kind === "agent")
-    isValid = props.sources.agents.some(
-      (agent) => agent.id === reference && agent.availability.isUsable,
+    isValid = Boolean(
+      props.sources.models?.some((model) => model.id === reference),
     );
   if (kind === "task")
     isValid = props.sources.tasks.some((task) => task.id === reference);
@@ -111,10 +111,7 @@ function PaletteSourceNotice(props: {
 }): React.ReactElement | null {
   const { t } = useTranslation();
   let message: string | null = null;
-  if (
-    props.kind === "agent" &&
-    !props.sources.agents.some((agent) => agent.availability.isUsable)
-  )
+  if (props.kind === "agent" && !props.sources.models?.length)
     message = t("plans.palette.noAgents");
   if (props.kind === "task" && props.sources.tasks.length === 0)
     message = t("plans.palette.noTickets");
@@ -160,9 +157,11 @@ function PaletteReference(props: {
         className="w-full min-w-0 [&>span]:truncate"
         options={[
           { value: "", label: t("plans.palette.chooseAgent") },
-          ...props.sources.agents
-            .filter((agent) => agent.availability.isUsable)
-            .map((agent) => ({ value: agent.id, label: agent.name })),
+          ...(props.sources.models ?? []).map((model) => ({
+            value: model.id,
+            label: model.name,
+            description: `${t(`settings.agents.provider.${model.provider}`)}${model.isManual ? ` · ${t("picaSettings.manual")}` : ""}`,
+          })),
         ]}
       />
     );

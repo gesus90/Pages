@@ -129,7 +129,9 @@ function nodeLabel(node: AgentPlanNode, sources: AgentPlanSources): string {
     return node.name;
   if (node.type === "agent")
     return (
-      sources.agents.find((agent) => agent.id === node.agentId)?.name ?? ""
+      node.configuration?.name ??
+      sources.agents.find((agent) => agent.id === node.agentId)?.name ??
+      ""
     );
   if (node.type === "task") {
     const task = sources.tasks.find((entry) => entry.id === node.taskId);

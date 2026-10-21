@@ -13,6 +13,10 @@ export async function loader({
   if (!user) throw new Response("Forbidden", { status: 403 });
   const services = await getApplicationServices();
   const version = await services.administrationService.version(user.id);
+  const pica = await services.picaSettingsService.read();
   recordAccountAuthorizationVersion(user.id, version);
-  return data({ version }, { headers: { "Cache-Control": "no-store" } });
+  return data(
+    { version: `${version}:pica:${pica.revision}` },
+    { headers: { "Cache-Control": "no-store" } },
+  );
 }

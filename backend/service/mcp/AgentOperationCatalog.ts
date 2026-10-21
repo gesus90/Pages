@@ -68,7 +68,9 @@ export function ownerOperations(
     ...PAGE_AGENT_READ_OPERATIONS,
     "chat.sessions.list",
     ...PAGES_AGENT_WRITE_OPERATIONS.filter(
-      (operation) => isAdmin || !operation.startsWith("admin."),
+      (operation) =>
+        !operation.startsWith("agents.") &&
+        (isAdmin || !operation.startsWith("admin.")),
     ),
     ...(isAdmin ? AGENT_ADMIN_READ_OPERATIONS : []),
     ...(isAdmin ? AGENT_PROJECT_DELETION_READ_OPERATIONS : []),

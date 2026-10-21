@@ -11,6 +11,7 @@ export interface AgentPlanRunResources {
   readonly wikiIds: readonly string[];
   readonly ticketIds: readonly string[];
   readonly agentIds: readonly string[];
+  readonly connectionIds?: readonly string[];
   readonly ticketAssets?: readonly AgentTicketAsset[];
 }
 
@@ -53,18 +54,21 @@ export function readPlanRunResources(input: unknown): AgentPlanRunResources {
   const wikiIds = new Set<string>();
   const ticketIds = new Set<string>();
   const agentIds = new Set<string>();
+  const connectionIds = new Set<string>();
   const ticketAssets = new Map<string, AgentTicketAsset>();
   const nodes: readonly unknown[] = Array.isArray(plan.nodes) ? plan.nodes : [];
   for (const inputNode of nodes) {
     const node = readAgentObject(inputNode);
     if (node.type === "task") taskIds.add(readPlanText(node.taskId));
-    if (node.type === "agent") agentIds.add(readPlanText(node.agentId));
+    if (node.type === "agent")
+      addModelReference(node, { agentIds, connectionIds });
   }
   const steps: readonly unknown[] = Array.isArray(snapshot.steps)
     ? snapshot.steps
     : [];
   for (const inputStep of steps) {
     const step = readAgentObject(inputStep);
+    addStepModelReference(step, { agentIds, connectionIds });
     const prepared = readAgentObject(step.prepared);
     const parameters = readAgentObject(prepared.parameters);
     for (const asset of readTicketAssets(parameters))
@@ -90,6 +94,32 @@ export function readPlanRunResources(input: unknown): AgentPlanRunResources {
     wikiIds: [...wikiIds],
     ticketIds: [...ticketIds],
     agentIds: [...agentIds],
+    connectionIds: [...connectionIds],
     ticketAssets: [...ticketAssets.values()],
   };
+}
+
+function addModelReference(
+  node: Record<string, unknown>,
+  references: {
+    readonly agentIds: Set<string>;
+    readonly connectionIds: Set<string>;
+  },
+): void {
+  const configuration = node.configuration
+    ? readAgentObject(node.configuration)
+    : null;
+  if (configuration?.connectionId)
+    references.connectionIds.add(readPlanText(configuration.connectionId));
+  else references.agentIds.add(readPlanText(node.agentId));
+}
+
+function addStepModelReference(
+  step: Record<string, unknown>,
+  references: {
+    readonly agentIds: Set<string>;
+    readonly connectionIds: Set<string>;
+  },
+): void {
+  if (step.step) addModelReference(readAgentObject(step.step), references);
 }

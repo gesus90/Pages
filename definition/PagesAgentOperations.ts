@@ -275,6 +275,7 @@ export interface AgentRevisionConflict {
  * checklist at the revision that was read).
  */
 export const AGENT_REJECTION_REASONS = [
+  "operation_retired",
   "model_unavailable",
   "reasoning_unsupported",
   "reasoning_required",

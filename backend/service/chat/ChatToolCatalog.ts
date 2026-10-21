@@ -80,7 +80,7 @@ const RUN =
   "runId | planId + select: latest|first; runId optional mit planId zur Prüfung";
 const SCRIPT_FIELDS =
   "interpreterProfileId?, content?, inputs?: [{name, type: text, isRequired}], outputs?: [{name, type: text}], timeoutSeconds?";
-const CHANGES = `placeNode(nodeId, groupId|null, x, y), ungroup(nodeId, positions), insertTemplate(templateId, x, y) und changes?: [{action: addNode, node: {type: start|end|agent|script|task|parameter|group, id?, x?, y?, agentId?, personalAgentId?, configuration?: gezielter Konfigurationspatch, instruction?, taskId?, name?, format?, value?, ${SCRIPT_FIELDS}}} | {action: updateNode, nodeId, fields: {x?, y?, agentId?, personalAgentId?, configuration?: gezielter Konfigurationspatch, instruction?, taskId?, name?, format?, value?, ${SCRIPT_FIELDS}}} | {action: removeNode, nodeId} | {action: connect|disconnect, from, to} | {action: bind, nodeId, parameter, binding: {kind: source, nodeId}|{kind: result, stepId}|{kind: literal, value}} | {action: unbind, nodeId, parameter}]`;
+const CHANGES = `placeNode(nodeId, groupId|null, x, y), ungroup(nodeId, positions), insertTemplate(templateId, x, y) und changes?: [{action: addNode, node: {type: start|end|agent|script|task|parameter|group, id?, x?, y?, agentId?, personalAgentId?, configuration?: {connectionId, model, reasoningEffort?, template?: {markdown?, parameters?, directoryParameter?, run?}}, instruction?, taskId?, name?, format?, value?, ${SCRIPT_FIELDS}}} | {action: updateNode, nodeId, fields: {x?, y?, agentId?, personalAgentId?, configuration?: {connectionId, model, reasoningEffort?, template?: {markdown?, parameters?, directoryParameter?, run?}}, instruction?, taskId?, name?, format?, value?, ${SCRIPT_FIELDS}}} | {action: removeNode, nodeId} | {action: connect|disconnect, from, to} | {action: bind, nodeId, parameter, binding: {kind: source, nodeId}|{kind: result, stepId}|{kind: literal, value}} | {action: unbind, nodeId, parameter}]`;
 
 /**
  * Parameters and purpose of every chat operation, as the agent reads them.
@@ -99,14 +99,12 @@ const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
   "agents.models.list":
     "{} aktuell für die Person freigegebene Modelle, Standardmodell und Reasoning-Stufen lesen",
   "agents.create":
-    "{name, instruction?, parameters?: [], directoryParameter?: null|Name, modelProfileId?, reasoningEffort?: null|Stufe, sharing?: {scope: private|global|restricted, operator?: and|or, groupIds?: [], departmentIds?: []}} Agent im Namen der Person erstellen (create_agent); ohne Modellangabe gilt das freigegebene Standardmodell",
+    "Abgelöst: Modelle und Anweisungen direkt über plans.create/plans.update am Node konfigurieren.",
   "agents.update":
-    "{agentId, expectedRevision, name?, instruction?, parameterChanges?: [], parameters?: [], directoryParameter?, modelProfileId?, reasoningEffort?, sharing?} nur angegebene Felder ändern; parameterChanges und parameters schließen sich aus, alle anderen Felder bleiben erhalten",
-  "agents.clone":
-    "{agentId, expectedRevision, name?, instruction?, parameterChanges?: [], parameters?: [], directoryParameter?, modelProfileId?, reasoningEffort?, sharing?} gelesene Quelle als unabhängigen neuen Agent für die Person klonen; vollständige Konfiguration inklusive Laufzeit und Parameter kopieren, nur gewünschte Anpassungen übernehmen; Quelle bleibt erhalten",
+    "Abgelöst: bestehende Anweisungen bleiben lesbar, Änderungen gehören in den Plan-Node.",
+  "agents.clone": "Abgelöst: einen Node oder eine Plan-Vorlage kopieren.",
   "agents.delete":
-    "{agentId, expectedRevision} eigenen Benutzer-Agent entfernen; vorher lesen und ausdrücklich mit LÖSCHEN in der aktuellen Nachricht bestätigen",
-
+    "Abgelöst: Altbestände bleiben erhalten; Node-Entfernung erfolgt im Plan.",
   "plans.list": `{text?, projectId?, ${WINDOW}} sichtbare Agent Plans nach Name mit Projekt, team (Abteilung des Plans), Freigabe, canEdit, revision, state (idle|running|pausing|paused|stopping) und latestRun; text sucht im Namen`,
   "plans.read":
     "{planId} Agent Plan mit nodes (label, Agent, Script, Ticket, Parameter, bindings), edges (Ablauf from → to), Freigabe, revision und status (state, runCount, latestRun, isRunnable, issues) lesen",
@@ -278,6 +276,15 @@ export function isChatConfirmationOperation(operation: ChatOperation): boolean {
 /** Lists every chat operation with its parameters for the agent instruction. */
 export function describeChatOperations(): string {
   return Object.entries(CHAT_OPERATIONS)
+    .filter(
+      ([operation]) =>
+        ![
+          "agents.create",
+          "agents.update",
+          "agents.clone",
+          "agents.delete",
+        ].includes(operation),
+    )
     .map(([operation, description]) => `- \`${operation}\` ${description}`)
     .join("\n");
 }

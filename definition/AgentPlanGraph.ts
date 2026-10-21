@@ -290,6 +290,7 @@ function bindingIssues(
   const issues: AgentPlanIssue[] = [];
   if (
     step.type === "agent" &&
+    !step.configuration &&
     !agents.some((entry) => entry.id === step.agentId)
   )
     return [{ nodeId: step.id, port: null, reason: "agent" }];
@@ -428,8 +429,7 @@ function requiredParameterIssues(
   )
     return [{ nodeId: step.id, port: null, reason: "unsupportedRunNotes" }];
   if (
-    !agent ||
-    (!step.configuration && !agent.availability.isUsable) ||
+    (!step.configuration && !agent?.availability.isUsable) ||
     step.personalAgentId === ""
   )
     return [{ nodeId: step.id, port: null, reason: "agent" }];

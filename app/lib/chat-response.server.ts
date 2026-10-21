@@ -15,6 +15,7 @@ const MAXIMUM_REQUEST_CHARACTERS = 100_000;
 const STATUSES: Readonly<
   Partial<Record<ChatErrorCode | AgentExecutionErrorCode, number>>
 > = {
+  disabled: 409,
   accessDenied: 403,
   sessionMissing: 404,
   attachmentMissing: 404,

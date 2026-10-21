@@ -1,6 +1,7 @@
 import { isInAgentConnectionScope } from "@/backend/auth/AgentConnectionScopePolicy";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { isApiProvider } from "@/definition/AgentConnection";
+import { supportsModelCatalog } from "@/definition/AgentModelCatalog";
 
 import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
@@ -41,13 +42,12 @@ export async function resolveAgentAssignment(
   }
   const catalog = await connections.catalogs().find(connection.id);
   const model = catalog.models.find((entry) => entry.id === assignment.model);
-  if (!model) throw new AgentExecutionError("modelUnavailable");
+  const isManual =
+    !supportsModelCatalog(connection.provider) &&
+    connection.testModel === assignment.model;
+  if (!model && !isManual) throw new AgentExecutionError("modelUnavailable");
   const effort = assignment.reasoningEffort;
-  if (
-    effort === null
-      ? model.reasoningEfforts.length > 0
-      : !model.reasoningEfforts.includes(effort)
-  )
+  if (effort !== null && !model?.reasoningEfforts.includes(effort))
     throw new AgentExecutionError("reasoningUnsupported");
   return {
     connection: { ...connection },

@@ -33,20 +33,12 @@ import type { DatabaseLogMetrics } from "@/backend/logging/DatabaseLogMetrics";
 import type { AcpSteerOutcome } from "@/backend/agents/acp/AcpChat";
 import type {
   AgentPlanSessionInput,
-  PlanExecution,
   PlanSession,
   PlanSessionObserver,
   PlanSessionTurn,
 } from "@/backend/agents/AgentPlanExecution";
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
-import type { ExecutionAuthorizer } from "@/backend/agents/ScopedExecution";
-import type { ChatAcpSessionRepository } from "@/backend/database/repositories/chat/ChatAcpSessionRepository";
-import type { ChatJobRepository } from "@/backend/database/repositories/chat/ChatJobRepository";
-import type {
-  ChatSessionRepository,
-  NewChatMessage,
-} from "@/backend/database/repositories/chat/ChatSessionRepository";
-import type { ChatSteerRepository } from "@/backend/database/repositories/chat/ChatSteerRepository";
+import type { NewChatMessage } from "@/backend/database/repositories/chat/ChatSessionRepository";
 import type { AgentPlanExecutionInput } from "@/backend/service/agents/AgentPlanStepStart";
 import type { ResolvedAgentAssignment } from "@/backend/service/agents/AgentAssignmentResolution";
 import type { AgentRunOptions } from "@/definition/AgentConfiguration";
@@ -59,39 +51,19 @@ import type {
   ChatTokenUsage,
 } from "@/definition/ChatJob";
 import type { User } from "@/definition/User";
-import type { ChatSessionService } from "../ChatSessionService";
-import type { ChatToolExecutor } from "../ChatToolExecutor";
-import type { PicaBridge, PicaBridgeLease } from "./PicaBridge";
-import type { PicaAnswerFiles } from "./PicaAcpAnswerOutput";
-import type { PicaAttachmentReader, PicaTurnBrief } from "./PicaAcpContent";
+import type { PicaBridgeLease } from "./PicaBridge";
+import type { PicaTurnBrief } from "./PicaAcpContent";
 import type { PicaAcpRunner } from "./PicaAcpRunners";
 import type { PicaAcpMessage } from "./PicaAcpSteering";
 import type { PicaAcpOutcome } from "./PicaAcpTurnResult";
+import type { PicaAcpJobDependencies } from "./PicaAcpJobDependencies";
+
+export type { PicaAcpJobDependencies } from "./PicaAcpJobDependencies";
 
 /** The runner of a job and the run options it was validated with before anything was stored. */
 export interface PicaAcpRun {
   readonly runner: PicaAcpRunner;
   readonly options: AgentRunOptions;
-}
-
-/** What a job needs from Pages; every write path is an existing one. */
-export interface PicaAcpJobDependencies {
-  readonly plans: Pick<PlanExecution, "open">;
-  readonly jobs: Pick<
-    ChatJobRepository,
-    "append" | "finish" | "saveContext" | "saveTurn"
-  >;
-  readonly steers: Pick<ChatSteerRepository, "update" | "select" | "answer">;
-  readonly acpSessions: Pick<ChatAcpSessionRepository, "save">;
-  readonly messages: Pick<ChatSessionRepository, "append" | "messages">;
-  readonly attachments: PicaAttachmentReader;
-  readonly bridge: Pick<PicaBridge, "open">;
-  readonly tools: Pick<ChatToolExecutor, "run">;
-  /** The scope of the connection, checked again before every tool call. */
-  readonly access: ExecutionAuthorizer;
-  readonly sessions: Pick<ChatSessionService, "require" | "confirmationWord">;
-  /** Files Pica writes or returns for its answers, linked once an answer is stored (PAGE-92). */
-  readonly answerFiles?: PicaAnswerFiles;
 }
 
 /** One job: the conversation, the pinned agent and the message it answers. */
@@ -297,6 +269,7 @@ export class PicaAcpJob {
       ...base,
       authorize: async () => {
         await base.authorize();
+        await this.dependencies.requireCurrent?.(actor.id, agent);
         await this.dependencies.access.requireUser(
           actor.id,
           agent.connection.id,

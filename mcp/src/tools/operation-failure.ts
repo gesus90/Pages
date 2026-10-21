@@ -30,6 +30,7 @@ const LIMIT_CONSTRAINTS = [
 const REJECTION_REASONS: Readonly<
   Record<AgentRejectionReason["reason"], true>
 > = {
+  operation_retired: true,
   model_unavailable: true,
   reasoning_unsupported: true,
   reasoning_required: true,

@@ -1,4 +1,7 @@
-import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
+import {
+  copyPlanConfiguration,
+  planConfigurationForModel,
+} from "@/definition/AgentPlanConfiguration";
 import { emptyPlanLoop } from "@/definition/AgentPlanLoop";
 import { createRandomUuid } from "@/app/lib/random-uuid";
 
@@ -89,21 +92,7 @@ export function createPlanNode(input: {
       parameters: [],
       bindings: {},
     };
-  if (kind === "agent") {
-    const agent = sources.agents.find(
-      (entry) => entry.id === reference && entry.availability.isUsable,
-    );
-    if (!agent) return null;
-    return {
-      ...base,
-      type: "agent",
-      agentId: reference,
-      configuration: copyPlanConfiguration(agent),
-      personalAgentId: null,
-      instruction: "",
-      bindings: {},
-    };
-  }
+  if (kind === "agent") return planAgentNode(reference, sources, base);
   if (kind === "task")
     return sources.tasks.some((task) => task.id === reference)
       ? { ...base, type: "task", taskId: reference }
@@ -119,4 +108,35 @@ export function createPlanNode(input: {
   return Object.hasOwn(draft.globals, reference)
     ? { ...base, type: "variable", name: reference }
     : null;
+}
+
+function planAgentNode(
+  reference: string,
+  sources: AgentPlanSources,
+  base: AgentPlanPosition & { readonly id: string },
+): AgentPlanNode | null {
+  const model = sources.models?.find((entry) => entry.id === reference);
+  if (model?.connectionId)
+    return {
+      ...base,
+      type: "agent",
+      agentId: base.id,
+      configuration: planConfigurationForModel(model),
+      personalAgentId: null,
+      instruction: "",
+      bindings: {},
+    };
+  const agent = sources.agents.find(
+    (entry) => entry.id === reference && entry.availability.isUsable,
+  );
+  if (!agent) return null;
+  return {
+    ...base,
+    type: "agent",
+    agentId: reference,
+    configuration: copyPlanConfiguration(agent),
+    personalAgentId: null,
+    instruction: "",
+    bindings: {},
+  };
 }

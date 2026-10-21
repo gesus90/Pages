@@ -1,11 +1,7 @@
-import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
-import { AgentOperationKeyRepository } from "@/backend/database/repositories/agents/AgentOperationKeyRepository";
 import {
   DEFAULT_AGENT_RUN_OPTIONS,
   agentRunOptionsFor,
-  defaultAgentRunOptions,
-  emptyAgentConfiguration,
 } from "@/definition/AgentConfiguration";
 import {
   PAGE_AGENT_READ_OPERATIONS,
@@ -13,39 +9,20 @@ import {
 } from "@/definition/PageAgentOperations";
 import { PAGES_AGENT_LIMITS } from "@/definition/PagesAgentOperations";
 import { logCaughtError } from "@/backend/logging/Logger";
-
-import {
-  definitionKey,
-  proposePageAgent,
-  sharingEntry,
-  toSharing,
-} from "./PageAgentOperationDefinition";
+import { sharingEntry } from "./PageAgentOperationDefinition";
 import { pageAgentEntries } from "./AgentCursor";
-import {
-  fingerprintOperation,
-  OperationRecorder,
-  StoredOperationFound,
-} from "./AgentOperationRecorder";
 import { translatePageAgentError } from "./PageAgentOperationErrors";
 import {
   readPageAgentListRequest,
   readPageAgentReadRequest,
-  readPageAgentWriteRequest,
   requirePageAgentModelsRequest,
 } from "./PageAgentOperationInput";
-import {
-  defaultPageAgentModel,
-  defaultReasoningEffort,
-} from "./PageAgentModels";
 
 import type { Database } from "@/backend/database/Database";
-import type { StoredAgentOperation } from "@/backend/database/repositories/agents/AgentOperationKeyRepository";
-import type { AgentConfiguration } from "@/definition/AgentConfiguration";
 import type { AgentProfileDirectory } from "@/definition/AgentProfile";
 import type { AgentIdentity } from "@/definition/McpAuthorization";
 import type { PageAgent, PageAgentModel } from "@/definition/PageAgent";
 import type {
-  PageAgentChanged,
   PageAgentEntry,
   PageAgentList,
   PageAgentRead,
@@ -56,11 +33,6 @@ import type {
 import type { PagesAgentReadResponse } from "@/definition/PagesAgentOperations";
 import type { PagesAgentWriteResponse } from "@/definition/PagesAgentWrites";
 import type { PageAgentService } from "./PageAgentService";
-import type {
-  PageAgentCreateRequest,
-  PageAgentUpdateRequest,
-  PageAgentWriteRequest,
-} from "./PageAgentOperationInput";
 
 /** The agent management and the database the results of its operations are stored in. */
 export interface PageAgentOperationDependencies {
@@ -111,12 +83,14 @@ function toModelEntry(
 ): PageAgentModelEntry {
   return {
     modelProfileId: model.id,
+    connectionId: model.connectionId,
+    provider: model.provider,
     name: model.name,
     model: model.model,
     reasoning: model.reasoning,
     reasoningEfforts: model.reasoningEfforts,
     catalogDefaultReasoningEffort: model.catalogDefaultReasoningEffort,
-    defaultReasoningEffort: defaultReasoningEffort(model),
+    defaultReasoningEffort: null,
     isDefault: model.id === defaultId,
   };
 }
@@ -143,24 +117,8 @@ function respond(
   return response;
 }
 
-function readStoredResult(json: string): PageAgentChanged {
-  const stored: unknown = JSON.parse(json);
-  if (
-    typeof stored !== "object" ||
-    stored === null ||
-    !("id" in stored) ||
-    typeof stored.id !== "string" ||
-    !("changed" in stored) ||
-    typeof stored.changed !== "boolean" ||
-    !("revision" in stored) ||
-    typeof stored.revision !== "number"
-  )
-    throw new AgentOperationError("CONFLICT");
-  return { id: stored.id, changed: stored.changed, revision: stored.revision };
-}
-
 /**
- * Lists, reads, creates and changes user agents for connected MCP clients.
+ * Reads retained user definitions and direct connection models; definition writes are retired.
  *
  * @remarks
  * Every call runs under the rules of the agent management: it decides which
@@ -194,7 +152,9 @@ export class PageAgentOperationService {
       if (isReadOperation(operation))
         return await this.read(identity.userId, operation, input ?? {});
       if (isWriteOperation(operation))
-        return await this.write(identity.userId, operation, input ?? {});
+        throw new AgentOperationError("INVALID_REQUEST", {
+          reason: "operation_retired",
+        });
       return null;
     } catch (error: unknown) {
       logCaughtError("PageAgentOperationService", error);
@@ -212,7 +172,7 @@ export class PageAgentOperationService {
     if (operation === "agents.models.list") {
       requirePageAgentModelsRequest(input);
       const models = await agents.models(userId);
-      const defaultId = defaultPageAgentModel(models)?.id ?? null;
+      const defaultId = null;
       return {
         apiVersion: "1",
         result: {
@@ -252,209 +212,5 @@ export class PageAgentOperationService {
     const agent = visible.agents.find((entry) => entry.id === agentId);
     if (!agent) throw new AgentOperationError("NOT_FOUND");
     return toEntry(agent, visible.directory);
-  }
-
-  private async write(
-    userId: string,
-    operation: PageAgentWriteOperation,
-    input: unknown,
-  ): Promise<PagesAgentWriteResponse> {
-    const request = readPageAgentWriteRequest(operation, input);
-    const stored = await this.lookup(userId, request.operationId);
-    if (stored) return this.replay(userId, request, stored);
-    const recorder = new OperationRecorder<PageAgentChanged>(userId, request);
-    try {
-      if (request.operation === "agents.create")
-        await this.create(userId, request, recorder);
-      else await this.update(userId, request, recorder);
-    } catch (error: unknown) {
-      logCaughtError("PageAgentOperationService", error);
-
-      // A parallel call with the same operation ID may have committed between
-      // the lookup and the write; whatever refused this one, that call's
-      // result is the answer.
-      const completed =
-        error instanceof StoredOperationFound
-          ? error.stored
-          : await this.lookup(userId, request.operationId);
-      if (completed) return this.replay(userId, request, completed);
-      throw error;
-    }
-    return { apiVersion: "1", result: recorder.result };
-  }
-
-  private async lookup(
-    userId: string,
-    operationId: string,
-  ): Promise<StoredAgentOperation | null> {
-    return this.dependencies.database.transaction((transaction) =>
-      new AgentOperationKeyRepository(transaction).find(userId, operationId),
-    );
-  }
-
-  /** Shows a stored result again only while the person still owns the agent. */
-  private async replay(
-    userId: string,
-    request: PageAgentWriteRequest,
-    stored: StoredAgentOperation,
-  ): Promise<PagesAgentWriteResponse> {
-    if (
-      stored.operation !== request.operation ||
-      stored.fingerprint !== fingerprintOperation(request)
-    )
-      throw new AgentOperationError("CONFLICT");
-    const result = readStoredResult(stored.resultJson);
-    const agent = await this.requireVisible(userId, result.id);
-    if (!agent.canEdit) throw new AgentOperationError("NOT_FOUND");
-    return { apiVersion: "1", result };
-  }
-
-  /** Picks the model the call names, or the one Pages applies when it names none. */
-  private async selectModel(
-    userId: string,
-    modelProfileId: string | undefined,
-  ): Promise<PageAgentModel> {
-    const models = await this.dependencies.agents.models(userId);
-    if (modelProfileId === undefined) {
-      const fallback = defaultPageAgentModel(models);
-      if (fallback === null)
-        throw new AgentOperationError("FORBIDDEN", {
-          reason: "default_model_unavailable",
-        });
-      return fallback;
-    }
-    const model = models.find((entry) => entry.id === modelProfileId);
-    if (!model)
-      throw new AgentOperationError("INVALID_REQUEST", {
-        reason: "model_unavailable",
-      });
-    return model;
-  }
-
-  private async create(
-    userId: string,
-    request: PageAgentCreateRequest,
-    recorder: OperationRecorder<PageAgentChanged>,
-  ): Promise<void> {
-    const { fields } = request;
-    const model = await this.selectModel(userId, fields.modelProfileId);
-    const reasoningEffort =
-      fields.reasoningEffort === undefined
-        ? defaultReasoningEffort(model)
-        : fields.reasoningEffort;
-    // A model that lists levels does not take "no effort"; ask instead of guessing.
-    if (reasoningEffort === null && model.reasoningEfforts.length > 0)
-      throw new AgentOperationError("INVALID_REQUEST", {
-        reason:
-          fields.reasoningEffort === undefined
-            ? "reasoning_required"
-            : "reasoning_unsupported",
-      });
-    const configuration: AgentConfiguration = {
-      ...emptyAgentConfiguration("person"),
-      // A client cannot choose the run options; a Codex agent starts read only.
-      run: defaultAgentRunOptions(model.provider),
-      accessMode: "shared",
-      markdown: fields.instruction ?? "",
-      parameters: fields.parameters ?? [],
-      directoryParameter: fields.directoryParameter ?? null,
-      sharing: toSharing(fields.sharing),
-    };
-    await this.dependencies.agents.save(
-      userId,
-      null,
-      {
-        name: fields.name,
-        modelProfileId: model.id,
-        reasoningEffort,
-        configuration,
-      },
-      (transaction, profile) =>
-        recorder.store(transaction, {
-          id: profile.id,
-          changed: true,
-          revision: 1,
-        }),
-    );
-  }
-
-  /** The agent as the client last read it: visible, owned and not changed since. */
-  private async requireCurrent(
-    userId: string,
-    request: PageAgentUpdateRequest,
-  ): Promise<PageAgent> {
-    const visible = await this.dependencies.agents.visibleAgents(userId);
-    const agent = visible.agents.find((entry) => entry.id === request.agentId);
-    if (!agent) throw new AgentOperationError("NOT_FOUND");
-    if (!agent.canEdit) throw new AgentOperationError("FORBIDDEN");
-    if ((agent.revision ?? 1) !== request.expectedRevision)
-      throw new AgentOperationError("CONFLICT", {
-        currentRevision: agent.revision ?? 1,
-      });
-    // Saving writes the list without the groups and departments that are gone,
-    // which can widen an AND share; the owner decides that explicitly.
-    if (agent.hasDeletedTargets && request.fields.sharing === undefined)
-      throw new AgentOperationError("INVALID_REQUEST", {
-        reason: "sharing_changes_required",
-      });
-    return agent;
-  }
-
-  private async update(
-    userId: string,
-    request: PageAgentUpdateRequest,
-    recorder: OperationRecorder<PageAgentChanged>,
-  ): Promise<void> {
-    const current = await this.requireCurrent(userId, request);
-    const { fields } = request;
-    const proposed = proposePageAgent(current, fields);
-    const revision = request.expectedRevision;
-    // Saving is what cleans a share of deleted targets and what pins the
-    // model of an agent that cannot run again, so neither is a no-op.
-    const isRepair =
-      current.hasDeletedTargets ||
-      (fields.modelProfileId !== undefined && !current.availability.isUsable);
-    if (!isRepair && definitionKey(proposed) === definitionKey(current)) {
-      await this.dependencies.database.transaction((transaction) =>
-        recorder.store(transaction, {
-          id: current.id,
-          changed: false,
-          revision,
-        }),
-      );
-      return;
-    }
-    try {
-      await this.dependencies.agents.save(
-        userId,
-        current.id,
-        { ...proposed, revision },
-        (transaction) =>
-          recorder.store(transaction, {
-            id: current.id,
-            changed: true,
-            revision: revision + 1,
-          }),
-      );
-    } catch (error: unknown) {
-      logCaughtError("PageAgentOperationService", error);
-
-      if (error instanceof AgentError && error.code === "profile_conflict")
-        throw await this.conflict(userId, current.id);
-      throw error;
-    }
-  }
-
-  /** A save lost to a change made in between answers with the revision to read next. */
-  private async conflict(
-    userId: string,
-    agentId: string,
-  ): Promise<AgentOperationError> {
-    const visible = await this.dependencies.agents.visibleAgents(userId);
-    const agent = visible.agents.find((entry) => entry.id === agentId);
-    if (!agent) return new AgentOperationError("NOT_FOUND");
-    return new AgentOperationError("CONFLICT", {
-      currentRevision: agent.revision ?? 1,
-    });
   }
 }

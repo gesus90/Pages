@@ -21,6 +21,8 @@ import { AgentTicketParameterService } from "@/backend/service/agents/AgentTicke
 import { createAgentTaskContext } from "@/backend/service/agents/AgentTaskAccess";
 import { AgentTicketAssetService } from "@/backend/service/agents/AgentTicketAssetService";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { PicaSettingsRepository } from "@/backend/database/repositories/chat/PicaSettingsRepository";
+import { PicaSettingsService } from "@/backend/service/chat/PicaSettingsService";
 
 import type { AgentTicketAssetDependencies } from "@/backend/service/agents/AgentTicketAssetService";
 import type { Database } from "@/backend/database/Database";
@@ -36,6 +38,7 @@ export interface AgentConfigurationApplicationServices {
   readonly pageAgentService: PageAgentService;
   readonly agentDefinitionFiles: AgentDefinitionFiles;
   readonly agentRunArchive: AgentRunArchive;
+  readonly picaSettingsService: PicaSettingsService;
 }
 
 /**
@@ -116,8 +119,16 @@ export function createAgentConfigurationServices(input: {
     workspaces: agentWorkspaceService,
     files: agentDefinitionFiles,
   };
-  const agentProfileService = new AgentProfileService(dependencies);
+  const picaSettingsService = new PicaSettingsService({
+    ...dependencies,
+    settings: new PicaSettingsRepository(database),
+  });
+  const agentProfileService = new AgentProfileService({
+    ...dependencies,
+    pica: picaSettingsService,
+  });
   return {
+    picaSettingsService,
     agentProfileService,
     agentWorkspaceService,
     pageAgentService: new PageAgentService(

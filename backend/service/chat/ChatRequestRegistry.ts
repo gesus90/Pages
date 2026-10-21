@@ -18,6 +18,7 @@ export class ChatRequestRegistry {
   private readonly requests = new Map<string, PendingRequest>();
   private readonly limits: ChatRequestLimits;
   private isStopped = false;
+  private isCancelling = false;
 
   public constructor(
     limits: ChatRequestLimits = { timeoutMs: 120_000, capacity: 8 },
@@ -86,6 +87,18 @@ export class ChatRequestRegistry {
     await Promise.allSettled(pending.map((request) => request.completed));
   }
 
+  /** Cancels current Pica work without permanently shutting down the registry. */
+  public async cancelAll(): Promise<void> {
+    this.isCancelling = true;
+    try {
+      const pending = [...this.requests.values()];
+      for (const request of pending) request.controller.abort("cancelled");
+      await Promise.allSettled(pending.map((request) => request.completed));
+    } finally {
+      this.isCancelling = false;
+    }
+  }
+
   /**
    * Refuses work that {@link run} would refuse, before the caller stores anything for it.
    *
@@ -94,6 +107,7 @@ export class ChatRequestRegistry {
   public requireAdmission(userId: string, id: string): void {
     if (
       this.isStopped ||
+      this.isCancelling ||
       this.requests.has(id) ||
       this.requests.size >= this.limits.capacity ||
       [...this.requests.values()].some((entry) => entry.userId === userId)

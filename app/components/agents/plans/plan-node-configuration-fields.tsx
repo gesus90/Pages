@@ -2,12 +2,14 @@ import { useTranslation } from "react-i18next";
 
 import { PageAgentModelFields } from "@/app/components/agents/definitions/page-agent-model-fields";
 import { Select } from "@/app/components/ui/select";
-import { Textarea } from "@/app/components/ui/textarea";
+import { PlanNodeContentFields } from "./plan-node-content-fields";
+import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 import {
-  defaultAgentRunOptions,
-  emptyAgentConfiguration,
-} from "@/definition/AgentConfiguration";
-import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
+  copyPlanConfiguration,
+  planConfigurationModelKey,
+} from "@/definition/AgentPlanConfiguration";
+
+import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
 
 import type { AgentPlanSources, AgentPlanStep } from "@/definition/AgentPlan";
 import type { AgentPlanConfiguration } from "@/definition/AgentPlanConfiguration";
@@ -19,8 +21,7 @@ import type { PageAgentInput, PageAgentModel } from "@/definition/PageAgent";
  *
  * @remarks
  * Only the node's own configuration copy changes, never its template. A
- * model of another provider resets the run options to that provider's
- * defaults.
+ * changed provider must support the node's retained run options.
  */
 export function planStepWithModel(
   step: AgentPlanStep,
@@ -33,15 +34,10 @@ export function planStepWithModel(
     configuration: {
       ...configuration,
       modelProfileId: model.id,
+      connectionId: model.connectionId,
       model: model.model,
       provider: model.provider,
       reasoningEffort,
-      template: {
-        ...configuration.template,
-        ...(model.provider === configuration.provider
-          ? {}
-          : { run: defaultAgentRunOptions(model.provider) }),
-      },
     },
   };
 }
@@ -89,11 +85,11 @@ function PlanCompletionField(props: {
 export function PlanNodeConfigurationFields(props: {
   readonly step: AgentPlanStep;
   readonly sources: AgentPlanSources;
+  readonly workspaces?: readonly AgentWorkspaceChoice[];
   readonly disabled: boolean;
   readonly isGroupStep?: boolean;
   readonly onChange: (step: AgentPlanStep) => void;
 }): React.ReactElement | null {
-  const { t } = useTranslation();
   const source = props.sources.agents.find(
     (entry) => entry.id === props.step.agentId,
   );
@@ -103,7 +99,7 @@ export function PlanNodeConfigurationFields(props: {
   const models = props.sources.models ?? [];
   const draft: PageAgentInput = {
     name: configuration.name,
-    modelProfileId: configuration.modelProfileId,
+    modelProfileId: planConfigurationModelKey(configuration),
     reasoningEffort: configuration.reasoningEffort,
     configuration: emptyAgentConfiguration(),
   };
@@ -122,40 +118,27 @@ export function PlanNodeConfigurationFields(props: {
   }
   return (
     <fieldset disabled={props.disabled} className="space-y-3">
-      <p className="text-sm text-muted-foreground">
-        {t("plans.nodeConfigurationHint")}
-      </p>
-      <label className="block space-y-1 text-sm">
-        <span>{t("plans.nodeMarkdown")}</span>
-        <Textarea
-          rows={10}
-          maxLength={200000}
-          value={configuration.template.markdown}
-          onChange={(event) =>
-            props.onChange({
-              ...props.step,
-              configuration: {
-                ...configuration,
-                template: {
-                  ...configuration.template,
-                  markdown: event.target.value,
-                },
-              },
-            })
-          }
-        />
-      </label>
+      <PlanNodeContentFields
+        step={props.step}
+        configuration={configuration}
+        workspaces={props.workspaces}
+        disabled={props.disabled}
+        onChange={props.onChange}
+      />
       <PlanCompletionField
         step={props.step}
         isGroupStep={props.isGroupStep}
         onChange={props.onChange}
       />
       <PageAgentModelFields
+        savedModel={configuration.model}
         draft={draft}
         models={models}
         disabled={props.disabled}
         isModelWithdrawn={
-          !models.some((model) => model.id === configuration.modelProfileId)
+          !models.some(
+            (model) => model.id === planConfigurationModelKey(configuration),
+          )
         }
         onChange={changeModel}
       />

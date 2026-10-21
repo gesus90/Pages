@@ -83,7 +83,9 @@ const CONFIGURATION: Schema = {
   minProperties: 1,
   properties: {
     name: { type: "string", maxLength: 200 },
-    modelProfileId: IDENTIFIER,
+    modelProfileId: { type: "string", maxLength: 1500 },
+    connectionId: IDENTIFIER,
+    model: { type: "string", minLength: 1, maxLength: 500 },
     reasoningEffort: { type: ["string", "null"], maxLength: 100 },
     template: {
       type: "object",

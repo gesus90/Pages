@@ -1,7 +1,5 @@
-import { Bot } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import { SettingsSectionHeader } from "@/app/components/settings/settings-layout";
 import { Dialog } from "@/app/components/ui/dialog";
 import { useManagementPending } from "@/app/components/users/use-management-pending";
 
@@ -9,7 +7,6 @@ import { AgentAlert } from "./agent-alert";
 import { AgentConfirmation } from "./agent-confirmation";
 import { AgentConnectionPanel } from "./agent-connection-panel";
 import { AgentConnectionsCard } from "./agent-connections-card";
-import { AgentProfiles } from "./agent-profiles";
 import { readBlockingAgents } from "./use-agent-actions";
 import { useAgentManagement } from "./use-agent-management";
 import { useCliLoginPolling } from "./use-cli-login-polling";
@@ -52,14 +49,7 @@ export function AgentsSection({
   connections,
   cliTools,
   catalogs = {},
-  assignments = [],
-  profiles = [],
   profileDirectory = { persons: [], groups: [], departments: [] },
-  availability,
-  filters,
-  projects,
-  workspaceChoices,
-  taskAssignments,
 }: AgentsSectionProps): React.ReactElement {
   const { t } = useTranslation();
   const {
@@ -82,29 +72,12 @@ export function AgentsSection({
   );
   return (
     <div className="min-w-0 space-y-4">
-      <SettingsSectionHeader
-        icon={<Bot className="size-4" aria-hidden="true" />}
-        title={t("settings.agents.title")}
-        description={t("settings.agents.description")}
-      />
       {actions.error && !selection ? (
         <AgentAlert
           message={t(`settings.agents.error.${actions.error}`)}
           details={readBlockingAgents(actions.result)}
         />
       ) : null}
-      <AgentProfiles
-        profiles={profiles}
-        directory={profileDirectory}
-        connections={connections}
-        catalogs={catalogs}
-        availability={availability}
-        filters={filters}
-        projects={projects}
-        workspaceChoices={workspaceChoices}
-        taskAssignments={taskAssignments}
-      />
-      <LegacyAgentNotice assignments={assignments} />
       <AgentConnectionTables
         isLoading={isLoading}
         connections={visibleConnections}
@@ -151,19 +124,6 @@ function withLoginSessions(
       ? { ...connection, cli: { ...connection.cli, login: session.login } }
       : connection;
   });
-}
-
-function LegacyAgentNotice(props: {
-  readonly assignments: readonly AgentAssignmentView[];
-}): React.ReactElement | null {
-  const { t } = useTranslation();
-  if (!props.assignments.some((assignment) => assignment.function === "skills"))
-    return null;
-  return (
-    <p className="rounded-xl bg-warning-subtle px-4 py-2.5 text-sm text-warning">
-      {t("settings.agents.definition.legacySkills")}
-    </p>
-  );
 }
 
 function AgentConnectionTables(props: {

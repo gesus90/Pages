@@ -19,13 +19,14 @@ import { AgentPlanControlService } from "./AgentPlanControlService";
 import { AgentPlanStartupRecovery } from "./recovery/AgentPlanStartupRecovery";
 import { requireCompatibleFields } from "./AgentPlanGroupRuntime";
 import { requireAllowedRunOptions } from "./AgentProfileValidation";
-import { planSteps, validatePlanGraph } from "./AgentPlanGraph";
+import { validatePlanGraph } from "./AgentPlanGraph";
 import { requireAgentAdministrator } from "./AgentServiceAccess";
 import {
   planOwnership,
   requireOwnerForProjectChange,
 } from "./AgentPlanOwnership";
 import { AgentPlanScripts } from "./AgentPlanScripts";
+import { requirePlanModelResources } from "./AgentPlanModel";
 import { planTaskBindings } from "./AgentPlanTaskBindings";
 
 import type { AgentPlanRunJournal } from "./AgentPlanJournal";
@@ -442,9 +443,11 @@ export class AgentPlanService {
       throw new AgentError("plan_access_denied");
     await this.dependencies.access.require(userId, run.planId);
     const resources = await this.dependencies.runs.resources(id);
-    for (const agentId of resources.agentIds)
-      if (!(await this.dependencies.profiles.isVisible(userId, agentId)))
-        throw new AgentError("plan_access_denied");
+    await requirePlanModelResources(
+      this.dependencies.profiles,
+      userId,
+      resources,
+    );
     // Access only: a run that started must stay readable and stoppable after its directory or link is gone.
     for (const workspaceId of resources.workspaceIds)
       await this.dependencies.workspaces.requireAccess(
@@ -749,12 +752,6 @@ export class AgentPlanService {
   ): Promise<void> {
     const catalog = await this.dependencies.profiles.catalog(userId, projectId);
     validatePlanGraph(proposed, catalog);
-    if (
-      planSteps(proposed).some(
-        (step) => !catalog.some((agent) => agent.id === step.agentId),
-      )
-    )
-      throw new AgentError("plan_access_denied");
     for (const node of [
       ...proposed.nodes.filter((entry) => entry.type !== "agent"),
       ...allPlanSteps(proposed),

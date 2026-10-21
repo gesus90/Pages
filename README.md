@@ -668,40 +668,56 @@ copies in `build/server/pica/`, as it can change the server code itself. That
 happens outside of Pages and applies from the next message. Keep `build/`
 writable only for the account that deploys Pages.
 
-## Agents in the Pages chat
+## Direct model selection and Pica (PAGE-124)
 
-Pica can list and read visible user agents, create them (`agents.create`, the
-`create_agent` functionality), change individual fields, clone them and remove
-owned definitions. Every action resolves the signed-in person's current rights:
-sharing grants reading/usage only, editing and deletion require ownership, and
-creating/cloning uses the person's current released models and accessible
-parameter references. Pica has no separate technical account or additional
-rights. Administrator model assignments remain outside this chat management.
+Agent Plan nodes select a concrete **connection + model ID** directly. No
+administrator model profile or personal agent definition is required. The
+connection's live usage scope admits everyone, named persons, group members or
+department members; any matching target is sufficient. Administration alone
+never grants usage. Equal model names on different connections remain separate.
+Opening a page, choosing a model and saving only read known catalog metadata;
+they never verify credentials or call a model. A saved key alone is insufficient.
+Providers without a catalog expose their explicit manual model ID in the
+connection editor. That choice is marked as manual in the model pickers.
 
-For a title-only change Pica sends only `name`; for an instruction/`AGENT.md`
-change only `instruction`. Named `parameterChanges` add, update or remove one or
-several declarations while retaining unrelated parameters and unmentioned fields
-of edited declarations. PAGE-55 string (`text`), numeric (`number`) and ticket
-(`ticket`) values are supported, including zero and decimal numbers. These
-changes may be combined in one request. A complete `parameters` replacement is
-still available when explicitly requested. The final instruction's placeholders
-must match the final declarations.
+**Settings → Agents** contains one fixed **Pica · Chat assistant** card, then the
+existing API and CLI connection management. Activation, exact model and supported
+reasoning effort are saved together. Standard means the provider/CLI default;
+only catalog-listed explicit levels are accepted. Unsupported effort after a
+model change resets visibly to Standard before saving. An unavailable saved
+selection remains visible, with no implicit model fallback or change of activation.
+Model and reasoning edits on the same connection retain migrated runtime
+options; selecting another connection uses that runner's standard options.
 
-Pica reads the current agent before changes and sends `expectedRevision`.
-Concurrent changes are refused. A clone copies the complete configuration,
-parameters and run options into a new ID owned by the person, applies only the
-requested overrides and leaves its source untouched. The source's current
-visibility and revision, and the person's model/reference grants, are checked
-again before creation. Without a requested new title, the clone retains the
-source title.
+Turning Pica off hides its launcher and unmounts its panel. Other open views
+refresh on focus or within 30 seconds. Server-side checks apply immediately to
+new sessions, turns and provider work. Turning Pica off or changing its identity
+cancels current Pica requests/jobs through the existing controlled cancellation
+path; existing messages and attachments remain. Agent Plan runs use a separate
+engine and are unaffected. Every Pica turn still checks the acting person's
+connection scope. ACP sessions continue only with matching connection, model,
+reasoning and runner fingerprint; a changed selection creates a new native
+session without replacing conversation history.
 
-Agent deletion requires the exact word **LÖSCHEN** in the current user message,
-also with an English interface. Confirmation from earlier messages or from the
-model's action parameters is not accepted; one confirmation permits one deletion
-or administration mutation. Deletion checks ownership and revision again, and a
-running definition cannot be changed or deleted. Existing run history is kept.
-Pica receives the actual mutation receipts and safe error codes to explain what
-succeeded or failed.
+**Agents Liste** and the profile management UI are retired. Old `/agents/agents`
+links redirect to the plan editor with an explanation. Retained definitions are
+readable through compatibility APIs; creation, changes, cloning and deletion are
+no longer offered. Direct requests return the stable `operation_retired` reason
+(or the existing capability denial for a credential that does not offer the
+retired operation). Old settings profile forms return HTTP 410 with
+`profile_management_retired`. No navigation or read deletes old data. ACP
+resources remain under **Settings → System**, while Tools remains protected.
+
+The additive migration `066_pica_settings.sql` creates the fixed settings row.
+A single usable legacy system Chat assignment is adopted once; a missing,
+ambiguous or invalid assignment remains disabled and requires an explicit choice.
+Existing profiles and connections stay stored. Startup adds direct connection
+references to unambiguous saved node copies, including group/loop members,
+without replacing pinned instructions, bindings, run options, graphs or historical
+run snapshots. Unresolvable legacy references retain their original values and
+block execution until explicitly repaired. An unsafe or currently busy graph
+write is deferred with a diagnostic; its original graph stays available.
+No migration starts a plan or chat.
 
 ## Ticket parameters and assets (PAGE-60)
 
@@ -782,23 +798,6 @@ files produce an explicit error; the prompt is not sent partially. Historical
 run reads also reauthorize the original asset references, even after their
 links have been removed from the ticket description.
 
-## Deleting agents in administration
-
-Under **Settings → Agents → Agents**, administrators in admin mode can select
-**Remove** directly, without a confirmation dialog or confirmation word. Saved
-assignments and shares do not prevent deletion. A single transaction clears
-function assignments, dependent user-agent model selections and saved plan
-references before removing the selected administrator agent. Connections,
-dependent agents, plans and their linked tickets remain intact.
-
-User agents with a removed model stay visible with a missing-assignment message;
-their owners can select another released model. Affected plan nodes keep their
-inputs and bindings and require reassignment before execution. An explicitly
-removed personal access selection never falls back to another model. Stale
-editors must reload before saving. Historical run records remain unchanged;
-definitions reserved by an active run retain their existing temporary lock.
-The separate owner and Pica deletion rules above still apply.
-
 ## Agent Plans
 
 Under **Agents → Agent Plan** (`/agents/plans`) the plan editor is one
@@ -841,8 +840,8 @@ when the navigation or window changes size; pan and zoom move only the graph.
 Move nodes, frames, starts and ends by their header or checkpoint symbol; the
 grabbed point stays under the pointer at every zoom level and positions snap
 to the raster. Grid coordinates range from 0 to 6000; dropping or keyboard
-movement commits a snapped, bounded position. Agent definitions remain in the
-existing Agents area.
+movement commits a snapped, bounded position. Names, instructions, parameters
+and supported run options are edited directly on each agent node.
 
 An ACP group is a yellow session container on the grid (PAGE-113), with no
 flow, input, result or session ports. Agent connections determine execution;
@@ -975,19 +974,16 @@ An executable plan needs at least one usable agent, an explicit Start and a
 reachable End. Every flow node must be reachable from a Start and lead to an
 End; every required flow IN/OUT must be connected. Required agent inputs,
 including a configured working directory, need connected, nonempty values.
-Agent templates stay editable in the Agents area. Each insertion of an agent,
-also into a group from its node dialog, fetches the current
-template and stores an independent node copy of its instruction, model grant,
-reasoning, parameters, directory binding and run options. Its configured defaults
-become individual connected parameter nodes. The pencil button beside the
-menu opens its own AGENT.md instruction, released model and reasoning level;
-the dialog identifies these changes as applying only to that node. The model
-list of an agent card offers every model released to you for the plan's
-project, of any provider, and switches model, grant and provider of that node
-only; reasoning levels follow the chosen model. Inside an ACP group, models of
-another runner stay listed but disabled, since a group shares one session:
-drag the agent out of the frame to use them. A withdrawn grant is named and
-refused at save and Play, without falling back to another model. Double-clicking an
+Adding an agent node asks for a permitted connection/model pair and creates an
+independent node configuration. Its working-directory input binds to the plan's
+workspace. The pencil edits its name, instructions, typed parameters, run
+options, model and reasoning level. Changing a model keeps instructions, inputs,
+bindings and run options; unsupported options need an explicit correction.
+Node templates remain optional independent copies, subject to current model
+and resource rights at save and insertion. A withdrawn selection remains visible
+and is refused at save and Play without a fallback. Inside an ACP group, models
+of another runner stay listed but disabled; detach the node to select them.
+Double-clicking an
 agent node opens its PageAgentCLI console instead: the fixed ticket panel over
 the dimmed plan with the node's session history, workspace and Git state,
 requested and confirmed model and reasoning, context occupancy, token and cache
@@ -1065,7 +1061,7 @@ nothing waits for a person, and an action the options do not allow is refused
 instead of asked.
 
 A Codex CLI, Claude Code or OpenCode agent runs in exactly one of two permission modes,
-chosen in the agent list. **Read only** reads the workspace and Pages content
+chosen on the Agent Plan node. **Read only** reads the workspace and Pages content
 and may search the web, but creates, changes and deletes no files, runs no
 commands and calls only reading Pages MCP operations; the server offers no
 changing tool to it, and inside bubblewrap the workspace is mounted read-only.
@@ -1687,7 +1683,7 @@ instance tag and worker unit and releases each one whose processes are proven
 gone (PAGE-127); an unconfirmed lease keeps its capacity. There is no
 force-release UI.
 
-The shared **ACP resources** card in Settings → System and Settings → Agents
+The shared **ACP resources** card in Settings → System
 polls `/agent-api/resources` every five seconds while open and refreshes after
 a confirmed limit change. It shows global occupied leases, the effective limit,
 its source and the combined Pica/Agent Plans queue.

@@ -36,6 +36,8 @@ export interface ChatSessionDependencies {
   readonly files: Pick<WikiFileStore, "remove">;
   /** Draws a session ID; five random words by default. */
   readonly createId?: () => string;
+  readonly requireEnabled?: () => Promise<void>;
+  readonly admit?: <Result>(work: () => Promise<Result>) => Promise<Result>;
   /** Jobs, steers and selection snapshots of the Codex path; absent without it. */
   readonly activity?: (
     userId: string,
@@ -128,28 +130,22 @@ export class ChatSessionService {
   /** Opens the most recently used session, or a new one for a first visit. */
   public async open(actor: User): Promise<ChatOverview> {
     requireChatActor(actor);
-    const [latest] = await this.dependencies.sessions.list(actor.id, 1);
-    const session = latest ?? (await this.createSession(actor.id));
-    const [view, settings, confirmationWord] = await Promise.all([
-      this.viewOf(session, actor.id),
-      this.dependencies.settings.read(),
-      this.confirmationWord(actor.id),
-    ]);
-    return {
-      ...view,
-      attachmentLimitBytes: settings.attachmentLimitBytes,
-      confirmationWord,
-    };
+    await this.dependencies.requireEnabled?.();
+    return this.dependencies.admit
+      ? this.dependencies.admit(() => this.openSession(actor))
+      : this.openSession(actor);
   }
 
   /** Starts a new, empty session (`/new`). */
   public async create(actor: User): Promise<ChatSessionView> {
     requireChatActor(actor);
-    return {
+    await this.dependencies.requireEnabled?.();
+    const create = async (): Promise<ChatSessionView> => ({
       session: await this.createSession(actor.id),
       messages: [],
       pending: [],
-    };
+    });
+    return this.dependencies.admit ? this.dependencies.admit(create) : create();
   }
 
   /** Lists only the person's own sessions (`/sessions`). */
@@ -241,6 +237,21 @@ export class ChatSessionService {
   public async confirmationWord(userId: string): Promise<ChatConfirmationWord> {
     const settings = await this.dependencies.languages.findByUserId(userId);
     return chatConfirmationWord(settings?.language);
+  }
+
+  private async openSession(actor: User): Promise<ChatOverview> {
+    const [latest] = await this.dependencies.sessions.list(actor.id, 1);
+    const session = latest ?? (await this.createSession(actor.id));
+    const [view, settings, confirmationWord] = await Promise.all([
+      this.viewOf(session, actor.id),
+      this.dependencies.settings.read(),
+      this.confirmationWord(actor.id),
+    ]);
+    return {
+      ...view,
+      attachmentLimitBytes: settings.attachmentLimitBytes,
+      confirmationWord,
+    };
   }
 
   /**

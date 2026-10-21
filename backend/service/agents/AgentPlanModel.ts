@@ -1,10 +1,10 @@
 import { agentProfilePriority } from "@/backend/auth/AgentProfilePolicy";
-import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { AgentError } from "@/backend/error/AgentErrors";
-import { logCaughtError } from "@/backend/logging/Logger";
 
 import { resolveAgentAssignmentFor } from "./AgentAssignmentResolution";
 
+import type { AgentProfileService } from "./AgentProfileService";
+import type { AgentPlanRunResources } from "@/backend/agents/AgentPlanRunResources";
 import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
 import type { AgentPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 import type { AgentProfile } from "@/definition/AgentProfile";
@@ -25,7 +25,7 @@ export async function resolvePlanModel(
   readonly accessAgentId: string;
 }> {
   if (configuration.modelProfileId === "")
-    return resolvePersonalModel(dependencies, viewer, configuration, context);
+    throw new AgentError("model_assignment_missing");
   const source = context.profiles.find(
     (entry) => entry.id === configuration.modelProfileId,
   );
@@ -54,51 +54,15 @@ export async function resolvePlanModel(
   return { assignment, accessAgentId: source.id };
 }
 
-async function resolvePersonalModel(
-  dependencies: ProfileDependencies,
-  viewer: AgentViewer,
-  configuration: AgentPlanConfiguration,
-  context: {
-    readonly profiles: readonly AgentProfile[];
-    readonly projectId: string | null;
-  },
-): Promise<{
-  readonly assignment: ResolvedAgentAssignment;
-  readonly accessAgentId: string;
-}> {
-  const candidates: {
-    readonly assignment: ResolvedAgentAssignment;
-    readonly accessAgentId: string;
-  }[] = [];
-  for (const source of context.profiles) {
-    if (
-      !source.targets.some(
-        (target) =>
-          target.kind === "person" && target.targetId === viewer.actor.userId,
-      )
-    )
-      continue;
-    try {
-      candidates.push(
-        await resolvePlanModel(
-          dependencies,
-          viewer,
-          { ...configuration, modelProfileId: source.id },
-          context,
-        ),
-      );
-    } catch (error: unknown) {
-      logCaughtError("AgentPlanModel", error);
-
-      if (
-        !(error instanceof AgentError) &&
-        !(error instanceof AgentExecutionError)
-      )
-        throw error;
-    }
-  }
-  if (candidates.length === 0) throw new AgentError("personal_access_missing");
-  if (candidates.length > 1)
-    throw new AgentError("personal_access_selection_required");
-  return candidates[0];
+/** Rechecks model scopes before disclosing output, including legacy definition shares. */
+export async function requirePlanModelResources(
+  profiles: AgentProfileService,
+  userId: string,
+  resources: AgentPlanRunResources,
+): Promise<void> {
+  for (const connectionId of resources.connectionIds ?? [])
+    await profiles.requireConnection(userId, connectionId);
+  for (const agentId of resources.agentIds)
+    if (!(await profiles.isVisible(userId, agentId)))
+      throw new AgentError("plan_access_denied");
 }

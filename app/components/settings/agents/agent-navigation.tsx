@@ -63,17 +63,6 @@ export function AgentNavigation(props: {
           >
             {t("navigation.workspace")}
           </NavLink>
-          <NavLink
-            to="/agents/agents"
-            onClick={props.onNavigate}
-            className={cn(
-              "flex min-h-11 items-center rounded-xl px-3 text-sm font-medium text-muted-foreground hover:bg-sidebar-hover hover:text-foreground xl:min-h-9",
-              location.pathname === "/agents/agents" &&
-                "bg-primary-subtle text-foreground shadow-xs",
-            )}
-          >
-            {t("navigation.agentList")}
-          </NavLink>
         </div>
       ) : null}
     </div>

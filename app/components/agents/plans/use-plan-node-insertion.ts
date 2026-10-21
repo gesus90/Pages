@@ -129,7 +129,11 @@ export function usePlanNodeInsertion(
     const node = createPlanNode({ draft, sources, kind, reference, position });
     const group = findFrame(draft, groupId);
     if (!node || !admits(node, group)) return null;
-    if (node.type === "agent" && loadConfiguration) {
+    if (
+      node.type === "agent" &&
+      !node.configuration?.connectionId &&
+      loadConfiguration
+    ) {
       void insertCurrent(node, group);
       return null;
     }

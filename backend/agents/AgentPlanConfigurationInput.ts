@@ -39,7 +39,10 @@ export function readPlanConfiguration(input: unknown): AgentPlanConfiguration {
   return {
     name: readText(entry.name, 200, true),
     revision: entry.revision,
-    modelProfileId: readText(entry.modelProfileId, 100, true),
+    modelProfileId: readText(entry.modelProfileId, 1500, true),
+    ...(entry.connectionId === undefined
+      ? {}
+      : { connectionId: readText(entry.connectionId, 100) }),
     model: readText(entry.model, 500),
     provider: entry.provider,
     reasoningEffort: entry.reasoningEffort,

@@ -328,7 +328,7 @@
         "instructionDefault": "No supplement saved. Pica works with the protected instructions from SOUL.md and AGENTS.md alone.",
         "instructionCustom": "A supplement is active.",
         "instructionHint": "It applies from the next message on and ranks below the protected instructions of Pica (SOUL.md, AGENTS.md) and the fixed rules of Pages (rights of the person, actions). It can neither change nor override them; the protected instructions cannot be edited here.",
-        "modelHint": "Access and model are set at the system function Chat:",
+        "modelHint": "Set activation, connection, model and reasoning in the fixed Pica card:",
         "modelLink": "Settings › Agents",
         "save": "Save chat settings",
         "reset": "Remove supplement",
@@ -611,7 +611,7 @@
         "personal_access_missing": "No matching personal model access is assigned.",
         "personal_access_selection_required": "Choose a matching personal access explicitly.",
         "agent_usage_denied": "No usage share or authorized access in the selected project context.",
-        "model_assignment_missing": "The model assignment was removed. Assign an available model to use this agent again.",
+        "model_assignment_missing": "The connection/model mapping is missing or ambiguous. Explicitly choose a permitted connection and model on the node; existing content is retained.",
         "agent_inactive": "This agent is inactive.",
         "system_function_in_use": "This system function already has an agent.",
         "workspace_invalid": "Enter a name, an existing local directory and a project.",
@@ -730,9 +730,10 @@
         "plan_script_credentials": "stdout contains credential-shaped text. The result was withheld; the step failed.",
         "plan_script_io": "The script input/output or durable attempt recording failed.",
         "plan_script_cleanup": "Process or temporary-resource cleanup could not be confirmed. The workspace remains reserved.",
-        "plan_script_interrupted": "The backend lost this process attempt. Side effects are uncertain; it is never replayed automatically."
+        "plan_script_interrupted": "The backend lost this process attempt. Side effects are uncertain; it is never replayed automatically.",
+        "profile_management_retired": "Profile management has been replaced. Configure models and instructions directly in Agent Plans."
       },
-      "description": "Manage the named AI connections and function assignments of this Pages instance.",
+      "description": "Manage named API and CLI connections and their usage scopes. Permitted models are available directly in Agent Plans.",
       "adminModeRequired": "The agent settings are only available in the admin mode. Your account is currently in the role mode.",
       "apiTitle": "API connections",
       "cliTitle": "CLI connections",
@@ -950,7 +951,7 @@
           "skills": "SKILLS"
         },
         "noEffort": "No reasoning level available",
-        "connectionHint": "Configure model and reasoning in the central Agents panel.",
+        "connectionHint": "Choose model and reasoning directly on an Agent Plan node. Configure Pica in the fixed card above.",
         "chooseConnection": "Choose connection",
         "searchConnections": "Search connections",
         "noConnections": "No matching connection.",
@@ -1008,7 +1009,7 @@
         "addParameter": "Add parameter",
         "directoryParameter": "Workspace parameter for the future start directory",
         "noDirectory": "No start directory from parameters",
-        "bindingLater": "Values will be bound per plan step later. This view does not start an agent. A path in the prompt does not set a working directory.",
+        "bindingLater": "Bind concrete values on the Agent Plan node. This view does not start an agent. A path in the prompt does not set a working directory.",
         "parameterName": "Parameter name",
         "parameterType": "Type",
         "parameterDescription": "Description",
@@ -3049,8 +3050,8 @@
       "fileTypeNotAllowed": "This file type is not allowed or the content does not match the file name. Executable files are blocked.",
       "invalidSetting": "Please check the input.",
       "stepLimit": "Pica reached the execution limit (up to 256 tool calls per request). Changes already made are retained. Please send further work as a new request.",
-      "roleMissing": "No agent is assigned to the chat yet. An administrator sets it under Settings › Agents with the system function Chat.",
-      "profileSelectionRequired": "Several chat agents match with the same priority. An administrator has to make the assignment unique.",
+      "roleMissing": "Pica has no unambiguous valid model selection. An administrator chooses it under Settings › Agents.",
+      "profileSelectionRequired": "The previous Pica assignment is ambiguous. An administrator must choose exactly one model here.",
       "connectionUnavailable": "The access of the chat agent is not available. Please contact an administrator.",
       "accessUnverified": "The access of the chat agent is not verified. Please contact an administrator.",
       "modelUnavailable": "The model of the chat agent is not in the catalog of its access.",
@@ -3069,7 +3070,8 @@
       "acpProviderUnsupported": "Pica supports API connections and Codex CLI, Claude Code and OpenCode over ACP. An administrator must assign one of these agents to chat under Settings › Agents.",
       "acpPermissionModeUnsupported": "Pica requires “Read only” workspace access for Claude Code and OpenCode. Only the authorized Pages tools are available, with no shell, files or web tools. An administrator must update the chat agent’s mode. Your message was not sent.",
       "bridgeUnavailable": "The chat agent could not connect Pica's Pages tools. Nothing was changed. Please try again or contact an admin.",
-      "interrupted": "The server stopped during the answer. The answer is not repeated automatically."
+      "interrupted": "The server stopped during the answer. The answer is not repeated automatically.",
+      "disabled": "Pica is turned off. An administrator can enable Pica under Settings › Agents."
     },
     "recover": "Start a new session",
     "context": {
@@ -3270,7 +3272,7 @@
       "reportHint": "Shows todos, criteria and evidence as diagnostics. Open work, ticket changes and missing or invalid reports never block regular completion or successor agents.",
       "todosHint": "Shows the current ticket todo list and its live checkboxes. Regular runner completion continues the flow automatically; open and unknown work remains visible."
     },
-    "nodeConfigurationHint": "Changes apply only to this node. The agent template and other nodes remain unchanged.",
+    "nodeConfigurationHint": "This configuration belongs to this node. Changing the model preserves instructions, parameters and bindings; run options must match the selected runner.",
     "nodeMarkdown": "AGENT.md / instruction for this node",
     "editNode": "Edit selected agent node",
     "closeNode": "Apply to plan",
@@ -3306,7 +3308,7 @@
     "valueOut": "Data OUT",
     "selectNode": "Select {{name}}",
     "bindPort": "Bind {{parameter}} of {{name}}",
-    "missingAgent": "Agent missing. Assign an agent before starting the plan.",
+    "missingAgent": "The model mapping is missing. Choose a permitted connection and model on the node.",
     "useDefault": "No bound value",
     "blocked": "Waiting · blocked by predecessor",
     "discardTitle": "Discard unsaved plan?",
@@ -3805,7 +3807,7 @@
       "hint": {
         "start": "Add the beginning of a flow.",
         "end": "Add the end of a flow.",
-        "agent": "Add a step from an available agent definition.",
+        "agent": "Configure a step directly with a permitted model.",
         "script": "Run a script with a configured interpreter in the approved plan workspace.",
         "parameter": "Provide a named input value.",
         "task": "Use a readable ticket as a data source.",
@@ -3814,16 +3816,16 @@
       },
       "addTitle": "Add {{type}}",
       "add": "Add",
-      "chooseAgent": "Choose an agent definition",
+      "chooseAgent": "Choose a model …",
       "workspaceRequired": "Choose a valid workspace in the plan controls first.",
       "editBlocked": "The plan cannot currently be edited. Check edit rights and run state in the plan controls.",
       "configure": {
-        "agent": "Explicitly choose an available agent definition. Its template is copied into a separate step.",
+        "agent": "Choose a permitted model and its API or CLI connection. Configure instructions and inputs directly on the node.",
         "task": "Choose a ticket from the current project. The ticket itself stays unchanged.",
         "parameter": "Enter a valid parameter name. Its text value starts empty and can then be edited on the card.",
         "group": "Name the new group. Then add compatible ACP agents."
       },
-      "noAgents": "No usable agent definition is available in this workspace.",
+      "noAgents": "No usable models are shared. An administrator can check connections, catalogs and usage scopes under Settings › Agents.",
       "noTickets": "No readable tickets are available in this project."
     },
     "templates": {
@@ -4228,7 +4230,8 @@
         "workflow_unavailable": "Restart and resume are not available here.",
         "plan_conflict": "The plan was saved meanwhile. Reload the plan and start the revision you see."
       }
-    }
+    },
+    "nodeInstruction": "Additional node instruction"
   },
   "mcpDuration": {
     "label": "Validity in days",
@@ -4324,7 +4327,7 @@
     "or": "OR – at least one target",
     "and": "AND – every target",
     "name": "Name",
-    "model": "Admin model",
+    "model": "Model",
     "reasoning": "Reasoning",
     "close": "Close",
     "save": "Save",
@@ -4340,8 +4343,8 @@
     "viewAgent": "View agent",
     "loadError": "The agents could not be loaded.",
     "retry": "Try again",
-    "missingModel": "Model assignment missing",
-    "modelWithdrawn": "The model of this agent is no longer released for you or was changed. Choose a released model to save it.",
+    "missingModel": "Model or connection unavailable/not shared",
+    "modelWithdrawn": "The saved model/connection selection is unavailable or no longer shared. Explicitly choose a usable model before saving.",
     "deletedTargets": "A group or department of this share no longer exists. It is left out of the list below; saving stores the share without it.",
     "deleteTitle": "Remove agent “{{name}}”?",
     "deleteDescription": "The agent will be removed from the list and can no longer be started. Running agents can only be removed after their run ends.",
@@ -4518,5 +4521,20 @@
     "pair": "Enter a pairing code",
     "endpoint": "HTTP MCP endpoint",
     "hint": "Use OAuth in a compatible HTTP client, or enter a pairing code. Keep bearer tokens in the client’s protected credentials."
+  },
+  "picaSettings": {
+    "title": "Pica · Chat assistant",
+    "description": "The fixed chat assistant for this Pages instance.",
+    "enable": "Enable Pica",
+    "off": "Off",
+    "on": "On",
+    "chooseModel": "Choose a model …",
+    "saved": "Pica settings saved.",
+    "stopHint": "Turning Pica off or changing its model, connection or reasoning stops running Pica answers through controlled cancellation. Chats are retained. Agent Plans run independently. Other open views refresh on focus or within 30 seconds.",
+    "unavailable": "Check the saved Pica selection:",
+    "effortReset": "The new model does not support the previous reasoning level. The choice is now Default; review it before saving.",
+    "manual": "manual model ID",
+    "retired": "Agents are configured directly in the plan with a permitted model. Existing templates and histories are retained.",
+    "unsupportedEffort": "Unsupported – correct the selection"
   }
 }

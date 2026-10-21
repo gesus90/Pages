@@ -104,6 +104,8 @@ export interface PageAgentRead {
 
 /** A model the account may give an agent, with what the catalog reports for reasoning. */
 export interface PageAgentModelEntry {
+  readonly connectionId?: string;
+  readonly provider?: string;
   /** Pass as `modelProfileId`. */
   readonly modelProfileId: string;
   readonly name: string;

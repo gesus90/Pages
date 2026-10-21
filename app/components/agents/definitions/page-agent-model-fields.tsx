@@ -4,13 +4,14 @@ import { Select } from "@/app/components/ui/select";
 
 import type { PageAgentInput, PageAgentModel } from "@/definition/PageAgent";
 
-/** Restricts model and reasoning controls to the server-provided admin grants. */
+/** Restricts model and reasoning controls to the currently shared connection models. */
 export function PageAgentModelFields(props: {
   readonly draft: PageAgentInput;
   readonly models: readonly PageAgentModel[];
   readonly disabled: boolean;
   /** Tells an owner that the saved model is no longer released and has to be replaced. */
   readonly isModelWithdrawn: boolean;
+  readonly savedModel?: string;
   readonly onChange: (draft: PageAgentInput) => void;
 }): React.ReactElement {
   const { t } = useTranslation();
@@ -19,29 +20,29 @@ export function PageAgentModelFields(props: {
   );
   const efforts = model?.reasoningEfforts ?? [];
   function selectModel(id: string): void {
-    const selected = props.models.find((entry) => entry.id === id);
     props.onChange({
       ...props.draft,
       modelProfileId: id,
-      reasoningEffort: selected?.reasoningEffort ?? null,
+      reasoningEffort: props.draft.reasoningEffort,
     });
   }
   return (
     <div className="space-y-3">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="block space-y-2 text-sm font-medium">
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+        <label className="block min-w-0 space-y-2 text-sm font-medium">
           <span>{t("pageAgents.model")}</span>
           <Select
             value={props.draft.modelProfileId}
             ariaLabel={t("pageAgents.model")}
             disabled={props.disabled}
             onValueChange={selectModel}
+            className="w-full [&>span]:min-w-0 [&>span]:truncate"
             options={[
               ...(!model
                 ? [
                     {
                       value: props.draft.modelProfileId,
-                      label: t("pageAgents.missingModel"),
+                      label: `${props.savedModel ? `${props.savedModel} · ` : ""}${t("pageAgents.missingModel")}`,
                       disabled: true,
                     },
                   ]
@@ -49,15 +50,20 @@ export function PageAgentModelFields(props: {
               ...props.models.map((entry) => ({
                 value: entry.id,
                 label: `${entry.name} · ${entry.model}`,
+                description: `${t(`settings.agents.provider.${entry.provider}`)}${entry.isManual ? ` · ${t("picaSettings.manual")}` : ""}`,
               })),
             ]}
           />
         </label>
-        <label className="block space-y-2 text-sm font-medium">
+        <label className="block min-w-0 space-y-2 text-sm font-medium">
           <span>{t("pageAgents.reasoning")}</span>
           <Select
             value={props.draft.reasoningEffort ?? ""}
-            disabled={props.disabled || efforts.length === 0}
+            className="w-full [&>span]:min-w-0 [&>span]:truncate"
+            disabled={
+              props.disabled ||
+              (efforts.length === 0 && props.draft.reasoningEffort === null)
+            }
             // Only a listed level is a choice; the fixed default reports as empty.
             onValueChange={(effort) =>
               props.onChange({
@@ -65,11 +71,21 @@ export function PageAgentModelFields(props: {
                 reasoningEffort: efforts.includes(effort) ? effort : null,
               })
             }
-            options={
-              efforts.length > 0
-                ? efforts.map((effort) => ({ value: effort, label: effort }))
-                : [{ value: "", label: t("pageAgents.defaultReasoning") }]
-            }
+            ariaLabel={t("pageAgents.reasoning")}
+            options={[
+              { value: "", label: t("pageAgents.defaultReasoning") },
+              ...efforts.map((effort) => ({ value: effort, label: effort })),
+              ...(props.draft.reasoningEffort &&
+              !efforts.includes(props.draft.reasoningEffort)
+                ? [
+                    {
+                      value: props.draft.reasoningEffort,
+                      label: `${props.draft.reasoningEffort}${model ? ` · ${t("picaSettings.unsupportedEffort")}` : ""}`,
+                      disabled: true,
+                    },
+                  ]
+                : []),
+            ]}
           />
         </label>
       </div>

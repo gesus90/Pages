@@ -197,6 +197,9 @@ export class AgentPlanRunRepository {
         ...new Set(references.flatMap((entry) => entry.workspaceIds)),
       ],
       agentIds: [...new Set(references.flatMap((entry) => entry.agentIds))],
+      connectionIds: [
+        ...new Set(references.flatMap((entry) => entry.connectionIds ?? [])),
+      ],
       taskIds: [...new Set(references.flatMap((entry) => entry.taskIds))],
       wikiIds: [...new Set(references.flatMap((entry) => entry.wikiIds))],
       ticketIds: [...new Set(references.flatMap((entry) => entry.ticketIds))],

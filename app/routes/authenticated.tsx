@@ -31,6 +31,7 @@ interface AuthenticatedLoaderData {
   readonly region: RegionPreferences;
   /** Company name and logo of the instance. */
   readonly branding: InstanceBranding;
+  readonly isPicaEnabled: boolean;
 }
 
 /** Returns the authenticated user and their navigation permissions. */
@@ -52,14 +53,16 @@ export async function loader({
     user,
     PERMISSION.PARTICIPATE_IN_PROJECTS,
   );
+  const pica = await services.picaSettingsService.read();
 
   return {
+    isPicaEnabled: pica.isEnabled,
     branding,
     canViewProjects,
     canViewUsers: navigation.canViewUsers,
     region: { dateFormat, timezone },
     user,
-    authorizationVersion: navigation.version,
+    authorizationVersion: `${navigation.version}:pica:${pica.revision}`,
     account: navigation.account,
   };
 }
@@ -74,6 +77,7 @@ export default function AuthenticatedRoute(): React.ReactElement {
     account,
     region,
     branding,
+    isPicaEnabled,
   } = useLoaderData<typeof loader>();
   const isOffline = useAuthorizationRefresh(authorizationVersion);
 
@@ -87,7 +91,7 @@ export default function AuthenticatedRoute(): React.ReactElement {
         account={account}
         isOffline={isOffline}
       />
-      <ChatLauncher />
+      {isPicaEnabled ? <ChatLauncher /> : null}
     </RegionProvider>
   );
 }

@@ -385,7 +385,9 @@ async function requirePlanAgents(
 ): Promise<void> {
   const ids = new Set(
     allPlanSteps(plan).flatMap((node) =>
-      node.type === "agent" ? [node.agentId, node.personalAgentId] : [],
+      node.configuration?.connectionId
+        ? []
+        : [node.agentId, node.personalAgentId],
     ),
   );
   for (const id of ids) {
@@ -399,6 +401,29 @@ async function requirePlanAgents(
       { id },
     );
     if (!profile) throw new AgentError("plan_context_changed");
+  }
+  await requirePlanConnections(database, plan);
+}
+
+async function requirePlanConnections(
+  database: DatabaseTransaction,
+  plan: AgentPlan,
+): Promise<void> {
+  const ids = new Set(
+    allPlanSteps(plan).flatMap((node) =>
+      node.configuration?.connectionId ? [node.configuration.connectionId] : [],
+    ),
+  );
+  for (const id of ids) {
+    const [connection] = await database.query(
+      `
+      SELECT id
+      FROM agent_connections
+      WHERE id = $id;
+    `,
+      { id },
+    );
+    if (!connection) throw new AgentError("plan_context_changed");
   }
 }
 

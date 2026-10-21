@@ -2,6 +2,8 @@ import type { AgentUsage } from "@/definition/AgentUsage";
 
 /** Stable codes cross the HTTP boundary; upstream error text never does. */
 export const AGENT_ERROR_MESSAGES = {
+  profile_management_retired:
+    "Agent profile management has been replaced by direct model configuration in Agent Plans.",
   agent_tool_not_ready:
     "A required agent tool is not ready. The run events name the tool and cause; an administrator can inspect Settings → Agents → Tools.",
   opencode_acceptance_failed:

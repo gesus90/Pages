@@ -15,7 +15,9 @@ import { logCaughtError } from "@/backend/logging/Logger";
 import { resolveAgentAssignmentFor } from "./AgentAssignmentResolution";
 import { canUseAgentConnection } from "./AgentConnectionAccess";
 import { resolvePlanModel } from "./AgentPlanModel";
-import { pageAgentModels, resolvePageAgentModel } from "./PageAgentModels";
+import { resolvePageAgentModel } from "./PageAgentModels";
+import { connectionModels } from "./AgentConnectionModels";
+import { resolveDirectPlanModel } from "./AgentPlanDirectModel";
 
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
@@ -79,12 +81,7 @@ export class AgentAvailabilityService {
     projectId: string | null = null,
   ): Promise<readonly PageAgentModel[]> {
     const context = await this.context(userId, projectId);
-    return pageAgentModels(
-      this.dependencies,
-      context.viewer,
-      context.profiles,
-      projectId,
-    );
+    return connectionModels(this.dependencies.connections, context.viewer);
   }
 
   /** Administration may inspect all agents, but gets no execution authorization bypass. */
@@ -123,6 +120,22 @@ export class AgentAvailabilityService {
     readonly assignment: ResolvedAgentAssignment;
   }> {
     const context = await this.context(userId, selection.projectId);
+    if (selection.configuration?.connectionId)
+      return resolveDirectPlanModel(this.dependencies, context.viewer, {
+        agentId: selection.agentId,
+        configuration: selection.configuration,
+      });
+    return this.resolveLegacy(context, selection);
+  }
+
+  private async resolveLegacy(
+    context: AvailabilityContext,
+    selection: AgentDefinitionSelection,
+  ): Promise<{
+    readonly profile: AgentProfile;
+    readonly accessAgentId: string;
+    readonly assignment: ResolvedAgentAssignment;
+  }> {
     const profile = context.profiles.find(
       (entry) => entry.id === selection.agentId,
     );

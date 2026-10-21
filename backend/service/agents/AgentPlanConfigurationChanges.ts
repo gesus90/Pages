@@ -7,6 +7,8 @@ import {
   requireParameterKeys,
 } from "./AgentParameterReader";
 
+import type { PageAgentModel } from "@/definition/PageAgent";
+
 import type { AgentPlanStep } from "@/definition/AgentPlan";
 import type { AgentPlanChangeContext } from "./AgentPlanStructureChanges";
 
@@ -20,7 +22,14 @@ export function patchPlanConfiguration(
   requireParameterKeys(
     patch,
     [],
-    ["name", "modelProfileId", "reasoningEffort", "template"],
+    [
+      "name",
+      "modelProfileId",
+      "connectionId",
+      "model",
+      "reasoningEffort",
+      "template",
+    ],
   );
   const source = context.agents.find((agent) => agent.id === step.agentId);
   let current =
@@ -29,10 +38,12 @@ export function patchPlanConfiguration(
     throw new AgentOperationError("INVALID_REQUEST", {
       reason: "element_missing",
     });
-  if (patch.modelProfileId !== undefined) {
-    const model = context.models?.find(
-      (entry) => entry.id === patch.modelProfileId,
-    );
+  if (
+    patch.modelProfileId !== undefined ||
+    patch.connectionId !== undefined ||
+    patch.model !== undefined
+  ) {
+    const model = selectedPlanModel(patch, context);
     if (!model)
       throw new AgentOperationError("INVALID_REQUEST", {
         reason: "parameter_reference_unavailable",
@@ -40,18 +51,10 @@ export function patchPlanConfiguration(
     current = {
       ...current,
       modelProfileId: model.id,
+      connectionId: model.connectionId,
       model: model.model,
       provider: model.provider,
-      reasoningEffort:
-        current.modelProfileId === model.id
-          ? current.reasoningEffort
-          : model.reasoningEffort,
-      template: {
-        ...current.template,
-        ...(current.provider === model.provider
-          ? {}
-          : { run: defaultAgentRunOptions(model.provider) }),
-      },
+      reasoningEffort: current.reasoningEffort,
     };
   }
   const template =
@@ -69,9 +72,14 @@ export function patchPlanConfiguration(
       [],
       ["access", "shell", "web", "timeoutMinutes", "browser"],
     );
+  const contentPatch = Object.fromEntries(
+    Object.entries(patch).filter(
+      ([key]) => !["connectionId", "model", "modelProfileId"].includes(key),
+    ),
+  );
   return {
     ...current,
-    ...patch,
+    ...contentPatch,
     template: {
       ...current.template,
       ...template,
@@ -88,4 +96,22 @@ export function patchPlanConfiguration(
         : {}),
     },
   };
+}
+
+/** Resolves an explicit connection/model pair, retaining old selection keys as an API alias. */
+export function selectedPlanModel(
+  input: unknown,
+  context: AgentPlanChangeContext,
+): PageAgentModel {
+  const patch = readParameterRecord(input);
+  const model = context.models?.find((entry) =>
+    patch.connectionId !== undefined || patch.model !== undefined
+      ? entry.connectionId === patch.connectionId && entry.model === patch.model
+      : entry.id === patch.modelProfileId,
+  );
+  if (!model)
+    throw new AgentOperationError("INVALID_REQUEST", {
+      reason: "parameter_reference_unavailable",
+    });
+  return model;
 }

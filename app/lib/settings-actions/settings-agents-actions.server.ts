@@ -1,8 +1,4 @@
-import {
-  readOptionalText,
-  readText,
-  readTextOrEmpty,
-} from "@/app/lib/form-fields.server";
+import { readText, readTextOrEmpty } from "@/app/lib/form-fields.server";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
@@ -58,6 +54,10 @@ function readActive(formData: FormData): boolean {
   return active === "true";
 }
 
+function retiredProfileAction(): Promise<never> {
+  return Promise.reject(new AgentError("profile_management_retired"));
+}
+
 const AGENT_ACTION_HANDLERS: Readonly<Record<string, AgentActionHandler>> = {
   "set-connection-active": async ({ actor, services, formData, id }) => {
     await services.agentConnectionService.setActive(
@@ -67,39 +67,34 @@ const AGENT_ACTION_HANDLERS: Readonly<Record<string, AgentActionHandler>> = {
     );
     return { ok: true, connectionId: id };
   },
-  "save-profile": async ({ actor, services, formData }) => {
-    const content = readTextOrEmpty(formData, "profile");
-    if (content.length > 500000) throw new AgentError("profile_invalid");
-    const profile: unknown = JSON.parse(content);
-    // The editor of a new agent sends an empty ID; only a filled one names an existing agent.
-    await services.agentProfileService.save(
-      actor,
-      readOptionalText(formData, "profileId"),
-      profile,
-    );
+  "save-pica": async ({ actor, services, formData }) => {
+    const enabled = readText(formData, "isEnabled");
+    const connectionId = readTextOrEmpty(formData, "modelConnectionId");
+    const model = readTextOrEmpty(formData, "model");
+    const effort = readTextOrEmpty(formData, "reasoningEffort");
+    const revision = Number(readText(formData, "revision"));
+    if (
+      (enabled !== "true" && enabled !== "false") ||
+      connectionId.length > 100 ||
+      model.length > 500 ||
+      effort.length > 100 ||
+      !Number.isSafeInteger(revision)
+    )
+      throw new AgentError("profile_invalid");
+    await services.picaSettingsService.save(actor.userId, {
+      isEnabled: enabled === "true",
+      selection:
+        connectionId && model
+          ? { connectionId, model, reasoningEffort: effort || null }
+          : null,
+      revision,
+    });
     return { ok: true };
   },
-  "delete-profile": async ({ actor, services, formData }) => {
-    await services.agentProfileService.remove(
-      actor,
-      readTextOrEmpty(formData, "profileId"),
-    );
-    return { ok: true };
-  },
-  "profile-usages": async ({ actor, services, formData }) => ({
-    ok: true,
-    usages: await services.agentProfileService.usages(
-      actor,
-      readTextOrEmpty(formData, "profileId"),
-    ),
-  }),
-  "delete-assignment": async ({ actor, services, formData }) => {
-    await services.agentAssignmentService.remove(
-      actor,
-      readTextOrEmpty(formData, "function"),
-    );
-    return { ok: true };
-  },
+  "save-profile": retiredProfileAction,
+  "delete-profile": retiredProfileAction,
+  "profile-usages": retiredProfileAction,
+  "delete-assignment": retiredProfileAction,
   "create-connection": async ({ actor, services, formData }) => ({
     ok: true,
     connectionId: await services.agentConnectionService.create(
@@ -175,6 +170,7 @@ const CONNECTION_FREE_INTENTS = new Set([
   "profile-usages",
   "create-connection",
   "delete-assignment",
+  "save-pica",
 ]);
 
 /** Dispatches only known intents after checking fresh account facts, preserving mode switching. */

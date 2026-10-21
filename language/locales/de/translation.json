@@ -328,7 +328,7 @@
         "instructionDefault": "Keine Ergänzung gespeichert. Pica arbeitet nur mit den geschützten Vorgaben aus SOUL.md und AGENTS.md.",
         "instructionCustom": "Eine Ergänzung ist aktiv.",
         "instructionHint": "Sie gilt ab der nächsten Nachricht und steht unter den geschützten Vorgaben von Pica (SOUL.md, AGENTS.md) und den festen Regeln von Pages (Rechte der Person, Aktionen). Sie kann diese weder ändern noch aufheben; die geschützten Vorgaben lassen sich hier nicht bearbeiten.",
-        "modelHint": "Zugang und Modell legst du bei der Systemfunktion Chat fest:",
+        "modelHint": "Aktivierung, Zugang, Modell und Reasoning legen Sie in der festen Pica-Karte fest:",
         "modelLink": "Einstellungen › Agents",
         "save": "Chat-Einstellungen speichern",
         "reset": "Ergänzung entfernen",
@@ -611,7 +611,7 @@
         "personal_access_missing": "Kein passender eigener persönlicher Modellzugang zugewiesen.",
         "personal_access_selection_required": "Einen passenden eigenen persönlichen Zugang ausdrücklich auswählen.",
         "agent_usage_denied": "Keine Nutzungsfreigabe oder kein berechtigter Zugang im gewählten Projektkontext.",
-        "model_assignment_missing": "Die Modellzuweisung wurde entfernt. Weisen Sie ein verfügbares Modell zu, um diesen Agent wieder zu verwenden.",
+        "model_assignment_missing": "Die Zugangs-/Modellzuordnung fehlt oder ist mehrdeutig. Wählen Sie am Node ausdrücklich einen freigegebenen Zugang und ein Modell; bestehende Inhalte bleiben erhalten.",
         "agent_inactive": "Dieser Agent ist inaktiv.",
         "system_function_in_use": "Diese Systemfunktion ist bereits einem Agent zugewiesen.",
         "workspace_invalid": "Geben Sie einen Namen, ein vorhandenes lokales Verzeichnis und ein Projekt an.",
@@ -730,9 +730,10 @@
         "plan_script_credentials": "stdout enthält Text im Format von Zugangsdaten. Das Ergebnis wird zurückgehalten; der Schritt ist fehlgeschlagen.",
         "plan_script_io": "Die Ein-/Ausgabe oder dauerhafte Speicherung des Scriptversuchs ist fehlgeschlagen.",
         "plan_script_cleanup": "Die Bereinigung eigener Prozesse oder temporärer Ressourcen ist unbestätigt. Der Workspace bleibt reserviert.",
-        "plan_script_interrupted": "Das Backend hat diesen Prozessversuch verloren. Seiteneffekte sind unklar; er wird niemals automatisch wiederholt."
+        "plan_script_interrupted": "Das Backend hat diesen Prozessversuch verloren. Seiteneffekte sind unklar; er wird niemals automatisch wiederholt.",
+        "profile_management_retired": "Die Profilverwaltung wurde abgelöst. Modelle und Anweisungen werden direkt im Agent Plan konfiguriert."
       },
-      "description": "Verwalten Sie die benannten KI-Anbindungen und Funktionszuordnungen dieser Pages-Instanz.",
+      "description": "Verwalten Sie die benannten API- und CLI-Anbindungen und ihre Nutzungsfreigaben. Freigegebene Modelle stehen direkt im Agent Plan zur Verfügung.",
       "adminModeRequired": "Die Agents-Einstellungen sind nur im Admin-Modus verfügbar. Ihr Konto ist derzeit im Rollenmodus.",
       "apiTitle": "API-Anbindungen",
       "cliTitle": "CLI-Anbindungen",
@@ -950,7 +951,7 @@
           "skills": "SKILLS"
         },
         "noEffort": "Keine Reasoning-Stufe verfügbar",
-        "connectionHint": "Modell und Reasoning im zentralen Agents-Panel konfigurieren.",
+        "connectionHint": "Modell und Reasoning direkt am Agent-Plan-Node wählen. Pica wird in der festen Karte darüber konfiguriert.",
         "chooseConnection": "Anbindung auswählen",
         "searchConnections": "Anbindungen suchen",
         "noConnections": "Keine passende Anbindung.",
@@ -1008,7 +1009,7 @@
         "addParameter": "Parameter hinzufügen",
         "directoryParameter": "Arbeitsbereich-Parameter für das spätere Startverzeichnis",
         "noDirectory": "Kein Startverzeichnis aus Parametern",
-        "bindingLater": "Werte werden später pro Planschritt gebunden. Diese Ansicht startet keinen Agent. Eine Pfadnennung im Text legt kein Arbeitsverzeichnis fest.",
+        "bindingLater": "Konkrete Werte werden am Agent-Plan-Node gebunden. Diese Ansicht startet keinen Agenten. Ein Pfad im Prompt legt kein Arbeitsverzeichnis fest.",
         "parameterName": "Parametername",
         "parameterType": "Typ",
         "parameterDescription": "Beschreibung",
@@ -3049,8 +3050,8 @@
       "fileTypeNotAllowed": "Dieser Dateityp ist nicht erlaubt oder der Inhalt passt nicht zum Dateinamen. Ausführbare Dateien sind gesperrt.",
       "invalidSetting": "Bitte die Eingabe prüfen.",
       "stepLimit": "Pica hat das Ausführungslimit erreicht (höchstens 256 Werkzeugaufrufe pro Auftrag). Bisherige Änderungen bleiben erhalten. Bitte schicke weitere Arbeit als neuen Auftrag.",
-      "roleMissing": "Für den Chat ist noch kein Agent zugewiesen. Ein Admin legt ihn unter Einstellungen › Agents mit der Systemfunktion Chat fest.",
-      "profileSelectionRequired": "Mehrere Chat-Agents passen gleichrangig. Ein Admin muss die Zuweisung eindeutig machen.",
+      "roleMissing": "Für Pica ist kein eindeutiges, gültiges Modell gespeichert. Die Administration wählt es unter Einstellungen › Agents.",
+      "profileSelectionRequired": "Die bisherige Pica-Zuweisung ist mehrdeutig. Die Administration muss hier genau ein Modell auswählen.",
       "connectionUnavailable": "Der Zugang des Chat-Agenten ist nicht verfügbar. Bitte wende dich an einen Admin.",
       "accessUnverified": "Der Zugang des Chat-Agenten ist nicht bestätigt. Bitte wende dich an einen Admin.",
       "modelUnavailable": "Das Modell des Chat-Agenten ist nicht im Katalog des Zugangs.",
@@ -3069,7 +3070,8 @@
       "acpProviderUnsupported": "Pica unterstützt API-Verbindungen sowie Codex CLI, Claude Code und OpenCode über ACP. Ein Admin muss unter Einstellungen › Agents einen solchen Agenten für den Chat zuweisen.",
       "acpPermissionModeUnsupported": "Pica antwortet mit Claude Code und OpenCode nur mit Workspace-Zugriff „Nur Lesen“. Es stehen ausschließlich die autorisierten Pages-Werkzeuge zur Verfügung, keine Shell, Dateien oder Webwerkzeuge. Ein Admin muss den Modus des Chat-Agenten anpassen. Deine Nachricht wurde nicht gesendet.",
       "bridgeUnavailable": "Der Chat-Agent konnte die Pages-Werkzeuge von Pica nicht verbinden. Es wurde nichts geändert. Bitte versuch es noch einmal oder wende dich an einen Admin.",
-      "interrupted": "Der Server wurde während der Antwort beendet. Die Antwort wird nicht automatisch wiederholt."
+      "interrupted": "Der Server wurde während der Antwort beendet. Die Antwort wird nicht automatisch wiederholt.",
+      "disabled": "Pica ist ausgeschaltet. Die Administration kann Pica unter Einstellungen › Agents aktivieren."
     },
     "recover": "Neue Session starten",
     "context": {
@@ -3270,7 +3272,7 @@
       "reportHint": "Zeigt TODOs, Kriterien und Nachweise als Diagnose. Offene Punkte, Ticketänderungen und fehlende oder ungültige Berichte blockieren weder den regulären Abschluss noch Folge-Agenten.",
       "todosHint": "Zeigt die aktuelle TODO-Liste des Tickets und ihre live gesetzten Checkboxen. Der reguläre Runnerabschluss setzt den Ablauf selbstständig fort; offene und unbekannte Punkte bleiben sichtbar."
     },
-    "nodeConfigurationHint": "Änderungen gelten nur für diesen Node. Das Agent-Template und andere Nodes bleiben unverändert.",
+    "nodeConfigurationHint": "Diese Konfiguration gehört nur zu diesem Node. Ein Modellwechsel behält Anweisungen, Parameter und Verbindungen bei; Laufoptionen müssen zum gewählten Runner passen.",
     "nodeMarkdown": "AGENT.md / Anweisung dieses Nodes",
     "editNode": "Ausgewählten Agent-Node bearbeiten",
     "closeNode": "In Plan übernehmen",
@@ -3306,7 +3308,7 @@
     "valueOut": "Daten OUT",
     "selectNode": "{{name}} auswählen",
     "bindPort": "{{parameter}} von {{name}} binden",
-    "missingAgent": "Agent fehlt. Weisen Sie einen Agent zu, bevor Sie den Plan starten.",
+    "missingAgent": "Die Modellzuordnung fehlt. Wählen Sie am Node einen freigegebenen Zugang und ein Modell.",
     "useDefault": "Kein gebundener Wert",
     "blocked": "Wartet · durch Vorgänger blockiert",
     "discardTitle": "Ungespeicherten Plan verwerfen?",
@@ -3805,7 +3807,7 @@
       "hint": {
         "start": "Beginn eines Ablaufs hinzufügen.",
         "end": "Ende eines Ablaufs hinzufügen.",
-        "agent": "Einen Schritt aus einer verfügbaren Agentdefinition hinzufügen.",
+        "agent": "Einen Schritt direkt mit einem freigegebenen Modell konfigurieren.",
         "script": "Ein Script mit konfiguriertem Interpreter im freigegebenen Plan-Workspace ausführen.",
         "parameter": "Einen benannten Eingabewert bereitstellen.",
         "task": "Ein lesbares Ticket als Datenquelle verwenden.",
@@ -3814,16 +3816,16 @@
       },
       "addTitle": "{{type}} hinzufügen",
       "add": "Hinzufügen",
-      "chooseAgent": "Agentdefinition wählen",
+      "chooseAgent": "Modell auswählen …",
       "workspaceRequired": "Zuerst einen gültigen Workspace in der Plansteuerung wählen.",
       "editBlocked": "Der Plan ist derzeit nicht bearbeitbar. Schreibrechte und Laufzustand in der Plansteuerung prüfen.",
       "configure": {
-        "agent": "Eine verfügbare Agentdefinition ausdrücklich auswählen. Die Vorlage wird als eigener Schritt kopiert.",
+        "agent": "Wählen Sie ein freigegebenes Modell und seinen API- oder CLI-Zugang. Anweisungen und Eingaben konfigurieren Sie direkt am Node.",
         "task": "Ein Ticket des aktuellen Projekts auswählen. Das Ticket selbst bleibt unverändert.",
         "parameter": "Einen gültigen Parameternamen eingeben. Der Textwert beginnt leer und ist anschließend in der Karte editierbar.",
         "group": "Die neue Gruppe benennen. Anschließend passende ACP-Agents hinzufügen."
       },
-      "noAgents": "In diesem Workspace ist keine nutzbare Agentdefinition verfügbar.",
+      "noAgents": "Keine nutzbaren Modelle freigegeben. Die Administration prüft Zugang, Katalog und Nutzungsfreigabe unter Einstellungen › Agents.",
       "noTickets": "In diesem Projekt sind keine lesbaren Tickets verfügbar."
     },
     "templates": {
@@ -4228,7 +4230,8 @@
         "workflow_unavailable": "Neustart und Fortsetzen sind hier nicht verfügbar.",
         "plan_conflict": "Der Plan wurde inzwischen gespeichert. Plan neu laden und die angezeigte Revision starten."
       }
-    }
+    },
+    "nodeInstruction": "Zusätzliche Node-Anweisung"
   },
   "mcpDuration": {
     "label": "Gültigkeit in Tagen",
@@ -4324,7 +4327,7 @@
     "or": "ODER – mindestens ein Ziel",
     "and": "UND – jedes Ziel",
     "name": "Name",
-    "model": "Admin-Modell",
+    "model": "Modell",
     "reasoning": "Reasoning",
     "close": "Schließen",
     "save": "Speichern",
@@ -4340,8 +4343,8 @@
     "viewAgent": "Agent ansehen",
     "loadError": "Die Agents konnten nicht geladen werden.",
     "retry": "Erneut versuchen",
-    "missingModel": "Modellzuweisung fehlt",
-    "modelWithdrawn": "Das Modell dieses Agents ist für Sie nicht mehr freigegeben oder wurde geändert. Wählen Sie ein freigegebenes Modell, um zu speichern.",
+    "missingModel": "Modell oder Zugang nicht verfügbar/freigegeben",
+    "modelWithdrawn": "Die gespeicherte Modell-/Zugangsauswahl ist nicht mehr verfügbar oder freigegeben. Wählen Sie ausdrücklich ein nutzbares Modell, um zu speichern.",
     "deletedTargets": "Eine Gruppe oder Abteilung dieser Freigabe gibt es nicht mehr. Sie fehlt in der Liste unten; beim Speichern wird die Freigabe ohne sie gespeichert.",
     "deleteTitle": "Agent „{{name}}“ entfernen?",
     "deleteDescription": "Der Agent wird aus der AgentListe entfernt und kann danach nicht mehr gestartet werden. Laufende Agents können erst nach dem Ende ihres Laufs entfernt werden.",
@@ -4518,5 +4521,20 @@
     "pair": "Pairing-Code eingeben",
     "endpoint": "HTTP-MCP-Endpunkt",
     "hint": "OAuth in einem kompatiblen HTTP-Client verwenden oder einen Pairing-Code eingeben. Bearer-Tokens geschützt im Client ablegen."
+  },
+  "picaSettings": {
+    "title": "Pica · Chat-Assistent",
+    "description": "Der feste Chat-Assistent dieser Pages-Instanz.",
+    "enable": "Pica aktivieren",
+    "off": "Aus",
+    "on": "An",
+    "chooseModel": "Modell auswählen …",
+    "saved": "Pica-Einstellungen gespeichert.",
+    "stopHint": "Ausschalten oder ein Wechsel von Modell, Zugang oder Reasoning stoppt laufende Pica-Antworten kontrolliert. Chats bleiben erhalten. Agent Plans laufen unabhängig weiter. Andere geöffnete Ansichten übernehmen die Änderung beim nächsten Fokus oder innerhalb von 30 Sekunden.",
+    "unavailable": "Gespeicherte Pica-Auswahl prüfen:",
+    "effortReset": "Die bisherige Reasoning-Stufe wird vom neuen Modell nicht unterstützt. Die Auswahl steht jetzt auf Standard; bitte vor dem Speichern prüfen.",
+    "manual": "manuelle Modell-ID",
+    "retired": "Agents werden direkt im Plan mit einem freigegebenen Modell konfiguriert. Bestehende Vorlagen und Verläufe bleiben erhalten.",
+    "unsupportedEffort": "Nicht unterstützt – Auswahl korrigieren"
   }
 }

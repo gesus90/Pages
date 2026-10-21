@@ -10,6 +10,8 @@ import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { agentParameterIssues } from "@/definition/AgentParameters";
 import { requireCredentialFreeText } from "@/backend/security/AgentTextSafety";
 
+import { connectionModels } from "./AgentConnectionModels";
+
 import { requireAllowedRunOptions } from "./AgentProfileValidation";
 import { pageAgentModels, resolvePageAgentModel } from "./PageAgentModels";
 
@@ -94,11 +96,10 @@ export class PageAgentService {
    * detail is part of an entry.
    */
   public async models(userId: string): Promise<readonly PageAgentModel[]> {
-    const [viewer, stored] = await Promise.all([
-      this.viewer(userId),
-      this.dependencies.profiles.list(),
-    ]);
-    return pageAgentModels(this.dependencies, viewer, stored);
+    return connectionModels(
+      this.dependencies.connections,
+      await this.viewer(userId),
+    );
   }
 
   /** Supplies only currently accessible tickets for definition and plan parameter pickers. */

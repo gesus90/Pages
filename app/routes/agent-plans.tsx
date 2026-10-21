@@ -5,6 +5,7 @@ import {
   useLocation,
 } from "react-router";
 
+import { PlanRetiredNotice } from "@/app/components/agents/plans/plan-retired-notice";
 import { PlanPage } from "@/app/components/agents/plans/plan-page";
 import { defaultPlanId } from "@/app/lib/agent-plan-default";
 import {
@@ -148,11 +149,14 @@ export default function AgentPlansRoute(): React.ReactElement {
   const page = useLoaderData<typeof loader>();
   const location = useLocation();
   return (
-    <PlanPage
-      key={`${page.selected?.id ?? "new"}:${location.key}`}
-      page={page}
-      opening={page.opening}
-    />
+    <>
+      <PlanRetiredNotice />
+      <PlanPage
+        key={`${page.selected?.id ?? "new"}:${location.key}`}
+        page={page}
+        opening={page.opening}
+      />
+    </>
   );
 }
 
