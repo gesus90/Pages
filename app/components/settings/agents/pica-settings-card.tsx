@@ -3,8 +3,10 @@ import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
 
 import { PicaMascot } from "@/app/components/chat/pica-mascot";
+import { picaModelOptions } from "@/app/components/settings/agents/pica-model-options";
 import { SettingsCard } from "@/app/components/settings/settings-layout";
 import { Button } from "@/app/components/ui/button";
+import { SearchableSelect } from "@/app/components/ui/searchable-select";
 import { Select } from "@/app/components/ui/select";
 import { agentModelKey } from "@/definition/AgentPlanConfiguration";
 
@@ -143,35 +145,32 @@ function PicaModelFields(props: PicaModelFieldsProps): React.ReactElement {
   const model = props.models.find((entry) => entry.id === props.modelKey);
   const efforts = model?.reasoningEfforts ?? [];
   const missingEffort = props.effort && !efforts.includes(props.effort);
-  const modelOptions = props.models.map((entry) => ({
-    value: entry.id,
-    label: entry.name,
-    description: `${t(`settings.agents.provider.${entry.provider}`)}${entry.isManual ? ` · ${t("picaSettings.manual")}` : ""}`,
-  }));
-  if (!model)
+  const modelOptions = picaModelOptions(props.models, t);
+  if (!model && props.modelKey)
     modelOptions.unshift({
       value: props.modelKey,
-      label: props.savedModel
-        ? `${props.savedModel} · ${t("pageAgents.missingModel")}`
-        : t("picaSettings.chooseModel"),
-      description: "",
+      label: `${props.savedModel} · ${t("pageAgents.missingModel")}`,
+      disabled: true,
     });
   return (
     <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-      <div className="min-w-0 space-y-2">
-        <label htmlFor={`${id}-model`} className="text-sm font-medium">
-          {t("pageAgents.model")}
-        </label>
-        <Select
-          id={`${id}-model`}
-          ariaLabel={t("pageAgents.model")}
-          value={props.modelKey}
-          onValueChange={props.onModel}
-          disabled={props.disabled}
-          options={modelOptions}
-          className="w-full border border-border [&>span]:min-w-0 [&>span]:truncate"
-        />
-      </div>
+      <SearchableSelect
+        id={`${id}-model`}
+        label={t("pageAgents.model")}
+        value={props.modelKey}
+        options={modelOptions}
+        onValueChange={props.onModel}
+        disabled={props.disabled}
+        className="border border-border"
+        texts={{
+          placeholder: t("picaSettings.chooseModel"),
+          unavailable: t("pageAgents.missingModel"),
+          search: t("picaSettings.searchModels"),
+          empty: t("picaSettings.noModels"),
+          count: (count, total) =>
+            t("settings.agents.catalog.count", { count, total }),
+        }}
+      />
       <div className="min-w-0 space-y-2">
         <label htmlFor={`${id}-reasoning`} className="text-sm font-medium">
           {t("pageAgents.reasoning")}

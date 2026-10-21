@@ -1,6 +1,9 @@
 import type { AgentConfiguration } from "./AgentConfiguration";
 import type { AgentAvailability } from "./AgentAvailability";
-import type { AgentProviderId } from "./AgentConnection";
+import type {
+  AgentConnectionLocation,
+  AgentProviderId,
+} from "./AgentConnection";
 import type { AgentReasoningSupport } from "./AgentModelCatalog";
 import type { AgentProfileDirectory } from "./AgentProfile";
 import type { AgentWorkspaceChoice } from "./AgentWorkspace";
@@ -34,6 +37,12 @@ export interface PageAgentModel {
   /** Providers without a catalog expose their explicitly configured model ID. */
   readonly isManual?: boolean;
   readonly name: string;
+  /** The model's catalog name alone; absent only on legacy profile projections. */
+  readonly modelName?: string;
+  /** The administrators' name of the connection; absent only on legacy profile projections. */
+  readonly connectionName?: string;
+  /** Where the connection runs; absent only on legacy profile projections. */
+  readonly location?: AgentConnectionLocation;
   readonly model: string;
   readonly reasoning: AgentReasoningSupport;
   readonly reasoningEfforts: readonly string[];

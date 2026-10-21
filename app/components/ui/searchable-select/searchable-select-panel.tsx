@@ -9,7 +9,9 @@ import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import type { MouseEvent } from "react";
 import type {
   SearchableSelectFilter,
+  SearchableSelectGroup,
   SearchableSelectOption,
+  SearchableSelectSection,
   SearchableSelectState,
 } from "./use-searchable-select";
 
@@ -49,6 +51,7 @@ function SearchableSelectItem({
   readonly isSelected: boolean;
 }): React.ReactElement {
   const isActive = option === state.active;
+  const descriptionId = `${id}-description`;
   return (
     <li
       ref={isActive ? revealElement : undefined}
@@ -56,6 +59,7 @@ function SearchableSelectItem({
       role="option"
       aria-selected={isSelected}
       aria-disabled={option.disabled === true}
+      aria-describedby={option.description ? descriptionId : undefined}
       className={cn(
         "flex min-h-8 cursor-pointer items-start justify-between gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-foreground",
         isActive && "bg-muted",
@@ -64,7 +68,18 @@ function SearchableSelectItem({
       onClick={() => state.choose(option)}
       onMouseEnter={() => state.highlight(option)}
     >
-      <span className="min-w-0 flex-1 wrap-anywhere">{option.label}</span>
+      <span className="flex min-w-0 flex-1 flex-wrap items-baseline justify-between gap-x-3">
+        <span className="min-w-0 wrap-anywhere">{option.label}</span>
+        {option.description ? (
+          <span
+            id={descriptionId}
+            className="font-normal text-muted-foreground"
+            aria-hidden="true"
+          >
+            {option.description}
+          </span>
+        ) : null}
+      </span>
       {isSelected ? (
         <Check
           className="mt-0.5 size-3.5 shrink-0 text-primary"
@@ -72,6 +87,94 @@ function SearchableSelectItem({
         />
       ) : null}
     </li>
+  );
+}
+
+// A labelled group as in the grouped listbox of the ARIA Authoring Practices.
+// A listbox cannot nest groups, so the section heading also names the group;
+// options without any heading share an unlabelled list.
+function SearchableSelectGroupList({
+  group,
+  id,
+  sectionHeadingId,
+  state,
+  value,
+}: {
+  readonly group: SearchableSelectGroup;
+  readonly id: string;
+  readonly sectionHeadingId: string | undefined;
+  readonly state: SearchableSelectState;
+  readonly value: string;
+}): React.ReactElement {
+  const headingId = `${id}-heading`;
+  const labelIds = [
+    sectionHeadingId,
+    group.label === undefined ? undefined : headingId,
+  ]
+    .filter((labelId) => labelId !== undefined)
+    .join(" ");
+  return (
+    <ul
+      role={labelIds === "" ? "presentation" : "group"}
+      aria-labelledby={labelIds === "" ? undefined : labelIds}
+    >
+      {group.label === undefined ? null : (
+        <li
+          id={headingId}
+          role="presentation"
+          className="px-2.5 pt-2 pb-1 text-xs font-semibold text-muted-foreground"
+        >
+          {group.label}
+        </li>
+      )}
+      {group.options.map((option) => (
+        <SearchableSelectItem
+          key={option.value}
+          option={option}
+          id={`${state.listboxId}-${state.visible.indexOf(option)}`}
+          state={state}
+          isSelected={option.value === value}
+        />
+      ))}
+    </ul>
+  );
+}
+
+// A section heading, such as where models run, above the groups it holds.
+function SearchableSelectSectionList({
+  section,
+  id,
+  state,
+  value,
+}: {
+  readonly section: SearchableSelectSection;
+  readonly id: string;
+  readonly state: SearchableSelectState;
+  readonly value: string;
+}): React.ReactElement {
+  const headingId = section.label === undefined ? undefined : `${id}-heading`;
+  return (
+    <>
+      {section.label === undefined ? null : (
+        <div
+          id={headingId}
+          role="presentation"
+          className="px-2.5 pt-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+        >
+          {section.label}
+        </div>
+      )}
+      {section.groups.map((group, index) => (
+        <SearchableSelectGroupList
+          key={group.label ?? ""}
+          group={group}
+          id={`${id}-group-${index}`}
+          sectionHeadingId={headingId}
+          state={state}
+          value={value}
+        />
+      ))}
+    </>
   );
 }
 
@@ -105,7 +208,7 @@ function SearchableSelectFilters({
   );
 }
 
-/** The open panel: search field, prefilters, match count and listbox. */
+/** The open panel: search field, prefilters, match count and sectioned, grouped listbox. */
 export function SearchableSelectPanel({
   state,
   labelId,
@@ -153,7 +256,6 @@ export function SearchableSelectPanel({
         {texts.count(state.visible.length, total)}
       </p>
       <ScrollViewport
-        as="ul"
         axis="vertical"
         id={state.listboxId}
         role="listbox"
@@ -161,13 +263,13 @@ export function SearchableSelectPanel({
         containerClassName="max-h-64"
         className="overflow-y-auto"
       >
-        {state.visible.map((option, index) => (
-          <SearchableSelectItem
-            key={option.value}
-            option={option}
-            id={`${state.listboxId}-${index}`}
+        {state.sections.map((section, index) => (
+          <SearchableSelectSectionList
+            key={section.label ?? ""}
+            section={section}
+            id={`${state.listboxId}-section-${index}`}
             state={state}
-            isSelected={option.value === value}
+            value={value}
           />
         ))}
       </ScrollViewport>

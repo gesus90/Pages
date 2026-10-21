@@ -594,6 +594,10 @@
         "claude_code": "Claude Code CLI",
         "opencode": "OpenCode CLI"
       },
+      "location": {
+        "local": "Lokal",
+        "remote": "Remote"
+      },
       "error": {
         "name_required": "Ein Name für die Anbindung ist erforderlich.",
         "name_too_long": "Der Name darf höchstens 80 Zeichen enthalten.",
@@ -4604,6 +4608,8 @@
     "off": "Aus",
     "on": "An",
     "chooseModel": "Modell auswählen …",
+    "searchModels": "Modell, Anbieter oder Zugang suchen",
+    "noModels": "Kein Modell, Anbieter oder Zugang passt zur Suche.",
     "saved": "Pica-Einstellungen gespeichert.",
     "stopHint": "Ausschalten oder ein Wechsel von Modell, Zugang oder Reasoning stoppt laufende Pica-Antworten kontrolliert. Chats bleiben erhalten. Agent Plans laufen unabhängig weiter. Andere geöffnete Ansichten übernehmen die Änderung beim nächsten Fokus oder innerhalb von 30 Sekunden.",
     "unavailable": "Gespeicherte Pica-Auswahl prüfen:",

@@ -6,6 +6,12 @@ import type { FocusEvent, KeyboardEvent, RefObject } from "react";
 export interface SearchableSelectOption {
   readonly value: string;
   readonly label: string;
+  /** Heading of the section above the option's group, such as where it runs. */
+  readonly section?: string;
+  /** Heading of the group the option is listed under, such as its provider. */
+  readonly group?: string;
+  /** Secondary text beside the label, such as the way of access. */
+  readonly description?: string;
   /** Further words the search matches, such as a provider's full name. */
   readonly keywords?: readonly string[];
   /** Properties the panel's prefilters select by, such as `free`. */
@@ -19,11 +25,27 @@ export interface SearchableSelectFilter {
   readonly label: string;
 }
 
+/** Visible options under one heading, in the order of the select's options. */
+export interface SearchableSelectGroup {
+  /** The shared heading; `undefined` for options without a group. */
+  readonly label?: string;
+  readonly options: readonly SearchableSelectOption[];
+}
+
+/** Visible groups under one section heading, in the order of their options. */
+export interface SearchableSelectSection {
+  /** The shared heading; `undefined` for options without a section. */
+  readonly label?: string;
+  readonly groups: readonly SearchableSelectGroup[];
+}
+
 /** State of one searchable select, shared by its trigger and its panel. */
 export interface SearchableSelectState {
   readonly isOpen: boolean;
   readonly query: string;
   readonly pressedTags: readonly string[];
+  readonly sections: readonly SearchableSelectSection[];
+  /** The options of all sections and groups in the order they are listed. */
   readonly visible: readonly SearchableSelectOption[];
   readonly active: SearchableSelectOption | null;
   readonly listboxId: string;
@@ -42,6 +64,8 @@ export interface SearchableSelectState {
   readonly handleBlur: (event: FocusEvent<HTMLDivElement>) => void;
 }
 
+type OptionsByHeading = Map<string | undefined, SearchableSelectOption[]>;
+
 const ARROW_OFFSETS: Partial<Record<string, number>> = {
   ArrowDown: 1,
   ArrowUp: -1,
@@ -56,7 +80,13 @@ function matches(
   terms: readonly string[],
   tags: readonly string[],
 ): boolean {
-  const text = [option.label, ...(option.keywords ?? [])]
+  // A section heading, such as where models run, would match all its options.
+  const text = [
+    option.label,
+    option.group,
+    option.description,
+    ...(option.keywords ?? []),
+  ]
     .join(" ")
     .toLowerCase();
   return (
@@ -83,6 +113,36 @@ export function filterSearchableOptions(
 }
 
 /**
+ * Collects options under their section and group headings.
+ *
+ * @param options - The options to list.
+ * @returns One section per heading with one group per heading inside, each in
+ * the order of its first option; options without a heading form a section or
+ * group of their own.
+ */
+export function groupSearchableOptions(
+  options: readonly SearchableSelectOption[],
+): readonly SearchableSelectSection[] {
+  const sections = new Map<string | undefined, OptionsByHeading>();
+  for (const option of options) {
+    const groups =
+      sections.get(option.section) ??
+      new Map<string | undefined, SearchableSelectOption[]>();
+    const members = groups.get(option.group) ?? [];
+    members.push(option);
+    groups.set(option.group, members);
+    sections.set(option.section, groups);
+  }
+  return [...sections].map(([label, groups]) => ({
+    label,
+    groups: [...groups].map(([group, members]) => ({
+      label: group,
+      options: members,
+    })),
+  }));
+}
+
+/**
  * Holds the open state, search, prefilters and keyboard highlight of a select.
  *
  * @remarks
@@ -105,7 +165,13 @@ export function useSearchableSelect(input: {
   const [activeValue, setActiveValue] = useState(input.value);
   const listboxId = `${useId()}-listbox`;
   const trigger = useRef<HTMLButtonElement>(null);
-  const visible = filterSearchableOptions(input.options, query, pressedTags);
+  // Arrow keys follow the listed order, which keeps each group together.
+  const sections = groupSearchableOptions(
+    filterSearchableOptions(input.options, query, pressedTags),
+  );
+  const visible = sections.flatMap((section) =>
+    section.groups.flatMap((group) => group.options),
+  );
   const enabled = visible.filter(isEnabled);
   const active =
     enabled.find((option) => option.value === activeValue) ??
@@ -162,6 +228,7 @@ export function useSearchableSelect(input: {
     isOpen,
     query,
     pressedTags,
+    sections,
     visible,
     active,
     listboxId,

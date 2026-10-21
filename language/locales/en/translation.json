@@ -594,6 +594,10 @@
         "claude_code": "Claude Code CLI",
         "opencode": "OpenCode CLI"
       },
+      "location": {
+        "local": "Local",
+        "remote": "Remote"
+      },
       "error": {
         "name_required": "A connection needs a name.",
         "name_too_long": "The name must not exceed 80 characters.",
@@ -4604,6 +4608,8 @@
     "off": "Off",
     "on": "On",
     "chooseModel": "Choose a model …",
+    "searchModels": "Search model, provider or access",
+    "noModels": "No model, provider or access matches the search.",
     "saved": "Pica settings saved.",
     "stopHint": "Turning Pica off or changing its model, connection or reasoning stops running Pica answers through controlled cancellation. Chats are retained. Agent Plans run independently. Other open views refresh on focus or within 30 seconds.",
     "unavailable": "Check the saved Pica selection:",

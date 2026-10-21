@@ -1,6 +1,8 @@
 import { ChevronDown } from "lucide-react";
 import { useId } from "react";
 
+import { cn } from "@/app/lib/cn";
+
 import { SearchableSelectPanel } from "./searchable-select/searchable-select-panel";
 import { useSearchableSelect } from "./searchable-select/use-searchable-select";
 
@@ -20,6 +22,8 @@ interface SearchableSelectProps {
   /** Prefilter toggles shown below the search field. */
   readonly filters?: readonly SearchableSelectFilter[];
   readonly disabled?: boolean;
+  /** Further classes of the trigger, as with `Select`. */
+  readonly className?: string;
 }
 
 function triggerText(
@@ -28,6 +32,10 @@ function triggerText(
   texts: SearchableSelectTexts,
 ): string {
   const selected = options.find((option) => option.value === value);
+  // Outside the list an option names its description, such as the way of
+  // access that tells options of one name in a group apart, or else its group.
+  const detail = selected?.description ?? selected?.group;
+  if (selected && detail !== undefined) return `${selected.label} · ${detail}`;
   if (selected) return selected.label;
   if (value === "") return texts.placeholder;
   return `${value} (${texts.unavailable})`;
@@ -38,7 +46,8 @@ function triggerText(
  *
  * @remarks
  * The trigger is a select-only combobox; the open panel holds the search
- * field, optional prefilter toggles, a live match count and the listbox.
+ * field, optional prefilter toggles, a live match count and the listbox,
+ * whose options are listed under their section and group headings.
  * The panel stays inside the surrounding form or dialog instead of a portal,
  * so a modal dialog keeps the focus and pointer within reach. A saved value
  * without an option stays visible, marked as unavailable.
@@ -52,6 +61,7 @@ export function SearchableSelect({
   texts,
   filters = [],
   disabled = false,
+  className,
 }: SearchableSelectProps): React.ReactElement {
   const state = useSearchableSelect({
     value,
@@ -75,7 +85,10 @@ export function SearchableSelect({
         aria-expanded={state.isOpen}
         aria-controls={state.isOpen ? state.listboxId : undefined}
         disabled={disabled}
-        className="flex min-h-9 w-full items-center justify-between gap-2 rounded-lg bg-surface px-2.5 py-1.5 text-left text-xs font-medium text-foreground shadow-xs outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-60"
+        className={cn(
+          "flex min-h-9 w-full items-center justify-between gap-2 rounded-lg bg-surface px-2.5 py-1.5 text-left text-xs font-medium text-foreground shadow-xs outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-60",
+          className,
+        )}
         onClick={state.toggle}
         onKeyDown={state.handleTriggerKeyDown}
       >

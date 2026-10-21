@@ -1,4 +1,5 @@
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
+import { AGENT_PROVIDERS } from "@/definition/AgentConnection";
 import { supportsModelCatalog } from "@/definition/AgentModelCatalog";
 import { agentModelKey } from "@/definition/AgentPlanConfiguration";
 
@@ -73,6 +74,9 @@ async function availableModel(input: {
       id: agentModelKey(connection.id, model.id),
       connectionId: connection.id,
       name: `${model.name} · ${connection.name}`,
+      modelName: model.name,
+      connectionName: connection.name,
+      location: AGENT_PROVIDERS[connection.provider].location,
       model: model.id,
       provider: connection.provider,
       reasoning: model.reasoning,
