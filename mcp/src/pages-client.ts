@@ -1,5 +1,6 @@
+import { CredentialStoreError } from "./credential-error.js";
+import { IMPORT_TIMEOUT_MS, REQUEST_TIMEOUT_MS } from "./request-constants.js";
 import { operationFailure } from "./tools/operation-failure.js";
-import { CredentialStoreError } from "./credential-store.js";
 
 import type { PagesAgentApiRequest } from "../../definition/PagesAgentApi.js";
 import type { PagesConfiguration } from "./configuration.js";
@@ -10,8 +11,8 @@ function requestTimeout(operation: string): number {
     "wiki.import.update",
     "import.structured.apply",
   ].includes(operation)
-    ? 30_000
-    : 5_000;
+    ? IMPORT_TIMEOUT_MS
+    : REQUEST_TIMEOUT_MS;
 }
 
 /**

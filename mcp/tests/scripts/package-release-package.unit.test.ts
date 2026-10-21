@@ -17,6 +17,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -24,6 +25,7 @@ import {
   createReleaseManifest,
   createZipArchive,
   packageRelease,
+  runReleaseCommand,
 } from "../../scripts/package-release.ts";
 
 import type * as OperatingSystem from "node:os";
@@ -78,10 +80,25 @@ const EXAMPLE_JSON =
   '{ "args": ["/absolute/path/pages-mcp-vX.Y.Z.cjs"], "env": { "PAGES_URL": "http://localhost:3000" } }\n';
 const EXAMPLE_README = "Run node pages-mcp-vX.Y.Z.cjs pair.\n";
 
+const FAILURE_MESSAGE =
+  "[pages-mcp] Release failed. Check tag, package sources and output directory.";
+const ORIGINAL_EXIT_CODE = process.exitCode;
+
+const SCRIPT_PATH = fileURLToPath(
+  new URL("../../scripts/package-release.ts", import.meta.url),
+);
+
+const ORIGINAL_ARGV = [...process.argv];
 let testRoot = "";
 let packageDirectory = "";
 let outputDirectory = "";
 let snapshots: WorkCopySnapshot[] = [];
+
+async function runScript(...commandArguments: string[]): Promise<void> {
+  process.argv = [process.execPath, SCRIPT_PATH, ...commandArguments];
+  vi.resetModules();
+  await import("../../scripts/package-release.ts");
+}
 
 function sha256(content: Buffer | string): string {
   return createHash("sha256").update(content).digest("hex");
@@ -188,9 +205,14 @@ beforeEach(async () => {
   snapshots = [];
   spawnSyncMock.mockReset();
   spawnSyncMock.mockImplementation(recordingBuild([BUNDLE]));
+  vi.spyOn(console, "info").mockImplementation(() => undefined);
+  vi.spyOn(console, "error").mockImplementation(() => undefined);
 });
 
 afterEach(async () => {
+  process.argv = [...ORIGINAL_ARGV];
+  process.exitCode = ORIGINAL_EXIT_CODE;
+  vi.resetModules();
   temporaryState.temporaryRoot = undefined;
   await rm(testRoot, { recursive: true, force: true });
 });
@@ -298,7 +320,6 @@ describe("packageRelease input errors", () => {
       packageRelease({
         tag: "mcp-v1.0",
         outputDirectory,
-        packageDirectory,
         environment: {},
       }),
     ).rejects.toThrow(
@@ -475,5 +496,103 @@ describe("packageRelease secret scan", () => {
       "pages-mcp-v1.0.0/README.md contains an address outside the placeholder hosts.",
     );
     await expectNoOutput();
+  });
+});
+
+describe("runReleaseCommand package", () => {
+  it("packages the supplied source and prints version, archive and checksums", async () => {
+    await writePackage(true);
+
+    await runReleaseCommand(["package", "mcp-v9.8.7", outputDirectory], {
+      packageDirectory,
+      environment: {},
+    });
+
+    const archivePath = path.join(outputDirectory, "pages-mcp-v9.8.7.zip");
+    const archive = await readFile(archivePath);
+    expect(vi.mocked(console.info).mock.calls).toEqual([
+      ["version 9.8.7"],
+      [`archive ${archivePath}`],
+      [`archive-sha256 ${sha256(archive)}`],
+      [`bundle-sha256 ${sha256(BUNDLE)}`],
+    ]);
+    expect(console.error).not.toHaveBeenCalled();
+    expect(process.exitCode).toBe(ORIGINAL_EXIT_CODE);
+    expect(archive.includes("pages-mcp-v9.8.7/README.md")).toBe(true);
+    expect(archive.includes("pages-mcp-v9.8.7/examples/clients/")).toBe(true);
+    expect(spawnSyncMock).toHaveBeenCalledTimes(2);
+    expect(await readdir(temporaryState.temporaryRoot ?? "")).toEqual([]);
+    expect(
+      await readFile(path.join(packageDirectory, "package.json"), "utf8"),
+    ).toBe(MANIFEST);
+    expect(archive.equals(createZipArchive(expectedEntries("9.8.7")))).toBe(
+      true,
+    );
+  });
+
+  it("reports a failed packaging run with exit code 1", async () => {
+    await writePackage(true);
+    spawnSyncMock.mockReturnValue({ status: 1 });
+
+    await runReleaseCommand(["package", "mcp-v9.8.7", outputDirectory], {
+      packageDirectory,
+      environment: {},
+    });
+
+    expect(console.info).not.toHaveBeenCalled();
+    expect(console.error).toHaveBeenCalledExactlyOnceWith(FAILURE_MESSAGE);
+    expect(process.exitCode).toBe(1);
+    await expectNoOutput();
+    expect((await readdir(testRoot)).sort()).toEqual(["tmp", "workspace"]);
+  });
+});
+
+describe("package-release as an imported module", () => {
+  it("does not run the command line", async () => {
+    process.argv = [process.execPath, "/elsewhere/runner.js", "tag", "x"];
+    vi.resetModules();
+
+    const releaseModule = await import("../../scripts/package-release.ts");
+
+    expect(releaseModule.parseReleaseTag("mcp-v1.0.0")).toBe("1.0.0");
+    expect(console.info).not.toHaveBeenCalled();
+    expect(console.error).not.toHaveBeenCalled();
+    expect(process.exitCode).toBe(ORIGINAL_EXIT_CODE);
+  });
+});
+
+describe("package-release tag command", () => {
+  it("prints the version of a valid tag", async () => {
+    await runScript("tag", "mcp-v1.2.3");
+
+    expect(console.info).toHaveBeenCalledExactlyOnceWith("1.2.3");
+    expect(console.error).not.toHaveBeenCalled();
+    expect(process.exitCode).toBe(ORIGINAL_EXIT_CODE);
+  });
+
+  it("reports an invalid tag with exit code 1", async () => {
+    await runScript("tag", "v1.2.3");
+
+    expect(console.info).not.toHaveBeenCalled();
+    expect(console.error).toHaveBeenCalledExactlyOnceWith(FAILURE_MESSAGE);
+    expect(process.exitCode).toBe(1);
+  });
+});
+
+describe("package-release usage errors", () => {
+  it.each([
+    [[]],
+    [["tag"]],
+    [["tag", "mcp-v1.2.3", "extra"]],
+    [["package", "mcp-v1.2.3"]],
+    [["package", "mcp-v1.2.3", "out", "extra"]],
+    [["publish", "mcp-v1.2.3"]],
+  ])("rejects the arguments %j with exit code 1", async (commandArguments) => {
+    await runScript(...commandArguments);
+
+    expect(console.info).not.toHaveBeenCalled();
+    expect(console.error).toHaveBeenCalledExactlyOnceWith(FAILURE_MESSAGE);
+    expect(process.exitCode).toBe(1);
+    expect(spawnSyncMock).not.toHaveBeenCalled();
   });
 });

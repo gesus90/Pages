@@ -1,6 +1,11 @@
+import {
+  ADDITIVE_ANNOTATIONS,
+  DESTRUCTIVE_ANNOTATIONS,
+  IDENTIFIER_SCHEMA,
+} from "./tool-definition.js";
+
 import type { Tool } from "@modelcontextprotocol/server";
 
-const IDENTIFIER = { type: "string", minLength: 1, maxLength: 200 } as const;
 const COMMON =
   "ticketId and targetTicketId are ticket IDs, keys such as PAGE-12, or Pages addresses such as /tasks/PAGE-12. Only this link changes: neither parent, fields nor other links of the tickets. Reuse operationId with identical input to recover the stored result after response loss; changed input returns CONFLICT. A hidden or missing ticket returns NOT_FOUND alike; without the write right the call returns FORBIDDEN. Whether a ticket is published to GitHub is not affected: links are Pages-only. JSON request maximum 64 KiB.";
 
@@ -13,9 +18,9 @@ export const TICKET_LINK_ADD_TOOL: Tool = {
     type: "object",
     additionalProperties: false,
     properties: {
-      operationId: IDENTIFIER,
-      ticketId: IDENTIFIER,
-      targetTicketId: IDENTIFIER,
+      operationId: IDENTIFIER_SCHEMA,
+      ticketId: IDENTIFIER_SCHEMA,
+      targetTicketId: IDENTIFIER_SCHEMA,
       linkType: {
         type: "string",
         enum: ["blocks", "relates_to", "duplicates"],
@@ -23,12 +28,7 @@ export const TICKET_LINK_ADD_TOOL: Tool = {
     },
     required: ["operationId", "ticketId", "targetTicketId", "linkType"],
   },
-  annotations: {
-    readOnlyHint: false,
-    destructiveHint: false,
-    idempotentHint: true,
-    openWorldHint: false,
-  },
+  annotations: ADDITIVE_ANNOTATIONS,
 };
 
 /** Removes one typed link of a ticket. */
@@ -40,16 +40,11 @@ export const TICKET_LINK_REMOVE_TOOL: Tool = {
     type: "object",
     additionalProperties: false,
     properties: {
-      operationId: IDENTIFIER,
-      ticketId: IDENTIFIER,
-      linkId: IDENTIFIER,
+      operationId: IDENTIFIER_SCHEMA,
+      ticketId: IDENTIFIER_SCHEMA,
+      linkId: IDENTIFIER_SCHEMA,
     },
     required: ["operationId", "ticketId", "linkId"],
   },
-  annotations: {
-    readOnlyHint: false,
-    destructiveHint: true,
-    idempotentHint: true,
-    openWorldHint: false,
-  },
+  annotations: DESTRUCTIVE_ANNOTATIONS,
 };

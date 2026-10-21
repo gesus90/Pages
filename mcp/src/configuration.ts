@@ -1,4 +1,8 @@
-import { instanceEndpoint, readInstanceUrl } from "./instance-address.ts";
+import { instanceEndpoint, readInstanceUrl } from "./instance-address.js";
+import {
+  AGENT_API_ENDPOINT,
+  BEARER_TOKEN_PATTERN,
+} from "./request-constants.js";
 
 /** Validated instance URL and opaque Bearer credential; not an authenticated identity. */
 export interface PagesConfiguration {
@@ -20,10 +24,10 @@ export function readConfiguration(
 ): PagesConfiguration {
   const baseUrl = readInstanceUrl(environment.PAGES_URL);
   const token = environment.PAGES_TOKEN;
-  if (!token || !/^[A-Za-z0-9._~+/-]+=*$/.test(token)) {
+  if (!token || !BEARER_TOKEN_PATTERN.test(token)) {
     throw new Error(
       "PAGES_TOKEN must be a nonempty Bearer credential without whitespace.",
     );
   }
-  return { agentsUrl: instanceEndpoint(baseUrl, "api/v1/agents"), token };
+  return { agentsUrl: instanceEndpoint(baseUrl, AGENT_API_ENDPOINT), token };
 }

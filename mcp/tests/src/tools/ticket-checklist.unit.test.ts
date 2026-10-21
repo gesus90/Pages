@@ -51,7 +51,7 @@ describe("ticket checklist tools", () => {
     });
     expect(SET_MANY?.tool.annotations).toEqual({
       readOnlyHint: false,
-      destructiveHint: false,
+      destructiveHint: true,
       idempotentHint: true,
       openWorldHint: false,
     });

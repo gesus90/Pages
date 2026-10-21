@@ -6,7 +6,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createServer } from "../../../src/server.ts";
-import { PagesOperationFailure } from "../../../src/tools/operation-failure.ts";
+import { PagesOperationError } from "../../../src/tools/operation-failure.ts";
 import {
   PROJECT_DELETE_TOOL,
   PROJECT_DELETION_SCOPE_TOOL,
@@ -279,7 +279,7 @@ describe("project deletion failures over tools/call", () => {
     ["CONFLICT" as const],
   ])("reports %s as a tool error without data", async (code) => {
     offer(ADMIN, "admin.projects.delete");
-    vi.mocked(readOperation).mockRejectedValue(new PagesOperationFailure(code));
+    vi.mocked(readOperation).mockRejectedValue(new PagesOperationError(code));
     const response = await (
       await initialized()
     ).request("tools/call", {
@@ -295,7 +295,7 @@ describe("project deletion failures over tools/call", () => {
   it("reports an unknown project like any missing object", async () => {
     offer(ADMIN, "admin.projects.delete");
     vi.mocked(readOperation).mockRejectedValue(
-      new PagesOperationFailure("NOT_FOUND"),
+      new PagesOperationError("NOT_FOUND"),
     );
     const response = await (
       await initialized()

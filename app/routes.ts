@@ -32,6 +32,8 @@ export default [
       "design-themes/:designThemeId/preview",
       "routes/design-theme-preview.ts",
     ),
+    route("pica-tools", "routes/pica-tools.tsx"),
+    route("pica-tools-api", "routes/pica-tools-api.ts"),
     route("chat-api", "routes/chat-api.ts"),
     route("chat-api/attachments", "routes/chat-attachments.ts"),
     route("chat/attachments/:attachmentId", "routes/chat-attachment.ts"),

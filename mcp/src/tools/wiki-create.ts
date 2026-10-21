@@ -1,3 +1,9 @@
+import {
+  ADDITIVE_ANNOTATIONS,
+  IDENTIFIER_SCHEMA,
+  NULLABLE_IDENTIFIER_SCHEMA,
+} from "./tool-definition.js";
+
 import type { Tool } from "@modelcontextprotocol/server";
 
 /** Explicit, idempotent single-page creation contract; no implicit parent or project. */
@@ -10,18 +16,18 @@ export const WIKI_CREATE_TOOL: Tool = {
     type: "object",
     additionalProperties: false,
     properties: {
-      operationId: { type: "string", minLength: 1, maxLength: 200 },
-      projectId: { type: ["string", "null"], minLength: 1, maxLength: 200 },
+      operationId: IDENTIFIER_SCHEMA,
+      projectId: NULLABLE_IDENTIFIER_SCHEMA,
       scope: { type: "string", enum: ["project", "instance", "private"] },
-      parentId: { type: ["string", "null"], minLength: 1, maxLength: 200 },
-      title: { type: "string", minLength: 1, maxLength: 200 },
+      parentId: NULLABLE_IDENTIFIER_SCHEMA,
+      title: IDENTIFIER_SCHEMA,
       content: { type: "string" },
       icon: { type: ["string", "null"] },
       assetIds: {
         type: "array",
         maxItems: 100,
         uniqueItems: true,
-        items: { type: "string", minLength: 1, maxLength: 200 },
+        items: IDENTIFIER_SCHEMA,
       },
     },
     required: [
@@ -34,10 +40,5 @@ export const WIKI_CREATE_TOOL: Tool = {
       "assetIds",
     ],
   },
-  annotations: {
-    readOnlyHint: false,
-    destructiveHint: false,
-    idempotentHint: true,
-    openWorldHint: false,
-  },
+  annotations: ADDITIVE_ANNOTATIONS,
 };

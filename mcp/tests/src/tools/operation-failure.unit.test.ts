@@ -2,36 +2,22 @@ import { describe, expect, it } from "vitest";
 
 import {
   operationFailure,
-  PagesOperationFailure,
+  PagesOperationError,
 } from "../../../src/tools/operation-failure.ts";
 
 function failureResponse(status: number, error: unknown): Response {
   return new Response(JSON.stringify({ apiVersion: "1", error }), { status });
 }
 
-it.each(["unsupportedRunNotes"])(
-  "keeps the node and public %s unsupported-placeholder diagnosis",
-  async (problem) => {
-    const issues = [{ nodeId: "notes-node", port: null, problem }];
-    const failure = await operationFailure(
-      failureResponse(400, {
-        code: "INVALID_REQUEST",
-        details: { reason: "graph_invalid", issues },
-      }),
-    );
-    expect(failure?.details).toEqual({ reason: "graph_invalid", issues });
-  },
-);
-
-describe("PagesOperationFailure", () => {
+describe("PagesOperationError", () => {
   it("uses the fixed not-found message", () => {
-    const failure = new PagesOperationFailure("NOT_FOUND");
+    const failure = new PagesOperationError("NOT_FOUND");
     expect(failure.message).toBe("Not found or no access.");
     expect(failure.details).toBeUndefined();
   });
 
   it("uses one generic message for every other code", () => {
-    const failure = new PagesOperationFailure("CONFLICT", {
+    const failure = new PagesOperationError("CONFLICT", {
       currentRevision: 3,
     });
     expect(failure.message).toBe("The agent API request was rejected.");
@@ -82,7 +68,7 @@ describe("operationFailure envelope", () => {
     ["CONFIRMATION_REQUIRED", 400],
   ])("accepts %s only with status %i", async (code, status) => {
     const failure = await operationFailure(failureResponse(status, { code }));
-    expect(failure).toBeInstanceOf(PagesOperationFailure);
+    expect(failure).toBeInstanceOf(PagesOperationError);
     expect(failure?.code).toBe(code);
     expect(failure?.details).toBeUndefined();
     await expect(
@@ -248,13 +234,31 @@ describe("operationFailure conflicts and rejection reasons", () => {
   });
 });
 
-it("preserves an explicit unsupported ticket handoff finding", async () => {
-  const issues = [{ nodeId: "next", port: "ticket", problem: "ticketHandoff" }];
-  const failure = await operationFailure(
-    failureResponse(400, {
-      code: "INVALID_REQUEST",
-      details: { reason: "graph_invalid", issues },
-    }),
+describe("operationFailure plan findings", () => {
+  it.each(["unsupportedRunNotes"])(
+    "keeps the node and public %s unsupported-placeholder diagnosis",
+    async (problem) => {
+      const issues = [{ nodeId: "notes-node", port: null, problem }];
+      const failure = await operationFailure(
+        failureResponse(400, {
+          code: "INVALID_REQUEST",
+          details: { reason: "graph_invalid", issues },
+        }),
+      );
+      expect(failure?.details).toEqual({ reason: "graph_invalid", issues });
+    },
   );
-  expect(failure?.details).toEqual({ reason: "graph_invalid", issues });
+
+  it("preserves an explicit unsupported ticket handoff finding", async () => {
+    const issues = [
+      { nodeId: "next", port: "ticket", problem: "ticketHandoff" },
+    ];
+    const failure = await operationFailure(
+      failureResponse(400, {
+        code: "INVALID_REQUEST",
+        details: { reason: "graph_invalid", issues },
+      }),
+    );
+    expect(failure?.details).toEqual({ reason: "graph_invalid", issues });
+  });
 });

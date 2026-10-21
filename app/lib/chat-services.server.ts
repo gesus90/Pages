@@ -1,5 +1,6 @@
 import path from "node:path";
 
+import { PicaAdminService } from "@/backend/service/chat/admin/PicaAdminService";
 import { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import { ChatAcpSessionRepository } from "@/backend/database/repositories/chat/ChatAcpSessionRepository";
 import { ChatContextRepository } from "@/backend/database/repositories/chat/ChatContextRepository";
@@ -46,6 +47,7 @@ import type {
 
 /** The global chat agent Pica: sessions, attachments, settings and turns (A11.4). */
 export interface ChatApplicationServices {
+  readonly picaAdminService: PicaAdminService;
   readonly chatService: ChatService;
   readonly chatContextService: ChatContextService;
   readonly chatSessionService: ChatSessionService;
@@ -77,6 +79,7 @@ interface PicaAcpParts {
   readonly attachments: ChatAttachmentService;
   readonly answerFiles: ChatAnswerFileService;
   readonly tools: ChatToolExecutor;
+  readonly adminTools: PicaAdminService;
   readonly pica?: PicaSettingsService;
 }
 
@@ -98,6 +101,7 @@ function createPicaAcp(
     answerFiles: parts.answerFiles,
     bridge: picaBridge,
     tools: parts.tools,
+    adminTools: parts.adminTools,
     access,
     sessions: parts.sessions,
     requests: parts.requests,
@@ -142,6 +146,7 @@ function createChatActivity(database: Database): {
 
 /** What the chat is wired from. */
 export interface ChatServicesInput {
+  readonly protectedOrigin?: string;
   readonly database: Database;
   /** Directory next to the database; attachments live in its `chat-attachments`. */
   readonly directory: string;
@@ -211,6 +216,8 @@ export function createChatServices(
     chatSessionService,
     adapterContext,
   });
+  const adminTools = new PicaAdminService(input.accounts);
+  if (input.protectedOrigin) adminTools.protectOrigin(input.protectedOrigin);
   const tools = new ChatToolExecutor({
     router: input.router,
     identities: new AgentIdentityService(
@@ -230,17 +237,22 @@ export function createChatServices(
     answerFiles,
     tools,
     pica: input.agents.picaSettingsService,
+    adminTools,
   });
   configurePicaStop(input, acp);
   return {
     ...acp,
+    picaAdminService: adminTools,
     chatContextService,
     chatSessionService,
     chatAttachmentService,
     chatSettingsService,
     chatService: new ChatService({
       mode: "native-api",
-      api: createPicaApi(input, chatSessionService, tools, answerFiles),
+      api: createPicaApi(input, chatSessionService, tools, {
+        answerFiles,
+        adminTools,
+      }),
       ...(acp.picaAcpService ? { acp: acp.picaAcpService } : {}),
       sessions: chatSessionService,
       context: chatContextService,
@@ -261,7 +273,10 @@ function createPicaApi(
   input: ChatServicesInput,
   sessions: ChatSessionService,
   tools: ChatToolExecutor,
-  answerFiles: ChatAnswerFileService,
+  privileged: {
+    readonly answerFiles: ChatAnswerFileService;
+    readonly adminTools: PicaAdminService;
+  },
 ): PicaApiService {
   return new PicaApiService({
     requireCurrent: (request) =>
@@ -272,7 +287,7 @@ function createPicaApi(
     models: input.agents.picaApiModels,
     sessions,
     tools,
-    answerFiles,
+    ...privileged,
   });
 }
 

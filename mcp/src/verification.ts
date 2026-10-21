@@ -1,15 +1,13 @@
-import { WRITE_TOOLS } from "./tools/write-registry.js";
-import { READ_TOOLS } from "./tools/registry.js";
-import { COMMENT_TOOLS } from "./tools/wiki-comments.js";
-
+import { isRecord } from "./is-record.js";
+import { TOOL_ENTRIES } from "./tools/tool-catalog.js";
 import { postAgentRequest } from "./pages-client.js";
 
+import type { McpCredentialDetails } from "../../definition/McpPairing.js";
 import type {
   PagesAgentApiBusinessOperation,
   PagesAgentApiIdentity,
 } from "../../definition/PagesAgentApi.js";
 import type { PagesConfiguration } from "./configuration.js";
-import type { McpCredentialDetails } from "../../definition/McpPairing.js";
 
 /** Fresh identity and the business operations Pages currently offers to it. */
 export interface PagesVerification {
@@ -20,9 +18,8 @@ export interface PagesVerification {
 
 /** Narrows a verified identity without exposing unknown server fields to the MCP client. */
 export function readVerifiedIdentity(input: unknown): PagesAgentApiIdentity {
-  if (typeof input !== "object" || input === null)
-    throw new Error("Pages verification failed.");
-  const identity = input as Record<string, unknown>;
+  if (!isRecord(input)) throw new Error("Pages verification failed.");
+  const identity = input;
   if (
     typeof identity.userId !== "string" ||
     !identity.userId ||
@@ -46,9 +43,7 @@ function isKnownOperation(
 ): name is PagesAgentApiBusinessOperation {
   return (
     name === "projects.names.list" ||
-    [...READ_TOOLS, ...COMMENT_TOOLS, ...WRITE_TOOLS].some(
-      (entry) => entry.operation === name,
-    )
+    TOOL_ENTRIES.some((entry) => entry.operation === name)
   );
 }
 
@@ -63,9 +58,8 @@ export async function verifyPages(
     operation: "verify",
     parameters: {},
   });
-  if (typeof response !== "object" || response === null)
-    throw new Error("Pages verification failed.");
-  const envelope = response as Record<string, unknown>;
+  if (!isRecord(response)) throw new Error("Pages verification failed.");
+  const envelope = response;
   const tools = envelope.tools;
   if (
     envelope.apiVersion !== "1" ||

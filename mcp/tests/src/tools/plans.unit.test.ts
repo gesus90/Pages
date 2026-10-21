@@ -24,7 +24,7 @@ function toolOf(name: string): (typeof PLAN_WRITE_TOOLS)[number]["tool"] {
 }
 
 describe("plan tools", () => {
-  it("register every plan operation once, reads as reads and writes as writes", () => {
+  it("registers every plan operation once, reads as reads and writes as writes", () => {
     expect(
       READ_TOOLS.filter(({ operation }) => operation.startsWith("plans.")).map(
         ({ operation }) => operation,
@@ -36,6 +36,9 @@ describe("plan tools", () => {
       "plans.runs.list",
       "plans.run.read",
       "plans.run.reports.read",
+      "plans.templates.list",
+      "plans.templates.read",
+      "plans.control.read",
     ]);
     expect(
       WRITE_TOOLS.filter(({ operation }) => operation.startsWith("plans.")).map(
@@ -47,6 +50,12 @@ describe("plan tools", () => {
       "plans.parameter.create",
       "plans.parameter.update",
       "plans.parameter.remove",
+      "plans.templates.save",
+      "plans.delete",
+      "plans.play",
+      "plans.pause",
+      "plans.resume",
+      "plans.stop",
     ]);
   });
 
@@ -79,11 +88,15 @@ describe("plan tools", () => {
     ]);
   });
 
-  it("mark only the changes that can remove something as destructive", () => {
+  it("marks replacements and removals as destructive", () => {
     const destructive = PLAN_WRITE_TOOLS.filter(
       ({ tool }) => tool.annotations?.destructiveHint,
     ).map(({ tool }) => tool.name);
-    expect(destructive).toEqual(["update_plan", "remove_plan_parameter"]);
+    expect(destructive).toEqual([
+      "update_plan",
+      "update_plan_parameter",
+      "remove_plan_parameter",
+    ]);
   });
 });
 

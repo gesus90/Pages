@@ -1,15 +1,20 @@
+import {
+  CURSOR_SCHEMA,
+  IDENTIFIER_SCHEMA,
+  LIMIT_SCHEMA,
+  READ_ANNOTATIONS,
+  REVISION_SCHEMA,
+  buildWriteTool,
+} from "./tool-definition.js";
+
 import type { Tool } from "@modelcontextprotocol/server";
 import type {
   AgentWorkspaceReadOperation,
   AgentWorkspaceWriteOperation,
 } from "../../../definition/AgentWorkspaceOperations.js";
 
-type Properties = NonNullable<Tool["inputSchema"]["properties"]>;
-
-const IDENTIFIER = { type: "string", minLength: 1, maxLength: 200 } as const;
 const NAME = { type: "string", minLength: 1, maxLength: 120 } as const;
 const PATH = { type: "string", minLength: 1, maxLength: 4096 } as const;
-const REVISION = { type: "integer", minimum: 1 } as const;
 
 const SEE_DESCRIPTION =
   "Returns only workspaces of projects the account can open now; hidden workspaces and their metadata are never mentioned, and a hidden one answers like a missing one. Pages checks the account rights on every call.";
@@ -17,40 +22,6 @@ const MANAGE_DESCRIPTION =
   "Only Pages administrators and managers of the project may change workspaces; project membership or ticket rights are not enough, and Pages checks this on every call. Only the registration is stored or changed: no file in the directory is read, written or deleted, and the GitHub link of the project is not changed. Reuse operationId with identical parameters after response loss. Pass the revision read last as expectedRevision; CONFLICT with details.currentRevision means it changed meanwhile.";
 const PATH_DESCRIPTION =
   "path is an absolute path of an existing directory on the machine of the Pages server, readable, writable and traversable by its account. URLs, host:path notation and network shares are INVALID_REQUEST, as are the filesystem root, Pages instance folders and anything outside an area the server operator narrowed it to. The stored path is the canonical one.";
-
-const ANNOTATIONS = {
-  readOnlyHint: true,
-  destructiveHint: false,
-  idempotentHint: true,
-  openWorldHint: false,
-} as const;
-
-function writeTool(
-  name: string,
-  summary: string,
-  properties: Properties,
-  optionalKeys: readonly string[] = [],
-): Tool {
-  return {
-    name,
-    description: `${summary} ${MANAGE_DESCRIPTION}`,
-    inputSchema: {
-      type: "object",
-      properties: { operationId: IDENTIFIER, ...properties },
-      required: [
-        "operationId",
-        ...Object.keys(properties).filter((key) => !optionalKeys.includes(key)),
-      ],
-      additionalProperties: false,
-    },
-    annotations: {
-      readOnlyHint: false,
-      destructiveHint: false,
-      idempotentHint: true,
-      openWorldHint: false,
-    },
-  };
-}
 
 /** Reads of the workspace registry; Pages decides which workspaces an account sees. */
 export const WORKSPACE_READ_TOOLS: readonly {
@@ -66,13 +37,13 @@ export const WORKSPACE_READ_TOOLS: readonly {
       inputSchema: {
         type: "object",
         properties: {
-          projectId: IDENTIFIER,
-          cursor: { type: ["string", "null"], maxLength: 2048 },
-          limit: { type: "integer", minimum: 1, maximum: 100 },
+          projectId: IDENTIFIER_SCHEMA,
+          cursor: CURSOR_SCHEMA,
+          limit: LIMIT_SCHEMA,
         },
         additionalProperties: false,
       },
-      annotations: ANNOTATIONS,
+      annotations: READ_ANNOTATIONS,
     },
   },
   {
@@ -83,11 +54,11 @@ export const WORKSPACE_READ_TOOLS: readonly {
       description: `Reads one registered agent workspace by its id, with the same fields as list_workspaces. ${SEE_DESCRIPTION}`,
       inputSchema: {
         type: "object",
-        properties: { workspaceId: IDENTIFIER },
+        properties: { workspaceId: IDENTIFIER_SCHEMA },
         required: ["workspaceId"],
         additionalProperties: false,
       },
-      annotations: ANNOTATIONS,
+      annotations: READ_ANNOTATIONS,
     },
   },
 ];
@@ -99,41 +70,42 @@ export const WORKSPACE_WRITE_TOOLS: readonly {
 }[] = [
   {
     operation: "workspaces.create",
-    tool: writeTool(
-      "create_workspace",
-      `Registers an existing local directory as an agent workspace of a project. The project must be visible to the account and linked to a GitHub repository, otherwise INVALID_REQUEST or NOT_FOUND; a directory that another workspace already registers or overlaps is CONFLICT. ${PATH_DESCRIPTION}`,
-      { name: NAME, path: PATH, projectId: IDENTIFIER },
-    ),
+    tool: buildWriteTool({
+      name: "create_workspace",
+      title: "Create workspace",
+      description: `${`Registers an existing local directory as an agent workspace of a project. The project must be visible to the account and linked to a GitHub repository, otherwise INVALID_REQUEST or NOT_FOUND; a directory that another workspace already registers or overlaps is CONFLICT. ${PATH_DESCRIPTION}`} ${MANAGE_DESCRIPTION}`,
+      properties: { name: NAME, path: PATH, projectId: IDENTIFIER_SCHEMA },
+      isDestructive: false,
+    }),
   },
   {
     operation: "workspaces.update",
-    tool: writeTool(
-      "update_workspace",
-      `Changes the name, the local path or the project of a registered workspace; pass only what changes. A workspace that plans or agents still refer to keeps its path and project (CONFLICT). ${PATH_DESCRIPTION}`,
-      {
-        workspaceId: IDENTIFIER,
-        expectedRevision: REVISION,
+    tool: buildWriteTool({
+      name: "update_workspace",
+      title: "Update workspace",
+      description: `${`Changes the name, the local path or the project of a registered workspace; pass only what changes. A workspace that plans or agents still refer to keeps its path and project (CONFLICT). ${PATH_DESCRIPTION}`} ${MANAGE_DESCRIPTION}`,
+      properties: {
+        workspaceId: IDENTIFIER_SCHEMA,
+        expectedRevision: REVISION_SCHEMA,
         name: NAME,
         path: PATH,
-        projectId: IDENTIFIER,
+        projectId: IDENTIFIER_SCHEMA,
       },
-      ["name", "path", "projectId"],
-    ),
+      optionalKeys: ["name", "path", "projectId"],
+      isDestructive: true,
+    }),
   },
   {
     operation: "workspaces.remove",
-    tool: {
-      ...writeTool(
-        "remove_workspace",
-        "Unregisters a workspace. The directory, its files, the project and its GitHub repository stay untouched; a workspace that plans, agents or runs still refer to is CONFLICT.",
-        { workspaceId: IDENTIFIER, expectedRevision: REVISION },
-      ),
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: true,
-        idempotentHint: true,
-        openWorldHint: false,
+    tool: buildWriteTool({
+      name: "remove_workspace",
+      title: "Remove workspace",
+      description: `Unregisters a workspace. The directory, its files, the project and its GitHub repository stay untouched; a workspace that plans, agents or runs still refer to is CONFLICT. ${MANAGE_DESCRIPTION}`,
+      properties: {
+        workspaceId: IDENTIFIER_SCHEMA,
+        expectedRevision: REVISION_SCHEMA,
       },
-    },
+      isDestructive: true,
+    }),
   },
 ];

@@ -1,16 +1,16 @@
+import {
+  CURSOR_SCHEMA,
+  IDENTIFIER_SCHEMA,
+  LIMIT_SCHEMA,
+  READ_ANNOTATIONS,
+} from "./tool-definition.js";
+
 import type { Tool } from "@modelcontextprotocol/server";
 import type {
   PageAgentReadOperation,
   PageAgentWriteOperation,
 } from "../../../definition/PageAgentOperations.js";
 
-const IDENTIFIER = { type: "string", minLength: 1, maxLength: 100 } as const;
-const READ_ANNOTATIONS = {
-  readOnlyHint: true,
-  destructiveHint: false,
-  idempotentHint: true,
-  openWorldHint: false,
-} as const;
 const SEE_DESCRIPTION =
   "Legacy definitions stay readable; they are no longer a required step for using a model.";
 
@@ -24,12 +24,12 @@ export const AGENT_READ_TOOLS: readonly {
     tool: {
       name: "list_agents",
       title: "List agents",
-      description: `Compatibility read of retained definitions; configure new nodes directly with read_plan_sources and create_agent_plan/update_agent_plan. Lists the user agents of the connected account: id, name, instruction, parameters, directoryParameter, run options (read only), modelProfileId, model, reasoningEffort, sharing with group and department names, ownerId, canEdit (only the owner), isUsable (a run could start now), hasDeletedTargets and revision. Ordered by name; pass nextCursor with the same query to continue. ${SEE_DESCRIPTION}`,
+      description: `Compatibility read of retained definitions; configure new nodes directly with read_plan_sources and create_plan/update_plan. Lists the user agents of the connected account: id, name, instruction, parameters, directoryParameter, run options (read only), modelProfileId, model, reasoningEffort, sharing with group and department names, ownerId, canEdit (only the owner), isUsable (a run could start now), hasDeletedTargets and revision. Ordered by name; pass nextCursor with the same query to continue. ${SEE_DESCRIPTION}`,
       inputSchema: {
         type: "object",
         properties: {
-          cursor: { type: ["string", "null"], maxLength: 2048 },
-          limit: { type: "integer", minimum: 1, maximum: 100 },
+          cursor: CURSOR_SCHEMA,
+          limit: LIMIT_SCHEMA,
         },
         additionalProperties: false,
       },
@@ -44,7 +44,7 @@ export const AGENT_READ_TOOLS: readonly {
       description: `Compatibility read; new instructions belong to plan nodes. Reads one user agent by its id, with the same fields as list_agents. ${SEE_DESCRIPTION}`,
       inputSchema: {
         type: "object",
-        properties: { agentId: IDENTIFIER },
+        properties: { agentId: IDENTIFIER_SCHEMA },
         required: ["agentId"],
         additionalProperties: false,
       },

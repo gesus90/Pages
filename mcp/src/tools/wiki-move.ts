@@ -1,11 +1,11 @@
-import type { Tool } from "@modelcontextprotocol/server";
+import {
+  DESTRUCTIVE_ANNOTATIONS,
+  IDENTIFIER_SCHEMA,
+  NULLABLE_IDENTIFIER_SCHEMA,
+  REVISION_SCHEMA,
+} from "./tool-definition.js";
 
-const IDENTIFIER = { type: "string", minLength: 1, maxLength: 200 } as const;
-const PAGE_REFERENCE = {
-  type: ["string", "null"],
-  minLength: 1,
-  maxLength: 200,
-};
+import type { Tool } from "@modelcontextprotocol/server";
 
 /** Moves a wiki subtree to an explicit scope and place; text and icon stay. */
 export const WIKI_MOVE_TOOL: Tool = {
@@ -17,13 +17,13 @@ export const WIKI_MOVE_TOOL: Tool = {
     type: "object",
     additionalProperties: false,
     properties: {
-      operationId: IDENTIFIER,
-      pageId: IDENTIFIER,
-      expectedRevision: { type: "integer", minimum: 1 },
+      operationId: IDENTIFIER_SCHEMA,
+      pageId: IDENTIFIER_SCHEMA,
+      expectedRevision: REVISION_SCHEMA,
       projectId: { type: ["string", "null"], maxLength: 200 },
       scope: { type: "string", enum: ["project", "instance", "private"] },
-      parentId: PAGE_REFERENCE,
-      beforeId: PAGE_REFERENCE,
+      parentId: NULLABLE_IDENTIFIER_SCHEMA,
+      beforeId: NULLABLE_IDENTIFIER_SCHEMA,
     },
     required: [
       "operationId",
@@ -34,10 +34,5 @@ export const WIKI_MOVE_TOOL: Tool = {
       "beforeId",
     ],
   },
-  annotations: {
-    readOnlyHint: false,
-    destructiveHint: true,
-    idempotentHint: true,
-    openWorldHint: false,
-  },
+  annotations: DESTRUCTIVE_ANNOTATIONS,
 };

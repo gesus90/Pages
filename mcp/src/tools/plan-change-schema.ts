@@ -2,15 +2,18 @@ import {
   PLAN_ADDABLE_TYPES,
   PLAN_NODE_FIELDS,
 } from "../../../definition/AgentPlanChangeFields.js";
+import {
+  COORDINATE_SCHEMA,
+  PLAN_NODE_IDENTIFIER_SCHEMA,
+} from "./tool-definition.js";
 
-import type { Tool } from "@modelcontextprotocol/server";
-type Properties = NonNullable<Tool["inputSchema"]["properties"]>;
-type Schema = Properties[string];
-const IDENTIFIER = { type: "string", minLength: 1, maxLength: 100 } as const;
-const COORDINATE = { type: "integer", minimum: 0, maximum: 6000 } as const;
-export const FORMAT: Schema = { enum: ["string", "number", "json"] };
+import type { PropertySchema, ToolProperties } from "./tool-definition.js";
 
-export const VALUE: Schema = {
+/** Text parameter validation formats accepted by the plan editor. */
+export const FORMAT: PropertySchema = { enum: ["string", "number", "json"] };
+
+/** Typed plan values used by parameters, defaults and literal bindings. */
+export const VALUE: PropertySchema = {
   oneOf: [
     {
       type: "object",
@@ -35,14 +38,14 @@ export const VALUE: Schema = {
       ] as const
     ).map(([type, key]) => ({
       type: "object",
-      properties: { type: { const: type }, [key]: IDENTIFIER },
+      properties: { type: { const: type }, [key]: PLAN_NODE_IDENTIFIER_SCHEMA },
       required: ["type", key],
       additionalProperties: false,
     })),
   ],
 };
 
-const BINDING: Schema = {
+const BINDING: PropertySchema = {
   oneOf: [
     {
       type: "object",
@@ -55,36 +58,39 @@ const BINDING: Schema = {
     },
     {
       type: "object",
-      properties: { kind: { const: "source" }, nodeId: IDENTIFIER },
+      properties: {
+        kind: { const: "source" },
+        nodeId: PLAN_NODE_IDENTIFIER_SCHEMA,
+      },
       required: ["kind", "nodeId"],
       additionalProperties: false,
     },
     {
       type: "object",
-      properties: { kind: { const: "result" }, stepId: IDENTIFIER },
+      properties: {
+        kind: { const: "result" },
+        stepId: PLAN_NODE_IDENTIFIER_SCHEMA,
+      },
       required: ["kind", "stepId"],
       additionalProperties: false,
     },
   ],
 };
 
+/** Display name syntax for a parameter node. */
 export const PARAMETER_NAME = {
   type: "string",
   pattern: "^[a-zA-Z][a-zA-Z0-9_]{0,63}$",
 } as const;
-const INPUT_NAME = {
-  type: "string",
-  pattern: "^[a-zA-Z][a-zA-Z0-9_]{0,63}$",
-} as const;
 
-const CONFIGURATION: Schema = {
+const CONFIGURATION: PropertySchema = {
   type: "object",
   additionalProperties: false,
   minProperties: 1,
   properties: {
     name: { type: "string", maxLength: 200 },
     modelProfileId: { type: "string", maxLength: 1500 },
-    connectionId: IDENTIFIER,
+    connectionId: PLAN_NODE_IDENTIFIER_SCHEMA,
     model: { type: "string", minLength: 1, maxLength: 500 },
     reasoningEffort: { type: ["string", "null"], maxLength: 100 },
     template: {
@@ -100,7 +106,7 @@ const CONFIGURATION: Schema = {
           items: {
             type: "object",
             properties: {
-              name: INPUT_NAME,
+              name: PARAMETER_NAME,
               type: { enum: ["text", "number", "ticket", "workspace", "wiki"] },
               description: { type: "string", maxLength: 1000 },
               isRequired: { type: "boolean" },
@@ -133,7 +139,7 @@ const CONFIGURATION: Schema = {
   },
 };
 /** The fields of a script node, checked by Pages exactly as on the plan page. */
-const SCRIPT_FIELDS: Properties = {
+const SCRIPT_FIELDS: ToolProperties = {
   interpreterProfileId: {
     type: "string",
     pattern: "^[a-zA-Z0-9-]{1,80}$",
@@ -146,7 +152,7 @@ const SCRIPT_FIELDS: Properties = {
     items: {
       type: "object",
       properties: {
-        name: INPUT_NAME,
+        name: PARAMETER_NAME,
         type: { const: "text" },
         isRequired: { type: "boolean" },
       },
@@ -160,7 +166,7 @@ const SCRIPT_FIELDS: Properties = {
     maxItems: 1,
     items: {
       type: "object",
-      properties: { name: INPUT_NAME, type: { const: "text" } },
+      properties: { name: PARAMETER_NAME, type: { const: "text" } },
       required: ["name", "type"],
       additionalProperties: false,
     },
@@ -168,14 +174,14 @@ const SCRIPT_FIELDS: Properties = {
   timeoutSeconds: { type: "integer", minimum: 1, maximum: 86_400 },
 };
 
-const NODE_FIELDS: Properties = {
-  x: COORDINATE,
-  y: COORDINATE,
+const NODE_FIELDS: ToolProperties = {
+  x: COORDINATE_SCHEMA,
+  y: COORDINATE_SCHEMA,
   agentId: { type: "string", maxLength: 100 },
   personalAgentId: { type: ["string", "null"], maxLength: 100 },
   instruction: { type: "string", maxLength: 200_000 },
   completion: { enum: ["report", "todos"] },
-  taskId: { type: "string", minLength: 1, maxLength: 100 },
+  taskId: PLAN_NODE_IDENTIFIER_SCHEMA,
   name: {
     type: "string",
     minLength: 1,
@@ -189,7 +195,7 @@ const NODE_FIELDS: Properties = {
   ...SCRIPT_FIELDS,
 };
 
-function change(action: string, properties: Properties): Schema {
+function change(action: string, properties: ToolProperties): PropertySchema {
   return {
     type: "object",
     properties: { action: { const: action }, ...properties },
@@ -198,7 +204,8 @@ function change(action: string, properties: Properties): Schema {
   };
 }
 
-export const CHANGES: Schema = {
+/** Ordered atomic plan edits accepted by Pages, without raw graph replacement. */
+export const CHANGES: PropertySchema = {
   type: "array",
   maxItems: 200,
   items: {
@@ -210,9 +217,9 @@ export const CHANGES: Schema = {
             type: "object",
             properties: {
               type: { const: type },
-              id: IDENTIFIER,
-              x: COORDINATE,
-              y: COORDINATE,
+              id: PLAN_NODE_IDENTIFIER_SCHEMA,
+              x: COORDINATE_SCHEMA,
+              y: COORDINATE_SCHEMA,
               ...Object.fromEntries(
                 PLAN_NODE_FIELDS[type].map((key) => [key, NODE_FIELDS[key]]),
               ),
@@ -223,7 +230,7 @@ export const CHANGES: Schema = {
         },
       }),
       change("updateNode", {
-        nodeId: IDENTIFIER,
+        nodeId: PLAN_NODE_IDENTIFIER_SCHEMA,
         fields: {
           type: "object",
           properties: NODE_FIELDS,
@@ -232,38 +239,51 @@ export const CHANGES: Schema = {
         },
       }),
       change("placeNode", {
-        nodeId: IDENTIFIER,
+        nodeId: PLAN_NODE_IDENTIFIER_SCHEMA,
         groupId: { type: ["string", "null"], minLength: 1, maxLength: 100 },
-        x: COORDINATE,
-        y: COORDINATE,
+        x: COORDINATE_SCHEMA,
+        y: COORDINATE_SCHEMA,
       }),
       change("ungroup", {
-        nodeId: IDENTIFIER,
+        nodeId: PLAN_NODE_IDENTIFIER_SCHEMA,
         positions: {
           type: "array",
           maxItems: 50,
           items: {
             type: "object",
-            properties: { nodeId: IDENTIFIER, x: COORDINATE, y: COORDINATE },
+            properties: {
+              nodeId: PLAN_NODE_IDENTIFIER_SCHEMA,
+              x: COORDINATE_SCHEMA,
+              y: COORDINATE_SCHEMA,
+            },
             required: ["nodeId", "x", "y"],
             additionalProperties: false,
           },
         },
       }),
       change("insertTemplate", {
-        templateId: IDENTIFIER,
-        x: COORDINATE,
-        y: COORDINATE,
+        templateId: PLAN_NODE_IDENTIFIER_SCHEMA,
+        x: COORDINATE_SCHEMA,
+        y: COORDINATE_SCHEMA,
       }),
-      change("removeNode", { nodeId: IDENTIFIER }),
-      change("connect", { from: IDENTIFIER, to: IDENTIFIER }),
-      change("disconnect", { from: IDENTIFIER, to: IDENTIFIER }),
+      change("removeNode", { nodeId: PLAN_NODE_IDENTIFIER_SCHEMA }),
+      change("connect", {
+        from: PLAN_NODE_IDENTIFIER_SCHEMA,
+        to: PLAN_NODE_IDENTIFIER_SCHEMA,
+      }),
+      change("disconnect", {
+        from: PLAN_NODE_IDENTIFIER_SCHEMA,
+        to: PLAN_NODE_IDENTIFIER_SCHEMA,
+      }),
       change("bind", {
-        nodeId: IDENTIFIER,
-        parameter: INPUT_NAME,
+        nodeId: PLAN_NODE_IDENTIFIER_SCHEMA,
+        parameter: PARAMETER_NAME,
         binding: BINDING,
       }),
-      change("unbind", { nodeId: IDENTIFIER, parameter: IDENTIFIER }),
+      change("unbind", {
+        nodeId: PLAN_NODE_IDENTIFIER_SCHEMA,
+        parameter: PLAN_NODE_IDENTIFIER_SCHEMA,
+      }),
     ],
   },
 };

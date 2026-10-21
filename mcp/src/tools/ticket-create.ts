@@ -1,13 +1,10 @@
+import {
+  ADDITIVE_ANNOTATIONS,
+  IDENTIFIER_SCHEMA,
+  NULLABLE_IDENTIFIER_SCHEMA,
+} from "./tool-definition.js";
+
 import type { Tool } from "@modelcontextprotocol/server";
-
-type FieldSchema = NonNullable<Tool["inputSchema"]["properties"]>[string];
-
-const IDENTIFIER = { type: "string", minLength: 1, maxLength: 200 } as const;
-const NULLABLE_IDENTIFIER: FieldSchema = {
-  type: ["string", "null"],
-  minLength: 1,
-  maxLength: 200,
-};
 
 /** Local, idempotent ticket creation; what a call leaves open is taken from the parent and the account. */
 export const TICKET_CREATE_TOOL: Tool = {
@@ -19,21 +16,21 @@ export const TICKET_CREATE_TOOL: Tool = {
     type: "object",
     additionalProperties: false,
     properties: {
-      operationId: IDENTIFIER,
-      projectId: NULLABLE_IDENTIFIER,
+      operationId: IDENTIFIER_SCHEMA,
+      projectId: NULLABLE_IDENTIFIER_SCHEMA,
       type: { enum: ["initiative", "epic", "task", "subtask"] },
-      title: { type: "string", minLength: 1, maxLength: 200 },
+      title: IDENTIFIER_SCHEMA,
       description: { type: "string", maxLength: 65536 },
-      statusId: NULLABLE_IDENTIFIER,
-      parentId: NULLABLE_IDENTIFIER,
-      milestoneId: NULLABLE_IDENTIFIER,
-      departmentId: NULLABLE_IDENTIFIER,
+      statusId: NULLABLE_IDENTIFIER_SCHEMA,
+      parentId: NULLABLE_IDENTIFIER_SCHEMA,
+      milestoneId: NULLABLE_IDENTIFIER_SCHEMA,
+      departmentId: NULLABLE_IDENTIFIER_SCHEMA,
       assignee: {
         type: ["object", "null"],
         additionalProperties: false,
         properties: {
           targetType: { type: "string", enum: ["person", "group", "none"] },
-          targetId: NULLABLE_IDENTIFIER,
+          targetId: NULLABLE_IDENTIFIER_SCHEMA,
         },
         required: ["targetType", "targetId"],
       },
@@ -47,10 +44,5 @@ export const TICKET_CREATE_TOOL: Tool = {
       "parentId",
     ],
   },
-  annotations: {
-    readOnlyHint: false,
-    destructiveHint: false,
-    idempotentHint: true,
-    openWorldHint: false,
-  },
+  annotations: ADDITIVE_ANNOTATIONS,
 };

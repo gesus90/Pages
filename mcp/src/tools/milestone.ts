@@ -1,14 +1,18 @@
+import {
+  ADDITIVE_ANNOTATIONS,
+  DESTRUCTIVE_ANNOTATIONS,
+  IDENTIFIER_SCHEMA,
+} from "./tool-definition.js";
+
 import type { Tool } from "@modelcontextprotocol/server";
+import type { PropertySchema } from "./tool-definition.js";
 
-type FieldSchema = NonNullable<Tool["inputSchema"]["properties"]>[string];
-
-const IDENTIFIER = { type: "string", minLength: 1, maxLength: 200 } as const;
-const DATE: FieldSchema = {
+const DATE: PropertySchema = {
   type: ["string", "null"],
   pattern: "^\\d{4}-\\d{2}-\\d{2}$",
 };
-const STATUS: FieldSchema = { enum: ["open", "completed", "archived"] };
-const LINK_TYPE: FieldSchema = {
+const STATUS: PropertySchema = { enum: ["open", "completed", "archived"] };
+const LINK_TYPE: PropertySchema = {
   enum: ["prerequisite", "follows", "blocks", "relates_to"],
 };
 const RIGHTS =
@@ -23,7 +27,7 @@ interface MilestoneFieldSpecification {
   /** The argument that carries the value that was read, and the one that carries the new value. */
   readonly expected: string;
   readonly value: string;
-  readonly schema: FieldSchema;
+  readonly schema: PropertySchema;
 }
 
 function milestoneFieldTool(specification: MilestoneFieldSpecification): Tool {
@@ -35,8 +39,8 @@ function milestoneFieldTool(specification: MilestoneFieldSpecification): Tool {
       type: "object",
       additionalProperties: false,
       properties: {
-        operationId: IDENTIFIER,
-        milestoneId: IDENTIFIER,
+        operationId: IDENTIFIER_SCHEMA,
+        milestoneId: IDENTIFIER_SCHEMA,
         [specification.expected]: specification.schema,
         [specification.value]: specification.schema,
       },
@@ -47,12 +51,7 @@ function milestoneFieldTool(specification: MilestoneFieldSpecification): Tool {
         specification.value,
       ],
     },
-    annotations: {
-      readOnlyHint: false,
-      destructiveHint: true,
-      idempotentHint: true,
-      openWorldHint: false,
-    },
+    annotations: DESTRUCTIVE_ANNOTATIONS,
   };
 }
 
@@ -65,9 +64,9 @@ export const MILESTONE_CREATE_TOOL: Tool = {
     type: "object",
     additionalProperties: false,
     properties: {
-      operationId: IDENTIFIER,
-      projectId: IDENTIFIER,
-      name: { type: "string", minLength: 1, maxLength: 200 },
+      operationId: IDENTIFIER_SCHEMA,
+      projectId: IDENTIFIER_SCHEMA,
+      name: IDENTIFIER_SCHEMA,
       description: { type: "string" },
       startAt: DATE,
       dueAt: DATE,
@@ -81,12 +80,7 @@ export const MILESTONE_CREATE_TOOL: Tool = {
       "dueAt",
     ],
   },
-  annotations: {
-    readOnlyHint: false,
-    destructiveHint: false,
-    idempotentHint: true,
-    openWorldHint: false,
-  },
+  annotations: ADDITIVE_ANNOTATIONS,
 };
 
 /** Changes only the name of one milestone. */
@@ -97,7 +91,7 @@ export const MILESTONE_SET_NAME_TOOL: Tool = milestoneFieldTool({
     "Sets the name of one milestone (1 to 200 characters); description, status and dates stay unchanged.",
   expected: "expectedName",
   value: "name",
-  schema: { type: "string", minLength: 1, maxLength: 200 },
+  schema: IDENTIFIER_SCHEMA,
 });
 
 /** Changes only the description of one milestone. */
@@ -153,20 +147,15 @@ export const MILESTONE_DEPENDENCY_ADD_TOOL: Tool = {
     type: "object",
     additionalProperties: false,
     properties: {
-      operationId: IDENTIFIER,
-      projectId: IDENTIFIER,
-      sourceId: IDENTIFIER,
-      targetId: IDENTIFIER,
+      operationId: IDENTIFIER_SCHEMA,
+      projectId: IDENTIFIER_SCHEMA,
+      sourceId: IDENTIFIER_SCHEMA,
+      targetId: IDENTIFIER_SCHEMA,
       linkType: LINK_TYPE,
     },
     required: ["operationId", "projectId", "sourceId", "targetId", "linkType"],
   },
-  annotations: {
-    readOnlyHint: false,
-    destructiveHint: false,
-    idempotentHint: true,
-    openWorldHint: false,
-  },
+  annotations: ADDITIVE_ANNOTATIONS,
 };
 
 /** Removes one dependency between milestones. */
@@ -178,16 +167,11 @@ export const MILESTONE_DEPENDENCY_REMOVE_TOOL: Tool = {
     type: "object",
     additionalProperties: false,
     properties: {
-      operationId: IDENTIFIER,
-      projectId: IDENTIFIER,
-      dependencyId: IDENTIFIER,
+      operationId: IDENTIFIER_SCHEMA,
+      projectId: IDENTIFIER_SCHEMA,
+      dependencyId: IDENTIFIER_SCHEMA,
     },
     required: ["operationId", "projectId", "dependencyId"],
   },
-  annotations: {
-    readOnlyHint: false,
-    destructiveHint: true,
-    idempotentHint: true,
-    openWorldHint: false,
-  },
+  annotations: DESTRUCTIVE_ANNOTATIONS,
 };

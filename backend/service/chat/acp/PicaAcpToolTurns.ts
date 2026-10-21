@@ -8,13 +8,16 @@ import type { PicaBridgeLease } from "./PicaBridge";
 export class PicaAcpToolTurns {
   private readonly dependencies: Pick<
     PicaToolsInput,
-    "tools" | "sessions" | "answerFiles"
+    "tools" | "sessions" | "answerFiles" | "adminTools"
   >;
   private readonly controller = new AbortController();
   private turn = 0;
 
   public constructor(
-    dependencies: Pick<PicaToolsInput, "tools" | "sessions" | "answerFiles">,
+    dependencies: Pick<
+      PicaToolsInput,
+      "tools" | "sessions" | "answerFiles" | "adminTools"
+    >,
   ) {
     this.dependencies = dependencies;
   }
@@ -37,6 +40,7 @@ export class PicaAcpToolTurns {
         tools: this.dependencies.tools,
         sessions: this.dependencies.sessions,
         authorize: context.authorize,
+        adminTools: this.dependencies.adminTools,
         onLimit: () => this.controller.abort("stepLimit"),
         ...(this.dependencies.answerFiles
           ? { answerFiles: this.dependencies.answerFiles }

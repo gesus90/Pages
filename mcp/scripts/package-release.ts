@@ -354,9 +354,9 @@ async function readExamples(
 export async function packageRelease(
   options: ReleaseOptions,
 ): Promise<ReleaseResult> {
-  const version = parseReleaseTag(options.tag);
   const packageDirectory =
     options.packageDirectory ?? fileURLToPath(new URL("..", import.meta.url));
+  const version = parseReleaseTag(options.tag);
   const stamped = stampManifest(
     await readFile(path.join(packageDirectory, "package.json"), "utf8"),
     version,
@@ -416,13 +416,17 @@ export async function packageRelease(
 const USAGE =
   "Usage: package-release.ts tag <mcp-vX.Y.Z> | package <mcp-vX.Y.Z> <output-directory>";
 
-async function runCommandLine(argumentsList: readonly string[]): Promise<void> {
+/** Runs release commands with the same optional source and environment boundaries as packaging. */
+export async function runReleaseCommand(
+  argumentsList: readonly string[],
+  options: Pick<ReleaseOptions, "packageDirectory" | "environment"> = {},
+): Promise<void> {
   try {
     const [command, tag, outputDirectory] = argumentsList;
     if (command === "tag" && argumentsList.length === 2) {
       console.info(parseReleaseTag(tag));
     } else if (command === "package" && argumentsList.length === 3) {
-      const result = await packageRelease({ tag, outputDirectory });
+      const result = await packageRelease({ ...options, tag, outputDirectory });
       console.info(`version ${result.version}`);
       console.info(`archive ${result.archivePath}`);
       console.info(`archive-sha256 ${result.archiveSha256}`);
@@ -439,5 +443,5 @@ async function runCommandLine(argumentsList: readonly string[]): Promise<void> {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  void runCommandLine(process.argv.slice(2));
+  await runReleaseCommand(process.argv.slice(2));
 }

@@ -6,10 +6,10 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import manifest from "../../package.json" with { type: "json" };
-import { CredentialStoreError } from "../../src/credential-store.ts";
+import { CredentialStoreError } from "../../src/credential-error.ts";
 import { listProjectNames } from "../../src/project-names.ts";
 import { createServer } from "../../src/server.ts";
-import { PagesOperationFailure } from "../../src/tools/operation-failure.ts";
+import { PagesOperationError } from "../../src/tools/operation-failure.ts";
 import { readOperation } from "../../src/tools/read-operation.ts";
 import { verifyPages } from "../../src/verification.ts";
 
@@ -234,11 +234,11 @@ describe("createServer business tool calls", () => {
 describe("createServer business failures", () => {
   it.each([
     [
-      new PagesOperationFailure("NOT_FOUND"),
+      new PagesOperationError("NOT_FOUND"),
       { code: "NOT_FOUND", message: "Not found or no access." },
     ],
     [
-      new PagesOperationFailure("AMBIGUOUS", {
+      new PagesOperationError("AMBIGUOUS", {
         candidates: [{ id: "p1", name: "Plan" }],
         truncated: false,
       }),
@@ -247,7 +247,7 @@ describe("createServer business failures", () => {
         details: { candidates: [{ id: "p1", name: "Plan" }], truncated: false },
       },
     ],
-    [new PagesOperationFailure("FORBIDDEN"), { code: "FORBIDDEN" }],
+    [new PagesOperationError("FORBIDDEN"), { code: "FORBIDDEN" }],
   ])("returns %s as a tool error", async (failure, expected) => {
     offer("projects.resolve");
     vi.mocked(readOperation).mockRejectedValue(failure);

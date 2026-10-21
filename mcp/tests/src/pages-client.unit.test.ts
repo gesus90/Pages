@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { CredentialStoreError } from "../../src/credential-store.ts";
+import { CredentialStoreError } from "../../src/credential-error.ts";
 import { postAgentRequest } from "../../src/pages-client.ts";
-import { PagesOperationFailure } from "../../src/tools/operation-failure.ts";
+import { PagesOperationError } from "../../src/tools/operation-failure.ts";
 
 import type { PagesConfiguration } from "../../src/configuration.ts";
 
@@ -141,7 +141,7 @@ describe("postAgentRequest rejected requests", () => {
     const request = postAgentRequest(configuration, REQUEST, {
       businessErrors: true,
     });
-    await expect(request).rejects.toBeInstanceOf(PagesOperationFailure);
+    await expect(request).rejects.toBeInstanceOf(PagesOperationError);
     await expect(request).rejects.toThrow("Not found or no access.");
   });
 

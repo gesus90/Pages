@@ -11,10 +11,10 @@ import { PairingClient, PairingClientError } from "../../src/pairing-client.ts";
 import { verifyPages } from "../../src/verification.ts";
 
 import type * as NodeOs from "node:os";
+import type { McpPairedCredential } from "../../../definition/McpPairing.ts";
 import type { CredentialCommandRuntime } from "../../src/credential-command.ts";
 import type { StoredCredential } from "../../src/credential-store.ts";
 import type { DevicePairingRequest } from "../../src/pairing-client.ts";
-import type { McpPairedCredential } from "../../../definition/McpPairing.ts";
 
 vi.mock("node:os", async (importOriginal) => ({
   ...(await importOriginal<typeof NodeOs>()),
@@ -293,8 +293,8 @@ describe("pair argument errors", () => {
   });
 
   it.each([
-    { code: "wrong_instance", exit: 4, message: MESSAGES.wrong },
-    { code: "network", exit: 1, message: MESSAGES.failed },
+    { code: "wrong_instance" as const, exit: 4, message: MESSAGES.wrong },
+    { code: "network" as const, exit: 1, message: MESSAGES.failed },
   ])(
     "reports $code from the pairing request",
     async ({ code, exit, message }) => {

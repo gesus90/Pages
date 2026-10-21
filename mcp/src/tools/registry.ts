@@ -1,9 +1,8 @@
-import { PLAN_RESOURCE_READ_TOOLS } from "./plan-resources.js";
+import { ADMIN_READ_TOOLS } from "./administration.js";
+import { AGENT_READ_TOOLS } from "./agents.js";
 import { CHAT_SESSIONS_LIST_TOOL } from "./chat-sessions.js";
 import { EXTENSION_READ_TOOLS } from "./extensions.js";
-import { ADMIN_READ_TOOLS } from "./administration.js";
-import { WORKSPACE_READ_TOOLS } from "./workspaces.js";
-import { AGENT_READ_TOOLS } from "./agents.js";
+import { PLAN_RESOURCE_READ_TOOLS } from "./plan-resources.js";
 import { PLAN_READ_TOOLS } from "./plans.js";
 import { PROJECT_DELETION_SCOPE_TOOL } from "./project-deletion.js";
 import { STRUCTURED_IMPORT_PLAN_TOOL } from "./structured-import-plan.js";
@@ -11,56 +10,28 @@ import {
   TICKET_READ_DESCRIPTION_RANGE_TOOL,
   WIKI_READ_RANGE_TOOL,
 } from "./text-range.js";
+import { TICKET_CHECKLIST_READ_TOOL } from "./ticket-checklist.js";
+import { MILESTONES_READ_TOOL, TICKET_READ_TOOL } from "./ticket-read.js";
 import {
   ASSIGNMENT_TARGETS_SEARCH_TOOL,
   TICKET_LINKS_READ_TOOL,
   TICKET_SEARCH_TOOL,
   TICKET_TREE_READ_TOOL,
 } from "./ticket-search.js";
-import { TICKET_CHECKLIST_READ_TOOL } from "./ticket-checklist.js";
-import { MILESTONES_READ_TOOL, TICKET_READ_TOOL } from "./ticket-read.js";
+import {
+  CURSOR_SCHEMA,
+  IDENTIFIER_SCHEMA,
+  LIMIT_SCHEMA,
+  READ_ANNOTATIONS,
+} from "./tool-definition.js";
 import { WIKI_IMPORT_PLAN_TOOL } from "./wiki-import-plan.js";
+import { WORKSPACE_READ_TOOLS } from "./workspaces.js";
 
-import type { AgentTextRangeReadOperation } from "../../../definition/AgentTextRange.js";
-import type { AgentExtensionReadOperation } from "../../../definition/AgentExtensions.js";
-import type { AgentAdminReadOperation } from "../../../definition/AgentAdministration.js";
-import type { AgentProjectDeletionReadOperation } from "../../../definition/AgentProjectDeletion.js";
-import type { AgentWorkspaceReadOperation } from "../../../definition/AgentWorkspaceOperations.js";
-import type { AgentPlanReadOperation } from "../../../definition/AgentPlanOperations.js";
-import type { PageAgentReadOperation } from "../../../definition/PageAgentOperations.js";
 import type { Tool } from "@modelcontextprotocol/server";
-import type {
-  PagesAgentReadOperation,
-  PagesAgentStructuredReadOperation,
-  PagesAgentTicketReadOperation,
-} from "../../../definition/PagesAgentOperations.js";
-
-interface ReadTool {
-  readonly operation:
-    | "chat.sessions.list"
-    | AgentExtensionReadOperation
-    | AgentAdminReadOperation
-    | AgentProjectDeletionReadOperation
-    | AgentWorkspaceReadOperation
-    | AgentPlanReadOperation
-    | PageAgentReadOperation
-    | AgentTextRangeReadOperation
-    | PagesAgentReadOperation
-    | PagesAgentStructuredReadOperation
-    | PagesAgentTicketReadOperation;
-  readonly tool: Tool;
-}
-
-const ANNOTATIONS = {
-  readOnlyHint: true,
-  destructiveHint: false,
-  idempotentHint: true,
-  openWorldHint: false,
-} as const;
-const TEXT = { type: "string", minLength: 1, maxLength: 200 } as const;
+import type { PagesAgentApiBusinessOperation } from "../../../definition/PagesAgentApi.js";
 
 /** Fixed read-only tool descriptions; Pages determines which operations an identity may use. */
-export const READ_TOOLS: readonly ReadTool[] = [
+const READ_TOOL_ENTRIES = [
   { operation: "chat.sessions.list", tool: CHAT_SESSIONS_LIST_TOOL },
   ...EXTENSION_READ_TOOLS,
   ...ADMIN_READ_TOOLS,
@@ -78,11 +49,11 @@ export const READ_TOOLS: readonly ReadTool[] = [
         "Resolves an exact trimmed case-sensitive project name. Multiple matches return AMBIGUOUS with at most 100 visible candidates; no target is chosen. Responses are limited to 1 MiB UTF-8 JSON.",
       inputSchema: {
         type: "object",
-        properties: { name: TEXT },
+        properties: { name: IDENTIFIER_SCHEMA },
         required: ["name"],
         additionalProperties: false,
       },
-      annotations: ANNOTATIONS,
+      annotations: READ_ANNOTATIONS,
     },
   },
   {
@@ -95,14 +66,12 @@ export const READ_TOOLS: readonly ReadTool[] = [
       inputSchema: {
         type: "object",
         properties: {
-          projectId: TEXT,
-          cursor: { type: ["string", "null"] },
-          limit: { type: "integer", minimum: 1, maximum: 100 },
+          projectId: IDENTIFIER_SCHEMA,
         },
         required: ["projectId"],
         additionalProperties: false,
       },
-      annotations: ANNOTATIONS,
+      annotations: READ_ANNOTATIONS,
     },
   },
   {
@@ -114,11 +83,11 @@ export const READ_TOOLS: readonly ReadTool[] = [
         "Reads complete Markdown, revision, icon (a single emoji or null) and cover (null, {kind:preset,preset} or {kind:attachment,attachmentId}) of a visible page without recording a visit. Hidden/private placeholders return NOT_FOUND. Content over 1 MiB UTF-8 returns PAYLOAD_TOO_LARGE; JSON escaping and metadata have a separate envelope budget.",
       inputSchema: {
         type: "object",
-        properties: { pageId: TEXT },
+        properties: { pageId: IDENTIFIER_SCHEMA },
         required: ["pageId"],
         additionalProperties: false,
       },
-      annotations: ANNOTATIONS,
+      annotations: READ_ANNOTATIONS,
     },
   },
   {
@@ -131,13 +100,13 @@ export const READ_TOOLS: readonly ReadTool[] = [
       inputSchema: {
         type: "object",
         properties: {
-          projectId: TEXT,
-          cursor: { type: ["string", "null"] },
-          limit: { type: "integer", minimum: 1, maximum: 100 },
+          projectId: IDENTIFIER_SCHEMA,
+          cursor: CURSOR_SCHEMA,
+          limit: LIMIT_SCHEMA,
         },
         additionalProperties: false,
       },
-      annotations: ANNOTATIONS,
+      annotations: READ_ANNOTATIONS,
     },
   },
   {
@@ -150,15 +119,15 @@ export const READ_TOOLS: readonly ReadTool[] = [
       inputSchema: {
         type: "object",
         properties: {
-          text: TEXT,
-          projectId: TEXT,
-          cursor: { type: ["string", "null"] },
-          limit: { type: "integer", minimum: 1, maximum: 100 },
+          text: IDENTIFIER_SCHEMA,
+          projectId: IDENTIFIER_SCHEMA,
+          cursor: CURSOR_SCHEMA,
+          limit: LIMIT_SCHEMA,
         },
         required: ["text"],
         additionalProperties: false,
       },
-      annotations: ANNOTATIONS,
+      annotations: READ_ANNOTATIONS,
     },
   },
   { operation: "wiki.page.readRange", tool: WIKI_READ_RANGE_TOOL },
@@ -178,4 +147,13 @@ export const READ_TOOLS: readonly ReadTool[] = [
     tool: ASSIGNMENT_TARGETS_SEARCH_TOOL,
   },
   { operation: "import.structured.plan", tool: STRUCTURED_IMPORT_PLAN_TOOL },
-];
+] as const satisfies readonly {
+  readonly operation: PagesAgentApiBusinessOperation;
+  readonly tool: Tool;
+}[];
+
+/** Fixed read contracts retain their specific operation names and a common SDK tool shape. */
+export const READ_TOOLS: readonly {
+  readonly operation: (typeof READ_TOOL_ENTRIES)[number]["operation"];
+  readonly tool: Tool;
+}[] = READ_TOOL_ENTRIES;

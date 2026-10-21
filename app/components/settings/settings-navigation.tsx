@@ -78,6 +78,14 @@ export function SettingsNavigation({
           {t("settings.navigation.agents")}
         </SettingsNavigationLink>
       ) : null}
+      {canViewSystem ? (
+        <SettingsNavigationLink
+          icon={<Bot className="size-4 text-primary" aria-hidden="true" />}
+          to="/pica-tools"
+        >
+          {t("picaAdmin.title")}
+        </SettingsNavigationLink>
+      ) : null}
     </nav>
   );
 }

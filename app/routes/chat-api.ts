@@ -107,11 +107,10 @@ export async function action({
     const actor = context.get(authenticatedUserContext);
     if (!actor) throw new ChatError("accessDenied");
     const services = await getApplicationServices();
-    const result = await handleIntent(
-      services,
-      actor,
-      await readChatJson(request),
-    );
+    const input = await readChatJson(request);
+    if (input.intent === "send")
+      services.picaAdminService.protectOrigin(new URL(request.url).origin);
+    const result = await handleIntent(services, actor, input);
     return Response.json({ ok: true, ...result }, { headers: CHAT_NO_STORE });
   } catch (error: unknown) {
     logCaughtError("chat_api", error);

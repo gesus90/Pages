@@ -1,16 +1,14 @@
-import type { Tool } from "@modelcontextprotocol/server";
+import {
+  DESTRUCTIVE_ANNOTATIONS,
+  IDENTIFIER_SCHEMA,
+  REVISION_SCHEMA,
+} from "./tool-definition.js";
 
-const IDENTIFIER = { type: "string", minLength: 1, maxLength: 200 } as const;
-const ANNOTATIONS = {
-  readOnlyHint: false,
-  destructiveHint: true,
-  idempotentHint: true,
-  openWorldHint: false,
-} as const;
+import type { Tool } from "@modelcontextprotocol/server";
+import type { PropertySchema } from "./tool-definition.js";
+
 const COMMON =
   "pageId is a page ID or a Pages address such as /wiki/<id> (with or without the server in front). expectedRevision is the revision you read with read_wiki_page; a page saved since then returns CONFLICT with currentRevision and nothing changes. Only this field changes; the other fields stay as they are, and the previous state stays in the page versions. Reuse operationId with identical input to recover the stored result after response loss; changed input returns CONFLICT. A hidden page returns NOT_FOUND; without the write right the call returns FORBIDDEN. Wiki content accepts at most 1 MiB UTF-8, other requests at most 64 KiB.";
-
-type FieldSchema = NonNullable<Tool["inputSchema"]["properties"]>[string];
 
 interface FieldToolSpecification {
   readonly name: string;
@@ -18,7 +16,7 @@ interface FieldToolSpecification {
   readonly description: string;
   /** The one argument that carries the new value, and its schema. */
   readonly field: string;
-  readonly schema: FieldSchema;
+  readonly schema: PropertySchema;
 }
 
 function fieldTool(specification: FieldToolSpecification): Tool {
@@ -30,9 +28,9 @@ function fieldTool(specification: FieldToolSpecification): Tool {
       type: "object",
       additionalProperties: false,
       properties: {
-        operationId: IDENTIFIER,
-        pageId: IDENTIFIER,
-        expectedRevision: { type: "integer", minimum: 1 },
+        operationId: IDENTIFIER_SCHEMA,
+        pageId: IDENTIFIER_SCHEMA,
+        expectedRevision: REVISION_SCHEMA,
         [specification.field]: specification.schema,
       },
       required: [
@@ -42,7 +40,7 @@ function fieldTool(specification: FieldToolSpecification): Tool {
         specification.field,
       ],
     },
-    annotations: ANNOTATIONS,
+    annotations: DESTRUCTIVE_ANNOTATIONS,
   };
 }
 
@@ -53,7 +51,7 @@ export const WIKI_SET_TITLE_TOOL: Tool = fieldTool({
   description:
     "Sets the title of one wiki page; text, icon and place stay unchanged. The title is trimmed to one line and must not be empty.",
   field: "title",
-  schema: { type: "string", minLength: 1, maxLength: 200 },
+  schema: IDENTIFIER_SCHEMA,
 });
 
 /** Changes only the Markdown text of one page. */

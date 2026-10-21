@@ -1,3 +1,4 @@
+import { ASSET_UPLOAD_TIMEOUT_MS } from "./request-constants.js";
 import { operationFailure } from "./tools/operation-failure.js";
 
 import type { PagesConfiguration } from "./configuration.js";
@@ -19,7 +20,7 @@ export async function uploadAgentAsset(
     body,
     duplex: "half",
     redirect: "error",
-    signal: AbortSignal.timeout(300_000),
+    signal: AbortSignal.timeout(ASSET_UPLOAD_TIMEOUT_MS),
   };
   let response: Response;
   try {

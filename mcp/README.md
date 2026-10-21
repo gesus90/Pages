@@ -618,6 +618,24 @@ fields, and the linked source definitions when developing an integration.
 Status codes mentioned below are Pages API responses. Binary asset upload paths are
 Pages API paths as well.
 
+Tool annotations declare all four hints. Reads are read-only and idempotent.
+Writes that can replace existing fields, states, assignments or links, or remove
+records, are destructive; purely additive operations are not. This includes
+checklist changes, comment resolution, plan parameter updates and Pause.
+Play and Resume also set `openWorldHint: true` because they may invoke models
+or affect a workspace. All other tools are limited to Pages records. Journaled
+writes are idempotent through `operationId`; `delete_chat_sessions` and
+`prepare_asset_upload` are the two exceptions. Hints describe the contract;
+client confirmation dialogs depend on the client, and Pages still checks rights
+and any required typed confirmation on every call.
+
+Cursor arguments of supported paged reads accept at most 2048 characters,
+matching Pages' shared cursor reader. `read_project` accepts only `projectId`;
+Pages rejects pagination fields for that operation, so the schema lists neither
+`cursor` nor `limit`. Public agent and plan resource IDs accept up to 200
+characters, matching the operation readers. Internal plan graph fields keep
+their editor-specific limits, including the 100-character node reference schemas.
+
 ### Pica sessions
 
 `list_chat_sessions` (`chat.sessions.list`) takes no arguments and returns all
@@ -1752,8 +1770,9 @@ Limits: 64 KiB request, 1 MiB response (`PAYLOAD_TOO_LARGE` beyond).
 ### Wiki and project foundations
 
 Pages authorizes every operation using current account rights and the same business
-services as the UI. There is no additional MCP permission or write switch. Project
-deletion is never offered. Failed changes leave neither an activity entry nor a
+services as the UI. There is no additional MCP permission or write switch.
+Permanent project deletion is offered separately to personal administrators by
+`delete_admin_project` after reading its scope and obtaining typed confirmation. Failed changes leave neither an activity entry nor a
 replay record. Project activity carries `source:ui|mcp|ai`; these MCP calls use `mcp`.
 
 Directory and project reads are `list_departments`, `list_groups`, `list_visible_people`,
@@ -1762,6 +1781,30 @@ Directory and project reads are `list_departments`, `list_groups`, `list_visible
 and `cursor`; continue with `nextCursor` and the same query. Counts and all entries
 use current visibility on every page. Comment lists preserve the UI chronology; if a continuation comment was deleted, restart the list after `INVALID_REQUEST`. Cursors contain no global database row positions. People expose only IDs, display names,
 departments and groups. Ticket reads also expose visible assignments.
+
+| Read tool               | Purpose and reference                               |
+| ----------------------- | --------------------------------------------------- |
+| `list_departments`      | Lists visible departments.                          |
+| `list_groups`           | Lists visible groups and their members.             |
+| `list_visible_people`   | Lists visible people with departments and groups.   |
+| `read_wiki_outline`     | Reads the headings of the visible `pageId`.         |
+| `read_wiki_links`       | Reads visible forward and back links of `pageId`.   |
+| `read_project_members`  | Reads visible members and roles of `projectId`.     |
+| `read_project_activity` | Reads visible activity of `projectId`.              |
+| `list_project_tickets`  | Lists visible active tickets of `projectId`.        |
+| `list_ticket_tags`      | Lists existing ticket tags; it never creates a tag. |
+
+| Write tool                   | Purpose                                                                                  |
+| ---------------------------- | ---------------------------------------------------------------------------------------- |
+| `create_project`             | Creates a project from name, description, status and department IDs.                     |
+| `set_project_name`           | Replaces the name of `projectId`.                                                        |
+| `set_project_description`    | Replaces its description, up to 10000 characters.                                        |
+| `set_project_status`         | Sets planned, active, paused or completed.                                               |
+| `set_project_dates`          | Sets start and target dates; null clears a date.                                         |
+| `assign_project_member`      | Assigns a person, group or department, replacing existing member roles where applicable. |
+| `remove_project_member`      | Removes the selected person, group or department assignment.                             |
+| `set_ticket_assignee`        | Sets a person, group, department or nobody, comparing the last-read assignment.          |
+| `assign_ticket_to_milestone` | Sets or clears the milestone, comparing `expectedMilestoneId`.                           |
 
 Project and assignment writes are `delete_wiki_page`, `create_project`, `set_project_name`,
 `set_project_description`, `set_project_status`, `set_project_dates`,

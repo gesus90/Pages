@@ -1,12 +1,8 @@
-import { PLAN_COMMAND_TOOLS } from "./plan-resources.js";
+import { ADMIN_WRITE_TOOLS } from "./administration.js";
+import { AGENT_WRITE_TOOLS } from "./agents.js";
+import { ASSET_UPLOAD_TOOL } from "./asset-upload.js";
 import { CHAT_SESSIONS_DELETE_TOOL } from "./chat-sessions.js";
 import { EXTENSION_WRITE_TOOLS } from "./extensions.js";
-import { ADMIN_WRITE_TOOLS } from "./administration.js";
-import { WORKSPACE_WRITE_TOOLS } from "./workspaces.js";
-import { AGENT_WRITE_TOOLS } from "./agents.js";
-import { PLAN_WRITE_TOOLS } from "./plans.js";
-import { PROJECT_DELETE_TOOL } from "./project-deletion.js";
-import { ASSET_UPLOAD_TOOL } from "./asset-upload.js";
 import {
   MILESTONE_CREATE_TOOL,
   MILESTONE_DEPENDENCY_ADD_TOOL,
@@ -17,16 +13,19 @@ import {
   MILESTONE_SET_START_TOOL,
   MILESTONE_SET_STATUS_TOOL,
 } from "./milestone.js";
+import { PLAN_RESOURCE_WRITE_TOOLS } from "./plan-resources.js";
+import { PLAN_WRITE_TOOLS } from "./plans.js";
+import { PROJECT_DELETE_TOOL } from "./project-deletion.js";
 import { STRUCTURED_IMPORT_APPLY_TOOL } from "./structured-import-apply.js";
+import {
+  TICKET_PATCH_DESCRIPTION_TOOL,
+  WIKI_PATCH_CONTENT_TOOL,
+} from "./text-range.js";
 import {
   TICKET_CHECKLIST_SET_ITEMS_TOOL,
   TICKET_CHECKLIST_SET_TOOL,
 } from "./ticket-checklist.js";
 import { TICKET_CREATE_TOOL } from "./ticket-create.js";
-import {
-  TICKET_LINK_ADD_TOOL,
-  TICKET_LINK_REMOVE_TOOL,
-} from "./ticket-link.js";
 import {
   TICKET_SET_DESCRIPTION_TOOL,
   TICKET_SET_PARENT_TOOL,
@@ -34,11 +33,11 @@ import {
   TICKET_SET_TITLE_TOOL,
 } from "./ticket-field.js";
 import {
-  TICKET_PATCH_DESCRIPTION_TOOL,
-  WIKI_PATCH_CONTENT_TOOL,
-} from "./text-range.js";
-import { WIKI_CREATE_TOOL } from "./wiki-create.js";
+  TICKET_LINK_ADD_TOOL,
+  TICKET_LINK_REMOVE_TOOL,
+} from "./ticket-link.js";
 import { WIKI_SET_COVER_TOOL } from "./wiki-cover.js";
+import { WIKI_CREATE_TOOL } from "./wiki-create.js";
 import { WIKI_IMPORT_APPLY_TOOL } from "./wiki-import-apply.js";
 import { WIKI_IMPORT_UPDATE_TOOL } from "./wiki-import-update.js";
 import { WIKI_MOVE_TOOL } from "./wiki-move.js";
@@ -47,6 +46,7 @@ import {
   WIKI_SET_ICON_TOOL,
   WIKI_SET_TITLE_TOOL,
 } from "./wiki-page-fields.js";
+import { WORKSPACE_WRITE_TOOLS } from "./workspaces.js";
 
 import type { Tool } from "@modelcontextprotocol/server";
 import type { PagesAgentWriteOperation } from "../../../definition/PagesAgentWrites.js";
@@ -63,7 +63,7 @@ export const WRITE_TOOLS: readonly {
   ...WORKSPACE_WRITE_TOOLS,
   ...AGENT_WRITE_TOOLS,
   ...PLAN_WRITE_TOOLS,
-  ...PLAN_COMMAND_TOOLS,
+  ...PLAN_RESOURCE_WRITE_TOOLS,
   { operation: "assets.upload.prepare", tool: ASSET_UPLOAD_TOOL },
   { operation: "wiki.page.create", tool: WIKI_CREATE_TOOL },
   { operation: "wiki.import.apply", tool: WIKI_IMPORT_APPLY_TOOL },

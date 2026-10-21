@@ -1,3 +1,8 @@
+import {
+  DESTRUCTIVE_ANNOTATIONS,
+  IDENTIFIER_SCHEMA,
+  REVISION_SCHEMA,
+} from "./tool-definition.js";
 import { WIKI_IMPORT_PLAN_TOOL } from "./wiki-import-plan.js";
 
 import type { Tool } from "@modelcontextprotocol/server";
@@ -20,7 +25,7 @@ export const WIKI_IMPORT_UPDATE_TOOL: Tool = {
     ],
     properties: {
       ...WIKI_IMPORT_PLAN_TOOL.inputSchema.properties,
-      operationId: { type: "string", minLength: 1, maxLength: 200 },
+      operationId: IDENTIFIER_SCHEMA,
       fingerprint: { type: "string", pattern: "^[a-f0-9]{64}$" },
       updates: {
         type: "array",
@@ -32,17 +37,12 @@ export const WIKI_IMPORT_UPDATE_TOOL: Tool = {
           required: ["sourceKey", "expectedRevision"],
           properties: {
             sourceKey: { type: "string", minLength: 1 },
-            expectedRevision: { type: "integer", minimum: 1 },
+            expectedRevision: REVISION_SCHEMA,
             overwrite: { type: "boolean", default: false },
           },
         },
       },
     },
   },
-  annotations: {
-    readOnlyHint: false,
-    destructiveHint: true,
-    idempotentHint: true,
-    openWorldHint: false,
-  },
+  annotations: DESTRUCTIVE_ANNOTATIONS,
 };

@@ -1,3 +1,4 @@
+import { isRecord } from "./is-record.js";
 import { postAgentRequest } from "./pages-client.js";
 
 import type { PagesConfiguration } from "./configuration.js";
@@ -10,9 +11,8 @@ export async function listProjectNames(
     operation: "projects.names.list",
     parameters: {},
   });
-  if (typeof response !== "object" || response === null)
-    throw new Error("Pages project listing failed.");
-  const envelope = response as Record<string, unknown>;
+  if (!isRecord(response)) throw new Error("Pages project listing failed.");
+  const envelope = response;
   const names = envelope.projectNames;
   if (
     envelope.apiVersion !== "1" ||

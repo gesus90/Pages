@@ -1,26 +1,18 @@
+import {
+  ADDITIVE_ANNOTATIONS,
+  CONFIRMATION_SCHEMA,
+  CURSOR_SCHEMA,
+  DESTRUCTIVE_ANNOTATIONS,
+  IDENTIFIER_SCHEMA,
+  LIMIT_SCHEMA,
+  READ_ANNOTATIONS,
+} from "./tool-definition.js";
+
 import type { Tool } from "@modelcontextprotocol/server";
 import type { PagesAgentCommentOperation } from "../../../definition/PagesAgentOperations.js";
 
-const IDENTIFIER = { type: "string", minLength: 1, maxLength: 200 } as const;
 const BODY = { type: "string", minLength: 1, maxLength: 5000 } as const;
-const READ_ANNOTATIONS = {
-  readOnlyHint: true,
-  destructiveHint: false,
-  idempotentHint: true,
-  openWorldHint: false,
-} as const;
-const ADDITIVE_ANNOTATIONS = {
-  readOnlyHint: false,
-  destructiveHint: false,
-  idempotentHint: true,
-  openWorldHint: false,
-} as const;
-const DESTRUCTIVE_ANNOTATIONS = {
-  readOnlyHint: false,
-  destructiveHint: true,
-  idempotentHint: true,
-  openWorldHint: false,
-} as const;
+
 const RIGHTS =
   "Anyone who can see the page may use this, also without the write right. A comment on a page you cannot see returns NOT_FOUND, like one that does not exist.";
 const REPLAY =
@@ -36,9 +28,9 @@ export const WIKI_COMMENTS_READ_TOOL: Tool = {
   inputSchema: {
     type: "object",
     properties: {
-      pageId: IDENTIFIER,
-      cursor: { type: ["string", "null"] },
-      limit: { type: "integer", minimum: 1, maximum: 100 },
+      pageId: IDENTIFIER_SCHEMA,
+      cursor: CURSOR_SCHEMA,
+      limit: LIMIT_SCHEMA,
     },
     required: ["pageId"],
     additionalProperties: false,
@@ -54,8 +46,8 @@ export const WIKI_COMMENT_ADD_TOOL: Tool = {
   inputSchema: {
     type: "object",
     properties: {
-      operationId: IDENTIFIER,
-      pageId: IDENTIFIER,
+      operationId: IDENTIFIER_SCHEMA,
+      pageId: IDENTIFIER_SCHEMA,
       body: BODY,
       parentId: { type: ["string", "null"], maxLength: 200 },
       quote: { type: ["string", "null"], maxLength: 500 },
@@ -73,7 +65,11 @@ export const WIKI_COMMENT_EDIT_TOOL: Tool = {
   description: `Replaces the text of a comment; only its author may do this, so the connected account can edit only comments it wrote. Someone else's comment returns FORBIDDEN. The previous text is not kept. body is trimmed, must not be empty and may have at most 5000 characters; a text that is already there is not written again (changed: false). Mentions follow the new text. ${RIGHTS} ${REPLAY}`,
   inputSchema: {
     type: "object",
-    properties: { operationId: IDENTIFIER, commentId: IDENTIFIER, body: BODY },
+    properties: {
+      operationId: IDENTIFIER_SCHEMA,
+      commentId: IDENTIFIER_SCHEMA,
+      body: BODY,
+    },
     required: ["operationId", "commentId", "body"],
     additionalProperties: false,
   },
@@ -88,14 +84,14 @@ export const WIKI_COMMENT_RESOLVE_TOOL: Tool = {
   inputSchema: {
     type: "object",
     properties: {
-      operationId: IDENTIFIER,
-      commentId: IDENTIFIER,
+      operationId: IDENTIFIER_SCHEMA,
+      commentId: IDENTIFIER_SCHEMA,
       resolved: { type: "boolean" },
     },
     required: ["operationId", "commentId", "resolved"],
     additionalProperties: false,
   },
-  annotations: ADDITIVE_ANNOTATIONS,
+  annotations: DESTRUCTIVE_ANNOTATIONS,
 };
 
 /** Deletes a comment with its replies. */
@@ -106,9 +102,9 @@ export const WIKI_COMMENT_DELETE_TOOL: Tool = {
   inputSchema: {
     type: "object",
     properties: {
-      operationId: IDENTIFIER,
-      commentId: IDENTIFIER,
-      confirmation: { type: "string", enum: ["LÖSCHEN", "DELETE"] },
+      operationId: IDENTIFIER_SCHEMA,
+      commentId: IDENTIFIER_SCHEMA,
+      confirmation: CONFIRMATION_SCHEMA,
     },
     required: ["operationId", "commentId", "confirmation"],
     additionalProperties: false,

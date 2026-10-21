@@ -1,32 +1,23 @@
+import {
+  DESTRUCTIVE_ANNOTATIONS,
+  IDENTIFIER_SCHEMA,
+  READ_ANNOTATIONS,
+  REVISION_SCHEMA,
+} from "./tool-definition.js";
+
 import type { Tool } from "@modelcontextprotocol/server";
-
-const IDENTIFIER = { type: "string", minLength: 1, maxLength: 200 } as const;
-const READ_ANNOTATIONS = {
-  readOnlyHint: true,
-  destructiveHint: false,
-  idempotentHint: true,
-  openWorldHint: false,
-} as const;
-const WRITE_ANNOTATIONS = {
-  readOnlyHint: false,
-  destructiveHint: true,
-  idempotentHint: true,
-  openWorldHint: false,
-} as const;
-const COUNTER = { type: "integer", minimum: 1 } as const;
-
-type PropertySchema = NonNullable<Tool["inputSchema"]["properties"]>[string];
+import type { PropertySchema } from "./tool-definition.js";
 
 // A read may leave the column out, which is column 1.
 const READ_POSITION: PropertySchema = {
   type: "object",
-  properties: { line: COUNTER, column: COUNTER },
+  properties: { line: REVISION_SCHEMA, column: REVISION_SCHEMA },
   required: ["line"],
   additionalProperties: false,
 };
 const PATCH_POSITION: PropertySchema = {
   type: "object",
-  properties: { line: COUNTER, column: COUNTER },
+  properties: { line: REVISION_SCHEMA, column: REVISION_SCHEMA },
   required: ["line", "column"],
   additionalProperties: false,
 };
@@ -42,7 +33,7 @@ function readSchema(target: string): Tool["inputSchema"] {
     type: "object",
     additionalProperties: false,
     properties: {
-      [target]: IDENTIFIER,
+      [target]: IDENTIFIER_SCHEMA,
       start: READ_POSITION,
       end: READ_POSITION,
       maxCharacters: {
@@ -60,11 +51,11 @@ function patchSchema(target: string, version: string): Tool["inputSchema"] {
     type: "object",
     additionalProperties: false,
     properties: {
-      operationId: IDENTIFIER,
-      [target]: IDENTIFIER,
+      operationId: IDENTIFIER_SCHEMA,
+      [target]: IDENTIFIER_SCHEMA,
       [version]:
         version === "expectedRevision"
-          ? { type: "integer", minimum: 1 }
+          ? REVISION_SCHEMA
           : { type: "string", minLength: 32, maxLength: 32 },
       start: PATCH_POSITION,
       end: PATCH_POSITION,
@@ -108,7 +99,7 @@ export const WIKI_PATCH_CONTENT_TOOL: Tool = {
   title: "Patch wiki page content",
   description: `Replaces exactly one range of the Markdown of a wiki page without sending the whole text; title, icon and place stay unchanged and the previous text stays in the page versions. pageId is a page ID or a Pages address such as /wiki/<id>. expectedRevision is the revision from read_wiki_page_range; a page saved since then returns CONFLICT with currentRevision. Positions as in read_wiki_page_range. ${PATCH_COMMON} The Markdown may not exceed 1 MiB UTF-8 after the change.`,
   inputSchema: patchSchema("pageId", "expectedRevision"),
-  annotations: WRITE_ANNOTATIONS,
+  annotations: DESTRUCTIVE_ANNOTATIONS,
 };
 
 /** Replaces exactly one range of the description of a ticket. */
@@ -117,5 +108,5 @@ export const TICKET_PATCH_DESCRIPTION_TOOL: Tool = {
   title: "Patch ticket description",
   description: `Replaces exactly one range of the description of a ticket without sending the whole text; title, status, parent and milestone stay unchanged. ticketId is a ticket ID, a key such as PAGE-12, or a Pages address. expectedDescriptionVersion is the descriptionVersion from read_ticket_description_range; a description saved since then returns CONFLICT. Positions as in read_ticket_description_range. ${PATCH_COMMON} The description may not exceed 65,536 UTF-16 code units after the change and is stored as composed, not trimmed. Whether the change is published to GitHub follows the Pages setting of the project.`,
   inputSchema: patchSchema("ticketId", "expectedDescriptionVersion"),
-  annotations: WRITE_ANNOTATIONS,
+  annotations: DESTRUCTIVE_ANNOTATIONS,
 };

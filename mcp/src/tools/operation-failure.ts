@@ -1,3 +1,5 @@
+import { isRecord } from "../is-record.js";
+
 import type {
   AgentPlanIssueEntry,
   AgentPlanIssueProblem,
@@ -111,7 +113,7 @@ function isRejectionReason(
 }
 
 /** Whitelisted business errors; provider diagnostics and submitted credentials are discarded. */
-export class PagesOperationFailure extends Error {
+export class PagesOperationError extends Error {
   public readonly code:
     | "NOT_FOUND"
     | "AMBIGUOUS"
@@ -123,7 +125,7 @@ export class PagesOperationFailure extends Error {
   public readonly details: AgentOperationDetails | undefined;
 
   public constructor(
-    code: PagesOperationFailure["code"],
+    code: PagesOperationError["code"],
     details?: AgentOperationDetails,
   ) {
     super(
@@ -137,9 +139,8 @@ export class PagesOperationFailure extends Error {
 }
 
 function readLimit(input: unknown): AgentLimitDetails | undefined {
-  if (typeof input !== "object" || input === null || Array.isArray(input))
-    return undefined;
-  const fields = input as Record<string, unknown>;
+  if (!isRecord(input)) return undefined;
+  const fields = input;
   const constraint = LIMIT_CONSTRAINTS.find(
     (name) => name === fields.constraint,
   );
@@ -154,8 +155,8 @@ function readLimit(input: unknown): AgentLimitDetails | undefined {
 }
 
 function readCandidates(input: unknown): AgentProjectCandidates | undefined {
-  if (typeof input !== "object" || input === null) return undefined;
-  const details = input as Record<string, unknown>;
+  if (!isRecord(input)) return undefined;
+  const details = input;
   if (
     !Array.isArray(details.candidates) ||
     details.candidates.length > 100 ||
@@ -164,8 +165,8 @@ function readCandidates(input: unknown): AgentProjectCandidates | undefined {
     return undefined;
   const candidates: { id: string; name: string }[] = [];
   for (const entry of details.candidates) {
-    if (typeof entry !== "object" || entry === null) return undefined;
-    const candidate = entry as Record<string, unknown>;
+    if (!isRecord(entry)) return undefined;
+    const candidate = entry;
     if (typeof candidate.id !== "string" || typeof candidate.name !== "string")
       return undefined;
     candidates.push({ id: candidate.id, name: candidate.name });
@@ -191,27 +192,21 @@ function readRevision(
 /** Parses only public business codes and visible choices; authentication failures stay generic. */
 export async function operationFailure(
   response: Response,
-): Promise<PagesOperationFailure | undefined> {
+): Promise<PagesOperationError | undefined> {
   let input: unknown;
   try {
     input = await response.json();
   } catch {
     return undefined;
   }
-  if (typeof input !== "object" || input === null) return undefined;
-  const envelope = input as Record<string, unknown>;
-  if (
-    envelope.apiVersion !== "1" ||
-    typeof envelope.error !== "object" ||
-    envelope.error === null
-  )
+  if (!isRecord(input)) return undefined;
+  const envelope = input;
+  if (envelope.apiVersion !== "1" || !isRecord(envelope.error))
     return undefined;
-  const error = envelope.error as Record<string, unknown>;
+  const error = envelope.error;
   if (error.code === "AMBIGUOUS" && response.status === 409) {
     const details = readCandidates(error.details);
-    return details
-      ? new PagesOperationFailure("AMBIGUOUS", details)
-      : undefined;
+    return details ? new PagesOperationError("AMBIGUOUS", details) : undefined;
   }
   const publicCode = (
     [
@@ -234,7 +229,7 @@ export async function operationFailure(
     }[publicCode];
     const details = failureDetails(publicCode, error.details);
     return response.status === expectedStatus
-      ? new PagesOperationFailure(publicCode, details)
+      ? new PagesOperationError(publicCode, details)
       : undefined;
   }
   return undefined;
@@ -249,8 +244,8 @@ function readIssueText(input: unknown): string | null | undefined {
 }
 
 function readIssue(input: unknown): AgentPlanIssueEntry | undefined {
-  if (typeof input !== "object" || input === null) return undefined;
-  const issue = input as Record<string, unknown>;
+  if (!isRecord(input)) return undefined;
+  const issue = input;
   const nodeId = readIssueText(issue.nodeId);
   const port = readIssueText(issue.port);
   if (nodeId === undefined || port === undefined) return undefined;
@@ -286,7 +281,7 @@ function readReason(
 }
 
 function failureDetails(
-  code: PagesOperationFailure["code"],
+  code: PagesOperationError["code"],
   details: unknown,
 ): AgentOperationDetails | undefined {
   if (code === "PAYLOAD_TOO_LARGE") return readLimit(details);

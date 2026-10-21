@@ -1,11 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { CredentialStoreError } from "../../src/credential-error.ts";
 import { runCredentialCommand } from "../../src/credential-command.ts";
 import { credentialMessages } from "../../src/credential-messages.ts";
-import {
-  CredentialStore,
-  CredentialStoreError,
-} from "../../src/credential-store.ts";
+import { CredentialStore } from "../../src/credential-store.ts";
 import { postAgentRequest } from "../../src/pages-client.ts";
 import { PairingClient } from "../../src/pairing-client.ts";
 import { readStdioConfiguration } from "../../src/stdio-configuration.ts";

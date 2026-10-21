@@ -1,38 +1,13 @@
+import { isRecord } from "../is-record.js";
 import { postAgentRequest } from "../pages-client.js";
 
-import type { AgentTextRangeReadOperation } from "../../../definition/AgentTextRange.js";
-import type { AgentExtensionReadOperation } from "../../../definition/AgentExtensions.js";
-import type { AgentAdminReadOperation } from "../../../definition/AgentAdministration.js";
-import type { AgentProjectDeletionReadOperation } from "../../../definition/AgentProjectDeletion.js";
-import type { AgentWorkspaceReadOperation } from "../../../definition/AgentWorkspaceOperations.js";
-import type { AgentPlanReadOperation } from "../../../definition/AgentPlanOperations.js";
-import type { PageAgentReadOperation } from "../../../definition/PageAgentOperations.js";
-import type { PagesAgentWriteOperation } from "../../../definition/PagesAgentWrites.js";
-import type {
-  PagesAgentCommentOperation,
-  PagesAgentReadOperation,
-  PagesAgentStructuredReadOperation,
-  PagesAgentTicketReadOperation,
-} from "../../../definition/PagesAgentOperations.js";
 import type { PagesConfiguration } from "../configuration.js";
+import type { McpToolOperation } from "./tool-catalog.js";
 
 /** Calls a JSON business operation; every call is freshly authenticated and authorized by Pages. */
 export async function readOperation(
   configuration: PagesConfiguration,
-  operation:
-    | "chat.sessions.list"
-    | AgentExtensionReadOperation
-    | AgentAdminReadOperation
-    | AgentProjectDeletionReadOperation
-    | AgentWorkspaceReadOperation
-    | AgentPlanReadOperation
-    | PageAgentReadOperation
-    | AgentTextRangeReadOperation
-    | PagesAgentReadOperation
-    | PagesAgentStructuredReadOperation
-    | PagesAgentTicketReadOperation
-    | PagesAgentCommentOperation
-    | PagesAgentWriteOperation,
+  operation: McpToolOperation,
   parameters: Readonly<Record<string, unknown>>,
 ): Promise<Record<string, unknown>> {
   const response = await postAgentRequest(
@@ -40,15 +15,9 @@ export async function readOperation(
     { operation, parameters },
     { businessErrors: true },
   );
-  if (typeof response !== "object" || response === null)
+  if (!isRecord(response)) throw new Error("Pages read failed.");
+  const envelope = response;
+  if (envelope.apiVersion !== "1" || !isRecord(envelope.result))
     throw new Error("Pages read failed.");
-  const envelope = response as Record<string, unknown>;
-  if (
-    envelope.apiVersion !== "1" ||
-    typeof envelope.result !== "object" ||
-    envelope.result === null ||
-    Array.isArray(envelope.result)
-  )
-    throw new Error("Pages read failed.");
-  return envelope.result as Record<string, unknown>;
+  return envelope.result;
 }

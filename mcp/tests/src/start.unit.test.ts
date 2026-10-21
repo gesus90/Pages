@@ -1,18 +1,13 @@
+import { McpServer } from "@modelcontextprotocol/server";
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { runCredentialCommand } from "../../src/credential-command.ts";
-import { CredentialStoreError } from "../../src/credential-store.ts";
+import { CredentialStoreError } from "../../src/credential-error.ts";
 import { createServer } from "../../src/server.ts";
 import { start } from "../../src/start.ts";
 import { readStdioConfiguration } from "../../src/stdio-configuration.ts";
 import { verifyPages } from "../../src/verification.ts";
-
-import type {
-  McpRequestContext,
-  McpServer,
-} from "@modelcontextprotocol/server";
-import type { StdioServerHandle } from "@modelcontextprotocol/server/stdio";
 
 vi.mock("@modelcontextprotocol/server/stdio", () => ({ serveStdio: vi.fn() }));
 vi.mock("../../src/credential-command.ts", () => ({
@@ -31,8 +26,8 @@ const CONFIGURATION = {
 const STARTUP_FAILED =
   "[pages-mcp] Startup failed. Check PAGES_URL, PAGES_TOKEN or local pairing credentials and Pages authorization.";
 
-const originalArguments = process.argv;
-const originalExitCode = process.exitCode;
+const ORIGINAL_ARGUMENTS = process.argv;
+const ORIGINAL_EXIT_CODE = process.exitCode;
 
 function startWith(...argumentsList: string[]): Promise<void> {
   process.argv = ["node", "pages-mcp.cjs", ...argumentsList];
@@ -46,8 +41,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  process.argv = originalArguments;
-  process.exitCode = originalExitCode;
+  process.argv = ORIGINAL_ARGUMENTS;
+  process.exitCode = ORIGINAL_EXIT_CODE;
 });
 
 describe("start credential commands", () => {
@@ -96,21 +91,19 @@ describe("start stdio server", () => {
   });
 
   it("verifies Pages before serving stdio with the resolved configuration", async () => {
-    const server = Object.create(null) as McpServer;
+    const server = new McpServer({ name: "unit-test", version: "1.0.0" });
     vi.mocked(readStdioConfiguration).mockResolvedValue(CONFIGURATION);
     vi.mocked(verifyPages).mockResolvedValue({
       identity: { userId: "u1", isAdmin: false, permissions: [] },
       tools: [],
     });
     vi.mocked(createServer).mockReturnValue(server);
-    vi.mocked(serveStdio).mockReturnValue(
-      Object.create(null) as StdioServerHandle,
-    );
+    vi.mocked(serveStdio).mockReturnValue({ close: async () => undefined });
     await startWith();
     expect(readStdioConfiguration).toHaveBeenCalledWith(process.env);
     expect(verifyPages).toHaveBeenCalledWith(CONFIGURATION);
     const factory = vi.mocked(serveStdio).mock.calls[0]?.[0];
-    expect(factory?.(Object.create(null) as McpRequestContext)).toBe(server);
+    expect(factory?.({ era: "legacy" })).toBe(server);
     const resolve = vi.mocked(createServer).mock.calls[0]?.[0];
     expect(resolve?.()).toBe(CONFIGURATION);
     expect(process.exitCode).toBeUndefined();

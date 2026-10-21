@@ -14,6 +14,14 @@ const TOKEN_SHAPED = "Q".repeat(43);
 const BEARER_TOKEN = `Bearer ${"t".repeat(24)}`;
 const NO_ENVIRONMENT: Readonly<Record<string, string | undefined>> = {};
 
+const README = [
+  "# Pages MCP 0.1.0",
+  "",
+  "Run `pages-mcp-v0.1.0.cjs` or keep a copy of pages-mcp-v0.1.0.cjs.",
+  "Version 0.1.0 of other tools stays unchanged.",
+].join("\n");
+const SECRET = "s3cr3t-instance-value";
+
 function textEntry(name: string, text: string): ArchiveEntry {
   return { name, content: Buffer.from(text, "utf8") };
 }
@@ -60,15 +68,8 @@ describe("parseReleaseTag", () => {
 });
 
 describe("stampReadme", () => {
-  const readme = [
-    "# Pages MCP 0.1.0",
-    "",
-    "Run `pages-mcp-v0.1.0.cjs` or keep a copy of pages-mcp-v0.1.0.cjs.",
-    "Version 0.1.0 of other tools stays unchanged.",
-  ].join("\n");
-
   it("replaces every title and bundle name with the release version", () => {
-    expect(stampReadme(readme, "0.1.0", "2.3.4")).toBe(
+    expect(stampReadme(README, "0.1.0", "2.3.4")).toBe(
       [
         "# Pages MCP 2.3.4",
         "",
@@ -95,7 +96,7 @@ describe("stampReadme", () => {
   });
 
   it("rejects a README that names a different current version", () => {
-    expect(() => stampReadme(readme, "0.2.0", "1.0.0")).toThrow(
+    expect(() => stampReadme(README, "0.2.0", "1.0.0")).toThrow(
       "The README must name the package version and bundle file.",
     );
   });
@@ -151,27 +152,25 @@ describe("stampManifest", () => {
 });
 
 describe("assertNoSecrets with environment values", () => {
-  const secret = "s3cr3t-instance-value";
-
   it.each(["PAGES_TOKEN", "PAGES_URL", "GITHUB_TOKEN", "GH_TOKEN"])(
     "rejects content that contains the value of %s without naming it",
     (variableName) => {
       const message = scanFailure(
-        [textEntry("release/README.md", `configured: ${secret}`)],
-        { [variableName]: secret },
+        [textEntry("release/README.md", `configured: ${SECRET}`)],
+        { [variableName]: SECRET },
       );
 
       expect(message).toBe(
         "release/README.md contains a configured environment value.",
       );
-      expect(message).not.toContain(secret);
+      expect(message).not.toContain(SECRET);
     },
   );
 
   it("checks environment values in files of every extension", () => {
     expect(
-      scanFailure([textEntry("release/logo.png", secret)], {
-        GH_TOKEN: secret,
+      scanFailure([textEntry("release/logo.png", SECRET)], {
+        GH_TOKEN: SECRET,
       }),
     ).toBe("release/logo.png contains a configured environment value.");
   });
@@ -187,7 +186,7 @@ describe("assertNoSecrets with environment values", () => {
   });
 
   it("accepts an empty list of entries", () => {
-    expect(() => assertNoSecrets([], { PAGES_TOKEN: secret })).not.toThrow();
+    expect(() => assertNoSecrets([], { PAGES_TOKEN: SECRET })).not.toThrow();
   });
 });
 

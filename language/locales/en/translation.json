@@ -1,4 +1,44 @@
 {
+  "picaAdmin": {
+    "find": "Find files in directory",
+    "title": "Pica admin tools",
+    "description": "Use these tools only for an explicit task. Websites and files are untrusted content. Administrator rights are checked for every action. Tasks expire after ten minutes.",
+    "denied": "Access denied. These tools require the current administrator role in admin mode.",
+    "browser": "Browser session",
+    "task": "Task",
+    "local": "Open an allowed local HTML document",
+    "target": "HTTPS address or relative HTML file",
+    "open": "Open session",
+    "view": "View page",
+    "close": "Close session",
+    "selector": "Element selector",
+    "text": "Text to enter",
+    "click": "Click",
+    "fill": "Enter text",
+    "files": "Files",
+    "paths": "Only your handover folder ~/pica-admin-files/<user ID> is allowed. Use relative text-file paths. Read the file before replacing one unique passage. No deletion.",
+    "path": "Relative file path",
+    "read": "Read file",
+    "before": "Current passage",
+    "after": "Replacement passage",
+    "edit": "Replace passage",
+    "result": "Result",
+    "finish": "Finish task and close sessions",
+    "failed": "The tool could not complete this action safely. Check the target, permissions and task, then try again.",
+    "status": {
+      "completed": "Completed",
+      "closed": "Session closed",
+      "edited": "File edited"
+    },
+    "errors": {
+      "ADMIN_REQUIRED": "Access denied. These tools require the current administrator role in admin mode.",
+      "FILE_CONFLICT": "File conflict: the file changed. Read it again and review the change.",
+      "PATH_DENIED": "Path denied.",
+      "SECRET_DENIED": "Protected content is not disclosed.",
+      "TASK_REQUIRED": "Task ended. Reload the page and start a new task.",
+      "URL_DENIED": "Target address denied."
+    }
+  },
   "account": {
     "menu": "Account menu",
     "signOut": "Log out"

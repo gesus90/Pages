@@ -1,4 +1,8 @@
 import { WIKI_COVER_PRESETS } from "../../../definition/Wiki.js";
+import {
+  DESTRUCTIVE_ANNOTATIONS,
+  IDENTIFIER_SCHEMA,
+} from "./tool-definition.js";
 
 import type { Tool } from "@modelcontextprotocol/server";
 
@@ -18,8 +22,8 @@ export const WIKI_SET_COVER_TOOL: Tool = {
     type: "object",
     additionalProperties: false,
     properties: {
-      operationId: { type: "string", minLength: 1, maxLength: 200 },
-      pageId: { type: "string", minLength: 1, maxLength: 200 },
+      operationId: IDENTIFIER_SCHEMA,
+      pageId: IDENTIFIER_SCHEMA,
       cover: {
         type: ["object", "null"],
         additionalProperties: false,
@@ -35,10 +39,5 @@ export const WIKI_SET_COVER_TOOL: Tool = {
     },
     required: ["operationId", "pageId", "cover"],
   },
-  annotations: {
-    readOnlyHint: false,
-    destructiveHint: true,
-    idempotentHint: true,
-    openWorldHint: false,
-  },
+  annotations: DESTRUCTIVE_ANNOTATIONS,
 };

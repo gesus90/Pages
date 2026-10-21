@@ -4,26 +4,24 @@ import {
   ProtocolErrorCode,
 } from "@modelcontextprotocol/server";
 
+import { TOOL_ENTRIES } from "./tools/tool-catalog.js";
+import { READ_ANNOTATIONS } from "./tools/tool-definition.js";
 import manifest from "../package.json" with { type: "json" };
 import { CredentialStoreError } from "./credential-error.js";
-import { WRITE_TOOLS } from "./tools/write-registry.js";
-import { READ_TOOLS } from "./tools/registry.js";
-import { COMMENT_TOOLS } from "./tools/wiki-comments.js";
-import { PagesOperationFailure } from "./tools/operation-failure.js";
+import { PagesOperationError } from "./tools/operation-failure.js";
 
+import type { McpToolOperation } from "./tools/tool-catalog.js";
 import type { PagesAgentApiBusinessOperation } from "../../definition/PagesAgentApi.js";
-
-/** External tool operations, derived from the shared registries. */
-type McpToolOperation = (
-  typeof READ_TOOLS | typeof COMMENT_TOOLS | typeof WRITE_TOOLS
-)[number]["operation"];
 
 /** Transport-independent access to the existing Pages operation contract. */
 export interface McpOperations {
+  /** Rechecks current identity and the operations Pages offers for this request. */
   verify(): Promise<{
     readonly tools: readonly PagesAgentApiBusinessOperation[];
   }>;
+  /** Lists names of currently visible projects without their other fields. */
   names(): Promise<string[]>;
+  /** Dispatches a registered read, comment or write operation through the transport boundary. */
   read(
     operation: McpToolOperation,
     parameters: Readonly<Record<string, unknown>>,
@@ -36,12 +34,7 @@ const LIST_PROJECT_NAMES_TOOL = {
   description:
     "Lists the names of the Pages projects the connected account may see. Returns names only, without identifiers, descriptions or content.",
   inputSchema: { type: "object", additionalProperties: false },
-  annotations: {
-    readOnlyHint: true,
-    destructiveHint: false,
-    idempotentHint: true,
-    openWorldHint: false,
-  },
+  annotations: READ_ANNOTATIONS,
 } as const;
 
 /** Maps any Pages failure to one fixed message, so neither credentials nor details leak. */
@@ -69,28 +62,28 @@ export function createOperationsServer(operations: McpOperations): McpServer {
         ...(tools.includes("projects.names.list")
           ? [LIST_PROJECT_NAMES_TOOL]
           : []),
-        ...[...READ_TOOLS, ...COMMENT_TOOLS, ...WRITE_TOOLS]
-          .filter((entry) => tools.includes(entry.operation))
-          .map((entry) => entry.tool),
+        ...TOOL_ENTRIES.filter((entry) => tools.includes(entry.operation)).map(
+          (entry) => entry.tool,
+        ),
       ],
     };
   });
   server.server.setRequestHandler("tools/call", async (request) => {
-    const readTool = [...READ_TOOLS, ...COMMENT_TOOLS, ...WRITE_TOOLS].find(
+    const registeredTool = TOOL_ENTRIES.find(
       (entry) => entry.tool.name === request.params.name,
     );
-    if (readTool) {
+    if (registeredTool) {
       const verification = await authorized(() => operations.verify());
-      if (!verification.tools.includes(readTool.operation))
+      if (!verification.tools.includes(registeredTool.operation))
         throw new Error("Pages authorization failed.");
       try {
         const result = await operations.read(
-          readTool.operation,
+          registeredTool.operation,
           request.params.arguments ?? {},
         );
         return { content: [{ type: "text", text: JSON.stringify(result) }] };
       } catch (error: unknown) {
-        if (error instanceof PagesOperationFailure)
+        if (error instanceof PagesOperationError)
           return {
             isError: true,
             content: [

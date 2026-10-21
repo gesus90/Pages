@@ -1,12 +1,11 @@
-import type { Tool } from "@modelcontextprotocol/server";
+import {
+  CURSOR_SCHEMA,
+  IDENTIFIER_SCHEMA,
+  LIMIT_SCHEMA,
+  READ_ANNOTATIONS,
+} from "./tool-definition.js";
 
-const ANNOTATIONS = {
-  readOnlyHint: true,
-  destructiveHint: false,
-  idempotentHint: true,
-  openWorldHint: false,
-} as const;
-const IDENTIFIER = { type: "string", minLength: 1, maxLength: 200 } as const;
+import type { Tool } from "@modelcontextprotocol/server";
 
 /** Reads one ticket with the values the single-field changes compare against. */
 export const TICKET_READ_TOOL: Tool = {
@@ -16,11 +15,11 @@ export const TICKET_READ_TOOL: Tool = {
     "Reads the core fields of a visible ticket: title, description, status, parent, milestone, dates, and the statuses its project offers (statuses[].id is what set_ticket_status takes). ticketId is a ticket ID, a key such as PAGE-12, or a Pages address such as /tasks/PAGE-12. A parent you cannot see is reported as null. Missing and hidden tickets both return NOT_FOUND. Responses are limited to 1 MiB UTF-8 JSON.",
   inputSchema: {
     type: "object",
-    properties: { ticketId: IDENTIFIER },
+    properties: { ticketId: IDENTIFIER_SCHEMA },
     required: ["ticketId"],
     additionalProperties: false,
   },
-  annotations: ANNOTATIONS,
+  annotations: READ_ANNOTATIONS,
 };
 
 /** Reads the milestones and dependencies of one project. */
@@ -32,12 +31,12 @@ export const MILESTONES_READ_TOOL: Tool = {
   inputSchema: {
     type: "object",
     properties: {
-      projectId: IDENTIFIER,
-      cursor: { type: ["string", "null"] },
-      limit: { type: "integer", minimum: 1, maximum: 100 },
+      projectId: IDENTIFIER_SCHEMA,
+      cursor: CURSOR_SCHEMA,
+      limit: LIMIT_SCHEMA,
     },
     required: ["projectId"],
     additionalProperties: false,
   },
-  annotations: ANNOTATIONS,
+  annotations: READ_ANNOTATIONS,
 };

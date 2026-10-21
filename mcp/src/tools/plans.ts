@@ -1,34 +1,37 @@
 import {
   CHANGES,
   FORMAT,
-  VALUE,
   PARAMETER_NAME,
+  VALUE,
 } from "./plan-change-schema.js";
+import {
+  COORDINATE_SCHEMA,
+  CURSOR_SCHEMA,
+  IDENTIFIER_SCHEMA,
+  LIMIT_SCHEMA,
+  REVISION_SCHEMA,
+  buildReadTool,
+  buildWriteTool,
+} from "./tool-definition.js";
 
+import type { PropertySchema, ToolProperties } from "./tool-definition.js";
 import type { Tool } from "@modelcontextprotocol/server";
 import type {
   AgentPlanReadOperation,
   AgentPlanWriteOperation,
 } from "../../../definition/AgentPlanOperations.js";
 
-type Properties = NonNullable<Tool["inputSchema"]["properties"]>;
-type Schema = Properties[string];
-
-const IDENTIFIER = { type: "string", minLength: 1, maxLength: 200 } as const;
 const NAME = { type: "string", minLength: 1, maxLength: 120 } as const;
-const REVISION = { type: "integer", minimum: 1 } as const;
-const COORDINATE = { type: "integer", minimum: 0, maximum: 6000 } as const;
-const CURSOR: Schema = { type: ["string", "null"], maxLength: 2048 };
-const LIMIT = { type: "integer", minimum: 1, maximum: 100 } as const;
-const SELECT: Schema = { enum: ["latest", "first"] };
 
-const SHARING: Schema = {
+const SELECT: PropertySchema = { enum: ["latest", "first"] };
+
+const SHARING: PropertySchema = {
   type: "object",
   properties: {
     scope: { enum: ["private", "global", "restricted"] },
     operator: { enum: ["or", "and"] },
-    groupIds: { type: "array", maxItems: 100, items: IDENTIFIER },
-    departmentIds: { type: "array", maxItems: 100, items: IDENTIFIER },
+    groupIds: { type: "array", maxItems: 100, items: IDENTIFIER_SCHEMA },
+    departmentIds: { type: "array", maxItems: 100, items: IDENTIFIER_SCHEMA },
   },
   required: ["scope"],
   additionalProperties: false,
@@ -43,80 +46,15 @@ const CHANGE_DESCRIPTION =
 const STRUCTURE_DESCRIPTION =
   "Changes are ordered and atomic. addNode creates start/end/agent/script/task/parameter/group; group needs name and starts empty/portless. New agent nodes select an explicit connectionId and model from read_plan_sources.models in configuration; agentId is not required. No agent or model profile has to be created. updateNode changes only the fields of that family, also for agent members inside groups. configuration is a PATCH: name, connectionId + model (modelProfileId remains a compatibility selection key) and reasoningEffort, template.markdown/parameters/directoryParameter/run; omitted fields survive. Model/provider facts derive from read_plan_sources.models, reasoning must be one of that model's choices, or null for the provider standard. Run patches merge; changing a model keeps instructions, inputs, bindings and run options. Unsupported run options require an explicit correction. x/y are integers 0..6000 exactly as in the editor. Batch multiple updates for joint positioning. placeNode moves an agent into groupId (null detaches), x/y relative inside a group, absolute outside. Edges and bindings survive membership changes. Frames never have ports or nested frames. connect/disconnect name actual members, including internal and cross-group edges. bind/unbind target agent members or scripts with source/result/literal typed values. removeNode removes the node and its incident references; a group removal deletes its members. ungroup keeps all members/edges/bindings and requires an explicit absolute position for each member; ambiguous legacy aliases are refused. insertTemplate inserts a checked independent copy of templateId at x/y and returns all new IDs. Scripts use declared text inputs, zero or one text output, a configured interpreter profile and a finite timeout of 1..86400 seconds (default 60). Explicit authorized Play executes them as processes in the approved workspace, requiring active administrator mode and current plan/project/workspace rights. stdin receives one JSON object of named text values; stdout stays exact text and stderr is diagnostic, each at most 128 KiB UTF-8. Saving never starts a run. Unknown fields, raw groups/steps/edges replacement and arbitrary credentials are refused.";
 
-const READ_ANNOTATIONS = {
-  readOnlyHint: true,
-  destructiveHint: false,
-  idempotentHint: true,
-  openWorldHint: false,
-} as const;
-
-interface ToolOptions {
-  readonly name: string;
-  readonly title: string;
-  readonly description: string;
-  readonly properties: Properties;
-}
-
-interface ReadToolOptions extends ToolOptions {
-  readonly required?: readonly string[];
-}
-
-interface WriteToolOptions extends ToolOptions {
-  readonly optionalKeys: readonly string[];
-  /** Whether the change can remove nodes, connections or inputs. */
-  readonly isDestructive: boolean;
-  /** Whether executing the tool can invoke models or affect workspaces beyond Pages records. */
-  readonly isOpenWorld?: boolean;
-}
-
-/** Builds a read tool in the shared external plan catalog. */
-export function readTool(options: ReadToolOptions): Tool {
-  const { name, title, description, properties, required = [] } = options;
-  return {
-    name,
-    title,
-    description,
-    inputSchema: {
-      type: "object",
-      properties,
-      ...(required.length === 0 ? {} : { required: [...required] }),
-      additionalProperties: false,
-    },
-    annotations: READ_ANNOTATIONS,
-  };
-}
-
-/** Builds a journaled write tool in the shared external plan catalog. */
-export function writeTool(options: WriteToolOptions): Tool {
-  const { name, title, description, properties, optionalKeys } = options;
-  return {
-    name,
-    title,
-    description,
-    inputSchema: {
-      type: "object",
-      properties: { operationId: IDENTIFIER, ...properties },
-      required: [
-        "operationId",
-        ...Object.keys(properties).filter((key) => !optionalKeys.includes(key)),
-      ],
-      additionalProperties: false,
-    },
-    annotations: {
-      readOnlyHint: false,
-      destructiveHint: options.isDestructive,
-      idempotentHint: true,
-      openWorldHint: options.isOpenWorld ?? false,
-    },
-  };
-}
-
-const RUN_SELECTION: Properties = {
-  runId: IDENTIFIER,
-  planId: IDENTIFIER,
+const RUN_SELECTION: ToolProperties = {
+  runId: IDENTIFIER_SCHEMA,
+  planId: IDENTIFIER_SCHEMA,
   select: SELECT,
 };
-const TARGET: Properties = { planId: IDENTIFIER, expectedRevision: REVISION };
+const TARGET: ToolProperties = {
+  planId: IDENTIFIER_SCHEMA,
+  expectedRevision: REVISION_SCHEMA,
+};
 
 /** Reads of agent plans, their runs and the reports of a run. */
 export const PLAN_READ_TOOLS: readonly {
@@ -125,56 +63,56 @@ export const PLAN_READ_TOOLS: readonly {
 }[] = [
   {
     operation: "plans.list",
-    tool: readTool({
+    tool: buildReadTool({
       name: "list_plans",
       title: "List agent plans",
       description: `Lists the visible agent plans ordered by name: id, name, project, workspaceId, ownerId, canEdit, team (the department whose members and leaders share the plan, or null), sharing, revision, nodeCount, state (idle, running, pausing, paused or stopping by the account's own runs) and latestRun. text keeps plans whose name contains it (case-insensitive), projectId those of one project. Pass nextCursor with the same query to continue. ${SEE_DESCRIPTION}`,
       properties: {
         text: NAME,
-        projectId: IDENTIFIER,
-        cursor: CURSOR,
-        limit: LIMIT,
+        projectId: IDENTIFIER_SCHEMA,
+        cursor: CURSOR_SCHEMA,
+        limit: LIMIT_SCHEMA,
       },
     }),
   },
   {
     operation: "plans.read",
-    tool: readTool({
+    tool: buildReadTool({
       name: "read_plan",
       title: "Read agent plan",
       description: `Reads one visible plan with its nodes (id, type, x, y, label and the fields of its kind, agent and script nodes with bindings), its flow edges (from → to), sharing, revision and status: state, runCount, latestRun, isRunnable and issues as the plan page checks before Play. ${SEE_DESCRIPTION}`,
-      properties: { planId: IDENTIFIER },
+      properties: { planId: IDENTIFIER_SCHEMA },
       required: ["planId"],
     }),
   },
   {
     operation: "plans.sources.read",
-    tool: readTool({
+    tool: buildReadTool({
       name: "read_plan_sources",
       title: "Read plan sources",
       description:
         "Returns authorized direct connection/model pairs with a selection key, connectionId, provider, model and supported reasoningEfforts, secret-free source configuration copies and editor limits. Lists the workspaces a plan can be created in (projects the account can open), and with workspaceId the agents a node of a plan there can run: id, name, model, isUsable, directoryParameter and the parameters each declares, and the interpreter profiles a script node can name: id, name, status (ok, error or unchecked) and version. No credential, account details or filesystem path is part of it. Tickets for task nodes are found with search_tickets.",
-      properties: { workspaceId: IDENTIFIER },
+      properties: { workspaceId: IDENTIFIER_SCHEMA },
     }),
   },
   {
     operation: "plans.runs.list",
-    tool: readTool({
+    tool: buildReadTool({
       name: "list_plan_runs",
       title: "List plan runs",
       description: `Lists the account's runs of a visible plan: runId, planId, planName, startedAt (ISO 8601) and status (running, pausing, paused, stopping, succeeded, failed or cancelled). order newest (default) or oldest sorts by start. 20 runs per page unless limit says otherwise; pass nextCursor with the same query to continue, total counts all runs. ${RUN_DESCRIPTION}`,
       properties: {
-        planId: IDENTIFIER,
+        planId: IDENTIFIER_SCHEMA,
         order: { enum: ["newest", "oldest"] },
-        cursor: CURSOR,
-        limit: LIMIT,
+        cursor: CURSOR_SCHEMA,
+        limit: LIMIT_SCHEMA,
       },
       required: ["planId"],
     }),
   },
   {
     operation: "plans.run.read",
-    tool: readTool({
+    tool: buildReadTool({
       name: "read_plan_run",
       title: "Read plan run",
       description: `Reads one run of the account: runId, planId, planName, planRevision, startedAt, endedAt, status, stopRequested and every node with status, isBlocked, error, verdict, startedAt, endedAt and hasReport. ${RUN_DESCRIPTION}`,
@@ -183,21 +121,21 @@ export const PLAN_READ_TOOLS: readonly {
   },
   {
     operation: "plans.run.reports.read",
-    tool: readTool({
+    tool: buildReadTool({
       name: "read_plan_run_reports",
       title: "Read plan run reports",
       description: `Reads the reports of one run of the account, each with runId, planId and stepId of the node it belongs to: status, startedAt, endedAt, the redacted result text (output), error, verdict, summary, todos, criteria with evidence, decisions and issues. stepId narrows it to one node (NOT_FOUND when that node has no report). Reports over 1 MiB of UTF-8 JSON are PAYLOAD_TOO_LARGE; read one node at a time then. ${RUN_DESCRIPTION}`,
-      properties: { ...RUN_SELECTION, stepId: IDENTIFIER },
+      properties: { ...RUN_SELECTION, stepId: IDENTIFIER_SCHEMA },
     }),
   },
 ];
 
-const PARAMETER_FIELDS: Properties = {
+const PARAMETER_FIELDS: ToolProperties = {
   name: PARAMETER_NAME,
   value: VALUE,
   format: FORMAT,
-  x: COORDINATE,
-  y: COORDINATE,
+  x: COORDINATE_SCHEMA,
+  y: COORDINATE_SCHEMA,
 };
 
 /** Changes of agent plans; the owner and the members and leaders of the plan's team change a plan. */
@@ -207,13 +145,13 @@ export const PLAN_WRITE_TOOLS: readonly {
 }[] = [
   {
     operation: "plans.create",
-    tool: writeTool({
+    tool: buildWriteTool({
       name: "create_plan",
       title: "Create agent plan",
       description: `Creates an agent plan owned by the connected account in a workspace from read_plan_sources. A plan of an account that is a member or leader of exactly one department also belongs to that department's team: its members and leaders who can open the project read, change and run it, each with their own access (an account with no or several departments creates plans without a team; leading and being a member of the same department is one department). The name is unique among the team's plans of a project, ignoring case and surrounding spaces. sharing is private when omitted; global shares it with everyone who can open the project, restricted with groupIds and/or departmentIds (operator or/and). A share only lets others read the plan, never change it. ${STRUCTURE_DESCRIPTION} ${CHANGE_DESCRIPTION}`,
       properties: {
         name: NAME,
-        workspaceId: IDENTIFIER,
+        workspaceId: IDENTIFIER_SCHEMA,
         sharing: SHARING,
         changes: CHANGES,
       },
@@ -223,7 +161,7 @@ export const PLAN_WRITE_TOOLS: readonly {
   },
   {
     operation: "plans.update",
-    tool: writeTool({
+    tool: buildWriteTool({
       name: "update_plan",
       title: "Update agent plan",
       description: `Changes the name, the share, the workspace or the structure of a plan; at least one of them is required. Every team member may change the share (the same checks as for the owner; it only lets others read the plan) and may move the plan to another workspace of its project that the connected account can use (workspace_unavailable otherwise); a workspace of another project is the owner's alone (FORBIDDEN). A request that matches the stored plan returns changed false. ${STRUCTURE_DESCRIPTION} ${CHANGE_DESCRIPTION}`,
@@ -231,7 +169,7 @@ export const PLAN_WRITE_TOOLS: readonly {
         ...TARGET,
         name: NAME,
         sharing: SHARING,
-        workspaceId: IDENTIFIER,
+        workspaceId: IDENTIFIER_SCHEMA,
         changes: CHANGES,
       },
       optionalKeys: ["name", "sharing", "workspaceId", "changes"],
@@ -240,7 +178,7 @@ export const PLAN_WRITE_TOOLS: readonly {
   },
   {
     operation: "plans.parameter.create",
-    tool: writeTool({
+    tool: buildWriteTool({
       name: "create_plan_parameter",
       title: "Create plan parameter",
       description: `Adds one parameter node to a plan: a display name (letters, digits and _, starting with a letter; nodes are identified by ID) and a value of type text, number, ticket, workspace or wiki. format string (default; number for a number value), number or json says how a text value is checked; numbers and JSON reach text inputs as text. Bind it to an agent input with update_plan. createdNodeIds holds its id. ${CHANGE_DESCRIPTION}`,
@@ -251,22 +189,26 @@ export const PLAN_WRITE_TOOLS: readonly {
   },
   {
     operation: "plans.parameter.update",
-    tool: writeTool({
+    tool: buildWriteTool({
       name: "update_plan_parameter",
       title: "Update plan parameter",
       description: `Changes the name, value, format or position of one parameter node, named by parameterId (its node id from read_plan); pass only what changes. An id that is no parameter node is NOT_FOUND. ${CHANGE_DESCRIPTION}`,
-      properties: { ...TARGET, parameterId: IDENTIFIER, ...PARAMETER_FIELDS },
+      properties: {
+        ...TARGET,
+        parameterId: IDENTIFIER_SCHEMA,
+        ...PARAMETER_FIELDS,
+      },
       optionalKeys: ["name", "value", "format", "x", "y"],
-      isDestructive: false,
+      isDestructive: true,
     }),
   },
   {
     operation: "plans.parameter.remove",
-    tool: writeTool({
+    tool: buildWriteTool({
       name: "remove_plan_parameter",
       title: "Remove plan parameter",
       description: `Removes one parameter node, named by parameterId, together with the agent inputs it fed; those inputs fall back to the agent's defaults. An id that is no parameter node is NOT_FOUND. ${CHANGE_DESCRIPTION}`,
-      properties: { ...TARGET, parameterId: IDENTIFIER },
+      properties: { ...TARGET, parameterId: IDENTIFIER_SCHEMA },
       optionalKeys: [],
       isDestructive: true,
     }),

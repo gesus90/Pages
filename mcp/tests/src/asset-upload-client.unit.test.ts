@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { uploadAgentAsset } from "../../src/asset-upload-client.ts";
-import { PagesOperationFailure } from "../../src/tools/operation-failure.ts";
+import { PagesOperationError } from "../../src/tools/operation-failure.ts";
 
 const CONFIGURATION = {
   agentsUrl: new URL("https://pages.example/team/api/v1/agents"),
@@ -68,7 +68,7 @@ describe("uploadAgentAsset", () => {
       ),
     );
     const upload = uploadAgentAsset(CONFIGURATION, "ticket", bytes());
-    await expect(upload).rejects.toBeInstanceOf(PagesOperationFailure);
+    await expect(upload).rejects.toBeInstanceOf(PagesOperationError);
     await expect(upload).rejects.toMatchObject({
       code: "PAYLOAD_TOO_LARGE",
       details: { constraint: "requestBytes", limit: 10 },

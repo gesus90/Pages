@@ -1,8 +1,9 @@
+import { IDENTIFIER_SCHEMA, READ_ANNOTATIONS } from "./tool-definition.js";
+
 import type { Tool } from "@modelcontextprotocol/server";
+import type { PropertySchema } from "./tool-definition.js";
 
-type FieldSchema = NonNullable<Tool["inputSchema"]["properties"]>[string];
-
-const KEY: FieldSchema = {
+const KEY: PropertySchema = {
   type: "string",
   minLength: 1,
   maxLength: 100,
@@ -12,7 +13,7 @@ const KEY: FieldSchema = {
 };
 
 /** The manifest of a structured import, shared by the plan and the apply tool. */
-export const STRUCTURED_MANIFEST_SCHEMA: FieldSchema = {
+export const STRUCTURED_MANIFEST_SCHEMA: PropertySchema = {
   type: "object",
   additionalProperties: false,
   required: ["version", "sources"],
@@ -45,12 +46,12 @@ export const STRUCTURED_MANIFEST_SCHEMA: FieldSchema = {
             description:
               "milestone and ticket: the key of a project source; may be left out when the manifest has exactly one project.",
           },
-          name: { type: "string", minLength: 1, maxLength: 200 },
+          name: IDENTIFIER_SCHEMA,
           description: { type: "string", maxLength: 65536 },
           startAt: { type: ["string", "null"], description: "YYYY-MM-DD." },
           dueAt: { type: ["string", "null"], description: "YYYY-MM-DD." },
           type: { enum: ["initiative", "epic", "task", "subtask"] },
-          title: { type: "string", minLength: 1, maxLength: 200 },
+          title: IDENTIFIER_SCHEMA,
           content: {
             type: "string",
             description: "wiki only: the exact Markdown, at most 16 KiB UTF-8.",
@@ -90,7 +91,7 @@ export const STRUCTURED_MANIFEST_SCHEMA: FieldSchema = {
             description:
               "Relative path below the manifest root that Markdown links use, without dot segments.",
           },
-          assetId: { type: "string", minLength: 1, maxLength: 200 },
+          assetId: IDENTIFIER_SCHEMA,
         },
       },
     },
@@ -126,10 +127,5 @@ export const STRUCTURED_IMPORT_PLAN_TOOL: Tool = {
     required: ["manifest"],
     properties: { manifest: STRUCTURED_MANIFEST_SCHEMA },
   },
-  annotations: {
-    readOnlyHint: true,
-    destructiveHint: false,
-    idempotentHint: true,
-    openWorldHint: false,
-  },
+  annotations: READ_ANNOTATIONS,
 };

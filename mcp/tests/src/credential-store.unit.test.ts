@@ -2,9 +2,9 @@ import { constants } from "node:fs";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { CredentialStoreError } from "../../src/credential-error.ts";
 import {
   CredentialStore,
-  CredentialStoreError,
   credentialDirectory,
   isStoredCredential,
 } from "../../src/credential-store.ts";
@@ -103,7 +103,7 @@ const entries = new Map<string, FakeEntry>();
 const files = new Map<string, string>();
 const handles = new Map<string, FakeHandle>();
 const writeFailures = new Map<string, Error>();
-const originalDescriptors = new Map<string, PropertyDescriptor | undefined>();
+const ORIGINAL_DESCRIPTORS = new Map<string, PropertyDescriptor | undefined>();
 
 function codedError(code: string): Error {
   return Object.assign(new Error(`synthetic ${code}`), { code });
@@ -138,8 +138,8 @@ function overrideProcess(
   property: "platform" | "getuid",
   replacement: unknown,
 ): void {
-  if (!originalDescriptors.has(property))
-    originalDescriptors.set(
+  if (!ORIGINAL_DESCRIPTORS.has(property))
+    ORIGINAL_DESCRIPTORS.set(
       property,
       Object.getOwnPropertyDescriptor(process, property),
     );
@@ -151,11 +151,11 @@ function overrideProcess(
 }
 
 function restoreProcess(): void {
-  for (const [property, descriptor] of originalDescriptors) {
+  for (const [property, descriptor] of ORIGINAL_DESCRIPTORS) {
     if (descriptor) Object.defineProperty(process, property, descriptor);
     else Reflect.deleteProperty(process, property);
   }
-  originalDescriptors.clear();
+  ORIGINAL_DESCRIPTORS.clear();
 }
 
 function storeFile(contents: string, entry: Partial<FakeEntry> = {}): void {

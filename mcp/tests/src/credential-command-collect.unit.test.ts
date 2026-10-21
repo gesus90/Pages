@@ -7,9 +7,9 @@ import { openPairingBrowser } from "../../src/pairing-browser.ts";
 import { PairingClient, PairingClientError } from "../../src/pairing-client.ts";
 import { verifyPages } from "../../src/verification.ts";
 
+import type { McpPairedCredential } from "../../../definition/McpPairing.ts";
 import type { CredentialCommandRuntime } from "../../src/credential-command.ts";
 import type { DevicePairingRequest } from "../../src/pairing-client.ts";
-import type { McpPairedCredential } from "../../../definition/McpPairing.ts";
 
 vi.mock("../../src/pairing-browser.ts", () => ({
   openPairingBrowser: vi.fn(),

@@ -17,6 +17,7 @@ import type {
 import type { Agent } from "@mastra/core/agent";
 import type { TextExecutionInput } from "@/backend/agents/TextExecution";
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
+import type { PicaAdminService } from "./admin/PicaAdminService";
 import type { User } from "@/definition/User";
 import type { ChatAnswerFileService } from "./ChatAnswerFileService";
 import type { ChatSessionService } from "./ChatSessionService";
@@ -40,6 +41,7 @@ export interface PicaApiInput extends TextExecutionInput {
 
 /** Native API dependencies; there is deliberately no CLI execution or scheduler port. */
 export interface PicaApiDependencies {
+  readonly adminTools?: PicaAdminService;
   readonly models: Pick<PicaApiModels, "use" | "authorize">;
   readonly sessions: Pick<ChatSessionService, "require" | "confirmationWord">;
   readonly tools: Pick<ChatToolExecutor, "run">;
@@ -99,17 +101,22 @@ export class PicaApiService {
         signal.throwIfAborted();
       },
     });
+    const guarded = this.dependencies.adminTools?.bind(context) ?? context;
     try {
-      return await this.dependencies.models.use(input, signal, (resolved) =>
-        this.generate(input, context, resolved),
+      return await this.dependencies.models.use(
+        input,
+        guarded.signal,
+        (resolved) => this.generate(input, guarded, resolved),
       );
     } catch (error: unknown) {
       logCaughtError("PicaApiService", error);
 
-      signal.throwIfAborted();
+      guarded.signal.throwIfAborted();
       if (error instanceof ChatError || error instanceof AgentExecutionError)
         throw error;
       throw new AgentExecutionError("providerFailed");
+    } finally {
+      await this.dependencies.adminTools?.release(guarded);
     }
   }
 
@@ -130,6 +137,7 @@ export class PicaApiService {
         tools: this.dependencies.tools,
         sessions: this.dependencies.sessions,
         authorize: context.authorize,
+        adminTools: this.dependencies.adminTools,
         onLimit: () => {
           isLimitExceeded = true;
         },

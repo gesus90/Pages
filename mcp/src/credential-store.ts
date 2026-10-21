@@ -1,14 +1,13 @@
+import { randomUUID } from "node:crypto";
 import { constants } from "node:fs";
 import { lstat, mkdir, open, readFile, rename, unlink } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 
-import { readInstanceUrl } from "./instance-address.ts";
+import { BEARER_TOKEN_PATTERN } from "./request-constants.js";
 import { CredentialStoreError } from "./credential-error.js";
-
-export { CredentialStoreError } from "./credential-error.js";
+import { readInstanceUrl } from "./instance-address.js";
 
 /** Credentials belong to exactly one normalized instance and operating-system user. */
 export interface StoredCredential {
@@ -59,7 +58,7 @@ function hasCredentialIdentity(input: object): boolean {
     input.tokenId.length > 0 &&
     "token" in input &&
     typeof input.token === "string" &&
-    /^[A-Za-z0-9._~+/-]+=*$/.test(input.token) &&
+    BEARER_TOKEN_PATTERN.test(input.token) &&
     "name" in input &&
     typeof input.name === "string" &&
     input.name.length > 0 &&

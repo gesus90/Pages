@@ -1,3 +1,4 @@
+import type { PicaAdminService } from "../admin/PicaAdminService";
 import type { PlanExecution } from "@/backend/agents/AgentPlanExecution";
 import type { ExecutionAuthorizer } from "@/backend/agents/ScopedExecution";
 import type { ChatAcpSessionRepository } from "@/backend/database/repositories/chat/ChatAcpSessionRepository";
@@ -13,6 +14,7 @@ import type { PicaAttachmentReader } from "./PicaAcpContent";
 
 /** What a job needs from Pages; every write path is an existing one. */
 export interface PicaAcpJobDependencies {
+  readonly adminTools?: PicaAdminService;
   readonly requireCurrent?: (
     userId: string,
     assignment: ResolvedAgentAssignment,

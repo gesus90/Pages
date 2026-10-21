@@ -1,25 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { CredentialStoreError } from "../../src/credential-store.ts";
+import { CredentialStoreError } from "../../src/credential-error.ts";
 import { readStdioConfiguration } from "../../src/stdio-configuration.ts";
 
+import type { PagesConfiguration } from "../../src/configuration.ts";
 import type * as CredentialStoreModule from "../../src/credential-store.ts";
 import type { StoredCredential } from "../../src/credential-store.ts";
-import type { PagesConfiguration } from "../../src/configuration.ts";
 
 interface CredentialUpdate {
   readonly credential: StoredCredential | null;
   readonly result: unknown;
 }
 
-const mocks = vi.hoisted(() => ({
-  state: { credential: null as StoredCredential | null },
-  constructed:
-    vi.fn<(environment: Record<string, string | undefined>) => void>(),
-  get: vi.fn<(instance: URL) => void>(),
-  update: vi.fn<(instance: URL) => void>(),
-  postAgentRequest: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
-}));
+const mocks = vi.hoisted(() => {
+  const state: { credential: StoredCredential | null } = { credential: null };
+  return {
+    state,
+    constructed:
+      vi.fn<(environment: Record<string, string | undefined>) => void>(),
+    get: vi.fn<(instance: URL) => void>(),
+    update: vi.fn<(instance: URL) => void>(),
+    postAgentRequest: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
+  };
+});
 
 vi.mock("../../src/credential-store.ts", async (importOriginal) => {
   const original = await importOriginal<typeof CredentialStoreModule>();

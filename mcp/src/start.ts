@@ -1,10 +1,11 @@
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
 
-import { CredentialStoreError } from "./credential-store.js";
-import { runCredentialCommand } from "./credential-command.js";
+import { isCredentialCommand } from "./credential-commands.js";
 import { readConfiguration } from "./configuration.js";
-import { readStdioConfiguration } from "./stdio-configuration.js";
+import { runCredentialCommand } from "./credential-command.js";
+import { CredentialStoreError } from "./credential-error.js";
 import { createServer } from "./server.js";
+import { readStdioConfiguration } from "./stdio-configuration.js";
 import { verifyPages } from "./verification.js";
 
 /** Starts stdio after validation; all unexpected diagnostics are fixed, token-free text. */
@@ -19,7 +20,7 @@ export async function start(): Promise<void> {
       serveStdio(() => createServer(() => configuration));
       return;
     }
-    if (["pair", "rotate", "unpair", "status"].includes(argumentsList[0])) {
+    if (isCredentialCommand(argumentsList[0])) {
       process.exitCode = await runCredentialCommand(argumentsList, process.env);
       return;
     }

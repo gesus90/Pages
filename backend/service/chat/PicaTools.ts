@@ -1,6 +1,7 @@
 import { RuntimeToolRegistry } from "@/backend/agents/runtime/RuntimeToolRegistry";
 import { redactCredentials } from "@/backend/security/AgentTextSafety";
 
+import { registerPicaAdminTools } from "./admin/PicaAdminTools";
 import { CHAT_MAXIMUM_ACTIONS } from "./ChatExecutionLimits";
 import { isChatDeleteOperation } from "./ChatToolCatalog";
 import { ChatAnswerFileError } from "./ChatAnswerFileService";
@@ -15,6 +16,7 @@ import {
 } from "./PicaToolSchemas";
 
 import type { z } from "zod";
+import type { PicaAdminService } from "./admin/PicaAdminService";
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
 import type { ChatAnswerFileService } from "./ChatAnswerFileService";
 import type { ChatSessionService } from "./ChatSessionService";
@@ -32,6 +34,7 @@ export interface PicaToolsInput {
   /** The word the deletions of the person's interface language take; Pages passes it, never the model. */
   readonly sessions: Pick<ChatSessionService, "confirmationWord">;
   readonly authorize: () => Promise<void>;
+  readonly adminTools?: PicaAdminService | undefined;
   /** Ends or marks the run when a call would exceed the actual execution budget. */
   readonly onLimit?: () => void;
   /** Stores the files Pica writes for its answer; without it the file tool is not offered. */
@@ -426,5 +429,9 @@ export function createPicaTools(input: PicaToolsInput): RuntimeToolRegistry {
       execute: (parameters, context) =>
         createAnswerFile(input, budget, { parameters, context }),
     });
+  if (input.adminTools)
+    registerPicaAdminTools(registry, input.adminTools, () =>
+      spend(input, budget),
+    );
   return registry;
 }

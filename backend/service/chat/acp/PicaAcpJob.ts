@@ -235,16 +235,21 @@ export class PicaAcpJob {
     let outcome: PicaAcpOutcome;
     try {
       await this.prepare(signal);
-      await this.execute(signal);
+      await this.execute(this.requireContext().signal);
       outcome = { state: "completed", errorCode: null };
     } catch (error: unknown) {
       logCaughtError("PicaAcpJob", error);
 
       outcome = picaAcpOutcome(error, {
-        signal,
+        signal: this.context?.signal ?? signal,
         isStopRequested: this.isStopRequested,
       });
     }
+    const context = this.context;
+    if (context)
+      await this.attempt("adminTools", async () => {
+        await this.dependencies.adminTools?.release(context);
+      });
     await this.finish(outcome);
     logEvent({
       level: outcome.state === "failed" ? "error" : "info",
@@ -277,6 +282,8 @@ export class PicaAcpJob {
         signal.throwIfAborted();
       },
     });
+    this.context =
+      this.dependencies.adminTools?.bind(this.context) ?? this.context;
     this.bridge = this.dependencies.bridge.open({
       jobId: this.id,
       catalog: createPicaTools({
@@ -284,6 +291,7 @@ export class PicaAcpJob {
         sessions: this.dependencies.sessions,
         authorize: () => Promise.resolve(),
         answerFiles: this.dependencies.answerFiles,
+        adminTools: this.dependencies.adminTools,
       }).describe(),
       onTool: (event) => {
         void this.journal

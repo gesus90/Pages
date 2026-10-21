@@ -1,18 +1,22 @@
 import { hostname } from "node:os";
 import { setTimeout as delay } from "node:timers/promises";
 
+import { isCredentialCommand } from "./credential-commands.js";
+import { AGENT_API_ENDPOINT } from "./request-constants.js";
 import manifest from "../package.json" with { type: "json" };
-import { CredentialStore, CredentialStoreError } from "./credential-store.js";
+import { CredentialStoreError } from "./credential-error.js";
 import { credentialMessages } from "./credential-messages.js";
+import { CredentialStore } from "./credential-store.js";
 import { instanceEndpoint, readInstanceUrl } from "./instance-address.js";
+import { postAgentRequest } from "./pages-client.js";
 import { openPairingBrowser } from "./pairing-browser.js";
 import { PairingClient, PairingClientError } from "./pairing-client.js";
-import { postAgentRequest } from "./pages-client.js";
 import { readStdioConfiguration } from "./stdio-configuration.js";
 import { verifyPages } from "./verification.js";
 
-import type { DevicePairingRequest } from "./pairing-client.js";
 import type { McpPairedCredential } from "../../definition/McpPairing.js";
+import type { CredentialCommand } from "./credential-commands.js";
+import type { DevicePairingRequest } from "./pairing-client.js";
 
 /** Testable terminal boundaries; production defaults write exclusively to stderr. */
 export interface CredentialCommandRuntime {
@@ -23,7 +27,7 @@ export interface CredentialCommandRuntime {
 }
 
 interface CommandOptions {
-  readonly command: "pair" | "rotate" | "unpair" | "status";
+  readonly command: CredentialCommand;
   readonly instance: URL;
   readonly name: string;
   readonly noBrowser: boolean;
@@ -41,12 +45,7 @@ function readOptions(
   environment: Readonly<Record<string, string | undefined>>,
 ): CommandOptions {
   const command = argumentsList[0];
-  if (
-    command !== "pair" &&
-    command !== "rotate" &&
-    command !== "unpair" &&
-    command !== "status"
-  )
+  if (!isCredentialCommand(command))
     throw new PairingClientError("wrong_instance");
   const { options, noBrowser } = readCommandFlags(argumentsList, command);
   let instance: URL;
@@ -180,7 +179,7 @@ async function pair(
   try {
     const issued = await collect(client, request, runtime);
     const configuration = {
-      agentsUrl: instanceEndpoint(options.instance, "api/v1/agents"),
+      agentsUrl: instanceEndpoint(options.instance, AGENT_API_ENDPOINT),
       token: issued.token,
     };
     try {
@@ -240,7 +239,7 @@ async function localCommand(
     try {
       await postAgentRequest(
         {
-          agentsUrl: instanceEndpoint(options.instance, "api/v1/agents"),
+          agentsUrl: instanceEndpoint(options.instance, AGENT_API_ENDPOINT),
           token: credential.token,
         },
         { operation: "credential.revoke", parameters: {} },

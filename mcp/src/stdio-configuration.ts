@@ -1,7 +1,12 @@
-import { CredentialStore, CredentialStoreError } from "./credential-store.js";
 import { readConfiguration } from "./configuration.js";
+import { CredentialStoreError } from "./credential-error.js";
+import { CredentialStore } from "./credential-store.js";
 import { instanceEndpoint, readInstanceUrl } from "./instance-address.js";
 import { postAgentRequest } from "./pages-client.js";
+import {
+  AGENT_API_ENDPOINT,
+  PAIRED_TOKEN_PATTERN,
+} from "./request-constants.js";
 
 import type { PagesConfiguration } from "./configuration.js";
 
@@ -20,7 +25,7 @@ export async function readStdioConfiguration(
     );
   let token = credential.token;
   return {
-    agentsUrl: instanceEndpoint(instance, "api/v1/agents"),
+    agentsUrl: instanceEndpoint(instance, AGENT_API_ENDPOINT),
     get token() {
       return token;
     },
@@ -48,7 +53,7 @@ export async function readStdioConfiguration(
             return { credential: current, result: current.token };
           const replacement = await postAgentRequest(
             {
-              agentsUrl: instanceEndpoint(instance, "api/v1/agents"),
+              agentsUrl: instanceEndpoint(instance, AGENT_API_ENDPOINT),
               token: current.token,
             },
             { operation: "credential.rotate", parameters: {} },
@@ -80,7 +85,7 @@ function isReplacement(
     input !== null &&
     "token" in input &&
     typeof input.token === "string" &&
-    /^[A-Za-z0-9_-]{43}$/.test(input.token) &&
+    PAIRED_TOKEN_PATTERN.test(input.token) &&
     "expiresAt" in input &&
     (input.expiresAt === null ||
       (typeof input.expiresAt === "number" &&

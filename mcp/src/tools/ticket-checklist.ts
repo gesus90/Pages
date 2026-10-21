@@ -1,6 +1,11 @@
+import {
+  DESTRUCTIVE_ANNOTATIONS,
+  IDENTIFIER_SCHEMA,
+  READ_ANNOTATIONS,
+} from "./tool-definition.js";
+
 import type { Tool } from "@modelcontextprotocol/server";
 
-const IDENTIFIER = { type: "string", minLength: 1, maxLength: 200 } as const;
 const TICKET =
   "ticketId is a ticket ID, a key such as PAGE-12, or a Pages address such as /tasks/PAGE-12.";
 
@@ -11,16 +16,11 @@ export const TICKET_CHECKLIST_READ_TOOL: Tool = {
   description: `Reads every checkbox of a visible ticket: the acceptance criteria (source "criteria") and the task list items of the Markdown description (source "description"; code blocks never count). Each entry has a stable id, its text, checked true or false, its order, its nesting depth and parentId. Equal texts get different ids. One call returns the complete checklist; no entry needs a separate read. revision changes whenever the description or a criterion changes; pass it to set_ticket_checklist_item, or to set_ticket_checklist_items to set several entries at once from this list. ${TICKET} Missing and hidden tickets both return NOT_FOUND. Responses are limited to 1 MiB UTF-8 JSON.`,
   inputSchema: {
     type: "object",
-    properties: { ticketId: IDENTIFIER },
+    properties: { ticketId: IDENTIFIER_SCHEMA },
     required: ["ticketId"],
     additionalProperties: false,
   },
-  annotations: {
-    readOnlyHint: true,
-    destructiveHint: false,
-    idempotentHint: true,
-    openWorldHint: false,
-  },
+  annotations: READ_ANNOTATIONS,
 };
 
 /** Sets one checklist entry of one ticket to an explicit state. */
@@ -32,11 +32,11 @@ export const TICKET_CHECKLIST_SET_TOOL: Tool = {
     type: "object",
     additionalProperties: false,
     properties: {
-      operationId: IDENTIFIER,
-      ticketId: IDENTIFIER,
-      itemId: IDENTIFIER,
+      operationId: IDENTIFIER_SCHEMA,
+      ticketId: IDENTIFIER_SCHEMA,
+      itemId: IDENTIFIER_SCHEMA,
       checked: { type: "boolean" },
-      expectedRevision: IDENTIFIER,
+      expectedRevision: IDENTIFIER_SCHEMA,
     },
     required: [
       "operationId",
@@ -46,12 +46,7 @@ export const TICKET_CHECKLIST_SET_TOOL: Tool = {
       "expectedRevision",
     ],
   },
-  annotations: {
-    readOnlyHint: false,
-    destructiveHint: false,
-    idempotentHint: true,
-    openWorldHint: false,
-  },
+  annotations: DESTRUCTIVE_ANNOTATIONS,
 };
 
 /** Sets several checklist entries of one ticket to explicit states in one atomic call. */
@@ -63,9 +58,9 @@ export const TICKET_CHECKLIST_SET_ITEMS_TOOL: Tool = {
     type: "object",
     additionalProperties: false,
     properties: {
-      operationId: IDENTIFIER,
-      ticketId: IDENTIFIER,
-      expectedRevision: IDENTIFIER,
+      operationId: IDENTIFIER_SCHEMA,
+      ticketId: IDENTIFIER_SCHEMA,
+      expectedRevision: IDENTIFIER_SCHEMA,
       items: {
         type: "array",
         minItems: 1,
@@ -73,17 +68,15 @@ export const TICKET_CHECKLIST_SET_ITEMS_TOOL: Tool = {
         items: {
           type: "object",
           additionalProperties: false,
-          properties: { itemId: IDENTIFIER, checked: { type: "boolean" } },
+          properties: {
+            itemId: IDENTIFIER_SCHEMA,
+            checked: { type: "boolean" },
+          },
           required: ["itemId", "checked"],
         },
       },
     },
     required: ["operationId", "ticketId", "expectedRevision", "items"],
   },
-  annotations: {
-    readOnlyHint: false,
-    destructiveHint: false,
-    idempotentHint: true,
-    openWorldHint: false,
-  },
+  annotations: DESTRUCTIVE_ANNOTATIONS,
 };

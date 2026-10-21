@@ -1,3 +1,4 @@
+import { ADDITIVE_ANNOTATIONS, IDENTIFIER_SCHEMA } from "./tool-definition.js";
 import { WIKI_IMPORT_PLAN_TOOL } from "./wiki-import-plan.js";
 
 import type { Tool } from "@modelcontextprotocol/server";
@@ -19,7 +20,7 @@ export const WIKI_IMPORT_APPLY_TOOL: Tool = {
     ],
     properties: {
       ...WIKI_IMPORT_PLAN_TOOL.inputSchema.properties,
-      operationId: { type: "string", minLength: 1, maxLength: 200 },
+      operationId: IDENTIFIER_SCHEMA,
       fingerprint: { type: "string", pattern: "^[a-f0-9]{64}$" },
       assets: {
         type: "array",
@@ -34,17 +35,12 @@ export const WIKI_IMPORT_APPLY_TOOL: Tool = {
               type: "array",
               maxItems: 100,
               uniqueItems: true,
-              items: { type: "string", minLength: 1, maxLength: 200 },
+              items: IDENTIFIER_SCHEMA,
             },
           },
         },
       },
     },
   },
-  annotations: {
-    readOnlyHint: false,
-    destructiveHint: false,
-    idempotentHint: true,
-    openWorldHint: false,
-  },
+  annotations: ADDITIVE_ANNOTATIONS,
 };

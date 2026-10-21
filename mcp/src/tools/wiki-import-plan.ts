@@ -1,3 +1,9 @@
+import {
+  IDENTIFIER_SCHEMA,
+  NULLABLE_IDENTIFIER_SCHEMA,
+  READ_ANNOTATIONS,
+} from "./tool-definition.js";
+
 import type { Tool } from "@modelcontextprotocol/server";
 
 const SOURCE_KEY = {
@@ -18,8 +24,8 @@ export const WIKI_IMPORT_PLAN_TOOL: Tool = {
     additionalProperties: false,
     required: ["projectId", "parentId", "manifest"],
     properties: {
-      projectId: { type: "string", minLength: 1, maxLength: 200 },
-      parentId: { type: ["string", "null"], minLength: 1, maxLength: 200 },
+      projectId: IDENTIFIER_SCHEMA,
+      parentId: NULLABLE_IDENTIFIER_SCHEMA,
       manifest: {
         type: "object",
         additionalProperties: false,
@@ -36,7 +42,7 @@ export const WIKI_IMPORT_PLAN_TOOL: Tool = {
               required: ["sourceKey", "title", "titleSource"],
               properties: {
                 sourceKey: SOURCE_KEY,
-                title: { type: "string", minLength: 1, maxLength: 200 },
+                title: IDENTIFIER_SCHEMA,
                 titleSource: {
                   type: "string",
                   enum: ["explicit", "h1", "filename"],
@@ -57,7 +63,7 @@ export const WIKI_IMPORT_PLAN_TOOL: Tool = {
                   type: "string",
                   description: "Exact Markdown, at most 16 KiB UTF-8.",
                 },
-                title: { type: "string", minLength: 1, maxLength: 200 },
+                title: IDENTIFIER_SCHEMA,
               },
             },
           },
@@ -65,10 +71,5 @@ export const WIKI_IMPORT_PLAN_TOOL: Tool = {
       },
     },
   },
-  annotations: {
-    readOnlyHint: true,
-    destructiveHint: false,
-    idempotentHint: true,
-    openWorldHint: false,
-  },
+  annotations: READ_ANNOTATIONS,
 };

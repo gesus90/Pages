@@ -1,4 +1,5 @@
 import { STRUCTURED_MANIFEST_SCHEMA } from "./structured-import-plan.js";
+import { ADDITIVE_ANNOTATIONS, IDENTIFIER_SCHEMA } from "./tool-definition.js";
 
 import type { Tool } from "@modelcontextprotocol/server";
 
@@ -13,15 +14,10 @@ export const STRUCTURED_IMPORT_APPLY_TOOL: Tool = {
     additionalProperties: false,
     required: ["operationId", "fingerprint", "manifest"],
     properties: {
-      operationId: { type: "string", minLength: 1, maxLength: 200 },
+      operationId: IDENTIFIER_SCHEMA,
       fingerprint: { type: "string", pattern: "^[a-f0-9]{64}$" },
       manifest: STRUCTURED_MANIFEST_SCHEMA,
     },
   },
-  annotations: {
-    readOnlyHint: false,
-    destructiveHint: false,
-    idempotentHint: true,
-    openWorldHint: false,
-  },
+  annotations: ADDITIVE_ANNOTATIONS,
 };

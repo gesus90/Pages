@@ -1,3 +1,9 @@
+import {
+  CHAT_CONFIRMATION_SCHEMA,
+  READ_ANNOTATIONS,
+  SESSION_DELETION_ANNOTATIONS,
+} from "./tool-definition.js";
+
 import type { Tool } from "@modelcontextprotocol/server";
 
 /** All own Pica sessions; callers select explicit IDs before asking for confirmation. */
@@ -7,12 +13,7 @@ export const CHAT_SESSIONS_LIST_TOOL: Tool = {
   description:
     "Lists all Pica sessions of the connected account, with IDs, previews and total. Never lists another person's sessions, including for administrators. Before deletion show the selected sessions and count to the user and ask them to type LÖSCHEN.",
   inputSchema: { type: "object", properties: {}, additionalProperties: false },
-  annotations: {
-    readOnlyHint: true,
-    destructiveHint: false,
-    idempotentHint: true,
-    openWorldHint: false,
-  },
+  annotations: READ_ANNOTATIONS,
 };
 
 /** Counted, explicit session selection; no button-confirmation parameter exists in MCP. */
@@ -32,15 +33,10 @@ export const CHAT_SESSIONS_DELETE_TOOL: Tool = {
         items: { type: "string", pattern: "^[a-z]{2,12}(?:-[a-z]{2,12}){4}$" },
       },
       expectedCount: { type: "integer", minimum: 1, maximum: 200 },
-      confirmation: { type: "string", enum: ["LÖSCHEN"] },
+      confirmation: CHAT_CONFIRMATION_SCHEMA,
     },
     required: ["sessionIds", "expectedCount", "confirmation"],
     additionalProperties: false,
   },
-  annotations: {
-    readOnlyHint: false,
-    destructiveHint: true,
-    idempotentHint: false,
-    openWorldHint: false,
-  },
+  annotations: SESSION_DELETION_ANNOTATIONS,
 };

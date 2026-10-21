@@ -1,3 +1,5 @@
+import { UPLOAD_ANNOTATIONS } from "./tool-definition.js";
+
 import type { Tool } from "@modelcontextprotocol/server";
 
 /** Metadata-only capability request, usable even when the MCP transport is limited to 64 KiB. */
@@ -12,10 +14,5 @@ export const ASSET_UPLOAD_TOOL: Tool = {
     properties: { fileName: { type: "string", maxLength: 255 } },
     required: ["fileName"],
   },
-  annotations: {
-    readOnlyHint: false,
-    destructiveHint: false,
-    idempotentHint: false,
-    openWorldHint: false,
-  },
+  annotations: UPLOAD_ANNOTATIONS,
 };

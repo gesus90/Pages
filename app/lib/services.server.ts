@@ -477,6 +477,7 @@ async function startMcpWorkspace(context: {
       agents: context.agents,
       router: services.chatOperationRouter,
       acp: await picaAcpSettings(),
+      protectedOrigin: (await getPagesRuntime()).getConfig().mcpHttp?.publicUrl,
     }),
   };
 }

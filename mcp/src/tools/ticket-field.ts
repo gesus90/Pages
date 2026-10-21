@@ -1,16 +1,14 @@
-import type { Tool } from "@modelcontextprotocol/server";
+import {
+  DESTRUCTIVE_ANNOTATIONS,
+  IDENTIFIER_SCHEMA,
+  NULLABLE_IDENTIFIER_SCHEMA,
+} from "./tool-definition.js";
 
-const IDENTIFIER = { type: "string", minLength: 1, maxLength: 200 } as const;
-const ANNOTATIONS = {
-  readOnlyHint: false,
-  destructiveHint: true,
-  idempotentHint: true,
-  openWorldHint: false,
-} as const;
+import type { Tool } from "@modelcontextprotocol/server";
+import type { PropertySchema } from "./tool-definition.js";
+
 const COMMON =
   "ticketId is a ticket ID, a key such as PAGE-12, or a Pages address such as /tasks/PAGE-12. The expected value is the one you read with read_ticket; if the field was saved with another value since then the call returns CONFLICT and nothing changes. Only this field changes; every other field and the position among the tickets stays as it is. Reuse operationId with identical input to recover the stored result after response loss; changed input returns CONFLICT. A hidden ticket returns NOT_FOUND; without the write right the call returns FORBIDDEN. Whether the change is published to GitHub follows the Pages setting of the project; the call never forces it. JSON request maximum 64 KiB.";
-
-type FieldSchema = NonNullable<Tool["inputSchema"]["properties"]>[string];
 
 interface TicketFieldSpecification {
   readonly name: string;
@@ -19,7 +17,7 @@ interface TicketFieldSpecification {
   /** The argument that carries the value that was read, and the one that carries the new value. */
   readonly expected: string;
   readonly value: string;
-  readonly schema: FieldSchema;
+  readonly schema: PropertySchema;
 }
 
 function ticketFieldTool(specification: TicketFieldSpecification): Tool {
@@ -31,8 +29,8 @@ function ticketFieldTool(specification: TicketFieldSpecification): Tool {
       type: "object",
       additionalProperties: false,
       properties: {
-        operationId: IDENTIFIER,
-        ticketId: IDENTIFIER,
+        operationId: IDENTIFIER_SCHEMA,
+        ticketId: IDENTIFIER_SCHEMA,
         [specification.expected]: specification.schema,
         [specification.value]: specification.schema,
       },
@@ -43,7 +41,7 @@ function ticketFieldTool(specification: TicketFieldSpecification): Tool {
         specification.value,
       ],
     },
-    annotations: ANNOTATIONS,
+    annotations: DESTRUCTIVE_ANNOTATIONS,
   };
 }
 
@@ -55,7 +53,7 @@ export const TICKET_SET_TITLE_TOOL: Tool = ticketFieldTool({
     "Sets the title of one ticket; description, status, parent and milestone stay unchanged. The title is trimmed and must be 1 to 200 characters.",
   expected: "expectedTitle",
   value: "title",
-  schema: { type: "string", minLength: 1, maxLength: 200 },
+  schema: IDENTIFIER_SCHEMA,
 });
 
 /** Changes only the description of one ticket. */
@@ -77,7 +75,7 @@ export const TICKET_SET_STATUS_TOOL: Tool = ticketFieldTool({
     "Moves one ticket to another status of its project (an ID from read_ticket statuses); title, description, parent and milestone stay unchanged, and no other ticket is touched. expectedStatusId is the statusId you read.",
   expected: "expectedStatusId",
   value: "statusId",
-  schema: { type: "string", minLength: 1, maxLength: 200 },
+  schema: IDENTIFIER_SCHEMA,
 });
 
 /** Changes only the parent of one ticket. */
@@ -88,5 +86,5 @@ export const TICKET_SET_PARENT_TOOL: Tool = ticketFieldTool({
     "Moves one ticket below another visible ticket of the same project (an ID, key or Pages address), or removes its parent with null. The parent must have the type the hierarchy requires: epics below initiatives, tasks below epics, subtasks below tasks. expectedParentId is the parentId you read (null when it had none). Title, description, status and milestone stay unchanged.",
   expected: "expectedParentId",
   value: "parentId",
-  schema: { type: ["string", "null"], minLength: 1, maxLength: 200 },
+  schema: NULLABLE_IDENTIFIER_SCHEMA,
 });

@@ -1,6 +1,28 @@
 import { instanceEndpoint } from "./instance-address.js";
+import { isRecord } from "./is-record.js";
+import {
+  PAIRED_TOKEN_PATTERN,
+  REQUEST_TIMEOUT_MS,
+} from "./request-constants.js";
 
 import type { McpPairedCredential } from "../../definition/McpPairing.js";
+
+const PAIRING_RESPONSE_CODES = [
+  "authorization_pending",
+  "slow_down",
+  "access_denied",
+  "expired_token",
+  "invalid_grant",
+  "temporarily_unavailable",
+] as const;
+
+/** Known device-flow responses and local transport/validation failures. */
+export type PairingClientErrorCode =
+  | (typeof PAIRING_RESPONSE_CODES)[number]
+  | "wrong_instance"
+  | "handoff_failed"
+  | "cancelled"
+  | "network";
 
 /** Device-only request response; callers must never print its secret. */
 export interface DevicePairingRequest {
@@ -12,18 +34,14 @@ export interface DevicePairingRequest {
 
 /** Stable protocol or network failure with no server-supplied diagnostics. */
 export class PairingClientError extends Error {
-  public readonly code: string;
+  public readonly code: PairingClientErrorCode;
   public readonly retryAfter: number;
 
-  public constructor(code: string, retryAfter = 0) {
+  public constructor(code: PairingClientErrorCode, retryAfter = 0) {
     super("Pages pairing failed.");
     this.code = code;
     this.retryAfter = retryAfter;
   }
-}
-
-function isRecord(input: unknown): input is Record<string, unknown> {
-  return typeof input === "object" && input !== null && !Array.isArray(input);
 }
 
 /** Pages pairing adapter that neither follows redirects nor reflects bodies in errors. */
@@ -49,7 +67,7 @@ export class PairingClient {
         result.userCode,
       ) ||
       typeof result.deviceSecret !== "string" ||
-      !/^[A-Za-z0-9_-]{43}$/.test(result.deviceSecret) ||
+      !PAIRED_TOKEN_PATTERN.test(result.deviceSecret) ||
       typeof result.expiresAt !== "number" ||
       !Number.isSafeInteger(result.expiresAt) ||
       result.interval !== 5
@@ -76,7 +94,7 @@ export class PairingClient {
     if (
       !isRecord(result) ||
       typeof result.token !== "string" ||
-      !/^[A-Za-z0-9_-]{43}$/.test(result.token) ||
+      !PAIRED_TOKEN_PATTERN.test(result.token) ||
       typeof result.tokenId !== "string" ||
       !result.tokenId ||
       typeof result.name !== "string" ||
@@ -123,8 +141,8 @@ export class PairingClient {
           method: "POST",
           redirect: "error",
           signal: signal
-            ? AbortSignal.any([signal, AbortSignal.timeout(5000)])
-            : AbortSignal.timeout(5000),
+            ? AbortSignal.any([signal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)])
+            : AbortSignal.timeout(REQUEST_TIMEOUT_MS),
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
@@ -146,17 +164,10 @@ export class PairingClient {
         isRecord(result) && typeof result.error === "string"
           ? result.error
           : "wrong_instance";
-      const allowed = [
-        "authorization_pending",
-        "slow_down",
-        "access_denied",
-        "expired_token",
-        "invalid_grant",
-        "temporarily_unavailable",
-      ];
       const retryAfter = Number(response.headers.get("Retry-After"));
       throw new PairingClientError(
-        allowed.includes(error) ? error : "wrong_instance",
+        PAIRING_RESPONSE_CODES.find((code) => code === error) ??
+          "wrong_instance",
         Number.isFinite(retryAfter)
           ? Math.min(Math.max(retryAfter, 0), 3600)
           : 0,

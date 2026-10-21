@@ -1,12 +1,15 @@
-import { PROJECT_DELETION_CONFIRMATIONS } from "../../../definition/AgentProjectDeletion.js";
+import {
+  CONFIRMATION_SCHEMA,
+  DESTRUCTIVE_ANNOTATIONS,
+  IDENTIFIER_SCHEMA,
+  READ_ANNOTATIONS,
+} from "./tool-definition.js";
 
 import type { Tool } from "@modelcontextprotocol/server";
 import type {
   AgentProjectDeletionReadOperation,
   AgentProjectDeletionWriteOperation,
 } from "../../../definition/AgentProjectDeletion.js";
-
-const IDENTIFIER = { type: "string", minLength: 1, maxLength: 200 } as const;
 
 const RIGHTS =
   "Pages requires current personal administrator eligibility on every call, regardless of UI role mode and of any project role or the right to manage all projects; anyone else gets FORBIDDEN and nothing is read or changed. Only administrators see this tool in tools/list at all.";
@@ -23,16 +26,11 @@ export const PROJECT_DELETION_SCOPE_TOOL: {
     description: `Reads the concrete project that delete_admin_project would target and the extent of the data its permanent deletion removes: the project (name, status, archived or active, departments), counts of tickets and subtickets with their attachments, checklist items, links and history, milestones and dependencies, wiki pages with comments and attachments, agent plans, plan runs and registered workspaces, imports, members, department assignments, goals, events, activity, GitHub and Discord records and project templates, and the number of references elsewhere that the deletion clears (template assignments, wiki anchors and links, saved board filters). Changes nothing. Show the project and the counts to the user before asking for the confirmation. projectId is a project ID from resolve_project or read_project; an unknown project returns NOT_FOUND. ${RIGHTS} Responses are limited to 1 MiB UTF-8 JSON.`,
     inputSchema: {
       type: "object",
-      properties: { projectId: IDENTIFIER },
+      properties: { projectId: IDENTIFIER_SCHEMA },
       required: ["projectId"],
       additionalProperties: false,
     },
-    annotations: {
-      readOnlyHint: true,
-      destructiveHint: false,
-      idempotentHint: true,
-      openWorldHint: false,
-    },
+    annotations: READ_ANNOTATIONS,
   },
 };
 
@@ -49,21 +47,13 @@ export const PROJECT_DELETE_TOOL: {
     inputSchema: {
       type: "object",
       properties: {
-        operationId: IDENTIFIER,
-        projectId: IDENTIFIER,
-        confirmation: {
-          type: "string",
-          enum: [...PROJECT_DELETION_CONFIRMATIONS],
-        },
+        operationId: IDENTIFIER_SCHEMA,
+        projectId: IDENTIFIER_SCHEMA,
+        confirmation: CONFIRMATION_SCHEMA,
       },
       required: ["operationId", "projectId", "confirmation"],
       additionalProperties: false,
     },
-    annotations: {
-      readOnlyHint: false,
-      destructiveHint: true,
-      idempotentHint: true,
-      openWorldHint: false,
-    },
+    annotations: DESTRUCTIVE_ANNOTATIONS,
   },
 };
