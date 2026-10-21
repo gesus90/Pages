@@ -23,13 +23,9 @@ import { WorkItemAttachmentRepository } from "@/backend/database/repositories/ta
 import { WorkItemTemplateRepository } from "@/backend/database/repositories/task/WorkItemTemplateRepository";
 import { WorkItemTreeRepository } from "@/backend/database/repositories/task/WorkItemTreeRepository";
 import { UserRepository } from "@/backend/database/repositories/UserRepository";
-import { UserBoardPreferencesRepository } from "@/backend/database/repositories/UserBoardPreferencesRepository";
-import { UserSettingsRepository } from "@/backend/database/repositories/UserSettingsRepository";
 import { WikiRepository } from "@/backend/database/repositories/WikiRepository";
-import { BoardPreferencesService } from "@/backend/service/BoardPreferencesService";
 import { HealthService } from "@/backend/service/HealthService";
 import { InstanceSettingsService } from "@/backend/service/InstanceSettingsService";
-import { SettingsService } from "@/backend/service/SettingsService";
 import { GitHubSyncService } from "@/backend/service/GitHubSyncService";
 import { ProjectService } from "@/backend/service/ProjectService";
 import { ProjectDeletionStorage } from "@/backend/service/project/ProjectDeletionStorage";
@@ -59,6 +55,7 @@ import { createChatServices } from "./chat-services.server";
 import { createAgentPlanService } from "./agent-plan-services.server";
 import { createMcpServices } from "./mcp-services.server";
 import { createDiscordServices } from "./discord-services.server";
+import { createPreferenceServices } from "./preference-services.server";
 
 import type { AgentAssetService } from "@/backend/service/agents/AgentAssetService";
 import type { TaskService } from "@/backend/service/TaskService";
@@ -75,6 +72,7 @@ import type { AgentPlanServices } from "./agent-plan-services.server";
 import type { AgentPlanMcpSettings } from "@/backend/service/agents/AgentPlanSessionAccess";
 import type { McpApplicationServices } from "./mcp-services.server";
 import type { DiscordApplicationServices } from "./discord-services.server";
+import type { PreferenceApplicationServices } from "./preference-services.server";
 
 /** Server-only service instances shared by React Router loaders and actions. */
 export interface ApplicationServices
@@ -82,7 +80,8 @@ export interface ApplicationServices
     AgentApplicationServices,
     ChatApplicationServices,
     McpApplicationServices,
-    DiscordApplicationServices {
+    DiscordApplicationServices,
+    PreferenceApplicationServices {
   readonly administrationService: AdministrationService;
   readonly agentPlanService: AgentPlanService;
   /** The personal node templates of the plan editor. */
@@ -94,10 +93,8 @@ export interface ApplicationServices
   readonly authService: AuthService;
   readonly sessionService: SessionService;
   readonly userService: UserService;
-  readonly boardPreferencesService: BoardPreferencesService;
   readonly healthService: HealthService;
   readonly instanceSettingsService: InstanceSettingsService;
-  readonly settingsService: SettingsService;
   readonly projectService: ProjectService;
   readonly taskService: TaskService;
   readonly taskTemplateService: TaskTemplateService;
@@ -278,8 +275,8 @@ async function initializeServices(
     permissionService,
     administrationService,
   );
-  const { settingsService, boardPreferencesService } =
-    createPreferenceServices(database);
+  const { settingsService, designThemeService, boardPreferencesService } =
+    createPreferenceServices(database, databasePath);
   const tokenKey = resolveGitHubTokenKey(databasePath);
   const projectService = new ProjectService(
     projectRepository,
@@ -345,6 +342,7 @@ async function initializeServices(
       new LoginThrottle(),
     ),
     boardPreferencesService,
+    designThemeService,
     groupAdministrationService,
     ...workspaceServices,
     passwordHasher,
@@ -736,15 +734,4 @@ export function activateApplicationServices(
   globalThis.pagesServices = initializeServices(database, databasePath);
 
   return globalThis.pagesServices;
-}
-
-function createPreferenceServices(
-  database: Database,
-): Pick<ApplicationServices, "settingsService" | "boardPreferencesService"> {
-  return {
-    settingsService: new SettingsService(new UserSettingsRepository(database)),
-    boardPreferencesService: new BoardPreferencesService(
-      new UserBoardPreferencesRepository(database),
-    ),
-  };
 }

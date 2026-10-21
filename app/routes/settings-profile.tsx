@@ -21,6 +21,7 @@ import { getSessionToken } from "@/app/lib/session.server";
 import { UserPolicyService } from "@/backend/auth/UserPolicyService";
 
 import type { SettingsActionResult } from "@/app/lib/settings-actions/settings-action-support.server";
+import type { DesignThemeSelection } from "@/definition/DesignTheme";
 import type { SessionSummary } from "@/definition/Session";
 import type { UserSettings } from "@/definition/Settings";
 import type { User } from "@/definition/User";
@@ -32,6 +33,8 @@ interface SettingsLoaderData {
   readonly user: User;
   readonly email: string | null;
   readonly settings: UserSettings;
+  /** The installed design themes, read from the theme directory on every load. */
+  readonly designThemes: DesignThemeSelection;
   readonly sessions: readonly SessionSummary[];
   readonly canEditProfile: boolean;
 }
@@ -58,10 +61,14 @@ export async function loader({
   ]);
   const account = await services.administrationService.getContext(user.id);
   const canEditProfile = new UserPolicyService().isAdministrator(account);
+  const designThemes = await services.designThemeService.getSelection(user.id, {
+    includeSkipped: account.isAdmin,
+  });
 
   return {
     account,
     canEditProfile,
+    designThemes,
     email,
     sessions,
     settings,
@@ -89,6 +96,7 @@ export default function SettingsProfileRoute(): React.ReactElement {
     user,
     email,
     settings: loadedSettings,
+    designThemes,
     sessions,
     canEditProfile,
   } = useLoaderData<typeof loader>();
@@ -136,7 +144,11 @@ export default function SettingsProfileRoute(): React.ReactElement {
               onRevokeSession={handleRevokeSession}
               onRevokeOtherSessions={() => setIsRevokeAllDialogOpen(true)}
             />
-            <AppearanceCard settings={settings} onChange={persistSettings} />
+            <AppearanceCard
+              designThemes={designThemes}
+              settings={settings}
+              onChange={persistSettings}
+            />
             <RegionCard settings={settings} onChange={persistSettings} />
           </div>
         </div>

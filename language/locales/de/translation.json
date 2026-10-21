@@ -487,12 +487,25 @@
     },
     "appearance": {
       "title": "Darstellung",
-      "description": "Wählen Sie, ob Pages hell oder dunkel dargestellt wird.",
+      "description": "Wählen Sie, ob Pages hell oder dunkel dargestellt wird, und welches Design es trägt.",
       "theme": "Farbschema",
       "light": "Hell",
       "dark": "Dunkel",
       "system": "System",
-      "systemHint": "System übernimmt die Einstellung Ihres Geräts und folgt ihr, sobald sie sich ändert."
+      "systemHint": "System übernimmt die Einstellung Ihres Geräts und folgt ihr, sobald sie sich ändert.",
+      "design": {
+        "label": "Design",
+        "hint": "Das Design bestimmt Farben und Oberflächen. Hell, Dunkel und System oben gelten unabhängig davon.",
+        "only": {
+          "light": "Nur hell",
+          "dark": "Nur dunkel"
+        },
+        "error": {
+          "unknownTheme": "Dieses Design ist nicht mehr verfügbar. Die Liste wurde aktualisiert.",
+          "general": "Das Design konnte nicht gespeichert werden. Die bisherige Auswahl bleibt erhalten."
+        },
+        "skipped": "Übersprungene Design-Verzeichnisse (nur für Administratoren sichtbar):"
+      }
     },
     "region": {
       "title": "Sprache & Region",

@@ -5,6 +5,7 @@ import {
   handleUpdateSettings,
 } from "./settings-account-actions.server";
 import { runSettingsAction } from "./settings-action-support.server";
+import { handleUpdateDesignTheme } from "./settings-design-theme-action.server";
 import { handleSetMode } from "./settings-mode-action.server";
 import {
   handleUpdateAvatar,
@@ -23,6 +24,7 @@ const SETTINGS_ACTION_HANDLERS = {
   "revoke-other-sessions": handleRevokeOtherSessions,
   "revoke-session": handleRevokeSession,
   "update-avatar": handleUpdateAvatar,
+  "update-design-theme": handleUpdateDesignTheme,
   "update-profile": handleUpdateProfile,
   "update-settings": handleUpdateSettings,
 } satisfies Record<string, SettingsActionHandler>;

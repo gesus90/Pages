@@ -39,6 +39,12 @@ export type SettingsActionData =
       readonly error: "invalidSetting" | "general";
     }
   | { readonly intent: "set-mode"; readonly ok: boolean }
+  | { readonly intent: "update-design-theme"; readonly ok: true }
+  | {
+      readonly intent: "update-design-theme";
+      readonly ok: false;
+      readonly error: "unknownTheme" | "general";
+    }
   | {
       readonly intent: "change-password";
       readonly outcome: PasswordChangeOutcome;

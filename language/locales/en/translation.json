@@ -487,12 +487,25 @@
     },
     "appearance": {
       "title": "Appearance",
-      "description": "Choose whether Pages is shown light or dark.",
+      "description": "Choose whether Pages is shown light or dark, and which design it wears.",
       "theme": "Color scheme",
       "light": "Light",
       "dark": "Dark",
       "system": "System",
-      "systemHint": "System uses the setting of your device and follows it when it changes."
+      "systemHint": "System uses the setting of your device and follows it when it changes.",
+      "design": {
+        "label": "Design",
+        "hint": "The design sets colors and surfaces. Light, dark and system above apply independently of it.",
+        "only": {
+          "light": "Light only",
+          "dark": "Dark only"
+        },
+        "error": {
+          "unknownTheme": "This design is no longer available. The list was refreshed.",
+          "general": "The design could not be saved. Your previous choice is kept."
+        },
+        "skipped": "Skipped design directories (visible to administrators only):"
+      }
     },
     "region": {
       "title": "Language & region",

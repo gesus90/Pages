@@ -101,6 +101,62 @@ export class UserSettingsRepository {
   }
 
   /**
+   * Returns the identifier of the design theme a user has chosen.
+   *
+   * @param userId - User identifier.
+   * @returns The stored identifier, or `null` when the user never chose one.
+   */
+  public async findDesignThemeId(userId: string): Promise<string | null> {
+    const rows = await this.database.query(
+      `
+        SELECT
+            design_theme
+        FROM user_settings
+        WHERE user_id = $user_id;
+      `,
+      { user_id: userId },
+    );
+
+    const row = rows[0];
+
+    return row ? readNullableTextColumn(row, 0, "design_theme") : null;
+  }
+
+  /**
+   * Creates or updates only the design theme a user has chosen.
+   *
+   * @param userId - User identifier.
+   * @param designThemeId - Identifier of the design theme to persist.
+   *
+   * @remarks
+   * Every other setting of the row stays as it is; a user without a row gets
+   * the defaults of the table for them.
+   */
+  public async upsertDesignTheme(
+    userId: string,
+    designThemeId: string,
+  ): Promise<void> {
+    await this.database.execute(
+      `
+        INSERT INTO user_settings (
+            user_id,
+            design_theme,
+            updated_at
+        )
+        VALUES (
+            $user_id,
+            $design_theme,
+            utc_now()
+        )
+        ON CONFLICT (user_id) DO UPDATE SET
+            design_theme = excluded.design_theme,
+            updated_at = excluded.updated_at;
+      `,
+      { user_id: userId, design_theme: designThemeId },
+    );
+  }
+
+  /**
    * Returns the complete settings row of a user.
    *
    * @param userId - User identifier.

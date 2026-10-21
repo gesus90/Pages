@@ -28,6 +28,10 @@ export default [
   layout("routes/authenticated.tsx", [
     route("settings-api/interpreters", "routes/settings-interpreters.ts"),
     route("account-version", "routes/account-version.ts"),
+    route(
+      "design-themes/:designThemeId/preview",
+      "routes/design-theme-preview.ts",
+    ),
     route("chat-api", "routes/chat-api.ts"),
     route("chat-api/attachments", "routes/chat-attachments.ts"),
     route("chat/attachments/:attachmentId", "routes/chat-attachment.ts"),

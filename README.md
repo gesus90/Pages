@@ -2056,10 +2056,11 @@ trustedProxies = ["127.0.0.1", "::1"] # addresses or ranges such as "172.18.0.0/
     ├── github-token.key      instance key, unless PAGES_GITHUB_TOKEN_KEY is set
     ├── wiki-attachments/     wiki attachments
     ├── ticket-attachments/   ticket attachments
+    ├── themes/               design themes, one directory each (optional)
     └── agents/               isolated logins of CLI model connections
 ```
 
-`Agents/` sits next to `config.toml`. The key file and the three folders below
+`Agents/` sits next to `config.toml`. The key file and the folders below
 `data/` always sit next to the database file, wherever `databasePath` points.
 
 When Pages opens the database, it applies the numbered migrations from
@@ -2067,6 +2068,68 @@ When Pages opens the database, it applies the numbered migrations from
 change is a new migration; Pages rejects an applied migration whose content
 changed. DuckDB allows one writing process per file: a second server or another
 tool cannot open the database while Pages runs.
+
+### Design themes (PAGE-36)
+
+A design theme changes the colors and surfaces of the whole interface for one
+user. Every user chooses theirs in **Settings → Personal → Appearance**; the
+choice is stored per user, independently of the color mode (light, dark,
+system). Only the identifier of the theme is stored. Pages ships one theme,
+`standard`, which is built in, cannot be removed and looks as Pages always did.
+
+More themes are installed by putting a directory into `themes/` next to the
+database file (`~/.pages/data/themes/` by default). No restart is needed: the
+directory is read again whenever somebody opens the appearance settings, and a
+theme that was edited or removed is noticed on the next page load. A removed
+theme (and one whose manifest became invalid) is no longer offered, and users
+who had chosen it see the Standard design until it is installed again; their
+stored choice is kept. There is no upload in the interface.
+
+```text
+themes/
+└── arctic-ice/               the directory name is the identifier
+    ├── theme.json            manifest (required)
+    └── preview.png           preview image (optional, PNG/JPEG/WebP, up to 1 MiB)
+```
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "arctic-ice",
+  "name": { "de": "Arktis", "en": "Arctic ice" },
+  "description": { "de": "Kühle Blautöne.", "en": "Cool blues." },
+  "modes": ["light", "dark"],
+  "colors": {
+    "light": { "background": "#eef6fb", "primary": "#0e7fb8" },
+    "dark": { "background": "#0a1822", "primary": "#38bdf8" }
+  },
+  "materials": { "shadowStrength": 1.5, "shadowEdgeAlpha": 6 },
+  "preview": "preview.png"
+}
+```
+
+- `id`: lower-case words joined by hyphens, beginning with a letter, at most 40
+  characters, equal to the directory name. `standard` is reserved.
+- `name` and `description` hold both languages; names have at most 48 and
+  descriptions at most 200 characters.
+- `modes` lists the supported color modes. A theme applies only while a mode it
+  supports is in effect; in the other mode the Standard design stays.
+- `colors` gives hexadecimal colors (`#rgb`, `#rrggbb`, `#rrggbbaa`) per mode.
+  The roles are the color tokens `background`, `surface`, `surface-hover`,
+  `card`, `sidebar`, `sidebar-hover`, `muted`, `foreground`,
+  `muted-foreground`, `border`, `primary`, `primary-hover`, `primary-subtle`,
+  `primary-foreground` and `ring`; a role that is left out keeps the Standard
+  value. Pages turns the roles into custom properties itself; a manifest cannot
+  carry CSS.
+- `materials` (optional) sets `shadowStrength` (0 to 8; the Standard design uses
+  1 in light and 4 in dark) and `shadowEdgeAlpha` (0 to 100, in percent).
+- Unknown keys and values outside these ranges make the manifest invalid.
+- The color of the browser's address bar (`theme-color`) follows the Standard
+  palette in every theme.
+
+A directory with an invalid manifest is skipped, never half applied. The reason
+is written to the server log once (`Design theme directory "<name>" was
+skipped: …`) and shown to administrators below the theme cards.
 
 ### Server logging (PAGE-67)
 

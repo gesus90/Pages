@@ -5,10 +5,12 @@ import {
   ControlRow,
   SettingsCard,
 } from "@/app/components/settings/settings-layout";
+import { DesignThemePicker } from "@/app/components/settings/design-theme-picker";
 import { SegmentedControl } from "@/app/components/ui/segmented-control";
 import { USER_THEMES } from "@/definition/Settings";
 
 import type { SegmentedControlOption } from "@/app/components/ui/segmented-control";
+import type { DesignThemeSelection } from "@/definition/DesignTheme";
 import type { UserSettings, UserTheme } from "@/definition/Settings";
 
 const THEME_ICONS = {
@@ -19,12 +21,17 @@ const THEME_ICONS = {
 
 interface AppearanceCardProps {
   readonly settings: UserSettings;
+  readonly designThemes: DesignThemeSelection;
   readonly onChange: (patch: Partial<UserSettings>) => void;
 }
 
-/** Renders the choice between the light, the dark and the system theme. */
+/**
+ * Renders the choice between the light, the dark and the system theme, and
+ * below it the choice of the design theme.
+ */
 export function AppearanceCard({
   settings,
+  designThemes,
   onChange,
 }: AppearanceCardProps): React.ReactElement {
   const { t } = useTranslation();
@@ -55,6 +62,7 @@ export function AppearanceCard({
         <p className="-mt-2 text-xs leading-relaxed text-muted-foreground">
           {t("settings.appearance.systemHint")}
         </p>
+        <DesignThemePicker selection={designThemes} />
       </div>
     </SettingsCard>
   );

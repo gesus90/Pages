@@ -13,6 +13,7 @@ import {
   useRouteLoaderData,
 } from "react-router";
 
+import { useDocumentDesignTheme } from "@/app/components/common/use-document-design-theme";
 import { useDocumentTheme } from "@/app/components/common/use-document-theme";
 import { DraftProvider } from "@/app/components/common/draft-provider";
 import { BackgroundSaveStatus } from "@/app/components/common/background-save-status";
@@ -36,6 +37,7 @@ import {
   requireFinishedSetup,
 } from "@/app/lib/setup-gate.server";
 import stylesheet from "@/app/styles/tailwind.css?url";
+import { STANDARD_ACTIVE_DESIGN_THEME } from "@/definition/DesignTheme";
 import { DEFAULT_USER_SETTINGS } from "@/definition/Settings";
 import { LANGUAGE } from "@/language/Language";
 
@@ -46,6 +48,7 @@ import type {
   MetaFunction,
   MiddlewareFunction,
 } from "react-router";
+import type { ActiveDesignTheme } from "@/definition/DesignTheme";
 import type { UserTheme } from "@/definition/Settings";
 import type { Language } from "@/language/Language";
 import type { Route } from "./+types/root";
@@ -70,18 +73,20 @@ function resolveErrorKind(error: unknown): ErrorKind {
 export const middleware: MiddlewareFunction[] = [requireFinishedSetup];
 
 /**
- * Selects the document language and color theme.
+ * Selects the document language, color mode and design theme.
  *
  * @remarks
- * Signed-in visitors use their persisted personal language and theme.
- * Everyone else falls back to their browser's `Accept-Language` preference
- * and to the default theme `system`, which follows the operating system.
- * The setup wizard starts in German unless the visitor chose a language;
- * it never touches the services, because no database exists yet.
+ * Signed-in visitors use their persisted personal language, color mode and
+ * design theme. Everyone else falls back to their browser's
+ * `Accept-Language` preference, to the default mode `system`, which follows
+ * the operating system, and to the Standard design. The setup wizard starts
+ * in German unless the visitor chose a language; it never touches the
+ * services, because no database exists yet.
  */
 export async function loader({ request }: Route.LoaderArgs): Promise<{
   language: Language;
   theme: UserTheme;
+  designTheme: ActiveDesignTheme;
   draftOwnerId: string | null;
 }> {
   const { theme: defaultTheme } = DEFAULT_USER_SETTINGS;
@@ -90,6 +95,7 @@ export async function loader({ request }: Route.LoaderArgs): Promise<{
     return {
       language: await resolveSetupLanguage(request),
       theme: defaultTheme,
+      designTheme: STANDARD_ACTIVE_DESIGN_THEME,
       draftOwnerId: null,
     };
   }
@@ -98,11 +104,15 @@ export async function loader({ request }: Route.LoaderArgs): Promise<{
 
   if (user) {
     const services = await getApplicationServices();
-    const settings = await services.settingsService.getUserSettings(user.id);
+    const [settings, designTheme] = await Promise.all([
+      services.settingsService.getUserSettings(user.id),
+      services.designThemeService.getActiveTheme(user.id),
+    ]);
 
     return {
       language: settings.language,
       theme: settings.theme,
+      designTheme,
       draftOwnerId: user.id,
     };
   }
@@ -110,6 +120,7 @@ export async function loader({ request }: Route.LoaderArgs): Promise<{
   return {
     language: await resolveAnonymousLanguage(request),
     theme: defaultTheme,
+    designTheme: STANDARD_ACTIVE_DESIGN_THEME,
     draftOwnerId: null,
   };
 }
@@ -129,11 +140,12 @@ export const headers: HeadersFunction = () => createSecurityHeaders();
  * Provides the HTML document and request-scoped localization provider.
  *
  * @remarks
- * The theme is written to the document root, so the server renders the same
- * attribute the client hydrates and the stylesheet needs no script to choose
- * a palette. Also renders around thrown-response error pages (for example a
- * 403 from a permission check), where the router does not provide this
- * route's own loader data, so a default language and theme are used instead.
+ * The color mode and the design theme are written to the document root, and
+ * the stylesheet of a design theme sits in the head, so the server renders
+ * what the client hydrates and no script is needed to choose a palette. Also
+ * renders around thrown-response error pages (for example a 403 from a
+ * permission check), where the router does not provide this route's own
+ * loader data, so a default language, mode and design are used instead.
  */
 export function Layout({
   children,
@@ -143,6 +155,7 @@ export function Layout({
   const loaderData = useRouteLoaderData<typeof loader>("root");
   const language = loaderData?.language ?? LANGUAGE.GERMAN;
   const theme = useDocumentTheme(loaderData?.theme);
+  const designTheme = useDocumentDesignTheme(loaderData?.designTheme);
   const i18n = createI18n(language);
   const [draftOwnerId, setDraftOwnerId] = useState(
     loaderData?.draftOwnerId ?? null,
@@ -154,7 +167,7 @@ export function Layout({
   }
 
   return (
-    <html lang={language} data-theme={theme}>
+    <html lang={language} data-design-theme={designTheme.id} data-theme={theme}>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -170,6 +183,9 @@ export function Layout({
         <link rel="icon" type="image/png" href="/assets/icon.png" />
         <Meta />
         <Links />
+        {designTheme.stylesheet === null ? null : (
+          <style id="design-theme-stylesheet">{designTheme.stylesheet}</style>
+        )}
       </head>
       <body>
         <I18nextProvider i18n={i18n}>
