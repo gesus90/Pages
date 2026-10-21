@@ -3160,10 +3160,7 @@
         "interrupted": "Der Server hat die Antwort unterbrochen."
       },
       "partial": "Teilantwort bis zum Abbruch (nicht gespeichert):",
-      "stop": "Stoppen",
-      "steerHint": "Pica antwortet noch. Eine neue Nachricht fließt in die laufende Antwort ein; nur „Stoppen“ bricht sie ab.",
-      "preparingHint": "Pica bereitet die Sitzung vor. Weitere Nachrichten werden danach beantwortet. Nur „Stoppen“ bricht den Auftrag ab.",
-      "followUpHint": "Dieser Chat-Agent unterstützt kein Steering in eine laufende Antwort. Eine neue Nachricht erhält danach eine eigene Folgeantwort. Nur „Stoppen“ bricht den Auftrag ab."
+      "stop": "Stoppen"
     },
     "quotaDemo": {
       "badge": "Demo",

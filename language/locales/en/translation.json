@@ -3160,10 +3160,7 @@
         "interrupted": "The server interrupted the answer."
       },
       "partial": "Partial answer up to the end (not saved):",
-      "stop": "Stop",
-      "steerHint": "Pica is still answering. A new message joins the running answer; only “Stop” cancels it.",
-      "preparingHint": "Pica is preparing the session. Additional messages will be answered afterwards. Only “Stop” cancels the job.",
-      "followUpHint": "This chat agent does not support steering a running answer. A new message receives its own follow-up answer afterwards. Only “Stop” cancels the job."
+      "stop": "Stop"
     },
     "quotaDemo": {
       "badge": "Demo",

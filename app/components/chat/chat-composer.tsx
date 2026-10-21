@@ -10,7 +10,7 @@ import { cn } from "@/app/lib/cn";
 import { ChatMaintenanceStatus } from "./chat-maintenance-status";
 import { ChatComposerFiles } from "./chat-composer-files";
 import { ChatContextIndicator } from "./chat-context-indicator";
-import { ChatJobSteerHint, ChatJobStopButton } from "./chat-job-controls";
+import { ChatJobStopButton } from "./chat-job-controls";
 import { ChatQuotaDemoStatus } from "./chat-quota-demo";
 import { useChatEditor } from "./use-chat-editor";
 import styles from "./chat-composer.module.css";
@@ -58,12 +58,11 @@ function ChatComposerActions({
     <div className="relative mt-2 flex flex-wrap items-center gap-2">
       <Button
         aria-label={t("chat.attach")}
-        className="shrink-0 border-2 border-primary text-primary hover:border-primary-hover hover:bg-primary-subtle hover:text-primary-hover active:border-primary-hover active:bg-primary/15 disabled:border-primary/60 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
+        className="h-11 shrink-0 text-ink xl:h-9"
         disabled={!canAttach}
         onClick={() => fileInput.current?.click()}
         size="icon"
         title={t("chat.attach")}
-        variant="outline"
       >
         <Plus aria-hidden="true" className="size-4" />
       </Button>
@@ -89,7 +88,7 @@ function ChatComposerActions({
           </Button>
         ) : (
           <Button
-            className="gap-1 px-1.5 text-sm xl:gap-1.5 xl:px-3"
+            className="h-11 gap-1 px-1.5 text-sm xl:h-9 xl:gap-1.5 xl:px-3"
             disabled={!canSend}
             onClick={onSubmit}
           >
@@ -169,7 +168,6 @@ export function ChatComposer({
           {t("chat.commands")}
         </p>
       ) : null}
-      <ChatJobSteerHint jobs={chat.jobs} />
       <ChatComposerActions
         chat={chat}
         isOpen={isOpen}
