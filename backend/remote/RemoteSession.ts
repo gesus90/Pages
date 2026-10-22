@@ -71,6 +71,7 @@ export class RemoteSession {
   private cause: RemoteFailureCode | null = null;
   private connectedAt: string | null = null;
   private retryTimer: NodeJS.Timeout | null = null;
+  private attempting: Promise<void> | null = null;
   private idleTimer: NodeJS.Timeout | null = null;
   private activeCommands = 0;
   // Each close or new series invalidates the callbacks of the previous one.
@@ -171,7 +172,26 @@ export class RemoteSession {
     this.generation += 1;
     this.status = "reconnecting";
     this.attempts = 0;
-    void this.attempt(this.generation);
+    void this.runAttempt(this.generation);
+  }
+
+  /**
+   * A person's explicit retry, such as opening a console: a running series
+   * makes its next attempt at once and a blocked one starts anew.
+   *
+   * @remarks
+   * The attempt counts against the series, so its bound stays; an attempt
+   * already under way is awaited, not doubled.
+   *
+   * @returns Settles when that attempt has ended.
+   */
+  public async attemptNow(): Promise<void> {
+    if (this.status === "blocked") this.reconnect();
+    else if (this.status === "reconnecting" && this.retryTimer !== null) {
+      clearTimeout(this.retryTimer);
+      void this.runAttempt(this.generation);
+    }
+    await this.attempting;
   }
 
   /** Ends the connection and any series on purpose, for example after the connection changed. */
@@ -270,9 +290,20 @@ export class RemoteSession {
     const generation = this.generation;
     this.nextAttemptAt = new Date(Date.now() + delay).toISOString();
     this.retryTimer = setTimeout(() => {
-      void this.attempt(generation);
+      void this.runAttempt(generation);
     }, delay);
     this.retryTimer.unref();
+  }
+
+  /** Keeps the attempt under way, so a person's retry can wait for it. */
+  private async runAttempt(generation: number): Promise<void> {
+    const attempt = this.attempt(generation);
+    this.attempting = attempt;
+    try {
+      await attempt;
+    } finally {
+      if (this.attempting === attempt) this.attempting = null;
+    }
   }
 
   private async attempt(generation: number): Promise<void> {

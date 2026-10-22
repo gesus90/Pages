@@ -49,6 +49,21 @@ export function canUseRemoteConnection(
   );
 }
 
+/**
+ * A console needs the membership itself: it opens a shell on the machine,
+ * which the administrator role does not grant on its own.
+ *
+ * @param actor - The current account.
+ * @param departmentId - The department the connection is shared with.
+ * @returns Whether the person may open a console over the connection.
+ */
+export function canOpenRemoteConsole(
+  actor: AccountAccess,
+  departmentId: string,
+): boolean {
+  return actor.isActive && actor.departments.includes(departmentId);
+}
+
 function departmentIds(project: Project): readonly string[] {
   return project.departments.map((department) => department.id);
 }

@@ -1,5 +1,5 @@
 import { MoreHorizontal } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
 
@@ -17,6 +17,7 @@ import { formatDateTime } from "@/app/lib/region-format";
 import { WorkspaceNameCell } from "../workspace-row";
 import { RemoteActionMessage } from "./remote-action-message";
 import { RemoteWorkspaceDelete } from "./remote-workspace-delete";
+import { workspaceConsoleTarget } from "./console/console-target";
 import { RemoteConsolePanel } from "./console/remote-console-panel";
 
 import type {
@@ -79,11 +80,16 @@ function RemoteWorkspaceActions(props: {
   const { t } = useTranslation();
   const [isDeleting, setDeleting] = useState(false);
   const [isConsoleOpen, setConsoleOpen] = useState(false);
+  const trigger = useRef<HTMLButtonElement>(null);
   const { workspace } = props;
+  function handleReview(): void {
+    setConsoleOpen(false);
+    props.onCheck();
+  }
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
+        <DropdownMenuTrigger asChild ref={trigger}>
           <Button
             size="icon-sm"
             variant="ghost"
@@ -128,8 +134,10 @@ function RemoteWorkspaceActions(props: {
       ) : null}
       {isConsoleOpen ? (
         <RemoteConsolePanel
-          workspace={workspace}
+          target={workspaceConsoleTarget(workspace)}
           onClose={() => setConsoleOpen(false)}
+          onReview={handleReview}
+          returnFocus={trigger}
         />
       ) : null}
     </>

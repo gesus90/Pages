@@ -62,7 +62,9 @@ function RemoteConnectionTable(props: {
   readonly onEdit: (connection: RemoteConnectionView) => void;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const hasActions = props.connections.some((entry) => entry.canManage);
+  const hasActions = props.connections.some(
+    (entry) => entry.canManage || entry.canOpenConsole,
+  );
   const columns: string[] = [...COLUMNS];
   if (hasActions) columns.push("actions");
   return (

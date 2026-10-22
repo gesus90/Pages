@@ -3517,49 +3517,93 @@
       }
     },
     "console": {
-      "action": "Konsole",
+      "action": "Konsole öffnen",
       "title": "Konsole · {{name}}",
+      "directConnection": "Direkte SSH-Verbindung",
+      "workspaceOn": "Arbeitsbereich auf {{name}}",
+      "address": "SSH",
+      "directory": "Startverzeichnis",
+      "directoryPending": "Anmeldeverzeichnis · wird ermittelt",
+      "directoryUnavailable": "Nicht verfügbar",
       "terminalLabel": "Interaktives Remote-Terminal",
+      "expand": "Konsole vergrößern",
+      "restore": "Konsolengröße wiederherstellen",
       "close": "Konsole schließen",
-      "closeTitle": "Konsole schließen?",
-      "closeDescription": "Die Shell-Sitzung für „{{name}}“ wird beendet. Laufende Befehle können dadurch abbrechen; andere Agent-Läufe bleiben unberührt.",
-      "reconnect": "Wiederverbinden",
-      "attempts": "Versuch {{count}} von {{maximum}}",
-      "exitCode": "Sitzung beendet (Exit-Code {{code}}).",
-      "reconnectHint": "Nach einem SSH-Verbindungsabbruch startet eine neue Shell im Arbeitsverzeichnis. Eingaben werden nicht wiederholt.",
-      "historyLost": "Die Terminal-Ausgabe konnte nicht vollständig wiederhergestellt werden. Die Sitzung wurde beendet.",
-      "inputOverflow": "Die Eingabe ist zu groß. Bitte schließen Sie die Konsole und öffnen Sie sie erneut.",
-      "streamBlocked": "Nach zehn Wiederverbindungsversuchen ist die Ausgabe blockiert. Bitte schließen Sie die Konsole.",
-      "streamLost": "Die Verbindung zur Terminal-Ausgabe wurde unterbrochen.",
-      "loadFailed": "Das Terminal konnte nicht geladen werden.",
       "status": {
-        "connecting": "Verbindung wird hergestellt …",
+        "connecting": "Wird verbunden",
         "connected": "Verbunden",
-        "reconnecting": "Wiederverbindung …",
-        "blocked": "Verbindung blockiert",
-        "ended": "Sitzung beendet"
+        "reconnecting": "Wiederverbindung · {{attempt}}/{{maximum}}",
+        "lost": "Verbindung verloren",
+        "exited": "Sitzung beendet",
+        "authFailed": "Anmeldung fehlgeschlagen",
+        "hostKeyChanged": "Hostschlüssel prüfen",
+        "unreachable": "Nicht erreichbar",
+        "ptyUnavailable": "Terminal nicht verfügbar",
+        "accessRevoked": "Zugriff entzogen",
+        "failed": "Verbindung fehlgeschlagen"
       },
+      "banner": {
+        "reconnecting": "Verbindung unterbrochen. Wiederverbindung wird versucht …",
+        "lost_one": "Verbindung nach {{count}} Versuch nicht wiederhergestellt. Die alte Shell ist nicht mehr erreichbar.",
+        "lost_other": "Verbindung nach {{count}} Versuchen nicht wiederhergestellt. Die alte Shell ist nicht mehr erreichbar.",
+        "exited": "Die Shell wurde regulär beendet · Exitstatus {{code}}."
+      },
+      "overlay": {
+        "connecting": {
+          "title": "Verbindung zu {{name}} wird aufgebaut",
+          "hint": "SSH-Verbindung und interaktive Shell werden geöffnet. Eingaben sind möglich, sobald die Shell bereit ist."
+        },
+        "authFailed": {
+          "title": "SSH-Anmeldung fehlgeschlagen",
+          "hint": "{{name}} hat die hinterlegten Zugangsdaten abgelehnt. Prüfe die Remote-Verbindung in der Verbindungsverwaltung."
+        },
+        "hostKeyChanged": {
+          "title": "Der Hostschlüssel hat sich geändert",
+          "hint": "Die Identität von {{name}} stimmt nicht mehr mit dem bestätigten Schlüssel überein. Die Verbindung wurde aus Sicherheitsgründen gestoppt."
+        },
+        "unreachable": {
+          "title": "{{name}} ist nicht erreichbar",
+          "hint": "Die SSH-Verbindung zu {{endpoint}} konnte nicht hergestellt werden. Prüfe Erreichbarkeit und SSH-Port."
+        },
+        "ptyUnavailable": {
+          "title": "Keine interaktive Shell verfügbar",
+          "hint": "Die SSH-Anmeldung war erfolgreich, aber {{name}} hat kein interaktives Terminal (PTY) bereitgestellt. Prüfe die SSH-Konfiguration des Zielhosts."
+        },
+        "accessRevoked": {
+          "title": "Der Konsolenzugriff wurde entzogen",
+          "hint": "Du hast keine Berechtigung mehr für diese Remote-Verbindung. Die zugehörige Sitzung wurde beendet. Es werden keine weiteren Eingaben übertragen."
+        },
+        "failed": {
+          "title": "Die Konsole ist nicht verfügbar"
+        }
+      },
+      "attempt": "Versuch {{attempt}} von {{maximum}}",
+      "footer": {
+        "connecting": "Eingabe noch nicht verfügbar",
+        "connected": "Interaktive Shell · UTF-8",
+        "reconnecting": "Eingabe pausiert · Scrollback bleibt lesbar",
+        "lost": "Nur Scrollback · neue Sitzung ist eine neue Shell",
+        "exited": "Nur Scrollback · keine aktive Shell",
+        "noShell": "Keine Shell geöffnet",
+        "hostKeyChanged": "Keine Shell geöffnet · keine automatische Schlüsselannahme",
+        "ptyUnavailable": "Keine interaktive Shell geöffnet",
+        "accessRevoked": "Sitzung beendet · Eingabe gesperrt"
+      },
+      "keyboardHint": "Strg+C unterbricht · Strg+Umschalt+C/V kopiert/fügt ein",
+      "review": "Verbindung prüfen",
+      "reconnect": "Erneut verbinden",
+      "closeConsole": "Konsole schließen",
+      "newSession": "Neue Sitzung starten",
+      "closeTitle": "Sitzung auf {{name}} beenden?",
+      "closeDescription": "Die interaktive Shell wird geschlossen. Laufende Befehle in dieser Sitzung können dabei abgebrochen werden. Andere Verbindungen bleiben bestehen.",
       "returnToConsole": "Zurück zur Konsole",
       "endSession": "Sitzung beenden",
-      "expand": "Konsole maximieren",
-      "restore": "Konsolengröße wiederherstellen",
-      "directory": "Arbeitsverzeichnis",
-      "interrupted": "Verbindung unterbrochen",
-      "failed": "Verbindung fehlgeschlagen",
-      "endedHint": "Die Shell wurde beendet (Exit-Code {{code}}). Eine neue Sitzung ist keine Fortsetzung der alten.",
-      "newSession": "Neue Sitzung starten",
-      "connectingTitle": "SSH-Verbindung wird aufgebaut",
-      "connectingHint": "Anmeldung mit dem gespeicherten Zugang. Das Arbeitsverzeichnis wird vorbereitet.",
-      "failedHint": "Es wurde keine Shell gestartet. Prüfen Sie die gespeicherte Verbindung und die Zugriffsrechte. Bei abweichendem Hostschlüssel erfolgt kein automatischer Neuversuch.",
-      "reviewConnection": "Zur Verbindungsübersicht",
-      "inputUnavailable": "Eingabe noch nicht verfügbar",
-      "shellEncoding": "Shell · UTF-8",
-      "inputPaused": "Eingabe pausiert · bisherige Ausgabe bleibt sichtbar",
-      "noShell": "Eingabe nicht verfügbar",
-      "scrollbackOnly": "Scrollback lesbar · keine aktive Shell",
-      "keyboardHint": "Kopieren / Einfügen · Strg+C",
-      "hostKeyTitle": "Hostschlüssel stimmt nicht überein",
-      "hostKeyHint": "Die Verbindung wurde aus Sicherheitsgründen gestoppt. Den Hostschlüssel der gespeicherten Verbindung prüfen; kein automatischer Neuversuch."
+      "historyLost": "Die Terminal-Ausgabe konnte nicht vollständig wiederhergestellt werden. Die Sitzung wurde beendet.",
+      "inputOverflow": "Die Eingabe ist zu groß. Schließe die Konsole und öffne sie erneut.",
+      "streamBlocked": "Die Ausgabe ließ sich nach zehn Versuchen nicht wiederherstellen.",
+      "streamLost": "Die Verbindung zur Terminal-Ausgabe wurde unterbrochen.",
+      "loadFailed": "Das Terminal konnte im Browser nicht geladen werden.",
+      "ptyUnavailable": "Es konnte kein interaktives Terminal geöffnet werden."
     }
   },
   "plans": {

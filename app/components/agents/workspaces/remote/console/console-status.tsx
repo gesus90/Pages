@@ -5,107 +5,96 @@ import { cn } from "@/app/lib/cn";
 import { CONSOLE_MAXIMUM_RETRIES } from "@/definition/RemoteConsole";
 
 import type { RemoteConsoleState } from "@/definition/RemoteConsole";
+import type { ConsoleView } from "./console-view";
+
+type StatusTone = "neutral" | "success" | "warning" | "danger";
+
+const STATUS_TONES: Record<ConsoleView, StatusTone> = {
+  connecting: "neutral",
+  connected: "success",
+  reconnecting: "warning",
+  lost: "danger",
+  exited: "neutral",
+  authFailed: "danger",
+  hostKeyChanged: "danger",
+  unreachable: "danger",
+  ptyUnavailable: "danger",
+  accessRevoked: "danger",
+  failed: "danger",
+};
+const TONE_TEXT: Record<StatusTone, string> = {
+  neutral: "text-muted-foreground",
+  success: "text-success",
+  warning: "text-warning",
+  danger: "text-destructive",
+};
+const TONE_DOT: Record<StatusTone, string> = {
+  neutral: "bg-muted-foreground",
+  success: "bg-success",
+  warning: "bg-warning",
+  danger: "bg-destructive",
+};
 
 /** Compact lifecycle label in the console header. */
 export function ConsoleConnectionStatus(props: {
   readonly state: RemoteConsoleState;
-  readonly hasConnected: boolean;
+  readonly view: ConsoleView;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const { status, message, attempts } = props.state;
-  const isFailed =
-    status === "blocked" && !props.hasConnected && attempts === 0;
-  let label = t(`remote.console.status.${status}`);
-  if (status === "reconnecting") label = t("remote.console.interrupted");
-  if (isFailed) label = t("remote.console.failed");
+  const tone = STATUS_TONES[props.view];
   return (
     <span
       role="status"
       aria-live="polite"
-      className={cn(
-        "flex items-center gap-1.5 text-sm text-muted-foreground",
-        status === "connected" && "text-success",
-        status === "reconnecting" && "text-warning",
-        (isFailed || message === "remote.failure.host_key_changed") &&
-          "text-destructive",
-      )}
+      className={cn("flex items-center gap-2 text-xs", TONE_TEXT[tone])}
     >
-      {status === "connected" ? (
-        <span aria-hidden="true" className="size-1.5 rounded-full bg-success" />
-      ) : null}
-      {label}
+      <span
+        aria-hidden="true"
+        className={cn("size-1.5 rounded-full", TONE_DOT[tone])}
+      />
+      {t(`remote.console.status.${props.view}`, {
+        attempt: Math.max(1, props.state.attempts),
+        maximum: CONSOLE_MAXIMUM_RETRIES,
+      })}
     </span>
   );
 }
 
-function ConsoleLifecycleDetails(props: {
-  readonly state: RemoteConsoleState;
-}): React.ReactElement {
+/** The banner text of a view that keeps the scrollback visible. */
+function useBannerText(
+  view: ConsoleView,
+  state: RemoteConsoleState,
+): string | null {
   const { t } = useTranslation();
-  const { state } = props;
-  const isEnded = state.status === "ended";
-  const shouldShowAttempts =
-    !isEnded && (state.attempts > 0 || state.status === "reconnecting");
-  return (
-    <div>
-      <p
-        className={cn(
-          "text-sm font-medium text-muted-foreground",
-          !isEnded && "text-warning",
-        )}
-      >
-        {t(`remote.console.status.${state.status}`)}
-        {shouldShowAttempts
-          ? ` · ${t("remote.console.attempts", { count: Math.max(1, state.attempts), maximum: CONSOLE_MAXIMUM_RETRIES })}`
-          : null}
-      </p>
-      <p className="mt-1 text-xs text-muted-foreground">
-        {isEnded
-          ? t("remote.console.endedHint", { code: state.exitCode ?? "—" })
-          : t("remote.console.reconnectHint")}
-      </p>
-      {state.message && state.status !== "reconnecting" ? (
-        <p className="mt-1 text-xs text-muted-foreground">{t(state.message)}</p>
-      ) : null}
-    </div>
-  );
+  if (view === "reconnecting") return t("remote.console.banner.reconnecting");
+  if (view === "lost")
+    return t("remote.console.banner.lost", { count: state.attempts });
+  if (view === "exited")
+    return t("remote.console.banner.exited", { code: state.exitCode ?? "—" });
+  return null;
 }
 
-/** Keeps scrollback visible during reconnects and after the shell exits. */
-export function ConsoleStatus(props: {
+/** Interruptions and the end of the shell, above the scrollback that stays readable. */
+export function ConsoleBanner(props: {
   readonly state: RemoteConsoleState;
-  readonly hasConnected: boolean;
-  readonly onReconnect: () => void;
+  readonly view: ConsoleView;
   readonly onRestart: () => void;
 }): React.ReactElement | null {
   const { t } = useTranslation();
-  const { state } = props;
-  if (state.status === "connected" || state.status === "connecting")
-    return null;
-  if (state.status === "blocked" && !props.hasConnected && state.attempts === 0)
-    return null;
-  const isEnded = state.status === "ended";
-  const canReconnect =
-    state.status === "blocked" &&
-    state.attempts < CONSOLE_MAXIMUM_RETRIES &&
-    state.message !== "remote.failure.host_key_changed";
+  const text = useBannerText(props.view, props.state);
+  if (text === null) return null;
   return (
     <div
-      className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border px-6 py-4"
+      className="flex shrink-0 flex-wrap items-center justify-between gap-3 bg-warning-subtle px-6 py-3 text-[13px] leading-5 text-warning"
       role="status"
       aria-live="polite"
     >
-      <ConsoleLifecycleDetails state={state} />
-      {isEnded ? (
-        <Button size="sm" onClick={props.onRestart}>
+      <p>{text}</p>
+      {props.view === "reconnecting" ? null : (
+        <Button variant="outline" onClick={props.onRestart}>
           {t("remote.console.newSession")}
         </Button>
-      ) : null}
-      {canReconnect ? (
-        <Button size="sm" variant="outline" onClick={props.onReconnect}>
-          {t("remote.console.reconnect")}
-        </Button>
-      ) : null}
+      )}
     </div>
   );
 }

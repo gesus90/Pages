@@ -30,6 +30,24 @@ function terminalTheme(container: HTMLElement): ITheme {
   };
 }
 
+/**
+ * Keys the panel handles instead of the shell: Escape asks before closing
+ * (Strg+[ still sends ESC), Strg+Umschalt+C copies the selection, because
+ * Strg+C interrupts the remote program. Strg+Umschalt+V pastes natively.
+ */
+function handlePanelKeys(terminal: Terminal, event: KeyboardEvent): boolean {
+  if (event.key === "Escape") return false;
+  const isCopy =
+    event.ctrlKey && event.shiftKey && !event.altKey && event.code === "KeyC";
+  if (!isCopy) return true;
+  if (event.type === "keydown" && terminal.hasSelection()) {
+    // The copy event lets xterm write its selection, also outside secure contexts.
+    document.execCommand("copy");
+  }
+  event.preventDefault();
+  return false;
+}
+
 /** Browser-only terminal resources; callers dispose all observers with the terminal. */
 export interface TerminalSurface {
   readonly terminal: Terminal;
@@ -47,8 +65,12 @@ export async function createTerminalSurface(
   ]);
   const terminal = new Terminal({
     cursorBlink: true,
-    fontSize: 14,
-    lineHeight: 1.6,
+    // The monospace stack of the Pages theme, at 15 px on 25 px rows.
+    fontFamily:
+      getComputedStyle(container).getPropertyValue("--font-mono").trim() ||
+      "monospace",
+    fontSize: 15,
+    lineHeight: 1.52,
     scrollback: 3000,
     screenReaderMode: true,
     allowProposedApi: false,
@@ -56,6 +78,9 @@ export async function createTerminalSurface(
   });
   const fit = new FitAddon();
   terminal.loadAddon(fit);
+  terminal.attachCustomKeyEventHandler((event) =>
+    handlePanelKeys(terminal, event),
+  );
   terminal.open(container);
   const resize = new ResizeObserver(() => fit.fit());
   resize.observe(container);
@@ -72,7 +97,6 @@ export async function createTerminalSurface(
   };
   media.addEventListener("change", updateTheme);
   fit.fit();
-  terminal.focus();
   return {
     terminal,
     fit,

@@ -65,7 +65,10 @@ export function createRemoteServices(input: {
   return {
     remoteConnectionService,
     remoteWorkspaceService,
-    remoteConsoleService: new RemoteConsoleService(remoteWorkspaceService),
+    remoteConsoleService: new RemoteConsoleService({
+      workspaces: remoteWorkspaceService,
+      connections: remoteConnectionService,
+    }),
     remoteSessions,
     sshClient,
   };

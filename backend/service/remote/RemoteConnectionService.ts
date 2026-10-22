@@ -6,6 +6,7 @@ import { logCaughtError } from "@/backend/logging/Logger";
 
 import {
   canManageRemoteConnections,
+  canOpenRemoteConsole,
   canUseRemoteConnection,
   requireRemoteAccount,
 } from "./RemoteAccess";
@@ -37,6 +38,7 @@ import type {
 } from "@/definition/RemoteConnection";
 import type { RemoteSecretCipher } from "./RemoteConnectionSecrets";
 import type { ValidatedRemoteConnection } from "./RemoteConnectionInput";
+import type { RemoteConsoleTarget } from "./RemoteConsoleSession";
 
 /** Storage, authorization, cipher, SSH client and live connections of the remote connections. */
 export interface RemoteConnectionDependencies {
@@ -120,6 +122,7 @@ export class RemoteConnectionService {
         workspaceCount: counts.get(record.id) ?? 0,
         revision: record.revision,
         canManage,
+        canOpenConsole: canOpenRemoteConsole(actor, record.departmentId),
         storedSecrets: canManage
           ? {
               password: record.secrets.password !== null,
@@ -271,6 +274,52 @@ export class RemoteConnectionService {
     if (!record || !canUseRemoteConnection(actor, record.departmentId))
       throw new RemoteError("remote_access_denied");
     return record;
+  }
+
+  /**
+   * Rechecks, for every console operation, that the person belongs to the
+   * department the connection is shared with.
+   *
+   * @remarks
+   * A shell on the machine reaches beyond any single workspace, so the
+   * administrator role alone does not suffice, as for workspace consoles.
+   *
+   * @param userId - The person who opens or uses the console.
+   * @param id - The connection.
+   * @returns The stored connection.
+   * @throws {RemoteError} `remote_access_denied` without a membership, and
+   * `remote_host_key_unconfirmed` while no host key is pinned.
+   */
+  public async requireConsole(
+    userId: string,
+    id: string,
+  ): Promise<RemoteConnectionRecord> {
+    const actor = await this.account(userId);
+    const record = await this.dependencies.connections.find(id);
+    if (!record || !canOpenRemoteConsole(actor, record.departmentId))
+      throw new RemoteError("remote_access_denied");
+    if (!record.hostKey)
+      throw new RemoteError(
+        "remote_host_key_unconfirmed",
+        "host_key_unconfirmed",
+      );
+    return record;
+  }
+
+  /**
+   * Where a connection console starts: the shared logical connection and the
+   * login directory of the SSH user; checked again before each new shell.
+   *
+   * @param userId - The person who owns the console.
+   * @param id - The connection.
+   * @returns The logical connection, without a directory of its own.
+   */
+  public async consoleTarget(
+    userId: string,
+    id: string,
+  ): Promise<RemoteConsoleTarget> {
+    await this.requireConsole(userId, id);
+    return { session: this.dependencies.sessions.session(id), path: null };
   }
 
   /** Validates that an authenticated machine pairing still names the same SSH configuration. */

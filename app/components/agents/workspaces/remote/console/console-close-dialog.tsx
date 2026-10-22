@@ -10,9 +10,11 @@ import {
 
 /** Confirms that closing the panel terminates its remote shell. */
 export function ConsoleCloseDialog(props: {
-  readonly workspaceName: string;
+  readonly hostName: string;
   readonly onCancel: () => void;
   readonly onConfirm: () => void;
+  /** Where the focus goes when the console stays open. */
+  readonly onReturnFocus: () => void;
 }): React.ReactElement {
   const { t } = useTranslation();
   return (
@@ -22,12 +24,20 @@ export function ConsoleCloseDialog(props: {
         if (!open) props.onCancel();
       }}
     >
-      <DialogContent size="md">
+      <DialogContent
+        size="md"
+        // The confirmation also dims the console panel behind it.
+        overlayClassName="z-50"
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          props.onReturnFocus();
+        }}
+      >
         <DialogTitle className="text-lg font-semibold">
-          {t("remote.console.closeTitle")}
+          {t("remote.console.closeTitle", { name: props.hostName })}
         </DialogTitle>
-        <DialogDescription className="mt-2 text-sm text-muted-foreground">
-          {t("remote.console.closeDescription", { name: props.workspaceName })}
+        <DialogDescription className="mt-3 text-sm leading-relaxed text-muted-foreground">
+          {t("remote.console.closeDescription")}
         </DialogDescription>
         <div className="mt-6 flex justify-end gap-2">
           <Button variant="ghost" onClick={props.onCancel}>

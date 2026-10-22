@@ -15,6 +15,8 @@ export const consoleStateSchema = z.object({
   attempts: z.number().int().min(0).max(CONSOLE_MAXIMUM_RETRIES),
   message: z.string().nullable(),
   exitCode: z.number().nullable(),
+  /** Where the shell started, once known; the login directory of a connection console. */
+  directory: z.string().max(4096).nullable(),
 });
 
 /** State displayed above the terminal. */

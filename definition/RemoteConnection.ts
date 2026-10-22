@@ -238,6 +238,8 @@ export interface RemoteConnectionView {
   readonly workspaceCount: number;
   readonly revision: number;
   readonly canManage: boolean;
+  /** Membership in the shared department; the administrator role alone does not open a console. */
+  readonly canOpenConsole: boolean;
   /** `null` for people who only use the connection. */
   readonly storedSecrets: RemoteStoredSecrets | null;
 }

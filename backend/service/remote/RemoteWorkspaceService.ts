@@ -8,6 +8,7 @@ import { effectiveRemoteRoots } from "@/definition/RemoteConnection";
 
 import {
   canManageRemoteProject,
+  canOpenRemoteConsole,
   canReadRemoteProject,
   canUseRemoteConnection,
   requireRemoteAccount,
@@ -158,7 +159,7 @@ export class RemoteWorkspaceService {
     const actor = await this.account(userId);
     const record = await this.requireRecord(id);
     const connection = await this.requireUse(actor, record, "inspect");
-    if (!actor.departments.includes(connection.departmentId))
+    if (!canOpenRemoteConsole(actor, connection.departmentId))
       throw new RemoteError("remote_access_denied");
     return record;
   }
@@ -388,7 +389,7 @@ export class RemoteWorkspaceService {
       canOpenConsole:
         connection !== undefined &&
         project !== undefined &&
-        context.actor.departments.includes(connection.departmentId) &&
+        canOpenRemoteConsole(context.actor, connection.departmentId) &&
         canReadRemoteProject(context.actor, project),
     };
   }

@@ -3517,49 +3517,93 @@
       }
     },
     "console": {
-      "action": "Console",
+      "action": "Open console",
       "title": "Console · {{name}}",
+      "directConnection": "Direct SSH connection",
+      "workspaceOn": "Workspace on {{name}}",
+      "address": "SSH",
+      "directory": "Start directory",
+      "directoryPending": "Login directory · being determined",
+      "directoryUnavailable": "Not available",
       "terminalLabel": "Interactive remote terminal",
-      "close": "Close console",
-      "closeTitle": "Close console?",
-      "closeDescription": "The shell session for “{{name}}” will end. Running commands may be interrupted; other agent runs are unaffected.",
-      "reconnect": "Reconnect",
-      "attempts": "Attempt {{count}} of {{maximum}}",
-      "exitCode": "Session ended (exit code {{code}}).",
-      "reconnectHint": "After an SSH disconnect, a new shell starts in the workspace directory. Input is never replayed.",
-      "historyLost": "Terminal output could not be fully recovered. The session has ended.",
-      "inputOverflow": "The input is too large. Please close and reopen the console.",
-      "streamBlocked": "Output is blocked after ten reconnect attempts. Please close the console.",
-      "streamLost": "The terminal output connection was interrupted.",
-      "loadFailed": "The terminal could not be loaded.",
-      "status": {
-        "connecting": "Connecting …",
-        "connected": "Connected",
-        "reconnecting": "Reconnecting …",
-        "blocked": "Connection blocked",
-        "ended": "Session ended"
-      },
-      "returnToConsole": "Return to console",
-      "endSession": "End session",
       "expand": "Maximize console",
       "restore": "Restore console size",
-      "directory": "Working directory",
-      "interrupted": "Connection interrupted",
-      "failed": "Connection failed",
-      "endedHint": "The shell has ended (exit code {{code}}). A new session does not resume the previous one.",
+      "close": "Close console",
+      "status": {
+        "connecting": "Connecting",
+        "connected": "Connected",
+        "reconnecting": "Reconnecting · {{attempt}}/{{maximum}}",
+        "lost": "Connection lost",
+        "exited": "Session ended",
+        "authFailed": "Sign-in failed",
+        "hostKeyChanged": "Check host key",
+        "unreachable": "Unreachable",
+        "ptyUnavailable": "Terminal unavailable",
+        "accessRevoked": "Access revoked",
+        "failed": "Connection failed"
+      },
+      "banner": {
+        "reconnecting": "Connection interrupted. Trying to reconnect …",
+        "lost_one": "Connection not restored after {{count}} attempt. The previous shell can no longer be reached.",
+        "lost_other": "Connection not restored after {{count}} attempts. The previous shell can no longer be reached.",
+        "exited": "The shell ended normally · exit status {{code}}."
+      },
+      "overlay": {
+        "connecting": {
+          "title": "Connecting to {{name}}",
+          "hint": "Opening the SSH connection and an interactive shell. You can type as soon as the shell is ready."
+        },
+        "authFailed": {
+          "title": "SSH sign-in failed",
+          "hint": "{{name}} rejected the stored credentials. Check the remote connection in the connection settings."
+        },
+        "hostKeyChanged": {
+          "title": "The host key has changed",
+          "hint": "The identity of {{name}} no longer matches the confirmed key. The connection was stopped for security reasons."
+        },
+        "unreachable": {
+          "title": "{{name}} is unreachable",
+          "hint": "The SSH connection to {{endpoint}} could not be established. Check reachability and the SSH port."
+        },
+        "ptyUnavailable": {
+          "title": "No interactive shell available",
+          "hint": "The SSH sign-in succeeded, but {{name}} did not provide an interactive terminal (PTY). Check the SSH configuration of the target host."
+        },
+        "accessRevoked": {
+          "title": "Console access was revoked",
+          "hint": "You no longer have permission for this remote connection. The session was ended. No further input is sent."
+        },
+        "failed": {
+          "title": "The console is not available"
+        }
+      },
+      "attempt": "Attempt {{attempt}} of {{maximum}}",
+      "footer": {
+        "connecting": "Input not yet available",
+        "connected": "Interactive shell · UTF-8",
+        "reconnecting": "Input paused · scrollback stays readable",
+        "lost": "Scrollback only · a new session is a new shell",
+        "exited": "Scrollback only · no active shell",
+        "noShell": "No shell opened",
+        "hostKeyChanged": "No shell opened · no automatic key acceptance",
+        "ptyUnavailable": "No interactive shell opened",
+        "accessRevoked": "Session ended · input locked"
+      },
+      "keyboardHint": "Ctrl+C interrupts · Ctrl+Shift+C/V copies/pastes",
+      "review": "Check connection",
+      "reconnect": "Reconnect",
+      "closeConsole": "Close console",
       "newSession": "Start new session",
-      "connectingTitle": "Establishing SSH connection",
-      "connectingHint": "Signing in with the saved credentials and preparing the working directory.",
-      "failedHint": "No shell was started. Check the saved connection and access rights. A host key mismatch is never retried automatically.",
-      "reviewConnection": "Back to connections",
-      "inputUnavailable": "Input not yet available",
-      "shellEncoding": "Shell · UTF-8",
-      "inputPaused": "Input paused · previous output remains visible",
-      "noShell": "Input unavailable",
-      "scrollbackOnly": "Scrollback available · no active shell",
-      "keyboardHint": "Copy / Paste · Ctrl+C",
-      "hostKeyTitle": "Host key does not match",
-      "hostKeyHint": "The connection was stopped for security reasons. Check the host key of the saved connection; no automatic retry."
+      "closeTitle": "End session on {{name}}?",
+      "closeDescription": "The interactive shell will be closed. Running commands in this session may be interrupted. Other connections stay open.",
+      "returnToConsole": "Return to console",
+      "endSession": "End session",
+      "historyLost": "Terminal output could not be fully recovered. The session has ended.",
+      "inputOverflow": "The input is too large. Close the console and open it again.",
+      "streamBlocked": "The output could not be restored after ten attempts.",
+      "streamLost": "The terminal output connection was interrupted.",
+      "loadFailed": "The terminal could not be loaded in the browser.",
+      "ptyUnavailable": "No interactive terminal could be opened."
     }
   },
   "plans": {

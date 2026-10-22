@@ -8,6 +8,15 @@ import {
 import type { Terminal } from "@xterm/xterm";
 import type { RemoteConsoleState } from "@/definition/RemoteConsole";
 
+/** Before the server reports, a console is connecting and knows no directory. */
+export const INITIAL_CONSOLE_STATE: RemoteConsoleState = {
+  status: "connecting",
+  attempts: 0,
+  message: null,
+  exitCode: null,
+  directory: null,
+};
+
 const openedSchema = z.object({ sessionId: z.uuid() });
 const errorSchema = z.object({
   message: z.string().regex(/^remote\.(?:error|failure|console)\.[a-zA-Z_]+$/u),
@@ -26,19 +35,15 @@ export class RemoteConsoleClient {
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private inputBuffer = "";
   private isSendingInput = false;
-  private state: RemoteConsoleState = {
-    status: "connecting",
-    attempts: 0,
-    message: null,
-    exitCode: null,
-  };
+  private state: RemoteConsoleState = INITIAL_CONSOLE_STATE;
 
   public constructor(input: {
-    readonly workspaceId: string;
+    /** Same-origin route of a workspace or connection console. */
+    readonly endpoint: string;
     readonly terminal: Terminal;
     readonly onState: RemoteConsoleClient["onState"];
   }) {
-    this.url = `/agents/workspaces/${encodeURIComponent(input.workspaceId)}/console`;
+    this.url = input.endpoint;
     this.terminal = input.terminal;
     this.onState = input.onState;
   }

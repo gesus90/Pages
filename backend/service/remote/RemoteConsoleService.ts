@@ -2,14 +2,37 @@ import { randomUUID } from "node:crypto";
 
 import { RemoteError } from "@/backend/error/RemoteErrors";
 
-import { RemoteConsoleSession } from "./RemoteConsoleSession";
+import { RemoteConsoleSession, consoleMessageOf } from "./RemoteConsoleSession";
 
+import type { RemoteConnectionService } from "./RemoteConnectionService";
+import type { RemoteConsoleTarget } from "./RemoteConsoleSession";
 import type { RemoteWorkspaceService } from "./RemoteWorkspaceService";
 import type { RemoteConsoleSize } from "@/definition/RemoteConsole";
 
+/**
+ * What a console is opened for: a registered workspace, whose shell starts in
+ * its directory, or a whole connection, whose shell starts in the login directory.
+ */
+export interface RemoteConsoleScope {
+  readonly kind: "workspace" | "connection";
+  readonly id: string;
+}
+
+/** The services that decide, before every shell, who may open it and where it starts. */
+export interface RemoteConsoleDependencies {
+  readonly workspaces: Pick<
+    RemoteWorkspaceService,
+    "requireConsole" | "consoleTarget"
+  >;
+  readonly connections: Pick<
+    RemoteConnectionService,
+    "requireConsole" | "consoleTarget"
+  >;
+}
+
 interface ConsoleEntry {
   readonly ownerId: string;
-  readonly workspaceId: string;
+  readonly scope: RemoteConsoleScope;
   readonly session: RemoteConsoleSession;
   touchedAt: number;
 }
@@ -20,12 +43,12 @@ const MAXIMUM_SESSIONS = 50;
 
 /** Keeps console ownership separate from shared SSH connections and expires abandoned shells. */
 export class RemoteConsoleService {
-  private readonly workspaces: RemoteWorkspaceService;
+  private readonly dependencies: RemoteConsoleDependencies;
   private readonly entries = new Map<string, ConsoleEntry>();
   private readonly cleanup: NodeJS.Timeout;
 
-  public constructor(workspaces: RemoteWorkspaceService) {
-    this.workspaces = workspaces;
+  public constructor(dependencies: RemoteConsoleDependencies) {
+    this.dependencies = dependencies;
     this.cleanup = setInterval(() => this.expire(), 15_000);
     this.cleanup.unref();
   }
@@ -33,10 +56,10 @@ export class RemoteConsoleService {
   /** Rechecks access before allocating a shell; the session repeats it before each connect. */
   public async open(
     userId: string,
-    workspaceId: string,
+    scope: RemoteConsoleScope,
     size: RemoteConsoleSize,
   ): Promise<string> {
-    await this.workspaces.requireConsole(userId, workspaceId);
+    await this.requireAccess(userId, scope);
     this.expire();
     const own = [...this.entries.values()].filter(
       (entry) => entry.ownerId === userId,
@@ -46,12 +69,9 @@ export class RemoteConsoleService {
     const id = randomUUID();
     this.entries.set(id, {
       ownerId: userId,
-      workspaceId,
+      scope,
       touchedAt: Date.now(),
-      session: new RemoteConsoleSession(
-        () => this.workspaces.consoleTarget(userId, workspaceId),
-        size,
-      ),
+      session: new RemoteConsoleSession(() => this.target(userId, scope), size),
     });
     return id;
   }
@@ -59,14 +79,14 @@ export class RemoteConsoleService {
   /** Checks ownership and current rights for streams, input, geometry and reconnect requests. */
   public async require(
     userId: string,
-    workspaceId: string,
+    scope: RemoteConsoleScope,
     id: string,
   ): Promise<RemoteConsoleSession> {
-    const entry = this.owned(userId, workspaceId, id);
+    const entry = this.owned(userId, scope, id);
     try {
-      await this.workspaces.requireConsole(userId, workspaceId);
+      await this.requireAccess(userId, scope);
     } catch (error: unknown) {
-      entry.session.close("remote.error.remote_access_denied");
+      entry.session.close(consoleMessageOf(error));
       throw error;
     }
     entry.touchedAt = Date.now();
@@ -74,8 +94,8 @@ export class RemoteConsoleService {
   }
 
   /** The owner can always release a shell, including after access has been revoked. */
-  public close(userId: string, workspaceId: string, id: string): void {
-    const entry = this.owned(userId, workspaceId, id);
+  public close(userId: string, scope: RemoteConsoleScope, id: string): void {
+    const entry = this.owned(userId, scope, id);
     entry.session.close();
     this.entries.delete(id);
   }
@@ -87,9 +107,36 @@ export class RemoteConsoleService {
     this.entries.clear();
   }
 
-  private owned(userId: string, workspaceId: string, id: string): ConsoleEntry {
+  private async requireAccess(
+    userId: string,
+    scope: RemoteConsoleScope,
+  ): Promise<void> {
+    if (scope.kind === "workspace")
+      await this.dependencies.workspaces.requireConsole(userId, scope.id);
+    else await this.dependencies.connections.requireConsole(userId, scope.id);
+  }
+
+  private async target(
+    userId: string,
+    scope: RemoteConsoleScope,
+  ): Promise<RemoteConsoleTarget> {
+    return scope.kind === "workspace"
+      ? this.dependencies.workspaces.consoleTarget(userId, scope.id)
+      : this.dependencies.connections.consoleTarget(userId, scope.id);
+  }
+
+  private owned(
+    userId: string,
+    scope: RemoteConsoleScope,
+    id: string,
+  ): ConsoleEntry {
     const entry = this.entries.get(id);
-    if (!entry || entry.ownerId !== userId || entry.workspaceId !== workspaceId)
+    if (
+      !entry ||
+      entry.ownerId !== userId ||
+      entry.scope.kind !== scope.kind ||
+      entry.scope.id !== scope.id
+    )
       throw new RemoteError("remote_workspace_not_found");
     return entry;
   }

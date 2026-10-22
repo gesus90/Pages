@@ -1,4 +1,8 @@
+import { setTimeout as delay } from "node:timers/promises";
+
 import { RemoteError } from "@/backend/error/RemoteErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
+import { SSH_FAILURE_EXIT_CODE } from "@/backend/remote/SshFailure";
 import { CONSOLE_MAXIMUM_RETRIES } from "@/definition/RemoteConsole";
 
 import type { RemoteSession } from "@/backend/remote/RemoteSession";
@@ -9,8 +13,19 @@ import type {
   RemoteConsoleState,
 } from "@/definition/RemoteConsole";
 
+/** Where one shell starts: the connection, and the checked directory or `null` for the login directory. */
+export interface RemoteConsoleTarget {
+  readonly session: RemoteSession;
+  readonly path: string | null;
+}
+
 const MAXIMUM_HISTORY = 256 * 1024;
 const RETRY_DELAY = 3000;
+const DIRECTORY_TIMEOUT = 15_000;
+/** A shell that stays silent this long is treated as ready. */
+const FIRST_OUTPUT_TIMEOUT = 5000;
+const MAXIMUM_PATH = 4096;
+const PTY_UNAVAILABLE = "remote.console.ptyUnavailable";
 const RETRY_MESSAGES = new Set([
   "remote.failure.transport_lost",
   "remote.failure.host_unknown",
@@ -20,18 +35,42 @@ const RETRY_MESSAGES = new Set([
   "remote.error.remote_reconnecting",
 ]);
 
-function messageOf(error: unknown): string {
+/** The local terminal module or OpenSSH client could not start a terminal. */
+class TerminalUnavailableError extends Error {}
+
+/**
+ * The translation key of a console failure; SSH texts never reach the browser.
+ *
+ * @param error - A caught error.
+ * @returns A `remote.failure.*`, `remote.error.*` or `remote.console.*` key.
+ */
+export function consoleMessageOf(error: unknown): string {
+  if (error instanceof TerminalUnavailableError) return PTY_UNAVAILABLE;
   if (!(error instanceof RemoteError)) return "remote.failure.remote_failed";
   if (error.failure) return `remote.failure.${error.failure}`;
   return `remote.error.${error.code}`;
 }
 
+/** The login directory as the machine reports it; `pwd` also proves the connection works. */
+async function startDirectory(
+  target: RemoteConsoleTarget,
+): Promise<string | null> {
+  if (target.path !== null) return target.path;
+  const result = await target.session.run("pwd", DIRECTORY_TIMEOUT);
+  // Start files of the login shell may print lines of their own first.
+  const directory = result.stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("/"))
+    .at(-1);
+  return result.exitCode === 0 && directory && directory.length <= MAXIMUM_PATH
+    ? directory
+    : null;
+}
+
 /** Owns one person's shell, bounded replay history and reconnect budget. */
 export class RemoteConsoleSession {
-  private readonly target: () => Promise<{
-    readonly session: RemoteSession;
-    readonly path: string;
-  }>;
+  private readonly target: () => Promise<RemoteConsoleTarget>;
   private readonly listeners = new Set<(event: RemoteConsoleEvent) => void>();
   private readonly history: RemoteConsoleEvent[] = [];
   private historyLength = 0;
@@ -43,9 +82,13 @@ export class RemoteConsoleSession {
     attempts: 0,
     message: null,
     exitCode: null,
+    directory: null,
   };
   private generation = 0;
   private retryTimer: NodeJS.Timeout | null = null;
+  private hasConnected = false;
+  // Opening a console is a person's request, just like a retry.
+  private isManualRetry = true;
 
   public constructor(
     target: RemoteConsoleSession["target"],
@@ -94,7 +137,13 @@ export class RemoteConsoleSession {
     this.terminal?.resize(size.columns, size.rows);
   }
 
-  /** An explicit reconnect continues the same budget and cannot unblock ten used attempts. */
+  /**
+   * A person's retry continues the same budget and cannot unblock ten used attempts.
+   *
+   * @remarks
+   * Before any shell ran it connects at once; it also restarts a shared
+   * connection whose own series gave up. A changed host key is never retried.
+   */
   public reconnect(): void {
     if (
       this.state.status !== "blocked" ||
@@ -102,7 +151,18 @@ export class RemoteConsoleSession {
     )
       return;
     if (this.state.message === "remote.failure.host_key_changed") return;
-    this.scheduleRetry();
+    this.isManualRetry = true;
+    if (this.hasConnected) {
+      this.scheduleRetry(this.state.message);
+      return;
+    }
+    this.update({
+      ...this.state,
+      status: "connecting",
+      attempts: this.state.attempts + 1,
+      message: null,
+    });
+    void this.connect();
   }
 
   /** Cancels pending opens and retries, then terminates this shell. */
@@ -146,60 +206,129 @@ export class RemoteConsoleSession {
   private async connect(): Promise<void> {
     const generation = this.generation;
     try {
-      const { session, path } = await this.target();
+      const target = await this.target();
       if (generation !== this.generation) return;
-      const terminal = await session.openPty({
-        ...this.size,
-        path,
-        onOutput: (chunk) => this.output(chunk),
-      });
+      await this.hurrySession(target.session);
+      if (generation !== this.generation) return;
+      const directory = await startDirectory(target);
+      if (generation !== this.generation) return;
+      const terminal = await this.openTerminal(target);
       if (generation !== this.generation) {
         terminal.close();
         return;
       }
-      this.terminal = terminal;
-      terminal.resize(this.size.columns, this.size.rows);
-      this.update({
-        ...this.state,
-        status: "connected",
-        message: null,
-        exitCode: null,
-      });
-      void terminal.exited.then((exitCode) =>
-        this.handleExit(generation, exitCode),
-      );
+      await this.attach(terminal, generation, directory);
     } catch (error: unknown) {
       if (generation !== this.generation) return;
-      const message = messageOf(error);
-      this.update({ ...this.state, status: "blocked", message });
-      if (RETRY_MESSAGES.has(message)) this.scheduleRetry();
+      this.fail(error);
     }
   }
 
-  private handleExit(generation: number, exitCode: number): void {
-    if (generation !== this.generation) return;
+  private async openTerminal(target: RemoteConsoleTarget): Promise<SshPty> {
+    try {
+      return await target.session.openPty({
+        ...this.size,
+        path: target.path,
+        onOutput: (chunk) => this.output(chunk),
+      });
+    } catch (error: unknown) {
+      if (error instanceof RemoteError) throw error;
+      logCaughtError("RemoteConsoleSession", error);
+      throw new TerminalUnavailableError();
+    }
+  }
+
+  /** The shell counts as connected once it printed something without refusing the terminal. */
+  private async attach(
+    terminal: SshPty,
+    generation: number,
+    directory: string | null,
+  ): Promise<void> {
+    this.terminal = terminal;
+    terminal.resize(this.size.columns, this.size.rows);
+    void terminal.exited.then((exitCode) =>
+      this.handleExit({ generation, exitCode, terminal }),
+    );
+    const isShell = await Promise.race([
+      terminal.firstOutput,
+      delay(FIRST_OUTPUT_TIMEOUT, true, { ref: false }),
+    ]);
+    if (
+      !isShell ||
+      generation !== this.generation ||
+      this.terminal !== terminal
+    )
+      return;
+    this.hasConnected = true;
+    this.update({
+      ...this.state,
+      status: "connected",
+      message: null,
+      exitCode: null,
+      directory,
+    });
+  }
+
+  /** A person's request does not wait for the next scheduled attempt of the shared connection. */
+  private async hurrySession(session: RemoteSession): Promise<void> {
+    if (!this.isManualRetry) return;
+    this.isManualRetry = false;
+    await session.attemptNow();
+  }
+
+  /**
+   * A connect that failed before any shell ran is shown at once and waits for
+   * a person; an interrupted shell is retried within the budget.
+   */
+  private fail(error: unknown): void {
+    const message = consoleMessageOf(error);
+    const isRetried =
+      RETRY_MESSAGES.has(message) &&
+      this.hasConnected &&
+      this.scheduleRetry(message);
+    if (!isRetried) this.update({ ...this.state, status: "blocked", message });
+  }
+
+  private handleExit(exit: {
+    readonly generation: number;
+    readonly exitCode: number;
+    readonly terminal: SshPty;
+  }): void {
+    if (exit.generation !== this.generation) return;
     this.terminal = null;
-    if (exitCode === 255) {
+    if (exit.terminal.wasRefused()) {
       this.update({
         ...this.state,
         status: "blocked",
-        message: "remote.failure.transport_lost",
+        message: PTY_UNAVAILABLE,
       });
-      this.scheduleRetry();
       return;
     }
-    this.update({ ...this.state, status: "ended", exitCode, message: null });
+    if (exit.exitCode === SSH_FAILURE_EXIT_CODE) {
+      const message = "remote.failure.transport_lost";
+      if (!this.hasConnected || !this.scheduleRetry(message))
+        this.update({ ...this.state, status: "blocked", message });
+      return;
+    }
+    this.update({
+      ...this.state,
+      status: "ended",
+      exitCode: exit.exitCode,
+      message: null,
+    });
   }
 
-  private scheduleRetry(): void {
-    if (this.retryTimer || this.state.attempts >= CONSOLE_MAXIMUM_RETRIES)
-      return;
-    this.update({ ...this.state, status: "reconnecting" });
+  /** Returns whether a retry is pending; the budget is never exceeded. */
+  private scheduleRetry(message: string | null): boolean {
+    if (this.retryTimer) return true;
+    if (this.state.attempts >= CONSOLE_MAXIMUM_RETRIES) return false;
+    this.update({ ...this.state, status: "reconnecting", message });
     this.retryTimer = setTimeout(() => {
       this.retryTimer = null;
       this.update({ ...this.state, attempts: this.state.attempts + 1 });
       void this.connect();
     }, RETRY_DELAY);
     this.retryTimer.unref();
+    return true;
   }
 }
