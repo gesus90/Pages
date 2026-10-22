@@ -7,8 +7,11 @@ import type {
 export interface RemoteConsoleTarget {
   /** Same-origin console route; it checks ownership and rights on every request. */
   readonly endpoint: string;
-  /** A whole connection starts in the login directory, a workspace in its directory. */
-  readonly kind: "connection" | "workspace";
+  /**
+   * A whole connection starts in the login directory, a workspace in its
+   * directory; a setup runs the guided runner setup instead of a shell.
+   */
+  readonly kind: "connection" | "workspace" | "setup";
   /** The name after „Konsole ·“: the connection or the workspace. */
   readonly title: string;
   /** The connection's name, used in the state texts. */
@@ -39,6 +42,22 @@ export function connectionConsoleTarget(
     address: `${connection.username}@${endpointLabel}`,
     endpointLabel,
     directory: null,
+  };
+}
+
+/**
+ * Describes the guided runner setup of a connection, opened from its context menu.
+ *
+ * @param connection - A connection an administrator who belongs to its department sets up.
+ * @returns The panel target.
+ */
+export function connectionSetupTarget(
+  connection: RemoteConnectionView,
+): RemoteConsoleTarget {
+  return {
+    ...connectionConsoleTarget(connection),
+    endpoint: `/agents/workspaces/remote/connections/${encodeURIComponent(connection.id)}/setup`,
+    kind: "setup",
   };
 }
 

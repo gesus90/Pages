@@ -1243,7 +1243,14 @@
         "connected": "SSH connected. Setup appears after the stability check.",
         "failed": "Action failed. Check connection, host key, permissions and existing destination file.",
         "refresh": "Refresh",
-        "tool": "Pages runner"
+        "tool": "Pages runner",
+        "toolsNone": "No tools found",
+        "versionUnknown": "version unknown",
+        "toolName": {
+          "codex": "Codex",
+          "claude": "Claude Code",
+          "opencode": "OpenCode"
+        }
       },
       "cliLocations": "Installed CLI tools and setup"
     },
@@ -3489,6 +3496,11 @@
       "remote_reconnecting": "The connection is being re-established right now.",
       "remote_blocked": "The connection is blocked after ten failed attempts. Start a new series with “Reconnect”.",
       "remote_transport_lost": "The SSH connection broke off during the step. It is not repeated automatically.",
+      "remote_setup_installed": "The installation is already confirmed. Nothing is set up again.",
+      "remote_setup_registered": "A runner registration already exists for this connection. Remove it in the settings first.",
+      "remote_setup_running": "A setup is already running for this connection.",
+      "remote_setup_unstable": "The SSH session is not stable yet or the last check is not in order. Wait for a stable connection and try again.",
+      "remote_setup_failed": "Transferring or checking the setup script on the host failed. Nothing was started.",
       "general": "The action failed."
     },
     "workspace": {
@@ -3604,6 +3616,87 @@
       "streamLost": "The terminal output connection was interrupted.",
       "loadFailed": "The terminal could not be loaded in the browser.",
       "ptyUnavailable": "No interactive terminal could be opened."
+    },
+    "setup": {
+      "title": "Runner setup · {{name}}",
+      "description": "Guided setup of the Pages runner",
+      "sectionLabel": "Setup progress",
+      "phasesLabel": "Phases of the setup",
+      "greeting": "Welcome to the runner setup. Pages sets up the Pages runner on {{name}}. Every change is shown first and confirmed one by one; sign-ins and passwords are entered only into the respective tool itself, hidden.",
+      "phase": {
+        "preflight": "Preflight",
+        "system": "System",
+        "tools": "Tools",
+        "connections": "Sign-in",
+        "git": "Git & GitHub",
+        "verify": "Verification",
+        "service": "Service",
+        "pairing": "Pairing"
+      },
+      "state": {
+        "pending": "pending",
+        "running": "running",
+        "waiting": "waiting for input",
+        "done": "done",
+        "skipped": "skipped",
+        "failed": "failed"
+      },
+      "preparation": {
+        "label": "Preparation by Pages",
+        "rights": "Rights",
+        "connection": "SSH session",
+        "upload": "Transfer",
+        "verification": "Checksum and syntax",
+        "permissions": "Executable for owner only",
+        "console": "Console",
+        "start": "Start"
+      },
+      "headline": {
+        "running": "Phase {{number}} of {{count}} · {{phase}}",
+        "waiting": "Phase “{{phase}}” waits for your input in the terminal",
+        "failed": "Stopped in phase “{{phase}}”: {{reason}} No later step runs.",
+        "partial": "Partly set up: {{reason}}",
+        "confirmed": "Set up: service active, autostart enabled, pairing confirmed by Pages."
+      },
+      "reason": {
+        "stopped": "The setup ended before the service was registered.",
+        "scriptFailed": "The script ended with an error.",
+        "notObserved": "Pages could not check the state of the host.",
+        "notInstalled": "The runner or its service registration is missing on the host.",
+        "noServiceManager": "The host has no usable service manager (systemd or supervisord). The runner only runs as a continuous process without starting at boot; restarts are not covered.",
+        "serviceNotQueryable": "The host's service manager does not answer this user's query, so Pages cannot confirm the service.",
+        "serviceNotRunning": "The service is not running or does not start at boot.",
+        "notPaired": "Pages has not stored a pairing for this connection.",
+        "notReady": "The runner has not yet reported to Pages.",
+        "addressUnknown": "Pages does not know its own address. Set PAGES_RUNNER_PUBLIC_URL.",
+        "loopbackAddress": "Pages was opened through a local address the host cannot reach. Open Pages through its network address or set PAGES_RUNNER_PUBLIC_URL."
+      },
+      "menu": {
+        "heading": "Setup",
+        "runner": "Set up runner",
+        "installed": "Already installed",
+        "running": "Setup running"
+      },
+      "overlay": {
+        "connecting": {
+          "title": "Preparing setup for {{name}}",
+          "hint": "Pages checks rights and the connection, transfers the script and only then starts it. A failed stage stops every later one."
+        },
+        "failed": {
+          "title": "The setup was not started"
+        }
+      },
+      "footer": {
+        "connected": "Guided setup · input goes to the script · passwords stay hidden",
+        "exited": "Setup ended · output stays readable"
+      },
+      "banner": {
+        "lost": "The connection dropped. The script is not started again. Check the host and start the setup again if needed.",
+        "exited": "The setup script has ended · exit status {{code}}."
+      },
+      "restart": "Start setup again",
+      "closeTitle": "Cancel the setup on {{name}}?",
+      "closeDescription": "The script is ended. A package operation that is running on the host is interrupted; steps that already finished stay in place."
     }
   },
   "plans": {
@@ -4744,7 +4837,9 @@
     "deletedTargets": "A group or department of this share no longer exists. It is left out of the list below; saving stores the share without it.",
     "deleteTitle": "Remove agent “{{name}}”?",
     "deleteDescription": "The agent will be removed from the list and can no longer be started. Running agents can only be removed after their run ends.",
-    "confirmDelete": "Remove agent"
+    "confirmDelete": "Remove agent",
+    "contextLimit": "{{value}} context",
+    "outputLimit": "{{value}} output"
   },
   "discordResult": {
     "authorized": {

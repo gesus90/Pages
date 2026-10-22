@@ -1,7 +1,9 @@
 import { createHash } from "node:crypto";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
+import { RemoteError } from "@/backend/error/RemoteErrors";
 import { quoteShellWord } from "@/backend/remote/SshOptions";
 import setupTemplate from "@/scripts/pages_setup.sh?raw";
+import serviceManager from "@/scripts/runner/service-manager.sh?raw";
 import runnerTransport from "@/scripts/runner/transport.mjs?raw";
 import runnerExecution from "@/scripts/runner/execution.mjs?raw";
 import type { RemoteConnectionService } from "@/backend/service/remote/RemoteConnectionService";
@@ -9,8 +11,14 @@ import type { RemoteSessionRegistry } from "@/backend/remote/RemoteSessionRegist
 import type { RunnerService } from "./RunnerService";
 
 const setupScript = setupTemplate
+  .replace("__PAGES_SERVICE_MANAGER__", () => serviceManager)
   .replace("__PAGES_RUNNER_TRANSPORT__", () => runnerTransport)
   .replace("__PAGES_RUNNER_EXECUTION__", () => runnerExecution);
+
+/** Runs the lines under a POSIX shell, whichever login shell the user has. */
+function shellCommand(lines: readonly string[]): string {
+  return `/bin/sh -c ${quoteShellWord(lines.join("\n"))}`;
+}
 
 /** Delivers the reviewed setup artifact through the existing pinned SSH master, without execution. */
 export class RunnerSetupService {
@@ -86,9 +94,84 @@ export class RunnerSetupService {
     });
   }
 
+  /**
+   * Checks the delivered file again, apart from the transfer: SHA-256 and bash syntax.
+   *
+   * @param userId - The administrator who runs the setup.
+   * @param connectionId - The connection.
+   * @throws {RemoteError} `remote_setup_failed` when the file differs or does not parse.
+   */
+  public async verify(userId: string, connectionId: string): Promise<void> {
+    await this.connections.requireSetup(userId, connectionId);
+    const sha256 = createHash("sha256").update(setupScript).digest("hex");
+    const result = await this.sessions
+      .session(connectionId)
+      .run(this.verifyCommand(sha256), 30_000);
+    if (result.exitCode !== 0 || result.stdout.trim() !== sha256)
+      throw new RemoteError("remote_setup_failed");
+  }
+
+  /**
+   * Makes the delivered file executable for its owner only.
+   *
+   * @param userId - The administrator who runs the setup.
+   * @param connectionId - The connection.
+   * @throws {RemoteError} `remote_setup_failed` unless the file has exactly mode 0700.
+   */
+  public async makeExecutable(
+    userId: string,
+    connectionId: string,
+  ): Promise<void> {
+    await this.connections.requireSetup(userId, connectionId);
+    const result = await this.sessions
+      .session(connectionId)
+      .run(this.permissionCommand(), 15_000);
+    if (result.exitCode !== 0) throw new RemoteError("remote_setup_failed");
+  }
+
+  /**
+   * The command that starts the delivered script in a terminal.
+   *
+   * @remarks
+   * Progress markers are switched on for this start only, so a person who
+   * runs the script by hand sees plain text.
+   *
+   * @returns A command line for a POSIX shell.
+   */
+  public launchCommand(): string {
+    return `PAGES_SETUP_PROGRESS=1 exec ${this.location()}`;
+  }
+
+  private location(): string {
+    return this.directory === "."
+      ? '"$HOME"/pages_setup.sh'
+      : `"$HOME"/${this.directory}/pages_setup.sh`;
+  }
+
+  private verifyCommand(sha256: string): string {
+    return shellCommand([
+      "set -eu",
+      `target=${this.location()}`,
+      'test -f "$target" && test ! -L "$target"',
+      `test \"$(sha256sum -- \"$target\" | cut -d ' ' -f 1)\" = ${quoteShellWord(sha256)}`,
+      'bash -n -- "$target"',
+      `printf '%s\\n' ${quoteShellWord(sha256)}`,
+    ]);
+  }
+
+  private permissionCommand(): string {
+    return shellCommand([
+      "set -eu",
+      `target=${this.location()}`,
+      'test -f "$target" && test ! -L "$target"',
+      'chmod u=rwx,go= -- "$target"',
+      'test "$(stat -c %a -- "$target")" = 700',
+    ]);
+  }
+
   private transferCommand(sha256: string): string {
     const encoded = Buffer.from(setupScript).toString("base64");
-    return [
+    return shellCommand([
       "set -eu",
       "umask 077",
       `directory=\"$HOME\"/${quoteShellWord(this.directory)}`,
@@ -101,9 +184,15 @@ export class RunnerSetupService {
       `test \"$(sha256sum -- \"$temporary\" | cut -d ' ' -f 1)\" = ${quoteShellWord(sha256)}`,
       'bash -n -- "$temporary"',
       'test ! -L "$target"',
-      'if test -e "$target"; then cmp -s -- "$temporary" "$target"; else ln -- "$temporary" "$target"; fi',
+      'if test -e "$target"; then',
+      '  if ! cmp -s -- "$temporary" "$target"; then',
+      // Only an earlier delivery of this artifact is replaced, never another file.
+      "    head -n 3 -- \"$target\" | grep -q '^# Pages delivers this file' || exit 1",
+      '    mv -f -- "$temporary" "$target"',
+      "  fi",
+      'else ln -- "$temporary" "$target"; fi',
       `test \"$(sha256sum -- \"$target\" | cut -d ' ' -f 1)\" = ${quoteShellWord(sha256)}`,
       `printf '%s\\n' ${quoteShellWord(sha256)}`,
-    ].join("\n");
+    ]);
   }
 }

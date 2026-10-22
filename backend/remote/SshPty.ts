@@ -6,6 +6,11 @@ import type { IPty } from "@lydell/node-pty";
 export interface SshPtyRequest {
   /** The registered directory to start in, or `null` for the login directory. */
   readonly path: string | null;
+  /**
+   * A command line that runs instead of the login shell, such as a guided
+   * setup. The terminal ends when it ends; `null` or absent opens the shell.
+   */
+  readonly command?: string | null;
   readonly columns: number;
   readonly rows: number;
   readonly onOutput: (chunk: string) => void;
@@ -23,13 +28,16 @@ const REFUSAL_WINDOW = 512;
 const UTF8_DEFAULT = `if [ -z "\${LC_ALL:-\${LC_CTYPE:-\${LANG:-}}}" ] && locale -a 2>/dev/null | grep -qiE "^c[.]utf-?8$"; then export LANG=C.UTF-8; fi`;
 
 /**
- * The remote command of a shell: a login shell in the login directory, or an
- * interactive shell in the checked directory. `/bin/sh` runs the preparation,
- * so the user's own shell may use any syntax.
+ * The remote command of a terminal: a given command line, a login shell in the
+ * login directory, or an interactive shell in the checked directory. `/bin/sh`
+ * runs the preparation, so the user's own shell may use any syntax.
  */
-function remoteCommand(path: string | null): string {
+function remoteCommand(request: SshPtyRequest): string {
+  const { path, command } = request;
   let start = `exec "\${SHELL:-/bin/sh}" -l`;
-  if (path !== null) {
+  if (command) {
+    start = command;
+  } else if (path !== null) {
     const directory = quoteShellWord(path);
     // Fail closed if the canonical directory changed since the service checked it.
     start = `cd -P ${directory} && [ "$(pwd -P)" = ${directory} ] && exec "\${SHELL:-/bin/sh}" -i`;
@@ -125,7 +133,7 @@ export async function openSshPty(input: {
       "-o",
       "ProxyCommand=/bin/false",
       ...input.arguments,
-      remoteCommand(request.path),
+      remoteCommand(request),
     ],
     {
       name: "xterm-256color",

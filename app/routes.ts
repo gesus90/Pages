@@ -61,6 +61,10 @@ export default [
       "agents/workspaces/remote/connections/:connectionId/console",
       "routes/agent-connection-console.ts",
     ),
+    route(
+      "agents/workspaces/remote/connections/:connectionId/setup",
+      "routes/agent-connection-setup.ts",
+    ),
     route("agents/agents", "routes/page-agents.tsx"),
     route(
       "agent-api/run-records/:agentId/:runId",

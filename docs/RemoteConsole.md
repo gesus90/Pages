@@ -12,6 +12,8 @@ der sichtbaren Fläche). Es gibt zwei Einstiege mit derselben Technik:
   (PAGE-140): eine Shell im registrierten, erneut geprüften Arbeitsverzeichnis
   eines Remote-Arbeitsbereichs. Lokale Arbeitsbereiche bieten die Aktion nicht an.
 
+Dasselbe Panel führt auch das geführte Runner-Setup (PAGE-144, „Setup → Runner einrichten“): Der PTY startet dann das Skript statt einer Login-Shell, ein verlorener Transport startet es nie erneut, und über dem Terminal zeigt das Panel die acht Phasen. Das beschreibt [RemoteSetup.md](./RemoteSetup.md).
+
 Die Konsole öffnen nur Mitglieder der Abteilung, für die die Verbindung
 freigegeben ist; die Administratorrolle allein genügt nicht. Für einen
 Arbeitsbereich ist zusätzlich der Projektzugriff nötig.

@@ -60,6 +60,18 @@ export function ConsoleConnectionStatus(props: {
   );
 }
 
+/** A setup that stopped keeps its scrollback; it is never resumed, only started anew. */
+function useSetupBannerText(
+  view: ConsoleView,
+  state: RemoteConsoleState,
+): string | null {
+  const { t } = useTranslation();
+  if (view === "lost") return t("remote.setup.banner.lost");
+  if (view === "exited")
+    return t("remote.setup.banner.exited", { code: state.exitCode ?? "—" });
+  return null;
+}
+
 /** The banner text of a view that keeps the scrollback visible. */
 function useBannerText(
   view: ConsoleView,
@@ -78,11 +90,15 @@ function useBannerText(
 export function ConsoleBanner(props: {
   readonly state: RemoteConsoleState;
   readonly view: ConsoleView;
+  readonly isSetup: boolean;
   readonly onRestart: () => void;
 }): React.ReactElement | null {
   const { t } = useTranslation();
-  const text = useBannerText(props.view, props.state);
+  const shellText = useBannerText(props.view, props.state);
+  const setupText = useSetupBannerText(props.view, props.state);
+  const text = props.isSetup ? setupText : shellText;
   if (text === null) return null;
+  const isConfirmed = props.state.setup?.outcome === "confirmed";
   return (
     <div
       className="flex shrink-0 flex-wrap items-center justify-between gap-3 bg-warning-subtle px-6 py-3 text-[13px] leading-5 text-warning"
@@ -90,9 +106,13 @@ export function ConsoleBanner(props: {
       aria-live="polite"
     >
       <p>{text}</p>
-      {props.view === "reconnecting" ? null : (
+      {props.view === "reconnecting" || isConfirmed ? null : (
         <Button variant="outline" onClick={props.onRestart}>
-          {t("remote.console.newSession")}
+          {t(
+            props.isSetup
+              ? "remote.setup.restart"
+              : "remote.console.newSession",
+          )}
         </Button>
       )}
     </div>

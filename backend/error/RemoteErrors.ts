@@ -22,6 +22,11 @@ const REMOTE_ERROR_STATUS: Partial<Record<RemoteErrorCode, number>> = {
   remote_reconnecting: 409,
   remote_blocked: 409,
   remote_transport_lost: 409,
+  remote_setup_installed: 409,
+  remote_setup_registered: 409,
+  remote_setup_running: 409,
+  remote_setup_unstable: 409,
+  remote_setup_failed: 409,
 };
 
 /**

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { setupProgressSchema } from "./RemoteSetup";
+
 /** One reconnect series is bounded on both the server and the browser. */
 export const CONSOLE_MAXIMUM_RETRIES = 10;
 
@@ -17,6 +19,8 @@ export const consoleStateSchema = z.object({
   exitCode: z.number().nullable(),
   /** Where the shell started, once known; the login directory of a connection console. */
   directory: z.string().max(4096).nullable(),
+  /** The progress of a guided setup run; `null` for an ordinary shell. */
+  setup: setupProgressSchema.nullable(),
 });
 
 /** State displayed above the terminal. */

@@ -1,6 +1,7 @@
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import { RemoteConnectionRepository } from "@/backend/database/repositories/remote/RemoteConnectionRepository";
+import { RemoteInstallFindingRepository } from "@/backend/database/repositories/remote/RemoteInstallFindingRepository";
 import { RemoteWorkspaceRepository } from "@/backend/database/repositories/remote/RemoteWorkspaceRepository";
 import { RemoteSession } from "@/backend/remote/RemoteSession";
 import { RemoteSessionRegistry } from "@/backend/remote/RemoteSessionRegistry";
@@ -8,6 +9,7 @@ import { SshClient } from "@/backend/remote/SshClient";
 import { RemoteConnectionService } from "@/backend/service/remote/RemoteConnectionService";
 import { RemoteWorkspaceService } from "@/backend/service/remote/RemoteWorkspaceService";
 import { RemoteConsoleService } from "@/backend/service/remote/RemoteConsoleService";
+import { RemoteInstallService } from "@/backend/service/remote/setup/RemoteInstallService";
 
 import type { Database } from "@/backend/database/Database";
 import type { InstanceSecretCipher } from "@/backend/security/InstanceSecretCipher";
@@ -17,6 +19,8 @@ export interface RemoteApplicationServices {
   readonly remoteConnectionService: RemoteConnectionService;
   readonly remoteWorkspaceService: RemoteWorkspaceService;
   readonly remoteConsoleService: RemoteConsoleService;
+  /** What each connected machine has installed; bound to host, port, user and host key. */
+  readonly remoteInstallService: RemoteInstallService;
   /** Closed at shutdown together with the private SSH runtime folder. */
   readonly remoteSessions: RemoteSessionRegistry;
   readonly sshClient: SshClient;
@@ -45,6 +49,7 @@ export function createRemoteServices(input: {
         target: () => remoteConnectionService.sessionTarget(connectionId),
         record: (failure) =>
           remoteConnectionService.recordConnect(connectionId, failure),
+        connected: () => remoteInstallService.inspectAfterConnect(connectionId),
       }),
   );
   const remoteConnectionService: RemoteConnectionService =
@@ -55,6 +60,11 @@ export function createRemoteServices(input: {
       client: sshClient,
       sessions: remoteSessions,
     });
+  const remoteInstallService: RemoteInstallService = new RemoteInstallService({
+    findings: new RemoteInstallFindingRepository(database),
+    connections,
+    sessions: remoteSessions,
+  });
   const remoteWorkspaceService = new RemoteWorkspaceService({
     workspaces: new RemoteWorkspaceRepository(database),
     connections,
@@ -69,6 +79,7 @@ export function createRemoteServices(input: {
       workspaces: remoteWorkspaceService,
       connections: remoteConnectionService,
     }),
+    remoteInstallService,
     remoteSessions,
     sshClient,
   };

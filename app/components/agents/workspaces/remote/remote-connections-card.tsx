@@ -59,6 +59,7 @@ function useRemotePolling(overview: RemoteOverview): void {
 
 function RemoteConnectionTable(props: {
   readonly connections: readonly RemoteConnectionView[];
+  readonly installs: RemoteOverview["installs"];
   readonly onEdit: (connection: RemoteConnectionView) => void;
 }): React.ReactElement {
   const { t } = useTranslation();
@@ -84,6 +85,7 @@ function RemoteConnectionTable(props: {
             <RemoteConnectionRow
               key={connection.id}
               connection={connection}
+              install={props.installs[connection.id]}
               hasActions={hasActions}
               onEdit={() => props.onEdit(connection)}
             />
@@ -136,6 +138,7 @@ export function RemoteConnectionsCard(props: {
       ) : (
         <RemoteConnectionTable
           connections={overview.connections}
+          installs={overview.installs}
           onEdit={setSelected}
         />
       )}

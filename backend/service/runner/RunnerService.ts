@@ -17,12 +17,14 @@ import type {
   RunnerExecution,
   RunnerInterpreter,
 } from "@/definition/RunnerExecution";
+import type { ToolInventory } from "@/definition/RemoteSetup";
 import type { RunnerPlanEventService } from "./RunnerPlanEventService";
 import type {
   RunnerRepository,
   RunnerRecord,
 } from "@/backend/database/repositories/runner/RunnerRepository";
 import type { RemoteConnectionService } from "@/backend/service/remote/RemoteConnectionService";
+import type { RemoteConnectionView } from "@/definition/RemoteConnection";
 import type {
   RunnerConnectionView,
   RunnerJob,
@@ -52,6 +54,17 @@ function digest(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
+/** A connected, checked connection that has stayed up for five seconds. */
+function isStableConnection(connection: RemoteConnectionView): boolean {
+  return (
+    connection.session.status === "connected" &&
+    connection.hostKey !== null &&
+    !connection.isChecking &&
+    connection.lastCheck?.code === null &&
+    Date.now() - Date.parse(connection.session.connectedAt ?? "") >= 5000
+  );
+}
+
 function matches(token: string, expected: string): boolean {
   return timingSafeEqual(
     Buffer.from(digest(token), "hex"),
@@ -72,6 +85,7 @@ export class RunnerService {
     string,
     readonly RunnerInterpreter[]
   >();
+  private readonly tools = new Map<string, readonly ToolInventory[]>();
 
   public constructor(
     repository: RunnerRepository,
@@ -90,30 +104,7 @@ export class RunnerService {
     const scope = await this.connections.scope(userId);
     if (!scope.canManage) throw new Error("Runner administration required");
     return Promise.all(
-      scope.connections.map(async (connection) => {
-        const record = await this.repository.find(connection.id);
-        const runner =
-          record?.connectionRevision === connection.revision ? record : null;
-        return {
-          connectionId: connection.id,
-          name: connection.name,
-          endpoint: `${connection.username}@${connection.host}:${connection.port}`,
-          departmentName: connection.departmentName,
-          checkedAt: connection.lastCheck?.checkedAt ?? null,
-          isStable:
-            connection.session.status === "connected" &&
-            connection.hostKey !== null &&
-            !connection.isChecking &&
-            connection.lastCheck?.code === null &&
-            Date.now() - Date.parse(connection.session.connectedAt ?? "") >=
-              5000,
-          runnerId: record?.runnerId ?? null,
-          isOnline:
-            runner !== null &&
-            Date.now() - (this.heartbeats.get(connection.id) ?? 0) <
-              HEARTBEAT_MILLISECONDS,
-        };
-      }),
+      scope.connections.map((connection) => this.connectionView(connection)),
     );
   }
 
@@ -238,6 +229,8 @@ export class RunnerService {
         if (message.executorVersion === 1)
           this.interpreters.set(connectionId, message.interpreters ?? []);
         else this.interpreters.delete(connectionId);
+        if (message.tools) this.tools.set(connectionId, message.tools);
+        else this.tools.delete(connectionId);
       }
       return result.reply;
     });
@@ -298,6 +291,34 @@ export class RunnerService {
   public disconnected(connectionId: string): void {
     this.heartbeats.delete(connectionId);
     this.interpreters.delete(connectionId);
+    this.tools.delete(connectionId);
+  }
+
+  /**
+   * Pages' own view of a runner, independent of what a machine reports about itself.
+   *
+   * @remarks
+   * Paired means a registration of the current SSH configuration exists;
+   * ready means that runner reported within the heartbeat window and attached
+   * its executor. Neither follows from a running service on the machine.
+   *
+   * @param connectionId - The SSH connection.
+   * @returns The two facts.
+   */
+  public async status(
+    connectionId: string,
+  ): Promise<{ readonly isPaired: boolean; readonly isReady: boolean }> {
+    const record = await this.repository.find(connectionId);
+    if (!record) return { isPaired: false, isReady: false };
+    const revision = await this.connections.scopeForRunner(connectionId);
+    const isPaired = record.connectionRevision === revision;
+    const isOnline =
+      Date.now() - (this.heartbeats.get(connectionId) ?? 0) <
+      HEARTBEAT_MILLISECONDS;
+    return {
+      isPaired,
+      isReady: isPaired && isOnline && this.interpreters.has(connectionId),
+    };
   }
 
   /** Requires a live registration under current administrator access and SSH revision. */
@@ -381,6 +402,28 @@ export class RunnerService {
       this.detach(connectionId);
       this.disconnected(connectionId);
     }
+  }
+
+  private async connectionView(
+    connection: RemoteConnectionView,
+  ): Promise<RunnerConnectionView> {
+    const record = await this.repository.find(connection.id);
+    const runner =
+      record?.connectionRevision === connection.revision ? record : null;
+    return {
+      connectionId: connection.id,
+      name: connection.name,
+      endpoint: `${connection.username}@${connection.host}:${connection.port}`,
+      departmentName: connection.departmentName,
+      checkedAt: connection.lastCheck?.checkedAt ?? null,
+      isStable: isStableConnection(connection),
+      runnerId: record?.runnerId ?? null,
+      isOnline:
+        runner !== null &&
+        Date.now() - (this.heartbeats.get(connection.id) ?? 0) <
+          HEARTBEAT_MILLISECONDS,
+      tools: runner ? (this.tools.get(connection.id) ?? null) : null,
+    };
   }
 
   private async requireRevision(record: RunnerRecord): Promise<void> {

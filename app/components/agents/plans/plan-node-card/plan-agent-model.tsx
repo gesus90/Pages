@@ -119,6 +119,32 @@ function ModelValues(props: {
 }
 
 /**
+ * The limits the provider states for a model, e.g. „128k Kontext · 8k Ausgabe“.
+ *
+ * @remarks
+ * A limit the provider did not state is left out; nothing is shown as zero.
+ */
+function useLimitsText(): (model: PageAgentModel) => string {
+  const { t, i18n } = useTranslation();
+  const compact = new Intl.NumberFormat(i18n.language, { notation: "compact" });
+  return (model) =>
+    [
+      model.contextWindow
+        ? t("pageAgents.contextLimit", {
+            value: compact.format(model.contextWindow),
+          })
+        : null,
+      model.maxOutputTokens
+        ? t("pageAgents.outputLimit", {
+            value: compact.format(model.maxOutputTokens),
+          })
+        : null,
+    ]
+      .filter((part) => part !== null)
+      .join(" · ");
+}
+
+/**
  * The choices of the model list: runner and model id tell equal names apart.
  *
  * @remarks
@@ -137,6 +163,7 @@ function useModelOptions(input: {
 }[] {
   const { t } = useTranslation();
   const { sources } = usePlanFlowContext();
+  const limitsText = useLimitsText();
   const { group } = input;
   const adapter = group?.steps
     .filter((member) => member.id !== input.step.id)
@@ -152,6 +179,7 @@ function useModelOptions(input: {
         )
       : null;
     const runner = t(`settings.agents.providerShort.${entry.provider}`);
+    const limits = limitsText(entry);
     return {
       value: entry.id,
       label: entry.name,
@@ -162,7 +190,7 @@ function useModelOptions(input: {
               ? t(`settings.agents.providerShort.${adapter}`)
               : "",
           })
-        : `${runner} · ${entry.model}`,
+        : `${runner} · ${entry.model}${limits ? ` · ${limits}` : ""}`,
       disabled: refusal !== null,
     };
   });

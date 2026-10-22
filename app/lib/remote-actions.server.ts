@@ -174,12 +174,14 @@ export async function runRemoteAction(
  *
  * @param services - The application services.
  * @param userId - The signed-in person.
- * @returns Connections, departments for administrators, profiles and choices.
+ * @returns Connections, departments for administrators, profiles, choices and installation states.
  */
 export async function loadRemoteOverview(
   services: Pick<
     ApplicationServices,
-    "remoteConnectionService" | "remoteWorkspaceService"
+    | "remoteConnectionService"
+    | "remoteWorkspaceService"
+    | "remoteInstallService"
   >,
   userId: string,
 ): Promise<RemoteOverview> {
@@ -187,6 +189,9 @@ export async function loadRemoteOverview(
     services.remoteConnectionService.scope(userId),
     services.remoteWorkspaceService.list(userId),
   ]);
+  const installs = scope.canManage
+    ? await services.remoteInstallService.views(scope.connections)
+    : {};
   return {
     canManageConnections: scope.canManage,
     connections: scope.connections,
@@ -202,5 +207,6 @@ export async function loadRemoteOverview(
         connection.username,
       ),
     })),
+    installs,
   };
 }

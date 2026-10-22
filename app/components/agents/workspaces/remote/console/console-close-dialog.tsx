@@ -8,9 +8,10 @@ import {
   DialogTitle,
 } from "@/app/components/ui/dialog";
 
-/** Confirms that closing the panel terminates its remote shell. */
+/** Confirms that closing the panel terminates its remote shell, or the running setup. */
 export function ConsoleCloseDialog(props: {
   readonly hostName: string;
+  readonly isSetup: boolean;
   readonly onCancel: () => void;
   readonly onConfirm: () => void;
   /** Where the focus goes when the console stays open. */
@@ -34,10 +35,19 @@ export function ConsoleCloseDialog(props: {
         }}
       >
         <DialogTitle className="text-lg font-semibold">
-          {t("remote.console.closeTitle", { name: props.hostName })}
+          {t(
+            props.isSetup
+              ? "remote.setup.closeTitle"
+              : "remote.console.closeTitle",
+            { name: props.hostName },
+          )}
         </DialogTitle>
         <DialogDescription className="mt-3 text-sm leading-relaxed text-muted-foreground">
-          {t("remote.console.closeDescription")}
+          {t(
+            props.isSetup
+              ? "remote.setup.closeDescription"
+              : "remote.console.closeDescription",
+          )}
         </DialogDescription>
         <div className="mt-6 flex justify-end gap-2">
           <Button variant="ghost" onClick={props.onCancel}>

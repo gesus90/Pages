@@ -61,6 +61,7 @@ const REACH_FAILURES = new Set([
 ]);
 const REVOKED = new Set([
   "remote.error.remote_access_denied",
+  "remote.error.remote_management_denied",
   "remote.error.remote_workspace_not_found",
   "remote.error.remote_connection_not_found",
 ]);

@@ -1,6 +1,6 @@
 import { WebSocketServer } from "ws";
 import { getApplicationServices } from "@/app/lib/services.server";
-import { logCaughtError } from "@/backend/logging/Logger";
+import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { registerShutdownTask } from "./ProcessLifecycle";
 import type { IncomingMessage, Server } from "node:http";
@@ -15,6 +15,23 @@ import type {
 
 const CHANNEL_PATH = /^\/runner\/v1\/channel\/([a-f0-9-]{36})$/u;
 const MAXIMUM_PAYLOAD = 2 * 1024 * 1024;
+
+/** One notice per interval, so a peer that keeps trying cannot flood the log. */
+const REJECTION_NOTICE_MILLISECONDS = 30_000;
+let lastRejectionNotice = 0;
+
+/** Makes a peer that presented no valid credential visible to the operator, without the credential. */
+function noticeRejectedPeer(): void {
+  if (Date.now() - lastRejectionNotice < REJECTION_NOTICE_MILLISECONDS) return;
+  lastRejectionNotice = Date.now();
+  logEvent({
+    level: "warn",
+    event: "runner.channel.rejected",
+    component: "RunnerChannel",
+    message:
+      "Refused a runner connection without a valid registration or credential",
+  });
+}
 
 function attach(
   socket: WebSocket,
@@ -146,6 +163,7 @@ async function upgrade(input: {
       });
     });
   } catch {
+    noticeRejectedPeer();
     socket.end(
       "HTTP/1.1 401 Unauthorized\r\nConnection: close\r\nContent-Length: 0\r\n\r\n",
     );

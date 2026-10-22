@@ -23,6 +23,8 @@ export interface RemoteSessionDependencies {
   readonly target: () => Promise<SshTarget>;
   /** Records the outcome of every connect for the connection's status. */
   readonly record: (failure: RemoteFailureCode | null) => Promise<void>;
+  /** Called after each successful connect, once the transport is usable; must not throw. */
+  readonly connected?: () => void;
   /** How long an unused connection stays open. */
   readonly idleMilliseconds?: number;
   readonly delays?: readonly number[];
@@ -267,6 +269,7 @@ export class RemoteSession {
     this.cause = null;
     this.scheduleIdleClose();
     void master.exited.then(() => this.handleExit(master, generation));
+    this.dependencies.connected?.();
   }
 
   private handleExit(master: SshMaster, generation: number): void {

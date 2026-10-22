@@ -20,11 +20,23 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
+import { execFile } from "node:child_process";
 
-const RUNNER_VERSION = "1.2.0";
+const RUNNER_VERSION = "1.3.0";
 if (process.argv.includes("--version")) {
   console.info(`pages-runner ${RUNNER_VERSION}`);
   process.exit(0);
+}
+// systemd must not restart a runner whose configuration or counterpart is wrong (RestartPreventExitStatus=78).
+const EXIT_UNRECOVERABLE = 78;
+const MAXIMUM_BACKOFF_MILLISECONDS = 60000;
+
+/** A condition no reconnect can repair: the configuration, or a counterpart that is not our Pages. */
+class UnrecoverableError extends Error {}
+
+function exitUnrecoverable(message) {
+  console.error(`pages-runner: ${message}`);
+  process.exit(EXIT_UNRECOVERABLE);
 }
 const directory = join(homedir(), ".config", "pages-runner");
 const file = join(directory, "config.json");
@@ -69,10 +81,34 @@ async function providerRequest(path, apiKey, body) {
   return response;
 }
 
+/** A figure the provider stated as a finite, non-negative number; anything else stays unknown. */
+function statedNumber(value) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0
+    ? value
+    : null;
+}
+
+/** Key usage as the provider states it; a field it omits stays unknown, never zero. */
+function keyUsage(body) {
+  const data = body?.data;
+  return {
+    used: statedNumber(data?.usage),
+    limit: statedNumber(data?.limit),
+    remaining: statedNumber(data?.limit_remaining),
+    resets: ["daily", "weekly", "monthly"].includes(data?.limit_reset)
+      ? data.limit_reset
+      : null,
+  };
+}
+
 /** Validates authentication separately because the public model catalog cannot prove it. */
 async function checkProviderKey(apiKey) {
   const response = await providerRequest("key", apiKey);
-  await response.body?.cancel();
+  try {
+    return keyUsage(await response.json());
+  } catch {
+    return keyUsage(null);
+  }
 }
 
 /** Keeps only catalog metadata and identifies free prompt and completion prices explicitly. */
@@ -86,28 +122,44 @@ function catalogModel(model, apiKey) {
     model.id.includes(apiKey)
   )
     throw new Error("Invalid OpenRouter catalog");
+  const limit = (figure) =>
+    Number.isSafeInteger(figure) && figure > 0 ? figure : null;
   const prices = [model.pricing?.prompt, model.pricing?.completion];
   const isFree = prices.every(
     (price) =>
       typeof price === "string" && price.trim() !== "" && Number(price) === 0,
   );
-  return { id: model.id, name: model.name, isFree };
+  return {
+    id: model.id,
+    name: model.name,
+    isFree,
+    contextLength: limit(model.context_length),
+    maxOutputTokens: limit(model.top_provider?.max_completion_tokens),
+  };
+}
+
+/** The catalog entry Pages receives; limits the provider did not state are unknown. */
+function listedModel(model) {
+  return {
+    id: model.id,
+    name: model.name,
+    contextLength: model.contextLength ?? null,
+    maxOutputTokens: model.maxOutputTokens ?? null,
+  };
 }
 
 /** Validates a new key and catalog before replacing the previous provider configuration. */
 async function syncProvider(apiKey) {
   if (typeof apiKey !== "string" || !/^[\x21-\x7e]{16,512}$/.test(apiKey))
     throw new Error("Invalid provider credential");
-  await checkProviderKey(apiKey);
+  const usage = await checkProviderKey(apiKey);
   const response = await providerRequest("models", apiKey);
   const catalog = await response.json();
   if (!Array.isArray(catalog?.data) || catalog.data.length > 10000)
     throw new Error("Invalid OpenRouter catalog");
   const models = catalog.data.map((model) => catalogModel(model, apiKey));
   const syncedAt = new Date().toISOString();
-  const freeModels = models
-    .filter((model) => model.isFree)
-    .map(({ id, name }) => ({ id, name }));
+  const freeModels = models.filter((model) => model.isFree).map(listedModel);
   if (freeModels.length > 1000) throw new Error("Invalid OpenRouter catalog");
   await storePrivate(join(directory, "openrouter.json"), {
     apiKey,
@@ -121,6 +173,7 @@ async function syncProvider(apiKey) {
     totalModels: models.length,
     freeModels,
     syncedAt,
+    usage,
   };
 }
 
@@ -131,7 +184,7 @@ async function checkProvider(model) {
   );
   if (!stored.models.some((entry) => entry.id === model && entry.isFree))
     throw new Error("Synchronized free model required");
-  await checkProviderKey(stored.apiKey);
+  const usage = await checkProviderKey(stored.apiKey);
   const response = await providerRequest("chat/completions", stored.apiKey, {
     model,
     messages: [{ role: "user", content: "Reply with exactly OK." }],
@@ -147,6 +200,7 @@ async function checkProvider(model) {
     model,
     hasReply: typeof content === "string" && content.trim().length > 0,
     isOkReply: typeof content === "string" && content.trim() === "OK",
+    usage,
   };
 }
 
@@ -168,7 +222,7 @@ async function handleProvider(message, channel) {
         syncedAt: stored.syncedAt,
         freeModels: stored.models
           .filter((entry) => entry.isFree)
-          .map(({ id, name }) => ({ id, name })),
+          .map(listedModel),
       };
     } else throw new Error("Unsupported provider operation");
   } catch (error) {
@@ -190,14 +244,54 @@ async function handleProvider(message, channel) {
       }),
     );
 }
+const INVENTORY_TOOLS = ["codex", "claude", "opencode"];
+const INVENTORY_MAXIMUM_AGE_MILLISECONDS = 600000;
+let inventory = { checkedAt: 0, tools: [] };
+
+/** `undefined` when the tool is not installed; `null` when it is, but did not report a version. */
+function toolVersion(tool) {
+  return new Promise((resolve) => {
+    execFile(
+      tool,
+      ["--version"],
+      { timeout: 5000, maxBuffer: 16384, windowsHide: true },
+      (error, stdout) => {
+        if (error?.code === "ENOENT") resolve(undefined);
+        else
+          resolve(
+            /\d+\.\d+\.\d+[0-9A-Za-z.+-]{0,30}/.exec(stdout ?? "")?.[0] ?? null,
+          );
+      },
+    );
+  });
+}
+
+/** What the tools themselves report; a version they do not print stays unknown. */
+async function toolInventory() {
+  if (Date.now() - inventory.checkedAt < INVENTORY_MAXIMUM_AGE_MILLISECONDS)
+    return inventory.tools;
+  const tools = [];
+  for (const tool of INVENTORY_TOOLS) {
+    const version = await toolVersion(tool);
+    if (version !== undefined) tools.push({ tool, version });
+  }
+  inventory = { checkedAt: Date.now(), tools };
+  return tools;
+}
+
 let configuration;
 try {
   configuration = JSON.parse(await readFile(file, "utf8"));
 } catch (error) {
+  if (error instanceof SyntaxError)
+    exitUnrecoverable("Runner configuration is not valid JSON.");
   if (error.code !== "ENOENT")
     throw new Error("Runner configuration unreadable");
 }
 if (!configuration) {
+  // A service has no terminal; pairing hands the configuration over before the first start.
+  if (!process.stdin.isTTY)
+    exitUnrecoverable("Not paired: no configuration and no terminal.");
   const terminal = createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -211,7 +305,12 @@ if (!configuration) {
   terminal.close();
   configuration = { endpoint, token, sessionId: null, sequence: 0, jobs: [] };
 }
-const endpoint = new URL(configuration.endpoint);
+let endpoint;
+try {
+  endpoint = new URL(configuration.endpoint);
+} catch {
+  exitUnrecoverable("Invalid runner endpoint.");
+}
 if (
   !["ws:", "wss:"].includes(endpoint.protocol) ||
   endpoint.username ||
@@ -221,15 +320,25 @@ if (
   !/^\/runner\/v1\/channel\/[a-f0-9-]{36}$/.test(endpoint.pathname) ||
   !/^[A-Za-z0-9_-]{43}$/.test(configuration.token)
 ) {
-  throw new Error("Invalid runner endpoint or credential");
+  exitUnrecoverable("Invalid runner endpoint or credential.");
 }
+const connectionId = endpoint.pathname.split("/").pop();
 let attempts = 0;
+let unrecoverable = null;
 let stopped = false;
 let socket;
 let isProviderBusy = false;
 const progressSnapshots = new Map();
+let wake = null;
+// A stop signal ends the wait between reconnects at once instead of after up to a minute.
 const sleep = (milliseconds) =>
-  new Promise((resolve) => setTimeout(resolve, milliseconds));
+  new Promise((resolve) => {
+    const timer = setTimeout(resolve, milliseconds);
+    wake = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+  });
 async function persist() {
   await store(file, configuration);
 }
@@ -308,10 +417,20 @@ async function receiveJob(message) {
   }
 }
 
-async function receiveRegistration(message, channel) {
-  if (message.token) configuration.token = message.token;
+/** The counterpart must be the Pages that registered this runner, not whatever answers at the address. */
+function requireKnownCounterpart(message) {
+  if (message.connectionId !== connectionId)
+    throw new UnrecoverableError("Counterpart names another connection.");
+  if (configuration.runnerId && configuration.runnerId !== message.runnerId)
+    throw new UnrecoverableError("Counterpart names another runner identity.");
   if (configuration.sessionId && configuration.sessionId !== message.sessionId)
-    throw new Error("Runner session changed");
+    throw new UnrecoverableError("Counterpart names another runner session.");
+}
+
+async function receiveRegistration(message, channel) {
+  requireKnownCounterpart(message);
+  if (message.token) configuration.token = message.token;
+  configuration.runnerId = message.runnerId;
   configuration.sessionId = message.sessionId;
   await persist();
   channel.send(
@@ -323,13 +442,14 @@ async function receiveRegistration(message, channel) {
       jobs: configuration.jobs,
       executorVersion: 1,
       interpreters: await interpreters(),
+      tools: await toolInventory(),
     }),
   );
 }
 
 async function receiveReconciliation(message) {
   if (message.state.sessionId !== configuration.sessionId)
-    throw new Error("Runner session mismatch");
+    throw new UnrecoverableError("Counterpart reconciled another session.");
   if (
     configuration.pending &&
     configuration.pending.sequence <= message.state.sequence
@@ -369,8 +489,9 @@ async function connect() {
     };
     const timeout = setTimeout(() => channel.close(), 15000);
     const enqueue = (work) => {
-      state.chain = state.chain.then(work).catch(() => {
-        console.error("Runner protocol failed; reconciliation required.");
+      state.chain = state.chain.then(work).catch((error) => {
+        if (error instanceof UnrecoverableError) unrecoverable = error;
+        else console.error("Runner protocol failed; reconciliation required.");
         channel.close();
       });
     };
@@ -382,7 +503,8 @@ async function connect() {
     channel.addEventListener("message", (event) =>
       enqueue(async () => {
         const message = JSON.parse(event.data);
-        if (message.version !== 1) throw new Error("Unsupported protocol");
+        if (message.version !== 1)
+          throw new UnrecoverableError("Unsupported protocol version.");
         if (message.type === "registered") {
           await receiveRegistration(message, channel);
           return;
@@ -436,17 +558,32 @@ for (const signal of ["SIGINT", "SIGTERM"])
   process.on(signal, () => {
     stopped = true;
     socket?.close();
+    wake?.();
   });
-while (!stopped && attempts < 5) {
+/** Exponential, capped at one minute, with jitter so many runners do not return together. */
+function backoffMilliseconds(failures) {
+  const base = Math.min(
+    MAXIMUM_BACKOFF_MILLISECONDS,
+    1000 * 2 ** Math.min(failures, 6),
+  );
+  return base + Math.floor(Math.random() * 1000);
+}
+
+// The channel is permanent: a lost connection, an unreachable or restarting Pages and a
+// refused credential are all retried with a bounded backoff, never a stop. Only a
+// counterpart that is not our Pages ends the process, with a status systemd does not restart.
+while (!stopped && !unrecoverable) {
   try {
     await connect();
   } catch {
-    console.error("Runner connection unavailable.");
+    console.error("pages-runner: connection unavailable.");
   }
+  if (stopped || unrecoverable) break;
   attempts += 1;
-  if (!stopped) await sleep(Math.min(30000, 1000 * 2 ** attempts));
+  const delay = backoffMilliseconds(attempts);
+  console.error(
+    `pages-runner: disconnected; reconnecting in ${Math.round(delay / 1000)} s.`,
+  );
+  await sleep(delay);
 }
-if (!stopped) {
-  console.error("Runner stopped after five failed reconnects.");
-  process.exitCode = 1;
-}
+if (unrecoverable) exitUnrecoverable(unrecoverable.message);

@@ -103,7 +103,10 @@ export class AgentPlanRemoteExecution {
             modelName: model.name,
             connectionName: `${target.connectionName} / OpenRouter`,
             provider: "openrouter",
-            reasoning: "none",
+            contextWindow: model.contextLength ?? null,
+            maxOutputTokens: model.maxOutputTokens ?? null,
+            // The runner's catalog says nothing about reasoning; unknown is not "none".
+            reasoning: "unknown",
             reasoningEfforts: [],
             catalogDefaultReasoningEffort: null,
             reasoningEffort: null,

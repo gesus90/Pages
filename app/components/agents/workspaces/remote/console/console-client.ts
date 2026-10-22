@@ -15,6 +15,7 @@ export const INITIAL_CONSOLE_STATE: RemoteConsoleState = {
   message: null,
   exitCode: null,
   directory: null,
+  setup: null,
 };
 
 const openedSchema = z.object({ sessionId: z.uuid() });

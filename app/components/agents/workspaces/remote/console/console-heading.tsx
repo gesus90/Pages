@@ -26,6 +26,26 @@ function useDirectoryText(
   return directory ?? t("remote.console.directoryUnavailable");
 }
 
+/** The title and the line below it; a setup names itself, a shell its place. */
+function useHeadingTexts(target: RemoteConsoleTarget): {
+  readonly title: string;
+  readonly description: string;
+} {
+  const { t } = useTranslation();
+  if (target.kind === "setup")
+    return {
+      title: t("remote.setup.title", { name: target.title }),
+      description: t("remote.setup.description"),
+    };
+  return {
+    title: t("remote.console.title", { name: target.title }),
+    description:
+      target.kind === "connection"
+        ? t("remote.console.directConnection")
+        : t("remote.console.workspaceOn", { name: target.hostName }),
+  };
+}
+
 function ConsoleDetail(props: {
   readonly label: string;
   readonly children: string;
@@ -51,6 +71,7 @@ export function ConsoleHeading(props: {
   const { target } = props;
   const ExpandIcon = props.isExpanded ? Minimize : Maximize;
   const directory = useDirectoryText(target, props.state, props.view);
+  const texts = useHeadingTexts(target);
   return (
     <header className="shrink-0 space-y-5 bg-surface px-6 pt-6 pb-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -60,12 +81,10 @@ export function ConsoleHeading(props: {
           </span>
           <div className="min-w-0">
             <DialogTitle className="text-lg leading-6 font-semibold">
-              {t("remote.console.title", { name: target.title })}
+              {texts.title}
             </DialogTitle>
             <DialogDescription className="mt-1 text-xs text-muted-foreground">
-              {target.kind === "connection"
-                ? t("remote.console.directConnection")
-                : t("remote.console.workspaceOn", { name: target.hostName })}
+              {texts.description}
             </DialogDescription>
           </div>
         </div>

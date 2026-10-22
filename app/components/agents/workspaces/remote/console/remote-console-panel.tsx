@@ -10,6 +10,7 @@ import { ConsoleBody, ConsoleFooter } from "./console-body";
 import { consoleActivityContext } from "./console-activity";
 import { ConsoleHeading } from "./console-heading";
 import { ConsoleBanner } from "./console-status";
+import { SetupProgressPanel } from "./setup-progress";
 import { ACTIVE_CONSOLE_VIEWS, consoleViewOf } from "./console-view";
 import { useRemoteConsole } from "./use-remote-console";
 
@@ -140,9 +141,17 @@ export function RemoteConsolePanel(props: {
               onToggleExpanded={() => setExpanded((previous) => !previous)}
               onClose={closing.request}
             />
+            {props.target.kind === "setup" ? (
+              <SetupProgressPanel
+                state={shell.state}
+                view={view}
+                hostName={props.target.hostName}
+              />
+            ) : null}
             <ConsoleBanner
               state={shell.state}
               view={view}
+              isSetup={props.target.kind === "setup"}
               onRestart={shell.restart}
             />
             <ConsoleBody
@@ -152,13 +161,14 @@ export function RemoteConsolePanel(props: {
               view={view}
               onAction={handleAction}
             />
-            <ConsoleFooter view={view} />
+            <ConsoleFooter view={view} kind={props.target.kind} />
           </DialogPrimitive.Content>
         </DialogPrimitive.Portal>
       </Dialog>
       {closing.isConfirming ? (
         <ConsoleCloseDialog
           hostName={props.target.hostName}
+          isSetup={props.target.kind === "setup"}
           onCancel={closing.cancel}
           onConfirm={closing.confirm}
           onReturnFocus={focusConsole}

@@ -1243,7 +1243,14 @@
         "connected": "SSH verbunden. Setup erscheint nach der Stabilitätsprüfung.",
         "failed": "Aktion fehlgeschlagen. Verbindung, Host-Schlüssel, Berechtigungen und vorhandene Zieldatei prüfen.",
         "refresh": "Aktualisieren",
-        "tool": "Pages-Runner"
+        "tool": "Pages-Runner",
+        "toolsNone": "Keine Werkzeuge gefunden",
+        "versionUnknown": "Version unbekannt",
+        "toolName": {
+          "codex": "Codex",
+          "claude": "Claude Code",
+          "opencode": "OpenCode"
+        }
       },
       "cliLocations": "Installierte CLI-Werkzeuge und Einrichtung"
     },
@@ -3489,6 +3496,11 @@
       "remote_reconnecting": "Die Verbindung wird gerade wiederhergestellt.",
       "remote_blocked": "Die Verbindung ist nach zehn erfolglosen Versuchen blockiert. Starten Sie mit „Erneut verbinden“ eine neue Serie.",
       "remote_transport_lost": "Die SSH-Verbindung brach während des Schritts ab. Er wird nicht automatisch wiederholt.",
+      "remote_setup_installed": "Die Installation ist bereits bestätigt. Es wird nichts erneut eingerichtet.",
+      "remote_setup_registered": "Für diese Verbindung besteht bereits eine Runner-Registrierung. Entfernen Sie sie zuerst in den Einstellungen.",
+      "remote_setup_running": "Für diese Verbindung läuft bereits ein Setup.",
+      "remote_setup_unstable": "Die SSH-Sitzung ist noch nicht stabil oder die letzte Prüfung ist nicht in Ordnung. Warten Sie auf eine stabile Verbindung und versuchen Sie es erneut.",
+      "remote_setup_failed": "Übertragung oder Prüfung des Setup-Skripts auf dem Host ist fehlgeschlagen. Es wurde nichts gestartet.",
       "general": "Die Aktion ist fehlgeschlagen."
     },
     "workspace": {
@@ -3604,6 +3616,87 @@
       "streamLost": "Die Verbindung zur Terminal-Ausgabe wurde unterbrochen.",
       "loadFailed": "Das Terminal konnte im Browser nicht geladen werden.",
       "ptyUnavailable": "Es konnte kein interaktives Terminal geöffnet werden."
+    },
+    "setup": {
+      "title": "Runner-Setup · {{name}}",
+      "description": "Geführte Einrichtung des Pages-Runners",
+      "sectionLabel": "Setup-Fortschritt",
+      "phasesLabel": "Phasen des Setups",
+      "greeting": "Willkommen beim Runner-Setup. Pages richtet auf {{name}} den Pages-Runner ein. Jede Änderung wird vorher angezeigt und einzeln bestätigt; Anmeldungen und Passwörter gibt nur das jeweilige Werkzeug selbst verdeckt ab.",
+      "phase": {
+        "preflight": "Vorprüfung",
+        "system": "System",
+        "tools": "Werkzeuge",
+        "connections": "Anmeldung",
+        "git": "Git & GitHub",
+        "verify": "Prüfung",
+        "service": "Dienst",
+        "pairing": "Kopplung"
+      },
+      "state": {
+        "pending": "offen",
+        "running": "läuft",
+        "waiting": "wartet auf Eingabe",
+        "done": "erledigt",
+        "skipped": "übersprungen",
+        "failed": "fehlgeschlagen"
+      },
+      "preparation": {
+        "label": "Vorbereitung durch Pages",
+        "rights": "Rechte",
+        "connection": "SSH-Sitzung",
+        "upload": "Übertragung",
+        "verification": "Prüfsumme und Syntax",
+        "permissions": "Nur Eigentümer ausführbar",
+        "console": "Konsole",
+        "start": "Start"
+      },
+      "headline": {
+        "running": "Phase {{number}} von {{count}} · {{phase}}",
+        "waiting": "Phase „{{phase}}“ wartet auf Ihre Eingabe im Terminal",
+        "failed": "Gestoppt in Phase „{{phase}}“: {{reason}} Folgeschritte laufen nicht.",
+        "partial": "Teilweise eingerichtet: {{reason}}",
+        "confirmed": "Eingerichtet: Dienst aktiv, Autostart gesetzt, Kopplung von Pages bestätigt."
+      },
+      "reason": {
+        "stopped": "Das Setup wurde vor der Dienstregistrierung beendet.",
+        "scriptFailed": "Das Skript ist mit einem Fehler beendet.",
+        "notObserved": "Pages konnte den Zustand des Hosts nicht prüfen.",
+        "notInstalled": "Runner oder Dienstregistrierung fehlen auf dem Host.",
+        "noServiceManager": "Auf dem Host gibt es keinen nutzbaren Dienstmanager (systemd oder supervisord). Der Runner läuft nur im Dauerbetrieb ohne Start beim Systemstart; Neustarts sind nicht abgedeckt.",
+        "serviceNotQueryable": "Der Dienstmanager des Hosts beantwortet die Abfrage dieses Benutzers nicht. Pages kann den Dienst deshalb nicht bestätigen.",
+        "serviceNotRunning": "Der Dienst läuft nicht oder startet nicht beim Booten.",
+        "notPaired": "Pages hat keine Kopplung für diese Verbindung gespeichert.",
+        "notReady": "Der Runner hat sich bei Pages noch nicht gemeldet.",
+        "addressUnknown": "Pages kennt seine eigene Adresse nicht. Setzen Sie PAGES_RUNNER_PUBLIC_URL.",
+        "loopbackAddress": "Pages wurde über eine lokale Adresse geöffnet, die der Host nicht erreicht. Öffnen Sie Pages über seine Netzwerkadresse oder setzen Sie PAGES_RUNNER_PUBLIC_URL."
+      },
+      "menu": {
+        "heading": "Setup",
+        "runner": "Runner einrichten",
+        "installed": "Bereits installiert",
+        "running": "Setup läuft"
+      },
+      "overlay": {
+        "connecting": {
+          "title": "Setup für {{name}} wird vorbereitet",
+          "hint": "Pages prüft Rechte und Verbindung, überträgt das Skript und startet es erst danach. Eine fehlgeschlagene Stufe stoppt alle folgenden."
+        },
+        "failed": {
+          "title": "Das Setup wurde nicht gestartet"
+        }
+      },
+      "footer": {
+        "connected": "Geführtes Setup · Eingaben gehen an das Skript · Passwörter bleiben verdeckt",
+        "exited": "Setup beendet · Ausgabe bleibt lesbar"
+      },
+      "banner": {
+        "lost": "Die Verbindung brach ab. Das Skript wird nicht erneut gestartet. Prüfen Sie den Host und starten Sie das Setup bei Bedarf neu.",
+        "exited": "Das Setup-Skript ist beendet · Exitstatus {{code}}."
+      },
+      "restart": "Setup erneut starten",
+      "closeTitle": "Setup auf {{name}} abbrechen?",
+      "closeDescription": "Das Skript wird beendet. Ein gerade laufender Paketvorgang auf dem Host wird dabei unterbrochen; bereits abgeschlossene Schritte bleiben bestehen."
     }
   },
   "plans": {
@@ -4744,7 +4837,9 @@
     "deletedTargets": "Eine Gruppe oder Abteilung dieser Freigabe gibt es nicht mehr. Sie fehlt in der Liste unten; beim Speichern wird die Freigabe ohne sie gespeichert.",
     "deleteTitle": "Agent „{{name}}“ entfernen?",
     "deleteDescription": "Der Agent wird aus der AgentListe entfernt und kann danach nicht mehr gestartet werden. Laufende Agents können erst nach dem Ende ihres Laufs entfernt werden.",
-    "confirmDelete": "Agent entfernen"
+    "confirmDelete": "Agent entfernen",
+    "contextLimit": "{{value}} Kontext",
+    "outputLimit": "{{value}} Ausgabe"
   },
   "discordResult": {
     "authorized": {

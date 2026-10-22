@@ -1,5 +1,6 @@
 import type { Department } from "@/definition/Authorization";
 import type { WorkspaceGitHub } from "@/definition/AgentWorkspace";
+import type { RemoteInstallView } from "@/definition/RemoteSetup";
 
 /** How Pages signs in to a remote machine; separate from every Codex, Claude or OpenCode login. */
 export const REMOTE_AUTH_METHODS = [
@@ -79,6 +80,11 @@ export const REMOTE_ERROR_CODES = [
   "remote_reconnecting",
   "remote_blocked",
   "remote_transport_lost",
+  "remote_setup_installed",
+  "remote_setup_registered",
+  "remote_setup_running",
+  "remote_setup_unstable",
+  "remote_setup_failed",
 ] as const;
 
 /** A stable error of a remote action. */
@@ -316,6 +322,8 @@ export interface RemoteOverview {
   readonly departments: readonly Department[];
   readonly workspaces: readonly RemoteWorkspaceView[];
   readonly choices: readonly RemoteConnectionChoice[];
+  /** The installation state of each connection, by identifier; empty for non-administrators. */
+  readonly installs: Readonly<Record<string, RemoteInstallView>>;
 }
 
 /** Result of a remote action as the page receives it. */

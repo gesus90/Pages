@@ -74,13 +74,15 @@ async function readCommand(
 }
 
 async function runCommand(
-  userId: string,
-  scope: RemoteConsoleScope,
+  input: RemoteConsoleRequest & { readonly userId: string },
   command: z.infer<typeof commandSchema>,
 ): Promise<Response> {
+  const { userId, scope } = input;
   const consoles = (await getApplicationServices()).remoteConsoleService;
   if (command.intent === "open") {
-    const sessionId = await consoles.open(userId, scope, command);
+    // The origin is the same-origin address the person reached Pages with.
+    const origin = input.request.headers.get("Origin");
+    const sessionId = await consoles.open(userId, scope, command, { origin });
     return Response.json({ sessionId }, { headers: NO_STORE });
   }
   if (command.intent === "close") {
@@ -108,13 +110,16 @@ async function runCommand(
 export async function remoteConsoleAction(
   input: RemoteConsoleRequest,
 ): Promise<Response> {
-  const { request, user, scope } = input;
+  const { request, user } = input;
   try {
     if (!user || request.headers.get("Origin") !== new URL(request.url).origin)
       throw new RemoteError("remote_access_denied");
     if (request.method !== "POST")
       return new Response(null, { status: 405, headers: { Allow: "POST" } });
-    return await runCommand(user.id, scope, await readCommand(request));
+    return await runCommand(
+      { ...input, userId: user.id },
+      await readCommand(request),
+    );
   } catch (error: unknown) {
     return failureResponse(error);
   }

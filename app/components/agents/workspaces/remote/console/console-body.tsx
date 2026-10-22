@@ -65,6 +65,16 @@ function overlayAction(
   return state.attempts < CONSOLE_MAXIMUM_RETRIES ? "reconnect" : "close";
 }
 
+/** The setup says its own words where a shell would not fit: before it starts and when it never did. */
+function overlayPrefix(
+  kind: RemoteConsoleTarget["kind"],
+  view: ConsoleView,
+): string {
+  const isSetupText =
+    kind === "setup" && (view === "connecting" || view === "failed");
+  return isSetupText ? "remote.setup.overlay" : "remote.console.overlay";
+}
+
 function OverlayHint(props: {
   readonly target: RemoteConsoleTarget;
   readonly state: RemoteConsoleState;
@@ -75,7 +85,7 @@ function OverlayHint(props: {
   const text =
     view === "failed"
       ? t(state.message ?? "remote.failure.remote_failed")
-      : t(`remote.console.overlay.${view}.hint`, {
+      : t(`${overlayPrefix(props.target.kind, view)}.${view}.hint`, {
           name: props.target.hostName,
           endpoint: props.target.endpointLabel ?? props.target.hostName,
         });
@@ -121,9 +131,12 @@ function ConsoleOverlay(props: {
           )}
         />
         <h2 className="mt-4 text-lg font-semibold">
-          {t(`remote.console.overlay.${props.view}.title`, {
-            name: props.target.hostName,
-          })}
+          {t(
+            `${overlayPrefix(props.target.kind, props.view)}.${props.view}.title`,
+            {
+              name: props.target.hostName,
+            },
+          )}
         </h2>
         <OverlayHint
           target={props.target}
@@ -173,14 +186,25 @@ export function ConsoleBody(props: {
   );
 }
 
+/** The footer of a setup differs where a shell is open or ended. */
+function footerLabel(
+  kind: RemoteConsoleTarget["kind"],
+  view: ConsoleView,
+): string {
+  if (kind === "setup" && (view === "connected" || view === "exited"))
+    return `remote.setup.footer.${view}`;
+  return FOOTER_LABELS[view];
+}
+
 /** Input availability and keyboard hints stay visible below the work surface. */
 export function ConsoleFooter(props: {
   readonly view: ConsoleView;
+  readonly kind: RemoteConsoleTarget["kind"];
 }): React.ReactElement {
   const { t } = useTranslation();
   return (
     <footer className="flex shrink-0 flex-wrap justify-between gap-x-4 gap-y-1 bg-surface px-6 py-3.5 text-xs leading-4.5 text-muted-foreground">
-      <span>{t(FOOTER_LABELS[props.view])}</span>
+      <span>{t(footerLabel(props.kind, props.view))}</span>
       <span>{t("remote.console.keyboardHint")}</span>
     </footer>
   );

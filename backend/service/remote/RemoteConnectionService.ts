@@ -307,6 +307,31 @@ export class RemoteConnectionService {
   }
 
   /**
+   * Rechecks, for the guided runner setup, what a console needs and that the
+   * person is an administrator in the active admin mode.
+   *
+   * @remarks
+   * The setup opens a shell with `sudo` on the machine, so it asks for both:
+   * the administration right, and the membership a console needs. It is
+   * checked at the start, before each step and with every later request.
+   *
+   * @param userId - The person who starts or follows the setup.
+   * @param id - The connection.
+   * @returns The stored connection with a pinned host key.
+   * @throws {RemoteError} `remote_management_denied` outside the admin mode, and
+   * what {@link RemoteConnectionService.requireConsole} throws.
+   */
+  public async requireSetup(
+    userId: string,
+    id: string,
+  ): Promise<RemoteConnectionRecord> {
+    const actor = await this.account(userId);
+    if (!canManageRemoteConnections(actor))
+      throw new RemoteError("remote_management_denied");
+    return this.requireConsole(userId, id);
+  }
+
+  /**
    * Where a connection console starts: the shared logical connection and the
    * login directory of the SSH user; checked again before each new shell.
    *

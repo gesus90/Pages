@@ -4,6 +4,8 @@ import {
   runnerLaunchSchema,
   runnerInterpreterSchema,
 } from "./RunnerExecution.js";
+import { toolInventorySchema } from "./RemoteSetup.js";
+import type { ToolInventory } from "./RemoteSetup.js";
 
 /** Wire version shared by Pages and an outbound runner connection. */
 export const RUNNER_PROTOCOL_VERSION = 1;
@@ -68,6 +70,8 @@ export const runnerMessageSchema = z.discriminatedUnion("type", [
     sequence: z.number().int().nonnegative(),
     jobs: z.array(runnerJobSchema).max(1000),
     interpreters: z.array(runnerInterpreterSchema).max(16).optional(),
+    /** Tools the runner found and what they reported; a runner before 1.3.0 sends none. */
+    tools: z.array(toolInventorySchema).max(3).optional(),
     executorVersion: z.literal(1).optional(),
   }),
   z.object({
@@ -144,4 +148,6 @@ export interface RunnerConnectionView {
   readonly isStable: boolean;
   readonly runnerId: string | null;
   readonly isOnline: boolean;
+  /** `null` while the runner has not reported an inventory; an empty list means none found. */
+  readonly tools: readonly ToolInventory[] | null;
 }

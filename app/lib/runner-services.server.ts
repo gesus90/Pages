@@ -13,6 +13,7 @@ import { RunnerDeployKeyRepository } from "@/backend/database/repositories/runne
 import { RunnerService } from "@/backend/service/runner/RunnerService";
 import { RunnerOpenRouterService } from "@/backend/service/runner/RunnerOpenRouterService";
 import { RunnerSetupService } from "@/backend/service/runner/RunnerSetupService";
+import { RemoteSetupService } from "@/backend/service/remote/setup/RemoteSetupService";
 import { RunnerDeployKeyService } from "@/backend/service/runner/RunnerDeployKeyService";
 import { RunnerGitHubContext } from "@/backend/service/runner/RunnerGitHubContext";
 import { OfflineRunnerGitHubClient } from "@/backend/service/runner/OfflineRunnerGitHubClient";
@@ -28,7 +29,25 @@ export interface RunnerApplicationServices {
   readonly runnerService: RunnerService;
   readonly runnerOpenRouterService: RunnerOpenRouterService;
   readonly runnerSetupService: RunnerSetupService;
+  readonly remoteSetupService: RemoteSetupService;
   readonly runnerDeployKeyService: RunnerDeployKeyService;
+}
+
+/** The operator's address of Pages for runners; an origin only, so no path or secret can ride along. */
+function readPublicUrl(): string | null {
+  const configured = process.env.PAGES_RUNNER_PUBLIC_URL?.trim();
+  if (!configured) return null;
+  const address = new URL(configured);
+  if (
+    !["http:", "https:"].includes(address.protocol) ||
+    address.username ||
+    address.password ||
+    address.pathname !== "/" ||
+    address.search ||
+    address.hash
+  )
+    throw new Error("Invalid PAGES_RUNNER_PUBLIC_URL");
+  return address.origin;
 }
 
 /** Creates lazy clients; only an explicit http configuration can ever contact GitHub. */
@@ -78,16 +97,33 @@ export function createRunnerServices(input: {
       ),
     }),
   );
+  const runnerSetupService = new RunnerSetupService({
+    runners: runnerService,
+    connections: remote.remoteConnectionService,
+    sessions: remote.remoteSessions,
+    directory: process.env.PAGES_RUNNER_SETUP_DIRECTORY,
+  });
+  const remoteSetupService = new RemoteSetupService({
+    connections: remote.remoteConnectionService,
+    runners: runnerService,
+    delivery: runnerSetupService,
+    sessions: remote.remoteSessions,
+    install: remote.remoteInstallService,
+    publicUrl: readPublicUrl(),
+  });
+  // The console and the findings are built before the runner services they depend on.
+  remote.remoteConsoleService.attachSetup(remoteSetupService);
+  remote.remoteInstallService.attach({
+    runnerStatus: (connectionId) => runnerService.status(connectionId),
+    isSetupRunning: (connectionId) =>
+      remote.remoteConsoleService.hasSetup(connectionId),
+  });
   return {
     runnerService,
     runnerOpenRouterService: new RunnerOpenRouterService(runnerService),
     runnerGitHubMode: mode,
     runnerDeployKeyService: new RunnerDeployKeyService(github, workspaces),
-    runnerSetupService: new RunnerSetupService({
-      runners: runnerService,
-      connections: remote.remoteConnectionService,
-      sessions: remote.remoteSessions,
-      directory: process.env.PAGES_RUNNER_SETUP_DIRECTORY,
-    }),
+    runnerSetupService,
+    remoteSetupService,
   };
 }

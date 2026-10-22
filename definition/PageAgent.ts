@@ -46,6 +46,10 @@ export interface PageAgentModel {
   /** Where the connection runs; absent only on legacy profile projections. */
   readonly location?: AgentConnectionLocation;
   readonly model: string;
+  /** The context size the provider states for the model; `null` or absent when it does not. */
+  readonly contextWindow?: number | null;
+  /** The output limit the provider states for the model; `null` or absent when it does not. */
+  readonly maxOutputTokens?: number | null;
   readonly reasoning: AgentReasoningSupport;
   readonly reasoningEfforts: readonly string[];
   /** The default the catalog names for the model. */

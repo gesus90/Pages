@@ -8,6 +8,10 @@ import { CONSOLE_MAXIMUM_RETRIES } from "@/definition/RemoteConsole";
 import type { RemoteSession } from "@/backend/remote/RemoteSession";
 import type { SshPty } from "@/backend/remote/SshPty";
 import type {
+  ConductorControl,
+  RemoteConsoleConductor,
+} from "./RemoteConsoleConductor";
+import type {
   RemoteConsoleEvent,
   RemoteConsoleSize,
   RemoteConsoleState,
@@ -17,6 +21,8 @@ import type {
 export interface RemoteConsoleTarget {
   readonly session: RemoteSession;
   readonly path: string | null;
+  /** Runs a guided command instead of a shell, such as the runner setup. */
+  readonly conductor?: RemoteConsoleConductor;
 }
 
 const MAXIMUM_HISTORY = 256 * 1024;
@@ -83,6 +89,16 @@ export class RemoteConsoleSession {
     message: null,
     exitCode: null,
     directory: null,
+    setup: null,
+  };
+  private conductor: RemoteConsoleConductor | null = null;
+  private isFinishing = false;
+  private readonly control: ConductorControl = {
+    report: (progress) => {
+      if (this.state.status !== "ended")
+        this.update({ ...this.state, setup: progress });
+    },
+    write: (input) => this.terminal?.write(input),
   };
   private generation = 0;
   private retryTimer: NodeJS.Timeout | null = null;
@@ -122,6 +138,8 @@ export class RemoteConsoleSession {
 
   /** Input is never queued or replayed after a disconnect. */
   public write(input: string, attempt: number): void {
+    // The conducted command has ended and Pages is still verifying its result.
+    if (this.isFinishing) return;
     if (
       this.state.status !== "connected" ||
       !this.terminal ||
@@ -151,6 +169,8 @@ export class RemoteConsoleSession {
     )
       return;
     if (this.state.message === "remote.failure.host_key_changed") return;
+    // A conducted command that started is never started a second time.
+    if (this.conductor?.hasStarted()) return;
     this.isManualRetry = true;
     if (this.hasConnected) {
       this.scheduleRetry(this.state.message);
@@ -181,7 +201,10 @@ export class RemoteConsoleSession {
     this.emit({ kind: "state", sequence: ++this.sequence, state });
   }
 
-  private output(chunk: string): void {
+  private output(raw: string): void {
+    const chunk = this.conductor
+      ? this.conductor.filter(raw, this.control)
+      : raw;
     // Small frames bound HTTP buffering even when a remote program writes large chunks.
     for (let offset = 0; offset < chunk.length; offset += 8192)
       this.emit({
@@ -208,7 +231,10 @@ export class RemoteConsoleSession {
     try {
       const target = await this.target();
       if (generation !== this.generation) return;
+      this.conductor = target.conductor ?? null;
       await this.hurrySession(target.session);
+      if (generation !== this.generation) return;
+      await this.conductor?.prepare(this.control);
       if (generation !== this.generation) return;
       const directory = await startDirectory(target);
       if (generation !== this.generation) return;
@@ -217,6 +243,7 @@ export class RemoteConsoleSession {
         terminal.close();
         return;
       }
+      this.conductor?.terminalOpened(this.control);
       await this.attach(terminal, generation, directory);
     } catch (error: unknown) {
       if (generation !== this.generation) return;
@@ -229,6 +256,7 @@ export class RemoteConsoleSession {
       return await target.session.openPty({
         ...this.size,
         path: target.path,
+        command: target.conductor?.command ?? null,
         onOutput: (chunk) => this.output(chunk),
       });
     } catch (error: unknown) {
@@ -281,6 +309,7 @@ export class RemoteConsoleSession {
    * a person; an interrupted shell is retried within the budget.
    */
   private fail(error: unknown): void {
+    this.conductor?.abort(error, this.control);
     const message = consoleMessageOf(error);
     const isRetried =
       RETRY_MESSAGES.has(message) &&
@@ -304,6 +333,10 @@ export class RemoteConsoleSession {
       });
       return;
     }
+    if (this.conductor) {
+      void this.finishConducted(exit);
+      return;
+    }
     if (exit.exitCode === SSH_FAILURE_EXIT_CODE) {
       const message = "remote.failure.transport_lost";
       if (!this.hasConnected || !this.scheduleRetry(message))
@@ -318,8 +351,46 @@ export class RemoteConsoleSession {
     });
   }
 
+  /**
+   * The conducted command ended: its owner verifies the result, then the
+   * console ends. A lost transport ends the run; it is never started again.
+   */
+  private async finishConducted(exit: {
+    readonly generation: number;
+    readonly exitCode: number;
+  }): Promise<void> {
+    const isTransportFailure = exit.exitCode === SSH_FAILURE_EXIT_CODE;
+    this.isFinishing = true;
+    try {
+      await this.conductor?.finish(
+        { exitCode: exit.exitCode, isTransportFailure },
+        this.control,
+      );
+    } catch (error: unknown) {
+      logCaughtError("RemoteConsoleSession", error);
+    }
+    if (exit.generation !== this.generation) return;
+    this.isFinishing = false;
+    if (isTransportFailure) {
+      this.update({
+        ...this.state,
+        status: "blocked",
+        message: "remote.failure.transport_lost",
+      });
+      return;
+    }
+    this.update({
+      ...this.state,
+      status: "ended",
+      exitCode: exit.exitCode,
+      message: null,
+    });
+  }
+
   /** Returns whether a retry is pending; the budget is never exceeded. */
   private scheduleRetry(message: string | null): boolean {
+    // A conducted command is not repeated after the transport was lost.
+    if (this.conductor) return false;
     if (this.retryTimer) return true;
     if (this.state.attempts >= CONSOLE_MAXIMUM_RETRIES) return false;
     this.update({ ...this.state, status: "reconnecting", message });

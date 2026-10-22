@@ -6,6 +6,7 @@ import { Button } from "@/app/components/ui/button";
 import { AgentCheckTime } from "./agent-check-time";
 
 import type { RunnerConnectionView } from "@/definition/RunnerProtocol";
+import type { ToolInventory } from "@/definition/RemoteSetup";
 
 interface RunnerActionResult {
   readonly ok: boolean;
@@ -16,6 +17,38 @@ interface RunnerActionResult {
 function runnerStatus(connection: RunnerConnectionView): string {
   if (connection.runnerId) return connection.isOnline ? "online" : "registered";
   return connection.isStable ? "missing" : "waiting";
+}
+
+/**
+ * The tools the runner found with the version each one printed.
+ *
+ * @remarks
+ * A tool that did not print a version shows that it is unknown, never a zero;
+ * a runner that reported no inventory shows nothing at all.
+ */
+function ToolInventoryList({
+  tools,
+}: {
+  readonly tools: readonly ToolInventory[] | null;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (tools === null) return null;
+  if (tools.length === 0)
+    return (
+      <span className="block text-xs text-muted-foreground">
+        {t("settings.agents.runner.toolsNone")}
+      </span>
+    );
+  return (
+    <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+      {tools.map((entry) => (
+        <li key={entry.tool}>
+          {t(`settings.agents.runner.toolName.${entry.tool}`)}{" "}
+          {entry.version ?? t("settings.agents.runner.versionUnknown")}
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 /** Renders actual SSH registrations without inventing installed providers or accounts. */
@@ -33,8 +66,9 @@ export function RunnerConnectionRow({
           {connection.endpoint}
         </span>
       </th>
-      <td className="px-3 py-3 whitespace-nowrap">
+      <td className="px-3 py-3">
         {connection.runnerId ? t("settings.agents.runner.tool") : "—"}
+        <ToolInventoryList tools={connection.tools} />
       </td>
       <td className="px-3 py-3">{connection.departmentName ?? "—"}</td>
       <td className="px-3 py-3">

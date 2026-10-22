@@ -205,6 +205,19 @@ function recordParameters(
   };
 }
 
+/** Whether the change leads to another machine, account or pinned host key. */
+function changesIdentity(
+  current: RemoteConnectionRecord,
+  next: RemoteConnectionRecord,
+): boolean {
+  return (
+    current.host.toLowerCase() !== next.host.toLowerCase() ||
+    current.port !== next.port ||
+    current.username !== next.username ||
+    current.hostKey?.fingerprint !== next.hostKey?.fingerprint
+  );
+}
+
 /**
  * Stores SSH connections, their encrypted secrets and the latest test result.
  *
@@ -325,6 +338,12 @@ export class RemoteConnectionRepository {
       if (current.revision !== record.revision)
         throw new RemoteError("remote_conflict");
       await requireUniqueName(transaction, record);
+      // A finding belongs to one machine, account and host key; a change ends it for good.
+      if (changesIdentity(current, record))
+        await transaction.execute(
+          "DELETE FROM remote_install_findings WHERE connection_id = $id;",
+          { id: record.id },
+        );
       await transaction.execute(
         `
         UPDATE remote_connections
@@ -414,6 +433,10 @@ export class RemoteConnectionRepository {
       );
       if (profiles.length > 0)
         throw new RemoteError("remote_connection_in_use");
+      await transaction.execute(
+        "DELETE FROM remote_install_findings WHERE connection_id = $id;",
+        { id },
+      );
       await transaction.execute(
         "DELETE FROM remote_connections WHERE id = $id;",
         { id },
