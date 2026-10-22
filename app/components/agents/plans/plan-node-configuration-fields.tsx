@@ -1,16 +1,18 @@
 import { useTranslation } from "react-i18next";
-
 import { PageAgentModelFields } from "@/app/components/agents/definitions/page-agent-model-fields";
 import { Select } from "@/app/components/ui/select";
-import { PlanNodeContentFields } from "./plan-node-content-fields";
 import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 import {
+  planTargetModels,
   copyPlanConfiguration,
   planConfigurationModelKey,
 } from "@/definition/AgentPlanConfiguration";
-
+import { PlanExecutionTargetField } from "./plan-execution-target-field";
+import {
+  PlanNodeContentFields,
+  PlanNodeNameField,
+} from "./plan-node-content-fields";
 import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
-
 import type { AgentPlanSources, AgentPlanStep } from "@/definition/AgentPlan";
 import type { AgentPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 import type { AgentPlanCompletion } from "@/definition/AgentPlanSession";
@@ -35,6 +37,7 @@ export function planStepWithModel(
       ...configuration,
       modelProfileId: model.id,
       connectionId: model.connectionId,
+      runnerRoute: model.runnerRoute,
       model: model.model,
       provider: model.provider,
       reasoningEffort,
@@ -90,13 +93,17 @@ export function PlanNodeConfigurationFields(props: {
   readonly isGroupStep?: boolean;
   readonly onChange: (step: AgentPlanStep) => void;
 }): React.ReactElement | null {
+  const { t } = useTranslation();
   const source = props.sources.agents.find(
     (entry) => entry.id === props.step.agentId,
   );
   const configuration =
     props.step.configuration ?? (source ? copyPlanConfiguration(source) : null);
   if (!configuration) return null;
-  const models = props.sources.models ?? [];
+  const models = planTargetModels(
+    props.sources.models ?? [],
+    props.step.executionTarget,
+  );
   const draft: PageAgentInput = {
     name: configuration.name,
     modelProfileId: planConfigurationModelKey(configuration),
@@ -118,19 +125,19 @@ export function PlanNodeConfigurationFields(props: {
   }
   return (
     <fieldset disabled={props.disabled} className="space-y-3">
-      <PlanNodeContentFields
+      <PlanNodeNameField
         step={props.step}
         configuration={configuration}
-        workspaces={props.workspaces}
-        disabled={props.disabled}
         onChange={props.onChange}
       />
-      <PlanCompletionField
+      <PlanExecutionTargetField
+        configuration={configuration}
         step={props.step}
-        isGroupStep={props.isGroupStep}
+        sources={props.sources}
         onChange={props.onChange}
       />
       <PageAgentModelFields
+        layout="stacked"
         savedModel={configuration.model}
         draft={draft}
         models={models}
@@ -142,6 +149,23 @@ export function PlanNodeConfigurationFields(props: {
         }
         onChange={changeModel}
       />
+      <PlanNodeContentFields
+        step={props.step}
+        configuration={configuration}
+        workspaces={props.workspaces}
+        disabled={props.disabled}
+        onChange={props.onChange}
+      />
+      <details className="space-y-3">
+        <summary className="cursor-pointer text-sm text-muted-foreground">
+          {t("plans.completion.label")}
+        </summary>
+        <PlanCompletionField
+          step={props.step}
+          isGroupStep={props.isGroupStep}
+          onChange={props.onChange}
+        />
+      </details>
     </fieldset>
   );
 }

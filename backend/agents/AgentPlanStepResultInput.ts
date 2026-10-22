@@ -1,6 +1,10 @@
-import { readPlanProgress } from "./AgentPlanProgressInput";
+import {
+  planStepExecutionSchema,
+  planRemoteProgressSchema,
+} from "@/definition/AgentPlanExecution";
 import { AgentError } from "@/backend/error/AgentErrors";
 
+import { readPlanProgress } from "./AgentPlanProgressInput";
 import { readPlanText } from "./AgentPlanInput";
 import { readPlanSessionRecord } from "./AgentPlanSessionInput";
 import { readAgentObject } from "./AgentPayload";
@@ -31,6 +35,7 @@ export function readPlanStepResult(input: unknown): AgentPlanStepResult {
     throw new AgentError("plan_invalid");
   return {
     id: readPlanText(step.id),
+    ...readExecutionMetadata(step),
     ...(step.groupId === undefined
       ? {}
       : { groupId: readPlanText(step.groupId) }),
@@ -66,4 +71,17 @@ export function isStepStatus(input: unknown): input is AgentPlanStepStatus {
       "paused",
     ].includes(input)
   );
+}
+
+function readExecutionMetadata(
+  step: Record<string, unknown>,
+): Pick<AgentPlanStepResult, "execution" | "remote"> {
+  return {
+    ...(step.remote === undefined
+      ? {}
+      : { remote: planRemoteProgressSchema.parse(step.remote) }),
+    ...(step.execution === undefined
+      ? {}
+      : { execution: planStepExecutionSchema.parse(step.execution) }),
+  };
 }

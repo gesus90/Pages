@@ -273,6 +273,11 @@ export class RemoteConnectionService {
     return record;
   }
 
+  /** Validates that an authenticated machine pairing still names the same SSH configuration. */
+  public async scopeForRunner(id: string): Promise<number> {
+    return (await this.requireConnection(id)).revision;
+  }
+
   /**
    * What a logical connection connects with; read anew before every connect.
    *

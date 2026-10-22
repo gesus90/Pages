@@ -1,6 +1,5 @@
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
-
 import { Input } from "@/app/components/ui/input";
 import { Select } from "@/app/components/ui/select";
 import { Textarea } from "@/app/components/ui/textarea";
@@ -10,12 +9,10 @@ import {
   PLAN_SCRIPT_NAME_LENGTH,
   PLAN_SCRIPT_TIMEOUT,
 } from "@/definition/AgentPlanScript";
-
 import {
   planScriptProfileState,
   planScriptProfileText,
 } from "./plan-script-profile";
-
 import type { AgentPlanInterpreter } from "@/definition/AgentPlanScript";
 import type {
   PlanScriptFieldIssue,
@@ -111,8 +108,8 @@ function profileOption(
  * The interpreter profile, chosen among the profiles the server configures.
  *
  * @remarks
- * Below it stand the profile's status and reason, and that the script runs
- * in the workspace of the plan. A saved profile the server no longer
+ * Local profiles show their status and inherited workspace. Remote targets
+ * never inherit a local interpreter check. A saved profile the server no longer
  * configures stays chosen and is named as missing until another is chosen.
  */
 export function PlanScriptProfileField(props: {
@@ -127,9 +124,14 @@ export function PlanScriptProfileField(props: {
     "profile",
     "profileMissing",
   ]);
-  const options = (props.interpreters ?? []).map((profile) =>
-    profileOption(profile, t),
-  );
+  const target = form.values.executionTarget;
+  const options = (props.interpreters ?? [])
+    .filter((profile) =>
+      target.kind === "remote"
+        ? profile.runnerWorkspaceId === target.workspaceId
+        : !profile.runnerWorkspaceId,
+    )
+    .map((profile) => profileOption(profile, t));
   const isListed = options.some((option) => option.value === selected);
   return (
     <div className="space-y-1.5">
@@ -168,6 +170,7 @@ export function PlanScriptProfileField(props: {
       {issue === null ? (
         <ProfileStatusLine
           profileId={selected}
+          isLocalTarget={target.kind === "local"}
           interpreters={props.interpreters}
         />
       ) : null}
@@ -175,8 +178,9 @@ export function PlanScriptProfileField(props: {
   );
 }
 
-/** The status and reason of the chosen profile, and where the script runs. */
+/** Shows the actual profile check; only local targets inherit the plan workspace. */
 function ProfileStatusLine(props: {
+  readonly isLocalTarget: boolean;
   readonly profileId: string;
   readonly interpreters: readonly AgentPlanInterpreter[] | undefined;
 }): React.ReactElement {
@@ -199,7 +203,9 @@ function ProfileStatusLine(props: {
           : "text-muted-foreground",
       )}
     >
-      {[...parts, t("plans.scripts.workspace")].filter(Boolean).join(" · ")}
+      {[...parts, props.isLocalTarget ? t("plans.scripts.workspace") : null]
+        .filter(Boolean)
+        .join(" · ")}
     </p>
   );
 }
@@ -219,7 +225,7 @@ export function PlanScriptContentField(props: {
       </label>
       <Textarea
         id={id}
-        rows={10}
+        rows={4}
         value={form.values.content}
         spellCheck={false}
         autoCapitalize="off"

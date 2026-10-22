@@ -1,8 +1,6 @@
 import { planExecutionIssues } from "@/definition/AgentPlanGraph";
 import { AgentError } from "@/backend/error/AgentErrors";
-
 import { planControl } from "./AgentPlanControl";
-
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type { AgentPlanAccess } from "./AgentPlanAccess";
@@ -47,7 +45,7 @@ export class AgentPlanControlService {
       plan,
       await this.dependencies.profiles.catalog(userId, plan.projectId),
     );
-    let issue = (await this.scriptIssue(userId, plan)) ?? control.issue;
+    let issue = (await this.executionIssue(userId, plan)) ?? control.issue;
     if (run?.status === "paused") {
       const resources = await this.dependencies.runs.resources(run.id);
       if (
@@ -66,7 +64,7 @@ export class AgentPlanControlService {
     };
   }
 
-  private async scriptIssue(
+  private async executionIssue(
     userId: string,
     plan: AgentPlan,
   ): Promise<string | null> {

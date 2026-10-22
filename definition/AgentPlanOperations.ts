@@ -1,3 +1,8 @@
+import type {
+  AgentPlanExecutionTarget,
+  AgentPlanRemoteTarget,
+  AgentPlanStepExecution,
+} from "./AgentPlanExecution.js";
 import type { AgentParameter, AgentParameterValue } from "./AgentParameters.js";
 import type { PageAgentSharingEntry } from "./PageAgentOperations.js";
 
@@ -142,6 +147,7 @@ export interface AgentPlanAgentNodeEntry extends AgentPlanNodeBase {
   /** `null` for automatic model access, empty when an explicit one was removed. */
   readonly personalAgentId: string | null;
   readonly instruction: string;
+  readonly executionTarget?: AgentPlanExecutionTarget;
   /** Progress scope only; neither mode gates execution. Absent means `report`. */
   readonly completion?: "report" | "todos";
   readonly configuration?: AgentPlanConfigurationEntry;
@@ -199,6 +205,7 @@ export interface AgentPlanParameterNodeEntry extends AgentPlanNodeBase {
 export interface AgentPlanScriptNodeEntry extends AgentPlanNodeBase {
   readonly type: "script";
   readonly name: string;
+  readonly executionTarget?: AgentPlanExecutionTarget;
   /** The stable identifier of an interpreter profile, not its display name. */
   readonly interpreterProfileId: string;
   readonly content: string;
@@ -213,7 +220,7 @@ export interface AgentPlanScriptNodeEntry extends AgentPlanNodeBase {
 }
 
 /**
- * A loop as a client reads it; the operations offer no way to change one.
+ * A loop as a client reads it and edits through targeted fields and membership changes.
  *
  * @remarks
  * Declared here for the same reason as the group: the MCP package checks this
@@ -391,6 +398,7 @@ export interface AgentPlanInterpreterEntry {
 
 /** What a plan can be built from: workspaces, and the agents and interpreter profiles of one of them. */
 export interface AgentPlanSourceList {
+  readonly remoteTargets?: readonly AgentPlanRemoteTarget[];
   readonly workspaces: readonly AgentPlanWorkspaceEntry[];
   /** Empty unless a workspace was named. */
   readonly agents: readonly AgentPlanAgentEntry[];
@@ -428,6 +436,8 @@ export interface AgentPlanRunList {
 
 /** The state of one node in a run. */
 export interface AgentPlanRunStepEntry {
+  readonly execution?: AgentPlanStepExecution;
+  readonly attemptId?: string;
   readonly stepId: string;
   readonly name: string;
   readonly status: "waiting" | AgentPlanRunStatus;

@@ -1,8 +1,6 @@
-import { ChevronDown, ChevronUp } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { Button } from "@/app/components/ui/button";
 import { isAgentParameterName } from "@/definition/AgentParameters";
 import { expandPlanGroups } from "@/definition/AgentPlanGroup";
 import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
@@ -13,7 +11,7 @@ import { isPlanNameRefused } from "./plan-name-issue";
 import { PlanPanelContext } from "./plan-panel-context";
 import { PlanRecoveryPanel } from "./plan-recovery-panel";
 import { PlanReloadButton } from "./plan-reload-button";
-import { PlanRunActions } from "./plan-run-actions";
+import { PlanPanelHeading } from "./plan-panel-heading";
 
 import type { TFunction } from "i18next";
 import type { AgentPlanIssue } from "@/definition/AgentPlanGraph";
@@ -45,11 +43,7 @@ export function PlanRunPanel(props: {
     setShownRefusal(isRefused);
     if (isRefused) setOpen(true);
   }
-  const workspace = props.page.workspaces.find(
-    (entry) => entry.id === editor.draft.workspaceId,
-  );
-  const { hasDeletedFrontier, state } = panelPresentation(props);
-  const toggle = isOpen ? t("plans.panel.collapse") : t("plans.panel.expand");
+  const { hasDeletedFrontier } = panelPresentation(props);
   function action(intent: PlanRunIntent): void {
     void editor.command.submit(
       {
@@ -71,52 +65,16 @@ export function PlanRunPanel(props: {
       containerClassName="min-h-0 w-full"
       className="pointer-events-auto overflow-y-auto rounded-xl border border-border/70 bg-surface/95 text-foreground shadow-panel backdrop-blur-sm"
     >
-      <div className="sticky top-0 z-10 grid min-h-[46px] min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-1.5 bg-surface px-2.5 py-1.5 @2xl:flex">
-        <div className="col-span-2 flex min-w-0 items-center gap-2 @2xl:flex-1">
-          <p
-            title={workspace?.projectName}
-            className="min-w-0 text-xs leading-[18px] font-semibold wrap-anywhere"
-          >
-            {workspace?.projectName ?? t("workspaces.chooseProject")}
-          </p>
-          <p
-            title={workspace?.name}
-            className="min-w-0 border-l border-border pl-2 text-xs leading-[18px] wrap-anywhere text-muted-foreground"
-          >
-            {workspace?.name ?? t("plans.panel.workspace")}
-          </p>
-        </div>
-        <output
-          aria-live="polite"
-          className="col-span-2 shrink-0 justify-self-start rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] leading-[18px] font-medium"
-        >
-          {t(`plans.panel.status.${state}`)}
-        </output>
-        <PlanRunActions
-          isReadOnly={props.page.selected?.canEdit === false}
-          control={control}
-          isPending={editor.isPending || Boolean(props.error)}
-          isDirty={editor.isDirty}
-          hasDeletedFrontier={hasDeletedFrontier}
-          onAction={action}
-        />
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          className="justify-self-end [@media(pointer:coarse)]:size-11 [@media(pointer:coarse)]:min-h-11"
-          aria-label={toggle}
-          title={toggle}
-          aria-expanded={isOpen}
-          aria-controls="plan-panel-context"
-          onClick={() => setOpen(!isOpen)}
-        >
-          {isOpen ? (
-            <ChevronUp className="size-4" />
-          ) : (
-            <ChevronDown className="size-4" />
-          )}
-        </Button>
-      </div>
+      <PlanPanelHeading
+        page={props.page}
+        editor={editor}
+        control={control}
+        isPending={editor.isPending || Boolean(props.error)}
+        hasDeletedFrontier={hasDeletedFrontier}
+        isOpen={isOpen}
+        onToggle={() => setOpen(!isOpen)}
+        onAction={action}
+      />
       <PlanPanelBody {...props} />
       {isOpen ? <PlanPanelContext page={props.page} editor={editor} /> : null}
     </ScrollViewport>
@@ -168,14 +126,8 @@ function PlanPanelFeedback(props: {
 }): React.ReactElement {
   const { t } = useTranslation();
   const { control } = props;
-  const isActive = ["running", "pausing", "paused"].includes(
-    control?.status ?? "",
-  );
   return (
-    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1.5 px-2.5 pb-2 text-xs leading-4 wrap-anywhere text-muted-foreground @2xl:text-[10px]">
-      <p className="flex-1 basis-95">
-        {t(isActive ? "plans.panel.stopFirst" : "plans.panel.newRunHint")}
-      </p>
+    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1.5 px-2.5 text-xs leading-4 wrap-anywhere text-muted-foreground @2xl:text-[10px]">
       {props.isDirty ? (
         <p role="status" className="basis-full">
           {t("plans.panel.unsaved")}

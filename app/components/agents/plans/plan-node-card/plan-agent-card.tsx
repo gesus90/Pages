@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { planNodeParameters } from "@/definition/AgentPlanGroup";
 
 import { usePlanFlowContext } from "../plan-flow-context";
+import { PlanNodeExecutionContext } from "../plan-node-execution-context";
 import { PlanFlowPorts } from "../plan-flow-ports";
 import { planAgentName } from "../plan-layout";
 import { PlanStatusBadge, planStatusClass } from "../plan-status";
@@ -61,6 +62,7 @@ export function PlanAgentCard(props: {
     >
       <div className="flex flex-col gap-1.5 px-3 pt-1 pb-2">
         <PlanFlowPorts node={step} graph={graph} canEdit={canEdit} isCompact />
+        <PlanNodeExecutionContext step={step} />
         {parameters.length > 0 ? (
           <div
             role="group"

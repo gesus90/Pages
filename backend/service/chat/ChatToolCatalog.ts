@@ -1,3 +1,4 @@
+import { AGENT_PLAN_COMMAND_OPERATIONS } from "@/definition/AgentPlanOperations";
 import { CHAT_AGENT_WRITE_OPERATIONS } from "@/definition/ChatAgentOperations";
 import { PAGES_AGENT_WRITE_OPERATIONS } from "@/definition/PagesAgentWrites";
 
@@ -48,11 +49,7 @@ type ExcludedOperation =
   | "chat.sessions.delete"
   | AgentTextRangeWriteOperation
   | AgentWorkspaceWriteOperation
-  | AgentProjectDeletionWriteOperation
-  | AgentPlanCommandOperation
-  | "plans.templates.list"
-  | "plans.templates.read"
-  | "plans.control.read";
+  | AgentProjectDeletionWriteOperation;
 
 /** A Pages operation the chat agent may request; the same operations MCP clients use (T6.12.5). */
 export type ChatOperation = Exclude<
@@ -67,6 +64,7 @@ export type ChatOperation = Exclude<
   | PageAgentWriteOperation
   | AgentPlanReadOperation
   | AgentPlanWriteOperation
+  | AgentPlanCommandOperation
   | ChatAgentWriteOperation,
   ExcludedOperation
 >;
@@ -105,6 +103,20 @@ const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
   "agents.clone": "Abgelöst: einen Node oder eine Plan-Vorlage kopieren.",
   "agents.delete":
     "Abgelöst: Altbestände bleiben erhalten; Node-Entfernung erfolgt im Plan.",
+  "plans.templates.list": "{workspaceId} sichtbare Node-Vorlagen lesen",
+  "plans.templates.read":
+    "{workspaceId, templateId} eine sichtbare Node-Vorlage lesen",
+  "plans.control.read": "{planId} aktuell erlaubte Laufaktionen lesen",
+  "plans.templates.save":
+    "{planId, expectedRevision, nodeId, name} eine Node-Vorlage speichern, ohne Ausführung",
+  "plans.delete":
+    "{planId, expectedRevision} eigenen Plan löschen, wenn kein Run aktiv ist",
+  "plans.play":
+    "{planId, expectedRevision} gespeicherte Revision ausdrücklich starten",
+  "plans.pause": "{planId, expectedRevision, runId} eigenen Run pausieren",
+  "plans.resume":
+    "{planId, expectedRevision, runId} eigenen pausierten Run fortsetzen",
+  "plans.stop": "{planId, expectedRevision, runId} eigenen Run stoppen",
   "plans.list": `{text?, projectId?, ${WINDOW}} sichtbare Agent Plans nach Name mit Projekt, team (Abteilung des Plans), Freigabe, canEdit, revision, state (idle|running|pausing|paused|stopping) und latestRun; text sucht im Namen`,
   "plans.read":
     "{planId} Agent Plan mit nodes (label, Agent, Script, Ticket, Parameter, bindings), edges (Ablauf from → to), Freigabe, revision und status (state, runCount, latestRun, isRunnable, issues) lesen",
@@ -248,6 +260,7 @@ export function isChatOperation(value: unknown): value is ChatOperation {
 export function isChatWriteOperation(operation: ChatOperation): boolean {
   return (
     isChatAdminWriteOperation(operation) ||
+    AGENT_PLAN_COMMAND_OPERATIONS.some((write) => write === operation) ||
     CHAT_AGENT_WRITE_OPERATIONS.some((write) => write === operation) ||
     COMMENT_WRITES.has(operation) ||
     PAGES_AGENT_WRITE_OPERATIONS.some((write) => write === operation)

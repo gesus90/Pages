@@ -3,6 +3,7 @@ import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 import { planExecutionIssues } from "@/definition/AgentPlanGraph";
 
 import { sharingEntry } from "./PageAgentOperationDefinition";
+import { hasRemotePlanTarget } from "./AgentPlanExecutionTargets";
 
 import type { AgentPlanRunEntry } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type { AgentDefinitionChoice } from "@/definition/AgentAvailability";
@@ -179,7 +180,7 @@ export function planDetail(
     // The status comes before the graph, so a chat that shortens a long plan keeps it.
     status: {
       ...planState(plan, context.entries),
-      isRunnable: issues.length === 0,
+      isRunnable: issues.length === 0 && !hasRemotePlanTarget(plan),
       issues,
     },
     nodes: plan.nodes.map((node) => nodeEntry(node, context.sources)),
@@ -220,6 +221,7 @@ function stepStatus(step: AgentPlanStepResult): AgentPlanRunStepEntry {
   const { session } = step;
   return {
     stepId: step.id,
+    ...stepExecutionIdentity(step),
     name: step.name,
     status: step.status,
     isBlocked: step.isBlocked,
@@ -294,5 +296,18 @@ export function stepReport(
     })),
     decisions: acceptance?.decisions ?? [],
     issues: acceptance?.issues ?? [],
+  };
+}
+
+function stepExecutionIdentity(
+  step: AgentPlanStepResult,
+): Pick<AgentPlanRunStepEntry, "execution" | "attemptId"> {
+  if (!step.execution) return {};
+  return {
+    execution: step.execution,
+    attemptId:
+      step.script?.attemptId ??
+      step.session?.attemptId ??
+      step.execution.attemptId,
   };
 }

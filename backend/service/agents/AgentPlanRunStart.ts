@@ -5,7 +5,11 @@ import { isPlanFlowNode } from "@/definition/AgentPlanGraph";
 import { withGroupResults } from "./AgentPlanGroupResults";
 import { initialLoopRuns } from "./loop/AgentPlanLoopRecord";
 
-import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
+import type {
+  AgentPlanNode,
+  AgentPlanRun,
+  AgentPlanStepResult,
+} from "@/definition/AgentPlan";
 import type { AgentPlanLoopRun } from "@/definition/AgentPlanLoopRun";
 import type { AgentPlanRunOrigin } from "@/definition/AgentPlanRecovery";
 import type { AgentPlanSnapshot } from "./AgentPlanSnapshot";
@@ -41,11 +45,7 @@ export function initialPlanRun(
     steps: snapshot.plan.nodes.filter(isPlanFlowNode).map((node) => ({
       id: node.id,
       groupId: snapshot.steps.find((step) => step.step.id === node.id)?.groupId,
-      name:
-        snapshot.steps.find((step) => step.step.id === node.id)?.name ??
-        (node.type === "loop" || node.type === "script"
-          ? node.name
-          : node.type),
+      name: runStepName(snapshot, node),
       status: "waiting",
       isBlocked: false,
       cancellation: "none",
@@ -90,4 +90,13 @@ export function recoveredPlanRun(
     },
     snapshot,
   );
+}
+
+function runStepName(snapshot: AgentPlanSnapshot, node: AgentPlanNode): string {
+  const local = snapshot.steps.find((step) => step.step.id === node.id);
+  if (local) return local.name;
+  const remote = snapshot.remoteSteps?.find((step) => step.step.id === node.id);
+  if (remote?.step.type === "agent")
+    return remote.step.configuration?.name ?? node.type;
+  return node.type === "loop" || node.type === "script" ? node.name : node.type;
 }

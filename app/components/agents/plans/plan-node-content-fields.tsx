@@ -53,22 +53,9 @@ export function PlanNodeContentFields(props: {
   return (
     <div className="space-y-4">
       <label className="block space-y-1 text-sm">
-        <span>{t("settings.agents.profiles.name")}</span>
-        <Input
-          value={configuration.name}
-          maxLength={200}
-          onChange={(event) =>
-            props.onChange({
-              ...step,
-              configuration: { ...configuration, name: event.target.value },
-            })
-          }
-        />
-      </label>
-      <label className="block space-y-1 text-sm">
         <span>{t("plans.nodeMarkdown")}</span>
         <Textarea
-          rows={8}
+          rows={4}
           maxLength={200000}
           value={template.markdown}
           onChange={(event) =>
@@ -76,33 +63,63 @@ export function PlanNodeContentFields(props: {
           }
         />
       </label>
-      <label className="block space-y-1 text-sm">
-        <span>{t("plans.nodeInstruction")}</span>
-        <Textarea
-          rows={3}
-          maxLength={200000}
-          value={step.instruction}
-          onChange={(event) =>
-            props.onChange({
-              ...step,
-              configuration,
-              instruction: event.target.value,
-            })
-          }
+      <details className="space-y-3">
+        <summary className="cursor-pointer text-sm text-muted-foreground">
+          {t("plans.execution.advanced")}
+        </summary>
+        <label className="block space-y-1 text-sm">
+          <span>{t("plans.nodeInstruction")}</span>
+          <Textarea
+            rows={3}
+            maxLength={200000}
+            value={step.instruction}
+            onChange={(event) =>
+              props.onChange({
+                ...step,
+                configuration,
+                instruction: event.target.value,
+              })
+            }
+          />
+        </label>
+        <AgentParameterFields
+          configuration={template}
+          workspaceChoices={props.workspaces}
+          disabled={props.disabled}
+          onChange={changeTemplate}
         />
-      </label>
-      <AgentParameterFields
-        configuration={template}
-        workspaceChoices={props.workspaces}
-        disabled={props.disabled}
-        onChange={changeTemplate}
-      />
-      <AgentRunOptionsFields
-        configuration={template}
-        provider={configuration.provider}
-        disabled={props.disabled}
-        onChange={changeTemplate}
-      />
+        <AgentRunOptionsFields
+          configuration={template}
+          provider={configuration.provider}
+          disabled={props.disabled}
+          onChange={changeTemplate}
+        />
+      </details>
     </div>
+  );
+}
+
+/** The name belongs to the node's configuration copy. */
+export function PlanNodeNameField(props: {
+  readonly step: AgentPlanStep;
+  readonly configuration: AgentPlanConfiguration;
+  readonly onChange: (step: AgentPlanStep) => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const { step, configuration } = props;
+  return (
+    <label className="block space-y-1 text-sm">
+      <span>{t("settings.agents.profiles.name")}</span>
+      <Input
+        value={configuration.name}
+        maxLength={200}
+        onChange={(event) =>
+          props.onChange({
+            ...step,
+            configuration: { ...configuration, name: event.target.value },
+          })
+        }
+      />
+    </label>
   );
 }

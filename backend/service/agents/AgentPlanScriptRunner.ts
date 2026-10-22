@@ -77,7 +77,9 @@ function initialRecord(
   script: AgentPlanScriptSnapshot,
 ): AgentPlanScriptRun {
   return {
-    attemptId: randomUUID(),
+    attemptId:
+      run.steps.find((step) => step.id === script.step.id)?.execution
+        ?.attemptId ?? randomUUID(),
     instanceId: randomUUID(),
     interpreterProfileId: script.interpreter.id,
     directory: script.workspace.path,

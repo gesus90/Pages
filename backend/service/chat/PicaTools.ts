@@ -1,6 +1,7 @@
 import { RuntimeToolRegistry } from "@/backend/agents/runtime/RuntimeToolRegistry";
 import { redactCredentials } from "@/backend/security/AgentTextSafety";
 
+import { registerPicaPlanTools } from "./PicaPlanTools";
 import { registerPicaAdminTools } from "./admin/PicaAdminTools";
 import { CHAT_MAXIMUM_ACTIONS } from "./ChatExecutionLimits";
 import { isChatDeleteOperation } from "./ChatToolCatalog";
@@ -420,6 +421,10 @@ export function createPicaTools(input: PicaToolsInput): RuntimeToolRegistry {
       outputSchema: PICA_TOOL_OUTCOME,
       execute: (parameters, context) => write(tool, parameters, context),
     });
+  registerPicaPlanTools(registry, {
+    execute: (operation, parameters, context) =>
+      execute({ operation, description: "" }, parameters, context),
+  });
   if (input.answerFiles)
     registry.register<PicaFileParameters, PicaToolOutcome>({
       id: PICA_FILE_TOOL,

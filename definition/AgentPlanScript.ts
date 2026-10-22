@@ -1,7 +1,7 @@
 import { isAgentParameterName } from "./AgentParameters";
-
 import type { AgentParameter } from "./AgentParameters";
 import type { AgentPlanBinding, AgentPlanPosition } from "./AgentPlan";
+import type { AgentPlanExecutionTarget } from "./AgentPlanExecution";
 import type {
   InterpreterCheck,
   InterpreterFailure,
@@ -76,13 +76,14 @@ export interface AgentPlanScriptOutput {
 
 /**
  * A script step: its content runs with an interpreter profile in the
- * workspace of the plan.
+ * selected workspace, defaulting to the local workspace of the plan.
  *
  * @remarks
  * The profile is named by its stable identifier (PAGE-116), never by its
  * label, so a renamed profile stays the same and a removed one stays
- * visibly missing. A script has no workspace, model or reasoning of its
- * own. An authorized explicit run sends one UTF-8 JSON object on stdin:
+ * visibly missing. Remote targets use runner-owned interpreter identities and
+ * the durable remote dispatcher. A script has no model or reasoning.
+ * An authorized explicit run sends one UTF-8 JSON object on stdin:
  * declared names map to text, optional unbound inputs are omitted, explicit
  * empty strings are retained. stdout stays exact text; stderr is diagnostic.
  * Runs require active administrator mode and live workspace and plan rights.
@@ -92,6 +93,7 @@ export interface AgentPlanScript extends AgentPlanPosition {
   readonly id: string;
   readonly type: "script";
   readonly name: string;
+  readonly executionTarget?: AgentPlanExecutionTarget;
   readonly interpreterProfileId: string;
   readonly content: string;
   readonly inputs: readonly AgentPlanScriptInput[];
@@ -105,6 +107,7 @@ export interface AgentPlanScript extends AgentPlanPosition {
 export type AgentPlanScriptConfiguration = Pick<
   AgentPlanScript,
   | "name"
+  | "executionTarget"
   | "interpreterProfileId"
   | "content"
   | "inputs"
@@ -132,6 +135,7 @@ export type AgentPlanScriptIssue =
  * since the server started or the path changed.
  */
 export interface AgentPlanInterpreter {
+  readonly runnerWorkspaceId?: string;
   readonly id: string;
   readonly name: string;
   readonly status: "ok" | "error" | "unchecked";

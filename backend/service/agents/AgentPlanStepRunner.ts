@@ -36,6 +36,7 @@ import { planSessionReach } from "./AgentPlanSessionAccess";
 import { planRecoveryTerms } from "./recovery/AgentPlanRecoveryPrompt";
 import {
   createSessionRecord,
+  initialStepAttemptId,
   closedSessionChanges,
   hasPlanStepTimedOut,
   isConfirmedPlanCancellation,
@@ -71,8 +72,8 @@ import type { AgentPlanTasks } from "./AgentPlanTasks";
 import type { AgentPlanSessionTerms } from "./AgentPlanStepAssessment";
 import type { AgentRunArchive } from "./AgentRunArchive";
 import type { AgentSessionService } from "./sessions/AgentSessionService";
-
 import type { NodeRun, StepRunControl } from "./AgentPlanStepContext";
+
 export type { StepRunControl } from "./AgentPlanStepContext";
 
 interface StepRunnerDependencies {
@@ -269,6 +270,7 @@ export class AgentPlanStepRunner {
   ): Promise<Partial<AgentPlanStepResult>> {
     await this.save(node, {
       ...createSessionRecord({
+        attemptId: initialStepAttemptId(node),
         instanceId: randomUUID(),
         prepared,
         contract: null,
@@ -321,6 +323,7 @@ export class AgentPlanStepRunner {
     const instanceId = this.groups.instanceId(groupKey) ?? randomUUID();
     await this.save(node, {
       ...createSessionRecord({
+        attemptId: initialStepAttemptId(node),
         instanceId,
         prepared,
         contract,

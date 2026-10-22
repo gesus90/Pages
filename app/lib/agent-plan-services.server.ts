@@ -1,3 +1,5 @@
+import { AgentPlanRemoteExecution } from "@/backend/service/agents/AgentPlanRemoteExecution";
+import { AgentPlanRemoteTargets } from "@/backend/service/agents/AgentPlanRemoteTargets";
 import { AgentRunCredentialRepository } from "@/backend/database/repositories/mcp/AgentRunCredentialRepository";
 import { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import { upgradePlanConfigurations } from "@/backend/service/agents/AgentPlanConfigurationUpgrade";
@@ -33,7 +35,6 @@ import { AuthorizationRepository } from "@/backend/database/repositories/Authori
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
-
 import type { Database } from "@/backend/database/Database";
 import type { AgentPlanMcpSettings } from "@/backend/service/agents/AgentPlanSessionAccess";
 import type { AgentSessionRunAccess } from "@/backend/service/agents/sessions/AgentSessionService";
@@ -122,29 +123,31 @@ export async function createAgentPlanService(input: {
     run: (userId, id) => service.run(userId, id),
     stop: (userId, id) => service.stop(userId, id),
   });
-  const engine = new AgentPlanRunEngine({
-    scripts: new AgentPlanScriptRunner(scriptPreparation),
+  const { remoteTargets, remoteExecution } = createRemoteExecution(
+    input,
+    access,
+    runs,
+  );
+  const engine = createPlanEngine(input, {
+    remoteExecution,
+    scripts: scriptPreparation,
     runs,
     start,
-    resources: input.agents.acpResourceScheduler,
-    steps: new AgentPlanStepRunner({
-      start,
-      execution: input.agents.agentPlanExecution,
-      tasks,
-      access: sessions,
-      archive: input.agents.agentRunArchive,
-      sessions: pageAgentSessions,
-    }),
-    archive: input.agents.agentRunArchive,
-    files: input.agents.agentDefinitionFiles,
+    tasks,
+    sessions,
+    pageAgentSessions,
   });
   const preparation = new AgentPlanPreparation({
+    remoteExecution,
+    remoteTargets,
     scripts: scriptPreparation,
     profiles,
     parameters,
     tasks,
   });
   const service = new AgentPlanService({
+    remoteExecution,
+    remoteTargets,
     plans,
     runs,
     workspaces,
@@ -305,4 +308,57 @@ async function repairAgentFiles(input: {
     );
   }
   await input.agents.agentRunArchive.recover();
+}
+
+function createRemoteExecution(
+  input: Parameters<typeof createAgentPlanService>[0],
+  access: AgentPlanAccess,
+  runs: AgentPlanRunRepository,
+): {
+  remoteTargets: AgentPlanRemoteTargets;
+  remoteExecution: AgentPlanRemoteExecution;
+} {
+  const remoteTargets = new AgentPlanRemoteTargets(
+    input.agents.remoteWorkspaceService,
+    input.agents.remoteConnectionService,
+  );
+  const remoteExecution = new AgentPlanRemoteExecution({
+    targets: remoteTargets,
+    access,
+    runners: input.agents.runnerService,
+    provider: input.agents.runnerOpenRouterService,
+    runs,
+  });
+  return { remoteTargets, remoteExecution };
+}
+
+function createPlanEngine(
+  input: Parameters<typeof createAgentPlanService>[0],
+  parts: {
+    readonly remoteExecution: AgentPlanRemoteExecution;
+    readonly scripts: AgentPlanScriptPreparation;
+    readonly runs: AgentPlanRunRepository;
+    readonly start: AgentPlanStepStart;
+    readonly tasks: AgentPlanTasks;
+    readonly sessions: AgentPlanSessionAccess;
+    readonly pageAgentSessions: AgentSessionService;
+  },
+): AgentPlanRunEngine {
+  return new AgentPlanRunEngine({
+    remoteExecution: parts.remoteExecution,
+    scripts: new AgentPlanScriptRunner(parts.scripts),
+    runs: parts.runs,
+    start: parts.start,
+    resources: input.agents.acpResourceScheduler,
+    steps: new AgentPlanStepRunner({
+      start: parts.start,
+      execution: input.agents.agentPlanExecution,
+      tasks: parts.tasks,
+      access: parts.sessions,
+      archive: input.agents.agentRunArchive,
+      sessions: parts.pageAgentSessions,
+    }),
+    archive: input.agents.agentRunArchive,
+    files: input.agents.agentDefinitionFiles,
+  });
 }

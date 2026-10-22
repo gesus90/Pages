@@ -2,6 +2,9 @@ import { useReactFlow } from "@xyflow/react";
 import { useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { expandPlanGroups } from "@/definition/AgentPlanGroup";
+
+import { planNodeLabel } from "./plan-layout";
 import { focusStatusNode } from "./plan-status-focus";
 import { PlanStatusHeader } from "./plan-status-header";
 import { PlanStatusDetails } from "./plan-status-details";
@@ -58,6 +61,11 @@ function RunStatusContent({
       <PlanStatusHeader
         run={run}
         steps={steps}
+        previewNames={expandPlanGroups(canvas.draft)
+          .nodes.filter((node) =>
+            ["start", "end", "agent", "script", "loop"].includes(node.type),
+          )
+          .map((node) => planNodeLabel(node, canvas.sources))}
         end={end}
         anchorId={anchorId}
         selectedId={selectedId}

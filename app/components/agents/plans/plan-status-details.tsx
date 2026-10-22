@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { Button } from "@/app/components/ui/button";
 
+import { PlanExecutionDetails } from "./plan-execution-details";
 import { PlanStatusActivity } from "./plan-status-activity";
 import { PlanStatusBadge } from "./plan-status";
 import { PlanStatusConfiguration } from "./plan-status-configuration";
@@ -70,6 +71,7 @@ export function PlanStatusDetails({
             className="rounded-sm px-1.5 py-0.5 text-[0.6875rem] leading-4"
           />
         </div>
+        <PlanExecutionDetails step={step} />
         <StepConfiguration step={step} end={end} />
         {step.script ? null : <PlanStatusActivity step={step} />}
         <Button

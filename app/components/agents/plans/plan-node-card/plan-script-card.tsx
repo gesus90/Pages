@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { planScriptParameters } from "@/definition/AgentPlanScript";
 
 import { usePlanFlowContext } from "../plan-flow-context";
+import { PlanNodeExecutionContext } from "../plan-node-execution-context";
 import { PlanFlowPorts } from "../plan-flow-ports";
 import { PlanStatusBadge, planStatusClass } from "../plan-status";
 import { PlanAgentInput } from "./plan-agent-input";
@@ -20,8 +21,8 @@ import type { AgentPlanScript } from "@/definition/AgentPlanScript";
  * @remarks
  * The card has the rows and size of an agent card (plan-layout.ts); only its
  * rose type color and the profile in place of model and reasoning differ.
- * Inputs bind like agent inputs. The script runs in the workspace of the
- * plan, so it has no workspace field.
+ * Inputs bind like agent inputs. Local scripts inherit the plan workspace;
+ * explicit remote targets stay visible while remote dispatch is unavailable.
  */
 export function PlanScriptCard(props: {
   readonly script: AgentPlanScript;
@@ -64,6 +65,7 @@ export function PlanScriptCard(props: {
           canEdit={canEdit}
           isCompact
         />
+        <PlanNodeExecutionContext script={script} />
         {parameters.length > 0 ? (
           <div
             role="group"

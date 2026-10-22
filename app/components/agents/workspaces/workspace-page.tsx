@@ -11,6 +11,7 @@ import { useManagementPending } from "@/app/components/users/use-management-pend
 
 import { RemoteConnectionsCard } from "./remote/remote-connections-card";
 import { RemoteWorkspaceRow } from "./remote/remote-workspace-row";
+import { ConsoleActivityProvider } from "./remote/console/console-activity";
 import { WorkspaceForm } from "./workspace-form";
 import { WorkspaceRow } from "./workspace-row";
 
@@ -30,7 +31,18 @@ const COLUMNS = [
  * Shows the remote connections and the local and remote workspaces of
  * accessible projects; managers get the registration controls.
  */
-export function WorkspacePage({
+export function WorkspacePage(props: {
+  readonly page: AgentWorkspacePage;
+  readonly remote: RemoteOverview;
+}): React.ReactElement {
+  return (
+    <ConsoleActivityProvider>
+      <WorkspaceContent {...props} />
+    </ConsoleActivityProvider>
+  );
+}
+
+function WorkspaceContent({
   page,
   remote,
 }: {

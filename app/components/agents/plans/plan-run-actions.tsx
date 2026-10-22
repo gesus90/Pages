@@ -1,4 +1,3 @@
-import { Pause, Play, Square } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
@@ -6,14 +5,9 @@ import { cn } from "@/app/lib/cn";
 
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 
-const RUN_ACTION_CLASS =
-  "gap-[5px] px-[9px] text-[11px] disabled:opacity-45 xl:gap-[5px] xl:px-[9px] xl:text-[11px] [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:min-h-11";
+const RUN_ACTION_CLASS = "h-9 px-3 text-xs [@media(pointer:coarse)]:min-h-11";
 const PLAY_ACTION_CLASS =
-  "border-[color-mix(in_srgb,var(--color-success)_35%,var(--color-border))] bg-success-subtle text-success enabled:hover:bg-[color-mix(in_srgb,var(--color-success)_4%,var(--color-success-subtle))] focus-visible:outline-success";
-const PAUSE_ACTION_CLASS =
-  "border-[color-mix(in_srgb,var(--color-warning)_35%,var(--color-border))] bg-warning-subtle text-warning enabled:hover:bg-[color-mix(in_srgb,var(--color-warning)_4%,var(--color-warning-subtle))] focus-visible:outline-warning";
-const STOP_ACTION_CLASS =
-  "border-[color-mix(in_srgb,var(--color-destructive)_35%,var(--color-border))] bg-destructive-subtle text-destructive enabled:hover:bg-[color-mix(in_srgb,var(--color-destructive)_4%,var(--color-destructive-subtle))] focus-visible:outline-destructive";
+  "border-primary bg-primary text-primary-foreground enabled:hover:bg-primary/90";
 
 export type PlanRunIntent =
   "play-plan" | "pause-plan" | "resume-plan" | "stop-plan";
@@ -41,7 +35,7 @@ export function PlanRunActions(props: {
   const playHint = playTitle(props, t);
   return (
     <div
-      className="flex flex-wrap items-center gap-1 @2xl:shrink-0 @2xl:flex-nowrap @2xl:border-l @2xl:border-border @2xl:pl-2.5"
+      className="flex flex-wrap items-center gap-1 @2xl:shrink-0 @2xl:flex-nowrap"
       role="group"
       aria-label={t("plans.panel.actions")}
       aria-busy={props.isPending}
@@ -55,39 +49,29 @@ export function PlanRunActions(props: {
           disabled={props.isPending || props.isDirty || !control?.canPlay}
           onClick={() => props.onAction("play-plan")}
         >
-          <Play className="size-3.5" aria-hidden="true" />
           {t("plans.panel.play")}
         </Button>
       </span>
       <Button
         size="xs"
         variant="outline"
-        className={cn(
-          RUN_ACTION_CLASS,
-          isPaused ? PLAY_ACTION_CLASS : PAUSE_ACTION_CLASS,
-        )}
+        className={cn(RUN_ACTION_CLASS, isPaused && PLAY_ACTION_CLASS)}
         aria-label={pauseLabel}
         disabled={
           props.isPending || !(isPaused ? canResume : control?.canPause)
         }
         onClick={() => props.onAction(isPaused ? "resume-plan" : "pause-plan")}
       >
-        {isPaused ? (
-          <Play className="size-3.5" aria-hidden="true" />
-        ) : (
-          <Pause className="size-3.5" aria-hidden="true" />
-        )}
         {pauseLabel}
       </Button>
       <Button
         size="xs"
         variant="outline"
-        className={cn(RUN_ACTION_CLASS, STOP_ACTION_CLASS)}
+        className={RUN_ACTION_CLASS}
         aria-label={t("plans.panel.stop")}
         disabled={props.isPending || !control?.canStop}
         onClick={() => props.onAction("stop-plan")}
       >
-        <Square className="size-3.5" aria-hidden="true" />
         {t("plans.panel.stop")}
       </Button>
     </div>

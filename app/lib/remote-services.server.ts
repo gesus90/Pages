@@ -7,6 +7,7 @@ import { RemoteSessionRegistry } from "@/backend/remote/RemoteSessionRegistry";
 import { SshClient } from "@/backend/remote/SshClient";
 import { RemoteConnectionService } from "@/backend/service/remote/RemoteConnectionService";
 import { RemoteWorkspaceService } from "@/backend/service/remote/RemoteWorkspaceService";
+import { RemoteConsoleService } from "@/backend/service/remote/RemoteConsoleService";
 
 import type { Database } from "@/backend/database/Database";
 import type { InstanceSecretCipher } from "@/backend/security/InstanceSecretCipher";
@@ -15,6 +16,7 @@ import type { InstanceSecretCipher } from "@/backend/security/InstanceSecretCiph
 export interface RemoteApplicationServices {
   readonly remoteConnectionService: RemoteConnectionService;
   readonly remoteWorkspaceService: RemoteWorkspaceService;
+  readonly remoteConsoleService: RemoteConsoleService;
   /** Closed at shutdown together with the private SSH runtime folder. */
   readonly remoteSessions: RemoteSessionRegistry;
   readonly sshClient: SshClient;
@@ -53,15 +55,17 @@ export function createRemoteServices(input: {
       client: sshClient,
       sessions: remoteSessions,
     });
+  const remoteWorkspaceService = new RemoteWorkspaceService({
+    workspaces: new RemoteWorkspaceRepository(database),
+    connections,
+    authorization,
+    projects: new ProjectRepository(database),
+    sessions: remoteSessions,
+  });
   return {
     remoteConnectionService,
-    remoteWorkspaceService: new RemoteWorkspaceService({
-      workspaces: new RemoteWorkspaceRepository(database),
-      connections,
-      authorization,
-      projects: new ProjectRepository(database),
-      sessions: remoteSessions,
-    }),
+    remoteWorkspaceService,
+    remoteConsoleService: new RemoteConsoleService(remoteWorkspaceService),
     remoteSessions,
     sshClient,
   };

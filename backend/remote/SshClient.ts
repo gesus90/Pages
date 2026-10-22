@@ -14,6 +14,7 @@ import {
 import { SshChildProcess, runSshProcess } from "./SshProcess";
 import { probeSshEndpoint } from "./SshProbe";
 import { SshRuntimeDirectory } from "./SshRuntimeDirectory";
+import { openSshPty } from "./SshPty";
 
 import type {
   RemoteFailureCode,
@@ -23,6 +24,7 @@ import type { SshFiles, SshTarget } from "./SshOptions";
 import type { SshProcessResult } from "./SshProcess";
 import type { SshEndpoint } from "./SshProbe";
 import type { SshScope } from "./SshRuntimeDirectory";
+import type { SshPty, SshPtyRequest } from "./SshPty";
 
 /** The OpenSSH programs Pages runs; they are looked up on the server's search path. */
 export interface SshTools {
@@ -37,6 +39,8 @@ export interface SshMaster {
   readonly exited: Promise<SshProcessResult>;
   /** Runs one command on the machine; exit code 255 means the transport failed. */
   run(command: string, timeoutMs: number): Promise<SshProcessResult>;
+  /** Interactive capability; older command-only adapters may omit it. */
+  openPty?(request: SshPtyRequest): Promise<SshPty>;
   /** Ends the transport on purpose and removes its private files. */
   close(): Promise<void>;
 }
@@ -69,6 +73,7 @@ class SshMasterConnection implements SshMaster {
   private readonly commandArguments: readonly string[];
   private readonly scope: SshScope;
   private readonly tools: SshTools;
+  private readonly terminals = new Set<SshPty>();
 
   public constructor(input: {
     readonly masterProcess: SshChildProcess;
@@ -97,8 +102,23 @@ class SshMasterConnection implements SshMaster {
     });
   }
 
+  /** Opens an independent terminal channel over this authenticated connection. */
+  public async openPty(request: SshPtyRequest): Promise<SshPty> {
+    const terminal = await openSshPty({
+      file: this.tools.ssh,
+      arguments: this.commandArguments,
+      environment: sshEnvironment("/bin/false", null),
+      directory: this.scope.directory,
+      request,
+    });
+    this.terminals.add(terminal);
+    void terminal.exited.then(() => this.terminals.delete(terminal));
+    return terminal;
+  }
+
   /** Stops the master; its scope is removed once it has ended. */
   public async close(): Promise<void> {
+    for (const terminal of this.terminals) terminal.close();
     this.masterProcess.stop();
     await this.exited;
   }

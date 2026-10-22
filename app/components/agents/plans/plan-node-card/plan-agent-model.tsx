@@ -8,6 +8,7 @@ import {
 } from "@/definition/AgentPlanGroup";
 import { findPlanStep } from "@/definition/AgentPlanGroupEdit";
 import {
+  planTargetModels,
   copyPlanConfiguration,
   planConfigurationModelKey,
 } from "@/definition/AgentPlanConfiguration";
@@ -59,7 +60,7 @@ export function PlanAgentModel(props: {
         </span>
       </footer>
     );
-  const models = sources.models ?? [];
+  const models = planTargetModels(sources.models ?? [], step.executionTarget);
   const model = models.find(
     (entry) => entry.id === planConfigurationModelKey(configuration),
   );

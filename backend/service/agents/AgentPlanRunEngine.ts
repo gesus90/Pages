@@ -11,7 +11,10 @@ import {
   logEvent,
   withLogContext,
 } from "@/backend/logging/Logger";
-
+import { dispatchRemotePlanStep } from "./AgentPlanRemoteExecution";
+import { savePlanSession } from "./AgentPlanSessionPersistence";
+import { capturePlanExecution } from "./AgentPlanExecutionSnapshot";
+import { hasRemotePlanTarget } from "./AgentPlanExecutionTargets";
 import { AgentPlanRunCommands } from "./AgentPlanRunCommands";
 import { completePlanDrain } from "./AgentPlanDrain";
 import { runPlanInstruction } from "./AgentPlanInstructionControl";
@@ -37,7 +40,7 @@ import { initialPlanRun, recoveredPlanRun } from "./AgentPlanRunStart";
 import { AgentPlanLoopRunner } from "./loop/AgentPlanLoopRunner";
 import { planRecoveryReason } from "./recovery/AgentPlanFailure";
 import { dispatchPlanScript } from "./AgentPlanScriptDispatch";
-
+import type { AgentPlanRemoteExecution } from "./AgentPlanRemoteExecution";
 import type { AgentPlanRunJournal } from "./AgentPlanJournal";
 import type { RecoveredRunStart } from "./AgentPlanRunStart";
 import type { PlanInstructionWork } from "./AgentPlanInstructionControl";
@@ -77,6 +80,7 @@ const STOP_WAIT_MILLISECONDS = 30_000;
 
 /** Runtime boundaries shared with the run command aggregate. */
 export interface EngineDependencies {
+  readonly remoteExecution?: AgentPlanRemoteExecution;
   readonly scripts?: Pick<AgentPlanScriptRunner, "run">;
   readonly resources?: Pick<AcpResourceScheduler, "pauseRun" | "resumeRun">;
   readonly runs: Pick<
@@ -244,7 +248,16 @@ export class AgentPlanRunEngine {
       readonly journal?: AgentPlanRunJournal;
     },
   ): Promise<AgentPlanRun> {
+    if (
+      (hasRemotePlanTarget(snapshot.plan) ||
+        snapshot.steps.some((step) => step.remoteTarget)) &&
+      !this.dependencies.remoteExecution
+    )
+      throw new AgentError("plan_remote_unavailable");
     const { recording, journal } = terms;
+    const captured = capturePlanExecution(view, snapshot);
+    view = captured.run;
+    snapshot = captured.snapshot;
     withLogContext({ runId: view.id }, () =>
       logEvent({
         level: "info",
@@ -509,7 +522,10 @@ export class AgentPlanRunEngine {
     const changes = await this.outcome(active, node, controller).catch(
       (error: unknown): Partial<AgentPlanStepResult> => {
         logCaughtError("AgentPlanRunEngine", error);
-        return { status: "failed", error: "plan_step_failed" };
+        return {
+          status: "failed",
+          error: error instanceof AgentError ? error.code : "plan_step_failed",
+        };
       },
     );
     logEvent({
@@ -537,7 +553,7 @@ export class AgentPlanRunEngine {
         active.dispatched.delete(node.id);
         try {
           const checkpoint =
-            changes.status === "succeeded"
+            changes.status === "succeeded" && !changes.remote
               ? createPlanCheckpoint(active.view, active.snapshot, node.id)
               : undefined;
           await this.dependencies.runs.update(active.view, checkpoint);
@@ -572,6 +588,13 @@ export class AgentPlanRunEngine {
     controller: AbortController,
   ): Promise<Partial<AgentPlanStepResult>> {
     const isStopped = active.view.stopRequested || controller.signal.aborted;
+    const remote = dispatchRemotePlanStep(
+      this.dependencies.remoteExecution,
+      active,
+      node.id,
+      controller.signal,
+    );
+    if (remote) return remote;
     if (node.type === "script")
       return dispatchPlanScript(active, node.id, controller, {
         scripts: this.dependencies.scripts,
@@ -644,22 +667,9 @@ export class AgentPlanRunEngine {
     stepId: string,
     session: AgentPlanSessionRecord,
   ): Promise<void> {
-    try {
-      await this.writes.run(async () => {
-        patchStep(active, stepId, { session });
-        await this.dependencies.runs.update(active.view);
-      });
-    } catch (error: unknown) {
-      logCaughtError("AgentPlanRunEngine", error);
-
-      logDiagnostic(
-        "AgentPlanRunEngine",
-        "error",
-        "Pages could not store the record of an agent node.",
-        error,
-      );
-      active.hasPersistenceFailure = true;
-      for (const controller of active.controllers.values()) controller.abort();
-    }
+    await savePlanSession(active, stepId, session, {
+      writes: this.writes,
+      runs: this.dependencies.runs,
+    });
   }
 }

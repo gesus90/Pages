@@ -1,3 +1,7 @@
+import {
+  planStepExecutionSchema,
+  planRemoteProgressSchema,
+} from "@/definition/AgentPlanExecution";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
 import { readAgentObject } from "@/backend/agents/AgentPayload";
@@ -9,11 +13,9 @@ import {
   loopIterationCheckpoints,
   requireImmutableIterations,
 } from "@/backend/service/agents/recovery/AgentPlanLoopCheckpoint";
-
 import { CURRENT_PLAN_SNAPSHOT } from "./AgentPlanContinuationRepository";
 import { AgentPlanCheckpointRepository } from "./AgentPlanCheckpointRepository";
 import { AgentPlanLoopIterationRepository } from "./AgentPlanLoopIterationRepository";
-
 import type { AgentPlanRunJournal } from "@/backend/service/agents/AgentPlanJournal";
 import type {
   Database,
@@ -30,7 +32,12 @@ interface StoredProgress {
 
 function successfulWorkDigest(step: AgentPlanStepResult): string {
   const session = step.session;
+  // Schema order keeps new metadata equivalent before and after a persisted read.
   return planContentDigest({
+    execution: step.execution
+      ? planStepExecutionSchema.parse(step.execution)
+      : null,
+    remote: step.remote ? planRemoteProgressSchema.parse(step.remote) : null,
     output: step.output,
     script: step.script ?? null,
     session: session
@@ -124,9 +131,36 @@ export class AgentPlanProgressRepository {
   ): Promise<void> {
     await this.database.transaction(async (transaction) => {
       const previous = await this.read(transaction, run.id);
+      run = {
+        ...run,
+        steps: run.steps.map((step) => {
+          const stored = previous.run.steps.find(
+            (entry) => entry.id === step.id,
+          );
+          return stored?.remote
+            ? {
+                ...step,
+                status: stored.status,
+                output: stored.output,
+                error: stored.error,
+                remote: stored.remote,
+              }
+            : step;
+        }),
+      };
       await this.save(transaction, previous, run, checkpoint);
       await journal?.(transaction, run);
     });
+  }
+
+  /** Shares the caller's transaction with a runner journal and its acknowledgement. */
+  public async persist(
+    transaction: DatabaseTransaction,
+    run: AgentPlanRun,
+    checkpoint?: AgentPlanCheckpointInput,
+  ): Promise<void> {
+    const previous = await this.read(transaction, run.id);
+    await this.save(transaction, previous, run, checkpoint);
   }
 
   /** Interrupts only active records; a concurrent terminal decision cannot be reopened. */
@@ -208,6 +242,8 @@ export class AgentPlanProgressRepository {
     );
     const hasUnconfirmedCleanup = allPlanRunResults(run).some(
       (step) =>
+        step.remote?.closeout === "pending" ||
+        step.remote?.closeout === "failed" ||
         step.session?.closeout === "pending" ||
         step.session?.closeout === "failed" ||
         step.script?.closeout === "pending" ||

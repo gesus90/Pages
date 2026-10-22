@@ -1,5 +1,9 @@
 import { isAcpProvider } from "@/definition/AgentConfiguration";
-
+import type { RemotePlanStep } from "./AgentPlanRemoteExecution";
+import type {
+  AgentPlanRemoteTarget,
+  AgentPlanStepExecution,
+} from "@/definition/AgentPlanExecution";
 import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 import type { AgentPlan, AgentPlanStep } from "@/definition/AgentPlan";
 import type { AgentProviderId } from "@/definition/AgentConnection";
@@ -13,10 +17,12 @@ export type { AgentPlanTemplate } from "@/definition/AgentPlanConfiguration";
 /** Model identity is pinned while credentials and permission checks remain live. */
 export interface AgentPlanStepSnapshot {
   readonly step: AgentPlanStep;
+  readonly remoteTarget?: AgentPlanRemoteTarget;
   readonly groupId?: string;
   /** The loop this member belongs to; the node runs once per iteration inside it. */
   readonly loopId?: string;
   readonly connectionId?: string;
+  readonly connectionName?: string;
   readonly name: string;
   readonly revision: number;
   readonly template: AgentPlanTemplate;
@@ -49,6 +55,14 @@ export interface AgentPlanRecoveryDirective {
 
 /** Each server-only execution basis is appended once; no basis is overwritten or sent as a run response. */
 export interface AgentPlanSnapshot {
+  readonly remoteSteps?: readonly RemotePlanStep[];
+  readonly execution?: {
+    readonly schemaVersion: 1;
+    readonly planId: string;
+    readonly runId: string;
+    readonly planRevision: number;
+    readonly steps: readonly AgentPlanStepExecution[];
+  };
   readonly plan: AgentPlan;
   readonly groups?: readonly AgentPlanGroup[];
   readonly steps: readonly AgentPlanStepSnapshot[];

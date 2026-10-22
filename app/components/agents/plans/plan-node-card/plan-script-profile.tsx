@@ -1,8 +1,6 @@
 import { useTranslation } from "react-i18next";
-
 import { Select } from "@/app/components/ui/select";
 import { cn } from "@/app/lib/cn";
-
 import { usePlanFlowContext } from "../plan-flow-context";
 import { PLAN_NODE_TEXT } from "../plan-node-text";
 import {
@@ -10,7 +8,6 @@ import {
   planScriptProfileText,
 } from "../plan-script/plan-script-profile";
 import { PLAN_FIELD_CLASS } from "./plan-value-input";
-
 import type { AgentPlanScript } from "@/definition/AgentPlanScript";
 import type {
   PlanScriptProfileState,
@@ -128,16 +125,23 @@ function ProfileChoice(props: {
   function choose(interpreterProfileId: string): void {
     graph.replaceNode({ ...script, interpreterProfileId });
   }
-  const options = (sources.interpreters ?? []).map((profile) => {
-    const text = planScriptProfileText({ kind: profile.status, profile }, t);
-    return {
-      value: profile.id,
-      label: profile.name,
-      description: [profile.version, text.status, text.reason]
-        .filter(Boolean)
-        .join(" · "),
-    };
-  });
+  const target = script.executionTarget;
+  const options = (sources.interpreters ?? [])
+    .filter((profile) =>
+      target?.kind === "remote"
+        ? profile.runnerWorkspaceId === target.workspaceId
+        : !profile.runnerWorkspaceId,
+    )
+    .map((profile) => {
+      const text = planScriptProfileText({ kind: profile.status, profile }, t);
+      return {
+        value: profile.id,
+        label: profile.name,
+        description: [profile.version, text.status, text.reason]
+          .filter(Boolean)
+          .join(" · "),
+      };
+    });
   return (
     <Select
       ariaLabel={t("plans.scripts.profile")}

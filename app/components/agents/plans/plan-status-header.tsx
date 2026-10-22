@@ -11,6 +11,7 @@ import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 
 interface StatusHeaderProps {
   readonly run: AgentPlanRun | null;
+  readonly previewNames: readonly string[];
   readonly steps: readonly AgentPlanStepResult[];
   readonly end: string | null;
   readonly anchorId: string | null;
@@ -61,16 +62,18 @@ function RunIndicator({
 
 function RunDonut({
   steps,
-}: Pick<StatusHeaderProps, "steps">): React.ReactElement {
+  previewNames,
+}: Pick<StatusHeaderProps, "steps" | "previewNames">): React.ReactElement {
   const { t } = useTranslation();
   const completed = steps.filter((step) => step.status === "succeeded").length;
-  const label = t("plans.progress.count", { completed, total: steps.length });
+  const total = steps.length || previewNames.length;
+  const label = t("plans.progress.count", { completed, total });
   const fraction = steps.length ? completed / steps.length : 0;
   return (
     <div
       className="flex shrink-0 items-center gap-1.75 border-l border-border pl-3"
       role="img"
-      aria-label={steps.length ? label : t("plans.progress.unknownTotal")}
+      aria-label={total ? label : t("plans.progress.unknownTotal")}
     >
       <svg viewBox="0 0 56 56" aria-hidden="true" className="size-6 -rotate-90">
         <circle
@@ -97,7 +100,7 @@ function RunDonut({
       </svg>
       <span aria-hidden="true" className="min-w-0">
         <span className="block text-xs leading-4.5 font-medium tabular-nums">
-          {steps.length ? `${completed}/${steps.length}` : "—"}
+          {total ? `${completed}/${total}` : "—"}
         </span>
         <span className="sr-only">{t("plans.progress.completed")}</span>
       </span>
@@ -115,7 +118,7 @@ export function PlanStatusHeader(props: StatusHeaderProps): React.ReactElement {
   return (
     <div className="flex min-h-11.5 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 px-2.5 py-1.5 @2xl/status:flex-nowrap">
       <RunIndicator run={props.run} error={props.error} />
-      <RunDonut steps={props.steps} />
+      <RunDonut steps={props.steps} previewNames={props.previewNames} />
       <div className="order-last flex w-full min-w-0 border-border @2xl/status:order-0 @2xl/status:w-auto @2xl/status:flex-1 @2xl/status:border-l">
         {props.run && props.steps.length ? (
           <PlanStatusSequence
@@ -126,13 +129,7 @@ export function PlanStatusHeader(props: StatusHeaderProps): React.ReactElement {
             onSelect={props.onSelect}
           />
         ) : (
-          <p className="px-3 text-xs text-muted-foreground">
-            {t(
-              props.error
-                ? "plans.progress.unavailable"
-                : "plans.progress.noRun",
-            )}
-          </p>
+          <PlanPendingSequence names={props.previewNames} error={props.error} />
         )}
       </div>
       <span
@@ -161,6 +158,40 @@ export function PlanStatusHeader(props: StatusHeaderProps): React.ReactElement {
           )}
         </PlanPaletteButton>
       </div>
+    </div>
+  );
+}
+
+/** Pending plan steps are a preview only; no run or execution evidence is synthesized. */
+function PlanPendingSequence({
+  names,
+  error,
+}: {
+  readonly names: readonly string[];
+  readonly error: string | null;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  if (error || names.length === 0)
+    return (
+      <p className="px-3 text-xs text-muted-foreground">
+        {t(error ? "plans.progress.unavailable" : "plans.progress.noRun")}
+      </p>
+    );
+  return (
+    <div
+      className="flex min-w-0 gap-1 overflow-x-auto px-3"
+      aria-label={t("plans.progress.sequence")}
+    >
+      {names.map((name, index) => (
+        <span
+          key={index}
+          title={name}
+          className="flex h-7.5 w-11 shrink-0 items-center justify-center bg-plan-progress-waiting text-xs font-semibold text-foreground [clip-path:polygon(0_0,74%_0,100%_50%,74%_100%,0_100%,25%_50%)]"
+        >
+          {index + 1}
+          <span className="sr-only"> · {name}</span>
+        </span>
+      ))}
     </div>
   );
 }

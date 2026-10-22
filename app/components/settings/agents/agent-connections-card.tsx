@@ -34,7 +34,10 @@ function CliLocations({
 }): React.ReactElement {
   const { t } = useTranslation();
   return (
-    <div className="mb-4 space-y-2 text-xs text-muted-foreground">
+    <details className="mt-3 space-y-2 text-xs text-muted-foreground">
+      <summary className="cursor-pointer font-medium text-primary-text">
+        {t("settings.agents.cliLocations")}
+      </summary>
       {(["codex_cli", "claude_code", "opencode"] as const).map((provider) => (
         <p key={provider}>
           <span className="font-medium">
@@ -46,7 +49,7 @@ function CliLocations({
         </p>
       ))}
       <p>{t("settings.agents.cliInstallHint")}</p>
-    </div>
+    </details>
   );
 }
 
@@ -82,7 +85,6 @@ export function AgentConnectionsCard({
         </Button>
       }
     >
-      {!isApi ? <CliLocations locations={cliTools} /> : null}
       {connections.length === 0 ? (
         <p className="py-6 text-center text-sm text-muted-foreground">
           {t(`settings.agents.${titleKey}Empty`)}
@@ -95,6 +97,7 @@ export function AgentConnectionsCard({
           onCommand={onCommand}
         />
       )}
+      {!isApi ? <CliLocations locations={cliTools} /> : null}
     </SettingsCard>
   );
 }

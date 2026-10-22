@@ -16,6 +16,7 @@ interface DialogContentProps extends ComponentProps<
   typeof DialogPrimitive.Content
 > {
   readonly children: ReactNode;
+  readonly overlayClassName?: string;
   readonly size?: "sm" | "md" | "lg";
 }
 
@@ -30,11 +31,17 @@ export function DialogContent({
   children,
   className,
   size = "sm",
+  overlayClassName,
   ...properties
 }: DialogContentProps): React.ReactElement {
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-scrim data-[state=closed]:animate-out data-[state=open]:animate-in" />
+      <DialogPrimitive.Overlay
+        className={cn(
+          "fixed inset-0 z-40 bg-scrim data-[state=closed]:animate-out data-[state=open]:animate-in",
+          overlayClassName,
+        )}
+      />
       <DialogPrimitive.Content asChild {...properties}>
         <ScrollViewport
           containerClassName={cn(

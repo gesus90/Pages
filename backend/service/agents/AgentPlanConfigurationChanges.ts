@@ -1,14 +1,11 @@
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 import { defaultAgentRunOptions } from "@/definition/AgentConfiguration";
-
 import {
   readParameterRecord,
   requireParameterKeys,
 } from "./AgentParameterReader";
-
 import type { PageAgentModel } from "@/definition/PageAgent";
-
 import type { AgentPlanStep } from "@/definition/AgentPlan";
 import type { AgentPlanChangeContext } from "./AgentPlanStructureChanges";
 
@@ -52,6 +49,7 @@ export function patchPlanConfiguration(
       ...current,
       modelProfileId: model.id,
       connectionId: model.connectionId,
+      runnerRoute: model.runnerRoute,
       model: model.model,
       provider: model.provider,
       reasoningEffort: current.reasoningEffort,

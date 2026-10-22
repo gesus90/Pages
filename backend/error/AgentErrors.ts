@@ -26,6 +26,8 @@ export const AGENT_ERROR_MESSAGES = {
     "This change requires completed work to run again. Stop and start a new run.",
   plan_pause_required:
     "Pause the run and wait until all steps have drained before editing.",
+  plan_remote_unavailable:
+    "Remote execution is unavailable until a runner dispatcher and model access are configured.",
   plan_invalid: "Check the plan fields and graph nodes.",
   plan_script_invalid:
     "Check the script: name, interpreter profile, content, unique input and output names and a timeout of 1 to 86400 seconds.",
@@ -127,6 +129,8 @@ export const AGENT_ERROR_MESSAGES = {
     "The prompt still contains a parameter placeholder; nothing was sent.",
   run_notes_unsupported:
     "Shared run notes have been removed. {{@run.notes}} is no longer supported; update this agent or plan node explicitly.",
+  plan_runner_lost:
+    "The remote process disappeared without an exit record. It will not restart automatically.",
   plan_runner_failed: "The runner ended its turn with an error.",
   plan_runner_incomplete: "The runner ended without completing its turn.",
   plan_runner_permission_denied:

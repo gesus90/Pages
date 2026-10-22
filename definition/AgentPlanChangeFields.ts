@@ -3,16 +3,25 @@ export const PLAN_NODE_FIELDS = {
   start: [],
   end: [],
   group: ["name"],
-  loop: [],
+  loop: [
+    "name",
+    "runs",
+    "runsSource",
+    "countMode",
+    "sessionPolicy",
+    "condition",
+  ],
   agent: [
     "agentId",
     "personalAgentId",
     "instruction",
+    "executionTarget",
     "completion",
     "configuration",
   ],
   script: [
     "name",
+    "executionTarget",
     "interpreterProfileId",
     "content",
     "inputs",
@@ -33,4 +42,5 @@ export const PLAN_ADDABLE_TYPES = [
   "task",
   "parameter",
   "group",
+  "loop",
 ] as const;

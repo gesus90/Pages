@@ -12,6 +12,7 @@ export function PageAgentModelFields(props: {
   /** Tells an owner that the saved model is no longer released and has to be replaced. */
   readonly isModelWithdrawn: boolean;
   readonly savedModel?: string;
+  readonly layout?: "columns" | "stacked";
   readonly onChange: (draft: PageAgentInput) => void;
 }): React.ReactElement {
   const { t } = useTranslation();
@@ -28,7 +29,13 @@ export function PageAgentModelFields(props: {
   }
   return (
     <div className="space-y-3">
-      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+      <div
+        className={
+          props.layout === "stacked"
+            ? "grid min-w-0 gap-4"
+            : "grid min-w-0 gap-4 sm:grid-cols-2"
+        }
+      >
         <label className="block min-w-0 space-y-2 text-sm font-medium">
           <span>{t("pageAgents.model")}</span>
           <Select

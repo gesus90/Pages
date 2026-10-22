@@ -1,10 +1,8 @@
 import { constants } from "node:fs";
 import { access, stat } from "node:fs/promises";
-
 import { AgentError } from "@/backend/error/AgentErrors";
 import { planInterpreters } from "@/definition/AgentPlanScript";
 import { interpreterProfileSchema } from "@/definition/InterpreterProfile";
-
 import type { AgentPlanNode } from "@/definition/AgentPlan";
 import type { AgentPlanScript } from "@/definition/AgentPlanScript";
 import type { AgentPlanInterpreter } from "@/definition/AgentPlanScript";
@@ -91,7 +89,9 @@ export class AgentPlanScripts {
     nodes: readonly AgentPlanNode[],
     saved: readonly AgentPlanNode[],
   ): Promise<void> {
-    const scripts = scriptsOf(nodes);
+    const scripts = scriptsOf(nodes).filter(
+      (script) => script.executionTarget?.kind !== "remote",
+    );
     if (scripts.length === 0) return;
     const profiles = await this.interpreters();
     for (const script of scripts) {

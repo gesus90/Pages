@@ -3,6 +3,15 @@
 Scripts are ordinary server processes in the existing Pages DAG engine. Saving,
 opening, validating, upgrading and migrating a plan never executes its script
 content. Explicit Play prepares the saved revision and reserves its workspace.
+Scripts may select an authorized registered remote workspace as `executionTarget`.
+Runner 1.2.0 executes them through the durable dispatcher, with runner-owned
+interpreter identities and binary digests, frozen source, JSON stdin, finite
+timeouts and output/process limits. A transport interruption never restarts a
+claim. A vanished worker without an exit record finishes as `lost`; explicit
+cancellation finishes as `interrupted`, with cleanup evidence. Remote profiles
+are offered separately from local profiles and rechecked before dispatch. No
+remote target falls back to a local process. See [the runner contract](../../../docs/PagesRunner.md#remote-pläne-scope-erweiterung-page-142)
+for supported modes and operational limits. Local plans retain their existing runtime.
 Existing agent nodes and groups keep their existing runners. Script members of
 loops remain stored but are refused with `loopScriptUnsupported`; extending loop
 execution is outside PAGE-123.

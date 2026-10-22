@@ -72,7 +72,9 @@ export class AgentPlanStartupRecovery {
     retained: ReadonlySet<string> = new Set(),
   ): Promise<void> {
     const endSession = this.dependencies.endSession ?? endInterruptedSession;
-    for (const previous of await this.dependencies.runs.unfinished()) {
+    const unfinished = await this.dependencies.runs.unfinished();
+    // Remote work stays owned by the durable runner journal until reconciliation.
+    for (const previous of unfinished.filter(requiresLocalRecovery)) {
       await this.dependencies.sessions?.revoke(previous.id, null);
       const endNode = async (
         step: AgentPlanStepResult,
@@ -118,7 +120,10 @@ export class AgentPlanStartupRecovery {
       const run = await this.reconcileScripts(reserved);
       if (
         allPlanRunResults(run).some(
-          (step) => step.script?.closeout === "failed",
+          (step) =>
+            step.script?.closeout === "failed" ||
+            step.remote?.closeout === "pending" ||
+            step.remote?.closeout === "failed",
         )
       )
         continue;
@@ -148,4 +153,8 @@ export class AgentPlanStartupRecovery {
 function interruptionCode(step: AgentPlanStepResult): string {
   if (step.script?.closeout === "failed") return "plan_script_cleanup";
   return step.script ? "plan_script_interrupted" : "plan_interrupted";
+}
+
+function requiresLocalRecovery(run: AgentPlanRun): boolean {
+  return !run.steps.some((step) => step.execution?.target.kind === "remote");
 }

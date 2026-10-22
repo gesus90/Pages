@@ -230,7 +230,27 @@ async function savePlan(
   const planId = String(formData.get("planId") ?? "");
   if (planId) readPlanText(planId);
   const proposed = readPlanContent(formData);
-  const id = await service.save(userId, planId || null, proposed);
+  let id: string;
+  try {
+    id = await service.save(userId, planId || null, proposed);
+  } catch (error: unknown) {
+    if (
+      !(error instanceof AgentError) ||
+      error.code !== "plan_conflict" ||
+      !planId
+    )
+      throw error;
+    const current = await service.view(userId, planId);
+    return Response.json(
+      {
+        ok: false,
+        intent: "save-plan",
+        error: "plan_conflict",
+        currentRevision: current.revision,
+      },
+      { status: 409, headers: AGENT_NO_STORE },
+    );
+  }
   return Response.json(
     {
       ok: true,

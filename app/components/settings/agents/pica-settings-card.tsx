@@ -20,7 +20,7 @@ interface PicaSettingsCardProps {
   readonly models: readonly PageAgentModel[];
 }
 
-/** The fixed chat identity above the independently managed API and CLI connections. */
+/** The fixed chat identity alongside the independently managed agent connections. */
 export function PicaSettingsCard({
   settings,
   models,

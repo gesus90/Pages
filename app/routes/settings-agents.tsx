@@ -6,6 +6,7 @@ import { AdminModeRequired } from "@/app/components/settings/admin-mode-required
 import { SettingsSectionHeader } from "@/app/components/settings/settings-layout";
 import { PicaSettingsCard } from "@/app/components/settings/agents/pica-settings-card";
 import { AgentsSection } from "@/app/components/settings/agents/agents-section";
+import { RunnerConnectionsCard } from "@/app/components/settings/agents/runner-connections-card";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { readSettingsRequest } from "@/app/lib/settings-actions/settings-request.server";
@@ -26,12 +27,15 @@ import type {
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type { PicaAdministration } from "@/definition/PicaSettings";
 import type { Route } from "./+types/settings-agents";
+import type { RunnerConnectionView } from "@/definition/RunnerProtocol";
 
 type AgentsLoaderData =
   | { readonly access: "adminModeRequired" }
   | {
       readonly access: "granted";
       readonly connections: readonly AgentConnectionSummary[];
+      readonly runners: readonly RunnerConnectionView[];
+      readonly runnerGitHubMode: "offline" | "http";
       readonly cliTools: CliToolLocations;
       readonly catalogs: Readonly<Record<string, AgentModelCatalog>>;
       readonly profileDirectory: AgentProfileDirectory;
@@ -69,18 +73,21 @@ export async function loader({
         { access: "adminModeRequired" },
         { headers: AGENT_NO_STORE },
       );
-    const [connections, cliTools, catalogs, profileDirectory, pica] =
+    const [connections, cliTools, catalogs, profileDirectory, pica, runners] =
       await Promise.all([
         services.agentConnectionService.list(actor),
         services.agentCliLoginService.tools(actor),
         services.agentCatalogService.list(actor),
         services.agentProfileService.directory(actor),
         services.picaSettingsService.administration(actor.userId),
+        services.runnerService.overview(actor.userId),
       ]);
     return routeData<AgentsLoaderData>(
       {
         access: "granted",
         connections,
+        runners,
+        runnerGitHubMode: services.runnerGitHubMode,
         cliTools,
         catalogs,
         profileDirectory,
@@ -116,15 +123,19 @@ export default function SettingsAgentsRoute(): React.ReactElement {
         icon={<Bot className="size-4" aria-hidden="true" />}
         title={t("settings.agents.title")}
       />
-      <PicaSettingsCard
-        settings={result.pica.settings}
-        models={result.pica.models}
-      />
       <AgentsSection
         connections={result.connections}
         cliTools={result.cliTools}
         catalogs={result.catalogs}
         profileDirectory={result.profileDirectory}
+      />
+      <RunnerConnectionsCard
+        connections={result.runners}
+        githubMode={result.runnerGitHubMode}
+      />
+      <PicaSettingsCard
+        settings={result.pica.settings}
+        models={result.pica.models}
       />
       <Link
         className="inline-flex rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-primary-text hover:bg-surface-hover"

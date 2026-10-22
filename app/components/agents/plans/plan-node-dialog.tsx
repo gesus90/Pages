@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
@@ -20,6 +22,7 @@ import type {
   AgentPlanInput,
   AgentPlanNode,
   AgentPlanRun,
+  AgentPlanStep,
 } from "@/definition/AgentPlan";
 import type {
   AgentPlanScript,
@@ -60,6 +63,10 @@ function PlanScriptEditDialog(
       key={script.id}
       script={script}
       interpreters={editor.sources.interpreters}
+      remoteTargets={editor.sources.remoteTargets}
+      workspace={editor.workspaces.find(
+        (entry) => entry.id === editor.draft.workspaceId,
+      )}
       disabled={!editor.canEdit || editor.isPending}
       onApply={apply}
       onClose={props.onClose}
@@ -95,7 +102,6 @@ function dialogNode(
 
 /** Double-click editing stays bound to one node identifier, also while a run is active. */
 export function PlanNodeDialog(props: PlanNodeDialogProps): React.ReactElement {
-  const { t } = useTranslation();
   const step = dialogNode(props.editor.draft, props.nodeId);
   if (step?.type === "script")
     return <PlanScriptEditDialog {...props} script={step} />;
@@ -124,30 +130,61 @@ export function PlanNodeDialog(props: PlanNodeDialogProps): React.ReactElement {
         onClose={() => closePanel(props.onClose, step.id)}
       />
     );
+  if (step?.type !== "agent") return <></>;
+  return <PlanAgentEditDialog key={step.id} {...props} step={step} />;
+}
+
+/** Keeps node edits private until Apply; closing or cancelling discards the copy. */
+function PlanAgentEditDialog(
+  props: PlanNodeDialogProps & { readonly step: AgentPlanStep },
+): React.ReactElement {
+  const { t } = useTranslation();
+  const [draft, setDraft] = useState(() => structuredClone(props.step));
+  const disabled = !props.editor.canEdit || props.editor.isPending;
+  function apply(): void {
+    if (disabled) return;
+    props.editor.graph.replaceStep(draft);
+    closePanel(props.onClose, draft.id);
+  }
   return (
     <Dialog
-      open={step?.type === "agent"}
+      open
       onOpenChange={(isOpen) => {
         if (!isOpen) props.onClose();
       }}
     >
-      <DialogContent size="lg" className="space-y-4 overflow-y-auto">
+      <DialogContent
+        overlayClassName="bg-transparent"
+        size="lg"
+        className="space-y-4 overflow-y-auto"
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          closePanel(props.onClose, draft.id);
+        }}
+      >
         <DialogTitle className="text-lg font-semibold">
           {t("plans.editNode")}
         </DialogTitle>
         <DialogDescription className="text-sm text-muted-foreground">
           {t("plans.nodeConfigurationHint")}
         </DialogDescription>
-        {step?.type === "agent" ? (
-          <PlanNodeConfigurationFields
-            step={step}
-            sources={props.editor.sources}
-            workspaces={props.editor.workspaces}
-            disabled={!props.editor.canEdit || props.editor.isPending}
-            onChange={props.editor.graph.replaceStep}
-          />
-        ) : null}
-        <Button onClick={props.onClose}>{t("plans.closeNode")}</Button>
+        <PlanNodeConfigurationFields
+          step={draft}
+          sources={props.editor.sources}
+          workspaces={props.editor.workspaces}
+          disabled={disabled}
+          onChange={setDraft}
+        />
+        <div className="flex justify-end gap-2 border-t border-border pt-4">
+          <Button variant="outline" size="sm" onClick={props.onClose}>
+            {t("settings.agents.cancel")}
+          </Button>
+          {disabled ? null : (
+            <Button size="sm" onClick={apply}>
+              {t("plans.closeNode")}
+            </Button>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );

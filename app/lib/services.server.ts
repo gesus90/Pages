@@ -143,6 +143,7 @@ function registerShutdownHandler(
       await agents.agentToolManagerService.shutdown();
       await agents.agentToolStartupService.shutdown();
       await agents.agentCliLoginService.shutdown();
+      agents.remoteConsoleService.shutdown();
       await agents.remoteSessions.shutdown();
       await agents.sshClient.dispose();
       await database.close();

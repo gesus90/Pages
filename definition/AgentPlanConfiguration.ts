@@ -1,9 +1,11 @@
+import { defaultAgentRunOptions } from "./AgentConfiguration";
+import type { AgentPlanExecutionTarget } from "./AgentPlanExecution.js";
+import type { RunnerModelRoute } from "./RunnerExecution.js";
 import type { AgentDefinitionChoice } from "./AgentAvailability";
 import type { AgentConfiguration } from "./AgentConfiguration";
 import type { AgentProviderId } from "./AgentConnection";
 import type { AgentPlanStep } from "./AgentPlan";
 import type { PageAgentModel } from "./PageAgent";
-import { defaultAgentRunOptions } from "./AgentConfiguration";
 
 /** Runtime content without usage grants, connections or credentials. */
 export type AgentPlanTemplate = Pick<
@@ -13,6 +15,7 @@ export type AgentPlanTemplate = Pick<
 
 /** A node owns this copy; the source revision records where it originated. */
 export interface AgentPlanConfiguration {
+  readonly runnerRoute?: RunnerModelRoute;
   readonly name: string;
   readonly revision: number;
   readonly modelProfileId: string;
@@ -34,6 +37,7 @@ export function planConfigurationForModel(
   model: PageAgentModel,
 ): AgentPlanConfiguration {
   return {
+    ...(model.runnerRoute ? { runnerRoute: model.runnerRoute } : {}),
     name: model.model.slice(0, 200),
     revision: 1,
     modelProfileId: model.id,
@@ -43,16 +47,18 @@ export function planConfigurationForModel(
     reasoningEffort: null,
     template: {
       markdown: "",
-      parameters: [
-        {
-          name: "workspace",
-          description: "",
-          type: "workspace",
-          isRequired: true,
-          defaultValue: null,
-        },
-      ],
-      directoryParameter: "workspace",
+      parameters: model.runnerRoute
+        ? []
+        : [
+            {
+              name: "workspace",
+              description: "",
+              type: "workspace",
+              isRequired: true,
+              defaultValue: null,
+            },
+          ],
+      directoryParameter: model.runnerRoute ? null : "workspace",
       run: defaultAgentRunOptions(model.provider),
     },
   };
@@ -62,6 +68,7 @@ export function planConfigurationForModel(
 export function planConfigurationModelKey(
   configuration: AgentPlanConfiguration,
 ): string {
+  if (configuration.runnerRoute) return configuration.modelProfileId;
   return configuration.connectionId
     ? agentModelKey(configuration.connectionId, configuration.model)
     : configuration.modelProfileId;
@@ -108,4 +115,16 @@ function sourceModelId(agent: AgentDefinitionChoice): string {
   return agent.modelProfileId && agent.modelProfileId !== agent.id
     ? agent.modelProfileId
     : "";
+}
+
+/** Offers model routes only for the node's selected execution target. */
+export function planTargetModels(
+  models: readonly PageAgentModel[],
+  target: AgentPlanExecutionTarget | undefined,
+): readonly PageAgentModel[] {
+  return models.filter((model) =>
+    target?.kind === "remote"
+      ? model.runnerRoute?.workspaceId === target.workspaceId
+      : !model.runnerRoute,
+  );
 }

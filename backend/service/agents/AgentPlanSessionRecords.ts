@@ -15,6 +15,7 @@ import type {
   AgentPlanContract,
   AgentPlanSessionRecord,
 } from "@/definition/AgentPlanSession";
+import type { NodeRun } from "./AgentPlanStepContext";
 import type { PreparedPlanStep } from "./AgentPlanStepStart";
 
 const RUNNER_LABELS: Readonly<Record<CliProviderId, string>> = {
@@ -26,6 +27,7 @@ const RUNNER_LABELS: Readonly<Record<CliProviderId, string>> = {
 /** What a new record of a node is built from. */
 export interface SessionRecordStart {
   readonly instanceId: string;
+  readonly attemptId?: string;
   readonly prepared: PreparedPlanStep;
   readonly contract: AgentPlanContract | null;
   readonly usesMcp: boolean;
@@ -68,7 +70,7 @@ export function createSessionRecord(
     runner: isRequest ? "api" : provider,
     mode: sessionMode(provider),
     instanceId: start.instanceId,
-    attemptId: randomUUID(),
+    attemptId: start.attemptId ?? randomUUID(),
     sessionId: null,
     processId: null,
     startedAt: null,
@@ -198,4 +200,11 @@ export function planCompletedFailure(
 ): string | null {
   if (!closed.isConfirmed) return "plan_closeout_failed";
   return hasPlanStepTimedOut(signal) ? "timeout" : failureCode(turn, closed);
+}
+
+/** Reuses the snapshot's initial attempt once; retries and loop turns retain their own fresh identities. */
+export function initialStepAttemptId(node: NodeRun): string | undefined {
+  if (node.retry || node.loop) return undefined;
+  return node.run.steps.find((entry) => entry.id === node.step.step.id)
+    ?.execution?.attemptId;
 }

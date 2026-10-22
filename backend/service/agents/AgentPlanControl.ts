@@ -51,7 +51,7 @@ export function planControl(
     canPause: canControl && run.status === "running",
     canResume: canControl && run.status === "paused" && !issue,
     canStop: canControl && isActive,
-    canEdit: plan.canEdit && (!isActive || run.status === "paused"),
+    canEdit: plan.canEdit,
     issue: issue ?? runFailure(run, context.hasReservation),
   };
 }

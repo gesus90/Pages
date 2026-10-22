@@ -317,7 +317,6 @@ async function writePlan(
   );
   if (!workspace || workspace[0] !== plan.projectId)
     throw new AgentError("plan_context_changed");
-  await requirePlanEditable(transaction, plan.id);
   await requirePlanAgents(transaction, plan);
   await transaction.execute(
     `
@@ -385,7 +384,7 @@ async function requirePlanAgents(
 ): Promise<void> {
   const ids = new Set(
     allPlanSteps(plan).flatMap((node) =>
-      node.configuration?.connectionId
+      node.configuration?.connectionId || node.configuration?.runnerRoute
         ? []
         : [node.agentId, node.personalAgentId],
     ),
@@ -403,6 +402,7 @@ async function requirePlanAgents(
     if (!profile) throw new AgentError("plan_context_changed");
   }
   await requirePlanConnections(database, plan);
+  await requireRemotePlanModels(database, plan);
 }
 
 async function requirePlanConnections(
@@ -427,24 +427,6 @@ async function requirePlanConnections(
   }
 }
 
-/** Saving must not race a running scheduler or the adoption of a paused revision. */
-async function requirePlanEditable(
-  transaction: DatabaseTransaction,
-  id: string,
-): Promise<void> {
-  const [active] = await transaction.query(
-    `
-    SELECT id
-    FROM agent_plan_runs
-    WHERE plan_id = $id
-        AND status IN ('running', 'pausing', 'stopping')
-    LIMIT 1;
-  `,
-    { id },
-  );
-  if (active) throw new AgentError("plan_pause_required");
-}
-
 /** Checks the saved revision within an operation's write transaction, before recording a no-op or run command. */
 export async function requirePlanRevision(
   transaction: DatabaseTransaction,
@@ -457,4 +439,31 @@ export async function requirePlanRevision(
   );
   if (!row || Number(row[0]) !== revision)
     throw new AgentError("plan_conflict");
+}
+
+async function requireRemotePlanModels(
+  database: DatabaseTransaction,
+  plan: AgentPlan,
+): Promise<void> {
+  for (const node of allPlanSteps(plan)) {
+    const route = node.configuration?.runnerRoute;
+    if (!route) continue;
+    const [workspace] = await database.query(
+      `
+      SELECT remote_workspaces.id
+      FROM remote_workspaces
+      INNER JOIN remote_connections
+          ON remote_connections.id = remote_workspaces.connection_id
+      WHERE remote_workspaces.id = $workspace_id
+          AND remote_workspaces.project_id = $project_id
+          AND remote_connections.id = $connection_id;
+    `,
+      {
+        workspace_id: route.workspaceId,
+        project_id: plan.projectId,
+        connection_id: route.connectionId,
+      },
+    );
+    if (!workspace) throw new AgentError("plan_context_changed");
+  }
 }

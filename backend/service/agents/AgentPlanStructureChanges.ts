@@ -3,11 +3,18 @@ import { randomUUID } from "node:crypto";
 import {
   connectPlanFlow,
   disconnectPlanGroupFlow,
-  findPlanStep,
   placePlanStep,
   replacePlanNode,
   ungroupPlanGroup,
 } from "@/definition/AgentPlanGroupEdit";
+import { emptyPlanLoop } from "@/definition/AgentPlanLoop";
+import { findPlanBindingTarget } from "@/definition/AgentPlanGroupEdit";
+import {
+  disconnectLoopFlow,
+  findPlanNodeLocation,
+  placePlanLoopNode,
+  ungroupPlanLoop,
+} from "@/definition/AgentPlanLoopEdit";
 import { planGroupEdges } from "@/definition/AgentPlanGroup";
 import {
   copyPlanConfiguration,
@@ -24,6 +31,7 @@ import {
 } from "./AgentPlanConfigurationChanges";
 import { AGENT_PLAN_NODE_FIELDS } from "./AgentPlanOperationInput";
 
+import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type { AgentPlanTemplateNode } from "@/definition/AgentPlanNodeTemplate";
 import type { AgentDefinitionChoice } from "@/definition/AgentAvailability";
@@ -76,7 +84,8 @@ function nextPosition(plan: AgentPlanInput): { x: number; y: number } {
 
 function findNode(plan: AgentPlanInput, id: string): AgentPlanNode {
   const node =
-    plan.nodes.find((entry) => entry.id === id) ?? findPlanStep(plan, id)?.step;
+    plan.nodes.find((entry) => entry.id === id) ??
+    findPlanBindingTarget(plan, id);
   if (!node) throw refused("element_missing");
   return node;
 }
@@ -85,9 +94,9 @@ function findNode(plan: AgentPlanInput, id: string): AgentPlanNode {
 function findInputNode(
   plan: AgentPlanInput,
   id: string,
-): AgentPlanStep | AgentPlanScript {
+): AgentPlanStep | AgentPlanScript | AgentPlanLoop {
   const node = findNode(plan, id);
-  if (node.type !== "agent" && node.type !== "script")
+  if (node.type !== "agent" && node.type !== "script" && node.type !== "loop")
     throw refused("element_missing");
   return node;
 }
@@ -105,6 +114,8 @@ function defaultFormat(value: unknown): AgentPlanParameter["format"] {
 function newNodeFields(
   change: Extract<AgentPlanChange, { action: "addNode" }>,
 ): Readonly<Record<string, unknown>> {
+  if (change.type === "loop")
+    return { ...emptyPlanLoop("", "", { x: 0, y: 0 }) };
   if (change.type === "agent")
     return { personalAgentId: null, instruction: "", bindings: {} };
   if (change.type === "group")
@@ -194,7 +205,10 @@ function addNode(
   context: AgentPlanChangeContext,
 ): { plan: AgentPlanInput; id: string } {
   const id = change.id ?? randomUUID();
-  if (plan.nodes.some((node) => node.id === id) || findPlanStep(plan, id))
+  if (
+    plan.nodes.some((node) => node.id === id) ||
+    findPlanBindingTarget(plan, id)
+  )
     throw refused("element_exists");
   const { configuration, ...fields } = change.fields;
   const node = readPlanNode({
@@ -292,6 +306,7 @@ function connect(
   findNode(plan, change.to);
   const edges = [
     ...plan.edges,
+    ...plan.nodes.flatMap((node) => (node.type === "loop" ? node.edges : [])),
     ...plan.nodes.flatMap((node) =>
       node.type === "group" ? planGroupEdges(node) : [],
     ),
@@ -315,6 +330,8 @@ function connect(
   for (const node of plan.nodes)
     if (node.type === "group")
       disconnected = disconnectPlanGroupFlow(disconnected, node.id, change);
+    else if (node.type === "loop")
+      disconnected = disconnectLoopFlow(disconnected, node.id, change);
   return disconnected;
 }
 
@@ -389,7 +406,7 @@ function applyMembershipChange(
   plan: AgentPlanInput,
   change: Extract<
     AgentPlanChange,
-    { action: "placeNode" | "ungroup" | "insertTemplate" }
+    { action: "placeNode" | "placeLoopNode" | "ungroup" | "insertTemplate" }
   >,
   context: AgentPlanChangeContext,
 ): AgentPlanChangeResult {
@@ -405,22 +422,19 @@ function applyMembershipChange(
       ],
     };
   }
-  if (change.action === "placeNode") {
-    const result = placePlanStep(
-      plan,
-      {
-        stepId: change.nodeId,
-        groupId: change.groupId,
-        position: { x: change.x, y: change.y },
-      },
-      context.agents,
-    );
-    if (typeof result === "string") throw refused("graph_invalid");
-    return { plan: result.plan, createdNodeIds: [] };
-  }
+  if (change.action === "placeNode" || change.action === "placeLoopNode")
+    return placeMember(plan, change, context);
+  if (change.action !== "ungroup") throw refused("graph_invalid");
+  return ungroupContainer(plan, change);
+}
+
+function ungroupContainer(
+  plan: AgentPlanInput,
+  change: Extract<AgentPlanChange, { action: "ungroup" }>,
+): AgentPlanChangeResult {
   const group = findNode(plan, change.nodeId);
   if (
-    group.type !== "group" ||
+    (group.type !== "group" && group.type !== "loop") ||
     change.positions.length !== group.steps.length ||
     new Set(change.positions.map((entry) => entry.nodeId)).size !==
       group.steps.length ||
@@ -429,12 +443,77 @@ function applyMembershipChange(
     )
   )
     throw refused("element_missing");
-  const result = ungroupPlanGroup(plan, group.id, (step) => {
+  const ungroup = group.type === "loop" ? ungroupPlanLoop : ungroupPlanGroup;
+  const result = ungroup(plan, group.id, (step) => {
     const position =
       change.positions.find((entry) => entry.nodeId === step.id) ?? step;
     return { x: position.x, y: position.y };
   });
   if (result.plan.nodes.some((node) => node.id === group.id))
     throw refused("graph_invalid");
+  return { plan: result.plan, createdNodeIds: [] };
+}
+
+function placeMember(
+  plan: AgentPlanInput,
+  change: Extract<AgentPlanChange, { action: "placeNode" | "placeLoopNode" }>,
+  context: AgentPlanChangeContext,
+): AgentPlanChangeResult {
+  const location = findPlanNodeLocation(plan, change.nodeId);
+  if (!location) throw refused("element_missing");
+  if (
+    !location.loop &&
+    change.action === "placeLoopNode" &&
+    change.groupId === null
+  ) {
+    if (!location.group)
+      return {
+        plan: replacePlanNode(plan, {
+          ...location.node,
+          x: change.x,
+          y: change.y,
+        }),
+        createdNodeIds: [],
+      };
+    return placeMember(plan, { ...change, action: "placeNode" }, context);
+  }
+  if (location.loop && change.action === "placeNode") {
+    plan = placeMember(
+      plan,
+      { ...change, action: "placeLoopNode", groupId: null },
+      context,
+    ).plan;
+  }
+  const result =
+    change.action === "placeLoopNode"
+      ? placePlanLoopNode(
+          plan,
+          {
+            nodeId: change.nodeId,
+            loopId: change.groupId,
+            position: { x: change.x, y: change.y },
+          },
+          {
+            agents: context.agents,
+            detachFromGroup: (current, step, position) => {
+              const detached = placePlanStep(
+                current,
+                { stepId: step.id, groupId: null, position },
+                context.agents,
+              );
+              return typeof detached === "string" ? detached : detached.plan;
+            },
+          },
+        )
+      : placePlanStep(
+          plan,
+          {
+            stepId: change.nodeId,
+            groupId: change.groupId,
+            position: { x: change.x, y: change.y },
+          },
+          context.agents,
+        );
+  if (typeof result === "string") throw refused("graph_invalid");
   return { plan: result.plan, createdNodeIds: [] };
 }

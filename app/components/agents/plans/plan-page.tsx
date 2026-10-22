@@ -8,6 +8,7 @@ import { PlanNodeDialog } from "./plan-node-dialog";
 import { PlanCanvas } from "./plan-canvas";
 import { PlanCanvasEmpty } from "./plan-canvas-empty";
 import { PlanLeaveGuard } from "./plan-leave-guard";
+import { PlanRevisionConflict } from "./plan-revision-conflict";
 import { PlanSaveNotice } from "./plan-save-notice";
 import { usePlanEditor } from "./use-plan-editor";
 import { usePlanRun } from "./use-plan-run";
@@ -33,6 +34,15 @@ function planRunDisplay(
   if (!error && page.selected?.canEdit === false && control?.runId && !run)
     error = "plan_run_unavailable";
   return { run, error };
+}
+
+/** Restores keyboard focus to the console's node without panning the canvas. */
+function focusConsoleNode(nodeId: string | null): void {
+  // Focus returns to the node that opened the console, without moving the canvas.
+  if (nodeId)
+    document
+      .querySelector<HTMLElement>(`[data-plan-handle="${CSS.escape(nodeId)}"]`)
+      ?.focus({ preventScroll: true });
 }
 
 /**
@@ -77,13 +87,7 @@ export function PlanPage({
   function closeConsole(): void {
     const nodeId = consoleNodeId;
     setConsoleNodeId(null);
-    // Focus returns to the node that opened the console, without moving the canvas.
-    if (nodeId)
-      document
-        .querySelector<HTMLElement>(
-          `[data-plan-handle="${CSS.escape(nodeId)}"]`,
-        )
-        ?.focus({ preventScroll: true });
+    focusConsoleNode(nodeId);
   }
   return (
     <div className="fixed inset-x-0 top-19 bottom-0 isolate @container md:left-(--app-sidebar-width)">
@@ -141,6 +145,7 @@ export function PlanPage({
           onClose={closeConsole}
         />
       ) : null}
+      <PlanRevisionConflict editor={editor} run={display.run} />
       <PlanLeaveGuard isDirty={editor.isDirty} />
     </div>
   );

@@ -1,3 +1,9 @@
+import type {
+  AgentPlanExecutionTarget,
+  AgentPlanRemoteTarget,
+  AgentPlanStepExecution,
+  AgentPlanRemoteProgress,
+} from "./AgentPlanExecution";
 import type { AgentPlanProgress } from "./AgentPlanProgress";
 import type { AgentPlanControl } from "./AgentPlanControl";
 import type {
@@ -56,6 +62,7 @@ export interface AgentPlanStep extends AgentPlanPosition {
   /** null chooses automatic access; an empty string marks a removed explicit assignment. */
   readonly personalAgentId: string | null;
   readonly instruction: string;
+  readonly executionTarget?: AgentPlanExecutionTarget;
   /** Absent only in plans saved before independent node configurations. */
   readonly configuration?: AgentPlanConfiguration;
   /** Absent means `report`, the completion of every node before this field existed. */
@@ -168,6 +175,7 @@ export interface AgentPlanPhase {
 }
 
 export interface AgentPlanSources {
+  readonly remoteTargets?: readonly AgentPlanRemoteTarget[];
   readonly models?: readonly PageAgentModel[];
   readonly agents: readonly AgentDefinitionChoice[];
   readonly tasks: readonly AgentPlanTask[];
@@ -195,6 +203,8 @@ export type AgentPlanStepStatus =
 
 /** Blocked waiting steps and confirmed cancellations remain distinguishable. */
 export interface AgentPlanStepResult {
+  readonly execution?: AgentPlanStepExecution;
+  readonly remote?: AgentPlanRemoteProgress;
   readonly id: string;
   readonly groupId?: string;
   readonly failedStepId?: string;

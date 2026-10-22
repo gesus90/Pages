@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-
 import { withPortlessPlanGroups } from "@/definition/AgentPlanGroupUpgrade";
 import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
 import { planExecutionIssues } from "@/definition/AgentPlanGraph";
@@ -12,7 +11,8 @@ import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { withoutTicketFlow } from "@/definition/AgentPlanGraph";
 import { emptyAgentPlan } from "@/definition/AgentPlan";
-
+import { localPlanModelSteps } from "./AgentPlanRemoteExecution";
+import { readPlanSources } from "./AgentPlanSources";
 import { readPlanHistory } from "./AgentPlanHistory";
 import { withPlanProgress } from "./AgentPlanProgressView";
 import { AgentPlanControlService } from "./AgentPlanControlService";
@@ -28,7 +28,8 @@ import {
 import { AgentPlanScripts } from "./AgentPlanScripts";
 import { requirePlanModelResources } from "./AgentPlanModel";
 import { planTaskBindings } from "./AgentPlanTaskBindings";
-
+import type { AgentPlanRemoteExecution } from "./AgentPlanRemoteExecution";
+import type { AgentPlanRemoteTargets } from "./AgentPlanRemoteTargets";
 import type { AgentPlanRunJournal } from "./AgentPlanJournal";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 import type { DatabaseTransaction } from "@/backend/database/Database";
@@ -65,6 +66,8 @@ import type { AgentPlanSessionAccess } from "./AgentPlanSessionAccess";
 import type { AgentRunArchive } from "./AgentRunArchive";
 
 interface PlanDependencies {
+  readonly remoteExecution?: AgentPlanRemoteExecution;
+  readonly remoteTargets?: AgentPlanRemoteTargets;
   readonly plans: AgentPlanRepository;
   readonly runs: AgentPlanRunRepository;
   readonly workspaces: AgentWorkspaceService;
@@ -184,21 +187,11 @@ export class AgentPlanService {
     workspaceId: string,
   ): Promise<AgentPlanSources> {
     const workspace = await this.workspace(userId, workspaceId);
-    const [agents, tasks, phases] = await Promise.all([
-      this.dependencies.profiles.catalog(userId, workspace.projectId),
-      this.dependencies.tasks.list(userId, workspace.projectId),
-      this.dependencies.phases.list(userId, workspace.projectId),
-    ]);
-    return {
-      agents,
-      tasks,
-      phases,
-      models: await this.dependencies.profiles.planModels(
-        userId,
-        workspace.projectId,
-      ),
-      interpreters: await this.scripts.interpreters(),
-    };
+    return readPlanSources(
+      { ...this.dependencies, scripts: this.scripts },
+      userId,
+      workspace,
+    );
   }
 
   /**
@@ -448,6 +441,7 @@ export class AgentPlanService {
       userId,
       resources,
     );
+    await this.dependencies.remoteExecution?.requireRead(userId, resources);
     // Access only: a run that started must stay readable and stoppable after its directory or link is gone.
     for (const workspaceId of resources.workspaceIds)
       await this.dependencies.workspaces.requireAccess(
@@ -652,6 +646,7 @@ export class AgentPlanService {
       previous,
     );
     await this.validateReferences(userId, proposed, workspace.projectId);
+    await this.dependencies.remoteTargets?.validate(userId, proposed);
     const plan: AgentPlan = {
       ...proposed,
       ...(await planOwnership(this.dependencies.access, userId, previous)),
@@ -697,7 +692,11 @@ export class AgentPlanService {
       string,
       Readonly<Record<string, string>>
     >();
-    for (const node of allPlanSteps(pinned)) {
+    for (const node of await localPlanModelSteps(
+      this.dependencies.remoteExecution,
+      userId,
+      pinned,
+    )) {
       if (!node.configuration) continue;
       const resolved = await this.dependencies.profiles.resolveDefinition(
         userId,

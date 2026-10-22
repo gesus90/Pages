@@ -1,9 +1,7 @@
 import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
-
 import { withGroupResults } from "./AgentPlanGroupResults";
 import { hasPlanPath } from "./AgentPlanGraph";
-
 import type {
   AgentPlanRun,
   AgentPlanNode,
@@ -175,6 +173,8 @@ export function isRequestStep(active: ActivePlanRun, id: string): boolean {
   const step = active.snapshot.steps.find((entry) => entry.step.id === id);
   return (
     (step !== undefined && !isAcpProvider(step.provider)) ||
+    active.snapshot.remoteSteps?.some((entry) => entry.step.id === id) ===
+      true ||
     active.snapshot.plan.nodes.some(
       (node) => node.id === id && node.type === "script",
     )
@@ -244,7 +244,10 @@ export function finalPlanStatus(
 export function hasUnconfirmedCloseout(active: ActivePlanRun): boolean {
   return allPlanRunResults(active.view).some(
     (step) =>
-      step.session?.closeout === "failed" || step.script?.closeout === "failed",
+      step.remote?.closeout === "pending" ||
+      step.remote?.closeout === "failed" ||
+      step.session?.closeout === "failed" ||
+      step.script?.closeout === "failed",
   );
 }
 

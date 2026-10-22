@@ -20,7 +20,10 @@ import {
   PlanScriptOutputField,
 } from "./plan-script-inputs";
 import { usePlanScriptForm } from "./use-plan-script-form";
+import { PlanScriptTargetField } from "./plan-script-target-field";
 
+import type { AgentPlanRemoteTarget } from "@/definition/AgentPlanExecution";
+import type { PlanScriptForm } from "./use-plan-script-form";
 import type { AgentPlanBinding } from "@/definition/AgentPlan";
 import type {
   AgentPlanInterpreter,
@@ -32,8 +35,10 @@ interface PlanScriptDialogProps {
   /** The script to edit, or `null` to configure a new one. */
   readonly script: AgentPlanScript | null;
   readonly interpreters: readonly AgentPlanInterpreter[] | undefined;
+  readonly remoteTargets?: readonly AgentPlanRemoteTarget[];
   /** Read only: the fields stay visible, nothing is applied. */
   readonly disabled: boolean;
+  readonly workspace?: { readonly name: string; readonly path: string };
   readonly onApply: (
     configuration: AgentPlanScriptConfiguration,
     bindings: Readonly<Record<string, AgentPlanBinding>>,
@@ -84,6 +89,7 @@ export function PlanScriptDialog(
       }}
     >
       <DialogContent
+        overlayClassName="bg-transparent"
         size="lg"
         className="space-y-4 overflow-y-auto"
         onCloseAutoFocus={props.onCloseAutoFocus}
@@ -103,22 +109,26 @@ export function PlanScriptDialog(
             </DialogTitle>
           </div>
           <DialogDescription className="text-sm text-muted-foreground">
-            {t("plans.scripts.description")}
+            {t("plans.nodeConfigurationHint")}
           </DialogDescription>
         </div>
         <form onSubmit={submit} noValidate className="space-y-4">
           <fieldset disabled={props.disabled} className="space-y-4">
             <PlanScriptNameField form={form} />
+            <PlanScriptTargetField
+              form={form}
+              choices={props.remoteTargets ?? []}
+              workspace={props.workspace}
+            />
             <PlanScriptProfileField
               form={form}
               interpreters={props.interpreters}
             />
             <PlanScriptContentField form={form} />
-            <PlanScriptInputsField form={form} />
             <PlanScriptOutputField form={form} />
-            <PlanScriptTimeoutField form={form} />
+            <PlanScriptOptions form={form} />
           </fieldset>
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2 border-t border-border pt-4">
             <Button variant="outline" size="sm" onClick={props.onClose}>
               {t(
                 props.disabled
@@ -135,5 +145,34 @@ export function PlanScriptDialog(
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Keeps declared inputs, output semantics and timeout available beside the compact primary fields. */
+function PlanScriptOptions({
+  form,
+}: {
+  readonly form: PlanScriptForm;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <details
+      className="space-y-3"
+      open={
+        form.isShown("timeout") &&
+        (form.issues.fields.has("timeout") || form.issues.rows.size > 0)
+          ? true
+          : undefined
+      }
+    >
+      <summary className="cursor-pointer text-sm text-muted-foreground">
+        {t("plans.execution.advanced")}
+      </summary>
+      <p className="text-xs text-muted-foreground">
+        {t("plans.scripts.outputHint")}
+      </p>
+      <PlanScriptInputsField form={form} />
+      <PlanScriptTimeoutField form={form} />
+    </details>
   );
 }

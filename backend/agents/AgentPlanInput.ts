@@ -1,3 +1,4 @@
+import { planExecutionTargetSchema } from "@/definition/AgentPlanExecution";
 import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { isAgentParameterName } from "@/definition/AgentParameters";
@@ -132,6 +133,15 @@ export function readPlanNode(input: unknown): AgentPlanNode {
   return readStepNode(node, base);
 }
 
+function readExecutionTarget(
+  input: unknown,
+): Pick<AgentPlanStep, "executionTarget"> {
+  if (input === undefined) return {};
+  const parsed = planExecutionTargetSchema.safeParse(input);
+  if (!parsed.success) throw new AgentError("plan_invalid");
+  return { executionTarget: parsed.data };
+}
+
 function readStepNode(
   node: Record<string, unknown>,
   base: AgentPlanPosition & { readonly id: string },
@@ -151,6 +161,7 @@ function readStepNode(
         ? node.personalAgentId
         : readPlanText(node.personalAgentId),
     instruction: node.instruction,
+    ...readExecutionTarget(node.executionTarget),
     ...(node.configuration === undefined
       ? {}
       : { configuration: readPlanConfiguration(node.configuration) }),
@@ -215,6 +226,7 @@ function readScriptNode(
     throw new AgentError("plan_script_invalid");
   const script: AgentPlanScript = {
     ...base,
+    ...readExecutionTarget(node.executionTarget),
     type: "script",
     name: name.trim(),
     interpreterProfileId,

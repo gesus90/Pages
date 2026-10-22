@@ -9,6 +9,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/app/components/ui/dropdown-menu";
 import { formatDateTime } from "@/app/lib/region-format";
@@ -16,6 +17,7 @@ import { formatDateTime } from "@/app/lib/region-format";
 import { WorkspaceNameCell } from "../workspace-row";
 import { RemoteActionMessage } from "./remote-action-message";
 import { RemoteWorkspaceDelete } from "./remote-workspace-delete";
+import { RemoteConsolePanel } from "./console/remote-console-panel";
 
 import type {
   RemoteActionResult,
@@ -76,6 +78,7 @@ function RemoteWorkspaceActions(props: {
 }): React.ReactElement {
   const { t } = useTranslation();
   const [isDeleting, setDeleting] = useState(false);
+  const [isConsoleOpen, setConsoleOpen] = useState(false);
   const { workspace } = props;
   return (
     <>
@@ -84,6 +87,7 @@ function RemoteWorkspaceActions(props: {
           <Button
             size="icon-sm"
             variant="ghost"
+            data-console-open={isConsoleOpen}
             aria-label={t("settings.agents.actionsFor", {
               name: workspace.name,
             })}
@@ -91,7 +95,12 @@ function RemoteWorkspaceActions(props: {
             <MoreHorizontal className="size-4" aria-hidden="true" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+        <DropdownMenuContent align="end" className="w-64">
+          {workspace.canOpenConsole ? (
+            <DropdownMenuItem onSelect={() => setConsoleOpen(true)}>
+              {t("remote.console.action")}
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuItem onSelect={props.onCheck}>
             {t("remote.workspace.check")}
           </DropdownMenuItem>
@@ -100,6 +109,7 @@ function RemoteWorkspaceActions(props: {
               <DropdownMenuItem onSelect={props.onEdit}>
                 {t("settings.agents.edit")}
               </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-destructive"
                 onSelect={() => setDeleting(true)}
@@ -114,6 +124,12 @@ function RemoteWorkspaceActions(props: {
         <RemoteWorkspaceDelete
           workspace={workspace}
           onClose={() => setDeleting(false)}
+        />
+      ) : null}
+      {isConsoleOpen ? (
+        <RemoteConsolePanel
+          workspace={workspace}
+          onClose={() => setConsoleOpen(false)}
         />
       ) : null}
     </>
@@ -135,7 +151,7 @@ export function RemoteWorkspaceRow(props: {
     );
   }
   return (
-    <tr className="align-top">
+    <tr className="align-top focus-within:bg-primary-subtle has-[[data-state=open]]:bg-primary-subtle has-[[data-console-open=true]]:bg-primary-subtle">
       <WorkspaceNameCell
         name={workspace.name}
         projectName={workspace.projectName}

@@ -48,7 +48,7 @@ export type AgentPlanChange =
       readonly fields: Readonly<Record<string, unknown>>;
     }
   | {
-      readonly action: "placeNode";
+      readonly action: "placeNode" | "placeLoopNode";
       readonly nodeId: string;
       readonly groupId: string | null;
       readonly x: number;
@@ -250,6 +250,7 @@ function readChange(input: unknown): AgentPlanChange {
   const { action } = change;
   if (
     action === "placeNode" ||
+    action === "placeLoopNode" ||
     action === "ungroup" ||
     action === "insertTemplate"
   )

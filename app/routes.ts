@@ -52,6 +52,10 @@ export default [
     route("agent-api/workspace-folders", "routes/agent-workspace-folders.ts"),
     route("agents/workspaces", "routes/agent-workspaces.tsx"),
     route("agents/workspaces/remote", "routes/agent-remote.ts"),
+    route(
+      "agents/workspaces/:workspaceId/console",
+      "routes/agent-workspace-console.ts",
+    ),
     route("agents/agents", "routes/page-agents.tsx"),
     route(
       "agent-api/run-records/:agentId/:runId",
@@ -91,6 +95,7 @@ export default [
       "settings-api/agents/:connectionId/login",
       "routes/settings-agents-login.ts",
     ),
+    route("settings-api/runners", "routes/settings-runners.ts"),
     route("projekte", "routes/projects.tsx"),
     route("projekte/:projectId", "routes/project-detail.tsx"),
     route("projekte/:projectId/icon", "routes/project-icon.ts"),

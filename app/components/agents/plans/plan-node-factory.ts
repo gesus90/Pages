@@ -4,9 +4,7 @@ import {
 } from "@/definition/AgentPlanConfiguration";
 import { emptyPlanLoop } from "@/definition/AgentPlanLoop";
 import { createRandomUuid } from "@/app/lib/random-uuid";
-
 import { PLAN_GRID } from "./plan-layout";
-
 import type {
   AgentPlanInput,
   AgentPlanNode,
@@ -116,12 +114,20 @@ function planAgentNode(
   base: AgentPlanPosition & { readonly id: string },
 ): AgentPlanNode | null {
   const model = sources.models?.find((entry) => entry.id === reference);
-  if (model?.connectionId)
+  if (model && (model.connectionId || model.runnerRoute))
     return {
       ...base,
       type: "agent",
       agentId: base.id,
       configuration: planConfigurationForModel(model),
+      ...(model.runnerRoute
+        ? {
+            executionTarget: {
+              kind: "remote" as const,
+              workspaceId: model.runnerRoute.workspaceId,
+            },
+          }
+        : {}),
       personalAgentId: null,
       instruction: "",
       bindings: {},

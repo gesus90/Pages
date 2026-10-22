@@ -27,6 +27,7 @@ import type {
   RemoteWorkspaceRepository,
 } from "@/backend/database/repositories/remote/RemoteWorkspaceRepository";
 import type { RemoteSessionRegistry } from "@/backend/remote/RemoteSessionRegistry";
+import type { RemoteSession } from "@/backend/remote/RemoteSession";
 import type { WorkspaceGitHub } from "@/definition/AgentWorkspace";
 import type { AccountAccess } from "@/definition/Authorization";
 import type { Project, ProjectIntegration } from "@/definition/Project";
@@ -147,6 +148,54 @@ export class RemoteWorkspaceService {
     return records
       .filter((record) => this.isVisible(context, record))
       .map((record) => this.view(context, record));
+  }
+
+  /** Rechecks actual department membership and project access for every console operation. */
+  public async requireConsole(
+    userId: string,
+    id: string,
+  ): Promise<RemoteWorkspaceRecord> {
+    const actor = await this.account(userId);
+    const record = await this.requireRecord(id);
+    const connection = await this.requireUse(actor, record, "inspect");
+    if (!actor.departments.includes(connection.departmentId))
+      throw new RemoteError("remote_access_denied");
+    return record;
+  }
+
+  /** Checks the current canonical directory before each new shell, including reconnects. */
+  public async consoleTarget(
+    userId: string,
+    id: string,
+  ): Promise<{
+    readonly path: string;
+    readonly session: RemoteSession;
+  }> {
+    const record = await this.requireConsole(userId, id);
+    const connection = await this.dependencies.connections.find(
+      record.connectionId,
+    );
+    if (!connection) throw new RemoteError("remote_access_denied");
+    const session = this.dependencies.sessions.session(record.connectionId);
+    const finding = await checkRemoteDirectory(session, {
+      path: record.path,
+      roots: rootsOf(connection),
+    });
+    if (finding.issue || finding.path !== record.path)
+      throw new RemoteError(
+        "remote_check_failed",
+        finding.issue ?? "path_changed",
+      );
+    const current = await this.requireConsole(userId, id);
+    const currentConnection = await this.dependencies.connections.find(
+      record.connectionId,
+    );
+    if (
+      current.revision !== record.revision ||
+      currentConnection?.revision !== connection.revision
+    )
+      throw new RemoteError("remote_conflict");
+    return { path: record.path, session };
   }
 
   /**
@@ -323,6 +372,9 @@ export class RemoteWorkspaceService {
       name: record.name,
       connectionId: record.connectionId,
       connectionName: connection?.name ?? record.connectionId,
+      consoleAddress: connection
+        ? `${connection.username}@${connection.host}:${connection.port}`
+        : undefined,
       path: record.path,
       projectId: record.projectId,
       projectName: project?.name ?? record.projectId,
@@ -333,6 +385,11 @@ export class RemoteWorkspaceService {
       reason,
       revision: record.revision,
       canManage,
+      canOpenConsole:
+        connection !== undefined &&
+        project !== undefined &&
+        context.actor.departments.includes(connection.departmentId) &&
+        canReadRemoteProject(context.actor, project),
     };
   }
 

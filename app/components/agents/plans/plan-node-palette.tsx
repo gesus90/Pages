@@ -151,6 +151,10 @@ function PlanPaletteRequestDialog({
       <PlanScriptDialog
         script={null}
         interpreters={canvas.sources.interpreters}
+        remoteTargets={canvas.sources.remoteTargets}
+        workspace={canvas.workspaces?.find(
+          (entry) => entry.id === canvas.draft.workspaceId,
+        )}
         disabled={Boolean(palette.blocked)}
         onApply={palette.confirmScript}
         onClose={palette.close}

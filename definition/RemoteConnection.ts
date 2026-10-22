@@ -273,6 +273,8 @@ export interface RemoteWorkspaceView {
   readonly name: string;
   readonly connectionId: string;
   readonly connectionName: string;
+  /** Public SSH destination displayed in the console; never contains credentials. */
+  readonly consoleAddress?: string;
   /** Canonical absolute path on the remote machine. */
   readonly path: string;
   readonly projectId: string;
@@ -288,6 +290,8 @@ export interface RemoteWorkspaceView {
   readonly reason: RemoteWorkspaceReason | null;
   readonly revision: number;
   readonly canManage: boolean;
+  /** Explicit department and project grant; absent for command-only consumers. */
+  readonly canOpenConsole?: boolean;
 }
 
 /** A connection a person may choose when registering a remote workspace. */

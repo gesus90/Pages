@@ -17,5 +17,6 @@ export type AgentPlanActionResult =
       readonly intent: string;
       readonly error: string;
       readonly runId?: string;
+      readonly currentRevision?: number;
       readonly issues?: readonly AgentPlanIssue[];
     };

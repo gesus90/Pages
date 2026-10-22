@@ -45,6 +45,7 @@ import { CliGitHubCredentials } from "@/backend/agents/cli/CliGitHubCredentials"
 
 import { createAgentConfigurationServices } from "./agent-workspace-services.server";
 import { createRemoteServices } from "./remote-services.server";
+import { createRunnerServices } from "./runner-services.server";
 
 import type { AgentToolManagerService } from "@/backend/service/agents/tools/AgentToolManagerService";
 import type { AcpResourceOptions } from "@/definition/AcpResource";
@@ -55,9 +56,13 @@ import type { TextExecution } from "@/backend/agents/TextExecution";
 import type { AgentWorkspaceService } from "@/backend/service/agents/AgentWorkspaceService";
 import type { AgentConfigurationApplicationServices } from "./agent-workspace-services.server";
 import type { RemoteApplicationServices } from "./remote-services.server";
+import type { RunnerApplicationServices } from "./runner-services.server";
 
 export interface AgentApplicationServices
-  extends AgentConfigurationApplicationServices, RemoteApplicationServices {
+  extends
+    AgentConfigurationApplicationServices,
+    RemoteApplicationServices,
+    RunnerApplicationServices {
   readonly agentToolManagerService: AgentToolManagerService;
   readonly agentToolStartupService: AgentToolStartupService;
   readonly acpResourceScheduler: AcpResourceScheduler;
@@ -270,6 +275,18 @@ function createAssignments(
   };
 }
 
+/** Applies the same persisted resource limits to all agent execution services. */
+function createAcpResources(
+  database: Database,
+  resources: AgentServiceResources,
+): AcpResourceScheduler {
+  return new AcpResourceScheduler({
+    store: new AcpResourceRepository(database),
+    options: readAcpResourceOptions(resources.acpOptions),
+    limitSource: readAcpResourceLimitSource(resources.acpOptions),
+  });
+}
+
 /** Creates lazy adapters and one shared login/process registry without running any checks. */
 export function createAgentServices(
   database: Database,
@@ -281,11 +298,7 @@ export function createAgentServices(
   const repository = new AgentConnectionRepository(database);
   const cipher = new InstanceSecretCipher(tokenKey);
   const operations = new AgentOperationRegistry();
-  const acpResourceScheduler = new AcpResourceScheduler({
-    store: new AcpResourceRepository(database),
-    options: readAcpResourceOptions(resources.acpOptions),
-    limitSource: readAcpResourceLimitSource(resources.acpOptions),
-  });
+  const acpResourceScheduler = createAcpResources(database, resources);
   const configuration = createAgentConfigurationServices({
     database,
     dataDirectory,
@@ -323,10 +336,17 @@ export function createAgentServices(
     tokenKey,
     workspaces: configuration.agentWorkspaceService,
   });
+  const remote = createRemoteServices({ database, cipher });
   return {
     ...configuration,
     ...github,
-    ...createRemoteServices({ database, cipher }),
+    ...remote,
+    ...createRunnerServices({
+      database,
+      remote,
+      tokenKey,
+      configuration,
+    }),
     acpResourceScheduler,
     agentToolManagerService,
     agentToolStartupService: new AgentToolStartupService({

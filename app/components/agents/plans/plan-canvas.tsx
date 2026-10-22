@@ -1,9 +1,4 @@
-import {
-  Background,
-  ReactFlow,
-  ReactFlowProvider,
-  useConnection,
-} from "@xyflow/react";
+import { ReactFlow, ReactFlowProvider, useConnection } from "@xyflow/react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -190,14 +185,7 @@ function PlanFlowGraph({
       proOptions={PRO_OPTIONS}
       aria-label={t("plans.grid")}
       ariaLabelConfig={ariaLabelConfig}
-    >
-      <Background
-        gap={PLAN_GRID}
-        size={1}
-        bgColor="transparent"
-        className={styles.grid}
-      />
-    </ReactFlow>
+    ></ReactFlow>
   );
 }
 

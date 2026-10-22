@@ -1,11 +1,10 @@
+import { runnerModelRouteSchema } from "@/definition/RunnerExecution";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 import { isAgentProvider } from "@/definition/AgentConnection";
 import { agentParameterIssues } from "@/definition/AgentParameters";
-
 import { readAgentConfiguration } from "./AgentConfigurationInput";
 import { readAgentObject } from "./AgentPayload";
-
 import type { AgentPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 
 /** Validates a secret-free node copy using the same parameter and run-option readers as templates. */
@@ -37,6 +36,9 @@ export function readPlanConfiguration(input: unknown): AgentPlanConfiguration {
   )
     throw new AgentError("parameter_invalid");
   return {
+    ...(entry.runnerRoute === undefined
+      ? {}
+      : { runnerRoute: runnerModelRouteSchema.parse(entry.runnerRoute) }),
     name: readText(entry.name, 200, true),
     revision: entry.revision,
     modelProfileId: readText(entry.modelProfileId, 1500, true),

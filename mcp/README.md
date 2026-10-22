@@ -2082,8 +2082,13 @@ own. Graph editing never starts a run. Explicit saved-revision commands offer Pl
   a since removed profile stays as it is. `bind` fills a script input like an
   agent input (text only; a result only from a node earlier in the flow), and an
   `updateNode` of `inputs` keeps the bindings of the inputs that remain. Scripts
-  never join groups and have no workspace, model or reasoning; they use the
-  plan's approved workspace. Explicit authorized Play executes them as processes,
+  never join groups and have no model or reasoning. They use the plan's approved
+  local workspace by default. An agent or script may save `executionTarget` as
+  `{kind: "local"}` or `{kind: "remote", workspaceId}` from
+  `read_plan_sources.remoteTargets`. Remote targets are validated on save and
+  remain blocked with `plan_remote_unavailable` until remote dispatch exists;
+  they never fall back to local execution. Explicit authorized local Play executes
+  scripts as processes,
   with active administrator mode and current plan/project/workspace rights.
   stdin receives one JSON object of declared text values, followed by EOF;
   optional unbound values are omitted and explicit empty text remains empty.
@@ -2184,6 +2189,34 @@ checks revision and active runs, and preserves finished history. Replays check
 current access again; a deleted-plan acknowledgement is available only to the
 original authenticated caller. Stale revision or changed operationId input is
 CONFLICT. Saves, template operations and reads never execute a runner.
+
+#### Plan extensions (PAGE-142)
+
+The editor's loop operations are available through the existing atomic
+`create_plan` / `update_plan` changes. `addNode` accepts `loop` with `name`;
+`updateNode` accepts `name`, `runs` (1..999), `runsSource` (`value`/`parameter`),
+`countMode` (`max`/`expected`), `sessionPolicy` (`reuse`/`fresh`) and `condition`
+(the editor's enabled flag, sourceNodeId, JSON outputPath, equals operator and
+boolean/number/string/null expected value). `placeLoopNode` takes
+`nodeId,loopId,x,y`, with null detaching; coordinates are relative within the
+loop. `connect/disconnect`, member updates, `bind/unbind` (including `previous`)
+and `ungroup` use the same editor checks. Crossing a loop boundary drops flow
+and result bindings as in the editor. `bind` on a loop supplies its `runs`
+parameter. No raw member/edge replacement is accepted.
+
+Agent-node `executionTarget` is `{kind:"local"}` or
+`{kind:"remote",workspaceId}`. `read_plan_sources.remoteTargets` lists only
+currently authorized registered targets with secret-free connection/workspace
+metadata. Model access remains the node's explicit connection/model pair.
+Remote execution is blocked until a runner dispatcher is available; selecting
+or saving a target never executes a runner and never falls back to local work.
+New run-step reads expose `execution` (immutable requested context and initial
+attempt identity) and `attemptId` (the current session attempt when present).
+Saving a new revision during a run leaves that run's original snapshot intact.
+
+Pica offers these same plan tools natively in the Pages backend, with current
+user rights, graph and revision checks. Explicit execution commands remain
+separate from edits. See [the local runner contract](../docs/AgentPlanRunner.md).
 
 ### Administration
 

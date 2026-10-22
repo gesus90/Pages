@@ -1,12 +1,10 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 import { isPlanFlowNode } from "@/definition/AgentPlanGraph";
 import { isApiProvider } from "@/definition/AgentConnection";
-
 import { withGroupResults } from "./AgentPlanGroupResults";
 import { groupRuntimeFields } from "./AgentPlanGroupRuntime";
 import { initialLoopRun } from "./loop/AgentPlanLoopRecord";
 import { planStepDirectory } from "./AgentPlanSnapshot";
-
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { AgentPlanSnapshot } from "./AgentPlanSnapshot";
 
@@ -21,6 +19,7 @@ export function planWritingWorkspaces(
         return !isApiProvider(step.provider) && directory ? [directory.id] : [];
       }),
       ...(snapshot.scripts ?? []).map((script) => script.workspace.id),
+      ...(snapshot.remoteSteps ?? []).map((step) => step.target.workspaceId),
     ]),
   ];
 }

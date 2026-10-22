@@ -5,9 +5,7 @@ import {
   planScriptIssues,
   planScriptParameters,
 } from "@/definition/AgentPlanScript";
-
 import { planBindings } from "./AgentPlanBindings";
-
 import type { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import type { AgentPlan } from "@/definition/AgentPlan";
 import type { AgentPlanScript } from "@/definition/AgentPlanScript";
@@ -46,7 +44,10 @@ export class AgentPlanScriptPreparation {
 
   /** Checks executable configurations for Play/control availability; never runs script content. */
   public async validate(userId: string, plan: AgentPlan): Promise<void> {
-    const scripts = plan.nodes.filter((node) => node.type === "script");
+    const scripts = plan.nodes.filter(
+      (node): node is AgentPlanScript =>
+        node.type === "script" && node.executionTarget?.kind !== "remote",
+    );
     if (scripts.length === 0) return;
     await this.authorize(userId, plan);
     for (const script of scripts) {
@@ -62,7 +63,10 @@ export class AgentPlanScriptPreparation {
     plan: AgentPlan,
     tasks: readonly AgentPlanTaskSnapshot[],
   ): Promise<readonly AgentPlanScriptSnapshot[]> {
-    const scripts = plan.nodes.filter((node) => node.type === "script");
+    const scripts = plan.nodes.filter(
+      (node): node is AgentPlanScript =>
+        node.type === "script" && node.executionTarget?.kind !== "remote",
+    );
     if (scripts.length === 0) return [];
     const workspace = await this.authorize(userId, plan);
     const snapshots: AgentPlanScriptSnapshot[] = [];
@@ -98,6 +102,8 @@ export class AgentPlanScriptPreparation {
     plan: AgentPlan,
     script: AgentPlanScriptSnapshot,
   ): Promise<void> {
+    if (script.step.executionTarget?.kind === "remote")
+      throw new AgentError("plan_remote_unavailable");
     const workspace = await this.authorize(userId, plan);
     const interpreter = await this.dependencies.scripts.executable(
       script.interpreter.id,

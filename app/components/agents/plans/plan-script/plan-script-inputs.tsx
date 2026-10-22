@@ -142,11 +142,7 @@ export function PlanScriptOutputField(props: {
         className="font-mono"
         onChange={(event) => form.change({ output: event.target.value })}
       />
-      <PlanScriptFieldMessage
-        id={`${id}-message`}
-        issue={issue}
-        hint={t("plans.scripts.outputHint")}
-      />
+      <PlanScriptFieldMessage id={`${id}-message`} issue={issue} />
     </div>
   );
 }

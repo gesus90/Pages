@@ -1,3 +1,4 @@
+import type { RunnerModelRoute } from "./RunnerExecution.js";
 import type { AgentConfiguration } from "./AgentConfiguration";
 import type { AgentAvailability } from "./AgentAvailability";
 import type {
@@ -31,6 +32,7 @@ export interface PageAgent extends PageAgentInput {
 
 /** Only models assigned by administrators and verified for the requesting executor appear here. */
 export interface PageAgentModel {
+  readonly runnerRoute?: RunnerModelRoute;
   readonly id: string;
   /** Exact connection for direct choices; absent only on legacy profile projections. */
   readonly connectionId?: string;

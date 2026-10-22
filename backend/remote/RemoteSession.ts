@@ -14,6 +14,7 @@ import type {
 import type { SshClient, SshMaster, SshMasterResult } from "./SshClient";
 import type { SshTarget } from "./SshOptions";
 import type { SshProcessResult } from "./SshProcess";
+import type { SshPty, SshPtyRequest } from "./SshPty";
 
 /** What a logical connection needs from its surroundings. */
 export interface RemoteSessionDependencies {
@@ -122,6 +123,31 @@ export class RemoteSession {
     } finally {
       this.activeCommands -= 1;
       this.scheduleIdleClose();
+    }
+  }
+
+  /** Holds the master open while an interactive shell uses its transport. */
+  public async openPty(request: SshPtyRequest): Promise<SshPty> {
+    if (this.status === "reconnecting")
+      throw new RemoteError("remote_reconnecting", this.cause);
+    if (this.status === "blocked")
+      throw new RemoteError("remote_blocked", this.cause);
+    const master = await this.ensureMaster();
+    if (!master.openPty)
+      throw new RemoteError("remote_check_failed", "ssh_unavailable");
+    this.activeCommands += 1;
+    this.clearIdleTimer();
+    try {
+      const terminal = await master.openPty(request);
+      void terminal.exited.then(() => {
+        this.activeCommands -= 1;
+        this.scheduleIdleClose();
+      });
+      return terminal;
+    } catch (error: unknown) {
+      this.activeCommands -= 1;
+      this.scheduleIdleClose();
+      throw error;
     }
   }
 

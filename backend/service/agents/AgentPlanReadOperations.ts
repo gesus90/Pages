@@ -192,6 +192,7 @@ export class AgentPlanReadOperations {
       })),
       agents: (sources?.agents ?? []).map(agentEntry),
       models: sources?.models ?? [],
+      remoteTargets: sources?.remoteTargets ?? [],
       limits: {
         nodes: 100,
         edges: 500,

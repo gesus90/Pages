@@ -42,12 +42,14 @@ export function readPlanGroupChange(
       y: coordinate(change.y),
     };
   }
-  if (change.action === "placeNode") {
-    requireParameterKeys(change, ["action", "nodeId", "groupId", "x", "y"]);
+  if (change.action === "placeNode" || change.action === "placeLoopNode") {
+    const frameKey = change.action === "placeLoopNode" ? "loopId" : "groupId";
+    requireParameterKeys(change, ["action", "nodeId", frameKey, "x", "y"]);
     return {
-      action: "placeNode",
+      action: change.action,
       nodeId: readIdentifier(change.nodeId),
-      groupId: change.groupId === null ? null : readIdentifier(change.groupId),
+      groupId:
+        change[frameKey] === null ? null : readIdentifier(change[frameKey]),
       x: coordinate(change.x),
       y: coordinate(change.y),
     };

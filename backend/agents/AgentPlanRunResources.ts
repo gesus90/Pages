@@ -1,10 +1,10 @@
 import { readPlanText } from "./AgentPlanInput";
 import { readAgentObject } from "./AgentPayload";
-
 import type { AgentTicketAsset } from "@/definition/AgentTicketParameter";
 
 /** Live read checks use identifiers from the private snapshot, never copied resource content. */
 export interface AgentPlanRunResources {
+  readonly remoteWorkspaceIds?: readonly string[];
   readonly projectId: string;
   readonly workspaceIds: readonly string[];
   readonly taskIds: readonly string[];
@@ -88,6 +88,7 @@ export function readPlanRunResources(input: unknown): AgentPlanRunResources {
     }
   }
   return {
+    remoteWorkspaceIds: remoteWorkspaceIds(snapshot),
     projectId: readPlanText(plan.projectId),
     workspaceIds: [...workspaceIds],
     taskIds: [...taskIds],
@@ -109,6 +110,7 @@ function addModelReference(
   const configuration = node.configuration
     ? readAgentObject(node.configuration)
     : null;
+  if (configuration?.runnerRoute) return;
   if (configuration?.connectionId)
     references.connectionIds.add(readPlanText(configuration.connectionId));
   else references.agentIds.add(readPlanText(node.agentId));
@@ -122,4 +124,19 @@ function addStepModelReference(
   },
 ): void {
   if (step.step) addModelReference(readAgentObject(step.step), references);
+}
+
+function remoteWorkspaceIds(
+  snapshot: Record<string, unknown>,
+): readonly string[] {
+  const steps: readonly unknown[] = Array.isArray(snapshot.remoteSteps)
+    ? snapshot.remoteSteps
+    : [];
+  return [
+    ...new Set(
+      steps.map((step) =>
+        readPlanText(readAgentObject(readAgentObject(step).target).workspaceId),
+      ),
+    ),
+  ];
 }

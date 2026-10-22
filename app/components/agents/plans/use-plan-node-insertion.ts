@@ -132,6 +132,7 @@ export function usePlanNodeInsertion(
     if (
       node.type === "agent" &&
       !node.configuration?.connectionId &&
+      !node.configuration?.runnerRoute &&
       loadConfiguration
     ) {
       void insertCurrent(node, group);

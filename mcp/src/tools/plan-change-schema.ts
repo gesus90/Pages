@@ -68,7 +68,7 @@ const BINDING: PropertySchema = {
     {
       type: "object",
       properties: {
-        kind: { const: "result" },
+        kind: { enum: ["result", "previous"] },
         stepId: PLAN_NODE_IDENTIFIER_SCHEMA,
       },
       required: ["kind", "stepId"],
@@ -180,6 +180,73 @@ const NODE_FIELDS: ToolProperties = {
   agentId: { type: "string", maxLength: 100 },
   personalAgentId: { type: ["string", "null"], maxLength: 100 },
   instruction: { type: "string", maxLength: 200_000 },
+  executionTarget: {
+    oneOf: [
+      {
+        type: "object",
+        properties: { kind: { const: "local" } },
+        required: ["kind"],
+        additionalProperties: false,
+      },
+      {
+        type: "object",
+        properties: {
+          kind: { const: "remote" },
+          workspaceId: PLAN_NODE_IDENTIFIER_SCHEMA,
+        },
+        required: ["kind", "workspaceId"],
+        additionalProperties: false,
+      },
+    ],
+  },
+  runs: { type: "integer", minimum: 1, maximum: 999 },
+  runsSource: { enum: ["value", "parameter"] },
+  countMode: { enum: ["max", "expected"] },
+  sessionPolicy: { enum: ["reuse", "fresh"] },
+  condition: {
+    oneOf: [
+      { type: "null" },
+      {
+        type: "object",
+        properties: {
+          isEnabled: { type: "boolean" },
+          sourceNodeId: { type: "string", maxLength: 100 },
+          outputPath: { type: "string", maxLength: 200 },
+          operator: { const: "equals" },
+          expected: {
+            oneOf: [
+              {
+                type: "object",
+                properties: { type: { const: "null" } },
+                required: ["type"],
+                additionalProperties: false,
+              },
+              ...["boolean", "number", "string"].map((type) => ({
+                type: "object",
+                properties: {
+                  type: { const: type },
+                  value: {
+                    type,
+                    ...(type === "string" ? { maxLength: 1000 } : {}),
+                  },
+                },
+                required: ["type", "value"],
+                additionalProperties: false,
+              })),
+            ],
+          },
+        },
+        required: [
+          "isEnabled",
+          "sourceNodeId",
+          "outputPath",
+          "operator",
+          "expected",
+        ],
+        additionalProperties: false,
+      },
+    ],
+  },
   completion: { enum: ["report", "todos"] },
   taskId: PLAN_NODE_IDENTIFIER_SCHEMA,
   name: {
@@ -241,6 +308,12 @@ export const CHANGES: PropertySchema = {
       change("placeNode", {
         nodeId: PLAN_NODE_IDENTIFIER_SCHEMA,
         groupId: { type: ["string", "null"], minLength: 1, maxLength: 100 },
+        x: COORDINATE_SCHEMA,
+        y: COORDINATE_SCHEMA,
+      }),
+      change("placeLoopNode", {
+        nodeId: PLAN_NODE_IDENTIFIER_SCHEMA,
+        loopId: { type: ["string", "null"], minLength: 1, maxLength: 100 },
         x: COORDINATE_SCHEMA,
         y: COORDINATE_SCHEMA,
       }),

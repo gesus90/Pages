@@ -9,6 +9,7 @@ import {
 } from "@/definition/AgentPlanScript";
 
 import type { AgentPlanBinding } from "@/definition/AgentPlan";
+import type { AgentPlanExecutionTarget } from "@/definition/AgentPlanExecution";
 import type {
   AgentPlanInterpreter,
   AgentPlanScript,
@@ -28,6 +29,7 @@ export interface PlanScriptInputRow {
 /** The fields of the script dialog, as typed. */
 export interface PlanScriptFormValues {
   readonly name: string;
+  readonly executionTarget: AgentPlanExecutionTarget;
   readonly interpreterProfileId: string;
   readonly content: string;
   readonly inputs: readonly PlanScriptInputRow[];
@@ -85,6 +87,7 @@ function initialValues(
   if (!script)
     return {
       name: "",
+      executionTarget: { kind: "local" },
       interpreterProfileId: "",
       content: "",
       inputs: [],
@@ -93,6 +96,7 @@ function initialValues(
     };
   return {
     name: script.name,
+    executionTarget: script.executionTarget ?? { kind: "local" },
     interpreterProfileId: script.interpreterProfileId,
     content: script.content,
     inputs: script.inputs.map((input) => ({
@@ -111,6 +115,7 @@ function configurationOf(
 ): AgentPlanScriptConfiguration {
   return {
     name: values.name.trim(),
+    executionTarget: values.executionTarget,
     interpreterProfileId: values.interpreterProfileId,
     content: values.content,
     inputs: values.inputs.map((input) => ({

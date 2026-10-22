@@ -113,7 +113,15 @@ function PlanCardHeader(props: PlanCardProps): React.ReactElement {
             {props.subtitle}
           </span>
         ) : null}
-        <span className={cn("block truncate", PLAN_NODE_TEXT.title)}>
+        <span
+          className={cn(
+            "block truncate",
+            PLAN_NODE_TEXT.title,
+            !props.runClass &&
+              (node.type === "agent" || node.type === "script") &&
+              planNodeAccent(node.type),
+          )}
+        >
           {props.title}
         </span>
       </button>

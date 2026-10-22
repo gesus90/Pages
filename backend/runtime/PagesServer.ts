@@ -21,6 +21,7 @@ import {
 } from "@/backend/logging/Logger";
 
 import { startAgentTools } from "./AgentToolsStartup";
+import { installRunnerChannel } from "./RunnerChannel";
 import { createForwardedHttpsCheck } from "./ForwardedProtocol";
 import { initializePagesRuntime } from "./PagesRuntime";
 import { serveStaticAsset } from "./StaticAssets";
@@ -284,6 +285,7 @@ export async function startPagesServer(
       runtime.getConfig().trustedProxies,
     ),
   );
+  installRunnerChannel(server);
   registerShutdownTask(async () => {
     server.close();
     server.closeIdleConnections();

@@ -1,5 +1,5 @@
 import { Network, Plus } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useRevalidator } from "react-router";
 
@@ -10,6 +10,7 @@ import { HorizontalScrollArea } from "@/app/components/ui/horizontal-scroll-area
 
 import { RemoteConnectionDialog } from "./remote-connection-dialog";
 import { RemoteConnectionRow } from "./remote-connection-row";
+import { consoleActivityContext } from "./console/console-activity";
 
 import type {
   RemoteConnectionView,
@@ -45,7 +46,8 @@ function pollInterval(overview: RemoteOverview): number | null {
 /** Reloads the page while a test runs or a connection is open, so a series, its count and next attempt stay current. */
 function useRemotePolling(overview: RemoteOverview): void {
   const { revalidate } = useRevalidator();
-  const interval = pollInterval(overview);
+  const { isOpen } = useContext(consoleActivityContext);
+  const interval = isOpen ? null : pollInterval(overview);
   useEffect(() => {
     if (interval === null) return undefined;
     const timer = window.setInterval(() => {

@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "@xyflow/react/dist/style.css";
+@import "@xterm/xterm/css/xterm.css";
 
 /* Dark theme (PAGE-29). `data-theme` on the document root is `light`, `dark`
    or `system`; the server renders it, so no script is needed to choose a
@@ -48,6 +49,18 @@
   --color-warning-subtle: #fffbeb;
   --color-warning: #b45309;
   --color-ring: #f97316;
+
+  /* The terminal keeps its dark work surface in both Pages themes. */
+  --color-terminal-surface: #0f141b;
+  --color-terminal-foreground: #d3dae4;
+  --color-terminal-muted: #aab4c4;
+  --color-terminal-selection: #334155;
+  --color-terminal-success: #69dfbe;
+  --color-terminal-warning: #ffb454;
+  --color-terminal-error: #f87171;
+  --color-terminal-info: #80baff;
+  --color-terminal-accent: #c4a2ff;
+  --color-terminal-cyan: #67d5e5;
 
   /* Plan node types stay distinct from their execution status: start and end
      green, parameters violet, agents cyan, scripts rose, tickets yellow, apart
@@ -266,6 +279,18 @@
     --color-warning-subtle: #2b220c;
     --color-warning: #fbbf24;
     --color-ring: #fb923c;
+
+    /* The terminal keeps its dark work surface in both Pages themes. */
+    --color-terminal-surface: #0f141b;
+    --color-terminal-foreground: #d3dae4;
+    --color-terminal-muted: #aab4c4;
+    --color-terminal-selection: #334155;
+    --color-terminal-success: #69dfbe;
+    --color-terminal-warning: #ffb454;
+    --color-terminal-error: #f87171;
+    --color-terminal-info: #80baff;
+    --color-terminal-accent: #c4a2ff;
+    --color-terminal-cyan: #67d5e5;
 
     --color-plan-agent: #3cc6d6;
     --color-plan-agent-subtle: #0f262d;

@@ -43,12 +43,12 @@ const FRAME_EDGE = 16;
 
 function agentHeight(step: AgentPlanStep, sources: AgentPlanSources): number {
   const inputs = planStepTemplate(step, sources.agents)?.parameters.length ?? 0;
-  return AGENT_BASE_HEIGHT + inputs * AGENT_INPUT_HEIGHT;
+  return AGENT_BASE_HEIGHT + 96 + inputs * AGENT_INPUT_HEIGHT;
 }
 
 /** A script card has the rows of an agent card: its inputs, its output and its profile. */
 function scriptHeight(script: AgentPlanScript): number {
-  return AGENT_BASE_HEIGHT + script.inputs.length * AGENT_INPUT_HEIGHT;
+  return AGENT_BASE_HEIGHT + 66 + script.inputs.length * AGENT_INPUT_HEIGHT;
 }
 
 /**

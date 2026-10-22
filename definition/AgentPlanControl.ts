@@ -9,6 +9,7 @@ export interface AgentPlanControl {
   readonly canPause: boolean;
   readonly canResume: boolean;
   readonly canStop: boolean;
+  /** Saving a new revision is independent of the active run, whose snapshot stays pinned. */
   readonly canEdit: boolean;
   readonly issue: string | null;
   readonly issues?: readonly AgentPlanIssue[];
