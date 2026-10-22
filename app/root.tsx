@@ -37,6 +37,7 @@ import {
   requireFinishedSetup,
 } from "@/app/lib/setup-gate.server";
 import stylesheet from "@/app/styles/tailwind.css?url";
+import favicon from "@/assets/favicon.svg?url&no-inline";
 import { STANDARD_ACTIVE_DESIGN_THEME } from "@/definition/DesignTheme";
 import { DEFAULT_USER_SETTINGS } from "@/definition/Settings";
 import { LANGUAGE } from "@/language/Language";
@@ -125,9 +126,10 @@ export async function loader({ request }: Route.LoaderArgs): Promise<{
   };
 }
 
-/** Registers the global Tailwind stylesheet. */
+/** Registers the global Tailwind stylesheet and the Pages project favicon. */
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: stylesheet },
+  { rel: "icon", type: "image/svg+xml", sizes: "any", href: favicon },
 ];
 
 /** Defines the document metadata shared by Pages routes. */
@@ -180,7 +182,6 @@ export function Layout({
             name="theme-color"
           />
         ))}
-        <link rel="icon" type="image/png" href="/assets/icon.png" />
         <Meta />
         <Links />
         {designTheme.stylesheet === null ? null : (
