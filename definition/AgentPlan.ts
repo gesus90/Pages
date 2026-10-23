@@ -24,7 +24,10 @@ import type { AgentWorkspaceChoice, WorkspaceGitHub } from "./AgentWorkspace";
 import type { AgentPlanGroup } from "./AgentPlanGroup";
 import type { AgentPlanLoop } from "./AgentPlanLoop";
 import type { AgentPlanLoopRun } from "./AgentPlanLoopRun";
-import type { AgentPlanRemoteChoice } from "./AgentPlanTarget";
+import type {
+  AgentPlanRemoteStatus,
+  AgentPlanRemoteChoice,
+} from "./AgentPlanTarget";
 import type {
   AgentPlanInterpreter,
   AgentPlanScript,
@@ -187,6 +190,7 @@ export interface AgentPlanPhase {
 
 export interface AgentPlanSources {
   readonly remoteTargets?: readonly AgentPlanRemoteTarget[];
+  readonly remoteStatus?: readonly AgentPlanRemoteStatus[];
   readonly models?: readonly PageAgentModel[];
   readonly agents: readonly AgentDefinitionChoice[];
   readonly tasks: readonly AgentPlanTask[];

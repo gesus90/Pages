@@ -76,6 +76,8 @@ export const runnerMessageSchema = z.discriminatedUnion("type", [
     /** Tools the runner found and what they reported; a runner before 1.3.0 sends none. */
     tools: z.array(toolInventorySchema).max(3).optional(),
     executorVersion: z.literal(1).optional(),
+    cliExecutorVersion: z.literal(1).optional(),
+    githubAccessVersion: z.literal(1).optional(),
   }),
   z.object({
     version: z.literal(1),
@@ -122,6 +124,7 @@ export interface RunnerRegistrationReply {
 
 /** Pages-to-runner responses. Reconciliation never implicitly restarts a job. */
 export type RunnerReply =
+  | { readonly version: 1; readonly type: "refresh-tools" }
   | { readonly version: 1; readonly type: "dispatch"; readonly job: RunnerJob }
   | { readonly version: 1; readonly type: "cancel"; readonly jobId: string }
   | {
@@ -151,6 +154,7 @@ export interface RunnerConnectionView {
   readonly isStable: boolean;
   readonly runnerId: string | null;
   readonly isOnline: boolean;
+  readonly needsPairing?: boolean;
   /** `null` while the runner has not reported an inventory; an empty list means none found. */
   readonly tools: readonly ToolInventory[] | null;
 }

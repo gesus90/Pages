@@ -214,6 +214,8 @@ function changesIdentity(
     current.host.toLowerCase() !== next.host.toLowerCase() ||
     current.port !== next.port ||
     current.username !== next.username ||
+    current.departmentId !== next.departmentId ||
+    current.authMethod !== next.authMethod ||
     current.hostKey?.fingerprint !== next.hostKey?.fingerprint
   );
 }
@@ -343,6 +345,19 @@ export class RemoteConnectionRepository {
         await transaction.execute(
           "DELETE FROM remote_install_findings WHERE connection_id = $id;",
           { id: record.id },
+        );
+      // Preserve only a pairing that was valid before this metadata update.
+      if (!changesIdentity(current, record))
+        await transaction.execute(
+          `UPDATE pages_runners
+           SET connection_revision = $next_revision
+           WHERE connection_id = $id
+               AND connection_revision = $revision;`,
+          {
+            id: record.id,
+            revision: current.revision,
+            next_revision: current.revision + 1,
+          },
         );
       await transaction.execute(
         `

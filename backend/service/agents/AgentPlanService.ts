@@ -11,6 +11,7 @@ import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { withoutTicketFlow } from "@/definition/AgentPlanGraph";
 import { emptyAgentPlan } from "@/definition/AgentPlan";
+import { withInheritedPlanTarget } from "@/definition/AgentPlanTarget";
 import { localPlanModelSteps } from "./AgentPlanRemoteExecution";
 import { readPlanSources } from "./AgentPlanSources";
 import { readPlanHistory } from "./AgentPlanHistory";
@@ -709,7 +710,10 @@ export class AgentPlanService {
     plan: AgentPlanInput,
     previous: AgentPlanView | null,
   ): Promise<AgentPlanInput> {
-    await this.scripts.requireProfiles(plan.nodes, previous?.nodes ?? []);
+    await this.scripts.requireProfiles(
+      withInheritedPlanTarget(plan).nodes,
+      previous?.nodes ?? [],
+    );
     const catalog = await this.dependencies.profiles.catalog(
       userId,
       plan.projectId ?? null,

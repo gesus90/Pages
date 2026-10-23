@@ -123,7 +123,10 @@ export function planPanelIssues(input: {
     title: issueTitle(issue, editor, translate),
     cause: issueCause(issue, translate),
   }));
-  for (const issue of planTargetIssues(withPortlessPlanGroups(editor.draft)))
+  for (const issue of planTargetIssues(
+    withPortlessPlanGroups(editor.draft),
+    editor.sources.remoteStatus,
+  ))
     entries.push({
       key: `node-${issue.nodeId}`,
       title: issueSubject(

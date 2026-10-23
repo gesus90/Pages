@@ -86,13 +86,13 @@ export function runnerPlanCheckpoint(
       model: execution.modelAccess.model || null,
       workspaceIds: [execution.workspace.id],
     },
-    dispatchedPromptDigest: null,
+    dispatchedPromptDigest: step.session?.dispatchedPromptDigest ?? null,
     result: {
       output: step.output,
       isOutputReduced: false,
       outputDigest: planContentDigest(step.output),
       technical: { resultCode: 0, closeout: step.remote.closeout },
-      acceptance: null,
+      acceptance: step.session?.acceptance ?? null,
     },
     session: {
       attemptId: execution.attemptId,

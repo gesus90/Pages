@@ -7,6 +7,7 @@ import type { AgentProfileService } from "@/backend/service/agents/AgentProfileS
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type { AgentPlanRemoteTargets } from "@/backend/service/agents/AgentPlanRemoteTargets";
 import type { RunnerPlanBinding } from "@/definition/RunnerProtocol";
+import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type { DatabaseTransaction } from "@/backend/database/Database";
 import type { RunnerPlanEventRepository } from "@/backend/database/repositories/runner/RunnerPlanEventRepository";
 import type {
@@ -20,6 +21,27 @@ interface BindingAccess {
   readonly profiles: AgentProfileService;
   readonly runs: AgentPlanRunRepository;
   readonly targets: AgentPlanRemoteTargets;
+}
+
+function requireDispatchRun(
+  run: AgentPlanRun | null,
+  context: {
+    readonly canEdit: boolean;
+    readonly userId: string;
+    readonly binding: RunnerPlanBinding;
+  },
+): AgentPlanRun {
+  const { binding } = context;
+  if (
+    !context.canEdit ||
+    !run ||
+    run.userId !== context.userId ||
+    run.planId !== binding.planId ||
+    run.planRevision !== binding.planRevision ||
+    (run.status !== "running" && run.status !== "pausing")
+  )
+    throw new AgentError("plan_access_denied");
+  return run;
 }
 
 /** Coordinates durable receipts and plan projections inside the runner checkpoint transaction. */
@@ -41,21 +63,16 @@ export class RunnerPlanEventService {
     binding: RunnerPlanBinding,
   ): Promise<void> {
     const plan = await this.access.plans.require(userId, binding.planId);
-    const run = await this.access.runs.find(binding.runId);
-    if (
-      !plan.canEdit ||
-      !run ||
-      run.userId !== userId ||
-      run.planId !== binding.planId ||
-      run.planRevision !== binding.planRevision ||
-      run.status !== "running"
-    )
-      throw new AgentError("plan_access_denied");
-    const execution = run.steps.find(
-      (step) => step.id === binding.stepId,
-    )?.execution;
+    const run = requireDispatchRun(await this.access.runs.find(binding.runId), {
+      canEdit: plan.canEdit,
+      userId,
+      binding,
+    });
+    const step = run.steps.find((entry) => entry.id === binding.stepId);
+    const execution = step?.execution;
     if (
       !execution ||
+      step?.status !== "running" ||
       execution.attemptId !== binding.attemptId ||
       execution.target.kind !== "remote" ||
       execution.target.connectionId !== connectionId

@@ -123,6 +123,21 @@ export type SetupTool = (typeof SETUP_TOOLS)[number];
 /** A tool on the machine; a version the tool did not report stays `null`, never a placeholder. */
 export const toolInventorySchema = z.object({
   tool: z.enum(SETUP_TOOLS),
+  /** Missing on older runners; no login is inferred from an installed binary. */
+  authentication: z
+    .enum(["authenticated", "not_logged_in", "unknown"])
+    .optional(),
+  catalogRevision: z.string().max(100).optional(),
+  models: z
+    .array(
+      z.object({
+        id: z.string().regex(/^[a-zA-Z0-9/~_.:+-]{1,200}$/u),
+        name: z.string().max(200),
+        reasoningEfforts: z.array(z.string().max(40)).max(10),
+      }),
+    )
+    .max(1000)
+    .optional(),
   version: z
     .string()
     .regex(/^[A-Za-z0-9._+-]{1,40}$/u)

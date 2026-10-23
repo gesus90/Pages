@@ -3,6 +3,54 @@ import { planStepDirectory } from "./AgentPlanSnapshot";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type { AgentPlanStepExecution } from "@/definition/AgentPlanExecution";
 import type { AgentPlanSnapshot } from "./AgentPlanSnapshot";
+import type { RemotePlanStep } from "./AgentPlanRemoteExecution";
+
+function remoteModelAccess(
+  remote: RemotePlanStep,
+): AgentPlanStepExecution["modelAccess"] {
+  const program = remote.command.program;
+  const provider =
+    remote.step.type === "agent"
+      ? (remote.step.configuration?.provider ?? "openrouter")
+      : "script";
+  return {
+    connectionId: null,
+    connectionName: remote.target.connectionName,
+    provider,
+    model: program.kind === "script" ? "" : program.model,
+    reasoningEffort: program.kind === "cli" ? program.reasoningEffort : null,
+  };
+}
+
+/** Pins fresh pending remote attempts on Resume while retaining completed execution identities. */
+export function continueRemotePlanExecution(
+  run: AgentPlanRun,
+  previous: AgentPlanSnapshot,
+  snapshot: AgentPlanSnapshot,
+): { readonly run: AgentPlanRun; readonly snapshot: AgentPlanSnapshot } {
+  if (!snapshot.remoteSteps?.length && !previous.remoteSteps?.length)
+    return { run, snapshot };
+  const captured = capturePlanExecution(run, snapshot);
+  const basis = captured.snapshot.execution;
+  if (!basis) throw new Error("Remote continuation execution missing");
+  const steps = captured.run.steps.map((step) => {
+    const original = run.steps.find((entry) => entry.id === step.id);
+    if (original?.status === "succeeded") return original;
+    return step;
+  });
+  const executions = basis.steps.map(
+    (execution) =>
+      steps.find((step) => step.id === execution.stepId)?.execution ??
+      execution,
+  );
+  return {
+    run: { ...captured.run, steps },
+    snapshot: {
+      ...captured.snapshot,
+      execution: { ...basis, steps: executions },
+    },
+  };
+}
 
 /** Detaches the immutable execution basis before persistence and allocates initial attempt IDs once. */
 export function capturePlanExecution(
@@ -71,17 +119,7 @@ export function capturePlanExecution(
         path: remote.target.path,
         revision: remote.target.workspaceRevision,
       },
-      modelAccess: {
-        connectionId: null,
-        connectionName: remote.target.connectionName,
-        provider:
-          remote.command.program.kind === "script" ? "script" : "openrouter",
-        model:
-          remote.command.program.kind === "model"
-            ? remote.command.program.model
-            : "",
-        reasoningEffort: null,
-      },
+      modelAccess: remoteModelAccess(remote),
     });
   return {
     snapshot: {

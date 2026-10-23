@@ -86,6 +86,8 @@ export class RunnerService {
     readonly RunnerInterpreter[]
   >();
   private readonly tools = new Map<string, readonly ToolInventory[]>();
+  private readonly cliExecutors = new Set<string>();
+  private readonly githubProbes = new Set<string>();
 
   public constructor(
     repository: RunnerRepository,
@@ -226,6 +228,12 @@ export class RunnerService {
         );
       this.heartbeats.set(connectionId, Date.now());
       if (message.type === "reconcile") {
+        if (message.githubAccessVersion === 1)
+          this.githubProbes.add(connectionId);
+        else this.githubProbes.delete(connectionId);
+        if (message.cliExecutorVersion === 1)
+          this.cliExecutors.add(connectionId);
+        else this.cliExecutors.delete(connectionId);
         if (message.executorVersion === 1)
           this.interpreters.set(connectionId, message.interpreters ?? []);
         else this.interpreters.delete(connectionId);
@@ -292,6 +300,8 @@ export class RunnerService {
     this.heartbeats.delete(connectionId);
     this.interpreters.delete(connectionId);
     this.tools.delete(connectionId);
+    this.cliExecutors.delete(connectionId);
+    this.githubProbes.delete(connectionId);
   }
 
   /**
@@ -363,9 +373,43 @@ export class RunnerService {
     return interpreters;
   }
 
+  /** Reports the probe capability explicitly; older runners never receive an unknown command. */
+  public supportsGitHubAccess(connectionId: string): boolean {
+    return this.githubProbes.has(connectionId);
+  }
+
+  /** Returns CLI facts only from a runner that implements CLI execution. */
+  public async cliInventory(
+    userId: string,
+    connectionId: string,
+  ): Promise<readonly ToolInventory[]> {
+    await this.ready(userId, connectionId);
+    return this.cliExecutors.has(connectionId)
+      ? (this.tools.get(connectionId) ?? [])
+      : [];
+  }
+
+  /** Distinguishes invalid pairing from a disconnected or outdated executor. */
+  public async availability(
+    connectionId: string,
+  ): Promise<"remoteIdentity" | "remoteOffline" | null> {
+    const status = await this.status(connectionId);
+    if (!status.isPaired) return "remoteIdentity";
+    return status.isReady ? null : "remoteOffline";
+  }
+
   /** Cancellation is explicit and targets the original durable claim only. */
   public cancel(connectionId: string, jobId: string): void {
     this.deliver(connectionId, { version: 1, type: "cancel", jobId });
+  }
+
+  /** Requests fresh CLI login and picker facts without signing in or starting a model turn. */
+  public async refreshTools(
+    userId: string,
+    connectionId: string,
+  ): Promise<void> {
+    await this.requireOnline(userId, connectionId);
+    this.deliver(connectionId, { version: 1, type: "refresh-tools" });
   }
 
   /** Explicitly revokes the machine credential and its registration grant. */
@@ -418,6 +462,7 @@ export class RunnerService {
       checkedAt: connection.lastCheck?.checkedAt ?? null,
       isStable: isStableConnection(connection),
       runnerId: record?.runnerId ?? null,
+      needsPairing: record !== null && runner === null,
       isOnline:
         runner !== null &&
         Date.now() - (this.heartbeats.get(connection.id) ?? 0) <

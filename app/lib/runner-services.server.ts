@@ -11,6 +11,7 @@ import { ProjectRepository } from "@/backend/database/repositories/ProjectReposi
 import { RunnerRepository } from "@/backend/database/repositories/runner/RunnerRepository";
 import { RunnerDeployKeyRepository } from "@/backend/database/repositories/runner/RunnerDeployKeyRepository";
 import { RunnerService } from "@/backend/service/runner/RunnerService";
+import { RunnerGitHubAccessService } from "@/backend/service/runner/RunnerGitHubAccessService";
 import { RunnerOpenRouterService } from "@/backend/service/runner/RunnerOpenRouterService";
 import { RunnerSetupService } from "@/backend/service/runner/RunnerSetupService";
 import { RemoteSetupService } from "@/backend/service/remote/setup/RemoteSetupService";
@@ -28,6 +29,7 @@ export interface RunnerApplicationServices {
   readonly runnerGitHubMode: "offline" | "http";
   readonly runnerService: RunnerService;
   readonly runnerOpenRouterService: RunnerOpenRouterService;
+  readonly runnerGitHubAccessService: RunnerGitHubAccessService;
   readonly runnerSetupService: RunnerSetupService;
   readonly remoteSetupService: RemoteSetupService;
   readonly runnerDeployKeyService: RunnerDeployKeyService;
@@ -118,11 +120,20 @@ export function createRunnerServices(input: {
     isSetupRunning: (connectionId) =>
       remote.remoteConsoleService.hasSetup(connectionId),
   });
+  const runnerGitHubAccessService = new RunnerGitHubAccessService(
+    runnerService,
+  );
   return {
     runnerService,
+    runnerGitHubAccessService,
     runnerOpenRouterService: new RunnerOpenRouterService(runnerService),
     runnerGitHubMode: mode,
-    runnerDeployKeyService: new RunnerDeployKeyService(github, workspaces),
+    runnerDeployKeyService: new RunnerDeployKeyService(github, workspaces, {
+      workspaces: remote.remoteWorkspaceService,
+      connections: remote.remoteConnectionService,
+      access: runnerGitHubAccessService,
+      context,
+    }),
     runnerSetupService,
     remoteSetupService,
   };

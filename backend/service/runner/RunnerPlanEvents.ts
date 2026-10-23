@@ -3,6 +3,7 @@ import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { planStepExecutionSchema } from "@/definition/AgentPlanExecution";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 import { sanitizePlanOutput } from "@/backend/service/agents/AgentPlanOutput";
+import { recordRemoteAgentResult } from "@/backend/service/agents/AgentPlanRemoteResult";
 import { runnerPlanCheckpoint } from "./RunnerPlanCheckpoint";
 import type {
   AgentPlanRun,
@@ -85,12 +86,8 @@ function requireSuccessfulCompletion(input: EventInput): void {
 
 function stepStatus(job: RunnerJob): AgentPlanStepStatus {
   if (job.status === "completed") return "succeeded";
-  if (
-    job.status === "failed" ||
-    job.status === "interrupted" ||
-    job.status === "lost"
-  )
-    return "failed";
+  if (job.status === "interrupted") return "cancelled";
+  if (job.status === "failed" || job.status === "lost") return "failed";
   return "running";
 }
 
@@ -111,6 +108,14 @@ function updatedStep(
     status,
     output: output === null ? null : sanitizePlanOutput(output),
     error: runnerFailureCode(job),
+    ...(job.status === "interrupted"
+      ? {
+          cancellation:
+            event?.result?.closeout === "confirmed"
+              ? ("confirmed" as const)
+              : ("requested" as const),
+        }
+      : {}),
     remote: remoteProgress(input, step, { now, status }),
   };
 }
@@ -176,7 +181,11 @@ export function applyRunnerPlanEvent(
 } {
   const step = boundStep(input, run, snapshot);
   requireProgress(input, run, step);
-  const updated = updatedStep(input, step);
+  const updated = recordRemoteAgentResult(
+    snapshot,
+    input.job.execution,
+    updatedStep(input, step),
+  );
   const result = updatedRun(run, updated);
   return {
     run: result,

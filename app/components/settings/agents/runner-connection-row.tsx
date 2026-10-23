@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/app/components/ui/button";
 
 import { AgentCheckTime } from "./agent-check-time";
+import { RunnerMaintenance } from "./runner-maintenance";
 
 import type { RunnerConnectionView } from "@/definition/RunnerProtocol";
 import type { ToolInventory } from "@/definition/RemoteSetup";
@@ -15,6 +16,7 @@ interface RunnerActionResult {
 }
 
 function runnerStatus(connection: RunnerConnectionView): string {
+  if (connection.needsPairing) return "needsPairing";
   if (connection.runnerId) return connection.isOnline ? "online" : "registered";
   return connection.isStable ? "missing" : "waiting";
 }
@@ -45,6 +47,9 @@ function ToolInventoryList({
         <li key={entry.tool}>
           {t(`settings.agents.runner.toolName.${entry.tool}`)}{" "}
           {entry.version ?? t("settings.agents.runner.versionUnknown")}
+          {entry.authentication
+            ? ` · ${t(`settings.agents.runner.auth.${entry.authentication}`)}`
+            : ""}
         </li>
       ))}
     </ul>
@@ -85,6 +90,7 @@ export function RunnerConnectionRow({
       </td>
       <td className="min-w-40 px-3 py-3">
         <RunnerActions connection={connection} />
+        <RunnerMaintenance connection={connection} />
       </td>
     </tr>
   );

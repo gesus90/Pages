@@ -19,6 +19,7 @@ import type { AgentParameter } from "./AgentParameters";
 import type { AgentPlanGroup } from "./AgentPlanGroup";
 import type { AgentPlanLoop } from "./AgentPlanLoop";
 import type { AgentPlanScript } from "./AgentPlanScript";
+import type { AgentPlanTargetProblem } from "./AgentPlanTarget";
 import type {
   AgentPlanEdge,
   AgentPlanInput,
@@ -32,6 +33,7 @@ export interface AgentPlanIssue {
   readonly nodeId: string | null;
   readonly port: string | null;
   readonly reason:
+    | AgentPlanTargetProblem
     | "groupSize"
     | "groupProvider"
     | "groupConfiguration"

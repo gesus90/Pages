@@ -273,20 +273,10 @@ phase_done
 # ---------------------------------------------------------------- 4
 phase 4 'Anbindungen konfigurieren und anmelden'
 printf 'Die Anmeldung führt das Werkzeug selbst aus; dieses Skript sieht und speichert keine Zugangsdaten.\n'
-login_tool() {
-  local label=$1 binary=$2
-  shift 2
-  command -v "$binary" >/dev/null || return 0
-  if ! "$binary" "$@" --help >/dev/null 2>&1; then
-    printf '%s bietet hier kein Anmelde-Unterkommando: später „%s“ selbst starten und anmelden.\n' "$label" "$binary"
-    return 0
-  fi
-  confirm "$label jetzt anmelden (\`$binary $*\`)?" || return 0
-  "$binary" "$@" || fail "Die Anmeldung von $label ist fehlgeschlagen."
-}
-login_tool 'Codex' codex login
-login_tool 'Claude Code' claude auth login
-login_tool 'OpenCode' opencode auth login
+printf 'Codex: auf diesem Host selbst „codex login --device-auth“ ausführen.\n'
+printf 'Claude Code: auf diesem Host selbst „claude auth login“ ausführen.\n'
+printf 'OpenCode: auf diesem Host selbst „opencode auth login“ ausführen.\n'
+printf 'Pages startet keine CLI-Anmeldung und überträgt keine CLI-Zugangsdaten. Danach in Einstellungen → Agents das Inventar aktualisieren.\n'
 printf 'Provider-Schlüssel (zum Beispiel OpenRouter) hinterlegen Sie später in Pages; sie gehen verschlüsselt über den Runner-Kanal.\n'
 phase_done
 
@@ -306,14 +296,15 @@ else
   git config --global user.name "$git_name"
   git config --global user.email "$git_email"
 fi
-github_key="$HOME/.ssh/pages_runner_github_ed25519"
+github_key="$config_directory/github_ed25519"
+github_known_hosts="$config_directory/github_known_hosts"
 github_login() {
   local reply
-  reply=$(ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=yes "$@" -T git@github.com 2>&1 || true)
+  reply=$(ssh -F /dev/null -o IdentitiesOnly=yes -o IdentityAgent=none -i "$github_key" -o UserKnownHostsFile="$github_known_hosts" -o GlobalKnownHostsFile=/dev/null -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=yes "$@" -T git@github.com 2>&1 || true)
   [[ "$reply" == *'successfully authenticated'* ]] && printf '%s\n' "$reply"
 }
 github_register() {
-  mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
+  mkdir -p "$HOME/.ssh" "$config_directory" && chmod 700 "$HOME/.ssh" "$config_directory"
   if [[ ! -e "$github_key" ]]; then
     printf 'Geplant: ssh-keygen -t ed25519 ohne Passphrase (für den unbeaufsichtigten Betrieb) nach %s\n' "$github_key"
     confirm 'Schlüssel erzeugen?' || return 1
@@ -322,19 +313,20 @@ github_register() {
   printf '\nÖffentlicher Schlüssel (bei GitHub unter Settings → SSH keys, oder als Deploy key des Repositories, eintragen):\n'
   cat "$github_key.pub"
   ask 'Weiter mit Enter, sobald der Schlüssel bei GitHub eingetragen ist.' >/dev/null
-  if ! ssh-keygen -F github.com >/dev/null 2>&1; then
+  if ! ssh-keygen -F github.com -f "$github_known_hosts" >/dev/null 2>&1; then
     printf '\nHostschlüssel von github.com (mit der Veröffentlichung von GitHub vergleichen):\n'
     ssh-keyscan -t ed25519 github.com 2>/dev/null | tee "$hostkey_file" | ssh-keygen -lf -
     confirm 'Stimmt der Fingerabdruck? Dann in known_hosts übernehmen.' || return 1
-    cat "$hostkey_file" >> "$HOME/.ssh/known_hosts"
+    cat "$hostkey_file" >> "$github_known_hosts"
+    chmod 600 "$github_known_hosts"
   fi
-  github_login -o IdentitiesOnly=yes -i "$github_key" >/dev/null
+  github_login >/dev/null
 }
 github_config() {
   grep -qiE '^[[:space:]]*Host[[:space:]]+github\.com' "$HOME/.ssh/config" 2>/dev/null && return 0
   printf 'Geplant: Eintrag für github.com in %s/.ssh/config (IdentityFile %s)\n' "$HOME" "$github_key"
   if confirm 'Eintrag anlegen?'; then
-    printf '\n# Pages runner\nHost github.com\n  IdentityFile %s\n  IdentitiesOnly yes\n' "$github_key" >> "$HOME/.ssh/config"
+    printf '\n# Pages runner\nHost github.com\n  IdentityFile %s\n  UserKnownHostsFile %s\n  IdentitiesOnly yes\n' "$github_key" "$github_known_hosts" >> "$HOME/.ssh/config"
     chmod 600 "$HOME/.ssh/config"
   fi
 }
@@ -373,6 +365,16 @@ cat > "$execution_temporary" <<'EXECUTION'
 __PAGES_RUNNER_EXECUTION__
 EXECUTION
 mv -f -- "$execution_temporary" "$runner_directory/execution.mjs"
+cli_temporary=$(mktemp "$runner_directory/.cli.XXXXXX")
+cat > "$cli_temporary" <<'CLI'
+__PAGES_RUNNER_CLI__
+CLI
+mv -f -- "$cli_temporary" "$runner_directory/cli.mjs"
+github_temporary=$(mktemp "$runner_directory/.github.XXXXXX")
+cat > "$github_temporary" <<'GITHUB'
+__PAGES_RUNNER_GITHUB__
+GITHUB
+mv -f -- "$github_temporary" "$runner_directory/github.mjs"
 if [[ ! -f "$runner_directory/runner.mjs" ]] || ! cmp -s "$runner_temporary" "$runner_directory/runner.mjs"; then
   mv -f -- "$runner_temporary" "$runner_directory/runner.mjs"
 fi

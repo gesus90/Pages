@@ -144,6 +144,8 @@ export class AgentPlanProgressRepository {
                 output: stored.output,
                 error: stored.error,
                 remote: stored.remote,
+                session: stored.session,
+                cancellation: stored.cancellation,
               }
             : step;
         }),

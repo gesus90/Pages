@@ -2,6 +2,7 @@ import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
 import { readCountColumn, readTextColumn } from "@/backend/database/RowValue";
 
 import { AgentPlanProgressRepository } from "../agent/AgentPlanProgressRepository";
+import { CURRENT_PLAN_SNAPSHOT } from "../agent/AgentPlanContinuationRepository";
 
 import type {
   Database,
@@ -80,7 +81,7 @@ export class RunnerPlanEventRepository {
     );
   }
 
-  /** Loads the original immutable basis and updates only its public progress. */
+  /** Loads the current immutable continuation basis and updates only its public progress. */
   public async apply(
     transaction: DatabaseTransaction,
     runId: string,
@@ -96,7 +97,7 @@ export class RunnerPlanEventRepository {
       `
       SELECT
           view_json,
-          snapshot_json
+          ${CURRENT_PLAN_SNAPSHOT} AS snapshot_json
       FROM agent_plan_runs
       WHERE id = $run_id;
     `,

@@ -1228,7 +1228,7 @@
       "runner": {
         "title": "Remote",
         "description": "Registered SSH connections and their Pages runner.",
-        "offline": "GitHub: offline. Results come from Pages state; actual repository access is unverified.",
+        "offline": "GitHub key management: offline, Pages metadata only. Explicit SSH access checks run separately from the remote workspace.",
         "http": "GitHub: HTTP mode. Deploy key operations use the GitHub API.",
         "empty": "No remote connections registered.",
         "manage": "Manage remote connections",
@@ -1250,7 +1250,24 @@
           "codex": "Codex",
           "claude": "Claude Code",
           "opencode": "OpenCode"
-        }
+        },
+        "needsPairing": "Invalid identity – pair again",
+        "loginRemote": "Sign in to the CLI yourself on the remote host; Pages transfers no CLI credentials.",
+        "revoke": "Revoke pairing",
+        "authorize": "Authorize pairing",
+        "refreshTools": "Refresh inventory",
+        "syncCatalog": "Synchronize OpenRouter",
+        "grant": "One-time grant (2 minutes), enter only into the remote runner",
+        "catalogRecovery": "Action failed. Check the runner connection; explicitly store the OpenRouter key if missing and synchronize again.",
+        "storeKey": "Store OpenRouter key and synchronize",
+        "auth": {
+          "authenticated": "signed in",
+          "not_logged_in": "not signed in",
+          "unknown": "login unverified",
+          "missing": "not installed / update runner"
+        },
+        "apiKey": "OpenRouter API key",
+        "catalogSynced": "Catalog synchronized."
       },
       "cliLocations": "Installed CLI tools and setup"
     },
@@ -3438,7 +3455,8 @@
       "testing": "Testing the connection …",
       "cancel": "Cancel",
       "add": "Add",
-      "save": "Save"
+      "save": "Save",
+      "runnerIdentity": "Changing host, port, user, host key, authentication method or department invalidates runner pairing. Revoke and pair again in Settings → Agents. Name, renewed password and allowed directories preserve valid pairing."
     },
     "test": {
       "reachability": "Reachability",
@@ -3721,6 +3739,21 @@
       "restart": "Start setup again",
       "closeTitle": "Cancel the setup on {{name}}?",
       "closeDescription": "The script is ended. A package operation that is running on the host is interrupted; steps that already finished stay in place."
+    },
+    "github": {
+      "check": "Check runner key",
+      "read": "Read",
+      "write": "Write",
+      "allowed": "allowed",
+      "denied": "denied",
+      "unknown": "unverified",
+      "offline": "Offline mode: no GitHub verification. Confirm write access separately before a push.",
+      "policy": "GitHub deploy-key policy for the runner public key; no push performed. Account keys and unmatched keys remain unknown.",
+      "ssh": "Git over SSH on the runner: ls-remote and push with --dry-run only. No remote reference created; no write permission granted.",
+      "read_write": "read and write verified",
+      "read_only": "read only",
+      "no_access": "no access",
+      "unverifiable": "unverifiable: runner, key, host verification or network unavailable"
     }
   },
   "plans": {
@@ -4214,9 +4247,17 @@
         "flowOut": "The step has no outgoing flow.",
         "unreachable": "No start reaches this step.",
         "end": "No flow leads from here to an end.",
-        "remoteModel": "The model does not run on the chosen remote workspace. Choose a runner model or run the step locally.",
+        "remoteModel": "The selected model or catalog revision is unavailable on this runner. Choose a current model of this remote workspace.",
         "remoteInterpreter": "The interpreter does not belong to the runner of the remote workspace. Choose one of its interpreters or run the script locally.",
-        "remoteContainer": "Steps in groups and loops do not run remotely. Run the step locally or take it out of the frame."
+        "remoteContainer": "Steps in groups and loops do not run remotely. Run the step locally or take it out of the frame.",
+        "remoteOffline": "The runner is disconnected or its executor is not ready. Connect it and check again.",
+        "remoteIdentity": "Runner pairing is missing or no longer matches the SSH identity. Revoke and pair again in Settings → Agents.",
+        "remoteCatalog": "The runner catalog is missing or empty. Sign in on the remote host and refresh the inventory; synchronize OpenRouter in Settings → Agents.",
+        "remoteWorkspace": "The remote workspace is unreachable or its directory check is no longer valid. Check the workspace again.",
+        "remoteToolMissing": "The required CLI tool is missing or the runner does not support CLI jobs yet. Update the runner and refresh its inventory.",
+        "remoteLogin": "The CLI tool has no subscription login on the remote host. Sign in there yourself, then refresh the inventory.",
+        "remoteLoginUnknown": "The runner has not confirmed CLI login. Check it on the remote host and refresh the inventory.",
+        "remoteOptions": "This remote CLI supports Read only and explicitly selected YOLO. Workspace write mode and browser MCP are unavailable here."
       },
       "state": {
         "none": {
@@ -4845,7 +4886,10 @@
       "save": "Save",
       "inherit": "As the plan · {{target}}",
       "deviation": "Differs from the plan target",
-      "localPaths": "The script names local paths ({{paths}}). Pages does not adapt them for the remote target and does not check whether they exist there."
+      "localPaths": "The script names local paths ({{paths}}). Pages does not adapt them for the remote target and does not check whether they exist there.",
+      "catalogMissing": "The OpenRouter catalog is missing or empty. Synchronize it in Settings → Agents; explicitly store a key there if missing.",
+      "remotePause": "Remote CLI: pause waits for the running node to finish; resume starts remaining nodes with new CLI sessions.",
+      "runnerSettings": "Manage runner and catalog"
     },
     "manage": {
       "menu": "Plan actions",

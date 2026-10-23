@@ -9,6 +9,11 @@ import {
   remoteModelCommand,
 } from "./AgentPlanRemoteCommand";
 import { bindAgentParameters } from "./AgentParameterBinding";
+import {
+  remoteCliModels,
+  remoteOpenRouterModels,
+} from "./AgentPlanRemoteCatalog";
+import type { AgentPlanRemoteStatus } from "@/definition/AgentPlanTarget";
 import type { AgentPlanRunResources } from "@/backend/agents/AgentPlanRunResources";
 import type { AgentPlanInput } from "@/definition/AgentPlan";
 import type { ActivePlanRun } from "./AgentPlanRunState";
@@ -24,6 +29,7 @@ import type {
 } from "@/definition/AgentPlanScript";
 import type { AgentPlanRemoteTarget } from "@/definition/AgentPlanExecution";
 import type { RunnerExecution } from "@/definition/RunnerExecution";
+import type { RunnerJob } from "@/definition/RunnerProtocol";
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type { AgentPlanTaskSnapshot } from "./AgentPlanBindings";
 import type { AgentPlanRemoteTargets } from "./AgentPlanRemoteTargets";
@@ -31,6 +37,13 @@ import type { AgentPlanAccess } from "./AgentPlanAccess";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type { RunnerService } from "@/backend/service/runner/RunnerService";
 import type { RunnerOpenRouterService } from "@/backend/service/runner/RunnerOpenRouterService";
+
+const CANCELLED_BEFORE_DISPATCH: Partial<AgentPlanStepResult> = {
+  status: "cancelled",
+  cancellation: "not_started",
+  output: null,
+  error: null,
+};
 
 /** Private snapshot: exact command, source inputs and authorized target, without credentials. */
 export interface RemotePlanStep {
@@ -48,6 +61,14 @@ interface RemoteExecutionDependencies {
   readonly runs: AgentPlanRunRepository;
 }
 
+interface RemoteClaim {
+  readonly run: AgentPlanRun;
+  readonly remote: RemotePlanStep;
+  readonly command: RunnerExecution;
+  readonly attemptId: string;
+  readonly signal: AbortSignal;
+}
+
 /** Authorizes runner catalogs and dispatches immutable claims; nothing executes on Pages. */
 export class AgentPlanRemoteExecution {
   private readonly dependencies: RemoteExecutionDependencies;
@@ -63,11 +84,30 @@ export class AgentPlanRemoteExecution {
   ): Promise<{
     readonly models: readonly PageAgentModel[];
     readonly interpreters: readonly AgentPlanInterpreter[];
+    readonly statuses: readonly AgentPlanRemoteStatus[];
   }> {
     const targets = await this.dependencies.targets.list(userId, projectId);
+    const choices = await this.dependencies.targets.choices(userId);
     const models: PageAgentModel[] = [];
     const interpreters: AgentPlanInterpreter[] = [];
+    const statuses: AgentPlanRemoteStatus[] = [];
     for (const target of targets) {
+      const runnerProblem = await this.dependencies.runners.availability(
+        target.connectionId,
+      );
+      const isWorkspaceUsable = choices.find(
+        (entry) => entry.workspaceId === target.workspaceId,
+      )?.isUsable;
+      const problem =
+        runnerProblem ?? (isWorkspaceUsable ? null : "remoteWorkspace");
+      const status: AgentPlanRemoteStatus = {
+        workspaceId: target.workspaceId,
+        problem,
+        tools: [],
+        hasModelCatalog: false,
+      };
+      statuses.push(status);
+      if (problem) continue;
       try {
         const programs = await this.dependencies.runners.ready(
           userId,
@@ -82,42 +122,37 @@ export class AgentPlanRemoteExecution {
             version: program.version,
             error: null,
           });
+        const tools = await this.dependencies.runners.cliInventory(
+          userId,
+          target.connectionId,
+        );
+        models.push(...remoteCliModels(target, tools));
+        const readyStatus = {
+          ...status,
+          tools,
+          interpreterIds: programs.map(
+            (program) => `${target.workspaceId}-${program.id}`,
+          ),
+        };
+        statuses[statuses.length - 1] = readyStatus;
         const catalog = await this.dependencies.provider.catalog(
           userId,
           target.connectionId,
         );
         if (catalog.operation !== "catalog") continue;
-        for (const model of catalog.freeModels)
-          models.push({
-            id: JSON.stringify([
-              target.workspaceId,
-              catalog.syncedAt,
-              model.id,
-            ]),
-            runnerRoute: {
-              connectionId: target.connectionId,
-              workspaceId: target.workspaceId,
-              catalogRevision: catalog.syncedAt,
-            },
-            model: model.id,
-            name: `${target.connectionName} / ${target.workspaceName} / ${model.name}`,
-            modelName: model.name,
-            connectionName: `${target.connectionName} / OpenRouter`,
-            provider: "openrouter",
-            contextWindow: model.contextLength ?? null,
-            maxOutputTokens: model.maxOutputTokens ?? null,
-            // The runner's catalog says nothing about reasoning; unknown is not "none".
-            reasoning: "unknown",
-            reasoningEfforts: [],
-            catalogDefaultReasoningEffort: null,
-            reasoningEffort: null,
-          });
+        statuses[statuses.length - 1] = {
+          ...readyStatus,
+          hasModelCatalog: catalog.freeModels.length > 0,
+          modelIds: catalog.freeModels.map((model) => model.id),
+          catalogRevision: catalog.syncedAt,
+        };
+        models.push(...remoteOpenRouterModels(target, catalog));
       } catch {
         // Unavailable targets stay editable, but offer no executable model route.
         continue;
       }
     }
-    return { models, interpreters };
+    return { models, interpreters, statuses };
   }
 
   /** Verifies exact catalog selection and current workspace access before saving a model copy. */
@@ -130,8 +165,11 @@ export class AgentPlanRemoteExecution {
     if (
       !route ||
       step.configuration?.connectionId !== undefined ||
-      step.configuration?.provider !== "openrouter" ||
-      step.configuration?.reasoningEffort !== null ||
+      step.configuration?.provider !==
+        (route.tool
+          ? ({ codex: "codex_cli", claude: "claude_code" } as const)[route.tool]
+          : "openrouter") ||
+      (!route.tool && step.configuration?.reasoningEffort !== null) ||
       step.executionTarget?.kind !== "remote" ||
       step.executionTarget.workspaceId !== route.workspaceId
     )
@@ -142,6 +180,10 @@ export class AgentPlanRemoteExecution {
         (model) =>
           model.id === step.configuration?.modelProfileId &&
           model.model === step.configuration.model &&
+          (step.configuration.reasoningEffort === null ||
+            model.reasoningEfforts.includes(
+              step.configuration.reasoningEffort,
+            )) &&
           planContentDigest(model.runnerRoute) === planContentDigest(route),
       )
     )
@@ -190,7 +232,7 @@ export class AgentPlanRemoteExecution {
     remote: RemotePlanStep,
     signal: AbortSignal,
   ): Promise<Partial<AgentPlanStepResult>> {
-    signal.throwIfAborted();
+    if (signal.aborted) return CANCELLED_BEFORE_DISPATCH;
     const target = await this.target(
       run.userId,
       {
@@ -218,18 +260,14 @@ export class AgentPlanRemoteExecution {
         remote.step,
       );
     const command = await resolvedCommand(run, remote);
-    const job = await this.dependencies.runners.enqueue(
-      run.userId,
-      target.connectionId,
-      {
-        planId: run.planId,
-        runId: run.id,
-        stepId: remote.step.id,
-        attemptId: execution.attemptId,
-        planRevision: run.planRevision,
-      },
+    const job = await this.claim({
+      run,
+      remote,
       command,
-    );
+      attemptId: execution.attemptId,
+      signal,
+    });
+    if (!job) return CANCELLED_BEFORE_DISPATCH;
     for (;;) {
       if (signal.aborted)
         this.dependencies.runners.cancel(target.connectionId, job.jobId);
@@ -258,6 +296,34 @@ export class AgentPlanRemoteExecution {
       )
     )
       throw new AgentError("plan_access_denied");
+  }
+
+  private async claim({
+    run,
+    remote,
+    command,
+    attemptId,
+    signal,
+  }: RemoteClaim): Promise<RunnerJob | null> {
+    if (signal.aborted) return null;
+    try {
+      return await this.dependencies.runners.enqueue(
+        run.userId,
+        remote.target.connectionId,
+        {
+          planId: run.planId,
+          runId: run.id,
+          stepId: remote.step.id,
+          attemptId,
+          planRevision: run.planRevision,
+        },
+        command,
+      );
+    } catch (error: unknown) {
+      // Authorization refuses a stopped run before a durable claim exists.
+      if (signal.aborted && error instanceof AgentError) return null;
+      throw error;
+    }
   }
 
   private async target(
@@ -290,7 +356,12 @@ async function resolvedCommand(
   }
   const command = remote.command;
   if (command.program.kind === "script")
-    return { ...command, input: JSON.stringify(inputs) };
+    return {
+      ...command,
+      revision: run.planRevision,
+      sourceRevision: command.revision,
+      input: JSON.stringify(inputs),
+    };
   const configuration =
     remote.step.type === "agent" ? remote.step.configuration : null;
   if (!configuration) throw new AgentError("configuration_invalid");
@@ -310,6 +381,8 @@ async function resolvedCommand(
   );
   return {
     ...command,
+    revision: run.planRevision,
+    sourceRevision: command.revision,
     program: { ...command.program, prompt: bound.markdown },
   };
 }
@@ -333,6 +406,10 @@ export function dispatchRemotePlanStep(
     return null;
   }
   if (!service) throw new AgentError("plan_remote_unavailable");
+  if (signal.aborted) return Promise.resolve(CANCELLED_BEFORE_DISPATCH);
+  if (active.view.status !== "running")
+    return Promise.resolve({ status: "paused" });
+  active.dispatched.add(stepId);
   return service.run(active.view, remote, signal);
 }
 

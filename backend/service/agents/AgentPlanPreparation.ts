@@ -96,7 +96,7 @@ export class AgentPlanPreparation {
     plan: AgentPlan,
   ): Promise<AgentPlanSnapshot> {
     plan = withInheritedPlanTarget(plan);
-    this.requireRemoteSupport(plan);
+    await this.requireRemoteSupport(userId, plan);
     plan = withPortlessPlanGroups(plan);
     const catalog = await this.dependencies.profiles.catalog(
       userId,
@@ -159,16 +159,23 @@ export class AgentPlanPreparation {
       ...(scripts?.length ? { scripts } : {}),
     });
   }
-  private requireRemoteSupport(plan: AgentPlan): void {
+  private async requireRemoteSupport(
+    userId: string,
+    plan: AgentPlan,
+  ): Promise<void> {
     if (!hasRemotePlanTarget(plan)) return;
-    if (
-      !this.dependencies.remoteExecution ||
-      plan.nodes.some(
-        (node) => node.type === "group" || node.type === "loop",
-      ) ||
-      planTargetIssues(plan).length > 0
-    )
+    if (!this.dependencies.remoteExecution)
       throw new AgentError("plan_remote_unavailable");
+    const sources = await this.dependencies.remoteExecution.sources(
+      userId,
+      plan.projectId,
+    );
+    const issues = planTargetIssues(plan, sources.statuses).map((issue) => ({
+      nodeId: issue.nodeId,
+      port: null,
+      reason: issue.problem,
+    }));
+    if (issues.length) throw new AgentPlanValidationError(issues);
   }
 
   private async prepareRemote(

@@ -17,6 +17,7 @@ import { formatDateTime } from "@/app/lib/region-format";
 import { WorkspaceNameCell } from "../workspace-row";
 import { RemoteActionMessage } from "./remote-action-message";
 import { RemoteWorkspaceDelete } from "./remote-workspace-delete";
+import { RemoteGitHubAccess } from "./remote-github-access";
 import { workspaceConsoleTarget } from "./console/console-target";
 import { RemoteConsolePanel } from "./console/remote-console-panel";
 
@@ -174,6 +175,9 @@ export function RemoteWorkspaceRow(props: {
       </td>
       <td className="pages-selectable max-w-64 px-4 py-3 break-all">
         {workspace.github?.repoUrl ?? t("workspaces.noGitHub")}
+        {workspace.canManage ? (
+          <RemoteGitHubAccess workspaceId={workspace.id} />
+        ) : null}
       </td>
       <td className="max-w-72 px-4 py-3">
         {fetcher.state === "idle" ? (

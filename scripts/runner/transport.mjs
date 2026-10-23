@@ -1,12 +1,5 @@
 // Pages protocol v1 with durable execution claims and detached workers.
 import {
-  claimJob,
-  observeJob,
-  cancelJob,
-  interpreters,
-  store,
-} from "./execution.mjs";
-import {
   chmod,
   lstat,
   mkdir,
@@ -21,8 +14,17 @@ import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { execFile } from "node:child_process";
+import {
+  claimJob,
+  observeJob,
+  cancelJob,
+  interpreters,
+  store,
+} from "./execution.mjs";
+import { githubAccess } from "./github.mjs";
+import { cliInventory } from "./cli.mjs";
 
-const RUNNER_VERSION = "1.3.0";
+const RUNNER_VERSION = "1.5.0";
 if (process.argv.includes("--version")) {
   console.info(`pages-runner ${RUNNER_VERSION}`);
   process.exit(0);
@@ -208,9 +210,13 @@ async function checkProvider(model) {
 async function handleProvider(message, channel) {
   let result;
   try {
-    if (message.operation === "sync")
-      result = await syncProvider(message.apiKey);
-    else if (message.operation === "check")
+    if (message.operation === "sync") {
+      const apiKey =
+        message.apiKey ??
+        JSON.parse(await readFile(join(directory, "openrouter.json"), "utf8"))
+          .apiKey;
+      result = await syncProvider(apiKey);
+    } else if (message.operation === "check")
       result = await checkProvider(message.model);
     else if (message.operation === "catalog") {
       const stored = JSON.parse(
@@ -244,7 +250,7 @@ async function handleProvider(message, channel) {
       }),
     );
 }
-const INVENTORY_TOOLS = ["codex", "claude", "opencode"];
+const INVENTORY_TOOLS = ["opencode"];
 const INVENTORY_MAXIMUM_AGE_MILLISECONDS = 600000;
 let inventory = { checkedAt: 0, tools: [] };
 
@@ -270,7 +276,7 @@ function toolVersion(tool) {
 async function toolInventory() {
   if (Date.now() - inventory.checkedAt < INVENTORY_MAXIMUM_AGE_MILLISECONDS)
     return inventory.tools;
-  const tools = [];
+  const tools = await cliInventory();
   for (const tool of INVENTORY_TOOLS) {
     const version = await toolVersion(tool);
     if (version !== undefined) tools.push({ tool, version });
@@ -328,6 +334,7 @@ let unrecoverable = null;
 let stopped = false;
 let socket;
 let isProviderBusy = false;
+let isGitHubBusy = false;
 const progressSnapshots = new Map();
 let wake = null;
 // A stop signal ends the wait between reconnects at once instead of after up to a minute.
@@ -441,6 +448,8 @@ async function receiveRegistration(message, channel) {
       sequence: configuration.sequence,
       jobs: configuration.jobs,
       executorVersion: 1,
+      cliExecutorVersion: 1,
+      githubAccessVersion: 1,
       interpreters: await interpreters(),
       tools: await toolInventory(),
     }),
@@ -469,6 +478,20 @@ function receiveProvider(message, channel) {
     .catch(() => channel.close())
     .finally(() => {
       isProviderBusy = false;
+    });
+}
+
+function receiveGitHub(message, channel) {
+  if (isGitHubBusy) throw new Error("GitHub probe already running");
+  isGitHubBusy = true;
+  void githubAccess(message)
+    .then((reply) => {
+      if (channel.readyState === WebSocket.OPEN)
+        channel.send(JSON.stringify(reply));
+    })
+    .catch(() => channel.close())
+    .finally(() => {
+      isGitHubBusy = false;
     });
 }
 
@@ -540,8 +563,13 @@ async function connect() {
         }
         if (!state.isReconciled) throw new Error("Reconciliation required");
         if (message.type === "heartbeat") deadline();
-        else if (message.type === "openrouter")
+        else if (message.type === "refresh-tools") {
+          inventory.checkedAt = 0;
+          channel.close();
+        } else if (message.type === "openrouter")
           receiveProvider(message, channel);
+        else if (message.type === "github-access")
+          receiveGitHub(message, channel);
         else await receiveJob(message);
       }),
     );

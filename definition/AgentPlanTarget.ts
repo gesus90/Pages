@@ -1,6 +1,8 @@
 import type { AgentPlanExecutionTarget } from "./AgentPlanExecution";
 import type { AgentPlanInput, AgentPlanStep } from "./AgentPlan";
 import type { AgentPlanScript } from "./AgentPlanScript";
+import type { AgentPlanConfiguration } from "./AgentPlanConfiguration";
+import type { ToolInventory } from "./RemoteSetup";
 
 /** Runs on the Pages host; a plan or node without a target has always meant this. */
 export const LOCAL_PLAN_TARGET: AgentPlanExecutionTarget = { kind: "local" };
@@ -152,7 +154,29 @@ export function withPlanTargetFollowed<Plan extends AgentPlanInput>(
 
 /** Why a node cannot run on the remote target it runs on. */
 export type AgentPlanTargetProblem =
-  "remoteModel" | "remoteInterpreter" | "remoteContainer";
+  | "remoteModel"
+  | "remoteInterpreter"
+  | "remoteContainer"
+  | "remoteOffline"
+  | "remoteIdentity"
+  | "remoteCatalog"
+  | "remoteWorkspace"
+  | "remoteToolMissing"
+  | "remoteLogin"
+  | "remoteLoginUnknown"
+  | "remoteOptions";
+
+/** Secret-free, current runner facts for one registered workspace. */
+export interface AgentPlanRemoteStatus {
+  readonly workspaceId: string;
+  readonly problem:
+    "remoteOffline" | "remoteIdentity" | "remoteWorkspace" | null;
+  readonly tools: readonly ToolInventory[];
+  readonly hasModelCatalog: boolean;
+  readonly interpreterIds?: readonly string[];
+  readonly modelIds?: readonly string[];
+  readonly catalogRevision?: string;
+}
 
 /** A node that its remote target cannot execute. */
 export interface AgentPlanTargetIssue {
@@ -163,16 +187,70 @@ export interface AgentPlanTargetIssue {
 function nodeTargetProblem(
   node: AgentPlanStep | AgentPlanScript,
   target: AgentPlanExecutionTarget,
+  status?: AgentPlanRemoteStatus,
 ): AgentPlanTargetProblem | null {
   if (target.kind !== "remote") return null;
-  if (node.type === "agent")
-    return node.configuration?.runnerRoute?.workspaceId === target.workspaceId
-      ? null
-      : "remoteModel";
+  if (status?.problem) return status.problem;
+  if (node.type === "agent") return agentTargetProblem(node, target, status);
+  if (
+    status?.interpreterIds &&
+    !status.interpreterIds.includes(node.interpreterProfileId)
+  )
+    return "remoteInterpreter";
   // A runner names its interpreters after the remote workspace they run in.
   return node.interpreterProfileId.startsWith(`${target.workspaceId}-`)
     ? null
     : "remoteInterpreter";
+}
+
+function agentTargetProblem(
+  node: AgentPlanStep,
+  target: Extract<AgentPlanExecutionTarget, { kind: "remote" }>,
+  status?: AgentPlanRemoteStatus,
+): AgentPlanTargetProblem | null {
+  const configuration = node.configuration;
+  if (!configuration) return "remoteModel";
+  const route = configuration.runnerRoute;
+  const isCli =
+    configuration.provider === "codex_cli" ||
+    configuration.provider === "claude_code";
+  if (status && isCli) {
+    const problem = cliTargetProblem(configuration, status);
+    if (problem) return problem;
+  }
+  if (status && !isCli) {
+    if (!status.hasModelCatalog) return "remoteCatalog";
+    if (
+      status.modelIds &&
+      (!status.modelIds.includes(configuration.model) ||
+        route?.catalogRevision !== status.catalogRevision)
+    )
+      return "remoteModel";
+  }
+  return route?.workspaceId === target.workspaceId ? null : "remoteModel";
+}
+
+function cliTargetProblem(
+  configuration: AgentPlanConfiguration,
+  status: AgentPlanRemoteStatus,
+): AgentPlanTargetProblem | null {
+  const tool = configuration.provider === "codex_cli" ? "codex" : "claude";
+  const installed = status.tools.find((entry) => entry.tool === tool);
+  if (!installed) return "remoteToolMissing";
+  if (installed.authentication === "not_logged_in") return "remoteLogin";
+  if (installed.authentication !== "authenticated") return "remoteLoginUnknown";
+  const models = installed.models ?? [];
+  if (!models.length) return "remoteCatalog";
+  const route = configuration.runnerRoute;
+  if (
+    !models.some((model) => model.id === configuration.model) ||
+    route?.catalogRevision !== installed.catalogRevision
+  )
+    return "remoteModel";
+  const run = configuration.template.run;
+  if (run && (run.access === "workspace_write" || run.browser))
+    return "remoteOptions";
+  return null;
 }
 
 /**
@@ -185,6 +263,7 @@ function nodeTargetProblem(
  */
 export function planTargetIssues(
   plan: AgentPlanInput,
+  statuses?: readonly AgentPlanRemoteStatus[],
 ): readonly AgentPlanTargetIssue[] {
   return plan.nodes.flatMap((node): AgentPlanTargetIssue[] => {
     if (node.type === "group" || node.type === "loop")
@@ -195,7 +274,12 @@ export function planTargetIssues(
           problem: "remoteContainer",
         }));
     if (node.type !== "agent" && node.type !== "script") return [];
-    const problem = nodeTargetProblem(node, effectivePlanTarget(node, plan));
+    const target = effectivePlanTarget(node, plan);
+    const status =
+      target.kind === "remote"
+        ? statuses?.find((entry) => entry.workspaceId === target.workspaceId)
+        : undefined;
+    const problem = nodeTargetProblem(node, target, status);
     return problem ? [{ nodeId: node.id, problem }] : [];
   });
 }

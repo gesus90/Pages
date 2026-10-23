@@ -2000,6 +2000,15 @@ omit these retired operations receive their normal capability denial.
 
 ### Agent plans
 
+Remote plan validation also preserves node-specific `graph_invalid` findings:
+`remoteToolMissing`, `remoteLogin`, `remoteLoginUnknown`, `remoteCatalog`,
+`remoteModel`, `remoteOffline`, `remoteIdentity`, `remoteWorkspace`,
+`remoteInterpreter`, `remoteOptions` and `remoteContainer`. These are public
+business reasons, never CLI diagnostics or credentials. Remote CLI choices come
+from the runner's authenticated picker; saving a plan never signs in or starts it.
+
+
+
 An agent plan is the graph of the plan page: start and end nodes,
 agent nodes with their own work order, script nodes, ticket nodes and parameter
 nodes, flow connections between them and the inputs of each agent and script

@@ -3,6 +3,10 @@ import { z } from "zod";
 import { parseHostKey } from "@/backend/remote/SshHostKey";
 
 import type { AgentWorkspaceService } from "@/backend/service/agents/AgentWorkspaceService";
+import type { RemoteWorkspaceService } from "@/backend/service/remote/RemoteWorkspaceService";
+import type { RemoteConnectionService } from "@/backend/service/remote/RemoteConnectionService";
+import type { RunnerGitHubAccessService } from "./RunnerGitHubAccessService";
+import type { RunnerGitHubContext } from "./RunnerGitHubContext";
 import type {
   RunnerGitHubClient,
   RunnerGitHubResult,
@@ -24,12 +28,27 @@ const keyInputSchema = z.object({
 export class RunnerDeployKeyService {
   private readonly client: RunnerGitHubClient;
   private readonly workspaces: AgentWorkspaceService;
+  private readonly remote:
+    | {
+        readonly workspaces: RemoteWorkspaceService;
+        readonly connections: RemoteConnectionService;
+        readonly access: RunnerGitHubAccessService;
+        readonly context: RunnerGitHubContext;
+      }
+    | undefined;
   public constructor(
     client: RunnerGitHubClient,
     workspaces: AgentWorkspaceService,
+    remote?: {
+      readonly workspaces: RemoteWorkspaceService;
+      readonly connections: RemoteConnectionService;
+      readonly access: RunnerGitHubAccessService;
+      readonly context: RunnerGitHubContext;
+    },
   ) {
     this.client = client;
     this.workspaces = workspaces;
+    this.remote = remote;
   }
 
   /** Registers a public key and immediately checks its persisted identity through the same client. */
@@ -71,5 +90,60 @@ export class RunnerDeployKeyService {
   ): Promise<RunnerGitHubResult> {
     await this.workspaces.requireManagement(userId, projectId);
     return this.client.checkAccess(projectId);
+  }
+
+  /** Checks the runner's own SSH key using read and non-mutating dry-run probes. */
+  public async checkRunnerAccess(
+    userId: string,
+    workspaceId: string,
+  ): Promise<RunnerGitHubResult> {
+    if (!this.remote) throw new Error("Remote key inspection unavailable");
+    const workspace = (await this.remote.workspaces.list(userId)).find(
+      (entry) => entry.id === workspaceId,
+    );
+    if (!workspace) throw new Error("Remote workspace unavailable");
+    await this.workspaces.requireManagement(userId, workspace.projectId);
+    await this.remote.connections.requireSetup(userId, workspace.connectionId);
+    const repository = await this.remote.context.repository(
+      workspace.projectId,
+    );
+    try {
+      const result = await this.remote.access.execute(
+        userId,
+        workspace.connectionId,
+        repository,
+      );
+      const readAccess = result.read.allowed;
+      const writeAccess = result.write.allowed;
+      let accessStatus: RunnerGitHubResult["accessStatus"] = "unverifiable";
+      if (readAccess === false) accessStatus = "no_access";
+      if (readAccess === true && writeAccess === false)
+        accessStatus = "read_only";
+      if (readAccess === true && writeAccess === true)
+        accessStatus = "read_write";
+      return {
+        mode: "ssh",
+        key: null,
+        repository,
+        accessible: readAccess,
+        readAccess,
+        writeAccess,
+        accessStatus,
+        readReason: result.read.reason,
+        writeReason: result.write.reason,
+      };
+    } catch {
+      return {
+        mode: "ssh",
+        key: null,
+        repository,
+        accessible: null,
+        readAccess: null,
+        writeAccess: null,
+        accessStatus: "unverifiable",
+        readReason: "unavailable",
+        writeReason: "unavailable",
+      };
+    }
   }
 }

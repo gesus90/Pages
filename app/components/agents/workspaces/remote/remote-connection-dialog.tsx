@@ -110,6 +110,11 @@ export function RemoteConnectionDialog(props: {
             onChange={form.setDraft}
           />
           <RemoteHostKeyStatus connection={props.connection} form={form} />
+          {props.connection ? (
+            <p role="note" className="text-xs text-warning">
+              {t("remote.dialog.runnerIdentity")}
+            </p>
+          ) : null}
           <RemoteTestPanel
             test={form.test}
             result={form.testResult}

@@ -9,8 +9,13 @@ import { isApiProvider } from "@/definition/AgentConnection";
 import { withGroupResults } from "./AgentPlanGroupResults";
 import { groupRuntimeFields } from "./AgentPlanGroupRuntime";
 import { initialLoopRun } from "./loop/AgentPlanLoopRecord";
+import { continueRemotePlanExecution } from "./AgentPlanExecutionSnapshot";
 import { planStepDirectory } from "./AgentPlanSnapshot";
-import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
+import type {
+  AgentPlanRun,
+  AgentPlanStepResult,
+  AgentPlanNode,
+} from "@/definition/AgentPlan";
 import type { AgentPlanSnapshot } from "./AgentPlanSnapshot";
 
 /** Directories remain reserved through pause and closeout, including newly adopted ones. */
@@ -214,11 +219,7 @@ function resumedSteps(
     return {
       id: node.id,
       groupId: snapshot?.groupId,
-      name:
-        snapshot?.name ??
-        (node.type === "loop" || node.type === "script"
-          ? node.name
-          : node.type),
+      name: snapshot?.name ?? resumedNodeName(node),
       status: "waiting",
       isBlocked: false,
       cancellation: "none",
@@ -227,6 +228,13 @@ function resumedSteps(
       ...(previous?.session?.retry ? { session: previous.session } : {}),
     };
   });
+}
+
+function resumedNodeName(node: AgentPlanNode): string {
+  if (node.type === "loop" || node.type === "script") return node.name;
+  return node.type === "agent"
+    ? (node.configuration?.name ?? node.type)
+    : node.type;
 }
 
 /**
@@ -285,20 +293,18 @@ export function preparePlanContinuation(
     planRevision: proposed.plan.revision,
     adoptedAt: new Date().toISOString(),
   };
-  return {
+  const nextRun = withGroupResults(
+    {
+      ...run,
+      loops: resumedLoops(run, snapshot),
+      status: "running",
+      pauseBoundary: undefined,
+      continuation,
+      steps: resumedSteps(run, snapshot),
+    },
     snapshot,
-    run: withGroupResults(
-      {
-        ...run,
-        loops: resumedLoops(run, snapshot),
-        status: "running",
-        pauseBoundary: undefined,
-        continuation,
-        steps: resumedSteps(run, snapshot),
-      },
-      snapshot,
-    ),
-  };
+  );
+  return continueRemotePlanExecution(nextRun, previous, snapshot);
 }
 
 /** The proposed snapshot with the frozen contracts of every completed node. */
@@ -310,6 +316,13 @@ function keptContracts(
   const completed = new Set(run.pauseBoundary?.completedStepIds);
   return {
     ...proposed,
+    remoteSteps: proposed.remoteSteps?.map((step) =>
+      completed.has(step.step.id)
+        ? (previous.remoteSteps?.find(
+            (entry) => entry.step.id === step.step.id,
+          ) ?? step)
+        : step,
+    ),
     scripts: proposed.scripts?.map((script) =>
       completed.has(script.step.id)
         ? (previous.scripts?.find(

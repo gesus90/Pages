@@ -1,8 +1,10 @@
 import { planExecutionIssues } from "@/definition/AgentPlanGraph";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
+import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
 import { isSamePlanTarget } from "@/definition/AgentPlanTarget";
 import { planControl } from "./AgentPlanControl";
+import type { AgentPlanIssue } from "@/definition/AgentPlanGraph";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type { AgentPlanAccess } from "./AgentPlanAccess";
@@ -43,11 +45,14 @@ export class AgentPlanControlService {
         run.status === "stopping")
     )
       return control;
-    const issues = planExecutionIssues(
-      plan,
-      await this.dependencies.profiles.catalog(userId, plan.projectId),
-    );
-    let issue = (await this.executionIssue(userId, plan)) ?? control.issue;
+    const issues = [
+      ...planExecutionIssues(
+        plan,
+        await this.dependencies.profiles.catalog(userId, plan.projectId),
+      ),
+    ];
+    let issue =
+      (await this.executionIssue(userId, plan, issues)) ?? control.issue;
     if (run?.status === "paused" && (await this.hasChangedContext(run, plan)))
       issue = "plan_context_changed";
     if (issues.length === 0 && issue === control.issue) return control;
@@ -76,11 +81,14 @@ export class AgentPlanControlService {
   private async executionIssue(
     userId: string,
     plan: AgentPlan,
+    issues: AgentPlanIssue[],
   ): Promise<string | null> {
     try {
       await this.dependencies.preparation?.prepare(userId, plan);
       return null;
     } catch (error: unknown) {
+      if (error instanceof AgentPlanValidationError)
+        issues.push(...error.issues);
       if (error instanceof AgentExecutionError) return error.code;
       if (!(error instanceof AgentError)) throw error;
       return error.code;

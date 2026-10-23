@@ -9,6 +9,7 @@ import {
 } from "@/definition/AgentPlanConfiguration";
 import { effectivePlanTarget } from "@/definition/AgentPlanTarget";
 import { PlanExecutionTargetField } from "./plan-execution-target-field";
+import { PlanRemoteStatus } from "./plan-remote-status";
 import {
   PlanNodeContentFields,
   PlanNodeNameField,
@@ -153,6 +154,12 @@ export function PlanNodeConfigurationFields(props: {
           )
         }
         onChange={changeModel}
+      />
+      <PlanRemoteStatus
+        sources={props.sources}
+        target={effectivePlanTarget(props.step, {
+          executionTarget: props.planTarget,
+        })}
       />
       <PlanNodeContentFields
         step={props.step}

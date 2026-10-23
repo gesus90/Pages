@@ -7,6 +7,7 @@ import type { IncomingMessage, Server } from "node:http";
 import type { Duplex } from "node:stream";
 import type { WebSocket } from "ws";
 import type { RunnerRegistrationReply } from "@/definition/RunnerProtocol";
+import type { RunnerGitHubAccessService } from "@/backend/service/runner/RunnerGitHubAccessService";
 import type { RunnerOpenRouterService } from "@/backend/service/runner/RunnerOpenRouterService";
 import type {
   RunnerAuthentication,
@@ -33,17 +34,39 @@ function noticeRejectedPeer(): void {
   });
 }
 
+interface RunnerChannelServices {
+  readonly runners: RunnerService;
+  readonly openRouter: RunnerOpenRouterService;
+  readonly github: RunnerGitHubAccessService;
+}
+
+function receiveAuxiliary(
+  connectionId: string,
+  input: unknown,
+  services: RunnerChannelServices,
+): boolean {
+  if (typeof input !== "object" || input === null || !("type" in input))
+    return false;
+  if (input.type === "github-access-result") {
+    services.github.receive(connectionId, input);
+    return true;
+  }
+  if (input.type === "openrouter-result") {
+    services.openRouter.receive(connectionId, input);
+    return true;
+  }
+  return false;
+}
+
 function attach(
   socket: WebSocket,
   auth: RunnerAuthentication,
-  services: {
-    readonly runners: RunnerService;
-    readonly openRouter: RunnerOpenRouterService;
-  },
+  services: RunnerChannelServices,
   isCurrent: () => boolean,
 ): void {
   const queue = new SerialQueue();
   const service = services.runners;
+  let detachGitHub: (() => void) | undefined;
   let detachProvider: (() => void) | undefined;
   let lastSeen = Date.now();
   let hasReconciled = false;
@@ -73,14 +96,9 @@ function attach(
         const input: unknown = JSON.parse(buffer.toString());
         if (
           hasReconciled &&
-          typeof input === "object" &&
-          input !== null &&
-          "type" in input &&
-          input.type === "openrouter-result"
-        ) {
-          services.openRouter.receive(auth.connectionId, input);
+          receiveAuxiliary(auth.connectionId, input, services)
+        )
           return;
-        }
         if (
           !hasReconciled &&
           (typeof input !== "object" ||
@@ -92,6 +110,13 @@ function attach(
         const reply = await service.receive(auth.connectionId, input);
         hasReconciled = true;
         detachProvider ??= services.openRouter.attach(
+          auth.connectionId,
+          (command) => {
+            if (!isCurrent()) throw new Error("Runner channel superseded");
+            socket.send(JSON.stringify(command));
+          },
+        );
+        detachGitHub ??= services.github.attach(
           auth.connectionId,
           (command) => {
             if (!isCurrent()) throw new Error("Runner channel superseded");
@@ -115,6 +140,7 @@ function attach(
   socket.once("close", () => {
     clearInterval(timer);
     detachProvider?.();
+    detachGitHub?.();
     if (isCurrent()) service.detach(auth.connectionId);
     if (isCurrent()) service.disconnected(auth.connectionId);
   });
@@ -154,7 +180,11 @@ async function upgrade(input: {
       attach(
         channel,
         auth,
-        { runners: service, openRouter: services.runnerOpenRouterService },
+        {
+          runners: service,
+          openRouter: services.runnerOpenRouterService,
+          github: services.runnerGitHubAccessService,
+        },
         () => input.active.get(connectionId) === channel,
       );
       channel.once("close", () => {

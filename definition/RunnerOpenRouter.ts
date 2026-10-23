@@ -58,7 +58,8 @@ export const runnerOpenRouterCommandSchema = z.discriminatedUnion("operation", [
         .trim()
         .min(16)
         .max(512)
-        .regex(/^[\x21-\x7e]+$/u),
+        .regex(/^[\x21-\x7e]+$/u)
+        .optional(),
     })
     .strict(),
   z

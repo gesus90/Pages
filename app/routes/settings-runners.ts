@@ -30,6 +30,17 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
   const intent = formData.get("intent");
   try {
     await requireAgentAccount(services, user);
+    if (intent === "runner-repository-access") {
+      const workspaceId = z.string().uuid().parse(formData.get("workspaceId"));
+      const result = await services.runnerDeployKeyService.checkRunnerAccess(
+        user.id,
+        workspaceId,
+      );
+      return Response.json(
+        { ok: true, intent, result },
+        { headers: AGENT_NO_STORE },
+      );
+    }
     if (intent === "deploy-key" || intent === "repository-access") {
       const projectId = z.string().uuid().parse(formData.get("projectId"));
       const result =
@@ -49,11 +60,19 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
       );
     }
     const connectionId = z.string().uuid().parse(formData.get("connectionId"));
-    if (intent === "store-provider-key" || intent === "check-provider") {
+    if (
+      intent === "store-provider-key" ||
+      intent === "check-provider" ||
+      intent === "sync-provider"
+    ) {
       return await handleRunnerProviderRequest(context, connectionId);
     }
     if (intent === "revoke") {
       await services.runnerService.revoke(user.id, connectionId);
+      return Response.json({ ok: true, intent }, { headers: AGENT_NO_STORE });
+    }
+    if (intent === "refresh-tools") {
+      await services.runnerService.refreshTools(user.id, connectionId);
       return Response.json({ ok: true, intent }, { headers: AGENT_NO_STORE });
     }
     if (intent === "connect") {

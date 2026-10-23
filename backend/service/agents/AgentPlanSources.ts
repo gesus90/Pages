@@ -42,5 +42,6 @@ export async function readPlanSources(
     models: [...models, ...(remote?.models ?? [])],
     interpreters: [...interpreters, ...(remote?.interpreters ?? [])],
     remoteTargets,
+    remoteStatus: remote?.statuses,
   };
 }

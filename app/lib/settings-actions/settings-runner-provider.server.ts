@@ -21,8 +21,13 @@ export async function handleRunnerProviderRequest(
   const result = await services.runnerOpenRouterService.execute(
     user.id,
     connectionId,
-    intent === "store-provider-key"
-      ? { operation: "sync", apiKey: formData.get("apiKey") }
+    intent === "store-provider-key" || intent === "sync-provider"
+      ? {
+          operation: "sync",
+          ...(intent === "store-provider-key"
+            ? { apiKey: formData.get("apiKey") }
+            : {}),
+        }
       : {
           operation: "check",
           model: formData.get("model") ?? "openrouter/free",

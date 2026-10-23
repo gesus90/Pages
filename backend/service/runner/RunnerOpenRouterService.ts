@@ -99,7 +99,8 @@ export class RunnerOpenRouterService {
       type: "openrouter",
       requestId: randomUUID(),
     });
-    if (command.operation === "sync") registerLogSecret(command.apiKey);
+    if (command.operation === "sync" && command.apiKey)
+      registerLogSecret(command.apiKey);
     await this.runners.requireOnline(userId, connectionId);
     const channel = this.channels.get(connectionId);
     if (!channel || channel.pending)

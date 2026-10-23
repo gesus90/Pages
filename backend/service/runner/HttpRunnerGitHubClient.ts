@@ -17,8 +17,12 @@ const repositorySchema = z.object({ full_name: z.string() });
 
 function readKey(input: unknown): RunnerDeployKey {
   const key = deployKeySchema.parse(input);
-  if (!key.read_only) throw new Error("Runner deploy key must be read-only");
-  return { id: String(key.id), key: key.key, title: key.title };
+  return {
+    id: String(key.id),
+    key: key.key,
+    title: key.title,
+    readOnly: key.read_only,
+  };
 }
 
 /** Explicit opt-in GitHub HTTP implementation; construction alone never performs I/O. */
@@ -53,7 +57,7 @@ export class HttpRunnerGitHubClient implements RunnerGitHubClient {
     return { mode: "http", accessible: null, repository, key };
   }
 
-  /** Looks up an exact key ID and validates its read-only policy. */
+  /** Looks up an exact key ID and reports its actual read-only policy. */
   public async checkKey(
     projectId: string,
     keyId: string,
@@ -69,14 +73,25 @@ export class HttpRunnerGitHubClient implements RunnerGitHubClient {
   }
 
   /** Checks authenticated repository metadata access; SSH access with the private key is separate. */
-  public async checkAccess(projectId: string): Promise<RunnerGitHubResult> {
+  public async checkAccess(
+    projectId: string,
+    publicKey?: string,
+  ): Promise<RunnerGitHubResult> {
     const repository = await this.context.repository(projectId);
     const result = await this.request({ projectId, suffix: "" });
     const accessible =
       result !== null &&
       repositorySchema.parse(result).full_name.toLowerCase() ===
         repository.toLowerCase();
-    return { mode: "http", accessible, key: null, repository };
+    const key = publicKey ? await this.findKey(projectId, publicKey) : null;
+    return {
+      mode: "http",
+      accessible,
+      key,
+      repository,
+      readAccess: key ? true : null,
+      writeAccess: key ? key.readOnly === false : null,
+    };
   }
 
   private async findKey(

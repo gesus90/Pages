@@ -29,7 +29,7 @@ Die Sequenz erscheint im selben Fokuspanel wie die Konsole (PAGE-143), mit Begr�
 | 1 Vorprüfung     | Begrüßung, Terminal, kein root, Home, keine Symlinks, Sperre                                                                                                                                                                                                            |
 | 2 System         | nur Ubuntu mit apt; **der Dienstmanager wird erkannt und mit Befund und Plan angezeigt**, bevor etwas geplant wird; fehlende Pakete werden vor jeder Änderung angezeigt; `sudo` nur für diese eine Aktion                                                               |
 | 3 Werkzeuge      | Codex, Claude Code und OpenCode einzeln wählen; npm-Installation unter dem Benutzerverzeichnis                                                                                                                                                                          |
-| 4 Anmeldung      | Anmeldung führt das Werkzeug selbst aus (verdeckte Eingabe im Werkzeug); nur über dessen Unterkommando, falls vorhanden, sonst Hinweis                                                                                                                                  |
+| 4 Anmeldung      | Erklärt die offiziellen CLI-Login-Befehle; die Person führt die Anmeldung getrennt auf dem Remote-Host aus. Das Setup startet keinen Login.                                                                                                                             |
 | 5 Git und GitHub | Git-Identität (Commit-Name und -Adresse) getrennt vom GitHub-Login; dediziertes SSH-Schlüsselpaar, Hostschlüssel-Fingerabdruck wird vor der Übernahme bestätigt, Verifikation über `ssh -T`                                                                             |
 | 6 Prüfung        | Versionen, Runner-Code installieren, **Weiter** vor der Dienstregistrierung                                                                                                                                                                                             |
 | 7 Dienst         | je erkanntem Dienstmanager: systemd-Unit `pages-runner.service` (Boot-Start, `Restart=on-failure`), supervisord-Programm `pages-runner` (`autostart`, `autorestart`) oder ohne Dienstmanager nur ein Dauerbetrieb-Prozess; die Definition wird vor dem `sudo` angezeigt |
@@ -67,7 +67,7 @@ Zustände: `unknown`, `not_installed`, `running` (ein Setup hält die Verbindung
 
 ## Dauerhafte ausgehende Verbindung
 
-Der Runner ab Version 1.3.0 verwendet das bestehende Protokoll v1 und hält die ausgehende WS/WSS-Verbindung dauerhaft:
+Der Runner ab Version 1.4.0 verwendet das bestehende Protokoll v1 und hält die ausgehende WS/WSS-Verbindung dauerhaft:
 
 - Heartbeat alle 15 Sekunden, Abbruch nach 45 Sekunden ohne Nachricht von Pages.
 - Wiederverbindung mit exponentiellem Backoff bis höchstens 60 Sekunden plus Jitter, ohne Obergrenze der Versuche. Ein erfolgreicher Zustandsabgleich setzt den Backoff zurück; vor jeder weiteren Nachricht steht der Abgleich (`reconcile`), Pages bleibt maßgeblich.
@@ -86,9 +86,19 @@ Angezeigt wird nur, was Werkzeug oder Adapter tatsächlich liefern. **Unbekannt 
 
 ## Grenzen und offene Punkte
 
-- Die Prüfung auf einem echten Host (Docker-Testumgebung, echte CLI-Anmeldungen, GitHub-Verifikation mit Push und Pull, OpenRouter) steht aus (Phase B). Die supervisord- und die Dauerbetrieb-Zweige sind bisher nur gelesen und auf Syntax geprüft, nicht gegen einen laufenden supervisord ausgeführt.
+- Die geführte Erstinstallation und Dienstregistrierung sowie eine echte GitHub-Verifikation mit Push und Pull bleiben getrennt von der Runner-Kopplung und den nativen CLI-Aufträgen zu prüfen. Die manuellen Nachweise eines isolierten Runners ersetzen keine Prüfung der Installation unter systemd oder supervisord.
 - supervisord: Ein `supervisorctl`-Socket, den nur root öffnen darf, macht Registrierung und Zustand für Pages nicht abfragbar; das Setup endet dann als „teilweise“ (`serviceNotQueryable`). Startet supervisord ohne `-c` aus einer Datei im Arbeitsverzeichnis, ist seine Konfiguration für einen anderen Benutzer nicht sichtbar; dann bleibt nur der Dauerbetrieb-Prozess. Dass supervisord selbst beim Start der Umgebung startet, liegt außerhalb dieses Setups.
 - Ohne Dienstmanager zeigt die Phasenleiste die Phase 8 als fehlgeschlagen, obwohl der Runner läuft; der Grund („kein Dienstmanager“) steht in der Kopfzeile.
 - Das Setup-Artefakt wird als eine Befehlszeile übertragen (Base64). Es muss unter 128 KiB bleiben (`MAX_ARG_STRLEN`); derzeit gilt das mit deutlichem Abstand.
 - Schließt die Person das Panel, endet das Skript; ein laufender Paketvorgang des Hosts wird dabei unterbrochen. Die Anzeige warnt davor.
-- Das Skript legt kein Programm mit `curl | sh` an, ändert keine Shell-Profile und speichert keine Provider-Schlüssel. Die einzige Änderung an SSH-Dateien ist (nach Bestätigung) ein Eintrag für `github.com` in `~/.ssh/config`.
+- Das Skript legt kein Programm mit `curl | sh` an, ändert keine Shell-Profile und speichert keine Provider-Schlüssel. Neue GitHub-Schlüssel und bestätigte Hostdaten liegen unter `~/.config/pages-runner/github_ed25519` und `github_known_hosts`; nach Bestätigung kann ein Eintrag für `github.com` in `~/.ssh/config` darauf verweisen. Bestehende Schlüssel werden nicht automatisch migriert.
+
+## PAGE-151: Anmeldung, Identität und Katalog
+
+Runner 1.5.0 installiert `cli.mjs` und `github.mjs` neben Transport und Executor. Codex und Claude Code können anschließend als native Remote-CLI-Knoten eines Agent Plans laufen; siehe [PagesRunner.md](./PagesRunner.md#remote-cli-agenten-page-151-runner-140). Die CLI-Anmeldung führt die Person selbst auf dem Remote-Host aus. Phase 4 erklärt die Befehle, startet keine Anmeldung und überträgt keine vorhandenen lokalen Credentials oder Sitzungen. Einstellungen → Agents zeigt bestätigte Anmeldung getrennt von Installation und bietet „Inventar aktualisieren“.
+
+Eine zusätzliche erlaubte Wurzel, ein anderer Anzeigename oder erneuerte SSH-Secrets bei unveränderter Authentifizierungsart erhalten eine vorher gültige Runner-Kopplung. Host, Port, Benutzer, Hostschlüssel, Authentifizierungsart und Abteilung bleiben sicherheitsrelevant. Der Verbindungsdialog erklärt vor dem Speichern, dass diese Änderungen die Kopplung ungültig machen. Danach zeigt die Runner-Zeile den Zustand ausdrücklich und bietet Widerruf sowie nach stabiler Verbindung eine neue einmalige Freigabe. Eine fremde oder bereits ungültige Identität wird nicht übernommen.
+
+Nach Neu-Kopplung liest Pages den vorhandenen Remote-OpenRouter-Katalog erneut. Fehlt er, erklärt die Modellauswahl den Zustand und führt zur Synchronisation in Einstellungen → Agents. Ein vorhandener Runner-Schlüssel wird dabei ohne erneute Übertragung benutzt; ein fehlender Schlüssel muss ausdrücklich hinterlegt werden. Die CLI-Modellpicker sind davon unabhängig.
+
+Die Remote-Workspace-Zeile prüft den eigenen GitHub-Schlüssel des Runners über `git ls-remote` und einen ausschließlich mit `git push --dry-run` ausgeführten Schreibprobeaufruf. Lesen und Schreiben werden getrennt ausgewiesen: nur lesend, kein Zugriff oder nicht prüfbar. Ein zufälliger, vorher als nicht vorhanden geprüfter Referenzname und ein privates temporäres Bare-Repository vermeiden Änderungen am Projekt; keine Remote-Referenz wird angelegt. Es werden keine Schlüsselrechte verändert. Fehlende Schlüssel, nicht bestätigte Hostdaten und Netzwerkfehler bleiben unbekannt. Die bisherigen Offline-Metadatenoperationen bleiben netzwerkfrei. Details einschließlich Betreiberpfaden und Protokoll stehen in [PagesRunner.md](./PagesRunner.md#katalog-und-github-rechte).

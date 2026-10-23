@@ -14,6 +14,8 @@ import {
 } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { homedir } from "node:os";
+import { spawnCli, cliOutput } from "./cli.mjs";
 
 const credentials =
   /\b(?:sk-[a-zA-Z0-9_-]{12,}|gh[pousr]_[a-zA-Z0-9]{12,}|github_pat_[a-zA-Z0-9_]+|Bearer\s+\S+|(?:api[_ -]?key|access[_ -]?token|password|client[_ -]?secret)\s*[=:]\s*["']?[^\s"']+)/gi;
@@ -91,7 +93,20 @@ function safeOutput(output, secrets = knownSecrets) {
   let redacted = output;
   for (const secret of secrets)
     if (secret) redacted = redacted.replaceAll(secret, "[redacted]");
-  return redacted.replace(credentials, "[redacted]");
+  return redacted
+    .replace(
+      /-----BEGIN [^-]*PRIVATE KEY-----[\s\S]*?(?:-----END [^-]*PRIVATE KEY-----|$)/gu,
+      "[redacted]",
+    )
+    .replace(
+      /\beyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\b/gu,
+      "[redacted]",
+    )
+    .replace(
+      /((?:refresh[_ -]?token|authorization)["']?\s*[=:]\s*["']?)(?:Bearer\s+)?[^\s,;"'}]+/giu,
+      "$1[redacted]",
+    )
+    .replace(credentials, "[redacted]");
 }
 
 /** A persistent claim is never spawned a second time, even after a bootstrap crash. */
@@ -122,6 +137,8 @@ export async function claimJob(directory, job) {
         HOME: directory,
         LANG: "C.UTF-8",
         NODE_OPTIONS: "--max-old-space-size=128",
+        PAGES_RUNNER_CLI_HOME: process.env.PAGES_RUNNER_CLI_HOME ?? homedir(),
+        PAGES_RUNNER_CLI_PATH: process.env.PATH,
       },
     },
   );
@@ -234,7 +251,8 @@ async function checkedCommand(job, folder) {
   if (
     !command ||
     command.revision !== job.plan.planRevision ||
-    command.timeoutSeconds < 1 ||
+    command.timeoutSeconds < 0 ||
+    (command.timeoutSeconds === 0 && command.program.kind !== "cli") ||
     command.timeoutSeconds > 86400 ||
     command.outputBytes > 65536 ||
     Buffer.byteLength(command.input) > 1048576
@@ -308,9 +326,12 @@ function spawnScript(command, folder, jobId) {
   );
 }
 
-async function scriptJob(command, folder, context) {
+async function processJob(command, folder, context) {
   const { jobId, signal } = context;
-  const child = spawnScript(command, folder, jobId);
+  const isCli = command.program.kind === "cli";
+  const child = isCli
+    ? await spawnCli(command, jobId, signal)
+    : spawnScript(command, folder, jobId);
   let output = "";
   let diagnostic = "";
   const outputDecoder = new TextDecoder("utf-8", { fatal: true });
@@ -334,7 +355,7 @@ async function scriptJob(command, folder, context) {
       processId: child.pid,
       identity: await identity(child.pid),
     });
-  const receive = (chunk) => {
+  const receive = (chunk, channel) => {
     bytes += chunk.length;
     if (bytes > command.outputBytes) {
       failure = "output_limit";
@@ -342,7 +363,9 @@ async function scriptJob(command, folder, context) {
       return;
     }
     try {
-      output += outputDecoder.decode(chunk, { stream: true });
+      if (channel === "stdout")
+        output += outputDecoder.decode(chunk, { stream: true });
+      else diagnostic += diagnosticDecoder.decode(chunk, { stream: true });
     } catch {
       failure = "exit";
       stop();
@@ -353,26 +376,13 @@ async function scriptJob(command, folder, context) {
       failure = "spawn";
     });
   };
-  child.stdout.on("data", receive);
-  child.stderr.on("data", (chunk) => {
-    bytes += chunk.length;
-    if (bytes > command.outputBytes) {
-      failure = "output_limit";
-      stop();
-      return;
-    }
-    try {
-      diagnostic += diagnosticDecoder.decode(chunk, { stream: true });
-    } catch {
-      failure = "exit";
-      stop();
-    }
-  });
+  child.stdout.on("data", (chunk) => receive(chunk, "stdout"));
+  child.stderr.on("data", (chunk) => receive(chunk, "stderr"));
   child.stdin.on("error", () => {
     failure = "spawn";
     stop();
   });
-  child.stdin.end(command.input);
+  child.stdin.end(isCli ? command.program.prompt : command.input);
   const abort = () => {
     failure = signal.reason === "timeout" ? "timeout" : "cancelled";
     stop();
@@ -381,7 +391,7 @@ async function scriptJob(command, folder, context) {
   if (signal.aborted) abort();
   const progress = setInterval(() => {
     void store(join(folder, "progress.json"), {
-      output: safeOutput(output),
+      output: safeOutput(isCli ? cliOutput(command, output) : output),
       closeout: "pending",
     }).catch(stop);
   }, 1000);
@@ -395,7 +405,10 @@ async function scriptJob(command, folder, context) {
     }
     return {
       ...result,
-      output: safeOutput(output),
+      ...(isCli && result.exitCode === 0 && !cliOutput(command, output)
+        ? { exitCode: 1, reason: "exit" }
+        : {}),
+      output: safeOutput(isCli ? cliOutput(command, output) : output),
       stderr: safeOutput(diagnostic),
     };
   } finally {
@@ -500,16 +513,19 @@ async function executeWorker(folder) {
       })
       .catch(() => controller.abort("cancelled"));
   }, 250);
-  const timeout = setTimeout(
-    () => controller.abort("timeout"),
-    job.execution.timeoutSeconds * 1000,
-  );
+  const timeout =
+    job.execution.timeoutSeconds === 0
+      ? null
+      : setTimeout(
+          () => controller.abort("timeout"),
+          job.execution.timeoutSeconds * 1000,
+        );
   let result;
   try {
     const command = await checkedCommand(job, folder);
     result =
-      command.program.kind === "script"
-        ? await scriptJob(command, folder, {
+      command.program.kind !== "model"
+        ? await processJob(command, folder, {
             jobId: job.jobId,
             signal: controller.signal,
           })

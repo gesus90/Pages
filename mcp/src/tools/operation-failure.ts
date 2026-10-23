@@ -59,6 +59,17 @@ const REJECTION_REASONS: Readonly<
 
 /** Every finding of the plan graph check, so a refused plan names what to fix. */
 const ISSUE_PROBLEMS: Readonly<Record<AgentPlanIssueProblem, true>> = {
+  remoteModel: true,
+  remoteInterpreter: true,
+  remoteContainer: true,
+  remoteOffline: true,
+  remoteIdentity: true,
+  remoteCatalog: true,
+  remoteWorkspace: true,
+  remoteToolMissing: true,
+  remoteLogin: true,
+  remoteLoginUnknown: true,
+  remoteOptions: true,
   groupSize: true,
   groupProvider: true,
   groupConfiguration: true,

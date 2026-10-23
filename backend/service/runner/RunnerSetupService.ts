@@ -6,6 +6,8 @@ import setupTemplate from "@/scripts/pages_setup.sh?raw";
 import serviceManager from "@/scripts/runner/service-manager.sh?raw";
 import runnerTransport from "@/scripts/runner/transport.mjs?raw";
 import runnerExecution from "@/scripts/runner/execution.mjs?raw";
+import runnerGitHub from "@/scripts/runner/github.mjs?raw";
+import runnerCli from "@/scripts/runner/cli.mjs?raw";
 import type { RemoteConnectionService } from "@/backend/service/remote/RemoteConnectionService";
 import type { RemoteSessionRegistry } from "@/backend/remote/RemoteSessionRegistry";
 import type { RunnerService } from "./RunnerService";
@@ -13,7 +15,9 @@ import type { RunnerService } from "./RunnerService";
 const setupScript = setupTemplate
   .replace("__PAGES_SERVICE_MANAGER__", () => serviceManager)
   .replace("__PAGES_RUNNER_TRANSPORT__", () => runnerTransport)
-  .replace("__PAGES_RUNNER_EXECUTION__", () => runnerExecution);
+  .replace("__PAGES_RUNNER_EXECUTION__", () => runnerExecution)
+  .replace("__PAGES_RUNNER_CLI__", () => runnerCli)
+  .replace("__PAGES_RUNNER_GITHUB__", () => runnerGitHub);
 
 /** Runs the lines under a POSIX shell, whichever login shell the user has. */
 function shellCommand(lines: readonly string[]): string {

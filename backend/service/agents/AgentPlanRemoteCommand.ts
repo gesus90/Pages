@@ -3,7 +3,9 @@ import {
   planScriptIssues,
   planScriptParameters,
 } from "@/definition/AgentPlanScript";
+import { agentRunOptionsFor } from "@/definition/AgentConfiguration";
 import { planBindings } from "./AgentPlanBindings";
+import { buildPlanContract, renderPlanAssignment } from "./AgentPlanContract";
 import type {
   RunnerExecution,
   RunnerInterpreter,
@@ -67,8 +69,42 @@ export function remoteModelCommand(
   basis: CommandBasis,
 ): RunnerExecution {
   const configuration = step.configuration;
-  if (!configuration?.runnerRoute || step.completion === "todos")
-    throw new AgentError("plan_context_changed");
+  if (!configuration?.runnerRoute) throw new AgentError("plan_context_changed");
+  const route = configuration.runnerRoute;
+  if (route.tool) {
+    const options = agentRunOptionsFor(
+      route.tool === "codex" ? "codex_cli" : "claude_code",
+      configuration.template.run,
+    );
+    if (options.access === "workspace_write" || options.browser)
+      throw new AgentError("plan_context_changed");
+    const isReadOnly = options.access === "read_only";
+    const contract = buildPlanContract(step.instruction, [], {
+      isReadOnly,
+      completion: step.completion,
+    });
+    const assignment = renderPlanAssignment({
+      contract,
+      isReadOnly,
+      usesMcp: false,
+      runnerLabel: route.tool,
+      instanceId: step.id,
+      directory: basis.workspace,
+    });
+    return {
+      ...basis,
+      timeoutSeconds: options.timeoutMinutes * 60,
+      program: {
+        kind: "cli",
+        route,
+        model: configuration.model,
+        reasoningEffort: configuration.reasoningEffort,
+        access: options.access,
+        prompt: `${configuration.template.markdown}\n\n${step.instruction}\n\n${assignment}`,
+      },
+    };
+  }
+  if (step.completion === "todos") throw new AgentError("plan_context_changed");
   return {
     ...basis,
     timeoutSeconds:

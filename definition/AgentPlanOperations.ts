@@ -56,6 +56,17 @@ export type AgentPlanWriteOperation =
  * graph check of Pages uses exactly these names.
  */
 export const AGENT_PLAN_ISSUE_PROBLEMS = [
+  "remoteModel",
+  "remoteInterpreter",
+  "remoteContainer",
+  "remoteOffline",
+  "remoteIdentity",
+  "remoteCatalog",
+  "remoteWorkspace",
+  "remoteToolMissing",
+  "remoteLogin",
+  "remoteLoginUnknown",
+  "remoteOptions",
   "groupSize",
   "groupProvider",
   "groupConfiguration",
