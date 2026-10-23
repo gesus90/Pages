@@ -1,6 +1,7 @@
 import { RuntimeToolRegistry } from "@/backend/agents/runtime/RuntimeToolRegistry";
 import { redactCredentials } from "@/backend/security/AgentTextSafety";
 
+import { ChatResultBudget } from "./ChatResultBudget";
 import { registerPicaPlanTools } from "./PicaPlanTools";
 import { registerPicaAdminTools } from "./admin/PicaAdminTools";
 import { CHAT_MAXIMUM_ACTIONS } from "./ChatExecutionLimits";
@@ -21,6 +22,7 @@ import type { PicaAdminService } from "./admin/PicaAdminService";
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
 import type { ChatAnswerFileService } from "./ChatAnswerFileService";
 import type { ChatSessionService } from "./ChatSessionService";
+import type { ChatActionOutcome } from "./ChatPrompt";
 import type { ChatOperation } from "./ChatToolCatalog";
 import type { ChatToolExecutor } from "./ChatToolExecutor";
 import type {
@@ -31,7 +33,11 @@ import type {
 
 /** Services captured by the server for the native tool catalog of one turn. */
 export interface PicaToolsInput {
-  readonly tools: Pick<ChatToolExecutor, "run">;
+  readonly tools: Pick<ChatToolExecutor, "run"> &
+    Partial<Pick<ChatToolExecutor, "runPlan">>;
+  /** Raw current human message only; never a model prompt, history or attachment text. */
+  readonly message?: string;
+  readonly planTurnId?: string;
   /** The word the deletions of the person's interface language take; Pages passes it, never the model. */
   readonly sessions: Pick<ChatSessionService, "confirmationWord">;
   readonly authorize: () => Promise<void>;
@@ -352,6 +358,30 @@ async function createAnswerFile(
   }
 }
 
+async function dispatchAction(
+  input: PicaToolsInput,
+  binding: PicaToolBinding,
+  parameters: ToolParameters,
+  context: RuntimeExecutionContext,
+): Promise<ChatActionOutcome> {
+  if (binding.operation === "plans.delete" && !input.tools.runPlan)
+    return { ok: false, error: "CONFIRMATION_REQUIRED" };
+  const confirmation = isChatDeleteOperation(binding.operation)
+    ? await input.sessions.confirmationWord(context.userId)
+    : null;
+  const action = {
+    operation: binding.operation,
+    parameters: binding.parameters?.(parameters, context) ?? parameters,
+  };
+  return binding.operation.startsWith("plans.") && input.tools.runPlan
+    ? await input.tools.runPlan(action, context, {
+        message: input.message ?? "",
+        id: input.planTurnId,
+        confirmation: await input.sessions.confirmationWord(context.userId),
+      })
+    : await input.tools.run(context.userId, action, confirmation);
+}
+
 /**
  * Creates the native tools with fixed service dispatch and fresh rights.
  *
@@ -366,6 +396,7 @@ export function createPicaTools(input: PicaToolsInput): RuntimeToolRegistry {
   const registry = new RuntimeToolRegistry();
   const failedWrites = new Set<string>();
   const budget: ToolBudget = { calls: 0 };
+  const results = new ChatResultBudget();
   const execute = async (
     binding: PicaToolBinding,
     parameters: ToolParameters,
@@ -374,21 +405,24 @@ export function createPicaTools(input: PicaToolsInput): RuntimeToolRegistry {
     await input.authorize();
     context.signal.throwIfAborted();
     if (!spend(input, budget)) return refused("STEP_LIMIT");
-    const confirmation = isChatDeleteOperation(binding.operation)
-      ? await input.sessions.confirmationWord(context.userId)
-      : null;
-    const outcome = await input.tools.run(
-      context.userId,
-      {
-        operation: binding.operation,
-        parameters: binding.parameters?.(parameters, context) ?? parameters,
-      },
-      confirmation,
+    const outcome = results.consume(
+      await dispatchAction(input, binding, parameters, context),
     );
     context.signal.throwIfAborted();
-    if (!outcome.ok) return refused(outcome.error ?? "FAILED");
+    if (!outcome.ok)
+      return {
+        ...refused(outcome.error ?? "FAILED"),
+        result:
+          outcome.result === undefined && outcome.details === undefined
+            ? null
+            : redactCredentials(
+                JSON.stringify({
+                  result: outcome.result ?? null,
+                  details: outcome.details ?? null,
+                }),
+              ),
+      };
     const result = redactCredentials(JSON.stringify(outcome.result ?? null));
-    if (result.length > 20_000) return refused("RESULT_TOO_LARGE");
     return { ok: true, result, error: null };
   };
   const write = async (

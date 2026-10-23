@@ -141,6 +141,8 @@ export function sessionOperations(
       operation !== "plans.templates.list" &&
       operation !== "plans.templates.read" &&
       operation !== "plans.control.read" &&
+      operation !== "plans.capabilities.read" &&
+      operation !== "plans.run.recovery.read" &&
       !AGENT_PROJECT_DELETION_WRITE_OPERATIONS.some(
         (deletion) => deletion === operation,
       ),

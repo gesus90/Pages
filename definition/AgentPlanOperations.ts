@@ -1,3 +1,4 @@
+import type { AgentReadChunk } from "./AgentReadChunks.js";
 import type {
   AgentPlanExecutionTarget,
   AgentPlanRemoteTarget,
@@ -25,6 +26,8 @@ export const AGENT_PLAN_READ_OPERATIONS = [
 
 /** Additional personal-client resource reads; existing plan/chat reads keep their original registry. */
 export const AGENT_PLAN_RESOURCE_READ_OPERATIONS = [
+  "plans.capabilities.read",
+  "plans.run.recovery.read",
   "plans.templates.list",
   "plans.templates.read",
   "plans.control.read",
@@ -458,6 +461,19 @@ export interface AgentPlanRunDetail extends AgentPlanRunSummary {
   readonly endedAt: string | null;
   readonly stopRequested: boolean;
   readonly steps: readonly AgentPlanRunStepEntry[];
+  readonly continuationVersion?: number;
+  readonly appliedPlanRevision?: number;
+  readonly loops?: readonly {
+    readonly loopId: string;
+    readonly status: string;
+    readonly completion: string | null;
+    readonly cleanup: string;
+    readonly iterations: readonly {
+      readonly iteration: number;
+      readonly status: string;
+      readonly steps: readonly AgentPlanRunStepEntry[];
+    }[];
+  }[];
 }
 
 export interface AgentPlanRunRead {
@@ -466,6 +482,8 @@ export interface AgentPlanRunRead {
 
 /** The report of one node of a run; `runId` and `stepId` name exactly where it belongs. */
 export interface AgentPlanReport {
+  readonly loopId?: string;
+  readonly iteration?: number;
   readonly runId: string;
   readonly planId: string;
   readonly stepId: string;
@@ -511,15 +529,62 @@ export interface AgentPlanChanged {
 }
 
 export type AgentPlanReadResult =
+  | AgentReadChunk
   | AgentPlanList
   | AgentPlanRead
   | AgentPlanSourceList
   | AgentPlanRunList
   | AgentPlanRunRead
   | AgentPlanReportList
+  | { readonly capabilities: AgentPlanCapabilities }
+  | { readonly recovery: AgentPlanRecoveryEntry }
   | { readonly templates: readonly AgentPlanTemplateEntry[] }
   | { readonly template: AgentPlanTemplateEntry }
   | { readonly control: AgentPlanControlEntry };
+
+/** Additive contract revision, independently observable from a client's MCP bundle version. */
+export const AGENT_PLAN_CONTRACT_VERSION = 2;
+
+/** Implementation discovery never substitutes for current per-plan access and availability. */
+export interface AgentPlanCapabilities {
+  readonly contractVersion: number;
+  readonly operations: readonly (
+    AgentPlanReadOperation | AgentPlanWriteOperation | AgentPlanCommandOperation
+  )[];
+  readonly cloneSharing: "create_default";
+  readonly resume: "durable_pause_boundary";
+  /** Human provenance supported by each transport of this implementation. */
+  readonly deletionConfirmation: {
+    readonly stdio: "client_form";
+    readonly http: "unavailable";
+    readonly pica: "target_bound_message";
+  };
+}
+
+/** Existing recovery availability, projected without checkpoints, prompts or provider-session identifiers. */
+export interface AgentPlanRecoveryEntry {
+  readonly planId: string;
+  readonly runId: string;
+  readonly revision: number;
+  readonly planRevision: number;
+  readonly currentPlanRevision: number;
+  readonly state: string;
+  readonly restart: {
+    readonly available: boolean;
+    readonly reason: string | null;
+  };
+  readonly resume: {
+    readonly available: boolean;
+    readonly reason: string | null;
+    readonly modes: readonly {
+      readonly mode: string;
+      readonly available: boolean;
+    }[];
+  };
+  readonly blockers: readonly string[];
+  /** Recovery commands remain on the existing editor workflow; pause/resume never stand in for them. */
+  readonly commandSurface: "editor";
+}
 
 /** Existing editor templates are append-only; update/delete are not product operations. */
 export interface AgentPlanTemplateEntry {
@@ -537,15 +602,27 @@ export interface AgentPlanTemplateEntry {
 
 /** Available saved-plan controls, without another executor's results. */
 export interface AgentPlanControlEntry {
+  readonly planId: string;
+  readonly revision: number;
+  readonly status: AgentPlanRunStatus | "idle";
+  readonly canEdit: boolean;
+  readonly canDelete: boolean;
   readonly canPlay: boolean;
   readonly canPause: boolean;
   readonly canResume: boolean;
   readonly canStop: boolean;
   readonly issue: string | null;
+  readonly blockers: Readonly<
+    Record<"delete" | "play" | "pause" | "resume" | "stop", string | null>
+  >;
+  readonly runId?: string;
+  readonly planRevision?: number;
+  readonly continuationVersion?: number;
 }
 
 /** Explicit commands, separate from graph edits and parameter aliases. */
 export const AGENT_PLAN_COMMAND_OPERATIONS = [
+  "plans.clone",
   "plans.delete",
   "plans.play",
   "plans.pause",
@@ -563,4 +640,12 @@ export interface AgentPlanCommandResult {
   readonly runId?: string;
   readonly templateId?: string;
   readonly deleted?: boolean;
+  readonly sourcePlanId?: string;
+  readonly sourceRevision?: number;
+  readonly workspaceId?: string;
+  readonly action?: AgentPlanCommandOperation;
+  /** Freshly read state, rather than the state at the time an operation was journaled. */
+  readonly status?: AgentPlanRunStatus | "idle" | "deleted";
+  readonly planRevision?: number;
+  readonly control?: AgentPlanControlEntry;
 }

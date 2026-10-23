@@ -60,7 +60,7 @@ export function registerPicaPlanTools(
     const isWrite = writes.some((entry) => entry.operation === operation);
     registry.register({
       id: tool.name,
-      description: `${tool.description ?? tool.name} Pages supplies operationId and deletion confirmation. Edits never start a run; only explicit Play or Resume does.`,
+      description: `${tool.description ?? tool.name} Pages supplies a stable operationId. For plan deletion Pages binds the existing confirmation word to this exact plan and revision and requires the person's reply in a later message; never fabricate it. Edits never start a run; only an explicit separate user request for Play or Resume does.`,
       inputSchema: schema,
       outputSchema: PICA_TOOL_OUTCOME,
       execute: async (input, context) => {

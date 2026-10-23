@@ -20,7 +20,7 @@ import type { AgentPlanBinding, AgentPlanNode } from "@/definition/AgentPlan";
 import type { AgentPlanWriteOperation } from "@/definition/AgentPlanOperations";
 import type { PageAgentSharingRequest } from "./PageAgentOperationInput";
 
-/** Changes one call may carry; a plan holds at most 100 nodes and 500 connections. */
+/** Changes one call may carry; each change batch stays bounded independently of the saved graph. */
 const MAXIMUM_CHANGES = 200;
 const MAXIMUM_NAME_LENGTH = 120;
 const MAXIMUM_TEXT_FILTER_LENGTH = 200;
@@ -314,10 +314,18 @@ export function readPlanListRequest(input: unknown): AgentPlanListRequest {
  * @param input - The raw parameters.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or malformed parameter.
  */
-export function readPlanReadRequest(input: unknown): string {
+export function readPlanReadRequest(input: unknown): {
+  readonly planId: string;
+  readonly cursor?: unknown;
+  readonly maxBytes?: unknown;
+} {
   const parameters = readParameterRecord(input);
-  requireParameterKeys(parameters, ["planId"]);
-  return readIdentifier(parameters.planId);
+  requireParameterKeys(parameters, ["planId"], ["cursor", "maxBytes"]);
+  return {
+    planId: readIdentifier(parameters.planId),
+    cursor: parameters.cursor,
+    maxBytes: parameters.maxBytes,
+  };
 }
 
 /**

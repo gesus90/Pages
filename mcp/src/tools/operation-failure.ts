@@ -1,3 +1,5 @@
+import { AGENT_LIMIT_CONSTRAINTS } from "../../../definition/PagesAgentOperations.js";
+
 import { isRecord } from "../is-record.js";
 
 import type {
@@ -11,22 +13,6 @@ import type {
   AgentProjectCandidates,
   AgentRejectionReason,
 } from "../../../definition/PagesAgentOperations.js";
-
-const LIMIT_CONSTRAINTS = [
-  "wikiContentBytes",
-  "ticketDescriptionUtf16Units",
-  "textRangeCharacters",
-  "requestBytes",
-  "responseBytes",
-  "importIndexEntries",
-  "importFiles",
-  "importFileBytes",
-  "importContentBytes",
-  "importPathBytes",
-  "importSources",
-  "importLinks",
-  "importAssets",
-] as const satisfies readonly AgentLimitDetails["constraint"][];
 
 /** Every reason of the contract, so a new one cannot be left out of the whitelist unnoticed. */
 const REJECTION_REASONS: Readonly<
@@ -57,6 +43,15 @@ const REJECTION_REASONS: Readonly<
   plan_script_invalid: true,
   plan_script_profile_missing: true,
   plan_name_taken: true,
+  plan_schema_unsupported: true,
+  plan_running: true,
+  plan_run_unavailable: true,
+  plan_remote_unavailable: true,
+  plan_context_changed: true,
+  plan_workspace_conflict: true,
+  plan_script_permission_denied: true,
+  plan_script_interpreter_unavailable: true,
+  plan_continuation_deleted: true,
   checklist_items_invalid: true,
   checklist_item_duplicate: true,
   checklist_item_unknown: true,
@@ -141,7 +136,7 @@ export class PagesOperationError extends Error {
 function readLimit(input: unknown): AgentLimitDetails | undefined {
   if (!isRecord(input)) return undefined;
   const fields = input;
-  const constraint = LIMIT_CONSTRAINTS.find(
+  const constraint = AGENT_LIMIT_CONSTRAINTS.find(
     (name) => name === fields.constraint,
   );
   if (

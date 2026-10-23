@@ -78,7 +78,7 @@ const RUN =
   "runId | planId + select: latest|first; runId optional mit planId zur Prüfung";
 const SCRIPT_FIELDS =
   "interpreterProfileId?, content?, inputs?: [{name, type: text, isRequired}], outputs?: [{name, type: text}], timeoutSeconds?";
-const CHANGES = `placeNode(nodeId, groupId|null, x, y), ungroup(nodeId, positions), insertTemplate(templateId, x, y) und changes?: [{action: addNode, node: {type: start|end|agent|script|task|parameter|group, id?, x?, y?, agentId?, personalAgentId?, configuration?: {connectionId, model, reasoningEffort?, template?: {markdown?, parameters?, directoryParameter?, run?}}, instruction?, taskId?, name?, format?, value?, ${SCRIPT_FIELDS}}} | {action: updateNode, nodeId, fields: {x?, y?, agentId?, personalAgentId?, configuration?: {connectionId, model, reasoningEffort?, template?: {markdown?, parameters?, directoryParameter?, run?}}, instruction?, taskId?, name?, format?, value?, ${SCRIPT_FIELDS}}} | {action: removeNode, nodeId} | {action: connect|disconnect, from, to} | {action: bind, nodeId, parameter, binding: {kind: source, nodeId}|{kind: result, stepId}|{kind: literal, value}} | {action: unbind, nodeId, parameter}]`;
+const CHANGES = `placeNode(nodeId, groupId|null, x, y), placeLoopNode(nodeId, loopId|null, x, y), ungroup(nodeId, positions), insertTemplate(templateId, x, y) und changes?: [{action: addNode, node: {type: start|end|agent|script|task|parameter|group|loop, id?, x?, y?, agentId?, personalAgentId?, executionTarget?, configuration?: {connectionId, model, reasoningEffort?, template?: {markdown?, parameters?, directoryParameter?, run?}}, instruction?, taskId?, name?, format?, value?, runs?, runsSource?, countMode?, sessionPolicy?, condition?, ${SCRIPT_FIELDS}}} | {action: updateNode, nodeId, fields: {x?, y?, agentId?, personalAgentId?, executionTarget?, configuration?: {connectionId, model, reasoningEffort?, template?: {markdown?, parameters?, directoryParameter?, run?}}, instruction?, taskId?, name?, format?, value?, runs?, runsSource?, countMode?, sessionPolicy?, condition?, ${SCRIPT_FIELDS}}} | {action: removeNode, nodeId} | {action: connect|disconnect, from, to} | {action: bind, nodeId, parameter, binding: {kind: source, nodeId}|{kind: result|previous, stepId}|{kind: literal, value}} | {action: unbind, nodeId, parameter}]`;
 
 /**
  * Parameters and purpose of every chat operation, as the agent reads them.
@@ -103,6 +103,12 @@ const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
   "agents.clone": "Abgelöst: einen Node oder eine Plan-Vorlage kopieren.",
   "agents.delete":
     "Abgelöst: Altbestände bleiben erhalten; Node-Entfernung erfolgt im Plan.",
+  "plans.capabilities.read":
+    "{} Planvertragsversion und implementierte persönliche Operationen lesen; keine Rechtefreigabe",
+  "plans.run.recovery.read":
+    "{planId, runId} vorhandene Recovery-/Neustartfähigkeit und Sperrgründe des eigenen Runs lesen; Ausführung bleibt im bestehenden Editor-Workflow und ist kein Pause-Resume",
+  "plans.clone":
+    "{planId, expectedRevision, name, workspaceId?} vollständigen gespeicherten Plan atomar mit unabhängigen IDs kopieren; ohne workspaceId im Quellworkspace, mit normalen Create-Rechten und ohne übernommene Lesefreigaben, Historie oder Start",
   "plans.templates.list": "{workspaceId} sichtbare Node-Vorlagen lesen",
   "plans.templates.read":
     "{workspaceId, templateId} eine sichtbare Node-Vorlage lesen",
@@ -110,7 +116,7 @@ const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
   "plans.templates.save":
     "{planId, expectedRevision, nodeId, name} eine Node-Vorlage speichern, ohne Ausführung",
   "plans.delete":
-    "{planId, expectedRevision} eigenen Plan löschen, wenn kein Run aktiv ist",
+    "{planId, expectedRevision} eigenen Plan löschen, wenn kein Run aktiv ist; exaktes Ziel und Folgen nennen, bestehendes Bestätigungswort der Person in einer späteren Nachricht abwarten",
   "plans.play":
     "{planId, expectedRevision} gespeicherte Revision ausdrücklich starten",
   "plans.pause": "{planId, expectedRevision, runId} eigenen Run pausieren",
@@ -119,7 +125,7 @@ const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
   "plans.stop": "{planId, expectedRevision, runId} eigenen Run stoppen",
   "plans.list": `{text?, projectId?, ${WINDOW}} sichtbare Agent Plans nach Name mit Projekt, team (Abteilung des Plans), Freigabe, canEdit, revision, state (idle|running|pausing|paused|stopping) und latestRun; text sucht im Namen`,
   "plans.read":
-    "{planId} Agent Plan mit nodes (label, Agent, Script, Ticket, Parameter, bindings), edges (Ablauf from → to), Freigabe, revision und status (state, runCount, latestRun, isRunnable, issues) lesen",
+    "{planId, cursor?, maxBytes?} Agent Plan lesen; über 64 KiB als chunk mit text, Byte-Offsets, SHA-256 und nextCursor (als cursor fortsetzen), höchstens 1 MiB insgesamt; nach Änderung neu lesen. Kleine Antworten mit nodes (label, Agent, Script, Ticket, Parameter, bindings), edges (Ablauf from → to), Freigabe, revision und status (state, runCount, latestRun, isRunnable, issues) lesen",
   "plans.sources.read":
     "{workspaceId?} Arbeitsbereiche für neue Pläne; mit workspaceId auch die Agents mit ihren Parametern für Agent-Nodes und die Interpreterprofile (id, name, status, version) für Script-Nodes",
   "plans.runs.list": `{planId, order?: newest|oldest, ${WINDOW}} eigene Runs eines Plans mit runId, planId, startedAt und status, seitenweise (Standard 20 pro Seite)`,

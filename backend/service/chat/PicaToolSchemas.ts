@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { AGENT_READ_LIMITS } from "@/definition/AgentReadChunks";
 import { CHAT_LIMITS } from "@/definition/Chat";
 import { PROJECT_STATUS } from "@/definition/Project";
 import { WORK_ITEM_TYPE } from "@/definition/Task";
@@ -18,8 +19,8 @@ const ticketType = z.enum(Object.values(WORK_ITEM_TYPE));
  * The longest text a write takes, such as a description, a page or a comment.
  *
  * @remarks
- * A tool result reaches the model with at most 20 000 characters, so a longer
- * text could never have been read completely before it is replaced.
+ * Whole-text replacements keep their separate input budget; larger texts
+ * use the bounded range tools. Read results have their own shared byte limits.
  */
 const WRITE_TEXT_CHARACTERS = 20_000;
 
@@ -330,7 +331,7 @@ export const PICA_FILE_SCHEMA = z
 export const PICA_TOOL_OUTCOME = z
   .object({
     ok: z.boolean(),
-    result: z.string().max(20_000).nullable(),
+    result: z.string().max(AGENT_READ_LIMITS.totalBytes).nullable(),
     error: z.string().max(100).nullable(),
   })
   .strict();

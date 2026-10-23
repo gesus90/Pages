@@ -52,7 +52,10 @@ export function planControl(
     canResume: canControl && run.status === "paused" && !issue,
     canStop: canControl && isActive,
     canEdit: plan.canEdit,
-    issue: issue ?? runFailure(run, context.hasReservation),
+    issue:
+      run.userId === context.userId
+        ? (issue ?? runFailure(run, context.hasReservation))
+        : null,
   };
 }
 

@@ -31,6 +31,9 @@ export interface PicaApiImage {
 
 /** Server-built turn data: the person and the conversation the turn belongs to. */
 export interface PicaApiInput extends TextExecutionInput {
+  /** Original human text, kept separate from the assembled model prompt. */
+  readonly message?: string;
+  readonly messageId?: string;
   readonly actor: User;
   readonly sessionId: string;
   /** The run the answer files of this turn belong to; a fresh one by default. */
@@ -44,7 +47,8 @@ export interface PicaApiDependencies {
   readonly adminTools?: PicaAdminService;
   readonly models: Pick<PicaApiModels, "use" | "authorize">;
   readonly sessions: Pick<ChatSessionService, "require" | "confirmationWord">;
-  readonly tools: Pick<ChatToolExecutor, "run">;
+  readonly tools: Pick<ChatToolExecutor, "run"> &
+    Partial<Pick<ChatToolExecutor, "runPlan">>;
   /** Stores files Pica writes for its answer; without it the file tool is not offered. */
   readonly answerFiles?: Pick<ChatAnswerFileService, "stage">;
   readonly requireCurrent?: (input: PicaApiInput) => Promise<void>;
@@ -134,6 +138,8 @@ export class PicaApiService {
       context,
       maxSteps: CHAT_MAXIMUM_MODEL_STEPS,
       tools: createPicaTools({
+        message: input.message,
+        planTurnId: input.messageId,
         tools: this.dependencies.tools,
         sessions: this.dependencies.sessions,
         authorize: context.authorize,

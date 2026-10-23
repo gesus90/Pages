@@ -16,7 +16,8 @@ function contextHash(context: string): string {
   return createHash("sha256").update(context).digest("hex");
 }
 
-function readAfter(window: AgentListWindow): string | null {
+/** Reads a continuation only for the same account and query context. */
+export function readAgentCursor(window: AgentListWindow): string | null {
   if (window.cursor === undefined || window.cursor === null) return null;
   if (typeof window.cursor !== "string" || window.cursor.length > 2048)
     throw new AgentOperationError("INVALID_REQUEST");
@@ -61,7 +62,7 @@ export function pageAgentEntries<T extends { readonly id: string }>(
     limit > 100
   )
     throw new AgentOperationError("INVALID_REQUEST");
-  const after = readAfter(window);
+  const after = readAgentCursor(window);
   const ordered = window.preserveOrder
     ? [...entries]
     : [...entries].sort((left, right) =>
@@ -75,13 +76,7 @@ export function pageAgentEntries<T extends { readonly id: string }>(
     total: entries.length,
     nextCursor:
       remaining.length > selected.length && last
-        ? Buffer.from(
-            JSON.stringify({
-              version: 1,
-              context: contextHash(window.context),
-              after: last.id,
-            }),
-          ).toString("base64url")
+        ? createAgentCursor(window.context, last.id)
         : null,
   };
 }
@@ -96,4 +91,11 @@ function entriesAfter<T extends { readonly id: string }>(
   const index = entries.findIndex((entry) => entry.id === after);
   if (index < 0) throw new AgentOperationError("INVALID_REQUEST");
   return entries.slice(index + 1);
+}
+
+/** Encodes a continuation in the shared context-bound cursor format. */
+export function createAgentCursor(context: string, after: string): string {
+  return Buffer.from(
+    JSON.stringify({ version: 1, context: contextHash(context), after }),
+  ).toString("base64url");
 }

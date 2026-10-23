@@ -307,7 +307,7 @@ export class PicaAcpJob {
 
   private async execute(signal: AbortSignal): Promise<void> {
     const { resumeSessionId } = this.specification;
-    await this.beginTurn("message");
+    await this.beginTurn("message", this.specification.message);
     let result = await this.openTurn(resumeSessionId, signal);
     let isResumed = resumeSessionId !== null;
     // An agent session that cannot be continued is replaced once, visibly, with the transcript.
@@ -376,7 +376,7 @@ export class PicaAcpJob {
   ): Promise<string> {
     const session = this.session;
     if (!session?.next) throw new PicaAcpJobError("providerFailed");
-    await this.beginTurn("followUp");
+    await this.beginTurn("followUp", message);
     const { brief } = this.specification;
     const input: AgentPlanExecutionInput = {
       ...this.turnInput(message, {
@@ -396,9 +396,17 @@ export class PicaAcpJob {
     return this.storeAnswer(result.output);
   }
 
-  private async beginTurn(origin: "message" | "followUp"): Promise<void> {
+  private async beginTurn(
+    origin: "message" | "followUp",
+    message?: PicaAcpMessage,
+  ): Promise<void> {
     this.turn += 1;
-    this.toolTurns.bind(this.turn, this.requireContext(), this.requireBridge());
+    this.toolTurns.bind(
+      this.turn,
+      this.requireContext(),
+      this.requireBridge(),
+      message,
+    );
     await this.journal.record(turnBeganEvent(this.turn, origin));
   }
 

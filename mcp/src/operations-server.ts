@@ -4,6 +4,7 @@ import {
   ProtocolErrorCode,
 } from "@modelcontextprotocol/server";
 
+import { confirmPlanDeletion } from "./tools/plan-confirmation.js";
 import { TOOL_ENTRIES } from "./tools/tool-catalog.js";
 import { READ_ANNOTATIONS } from "./tools/tool-definition.js";
 import manifest from "../package.json" with { type: "json" };
@@ -50,7 +51,12 @@ async function authorized<Result>(
 }
 
 /** Registers exactly the same catalog, projections and failures for both external transports. */
-export function createOperationsServer(operations: McpOperations): McpServer {
+export function createOperationsServer(
+  operations: McpOperations,
+  options: {
+    readonly planDeletionConsent?: "client_form" | "unavailable";
+  } = {},
+): McpServer {
   const server = new McpServer(
     { name: "pages-mcp", version: manifest.version },
     { capabilities: { tools: {} } },
@@ -77,9 +83,18 @@ export function createOperationsServer(operations: McpOperations): McpServer {
       if (!verification.tools.includes(registeredTool.operation))
         throw new Error("Pages authorization failed.");
       try {
+        let parameters = request.params.arguments ?? {};
+        if (registeredTool.operation === "plans.delete") {
+          parameters = await confirmPlanDeletion(
+            server,
+            operations,
+            parameters,
+            options.planDeletionConsent ?? "client_form",
+          );
+        }
         const result = await operations.read(
           registeredTool.operation,
-          request.params.arguments ?? {},
+          parameters,
         );
         return { content: [{ type: "text", text: JSON.stringify(result) }] };
       } catch (error: unknown) {

@@ -29,7 +29,8 @@ export interface PicaAcpJobDependencies {
   readonly messages: Pick<ChatSessionRepository, "append" | "messages">;
   readonly attachments: PicaAttachmentReader;
   readonly bridge: Pick<PicaBridge, "open">;
-  readonly tools: Pick<ChatToolExecutor, "run">;
+  readonly tools: Pick<ChatToolExecutor, "run"> &
+    Partial<Pick<ChatToolExecutor, "runPlan">>;
   /** The scope of the connection, checked again before every tool call. */
   readonly access: ExecutionAuthorizer;
   readonly sessions: Pick<ChatSessionService, "require" | "confirmationWord">;

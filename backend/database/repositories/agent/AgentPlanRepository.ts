@@ -1,5 +1,6 @@
 import { allPlanSteps } from "@/definition/AgentPlanGroup";
 import { readPlanInput } from "@/backend/agents/AgentPlanInput";
+import { requireCloneablePlan } from "@/backend/agents/AgentPlanCloneShape";
 import { isUniqueViolationOn } from "@/backend/database/Database";
 import {
   readCountColumn,
@@ -117,6 +118,24 @@ export class AgentPlanRepository {
   /** Reads a graph without introducing permission policy into persistence. */
   public async find(id: string): Promise<AgentPlan | null> {
     return findPlan(this.database, id);
+  }
+
+  /** Refuses a stale source or unknown persisted fields instead of silently producing a partial clone. */
+  public async requireCloneSource(id: string, revision: number): Promise<void> {
+    const [row] = await this.database.query(
+      `
+      SELECT
+          revision,
+          plan_json
+      FROM agent_plans
+      WHERE id = $id;
+    `,
+      { id },
+    );
+    if (!row || readCountColumn(row, 0, "revision") !== revision)
+      throw new AgentError("plan_conflict");
+    const stored: unknown = JSON.parse(readTextColumn(row, 1, "plan_json"));
+    requireCloneablePlan(stored);
   }
 
   /**

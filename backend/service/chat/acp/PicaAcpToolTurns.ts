@@ -32,11 +32,14 @@ export class PicaAcpToolTurns {
     turn: number,
     context: RuntimeExecutionContext,
     bridge: PicaBridgeLease,
+    message?: { readonly id: string; readonly text: string },
   ): void {
     if (turn <= this.turn) return;
     this.turn = turn;
     bridge.setTurn({
       tools: createPicaTools({
+        message: message?.text,
+        planTurnId: message?.id ?? `${context.runId}:${turn}`,
         tools: this.dependencies.tools,
         sessions: this.dependencies.sessions,
         authorize: context.authorize,

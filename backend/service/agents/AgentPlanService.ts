@@ -19,16 +19,18 @@ import { AgentPlanControlService } from "./AgentPlanControlService";
 import { AgentPlanStartupRecovery } from "./recovery/AgentPlanStartupRecovery";
 import { requireCompatibleFields } from "./AgentPlanGroupRuntime";
 import { requireAllowedRunOptions } from "./AgentProfileValidation";
-import { validatePlanGraph } from "./AgentPlanGraph";
+import { validatePlanReferences } from "./AgentPlanReferences";
 import { requireAgentAdministrator } from "./AgentServiceAccess";
 import {
   planOwnership,
   requireOwnerForProjectChange,
 } from "./AgentPlanOwnership";
 import { AgentPlanScripts } from "./AgentPlanScripts";
+import { AgentPlanCloning } from "./AgentPlanCloning";
 import { requirePlanModelResources } from "./AgentPlanModel";
 import { planTaskBindings } from "./AgentPlanTaskBindings";
 import type { AgentPlanRemoteExecution } from "./AgentPlanRemoteExecution";
+import type { AgentPlanCloneInput } from "./AgentPlanClone";
 import type { AgentPlanRemoteTargets } from "./AgentPlanRemoteTargets";
 import type { AgentPlanRunJournal } from "./AgentPlanJournal";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
@@ -232,7 +234,16 @@ export class AgentPlanService {
       { ...plan, projectId: workspace.projectId },
       null,
     );
-    await this.validateReferences(userId, pinned, workspace.projectId);
+    await this.dependencies.remoteTargets?.validate(userId, {
+      ...pinned,
+      projectId: workspace.projectId,
+    });
+    await validatePlanReferences(
+      this.dependencies,
+      userId,
+      pinned,
+      workspace.projectId,
+    );
   }
 
   /** Returns the workspaces of the projects the person may open, the choices of a new plan. */
@@ -350,6 +361,26 @@ export class AgentPlanService {
       userId,
     );
     return plan.id;
+  }
+
+  /**
+   * Creates an independent complete plan under the caller's normal create rights.
+   * Source revision, new graph and replay journal commit atomically; no execution is created.
+   */
+  public async clone(
+    userId: string,
+    sourceId: string,
+    input: AgentPlanCloneInput,
+    journal?: (
+      transaction: DatabaseTransaction,
+      planId: string,
+    ) => Promise<void>,
+  ): Promise<string> {
+    return new AgentPlanCloning({
+      plans: this.dependencies.plans,
+      access: this.dependencies.access,
+      revise: (actorId, proposed) => this.revise(actorId, null, proposed),
+    }).clone(userId, sourceId, input, journal);
   }
 
   /**
@@ -645,7 +676,12 @@ export class AgentPlanService {
       { ...proposed, projectId: workspace.projectId },
       previous,
     );
-    await this.validateReferences(userId, proposed, workspace.projectId);
+    await validatePlanReferences(
+      this.dependencies,
+      userId,
+      proposed,
+      workspace.projectId,
+    );
     await this.dependencies.remoteTargets?.validate(userId, proposed);
     const plan: AgentPlan = {
       ...proposed,
@@ -742,47 +778,6 @@ export class AgentPlanService {
       );
     }
     return pinned;
-  }
-
-  private async validateReferences(
-    userId: string,
-    proposed: AgentPlanInput,
-    projectId: string,
-  ): Promise<void> {
-    const catalog = await this.dependencies.profiles.catalog(userId, projectId);
-    validatePlanGraph(proposed, catalog);
-    for (const node of [
-      ...proposed.nodes.filter((entry) => entry.type !== "agent"),
-      ...allPlanSteps(proposed),
-    ]) {
-      if (node.type === "task")
-        await this.dependencies.tasks.snapshot(userId, projectId, node.taskId);
-      const values = node.type === "parameter" ? [node.value] : [];
-      if (node.type === "agent")
-        values.push(
-          ...(node.configuration?.template.parameters.flatMap((parameter) =>
-            parameter.defaultValue ? [parameter.defaultValue] : [],
-          ) ?? []),
-          ...Object.values(node.bindings).flatMap((binding) =>
-            binding.kind === "literal" && binding.value ? [binding.value] : [],
-          ),
-        );
-      for (const value of values) {
-        if (value.type === "ticket")
-          await this.dependencies.parameters.requireTicket(
-            userId,
-            value.ticketId,
-          );
-        if (value.type === "wiki")
-          await this.dependencies.parameters.requireWiki(userId, value.pageId);
-        if (value.type === "workspace")
-          await this.dependencies.workspaces.resolve(
-            userId,
-            value.workspaceId,
-            projectId,
-          );
-      }
-    }
   }
 
   private async history(

@@ -11,6 +11,7 @@ import {
   CHAT_MAXIMUM_ACTIONS,
   CHAT_MAXIMUM_MODEL_STEPS,
 } from "./ChatExecutionLimits";
+import { ChatResultBudget } from "./ChatResultBudget";
 import { readChatModelReply } from "./ChatActionProtocol";
 import {
   CHAT_AGENT_IMAGE_TYPES,
@@ -147,6 +148,7 @@ interface ChatTurn {
   readonly attachments: ChatTurnAttachments;
   /** The server run the answer files of this turn belong to. */
   readonly runId: string;
+  readonly messageId: string;
 }
 
 interface ChatAnswer {
@@ -394,6 +396,7 @@ export class ChatService {
           request,
           attachments: described,
           runId: run.runId,
+          messageId: question.id,
         },
         signal,
       );
@@ -440,6 +443,8 @@ export class ChatService {
           agent: turn.agent,
           instructions,
           prompt: createChatPrompt({ ...prompt, steps: [], isLastStep: false }),
+          message: turn.request.text,
+          messageId: turn.messageId,
           webSearch: false,
         },
         signal,
@@ -525,6 +530,7 @@ export class ChatService {
       ? ("LÖSCHEN" as const)
       : null;
     const steps: ChatStep[] = [];
+    const results = new ChatResultBudget();
     const temporaryPasswords: ChatTemporaryPassword[] = [];
     let calls = 0;
     for (let round = 0; round < CHAT_MAXIMUM_MODEL_STEPS; round += 1) {
@@ -570,7 +576,7 @@ export class ChatService {
       steps.push({
         operation: reply.operation,
         parameters: reply.parameters,
-        outcome,
+        outcome: results.consume(outcome),
       });
       // One typed confirmation allows one deletion or administration mutation.
       if (

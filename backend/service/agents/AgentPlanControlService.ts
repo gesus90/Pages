@@ -1,5 +1,6 @@
 import { planExecutionIssues } from "@/definition/AgentPlanGraph";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { planControl } from "./AgentPlanControl";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
@@ -11,7 +12,7 @@ import type { AgentPlan } from "@/definition/AgentPlan";
 interface ControlDependencies {
   readonly access: Pick<AgentPlanAccess, "require">;
   readonly profiles: Pick<AgentProfileService, "catalog">;
-  readonly preparation?: Pick<AgentPlanPreparation, "validateScripts">;
+  readonly preparation?: Pick<AgentPlanPreparation, "prepare">;
   readonly runs: Pick<
     AgentPlanRunRepository,
     "latest" | "hasReservation" | "resources"
@@ -69,9 +70,10 @@ export class AgentPlanControlService {
     plan: AgentPlan,
   ): Promise<string | null> {
     try {
-      await this.dependencies.preparation?.validateScripts(userId, plan);
+      await this.dependencies.preparation?.prepare(userId, plan);
       return null;
     } catch (error: unknown) {
+      if (error instanceof AgentExecutionError) return error.code;
       if (!(error instanceof AgentError)) throw error;
       return error.code;
     }

@@ -1,4 +1,5 @@
 import { readPlanTemplateName } from "@/backend/agents/AgentPlanTemplateInput";
+import { readPlanText } from "@/backend/agents/AgentPlanInput";
 
 import {
   readIdentifier,
@@ -18,6 +19,8 @@ export interface AgentPlanCommandRequest {
   readonly runId: string | null;
   readonly nodeId: string | null;
   readonly name: string | null;
+  readonly workspaceId: string | null;
+  readonly confirmation: unknown;
 }
 
 /** Reads bounded command input before any persistence or execution. */
@@ -31,13 +34,22 @@ export function readPlanCommand(
     operation === "plans.resume" ||
     operation === "plans.stop";
   const isTemplate = operation === "plans.templates.save";
-  requireParameterKeys(parameters, [
-    "operationId",
-    "planId",
-    "expectedRevision",
-    ...(isRun ? ["runId"] : []),
-    ...(isTemplate ? ["nodeId", "name"] : []),
-  ]);
+  const isClone = operation === "plans.clone";
+  requireParameterKeys(
+    parameters,
+    [
+      "operationId",
+      "planId",
+      "expectedRevision",
+      ...(isRun ? ["runId"] : []),
+      ...(isTemplate ? ["nodeId", "name"] : []),
+      ...(isClone ? ["name"] : []),
+    ],
+    [
+      ...(isClone ? ["workspaceId"] : []),
+      ...(operation === "plans.delete" ? ["confirmation"] : []),
+    ],
+  );
   return {
     operation,
     operationId: readIdentifier(parameters.operationId),
@@ -45,6 +57,21 @@ export function readPlanCommand(
     expectedRevision: readPageAgentRevision(parameters.expectedRevision),
     runId: isRun ? readIdentifier(parameters.runId) : null,
     nodeId: isTemplate ? readIdentifier(parameters.nodeId) : null,
-    name: isTemplate ? readPlanTemplateName(parameters.name) : null,
+    name: isTemplate
+      ? readPlanTemplateName(parameters.name)
+      : cloneName(parameters, isClone),
+    workspaceId:
+      isClone && parameters.workspaceId !== undefined
+        ? readIdentifier(parameters.workspaceId)
+        : null,
+    confirmation:
+      operation === "plans.delete" ? (parameters.confirmation ?? null) : null,
   };
+}
+
+function cloneName(
+  parameters: Readonly<Record<string, unknown>>,
+  isClone: boolean,
+): string | null {
+  return isClone ? readPlanText(parameters.name, 120) : null;
 }

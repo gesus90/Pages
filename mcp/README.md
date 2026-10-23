@@ -1,4 +1,4 @@
-# Pages MCP 0.2.0
+# Pages MCP 0.3.0
 
 The Pages adapter implements the Model Context Protocol (MCP), which lets external
 clients discover and call tools through a common protocol. It connects those
@@ -350,7 +350,7 @@ step.
 `node24`, `format: "cjs"` and no code splitting. It clears `mcp/dist/` and writes
 `mcp/dist/pages-mcp-v<version>.cjs`, using the version from `package.json`.
 With the development manifest in this checkout, the output is
-`pages-mcp-v0.2.0.cjs`; this names a build artifact and does not establish a
+`pages-mcp-v0.3.0.cjs`; this names a build artifact and does not establish a
 published release.
 
 JavaScript dependencies are bundled into that single CommonJS file; Node
@@ -2010,7 +2010,7 @@ own. Graph editing never starts a run. Explicit saved-revision commands offer Pl
 | Tool                    | Pages operation          | Arguments                                                                                               | Does                                                                      |
 | ----------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | `list_plans`            | `plans.list`             | optional `text`, `projectId`, `cursor`, `limit`                                                         | The visible plans by name, with state and latest own run                  |
-| `read_plan`             | `plans.read`             | `planId`                                                                                                | One plan with nodes, edges, share, revision and status                    |
+| `read_plan`             | `plans.read`             | `planId`, optional `cursor`, `maxBytes`                                                                 | One plan with nodes, edges, share, revision and status                    |
 | `read_plan_sources`     | `plans.sources.read`     | optional `workspaceId`                                                                                  | Workspaces for new plans; with `workspaceId` agents and interpreters      |
 | `list_plan_runs`        | `plans.runs.list`        | `planId`, optional `order` (`newest`, `oldest`), `cursor`, `limit`                                      | The account's runs of a plan with date and status, 20 per page by default |
 | `read_plan_run`         | `plans.run.read`         | `runId` (optional `planId` to check it), or `planId` with `select` `latest` or `first`                  | One run with the state of every node                                      |
@@ -2091,7 +2091,7 @@ own. Graph editing never starts a run. Explicit saved-revision commands offer Pl
   local workspace by default. An agent or script may save `executionTarget` as
   `{kind: "local"}` or `{kind: "remote", workspaceId}` from
   `read_plan_sources.remoteTargets`. Remote targets are validated on save and
-  remain blocked with `plan_remote_unavailable` until remote dispatch exists;
+  require a ready authorized runner and its real model/interpreter catalog; unavailable targets return `plan_remote_unavailable`;
   they never fall back to local execution. Explicit authorized local Play executes
   scripts as processes,
   with active administrator mode and current plan/project/workspace rights.
@@ -2100,7 +2100,27 @@ own. Graph editing never starts a run. Explicit saved-revision commands offer Pl
   stdout stays exact UTF-8 text, stderr is diagnostic, with 128 KiB per stream.
   See the [script runtime contract](../backend/service/agents/ScriptRuntime.md)
   for limits, pause/stop, environment, process diagnostics and recovery.
-  Script members inside loops remain explicitly unsupported.
+  Script members inside loops remain subject to the editor/runtime validation and are not a separate execution engine.
+- **Large plan reads (MCP and Pica).** Small `read_plan` results retain `{plan}`.
+  Results over 64 KiB return `{chunk: {text, offsetBytes, byteLength, totalBytes,
+sha256, nextCursor}}`. `maxBytes` forces chunking and sets a 1,024–65,536 byte
+  UTF-8 JSON envelope budget (default 65,536). Pass `nextCursor` as `cursor`
+  with the same `planId` and `maxBytes`; concatenate `text` in byte-offset order,
+  verify the byte count and SHA-256, then parse the reconstructed JSON.
+  Cursors bind the account and exact snapshot, including revision and status;
+  changed snapshots and other queries return `INVALID_REQUEST`. Restart the read.
+  The complete serialized result is limited to 1 MiB; excess returns
+  `PAYLOAD_TOO_LARGE` with `readResultBytes`. A chunk that cannot fit returns
+  `readChunkBytes`. No result text is silently cut. Saved graphs allow 500 nodes
+  including group/loop members; change batches, requests and edge limits stay
+  bounded as before, so large plans are built through multiple changes.
+  Pica accepts up to 1 MiB per tool result and 2 MiB of results per turn,
+  then returns `PAYLOAD_TOO_LARGE` or `RESULT_BUDGET_EXCEEDED` explicitly.
+  Reading more chunks grows the model context: 1 MiB of mostly ASCII text is
+  roughly 260,000 tokens, plus tool schemas, history and JSON escaping. These
+  byte limits do not guarantee that a model's context fits; fetch only needed
+  chunks, use separate turns or a model with sufficient context. The history
+  indicator is an estimate and does not reserve space for future tool results.
 - **Status.** `read_plan` returns `status`: `state` (`idle`, `running`, `pausing`, `paused` or `stopping`
   by the account's own runs), `runCount`, `latestRun`, and `isRunnable` with the
   `issues` the plan page shows before Play.
@@ -2181,8 +2201,7 @@ behind, exactly as in the editor. `insertTemplate` within create_plan or
 update_plan takes `templateId,x,y`, validates access again, and inserts independent
 IDs with internal reference remapping. `createdNodeIds` includes the inserted
 root followed by its members. Repeated insertions instantiate separately.
-The product has no template update/delete service and cannot execute scripts;
-these remain explicitly unsupported, with no placeholder tools.
+The product has no template update/delete service. Script execution follows the existing configured interpreter runtime and its administrator checks.
 
 Play/Resume are annotated as open-world, potentially destructive actions because configured agents may invoke models and modify workspaces; their operationId replay remains idempotent.
 
@@ -2213,8 +2232,7 @@ Agent-node `executionTarget` is `{kind:"local"}` or
 `{kind:"remote",workspaceId}`. `read_plan_sources.remoteTargets` lists only
 currently authorized registered targets with secret-free connection/workspace
 metadata. Model access remains the node's explicit connection/model pair.
-Remote execution is blocked until a runner dispatcher is available; selecting
-or saving a target never executes a runner and never falls back to local work.
+Remote execution requires the existing dispatcher and an authorized ready runner with the selected model/interpreter. Unavailable targets remain blocked; selecting or saving a target never executes work and never falls back to local execution. Remote groups/loops retain the existing runtime restrictions.
 New run-step reads expose `execution` (immutable requested context and initial
 attempt identity) and `attemptId` (the current session attempt when present).
 Saving a new revision during a run leaves that run's original snapshot intact.
@@ -2222,6 +2240,140 @@ Saving a new revision during a run leaves that run's original snapshot intact.
 Pica offers these same plan tools natively in the Pages backend, with current
 user rights, graph and revision checks. Explicit execution commands remain
 separate from edits. See [the local runner contract](../docs/AgentPlanRunner.md).
+
+#### Complete plan management in 0.3.0
+
+The additive backend plan contract is version **2**; the Agent API envelope stays
+version `1`. `read_plan_capabilities` reports implemented operations, normal
+create sharing for clones, durable pause-boundary resume and the supported
+human deletion confirmation surfaces. These are implementation capabilities,
+not permission or proof that a particular client uses this version.
+
+| Tool                     | Operation                 | Arguments                                                                   |
+| ------------------------ | ------------------------- | --------------------------------------------------------------------------- |
+| `read_plan_capabilities` | `plans.capabilities.read` | none                                                                        |
+| `clone_plan`             | `plans.clone`             | `operationId`, `planId`, `expectedRevision`, `name`, optional `workspaceId` |
+| `read_plan_run_recovery` | `plans.run.recovery.read` | `planId`, own `runId`                                                       |
+
+`clone_plan` creates exactly one new saved plan, without starting it. Omission of
+`workspaceId` deliberately keeps the source workspace, which is returned. Nodes,
+group/loop members, legacy group parameter identities, ports, positions, flow
+and data edges, conditions, previous-iteration bindings, globals and complete
+configuration are copied with remapped internal IDs. External tickets, wiki pages,
+workspaces, personal source assignments and connection/model references stay
+and are reauthorized through normal create validation. Ownership and team follow
+`create_plan`; sharing defaults to its private share and does not duplicate
+additional source read grants. Change sharing explicitly afterwards if desired.
+Runs, results, checkpoints, active processes, provider sessions, credentials and
+workspace files are never copied. A clone is neither a repository copy nor a
+fork of a live job. The source stays unchanged.
+
+Source revision, target save and operation journal commit atomically. Repeat the
+same operation ID and arguments after response loss to obtain the same plan;
+source and target access and the copied resource references are checked again.
+A different request conflicts. A source changed before the first commit is
+`CONFLICT`; a taken name uses `plan_name_taken`. Invalid references/graphs use
+the editor/create errors. Unknown stored fields and legacy structure that would
+lose information (including discarded historical ticket-flow edges) are refused
+with `plan_schema_unsupported`; repair in the editor before copying. No partial
+copy is returned. New copies use fresh create validation, so a removed interpreter
+or model reference may be refused even when an unchanged old draft can still be
+saved. This is an explicit refusal, never an omitted node or local fallback.
+
+`read_plan_control` returns plan ID/revision, actual shared execution status,
+`canEdit`, `canDelete`, run actions and per-action blockers. Another executor's
+run ID, failures and results stay private. An own run with current resource
+access includes `runId`, applied `planRevision` and `continuationVersion`.
+`read_plan` keeps the account's own-run `state` for compatibility, with live
+`isRunnable`; control is authoritative for action availability. Run details expose
+original and applied plan revisions, continuation version and loop iteration
+statuses. Loop-member reports identify `loopId` and `iteration`.
+
+Commands return `action`, actual plan/run IDs, acknowledged revision, freshly read
+`status`, applied `planRevision` for runs and `control` with allowed next actions
+and blockers. Replays return the committed identifiers and fresh authorized
+state. `pausing` means a pause request is draining work; `stopping` means shutdown
+is in progress. Re-read to confirm `paused` or a terminal state. Pause-resume at a
+durable boundary deliberately adopts the saved `expectedRevision`; it does not
+resume a lost provider process. `read_plan_run_recovery` projects existing
+restart/recovery availability and blockers without checkpoints or provider session
+IDs. Those execution commands stay in the existing editor workflow and create
+new run IDs; never substitute Play and call it recovery.
+
+**Deleting a plan requires human consent tied to its exact ID and revision.**
+The backend requires the existing language-specific `LÖSCHEN`/`DELETE` word and
+checks owner, saved revision and all active runs atomically. In stdio, the adapter
+reads control and obtains the word directly through a supported MCP client form
+(`elicitation/create`); a model-supplied `confirmation` argument alone is ignored.
+Decline, cancellation, unsupported protocol/client or no form capability returns
+`CONFIRMATION_REQUIRED` without deletion. The current stateless JSON HTTP
+transport cannot conduct that interactive request and also refuses with
+`CONFIRMATION_REQUIRED`; use the editor or Pica for deletion there. This is a
+known transport limitation, not full deletion parity. Older clients keep all
+other tool names and argument aliases; they cannot bypass human confirmation.
+
+Pica registers the shared schemas natively, without an MCP transport. Pages
+supplies stable operation IDs derived from the server's human-message ID and
+normalized arguments. Before deletion it returns the target, owner, revision and
+consequences, then requires the person's exact existing confirmation word in a
+later raw human message. Prompts, attachments, model parameters and the asking
+turn cannot supply it. Pending consent expires after ten minutes, is bound to the
+conversation/person/target/revision and is lost on process restart. Fresh rights
+and revisions still apply. Native API and ACP turns carry the original human
+message separately from the assembled prompt. The legacy text action envelope
+cannot delete plans because it lacks this binding. Other native plan operations
+continue through the shared services. An explicit separate human request is
+required for Play/Resume; edits, renaming, copying and reads never execute work.
+Run-bound plan credentials do not gain clone, deletion or run controls.
+Pica uses the shared read budgets and chunked `read_plan` contract described
+above: 1 MiB per serialized result and 2 MiB of results per turn. Oversize
+results return explicit `PAYLOAD_TOO_LARGE` or `RESULT_BUDGET_EXCEEDED` errors.
+A persistence operation is not rolled back by a presentation-budget refusal.
+
+A typical personal-client workflow (substitute only IDs/revisions read from Pages):
+
+1. `list_plans({text:"Review"})`; if several match, clarify the project/workspace
+   and exact plan ID before choosing.
+2. `read_plan({planId})` and `read_plan_sources({workspaceId})`.
+3. On an explicit copy request:
+   `clone_plan({operationId,planId,expectedRevision,name:"Review copy",workspaceId})`.
+4. Re-read the returned new ID. Use `update_plan({operationId,planId,expectedRevision,
+name:"Review final",changes:[{action:"updateNode",nodeId,fields:{configuration:
+{connectionId,model,reasoningEffort:null}}}]})` for a targeted edit. Omitted
+   instruction, inputs, bindings and run settings survive; incompatible settings
+   require an explicit correction. Re-read to verify the result/workspace.
+5. `read_plan_control({planId})`. Only after a separate explicit start request:
+   `play_plan({operationId,planId,expectedRevision})`.
+6. Read `read_plan_run({planId,runId})` and reports. Pause/resume/stop require both
+   that own run ID and the saved revision. Poll reads after asynchronous requests;
+   a retry reuses the original operation ID, never invents a second start.
+7. Delete separately: explain exact ID/revision and consequences before human
+   confirmation. Only the saved plan is removed. Finished history stays stored
+   under the existing retention rule but becomes unlisted without the plan;
+   workspace files, templates, runners and provider sessions remain untouched.
+
+**Version and authorization diagnosis.** For stdio, select the absolute
+`pages-mcp-v0.3.0.cjs` bundle in the client's existing connection configuration,
+end only that client's old MCP connection and reconnect normally. For HTTP,
+reconnect to the same configured `/mcp` endpoint after an operator has normally
+released the new backend; reconnecting cannot replace deployed code. Inspect
+`initialize.serverInfo.version`, then a fresh complete `tools/list`, including
+full `update_plan`/`clone_plan`/control schemas, and call `read_plan_capabilities`.
+A locally installed bundle, deployed HTTP server, backend contract and cached
+client catalog are separate versions. Keep recorded versions and transport with
+evidence. No Pages/Gateway restart or credential reset follows from a mismatch.
+
+If only plan reads fail with `Pages authorization failed.`, compare `verify`,
+`list_plans`, the exact `read_plan` and the same Agent API operation using the
+same personal connection. Record only transport, operation, timestamp, HTTP status,
+public code/reason and the server request ID. `NOT_FOUND` means missing/hidden,
+`FORBIDDEN` means denied business rights, `CONFLICT` means stale state; a generic
+MCP failure can also hide an invalid response, network or unexpected backend
+failure. Health/login alone prove no personal plan authorization. Inspect the
+matching safe backend diagnostics without logging request bodies, bearer values,
+provider diagnostics or plan content. A missing/expired connection must be
+established through normal user-approved pairing; never infer a credential fault
+from plan failure alone.
 
 ### Administration
 

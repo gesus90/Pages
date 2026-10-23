@@ -54,6 +54,7 @@ import type { AgentWriteDependencies } from "@/backend/service/agents/AgentWrite
 import type { AgentTicketPublisher } from "@/backend/service/agents/AgentTicketAnnouncer";
 import type { AgentWorkspaceService } from "@/backend/service/agents/AgentWorkspaceService";
 import type { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
+import type { AgentPlanRecoveryService } from "@/backend/service/agents/recovery/AgentPlanRecoveryService";
 import type { PageAgentService } from "@/backend/service/agents/PageAgentService";
 import type { WikiService } from "@/backend/service/WikiService";
 import type { Database } from "@/backend/database/Database";
@@ -106,6 +107,7 @@ function createWikiOperations(
 
 /** What the operation catalogs of both agent channels are built from. */
 interface RouterContext extends Omit<OperationContext, "channel"> {
+  readonly planRecovery?: AgentPlanRecoveryService;
   readonly users: Pick<UserService, "getById">;
   /** The plan service of the plan page; MCP clients and the chat use it alike. */
   readonly plans: AgentPlanService;
@@ -151,6 +153,7 @@ function createMcpOperationRouter(
       database: context.database,
       plans: context.plans,
       resources: {
+        recovery: context.planRecovery,
         plans: context.plans,
         templates: new AgentPlanTemplateService({
           plans: context.plans,
@@ -202,6 +205,7 @@ function createChatOperationRouter(
       database: context.database,
       plans: context.plans,
       resources: {
+        recovery: context.planRecovery,
         plans: context.plans,
         templates: new AgentPlanTemplateService({
           plans: context.plans,
@@ -284,6 +288,7 @@ export function createMcpServices(
     readonly pageAgents: PageAgentService;
     /** The agent plans shared by MCP clients and the signed-in chat. */
     readonly plans: AgentPlanService;
+    readonly planRecovery?: AgentPlanRecoveryService;
     /** The publisher the interface announces its changes on too; a new one by default. */
     readonly events?: PagesEventPublisher;
   },
@@ -318,6 +323,7 @@ export function createMcpServices(
     cache: workspace.tickets?.cache ?? ServerCache.disabled(),
     users,
     plans: workspace.plans,
+    planRecovery: workspace.planRecovery,
     publisher: workspace.tickets?.publisher ?? null,
     chatSessions: createChatSessionOperations({
       database,

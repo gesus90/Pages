@@ -3,7 +3,6 @@ import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 import { planExecutionIssues } from "@/definition/AgentPlanGraph";
 
 import { sharingEntry } from "./PageAgentOperationDefinition";
-import { hasRemotePlanTarget } from "./AgentPlanExecutionTargets";
 
 import type { AgentPlanRunEntry } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type { AgentDefinitionChoice } from "@/definition/AgentAvailability";
@@ -155,14 +154,16 @@ export interface AgentPlanDetailContext {
   readonly directory: AgentProfileDirectory;
   readonly sources: AgentPlanSources;
   readonly entries: readonly AgentPlanRunEntry[];
+  /** Live availability from the shared control service, when composed by Pages. */
+  readonly isRunnable?: boolean;
 }
 
 /**
  * A visible plan with its graph, labels and status.
  *
  * @remarks
- * The status checks the graph like Play on the plan page does, with the
- * agents the person may use now; nothing is started or prepared.
+ * Structural findings and live control availability stay separate from
+ * execution. Reading this projection never starts work.
  */
 export function planDetail(
   plan: AgentPlanView,
@@ -180,7 +181,7 @@ export function planDetail(
     // The status comes before the graph, so a chat that shortens a long plan keeps it.
     status: {
       ...planState(plan, context.entries),
-      isRunnable: issues.length === 0 && !hasRemotePlanTarget(plan),
+      isRunnable: context.isRunnable ?? issues.length === 0,
       issues,
     },
     nodes: plan.nodes.map((node) => nodeEntry(node, context.sources)),
@@ -251,11 +252,24 @@ export function runDetail(run: AgentPlanRun): AgentPlanRunDetail {
     planId: run.planId,
     planName: run.planName,
     planRevision: run.planRevision,
+    appliedPlanRevision: run.continuation?.planRevision ?? run.planRevision,
+    continuationVersion: run.continuation?.version ?? 0,
     startedAt: run.startedAt,
     endedAt: runEnd(run),
     status: run.status,
     stopRequested: run.stopRequested,
     steps: run.steps.map(stepStatus),
+    loops: (run.loops ?? []).map((loop) => ({
+      loopId: loop.id,
+      status: loop.status,
+      completion: loop.completion,
+      cleanup: loop.cleanup,
+      iterations: loop.iterations.map((iteration) => ({
+        iteration: iteration.number,
+        status: iteration.status,
+        steps: iteration.nodes.map(stepStatus),
+      })),
+    })),
   };
 }
 

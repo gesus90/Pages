@@ -25,6 +25,7 @@ const ADDITIVE_TOOL_NAMES = [
   "create_project",
   "create_workspace",
   "create_plan",
+  "clone_plan",
   "create_plan_parameter",
   "save_plan_template",
   "create_ticket",

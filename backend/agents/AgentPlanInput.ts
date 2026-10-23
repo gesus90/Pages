@@ -1,3 +1,4 @@
+import { AGENT_READ_LIMITS } from "@/definition/AgentReadChunks";
 import { planExecutionTargetSchema } from "@/definition/AgentPlanExecution";
 import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 import { AgentError } from "@/backend/error/AgentErrors";
@@ -316,7 +317,7 @@ export function readPlanInput(input: unknown): AgentPlanInput {
   const plan = readPlanObject(input);
   if (
     !Array.isArray(plan.nodes) ||
-    plan.nodes.length > 100 ||
+    plan.nodes.length > AGENT_READ_LIMITS.planNodes ||
     !Array.isArray(plan.edges) ||
     plan.edges.length > 500 ||
     (plan.usage !== "private" && plan.usage !== "workspace")
@@ -338,7 +339,7 @@ export function readPlanInput(input: unknown): AgentPlanInput {
         1 +
         (node.type === "group" || node.type === "loop" ? node.steps.length : 0),
       0,
-    ) > 100
+    ) > AGENT_READ_LIMITS.planNodes
   )
     throw new AgentError("plan_invalid");
   return {

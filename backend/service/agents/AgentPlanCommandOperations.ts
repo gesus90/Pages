@@ -11,6 +11,8 @@ import {
   StoredOperationFound,
 } from "./AgentOperationRecorder";
 import { readPlanCommand } from "./AgentPlanCommandInput";
+import { requireAgentConfirmation } from "./AgentConfirmation";
+import { readPlanControlEntry } from "./AgentPlanControlViews";
 
 import type {
   Database,
@@ -51,6 +53,10 @@ export class AgentPlanCommandOperations {
   ): Promise<AgentPlanCommandResult> {
     const request = readPlanCommand(operation, input);
     return this.queue.run(async () => {
+      if (operation === "plans.delete")
+        await this.database.transaction((transaction) =>
+          requireAgentConfirmation(transaction, userId, request.confirmation),
+        );
       const stored = await this.lookup(userId, request.operationId);
       if (stored) return this.replay(userId, request, stored);
       const recorder = new OperationRecorder<AgentPlanCommandResult>(
@@ -67,7 +73,7 @@ export class AgentPlanCommandOperations {
         if (completed) return this.replay(userId, request, completed);
         throw error;
       }
-      return recorder.result;
+      return this.outcome(userId, request, recorder.result);
     });
   }
 
@@ -90,11 +96,23 @@ export class AgentPlanCommandOperations {
       stored.fingerprint !== fingerprintOperation(request)
     )
       throw new AgentOperationError("CONFLICT");
-    const result = readCommandResult(stored.resultJson, request.planId);
+    const result = readCommandResult(stored.resultJson);
     if (request.operation === "plans.delete")
-      return { ...result, deleted: true };
+      return {
+        planId: request.planId,
+        revision: request.expectedRevision,
+        deleted: true,
+        action: request.operation,
+        status: "deleted",
+      };
     const plan = await this.plans.view(userId, request.planId);
-    if (!plan.canEdit) throw new AgentOperationError("FORBIDDEN");
+    if (request.operation !== "plans.clone" && !plan.canEdit)
+      throw new AgentOperationError("FORBIDDEN");
+    if (request.operation === "plans.clone") {
+      const target = await this.plans.view(userId, result.planId);
+      if (!target.canEdit) throw new AgentOperationError("NOT_FOUND");
+      await this.plans.checkNodes(userId, target.workspaceId, target.nodes);
+    }
     if (result.runId) await this.plans.run(userId, result.runId);
     if (
       result.templateId &&
@@ -103,7 +121,36 @@ export class AgentPlanCommandOperations {
       )
     )
       throw new AgentOperationError("NOT_FOUND");
-    return result;
+    return this.outcome(userId, request, result);
+  }
+
+  private async outcome(
+    userId: string,
+    request: AgentPlanCommandRequest,
+    result: AgentPlanCommandResult,
+  ): Promise<AgentPlanCommandResult> {
+    if (request.operation === "plans.delete")
+      return { ...result, action: request.operation, status: "deleted" };
+    const control = await readPlanControlEntry(
+      this.plans,
+      userId,
+      result.planId,
+    );
+    if (!result.runId)
+      return {
+        ...result,
+        action: request.operation,
+        status: control.status,
+        control,
+      };
+    const run = await this.plans.run(userId, result.runId);
+    return {
+      ...result,
+      action: request.operation,
+      status: run.status,
+      planRevision: run.continuation?.planRevision ?? run.planRevision,
+      control,
+    };
   }
 
   private async apply(
@@ -112,18 +159,47 @@ export class AgentPlanCommandOperations {
     recorder: OperationRecorder<AgentPlanCommandResult>,
   ): Promise<void> {
     const plan = await this.plans.view(userId, request.planId);
-    if (!plan.canEdit) throw new AgentOperationError("FORBIDDEN");
+    if (request.operation !== "plans.clone" && !plan.canEdit)
+      throw new AgentOperationError("FORBIDDEN");
     if (plan.revision !== request.expectedRevision)
       throw new AgentOperationError("CONFLICT", {
         currentRevision: plan.revision,
       });
     const base = { planId: plan.id, revision: plan.revision };
+    if (request.operation === "plans.clone") {
+      if (request.name === null)
+        throw new AgentOperationError("INVALID_REQUEST");
+      await this.plans.clone(
+        userId,
+        plan.id,
+        {
+          name: request.name,
+          expectedRevision: request.expectedRevision,
+          ...(request.workspaceId ? { workspaceId: request.workspaceId } : {}),
+        },
+        (transaction, planId) =>
+          recorder.store(transaction, {
+            planId,
+            revision: 1,
+            sourcePlanId: plan.id,
+            sourceRevision: plan.revision,
+            workspaceId: request.workspaceId ?? plan.workspaceId,
+          }),
+      );
+      return;
+    }
     if (request.operation === "plans.delete") {
       if (plan.ownerId !== userId) throw new AgentOperationError("FORBIDDEN");
       await this.plans.remove(userId, plan.id, {
         revision: plan.revision,
-        journal: (transaction) =>
-          recorder.store(transaction, { ...base, deleted: true }),
+        journal: async (transaction) => {
+          await requireAgentConfirmation(
+            transaction,
+            userId,
+            request.confirmation,
+          );
+          await recorder.store(transaction, { ...base, deleted: true });
+        },
       });
       return;
     }
@@ -193,28 +269,40 @@ export class AgentPlanCommandOperations {
   }
 }
 
-function readCommandResult(
-  json: string,
-  planId: string,
-): AgentPlanCommandResult {
+function readCommandResult(json: string): AgentPlanCommandResult {
   const result: unknown = JSON.parse(json);
   if (
     typeof result !== "object" ||
     result === null ||
     !("planId" in result) ||
-    result.planId !== planId ||
+    typeof result.planId !== "string" ||
     !("revision" in result) ||
     typeof result.revision !== "number"
   )
     throw new AgentOperationError("CONFLICT");
   return {
-    planId,
+    planId: result.planId,
     revision: result.revision,
     ...("runId" in result && typeof result.runId === "string"
       ? { runId: result.runId }
       : {}),
     ...("templateId" in result && typeof result.templateId === "string"
       ? { templateId: result.templateId }
+      : {}),
+    ...readCloneResult(result),
+  };
+}
+
+function readCloneResult(result: object): Partial<AgentPlanCommandResult> {
+  return {
+    ...("sourcePlanId" in result && typeof result.sourcePlanId === "string"
+      ? { sourcePlanId: result.sourcePlanId }
+      : {}),
+    ...("sourceRevision" in result && typeof result.sourceRevision === "number"
+      ? { sourceRevision: result.sourceRevision }
+      : {}),
+    ...("workspaceId" in result && typeof result.workspaceId === "string"
+      ? { workspaceId: result.workspaceId }
       : {}),
   };
 }

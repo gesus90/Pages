@@ -25,15 +25,11 @@ export async function connectionModels(
     const models = supportsModelCatalog(connection.provider)
       ? catalog.models
       : manualModels(connection);
-    for (const model of models) {
-      const choice = await availableModel({
-        connections,
-        viewer,
-        connection,
-        model,
-      });
-      if (choice) choices.push(choice);
-    }
+    // Every model in this catalog shares the same connection grant and authentication.
+    // Check those once per request, rather than repeating database reads for every model.
+    if (!(await isAvailable({ connections, viewer, connection, models })))
+      continue;
+    for (const model of models) choices.push(modelChoice(connection, model));
   }
   return choices;
 }
@@ -57,36 +53,45 @@ function manualModels(
   ];
 }
 
-async function availableModel(input: {
+async function isAvailable(input: {
   readonly connections: AgentConnectionRepository;
   readonly viewer: AgentViewer;
   readonly connection: AgentConnectionRecord;
-  readonly model: AgentCatalogModel;
-}): Promise<PageAgentModel | null> {
-  const { connections, viewer, connection, model } = input;
+  readonly models: readonly AgentCatalogModel[];
+}): Promise<boolean> {
+  const { connections, viewer, connection, models } = input;
+  const model = models.at(0);
+  if (!model) return false;
   try {
     await resolveAgentAssignmentFor(connections, viewer, {
       connectionId: connection.id,
       model: model.id,
       reasoningEffort: null,
     });
-    return {
-      id: agentModelKey(connection.id, model.id),
-      connectionId: connection.id,
-      name: `${model.name} · ${connection.name}`,
-      modelName: model.name,
-      connectionName: connection.name,
-      location: AGENT_PROVIDERS[connection.provider].location,
-      model: model.id,
-      provider: connection.provider,
-      reasoning: model.reasoning,
-      reasoningEfforts: model.reasoningEfforts,
-      catalogDefaultReasoningEffort: model.defaultReasoningEffort,
-      reasoningEffort: null,
-      isManual: !supportsModelCatalog(connection.provider),
-    };
+    return true;
   } catch (error: unknown) {
     if (!(error instanceof AgentExecutionError)) throw error;
-    return null;
+    return false;
   }
+}
+
+function modelChoice(
+  connection: AgentConnectionRecord,
+  model: AgentCatalogModel,
+): PageAgentModel {
+  return {
+    id: agentModelKey(connection.id, model.id),
+    connectionId: connection.id,
+    name: `${model.name} · ${connection.name}`,
+    modelName: model.name,
+    connectionName: connection.name,
+    location: AGENT_PROVIDERS[connection.provider].location,
+    model: model.id,
+    provider: connection.provider,
+    reasoning: model.reasoning,
+    reasoningEfforts: model.reasoningEfforts,
+    catalogDefaultReasoningEffort: model.defaultReasoningEffort,
+    reasoningEffort: null,
+    isManual: !supportsModelCatalog(connection.provider),
+  };
 }

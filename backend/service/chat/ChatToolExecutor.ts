@@ -15,12 +15,18 @@ import {
   isChatOperation,
   isChatWriteOperation,
 } from "./ChatToolCatalog";
+import {
+  PicaPlanConfirmation,
+  picaPlanOperationId,
+} from "./PicaPlanConfirmation";
 
 import type { AgentOperationRouter } from "@/backend/service/agents/AgentOperationRouter";
 import type { AgentIdentityService } from "@/backend/service/mcp/AgentIdentityService";
 import type { ChatConfirmationWord } from "@/definition/Chat";
 import type { AgentIdentity } from "@/definition/McpAuthorization";
 import type { ChatActionOutcome } from "./ChatPrompt";
+import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
+import type { PicaPlanTurn } from "./PicaPlanConfirmation";
 
 /** Keys only Pages sets; the agent can neither replay an operation nor confirm a deletion. */
 const SERVER_KEYS: ReadonlySet<string> = new Set([
@@ -54,6 +60,7 @@ export interface ChatToolDependencies {
  */
 export class ChatToolExecutor {
   private readonly dependencies: ChatToolDependencies;
+  private readonly planConfirmation = new PicaPlanConfirmation();
 
   public constructor(dependencies: ChatToolDependencies) {
     this.dependencies = dependencies;
@@ -80,6 +87,9 @@ export class ChatToolExecutor {
     const { operation } = action;
     if (!isChatOperation(operation))
       return { ok: false, error: "UNKNOWN_OPERATION" };
+    // The legacy action envelope has no server-owned conversation target binding.
+    if (operation === "plans.delete")
+      return { ok: false, error: "CONFIRMATION_REQUIRED" };
     logEvent({
       level: "debug",
       event: "chat.tool.started",
@@ -103,6 +113,92 @@ export class ChatToolExecutor {
         ? { confirmation: typedConfirmation }
         : {}),
     };
+    return this.dispatch(userId, operation, parameters);
+  }
+
+  /** Native plan calls use server-owned identity, stable turn keys and target-bound human deletion consent. */
+  public async runPlan(
+    action: ChatActionRequest,
+    context: RuntimeExecutionContext,
+    turn: PicaPlanTurn,
+  ): Promise<ChatActionOutcome> {
+    await context.authorize();
+    if (
+      !isChatOperation(action.operation) ||
+      !action.operation.startsWith("plans.")
+    )
+      return { ok: false, error: "UNKNOWN_OPERATION" };
+    const parameters = Object.fromEntries(
+      Object.entries(action.parameters).filter(
+        ([key]) => !SERVER_KEYS.has(key),
+      ),
+    );
+    const request = { operation: action.operation, parameters };
+    if (
+      action.operation === "plans.delete" &&
+      !this.planConfirmation.hasApproval(request, context, turn)
+    ) {
+      const prompt = await this.deletionPrompt(
+        context.userId,
+        parameters,
+        turn,
+      );
+      if (prompt.error !== "CONFIRMATION_REQUIRED") return prompt;
+      if (!this.planConfirmation.consume(request, context, turn)) return prompt;
+    }
+    return this.dispatch(context.userId, action.operation, {
+      ...parameters,
+      ...(isChatWriteOperation(action.operation)
+        ? { operationId: picaPlanOperationId(request, context, turn.id) }
+        : {}),
+      ...(action.operation === "plans.delete"
+        ? { confirmation: turn.confirmation }
+        : {}),
+    });
+  }
+
+  private async deletionPrompt(
+    userId: string,
+    parameters: Readonly<Record<string, unknown>>,
+    turn: PicaPlanTurn,
+  ): Promise<ChatActionOutcome> {
+    const response = await this.dispatch(userId, "plans.control.read", {
+      planId: parameters.planId,
+    });
+    if (!response.ok) return response;
+    const result = response.result;
+    if (typeof result !== "object" || result === null || !("control" in result))
+      return { ok: false, error: "FAILED" };
+    const plan = result.control;
+    if (
+      typeof plan !== "object" ||
+      plan === null ||
+      !("canDelete" in plan) ||
+      !("revision" in plan)
+    )
+      return { ok: false, error: "FAILED" };
+    if (plan.canDelete !== true) return { ok: false, error: "FORBIDDEN" };
+    if (plan.revision !== parameters.expectedRevision)
+      return { ok: false, error: "CONFLICT" };
+    return {
+      ok: false,
+      error: "CONFIRMATION_REQUIRED",
+      result: {
+        planId: parameters.planId,
+        ownerId: userId,
+        expectedRevision: plan.revision,
+        confirmation: turn.confirmation,
+        scope:
+          "Only this saved plan is removed; finished history stays stored, workspace files and templates stay untouched. Ask the person to reply with the existing confirmation word in a new message.",
+      },
+    };
+  }
+
+  private async dispatch(
+    userId: string,
+    operation: string,
+    parameters: Readonly<Record<string, unknown>>,
+  ): Promise<ChatActionOutcome> {
     const identity = await this.verify(userId);
     try {
       const response = await this.dependencies.router.handle(identity, {

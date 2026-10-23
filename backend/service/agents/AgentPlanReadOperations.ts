@@ -1,6 +1,8 @@
+import { AGENT_READ_LIMITS } from "@/definition/AgentReadChunks";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { PAGES_AGENT_LIMITS } from "@/definition/PagesAgentOperations";
 
+import { chunkAgentRead } from "./AgentReadChunking";
 import { pageAgentEntries } from "./AgentCursor";
 import {
   readPlanListRequest,
@@ -43,7 +45,8 @@ export type AgentPlanReads = Pick<
   | "runEntries"
   | "runOverview"
   | "run"
->;
+> &
+  Partial<Pick<AgentPlanService, "control">>;
 
 /** Runs listed per page when the client names no limit. */
 const DEFAULT_RUN_LIMIT = 20;
@@ -159,13 +162,30 @@ export class AgentPlanReadOperations {
     userId: string,
     input: unknown,
   ): Promise<AgentPlanReadResult> {
-    const plan = await this.plans.view(userId, readPlanReadRequest(input));
+    const request = readPlanReadRequest(input);
+    const plan = await this.plans.view(userId, request.planId);
     const [directory, sources, entries] = await Promise.all([
       this.plans.directory(userId),
       this.plans.sources(userId, plan.workspaceId),
       this.plans.runEntries(userId, plan.id, "newest"),
     ]);
-    return { plan: planDetail(plan, { directory, sources, entries }) };
+    const control = await this.plans.control?.(userId, plan.id);
+    return chunkAgentRead(
+      {
+        plan: planDetail(plan, {
+          directory,
+          sources,
+          entries,
+          isRunnable: control
+            ? control.canPlay || control.canResume
+            : undefined,
+        }),
+      },
+      {
+        ...request,
+        context: JSON.stringify([userId, "plans.read", plan.id, plan.revision]),
+      },
+    );
   }
 
   private async sources(
@@ -194,7 +214,7 @@ export class AgentPlanReadOperations {
       models: sources?.models ?? [],
       remoteTargets: sources?.remoteTargets ?? [],
       limits: {
-        nodes: 100,
+        nodes: AGENT_READ_LIMITS.planNodes,
         edges: 500,
         groupMembers: 50,
         coordinateMinimum: 0,
@@ -265,14 +285,32 @@ export class AgentPlanReadOperations {
         (request.stepId === null || step.id === request.stepId) &&
         hasReport(step),
     );
-    if (request.stepId !== null && steps.length === 0)
+    const reports = [
+      ...steps.map((step) => stepReport(run, step)),
+      ...(run.loops ?? []).flatMap((loop) =>
+        loop.iterations.flatMap((iteration) =>
+          iteration.nodes
+            .filter(
+              (step) =>
+                (request.stepId === null || step.id === request.stepId) &&
+                hasReport(step),
+            )
+            .map((step) => ({
+              ...stepReport(run, step),
+              loopId: loop.id,
+              iteration: iteration.number,
+            })),
+        ),
+      ),
+    ];
+    if (request.stepId !== null && reports.length === 0)
       throw new AgentOperationError("NOT_FOUND");
     return {
       run: runSummary(
         { id: run.planId, name: run.planName },
         { id: run.id, startedAt: run.startedAt, status: run.status },
       ),
-      reports: steps.map((step) => stepReport(run, step)),
+      reports,
     };
   }
 }
