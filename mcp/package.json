@@ -9,7 +9,7 @@
     "check": "tsc --noEmit && prettier --check .",
     "build": "node build.config.ts",
     "test:mcp": "pnpm run build && node tests/stdio/client.ts",
-    "test": "vitest run --coverage",
+    "test": "vitest run --coverage --maxWorkers=1",
     "clean": "node -e \"for (const artifact of ['node_modules', 'dist', 'coverage']) require('node:fs').rmSync(artifact, { recursive: true, force: true })\""
   },
   "dependencies": {

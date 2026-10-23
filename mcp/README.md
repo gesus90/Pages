@@ -285,8 +285,8 @@ cd mcp
 CI=true pnpm run test
 ```
 
-`test` runs all unit tests once with V8 coverage and then exits; there is no
-watch mode. The tests live in `mcp/tests/` as `*.unit.test.ts` and mirror the
+`test` runs all unit tests once with V8 coverage and one worker, then exits;
+there is no watch mode. The tests live in `mcp/tests/` as `*.unit.test.ts` and mirror the
 source path: `tests/src/` for `src/`, `tests/scripts/` for `scripts/`. The stdio
 check in `tests/stdio/` is no unit test and is not discovered. The configuration
 is [vitest.config.ts](./vitest.config.ts).
@@ -302,16 +302,17 @@ dependencies (`node_modules/`) and generated output (`dist/`, `coverage/`) lie
 outside it. The shared Pages definitions imported from `../definition/` belong
 to the Pages root package and are not part of this report.
 
-**Statements, branches, functions and lines must each reach 100 %.** The
+**Statements, branches, functions and lines must each reach 100 % in every file.** The
 thresholds in `vitest.config.ts` are binding: a failing test or any metric below
 100 % makes `pnpm run test` exit nonzero. Coverage-ignore comments such as
 `/* v8 ignore next */`, `/* v8 ignore start */` or `/* v8 ignore stop */` are not
 allowed, and no production code is excluded from coverage to reach the target;
 cover new code with tests instead.
 
-The terminal prints a summary per file. The HTML report is written to
-`mcp/coverage/index.html`; open it in a browser. `coverage/` is not versioned and
-is recreated by every run.
+The terminal prints a summary per file and the overall counters. Reports are
+written to `mcp/coverage/`: `coverage.txt` (per-file table), `index.html` (HTML),
+`coverage-final.json` (execution counters) and `coverage-summary.json` (per-file
+and overall metrics). `coverage/` is not versioned and is recreated by every run.
 
 ### Continuous integration
 
@@ -320,6 +321,10 @@ runs the root gates first. **MCP check** starts only after **Pages check** has
 succeeded; it installs this package's dependencies and runs `pnpm run lint`,
 `pnpm run check`, `pnpm run build` and `pnpm run test` with `mcp/` as the working
 directory, in this order. A failing step fails the check and the workflow.
+The MCP job limits the Node heap to 2048 MiB and the unit-test step to three
+minutes. The same local `test` command enforces serial execution and the coverage
+thresholds in CI. Coverage reports are uploaded as the `mcp-coverage` artifact
+even after a test failure, when available, and retained for seven days.
 
 ### Removing local artifacts
 

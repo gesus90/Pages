@@ -53,6 +53,8 @@ jobs:
     needs: pages-check
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      NODE_OPTIONS: --max-old-space-size=2048
     defaults:
       run:
         working-directory: mcp
@@ -78,3 +80,13 @@ jobs:
       - run: pnpm run build
 
       - run: pnpm run test
+        timeout-minutes: 3
+
+      - name: MCP coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mcp-coverage
+          path: mcp/coverage/
+          if-no-files-found: ignore
+          retention-days: 7

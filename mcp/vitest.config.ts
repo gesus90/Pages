@@ -21,9 +21,17 @@ export default defineConfig({
       // Every executable file of the package, imported by a test or not.
       // Tests, dependencies and generated output lie outside these paths.
       include: ["src/**/*.ts", "scripts/**/*.ts", "build.config.ts"],
-      reporter: [["text", { skipFull: false }], "html"],
+      reporter: [
+        ["text", { skipFull: false }],
+        ["text", { file: "coverage.txt", skipFull: false }],
+        "text-summary",
+        "html",
+        "json",
+        "json-summary",
+      ],
       reportsDirectory: "coverage",
       thresholds: {
+        perFile: true,
         statements: 100,
         branches: 100,
         functions: 100,
