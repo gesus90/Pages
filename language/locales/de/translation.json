@@ -1257,6 +1257,30 @@
     "connections": {
       "title": "Verbindungen",
       "description": "MCP-Clients, die in Ihrem Namen auf Pages zugreifen. Sie erhalten nie mehr Rechte als Ihr Konto.",
+      "picaMobile": {
+        "title": "Pica Mobile",
+        "description": "Verbinde Pica Mobile mit Pages.",
+        "adminOnly": "Nur Administratoren",
+        "port": {
+          "label": "WebSocket-Port"
+        },
+        "address": {
+          "label": "Verbindungsadresse",
+          "hint": "Diese Adresse in der App eingeben.",
+          "noHost": "Pages kennt keine Netzwerkadresse dieses Servers. Öffne Pages über seine Netzwerkadresse, damit sie hier erscheint."
+        },
+        "save": "Speichern",
+        "saved": "Pica Mobile gespeichert.",
+        "inactive": "Der Endpunkt ist derzeit nicht aktiv.",
+        "error": {
+          "invalidPort": "Gib eine ganze Zahl von 1 bis 65535 ein.",
+          "portInUse": "Port {{port}} ist bereits belegt. Wähle einen anderen Port.",
+          "portOfPages": "Port {{port}} nutzt Pages selbst. Wähle einen anderen Port.",
+          "permissionDenied": "Port {{port}} erfordert höhere Rechte. Wähle einen Port ab 1024.",
+          "listenFailed": "Auf Port {{port}} kann Pages nicht lauschen. Wähle einen anderen Port.",
+          "general": "Der Port konnte nicht gespeichert werden. Versuche es erneut."
+        }
+      },
       "stdio": {
         "title": "Persönliche MCP-Verbindungen",
         "description": "Verwalte stdio-, HTTP-Pairing- und OAuth-Verbindungen deines Kontos.",

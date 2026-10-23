@@ -6,6 +6,7 @@ import { SettingsSectionHeader } from "@/app/components/settings/settings-layout
 import { useManagementPending } from "@/app/components/users/use-management-pending";
 import { ConnectionConfirmation } from "./connection-confirmation";
 import { PairingGuide } from "./pairing-guide";
+import { PicaMobileCard } from "./pica-mobile-card";
 import { StdioConnectionsCard } from "./stdio-connections-card";
 import { useConnectionsActions } from "./use-connections-actions";
 
@@ -36,6 +37,9 @@ export function ConnectionsPanel({
         />
       ) : (
         <div className="space-y-4">
+          {view.picaMobile ? (
+            <PicaMobileCard settings={view.picaMobile} />
+          ) : null}
           {view.httpEndpoint ? (
             <div className="rounded-2xl border border-border p-4 text-sm">
               <p className="font-medium">{t("mcpHttp.endpoint")}</p>

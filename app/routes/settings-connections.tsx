@@ -9,6 +9,10 @@ import { Button } from "@/app/components/ui/button";
 import { getAuthenticatedUser } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import {
+  handleUpdatePicaMobilePort,
+  loadPicaMobileView,
+} from "@/app/lib/settings-actions/settings-pica-mobile-action.server";
+import {
   authorizationFailure,
   authorizationResponse,
   requireAuthorizationOrigin,
@@ -19,13 +23,14 @@ import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { McpConnectionsView } from "@/definition/McpConnections";
 import type { ApplicationServices } from "@/app/lib/services.server";
+import type { User } from "@/definition/User";
 import type { Route } from "./+types/settings-connections";
 
-async function requireOwner(request: Request): Promise<string> {
+async function requireUser(request: Request): Promise<User> {
   const user = await getAuthenticatedUser(request);
   if (!user || user.mustChangePassword)
     throw new McpAuthorizationError("access_denied", 401);
-  return user.id;
+  return user;
 }
 
 /** Personal connection metadata is never cacheable. */
@@ -36,15 +41,18 @@ export function headers(): Headers {
 /** Lists only the requesting owner's safe connection metadata. */
 export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
   try {
-    const owner = await requireOwner(request);
+    const user = await requireUser(request);
+    const owner = user.id;
     const services = await getApplicationServices();
     const [tokens, validityDays] = await Promise.all([
       services.personalAgentTokenService.list(owner),
       services.pairingService.validity(owner),
     ]);
     const httpOrigin = (await getPagesRuntime()).getConfig().mcpHttp?.publicUrl;
+    const picaMobile = await loadPicaMobileView(services, user, request);
     const view: McpConnectionsView = {
       ...(httpOrigin ? { httpEndpoint: `${httpOrigin}/mcp` } : {}),
+      ...(picaMobile ? { picaMobile } : {}),
       origin: new URL(request.url).origin,
       packageVersion: manifest.version,
       tokens,
@@ -73,17 +81,23 @@ async function updateToken(
   else await services.personalAgentTokenService.requestRotation(owner, id);
 }
 
-/** Persists owner-scoped preferences, revocation and client-side rotation requests. */
+/**
+ * Persists owner-scoped preferences, revocation and client-side rotation
+ * requests, and, for administrators, the Pica Mobile port.
+ */
 export async function action({ request }: Route.ActionArgs): Promise<Response> {
   try {
     if (request.method !== "POST")
       throw new McpAuthorizationError("invalid_request", 405);
     requireAuthorizationOrigin(request);
-    const owner = await requireOwner(request);
+    const user = await requireUser(request);
+    const owner = user.id;
     const services = await getApplicationServices();
     const form = await request.formData();
     const intent = form.get("intent");
     const id = form.get("id");
+    if (intent === "update-pica-mobile-port")
+      return await handleUpdatePicaMobilePort(services, user, form);
     if (intent === "set-token-duration") {
       const days = form.get("days");
       if (typeof days !== "string" || !/^(0|[1-9]\d{0,2})$/.test(days))

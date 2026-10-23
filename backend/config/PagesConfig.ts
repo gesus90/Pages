@@ -37,6 +37,8 @@ interface BaseConfig extends Partial<AcpResourceOptions> {
   readonly port: number;
   readonly listenAddress?: string;
   readonly mcpHttp?: McpHttpConfig;
+  /** Port of the Pica Mobile WebSocket endpoint; missing: the endpoint is off. */
+  readonly picaMobilePort?: number;
   readonly interpreterProfiles?: readonly InterpreterProfile[];
   /** Missing on older configurations: 30 calendar days, including today. */
   readonly logRetentionDays?: number;
@@ -230,11 +232,13 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
   const logging = readLoggingConfig(table, source);
   const interpreters = readInterpreterConfig(table, source);
   const proxies = readProxyConfig(table, source);
+  const picaMobile = readPicaMobileConfig(table, source);
 
   if (firstRun) {
     return {
       ...acpResources,
       ...mcpHttp,
+      ...picaMobile,
       ...logging,
       ...interpreters,
       ...proxies,
@@ -254,6 +258,7 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
   return {
     ...acpResources,
     ...mcpHttp,
+    ...picaMobile,
     ...logging,
     ...interpreters,
     ...proxies,
@@ -271,6 +276,20 @@ function isTrustedProxyList(value: unknown): value is string[] {
         typeof entry === "string" && parseTrustedProxyEntry(entry) !== null,
     )
   );
+}
+
+function readPicaMobileConfig(
+  table: TomlTable,
+  source: string,
+): Pick<BaseConfig, "picaMobilePort"> {
+  const port = table.picaMobilePort;
+  if (port === undefined) return {};
+  if (!isValidPort(port))
+    throw invalidConfig(
+      source,
+      `"picaMobilePort" must be a whole number from 1 to ${HIGHEST_PORT}.`,
+    );
+  return { picaMobilePort: port };
 }
 
 function readProxyConfig(
@@ -331,6 +350,8 @@ export function writePagesConfig(
   if (config.listenAddress !== undefined)
     document.listenAddress = config.listenAddress;
   if (config.mcpHttp !== undefined) document.mcpHttp = { ...config.mcpHttp };
+  if (config.picaMobilePort !== undefined)
+    document.picaMobilePort = config.picaMobilePort;
   if (config.interpreterProfiles !== undefined)
     document.interpreterProfiles = config.interpreterProfiles.map(
       (profile) => ({ ...profile }),

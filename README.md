@@ -2054,6 +2054,11 @@ logRetentionDays = 30
 
 Setting `firstRun = true` opens the setup wizard again on the next start.
 
+The optional key `picaMobilePort` (1–65535) opens the WebSocket endpoint of the
+Pica Mobile app on that port. Administrators set it under Settings >
+Connections > Pica Mobile; without the key Pages opens no extra port. See
+[docs/PicaMobileWebSocket.md](./docs/PicaMobileWebSocket.md).
+
 The production server (`pnpm run start`) listens on port 3000 by default.
 Start parameters win over the file:
 
@@ -2481,6 +2486,17 @@ automatically only as `tests/backend/**/*.unit.test.{ts,tsx}` or
 kinds and fixtures do not match just because they share a directory. There is no
 general `pnpm run test` or aggregate test script. Scope rules, source includes and
 aliases are in [tests/README.md](./tests/README.md).
+
+## Pica Mobile WebSocket endpoint (PAGE-148)
+
+Pages offers the Pica Mobile app a WebSocket endpoint on a port of its own. An
+administrator sets the port under Settings > Connections > Pica Mobile; Pages
+binds it first, stores it as `picaMobilePort` in `config.toml` and only then
+closes the previous listener, so a port that is taken or cannot be stored leaves
+the working setting in place. Without the key no extra port is opened. The
+address for the app is `ws://<host>:<port>/pica-mobile`; version 1 has no TLS.
+Connection setup, message format, error codes and limits are the contract for
+the app and live in [docs/PicaMobileWebSocket.md](./docs/PicaMobileWebSocket.md).
 
 ## Pica Mobile (submodule)
 

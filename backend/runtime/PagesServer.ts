@@ -22,6 +22,7 @@ import {
 
 import { startAgentTools } from "./AgentToolsStartup";
 import { installRunnerChannel } from "./RunnerChannel";
+import { startPicaMobile } from "./PicaMobileRuntime";
 import { createForwardedHttpsCheck } from "./ForwardedProtocol";
 import { initializePagesRuntime } from "./PagesRuntime";
 import { serveStaticAsset } from "./StaticAssets";
@@ -312,6 +313,7 @@ export async function startPagesServer(
   }
 
   void startAgentTools(runtime);
+  void startPicaMobile(runtime, port);
   const address = runtime.getConfig().listenAddress;
   const origins =
     address && !["0.0.0.0", "::"].includes(address)

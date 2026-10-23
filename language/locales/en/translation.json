@@ -1257,6 +1257,30 @@
     "connections": {
       "title": "Connections",
       "description": "MCP clients that access Pages on your behalf. They never get more permissions than your account.",
+      "picaMobile": {
+        "title": "Pica Mobile",
+        "description": "Connect Pica Mobile to Pages.",
+        "adminOnly": "Administrators only",
+        "port": {
+          "label": "WebSocket port"
+        },
+        "address": {
+          "label": "Connection address",
+          "hint": "Enter this address in the app.",
+          "noHost": "Pages does not know a network address of this server. Open Pages through its network address to see it here."
+        },
+        "save": "Save",
+        "saved": "Pica Mobile saved.",
+        "inactive": "The endpoint is not active right now.",
+        "error": {
+          "invalidPort": "Enter a whole number from 1 to 65535.",
+          "portInUse": "Port {{port}} is already in use. Choose another port.",
+          "portOfPages": "Port {{port}} is used by Pages itself. Choose another port.",
+          "permissionDenied": "Port {{port}} needs higher privileges. Choose a port from 1024.",
+          "listenFailed": "Pages cannot listen on port {{port}}. Choose another port.",
+          "general": "The port could not be saved. Try again."
+        }
+      },
       "stdio": {
         "title": "Personal MCP connections",
         "description": "Manage stdio, HTTP pairing and OAuth connections for your account.",

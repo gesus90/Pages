@@ -66,6 +66,7 @@ PAGE-33 adds the following units without migrating or deleting existing tests:
 | User management hooks | Intent-specific failures/blocking agents and pending state; fresh success closes once; reopening ignores old success; delayed loading avoids flashes | Router navigation/action data; fake timers |
 | Personal connections | Confirmation before mutation; cancel; failed mutation retains selection; successful retry and validity feedback; ignore stale success | Router fetcher and toast notification; no MCP runtime |
 | Connection route UI | Empty public loader view; instructions from version/origin metadata; recoverable error and retry button | Server auth/service factory fail if invoked; memory router has only a fixture loader; revalidation callback |
+| Pica Mobile card | Design brief texts without star, range hint or TLS note; live address preview with IPv6 brackets and a missing host; port validation and disabled save; submitted form; refusal messages per error code; inactive-endpoint status; card present only for the administrator view | Router fetcher and toast notification; no server action |
 
 Existing regressions stay selected: Agent configuration/deletion/assignment,
 plan graph/list and templates, group editing, run notes, chat sessions and
