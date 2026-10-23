@@ -45,6 +45,7 @@ export const DESIGN_THEME_COLOR_ROLES = [
   "card",
   "sidebar",
   "sidebar-hover",
+  "sidebar-active",
   "muted",
   "foreground",
   "muted-foreground",
@@ -54,6 +55,14 @@ export const DESIGN_THEME_COLOR_ROLES = [
   "primary-subtle",
   "primary-foreground",
   "ring",
+  "field",
+  "field-border",
+  "field-border-hover",
+  "panel-body",
+  "auth-glow-warm",
+  "auth-glow-cool",
+  "auth-button-from",
+  "auth-button-foreground",
 ] as const;
 
 /** A color role a manifest may set. */

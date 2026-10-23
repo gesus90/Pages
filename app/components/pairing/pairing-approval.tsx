@@ -124,7 +124,7 @@ export function PairingApprovalActions({
         </Button>
         <Button
           variant="auth"
-          className="text-foreground"
+          className="text-auth-button-foreground"
           name="decision"
           value="approve"
           type="submit"

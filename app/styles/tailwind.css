@@ -31,6 +31,7 @@
   --color-card: #ffffff;
   --color-sidebar: #f2f4f7;
   --color-sidebar-hover: #e8ebf0;
+  --color-sidebar-active: var(--color-primary-subtle);
   --color-muted: #eef0f4;
   --color-foreground: #171717;
   --color-muted-foreground: #6d7482;
@@ -163,6 +164,7 @@
   --color-auth-glow-warm: #ffe8d6;
   --color-auth-glow-cool: #dbe7ff;
   --color-auth-button-from: #ffa25e;
+  --color-auth-button-foreground: var(--color-foreground);
   --color-field: #f8f9fb;
   --color-field-border: #e5e8ee;
   --color-field-border-hover: #d3d8e0;
@@ -244,6 +246,9 @@
   --scroll-fade-vertical: 40px;
   --scroll-fade-horizontal: 48px;
   --scroll-fade-duration: 200ms;
+  /* Texture and edge of the sidebar; a design theme may set them (PAGE-129). */
+  --sidebar-texture: none;
+  --sidebar-edge: none;
   --shadow-ink: 23 23 23;
   --shadow-strength: 1;
   --shadow-edge: 255 255 255;
@@ -472,6 +477,13 @@
       transition: none;
       translate: 0 0;
     }
+  }
+
+  /* Surface of the permanent sidebar: its color is `bg-sidebar`; texture and
+     edge are `none` in the Standard design. */
+  .pages-sidebar-surface {
+    background-image: var(--sidebar-texture);
+    box-shadow: var(--sidebar-edge);
   }
 
   .pages-content-card {

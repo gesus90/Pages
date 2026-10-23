@@ -2131,8 +2131,18 @@ tool cannot open the database while Pages runs.
 A design theme changes the colors and surfaces of the whole interface for one
 user. Every user chooses theirs in **Settings → Personal → Appearance**; the
 choice is stored per user, independently of the color mode (light, dark,
-system). Only the identifier of the theme is stored. Pages ships one theme,
-`standard`, which is built in, cannot be removed and looks as Pages always did.
+system). Only the identifier of the theme is stored, and the color mode stays a
+separate setting: **Light**, **Dark** and **System** above the theme cards pick
+the palette of the chosen theme. Pages ships two themes, both built in and not
+removable: `standard`, which looks as Pages always did, and `arctic-ice`
+(PAGE-129), a maritime ice-glass design with one white-and-blue palette for
+light and one deep polar-sea palette for dark. Arctic Ice is one card with one
+identifier; under **System** it follows the device color scheme, including
+changes while Pages is open. Its only texture is a static, barely visible wave
+pattern on the permanent sidebar (a gradient, no image, no blur, no animation);
+content surfaces, tables and fields stay plain. Status, priority, workflow and
+plan colors and colors that users picked keep their meaning in every theme. The
+sign-in page has no signed-in user and therefore always uses the Standard design.
 
 More themes are installed by putting a directory into `themes/` next to the
 database file (`~/.pages/data/themes/` by default). No restart is needed: the
@@ -2144,7 +2154,7 @@ stored choice is kept. There is no upload in the interface.
 
 ```text
 themes/
-└── arctic-ice/               the directory name is the identifier
+└── northern-lights/          the directory name is the identifier
     ├── theme.json            manifest (required)
     └── preview.png           preview image (optional, PNG/JPEG/WebP, up to 1 MiB)
 ```
@@ -2152,8 +2162,8 @@ themes/
 ```json
 {
   "schemaVersion": 1,
-  "id": "arctic-ice",
-  "name": { "de": "Arktis", "en": "Arctic ice" },
+  "id": "northern-lights",
+  "name": { "de": "Nordlicht", "en": "Northern lights" },
   "description": { "de": "Kühle Blautöne.", "en": "Cool blues." },
   "modes": ["light", "dark"],
   "colors": {
@@ -2166,7 +2176,9 @@ themes/
 ```
 
 - `id`: lower-case words joined by hyphens, beginning with a letter, at most 40
-  characters, equal to the directory name. `standard` is reserved.
+  characters, equal to the directory name. The identifiers of the themes Pages
+  ships (`standard`, `arctic-ice`) are reserved; a directory with one of them is
+  skipped.
 - `name` and `description` hold both languages; names have at most 48 and
   descriptions at most 200 characters.
 - `modes` lists the supported color modes. A theme applies only while a mode it
@@ -2175,9 +2187,12 @@ themes/
   The roles are the color tokens `background`, `surface`, `surface-hover`,
   `card`, `sidebar`, `sidebar-hover`, `muted`, `foreground`,
   `muted-foreground`, `border`, `primary`, `primary-hover`, `primary-subtle`,
-  `primary-foreground` and `ring`; a role that is left out keeps the Standard
-  value. Pages turns the roles into custom properties itself; a manifest cannot
-  carry CSS.
+  `primary-foreground`, `ring`, `sidebar-active` (the selected entry of the
+  sidebar), `field`, `field-border`, `field-border-hover` (input fields),
+  `panel-body`, `auth-glow-warm`, `auth-glow-cool` and `auth-button-from` (the
+  stage of the sign-in and pairing pages); a role that is left out keeps the
+  Standard value. Pages turns the roles into custom properties itself; a
+  manifest cannot carry CSS.
 - `materials` (optional) sets `shadowStrength` (0 to 8; the Standard design uses
   1 in light and 4 in dark) and `shadowEdgeAlpha` (0 to 100, in percent).
 - Unknown keys and values outside these ranges make the manifest invalid.

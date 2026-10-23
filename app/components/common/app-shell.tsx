@@ -81,7 +81,7 @@ interface NavigationLinksProps {
 function getLinkClassName(isActive: boolean): string {
   return cn(
     "flex min-h-12 items-center gap-4 rounded-xl px-5 text-lg font-medium text-muted-foreground transition-colors hover:bg-sidebar-hover hover:text-foreground xl:min-h-10 xl:gap-3 xl:px-3 xl:text-sm",
-    isActive && "bg-primary-subtle text-foreground shadow-xs",
+    isActive && "bg-sidebar-active text-foreground shadow-xs",
   );
 }
 
@@ -350,7 +350,7 @@ function DesktopSidebar({
       ref={sidebarRef}
       id={sidebarId}
       className={cn(
-        "fixed inset-y-0 left-0 hidden w-(--app-sidebar-width) flex-col bg-background px-5 pt-7 pb-13 md:flex xl:px-4 xl:pt-5 xl:pb-6",
+        "fixed inset-y-0 left-0 hidden w-(--app-sidebar-width) flex-col bg-sidebar pages-sidebar-surface px-5 pt-7 pb-13 md:flex xl:px-4 xl:pt-5 xl:pb-6",
         !layout.isCollapsed && "min-w-(--app-sidebar-minimum)",
       )}
     >

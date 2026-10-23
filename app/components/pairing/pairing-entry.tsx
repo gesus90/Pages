@@ -56,7 +56,7 @@ export function PairingEntry({
         pendingLabel={t("mcpPairing.enter.submit")}
         isPending={navigation.state === "submitting"}
         disabled={Boolean(retryAfter)}
-        className="w-full text-foreground"
+        className="w-full text-auth-button-foreground"
       />
     </Form>
   );

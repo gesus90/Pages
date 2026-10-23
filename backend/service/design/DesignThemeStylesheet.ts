@@ -59,10 +59,8 @@ function rule(selector: string, declarations: readonly string[]): string {
 function modeRules(
   base: string,
   mode: DesignThemeMode,
-  palette: DesignThemePalette,
+  declarations: readonly string[],
 ): string[] {
-  const declarations = paletteDeclarations(palette);
-
   if (declarations.length === 0) {
     return [];
   }
@@ -76,10 +74,20 @@ function modeRules(
 }
 
 /**
- * Builds the stylesheet that applies an installed theme.
+ * Declarations a theme that ships with Pages adds to its mode rules, such as
+ * the texture of the sidebar, which no color role can express.
+ */
+export type ShippedDesignThemeDeclarations = Readonly<
+  Partial<Record<DesignThemeMode, readonly string[]>>
+>;
+
+/**
+ * Builds the stylesheet that applies a theme.
  *
  * @param manifest - A validated manifest; colors and numbers are therefore
  * known to be plain hexadecimal colors and finite numbers.
+ * @param shipped - Further custom properties per mode. Only a theme that ships
+ * with Pages passes them; the manifest of an installed theme has no way to.
  * @returns The CSS, or `null` when the theme overrides nothing.
  *
  * @remarks
@@ -88,13 +96,17 @@ function modeRules(
  */
 export function buildDesignThemeStylesheet(
   manifest: DesignThemeManifest,
+  shipped: ShippedDesignThemeDeclarations = {},
 ): string | null {
   const base = `:root[data-design-theme="${manifest.id}"]`;
   const materials = materialDeclarations(manifest.materials);
   const rules = [
     ...(materials.length > 0 ? [rule(base, materials)] : []),
     ...manifest.modes.flatMap((mode) =>
-      modeRules(base, mode, manifest.colors[mode] ?? {}),
+      modeRules(base, mode, [
+        ...paletteDeclarations(manifest.colors[mode] ?? {}),
+        ...(shipped[mode] ?? []),
+      ]),
     ),
   ];
 

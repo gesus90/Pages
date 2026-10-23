@@ -7,6 +7,7 @@ import {
   isDesignThemeId,
 } from "@/definition/DesignTheme";
 
+import { ARCTIC_ICE_INSTALLED_THEME } from "./ArcticIceDesignTheme";
 import {
   MANIFEST_FILE_NAME,
   describeFileError,
@@ -24,7 +25,7 @@ import type { SkippedDesignTheme } from "@/definition/DesignTheme";
 
 /** The installed themes and the directories that were skipped, as of one scan. */
 export interface DesignThemeCatalog {
-  /** The Standard design first, then the installed themes by identifier. */
+  /** The designs Pages ships first, then the installed themes by identifier. */
   readonly themes: readonly InstalledDesignTheme[];
   readonly skipped: readonly SkippedDesignTheme[];
 }
@@ -36,7 +37,18 @@ const STANDARD_INSTALLED_THEME: InstalledDesignTheme = {
   stylesheet: null,
 };
 
-const RESERVED_ID_PROBLEM = `the identifier "${STANDARD_DESIGN_THEME_ID}" is reserved for the design Pages ships`;
+/** The designs that come with Pages, in the order the settings offer them. */
+const SHIPPED_THEMES: readonly InstalledDesignTheme[] = [
+  STANDARD_INSTALLED_THEME,
+  ARCTIC_ICE_INSTALLED_THEME,
+];
+
+function findShippedTheme(id: string): InstalledDesignTheme | undefined {
+  return SHIPPED_THEMES.find((theme) => theme.manifest.id === id);
+}
+
+const RESERVED_ID_PROBLEM =
+  "the identifier is reserved for a design Pages ships";
 const INVALID_ID_PROBLEM =
   "the directory name is not a valid theme identifier (lower-case words joined by hyphens, beginning with a letter)";
 
@@ -48,10 +60,11 @@ const INVALID_ID_PROBLEM =
  * identifier. The directory is read when somebody asks, never only at start,
  * so a theme appears and disappears without a restart. A theme that did not
  * change on disk is not parsed again, which keeps the check that every page
- * makes for the theme of its user down to one `stat`. The Standard design is
- * built in, so it exists even when the directory does not. A directory that
- * cannot be read never breaks a page: the affected theme is skipped and the
- * Standard design applies.
+ * makes for the theme of its user down to one `stat`. The designs Pages ships
+ * (Standard and Arctic Ice) are built in, so they exist even when the
+ * directory does not, and an installed theme cannot take their identifiers. A
+ * directory that cannot be read never breaks a page: the affected theme is
+ * skipped and the Standard design applies.
  */
 export class DesignThemeRegistry {
   private readonly directory: string;
@@ -74,7 +87,7 @@ export class DesignThemeRegistry {
    */
   public async list(): Promise<DesignThemeCatalog> {
     const names = await this.readThemeDirectoryNames();
-    const themes: InstalledDesignTheme[] = [STANDARD_INSTALLED_THEME];
+    const themes: InstalledDesignTheme[] = [...SHIPPED_THEMES];
     const skipped: SkippedDesignTheme[] = [];
 
     for (const name of names) {
@@ -100,8 +113,10 @@ export class DesignThemeRegistry {
    * manifest is invalid.
    */
   public async find(id: string): Promise<InstalledDesignTheme | null> {
-    if (id === STANDARD_DESIGN_THEME_ID) {
-      return STANDARD_INSTALLED_THEME;
+    const shipped = findShippedTheme(id);
+
+    if (shipped) {
+      return shipped;
     }
 
     if (!isDesignThemeId(id)) {
@@ -169,7 +184,7 @@ export class DesignThemeRegistry {
     name: string,
     options: { readonly reportMissingManifest: boolean },
   ): Promise<DesignThemeLoadResult> {
-    if (name === STANDARD_DESIGN_THEME_ID) {
+    if (findShippedTheme(name)) {
       return this.reject(name, [RESERVED_ID_PROBLEM], true);
     }
 

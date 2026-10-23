@@ -44,7 +44,7 @@ export function AgentNavigation(props: {
             className={({ isActive: isPlanActive }) =>
               cn(
                 "flex min-h-11 items-center rounded-xl px-3 text-sm font-medium text-muted-foreground hover:bg-sidebar-hover hover:text-foreground",
-                isPlanActive && "bg-primary-subtle text-foreground shadow-xs",
+                isPlanActive && "bg-sidebar-active text-foreground shadow-xs",
               )
             }
           >
@@ -57,7 +57,7 @@ export function AgentNavigation(props: {
               cn(
                 "flex min-h-11 items-center rounded-xl px-3 text-sm font-medium text-muted-foreground hover:bg-sidebar-hover hover:text-foreground xl:min-h-9",
                 isWorkspaceActive &&
-                  "bg-primary-subtle text-foreground shadow-xs",
+                  "bg-sidebar-active text-foreground shadow-xs",
               )
             }
           >
