@@ -1,20 +1,26 @@
 import { useTranslation } from "react-i18next";
 
 import { PlanRecoveryRestart } from "./plan-recovery/plan-recovery-restart";
-import { PlanRecoveryResume } from "./plan-recovery/plan-recovery-resume";
 import { PlanRecoveryState } from "./plan-recovery/plan-recovery-state";
-import { usePlanRecovery } from "./use-plan-recovery";
 
+import type { TFunction } from "i18next";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
-import type { PlanRecoveryRequest } from "./use-plan-recovery";
+import type { PlanRecoveryRequest, usePlanRecovery } from "./use-plan-recovery";
 
 const RECOVERABLE_STATUSES = new Set(["failed", "cancelled"]);
 const ACCESS_ERRORS = new Set(["access_denied", "plan_access_denied"]);
 
-function recoveryErrorText(
-  translate: ReturnType<typeof useTranslation>["t"],
-  code: string,
-): string {
+/** The newest run when it ended and may be restarted or resumed, else `null`. */
+export function recoverableRunId(
+  control: AgentPlanControl | undefined,
+): string | null {
+  return control?.runId && RECOVERABLE_STATUSES.has(control.status)
+    ? control.runId
+    : null;
+}
+
+/** The translated reason of a refused recovery request. */
+export function recoveryErrorText(translate: TFunction, code: string): string {
   return translate([
     `plans.recovery.error.${code}`,
     `settings.agents.error.${code}`,
@@ -24,35 +30,29 @@ function recoveryErrorText(
 
 /**
  * What the executor can do with a run that failed or was stopped: see its
- * state, failure point and last verified checkpoint, start the plan again
- * from the start, or continue from the last safe state.
+ * state, failure point and last verified checkpoint, or start the plan again
+ * from the start.
  *
  * @remarks
  * Shared readers and other users never see it; the server answers only the
- * executor of the run with its current rights.
+ * executor of the run with its current rights. Continuing from the last safe
+ * state is the Fortsetzen button of the panel; why it is not available is
+ * listed here.
  */
 export function PlanRecoveryPanel({
-  control,
-  onRunStarted,
+  runId,
+  recovery,
 }: {
-  readonly control: AgentPlanControl | undefined;
-  readonly onRunStarted: (runId: string) => void;
+  readonly runId: string | null;
+  readonly recovery: ReturnType<typeof usePlanRecovery>;
 }): React.ReactElement | null {
   const { t } = useTranslation();
-  const runId =
-    control?.runId && RECOVERABLE_STATUSES.has(control.status)
-      ? control.runId
-      : null;
-  const recovery = usePlanRecovery(runId, onRunStarted);
   const { view } = recovery;
   if (!runId) return null;
   // Another person's run is not theirs to recover; the server says so without details.
   if (!view)
     return recovery.error && !ACCESS_ERRORS.has(recovery.error) ? (
-      <p
-        role="alert"
-        className="border-t border-border px-2.5 py-2 text-xs text-destructive"
-      >
+      <p role="alert" className="text-xs text-destructive">
         {recoveryErrorText(t, recovery.error)}
       </p>
     ) : null;
@@ -63,7 +63,7 @@ export function PlanRecoveryPanel({
     <section
       aria-label={t("plans.recovery.title")}
       aria-busy={recovery.isPending}
-      className="space-y-2 border-t border-border px-2.5 py-2 text-xs leading-4 wrap-anywhere text-muted-foreground"
+      className="space-y-2 text-xs leading-4 wrap-anywhere text-muted-foreground"
     >
       <h3 className="text-xs font-semibold text-foreground">
         {t("plans.recovery.title")}
@@ -76,11 +76,6 @@ export function PlanRecoveryPanel({
           ))}
         </ul>
       ) : null}
-      <PlanRecoveryResume
-        view={view}
-        isPending={recovery.isPending}
-        onSubmit={submit}
-      />
       <PlanRecoveryRestart
         view={view}
         isPending={recovery.isPending}

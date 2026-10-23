@@ -697,7 +697,7 @@
         "template_not_found": "Die Vorlage existiert nicht mehr.",
         "template_invalid": "Diese Node kann nicht als Vorlage gespeichert werden.",
         "plan_access_denied": "Dieser Plan oder Lauf ist nicht zugänglich.",
-        "plan_conflict": "Der Plan wurde geändert. Vor Speichern oder Play neu laden.",
+        "plan_conflict": "Der Plan wurde geändert. Vor Speichern oder Starten neu laden.",
         "plan_name_taken": "Dieser Planname ist bereits vergeben. Wähle einen anderen Namen.",
         "plan_project_owner_only": "Nur der Besitzer verschiebt einen Plan in ein anderes Projekt. Wähle einen Arbeitsbereich des Projekts dieses Plans.",
         "plan_running": "Ein Lauf dieses Plans ist noch aktiv. Stoppen Sie ihn, bevor Sie den Plan löschen.",
@@ -769,7 +769,7 @@
         "plan_session_unavailable": "Diese Agenten-Session hat keine offene native Session, die eine weitere Anweisung annehmen könnte. Ihr Verlauf bleibt lesbar.",
         "offline": "Pages ist nicht erreichbar. Prüfe die Verbindung; der Agent läuft weiter.",
         "agent_tool_not_ready": "Ein benötigtes Agent-Tool ist nicht betriebsbereit. Tool und Ursache stehen in den Run-Ereignissen; siehe Einstellungen → Agents → Tools.",
-        "plan_continuation_deleted": "Fortsetzungspunkt gelöscht – Neustart erforderlich. Zuerst stoppen, danach mit Play neu starten.",
+        "plan_continuation_deleted": "Fortsetzungspunkt gelöscht – Neustart erforderlich. Zuerst stoppen, danach neu starten.",
         "plan_completed_changed": "Diese Änderung würde abgeschlossene Arbeit wiederholen. Stoppen Sie den Run und starten Sie neu.",
         "plan_pause_required": "Zuerst pausieren und warten, bis alle laufenden Schritte beendet sind.",
         "plan_connection_unavailable": "Verbindung unterbrochen. Der angezeigte Status ist der zuletzt empfangene; Aktionen sind gesperrt. Die Verbindung wird automatisch erneut geprüft.",
@@ -4148,14 +4148,14 @@
       "label": "Plan und Ausführung",
       "workspace": "Arbeitsbereich",
       "actions": "Run-Steuerung",
-      "play": "Play",
+      "play": "Starten",
       "pause": "Pause",
-      "resume": "Weiter",
+      "resume": "Fortsetzen",
       "stop": "Stop",
       "expand": "Planpanel aufklappen",
       "collapse": "Planpanel einklappen",
-      "stopFirst": "Speichern erzeugt eine neue Revision; der laufende Run behält seinen Snapshot. Ein weiterer Play ist erst nach seinem Ende möglich.",
-      "newRunHint": "Play startet alle Schritte neu. Bereits ausgeführte Änderungen bleiben bestehen.",
+      "stopFirst": "Speichern erzeugt eine neue Revision; der laufende Lauf behält seinen Snapshot. Ein neuer Start ist erst nach seinem Ende möglich.",
+      "newRunHint": "Starten beginnt einen neuen Lauf der gespeicherten Revision; alle Schritte laufen neu. Bereits ausgeführte Änderungen bleiben bestehen.",
       "contextHint": "Kontextwechsel wird mit dem Plan gespeichert. Ein pausierter Run bleibt an seinen bisherigen Projekt- und Arbeitsbereich gebunden.",
       "projectOwnerOnly": "Jedes Teammitglied darf einen anderen Arbeitsbereich dieses Projekts wählen; nur der Besitzer verschiebt den Plan in ein anderes Projekt.",
       "team": {
@@ -4168,8 +4168,8 @@
       "openPlan": "Plan öffnen",
       "save": "Plan speichern",
       "manageWorkspaces": "Arbeitsbereiche verwalten",
-      "unsaved": "Ungespeicherte Änderungen – vor Play oder Weiter speichern.",
-      "pausedHint": "Stillstand bestätigt. Ausstehende Schritte bearbeiten, speichern und mit Weiter übernehmen. Abgeschlossene Schritte werden nicht wiederholt. Änderungen an abgeschlossenen Schritten wirken erst bei einem neuen Play.",
+      "unsaved": "Ungespeicherte Änderungen – vor Starten oder Fortsetzen speichern.",
+      "pausedHint": "Stillstand bestätigt. Ausstehende Schritte bearbeiten, speichern und mit Fortsetzen übernehmen. Abgeschlossene Schritte werden nicht wiederholt. Änderungen an abgeschlossenen Schritten wirken erst bei einem neuen Start.",
       "stoppingHint": "Abbruch angefordert. Ausführungen und Sessions werden beendet; Reservierungen bleiben bis zum bestätigten Ende bestehen.",
       "revision": "Fortsetzung {{version}} · übernommene Planrevision {{revision}}",
       "reason": "Hinderungsgrund anzeigen",
@@ -4186,7 +4186,99 @@
         "blocked": "Blocked · blockiert"
       },
       "draftRevision": "Gespeicherte Entwurfsrevision {{revision}}",
-      "actualState": "Runzustand: {{state}}"
+      "actualState": "Runzustand: {{state}}",
+      "checking": "Der Plan wird geprüft; Starten ist bis dahin gesperrt.",
+      "blockedHint": "Nicht startbereit: Details aufklappen und die Planfehler beheben. Der Server prüft beim Start erneut.",
+      "unsavedShort": "Ungespeicherte Änderungen",
+      "savedShort": "Plan gespeichert",
+      "pausingHint": "Pause angefordert: Es startet kein wartender Schritt mehr; laufende Schritte werden kontrolliert abgeschlossen. Erst danach ist der Lauf pausiert.",
+      "pauseHint": "Pause startet keine wartenden Schritte mehr und lässt laufende Schritte kontrolliert auslaufen.",
+      "resumeHint": "Fortsetzen macht ab dem letzten sicheren Stand weiter; abgeschlossene Schritte laufen nicht erneut.",
+      "recoverHint": "Fortsetzen übernimmt die erfolgreichen Schritte des beendeten Laufs und führt nur offene Arbeit als neuen Versuch aus.",
+      "stopHint": "Stop beendet den ganzen Lauf: Kein Schritt startet mehr, laufende Agent- und Script-Prozesse dieses Laufs werden beendet. Plan und Verlauf bleiben erhalten.",
+      "issuesLabel": "Planfehler",
+      "issueTitle": {
+        "plan": "Plan",
+        "workspace": "Arbeitsbereich",
+        "target": "Ausführungsziel",
+        "model": "Modellzugang",
+        "script": "Script",
+        "run": "Lauf",
+        "lastRun": "Letzter Lauf"
+      },
+      "issueCause": {
+        "agent": "Modellzugang fehlt oder ist nicht freigegeben.",
+        "required": "Ein Pflichtparameter ist nicht verbunden.",
+        "requiredPort": "Pflichtparameter „{{port}}“ ist nicht verbunden. Die Verbindung zur vorgesehenen Parameterquelle muss vor dem Start bestehen.",
+        "flowIn": "Der Schritt hat keinen eingehenden Ablauf.",
+        "flowOut": "Der Schritt hat keinen ausgehenden Ablauf.",
+        "unreachable": "Kein Start erreicht diesen Schritt.",
+        "end": "Von hier führt kein Ablauf zu einem Ende.",
+        "remoteModel": "Das Modell läuft nicht auf dem gewählten Remote-Arbeitsbereich. Ein Runner-Modell wählen oder den Schritt lokal ausführen.",
+        "remoteInterpreter": "Der Interpreter gehört nicht zum Runner des Remote-Arbeitsbereichs. Einen Interpreter dieses Runners wählen oder das Script lokal ausführen.",
+        "remoteContainer": "Schritte in Gruppen und Loops laufen nicht remote. Den Schritt lokal ausführen oder aus dem Rahmen lösen."
+      },
+      "state": {
+        "none": {
+          "label": "Kein Plan",
+          "hint": "Über ⋯ einen neuen Plan anlegen oder einen Plan öffnen."
+        },
+        "checking": {
+          "label": "Wird geprüft",
+          "hint": "Der Plan wird geprüft."
+        },
+        "error": {
+          "label": "Aktion abgelehnt",
+          "hint": "Die letzte Aktion wurde nicht ausgeführt. Details aufklappen."
+        },
+        "stopping": {
+          "label": "Wird gestoppt",
+          "hint": "Laufende Schritte werden beendet; es startet kein neuer Schritt."
+        },
+        "pausing": {
+          "label": "Pause angefordert",
+          "hint": "Laufende Schritte werden noch abgeschlossen; es startet kein neuer Schritt."
+        },
+        "paused": {
+          "label": "Pausiert",
+          "hint": "Fortsetzen macht ab dem letzten sicheren Stand weiter."
+        },
+        "pausedBlocked": {
+          "label": "Fortsetzen gesperrt",
+          "hint": "Der pausierte Lauf kann so nicht fortgesetzt werden."
+        },
+        "running": {
+          "label": "Läuft",
+          "hint": "Der Lauf ist aktiv."
+        },
+        "runBlocked": {
+          "label": "Blockiert",
+          "hint": "Ein Schritt ist fehlgeschlagen; abhängige Schritte starten nicht."
+        },
+        "readOnly": {
+          "label": "Nur lesen",
+          "hint": "Du kannst diesen Plan lesen, aber nicht ändern oder starten."
+        },
+        "unsaved": {
+          "label": "Nicht gespeichert",
+          "hint": "Bitte vor dem Start speichern."
+        },
+        "failed": {
+          "label": "Fehlgeschlagen",
+          "hint": "Der letzte Lauf ist an einem Fehler angehalten.",
+          "hint_resumable": "Der letzte Lauf ist angehalten; Fortsetzen übernimmt seine erfolgreichen Schritte."
+        },
+        "blocked": {
+          "label": "Nicht startbereit",
+          "hint": "Bitte die Planfehler beheben."
+        },
+        "ready": {
+          "label": "Bereit",
+          "hint": "Der Plan ist startbereit.",
+          "hint_succeeded": "Der letzte Lauf ist erfolgreich beendet; Starten beginnt einen neuen Lauf.",
+          "hint_cancelled": "Der letzte Lauf wurde gestoppt; Starten beginnt einen neuen Lauf."
+        }
+      }
     },
     "ticketPicker": {
       "choose": "Ticket auswählen",
@@ -4343,7 +4435,7 @@
     },
     "scripts": {
       "editTitle": "Script bearbeiten",
-      "description": "Ausdrückliches Play führt dieses Script im freigegebenen Plan-Workspace unter dem Betriebssystemkonto des Pages-Dienstes aus. Aktiver Administratormodus und aktuelle Plan-/Projekt-/Workspace-Rechte sind erforderlich. Keine Agenten- oder Gateway-Zugangsdaten werden vererbt.",
+      "description": "Ein ausdrücklicher Start führt dieses Script im freigegebenen Plan-Workspace unter dem Betriebssystemkonto des Pages-Dienstes aus. Aktiver Administratormodus und aktuelle Plan-/Projekt-/Workspace-Rechte sind erforderlich. Keine Agenten- oder Gateway-Zugangsdaten werden vererbt.",
       "name": "Name",
       "profile": "Interpreterprofil",
       "chooseProfile": "Interpreterprofil wählen",
@@ -4470,7 +4562,8 @@
         "succeeded": "Fertig",
         "cancelled": "Gestoppt",
         "failed": "Fehlgeschlagen",
-        "blocked": "Blockiert"
+        "blocked": "Blockiert",
+        "notReady": "Nicht startbereit"
       },
       "agent": "Agent: {{name}}",
       "lastActivity": "Zuletzt gemeldeter Arbeitsschritt",
@@ -4481,7 +4574,11 @@
         "opencode": "OpenCode",
         "api": "API"
       },
-      "notApplicable": "Nicht anwendbar"
+      "notApplicable": "Nicht anwendbar",
+      "gap": {
+        "unreachable": "nicht erreichbar – ohne Nummer",
+        "cycle": "im Zyklus – ohne Nummer"
+      }
     },
     "loops": {
       "defaultName": "Loop",
@@ -4710,7 +4807,9 @@
         "action_unavailable": "Diese Aktion ist im aktuellen Zustand des Laufs nicht möglich.",
         "workflow_unavailable": "Neustart und Fortsetzen sind hier nicht verfügbar.",
         "plan_conflict": "Der Plan wurde inzwischen gespeichert. Plan neu laden und die angezeigte Revision starten."
-      }
+      },
+      "resumeTitle": "Lauf fortsetzen",
+      "resumeDescription": "Setzt am letzten sicheren Stand fort: Erfolgreiche Schritte werden übernommen und nicht wiederholt; offene Arbeit läuft als neuer Versuch."
     },
     "nodeInstruction": "Zusätzliche Node-Anweisung",
     "execution": {
@@ -4743,7 +4842,55 @@
       "scriptCheckHint": "Verfügbarkeit und Rechte werden vor dem tatsächlichen Start erneut geprüft.",
       "identifiers": "Plan-, Run-, Schritt- und Versuchs-IDs",
       "frozenReasoning": "{{reasoning}} · eingefrorener Snapshot",
-      "save": "Speichern"
+      "save": "Speichern",
+      "inherit": "Wie Plan · {{target}}",
+      "deviation": "Weicht vom Planziel ab",
+      "localPaths": "Das Script nennt lokale Pfade ({{paths}}). Pages passt sie für das Remote-Ziel nicht an und prüft nicht, ob es sie dort gibt."
+    },
+    "manage": {
+      "menu": "Planaktionen",
+      "new": "Neu",
+      "edit": "Bearbeiten",
+      "cloneItem": "Klonen",
+      "remove": "Entfernen",
+      "noPlan": "Kein Plan geöffnet",
+      "ownerOnly": "Nur der Besitzer löscht diesen Plan",
+      "runActive": "Ein Lauf dieses Plans ist aktiv",
+      "close": "Schließen",
+      "createTitle": "Neuen Plan erstellen",
+      "create": "Erstellen",
+      "editTitle": "Plan bearbeiten",
+      "editUnsaved": "Ungespeicherte Änderungen am Plan werden mitgespeichert.",
+      "cloneTitle": "Plan klonen",
+      "clone": "Klonen",
+      "cloneName": "{{name}} – Kopie",
+      "cloneSource": "Kopie von {{name}} · gespeicherte Revision {{revision}}",
+      "cloneUnsaved": "Ungespeicherte Änderungen werden weder kopiert noch gespeichert; sie bleiben im Editor.",
+      "deleteTitle": "Plan löschen?",
+      "deleteQuestion": "Möchtest du „{{name}}“ wirklich löschen?",
+      "deleteContext": "{{context}}. Workspace-Dateien und Laufhistorie bleiben erhalten.",
+      "deleteUnsaved": "Ungespeicherte Änderungen gehen verloren.",
+      "delete": "Löschen",
+      "namePlaceholder": "Name eingeben",
+      "projectOwnerOnly": "Nur der Besitzer verschiebt den Plan in ein anderes Projekt.",
+      "noLocation": "Arbeitsbereich wählen",
+      "noLocationHint": "Dieses Projekt hat keinen nutzbaren Arbeitsbereich.",
+      "location": {
+        "local": "Lokal auf dem Pages-Host",
+        "remote": "Remote über den Runner der Verbindung"
+      },
+      "localOption": "Lokal · {{name}}",
+      "remoteOption": "Remote · {{name}} · {{host}}",
+      "remoteDenied": "Keine Berechtigung, auf dieser Verbindung auszuführen",
+      "remoteContext": "{{project}} · {{workspace}} · Remote über {{host}}",
+      "choosePlan": "Plan wählen",
+      "deviationTitle": "Eigene Ausführungsziele",
+      "deviationNodes_one": "„{{names}}“ hat ein eigenes Ausführungsziel, das vom neuen Planziel abweicht.",
+      "deviationNodes_other": "{{count}} Schritte ({{names}}) haben ein eigenes Ausführungsziel, das vom neuen Planziel abweicht.",
+      "deviation": {
+        "keep": "Eigene Ziele dieser Schritte beibehalten",
+        "follow": "Diese Schritte auf das neue Planziel umstellen"
+      }
     }
   },
   "mcpDuration": {

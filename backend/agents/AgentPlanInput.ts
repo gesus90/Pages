@@ -136,7 +136,7 @@ export function readPlanNode(input: unknown): AgentPlanNode {
 
 function readExecutionTarget(
   input: unknown,
-): Pick<AgentPlanStep, "executionTarget"> {
+): Pick<AgentPlanInput, "executionTarget"> {
   if (input === undefined) return {};
   const parsed = planExecutionTargetSchema.safeParse(input);
   if (!parsed.success) throw new AgentError("plan_invalid");
@@ -352,6 +352,7 @@ export function readPlanInput(input: unknown): AgentPlanInput {
     ...(plan.sharing === undefined
       ? {}
       : { sharing: readSharing(plan.sharing) }),
+    ...readExecutionTarget(plan.executionTarget),
     globals: readGlobals(plan.globals),
     nodes,
     edges: plan.edges.map(readEdge),

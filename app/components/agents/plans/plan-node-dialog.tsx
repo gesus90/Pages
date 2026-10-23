@@ -64,6 +64,7 @@ function PlanScriptEditDialog(
       script={script}
       interpreters={editor.sources.interpreters}
       remoteTargets={editor.sources.remoteTargets}
+      planTarget={editor.draft.executionTarget}
       workspace={editor.workspaces.find(
         (entry) => entry.id === editor.draft.workspaceId,
       )}
@@ -170,6 +171,7 @@ function PlanAgentEditDialog(
         </DialogDescription>
         <PlanNodeConfigurationFields
           step={draft}
+          planTarget={props.editor.draft.executionTarget}
           sources={props.editor.sources}
           workspaces={props.editor.workspaces}
           disabled={disabled}

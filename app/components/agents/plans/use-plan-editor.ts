@@ -46,6 +46,10 @@ export function usePlanEditor(page: AgentPlanPage): {
   /** The plan name the last save carried; `null` before any save. */
   readonly submittedName: string | null;
   readonly save: () => void;
+  /** Applies a change to the draft and saves the result in the same step. */
+  readonly saveWith: (
+    change: (draft: AgentPlanInput) => AgentPlanInput,
+  ) => void;
   readonly rename: (name: string) => void;
   readonly changeContext: (workspace: AgentWorkspaceChoice) => void;
 } {
@@ -76,14 +80,16 @@ export function usePlanEditor(page: AgentPlanPage): {
     loadNodeConfiguration(draft.workspaceId, agentId),
   );
   // Flushing the pending state ignores a second save until the first one answered.
-  function save(): void {
-    submitted.current = draft;
-    setSubmittedName(draft.name);
+  function saveWith(change: (current: AgentPlanInput) => AgentPlanInput): void {
+    const next = change(draft);
+    if (next !== draft) setDraft(next);
+    submitted.current = next;
+    setSubmittedName(next.name);
     void command.submit(
       {
         intent: "save-plan",
         planId: page.selected?.id ?? "",
-        plan: JSON.stringify(draft),
+        plan: JSON.stringify(next),
       },
       { method: "post", action: "/agents/plans", flushSync: true },
     );
@@ -100,7 +106,8 @@ export function usePlanEditor(page: AgentPlanPage): {
     sourceError: sourceState.error,
     tickets: sourceState.tickets,
     submittedName,
-    save,
+    save: () => saveWith((current) => current),
+    saveWith,
     rename: (name) => setDraft((previous) => ({ ...previous, name })),
     changeContext,
   };

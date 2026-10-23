@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { createRandomUuid } from "@/app/lib/random-uuid";
+import { effectivePlanTarget } from "@/definition/AgentPlanTarget";
 import { isAgentParameterName } from "@/definition/AgentParameters";
 import {
   PLAN_SCRIPT_INPUT_COUNT,
@@ -29,7 +30,8 @@ export interface PlanScriptInputRow {
 /** The fields of the script dialog, as typed. */
 export interface PlanScriptFormValues {
   readonly name: string;
-  readonly executionTarget: AgentPlanExecutionTarget;
+  /** The script's own target; absent, it runs where the plan says. */
+  readonly executionTarget: AgentPlanExecutionTarget | undefined;
   readonly interpreterProfileId: string;
   readonly content: string;
   readonly inputs: readonly PlanScriptInputRow[];
@@ -59,6 +61,10 @@ export interface PlanScriptFormIssues {
 /** The script dialog's state, its checks and the result it applies. */
 export interface PlanScriptForm {
   readonly values: PlanScriptFormValues;
+  /** The plan's target, which the script inherits without one of its own. */
+  readonly planTarget: AgentPlanExecutionTarget | undefined;
+  /** Where the script runs with the typed values. */
+  readonly effectiveTarget: AgentPlanExecutionTarget;
   readonly issues: PlanScriptFormIssues;
   /** Problems show once a field changed or applying was tried. */
   readonly isShown: (field: keyof PlanScriptFormValues) => boolean;
@@ -87,7 +93,7 @@ function initialValues(
   if (!script)
     return {
       name: "",
-      executionTarget: { kind: "local" },
+      executionTarget: undefined,
       interpreterProfileId: "",
       content: "",
       inputs: [],
@@ -96,7 +102,7 @@ function initialValues(
     };
   return {
     name: script.name,
-    executionTarget: script.executionTarget ?? { kind: "local" },
+    executionTarget: script.executionTarget,
     interpreterProfileId: script.interpreterProfileId,
     content: script.content,
     inputs: script.inputs.map((input) => ({
@@ -212,13 +218,15 @@ function keptBindings(
  * Edits a new or existing script in a local copy and applies it only when it is valid.
  *
  * @param script - The script to edit, or `null` for a new one.
- * @param context - The configured profiles and the default output name.
+ * @param context - The configured profiles, the default output name and the
+ * plan's target.
  */
 export function usePlanScriptForm(
   script: AgentPlanScript | null,
   context: {
     readonly interpreters: readonly AgentPlanInterpreter[] | undefined;
     readonly defaultOutput: string;
+    readonly planTarget?: AgentPlanExecutionTarget;
   },
 ): PlanScriptForm {
   const [values, setValues] = useState(() =>
@@ -271,6 +279,11 @@ export function usePlanScriptForm(
   }
   return {
     values,
+    planTarget: context.planTarget,
+    effectiveTarget: effectivePlanTarget(
+      { executionTarget: values.executionTarget },
+      { executionTarget: context.planTarget },
+    ),
     issues,
     isShown: (field) => isAttempted || touched.has(field),
     isRowShown: (key) => isAttempted || touched.has(`input:${key}`),

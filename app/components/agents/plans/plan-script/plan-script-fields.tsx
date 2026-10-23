@@ -124,7 +124,7 @@ export function PlanScriptProfileField(props: {
     "profile",
     "profileMissing",
   ]);
-  const target = form.values.executionTarget;
+  const target = form.effectiveTarget;
   const options = (props.interpreters ?? [])
     .filter((profile) =>
       target.kind === "remote"

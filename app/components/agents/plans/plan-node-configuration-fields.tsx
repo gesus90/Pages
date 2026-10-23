@@ -7,12 +7,14 @@ import {
   copyPlanConfiguration,
   planConfigurationModelKey,
 } from "@/definition/AgentPlanConfiguration";
+import { effectivePlanTarget } from "@/definition/AgentPlanTarget";
 import { PlanExecutionTargetField } from "./plan-execution-target-field";
 import {
   PlanNodeContentFields,
   PlanNodeNameField,
 } from "./plan-node-content-fields";
 import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
+import type { AgentPlanExecutionTarget } from "@/definition/AgentPlanExecution";
 import type { AgentPlanSources, AgentPlanStep } from "@/definition/AgentPlan";
 import type { AgentPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 import type { AgentPlanCompletion } from "@/definition/AgentPlanSession";
@@ -87,6 +89,8 @@ function PlanCompletionField(props: {
 /** Edits the selected node's content and released model without writing to its template. */
 export function PlanNodeConfigurationFields(props: {
   readonly step: AgentPlanStep;
+  /** The plan's target, which the node runs on without one of its own. */
+  readonly planTarget: AgentPlanExecutionTarget | undefined;
   readonly sources: AgentPlanSources;
   readonly workspaces?: readonly AgentWorkspaceChoice[];
   readonly disabled: boolean;
@@ -102,7 +106,7 @@ export function PlanNodeConfigurationFields(props: {
   if (!configuration) return null;
   const models = planTargetModels(
     props.sources.models ?? [],
-    props.step.executionTarget,
+    effectivePlanTarget(props.step, { executionTarget: props.planTarget }),
   );
   const draft: PageAgentInput = {
     name: configuration.name,
@@ -133,6 +137,7 @@ export function PlanNodeConfigurationFields(props: {
       <PlanExecutionTargetField
         configuration={configuration}
         step={props.step}
+        planTarget={props.planTarget}
         sources={props.sources}
         onChange={props.onChange}
       />

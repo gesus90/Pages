@@ -1,5 +1,6 @@
 import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
 import { readAgentObject } from "@/backend/agents/AgentPayload";
+import { AGENT_PLAN_ISSUE_PROBLEMS } from "@/definition/AgentPlanOperations";
 
 import type { AgentPlanActionResult } from "./agent-plan-response";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
@@ -37,42 +38,9 @@ function isStatus(input: unknown): input is AgentPlanControl["status"] {
   );
 }
 
+/** Every finding of the graph check, loops and groups included, is a known reason. */
 function isIssueReason(input: unknown): input is AgentPlanIssue["reason"] {
-  return (
-    typeof input === "string" &&
-    [
-      "groupSize",
-      "groupProvider",
-      "groupConfiguration",
-      "groupOrder",
-      "groupBoundary",
-      "unsupportedRunNotes",
-      "duplicateNode",
-      "port",
-      "duplicate",
-      "cycle",
-      "type",
-      "ticketHandoff",
-      "resultSource",
-      "resultOrder",
-      "resultMissing",
-      "resultAmbiguous",
-      "source",
-      "required",
-      "start",
-      "end",
-      "flowIn",
-      "flowOut",
-      "unreachable",
-      "agent",
-      "name",
-      "json",
-      "number",
-      "scriptUnavailable",
-      "scriptConfiguration",
-      "loopScriptUnsupported",
-    ].includes(input)
-  );
+  return AGENT_PLAN_ISSUE_PROBLEMS.some((reason) => reason === input);
 }
 
 function readIssue(input: unknown): AgentPlanIssue {

@@ -1,5 +1,10 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 import { isPlanFlowNode } from "@/definition/AgentPlanGraph";
+import {
+  inPlanSequence,
+  planFlowSequence,
+} from "@/definition/AgentPlanSequence";
+import { isSamePlanTarget } from "@/definition/AgentPlanTarget";
 import { isApiProvider } from "@/definition/AgentConnection";
 import { withGroupResults } from "./AgentPlanGroupResults";
 import { groupRuntimeFields } from "./AgentPlanGroupRuntime";
@@ -32,9 +37,11 @@ function requireBoundary(
   const boundary = run.pauseBoundary;
   if (!boundary || run.stopRequested || run.status !== "paused")
     throw new AgentError("plan_run_unavailable");
+  // A paused run keeps the context it started with, its plan target included.
   if (
     previous.plan.projectId !== next.plan.projectId ||
-    previous.plan.workspaceId !== next.plan.workspaceId
+    previous.plan.workspaceId !== next.plan.workspaceId ||
+    !isSamePlanTarget(previous.plan.executionTarget, next.plan.executionTarget)
   )
     throw new AgentError("plan_context_changed");
   if (
@@ -197,7 +204,10 @@ function resumedSteps(
   run: AgentPlanRun,
   next: AgentPlanSnapshot,
 ): readonly AgentPlanStepResult[] {
-  return next.plan.nodes.filter(isPlanFlowNode).map((node) => {
+  return inPlanSequence(
+    next.plan.nodes.filter(isPlanFlowNode),
+    planFlowSequence(next.plan).order,
+  ).map((node) => {
     const previous = run.steps.find((step) => step.id === node.id);
     if (previous?.status === "succeeded") return previous;
     const snapshot = next.steps.find((step) => step.step.id === node.id);

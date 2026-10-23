@@ -20,6 +20,8 @@ export interface PlanCanvasProps {
   readonly run: AgentPlanRun | null;
   /** Access or connection failure of the same run polling path. */
   readonly runError?: string | null;
+  /** Whether the saved plan may start now, as long as no run is shown; absent while unknown. */
+  readonly isReady?: boolean;
   /** The workspaces of the plan's project, offered for workspace values. */
   readonly workspaces?: readonly AgentWorkspaceChoice[];
   /** Reads the tickets of the plan's project again for the ticket choice. */

@@ -1,6 +1,78 @@
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
+import { expandPlanGroups } from "@/definition/AgentPlanGroup";
+import {
+  inPlanSequence,
+  planRunSequence,
+} from "@/definition/AgentPlanSequence";
 
-import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
+import { planNodeLabel } from "./plan-layout";
+
+import type { TFunction } from "i18next";
+import type {
+  AgentPlanInput,
+  AgentPlanNode,
+  AgentPlanRun,
+  AgentPlanSources,
+  AgentPlanStepResult,
+} from "@/definition/AgentPlan";
+import type { AgentPlanSequenceGap } from "@/definition/AgentPlanSequence";
+
+/** The numbered steps of a plan before it runs, and the flow nodes without a number. */
+export interface PlanSequencePreview {
+  readonly steps: readonly { readonly id: string; readonly name: string }[];
+  readonly gaps: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly reason: AgentPlanSequenceGap;
+  }[];
+}
+
+/**
+ * Numbers the draft's flow nodes along its flow edges, as a run would.
+ *
+ * @remarks
+ * A preview only: it synthesizes no run and no execution evidence.
+ */
+export function planSequencePreview(
+  draft: AgentPlanInput,
+  sources: AgentPlanSources,
+  translate: TFunction,
+): PlanSequencePreview {
+  const nodes = expandPlanGroups(draft).nodes;
+  const sequence = planRunSequence(draft);
+  function name(id: string): string {
+    const node: AgentPlanNode | undefined = nodes.find(
+      (entry) => entry.id === id,
+    );
+    if (!node) return id;
+    return node.type === "start" || node.type === "end"
+      ? translate(`plans.nodeType.${node.type}`)
+      : planNodeLabel(node, sources);
+  }
+  return {
+    steps: sequence.order.map((id) => ({ id, name: name(id) })),
+    gaps: sequence.gaps.map((gap) => ({ ...gap, name: name(gap.id) })),
+  };
+}
+
+/**
+ * A run recorded before its steps followed the flow edges, ordered like a new one.
+ *
+ * @remarks
+ * Only the saved revision the run executed may order it; a run of another
+ * revision keeps its stored order, because its graph is not known here.
+ */
+export function sequencedRun(
+  run: AgentPlanRun | null,
+  saved: (AgentPlanInput & { readonly revision: number }) | null,
+): AgentPlanRun | null {
+  const revision = run?.continuation?.planRevision ?? run?.planRevision;
+  if (!run || !saved || saved.revision !== revision) return run;
+  const steps = inPlanSequence(run.steps, planRunSequence(saved).order);
+  return steps.every((step, index) => step === run.steps[index])
+    ? run
+    : { ...run, steps };
+}
 
 /** Counts the executed revision's flow steps once, omitting derived group summaries. */
 export function statusSteps(

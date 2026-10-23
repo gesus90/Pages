@@ -22,7 +22,10 @@ import {
 import { usePlanScriptForm } from "./use-plan-script-form";
 import { PlanScriptTargetField } from "./plan-script-target-field";
 
-import type { AgentPlanRemoteTarget } from "@/definition/AgentPlanExecution";
+import type {
+  AgentPlanExecutionTarget,
+  AgentPlanRemoteTarget,
+} from "@/definition/AgentPlanExecution";
 import type { PlanScriptForm } from "./use-plan-script-form";
 import type { AgentPlanBinding } from "@/definition/AgentPlan";
 import type {
@@ -36,6 +39,8 @@ interface PlanScriptDialogProps {
   readonly script: AgentPlanScript | null;
   readonly interpreters: readonly AgentPlanInterpreter[] | undefined;
   readonly remoteTargets?: readonly AgentPlanRemoteTarget[];
+  /** The plan's target, which the script runs on without one of its own. */
+  readonly planTarget?: AgentPlanExecutionTarget;
   /** Read only: the fields stay visible, nothing is applied. */
   readonly disabled: boolean;
   readonly workspace?: { readonly name: string; readonly path: string };
@@ -65,6 +70,7 @@ export function PlanScriptDialog(
   const form = usePlanScriptForm(props.script, {
     interpreters: props.interpreters,
     defaultOutput: t("plans.scripts.defaultOutput"),
+    planTarget: props.planTarget,
   });
   const isNew = props.script === null;
   function submit(event: React.FormEvent<HTMLFormElement>): void {

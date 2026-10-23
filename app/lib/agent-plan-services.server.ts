@@ -19,6 +19,7 @@ import { AgentPlanScriptPreparation } from "@/backend/service/agents/AgentPlanSc
 import { AgentPlanScriptRunner } from "@/backend/service/agents/AgentPlanScriptRunner";
 import { AgentPlanRunEngine } from "@/backend/service/agents/AgentPlanRunEngine";
 import { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
+import { AgentPlanManagement } from "@/backend/service/agents/AgentPlanManagement";
 import { AgentPlanTemplateService } from "@/backend/service/agents/AgentPlanTemplateService";
 import { AgentPlanSessionAccess } from "@/backend/service/agents/AgentPlanSessionAccess";
 import { AgentPlanStepRunner } from "@/backend/service/agents/AgentPlanStepRunner";
@@ -45,6 +46,8 @@ import type { AgentApplicationServices } from "./agent-services.server";
 /** The plan service and the PageAgentCLI sessions of its nodes, built on one run access. */
 export interface AgentPlanServices {
   readonly agentPlanService: AgentPlanService;
+  /** Creating, copying and deleting plans from the plan page, each request once. */
+  readonly agentPlanManagement: AgentPlanManagement;
   /** The personal node templates of the plan editor, checked by the plan service. */
   readonly agentPlanTemplateService: AgentPlanTemplateService;
   readonly agentSessionService: AgentSessionService;
@@ -165,6 +168,10 @@ export async function createAgentPlanService(input: {
   await recoverRuns(input, service);
   return {
     agentPlanService: service,
+    agentPlanManagement: new AgentPlanManagement({
+      database: input.database,
+      plans: service,
+    }),
     agentPlanTemplateService: new AgentPlanTemplateService({
       templates: new AgentPlanTemplateRepository(input.database),
       plans: service,

@@ -1,4 +1,5 @@
 import { allPlanSteps } from "@/definition/AgentPlanGroup";
+import { withInheritedPlanTarget } from "@/definition/AgentPlanTarget";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import { runnerExecutionSchema } from "@/definition/RunnerExecution";
@@ -342,7 +343,8 @@ export async function localPlanModelSteps(
   plan: AgentPlanInput,
 ): Promise<readonly AgentPlanStep[]> {
   const local = [];
-  for (const step of allPlanSteps(plan)) {
+  // A node checks its model route against the target it runs on, which it may inherit.
+  for (const step of allPlanSteps(withInheritedPlanTarget(plan))) {
     if (!step.configuration?.runnerRoute) {
       local.push(step);
       continue;

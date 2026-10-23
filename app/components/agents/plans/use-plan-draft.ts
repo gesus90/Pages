@@ -14,6 +14,7 @@ function initialDraft(page: AgentPlanPage): AgentPlanInput {
     projectId: plan.projectId,
     usage: plan.usage,
     sharing: plan.sharing,
+    ...(plan.executionTarget ? { executionTarget: plan.executionTarget } : {}),
     globals: plan.globals,
     nodes: plan.nodes,
     edges: plan.edges,

@@ -65,6 +65,7 @@ import type {
   PicaAcpSettings,
 } from "./chat-services.server";
 import type { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
+import type { AgentPlanManagement } from "@/backend/service/agents/AgentPlanManagement";
 import type { AgentPlanTemplateService } from "@/backend/service/agents/AgentPlanTemplateService";
 import type { AgentSessionService } from "@/backend/service/agents/sessions/AgentSessionService";
 import type { AgentPlanRecoveryService } from "@/backend/service/agents/recovery/AgentPlanRecoveryService";
@@ -84,6 +85,8 @@ export interface ApplicationServices
     PreferenceApplicationServices {
   readonly administrationService: AdministrationService;
   readonly agentPlanService: AgentPlanService;
+  /** Creating, copying and deleting plans from the plan page. */
+  readonly agentPlanManagement: AgentPlanManagement;
   /** The personal node templates of the plan editor. */
   readonly agentPlanTemplateService: AgentPlanTemplateService;
   /** The PageAgentCLI sessions of plan nodes: history, live events and instructions. */

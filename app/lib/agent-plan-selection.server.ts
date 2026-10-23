@@ -44,3 +44,12 @@ export async function rememberSelectedPlan(
     { secure: resolveCookieSecure(request) },
   );
 }
+
+/** Clears the remembered plan, for example after it was deleted and no other plan is readable. */
+export async function forgetSelectedPlan(request: Request): Promise<string> {
+  return selectionCookie.serialize("", {
+    maxAge: 0,
+    expires: new Date(0),
+    secure: resolveCookieSecure(request),
+  });
+}

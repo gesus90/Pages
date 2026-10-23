@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
 
 import { isPlanFlowNode } from "@/definition/AgentPlanGraph";
+import {
+  inPlanSequence,
+  planFlowSequence,
+} from "@/definition/AgentPlanSequence";
 
 import { withGroupResults } from "./AgentPlanGroupResults";
 import { initialLoopRuns } from "./loop/AgentPlanLoopRecord";
@@ -26,6 +30,10 @@ export interface RecoveredRunStart {
 /**
  * The view of a new run: every node waits, with a fresh identity.
  *
+ * @remarks
+ * The steps are stored in the order of the flow edges, Start first, so the
+ * run keeps the numbering of the revision it executes.
+ *
  * @param userId - The executor.
  * @param snapshot - The prepared revision.
  */
@@ -42,7 +50,10 @@ export function initialPlanRun(
     startedAt: new Date().toISOString(),
     status: "running",
     stopRequested: false,
-    steps: snapshot.plan.nodes.filter(isPlanFlowNode).map((node) => ({
+    steps: inPlanSequence(
+      snapshot.plan.nodes.filter(isPlanFlowNode),
+      planFlowSequence(snapshot.plan).order,
+    ).map((node) => ({
       id: node.id,
       groupId: snapshot.steps.find((step) => step.step.id === node.id)?.groupId,
       name: runStepName(snapshot, node),

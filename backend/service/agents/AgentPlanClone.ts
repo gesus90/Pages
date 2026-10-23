@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 
+import type { AgentPlanExecutionTarget } from "@/definition/AgentPlanExecution";
 import type {
   AgentPlanBinding,
   AgentPlanEdge,
@@ -16,6 +17,17 @@ export interface AgentPlanCloneInput {
   readonly name: string;
   /** Omission transparently keeps the source workspace; it never copies its files. */
   readonly workspaceId?: string;
+  /** The plan target of the copy; omission keeps the source's, a local target runs on the Pages host. */
+  readonly executionTarget?: AgentPlanExecutionTarget;
+}
+
+/** The plan target of a copy, stored only when it names a remote workspace. */
+function clonedTarget(
+  source: AgentPlanInput,
+  input: AgentPlanCloneInput,
+): Pick<AgentPlanInput, "executionTarget"> {
+  const target = input.executionTarget ?? source.executionTarget;
+  return target?.kind === "remote" ? { executionTarget: target } : {};
 }
 
 function invalidReference(): never {
@@ -120,6 +132,7 @@ export function clonePlanGraph(
     workspaceId: input.workspaceId ?? plan.workspaceId,
     usage: "private",
     sharing: { isGlobal: false, targets: [], operator: "or" },
+    ...clonedTarget(plan, input),
     globals: plan.globals,
     nodes: plan.nodes.map(copyNode),
     edges: edges(plan.edges),

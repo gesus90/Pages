@@ -2,13 +2,14 @@ import { useReactFlow } from "@xyflow/react";
 import { useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { expandPlanGroups } from "@/definition/AgentPlanGroup";
-
-import { planNodeLabel } from "./plan-layout";
 import { focusStatusNode } from "./plan-status-focus";
 import { PlanStatusHeader } from "./plan-status-header";
 import { PlanStatusDetails } from "./plan-status-details";
-import { statusAnchor, statusSteps } from "./plan-run-status-model";
+import {
+  planSequencePreview,
+  statusAnchor,
+  statusSteps,
+} from "./plan-run-status-model";
 import { usePlanStatusTime } from "./use-plan-status-time";
 import { keepPlanControlKeys } from "./plan-flow-keys";
 
@@ -61,17 +62,14 @@ function RunStatusContent({
       <PlanStatusHeader
         run={run}
         steps={steps}
-        previewNames={expandPlanGroups(canvas.draft)
-          .nodes.filter((node) =>
-            ["start", "end", "agent", "script", "loop"].includes(node.type),
-          )
-          .map((node) => planNodeLabel(node, canvas.sources))}
+        preview={planSequencePreview(canvas.draft, canvas.sources, t)}
         end={end}
         anchorId={anchorId}
         selectedId={selectedId}
         isOpen={isOpen}
         contentId={contentId}
         error={canvas.runError ?? null}
+        isReady={canvas.isReady}
         onSelect={choose}
         onToggle={onToggle}
       />

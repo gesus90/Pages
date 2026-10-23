@@ -8,10 +8,14 @@ import { PlanStatusSequence } from "./plan-status-sequence";
 import { elapsedTime } from "./plan-run-status-model";
 
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
+import type { PlanSequencePreview } from "./plan-run-status-model";
+
+const CHEVRON_SHAPE =
+  "[clip-path:polygon(0_0,74%_0,100%_50%,74%_100%,0_100%,25%_50%)]";
 
 interface StatusHeaderProps {
   readonly run: AgentPlanRun | null;
-  readonly previewNames: readonly string[];
+  readonly preview: PlanSequencePreview;
   readonly steps: readonly AgentPlanStepResult[];
   readonly end: string | null;
   readonly anchorId: string | null;
@@ -19,25 +23,46 @@ interface StatusHeaderProps {
   readonly isOpen: boolean;
   readonly contentId: string;
   readonly error: string | null;
+  /** Whether the plan may start, named while there is no run; absent while unknown. */
+  readonly isReady?: boolean;
   readonly onSelect: (id: string) => void;
   readonly onToggle: () => void;
 }
 
-function RunIndicator({
-  run,
-  error,
-}: Pick<StatusHeaderProps, "run" | "error">): React.ReactElement {
-  const { t } = useTranslation();
+/** What the indicator names: the run's state, or whether the plan may start without one. */
+function indicatorStatus(
+  run: AgentPlanRun | null,
+  isReady: boolean | undefined,
+): string {
   const isBlocked =
     run?.status === "running" &&
     run.steps.some((step) => step.isBlocked) &&
     !run.steps.some((step) => step.status === "running");
-  const status = isBlocked ? "blocked" : (run?.status ?? "idle");
-  const isFailure =
-    status === "failed" || status === "blocked" || Boolean(error);
+  if (isBlocked) return "blocked";
+  return run?.status ?? (isReady === false ? "notReady" : "idle");
+}
+
+const DOT_TONES: Readonly<Record<string, string>> = {
+  succeeded: "bg-plan-progress-done",
+  notReady: "bg-status-active",
+  idle: "bg-muted-foreground",
+  cancelled: "bg-muted-foreground",
+  paused: "bg-muted-foreground",
+  failed: "bg-destructive",
+  blocked: "bg-destructive",
+};
+
+function RunIndicator({
+  run,
+  error,
+  isReady,
+}: Pick<StatusHeaderProps, "run" | "error" | "isReady">): React.ReactElement {
+  const { t } = useTranslation();
+  const status = indicatorStatus(run, isReady);
   const label = error
     ? t("plans.progress.unavailable")
     : t(`plans.progress.state.${status}`);
+  const tone = error ? "bg-destructive" : (DOT_TONES[status] ?? "bg-primary");
   return (
     <span
       title={label}
@@ -45,15 +70,7 @@ function RunIndicator({
     >
       <span
         aria-hidden="true"
-        className={cn(
-          "size-2 shrink-0 rounded-full",
-          isFailure ? "bg-destructive" : "bg-primary",
-          status === "succeeded" && "bg-plan-progress-done",
-          (status === "idle" ||
-            status === "cancelled" ||
-            status === "paused") &&
-            "bg-muted-foreground",
-        )}
+        className={cn("size-2 shrink-0 rounded-full", tone)}
       />
       <span className="truncate">{label}</span>
     </span>
@@ -62,11 +79,11 @@ function RunIndicator({
 
 function RunDonut({
   steps,
-  previewNames,
-}: Pick<StatusHeaderProps, "steps" | "previewNames">): React.ReactElement {
+  preview,
+}: Pick<StatusHeaderProps, "steps" | "preview">): React.ReactElement {
   const { t } = useTranslation();
   const completed = steps.filter((step) => step.status === "succeeded").length;
-  const total = steps.length || previewNames.length;
+  const total = steps.length || preview.steps.length;
   const label = t("plans.progress.count", { completed, total });
   const fraction = steps.length ? completed / steps.length : 0;
   return (
@@ -117,8 +134,12 @@ export function PlanStatusHeader(props: StatusHeaderProps): React.ReactElement {
   const duration = elapsedTime(props.run?.startedAt, props.end);
   return (
     <div className="flex min-h-11.5 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 px-2.5 py-1.5 @2xl/status:flex-nowrap">
-      <RunIndicator run={props.run} error={props.error} />
-      <RunDonut steps={props.steps} previewNames={props.previewNames} />
+      <RunIndicator
+        run={props.run}
+        error={props.error}
+        isReady={props.isReady}
+      />
+      <RunDonut steps={props.steps} preview={props.preview} />
       <div className="order-last flex w-full min-w-0 border-border @2xl/status:order-0 @2xl/status:w-auto @2xl/status:flex-1 @2xl/status:border-l">
         {props.run && props.steps.length ? (
           <PlanStatusSequence
@@ -129,7 +150,7 @@ export function PlanStatusHeader(props: StatusHeaderProps): React.ReactElement {
             onSelect={props.onSelect}
           />
         ) : (
-          <PlanPendingSequence names={props.previewNames} error={props.error} />
+          <PlanPendingSequence preview={props.preview} error={props.error} />
         )}
       </div>
       <span
@@ -162,16 +183,22 @@ export function PlanStatusHeader(props: StatusHeaderProps): React.ReactElement {
   );
 }
 
-/** Pending plan steps are a preview only; no run or execution evidence is synthesized. */
+/**
+ * Pending plan steps are a preview only; no run or execution evidence is synthesized.
+ *
+ * @remarks
+ * The numbers follow the flow edges. Flow nodes that Start does not reach or
+ * that lie in a cycle follow without a number and are marked as such.
+ */
 function PlanPendingSequence({
-  names,
+  preview,
   error,
 }: {
-  readonly names: readonly string[];
+  readonly preview: PlanSequencePreview;
   readonly error: string | null;
 }): React.ReactElement {
   const { t } = useTranslation();
-  if (error || names.length === 0)
+  if (error || (preview.steps.length === 0 && preview.gaps.length === 0))
     return (
       <p className="px-3 text-xs text-muted-foreground">
         {t(error ? "plans.progress.unavailable" : "plans.progress.noRun")}
@@ -182,16 +209,35 @@ function PlanPendingSequence({
       className="flex min-w-0 gap-1 overflow-x-auto px-3"
       aria-label={t("plans.progress.sequence")}
     >
-      {names.map((name, index) => (
+      {preview.steps.map((step, index) => (
         <span
-          key={index}
-          title={name}
-          className="flex h-7.5 w-11 shrink-0 items-center justify-center bg-plan-progress-waiting text-xs font-semibold text-foreground [clip-path:polygon(0_0,74%_0,100%_50%,74%_100%,0_100%,25%_50%)]"
+          key={step.id}
+          title={step.name}
+          className={cn(
+            "flex h-7.5 w-11 shrink-0 items-center justify-center bg-plan-progress-waiting text-xs font-semibold text-foreground",
+            CHEVRON_SHAPE,
+          )}
         >
           {index + 1}
-          <span className="sr-only"> · {name}</span>
+          <span className="sr-only"> · {step.name}</span>
         </span>
       ))}
+      {preview.gaps.map((gap) => {
+        const label = `${gap.name} · ${t(`plans.progress.gap.${gap.reason}`)}`;
+        return (
+          <span
+            key={gap.id}
+            title={label}
+            className={cn(
+              "flex h-7.5 w-11 shrink-0 items-center justify-center bg-warning-subtle text-xs font-bold text-warning",
+              CHEVRON_SHAPE,
+            )}
+          >
+            <span aria-hidden="true">!</span>
+            <span className="sr-only">{label}</span>
+          </span>
+        );
+      })}
     </div>
   );
 }

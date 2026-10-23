@@ -697,7 +697,7 @@
         "template_not_found": "The template no longer exists.",
         "template_invalid": "This node cannot be saved as a template.",
         "plan_access_denied": "This plan or run is not accessible.",
-        "plan_conflict": "The plan changed. Reload before saving or Play.",
+        "plan_conflict": "The plan changed. Reload before saving or starting.",
         "plan_name_taken": "This plan name is already taken. Choose another name.",
         "plan_project_owner_only": "Only the owner moves a plan to another project. Choose a workspace of the plan's project.",
         "plan_running": "A run of this plan is still active. Stop it before deleting the plan.",
@@ -769,7 +769,7 @@
         "plan_session_unavailable": "This agent session has no open native session that could take another instruction. Its history stays readable.",
         "offline": "Pages cannot be reached. Check the connection; the agent keeps running.",
         "agent_tool_not_ready": "A required agent tool is not ready. The run events show the tool and cause; see Settings → Agents → Tools.",
-        "plan_continuation_deleted": "Continuation point deleted – restart required. Stop first, then start again with Play.",
+        "plan_continuation_deleted": "Continuation point deleted – restart required. Stop first, then start again.",
         "plan_completed_changed": "This change would repeat completed work. Stop the run and start again.",
         "plan_pause_required": "Pause first and wait for every running step to finish.",
         "plan_connection_unavailable": "Connection interrupted. The displayed state is the last received state; actions are disabled. Reconnecting automatically.",
@@ -4148,14 +4148,14 @@
       "label": "Plan and execution",
       "workspace": "Workspace",
       "actions": "Run controls",
-      "play": "Play",
+      "play": "Start",
       "pause": "Pause",
       "resume": "Resume",
       "stop": "Stop",
       "expand": "Expand plan panel",
       "collapse": "Collapse plan panel",
-      "stopFirst": "Saving creates a new revision; the active run keeps its snapshot. Another Play is available after it ends.",
-      "newRunHint": "Play starts every step again. Changes already made remain in place.",
+      "stopFirst": "Saving creates a new revision; the active run keeps its snapshot. A new start is possible after it ends.",
+      "newRunHint": "Start begins a new run of the saved revision; every step runs again. Changes already made remain in place.",
       "contextHint": "Save applies the context to the plan. A paused run keeps its original project and workspace.",
       "projectOwnerOnly": "Every team member may choose another workspace of this project; only the owner moves the plan to another project.",
       "team": {
@@ -4168,8 +4168,8 @@
       "openPlan": "Open plan",
       "save": "Save plan",
       "manageWorkspaces": "Manage workspaces",
-      "unsaved": "Unsaved changes – save before Play or Resume.",
-      "pausedHint": "All steps are quiet. Edit pending work, save and adopt it with Resume. Completed steps will not repeat. Changes to completed steps apply only to a new Play run.",
+      "unsaved": "Unsaved changes – save before Start or Resume.",
+      "pausedHint": "All steps are quiet. Edit pending work, save and adopt it with Resume. Completed steps will not repeat. Changes to completed steps apply only to a new run.",
       "stoppingHint": "Cancellation requested. Executions and sessions are closing; reservations remain until their end is confirmed.",
       "revision": "Continuation {{version}} · adopted plan revision {{revision}}",
       "reason": "Show blocking reason",
@@ -4186,7 +4186,99 @@
         "blocked": "Blocked"
       },
       "draftRevision": "Saved draft revision {{revision}}",
-      "actualState": "Run state: {{state}}"
+      "actualState": "Run state: {{state}}",
+      "checking": "The plan is being checked; Start stays locked until then.",
+      "blockedHint": "Not ready to start: expand the details and fix the plan errors. The server checks again on start.",
+      "unsavedShort": "Unsaved changes",
+      "savedShort": "Plan saved",
+      "pausingHint": "Pause requested: no waiting step starts any more; running steps finish in a controlled way. Only then is the run paused.",
+      "pauseHint": "Pause starts no more waiting steps and lets running steps finish in a controlled way.",
+      "resumeHint": "Resume continues from the last safe state; completed steps do not run again.",
+      "recoverHint": "Resume takes over the successful steps of the ended run and runs only open work as a new attempt.",
+      "stopHint": "Stop ends the whole run: no step starts any more and the agent and script processes of this run end. Plan and history remain.",
+      "issuesLabel": "Plan errors",
+      "issueTitle": {
+        "plan": "Plan",
+        "workspace": "Workspace",
+        "target": "Execution target",
+        "model": "Model access",
+        "script": "Script",
+        "run": "Run",
+        "lastRun": "Last run"
+      },
+      "issueCause": {
+        "agent": "Model access is missing or not released.",
+        "required": "A required parameter is not connected.",
+        "requiredPort": "Required parameter “{{port}}” is not connected. The connection to its intended source must exist before the start.",
+        "flowIn": "The step has no incoming flow.",
+        "flowOut": "The step has no outgoing flow.",
+        "unreachable": "No start reaches this step.",
+        "end": "No flow leads from here to an end.",
+        "remoteModel": "The model does not run on the chosen remote workspace. Choose a runner model or run the step locally.",
+        "remoteInterpreter": "The interpreter does not belong to the runner of the remote workspace. Choose one of its interpreters or run the script locally.",
+        "remoteContainer": "Steps in groups and loops do not run remotely. Run the step locally or take it out of the frame."
+      },
+      "state": {
+        "none": {
+          "label": "No plan",
+          "hint": "Create a new plan with ⋯ or open a plan."
+        },
+        "checking": {
+          "label": "Checking",
+          "hint": "The plan is being checked."
+        },
+        "error": {
+          "label": "Action refused",
+          "hint": "The last action was not carried out. Expand the details."
+        },
+        "stopping": {
+          "label": "Stopping",
+          "hint": "Running steps are ending; no new step starts."
+        },
+        "pausing": {
+          "label": "Pause requested",
+          "hint": "Running steps are still finishing; no new step starts."
+        },
+        "paused": {
+          "label": "Paused",
+          "hint": "Resume continues from the last safe state."
+        },
+        "pausedBlocked": {
+          "label": "Resume locked",
+          "hint": "The paused run cannot continue like this."
+        },
+        "running": {
+          "label": "Running",
+          "hint": "The run is active."
+        },
+        "runBlocked": {
+          "label": "Blocked",
+          "hint": "A step failed; dependent steps do not start."
+        },
+        "readOnly": {
+          "label": "Read only",
+          "hint": "You can read this plan but not change or start it."
+        },
+        "unsaved": {
+          "label": "Not saved",
+          "hint": "Please save before starting."
+        },
+        "failed": {
+          "label": "Failed",
+          "hint": "The last run stopped at a failure.",
+          "hint_resumable": "The last run stopped; Resume takes over its successful steps."
+        },
+        "blocked": {
+          "label": "Not ready to start",
+          "hint": "Please fix the plan errors."
+        },
+        "ready": {
+          "label": "Ready",
+          "hint": "The plan is ready to start.",
+          "hint_succeeded": "The last run succeeded; Start begins a new run.",
+          "hint_cancelled": "The last run was stopped; Start begins a new run."
+        }
+      }
     },
     "ticketPicker": {
       "choose": "Choose a ticket",
@@ -4343,7 +4435,7 @@
     },
     "scripts": {
       "editTitle": "Edit script",
-      "description": "Explicit Play runs this script in the approved plan workspace as the Pages service OS account. Active administrator mode and current plan/project/workspace rights are required. No agent or gateway credentials are inherited.",
+      "description": "An explicit start runs this script in the approved plan workspace as the Pages service OS account. Active administrator mode and current plan/project/workspace rights are required. No agent or gateway credentials are inherited.",
       "name": "Name",
       "profile": "Interpreter profile",
       "chooseProfile": "Choose an interpreter profile",
@@ -4470,7 +4562,8 @@
         "succeeded": "Completed",
         "cancelled": "Stopped",
         "failed": "Failed",
-        "blocked": "Blocked"
+        "blocked": "Blocked",
+        "notReady": "Not ready to start"
       },
       "agent": "Agent: {{name}}",
       "lastActivity": "Last reported work step",
@@ -4481,7 +4574,11 @@
         "opencode": "OpenCode",
         "api": "API"
       },
-      "notApplicable": "Not applicable"
+      "notApplicable": "Not applicable",
+      "gap": {
+        "unreachable": "unreachable – no number",
+        "cycle": "in a cycle – no number"
+      }
     },
     "loops": {
       "defaultName": "Loop",
@@ -4710,7 +4807,9 @@
         "action_unavailable": "This action is not possible in the run's current state.",
         "workflow_unavailable": "Restart and resume are not available here.",
         "plan_conflict": "The plan was saved meanwhile. Reload the plan and start the revision you see."
-      }
+      },
+      "resumeTitle": "Resume run",
+      "resumeDescription": "Continues from the last safe state: successful steps are taken over and not repeated; open work runs as a new attempt."
     },
     "nodeInstruction": "Additional node instruction",
     "execution": {
@@ -4743,7 +4842,55 @@
       "scriptCheckHint": "Availability and permissions are checked again before execution.",
       "identifiers": "Plan, run, step and attempt IDs",
       "frozenReasoning": "{{reasoning}} · frozen snapshot",
-      "save": "Save"
+      "save": "Save",
+      "inherit": "As the plan · {{target}}",
+      "deviation": "Differs from the plan target",
+      "localPaths": "The script names local paths ({{paths}}). Pages does not adapt them for the remote target and does not check whether they exist there."
+    },
+    "manage": {
+      "menu": "Plan actions",
+      "new": "New",
+      "edit": "Edit",
+      "cloneItem": "Clone",
+      "remove": "Remove",
+      "noPlan": "No plan open",
+      "ownerOnly": "Only the owner deletes this plan",
+      "runActive": "A run of this plan is active",
+      "close": "Close",
+      "createTitle": "Create new plan",
+      "create": "Create",
+      "editTitle": "Edit plan",
+      "editUnsaved": "Unsaved changes to the plan are saved as well.",
+      "cloneTitle": "Clone plan",
+      "clone": "Clone",
+      "cloneName": "{{name}} – copy",
+      "cloneSource": "Copy of {{name}} · saved revision {{revision}}",
+      "cloneUnsaved": "Unsaved changes are neither copied nor saved; they stay in the editor.",
+      "deleteTitle": "Delete plan?",
+      "deleteQuestion": "Do you really want to delete “{{name}}”?",
+      "deleteContext": "{{context}}. Workspace files and run history remain.",
+      "deleteUnsaved": "Unsaved changes are lost.",
+      "delete": "Delete",
+      "namePlaceholder": "Enter a name",
+      "projectOwnerOnly": "Only the owner moves the plan to another project.",
+      "noLocation": "Choose a workspace",
+      "noLocationHint": "This project has no usable workspace.",
+      "location": {
+        "local": "Local on the Pages host",
+        "remote": "Remote through the runner of the connection"
+      },
+      "localOption": "Local · {{name}}",
+      "remoteOption": "Remote · {{name}} · {{host}}",
+      "remoteDenied": "No permission to run on this connection",
+      "remoteContext": "{{project}} · {{workspace}} · remote through {{host}}",
+      "choosePlan": "Choose a plan",
+      "deviationTitle": "Own execution targets",
+      "deviationNodes_one": "“{{names}}” has an execution target of its own that differs from the new plan target.",
+      "deviationNodes_other": "{{count}} steps ({{names}}) have an execution target of their own that differs from the new plan target.",
+      "deviation": {
+        "keep": "Keep the own targets of these steps",
+        "follow": "Move these steps to the new plan target"
+      }
     }
   },
   "mcpDuration": {

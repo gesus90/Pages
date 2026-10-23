@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { PlanRunPanel } from "./plan-run-panel";
+import { sequencedRun } from "./plan-run-status-model";
 import { usePlanControl } from "./use-plan-control";
 import { PlanAgentConsole } from "./plan-agent-console";
 import { PlanNodeDialog } from "./plan-node-dialog";
@@ -28,12 +29,23 @@ function planRunDisplay(
   control: AgentPlanControl | undefined,
   running: ReturnType<typeof usePlanRun>,
 ): PlanRunDisplay {
-  const run = running.run?.planId === page.selected?.id ? running.run : null;
+  const run = sequencedRun(
+    running.run?.planId === page.selected?.id ? running.run : null,
+    page.selected,
+  );
   let error = running.error;
   // Shared control metadata never grants access to the executor's run details.
   if (!error && page.selected?.canEdit === false && control?.runId && !run)
     error = "plan_run_unavailable";
   return { run, error };
+}
+
+/** Whether the saved plan may start now; `undefined` while the server has not answered. */
+function planReadiness(
+  control: AgentPlanControl | undefined,
+  isDirty: boolean,
+): boolean | undefined {
+  return control ? control.canPlay && !isDirty : undefined;
 }
 
 /** Restores keyboard focus to the console's node without panning the canvas. */
@@ -106,6 +118,7 @@ export function PlanPage({
         onOpen={setConsoleNodeId}
         run={display.run}
         runError={display.error}
+        isReady={planReadiness(controls.control, editor.isDirty)}
         tickets={editor.tickets}
         workspaces={page.workspaces.filter(
           (workspace) => workspace.projectId === projectId,
@@ -121,6 +134,7 @@ export function PlanPage({
             page={page}
             editor={editor}
             control={controls.control}
+            run={display.run}
             error={controls.error}
             onRunStarted={running.select}
           />

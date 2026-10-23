@@ -1,13 +1,14 @@
 import { planExecutionIssues } from "@/definition/AgentPlanGraph";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
+import { isSamePlanTarget } from "@/definition/AgentPlanTarget";
 import { planControl } from "./AgentPlanControl";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type { AgentPlanAccess } from "./AgentPlanAccess";
 import type { AgentProfileService } from "./AgentProfileService";
 import type { AgentPlanPreparation } from "./AgentPlanPreparation";
-import type { AgentPlan } from "@/definition/AgentPlan";
+import type { AgentPlan, AgentPlanRun } from "@/definition/AgentPlan";
 
 interface ControlDependencies {
   readonly access: Pick<AgentPlanAccess, "require">;
@@ -47,14 +48,8 @@ export class AgentPlanControlService {
       await this.dependencies.profiles.catalog(userId, plan.projectId),
     );
     let issue = (await this.executionIssue(userId, plan)) ?? control.issue;
-    if (run?.status === "paused") {
-      const resources = await this.dependencies.runs.resources(run.id);
-      if (
-        resources.projectId !== plan.projectId ||
-        resources.workspaceIds[0] !== plan.workspaceId
-      )
-        issue = "plan_context_changed";
-    }
+    if (run?.status === "paused" && (await this.hasChangedContext(run, plan)))
+      issue = "plan_context_changed";
     if (issues.length === 0 && issue === control.issue) return control;
     return {
       ...control,
@@ -63,6 +58,19 @@ export class AgentPlanControlService {
       canPlay: false,
       canResume: false,
     };
+  }
+
+  /** A paused run keeps its project, workspace and plan target; another one in the plan blocks its continuation. */
+  private async hasChangedContext(
+    run: AgentPlanRun,
+    plan: AgentPlan,
+  ): Promise<boolean> {
+    const resources = await this.dependencies.runs.resources(run.id);
+    return (
+      resources.projectId !== plan.projectId ||
+      resources.workspaceIds[0] !== plan.workspaceId ||
+      !isSamePlanTarget(resources.executionTarget, plan.executionTarget)
+    );
   }
 
   private async executionIssue(

@@ -152,6 +152,7 @@ function PlanPaletteRequestDialog({
         script={null}
         interpreters={canvas.sources.interpreters}
         remoteTargets={canvas.sources.remoteTargets}
+        planTarget={canvas.draft.executionTarget}
         workspace={canvas.workspaces?.find(
           (entry) => entry.id === canvas.draft.workspaceId,
         )}

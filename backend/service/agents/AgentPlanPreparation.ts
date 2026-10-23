@@ -14,6 +14,10 @@ import { hasPlanPath, planSteps } from "./AgentPlanGraph";
 import { planStepDirectory } from "./AgentPlanSnapshot";
 import { overlapsWorkspacePath } from "./AgentWorkspacePath";
 import { hasRemotePlanTarget } from "./AgentPlanExecutionTargets";
+import {
+  planTargetIssues,
+  withInheritedPlanTarget,
+} from "@/definition/AgentPlanTarget";
 import type {
   AgentPlanRemoteExecution,
   RemotePlanStep,
@@ -72,14 +76,26 @@ export class AgentPlanPreparation {
       await this.prepare(userId, plan);
       return;
     }
-    await this.dependencies.scripts?.validate(userId, plan);
+    await this.dependencies.scripts?.validate(
+      userId,
+      withInheritedPlanTarget(plan),
+    );
   }
 
-  /** Freezes definitions, values, resource revisions and graph order, while excluding credentials. */
+  /**
+   * Freezes definitions, values, resource revisions and graph order, while excluding credentials.
+   *
+   * @remarks
+   * Nodes without a target of their own take the plan's target here, so the
+   * snapshot names the target of every node and a run keeps it, whatever
+   * the plan says later. A node that cannot run on its remote target refuses
+   * the start; it never runs on the Pages host instead.
+   */
   public async prepare(
     userId: string,
     plan: AgentPlan,
   ): Promise<AgentPlanSnapshot> {
+    plan = withInheritedPlanTarget(plan);
     this.requireRemoteSupport(plan);
     plan = withPortlessPlanGroups(plan);
     const catalog = await this.dependencies.profiles.catalog(
@@ -147,7 +163,10 @@ export class AgentPlanPreparation {
     if (!hasRemotePlanTarget(plan)) return;
     if (
       !this.dependencies.remoteExecution ||
-      plan.nodes.some((node) => node.type === "group" || node.type === "loop")
+      plan.nodes.some(
+        (node) => node.type === "group" || node.type === "loop",
+      ) ||
+      planTargetIssues(plan).length > 0
     )
       throw new AgentError("plan_remote_unavailable");
   }

@@ -115,7 +115,10 @@ export function usePlanRecovery(
   readonly error: string | null;
   readonly isPending: boolean;
   readonly result: AgentPlanRecoveryResult | null;
-  readonly submit: (request: PlanRecoveryRequest) => Promise<void>;
+  /** Sends the decision; resolves with the server's answer, or `null` when it was refused. */
+  readonly submit: (
+    request: PlanRecoveryRequest,
+  ) => Promise<AgentPlanRecoveryResult | null>;
 } {
   const [state, setState] = useState<RecoveryState>({
     runId: null,
@@ -148,15 +151,18 @@ export function usePlanRecovery(
     return () => controller.abort();
   }, [runId, generation]);
   const current = state.runId === runId ? state : null;
-  async function submit(request: PlanRecoveryRequest): Promise<void> {
+  async function submit(
+    request: PlanRecoveryRequest,
+  ): Promise<AgentPlanRecoveryResult | null> {
     const view = current?.view;
-    if (!runId || !view || isPending) return;
+    if (!runId || !view || isPending) return null;
     setPending(true);
     try {
       const answered = await sendDecision(runId, view.revision, request);
       setResult(answered);
       setState({ runId, view, error: null });
       if (answered.runId) onStarted(answered.runId);
+      return answered;
     } catch (error: unknown) {
       setState({
         runId,
@@ -166,6 +172,7 @@ export function usePlanRecovery(
             ? error.message
             : "plan_connection_unavailable",
       });
+      return null;
     } finally {
       setPending(false);
       setGeneration((value) => value + 1);

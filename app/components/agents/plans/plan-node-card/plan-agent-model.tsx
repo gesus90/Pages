@@ -7,6 +7,7 @@ import {
   planStepProvider,
 } from "@/definition/AgentPlanGroup";
 import { findPlanStep } from "@/definition/AgentPlanGroupEdit";
+import { effectivePlanTarget } from "@/definition/AgentPlanTarget";
 import {
   planTargetModels,
   copyPlanConfiguration,
@@ -60,7 +61,10 @@ export function PlanAgentModel(props: {
         </span>
       </footer>
     );
-  const models = planTargetModels(sources.models ?? [], step.executionTarget);
+  const models = planTargetModels(
+    sources.models ?? [],
+    effectivePlanTarget(step, draft),
+  );
   const model = models.find(
     (entry) => entry.id === planConfigurationModelKey(configuration),
   );

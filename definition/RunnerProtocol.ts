@@ -5,6 +5,7 @@ import {
   runnerInterpreterSchema,
 } from "./RunnerExecution.js";
 import { toolInventorySchema } from "./RemoteSetup.js";
+import { planStepExecutionSchema } from "./AgentPlanExecution.js";
 import type { ToolInventory } from "./RemoteSetup.js";
 
 /** Wire version shared by Pages and an outbound runner connection. */
@@ -16,7 +17,9 @@ export const runnerPlanBindingSchema = z
   .object({
     planId: identifier,
     runId: identifier,
-    stepId: identifier,
+    // A step is a plan node, whose id is a UUID only when the editor made it:
+    // "start" or an id chosen in addNode is valid too, as in the execution.
+    stepId: planStepExecutionSchema.shape.stepId,
     attemptId: identifier,
     planRevision: z.number().int().positive(),
   })

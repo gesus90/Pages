@@ -1,10 +1,15 @@
+import { planExecutionTargetSchema } from "@/definition/AgentPlanExecution";
+
 import { readPlanText } from "./AgentPlanInput";
 import { readAgentObject } from "./AgentPayload";
+import type { AgentPlanExecutionTarget } from "@/definition/AgentPlanExecution";
 import type { AgentTicketAsset } from "@/definition/AgentTicketParameter";
 
 /** Live read checks use identifiers from the private snapshot, never copied resource content. */
 export interface AgentPlanRunResources {
   readonly remoteWorkspaceIds?: readonly string[];
+  /** The plan target the run started with; absent for the Pages host and older runs. */
+  readonly executionTarget?: AgentPlanExecutionTarget;
   readonly projectId: string;
   readonly workspaceIds: readonly string[];
   readonly taskIds: readonly string[];
@@ -89,6 +94,7 @@ export function readPlanRunResources(input: unknown): AgentPlanRunResources {
   }
   return {
     remoteWorkspaceIds: remoteWorkspaceIds(snapshot),
+    ...planTarget(plan),
     projectId: readPlanText(plan.projectId),
     workspaceIds: [...workspaceIds],
     taskIds: [...taskIds],
@@ -98,6 +104,14 @@ export function readPlanRunResources(input: unknown): AgentPlanRunResources {
     connectionIds: [...connectionIds],
     ticketAssets: [...ticketAssets.values()],
   };
+}
+
+/** The plan target the snapshot froze; a missing or unreadable one is the Pages host. */
+function planTarget(
+  plan: Record<string, unknown>,
+): Pick<AgentPlanRunResources, "executionTarget"> {
+  const target = planExecutionTargetSchema.safeParse(plan.executionTarget);
+  return target.success ? { executionTarget: target.data } : {};
 }
 
 function addModelReference(

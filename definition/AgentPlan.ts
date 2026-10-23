@@ -24,6 +24,7 @@ import type { AgentWorkspaceChoice, WorkspaceGitHub } from "./AgentWorkspace";
 import type { AgentPlanGroup } from "./AgentPlanGroup";
 import type { AgentPlanLoop } from "./AgentPlanLoop";
 import type { AgentPlanLoopRun } from "./AgentPlanLoopRun";
+import type { AgentPlanRemoteChoice } from "./AgentPlanTarget";
 import type {
   AgentPlanInterpreter,
   AgentPlanScript,
@@ -117,6 +118,16 @@ export interface AgentPlanInput {
   /** Absent only in older plans, where workspace usage meant every project member. */
   readonly sharing?: AgentConfiguration["sharing"];
   readonly projectId?: string;
+  /**
+   * Where the agent and script nodes run unless a node names its own target.
+   *
+   * @remarks
+   * Absent means the Pages host, as in plans saved before plan targets. A
+   * remote target names a registered remote workspace of the plan's project,
+   * whose directory is the working directory of inheriting nodes; the plan
+   * keeps a local workspace of the project as its anchor all the same.
+   */
+  readonly executionTarget?: AgentPlanExecutionTarget;
   readonly globals: Readonly<Record<string, string>>;
   readonly nodes: readonly AgentPlanNode[];
   readonly edges: readonly AgentPlanEdge[];
@@ -192,6 +203,8 @@ export interface AgentPlanPage {
   readonly control?: AgentPlanControl;
   readonly plans: readonly AgentPlanView[];
   readonly workspaces: readonly AgentWorkspaceChoice[];
+  /** The remote workspaces the person may see, the remote choices of a plan target. */
+  readonly remoteWorkspaces?: readonly AgentPlanRemoteChoice[];
   readonly selected: AgentPlanView | null;
   readonly sources: AgentPlanSources;
   readonly runs: readonly AgentPlanRun[];

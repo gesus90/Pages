@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Select } from "@/app/components/ui/select";
 import { cn } from "@/app/lib/cn";
+import { effectivePlanTarget } from "@/definition/AgentPlanTarget";
 import { usePlanFlowContext } from "../plan-flow-context";
 import { PLAN_NODE_TEXT } from "../plan-node-text";
 import {
@@ -120,12 +121,12 @@ function ProfileChoice(props: {
   readonly state: PlanScriptProfileState;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const { graph, sources } = usePlanFlowContext();
+  const { graph, sources, draft } = usePlanFlowContext();
   const { script, state } = props;
   function choose(interpreterProfileId: string): void {
     graph.replaceNode({ ...script, interpreterProfileId });
   }
-  const target = script.executionTarget;
+  const target = effectivePlanTarget(script, draft);
   const options = (sources.interpreters ?? [])
     .filter((profile) =>
       target?.kind === "remote"

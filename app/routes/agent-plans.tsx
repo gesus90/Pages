@@ -1,13 +1,13 @@
-import {
-  data as routeData,
-  redirect,
-  useLoaderData,
-  useLocation,
-} from "react-router";
+import { data as routeData, useLoaderData, useLocation } from "react-router";
 
 import { PlanRetiredNotice } from "@/app/components/agents/plans/plan-retired-notice";
 import { PlanPage } from "@/app/components/agents/plans/plan-page";
 import { defaultPlanId } from "@/app/lib/agent-plan-default";
+import {
+  clonePlanAction,
+  createPlanAction,
+  deletePlanAction,
+} from "@/app/lib/agent-plan-management.server";
 import {
   lastSelectedPlan,
   rememberSelectedPlan,
@@ -86,7 +86,13 @@ export async function loader({
   }
 }
 
-/** Save, Delete, Play, Pause, Resume and Stop use the authenticated executor and live server permissions. */
+/**
+ * Save, Create, Clone, Delete, Play, Pause, Resume and Stop use the authenticated executor and live server permissions.
+ *
+ * @remarks
+ * Play only starts the revision the request names. The route still accepts
+ * the save-and-play form of earlier clients; the plan page never sends it.
+ */
 export async function action(args: Route.ActionArgs): Promise<Response> {
   let intent = "";
   try {
@@ -94,13 +100,15 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
     intent = String(formData.get("intent") ?? "");
     if (intent === "save-plan")
       return await savePlan(user.id, services.agentPlanService, formData);
-    if (intent === "delete-plan") {
-      await services.agentPlanService.remove(
-        user.id,
-        readPlanText(formData.get("planId")),
-      );
-      return redirect("/agents/plans", { headers: AGENT_NO_STORE });
-    }
+    if (intent === "create-plan")
+      return await createPlanAction(user.id, services, formData);
+    if (intent === "clone-plan")
+      return await clonePlanAction(user.id, services, formData);
+    if (intent === "delete-plan")
+      return await deletePlanAction(user.id, services, {
+        request: args.request,
+        formData,
+      });
     if (intent === "play-plan")
       return await playPlan(user.id, services.agentPlanService, formData);
     if (

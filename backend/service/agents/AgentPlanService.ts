@@ -173,6 +173,8 @@ export class AgentPlanService {
         .departmentId,
       plans,
       workspaces,
+      remoteWorkspaces:
+        (await this.dependencies.remoteTargets?.choices(userId)) ?? [],
       selected,
       sources: workspace
         ? await this.sources(userId, workspace.id)
