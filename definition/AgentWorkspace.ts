@@ -24,6 +24,8 @@ export interface WorkspaceGitHub {
 
 /** Authorized selection metadata also explains a directory or project that has become unusable. */
 export interface AgentWorkspaceChoice {
+  /** Plan catalogs include remote registrations; absent means a local workspace. */
+  readonly kind?: "local" | "remote";
   readonly id: string;
   readonly name: string;
   readonly path: string;

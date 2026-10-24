@@ -16,7 +16,7 @@ export interface PlanContextValues {
 
 /** The plan fields a location stands for. */
 export interface PlanLocation {
-  /** The local workspace of the plan's project; it anchors a remote plan too. */
+  /** The actual local or remote registration selected for the plan. */
   readonly workspaceId: string;
   readonly executionTarget: AgentPlanExecutionTarget | undefined;
 }
@@ -40,7 +40,7 @@ const REMOTE_OWN_REASONS = new Set([
   "unchecked",
 ]);
 
-/** The projects a plan can belong to: those with a local workspace the person may use. */
+/** The projects of all visible local and remote registrations. */
 export function planProjects(
   page: AgentPlanPage,
 ): readonly { readonly value: string; readonly label: string }[] {
@@ -139,7 +139,9 @@ export function planLocationOptions(
 ): readonly PlanLocationOption[] {
   return [
     ...page.workspaces
-      .filter((entry) => entry.projectId === projectId)
+      .filter(
+        (entry) => entry.projectId === projectId && entry.kind !== "remote",
+      )
       .map((entry) => localOption(entry, translate)),
     ...(page.remoteWorkspaces ?? [])
       .filter((entry) => entry.projectId === projectId)
@@ -152,23 +154,29 @@ export function planLocationOptions(
  *
  * @param page - The plan page with the workspaces the person may use.
  * @param values - The chosen project and location.
- * @param anchor - The local workspace the plan has now; a remote location keeps
- * it when it belongs to the project, else takes the project's first one.
  */
 export function planLocationFields(
   page: AgentPlanPage,
   values: Pick<PlanContextValues, "projectId" | "location">,
-  anchor: string,
 ): PlanLocation | null {
   const [kind, id] = values.location.split(":", 2);
-  if (kind === "local") return { workspaceId: id, executionTarget: undefined };
-  const local = page.workspaces.filter(
-    (entry) => entry.projectId === values.projectId,
+  const local = page.workspaces.find(
+    (entry) =>
+      entry.id === id &&
+      entry.projectId === values.projectId &&
+      entry.kind !== "remote",
   );
-  const workspace = local.find((entry) => entry.id === anchor) ?? local[0];
-  if (kind !== "remote" || !id || !workspace) return null;
+  if (kind === "local")
+    return local ? { workspaceId: id, executionTarget: undefined } : null;
+  const remote = page.remoteWorkspaces?.find(
+    (entry) =>
+      entry.workspaceId === id &&
+      entry.projectId === values.projectId &&
+      entry.isUsable,
+  );
+  if (kind !== "remote" || !remote) return null;
   return {
-    workspaceId: workspace.id,
+    workspaceId: id,
     executionTarget: { kind: "remote", workspaceId: id },
   };
 }
@@ -228,9 +236,8 @@ export function planRequestError(
 export function planContextRequest(
   page: AgentPlanPage,
   values: PlanContextValues,
-  anchor: string,
 ): Readonly<Record<string, string>> | null {
-  const fields = planLocationFields(page, values, anchor);
+  const fields = planLocationFields(page, values);
   if (!fields || values.name.trim() === "") return null;
   return {
     name: values.name.trim(),

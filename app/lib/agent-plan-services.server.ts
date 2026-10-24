@@ -1,3 +1,4 @@
+import { createPlanWorkspaceAccess } from "./plan-access-services.server";
 import { AgentPlanRemoteExecution } from "@/backend/service/agents/AgentPlanRemoteExecution";
 import { AgentPlanRemoteTargets } from "@/backend/service/agents/AgentPlanRemoteTargets";
 import { AgentRunCredentialRepository } from "@/backend/database/repositories/mcp/AgentRunCredentialRepository";
@@ -12,7 +13,7 @@ import { AgentPlanCheckpointRepository } from "@/backend/database/repositories/a
 import { AgentPlanRecoveryRepository } from "@/backend/database/repositories/agent/AgentPlanRecoveryRepository";
 import { AgentPlanRecoveryExecutionRepository } from "@/backend/database/repositories/agent/AgentPlanRecoveryExecutionRepository";
 import { AgentPlanRecoveryService } from "@/backend/service/agents/recovery/AgentPlanRecoveryService";
-import { AgentPlanAccess } from "@/backend/service/agents/AgentPlanAccess";
+import type { AgentPlanAccess } from "@/backend/service/agents/AgentPlanAccess";
 import { AgentPlanPreparation } from "@/backend/service/agents/AgentPlanPreparation";
 import { AgentPlanScripts } from "@/backend/service/agents/AgentPlanScripts";
 import { AgentPlanScriptPreparation } from "@/backend/service/agents/AgentPlanScriptPreparation";
@@ -27,13 +28,11 @@ import { AgentPlanStepStart } from "@/backend/service/agents/AgentPlanStepStart"
 import { AgentRunCredentialService } from "@/backend/service/mcp/AgentRunCredentialService";
 import { AgentPlanPhases } from "@/backend/service/agents/AgentPlanPhases";
 import { AgentPlanTasks } from "@/backend/service/agents/AgentPlanTasks";
-import { AgentPlanSharing } from "@/backend/service/agents/AgentPlanSharing";
 import { AgentSessionRepository } from "@/backend/database/repositories/agent/AgentSessionRepository";
 import { AgentSessionInbox } from "@/backend/service/agents/sessions/AgentSessionInbox";
 import { AgentSessionJournal } from "@/backend/service/agents/sessions/AgentSessionJournal";
 import { AgentSessionService } from "@/backend/service/agents/sessions/AgentSessionService";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
-import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 import type { Database } from "@/backend/database/Database";
@@ -101,11 +100,7 @@ export async function createAgentPlanService(input: {
     agentProfileService: profiles,
     agentParameterService: parameters,
   } = input.agents;
-  const sharing = new AgentPlanSharing(
-    new AuthorizationRepository(input.database),
-    new UserGroupRepository(input.database),
-  );
-  const access = new AgentPlanAccess(plans, workspaces, sharing);
+  const { access, workspaceCatalog } = createPlanWorkspaceAccess(input, plans);
   const runtime = createScriptRuntime(input, access, workspaces);
   const { tasks, scripts, scriptPreparation } = runtime;
   const start = new AgentPlanStepStart({
@@ -141,6 +136,7 @@ export async function createAgentPlanService(input: {
     pageAgentSessions,
   });
   const preparation = new AgentPlanPreparation({
+    workspaceCatalog,
     remoteExecution,
     remoteTargets,
     scripts: scriptPreparation,
@@ -149,6 +145,7 @@ export async function createAgentPlanService(input: {
     tasks,
   });
   const service = new AgentPlanService({
+    workspaceCatalog,
     remoteExecution,
     remoteTargets,
     plans,

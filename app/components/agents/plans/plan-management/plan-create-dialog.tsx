@@ -55,7 +55,7 @@ export function PlanCreateDialog({
 }): React.ReactElement {
   const { t } = useTranslation();
   const [values, setValues] = useState(() => initialValues(page, t));
-  const request = planContextRequest(page, values, "");
+  const request = planContextRequest(page, values);
   const key = useRequestKey(JSON.stringify(request));
   const isTaken = isPlanNameUsed(page, {
     name: values.name,

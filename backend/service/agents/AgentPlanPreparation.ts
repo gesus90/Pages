@@ -23,6 +23,7 @@ import type {
   RemotePlanStep,
 } from "./AgentPlanRemoteExecution";
 import type { AgentPlanRemoteTargets } from "./AgentPlanRemoteTargets";
+import type { AgentPlanWorkspaces } from "./AgentPlanWorkspaces";
 import type { AgentPlanRemoteTarget } from "@/definition/AgentPlanExecution";
 import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 import type { AgentDefinitionChoice } from "@/definition/AgentAvailability";
@@ -44,6 +45,7 @@ import type {
 } from "./AgentPlanSnapshot";
 
 interface PreparationDependencies {
+  readonly workspaceCatalog?: AgentPlanWorkspaces;
   readonly remoteExecution?: AgentPlanRemoteExecution;
   readonly remoteTargets?: AgentPlanRemoteTargets;
   readonly profiles: Pick<AgentProfileService, "catalog" | "resolveDefinition">;
@@ -95,6 +97,7 @@ export class AgentPlanPreparation {
     userId: string,
     plan: AgentPlan,
   ): Promise<AgentPlanSnapshot> {
+    await this.dependencies.workspaceCatalog?.resolve(userId, plan);
     plan = withInheritedPlanTarget(plan);
     await this.requireRemoteSupport(userId, plan);
     plan = withPortlessPlanGroups(plan);

@@ -374,6 +374,8 @@ export interface AgentPlanRead {
 
 /** A workspace a plan can be created in. */
 export interface AgentPlanWorkspaceEntry {
+  /** Absent means local; remote contexts require the corresponding explicit execution target. */
+  readonly kind?: "local" | "remote";
   readonly id: string;
   readonly name: string;
   readonly projectId: string;

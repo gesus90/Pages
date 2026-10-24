@@ -4947,7 +4947,9 @@
       "deviation": {
         "keep": "Eigene Ziele dieser Schritte beibehalten",
         "follow": "Diese Schritte auf das neue Planziel umstellen"
-      }
+      },
+      "withoutWorkspace": "Ohne Arbeitsbereich",
+      "reassignWorkspace": "Dieser Plan hat keinen registrierten Arbeitsbereich und kann nicht gestartet werden. Wählen Sie unter Planaktionen → Bearbeiten einen Arbeitsbereich. Die Knoten und Inhalte bleiben erhalten."
     }
   },
   "mcpDuration": {

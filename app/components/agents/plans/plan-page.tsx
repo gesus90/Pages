@@ -14,6 +14,7 @@ import { PlanSaveNotice } from "./plan-save-notice";
 import { usePlanEditor } from "./use-plan-editor";
 import { usePlanRun } from "./use-plan-run";
 import { usePlanSave } from "./use-plan-save";
+import { usePlanCatalogRefresh } from "./use-plan-catalog-refresh";
 
 import type { AgentPlanOpening } from "@/app/lib/agent-plan-default";
 import type { AgentPlanPage, AgentPlanRun } from "@/definition/AgentPlan";
@@ -74,6 +75,7 @@ export function PlanPage({
   readonly opening: AgentPlanOpening;
 }): React.ReactElement {
   const { t } = useTranslation();
+  usePlanCatalogRefresh();
   const draftEditor = usePlanEditor(page);
   const controls = usePlanControl(
     page.selected?.id,
@@ -121,7 +123,8 @@ export function PlanPage({
         isReady={planReadiness(controls.control, editor.isDirty)}
         tickets={editor.tickets}
         workspaces={page.workspaces.filter(
-          (workspace) => workspace.projectId === projectId,
+          (workspace) =>
+            workspace.projectId === projectId && workspace.kind !== "remote",
         )}
         status={
           <PlanSaveNotice

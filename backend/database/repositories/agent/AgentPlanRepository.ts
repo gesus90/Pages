@@ -326,17 +326,44 @@ async function writePlan(
         (previous.departmentId ?? null) !== (plan.departmentId ?? null)))
   )
     throw new AgentError("plan_conflict");
+  await requirePlanWorkspace(transaction, plan);
+  await requirePlanAgents(transaction, plan);
+  await storePlan(transaction, write);
+  await write.journal?.(transaction);
+}
+
+async function requirePlanWorkspace(
+  transaction: DatabaseTransaction,
+  plan: AgentPlan,
+): Promise<void> {
   const [workspace] = await transaction.query(
     `
     SELECT project_id
     FROM agent_workspaces
-    WHERE id = $id;
+    WHERE id = $id
+    UNION ALL
+    SELECT project_id
+    FROM remote_workspaces
+    WHERE id = $id
+        AND id = $remote_id;
   `,
-    { id: plan.workspaceId },
+    {
+      id: plan.workspaceId,
+      remote_id:
+        plan.executionTarget?.kind === "remote"
+          ? plan.executionTarget.workspaceId
+          : "",
+    },
   );
   if (!workspace || workspace[0] !== plan.projectId)
     throw new AgentError("plan_context_changed");
-  await requirePlanAgents(transaction, plan);
+}
+
+async function storePlan(
+  transaction: DatabaseTransaction,
+  write: PlanWrite,
+): Promise<void> {
+  const { plan } = write;
   await transaction.execute(
     `
     INSERT INTO agent_plans (
@@ -393,7 +420,6 @@ async function writePlan(
       updated_by: write.editorId ?? null,
     },
   );
-  await write.journal?.(transaction);
 }
 
 /** Rechecks references within the write transaction so a concurrent deletion cannot leave dangling IDs. */

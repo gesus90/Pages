@@ -1,10 +1,7 @@
-import { AgentPlanAccess } from "@/backend/service/agents/AgentPlanAccess";
-import { AgentPlanSharing } from "@/backend/service/agents/AgentPlanSharing";
+import { createPlanWorkspaceAccess } from "./plan-access-services.server";
 import { AgentPlanRemoteTargets } from "@/backend/service/agents/AgentPlanRemoteTargets";
 import { AgentPlanRepository } from "@/backend/database/repositories/agent/AgentPlanRepository";
 import { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
-import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
-import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 import { RunnerPlanEventRepository } from "@/backend/database/repositories/runner/RunnerPlanEventRepository";
 import { RunnerPlanEventService } from "@/backend/service/runner/RunnerPlanEventService";
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
@@ -83,14 +80,10 @@ export function createRunnerServices(input: {
     new RunnerRepository(database),
     remote.remoteConnectionService,
     new RunnerPlanEventService(new RunnerPlanEventRepository(database), {
-      plans: new AgentPlanAccess(
+      plans: createPlanWorkspaceAccess(
+        { database, agents: { ...input.configuration, ...remote } },
         new AgentPlanRepository(database),
-        workspaces,
-        new AgentPlanSharing(
-          new AuthorizationRepository(database),
-          new UserGroupRepository(database),
-        ),
-      ),
+      ).access,
       runs: new AgentPlanRunRepository(database),
       profiles,
       targets: new AgentPlanRemoteTargets(

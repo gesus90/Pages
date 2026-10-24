@@ -37,6 +37,13 @@ export class AgentPlanControlService {
         ? await this.dependencies.runs.hasReservation(run.id)
         : false,
     });
+    if (plan.isWorkspaceMissing)
+      return {
+        ...control,
+        canPlay: false,
+        canResume: false,
+        issue: "workspace_not_found",
+      };
     if (!plan.canEdit) return control;
     if (
       run &&

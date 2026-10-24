@@ -6,6 +6,10 @@ import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
 import type { AgentWorkspaceService } from "./AgentWorkspaceService";
 import type { AgentPlanSharing } from "./AgentPlanSharing";
 import type { AgentProfileDirectory } from "@/definition/AgentProfile";
+import type {
+  AgentPlanWorkspaces,
+  PlanWorkspaceProject,
+} from "./AgentPlanWorkspaces";
 
 /** The project and the departments that decide which shared objects a person works with. */
 export interface AgentPlanTeam {
@@ -29,31 +33,48 @@ export class AgentPlanAccess {
   private readonly plans: AgentPlanRepository;
   private readonly workspaces: AgentWorkspaceService;
   private readonly sharing: AgentPlanSharing;
+  private readonly catalog: AgentPlanWorkspaces | undefined;
 
   public constructor(
     plans: AgentPlanRepository,
     workspaces: AgentWorkspaceService,
     sharing: AgentPlanSharing,
+    catalog?: AgentPlanWorkspaces,
   ) {
     this.plans = plans;
     this.workspaces = workspaces;
     this.sharing = sharing;
+    this.catalog = catalog;
   }
 
-  /** Returns only plans whose workspace is still visible in the plan's project. */
+  /** Keeps orphaned plans repairable under their existing project and sharing rights. */
   public async list(userId: string): Promise<readonly AgentPlanView[]> {
     const [plans, workspaces, viewer] = await Promise.all([
       this.plans.list(),
-      this.workspaces.choices(userId),
+      this.catalog?.choices(userId) ?? this.workspaces.choices(userId),
       this.sharing.viewer(userId),
+    ]);
+    const [registered, projects] = await Promise.all([
+      this.catalog?.registeredIds(),
+      this.catalog?.projects(viewer.actor),
     ]);
     return plans.flatMap((plan) => {
       const workspace = workspaces.find(
         (entry) =>
           entry.id === plan.workspaceId && entry.projectId === plan.projectId,
       );
-      if (!workspace || !this.sharing.canRead(plan, viewer)) return [];
-      return [this.view(plan, workspace, this.sharing.canEdit(plan, viewer))];
+      if (!this.sharing.canRead(plan, viewer)) return [];
+      if (workspace)
+        return [this.view(plan, workspace, this.sharing.canEdit(plan, viewer))];
+      const project = projects?.get(plan.projectId);
+      if (!project || !registered || registered.has(plan.workspaceId))
+        return [];
+      return [
+        {
+          ...this.view(plan, project, this.sharing.canEdit(plan, viewer)),
+          isWorkspaceMissing: true,
+        },
+      ];
     });
   }
 
@@ -80,9 +101,10 @@ export class AgentPlanAccess {
     const workspace =
       workspaceId === null
         ? null
-        : (await this.workspaces.choices(userId)).find(
-            (entry) => entry.id === workspaceId,
-          );
+        : (
+            await (this.catalog?.choices(userId) ??
+              this.workspaces.choices(userId))
+          ).find((entry) => entry.id === workspaceId);
     if (workspace === undefined) throw new AgentError("plan_access_denied");
     return {
       projectId: workspace?.projectId ?? null,
@@ -104,7 +126,9 @@ export class AgentPlanAccess {
 
   private view(
     plan: AgentPlan,
-    workspace: AgentWorkspaceChoice,
+    workspace:
+      | Pick<AgentWorkspaceChoice, "projectName" | "github">
+      | PlanWorkspaceProject,
     canEdit: boolean,
   ): AgentPlanView {
     return {

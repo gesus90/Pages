@@ -14,7 +14,7 @@ import { emptyAgentPlan } from "@/definition/AgentPlan";
 import { withInheritedPlanTarget } from "@/definition/AgentPlanTarget";
 import { localPlanModelSteps } from "./AgentPlanRemoteExecution";
 import { readPlanSources } from "./AgentPlanSources";
-import { readPlanHistory } from "./AgentPlanHistory";
+import { readPlanPage } from "./AgentPlanPage";
 import { withPlanProgress } from "./AgentPlanProgressView";
 import { AgentPlanControlService } from "./AgentPlanControlService";
 import { AgentPlanStartupRecovery } from "./recovery/AgentPlanStartupRecovery";
@@ -67,8 +67,10 @@ import type { AgentPlanPreparation } from "./AgentPlanPreparation";
 import type { AgentPlanRunEngine } from "./AgentPlanRunEngine";
 import type { AgentPlanSessionAccess } from "./AgentPlanSessionAccess";
 import type { AgentRunArchive } from "./AgentRunArchive";
+import type { AgentPlanWorkspaces } from "./AgentPlanWorkspaces";
 
 interface PlanDependencies {
+  readonly workspaceCatalog?: AgentPlanWorkspaces;
   readonly remoteExecution?: AgentPlanRemoteExecution;
   readonly remoteTargets?: AgentPlanRemoteTargets;
   readonly plans: AgentPlanRepository;
@@ -156,34 +158,15 @@ export class AgentPlanService {
       readonly workspaceId: string | null;
     },
   ): Promise<AgentPlanPage> {
-    const [plans, workspaces] = await Promise.all([
-      this.dependencies.access.list(userId),
-      this.dependencies.workspaces.choices(userId),
-    ]);
-    const selected =
-      selection.planId === null
-        ? null
-        : await this.dependencies.access.require(userId, selection.planId);
-    const workspaceId = selected?.workspaceId ?? selection.workspaceId;
-    const workspace = workspaces.find((entry) => entry.id === workspaceId);
-    if (workspaceId !== null && !workspace)
-      throw new AgentError("plan_access_denied");
-    return {
+    return readPlanPage(
+      {
+        service: this,
+        runs: this.dependencies.runs,
+        remoteTargets: this.dependencies.remoteTargets,
+      },
       userId,
-      teamDepartmentId: (await this.dependencies.access.team(userId, null))
-        .departmentId,
-      plans,
-      workspaces,
-      remoteWorkspaces:
-        (await this.dependencies.remoteTargets?.choices(userId)) ?? [],
-      selected,
-      sources: workspace
-        ? await this.sources(userId, workspace.id)
-        : { agents: [], tasks: [] },
-      runs: selected ? await this.history(userId, selected.id) : [],
-      control: selected ? await this.control(userId, selected.id) : undefined,
-      directory: await this.dependencies.access.directory(userId),
-    };
+      selection,
+    );
   }
 
   /** The source API resolves the selected workspace's current project on the server. */
@@ -227,11 +210,16 @@ export class AgentPlanService {
     workspaceId: string,
     nodes: readonly AgentPlanNode[],
   ): Promise<void> {
-    const workspace = await this.dependencies.workspaces.resolve(
-      userId,
+    const choice = await this.workspace(userId, workspaceId);
+    const plan = {
+      ...emptyAgentPlan(),
       workspaceId,
-    );
-    const plan = { ...emptyAgentPlan(), workspaceId, nodes };
+      nodes,
+      ...(choice.kind === "remote"
+        ? { executionTarget: { kind: "remote" as const, workspaceId } }
+        : {}),
+    };
+    const workspace = await this.resolveWorkspace(userId, plan);
     const pinned = await this.pinConfigurations(
       userId,
       { ...plan, projectId: workspace.projectId },
@@ -253,7 +241,10 @@ export class AgentPlanService {
   public async workspaces(
     userId: string,
   ): Promise<readonly AgentWorkspaceChoice[]> {
-    return this.dependencies.workspaces.choices(userId);
+    return (
+      this.dependencies.workspaceCatalog?.choices(userId) ??
+      this.dependencies.workspaces.choices(userId)
+    );
   }
 
   /**
@@ -478,11 +469,9 @@ export class AgentPlanService {
     await this.dependencies.remoteExecution?.requireRead(userId, resources);
     // Access only: a run that started must stay readable and stoppable after its directory or link is gone.
     for (const workspaceId of resources.workspaceIds)
-      await this.dependencies.workspaces.requireAccess(
-        userId,
-        workspaceId,
-        resources.projectId,
-      );
+      await (
+        this.dependencies.workspaceCatalog ?? this.dependencies.workspaces
+      ).requireAccess(userId, workspaceId, resources.projectId);
     for (const taskId of resources.taskIds)
       await this.dependencies.tasks.snapshot(
         userId,
@@ -630,11 +619,23 @@ export class AgentPlanService {
     userId: string,
     workspaceId: string,
   ): Promise<AgentWorkspaceChoice> {
-    const workspace = (await this.dependencies.workspaces.choices(userId)).find(
+    const workspace = (await this.workspaces(userId)).find(
       (entry) => entry.id === workspaceId,
     );
     if (!workspace) throw new AgentError("plan_access_denied");
     return workspace;
+  }
+
+  private async resolveWorkspace(
+    userId: string,
+    plan: AgentPlanInput,
+  ): Promise<
+    { readonly projectId: string } & Pick<AgentPlanInput, "executionTarget">
+  > {
+    return (
+      this.dependencies.workspaceCatalog?.resolve(userId, plan) ??
+      this.dependencies.workspaces.resolve(userId, plan.workspaceId)
+    );
   }
 
   /**
@@ -663,10 +664,9 @@ export class AgentPlanService {
     if (previous && proposed.revision !== previous.revision)
       throw new AgentError("plan_conflict");
     // The workspace is resolved for the person who saves: the owner's access never stands in.
-    const workspace = await this.dependencies.workspaces.resolve(
-      userId,
-      proposed.workspaceId,
-    );
+    const workspace = await this.resolveWorkspace(userId, proposed);
+    if (workspace.executionTarget)
+      proposed = { ...proposed, executionTarget: workspace.executionTarget };
     if (previous)
       requireOwnerForProjectChange(userId, previous, workspace.projectId);
     if (
@@ -784,12 +784,5 @@ export class AgentPlanService {
       );
     }
     return pinned;
-  }
-
-  private async history(
-    userId: string,
-    planId: string,
-  ): Promise<readonly AgentPlanRun[]> {
-    return readPlanHistory(this, this.dependencies.runs, userId, planId);
   }
 }

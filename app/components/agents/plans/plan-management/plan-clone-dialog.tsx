@@ -41,7 +41,7 @@ export function PlanCloneDialog({
     projectId: source.projectId,
     location: planLocationValue(source),
   }));
-  const context = planContextRequest(page, values, source.workspaceId);
+  const context = planContextRequest(page, values);
   const request = context && {
     intent: "clone-plan",
     planId: source.id,

@@ -4947,7 +4947,9 @@
       "deviation": {
         "keep": "Keep the own targets of these steps",
         "follow": "Move these steps to the new plan target"
-      }
+      },
+      "withoutWorkspace": "Without workspace",
+      "reassignWorkspace": "This plan has no registered workspace and cannot start. Choose a workspace under Plan actions → Edit. Its nodes and contents are preserved."
     }
   },
   "mcpDuration": {

@@ -27,20 +27,20 @@ function planContextLine(
   const workspace = page.workspaces.find(
     (entry) => entry.id === editor.draft.workspaceId,
   );
+  if (!workspace && page.selected)
+    return `${page.selected.projectName} · ${translate("plans.manage.withoutWorkspace")}`;
   const target = editor.draft.executionTarget;
-  const remote =
-    target?.kind === "remote"
-      ? page.remoteWorkspaces?.find(
-          (entry) => entry.workspaceId === target.workspaceId,
-        )
-      : undefined;
-  if (target?.kind === "remote")
+  if (target?.kind === "remote") {
+    const remote = page.remoteWorkspaces?.find(
+      (entry) => entry.workspaceId === target.workspaceId,
+    );
     return translate("plans.manage.remoteContext", {
       project: workspace?.projectName ?? "",
       workspace:
         remote?.workspaceName ?? translate("plans.execution.unavailable"),
       host: remote?.connectionName ?? "",
     });
+  }
   return [workspace?.projectName, workspace?.name].filter(Boolean).join(" · ");
 }
 
@@ -150,6 +150,14 @@ export function PlanPanelHeading(
         </div>
       </div>
       <PlanRevisionStatus editor={editor} control={control} />
+      {props.page.selected?.isWorkspaceMissing ? (
+        <p
+          role="status"
+          className="px-4 pt-2 text-xs wrap-anywhere text-warning"
+        >
+          {t("plans.manage.reassignWorkspace")}
+        </p>
+      ) : null}
     </>
   );
 }

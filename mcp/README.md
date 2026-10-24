@@ -2035,6 +2035,13 @@ own. Graph editing never starts a run. Explicit saved-revision commands offer Pl
   member or leader of (its `team`) or is shared with it (`global`, or `restricted` to
   groups and departments). A hidden plan answers `NOT_FOUND`, exactly like a
   missing one. Administrators do not see other people's private plans.
+- **Workspace catalog.** Plan sources include local and remote registrations.
+  Remote entries carry `kind: "remote"`; selecting one as the plan workspace
+  selects its remote execution target without requiring a local directory in
+  the same project. Registrations remain listed when their runner disconnects;
+  executable models and interpreters require a current paired runner. A plan
+  whose registration is gone remains visible under its project and sharing
+  rights, with its graph intact, so an editor can assign another workspace.
 - **Team.** A plan of an account that is a member or leader of exactly one
   department is created for that department and keeps it for good (leading
   counts like being a member; one department that is both is one department,

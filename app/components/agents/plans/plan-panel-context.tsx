@@ -31,7 +31,9 @@ export function PlanPanelContext({
             options={page.plans.map((plan) => ({
               value: plan.id,
               label: plan.name,
-              description: plan.projectName,
+              description: plan.isWorkspaceMissing
+                ? `${plan.projectName} · ${t("plans.manage.withoutWorkspace")}`
+                : plan.projectName,
             }))}
             onValueChange={(id) => {
               void navigate(`/agents/plans?planId=${encodeURIComponent(id)}`);

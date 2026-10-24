@@ -157,6 +157,8 @@ export interface AgentPlan extends AgentPlanInput {
 
 /** Current links are derived on read, rather than copied into editable fields. */
 export interface AgentPlanView extends AgentPlan {
+  /** The registration is gone; the graph remains editable but cannot start until reassigned. */
+  readonly isWorkspaceMissing?: boolean;
   /** Whether the person changes and runs the plan: its owner, or a member or leader of its team. */
   readonly canEdit: boolean;
   readonly projectName: string;

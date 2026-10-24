@@ -108,7 +108,7 @@ export function PlanEditDialog({
   }));
   const [choice, setChoice] = useState<DeviationChoice | null>(null);
   const save = useEditSave(editor, management.close);
-  const fields = planLocationFields(page, values, draft.workspaceId);
+  const fields = planLocationFields(page, values);
   const deviations =
     fields && !isSamePlanTarget(fields.executionTarget, draft.executionTarget)
       ? planTargetDeviations(draft, fields.executionTarget)

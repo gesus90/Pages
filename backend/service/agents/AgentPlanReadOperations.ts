@@ -166,7 +166,9 @@ export class AgentPlanReadOperations {
     const plan = await this.plans.view(userId, request.planId);
     const [directory, sources, entries] = await Promise.all([
       this.plans.directory(userId),
-      this.plans.sources(userId, plan.workspaceId),
+      plan.isWorkspaceMissing
+        ? Promise.resolve({ agents: [], tasks: [] })
+        : this.plans.sources(userId, plan.workspaceId),
       this.plans.runEntries(userId, plan.id, "newest"),
     ]);
     const control = await this.plans.control?.(userId, plan.id);
@@ -209,6 +211,7 @@ export class AgentPlanReadOperations {
         projectId: workspace.projectId,
         projectName: workspace.projectName,
         isUsable: workspace.isUsable,
+        ...(workspace.kind ? { kind: workspace.kind } : {}),
       })),
       agents: (sources?.agents ?? []).map(agentEntry),
       models: sources?.models ?? [],
