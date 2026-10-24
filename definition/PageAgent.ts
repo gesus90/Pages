@@ -58,6 +58,8 @@ export interface PageAgentModel {
   readonly reasoningEffort: string | null;
   /** The provider of the model connection, such as `codex_cli`; never the connection itself. */
   readonly provider: AgentProviderId;
+  /** What the CLI's picker resolves to this model, such as `sonnet`; absent where the catalog does not say. */
+  readonly aliases?: readonly string[];
 }
 
 export interface PageAgentPage {

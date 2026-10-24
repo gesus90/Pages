@@ -24,7 +24,7 @@ import {
 import { githubAccess } from "./github.mjs";
 import { cliInventory } from "./cli.mjs";
 
-const RUNNER_VERSION = "1.5.0";
+const RUNNER_VERSION = "1.5.1";
 if (process.argv.includes("--version")) {
   console.info(`pages-runner ${RUNNER_VERSION}`);
   process.exit(0);

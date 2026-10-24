@@ -791,7 +791,9 @@
         "plan_script_cleanup": "Process or temporary-resource cleanup could not be confirmed. The workspace remains reserved.",
         "plan_script_interrupted": "The backend lost this process attempt. Side effects are uncertain; it is never replayed automatically.",
         "profile_management_retired": "Profile management has been replaced. Configure models and instructions directly in Agent Plans.",
-        "workspace_running": "An affected plan is running, paused or still cleaning up. Stop the execution and wait for it to finish before removing this registration."
+        "workspace_running": "An affected plan is running, paused or still cleaning up. Stop the execution and wait for it to finish before removing this registration.",
+        "modelUnavailable": "A saved model is not (or no longer) in the catalog of its target. Nothing was saved or started and no other model was used. Choose the affected model again in the marked node.",
+        "reasoningUnsupported": "A saved reasoning level is not supported by the chosen model. Nothing was saved or started and no other level was used. Choose the level again in the marked node."
       },
       "description": "Manage named API and CLI connections and their usage scopes. Permitted models are available directly in Agent Plans.",
       "adminModeRequired": "The agent settings are only available in the admin mode. Your account is currently in the role mode.",
@@ -1224,7 +1226,8 @@
         "reasoning": "Reasoning level",
         "unavailable": "Unavailable",
         "chooseModel": "Choose a listed model",
-        "saved": "Setting saved."
+        "saved": "Setting saved.",
+        "aliasResolved": "The saved value is the alias “{{alias}}”. It stands for {{model}} ({{id}}); saving stores this concrete version."
       },
       "runner": {
         "title": "Remote",
@@ -3194,8 +3197,8 @@
       "profileSelectionRequired": "The previous Pica assignment is ambiguous. An administrator must choose exactly one model here.",
       "connectionUnavailable": "The access of the chat agent is not available. Please contact an administrator.",
       "accessUnverified": "The access of the chat agent is not verified. Please contact an administrator.",
-      "modelUnavailable": "The model of the chat agent is not in the catalog of its access.",
-      "reasoningUnsupported": "The reasoning level of the chat agent is not supported.",
+      "modelUnavailable": "The model chosen for Pica is not (or no longer) in the catalog of its access. Nothing was sent and no other model was used.",
+      "reasoningUnsupported": "The model chosen for Pica does not support the configured reasoning level. Nothing was sent and no other level was used.",
       "requestBusy": "Pica is already processing a message or context compaction for you. Please wait until it finishes.",
       "cancelled": "The answer was cancelled.",
       "timeout": "The answer took too long. Please try again.",
@@ -3211,7 +3214,9 @@
       "acpPermissionModeUnsupported": "Pica requires “Read only” workspace access for Claude Code and OpenCode. Only the authorized Pages tools are available, with no shell, files or web tools. An administrator must update the chat agent’s mode. Your message was not sent.",
       "bridgeUnavailable": "The chat agent could not connect Pica's Pages tools. Nothing was changed. Please try again or contact an admin.",
       "interrupted": "The server stopped during the answer. The answer is not repeated automatically.",
-      "disabled": "Pica is turned off. An administrator can enable Pica under Settings › Agents."
+      "disabled": "Pica is turned off. An administrator can enable Pica under Settings › Agents.",
+      "plan_model_unavailable": "The CLI does not (or no longer) offer the model chosen for Pica, for example after an update. Nothing was sent and no other model was used. Please choose an available model under Settings → Agents.",
+      "plan_reasoning_unsupported": "The model chosen for Pica does not support the configured reasoning level. Nothing was sent. Please choose a supported level under Settings → Agents."
     },
     "recover": "Start a new session",
     "context": {
@@ -4954,7 +4959,8 @@
       },
       "withoutWorkspace": "Without workspace",
       "reassignWorkspace": "This plan has no registered workspace and cannot start. Choose a workspace under Plan actions → Edit. Its nodes and contents are preserved."
-    }
+    },
+    "savedAlias": "saved as alias “{{alias}}”"
   },
   "mcpDuration": {
     "label": "Validity in days",
@@ -5073,7 +5079,8 @@
     "deleteDescription": "The agent will be removed from the list and can no longer be started. Running agents can only be removed after their run ends.",
     "confirmDelete": "Remove agent",
     "contextLimit": "{{value}} context",
-    "outputLimit": "{{value}} output"
+    "outputLimit": "{{value}} output",
+    "modelAlias": "The saved value is the alias “{{alias}}”. It stands for {{model}} ({{id}}); this concrete version is stored once the model or level changes."
   },
   "discordResult": {
     "authorized": {
@@ -5262,6 +5269,11 @@
     "effortReset": "The new model does not support the previous reasoning level. The choice is now Default; review it before saving.",
     "manual": "manual model ID",
     "retired": "Agents are configured directly in the plan with a permitted model. Existing templates and histories are retained.",
-    "unsupportedEffort": "Unsupported – correct the selection"
+    "unsupportedEffort": "Unsupported – correct the selection",
+    "aliasResolved": "The saved value is the alias “{{alias}}”. It stands for {{model}} ({{id}}); saving stores this concrete version.",
+    "aliasUnresolved": "The saved alias “{{alias}}” cannot be tied to exactly one version: this connection's catalog lists none or several for it. No other model is substituted; please choose a concrete model."
+  },
+  "reasoningChoice": {
+    "unsupported": "{{model}} does not support this level."
   }
 }

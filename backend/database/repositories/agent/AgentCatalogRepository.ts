@@ -37,6 +37,9 @@ function serializeModels(models: readonly AgentCatalogModel[]): string {
         supported_efforts: model.reasoningEfforts,
         default_effort: model.defaultReasoningEffort,
       },
+      ...(model.aliases && model.aliases.length > 0
+        ? { aliases: model.aliases }
+        : {}),
     })),
   );
 }

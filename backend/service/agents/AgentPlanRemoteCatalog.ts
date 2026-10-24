@@ -1,3 +1,5 @@
+import { describeClaudeModel } from "@/definition/AgentModelVersion";
+
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type { AgentPlanRemoteTarget } from "@/definition/AgentPlanExecution";
 import type { ToolInventory } from "@/definition/RemoteSetup";
@@ -42,28 +44,32 @@ export function remoteCliModels(
     )
       return [];
     const provider = tool.tool === "codex" ? "codex_cli" : "claude_code";
-    return (tool.models ?? []).map((model) => ({
-      id: JSON.stringify([
-        target.workspaceId,
-        tool.tool,
-        tool.catalogRevision,
-        model.id,
-      ]),
-      runnerRoute: {
-        connectionId: target.connectionId,
-        workspaceId: target.workspaceId,
-        catalogRevision: tool.catalogRevision ?? "",
-        tool: tool.tool === "codex" ? "codex" : "claude",
-      },
-      model: model.id,
-      name: `${target.connectionName} / ${target.workspaceName} / ${tool.tool} / ${model.name}`,
-      modelName: model.name,
-      connectionName: `${target.connectionName} / ${tool.tool}`,
-      provider,
-      reasoning: model.reasoningEfforts.length ? "levels" : "unknown",
-      reasoningEfforts: model.reasoningEfforts,
-      catalogDefaultReasoningEffort: null,
-      reasoningEffort: null,
-    }));
+    return (tool.models ?? []).map((model) => {
+      // An older runner reports a Claude row by its family only; the ID it resolves to names the version.
+      const modelName = describeClaudeModel(model.id, model.name);
+      return {
+        id: JSON.stringify([
+          target.workspaceId,
+          tool.tool,
+          tool.catalogRevision,
+          model.id,
+        ]),
+        runnerRoute: {
+          connectionId: target.connectionId,
+          workspaceId: target.workspaceId,
+          catalogRevision: tool.catalogRevision ?? "",
+          tool: tool.tool === "codex" ? "codex" : "claude",
+        },
+        model: model.id,
+        name: `${target.connectionName} / ${target.workspaceName} / ${tool.tool} / ${modelName}`,
+        modelName,
+        connectionName: `${target.connectionName} / ${tool.tool}`,
+        provider,
+        reasoning: model.reasoningEfforts.length ? "levels" : "unknown",
+        reasoningEfforts: model.reasoningEfforts,
+        catalogDefaultReasoningEffort: null,
+        reasoningEffort: null,
+      };
+    });
   });
 }

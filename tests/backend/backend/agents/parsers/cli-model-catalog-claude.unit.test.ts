@@ -51,6 +51,7 @@ describe("readClaudeModels", () => {
         reasoning: "levels",
         reasoningEfforts: ["low", "medium", "high"],
         defaultReasoningEffort: null,
+        aliases: ["opus"],
       },
     ]);
   });

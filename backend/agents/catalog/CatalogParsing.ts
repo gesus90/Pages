@@ -1,6 +1,10 @@
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { AgentError } from "@/backend/error/AgentErrors";
-import { isReasoningEffortToken } from "@/definition/AgentModelCatalog";
+import {
+  isModelAliasToken,
+  isReasoningEffortToken,
+} from "@/definition/AgentModelCatalog";
+import { describeClaudeModel } from "@/definition/AgentModelVersion";
 
 import { isTextModel } from "./CatalogTextModels";
 import {
@@ -326,6 +330,16 @@ function readStoredReasoning(entry: unknown): ReasoningFields {
     : reasoningWithoutLevels("unknown");
 }
 
+// Only snapshots of a Claude CLI picker saved after its short names were kept carry aliases.
+function readStoredAliases(entry: unknown): {
+  readonly aliases?: readonly string[];
+} {
+  const { aliases } = readAgentObject(entry);
+  if (!Array.isArray(aliases)) return {};
+  const tokens = aliases.filter(isModelAliasToken).slice(0, 8);
+  return tokens.length > 0 ? { aliases: tokens } : {};
+}
+
 /**
  * Reads a persisted snapshot; snapshots from before A7 §21.3 have no reasoning data.
  *
@@ -337,8 +351,13 @@ export function parseStoredCatalog(
 ): readonly AgentCatalogModel[] {
   // Snapshots hold only models already accepted at refresh time, so the
   // provider's modality metadata is neither stored nor checked again.
-  return readEntries(entries).map((entry) => ({
-    ...readModel(entry, "openrouter"),
-    ...readStoredReasoning(entry),
-  }));
+  return readEntries(entries).map((entry) => {
+    const model = {
+      ...readModel(entry, "openrouter"),
+      ...readStoredReasoning(entry),
+      ...readStoredAliases(entry),
+    };
+    // Snapshots of the Claude CLI picker from before the version was part of the name keep their stored name.
+    return { ...model, name: describeClaudeModel(model.id, model.name) };
+  });
 }

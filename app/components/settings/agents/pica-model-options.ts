@@ -40,6 +40,14 @@ function accessLabel(model: PageAgentModel, translate: TFunction): string {
     : access;
 }
 
+// A Claude CLI row is named after its version; the concrete model ID it stands for comes first, so a narrow list wraps between ID and access.
+function detailLabel(model: PageAgentModel, translate: TFunction): string {
+  const access = accessLabel(model, translate);
+  return model.provider === "claude_code"
+    ? `${model.model} · ${access}`
+    : access;
+}
+
 function listedModel(model: PageAgentModel, translate: TFunction): ListedModel {
   return {
     locationRank: locationRank(model.location),
@@ -54,7 +62,7 @@ function listedModel(model: PageAgentModel, translate: TFunction): ListedModel {
       group: translate(
         `settings.agents.provider.${AGENT_PROVIDERS[model.provider].vendor}`,
       ),
-      description: accessLabel(model, translate),
+      description: detailLabel(model, translate),
       keywords: [
         model.model,
         model.connectionName ?? "",

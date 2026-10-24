@@ -6,6 +6,7 @@ import {
   planTargetModels,
   copyPlanConfiguration,
   planConfigurationModelKey,
+  planSavedModel,
 } from "@/definition/AgentPlanConfiguration";
 import { effectivePlanTarget } from "@/definition/AgentPlanTarget";
 import { PlanExecutionTargetField } from "./plan-execution-target-field";
@@ -109,9 +110,11 @@ export function PlanNodeConfigurationFields(props: {
     props.sources.models ?? [],
     effectivePlanTarget(props.step, { executionTarget: props.planTarget }),
   );
+  const saved = planSavedModel(models, configuration);
+  const modelKey = saved?.model.id ?? planConfigurationModelKey(configuration);
   const draft: PageAgentInput = {
     name: configuration.name,
-    modelProfileId: planConfigurationModelKey(configuration),
+    modelProfileId: modelKey,
     reasoningEffort: configuration.reasoningEffort,
     configuration: emptyAgentConfiguration(),
   };
@@ -145,14 +148,11 @@ export function PlanNodeConfigurationFields(props: {
       <PageAgentModelFields
         layout="stacked"
         savedModel={configuration.model}
+        savedAlias={saved?.alias ?? null}
         draft={draft}
         models={models}
         disabled={props.disabled}
-        isModelWithdrawn={
-          !models.some(
-            (model) => model.id === planConfigurationModelKey(configuration),
-          )
-        }
+        isModelWithdrawn={!models.some((model) => model.id === modelKey)}
         onChange={changeModel}
       />
       <PlanRemoteStatus

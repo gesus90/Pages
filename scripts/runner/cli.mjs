@@ -21,6 +21,12 @@ export function cliEnvironment() {
   };
 }
 
+// The CLI keeps the exact model it was asked for: no fallback to another model, no remap of a retired name.
+const CLAUDE_EXACT_MODEL = {
+  CLAUDE_CODE_DISABLE_MODEL_ACCESS_FALLBACK: "1",
+  CLAUDE_CODE_DISABLE_LEGACY_MODEL_REMAP: "1",
+};
+
 function inspect(tool, args, input, context = {}) {
   return new Promise((resolve) => {
     const child = execFile(
@@ -285,7 +291,11 @@ export async function spawnCli(command, jobId, signal) {
       cwd: command.workspace,
       detached: true,
       stdio: ["pipe", "pipe", "pipe"],
-      env: { ...cliEnvironment(), PAGES_REMOTE_JOB: jobId },
+      env: {
+        ...cliEnvironment(),
+        ...(tool === "claude" ? CLAUDE_EXACT_MODEL : {}),
+        PAGES_REMOTE_JOB: jobId,
+      },
     },
   );
 }

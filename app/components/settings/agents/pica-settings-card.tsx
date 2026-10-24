@@ -8,7 +8,13 @@ import { SettingsCard } from "@/app/components/settings/settings-layout";
 import { Button } from "@/app/components/ui/button";
 import { SearchableSelect } from "@/app/components/ui/searchable-select";
 import { Select } from "@/app/components/ui/select";
+import { reasoningOptions } from "@/app/lib/reasoning-options";
+import {
+  findSavedModel,
+  isClaudeModelAlias,
+} from "@/definition/AgentModelVersion";
 import { agentModelKey } from "@/definition/AgentPlanConfiguration";
+import { modelsOfSameTarget } from "@/definition/AgentReasoningChoice";
 
 import type { AgentActionResult } from "@/app/lib/settings-actions/settings-agents-response.server";
 import type { PageAgentModel } from "@/definition/PageAgent";
@@ -60,6 +66,7 @@ function PicaSettingsForm({
     selectModel,
     selection,
     hasResetEffort,
+    aliasNotice,
   } = usePicaDraft(settings, models);
   const isPending = fetcher.state !== "idle";
   const error = fetcher.data?.ok === false ? fetcher.data.error : null;
@@ -102,6 +109,7 @@ function PicaSettingsForm({
       <PicaSelectionNotice
         settings={settings}
         hasResetEffort={hasResetEffort}
+        aliasNotice={aliasNotice}
       />
       <p className="text-xs leading-relaxed text-muted-foreground">
         {t("picaSettings.stopHint")}
@@ -144,7 +152,14 @@ function PicaModelFields(props: PicaModelFieldsProps): React.ReactElement {
   const id = useId();
   const model = props.models.find((entry) => entry.id === props.modelKey);
   const efforts = model?.reasoningEfforts ?? [];
-  const missingEffort = props.effort && !efforts.includes(props.effort);
+  const effortOptions = reasoningOptions({
+    model,
+    modelName: model?.modelName ?? model?.name ?? "",
+    siblings: modelsOfSameTarget(props.models, model),
+    current: props.effort,
+    defaultLabel: t("pageAgents.defaultReasoning"),
+    translate: t,
+  });
   const modelOptions = picaModelOptions(props.models, t);
   if (!model && props.modelKey)
     modelOptions.unshift({
@@ -180,20 +195,8 @@ function PicaModelFields(props: PicaModelFieldsProps): React.ReactElement {
           ariaLabel={t("pageAgents.reasoning")}
           value={props.effort}
           onValueChange={props.onEffort}
-          disabled={props.disabled || efforts.length === 0}
-          options={[
-            { value: "", label: t("pageAgents.defaultReasoning") },
-            ...efforts.map((effort) => ({ value: effort, label: effort })),
-            ...(missingEffort
-              ? [
-                  {
-                    value: props.effort,
-                    label: `${props.effort}${model ? ` · ${t("picaSettings.unsupportedEffort")}` : ""}`,
-                    disabled: true,
-                  },
-                ]
-              : []),
-          ]}
+          disabled={props.disabled || effortOptions.length === 1}
+          options={effortOptions}
           className="w-full border border-border [&>span]:truncate"
         />
         {model && efforts.length === 0 ? (
@@ -206,6 +209,47 @@ function PicaModelFields(props: PicaModelFieldsProps): React.ReactElement {
   );
 }
 
+/** What the notice below the model choice says about a saved Claude family alias. */
+type AliasNotice =
+  | {
+      readonly kind: "resolved";
+      readonly alias: string;
+      readonly model: PageAgentModel;
+    }
+  | { readonly kind: "unresolved"; readonly alias: string };
+
+/** The key the saved selection starts on, and what to tell about an alias it was stored under. */
+interface SavedChoice {
+  readonly key: string;
+  readonly notice: AliasNotice | null;
+}
+
+function savedChoice(
+  selection: PicaAdministration["selection"],
+  models: readonly PageAgentModel[],
+): SavedChoice {
+  if (!selection) return { key: "", notice: null };
+  const match = findSavedModel(models, selection);
+  if (match)
+    return {
+      key: match.model.id,
+      notice:
+        match.alias === null
+          ? null
+          : { kind: "resolved", alias: match.alias, model: match.model },
+    };
+  const provider = models.find(
+    (entry) => entry.connectionId === selection.connectionId,
+  )?.provider;
+  return {
+    key: agentModelKey(selection.connectionId, selection.model),
+    notice:
+      provider === "claude_code" && isClaudeModelAlias(selection.model)
+        ? { kind: "unresolved", alias: selection.model }
+        : null,
+  };
+}
+
 interface PicaDraft {
   readonly isEnabled: boolean;
   readonly setEnabled: (enabled: boolean) => void;
@@ -215,6 +259,8 @@ interface PicaDraft {
   readonly selectModel: (key: string) => void;
   readonly selection: PageAgentModel | PicaAdministration["selection"];
   readonly hasResetEffort: boolean;
+  /** The alias note, only while the choice still is the saved one. */
+  readonly aliasNotice: AliasNotice | null;
 }
 
 function usePicaDraft(
@@ -222,11 +268,8 @@ function usePicaDraft(
   models: readonly PageAgentModel[],
 ): PicaDraft {
   const [isEnabled, setEnabled] = useState(settings.isEnabled);
-  const [modelKey, setModelKey] = useState(
-    settings.selection
-      ? agentModelKey(settings.selection.connectionId, settings.selection.model)
-      : "",
-  );
+  const saved = savedChoice(settings.selection, models);
+  const [modelKey, setModelKey] = useState(saved.key);
   const [effort, setEffort] = useState(
     settings.selection?.reasoningEffort ?? "",
   );
@@ -251,19 +294,36 @@ function usePicaDraft(
     selectModel,
     selection,
     hasResetEffort,
+    aliasNotice: modelKey === saved.key ? saved.notice : null,
   };
 }
 
 function PicaSelectionNotice({
   settings,
   hasResetEffort,
+  aliasNotice,
 }: {
   readonly settings: PicaAdministration;
   readonly hasResetEffort: boolean;
+  readonly aliasNotice: AliasNotice | null;
 }): React.ReactElement {
   const { t } = useTranslation();
   return (
     <>
+      {aliasNotice?.kind === "resolved" ? (
+        <p role="status" className="text-sm text-muted-foreground">
+          {t("picaSettings.aliasResolved", {
+            alias: aliasNotice.alias,
+            model: aliasNotice.model.modelName ?? aliasNotice.model.name,
+            id: aliasNotice.model.model,
+          })}
+        </p>
+      ) : null}
+      {aliasNotice?.kind === "unresolved" ? (
+        <p role="status" className="text-sm text-warning">
+          {t("picaSettings.aliasUnresolved", { alias: aliasNotice.alias })}
+        </p>
+      ) : null}
       {hasResetEffort ? (
         <p role="status" className="text-sm text-muted-foreground">
           {t("picaSettings.effortReset")}

@@ -2,6 +2,8 @@ import { useTranslation } from "react-i18next";
 
 import { Select } from "@/app/components/ui/select";
 import { cn } from "@/app/lib/cn";
+import { reasoningOptions } from "@/app/lib/reasoning-options";
+import { modelsOfSameTarget } from "@/definition/AgentReasoningChoice";
 import {
   planMemberProviderRefusal,
   planStepProvider,
@@ -12,6 +14,7 @@ import {
   planTargetModels,
   copyPlanConfiguration,
   planConfigurationModelKey,
+  planSavedModel,
 } from "@/definition/AgentPlanConfiguration";
 
 import { usePlanFlowContext } from "../plan-flow-context";
@@ -65,9 +68,8 @@ export function PlanAgentModel(props: {
     sources.models ?? [],
     effectivePlanTarget(step, draft),
   );
-  const model = models.find(
-    (entry) => entry.id === planConfigurationModelKey(configuration),
-  );
+  const saved = planSavedModel(models, configuration);
+  const model = saved?.model;
   if (!canEdit || models.length === 0)
     return (
       <ModelValues
@@ -82,6 +84,7 @@ export function PlanAgentModel(props: {
       configuration={configuration}
       models={models}
       model={model}
+      savedAlias={saved?.alias ?? null}
       group={findPlanStep(draft, step.id)?.group ?? null}
     />
   );
@@ -159,6 +162,8 @@ function useModelOptions(input: {
   readonly step: AgentPlanStep;
   readonly models: readonly PageAgentModel[];
   readonly group: AgentPlanGroup | null;
+  readonly model: PageAgentModel | undefined;
+  readonly savedAlias: string | null;
 }): readonly {
   readonly value: string;
   readonly label: string;
@@ -184,6 +189,10 @@ function useModelOptions(input: {
       : null;
     const runner = t(`settings.agents.providerShort.${entry.provider}`);
     const limits = limitsText(entry);
+    const alias =
+      input.savedAlias !== null && entry.id === input.model?.id
+        ? ` · ${t("plans.savedAlias", { alias: input.savedAlias })}`
+        : "";
     return {
       value: entry.id,
       label: entry.name,
@@ -194,7 +203,7 @@ function useModelOptions(input: {
               ? t(`settings.agents.providerShort.${adapter}`)
               : "",
           })
-        : `${runner} · ${entry.model}${limits ? ` · ${limits}` : ""}`,
+        : `${runner} · ${entry.model}${alias}${limits ? ` · ${limits}` : ""}`,
       disabled: refusal !== null,
     };
   });
@@ -205,6 +214,7 @@ function ModelChoice(props: {
   readonly configuration: AgentPlanConfiguration;
   readonly models: readonly PageAgentModel[];
   readonly model: PageAgentModel | undefined;
+  readonly savedAlias: string | null;
   readonly group: AgentPlanGroup | null;
 }): React.ReactElement {
   const { t } = useTranslation();
@@ -212,6 +222,14 @@ function ModelChoice(props: {
   const { step, configuration, model } = props;
   const options = useModelOptions(props);
   const efforts = model?.reasoningEfforts ?? [];
+  const effortOptions = reasoningOptions({
+    model,
+    modelName: model?.modelName ?? model?.name ?? configuration.model,
+    siblings: modelsOfSameTarget(props.models, model),
+    current: configuration.reasoningEffort,
+    defaultLabel: t("pageAgents.defaultReasoning"),
+    translate: t,
+  });
   function selectModel(id: string): void {
     const selected = props.models.find((entry) => entry.id === id);
     // Retain the saved effort so an unsupported choice remains explicit.
@@ -240,7 +258,7 @@ function ModelChoice(props: {
     <footer className={FOOTER_CLASS}>
       <Select
         ariaLabel={t("pageAgents.model")}
-        value={planConfigurationModelKey(configuration)}
+        value={model ? model.id : planConfigurationModelKey(configuration)}
         className={`${PLAN_FIELD_CLASS} [&>span]:min-w-0 [&>span]:truncate`}
         options={[
           ...(model
@@ -259,24 +277,9 @@ function ModelChoice(props: {
       <Select
         ariaLabel={t("pageAgents.reasoning")}
         value={configuration.reasoningEffort ?? ""}
-        disabled={
-          efforts.length === 0 && configuration.reasoningEffort === null
-        }
+        disabled={effortOptions.length === 1}
         className={`${PLAN_FIELD_CLASS} [&>span]:min-w-0 [&>span]:truncate`}
-        options={[
-          { value: "", label: t("pageAgents.defaultReasoning") },
-          ...efforts.map((effort) => ({ value: effort, label: effort })),
-          ...(configuration.reasoningEffort &&
-          !efforts.includes(configuration.reasoningEffort)
-            ? [
-                {
-                  value: configuration.reasoningEffort,
-                  label: `${configuration.reasoningEffort}${model ? ` · ${t("picaSettings.unsupportedEffort")}` : ""}`,
-                  disabled: true,
-                },
-              ]
-            : []),
-        ]}
+        options={effortOptions}
         onValueChange={selectEffort}
       />
     </footer>

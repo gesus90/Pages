@@ -791,7 +791,9 @@
         "plan_script_cleanup": "Die Bereinigung eigener Prozesse oder temporärer Ressourcen ist unbestätigt. Der Workspace bleibt reserviert.",
         "plan_script_interrupted": "Das Backend hat diesen Prozessversuch verloren. Seiteneffekte sind unklar; er wird niemals automatisch wiederholt.",
         "profile_management_retired": "Die Profilverwaltung wurde abgelöst. Modelle und Anweisungen werden direkt im Agent Plan konfiguriert.",
-        "workspace_running": "Mindestens ein betroffener Plan läuft, ist pausiert oder räumt noch auf. Stoppen Sie die Ausführung und warten Sie auf ihren Abschluss, bevor Sie die Registrierung entfernen."
+        "workspace_running": "Mindestens ein betroffener Plan läuft, ist pausiert oder räumt noch auf. Stoppen Sie die Ausführung und warten Sie auf ihren Abschluss, bevor Sie die Registrierung entfernen.",
+        "modelUnavailable": "Ein gespeichertes Modell steht im Katalog seines Ziels nicht (mehr) zur Verfügung. Es wurde nichts gespeichert oder gestartet und kein anderes Modell eingesetzt. Das betroffene Modell im markierten Node ausdrücklich neu wählen.",
+        "reasoningUnsupported": "Eine gespeicherte Reasoning-Stufe wird vom gewählten Modell nicht unterstützt. Es wurde nichts gespeichert oder gestartet und keine andere Stufe eingesetzt. Die Stufe im markierten Node ausdrücklich neu wählen."
       },
       "description": "Verwalten Sie die benannten API- und CLI-Anbindungen und ihre Nutzungsfreigaben. Freigegebene Modelle stehen direkt im Agent Plan zur Verfügung.",
       "adminModeRequired": "Die Agents-Einstellungen sind nur im Admin-Modus verfügbar. Ihr Konto ist derzeit im Rollenmodus.",
@@ -1224,7 +1226,8 @@
         "reasoning": "Reasoning-Stufe",
         "unavailable": "Nicht verfügbar",
         "chooseModel": "Gelistetes Modell wählen",
-        "saved": "Einstellung gespeichert."
+        "saved": "Einstellung gespeichert.",
+        "aliasResolved": "Gespeichert ist der Alias „{{alias}}“. Er steht für {{model}} ({{id}}); beim Speichern wird diese konkrete Version hinterlegt."
       },
       "runner": {
         "title": "Remote",
@@ -3194,8 +3197,8 @@
       "profileSelectionRequired": "Die bisherige Pica-Zuweisung ist mehrdeutig. Die Administration muss hier genau ein Modell auswählen.",
       "connectionUnavailable": "Der Zugang des Chat-Agenten ist nicht verfügbar. Bitte wende dich an einen Admin.",
       "accessUnverified": "Der Zugang des Chat-Agenten ist nicht bestätigt. Bitte wende dich an einen Admin.",
-      "modelUnavailable": "Das Modell des Chat-Agenten ist nicht im Katalog des Zugangs.",
-      "reasoningUnsupported": "Die Reasoning-Stufe des Chat-Agenten wird nicht unterstützt.",
+      "modelUnavailable": "Das für Pica gewählte Modell steht im Katalog des Zugangs nicht (mehr) zur Verfügung. Es wurde nichts gesendet und kein anderes Modell eingesetzt.",
+      "reasoningUnsupported": "Das für Pica gewählte Modell unterstützt die eingestellte Reasoning-Stufe nicht. Es wurde nichts gesendet und keine andere Stufe eingesetzt.",
       "requestBusy": "Pica verarbeitet bereits eine Nachricht oder Kontextkomprimierung von dir. Bitte warte auf den Abschluss.",
       "cancelled": "Die Antwort wurde abgebrochen.",
       "timeout": "Die Antwort hat zu lange gedauert. Bitte versuch es noch einmal.",
@@ -3211,7 +3214,9 @@
       "acpPermissionModeUnsupported": "Pica antwortet mit Claude Code und OpenCode nur mit Workspace-Zugriff „Nur Lesen“. Es stehen ausschließlich die autorisierten Pages-Werkzeuge zur Verfügung, keine Shell, Dateien oder Webwerkzeuge. Ein Admin muss den Modus des Chat-Agenten anpassen. Deine Nachricht wurde nicht gesendet.",
       "bridgeUnavailable": "Der Chat-Agent konnte die Pages-Werkzeuge von Pica nicht verbinden. Es wurde nichts geändert. Bitte versuch es noch einmal oder wende dich an einen Admin.",
       "interrupted": "Der Server wurde während der Antwort beendet. Die Antwort wird nicht automatisch wiederholt.",
-      "disabled": "Pica ist ausgeschaltet. Die Administration kann Pica unter Einstellungen › Agents aktivieren."
+      "disabled": "Pica ist ausgeschaltet. Die Administration kann Pica unter Einstellungen › Agents aktivieren.",
+      "plan_model_unavailable": "Die CLI bietet das für Pica gewählte Modell nicht (mehr) an, zum Beispiel nach einem Update. Es wurde nichts gesendet und kein anderes Modell eingesetzt. Bitte unter Einstellungen → Agents ein verfügbares Modell wählen.",
+      "plan_reasoning_unsupported": "Das für Pica gewählte Modell unterstützt die eingestellte Reasoning-Stufe nicht. Es wurde nichts gesendet. Bitte unter Einstellungen → Agents eine unterstützte Stufe wählen."
     },
     "recover": "Neue Session starten",
     "context": {
@@ -4954,7 +4959,8 @@
       },
       "withoutWorkspace": "Ohne Arbeitsbereich",
       "reassignWorkspace": "Dieser Plan hat keinen registrierten Arbeitsbereich und kann nicht gestartet werden. Wählen Sie unter Planaktionen → Bearbeiten einen Arbeitsbereich. Die Knoten und Inhalte bleiben erhalten."
-    }
+    },
+    "savedAlias": "gespeichert als Alias „{{alias}}“"
   },
   "mcpDuration": {
     "label": "Gültigkeit in Tagen",
@@ -5073,7 +5079,8 @@
     "deleteDescription": "Der Agent wird aus der AgentListe entfernt und kann danach nicht mehr gestartet werden. Laufende Agents können erst nach dem Ende ihres Laufs entfernt werden.",
     "confirmDelete": "Agent entfernen",
     "contextLimit": "{{value}} Kontext",
-    "outputLimit": "{{value}} Ausgabe"
+    "outputLimit": "{{value}} Ausgabe",
+    "modelAlias": "Gespeichert ist der Alias „{{alias}}“. Er steht für {{model}} ({{id}}); sobald Modell oder Stufe geändert wird, wird diese konkrete Version gespeichert."
   },
   "discordResult": {
     "authorized": {
@@ -5262,6 +5269,11 @@
     "effortReset": "Die bisherige Reasoning-Stufe wird vom neuen Modell nicht unterstützt. Die Auswahl steht jetzt auf Standard; bitte vor dem Speichern prüfen.",
     "manual": "manuelle Modell-ID",
     "retired": "Agents werden direkt im Plan mit einem freigegebenen Modell konfiguriert. Bestehende Vorlagen und Verläufe bleiben erhalten.",
-    "unsupportedEffort": "Nicht unterstützt – Auswahl korrigieren"
+    "unsupportedEffort": "Nicht unterstützt – Auswahl korrigieren",
+    "aliasResolved": "Gespeichert ist der Alias „{{alias}}“. Er steht für {{model}} ({{id}}); beim Speichern wird diese konkrete Version hinterlegt.",
+    "aliasUnresolved": "Der gespeicherte Alias „{{alias}}“ lässt sich nicht auf genau eine Version abbilden: Der Katalog dieses Zugangs nennt dafür keine oder mehrere. Es wird kein anderes Modell eingesetzt; bitte ein konkretes Modell wählen."
+  },
+  "reasoningChoice": {
+    "unsupported": "{{model}} unterstützt diese Stufe nicht."
   }
 }

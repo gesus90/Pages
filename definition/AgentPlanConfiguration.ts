@@ -1,4 +1,6 @@
 import { defaultAgentRunOptions } from "./AgentConfiguration";
+import { findSavedModel } from "./AgentModelVersion";
+import type { StoredModelMatch } from "./AgentModelVersion";
 import type { AgentPlanExecutionTarget } from "./AgentPlanExecution.js";
 import type { RunnerModelRoute } from "./RunnerExecution.js";
 import type { AgentDefinitionChoice } from "./AgentAvailability";
@@ -115,6 +117,26 @@ function sourceModelId(agent: AgentDefinitionChoice): string {
   return agent.modelProfileId && agent.modelProfileId !== agent.id
     ? agent.modelProfileId
     : "";
+}
+
+/**
+ * The listed model a node's configuration names.
+ *
+ * @param models - The models offered for the node's execution target.
+ * @param configuration - The node's own configuration.
+ * @returns The model under the configuration's selection key; otherwise the
+ * version a stored Claude family alias resolves to, together with that alias;
+ * `undefined` when the model is not offered, which the node reports instead of
+ * switching to another one.
+ */
+export function planSavedModel(
+  models: readonly PageAgentModel[],
+  configuration: AgentPlanConfiguration,
+): StoredModelMatch<PageAgentModel> | undefined {
+  const key = planConfigurationModelKey(configuration);
+  const exact = models.find((entry) => entry.id === key);
+  if (exact) return { model: exact, alias: null };
+  return findSavedModel(models, configuration);
 }
 
 /** Offers model routes only for the node's selected execution target. */

@@ -24,7 +24,7 @@ export function AgentReasoningField({
         value={selection.effort}
         options={selection.effortOptions}
         onValueChange={selection.chooseEffort}
-        disabled={isPending || !hasLevels}
+        disabled={isPending || selection.effortOptions.length === 1}
       />
       {model && !hasLevels ? (
         <p className="text-sm text-muted-foreground">

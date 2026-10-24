@@ -7,6 +7,8 @@ import {
 } from "@/backend/agents/catalog/CatalogParsing";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
+import { isModelAliasToken } from "@/definition/AgentModelCatalog";
+import { describeClaudeModel } from "@/definition/AgentModelVersion";
 
 import type { AgentCatalogModel } from "@/definition/AgentModelCatalog";
 
@@ -88,14 +90,30 @@ export function readCodexModels(stdout: string): readonly AgentCatalogModel[] {
   return models;
 }
 
+// A picker value such as `sonnet` that differs from the ID it resolves to is a name the CLI itself accepts for that model.
+// `default` is left out: what it resolves to depends on the account.
+function readPickerAliases(
+  model: Record<string, unknown>,
+  id: string,
+): readonly string[] {
+  const { value } = model;
+  return isModelAliasToken(value) && value !== "default" && value !== id
+    ? [value]
+    : [];
+}
+
 function readClaudeModel(model: Record<string, unknown>): AgentCatalogModel {
   const id = readCliModelId(model.resolvedModel ?? model.value);
   const name = model.displayName;
   const efforts = readReasoningEfforts(model.supportedEffortLevels);
+  const aliases = readPickerAliases(model, id);
   return {
     id,
-    name:
+    // The picker names a row after its family only; the version comes from the ID the row resolves to.
+    name: describeClaudeModel(
+      id,
       typeof name === "string" && /^[^\p{Cc}]{1,200}$/u.test(name) ? name : id,
+    ),
     contextWindow: null,
     promptPrice: null,
     completionPrice: null,
@@ -105,7 +123,28 @@ function readClaudeModel(model: Record<string, unknown>): AgentCatalogModel {
       : reasoningWithoutLevels(
           model.supportsEffort === false ? "none" : "unknown",
         )),
+    ...(aliases.length > 0 ? { aliases } : {}),
   };
+}
+
+// Rows that resolve to the same model become one entry that keeps every alias of its rows.
+function mergeRowsOfOneModel(
+  models: readonly AgentCatalogModel[],
+): readonly AgentCatalogModel[] {
+  const merged = new Map<string, AgentCatalogModel>();
+  for (const model of models) {
+    const aliases = [
+      ...new Set([
+        ...(merged.get(model.id)?.aliases ?? []),
+        ...(model.aliases ?? []),
+      ]),
+    ];
+    merged.set(model.id, {
+      ...model,
+      ...(aliases.length > 0 ? { aliases } : {}),
+    });
+  }
+  return [...merged.values()];
 }
 
 /**
@@ -117,7 +156,8 @@ function readClaudeModel(model: Record<string, unknown>): AgentCatalogModel {
  * Every enabled picker row becomes a model under its canonical ID, so each
  * listed version and 1M-context variant stays selectable on its own. Rows that
  * resolve to the same model, such as the default row and its family alias,
- * become one entry with the later row's name.
+ * become one entry with the later row's name. A short picker value such as
+ * `sonnet` is kept as an alias of the model it resolves to.
  */
 export function readClaudeModels(stdout: string): readonly AgentCatalogModel[] {
   let messages: unknown[];
@@ -148,7 +188,7 @@ export function readClaudeModels(stdout: string): readonly AgentCatalogModel[] {
     .filter((entry) => entry.disabled !== true)
     .map(readClaudeModel);
   if (models.length === 0) throw unexpected();
-  return [...new Map(models.map((model) => [model.id, model])).values()];
+  return mergeRowsOfOneModel(models);
 }
 
 // `opencode models --verbose` prints each model as its ID on one line followed

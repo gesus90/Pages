@@ -689,6 +689,22 @@ selection remains visible, with no implicit model fallback or change of activati
 Model and reasoning edits on the same connection retain migrated runtime
 options; selecting another connection uses that runner's standard options.
 
+The model lists of Pica and the plan editor come from the picker of each
+target's own CLI: this host for a local connection, the runner host for a remote
+node. Two targets may therefore offer different Claude versions and levels. A
+Claude Code model is named with its version (`Sonnet 5.5`) and shows the concrete
+model ID (`claude-sonnet-5-5`) beside its access; that ID is what is stored and
+passed on, never a family alias or another model. Reasoning levels that the
+target reports for some model but not for the chosen one stay in the list,
+disabled, with the model named as the reason; a level or mode that no catalog
+reports (such as `ultra`, or Fast Mode) is neither offered nor accepted. A family
+alias saved earlier, such as `sonnet`, is shown with the version the CLI's own
+picker maps it to and becomes the concrete ID when the selection is saved;
+`default` and an alias the catalog cannot tie to one model stay as they are and
+are reported. Pages and the runner start Claude Code with the model fallback and
+the remap of retired model names switched off, so a model that is gone fails the
+start with a clear message instead of being replaced.
+
 Turning Pica off hides its launcher and unmounts its panel. Other open views
 refresh on focus or within 30 seconds. Server-side checks apply immediately to
 new sessions, turns and provider work. Turning Pica off or changing its identity

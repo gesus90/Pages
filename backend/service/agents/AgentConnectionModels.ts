@@ -93,5 +93,6 @@ function modelChoice(
     catalogDefaultReasoningEffort: model.defaultReasoningEffort,
     reasoningEffort: null,
     isManual: !supportsModelCatalog(connection.provider),
+    ...(model.aliases ? { aliases: model.aliases } : {}),
   };
 }

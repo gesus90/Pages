@@ -27,6 +27,14 @@ export interface AgentCatalogModel {
   /** Efforts exactly as the provider or CLI lists them; empty unless `levels`. */
   readonly reasoningEfforts: readonly string[];
   readonly defaultReasoningEffort: string | null;
+  /**
+   * Short names the CLI's own picker resolves to this model, such as `sonnet`.
+   *
+   * @remarks
+   * Absent where the catalog does not say, which is every catalog saved
+   * before the CLI's picker values were kept and every API catalog.
+   */
+  readonly aliases?: readonly string[];
 }
 
 export interface AgentModelCatalog {
@@ -44,6 +52,14 @@ export interface AgentModelCatalog {
  */
 export function supportsModelCatalog(provider: AgentProviderId): boolean {
   return provider !== "zai";
+}
+
+/** A picker alias such as `sonnet` or `opus[1m]`, short enough to store beside the model. */
+export function isModelAliasToken(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^[a-z][a-z0-9-]{0,39}(?:\[[0-9a-z]{1,8}\])?$/u.test(value)
+  );
 }
 
 /** Effort names are short provider tokens such as `low` or `xhigh`. */

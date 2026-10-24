@@ -87,6 +87,17 @@ export function AgentModelField({
             t("settings.agents.catalog.count", { count, total }),
         }}
       />
+      {selection.savedAlias ? (
+        <p role="status" className="text-sm text-muted-foreground">
+          {t("settings.agents.modelSelection.aliasResolved", {
+            alias: selection.savedAlias,
+            model: selection.models.find(
+              (entry) => entry.id === selection.modelId,
+            )?.name,
+            id: selection.modelId,
+          })}
+        </p>
+      ) : null}
     </section>
   );
 }

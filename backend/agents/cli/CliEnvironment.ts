@@ -28,6 +28,9 @@ function providerEnvironment(
         CLAUDE_CONFIG_DIR: home.config,
         DISABLE_AUTOUPDATER: "1",
         CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
+        // The CLI keeps the exact model it was asked for: no fallback to another model, no remap of a retired name.
+        CLAUDE_CODE_DISABLE_MODEL_ACCESS_FALLBACK: "1",
+        CLAUDE_CODE_DISABLE_LEGACY_MODEL_REMAP: "1",
       };
     case "opencode":
       return { XDG_DATA_HOME: home.config, ...OPENCODE_SWITCHES };

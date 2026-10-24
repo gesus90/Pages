@@ -1,6 +1,8 @@
 import { useTranslation } from "react-i18next";
 
 import { Select } from "@/app/components/ui/select";
+import { reasoningOptions } from "@/app/lib/reasoning-options";
+import { modelsOfSameTarget } from "@/definition/AgentReasoningChoice";
 
 import type { PageAgentInput, PageAgentModel } from "@/definition/PageAgent";
 
@@ -12,6 +14,8 @@ export function PageAgentModelFields(props: {
   /** Tells an owner that the saved model is no longer released and has to be replaced. */
   readonly isModelWithdrawn: boolean;
   readonly savedModel?: string;
+  /** The family alias the saved model was stored under; its version is chosen once the model or level changes. */
+  readonly savedAlias?: string | null;
   readonly layout?: "columns" | "stacked";
   readonly onChange: (draft: PageAgentInput) => void;
 }): React.ReactElement {
@@ -19,7 +23,6 @@ export function PageAgentModelFields(props: {
   const model = props.models.find(
     (entry) => entry.id === props.draft.modelProfileId,
   );
-  const efforts = model?.reasoningEfforts ?? [];
   function selectModel(id: string): void {
     props.onChange({
       ...props.draft,
@@ -62,45 +65,88 @@ export function PageAgentModelFields(props: {
             ]}
           />
         </label>
-        <label className="block min-w-0 space-y-2 text-sm font-medium">
-          <span>{t("pageAgents.reasoning")}</span>
-          <Select
-            value={props.draft.reasoningEffort ?? ""}
-            className="w-full [&>span]:min-w-0 [&>span]:truncate"
-            disabled={
-              props.disabled ||
-              (efforts.length === 0 && props.draft.reasoningEffort === null)
-            }
-            // Only a listed level is a choice; the fixed default reports as empty.
-            onValueChange={(effort) =>
-              props.onChange({
-                ...props.draft,
-                reasoningEffort: efforts.includes(effort) ? effort : null,
-              })
-            }
-            ariaLabel={t("pageAgents.reasoning")}
-            options={[
-              { value: "", label: t("pageAgents.defaultReasoning") },
-              ...efforts.map((effort) => ({ value: effort, label: effort })),
-              ...(props.draft.reasoningEffort &&
-              !efforts.includes(props.draft.reasoningEffort)
-                ? [
-                    {
-                      value: props.draft.reasoningEffort,
-                      label: `${props.draft.reasoningEffort}${model ? ` · ${t("picaSettings.unsupportedEffort")}` : ""}`,
-                      disabled: true,
-                    },
-                  ]
-                : []),
-            ]}
-          />
-        </label>
+        <PageAgentReasoningField
+          draft={props.draft}
+          models={props.models}
+          model={model}
+          savedModel={props.savedModel}
+          disabled={props.disabled}
+          onChange={props.onChange}
+        />
       </div>
+      <PageAgentModelNotices
+        model={model}
+        savedAlias={props.savedAlias ?? null}
+        isModelWithdrawn={props.isModelWithdrawn}
+      />
+    </div>
+  );
+}
+
+/** The reasoning level of a model; levels the model lacks stay listed, disabled, with the reason. */
+function PageAgentReasoningField(props: {
+  readonly draft: PageAgentInput;
+  readonly models: readonly PageAgentModel[];
+  readonly model: PageAgentModel | undefined;
+  readonly savedModel: string | undefined;
+  readonly disabled: boolean;
+  readonly onChange: (draft: PageAgentInput) => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const { draft, model } = props;
+  const efforts = model?.reasoningEfforts ?? [];
+  const options = reasoningOptions({
+    model,
+    modelName: model?.modelName ?? model?.name ?? props.savedModel ?? "",
+    siblings: modelsOfSameTarget(props.models, model),
+    current: draft.reasoningEffort,
+    defaultLabel: t("pageAgents.defaultReasoning"),
+    translate: t,
+  });
+  return (
+    <label className="block min-w-0 space-y-2 text-sm font-medium">
+      <span>{t("pageAgents.reasoning")}</span>
+      <Select
+        value={draft.reasoningEffort ?? ""}
+        className="w-full [&>span]:min-w-0 [&>span]:truncate"
+        disabled={props.disabled || options.length === 1}
+        // Only a listed level is a choice; the fixed default reports as empty.
+        onValueChange={(effort) =>
+          props.onChange({
+            ...draft,
+            reasoningEffort: efforts.includes(effort) ? effort : null,
+          })
+        }
+        ariaLabel={t("pageAgents.reasoning")}
+        options={options}
+      />
+    </label>
+  );
+}
+
+function PageAgentModelNotices(props: {
+  readonly model: PageAgentModel | undefined;
+  readonly savedAlias: string | null;
+  readonly isModelWithdrawn: boolean;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const { model, savedAlias } = props;
+  return (
+    <>
+      {savedAlias && model ? (
+        <p role="status" className="text-sm text-muted-foreground">
+          {t("pageAgents.modelAlias", {
+            alias: savedAlias,
+            model: model.modelName ?? model.name,
+            id: model.model,
+          })}
+        </p>
+      ) : null}
       {props.isModelWithdrawn ? (
         <p role="status" className="text-sm text-warning">
           {t("pageAgents.modelWithdrawn")}
         </p>
       ) : null}
-    </div>
+    </>
   );
 }
