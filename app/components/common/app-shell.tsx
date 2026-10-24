@@ -81,7 +81,8 @@ interface NavigationLinksProps {
 function getLinkClassName(isActive: boolean): string {
   return cn(
     "flex min-h-12 items-center gap-4 rounded-xl px-5 text-lg font-medium text-muted-foreground transition-colors hover:bg-sidebar-hover hover:text-foreground xl:min-h-10 xl:gap-3 xl:px-3 xl:text-sm",
-    isActive && "bg-sidebar-active text-foreground shadow-xs",
+    isActive &&
+      "bg-sidebar-active text-foreground inset-shadow-navigation-selection shadow-(--navigation-selection-shadow)",
   );
 }
 

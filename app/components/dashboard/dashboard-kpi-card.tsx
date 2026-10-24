@@ -7,7 +7,27 @@ import {
 /** Visual tone of a KPI delta line. */
 type DashboardKpiTone = "accent" | "muted" | "positive";
 
+const DECORATION_CLASSES = {
+  primary: {
+    card: "[--metric-accent:var(--color-metric-primary)]",
+    icon: "bg-metric-primary-subtle text-metric-primary",
+  },
+  secondary: {
+    card: "[--metric-accent:var(--color-metric-secondary)]",
+    icon: "bg-metric-secondary-subtle text-metric-secondary",
+  },
+  tertiary: {
+    card: "[--metric-accent:var(--color-metric-tertiary)]",
+    icon: "bg-metric-tertiary-subtle text-metric-tertiary",
+  },
+  quaternary: {
+    card: "[--metric-accent:var(--color-metric-quaternary)]",
+    icon: "bg-metric-quaternary-subtle text-metric-quaternary",
+  },
+} as const;
+
 interface DashboardKpiCardProps {
+  readonly decoration?: keyof typeof DECORATION_CLASSES;
   readonly label: string;
   readonly value: number;
   readonly deltaValue: string;
@@ -29,14 +49,25 @@ export function DashboardKpiCard({
   deltaSuffix,
   tone = "accent",
   icon,
+  decoration = "primary",
 }: DashboardKpiCardProps): React.ReactElement {
   const isFlat = tone === "muted";
   const TrendIcon = isFlat ? DashboardTrendFlatIcon : DashboardTrendUpIcon;
 
   return (
-    <article className="min-w-0 rounded-2xl bg-surface p-5 shadow-card">
+    <article
+      className={cn(
+        "pages-metric-card min-w-0 rounded-2xl bg-surface p-5 shadow-card",
+        DECORATION_CLASSES[decoration].card,
+      )}
+    >
       <div className="flex items-start gap-4">
-        <span className="inline-flex size-12 shrink-0 select-none items-center justify-center rounded-xl bg-primary-subtle text-primary">
+        <span
+          className={cn(
+            "inline-flex size-12 shrink-0 select-none items-center justify-center rounded-xl shadow-metric",
+            DECORATION_CLASSES[decoration].icon,
+          )}
+        >
           {icon}
         </span>
         <div className="min-w-0">

@@ -51,6 +51,15 @@
   --color-warning-subtle: #fffbeb;
   --color-warning: #b45309;
   --color-ring: #f97316;
+  /* Decorative metric roles; the Standard and existing designs retain primary. */
+  --color-metric-primary: var(--color-primary);
+  --color-metric-secondary: var(--color-primary);
+  --color-metric-tertiary: var(--color-primary);
+  --color-metric-quaternary: var(--color-primary);
+  --color-metric-primary-subtle: var(--color-primary-subtle);
+  --color-metric-secondary-subtle: var(--color-primary-subtle);
+  --color-metric-tertiary-subtle: var(--color-primary-subtle);
+  --color-metric-quaternary-subtle: var(--color-primary-subtle);
   --color-trend-positive: var(--color-green-600);
   --color-toggle-thumb: #ffffff;
   --color-toggle-thumb-active: #ffffff;
@@ -206,7 +215,8 @@
     0 0 0 1px rgb(var(--shadow-edge) / var(--shadow-edge-alpha));
   --shadow-card:
     0 1px 2px rgb(var(--shadow-ink) / calc(3% * var(--shadow-strength))),
-    0 12px 32px -8px rgb(var(--shadow-ink) / calc(8% * var(--shadow-strength)));
+    0 12px 32px -8px rgb(var(--shadow-ink) / calc(8% * var(--shadow-strength))),
+    var(--card-material-edge, 0 0 0 transparent);
   --shadow-floating:
     0 4px 12px rgb(var(--shadow-ink) / calc(6% * var(--shadow-strength))),
     0 16px 40px rgb(var(--shadow-ink) / calc(10% * var(--shadow-strength))),
@@ -233,6 +243,10 @@
   --shadow-field:
     var(--shadow-xs),
     inset 0 0 0 var(--field-edge-width) var(--color-field-border);
+  --inset-shadow-navigation-selection: inset 0 0 0
+    var(--navigation-selection-edge-width) var(--navigation-active-icon);
+  --shadow-metric: inset 0 0 0 var(--metric-edge-width)
+    color-mix(in srgb, currentColor 35%, transparent);
   --shadow-auth-button: 0 10px 24px -8px rgb(249 115 22 / 45%);
 }
 
@@ -301,7 +315,14 @@
   --navigation-logo-surface: transparent;
   --navigation-logo-edge: none;
   --sidebar-edge: none;
+  --navigation-selection-edge-width: 0px;
+  --navigation-selection-texture: none;
+  --navigation-selection-shadow: var(--shadow-xs);
+  --auth-stage-texture-size:
+    min(25vw, 480px) auto, min(25vw, 480px) auto, cover;
   --auth-stage-texture: none;
+  --metric-card-edge-strength: 0%;
+  --metric-edge-width: 0px;
   --field-edge-width: 0px;
   --selection-edge-width: 0px;
   --auth-glow-opacity: 1;

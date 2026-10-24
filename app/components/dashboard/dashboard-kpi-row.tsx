@@ -52,6 +52,7 @@ export function DashboardKpiRow({
       </div>
       <div className="col-span-12 sm:col-span-6 xl:col-span-3">
         <DashboardKpiCard
+          decoration="secondary"
           label={t("dashboard.kpi.overdue")}
           value={overdueTickets}
           deltaValue={formatDelta(overdueDelta)}
@@ -62,6 +63,7 @@ export function DashboardKpiRow({
       </div>
       <div className="col-span-12 sm:col-span-6 xl:col-span-3">
         <DashboardKpiCard
+          decoration="tertiary"
           label={t("dashboard.kpi.inProgress")}
           value={inProgressTickets}
           deltaValue={formatDelta(0)}
@@ -72,6 +74,7 @@ export function DashboardKpiRow({
       </div>
       <div className="col-span-12 sm:col-span-6 xl:col-span-3">
         <DashboardKpiCard
+          decoration="quaternary"
           label={t("dashboard.kpi.projects")}
           value={projectCount}
           deltaValue={formatDelta(newProjects)}

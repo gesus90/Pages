@@ -2138,7 +2138,7 @@ user. Every user chooses theirs in **Settings → Personal → Appearance**; the
 choice is stored per user, independently of the color mode (light, dark,
 system). Only the identifier of the theme is stored, and the color mode stays a
 separate setting: **Light**, **Dark** and **System** above the theme cards pick
-the palette of the chosen theme. Pages ships three themes, all built in and not
+the palette of the chosen theme. Pages ships four themes, all built in and not
 removable: `standard`, which looks as Pages always did, `arctic-ice`
 (PAGE-129), a maritime ice-glass design with one white-and-blue palette for
 light and one deep polar-sea palette for dark. Arctic Ice is one card with one
@@ -2153,7 +2153,12 @@ Navigation has separate contrast roles, including its selection and focus
 colors. Botanical strengthens field edges and caps the lightness of user-colored
 text on light surfaces without changing the stored color or its hue. Status,
 priority, workflow and plan colors and colors that users picked keep their
-meaning in every theme. The sign-in page has no signed-in user and therefore
+meaning in every theme. `neural-rgb` (PAGE-150) is one card with light graphite-white
+and dark graphite/navy palettes. Cyan actions, quiet violet selection edges and
+static circuit traces in desktop and mobile navigation follow the same color
+mode. Its opaque content cards carry only a subtle edge; the four dashboard
+metric icons use decorative cyan, violet, magenta and blue roles. Fields and
+selection have accessible contours. No theme animation is added. The sign-in page has no signed-in user and therefore
 always uses the Standard design.
 
 More themes are installed by putting a directory into `themes/` next to the

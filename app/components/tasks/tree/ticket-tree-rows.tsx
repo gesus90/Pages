@@ -142,7 +142,7 @@ function TicketRow({
         className={cn(
           "flex min-h-9 items-center gap-1 rounded-lg pr-2 text-sm md:min-h-8",
           isCurrent
-            ? "bg-sidebar-active text-foreground"
+            ? "bg-sidebar-active text-foreground inset-shadow-navigation-selection"
             : "text-muted-foreground hover:bg-sidebar-hover hover:text-foreground",
         )}
         style={{ paddingLeft: `${depth * 0.75 + 0.25}rem` }}

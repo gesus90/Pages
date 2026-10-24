@@ -85,7 +85,7 @@ export function WikiTreeItemView({
         className={cn(
           "group flex min-h-8 items-center gap-1 rounded-lg pr-2 text-sm",
           isCurrent
-            ? "bg-sidebar-active text-foreground"
+            ? "bg-sidebar-active text-foreground inset-shadow-navigation-selection"
             : "text-muted-foreground hover:bg-sidebar-hover hover:text-foreground",
           marker,
         )}

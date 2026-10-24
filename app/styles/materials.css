@@ -5,7 +5,7 @@
     background-image: linear-gradient(
       to right,
       var(--color-auth-button-from),
-      var(--color-primary)
+      var(--auth-button-to, var(--color-primary))
     );
     box-shadow: var(--shadow-auth-button);
     transition: translate 150ms ease-out;
@@ -69,6 +69,7 @@
     --color-muted: var(--navigation-active-muted);
     --color-surface-hover: var(--navigation-active-surface-hover);
     color: var(--navigation-active-foreground);
+    background-image: var(--navigation-selection-texture);
   }
 
   .pages-navigation-palette :focus-visible {
@@ -88,10 +89,24 @@
       right top,
       left bottom,
       center;
-    background-size:
-      min(25vw, 480px) auto,
-      min(25vw, 480px) auto,
-      cover;
+    background-size: var(--auth-stage-texture-size);
+  }
+
+  /* A metric edge uses the same decorative role as its icon; contents stay opaque. */
+  .pages-metric-card {
+    --card-material-edge:
+      -1px -1px 0 0
+        color-mix(
+          in srgb,
+          var(--metric-accent) var(--metric-card-edge-strength),
+          transparent
+        ),
+      1px 1px 0 0
+        color-mix(
+          in srgb,
+          var(--metric-accent) calc(var(--metric-card-edge-strength) / 4),
+          transparent
+        );
   }
 
   .pages-content-card {
