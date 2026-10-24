@@ -52,7 +52,7 @@ export function SegmentedControl<Value extends string>({
             className={cn(
               "inline-flex h-7 items-center gap-1.5 rounded-lg px-3 text-xs font-medium whitespace-nowrap transition-colors select-none",
               isActive
-                ? "bg-surface text-foreground shadow-xs"
+                ? "bg-surface text-foreground shadow-selection"
                 : "text-muted-foreground hover:text-foreground",
             )}
             key={option.value}

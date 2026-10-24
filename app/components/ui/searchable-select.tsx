@@ -89,7 +89,7 @@ export function SearchableSelect({
           aria-controls={state.isOpen ? state.listboxId : undefined}
           disabled={disabled}
           className={cn(
-            "flex min-h-9 w-full items-center justify-between gap-2 rounded-lg bg-surface px-2.5 py-1.5 text-left text-xs font-medium text-foreground shadow-xs outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-60",
+            "flex min-h-9 w-full items-center justify-between gap-2 rounded-lg bg-surface px-2.5 py-1.5 text-left text-xs font-medium text-foreground shadow-field outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-60",
             className,
           )}
           onClick={state.toggle}

@@ -92,7 +92,7 @@ export function Select<Value extends string = string>({
         id={id}
         aria-label={ariaLabel}
         className={cn(
-          "inline-flex max-w-full items-center justify-between gap-2 bg-surface font-medium text-foreground shadow-xs outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-60",
+          "inline-flex max-w-full items-center justify-between gap-2 bg-surface font-medium text-foreground shadow-field outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-60",
           size === "default"
             ? "h-11 rounded-xl px-4 text-base xl:h-9 xl:px-3 xl:text-sm"
             : "h-9 rounded-lg px-2.5 text-xs",

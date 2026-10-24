@@ -13,7 +13,7 @@ export function Checkbox({
         {...properties}
         type="checkbox"
         className={cn(
-          "peer size-5 appearance-none rounded-md border border-muted-foreground/40 checked:border-primary checked:bg-primary disabled:cursor-not-allowed disabled:opacity-60",
+          "peer size-5 appearance-none rounded-md border border-control-border checked:border-primary checked:bg-primary disabled:cursor-not-allowed disabled:opacity-60",
           className,
         )}
       />

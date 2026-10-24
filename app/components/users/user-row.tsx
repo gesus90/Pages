@@ -56,7 +56,7 @@ export function UserRow({
             {user.email}
           </span>
         ) : (
-          <span className="text-sm text-muted-foreground/50">—</span>
+          <span className="text-sm text-placeholder-foreground">—</span>
         )}
       </td>
       <td className="pages-selectable px-4 py-3 text-sm text-foreground">

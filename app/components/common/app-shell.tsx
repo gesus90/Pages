@@ -294,7 +294,7 @@ function MobileNavigation({
           <Menu className="size-5" aria-hidden="true" />
         </Button>
       </SheetTrigger>
-      <SheetContent>
+      <SheetContent className="pages-navigation-palette pages-sidebar-surface">
         <div className="mb-8 flex items-center justify-between">
           <SheetTitle className="sr-only">{t("navigation.label")}</SheetTitle>
           <img
@@ -350,7 +350,7 @@ function DesktopSidebar({
       ref={sidebarRef}
       id={sidebarId}
       className={cn(
-        "fixed inset-y-0 left-0 hidden w-(--app-sidebar-width) flex-col bg-sidebar pages-sidebar-surface px-5 pt-7 pb-13 md:flex xl:px-4 xl:pt-5 xl:pb-6",
+        "fixed inset-y-0 left-0 hidden w-(--app-sidebar-width) flex-col bg-sidebar pages-navigation-palette pages-sidebar-surface px-5 pt-7 pb-13 md:flex xl:px-4 xl:pt-5 xl:pb-6",
         !layout.isCollapsed && "min-w-(--app-sidebar-minimum)",
       )}
     >

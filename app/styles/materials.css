@@ -1,0 +1,135 @@
+/* Shared material boundaries; color and default material roles live in tailwind.css. */
+@layer utilities {
+  /* Primäraktion des Auth-Bereichs; der Verlauf gilt nur dort (§14.1). */
+  .pages-auth-button {
+    background-image: linear-gradient(
+      to right,
+      var(--color-auth-button-from),
+      var(--color-primary)
+    );
+    box-shadow: var(--shadow-auth-button);
+    transition: translate 150ms ease-out;
+  }
+
+  .pages-auth-button:hover:not(:disabled) {
+    translate: 0 -1px;
+  }
+
+  .pages-auth-button:active:not(:disabled) {
+    translate: 0 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pages-auth-button,
+    .pages-auth-button:hover:not(:disabled) {
+      transition: none;
+      translate: 0 0;
+    }
+  }
+
+  /* Surface of the permanent sidebar: its color is `bg-sidebar`; texture and
+     edge are `none` in the Standard design. */
+  .pages-sidebar-surface {
+    background-image: var(--sidebar-texture);
+    background-size: var(--sidebar-texture-size);
+    background-repeat: var(--sidebar-texture-repeat);
+    box-shadow: var(--sidebar-edge);
+  }
+
+  /* A material boundary shared by permanent and portalled navigation. */
+  .pages-navigation-palette {
+    --color-foreground: var(--navigation-foreground);
+    --color-muted-foreground: var(--navigation-muted-foreground);
+    --color-primary: var(--navigation-primary);
+    --color-primary-hover: var(--navigation-primary-hover);
+    --color-primary-subtle: var(--navigation-primary-subtle);
+    --color-primary-foreground: var(--navigation-primary-foreground);
+    --color-muted: var(--navigation-muted);
+    --color-surface: var(--navigation-surface);
+    --color-surface-hover: var(--navigation-surface-hover);
+    --color-sidebar-hover: var(--navigation-hover);
+    --color-background: var(--navigation-background);
+    --color-border: var(--navigation-border);
+    --color-field: var(--navigation-field);
+    --color-field-border: var(--navigation-field-border);
+    --color-field-border-hover: var(--navigation-field-border-hover);
+    --scroll-fade-color: var(--navigation-background);
+    --scrollbar-thumb: var(--navigation-scrollbar-thumb);
+    --scrollbar-thumb-hover: var(--navigation-scrollbar-thumb-hover);
+    --scrollbar-thumb-active: var(--navigation-scrollbar-thumb-hover);
+    --logo-filter: var(--navigation-logo-filter);
+    color: var(--color-foreground);
+  }
+
+  .pages-navigation-palette :where([aria-current="page"], .bg-sidebar-active) {
+    --color-foreground: var(--navigation-active-foreground);
+    --color-muted-foreground: var(--navigation-active-muted-foreground);
+    --color-primary: var(--navigation-active-icon);
+    --color-sidebar-hover: var(--navigation-active-hover);
+    --color-muted: var(--navigation-active-muted);
+    --color-surface-hover: var(--navigation-active-surface-hover);
+    color: var(--navigation-active-foreground);
+  }
+
+  .pages-navigation-palette :focus-visible {
+    outline-color: var(--navigation-focus);
+  }
+
+  .pages-navigation-palette .pages-logo {
+    background-color: var(--navigation-logo-surface);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--navigation-logo-edge);
+  }
+
+  .pages-auth-stage {
+    background-image: var(--auth-stage-texture);
+    background-repeat: no-repeat;
+    background-position:
+      right top,
+      left bottom,
+      center;
+    background-size:
+      min(25vw, 480px) auto,
+      min(25vw, 480px) auto,
+      cover;
+  }
+
+  .pages-content-card {
+    background: var(--color-surface);
+    border-radius: var(--radius-2xl);
+    box-shadow: var(--shadow-card);
+  }
+
+  .pages-floating-panel {
+    background: var(--color-surface);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-panel);
+  }
+
+  /* Die Wortmarke ist dunkel auf transparent. Im dunklen Thema wird sie weiß,
+     der orange Akzent bleibt orange; das Bild selbst bleibt unverändert. */
+  .pages-logo {
+    @variant dark {
+      filter: var(
+        --logo-filter,
+        invert(1) hue-rotate(203deg) saturate(3.1) brightness(1.06)
+      );
+    }
+  }
+
+  /* Text in einer vom Nutzer gewählten Farbe (Label, Meilenstein). Der Farbton
+     bleibt erhalten; ein Material darf die helle Texthelligkeit begrenzen.
+     Im dunklen Thema wird nur die Helligkeit auf ein
+     Maß angehoben, bei dem sie auf dunklem Grund lesbar bleibt. --chip-text
+     ist optional und ersetzt die Farbe im hellen Thema. */
+  .pages-user-color-text {
+    color: oklch(
+      from var(--chip-text, var(--chip-color))
+        min(l, var(--user-color-text-max-lightness)) c h
+    );
+
+    @variant dark {
+      color: oklch(from var(--chip-color) max(l, 0.78) c h);
+    }
+  }
+}

@@ -29,7 +29,7 @@ function ToggleSwitch({
       aria-describedby={descriptionId}
       aria-label={label}
       className={cn(
-        "inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+        "inline-flex h-6 w-11 shrink-0 items-center rounded-full shadow-control-edge transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
         checked ? "justify-end bg-primary" : "justify-start bg-muted",
       )}
       onClick={onChange}
@@ -38,7 +38,10 @@ function ToggleSwitch({
     >
       <span
         aria-hidden="true"
-        className="mx-0.5 size-5 rounded-full bg-white shadow"
+        className={cn(
+          "mx-0.5 size-5 rounded-full shadow",
+          checked ? "bg-toggle-thumb-active" : "bg-toggle-thumb",
+        )}
       />
     </button>
   );

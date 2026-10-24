@@ -1,0 +1,78 @@
+import {
+  BOTANICAL_NAVIGATION_TEXTURE,
+  BOTANICAL_AUTH_CORNER,
+  BOTANICAL_AUTH_LOWER_CORNER,
+} from "./JungleBotanicalArtwork";
+
+import type { ShippedDesignThemeDeclarations } from "./DesignThemeStylesheet";
+
+/** Shared navigation material in both botanical palettes, including mobile. */
+const NAVIGATION_DECLARATIONS = [
+  "--navigation-foreground: #ebf7ed;",
+  "--navigation-muted-foreground: #d9ecdb;",
+  "--navigation-primary: #b2df94;",
+  "--navigation-primary-hover: #c2e9a8;",
+  "--navigation-primary-subtle: #bfe5bf;",
+  "--navigation-primary-foreground: #123b2d;",
+  "--navigation-active-foreground: #123c2d;",
+  "--navigation-active-muted-foreground: #123c2d;",
+  "--navigation-active-icon: #236b4f;",
+  "--navigation-active-hover: #add8ae;",
+  "--navigation-active-muted: #add8ae;",
+  "--navigation-active-surface-hover: #add8ae;",
+  "--navigation-focus: #ebf7ed;",
+  "--navigation-muted: #1f5647;",
+  "--navigation-surface: #144b3f;",
+  "--navigation-surface-hover: #245b48;",
+  "--navigation-hover: #245b48;",
+  "--navigation-background: #103f35;",
+  "--navigation-border: #517b61;",
+  "--navigation-field: #153f34;",
+  "--navigation-field-border: #93b78d;",
+  "--navigation-field-border-hover: #9bbf91;",
+  "--navigation-scrollbar-thumb: #b2df94;",
+  "--navigation-scrollbar-thumb-hover: #d9ecdb;",
+  "--navigation-logo-surface: #edf6e7;",
+  "--navigation-logo-edge: 0 0 0 5px #edf6e7;",
+  "--navigation-logo-filter: none;",
+  `--sidebar-texture: ${BOTANICAL_NAVIGATION_TEXTURE}, linear-gradient(165deg, #0b443c, #103f35 58%, #153e2b);`,
+  "--sidebar-texture-size: 100% 100%, auto;",
+  "--sidebar-texture-repeat: no-repeat;",
+  "--sidebar-edge: inset -1px 0 0 #174c3c;",
+  "--auth-glow-opacity: 0;",
+  "--field-edge-width: 1px;",
+  "--selection-edge-width: 1px;",
+  "--color-control-border: var(--color-field-border);",
+  "--color-placeholder-foreground: var(--color-muted-foreground);",
+];
+
+/** Palette-specific materials, applied through the existing document theme. */
+export const JUNGLE_BOTANICAL_MATERIALS: ShippedDesignThemeDeclarations = {
+  light: [
+    ...NAVIGATION_DECLARATIONS,
+    "--shadow-ink: 24 67 49;",
+    "--color-toggle-thumb: var(--color-muted-foreground);",
+    "--color-toggle-thumb-active: var(--color-primary-foreground);",
+    "--scrollbar-thumb: var(--color-field-border);",
+    "--scrollbar-thumb-hover: var(--color-field-border-hover);",
+    "--color-trend-positive: var(--color-success);",
+    "--user-color-text-max-lightness: 0.48;",
+    "--auth-footer-surface: #edf6e7;",
+    `--auth-stage-texture: ${BOTANICAL_AUTH_CORNER}, ${BOTANICAL_AUTH_LOWER_CORNER}, linear-gradient(145deg, #eff6e9, #dfeedd);`,
+    "--shadow-auth-button: 0 10px 24px -8px rgb(18 106 80 / 30%);",
+  ],
+  dark: [
+    ...NAVIGATION_DECLARATIONS,
+    "--shadow-ink: 0 12 7;",
+    "--color-toggle-thumb: var(--color-muted-foreground);",
+    "--color-toggle-thumb-active: var(--color-primary-foreground);",
+    "--scrollbar-thumb: var(--color-field-border);",
+    "--scrollbar-thumb-hover: var(--color-field-border-hover);",
+    "--color-plan-progress-label: #0b1915;",
+    "--color-plan-progress-shade: var(--color-foreground);",
+    "--color-trend-positive: var(--color-success);",
+    "--auth-footer-surface: #0d201a;",
+    `--auth-stage-texture: ${BOTANICAL_AUTH_CORNER}, ${BOTANICAL_AUTH_LOWER_CORNER}, linear-gradient(145deg, #0d201a, #081610);`,
+    "--shadow-auth-button: 0 10px 24px -8px rgb(18 106 80 / 30%);",
+  ],
+};

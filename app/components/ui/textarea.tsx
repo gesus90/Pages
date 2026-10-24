@@ -36,7 +36,7 @@ export function Textarea({
       <textarea
         ref={setInput}
         className={cn(
-          "min-h-24 w-full rounded-xl bg-surface px-3.5 py-2.5 text-sm text-foreground shadow-xs outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-60",
+          "min-h-24 w-full rounded-xl bg-surface px-3.5 py-2.5 text-sm text-foreground shadow-field outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-60",
           className,
         )}
         {...properties}

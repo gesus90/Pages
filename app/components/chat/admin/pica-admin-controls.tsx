@@ -15,7 +15,7 @@ export function AdminField({
   multiline,
 }: AdminFieldProps): React.ReactElement {
   const className =
-    "w-full rounded-lg border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-primary";
+    "w-full rounded-lg border border-border bg-surface px-3 py-2 text-foreground shadow-control-edge focus-visible:outline-primary";
   return (
     <label className="block">
       {label}
@@ -52,7 +52,7 @@ export function AdminButton({
     <button
       type="button"
       disabled={disabled}
-      className="rounded-lg border border-border bg-surface px-4 py-2 text-foreground hover:bg-sidebar-hover disabled:opacity-50"
+      className="rounded-lg border border-border bg-surface px-4 py-2 text-foreground shadow-control-edge hover:bg-sidebar-hover disabled:opacity-50"
       onClick={onClick}
     >
       {children}

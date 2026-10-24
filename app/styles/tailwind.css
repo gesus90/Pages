@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "@xyflow/react/dist/style.css";
 @import "@xterm/xterm/css/xterm.css";
+@import "./materials.css";
 
 /* Dark theme (PAGE-29). `data-theme` on the document root is `light`, `dark`
    or `system`; the server renders it, so no script is needed to choose a
@@ -50,6 +51,19 @@
   --color-warning-subtle: #fffbeb;
   --color-warning: #b45309;
   --color-ring: #f97316;
+  --color-trend-positive: var(--color-green-600);
+  --color-toggle-thumb: #ffffff;
+  --color-toggle-thumb-active: #ffffff;
+  --color-placeholder-foreground: color-mix(
+    in oklab,
+    var(--color-muted-foreground) 50%,
+    transparent
+  );
+  --color-control-border: color-mix(
+    in oklab,
+    var(--color-muted-foreground) 40%,
+    transparent
+  );
 
   /* The terminal keeps its dark work surface in both Pages themes. */
   --color-terminal-surface: #0f141b;
@@ -210,6 +224,15 @@
     -8px 12px 32px -8px
       rgb(var(--shadow-ink) / calc(12% * var(--shadow-strength))),
     0 8px 28px rgb(var(--shadow-ink) / calc(8% * var(--shadow-strength)));
+  /* Inset field edges can be strengthened without changing control geometry. */
+  --shadow-control-edge: inset 0 0 0 var(--field-edge-width)
+    var(--color-field-border);
+  --shadow-selection:
+    var(--shadow-xs),
+    inset 0 0 0 var(--selection-edge-width) var(--color-primary);
+  --shadow-field:
+    var(--shadow-xs),
+    inset 0 0 0 var(--field-edge-width) var(--color-field-border);
   --shadow-auth-button: 0 10px 24px -8px rgb(249 115 22 / 45%);
 }
 
@@ -248,7 +271,42 @@
   --scroll-fade-duration: 200ms;
   /* Texture and edge of the sidebar; a design theme may set them (PAGE-129). */
   --sidebar-texture: none;
+  --sidebar-texture-size: auto;
+  --sidebar-texture-repeat: repeat;
+  /* Navigation can use a contrasting palette without affecting content or portals. */
+  --navigation-foreground: var(--color-foreground);
+  --navigation-muted-foreground: var(--color-muted-foreground);
+  --navigation-primary: var(--color-primary);
+  --navigation-primary-hover: var(--color-primary-hover);
+  --navigation-primary-subtle: var(--color-primary-subtle);
+  --navigation-primary-foreground: var(--color-primary-foreground);
+  --navigation-active-foreground: var(--color-foreground);
+  --navigation-active-muted-foreground: var(--color-muted-foreground);
+  --navigation-active-icon: var(--color-primary);
+  --navigation-active-hover: var(--color-sidebar-hover);
+  --navigation-active-muted: var(--color-muted);
+  --navigation-active-surface-hover: var(--color-surface-hover);
+  --navigation-focus: var(--color-primary);
+  --navigation-muted: var(--color-muted);
+  --navigation-surface: var(--color-surface);
+  --navigation-surface-hover: var(--color-surface-hover);
+  --navigation-hover: var(--color-sidebar-hover);
+  --navigation-background: var(--color-background);
+  --navigation-border: var(--color-border);
+  --navigation-field: var(--color-field);
+  --navigation-field-border: var(--color-field-border);
+  --navigation-field-border-hover: var(--color-field-border-hover);
+  --navigation-scrollbar-thumb: var(--scrollbar-thumb);
+  --navigation-scrollbar-thumb-hover: var(--scrollbar-thumb-hover);
+  --navigation-logo-surface: transparent;
+  --navigation-logo-edge: none;
   --sidebar-edge: none;
+  --auth-stage-texture: none;
+  --field-edge-width: 0px;
+  --selection-edge-width: 0px;
+  --auth-glow-opacity: 1;
+  --auth-footer-surface: transparent;
+  --user-color-text-max-lightness: 1;
   --shadow-ink: 23 23 23;
   --shadow-strength: 1;
   --shadow-edge: 255 255 255;
@@ -452,52 +510,6 @@
     cursor: text;
   }
 
-  /* Primäraktion des Auth-Bereichs; der Verlauf gilt nur dort (§14.1). */
-  .pages-auth-button {
-    background-image: linear-gradient(
-      to right,
-      var(--color-auth-button-from),
-      var(--color-primary)
-    );
-    box-shadow: var(--shadow-auth-button);
-    transition: translate 150ms ease-out;
-  }
-
-  .pages-auth-button:hover:not(:disabled) {
-    translate: 0 -1px;
-  }
-
-  .pages-auth-button:active:not(:disabled) {
-    translate: 0 0;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .pages-auth-button,
-    .pages-auth-button:hover:not(:disabled) {
-      transition: none;
-      translate: 0 0;
-    }
-  }
-
-  /* Surface of the permanent sidebar: its color is `bg-sidebar`; texture and
-     edge are `none` in the Standard design. */
-  .pages-sidebar-surface {
-    background-image: var(--sidebar-texture);
-    box-shadow: var(--sidebar-edge);
-  }
-
-  .pages-content-card {
-    background: var(--color-surface);
-    border-radius: var(--radius-2xl);
-    box-shadow: var(--shadow-card);
-  }
-
-  .pages-floating-panel {
-    background: var(--color-surface);
-    border-radius: var(--radius-xl);
-    box-shadow: var(--shadow-panel);
-  }
-
   /* One native scrollbar family, including editors and portalled surfaces. */
   * {
     scrollbar-width: thin;
@@ -690,26 +702,6 @@
     * {
       --scrollbar-thumb: var(--color-muted-foreground);
       --scrollbar-thumb-hover: var(--color-foreground);
-    }
-  }
-
-  /* Die Wortmarke ist dunkel auf transparent. Im dunklen Thema wird sie weiß,
-     der orange Akzent bleibt orange; das Bild selbst bleibt unverändert. */
-  .pages-logo {
-    @variant dark {
-      filter: invert(1) hue-rotate(203deg) saturate(3.1) brightness(1.06);
-    }
-  }
-
-  /* Text in einer vom Nutzer gewählten Farbe (Label, Meilenstein). Die Farbe
-     behält ihren Farbton; im dunklen Thema wird nur ihre Helligkeit auf ein
-     Maß angehoben, bei dem sie auf dunklem Grund lesbar bleibt. --chip-text
-     ist optional und ersetzt die Farbe im hellen Thema. */
-  .pages-user-color-text {
-    color: var(--chip-text, var(--chip-color));
-
-    @variant dark {
-      color: oklch(from var(--chip-color) max(l, 0.78) c h);
     }
   }
 }

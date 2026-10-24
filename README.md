@@ -2138,16 +2138,23 @@ user. Every user chooses theirs in **Settings → Personal → Appearance**; the
 choice is stored per user, independently of the color mode (light, dark,
 system). Only the identifier of the theme is stored, and the color mode stays a
 separate setting: **Light**, **Dark** and **System** above the theme cards pick
-the palette of the chosen theme. Pages ships two themes, both built in and not
-removable: `standard`, which looks as Pages always did, and `arctic-ice`
+the palette of the chosen theme. Pages ships three themes, all built in and not
+removable: `standard`, which looks as Pages always did, `arctic-ice`
 (PAGE-129), a maritime ice-glass design with one white-and-blue palette for
 light and one deep polar-sea palette for dark. Arctic Ice is one card with one
 identifier; under **System** it follows the device color scheme, including
 changes while Pages is open. Its only texture is a static, barely visible wave
 pattern on the permanent sidebar (a gradient, no image, no blur, no animation);
-content surfaces, tables and fields stay plain. Status, priority, workflow and
-plan colors and colors that users picked keep their meaning in every theme. The
-sign-in page has no signed-in user and therefore always uses the Standard design.
+content surfaces, tables and fields stay plain. `jungle-botanical` (PAGE-149)
+is one additional card with light botanical and dark forest palettes, selected
+by the same Light/Dark/System control. Its own tropical leaf silhouettes stay
+in desktop and mobile navigation; content cards remain opaque and plain.
+Navigation has separate contrast roles, including its selection and focus
+colors. Botanical strengthens field edges and caps the lightness of user-colored
+text on light surfaces without changing the stored color or its hue. Status,
+priority, workflow and plan colors and colors that users picked keep their
+meaning in every theme. The sign-in page has no signed-in user and therefore
+always uses the Standard design.
 
 More themes are installed by putting a directory into `themes/` next to the
 database file (`~/.pages/data/themes/` by default). No restart is needed: the
@@ -2182,7 +2189,7 @@ themes/
 
 - `id`: lower-case words joined by hyphens, beginning with a letter, at most 40
   characters, equal to the directory name. The identifiers of the themes Pages
-  ships (`standard`, `arctic-ice`) are reserved; a directory with one of them is
+  ships (`standard`, `arctic-ice`, `jungle-botanical`) are reserved; a directory with one of them is
   skipped.
 - `name` and `description` hold both languages; names have at most 48 and
   descriptions at most 200 characters.

@@ -23,13 +23,13 @@ export function AuthLayout({
   children,
 }: AuthLayoutProps): React.ReactElement {
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-24 select-none sm:px-6 sm:py-16">
+    <main className="pages-auth-stage relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-24 select-none sm:px-6 sm:py-16">
       <div
-        className="pointer-events-none absolute -top-32 left-[8%] size-80 rounded-full bg-auth-glow-warm/60 blur-3xl"
+        className="pointer-events-none absolute -top-32 left-[8%] size-80 opacity-(--auth-glow-opacity) rounded-full bg-auth-glow-warm/60 blur-3xl"
         aria-hidden="true"
       />
       <div
-        className="pointer-events-none absolute -right-32 -bottom-40 size-96 rounded-full bg-auth-glow-cool/60 blur-3xl"
+        className="pointer-events-none absolute -right-32 -bottom-40 size-96 opacity-(--auth-glow-opacity) rounded-full bg-auth-glow-cool/60 blur-3xl"
         aria-hidden="true"
       />
 

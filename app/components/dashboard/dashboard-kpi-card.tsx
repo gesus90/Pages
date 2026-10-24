@@ -52,7 +52,7 @@ export function DashboardKpiCard({
         <TrendIcon
           className={cn(
             "size-4",
-            tone === "positive" && "text-green-600",
+            tone === "positive" && "text-trend-positive",
             tone === "accent" && "text-primary",
             tone === "muted" && "text-muted-foreground",
           )}
@@ -60,7 +60,7 @@ export function DashboardKpiCard({
         <span
           className={cn(
             "font-semibold tabular-nums",
-            tone === "positive" && "text-green-600",
+            tone === "positive" && "text-trend-positive",
             tone === "accent" && "text-primary",
             tone === "muted" && "text-muted-foreground",
           )}
