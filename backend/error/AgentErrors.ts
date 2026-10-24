@@ -195,8 +195,9 @@ export const AGENT_ERROR_MESSAGES = {
     "The registered directory was replaced or redirected. Register it again explicitly.",
   workspace_path_conflict:
     "Another workspace already registers this directory or an overlapping directory.",
-  workspace_in_use:
-    "Remove the workspace references before unregistering or rebinding it.",
+  workspace_in_use: "Remove the workspace references before rebinding it.",
+  workspace_running:
+    "An affected plan is running, paused or still cleaning up. Stop it before removing this registration.",
   configuration_invalid: "Enter a valid agent configuration.",
   parameter_invalid: "Check parameter names, types and defaults.",
   parameter_number_invalid:

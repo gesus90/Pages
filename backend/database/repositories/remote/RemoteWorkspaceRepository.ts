@@ -4,6 +4,8 @@ import {
   readTextColumn,
 } from "@/backend/database/RowValue";
 import { RemoteError } from "@/backend/error/RemoteErrors";
+import { AgentError } from "@/backend/error/AgentErrors";
+import { AgentWorkspaceReferencesRepository } from "../agent/AgentWorkspaceReferencesRepository";
 import {
   isRemoteFailureCode,
   isRemotePathIssue,
@@ -20,6 +22,7 @@ import type {
   RemoteFailureDetail,
   RemoteWorkspaceCheck,
 } from "@/definition/RemoteConnection";
+import type { AgentWorkspaceUsage } from "@/definition/AgentWorkspace";
 
 /** A stored directory check with the allowed directories it applied. */
 export interface RemoteWorkspaceCheckRecord extends RemoteWorkspaceCheck {
@@ -153,6 +156,13 @@ export class RemoteWorkspaceRepository {
     return workspaces.find((workspace) => workspace.id === id) ?? null;
   }
 
+  /** Reads affected plans, pinned agents and active executions for the removal dialog. */
+  public async usages(id: string): Promise<readonly AgentWorkspaceUsage[]> {
+    return this.database.transaction((transaction) =>
+      new AgentWorkspaceReferencesRepository(transaction).usages(id),
+    );
+  }
+
   /**
    * Inserts or replaces a profile together with its fresh directory check.
    *
@@ -283,6 +293,13 @@ export class RemoteWorkspaceRepository {
       if (!previous) throw new RemoteError("remote_workspace_not_found");
       if (previous.revision !== revision)
         throw new RemoteError("remote_conflict");
+      try {
+        await new AgentWorkspaceReferencesRepository(transaction).detach(id);
+      } catch (error: unknown) {
+        if (error instanceof AgentError && error.code === "workspace_running")
+          throw new RemoteError("remote_workspace_running");
+        throw error;
+      }
       await transaction.execute(
         "DELETE FROM remote_workspaces WHERE id = $id;",
         { id },

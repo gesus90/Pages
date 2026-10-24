@@ -14,6 +14,7 @@ const CONFLICT_CODES: ReadonlySet<AgentErrorCode> = new Set([
   "workspace_conflict",
   "workspace_path_conflict",
   "workspace_in_use",
+  "workspace_running",
 ]);
 
 /**

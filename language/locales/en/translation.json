@@ -685,7 +685,7 @@
         "workspace_path_outside_roots": "The directory is outside approved roots or overlaps Pages instance data.",
         "workspace_path_changed": "The registered directory was replaced or redirected. Register it again explicitly.",
         "workspace_path_conflict": "Another workspace already registers this directory or an overlapping directory.",
-        "workspace_in_use": "Remove the references to the workspace before unregistering or rebinding it.",
+        "workspace_in_use": "Remove the workspace references before rebinding the registration.",
         "plan_sources_failed": "The current agent template could not be loaded. Please insert it again.",
         "plan_remote_unavailable": "Remote execution is blocked: the runner, model route or interpreter is not ready. No local fallback.",
         "plan_invalid": "Check the plan fields and graph nodes.",
@@ -790,7 +790,8 @@
         "plan_script_io": "The script input/output or durable attempt recording failed.",
         "plan_script_cleanup": "Process or temporary-resource cleanup could not be confirmed. The workspace remains reserved.",
         "plan_script_interrupted": "The backend lost this process attempt. Side effects are uncertain; it is never replayed automatically.",
-        "profile_management_retired": "Profile management has been replaced. Configure models and instructions directly in Agent Plans."
+        "profile_management_retired": "Profile management has been replaced. Configure models and instructions directly in Agent Plans.",
+        "workspace_running": "An affected plan is running, paused or still cleaning up. Stop the execution and wait for it to finish before removing this registration."
       },
       "description": "Manage named API and CLI connections and their usage scopes. Permitted models are available directly in Agent Plans.",
       "adminModeRequired": "The agent settings are only available in the admin mode. Your account is currently in the role mode.",
@@ -3388,7 +3389,7 @@
     "visibilityHint": "Everyone with access to the project sees and uses this workspace. Administrators and the project's managers manage it.",
     "unregister": "Remove registration",
     "unregisterTitle": "Remove registration “{{name}}”?",
-    "unregisterDescription": "Only the registration is removed. The directory, its files and the project's GitHub link stay unchanged. Workspaces in use cannot be removed.",
+    "unregisterDescription": "Only the registration is removed. The local or remote directory, its files and the project's GitHub link remain unchanged.",
     "usedBy": "Still in use by:",
     "usageKind": {
       "agent": "Agent",
@@ -3402,7 +3403,9 @@
     "nameProject": "Name/project",
     "location": "Location",
     "pathColumn": "Path",
-    "githubColumn": "GitHub link"
+    "githubColumn": "GitHub link",
+    "detachDescription": "The following plans and pinned agents will lose their workspace. Their nodes and contents are preserved. Affected plans cannot start without a workspace and must be reassigned.",
+    "confirmDetach": "I confirm that the affected plans and agents will lose their workspace."
   },
   "remote": {
     "connections": {
@@ -3554,7 +3557,8 @@
       "remote_setup_running": "A setup is already running for this connection.",
       "remote_setup_unstable": "The SSH session is not stable yet or the last check is not in order. Wait for a stable connection and try again.",
       "remote_setup_failed": "Transferring or checking the setup script on the host failed. Nothing was started.",
-      "general": "The action failed."
+      "general": "The action failed.",
+      "remote_workspace_running": "An affected plan is running, paused or still cleaning up. Stop the execution and wait for it to finish before removing this registration."
     },
     "workspace": {
       "location": "Location",
@@ -3573,7 +3577,7 @@
       "allowedRoots": "Allowed directories of this connection:",
       "check": "Check",
       "checkOutdated": "Check outdated",
-      "unregisterDescription": "Only the registration is removed. The directory on the target machine, its files and the project's GitHub link stay unchanged.",
+      "unregisterDescription": "Only the registration is removed. The local or remote directory, its files and the project's GitHub link remain unchanged.",
       "reason": {
         "project_unavailable": "Project no longer available",
         "github_missing": "Project without a GitHub link",

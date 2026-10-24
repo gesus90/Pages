@@ -56,7 +56,7 @@ class ScriptedDatabase {
 
   private answer(statement: string): DatabaseValue[][] {
     if (statement.includes("agent_execution_profiles"))
-      return this.hasUsage ? [["plan-1", "Plan", "plan"]] : [];
+      return this.hasUsage ? [["run-1", null, "run"]] : [];
     if (statement.includes("WHERE id <> $id"))
       return this.hasOverlap ? [["workspace-2"]] : [];
     return this.isRecordStored ? [[...STORED]] : [];
@@ -163,7 +163,7 @@ it("runs the journal for a removal with the record that was removed", async () =
   );
 });
 
-it("leaves a workspace in use or changed in place and runs no journal", async () => {
+it("leaves a workspace with an active run or changed revision in place and runs no journal", async () => {
   const journal = vi.fn(async () => undefined);
 
   await expect(
@@ -172,7 +172,7 @@ it("leaves a workspace in use or changed in place and runs no journal", async ()
   database.hasUsage = true;
   await expect(
     repository.remove("workspace-1", 2, journal),
-  ).rejects.toMatchObject({ code: "workspace_in_use" });
+  ).rejects.toMatchObject({ code: "workspace_running" });
   expect(journal).not.toHaveBeenCalled();
   expect(database.log).toEqual([]);
 });

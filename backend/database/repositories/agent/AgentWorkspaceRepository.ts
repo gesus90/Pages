@@ -1,10 +1,8 @@
 import path from "node:path";
 
-import {
-  readCountColumn,
-  readNullableTextColumn,
-  readTextColumn,
-} from "@/backend/database/RowValue";
+import { readCountColumn, readTextColumn } from "@/backend/database/RowValue";
+import { AgentWorkspaceReferencesRepository } from "./AgentWorkspaceReferencesRepository";
+
 import { AgentError } from "@/backend/error/AgentErrors";
 
 import type {
@@ -15,7 +13,6 @@ import type {
 import type {
   AgentWorkspace,
   AgentWorkspaceUsage,
-  AgentWorkspaceUsageKind,
 } from "@/definition/AgentWorkspace";
 
 const WORKSPACE_COLUMNS = `
@@ -40,13 +37,6 @@ function readWorkspace(row: readonly DatabaseValue[]): AgentWorkspace {
   };
 }
 
-function readUsageKind(row: readonly DatabaseValue[]): AgentWorkspaceUsageKind {
-  const kind = row[2];
-  if (kind !== "agent" && kind !== "plan" && kind !== "run")
-    throw new AgentError("workspace_invalid");
-  return kind;
-}
-
 async function readWorkspaces(
   database: DatabaseTransaction,
 ): Promise<readonly AgentWorkspace[]> {
@@ -63,45 +53,7 @@ async function readUsages(
   database: DatabaseTransaction,
   id: string,
 ): Promise<readonly AgentWorkspaceUsage[]> {
-  const rows = await database.query(
-    `
-    SELECT DISTINCT
-        profiles.id,
-        profiles.name,
-        'agent' AS kind
-    FROM agent_execution_profiles AS profiles,
-        json_each(json_extract(profiles.configuration_json, '$.parameters')) AS parameter
-    WHERE json_extract_string(parameter.value, '$.defaultValue.type') = 'workspace'
-        AND json_extract_string(parameter.value, '$.defaultValue.workspaceId') = $id
-    UNION
-    SELECT
-        id,
-        name,
-        'plan' AS kind
-    FROM agent_plans
-    WHERE workspace_id = $id
-        OR EXISTS (
-            SELECT 1
-            FROM json_tree(agent_plans.plan_json, '$.nodes') AS reference
-            WHERE json_extract_string(reference.value, '$.type') = 'workspace'
-                AND json_extract_string(reference.value, '$.workspaceId') = $id
-        )
-    UNION
-    SELECT
-        run_id AS id,
-        CAST(NULL AS TEXT) AS name,
-        'run' AS kind
-    FROM agent_plan_workspace_locks
-    WHERE workspace_id = $id
-    ORDER BY kind, name NULLS LAST, id;
-  `,
-    { id },
-  );
-  return rows.map((row) => ({
-    id: readTextColumn(row, 0, "id"),
-    name: readNullableTextColumn(row, 1, "name"),
-    kind: readUsageKind(row),
-  }));
+  return new AgentWorkspaceReferencesRepository(database).usages(id);
 }
 
 /**
@@ -194,7 +146,7 @@ export class AgentWorkspaceRepository {
   }
 
   /**
-   * Unregisters only an unused, unchanged record; its directory and contents remain intact.
+   * Detaches references and unregisters an unchanged record; active runs block removal.
    *
    * @param id - Identifier of the registration.
    * @param revision - The revision the caller last read.
@@ -212,8 +164,7 @@ export class AgentWorkspaceRepository {
       if (!previous) throw new AgentError("workspace_not_found");
       if (previous.revision !== revision)
         throw new AgentError("workspace_conflict");
-      if ((await readUsages(transaction, id)).length > 0)
-        throw new AgentError("workspace_in_use");
+      await new AgentWorkspaceReferencesRepository(transaction).detach(id);
       await transaction.execute(
         "DELETE FROM agent_workspaces WHERE id = $id;",
         { id },

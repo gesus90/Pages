@@ -52,11 +52,11 @@ export interface ResolvedAgentWorkspace {
   readonly github: WorkspaceGitHub | null;
 }
 
-/** What still refers to a workspace and therefore blocks unregistering or rebinding it. */
+/** References detached on removal; an active run blocks removal and all references block rebinding. */
 export type AgentWorkspaceUsageKind = "agent" | "plan" | "run";
 
 /**
- * A reference that blocks unregistering or rebinding a workspace.
+ * A reference shown before removing or rebinding a workspace.
  *
  * @remarks
  * Only administrators receive the identifier and name of an agent or plan;

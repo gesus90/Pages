@@ -43,7 +43,7 @@ export function readAgentParameterValue(input: unknown): AgentParameterValue {
     case "workspace":
       return {
         type: "workspace",
-        workspaceId: text(entry.workspaceId, 100).trim(),
+        workspaceId: text(entry.workspaceId, 100, true).trim(),
       };
     case "wiki":
       return { type: "wiki", pageId: text(entry.pageId, 100).trim() };

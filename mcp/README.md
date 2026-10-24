@@ -1973,9 +1973,13 @@ adds no switch of its own.
   take the `revision` read last as `expectedRevision`. A stale value returns
   `CONFLICT` with `details.currentRevision` and changes nothing. An update that
   names the stored values returns `changed:false`.
-- **Removing.** A workspace that plans, agents or runs still refer to cannot be
-  rebound or removed (`CONFLICT`). Removing needs no typed confirmation; the
-  registration can be created again.
+- **Removing.** Removal detaches references in plans and pinned agent
+  configurations without deleting their nodes or content. Affected plans remain
+  visible as having no workspace and cannot start until reassigned. An affected
+  active run (including a paused run or pending cleanup) blocks removal
+  (`CONFLICT`). Rebinding an existing registration still requires no references.
+  The workspace page lists affected records and asks for confirmation. API
+  removal needs no typed confirmation; the registration can be created again.
 
 ### Direct models and retained user agents (PAGE-124)
 
@@ -2006,8 +2010,6 @@ Remote plan validation also preserves node-specific `graph_invalid` findings:
 `remoteInterpreter`, `remoteOptions` and `remoteContainer`. These are public
 business reasons, never CLI diagnostics or credentials. Remote CLI choices come
 from the runner's authenticated picker; saving a plan never signs in or starts it.
-
-
 
 An agent plan is the graph of the plan page: start and end nodes,
 agent nodes with their own work order, script nodes, ticket nodes and parameter

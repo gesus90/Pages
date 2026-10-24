@@ -16,6 +16,7 @@ const REMOTE_ERROR_STATUS: Partial<Record<RemoteErrorCode, number>> = {
   remote_connection_in_use: 409,
   remote_conflict: 409,
   remote_workspace_path_conflict: 409,
+  remote_workspace_running: 409,
   remote_project_unsupported: 409,
   remote_host_key_unconfirmed: 409,
   remote_check_failed: 409,

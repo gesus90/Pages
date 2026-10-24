@@ -11,6 +11,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { agentPlanNameKey } from "@/definition/AgentPlanName";
 import { withoutTicketFlow } from "@/definition/AgentPlanGraph";
 import { withPortlessPlanGroups } from "@/definition/AgentPlanGroupUpgrade";
+import { AgentWorkspaceReferencesRepository } from "./AgentWorkspaceReferencesRepository";
 
 import type {
   Database,
@@ -328,6 +329,9 @@ async function writePlan(
     throw new AgentError("plan_conflict");
   await requirePlanWorkspace(transaction, plan);
   await requirePlanAgents(transaction, plan);
+  await new AgentWorkspaceReferencesRepository(transaction).requireReferences(
+    plan,
+  );
   await storePlan(transaction, write);
   await write.journal?.(transaction);
 }

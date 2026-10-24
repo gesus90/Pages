@@ -685,7 +685,7 @@
         "workspace_path_outside_roots": "Das Verzeichnis liegt außerhalb freigegebener Wurzeln oder überschneidet sich mit Pages-Instanzdaten.",
         "workspace_path_changed": "Das registrierte Verzeichnis wurde ersetzt oder umgeleitet. Registrieren Sie es ausdrücklich neu.",
         "workspace_path_conflict": "Ein anderer Arbeitsbereich registriert bereits dieses oder ein überlappendes Verzeichnis.",
-        "workspace_in_use": "Entfernen Sie die Verweise auf den Arbeitsbereich, bevor Sie die Registrierung entfernen oder neu zuordnen.",
+        "workspace_in_use": "Entfernen Sie die Verweise auf den Arbeitsbereich, bevor Sie die Registrierung neu zuordnen.",
         "plan_sources_failed": "Die aktuelle Agent-Vorlage konnte nicht geladen werden. Bitte erneut einfügen.",
         "plan_remote_unavailable": "Remote-Ausführung ist gesperrt: Runner, Modellroute oder Interpreter sind nicht bereit. Kein lokaler Ersatz.",
         "plan_invalid": "Planfelder und Graphknoten prüfen.",
@@ -790,7 +790,8 @@
         "plan_script_io": "Die Ein-/Ausgabe oder dauerhafte Speicherung des Scriptversuchs ist fehlgeschlagen.",
         "plan_script_cleanup": "Die Bereinigung eigener Prozesse oder temporärer Ressourcen ist unbestätigt. Der Workspace bleibt reserviert.",
         "plan_script_interrupted": "Das Backend hat diesen Prozessversuch verloren. Seiteneffekte sind unklar; er wird niemals automatisch wiederholt.",
-        "profile_management_retired": "Die Profilverwaltung wurde abgelöst. Modelle und Anweisungen werden direkt im Agent Plan konfiguriert."
+        "profile_management_retired": "Die Profilverwaltung wurde abgelöst. Modelle und Anweisungen werden direkt im Agent Plan konfiguriert.",
+        "workspace_running": "Mindestens ein betroffener Plan läuft, ist pausiert oder räumt noch auf. Stoppen Sie die Ausführung und warten Sie auf ihren Abschluss, bevor Sie die Registrierung entfernen."
       },
       "description": "Verwalten Sie die benannten API- und CLI-Anbindungen und ihre Nutzungsfreigaben. Freigegebene Modelle stehen direkt im Agent Plan zur Verfügung.",
       "adminModeRequired": "Die Agents-Einstellungen sind nur im Admin-Modus verfügbar. Ihr Konto ist derzeit im Rollenmodus.",
@@ -3388,7 +3389,7 @@
     "visibilityHint": "Alle Personen mit Zugriff auf das Projekt sehen und nutzen diesen Arbeitsbereich. Verwalten dürfen ihn Administratoren und Manager des Projekts.",
     "unregister": "Registrierung entfernen",
     "unregisterTitle": "Registrierung „{{name}}“ entfernen?",
-    "unregisterDescription": "Nur die Registrierung wird entfernt. Das Verzeichnis, seine Dateien und die GitHub-Verknüpfung des Projekts bleiben unverändert. Verwendete Arbeitsbereiche können nicht entfernt werden.",
+    "unregisterDescription": "Nur die Registrierung wird entfernt. Das lokale oder entfernte Verzeichnis, seine Dateien und die GitHub-Verknüpfung des Projekts bleiben unverändert.",
     "usedBy": "Wird noch verwendet von:",
     "usageKind": {
       "agent": "Agent",
@@ -3402,7 +3403,9 @@
     "nameProject": "Name/Projekt",
     "location": "Ausführungsort",
     "pathColumn": "Pfad",
-    "githubColumn": "GitHub-Zuordnung"
+    "githubColumn": "GitHub-Zuordnung",
+    "detachDescription": "Die folgenden Pläne und gepinnten Agents verlieren ihren Arbeitsbereich. Ihre Knoten und Inhalte bleiben erhalten. Betroffene Pläne sind ohne Arbeitsbereich nicht startbar und müssen neu zugeordnet werden.",
+    "confirmDetach": "Ich bestätige, dass die betroffenen Pläne und Agents ihren Arbeitsbereich verlieren."
   },
   "remote": {
     "connections": {
@@ -3554,7 +3557,8 @@
       "remote_setup_running": "Für diese Verbindung läuft bereits ein Setup.",
       "remote_setup_unstable": "Die SSH-Sitzung ist noch nicht stabil oder die letzte Prüfung ist nicht in Ordnung. Warten Sie auf eine stabile Verbindung und versuchen Sie es erneut.",
       "remote_setup_failed": "Übertragung oder Prüfung des Setup-Skripts auf dem Host ist fehlgeschlagen. Es wurde nichts gestartet.",
-      "general": "Die Aktion ist fehlgeschlagen."
+      "general": "Die Aktion ist fehlgeschlagen.",
+      "remote_workspace_running": "Mindestens ein betroffener Plan läuft, ist pausiert oder räumt noch auf. Stoppen Sie die Ausführung und warten Sie auf ihren Abschluss, bevor Sie die Registrierung entfernen."
     },
     "workspace": {
       "location": "Ausführungsort",
@@ -3573,7 +3577,7 @@
       "allowedRoots": "Erlaubte Verzeichnisse dieser Verbindung:",
       "check": "Prüfen",
       "checkOutdated": "Prüfung veraltet",
-      "unregisterDescription": "Nur die Registrierung wird entfernt. Das Verzeichnis auf der Zielmaschine, seine Dateien und die GitHub-Verknüpfung des Projekts bleiben unverändert.",
+      "unregisterDescription": "Nur die Registrierung wird entfernt. Das lokale oder entfernte Verzeichnis, seine Dateien und die GitHub-Verknüpfung des Projekts bleiben unverändert.",
       "reason": {
         "project_unavailable": "Projekt nicht mehr verfügbar",
         "github_missing": "Projekt ohne GitHub-Verknüpfung",

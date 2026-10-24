@@ -344,7 +344,7 @@ export function readPlanInput(input: unknown): AgentPlanInput {
     throw new AgentError("plan_invalid");
   return {
     name: readPlanText(plan.name, 120),
-    workspaceId: readPlanText(plan.workspaceId),
+    workspaceId: readWorkspaceBinding(plan.workspaceId),
     usage: plan.usage,
     ...(plan.projectId === undefined
       ? {}
@@ -358,6 +358,10 @@ export function readPlanInput(input: unknown): AgentPlanInput {
     edges: plan.edges.map(readEdge),
     ...(revision === undefined ? {} : { revision }),
   };
+}
+
+function readWorkspaceBinding(input: unknown): string {
+  return input === "" ? "" : readPlanText(input);
 }
 
 function readPlanObject(input: unknown): Record<string, unknown> {

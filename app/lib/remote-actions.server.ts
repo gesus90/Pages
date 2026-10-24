@@ -5,6 +5,7 @@ import { effectiveRemoteRoots } from "@/definition/RemoteConnection";
 import { AGENT_NO_STORE } from "./settings-actions/settings-agents-response.server";
 
 import type { ApplicationServices } from "./services.server";
+import type { AgentWorkspaceUsage } from "@/definition/AgentWorkspace";
 import type {
   RemoteActionResult,
   RemoteOverview,
@@ -18,9 +19,10 @@ interface RemoteIntentContext {
   readonly formData: FormData;
 }
 
-type RemoteIntentHandler = (
-  context: RemoteIntentContext,
-) => Promise<{ readonly test?: RemoteTestResult }>;
+type RemoteIntentHandler = (context: RemoteIntentContext) => Promise<{
+  readonly test?: RemoteTestResult;
+  readonly workspaceUsages?: readonly AgentWorkspaceUsage[];
+}>;
 
 const MAXIMUM_INPUT = 50_000;
 
@@ -61,6 +63,12 @@ function connectionInput(formData: FormData): unknown {
 }
 
 const HANDLERS: Readonly<Record<string, RemoteIntentHandler>> = {
+  "remote-workspace-usages": async ({ services, userId, formData }) => ({
+    workspaceUsages: await services.remoteWorkspaceService.usages(
+      userId,
+      readIdentifier(formData, "workspaceId"),
+    ),
+  }),
   "test-connection": async ({ services, userId, formData }) => ({
     test: await services.remoteConnectionService.test(
       userId,

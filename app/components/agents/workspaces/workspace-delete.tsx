@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
 
@@ -10,91 +10,77 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/app/components/ui/dialog";
-import { VerticalScrollArea } from "@/app/components/ui/vertical-scroll-area";
+
+import { RemoteActionMessage } from "./remote/remote-action-message";
+import { WorkspaceDeleteReferences } from "./workspace-delete-references";
 
 import type { AgentActionResult } from "@/app/lib/settings-actions/settings-agents-response.server";
-import type {
-  AgentWorkspaceUsage,
-  AgentWorkspaceUsageKind,
-  AgentWorkspaceView,
-} from "@/definition/AgentWorkspace";
+import type { AgentWorkspaceView } from "@/definition/AgentWorkspace";
+import type { RemoteActionResult } from "@/definition/RemoteConnection";
 
-interface UsageEntry {
-  readonly key: string;
-  readonly kind: AgentWorkspaceUsageKind;
-  readonly name: string | null;
-  readonly count: number;
+type RemovalResult = AgentActionResult | RemoteActionResult;
+
+function canRemoveWorkspace(
+  usages: readonly { readonly kind: string }[] | undefined,
+  isConfirmed: boolean,
+): boolean {
+  if (!usages || usages.some((usage) => usage.kind === "run")) return false;
+  return usages.length === 0 || isConfirmed;
 }
 
-/** Keeps named references as they are and counts the anonymous ones per kind. */
-function toUsageEntries(
-  usages: readonly AgentWorkspaceUsage[],
-): readonly UsageEntry[] {
-  const entries: UsageEntry[] = [];
-  const anonymous = new Map<AgentWorkspaceUsageKind, number>();
-  for (const usage of usages) {
-    if (usage.name !== null)
-      entries.push({
-        key: `${usage.kind}:${usage.id}`,
-        kind: usage.kind,
-        name: usage.name,
-        count: 1,
-      });
-    else anonymous.set(usage.kind, (anonymous.get(usage.kind) ?? 0) + 1);
-  }
-  for (const [kind, count] of anonymous)
-    entries.push({ key: kind, kind, name: null, count });
-  return entries;
-}
-
-function UsageLabel({
-  entry,
+function RemovalError({
+  result,
 }: {
-  readonly entry: UsageEntry;
-}): React.ReactElement {
-  const { t } = useTranslation();
-  if (entry.name !== null) return <>{entry.name}</>;
-  const kind = t(`workspaces.usageKind.${entry.kind}`);
-  return (
-    <>
-      {entry.count > 1
-        ? t("workspaces.usageKindCount", { kind, count: entry.count })
-        : kind}
-    </>
+  readonly result: RemovalResult | undefined;
+}): React.ReactElement | null {
+  if (!result || result.ok) return null;
+  return "failure" in result ? (
+    <RemoteActionMessage result={result} />
+  ) : (
+    <AgentAssignmentResult result={result} />
   );
 }
 
-/** Confirms removal of an unused registration; it never offers directory or GitHub changes. */
+/** Confirms detaching references before unregistering local or remote metadata; active runs remain protected. */
 export function WorkspaceDelete(props: {
-  readonly workspace: AgentWorkspaceView;
+  readonly workspace: Pick<AgentWorkspaceView, "id" | "name" | "revision">;
+  readonly location?: "remote";
   readonly onClose: () => void;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const fetcher = useFetcher<AgentActionResult>();
+  const fetcher = useFetcher<RemovalResult>();
+  const [isConfirmed, setConfirmed] = useState(false);
   const { submit } = fetcher;
-  const { onClose } = props;
-  const id = props.workspace.id;
+  const { onClose, workspace } = props;
+  const isRemote = props.location === "remote";
+  const action = isRemote ? "/agents/workspaces/remote" : "/agents/workspaces";
+  const usageIntent = isRemote ? "remote-workspace-usages" : "workspace-usages";
+  const deleteIntent = isRemote
+    ? "delete-remote-workspace"
+    : "delete-workspace";
   useEffect(() => {
     void submit(
-      { intent: "workspace-usages", workspaceId: id },
-      { method: "post", action: "/agents/workspaces" },
+      { intent: usageIntent, workspaceId: workspace.id },
+      { method: "post", action },
     );
-  }, [submit, id]);
+  }, [submit, workspace.id, usageIntent, action]);
   useEffect(() => {
     if (
       fetcher.state === "idle" &&
       fetcher.data?.ok &&
-      fetcher.data.intent === "delete-workspace"
+      fetcher.data.intent === deleteIntent
     )
       onClose();
-  }, [fetcher.state, fetcher.data, onClose]);
+  }, [fetcher.state, fetcher.data, deleteIntent, onClose]);
   const usages = fetcher.data?.ok ? fetcher.data.workspaceUsages : undefined;
   const isPending = fetcher.state !== "idle";
+  const hasActiveRun = usages?.some((usage) => usage.kind === "run") ?? false;
+  const needsConfirmation = usages !== undefined && usages.length > 0;
   return (
-    <Dialog open onOpenChange={props.onClose}>
+    <Dialog open onOpenChange={onClose}>
       <DialogContent size="md">
-        <DialogTitle className="text-lg font-semibold">
-          {t("workspaces.unregisterTitle", { name: props.workspace.name })}
+        <DialogTitle className="text-lg font-semibold wrap-anywhere">
+          {t("workspaces.unregisterTitle", { name: workspace.name })}
         </DialogTitle>
         <DialogDescription className="mt-1.5 text-sm text-muted-foreground">
           {t("workspaces.unregisterDescription")}
@@ -104,51 +90,41 @@ export function WorkspaceDelete(props: {
             {t("settings.agents.loading")}
           </p>
         ) : null}
-        {usages?.length ? (
-          <VerticalScrollArea
-            className="mt-4 max-h-60"
-            contentClassName="pb-10"
-          >
-            <p className="text-sm font-medium">{t("workspaces.usedBy")}</p>
-            <ul className="pages-selectable mt-2 space-y-1 text-sm">
-              {toUsageEntries(usages).map((entry) => (
-                <li key={entry.key}>
-                  <UsageLabel entry={entry} />
-                </li>
-              ))}
-            </ul>
-          </VerticalScrollArea>
-        ) : null}
-        {fetcher.data?.ok === false ? (
-          <AgentAssignmentResult result={fetcher.data} />
-        ) : null}
-        <fetcher.Form
-          method="post"
-          action="/agents/workspaces"
-          className="mt-6 flex justify-end gap-2"
-        >
-          <input type="hidden" name="intent" value="delete-workspace" />
-          <input type="hidden" name="workspaceId" value={id} />
-          <input
-            type="hidden"
-            name="revision"
-            value={props.workspace.revision}
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            disabled={isPending}
-            onClick={props.onClose}
-          >
-            {t("settings.agents.cancel")}
-          </Button>
-          <Button
-            type="submit"
-            variant="destructive"
-            disabled={isPending || usages === undefined || usages.length > 0}
-          >
-            {t("workspaces.unregister")}
-          </Button>
+        {usages ? <WorkspaceDeleteReferences usages={usages} /> : null}
+        <RemovalError result={fetcher.data} />
+        <fetcher.Form method="post" action={action} className="mt-5 space-y-4">
+          <input type="hidden" name="intent" value={deleteIntent} />
+          <input type="hidden" name="workspaceId" value={workspace.id} />
+          <input type="hidden" name="revision" value={workspace.revision} />
+          {needsConfirmation && !hasActiveRun ? (
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                required
+                checked={isConfirmed}
+                onChange={(event) => setConfirmed(event.target.checked)}
+                className="mt-1 accent-primary"
+              />
+              <span>{t("workspaces.confirmDetach")}</span>
+            </label>
+          ) : null}
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={isPending}
+              onClick={onClose}
+            >
+              {t("settings.agents.cancel")}
+            </Button>
+            <Button
+              type="submit"
+              variant="destructive"
+              disabled={isPending || !canRemoveWorkspace(usages, isConfirmed)}
+            >
+              {t("workspaces.unregister")}
+            </Button>
+          </div>
         </fetcher.Form>
       </DialogContent>
     </Dialog>

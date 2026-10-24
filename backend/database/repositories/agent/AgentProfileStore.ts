@@ -5,6 +5,7 @@ import {
   readTextColumn,
 } from "@/backend/database/RowValue";
 import { AgentError, AgentInUseError } from "@/backend/error/AgentErrors";
+import { AgentWorkspaceReferencesRepository } from "./AgentWorkspaceReferencesRepository";
 import {
   configurationForTargets,
   readAgentConfiguration,
@@ -132,6 +133,9 @@ export class AgentProfileStore {
     }
     await this.requireModelSource(profile);
     await this.requireAvailableFunctions(profile);
+    await new AgentWorkspaceReferencesRepository(
+      this.database,
+    ).requireReferences(profile.configuration);
     await this.saveRecord(profile);
     await this.replaceScopes(profile);
   }

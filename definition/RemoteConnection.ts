@@ -1,5 +1,8 @@
 import type { Department } from "@/definition/Authorization";
-import type { WorkspaceGitHub } from "@/definition/AgentWorkspace";
+import type {
+  AgentWorkspaceUsage,
+  WorkspaceGitHub,
+} from "@/definition/AgentWorkspace";
 import type { RemoteInstallView } from "@/definition/RemoteSetup";
 
 /** How Pages signs in to a remote machine; separate from every Codex, Claude or OpenCode login. */
@@ -59,6 +62,7 @@ export type RemotePathIssue = (typeof REMOTE_PATH_ISSUES)[number];
 
 /** Stable error codes of the remote connection and remote workspace actions. */
 export const REMOTE_ERROR_CODES = [
+  "remote_workspace_running",
   "remote_access_denied",
   "remote_management_denied",
   "remote_connection_invalid",
@@ -332,6 +336,7 @@ export type RemoteActionResult =
       readonly ok: true;
       readonly intent: string;
       readonly test?: RemoteTestResult;
+      readonly workspaceUsages?: readonly AgentWorkspaceUsage[];
     }
   | {
       readonly ok: false;

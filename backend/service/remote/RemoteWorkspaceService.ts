@@ -29,7 +29,10 @@ import type {
 } from "@/backend/database/repositories/remote/RemoteWorkspaceRepository";
 import type { RemoteSessionRegistry } from "@/backend/remote/RemoteSessionRegistry";
 import type { RemoteSession } from "@/backend/remote/RemoteSession";
-import type { WorkspaceGitHub } from "@/definition/AgentWorkspace";
+import type {
+  AgentWorkspaceUsage,
+  WorkspaceGitHub,
+} from "@/definition/AgentWorkspace";
 import type { AccountAccess } from "@/definition/Authorization";
 import type { Project, ProjectIntegration } from "@/definition/Project";
 import type {
@@ -291,8 +294,20 @@ export class RemoteWorkspaceService {
     });
   }
 
+  /** Names references for administrators; managers receive anonymous counts under existing privacy rules. */
+  public async usages(
+    userId: string,
+    id: string,
+  ): Promise<readonly AgentWorkspaceUsage[]> {
+    const actor = await this.account(userId);
+    await this.requireManaged(actor, await this.requireRecord(id));
+    const usages = await this.dependencies.workspaces.usages(id);
+    if (new UserPolicyService().isAdministrator(actor)) return usages;
+    return usages.map((usage) => ({ id: null, name: null, kind: usage.kind }));
+  }
+
   /**
-   * Unregisters a profile; the remote directory stays untouched.
+   * Detaches references and unregisters a profile unless an affected run is active; files stay untouched.
    *
    * @param userId - A person responsible for the project who may use the connection.
    * @param id - The profile.

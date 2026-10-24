@@ -100,7 +100,7 @@ export const WORKSPACE_WRITE_TOOLS: readonly {
     tool: buildWriteTool({
       name: "remove_workspace",
       title: "Remove workspace",
-      description: `Unregisters a workspace. The directory, its files, the project and its GitHub repository stay untouched; a workspace that plans, agents or runs still refer to is CONFLICT. ${MANAGE_DESCRIPTION}`,
+      description: `Unregisters a workspace and detaches its references from plans and pinned agent configurations without deleting nodes or content. Affected plans remain visible without a workspace and cannot start until reassigned. An affected active run, including a paused run or pending cleanup, is CONFLICT. The directory, its files, the project and its GitHub repository stay untouched. ${MANAGE_DESCRIPTION}`,
       properties: {
         workspaceId: IDENTIFIER_SCHEMA,
         expectedRevision: REVISION_SCHEMA,
