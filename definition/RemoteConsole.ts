@@ -26,7 +26,7 @@ export const consoleStateSchema = z.object({
 /** State displayed above the terminal. */
 export type RemoteConsoleState = z.infer<typeof consoleStateSchema>;
 
-/** Sequenced events allow an interrupted HTTP stream to resume without repeating input. */
+/** Sequenced events allow an interrupted channel to resume without repeating input. */
 export const consoleEventSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("output"),
@@ -38,6 +38,8 @@ export const consoleEventSchema = z.discriminatedUnion("kind", [
     sequence: z.number().int(),
     state: consoleStateSchema,
   }),
+  /** Output up to `sequence` is no longer kept; the replay continues after it. */
+  z.object({ kind: z.literal("gap"), sequence: z.number().int() }),
 ]);
 
 /** Server-to-browser terminal event. */
@@ -51,3 +53,30 @@ export const consoleSizeSchema = z.object({
 
 /** Columns and rows, independent of pixel density. */
 export type RemoteConsoleSize = z.infer<typeof consoleSizeSchema>;
+
+/** Longest input or paste fragment of one channel message. */
+export const CONSOLE_INPUT_FRAGMENT = 8192;
+
+/**
+ * Browser-to-server messages of the console channel: ordered input bound to
+ * the shell attempt, geometry, and how much output the terminal processed.
+ */
+export const consoleCommandSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("input"),
+    attempt: z.number().int().min(0).max(CONSOLE_MAXIMUM_RETRIES),
+    data: z.string().min(1).max(CONSOLE_INPUT_FRAGMENT),
+  }),
+  consoleSizeSchema.extend({ type: z.literal("resize") }),
+  z.object({
+    type: z.literal("ack"),
+    characters: z
+      .number()
+      .int()
+      .min(1)
+      .max(16 * 1024 * 1024),
+  }),
+]);
+
+/** One browser-to-server message of the console channel. */
+export type RemoteConsoleCommand = z.infer<typeof consoleCommandSchema>;

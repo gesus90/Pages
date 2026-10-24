@@ -4,13 +4,17 @@ import {
   isUserTheme,
   isUserTimezone,
   isUserWeekStart,
+  isTerminalScreenReaderMode,
 } from "@/definition/Settings";
 
 import type {
   StoredUserSettings,
   UserSettingsRepository,
 } from "@/backend/database/repositories/UserSettingsRepository";
-import type { UserSettings } from "@/definition/Settings";
+import type {
+  TerminalScreenReaderMode,
+  UserSettings,
+} from "@/definition/Settings";
 import type { Language } from "@/language/Language";
 
 /**
@@ -114,6 +118,34 @@ export class SettingsService {
       notifyDueDates: settings.notifications.dueDates,
       notifyWeeklySummary: settings.notifications.weeklySummary,
     });
+  }
+
+  /**
+   * Returns how the remote console offers its screen to assistive technology.
+   *
+   * @param userId - User identifier.
+   * @returns The chosen mode; `auto` when none or an unknown one is stored.
+   */
+  public async getTerminalScreenReader(
+    userId: string,
+  ): Promise<TerminalScreenReaderMode> {
+    const stored =
+      await this.userSettingsRepository.findTerminalScreenReader(userId);
+
+    return isTerminalScreenReaderMode(stored) ? stored : "auto";
+  }
+
+  /**
+   * Stores how the remote console offers its screen to assistive technology.
+   *
+   * @param userId - User identifier.
+   * @param mode - Validated mode to persist.
+   */
+  public async updateTerminalScreenReader(
+    userId: string,
+    mode: TerminalScreenReaderMode,
+  ): Promise<void> {
+    await this.userSettingsRepository.upsertTerminalScreenReader(userId, mode);
   }
 
   /**

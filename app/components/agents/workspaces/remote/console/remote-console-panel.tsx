@@ -13,6 +13,7 @@ import { ConsoleBanner } from "./console-status";
 import { SetupProgressPanel } from "./setup-progress";
 import { ACTIVE_CONSOLE_VIEWS, consoleViewOf } from "./console-view";
 import { useRemoteConsole } from "./use-remote-console";
+import { useTerminalScreenReaderMode } from "./use-terminal-screen-reader-mode";
 
 import type { RefObject } from "react";
 import type { RemoteConsoleTarget } from "./console-target";
@@ -67,14 +68,39 @@ function usePollingPause(): void {
   }, [setOpen]);
 }
 
+/** The panel's console and how it closes; the terminal's close key asks the same way. */
+function usePanelConsole(
+  endpoint: string,
+  onClose: () => void,
+): {
+  readonly shell: ReturnType<typeof useRemoteConsole>;
+  readonly view: ReturnType<typeof consoleViewOf>;
+  readonly closing: ReturnType<typeof useConsoleClosing>;
+} {
+  const closeRequest = useRef<() => void>(() => undefined);
+  const shell = useRemoteConsole({
+    endpoint,
+    screenReader: useTerminalScreenReaderMode(),
+    onCloseRequest: () => closeRequest.current(),
+  });
+  const view = consoleViewOf(shell.state, shell.hasConnected);
+  const closing = useConsoleClosing(ACTIVE_CONSOLE_VIEWS.has(view), onClose);
+  useEffect(() => {
+    closeRequest.current = closing.request;
+  }, [closing.request]);
+  return { shell, view, closing };
+}
+
 /**
  * One modal remote shell: a single centered focus panel with header, terminal
  * and footer, and every connection state in place.
  *
  * @remarks
  * Focus moves into the panel, stays there and returns to `returnFocus` when
- * it closes. Escape and the close button end an active shell only after a
- * confirmation; a click on the dimmed page does nothing.
+ * it closes. Inside the terminal Escape belongs to the remote program; there
+ * Strg+Umschalt+X closes, elsewhere in the panel Escape does. The close
+ * button and both keys end an active shell only after a confirmation; a
+ * click on the dimmed page does nothing.
  */
 export function RemoteConsolePanel(props: {
   readonly target: RemoteConsoleTarget;
@@ -83,10 +109,8 @@ export function RemoteConsolePanel(props: {
   readonly onReview: () => void;
   readonly returnFocus: RefObject<HTMLElement | null>;
 }): React.ReactElement {
-  const shell = useRemoteConsole(props.target.endpoint);
-  const view = consoleViewOf(shell.state, shell.hasConnected);
-  const closing = useConsoleClosing(
-    ACTIVE_CONSOLE_VIEWS.has(view),
+  const { shell, view, closing } = usePanelConsole(
+    props.target.endpoint,
     props.onClose,
   );
   const [isExpanded, setExpanded] = useState(false);
@@ -129,7 +153,7 @@ export function RemoteConsolePanel(props: {
             }}
             onEscapeKeyDown={(event) => {
               event.preventDefault();
-              closing.request();
+              if (!shell.contains(event.target)) closing.request();
             }}
             onPointerDownOutside={(event) => event.preventDefault()}
           >

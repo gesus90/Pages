@@ -79,6 +79,8 @@ function useBannerText(
 ): string | null {
   const { t } = useTranslation();
   if (view === "reconnecting") return t("remote.console.banner.reconnecting");
+  if (view === "lost" && state.message === "remote.console.sessionLost")
+    return t("remote.console.banner.sessionLost");
   if (view === "lost")
     return t("remote.console.banner.lost", { count: state.attempts });
   if (view === "exited")

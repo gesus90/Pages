@@ -1368,6 +1368,17 @@
       "save": "Speichern",
       "cancel": "Abbrechen",
       "loading": "Verbindungen werden geladen"
+    },
+    "terminal": {
+      "title": "Terminal",
+      "description": "Bedienung der Remote-Konsole.",
+      "screenReader": {
+        "label": "Screenreader-Modus",
+        "auto": "Automatisch",
+        "on": "An",
+        "off": "Aus",
+        "hint": "Automatisch: an, wenn die Konsole per Tastatur oder Screenreader geöffnet wird, aus beim Öffnen mit Maus oder Touch. Browser verraten nicht, ob ein Screenreader läuft."
+      }
     }
   },
   "users": {
@@ -3600,7 +3611,8 @@
         "reconnecting": "Verbindung unterbrochen. Wiederverbindung wird versucht …",
         "lost_one": "Verbindung nach {{count}} Versuch nicht wiederhergestellt. Die alte Shell ist nicht mehr erreichbar.",
         "lost_other": "Verbindung nach {{count}} Versuchen nicht wiederhergestellt. Die alte Shell ist nicht mehr erreichbar.",
-        "exited": "Die Shell wurde regulär beendet · Exitstatus {{code}}."
+        "exited": "Die Shell wurde regulär beendet · Exitstatus {{code}}.",
+        "sessionLost": "Die alte Shell besteht nicht mehr (Zeitfenster abgelaufen oder Pages neu gestartet). Eingaben wurden nicht wiederholt."
       },
       "overlay": {
         "connecting": {
@@ -3643,7 +3655,7 @@
         "ptyUnavailable": "Keine interaktive Shell geöffnet",
         "accessRevoked": "Sitzung beendet · Eingabe gesperrt"
       },
-      "keyboardHint": "Strg+C unterbricht · Strg+Umschalt+C/V kopiert/fügt ein",
+      "keyboardHint": "Esc geht an das Terminal · Strg+Umschalt+X schließt · Strg+C unterbricht · Strg+Umschalt+C/V kopiert/fügt ein",
       "review": "Verbindung prüfen",
       "reconnect": "Erneut verbinden",
       "closeConsole": "Konsole schließen",
@@ -3652,12 +3664,13 @@
       "closeDescription": "Die interaktive Shell wird geschlossen. Laufende Befehle in dieser Sitzung können dabei abgebrochen werden. Andere Verbindungen bleiben bestehen.",
       "returnToConsole": "Zurück zur Konsole",
       "endSession": "Sitzung beenden",
-      "historyLost": "Die Terminal-Ausgabe konnte nicht vollständig wiederhergestellt werden. Die Sitzung wurde beendet.",
       "inputOverflow": "Die Eingabe ist zu groß. Schließe die Konsole und öffne sie erneut.",
       "streamBlocked": "Die Ausgabe ließ sich nach zehn Versuchen nicht wiederherstellen.",
       "streamLost": "Die Verbindung zur Terminal-Ausgabe wurde unterbrochen.",
       "loadFailed": "Das Terminal konnte im Browser nicht geladen werden.",
-      "ptyUnavailable": "Es konnte kein interaktives Terminal geöffnet werden."
+      "ptyUnavailable": "Es konnte kein interaktives Terminal geöffnet werden.",
+      "outputGap": "Pages: Ein Teil der Ausgabe ist während der Unterbrechung verloren gegangen.",
+      "sessionLost": "Die Shell besteht nicht mehr. Eine neue Sitzung startet eine neue Shell."
     },
     "setup": {
       "title": "Runner-Setup · {{name}}",

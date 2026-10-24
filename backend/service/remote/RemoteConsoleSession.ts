@@ -125,15 +125,31 @@ export class RemoteConsoleSession {
     after: number,
     listener: (event: RemoteConsoleEvent) => void,
   ): () => void {
-    const first = this.history.at(0)?.sequence ?? this.sequence;
-    if (after > 0 && after < first - 1) {
-      this.close("remote.console.historyLost");
-    }
-    for (const event of this.history)
-      if (event.sequence > after) listener(event);
+    this.replay(after, listener);
     listener({ kind: "state", sequence: this.sequence, state: this.state });
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
+  }
+
+  /**
+   * Hands over the kept events after the cursor, in order.
+   *
+   * @remarks
+   * Output that the bounded history no longer holds is reported as a gap
+   * instead of being passed over.
+   *
+   * @param after - Sequence of the last event the browser has.
+   * @param listener - Receives the gap, if any, and every kept event after it.
+   */
+  public replay(
+    after: number,
+    listener: (event: RemoteConsoleEvent) => void,
+  ): void {
+    const first = this.history.at(0)?.sequence ?? this.sequence + 1;
+    if (after > 0 && after < first - 1)
+      listener({ kind: "gap", sequence: first - 1 });
+    for (const event of this.history)
+      if (event.sequence > after) listener(event);
   }
 
   /** Input is never queued or replayed after a disconnect. */
@@ -205,7 +221,7 @@ export class RemoteConsoleSession {
     const chunk = this.conductor
       ? this.conductor.filter(raw, this.control)
       : raw;
-    // Small frames bound HTTP buffering even when a remote program writes large chunks.
+    // Small frames bound channel buffering even when a remote program writes large chunks.
     for (let offset = 0; offset < chunk.length; offset += 8192)
       this.emit({
         kind: "output",
@@ -236,9 +252,7 @@ export class RemoteConsoleSession {
       if (generation !== this.generation) return;
       await this.conductor?.prepare(this.control);
       if (generation !== this.generation) return;
-      const directory = await startDirectory(target);
-      if (generation !== this.generation) return;
-      const terminal = await this.openTerminal(target);
+      const { terminal, directory } = await this.openWithDirectory(target);
       if (generation !== this.generation) {
         terminal.close();
         return;
@@ -248,6 +262,25 @@ export class RemoteConsoleSession {
     } catch (error: unknown) {
       if (generation !== this.generation) return;
       this.fail(error);
+    }
+  }
+
+  /**
+   * The login directory is read over its own SSH command; the terminal does
+   * not wait for that round trip, and is closed again when the read fails.
+   */
+  private async openWithDirectory(target: RemoteConsoleTarget): Promise<{
+    readonly terminal: SshPty;
+    readonly directory: string | null;
+  }> {
+    const opening = this.openTerminal(target);
+    try {
+      const directory = await startDirectory(target);
+      return { terminal: await opening, directory };
+    } catch (error: unknown) {
+      const terminal = await opening.catch(() => null);
+      terminal?.close();
+      throw error;
     }
   }
 

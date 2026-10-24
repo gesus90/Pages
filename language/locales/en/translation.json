@@ -1368,6 +1368,17 @@
       "save": "Save",
       "cancel": "Cancel",
       "loading": "Loading connections"
+    },
+    "terminal": {
+      "title": "Terminal",
+      "description": "How the remote console works.",
+      "screenReader": {
+        "label": "Screen reader mode",
+        "auto": "Automatic",
+        "on": "On",
+        "off": "Off",
+        "hint": "Automatic: on when the console is opened by keyboard or screen reader, off when it is opened with a mouse or touch. Browsers do not reveal whether a screen reader runs."
+      }
     }
   },
   "users": {
@@ -3600,7 +3611,8 @@
         "reconnecting": "Connection interrupted. Trying to reconnect …",
         "lost_one": "Connection not restored after {{count}} attempt. The previous shell can no longer be reached.",
         "lost_other": "Connection not restored after {{count}} attempts. The previous shell can no longer be reached.",
-        "exited": "The shell ended normally · exit status {{code}}."
+        "exited": "The shell ended normally · exit status {{code}}.",
+        "sessionLost": "The old shell no longer exists (time window expired or Pages restarted). No input was repeated."
       },
       "overlay": {
         "connecting": {
@@ -3643,7 +3655,7 @@
         "ptyUnavailable": "No interactive shell opened",
         "accessRevoked": "Session ended · input locked"
       },
-      "keyboardHint": "Ctrl+C interrupts · Ctrl+Shift+C/V copies/pastes",
+      "keyboardHint": "Esc goes to the terminal · Ctrl+Shift+X closes · Ctrl+C interrupts · Ctrl+Shift+C/V copies/pastes",
       "review": "Check connection",
       "reconnect": "Reconnect",
       "closeConsole": "Close console",
@@ -3652,12 +3664,13 @@
       "closeDescription": "The interactive shell will be closed. Running commands in this session may be interrupted. Other connections stay open.",
       "returnToConsole": "Return to console",
       "endSession": "End session",
-      "historyLost": "Terminal output could not be fully recovered. The session has ended.",
       "inputOverflow": "The input is too large. Close the console and open it again.",
       "streamBlocked": "The output could not be restored after ten attempts.",
       "streamLost": "The terminal output connection was interrupted.",
       "loadFailed": "The terminal could not be loaded in the browser.",
-      "ptyUnavailable": "No interactive terminal could be opened."
+      "ptyUnavailable": "No interactive terminal could be opened.",
+      "outputGap": "Pages: part of the output was lost during the interruption.",
+      "sessionLost": "The shell no longer exists. A new session starts a new shell."
     },
     "setup": {
       "title": "Runner setup · {{name}}",

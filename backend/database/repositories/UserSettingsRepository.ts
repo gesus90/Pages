@@ -157,6 +157,66 @@ export class UserSettingsRepository {
   }
 
   /**
+   * Returns the screen reader mode a user has chosen for the remote console.
+   *
+   * @param userId - User identifier.
+   * @returns The stored value, or `null` when the user never chose one.
+   */
+  public async findTerminalScreenReader(
+    userId: string,
+  ): Promise<string | null> {
+    const rows = await this.database.query(
+      `
+        SELECT
+            terminal_screen_reader
+        FROM user_settings
+        WHERE user_id = $user_id;
+      `,
+      { user_id: userId },
+    );
+
+    const row = rows[0];
+
+    return row
+      ? readNullableTextColumn(row, 0, "terminal_screen_reader")
+      : null;
+  }
+
+  /**
+   * Creates or updates only the screen reader mode of the remote console.
+   *
+   * @param userId - User identifier.
+   * @param mode - Validated mode to persist.
+   *
+   * @remarks
+   * Every other setting of the row stays as it is; a user without a row gets
+   * the defaults of the table for them.
+   */
+  public async upsertTerminalScreenReader(
+    userId: string,
+    mode: string,
+  ): Promise<void> {
+    await this.database.execute(
+      `
+        INSERT INTO user_settings (
+            user_id,
+            terminal_screen_reader,
+            updated_at
+        )
+        VALUES (
+            $user_id,
+            $terminal_screen_reader,
+            utc_now()
+        )
+        ON CONFLICT (user_id) DO UPDATE SET
+            terminal_screen_reader = excluded.terminal_screen_reader,
+            updated_at = excluded.updated_at;
+      `,
+      { user_id: userId, terminal_screen_reader: mode },
+    );
+  }
+
+  /**
    * Returns the complete settings row of a user.
    *
    * @param userId - User identifier.

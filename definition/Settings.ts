@@ -137,3 +137,27 @@ export const USER_NOTIFICATION_KEYS = [
 
 /** A notification preference key a user can toggle. */
 export type UserNotificationKey = (typeof USER_NOTIFICATION_KEYS)[number];
+
+/**
+ * How the remote console offers its screen to assistive technology.
+ *
+ * @remarks
+ * `auto` turns the accessible copy on when the console was opened without a
+ * pointer, by keyboard or by a screen reader; browsers do not reveal whether
+ * a screen reader runs. `on` and `off` override the detection.
+ */
+export const TERMINAL_SCREEN_READER_MODES = ["auto", "on", "off"] as const;
+
+/** A screen reader mode a user can select for the remote console. */
+export type TerminalScreenReaderMode =
+  (typeof TERMINAL_SCREEN_READER_MODES)[number];
+
+/** Narrows an unknown value to a supported terminal screen reader mode. */
+export function isTerminalScreenReaderMode(
+  value: unknown,
+): value is TerminalScreenReaderMode {
+  return (
+    typeof value === "string" &&
+    (TERMINAL_SCREEN_READER_MODES as readonly string[]).includes(value)
+  );
+}

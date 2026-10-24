@@ -16,6 +16,7 @@ import { logCaughtError } from "@/backend/logging/Logger";
 import type { ShouldRevalidateFunctionArgs } from "react-router";
 import type { AgentWorkspacePage } from "@/definition/AgentWorkspace";
 import type { RemoteOverview } from "@/definition/RemoteConnection";
+import type { TerminalScreenReaderMode } from "@/definition/Settings";
 import type { Route } from "./+types/agent-workspaces";
 
 const REMOTE_ACTION = "/agents/workspaces/remote";
@@ -24,6 +25,8 @@ const REMOTE_ACTION = "/agents/workspaces/remote";
 interface WorkspaceOverview {
   readonly page: AgentWorkspacePage;
   readonly remote: RemoteOverview;
+  /** The person's screen reader mode of the remote console. */
+  readonly terminalScreenReader: TerminalScreenReaderMode;
 }
 
 /** Keeps directory metadata and action responses out of browser and proxy caches. */
@@ -44,11 +47,15 @@ export async function loader({
     const user = context.get(authenticatedUserContext);
     if (!user) throw new AgentError("workspace_access_denied");
     const services = await getApplicationServices();
-    const [page, remote] = await Promise.all([
+    const [page, remote, terminalScreenReader] = await Promise.all([
       services.agentWorkspaceService.page(user.id),
       loadRemoteOverview(services, user.id),
+      services.settingsService.getTerminalScreenReader(user.id),
     ]);
-    return routeData({ page, remote }, { headers: AGENT_NO_STORE });
+    return routeData(
+      { page, remote, terminalScreenReader },
+      { headers: AGENT_NO_STORE },
+    );
   } catch (error: unknown) {
     logCaughtError("agent_workspaces", error);
 
