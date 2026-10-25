@@ -52,7 +52,9 @@ export async function loader({
         ),
         "Content-Length": String(attachment.size),
         "Content-Security-Policy": ATTACHMENT_CONTENT_SECURITY_POLICY,
-        "Content-Type": attachment.contentType,
+        "Content-Type": attachment.isEmbeddable
+          ? attachment.contentType
+          : "application/octet-stream",
         "X-Content-Type-Options": "nosniff",
       },
     });

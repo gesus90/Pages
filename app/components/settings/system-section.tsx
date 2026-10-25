@@ -11,6 +11,8 @@ import { LoggingCard } from "@/app/components/settings/system/logging-card";
 import { StatusCard } from "@/app/components/settings/system/status-card";
 import { WikiSettingsCard } from "@/app/components/settings/system/wiki-settings-card";
 
+import { TicketAssetsCard } from "./system/ticket-assets-card";
+
 import type { ServerStatus } from "@/backend/service/ServerSettingsService";
 import type { ChatAdministration } from "@/definition/Chat";
 import type { InstanceBranding } from "@/definition/Instance";
@@ -62,6 +64,7 @@ export function SystemSection({
           <InterpreterCard />
           <InstanceCard branding={branding} />
           <WikiSettingsCard settings={wikiSettings} />
+          <TicketAssetsCard />
           <AcpResourcesCard canConfigure />
         </div>
         <div className="flex flex-col gap-4">

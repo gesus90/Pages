@@ -27,6 +27,7 @@ export default [
   route("discord/result", "routes/discord-result.tsx"),
   route("instance-logo", "routes/instance-logo.ts"),
   layout("routes/authenticated.tsx", [
+    route("settings-api/ticket-assets", "routes/settings-ticket-assets.ts"),
     route("settings-api/interpreters", "routes/settings-interpreters.ts"),
     route("account-version", "routes/account-version.ts"),
     route(

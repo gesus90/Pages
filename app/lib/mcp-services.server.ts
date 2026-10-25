@@ -1,5 +1,7 @@
 import path from "node:path";
 
+import { AgentTicketUploadService } from "@/backend/service/agents/AgentTicketUploadService";
+import { TicketAssetAuditService } from "@/backend/service/task/TicketAssetAuditService";
 import { AgentPlanTemplateService } from "@/backend/service/agents/AgentPlanTemplateService";
 import { AgentPlanTemplateRepository } from "@/backend/database/repositories/agent/AgentPlanTemplateRepository";
 import { AgentChatSessionOperationService } from "@/backend/service/agents/AgentChatSessionOperationService";
@@ -65,6 +67,7 @@ import type { UserService } from "@/backend/service/UserService";
 export interface McpApplicationServices {
   readonly oauthService: OAuthService;
   readonly agentAssetService: AgentAssetService;
+  readonly agentTicketUploadService: AgentTicketUploadService;
   /** The same operation catalog for the chat agent: UI role mode, changes marked as AI actions. */
   readonly chatOperationRouter: AgentOperationRouter;
   readonly agentUploadTicketService: AgentUploadTicketService;
@@ -107,6 +110,7 @@ function createWikiOperations(
 
 /** What the operation catalogs of both agent channels are built from. */
 interface RouterContext extends Omit<OperationContext, "channel"> {
+  readonly directory: string;
   readonly planRecovery?: AgentPlanRecoveryService;
   readonly users: Pick<UserService, "getById">;
   /** The plan service of the plan page; MCP clients and the chat use it alike. */
@@ -269,6 +273,40 @@ function createChatSessionOperations(input: {
   });
 }
 
+function createAssetServices(
+  database: Database,
+  workspace: {
+    readonly directory: string;
+    readonly wikiService: Pick<WikiService, "getSettings" | "openAttachment">;
+  },
+): {
+  readonly staging: WikiFileStore;
+  readonly agentAssetService: AgentAssetService;
+  readonly agentTicketUploadService: AgentTicketUploadService;
+} {
+  const staging = new WikiFileStore(
+    path.join(workspace.directory, "agent-assets"),
+  );
+  return {
+    staging,
+    agentAssetService: new AgentAssetService({
+      repository: new AgentAssetRepository(database),
+      files: staging,
+      wiki: workspace.wikiService,
+      referencedTicketUploads: () =>
+        new TicketAssetAuditService(
+          database,
+          workspace.directory,
+        ).referencedUploadIds(),
+    }),
+    agentTicketUploadService: new AgentTicketUploadService(
+      database,
+      workspace.directory,
+      workspace.wikiService,
+    ),
+  };
+}
+
 /** Wires the API/services/repositories without opening another database or reading credential files. */
 export function createMcpServices(
   database: Database,
@@ -300,15 +338,9 @@ export function createMcpServices(
   const agentUploadTicketService = new AgentUploadTicketService((hash) =>
     authority.verify(hash),
   );
-  const staging = new WikiFileStore(
-    path.join(workspace.directory, "agent-assets"),
-  );
+  const { staging, agentAssetService, agentTicketUploadService } =
+    createAssetServices(database, workspace);
   const pagesEventPublisher = workspace.events ?? new PagesEventPublisher();
-  const agentAssetService = new AgentAssetService({
-    repository: new AgentAssetRepository(database),
-    files: staging,
-    wiki: workspace.wikiService,
-  });
   const creation = {
     database,
     staging,
@@ -319,6 +351,7 @@ export function createMcpServices(
   };
   const routers: RouterContext = {
     database,
+    directory: workspace.directory,
     events: pagesEventPublisher,
     cache: workspace.tickets?.cache ?? ServerCache.disabled(),
     users,
@@ -340,12 +373,14 @@ export function createMcpServices(
       users,
       tickets: agentUploadTicketService,
       assets: agentAssetService,
+      ticketUploads: agentTicketUploadService,
       wiki: workspace.wikiService,
     },
     creation,
   };
   return {
     agentAssetService,
+    agentTicketUploadService,
     oauthService: new OAuthService({
       repository: new OAuthRepository(database),
       identities,

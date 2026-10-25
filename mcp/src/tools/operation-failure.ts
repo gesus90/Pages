@@ -18,6 +18,9 @@ import type {
 const REJECTION_REASONS: Readonly<
   Record<AgentRejectionReason["reason"], true>
 > = {
+  ticket_attachment_upload_required: true,
+  ticket_attachment_upload_unavailable: true,
+  ticket_attachment_unavailable: true,
   operation_retired: true,
   model_unavailable: true,
   reasoning_unsupported: true,

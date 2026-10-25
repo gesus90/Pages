@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
 
 import { Button } from "@/app/components/ui/button";
+import { cn } from "@/app/lib/cn";
 import { formatBytes } from "@/app/lib/format-bytes";
 import { ticketAttachmentPath } from "@/app/lib/ticket-upload";
 
@@ -59,7 +60,14 @@ function AttachmentRow({
   const address = ticketAttachmentPath(attachment.id);
 
   return (
-    <li className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2 text-sm">
+    <li
+      className={cn(
+        "grid items-center gap-x-2 gap-y-0.5 rounded-lg bg-muted/40 px-3 py-2 text-sm sm:flex sm:gap-2",
+        canEdit
+          ? "grid-cols-[1rem_minmax(0,1fr)_2rem_2rem]"
+          : "grid-cols-[1rem_minmax(0,1fr)_2rem]",
+      )}
+    >
       <Paperclip
         aria-hidden="true"
         className="size-4 shrink-0 text-muted-foreground"
@@ -69,10 +77,11 @@ function AttachmentRow({
         href={address}
         rel="noreferrer"
         target="_blank"
+        title={attachment.fileName}
       >
         {attachment.fileName}
       </a>
-      <span className="shrink-0 text-xs text-muted-foreground">
+      <span className="col-start-2 row-start-2 min-w-0 truncate text-xs text-muted-foreground sm:shrink-0">
         {t("tasks.attachments.meta", {
           size: formatBytes(attachment.size),
           user: attachment.uploadedByName ?? "—",
@@ -82,7 +91,7 @@ function AttachmentRow({
         aria-label={t("tasks.attachments.download", {
           name: attachment.fileName,
         })}
-        className="inline-flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+        className="col-start-3 row-span-2 row-start-1 inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
         href={`${address}?download=1`}
       >
         <Download aria-hidden="true" className="size-4" />
@@ -92,7 +101,7 @@ function AttachmentRow({
           aria-label={t("tasks.attachments.remove", {
             name: attachment.fileName,
           })}
-          className="inline-flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-destructive disabled:opacity-50"
+          className="col-start-4 row-span-2 row-start-1 inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-destructive disabled:opacity-50"
           disabled={fetcher.state !== "idle"}
           type="button"
           onClick={() =>

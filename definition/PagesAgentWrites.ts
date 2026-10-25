@@ -107,7 +107,8 @@ export interface AgentAsset {
   readonly fileName: string;
   readonly contentType: string;
   readonly size: number;
-  readonly expiresAt: number;
+  /** Null for a permanent ticket attachment. */
+  readonly expiresAt: number | null;
 }
 
 /** Explicit wiki creation with a named scope and parent, without overwriting. */

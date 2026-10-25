@@ -288,6 +288,26 @@
     }
   },
   "settings": {
+    "ticketAssets": {
+      "title": "Ticket-Anhänge prüfen",
+      "description": "Prüft gespeicherte Tickets und Anhangsdateien. Meldet fehlende Bilder, temporäre Uploads und Speicherabweichungen. Ändert und repariert keine Daten.",
+      "check": "Bestandsprüfung starten",
+      "checking": "Bestand wird geprüft …",
+      "summary": "{{tickets}} Tickets · {{attachments}} Anhänge · {{findings}} Befunde",
+      "healthy": "Keine Abweichungen gefunden.",
+      "reason": {
+        "temporaryUpload": "Temporärer Upload referenziert. Vor dem Ablauf geschützt; als Ticket-Anhang übernehmen.",
+        "missingUploadFile": "Datei des temporären Uploads fehlt oder hat eine abweichende Größe.",
+        "expiredUpload": "Referenzierter temporärer Upload ist abgelaufen. Die Wartung behält vorhandene Originale; bitte als Ticket-Anhang hochladen.",
+        "outsideTicketStorage": "Verweis führt zu einer Wiki-/Agent-Datei außerhalb des Ticket-Anhangsspeichers.",
+        "missingUpload": "Temporärer Upload fehlt. Das verlorene Original kann nicht wiederhergestellt werden.",
+        "externalImage": "Bild liegt außerhalb des Ticket-Anhangsspeichers. Bitte als Anhang hochladen.",
+        "missingAttachment": "Anhangsdatensatz fehlt.",
+        "missingFile": "Anhangsdatei fehlt oder der Speicherpfad ist ungültig.",
+        "legacyStorage": "Anhang liegt noch im alten Speicher. Offline-Migration erforderlich.",
+        "checksumMismatch": "Größe oder Prüfsumme stimmt nicht mit dem Datenbankeintrag überein."
+      }
+    },
     "title": "Einstellungen",
     "personal": {
       "title": "Persönlicher Bereich"
@@ -1835,6 +1855,9 @@
       "titleLength": "Der Titel muss zwischen 1 und 200 Zeichen lang sein.",
       "typeUnsupported": "Dieser Tickettyp wird nicht unterstützt.",
       "githubNotConnected": "Dieses Projekt ist nicht mit GitHub verbunden.",
+      "attachmentUploadRequired": "Bitte das Bild oder die Datei als Ticket-Anhang hochladen, bevor du speicherst. Externe Bild-Adressen und lokale Dateipfade sind nicht erlaubt.",
+      "attachmentUploadUnavailable": "Der temporäre Upload ist abgelaufen, fehlt, ist nicht verfügbar oder gehört einer anderen Person. Bitte erneut als Ticket-Anhang hochladen.",
+      "attachmentUnavailable": "Der Ticket-Anhang fehlt oder ist nicht zugänglich. Bitte die Datei zu diesem Ticket hochladen.",
       "attachmentFileEmpty": "Die Datei ist leer.",
       "attachmentFileNameTooLong": "Der Dateiname ist zu lang.",
       "attachmentTooLarge": "Die Datei ist größer als erlaubt.",

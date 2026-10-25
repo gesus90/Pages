@@ -1,5 +1,12 @@
 import { createHash, randomUUID } from "node:crypto";
 
+import { validateTicketDescriptionSources } from "@/backend/service/task/TaskDescriptionAssetService";
+import {
+  ticketDescriptionAddress,
+  ticketDescriptionReferences,
+} from "@/backend/service/task/TicketDescriptionReferences";
+import { WorkItemValidationError } from "@/backend/error/WorkItemErrors";
+
 import type {
   NewWorkItemHistory,
   WorkItemGitHubLink,
@@ -203,6 +210,14 @@ export function buildWorkItemUpdateFromRemote(
   remote: GitHubIssueData,
   statusId: string,
 ): WorkItemUpdate {
+  validateTicketDescriptionSources(remote.body);
+  if (
+    ticketDescriptionReferences(remote.body).some(
+      (reference) =>
+        ticketDescriptionAddress(reference.url)?.source === "agent",
+    )
+  )
+    throw new WorkItemValidationError("attachmentUploadRequired");
   return {
     assigneeGroupId: item.assigneeGroupId,
     assigneeId: item.assigneeId,

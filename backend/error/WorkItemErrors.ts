@@ -20,6 +20,12 @@ export const WORK_ITEM_ERROR_MESSAGES = {
   dependencySelf: "A milestone cannot depend on itself.",
   dependencyTypeUnsupported: "Unsupported dependency type.",
   departmentNotFound: "Selected department does not exist.",
+  attachmentUploadRequired:
+    "Upload this image or file as a ticket attachment before saving.",
+  attachmentUploadUnavailable:
+    "The temporary upload is expired, missing, unavailable or belongs to another person. Upload it again as a ticket attachment.",
+  attachmentUnavailable:
+    "The ticket attachment is missing or not accessible. Upload the file to this ticket.",
   attachmentFileEmpty: "An attachment must not be empty.",
   attachmentFileNameTooLong: "The file name of an attachment is too long.",
   attachmentTooLarge: "The attachment exceeds the upload limit.",

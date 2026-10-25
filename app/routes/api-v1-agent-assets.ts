@@ -27,13 +27,20 @@ async function upload(request: Request): Promise<Response> {
   )
     return uploadFailure("AUTH_REQUIRED", 401);
   try {
-    const { agentUploadTicketService, agentAssetService } =
-      await getApplicationServices();
+    const {
+      agentUploadTicketService,
+      agentAssetService,
+      agentTicketUploadService,
+    } = await getApplicationServices();
     const authority = await agentUploadTicketService.consume(ticket);
-    const result = await agentAssetService.upload(
-      readAgentAssetUpload(request, authority.fileName),
-      authority.revalidate,
-    );
+    const file = readAgentAssetUpload(request, authority.fileName);
+    const result = authority.ticketId
+      ? await agentTicketUploadService.upload(
+          file,
+          authority.revalidate,
+          authority.ticketId,
+        )
+      : await agentAssetService.upload(file, authority.revalidate);
     return Response.json(
       { apiVersion: "1", result },
       {
@@ -47,7 +54,7 @@ async function upload(request: Request): Promise<Response> {
     logCaughtError("api_v1_agent_assets", error);
 
     if (error instanceof AgentOperationError)
-      return uploadFailure(error.code, error.status);
+      return agentApiFailure(error.code, error.status, error.details);
     if (error instanceof McpAuthorizationError)
       return uploadFailure("AUTH_INVALID", 401);
     return uploadFailure("AUTH_UNAVAILABLE", 503);

@@ -57,6 +57,16 @@ export function translateAgentTicketError(error: unknown): unknown {
       error.code.endsWith("Missing") ? "NOT_FOUND" : "INVALID_REQUEST",
     );
   if (error instanceof WorkItemValidationError) {
+    const attachmentReasons = {
+      attachmentUploadRequired: "ticket_attachment_upload_required",
+      attachmentUploadUnavailable: "ticket_attachment_upload_unavailable",
+      attachmentUnavailable: "ticket_attachment_unavailable",
+    } as const;
+    if (error.code in attachmentReasons) {
+      const reason =
+        attachmentReasons[error.code as keyof typeof attachmentReasons];
+      return new AgentOperationError("INVALID_REQUEST", { reason });
+    }
     if (NOT_FOUND_CODES.has(error.code))
       return new AgentOperationError("NOT_FOUND");
     if (CONFLICT_CODES.has(error.code))

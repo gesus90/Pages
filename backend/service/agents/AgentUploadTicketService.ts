@@ -10,6 +10,7 @@ interface UploadAuthority {
   readonly credentialHash: string;
   readonly userId: string;
   readonly fileName: string;
+  readonly ticketId?: string;
   readonly issuedAt: number;
   readonly expiresAt: number;
 }
@@ -33,6 +34,7 @@ export class AgentUploadTicketService {
     token: string,
     userId: string,
     fileName: string,
+    ticketId?: string,
   ): { readonly ticket: string; readonly expiresAt: number } {
     for (const [hash, authority] of this.tickets) {
       if (authority.expiresAt <= Date.now()) this.tickets.delete(hash);
@@ -44,6 +46,7 @@ export class AgentUploadTicketService {
       credentialHash: hashAgentCredential(token),
       userId,
       fileName,
+      ticketId,
       issuedAt,
       expiresAt,
     });
@@ -53,6 +56,7 @@ export class AgentUploadTicketService {
   /** Consumes synchronously before reading any bytes; failed attempts cannot replay. */
   public async consume(ticket: string): Promise<{
     readonly fileName: string;
+    readonly ticketId?: string;
     readonly revalidate: () => Promise<AgentIdentity>;
   }> {
     const hash = hashAgentCredential(ticket);
@@ -70,6 +74,10 @@ export class AgentUploadTicketService {
       return identity;
     };
     await revalidate();
-    return { fileName: authority.fileName, revalidate };
+    return {
+      fileName: authority.fileName,
+      ticketId: authority.ticketId,
+      revalidate,
+    };
   }
 }

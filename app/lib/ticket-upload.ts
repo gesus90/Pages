@@ -3,7 +3,7 @@ import { isWikiAttachmentPath } from "@/app/lib/wiki-upload";
 import type { WorkItemAttachment } from "@/definition/Task";
 
 /** The address of a ticket attachment; only those show as images in tickets. */
-const TICKET_ATTACHMENT_PATH = /^\/aufgaben\/attachments\/[\w-]+(?:\?.*)?$/;
+const TICKET_ATTACHMENT_PATH = /^\/aufgaben\/attachments\/[\w-]+(?:[?#].*)?$/;
 
 /**
  * Tells whether an image address belongs to a ticket attachment of this

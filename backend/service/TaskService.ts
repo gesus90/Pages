@@ -17,6 +17,7 @@ import { TaskWriteService } from "@/backend/service/task/TaskWriteService";
 import { WorkItemNumbering } from "@/backend/service/task/WorkItemNumbering";
 import { WorkItemReferenceValidator } from "@/backend/service/task/WorkItemReferenceValidator";
 
+import type { TaskDescriptionAssetService } from "./task/TaskDescriptionAssetService";
 import type { PermissionService } from "@/backend/auth/PermissionService";
 import type {
   FindWorkItemsOptions,
@@ -206,6 +207,11 @@ export class TaskService {
    */
   public setAttachmentFiles(files: AttachmentFileRemover): void {
     this.attachmentFiles = files;
+  }
+
+  /** Applies the shared file policy to create, edit and patch operations. */
+  public setDescriptionAssets(service: TaskDescriptionAssetService): void {
+    this.writer.setDescriptionAssets(service);
   }
 
   /** Returns all available workflow statuses. */

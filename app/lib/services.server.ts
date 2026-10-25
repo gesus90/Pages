@@ -1,5 +1,6 @@
 import path from "node:path";
 
+import { TicketAssetAuditService } from "@/backend/service/task/TicketAssetAuditService";
 import { registerShutdownTask } from "@/backend/runtime/ProcessLifecycle";
 import { AuthService } from "@/backend/auth/AuthService";
 import { LoginThrottle } from "@/backend/auth/LoginThrottle";
@@ -34,11 +35,13 @@ import { PagesEventPublisher } from "@/backend/service/events/PagesEventPublishe
 import { TaskGitHubPublisher } from "@/backend/service/task/TaskGitHubPublisher";
 import { TaskHistoryRecorder } from "@/backend/service/task/TaskHistoryRecorder";
 import { TaskTemplateService } from "@/backend/service/TaskTemplateService";
+import { TaskDescriptionAssetService } from "@/backend/service/task/TaskDescriptionAssetService";
 import { TaskAttachmentService } from "@/backend/service/task/TaskAttachmentService";
 import { TicketTreeService } from "@/backend/service/task/TicketTreeService";
 import { UserService } from "@/backend/service/UserService";
 import { WikiMaintenanceScheduler } from "@/backend/service/wiki/WikiMaintenanceScheduler";
 import { WikiService } from "@/backend/service/WikiService";
+import { TicketFileStore } from "@/backend/storage/TicketFileStore";
 import { WikiFileStore } from "@/backend/storage/WikiFileStore";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 import { SetupService } from "@/backend/setup/SetupService";
@@ -103,6 +106,7 @@ export interface ApplicationServices
   readonly taskService: TaskService;
   readonly taskTemplateService: TaskTemplateService;
   readonly taskAttachmentService: TaskAttachmentService;
+  readonly ticketAssetAuditService: TicketAssetAuditService;
   readonly ticketTreeService: TicketTreeService;
   readonly wikiService: WikiService;
   readonly gitHubSyncService: GitHubSyncService;
@@ -523,6 +527,7 @@ function createTaskServices(
   | "gitHubSyncService"
   | "pagesEventPublisher"
   | "taskAttachmentService"
+  | "ticketAssetAuditService"
   | "taskService"
   | "taskTemplateService"
   | "ticketTreeService"
@@ -593,21 +598,29 @@ function createTicketServices(
   databasePath: string,
   taskService: TaskService,
   wikiService: WikiService,
-): Pick<ApplicationServices, "taskAttachmentService" | "ticketTreeService"> {
+): Pick<
+  ApplicationServices,
+  "taskAttachmentService" | "ticketTreeService" | "ticketAssetAuditService"
+> {
   const taskAttachmentService = new TaskAttachmentService(
     new WorkItemAttachmentRepository(database),
     taskService,
     wikiService,
-    new WikiFileStore(
-      path.join(path.dirname(databasePath), "ticket-attachments"),
-    ),
+    new TicketFileStore(path.dirname(databasePath)),
   );
 
   taskService.setAttachmentFiles(taskAttachmentService);
+  taskService.setDescriptionAssets(
+    new TaskDescriptionAssetService(database, path.dirname(databasePath)),
+  );
   void sweepTicketAttachments(taskAttachmentService);
 
   return {
     taskAttachmentService,
+    ticketAssetAuditService: new TicketAssetAuditService(
+      database,
+      path.dirname(databasePath),
+    ),
     ticketTreeService: new TicketTreeService(
       new WorkItemTreeRepository(database),
       taskService,

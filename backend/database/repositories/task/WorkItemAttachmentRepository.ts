@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import { WorkItemNotFoundError } from "@/backend/error/WorkItemErrors";
 import {
   readCountColumn,
   readNullableTextColumn,
@@ -8,7 +9,10 @@ import {
 
 import { createInClause } from "./InClause";
 
-import type { Database, DatabaseValue } from "@/backend/database/Database";
+import type {
+  DatabaseTransaction,
+  DatabaseValue,
+} from "@/backend/database/Database";
 
 /** Values of a ticket attachment that is stored. */
 export interface NewWorkItemAttachment {
@@ -63,14 +67,14 @@ function readAttachment(
 
 /** Owns the metadata of files attached to tickets; the files lie on disk. */
 export class WorkItemAttachmentRepository {
-  private readonly database: Database;
+  private readonly database: DatabaseTransaction;
 
   /**
    * Creates the repository.
    *
    * @param database - Central database access.
    */
-  public constructor(database: Database) {
+  public constructor(database: DatabaseTransaction) {
     this.database = database;
   }
 
@@ -78,13 +82,16 @@ export class WorkItemAttachmentRepository {
    * Stores the metadata of an attached file.
    *
    * @param attachment - What the server knows about the file.
+   * @param id - Immutable attachment identifier, also used in the storage filename.
+   * @param options - Direct uploads must still have an active ticket when metadata is inserted.
    * @returns The identifier and the creation time of the attachment.
    */
   public async insert(
     attachment: NewWorkItemAttachment,
+    id: string = randomUUID(),
+    options: { readonly requiresActiveTicket?: boolean } = {},
   ): Promise<{ readonly id: string; readonly createdAt: string }> {
-    const id = randomUUID();
-    const [row = []] = await this.database.query(
+    const [row] = await this.database.query(
       `
         INSERT INTO work_item_attachments (
             id,
@@ -97,7 +104,7 @@ export class WorkItemAttachmentRepository {
             storage_name,
             uploaded_by
         )
-        VALUES (
+        SELECT
             $id,
             $work_item_id,
             $file_name,
@@ -107,10 +114,17 @@ export class WorkItemAttachmentRepository {
             $checksum,
             $storage_name,
             $uploaded_by
-        )
+        WHERE $requires_active_ticket = 0
+            OR EXISTS (
+                SELECT id
+                FROM work_items
+                WHERE id = $work_item_id
+                    AND archived_at IS NULL
+            )
         RETURNING created_at;
       `,
       {
+        requires_active_ticket: options.requiresActiveTicket ? 1 : 0,
         checksum: attachment.checksum,
         content_type: attachment.contentType,
         file_name: attachment.fileName,
@@ -123,7 +137,44 @@ export class WorkItemAttachmentRepository {
       },
     );
 
+    if (!row) throw new WorkItemNotFoundError();
     return { createdAt: readTextColumn(row, 0, "created_at"), id };
+  }
+
+  /** Lists every attachment for the offline migration and the read-only inventory. */
+  public async listAll(): Promise<StoredWorkItemAttachment[]> {
+    const rows = await this.database.query(`
+      SELECT ${COLUMNS}
+      FROM work_item_attachments AS attachment
+      LEFT JOIN users AS uploader
+          ON uploader.id = attachment.uploaded_by
+      ORDER BY attachment.id;
+    `);
+    return rows.map(readAttachment);
+  }
+
+  /** Updates only storage facts after the migration verified the unchanged bytes. */
+  public async updateStorage(
+    attachment: Pick<
+      StoredWorkItemAttachment,
+      "id" | "storageName" | "contentType" | "kind"
+    >,
+  ): Promise<void> {
+    await this.database.execute(
+      `
+      UPDATE work_item_attachments
+      SET storage_name = $storage_name,
+          content_type = $content_type,
+          kind = $kind
+      WHERE id = $id;
+    `,
+      {
+        id: attachment.id,
+        storage_name: attachment.storageName,
+        content_type: attachment.contentType,
+        kind: attachment.kind,
+      },
+    );
   }
 
   /**

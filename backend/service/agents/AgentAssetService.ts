@@ -26,6 +26,8 @@ export interface AgentAssetDependencies {
   readonly repository: AgentAssetRepository;
   readonly files: WikiFileStore;
   readonly wiki: Pick<WikiService, "getSettings" | "openAttachment">;
+  /** Complete ticket reference set; a failed read aborts cleanup. */
+  readonly referencedTicketUploads?: () => Promise<ReadonlySet<string>>;
 }
 
 /** Stages streamed uploads and expires only assets that were never linked. */
@@ -148,15 +150,29 @@ export class AgentAssetService {
 
   /** Retries failed expiry deletions and sweeps old interrupted uploads and promoted originals. */
   public async runMaintenance(): Promise<void> {
+    const referenced =
+      (await this.dependencies.referencedTicketUploads?.()) ??
+      new Set<string>();
+    const protectedNames = new Set<string>();
     for (const asset of await this.dependencies.repository.expired(
       Date.now(),
     )) {
+      if (referenced.has(asset.id)) {
+        protectedNames.add(asset.storageName);
+        console.warn(
+          `[pages] Ticket asset inventory: referenced temporary upload ${asset.id} retained; review System settings > Ticket attachments.`,
+        );
+        continue;
+      }
       await this.dependencies.repository.markExpired(asset.id);
       await this.dependencies.files.remove([asset.storageName]);
       await this.dependencies.repository.remove(asset.id);
     }
     await this.dependencies.files.sweep(
-      new Set(await this.dependencies.repository.stagedStorageNames()),
+      new Set([
+        ...(await this.dependencies.repository.stagedStorageNames()),
+        ...protectedNames,
+      ]),
       3_600_000,
     );
   }

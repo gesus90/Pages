@@ -3,6 +3,7 @@ import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
 
 import { readAgentWikiCreate } from "./AgentWikiCreateValidation";
 
+import type { AgentTicketUploadService } from "./AgentTicketUploadService";
 import type { AgentUploadTicketService } from "./AgentUploadTicketService";
 import type { AgentAssetService } from "./AgentAssetService";
 import type { AgentWikiCreateService } from "./AgentWikiCreateService";
@@ -16,6 +17,7 @@ export interface AgentWriteDependencies {
   readonly users: Pick<UserService, "getById">;
   readonly tickets: AgentUploadTicketService;
   readonly assets: AgentAssetService;
+  readonly ticketUploads?: AgentTicketUploadService;
   readonly create: AgentWikiCreateService;
   readonly wiki: Pick<WikiService, "getSettings">;
 }
@@ -44,18 +46,35 @@ export class AgentWriteOperationService {
       throw new AgentOperationError("FORBIDDEN");
     const request = parameters(input);
     if (
-      Object.keys(request).length !== 1 ||
-      typeof request.fileName !== "string"
+      Object.keys(request).some(
+        (key) => !["fileName", "ticketId"].includes(key),
+      ) ||
+      typeof request.fileName !== "string" ||
+      (request.ticketId !== undefined &&
+        (typeof request.ticketId !== "string" ||
+          !/^[0-9a-f-]{36}$/i.test(request.ticketId)))
     )
       throw new AgentOperationError("INVALID_REQUEST");
     const fileName = this.dependencies.assets.validateFileName(
       request.fileName,
     );
+    const ticketId =
+      typeof request.ticketId === "string" ? request.ticketId : undefined;
+    if (ticketId) {
+      if (!this.dependencies.ticketUploads)
+        throw new AgentOperationError("INVALID_REQUEST");
+      await this.dependencies.ticketUploads.authorize(identity, ticketId);
+    }
     const limits = await this.dependencies.wiki.getSettings();
     return {
       apiVersion: "1",
       result: {
-        ...this.dependencies.tickets.issue(token, identity.userId, fileName),
+        ...this.dependencies.tickets.issue(
+          token,
+          identity.userId,
+          fileName,
+          ticketId,
+        ),
         header: "X-Pages-Upload-Ticket",
         uploadPath: "/api/v1/agent-assets",
         mediaLimitBytes: limits.mediaLimitBytes,

@@ -710,7 +710,8 @@ provider failures use a fixed diagnostic.
 
 ### Assets and single-page creation
 
-`prepare_asset_upload` calls `assets.upload.prepare` with `{fileName}`. It returns
+`prepare_asset_upload` calls `assets.upload.prepare` with `{fileName}` or, for an
+existing ticket, `{fileName, ticketId}` (the immutable ticket UUID). It returns
 `{ticket, header:"X-Pages-Upload-Ticket", uploadPath:"/api/v1/agent-assets", expiresAt,
 mediaLimitBytes, fileLimitBytes}`. POST the raw bytes to that path on the configured
 Pages instance, preserving any deployment prefix. Send the ticket only in the
@@ -730,6 +731,28 @@ linked assets follow the page visibility. Raster images can be inline; other typ
 including PDF, SVG and HTML, download as `application/octet-stream` with sandbox and
 nosniff. Unlinked assets become unusable after 24 hours. Cleanup runs at startup and
 hourly, retries failed deletions and preserves linked assets.
+
+For ticket-bound uploads the binary response is already permanent:
+`link` is `/aufgaben/attachments/<id>` and `expiresAt` is `null`. The bytes and
+attachment metadata belong to the ticket immediately, with its existing write
+and visibility rules. There is no generic staged copy. Without `ticketId`,
+saving your unexpired staged upload in a ticket description atomically promotes
+it and rewrites the saved destination to the ticket attachment link. Missing,
+expired or another person's upload rejects the complete save. External image
+URLs, local image paths and `file:` addresses are rejected with a reason asking
+for a ticket upload; ordinary web hyperlinks remain supported. Reference-style
+Markdown is supported and surrounding text/code is preserved. Pica and Agent-API
+ticket writes share that policy. Referenced legacy uploads are protected from
+expiry and reported in Settings → System → Check ticket attachments. See
+[Ticket attachments](../docs/TicketAssets.md) for storage, migration and rollback.
+
+Ticket description rejections use `INVALID_REQUEST` with
+`details.reason: ticket_attachment_upload_required` for an image outside the
+attachment store, `ticket_attachment_upload_unavailable` for an unavailable,
+expired or foreign staged upload, and `ticket_attachment_unavailable` for a
+missing or unreadable attachment. Upload the file to the destination ticket
+and save the permanent link. These fixed reasons pass through the MCP business
+error whitelist on both transports.
 
 `create_wiki_page` calls `wiki.page.create` with all fields explicit:
 `{operationId,projectId,parentId,title,content,icon,assetIds}`. Use `parentId:null`

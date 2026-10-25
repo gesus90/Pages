@@ -288,6 +288,26 @@
     }
   },
   "settings": {
+    "ticketAssets": {
+      "title": "Check ticket attachments",
+      "description": "Checks saved tickets and attachment files. Reports missing images, temporary uploads and storage inconsistencies. Does not change or repair any data.",
+      "check": "Start inventory",
+      "checking": "Checking attachments …",
+      "summary": "{{tickets}} tickets · {{attachments}} attachments · {{findings}} findings",
+      "healthy": "No inconsistencies found.",
+      "reason": {
+        "temporaryUpload": "A temporary upload is referenced. Protected from expiry; upload it as a ticket attachment.",
+        "missingUploadFile": "Temporary upload file is missing or has a different size.",
+        "expiredUpload": "Referenced temporary upload has expired. Maintenance retains existing originals; upload it as a ticket attachment.",
+        "outsideTicketStorage": "Reference points to a wiki/agent file outside the ticket attachment store.",
+        "missingUpload": "Temporary upload is missing. The lost original cannot be restored.",
+        "externalImage": "Image is outside the ticket attachment store. Upload it as an attachment.",
+        "missingAttachment": "Attachment record is missing.",
+        "missingFile": "Attachment file is missing or its storage path is invalid.",
+        "legacyStorage": "Attachment is still in the old store. Offline migration is required.",
+        "checksumMismatch": "Size or checksum differs from the database record."
+      }
+    },
     "title": "Settings",
     "personal": {
       "title": "Personal area"
@@ -1835,6 +1855,9 @@
       "titleLength": "The title must be between 1 and 200 characters long.",
       "typeUnsupported": "This ticket type is not supported.",
       "githubNotConnected": "This project is not connected to GitHub.",
+      "attachmentUploadRequired": "Upload the image or file as a ticket attachment before saving. External image addresses and local file paths are not allowed.",
+      "attachmentUploadUnavailable": "The temporary upload has expired, is missing, is unavailable or belongs to another person. Upload it again as a ticket attachment.",
+      "attachmentUnavailable": "The ticket attachment is missing or not accessible. Upload the file to this ticket.",
       "attachmentFileEmpty": "The file is empty.",
       "attachmentFileNameTooLong": "The file name is too long.",
       "attachmentTooLarge": "The file is larger than allowed.",

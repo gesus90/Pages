@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 
+import { TaskDescriptionAssetService } from "@/backend/service/task/TaskDescriptionAssetService";
 import { AgentOperationKeyRepository } from "@/backend/database/repositories/agents/AgentOperationKeyRepository";
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import { TaskRepository } from "@/backend/database/repositories/TaskRepository";
@@ -76,13 +77,16 @@ function fingerprint(request: object): string {
 export class AgentTicketTransaction {
   private readonly database: Pick<Database, "transaction">;
   private readonly channel: AgentChannel;
+  private readonly directory: string | undefined;
 
   public constructor(
     database: Pick<Database, "transaction">,
     channel: AgentChannel = "mcp",
+    directory?: string,
   ) {
     this.database = database;
     this.channel = channel;
+    this.directory = directory;
   }
 
   /**
@@ -173,6 +177,10 @@ export class AgentTicketTransaction {
     if (!actor?.isActive || actor.mustChangePassword)
       throw new McpAuthorizationError("invalid_token", 401);
     const context = createAgentTaskContext(scope, actor, this.channel);
+    if (this.directory)
+      context.tasks.setDescriptionAssets(
+        new TaskDescriptionAssetService(scope, this.directory),
+      );
     // The write right is global, so refusing first reveals nothing about any object.
     if (
       run.needsWriteRight &&

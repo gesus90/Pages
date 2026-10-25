@@ -11,6 +11,14 @@ import {
   WORK_ITEM_PRIORITY,
 } from "@/definition/Task";
 
+import { validateTicketDescriptionSources } from "./TaskDescriptionAssetService";
+import {
+  ticketDescriptionAddress,
+  ticketDescriptionReferences,
+} from "./TicketDescriptionReferences";
+import type { TaskDescriptionAssetService } from "./TaskDescriptionAssetService";
+import type { WorkItemWriteRepository } from "@/backend/database/repositories/task/WorkItemWriteRepository";
+
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type {
   NewWorkItem,
@@ -150,6 +158,7 @@ export class TaskWriteService {
   private readonly gitHubPublisher: TaskGitHubPublisher;
   private readonly milestoneLinks: TaskMilestoneLinkService;
   private readonly cache: ServerCache;
+  private descriptionAssets: TaskDescriptionAssetService | null = null;
 
   /**
    * Creates a write service.
@@ -166,6 +175,11 @@ export class TaskWriteService {
     this.gitHubPublisher = dependencies.gitHubPublisher;
     this.milestoneLinks = dependencies.milestoneLinks;
     this.cache = dependencies.cache;
+  }
+
+  /** Attaches the storage policy used by all ticket-description writes. */
+  public setDescriptionAssets(service: TaskDescriptionAssetService): void {
+    this.descriptionAssets = service;
   }
 
   /** Creates a new work item after validating hierarchy and project constraints. */
@@ -291,29 +305,49 @@ export class TaskWriteService {
       );
     }
 
-    const isUpdated = await this.taskRepository.update(id, {
-      assigneeGroupId: values.assigneeGroupId,
-      assigneeId: values.assigneeId,
-      baseDescription: input.baseDescription ?? existing.description,
-      description: values.description,
-      dueAt: values.dueAt,
-      milestoneId: values.milestoneId,
-      parentId: values.parentId,
-      priority: values.priority,
-      reporterId: values.reporterId,
-      shouldPreserveDescription: input.description === undefined,
-      startAt: values.startAt,
-      statusId: values.newStatus.id,
-      title: values.title,
-    });
-
-    if (!isUpdated) {
-      throw new WorkItemValidationError("descriptionConflict");
+    const description =
+      input.description === undefined
+        ? values.description
+        : await this.persistDescription(
+            actor,
+            id,
+            values.description,
+            async (repository, rewritten) => {
+              const isUpdated = await repository.update(id, {
+                assigneeGroupId: values.assigneeGroupId,
+                assigneeId: values.assigneeId,
+                baseDescription: input.baseDescription ?? existing.description,
+                description: rewritten,
+                dueAt: values.dueAt,
+                milestoneId: values.milestoneId,
+                parentId: values.parentId,
+                priority: values.priority,
+                reporterId: values.reporterId,
+                shouldPreserveDescription: input.description === undefined,
+                startAt: values.startAt,
+                statusId: values.newStatus.id,
+                title: values.title,
+              });
+              if (!isUpdated)
+                throw new WorkItemValidationError("descriptionConflict");
+              return rewritten;
+            },
+          );
+    if (input.description === undefined) {
+      const isUpdated = await this.taskRepository.update(id, {
+        ...values,
+        statusId: values.newStatus.id,
+        shouldPreserveDescription: true,
+      });
+      if (!isUpdated) throw new WorkItemValidationError("descriptionConflict");
     }
 
     this.cache.invalidateWorkItems();
 
-    await this.history.recordUpdate(actor, original, values);
+    await this.history.recordUpdate(actor, original, {
+      ...values,
+      description,
+    });
 
     const updated = await this.requireStored(
       id,
@@ -347,31 +381,36 @@ export class TaskWriteService {
     change: DescriptionChange,
   ): Promise<WorkItemDetail> {
     const existing = await this.access.requireWritableWorkItem(actor, id);
-    const description = change.isVerbatim
+    const proposed = change.isVerbatim
       ? change.description
       : change.description.trim();
 
     assertActive(existing);
-    validateDescription(description);
+    validateDescription(proposed);
     assertDescriptionCurrent(
       existing.description,
       change.baseDescription,
-      description,
+      proposed,
     );
 
-    if (description === existing.description) {
-      return existing;
-    }
-
-    const isUpdated = await this.taskRepository.updateDescription(
+    const description = await this.persistDescription(
+      actor,
       id,
-      description,
-      change.baseDescription,
+      proposed,
+      async (repository, rewritten) => {
+        if (rewritten === existing.description) return rewritten;
+        if (
+          !(await repository.updateDescription(
+            id,
+            rewritten,
+            change.baseDescription,
+          ))
+        )
+          throw new WorkItemValidationError("descriptionConflict");
+        return rewritten;
+      },
     );
-
-    if (!isUpdated) {
-      throw new WorkItemValidationError("descriptionConflict");
-    }
+    if (description === existing.description) return existing;
 
     this.cache.invalidateWorkItems();
     await this.history.recordDescriptionChanged(actor, existing, description);
@@ -558,17 +597,60 @@ export class TaskWriteService {
     return this.numbering.run(project, 1, async (sequence) => {
       const id = randomUUID();
 
-      await this.taskRepository.insert({
-        ...draft,
-        createdBy: actor.id,
+      await this.persistDescription(
+        actor,
         id,
-        key: `${sequence.projectKey}-${sequence.firstNumber}`,
-        number: sequence.firstNumber,
-        sortOrder: sequence.firstNumber,
-      });
+        draft.description,
+        async (repository, description) => {
+          await repository.insert({
+            ...draft,
+            description,
+            createdBy: actor.id,
+            id,
+            key: `${sequence.projectKey}-${sequence.firstNumber}`,
+            number: sequence.firstNumber,
+            sortOrder: sequence.firstNumber,
+          });
+        },
+      );
 
       return id;
     });
+  }
+
+  private async persistDescription<Result>(
+    actor: User,
+    ticketId: string,
+    description: string,
+    work: (
+      repository: Pick<
+        WorkItemWriteRepository,
+        "insert" | "update" | "updateDescription"
+      >,
+      rewritten: string,
+    ) => Promise<Result>,
+  ): Promise<Result> {
+    if (this.descriptionAssets)
+      return this.descriptionAssets.save(
+        {
+          actor,
+          ticketId,
+          description,
+          authorizeTicket: async (id) => {
+            await this.access.requireWorkItem(actor, id);
+          },
+        },
+        work,
+      );
+    validateTicketDescriptionSources(description);
+    if (
+      ticketDescriptionReferences(description).some(
+        (reference) =>
+          ticketDescriptionAddress(reference.url)?.source === "agent",
+      )
+    )
+      throw new WorkItemValidationError("attachmentUploadUnavailable");
+    return work(this.taskRepository, description);
   }
 
   private async requireStored(

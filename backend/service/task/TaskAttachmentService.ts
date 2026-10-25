@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import {
   WorkItemAccessDeniedError,
   WorkItemNotFoundError,
@@ -19,7 +21,7 @@ import type {
 } from "@/backend/database/repositories/task/WorkItemAttachmentRepository";
 import type { UploadedFile } from "@/backend/service/wiki/WikiAttachmentService";
 import type { DetectedFileType } from "@/backend/service/wiki/WikiFileTypes";
-import type { WikiFileStore } from "@/backend/storage/WikiFileStore";
+import type { TicketFileStore } from "@/backend/storage/TicketFileStore";
 import type {
   TaskActionPermissions,
   WorkItemAttachment,
@@ -79,7 +81,7 @@ export class TaskAttachmentService {
   private readonly repository: WorkItemAttachmentRepository;
   private readonly tickets: TicketAccess;
   private readonly limits: UploadLimitSource;
-  private readonly files: WikiFileStore;
+  private readonly files: TicketFileStore;
 
   /**
    * Creates the service.
@@ -93,7 +95,7 @@ export class TaskAttachmentService {
     repository: WorkItemAttachmentRepository,
     tickets: TicketAccess,
     limits: UploadLimitSource,
-    files: WikiFileStore,
+    files: TicketFileStore,
   ) {
     this.repository = repository;
     this.tickets = tickets;
@@ -107,6 +109,7 @@ export class TaskAttachmentService {
    * @param actor - The person uploading; needs the right to change the ticket.
    * @param workItemId - Ticket identifier.
    * @param file - The upload.
+   * @param revalidate - Optional originating credential check after streaming.
    * @returns The attachment.
    * @throws {WorkItemNotFoundError} When the ticket is missing or hidden.
    * @throws {WorkItemAccessDeniedError} Without the right to change tickets.
@@ -117,6 +120,7 @@ export class TaskAttachmentService {
     actor: User,
     workItemId: string,
     file: UploadedFile,
+    revalidate?: () => Promise<void>,
   ): Promise<WorkItemAttachment> {
     const ticket = await this.requireWritable(actor, workItemId);
     const fileName = sanitizeFileName(file.fileName);
@@ -136,8 +140,9 @@ export class TaskAttachmentService {
     }
 
     let type: DetectedFileType = detectFileType(Buffer.alloc(0));
+    const id = randomUUID();
     const stored = await this.files
-      .write(file.body, {
+      .write({ ticketId: ticket.id, attachmentId: id }, file.body, {
         absoluteLimit,
         limitFor: (head) => {
           type = detectFileType(head);
@@ -163,9 +168,9 @@ export class TaskAttachmentService {
 
     const draft = {
       checksum: stored.checksum,
-      contentType: type.contentType,
+      contentType: stored.type.contentType,
       fileName,
-      kind: type.kind,
+      kind: stored.type.kind,
       size: stored.size,
       storageName: stored.storageName,
       uploadedBy: actor.id,
@@ -173,7 +178,11 @@ export class TaskAttachmentService {
     };
 
     try {
-      const created = await this.repository.insert(draft);
+      await revalidate?.();
+      await this.requireWritable(actor, ticket.id);
+      const created = await this.repository.insert(draft, id, {
+        requiresActiveTicket: true,
+      });
 
       return toPublic({
         ...draft,
@@ -187,6 +196,11 @@ export class TaskAttachmentService {
 
       throw error;
     }
+  }
+
+  /** Checks the destination before issuing a ticket-bound upload capability. */
+  public async authorizeUpload(actor: User, workItemId: string): Promise<void> {
+    await this.requireWritable(actor, workItemId);
   }
 
   /**
@@ -219,6 +233,13 @@ export class TaskAttachmentService {
     const stored = await this.requireStored(id);
 
     await this.tickets.getById(actor, stored.workItemId);
+
+    try {
+      await this.files.requireFile(stored.storageName);
+    } catch (error: unknown) {
+      logCaughtError("TaskAttachmentService", error);
+      throw new WorkItemNotFoundError();
+    }
 
     return {
       attachment: toPublic(stored),

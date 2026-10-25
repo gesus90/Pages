@@ -1,5 +1,6 @@
 import path from "node:path";
 
+import { TicketFileStore } from "@/backend/storage/TicketFileStore";
 import { WikiFileStore } from "@/backend/storage/WikiFileStore";
 
 import type { ProjectDeletionFiles } from "@/backend/database/repositories/project/ProjectDeletionFiles";
@@ -23,7 +24,7 @@ export interface ProjectRunControl {
 export class ProjectDeletionStorage implements ProjectDeletionEffects {
   private readonly runs: ProjectRunControl;
   private readonly wikiFiles: WikiFileStore;
-  private readonly ticketFiles: WikiFileStore;
+  private readonly ticketFiles: TicketFileStore;
 
   /**
    * Creates the effects.
@@ -36,9 +37,7 @@ export class ProjectDeletionStorage implements ProjectDeletionEffects {
     this.wikiFiles = new WikiFileStore(
       path.join(directory, "wiki-attachments"),
     );
-    this.ticketFiles = new WikiFileStore(
-      path.join(directory, "ticket-attachments"),
-    );
+    this.ticketFiles = new TicketFileStore(directory);
   }
 
   /** Stops the plan runs of the project and waits until they have closed. */

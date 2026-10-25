@@ -20,6 +20,8 @@ export interface AgentPlanningDependencies extends AgentTicketAnnouncerDependenc
   readonly users: Pick<UserService, "getById">;
   /** The agent surface the operations run for; MCP when absent. */
   readonly channel?: AgentChannel;
+  /** Pages data directory for permanent ticket assets. */
+  readonly directory?: string;
 }
 
 /** The ticket and milestone operations of agents, ready to be dispatched. */
@@ -54,6 +56,7 @@ export function createAgentPlanningServices(
     transaction: new AgentTicketTransaction(
       dependencies.database,
       dependencies.channel,
+      dependencies.directory,
     ),
     announcer: new AgentTicketAnnouncer(dependencies),
   };

@@ -83,6 +83,10 @@ const CREATE_MIGRATIONS_TABLE = `
 
 /** Statement access that is bound to one open transaction. */
 export interface DatabaseTransaction {
+  /** Schedules a file effect only after the outermost transaction committed. */
+  readonly onCommit?: (effect: () => Promise<void>) => void;
+  /** Restores prepared files when the outermost transaction rolls back. */
+  readonly onRollback?: (effect: () => Promise<void>) => void;
   /** Runs a statement without returning rows. */
   execute(statement: string, parameters?: SqlParameters): Promise<void>;
   /** Runs a query and returns its rows as positional column values. */
@@ -366,9 +370,17 @@ async function runInTransaction<Result>(
 ): Promise<Result> {
   return withDatabaseLogMetrics(async (metrics) => {
     await runStatement(connection, "BEGIN TRANSACTION;", {});
+    const commitEffects: (() => Promise<void>)[] = [];
+    const rollbackEffects: (() => Promise<void>)[] = [];
 
     try {
       const result = await work({
+        onCommit: (effect) => {
+          commitEffects.push(effect);
+        },
+        onRollback: (effect) => {
+          rollbackEffects.push(effect);
+        },
         execute: (statement, parameters = {}) =>
           runStatement(connection, statement, parameters),
         query: (statement, parameters = {}) =>
@@ -376,6 +388,7 @@ async function runInTransaction<Result>(
       });
 
       await runStatement(connection, "COMMIT;", {});
+      await finishFileEffects(commitEffects);
       const hasParent = recordDatabaseTransaction("committed");
       const summary = metrics.finish();
       if (!hasParent)
@@ -392,6 +405,7 @@ async function runInTransaction<Result>(
       logCaughtError("Database", error);
 
       await runStatement(connection, "ROLLBACK;", {});
+      await finishFileEffects(rollbackEffects.reverse());
       recordDatabaseTransaction("rolled_back");
       logEvent({
         level: "warn",
@@ -405,6 +419,19 @@ async function runInTransaction<Result>(
       throw error;
     }
   });
+}
+
+async function finishFileEffects(
+  effects: readonly (() => Promise<void>)[],
+): Promise<void> {
+  for (const effect of effects) {
+    try {
+      await effect();
+    } catch (error: unknown) {
+      // A completed commit cannot be undone by a failed file cleanup; maintenance retries leftovers.
+      logCaughtError("DatabaseFileEffects", error);
+    }
+  }
 }
 
 /** Text DuckDB reports for every statement once a fatal error invalidated the open database. */

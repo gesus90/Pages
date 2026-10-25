@@ -277,6 +277,9 @@ export interface AgentRevisionConflict {
  * checklist at the revision that was read).
  */
 export const AGENT_REJECTION_REASONS = [
+  "ticket_attachment_upload_required",
+  "ticket_attachment_upload_unavailable",
+  "ticket_attachment_unavailable",
   "operation_retired",
   "model_unavailable",
   "reasoning_unsupported",

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 
 import { isWikiPath, toOwnPath } from "@/app/lib/markdown-links";
+import { isTicketAttachmentPath } from "@/app/lib/ticket-upload";
 import {
   readWikiPageId,
   requestWikiLinkTitle,
@@ -82,6 +83,7 @@ function InAppLink({
     <Link
       className={LINK_CLASS}
       data-link-kind={isWiki ? "wiki" : "internal"}
+      reloadDocument={isTicketAttachmentPath(path)}
       title={pageTitle ?? undefined}
       to={path}
     >

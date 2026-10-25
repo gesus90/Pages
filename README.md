@@ -2133,10 +2133,14 @@ trustedProxies = ["127.0.0.1", "::1"] # addresses or ranges such as "172.18.0.0/
     ├── pages.duckdb          database
     ├── github-token.key      instance key, unless PAGES_GITHUB_TOKEN_KEY is set
     ├── wiki-attachments/     wiki attachments
-    ├── ticket-attachments/   ticket attachments
+    ├── assets/               ticket attachments: <ticket-uuid>/<attachment-uuid>.<extension>
+    ├── ticket-attachments/   legacy ticket files until the offline migration
     ├── themes/               design themes, one directory each (optional)
     └── agents/               isolated logins of CLI model connections
 ```
+
+Ticket upload, inventory, backup and the verified offline migration of existing
+attachments are described in [Ticket attachments](docs/TicketAssets.md).
 
 `Agents/` sits next to `config.toml`. The key file and the folders below
 `data/` always sit next to the database file, wherever `databasePath` points.
