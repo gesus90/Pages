@@ -20,6 +20,63 @@ export function isOpenCodeKeyProvider(
   return OPENCODE_KEY_PROVIDERS.some((provider) => provider === input);
 }
 
+/**
+ * API providers whose key in Pages OpenCode receives automatically, with the
+ * native OpenCode provider ID, in the order the provider choice lists them.
+ *
+ * @remarks
+ * The key stays stored once, with its API connection; an OpenCode process
+ * gets it only in its own environment and only for a model of that provider.
+ */
+export const OPENCODE_LINKED_PROVIDERS = {
+  zai: "zai",
+  google_ai_studio: "google",
+  openrouter: "openrouter",
+} as const;
+export type OpenCodeLinkedProvider = keyof typeof OPENCODE_LINKED_PROVIDERS;
+
+/**
+ * Whether OpenCode receives the key of one linked provider.
+ *
+ * @remarks
+ * `linked`: an active key whose access check passed; `auth_failed`: the
+ * check rejected the key; `unchecked`: no check result yet; `missing`: Pages
+ * holds no active key for the provider.
+ */
+export interface OpenCodeProviderLink {
+  readonly provider: OpenCodeLinkedProvider;
+  /** The native OpenCode provider ID, such as `google`. */
+  readonly modelProvider: string;
+  readonly state: "linked" | "auth_failed" | "unchecked" | "missing";
+  readonly connectionId: string | null;
+  readonly connectionName: string | null;
+}
+
+/** OpenCode's own provider, whose free models need no key. */
+export const OPENCODE_FREE_PROVIDER = "opencode";
+
+/** Whether OpenCode receives the key of this API provider. */
+export function isOpenCodeLinkedProvider(
+  provider: AgentProviderId,
+): provider is OpenCodeLinkedProvider {
+  return Object.hasOwn(OPENCODE_LINKED_PROVIDERS, provider);
+}
+
+/** The API provider whose key a native OpenCode provider uses, if Pages links one. */
+export function linkedApiProviderOf(
+  modelProvider: string,
+): OpenCodeLinkedProvider | null {
+  for (const [provider, native] of Object.entries(OPENCODE_LINKED_PROVIDERS))
+    if (native === modelProvider && isAgentProvider(provider))
+      return isOpenCodeLinkedProvider(provider) ? provider : null;
+  return null;
+}
+
+/** The native provider of a full OpenCode model ID such as `google/gemini-3.8-flash`. */
+export function openCodeModelProvider(model: string): string {
+  return model.split("/")[0] ?? "";
+}
+
 /** Where a connection runs, in the order a model choice lists them. */
 export const AGENT_CONNECTION_LOCATIONS = ["local", "remote"] as const;
 export type AgentConnectionLocation =
@@ -182,6 +239,8 @@ export interface AgentConnectionSummary {
   /** Who may use the models of this connection; administrators only receive it. */
   readonly scope: AgentConnectionScope;
   readonly cli: AgentCliState | null;
+  /** For an OpenCode connection: which Pages API keys it receives automatically. */
+  readonly openCodeLinks?: readonly OpenCodeProviderLink[];
   readonly checks: {
     readonly auth: AgentCheckSummary | null;
     readonly model: AgentCheckSummary | null;

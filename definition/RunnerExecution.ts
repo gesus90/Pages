@@ -1,7 +1,30 @@
 import { z } from "zod";
 
+import type { AgentProviderId } from "./AgentConnection";
+
 /** Existing remote command limit, checked before admission as well as at the runner boundary. */
 export const MAX_RUNNER_PROMPT_CHARACTERS = 100000;
+
+/** The command line tools a runner drives, with the provider of their plan nodes. */
+export const RUNNER_TOOL_PROVIDERS = {
+  codex: "codex_cli",
+  claude: "claude_code",
+  opencode: "opencode",
+} as const;
+
+/** One command line tool a runner drives. */
+export type RunnerCliTool = keyof typeof RUNNER_TOOL_PROVIDERS;
+
+/** The runner tool of a node provider; `null` for an API provider. */
+export function runnerToolFor(provider: AgentProviderId): RunnerCliTool | null {
+  for (const [tool, owner] of Object.entries(RUNNER_TOOL_PROVIDERS))
+    if (owner === provider && isRunnerCliTool(tool)) return tool;
+  return null;
+}
+
+function isRunnerCliTool(tool: string): tool is RunnerCliTool {
+  return Object.hasOwn(RUNNER_TOOL_PROVIDERS, tool);
+}
 
 /** A catalog selection is bound to one authorized workspace and provider revision. */
 export const runnerModelRouteSchema = z
@@ -9,8 +32,8 @@ export const runnerModelRouteSchema = z
     connectionId: z.string().uuid(),
     workspaceId: z.string().uuid(),
     catalogRevision: z.string().min(1).max(100),
-    /** Absent selects OpenRouter; CLI routes use only the remote person's login. */
-    tool: z.enum(["codex", "claude"]).optional(),
+    /** Absent selects OpenRouter; CLI routes use only the remote person's login or the host's own providers. */
+    tool: z.enum(["codex", "claude", "opencode"]).optional(),
   })
   .strict();
 export type RunnerModelRoute = z.infer<typeof runnerModelRouteSchema>;

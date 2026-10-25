@@ -19,12 +19,15 @@ import type { AgentCredentialStore } from "./AgentCredentialStore";
 import type { CliLoginAdapter, CliToolAdapter } from "./CliContracts";
 import type { CliLocator } from "./CliLocator";
 import type { CliProcessRunner } from "./CliProcessRunner";
+import type { OpenCodeLinkedKeys } from "./OpenCodeCredentials";
 
 import type { AgentToolManagerService } from "@/backend/service/agents/tools/AgentToolManagerService";
 
 interface RuntimeDependencies {
   readonly tools?: AgentToolManagerService;
   readonly cipher?: InstanceSecretCipher;
+  /** The keys of Pages API connections that OpenCode receives automatically. */
+  readonly linkedKeys?: OpenCodeLinkedKeys;
   readonly store: AgentCredentialStore;
   readonly locator: CliLocator;
   readonly runner: CliProcessRunner;
@@ -50,7 +53,11 @@ export class AgentCliRuntime {
       case "claude_code":
         return new ClaudeCodeCli(execution);
       case "opencode":
-        return new OpenCodeCli(execution, this.dependencies.cipher);
+        return new OpenCodeCli(
+          execution,
+          this.dependencies.cipher,
+          this.dependencies.linkedKeys,
+        );
     }
   }
 
@@ -72,6 +79,7 @@ export class AgentCliRuntime {
     return new OpenCodeCli(
       await this.execution("opencode"),
       this.dependencies.cipher,
+      this.dependencies.linkedKeys,
     );
   }
 

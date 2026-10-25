@@ -340,6 +340,13 @@ function readStoredAliases(entry: unknown): {
   return tokens.length > 0 ? { aliases: tokens } : {};
 }
 
+function readStoredToolCall(entry: unknown): {
+  readonly isToolCapable?: boolean;
+} {
+  const toolCall = readAgentObject(entry).tool_call;
+  return typeof toolCall === "boolean" ? { isToolCapable: toolCall } : {};
+}
+
 /**
  * Reads a persisted snapshot; snapshots from before A7 §21.3 have no reasoning data.
  *
@@ -356,6 +363,7 @@ export function parseStoredCatalog(
       ...readModel(entry, "openrouter"),
       ...readStoredReasoning(entry),
       ...readStoredAliases(entry),
+      ...readStoredToolCall(entry),
     };
     // Snapshots of the Claude CLI picker from before the version was part of the name keep their stored name.
     return { ...model, name: describeClaudeModel(model.id, model.name) };

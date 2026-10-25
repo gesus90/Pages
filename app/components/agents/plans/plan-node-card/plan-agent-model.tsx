@@ -18,6 +18,7 @@ import {
 } from "@/definition/AgentPlanConfiguration";
 
 import { usePlanFlowContext } from "../plan-flow-context";
+import { planModelDisplay } from "../plan-model-option";
 import { planStepWithModel } from "../plan-node-configuration-fields";
 import { PLAN_NODE_TEXT } from "../plan-node-text";
 import { PLAN_FIELD_CLASS } from "./plan-value-input";
@@ -169,6 +170,7 @@ function useModelOptions(input: {
   readonly label: string;
   readonly description: string;
   readonly disabled: boolean;
+  readonly icon: React.ReactNode;
 }[] {
   const { t } = useTranslation();
   const { sources } = usePlanFlowContext();
@@ -193,9 +195,10 @@ function useModelOptions(input: {
       input.savedAlias !== null && entry.id === input.model?.id
         ? ` · ${t("plans.savedAlias", { alias: input.savedAlias })}`
         : "";
+    const display = planModelDisplay(entry, t);
     return {
       value: entry.id,
-      label: entry.name,
+      label: display.label,
       description: refusal
         ? t(`plans.modelRefusal.${refusal}`, {
             runner,
@@ -203,8 +206,9 @@ function useModelOptions(input: {
               ? t(`settings.agents.providerShort.${adapter}`)
               : "",
           })
-        : `${runner} · ${entry.model}${alias}${limits ? ` · ${limits}` : ""}`,
+        : `${runner} · ${entry.model}${display.free}${alias}${limits ? ` · ${limits}` : ""}`,
       disabled: refusal !== null,
+      icon: display.icon,
     };
   });
 }

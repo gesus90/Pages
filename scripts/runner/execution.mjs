@@ -15,7 +15,7 @@ import {
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
-import { spawnCli, cliOutput } from "./cli.mjs";
+import { spawnCli, cliOutput, cliFailure } from "./cli.mjs";
 import { preparePagesFiles, pagesRequest, pagesFailure } from "./pages.mjs";
 
 const credentials =
@@ -416,11 +416,13 @@ async function processJob(command, folder, context) {
         command.outputBytes
     )
       result.reason = "output_limit";
+    const failureCode = isCli ? cliFailure(command, output) : undefined;
     return {
       ...result,
       ...(isCli && result.exitCode === 0 && !cliOutput(command, output)
         ? { exitCode: 1, reason: "exit" }
         : {}),
+      ...(failureCode ? { failureCode } : {}),
       output: safeOutput(isCli ? cliOutput(command, output) : output),
       stderr: safeOutput(diagnostic),
     };

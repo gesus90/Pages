@@ -19,7 +19,10 @@ import {
   isAcpPermissionMode,
   isAcpProvider,
 } from "@/definition/AgentConfiguration";
-import { isApiProvider } from "@/definition/AgentConnection";
+import {
+  isApiProvider,
+  openCodeModelProvider,
+} from "@/definition/AgentConnection";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import { CliPlanIsolation } from "./CliPlanIsolation";
@@ -391,7 +394,9 @@ export class CliSessionExecution implements PlanSessionRunner {
         readOnlyFiles: input.mcp ? [input.mcp.bundle] : [],
         environment: {
           ...launch.environment,
-          ...start.credentials?.environment,
+          ...start.credentials?.environmentFor(
+            openCodeModelProvider(input.agent.model),
+          ),
           ...github?.environment,
         },
         timeoutMs: input.options.timeoutMinutes * 60_000,
@@ -679,7 +684,9 @@ function validateSessionStatus(
     );
   if (
     provider === "opencode" &&
-    !input.agent.model.startsWith(`${status.credentials?.modelProvider}/`)
+    !status.credentials?.modelProviders.includes(
+      openCodeModelProvider(input.agent.model),
+    )
   )
     throw new AgentError("plan_model_unavailable");
 }

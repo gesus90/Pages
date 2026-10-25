@@ -3,7 +3,10 @@ import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
 
 import { PicaMascot } from "@/app/components/chat/pica-mascot";
-import { picaModelOptions } from "@/app/components/settings/agents/pica-model-options";
+import {
+  FREE_MODEL_TAG,
+  picaModelOptions,
+} from "@/app/components/settings/agents/pica-model-options";
 import { SettingsCard } from "@/app/components/settings/settings-layout";
 import { Button } from "@/app/components/ui/button";
 import { SearchableSelect } from "@/app/components/ui/searchable-select";
@@ -177,6 +180,9 @@ function PicaModelFields(props: PicaModelFieldsProps): React.ReactElement {
         onValueChange={props.onModel}
         disabled={props.disabled}
         className="border border-border"
+        filters={[
+          { tag: FREE_MODEL_TAG, label: t("settings.agents.freeBadge") },
+        ]}
         texts={{
           placeholder: t("picaSettings.chooseModel"),
           unavailable: t("pageAgents.missingModel"),

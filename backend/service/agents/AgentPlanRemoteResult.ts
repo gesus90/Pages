@@ -1,4 +1,5 @@
 import { agentRunOptionsFor } from "@/definition/AgentConfiguration";
+import { RUNNER_TOOL_PROVIDERS } from "@/definition/RunnerExecution";
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { readPlanNode } from "@/backend/agents/AgentPlanInput";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
@@ -40,7 +41,8 @@ function remoteAgentResult(
   const node = remote.step;
   const program = remote.command.program;
   if (node.type !== "agent" || program.kind !== "cli") return result;
-  const runner = program.route.tool === "codex" ? "codex_cli" : "claude_code";
+  if (!program.route.tool) return result;
+  const runner = RUNNER_TOOL_PROVIDERS[program.route.tool];
   const options = agentRunOptionsFor(runner, node.configuration?.template.run);
   const contract = buildPlanContract(node.instruction, [], {
     isReadOnly: options.access === "read_only",

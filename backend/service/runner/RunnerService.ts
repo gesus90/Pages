@@ -89,6 +89,7 @@ export class RunnerService {
   private readonly cliExecutors = new Set<string>();
   private readonly githubProbes = new Set<string>();
   private readonly pagesExecutors = new Set<string>();
+  private readonly openCodeExecutors = new Set<string>();
 
   public constructor(
     repository: RunnerRepository,
@@ -238,6 +239,9 @@ export class RunnerService {
         if (message.cliExecutorVersion === 1)
           this.cliExecutors.add(connectionId);
         else this.cliExecutors.delete(connectionId);
+        if (message.openCodeExecutorVersion === 1)
+          this.openCodeExecutors.add(connectionId);
+        else this.openCodeExecutors.delete(connectionId);
         if (message.executorVersion === 1)
           this.interpreters.set(connectionId, message.interpreters ?? []);
         else this.interpreters.delete(connectionId);
@@ -307,6 +311,7 @@ export class RunnerService {
     this.cliExecutors.delete(connectionId);
     this.githubProbes.delete(connectionId);
     this.pagesExecutors.delete(connectionId);
+    this.openCodeExecutors.delete(connectionId);
   }
 
   /**
@@ -386,6 +391,11 @@ export class RunnerService {
   /** Older runners retain text execution but cannot receive resource/Pages requests. */
   public supportsPagesAccess(connectionId: string): boolean {
     return this.pagesExecutors.has(connectionId);
+  }
+
+  /** Runners before 1.7.0 list OpenCode by version only and cannot run it over ACP. */
+  public supportsOpenCode(connectionId: string): boolean {
+    return this.openCodeExecutors.has(connectionId);
   }
 
   /** Resolves a live job from Pages' journal; a runner cannot choose another connection's attempt. */

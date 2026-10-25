@@ -60,6 +60,22 @@ export const runnerStateSchema = z.object({
 });
 export type RunnerState = z.infer<typeof runnerStateSchema>;
 
+/** The causes a runner may name for a failed OpenCode node, each a Pages agent error code. */
+export const REMOTE_OPENCODE_FAILURES = [
+  "provider_auth_failed",
+  "provider_quota_exhausted",
+  "provider_rate_limited",
+  "provider_model_not_found",
+  "provider_permission_denied",
+  "provider_unavailable",
+  "provider_unreachable",
+  "opencode_free_tier_refused",
+  "opencode_acp_unsupported",
+  "plan_model_unavailable",
+  "plan_reasoning_unsupported",
+  "opencode_acp_session_failed",
+] as const;
+
 /** Runner-to-Pages messages; every event is acknowledged only after durable storage. */
 export const runnerMessageSchema = z.discriminatedUnion("type", [
   z.object({
@@ -80,6 +96,8 @@ export const runnerMessageSchema = z.discriminatedUnion("type", [
     cliExecutorVersion: z.literal(1).optional(),
     githubAccessVersion: z.literal(1).optional(),
     pagesAccessVersion: z.literal(1).optional(),
+    /** Runner 1.7.0 reports OpenCode's catalog and runs OpenCode nodes over ACP. */
+    openCodeExecutorVersion: z.literal(1).optional(),
   }),
   z.object({
     version: z.literal(1),
@@ -92,6 +110,8 @@ export const runnerMessageSchema = z.discriminatedUnion("type", [
       .object({
         output: z.string().max(100_000).nullable(),
         resourceError: runnerResourceErrorSchema.optional(),
+        /** A stable cause the runner recognized in an OpenCode ACP failure; never provider text. */
+        failureCode: z.enum(REMOTE_OPENCODE_FAILURES).optional(),
         stderr: z.string().max(65536).optional(),
         closeout: z.enum(["confirmed", "pending", "failed"]),
         exitCode: z.number().int().nullable().optional(),

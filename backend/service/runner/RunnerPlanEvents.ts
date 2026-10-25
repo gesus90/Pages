@@ -107,7 +107,7 @@ function updatedStep(
     ...step,
     status,
     output: output === null ? null : sanitizePlanOutput(output),
-    error: event?.result?.resourceError ?? runnerFailureCode(job),
+    error: event?.result?.resourceError ?? runnerFailureCode(job, input),
     ...(job.status === "interrupted"
       ? {
           cancellation:
@@ -155,10 +155,11 @@ function remoteResult(
   };
 }
 
-function runnerFailureCode(job: RunnerJob): string | null {
+function runnerFailureCode(job: RunnerJob, input: EventInput): string | null {
   if (job.status === "lost") return "plan_runner_lost";
   if (job.status === "interrupted") return "plan_interrupted";
-  return job.status === "failed" ? "plan_runner_failed" : null;
+  if (job.status !== "failed") return null;
+  return input.event?.result?.failureCode ?? "plan_runner_failed";
 }
 
 function updatedRun(

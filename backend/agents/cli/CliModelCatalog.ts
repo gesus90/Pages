@@ -8,6 +8,7 @@ import {
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { isModelAliasToken } from "@/definition/AgentModelCatalog";
+import { isChatModel } from "@/definition/AgentModelFilter";
 import { describeClaudeModel } from "@/definition/AgentModelVersion";
 
 import type { AgentCatalogModel } from "@/definition/AgentModelCatalog";
@@ -235,7 +236,20 @@ function readOpenCodeModel(
       : reasoningWithoutLevels(
           capabilities.reasoning === true ? "automatic" : "none",
         )),
+    ...(typeof capabilities.toolcall === "boolean"
+      ? { isToolCapable: capabilities.toolcall }
+      : {}),
   };
+}
+
+// The global model filter decides by OpenCode's own statements alone.
+function isListedOpenCodeModel(entry: Record<string, unknown>): boolean {
+  const capabilities = readAgentObject(entry.capabilities);
+  return isChatModel({
+    status: entry.status,
+    output: capabilities.output,
+    toolCall: capabilities.toolcall,
+  });
 }
 
 /**
@@ -247,8 +261,10 @@ function readOpenCodeModel(
  * @throws {AgentError} `cli_unexpected_output` for anything but a model list.
  *
  * @remarks
- * Deprecated models and IDs Pages cannot store unchanged, such as aliases
- * with a `~` after the provider, are left out instead of failing the list.
+ * The global model filter leaves out models that are not active or that
+ * generate images, video or audio. IDs Pages cannot store unchanged, such as
+ * aliases with a `~` after the provider, are left out instead of failing the
+ * list.
  */
 export function readOpenCodeModels(
   stdout: string,
@@ -264,7 +280,7 @@ export function readOpenCodeModels(
 
       throw unexpected();
     }
-    if (!isCatalogModelId(match[1]) || entry.status === "deprecated") continue;
+    if (!isCatalogModelId(match[1]) || !isListedOpenCodeModel(entry)) continue;
     models.push(readOpenCodeModel(match[1], entry));
     if (models.length > MAXIMUM_OPENCODE_MODELS) throw unexpected();
   }

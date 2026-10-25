@@ -375,6 +375,11 @@ cat > "$pages_temporary" <<'PAGES'
 __PAGES_RUNNER_PAGES__
 PAGES
 mv -f -- "$pages_temporary" "$runner_directory/pages.mjs"
+opencode_temporary=$(mktemp "$runner_directory/.opencode.XXXXXX")
+cat > "$opencode_temporary" <<'OPENCODE'
+__PAGES_RUNNER_OPENCODE__
+OPENCODE
+mv -f -- "$opencode_temporary" "$runner_directory/opencode.mjs"
 github_temporary=$(mktemp "$runner_directory/.github.XXXXXX")
 cat > "$github_temporary" <<'GITHUB'
 __PAGES_RUNNER_GITHUB__

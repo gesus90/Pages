@@ -120,6 +120,32 @@ export const SETUP_TOOLS = ["codex", "claude", "opencode"] as const;
 /** One of the command line tools of the setup. */
 export type SetupTool = (typeof SETUP_TOOLS)[number];
 
+/** The output modalities OpenCode states for a model. */
+export const MODEL_MODALITIES = [
+  "text",
+  "image",
+  "video",
+  "audio",
+  "pdf",
+] as const;
+
+/**
+ * Why a runner judged the ACP contract of the installed OpenCode as it did.
+ *
+ * @remarks
+ * `exact_version`: the version Pages verified; `contract_matches`: another
+ * version whose handshake, agent identity and session selectors match;
+ * the rest name the part that differs or why no check was possible.
+ */
+export const OPENCODE_ACP_REASONS = [
+  "exact_version",
+  "contract_matches",
+  "agent_mismatch",
+  "protocol_mismatch",
+  "selectors_missing",
+  "probe_failed",
+] as const;
+
 /** A tool on the machine; a version the tool did not report stays `null`, never a placeholder. */
 export const toolInventorySchema = z.object({
   tool: z.enum(SETUP_TOOLS),
@@ -134,9 +160,26 @@ export const toolInventorySchema = z.object({
         id: z.string().regex(/^[a-zA-Z0-9/~_.:+-]{1,200}$/u),
         name: z.string().max(200),
         reasoningEfforts: z.array(z.string().max(40)).max(10),
+        /** OpenCode only: what it states about the model, for the global model filter. */
+        status: z.string().max(40).optional(),
+        outputs: z.array(z.enum(MODEL_MODALITIES)).max(5).optional(),
+        toolCall: z.boolean().optional(),
+        isFree: z.boolean().optional(),
       }),
     )
     .max(1000)
+    .optional(),
+  /** OpenCode only: the providers set up on the machine itself, such as `opencode` or `openrouter`. */
+  providers: z
+    .array(z.string().regex(/^[a-z0-9][a-z0-9_-]{0,99}$/u))
+    .max(100)
+    .optional(),
+  /** OpenCode only: the ACP contract check of the installed version. */
+  acp: z
+    .object({
+      status: z.enum(["verified", "compatible", "incompatible"]),
+      reason: z.enum(OPENCODE_ACP_REASONS),
+    })
     .optional(),
   version: z
     .string()

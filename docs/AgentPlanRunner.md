@@ -52,6 +52,8 @@ Die neue Programmart ist eine native Einzelsitzung über den vorhandenen dauerha
 
 Die bestehende Problemliste erhält Knotenbefunde für Werkzeug, Anmeldung, Katalog, Modellrevision, Runner-Verbindung, Identität, Workspace und Interpreter. Beim Plan-/Knotenzielwechsel blockiert ein lokales Script-Profil mit dem konkreten Interpreter-Hinweis, bis die Person ein Profil des Remote-Workspaces wählt. Die Modellauswahl erklärt auch leere Kataloge mit einem Link zur Synchronisation. Details und die getrennte GitHub-Schlüsselprüfung stehen in [PagesRunner.md](./PagesRunner.md#remote-cli-agenten-page-151-runner-140).
 
+Ab Runner 1.7.0 kommt OpenCode als dritter Remote-Werkzeugweg hinzu (PAGE-154). Der Runner führt ihn über ACP aus, mit den auf dem Remote-Host eingerichteten Providern; die Modellliste des Knotens stammt aus dem OpenCode-Inventar des Hosts und durchläuft den globalen Modellfilter. Die geprüfte OpenCode-Version, der ACP-Vertragscheck anderer Versionen und die Meldung „Runner aktualisieren“ für ältere Runner beschreibt [PagesRunner.md](./PagesRunner.md#opencode-über-acp-page-154-runner-170).
+
 Auch Remote-Fortsetzungen besitzen aktuelle Versuchsmetadaten im angehängten Snapshot. Bereits erfolgreiche Ergebnisse bleiben unverändert. Die Auswertung des CLI-Abschlussberichts erfolgt atomar mit dem Runner-Ereignis und dem unveränderlichen Erfolgscheckpoint; spätere Engine-Schreibvorgänge übernehmen diesen Remote-Session-Datensatz unverändert. Ein Stop vor dem dauerhaften Start-Claim wird als nicht gestartet abgebrochen.
 
 ## Remote-Ressourcen (PAGE-156)

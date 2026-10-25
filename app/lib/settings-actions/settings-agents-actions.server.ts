@@ -65,6 +65,8 @@ const AGENT_ACTION_HANDLERS: Readonly<Record<string, AgentActionHandler>> = {
       id,
       readActive(formData),
     );
+    await services.openCodeProviderLinks.afterKeyChange(actor, id);
+    await services.openCodeProviderLinks.activate(actor, id);
     return { ok: true, connectionId: id };
   },
   "save-pica": async ({ actor, services, formData }) => {
@@ -95,23 +97,27 @@ const AGENT_ACTION_HANDLERS: Readonly<Record<string, AgentActionHandler>> = {
   "delete-profile": retiredProfileAction,
   "profile-usages": retiredProfileAction,
   "delete-assignment": retiredProfileAction,
-  "create-connection": async ({ actor, services, formData }) => ({
-    ok: true,
-    connectionId: await services.agentConnectionService.create(
+  "create-connection": async ({ actor, services, formData }) => {
+    const connectionId = await services.agentConnectionService.create(
       actor,
-      readConnectionInput(formData),
-    ),
-  }),
-  "update-connection": async ({ actor, services, formData, id }) => {
-    await services.agentConnectionService.update(
-      actor,
-      id,
       readConnectionInput(formData),
     );
+    // A stored key reaches OpenCode, and a new OpenCode connection signs in, without a further step.
+    await services.openCodeProviderLinks.afterKeyChange(actor, connectionId);
+    await services.openCodeProviderLinks.activate(actor, connectionId);
+    return { ok: true, connectionId };
+  },
+  "update-connection": async ({ actor, services, formData, id }) => {
+    const input = readConnectionInput(formData);
+    await services.agentConnectionService.update(actor, id, input);
+    if (input.apiKey)
+      await services.openCodeProviderLinks.afterKeyChange(actor, id);
     return { ok: true, connectionId: id };
   },
   "delete-connection": async ({ actor, services, id }) => {
+    const isLinked = await services.openCodeProviderLinks.isLinkCandidate(id);
     await services.agentConnectionService.remove(actor, id);
+    if (isLinked) await services.openCodeProviderLinks.refresh();
     return { ok: true, connectionId: id };
   },
   "configure-catalog": async ({ actor, services, formData, id }) => {
@@ -130,10 +136,13 @@ const AGENT_ACTION_HANDLERS: Readonly<Record<string, AgentActionHandler>> = {
   "run-check": async ({ actor, services, formData, id }) => {
     const kind = formData.get("kind");
     if (kind !== "auth" && kind !== "model") throw badRequest();
-    return {
-      ok: true,
-      check: await services.agentCheckService.run(actor, id, kind),
-    };
+    const check = await services.agentCheckService.run(actor, id, kind);
+    if (
+      kind === "auth" &&
+      (await services.openCodeProviderLinks.isLinkCandidate(id))
+    )
+      await services.openCodeProviderLinks.refresh();
+    return { ok: true, check };
   },
   "start-login": async ({ actor, services, id }) => ({
     ok: true,
@@ -153,6 +162,8 @@ const AGENT_ACTION_HANDLERS: Readonly<Record<string, AgentActionHandler>> = {
   },
   "logout-cli": async ({ actor, services, id }) => {
     await services.agentCliLoginService.logout(actor, id);
+    // Without its own key an OpenCode connection keeps the free and the linked providers.
+    await services.openCodeProviderLinks.activate(actor, id);
     return { ok: true };
   },
   "store-cli-key": async ({ actor, services, formData, id }) => {

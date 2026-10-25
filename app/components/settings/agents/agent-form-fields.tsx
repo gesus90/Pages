@@ -5,12 +5,22 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Select } from "@/app/components/ui/select";
-import { AGENT_PROVIDERS, isAgentProvider } from "@/definition/AgentConnection";
+import {
+  AGENT_PROVIDERS,
+  isAgentProvider,
+  isApiProvider,
+  isOpenCodeLinkedProvider,
+  OPENCODE_LINKED_PROVIDERS,
+} from "@/definition/AgentConnection";
 import { supportsModelCatalog } from "@/definition/AgentModelCatalog";
 
 import { AgentScopeFields } from "./agent-scope-fields";
+import { ProviderIcon } from "./provider-icon";
 
-import type { AgentAccessKind } from "@/definition/AgentConnection";
+import type {
+  AgentAccessKind,
+  AgentProviderId,
+} from "@/definition/AgentConnection";
 import type { AgentProfileDirectory } from "@/definition/AgentProfile";
 import type { AgentModelAvailability } from "./use-model-availability";
 import type { AgentForm } from "./use-agent-form";
@@ -102,6 +112,17 @@ function AgentKeyField({
   );
 }
 
+// API keys list the providers OpenCode also runs first, in their fixed order.
+function providerOrder(kind: AgentAccessKind): readonly AgentProviderId[] {
+  const linked = Object.keys(OPENCODE_LINKED_PROVIDERS).filter(isAgentProvider);
+  return [
+    ...(kind === "api_key" ? linked : []),
+    ...Object.keys(AGENT_PROVIDERS)
+      .filter(isAgentProvider)
+      .filter((provider) => !linked.includes(provider)),
+  ].filter((provider) => AGENT_PROVIDERS[provider].accessKind === kind);
+}
+
 /** Renders editable metadata and an input-only credential field. */
 export function AgentFormFields({
   form,
@@ -120,19 +141,33 @@ export function AgentFormFields({
     form.error === "name_required" ||
     form.error === "name_too_long" ||
     form.error === "name_taken";
-  const options = Object.keys(AGENT_PROVIDERS)
-    .filter(isAgentProvider)
-    .filter((provider) => AGENT_PROVIDERS[provider].accessKind === kind)
-    .map((provider) => ({
-      value: provider,
-      label: t(AGENT_PROVIDERS[provider].labelKey),
-    }));
+  const options = providerOrder(kind).map((provider) => ({
+    value: provider,
+    label: t(AGENT_PROVIDERS[provider].labelKey),
+    icon: <ProviderIcon provider={AGENT_PROVIDERS[provider].vendor} />,
+    ...(isApiProvider(provider) && isOpenCodeLinkedProvider(provider)
+      ? { description: t("settings.agents.openCodeLinkedHint") }
+      : {}),
+  }));
   return (
     <fieldset disabled={form.isSaving} className="space-y-6">
       <section className="space-y-4">
         <h3 className="text-sm font-semibold">
           {t("settings.agents.general")}
         </h3>
+        <div className="space-y-2">
+          <label className="block text-sm font-medium" htmlFor="agent-provider">
+            {t("settings.agents.providerLabel")}
+          </label>
+          <Select
+            id="agent-provider"
+            value={form.fields.provider}
+            options={options}
+            onValueChange={(provider) => form.setField("provider", provider)}
+            disabled={isExisting || form.isSaving}
+            ariaLabel={t("settings.agents.providerLabel")}
+          />
+        </div>
         <div className="space-y-2">
           <label className="text-sm font-medium" htmlFor="agent-name">
             {t("settings.agents.name")}
@@ -151,19 +186,6 @@ export function AgentFormFields({
               {t(`settings.agents.error.${form.error}`)}
             </p>
           ) : null}
-        </div>
-        <div className="space-y-2">
-          <label className="block text-sm font-medium" htmlFor="agent-provider">
-            {t("settings.agents.providerLabel")}
-          </label>
-          <Select
-            id="agent-provider"
-            value={form.fields.provider}
-            options={options}
-            onValueChange={(provider) => form.setField("provider", provider)}
-            disabled={isExisting || form.isSaving}
-            ariaLabel={t("settings.agents.providerLabel")}
-          />
         </div>
         <p className="text-sm text-muted-foreground">
           {t("settings.agents.accessLabel")}:{" "}

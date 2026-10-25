@@ -12,6 +12,17 @@ export interface OpenCodeKeyInput {
   readonly apiKey: string;
 }
 
+/**
+ * The keys of API connections in Pages that OpenCode receives automatically.
+ *
+ * @remarks
+ * Each key stays stored once, with its API connection; it is read for the
+ * moment of a status, catalog or run and passed on only to the child process.
+ */
+export interface OpenCodeLinkedKeys {
+  read(): Promise<readonly OpenCodeKeyInput[]>;
+}
+
 /** Narrows the native API credential format before it can reach OpenCode. */
 export function readOpenCodeKey(content: string): OpenCodeKeyInput {
   try {

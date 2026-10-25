@@ -5,6 +5,9 @@ import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 
 /** Classifies native provider diagnostics without retaining their potentially sensitive contents. */
 export function classifyOpenCodeFailure(text: string): AgentErrorCode {
+  // Zen answers 403 with this type when its free tier is called from outside its own apps.
+  if (/FreeTierError|free tier can only be used/iu.test(text))
+    return "opencode_free_tier_refused";
   if (
     /\b401\b|invalid[ _-]?(?:api[ _-]?)?key|unauthori[sz]ed|authentication[ _-]?(?:error|required)|ProviderAuthError/iu.test(
       text,
@@ -59,6 +62,9 @@ export function openCodeToolFailure(
     output: update.rawOutput,
     content: update.content,
   });
+  // A call to a tool name that does not exist goes back to the model; it says nothing about the provider or model.
+  if (/NoSuchToolError|tried to call unavailable tool/iu.test(text))
+    return null;
   if (
     /\bFORBIDDEN\b|operation[^\n]{0,50}(?:not permitted|not allowed)/iu.test(
       text,

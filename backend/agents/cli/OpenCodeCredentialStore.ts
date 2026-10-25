@@ -12,6 +12,7 @@ import path from "node:path";
 
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
+import { OPENCODE_FREE_PROVIDER } from "@/definition/AgentConnection";
 
 import {
   openCodeCredentialFile,
@@ -58,6 +59,43 @@ async function readPrivateFile(file: string): Promise<string | null> {
   });
 }
 
+/**
+ * Combines OpenCode's free provider, the connection's own key and the keys
+ * Pages links, without letting a linked key replace the connection's own.
+ *
+ * @param own - The key stored with the connection, if any.
+ * @param linked - The keys of the linked API connections.
+ * @returns Process credentials that hand each child one provider's key only.
+ */
+export function openCodeCredentials(
+  own: OpenCodeKeyInput | null,
+  linked: readonly OpenCodeKeyInput[],
+): CliCredentialAccess {
+  const keys = new Map<string, string>();
+  for (const key of linked) keys.set(key.modelProvider, key.apiKey);
+  if (own !== null) keys.set(own.modelProvider, own.apiKey);
+  const secrets = [...keys.values()].flatMap((apiKey) => [
+    JSON.stringify(apiKey).slice(1, -1),
+    apiKey,
+  ]);
+  return {
+    modelProviders: [...new Set([OPENCODE_FREE_PROVIDER, ...keys.keys()])],
+    ownProvider: own?.modelProvider ?? null,
+    environmentFor: (modelProvider): Readonly<Record<string, string>> => {
+      const apiKey = keys.get(modelProvider);
+      if (apiKey === undefined) return {};
+      return {
+        OPENCODE_AUTH_CONTENT: nativeCredential({ modelProvider, apiKey }),
+      };
+    },
+    redact: (text) =>
+      secrets.reduce(
+        (redacted, secret) => redacted.replaceAll(secret, "[redacted]"),
+        text,
+      ),
+  };
+}
+
 /** Encrypts native credentials at rest and supplies them only to the isolated child environment. */
 export class OpenCodeCredentialStore {
   private readonly cipher: InstanceSecretCipher | undefined;
@@ -97,8 +135,13 @@ export class OpenCodeCredentialStore {
     await rm(openCodeCredentialFile(home), { force: true });
   }
 
-  /** Reads one provider without reinterpretation; legacy native files remain usable. */
-  public async access(home: CliHome): Promise<CliCredentialAccess> {
+  /**
+   * Reads the key stored with this connection, if it has one.
+   *
+   * @remarks
+   * One provider without reinterpretation; legacy native files remain usable.
+   */
+  public async readOwn(home: CliHome): Promise<OpenCodeKeyInput | null> {
     await requireOpenCodeCredentialDirectory(home);
     const encrypted = await readPrivateFile(encryptedFile(home));
     let content: string | null;
@@ -108,17 +151,7 @@ export class OpenCodeCredentialStore {
       if (!this.cipher) throw new AgentError("secret_unavailable");
       content = this.cipher.decrypt(path.basename(home.root), encrypted);
     }
-    if (content === null) throw new AgentError("cli_not_logged_in");
-    const input = readOpenCodeKey(content);
-    const escapedKey = JSON.stringify(input.apiKey).slice(1, -1);
-    return {
-      modelProvider: input.modelProvider,
-      environment: { OPENCODE_AUTH_CONTENT: nativeCredential(input) },
-      redact: (text) =>
-        text
-          .replaceAll(escapedKey, "[redacted]")
-          .replaceAll(input.apiKey, "[redacted]"),
-    };
+    return content === null ? null : readOpenCodeKey(content);
   }
 
   /** Removes both managed and legacy credentials without opening their contents. */

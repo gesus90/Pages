@@ -73,19 +73,31 @@ export async function loader({
         { access: "adminModeRequired" },
         { headers: AGENT_NO_STORE },
       );
-    const [connections, cliTools, catalogs, profileDirectory, pica, runners] =
-      await Promise.all([
-        services.agentConnectionService.list(actor),
-        services.agentCliLoginService.tools(actor),
-        services.agentCatalogService.list(actor),
-        services.agentProfileService.directory(actor),
-        services.picaSettingsService.administration(actor.userId),
-        services.runnerService.overview(actor.userId),
-      ]);
+    const [
+      connections,
+      cliTools,
+      catalogs,
+      profileDirectory,
+      pica,
+      runners,
+      openCodeLinks,
+    ] = await Promise.all([
+      services.agentConnectionService.list(actor),
+      services.agentCliLoginService.tools(actor),
+      services.agentCatalogService.list(actor),
+      services.agentProfileService.directory(actor),
+      services.picaSettingsService.administration(actor.userId),
+      services.runnerService.overview(actor.userId),
+      services.openCodeProviderLinks.describe(),
+    ]);
     return routeData<AgentsLoaderData>(
       {
         access: "granted",
-        connections,
+        connections: connections.map((connection) =>
+          connection.provider === "opencode"
+            ? { ...connection, openCodeLinks }
+            : connection,
+        ),
         runners,
         runnerGitHubMode: services.runnerGitHubMode,
         cliTools,

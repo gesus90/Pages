@@ -1,2 +1,2 @@
-/** Native ACP and credential contract inspected in the installed package and release source. */
-export const SUPPORTED_OPENCODE_VERSION = "1.18.34";
+// The verified version is shared with the settings, which name it beside a remote host's version.
+export { SUPPORTED_OPENCODE_VERSION } from "@/definition/OpenCodeVersion";

@@ -81,6 +81,7 @@ Der Runner ab Version 1.4.0 verwendet das bestehende Protokoll v1 und hält die 
 Angezeigt wird nur, was Werkzeug oder Adapter tatsächlich liefern. **Unbekannt bleibt unbekannt, nie 0.**
 
 - Der Runner meldet beim Abgleich die gefundenen Werkzeuge (`--version`). Fehlt die Versionsangabe, zeigt Einstellungen → Agents „Version unbekannt“. Meldet ein Runner (vor 1.3.0) kein Inventar, steht nichts da.
+- Ab Runner 1.7.0 meldet er für OpenCode zusätzlich die auf dem Host eingerichteten Provider, die nutzbaren Modelle mit OpenCodes eigenen Angaben und das Ergebnis des ACP-Vertragschecks (PAGE-154, siehe [PagesRunner.md](./PagesRunner.md#opencode-über-acp-page-154-runner-170)).
 - Kontext- und Ausgabelimit eines Remote-OpenRouter-Modells stammen aus dessen Katalog (`context_length`, `top_provider.max_completion_tokens`) und erscheinen in der Modellauswahl des Plan-Editors nur, wenn sie genannt wurden. Der Katalog nennt nichts zu Fast Mode, Thinking oder Reasoning-Stufen; Remote-Modelle haben dafür den Wert `unknown` (bisher fälschlich `none`).
 - Die Antworten von `store-provider-key` und `check-provider` tragen `usage` aus `GET /api/v1/key` (`used`, `limit`, `remaining`, `resets` als vom Anbieter genannte Kadenz). Fehlende Angaben sind `null`. Kontingent-Reset, Laufdauer eines Jobs, Sitzungsablauf und Wiederaufnahme sind getrennte Angaben; für die beiden letzten liefert kein Remote-Pfad belastbare Daten, sie werden nicht angezeigt.
 

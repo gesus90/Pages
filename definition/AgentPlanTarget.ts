@@ -1,3 +1,5 @@
+import { runnerToolFor } from "./RunnerExecution";
+
 import type { AgentPlanExecutionTarget } from "./AgentPlanExecution";
 import type { AgentPlanInput, AgentPlanStep } from "./AgentPlan";
 import type { AgentPlanScript } from "./AgentPlanScript";
@@ -166,11 +168,14 @@ export type AgentPlanTargetProblem =
   | "remoteLoginUnknown"
   | "remoteOptions"
   | "remoteRunnerUpdate"
+  | "remoteToolIncompatible"
   | "remotePagesUnavailable";
 
 /** Secret-free, current runner facts for one registered workspace. */
 export interface AgentPlanRemoteStatus {
   readonly hasPagesAccess?: boolean;
+  /** Whether the runner reports OpenCode's catalog and runs it over ACP (Runner 1.7.0). */
+  readonly hasOpenCodeAccess?: boolean;
   readonly workspaceId: string;
   readonly problem:
     "remoteOffline" | "remoteIdentity" | "remoteWorkspace" | null;
@@ -207,6 +212,14 @@ function nodeTargetProblem(
     : "remoteInterpreter";
 }
 
+function configurationTool(
+  configuration: AgentPlanConfiguration,
+): ReturnType<typeof runnerToolFor> {
+  return configuration.provider === null
+    ? null
+    : runnerToolFor(configuration.provider);
+}
+
 function agentTargetProblem(
   node: AgentPlanStep,
   target: Extract<AgentPlanExecutionTarget, { kind: "remote" }>,
@@ -215,9 +228,7 @@ function agentTargetProblem(
   const configuration = node.configuration;
   if (!configuration) return "remoteModel";
   const route = configuration.runnerRoute;
-  const isCli =
-    configuration.provider === "codex_cli" ||
-    configuration.provider === "claude_code";
+  const isCli = configurationTool(configuration) !== null;
   if (status && isCli) {
     const problem = cliTargetProblem(configuration, status);
     if (problem) return problem;
@@ -234,13 +245,27 @@ function agentTargetProblem(
   return route?.workspaceId === target.workspaceId ? null : "remoteModel";
 }
 
+// Runners before 1.7.0 list OpenCode by version only; an incompatible ACP contract never starts.
+function openCodeTargetProblem(
+  installed: ToolInventory,
+  status: AgentPlanRemoteStatus,
+): AgentPlanTargetProblem | null {
+  if (status.hasOpenCodeAccess !== true) return "remoteRunnerUpdate";
+  return installed.acp?.status === "incompatible"
+    ? "remoteToolIncompatible"
+    : null;
+}
+
 function cliTargetProblem(
   configuration: AgentPlanConfiguration,
   status: AgentPlanRemoteStatus,
 ): AgentPlanTargetProblem | null {
-  const tool = configuration.provider === "codex_cli" ? "codex" : "claude";
+  const tool = configurationTool(configuration);
   const installed = status.tools.find((entry) => entry.tool === tool);
   if (!installed) return "remoteToolMissing";
+  const openCodeProblem =
+    tool === "opencode" ? openCodeTargetProblem(installed, status) : null;
+  if (openCodeProblem) return openCodeProblem;
   if (installed.authentication === "not_logged_in") return "remoteLogin";
   if (installed.authentication !== "authenticated") return "remoteLoginUnknown";
   const models = installed.models ?? [];

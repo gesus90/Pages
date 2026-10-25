@@ -41,6 +41,14 @@ function triggerText(
   return `${value} (${texts.unavailable})`;
 }
 
+function selectedIcon(
+  options: readonly SearchableSelectOption[],
+  value: string,
+): React.ReactNode {
+  const icon = options.find((option) => option.value === value)?.icon;
+  return icon ? <span className="flex shrink-0">{icon}</span> : null;
+}
+
 /**
  * Renders a labeled select whose open panel starts with a search field.
  *
@@ -95,6 +103,7 @@ export function SearchableSelect({
           onClick={state.toggle}
           onKeyDown={state.handleTriggerKeyDown}
         >
+          {selectedIcon(options, value)}
           <span className="min-w-0 flex-1 wrap-anywhere">
             {triggerText(options, value, texts)}
           </span>

@@ -4,6 +4,8 @@ import { isApiProvider } from "@/definition/AgentConnection";
 import { supportsModelCatalog } from "@/definition/AgentModelCatalog";
 import { resolveClaudeModelAlias } from "@/definition/AgentModelVersion";
 
+import { requireOpenCodeModelAccess } from "./OpenCodeProviderLinks";
+
 import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import type { AgentConnectionRecord } from "@/backend/database/repositories/agent/AgentConnectionRows";
@@ -123,5 +125,8 @@ export async function resolveAgentAssignmentFor(
   const scope = await connections.scopes().find(assignment.connectionId);
   if (scope !== null && !isInAgentConnectionScope(scope, viewer))
     throw new AgentExecutionError("accessDenied");
-  return resolveAgentAssignment(connections, assignment);
+  const resolved = await resolveAgentAssignment(connections, assignment);
+  // An OpenCode model of a linked provider also needs the scope of the API connection whose key it uses.
+  await requireOpenCodeModelAccess(connections, viewer, resolved);
+  return resolved;
 }

@@ -114,8 +114,20 @@ export interface CliModelSelection {
 
 /** Private process input; never included in check details, snapshots or responses. */
 export interface CliCredentialAccess {
-  readonly modelProvider: string;
-  readonly environment: Readonly<Record<string, string>>;
+  /** Native model providers these credentials reach, such as `opencode` or `google`. */
+  readonly modelProviders: readonly string[];
+  /** The provider of the key stored with the connection itself, if it has one. */
+  readonly ownProvider: string | null;
+  /**
+   * The child environment for a model of one provider.
+   *
+   * @remarks
+   * It holds the key of that provider only, or nothing for a provider that
+   * needs none, so a process never receives the key of another provider.
+   */
+  readonly environmentFor: (
+    modelProvider: string,
+  ) => Readonly<Record<string, string>>;
   readonly redact: (text: string) => string;
 }
 

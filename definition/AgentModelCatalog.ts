@@ -35,6 +35,14 @@ export interface AgentCatalogModel {
    * before the CLI's picker values were kept and every API catalog.
    */
   readonly aliases?: readonly string[];
+  /**
+   * Whether the model calls tools, as OpenCode states it.
+   *
+   * @remarks
+   * Absent where the catalog does not say, which is every API and every other
+   * CLI catalog. Agents leave out only a model that states `false`.
+   */
+  readonly isToolCapable?: boolean;
 }
 
 export interface AgentModelCatalog {

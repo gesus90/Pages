@@ -40,6 +40,9 @@ function serializeModels(models: readonly AgentCatalogModel[]): string {
       ...(model.aliases && model.aliases.length > 0
         ? { aliases: model.aliases }
         : {}),
+      ...(model.isToolCapable === undefined
+        ? {}
+        : { tool_call: model.isToolCapable }),
     })),
   );
 }

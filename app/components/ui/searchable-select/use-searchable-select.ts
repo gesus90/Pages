@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 
-import type { FocusEvent, KeyboardEvent, RefObject } from "react";
+import type { FocusEvent, KeyboardEvent, ReactNode, RefObject } from "react";
 
 /** One choice of a searchable select. */
 export interface SearchableSelectOption {
@@ -17,6 +17,8 @@ export interface SearchableSelectOption {
   /** Properties the panel's prefilters select by, such as `free`. */
   readonly tags?: readonly string[];
   readonly disabled?: boolean;
+  /** A decorative mark before the label, such as the provider's icon; the label names it. */
+  readonly icon?: ReactNode;
 }
 
 /** A prefilter toggle in the open panel that keeps only options with its tag. */

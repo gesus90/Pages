@@ -13,7 +13,6 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
-import { execFile } from "node:child_process";
 import { Writable } from "node:stream";
 import {
   claimJob,
@@ -26,7 +25,7 @@ import { githubAccess } from "./github.mjs";
 import { cliInventory } from "./cli.mjs";
 import { startPagesRelay } from "./pages.mjs";
 
-const RUNNER_VERSION = "1.6.0";
+const RUNNER_VERSION = "1.7.0";
 if (process.argv.includes("--version")) {
   console.info(`pages-runner ${RUNNER_VERSION}`);
   process.exit(0);
@@ -252,37 +251,14 @@ async function handleProvider(message, channel) {
       }),
     );
 }
-const INVENTORY_TOOLS = ["opencode"];
 const INVENTORY_MAXIMUM_AGE_MILLISECONDS = 600000;
 let inventory = { checkedAt: 0, tools: [] };
-
-/** `undefined` when the tool is not installed; `null` when it is, but did not report a version. */
-function toolVersion(tool) {
-  return new Promise((resolve) => {
-    execFile(
-      tool,
-      ["--version"],
-      { timeout: 5000, maxBuffer: 16384, windowsHide: true },
-      (error, stdout) => {
-        if (error?.code === "ENOENT") resolve(undefined);
-        else
-          resolve(
-            /\d+\.\d+\.\d+[0-9A-Za-z.+-]{0,30}/.exec(stdout ?? "")?.[0] ?? null,
-          );
-      },
-    );
-  });
-}
 
 /** What the tools themselves report; a version they do not print stays unknown. */
 async function toolInventory() {
   if (Date.now() - inventory.checkedAt < INVENTORY_MAXIMUM_AGE_MILLISECONDS)
     return inventory.tools;
   const tools = await cliInventory();
-  for (const tool of INVENTORY_TOOLS) {
-    const version = await toolVersion(tool);
-    if (version !== undefined) tools.push({ tool, version });
-  }
   inventory = { checkedAt: Date.now(), tools };
   return tools;
 }
@@ -499,6 +475,7 @@ async function receiveRegistration(message, channel) {
       cliExecutorVersion: 1,
       githubAccessVersion: 1,
       pagesAccessVersion: 1,
+      openCodeExecutorVersion: 1,
       interpreters: await interpreters(),
       tools: await toolInventory(),
     }),

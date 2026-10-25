@@ -2,7 +2,10 @@ import { readTicketAssetInput } from "@/backend/agents/TicketAssetInput";
 import { requireManagedOpenCodeConfiguration } from "@/backend/agents/acp/OpenCodeAcpConfiguration";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
-import { isApiProvider } from "@/definition/AgentConnection";
+import {
+  isApiProvider,
+  openCodeModelProvider,
+} from "@/definition/AgentConnection";
 
 import { readCliTextResponse } from "./CliTextResponse";
 
@@ -145,7 +148,9 @@ export class CliTextExecution implements TextExecution {
         throw new AgentExecutionError("connectionUnavailable");
       if (connection.provider === "opencode") {
         if (
-          !input.agent.model.startsWith(`${status.credentials?.modelProvider}/`)
+          !status.credentials?.modelProviders.includes(
+            openCodeModelProvider(input.agent.model),
+          )
         )
           throw new AgentError("plan_model_unavailable");
         await requireManagedOpenCodeConfiguration(home);
@@ -161,7 +166,9 @@ export class CliTextExecution implements TextExecution {
         environment:
           connection.provider === "opencode"
             ? {
-                ...status.credentials?.environment,
+                ...status.credentials?.environmentFor(
+                  openCodeModelProvider(input.agent.model),
+                ),
                 OPENCODE_CONFIG_CONTENT: OPENCODE_TEXT_CONFIGURATION,
               }
             : undefined,

@@ -9,6 +9,7 @@ const FAILURE_CLASSES: Readonly<Record<string, AgentPlanFailureClass>> = {
   provider_unavailable: "provider",
   provider_rate_limited: "provider",
   provider_quota_exhausted: "provider",
+  opencode_free_tier_refused: "provider",
   providerFailed: "provider",
   connectionUnavailable: "configuration",
   modelUnavailable: "configuration",

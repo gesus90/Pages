@@ -4,7 +4,10 @@ import { allPlanSteps } from "@/definition/AgentPlanGroup";
 import { withInheritedPlanTarget } from "@/definition/AgentPlanTarget";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
-import { runnerExecutionSchema } from "@/definition/RunnerExecution";
+import {
+  RUNNER_TOOL_PROVIDERS,
+  runnerExecutionSchema,
+} from "@/definition/RunnerExecution";
 
 import {
   remoteTextInputs,
@@ -125,6 +128,9 @@ export class AgentPlanRemoteExecution {
         hasPagesAccess: this.dependencies.runners.supportsPagesAccess(
           target.connectionId,
         ),
+        hasOpenCodeAccess: this.dependencies.runners.supportsOpenCode(
+          target.connectionId,
+        ),
       };
       statuses.push(status);
       if (problem) continue;
@@ -146,7 +152,13 @@ export class AgentPlanRemoteExecution {
           userId,
           target.connectionId,
         );
-        models.push(...remoteCliModels(target, tools));
+        models.push(
+          ...remoteCliModels(
+            target,
+            tools,
+            this.dependencies.runners.supportsOpenCode(target.connectionId),
+          ),
+        );
         const readyStatus = {
           ...status,
           tools,
@@ -569,9 +581,7 @@ function requireRemoteModelRoute(
     !route ||
     step.configuration?.connectionId !== undefined ||
     step.configuration?.provider !==
-      (route.tool
-        ? ({ codex: "codex_cli", claude: "claude_code" } as const)[route.tool]
-        : "openrouter") ||
+      (route.tool ? RUNNER_TOOL_PROVIDERS[route.tool] : "openrouter") ||
     (!route.tool && step.configuration?.reasoningEffort !== null) ||
     step.executionTarget?.kind !== "remote" ||
     step.executionTarget.workspaceId !== route.workspaceId

@@ -577,7 +577,7 @@
       "provider": {
         "openrouter": "OpenRouter",
         "openai": "OpenAI",
-        "google_ai_studio": "Google AI Studio",
+        "google_ai_studio": "Google AI Studio (Gemini)",
         "zai": "Z.AI",
         "anthropic": "Anthropic",
         "codex_cli": "Codex CLI (ChatGPT account)",
@@ -793,7 +793,8 @@
         "profile_management_retired": "Profile management has been replaced. Configure models and instructions directly in Agent Plans.",
         "workspace_running": "An affected plan is running, paused or still cleaning up. Stop the execution and wait for it to finish before removing this registration.",
         "modelUnavailable": "A saved model is not (or no longer) in the catalog of its target. Nothing was saved or started and no other model was used. Choose the affected model again in the marked node.",
-        "reasoningUnsupported": "A saved reasoning level is not supported by the chosen model. Nothing was saved or started and no other level was used. Choose the level again in the marked node."
+        "reasoningUnsupported": "A saved reasoning level is not supported by the chosen model. Nothing was saved or started and no other level was used. Choose the level again in the marked node.",
+        "opencode_free_tier_refused": "OpenCode Zen refused its free tier for this request (“only within OpenCode”). Zen serves its free models only to sessions with OpenCode's own tools; Pica runs without them on purpose, plan agents are not affected. No other model was used. For Pica, choose a model of a provider with a key in Pages, such as a free OpenRouter model."
       },
       "description": "Manage named API and CLI connections and their usage scopes. Permitted models are available directly in Agent Plans.",
       "adminModeRequired": "The agent settings are only available in the admin mode. Your account is currently in the role mode.",
@@ -1143,7 +1144,7 @@
         "unavailableTicket": "Bound ticket is not accessible"
       },
       "openCodeKey": "API key for OpenCode",
-      "openCodeKeyHint": "Store an OpenCode key under OpenCode Console / Zen, an OpenRouter key under OpenRouter. Pages encrypts new keys with the instance cipher in the private connection folder; they never return to the browser. The access check verifies the stored format locally; only an explicit model test checks the key, balance and model with the provider.",
+      "openCodeKeyHint": "Optional: a key for this connection only, for OpenCode Zen or OpenRouter. For its provider it takes precedence over the automatically registered key. Pages stores it with the instance encryption in the private connection folder; it never returns to the browser.",
       "openCodeKeyStore": "Store key",
       "openCodeKeyReplace": "Replace key",
       "run": {
@@ -1271,9 +1272,39 @@
           "missing": "not installed / update runner"
         },
         "apiKey": "OpenRouter API key",
-        "catalogSynced": "Catalog synchronized."
+        "catalogSynced": "Catalog synchronized.",
+        "openCode": {
+          "update": "Update runner: OpenCode over ACP and its model catalog require Runner 1.7.0 or later.",
+          "acp": {
+            "verified": "ACP contract: exactly the version {{supported}} Pages verified.",
+            "compatible": "ACP contract checked: compatible. Version {{version}} differs from the verified {{supported}}; {{reason}}.",
+            "incompatible": "ACP contract checked: not compatible ({{reason}}). OpenCode nodes do not start on this host."
+          },
+          "reason": {
+            "exact_version": "verified version",
+            "contract_matches": "handshake, agent identity, protocol 1 and the session's model and mode selectors match without a model call",
+            "agent_mismatch": "the ACP agent does not identify as OpenCode",
+            "protocol_mismatch": "different ACP protocol version",
+            "selectors_missing": "the session's model or mode selector is missing",
+            "probe_failed": "the check could not start OpenCode"
+          },
+          "providers": "Providers on the host: {{providers}}"
+        }
       },
-      "cliLocations": "Installed CLI tools and setup"
+      "cliLocations": "Installed CLI tools and setup",
+      "openCodeZen": "OpenCode Zen",
+      "freeBadge": "Free",
+      "openCodeFreeGroup": "opencode · Free",
+      "openCodeProviders": "Providers through the keys in Pages",
+      "openCodeProvidersHint": "OpenCode receives the keys of the API connections for z.ai, Google AI Studio and OpenRouter automatically once their access check has passed. A key stays stored only with its API connection; it is neither shown here nor entered a second time.",
+      "openCodeLink": {
+        "free": "available without a key",
+        "linked": "registered through “{{connection}}”",
+        "auth_failed": "not registered: the access check of “{{connection}}” rejected the key. Replace the key there.",
+        "unchecked": "not registered: “{{connection}}” has not been checked yet. Check its access there.",
+        "missing": "no key in Pages – add one under “API keys”"
+      },
+      "openCodeLinkedHint": "also usable through opencode"
     },
     "connections": {
       "title": "Connections",
@@ -3918,8 +3949,9 @@
       "remoteAssetsTooLarge": "File delivery exceeds 10 MiB in total or 64 files. The step will not start.",
       "remotePromptTooLarge": "The complete prompt including parameters exceeds the existing runner limit of 100000 characters. Reduce the content; Pages does not truncate it.",
       "remoteParameter": "The parameter cannot be resolved. Check its type, required value and placeholders.",
-      "remoteRunnerUpdate": "Update runner: resource parameters, file delivery and Pages access require Runner 1.6.0 or later.",
-      "remotePagesUnavailable": "Pages access and file delivery are unavailable for this model route. Select a remote CLI with Runner 1.6.0 or later."
+      "remoteRunnerUpdate": "Update runner: resource parameters, file delivery and Pages access require Runner 1.6.0 or later, OpenCode nodes Runner 1.7.0.",
+      "remotePagesUnavailable": "Pages access and file delivery are unavailable for this model route. Select a remote CLI with Runner 1.6.0 or later.",
+      "remoteToolIncompatible": "The OpenCode version on the remote host does not meet the ACP contract Pages checks. The runner's settings name the reason."
     },
     "session": {
       "runner": {
@@ -4298,8 +4330,9 @@
         "remoteAssetsTooLarge": "File delivery exceeds 10 MiB in total or 64 files. The step will not start.",
         "remotePromptTooLarge": "The complete prompt including parameters exceeds the existing runner limit of 100000 characters. Reduce the content; Pages does not truncate it.",
         "remoteParameter": "The parameter cannot be resolved. Check its type, required value and placeholders.",
-        "remoteRunnerUpdate": "Update runner: resource parameters, file delivery and Pages access require Runner 1.6.0 or later.",
-        "remotePagesUnavailable": "Pages access and file delivery are unavailable for this model route. Select a remote CLI with Runner 1.6.0 or later."
+        "remoteRunnerUpdate": "Update runner: resource parameters, file delivery and Pages access require Runner 1.6.0 or later, OpenCode nodes Runner 1.7.0.",
+        "remotePagesUnavailable": "Pages access and file delivery are unavailable for this model route. Select a remote CLI with Runner 1.6.0 or later.",
+        "remoteToolIncompatible": "The OpenCode version on the remote host does not meet the ACP contract Pages checks. The runner's settings name the reason."
       },
       "state": {
         "none": {

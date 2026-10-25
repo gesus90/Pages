@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/app/components/ui/button";
 
 import { AgentCheckTime } from "./agent-check-time";
+import { OpenCodeRemoteFacts } from "./opencode-remote-facts";
 import { RunnerMaintenance } from "./runner-maintenance";
 
 import type { RunnerConnectionView } from "@/definition/RunnerProtocol";
@@ -50,6 +51,12 @@ function ToolInventoryList({
           {entry.authentication
             ? ` · ${t(`settings.agents.runner.auth.${entry.authentication}`)}`
             : ""}
+          {entry.tool === "opencode" ? (
+            <OpenCodeRemoteFacts
+              entry={entry}
+              hasOpenCodeAccess={entry.acp !== undefined}
+            />
+          ) : null}
         </li>
       ))}
     </ul>

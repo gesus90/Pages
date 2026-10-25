@@ -1,8 +1,15 @@
+import { createElement } from "react";
+
 import {
   AGENT_CONNECTION_LOCATIONS,
   AGENT_PROVIDERS,
   isApiProvider,
+  linkedApiProviderOf,
+  OPENCODE_FREE_PROVIDER,
+  openCodeModelProvider,
 } from "@/definition/AgentConnection";
+
+import { ProviderIcon } from "./provider-icon";
 
 import type { SearchableSelectOption } from "@/app/components/ui/searchable-select/use-searchable-select";
 import type { AgentConnectionLocation } from "@/definition/AgentConnection";
@@ -48,6 +55,67 @@ function detailLabel(model: PageAgentModel, translate: TFunction): string {
     : access;
 }
 
+/** The tag of free models, shared with the prefilter of the model choice. */
+export const FREE_MODEL_TAG = "free";
+
+/**
+ * The provider OpenCode runs a model with, named like its API connection.
+ *
+ * @param model - A model of an OpenCode connection, local or remote.
+ * @param translate - Translates the provider names.
+ * @returns For example "Google AI Studio (Gemini)", or "OpenCode Zen" for
+ * OpenCode's own provider.
+ */
+export function openCodeProviderLabel(
+  model: PageAgentModel,
+  translate: TFunction,
+): string {
+  const modelProvider = openCodeModelProvider(model.model);
+  const provider = linkedApiProviderOf(modelProvider);
+  if (provider !== null)
+    return translate(`settings.agents.provider.${provider}`);
+  return modelProvider === OPENCODE_FREE_PROVIDER
+    ? translate("settings.agents.openCodeZen")
+    : modelProvider;
+}
+
+// OpenCode lists its free models as a group of their own, every other model under its provider.
+function openCodeGroup(model: PageAgentModel, translate: TFunction): string {
+  return openCodeModelProvider(model.model) === OPENCODE_FREE_PROVIDER &&
+    model.isFree === true
+    ? translate("settings.agents.openCodeFreeGroup")
+    : `opencode · ${openCodeProviderLabel(model, translate)}`;
+}
+
+function openCodeOption(
+  model: PageAgentModel,
+  translate: TFunction,
+): Pick<SearchableSelectOption, "group" | "description" | "icon"> {
+  const provider = `opencode · ${openCodeProviderLabel(model, translate)}`;
+  return {
+    group: openCodeGroup(model, translate),
+    description:
+      model.isFree === true
+        ? `${provider} · ${translate("settings.agents.freeBadge")}`
+        : provider,
+    icon: createElement(ProviderIcon, {
+      provider: openCodeModelProvider(model.model),
+    }),
+  };
+}
+
+function vendorOption(
+  model: PageAgentModel,
+  translate: TFunction,
+): Pick<SearchableSelectOption, "group" | "description" | "icon"> {
+  const { vendor } = AGENT_PROVIDERS[model.provider];
+  return {
+    group: translate(`settings.agents.provider.${vendor}`),
+    description: detailLabel(model, translate),
+    icon: createElement(ProviderIcon, { provider: vendor }),
+  };
+}
+
 function listedModel(model: PageAgentModel, translate: TFunction): ListedModel {
   return {
     locationRank: locationRank(model.location),
@@ -59,16 +127,16 @@ function listedModel(model: PageAgentModel, translate: TFunction): ListedModel {
         model.location === undefined
           ? undefined
           : translate(`settings.agents.location.${model.location}`),
-      group: translate(
-        `settings.agents.provider.${AGENT_PROVIDERS[model.provider].vendor}`,
-      ),
-      description: detailLabel(model, translate),
+      ...(model.provider === "opencode"
+        ? openCodeOption(model, translate)
+        : vendorOption(model, translate)),
       keywords: [
         model.model,
         model.connectionName ?? "",
         translate(`settings.agents.provider.${model.provider}`),
         translate(`settings.agents.providerShort.${model.provider}`),
       ],
+      ...(model.isFree === true ? { tags: [FREE_MODEL_TAG] } : {}),
     },
   };
 }

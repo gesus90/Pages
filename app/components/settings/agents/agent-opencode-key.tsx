@@ -52,7 +52,10 @@ export function AgentOpenCodeKey({
   }
   return (
     <form onSubmit={submitKey} className="space-y-2">
-      <label className="text-sm font-medium" htmlFor="agent-opencode-provider">
+      <label
+        className="block text-sm font-medium"
+        htmlFor="agent-opencode-provider"
+      >
         {t("settings.agents.openCodeProvider")}
       </label>
       <Select
@@ -66,7 +69,7 @@ export function AgentOpenCodeKey({
         disabled={disabled}
         ariaLabel={t("settings.agents.openCodeProvider")}
       />
-      <label className="text-sm font-medium" htmlFor="agent-opencode-key">
+      <label className="block text-sm font-medium" htmlFor="agent-opencode-key">
         {t("settings.agents.openCodeKey")}
       </label>
       <Input

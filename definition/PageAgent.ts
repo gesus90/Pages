@@ -60,6 +60,12 @@ export interface PageAgentModel {
   readonly provider: AgentProviderId;
   /** What the CLI's picker resolves to this model, such as `sonnet`; absent where the catalog does not say. */
   readonly aliases?: readonly string[];
+  /** Whether the catalog states a price of zero; absent where it states no price. */
+  readonly isFree?: boolean;
+  /** Whether the model calls tools; absent where the catalog does not say. */
+  readonly isToolCapable?: boolean;
+  /** For a remote OpenCode model: the connection and workspace it runs on, such as "homeNAS / pageNAS". */
+  readonly targetName?: string;
 }
 
 export interface PageAgentPage {

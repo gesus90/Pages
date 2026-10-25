@@ -75,13 +75,23 @@ export class AgentAvailabilityService {
     return choices;
   }
 
-  /** Lists the released model choices for independent plan nodes. */
+  /**
+   * Lists the released model choices for independent plan nodes.
+   *
+   * @remarks
+   * The global model filter keeps agents to models that call tools; a model
+   * whose catalog does not say stays listed.
+   */
   public async models(
     userId: string,
     projectId: string | null = null,
   ): Promise<readonly PageAgentModel[]> {
     const context = await this.context(userId, projectId);
-    return connectionModels(this.dependencies.connections, context.viewer);
+    const models = await connectionModels(
+      this.dependencies.connections,
+      context.viewer,
+    );
+    return models.filter((model) => model.isToolCapable !== false);
   }
 
   /** Administration may inspect all agents, but gets no execution authorization bypass. */

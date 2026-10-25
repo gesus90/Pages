@@ -9,6 +9,7 @@ import { AgentAlert } from "./agent-alert";
 import { AgentCopyButton } from "./agent-copy-button";
 import { AgentLoginChallenge } from "./agent-login-challenge";
 import { AgentOpenCodeKey } from "./agent-opencode-key";
+import { AgentOpenCodeProviders } from "./agent-opencode-providers";
 
 import type { AgentConnectionSummary } from "@/definition/AgentConnection";
 import type { AgentCommandHandler } from "./agent-row-menu";
@@ -73,6 +74,9 @@ export function AgentCliLogin({
             <p className="text-xs text-muted-foreground">
               {t("settings.agents.deviceAuthHint")}
             </p>
+          ) : null}
+          {connection.provider === "opencode" ? (
+            <AgentOpenCodeProviders links={connection.openCodeLinks ?? []} />
           ) : null}
           {connection.provider === "opencode" ? (
             <AgentOpenCodeKey

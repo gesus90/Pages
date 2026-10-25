@@ -68,6 +68,7 @@ export const AGENT_PLAN_ISSUE_PROBLEMS = [
   "remoteLoginUnknown",
   "remoteOptions",
   "remoteRunnerUpdate",
+  "remoteToolIncompatible",
   "remotePagesUnavailable",
   "remoteTicketUnavailable",
   "remoteWikiUnavailable",

@@ -221,7 +221,7 @@ async function mcpReply(message, socketPath, jobId) {
     return {
       protocolVersion: message.params?.protocolVersion ?? "2024-11-05",
       capabilities: { tools: {} },
-      serverInfo: { name: "pages-run-step", version: "1.6.0" },
+      serverInfo: { name: "pages-run-step", version: "1.7.0" },
     };
   if (message.method === "ping") return {};
   if (message.method === "tools/list") {

@@ -1,4 +1,7 @@
 import { useTranslation } from "react-i18next";
+
+import { OpenCodeRemoteFacts } from "@/app/components/settings/agents/opencode-remote-facts";
+
 import type { AgentPlanSources } from "@/definition/AgentPlan";
 import type { AgentPlanExecutionTarget } from "@/definition/AgentPlanExecution";
 
@@ -25,7 +28,7 @@ export function PlanRemoteStatus({
         <p>{t(`plans.panel.issueCause.${status.problem}`)}</p>
       ) : (
         <>
-          {(["codex", "claude"] as const).map((tool) => {
+          {(["codex", "claude", "opencode"] as const).map((tool) => {
             const entry = status.tools.find(
               (candidate) => candidate.tool === tool,
             );
@@ -40,6 +43,12 @@ export function PlanRemoteStatus({
                 !entry.models?.length
                   ? ` · ${t("plans.panel.issueCause.remoteCatalog")}`
                   : ""}
+                {entry?.tool === "opencode" ? (
+                  <OpenCodeRemoteFacts
+                    entry={entry}
+                    hasOpenCodeAccess={status.hasOpenCodeAccess === true}
+                  />
+                ) : null}
               </p>
             );
           })}

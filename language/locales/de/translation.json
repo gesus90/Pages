@@ -577,7 +577,7 @@
       "provider": {
         "openrouter": "OpenRouter",
         "openai": "OpenAI",
-        "google_ai_studio": "Google AI Studio",
+        "google_ai_studio": "Google AI Studio (Gemini)",
         "zai": "Z.AI",
         "anthropic": "Anthropic",
         "codex_cli": "Codex CLI (ChatGPT-Konto)",
@@ -793,7 +793,8 @@
         "profile_management_retired": "Die Profilverwaltung wurde abgelöst. Modelle und Anweisungen werden direkt im Agent Plan konfiguriert.",
         "workspace_running": "Mindestens ein betroffener Plan läuft, ist pausiert oder räumt noch auf. Stoppen Sie die Ausführung und warten Sie auf ihren Abschluss, bevor Sie die Registrierung entfernen.",
         "modelUnavailable": "Ein gespeichertes Modell steht im Katalog seines Ziels nicht (mehr) zur Verfügung. Es wurde nichts gespeichert oder gestartet und kein anderes Modell eingesetzt. Das betroffene Modell im markierten Node ausdrücklich neu wählen.",
-        "reasoningUnsupported": "Eine gespeicherte Reasoning-Stufe wird vom gewählten Modell nicht unterstützt. Es wurde nichts gespeichert oder gestartet und keine andere Stufe eingesetzt. Die Stufe im markierten Node ausdrücklich neu wählen."
+        "reasoningUnsupported": "Eine gespeicherte Reasoning-Stufe wird vom gewählten Modell nicht unterstützt. Es wurde nichts gespeichert oder gestartet und keine andere Stufe eingesetzt. Die Stufe im markierten Node ausdrücklich neu wählen.",
+        "opencode_free_tier_refused": "OpenCode Zen hat den kostenlosen Tarif für diese Anfrage abgelehnt („nur innerhalb von OpenCode“). Zen bedient seine kostenlosen Modelle nur in Sitzungen mit den OpenCode-eigenen Werkzeugen; Pica läuft bewusst ohne sie, Agent-Knoten in Plänen sind nicht betroffen. Es wurde kein anderes Modell verwendet. Für Pica bitte ein Modell eines Providers mit Schlüssel in Pages wählen, etwa ein kostenloses OpenRouter-Modell."
       },
       "description": "Verwalten Sie die benannten API- und CLI-Anbindungen und ihre Nutzungsfreigaben. Freigegebene Modelle stehen direkt im Agent Plan zur Verfügung.",
       "adminModeRequired": "Die Agents-Einstellungen sind nur im Admin-Modus verfügbar. Ihr Konto ist derzeit im Rollenmodus.",
@@ -1143,7 +1144,7 @@
         "unavailableTicket": "Angebundenes Ticket nicht zugänglich"
       },
       "openCodeKey": "API-Schlüssel für OpenCode",
-      "openCodeKeyHint": "Einen OpenCode-eigenen Schlüssel unter OpenCode Console / Zen hinterlegen, einen OpenRouter-Schlüssel unter OpenRouter. Pages speichert neue Schlüssel mit der Instanzverschlüsselung im privaten Verbindungsordner. Sie kommen nicht zum Browser zurück. Die Zugangsprüfung prüft lokal das gespeicherte Format; erst ein expliziter Modelltest prüft Schlüssel, Guthaben und Modell beim Anbieter.",
+      "openCodeKeyHint": "Optional: ein eigener Schlüssel nur für diese Verbindung, für OpenCode Zen oder OpenRouter. Er hat für seinen Provider Vorrang vor dem automatisch eingebundenen Schlüssel. Pages speichert ihn mit der Instanzverschlüsselung im privaten Verbindungsordner; er kommt nicht zum Browser zurück.",
       "openCodeKeyStore": "Schlüssel hinterlegen",
       "openCodeKeyReplace": "Schlüssel ersetzen",
       "run": {
@@ -1271,9 +1272,39 @@
           "missing": "nicht installiert / Runner aktualisieren"
         },
         "apiKey": "OpenRouter-API-Schlüssel",
-        "catalogSynced": "Katalog synchronisiert."
+        "catalogSynced": "Katalog synchronisiert.",
+        "openCode": {
+          "update": "Runner aktualisieren: OpenCode über ACP und sein Modellkatalog benötigen Runner 1.7.0 oder neuer.",
+          "acp": {
+            "verified": "ACP-Vertrag: genau die von Pages geprüfte Version {{supported}}.",
+            "compatible": "ACP-Vertrag geprüft: kompatibel. Version {{version}} weicht von der geprüften {{supported}} ab; {{reason}}.",
+            "incompatible": "ACP-Vertrag geprüft: nicht kompatibel ({{reason}}). OpenCode-Knoten starten auf diesem Host nicht."
+          },
+          "reason": {
+            "exact_version": "geprüfte Version",
+            "contract_matches": "Handshake, Agent-Kennung, Protokoll 1 sowie Modell- und Modusauswahl der Sitzung stimmen ohne Modellaufruf überein",
+            "agent_mismatch": "die ACP-Gegenstelle meldet sich nicht als OpenCode",
+            "protocol_mismatch": "andere ACP-Protokollversion",
+            "selectors_missing": "Modell- oder Modusauswahl der Sitzung fehlt",
+            "probe_failed": "die Prüfung konnte OpenCode nicht starten"
+          },
+          "providers": "Provider auf dem Host: {{providers}}"
+        }
       },
-      "cliLocations": "Installierte CLI-Werkzeuge und Einrichtung"
+      "cliLocations": "Installierte CLI-Werkzeuge und Einrichtung",
+      "openCodeZen": "OpenCode Zen",
+      "freeBadge": "Kostenlos",
+      "openCodeFreeGroup": "opencode · Kostenlos",
+      "openCodeProviders": "Provider über die Schlüssel in Pages",
+      "openCodeProvidersHint": "OpenCode erhält die Schlüssel der API-Verbindungen für z.ai, Google AI Studio und OpenRouter automatisch, sobald ihre Zugangsprüfung bestanden ist. Der Schlüssel bleibt nur in seiner API-Verbindung gespeichert und wird hier weder angezeigt noch ein zweites Mal eingegeben.",
+      "openCodeLink": {
+        "free": "ohne Schlüssel verfügbar",
+        "linked": "eingebunden über „{{connection}}“",
+        "auth_failed": "nicht eingebunden: Die Zugangsprüfung von „{{connection}}“ hat den Schlüssel abgelehnt. Schlüssel dort ersetzen.",
+        "unchecked": "nicht eingebunden: „{{connection}}“ wurde noch nicht geprüft. Zugang dort prüfen.",
+        "missing": "kein Schlüssel in Pages – unter „API-Schlüssel“ hinzufügen"
+      },
+      "openCodeLinkedHint": "auch über opencode nutzbar"
     },
     "connections": {
       "title": "Verbindungen",
@@ -3918,8 +3949,9 @@
       "remoteAssetsTooLarge": "Die Dateiübergabe überschreitet 10 MiB insgesamt oder 64 Dateien. Der Schritt startet nicht.",
       "remotePromptTooLarge": "Die vollständige Aufgabe einschließlich Parameter überschreitet die bestehende Runner-Grenze von 100000 Zeichen. Inhalt verkleinern; Pages kürzt nichts.",
       "remoteParameter": "Der Parameter kann nicht aufgelöst werden. Typ, Pflichtwert und Platzhalter prüfen.",
-      "remoteRunnerUpdate": "Runner aktualisieren: Ressourcenparameter, Dateiübergabe und Pages-Zugang benötigen Runner 1.6.0 oder neuer.",
-      "remotePagesUnavailable": "Pages-Zugang und Dateiübergabe sind für diesen Modellzugang nicht verfügbar. Eine Remote-CLI mit Runner 1.6.0 oder neuer wählen."
+      "remoteRunnerUpdate": "Runner aktualisieren: Ressourcenparameter, Dateiübergabe und Pages-Zugang benötigen Runner 1.6.0 oder neuer, OpenCode-Knoten Runner 1.7.0.",
+      "remotePagesUnavailable": "Pages-Zugang und Dateiübergabe sind für diesen Modellzugang nicht verfügbar. Eine Remote-CLI mit Runner 1.6.0 oder neuer wählen.",
+      "remoteToolIncompatible": "Die OpenCode-Version auf dem Remote-Host erfüllt den ACP-Vertrag nicht, den Pages prüft. Die Einstellungen des Runners nennen den Grund."
     },
     "session": {
       "runner": {
@@ -4298,8 +4330,9 @@
         "remoteAssetsTooLarge": "Die Dateiübergabe überschreitet 10 MiB insgesamt oder 64 Dateien. Der Schritt startet nicht.",
         "remotePromptTooLarge": "Die vollständige Aufgabe einschließlich Parameter überschreitet die bestehende Runner-Grenze von 100000 Zeichen. Inhalt verkleinern; Pages kürzt nichts.",
         "remoteParameter": "Der Parameter kann nicht aufgelöst werden. Typ, Pflichtwert und Platzhalter prüfen.",
-        "remoteRunnerUpdate": "Runner aktualisieren: Ressourcenparameter, Dateiübergabe und Pages-Zugang benötigen Runner 1.6.0 oder neuer.",
-        "remotePagesUnavailable": "Pages-Zugang und Dateiübergabe sind für diesen Modellzugang nicht verfügbar. Eine Remote-CLI mit Runner 1.6.0 oder neuer wählen."
+        "remoteRunnerUpdate": "Runner aktualisieren: Ressourcenparameter, Dateiübergabe und Pages-Zugang benötigen Runner 1.6.0 oder neuer, OpenCode-Knoten Runner 1.7.0.",
+        "remotePagesUnavailable": "Pages-Zugang und Dateiübergabe sind für diesen Modellzugang nicht verfügbar. Eine Remote-CLI mit Runner 1.6.0 oder neuer wählen.",
+        "remoteToolIncompatible": "Die OpenCode-Version auf dem Remote-Host erfüllt den ACP-Vertrag nicht, den Pages prüft. Die Einstellungen des Runners nennen den Grund."
       },
       "state": {
         "none": {

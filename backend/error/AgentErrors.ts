@@ -18,6 +18,8 @@ export const AGENT_ERROR_MESSAGES = {
     "Pages requires the verified native OpenCode ACP contract of version 1.18.34. No model was called.",
   opencode_acp_session_failed:
     "The native OpenCode ACP session failed before or during its turn.",
+  opencode_free_tier_refused:
+    'OpenCode Zen refused its free tier for this request ("only within OpenCode"). Zen serves its free models only to sessions with OpenCode\'s own tools; Pica runs without them on purpose, plan agents are not affected. No other model was used. For Pica, choose a model of a provider with a key in Pages, such as a free OpenRouter model.',
   plan_json_invalid: "Enter one valid JSON value with finite numbers.",
   plan_number_invalid: "Enter one finite number.",
   plan_run_unavailable: "This run is no longer active. Start a new run.",

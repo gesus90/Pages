@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 
+import { planModelDisplay } from "@/app/components/agents/plans/plan-model-option";
 import { Select } from "@/app/components/ui/select";
 import { reasoningOptions } from "@/app/lib/reasoning-options";
 import { modelsOfSameTarget } from "@/definition/AgentReasoningChoice";
@@ -57,11 +58,15 @@ export function PageAgentModelFields(props: {
                     },
                   ]
                 : []),
-              ...props.models.map((entry) => ({
-                value: entry.id,
-                label: `${entry.name} · ${entry.model}`,
-                description: `${t(`settings.agents.provider.${entry.provider}`)}${entry.isManual ? ` · ${t("picaSettings.manual")}` : ""}`,
-              })),
+              ...props.models.map((entry) => {
+                const display = planModelDisplay(entry, t);
+                return {
+                  value: entry.id,
+                  label: `${display.label} · ${entry.model}`,
+                  icon: display.icon,
+                  description: `${t(`settings.agents.provider.${entry.provider}`)}${entry.isManual ? ` · ${t("picaSettings.manual")}` : ""}${display.free}`,
+                };
+              }),
             ]}
           />
         </label>

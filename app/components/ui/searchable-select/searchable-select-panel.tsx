@@ -68,6 +68,9 @@ function SearchableSelectItem({
       onClick={() => state.choose(option)}
       onMouseEnter={() => state.highlight(option)}
     >
+      {option.icon ? (
+        <span className="mt-px flex shrink-0">{option.icon}</span>
+      ) : null}
       <span className="flex min-w-0 flex-1 flex-wrap items-baseline justify-between gap-x-3">
         <span className="min-w-0 wrap-anywhere">{option.label}</span>
         {option.description ? (

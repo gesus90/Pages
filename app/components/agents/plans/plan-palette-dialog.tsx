@@ -12,6 +12,8 @@ import { Input } from "@/app/components/ui/input";
 import { Select } from "@/app/components/ui/select";
 import { isAgentParameterName } from "@/definition/AgentParameters";
 
+import { planModelDisplay } from "./plan-model-option";
+
 import type { AgentPlanSources } from "@/definition/AgentPlan";
 import type { PlanPaletteRequest } from "./use-plan-node-palette";
 
@@ -157,11 +159,15 @@ function PaletteReference(props: {
         className="w-full min-w-0 [&>span]:truncate"
         options={[
           { value: "", label: t("plans.palette.chooseAgent") },
-          ...(props.sources.models ?? []).map((model) => ({
-            value: model.id,
-            label: model.name,
-            description: `${t(`settings.agents.provider.${model.provider}`)}${model.isManual ? ` · ${t("picaSettings.manual")}` : ""}`,
-          })),
+          ...(props.sources.models ?? []).map((model) => {
+            const display = planModelDisplay(model, t);
+            return {
+              value: model.id,
+              label: display.label,
+              icon: display.icon,
+              description: `${t(`settings.agents.provider.${model.provider}`)}${model.isManual ? ` · ${t("picaSettings.manual")}` : ""}${display.free}`,
+            };
+          }),
         ]}
       />
     );

@@ -4,6 +4,7 @@ import {
   planScriptParameters,
 } from "@/definition/AgentPlanScript";
 import { agentRunOptionsFor } from "@/definition/AgentConfiguration";
+import { RUNNER_TOOL_PROVIDERS } from "@/definition/RunnerExecution";
 import { planBindings } from "./AgentPlanBindings";
 import { buildPlanContract, renderPlanAssignment } from "./AgentPlanContract";
 import type {
@@ -73,7 +74,7 @@ export function remoteModelCommand(
   const route = configuration.runnerRoute;
   if (route.tool) {
     const options = agentRunOptionsFor(
-      route.tool === "codex" ? "codex_cli" : "claude_code",
+      RUNNER_TOOL_PROVIDERS[route.tool],
       configuration.template.run,
     );
     if (options.access === "workspace_write" || options.browser)
