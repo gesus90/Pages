@@ -17,12 +17,10 @@ import { ChatService } from "@/backend/service/chat/ChatService";
 import { ChatSessionService } from "@/backend/service/chat/ChatSessionService";
 import { ChatSettingsService } from "@/backend/service/chat/ChatSettingsService";
 import { ChatToolExecutor } from "@/backend/service/chat/ChatToolExecutor";
-import { PicaApiService } from "@/backend/service/chat/PicaApiService";
 import { PicaAcpService } from "@/backend/service/chat/acp/PicaAcpService";
 import { PicaAcpWorkspace } from "@/backend/service/chat/acp/PicaAcpWorkspace";
 import { PicaBridge } from "@/backend/service/chat/acp/PicaBridge";
 import { ChatError } from "@/backend/error/ChatErrors";
-import { isApiProvider } from "@/definition/AgentConnection";
 import { readPicaInstructions } from "@/backend/service/chat/PicaInstructionFiles";
 import { AgentIdentityService } from "@/backend/service/mcp/AgentIdentityService";
 import { WikiFileStore } from "@/backend/storage/WikiFileStore";
@@ -33,10 +31,8 @@ import type { Database } from "@/backend/database/Database";
 import type { AdministrationService } from "@/backend/service/AdministrationService";
 import type { UserService } from "@/backend/service/UserService";
 import type { AgentOperationRouter } from "@/backend/service/agents/AgentOperationRouter";
-import type { TextExecution } from "@/backend/agents/TextExecution";
 import type { ChatRequestRegistry } from "@/backend/service/chat/ChatRequestRegistry";
 import type { AgentProfileService } from "@/backend/service/agents/AgentProfileService";
-import type { PicaApiModels } from "@/backend/agents/providers/PicaApiModels";
 import type { PlanExecution } from "@/backend/agents/AgentPlanExecution";
 import type { PicaSettingsService } from "@/backend/service/chat/PicaSettingsService";
 import type { ExecutionAuthorizer } from "@/backend/agents/ScopedExecution";
@@ -157,10 +153,8 @@ export interface ChatServicesInput {
   readonly agents: {
     readonly picaSettingsService?: PicaSettingsService;
     readonly agentProfileService: Pick<AgentProfileService, "resolve">;
-    readonly agentChatExecution: TextExecution;
-    readonly picaApiModels: PicaApiModels;
     readonly chatRequests: ChatRequestRegistry;
-    /** With the two below and `acp`, Codex CLI agents answer over ACP; without, only API agents. */
+    /** With the two below and `acp`, the native CLI agents answer over ACP. */
     readonly agentPlanExecution?: PlanExecution;
     readonly agentConnectionAccess?: ExecutionAuthorizer;
   };
@@ -209,7 +203,6 @@ export function createChatServices(
     ...fileParts,
   });
   const answerFiles = new ChatAnswerFileService(fileParts);
-  const steers = new ChatSteerRepository(database);
   const chatContextService = createChatContext({
     input,
     sessions,
@@ -248,18 +241,13 @@ export function createChatServices(
     chatAttachmentService,
     chatSettingsService,
     chatService: new ChatService({
-      mode: "native-api",
-      api: createPicaApi(input, chatSessionService, tools, {
-        answerFiles,
-        adminTools,
-      }),
+      mode: "acp",
       ...(acp.picaAcpService ? { acp: acp.picaAcpService } : {}),
       sessions: chatSessionService,
       context: chatContextService,
       messages: sessions,
       attachments: chatAttachmentService,
       answerFiles,
-      selections: (sessionId, selection) => steers.select(sessionId, selection),
       settings: chatSettingsService,
       protectedInstructions: readPicaInstructions,
       agents: input.agents.agentProfileService,
@@ -267,28 +255,6 @@ export function createChatServices(
       languages,
     }),
   };
-}
-
-function createPicaApi(
-  input: ChatServicesInput,
-  sessions: ChatSessionService,
-  tools: ChatToolExecutor,
-  privileged: {
-    readonly answerFiles: ChatAnswerFileService;
-    readonly adminTools: PicaAdminService;
-  },
-): PicaApiService {
-  return new PicaApiService({
-    requireCurrent: (request) =>
-      input.agents.picaSettingsService?.requireCurrent(
-        request.userId,
-        request.agent,
-      ) ?? Promise.resolve(),
-    models: input.agents.picaApiModels,
-    sessions,
-    tools,
-    ...privileged,
-  });
 }
 
 function createChatContext(parts: {
@@ -308,15 +274,7 @@ function createChatContext(parts: {
     agents: input.agents.agentProfileService,
     catalogs: new AgentConnectionRepository(database).catalogs(),
     execution: {
-      run: async (request, signal) => {
-        await input.agents.picaSettingsService?.requireCurrent(
-          request.userId,
-          request.agent,
-        );
-        if (!isApiProvider(request.agent.connection.provider))
-          throw new ChatError("apiModeRequired");
-        return input.agents.agentChatExecution.run(request, signal);
-      },
+      run: () => Promise.reject(new ChatError("nativeContextManaged")),
     },
     requests: input.agents.chatRequests,
     adapterContext,

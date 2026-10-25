@@ -91,7 +91,8 @@ export async function resolveAgentAssignment(
   const catalog = await connections.catalogs().find(connection.id);
   const model = findCatalogModel(connection, catalog.models, assignment.model);
   const isManual =
-    !supportsModelCatalog(connection.provider) &&
+    (!supportsModelCatalog(connection.provider) ||
+      connection.provider === "zai") &&
     connection.testModel === assignment.model;
   if (!model && !isManual) throw new AgentExecutionError("modelUnavailable");
   const effort = assignment.reasoningEffort;

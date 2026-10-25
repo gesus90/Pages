@@ -250,7 +250,9 @@ function claudeArguments(command, pagesArgs) {
   const args = [
     "-p",
     "--output-format",
-    "json",
+    "stream-json",
+    "--verbose",
+    "--include-partial-messages",
     "--strict-mcp-config",
     "--no-session-persistence",
     ...(command.pagesAccess === 1
@@ -377,7 +379,12 @@ export function cliOutput(command, stdout) {
     if (command.program.route.tool === "opencode")
       answer = openCodeResult(stdout).answer;
     else if (command.program.route.tool === "claude") {
-      const result = JSON.parse(stdout);
+      const result = stdout
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line))
+        .findLast((event) => event.type === "result");
+      if (!result) return "";
       if (result.is_error) return "";
       answer = typeof result.result === "string" ? result.result : "";
     } else {

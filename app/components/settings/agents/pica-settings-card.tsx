@@ -274,7 +274,7 @@ function usePicaDraft(
   models: readonly PageAgentModel[],
 ): PicaDraft {
   const [isEnabled, setEnabled] = useState(settings.isEnabled);
-  const saved = savedChoice(settings.selection, models);
+  const saved = savedChoice(settings.adoption ?? settings.selection, models);
   const [modelKey, setModelKey] = useState(saved.key);
   const [effort, setEffort] = useState(
     settings.selection?.reasoningEffort ?? "",
@@ -316,6 +316,11 @@ function PicaSelectionNotice({
   const { t } = useTranslation();
   return (
     <>
+      {settings.adoption ? (
+        <p role="status" className="text-sm text-muted-foreground">
+          {t("picaSettings.apiAdoption", { model: settings.adoption.model })}
+        </p>
+      ) : null}
       {aliasNotice?.kind === "resolved" ? (
         <p role="status" className="text-sm text-muted-foreground">
           {t("picaSettings.aliasResolved", {

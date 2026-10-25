@@ -6,6 +6,8 @@ export type AgentExecutionErrorCode =
   | "connectionUnavailable"
   | "accessUnverified"
   | "modelUnavailable"
+  | "picaModelSelectionRequired"
+  | "picaZenUnsupported"
   | "reasoningUnsupported"
   | "requestBusy"
   | "cancelled"

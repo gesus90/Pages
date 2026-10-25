@@ -19,6 +19,10 @@ import type { StoredChatMessage } from "@/backend/database/repositories/chat/Cha
 import type { ChatJobEvent } from "@/definition/ChatJob";
 import type { PicaToolOutcome } from "@/backend/service/chat/PicaToolSchemas";
 
+// Keep the independent MCP catalog outside Pages unit execution.
+vi.mock("@/backend/service/chat/PicaPlanTools", () => ({
+  registerPicaPlanTools: vi.fn(),
+}));
 /** A completed fake runner turn; no provider, transport or child process is used. */
 export function completedTurn(output = "Answer"): PlanSessionTurn {
   return {

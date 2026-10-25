@@ -34,9 +34,7 @@ export async function connectionModels(
       connections,
       viewer,
       connection,
-      models: supportsModelCatalog(connection.provider)
-        ? catalog.models
-        : manualModels(connection),
+      models: selectionModels(connection, catalog.models),
       links,
     });
     // Every model in this catalog shares the same connection grant and authentication.
@@ -73,6 +71,18 @@ async function usableModels(input: {
     if (isAdmitted) usable.push(model);
   }
   return usable;
+}
+
+function selectionModels(
+  connection: AgentConnectionRecord,
+  models: readonly AgentCatalogModel[],
+): readonly AgentCatalogModel[] {
+  if (
+    !supportsModelCatalog(connection.provider) ||
+    (connection.provider === "zai" && models.length === 0)
+  )
+    return manualModels(connection);
+  return models;
 }
 
 function manualModels(

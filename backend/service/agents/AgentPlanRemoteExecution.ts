@@ -333,6 +333,7 @@ export class AgentPlanRemoteExecution {
         },
       );
     const command = await resolvedCommand(run, remote);
+    let result: Partial<AgentPlanStepResult>;
     try {
       await this.dependencies.pages?.open(run, remote, execution.attemptId);
       const job = await this.claim({
@@ -343,7 +344,7 @@ export class AgentPlanRemoteExecution {
         signal,
       });
       if (!job) return CANCELLED_BEFORE_DISPATCH;
-      return await this.waitForJob(run, remote, job, signal);
+      result = await this.waitForJob(run, remote, job, signal);
     } finally {
       await this.dependencies.pages?.close(
         run.id,
@@ -351,6 +352,9 @@ export class AgentPlanRemoteExecution {
         execution.attemptId,
       );
     }
+    // Closeout changes persisted access metadata; continuation compares the exact durable view.
+    const current = await this.dependencies.runs.find(run.id);
+    return current?.steps.find((step) => step.id === remote.step.id) ?? result;
   }
 
   /** Rechecks remote resource access before disclosing historical output, without requiring online status. */

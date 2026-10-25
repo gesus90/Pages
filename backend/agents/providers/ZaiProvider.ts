@@ -1,9 +1,8 @@
-import {
-  MODEL_TEST_PROMPT,
-  ZAI_FREE_MODEL,
-} from "@/definition/AgentConnection";
+import { MODEL_TEST_PROMPT } from "@/definition/AgentConnection";
 
-import { readChatCompletion } from "./ProviderResponses";
+import { readChatCompletion, readModelList } from "./ProviderResponses";
+
+import type { ZaiAccountType } from "@/definition/AgentConnection";
 
 import type { ProviderHttpClient } from "./ProviderHttpClient";
 import type {
@@ -12,7 +11,7 @@ import type {
   ProviderCheckOutcome,
 } from "./ProviderContracts";
 
-/** Uses the international standard API, never a Coding Plan or custom endpoint. */
+/** Uses the fixed international endpoint of the explicitly saved account type. */
 export class ZaiProvider implements ApiProviderAdapter {
   public readonly provider = "zai";
   private readonly client: ProviderHttpClient;
@@ -21,14 +20,20 @@ export class ZaiProvider implements ApiProviderAdapter {
     this.client = client;
   }
 
-  /** The documented free model supplies a one-token access probe. */
+  /** Checks authentication through metadata, without consuming a model or subscription quota. */
   public checkAccess(
     apiKey: string,
     signal: AbortSignal,
+    zaiAccountType?: ZaiAccountType,
   ): Promise<ProviderCheckOutcome> {
-    return this.complete(
-      { apiKey, model: ZAI_FREE_MODEL, reasoningEffort: null },
-      1,
+    return this.client.check(
+      {
+        provider: this.provider,
+        apiKey,
+        zaiAccountType,
+        path: "/models",
+        parse: readModelList,
+      },
       signal,
     );
   }
@@ -50,6 +55,7 @@ export class ZaiProvider implements ApiProviderAdapter {
       {
         provider: this.provider,
         apiKey: request.apiKey,
+        zaiAccountType: request.zaiAccountType,
         path: "/chat/completions",
         body: {
           model: request.model,

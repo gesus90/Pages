@@ -64,7 +64,12 @@ export function applyRunnerMessage(
     lastEventId: message.eventId,
     lastEventDigest: planContentDigest(message),
     jobs: state.jobs.map((job) =>
-      job.jobId === message.job.jobId ? message.job : job,
+      job.jobId === message.job.jobId
+        ? {
+            ...message.job,
+            ...(message.delta ? { execution: job.execution } : {}),
+          }
+        : job,
     ),
   };
   return {
@@ -118,13 +123,17 @@ function requireTransition(
   message: Extract<RunnerMessage, { type: "event" }>,
 ): void {
   const previous = state.jobs.find((job) => job.jobId === message.job.jobId);
-  if (!previous || !TRANSITIONS[previous.status].includes(message.job.status))
-    throw new Error("Invalid runner job transition");
   if (
-    planContentDigest(previous.execution ?? null) !==
-      planContentDigest(message.job.execution ?? null) ||
+    !previous ||
+    (!TRANSITIONS[previous.status].includes(message.job.status) &&
+      !isTerminalHistory(previous, message))
+  )
+    throw new Error("Invalid runner job transition");
+  requireHistory(previous, message);
+  requireCommand(previous, message);
+  if (
     planContentDigest(previous.plan ?? null) !==
-      planContentDigest(message.job.plan ?? null)
+    planContentDigest(message.job.plan ?? null)
   )
     throw new Error("Runner context changed");
   if (
@@ -138,4 +147,73 @@ function requireTransition(
     !message.job.launch
   )
     throw new Error("Runner launch confirmation required");
+}
+
+function requireCommand(
+  previous: RunnerJob,
+  message: Extract<RunnerMessage, { type: "event" }>,
+): void {
+  if (message.delta) {
+    if (message.job.execution !== undefined)
+      throw new Error("Runner delta must reuse the stored command");
+    return;
+  }
+  if (
+    planContentDigest(previous.execution ?? null) !==
+    planContentDigest(message.job.execution ?? null)
+  )
+    throw new Error("Runner command changed");
+}
+
+function requireHistory(
+  previous: RunnerJob,
+  message: Extract<RunnerMessage, { type: "event" }>,
+): void {
+  if (previous.liveHistoryVersion !== message.job.liveHistoryVersion)
+    throw new Error("Runner history capability changed");
+  let cursor = previous.historyCursor ?? 0;
+  const history = message.history ?? [];
+  requireFinalHistoryLength(previous, message.job);
+  if (history.length && previous.liveHistoryVersion !== 1)
+    throw new Error("Runner history not enabled");
+  if (Buffer.byteLength(JSON.stringify(history)) > 32_768)
+    throw new Error("Runner history packet too large");
+  for (const event of history) {
+    if (event.sequence !== cursor + 1)
+      throw new Error("Runner history out of sequence");
+    cursor = event.sequence;
+  }
+  if ((message.job.historyCursor ?? 0) !== cursor)
+    throw new Error("Runner history cursor mismatch");
+}
+
+function requireFinalHistoryLength(previous: RunnerJob, next: RunnerJob): void {
+  if (
+    previous.historyLength !== undefined &&
+    previous.historyLength !== next.historyLength
+  )
+    throw new Error("Runner final history count changed");
+  if (
+    next.historyLength !== undefined &&
+    !["completed", "failed", "interrupted", "lost"].includes(next.status)
+  )
+    throw new Error("Runner final history count requires a terminal job");
+  if ((next.historyCursor ?? 0) > (next.historyLength ?? 2_000))
+    throw new Error("Runner history exceeds its final count");
+}
+
+/** Only missing diagnostics may advance a terminal job; its result and plan remain immutable. */
+export function isTerminalHistory(
+  previous: RunnerJob,
+  message: Extract<RunnerMessage, { type: "event" }>,
+): boolean {
+  return (
+    previous.status === message.job.status &&
+    ["completed", "failed", "interrupted", "lost"].includes(previous.status) &&
+    previous.liveHistoryVersion === 1 &&
+    previous.historyLength !== undefined &&
+    message.delta === true &&
+    message.result === undefined &&
+    (message.history?.length ?? 0) > 0
+  );
 }

@@ -1,6 +1,6 @@
 export type ChatErrorCode =
   | "disabled"
-  | "apiModeRequired"
+  | "nativeContextManaged"
   | "invalidInput"
   | "accessDenied"
   | "sessionMissing"

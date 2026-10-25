@@ -13,6 +13,7 @@ import {
 } from "@/definition/RunnerProtocol";
 import { runnerExecutionSchema } from "@/definition/RunnerExecution";
 import { applyRunnerMessage } from "./RunnerProtocol";
+import { RunnerObservation } from "./RunnerObservation";
 import type {
   RunnerExecution,
   RunnerInterpreter,
@@ -30,6 +31,7 @@ import type {
   RunnerJob,
   RunnerPlanBinding,
   RunnerReply,
+  RunnerMessage,
 } from "@/definition/RunnerProtocol";
 
 interface RegistrationGrant {
@@ -90,6 +92,9 @@ export class RunnerService {
   private readonly githubProbes = new Set<string>();
   private readonly pagesExecutors = new Set<string>();
   private readonly openCodeExecutors = new Set<string>();
+  private readonly liveExecutors = new Set<string>();
+  private readonly observation = new RunnerObservation();
+  private readonly cancellationTimes = new Map<string, number>();
 
   public constructor(
     repository: RunnerRepository,
@@ -229,7 +234,11 @@ export class RunnerService {
             }) ?? Promise.resolve(),
         );
       this.heartbeats.set(connectionId, Date.now());
+      this.clearTerminalCancellation(connectionId, message);
       if (message.type === "reconcile") {
+        if (message.liveHistoryVersion === 1)
+          this.liveExecutors.add(connectionId);
+        else this.liveExecutors.delete(connectionId);
         if (message.pagesAccessVersion === 1)
           this.pagesExecutors.add(connectionId);
         else this.pagesExecutors.delete(connectionId);
@@ -248,6 +257,11 @@ export class RunnerService {
         if (message.tools) this.tools.set(connectionId, message.tools);
         else this.tools.delete(connectionId);
       }
+      this.observation.configure(
+        connectionId,
+        result.state.jobs,
+        this.liveExecutors.has(connectionId),
+      );
       return result.reply;
     });
   }
@@ -288,6 +302,11 @@ export class RunnerService {
       if (record.state.jobs.length >= 1000)
         throw new Error("Runner queue unavailable");
       const job: RunnerJob = {
+        ...(this.liveExecutors.has(connectionId) &&
+        execution?.program.kind === "cli" &&
+        execution.program.route.tool !== "opencode"
+          ? { liveHistoryVersion: 1 as const, historyCursor: 0 }
+          : {}),
         ...(binding ? { plan: binding } : {}),
         ...(execution ? { execution } : {}),
         jobId: randomUUID(),
@@ -299,6 +318,15 @@ export class RunnerService {
         jobs: [...record.state.jobs, job],
       });
       this.deliver(connectionId, { version: 1, type: "dispatch", job });
+      this.observation.configure(
+        connectionId,
+        [...record.state.jobs, job],
+        this.liveExecutors.has(connectionId),
+      );
+      if (this.channels.has(connectionId))
+        this.observation.attach(connectionId, (reply) =>
+          this.deliver(connectionId, reply),
+        );
       return job;
     });
   }
@@ -312,6 +340,8 @@ export class RunnerService {
     this.githubProbes.delete(connectionId);
     this.pagesExecutors.delete(connectionId);
     this.openCodeExecutors.delete(connectionId);
+    this.liveExecutors.delete(connectionId);
+    this.observation.detach(connectionId);
   }
 
   /**
@@ -361,6 +391,9 @@ export class RunnerService {
     send: (reply: RunnerReply) => void,
   ): () => void {
     this.channels.set(connectionId, send);
+    this.observation.attach(connectionId, (reply) =>
+      this.deliver(connectionId, reply),
+    );
     return () => {
       if (this.channels.get(connectionId) === send)
         this.channels.delete(connectionId);
@@ -370,6 +403,12 @@ export class RunnerService {
   /** Drops the current execution sender after its socket closes. */
   public detach(connectionId: string): void {
     this.channels.delete(connectionId);
+    this.observation.detach(connectionId);
+  }
+
+  /** Renews a plan view after its route has checked the reader's current rights. */
+  public observePlan(planId: string, isOpening: boolean): void {
+    this.observation.observe(planId, isOpening);
   }
 
   /** Requires an executing runner, rather than a transport-only bootstrap. */
@@ -439,6 +478,11 @@ export class RunnerService {
 
   /** Cancellation is explicit and targets the original durable claim only. */
   public cancel(connectionId: string, jobId: string): void {
+    if (!this.channels.has(connectionId)) return;
+    const key = `${connectionId}:${jobId}`;
+    const now = Date.now();
+    if (now - (this.cancellationTimes.get(key) ?? 0) < 2_000) return;
+    this.cancellationTimes.set(key, now);
     this.deliver(connectionId, { version: 1, type: "cancel", jobId });
   }
 
@@ -485,6 +529,19 @@ export class RunnerService {
       this.detach(connectionId);
       this.disconnected(connectionId);
     }
+  }
+
+  private clearTerminalCancellation(
+    connectionId: string,
+    message: RunnerMessage,
+  ): void {
+    if (
+      message.type === "event" &&
+      ["completed", "failed", "interrupted", "lost"].includes(
+        message.job.status,
+      )
+    )
+      this.cancellationTimes.delete(`${connectionId}:${message.job.jobId}`);
   }
 
   private async connectionView(

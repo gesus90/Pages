@@ -10,6 +10,10 @@ import runnerGitHub from "@/scripts/runner/github.mjs?raw";
 import runnerCli from "@/scripts/runner/cli.mjs?raw";
 import runnerPages from "@/scripts/runner/pages.mjs?raw";
 import runnerOpenCode from "@/scripts/runner/opencode.mjs?raw";
+import runnerLive from "@/scripts/runner/live.mjs?raw";
+import runnerSchedule from "@/scripts/runner/schedule.mjs?raw";
+import runnerJournal from "@/scripts/runner/journal.mjs?raw";
+import runnerProvider from "@/scripts/runner/provider.mjs?raw";
 import type { RemoteConnectionService } from "@/backend/service/remote/RemoteConnectionService";
 import type { RemoteSessionRegistry } from "@/backend/remote/RemoteSessionRegistry";
 import type { RunnerService } from "./RunnerService";
@@ -21,6 +25,10 @@ const setupScript = setupTemplate
   .replace("__PAGES_RUNNER_CLI__", () => runnerCli)
   .replace("__PAGES_RUNNER_PAGES__", () => runnerPages)
   .replace("__PAGES_RUNNER_OPENCODE__", () => runnerOpenCode)
+  .replace("__PAGES_RUNNER_LIVE__", () => runnerLive)
+  .replace("__PAGES_RUNNER_SCHEDULE__", () => runnerSchedule)
+  .replace("__PAGES_RUNNER_JOURNAL__", () => runnerJournal)
+  .replace("__PAGES_RUNNER_PROVIDER__", () => runnerProvider)
   .replace("__PAGES_RUNNER_GITHUB__", () => runnerGitHub);
 
 /** Runs the lines under a POSIX shell, whichever login shell the user has. */

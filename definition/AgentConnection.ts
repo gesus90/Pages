@@ -9,6 +9,14 @@ export type AgentProviderId = ApiProviderId | CliProviderId;
 export type AgentAccessKind = "api_key" | "cli_account";
 export type AgentCheckKind = "auth" | "model";
 
+/** The subscription and prepaid APIs use separate fixed endpoints and OpenCode providers. */
+export type ZaiAccountType = "api" | "coding-plan";
+
+/** Validates an explicit account choice without inspecting credentials. */
+export function isZaiAccountType(input: unknown): input is ZaiAccountType {
+  return input === "api" || input === "coding-plan";
+}
+
 /** Native OpenCode key destinations; a Zen key must never be assigned to OpenRouter. */
 export const OPENCODE_KEY_PROVIDERS = ["opencode", "openrouter"] as const;
 export type OpenCodeKeyProvider = (typeof OPENCODE_KEY_PROVIDERS)[number];
@@ -66,10 +74,22 @@ export function isOpenCodeLinkedProvider(
 export function linkedApiProviderOf(
   modelProvider: string,
 ): OpenCodeLinkedProvider | null {
+  if (modelProvider === "zai-coding-plan") return "zai";
   for (const [provider, native] of Object.entries(OPENCODE_LINKED_PROVIDERS))
     if (native === modelProvider && isAgentProvider(provider))
       return isOpenCodeLinkedProvider(provider) ? provider : null;
   return null;
+}
+
+/** The native destination of one linked key, respecting z.ai's saved account type. */
+export function openCodeLinkedModelProvider(connection: {
+  readonly provider: OpenCodeLinkedProvider;
+  readonly zaiAccountType?: ZaiAccountType;
+}): string {
+  return connection.provider === "zai" &&
+    connection.zaiAccountType === "coding-plan"
+    ? "zai-coding-plan"
+    : OPENCODE_LINKED_PROVIDERS[connection.provider];
 }
 
 /** The native provider of a full OpenCode model ID such as `google/gemini-3.8-flash`. */
@@ -148,8 +168,17 @@ export const AGENT_PROVIDERS = {
   },
 } as const;
 
-export const ZAI_FREE_MODEL = "glm-4.7-flash";
 export const MODEL_TEST_PROMPT = "Reply with exactly: OK";
+
+/** Credentials may only be sent to the fixed endpoint for the saved account type. */
+export function apiProviderEndpoint(
+  provider: ApiProviderId,
+  zaiAccountType?: ZaiAccountType,
+): string {
+  return provider === "zai" && zaiAccountType === "coding-plan"
+    ? "https://api.z.ai/api/coding/paas/v4"
+    : AGENT_PROVIDERS[provider].endpoint;
+}
 
 /** Narrows untrusted provider identifiers to the fixed catalog. */
 export function isAgentProvider(value: unknown): value is AgentProviderId {
@@ -231,6 +260,8 @@ export interface AgentConnectionSummary {
   readonly id: string;
   readonly name: string;
   readonly provider: AgentProviderId;
+  /** Absent on earlier projections means the unchanged standard API. */
+  readonly zaiAccountType?: ZaiAccountType;
   readonly accessKind: AgentAccessKind;
   readonly hasApiKey: boolean;
   readonly testModel: string | null;
@@ -251,6 +282,7 @@ export interface AgentConnectionSummary {
 export interface AgentConnectionInput {
   readonly name: string;
   readonly provider?: string;
+  readonly zaiAccountType?: string;
   readonly apiKey?: string;
   readonly testModel?: string;
   readonly reasoningEffort?: string;

@@ -622,6 +622,7 @@
         "name_required": "Ein Name für die Anbindung ist erforderlich.",
         "name_too_long": "Der Name darf höchstens 80 Zeichen enthalten.",
         "name_taken": "Dieser Name wird bereits verwendet.",
+        "zai_account_type_invalid": "Bitte die z.ai-Kontoart auswählen: GLM Coding Plan oder normale API mit Guthaben.",
         "provider_invalid": "Wählen Sie einen unterstützten Anbieter.",
         "provider_immutable": "Der Anbieter kann nicht geändert werden.",
         "api_key_required": "Ein API-Key ist erforderlich.",
@@ -862,7 +863,12 @@
       "testModelAction": "Modelltest ausführen",
       "apiAuthHint": "Zugangsprüfung: kostenfrei, ohne Modellanfrage.",
       "cliAuthHint": "Anmeldestatus: lokal, ohne Serverabfrage. Ein Modelltest ist eine separate Aktion.",
-      "zaiAuthHint": "Zugangsprüfung: kostenlose Minimalanfrage an glm-4.7-flash.",
+      "zaiAuthHint": "Zugangsprüfung: Modellliste am Endpunkt der gespeicherten Kontoart, ohne Modellaufruf.",
+      "zaiAccountType": "z.ai-Kontoart",
+      "zaiChooseAccount": "Kontoart auswählen …",
+      "zaiCodingPlan": "Abo · GLM Coding Plan",
+      "zaiStandardApi": "Normale API · Guthaben / Ressourcenpaket",
+      "zaiAccountHint": "Wähle die Kontoart deines Schlüssels. Der Coding Plan verwendet seinen eigenen Endpunkt und wird bei opencode als zai-coding-plan registriert. Ein Wechsel setzt die Zugangs- und Modellprüfung zurück.",
       "modelRequiredHint": "Wählen und speichern Sie ein Modell, bevor Sie einen Modelltest ausführen.",
       "neverChecked": "Noch nicht geprüft",
       "duration": "{{duration}} ms",
@@ -3262,7 +3268,9 @@
       "general": "Das hat nicht geklappt. Bitte versuch es noch einmal.",
       "contextChanged": "Der Kontext wurde inzwischen geändert. Es wurde nichts überschrieben; bitte /compact erneut aufrufen.",
       "compactionFailed": "Der Kontext konnte nicht komprimiert werden. Der vorhandene Gesprächsverlauf bleibt erhalten.",
-      "apiModeRequired": "Das geht nur mit einem API-Modell. Codex, Claude Code und OpenCode verwalten den Kontext ihrer nativen Sitzung selbst; /compact ist dort nicht verfügbar.",
+      "nativeContextManaged": "Codex, Claude Code und opencode verwalten den Kontext ihrer nativen Sitzung selbst; /compact ist dort nicht verfügbar.",
+      "picaModelSelectionRequired": "Pica verwendet nur Codex CLI, Claude Code oder opencode über ACP. Die gespeicherte API-Auswahl bleibt erhalten. Bitte in den Pica-Einstellungen die Übernahme über opencode bestätigen oder ein neues Modell wählen. OpenAI- und Anthropic-API-Schlüssel werden von Pica nicht mehr verwendet.",
+      "picaZenUnsupported": "Dieses kostenlose opencode-Zen-Modell benötigt die eigenen Werkzeuge von opencode und kann in Pica nicht ausgeführt werden. Bitte ein anderes Modell wählen. In Agent-Plänen bleibt es verfügbar.",
       "instructionsUnavailable": "Pica kann gerade nicht antworten: Die geschützten Vorgaben von Pica fehlen auf dem Server oder sind nicht lesbar. Deine Nachricht wurde nicht gesendet. Bitte wende dich an einen Admin.",
       "acpProviderUnsupported": "Pica unterstützt API-Verbindungen sowie Codex CLI, Claude Code und OpenCode über ACP. Ein Admin muss unter Einstellungen › Agents einen solchen Agenten für den Chat zuweisen.",
       "acpPermissionModeUnsupported": "Pica antwortet mit Claude Code und OpenCode nur mit Workspace-Zugriff „Nur Lesen“. Es stehen ausschließlich die autorisierten Pages-Werkzeuge zur Verfügung, keine Shell, Dateien oder Webwerkzeuge. Ein Admin muss den Modus des Chat-Agenten anpassen. Deine Nachricht wurde nicht gesendet.",
@@ -4208,7 +4216,8 @@
           "configuration_incompatible": "Die Knotenkonfiguration hat sich geändert und passt nicht mehr zur Session.",
           "native_session_ended": "Die native Session endete mit ihrem Prozess.",
           "pages_resume_unavailable": "Der Adapter könnte die Session fortsetzen, aber Pages bietet dafür noch keinen Weg.",
-          "capabilities_unknown": "Der Adapter hat nicht gemeldet, ob er eine Session fortsetzen kann."
+          "capabilities_unknown": "Der Adapter hat nicht gemeldet, ob er eine Session fortsetzen kann.",
+          "remote_one_shot": "Dieser Remote-Agent läuft als Einzelsitzung. Der Live-Verlauf ist lesbar; zusätzliche Anweisungen sind in dieser Sitzung nicht verfügbar."
         }
       },
       "waitingForCapacity": "Der Knoten wartet auf einen freien Agenten-Platz; er startet, sobald einer frei ist.",
@@ -4227,7 +4236,10 @@
         "uncertain": "Zustellung ungewiss (Server gestoppt; nicht wiederholt)",
         "failed": "Nicht zugestellt"
       },
-      "cacheExplained": "Wie Cache-Tokens zählen"
+      "cacheExplained": "Wie Cache-Tokens zählen",
+      "remoteUpdate": "Runner aktualisieren: Der Live-Verlauf für Codex und Claude benötigt Runner 1.8.0 oder neuer. Bestehende Läufe und Ergebnisse bleiben verfügbar.",
+      "remoteHistory": "Remote-Live-Verlauf",
+      "remoteDiagnostic": "Zwischenstände der CLI sind diagnostisch. Maßgeblich bleibt das Endergebnis des Schritts."
     },
     "flowInShort": "In",
     "flowOutShort": "Out",
@@ -5354,6 +5366,7 @@
     "enable": "Pica aktivieren",
     "off": "Aus",
     "on": "An",
+    "apiAdoption": "Das gespeicherte API-Modell ist über opencode als {{model}} mit derselben Stufe verfügbar. Bitte die Übernahme mit Speichern bestätigen. Bis dahin wird kein anderes Modell eingesetzt.",
     "chooseModel": "Modell auswählen …",
     "searchModels": "Modell, Anbieter oder Zugang suchen",
     "noModels": "Kein Modell, Anbieter oder Zugang passt zur Suche.",

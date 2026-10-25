@@ -54,13 +54,9 @@ sessions, and `AcpResourceScheduler` owns global admission and durable leases.
 `AgentPlanRunRepository` previously stored the latest public view and one private
 snapshot, without a versioned checkpoint or recovery command journal.
 
-`@mastra/core` is pinned to **1.74.0** in both manifest and lockfile. The installed
-`dist/workflows/workflow.d.ts` exposes `createRun`, `getWorkflowRunById`,
-`Run.resume`, `resumeStream`, and suspend callbacks. Pages has no workflow adapter,
-workflow storage, workflow run mapping, or checkpoint restoration contract.
-The existing `backend/agents/runtime/README.md` explicitly excludes workflows.
-Mastra agent/tool integration and PAGE-81's ACP scheduler are real, separate
-facilities; neither is a durable workflow implementation.
+Pages has no separate workflow adapter or workflow storage. The existing
+ACP scheduler provides native session admission; it does not establish a
+workflow checkpoint restoration contract.
 
 PAGE-85 already provides per-session attempts, redacted events, usage, separate
 repair messages, continuation capability detection, and bounded reconstruction
@@ -108,7 +104,8 @@ not permission to execute or a claim that a native session survived.
 | explicit stop/cancel | no recovery | always terminal |
 
 Pages owns business definitions, current authorization, immutable results and
-audit history. Mastra must own workflow restoration and dependency release.
+audit history. Workflow restoration and dependency release need their own
+explicit integration contract.
 ACP owns native session identity, capabilities, isolation, process cleanup and
 global capacity. A Pages checkpoint proves none of the native session lifetime.
 
@@ -242,9 +239,9 @@ checklist (`A`), in their original order. A partial item is not a completed item
 | I7 | partial | Verified adapter capabilities and prompt digests persist across restart and group reuse. Failed-node live/native/new-session execution is unavailable. |
 | I8 | partial | Current resource authorization, original snapshot references, explicit review and audit enforced for preparations. Worktree-content comparison, model-grant revalidation and executing context decisions remain blocked. |
 | I9 | partial | Atomic revision/idempotency/cancel coordination for preparations; existing leases and cleanup retained. No executing recovery admission or waiting queue exists. |
-| I10 | partial | Startup preserves successes and checkpoints, records unexpected interruption and uncertainty without retry. Mastra restoration and graceful-restart distinction remain open. |
+| I10 | partial | Startup preserves successes and checkpoints, records unexpected interruption and uncertainty without retry. Workflow restoration and graceful-restart distinction remain open. |
 | I11 | partial | Typed authorized read/preparation/cancel HTTP contract and safe error codes; execution resume/context/resource errors await integration. No UI. |
-| I12 | partial | Focused deterministic unit tests with fake SQL/process/provider boundaries. No Mock-Mastra workflow, real DDL migration, live provider or Linux process tests. |
+| I12 | partial | Focused deterministic unit tests with fake SQL/process/provider boundaries. No simulated workflow, real DDL migration, live provider or Linux process tests. |
 
 | Item | State | Evidence and remaining work |
 | --- | --- | --- |
@@ -344,7 +341,7 @@ These gates do not establish functional or coverage validation.
 
 ## Remaining integration work
 
-The full PAGE-84 definition of done depends on the missing Mastra workflow
+The full PAGE-84 definition of done depends on the missing workflow restoration
 integration: executing a repair, re-assessment before dependency release,
 continuing open DAG branches, and all three provider-specific native modes.
 Unchanged worktree contents, original resolved group inputs, and arbitrary

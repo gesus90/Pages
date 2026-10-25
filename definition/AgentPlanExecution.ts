@@ -75,6 +75,7 @@ export const planRemoteProgressSchema = z
       "lost",
     ]),
     launchId: z.string().uuid().optional(),
+    liveHistoryVersion: z.literal(1).optional(),
     reason: z.string().max(30).nullable().optional(),
     stderr: z.string().max(65536).optional(),
     exitCode: z.number().int().nullable().optional(),

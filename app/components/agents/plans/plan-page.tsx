@@ -17,6 +17,7 @@ import { usePlanEditor } from "./use-plan-editor";
 import { usePlanRun } from "./use-plan-run";
 import { usePlanSave } from "./use-plan-save";
 import { usePlanCatalogRefresh } from "./use-plan-catalog-refresh";
+import type { PlanCatalogRefresh } from "./use-plan-catalog-refresh";
 
 import type { AgentPlanOpening } from "@/app/lib/agent-plan-default";
 import type {
@@ -96,12 +97,14 @@ function focusConsoleNode(nodeId: string | null): void {
 export function PlanPage({
   page,
   opening,
+  catalogRefresh,
 }: {
   readonly page: AgentPlanPage;
   readonly opening: AgentPlanOpening;
+  readonly catalogRefresh?: PlanCatalogRefresh;
 }): React.ReactElement {
   const { t } = useTranslation();
-  usePlanCatalogRefresh();
+  usePlanCatalogRefresh(catalogRefresh);
   const draftEditor = usePlanEditor(page);
   const controls = usePlanControl(
     page.selected?.id,

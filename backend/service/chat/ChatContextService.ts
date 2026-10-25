@@ -145,7 +145,7 @@ export class ChatContextService {
     await this.dependencies.sessions.require(actor, sessionId);
     const agent = await this.dependencies.agents.resolve(actor.id, "chat");
     if (!isApiProvider(agent.connection.provider))
-      throw new ChatError("apiModeRequired");
+      throw new ChatError("nativeContextManaged");
     const stored = await this.dependencies.contexts.read(actor.id, sessionId);
     if (stored === null) throw new ChatError("sessionMissing");
     const messages = await this.dependencies.messages.messages(sessionId);

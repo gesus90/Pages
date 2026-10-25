@@ -158,14 +158,18 @@ function useSessionStream(
  */
 export function useAgentSession(
   key: AgentSessionKey,
-  options: { readonly isLive: boolean; readonly status: string },
+  options: {
+    readonly isLive: boolean;
+    readonly status: string;
+    readonly isRemote?: boolean;
+  },
 ): AgentSessionData {
   const address = sessionAddress(key);
   const [state, setState] = useState<SessionState>(INITIAL);
   const [revision, setRevision] = useState(0);
   const cursor = useRef(0);
   const refreshTimer = useRef<number | null>(null);
-  const { isLive, status } = options;
+  const { isLive, status, isRemote = false } = options;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -182,6 +186,7 @@ export function useAgentSession(
   );
 
   function scheduleRefresh(): void {
+    if (isRemote) return;
     refreshTimer.current ??= window.setTimeout(() => {
       refreshTimer.current = null;
       setRevision((value) => value + 1);

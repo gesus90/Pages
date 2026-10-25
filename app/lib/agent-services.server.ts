@@ -28,12 +28,8 @@ import {
 import { AgentCliLoginService } from "@/backend/service/agents/AgentCliLoginService";
 import { AgentConnectionService } from "@/backend/service/agents/AgentConnectionService";
 import { AgentOperationRegistry } from "@/backend/service/agents/AgentOperationRegistry";
-import { AgentTextExecution } from "@/backend/agents/AgentTextExecution";
 import { ApiTextExecution } from "@/backend/agents/providers/ApiTextExecution";
-import { PicaApiModels } from "@/backend/agents/providers/PicaApiModels";
-import { CliTextExecution } from "@/backend/agents/cli/CliTextExecution";
 import { AgentPlanExecution } from "@/backend/agents/AgentPlanExecution";
-import { ScopedExecution } from "@/backend/agents/ScopedExecution";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 import { AgentConnectionAccess } from "@/backend/service/agents/AgentConnectionAccess";
@@ -56,7 +52,6 @@ import type { AcpResourceOptions } from "@/definition/AcpResource";
 import type { AgentTicketAssetDependencies } from "@/backend/service/agents/AgentTicketAssetService";
 import type { Database } from "@/backend/database/Database";
 import type { PlanExecution } from "@/backend/agents/AgentPlanExecution";
-import type { TextExecution } from "@/backend/agents/TextExecution";
 import type { AgentWorkspaceService } from "@/backend/service/agents/AgentWorkspaceService";
 import type { AgentConfigurationApplicationServices } from "./agent-workspace-services.server";
 import type { RemoteApplicationServices } from "./remote-services.server";
@@ -77,9 +72,6 @@ export interface AgentApplicationServices
   readonly agentCheckService: AgentCheckService;
   readonly agentCliLoginService: AgentCliLoginService;
   /** Text runs of the chat; parallel chats share a verified connection. */
-  readonly agentChatExecution: TextExecution;
-  /** Native Pica models share connection locks and authorization with the existing execution paths. */
-  readonly picaApiModels: PicaApiModels;
   /** The scope of every connection, checked again before each Pica bridge call (PAGE-68). */
   readonly agentConnectionAccess: AgentConnectionAccess;
   /**
@@ -124,13 +116,9 @@ function createExecutions(
   input: ExecutionInput,
 ): Pick<
   AgentApplicationServices,
-  | "agentChatExecution"
-  | "agentPlanExecution"
-  | "agentCheckService"
-  | "picaApiModels"
-  | "openCodeProviderLinks"
+  "agentPlanExecution" | "agentCheckService" | "openCodeProviderLinks"
 > {
-  const { repository, cipher, operations, access } = input;
+  const { repository, cipher, operations } = input;
   const agentCheckService = new AgentCheckService({
     repository,
     catalog: input.catalog,
@@ -146,27 +134,12 @@ function createExecutions(
     runner: input.runner,
   };
   return {
-    picaApiModels: new PicaApiModels({
-      connections: repository,
-      cipher,
-      access,
-      operations,
-    }),
     agentCheckService,
     openCodeProviderLinks: new OpenCodeProviderLinks({
       connections: repository,
       check: (actor, id) => agentCheckService.run(actor, id, "auth"),
       refreshCatalog: (id) => input.catalog.run(id),
     }),
-    agentChatExecution: new ScopedExecution(
-      new AgentTextExecution(
-        new ApiTextExecution(repository, cipher),
-        new CliTextExecution(cliAdapters),
-        operations,
-        "shared",
-      ),
-      access,
-    ),
     agentPlanExecution: new AgentPlanExecution(
       new ApiTextExecution(repository, cipher),
       new CliSessionExecution({
@@ -191,7 +164,7 @@ function createExecutions(
         },
       }),
       operations,
-      access,
+      input.access,
     ),
   };
 }

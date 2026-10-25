@@ -3,7 +3,10 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { AgentProviderError } from "@/backend/error/AgentProviderError";
 import { isPlanRetryCode } from "@/backend/agents/AgentProviderFailure";
-import { AGENT_PROVIDERS, isApiProvider } from "@/definition/AgentConnection";
+import {
+  apiProviderEndpoint,
+  isApiProvider,
+} from "@/definition/AgentConnection";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import { classifyProviderError } from "./ProviderErrors";
@@ -61,7 +64,7 @@ export class ApiTextExecution implements TextExecution {
       );
       signal.throwIfAborted();
       const response = await this.request(
-        `${AGENT_PROVIDERS[connection.provider].endpoint}${request.path}`,
+        `${apiProviderEndpoint(connection.provider, current.zaiAccountType)}${request.path}`,
         {
           method: "POST",
           headers: requestHeaders(connection.provider, apiKey),

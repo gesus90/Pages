@@ -4,7 +4,10 @@ import { supportsModelCatalog } from "@/definition/AgentModelCatalog";
 import { CatalogHttpClient } from "./CatalogHttpClient";
 import { parseCatalogPage } from "./CatalogParsing";
 
-import type { ApiProviderId } from "@/definition/AgentConnection";
+import type {
+  ApiProviderId,
+  ZaiAccountType,
+} from "@/definition/AgentConnection";
 import type { AgentCatalogModel } from "@/definition/AgentModelCatalog";
 
 function catalogPath(provider: ApiProviderId, cursor: string | null): string {
@@ -47,6 +50,7 @@ export class CatalogProviderClient {
     provider: ApiProviderId,
     apiKey: string,
     signal: AbortSignal,
+    zaiAccountType?: ZaiAccountType,
   ): Promise<readonly AgentCatalogModel[]> {
     if (!supportsModelCatalog(provider))
       throw new AgentError("catalog_unsupported");
@@ -57,6 +61,7 @@ export class CatalogProviderClient {
     for (let pageNumber = 0; pageNumber < 32; pageNumber += 1) {
       const response = await this.http.get({
         provider,
+        zaiAccountType,
         apiKey,
         signal,
         path: catalogPath(provider, cursor),

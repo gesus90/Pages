@@ -8,7 +8,6 @@ import {
   readFile,
   readdir,
   realpath,
-  rename,
   rm,
   stat,
 } from "node:fs/promises";
@@ -16,51 +15,19 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
 import { spawnCli, cliOutput, cliFailure } from "./cli.mjs";
-import { preparePagesFiles, pagesRequest, pagesFailure } from "./pages.mjs";
+import {
+  preparePagesFiles,
+  pagesRequest,
+  pagesFailure,
+  notifyJobCompletion,
+} from "./pages.mjs";
+import { createLiveHistory } from "./live.mjs";
+import { store, readRecord, identity } from "./journal.mjs";
+
+export { store, readRecord, identity } from "./journal.mjs";
 
 const credentials =
-  /\b(?:sk-[a-zA-Z0-9_-]{12,}|gh[pousr]_[a-zA-Z0-9]{12,}|github_pat_[a-zA-Z0-9_]+|Bearer\s+\S+|(?:api[_ -]?key|access[_ -]?token|password|client[_ -]?secret)\s*[=:]\s*["']?[^\s"']+)/gi;
-
-/** Writes and syncs private state before exposing it to the transport. */
-export async function store(destination, contents) {
-  const pending = `${destination}.${randomUUID()}`;
-  const handle = await open(pending, "wx", 0o600);
-  try {
-    await handle.writeFile(JSON.stringify(contents));
-    await handle.sync();
-  } finally {
-    await handle.close();
-  }
-  await rename(pending, destination);
-  const parent = await open(join(destination, ".."), "r");
-  try {
-    await parent.sync();
-  } finally {
-    await parent.close();
-  }
-}
-
-/** Missing records are distinct from malformed or inaccessible records. */
-export async function readRecord(file) {
-  try {
-    return JSON.parse(await readFile(file, "utf8"));
-  } catch (error) {
-    if (error.code === "ENOENT") return null;
-    throw new Error("Private runner record unreadable");
-  }
-}
-
-/** Binds process ownership to Linux start time, avoiding PID reuse. */
-export async function identity(pid) {
-  try {
-    const contents = await readFile(`/proc/${pid}/stat`, "utf8");
-    const fields = contents.slice(contents.lastIndexOf(")") + 2).split(" ");
-    return fields[0] === "Z" ? null : fields[19];
-  } catch (error) {
-    if (error.code === "ENOENT" || error.code === "ESRCH") return null;
-    throw error;
-  }
-}
+  /\b(?:sk-[a-zA-Z0-9_-]{12,}|gh[pousr]_[a-zA-Z0-9]{12,}|github_pat_[a-zA-Z0-9_]+|Bearer\s+\S+|(?:api[_ -]?key|access[_ -]?token|password|client[_ -]?secret)["']?\s*[=:]\s*["']?[^\s"']+)/gi;
 
 /** Discovers only fixed runner-owned interpreter paths, with content-bound identities. */
 export async function interpreters() {
@@ -214,11 +181,16 @@ export async function observeJob(directory, job) {
   }
   const launch = await readRecord(join(folder, "launch.json"));
   const result = await readRecord(join(folder, "result.json"));
-  if (result) return { launch, ...result };
+  const history =
+    job.liveHistoryVersion === 1
+      ? ((await readRecord(join(folder, "history.json")))?.events ?? [])
+      : undefined;
+  if (result) return { launch, history, ...result };
   if (launch && (await identity(launch.processId)) === launch.identity) {
     const progress = await readRecord(join(folder, "progress.json"));
     return {
       launch,
+      history,
       status: "running",
       result: progress ?? { output: null, closeout: "pending" },
     };
@@ -243,6 +215,7 @@ export async function observeJob(directory, job) {
 export async function cancelJob(directory, jobId) {
   if (!/^[a-f0-9-]{36}$/.test(jobId)) throw new Error("Invalid cancellation");
   const folder = join(directory, "jobs", jobId);
+  if ((await readRecord(join(folder, "cancel.json")))?.requested) return;
   if (await readRecord(join(folder, "claim.json")))
     await store(join(folder, "cancel.json"), { requested: true });
 }
@@ -327,6 +300,56 @@ function spawnScript(command, folder, jobId) {
   );
 }
 
+function completedProcessResult(command, output, diagnostic, result) {
+  const isCli = command.program.kind === "cli";
+  if (
+    isCli &&
+    Buffer.byteLength(cliOutput(command, output)) +
+      Buffer.byteLength(diagnostic) >
+      command.outputBytes
+  )
+    result.reason = "output_limit";
+  const failureCode = isCli ? cliFailure(command, output) : undefined;
+  return {
+    ...result,
+    ...(isCli && result.exitCode === 0 && !cliOutput(command, output)
+      ? { exitCode: 1, reason: "exit" }
+      : {}),
+    ...(failureCode ? { failureCode } : {}),
+    output: safeOutput(isCli ? cliOutput(command, output) : output),
+    stderr: safeOutput(diagnostic),
+  };
+}
+
+function createJobProgress(folder, options) {
+  let progressWrites = Promise.resolve();
+  let storedEvents = -1;
+  async function writeProgress() {
+    if (options.history && storedEvents !== options.history.events.length) {
+      const events = [...options.history.events];
+      await store(join(folder, "history.json"), { events });
+      storedEvents = events.length;
+    }
+    await store(join(folder, "progress.json"), {
+      output: options.isCli ? null : safeOutput(options.output()),
+      closeout: "pending",
+    });
+  }
+  const progress = setInterval(() => {
+    progressWrites = progressWrites.then(writeProgress).catch(options.stop);
+  }, 1000);
+  return {
+    async finish() {
+      clearInterval(progress);
+      await progressWrites;
+      await writeProgress();
+    },
+    stop() {
+      clearInterval(progress);
+    },
+  };
+}
+
 async function processJob(command, folder, context) {
   const { jobId, signal } = context;
   const isCli = command.program.kind === "cli";
@@ -339,6 +362,10 @@ async function processJob(command, folder, context) {
   const diagnosticDecoder = new TextDecoder("utf-8", { fatal: true });
   let bytes = 0;
   let failure = null;
+  const history =
+    isCli && context.hasLiveHistory
+      ? createLiveHistory(command, safeOutput)
+      : null;
   const completion = new Promise((resolve) => {
     child.once("error", () =>
       resolve({ exitCode: null, signal: null, reason: "spawn" }),
@@ -358,20 +385,17 @@ async function processJob(command, folder, context) {
     });
   const receive = (chunk, channel) => {
     bytes += chunk.length;
-    if (
-      bytes >
-      (isCli && command.pagesAccess === 1
-        ? 32 * 1024 * 1024
-        : command.outputBytes)
-    ) {
+    if (bytes > (isCli ? 32 * 1024 * 1024 : command.outputBytes)) {
       failure = "output_limit";
       stop();
       return;
     }
     try {
-      if (channel === "stdout")
-        output += outputDecoder.decode(chunk, { stream: true });
-      else diagnostic += diagnosticDecoder.decode(chunk, { stream: true });
+      if (channel === "stdout") {
+        const text = outputDecoder.decode(chunk, { stream: true });
+        output += text;
+        history?.receive(text);
+      } else diagnostic += diagnosticDecoder.decode(chunk, { stream: true });
     } catch {
       failure = "exit";
       stop();
@@ -395,39 +419,27 @@ async function processJob(command, folder, context) {
   };
   signal.addEventListener("abort", abort, { once: true });
   if (signal.aborted) abort();
-  const progress = setInterval(() => {
-    void store(join(folder, "progress.json"), {
-      output: safeOutput(isCli ? cliOutput(command, output) : output),
-      closeout: "pending",
-    }).catch(stop);
-  }, 1000);
+  const progress = createJobProgress(folder, {
+    history,
+    isCli,
+    output: () => output,
+    stop,
+  });
   try {
     const result = await completion;
     try {
-      output += outputDecoder.decode();
+      const text = outputDecoder.decode();
+      output += text;
+      history?.receive(text);
+      history?.finish();
       diagnostic += diagnosticDecoder.decode();
     } catch {
       result.reason = "exit";
     }
-    if (
-      isCli &&
-      Buffer.byteLength(cliOutput(command, output)) +
-        Buffer.byteLength(diagnostic) >
-        command.outputBytes
-    )
-      result.reason = "output_limit";
-    const failureCode = isCli ? cliFailure(command, output) : undefined;
-    return {
-      ...result,
-      ...(isCli && result.exitCode === 0 && !cliOutput(command, output)
-        ? { exitCode: 1, reason: "exit" }
-        : {}),
-      ...(failureCode ? { failureCode } : {}),
-      output: safeOutput(isCli ? cliOutput(command, output) : output),
-      stderr: safeOutput(diagnostic),
-    };
+    await progress.finish();
+    return completedProcessResult(command, output, diagnostic, result);
   } finally {
-    clearInterval(progress);
+    progress.stop();
     signal.removeEventListener("abort", abort);
   }
 }
@@ -570,6 +582,7 @@ async function executeWorker(folder) {
         ? await processJob(command, folder, {
             jobId: job.jobId,
             signal: controller.signal,
+            hasLiveHistory: job.liveHistoryVersion === 1,
           })
         : await modelJob(command, folder, controller.signal);
   } catch (error) {
@@ -595,6 +608,7 @@ async function executeWorker(folder) {
     status,
     result: { ...result, closeout },
   });
+  await notifyJobCompletion(privateRoot, job.jobId);
 }
 
 if (process.argv[2] === "--job") {

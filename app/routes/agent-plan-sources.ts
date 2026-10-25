@@ -1,6 +1,10 @@
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import {
+  planCatalogRefresh,
+  planCatalogResponse,
+} from "@/app/lib/agent-plan-catalog.server";
+import {
   agentFailureResponse,
   AGENT_NO_STORE,
 } from "@/app/lib/settings-actions/settings-agents-response.server";
@@ -19,11 +23,23 @@ export async function loader({
   try {
     const user = context.get(authenticatedUserContext);
     if (!user) throw new AgentError("plan_access_denied");
-    const workspaceId = readPlanText(
-      new URL(request.url).searchParams.get("workspaceId"),
-    );
+    const query = new URL(request.url).searchParams;
     const services = await getApplicationServices();
-    const agentId = new URL(request.url).searchParams.get("agentId");
+    if (query.get("refresh") === "1") {
+      const workspace = query.get("workspaceId");
+      const plan = query.get("planId");
+      const workspaceId = workspace === null ? null : readPlanText(workspace);
+      const page = await services.agentPlanService.page(user.id, {
+        planId: plan === null ? null : readPlanText(plan),
+        workspaceId,
+      });
+      return planCatalogResponse(
+        request,
+        planCatalogRefresh(page, workspaceId).etag,
+      );
+    }
+    const workspaceId = readPlanText(query.get("workspaceId"));
+    const agentId = query.get("agentId");
     if (agentId !== null) {
       const sourceId = readPlanText(agentId);
       const agents = await services.agentPlanService.agents(

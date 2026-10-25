@@ -1,16 +1,12 @@
-import { expect, it, vi } from "vitest";
+import { expect, it } from "vitest";
 
 import { createRuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
-import { createRuntimeMemory } from "@/backend/agents/runtime/RuntimeMemory";
 
 import {
   runtimeActor,
   runtimeContext,
   runtimeSessionId,
 } from "./runtime-fixture";
-
-import type { ChatSessionRepository } from "@/backend/database/repositories/chat/ChatSessionRepository";
-import type { ChatContextService } from "@/backend/service/chat/ChatContextService";
 
 it("validates actor, session and run before creating a server context", async () => {
   const { sessions, controller } = await runtimeContext();
@@ -79,52 +75,4 @@ it("checks cancellation that arrives while session authorization is pending", as
     };
   });
   await expect(context.authorize()).rejects.toThrow();
-});
-
-it("delegates persisted history and appends exclusively within the bound owner session", async () => {
-  const { context, sessions } = await runtimeContext();
-  const history = {
-    history: vi.fn<ChatContextService["history"]>(async () => ({
-      summary: "Existing summary",
-      messages: [],
-    })),
-  };
-  const messages = {
-    append: vi.fn<ChatSessionRepository["append"]>(
-      async (userId, sessionId, message) => ({
-        id: `${userId}-${sessionId}`,
-        createdAt: "",
-        ...message,
-      }),
-    ),
-  };
-  const memory = createRuntimeMemory(context, runtimeActor, {
-    history,
-    messages,
-  });
-  expect(await memory.history()).toEqual({
-    summary: "Existing summary",
-    messages: [],
-  });
-  expect(history.history).toHaveBeenCalledWith(runtimeActor, runtimeSessionId);
-  const message = { role: "assistant" as const, content: "Visible answer" };
-  await memory.append(message);
-  expect(messages.append).toHaveBeenCalledWith(
-    context.userId,
-    context.sessionId,
-    message,
-  );
-  expect(sessions.require).toHaveBeenCalledTimes(3);
-  expect(() =>
-    createRuntimeMemory(
-      context,
-      { ...runtimeActor, id: "foreign" },
-      { history, messages },
-    ),
-  ).toThrow("does not match");
-  sessions.require.mockRejectedValue(new Error("Session deleted"));
-  await expect(memory.history()).rejects.toThrow("Session deleted");
-  await expect(memory.append(message)).rejects.toThrow("Session deleted");
-  expect(history.history).toHaveBeenCalledOnce();
-  expect(messages.append).toHaveBeenCalledOnce();
 });

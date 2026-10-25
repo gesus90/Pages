@@ -120,16 +120,21 @@ export class AgentCheckService {
       return { ok: false, errorCode: "secret_unavailable", detail: {} };
     }
     const provider = providers[connection.provider];
-    return testModel === null
-      ? provider.checkAccess(apiKey, signal)
-      : provider.runModelTest(
-          {
-            apiKey,
-            model: testModel,
-            reasoningEffort: connection.reasoningEffort,
-          },
-          signal,
-        );
+    if (testModel === null)
+      return connection.provider === "zai"
+        ? provider.checkAccess(apiKey, signal, connection.zaiAccountType)
+        : provider.checkAccess(apiKey, signal);
+    return provider.runModelTest(
+      {
+        apiKey,
+        model: testModel,
+        reasoningEffort: connection.reasoningEffort,
+        ...(connection.provider === "zai"
+          ? { zaiAccountType: connection.zaiAccountType }
+          : {}),
+      },
+      signal,
+    );
   }
 
   private requireTestModel(model: string | null): string {

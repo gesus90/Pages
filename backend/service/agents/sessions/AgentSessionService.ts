@@ -10,6 +10,7 @@ import { decideContinuation } from "./AgentSessionContinuation";
 import { AgentSessionRecorder } from "./AgentSessionRecorder";
 import { UNKNOWN_CONTEXT, sumTurnUsage } from "./AgentSessionUsage";
 import { checkSessionWorkspace } from "./AgentSessionWorkspace";
+import { followRemoteSession } from "./RemoteSessionFollower";
 
 import type { AcpSessionListener } from "@/backend/agents/acp/AcpChat";
 import type { PlanSessionTurn } from "@/backend/agents/AgentPlanExecution";
@@ -275,7 +276,13 @@ export class AgentSessionService {
     after: number,
     listener: AgentSessionEventListener,
   ): Promise<() => void> {
-    await this.authorize(userId, key);
+    const { attempt } = await this.authorize(userId, key);
+    if (attempt.step.execution?.target.kind === "remote")
+      return followRemoteSession(
+        (cursor) => this.history(userId, key, { after: cursor, limit: 200 }),
+        after,
+        listener,
+      );
     return this.dependencies.journal.follow(key.attemptId, after, listener);
   }
 

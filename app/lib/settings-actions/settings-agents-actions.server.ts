@@ -40,6 +40,7 @@ function readConnectionInput(formData: FormData): AgentConnectionInput {
   return {
     name: readTextOrEmpty(formData, "name"),
     provider: readText(formData, "provider") ?? undefined,
+    zaiAccountType: readText(formData, "zaiAccountType") ?? undefined,
     apiKey: readTextOrEmpty(formData, "apiKey"),
     testModel: readTextOrEmpty(formData, "testModel"),
     reasoningEffort: readTextOrEmpty(formData, "reasoningEffort"),
@@ -110,7 +111,7 @@ const AGENT_ACTION_HANDLERS: Readonly<Record<string, AgentActionHandler>> = {
   "update-connection": async ({ actor, services, formData, id }) => {
     const input = readConnectionInput(formData);
     await services.agentConnectionService.update(actor, id, input);
-    if (input.apiKey)
+    if (input.apiKey || input.zaiAccountType)
       await services.openCodeProviderLinks.afterKeyChange(actor, id);
     return { ok: true, connectionId: id };
   },

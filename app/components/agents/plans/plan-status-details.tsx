@@ -11,6 +11,7 @@ import { PlanStatusConfiguration } from "./plan-status-configuration";
 import { PlanStatusTodos } from "./plan-status-todos";
 import { PlanScriptRun } from "./plan-script-run";
 import { PlanStatusRetry } from "./plan-status-retry";
+import { PlanRemoteHistory } from "./plan-remote-history";
 
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 
@@ -74,6 +75,7 @@ export function PlanStatusDetails({
         <PlanExecutionDetails step={step} />
         <StepConfiguration step={step} end={end} />
         {step.script ? null : <PlanStatusActivity step={step} />}
+        <PlanRemoteHistory step={step} />
         <Button
           size="sm"
           variant="ghost"

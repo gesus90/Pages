@@ -16,6 +16,7 @@ import { logCaughtError } from "@/backend/logging/Logger";
 
 import {
   readAgentConnectionScope,
+  readZaiAccountType,
   validateAgentInput,
 } from "./AgentConnectionValidation";
 import {
@@ -84,6 +85,7 @@ export class AgentConnectionService {
           id: connection.id,
           name: connection.name,
           provider: connection.provider,
+          zaiAccountType: connection.zaiAccountType,
           accessKind: AGENT_PROVIDERS[connection.provider].accessKind,
           hasApiKey: connection.hasApiKey,
           testModel: connection.testModel,
@@ -107,6 +109,7 @@ export class AgentConnectionService {
       const provider = input.provider;
       if (!isAgentProvider(provider)) throw new AgentError("provider_invalid");
       const validated = validateAgentInput(input, provider);
+      const zaiAccountType = readZaiAccountType(input, provider);
       const scope =
         input.scope === undefined
           ? GLOBAL_CONNECTION_SCOPE
@@ -125,6 +128,7 @@ export class AgentConnectionService {
           id,
           name: validated.name,
           provider,
+          zaiAccountType,
           secretEncrypted:
             validated.apiKey === null
               ? null
@@ -154,6 +158,14 @@ export class AgentConnectionService {
       )
         throw new AgentError("provider_immutable");
       const validated = validateAgentInput(input, connection.provider);
+      const zaiAccountType = readZaiAccountType(
+        input,
+        connection.provider,
+        connection.zaiAccountType ?? "api",
+      );
+      const hasAccountChanged =
+        zaiAccountType !== undefined &&
+        zaiAccountType !== (connection.zaiAccountType ?? "api");
       const scope =
         input.scope === undefined
           ? null
@@ -171,6 +183,8 @@ export class AgentConnectionService {
       await this.withNameConflict(async () =>
         repository.update(id, {
           name: validated.name,
+          zaiAccountType,
+          clearAccess: hasAccountChanged,
           secretEncrypted:
             validated.apiKey === null
               ? null

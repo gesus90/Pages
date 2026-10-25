@@ -1,11 +1,14 @@
 import { AgentError } from "@/backend/error/AgentErrors";
-import { AGENT_PROVIDERS } from "@/definition/AgentConnection";
+import { apiProviderEndpoint } from "@/definition/AgentConnection";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 
 import { classifyProviderError } from "../providers/ProviderErrors";
 import { requestHeaders } from "../providers/ProviderHttpClient";
 
-import type { ApiProviderId } from "@/definition/AgentConnection";
+import type {
+  ApiProviderId,
+  ZaiAccountType,
+} from "@/definition/AgentConnection";
 
 const MAX_PAGE_BYTES = 8 * 1024 * 1024;
 const MAX_ERROR_BYTES = 64 * 1024;
@@ -21,6 +24,7 @@ export class CatalogHttpClient {
   /** Bounds streamed bytes before JSON parsing; redirects and retries are forbidden. */
   public async get(input: {
     readonly provider: ApiProviderId;
+    readonly zaiAccountType?: ZaiAccountType;
     readonly apiKey: string;
     readonly path: string;
     readonly signal: AbortSignal;
@@ -30,7 +34,7 @@ export class CatalogHttpClient {
     try {
       signal.throwIfAborted();
       const response = await this.request(
-        `${AGENT_PROVIDERS[provider].endpoint}${path}`,
+        `${apiProviderEndpoint(provider, input.zaiAccountType)}${path}`,
         {
           method: "GET",
           headers: requestHeaders(provider, apiKey),

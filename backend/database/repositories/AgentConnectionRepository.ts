@@ -15,7 +15,10 @@ import {
 } from "./agent/AgentConnectionRows";
 
 import type { Database } from "@/backend/database/Database";
-import type { AgentProviderId } from "@/definition/AgentConnection";
+import type {
+  AgentProviderId,
+  ZaiAccountType,
+} from "@/definition/AgentConnection";
 import type { AgentConnectionScope } from "@/definition/AgentConnectionScope";
 import type { AgentUsage } from "@/definition/AgentUsage";
 import type { AgentConnectionRecord } from "./agent/AgentConnectionRows";
@@ -24,6 +27,7 @@ export interface AgentConnectionWrite {
   readonly id: string;
   readonly name: string;
   readonly provider: AgentProviderId;
+  readonly zaiAccountType?: ZaiAccountType;
   readonly secretEncrypted: string | null;
   readonly testModel: string | null;
   readonly actorId: string;
@@ -33,6 +37,8 @@ export interface AgentConnectionWrite {
 
 export interface AgentConnectionChange {
   readonly name: string;
+  readonly zaiAccountType?: ZaiAccountType;
+  readonly clearAccess?: boolean;
   /** Null keeps the stored key; replacing a key always clears both checks. */
   readonly secretEncrypted: string | null;
   readonly testModel: string | null;
@@ -168,6 +174,7 @@ export class AgentConnectionRepository {
             id,
             name,
             provider,
+            zai_account_type,
             secret_encrypted,
             test_model,
             created_by,
@@ -176,6 +183,7 @@ export class AgentConnectionRepository {
             $id,
             $name,
             $provider,
+            $zai_account_type,
             $secret_encrypted,
             $test_model,
             $actor_id,
@@ -186,6 +194,7 @@ export class AgentConnectionRepository {
           id: connection.id,
           name: connection.name,
           provider: connection.provider,
+          zai_account_type: connection.zaiAccountType ?? "api",
           secret_encrypted: connection.secretEncrypted,
           test_model: connection.testModel,
           actor_id: connection.actorId,
@@ -209,6 +218,7 @@ export class AgentConnectionRepository {
         UPDATE agent_connections
         SET
             name = $name,
+            zai_account_type = COALESCE($zai_account_type, zai_account_type),
             secret_encrypted = COALESCE($secret_encrypted, secret_encrypted),
             test_model = $test_model,
             reasoning_effort = $reasoning_effort,
@@ -219,6 +229,7 @@ export class AgentConnectionRepository {
         {
           id,
           name: change.name,
+          zai_account_type: change.zaiAccountType ?? null,
           secret_encrypted: change.secretEncrypted,
           test_model: change.testModel,
           reasoning_effort: change.reasoningEffort,
@@ -231,7 +242,7 @@ export class AgentConnectionRepository {
           change.scope,
         );
       const checks = new AgentCheckRepository(transaction);
-      if (change.secretEncrypted !== null) {
+      if (change.secretEncrypted !== null || change.clearAccess) {
         await checks.clear(id);
         await new AgentCatalogRepository(transaction).invalidate(id);
       } else if (change.clearModel) await checks.clearModel(id);

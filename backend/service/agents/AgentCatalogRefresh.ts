@@ -120,7 +120,10 @@ export class AgentCatalogRefresh {
         this.shutdownController.signal,
       ]);
       models = isApiProvider(connection.provider)
-        ? await this.listApiModels(connection.id, connection.provider, signal)
+        ? await this.listApiModels(
+            { ...connection, provider: connection.provider },
+            signal,
+          )
         : await this.dependencies.cli.listModels(connection, signal);
     } catch (error: unknown) {
       logCaughtError("AgentCatalogRefresh", error);
@@ -148,11 +151,11 @@ export class AgentCatalogRefresh {
   }
 
   private async listApiModels(
-    id: string,
-    provider: ApiProviderId,
+    connection: AgentConnectionRecord & { readonly provider: ApiProviderId },
     signal: AbortSignal,
   ): Promise<readonly AgentCatalogModel[]> {
     const { repository, cipher, client } = this.dependencies;
+    const { id, provider } = connection;
     const encrypted = await repository.findSecretEncrypted(id);
     let apiKey: string;
     try {
@@ -163,6 +166,6 @@ export class AgentCatalogRefresh {
 
       throw new AgentError("secret_unavailable");
     }
-    return client.list(provider, apiKey, signal);
+    return client.list(provider, apiKey, signal, connection.zaiAccountType);
   }
 }

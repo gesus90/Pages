@@ -1,6 +1,6 @@
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { AgentError } from "@/backend/error/AgentErrors";
-import { isApiProvider } from "@/definition/AgentConnection";
+import { isApiProvider, isZaiAccountType } from "@/definition/AgentConnection";
 import {
   GLOBAL_CONNECTION_SCOPE,
   isAgentConnectionScopeKind,
@@ -11,6 +11,7 @@ import { isReasoningEffortToken } from "@/definition/AgentModelCatalog";
 import type {
   AgentConnectionInput,
   AgentProviderId,
+  ZaiAccountType,
 } from "@/definition/AgentConnection";
 import type {
   AgentConnectionScope,
@@ -19,6 +20,19 @@ import type {
 
 const MAX_SCOPE_TARGETS = 200;
 const MAX_TARGET_ID_LENGTH = 100;
+
+/** Requires a deliberate z.ai account choice, preserving an existing choice on partial updates. */
+export function readZaiAccountType(
+  input: AgentConnectionInput,
+  provider: AgentProviderId,
+  previous?: ZaiAccountType,
+): ZaiAccountType | undefined {
+  if (provider !== "zai") return undefined;
+  const choice = input.zaiAccountType ?? previous;
+  if (!isZaiAccountType(choice))
+    throw new AgentError("zai_account_type_invalid");
+  return choice;
+}
 
 export interface ValidatedAgentInput {
   readonly name: string;

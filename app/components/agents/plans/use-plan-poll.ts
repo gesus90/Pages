@@ -11,6 +11,19 @@ interface PlanPollState {
   readonly error: string | null;
 }
 
+function pollingHeaders(
+  mode: "always" | "active",
+  etag: string | null,
+  isOpening: boolean,
+): HeadersInit {
+  return {
+    ...(etag ? { "If-None-Match": etag } : {}),
+    ...(mode === "always"
+      ? { "X-Plan-Observation": isOpening ? "open" : "renew" }
+      : {}),
+  };
+}
+
 /** A dropped connection keeps the editor mounted and retries without replaying a mutation. */
 export function usePlanPoll(
   url: string | null,
@@ -26,15 +39,25 @@ export function usePlanPoll(
     if (!url) return;
     const controller = new AbortController();
     let timer: number | undefined;
+    let etag: string | null = null;
+    let isOpening = true;
     async function poll(): Promise<void> {
+      const startedAt = Date.now();
       let shouldContinue = true;
       try {
         const response = await fetch(url ?? "", {
           cache: "no-store",
           signal: controller.signal,
+          headers: pollingHeaders(mode, etag, isOpening),
         });
+        isOpening = false;
+        if (response.status === 304) {
+          setState((previous) => ({ ...previous, error: null }));
+          return;
+        }
         const payload: unknown = await response.json();
         const result = readPlanPollingResponse(payload);
+        etag = result.ok ? response.headers.get("ETag") : null;
         if (controller.signal.aborted) return;
         setState({
           url,
@@ -53,9 +76,12 @@ export function usePlanPoll(
         }));
       } finally {
         if (!controller.signal.aborted && shouldContinue)
-          timer = window.setTimeout(() => {
-            void poll();
-          }, 1000);
+          timer = window.setTimeout(
+            () => {
+              void poll();
+            },
+            Math.max(0, 2000 - (Date.now() - startedAt)),
+          );
       }
     }
     void poll();

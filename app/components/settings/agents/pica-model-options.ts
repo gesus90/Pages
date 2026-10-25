@@ -10,6 +10,7 @@ import {
 } from "@/definition/AgentConnection";
 
 import { ProviderIcon } from "./provider-icon";
+import { isPicaModel } from "@/definition/PicaModelSelection";
 
 import type { SearchableSelectOption } from "@/app/components/ui/searchable-select/use-searchable-select";
 import type { AgentConnectionLocation } from "@/definition/AgentConnection";
@@ -193,6 +194,7 @@ export function picaModelOptions(
 ): SearchableSelectOption[] {
   return distinguishAlike(
     models
+      .filter(isPicaModel)
       .map((model) => listedModel(model, translate))
       .toSorted(compareListed),
   );

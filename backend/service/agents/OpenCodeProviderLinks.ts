@@ -6,6 +6,7 @@ import {
   linkedApiProviderOf,
   OPENCODE_LINKED_PROVIDERS,
   openCodeModelProvider,
+  openCodeLinkedModelProvider,
 } from "@/definition/AgentConnection";
 
 import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
@@ -95,6 +96,11 @@ export async function canUseOpenCodeModel(
   const links = request.links ?? (await findOpenCodeLinks(connections));
   const link = links.get(provider);
   if (!link?.isVerified) return false;
+  if (
+    openCodeLinkedModelProvider({ ...link.connection, provider }) !==
+    modelProvider
+  )
+    return false;
   const scope = await connections.scopes().find(link.connection.id);
   return scope !== null && isInAgentConnectionScope(scope, viewer);
 }
@@ -141,7 +147,10 @@ export class OpenCodeProviderKeys implements OpenCodeLinkedKeys {
         );
         if (encrypted === null) continue;
         keys.push({
-          modelProvider: OPENCODE_LINKED_PROVIDERS[provider],
+          modelProvider: openCodeLinkedModelProvider({
+            ...link.connection,
+            provider,
+          }),
           apiKey: this.cipher.decrypt(link.connection.id, encrypted),
         });
       } catch (error: unknown) {
@@ -249,7 +258,10 @@ function describeLink(
   provider: OpenCodeLinkedProvider,
   link: LinkCandidate | undefined,
 ): OpenCodeProviderLink {
-  const modelProvider = OPENCODE_LINKED_PROVIDERS[provider];
+  const modelProvider = openCodeLinkedModelProvider({
+    provider,
+    zaiAccountType: link?.connection.zaiAccountType,
+  });
   if (!link)
     return {
       provider,

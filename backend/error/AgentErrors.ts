@@ -2,6 +2,8 @@ import type { AgentUsage } from "@/definition/AgentUsage";
 
 /** Stable codes cross the HTTP boundary; upstream error text never does. */
 export const AGENT_ERROR_MESSAGES = {
+  zai_account_type_invalid:
+    "Choose the z.ai account type: Coding Plan subscription or standard prepaid API.",
   profile_management_retired:
     "Agent profile management has been replaced by direct model configuration in Agent Plans.",
   agent_tool_not_ready:

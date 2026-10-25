@@ -4,12 +4,24 @@ import { planStatusKey } from "./plan-status";
 
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 
+interface StatusActivityProps {
+  readonly step: AgentPlanStepResult;
+}
+
 /** Displays explicit public activity; contract items never imply an active task. */
 export function PlanStatusActivity({
   step,
-}: {
-  readonly step: AgentPlanStepResult;
-}): React.ReactElement {
+}: StatusActivityProps): React.ReactElement | null {
+  if (
+    step.remote?.liveHistoryVersion === 1 &&
+    !step.session?.activity?.titles.length &&
+    !step.isBlocked
+  )
+    return null;
+  return <ReportedActivity step={step} />;
+}
+
+function ReportedActivity({ step }: StatusActivityProps): React.ReactElement {
   const { t, i18n } = useTranslation();
   const reportedAt = step.session?.activity?.reportedAt;
   const timestamp = reportedAt ? new Date(reportedAt) : null;

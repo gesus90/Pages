@@ -9,11 +9,13 @@ import { ConsoleMetadata } from "./console-metadata";
 import { ConsoleUsage } from "./console-usage";
 import { useAgentSession } from "./use-agent-session";
 import { useSessionCommands } from "./use-session-commands";
+import { PlanRemoteHistoryNotice } from "../plan-remote-history";
 
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 import type {
   AgentSessionKey,
   AgentSessionState,
+  AgentSessionView,
 } from "@/definition/AgentSessionJournal";
 
 interface ConsoleSessionProps {
@@ -34,6 +36,23 @@ function lastActivity(
   return value ? new Date(value).toLocaleString() : null;
 }
 
+function remoteSessionView(
+  view: AgentSessionView | null,
+  step: AgentPlanStepResult,
+): AgentSessionView | null {
+  if (
+    !view ||
+    step.execution?.target.kind !== "remote" ||
+    step.status !== "running" ||
+    view.continuation.mode !== "unavailable"
+  )
+    return view;
+  return {
+    ...view,
+    continuation: { ...view.continuation, reason: "remote_one_shot" },
+  };
+}
+
 /**
  * The session of one node attempt: history and input on the left, facts on the right.
  *
@@ -45,11 +64,12 @@ export function ConsoleSession(props: ConsoleSessionProps): React.ReactElement {
   const { t } = useTranslation();
   const { step } = props;
   const session = useAgentSession(props.sessionKey, {
-    isLive: props.isLive,
+    isLive: props.isLive || step.remote?.liveHistoryVersion === 1,
     status: step.status,
+    isRemote: step.execution?.target.kind === "remote",
   });
   const commands = useSessionCommands(props.sessionKey, session.refresh);
-  const { view } = session;
+  const view = remoteSessionView(session.view, step);
   const record = step.session;
   return (
     <>
@@ -84,6 +104,7 @@ export function ConsoleSession(props: ConsoleSessionProps): React.ReactElement {
               source={session.source}
               retainedFrom={session.retainedFrom}
             />
+            <PlanRemoteHistoryNotice step={step} />
             <ConsoleComposer
               view={view}
               isReadOnly={props.isReadOnly}

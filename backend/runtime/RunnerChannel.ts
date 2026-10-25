@@ -120,6 +120,8 @@ function attach(
           throw new Error("Runner reconciliation required");
         const reply = await service.receive(auth.connectionId, input);
         hasReconciled = true;
+        lastSeen = Date.now();
+        socket.send(JSON.stringify(reply));
         detachProvider ??= services.openRouter.attach(
           auth.connectionId,
           (command) => {
@@ -138,8 +140,6 @@ function attach(
           if (!isCurrent()) throw new Error("Runner channel superseded");
           socket.send(JSON.stringify(command));
         });
-        lastSeen = Date.now();
-        socket.send(JSON.stringify(reply));
       } catch {
         socket.close(1008, "Invalid runner protocol or authorization");
       } finally {

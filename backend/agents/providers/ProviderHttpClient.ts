@@ -1,5 +1,5 @@
 import { sanitizeCheckDetail } from "@/backend/agents/AgentCheckDetail";
-import { AGENT_PROVIDERS } from "@/definition/AgentConnection";
+import { apiProviderEndpoint } from "@/definition/AgentConnection";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 
 import { classifyProviderError } from "./ProviderErrors";
@@ -7,6 +7,7 @@ import { classifyProviderError } from "./ProviderErrors";
 import type {
   AgentCheckDetail,
   ApiProviderId,
+  ZaiAccountType,
 } from "@/definition/AgentConnection";
 import type {
   ProviderCheckOutcome,
@@ -16,6 +17,7 @@ import type {
 
 interface ProviderRequest {
   readonly provider: ApiProviderId;
+  readonly zaiAccountType?: ZaiAccountType;
   readonly apiKey: string;
   readonly path: string;
   readonly body?: Readonly<Record<string, unknown>>;
@@ -52,7 +54,7 @@ export class ProviderHttpClient {
     input: ProviderRequest,
     signal: AbortSignal,
   ): Promise<ProviderCheckOutcome> {
-    const endpoint = AGENT_PROVIDERS[input.provider].endpoint;
+    const endpoint = apiProviderEndpoint(input.provider, input.zaiAccountType);
     const detail = { endpoint: new URL(endpoint).hostname };
     let response: ProviderHttpResponse;
     try {

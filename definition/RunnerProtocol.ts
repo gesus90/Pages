@@ -8,6 +8,7 @@ import {
 import { toolInventorySchema } from "./RemoteSetup.js";
 import { planStepExecutionSchema } from "./AgentPlanExecution.js";
 import type { ToolInventory } from "./RemoteSetup.js";
+import { runnerLiveBatchSchema } from "./RunnerLiveHistory";
 
 /** Wire version shared by Pages and an outbound runner connection. */
 export const RUNNER_PROTOCOL_VERSION = 1;
@@ -34,6 +35,10 @@ export const runnerJobSchema = z.object({
   plan: runnerPlanBindingSchema.optional(),
   execution: runnerExecutionSchema.optional(),
   launch: runnerLaunchSchema.optional(),
+  liveHistoryVersion: z.literal(1).optional(),
+  historyCursor: z.number().int().nonnegative().optional(),
+  /** A final result may arrive before its remaining bounded diagnostic packets. */
+  historyLength: z.number().int().nonnegative().max(2_000).optional(),
   status: z.enum([
     "queued",
     "accepted",
@@ -98,6 +103,8 @@ export const runnerMessageSchema = z.discriminatedUnion("type", [
     pagesAccessVersion: z.literal(1).optional(),
     /** Runner 1.7.0 reports OpenCode's catalog and runs OpenCode nodes over ACP. */
     openCodeExecutorVersion: z.literal(1).optional(),
+    /** Runner 1.8.0 supports expiring viewers and bounded CLI journal batches. */
+    liveHistoryVersion: z.literal(1).optional(),
   }),
   z.object({
     version: z.literal(1),
@@ -105,7 +112,10 @@ export const runnerMessageSchema = z.discriminatedUnion("type", [
     sessionId: identifier,
     eventId: identifier,
     sequence: z.number().int().positive(),
+    /** A 1.8.0 progress packet reuses the immutable command already stored with the claim. */
+    delta: z.literal(true).optional(),
     job: runnerJobSchema,
+    history: runnerLiveBatchSchema.optional(),
     result: z
       .object({
         output: z.string().max(100_000).nullable(),
@@ -147,6 +157,13 @@ export interface RunnerRegistrationReply {
 
 /** Pages-to-runner responses. Reconciliation never implicitly restarts a job. */
 export type RunnerReply =
+  | {
+      readonly version: 1;
+      readonly type: "observation";
+      readonly planId: string;
+      readonly leaseMilliseconds: number;
+      readonly refresh: boolean;
+    }
   | { readonly version: 1; readonly type: "refresh-tools" }
   | { readonly version: 1; readonly type: "dispatch"; readonly job: RunnerJob }
   | { readonly version: 1; readonly type: "cancel"; readonly jobId: string }

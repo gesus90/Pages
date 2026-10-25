@@ -62,7 +62,7 @@ export interface AgentPlanCheckpointInput {
   readonly stepId: string;
   readonly completedAt: string;
   readonly snapshotDigest: string;
-  /** No Mastra mapping exists yet; this is a Pages completion, not a Mastra checkpoint. */
+  /** Pages completion metadata does not establish a workflow restoration checkpoint. */
   readonly workflow: { readonly engine: "pages"; readonly runId: null };
   readonly completedStepIds: readonly string[];
   readonly pendingStepIds: readonly string[];

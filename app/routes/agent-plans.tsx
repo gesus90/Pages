@@ -3,6 +3,7 @@ import { data as routeData, useLoaderData, useLocation } from "react-router";
 import { PlanRetiredNotice } from "@/app/components/agents/plans/plan-retired-notice";
 import { PlanPage } from "@/app/components/agents/plans/plan-page";
 import { defaultPlanId } from "@/app/lib/agent-plan-default";
+import { planCatalogRefresh } from "@/app/lib/agent-plan-catalog.server";
 import {
   clonePlanAction,
   createPlanAction,
@@ -24,6 +25,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { AgentPlanOpening } from "@/app/lib/agent-plan-default";
+import type { PlanCatalogRefresh } from "@/app/components/agents/plans/use-plan-catalog-refresh";
 import type { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
 import type {
   AgentPlanInput,
@@ -35,6 +37,7 @@ import type { Route } from "./+types/agent-plans";
 /** The plan page together with how the editor came to its plan. */
 interface AgentPlansView extends AgentPlanPage {
   readonly opening: AgentPlanOpening;
+  readonly catalogRefresh?: PlanCatalogRefresh;
 }
 
 /** Graphs and execution results are always private, uncacheable responses. */
@@ -78,7 +81,13 @@ export async function loader({
         "Set-Cookie",
         await rememberSelectedPlan(request, user.id, page.selected.id),
       );
-    return routeData(page, { headers: responseHeaders });
+    return routeData(
+      {
+        ...page,
+        catalogRefresh: planCatalogRefresh(page, workspace),
+      },
+      { headers: responseHeaders },
+    );
   } catch (error: unknown) {
     logCaughtError("agent_plans", error);
 
@@ -163,6 +172,7 @@ export default function AgentPlansRoute(): React.ReactElement {
         key={`${page.selected?.id ?? "new"}:${location.key}`}
         page={page}
         opening={page.opening}
+        catalogRefresh={page.catalogRefresh}
       />
     </>
   );

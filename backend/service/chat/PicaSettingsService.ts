@@ -3,6 +3,8 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { ChatError } from "@/backend/error/ChatErrors";
 import { defaultAgentRunOptions } from "@/definition/AgentConfiguration";
+import { isApiProvider } from "@/definition/AgentConnection";
+import { isPicaModel, isPicaZenModel } from "@/definition/PicaModelSelection";
 
 import {
   resolveAgentAssignment,
@@ -11,10 +13,10 @@ import {
 import { connectionModels } from "../agents/AgentConnectionModels";
 import { requireAgentAdministrator } from "../agents/AgentServiceAccess";
 import { isPicaAcpProvider, picaAcpRunner } from "./acp/PicaAcpRunners";
+import { picaSelectionAdoption } from "./PicaSelectionAdoption";
 
 import type { AgentProfile } from "@/definition/AgentProfile";
 
-import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
 import type { PicaSettingsRepository } from "@/backend/database/repositories/chat/PicaSettingsRepository";
 import type { ProfileDependencies } from "../agents/AgentProfileService";
 import type { ResolvedAgentAssignment } from "../agents/AgentAssignmentResolution";
@@ -24,6 +26,7 @@ import type {
 } from "@/definition/PicaSettings";
 import type { AgentModelSelection } from "@/definition/AgentModelSelection";
 import type { PageAgentModel } from "@/definition/PageAgent";
+import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
 
 interface PicaDependencies extends Pick<
   ProfileDependencies,
@@ -80,15 +83,14 @@ export class PicaSettingsService {
     const settings = await this.read();
     if (!settings.isEnabled || this.changing) throw new ChatError("disabled");
     if (!settings.selection) throw new AgentExecutionError("roleMissing");
-    const assignment = await resolveAgentAssignmentFor(
-      this.dependencies.connections,
+    const assignment = await this.resolveSelection(
       await this.viewer(userId),
       settings.selection,
     );
     const resolved = settings.run
       ? { ...assignment, run: settings.run }
       : assignment;
-    this.requireRunner(resolved);
+    await this.requireRunner(resolved);
     return resolved;
   }
 
@@ -114,6 +116,14 @@ export class PicaSettingsService {
     const viewer = await this.viewer(userId);
     requireAgentAdministrator(viewer.actor);
     const settings = await this.read();
+    const models = (
+      await connectionModels(this.dependencies.connections, viewer)
+    ).filter(isPicaModel);
+    const adoption = await picaSelectionAdoption(
+      this.dependencies.connections,
+      settings.selection,
+      models,
+    );
     let error: PicaAdministration["error"] = null;
     try {
       if (!settings.selection)
@@ -122,12 +132,11 @@ export class PicaSettingsService {
             ? "profileSelectionRequired"
             : "roleMissing",
         );
-      const assignment = await resolveAgentAssignmentFor(
-        this.dependencies.connections,
+      const assignment = await this.resolveSelection(
         viewer,
         settings.selection,
       );
-      this.requireRunner(
+      await this.requireRunner(
         settings.run ? { ...assignment, run: settings.run } : assignment,
       );
     } catch (caughtError: unknown) {
@@ -135,8 +144,8 @@ export class PicaSettingsService {
       error = caughtError.code;
     }
     return {
-      settings: { ...settings, error },
-      models: await connectionModels(this.dependencies.connections, viewer),
+      settings: { ...settings, error, ...(adoption ? { adoption } : {}) },
+      models,
     };
   }
 
@@ -162,17 +171,13 @@ export class PicaSettingsService {
       let run = previous.run;
       if (input.isEnabled) {
         if (!selection) throw new AgentExecutionError("roleMissing");
-        const assignment = await resolveAgentAssignmentFor(
-          this.dependencies.connections,
-          viewer,
-          selection,
-        );
+        const assignment = await this.resolveSelection(viewer, selection);
         if (
           hasChanged &&
           previous.selection?.connectionId !== selection.connectionId
         )
           run = defaultAgentRunOptions(assignment.connection.provider);
-        this.requireRunner(run ? { ...assignment, run } : assignment);
+        await this.requireRunner(run ? { ...assignment, run } : assignment);
       }
       this.changing = true;
       try {
@@ -187,6 +192,31 @@ export class PicaSettingsService {
         this.changing = false;
       }
     });
+  }
+
+  private async resolveSelection(
+    viewer: AgentViewer,
+    selection: AgentModelSelection,
+  ): Promise<ResolvedAgentAssignment> {
+    try {
+      return await resolveAgentAssignmentFor(
+        this.dependencies.connections,
+        viewer,
+        selection,
+      );
+    } catch (error: unknown) {
+      if (
+        !(error instanceof AgentExecutionError) ||
+        error.code === "accessDenied"
+      )
+        throw error;
+      const connection = await this.dependencies.connections.find(
+        selection.connectionId,
+      );
+      if (connection && isApiProvider(connection.provider))
+        throw new AgentExecutionError("picaModelSelectionRequired");
+      throw error;
+    }
   }
 
   private async viewer(userId: string): Promise<AgentViewer> {
@@ -218,7 +248,7 @@ export class PicaSettingsService {
           this.dependencies.connections,
           selection,
         );
-        this.requireRunner(
+        await this.requireRunner(
           source.configuration?.run
             ? { ...assignment, run: source.configuration.run }
             : assignment,
@@ -249,8 +279,23 @@ export class PicaSettingsService {
     );
   }
 
-  private requireRunner(assignment: ResolvedAgentAssignment): void {
-    if (!isPicaAcpProvider(assignment.connection.provider)) return;
+  private async requireRunner(
+    assignment: ResolvedAgentAssignment,
+  ): Promise<void> {
+    if (!isPicaAcpProvider(assignment.connection.provider))
+      throw new AgentExecutionError("picaModelSelectionRequired");
+    const catalog = await this.dependencies.connections
+      .catalogs()
+      .find(assignment.connection.id);
+    const model = catalog.models.find((entry) => entry.id === assignment.model);
+    if (
+      isPicaZenModel({
+        provider: assignment.connection.provider,
+        model: assignment.model,
+        isFree: model?.isFree,
+      })
+    )
+      throw new AgentExecutionError("picaZenUnsupported");
     try {
       picaAcpRunner(assignment).runOptions(assignment);
     } catch (error: unknown) {

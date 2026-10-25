@@ -18,7 +18,6 @@ Checked on `task/PAGE-85` (base `e87743b`) before the change:
 | Resources                        | `AcpResourceScheduler` admits every ACP start FIFO; `ScheduledAcpSession` keeps the lease across turns and retires idle sessions after `acpIdleTimeout`. Plan and Pica starts already go through it.                                                                                         |
 | Recovery                         | `AgentPlanRecovery` ends processes of interrupted runs and marks them failed; there is no API that continues a failed or interrupted run. Pica resumes its own conversations with `session/resume`.                                                                                          |
 | Operation locks                  | `AgentOperationRegistry` locks model connections against login and credential changes, not sessions.                                                                                                                                                                                         |
-| Mastra                           | The repository contains no Mastra workflow code; there is no Mastra checkpoint to integrate.                                                                                                                                                                                                 |
 
 ## Identity
 

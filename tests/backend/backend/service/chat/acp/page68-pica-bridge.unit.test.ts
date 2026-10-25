@@ -17,6 +17,11 @@ import type { PicaToolOutcome } from "@/backend/service/chat/PicaToolSchemas";
 import type { PicaBridgeLease } from "@/backend/service/chat/acp/PicaBridge";
 import type { PicaBridgeResponse } from "@/backend/service/chat/acp/PicaBridgeProtocol";
 
+// Keep the independent MCP catalog outside Pages unit execution.
+vi.mock("@/backend/service/chat/PicaPlanTools", () => ({
+  registerPicaPlanTools: vi.fn(),
+}));
+
 const BRIDGE_URL = "http://127.0.0.1:3100/api/v1/pica-bridge";
 
 const READ_TOOLS = [

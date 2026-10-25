@@ -290,9 +290,9 @@ variables, add the redirect in the portal and then:
 6. Switch an event off, disconnect, and check nothing is posted afterwards while
    the bot is still on the server.
 
-## Pica API runtime (PAGE-83, partial)
+## Pica native tools (PAGE-157)
 
-The production Pica chat now runs API models through the shared Mastra runtime.
+The production Pica chat runs Codex CLI, Claude Code and opencode through ACP.
 Its native catalog has fixed tools, each on an existing Pages operation with
 the current account rights:
 
@@ -322,25 +322,29 @@ pass nor omit it. A write that failed is refused with `RETRY_REFUSED` when it
 is sent again unchanged in the same turn. A text of a write holds at most
 20,000 characters, as much as a tool result can show.
 
-The production composition selects `native-api` explicitly. `legacy-actions`
-preserves the previous broader catalog for compatibility and its regressions;
-it never runs alongside the native path or as an automatic fallback. The agent
-and plan chat sections below describe that retained catalog, not the native
-tools currently exposed in production. Other operations, web search and Mastra
-Memory remain outside this partial implementation. Pages still owns
-the transcript, attachments, summaries and `/compact`.
+The production composition selects ACP explicitly. `legacy-actions` retains
+its earlier text protocol for compatibility tests and never acts as a fallback.
+Pages owns transcripts, attachments and existing summaries. Native CLI
+sessions manage their own context; `/compact` is unavailable for Pica.
 
-A Codex CLI, Claude Code or OpenCode agent assigned to the chat runs over ACP
-instead (next sections). `/compact` stays an API-model function.
+Pica settings offer only usable CLI models. Free opencode Zen models are hidden
+because they require opencode's own tools; agent plans keep them. A saved API
+choice is retained. Settings propose its exact opencode equivalent only when
+provider, model, linked key and reasoning effort match unambiguously; the person
+confirms it with Save. Otherwise Pica asks for a new selection and never changes
+models silently. OpenAI and Anthropic API keys remain available to other Pages
+functions, while Pica uses the Codex and Claude CLI sign-ins.
+
+The z.ai account choice and additive migration rollback are documented in
+[z.ai account routing](docs/ZaiAccountType.md).
 
 ## Pica execution budgets (PAGE-103)
 
-API, ACP and legacy actions permit up to **256 actual Pages tool executions
+ACP and legacy actions permit up to **256 actual Pages tool executions
 per turn**. Validated calls reserve their place before dispatch, including
 failed service calls; rejected schemas, unknown tools and refused repeated
 failed writes do not execute a service. Call 257 is refused as `STEP_LIMIT`.
-ACP stops the job with the translated limit status and retains its journal;
-the API path reports the limit even if the model subsequently returns text.
+ACP stops the job with the translated limit status and retains its journal.
 
 Injected steering shares the current budget. A separate follow-up gets a fresh
 budget at the native prompt boundary, including adapter-started turns whose
@@ -349,10 +353,8 @@ session also starts fresh; the one-time failed-resume fallback keeps the same
 turn budget. Rights, abort signals, client-message idempotency and failed-write
 retry protection remain in force.
 
-The Mastra ceiling is **258 model steps**: 256 single-call steps, one possible
-refusal and one final text step. Multiple calls in one step still share the
-256-call budget. Legacy mode separately bounds model iterations to 258, so
-malformed actions cannot create an unbounded loop. Provider retries stay off.
+Legacy mode separately bounds model iterations to 258, so malformed actions
+cannot create an unbounded loop. Provider retries stay off.
 
 The chat request registry allows **90 minutes per request/job**, with the
 existing capacity of 16 and one request per person. This budgets 20 seconds
@@ -380,8 +382,8 @@ for every new answer, so a change applies from the next message on.
 - **Sent once.** Every message carries a client message ID, which stays the
   same when the browser sends the message again unchanged after a failure. A
   conversation stores each ID once (migration 052): a repeat returns the job
-  or steer of the first sending, and on the API path it is refused as already
-  sent. A second Enter or click before the panel updated sends nothing.
+  or steer of the first sending; an older message without a replayable ACP
+  outcome is refused as already sent. A second Enter or click before the panel updated sends nothing.
 - **Steering.** While Pica answers, sending stays possible. The message goes
   into the running turn through `_session/steering` (status *accepted*); a
   message that arrives between turns, or that the adapter no longer takes, is
@@ -522,11 +524,11 @@ OpenCode plan nodes also use the native ACP entry point; see
 
 ## Pica live activity (PAGE-103)
 
-While an API request or ACP job runs, the message list shows one compact row:
+While an ACP job runs, the message list shows one compact row:
 the unchanged Pica mascot, three orange dots, a neutral phrase that changes
 every 20 seconds, and elapsed wall time. The timer updates once per second
-from `ChatJob.createdAt`, or the local API request start until a server job is
-known. Closing and reopening the panel keeps that start; hidden panels need
+from `ChatJob.createdAt`; before the job acknowledgement it uses the local
+send time. Closing and reopening the panel keeps that start; hidden panels need
 no timer interval. Reduced-motion preference disables dot animation. The
 activity has an accessible status label and the timer does not announce every
 second. Tool badges, intermediate answer text, usage and compaction events
@@ -554,13 +556,9 @@ for a targeted retry; file cleanup failures are distinguished from sessions
 that were not deleted. Deleting the active session opens a remaining session or
 a new empty chat. If refreshing fails, the panel offers a new-session button.
 
-`/compact` summarizes older conversation context while retaining the latest four
-messages in context and every original message in the displayed transcript.
-The summary is persisted separately and used by subsequent Pica turns. Short
-context, or a summary that would not reduce it, produces a no-op notice.
-Compaction and chat turns share the request registry, so they cannot run in
-parallel for the same person. Errors or concurrent changes never replace the
-previous summary or the stored transcript.
+`/compact` explains that the native CLI manages conversation context. Pica no
+longer starts a separate summary model. Previously stored summaries and every
+original message remain readable and continue to seed a new native session.
 
 The small context indicator estimates tokens in the bounded conversation history
 and saved summary using roughly four characters per token. Its tooltip is
@@ -1404,7 +1402,7 @@ with an explicit source and target, avoiding a state-update race between
 starting and completing a connection. Measurements, drag previews, selection
 metadata, viewport and MiniMap state never enter the saved plan. Opening or
 polling a plan performs no layout or replacement of pinned configurations.
-No schema, backend execution, scheduler, authorization or Mastra change is part
+No schema, backend execution, scheduler or authorization change is part
 of this migration. Project/milestone diagram implementations remain unchanged.
 
 Source comparison of the implemented interface (not screenshot evidence):
@@ -1775,10 +1773,8 @@ credential leftover whose cleanup the last start could not confirm, with what
 clears it. It exposes no prompts, workspace paths, credentials or native
 conversation identifiers.
 
-This change uses the existing Pages runtime and DuckDB. It does not install
-Mastra Core or introduce another workflow engine. The Mastra integration named
-in PAGE-81's title remains deferred; the native resource scheduler is independent
-of a future orchestration framework.
+This change uses the existing Pages runtime and DuckDB. The native resource
+scheduler is independent of any future workflow orchestration.
 
 ### Limited worker units (PAGE-127)
 

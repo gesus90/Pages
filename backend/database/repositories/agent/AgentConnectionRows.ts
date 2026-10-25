@@ -4,10 +4,16 @@ import {
   readTextColumn,
 } from "@/backend/database/RowValue";
 import { AgentError } from "@/backend/error/AgentErrors";
-import { isAgentProvider } from "@/definition/AgentConnection";
+import {
+  isAgentProvider,
+  isZaiAccountType,
+} from "@/definition/AgentConnection";
 
 import type { DatabaseValue } from "@/backend/database/Database";
-import type { AgentProviderId } from "@/definition/AgentConnection";
+import type {
+  AgentProviderId,
+  ZaiAccountType,
+} from "@/definition/AgentConnection";
 
 /** Persistence metadata deliberately excludes the encrypted secret. */
 export interface AgentConnectionRecord {
@@ -15,6 +21,7 @@ export interface AgentConnectionRecord {
   readonly id: string;
   readonly name: string;
   readonly provider: AgentProviderId;
+  readonly zaiAccountType?: ZaiAccountType;
   readonly hasApiKey: boolean;
   readonly testModel: string | null;
   readonly reasoningEffort: string | null;
@@ -33,7 +40,8 @@ export const CONNECTION_COLUMNS = `
     cli_account_label,
     updated_at,
     reasoning_effort,
-    is_active
+    is_active,
+    zai_account_type
 `;
 
 /** Maps explicit columns, rejecting an unsupported stored provider. */
@@ -42,11 +50,16 @@ export function readAgentConnection(
 ): AgentConnectionRecord {
   const provider = readTextColumn(row, 2, "provider");
   if (!isAgentProvider(provider)) throw new AgentError("provider_invalid");
+  const zaiAccountType =
+    readNullableTextColumn(row, 10, "zai_account_type") ?? "api";
+  if (!isZaiAccountType(zaiAccountType))
+    throw new AgentError("zai_account_type_invalid");
   return {
     isActive: readBooleanColumn(row, 9, "is_active"),
     id: readTextColumn(row, 0, "id"),
     name: readTextColumn(row, 1, "name"),
     provider,
+    zaiAccountType,
     hasApiKey: readBooleanColumn(row, 3, "has_api_key"),
     testModel: readNullableTextColumn(row, 4, "test_model"),
     cliLoggedInAt: readNullableTextColumn(row, 5, "cli_logged_in_at"),

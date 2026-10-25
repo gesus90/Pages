@@ -17,6 +17,7 @@ import type { Dispatch, FormEvent, SetStateAction } from "react";
 interface AgentFormFields {
   readonly name: string;
   readonly provider: AgentProviderId;
+  readonly zaiAccountType: string;
   readonly apiKey: string;
   readonly testModel: string;
   /** Empty keeps the provider or CLI default effort. */
@@ -27,7 +28,7 @@ interface AgentFormFields {
 
 type StoredChoice = Pick<
   AgentFormFields,
-  "testModel" | "reasoningEffort" | "scope"
+  "testModel" | "reasoningEffort" | "scope" | "zaiAccountType"
 >;
 
 /** The server lists targets by kind, the form in the order of the choices. */
@@ -59,6 +60,7 @@ function storedChoice(
     testModel: connection?.testModel ?? "",
     reasoningEffort: connection?.reasoningEffort ?? "",
     scope: connection?.scope ?? GLOBAL_CONNECTION_SCOPE,
+    zaiAccountType: connection?.zaiAccountType ?? (connection ? "api" : ""),
   };
 }
 
@@ -66,6 +68,7 @@ function isSameChoice(left: StoredChoice, right: StoredChoice): boolean {
   return (
     left.testModel === right.testModel &&
     left.reasoningEffort === right.reasoningEffort &&
+    left.zaiAccountType === right.zaiAccountType &&
     isSameScope(left.scope, right.scope)
   );
 }
@@ -169,10 +172,14 @@ export function useAgentForm(
   }, [fetcher.data, fetcher.state, fields, onSaved, setFields, setSaved, t]);
   function handleSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
-    const { scope, ...text } = fields;
+    const { scope, zaiAccountType, ...text } = fields;
     void fetcher.submit(
       {
         ...text,
+        ...(fields.provider === "zai" &&
+        (!connection || zaiAccountType !== saved.zaiAccountType)
+          ? { zaiAccountType }
+          : {}),
         // An unchanged scope is not sent, so a form opened earlier cannot
         // overwrite a scope that another administrator saved since.
         ...(!connection || !isSameScope(scope, saved.scope)

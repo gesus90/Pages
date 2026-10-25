@@ -3,6 +3,10 @@ import { readCountColumn, readTextColumn } from "@/backend/database/RowValue";
 
 import { AgentPlanProgressRepository } from "../agent/AgentPlanProgressRepository";
 import { CURRENT_PLAN_SNAPSHOT } from "../agent/AgentPlanContinuationRepository";
+import {
+  persistRunnerSessionEvents,
+  appendRunnerSessionEvents,
+} from "./RunnerSessionEvents";
 
 import type {
   Database,
@@ -10,7 +14,8 @@ import type {
 } from "@/backend/database/Database";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type { AgentPlanCheckpointInput } from "@/definition/AgentPlanRecovery";
-import type { RunnerMessage } from "@/definition/RunnerProtocol";
+import type { RunnerMessage, RunnerJob } from "@/definition/RunnerProtocol";
+import type { RunnerLiveEvent } from "@/definition/RunnerLiveHistory";
 
 interface RunnerEventReceipt {
   readonly connectionId: string;
@@ -81,6 +86,20 @@ export class RunnerPlanEventRepository {
     );
   }
 
+  /** Stores a terminal job's remaining diagnostics in its bound journal, leaving the completed plan untouched. */
+  public async appendHistory(
+    transaction: DatabaseTransaction,
+    job: RunnerJob,
+    events: readonly RunnerLiveEvent[],
+  ): Promise<void> {
+    if (!job.plan) throw new Error("Runner session binding missing");
+    await appendRunnerSessionEvents(transaction, {
+      binding: job.plan,
+      jobId: job.jobId,
+      events,
+    });
+  }
+
   /** Loads the current immutable continuation basis and updates only its public progress. */
   public async apply(
     transaction: DatabaseTransaction,
@@ -91,6 +110,10 @@ export class RunnerPlanEventRepository {
     ) => {
       readonly run: AgentPlanRun;
       readonly checkpoint?: AgentPlanCheckpointInput;
+    },
+    history?: {
+      readonly stepId: string;
+      readonly events: readonly RunnerLiveEvent[];
     },
   ): Promise<void> {
     const [row] = await transaction.query(
@@ -109,5 +132,7 @@ export class RunnerPlanEventRepository {
       JSON.parse(readTextColumn(row, 1, "snapshot_json")),
     );
     await this.progress.persist(transaction, result.run, result.checkpoint);
+    if (history)
+      await persistRunnerSessionEvents(transaction, result.run, history);
   }
 }

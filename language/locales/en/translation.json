@@ -622,6 +622,7 @@
         "name_required": "A connection needs a name.",
         "name_too_long": "The name must not exceed 80 characters.",
         "name_taken": "A connection already uses this name.",
+        "zai_account_type_invalid": "Choose the z.ai account type: GLM Coding Plan or standard prepaid API.",
         "provider_invalid": "Choose a supported provider.",
         "provider_immutable": "The provider cannot be changed.",
         "api_key_required": "An API key is required.",
@@ -862,7 +863,12 @@
       "testModelAction": "Run model test",
       "apiAuthHint": "Access check: free, with no model request.",
       "cliAuthHint": "Sign-in status: local, without a server request. A model test is a separate action.",
-      "zaiAuthHint": "Access check: free minimal request to glm-4.7-flash.",
+      "zaiAuthHint": "Access check: model listing at the saved account type’s endpoint, without a model call.",
+      "zaiAccountType": "z.ai account type",
+      "zaiChooseAccount": "Choose account type …",
+      "zaiCodingPlan": "Subscription · GLM Coding Plan",
+      "zaiStandardApi": "Standard API · prepaid balance / resource package",
+      "zaiAccountHint": "Choose the account type of your key. Coding Plan uses its own endpoint and is registered in opencode as zai-coding-plan. Switching resets access and model checks.",
       "modelRequiredHint": "Choose and save a model before running a model test.",
       "neverChecked": "Not checked yet",
       "duration": "{{duration}} ms",
@@ -3262,7 +3268,9 @@
       "general": "That did not work. Please try again.",
       "contextChanged": "The context changed meanwhile. Nothing was overwritten; please try /compact again.",
       "compactionFailed": "The context could not be compacted. Your existing conversation history is preserved.",
-      "apiModeRequired": "This requires an API model. Codex, Claude Code and OpenCode manage their native session context themselves; /compact is unavailable for them.",
+      "nativeContextManaged": "Codex, Claude Code and opencode manage their native session context themselves; /compact is unavailable for them.",
+      "picaModelSelectionRequired": "Pica uses only Codex CLI, Claude Code or opencode over ACP. The saved API selection is retained. Confirm its adoption through opencode in Pica settings or choose a new model. Pica no longer uses OpenAI or Anthropic API keys.",
+      "picaZenUnsupported": "This free opencode Zen model requires opencode’s own tools and cannot run in Pica. Choose another model. It remains available in agent plans.",
       "instructionsUnavailable": "Pica cannot answer right now: the protected instructions of Pica are missing on the server or cannot be read. Your message was not sent. Please contact an administrator.",
       "acpProviderUnsupported": "Pica supports API connections and Codex CLI, Claude Code and OpenCode over ACP. An administrator must assign one of these agents to chat under Settings › Agents.",
       "acpPermissionModeUnsupported": "Pica requires “Read only” workspace access for Claude Code and OpenCode. Only the authorized Pages tools are available, with no shell, files or web tools. An administrator must update the chat agent’s mode. Your message was not sent.",
@@ -4208,7 +4216,8 @@
           "configuration_incompatible": "The node configuration changed and no longer fits the session.",
           "native_session_ended": "The native session ended with its process.",
           "pages_resume_unavailable": "The adapter could continue the session, but Pages offers no path for it yet.",
-          "capabilities_unknown": "The adapter did not report whether it can continue a session."
+          "capabilities_unknown": "The adapter did not report whether it can continue a session.",
+          "remote_one_shot": "This remote agent runs as a one-shot session. Live history is available; additional instructions are unavailable in this session."
         }
       },
       "waitingForCapacity": "The node waits for a free agent slot; it starts once one is free.",
@@ -4227,7 +4236,10 @@
         "uncertain": "Delivery uncertain (server stopped; not repeated)",
         "failed": "Not delivered"
       },
-      "cacheExplained": "How cache tokens count"
+      "cacheExplained": "How cache tokens count",
+      "remoteUpdate": "Update runner: Live history for Codex and Claude requires Runner 1.8.0 or later. Existing runs and results remain available.",
+      "remoteHistory": "Remote live history",
+      "remoteDiagnostic": "CLI progress is diagnostic. The final step result remains authoritative."
     },
     "flowInShort": "In",
     "flowOutShort": "Out",
@@ -5354,6 +5366,7 @@
     "enable": "Enable Pica",
     "off": "Off",
     "on": "On",
+    "apiAdoption": "The saved API model is available through opencode as {{model}} with the same effort. Confirm adoption with Save. Until then, no other model is used.",
     "chooseModel": "Choose a model …",
     "searchModels": "Search model, provider or access",
     "noModels": "No model, provider or access matches the search.",

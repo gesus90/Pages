@@ -380,6 +380,26 @@ cat > "$opencode_temporary" <<'OPENCODE'
 __PAGES_RUNNER_OPENCODE__
 OPENCODE
 mv -f -- "$opencode_temporary" "$runner_directory/opencode.mjs"
+live_temporary=$(mktemp "$runner_directory/.live.XXXXXX")
+cat > "$live_temporary" <<'LIVE'
+__PAGES_RUNNER_LIVE__
+LIVE
+mv -f -- "$live_temporary" "$runner_directory/live.mjs"
+schedule_temporary=$(mktemp "$runner_directory/.schedule.XXXXXX")
+cat > "$schedule_temporary" <<'SCHEDULE'
+__PAGES_RUNNER_SCHEDULE__
+SCHEDULE
+mv -f -- "$schedule_temporary" "$runner_directory/schedule.mjs"
+journal_temporary=$(mktemp "$runner_directory/.journal.XXXXXX")
+cat > "$journal_temporary" <<'JOURNAL'
+__PAGES_RUNNER_JOURNAL__
+JOURNAL
+mv -f -- "$journal_temporary" "$runner_directory/journal.mjs"
+provider_temporary=$(mktemp "$runner_directory/.provider.XXXXXX")
+cat > "$provider_temporary" <<'PROVIDER'
+__PAGES_RUNNER_PROVIDER__
+PROVIDER
+mv -f -- "$provider_temporary" "$runner_directory/provider.mjs"
 github_temporary=$(mktemp "$runner_directory/.github.XXXXXX")
 cat > "$github_temporary" <<'GITHUB'
 __PAGES_RUNNER_GITHUB__

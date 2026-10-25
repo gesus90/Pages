@@ -133,6 +133,7 @@ function remoteProgress(
     sessionId: job.sessionId,
     status: job.status,
     ...(job.launch ? { launchId: job.launch.id } : {}),
+    ...(job.liveHistoryVersion === 1 ? { liveHistoryVersion: 1 as const } : {}),
     ...remoteResult(input),
     startedAt: step.remote?.startedAt ?? now,
     endedAt: status === "running" ? null : now,

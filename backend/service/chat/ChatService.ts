@@ -4,7 +4,6 @@ import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { ChatError } from "@/backend/error/ChatErrors";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { redactCredentials } from "@/backend/security/AgentTextSafety";
-import { isApiProvider } from "@/definition/AgentConnection";
 import { CHAT_LIMITS, canChatSearchWeb } from "@/definition/Chat";
 
 import {
@@ -14,7 +13,6 @@ import {
 import { ChatResultBudget } from "./ChatResultBudget";
 import { readChatModelReply } from "./ChatActionProtocol";
 import {
-  CHAT_AGENT_IMAGE_TYPES,
   chatSelectionItem,
   readChatAgentAttachment,
 } from "./ChatAttachmentContent";
@@ -63,7 +61,6 @@ import type { ChatSessionService } from "./ChatSessionService";
 import type { ChatSettingsService } from "./ChatSettingsService";
 import type { ChatToolExecutor } from "./ChatToolExecutor";
 import type { PicaInstructions } from "./PicaInstructionFiles";
-import type { PicaApiImage, PicaApiService } from "./PicaApiService";
 import type { PicaAcpService } from "./acp/PicaAcpService";
 import type { PicaTurnBrief } from "./acp/PicaAcpContent";
 
@@ -108,13 +105,12 @@ interface ChatDependencies {
   readonly today?: () => string;
 }
 
-/** Explicit composition switch: production selects native API; legacy never runs as a fallback. */
+/** Explicit composition switch: production selects ACP; legacy never runs as a fallback. */
 export type ChatServiceDependencies = ChatDependencies &
   (
     | {
-        readonly mode: "native-api";
-        readonly api: Pick<PicaApiService, "run">;
-        /** Supported ACP chat runners, including native OpenCode; without it only API agents answer. */
+        readonly mode: "acp";
+        /** Supported ACP chat runners; without the service Pica refuses execution. */
         readonly acp?: Pick<PicaAcpService, "steer" | "start" | "outcome">;
       }
     | {
@@ -159,7 +155,6 @@ interface ChatAnswer {
 /** What of the attachments of a message reaches the agent, and the snapshot of it. */
 interface ChatTurnAttachments {
   readonly described: readonly ChatPromptAttachment[];
-  readonly images: readonly PicaApiImage[];
   readonly items: readonly ChatSelectionItem[];
 }
 
@@ -238,8 +233,8 @@ function readAnswer(text: string): string {
  * Every message resolves the chat assignment anew for the person who sends it,
  * so a running answer keeps its access and model while the next message uses
  * the current assignment (T6.1.18). Every message also reads Pica's protected
- * `SOUL.md` and `AGENTS.md` anew (PAGE-51). Production uses the shared native
- * API runtime; the explicitly selected legacy mode retains the text loop.
+ * `SOUL.md` and `AGENTS.md` anew (PAGE-51). Production uses ACP jobs;
+ * the explicitly selected legacy mode retains the text loop for compatibility.
  * Both modes limit actions and use the person's current rights (T6.12.5).
  * Neither credentials nor server paths enter a prompt, and nothing of the
  * conversation is logged.
@@ -261,6 +256,8 @@ export class ChatService {
   public async send(actor: User, input: unknown): Promise<ChatReply> {
     requireChatActor(actor);
     const request = readSendRequest(input);
+    if (this.dependencies.mode !== "legacy-actions")
+      throw new ChatError("acpProviderUnsupported");
     return this.dependencies.requests.run(
       actor.id,
       request.requestId,
@@ -274,12 +271,10 @@ export class ChatService {
    * @param actor - The signed-in person.
    * @param input - Request ID, client message ID, session, text and the IDs of
    * unsent attachments.
-   * @returns The answer of an API agent; for a supported ACP chat agent
-   * the started job, which runs on without the browser; while such a job runs,
-   * the steer that joins it.
+   * @returns The started ACP job, which runs on without the browser, or the
+   * steer joining a running job. Explicit legacy callers receive a reply.
    * @throws {ChatError} `acpProviderUnsupported` for an agent that is neither an
-   * API connection nor a supported ACP chat runner; there is no fallback to
-   * another path.
+   * supported ACP chat runner; there is no fallback to another path.
    * @throws {ChatError} `acpPermissionModeUnsupported` for a Claude Code or OpenCode agent
    * whose stored mode is not "Nur Lesen".
    * @throws {ChatError} `messageAlreadySent` for a message sent again whose
@@ -295,14 +290,13 @@ export class ChatService {
     const request = readSendRequest(input);
     const repeated = await this.repeated(actor, request);
     if (repeated) return repeated;
-    const acp =
-      this.dependencies.mode === "native-api" ? this.dependencies.acp : null;
-    if (!acp) return { kind: "reply", reply: await this.send(actor, input) };
+    const acp = this.dependencies.mode === "acp" ? this.dependencies.acp : null;
+    if (this.dependencies.mode === "legacy-actions")
+      return { kind: "reply", reply: await this.send(actor, input) };
+    if (!acp) throw new ChatError("acpProviderUnsupported");
     // A running job takes the message first; its agent stays pinned for its turns.
     const steer = await acp.steer(actor, request);
     if (steer) return { kind: "steer", steer };
-    if (isApiProvider(agent.connection.provider))
-      return { kind: "reply", reply: await this.send(actor, input) };
     if (!isPicaAcpProvider(agent.connection.provider))
       throw new ChatError("acpProviderUnsupported");
     return {
@@ -343,8 +337,7 @@ export class ChatService {
       request.clientMessageId,
     );
     if (stored === null) return null;
-    const acp =
-      this.dependencies.mode === "native-api" ? this.dependencies.acp : null;
+    const acp = this.dependencies.mode === "acp" ? this.dependencies.acp : null;
     const outcome = await acp?.outcome(actor.id, session.id, stored.id);
     if (outcome) return outcome;
     throw new ChatError("messageAlreadySent");
@@ -360,11 +353,6 @@ export class ChatService {
     const sent = await attachments.pending(session.id, request.attachmentIds);
     // Access and model are resolved for the person who sends, at the start of every message.
     const agent = await agents.resolve(actor.id, "chat");
-    if (
-      this.dependencies.mode === "native-api" &&
-      !isApiProvider(agent.connection.provider)
-    )
-      throw new ChatError("apiModeRequired");
     const protectedInstructions =
       await this.dependencies.protectedInstructions();
     const context = this.dependencies.context
@@ -432,26 +420,6 @@ export class ChatService {
       message: turn.request.text,
       attachments: turn.attachments.described,
     };
-    if (this.dependencies.mode === "native-api") {
-      const output = await this.dependencies.api.run(
-        {
-          actor: turn.actor,
-          userId: turn.actor.id,
-          sessionId: turn.request.sessionId,
-          runId: turn.runId,
-          images: turn.attachments.images,
-          agent: turn.agent,
-          instructions,
-          prompt: createChatPrompt({ ...prompt, steps: [], isLastStep: false }),
-          message: turn.request.text,
-          messageId: turn.messageId,
-          webSearch: false,
-        },
-        signal,
-      );
-      signal.throwIfAborted();
-      return { text: readAnswer(output), temporaryPasswords: [] };
-    }
     return this.legacyAnswer(
       { turn, prompt, instructions, confirmationWord, canSearchWeb },
       signal,
@@ -464,7 +432,7 @@ export class ChatService {
       input.actor.id,
     );
     const confirmationWord = chatConfirmationWord(settings?.language);
-    const isNative = this.dependencies.mode === "native-api";
+    const isNative = this.dependencies.mode === "acp";
     const canSearchWeb =
       !isNative && canChatSearchWeb(input.agent.connection.provider);
     const instructions = createChatInstructions({
@@ -592,13 +560,12 @@ export class ChatService {
 
   /**
    * Reads what of each attachment reaches the agent: text and extracted
-   * document text into the prompt, raster images as image content of the
-   * native API path; the legacy text path names images only.
+   * document text into the legacy prompt; images are named only.
+   * Production ACP jobs use their negotiated attachment capabilities.
    */
   private async turnAttachments(
     attachments: readonly StoredChatAttachment[],
   ): Promise<ChatTurnAttachments> {
-    const canSendImages = this.dependencies.mode === "native-api";
     const { attachments: files } = this.dependencies;
     // Without a byte reader, images and documents are reported as unreadable, never left out.
     const reader: ChatAttachmentReader = {
@@ -609,16 +576,9 @@ export class ChatService {
           : Promise.reject(new ChatError("attachmentMissing")),
     };
     const described: ChatPromptAttachment[] = [];
-    const images: PicaApiImage[] = [];
     const items: ChatSelectionItem[] = [];
     for (const attachment of attachments) {
-      const content = await readChatAgentAttachment(
-        attachment,
-        reader,
-        canSendImages && CHAT_AGENT_IMAGE_TYPES.has(attachment.contentType),
-      );
-      if (content.kind === "image")
-        images.push({ data: content.data, mediaType: attachment.contentType });
+      const content = await readChatAgentAttachment(attachment, reader, false);
       items.push(chatSelectionItem(attachment, content));
       described.push({
         fileName: attachment.fileName,
@@ -634,6 +594,6 @@ export class ChatService {
           : {}),
       });
     }
-    return { described, images, items };
+    return { described, items };
   }
 }

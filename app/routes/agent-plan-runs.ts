@@ -8,6 +8,7 @@ import { readPlanText } from "@/backend/agents/AgentPlanInput";
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
+import { planPollingResponse } from "@/app/lib/agent-plan-poll-response.server";
 
 import type { Route } from "./+types/agent-plan-runs";
 
@@ -22,27 +23,24 @@ export async function loader({
     if (!user) throw new AgentError("plan_access_denied");
     const query = new URL(request.url).searchParams;
     const services = await getApplicationServices();
-    if (query.has("planId"))
-      return Response.json(
-        {
-          ok: true,
-          intent: "poll-control",
-          control: await services.agentPlanService.control(
-            user.id,
-            readPlanText(query.get("planId")),
-          ),
-        },
-        { headers: AGENT_NO_STORE },
-      );
-    runId = readPlanText(query.get("runId"));
-    return Response.json(
-      {
+    if (query.has("planId")) {
+      const planId = readPlanText(query.get("planId"));
+      const control = await services.agentPlanService.control(user.id, planId);
+      const observation = request.headers.get("X-Plan-Observation");
+      if (observation === "open" || observation === "renew")
+        services.runnerService.observePlan(planId, observation === "open");
+      return planPollingResponse(request, {
         ok: true,
-        intent: "poll-run",
-        run: await services.agentPlanService.run(user.id, runId),
-      },
-      { headers: AGENT_NO_STORE },
-    );
+        intent: "poll-control",
+        control,
+      });
+    }
+    runId = readPlanText(query.get("runId"));
+    return planPollingResponse(request, {
+      ok: true,
+      intent: "poll-run",
+      run: await services.agentPlanService.run(user.id, runId),
+    });
   } catch (error: unknown) {
     logCaughtError("agent_plan_runs", error);
 

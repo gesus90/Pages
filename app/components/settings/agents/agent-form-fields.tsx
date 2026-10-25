@@ -15,6 +15,7 @@ import {
 import { supportsModelCatalog } from "@/definition/AgentModelCatalog";
 
 import { AgentScopeFields } from "./agent-scope-fields";
+import { AgentZaiAccountField } from "./agent-zai-account-field";
 import { ProviderIcon } from "./provider-icon";
 
 import type {
@@ -199,6 +200,7 @@ export function AgentFormFields({
           isExisting={isExisting}
         />
       ) : null}
+      <AgentZaiAccountField form={form} />
       <AgentManualModelField form={form} />
       <AgentScopeFields
         scope={form.fields.scope}

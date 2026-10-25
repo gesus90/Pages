@@ -1,4 +1,5 @@
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
+import { AGENT_PROVIDERS } from "./AgentConnection";
 import type { AgentProviderId } from "./AgentConnection";
 
 /** Persisted per-connection cadence, in hours; zero requires explicit refresh. */
@@ -55,11 +56,11 @@ export interface AgentModelCatalog {
 }
 
 /**
- * Z.AI has no documented, token-free catalog endpoint; CLIs list their models
- * themselves after login (A7 §21.3).
+ * Supported API connections use metadata endpoints; CLI connections list
+ * their native catalogs without generating model output.
  */
 export function supportsModelCatalog(provider: AgentProviderId): boolean {
-  return provider !== "zai";
+  return Object.hasOwn(AGENT_PROVIDERS, provider);
 }
 
 /** A picker alias such as `sonnet` or `opus[1m]`, short enough to store beside the model. */

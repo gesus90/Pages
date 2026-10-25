@@ -2,6 +2,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { requirePlanModelResources } from "@/backend/service/agents/AgentPlanModel";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import { applyRunnerPlanEvent } from "./RunnerPlanEvents";
+import { isTerminalHistory } from "./RunnerProtocol";
 import type { AgentPlanAccess } from "@/backend/service/agents/AgentPlanAccess";
 import type { AgentProfileService } from "@/backend/service/agents/AgentProfileService";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
@@ -42,6 +43,15 @@ function requireDispatchRun(
   )
     throw new AgentError("plan_access_denied");
   return run;
+}
+
+function isHistoryPacket(
+  previous: RunnerState,
+  message: RunnerMessage,
+): boolean {
+  if (message.type !== "event") return false;
+  const job = previous.jobs.find((entry) => entry.jobId === message.job.jobId);
+  return job !== undefined && isTerminalHistory(job, message);
 }
 
 /** Coordinates durable receipts and plan projections inside the runner checkpoint transaction. */
@@ -140,6 +150,7 @@ export class RunnerPlanEventService {
     },
   ): Promise<void> {
     const { message, previous, state } = input;
+    const history = message.type === "event" ? (message.history ?? []) : [];
     if (message.type === "event")
       await this.repository.append(transaction, connectionId, {
         event: message,
@@ -154,6 +165,10 @@ export class RunnerPlanEventService {
             job.status)
       )
         continue;
+      if (isHistoryPacket(previous, message)) {
+        await this.repository.appendHistory(transaction, job, history);
+        continue;
+      }
       await this.repository.apply(
         transaction,
         job.plan.runId,
@@ -167,6 +182,9 @@ export class RunnerPlanEventService {
             run,
             snapshot,
           ),
+        message.type === "event" && job.liveHistoryVersion === 1
+          ? { stepId: job.plan.stepId, events: history }
+          : undefined,
       );
     }
   }

@@ -57,6 +57,17 @@ export function pagesRequest(socketPath, jobId, request) {
   });
 }
 
+/** Wakes the transport after a durable terminal result; periodic observation remains the fallback. */
+export async function notifyJobCompletion(directory, jobId) {
+  try {
+    await pagesRequest(join(directory, "pages.sock"), jobId, {
+      kind: "job-completed",
+    });
+  } catch {
+    // A stopped transport still discovers the durable result at its next poll or reconciliation.
+  }
+}
+
 /** Holds the socket only while the transport runs; neither a token nor a login is written here. */
 export async function startPagesRelay(directory, request) {
   const socketPath = join(directory, "pages.sock");

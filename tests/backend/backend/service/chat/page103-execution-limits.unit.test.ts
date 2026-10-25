@@ -8,26 +8,10 @@ import {
 } from "@/backend/service/chat/ChatExecutionLimits";
 import { picaAcpRunner } from "@/backend/service/chat/acp/PicaAcpRunners";
 
-import { responseChunks } from "../../agents/runtime/runtime-fixture";
 import { ASSIGNMENT } from "./page48-chat-fixture";
-import { picaToolCalls, picaWorld } from "./page83-pica-fixture";
 import { ChatAgentWorld, modelAction } from "./page56-chat-world";
 
 afterEach(() => vi.useRealTimers());
-
-it("allows 256 sequential native calls and a final answer, then gives the same session a fresh budget", async () => {
-  const world = picaWorld((_, step) =>
-    step % 257 < 256
-      ? picaToolCalls([{ tool: "projects_list", input: {} }])
-      : responseChunks("Completed all 256"),
-  );
-  for (let turn = 0; turn < 2; turn += 1)
-    expect(await world.service.run(world.input, world.controller.signal)).toBe(
-      "Completed all 256",
-    );
-  expect(world.router).toHaveBeenCalledTimes(512);
-  expect(world.provider.calls).toHaveBeenCalledTimes(514);
-}, 30000);
 
 it("lets legacy actions execute 256 actual calls after malformed input and still answer", async () => {
   const world = new ChatAgentWorld();
