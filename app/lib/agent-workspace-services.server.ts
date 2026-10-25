@@ -32,6 +32,9 @@ import type { AgentWorkspacePathOptions } from "@/backend/service/agents/AgentWo
 
 /** The existing central agent and the workspace registry share live account and project boundaries. */
 export interface AgentConfigurationApplicationServices {
+  readonly agentTicketParameterService: AgentTicketParameterService;
+  readonly agentContentAccess: AgentContentAccess;
+  readonly agentTicketAssetService: AgentTicketAssetService;
   readonly agentProfileService: AgentProfileService;
   readonly agentWorkspaceService: AgentWorkspaceService;
   readonly agentParameterService: AgentParameterService;
@@ -85,11 +88,12 @@ export function createAgentConfigurationServices(input: {
     new WikiRepository(database),
   );
   const users = new UserRepository(database);
+  const assets = new AgentTicketAssetService(input.ticketAssets);
   const tickets = new AgentTicketParameterService(async (userId) => {
     const actor = await users.findById(userId);
     if (!actor?.isActive) throw new AgentError("agent_usage_denied");
     return createAgentTaskContext(database, actor, "chat");
-  }, new AgentTicketAssetService(input.ticketAssets));
+  }, assets);
   const agentWorkspaceService = new AgentWorkspaceService({
     workspaces: new AgentWorkspaceRepository(database),
     authorization,
@@ -128,6 +132,9 @@ export function createAgentConfigurationServices(input: {
     pica: picaSettingsService,
   });
   return {
+    agentTicketParameterService: tickets,
+    agentContentAccess: content,
+    agentTicketAssetService: assets,
     picaSettingsService,
     agentProfileService,
     agentWorkspaceService,

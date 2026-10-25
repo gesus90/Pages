@@ -80,7 +80,7 @@ function remoteAgentResult(
         reasoningEffort: program.reasoningEffort,
         options,
         unattended: program.access,
-        mcp: false,
+        mcp: remote.command.pagesAccess === 1,
         directory: remote.target.path,
       },
       effective: null,

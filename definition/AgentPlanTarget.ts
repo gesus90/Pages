@@ -164,10 +164,13 @@ export type AgentPlanTargetProblem =
   | "remoteToolMissing"
   | "remoteLogin"
   | "remoteLoginUnknown"
-  | "remoteOptions";
+  | "remoteOptions"
+  | "remoteRunnerUpdate"
+  | "remotePagesUnavailable";
 
 /** Secret-free, current runner facts for one registered workspace. */
 export interface AgentPlanRemoteStatus {
+  readonly hasPagesAccess?: boolean;
   readonly workspaceId: string;
   readonly problem:
     "remoteOffline" | "remoteIdentity" | "remoteWorkspace" | null;
@@ -180,6 +183,7 @@ export interface AgentPlanRemoteStatus {
 
 /** A node that its remote target cannot execute. */
 export interface AgentPlanTargetIssue {
+  readonly port?: string;
   readonly nodeId: string;
   readonly problem: AgentPlanTargetProblem;
 }
@@ -280,8 +284,35 @@ export function planTargetIssues(
         ? statuses?.find((entry) => entry.workspaceId === target.workspaceId)
         : undefined;
     const problem = nodeTargetProblem(node, target, status);
-    return problem ? [{ nodeId: node.id, problem }] : [];
+    const issues: AgentPlanTargetIssue[] = problem
+      ? [{ nodeId: node.id, problem }]
+      : [];
+    if (target.kind === "remote" && node.type === "agent")
+      issues.push(...remoteResourceIssues(node, status));
+    return issues;
   });
+}
+
+function remoteResourceIssues(
+  node: AgentPlanStep,
+  status: AgentPlanRemoteStatus | undefined,
+): AgentPlanTargetIssue[] {
+  const parameters =
+    node.configuration?.template.parameters.filter((parameter) =>
+      ["ticket", "wiki", "workspace"].includes(parameter.type),
+    ) ?? [];
+  let problem: AgentPlanTargetProblem | null = null;
+  if (status?.problem) problem = status.problem;
+  else if (status && !status.hasPagesAccess) problem = "remoteRunnerUpdate";
+  else if (!node.configuration?.runnerRoute?.tool)
+    problem = "remotePagesUnavailable";
+  return problem
+    ? parameters.map((parameter) => ({
+        nodeId: node.id,
+        port: parameter.name,
+        problem,
+      }))
+    : [];
 }
 
 /** Absolute paths of the Pages host, which a remote machine does not have as such. */

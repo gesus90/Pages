@@ -8,22 +8,26 @@ import { agentRunOptionsFor } from "@/definition/AgentConfiguration";
 import { isApiProvider } from "@/definition/AgentConnection";
 import { planExecutionIssues } from "@/definition/AgentPlanGraph";
 import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
+import {
+  planTargetIssues,
+  withInheritedPlanTarget,
+} from "@/definition/AgentPlanTarget";
+
 import { validateGroupRuntimes } from "./AgentPlanGroupRuntime";
+import { remoteReferenceIssues } from "./AgentPlanReferences";
 import { planBindings } from "./AgentPlanBindings";
 import { hasPlanPath, planSteps } from "./AgentPlanGraph";
 import { planStepDirectory } from "./AgentPlanSnapshot";
 import { overlapsWorkspacePath } from "./AgentWorkspacePath";
 import { hasRemotePlanTarget } from "./AgentPlanExecutionTargets";
-import {
-  planTargetIssues,
-  withInheritedPlanTarget,
-} from "@/definition/AgentPlanTarget";
+
 import type {
   AgentPlanRemoteExecution,
   RemotePlanStep,
 } from "./AgentPlanRemoteExecution";
 import type { AgentPlanRemoteTargets } from "./AgentPlanRemoteTargets";
 import type { AgentPlanWorkspaces } from "./AgentPlanWorkspaces";
+import type { AgentPlanIssue } from "@/definition/AgentPlanGraph";
 import type { AgentPlanRemoteTarget } from "@/definition/AgentPlanExecution";
 import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 import type { AgentDefinitionChoice } from "@/definition/AgentAvailability";
@@ -118,21 +122,15 @@ export class AgentPlanPreparation {
       !plan.nodes.some((node) => node.type === "script")
     )
       throw new AgentError("plan_invalid");
-    const tasks = await Promise.all(
-      plan.nodes.flatMap((node) =>
-        node.type === "task"
-          ? [
-              this.dependencies.tasks.snapshot(
-                userId,
-                plan.projectId,
-                node.taskId,
-              ),
-            ]
-          : [],
-      ),
+    const { tasks, issues: referenceIssues } = await this.readTasks(
+      userId,
+      plan,
     );
     const snapshots: AgentPlanStepSnapshot[] = [];
-    const remoteSteps = await this.prepareRemote(userId, plan, tasks);
+    const remoteSteps = await this.prepareRemote(userId, plan, {
+      tasks,
+      issues: referenceIssues,
+    });
     validateRemoteWorkingCopies(plan, remoteSteps);
     const remoteTargets =
       (await this.dependencies.remoteTargets?.list(userId, plan.projectId)) ??
@@ -175,33 +173,80 @@ export class AgentPlanPreparation {
     );
     const issues = planTargetIssues(plan, sources.statuses).map((issue) => ({
       nodeId: issue.nodeId,
-      port: null,
+      port: issue.port ?? null,
       reason: issue.problem,
     }));
     if (issues.length) throw new AgentPlanValidationError(issues);
   }
 
+  private async readTasks(
+    userId: string,
+    plan: AgentPlan,
+  ): Promise<{
+    readonly tasks: readonly AgentPlanTaskSnapshot[];
+    readonly issues: readonly AgentPlanIssue[];
+  }> {
+    const issues: AgentPlanIssue[] = [];
+    const tasks = await Promise.all(
+      plan.nodes.flatMap((node) =>
+        node.type === "task"
+          ? [
+              this.dependencies.tasks
+                .snapshot(userId, plan.projectId, node.taskId)
+                .catch((error: unknown) => {
+                  const referenceIssues = remoteReferenceIssues(
+                    plan,
+                    node,
+                    error,
+                  );
+                  if (referenceIssues.length === 0) throw error;
+                  issues.push(...referenceIssues);
+                  return null;
+                }),
+            ]
+          : [],
+      ),
+    );
+    return { tasks: tasks.filter((task) => task !== null), issues };
+  }
+
   private async prepareRemote(
     userId: string,
     plan: AgentPlan,
-    tasks: readonly AgentPlanTaskSnapshot[],
+    context: {
+      readonly tasks: readonly AgentPlanTaskSnapshot[];
+      readonly issues: readonly AgentPlanIssue[];
+    },
   ): Promise<readonly RemotePlanStep[]> {
-    const steps = [];
+    const steps: RemotePlanStep[] = [];
+    const issues = [...context.issues];
     for (const node of plan.nodes) {
       if (
-        (node.type === "agent" || node.type === "script") &&
-        node.executionTarget?.kind === "remote" &&
-        this.dependencies.remoteExecution
+        (node.type !== "agent" && node.type !== "script") ||
+        node.executionTarget?.kind !== "remote" ||
+        !this.dependencies.remoteExecution
       )
+        continue;
+      try {
         steps.push(
           await this.dependencies.remoteExecution.prepare(
             userId,
             plan,
             node,
-            tasks,
+            context.tasks,
           ),
         );
+      } catch (error: unknown) {
+        if (!(error instanceof AgentPlanValidationError)) throw error;
+        issues.push(...error.issues);
+      }
     }
+    if (issues.length)
+      throw new AgentPlanValidationError([
+        ...new Map(
+          issues.map((issue) => [JSON.stringify(issue), issue]),
+        ).values(),
+      ]);
     return steps;
   }
 

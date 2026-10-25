@@ -2,6 +2,7 @@ import { execFile, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { homedir, hostname } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 /** Keeps CLI credentials on this host; no Pages environment or provider key is inherited. */
 export function cliEnvironment() {
@@ -190,7 +191,7 @@ export async function cliInventory(context = {}) {
   return tools;
 }
 
-function codexArguments(command) {
+function codexArguments(command, pagesArgs) {
   const program = command.program;
   const args = [
     "exec",
@@ -230,11 +231,12 @@ function codexArguments(command) {
     );
   if (program.reasoningEffort !== null)
     args.push("-c", `model_reasoning_effort="${program.reasoningEffort}"`);
+  args.push(...pagesArgs);
   args.push("-");
   return args;
 }
 
-function claudeArguments(command) {
+function claudeArguments(command, pagesArgs) {
   const program = command.program;
   const args = [
     "-p",
@@ -242,7 +244,15 @@ function claudeArguments(command) {
     "json",
     "--strict-mcp-config",
     "--no-session-persistence",
-    "--safe-mode",
+    ...(command.pagesAccess === 1
+      ? [
+          "--setting-sources",
+          "",
+          "--disable-slash-commands",
+          "--settings",
+          JSON.stringify({ disableAllHooks: true, autoMemoryEnabled: false }),
+        ]
+      : ["--safe-mode"]),
     "--model",
     program.model,
   ];
@@ -263,11 +273,12 @@ function claudeArguments(command) {
     );
   if (program.reasoningEffort !== null)
     args.push("--effort", program.reasoningEffort);
+  args.push(...pagesArgs);
   return args;
 }
 
 /** Rechecks the exact remote catalog and login before starting the original requested tool. */
-export async function spawnCli(command, jobId, signal) {
+export async function spawnCli(command, jobId, signal, folder) {
   const program = command.program;
   const tool = program.route.tool;
   const inventory = (await cliInventory({ jobId, signal })).find(
@@ -286,7 +297,9 @@ export async function spawnCli(command, jobId, signal) {
   signal.throwIfAborted();
   return spawn(
     tool,
-    tool === "codex" ? codexArguments(command) : claudeArguments(command),
+    tool === "codex"
+      ? codexArguments(command, pagesArguments(command, folder, jobId))
+      : claudeArguments(command, pagesArguments(command, folder, jobId)),
     {
       cwd: command.workspace,
       detached: true,
@@ -294,6 +307,9 @@ export async function spawnCli(command, jobId, signal) {
       env: {
         ...cliEnvironment(),
         ...(tool === "claude" ? CLAUDE_EXACT_MODEL : {}),
+        ...(tool === "claude" && command.pagesAccess === 1
+          ? { CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1" }
+          : {}),
         PAGES_REMOTE_JOB: jobId,
       },
     },
@@ -324,4 +340,28 @@ export function cliOutput(command, stdout) {
   return answer
     ? `Remote host: ${hostname()}\nRemote workspace: ${command.workspace}\n\n${answer}`
     : "";
+}
+
+/** Configures only the short-lived Pages bridge; no credential appears in arguments or files. */
+function pagesArguments(command, folder, jobId) {
+  if (command.pagesAccess !== 1) return [];
+  const args = [
+    fileURLToPath(new URL("./pages.mjs", import.meta.url)),
+    "--mcp",
+    join(folder, "..", "..", "pages.sock"),
+    jobId,
+  ];
+  if (command.program.route.tool === "codex")
+    return [
+      "-c",
+      `mcp_servers.pages={command=${JSON.stringify(process.execPath)},args=${JSON.stringify(args)}}`,
+    ];
+  return [
+    "--mcp-config",
+    JSON.stringify({
+      mcpServers: { pages: { command: process.execPath, args } },
+    }),
+    "--allowedTools",
+    "mcp__pages__*",
+  ];
 }

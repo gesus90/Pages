@@ -85,6 +85,7 @@ export interface ApplicationServices
     PreferenceApplicationServices {
   readonly administrationService: AdministrationService;
   readonly agentPlanService: AgentPlanService;
+  readonly runnerPagesAccessService: AgentPlanServices["runnerPagesAccessService"];
   /** Creating, copying and deleting plans from the plan page. */
   readonly agentPlanManagement: AgentPlanManagement;
   /** The personal node templates of the plan editor. */
@@ -420,6 +421,7 @@ async function preparePlanService(
     tasks: input.tasks,
     users: input.users,
     mcp: planMcpSettings(runtime.getConfig().port),
+    api: async () => (await getApplicationServices()).pagesAgentApiService,
   });
   const plans = services.agentPlanService;
   // Deleting a project has to end its plan runs and clear their files first.

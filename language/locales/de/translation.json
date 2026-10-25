@@ -3909,7 +3909,17 @@
       "loopPrevious": "Ein Ergebnis des vorherigen Durchlaufs gilt nur innerhalb eines Loops, von einem seiner Mitglieder, und braucht für den ersten Durchlauf einen Standardwert.",
       "loopProvider": "Ein Agent, der seine Session behält, braucht einen ACP-Runner (Codex, Claude Code oder OpenCode). Stelle den Loop auf neue Session je Run um oder wähle einen anderen Agent.",
       "scriptConfiguration": "Prüfe die Scriptkonfiguration.",
-      "loopScriptUnsupported": "Scriptmitglieder in Loops werden von dieser Runtime nicht unterstützt. Die gespeicherte Konfiguration bleibt erhalten; nutze einen ausdrücklichen Planschritt."
+      "loopScriptUnsupported": "Scriptmitglieder in Loops werden von dieser Runtime nicht unterstützt. Die gespeicherte Konfiguration bleibt erhalten; nutze einen ausdrücklichen Planschritt.",
+      "remoteTicketUnavailable": "Ticket nicht verfügbar: archiviert, gelöscht oder aktuell nicht sichtbar. Es wird kein anderes Ticket eingesetzt.",
+      "remoteWikiUnavailable": "Wiki-Seite nicht verfügbar: archiviert, gelöscht oder aktuell nicht sichtbar. Es wird keine andere Seite eingesetzt.",
+      "remoteWorkspaceParameter": "Der Parameter benötigt einen zugänglichen Remote-Arbeitsbereich desselben Hosts. Lokale Pfade werden nicht übertragen.",
+      "remoteAssetUnavailable": "Dateiübergabe nicht verfügbar: Datei fehlt, ist nicht lesbar oder ihre Referenz beziehungsweise Identität wurde geändert.",
+      "remoteAssetType": "Dateityp oder Referenz nicht unterstützt. Wie lokal sind PNG-Bilder und vollständiger UTF-8-Text aus Pages-Dateien erlaubt.",
+      "remoteAssetsTooLarge": "Die Dateiübergabe überschreitet 10 MiB insgesamt oder 64 Dateien. Der Schritt startet nicht.",
+      "remotePromptTooLarge": "Die vollständige Aufgabe einschließlich Parameter überschreitet die bestehende Runner-Grenze von 100000 Zeichen. Inhalt verkleinern; Pages kürzt nichts.",
+      "remoteParameter": "Der Parameter kann nicht aufgelöst werden. Typ, Pflichtwert und Platzhalter prüfen.",
+      "remoteRunnerUpdate": "Runner aktualisieren: Ressourcenparameter, Dateiübergabe und Pages-Zugang benötigen Runner 1.6.0 oder neuer.",
+      "remotePagesUnavailable": "Pages-Zugang und Dateiübergabe sind für diesen Modellzugang nicht verfügbar. Eine Remote-CLI mit Runner 1.6.0 oder neuer wählen."
     },
     "session": {
       "runner": {
@@ -4279,7 +4289,17 @@
         "remoteToolMissing": "Das benötigte CLI-Werkzeug ist nicht installiert oder der Runner unterstützt CLI-Aufträge noch nicht. Runner aktualisieren und Inventar prüfen.",
         "remoteLogin": "Das CLI-Werkzeug ist auf dem Remote-Host nicht mit einem Abonnement angemeldet. Dort selbst anmelden und anschließend das Inventar aktualisieren.",
         "remoteLoginUnknown": "Der Runner hat die CLI-Anmeldung nicht bestätigt. Auf dem Remote-Host prüfen und das Inventar aktualisieren.",
-        "remoteOptions": "Diese Remote-CLI unterstützt Nur Lesen und ausdrücklich gewähltes YOLO. Arbeitsbereich-Schreibmodus und Browser-MCP werden hier nicht unterstützt."
+        "remoteOptions": "Diese Remote-CLI unterstützt Nur Lesen und ausdrücklich gewähltes YOLO. Arbeitsbereich-Schreibmodus und Browser-MCP werden hier nicht unterstützt.",
+        "remoteTicketUnavailable": "Ticket nicht verfügbar: archiviert, gelöscht oder aktuell nicht sichtbar. Es wird kein anderes Ticket eingesetzt.",
+        "remoteWikiUnavailable": "Wiki-Seite nicht verfügbar: archiviert, gelöscht oder aktuell nicht sichtbar. Es wird keine andere Seite eingesetzt.",
+        "remoteWorkspaceParameter": "Der Parameter benötigt einen zugänglichen Remote-Arbeitsbereich desselben Hosts. Lokale Pfade werden nicht übertragen.",
+        "remoteAssetUnavailable": "Dateiübergabe nicht verfügbar: Datei fehlt, ist nicht lesbar oder ihre Referenz beziehungsweise Identität wurde geändert.",
+        "remoteAssetType": "Dateityp oder Referenz nicht unterstützt. Wie lokal sind PNG-Bilder und vollständiger UTF-8-Text aus Pages-Dateien erlaubt.",
+        "remoteAssetsTooLarge": "Die Dateiübergabe überschreitet 10 MiB insgesamt oder 64 Dateien. Der Schritt startet nicht.",
+        "remotePromptTooLarge": "Die vollständige Aufgabe einschließlich Parameter überschreitet die bestehende Runner-Grenze von 100000 Zeichen. Inhalt verkleinern; Pages kürzt nichts.",
+        "remoteParameter": "Der Parameter kann nicht aufgelöst werden. Typ, Pflichtwert und Platzhalter prüfen.",
+        "remoteRunnerUpdate": "Runner aktualisieren: Ressourcenparameter, Dateiübergabe und Pages-Zugang benötigen Runner 1.6.0 oder neuer.",
+        "remotePagesUnavailable": "Pages-Zugang und Dateiübergabe sind für diesen Modellzugang nicht verfügbar. Eine Remote-CLI mit Runner 1.6.0 oder neuer wählen."
       },
       "state": {
         "none": {
@@ -4960,7 +4980,25 @@
       "withoutWorkspace": "Ohne Arbeitsbereich",
       "reassignWorkspace": "Dieser Plan hat keinen registrierten Arbeitsbereich und kann nicht gestartet werden. Wählen Sie unter Planaktionen → Bearbeiten einen Arbeitsbereich. Die Knoten und Inhalte bleiben erhalten."
     },
-    "savedAlias": "gespeichert als Alias „{{alias}}“"
+    "savedAlias": "gespeichert als Alias „{{alias}}“",
+    "remoteAccess": {
+      "resources": "Gepinnte Parameter",
+      "referencesChanged": "Die Dateireferenzen des Parameters wurden vor der Übertragung geändert. Den Lauf erneut starten, um die aktuellen Dateien zu verwenden.",
+      "ticket": "Ticket",
+      "wiki": "Wiki-Seite",
+      "workspace": "Remote-Arbeitsbereich",
+      "version": "Version: {{version}}",
+      "files": "Übertragene Dateien",
+      "bytes": "{{count}} Bytes",
+      "noFiles": "Keine Dateien übertragen.",
+      "pages": "Pages-Zugang · Werkzeugprotokoll",
+      "active": "Nur für diesen Lauf und Schritt aktiv.",
+      "closed": "Beendet · Zugang widerrufen.",
+      "unavailable": "Nicht verfügbar.",
+      "ok": "Erfolgreich",
+      "denied": "Abgelehnt",
+      "failed": "Fehlgeschlagen"
+    }
   },
   "mcpDuration": {
     "label": "Gültigkeit in Tagen",

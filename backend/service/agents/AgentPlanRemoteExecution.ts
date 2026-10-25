@@ -1,14 +1,28 @@
+import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
+import { planTargetIssues } from "@/definition/AgentPlanTarget";
 import { allPlanSteps } from "@/definition/AgentPlanGroup";
 import { withInheritedPlanTarget } from "@/definition/AgentPlanTarget";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import { runnerExecutionSchema } from "@/definition/RunnerExecution";
+
 import {
   remoteTextInputs,
   remoteScriptCommand,
   remoteModelCommand,
 } from "./AgentPlanRemoteCommand";
 import { bindAgentParameters } from "./AgentParameterBinding";
+import {
+  remoteParameterResolvers,
+  remoteWorkspaceContext,
+  requireRemotePromptSize,
+  validateRemoteParameterPrompt,
+} from "./AgentPlanRemoteParameters";
+import type {
+  AgentPlanRemoteParameters,
+  RemotePlanParameters,
+} from "./AgentPlanRemoteParameters";
+import type { RunnerPagesAccessService } from "@/backend/service/runner/RunnerPagesAccessService";
 import {
   remoteCliModels,
   remoteOpenRouterModels,
@@ -51,9 +65,12 @@ export interface RemotePlanStep {
   readonly target: AgentPlanRemoteTarget;
   readonly command: RunnerExecution;
   readonly inputs: Readonly<Record<string, string>>;
+  readonly parameters?: RemotePlanParameters;
 }
 
 interface RemoteExecutionDependencies {
+  readonly parameters?: AgentPlanRemoteParameters;
+  readonly pages?: RunnerPagesAccessService;
   readonly targets: AgentPlanRemoteTargets;
   readonly access: AgentPlanAccess;
   readonly runners: RunnerService;
@@ -105,6 +122,9 @@ export class AgentPlanRemoteExecution {
         problem,
         tools: [],
         hasModelCatalog: false,
+        hasPagesAccess: this.dependencies.runners.supportsPagesAccess(
+          target.connectionId,
+        ),
       };
       statuses.push(status);
       if (problem) continue;
@@ -161,20 +181,28 @@ export class AgentPlanRemoteExecution {
     plan: Pick<AgentPlan, "projectId">,
     step: AgentPlanStep,
   ): Promise<void> {
-    const route = step.configuration?.runnerRoute;
-    if (
-      !route ||
-      step.configuration?.connectionId !== undefined ||
-      step.configuration?.provider !==
-        (route.tool
-          ? ({ codex: "codex_cli", claude: "claude_code" } as const)[route.tool]
-          : "openrouter") ||
-      (!route.tool && step.configuration?.reasoningEffort !== null) ||
-      step.executionTarget?.kind !== "remote" ||
-      step.executionTarget.workspaceId !== route.workspaceId
-    )
-      throw new AgentError("plan_context_changed");
-    const { models } = await this.sources(userId, plan.projectId);
+    const route = requireRemoteModelRoute(step);
+    const { models, statuses } = await this.sources(userId, plan.projectId);
+    const issues = planTargetIssues(
+      {
+        name: "",
+        workspaceId: route.workspaceId,
+        usage: "private",
+        projectId: plan.projectId,
+        nodes: [step],
+        edges: [],
+        globals: {},
+      },
+      statuses,
+    );
+    if (issues.length)
+      throw new AgentPlanValidationError(
+        issues.map((issue) => ({
+          nodeId: issue.nodeId,
+          port: issue.port ?? null,
+          reason: issue.problem,
+        })),
+      );
     if (
       !models.some(
         (model) =>
@@ -204,12 +232,25 @@ export class AgentPlanRemoteExecution {
         throw new AgentError("plan_remote_unavailable");
       });
     let command: RunnerExecution;
-    const inputs = remoteTextInputs(plan, step, tasks);
+    const parameters = await this.prepareParameters(userId, {
+      plan,
+      step,
+      tasks,
+      target,
+    });
+    const inputs = parameters
+      ? Object.fromEntries(
+          Object.entries(parameters.values).flatMap(([name, bound]) =>
+            bound?.type === "text" ? [[name, bound.text]] : [],
+          ),
+        )
+      : remoteTextInputs(plan, step, tasks);
     const basis = {
       version: 1 as const,
       revision: plan.revision,
       workspace: target.path,
       outputBytes: 65536,
+      ...(this.canUsePages(step, target) ? { pagesAccess: 1 as const } : {}),
       input: JSON.stringify(inputs),
     };
     if (step.type === "script")
@@ -217,12 +258,21 @@ export class AgentPlanRemoteExecution {
     else {
       await this.validateModel(userId, plan, step);
       command = remoteModelCommand(step, basis);
+      if (parameters && command.program.kind !== "script")
+        await validateRemoteParameterPrompt(
+          step,
+          parameters,
+          command.program.prompt,
+        );
+      if (parameters?.resources.length && command.pagesAccess !== 1)
+        throw new AgentError("plan_mcp_unavailable");
     }
     return {
       step,
       target,
       command: runnerExecutionSchema.parse(command),
       inputs,
+      ...(parameters ? { parameters } : {}),
     };
   }
 
@@ -259,24 +309,35 @@ export class AgentPlanRemoteExecution {
         },
         remote.step,
       );
+    if (remote.parameters)
+      await this.dependencies.parameters?.authorize(
+        run.userId,
+        remote.parameters,
+        {
+          projectId: (
+            await this.dependencies.access.require(run.userId, run.planId)
+          ).projectId,
+          target: remote.target,
+        },
+      );
     const command = await resolvedCommand(run, remote);
-    const job = await this.claim({
-      run,
-      remote,
-      command,
-      attemptId: execution.attemptId,
-      signal,
-    });
-    if (!job) return CANCELLED_BEFORE_DISPATCH;
-    for (;;) {
-      if (signal.aborted)
-        this.dependencies.runners.cancel(target.connectionId, job.jobId);
-      const current = await this.dependencies.runs.find(run.id);
-      const step = current?.steps.find((entry) => entry.id === remote.step.id);
-      if (!step) throw new AgentError("plan_context_changed");
-      if (step.remote && step.status !== "running" && step.status !== "waiting")
-        return step;
-      await new Promise<void>((resolve) => setTimeout(resolve, 250));
+    try {
+      await this.dependencies.pages?.open(run, remote, execution.attemptId);
+      const job = await this.claim({
+        run,
+        remote,
+        command,
+        attemptId: execution.attemptId,
+        signal,
+      });
+      if (!job) return CANCELLED_BEFORE_DISPATCH;
+      return await this.waitForJob(run, remote, job, signal);
+    } finally {
+      await this.dependencies.pages?.close(
+        run.id,
+        remote.step.id,
+        execution.attemptId,
+      );
     }
   }
 
@@ -296,6 +357,53 @@ export class AgentPlanRemoteExecution {
       )
     )
       throw new AgentError("plan_access_denied");
+  }
+
+  private canUsePages(
+    step: AgentPlanStep | AgentPlanScript,
+    target: AgentPlanRemoteTarget,
+  ): boolean {
+    return (
+      step.type === "agent" &&
+      Boolean(step.configuration?.runnerRoute?.tool) &&
+      Boolean(this.dependencies.pages) &&
+      this.dependencies.runners.supportsPagesAccess(target.connectionId)
+    );
+  }
+
+  private async prepareParameters(
+    userId: string,
+    input: {
+      readonly plan: AgentPlan;
+      readonly step: AgentPlanStep | AgentPlanScript;
+      readonly tasks: readonly AgentPlanTaskSnapshot[];
+      readonly target: AgentPlanRemoteTarget;
+    },
+  ): Promise<RemotePlanParameters | undefined> {
+    if (input.step.type !== "agent" || !this.dependencies.parameters)
+      return undefined;
+    return this.dependencies.parameters.prepare(userId, {
+      ...input,
+      step: input.step,
+    });
+  }
+
+  private async waitForJob(
+    run: AgentPlanRun,
+    remote: RemotePlanStep,
+    job: RunnerJob,
+    signal: AbortSignal,
+  ): Promise<Partial<AgentPlanStepResult>> {
+    for (;;) {
+      if (signal.aborted)
+        this.dependencies.runners.cancel(remote.target.connectionId, job.jobId);
+      const current = await this.dependencies.runs.find(run.id);
+      const step = current?.steps.find((entry) => entry.id === remote.step.id);
+      if (!step) throw new AgentError("plan_context_changed");
+      if (step.remote && step.status !== "running" && step.status !== "waiting")
+        return step;
+      await new Promise<void>((resolve) => setTimeout(resolve, 250));
+    }
   }
 
   private async claim({
@@ -362,28 +470,45 @@ async function resolvedCommand(
       sourceRevision: command.revision,
       input: JSON.stringify(inputs),
     };
-  const configuration =
-    remote.step.type === "agent" ? remote.step.configuration : null;
+  if (remote.step.type !== "agent")
+    throw new AgentError("configuration_invalid");
+  const configuration = remote.step.configuration;
   if (!configuration) throw new AgentError("configuration_invalid");
   const bound = await bindAgentParameters(
     { ...configuration.template, markdown: command.program.prompt },
-    Object.fromEntries(
-      Object.entries(inputs).map(([name, text]) => [
-        name,
-        { type: "text", text },
-      ]),
-    ),
     {
-      ticket: () => Promise.reject(new AgentError("plan_binding_invalid")),
-      workspace: () => Promise.reject(new AgentError("plan_binding_invalid")),
-      wiki: () => Promise.reject(new AgentError("plan_binding_invalid")),
+      ...remote.parameters?.values,
+      ...Object.fromEntries(
+        Object.entries(inputs)
+          .filter(
+            ([name]) =>
+              !remote.parameters ||
+              remote.parameters.values[name]?.type === "text",
+          )
+          .map(([name, text]) => [name, { type: "text", text }]),
+      ),
     },
+    remoteParameterResolvers(
+      remote.parameters ?? {
+        values: {},
+        tickets: {},
+        wiki: {},
+        workspaces: {},
+        resources: [],
+        assets: [],
+      },
+    ),
   );
+  const prompt = bound.markdown + remoteWorkspaceContext(remote.parameters);
+  requireRemotePromptSize(remote.step, prompt);
   return {
     ...command,
     revision: run.planRevision,
     sourceRevision: command.revision,
-    program: { ...command.program, prompt: bound.markdown },
+    program: {
+      ...command.program,
+      prompt,
+    },
   };
 }
 
@@ -434,4 +559,23 @@ export async function localPlanModelSteps(
     );
   }
   return local;
+}
+
+function requireRemoteModelRoute(
+  step: AgentPlanStep,
+): NonNullable<NonNullable<AgentPlanStep["configuration"]>["runnerRoute"]> {
+  const route = step.configuration?.runnerRoute;
+  if (
+    !route ||
+    step.configuration?.connectionId !== undefined ||
+    step.configuration?.provider !==
+      (route.tool
+        ? ({ codex: "codex_cli", claude: "claude_code" } as const)[route.tool]
+        : "openrouter") ||
+    (!route.tool && step.configuration?.reasoningEffort !== null) ||
+    step.executionTarget?.kind !== "remote" ||
+    step.executionTarget.workspaceId !== route.workspaceId
+  )
+    throw new AgentError("plan_context_changed");
+  return route;
 }

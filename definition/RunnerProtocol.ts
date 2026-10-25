@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { runnerResourceErrorSchema } from "./RunnerPagesAccess";
 import {
   runnerExecutionSchema,
   runnerLaunchSchema,
@@ -78,6 +79,7 @@ export const runnerMessageSchema = z.discriminatedUnion("type", [
     executorVersion: z.literal(1).optional(),
     cliExecutorVersion: z.literal(1).optional(),
     githubAccessVersion: z.literal(1).optional(),
+    pagesAccessVersion: z.literal(1).optional(),
   }),
   z.object({
     version: z.literal(1),
@@ -89,6 +91,7 @@ export const runnerMessageSchema = z.discriminatedUnion("type", [
     result: z
       .object({
         output: z.string().max(100_000).nullable(),
+        resourceError: runnerResourceErrorSchema.optional(),
         stderr: z.string().max(65536).optional(),
         closeout: z.enum(["confirmed", "pending", "failed"]),
         exitCode: z.number().int().nullable().optional(),

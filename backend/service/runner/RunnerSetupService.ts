@@ -8,6 +8,7 @@ import runnerTransport from "@/scripts/runner/transport.mjs?raw";
 import runnerExecution from "@/scripts/runner/execution.mjs?raw";
 import runnerGitHub from "@/scripts/runner/github.mjs?raw";
 import runnerCli from "@/scripts/runner/cli.mjs?raw";
+import runnerPages from "@/scripts/runner/pages.mjs?raw";
 import type { RemoteConnectionService } from "@/backend/service/remote/RemoteConnectionService";
 import type { RemoteSessionRegistry } from "@/backend/remote/RemoteSessionRegistry";
 import type { RunnerService } from "./RunnerService";
@@ -17,6 +18,7 @@ const setupScript = setupTemplate
   .replace("__PAGES_RUNNER_TRANSPORT__", () => runnerTransport)
   .replace("__PAGES_RUNNER_EXECUTION__", () => runnerExecution)
   .replace("__PAGES_RUNNER_CLI__", () => runnerCli)
+  .replace("__PAGES_RUNNER_PAGES__", () => runnerPages)
   .replace("__PAGES_RUNNER_GITHUB__", () => runnerGitHub);
 
 /** Runs the lines under a POSIX shell, whichever login shell the user has. */

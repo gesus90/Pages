@@ -370,6 +370,11 @@ cat > "$cli_temporary" <<'CLI'
 __PAGES_RUNNER_CLI__
 CLI
 mv -f -- "$cli_temporary" "$runner_directory/cli.mjs"
+pages_temporary=$(mktemp "$runner_directory/.pages.XXXXXX")
+cat > "$pages_temporary" <<'PAGES'
+__PAGES_RUNNER_PAGES__
+PAGES
+mv -f -- "$pages_temporary" "$runner_directory/pages.mjs"
 github_temporary=$(mktemp "$runner_directory/.github.XXXXXX")
 cat > "$github_temporary" <<'GITHUB'
 __PAGES_RUNNER_GITHUB__

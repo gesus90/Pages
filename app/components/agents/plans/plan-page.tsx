@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { planTargetDeviations } from "@/definition/AgentPlanTarget";
+
 import { PlanRunPanel } from "./plan-run-panel";
 import { sequencedRun } from "./plan-run-status-model";
 import { usePlanControl } from "./use-plan-control";
@@ -17,12 +19,36 @@ import { usePlanSave } from "./use-plan-save";
 import { usePlanCatalogRefresh } from "./use-plan-catalog-refresh";
 
 import type { AgentPlanOpening } from "@/app/lib/agent-plan-default";
-import type { AgentPlanPage, AgentPlanRun } from "@/definition/AgentPlan";
+import type {
+  AgentPlanInput,
+  AgentPlanPage,
+  AgentPlanRun,
+} from "@/definition/AgentPlan";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
+import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
 
 interface PlanRunDisplay {
   readonly run: AgentPlanRun | null;
   readonly error: string | null;
+}
+
+function parameterWorkspaces(
+  page: AgentPlanPage,
+  draft: AgentPlanInput,
+): readonly AgentWorkspaceChoice[] {
+  const projectId = page.workspaces.find(
+    (workspace) => workspace.id === draft.workspaceId,
+  )?.projectId;
+  const hasRemoteTarget =
+    draft.executionTarget?.kind === "remote" ||
+    planTargetDeviations(draft, draft.executionTarget).some(
+      (node) => node.executionTarget?.kind === "remote",
+    );
+  return page.workspaces.filter(
+    (workspace) =>
+      workspace.projectId === projectId &&
+      (workspace.kind !== "remote" || hasRemoteTarget),
+  );
 }
 
 function planRunDisplay(
@@ -95,9 +121,6 @@ export function PlanPage({
   const display = planRunDisplay(page, controls.control, running);
   const saving = usePlanSave(editor, page.selected !== null);
   const disabled = !editor.canEdit || editor.isPending;
-  const projectId = page.workspaces.find(
-    (workspace) => workspace.id === editor.draft.workspaceId,
-  )?.projectId;
   function closeConsole(): void {
     const nodeId = consoleNodeId;
     setConsoleNodeId(null);
@@ -122,10 +145,7 @@ export function PlanPage({
         runError={display.error}
         isReady={planReadiness(controls.control, editor.isDirty)}
         tickets={editor.tickets}
-        workspaces={page.workspaces.filter(
-          (workspace) =>
-            workspace.projectId === projectId && workspace.kind !== "remote",
-        )}
+        workspaces={parameterWorkspaces(page, editor.draft)}
         status={
           <PlanSaveNotice
             feedback={saving.feedback}

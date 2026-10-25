@@ -120,6 +120,9 @@ export function capturePlanExecution(
         revision: remote.target.workspaceRevision,
       },
       modelAccess: remoteModelAccess(remote),
+      ...(remote.parameters
+        ? { resources: [...remote.parameters.resources] }
+        : {}),
     });
   return {
     snapshot: {

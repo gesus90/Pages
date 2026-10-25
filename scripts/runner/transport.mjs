@@ -14,6 +14,7 @@ import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { execFile } from "node:child_process";
+import { Writable } from "node:stream";
 import {
   claimJob,
   observeJob,
@@ -23,8 +24,9 @@ import {
 } from "./execution.mjs";
 import { githubAccess } from "./github.mjs";
 import { cliInventory } from "./cli.mjs";
+import { startPagesRelay } from "./pages.mjs";
 
-const RUNNER_VERSION = "1.5.1";
+const RUNNER_VERSION = "1.6.0";
 if (process.argv.includes("--version")) {
   console.info(`pages-runner ${RUNNER_VERSION}`);
   process.exit(0);
@@ -298,16 +300,28 @@ if (!configuration) {
   // A service has no terminal; pairing hands the configuration over before the first start.
   if (!process.stdin.isTTY)
     exitUnrecoverable("Not paired: no configuration and no terminal.");
+  let isHidden = false;
+  const output = new Writable({
+    write(chunk, encoding, callback) {
+      if (!isHidden) process.stdout.write(chunk, encoding);
+      callback();
+    },
+  });
   const terminal = createInterface({
     input: process.stdin,
-    output: process.stdout,
+    output,
+    terminal: true,
   });
   const endpoint = await terminal.question(
     "Pages WS/WSS-URL (/runner/v1/channel/CONNECTION-ID): ",
   );
-  const token = await terminal.question(
-    "Kurzlebige Registrierungsfreigabe (sichtbare lokale Eingabe): ",
+  process.stdout.write(
+    "Kurzlebige Registrierungsfreigabe (verdeckte Eingabe): ",
   );
+  isHidden = true;
+  const token = await terminal.question("");
+  isHidden = false;
+  process.stdout.write("\n");
   terminal.close();
   configuration = { endpoint, token, sessionId: null, sequence: 0, jobs: [] };
 }
@@ -333,6 +347,40 @@ let attempts = 0;
 let unrecoverable = null;
 let stopped = false;
 let socket;
+const pagesRequests = new Map();
+const stopPagesRelay = await startPagesRelay(
+  directory,
+  (jobId, request) =>
+    new Promise((resolve, reject) => {
+      if (socket?.readyState !== WebSocket.OPEN || pagesRequests.size >= 32) {
+        reject(new Error("Pages channel unavailable"));
+        return;
+      }
+      const job = configuration.jobs.find((entry) => entry.jobId === jobId);
+      if (
+        job?.execution?.pagesAccess !== 1 ||
+        ["completed", "failed", "interrupted", "lost"].includes(job.status)
+      ) {
+        reject(new Error("Pages job unavailable"));
+        return;
+      }
+      const requestId = randomUUID();
+      const timer = setTimeout(() => {
+        pagesRequests.delete(requestId);
+        reject(new Error("Pages channel timeout"));
+      }, 20000);
+      pagesRequests.set(requestId, { resolve, reject, timer });
+      socket.send(
+        JSON.stringify({
+          version: 1,
+          type: "pages-request",
+          requestId,
+          jobId,
+          request,
+        }),
+      );
+    }),
+);
 let isProviderBusy = false;
 let isGitHubBusy = false;
 const progressSnapshots = new Map();
@@ -450,6 +498,7 @@ async function receiveRegistration(message, channel) {
       executorVersion: 1,
       cliExecutorVersion: 1,
       githubAccessVersion: 1,
+      pagesAccessVersion: 1,
       interpreters: await interpreters(),
       tools: await toolInventory(),
     }),
@@ -562,7 +611,19 @@ async function connect() {
           return;
         }
         if (!state.isReconciled) throw new Error("Reconciliation required");
-        if (message.type === "heartbeat") deadline();
+        if (message.type === "pages-result") {
+          const pending = pagesRequests.get(message.requestId);
+          if (pending) {
+            pagesRequests.delete(message.requestId);
+            clearTimeout(pending.timer);
+            if (message.ok) pending.resolve(message.result);
+            else {
+              const failure = new Error("Pages access refused");
+              failure.code = message.error;
+              pending.reject(failure);
+            }
+          }
+        } else if (message.type === "heartbeat") deadline();
         else if (message.type === "refresh-tools") {
           inventory.checkedAt = 0;
           channel.close();
@@ -578,6 +639,11 @@ async function connect() {
       clearInterval(state.heartbeat);
       clearInterval(state.poll);
       clearTimeout(state.deadline);
+      for (const pending of pagesRequests.values()) {
+        clearTimeout(pending.timer);
+        pending.reject(new Error("Pages channel closed"));
+      }
+      pagesRequests.clear();
       resolve();
     });
   });
@@ -614,4 +680,5 @@ while (!stopped && !unrecoverable) {
   );
   await sleep(delay);
 }
+await stopPagesRelay();
 if (unrecoverable) exitUnrecoverable(unrecoverable.message);

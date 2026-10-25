@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { planRemoteResourceSchema } from "./AgentPlanRemoteAccess";
 
 const identifier = z.string().min(1).max(100);
 
@@ -30,6 +31,7 @@ export type AgentPlanRemoteTarget = z.infer<typeof planRemoteTargetSchema>;
 export const planStepExecutionSchema = z
   .object({
     schemaVersion: z.literal(1),
+    resources: z.array(planRemoteResourceSchema).max(64).optional(),
     planId: identifier,
     runId: identifier,
     stepId: identifier,

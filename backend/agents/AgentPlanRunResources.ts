@@ -92,6 +92,7 @@ export function readPlanRunResources(input: unknown): AgentPlanRunResources {
       if (value.type === "ticket") ticketIds.add(readPlanText(value.ticketId));
     }
   }
+  addRemoteResources(snapshot, { ticketIds, wikiIds, ticketAssets });
   return {
     remoteWorkspaceIds: remoteWorkspaceIds(snapshot),
     ...planTarget(plan),
@@ -148,9 +149,58 @@ function remoteWorkspaceIds(
     : [];
   return [
     ...new Set(
-      steps.map((step) =>
-        readPlanText(readAgentObject(readAgentObject(step).target).workspaceId),
-      ),
+      steps.flatMap((entry) => {
+        const step = readAgentObject(entry);
+        const parameters = step.parameters
+          ? readAgentObject(step.parameters)
+          : null;
+        const workspaces = parameters
+          ? Object.keys(readAgentObject(parameters.workspaces))
+          : [];
+        return [
+          readPlanText(readAgentObject(step.target).workspaceId),
+          ...workspaces,
+        ];
+      }),
     ),
   ];
+}
+
+function addRemoteResources(
+  snapshot: Record<string, unknown>,
+  references: {
+    readonly ticketIds: Set<string>;
+    readonly wikiIds: Set<string>;
+    readonly ticketAssets: Map<string, AgentTicketAsset>;
+  },
+): void {
+  const steps: readonly unknown[] = Array.isArray(snapshot.remoteSteps)
+    ? snapshot.remoteSteps
+    : [];
+  for (const entry of steps) {
+    const step = readAgentObject(entry);
+    if (!step.parameters) continue;
+    const parameters = readAgentObject(step.parameters);
+    for (const id of Object.keys(readAgentObject(parameters.tickets)))
+      references.ticketIds.add(id);
+    for (const id of Object.keys(readAgentObject(parameters.wiki)))
+      references.wikiIds.add(id);
+    const assets: readonly unknown[] = Array.isArray(parameters.assets)
+      ? parameters.assets
+      : [];
+    for (const assetEntry of assets) {
+      const asset = readAgentObject(readAgentObject(assetEntry).reference);
+      if (
+        asset.source !== "ticket" &&
+        asset.source !== "wiki" &&
+        asset.source !== "agent"
+      )
+        throw new Error("Invalid remote asset");
+      references.ticketAssets.set(`${asset.source}:${readPlanText(asset.id)}`, {
+        source: asset.source,
+        id: readPlanText(asset.id),
+        link: readPlanText(asset.link),
+      });
+    }
+  }
 }

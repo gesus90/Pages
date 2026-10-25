@@ -1,0 +1,108 @@
+import { ADMIN_WRITE_TOOLS } from "./Administration.js";
+import { AGENT_WRITE_TOOLS } from "./Agents.js";
+import { ASSET_UPLOAD_TOOL } from "./AssetUpload.js";
+import { CHAT_SESSIONS_DELETE_TOOL } from "./ChatSessions.js";
+import { EXTENSION_WRITE_TOOLS } from "./Extensions.js";
+import {
+  MILESTONE_CREATE_TOOL,
+  MILESTONE_DEPENDENCY_ADD_TOOL,
+  MILESTONE_DEPENDENCY_REMOVE_TOOL,
+  MILESTONE_SET_DESCRIPTION_TOOL,
+  MILESTONE_SET_DUE_TOOL,
+  MILESTONE_SET_NAME_TOOL,
+  MILESTONE_SET_START_TOOL,
+  MILESTONE_SET_STATUS_TOOL,
+} from "./Milestone.js";
+import { PLAN_RESOURCE_WRITE_TOOLS } from "./PlanResources.js";
+import { PLAN_WRITE_TOOLS } from "./Plans.js";
+import { PROJECT_DELETE_TOOL } from "./ProjectDeletion.js";
+import { STRUCTURED_IMPORT_APPLY_TOOL } from "./StructuredImportApply.js";
+import {
+  TICKET_PATCH_DESCRIPTION_TOOL,
+  WIKI_PATCH_CONTENT_TOOL,
+} from "./TextRange.js";
+import {
+  TICKET_CHECKLIST_SET_ITEMS_TOOL,
+  TICKET_CHECKLIST_SET_TOOL,
+} from "./TicketChecklist.js";
+import { TICKET_CREATE_TOOL } from "./TicketCreate.js";
+import {
+  TICKET_SET_DESCRIPTION_TOOL,
+  TICKET_SET_PARENT_TOOL,
+  TICKET_SET_STATUS_TOOL,
+  TICKET_SET_TITLE_TOOL,
+} from "./TicketField.js";
+import { TICKET_LINK_ADD_TOOL, TICKET_LINK_REMOVE_TOOL } from "./TicketLink.js";
+import { WIKI_SET_COVER_TOOL } from "./WikiCover.js";
+import { WIKI_CREATE_TOOL } from "./WikiCreate.js";
+import { WIKI_IMPORT_APPLY_TOOL } from "./WikiImportApply.js";
+import { WIKI_IMPORT_UPDATE_TOOL } from "./WikiImportUpdate.js";
+import { WIKI_MOVE_TOOL } from "./WikiMove.js";
+import {
+  WIKI_SET_CONTENT_TOOL,
+  WIKI_SET_ICON_TOOL,
+  WIKI_SET_TITLE_TOOL,
+} from "./WikiPageFields.js";
+import { WORKSPACE_WRITE_TOOLS } from "./Workspaces.js";
+
+import type { Tool } from "@modelcontextprotocol/server";
+import type { PagesAgentWriteOperation } from "../PagesAgentWrites.js";
+
+/** Fixed write contracts; Pages resolves write permission afresh for each list and call. */
+export const WRITE_TOOLS: readonly {
+  readonly operation: PagesAgentWriteOperation;
+  readonly tool: Tool;
+}[] = [
+  { operation: "chat.sessions.delete", tool: CHAT_SESSIONS_DELETE_TOOL },
+  ...EXTENSION_WRITE_TOOLS,
+  ...ADMIN_WRITE_TOOLS,
+  PROJECT_DELETE_TOOL,
+  ...WORKSPACE_WRITE_TOOLS,
+  ...AGENT_WRITE_TOOLS,
+  ...PLAN_WRITE_TOOLS,
+  ...PLAN_RESOURCE_WRITE_TOOLS,
+  { operation: "assets.upload.prepare", tool: ASSET_UPLOAD_TOOL },
+  { operation: "wiki.page.create", tool: WIKI_CREATE_TOOL },
+  { operation: "wiki.import.apply", tool: WIKI_IMPORT_APPLY_TOOL },
+  { operation: "wiki.import.update", tool: WIKI_IMPORT_UPDATE_TOOL },
+  { operation: "import.structured.apply", tool: STRUCTURED_IMPORT_APPLY_TOOL },
+  { operation: "wiki.page.setTitle", tool: WIKI_SET_TITLE_TOOL },
+  { operation: "wiki.page.setContent", tool: WIKI_SET_CONTENT_TOOL },
+  { operation: "wiki.page.patchContent", tool: WIKI_PATCH_CONTENT_TOOL },
+  { operation: "wiki.page.setIcon", tool: WIKI_SET_ICON_TOOL },
+  { operation: "wiki.page.setCover", tool: WIKI_SET_COVER_TOOL },
+  { operation: "wiki.page.move", tool: WIKI_MOVE_TOOL },
+  { operation: "ticket.create", tool: TICKET_CREATE_TOOL },
+  { operation: "ticket.setTitle", tool: TICKET_SET_TITLE_TOOL },
+  { operation: "ticket.setDescription", tool: TICKET_SET_DESCRIPTION_TOOL },
+  {
+    operation: "ticket.patchDescription",
+    tool: TICKET_PATCH_DESCRIPTION_TOOL,
+  },
+  { operation: "ticket.setStatus", tool: TICKET_SET_STATUS_TOOL },
+  { operation: "ticket.setParent", tool: TICKET_SET_PARENT_TOOL },
+  { operation: "ticket.checklist.setItem", tool: TICKET_CHECKLIST_SET_TOOL },
+  {
+    operation: "ticket.checklist.setItems",
+    tool: TICKET_CHECKLIST_SET_ITEMS_TOOL,
+  },
+  { operation: "tickets.link.add", tool: TICKET_LINK_ADD_TOOL },
+  { operation: "tickets.link.remove", tool: TICKET_LINK_REMOVE_TOOL },
+  { operation: "milestone.create", tool: MILESTONE_CREATE_TOOL },
+  { operation: "milestone.setName", tool: MILESTONE_SET_NAME_TOOL },
+  {
+    operation: "milestone.setDescription",
+    tool: MILESTONE_SET_DESCRIPTION_TOOL,
+  },
+  { operation: "milestone.setStatus", tool: MILESTONE_SET_STATUS_TOOL },
+  { operation: "milestone.setStartAt", tool: MILESTONE_SET_START_TOOL },
+  { operation: "milestone.setDueAt", tool: MILESTONE_SET_DUE_TOOL },
+  {
+    operation: "milestone.dependency.add",
+    tool: MILESTONE_DEPENDENCY_ADD_TOOL,
+  },
+  {
+    operation: "milestone.dependency.remove",
+    tool: MILESTONE_DEPENDENCY_REMOVE_TOOL,
+  },
+];

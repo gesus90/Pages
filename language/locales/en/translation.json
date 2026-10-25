@@ -3909,7 +3909,17 @@
       "loopPrevious": "A result of the previous iteration is only valid inside a loop, from one of its members, and needs a default value for the first iteration.",
       "loopProvider": "An agent that keeps its session needs an ACP runner (Codex, Claude Code or OpenCode). Switch the loop to a new session per run or choose another agent.",
       "scriptConfiguration": "Check the script configuration.",
-      "loopScriptUnsupported": "Script members inside loops are not supported by this runtime. Keep the saved configuration and use an explicit plan step."
+      "loopScriptUnsupported": "Script members inside loops are not supported by this runtime. Keep the saved configuration and use an explicit plan step.",
+      "remoteTicketUnavailable": "Ticket unavailable: archived, deleted or currently not visible. No other ticket is substituted.",
+      "remoteWikiUnavailable": "Wiki page unavailable: archived, deleted or currently not visible. No other page is substituted.",
+      "remoteWorkspaceParameter": "This parameter requires an accessible remote workspace on the same host. Local paths are never transferred.",
+      "remoteAssetUnavailable": "File delivery unavailable: a file is missing, unreadable, or its reference or identity changed.",
+      "remoteAssetType": "Unsupported file type or reference. As locally, PNG images and complete UTF-8 text from Pages files are supported.",
+      "remoteAssetsTooLarge": "File delivery exceeds 10 MiB in total or 64 files. The step will not start.",
+      "remotePromptTooLarge": "The complete prompt including parameters exceeds the existing runner limit of 100000 characters. Reduce the content; Pages does not truncate it.",
+      "remoteParameter": "The parameter cannot be resolved. Check its type, required value and placeholders.",
+      "remoteRunnerUpdate": "Update runner: resource parameters, file delivery and Pages access require Runner 1.6.0 or later.",
+      "remotePagesUnavailable": "Pages access and file delivery are unavailable for this model route. Select a remote CLI with Runner 1.6.0 or later."
     },
     "session": {
       "runner": {
@@ -4279,7 +4289,17 @@
         "remoteToolMissing": "The required CLI tool is missing or the runner does not support CLI jobs yet. Update the runner and refresh its inventory.",
         "remoteLogin": "The CLI tool has no subscription login on the remote host. Sign in there yourself, then refresh the inventory.",
         "remoteLoginUnknown": "The runner has not confirmed CLI login. Check it on the remote host and refresh the inventory.",
-        "remoteOptions": "This remote CLI supports Read only and explicitly selected YOLO. Workspace write mode and browser MCP are unavailable here."
+        "remoteOptions": "This remote CLI supports Read only and explicitly selected YOLO. Workspace write mode and browser MCP are unavailable here.",
+        "remoteTicketUnavailable": "Ticket unavailable: archived, deleted or currently not visible. No other ticket is substituted.",
+        "remoteWikiUnavailable": "Wiki page unavailable: archived, deleted or currently not visible. No other page is substituted.",
+        "remoteWorkspaceParameter": "This parameter requires an accessible remote workspace on the same host. Local paths are never transferred.",
+        "remoteAssetUnavailable": "File delivery unavailable: a file is missing, unreadable, or its reference or identity changed.",
+        "remoteAssetType": "Unsupported file type or reference. As locally, PNG images and complete UTF-8 text from Pages files are supported.",
+        "remoteAssetsTooLarge": "File delivery exceeds 10 MiB in total or 64 files. The step will not start.",
+        "remotePromptTooLarge": "The complete prompt including parameters exceeds the existing runner limit of 100000 characters. Reduce the content; Pages does not truncate it.",
+        "remoteParameter": "The parameter cannot be resolved. Check its type, required value and placeholders.",
+        "remoteRunnerUpdate": "Update runner: resource parameters, file delivery and Pages access require Runner 1.6.0 or later.",
+        "remotePagesUnavailable": "Pages access and file delivery are unavailable for this model route. Select a remote CLI with Runner 1.6.0 or later."
       },
       "state": {
         "none": {
@@ -4960,7 +4980,25 @@
       "withoutWorkspace": "Without workspace",
       "reassignWorkspace": "This plan has no registered workspace and cannot start. Choose a workspace under Plan actions → Edit. Its nodes and contents are preserved."
     },
-    "savedAlias": "saved as alias “{{alias}}”"
+    "savedAlias": "saved as alias “{{alias}}”",
+    "remoteAccess": {
+      "resources": "Pinned parameters",
+      "referencesChanged": "The parameter file references changed before transmission. Start the run again to use the current files.",
+      "ticket": "Ticket",
+      "wiki": "Wiki page",
+      "workspace": "Remote workspace",
+      "version": "Version: {{version}}",
+      "files": "Transferred files",
+      "bytes": "{{count}} bytes",
+      "noFiles": "No files transferred.",
+      "pages": "Pages access · Tool log",
+      "active": "Active only for this run and step.",
+      "closed": "Closed · Access revoked.",
+      "unavailable": "Unavailable.",
+      "ok": "Succeeded",
+      "denied": "Denied",
+      "failed": "Failed"
+    }
   },
   "mcpDuration": {
     "label": "Validity in days",

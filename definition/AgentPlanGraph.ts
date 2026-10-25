@@ -33,6 +33,14 @@ export interface AgentPlanIssue {
   readonly nodeId: string | null;
   readonly port: string | null;
   readonly reason:
+    | "remoteTicketUnavailable"
+    | "remoteWikiUnavailable"
+    | "remoteWorkspaceParameter"
+    | "remoteAssetUnavailable"
+    | "remoteAssetType"
+    | "remoteAssetsTooLarge"
+    | "remotePromptTooLarge"
+    | "remoteParameter"
     | AgentPlanTargetProblem
     | "groupSize"
     | "groupProvider"

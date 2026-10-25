@@ -86,7 +86,7 @@ export function remoteModelCommand(
     const assignment = renderPlanAssignment({
       contract,
       isReadOnly,
-      usesMcp: false,
+      usesMcp: basis.pagesAccess === 1,
       runnerLabel: route.tool,
       instanceId: step.id,
       directory: basis.workspace,

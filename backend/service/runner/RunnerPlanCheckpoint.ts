@@ -78,7 +78,7 @@ export function runnerPlanCheckpoint(
     workspaceDigest: planContentDigest(execution.workspace),
     context: {
       groupId: step.groupId ?? null,
-      agentId: typeof node.agentId === "string" ? node.agentId : null,
+      agentId: optionalIdentifier(node.agentId),
       agentRevision:
         typeof pinned.revision === "number" ? pinned.revision : null,
       connectionId: execution.modelAccess.connectionId,
@@ -101,4 +101,8 @@ export function runnerPlanCheckpoint(
       capabilities: null,
     },
   };
+}
+
+function optionalIdentifier(value: unknown): string | null {
+  return typeof value === "string" && value !== "" ? value : null;
 }

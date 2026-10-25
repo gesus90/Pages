@@ -35,19 +35,27 @@ function noticeRejectedPeer(): void {
   });
 }
 
+import type { RunnerPagesAccessService } from "@/backend/service/runner/RunnerPagesAccessService";
+
 interface RunnerChannelServices {
+  readonly pages: RunnerPagesAccessService;
   readonly runners: RunnerService;
   readonly openRouter: RunnerOpenRouterService;
   readonly github: RunnerGitHubAccessService;
 }
 
-function receiveAuxiliary(
+async function receiveAuxiliary(
   connectionId: string,
   input: unknown,
   services: RunnerChannelServices,
-): boolean {
+  send: (reply: unknown) => void,
+): Promise<boolean> {
   if (typeof input !== "object" || input === null || !("type" in input))
     return false;
+  if (input.type === "pages-request") {
+    send(await services.pages.receive(connectionId, input));
+    return true;
+  }
   if (input.type === "github-access-result") {
     services.github.receive(connectionId, input);
     return true;
@@ -97,7 +105,9 @@ function attach(
         const input: unknown = JSON.parse(buffer.toString());
         if (
           hasReconciled &&
-          receiveAuxiliary(auth.connectionId, input, services)
+          (await receiveAuxiliary(auth.connectionId, input, services, (reply) =>
+            socket.send(JSON.stringify(reply)),
+          ))
         )
           return;
         if (
@@ -182,6 +192,7 @@ async function upgrade(input: {
         channel,
         auth,
         {
+          pages: services.runnerPagesAccessService,
           runners: service,
           openRouter: services.runnerOpenRouterService,
           github: services.runnerGitHubAccessService,

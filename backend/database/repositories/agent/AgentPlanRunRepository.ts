@@ -191,7 +191,14 @@ export class AgentPlanRunRepository {
     const references = snapshots.map(readPlanRunResources);
     const first = references[0];
     if (!first) throw new AgentError("plan_access_denied");
+    const remoteWorkspaceIds = [
+      ...new Set(references.flatMap((entry) => entry.remoteWorkspaceIds ?? [])),
+    ];
     return {
+      ...(first.executionTarget?.kind === "remote"
+        ? { executionTarget: first.executionTarget }
+        : {}),
+      ...(remoteWorkspaceIds.length ? { remoteWorkspaceIds } : {}),
       projectId: first.projectId,
       workspaceIds: [
         ...new Set(references.flatMap((entry) => entry.workspaceIds)),

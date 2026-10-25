@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+/** Existing remote command limit, checked before admission as well as at the runner boundary. */
+export const MAX_RUNNER_PROMPT_CHARACTERS = 100000;
+
 /** A catalog selection is bound to one authorized workspace and provider revision. */
 export const runnerModelRouteSchema = z
   .object({
@@ -36,6 +39,8 @@ export const runnerExecutionSchema = z
     outputBytes: z.number().int().min(1).max(65536),
     input: z.string().max(1048576),
     hasOutput: z.boolean().optional(),
+    /** Requires Runner 1.6.0; credentials and file contents never belong to a durable command. */
+    pagesAccess: z.literal(1).optional(),
     program: z.discriminatedUnion("kind", [
       z
         .object({
@@ -43,7 +48,7 @@ export const runnerExecutionSchema = z
           route: runnerModelRouteSchema,
           model: z.string().min(1).max(200),
           reasoningEffort: z.string().max(40).nullable(),
-          prompt: z.string().max(100000),
+          prompt: z.string().max(MAX_RUNNER_PROMPT_CHARACTERS),
           access: z.enum(["read_only", "yolo"]),
         })
         .strict(),
@@ -59,7 +64,7 @@ export const runnerExecutionSchema = z
           kind: z.literal("model"),
           route: runnerModelRouteSchema,
           model: z.string().max(200),
-          prompt: z.string().max(100000),
+          prompt: z.string().max(MAX_RUNNER_PROMPT_CHARACTERS),
         })
         .strict(),
     ]),

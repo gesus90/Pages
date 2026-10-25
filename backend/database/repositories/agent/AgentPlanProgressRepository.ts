@@ -137,9 +137,12 @@ export class AgentPlanProgressRepository {
           const stored = previous.run.steps.find(
             (entry) => entry.id === step.id,
           );
+          const retained = stored?.resourceAccess
+            ? { ...step, resourceAccess: stored.resourceAccess }
+            : step;
           return stored?.remote
             ? {
-                ...step,
+                ...retained,
                 status: stored.status,
                 output: stored.output,
                 error: stored.error,
@@ -147,7 +150,7 @@ export class AgentPlanProgressRepository {
                 session: stored.session,
                 cancellation: stored.cancellation,
               }
-            : step;
+            : retained;
         }),
       };
       await this.save(transaction, previous, run, checkpoint);

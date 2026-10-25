@@ -107,7 +107,7 @@ function updatedStep(
     ...step,
     status,
     output: output === null ? null : sanitizePlanOutput(output),
-    error: runnerFailureCode(job),
+    error: event?.result?.resourceError ?? runnerFailureCode(job),
     ...(job.status === "interrupted"
       ? {
           cancellation:

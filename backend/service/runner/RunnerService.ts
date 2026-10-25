@@ -88,6 +88,7 @@ export class RunnerService {
   private readonly tools = new Map<string, readonly ToolInventory[]>();
   private readonly cliExecutors = new Set<string>();
   private readonly githubProbes = new Set<string>();
+  private readonly pagesExecutors = new Set<string>();
 
   public constructor(
     repository: RunnerRepository,
@@ -228,6 +229,9 @@ export class RunnerService {
         );
       this.heartbeats.set(connectionId, Date.now());
       if (message.type === "reconcile") {
+        if (message.pagesAccessVersion === 1)
+          this.pagesExecutors.add(connectionId);
+        else this.pagesExecutors.delete(connectionId);
         if (message.githubAccessVersion === 1)
           this.githubProbes.add(connectionId);
         else this.githubProbes.delete(connectionId);
@@ -302,6 +306,7 @@ export class RunnerService {
     this.tools.delete(connectionId);
     this.cliExecutors.delete(connectionId);
     this.githubProbes.delete(connectionId);
+    this.pagesExecutors.delete(connectionId);
   }
 
   /**
@@ -376,6 +381,30 @@ export class RunnerService {
   /** Reports the probe capability explicitly; older runners never receive an unknown command. */
   public supportsGitHubAccess(connectionId: string): boolean {
     return this.githubProbes.has(connectionId);
+  }
+
+  /** Older runners retain text execution but cannot receive resource/Pages requests. */
+  public supportsPagesAccess(connectionId: string): boolean {
+    return this.pagesExecutors.has(connectionId);
+  }
+
+  /** Resolves a live job from Pages' journal; a runner cannot choose another connection's attempt. */
+  public async pagesJob(
+    connectionId: string,
+    jobId: string,
+  ): Promise<RunnerJob> {
+    const record = await this.repository.find(connectionId);
+    if (!record || !this.supportsPagesAccess(connectionId))
+      throw new Error("Pages runner unavailable");
+    await this.requireRevision(record);
+    const job = record.state.jobs.find((entry) => entry.jobId === jobId);
+    if (
+      !job?.plan ||
+      job.execution?.pagesAccess !== 1 ||
+      !["queued", "accepted", "running"].includes(job.status)
+    )
+      throw new Error("Pages job unavailable");
+    return job;
   }
 
   /** Returns CLI facts only from a runner that implements CLI execution. */

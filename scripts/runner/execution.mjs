@@ -16,6 +16,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
 import { spawnCli, cliOutput } from "./cli.mjs";
+import { preparePagesFiles, pagesRequest, pagesFailure } from "./pages.mjs";
 
 const credentials =
   /\b(?:sk-[a-zA-Z0-9_-]{12,}|gh[pousr]_[a-zA-Z0-9]{12,}|github_pat_[a-zA-Z0-9_]+|Bearer\s+\S+|(?:api[_ -]?key|access[_ -]?token|password|client[_ -]?secret)\s*[=:]\s*["']?[^\s"']+)/gi;
@@ -330,7 +331,7 @@ async function processJob(command, folder, context) {
   const { jobId, signal } = context;
   const isCli = command.program.kind === "cli";
   const child = isCli
-    ? await spawnCli(command, jobId, signal)
+    ? await spawnCli(command, jobId, signal, folder)
     : spawnScript(command, folder, jobId);
   let output = "";
   let diagnostic = "";
@@ -357,7 +358,12 @@ async function processJob(command, folder, context) {
     });
   const receive = (chunk, channel) => {
     bytes += chunk.length;
-    if (bytes > command.outputBytes) {
+    if (
+      bytes >
+      (isCli && command.pagesAccess === 1
+        ? 32 * 1024 * 1024
+        : command.outputBytes)
+    ) {
       failure = "output_limit";
       stop();
       return;
@@ -403,6 +409,13 @@ async function processJob(command, folder, context) {
     } catch {
       result.reason = "exit";
     }
+    if (
+      isCli &&
+      Buffer.byteLength(cliOutput(command, output)) +
+        Buffer.byteLength(diagnostic) >
+        command.outputBytes
+    )
+      result.reason = "output_limit";
     return {
       ...result,
       ...(isCli && result.exitCode === 0 && !cliOutput(command, output)
@@ -455,7 +468,12 @@ async function modelJob(command, folder, signal) {
     const chunk = await reader.read();
     if (chunk.done) break;
     bytes += chunk.value.length;
-    if (bytes > command.outputBytes) {
+    if (
+      bytes >
+      (isCli && command.pagesAccess === 1
+        ? 32 * 1024 * 1024
+        : command.outputBytes)
+    ) {
       await reader.cancel();
       return {
         output: null,
@@ -520,9 +538,31 @@ async function executeWorker(folder) {
           () => controller.abort("timeout"),
           job.execution.timeoutSeconds * 1000,
         );
+  let leaseBusy = false;
+  const lease =
+    job.execution.pagesAccess === 1
+      ? setInterval(() => {
+          if (leaseBusy) return;
+          leaseBusy = true;
+          void pagesRequest(join(privateRoot, "pages.sock"), job.jobId, {
+            kind: "lease",
+          })
+            .catch(() => controller.abort("cancelled"))
+            .finally(() => {
+              leaseBusy = false;
+            });
+        }, 5000)
+      : null;
   let result;
   try {
-    const command = await checkedCommand(job, folder);
+    let command = await checkedCommand(job, folder);
+    if (command.pagesAccess === 1)
+      command = await preparePagesFiles(
+        command,
+        folder,
+        job.jobId,
+        controller.signal,
+      );
     result =
       command.program.kind !== "model"
         ? await processJob(command, folder, {
@@ -530,8 +570,11 @@ async function executeWorker(folder) {
             signal: controller.signal,
           })
         : await modelJob(command, folder, controller.signal);
-  } catch {
+  } catch (error) {
     result = {
+      ...(job.execution.pagesAccess === 1
+        ? { resourceError: pagesFailure(error) }
+        : {}),
       output: null,
       exitCode: null,
       signal: null,
@@ -541,6 +584,7 @@ async function executeWorker(folder) {
     };
   } finally {
     clearInterval(cancel);
+    clearInterval(lease);
     clearTimeout(timeout);
   }
   const closeout = await cleanup(folder, job.jobId);

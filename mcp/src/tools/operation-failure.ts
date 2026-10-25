@@ -59,6 +59,16 @@ const REJECTION_REASONS: Readonly<
 
 /** Every finding of the plan graph check, so a refused plan names what to fix. */
 const ISSUE_PROBLEMS: Readonly<Record<AgentPlanIssueProblem, true>> = {
+  remoteRunnerUpdate: true,
+  remotePagesUnavailable: true,
+  remoteTicketUnavailable: true,
+  remoteWikiUnavailable: true,
+  remoteWorkspaceParameter: true,
+  remoteAssetUnavailable: true,
+  remoteAssetType: true,
+  remoteAssetsTooLarge: true,
+  remotePromptTooLarge: true,
+  remoteParameter: true,
   remoteModel: true,
   remoteInterpreter: true,
   remoteContainer: true,

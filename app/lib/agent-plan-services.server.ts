@@ -1,5 +1,8 @@
 import { createPlanWorkspaceAccess } from "./plan-access-services.server";
 import { AgentPlanRemoteExecution } from "@/backend/service/agents/AgentPlanRemoteExecution";
+import { AgentPlanRemoteParameters } from "@/backend/service/agents/AgentPlanRemoteParameters";
+import { RunnerPagesAccessService } from "@/backend/service/runner/RunnerPagesAccessService";
+import { AgentPlanRemoteAccessRepository } from "@/backend/database/repositories/agent/AgentPlanRemoteAccessRepository";
 import { AgentPlanRemoteTargets } from "@/backend/service/agents/AgentPlanRemoteTargets";
 import { AgentRunCredentialRepository } from "@/backend/database/repositories/mcp/AgentRunCredentialRepository";
 import { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
@@ -13,6 +16,7 @@ import { AgentPlanCheckpointRepository } from "@/backend/database/repositories/a
 import { AgentPlanRecoveryRepository } from "@/backend/database/repositories/agent/AgentPlanRecoveryRepository";
 import { AgentPlanRecoveryExecutionRepository } from "@/backend/database/repositories/agent/AgentPlanRecoveryExecutionRepository";
 import { AgentPlanRecoveryService } from "@/backend/service/agents/recovery/AgentPlanRecoveryService";
+import type { PagesAgentApiService } from "@/backend/service/PagesAgentApiService";
 import type { AgentPlanAccess } from "@/backend/service/agents/AgentPlanAccess";
 import { AgentPlanPreparation } from "@/backend/service/agents/AgentPlanPreparation";
 import { AgentPlanScripts } from "@/backend/service/agents/AgentPlanScripts";
@@ -44,6 +48,7 @@ import type { AgentApplicationServices } from "./agent-services.server";
 
 /** The plan service and the PageAgentCLI sessions of its nodes, built on one run access. */
 export interface AgentPlanServices {
+  readonly runnerPagesAccessService: RunnerPagesAccessService;
   readonly agentPlanService: AgentPlanService;
   /** Creating, copying and deleting plans from the plan page, each request once. */
   readonly agentPlanManagement: AgentPlanManagement;
@@ -91,6 +96,7 @@ export async function createAgentPlanService(input: {
   readonly users: UserService;
   /** How sessions of ticket-bound nodes reach Pages through MCP. */
   readonly mcp: AgentPlanMcpSettings;
+  readonly api: () => Promise<PagesAgentApiService>;
 }): Promise<AgentPlanServices> {
   const plans = new AgentPlanRepository(input.database);
   const runs = new AgentPlanRunRepository(input.database);
@@ -111,21 +117,17 @@ export async function createAgentPlanService(input: {
     files: input.agents.agentDefinitionFiles,
     github: input.agents.agentPlanGitHubCredentials,
   });
-  const sessions = new AgentPlanSessionAccess(
-    new AgentRunCredentialService(
-      new AgentRunCredentialRepository(input.database),
-    ),
-    input.mcp,
-  );
+  const sessions = createPlanSessionAccess(input.database, input.mcp);
   const pageAgentSessions = await createPageAgentSessions(input, {
     run: (userId, id) => service.run(userId, id),
     stop: (userId, id) => service.stop(userId, id),
   });
-  const { remoteTargets, remoteExecution } = createRemoteExecution(
+  const { remoteTargets, remoteExecution, pages } = createRemoteExecution(
     input,
     access,
     runs,
   );
+  await pages.recover();
   const engine = createPlanEngine(input, {
     remoteExecution,
     scripts: scriptPreparation,
@@ -164,6 +166,7 @@ export async function createAgentPlanService(input: {
   });
   await recoverRuns(input, service);
   return {
+    runnerPagesAccessService: pages,
     agentPlanService: service,
     agentPlanManagement: new AgentPlanManagement({
       database: input.database,
@@ -182,6 +185,16 @@ export async function createAgentPlanService(input: {
       runs,
     }),
   };
+}
+
+function createPlanSessionAccess(
+  database: Database,
+  settings: AgentPlanMcpSettings,
+): AgentPlanSessionAccess {
+  return new AgentPlanSessionAccess(
+    new AgentRunCredentialService(new AgentRunCredentialRepository(database)),
+    settings,
+  );
 }
 
 /** Records the runs a server stop interrupted and repairs their files; nothing starts again. */
@@ -321,19 +334,41 @@ function createRemoteExecution(
 ): {
   remoteTargets: AgentPlanRemoteTargets;
   remoteExecution: AgentPlanRemoteExecution;
+  pages: RunnerPagesAccessService;
 } {
   const remoteTargets = new AgentPlanRemoteTargets(
     input.agents.remoteWorkspaceService,
     input.agents.remoteConnectionService,
   );
+  const parameters = new AgentPlanRemoteParameters({
+    targets: remoteTargets,
+    tickets: input.agents.agentTicketParameterService,
+    content: input.agents.agentContentAccess,
+    assets: input.agents.agentTicketAssetService,
+    authorization: new AuthorizationRepository(input.database),
+    users: input.users,
+  });
+  const pages = new RunnerPagesAccessService({
+    parameters,
+    runs,
+    plans: access,
+    runners: input.agents.runnerService,
+    credentials: new AgentRunCredentialService(
+      new AgentRunCredentialRepository(input.database),
+    ),
+    evidence: new AgentPlanRemoteAccessRepository(input.database),
+    api: input.api,
+  });
   const remoteExecution = new AgentPlanRemoteExecution({
+    parameters,
+    pages,
     targets: remoteTargets,
     access,
     runners: input.agents.runnerService,
     provider: input.agents.runnerOpenRouterService,
     runs,
   });
-  return { remoteTargets, remoteExecution };
+  return { remoteTargets, remoteExecution, pages };
 }
 
 function createPlanEngine(

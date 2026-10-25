@@ -2,6 +2,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import { MAX_TICKET_ASSET_BYTES } from "./AgentTicketAssetService";
+import { requireAssetReferences } from "./AgentTicketAssetReferences";
 
 import type { AgentTicketChoice } from "@/definition/AgentParameters";
 import type { AgentTaskContext } from "./AgentTaskAccess";
@@ -97,8 +98,7 @@ export class AgentTicketParameterService {
       const ticket = await this.resolve(userId, input.ticket.id);
       // Status, checkbox and text revisions do not change the file handoff.
       // Keep the asset identity check and every live ticket/file authorization.
-      if (JSON.stringify(ticket.assets) !== JSON.stringify(input.ticket.assets))
-        throw new AgentError("parameter_ticket_changed");
+      requireAssetReferences(input.ticket.assets, ticket.assets);
       for (const asset of ticket.assets) {
         const { actor } = await this.context(userId);
         if (!actor.isActive)

@@ -5,6 +5,7 @@ import type {
   AgentPlanRemoteProgress,
 } from "./AgentPlanExecution";
 import type { AgentPlanProgress } from "./AgentPlanProgress";
+import type { PlanRemoteAccess } from "./AgentPlanRemoteAccess";
 import type { AgentPlanControl } from "./AgentPlanControl";
 import type {
   AgentPlanContinuation,
@@ -222,6 +223,7 @@ export type AgentPlanStepStatus =
 
 /** Blocked waiting steps and confirmed cancellations remain distinguishable. */
 export interface AgentPlanStepResult {
+  readonly resourceAccess?: PlanRemoteAccess;
   readonly execution?: AgentPlanStepExecution;
   readonly remote?: AgentPlanRemoteProgress;
   readonly id: string;

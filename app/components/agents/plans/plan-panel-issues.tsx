@@ -19,6 +19,8 @@ export interface PlanPanelIssue {
   readonly key: string;
   readonly title: string;
   readonly cause: string;
+  /** Remote parameter failures keep the whole actionable reason readable on narrow screens. */
+  readonly shouldWrap?: boolean;
 }
 
 /** Which part of the plan a single refusal code concerns; anything else concerns the plan. */
@@ -119,22 +121,24 @@ export function planPanelIssues(input: {
   const graph =
     (result?.ok === false ? result.issues : undefined) ?? control?.issues ?? [];
   const entries: PlanPanelIssue[] = graph.map((issue) => ({
-    key: `node-${issue.nodeId ?? ""}`,
+    key: `node-${issue.nodeId ?? ""}-${issue.port ?? ""}`,
     title: issueTitle(issue, editor, translate),
     cause: issueCause(issue, translate),
+    shouldWrap: issue.port !== null && issue.reason.startsWith("remote"),
   }));
   for (const issue of planTargetIssues(
     withPortlessPlanGroups(editor.draft),
     editor.sources.remoteStatus,
   ))
     entries.push({
-      key: `node-${issue.nodeId}`,
-      title: issueSubject(
-        { nodeId: issue.nodeId, port: null, reason: "agent" },
+      key: `node-${issue.nodeId}-${issue.port ?? ""}`,
+      title: issueTitle(
+        { nodeId: issue.nodeId, port: issue.port ?? null, reason: "agent" },
         editor,
         translate,
       ),
       cause: translate(`plans.panel.issueCause.${issue.problem}`),
+      shouldWrap: issue.port !== undefined,
     });
   if (input.code && !(input.code === "plan_invalid" && graph.length > 0))
     entries.push({
@@ -157,7 +161,11 @@ function bySubject(
     rows.set(
       entry.key,
       row && !row.cause.includes(entry.cause)
-        ? { ...row, cause: `${row.cause} ${entry.cause}` }
+        ? {
+            ...row,
+            cause: `${row.cause} ${entry.cause}`,
+            shouldWrap: row.shouldWrap === true || entry.shouldWrap === true,
+          }
         : (row ?? entry),
     );
   }
@@ -168,9 +176,8 @@ function bySubject(
  * The expanded list of findings: an orange mark, what is affected, and why.
  *
  * @remarks
- * A long cause stays on one line and fades out at the right edge instead of
- * being cut with an ellipsis; the full text stays in the document, so it can
- * be selected, copied and read by assistive technology.
+ * Remote parameter causes wrap so the complete refusal remains readable on
+ * small screens. Other findings keep their established horizontal scroll.
  */
 export function PlanPanelIssueList({
   issues,
@@ -196,15 +203,21 @@ export function PlanPanelIssueList({
             <p className="text-xs font-semibold wrap-anywhere text-foreground">
               {issue.title}
             </p>
-            <ScrollViewport
-              as="span"
-              axis="horizontal"
-              title={issue.cause}
-              containerClassName="mt-0.5"
-              className="pages-selectable block pr-3 text-xs whitespace-nowrap text-muted-foreground [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            >
-              {issue.cause}
-            </ScrollViewport>
+            {issue.shouldWrap ? (
+              <p className="pages-selectable mt-0.5 pr-3 text-xs leading-4.5 wrap-anywhere text-muted-foreground">
+                {issue.cause}
+              </p>
+            ) : (
+              <ScrollViewport
+                as="span"
+                axis="horizontal"
+                title={issue.cause}
+                containerClassName="mt-0.5"
+                className="pages-selectable block pr-3 text-xs whitespace-nowrap text-muted-foreground [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              >
+                {issue.cause}
+              </ScrollViewport>
+            )}
           </div>
         </li>
       ))}
