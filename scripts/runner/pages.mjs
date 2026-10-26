@@ -28,7 +28,9 @@ export function pagesRequest(socketPath, jobId, request) {
   return new Promise((resolve, reject) => {
     const socket = createConnection(socketPath);
     let reply = "";
-    socket.setTimeout(25000, () =>
+    // A terminal hint is expendable; its already durable result must not
+    // keep an otherwise stopped worker alive while the transport is paused.
+    socket.setTimeout(request.kind === "job-completed" ? 500 : 25000, () =>
       socket.destroy(new Error("Pages access timed out")),
     );
     socket.on("error", () => reject(new Error("Pages access unavailable")));

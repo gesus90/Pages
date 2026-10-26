@@ -5,10 +5,13 @@ import {
   logEvent,
   withLogContext,
 } from "@/backend/logging/Logger";
-
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 
-import { detachedStopRun, requestCancellation } from "./AgentPlanRunState";
+import {
+  detachedStopRun,
+  requestCancellation,
+  settleDetachedRun,
+} from "./AgentPlanRunState";
 import {
   preparePlanContinuation,
   planWritingWorkspaces,
@@ -208,11 +211,7 @@ export class AgentPlanRunCommands {
       stored?.status === "stopping" &&
       !stored.steps.some((step) => step.status === "running")
     )
-      await this.dependencies.runs.update({
-        ...stored,
-        status: "cancelled",
-        endedAt: new Date().toISOString(),
-      });
+      await this.dependencies.runs.update(settleDetachedRun(stored));
   }
 
   private schedulePump(): void {

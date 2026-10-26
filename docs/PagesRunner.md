@@ -40,7 +40,7 @@ Der Worker läuft in einer getrennten Prozessgruppe weiter, wenn der Transport e
 
 ## OpenRouter auf dem Runner
 
-Ab Runner-Version `1.2.0` (aktuell `1.10.0`) unterstützt der Runner OpenRouter einschließlich der Modell-IDs mit `~`-Präfix; `node ~/.local/share/pages-runner/runner.mjs --version` zeigt die Version ohne Kopplung. Aktualisierungen erfolgen weiterhin über das geprüfte Setup-Artefakt. Ein bereits laufender Runner muss anschließend neu gestartet werden.
+Ab Runner-Version `1.2.0` (aktuell `1.11.0`) unterstützt der Runner OpenRouter einschließlich der Modell-IDs mit `~`-Präfix; `node ~/.local/share/pages-runner/runner.mjs --version` zeigt die Version ohne Kopplung. Aktualisierungen erfolgen weiterhin über das geprüfte Setup-Artefakt. Ein bereits laufender Runner muss anschließend neu gestartet werden.
 
 `POST /settings-api/runners` mit `intent=store-provider-key`, `connectionId`, `provider=openrouter` und `apiKey` verlangt eine aktive Administrator-Sitzung, Admin-Modus, denselben Origin sowie einen online gekoppelten Runner mit aktueller SSH-Revision. Pages übergibt den Schlüssel ausschließlich im authentifizierten Runner-Kanal, ohne ihn in DuckDB oder dem Jobjournal zu speichern. Pro Verbindung ist eine Provider-Anfrage gleichzeitig zulässig, mit 90 Sekunden Antwortfrist. Bei fehlendem Kanal erfolgt keine ersatzweise SSH-Übertragung.
 
@@ -217,3 +217,77 @@ Die Runner-Dateien unter `scripts/runner/` werden beim Pages-Build in das Setup-
 3. In Einstellungen → Agents „Setup“ wählen (Übertragung und Prüfung, kein Start). Das Skript dann über Arbeitsverzeichnis → Verbindung → „Runner einrichten“ starten oder, wenn dort „Bereits installiert“ steht, in „Konsole öffnen“ mit `~/pages_setup.sh` ausführen. In Phase 8 die vorhandene Kopplung behalten. Danach den Runner ausdrücklich neu starten (`systemctl restart pages-runner…`, supervisord bzw. Hintergrundprozess entsprechend). Version und Upgradehinweis in den Einstellungen prüfen.
 
 Rollback: Pages auf die vorige Version zurücksetzen und den Runner über deren Setup neu installieren. Ein Runner 1.10 verweigert eine ältere Pages-Gegenstelle („Pages does not support Runner 1.10 communication; upgrade Pages explicitly.“) und endet mit Status 78. Es gibt keine Datenbankmigration. Gespeicherte Plan-Läufe behalten das Format der Vorversion: Warte-, Beobachtungs- und Stop-Fakten liegen nur im Runner-Journal und werden beim Lesen ergänzt. Ältere Versionen verwerfen beim Lesen des Runner-Zustands die zusätzlichen Felder (`catalog`, `cancellation`, `queueReason`, `observedAt`). Ein noch nicht zugestellter Stop geht dabei verloren; nach einem erneuten Upgrade meldet der Runner seinen Katalog wieder. Die Dateien `jobs/<job>.cancel.json` und `~/.local/state/pages-runner-admission` ignorieren ältere Runner.
+
+## Verbindlicher Stop und getrennte Historienübernahme (PAGE-169, Runner 1.11.0)
+
+Neue Ausführungen benötigen zusätzlich `executionLeaseVersion: 1`. Ältere Runner
+werden weiter abgeglichen, nehmen aber keine neuen Aufträge an. Das Setup enthält
+jetzt auch `revocation.mjs`; Installation und Neustart des Runners sind weiterhin
+explizite Administrationsschritte. Ein Versionswechsel setzt weder Kopplung noch
+Jobs, Ergebnisse oder Historie zurück.
+
+Pages bestätigt ein Historienpaket erst nach einer dauerhaften Transaktion für
+Kontrollzustand, Ereignisbeleg und vollständiges Paket in
+`runner_history_recovery` (Migration 077). Die Übernahme ins öffentliche Archiv
+läuft außerhalb der Kontrollwarteschlange. `history-deferred` bezeichnet die
+nachgewiesene dauerhafte Verwahrung mit noch ausstehendem Archivimport; es ist
+kein erfolgreicher Archiv-ACK. Die Oberfläche zeigt die Zahl ausstehender Pakete.
+Runner 1.11 versteht diesen Beleg; ein älterer Runner mit einem solchen Fehler
+muss aktualisiert werden und behält bis dahin sein Pending-Paket. Ein gesunder
+Archivimport erhält weiterhin `ack`.
+
+Pro Job wird ausschließlich das älteste ausstehende Paket übernommen. Erfolgreiche
+Pakete führen nach 250 ms zum nächsten Import, fehlgeschlagene Köpfe frühestens
+nach 30 s. Andere Jobs können weiter importieren. Nach Pages-Neustart wird die
+Wiederherstellung auch ohne Runner-Reconnect aufgenommen. Die ursprünglichen
+Pakete bleiben erhalten. Diagnosefelder sind erlaubte Feldpfade, Fehlercode,
+erwarteter Typ, Vertragsversion und Run-/Attempt-/Job-Korrelation; Werte,
+Historientexte und rohe Zod-Meldungen werden nicht protokolliert.
+
+Ein gültiger Wire-Text mit 4.000 Zeichen kann durch Redaktionsmarker wachsen.
+Das Archiv erlaubt deshalb begrenzt 8.000 Zeichen; das Wire-Limit bleibt 4.000.
+Dies behebt einen lokal reproduzierten Fehler, beweist aber nicht das verletzte
+Feld der produktiven NAS-Pakete.
+
+Stop bleibt an Job, Run, Attempt und Runner-Session gebunden. Pages speichert
+zuerst den Widerruf und prüft ihn auch in der Dispatch-Transaktion. Reconciliation
+spielt Widerrufe vor jeder Zulassung ab. `stop-result` übermittelt die
+Prozessbereinigung unabhängig vom sequenzierten Historienkanal. Ein bestätigter
+Abschluss wird durch spätere schwächere Nachrichten nicht zurückgenommen.
+
+Auf Linux erhält sicher zugeordnete Arbeit TERM, nach 2 s zwingend KILL. Weitere
+3 s dienen der Exit-Prüfung. Der Runner verfolgt Gruppen, markierte Prozesse und
+beobachtete Nachkommen; PID-Identitäten enthalten Boot-ID und Start-Ticks.
+Vor dem Spawn wird die Dispatcher-Abstammung mit diesen Identitäten dauerhaft
+gesichert. Ein unlesbarer Prozess in einem nachweislich unabhängigen, schon
+vorher bestehenden Zweig blockiert die Bereinigung nicht. Ohne diesen Beleg
+bleibt die Prozesslage unbekannt.
+Zombies zählen nicht als lebende Arbeit. Unlesbare relevante Prozesse,
+Signalfehler und nicht sicher zuordenbare lebende Legacy-Wurzeln ergeben einen
+fehlgeschlagenen Abschluss mit `process_scan_unavailable`, `signal_denied`
+oder `exit_timeout`. Unabhängige Prozesse werden nicht signalisiert.
+Dies ist keine Sicherheitsgrenze gegen absichtliches Entfernen der Markierung
+und unbeobachtetes Reparenting; ohne stärkere Host-Containment-Mechanik darf eine
+solche Ausführung nicht als vollständig eingegrenzt bewertet werden.
+
+Authentifizierter Kontakt erneuert eine bootgebundene monotone Ausführungslease
+von 45 s. Der Worker prüft sie alle 250 ms; der Transport überwacht sie unabhängig
+von der Ereignisübernahme jede Sekunde. Abgelaufene Arbeit wird lokal dauerhaft
+widerrufen. Reconnect erneuert die Lease erst nach dieser Prüfung. Eine bereits
+beendete Ausführung wird nie automatisch neu gestartet. Terminale lokale
+Benachrichtigungen warten höchstens 500 ms; das Ergebnis ist vorher dauerhaft
+abgelegt. Betriebssystem-Stillstand, gesperrte Signale und gleichzeitig angehaltene
+Transport- und Worker-Prozesse sind dadurch nicht physisch beherrschbar.
+
+Nach 60 s ohne bestätigten Stop beendet Pages den betreffenden Schritt als
+`plan_stop_unconfirmed`; unbekannte Remote-Reste behalten ihre Reservierungen.
+Offline bedeutet niemals bestätigt beendet. Später belegte Bereinigung darf die
+Reservierung freigeben, aber keinen beendeten Run wieder starten. Eine autorisierte
+Recovery prüft Rechte, Revision und Prozessfreiheit. Release kann einen nicht mehr
+von einer Engine geführten gestoppten Waisenlauf abschließen; Entscheidung,
+Terminalisierung und Freigabe werden zusammen transaktional geschrieben. Eine
+falsche Revision wird vor Bereinigungsaktionen und erneut beim Commit abgewiesen.
+Verlauf, Ergebnisse, Arbeitskopien und Kopplung werden nicht gelöscht.
+
+Die begrenzten isolierten Befunde und offenen NAS-/Provider-Kriterien stehen in
+[PAGE-169](./PAGE-169.md). Sie sind keine allgemeine Remote-Zuverlässigkeitsgarantie.

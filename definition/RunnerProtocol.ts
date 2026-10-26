@@ -1,4 +1,5 @@
 import { z } from "zod";
+
 import { runnerResourceErrorSchema } from "./RunnerPagesAccess";
 import {
   runnerExecutionSchema,
@@ -7,13 +8,14 @@ import {
 } from "./RunnerExecution.js";
 import { toolInventorySchema } from "./RemoteSetup.js";
 import { planStepExecutionSchema } from "./AgentPlanExecution.js";
-import type { ToolInventory } from "./RemoteSetup.js";
 import { runnerLiveBatchSchema } from "./RunnerLiveHistory";
 import { runnerTerminalSchema } from "./RunnerTerminal";
 import {
   runnerCancellationSchema,
   runnerQueueReasonSchema,
 } from "./RunnerCommunication";
+
+import type { ToolInventory } from "./RemoteSetup.js";
 
 /** Wire version shared by Pages and an outbound runner connection. */
 export const RUNNER_PROTOCOL_VERSION = 1;
@@ -81,6 +83,7 @@ export const runnerStateSchema = z.object({
   sequence: z.number().int().nonnegative(),
   lastEventId: identifier.nullable(),
   catalog: runnerCatalogSchema.optional(),
+  executionLeaseVersion: z.literal(1).optional(),
   communicationVersion: z.literal(1).optional(),
   runnerVersion: z.string().max(40).optional(),
   lastContactAt: z.string().datetime().optional(),
@@ -115,6 +118,16 @@ export const REMOTE_OPENCODE_FAILURES = [
 
 /** Runner-to-Pages messages; every event is acknowledged only after durable storage. */
 export const runnerMessageSchema = z.discriminatedUnion("type", [
+  z
+    .object({
+      version: z.literal(1),
+      type: z.literal("stop-result"),
+      sessionId: identifier,
+      jobId: identifier,
+      attemptId: identifier,
+      cancellation: runnerCancellationSchema,
+    })
+    .strict(),
   z.object({
     version: z.literal(1),
     type: z.literal("catalog"),
@@ -132,6 +145,7 @@ export const runnerMessageSchema = z.discriminatedUnion("type", [
     sessionId: identifier,
     sequence: z.number().int().nonnegative(),
     jobs: z.array(runnerJobSchema).max(1000),
+    executionLeaseVersion: z.literal(1).optional(),
     communicationVersion: z.literal(1).optional(),
     runnerVersion: z.string().max(40).optional(),
     catalog: runnerCatalogSchema.optional(),
@@ -244,7 +258,7 @@ export type RunnerReply =
     }
   | {
       readonly version: 1;
-      readonly type: "ack";
+      readonly type: "ack" | "history-deferred";
       readonly eventId: string;
       readonly sequence: number;
     }

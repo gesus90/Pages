@@ -1,5 +1,7 @@
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
+
 import { mergeRunnerCatalog } from "./RunnerCatalog";
+
 import type {
   RunnerJob,
   RunnerMessage,
@@ -29,6 +31,7 @@ export function applyRunnerMessage(
 } {
   if (message.sessionId !== state.sessionId)
     throw new Error("Runner session mismatch");
+  if (message.type === "stop-result") return applyStopResult(state, message);
   if (message.type === "catalog")
     return {
       state: { ...state, catalog: mergeRunnerCatalog(state.catalog, message) },
@@ -84,7 +87,8 @@ export function applyRunnerMessage(
                   cancellation: {
                     ...job.cancellation,
                     ...(message.job.cancellation?.requestedAt ===
-                    job.cancellation.requestedAt
+                      job.cancellation.requestedAt &&
+                    !job.cancellation.completedAt
                       ? message.job.cancellation
                       : {}),
                   },
@@ -103,6 +107,39 @@ export function applyRunnerMessage(
       eventId: message.eventId,
       sequence: message.sequence,
     },
+  };
+}
+
+function applyStopResult(
+  state: RunnerState,
+  message: Extract<RunnerMessage, { type: "stop-result" }>,
+): { readonly state: RunnerState; readonly reply: RunnerReply } {
+  const job = state.jobs.find((entry) => entry.jobId === message.jobId);
+  if (
+    !job?.cancellation ||
+    job.plan?.attemptId !== message.attemptId ||
+    job.cancellation.requestedAt !== message.cancellation.requestedAt ||
+    !message.cancellation.completedAt ||
+    !message.cancellation.receivedAt ||
+    !message.cancellation.closeout
+  )
+    throw new Error("Runner stop evidence binding mismatch");
+  return {
+    state: {
+      ...state,
+      jobs: state.jobs.map((entry) =>
+        entry.jobId === job.jobId
+          ? {
+              ...entry,
+              cancellation:
+                job.cancellation?.closeout === "confirmed"
+                  ? job.cancellation
+                  : { ...job.cancellation, ...message.cancellation },
+            }
+          : entry,
+      ),
+    },
+    reply: { version: 1, type: "heartbeat", sessionId: state.sessionId },
   };
 }
 
@@ -143,6 +180,7 @@ function reconcileRunner(
     ...state,
     jobs,
     catalog: mergeRunnerCatalog(state.catalog, message),
+    executionLeaseVersion: message.executionLeaseVersion,
     communicationVersion: message.communicationVersion,
     runnerVersion: message.runnerVersion,
     lastContactAt: new Date().toISOString(),
@@ -216,8 +254,19 @@ function isUnlaunchedQueueReport(
   const status = message.job.status;
   return (
     status === "queued" ||
-    (status === "interrupted" && previous.cancellation !== undefined) ||
+    (status === "interrupted" &&
+      (previous.cancellation !== undefined || hasLocalRevocation(message))) ||
     (status === "failed" && message.result?.failureCode !== undefined)
+  );
+}
+
+function hasLocalRevocation(
+  message: Extract<RunnerMessage, { type: "event" }>,
+): boolean {
+  return Boolean(
+    message.job.cancellation?.receivedAt &&
+    message.result?.reason === "cancelled" &&
+    ["confirmed", "failed"].includes(message.result.closeout ?? ""),
   );
 }
 

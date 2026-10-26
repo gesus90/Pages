@@ -4,7 +4,9 @@ import { chmod, lstat, mkdir, open, realpath, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
-import { accountTasks, cleanup } from "./processes.mjs";
+import { cancellationFor, hasExecutionLease } from "./revocation.mjs";
+export { cancellationFor, cancelJob } from "./revocation.mjs";
+import { accountTasks, cleanup, rememberOwnership } from "./processes.mjs";
 import { interpreters } from "./interpreters.mjs";
 export { interpreters, interpreterCatalog } from "./interpreters.mjs";
 import { spawnCli } from "./cli.mjs";
@@ -62,6 +64,7 @@ export async function claimJob(directory, job) {
     throw error;
   }
   await store(join(folder, "claim.json"), job);
+  await rememberOwnership(folder);
   // A stop that arrived during admission must not start the worker.
   if (await cancellationFor(directory, job)) {
     await store(join(folder, "result.json"), {
@@ -87,6 +90,7 @@ export async function claimJob(directory, job) {
         HOME: directory,
         LANG: "C.UTF-8",
         NODE_OPTIONS: "--max-old-space-size=128",
+        PAGES_REMOTE_JOB: job.jobId,
         PAGES_RUNNER_CLI_HOME: process.env.PAGES_RUNNER_CLI_HOME ?? homedir(),
         PAGES_RUNNER_CLI_PATH: process.env.PATH,
       },
@@ -218,20 +222,6 @@ export async function observeJob(directory, job) {
   return { launch, ...observedHistory, ...lost };
 }
 
-/** Validates persisted delivery against the exact session and attempt before acknowledging it. */
-export async function cancellationFor(directory, job) {
-  const request = await readRecord(
-    join(directory, "jobs", `${job.jobId}.cancel.json`),
-  );
-  if (!request) return null;
-  if (
-    request.sessionId !== job.sessionId ||
-    request.attemptId !== job.plan?.attemptId
-  )
-    throw new Error("Runner cancellation identity mismatch");
-  return { requestedAt: request.requestedAt, receivedAt: request.receivedAt };
-}
-
 async function endQueuedJob(directory, job, terminal) {
   const folder = join(directory, "jobs", job.jobId);
   if (await readRecord(join(folder, "claim.json"))) return;
@@ -262,20 +252,6 @@ export async function refuseQueuedJob(directory, job) {
   await endQueuedJob(directory, job, {
     status: "failed",
     result: { reason: "spawn", failureCode: "plan_runner_admission_failed" },
-  });
-}
-
-/** Stop delivery uses an independent small file, including jobs that have never launched. */
-export async function cancelJob(directory, job) {
-  if (!/^[a-f0-9-]{36}$/u.test(job.jobId) || !job.plan || !job.cancellation)
-    throw new Error("Invalid cancellation");
-  await mkdir(join(directory, "jobs"), { recursive: true, mode: 0o700 });
-  if (await cancellationFor(directory, job)) return;
-  await store(join(directory, "jobs", `${job.jobId}.cancel.json`), {
-    sessionId: job.sessionId,
-    attemptId: job.plan.attemptId,
-    requestedAt: job.cancellation.requestedAt,
-    receivedAt: new Date().toISOString(),
   });
 }
 
@@ -439,6 +415,7 @@ async function processJob(command, folder, context) {
     safeOutput,
   );
   await output.initialize(folder);
+  signal.throwIfAborted();
   const child =
     command.program.kind === "cli"
       ? await spawnCli(command, jobId, signal, folder)
@@ -600,8 +577,9 @@ async function executeWorker(folder) {
     if (isCancelReadBusy) return;
     isCancelReadBusy = true;
     void cancellationFor(privateRoot, job)
-      .then((record) => {
-        if (record) controller.abort("cancelled");
+      .then(async (record) => {
+        if (record || !(await hasExecutionLease(privateRoot, job)))
+          controller.abort("cancelled");
       })
       .catch(() => controller.abort("cancelled"))
       .finally(() => {
@@ -635,7 +613,11 @@ async function executeWorker(folder) {
       : null;
   let result;
   try {
-    if (await cancellationFor(privateRoot, job)) controller.abort("cancelled");
+    if (
+      (await cancellationFor(privateRoot, job)) ||
+      !(await hasExecutionLease(privateRoot, job))
+    )
+      controller.abort("cancelled");
     controller.signal.throwIfAborted();
     let command = await checkedCommand(job, folder);
     controller.signal.throwIfAborted();
@@ -646,6 +628,7 @@ async function executeWorker(folder) {
         job.jobId,
         controller.signal,
       );
+    controller.signal.throwIfAborted();
     result =
       command.program.kind !== "model"
         ? await processJob(command, folder, {

@@ -43,10 +43,12 @@ import type { RecoveryFacts } from "./AgentPlanRecoveryPlanning";
 
 /** The boundaries of executing recovery; each check stays on the server. */
 export interface RecoveryActionDependencies {
-  readonly runs: Pick<AgentPlanService, "run">;
+  readonly runs: Pick<AgentPlanService, "run"> &
+    Partial<Pick<AgentPlanService, "stop">>;
   readonly access: Pick<AgentPlanAccess, "require">;
   readonly preparation: Pick<AgentPlanPreparation, "prepare">;
-  readonly engine: Pick<AgentPlanRunEngine, "startRecovered">;
+  readonly engine: Pick<AgentPlanRunEngine, "startRecovered"> &
+    Partial<Pick<AgentPlanRunEngine, "isActive">>;
   readonly planRuns: Pick<
     AgentPlanRunRepository,
     "latest" | "hasReservation" | "release"
@@ -157,6 +159,7 @@ export class AgentPlanRecoveryActions {
   public async facts(
     userId: string,
     runId: string,
+    expectedRevision?: number,
   ): Promise<{
     readonly facts: RecoveryFacts;
     readonly snapshot: AgentPlanSnapshot;
@@ -165,6 +168,8 @@ export class AgentPlanRecoveryActions {
     const source = await this.dependencies.executions.source(runId);
     if (source.run.userId !== userId)
       throw new AgentPlanRecoveryError("access_denied");
+    if (expectedRevision !== undefined && source.revision !== expectedRevision)
+      throw new AgentPlanRecoveryError("revision_conflict");
     const snapshot = readStoredSnapshot(source.snapshot);
     const plan = await this.dependencies.access.require(
       userId,
@@ -180,6 +185,7 @@ export class AgentPlanRecoveryActions {
       snapshot,
       facts: {
         run: source.run,
+        isEngineActive: this.dependencies.engine.isActive?.(runId) ?? true,
         plan,
         latest,
         isReserved,
@@ -196,7 +202,11 @@ export class AgentPlanRecoveryActions {
   ): Promise<AgentPlanRecoveryResult> {
     const replayed = await this.replayed(request);
     if (replayed) return replayed;
-    const { facts } = await this.facts(request.userId, request.runId);
+    const { facts } = await this.facts(
+      request.userId,
+      request.runId,
+      request.command.expectedRevision,
+    );
     requireOption(restartOption(facts));
     if (facts.plan.revision !== request.command.revision)
       throw new AgentError("plan_conflict");
@@ -238,6 +248,7 @@ export class AgentPlanRecoveryActions {
     const { facts, snapshot: previous } = await this.facts(
       userId,
       request.runId,
+      command.expectedRevision,
     );
     const plan = planResume(facts);
     requireOption(resumeOption(facts, plan));
@@ -297,20 +308,27 @@ export class AgentPlanRecoveryActions {
   ): Promise<AgentPlanRecoveryResult> {
     const replayed = await this.replayed(request);
     if (replayed) return replayed;
-    const { facts } = await this.facts(request.userId, request.runId);
+    const { facts } = await this.facts(
+      request.userId,
+      request.runId,
+      request.command.expectedRevision,
+    );
     requireOption(releaseOption(facts));
-    await this.settleCleanup(facts);
+    await this.settleCleanup(facts, false);
     const result: AgentPlanRecoveryResult = {
       commandId: randomUUID(),
       revision: request.command.expectedRevision + 1,
       outcome: "released",
     };
-    await this.dependencies.executions.recordAlone({
-      command: request.command,
-      requestDigest: request.requestDigest,
-      result,
-      execution: this.execution(request, result, null),
-    });
+    await this.dependencies.executions.recordAlone(
+      {
+        command: request.command,
+        requestDigest: request.requestDigest,
+        result,
+        execution: this.execution(request, result, null),
+      },
+      facts.run,
+    );
     return result;
   }
 
@@ -332,16 +350,44 @@ export class AgentPlanRecoveryActions {
    * tag and unit. Only when none is left are the run's working copies and
    * ACP leases released; otherwise nothing changes.
    */
-  private async settleCleanup(facts: RecoveryFacts): Promise<void> {
+  private async settleCleanup(
+    facts: RecoveryFacts,
+    shouldRelease = true,
+  ): Promise<void> {
     const { run } = facts;
-    if (!facts.isReserved) return;
+    await this.requestRemoteCleanup(run);
+    if (!facts.isReserved && !run.stopRequested) return;
     const scope = await readScopeSince(run.startedAt).catch(
       (caughtError: unknown) => {
         logCaughtError("AgentPlanRecoveryActions", caughtError);
         return null;
       },
     );
+    await this.endLocalProcesses(run, scope);
+    if (!(await hasNoSessionProcesses(run)))
+      throw new AgentPlanRecoveryError("cleanup_unconfirmed");
+    if (shouldRelease) await this.dependencies.planRuns.release(run.id);
+    await this.dependencies.resources?.reconcile(run.id);
+  }
+
+  private async requestRemoteCleanup(run: AgentPlanRun): Promise<void> {
+    if (
+      run.stopRequested &&
+      allPlanRunResults(run).some(
+        (step) =>
+          step.execution?.target.kind === "remote" &&
+          step.remote?.closeout !== "confirmed",
+      )
+    )
+      await this.dependencies.runs.stop?.(run.userId, run.id);
+  }
+
+  private async endLocalProcesses(
+    run: AgentPlanRun,
+    scope: Awaited<ReturnType<typeof readScopeSince>> | null,
+  ): Promise<void> {
     for (const step of allPlanRunResults(run)) {
+      if (step.execution?.target.kind === "remote") continue;
       const instanceId = step.session?.instanceId ?? step.script?.instanceId;
       const closeout = step.session?.closeout ?? step.script?.closeout;
       if (instanceId === undefined || closeout === "confirmed") continue;
@@ -351,10 +397,6 @@ export class AgentPlanRecoveryActions {
         },
       );
     }
-    if (!(await hasNoSessionProcesses(run)))
-      throw new AgentPlanRecoveryError("cleanup_unconfirmed");
-    await this.dependencies.planRuns.release(run.id);
-    await this.dependencies.resources?.reconcile(run.id);
   }
 
   private async start(

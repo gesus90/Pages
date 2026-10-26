@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { RemoteError } from "@/backend/error/RemoteErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
@@ -23,7 +24,9 @@ import runnerWire from "@/scripts/runner/wire.mjs?raw";
 import runnerJobs from "@/scripts/runner/jobs.mjs?raw";
 import runnerAdmission from "@/scripts/runner/admission.mjs?raw";
 import runnerInterpreters from "@/scripts/runner/interpreters.mjs?raw";
+import runnerRevocation from "@/scripts/runner/revocation.mjs?raw";
 import runnerProcesses from "@/scripts/runner/processes.mjs?raw";
+
 import type { RemoteConnectionService } from "@/backend/service/remote/RemoteConnectionService";
 import type { RemoteSessionRegistry } from "@/backend/remote/RemoteSessionRegistry";
 import type { RunnerService } from "./RunnerService";
@@ -48,6 +51,7 @@ const setupScript = setupTemplate
   .replace("__PAGES_RUNNER_ADMISSION__", () => runnerAdmission)
   .replace("__PAGES_RUNNER_INTERPRETERS__", () => runnerInterpreters)
   .replace("__PAGES_RUNNER_PROCESSES__", () => runnerProcesses)
+  .replace("__PAGES_RUNNER_REVOCATION__", () => runnerRevocation)
   .replace("__PAGES_RUNNER_GITHUB__", () => runnerGitHub);
 
 // A command line is one argument of the local ssh process and of the remote

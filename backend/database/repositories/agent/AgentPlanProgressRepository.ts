@@ -13,9 +13,11 @@ import {
   loopIterationCheckpoints,
   requireImmutableIterations,
 } from "@/backend/service/agents/recovery/AgentPlanLoopCheckpoint";
+
 import { CURRENT_PLAN_SNAPSHOT } from "./AgentPlanContinuationRepository";
 import { AgentPlanCheckpointRepository } from "./AgentPlanCheckpointRepository";
 import { AgentPlanLoopIterationRepository } from "./AgentPlanLoopIterationRepository";
+
 import type { AgentPlanRunJournal } from "@/backend/service/agents/AgentPlanJournal";
 import type {
   Database,
@@ -28,6 +30,20 @@ interface StoredProgress {
   readonly run: AgentPlanRun;
   readonly revision: number;
   readonly snapshot: unknown;
+}
+
+function isCleanupUnconfirmed(step: AgentPlanStepResult): boolean {
+  if (
+    step.execution?.target.kind === "remote" &&
+    step.cancellation === "requested" &&
+    step.remote?.closeout !== "confirmed"
+  )
+    return true;
+  return [
+    step.remote?.closeout,
+    step.session?.closeout,
+    step.script?.closeout,
+  ].some((closeout) => closeout === "pending" || closeout === "failed");
 }
 
 function successfulWorkDigest(step: AgentPlanStepResult): string {
@@ -245,15 +261,8 @@ export class AgentPlanProgressRepository {
         previous_revision: previous.revision,
       },
     );
-    const hasUnconfirmedCleanup = allPlanRunResults(run).some(
-      (step) =>
-        step.remote?.closeout === "pending" ||
-        step.remote?.closeout === "failed" ||
-        step.session?.closeout === "pending" ||
-        step.session?.closeout === "failed" ||
-        step.script?.closeout === "pending" ||
-        step.script?.closeout === "failed",
-    );
+    const hasUnconfirmedCleanup =
+      allPlanRunResults(run).some(isCleanupUnconfirmed);
     if (!isActivePlanRun(run.status) && !hasUnconfirmedCleanup)
       await transaction.execute(
         "DELETE FROM agent_plan_workspace_locks WHERE run_id = $id;",

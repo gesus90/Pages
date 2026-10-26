@@ -189,6 +189,8 @@ export const AGENT_ERROR_MESSAGES = {
     "The retained ACP session of a loop agent is unavailable after its adapter process ended. Pages does not open a new session under the same identity; deliberately start a new run.",
   plan_session_unavailable:
     "This agent session has no open native session that could take another instruction. Its history stays readable.",
+  plan_stop_unconfirmed:
+    "The stop deadline expired or cleanup failed; reconnect the target and retry authorized recovery. Reservations remain held.",
   plan_closeout_failed:
     "The session could not be closed completely; processes of it remained.",
   workspace_invalid: "Enter a name, an existing local directory and a project.",

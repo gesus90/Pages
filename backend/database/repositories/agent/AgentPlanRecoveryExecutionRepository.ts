@@ -194,9 +194,51 @@ export class AgentPlanRecoveryExecutionRepository {
   }
 
   /** Journals a decision that starts no run, such as a release, in its own transaction. */
-  public async recordAlone(write: RecoveryExecutionWrite): Promise<void> {
-    await this.database.transaction((transaction) =>
-      this.record(transaction, write),
-    );
+  public async recordAlone(
+    write: RecoveryExecutionWrite,
+    releasedRun?: AgentPlanRun,
+  ): Promise<void> {
+    await this.database.transaction(async (transaction) => {
+      await this.record(transaction, write);
+      if (!releasedRun) return;
+      const run =
+        releasedRun.stopRequested &&
+        ["running", "pausing", "paused", "stopping"].includes(
+          releasedRun.status,
+        )
+          ? {
+              ...releasedRun,
+              status: "cancelled" as const,
+              endedAt: new Date().toISOString(),
+              steps: releasedRun.steps.map((step) =>
+                ["running", "waiting", "paused"].includes(step.status)
+                  ? {
+                      ...step,
+                      status: "cancelled" as const,
+                      cancellation: "confirmed" as const,
+                    }
+                  : step,
+              ),
+            }
+          : releasedRun;
+      await transaction.execute(
+        `
+        UPDATE agent_plan_runs
+        SET status = $status, view_json = $view_json
+        WHERE id = $run_id
+            AND recovery_revision = $revision;
+      `,
+        {
+          run_id: run.id,
+          status: run.status,
+          view_json: JSON.stringify(run),
+          revision: write.result.revision,
+        },
+      );
+      await transaction.execute(
+        "DELETE FROM agent_plan_workspace_locks WHERE run_id = $run_id;",
+        { run_id: run.id },
+      );
+    });
   }
 }

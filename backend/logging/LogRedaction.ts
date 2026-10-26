@@ -5,7 +5,7 @@ const SECRET_KEY =
 const CONTENT_KEY =
   /^(?:body|prompt|content|text|input|output|response|headers|parameters|attachment|environment|env)$/iu;
 const SAFE_METADATA_KEY =
-  /^(?:requestId|correlationId|runId|jobId|attemptId|sessionId|userId|projectId|ticketId|pageId|agentId|toolId|operation|method|route|status|statusCode|durationMs|count|deleted|failed|retentionDays|timeZone|port|code|reason|kind|sequence|bytes|signal|exitCode|isConfirmed|leftovers|parameterCount|statementId|rows|pending|lost|truncated|source|eventType|provider|databaseQueries|databaseTotalMs|databaseSlowestMs|databaseSlowestStatementId|databaseSlowestOperation|databaseTransactionsCommitted|databaseTransactionsRolledBack|routeLoaders|routeActions|routeHandlersCompleted|routeHandlersFailed|routeHandlerTotalMs|routeHandlerSlowestMs|routeHandlerSlowest)$/u;
+  /^(?:fieldPath|expectedType|contractVersion|connectionId|stepId|runnerSessionId|requestId|correlationId|runId|jobId|attemptId|sessionId|userId|projectId|ticketId|pageId|agentId|toolId|operation|method|route|status|statusCode|durationMs|count|deleted|failed|retentionDays|timeZone|port|code|reason|kind|sequence|bytes|signal|exitCode|isConfirmed|leftovers|parameterCount|statementId|rows|pending|lost|truncated|source|eventType|provider|databaseQueries|databaseTotalMs|databaseSlowestMs|databaseSlowestStatementId|databaseSlowestOperation|databaseTransactionsCommitted|databaseTransactionsRolledBack|routeLoaders|routeActions|routeHandlersCompleted|routeHandlersFailed|routeHandlerTotalMs|routeHandlerSlowestMs|routeHandlerSlowest)$/u;
 const registeredSecrets = new Set<string>();
 
 /** Remembers an instance secret without ever including it in an event. */

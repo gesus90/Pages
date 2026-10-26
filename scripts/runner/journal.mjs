@@ -45,7 +45,10 @@ export async function identity(pid) {
   try {
     const contents = await readFile(`/proc/${pid}/stat`, "utf8");
     const fields = contents.slice(contents.lastIndexOf(")") + 2).split(" ");
-    return fields[0] === "Z" ? null : fields[19];
+    const boot = (
+      await readFile("/proc/sys/kernel/random/boot_id", "utf8")
+    ).trim();
+    return ["Z", "X"].includes(fields[0]) ? null : `${boot}:${fields[19]}`;
   } catch (error) {
     if (error.code === "ENOENT" || error.code === "ESRCH") return null;
     throw error;

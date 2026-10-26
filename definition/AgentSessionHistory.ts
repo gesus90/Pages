@@ -24,7 +24,9 @@ export const agentSessionEventSchema: z.ZodType<AgentSessionEvent> = z
       "usage",
     ]),
     createdAt: z.string(),
-    text: z.string().max(4000),
+    // A 4,000-character public wire record can grow when short credentials
+    // become redaction markers. Keep that bounded expansion without losing text.
+    text: z.string().max(8000),
     isTruncated: z.boolean(),
     channel: z.enum(["stdout", "stderr"]).optional(),
   })

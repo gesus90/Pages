@@ -2,8 +2,11 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { logEvent } from "@/backend/logging/Logger";
 import { requirePlanModelResources } from "@/backend/service/agents/AgentPlanModel";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
+
+import { runnerStoppedRun } from "./RunnerStopState";
+import { RunnerHistoryRecovery } from "./RunnerHistoryRecovery";
 import { applyRunnerPlanEvent } from "./RunnerPlanEvents";
-import { isTerminalHistory } from "./RunnerProtocol";
+
 import type { AgentPlanAccess } from "@/backend/service/agents/AgentPlanAccess";
 import type { AgentProfileService } from "@/backend/service/agents/AgentProfileService";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
@@ -47,18 +50,10 @@ function requireDispatchRun(
   return run;
 }
 
-function isHistoryPacket(
-  previous: RunnerState,
-  message: RunnerMessage,
-): boolean {
-  if (message.type !== "event") return false;
-  const job = previous.jobs.find((entry) => entry.jobId === message.job.jobId);
-  return job !== undefined && isTerminalHistory(job, message);
-}
-
 /** Coordinates durable receipts and plan projections inside the runner checkpoint transaction. */
 export class RunnerPlanEventService {
   private readonly repository: RunnerPlanEventRepository;
+  private readonly historyRecovery: RunnerHistoryRecovery;
   private readonly access: BindingAccess;
   private isRunOwned: (runId: string) => boolean;
   public constructor(
@@ -67,6 +62,7 @@ export class RunnerPlanEventService {
   ) {
     this.access = access;
     this.repository = repository;
+    this.historyRecovery = new RunnerHistoryRecovery(repository.history);
     // Until the plan engine attaches, every run counts as owned and never settles here.
     this.isRunOwned = () => true;
   }
@@ -147,10 +143,64 @@ export class RunnerPlanEventService {
       throw new Error("Conflicting runner event");
     return {
       version: 1,
-      type: "ack",
+      type: (await this.repository.history.isPending(message.eventId))
+        ? "history-deferred"
+        : "ack",
       eventId: message.eventId,
       sequence: message.sequence,
     };
+  }
+
+  /** Atomically checks the run fence at claim persistence. */
+  public async requireDispatchFence(
+    transaction: DatabaseTransaction,
+    binding: RunnerPlanBinding,
+  ): Promise<void> {
+    await this.repository.requireDispatchFence(transaction, binding);
+  }
+
+  /** Replays durable run revocations before reconciliation releases execution. */
+  public async fenceStoppedRuns(state: RunnerState): Promise<RunnerState> {
+    return this.repository.fenceStoppedRuns(state);
+  }
+
+  /** A missed host deadline becomes an explicit failed stop and retains its reservations. */
+  public async expireStop(job: RunnerJob): Promise<void> {
+    if (!job.plan || job.cancellation?.closeout === "confirmed") return;
+    await this.repository.changeRun(job.plan.runId, (run) =>
+      runnerStoppedRun(run, job, !this.isRunOwned(run.id)),
+    );
+  }
+
+  /** Returns only the number of packets awaiting an ordered archive import. */
+  public async historyPending(jobId: string): Promise<number> {
+    return this.repository.history.pendingCount(jobId);
+  }
+
+  /** Restores retained history without making stop or other jobs wait for it. */
+  public async restoreHistory(
+    connectionId: string,
+    message: RunnerMessage,
+    reply: RunnerReply,
+  ): Promise<RunnerReply> {
+    if (message.type === "stop-result") {
+      void this.historyRecovery.restore(connectionId);
+      return reply;
+    }
+    await this.historyRecovery.restore(connectionId);
+    if (
+      message.type === "event" &&
+      (await this.repository.history.isPending(message.eventId))
+    )
+      return {
+        version: 1,
+        type: "history-deferred",
+        eventId: message.eventId,
+        sequence: message.sequence,
+      };
+    return reply.type === "history-deferred"
+      ? { ...reply, type: "ack" }
+      : reply;
   }
 
   /** Shares one commit for the receipt, all affected run steps, and the runner state. */
@@ -164,12 +214,21 @@ export class RunnerPlanEventService {
     },
   ): Promise<void> {
     const { message, previous, state } = input;
-    const history = message.type === "event" ? (message.history ?? []) : [];
-    if (message.type === "event")
+    if (message.type === "stop-result") {
+      const job = state.jobs.find((entry) => entry.jobId === message.jobId);
+      if (job?.plan)
+        await this.repository.apply(transaction, job.plan.runId, (run) => ({
+          run: runnerStoppedRun(run, job, !this.isRunOwned(run.id)),
+        }));
+      return;
+    }
+    if (message.type === "event") {
       await this.repository.append(transaction, connectionId, {
         event: message,
         digest: planContentDigest(message),
       });
+      await this.repository.history.retain(transaction, connectionId, message);
+    }
     for (const job of state.jobs) {
       if (message.type === "event" && job.jobId !== message.job.jobId) continue;
       if (
@@ -179,10 +238,6 @@ export class RunnerPlanEventService {
             job.status)
       )
         continue;
-      if (isHistoryPacket(previous, message)) {
-        await this.repository.appendHistory(transaction, job, history);
-        continue;
-      }
       const binding = job.plan;
       await this.repository.apply(
         transaction,
@@ -202,7 +257,7 @@ export class RunnerPlanEventService {
           return result;
         },
         message.type === "event" && job.liveHistoryVersion === 1
-          ? { stepId: binding.stepId, events: history }
+          ? { stepId: binding.stepId, events: [] }
           : undefined,
       );
     }

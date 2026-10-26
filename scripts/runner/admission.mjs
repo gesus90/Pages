@@ -69,7 +69,8 @@ async function isLeaseActive(lease) {
   const launch = await readRecord(join(lease.folder, "launch.json"));
   if (launch && (await identity(launch.processId)) === launch.identity)
     return true;
-  if (await readRecord(join(lease.folder, "result.json"))) return false;
+  const result = await readRecord(join(lease.folder, "result.json"));
+  if (result) return result.result?.closeout !== "confirmed";
   return (
     Date.now() - lease.createdAt < 10000 &&
     (await identity(lease.processId)) === lease.identity

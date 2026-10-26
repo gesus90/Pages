@@ -48,6 +48,14 @@ export function PlanRunCommunication({
       {remote.queueReason ? (
         <p>{t(`plans.communication.queue.${remote.queueReason}`)}</p>
       ) : null}
+      <p>{t("plans.communication.stopPolicy")}</p>
+      {remote.historyPending ? (
+        <p>
+          {t("plans.communication.historyDeferred", {
+            count: remote.historyPending,
+          })}
+        </p>
+      ) : null}
       <PlanStopProgress remote={remote} />
       <PlanLivenessNotice remote={remote} />
     </section>
@@ -77,6 +85,20 @@ function PlanStopProgress({
   readonly remote: NonNullable<AgentPlanStepResult["remote"]>;
 }): React.ReactElement | null {
   const { t } = useTranslation();
+  if (
+    remote.cancellation?.closeout === "failed" ||
+    (remote.cancellation && remote.closeout === "failed")
+  )
+    return (
+      <p role="alert">
+        {t("plans.communication.stopFailed")}{" "}
+        {remote.cancellation?.failure
+          ? t(`plans.communication.stopFailure.${remote.cancellation.failure}`)
+          : null}
+      </p>
+    );
+  if (remote.cancellation?.closeout === "confirmed")
+    return <p>{t("plans.communication.stopConfirmed")}</p>;
   if (remote.status === "interrupted")
     return (
       <p>

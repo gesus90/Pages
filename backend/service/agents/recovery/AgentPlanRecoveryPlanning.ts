@@ -18,6 +18,7 @@ import type {
 /** Everything the availability of a restart, resume or release depends on. */
 export interface RecoveryFacts {
   readonly run: AgentPlanRun;
+  readonly isEngineActive?: boolean;
   readonly plan: AgentPlanView;
   /** The newest run of the plan, by start. */
   readonly latest: AgentPlanRun | null;
@@ -120,7 +121,12 @@ export function resumeOption(
 
 /** A release is offered only while the ended run still holds working copies. */
 export function releaseOption(facts: RecoveryFacts): AgentPlanRecoveryOption {
-  if (isActivePlanRun(facts.run.status)) return blocked("run_active");
+  if (!facts.plan.canEdit) return blocked("plan_read_only");
+  if (
+    isActivePlanRun(facts.run.status) &&
+    (!facts.run.stopRequested || facts.isEngineActive !== false)
+  )
+    return blocked("run_active");
   return facts.isReserved ? AVAILABLE : blocked("nothing_to_release");
 }
 

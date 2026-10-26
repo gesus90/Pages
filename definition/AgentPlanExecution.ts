@@ -1,4 +1,5 @@
 import { z } from "zod";
+
 import { runnerTerminalSchema } from "./RunnerTerminal";
 import { planRemoteResourceSchema } from "./AgentPlanRemoteAccess";
 import {
@@ -84,6 +85,7 @@ export const planRemoteProgressSchema = z
     launchId: z.string().uuid().optional(),
     observedAt: z.string().datetime().optional(),
     isObservationStale: z.boolean().optional(),
+    historyPending: z.number().int().nonnegative().optional(),
     cancellation: runnerCancellationSchema.optional(),
     queueReason: runnerQueueReasonSchema.nullable().optional(),
     contact: runnerContactSchema.optional(),

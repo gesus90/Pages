@@ -8,6 +8,7 @@ import {
   cancelQueuedJob,
   refuseQueuedJob,
 } from "./execution.mjs";
+import { hasExecutionLease, cancelJob } from "./revocation.mjs";
 import { liveBatch } from "./live.mjs";
 import { sendRunnerPacket } from "./wire.mjs";
 
@@ -79,7 +80,7 @@ export class RunnerJobs {
       return;
     }
     if (
-      message.type !== "ack" ||
+      !["ack", "history-deferred"].includes(message.type) ||
       !configuration.pending ||
       configuration.pending.eventId !== message.eventId
     )
@@ -87,6 +88,17 @@ export class RunnerJobs {
     if (message.sequence !== configuration.pending.sequence)
       throw new Error("Runner acknowledgement sequence mismatch");
     const pending = configuration.pending;
+    if (message.type === "history-deferred") {
+      configuration.deferredHistory ??= [];
+      configuration.deferredHistory.push({
+        eventId: pending.eventId,
+        jobId: pending.job.jobId,
+        sequence: message.sequence,
+      });
+      console.error(
+        `Runner history durably deferred for job ${pending.job.jobId}; Pages recovery required.`,
+      );
+    }
     configuration.sequence = message.sequence;
     configuration.jobs = configuration.jobs.map((job) =>
       job.jobId === pending.job.jobId ? pending.job : job,
@@ -126,7 +138,10 @@ export class RunnerJobs {
         schedule.polled(job, snapshot.checkedAt);
         continue;
       }
-      if (TERMINAL_STATES.includes(snapshot.observed.status))
+      if (
+        TERMINAL_STATES.includes(snapshot.observed.status) &&
+        snapshot.observed.result?.closeout === "confirmed"
+      )
         await releaseJob(job);
       const event = this.#event(job, snapshot);
       if (!event) continue;
@@ -139,6 +154,13 @@ export class RunnerJobs {
 
   async #admit(job) {
     const { directory } = this.#context;
+    if (!(await hasExecutionLease(directory, job))) {
+      await cancelJob(directory, {
+        ...job,
+        cancellation: { requestedAt: new Date().toISOString() },
+      });
+      return null;
+    }
     if (await cancellationFor(directory, job)) {
       await cancelQueuedJob(directory, job);
       return null;

@@ -1,7 +1,9 @@
 import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
+
 import { withGroupResults } from "./AgentPlanGroupResults";
 import { hasPlanPath } from "./AgentPlanGraph";
+
 import type {
   AgentPlanRun,
   AgentPlanNode,
@@ -199,14 +201,12 @@ function detachedStopStep(step: AgentPlanStepResult): AgentPlanStepResult {
  */
 export function detachedStopRun(run: AgentPlanRun): AgentPlanRun {
   const steps = run.steps.map(detachedStopStep);
-  const isSettled = !steps.some((step) => step.status === "running");
-  return {
+  return settleDetachedRun({
     ...run,
     stopRequested: true,
-    status: isSettled ? "cancelled" : "stopping",
-    ...(isSettled ? { endedAt: new Date().toISOString() } : {}),
+    status: "stopping",
     steps,
-  };
+  });
 }
 
 /**
@@ -225,7 +225,21 @@ export function detachedStopRun(run: AgentPlanRun): AgentPlanRun {
 export function settleDetachedRun(run: AgentPlanRun): AgentPlanRun {
   if (run.steps.some((step) => step.status === "running")) return run;
   if (run.status === "stopping" && run.stopRequested)
-    return endedPlanRun(run, "cancelled");
+    return endedPlanRun(
+      run,
+      allPlanRunResults(run).some(
+        (step) =>
+          (step.execution?.target.kind === "remote" &&
+            step.cancellation === "requested" &&
+            step.remote?.closeout !== "confirmed") ||
+          step.remote?.closeout === "pending" ||
+          step.remote?.closeout === "failed" ||
+          step.session?.closeout === "failed" ||
+          step.script?.closeout === "failed",
+      )
+        ? "failed"
+        : "cancelled",
+    );
   if (run.status === "stopping" || run.status === "running")
     return interruptedPlanRun(endedPlanRun(run, "failed"));
   return run;

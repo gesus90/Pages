@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { Writable } from "node:stream";
+import { renewExecutionLease, hasExecutionLease } from "./revocation.mjs";
+import { readRecord } from "./journal.mjs";
 import { cancelJob, interpreterCatalog, store } from "./execution.mjs";
 import { githubAccess } from "./github.mjs";
 import { cliInventory } from "./cli.mjs";
@@ -14,7 +16,7 @@ import { RunnerSchedule } from "./schedule.mjs";
 import { handleProvider } from "./provider.mjs";
 import { sendRunnerPacket, MAXIMUM_RUNNER_PACKET_BYTES } from "./wire.mjs";
 
-const RUNNER_VERSION = "1.10.0";
+const RUNNER_VERSION = "1.11.0";
 if (process.argv.includes("--version")) {
   console.info(`pages-runner ${RUNNER_VERSION}`);
   process.exit(0);
@@ -256,6 +258,7 @@ async function receiveRegistration(message, channel) {
     liveHistoryVersion: 1,
     outputJournalVersion: 2,
     communicationVersion: 1,
+    executionLeaseVersion: 1,
     runnerVersion: RUNNER_VERSION,
     catalog: await currentCatalog(),
     interpreters: configuration.catalog.interpreters,
@@ -288,10 +291,33 @@ async function receiveReconciliation(message) {
       generation: knownGeneration,
     };
   jobs.clear();
-  for (const job of configuration.jobs)
-    if (job.cancellation) await cancelJob(directory, job);
+  await Promise.all(
+    configuration.jobs
+      .filter((job) => job.cancellation)
+      .map((job) => cancelJob(directory, job)),
+  );
+  await fenceExpiredJobs();
   await persist();
+  await renewExecutionLease(directory, configuration.sessionId);
   attempts = 0;
+}
+
+async function sendStopResult(channel, job) {
+  const cancellation = await readRecord(
+    join(directory, "jobs", job.jobId, "stop.json"),
+  );
+  if (
+    channel.readyState === WebSocket.OPEN &&
+    cancellation?.requestedAt === job.cancellation?.requestedAt
+  )
+    sendRunnerPacket(channel, {
+      version: 1,
+      type: "stop-result",
+      sessionId: job.sessionId,
+      jobId: job.jobId,
+      attemptId: job.plan.attemptId,
+      cancellation,
+    });
 }
 
 function receiveProvider(message, channel) {
@@ -479,6 +505,9 @@ async function connect() {
         control.type === "heartbeat" &&
         control.sessionId === configuration.sessionId
       ) {
+        void renewExecutionLease(directory, configuration.sessionId).catch(() =>
+          channel.close(),
+        );
         deadline();
         return;
       }
@@ -500,7 +529,11 @@ async function connect() {
           ...job,
           cancellation: { requestedAt: control.requestedAt },
         })
-          .then(() => {
+          .then(async () => {
+            await sendStopResult(channel, {
+              ...job,
+              cancellation: { requestedAt: control.requestedAt },
+            });
             schedule.checked.delete(job.jobId);
             completionNotices.add(job.jobId);
             poll();
@@ -525,6 +558,8 @@ async function connect() {
           await receiveReconciliation(message);
           if (channel.readyState !== WebSocket.OPEN) return;
           state.isReconciled = true;
+          for (const job of configuration.jobs)
+            if (job.cancellation) await sendStopResult(channel, job);
           ready(channel.readyState === WebSocket.OPEN ? channel : null);
           clearTimeout(timeout);
           poll();
@@ -582,6 +617,48 @@ async function connect() {
     });
   });
 }
+let isFenceBusy = false;
+async function fenceExpiredJobs() {
+  const active = configuration.jobs.filter(
+    (job) =>
+      job.plan &&
+      job.execution &&
+      ["queued", "accepted", "running"].includes(job.status),
+  );
+  const expired = [];
+  for (const job of active) {
+    if (!(await hasExecutionLease(directory, job))) expired.push(job);
+  }
+  const launched = new Set();
+  for (const job of expired)
+    if (await readRecord(join(directory, "jobs", job.jobId, "launch.json")))
+      launched.add(job.jobId);
+  const revoke = async (job) => {
+    await cancelJob(directory, {
+      ...job,
+      cancellation: job.cancellation ?? {
+        requestedAt: new Date().toISOString(),
+      },
+    });
+  };
+  // The host admits at most four workers. Fence them together before walking
+  // a potentially much longer queue that has no execution to keep alive.
+  await Promise.all(
+    expired.filter((job) => launched.has(job.jobId)).map(revoke),
+  );
+  for (const job of expired) if (!launched.has(job.jobId)) await revoke(job);
+}
+const fenceTimer = setInterval(() => {
+  if (isFenceBusy) return;
+  isFenceBusy = true;
+  void fenceExpiredJobs()
+    .catch(() =>
+      console.error("Runner execution fencing failed; cleanup unconfirmed."),
+    )
+    .finally(() => {
+      isFenceBusy = false;
+    });
+}, 1000);
 for (const signal of ["SIGINT", "SIGTERM"])
   process.on(signal, () => {
     stopped = true;
@@ -614,5 +691,6 @@ while (!stopped && !unrecoverable) {
   );
   await sleep(delay);
 }
+clearInterval(fenceTimer);
 await stopPagesRelay();
 if (unrecoverable) exitUnrecoverable(unrecoverable.message);

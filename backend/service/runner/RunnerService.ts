@@ -14,11 +14,14 @@ import {
   runnerPlanBindingSchema,
 } from "@/definition/RunnerProtocol";
 import { runnerExecutionSchema } from "@/definition/RunnerExecution";
-import { applyRunnerMessage } from "./RunnerProtocol";
+
+import { checkpointRunnerMessage } from "./RunnerMessageCheckpoint";
+import { isStableConnection, runnerTools } from "./RunnerConnectionFacts";
 import { RunnerObservation } from "./RunnerObservation";
 import { RunnerCancellation } from "./RunnerCancellation";
 import { RunnerContacts } from "./RunnerContacts";
 import { isRunnerCatalogCurrent } from "./RunnerCatalog";
+
 import type { RunnerCatalog } from "@/definition/RunnerProtocol";
 import type { RunnerContact } from "./RunnerContacts";
 import type {
@@ -60,28 +63,6 @@ const GRANT_MILLISECONDS = 120_000;
 
 function digest(token: string): string {
   return createHash("sha256").update(token).digest("hex");
-}
-
-/** A connected, checked connection that has stayed up for five seconds. */
-function isStableConnection(connection: RemoteConnectionView): boolean {
-  return (
-    connection.session.status === "connected" &&
-    connection.hostKey !== null &&
-    !connection.isChecking &&
-    connection.lastCheck?.code === null &&
-    Date.now() - Date.parse(connection.session.connectedAt ?? "") >= 5000
-  );
-}
-
-/** Runner 1.10 probes its tools after registration; its catalog holds the latest probe. */
-function runnerTools(
-  runner: RunnerRecord | null,
-  reported: readonly ToolInventory[] | undefined,
-): readonly ToolInventory[] | null {
-  if (!runner) return null;
-  if (runner.state.communicationVersion === 1)
-    return runner.state.catalog?.tools ?? null;
-  return reported ?? null;
 }
 
 function matches(token: string, expected: string): boolean {
@@ -128,6 +109,7 @@ export class RunnerService {
       repository,
       writes: this.writes,
       deliver: (connectionId, reply) => this.deliver(connectionId, reply),
+      expire: (job) => this.events?.expireStop(job) ?? Promise.resolve(),
     });
   }
 
@@ -233,36 +215,22 @@ export class RunnerService {
     input: unknown,
   ): Promise<RunnerReply> {
     const message = runnerMessageSchema.parse(input);
-    return this.writes.run(async () => {
+    const reply = await this.writes.run(async () => {
       const record = await this.repository.find(connectionId);
       if (!record) throw new Error("Runner registration missing");
       await this.requireRevision(record);
-      const replay = await this.events?.replay(
-        connectionId,
-        record.state,
-        message,
-      );
-      if (replay) {
-        this.heartbeat(connectionId);
-        return replay;
-      }
       this.rememberOutputCapability(
         connectionId,
         message,
         record.state.sessionId,
       );
-      const result = applyRunnerMessage(record.state, message);
-      if (result.state !== record.state)
-        await this.repository.checkpoint(
-          connectionId,
-          result.state,
-          (transaction) =>
-            this.events?.apply(transaction, connectionId, {
-              previous: record.state,
-              state: result.state,
-              message,
-            }) ?? Promise.resolve(),
-        );
+      const result = await checkpointRunnerMessage({
+        connectionId,
+        repository: this.repository,
+        events: this.events,
+        record,
+        message,
+      });
       this.heartbeat(connectionId);
       if (message.type === "reconcile") {
         if (message.communicationVersion === 1)
@@ -295,6 +263,7 @@ export class RunnerService {
       );
       return result.reply;
     });
+    return this.events?.restoreHistory(connectionId, message, reply) ?? reply;
   }
 
   /** Records a job before dispatch; callers retain its ID instead of resubmitting after a loss. */
@@ -330,7 +299,11 @@ export class RunnerService {
           return previous;
         }
       }
-      this.requireOutputExecutor(connectionId, execution);
+      this.requireOutputExecutor(
+        connectionId,
+        execution,
+        record.state.executionLeaseVersion,
+      );
       if (record.state.jobs.length >= 1000)
         throw new Error("Runner queue unavailable");
       const job: RunnerJob = {
@@ -348,10 +321,18 @@ export class RunnerService {
         sessionId: record.state.sessionId,
         status: "queued",
       };
-      await this.repository.checkpoint(connectionId, {
-        ...record.state,
-        jobs: [...record.state.jobs, job],
-      });
+      await this.repository.checkpoint(
+        connectionId,
+        {
+          ...record.state,
+          jobs: [...record.state.jobs, job],
+        },
+        (transaction) =>
+          binding
+            ? (this.events?.requireDispatchFence(transaction, binding) ??
+              Promise.resolve())
+            : Promise.resolve(),
+      );
       this.deliver(connectionId, { version: 1, type: "dispatch", job });
       this.observation.configure(
         connectionId,
@@ -527,7 +508,11 @@ export class RunnerService {
     const status = await this.status(connectionId);
     if (!status.isPaired) return "remoteIdentity";
     if (!status.isReady) return "remoteOffline";
-    if (!this.communicationExecutors.has(connectionId))
+    if (
+      !this.communicationExecutors.has(connectionId) ||
+      (await this.repository.find(connectionId))?.state
+        .executionLeaseVersion !== 1
+    )
       return "remoteRunnerUpdate";
     return isRunnerCatalogCurrent(await this.catalog(connectionId))
       ? null
@@ -563,6 +548,11 @@ export class RunnerService {
     return record?.state.jobs.find(
       (job) => job.plan?.runId === runId && job.plan.attemptId === attemptId,
     );
+  }
+
+  /** Pending archive import never implies pending execution or cleanup. */
+  public async historyPending(jobId: string): Promise<number> {
+    return this.events?.historyPending(jobId) ?? 0;
   }
 
   /** Transport liveness is independent of process output and last confirmed job state. */
@@ -635,7 +625,12 @@ export class RunnerService {
   private requireOutputExecutor(
     connectionId: string,
     execution: RunnerExecution | undefined,
+    executionLeaseVersion: 1 | undefined,
   ): void {
+    if (!this.contacts.isOnline(connectionId))
+      throw new AgentError("plan_remote_unavailable");
+    if (execution && executionLeaseVersion !== 1)
+      throw new AgentError("plan_runner_update_required");
     if (execution && !this.communicationExecutors.has(connectionId))
       throw new AgentError("plan_runner_update_required");
     if (execution?.program.kind !== "cli") return;

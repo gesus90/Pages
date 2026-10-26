@@ -1,3 +1,4 @@
+import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
 import { planTargetIssues } from "@/definition/AgentPlanTarget";
 import { allPlanSteps } from "@/definition/AgentPlanGroup";
@@ -21,12 +22,13 @@ import {
   requireRemotePromptSize,
   validateRemoteParameterPrompt,
 } from "./AgentPlanRemoteParameters";
+import { AgentPlanRemoteSources } from "./AgentPlanRemoteSources";
+
 import type {
   AgentPlanRemoteParameters,
   RemotePlanParameters,
 } from "./AgentPlanRemoteParameters";
 import type { RunnerPagesAccessService } from "@/backend/service/runner/RunnerPagesAccessService";
-import { AgentPlanRemoteSources } from "./AgentPlanRemoteSources";
 import type { AgentPlanRemoteStatus } from "@/definition/AgentPlanTarget";
 import type { AgentPlanRunResources } from "@/backend/agents/AgentPlanRunResources";
 import type { AgentPlanInput } from "@/definition/AgentPlan";
@@ -301,7 +303,7 @@ export class AgentPlanRemoteExecution {
 
   /** Replays an authorized owner's stop against every original remote attempt, even after reload or restart. */
   public async stop(run: AgentPlanRun): Promise<void> {
-    for (const step of run.steps) {
+    for (const step of allPlanRunResults(run)) {
       const execution = step.execution;
       if (execution?.target.kind !== "remote") continue;
       const job = await this.dependencies.runners.progress(
@@ -338,6 +340,9 @@ export class AgentPlanRemoteExecution {
             status: job.status,
             cancellation: job.cancellation,
             queueReason: job.queueReason,
+            historyPending: await this.dependencies.runners.historyPending(
+              job.jobId,
+            ),
             observedAt: job.observedAt,
             isObservationStale: isObservationStale(job),
             startedAt: step.remote?.startedAt ?? null,

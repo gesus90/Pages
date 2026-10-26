@@ -22,10 +22,10 @@ function runBlocker(
   canAct: boolean,
   run: AgentPlanRun | null,
   reason: string,
-  plan: AgentPlanView,
+  context: { readonly plan: AgentPlanView; readonly readError: string | null },
 ): string | null {
-  if (!plan.canEdit) return "plan_read_only";
-  if (!run) return "own_run_required";
+  if (!context.plan.canEdit) return "plan_read_only";
+  if (!run) return context.readError ?? "own_run_required";
   return canAct ? null : reason;
 }
 
@@ -39,7 +39,11 @@ export async function readPlanControlEntry(
   const control = await plans.control(userId, planId);
   const entries = await plans.runEntries(userId, planId, "newest");
   const ownRun = entries.find((entry) => entry.id === control.runId);
-  const run = ownRun ? await readableRun(plans, userId, ownRun.id) : null;
+  const readable = ownRun
+    ? await readableRun(plans, userId, ownRun.id)
+    : { run: null, error: null };
+  const run = readable.run;
+  const context = { plan, readError: readable.error };
   const isActive = ["running", "pausing", "paused", "stopping"].includes(
     control.status,
   );
@@ -55,21 +59,26 @@ export async function readPlanControlEntry(
     canPause: control.canPause && run !== null,
     canResume: control.canResume && run !== null,
     canStop: control.canStop && run !== null,
-    issue: !plan.canEdit ? "plan_read_only" : issue,
+    issue: !plan.canEdit ? "plan_read_only" : (readable.error ?? issue),
     blockers: {
       delete:
         plan.ownerId !== userId
           ? "plan_owner_required"
           : (isActive && "plan_busy") || null,
       play: playBlocker(plan, control, issue),
-      pause: runBlocker(control.canPause, run, "run_not_running", plan),
+      pause: runBlocker(control.canPause, run, "run_not_running", context),
       resume: runBlocker(
         control.canResume,
         run,
         issue ?? "run_not_paused",
-        plan,
+        context,
       ),
-      stop: runBlocker(control.canStop, run, "run_terminal_or_stopping", plan),
+      stop: runBlocker(
+        control.canStop,
+        run,
+        "run_terminal_or_stopping",
+        context,
+      ),
     },
     ...startIssues(plan, control),
     ...readableRunMetadata(run),
@@ -95,12 +104,15 @@ async function readableRun(
   plans: AgentPlanService,
   userId: string,
   runId: string,
-): Promise<AgentPlanRun | null> {
+): Promise<{
+  readonly run: AgentPlanRun | null;
+  readonly error: string | null;
+}> {
   try {
-    return await plans.run(userId, runId);
+    return { run: await plans.run(userId, runId), error: null };
   } catch (error: unknown) {
     if (error instanceof AgentError || error instanceof AgentExecutionError)
-      return null;
+      return { run: null, error: error.code };
     throw error;
   }
 }

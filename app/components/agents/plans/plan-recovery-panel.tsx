@@ -7,7 +7,7 @@ import type { TFunction } from "i18next";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 import type { PlanRecoveryRequest, usePlanRecovery } from "./use-plan-recovery";
 
-const RECOVERABLE_STATUSES = new Set(["failed", "cancelled"]);
+const RECOVERABLE_STATUSES = new Set(["failed", "cancelled", "stopping"]);
 const ACCESS_ERRORS = new Set(["access_denied", "plan_access_denied"]);
 
 /** The newest run when it ended and may be restarted or resumed, else `null`. */

@@ -752,7 +752,7 @@
         "plan_definition_changed": "Die AGENT.md des Agenten fehlt oder passt nicht zur gestarteten Revision.",
         "plan_placeholder_unresolved": "Der Auftrag enthielte noch einen Parameter-Platzhalter; es wurde nichts gesendet.",
         "plan_runner_lost": "Der Remote-Prozess ist ohne Exit-Beleg verloren gegangen (lost). Kein automatischer Neustart.",
-        "plan_runner_update_required": "Runner 1.10 oder neuer erforderlich: Remote-Ausführung braucht dessen Kommunikationsvertrag. Bitte den Runner ausdrücklich aktualisieren.",
+        "plan_runner_update_required": "Runner 1.11 oder neuer erforderlich: Remote-Ausführung braucht dessen Kommunikationsvertrag. Bitte den Runner ausdrücklich aktualisieren.",
         "plan_runner_admission_failed": "Der Runner konnte auf seinem Host keinen Ausführungsplatz reservieren; der Job wurde nicht gestartet.",
         "plan_runner_storage_failed": "Die Speicherung des Runner-Verlaufs ist fehlgeschlagen. Bestätigte Ausgabe und Checkpoints bleiben erhalten.",
         "plan_runner_event_limit": "Ein natives CLI-Ereignis überschreitet sein separates Nachrichtenlimit.",
@@ -823,7 +823,8 @@
         "workspace_running": "Mindestens ein betroffener Plan läuft, ist pausiert oder räumt noch auf. Stoppen Sie die Ausführung und warten Sie auf ihren Abschluss, bevor Sie die Registrierung entfernen.",
         "modelUnavailable": "Ein gespeichertes Modell steht im Katalog seines Ziels nicht (mehr) zur Verfügung. Es wurde nichts gespeichert oder gestartet und kein anderes Modell eingesetzt. Das betroffene Modell im markierten Node ausdrücklich neu wählen.",
         "reasoningUnsupported": "Eine gespeicherte Reasoning-Stufe wird vom gewählten Modell nicht unterstützt. Es wurde nichts gespeichert oder gestartet und keine andere Stufe eingesetzt. Die Stufe im markierten Node ausdrücklich neu wählen.",
-        "opencode_free_tier_refused": "OpenCode Zen hat den kostenlosen Tarif für diese Anfrage abgelehnt („nur innerhalb von OpenCode“). Zen bedient seine kostenlosen Modelle nur in Sitzungen mit den OpenCode-eigenen Werkzeugen; Pica läuft bewusst ohne sie, Agent-Knoten in Plänen sind nicht betroffen. Es wurde kein anderes Modell verwendet. Für Pica bitte ein Modell eines Providers mit Schlüssel in Pages wählen, etwa ein kostenloses OpenRouter-Modell."
+        "opencode_free_tier_refused": "OpenCode Zen hat den kostenlosen Tarif für diese Anfrage abgelehnt („nur innerhalb von OpenCode“). Zen bedient seine kostenlosen Modelle nur in Sitzungen mit den OpenCode-eigenen Werkzeugen; Pica läuft bewusst ohne sie, Agent-Knoten in Plänen sind nicht betroffen. Es wurde kein anderes Modell verwendet. Für Pica bitte ein Modell eines Providers mit Schlüssel in Pages wählen, etwa ein kostenloses OpenRouter-Modell.",
+        "plan_stop_unconfirmed": "Die Stop-Frist ist abgelaufen oder die Bereinigung fehlgeschlagen. Ziel verbinden und unter Wiederherstellung → Freigeben die Bereinigung erneut anfordern. Reservierungen bleiben erhalten."
       },
       "description": "Verwalten Sie die benannten API- und CLI-Anbindungen und ihre Nutzungsfreigaben. Freigegebene Modelle stehen direkt im Agent Plan zur Verfügung.",
       "adminModeRequired": "Die Agents-Einstellungen sind nur im Admin-Modus verfügbar. Ihr Konto ist derzeit im Rollenmodus.",
@@ -1285,7 +1286,7 @@
         "tool": "Pages-Runner",
         "toolsNone": "Keine Werkzeuge gefunden",
         "versionUnknown": "Version unbekannt",
-        "communicationUpgrade": "Runner {{version}}: Neue Remote-Läufe brauchen Runner 1.10 oder neuer. Laufende Jobs werden weiter abgeglichen; bitte ausdrücklich aktualisieren.",
+        "communicationUpgrade": "Runner {{version}}: Neue Remote-Läufe brauchen Runner 1.11 oder neuer. Laufende Jobs werden weiter abgeglichen; bitte ausdrücklich aktualisieren.",
         "versionBefore110": "älter als 1.10",
         "toolName": {
           "codex": "Codex",
@@ -5126,7 +5127,15 @@
         "removed": "Profil laut vollständigem Inventar entfernt",
         "incompatible": "Runner 1.10 oder neuer erforderlich"
       },
-      "workerStale": "Keine aktuelle Worker-Bestätigung. Der Prozesszustand ist unbekannt, auch wenn der Runner verbunden ist."
+      "workerStale": "Keine aktuelle Worker-Bestätigung. Der Prozesszustand ist unbekannt, auch wenn der Runner verbunden ist.",
+      "stopPolicy": "Linux: 2 s TERM-Frist, dann KILL und Exit-Prüfung bis 3 s. Offline-Ausführungslease 45 s. Pages meldet nach 60 s unbestätigte Bereinigung; Reservierungen bleiben bis zum Bereinigungsbeleg des Ziels.",
+      "historyDeferred": "{{count}} Historienpaket(e) dauerhaft für geordnete Wiederherstellung aufbewahrt. Steuerung und Ergebnisse bleiben verfügbar.",
+      "stopFailed": "Bereinigung dieses Ziels/Versuchs fehlgeschlagen. Runner verbinden, Prozessrechte prüfen und Wiederherstellung → Freigeben erneut ausführen. Prozessfreiheit ist nicht bestätigt.",
+      "stopFailure": {
+        "process_scan_unavailable": "Prozesszuordnung oder Prozessfreiheit konnte nicht bestätigt werden.",
+        "signal_denied": "Ein zugeordneter Prozess konnte nicht signalisiert werden.",
+        "exit_timeout": "Ein zugeordneter Prozess lief nach der Kill-Frist weiter."
+      }
     }
   },
   "mcpDuration": {

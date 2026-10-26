@@ -7,6 +7,11 @@ import { z } from "zod";
 export const runnerCancellationSchema = z.object({
   requestedAt: z.string().datetime(),
   receivedAt: z.string().datetime().optional(),
+  completedAt: z.string().datetime().optional(),
+  closeout: z.enum(["confirmed", "failed"]).optional(),
+  failure: z
+    .enum(["process_scan_unavailable", "signal_denied", "exit_timeout"])
+    .optional(),
 });
 
 /** Resource admission never changes a queued job's attempt or command. */

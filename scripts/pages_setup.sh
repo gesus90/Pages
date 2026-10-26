@@ -410,6 +410,11 @@ cat > "$processes_temporary" <<'PROCESSES'
 __PAGES_RUNNER_PROCESSES__
 PROCESSES
 mv -f -- "$processes_temporary" "$runner_directory/processes.mjs"
+revocation_temporary=$(mktemp "$runner_directory/.revocation.XXXXXX")
+cat > "$revocation_temporary" <<'REVOCATION'
+__PAGES_RUNNER_REVOCATION__
+REVOCATION
+mv -f -- "$revocation_temporary" "$runner_directory/revocation.mjs"
 journal_temporary=$(mktemp "$runner_directory/.journal.XXXXXX")
 cat > "$journal_temporary" <<'JOURNAL'
 __PAGES_RUNNER_JOURNAL__

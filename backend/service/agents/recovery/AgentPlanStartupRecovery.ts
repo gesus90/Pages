@@ -7,7 +7,7 @@ import {
 import { classifyPlanFailure } from "./AgentPlanFailure";
 import { interruptedLoopRuns } from "./AgentPlanLoopRecovery";
 import { endInterruptedScript } from "../AgentPlanScriptRecovery";
-import { settleDetachedRun } from "../AgentPlanRunState";
+import { detachedStopRun, settleDetachedRun } from "../AgentPlanRunState";
 
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
@@ -142,7 +142,22 @@ export class AgentPlanStartupRecovery {
   /** A remote run whose jobs all ended before this start gets no later runner fact. */
   private async settleRemoteRuns(runs: readonly AgentPlanRun[]): Promise<void> {
     for (const remote of runs) {
-      const settled = settleDetachedRun(remote);
+      const uncertain = remote.stopRequested
+        ? {
+            ...detachedStopRun(remote),
+            steps: remote.steps.map((step) =>
+              step.status === "running"
+                ? {
+                    ...step,
+                    status: "failed" as const,
+                    cancellation: "requested" as const,
+                    error: "plan_stop_unconfirmed",
+                  }
+                : step,
+            ),
+          }
+        : remote;
+      const settled = settleDetachedRun(uncertain);
       if (settled !== remote) await this.dependencies.runs.interrupt(settled);
     }
   }

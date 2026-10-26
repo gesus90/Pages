@@ -752,7 +752,7 @@
         "plan_definition_changed": "The AGENT.md of the agent is missing or does not match the started revision.",
         "plan_placeholder_unresolved": "The prompt still contains a parameter placeholder; nothing was sent.",
         "plan_runner_lost": "The remote process was lost without an exit record. No automatic restart.",
-        "plan_runner_update_required": "Runner 1.10 or newer is required: remote execution needs its communication contract. Update the runner explicitly.",
+        "plan_runner_update_required": "Runner 1.11 or newer is required: remote execution needs its communication contract. Update the runner explicitly.",
         "plan_runner_admission_failed": "The runner could not reserve an execution slot on its host; the job did not start.",
         "plan_runner_storage_failed": "Runner history storage failed. Confirmed output and checkpoints have been preserved.",
         "plan_runner_event_limit": "A native CLI event exceeds its separate message limit.",
@@ -823,7 +823,8 @@
         "workspace_running": "An affected plan is running, paused or still cleaning up. Stop the execution and wait for it to finish before removing this registration.",
         "modelUnavailable": "A saved model is not (or no longer) in the catalog of its target. Nothing was saved or started and no other model was used. Choose the affected model again in the marked node.",
         "reasoningUnsupported": "A saved reasoning level is not supported by the chosen model. Nothing was saved or started and no other level was used. Choose the level again in the marked node.",
-        "opencode_free_tier_refused": "OpenCode Zen refused its free tier for this request (“only within OpenCode”). Zen serves its free models only to sessions with OpenCode's own tools; Pica runs without them on purpose, plan agents are not affected. No other model was used. For Pica, choose a model of a provider with a key in Pages, such as a free OpenRouter model."
+        "opencode_free_tier_refused": "OpenCode Zen refused its free tier for this request (“only within OpenCode”). Zen serves its free models only to sessions with OpenCode's own tools; Pica runs without them on purpose, plan agents are not affected. No other model was used. For Pica, choose a model of a provider with a key in Pages, such as a free OpenRouter model.",
+        "plan_stop_unconfirmed": "The stop deadline expired or cleanup failed. Reconnect the target and use Recovery → Release to retry cleanup. Reservations remain held."
       },
       "description": "Manage named API and CLI connections and their usage scopes. Permitted models are available directly in Agent Plans.",
       "adminModeRequired": "The agent settings are only available in the admin mode. Your account is currently in the role mode.",
@@ -1285,7 +1286,7 @@
         "tool": "Pages runner",
         "toolsNone": "No tools found",
         "versionUnknown": "version unknown",
-        "communicationUpgrade": "Runner {{version}}: new remote runs require Runner 1.10 or newer. Running jobs are still reconciled; update it explicitly.",
+        "communicationUpgrade": "Runner {{version}}: new remote runs require Runner 1.11 or newer. Running jobs are still reconciled; update it explicitly.",
         "versionBefore110": "older than 1.10",
         "toolName": {
           "codex": "Codex",
@@ -5126,7 +5127,15 @@
         "removed": "Profile removed by a complete inventory",
         "incompatible": "Runner 1.10 or newer is required"
       },
-      "workerStale": "No recent worker confirmation. The process state is unknown even while the runner is connected."
+      "workerStale": "No recent worker confirmation. The process state is unknown even while the runner is connected.",
+      "stopPolicy": "Linux: TERM grace 2 s, then KILL and exit verification up to 3 s. Offline execution lease 45 s. Pages reports unconfirmed cleanup after 60 s; reservations remain until host evidence confirms cleanup.",
+      "historyDeferred": "{{count}} history packet(s) retained durably for ordered recovery. Control and results remain available.",
+      "stopFailed": "Cleanup failed on this target/attempt. Reconnect the runner, check its process permissions, then retry Recovery → Release. No process-free state has been confirmed.",
+      "stopFailure": {
+        "process_scan_unavailable": "Process ownership or absence could not be verified.",
+        "signal_denied": "An owned process could not be signalled.",
+        "exit_timeout": "An owned process remained alive beyond the kill deadline."
+      }
     }
   },
   "mcpDuration": {

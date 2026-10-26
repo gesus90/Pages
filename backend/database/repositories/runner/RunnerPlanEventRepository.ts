@@ -1,12 +1,10 @@
 import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
 import { readCountColumn, readTextColumn } from "@/backend/database/RowValue";
 
+import { RunnerHistoryRecoveryRepository } from "./RunnerHistoryRecoveryRepository";
 import { AgentPlanProgressRepository } from "../agent/AgentPlanProgressRepository";
 import { CURRENT_PLAN_SNAPSHOT } from "../agent/AgentPlanContinuationRepository";
-import {
-  persistRunnerSessionEvents,
-  appendRunnerSessionEvents,
-} from "./RunnerSessionEvents";
+import { persistRunnerSessionEvents } from "./RunnerSessionEvents";
 
 import type {
   Database,
@@ -14,7 +12,11 @@ import type {
 } from "@/backend/database/Database";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type { AgentPlanCheckpointInput } from "@/definition/AgentPlanRecovery";
-import type { RunnerMessage, RunnerJob } from "@/definition/RunnerProtocol";
+import type {
+  RunnerMessage,
+  RunnerState,
+  RunnerPlanBinding,
+} from "@/definition/RunnerProtocol";
 import type { RunnerLiveEvent } from "@/definition/RunnerLiveHistory";
 
 interface RunnerEventReceipt {
@@ -29,10 +31,13 @@ type PlanEvent = Extract<RunnerMessage, { type: "event" }>;
 /** Atomic runner receipts and existing plan progress, without a second run store. */
 export class RunnerPlanEventRepository {
   private readonly database: Database;
+  /** Durable history custody and ordered archive recovery, independent of control receipts. */
+  public readonly history: RunnerHistoryRecoveryRepository;
   private readonly progress: AgentPlanProgressRepository;
 
   public constructor(database: Database) {
     this.database = database;
+    this.history = new RunnerHistoryRecoveryRepository(database);
     this.progress = new AgentPlanProgressRepository(database);
   }
 
@@ -60,6 +65,57 @@ export class RunnerPlanEventRepository {
       : null;
   }
 
+  /** Rejects a claim racing a durable stop inside the same transaction as dispatch persistence. */
+  public async requireDispatchFence(
+    transaction: DatabaseTransaction,
+    binding: RunnerPlanBinding,
+  ): Promise<void> {
+    const [row] = await transaction.query(
+      "SELECT view_json FROM agent_plan_runs WHERE id = $run_id;",
+      { run_id: binding.runId },
+    );
+    const run = readPlanRun(
+      JSON.parse(readTextColumn(row ?? [], 0, "view_json")),
+    );
+    if (run.stopRequested || run.status !== "running")
+      throw new Error("Runner dispatch fenced by run state");
+  }
+
+  /** Reconstructs missing stop delivery after a Pages crash before the runner may dispatch. */
+  public async fenceStoppedRuns(state: RunnerState): Promise<RunnerState> {
+    const jobs = [];
+    for (const job of state.jobs) {
+      const binding = job.plan;
+      if (!binding || job.cancellation) {
+        jobs.push(job);
+        continue;
+      }
+      const [row] = await this.database.query(
+        "SELECT view_json FROM agent_plan_runs WHERE id = $run_id;",
+        { run_id: binding.runId },
+      );
+      const run = row
+        ? readPlanRun(JSON.parse(readTextColumn(row, 0, "view_json")))
+        : null;
+      jobs.push(
+        run?.stopRequested
+          ? { ...job, cancellation: { requestedAt: new Date().toISOString() } }
+          : job,
+      );
+    }
+    return { ...state, jobs };
+  }
+
+  /** Persists a bounded stop decision without depending on history import. */
+  public async changeRun(
+    runId: string,
+    reduce: (run: AgentPlanRun) => AgentPlanRun,
+  ): Promise<void> {
+    await this.database.transaction((transaction) =>
+      this.apply(transaction, runId, (run) => ({ run: reduce(run) })),
+    );
+  }
+
   /** Records the validated digest in the transaction that writes the run and runner checkpoint. */
   public async append(
     transaction: DatabaseTransaction,
@@ -84,21 +140,6 @@ export class RunnerPlanEventRepository {
         event_digest: input.digest,
       },
     );
-  }
-
-  /** Stores a terminal job's remaining diagnostics in its bound journal, leaving the completed plan untouched. */
-  public async appendHistory(
-    transaction: DatabaseTransaction,
-    job: RunnerJob,
-    events: readonly RunnerLiveEvent[],
-  ): Promise<void> {
-    if (!job.plan) throw new Error("Runner session binding missing");
-    await appendRunnerSessionEvents(transaction, {
-      binding: job.plan,
-      jobId: job.jobId,
-      ...(job.outputJournalVersion === 2 ? { launchId: job.launch?.id } : {}),
-      events,
-    });
   }
 
   /**
@@ -144,6 +185,9 @@ export class RunnerPlanEventRepository {
     if (result.run === current) return;
     await this.progress.persist(transaction, result.run, result.checkpoint);
     if (history)
-      await persistRunnerSessionEvents(transaction, result.run, history);
+      await persistRunnerSessionEvents(transaction, result.run, {
+        ...history,
+        events: [],
+      });
   }
 }

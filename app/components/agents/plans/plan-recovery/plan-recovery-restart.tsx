@@ -33,10 +33,7 @@ export function PlanRecoveryRestart({
     onSubmit({ action: "release" });
   }
   return (
-    <fieldset
-      className="space-y-1.5"
-      disabled={!restart.available || isPending}
-    >
+    <fieldset className="space-y-1.5" disabled={isPending}>
       <legend className="font-medium text-foreground">
         {t("plans.recovery.restart")}
       </legend>
@@ -48,6 +45,7 @@ export function PlanRecoveryRestart({
       <label className="flex items-start gap-2 [@media(pointer:coarse)]:min-h-11">
         <input
           type="checkbox"
+          disabled={!restart.available}
           checked={isConfirmed}
           onChange={(event) => setConfirmed(event.target.checked)}
         />
