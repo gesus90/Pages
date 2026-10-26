@@ -181,11 +181,12 @@ export class FakeAdapterProcess {
     const decoder = new TextDecoder();
     let pending = "";
     return new WritableStream<Uint8Array>({
-      write: (chunk) => {
+      write: async (chunk) => {
         pending += decoder.decode(chunk, { stream: true });
         const lines = pending.split("\n");
         pending = lines.pop() ?? "";
-        for (const line of lines) if (line.trim()) this.channel.receive(line);
+        for (const line of lines)
+          if (line.trim()) await this.channel.receive(line);
       },
     });
   }

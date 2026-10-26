@@ -1,7 +1,7 @@
 import { redactCredentials } from "@/backend/security/AgentTextSafety";
 
 /** Longest text a run keeps, whatever its source. */
-const PLAN_OUTPUT_LIMIT = 200_000;
+export const PLAN_OUTPUT_LIMIT = 200_000;
 
 /** Redacts credential-shaped strings from final answers before persistence, display or result forwarding. */
 export function sanitizePlanOutput(output: string): string {

@@ -4,6 +4,7 @@ import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 
 import { ConsoleComposer } from "./console-composer";
 import { ConsoleControls } from "./console-controls";
+import { ConsoleFailure } from "./console-failure";
 import { ConsoleHistory } from "./console-history";
 import { ConsoleMetadata } from "./console-metadata";
 import { ConsoleUsage } from "./console-usage";
@@ -99,10 +100,12 @@ export function ConsoleSession(props: ConsoleSessionProps): React.ReactElement {
                 ? ` · ${t([`settings.agents.error.${session.error}`, "settings.agents.error.general"])}`
                 : ""}
             </p>
+            <ConsoleFailure remote={step.remote} />
             <ConsoleHistory
               events={session.events}
               source={session.source}
               retainedFrom={session.retainedFrom}
+              navigation={session}
             />
             <PlanRemoteHistoryNotice step={step} />
             <ConsoleComposer

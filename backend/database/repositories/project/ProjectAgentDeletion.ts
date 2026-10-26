@@ -30,6 +30,7 @@ async function deleteSessionJournal(
 ): Promise<void> {
   for (const table of [
     "agent_session_events",
+    "agent_session_history_chunks",
     "agent_session_turn_usage",
     "agent_session_messages",
   ] as const)

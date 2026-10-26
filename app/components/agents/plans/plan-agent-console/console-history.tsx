@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
@@ -94,7 +94,10 @@ function HistoryEntry({
 }
 
 /** Follows the newest entry only while the reader is at the end; otherwise the position stays. */
-function useStickToEnd(lastSequence: number): {
+function useStickToEnd(
+  lastSequence: number,
+  navigation: HistoryNavigation,
+): {
   readonly ref: React.RefObject<HTMLDivElement | null>;
   readonly onScroll: () => void;
 } {
@@ -102,16 +105,29 @@ function useStickToEnd(lastSequence: number): {
   const isAtEnd = useRef(true);
   useEffect(() => {
     const element = ref.current;
-    if (element && isAtEnd.current) element.scrollTop = element.scrollHeight;
-  }, [lastSequence]);
+    const selection = window.getSelection();
+    if (element && navigation.isFollowing && !selection?.toString())
+      element.scrollTop = element.scrollHeight;
+  }, [lastSequence, navigation.isFollowing]);
   function onScroll(): void {
     const element = ref.current;
     if (!element) return;
     isAtEnd.current =
       element.scrollHeight - element.scrollTop - element.clientHeight <
       NEAR_END;
+    if (!isAtEnd.current) navigation.stopFollowing();
   }
   return { ref, onScroll };
+}
+
+interface HistoryNavigation {
+  readonly hasEarlier: boolean;
+  readonly isHistoryLoading: boolean;
+  readonly isFollowing: boolean;
+  readonly loadEarlier: () => void;
+  readonly followLatest: () => void;
+  readonly stopFollowing: () => void;
+  readonly downloadAddress: string;
 }
 
 /**
@@ -125,17 +141,17 @@ export function ConsoleHistory({
   events,
   source,
   retainedFrom,
+  navigation,
 }: {
   readonly events: readonly AgentSessionEvent[];
   readonly source: AgentSessionEventPage["source"];
   readonly retainedFrom: number | null;
+  readonly navigation: HistoryNavigation;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const [shown, setShown] = useState(WINDOW_SIZE);
-  const visible = events.slice(-shown);
-  const hidden = events.length - visible.length;
+  const visible = events.slice(-WINDOW_SIZE);
   // The newest sequence keeps growing after the list reached its size limit.
-  const scroll = useStickToEnd(events.at(-1)?.sequence ?? 0);
+  const scroll = useStickToEnd(events.at(-1)?.sequence ?? 0, navigation);
   return (
     <ScrollViewport
       axis="vertical"
@@ -149,21 +165,40 @@ export function ConsoleHistory({
           {t("plans.console.legacy")}
         </p>
       ) : null}
-      {retainedFrom !== null && hidden === 0 ? (
+      {retainedFrom !== null ? (
         <p className="mb-3 text-xs text-muted-foreground">
           {t("plans.console.retained")}
         </p>
       ) : null}
-      {hidden > 0 ? (
-        <Button
-          size="sm"
-          variant="ghost"
-          className="mb-3"
-          onClick={() => setShown((value) => value + WINDOW_SIZE)}
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        {navigation.hasEarlier ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={navigation.isHistoryLoading}
+            onClick={navigation.loadEarlier}
+          >
+            {t("plans.console.loadEarlier")}
+          </Button>
+        ) : null}
+        {!navigation.isFollowing ? (
+          <Button size="sm" variant="ghost" onClick={navigation.followLatest}>
+            {t("plans.console.followLatest")}
+          </Button>
+        ) : null}
+        <a
+          className="text-xs text-primary underline"
+          href={navigation.downloadAddress}
+          download
         >
-          {t("plans.console.earlier", { count: hidden })}
-        </Button>
-      ) : null}
+          {t("plans.console.download")}
+        </a>
+        {navigation.isHistoryLoading ? (
+          <span role="status" className="text-xs text-muted-foreground">
+            {t("plans.console.earlierLoading")}
+          </span>
+        ) : null}
+      </div>
       {events.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           {t("plans.console.noEvents")}

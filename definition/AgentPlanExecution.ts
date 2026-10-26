@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { runnerTerminalSchema } from "./RunnerTerminal";
 import { planRemoteResourceSchema } from "./AgentPlanRemoteAccess";
 
 const identifier = z.string().min(1).max(100);
@@ -76,6 +77,9 @@ export const planRemoteProgressSchema = z
     ]),
     launchId: z.string().uuid().optional(),
     liveHistoryVersion: z.literal(1).optional(),
+    outputJournalVersion: z.literal(2).optional(),
+    terminal: runnerTerminalSchema.optional(),
+    storageError: z.string().max(40).optional(),
     reason: z.string().max(30).nullable().optional(),
     stderr: z.string().max(65536).optional(),
     exitCode: z.number().int().nullable().optional(),

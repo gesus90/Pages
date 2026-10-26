@@ -1,3 +1,4 @@
+import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import { readContinuationCapabilities } from "./AgentSessionContinuation";
@@ -85,7 +86,8 @@ function reportedModel(
  * events and usage never mix. Message chunks become one event when the
  * message ends. Usage counts only as the adapter reports it: a turn's
  * tokens are written once per turn, the context occupancy replaces the one
- * before. Writes run one after another and never throw into the session.
+ * before. Writes run one after another; the session awaits `drained()` and
+ * fails its turn if persistence failed instead of acknowledging missing history.
  */
 export class AgentSessionRecorder implements AcpSessionListener {
   private readonly dependencies: AgentSessionRecorderDependencies;
@@ -93,6 +95,9 @@ export class AgentSessionRecorder implements AcpSessionListener {
   private readonly turns = new Map<string, number>();
   private attempt: AgentSessionAttemptRecord;
   private message = "";
+  private messageBytes = 0;
+  private pendingWrites = 0;
+  private hasWriteFailure = false;
   private lastUsage: Usage | null = null;
   private continuation: AcpContinuationCapabilities | null = null;
   private writes: Promise<void> = Promise.resolve();
@@ -159,7 +164,12 @@ export class AgentSessionRecorder implements AcpSessionListener {
   /** Receives one update of the adapter. */
   public readonly update = (update: SessionUpdate): void => {
     if (update.sessionUpdate === "agent_message_chunk") {
-      if (update.content.type === "text") this.message += update.content.text;
+      if (update.content.type === "text") {
+        this.messageBytes += Buffer.byteLength(update.content.text);
+        if (this.messageBytes > 1_048_576)
+          throw new AgentError("acp_output_overflow");
+        this.message += update.content.text;
+      }
       return;
     }
     if (update.sessionUpdate === "usage_update") {
@@ -215,8 +225,14 @@ export class AgentSessionRecorder implements AcpSessionListener {
   /** Resolves once everything reported so far is stored. */
   public async settled(): Promise<void> {
     this.flushMessage();
-    await this.writes;
+    await this.drained();
   }
+
+  /** Applies storage backpressure after each native notification and reports a durable history failure. */
+  public readonly drained = async (): Promise<void> => {
+    await this.writes;
+    if (this.hasWriteFailure) throw new AgentError("plan_history_unavailable");
+  };
 
   private readUsage(
     update: Extract<SessionUpdate, { sessionUpdate: "usage_update" }>,
@@ -238,6 +254,7 @@ export class AgentSessionRecorder implements AcpSessionListener {
   }
 
   private flushMessage(): void {
+    this.messageBytes = 0;
     if (this.message.trim() === "") {
       this.message = "";
       return;
@@ -268,16 +285,27 @@ export class AgentSessionRecorder implements AcpSessionListener {
   }
 
   private enqueue(write: () => Promise<void>): void {
-    this.writes = this.writes.then(write).catch((error: unknown) => {
-      logCaughtError("AgentSessionRecorder", error);
+    if (this.pendingWrites >= 64 || this.hasWriteFailure) {
+      this.hasWriteFailure = true;
+      return;
+    }
+    this.pendingWrites += 1;
+    this.writes = this.writes
+      .then(write)
+      .catch((error: unknown) => {
+        this.hasWriteFailure = true;
+        logCaughtError("AgentSessionRecorder", error);
 
-      // The session goes on; the history then lacks this entry, which the log names.
-      logDiagnostic(
-        "AgentSessionRecorder",
-        "warn",
-        "PageAgentCLI could not store a session entry",
-        error,
-      );
-    });
+        // The next native acknowledgement is withheld and the owned session fails at drained().
+        logDiagnostic(
+          "AgentSessionRecorder",
+          "warn",
+          "PageAgentCLI could not store a session entry",
+          error,
+        );
+      })
+      .finally(() => {
+        this.pendingWrites -= 1;
+      });
   }
 }

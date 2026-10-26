@@ -9,6 +9,7 @@ import { toolInventorySchema } from "./RemoteSetup.js";
 import { planStepExecutionSchema } from "./AgentPlanExecution.js";
 import type { ToolInventory } from "./RemoteSetup.js";
 import { runnerLiveBatchSchema } from "./RunnerLiveHistory";
+import { runnerTerminalSchema } from "./RunnerTerminal";
 
 /** Wire version shared by Pages and an outbound runner connection. */
 export const RUNNER_PROTOCOL_VERSION = 1;
@@ -36,9 +37,12 @@ export const runnerJobSchema = z.object({
   execution: runnerExecutionSchema.optional(),
   launch: runnerLaunchSchema.optional(),
   liveHistoryVersion: z.literal(1).optional(),
-  historyCursor: z.number().int().nonnegative().optional(),
+  /** Runner 1.9.0: bounded journals without a lifetime raw-output limit. */
+  outputJournalVersion: z.literal(2).optional(),
+  historyCursor: z.number().int().nonnegative().safe().optional(),
+  historyFailure: z.literal("journal_unreadable").optional(),
   /** A final result may arrive before its remaining bounded diagnostic packets. */
-  historyLength: z.number().int().nonnegative().max(2_000).optional(),
+  historyLength: z.number().int().nonnegative().safe().optional(),
   status: z.enum([
     "queued",
     "accepted",
@@ -105,6 +109,7 @@ export const runnerMessageSchema = z.discriminatedUnion("type", [
     openCodeExecutorVersion: z.literal(1).optional(),
     /** Runner 1.8.0 supports expiring viewers and bounded CLI journal batches. */
     liveHistoryVersion: z.literal(1).optional(),
+    outputJournalVersion: z.literal(2).optional(),
   }),
   z.object({
     version: z.literal(1),
@@ -123,6 +128,17 @@ export const runnerMessageSchema = z.discriminatedUnion("type", [
         /** A stable cause the runner recognized in an OpenCode ACP failure; never provider text. */
         failureCode: z.enum(REMOTE_OPENCODE_FAILURES).optional(),
         stderr: z.string().max(65536).optional(),
+        terminal: runnerTerminalSchema.optional(),
+        storageError: z
+          .enum([
+            "ENOSPC",
+            "EDQUOT",
+            "EACCES",
+            "EROFS",
+            "EIO",
+            "journal_write_failed",
+          ])
+          .optional(),
         closeout: z.enum(["confirmed", "pending", "failed"]),
         exitCode: z.number().int().nullable().optional(),
         signal: z.string().max(30).nullable().optional(),
@@ -134,6 +150,10 @@ export const runnerMessageSchema = z.discriminatedUnion("type", [
             "output_limit",
             "lost",
             "spawn",
+            "storage",
+            "protocol",
+            "event_limit",
+            "result_limit",
           ])
           .nullable()
           .optional(),
@@ -182,6 +202,7 @@ export type RunnerReply =
       readonly version: 1;
       readonly type: "reconcile";
       readonly state: RunnerState;
+      readonly outputJournalVersion?: 2;
     };
 
 /** Secret-free remote row in Settings → Agents. Only registered SSH connections appear. */
@@ -197,4 +218,6 @@ export interface RunnerConnectionView {
   readonly needsPairing?: boolean;
   /** `null` while the runner has not reported an inventory; an empty list means none found. */
   readonly tools: readonly ToolInventory[] | null;
+  /** Null until reconciliation; 1 means the old executor still has a cumulative output cap. */
+  readonly outputJournalVersion?: 1 | 2 | null;
 }

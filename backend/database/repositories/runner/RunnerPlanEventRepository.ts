@@ -96,6 +96,7 @@ export class RunnerPlanEventRepository {
     await appendRunnerSessionEvents(transaction, {
       binding: job.plan,
       jobId: job.jobId,
+      ...(job.outputJournalVersion === 2 ? { launchId: job.launch?.id } : {}),
       events,
     });
   }

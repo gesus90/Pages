@@ -4,8 +4,8 @@ import type {
 } from "@/app/lib/agent-session-response";
 import type { AgentSessionEvent } from "@/definition/AgentSessionJournal";
 
-// The backend keeps at most this many events per attempt; more cannot arrive.
-const MAXIMUM_EVENTS = 2000;
+// The browser retains one visible window; older events stay in the server journal.
+const MAXIMUM_EVENTS = 150;
 
 async function readJson(response: Response): Promise<unknown> {
   try {
@@ -32,10 +32,14 @@ export async function readSessionPage(
   address: string,
   after: number,
   signal: AbortSignal,
+  window: { readonly before?: number; readonly tail?: boolean } = {},
 ): Promise<AgentSessionReadResult> {
   let response: Response;
   try {
-    response = await fetch(`${address}&after=${after}`, {
+    const query = new URLSearchParams({ after: String(after) });
+    if (window.before !== undefined) query.set("before", String(window.before));
+    if (window.tail) query.set("tail", "1");
+    response = await fetch(`${address}&${query}`, {
       headers: { Accept: "application/json" },
       signal,
     });
@@ -88,13 +92,9 @@ export function mergeEvents(
   current: readonly AgentSessionEvent[],
   incoming: readonly AgentSessionEvent[],
 ): readonly AgentSessionEvent[] {
-  const last = current.at(-1)?.sequence ?? 0;
-  const fresh = incoming
-    .filter((event) => event.sequence > last)
-    .sort((left, right) => left.sequence - right.sequence);
-  if (fresh.length === 0) return current;
-  const merged = [...current, ...fresh];
-  return merged.length > MAXIMUM_EVENTS
-    ? merged.slice(-MAXIMUM_EVENTS)
-    : merged;
+  const unique = new Map(current.map((event) => [event.sequence, event]));
+  for (const event of incoming) unique.set(event.sequence, event);
+  return [...unique.values()]
+    .sort((left, right) => left.sequence - right.sequence)
+    .slice(-MAXIMUM_EVENTS);
 }

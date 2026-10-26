@@ -62,7 +62,9 @@ function remoteAgentResult(
       instanceId: progress.jobId,
       attemptId: result.execution?.attemptId,
       dispatchedPromptDigest: planContentDigest(program.prompt),
-      sessionId: progress.sessionId,
+      sessionId:
+        progress.terminal?.sessionId ??
+        (progress.outputJournalVersion === 2 ? null : progress.sessionId),
       processId: null,
       startedAt: progress.startedAt,
       turnEndedAt: progress.endedAt,

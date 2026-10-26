@@ -6,6 +6,9 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir, hostname } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { once } from "node:events";
+
+import { ProtocolLines } from "./lines.mjs";
 
 /** The OpenCode release whose ACP contract Pages verified. */
 export const VERIFIED_OPENCODE_VERSION = "1.18.34";
@@ -90,87 +93,148 @@ export function readOpenCodeListing(stdout) {
   return models;
 }
 
-/** A minimal ACP client over the child's standard streams; requests the agent sends get safe answers. */
-class AcpClient {
-  constructor(child, decide) {
-    this.child = child;
-    this.decide = decide;
-    this.pending = new Map();
-    this.next = 0;
-    this.text = "";
-    let buffer = "";
-    child.stdout.setEncoding("utf8");
-    child.stdout.on("data", (chunk) => {
-      buffer += chunk;
-      for (
-        let end = buffer.indexOf("\n");
-        end >= 0;
-        end = buffer.indexOf("\n")
-      ) {
-        const line = buffer.slice(0, end).trim();
-        buffer = buffer.slice(end + 1);
-        if (line) this.receive(line);
-      }
-    });
-    child.once("close", () => {
-      for (const reject of this.pending.values())
-        reject(new Error("OpenCode ACP ended"));
-      this.pending.clear();
+/** A bounded ACP client; parsing, forwarded updates and input writes apply stream backpressure. */
+export class OpenCodeAcpClient {
+  #child;
+  #decide;
+  #publish;
+  #pending = new Map();
+  #next = 0;
+  #text = "";
+  #messageBytes = 0;
+  #isMessageOpen = false;
+  #messageId = null;
+  #failure = null;
+  constructor(child, decide, publish) {
+    this.#child = child;
+    this.#decide = decide;
+    this.#publish = publish;
+    child.once("error", (error) => this.#fail(error));
+    child.once("close", () => this.#fail(new Error("OpenCode ACP ended")));
+    void this.#read().catch((error) => {
+      this.#fail(error);
+      child.kill("SIGKILL");
     });
   }
 
-  receive(line) {
-    let message;
-    try {
-      message = JSON.parse(line);
-    } catch {
-      return;
-    }
-    if (message.method === undefined && this.pending.has(message.id)) {
-      const settle = this.pending.get(message.id);
-      this.pending.delete(message.id);
-      settle(message);
+  /** The current native message, empty after later tool activity until a new final message arrives. */
+  get text() {
+    return this.#text;
+  }
+
+  async #read() {
+    const lines = new ProtocolLines((line) => this.#receive(JSON.parse(line)));
+    for await (const chunk of this.#child.stdout) await lines.receive(chunk);
+    await lines.finish();
+  }
+
+  #fail(error) {
+    this.#failure ??= error;
+    for (const pending of this.#pending.values()) pending.reject(error);
+    this.#pending.clear();
+  }
+
+  async #receive(message) {
+    if (message.method === undefined && this.#pending.has(message.id)) {
+      const pending = this.#pending.get(message.id);
+      this.#pending.delete(message.id);
+      if (message.error) pending.reject(acpError(message.error));
+      else pending.resolve(message.result);
       return;
     }
     if (message.method === "session/update") {
-      const update = message.params?.update;
-      if (
-        update?.sessionUpdate === "agent_message_chunk" &&
-        update.content?.type === "text"
-      )
-        this.text += update.content.text;
+      await this.#update(message.params?.update);
       return;
     }
     if (message.id === undefined) return;
     const result =
       message.method === "session/request_permission"
-        ? { outcome: this.decide(message.params?.options ?? []) }
+        ? { outcome: this.#decide(message.params?.options ?? []) }
         : undefined;
-    this.child.stdin.write(
-      JSON.stringify(
-        result
-          ? { jsonrpc: "2.0", id: message.id, result }
-          : {
-              jsonrpc: "2.0",
-              id: message.id,
-              error: { code: -32601, message: "Method not supported" },
-            },
-      ) + "\n",
+    await this.#write(
+      result
+        ? { jsonrpc: "2.0", id: message.id, result }
+        : {
+            jsonrpc: "2.0",
+            id: message.id,
+            error: { code: -32601, message: "Method not supported" },
+          },
     );
   }
 
-  call(method, params) {
-    return new Promise((resolve, reject) => {
-      const id = ++this.next;
-      this.pending.set(id, (message) =>
-        message.error
-          ? reject(acpError(message.error))
-          : resolve(message.result),
-      );
-      this.child.stdin.write(
-        JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n",
-      );
+  async #update(update) {
+    const isText =
+      update?.sessionUpdate === "agent_message_chunk" &&
+      update.content?.type === "text";
+    const isBoundary = [
+      "agent_thought_chunk",
+      "tool_call",
+      "tool_call_update",
+      "plan",
+    ].includes(update?.sessionUpdate);
+    if (
+      isBoundary ||
+      (isText && update.messageId && update.messageId !== this.#messageId)
+    )
+      await this.flushMessage();
+    if (isBoundary) {
+      this.#text = "";
+      this.#messageBytes = 0;
+    }
+    if (isText) {
+      if (!this.#isMessageOpen) {
+        this.#text = "";
+        this.#messageBytes = 0;
+      }
+      this.#messageBytes += Buffer.byteLength(update.content.text);
+      if (this.#messageBytes > 1048576)
+        throw Object.assign(new Error("OpenCode message exceeds 1 MiB"), {
+          reason: "event_limit",
+        });
+      this.#text += update.content.text;
+      this.#messageId = update.messageId ?? null;
+      this.#isMessageOpen = true;
+    }
+    if (update?.sessionUpdate !== "agent_thought_chunk")
+      await this.#publish?.({ type: "pages.update", update });
+  }
+
+  /** Projects one complete native message before its boundary, without retaining earlier messages. */
+  async flushMessage() {
+    if (!this.#isMessageOpen) return;
+    await this.#publish?.({
+      type: "pages.update",
+      update: { sessionUpdate: "agent_message", text: this.#text },
     });
+    this.#isMessageOpen = false;
+  }
+
+  async #write(message) {
+    const line = `${JSON.stringify(message)}\n`;
+    if (Buffer.byteLength(line) > 1048576)
+      throw new Error("ACP input exceeds 1 MiB");
+    await new Promise((resolve, reject) =>
+      this.#child.stdin.write(line, (error) =>
+        error ? reject(error) : resolve(),
+      ),
+    );
+  }
+
+  /** Executes one bounded ACP request; at most eight requests may await their native responses. */
+  async call(method, params) {
+    if (this.#failure) throw this.#failure;
+    if (this.#pending.size >= 8)
+      throw new Error("OpenCode ACP request window full");
+    const id = ++this.#next;
+    const reply = new Promise((resolve, reject) =>
+      this.#pending.set(id, { resolve, reject }),
+    );
+    try {
+      await this.#write({ jsonrpc: "2.0", id, method, params });
+    } catch (error) {
+      this.#fail(error);
+    }
+    return reply;
   }
 }
 
@@ -181,7 +245,7 @@ function acpError(error) {
   return failure;
 }
 
-function startAcp(environment, directory, decide = refuse) {
+function startAcp(environment, directory, decide = refuse, publish) {
   const child = spawn(
     "opencode",
     ["acp", "--port", "0", "--hostname", "127.0.0.1"],
@@ -195,7 +259,7 @@ function startAcp(environment, directory, decide = refuse) {
     },
   );
   child.stdin.on("error", () => child.kill("SIGKILL"));
-  return { child, client: new AcpClient(child, decide) };
+  return { child, client: new OpenCodeAcpClient(child, decide, publish) };
 }
 
 function refuse(options) {
@@ -399,7 +463,12 @@ async function choose(client, session, choice) {
 async function executeJob(job, prompt) {
   const environment = openCodeEnvironment(process.env, runConfiguration(job));
   const decide = job.access === "yolo" ? approve : refuse;
-  const { child, client } = startAcp(environment, job.workspace, decide);
+  const { child, client } = startAcp(
+    environment,
+    job.workspace,
+    decide,
+    writeOutput,
+  );
   try {
     const opened = await openSession(client, job.workspace, job.mcpServers);
     if (opened.reason)
@@ -427,18 +496,36 @@ async function executeJob(job, prompt) {
       sessionId: session.sessionId,
       prompt: [{ type: "text", text: prompt }],
     });
+    await client.flushMessage();
+    const receipt = {
+      type: "pages.result",
+      sessionId: session.sessionId,
+      stopReason: turn?.stopReason,
+      usage: turn?.usage ?? null,
+    };
     if (turn?.stopReason !== "end_turn" || !client.text.trim())
-      return { error: "opencode_acp_session_failed" };
-    return { answer: client.text };
+      return { ...receipt, error: "opencode_acp_session_failed" };
+    return { ...receipt, answer: client.text };
   } finally {
     child.kill("SIGKILL");
   }
 }
 
 async function readInput() {
-  const chunks = [];
-  for await (const chunk of process.stdin) chunks.push(chunk);
-  return Buffer.concat(chunks).toString("utf8");
+  let input = "";
+  let bytes = 0;
+  const decoder = new TextDecoder("utf-8", { fatal: true });
+  for await (const chunk of process.stdin) {
+    bytes += chunk.length;
+    if (bytes > 1048576) throw new Error("OpenCode prompt exceeds 1 MiB");
+    input += decoder.decode(chunk, { stream: true });
+  }
+  return input + decoder.decode();
+}
+
+async function writeOutput(event) {
+  if (!process.stdout.write(`${JSON.stringify(event)}\n`))
+    await once(process.stdout, "drain");
 }
 
 /** The process the runner's worker starts for one OpenCode node; it prints one JSON line. */
@@ -450,12 +537,14 @@ async function main() {
     result = await executeJob(job, await readInput());
   } catch (error) {
     result = {
+      type: "pages.result",
+      stopReason: "error",
       error:
         error.pagesCode ??
         classifyOpenCodeFailure(error.acpText ?? String(error.message)),
     };
   }
-  process.stdout.write(`${JSON.stringify(result)}\n`);
+  await writeOutput(result);
   process.exitCode = result.answer ? 0 : 1;
 }
 

@@ -123,3 +123,20 @@ coverage of their mocked collaborators. Remaining uncovered branches and exact
 line locations are listed in `coverage.txt` and the HTML report. Shared client
 utilities and mixed route UI also account for intentional Backend report gaps;
 Frontend results are not inferred or added to these figures.
+
+## PAGE-161 output streaming regressions
+
+The `page161-*.unit.test.ts` files exercise mocked process, filesystem, transport
+and repository boundaries. They cover output above 32 MiB, 4-MiB rotation,
+split UTF-8/JSON, separate terminal receipts, partial writes, storage failures,
+bounded backpressure, incomplete crash tails, cursor integrity, authorization,
+ACK replay and provider-specific Codex/Claude/OpenCode events. Local ACP tests
+cover notification acknowledgement, final-result limits and history failures.
+They start no process, database, browser or live provider.
+
+Runner JavaScript modules are included in Backend diagnostic coverage, including
+unexecuted modules. Real filesystem, browser and authenticated loopback Runner
+observations belong to the separately authorized isolated PAGE-161 runtime
+evidence, outside Vitest. A passing focused suite does not imply that the entire
+Backend suite passes; the task report records the full run and an unchanged-base
+comparison, with coverage and remaining branch gaps separately.

@@ -81,6 +81,11 @@ export function RunnerConnectionRow({
       <td className="px-3 py-3">
         {connection.runnerId ? t("settings.agents.runner.tool") : "—"}
         <ToolInventoryList tools={connection.tools} />
+        {connection.outputJournalVersion === 1 ? (
+          <p role="status" className="mt-1 text-xs text-warning">
+            {t("plans.console.outputUpgrade")}
+          </p>
+        ) : null}
       </td>
       <td className="px-3 py-3">{connection.departmentName ?? "—"}</td>
       <td className="px-3 py-3">

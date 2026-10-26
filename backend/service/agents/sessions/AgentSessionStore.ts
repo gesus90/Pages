@@ -3,6 +3,8 @@ import type {
   AgentSessionContextUsage,
   AgentSessionEvent,
   AgentSessionEventKind,
+  AgentSessionEventPage,
+  AgentSessionHistoryWindow,
   AgentSessionKey,
   AgentSessionMessage,
   AgentSessionMessageStatus,
@@ -69,6 +71,11 @@ export interface AgentSessionStore {
     after: number,
     limit: number,
   ): Promise<StoredSessionEvents>;
+  /** Reads a bounded archive window when the production chunk journal is available. */
+  readWindow?(
+    attemptId: string,
+    window: AgentSessionHistoryWindow,
+  ): Promise<AgentSessionEventPage>;
   saveTurnUsage(usage: AgentSessionTurnUsage): Promise<void>;
   /** Every turn of every attempt of a run, for the run's sums. */
   listRunUsage(runId: string): Promise<readonly AgentSessionTurnUsage[]>;

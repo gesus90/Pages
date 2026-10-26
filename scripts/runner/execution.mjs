@@ -14,14 +14,15 @@ import {
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
-import { spawnCli, cliOutput, cliFailure } from "./cli.mjs";
+import { spawnCli } from "./cli.mjs";
 import {
   preparePagesFiles,
   pagesRequest,
   pagesFailure,
   notifyJobCompletion,
 } from "./pages.mjs";
-import { createLiveHistory } from "./live.mjs";
+import { JobOutput, outputBinding } from "./output.mjs";
+import { readJournalEvents } from "./chunks.mjs";
 import { store, readRecord, identity } from "./journal.mjs";
 
 export { store, readRecord, identity } from "./journal.mjs";
@@ -156,6 +157,39 @@ async function cleanup(folder, jobId) {
   return "confirmed";
 }
 
+async function failedHistory(folder, job, launch) {
+  const closeout = await cleanup(folder, job.jobId);
+  const terminal = ["completed", "failed", "interrupted", "lost"].includes(
+    job.status,
+  );
+  const sequence = (job.historyCursor ?? 0) + 1;
+  const failure = {
+    historyFailure: "journal_unreadable",
+    historyLength: sequence,
+    history: [
+      {
+        sequence,
+        kind: "error",
+        channel: "stderr",
+        text: "Runner history unavailable: journal storage or integrity check failed. Later diagnostics are missing; confirmed positions were preserved.",
+        createdAt: new Date().toISOString(),
+        isTruncated: false,
+      },
+    ],
+    status: terminal ? job.status : "failed",
+    result: {
+      output: null,
+      closeout,
+      exitCode: null,
+      signal: null,
+      reason: "storage",
+      storageError: "journal_write_failed",
+    },
+  };
+  await store(join(folder, "history-failure.json"), failure);
+  return { launch, ...failure };
+}
+
 /** Reads actual worker state; no exit evidence means lost and never an implicit retry. */
 export async function observeJob(directory, job) {
   const folder = join(directory, "jobs", job.jobId);
@@ -181,16 +215,46 @@ export async function observeJob(directory, job) {
   }
   const launch = await readRecord(join(folder, "launch.json"));
   const result = await readRecord(join(folder, "result.json"));
-  const history =
-    job.liveHistoryVersion === 1
-      ? ((await readRecord(join(folder, "history.json")))?.events ?? [])
-      : undefined;
-  if (result) return { launch, history, ...result };
+  const historyFailure = await readRecord(join(folder, "history-failure.json"));
+  if (historyFailure)
+    return {
+      launch,
+      ...historyFailure,
+      history: historyFailure.history.filter(
+        (event) => event.sequence > (job.historyCursor ?? 0),
+      ),
+    };
+  let history;
+  let historyLength;
+  try {
+    if (job.outputJournalVersion === 2 && launch) {
+      const index = await readRecord(
+        join(folder, "history", "events", "index.json"),
+      );
+      if (index) {
+        const page = await readJournalEvents(
+          join(folder, "history", "events"),
+          outputBinding(job, launch),
+          job.historyCursor ?? 0,
+        );
+        history = page.events;
+        historyLength = page.length;
+      } else if (result) throw new Error("Completed output journal missing");
+    } else if (job.liveHistoryVersion === 1)
+      history = (await readRecord(join(folder, "history.json")))?.events ?? [];
+  } catch {
+    return failedHistory(folder, job, launch);
+  }
+  const observedHistory = {
+    history,
+    ...(historyLength !== undefined ? { historyLength } : {}),
+  };
+  if (result) return { launch, ...observedHistory, ...result };
   if (launch && (await identity(launch.processId)) === launch.identity) {
     const progress = await readRecord(join(folder, "progress.json"));
     return {
       launch,
-      history,
+      ...observedHistory,
       status: "running",
       result: progress ?? { output: null, closeout: "pending" },
     };
@@ -208,7 +272,7 @@ export async function observeJob(directory, job) {
     },
   };
   await store(join(folder, "result.json"), lost);
-  return { launch, ...lost };
+  return { launch, ...observedHistory, ...lost };
 }
 
 /** Cancellation survives a disconnected channel and is acknowledged through terminal cleanup evidence. */
@@ -300,49 +364,61 @@ function spawnScript(command, folder, jobId) {
   );
 }
 
-function completedProcessResult(command, output, diagnostic, result) {
-  const isCli = command.program.kind === "cli";
-  if (
-    isCli &&
-    Buffer.byteLength(cliOutput(command, output)) +
-      Buffer.byteLength(diagnostic) >
-      command.outputBytes
-  )
-    result.reason = "output_limit";
-  const failureCode = isCli ? cliFailure(command, output) : undefined;
+function outputFailure(error) {
+  const reasons = ["event_limit", "protocol", "output_limit", "result_limit"];
+  if (reasons.includes(error.reason)) return { reason: error.reason };
+  if (error instanceof TypeError) return { reason: "protocol" };
+  const codes = ["ENOSPC", "EDQUOT", "EACCES", "EROFS", "EIO"];
   return {
-    ...result,
-    ...(isCli && result.exitCode === 0 && !cliOutput(command, output)
-      ? { exitCode: 1, reason: "exit" }
-      : {}),
-    ...(failureCode ? { failureCode } : {}),
-    output: safeOutput(isCli ? cliOutput(command, output) : output),
-    stderr: safeOutput(diagnostic),
+    reason: "storage",
+    storageError: codes.includes(error.code)
+      ? error.code
+      : "journal_write_failed",
   };
 }
 
-function createJobProgress(folder, options) {
-  let progressWrites = Promise.resolve();
-  let storedEvents = -1;
-  async function writeProgress() {
-    if (options.history && storedEvents !== options.history.events.length) {
-      const events = [...options.history.events];
-      await store(join(folder, "history.json"), { events });
-      storedEvents = events.length;
-    }
-    await store(join(folder, "progress.json"), {
-      output: options.isCli ? null : safeOutput(options.output()),
-      closeout: "pending",
+function connectOutput(child, output, failed) {
+  const pause = () => {
+    child.stdout.pause();
+    child.stderr.pause();
+  };
+  const resume = () => {
+    child.stdout.resume();
+    child.stderr.resume();
+  };
+  for (const channel of ["stdout", "stderr"])
+    child[channel].on("data", (chunk) => {
+      if (!output.write({ chunk, channel })) pause();
     });
-  }
+  output.on("drain", resume);
+  return new Promise((resolve) => {
+    output.once("error", (error) => {
+      failed(error);
+      child.stdout.destroy();
+      child.stderr.destroy();
+      resolve();
+    });
+    output.once("finish", resolve);
+  });
+}
+
+function createJobProgress(folder, stop) {
+  let writing = null;
   const progress = setInterval(() => {
-    progressWrites = progressWrites.then(writeProgress).catch(options.stop);
+    if (writing) return;
+    writing = store(join(folder, "progress.json"), {
+      output: null,
+      closeout: "pending",
+    })
+      .catch(stop)
+      .finally(() => {
+        writing = null;
+      });
   }, 1000);
   return {
     async finish() {
       clearInterval(progress);
-      await progressWrites;
-      await writeProgress();
+      await writing;
     },
     stop() {
       clearInterval(progress);
@@ -351,21 +427,30 @@ function createJobProgress(folder, options) {
 }
 
 async function processJob(command, folder, context) {
-  const { jobId, signal } = context;
-  const isCli = command.program.kind === "cli";
-  const child = isCli
-    ? await spawnCli(command, jobId, signal, folder)
-    : spawnScript(command, folder, jobId);
-  let output = "";
-  let diagnostic = "";
-  const outputDecoder = new TextDecoder("utf-8", { fatal: true });
-  const diagnosticDecoder = new TextDecoder("utf-8", { fatal: true });
-  let bytes = 0;
+  const { job, launch, signal } = context;
+  const jobId = job.jobId;
+  const output = new JobOutput(
+    command,
+    folder,
+    outputBinding(job, launch),
+    safeOutput,
+  );
+  await output.initialize(folder);
+  const child =
+    command.program.kind === "cli"
+      ? await spawnCli(command, jobId, signal, folder)
+      : spawnScript(command, folder, jobId);
   let failure = null;
-  const history =
-    isCli && context.hasLiveHistory
-      ? createLiveHistory(command, safeOutput)
-      : null;
+  let cleanupWork = null;
+  const stop = () => {
+    cleanupWork ??= cleanup(folder, jobId).catch(() => {
+      failure ??= { reason: "spawn" };
+    });
+  };
+  const failed = (error) => {
+    failure ??= outputFailure(error);
+    stop();
+  };
   const completion = new Promise((resolve) => {
     child.once("error", () =>
       resolve({ exitCode: null, signal: null, reason: "spawn" }),
@@ -374,73 +459,47 @@ async function processJob(command, folder, context) {
       resolve({
         exitCode,
         signal: exitSignal,
-        reason: failure ?? exitReason(exitCode, exitSignal),
+        reason: exitReason(exitCode, exitSignal),
       }),
     );
+  });
+  const drained = connectOutput(child, output, failed);
+  child.stdin.on("error", () => {
+    failure ??= { reason: "spawn" };
+    stop();
   });
   if (child.pid)
     await store(join(folder, "child.json"), {
       processId: child.pid,
       identity: await identity(child.pid),
     });
-  const receive = (chunk, channel) => {
-    bytes += chunk.length;
-    if (bytes > (isCli ? 32 * 1024 * 1024 : command.outputBytes)) {
-      failure = "output_limit";
-      stop();
-      return;
-    }
-    try {
-      if (channel === "stdout") {
-        const text = outputDecoder.decode(chunk, { stream: true });
-        output += text;
-        history?.receive(text);
-      } else diagnostic += diagnosticDecoder.decode(chunk, { stream: true });
-    } catch {
-      failure = "exit";
-      stop();
-    }
-  };
-  const stop = () => {
-    void cleanup(folder, jobId).catch(() => {
-      failure = "spawn";
-    });
-  };
-  child.stdout.on("data", (chunk) => receive(chunk, "stdout"));
-  child.stderr.on("data", (chunk) => receive(chunk, "stderr"));
-  child.stdin.on("error", () => {
-    failure = "spawn";
-    stop();
-  });
-  child.stdin.end(isCli ? command.program.prompt : command.input);
+  child.stdin.end(
+    command.program.kind === "cli" ? command.program.prompt : command.input,
+  );
   const abort = () => {
-    failure = signal.reason === "timeout" ? "timeout" : "cancelled";
+    failure = { reason: signal.reason === "timeout" ? "timeout" : "cancelled" };
     stop();
   };
   signal.addEventListener("abort", abort, { once: true });
   if (signal.aborted) abort();
-  const progress = createJobProgress(folder, {
-    history,
-    isCli,
-    output: () => output,
-    stop,
-  });
+  const progress = createJobProgress(folder, failed);
   try {
     const result = await completion;
-    try {
-      const text = outputDecoder.decode();
-      output += text;
-      history?.receive(text);
-      history?.finish();
-      diagnostic += diagnosticDecoder.decode();
-    } catch {
-      result.reason = "exit";
-    }
+    if (!output.destroyed) output.end();
+    await drained;
+    await cleanupWork;
     await progress.finish();
-    return completedProcessResult(command, output, diagnostic, result);
+    const final = output.result();
+    return {
+      ...result,
+      ...final,
+      reason: failure?.reason ?? result.reason ?? final.reason ?? null,
+      ...(failure?.storageError ? { storageError: failure.storageError } : {}),
+    };
   } finally {
     progress.stop();
     signal.removeEventListener("abort", abort);
+    await output.close();
   }
 }
 
@@ -482,12 +541,7 @@ async function modelJob(command, folder, signal) {
     const chunk = await reader.read();
     if (chunk.done) break;
     bytes += chunk.value.length;
-    if (
-      bytes >
-      (isCli && command.pagesAccess === 1
-        ? 32 * 1024 * 1024
-        : command.outputBytes)
-    ) {
+    if (bytes > command.outputBytes) {
       await reader.cancel();
       return {
         output: null,
@@ -538,12 +592,18 @@ async function executeWorker(folder) {
   };
   await store(join(folder, "launch.json"), launch);
   const controller = new AbortController();
+  let isCancelReadBusy = false;
   const cancel = setInterval(() => {
+    if (isCancelReadBusy) return;
+    isCancelReadBusy = true;
     void readRecord(join(folder, "cancel.json"))
       .then((record) => {
         if (record) controller.abort("cancelled");
       })
-      .catch(() => controller.abort("cancelled"));
+      .catch(() => controller.abort("cancelled"))
+      .finally(() => {
+        isCancelReadBusy = false;
+      });
   }, 250);
   const timeout =
     job.execution.timeoutSeconds === 0
@@ -580,9 +640,9 @@ async function executeWorker(folder) {
     result =
       command.program.kind !== "model"
         ? await processJob(command, folder, {
-            jobId: job.jobId,
+            job,
+            launch,
             signal: controller.signal,
-            hasLiveHistory: job.liveHistoryVersion === 1,
           })
         : await modelJob(command, folder, controller.signal);
   } catch (error) {
@@ -593,9 +653,14 @@ async function executeWorker(folder) {
       output: null,
       exitCode: null,
       signal: null,
+      ...(["ENOSPC", "EDQUOT", "EACCES", "EROFS", "EIO"].includes(error.code)
+        ? { storageError: error.code }
+        : {}),
       reason: controller.signal.aborted
         ? String(controller.signal.reason)
-        : "spawn",
+        : ["ENOSPC", "EDQUOT", "EACCES", "EROFS", "EIO"].includes(error.code)
+          ? "storage"
+          : (error.reason ?? "spawn"),
     };
   } finally {
     clearInterval(cancel);

@@ -1,5 +1,8 @@
 import { sanitizePlanOutput } from "@/backend/service/agents/AgentPlanOutput";
 
+import { persistRunnerSessionUsage } from "./RunnerSessionUsage";
+import { appendSessionHistoryChunks } from "../agent/AgentSessionHistoryChunks";
+
 import type { DatabaseTransaction } from "@/backend/database/Database";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type { RunnerPlanBinding } from "@/definition/RunnerProtocol";
@@ -54,6 +57,7 @@ export async function persistRunnerSessionEvents(
       updated_at: new Date().toISOString(),
     },
   );
+  await persistRunnerSessionUsage(transaction, step);
   await appendRunnerSessionEvents(transaction, {
     binding: {
       planId: run.planId,
@@ -63,6 +67,9 @@ export async function persistRunnerSessionEvents(
       planRevision: run.planRevision,
     },
     jobId: record.instanceId,
+    ...(step.remote.outputJournalVersion === 2
+      ? { launchId: step.remote.launchId }
+      : {}),
     events: input.events,
   });
 }
@@ -73,6 +80,7 @@ export async function appendRunnerSessionEvents(
   input: {
     readonly binding: RunnerPlanBinding;
     readonly jobId: string;
+    readonly launchId?: string;
     readonly events: readonly RunnerLiveEvent[];
   },
 ): Promise<void> {
@@ -119,6 +127,22 @@ export async function appendRunnerSessionEvents(
       },
     );
   }
+  if (input.launchId)
+    await appendSessionHistoryChunks(
+      transaction,
+      {
+        attemptId: input.binding.attemptId,
+        launchId: input.launchId,
+      },
+      input.events.map((event) => ({
+        ...event,
+        id: `${input.binding.attemptId}:${event.sequence}`,
+        attemptId: input.binding.attemptId,
+        stepId: input.binding.stepId,
+        turn: 1,
+        text: sanitizePlanOutput(event.text),
+      })),
+    );
   const next = (input.events.at(-1)?.sequence ?? 0) + 1;
   await transaction.execute(
     `

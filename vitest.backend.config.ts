@@ -13,6 +13,7 @@ export default mergeConfig(
       coverage: {
         include: [
           "backend/**/*.ts",
+          "scripts/runner/**/*.mjs",
           "app/**/*.server.{ts,tsx}",
           "app/lib/**/*.{ts,tsx}",
           "app/routes/**/*.{ts,tsx}",

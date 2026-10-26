@@ -97,7 +97,7 @@ export function runnerPlanCheckpoint(
     session: {
       attemptId: execution.attemptId,
       instanceId: step.remote.jobId,
-      sessionId: step.remote.sessionId,
+      sessionId: checkpointSessionId(step.remote),
       capabilities: null,
     },
   };
@@ -105,4 +105,10 @@ export function runnerPlanCheckpoint(
 
 function optionalIdentifier(value: unknown): string | null {
   return typeof value === "string" && value !== "" ? value : null;
+}
+
+function checkpointSessionId(
+  progress: NonNullable<AgentPlanStepResult["remote"]>,
+): string {
+  return progress.terminal?.sessionId ?? progress.sessionId;
 }

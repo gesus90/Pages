@@ -171,3 +171,14 @@ existing test was changed; timings on busy machines remain a limitation.
 
 Coverage is diagnostic; these modules and branch gaps are follow-up opportunities,
 not hidden exclusions or a claim of complete Frontend coverage.
+
+### PAGE-161 console regressions
+
+`page161-console.unit.test.tsx` uses mocked fetch and EventSource in jsdom. It
+checks the 150-event window, tail loading, earlier cursor windows, selection and
+auto-follow behavior, loading/retention/error states, reconnect gaps and storage
+failures. The complete-history download is a server-streamed link rather than a
+browser Blob assembled from the full log. No large DOM fixture or browser is
+started by these units. The separately authorized isolated browser proof and the
+unchanged-base comparison for existing full-suite failures are recorded in the
+PAGE-161 task report. Backend and Frontend coverage remain separate.

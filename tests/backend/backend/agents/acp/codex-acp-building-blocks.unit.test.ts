@@ -157,9 +157,11 @@ it.each([
 it("passes only JSON-RPC messages from the adapter output to the SDK and refuses to write to a gone process", async () => {
   const channel = new AcpLineChannel();
   const reader = channel.stream.readable.getReader();
-  channel.receive("starting codex app-server");
-  channel.receive(JSON.stringify({ level: "info" }));
-  channel.receive(JSON.stringify({ jsonrpc: "2.0", method: "session/update" }));
+  void channel.receive("starting codex app-server");
+  void channel.receive(JSON.stringify({ level: "info" }));
+  void channel.receive(
+    JSON.stringify({ jsonrpc: "2.0", method: "session/update" }),
+  );
   expect(await reader.read()).toEqual({
     done: false,
     value: { jsonrpc: "2.0", method: "session/update" },
@@ -171,6 +173,6 @@ it("passes only JSON-RPC messages from the adapter output to the SDK and refuses
   );
   channel.close();
   channel.close();
-  channel.receive(JSON.stringify({ jsonrpc: "2.0", method: "late" }));
+  void channel.receive(JSON.stringify({ jsonrpc: "2.0", method: "late" }));
   expect(await reader.read()).toEqual({ done: true, value: undefined });
 });

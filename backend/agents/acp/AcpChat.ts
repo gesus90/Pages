@@ -47,6 +47,8 @@ export interface AcpSessionListener {
   readonly prompted: (usage: Usage | null) => void;
   /** The connection to the adapter ended, for example because its process exited. */
   readonly closed: () => void;
+  /** Waits for the journal writes caused by the last notification. */
+  readonly drained?: () => Promise<void>;
 }
 
 /** What a chat session adds to a plan session: its MCP bridge, its continuation and its updates. */

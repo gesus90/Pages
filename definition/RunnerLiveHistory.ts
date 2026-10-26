@@ -16,6 +16,7 @@ export const runnerLiveEventSchema = z
     text: z.string().max(4_000),
     createdAt: z.string().datetime(),
     isTruncated: z.boolean(),
+    channel: z.enum(["stdout", "stderr"]).optional(),
   })
   .strict();
 

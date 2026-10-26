@@ -11,6 +11,7 @@ import type {
   AgentSessionEvent,
   AgentSessionEventKind,
   AgentSessionEventPage,
+  AgentSessionHistoryWindow,
 } from "@/definition/AgentSessionJournal";
 import type {
   AgentSessionStore,
@@ -116,12 +117,19 @@ export class AgentSessionJournal {
     attemptId: string,
     after: number,
     limit: number,
+    window: Pick<AgentSessionHistoryWindow, "before" | "tail"> = {},
   ): Promise<AgentSessionEventPage> {
     const cursor = Number.isSafeInteger(after) && after > 0 ? after : 0;
     const size = Math.min(
       Math.max(Number.isSafeInteger(limit) ? limit : MAXIMUM_PAGE, 1),
       MAXIMUM_PAGE,
     );
+    if (this.store.readWindow)
+      return this.store.readWindow(attemptId, {
+        ...window,
+        after: cursor,
+        limit: size,
+      });
     const stored = await this.store.readEvents(attemptId, cursor, size + 1);
     const events = stored.events.slice(0, size);
     return {

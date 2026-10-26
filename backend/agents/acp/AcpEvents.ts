@@ -1,3 +1,5 @@
+import { PLAN_OUTPUT_LIMIT } from "@/backend/service/agents/AgentPlanOutput";
+import { AgentError } from "@/backend/error/AgentErrors";
 import { noteSessionEvent } from "@/backend/agents/cli/CliSessionEvents";
 import { acpProviderFailure } from "@/backend/agents/AgentProviderFailure";
 
@@ -19,6 +21,8 @@ export interface AcpSessionState {
   sessionId: string | null;
   /** The newest message of the agent; its final answer once the turn ended. */
   text: string;
+  messageBytes: number;
+  isResultOversized: boolean;
   /** The message the newest chunks belong to, when the agent names one. */
   messageId: string | null;
   /** Chunks continue the current message until a tool call, plan or thought comes between. */
@@ -50,6 +54,8 @@ export function createAcpSessionState(): AcpSessionState {
     providerFailure: null,
     sessionId: null,
     text: "",
+    messageBytes: 0,
+    isResultOversized: false,
     messageId: null,
     isMessageOpen: false,
     permissionDenials: 0,
@@ -70,19 +76,36 @@ function readMessage(
   if (
     !state.isMessageOpen ||
     (messageId !== null && messageId !== state.messageId)
-  )
+  ) {
     state.text = "";
+    state.messageBytes = 0;
+    state.isResultOversized = false;
+  }
   state.messageId = messageId;
   state.isMessageOpen = true;
-  state.text += update.content.text;
+  state.messageBytes += Buffer.byteLength(update.content.text);
+  if (state.text.length + update.content.text.length > PLAN_OUTPUT_LIMIT)
+    state.isResultOversized = true;
+  if (!state.isResultOversized) state.text += update.content.text;
+}
+
+function boundedToolTitle(title: string): string {
+  const bytes = Buffer.from(title);
+  let end = Math.min(bytes.length, 4000);
+  while (end < bytes.length && (bytes[end] & 0xc0) === 0x80) end -= 1;
+  return bytes.subarray(0, end).toString("utf8");
 }
 
 function readTool(
   state: AcpSessionState,
   call: ToolCall | ToolCallUpdate,
 ): void {
+  if (call.toolCallId.length > 200) throw new AgentError("acp_output_overflow");
   const title = call.title ?? state.tools.get(call.toolCallId) ?? "tool";
-  state.tools.set(call.toolCallId, title);
+  state.tools.set(call.toolCallId, boundedToolTitle(title));
+  if (call.status === "completed" || call.status === "failed")
+    state.tools.delete(call.toolCallId);
+  if (state.tools.size > 512) throw new AgentError("acp_output_overflow");
   if (title === MCP_STARTUP_TITLE && call.status === "failed")
     state.isMcpUnavailable = true;
   if (call.status === "completed" || call.status === "failed")

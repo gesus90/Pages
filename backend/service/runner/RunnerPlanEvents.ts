@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { planStepExecutionSchema } from "@/definition/AgentPlanExecution";
@@ -82,6 +83,27 @@ function requireSuccessfulCompletion(input: EventInput): void {
     throw new Error("Runner completion requires confirmed cleanup");
   if (input.job.execution && (result.exitCode !== 0 || result.reason !== null))
     throw new Error("Runner successful exit evidence required");
+  requireNativeTerminal(input.job, result);
+}
+
+function requireNativeTerminal(
+  job: RunnerJob,
+  result: NonNullable<PlanEvent["result"]>,
+): void {
+  if (job.outputJournalVersion === 2 && job.execution?.program.kind === "cli") {
+    const terminal = result.terminal;
+    if (
+      !terminal ||
+      terminal.status !== "completed" ||
+      !terminal.sessionId ||
+      terminal.provider !== job.execution.program.route.tool ||
+      terminal.answerDigest !==
+        createHash("sha256")
+          .update(result.output ?? "")
+          .digest("hex")
+    )
+      throw new Error("Runner native terminal evidence required");
+  }
 }
 
 function stepStatus(job: RunnerJob): AgentPlanStepStatus {
@@ -134,10 +156,26 @@ function remoteProgress(
     status: job.status,
     ...(job.launch ? { launchId: job.launch.id } : {}),
     ...(job.liveHistoryVersion === 1 ? { liveHistoryVersion: 1 as const } : {}),
+    ...(job.outputJournalVersion === 2
+      ? { outputJournalVersion: 2 as const }
+      : {}),
+    ...remoteEvidence(event?.result),
     ...remoteResult(input),
     startedAt: step.remote?.startedAt ?? now,
     endedAt: status === "running" ? null : now,
     closeout: event?.result?.closeout ?? "pending",
+  };
+}
+
+function remoteEvidence(
+  result: PlanEvent["result"],
+): Pick<
+  NonNullable<AgentPlanStepResult["remote"]>,
+  "terminal" | "storageError"
+> {
+  return {
+    ...(result?.terminal ? { terminal: result.terminal } : {}),
+    ...(result?.storageError ? { storageError: result.storageError } : {}),
   };
 }
 
@@ -160,7 +198,13 @@ function runnerFailureCode(job: RunnerJob, input: EventInput): string | null {
   if (job.status === "lost") return "plan_runner_lost";
   if (job.status === "interrupted") return "plan_interrupted";
   if (job.status !== "failed") return null;
-  return input.event?.result?.failureCode ?? "plan_runner_failed";
+  const result = input.event?.result;
+  if (result?.failureCode) return result.failureCode;
+  if (result?.reason === "storage") return "plan_runner_storage_failed";
+  if (result?.reason === "protocol") return "plan_runner_incomplete";
+  if (result?.reason === "event_limit") return "plan_runner_event_limit";
+  if (result?.reason === "result_limit") return "plan_runner_result_limit";
+  return "plan_runner_failed";
 }
 
 function updatedRun(

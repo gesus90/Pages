@@ -82,7 +82,7 @@ export interface CliSessionRequest {
   readonly timeoutMs: number;
   readonly signal: AbortSignal;
   /** Receives every complete line of the standard output, in order. */
-  readonly onLine: (line: string) => void;
+  readonly onLine: (line: string) => void | Promise<void>;
   /** The limited unit the session runs in; signals and the closeout go through it. */
   readonly unit?: CliWorkerUnitHandle;
 }

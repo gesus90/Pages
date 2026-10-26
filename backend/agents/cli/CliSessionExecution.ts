@@ -368,6 +368,7 @@ export class CliSessionExecution implements PlanSessionRunner {
       },
     });
     const channel = new AcpLineChannel();
+    channel.enableAcknowledgement();
     const github = await this.prepareGitHub(input, start, mode);
     const redact = (text: string): string => {
       const withoutKey = start.credentials?.redact(text) ?? text;
@@ -411,6 +412,7 @@ export class CliSessionExecution implements PlanSessionRunner {
         observer: control.observer,
         arguments: limited.request.arguments,
         unattended: profile.unattended,
+        signal: control.signal,
       });
       return new AcpSession(child, channel.stream, {
         instanceId: input.instanceId,
@@ -429,6 +431,7 @@ export class CliSessionExecution implements PlanSessionRunner {
         redact,
         secure: () => this.secureAcp(input, start, github),
         listener: input.chat?.listener ?? input.journal,
+        notificationHandled: () => channel.acknowledge(),
       });
     } catch (error: unknown) {
       logCaughtError("CliSessionExecution", error);
@@ -601,10 +604,17 @@ function connectChild(
     readonly observer: PlanSessionObserver;
     readonly arguments: readonly string[];
     readonly unattended: string;
+    readonly signal: AbortSignal;
   },
 ): void {
-  channel.attach((line) => child.write(line));
-  void child.exited.then(() => channel.close());
+  channel.attach((line) => child.writeAsync(line));
+  const close = (): void => channel.close();
+  start.signal.addEventListener("abort", close, { once: true });
+  if (start.signal.aborted) close();
+  void child.exited.then(() => {
+    start.signal.removeEventListener("abort", close);
+    channel.close();
+  });
   start.observer.started({
     mode: "interactive",
     processId: child.processId,

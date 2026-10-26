@@ -15,8 +15,8 @@ export function PlanRemoteHistoryNotice({
   if (
     step.execution?.target.kind !== "remote" ||
     !step.session ||
-    !["codex_cli", "claude_code"].includes(step.session.runner) ||
-    step.remote?.liveHistoryVersion === 1
+    !["codex_cli", "claude_code", "opencode"].includes(step.session.runner) ||
+    step.remote?.outputJournalVersion === 2
   )
     return null;
   return (
@@ -24,7 +24,7 @@ export function PlanRemoteHistoryNotice({
       role="status"
       className="rounded-lg bg-muted p-3 text-xs leading-4.5 text-muted-foreground wrap-anywhere"
     >
-      {t("plans.console.remoteUpdate")}
+      {t("plans.console.outputUpgrade")}
     </p>
   );
 }

@@ -1,6 +1,6 @@
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import {
-  readSessionCursor,
+  readSessionHistoryWindow,
   readSessionKey,
 } from "@/app/lib/agent-session-request.server";
 import { getApplicationServices } from "@/app/lib/services.server";
@@ -37,10 +37,11 @@ export async function loader({
     const key = readSessionKey(params, search);
     const sessions = (await getApplicationServices()).agentSessionService;
     const view = await sessions.view(user.id, key);
-    const page = await sessions.history(user.id, key, {
-      after: readSessionCursor(search.get("after")),
-      limit: PAGE_LIMIT,
-    });
+    const page = await sessions.history(
+      user.id,
+      key,
+      readSessionHistoryWindow(search, PAGE_LIMIT),
+    );
     return Response.json({ ok: true, view, page }, { headers: AGENT_NO_STORE });
   } catch (error: unknown) {
     logCaughtError("agent_plan_session", error);

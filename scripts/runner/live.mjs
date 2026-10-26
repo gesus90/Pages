@@ -1,41 +1,28 @@
-const MAXIMUM_EVENTS = 1999;
-const MAXIMUM_TEXT_BYTES = 4000;
-const MAXIMUM_LINE = 1024 * 1024;
+import { createHash } from "node:crypto";
 
-function shortText(text) {
-  const bytes = Buffer.from(text);
-  if (bytes.length <= MAXIMUM_TEXT_BYTES) return text;
-  return bytes
-    .subarray(0, MAXIMUM_TEXT_BYTES)
-    .toString("utf8")
-    .replace(/\uFFFD$/u, "");
+const MAXIMUM_TEXT_BYTES = 4000;
+const DEDUPE_WINDOW = 64;
+
+function textEnd(bytes, start) {
+  let end = Math.min(start + MAXIMUM_TEXT_BYTES, bytes.length);
+  while (end < bytes.length && (bytes[end] & 0xc0) === 0x80) end -= 1;
+  return end;
 }
 
-function note(state, kind, text) {
-  if (
-    typeof text !== "string" ||
-    !text.trim() ||
-    state.events.length > MAXIMUM_EVENTS
-  )
-    return;
-  if (state.events.length === MAXIMUM_EVENTS) {
-    state.events.push({
-      sequence: state.events.length + 1,
-      kind: "status",
-      text: "Live history limit reached; further diagnostics omitted. Final result remains authoritative.",
+async function note(state, kind, text, channel = "stdout") {
+  if (typeof text !== "string" || !text.trim()) return;
+  const bytes = Buffer.from(state.redact(text));
+  for (let start = 0; start < bytes.length;) {
+    const end = textEnd(bytes, start);
+    await state.emit({
+      kind,
+      text: bytes.subarray(start, end).toString("utf8"),
+      channel,
       createdAt: new Date().toISOString(),
-      isTruncated: true,
+      isTruncated: false,
     });
-    return;
+    start = end;
   }
-  const safe = state.redact(text);
-  state.events.push({
-    sequence: state.events.length + 1,
-    kind,
-    text: shortText(safe),
-    createdAt: new Date().toISOString(),
-    isTruncated: Buffer.byteLength(safe) > MAXIMUM_TEXT_BYTES,
-  });
 }
 
 function codexTool(item) {
@@ -48,7 +35,6 @@ function codexTool(item) {
       return item.query;
     case "file_change":
       return (item.changes ?? [])
-        .slice(0, 20)
         .map((entry) => `${entry.kind}: ${entry.path}`)
         .join("\n");
     default:
@@ -56,170 +42,173 @@ function codexTool(item) {
   }
 }
 
-function readCodex(event, state) {
-  const item = event.item;
+function isDuplicate(state, key, contents) {
+  const identity = createHash("sha256").update(key).digest("hex");
+  const digest = createHash("sha256")
+    .update(JSON.stringify(contents))
+    .digest("hex");
+  if (state.seen.get(identity) === digest) return true;
+  state.seen.delete(identity);
+  state.seen.set(identity, digest);
+  if (state.seen.size > DEDUPE_WINDOW)
+    state.seen.delete(state.seen.keys().next().value);
+  return false;
+}
+
+async function readCodex(event, state) {
   if (event.type === "turn.started")
     return note(state, "status", "Agent started");
-  if (event.type === "turn.failed" || event.type === "error")
+  if (["turn.failed", "error"].includes(event.type))
     return note(
       state,
       "error",
       event.error?.message ?? event.message ?? "Agent failed",
     );
+  const item = event.item;
   if (
     !item ||
     !["item.started", "item.updated", "item.completed"].includes(event.type)
   )
     return;
-  const key = `${item.id}:${item.type}:${event.type}`;
-  const content = JSON.stringify(item);
-  if (state.seen.get(key) === content) return;
-  if (state.seen.size < MAXIMUM_EVENTS) state.seen.set(key, content);
+  if (isDuplicate(state, `${item.id}:${item.type}:${event.type}`, item)) return;
   if (item.type === "agent_message") {
     if (event.type === "item.completed")
-      note(state, "agent_message", item.text);
+      await note(state, "agent_message", item.text);
     return;
   }
-  if (item.type === "todo_list") {
-    const items = Array.isArray(item.items) ? item.items : [];
-    note(
+  if (item.type === "todo_list")
+    return note(
       state,
       "plan",
-      items
-        .slice(0, 50)
+      (item.items ?? [])
         .map(
           (entry) => `${entry.completed ? "[x]" : "[ ]"} ${entry.text ?? ""}`,
         )
         .join("\n"),
     );
-    return;
-  }
   const text = codexTool(item);
   if (text === null) return;
   let kind = "tool_started";
   if (event.type === "item.completed")
     kind = item.status === "failed" ? "tool_failed" : "tool_completed";
-  note(state, kind, text);
+  await note(state, kind, text);
+  if (event.type === "item.completed")
+    await note(state, kind, item.aggregated_output);
 }
 
-function claudeTool(block, state) {
-  const key = `claude-tool:${block.id}`;
-  if (!state.seen.has(key)) {
-    note(state, "tool_started", block.name);
-    if (state.seen.size < MAXIMUM_EVENTS) state.seen.set(key, "started");
-  }
+async function claudeTool(block, state) {
+  if (!isDuplicate(state, `claude-tool:${block.id}`, block))
+    await note(state, "tool_started", block.name);
   if (block.name === "TodoWrite" && Array.isArray(block.input?.todos))
-    note(
+    await note(
       state,
       "plan",
       block.input.todos
-        .slice(0, 50)
-        .map(
-          (todo) =>
-            `${todo.status === "completed" ? "[x]" : "[ ]"} ${todo.content ?? ""}`,
-        )
+        .map((todo) => `[${todo.status}] ${todo.content ?? ""}`)
         .join("\n"),
     );
 }
 
-function readClaudeStream(update, state) {
-  if (update?.type === "message_start") {
-    state.hasPartialText = false;
-    return;
+async function readClaude(event, state) {
+  if (event.type === "stream_event") {
+    const update = event.event;
+    if (
+      update?.type === "content_block_start" &&
+      update.content_block?.type === "tool_use"
+    )
+      await claudeTool(update.content_block, state);
+    if (
+      update?.type === "content_block_delta" &&
+      update.delta?.type === "text_delta" &&
+      !state.hasPartialText
+    ) {
+      state.hasPartialText = true;
+      await note(state, "status", "Agent is composing a message");
+    }
   }
-  if (
-    update?.type === "content_block_start" &&
-    update.content_block?.type === "tool_use"
-  )
-    claudeTool(update.content_block, state);
-  // Public text waits for a complete assistant message; a credential split across deltas cannot escape redaction.
-  if (
-    update?.type === "content_block_delta" &&
-    update.delta?.type === "text_delta"
-  ) {
-    if (!state.hasPartialText)
-      note(state, "status", "Agent is composing a message");
-    state.hasPartialText = true;
-  }
-}
-
-function readClaude(event, state) {
-  if (event.type === "stream_event")
-    return readClaudeStream(event.event, state);
   if (event.type === "assistant") {
     for (const block of event.message?.content ?? []) {
-      if (block.type === "text") note(state, "agent_message", block.text);
-      if (block.type === "tool_use") claudeTool(block, state);
+      if (block.type === "text") await note(state, "agent_message", block.text);
+      if (block.type === "tool_use") await claudeTool(block, state);
     }
     state.hasPartialText = false;
   }
   if (event.type === "user") {
-    for (const block of event.message?.content ?? [])
-      if (block.type === "tool_result")
-        note(
-          state,
-          block.is_error ? "tool_failed" : "tool_completed",
-          "Tool result received",
-        );
+    for (const block of event.message?.content ?? []) {
+      if (block.type !== "tool_result") continue;
+      const kind = block.is_error ? "tool_failed" : "tool_completed";
+      if (typeof block.content === "string")
+        await note(state, kind, block.content);
+      else
+        for (const content of block.content ?? [])
+          if (content.type === "text") await note(state, kind, content.text);
+    }
   }
   if (event.type === "result")
-    note(
+    await note(
       state,
       event.is_error ? "error" : "status",
       event.is_error ? "Agent failed" : "Agent completed",
     );
 }
 
-function readLine(text, command, state) {
-  try {
-    const event = JSON.parse(text);
-    if (command.program.route.tool === "codex") readCodex(event, state);
-    else if (command.program.route.tool === "claude") readClaude(event, state);
-  } catch {
-    // Malformed/unknown records and raw diagnostics never leave the host.
+async function readOpenCode(event, state) {
+  if (event.type !== "pages.update") return;
+  const update = event.update;
+  if (
+    update?.sessionUpdate === "agent_message_chunk" &&
+    update.content?.type === "text"
+  ) {
+    // Complete messages are projected by the ACP wrapper, so redaction precedes splitting.
+    return;
   }
+  if (update?.sessionUpdate === "agent_message")
+    return note(state, "agent_message", update.text);
+  if (update?.sessionUpdate === "tool_call")
+    return note(state, "tool_started", update.title);
+  if (update?.sessionUpdate === "tool_call_update")
+    return note(
+      state,
+      update.status === "failed" ? "tool_failed" : "tool_completed",
+      update.title ?? update.toolCallId,
+    );
+  if (update?.sessionUpdate === "plan")
+    await note(
+      state,
+      "plan",
+      (update.entries ?? [])
+        .map((entry) => `[${entry.status}] ${entry.content}`)
+        .join("\n"),
+    );
 }
 
-/** Projects public CLI events only, redacting complete logical fields before any size limit. */
-export function createLiveHistory(command, redact) {
-  const state = { events: [], seen: new Map(), hasPartialText: false, redact };
-  let pending = "";
-  let isDiscarding = false;
+/** Projects complete public fields with bounded deduplication and an awaited journal sink. */
+export function createLiveHistory(command, redact, emit) {
+  const state = { seen: new Map(), hasPartialText: false, redact, emit };
   return {
-    events: state.events,
-    receive(text) {
-      for (const part of text.split(/(?<=\n)/u)) {
-        if (!isDiscarding) pending += part;
-        if (Buffer.byteLength(pending) > MAXIMUM_LINE) {
-          pending = "";
-          isDiscarding = true;
-        }
-        if (!part.endsWith("\n")) continue;
-        if (!isDiscarding) readLine(pending, command, state);
-        else note(state, "status", "Oversized CLI event omitted");
-        pending = "";
-        isDiscarding = false;
-      }
+    async receive(event) {
+      const tool = command.program.route.tool;
+      if (tool === "codex") await readCodex(event, state);
+      else if (tool === "claude") await readClaude(event, state);
+      else if (tool === "opencode") await readOpenCode(event, state);
     },
-    finish() {
-      if (pending && !isDiscarding) readLine(pending, command, state);
+    async finish() {
       if (state.hasPartialText)
-        note(state, "status", "Agent text update incomplete");
+        await note(state, "status", "Agent text update incomplete");
     },
   };
 }
 
-/** Reads only missed events, up to sixteen entries and 32 KiB including their JSON envelope. */
+/** Legacy history files remain readable in small wire packets during an upgrade. */
 export function liveBatch(events, after) {
   const batch = [];
+  let bytes = 2;
   for (const event of events ?? []) {
     if (event.sequence <= after) continue;
-    if (
-      batch.length >= 16 ||
-      Buffer.byteLength(JSON.stringify([...batch, event])) > 32768
-    )
-      break;
+    const length = Buffer.byteLength(JSON.stringify(event)) + 1;
+    if (batch.length >= 16 || bytes + length > 32768) break;
     batch.push(event);
+    bytes += length;
   }
   return batch;
 }

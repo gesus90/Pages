@@ -17,6 +17,22 @@ import type {
 
 const CHANNEL_PATH = /^\/runner\/v1\/channel\/([a-f0-9-]{36})$/u;
 const MAXIMUM_PAYLOAD = 2 * 1024 * 1024;
+const MAXIMUM_BUFFERED_BYTES = 4 * 1024 * 1024;
+
+/** Bounds replies as well as incoming packets when a runner stops reading. */
+function sendPacket(socket: WebSocket, reply: unknown): void {
+  const packet = JSON.stringify(reply);
+  const bytes = Buffer.byteLength(packet);
+  if (
+    socket.readyState !== socket.OPEN ||
+    bytes > MAXIMUM_PAYLOAD ||
+    socket.bufferedAmount + bytes > MAXIMUM_BUFFERED_BYTES
+  ) {
+    socket.close(1011, "Runner transport blocked; reconciliation required");
+    throw new Error("Runner transport buffer or message limit");
+  }
+  socket.send(packet);
+}
 
 /** One notice per interval, so a peer that keeps trying cannot flood the log. */
 const REJECTION_NOTICE_MILLISECONDS = 30_000;
@@ -91,7 +107,7 @@ function attach(
     ...auth,
     heartbeatMilliseconds: 15_000,
   };
-  socket.send(JSON.stringify(registration));
+  sendPacket(socket, registration);
   socket.on("message", (buffer, isBinary) => {
     if (pendingMessages >= 32) {
       socket.close(1008, "Runner queue limit");
@@ -106,7 +122,7 @@ function attach(
         if (
           hasReconciled &&
           (await receiveAuxiliary(auth.connectionId, input, services, (reply) =>
-            socket.send(JSON.stringify(reply)),
+            sendPacket(socket, reply),
           ))
         )
           return;
@@ -121,27 +137,28 @@ function attach(
         const reply = await service.receive(auth.connectionId, input);
         hasReconciled = true;
         lastSeen = Date.now();
-        socket.send(JSON.stringify(reply));
+        sendPacket(socket, reply);
         detachProvider ??= services.openRouter.attach(
           auth.connectionId,
           (command) => {
             if (!isCurrent()) throw new Error("Runner channel superseded");
-            socket.send(JSON.stringify(command));
+            sendPacket(socket, command);
           },
         );
         detachGitHub ??= services.github.attach(
           auth.connectionId,
           (command) => {
             if (!isCurrent()) throw new Error("Runner channel superseded");
-            socket.send(JSON.stringify(command));
+            sendPacket(socket, command);
           },
         );
         service.attach(auth.connectionId, (command) => {
           if (!isCurrent()) throw new Error("Runner channel superseded");
-          socket.send(JSON.stringify(command));
+          sendPacket(socket, command);
         });
-      } catch {
-        socket.close(1008, "Invalid runner protocol or authorization");
+      } catch (error: unknown) {
+        logCaughtError("RunnerChannel", error);
+        socket.close(1011, "Runner checkpoint failed; see Pages diagnostics");
       } finally {
         pendingMessages -= 1;
       }

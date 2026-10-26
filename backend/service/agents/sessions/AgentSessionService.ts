@@ -17,6 +17,7 @@ import type { PlanSessionTurn } from "@/backend/agents/AgentPlanExecution";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type {
   AgentSessionEventPage,
+  AgentSessionHistoryWindow,
   AgentSessionKey,
   AgentSessionMessageKind,
   AgentSessionState,
@@ -254,7 +255,7 @@ export class AgentSessionService {
   public async history(
     userId: string,
     key: AgentSessionKey,
-    page: { readonly after: number; readonly limit: number },
+    page: AgentSessionHistoryWindow,
   ): Promise<AgentSessionEventPage> {
     const { attempt } = await this.authorize(userId, key);
     if (attempt.isLegacy) return this.legacyHistory(attempt, page.after);
@@ -262,6 +263,7 @@ export class AgentSessionService {
       key.attemptId,
       page.after,
       page.limit,
+      page,
     );
   }
 

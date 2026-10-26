@@ -59,6 +59,8 @@ export interface AgentSessionEvent {
   readonly text: string;
   /** Whether the text was shortened to the storage limit. */
   readonly isTruncated: boolean;
+  /** Native channel when reported by a runner; absent in historical/local structured entries. */
+  readonly channel?: "stdout" | "stderr";
 }
 
 /** One page of history after a cursor, in sequence order. */
@@ -74,6 +76,16 @@ export interface AgentSessionEventPage {
    * from before PAGE-85, whose short event lines are all that is known.
    */
   readonly source: "journal" | "legacy_record";
+  /** Older retained entries are available before the first event of this window. */
+  readonly hasEarlier?: boolean;
+}
+
+/** A bounded history window. `before` is exclusive; `tail` selects the newest retained page. */
+export interface AgentSessionHistoryWindow {
+  readonly after: number;
+  readonly before?: number;
+  readonly tail?: boolean;
+  readonly limit: number;
 }
 
 /** The current occupancy of the context window, as the adapter reported it. */

@@ -1,6 +1,11 @@
 import { readCountColumn, readTextColumn } from "@/backend/database/RowValue";
 
 import {
+  appendSessionHistoryChunks,
+  readSessionHistoryChunks,
+} from "./AgentSessionHistoryChunks";
+
+import {
   ATTEMPT_COLUMNS,
   MESSAGE_COLUMNS,
   USAGE_COLUMNS,
@@ -23,6 +28,8 @@ import type {
 } from "@/backend/service/agents/sessions/AgentSessionStore";
 import type {
   AgentSessionEvent,
+  AgentSessionEventPage,
+  AgentSessionHistoryWindow,
   AgentSessionGitState,
   AgentSessionMessage,
   AgentSessionMessageStatus,
@@ -183,7 +190,8 @@ export class AgentSessionRepository implements AgentSessionStore {
         `
         SELECT
             next_sequence,
-            step_id
+            step_id,
+            instance_id
         FROM agent_session_attempts
         WHERE attempt_id = $attempt_id;
       `,
@@ -208,6 +216,14 @@ export class AgentSessionRepository implements AgentSessionStore {
         });
         next += 1;
       }
+      await appendSessionHistoryChunks(
+        transaction,
+        {
+          attemptId,
+          launchId: readTextColumn(attempt, 2, "instance_id"),
+        },
+        stored,
+      );
       await transaction.execute(
         `
         UPDATE agent_session_attempts
@@ -269,6 +285,39 @@ export class AgentSessionRepository implements AgentSessionStore {
     return {
       events: rows.map((row) => readEventRow(row, attemptId)),
       retainedFrom: oldest !== null && oldest > 1 ? oldest : null,
+    };
+  }
+
+  /** Reads the chunk journal, falling back to explicitly retained legacy rows without inventing older history. */
+  public async readWindow(
+    attemptId: string,
+    window: AgentSessionHistoryWindow,
+  ): Promise<AgentSessionEventPage> {
+    const archived = await readSessionHistoryChunks(
+      this.database,
+      attemptId,
+      window,
+    );
+    if (archived) return archived;
+    const isBackward = window.tail === true || window.before !== undefined;
+    const stored = await this.readEvents(
+      attemptId,
+      isBackward ? 0 : window.after,
+      isBackward ? 2001 : window.limit + 1,
+    );
+    const eligible = stored.events.filter(
+      (event) => window.before === undefined || event.sequence < window.before,
+    );
+    const events = isBackward
+      ? eligible.slice(-window.limit)
+      : eligible.slice(0, window.limit);
+    return {
+      events,
+      cursor: events.at(-1)?.sequence ?? (window.after || null),
+      hasMore: !isBackward && eligible.length > events.length,
+      hasEarlier: (events[0]?.sequence ?? 0) > (stored.retainedFrom ?? 1),
+      retainedFrom: stored.retainedFrom,
+      source: "journal",
     };
   }
 

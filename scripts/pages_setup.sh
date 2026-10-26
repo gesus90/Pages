@@ -400,6 +400,31 @@ cat > "$provider_temporary" <<'PROVIDER'
 __PAGES_RUNNER_PROVIDER__
 PROVIDER
 mv -f -- "$provider_temporary" "$runner_directory/provider.mjs"
+chunks_temporary=$(mktemp "$runner_directory/.chunks.XXXXXX")
+cat > "$chunks_temporary" <<'CHUNKS'
+__PAGES_RUNNER_CHUNKS__
+CHUNKS
+mv -f -- "$chunks_temporary" "$runner_directory/chunks.mjs"
+lines_temporary=$(mktemp "$runner_directory/.lines.XXXXXX")
+cat > "$lines_temporary" <<'LINES'
+__PAGES_RUNNER_LINES__
+LINES
+mv -f -- "$lines_temporary" "$runner_directory/lines.mjs"
+output_temporary=$(mktemp "$runner_directory/.output.XXXXXX")
+cat > "$output_temporary" <<'OUTPUT'
+__PAGES_RUNNER_OUTPUT__
+OUTPUT
+mv -f -- "$output_temporary" "$runner_directory/output.mjs"
+result_temporary=$(mktemp "$runner_directory/.result.XXXXXX")
+cat > "$result_temporary" <<'RESULT'
+__PAGES_RUNNER_RESULT__
+RESULT
+mv -f -- "$result_temporary" "$runner_directory/result.mjs"
+wire_temporary=$(mktemp "$runner_directory/.wire.XXXXXX")
+cat > "$wire_temporary" <<'WIRE'
+__PAGES_RUNNER_WIRE__
+WIRE
+mv -f -- "$wire_temporary" "$runner_directory/wire.mjs"
 github_temporary=$(mktemp "$runner_directory/.github.XXXXXX")
 cat > "$github_temporary" <<'GITHUB'
 __PAGES_RUNNER_GITHUB__

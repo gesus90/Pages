@@ -62,4 +62,6 @@ export interface AcpSessionContext {
   readonly github?: string;
   /** Receives every update and the usage of every prompt, as a chat session shows them. */
   readonly listener?: AcpSessionListener;
+  /** Releases the process read only after a native notification and its journal writes were handled. */
+  readonly notificationHandled?: () => void;
 }

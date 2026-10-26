@@ -1,10 +1,6 @@
 import { EventEmitter } from "node:events";
 
-import {
-  logCaughtError,
-  logEvent,
-  logDiagnostic,
-} from "@/backend/logging/Logger";
+import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 
 import type { ChildProcess } from "node:child_process";
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
@@ -17,7 +13,7 @@ import type {
 } from "./CliContracts";
 
 // One event line of a runner may be large (a file it read), never unbounded.
-const MAXIMUM_LINE_CHARACTERS = 4 * 1024 * 1024;
+const MAXIMUM_LINE_BYTES = 8 * 1024 * 1024;
 const STDERR_TAIL_CHARACTERS = 16 * 1024;
 const TERMINATION_GRACE_MS = 5_000;
 const STREAM_CLOSE_GRACE_MS = 2_000;
@@ -37,7 +33,7 @@ export interface CliSessionCallbacks {
   readonly timeoutMs: number;
   readonly signal: AbortSignal;
   /** Receives every complete line of the standard output, in order. */
-  readonly onLine: (line: string) => void;
+  readonly onLine: (line: string) => void | Promise<void>;
   /** The limited unit of the session; its processes are signalled through it. */
   readonly unit?: CliWorkerUnitHandle;
 }
@@ -74,6 +70,7 @@ export class CliSessionProcess implements CliRunningProcess {
   private exitCode: number | null = null;
   private exitSignal: NodeJS.Signals | null = null;
   private pending = "";
+  private reading: Promise<void> = Promise.resolve();
   private stderrTail = "";
   private isFinished = false;
   private isOverflowed = false;
@@ -140,7 +137,7 @@ export class CliSessionProcess implements CliRunningProcess {
       // A runner that exits closes its input; the exit itself reports the outcome.
     });
     child.stdout?.setEncoding("utf8").on("data", (chunk: string) => {
-      this.receive(chunk);
+      this.consume(chunk);
     });
     child.stderr?.setEncoding("utf8").on("data", (chunk: string) => {
       this.stderrTail = (this.stderrTail + chunk).slice(
@@ -161,6 +158,20 @@ export class CliSessionProcess implements CliRunningProcess {
     if (this.isFinished || !this.child.stdin?.writable) return false;
     this.child.stdin.write(`${line}\n`);
     return true;
+  }
+
+  /** Waits for the native input write callback, so the ACP writer cannot queue an unbounded pipe backlog. */
+  public async writeAsync(line: string): Promise<boolean> {
+    if (this.isFinished || !this.child.stdin?.writable) return false;
+    if (Buffer.byteLength(line) > MAXIMUM_LINE_BYTES) {
+      this.cancel("acp_output_overflow");
+      return false;
+    }
+    return new Promise((resolve) => {
+      this.child.stdin?.write(`${line}\n`, (error: Error | null | undefined) =>
+        resolve(!error),
+      );
+    });
   }
 
   /** Ends the input; an interactive session then finishes on its own. */
@@ -185,23 +196,37 @@ export class CliSessionProcess implements CliRunningProcess {
     this.sendSignal(code === "check_timeout" ? "SIGKILL" : "SIGTERM");
   }
 
-  private receive(chunk: string): void {
+  private consume(chunk: string): void {
+    this.child.stdout?.pause();
+    this.reading = this.receive(chunk)
+      .catch((error: unknown) => {
+        logCaughtError("CliSessionProcess", error);
+        this.cancel("plan_history_unavailable");
+      })
+      .finally(() => {
+        if (!this.isFinished) this.child.stdout?.resume();
+      });
+  }
+
+  private async receive(chunk: string): Promise<void> {
     // Output proves that the unit started and has read its environment file.
     this.callbacks.unit?.started();
     if (this.isOverflowed) return;
     this.pending += chunk;
     let newline = this.pending.indexOf("\n");
     while (newline >= 0) {
-      if (newline > MAXIMUM_LINE_CHARACTERS) {
+      if (
+        Buffer.byteLength(this.pending.slice(0, newline)) > MAXIMUM_LINE_BYTES
+      ) {
         this.overflow();
         return;
       }
       const line = this.pending.slice(0, newline);
       this.pending = this.pending.slice(newline + 1);
-      this.deliver(line);
+      await this.deliver(line);
       newline = this.pending.indexOf("\n");
     }
-    if (this.pending.length > MAXIMUM_LINE_CHARACTERS) this.overflow();
+    if (Buffer.byteLength(this.pending) > MAXIMUM_LINE_BYTES) this.overflow();
   }
 
   /** A runaway line ends the session; neither it nor anything after it reaches the caller. */
@@ -213,25 +238,14 @@ export class CliSessionProcess implements CliRunningProcess {
       event: "cli.process.output_overflow",
       component: "CliSessionProcess",
       message: "CLI session output line exceeded its limit",
-      metadata: { code: "acp_output_overflow", count: MAXIMUM_LINE_CHARACTERS },
+      metadata: { code: "acp_output_overflow", count: MAXIMUM_LINE_BYTES },
     });
     this.cancel("acp_output_overflow");
   }
 
-  private deliver(line: string): void {
+  private async deliver(line: string): Promise<void> {
     if (!line.trim()) return;
-    try {
-      this.callbacks.onLine(line);
-    } catch (error: unknown) {
-      logCaughtError("CliSessionProcess", error);
-
-      logDiagnostic(
-        "CliSessionProcess",
-        "error",
-        "Pages could not read an event of a CLI session.",
-        error,
-      );
-    }
+    await this.callbacks.onLine(line);
   }
 
   private sendSignal(signal: NodeJS.Signals): void {
@@ -257,18 +271,28 @@ export class CliSessionProcess implements CliRunningProcess {
       message: "CLI session process exited",
       metadata: { exitCode: code, signal, code: this.errorCode },
     });
-    if (this.pending) this.deliver(this.pending);
-    this.pending = "";
     if (this.deadline !== null) clearTimeout(this.deadline);
     if (this.escalation !== null) clearTimeout(this.escalation);
     if (this.closing !== null) clearTimeout(this.closing);
     this.callbacks.signal.removeEventListener("abort", this.abort);
-    const { unit } = this.callbacks;
-    if (!unit) {
-      this.emitExit(code, signal);
-      return;
+    void this.finishOutput(code, signal);
+  }
+
+  private async finishOutput(
+    code: number | null,
+    signal: NodeJS.Signals | null,
+  ): Promise<void> {
+    await this.reading;
+    try {
+      if (this.pending) await this.deliver(this.pending);
+    } catch (error: unknown) {
+      logCaughtError("CliSessionProcess", error);
+      this.errorCode ??= "plan_history_unavailable";
     }
-    void this.settleUnit(unit, { code, signal });
+    this.pending = "";
+    const { unit } = this.callbacks;
+    if (unit) await this.settleUnit(unit, { code, signal });
+    else this.emitExit(code, signal);
   }
 
   /** The session ends only after its unit stopped, so nothing of it outlives the exit. */

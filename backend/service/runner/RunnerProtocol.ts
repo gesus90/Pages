@@ -87,6 +87,11 @@ function reconcileRunner(
   state: RunnerState,
   message: Extract<RunnerMessage, { type: "reconcile" }>,
 ): { readonly state: RunnerState; readonly reply: RunnerReply } {
+  if (
+    message.outputJournalVersion !== 2 &&
+    state.jobs.some(requiresChunkExecutor)
+  )
+    throw new Error("Runner update required for outstanding chunk journals");
   if (message.sequence > state.sequence)
     throw new Error("Runner journal ahead of Pages");
   const reported = new Map(message.jobs.map((job) => [job.jobId, job]));
@@ -114,8 +119,21 @@ function reconcileRunner(
   const reconciled = { ...state, jobs };
   return {
     state: reconciled,
-    reply: { version: 1, type: "reconcile", state: reconciled },
+    reply: {
+      version: 1,
+      type: "reconcile",
+      state: reconciled,
+      outputJournalVersion: 2,
+    },
   };
+}
+
+function requiresChunkExecutor(job: RunnerJob): boolean {
+  return (
+    job.outputJournalVersion === 2 &&
+    (["queued", "accepted", "running"].includes(job.status) ||
+      (job.historyCursor ?? 0) < (job.historyLength ?? 0))
+  );
 }
 
 function requireTransition(
@@ -169,7 +187,10 @@ function requireHistory(
   previous: RunnerJob,
   message: Extract<RunnerMessage, { type: "event" }>,
 ): void {
-  if (previous.liveHistoryVersion !== message.job.liveHistoryVersion)
+  if (
+    previous.liveHistoryVersion !== message.job.liveHistoryVersion ||
+    previous.outputJournalVersion !== message.job.outputJournalVersion
+  )
     throw new Error("Runner history capability changed");
   let cursor = previous.historyCursor ?? 0;
   const history = message.history ?? [];
@@ -190,7 +211,8 @@ function requireHistory(
 function requireFinalHistoryLength(previous: RunnerJob, next: RunnerJob): void {
   if (
     previous.historyLength !== undefined &&
-    previous.historyLength !== next.historyLength
+    previous.historyLength !== next.historyLength &&
+    next.historyFailure !== "journal_unreadable"
   )
     throw new Error("Runner final history count changed");
   if (
@@ -198,7 +220,12 @@ function requireFinalHistoryLength(previous: RunnerJob, next: RunnerJob): void {
     !["completed", "failed", "interrupted", "lost"].includes(next.status)
   )
     throw new Error("Runner final history count requires a terminal job");
-  if ((next.historyCursor ?? 0) > (next.historyLength ?? 2_000))
+  const maximum =
+    previous.outputJournalVersion === 2 ? Number.MAX_SAFE_INTEGER : 2_000;
+  if (
+    (next.historyLength ?? 0) > maximum ||
+    (next.historyCursor ?? 0) > (next.historyLength ?? maximum)
+  )
     throw new Error("Runner history exceeds its final count");
 }
 

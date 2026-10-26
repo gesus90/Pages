@@ -18,8 +18,9 @@ import { startPagesRelay } from "./pages.mjs";
 import { liveBatch } from "./live.mjs";
 import { RunnerSchedule } from "./schedule.mjs";
 import { handleProvider } from "./provider.mjs";
+import { sendRunnerPacket, MAXIMUM_RUNNER_PACKET_BYTES } from "./wire.mjs";
 
-const RUNNER_VERSION = "1.8.0";
+const RUNNER_VERSION = "1.9.0";
 if (process.argv.includes("--version")) {
   console.info(`pages-runner ${RUNNER_VERSION}`);
   process.exit(0);
@@ -35,7 +36,11 @@ function exitUnrecoverable(message) {
   console.error(`pages-runner: ${message}`);
   process.exit(EXIT_UNRECOVERABLE);
 }
-const directory = join(homedir(), ".config", "pages-runner");
+const directory =
+  process.env.PAGES_RUNNER_DIRECTORY ??
+  join(homedir(), ".config", "pages-runner");
+if (!directory.startsWith("/") || directory.includes("\0"))
+  throw new Error("Runner directory must be absolute");
 const file = join(directory, "config.json");
 await mkdir(directory, { recursive: true, mode: 0o700 });
 if ((await lstat(directory)).isSymbolicLink())
@@ -160,15 +165,13 @@ const stopPagesRelay = await startPagesRelay(
         Math.max(1, 20000 - (Date.now() - startedAt)),
       );
       pagesRequests.set(requestId, { resolve, reject, timer });
-      channel.send(
-        JSON.stringify({
-          version: 1,
-          type: "pages-request",
-          requestId,
-          jobId,
-          request,
-        }),
-      );
+      sendRunnerPacket(channel, {
+        version: 1,
+        type: "pages-request",
+        requestId,
+        jobId,
+        request,
+      });
     });
   },
 );
@@ -218,7 +221,7 @@ function pollingOrder() {
 async function pollJobs(channel) {
   if (channel.readyState !== WebSocket.OPEN) return;
   if (configuration.pending) {
-    channel.send(JSON.stringify(eventPacket(configuration.pending)));
+    sendRunnerPacket(channel, eventPacket(configuration.pending));
     pendingSentAt = Date.now();
     return;
   }
@@ -234,7 +237,8 @@ async function pollJobs(channel) {
       continue;
     if (!jobSnapshots.has(job.jobId) && !schedule.isDue(job)) continue;
     if (job.status === "queued") await claimJob(directory, job);
-    let snapshot = jobSnapshots.get(job.jobId);
+    let snapshot =
+      job.outputJournalVersion === 2 ? null : jobSnapshots.get(job.jobId);
     if (!snapshot) {
       const checkedAt = Date.now();
       snapshot = { observed: await observeJob(directory, job), checkedAt };
@@ -256,7 +260,7 @@ async function pollJobs(channel) {
       continue;
     }
     const hasMoreHistory =
-      (observed.history?.at(-1)?.sequence ?? 0) >
+      (observed.historyLength ?? observed.history?.at(-1)?.sequence ?? 0) >
       (history.at(-1)?.sequence ?? job.historyCursor ?? 0);
     const updated = {
       ...job,
@@ -265,9 +269,15 @@ async function pollJobs(channel) {
         ? { historyCursor: history.at(-1)?.sequence ?? job.historyCursor ?? 0 }
         : {}),
       ...(observed.launch ? { launch: observed.launch } : {}),
+      ...(observed.historyFailure
+        ? { historyFailure: observed.historyFailure }
+        : {}),
       ...(job.liveHistoryVersion === 1 &&
       ["completed", "failed", "interrupted", "lost"].includes(status)
-        ? { historyLength: observed.history?.at(-1)?.sequence ?? 0 }
+        ? {
+            historyLength:
+              observed.historyLength ?? observed.history?.at(-1)?.sequence ?? 0,
+          }
         : {}),
     };
     const event = {
@@ -300,7 +310,7 @@ async function pollJobs(channel) {
     lastPolledJobId = job.jobId;
     configuration.pending = event;
     await persist();
-    channel.send(JSON.stringify(eventPacket(event)));
+    sendRunnerPacket(channel, eventPacket(event));
     pendingSentAt = Date.now();
     return;
   }
@@ -350,26 +360,29 @@ async function receiveRegistration(message, channel) {
   configuration.sessionId = message.sessionId;
   await persist();
   if (channel.readyState !== WebSocket.OPEN) return;
-  channel.send(
-    JSON.stringify({
-      version: 1,
-      type: "reconcile",
-      sessionId: configuration.sessionId,
-      sequence: configuration.sequence,
-      jobs: configuration.jobs,
-      executorVersion: 1,
-      cliExecutorVersion: 1,
-      githubAccessVersion: 1,
-      pagesAccessVersion: 1,
-      openCodeExecutorVersion: 1,
-      liveHistoryVersion: 1,
-      interpreters: await interpreters(),
-      tools: await toolInventory(),
-    }),
-  );
+  sendRunnerPacket(channel, {
+    version: 1,
+    type: "reconcile",
+    sessionId: configuration.sessionId,
+    sequence: configuration.sequence,
+    jobs: configuration.jobs,
+    executorVersion: 1,
+    cliExecutorVersion: 1,
+    githubAccessVersion: 1,
+    pagesAccessVersion: 1,
+    openCodeExecutorVersion: 1,
+    liveHistoryVersion: 1,
+    outputJournalVersion: 2,
+    interpreters: await interpreters(),
+    tools: await toolInventory(),
+  });
 }
 
 async function receiveReconciliation(message) {
+  if (message.outputJournalVersion !== 2)
+    throw new UnrecoverableError(
+      "Pages does not support Runner 1.9.0 chunk journals; upgrade Pages explicitly.",
+    );
   if (message.state.sessionId !== configuration.sessionId)
     throw new UnrecoverableError("Counterpart reconciled another session.");
   if (
@@ -401,7 +414,7 @@ function receiveGitHub(message, channel) {
   void githubAccess(message)
     .then((reply) => {
       if (channel.readyState === WebSocket.OPEN)
-        channel.send(JSON.stringify(reply));
+        sendRunnerPacket(channel, reply);
     })
     .catch(() => channel.close())
     .finally(() => {
@@ -450,17 +463,19 @@ function createJobPolling(channel, state, enqueue) {
 }
 
 function startHeartbeat(channel) {
-  return setInterval(
-    () =>
-      channel.send(
-        JSON.stringify({
-          version: 1,
-          type: "heartbeat",
-          sessionId: configuration.sessionId,
-        }),
-      ),
-    15000,
-  );
+  return setInterval(() => {
+    if (channel.readyState !== WebSocket.OPEN) return;
+    try {
+      sendRunnerPacket(channel, {
+        version: 1,
+        type: "heartbeat",
+        sessionId: configuration.sessionId,
+      });
+    } catch {
+      console.error("Runner heartbeat transport blocked; reconciling.");
+      channel.close();
+    }
+  }, 15000);
 }
 
 async function connect() {
@@ -477,21 +492,44 @@ async function connect() {
     const state = {
       isReconciled: false,
       chain: Promise.resolve(),
+      pendingMessages: 0,
       heartbeat: null,
       deadline: null,
       poll: null,
     };
     const timeout = setTimeout(() => channel.close(), 15000);
     const enqueue = (work) => {
+      if (state.pendingMessages >= 32) {
+        console.error(
+          "Runner receive queue full; reconciling from confirmed positions.",
+        );
+        channel.close();
+        return;
+      }
+      state.pendingMessages += 1;
       state.chain = state.chain
         .then(async () => {
           if (channel.readyState === WebSocket.OPEN) await work();
         })
         .catch((error) => {
           if (error instanceof UnrecoverableError) unrecoverable = error;
-          else
-            console.error("Runner protocol failed; reconciliation required.");
+          else {
+            const detail =
+              /^(?:Output journal|Private runner|Runner |Pages channel|Invalid |Unsupported )/u.test(
+                error.message ?? "",
+              )
+                ? error.message
+                : (error.code ?? error.name ?? "unknown");
+            const location =
+              error.stack?.split("\n")[1]?.trim() ?? "unknown location";
+            console.error(
+              `Runner protocol failed; reconciliation required (${detail}; ${location}).`,
+            );
+          }
           channel.close();
+        })
+        .finally(() => {
+          state.pendingMessages -= 1;
         });
     };
     const deadline = () => {
@@ -503,6 +541,11 @@ async function connect() {
     channel.addEventListener("error", () => channel.close());
     channel.addEventListener("message", (event) =>
       enqueue(async () => {
+        if (
+          typeof event.data !== "string" ||
+          Buffer.byteLength(event.data) > MAXIMUM_RUNNER_PACKET_BYTES
+        )
+          throw new Error("Runner message exceeds 2 MiB wire budget");
         const message = JSON.parse(event.data);
         if (message.version !== 1)
           throw new UnrecoverableError("Unsupported protocol version.");
@@ -553,7 +596,7 @@ async function connect() {
         pending.reject(new Error("Pages channel closed"));
       }
       pagesRequests.clear();
-      resolve();
+      void state.chain.then(resolve, resolve);
     });
   });
 }

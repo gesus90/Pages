@@ -13,7 +13,7 @@ import { diagnosticProviderFailure } from "@/backend/agents/AgentProviderFailure
 import { readContinuationCapabilities } from "@/backend/service/agents/sessions/AgentSessionContinuation";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 
-import { abortFailure, stopFailure } from "./AcpSessionOutcome";
+import { abortFailure, stopFailure, finishAcpTurn } from "./AcpSessionOutcome";
 import {
   ACP_STEERING_METHOD,
   isAcpSteeringSupported,
@@ -95,6 +95,8 @@ export class AcpSession implements PlanSession {
     "endInput" | "exited" | "cancel"
   >;
   private readonly context: AcpSessionContext;
+  private hasHistoryFailure = false;
+  private notificationFailure: AgentErrorCode | null = null;
   private readonly connection: ClientConnection;
   private readonly state = createAcpSessionState();
   private observer: PlanSessionObserver;
@@ -144,8 +146,22 @@ export class AcpSession implements PlanSession {
       .onRequest(methods.client.session.requestPermission, (request) =>
         this.decide(request.params),
       )
-      .onNotification(methods.client.session.update, (notification) => {
-        this.receive(notification.params);
+      .onNotification(methods.client.session.update, async (notification) => {
+        try {
+          this.receive(notification.params);
+          await this.context.listener?.drained?.();
+        } catch (error: unknown) {
+          logCaughtError("AcpSession", error);
+          this.notificationFailure =
+            error instanceof AgentError
+              ? error.code
+              : "plan_history_unavailable";
+          this.hasHistoryFailure =
+            this.notificationFailure === "plan_history_unavailable";
+          this.process.cancel(this.notificationFailure);
+        } finally {
+          this.context.notificationHandled?.();
+        }
       })
       .connect(stream);
     this.mcpReadiness = new AcpMcpReadiness(this.connection, this.state);
@@ -227,8 +243,10 @@ export class AcpSession implements PlanSession {
     this.turnSignal = signal;
     this.observer = observer;
     this.state.text = "";
-    this.state.messageId = null;
+    this.state.messageBytes = 0;
+    this.state.isResultOversized = false;
     this.state.isMessageOpen = false;
+    this.state.messageId = null;
     this.state.permissionDenials = 0;
     this.state.providerFailure = null;
     this.openCodeFailure = null;
@@ -304,6 +322,7 @@ export class AcpSession implements PlanSession {
         this.isPrompting = false;
       });
     this.context.listener?.prompted(response.usage ?? null);
+    await this.context.listener?.drained?.();
     noteSessionEvent(this.state.events, `turn ${response.stopReason}`);
     if (this.hasConfigurationChanged())
       return this.ended("failed", "plan_context_changed");
@@ -615,36 +634,15 @@ export class AcpSession implements PlanSession {
     failure: PlanSessionTurn["failure"],
     errorCode: AgentErrorCode | null,
   ): PlanSessionTurn {
-    const { state } = this;
-    logEvent({
-      level: failure === "failed" ? "error" : "info",
-      event: "acp.turn.completed",
-      component: "AcpSession",
-      message: "ACP turn ended",
-      metadata: {
-        sessionId: state.sessionId,
-        status: failure ?? "completed",
-        code: errorCode,
+    return finishAcpTurn(
+      this.state,
+      {
+        failure: this.notificationFailure ? "failed" : failure,
+        errorCode: this.notificationFailure ?? errorCode,
+        hasHistoryFailure: this.hasHistoryFailure,
       },
-    });
-    return {
-      output: this.redact(state.text),
-      sessionId: state.sessionId === null ? null : this.redact(state.sessionId),
-      failure,
-      errorCode,
-      ...(state.providerFailure
-        ? { providerFailure: state.providerFailure }
-        : {}),
-      endedAt: new Date().toISOString(),
-      permissionDenials: state.permissionDenials,
-      effective: Object.fromEntries(
-        Object.entries(state.effective).map(([key, value]) => [
-          this.redact(key),
-          this.redact(value),
-        ]),
-      ),
-      events: state.events.map((event) => this.redact(event)),
-    };
+      (text) => this.redact(text),
+    );
   }
 
   private redact(text: string): string {

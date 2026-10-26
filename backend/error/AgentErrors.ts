@@ -135,6 +135,20 @@ export const AGENT_ERROR_MESSAGES = {
     "Shared run notes have been removed. {{@run.notes}} is no longer supported; update this agent or plan node explicitly.",
   plan_runner_lost:
     "The remote process disappeared without an exit record. It will not restart automatically.",
+  acp_result_limit:
+    "The final ACP answer exceeds its separate 200,000-character result limit.",
+  plan_runner_storage_failed:
+    "Runner history storage failed; confirmed output and checkpoints were preserved.",
+  plan_runner_event_limit:
+    "A native CLI event exceeded its separate message limit.",
+  plan_runner_result_limit:
+    "The final agent answer exceeded this node's separate result limit.",
+  plan_history_unavailable:
+    "The session history could not be read. Its confirmed checkpoint has been preserved.",
+  plan_history_corrupt:
+    "A session history chunk is missing or failed its integrity check.",
+  plan_runner_update_required:
+    "Runner 1.9.0 or later is required for chunked CLI output. Update the remote runner explicitly.",
   plan_runner_failed: "The runner ended its turn with an error.",
   plan_runner_incomplete: "The runner ended without completing its turn.",
   plan_runner_permission_denied:

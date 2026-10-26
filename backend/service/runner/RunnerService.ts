@@ -4,6 +4,8 @@ import {
   randomUUID,
   timingSafeEqual,
 } from "node:crypto";
+
+import { AgentError } from "@/backend/error/AgentErrors";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { registerLogSecret } from "@/backend/logging/LogRedaction";
@@ -93,6 +95,8 @@ export class RunnerService {
   private readonly pagesExecutors = new Set<string>();
   private readonly openCodeExecutors = new Set<string>();
   private readonly liveExecutors = new Set<string>();
+  private readonly outputExecutors = new Set<string>();
+  private readonly knownOutputVersions = new Map<string, 1 | 2>();
   private readonly observation = new RunnerObservation();
   private readonly cancellationTimes = new Map<string, number>();
 
@@ -221,6 +225,11 @@ export class RunnerService {
         this.heartbeats.set(connectionId, Date.now());
         return replay;
       }
+      this.rememberOutputCapability(
+        connectionId,
+        message,
+        record.state.sessionId,
+      );
       const result = applyRunnerMessage(record.state, message);
       if (result.state !== record.state)
         await this.repository.checkpoint(
@@ -299,13 +308,17 @@ export class RunnerService {
           return previous;
         }
       }
+      this.requireOutputExecutor(connectionId, execution);
       if (record.state.jobs.length >= 1000)
         throw new Error("Runner queue unavailable");
       const job: RunnerJob = {
         ...(this.liveExecutors.has(connectionId) &&
-        execution?.program.kind === "cli" &&
-        execution.program.route.tool !== "opencode"
-          ? { liveHistoryVersion: 1 as const, historyCursor: 0 }
+        execution?.program.kind === "cli"
+          ? {
+              liveHistoryVersion: 1 as const,
+              outputJournalVersion: 2 as const,
+              historyCursor: 0,
+            }
           : {}),
         ...(binding ? { plan: binding } : {}),
         ...(execution ? { execution } : {}),
@@ -341,6 +354,7 @@ export class RunnerService {
     this.pagesExecutors.delete(connectionId);
     this.openCodeExecutors.delete(connectionId);
     this.liveExecutors.delete(connectionId);
+    this.outputExecutors.delete(connectionId);
     this.observation.detach(connectionId);
   }
 
@@ -462,7 +476,8 @@ export class RunnerService {
     connectionId: string,
   ): Promise<readonly ToolInventory[]> {
     await this.ready(userId, connectionId);
-    return this.cliExecutors.has(connectionId)
+    return this.cliExecutors.has(connectionId) &&
+      this.outputExecutors.has(connectionId)
       ? (this.tools.get(connectionId) ?? [])
       : [];
   }
@@ -501,6 +516,7 @@ export class RunnerService {
       const scope = await this.connections.scope(userId);
       if (!scope.canManage) throw new Error("Runner administration required");
       await this.repository.remove(connectionId);
+      this.knownOutputVersions.delete(connectionId);
       this.grants.delete(connectionId);
       this.disconnected(connectionId);
     });
@@ -519,6 +535,30 @@ export class RunnerService {
     // A changed SSH revision invalidates the old identity, but never silently replaces it.
     if (await this.repository.find(connectionId))
       throw new Error("Existing runner requires administrative removal");
+  }
+
+  private rememberOutputCapability(
+    connectionId: string,
+    message: RunnerMessage,
+    sessionId: string,
+  ): void {
+    if (message.type !== "reconcile" || message.sessionId !== sessionId) return;
+    const version = message.outputJournalVersion ?? 1;
+    this.knownOutputVersions.set(connectionId, version);
+    if (version === 2) this.outputExecutors.add(connectionId);
+    else this.outputExecutors.delete(connectionId);
+  }
+
+  private requireOutputExecutor(
+    connectionId: string,
+    execution: RunnerExecution | undefined,
+  ): void {
+    if (execution?.program.kind !== "cli") return;
+    if (
+      !this.outputExecutors.has(connectionId) ||
+      !this.liveExecutors.has(connectionId)
+    )
+      throw new AgentError("plan_runner_update_required");
   }
 
   private deliver(connectionId: string, reply: RunnerReply): void {
@@ -550,6 +590,8 @@ export class RunnerService {
     const record = await this.repository.find(connection.id);
     const runner =
       record?.connectionRevision === connection.revision ? record : null;
+    const outputJournalVersion =
+      this.knownOutputVersions.get(connection.id) ?? null;
     return {
       connectionId: connection.id,
       name: connection.name,
@@ -564,6 +606,7 @@ export class RunnerService {
         Date.now() - (this.heartbeats.get(connection.id) ?? 0) <
           HEARTBEAT_MILLISECONDS,
       tools: runner ? (this.tools.get(connection.id) ?? null) : null,
+      outputJournalVersion,
     };
   }
 

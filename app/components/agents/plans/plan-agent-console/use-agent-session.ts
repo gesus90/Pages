@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from "react";
 
 import { sessionAddress } from "./console-target";
 import { mergeEvents, readSessionPage } from "./session-client";
+import { useSessionStream } from "./session-stream";
+import { useSessionRefresh } from "./use-session-refresh";
 
+import type { SessionConnection } from "./session-stream";
 import type {
   AgentSessionEvent,
   AgentSessionEventPage,
@@ -10,29 +13,25 @@ import type {
   AgentSessionView,
 } from "@/definition/AgentSessionJournal";
 
-// Live events ask for a fresh view at most this often, so usage and state follow without polling.
-const VIEW_REFRESH_DELAY = 1500;
-// A stream the server refused is opened again after this delay, doubled up to the maximum.
-const REOPEN_DELAY = 5000;
-const MAXIMUM_REOPEN_DELAY = 60_000;
-
-/** How the console currently receives live events. */
-export type SessionConnection =
-  "loading" | "connecting" | "live" | "reconnecting" | "closed";
-
 interface SessionState {
   readonly view: AgentSessionView | null;
   readonly events: readonly AgentSessionEvent[];
   readonly source: AgentSessionEventPage["source"];
   readonly retainedFrom: number | null;
+  readonly hasEarlier: boolean;
   readonly error: string | null;
 }
 
-/** The data of one session as the console shows it. */
+/** A bounded console window plus explicit server-side navigation. */
 export interface AgentSessionData extends SessionState {
   readonly connection: SessionConnection;
-  /** Reads view and missed events again, for example after an instruction. */
+  readonly isHistoryLoading: boolean;
+  readonly isFollowing: boolean;
   readonly refresh: () => void;
+  readonly loadEarlier: () => void;
+  readonly followLatest: () => void;
+  readonly stopFollowing: () => void;
+  readonly downloadAddress: string;
 }
 
 const INITIAL: SessionState = {
@@ -40,122 +39,35 @@ const INITIAL: SessionState = {
   events: [],
   source: "journal",
   retainedFrom: null,
+  hasEarlier: false,
   error: null,
 };
 
-type SetSessionState = React.Dispatch<React.SetStateAction<SessionState>>;
-
-function isSessionEvent(input: unknown): input is AgentSessionEvent {
-  return (
-    typeof input === "object" &&
-    input !== null &&
-    "sequence" in input &&
-    typeof input.sequence === "number" &&
-    "kind" in input &&
-    "text" in input
-  );
+function windowEvents(
+  current: SessionState,
+  incoming: AgentSessionEventPage,
+  before: number | null,
+  isFollowing: boolean,
+): readonly AgentSessionEvent[] {
+  if (before !== null || current.view === null)
+    return mergeEvents([], incoming.events);
+  return isFollowing
+    ? mergeEvents(current.events, incoming.events)
+    : current.events;
 }
 
-/** Reads every page after the cursor, so a reconnect or refresh fills each gap once. */
-async function readPages(
-  address: string,
-  cursor: { current: number },
-  signal: AbortSignal,
-  setState: SetSessionState,
-): Promise<void> {
-  for (;;) {
-    const result = await readSessionPage(address, cursor.current, signal);
-    if (signal.aborted) return;
-    if (!result.ok) {
-      setState((current) => ({ ...current, error: result.error }));
-      return;
-    }
-    const { page, view } = result;
-    cursor.current = Math.max(cursor.current, page.cursor ?? 0);
-    setState((current) => ({
-      view,
-      events: mergeEvents(current.events, page.events),
-      source: page.source,
-      retainedFrom: page.retainedFrom,
-      error: null,
-    }));
-    if (!page.hasMore || page.events.length === 0) return;
-  }
+function appendLiveEvent(
+  current: SessionState,
+  event: AgentSessionEvent,
+): SessionState {
+  return {
+    ...current,
+    events: mergeEvents(current.events, [event]),
+    hasEarlier: current.hasEarlier || current.events.length >= 150,
+  };
 }
 
-/**
- * Follows live events of an active run over one event stream.
- *
- * @remarks
- * The browser reconnects a dropped stream with the last sequence itself; a
- * stream the server answered with an error is opened again after a delay
- * that grows, as long as the run is active.
- */
-function useSessionStream(
-  address: string,
-  options: {
-    readonly isLive: boolean;
-    readonly cursor: { current: number };
-    readonly setState: SetSessionState;
-    readonly onActivity: () => void;
-  },
-): SessionConnection {
-  const [connection, setConnection] = useState<SessionConnection>("connecting");
-  const [opening, setOpening] = useState(0);
-  const reopenDelay = useRef(REOPEN_DELAY);
-  const { isLive, cursor, setState, onActivity } = options;
-  const activity = useRef(onActivity);
-  useEffect(() => {
-    activity.current = onActivity;
-  });
-  useEffect(() => {
-    if (!isLive) return undefined;
-    let reopenTimer: number | null = null;
-    const source = new EventSource(`${address}&after=${cursor.current}`);
-    source.onopen = () => {
-      reopenDelay.current = REOPEN_DELAY;
-      setConnection("live");
-    };
-    source.onerror = () => {
-      setConnection("reconnecting");
-      if (source.readyState !== EventSource.CLOSED || reopenTimer !== null)
-        return;
-      const delay = reopenDelay.current;
-      reopenDelay.current = Math.min(delay * 2, MAXIMUM_REOPEN_DELAY);
-      reopenTimer = window.setTimeout(
-        () => setOpening((value) => value + 1),
-        delay,
-      );
-    };
-    source.addEventListener("session", (message) => {
-      const event: unknown = JSON.parse(String(message.data));
-      if (!isSessionEvent(event)) return;
-      cursor.current = Math.max(cursor.current, event.sequence);
-      setState((current) => ({
-        ...current,
-        events: mergeEvents(current.events, [event]),
-      }));
-      activity.current();
-    });
-    return () => {
-      source.close();
-      if (reopenTimer !== null) window.clearTimeout(reopenTimer);
-      setConnection("connecting");
-    };
-  }, [address, isLive, cursor, setState, opening]);
-  return isLive ? connection : "closed";
-}
-
-/**
- * Reads, follows and refreshes one PageAgentCLI session.
- *
- * @param key - The session; the caller remounts the console for another
- * session, so data of one session never shows under the next.
- * @param options - Whether the run is active, and a value that changes with the node's status.
- * @remarks
- * Opening reads the journal only and starts no process. Closing the console
- * aborts open reads and ends the stream, never the session or the run.
- */
+/** Reads a small tail, follows in sequence and replaces the window when the reader requests older events. */
 export function useAgentSession(
   key: AgentSessionKey,
   options: {
@@ -167,42 +79,90 @@ export function useAgentSession(
   const address = sessionAddress(key);
   const [state, setState] = useState<SessionState>(INITIAL);
   const [revision, setRevision] = useState(0);
+  const [before, setBefore] = useState<number | null>(null);
+  const [isFollowing, setFollowing] = useState(true);
+  const [isHistoryLoading, setHistoryLoading] = useState(true);
+  const onActivity = useSessionRefresh(!options.isRemote, () =>
+    setRevision((current) => current + 1),
+  );
   const cursor = useRef(0);
-  const refreshTimer = useRef<number | null>(null);
-  const { isLive, status, isRemote = false } = options;
-
+  const following = useRef(isFollowing);
+  useEffect(() => {
+    following.current = isFollowing;
+  }, [isFollowing]);
+  const { status } = options;
   useEffect(() => {
     const controller = new AbortController();
-    void readPages(address, cursor, controller.signal, setState);
+    setHistoryLoading(true);
+    async function read(): Promise<void> {
+      const result = await readSessionPage(
+        address,
+        0,
+        controller.signal,
+        before === null ? { tail: true } : { before },
+      );
+      if (controller.signal.aborted) return;
+      setHistoryLoading(false);
+      if (!result.ok) {
+        setState((current) => ({ ...current, error: result.error }));
+        return;
+      }
+      cursor.current = Math.max(cursor.current, result.page.cursor ?? 0);
+      setState((current) => ({
+        view: result.view,
+        events: windowEvents(current, result.page, before, following.current),
+        source: result.page.source,
+        retainedFrom: result.page.retainedFrom,
+        hasEarlier:
+          (result.page.hasEarlier ?? false) || result.page.events.length > 150,
+        error: null,
+      }));
+    }
+    void read();
     return () => controller.abort();
-  }, [address, revision, status, isLive]);
-
-  useEffect(
-    () => () => {
-      if (refreshTimer.current !== null)
-        window.clearTimeout(refreshTimer.current);
-    },
-    [],
-  );
-
-  function scheduleRefresh(): void {
-    if (isRemote) return;
-    refreshTimer.current ??= window.setTimeout(() => {
-      refreshTimer.current = null;
-      setRevision((value) => value + 1);
-    }, VIEW_REFRESH_DELAY);
-  }
-
-  const connection = useSessionStream(sessionAddress(key, "/events"), {
-    isLive,
+  }, [address, revision, status, before]);
+  const connection = useSessionStream({
+    address: sessionAddress(key, "/events"),
+    isLive: options.isLive && state.view !== null,
     cursor,
-    setState,
-    onActivity: scheduleRefresh,
+    onEvent: (event) => {
+      onActivity();
+      if (window.getSelection()?.toString()) {
+        following.current = false;
+        setFollowing(false);
+      }
+      setState((current) =>
+        following.current ? appendLiveEvent(current, event) : current,
+      );
+    },
+    onGap: (retainedFrom) =>
+      setState((current) => ({ ...current, retainedFrom })),
+    onError: (error) => setState((current) => ({ ...current, error })),
   });
-  const isLoading = state.view === null && state.error === null;
+  function followLatest(): void {
+    following.current = true;
+    setFollowing(true);
+    setBefore(null);
+    setRevision((current) => current + 1);
+  }
   return {
     ...state,
-    connection: isLoading ? "loading" : connection,
-    refresh: () => setRevision((value) => value + 1),
+    connection:
+      state.view === null && state.error === null ? "loading" : connection,
+    isHistoryLoading,
+    isFollowing,
+    downloadAddress: sessionAddress(key, "/download"),
+    refresh: () => setRevision((current) => current + 1),
+    loadEarlier: () => {
+      following.current = false;
+      setFollowing(false);
+      setBefore(state.events[0]?.sequence ?? null);
+      setRevision((current) => current + 1);
+    },
+    followLatest,
+    stopFollowing: () => {
+      following.current = false;
+      setFollowing(false);
+    },
   };
 }
